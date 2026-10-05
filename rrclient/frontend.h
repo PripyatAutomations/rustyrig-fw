@@ -92,9 +92,6 @@ typedef struct rr_frontend_ops {
     * frontend can ask (callers must treat "no frontend" as confirmed). */
    bool (*confirm_dialog)(const char *message);
 
-   /* Quit confirmation. Returns true to proceed with shutdown. */
-   bool (*confirm_quit)(void);
-
    /* Open the config editor window (path may be NULL for default). */
    void (*edit_config)(const char *path);
 

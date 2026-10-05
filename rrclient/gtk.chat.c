@@ -630,27 +630,33 @@ void gtk_chat_set_authoritative_room(const char *room) {
          gtk_widget_destroy(GTK_WIDGET(it->data));
       }
       g_list_free(children);
+
       GtkWidget *chat_box = create_chat_box_for_room(true, room, false);
       if (!chat_box) {
          return;
       }
+
       gtk_box_pack_start(GTK_BOX(rig_room_tab->page), chat_box, TRUE, TRUE, 0);
       g_object_set_data(G_OBJECT(rig_room_tab->page), "rr-chat-box", chat_box);
       rig_room_tab->view = chat_textview;
       rig_room_tab->entry = chat_entry;
-      g_object_set_data(G_OBJECT(rig_room_tab->page), "rr-rig-room-built",
-         GINT_TO_POINTER(1));
+      g_object_set_data(G_OBJECT(rig_room_tab->page), "rr-rig-room-built", GINT_TO_POINTER(1));
       gtk_widget_show_all(rig_room_tab->page);
    }
+
    /* Authentication/join processing can finish after the initial window
     * focus grab.  Select the now-authoritative rig tab and restore focus to
     * its input once its widgets exist. */
-   gint rig_page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),
-      rig_room_tab->page);
-   if (rig_page >= 0)
+   gint rig_page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), rig_room_tab->page);
+
+   if (rig_page >= 0) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), rig_page);
-   if (rig_room_tab->entry && GTK_IS_WIDGET(rig_room_tab->entry))
+   }
+
+   if (rig_room_tab->entry && GTK_IS_WIDGET(rig_room_tab->entry)) {
       gtk_widget_grab_focus(rig_room_tab->entry);
+   }
+
    GtkWidget *label = gtk_notebook_get_tab_label(GTK_NOTEBOOK(main_notebook), rig_room_tab->page);
    if (label && GTK_IS_LABEL(label)) {
       char text[160];
@@ -669,8 +675,7 @@ bool chat_init(void) {
    gtk_label_set_markup(GTK_LABEL(status_tab_label), tab_desc);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status_tab, status_tab_label);
    input_history = g_ptr_array_new_with_free_func(g_free);
-   g_object_set_data_full(G_OBJECT(main_notebook), "rr-shared-input-history",
-      input_history, (GDestroyNotify)g_ptr_array_unref);
+   g_object_set_data_full(G_OBJECT(main_notebook), "rr-shared-input-history", input_history, (GDestroyNotify)g_ptr_array_unref);
 
    rig_room_tab = g_new0(GtkRoomTab, 1);
    rig_room_tab->page = status_tab;
@@ -687,13 +692,12 @@ bool chat_init(void) {
    }
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();
-
    return false;
 }
 
 bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
-   (void)button;
    const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
+
    if (text && *text) {
       // Copy before clearing/dispatch: commands may change tabs or destroy
       // the originating entry. Never retain GtkEntry's borrowed text pointer.

@@ -109,49 +109,103 @@ char *gtk_colorize_string(const char *in) {
          p++;
          if (*p == '[') {
             p++;
-            while (*p && !isalpha((unsigned char)*p)) p++;
-            if (*p) p++;
+
+            while (*p && !isalpha((unsigned char)*p)) {
+               p++;
+            }
+
+            if (*p) {
+               p++;
+            }
          }
-      } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x1d ||
-          (unsigned char)*p == 0x1f || (unsigned char)*p == 0x0f) {
+      } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x1d || (unsigned char)*p == 0x1f || (unsigned char)*p == 0x0f) {
          unsigned char control = (unsigned char)*p++;
+
          if (control == 0x02) {
-            if (!bold) { o += sprintf(o, "<b>"); bold = true; }
-            else { o += sprintf(o, "</b>"); bold = false; }
+            if (!bold) {
+               o += sprintf(o, "<b>");
+               bold = true;
+            } else {
+               o += sprintf(o, "</b>");
+               bold = false;
+            }
          } else if (control == 0x1d) {
-            if (!italic) { o += sprintf(o, "<i>"); italic = true; }
-            else { o += sprintf(o, "</i>"); italic = false; }
+            if (!italic) {
+               o += sprintf(o, "<i>");
+               italic = true;
+            } else {
+               o += sprintf(o, "</i>");
+               italic = false;
+            }
          } else if (control == 0x1f) {
-            if (!underline) { o += sprintf(o, "<u>"); underline = true; }
-            else { o += sprintf(o, "</u>"); underline = false; }
+            if (!underline) {
+               o += sprintf(o, "<u>");
+               underline = true;
+            } else {
+               o += sprintf(o, "</u>");
+               underline = false;
+            }
          } else {
-            if (fg || bg) { o += sprintf(o, "</span>"); fg = bg = NULL; }
-            if (bold) { o += sprintf(o, "</b>"); bold = false; }
-            if (italic) { o += sprintf(o, "</i>"); italic = false; }
-            if (underline) { o += sprintf(o, "</u>"); underline = false; }
+            if (fg || bg) {
+               o += sprintf(o, "</span>");
+               fg = bg = NULL;
+            }
+
+            if (bold) {
+               o += sprintf(o, "</b>");
+               bold = false;
+            }
+            if (italic) {
+               o += sprintf(o, "</i>");
+               italic = false;
+            }
+            if (underline) {
+               o += sprintf(o, "</u>");
+               underline = false;
+            }
          }
       } else if ((unsigned char)*p == 0x03) {
          p++;
          unsigned int fg_num = 0, bg_num = 0;
          bool have_fg = false, have_bg = false;
          if (isdigit((unsigned char)*p)) {
-            have_fg = true; fg_num = (unsigned int)(*p++ - '0');
-            if (isdigit((unsigned char)*p)) fg_num = fg_num * 10 + (unsigned int)(*p++ - '0');
+            have_fg = true;
+            fg_num = (unsigned int)(*p++ - '0');
+            if (isdigit((unsigned char)*p)) {
+               fg_num = fg_num * 10 + (unsigned int)(*p++ - '0');
+            }
+
             if (*p == ',' && isdigit((unsigned char)p[1])) {
-               p++; have_bg = true; bg_num = (unsigned int)(*p++ - '0');
-               if (isdigit((unsigned char)*p)) bg_num = bg_num * 10 + (unsigned int)(*p++ - '0');
+               p++;
+               have_bg = true;
+               bg_num = (unsigned int)(*p++ - '0');
+               if (isdigit((unsigned char)*p)) {
+                  bg_num = bg_num * 10 + (unsigned int)(*p++ - '0');
             }
          }
-         if (fg || bg) { o += sprintf(o, "</span>"); fg = bg = NULL; }
+
+         if (fg || bg) {
+            o += sprintf(o, "</span>");
+            fg = bg = NULL;
+         }
+
          if (have_fg) {
             const char *name = gtk_mirc_color_name(fg_num);
             bool is_bg = false;
             const char *color = name ? pango_color_for_tag(name, &is_bg) : NULL;
-            if (color) { o += sprintf(o, "<span foreground=\"%s\">", color); fg = color; }
+
+            if (color) {
+               o += sprintf(o, "<span foreground=\"%s\">", color);
+               fg = color;
+            }
+
             if (have_bg) {
                name = gtk_mirc_color_name(bg_num);
                color = name ? pango_color_for_tag(name, &is_bg) : NULL;
-               if (color) { o += sprintf(o, "</span><span background=\"%s\">", color); bg = color; }
+               if (color) {
+                  o += sprintf(o, "</span><span background=\"%s\">", color);
+                  bg = color;
+               }
             }
          }
       } else if (*p == '{') {
@@ -471,7 +525,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    int index = 0;
 
    if (gtk_tree_model_get_iter_first(model, &iter) ) {
-      do{
+      do {
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
 
@@ -552,7 +606,10 @@ static gboolean on_confirm_dialog_key(GtkWidget *widget, GdkEventKey *ev, gpoint
 }
 
 bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
-   if (!message) return false;
+   if (!message) {
+      return false;
+   }
+
    GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
       GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
    /* Keep confirmation prompts in the middle of the display even when the
@@ -565,29 +622,12 @@ bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
    return confirmed;
 }
 
-// This pops up and confirms the user if they want to quit. True return should exit
-bool ui_confirm_quit(void) {
-   if (ui_mode == UI_MODE_GTK) {
-      if (!ui_confirm_dialog(GTK_WINDOW(main_window), "Confirm quit?")) return false;
-   } else if (ui_mode == UI_MODE_TUI) {
-      ui_print( NULL, "Confirm quit? (Y/N) - NYI, Quit %s:%d", __FILE__, __LINE__);
-      // XXX: Set input mode to accept this and return false to cancel
-   }
-
-   // Confirm the quit
-   dying = true;
-
-   return true;
-}
-
 static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
-   if ( ui_confirm_quit() ) {
-      dying = true;
-
-      return FALSE;  // allow GTK to destroy the window
-   }
-
-   return TRUE;      // cancel close
+   (void)widget;
+   (void)event;
+   (void)data;
+   event_emit("client.quit.request", NULL, NULL);
+   return TRUE;      // core handles shutdown after GTK confirmation
 }
 
 bool gui_init(void) {
@@ -641,13 +681,10 @@ bool gui_init(void) {
    place_window(main_window);
 
    // Fonts are handled entirely by the [gtk-css] section (see cfg.gtkcss.c)
-   if (ui_mode == UI_MODE_GTK) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
+   int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
 
-      if (index != -1) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
-      }
-   } else if (ui_mode == UI_MODE_TUI) {
+   if (index != -1) {
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
    }
 
    // enforce fullscreen if set
@@ -712,7 +749,6 @@ extern GtkTextBuffer *text_buffer;            // gtk.chat.c
 extern GtkWidget *rx_vol_slider;              // gtk.vol-box.c
 extern GtkWidget *chat_textview;              // gtk.chat.c
 extern GtkWidget *admin_tab, *config_tab;     // gtk.core.c (this file)
-extern bool ui_confirm_quit(void);            // gtk.core.c
 extern bool cfg_gtkcss_init(void);            // cfg.gtkcss.c
 
 static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
@@ -806,8 +842,17 @@ static void frontend_gtk_alert(const char *message) {
    alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, message ? message : "");
 }
 
-static bool frontend_gtk_confirm_quit(void) {
-   return ui_confirm_quit();
+static void frontend_gtk_quit_request(const char *event, const char *data,
+   rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+   if (ui_confirm_dialog(main_window && GTK_IS_WINDOW(main_window)
+         ? GTK_WINDOW(main_window) : NULL, "Confirm quit?")) {
+      extern bool dying;
+      dying = true;
+   }
 }
 
 static void frontend_gtk_edit_config(const char *path) {
@@ -928,6 +973,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    }
    // Local client log pane (GTK log tab) mirrors client logs.
    log_add_callback(log_print_va);
+   event_on("client.quit.request", frontend_gtk_quit_request, NULL);
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
    return false;
 }
@@ -971,7 +1017,6 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .focus_tab = frontend_gtk_focus_tab,
    .switch_window = frontend_gtk_switch_window,
    .confirm_dialog = frontend_gtk_confirm_dialog,
-   .confirm_quit = frontend_gtk_confirm_quit,
    .edit_config = frontend_gtk_edit_config,
    .alert = frontend_gtk_alert,
    .bell = frontend_gtk_bell,

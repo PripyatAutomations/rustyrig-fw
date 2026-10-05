@@ -107,3 +107,18 @@ void show_server_chooser(void) {
       ui_print(NULL, "| Type /server [name] to connect to one of these.");
    }
 }
+
+bool ui_confirm_quit(void) {
+   if (ui_mode == UI_MODE_GTK) {
+      dying = false;
+      event_emit("client.quit.request", NULL, NULL);
+      return dying;
+   }
+   if (ui_mode == UI_MODE_TUI) {
+      ui_print(NULL, "Confirm quit? (Y/N) - NYI");
+   }
+   dying = true;
+   return true;
+}
+
+

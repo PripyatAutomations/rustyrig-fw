@@ -551,9 +551,9 @@ bool cmd_quit(int argc, char **args) {
       quitmsg = args[first_arg];
    }
 
-   // Confirm before quitting with a frontend
-   if ( frontend_ops() && frontend_ops()->confirm_quit &&
-        !confirmed && !frontend_ops()->confirm_quit() ) {
+   // Confirm before quitting; the active frontend handles its own dialog via
+   // the client.quit.request event.
+   if (!confirmed && !ui_confirm_quit()) {
       return false;
    }
 

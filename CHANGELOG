@@ -1,4 +1,4 @@
-rustyrig-fw (20261004.08) testing; urgency=medium
+rustyrig-fw (20261004.10) testing; urgency=medium
   * Keep Ogg/FLAC transmit queues lossless, avoid fabricated 20 ms timing
     on encoded input chunks, and use 20 ms PCM test-tone buffers. Guard
     the appsink time limit for GStreamer versions older than 1.24. Log

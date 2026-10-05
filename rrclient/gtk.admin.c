@@ -28,11 +28,9 @@ extern GtkWidget *main_notebook;
 GtkWidget *admin_view = NULL;
 GtkWidget *admin_tab = NULL;
 
-///////////////////////////////////////////
 GtkWidget *init_admin_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
 
    if (admin_view) {
       // add stuff to the window

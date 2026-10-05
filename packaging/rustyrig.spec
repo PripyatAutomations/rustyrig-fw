@@ -1,5 +1,5 @@
 Name: rustyrig
-Version: 20261004.08
+Version: 20261004.10
 Release: 1%{?dist}
 Summary: RustyRig remote radio software
 License: MIT
