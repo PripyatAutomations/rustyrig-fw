@@ -96,7 +96,7 @@ static void rrclient_schedule_reconnect(void) {
 
    unsigned int delay_index = reconnect_tries;
 
-   if (delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) ) {
+   if ( delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) ) {
       delay_index = sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) - 1;
    }
    unsigned int delay = reconnect_delays[delay_index];

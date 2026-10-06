@@ -83,7 +83,7 @@ bool cmd_query(int argc, char **args) {
          window->cptr = ws_conn;
          tui_window_focus(window->title);
       }
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       frontend_ops()->chat_query_add(args[1]);
    }
 
@@ -124,7 +124,7 @@ bool cmd_me(int argc, char **args) {
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       const char *room = frontend_ops()->chat_current_room();
 
       if (room && room[0]) {
@@ -137,7 +137,7 @@ bool cmd_me(int argc, char **args) {
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
          dict_add(d, "talk.target", window->title);
-      } else if ( cfg_get_bool("tui.status-chat", false) ) {
+      } else if (cfg_get_bool("tui.status-chat", false) ) {
          const char *room = ws_authoritative_room();
 
          if (room && *room) { dict_add(d, "talk.target", room); }
@@ -187,7 +187,7 @@ bool cmd_msg(int argc, char **args) {
       if (window) {
          window->cptr = ws_conn;
       }
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       frontend_ops()->chat_query_add(target);
    }
 
@@ -281,14 +281,14 @@ bool cmd_part(int argc, char **args) {
              strcasecmp(window->title, "status") != 0) {
             target = window->title;
          }
-      } else if ( frontend_ops() ) {
+      } else if (frontend_ops() ) {
          target = frontend_ops()->chat_current_room();
       }
    }
 
    /* Query tabs are local conversations rather than joined server rooms. */
    if (argc < 2 && target && *target && target[0] != '#' && target[0] != '&') {
-      if ( frontend_ops() ) { frontend_ops()->chat_room_remove(target); }
+      if (frontend_ops() ) { frontend_ops()->chat_room_remove(target); }
 
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(target);
@@ -300,7 +300,7 @@ bool cmd_part(int argc, char **args) {
       return false;
    }
 
-   if ( !target || !*target || (target[0] != '#' && target[0] != '&') ) {
+   if (!target || !*target || (target[0] != '#' && target[0] != '&') ) {
       ui_print(ui_active_window_name(), "{yellow}Usage: /part #room (select a room tab or provide the room){reset}");
 
       return false;
@@ -337,9 +337,9 @@ bool cmd_names(int argc, char **args) {
       char prefix[8] = "";
       char suffix[16] = "";
 
-      if (strcasestr(c->privs, "owner") || strcasestr(c->privs, "admin") ) {
+      if ( strcasestr(c->privs, "owner") || strcasestr(c->privs, "admin") ) {
          strlcpy( prefix, "@", sizeof(prefix) );
-      } else if (strcasestr(c->privs, "noob") ) {
+      } else if ( strcasestr(c->privs, "noob") ) {
          strlcpy( prefix, "+", sizeof(prefix) );
       }
 
@@ -364,11 +364,11 @@ bool cmd_topic(int argc, char **args) {
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
          room = window->title;
       }
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       room = frontend_ops()->chat_current_room();
    }
 
-   if ( !room || (room[0] != '#' && room[0] != '&') ) {
+   if (!room || (room[0] != '#' && room[0] != '&') ) {
       ui_print(ui_active_window_name(), "{yellow}Select a room tab before using /topic{reset}");
 
       return false;

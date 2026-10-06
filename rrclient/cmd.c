@@ -218,14 +218,14 @@ bool parse_chat_input_real(const char *msg) {
          const char *p = mp;
          const char *c = client_cmds[i].cmd;
 
-         while ( *p && *c &&
-                 !isspace( (unsigned char)*p ) &&
-                 tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
+         while (*p && *c &&
+                !isspace( (unsigned char)*p ) &&
+                tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
             p++;
             c++;
          }
 
-         if ( !*c && ( !*p || isspace( (unsigned char)*p ) ) ) {
+         if (!*c && (!*p || isspace( (unsigned char)*p ) ) ) {
             cmd = &client_cmds[i];
             break;
          }
@@ -261,7 +261,7 @@ bool parse_chat_input_real(const char *msg) {
       /* argv[0] is the command itself. */
       cmd_argv[cmd_argc++] = p;
 
-      while ( *p && !isspace( (unsigned char)*p ) ) {
+      while (*p && !isspace( (unsigned char)*p ) ) {
          p++;
       }
 
@@ -275,8 +275,8 @@ bool parse_chat_input_real(const char *msg) {
        */
       int max_args = cmd->max_args ? cmd->max_args : 1;
 
-      while ( *p && cmd_argc < (int)( sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
-         while ( isspace( (unsigned char)*p ) ) {
+      while (*p && cmd_argc < (int)(sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
+         while (isspace( (unsigned char)*p ) ) {
             p++;
          }
 
@@ -294,7 +294,7 @@ bool parse_chat_input_real(const char *msg) {
             break;
          }
 
-         while ( *p && !isspace( (unsigned char)*p ) ) {
+         while (*p && !isspace( (unsigned char)*p ) ) {
             p++;
          }
 
@@ -310,7 +310,7 @@ bool parse_chat_input_real(const char *msg) {
       char *last = cmd_argv[cmd_argc - 1];
       char *end = last + strlen(last);
 
-      while ( end > last && isspace( (unsigned char)end[-1] ) ) {
+      while (end > last && isspace( (unsigned char)end[-1] ) ) {
          end--;
       }
       *end = '\0';
@@ -319,7 +319,7 @@ bool parse_chat_input_real(const char *msg) {
 
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
-      if ( cmd->admin && !media_have_priv("admin|owner") ) {
+      if (cmd->admin && !media_have_priv("admin|owner") ) {
          ui_print(ui_active_window_name(), "{red}You do not have enough privileges to use '/%s'{reset}", cmd_argv[0]);
          free(input);
 
@@ -339,7 +339,7 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          /* Frontend chat tabs represent rooms.  Include the selected tab's room so
           * side-room messages are delivered there instead of defaulting to the
           * authoritative rig room on the server. */
@@ -364,7 +364,7 @@ bool parse_chat_input_real(const char *msg) {
             if (window->title[0] != '#' && window->title[0] != '&') {
                dict_add(d, "talk.msg_type", "priv");
             }
-         } else if ( cfg_get_bool("tui.status-chat", false) ) {
+         } else if (cfg_get_bool("tui.status-chat", false) ) {
             const char *room = ws_authoritative_room();
 
             if (room && *room) { dict_add(d, "talk.target", room); }

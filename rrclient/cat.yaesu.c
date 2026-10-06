@@ -367,7 +367,7 @@ void rr_cat_yaesu_narrow(const char *args) {
       return;
    }
 
-   if ( (args[0] == '0' || args[0] == '1') && !args[1]) {
+   if ( (args[0] == '0' || args[0] == '1') && !args[1] ) {
       // band-qualified query ("NA0;" or "NA1;") - echo the selector back
       rr_cat_printf("NA%c0;", args[0]);
       Log(LOG_CRAZY, "cat.yaesu", "NARROW query (band %c) -> 0", args[0]);

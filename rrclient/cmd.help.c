@@ -38,7 +38,7 @@ static bool safe_name(const char *name) {
       return false;
    }
 
-   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
+   if ( strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
       return false;
    }
 
@@ -207,7 +207,7 @@ bool cmd_help(int argc, char **args) {
 
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
-      if ( client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
          continue;
       }
       int len = strlen(client_cmds[i].cmd);

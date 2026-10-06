@@ -157,7 +157,7 @@ bool cmd_raw(int argc, char **args) {
 // as RR_BINFRAME_SUBSYS_LOG binframes for the Host Log tab.
 // PARITY: rustyrig-www/js/webui.chat.js (syslog toggle)
 bool cmd_syslog(int argc, char **args) {
-   if ( argc < 2 || !args[1] || ( !strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
+   if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
       ui_print(ui_active_window_name(), "Usage: /syslog <on|off>");
 
       return true;

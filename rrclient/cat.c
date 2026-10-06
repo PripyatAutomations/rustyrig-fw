@@ -107,7 +107,7 @@ bool cat_register_builtin_array(const CATBuiltin *arr) {
 
    for (const CATBuiltin *p = arr ; p->cmd != NULL ; p++) {
       if (p->cb) {
-         if (!cat_register_callback(p->cmd, p->cb) ) {
+         if ( !cat_register_callback(p->cmd, p->cb) ) {
             return false;
          }
       }
@@ -174,7 +174,7 @@ int32_t rr_cat_parse_line_real(char *line) {
    }
 
    // Registered dynamic callbacks first (they may override the built-ins)
-   if ( cat_invoke_callbacks(verb, args) ) {
+   if (cat_invoke_callbacks(verb, args) ) {
       return 0;
    }
 
@@ -213,8 +213,8 @@ int32_t rr_cat_parse_line(char *line) {
    // Scrub trailing line endings, the ';' terminator and any trailing spaces
    size_t len = strlen(line);
 
-   while ( len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' ||
-                       line[len - 1] == ';' || line[len - 1] == ' ') ) {
+   while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' ||
+                      line[len - 1] == ';' || line[len - 1] == ' ') ) {
       line[--len] = '\0';
    }
 
