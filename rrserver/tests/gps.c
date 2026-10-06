@@ -11,7 +11,7 @@ static uint64_t clock_us = 1;
 long long mono_us(void) {return clock_us;}
 static struct rr_mediachan channels[3];
 static unsigned sent[3], direct[3];
-static char payload[3][512];
+static uint8_t payload[3][RR_GPS_POSITION_PAYLOAD_LEN];
 static rr_server_rig_t *radios[2] = {(rr_server_rig_t *)1, (rr_server_rig_t *)2};
 bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_fn cb, void *user) {
    (void)registry;return cb(radios[0],user) || cb(radios[1],user);
@@ -38,9 +38,9 @@ struct rr_mediachan *media_chan_add(uint8_t subsystem,uint8_t direction,uint8_t 
    (void)descr;return c;
 }
 bool ws_media_send_frame(struct rr_mediachan *c,rrconn_t *client,const uint8_t *data,size_t len,const char codec[4]) {
-   unsigned index=c-channels;assert(!memcmp(codec,"nmea",4));assert(len<512);
-   memcpy(payload[index],data,len);payload[index][len-2]='\0';
-   assert(data[len-2]=='\r' && data[len-1]=='\n' && rr_nmea_valid(payload[index]));
+   unsigned index=c-channels;assert(!memcmp(codec,RR_GPS_FRAME_CODEC,4));
+   assert(len==RR_GPS_POSITION_PAYLOAD_LEN);
+   memcpy(payload[index],data,len);
    if(client) direct[index]++;else sent[index]++;
    return false;
 }
@@ -65,8 +65,10 @@ int main(void) {
    dict_add(cfg,"rig:rig1.gps.position","40.5,-75.25");
    assert(!rrserver_gps_init());event_emit("server.poll",NULL,NULL);
    assert(sent[0]==1 && sent[1]==1 && sent[2]==1);
-   assert(!strcmp(payload[0],payload[1]) && strcmp(payload[1],payload[2]));
-   assert(strstr(payload[1],",A,3807.407402,N,08045.925926,W,") && strstr(payload[1],",M*"));
+   assert(!memcmp(payload[0],payload[1],sizeof(payload[0])) && memcmp(payload[1],payload[2],sizeof(payload[1])));
+   assert((int32_t)((uint32_t)payload[1][0]<<24|(uint32_t)payload[1][1]<<16|(uint32_t)payload[1][2]<<8|payload[1][3])==381234567);
+   assert((int32_t)((uint32_t)payload[1][4]<<24|(uint32_t)payload[1][5]<<16|(uint32_t)payload[1][6]<<8|payload[1][7])==-807654321);
+   assert(payload[1][8]==(RR_GPS_POSITION_VALID|RR_GPS_POSITION_MANUAL));
    clock_us+=299999999;event_emit("server.poll",NULL,NULL);assert(sent[1]==1);
    clock_us++;event_emit("server.poll",NULL,NULL);assert(sent[1]==2);
    // Subscribe snapshots are directed only to the changing operator.

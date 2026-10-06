@@ -14,7 +14,9 @@ bins += ${fwdsp}
 fwdsp_objs := defconfig.o fwdsp.o
 fwdsp_real_objs := $(addprefix ${BUILD_DIR}/fwdsp/,$(fwdsp_objs))
 
-${BUILD_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS} GNUmakefile fwdsp/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
+# fwdsp/defconfig.c includes build_config.h, which pack-eeprom generates; wait
+# for it before compiling so parallel builds cannot race the generator.
+${BUILD_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS} GNUmakefile fwdsp/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(dir $@)
 	@echo "[compile] $< => $@"

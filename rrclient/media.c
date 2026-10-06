@@ -19,6 +19,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <time.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
@@ -323,7 +324,7 @@ bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) 
 // Track pending subscriptions so we only subscribe once per channel
 static bool gps_wanted(const struct rr_media_known *channel) {
    if(channel->subsystem!=RR_BINFRAME_SUBSYS_MODEM || channel->direction!=RR_BINFRAME_DIR_RX ||
-      strcmp(channel->codec,"nmea") || !channel->joined) return false;
+      strcmp(channel->codec,RR_GPS_FRAME_CODEC) || !channel->joined) return false;
    const char *suffix=strstr(channel->name,".gps.rx");
    if(!suffix) return false;
    char source[64];size_t len=suffix-channel->name;
@@ -372,7 +373,7 @@ static void gps_outputs_changed(const char *event, const char *data,
       struct rr_media_known *kp = &known_chans[i];
       if (gps_wanted(kp)) media_try_autosubscribe(ws_conn, kp);
       else if (kp->subscribed && kp->subsystem == RR_BINFRAME_SUBSYS_MODEM &&
-               !strcmp(kp->codec, "nmea")) {
+               !strcmp(kp->codec, RR_GPS_FRAME_CODEC)) {
          media_send_unsubscribe(ws_conn, kp->uuid);
          kp->subscribed = false;
       }
@@ -632,18 +633,28 @@ void rrclient_media_room_parted(const char *room) {
    rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
 }
 
-/* PARITY: rustyrig-www/js/webui.audio.framing.js binframe_nmea_sentence. */
+/* PARITY: rustyrig-www/js/webui.audio.framing.js binframe_gps_position. */
+static bool gps_sentence(int32_t lat, int32_t lon, uint8_t flags, char *sentence, size_t capacity) {
+   return rr_gps_nmea_rmc(lat, lon, flags, time(NULL), sentence, capacity) != 0;
+}
 static void gps_frame(const char *event,const void *data,size_t len,rrconn_t *client,void *user) {
    (void)event;(void)user;
    struct rr_binframe frame;
-   if(rr_binframe_parse(data,len,&frame) || !frame.len || frame.len>=512 || memchr(frame.data,'\0',frame.len)) return;
-   char sentence[512];memcpy(sentence,frame.data,frame.len);size_t n=frame.len;sentence[n]='\0';
-   while(n && (sentence[n-1]=='\r' || sentence[n-1]=='\n')) sentence[--n]='\0';
-   if(!rr_nmea_valid(sentence)) return;
+   if(rr_binframe_parse(data,len,&frame) || frame.len != RR_GPS_POSITION_PAYLOAD_LEN ||
+      len != RR_BINFRAME_HDR_LEN + frame.len) return;
+   int32_t lat = (int32_t)((uint32_t)frame.data[0] << 24 | (uint32_t)frame.data[1] << 16 |
+      (uint32_t)frame.data[2] << 8 | frame.data[3]);
+   int32_t lon = (int32_t)((uint32_t)frame.data[4] << 24 | (uint32_t)frame.data[5] << 16 |
+      (uint32_t)frame.data[6] << 8 | frame.data[7]);
+   uint8_t flags = frame.data[8];
+   if (lat < -900000 || lat > 900000 || lon < -1800000 || lon > 1800000 ||
+       (flags & ~(RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL))) return;
+   char sentence[128];
+   if(!gps_sentence(lat, lon, flags, sentence, sizeof(sentence)) || !rr_nmea_valid(sentence)) return;
    for(int i=0;i<RR_MEDIA_MAX_CHANS;i++) {
       struct rr_media_known *channel=&known_chans[i];
       if(!channel->subscribed || !channel->stream_valid || channel->stream!=frame.hdr.stream ||
-         channel->subsystem!=RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec,"nmea") ||
+         channel->subsystem!=RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec,RR_GPS_FRAME_CODEC) ||
          channel->rig!=frame.hdr.rig || !channel->joined) continue;
       const char *suffix=strstr(channel->name,".gps.rx");if(!suffix) return;
       char source[64];size_t size=suffix-channel->name;

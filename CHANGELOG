@@ -1,3 +1,14 @@
+rustyrig-fw (20261006.01) testing; urgency=medium
+  * Build pack-eeprom-generated files (build_config.h, eeprom_types.h,
+    eeprom_layout.h, eeprom.bin) as real make targets so a parallel make -j
+    build always runs pack-eeprom before compiling any object that includes
+    build_config.h (librustyaxe, librrprotocol, libfwdspmgr, fwdsp, rrclient
+    and rrserver objects).
+  * Replace GPS NMEA media streams with compact per-position MODEM/gpsp records;
+    synthesize checksum-correct RMC locally in C/browser clients and retain
+    server-side serial GPS output through a shared librrprotocol generator.
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 06 Oct 2026 00:00:00 -0400
+
 rustyrig-fw (20261005.01) testing; urgency=medium
   * Refresh native RX/TX codec pickers on media state changes so switching
     to an unsubscribed rig/VFO shows NONE instead of the previous codec.

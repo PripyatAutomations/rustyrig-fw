@@ -243,8 +243,12 @@ subscribe).
 ## Serial and GPS MODEM payloads
 
 `seri` is arbitrary serial bytes in authenticated, exclusively owned session
-streams. `nmea` is read-only generated rig/station GPS data on subscribed media
-streams. These use separate stream registries even though both have subsystem
-MODEM. Routing must include the codec. See
+streams. `gpsp` is a read-only GPS position record on subscribed media streams.
+Its 9-byte payload is signed big-endian int32 latitude and longitude in 1e-7
+degrees followed by flags: bit 0 valid, bit 1 manual; other bits are reserved
+and must be zero. A no-fix record has valid clear (coordinates are ignored).
+Clients synthesize RMC sentences locally; the browser integration event retains
+the sentence-facing API. These use separate stream registries even though both
+have subsystem MODEM. Routing must include the codec. See
 [serial interfaces and GPS](serial-interfaces.md#serial-wire-format) for control,
 flow control, line settings, coordinate sources and publication timing.

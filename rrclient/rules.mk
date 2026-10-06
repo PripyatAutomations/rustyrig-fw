@@ -91,25 +91,25 @@ extra_clean += ${gtk_module_real_objs} ${gtk_module}
 GTK_CFLAGS := ${GTK_MODULE_CFLAGS}
 GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0)
 
-${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers}
+${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/gtk/cfg.gtkcss.o: rrclient/gtk/cfg.gtkcss.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/gtk/cfg.gtkcss.o: rrclient/gtk/cfg.gtkcss.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/gtk/module.o: rrclient/gtk/module.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/gtk/module.o: rrclient/gtk/module.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} ${GTK_CFLAGS} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
@@ -125,13 +125,13 @@ ${gtk_module}: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${gtk_module_rea
 	@ls -a1ls $@
 	@file $@
 
-${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h)
+${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
-${BUILD_DIR}/rrclient/%.o: ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrclient/%.o: ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

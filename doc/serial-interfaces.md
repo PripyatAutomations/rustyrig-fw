@@ -160,34 +160,41 @@ one receiver. It requests NMEA WATCH output, including conversions from binary
 receivers; see the [gpsd protocol](https://gpsd.io/gpsd_json.html). Configured
 coordinates disable connection to gpsd for that target.
 
-The server extracts RMC/GGA/GLL positions using integer arithmetic and generates
-RMC sentences for `gps-out`, with current server UTC and checksums. Configured
-coordinates use manual mode `M`; receiver positions use automatic mode `A`,
-and no-fix output uses status `V`/mode `N`. The generated position changes to the
-selected radio's coordinates when the operator switches rigs; it does not
-report the operator's computer location or interpolate a journey between rigs.
+The server extracts RMC/GGA/GLL positions using integer arithmetic. The network
+carries only the effective position and valid/manual flags; each client synthesizes
+checksum-correct RMC with its current UTC. Configured coordinates use manual mode
+`M`; receiver positions use automatic mode `A`; no-fix output uses status `V`/mode
+`N`. The generated position changes to the selected radio's coordinates when the
+operator switches rigs; it does not report the operator's computer location or
+interpolate a journey between rigs. Server-side serial GPS outputs use the same
+`librrprotocol` NMEA generator.
 
-Periodic output is limited to one update per source every five minutes. A new
-media subscription receives an immediate snapshot directed to that client;
-switching the native client's active rig replaces its automatic GPS subscription
+Position snapshots are sent immediately to a new media subscriber and then at
+most once per source every five minutes as a refresh. Receiver updates do not
+cause per-sentence network traffic; they are reflected in the next snapshot.
+Switching the native client's active rig replaces its automatic GPS subscription
 and therefore updates its logger immediately without updating other operators.
 `rig.gps-out` follows the active rig (or the station in the lobby).
 `rigN.gps-out` stays pinned to that rig; `station.gps-out` stays pinned to the site.
 Bare client `gps-out` remains a shorthand for the active rig. A logger opens the
 resulting `./dev/ttyGPS0` just as it would a GPS serial device.
 
-GPS channels are read-only MODEM/`nmea` media channels named
-`station.gps.rx` and `rigN.gps.rx`, with no VFO. Rig channels use their rig's
-UUID/index and room; station uses the site lobby and no rig. Join the relevant
-rig base/RX room before subscribing. Native clients automatically subscribe
-when a matching `gps-out` endpoint exists. Browser subscriptions are explicit;
-accepted frames emit `rustyrig:gps-nmea` with `nmea`, `rig`, and `stream` fields
-for browser integrations. The browser cannot create operating-system PTYs.
+GPS channels are read-only MODEM/`gpsp` media channels named `station.gps.rx`
+and `rigN.gps.rx`, with no VFO. Each 9-byte payload contains signed big-endian
+int32 latitude/longitude in 1e-7 degrees and valid/manual flags. Rig channels use
+their rig UUID/index and room; station uses the site lobby and no rig. Join the
+relevant rig base/RX room before subscribing. Native clients automatically
+subscribe when a matching `gps-out` endpoint exists. Browser subscriptions are
+explicit; accepted position frames are converted to RMC and emit
+`rustyrig:gps-nmea` with `nmea`, `rig`, and `stream` fields. The browser cannot
+create operating-system PTYs.
 
 Adapters feed the server `gps.nmea.input` event with `gps.source`/`gps.nmea`
-JSON fields. Consumers use `event_on()` for `serial.gps.output`, whose JSON
-payload contains the source alias and generated sentence. Native output events
-also include `gps.selected` for routing to the active rig's logger.
+JSON fields. Server serial outputs consume `serial.gps.position` events with
+`gps.source`, signed `gps.lat`/`gps.lon` (1e-7 degrees), and `gps.flags`; the
+shared protocol helper formats the local RMC sentence. Native clients emit
+`serial.gps.output` with `gps.source`, `gps.nmea`, and `gps.selected` for routing
+to the active rig's logger.
 
 ## Serial wire format
 
@@ -206,5 +213,5 @@ sends `read` with stream/sequence after its RX block drains to the local PTY.
 Streams are never reused within a connection, preventing delayed frames from
 reaching a newly attached device. Reconnect after exhausting its 255 streams.
 Queued bytes are discarded on connection loss rather than replayed into a new
-session. GPS MODEM/`nmea` frames use media subscription streams separately,
-RX direction, no VFO, and a single CRLF-terminated generated sentence.
+session. GPS MODEM/`gpsp` frames use media subscription streams separately,
+RX direction, no VFO, and the fixed 9-byte position record described above.

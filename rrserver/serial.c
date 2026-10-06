@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/io.serial.h>
@@ -228,18 +229,23 @@ static void closed(const char *event,const char *data,rrconn_t *client,void *use
 static void gps_output(const char *event,const char *data,rrconn_t *client,void *user) {
    (void)event;(void)client;(void)user;
    dict *d = data && data[0]=='{' ? json2dict(data) : NULL;
-   const char *sentence = d ? dict_get(d,"gps.nmea",NULL) : data;
-   const char *scope = d ? dict_get(d,"gps.source","station") : "station";
-   if(!rr_nmea_valid(sentence)) {if(d)dict_free(d);return;}
-   size_t n=strlen(sentence);
-   for(unsigned i=0;i<count;i++) {
-      struct serial_export *p=&exports[i];
-      if(p->service!=2 || p->fd<0 || strcmp(p->gps_scope,scope)) continue;
-      if(n+2>p->buffer_limit-p->buffered) {Log(LOG_WARN,"serial","%s GPS output buffer full",p->name);continue;}
-      memcpy(p->buffer+p->buffered,sentence,n);p->buffered+=n;
-      p->buffer[p->buffered++]='\r';p->buffer[p->buffered++]='\n';
+   if (!d) return;
+   const char *scope = dict_get(d,"gps.source","station");
+   int32_t lat = (int32_t)dict_get_long(d,"gps.lat",0);
+   int32_t lon = (int32_t)dict_get_long(d,"gps.lon",0);
+   uint8_t flags = (uint8_t)dict_get_int(d,"gps.flags",0);
+   char sentence[128];
+   size_t n = rr_gps_nmea_rmc(lat, lon, flags, time(NULL), sentence, sizeof(sentence));
+   if (n && rr_nmea_valid(sentence)) {
+      for(unsigned i=0;i<count;i++) {
+         struct serial_export *p=&exports[i];
+         if(p->service!=2 || p->fd<0 || strcmp(p->gps_scope,scope)) continue;
+         if(n+2>p->buffer_limit-p->buffered) {Log(LOG_WARN,"serial","%s GPS output buffer full",p->name);continue;}
+         memcpy(p->buffer+p->buffered,sentence,n);p->buffered+=n;
+         p->buffer[p->buffered++]='\r';p->buffer[p->buffered++]='\n';
+      }
    }
-   if(d)dict_free(d);
+   dict_free(d);
 }
 static void gps_input(struct serial_export *p,const char *data,size_t len) {
    for(size_t i=0;i<len;i++) {
@@ -405,7 +411,7 @@ void rrserver_serial_init(void) {
       count++;
    }
    inventory_token=event_on_token(RR_INVENTORY_EVENT,inventory_serial,NULL);
-   gps_token=event_on_token("serial.gps.output",gps_output,NULL);
+   gps_token=event_on_token("serial.gps.position",gps_output,NULL);
    request_token=event_on_token("serial.request",request,NULL);
    closed_token=event_on_token("serial.session.closed",closed,NULL);
    frame_token=event_on_binary_token(RR_SERIAL_FRAME_EVENT,frame,NULL);

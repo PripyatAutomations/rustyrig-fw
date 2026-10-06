@@ -58,7 +58,7 @@ rrserver_objs += webcam.o		# Support for v4l2 webcam on linux
 rrserver_real_objs := $(foreach x, ${rrserver_objs}, ${BUILD_DIR}/rrserver/${x})
 extra_clean += ${rrserver_real_objs}
 
-${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h
+${BUILD_DIR}/rrserver/%.o: rrserver/%.c ${rrserver_headers} ${BUILD_HEADERS} GNUmakefile rrserver/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"

@@ -25,7 +25,9 @@ ${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${
 	@ln -sf libfwdspmgr.so libfwdspmgr.so.0
 	@ls -a1ls $@
 
-${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h GNUmakefile libfwdspmgr/rules.mk ${librustyaxe_headers} ${librrprotocol_headers}
+# Consumes build_config.h and the protocol/rustyaxe headers that follow from
+# it; wait for pack-eeprom before compiling.
+${BUILD_DIR}/libfwdspmgr/%.o: libfwdspmgr/%.c ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h GNUmakefile libfwdspmgr/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(dir $@)
 	@echo "[compile] $< => $@"

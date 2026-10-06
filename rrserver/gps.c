@@ -16,6 +16,7 @@
 #include <librustyaxe/io.serial.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
+#include <librrprotocol/ws.serial.h>
 #include <rrserver/gps.h>
 #include <rrserver/discovery.h>
 #include <rrserver/globalstate.h>
@@ -153,38 +154,39 @@ static void fixed_sentence(const struct gps_source *source, char *buf, size_t ca
    snprintf(buf + len, capacity - len, "*%02X", checksum);
 }
 
-static void send_sentence(struct gps_source *source, rrconn_t *client, const char *sentence) {
+static void send_position(struct gps_source *source, rrconn_t *client) {
    if (!source->channel) {
       return;
    }
+   const struct gps_source *position = effective(source);
+   if (!available(position)) {
+      return;
+   }
 
-   char frame[514];
-   int len = snprintf(frame, sizeof(frame), "%s\r\n", sentence);
-   ws_media_send_frame(source->channel, client, (const uint8_t *)frame, len, "nmea");
-
+   uint32_t lat = (uint32_t)position->lat, lon = (uint32_t)position->lon;
+   uint8_t payload[RR_GPS_POSITION_PAYLOAD_LEN] = {
+      (uint8_t)(lat >> 24), (uint8_t)(lat >> 16), (uint8_t)(lat >> 8), (uint8_t)lat,
+      (uint8_t)(lon >> 24), (uint8_t)(lon >> 16), (uint8_t)(lon >> 8), (uint8_t)lon,
+      (uint8_t)((position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) |
+         (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0))
+   };
+   ws_media_send_frame(source->channel, client, payload, sizeof(payload), RR_GPS_FRAME_CODEC);
    if (!client) {
       dict *d = dict_new();
-
-      if (!d) {
-         return;
+      if (d) {
+         dict_add(d, "gps.source", source->alias);
+         dict_add_int(d, "gps.lat", position->lat);
+         dict_add_int(d, "gps.lon", position->lon);
+         dict_add_int(d, "gps.flags", payload[8]);
+         event_emit_dict("serial.gps.position", NULL, d);
+         dict_free(d);
       }
-
-      dict_add(d, "gps.source", source->alias); dict_add(d, "gps.nmea", sentence);
-      event_emit_dict("serial.gps.output", NULL, d);
-      dict_free(d);
+      source->sent_at = mono_us();
+      source->published = true;
    }
 }
 static void publish(struct gps_source *source, rrconn_t *client) {
-   const struct gps_source *position = effective(source);
-
-   if (available(position)) {
-      char sentence[512];fixed_sentence(position, sentence, sizeof(sentence));
-      send_sentence(source, client, sentence);
-      if (!client) {
-         source->sent_at = mono_us();
-         source->published = true;
-      }
-   }
+   send_position(source, client);
 }
 static bool receiver_angle(const char *text,const char *hemisphere,bool latitude,int32_t *result) {
    if (!text || !hemisphere || strlen(hemisphere)!=1) return false;
@@ -291,7 +293,7 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    snprintf(source->alias, sizeof(source->alias), "%s", alias);
    source->channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX,
-      RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, radio), "nmea", "Rig GPS position");
+      RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, radio), RR_GPS_FRAME_CODEC, "Rig GPS position");
    if (source->channel) {
       snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", alias);
       snprintf(source->channel->room, sizeof(source->channel->room), "%s", rr_rig_registry_room(rig.rigs, radio));
@@ -349,7 +351,7 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
 bool rrserver_gps_init(void) {
    memset(sources, 0, sizeof(sources)); count = 1;
    snprintf(sources[0].alias, sizeof(sources[0].alias), "station");
-   sources[0].channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, "nmea", "Station GPS position");
+   sources[0].channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, RR_GPS_FRAME_CODEC, "Station GPS position");
 
    if (sources[0].channel) {
       snprintf(sources[0].channel->name, sizeof(sources[0].channel->name), "station.gps.rx");

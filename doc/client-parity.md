@@ -137,12 +137,13 @@ use the same room-scoped protocol APIs as the other native controls. See
 [Serial endpoints and rig GPS](serial-interfaces.md).
 
 Server real-port passthrough uses MODEM/`seri` binary frames and native local
-PTYs. GPS uses separate read-only MODEM/`nmea` media channels with per-rig
-location and station fallback. Native `rig.gps-out` endpoints follow the active
-rig and automatically subscribe; browser subscriptions are explicit and emit
-`rustyrig:gps-nmea` for integrations. This transport difference is intentional:
-the browser cannot create local PTYs. Both implementations validate received
-GPS framing/checksums; server coordinates and receiver selection are authoritative.
+PTYs. GPS uses separate read-only MODEM/`gpsp` media channels carrying compact
+per-rig position snapshots and station fallback. Both C and browser clients
+synthesize matching RMC sentences from the integer coordinates; native
+`rig.gps-out` endpoints follow the active rig and automatically subscribe, while
+browser subscriptions are explicit and emit `rustyrig:gps-nmea` for integrations.
+The browser cannot create local PTYs. Server coordinates and receiver selection
+are authoritative; see the `gpsp`/RMC parity marker in both client implementations.
 
 ## Resource discovery
 

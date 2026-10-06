@@ -11,11 +11,14 @@ endif
 indent:
 	./tools/indent.sh
 
-deb debs:
+# Maintainer - debs
+mdeb mdebs:
 	mkdir -p ../releases
 	rm -f ../releases/*.deb
-	${FAKEROOT} dpkg-buildpackage -us -uc -b -j$(DEB_JOBS)
-
+	${MAKE} debs
 	# XXX: we should get rid of this except in maintainer mode!
 	# XXX: Or at least ask before installing them....
 	./tools/deb-release-test.sh
+
+deb debs:
+	${FAKEROOT} dpkg-buildpackage -us -uc -b -j$(DEB_JOBS)
