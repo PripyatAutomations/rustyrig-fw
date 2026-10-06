@@ -1,4 +1,7 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Rename the client object inspector to /object; filter /rig and /gps to
+    their own resource types, and show available server ports with /sercom.
+    Keep browser commands, help, completion and tab-scoped listings in sync.
   * Avoid an Uncrustify hang in native media subscription logging by reading
     direction and VFO fields before formatting the diagnostic message.
   * Build pack-eeprom-generated files (build_config.h, eeprom_types.h,

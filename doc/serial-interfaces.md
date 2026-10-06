@@ -81,7 +81,7 @@ Server GPS inputs are configured receiver services, not client write endpoints.
 ## Runtime management
 
 ```text
-/sercom list
+/sercom list  # Local attachments and available server ports
 /sercom attach ttyCAT1 rig1.cat@38400
 /sercom attach ttyHOST0 host:ttyHOST0
 /sercom attach ttyGPS0 rig.gps-out@4800

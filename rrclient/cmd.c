@@ -53,7 +53,7 @@ bool cmd_reload(int argc, char **args) {
 client_cmd_t client_cmds[] = {
    {
       .cmd = "rig", .cb = cmd_rig, .max_args = 1,
-      .desc = "Site resource tree: LIST | SUBSCRIBE | UNSUBSCRIBE property updates"
+      .desc = "Radios and VFOs: LIST | SUBSCRIBE | UNSUBSCRIBE property updates"
    },
    {
       .cmd = "gps", .cb = cmd_gps, .max_args = 2,
@@ -61,10 +61,10 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "sercom", .cb = cmd_sercom, .max_args = 4,
-      .desc = "Serial endpoints: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>"
+      .desc = "Serial ports and attachments: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>"
    },
    {
-      .cmd = "objects", .cb = cmd_objects, .desc = "Inspect objects: /objects [rig0|rig0.A|uuid]"
+      .cmd = "object", .cb = cmd_object, .desc = "Inspect objects: /object [rig0|rig0.A|uuid]"
    },
    {
       .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab"

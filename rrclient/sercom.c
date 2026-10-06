@@ -625,19 +625,25 @@ static void list_port(rr_serial_t *port, void *user) {
    ui_print(NULL, "%s: %s -> %s", rr_serial_name(port), rr_serial_path(port), service ? service : "unbound");
 }
 bool cmd_sercom(int argc, char **args) {
-   if ( argc == 2 && !strcasecmp(args[1], "remote") ) {
-      if (!ws_conn) { ui_print(NULL, "Not connected"); return true; }
+   bool list = argc == 1 || (argc == 2 && !strcasecmp(args[1], "list"));
+   bool remote = argc == 2 && !strcasecmp(args[1], "remote");
+
+   if (list || remote) {
+      if (list) {
+         ui_print(NULL, "Local serial attachments:");
+         if (!bindings) { ui_print(NULL, "No serial endpoints attached"); }
+         rr_serial_foreach(list_port, NULL);
+      }
+      if (!ws_conn) {
+         ui_print(NULL, "Not connected; server serial ports unavailable"); return remote;
+      }
       dict *d = dict_new();
 
       if (!d) { return true; }
+      ui_print(NULL, "Available server serial ports:");
       dict_add(d, "msg.type", "serial"); dict_add(d, "serial.cmd", "list");
       bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
       dict_free(d); return !sent;
-   }
-
-   if ( argc == 1 || ( argc == 2 && !strcasecmp(args[1], "list") ) ) {
-      if (!bindings) { ui_print(NULL, "No serial endpoints attached"); }
-      rr_serial_foreach(list_port, NULL); return false;
    }
 
    if ( (argc == 4 || argc == 5) && !strcasecmp(args[1], "attach") ) {

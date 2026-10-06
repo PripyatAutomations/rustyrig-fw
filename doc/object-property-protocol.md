@@ -166,7 +166,7 @@ property(UUID, name, descriptor_boolean), and dump(callback). The cache owns
 deep dictionary copies; lookup results are borrowed until the next apply or
 free. Metadata retains owner UUID even if that owner has not arrived yet.
 Aliases are not keys. `objects.events.c` handles connection events and
-automatic discovery; `/objects` prints the cache through the existing common
+automatic discovery; `/object` prints the cache through the existing common
 UI output. It works alongside GTK/TUI, not inside a frontend-specific layer.
 Browser `js/webui.objects.js` mirrors the cache with Maps and BigInt counters;
 `rrObjectsDump()` provides a console diagnostic. Existing widgets stay legacy.

@@ -1,22 +1,12 @@
 # Site resource discovery
 
-`/rig list` requests a fresh tree without changing subscriptions. Native GTK,
-TUI and the browser show the same server-supplied hierarchy:
-
-```text
-site station-name  uuid=... room=#station-name
-+- room #station-name  service=chat
-+- gps station.gps-in  state=receiver
-+- gps station.gps-out  uuid=... coordinates=...
-+- serial ttyHOST0  service=serial access=serial.ttyHOST0|admin
-+- rig rig0  uuid=... backend=internal room=#station-name-rig0
-   +- room #station-name-rig0  service=TX-control
-   +- cat rig0.cat
-   +- vfo A  uuid=... frequency=14074000 Hz
-      +- media rig0.vfo_a.rx  uuid=... direction=RX codec=opus
-   +- gps rig0.gps-in  state=disabled-by-fixed-position
-   +- gps rig0.gps-out  uuid=... coordinates=38.1234567,-80.7654321
-```
+Discovery commands list their own resource types in native GTK, TUI and the
+browser. `/object [symbol|uuid]` inspects cached objects and properties;
+`/rig` lists radios and VFOs; `/gps` lists GPS services; `/sercom` lists serial
+ports; `/room list` lists rooms; `/media` lists streams and refreshes discovery.
+`/rig` and `/gps` request fresh server inventory without changing subscriptions
+and filter its rows in the client. GPS listings include inputs and outputs,
+with effective coordinates and source when available.
 
 UUIDs appear only for resources that have them. Serial exports, symbolic CAT
 bindings and GPS inputs are names, not invented UUID objects. GPS outputs
@@ -27,24 +17,25 @@ client's existing serial interface and retain the server's control checks.
 
 | Command | Purpose |
 |---|---|
-| `/rig list` | Fresh resource tree, including subscription state and room requirements |
+| `/object [symbol\|uuid]` | Inspect cached objects and readable properties |
+| `/rig [list]` | Fresh radio and VFO listing, including room requirements |
 | `/rig subscribe` | Snapshot and ongoing UUID object/property updates for the site |
 | `/rig unsubscribe` | Stop those property updates; does not stop media |
 | `/join <room>`, `/part <room>` | Enter or leave the resource's room |
 | `/media` | Refresh available stream metadata |
 | `/media list` | Show cached streams and current subscriptions |
 | `/media subscribe <name|uuid|#number>`, `/media unsubscribe <name|uuid|#number>` | Manage a specific stream |
-| `/gps list` | Discover GPS services within the site tree |
+| `/gps list` | List only GPS services |
 | `/gps subscribe <rig-alias|station>` | Subscribe to that scope's NMEA output |
 | `/gps unsubscribe <rig-alias|station>` | Stop that NMEA subscription |
 | `/sercom remote` | Discover permitted server serial exports |
-| `/sercom list` | Native local serial/PTY attachments |
+| `/sercom [list]` | Native local serial/PTY attachments plus permitted server serial ports; browser shows server ports |
 | `/sercom attach ttyHOST0 host:ttyHOST0` | Native PTY for a named server export |
 | `/sercom attach ttyGPS0 rig.gps-out` | Native logger output following the active rig |
 | `/sercom disconnect ttyHOST0` | Release the attachment and remote port |
 
 The browser can discover serial exports through `/sercom remote`, but cannot
-create local PTYs. `/objects` shows readable cached objects and their properties in both clients.
+create local PTYs. `/object` shows readable cached objects and their properties in both clients.
 `/rig subscribe` refreshes that cache after unsubscribing; ordinary login
 already subscribes to property updates.
 
@@ -66,8 +57,8 @@ Use symbolic stream names for routine operations:
 /media subscribe rig0.vfo_a.rx
 /media unsubscribe station.gps.rx
 /rxcodec opus rig0.vfo_a.rx
-/objects rig0
-/objects rig0.A
+/object rig0
+/object rig0.A
 ```
 
 `/media list` leads with stream names, descriptions, codec, room and subscription
@@ -79,12 +70,12 @@ Names are matched case-insensitively; ambiguous names are rejected and require
 an exact UUID or list number. Unknown references are rejected locally; use
 `/media` to refresh discovery after a resource changes.
 
-`/objects [symbol|uuid]` inspects a rig and its immediate children, or a single
+`/object [symbol|uuid]` inspects a rig and its immediate children, or a single
 VFO such as `rig0.A`. VFO names are qualified by their owning rig so another
 rig's VFO A cannot be selected accidentally. Object views show display names,
 backend, readable values and units, availability, and writable flags. They use
 the current property cache; `/rig subscribe` refreshes a stopped cache.
-`/objects` and `/gps subscribe|unsubscribe` also complete their symbolic scopes.
+`/object` and `/gps subscribe|unsubscribe` also complete their symbolic scopes.
 
 Symbol resolution belongs to the clients and uses current discovery metadata.
 The protocol still addresses objects and streams by UUID. `/rig subscribe`
@@ -123,7 +114,8 @@ object/property cache. Clients must not feed it into that cache. Existing
 
 Server components contribute through `server.inventory.collect` event
 listeners, using the requested scope and depth. This keeps GPS and serial
-state in their owning components. Clients render the records locally.
+state in their owning components. Clients render and filter the records
+locally; the wire inventory remains the full tree.
 Command output goes to the issuing window; inventory replies retain that
 destination even when the user switches windows before the response arrives.
 
@@ -155,6 +147,6 @@ both the destination and context captured when the command was issued.
 
 The server includes `object.room` on node and rig descriptors; VFOs inherit
 their owner's room. This is descriptive metadata, not an authorization change.
-Explicit `/objects <symbol|uuid>` selections and named/UUID subscriptions can
+Explicit `/object <symbol|uuid>` selections and named/UUID subscriptions can
 still address resources outside the current listing. Media `#numbers` retain
 their global positions, so filtering does not retarget an existing reference.

@@ -19,7 +19,8 @@ struct rr_user *global_userlist;
 static dict *radios[2], *test_vfos[2], *properties[2];
 static char sent_room[128], sent_vfo[8];
 static long sent_freq;
-static unsigned sends, gps_inputs;
+static unsigned sends, gps_inputs, serial_lists, local_rows;
+static bool serial_send_ok = true;
 static bool sent_ptt;
 static char ptt_room[128], ptt_vfo[8];
 static char wire_rx[64], device_rx[64];
@@ -46,7 +47,18 @@ bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
    (void)vfo; (void)key; return fallback;
 }
 char vfo_state_get_active(void) { return 'Z'; } // Must never affect endpoint CAT.
-void ui_print(const char *win, const char *fmt, ...) { (void)win; (void)fmt; }
+void ui_print(const char *win, const char *fmt, ...) {
+   (void)win;
+   if (!strcmp(fmt, "%s: %s -> %s")) { local_rows++; }
+}
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
+   (void)sender; (void)type;
+   assert(dest == ws_conn);
+   assert(!strcmp(dict_get(d, "msg.type", ""), "serial"));
+   assert(!strcmp(dict_get(d, "serial.cmd", ""), "list"));
+   serial_lists++;
+   return serial_send_ok;
+}
 bool ws_send_freq_cmd_in_room(rrconn_t *c, const char *vfo, long freq, const char *room) {
    (void)c; snprintf(sent_room, sizeof(sent_room), "%s", room);
    snprintf(sent_vfo, sizeof(sent_vfo), "%s", vfo); sent_freq = freq; sends++; return true;
@@ -98,6 +110,19 @@ int main(int argc, char **argv) {
    dict_add(cfg,"serial:ttyGPS1.path",output);
    assert(rr_sercom_init()); // Unconfigured mapping defaults rig0 -> ttyCAT0.
    assert(!strcmp(rr_sercom_binding("ttyCAT0"), "rig0.cat"));
+   char *list_args[] = {"sercom", "list"}, *remote_args[] = {"sercom", "remote"};
+   assert(!cmd_sercom(1,list_args)); // Local listings work while offline.
+   assert(local_rows == 1 && serial_lists == 0);
+   rrconn_t connection = {0}; ws_conn = &connection;
+   assert(!cmd_sercom(1,list_args));
+   assert(local_rows == 2 && serial_lists == 1);
+   assert(!cmd_sercom(2,list_args));
+   assert(local_rows == 3 && serial_lists == 2);
+   assert(!cmd_sercom(2,remote_args));
+   assert(local_rows == 3 && serial_lists == 3);
+   serial_send_ok = false;
+   assert(cmd_sercom(2,remote_args));
+   serial_send_ok = true; ws_conn = NULL;
    assert(rr_sercom_attach("ttyCAT1","rig1.cat@38400",NULL));
    assert(!rr_sercom_attach("ttyCAT1","rig0.cat",NULL));
    assert(!rr_sercom_attach("../bad","rig0.cat",NULL));

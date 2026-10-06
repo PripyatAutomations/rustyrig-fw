@@ -27,7 +27,7 @@ bool cmd_media(int argc, char **args) { return false; }
 static void reply(const char *id, const char *cmd, const char *window) {
    dict *d = dict_new();
    dict_add(d,"object.cmd",cmd);dict_add(d,"request.id",id);
-   dict_add(d,"inventory.kind","site");dict_add(d,"inventory.room",window);
+   dict_add(d,"inventory.kind","rig");dict_add(d,"inventory.room",window);
    unsigned before = printed;
    assert(inventory_message(d));
    assert(printed == before + 1);
@@ -44,8 +44,8 @@ static void tree_row(const char *id, unsigned depth, const char *kind, const cha
    dict_free(d);
 }
 int main(void) {
-   char *list[] = {"rig", "list"}, *objects[] = {"objects"}, *gps[] = {"gps", "bad"};
-   cmd_objects(1,objects);assert(!strcmp(destination,"#first"));
+   char *list[] = {"rig", "list"}, *objects[] = {"object"}, *gps[] = {"gps", "bad"};
+   cmd_object(1,objects);assert(!strcmp(destination,"#first"));
    assert(!cmd_rig(2,list));
    char first[48];snprintf(first,sizeof(first),"%s",sent_id);
    active = "#second";
@@ -68,17 +68,38 @@ int main(void) {
    active="#site-rig10"; // Replies retain the original filter across tab switches.
    tree_row(first,0,"site","#site",false);
    tree_row(first,1,"rig","#site-rig1",true);
-   tree_row(first,2,"gps",NULL,true);
+   tree_row(first,2,"vfo",NULL,true);
+   tree_row(first,2,"gps",NULL,false);
    tree_row(first,1,"rig","#site-rig10",false);
    tree_row(first,2,"serial",NULL,false);
    reply(first,"inventory-end","#site-rig1.rx");
    active="#site";assert(!cmd_rig(2,list));
    snprintf(first,sizeof(first),"%s",sent_id);
-   tree_row(first,0,"site","#site",true);
+   tree_row(first,0,"site","#site",false);
    tree_row(first,1,"rig","#site-rig10",true);
-   tree_row(first,2,"gps",NULL,true);
+   tree_row(first,2,"gps",NULL,false);
    tree_row(first,0,"site","#other",false);
    tree_row(first,1,"gps",NULL,false);
+   reply(first,"inventory-end","#site");
+   char *gps_list[] = {"gps", "list"};
+   active = "#site-rig1.rx"; assert(!cmd_gps(2,gps_list));
+   snprintf(first,sizeof(first),"%s",sent_id);
+   active = "#site-rig10";
+   tree_row(first,0,"site","#site",false);
+   tree_row(first,1,"gps",NULL,false); // Station GPS is outside this rig.
+   tree_row(first,1,"rig","#site-rig1",false); // Hidden parent still sets context.
+   tree_row(first,2,"vfo",NULL,false);
+   tree_row(first,2,"gps",NULL,true);
+   tree_row(first,2,"serial",NULL,false);
+   tree_row(first,1,"rig","#site-rig10",false);
+   tree_row(first,2,"gps",NULL,false);
+   reply(first,"inventory-end","#site-rig1.rx");
+   active = "status"; assert(!cmd_gps(1,gps_list));
+   snprintf(first,sizeof(first),"%s",sent_id);
+   tree_row(first,0,"site","#other",false);
+   tree_row(first,1,"gps",NULL,true);
+   tree_row(first,1,"serial",NULL,false);
+   reply(first,"inventory-end","status");
    connection("disconnected",NULL,NULL,NULL);
    for (unsigned i = 0; i < INVENTORY_REQUESTS_MAX; i++) assert(!inventory_requests[i].id[0]);
    puts("PASS: native command output and concurrent inventory stay in issuing windows");

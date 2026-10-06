@@ -132,7 +132,11 @@ frontend-specific; browser frequency controls honor the same tuning policy.
 `/sercom` and local PTY/real-device transports belong to the native common
 client and work in GTK and TUI. The browser recognizes the command and explains
 this limitation; it does not forward local endpoint management to the server.
-Both command completers offer LIST, ATTACH, and DISCONNECT. Native CAT writes
+Both command completers offer LIST, REMOTE, ATTACH, and DISCONNECT.
+Native `/sercom [list]` shows local attachments and requests permitted server
+ports; the browser shows permitted server ports only. Server serial export
+listings span the connection, independent of the current rig tab, and exclude
+ports reserved for server-local GPS services. Native CAT writes
 use the same room-scoped protocol APIs as the other native controls. See
 [Serial endpoints and rig GPS](serial-interfaces.md).
 
@@ -150,6 +154,9 @@ are authoritative; see the `gpsp`/RMC parity marker in both client implementatio
 Native GTK/TUI and WebUI share `/rig list`, `/rig subscribe|unsubscribe`
 (UUID property updates), and `/gps list|subscribe|unsubscribe <scope>`.
 The server supplies the resource tree and permission-filtered serial exports.
+Clients filter `/rig [list]` to rigs and VFOs, `/gps [list]` to GPS services,
+and browser `/sercom [list|remote]` to serial exports. Type filters preserve
+ancestor context even when ancestor rows are hidden.
 `/sercom remote` discovers server exports in both clients; only the native
 client can attach local PTYs or serial devices. See [Resource discovery](resource-discovery.md).
 
@@ -172,13 +179,13 @@ ports continue using compact `gpsp` records and local RMC synthesis.
 Native GTK/TUI and browser `/media subscribe|unsubscribe` resolve unique,
 case-insensitive stream names locally and send UUIDs. Media and codec listings
 show names and room/subscription metadata; completion inserts names and displays
-separate descriptive labels. Ambiguous/unknown names are rejected. `/objects`
+separate descriptive labels. Ambiguous/unknown names are rejected. `/object`
 shows readable cached object/property data and accepts UUIDs or qualified
 symbols such as `rig0` and `rig0.A`. These conveniences do not change wire
 addressing or the site-wide `/rig subscribe` semantics.
 
 Resource command replies use the issuing window in C and JS. Inventory requests
-retain that window across tab switches. `/rig`, `/gps`, `/objects`, `/media` and
+retain that window across tab switches. `/rig`, `/gps`, `/object`, `/media` and
 codec listings/completion filter by site or rig room (including RX rooms);
 status/no-room contexts see all resources. Explicit names/UUIDs remain usable
 outside those default listings. See `rrclient/resource.context.h` and

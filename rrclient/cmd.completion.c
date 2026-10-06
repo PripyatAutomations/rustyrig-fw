@@ -300,7 +300,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          completion_words(&matches, &count, "SHOW HIDE", word);
       } else if ( arg == 1 && !strcasecmp(command, "/quit") ) {
          completion_words(&matches, &count, "-yes -y yes y", word);
-      } else if (arg == 1 && !strcasecmp(command, "/objects") ) {
+      } else if (arg == 1 && !strcasecmp(command, "/object") ) {
          for (int i = 0 ;; i++) {
             char reference[128];
             const dict *object = rrclient_object_ref_iter( i, reference, sizeof(reference) );
@@ -386,7 +386,7 @@ char **client_cmd_completions(const char *line, const char *word) {
 void client_cmd_completion_describe(const char *line, const char *value, char *out, size_t capacity) {
    snprintf(out, capacity, "%s", value);
 
-   if (line && !strncasecmp(line, "/objects ", 9) ) {
+   if (line && !strncasecmp(line, "/object ", 8) ) {
       for (int i = 0 ;; i++) {
          char reference[128];
          const dict *object = rrclient_object_ref_iter( i, reference, sizeof(reference) );

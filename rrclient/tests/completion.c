@@ -4,7 +4,7 @@ bool dying, restarting;
 time_t now;
 struct rr_user *global_userlist;
 client_cmd_t client_cmds[] = {
-   {.cmd="rig"}, {.cmd="gps"}, {.cmd="sercom"}, {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
+   {.cmd="object"}, {.cmd="rig"}, {.cmd="gps"}, {.cmd="sercom"}, {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
    {.cmd="kick", .admin=true}, {.cmd="user", .admin=true}, {0}
 };
 static const char *active_window;
@@ -56,8 +56,10 @@ int main(void) {
    char label[512];
    client_cmd_completion_describe("/media subscribe ","rig0.vfo_a.rx",label,sizeof(label));
    assert(strstr(label,"Main receiver") && strstr(label,"RX opus") && strstr(label,"subscribed") && strstr(label,"#station-rig0"));
-   check("/objects rig", "rig", "rig0");
-   client_cmd_completion_describe("/objects ","rig0",label,sizeof(label));
+   check("/obj", "/obj", "/object");
+   check("/objects", "/objects", NULL);
+   check("/object rig", "rig", "rig0");
+   client_cmd_completion_describe("/object ","rig0",label,sizeof(label));
    assert(strstr(label,"Main transceiver"));
    char **names=client_cmd_completions("/media SUB ","");
    for (int i=0;names && names[i];i++) assert(strcmp(names[i],"rx-active") && strcmp(names[i],"rx-other"));
