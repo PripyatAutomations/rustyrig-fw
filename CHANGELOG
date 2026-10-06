@@ -1,4 +1,8 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Restore chained rig chat commands and publish confirmed backend mode,
+    frequency and width changes promptly; update GTK mode/width controls
+    without sending observations back as edits. Add mode-letter cycling and
+    A/N/W width shortcuts in GTK selectors and update native/browser help.
   * Rename the client object inspector to /object; filter /rig and /gps to
     their own resource types, and show available server ports with /sercom.
     Keep browser commands, help, completion and tab-scoped listings in sync.

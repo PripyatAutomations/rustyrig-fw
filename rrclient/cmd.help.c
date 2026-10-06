@@ -129,7 +129,10 @@ static help_line_t help_msg_after[] = {
       UI_MODE_NONE, "\t{bright-green}!freq <freq> {bright-yellow}Set frequency - 7200, 7.2m or 7200000 form"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!mode <mode> {bright-yellow}Set mode to CW|AM|LSB|USB|FM|DL|DU"
+      UI_MODE_NONE, "\t{bright-green}!mode <mode> {bright-yellow}Set mode to CW|AM|LSB|USB|FM|D-L|D-U"
+   },
+   {
+      UI_MODE_NONE, "\t{bright-green}!mode lsb freq 7200 {bright-yellow}Chain rig commands on one line"
    },
    {
       UI_MODE_NONE, "\t{bright-green}!power <watts>{bright-yellow} Set power in watts (e.g. !power 25)"
@@ -166,6 +169,12 @@ static help_line_t help_msg_after[] = {
    },
    {
       UI_MODE_NONE, "\t{bright-green}alt-right     {bright-yellow}Switch to next win"
+   },
+   {
+      UI_MODE_GTK, "\t{bright-green}Mode first letter {bright-yellow}Cycle matching modes in the mode selector"
+   },
+   {
+      UI_MODE_GTK, "\t{bright-green}Width A/N/W   {bright-yellow}Select narrow/normal/wide in the width selector"
    },
    {
       UI_MODE_GTK, "\t{bright-green}F11           {bright-yellow}Fullscreen toggle{reset}"

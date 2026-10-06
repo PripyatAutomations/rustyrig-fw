@@ -454,6 +454,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
       if (!object || !request.property || rr_rig_control(&request) != RR_CONTROL_OK) {
          Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s", rc_cmd, room);
+      } else {
+         rr_backend_poll_rig(radio, object);
       }
       dict_free(d); return;
    }
@@ -478,7 +480,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
       // Audit trail: who changed which VFO to what mode
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
-      rr_set_mode(vfo, new_mode);
+      // Confirm the new values for UUID-backed clients immediately, including width changes caused by mode.
+      if (!rr_set_mode(vfo, new_mode)) { rr_be_poll(vfo); }
       dict_free(d);
 
       return;
@@ -495,7 +498,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
       // Audit trail: who changed which VFO to what passband width
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
-      rr_set_width(vfo, rc_width);
+      if (!rr_set_width(vfo, rc_width)) { rr_be_poll(vfo); }
       dict_free(d);
 
       return;
@@ -523,7 +526,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    // Audit trail: who changed which VFO to what frequency
    Log(LOG_AUDIT, "rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
 
-   rr_freq_set(vfo, rc_freq);
+   if (!rr_freq_set(vfo, rc_freq)) { rr_be_poll(vfo); }
    dict_free(d);
 }
 

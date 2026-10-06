@@ -112,6 +112,7 @@ extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out
 extern void codec_pickers_refresh(void);                                                        // gtk.codecpicker.c
 extern void codec_picker_set_active(bool is_tx, const char *codec);                            // gtk.codecpicker.c
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
+extern void modebox_update_state(const char *mode, int width);
 extern gulong mode_changed_handler_id;
 extern gulong freq_changed_handler_id;
 extern gboolean handle_global_hotkey(GtkWidget *widget, GdkEventKey *event, gpointer user_data);

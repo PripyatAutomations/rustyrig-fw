@@ -92,6 +92,43 @@ enabled=false
             # PTT is operated from the default rig's sole TX room.
             client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#roomtest-rig0"}})
             client.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == "#roomtest-rig0")
+            client.send({"msg": {"type": "object"}, "object": {"cmd": "snapshot"},
+                "request": {"id": "chat-controls"}})
+            client.until(lambda m: m.get("object", {}).get("cmd") == "end")
+            # A successful control must not stop parsing the remaining commands.
+            for text, expected_mode, expected_frequency in (
+                ("!mode lsb", "LSB", None),
+                ("!mode usb freq 7200", "USB", 7200000),
+                ("!freq 7230 mode lsb", "LSB", 7230000),
+                ("!mode usb !freq 7250", "USB", 7250000),
+            ):
+                client.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub",
+                    "target": "#roomtest-rig0", "data": text}})
+                seen = set()
+                def changed(message):
+                    cat = message.get("cat", {})
+                    if cat.get("cmd") == "mode" and cat.get("mode", "").upper() == expected_mode:
+                        seen.add("mode")
+                    prop = message.get("property", {})
+                    if prop.get("name") == "mode" and prop.get("value") == expected_mode:
+                        seen.add("observed-mode")
+                    if expected_frequency is None or (cat.get("cmd") == "freq" and
+                            cat.get("freq") == expected_frequency):
+                        seen.add("frequency")
+                    return seen == {"mode", "observed-mode", "frequency"}
+                client.until(changed)
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub",
+                "target": "#roomtest-rig0", "data": "!width narrow freq 7260"}})
+            observed = set()
+            def width_changed(message):
+                prop = message.get("property", {})
+                if prop.get("name") == "width" and prop.get("value") == 1800:
+                    observed.add("width")
+                if message.get("cat", {}).get("freq") == 7260000:
+                    observed.add("frequency")
+                return observed == {"width", "frequency"}
+            client.until(width_changed)
+            print("PASS: chat mode/width controls publish observations and stacked commands run in both orders")
             # Internal test rigs have no physical transmitter: verify both PTT status paths.
             for keyed in (True, False):
                 client.send({"msg": {"type": "cat"}, "cat": {"cmd": "ptt", "vfo": "A", "ptt": keyed}})

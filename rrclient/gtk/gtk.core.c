@@ -762,7 +762,8 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
          gtk_freq_entry_set_frequency(fe, freq);
       }
    }
-   (void)vfo; (void)mode; (void)width; (void)power; (void)ptt;
+   modebox_update_state(mode, width);
+   (void)vfo; (void)power; (void)ptt;
 }
 
 static void frontend_gtk_freq_set(long freq) {
@@ -776,7 +777,7 @@ static void frontend_gtk_freq_set(long freq) {
 }
 
 static void frontend_gtk_mode_set(const char *mode) {
-   set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+   modebox_update_state(mode, 0);
 }
 
 static void frontend_gtk_conn_button(int connected) {

@@ -57,7 +57,7 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "gps", .cb = cmd_gps, .max_args = 2,
-      .desc = "GPS outputs: LIST | SUBSCRIBE <rig|station> | UNSUBSCRIBE <rig|station>"
+      .desc = "GPS services: LIST | SUBSCRIBE <rig|station> | UNSUBSCRIBE <rig|station>"
    },
    {
       .cmd = "sercom", .cb = cmd_sercom, .max_args = 4,
@@ -107,7 +107,7 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "media", .cb = cmd_media, .max_args = 2,
-      .desc = "Media channels: LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>"
+      .desc = "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
    },
    {
       .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel"

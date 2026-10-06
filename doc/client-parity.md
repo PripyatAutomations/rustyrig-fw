@@ -190,3 +190,17 @@ codec listings/completion filter by site or rig room (including RX rooms);
 status/no-room contexts see all resources. Explicit names/UUIDs remain usable
 outside those default listings. See `rrclient/resource.context.h` and
 `rustyrig-www/js/webui.media.js` (`mediaResourceMatches`).
+
+## Rig command chains and GTK selectors
+
+Rig chat commands accept chains such as `!mode lsb freq 7200` and
+`!freq 7200 mode usb`; the shared server parser is authoritative for both
+clients. Successful controls publish backend observations promptly, so
+UUID-backed controls and user lists converge without waiting for a periodic
+poll. GTK applies mode/width observations with edit handlers blocked.
+
+GTK mode selectors cycle through matching first letters, including while the
+dropdown is open. Width selectors use A for NARR, N for NORM, and W for WIDE.
+These keyboard bindings are GTK-specific and preserve modified global shortcuts.
+Native `/help` documents these bindings; native and browser help include a
+command-chain example alongside the current discovery command names.
