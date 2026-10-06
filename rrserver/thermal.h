@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#ifndef	__rrserver_thermal_h
+#ifndef __rrserver_thermal_h
 #define	__rrserver_thermal_h
 
 #include <rrserver/globalstate.h>

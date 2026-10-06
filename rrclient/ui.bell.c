@@ -24,6 +24,7 @@
 void ui_message_bell(void) {
    if (frontend_ops() && frontend_ops()->bell) {
       frontend_ops()->bell();
+
       return;
    }
    fprintf(stdout, "\a");

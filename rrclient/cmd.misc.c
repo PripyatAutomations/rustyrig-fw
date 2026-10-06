@@ -79,7 +79,7 @@ static bool cmd_set_matches(const char *pattern, const char *key) {
       return true;
    }
 
-   return (strchr(pattern, '*') || strchr(pattern, '?') )
+   return ( strchr(pattern, '*') || strchr(pattern, '?') )
       ? fnmatch(pattern, key, 0) == 0
       : strcmp(pattern, key) == 0;
 }
@@ -126,8 +126,8 @@ static bool cmd_set_list(const char *pattern) {
    int rank = 0;
 
    /* cfg contains user-defined keys, including keys with no defconfig entry. */
-   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
-      if (!cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key) ) { continue; }
+   while (cfg && ( rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
+      if ( !cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key) ) { continue; }
 
       if (count == capacity) {
          size_t next = capacity ? capacity * 2 : 64;
@@ -149,7 +149,7 @@ static bool cmd_set_list(const char *pattern) {
       const char *defkey = defcfg[i].key;
       const char *defvalue = default_cfg ? dict_get(default_cfg, defkey, NULL) : NULL;
 
-      if (!defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey) ) {
+      if ( !defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey) ) {
          continue;
       }
 
@@ -174,8 +174,8 @@ static bool cmd_set_list(const char *pattern) {
       cmd_set_print_key(keys[i]);
    }
 
-   if (!count && pattern && *pattern && !strchr(pattern, '*') && !strchr(pattern, '?') &&
-       cfg_defconfig_find(pattern) ) {
+   if ( !count && pattern && *pattern && !strchr(pattern, '*') && !strchr(pattern, '?') &&
+        cfg_defconfig_find(pattern) ) {
       /* A known key may intentionally have no value (for example an optional site
        * setting).  /set key should still explain that key and show it as unset rather
        * than reporting it as unknown. */
@@ -217,7 +217,7 @@ bool cmd_set(int argc, char **args) {
       return false;
    }
 
-   if (!cfg_set_value(args[1], value) ) {
+   if ( !cfg_set_value(args[1], value) ) {
       ui_print(ui_active_window_name(), "{red}Invalid value for %s{reset}", args[1]);
 
       return false;
@@ -295,7 +295,7 @@ static bool run_local_lookup(const char *program, const char *config, const char
    }
 
    char line[1024];
-   while (fgets(line, sizeof(line), output) ) {
+   while ( fgets(line, sizeof(line), output) ) {
       line[strcspn(line, "\r\n")] = '\0';
 
       if (*line && strncmp(line, "+NOTICE ", 8) != 0 &&
@@ -321,7 +321,7 @@ static bool run_local_lookup(const char *program, const char *config, const char
 bool cmd_qrz(int argc, char **args) {
    bool no_cache = argc == 3 && args[2] && strcasecmp(args[2], "nocache") == 0;
 
-   if ( (argc != 2 && !no_cache) || (argc == 3 && !no_cache) || !args[1] || !args[1][0]) {
+   if ( (argc != 2 && !no_cache) || (argc == 3 && !no_cache) || !args[1] || !args[1][0] ) {
       ui_print(ui_active_window_name(), "Usage: /qrz CALLSIGN [NOCACHE]");
 
       return true;
@@ -457,7 +457,7 @@ void rrclient_print_callsign_line(const char *line) {
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
       tui_clear_scrollback( tui_active_window() );
-   } else if (frontend_ops() ) {
+   } else if ( frontend_ops() ) {
       frontend_ops()->chat_clear();
    }
 
@@ -467,7 +467,7 @@ bool cmd_clear(int argc, char **args) {
 bool cmd_clearlog(int argc, char **args) {
    (void)argc; (void)args;
 
-   if (frontend_ops() ) {
+   if ( frontend_ops() ) {
       frontend_ops()->syslog_clear();
    }
 
@@ -484,14 +484,14 @@ bool cmd_save(int argc, char **args) {
    bool confirmed = false;
 
    for (int i = 1 ; i < argc ; i++) {
-      if (args[i] && (strcasecmp(args[i], "-y") == 0 ||
-                      strcasecmp(args[i], "yes") == 0 || strcasecmp(args[i], "y") == 0) ) {
+      if ( args[i] && (strcasecmp(args[i], "-y") == 0 ||
+                       strcasecmp(args[i], "yes") == 0 || strcasecmp(args[i], "y") == 0) ) {
          confirmed = true;
       }
    }
 
    if (frontend_ops() && frontend_ops()->confirm_dialog && !confirmed) {
-      if (!frontend_ops()->confirm_dialog(
+      if ( !frontend_ops()->confirm_dialog(
          "Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up.") ) {
          confirmed = true;
 
@@ -516,13 +516,13 @@ bool cmd_save(int argc, char **args) {
    const char *home = getenv("HOME");
    int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg", (home && *home) ? home : ".");
 
-   if (written < 0 || (size_t)written >= sizeof(path) ) {
+   if ( written < 0 || (size_t)written >= sizeof(path) ) {
       ui_print(ui_active_window_name(), "{red}*** Cannot save: configuration path is too long{reset}");
 
       return false;
    }
 
-   if (!cfg_save(cfg, path) ) {
+   if ( !cfg_save(cfg, path) ) {
       ui_print(ui_active_window_name(), "{red}*** Failed to save configuration to %s{reset}", path);
 
       return false;
@@ -540,9 +540,9 @@ bool cmd_quit(int argc, char **args) {
    bool confirmed = false;
    int first_arg = 1;
 
-   while (first_arg < argc && args[first_arg] &&
-          (strcasecmp(args[first_arg], "-y") == 0 || strcasecmp(args[first_arg], "-yes") == 0 ||
-           strcasecmp(args[first_arg], "y") == 0 || strcasecmp(args[first_arg], "yes") == 0) ) {
+   while ( first_arg < argc && args[first_arg] &&
+           (strcasecmp(args[first_arg], "-y") == 0 || strcasecmp(args[first_arg], "-yes") == 0 ||
+            strcasecmp(args[first_arg], "y") == 0 || strcasecmp(args[first_arg], "yes") == 0) ) {
       confirmed = true;
       first_arg++;
    }
@@ -553,7 +553,7 @@ bool cmd_quit(int argc, char **args) {
 
    // Confirm before quitting; the active frontend handles its own dialog via
    // the client.quit.request event.
-   if ( !confirmed && !ui_confirm_quit() ) {
+   if (!confirmed && !ui_confirm_quit() ) {
       return false;
    }
 
@@ -595,7 +595,7 @@ bool cmd_rxvol(int argc, char **args) {
 
    if (ui_mode == UI_MODE_TUI) {
       // do stuff
-   } else if (frontend_ops() ) {
+   } else if ( frontend_ops() ) {
       frontend_ops()->rx_volume(val);
       ui_print(ui_active_window_name(), "* Set rx-vol to %d", val);
    }

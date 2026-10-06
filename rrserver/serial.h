@@ -5,7 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RRSERVER_SERIAL_H
-#define RRSERVER_SERIAL_H
+#define	RRSERVER_SERIAL_H
 #include <stdbool.h>
 void rrserver_serial_init(void);
 void rrserver_serial_fini(void);

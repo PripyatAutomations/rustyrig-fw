@@ -30,29 +30,61 @@ extern struct GlobalState rig;          // Global state
 
 // Fault Table contains the known faults and their text strings
 struct fault_table fault_table[] = {
-   // FAULT       		Fatal?      String
-   { FAULT_NONE, 		false, "None" },
-   { FAULT_STUCK_RELAY, 	true, "RELAY" },
-   { FAULT_INLET_THERMAL, 	true, "THERM_IN" },
-   { FAULT_TOO_HOT, 		true, "THERM_BOX" },
-   { FAULT_HIGH_SWR, 		true, "SWR" },
-   { FAULT_FINAL_THERMAL, 	true, "THERM_FIN" },
-   { FAULT_FINAL_LOW_CURRENT, 	true, "F Lo Curr" },
-   { FAULT_FINAL_HIGH_CURRENT,	true, "F Hi Curr" },
-   { FAULT_FINAL_LOW_VOLT, 	true, "F Lo Volt" },
-   { FAULT_FINAL_HIGH_VOLT, 	true, "F Hi Volt" },
-   { FAULT_TOT_TIMEOUT, 	true, "TIMEOUT" },
-   { FAULT_WARMING_UP, 		false, "WARM UP" },
-   { FAULT_IO_ERROR, 		false, "IO INIT" },
-   { FAULT_BACKEND_ERR, 	false, "BACKEND" },
-   { FAULT_CAT_ERROR,		false, "CAT INIT" },
-   { FAULT_UNKNOWN, 		true, "UNK. ERR" },
+   // FAULT             Fatal?      String
+   {
+      FAULT_NONE, false, "None"
+   },
+   {
+      FAULT_STUCK_RELAY, true, "RELAY"
+   },
+   {
+      FAULT_INLET_THERMAL, true, "THERM_IN"
+   },
+   {
+      FAULT_TOO_HOT, true, "THERM_BOX"
+   },
+   {
+      FAULT_HIGH_SWR, true, "SWR"
+   },
+   {
+      FAULT_FINAL_THERMAL, true, "THERM_FIN"
+   },
+   {
+      FAULT_FINAL_LOW_CURRENT, true, "F Lo Curr"
+   },
+   {
+      FAULT_FINAL_HIGH_CURRENT, true, "F Hi Curr"
+   },
+   {
+      FAULT_FINAL_LOW_VOLT, true, "F Lo Volt"
+   },
+   {
+      FAULT_FINAL_HIGH_VOLT, true, "F Hi Volt"
+   },
+   {
+      FAULT_TOT_TIMEOUT, true, "TIMEOUT"
+   },
+   {
+      FAULT_WARMING_UP, false, "WARM UP"
+   },
+   {
+      FAULT_IO_ERROR, false, "IO INIT"
+   },
+   {
+      FAULT_BACKEND_ERR, false, "BACKEND"
+   },
+   {
+      FAULT_CAT_ERROR, false, "CAT INIT"
+   },
+   {
+      FAULT_UNKNOWN, true, "UNK. ERR"
+   },
 };
 
 int fault_priority(uint32_t fault) {
    // XXX: We need to look this up in the fault table and figure out the
    // priority
-   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
 
    if (items > 0) {
       for (int i = 0 ; i < items ; i++) {
@@ -66,7 +98,7 @@ int fault_priority(uint32_t fault) {
 }
 
 const char *fault_get_type_str(uint32_t fault) {
-   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
 
    if (items > 0) {
       for (int i = 0 ; i < items ; i++) {
@@ -82,7 +114,7 @@ const char *fault_get_type_str(uint32_t fault) {
 // All faults trigger an alarm light, but only some are fatal and will cause a
 // shutdown
 bool fault_is_fatal(uint32_t fault) {
-   int items = ( sizeof(fault_table) / sizeof(struct fault_table) );
+   int items = (sizeof(fault_table) / sizeof(struct fault_table) );
 
    if (items > 0) {
       for (int i = 0 ; i < items ; i++) {
@@ -101,7 +133,7 @@ uint32_t set_fault(uint32_t fault) {
 
    const char *fault_type = fault_get_type_str(fault);
 
-   if ( fault_priority(fault) > fault_priority(rig.fault_code) ) {
+   if (fault_priority(fault) > fault_priority(rig.fault_code) ) {
       Log(LOG_CRIT, "faults", "FAULT: New fault %s is higher priority than last (%d > %d), raised fault level!",
          fault_type, fault, rig.fault_code);
       rig.fault_code = fault;
@@ -117,7 +149,7 @@ uint32_t set_fault(uint32_t fault) {
 bool check_faults(void) {
    if (rig.fault_code != 0) {
       // XXX: We should check if fatal or alarm
-      if ( fault_is_fatal(rig.fault_code) ) {
+      if (fault_is_fatal(rig.fault_code) ) {
          Log(LOG_CRIT, "faults",
             "Fault [%d] has occurred and we cannot continue! Halting to prevent damage! Total faults: %d",
             rig.fault_code, rig.faults);

@@ -20,4 +20,4 @@
 
 extern const char *pango_color_for_tag(const char *tag, bool *is_bg);
 
-#endif	// __rrclient_ui_colors_h
+#endif // __rrclient_ui_colors_h

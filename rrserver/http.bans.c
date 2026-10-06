@@ -23,7 +23,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#ifdef	USE_HTTP
+#ifdef  USE_HTTP
 struct http_ua_ban {
    char *useragent;      // saved user agent regex
    regex_t regex;
@@ -41,7 +41,8 @@ static void free_http_ua_bans(void) {
    while (ban) {
       http_ua_ban_t *next = ban->next;
       free(ban->useragent);
-      if (ban->regex_compiled) regfree(&ban->regex);
+
+      if (ban->regex_compiled) { regfree(&ban->regex); }
       free(ban->description);
       free(ban);
       ban = next;
@@ -77,20 +78,20 @@ bool load_http_ua_bans(const char *path) {
    if (!fp) {
       return true;
    }
-   /* Reloads replace the active list.  Do this only after the file opened so
-    * a transient missing file does not silently discard the current policy. */
+   /* Reloads replace the active list.  Do this only after the file opened so a transient
+    * missing file does not silently discard the current policy. */
    free_http_ua_bans();
-   while (fgets(line, sizeof(line), fp)) {
+   while ( fgets(line, sizeof(line), fp) ) {
       // Skip comments and empty lines
       if (line[0] == '#' || line[0] == ';' ||
-          (strlen(line) > 1 && (line[0] == '/' && line[1] == '/') ) || line[0] == '\n') {
+          ( strlen(line) > 1 && (line[0] == '/' && line[1] == '/') ) || line[0] == '\n') {
          continue;
       }
       // Remove trailing \r or \n characters
       size_t line_len = strlen(line);
       char *end = line + (line_len ? line_len - 1 : 0);
       char *start = NULL;
-      while (end >= line && (*end == '\r' || *end == '\n') ) {
+      while ( end >= line && (*end == '\r' || *end == '\n') ) {
          *end = '\0';
          end--;
       }
@@ -104,35 +105,39 @@ bool load_http_ua_bans(const char *path) {
       if (line[0] == '\n' || line[0] == '\0') {
          continue;
       }
-      http_ua_ban_t *new_ban = calloc(1, sizeof(*new_ban));
+      http_ua_ban_t *new_ban = calloc( 1, sizeof(*new_ban) );
+
       if (!new_ban) {
          fclose(fp);
+
          return true;
       }
       new_ban->useragent = strdup(line);
+
       if (!new_ban->useragent) {
          free(new_ban);
          fclose(fp);
+
          return true;
       }
-      int regex_rc = regcomp(&new_ban->regex, new_ban->useragent,
-         REG_EXTENDED | REG_NOSUB);
+      int regex_rc = regcomp(&new_ban->regex, new_ban->useragent, REG_EXTENDED | REG_NOSUB);
+
       if (regex_rc != 0) {
          char error_text[256];
-         regerror(regex_rc, &new_ban->regex, error_text, sizeof(error_text));
-         Log(LOG_WARN, "http.bans", "Ignoring invalid user-agent pattern '%s': %s",
-            new_ban->useragent, error_text);
+         regerror( regex_rc, &new_ban->regex, error_text, sizeof(error_text) );
+         Log(LOG_WARN, "http.bans", "Ignoring invalid user-agent pattern '%s': %s", new_ban->useragent, error_text);
          free(new_ban->useragent);
          free(new_ban);
          continue;
       }
       new_ban->regex_compiled = true;
       new_ban->enabled = true;
+
       if (!http_ua_bans) {
          http_ua_bans = new_ban;
       } else {
          http_ua_ban_t *tail = http_ua_bans;
-         while (tail->next) tail = tail->next;
+         while (tail->next) { tail = tail->next; }
          tail->next = new_ban;
       }
    }

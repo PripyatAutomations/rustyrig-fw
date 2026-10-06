@@ -1,4 +1,6 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Avoid an Uncrustify hang in native media subscription logging by reading
+    direction and VFO fields before formatting the diagnostic message.
   * Build pack-eeprom-generated files (build_config.h, eeprom_types.h,
     eeprom_layout.h, eeprom.bin) as real make targets so a parallel make -j
     build always runs pack-eeprom before compiling any object that includes

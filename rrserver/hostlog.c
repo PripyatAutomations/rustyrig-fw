@@ -42,7 +42,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       return false;
    }
 
-   if (debug_filter(subsys, priority)) {
+   if ( debug_filter(subsys, priority) ) {
       return false;
    }
 
@@ -50,8 +50,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
 
    uint8_t *frame = NULL;
-   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, strlen(msgbuf),
-      ++logframe_seq, (uint64_t)now);
+   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, strlen(msgbuf), ++logframe_seq, (uint64_t)now);
 
    if (flen < 0 || !frame) {
       return false;   // OOM or too-long; drop quietly
@@ -61,8 +60,8 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    rrconn_t *cur = http_client_list;
 
    while (cur) {
-      if (cur->is_ws && cur->authenticated && cur->conn &&
-          client_has_flag(cur, FLAG_SYSLOG) ) {
+      if ( cur->is_ws && cur->authenticated && cur->conn &&
+           client_has_flag(cur, FLAG_SYSLOG) ) {
          mg_ws_send(cur->conn, frame, flen, WEBSOCKET_OP_BINARY);
       }
       cur = cur->next;

@@ -29,7 +29,7 @@ extern bool dying;               // main.c
 struct rr_user *global_userlist = NULL;
 
 static void userlist_refresh_ptt_status(void) {
-   if (ui_mode == UI_MODE_TUI) tui_redraw_topline();
+   if (ui_mode == UI_MODE_TUI) { tui_redraw_topline(); }
 }
 
 // Add or update an entry, matching on name.
@@ -42,17 +42,20 @@ bool userlist_add_or_update(dict *d) {
    const char *t_privs = dict_get(d, "talk.privs", NULL);
    const char *t_user = dict_get(d, "talk.user", NULL);
    const char *t_room = dict_get(d, "talk.room", NULL);
+
    if (!t_room || !*t_room) {
-      /* Some userinfo messages are not room-qualified.  Do not use the
-       * current conversation blindly here: a private query tab is also a
-       * conversation, but it is not a room and would temporarily move roster
-       * entries out of the room they belong to. */
+      /* Some userinfo messages are not room-qualified.  Do not use the current
+       * conversation blindly here: a private query tab is also a conversation, but it is
+       * not a room and would temporarily move roster entries out of the room they belong
+       * to. */
       const char *current = rrclient_current_room();
-      t_room = (current && *current && rrclient_room_is_joined(current))
+      t_room = ( current && *current && rrclient_room_is_joined(current) )
          ? current : ws_authoritative_room();
    }
+
    if (!t_room || !*t_room) {
       Log(LOG_WARN, "userlist", "Ignoring userinfo for %s without a room", t_user ? t_user : "<unknown>");
+
       return true;
    }
    int t_sessions = dict_get_int(d, "talk.sessions", 0);
@@ -69,7 +72,7 @@ bool userlist_add_or_update(dict *d) {
    if (c) {
       Log(LOG_DEBUG, "userlist", "Updating userlist entry for %s at <%p>", t_user, c);
 
-      strlcpy(c->room, t_room, sizeof(c->room));
+      strlcpy( c->room, t_room, sizeof(c->room) );
       memset( c->name, 0, sizeof(c->name) );
       strlcpy( c->name, t_user, sizeof(c->name) );
 
@@ -82,12 +85,13 @@ bool userlist_add_or_update(dict *d) {
       c->sessions = t_sessions;
       c->is_muted = t_muted;
       c->is_ptt = t_ptt;
-      strlcpy(c->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(c->ptt_room));
-      c->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
+      strlcpy( c->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(c->ptt_room) );
+      c->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper( (unsigned char)t_ptt_vfo[0] ) : 0;
 
       // Another user starting/stopping TX changes the PTT button color
-      if (frontend_ops()) frontend_ops()->ptt_refresh();
-      if (frontend_ops()) frontend_ops()->userlist_redraw();
+      if ( frontend_ops() ) { frontend_ops()->ptt_refresh(); }
+
+      if ( frontend_ops() ) { frontend_ops()->userlist_redraw(); }
       userlist_refresh_ptt_status();
 
       return true;
@@ -97,10 +101,11 @@ bool userlist_add_or_update(dict *d) {
 
    if (!n) {
       abort();
+
       return false;
    }
 
-   strlcpy(n->room, t_room, sizeof(n->room));
+   strlcpy( n->room, t_room, sizeof(n->room) );
    strlcpy( n->name, t_user, sizeof(n->name) );
 
    if (t_privs) {
@@ -110,10 +115,10 @@ bool userlist_add_or_update(dict *d) {
    n->sessions = t_sessions;
    n->is_muted = t_muted;
    n->is_ptt = t_ptt;
-   strlcpy(n->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(n->ptt_room));
-   n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
+   strlcpy( n->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(n->ptt_room) );
+   n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper( (unsigned char)t_ptt_vfo[0] ) : 0;
 
-   if (frontend_ops()) frontend_ops()->ptt_refresh();
+   if ( frontend_ops() ) { frontend_ops()->ptt_refresh(); }
 
    /* Append to the end of the list. */
    if (!global_userlist) {
@@ -128,7 +133,7 @@ bool userlist_add_or_update(dict *d) {
 
    Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-   if (frontend_ops()) {
+   if ( frontend_ops() ) {
       frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
@@ -139,19 +144,21 @@ bool userlist_add_or_update(dict *d) {
 // Remove a user from the list, by name. While there should only ever be ONE,
 // this will scan the entire list...
 bool userlist_remove_by_name_room(const char *name, const char *room) {
-   if (!name) return false;
+   if (!name) { return false; }
    struct rr_user *c = global_userlist, *prev = NULL;
    while (c) {
-      if (!strcasecmp(c->name, name) && (!room || !strcasecmp(c->room, room))) {
+      if ( !strcasecmp(c->name, name) && ( !room || !strcasecmp(c->room, room) ) ) {
          struct rr_user *next = c->next;
-         if (prev) prev->next = next; else global_userlist = next;
-         Log(LOG_DEBUG, "userlist", "Removing user %s from room %s at <%p>", name,
-            c->room, c);
+
+         if (prev) { prev->next = next; } else { global_userlist = next; }
+         Log(LOG_DEBUG, "userlist", "Removing user %s from room %s at <%p>", name, c->room, c);
          free(c);
-         if (frontend_ops()) {
+
+         if ( frontend_ops() ) {
             frontend_ops()->userlist_redraw();
          }
          userlist_refresh_ptt_status();
+
          return true;
       }
       prev = c; c = c->next;
@@ -160,24 +167,26 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
 }
 
 void userlist_remove_room(const char *room) {
-   if (!room) return;
+   if (!room) { return; }
    struct rr_user *c = global_userlist, *prev = NULL;
    while (c) {
       struct rr_user *next = c->next;
-      if (!strcasecmp(c->room, room)) {
-         if (prev) prev->next = next; else global_userlist = next;
+
+      if ( !strcasecmp(c->room, room) ) {
+         if (prev) { prev->next = next; } else { global_userlist = next; }
          free(c);
-      } else prev = c;
+      } else { prev = c; }
       c = next;
    }
-   if (!dying && frontend_ops()) {
+
+   if ( !dying && frontend_ops() ) {
       frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
 }
 
 bool userlist_remove_by_name(const char *name) {
-   return userlist_remove_by_name_room(name, rrclient_current_room());
+   return userlist_remove_by_name_room( name, rrclient_current_room() );
 }
 
 // Clearing the userlist
@@ -191,11 +200,11 @@ void userlist_clear_all(void) {
 
    while (c) {
       next = c->next;
-      Log(LOG_CRAZY, "userlist", "Clearing entry at <%p>: %s (%d/%d) logged-in: %lu", c, c->name, c->sessions, c->logged_in);
+      Log(LOG_CRAZY, "userlist", "Clearing entry at <%p>: %s (%d/%d) logged-in: %lu", c, c->name, c->sessions,
+         c->logged_in);
       free(c);
       c = next;
    }
-
    // Clear the userlist pointer
    global_userlist = NULL;
 
@@ -204,7 +213,7 @@ void userlist_clear_all(void) {
       return;
    }
 
-   if (frontend_ops()) {
+   if ( frontend_ops() ) {
       frontend_ops()->userlist_redraw();
    }
    userlist_refresh_ptt_status();
@@ -212,12 +221,15 @@ void userlist_clear_all(void) {
 
 // Find a user in a specific room.
 struct rr_user *userlist_find_in_room(const char *name, const char *room) {
-   if (!name) return NULL;
-   for (struct rr_user *c = global_userlist; c; c = c->next)
-      if (!strcasecmp(c->name, name) && (!room || !strcasecmp(c->room, room))) return c;
+   if (!name) { return NULL; }
+
+   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
+      if ( !strcasecmp(c->name, name) && ( !room || !strcasecmp(c->room, room) ) ) { return c; }
+   }
+
    return NULL;
 }
 
 struct rr_user *userlist_find(const char *name) {
-   return userlist_find_in_room(name, rrclient_current_room());
+   return userlist_find_in_room( name, rrclient_current_room() );
 }

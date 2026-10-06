@@ -5,7 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RRCLIENT_ROOMS_H
-#define RRCLIENT_ROOMS_H
+#define	RRCLIENT_ROOMS_H
 
 #include <stdbool.h>
 #include <stdint.h>

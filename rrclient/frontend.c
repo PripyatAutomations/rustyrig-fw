@@ -18,15 +18,18 @@ static const rr_frontend_ops_t *registered_ops = NULL;
 bool frontend_ops_register(const rr_frontend_ops_t *ops) {
    if (!ops || !ops->name || !ops->init || !ops->run || !ops->quit) {
       Log(LOG_CRIT, "frontend", "frontend_ops_register: incomplete ops table");
+
       return true;
    }
+
    if (registered_ops) {
-      Log(LOG_CRIT, "frontend", "frontend_ops_register: %s already registered",
-         registered_ops->name);
+      Log(LOG_CRIT, "frontend", "frontend_ops_register: %s already registered", registered_ops->name);
+
       return true;
    }
    registered_ops = ops;
    Log(LOG_INFO, "frontend", "Frontend module registered: %s", ops->name);
+
    return false;
 }
 
@@ -34,9 +37,9 @@ void frontend_ops_unregister(void) {
    if (!registered_ops) {
       return;
    }
-   Log(LOG_INFO, "frontend", "Frontend module unregistered: %s",
-      registered_ops->name);
+   Log(LOG_INFO, "frontend", "Frontend module unregistered: %s", registered_ops->name);
    registered_ops = NULL;
+
    if (ui_mode == UI_MODE_GTK) {
       ui_mode = UI_MODE_TUI;
    }

@@ -6,7 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Per-rig room provisioning. Returns false on success.
 #ifndef RRSERVER_RIG_ROOMS_H
-#define RRSERVER_RIG_ROOMS_H
+#define	RRSERVER_RIG_ROOMS_H
 #include <stdbool.h>
 extern bool rrserver_rig_rooms_init(void);
 extern bool rrserver_rig_room_configured(const char *room);

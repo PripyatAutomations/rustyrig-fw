@@ -27,16 +27,17 @@
 // Repeats can be used to create a timer that only happens a few times
 //       Use repeats = 0 for unlimited repeats
 bool timer_create_periodic( const char *name, int interval, int repeats, void (*callback) () ) {
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
    // XXX: Provide a libmongoose based timer here
-#else	// USE_MONGOOSE
-#ifdef	HOST_POSIX
+#else // USE_MONGOOSE
+#ifdef  HOST_POSIX
    // Fallback: plain posix timers on linux/glibc and bsd if possible
    // NB: posix timer callback is via a signal, so we need to keep track of the
    // callback function in a table, and then dispatch it from timer_run() from
    // the main loop.. (oh and handle SIGALRM in the signal handler)
-#endif	// HOST_POSIX
-#endif	// USE_MONGOOSE
+#endif // HOST_POSIX
+#endif // USE_MONGOOSE
+
    return false;
 }
 
@@ -46,9 +47,11 @@ bool timer_create_oneshot( const char *name, int delay, void (*callback) () ) {
 
 // Run all pending timers this iteration of the main loop
 bool timer_run(void) {
-#if	!defined(USE_MONGOOSE) && defined(HOST_POSIX)
-   // XXX: Add support for manually running timers in the main loop without a library on posix ;(
+#if     !defined(USE_MONGOOSE) && defined(HOST_POSIX)
+   // XXX: Add support for manually running timers in the main loop without a library on
+   // posix ;(
 #endif
+
    return false;
 }
 

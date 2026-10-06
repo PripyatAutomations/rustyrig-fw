@@ -1,4 +1,5 @@
-// rrserver/objects.c: Server authority for UUID discovery, subscriptions, and property controls.
+// rrserver/objects.c: Server authority for UUID discovery, subscriptions, and property
+// controls.
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -36,27 +37,35 @@ typedef struct object_send {
 
 static dict *message(const char *family, const char *cmd, const char *request) {
    dict *d = dict_new();
-   if (!d) return NULL;
+
+   if (!d) { return NULL; }
    dict_add(d, "msg.type", family);
    dict_add(d, !strcmp(family, "object") ? "object.cmd" : "property.cmd", cmd);
    dict_add(d, "stream.epoch", epoch);
    rr_object_seq_put(d, "stream.seq", sequence);
-   if (request) dict_add(d, "request.id", request);
+
+   if (request) { dict_add(d, "request.id", request); }
+
    return d;
 }
 
 static void send_message(rrconn_t *client, dict *d) {
-   if (!d) return;
-   if (client) ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
-   else for (subscriber_t *s = subscribers; s; s = s->next)
-      if (s->client->authenticated) ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT);
+   if (!d) { return; }
+
+   if (client) { ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT); } else {
+      for (subscriber_t *s = subscribers ; s ; s = s->next) {
+         if (s->client->authenticated) { ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT); }
+      }
+   }
    dict_free(d);
 }
 
 static bool resolve(const char *uuid, object_send_t *ctx) {
    ctx->radio = rr_rig_registry_find_uuid(rig.rigs, uuid);
    ctx->vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, uuid);
-   if (ctx->vfo) ctx->radio = rr_server_vfo_owner(ctx->vfo);
+
+   if (ctx->vfo) { ctx->radio = rr_server_vfo_owner(ctx->vfo); }
+
    return ctx->radio != NULL;
 }
 
@@ -66,26 +75,30 @@ static const char *target(object_send_t *ctx) {
 
 static bool property_read(object_send_t *ctx, const char *name, rr_property_snapshot_t *s) {
    return ctx->vfo ? rr_vfo_property_read(ctx->vfo, name, s) :
-      rr_rig_property_read(ctx->radio, name, s);
+          rr_rig_property_read(ctx->radio, name, s);
 }
 
 static void send_state(object_send_t *ctx, const char *name, const char *cmd) {
    rr_property_snapshot_t s;
    rr_property_descriptor_t p;
    bool described = ctx->vfo ? rr_vfo_property_describe(ctx->vfo, name, &p) :
-      rr_rig_property_describe(ctx->radio, name, &p);
-   if (!described || !p.readable) return;
-   if (!property_read(ctx, name, &s)) return;
+                    rr_rig_property_describe(ctx->radio, name, &p);
+
+   if (!described || !p.readable) { return; }
+
+   if ( !property_read(ctx, name, &s) ) { return; }
    dict *d = message("property", cmd, ctx->request);
-   if (!d) return;
-   dict_add(d, "target", target(ctx));
+
+   if (!d) { return; }
+   dict_add( d, "target", target(ctx) );
    dict_add(d, "property.name", name);
-   dict_add(d, "property.type", rr_object_type_name(s.value_type));
+   dict_add( d, "property.type", rr_object_type_name(s.value_type) );
    dict_add_bool(d, "property.observed", s.observed);
    dict_add_bool(d, "property.known", s.known);
    dict_add_bool(d, "property.available", s.available);
    rr_object_seq_put(d, "property.version", s.version);
-   if (s.known && !rr_object_value_put(d, "property.value", s.value_type, &s.value)) {
+
+   if ( s.known && !rr_object_value_put(d, "property.value", s.value_type, &s.value) ) {
       dict_free(d); return;
    }
    send_message(ctx->client, d);
@@ -94,61 +107,83 @@ static void send_state(object_send_t *ctx, const char *name, const char *cmd) {
 static bool send_property(const rr_property_descriptor_t *p, void *user) {
    object_send_t *ctx = user;
    const char *type = rr_object_type_name(p->type);
-   if (!type) return false;
+
+   if (!type) { return false; }
    dict *d = message("property", "descriptor", ctx->request);
-   if (!d) return true;
-   dict_add(d, "target", target(ctx));
+
+   if (!d) { return true; }
+   dict_add( d, "target", target(ctx) );
    dict_add(d, "property.name", p->name);
    dict_add(d, "property.type", type);
    dict_add_bool(d, "property.readable", p->readable);
    dict_add_bool(d, "property.writable", p->writable);
-   if (p->unit) dict_add(d, "property.unit", p->unit);
-   if (p->has_min) rr_object_value_put(d, "property.minimum", p->type, &p->minimum);
-   if (p->has_max) rr_object_value_put(d, "property.maximum", p->type, &p->maximum);
-   if (p->has_step) rr_object_value_put(d, "property.step", p->type, &p->step);
-   if (p->enum_values) dict_add(d, "property.enum", p->enum_values);
+
+   if (p->unit) { dict_add(d, "property.unit", p->unit); }
+
+   if (p->has_min) { rr_object_value_put(d, "property.minimum", p->type, &p->minimum); }
+
+   if (p->has_max) { rr_object_value_put(d, "property.maximum", p->type, &p->maximum); }
+
+   if (p->has_step) { rr_object_value_put(d, "property.step", p->type, &p->step); }
+
+   if (p->enum_values) { dict_add(d, "property.enum", p->enum_values); }
    send_message(ctx->client, d);
-   if (p->readable) send_state(ctx, p->name, "state");
+
+   if (p->readable) { send_state(ctx, p->name, "state"); }
+
    return false;
 }
 
 static void send_object(object_send_t *ctx, const char *cmd) {
    dict *d = message("object", cmd, ctx->request);
-   if (!d) return;
-   dict_add(d, "object.uuid", target(ctx));
+
+   if (!d) { return; }
+   dict_add( d, "object.uuid", target(ctx) );
    dict_add(d, "object.type", ctx->vfo ? "vfo" : "rig");
-   dict_add(d, "object.owner", ctx->vfo ? rr_server_rig_id(ctx->radio) : rr_rig_registry_node(rig.rigs));
-   dict_add(d, "object.alias", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_rig_registry_alias(rig.rigs, ctx->radio));
-   dict_add(d, "object.room", rr_rig_registry_room(rig.rigs, ctx->radio));
-   dict_add(d, "object.name", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_server_rig_name(ctx->radio));
-   dict_add(d, "object.lifecycle", ctx->vfo && rr_server_vfo_lifecycle(ctx->vfo) == RR_VFO_EPHEMERAL ? "ephemeral" : "persistent");
-   if (!ctx->vfo) dict_add(d, "object.backend", rr_server_rig_backend(ctx->radio)->type->name);
+   dict_add( d, "object.owner", ctx->vfo ? rr_server_rig_id(ctx->radio) : rr_rig_registry_node(rig.rigs) );
+   dict_add( d, "object.alias",
+      ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_rig_registry_alias(rig.rigs, ctx->radio) );
+   dict_add( d, "object.room", rr_rig_registry_room(rig.rigs, ctx->radio) );
+   dict_add( d, "object.name", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_server_rig_name(ctx->radio) );
+   dict_add(d, "object.lifecycle",
+      ctx->vfo && rr_server_vfo_lifecycle(ctx->vfo) == RR_VFO_EPHEMERAL ? "ephemeral" : "persistent");
+
+   if (!ctx->vfo) { dict_add(d, "object.backend", rr_server_rig_backend(ctx->radio)->type->name); }
    send_message(ctx->client, d);
-   if (ctx->vfo) rr_vfo_property_foreach(ctx->vfo, send_property, ctx);
-   else rr_rig_property_foreach(ctx->radio, send_property, ctx);
+
+   if (ctx->vfo) { rr_vfo_property_foreach(ctx->vfo, send_property, ctx); } else {
+      rr_rig_property_foreach(ctx->radio, send_property, ctx);
+   }
 }
 
 static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
-   g_ptr_array_add(user, g_strdup(rr_server_vfo_id(vfo)));
+   g_ptr_array_add( user, g_strdup( rr_server_vfo_id(vfo) ) );
+
    return false;
 }
 
 static bool collect_rig(rr_server_rig_t *radio, void *user) {
-   g_ptr_array_add(user, g_strdup(rr_server_rig_id(radio)));
+   g_ptr_array_add( user, g_strdup( rr_server_rig_id(radio) ) );
+
    return rr_server_vfo_foreach(radio, collect_vfo, user);
 }
 
 void rrserver_objects_poll(void) {
    // Bounded serialization batches on the existing server event loop.
-   for (subscriber_t *s = subscribers; s; s = s->next) {
-      if (!s->pending || !s->client->authenticated) continue;
-      for (unsigned sent = 0; sent < 4 && s->cursor < s->pending->len; sent++) {
+   for (subscriber_t *s = subscribers ; s ; s = s->next) {
+      if (!s->pending || !s->client->authenticated) { continue; }
+
+      for (unsigned sent = 0 ; sent < 4 && s->cursor < s->pending->len ; sent++) {
          const char *uuid = g_ptr_array_index(s->pending, s->cursor++);
-         object_send_t ctx = { .client = s->client, .request = s->request };
-         if (resolve(uuid, &ctx)) send_object(&ctx, "descriptor");
+         object_send_t ctx = {
+            .client = s->client, .request = s->request
+         };
+
+         if ( resolve(uuid, &ctx) ) { send_object(&ctx, "descriptor"); }
       }
+
       if (s->cursor == s->pending->len) {
-         send_message(s->client, message("object", "end", s->request));
+         send_message( s->client, message("object", "end", s->request) );
          g_ptr_array_free(s->pending, true); s->pending = NULL;
          free(s->request); s->request = NULL;
       }
@@ -157,7 +192,8 @@ void rrserver_objects_poll(void) {
 
 static void result(rrconn_t *client, const char *family, const char *id, const char *code) {
    dict *d = message(family, "result", id);
-   if (!d) return;
+
+   if (!d) { return; }
    dict_add(d, "result.code", code);
    send_message(client, d);
 }
@@ -167,23 +203,27 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
    subscriber_t **link = &subscribers;
    while (*link) {
       subscriber_t *s = *link;
+
       if (s->client == client) {
          *link = s->next;
-         if (s->pending) g_ptr_array_free(s->pending, true);
+
+         if (s->pending) { g_ptr_array_free(s->pending, true); }
          free(s->request); free(s);
-      }
-      else link = &s->next;
+      } else { link = &s->next; }
    }
 }
 
 static void inventory_media(object_send_t *ctx, const char *owner, unsigned depth) {
-   for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+   for (unsigned i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
       struct rr_mediachan *ch = &media_channels[i];
-      if (!ch->uuid[0]) continue;
+
+      if (!ch->uuid[0]) { continue; }
       const char *parent = ch->vfo_uuid[0] ? ch->vfo_uuid : ch->rig_uuid;
-      if (strcmp(parent, owner ? owner : "")) continue;
+
+      if ( strcmp(parent, owner ? owner : "") ) { continue; }
       dict *row = rr_inventory_row(ctx->request, depth, "media", ch->name, ch->uuid);
-      if (!row) continue;
+
+      if (!row) { continue; }
       dict_add(row, "inventory.room", ch->room);
       dict_add(row, "inventory.codec", ch->codec);
       dict_add(row, "inventory.direction", ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX");
@@ -199,19 +239,22 @@ static void inventory_media(object_send_t *ctx, const char *owner, unsigned dept
 }
 static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
    object_send_t *ctx = user;
-   dict *row = rr_inventory_row(ctx->request, 2, "vfo", rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo));
+   dict *row = rr_inventory_row( ctx->request, 2, "vfo", rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo) );
    rr_property_snapshot_t state;
+
    if (row && rr_vfo_property_read(vfo, "frequency", &state) && state.known) {
       char frequency[48]; snprintf(frequency, sizeof(frequency), "%ld Hz", state.value.l);
       dict_add(row, "inventory.frequency", frequency);
    }
    rr_inventory_send(ctx->client, row);
    inventory_media(ctx, rr_server_vfo_id(vfo), 3);
+
    return false;
 }
 static void inventory_services(object_send_t *ctx, const char *scope, unsigned depth) {
    dict *d = dict_new();
-   if (!d) return;
+
+   if (!d) { return; }
    dict_add(d, "request.id", ctx->request);
    dict_add(d, "inventory.scope", scope);
    dict_add_uint(d, "inventory.depth", depth);
@@ -221,15 +264,18 @@ static void inventory_services(object_send_t *ctx, const char *scope, unsigned d
 static void inventory_rooms(object_send_t *ctx, const char *base) {
 #ifdef USE_SQLITE
    char *rooms = db_room_list(masterdb), *save = NULL;
-   for (char *room = rooms ? strtok_r(rooms, " ", &save) : NULL; room; room = strtok_r(NULL, " ", &save)) {
-      if (base ? !ws_room_same_rig(room, base) : ws_room_rig_namespace(room)) continue;
+
+   for ( char *room = rooms ? strtok_r(rooms, " ", &save) : NULL ; room ; room = strtok_r(NULL, " ", &save) ) {
+      if ( base ? !ws_room_same_rig(room, base) : ws_room_rig_namespace(room) ) { continue; }
       dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, NULL);
-      if (!row) continue;
+
+      if (!row) { continue; }
       dict_add(row, "inventory.state", ws_client_in_room(ctx->client, room) ? "joined" : "available");
       dict_add(row, "inventory.service", base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
       dict_add(row, "inventory.action", "/join|part <room>");
       rr_inventory_send(ctx->client, row);
    }
+
    free(rooms);
 #else
    (void)ctx; (void)base;
@@ -238,137 +284,190 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    object_send_t *ctx = user;
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
-   dict *row = rr_inventory_row(ctx->request, 1, "rig", alias, rr_server_rig_id(radio));
+   dict *row = rr_inventory_row( ctx->request, 1, "rig", alias, rr_server_rig_id(radio) );
+
    if (row) {
       dict_add(row, "inventory.backend", rr_server_rig_backend(radio)->type->name);
-      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
+      dict_add( row, "inventory.room", rr_rig_registry_room(rig.rigs, radio) );
       dict_add(row, "inventory.state", radio == rr_rig_registry_default(rig.rigs) ? "default" : "available");
       dict_add(row, "inventory.action", "/join <room>");
    }
    rr_inventory_send(ctx->client, row);
-   inventory_rooms(ctx, rr_rig_registry_room(rig.rigs, radio));
+   inventory_rooms( ctx, rr_rig_registry_room(rig.rigs, radio) );
    char cat[80]; snprintf(cat, sizeof(cat), "%s.cat", alias);
    row = rr_inventory_row(ctx->request, 2, "cat", cat, NULL);
+
    if (row) {
-      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
+      dict_add( row, "inventory.room", rr_rig_registry_room(rig.rigs, radio) );
       dict_add(row, "inventory.action", "/sercom attach <local-name> <rig-alias>.cat");
    }
    rr_inventory_send(ctx->client, row);
    rr_server_vfo_foreach(radio, inventory_vfo, ctx);
    inventory_media(ctx, rr_server_rig_id(radio), 2);
    inventory_services(ctx, alias, 2);
+
    return false;
 }
 static void inventory(rrconn_t *client, const char *id) {
-   object_send_t ctx = { .client = client, .request = id };
-   dict *row = rr_inventory_row(id, 0, "site", cfg_get("station.name"), rr_rig_registry_node(rig.rigs));
-   if (row) dict_add(row, "inventory.room", ws_site_room());
+   object_send_t ctx = {
+      .client = client, .request = id
+   };
+   dict *row = rr_inventory_row( id, 0, "site", cfg_get("station.name"), rr_rig_registry_node(rig.rigs) );
+
+   if (row) { dict_add( row, "inventory.room", ws_site_room() ); }
    rr_inventory_send(client, row);
    inventory_rooms(&ctx, NULL);
    inventory_services(&ctx, "station", 1);
    inventory_media(&ctx, "", 1);
    rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
-   send_message(client, message("object", "inventory-end", id));
+   send_message( client, message("object", "inventory-end", id) );
 }
 
 static void request(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event; (void)user;
-   if (!client || !client->authenticated || !data) return;
-   if (!epoch) epoch = g_uuid_string_random();
+
+   if (!client || !client->authenticated || !data) { return; }
+
+   if (!epoch) { epoch = g_uuid_string_random(); }
    dict *d = json2dict(data);
-   if (!d) return;
+
+   if (!d) { return; }
    const char *family = dict_get(d, "msg.type", "");
    const char *id = dict_get(d, "request.id", NULL);
    const char *code = "invalid-request";
-   if (dict_get_type(d, "request.id") != VAL_STR || !id || !*id || strlen(id) > 64) goto done;
-   if (!strcmp(family, "object")) {
+
+   if (dict_get_type(d, "request.id") != VAL_STR || !id || !*id || strlen(id) > 64) { goto done; }
+
+   if ( !strcmp(family, "object") ) {
       const char *cmd = dict_get(d, "object.cmd", "");
-      if (!strcmp(cmd, "inventory")) {
+
+      if ( !strcmp(cmd, "inventory") ) {
          inventory(client, id);
          dict_free(d); return;
-      } else if (!strcmp(cmd, "unsubscribe")) {
+      } else if ( !strcmp(cmd, "unsubscribe") ) {
          close_client(NULL, NULL, client, NULL); code = "ok";
-      } else if (!strcmp(cmd, "snapshot")) {
-         if (!rr_rig_registry_node(rig.rigs)) { code = "unavailable"; goto done; }
+      } else if ( !strcmp(cmd, "snapshot") ) {
+         if ( !rr_rig_registry_node(rig.rigs) ) { code = "unavailable"; goto done; }
+
          if (rr_rig_registry_count(rig.rigs) > 128) { code = "too-large"; goto done; }
          close_client(NULL, NULL, client, NULL);
-         subscriber_t *s = calloc(1, sizeof(*s));
+         subscriber_t *s = calloc( 1, sizeof(*s) );
+
          if (!s) { code = "unavailable"; goto done; }
          s->client = client; s->next = subscribers; subscribers = s;
          s->request = strdup(id);
          s->pending = g_ptr_array_new_with_free_func(g_free);
+
          if (!s->request || !s->pending) {
             close_client(NULL, NULL, client, NULL); code = "unavailable"; goto done;
          }
          rr_rig_registry_foreach(rig.rigs, collect_rig, s->pending);
+
          if (s->pending->len >= 4096) {
             close_client(NULL, NULL, client, NULL); code = "too-large"; goto done;
          }
-         send_message(client, message("object", "begin", id));
+         send_message( client, message("object", "begin", id) );
          dict *node = message("object", "descriptor", id);
+
          if (!node) {
             close_client(NULL, NULL, client, NULL); code = "unavailable"; goto done;
          }
-         dict_add(node, "object.uuid", rr_rig_registry_node(rig.rigs));
+         dict_add( node, "object.uuid", rr_rig_registry_node(rig.rigs) );
          dict_add(node, "object.type", "node");
-         dict_add(node, "object.room", ws_site_room());
-         dict_add(node, "object.alias", cfg_get("station.name"));
+         dict_add( node, "object.room", ws_site_room() );
+         dict_add( node, "object.alias", cfg_get("station.name") );
          dict_add(node, "object.lifecycle", "persistent");
          send_message(client, node);
          dict_free(d); return;
       }
-   } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "set")) {
+   } else if ( !strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "set") ) {
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);
-      if (!rr_object_uuid_valid(uuid) || !rr_object_name_valid(name)) goto done;
-      object_send_t ctx = { 0 };
-      if (!resolve(uuid, &ctx)) { code = "unknown-object"; goto done; }
-      if (!ctx.vfo && !strncmp(name, "vfo.", 4)) { code = "unknown-property"; goto done; }
+
+      if ( !rr_object_uuid_valid(uuid) || !rr_object_name_valid(name) ) { goto done; }
+      object_send_t ctx = {
+         0
+      };
+
+      if ( !resolve(uuid, &ctx) ) { code = "unknown-object"; goto done; }
+
+      if ( !ctx.vfo && !strncmp(name, "vfo.", 4) ) { code = "unknown-property"; goto done; }
       rr_property_descriptor_t schema;
-      bool found = ctx.vfo ? rr_vfo_property_describe(ctx.vfo, name, &schema) : rr_rig_property_describe(ctx.radio, name, &schema);
+      bool found = ctx.vfo ? rr_vfo_property_describe(ctx.vfo, name, &schema) : rr_rig_property_describe(ctx.radio,
+         name, &schema);
+
       if (!found) { code = "unknown-property"; goto done; }
+
       if (!schema.writable) { code = "read-only"; goto done; }
-      if (!client->user || client->user->is_muted || !has_priv(client->user->uid, "admin|owner|tx|noob") ||
-          (client_has_flag(client, FLAG_NOOB) && !is_elmer_online())) {
+
+      if ( !client->user || client->user->is_muted || !has_priv(client->user->uid, "admin|owner|tx|noob") ||
+           ( client_has_flag(client, FLAG_NOOB) && !is_elmer_online() ) ) {
          code = "forbidden"; goto done;
       }
       const char *room = dict_get(d, "request.room", NULL);
       bool allowed = false;
-      if (room) allowed = rrserver_rig_for_room(room) == ctx.radio &&
-         ws_room_control_allowed(client, room, ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY));
-      else {
+
+      if (room) {
+         allowed = rrserver_rig_for_room(room) == ctx.radio &&
+                   ws_room_control_allowed( client, room, ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY) );
+      } else {
          const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
          allowed = base && ws_client_in_room(client, base);
+
          // Requests without a room still require membership and the RX capability.
-         if (!allowed && base && ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY) && ws_room_rx_tunable(base)) {
+         if ( !allowed && base && ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY) && ws_room_rx_tunable(base) ) {
             char joined[AUTOJOIN_LEN]; snprintf(joined, sizeof(joined), "%s", client->rooms);
             char *save = NULL;
-            for (char *r = strtok_r(joined, ",", &save); r; r = strtok_r(NULL, ",", &save))
-               if (ws_room_same_rig(r, base)) {
+
+            for ( char *r = strtok_r(joined, ",", &save) ; r ; r = strtok_r(NULL, ",", &save) ) {
+               if ( ws_room_same_rig(r, base) ) {
                   rr_vfo_t index;
-                  if (rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 &&
-                      (ws_room_rx_tuning_mask(r) & (UINT32_C(1) << index))) { allowed = true; break; }
+
+                  if ( rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 &&
+                       ( ws_room_rx_tuning_mask(r) & (UINT32_C(1) << index) ) ) { allowed = true; break; }
                }
+            }
          }
       }
-      if (allowed && room && !ws_room_tx_control(room)) {
+
+      if ( allowed && room && !ws_room_tx_control(room) ) {
          rr_vfo_t index;
          allowed = ctx.vfo && rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 &&
-            (ws_room_rx_tuning_mask(room) & (UINT32_C(1) << index));
+                   ( ws_room_rx_tuning_mask(room) & (UINT32_C(1) << index) );
       }
+
       if (!allowed) { code = "forbidden-room"; goto done; }
-      rr_control_request_t control = { .rig = ctx.radio, .vfo = ctx.vfo,
-         .property = name, .value_type = schema.type, .source = "property.set", .context = client };
-      if (!rr_object_value_get(d, "property.value", schema.type, &control.value)) { code = "invalid-value"; goto done; }
+      rr_control_request_t control = {
+         .rig = ctx.radio, .vfo = ctx.vfo,
+         .property = name, .value_type = schema.type, .source = "property.set", .context = client
+      };
+
+      if ( !rr_object_value_get(d, "property.value", schema.type, &control.value) ) {
+         code = "invalid-value"; goto done;
+      }
       rr_property_snapshot_t state;
+
       if (property_read(&ctx, name, &state) && state.observed && !state.available) { code = "unavailable"; goto done; }
-      switch (rr_rig_control(&control)) {
-         case RR_CONTROL_OK: code = "ok"; break;
-         case RR_CONTROL_NOT_FOUND: code = "unknown-property"; break;
-         case RR_CONTROL_READ_ONLY: code = "read-only"; break;
-         case RR_CONTROL_INVALID: case RR_CONTROL_TYPE_MISMATCH: code = "invalid-value"; break;
-         case RR_CONTROL_UNSUPPORTED: code = "unsupported"; break;
-         default: code = "backend-failure"; break;
+
+      switch ( rr_rig_control(&control) ) {
+         case RR_CONTROL_OK: {
+            code = "ok"; break;
+         }
+         case RR_CONTROL_NOT_FOUND: {
+            code = "unknown-property"; break;
+         }
+         case RR_CONTROL_READ_ONLY: {
+            code = "read-only"; break;
+         }
+         case RR_CONTROL_INVALID: case RR_CONTROL_TYPE_MISMATCH: {
+            code = "invalid-value"; break;
+         }
+         case RR_CONTROL_UNSUPPORTED: {
+            code = "unsupported"; break;
+         }
+         default: {
+            code = "backend-failure"; break;
+         }
       }
    }
 done:
@@ -378,28 +477,40 @@ done:
 
 static void changed(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event; (void)client; (void)user;
-   if (!data) return;
+
+   if (!data) { return; }
    sequence++;
-   if (!subscribers) return;
+
+   if (!subscribers) { return; }
    dict *d = json2dict(data);
-   if (!d) return;
-   object_send_t ctx = { 0 };
+
+   if (!d) { return; }
+   object_send_t ctx = {
+      0
+   };
    const char *name = dict_get(d, "property.name", NULL);
-   if (name && resolve(dict_get(d, "target.id", NULL), &ctx)) send_state(&ctx, name, "changed");
+
+   if ( name && resolve(dict_get(d, "target.id", NULL), &ctx) ) { send_state(&ctx, name, "changed"); }
    dict_free(d);
 }
 
 static void lifecycle(const char *event, const char *uuid, rrconn_t *client, void *user) {
    (void)client; (void)user;
    sequence++;
-   if (!subscribers || !uuid) return;
-   if (!strcmp(event, "object.model.removed")) {
+
+   if (!subscribers || !uuid) { return; }
+
+   if ( !strcmp(event, "object.model.removed") ) {
       dict *d = message("object", "removed", NULL);
-      if (d) dict_add(d, "object.uuid", uuid);
+
+      if (d) { dict_add(d, "object.uuid", uuid); }
       send_message(NULL, d);
    } else {
-      object_send_t ctx = { 0 };
-      if (resolve(uuid, &ctx)) send_object(&ctx, !strcmp(event, "object.model.added") ? "added" : "descriptor");
+      object_send_t ctx = {
+         0
+      };
+
+      if ( resolve(uuid, &ctx) ) { send_object(&ctx, !strcmp(event, "object.model.added") ? "added" : "descriptor"); }
    }
 }
 
@@ -413,6 +524,6 @@ void rrserver_objects_register_events(void) {
 }
 
 void rrserver_objects_fini(void) {
-   while (subscribers) close_client(NULL, NULL, subscribers->client, NULL);
+   while (subscribers) { close_client(NULL, NULL, subscribers->client, NULL); }
    g_free(epoch); epoch = NULL; sequence = 0;
 }

@@ -4,7 +4,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if !defined(__rrserver_rig_registry_h)
-#define __rrserver_rig_registry_h
+#define	__rrserver_rig_registry_h
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -19,32 +19,20 @@ extern rr_rig_registry_t *rr_rig_registry_new(void);
 extern bool rr_rig_registry_set_node(rr_rig_registry_t *, const char *uuid);
 extern const char *rr_rig_registry_node(const rr_rig_registry_t *);
 extern void rr_rig_registry_free(rr_rig_registry_t *registry);
-extern rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry,
-   const char *uuid, const char *alias, const char *name,
-   const rr_backend_type_t *backend_type);
-extern bool rr_rig_registry_remove(rr_rig_registry_t *registry,
-   const char *uuid);
-extern rr_server_rig_t *rr_rig_registry_find_uuid(
-   const rr_rig_registry_t *registry, const char *uuid);
-extern rr_server_rig_t *rr_rig_registry_find_alias(
-   const rr_rig_registry_t *registry, const char *alias);
-extern rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(
-   const rr_rig_registry_t *registry, const char *uuid);
-extern const char *rr_rig_registry_alias(const rr_rig_registry_t *registry,
-   const rr_server_rig_t *radio);
+extern rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uuid, const char *alias,
+                                            const char *name, const rr_backend_type_t *backend_type);
+extern bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid);
+extern rr_server_rig_t *rr_rig_registry_find_uuid(const rr_rig_registry_t *registry, const char *uuid);
+extern rr_server_rig_t *rr_rig_registry_find_alias(const rr_rig_registry_t *registry, const char *alias);
+extern rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(const rr_rig_registry_t *registry, const char *uuid);
+extern const char *rr_rig_registry_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio);
 extern size_t rr_rig_registry_count(const rr_rig_registry_t *registry);
-extern bool rr_rig_registry_foreach(rr_rig_registry_t *registry,
-   rr_rig_registry_iter_fn callback, void *user);
-extern bool rr_rig_registry_set_default(rr_rig_registry_t *registry,
-   rr_server_rig_t *radio);
-extern rr_server_rig_t *rr_rig_registry_default(
-   const rr_rig_registry_t *registry);
+extern bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_fn callback, void *user);
+extern bool rr_rig_registry_set_default(rr_rig_registry_t *registry, rr_server_rig_t *radio);
+extern rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry);
 
-extern bool rr_rig_registry_set_room(rr_rig_registry_t *registry,
-   rr_server_rig_t *radio, const char *room);
-extern const char *rr_rig_registry_room(const rr_rig_registry_t *registry,
-   const rr_server_rig_t *radio);
-extern uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *registry,
-   const rr_server_rig_t *radio);
+extern bool rr_rig_registry_set_room(rr_rig_registry_t *registry, rr_server_rig_t *radio, const char *room);
+extern const char *rr_rig_registry_room(const rr_rig_registry_t *registry, const rr_server_rig_t *radio);
+extern uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *registry, const rr_server_rig_t *radio);
 
 #endif // !defined(__rrserver_rig_registry_h)

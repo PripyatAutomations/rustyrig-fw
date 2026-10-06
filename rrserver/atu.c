@@ -33,7 +33,7 @@ bool rr_atu_load_memories(int unit) {
 #ifdef   HOST_POSIX
    // Open the json configuration file, if present
    const char *chan_file = CHANNEL_FILE;
-#endif   // HOST_POSIX
+#endif // HOST_POSIX
 
    // Look up ATU memory header
    int active_slots = 0;
@@ -92,7 +92,7 @@ int rr_atu_init(int uid) {
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
 
    // do we have saved tuning parameters for this unit?
-   if ( ( tv = rr_atu_find_saved_state(uid) ) ) {
+   if ( (tv = rr_atu_find_saved_state(uid) ) ) {
       // Apply them
    }
 
@@ -102,26 +102,29 @@ int rr_atu_init(int uid) {
 int rr_atu_init_all(void) {
    int rv = 0;
    int tuners = 1;
-#ifdef	USE_EEPROM
+#ifdef  USE_EEPROM
    tuners = eeprom_get_int("hw/atus");
-#endif	// USE_EEPROM
+#endif // USE_EEPROM
    tuners = cfg_get_int("atu.max", 4);
 
    if (tuners < 0) {
       tuners = 0;
    }
+
    if (tuners == 0) {
       Log(LOG_INFO, "atu", "No antenna matching units configured");
+
       return 0;
    }
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 
    for (int i = 0 ; i < tuners ; i++) {
-      if ( rr_atu_init(i) ) {
+      if (rr_atu_init(i) ) {
          rv++;
       }
    }
 
    Log(LOG_INFO, "atu", "ATU setup complete with %d warning/issues", rv);
+
    return -rv;
 }

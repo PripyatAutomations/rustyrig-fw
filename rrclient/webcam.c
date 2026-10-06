@@ -70,11 +70,12 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
        len > RR_BINFRAME_MAX_PAYLOAD) {
       return;
    }
-   const char codec[4] = { 'j', 'p', 'e', 'g' };
+   const char codec[4] = {
+      'j', 'p', 'e', 'g'
+   };
    uint8_t *frame = NULL;
-   int flen = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_VIDEO, codec,
-      RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA,
-      RR_BINFRAME_STREAM_NONE, ++webcam_seq, mono_us(), data, len);
+   int flen = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_VIDEO, codec, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA,
+      RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE, ++webcam_seq, mono_us(), data, len);
 
    if (flen < 0) {
       return;
@@ -88,10 +89,11 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
 // Called via event_on_binary() when the fwdsp subprocess emits a captured frame
 static void webcam_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    (void)event; (void)cptr; (void)user;
+
    if (!data || len == 0) {
       return;
    }
-   webcam_push_frame((const uint8_t *)data, len);
+   webcam_push_frame( (const uint8_t *)data, len );
 }
 
 // Start grabbing frames (called after auth when we're a video source)
@@ -114,8 +116,8 @@ void webcam_client_start(void) {
    webcam_fwdsp_chan = fwdsp_video_start("jpeg", true);
 
    if (webcam_fwdsp_chan < 0) {
-      Log(LOG_CRIT, "webcam", "Failed to start fwdsp video pipeline for %s (device %s)",
-         "jpeg", device);
+      Log(LOG_CRIT, "webcam", "Failed to start fwdsp video pipeline for %s (device %s)", "jpeg", device);
+
       return;
    }
    webcam_active = true;
@@ -134,8 +136,7 @@ void webcam_client_stop(void) {
 
 // Event: auth state changed; when we're configured as a video source, start
 // the capture once we're authorized
-static void webcam_conn_event(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
+static void webcam_conn_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)data;
    (void)cptr;
    (void)user;
@@ -143,6 +144,7 @@ static void webcam_conn_event(const char *event, const char *data,
    if (!event) {
       return;
    }
+
    if (strcasecmp(event, "authorized") == 0) {
       const char *role = cfg_get("client.role");
 

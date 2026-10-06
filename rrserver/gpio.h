@@ -13,12 +13,12 @@
 #include "build_config.h"
 #include <stdbool.h>
 
-#ifdef	HOST_POSIX
+#ifdef  HOST_POSIX
 // XXX: Include host gpio support
 extern const uint32_t max__rr_gpiochips;
-#else	// HOST_POSIX
+#else // HOST_POSIX
 // Include uc specific gpio
-#endif	// HOST_POSIX
+#endif // HOST_POSIX
 
 #define	GPIO_KEYLEN 8
 struct GPIO_pin {

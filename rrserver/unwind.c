@@ -11,7 +11,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
-#ifdef	USE_LIBUNWIND
+#ifdef  USE_LIBUNWIND
 #include <libunwind.h>
 void print_stacktrace(void) {
    unw_cursor_t cursor;
@@ -38,8 +38,8 @@ void print_stacktrace(void) {
    }
    Log(LOG_CRIT, "core", "-------- end stack dump --------");
 }
-#else	// USE_LIBUNWIND
+#else // USE_LIBUNWIND
 void print_stacktrace(void) {
    Log(LOG_CRIT, "core", "**** stacktrace unavailable - we were built without libunwind ****");
 }
-#endif	// USE_LIBUNWIND
+#endif // USE_LIBUNWIND

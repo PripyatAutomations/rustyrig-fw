@@ -41,8 +41,10 @@ bool rrclient_connect(const char *url) {
    event_emit("connecting", NULL, NULL);
 
 #ifdef  USE_MONGOOSE
+
    if (!ws_conn) {
       event_emit("http.error", NULL, NULL);
+
       return true;
    }
 
@@ -54,6 +56,7 @@ bool rrclient_connect(const char *url) {
 
 bool rrclient_disconnect(void) {
 #ifdef USE_MONGOOSE
+
    if (ws_conn) {
       mg_ws_send(ws_conn->conn, NULL, 0, WEBSOCKET_OP_CLOSE);
       ws_conn->conn->is_closing = 1;

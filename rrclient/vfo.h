@@ -26,4 +26,4 @@ extern long vfo_state_get_long(const char *vfo, const char *key, long def);
 extern bool vfo_state_get_bool(const char *vfo, const char *key, bool def);
 extern char vfo_state_get_active(void);      // single upper case letter
 extern void vfo_state_set_active(const char *vfo);
-#endif	// __rclient_vfo_h
+#endif // __rclient_vfo_h

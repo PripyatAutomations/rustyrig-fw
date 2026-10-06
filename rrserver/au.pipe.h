@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#ifndef	__rrserver_au_pipe_h
+#ifndef __rrserver_au_pipe_h
 #define	__rrserver_au_pipe_h
 
 #include <stdbool.h>

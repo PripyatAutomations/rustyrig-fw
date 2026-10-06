@@ -57,8 +57,8 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
       return;
    }
 
-   if (fwdsp_write_samples(tx_codec, true, samples, len) &&
-       (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5) ) {
+   if ( fwdsp_write_samples(tx_codec, true, samples, len) &&
+        (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5) ) {
       tx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
    }
@@ -68,8 +68,8 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
    (void)name;
    (void)user_data;
 
-   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) &&
-       (rx_pcm_warned == 0 || now < rx_pcm_warned || now - rx_pcm_warned >= 5) ) {
+   if ( !fwdsp_processor_write("sink.client.dsp0", samples, len) &&
+        (rx_pcm_warned == 0 || now < rx_pcm_warned || now - rx_pcm_warned >= 5) ) {
       rx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to play decoded client RX PCM");
    }
@@ -85,7 +85,7 @@ bool audio_init(void) {
    // otherwise be decoded twice (both events fire per packet).
    event_on_binary(RR_AUDIO_FRAME_EVENT, audio_full_frame_cb, NULL);
 
-   if (fwdsp_init() ) {
+   if ( fwdsp_init() ) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
 
       return true;
@@ -141,7 +141,7 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
       return true;
    }
 
-   if (!is_tx && !fwdsp_codec_set_pcm_callback(codec, NULL, client_rx_pcm, NULL) ) {
+   if ( !is_tx && !fwdsp_codec_set_pcm_callback(codec, NULL, client_rx_pcm, NULL) ) {
       Log(LOG_WARN, "audio", "Unable to route decoded %s RX audio to sink.client.dsp0", codec);
       fwdsp_codec_stop_immediate(codec, false);
 
@@ -151,14 +151,14 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    memcpy(active, codec, 4);
    active[4] = '\0';
 
-   if (cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false) ) {
+   if ( cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false) ) {
       const char *who = "radio";
 
       if (is_tx) {
          who = server_name ? get_server_property(server_name, "server.user") : NULL;
       }
 
-      if (fwdsp_cmd_start_record_named(codec, is_tx, NULL, who && *who ? who : "unknown", is_tx) ) {
+      if ( fwdsp_cmd_start_record_named(codec, is_tx, NULL, who && *who ? who : "unknown", is_tx) ) {
          Log(LOG_WARN, "record", "Unable to start client %s recording", is_tx ? "tx" : "rx");
       }
    }
@@ -258,10 +258,10 @@ static void audio_full_frame_payload(const void *data, size_t len) {
    if (!codec) { return; }
 
    if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {
-      if (audio_switch_codec(codec, false) ) { return; }
+      if ( audio_switch_codec(codec, false) ) { return; }
    }
 
-   if (fwdsp_write_samples(rx_codec, false, frame.data, frame.len) ) {
+   if ( fwdsp_write_samples(rx_codec, false, frame.data, frame.len) ) {
       Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", rx_codec);
    }
 }

@@ -27,15 +27,15 @@ enum {
 };
 
 static inline const char *select_user_icon(struct rr_user *cptr) {
-   if ( strcasestr(cptr->privs, "owner") ) {
+   if (strcasestr(cptr->privs, "owner") ) {
       return "👑";
    }
 
-   if ( strcasestr(cptr->privs, "admin") ) {
+   if (strcasestr(cptr->privs, "admin") ) {
       return "⭐";
    }
 
-   if ( strcasestr(cptr->privs, "tx") ) {
+   if (strcasestr(cptr->privs, "tx") ) {
       return "👤";
    }
 
@@ -43,11 +43,11 @@ static inline const char *select_user_icon(struct rr_user *cptr) {
 }
 
 static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
-   if ( strcasestr(cptr->privs, "elmer") ) {
+   if (strcasestr(cptr->privs, "elmer") ) {
       return "🧙";
    }
 
-   if ( strcasestr(cptr->privs, "noob") ) {
+   if (strcasestr(cptr->privs, "noob") ) {
       return "🐣";
    }
 

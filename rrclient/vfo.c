@@ -50,12 +50,14 @@ static char vfo_state_check_id(const char *vfo) {
    if (vfo && vfo[0] >= 'A' && vfo[0] <= 'Z' && vfo[1] == '\0') {
       return vfo[0];
    }
+
    return 'A';
 }
 
 // Build the per-VFO state key: "vfo.<ID>.<key>"
 static const char *vfo_state_key(char vfo, const char *key, char *buf, size_t len) {
    snprintf(buf, len, "vfo.%c.%s", vfo, key);
+
    return buf;
 }
 
@@ -63,15 +65,19 @@ static const char *vfo_state_key(char vfo, const char *key, char *buf, size_t le
 // remains the fallback for servers which do not announce object UUIDs.
 static const dict *room_vfo_property(const char *vfo, const char *key, bool *scoped) {
    *scoped = false;
-   if (!key) return NULL;
+
+   if (!key) { return NULL; }
    const char *property = !strcmp(key, "cat.state.freq") ? "frequency" :
-      !strcmp(key, "cat.state.mode") ? "mode" : !strcmp(key, "cat.state.width") ? "width" : NULL;
-   if (!property) return NULL;
-   const char *uuid = rrclient_media_vfo_uuid(rrclient_media_active_room(), vfo_state_check_id(vfo));
-   if (!uuid) return NULL;
+                          !strcmp(key, "cat.state.mode") ? "mode" : !strcmp(key, "cat.state.width") ? "width" : NULL;
+
+   if (!property) { return NULL; }
+   const char *uuid = rrclient_media_vfo_uuid( rrclient_media_active_room(), vfo_state_check_id(vfo) );
+
+   if (!uuid) { return NULL; }
    *scoped = true;
    const dict *state = rrclient_object_property(uuid, property);
-   return state && dict_get_bool((dict *)state, "property.known", false) ? state : NULL;
+
+   return state && dict_get_bool( (dict *)state, "property.known", false ) ? state : NULL;
 }
 
 // Accessors for other modules.  `vfo` is the single upper case VFO letter
@@ -80,27 +86,33 @@ static const dict *room_vfo_property(const char *vfo, const char *key, bool *sco
 const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
    bool scoped;
    const dict *state = room_vfo_property(vfo, key, &scoped);
-   if (scoped) return state ? dict_get((dict *)state, "property.value", def) : def;
+
+   if (scoped) { return state ? dict_get( (dict *)state, "property.value", def ) : def; }
+
    if (!vfo_state || !key) {
       return def;
    }
    char vfo_id = vfo_state_check_id(vfo);
    char full_key[128];
-   vfo_state_key(vfo_id, key, full_key, sizeof(full_key));
+   vfo_state_key( vfo_id, key, full_key, sizeof(full_key) );
    const char *val = dict_get(vfo_state, full_key, NULL);
+
    return val ? val : def;
 }
 
 long vfo_state_get_long(const char *vfo, const char *key, long def) {
    bool scoped;
    const dict *state = room_vfo_property(vfo, key, &scoped);
-   if (scoped) return state ? dict_get_long((dict *)state, "property.value", def) : def;
+
+   if (scoped) { return state ? dict_get_long( (dict *)state, "property.value", def ) : def; }
+
    if (!vfo_state || !key) {
       return def;
    }
    char vfo_id = vfo_state_check_id(vfo);
    char full_key[128];
-   vfo_state_key(vfo_id, key, full_key, sizeof(full_key));
+   vfo_state_key( vfo_id, key, full_key, sizeof(full_key) );
+
    return dict_get_long(vfo_state, full_key, def);
 }
 
@@ -110,7 +122,8 @@ bool vfo_state_get_bool(const char *vfo, const char *key, bool def) {
    }
    char vfo_id = vfo_state_check_id(vfo);
    char full_key[128];
-   vfo_state_key(vfo_id, key, full_key, sizeof(full_key));
+   vfo_state_key( vfo_id, key, full_key, sizeof(full_key) );
+
    return dict_get_bool(vfo_state, full_key, def);
 }
 
@@ -118,6 +131,7 @@ bool vfo_state_get_bool(const char *vfo, const char *key, bool def) {
 // (VFO A/B button, etc) and is used by vfo_update_ui().
 char vfo_state_get_active(void) {
    const char *room = rrclient_media_active_room();
+
    return rrclient_room_active_vfo(room);
 }
 
@@ -137,10 +151,13 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    // The VFO this dict applies to: explicit arg wins, then the id in the
    // dict itself (cat.state.vfo), else the active VFO.
    char vfo_id = (vfo && vfo[0]) ? vfo_state_check_id(vfo) : 0;
+
    if (!vfo_id) {
-      vfo_id = vfo_state_check_id(dict_get(d, "cat.state.vfo", NULL));
+      vfo_id = vfo_state_check_id( dict_get(d, "cat.state.vfo", NULL) );
    }
-   char vfo_str[2] = { vfo_id, 0 };
+   char vfo_str[2] = {
+      vfo_id, 0
+   };
 //   Log(LOG_CRAZY, "vfo", "vfo_set_dict: VFO %c", vfo_id);
 
    // The server is authoritative about which VFO is active (e.g. after a
@@ -151,20 +168,22 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    // CAT broadcasts may arrive for another rig in the same process.  Keep
    // that rig's active VFO separate from the room currently shown by the UI.
    const char *update_room = dict_get(d, "cat.room", NULL);
-   if (!update_room || !*update_room) update_room = rrclient_media_active_room();
+
+   if (!update_room || !*update_room) { update_room = rrclient_media_active_room(); }
    char prev_active = rrclient_room_active_vfo(update_room);
 
-   if (dict_get_bool(d, "cat.state.active", false) ) {
+   if ( dict_get_bool(d, "cat.state.active", false) ) {
       rrclient_room_set_active_vfo(update_room, vfo_id);
-      if (!strcasecmp(update_room, rrclient_media_active_room())) s_active_vfo = vfo_id;
+
+      if ( !strcasecmp( update_room, rrclient_media_active_room() ) ) { s_active_vfo = vfo_id; }
    }
 
    // Track whether this update is for the VFO the UI is showing, so we
    // don't needlessly refresh widgets on updates for other VFOs.
    // When the active VFO just changed, force a refresh so the UI follows.
-   bool current_room = !strcasecmp(update_room, rrclient_media_active_room());
+   bool current_room = !strcasecmp( update_room, rrclient_media_active_room() );
    bool is_active = current_room && (vfo_id == vfo_state_get_active() ||
-      vfo_state_get_active() != prev_active);
+                                     vfo_state_get_active() != prev_active);
 
    // Save every cat.* key we receive into the central state, namespaced
    // per-VFO (dict handles replace-on-add, so no duplicates accumulate)
@@ -177,12 +196,12 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    val_type_t type;
    char full_key[128];
 
-   while ( ( rank = dict_enumerate_typed(d, rank, &key, &val, &type) ) >= 0 ) {
+   while ( (rank = dict_enumerate_typed(d, rank, &key, &val, &type) ) >= 0) {
       if (strncmp(key, "cat.", 4) != 0) {
          continue;
       }
 
-      vfo_state_key(vfo_id, key, full_key, sizeof(full_key));
+      vfo_state_key( vfo_id, key, full_key, sizeof(full_key) );
 
       // Defensive: normalize the mode string via vfo_parse_mode() so that
       // any non-canonical alias (e.g. from an older server) still maps to
@@ -191,58 +210,75 @@ bool vfo_set_dict(const char *vfo, dict *d) {
          rr_mode_t m = vfo_parse_mode(val.s);
 
          if (m != MODE_NONE) {
-            dict_add(vfo_state, full_key, vfo_mode_name(m));
+            dict_add( vfo_state, full_key, vfo_mode_name(m) );
             continue;
          }
       }
 
       switch (type) {
-         case VAL_STR:
+         case VAL_STR: {
             dict_add(vfo_state, full_key, val.s);
             break;
-         case VAL_BOOL:
+         }
+         case VAL_BOOL: {
             dict_add_bool(vfo_state, full_key, val.i != 0);
             break;
-         case VAL_INT:
+         }
+         case VAL_INT: {
             dict_add_int(vfo_state, full_key, val.i);
             break;
-         case VAL_UINT:
+         }
+         case VAL_UINT: {
             dict_add_uint(vfo_state, full_key, val.ui);
             break;
-         case VAL_LONG:
+         }
+         case VAL_LONG: {
             dict_add_long(vfo_state, full_key, val.l);
             break;
-         case VAL_ULONG:
+         }
+         case VAL_ULONG: {
             dict_add_ulong(vfo_state, full_key, val.ul);
             break;
-         case VAL_LLONG:
+         }
+         case VAL_LLONG: {
             dict_add_llong(vfo_state, full_key, val.ll);
             break;
-         case VAL_ULLONG:
+         }
+         case VAL_ULLONG: {
             dict_add_ullong(vfo_state, full_key, val.ull);
             break;
-         case VAL_FLOAT:
+         }
+         case VAL_FLOAT: {
             dict_add_float(vfo_state, full_key, val.f);
             break;
+         }
          case VAL_DOUBLE:
-         case VAL_DOUBLEP:
+         case VAL_DOUBLEP: {
             dict_add_double(vfo_state, full_key, val.d);
             break;
-         case VAL_NULL:
+         }
+         case VAL_NULL: {
             dict_add_null(vfo_state, full_key);
             break;
-         default:
+         }
+         default: {
             Log(LOG_WARN, "vfo", "vfo_set_dict: skipping key %s of unsupported type %d", key, type);
             break;
+         }
       }
    }
+
    if (vfo_state_get_active() != prev_active) {
-      char active_str[2] = { vfo_state_get_active(), '\0' };
+      char active_str[2] = {
+         vfo_state_get_active(), '\0'
+      };
       event_emit("client.vfo.changed", NULL, active_str);
    }
+
    // A custom top line can show inactive VFOs too. Re-render it when their
    // state changes, while preserving the active-VFO-only GTK widget updates.
-   if (!is_active && ui_mode == UI_MODE_TUI) tui_redraw_topline();
+   if (!is_active && ui_mode == UI_MODE_TUI) { tui_redraw_topline(); }
+
    // Only refresh the UI if this update touched the VFO currently displayed
    return is_active ? vfo_update_ui() : false;
 }
@@ -253,7 +289,9 @@ bool vfo_update_ui(void) {
       return true;
    }
 
-   char vfo_str[2] = { vfo_state_get_active(), 0 };
+   char vfo_str[2] = {
+      vfo_state_get_active(), 0
+   };
    long vfo_freq = vfo_state_get_long(vfo_str, "cat.state.freq", 0);
    const char *vfo_mode = vfo_state_get(vfo_str, "cat.state.mode", NULL);
    int vfo_width = (int)vfo_state_get_long(vfo_str, "cat.state.width", 0);
@@ -270,7 +308,8 @@ bool vfo_update_ui(void) {
       tui_refresh_sb_window();
       const bool is_room = tw && (tw->title[0] == '#' || tw->title[0] == '&');
       const bool has_vfos = is_room && rrclient_room_vfos(tw->title) &&
-         *rrclient_room_vfos(tw->title);
+                            *rrclient_room_vfos(tw->title);
+
       if (has_vfos || !is_room) {
          tui_refresh_sb_vfo();
          tui_update_status(tw, "%s %s", sb_online, sb_window);
@@ -278,9 +317,9 @@ bool vfo_update_ui(void) {
          tui_update_status(tw, "%s %s", sb_online, sb_window);
       }
       tui_redraw_topline();
-   } else if (frontend_ops()) {
-      frontend_ops()->vfo_state(vfo_str, vfo_freq, vfo_mode, vfo_width,
-         vfo_power, vfo_ptt);
+   } else if ( frontend_ops() ) {
+      frontend_ops()->vfo_state(vfo_str, vfo_freq, vfo_mode, vfo_width, vfo_power, vfo_ptt);
    }
+
    return false;
 }

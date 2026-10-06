@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#ifndef	__rrserver_audio_h
+#ifndef __rrserver_audio_h
 #define	__rrserver_audio_h
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,7 +31,7 @@ typedef struct rr_au_device_t rr_au_device_t;
 typedef struct {
    rr_au_backend_t backend_type;
    bool (*init)(rr_au_device_t *device, const char *pipe_name);
-   bool (*write_samples)(rr_au_device_t *device,const void *samples, size_t size);
+   bool (*write_samples)(rr_au_device_t *device, const void *samples, size_t size);
    rr_au_sample_t **(*read_samples)(void);
    void (*cleanup)(rr_au_device_t *dev);
 } rr_au_backend_interface_t;
@@ -56,8 +56,8 @@ extern void au_unix_socket_poll(void);
 extern const char *au_recording_start(int channel);
 extern bool au_recording_stop(const char *id);
 extern bool au_recording_config_refresh(const char *key);
-#define RECORDING_ID_LEN 12
-#define RECORDING_ID_BUFSIZE (RECORDING_ID_LEN + 3)
+#define	RECORDING_ID_LEN 12
+#define	RECORDING_ID_BUFSIZE (RECORDING_ID_LEN + 3)
 extern bool au_recording_generate_id(char *buffer, size_t length);
 
 //#include "rrserver/au.pcm5102.h"

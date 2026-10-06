@@ -7,7 +7,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#ifndef	__rrserver_amp_h
+#ifndef __rrserver_amp_h
 #define	__rrserver_amp_h
 
 // remove from librustyaxe/cat.h ASAP

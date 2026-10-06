@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#ifndef	__rrserver_protection_h
+#ifndef __rrserver_protection_h
 #define	__rrserver_protection_h
 
 extern bool protection_warmup_pending(int amp_idx);

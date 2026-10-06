@@ -5,7 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RRCLIENT_SERCOM_H
-#define RRCLIENT_SERCOM_H
+#define	RRCLIENT_SERCOM_H
 #include <stdbool.h>
 #include <rrclient/serial.h>
 bool rr_sercom_init(void);
