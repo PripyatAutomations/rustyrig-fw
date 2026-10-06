@@ -116,6 +116,9 @@ static help_line_t help_msg_before[] = {
 };
 
 static help_line_t help_msg_after[] = {
+   { UI_MODE_NONE, "\t{bright-green}/room remove #room [token] {bright-yellow}Admin/owner: hide room, preserving its data; confirm with server token" },
+   { UI_MODE_NONE, "\t{bright-green}/room remove #room -f [-h] [token] {bright-yellow}Delete room record/bindings; -h also deletes chat history" },
+   { UI_MODE_NONE, "\t{bright-green}/room add #room {bright-yellow}Admin/owner: create or restore room; PTT logs/recordings stay with rig" },
    {
       UI_MODE_NONE, ""
    },

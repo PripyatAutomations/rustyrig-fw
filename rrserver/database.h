@@ -41,10 +41,12 @@ extern bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *tex
 extern bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char *msg_dest, const char *msg_type,
                             const char *msg_data);
 extern bool db_send_chat_replay(rrconn_t *cptr, const char *channel);
-extern bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_mask);
+extern bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_mask, const char *username);
 extern bool db_room_set_topic(sqlite3 *db, const char *name, const char *topic);
 extern char *db_room_get_topic(sqlite3 *db, const char *name);
-extern bool db_room_delete(sqlite3 *db, const char *name);
+extern bool db_room_status(sqlite3 *db, const char *name, bool *exists, bool *deleted);
+extern bool db_room_restore(sqlite3 *db, const char *name, const char *username);
+extern bool db_room_delete(sqlite3 *db, const char *name, const char *username, bool force, bool history);
 extern char *db_room_list(sqlite3 *db);
 extern bool db_room_vfos_clear(sqlite3 *db, const char *room);
 extern bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding);

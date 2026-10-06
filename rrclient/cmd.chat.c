@@ -36,7 +36,8 @@ extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
 
-/* /room is deliberately sent to the server.  Room administration belongs to the server
+/* PARITY: rustyrig-www/js/webui.chat.js room command forwarding.
+ * /room is deliberately sent to the server.  Room administration belongs to the server
  * database and the server decides whether this user may perform the requested operation.
  */
 bool cmd_room(int argc, char **args) {

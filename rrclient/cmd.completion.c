@@ -286,7 +286,11 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if ( !strcasecmp(command, "/room") ) {
          if (arg == 1) {
-            completion_words(&matches, &count, "LIST #", word);
+            completion_words(&matches, &count, "LIST ADD REMOVE #", word);
+         } else if (arg == 2 && first && (!strcasecmp(first, "ADD") || !strcasecmp(first, "REMOVE"))) {
+            completion_words(&matches, &count, "#", word);
+         } else if (arg >= 3 && first && !strcasecmp(first, "REMOVE")) {
+            completion_words(&matches, &count, "--force --history -f -h", word);
          } else if (arg == 2 && first && first[0] == '#') {
             completion_words(&matches, &count, "ADD REMOVE VFO", word);
          } else if ( arg == 3 && first && !strcasecmp(second, "VFO") ) {

@@ -28,6 +28,10 @@ with tempfile.TemporaryDirectory(prefix="rr-rig-rooms-") as temporary:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)",
             ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,view,radio,edit,chat"))
+        db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,?,?,?,?,?)",
+            ("VIEWER", 1, hashlib.sha1(b"test-password").hexdigest(), 2, "view,chat"))
+        db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(3,?,?,?,?,?)",
+            ("OWNER", 1, hashlib.sha1(b"test-password").hexdigest(), 2, "owner,view,chat"))
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
@@ -164,6 +168,9 @@ enabled=false
             for protected in ("#roomtest", "#roomtest-rig1"):
                 client.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": protected + " remove"}})
                 client.until(lambda m: "error" in m)
+            for protected in ("#roomtest", "#roomtest-rig1"):
+                client.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": "remove " + protected + " -f -h"}})
+                client.until(lambda m: "error" in m)
             with sqlite3.connect(database) as db:
                 assert db.execute("SELECT has_vfos,vfo_mask FROM rooms WHERE name='#roomtest'").fetchone() == (0, 0)
                 bindings = db.execute("SELECT binding FROM room_vfos WHERE room='#roomtest-rig1'").fetchall()
@@ -227,6 +234,102 @@ enabled=false
                 client.send({"msg": {"type": "cat"}, "cat": {"cmd": "ptt", "room": "#roomtest-rig1", "vfo": "A", "ptt": state}})
                 ack = client.until(lambda m: m.get("cat", {}).get("cmd") == "ptt")
                 assert ack["cat"]["room"] == "#roomtest-rig1" and ack["cat"]["ptt"] is state
+            # Room removal is confirmed, session/room/options bound, and audited.
+            import re
+            def confirmation(text):
+                room_command(text)
+                notice = client.until(lambda m: "To confirm," in m.get("notice", {}).get("msg", ""))["notice"]["msg"]
+                assert notice.startswith("To confirm, please use /room remove "), notice
+                assert re.fullmatch(r"[0-9a-f]{6}", notice.split()[-1]), notice
+                return notice.split("/room ", 1)[1]
+            def query(sql, args=()):
+                with sqlite3.connect(database) as db:
+                    return db.execute(sql, args).fetchall()
+            def login_other(name):
+                other = WebSocket(port)
+                other.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": name}})
+                auth = other.until(lambda m: m.get("auth", {}).get("cmd") == "challenge")["auth"]
+                digest = hashlib.sha1((first_hash + "+" + auth["nonce"]).encode()).hexdigest()
+                other.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": name,
+                    "pass": digest, "token": auth["token"]}})
+                other.until(lambda m: m.get("auth", {}).get("cmd") == "authorized")
+                other.until(lambda m: m.get("talk", {}).get("cmd") == "join")
+                return other
+            # RX removal preserves bindings and restoring reapplies the VFO mask.
+            approved_rx = confirmation("remove " + rx_room)
+            bindings_before = query("SELECT binding FROM room_vfos WHERE room=? ORDER BY binding", (rx_room,))
+            room_command(approved_rx)
+            client.until(lambda m: rx_room + " removed" in m.get("notice", {}).get("msg", ""))
+            assert query("SELECT binding FROM room_vfos WHERE room=? ORDER BY binding", (rx_room,)) == bindings_before
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": rx_room}})
+            client.until(lambda m: "error" in m)
+            room_command("add " + rx_room)
+            client.until(lambda m: rx_room + " added" in m.get("notice", {}).get("msg", ""))
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": rx_room}})
+            restored_rx = client.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == rx_room)
+            assert restored_rx["room"]["vfo-mask"] == 3
+            room_command("add #cleanup")
+            client.until(lambda m: "#cleanup added" in m.get("notice", {}).get("msg", ""))
+            with sqlite3.connect(database) as db:
+                db.execute("UPDATE rooms SET topic='keep topic' WHERE name='#cleanup'")
+                db.execute("INSERT INTO chat_log(msg_src,msg_dest,msg_type,msg_data) VALUES('TEST','#cleanup','privmsg','keep history')")
+            room_command("remove #cleanup -h")
+            error_contains("usage")
+            approved = confirmation("remove #cleanup")
+            assert query("SELECT deleted FROM rooms WHERE name='#cleanup'") == [(0,)]
+            assert query("SELECT username FROM audit_log WHERE event_type='room.created' AND details='#cleanup'") == [("TEST",)]
+            room_command(approved.replace("#cleanup", "#roomtest.lounge"))
+            error_contains("confirmation")
+            room_command(approved + " -f")
+            error_contains("confirmation")
+            room_command("#cleanup remove 0000000")
+            error_contains("confirmation")
+            peer = login_other("TEST")
+            peer.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": approved}})
+            assert "confirmation" in str(peer.until(lambda m: "error" in m)).lower()
+            peer.socket.close()
+            viewer = login_other("VIEWER")
+            for text in ("add #forbidden", "remove #cleanup", approved, "remove #cleanup -f -h", "#cleanup remove"):
+                viewer.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": text}})
+                assert "admin or owner" in str(viewer.until(lambda m: "error" in m)).lower()
+            viewer.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#forbidden"}})
+            viewer.until(lambda m: "error" in m)
+            viewer.socket.close()
+            assert not query("SELECT name FROM rooms WHERE name='#forbidden'")
+            room_command("#cleanup remove " + approved.split()[-1])
+            client.until(lambda m: "#cleanup removed" in m.get("notice", {}).get("msg", ""))
+            assert query("SELECT deleted,topic FROM rooms WHERE name='#cleanup'") == [(1, "keep topic")]
+            assert query("SELECT username FROM audit_log WHERE event_type='room.removed' AND details='#cleanup'") == [("TEST",)]
+            room_command("list")
+            listing = client.until(lambda m: m.get("talk", {}).get("cmd") == "room-list")
+            assert "#cleanup" not in listing["talk"]["rooms"]
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#CLEANUP"}})
+            client.until(lambda m: "error" in m)
+            room_command("add #cleanup")
+            client.until(lambda m: "#cleanup added" in m.get("notice", {}).get("msg", ""))
+            assert query("SELECT deleted,topic FROM rooms WHERE name='#cleanup'") == [(0, "keep topic")]
+            room_command(approved)
+            error_contains("confirmation")
+            approved = confirmation("remove #cleanup -f")
+            room_command(approved)
+            client.until(lambda m: "#cleanup removed" in m.get("notice", {}).get("msg", ""))
+            assert not query("SELECT name FROM rooms WHERE name='#cleanup'")
+            assert query("SELECT msg_data FROM chat_log WHERE msg_dest='#cleanup'") == [("keep history",)]
+            room_command("add #cleanup")
+            client.until(lambda m: "#cleanup added" in m.get("notice", {}).get("msg", ""))
+            ptt_count = query("SELECT COUNT(*) FROM ptt_log")
+            approved = confirmation("remove #cleanup --force --history")
+            room_command(approved)
+            client.until(lambda m: "#cleanup removed" in m.get("notice", {}).get("msg", ""))
+            assert not query("SELECT msg_data FROM chat_log WHERE msg_dest='#cleanup'")
+            assert query("SELECT COUNT(*) FROM ptt_log") == ptt_count
+            assert query("SELECT username FROM audit_log WHERE event_type='room.removed' AND details='#cleanup --force --history'") == [("TEST",)]
+            owner = login_other("OWNER")
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": "add #owner-created"}})
+            owner.until(lambda m: "#owner-created added" in m.get("notice", {}).get("msg", ""))
+            assert query("SELECT username FROM audit_log WHERE event_type='room.created' AND details='#owner-created'") == [("OWNER",)]
+            owner.socket.close()
+            print("PASS: admin/owner room management, option-bound confirmation, soft deletion, restoration, force/history, and attributed audit")
             print("PASS: server-owned rig rooms, RX-only media, same-rig UUID mappings, and per-VFO LO-safe tuning")
             print("PASS: production site login, rig JOIN/PART, scoped media, and persisted UUID bindings")
         except Exception:

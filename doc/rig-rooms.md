@@ -103,3 +103,26 @@ Use the existing server section's other connection settings. Lists accept
 commas or whitespace. The browser's **cfg** tab has a “Rooms to join after
 login” setting, saved for that site's browser origin. An empty list leaves the
 session in the site lobby until the operator joins a rig room.
+
+## Room cleanup
+
+Only `admin|owner` users can create or restore rooms with `/room add #name`,
+remove rooms, or edit VFO bindings. Joining an unknown room also requires
+`admin|owner`; other users can join existing active rooms.
+
+`/room remove #name` replies with `To confirm, please use /room remove #name abcd13`.
+The six-digit hex token is valid for five minutes, once, in the issuing session,
+for the exact room and removal options. The legacy `/room #name remove [token]`
+syntax requires the same confirmation. Site and configured base rig rooms are protected.
+
+Plain removal sets `rooms.deleted=1`, hides the room from listings and rejects JOIN.
+Topic, VFO bindings and chat history remain available for restoration with
+`/room add #name`. `--force` (`-f`) permanently removes the room record and bindings,
+keeping chat history; `--force --history` (`-f -h`) also deletes that room's chat
+history. Include the same options when confirming. `--history` requires `--force`.
+PTT logs and audio recordings belong to the rig and remain intact.
+
+`audit_log` records `room.created`, `room.removed` and `room.restored`, with the
+responsible username (or `server` for provisioning), timestamp and room name.
+Permanent removals record their options. Audit insertion and each room change
+share a transaction; failed audit writes roll back the change.

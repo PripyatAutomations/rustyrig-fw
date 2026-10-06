@@ -86,6 +86,10 @@ int main(void) {
    check("/user privs ", "", "alice");
    check("/user privs alice ", "", "LIST");
    check("/room ", "", "LIST");
+   check("/room re", "re", "REMOVE");
+   check("/room add ", "", "#");
+   check("/room remove #test --f", "--f", "--force");
+   check("/room remove #test -f --h", "--h", "--history");
    check("/room #test ", "", "VFO");
    check("/room #test vfo ", "", "ADD");
    check("/room #test vfo l", "l", "LIST");

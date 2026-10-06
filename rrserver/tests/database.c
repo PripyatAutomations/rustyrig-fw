@@ -87,9 +87,9 @@ int main(void) {
 
    // Public persistence helpers must reject incomplete calls without
    // dereferencing a null handle or inserting malformed state.
-   assert(!db_room_ensure(NULL, "#invalid", false, 0));
-   assert(!db_room_ensure(db, NULL, false, 0));
-   assert(!db_room_ensure(db, "", false, 0));
+   assert(!db_room_ensure(NULL, "#invalid", false, 0, "TEST"));
+   assert(!db_room_ensure(db, NULL, false, 0, "TEST"));
+   assert(!db_room_ensure(db, "", false, 0, "TEST"));
    assert(!db_room_set_topic(db, "#missing", NULL));
    assert(db_room_get_topic(db, "#missing") == NULL);
    assert(!db_room_vfo_add(db, NULL, "rig0.vfo_a"));
@@ -173,7 +173,9 @@ int main(void) {
    free(rig1_uuid);
    free(other_node_uuid);
 
-   assert(db_room_ensure(db, "#alpha", true, 3));
+   assert(db_room_ensure(db, "#alpha", true, 3, "TEST"));
+   assert(db_room_ensure(db, "#ALPHA", true, 3, "TEST"));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#alpha' COLLATE NOCASE;") == 1);
    assert(db_room_set_topic(db, "#alpha", "Test topic"));
    char *topic = db_room_get_topic(db, "#alpha");
    assert(topic && strcmp(topic, "Test topic") == 0);
@@ -187,15 +189,49 @@ int main(void) {
    char *rooms = db_room_list(db);
    assert(rooms && strstr(rooms, "#alpha"));
    free(rooms);
-   assert(db_room_ensure(db, "#beta", true, 0));
+   assert(db_room_ensure(db, "#beta", true, 0, "TEST"));
    assert(db_room_vfo_add(db, "#beta", "rig1.vfo_a"));
    char *mapping = db_room_vfo_map_list(db);
    assert(mapping && strcmp(mapping, "#alpha: rig0.vfo_a, rig0.vfo_b\n#beta: rig1.vfo_a") == 0);
    free(mapping);
    assert(db_room_vfo_remove(db, "#alpha", "rig0.vfo_b"));
-   assert(db_room_delete(db, "#alpha"));
+   assert(db_room_delete(db, "#alpha", "TEST", false, false));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#alpha' AND deleted=1;") == 1);
+   assert(count_rows(db, "SELECT COUNT(*) FROM room_vfos WHERE room='#alpha';") == 1);
+
+   assert(count_rows(db, "SELECT COUNT(*) FROM audit_log WHERE username='TEST' AND event_type='room.created' AND details='#alpha';") == 1);
+   assert(count_rows(db, "SELECT COUNT(*) FROM audit_log WHERE username='TEST' AND event_type='room.removed' AND details='#alpha';") == 1);
+   assert(!db_room_ensure(db, "#alpha", false, 0, "TEST"));
+   assert(!db_room_delete(db, "#alpha", "TEST", false, false));
+   rooms = db_room_list(db);
+   assert(rooms && !strstr(rooms, "#alpha")); free(rooms);
+   assert(sqlite3_exec(db, "CREATE TRIGGER fail_restore_audit BEFORE INSERT ON audit_log WHEN NEW.event_type='room.restored' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;", NULL, NULL, NULL) == SQLITE_OK);
+   assert(!db_room_restore(db, "#alpha", "TEST"));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#alpha' AND deleted=1;") == 1);
+   assert(sqlite3_exec(db, "DROP TRIGGER fail_restore_audit;", NULL, NULL, NULL) == SQLITE_OK);
+   assert(db_room_restore(db, "#ALPHA", "TEST"));
+   topic = db_room_get_topic(db, "#alpha");
+   assert(topic && !strcmp(topic, "Test topic")); free(topic);
+   assert(count_rows(db, "SELECT COUNT(*) FROM audit_log WHERE event_type='room.restored' AND details='#ALPHA';") == 1);
+   // Audit failure must roll back creation, removal and restoration.
+   assert(sqlite3_exec(db, "CREATE TRIGGER fail_room_audit BEFORE INSERT ON audit_log WHEN NEW.event_type LIKE 'room.%' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;", NULL, NULL, NULL) == SQLITE_OK);
+   assert(!db_room_ensure(db, "#audit-failed", false, 0, "TEST"));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#audit-failed';") == 0);
+   assert(!db_room_delete(db, "#alpha", "TEST", true, true));
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#alpha' AND deleted=0;") == 1);
+   assert(count_rows(db, "SELECT COUNT(*) FROM room_vfos WHERE room='#alpha';") == 1);
+   assert(sqlite3_exec(db, "DROP TRIGGER fail_room_audit;", NULL, NULL, NULL) == SQLITE_OK);
+   assert(db_add_chat_msg(db, now, "TEST", "#alpha", "privmsg", "retained history"));
+   assert(db_room_delete(db, "#alpha", "TEST", true, false));
    assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#alpha';") == 0);
    assert(count_rows(db, "SELECT COUNT(*) FROM room_vfos WHERE room='#alpha';") == 0);
+   assert(count_rows(db, "SELECT COUNT(*) FROM chat_log WHERE msg_dest='#alpha';") == 1);
+   assert(db_room_ensure(db, "#alpha", false, 0, "TEST"));
+   assert(!db_room_delete(db, "#alpha", "TEST", false, true));
+   assert(db_room_delete(db, "#alpha", "TEST", false, false));
+   assert(db_room_delete(db, "#alpha", "TEST", true, true));
+   assert(count_rows(db, "SELECT COUNT(*) FROM chat_log WHERE msg_dest='#alpha';") == 0);
+   assert(count_rows(db, "SELECT COUNT(*) FROM audit_log WHERE details='#alpha --force --history';") == 1);
 
    assert(db_add_user(db, 9, "test-user", true, "hash", "test@example.invalid", 2, "view"));
    assert(!db_add_user(db, 10, NULL, true, "hash", "x", 1, "view"));
@@ -285,6 +321,24 @@ int main(void) {
    assert(db_quota_get(db, "new-user") == 25);
 
    sqlite3_close(db);
+   masterdb = NULL;
+   // Migration preserves existing metadata and defaults old rooms to active.
+   char migration_path[] = "/tmp/rr-room-migration-XXXXXX";
+   int migration_fd = mkstemp(migration_path);
+   assert(migration_fd >= 0); close(migration_fd);
+   assert(sqlite3_open(migration_path, &db) == SQLITE_OK);
+   run_file(db, "sql/sqlite.master.sql");
+   assert(sqlite3_exec(db, "ALTER TABLE rooms DROP COLUMN deleted; INSERT INTO rooms(name,topic) VALUES('#legacy','old topic');", NULL, NULL, NULL) == SQLITE_OK);
+   sqlite3_close(db);
+   db = db_open(migration_path);
+   assert(db);
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#legacy' AND topic='old topic' AND deleted=0;") == 1);
+   assert(db_room_delete(db, "#legacy", "TEST", false, false));
+   sqlite3_close(db);
+   db = db_open(migration_path);
+   assert(db);
+   assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#legacy' AND topic='old topic' AND deleted=1;") == 1);
+   sqlite3_close(db); unlink(migration_path);
    dict_free(cfg);
    cfg = NULL;
    dict_free(default_cfg);

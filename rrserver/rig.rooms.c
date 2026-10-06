@@ -71,7 +71,7 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
 #ifdef USE_SQLITE
 
    if (!failed) {
-      failed = !db_room_ensure(masterdb, room, true, 0) ||
+      failed = !db_room_restore(masterdb, room, "server") || !db_room_ensure(masterdb, room, true, 0, "server") ||
                !db_room_vfos_clear(masterdb, room);
    }
 #endif
@@ -105,7 +105,7 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
    if (!failed) { failed = !ws_room_set_rx_tuning_mask(room, tuning_mask); }
 #ifdef USE_SQLITE
 
-   if (!failed) { failed = !db_room_ensure(masterdb, room, true, ctx.mask); }
+   if (!failed) { failed = !db_room_ensure(masterdb, room, true, ctx.mask, "server"); }
 #endif
 
    if ( !failed && radio == rr_rig_registry_default(rig.rigs) ) {
@@ -123,7 +123,7 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
 static bool restore_rx_rooms(void) {
    sqlite3_stmt *statement = NULL;
 
-   if (sqlite3_prepare_v2(masterdb, "SELECT name FROM rooms;", -1, &statement, NULL) != SQLITE_OK) { return true; }
+   if (sqlite3_prepare_v2(masterdb, "SELECT name FROM rooms WHERE deleted=0;", -1, &statement, NULL) != SQLITE_OK) { return true; }
    bool failed = false;
    int status;
    while ( ( status = sqlite3_step(statement) ) == SQLITE_ROW && !failed ) {
@@ -147,7 +147,7 @@ static bool restore_rx_rooms(void) {
 
       free(bindings);
 
-      if ( !db_room_ensure(masterdb, room, mask != 0, mask) ) { failed = true; }
+      if ( !db_room_ensure(masterdb, room, mask != 0, mask, "server") ) { failed = true; }
 
       if ( radio && !ws_room_set_vfo_mask(room, mask) ) { failed = true; }
    }
@@ -164,7 +164,7 @@ bool rrserver_rig_rooms_init(void) {
 #ifdef USE_SQLITE
 
    if (sqlite3_exec(masterdb, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) { return true; }
-   bool failed = !db_room_ensure(masterdb, ws_site_room(), false, 0) ||
+   bool failed = !db_room_restore(masterdb, ws_site_room(), "server") || !db_room_ensure(masterdb, ws_site_room(), false, 0, "server") ||
                  !db_room_vfos_clear( masterdb, ws_site_room() );
 #else
    bool failed = false;

@@ -169,7 +169,8 @@ int main(void) {
    rr_server_rig_t *radio1 = make_rig("radio-1", "rig1", 2);
    assert(!rr_rig_registry_set_default(rig.rigs, radio0));
    assert(sqlite3_open(":memory:", &masterdb) == SQLITE_OK);
-   assert(sqlite3_exec(masterdb, "CREATE TABLE rooms(name TEXT PRIMARY KEY,has_vfos INTEGER,vfo_mask INTEGER);"
+   assert(sqlite3_exec(masterdb, "CREATE TABLE rooms(name TEXT PRIMARY KEY,has_vfos INTEGER,vfo_mask INTEGER,deleted INTEGER DEFAULT 0);"
+      "CREATE TABLE audit_log(username TEXT,event_type TEXT,details TEXT);"
       "CREATE TABLE room_vfos(room TEXT,binding TEXT,PRIMARY KEY(room,binding));", NULL, NULL, NULL) == SQLITE_OK);
    assert(!rrserver_rig_rooms_init());
    assert(!strcmp(rr_rig_registry_room(rig.rigs, radio0), "#testsite-rig0"));

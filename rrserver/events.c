@@ -21,6 +21,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/auth.h>
+#include <librrprotocol/objects.h>
 
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
@@ -47,7 +48,7 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
    const char *room = dict_get(d, "talk.room", NULL);
 
    if ( room && !db_room_ensure( masterdb, room, dict_get_bool(d, "room.has-vfos", false),
-      (uint32_t)dict_get_ulong(d, "room.vfo-mask", 0) ) ) {
+      (uint32_t)dict_get_ulong(d, "room.vfo-mask", 0), cptr ? cptr->chatname : "server" ) ) {
       Log(LOG_WARN, "db", "failed to persist room %s", room);
    }
 
@@ -140,7 +141,7 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
    dict_add(reply, "talk.cmd", "room-list");
    dict_add(reply, "talk.rooms", "");
 #ifdef USE_SQLITE
-   db_room_ensure(masterdb, ws_site_room(), false, 0);
+   db_room_ensure(masterdb, ws_site_room(), false, 0, "server");
    char *rooms = db_room_list(masterdb);
 
    if (rooms) { dict_add(reply, "talk.rooms", rooms); free(rooms); }
@@ -152,6 +153,10 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
 static void rrserver_handle_room_add(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event; (void)user;
 
+   if (!cptr || !cptr->authenticated || !cptr->user || !has_priv(cptr->user->uid, "admin|owner")) {
+      ws_send_error(cptr, "Room management requires admin or owner");
+      return;
+   }
    if (!data) { return; }
    dict *d = json2dict(data);
 
@@ -166,7 +171,10 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    }
 #ifdef USE_SQLITE
 
-   if ( !room || !db_room_ensure(masterdb, room, false, 0) ) {
+   bool exists = false, deleted = false;
+   if (!room || !db_room_status(masterdb, room, &exists, &deleted) ||
+       !db_room_restore(masterdb, room, cptr->chatname) ||
+       (!exists && !db_room_ensure(masterdb, room, false, 0, cptr->chatname))) {
       ws_send_error(cptr, "Unable to add room %s", room ? room : "(none)");
       dict_free(d);
 
@@ -177,6 +185,22 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    dict_free(d);
 
    return;
+#endif
+#ifdef USE_SQLITE
+   if (deleted && ws_room_rig_namespace(room)) {
+      rr_server_rig_t *radio = rrserver_rig_for_room(room);
+      uint32_t mask = 0;
+      char *bindings = db_room_vfo_list(masterdb, room), *save = NULL;
+      for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL; id; id = strtok_r(NULL, " \t\r\n", &save)) {
+         rr_server_vfo_t *vfo = radio ? rr_server_vfo_find_uuid(radio, id) : NULL;
+         rr_vfo_t index;
+         if (vfo && rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
+            mask |= UINT32_C(1) << index;
+         }
+      }
+      free(bindings);
+      ws_room_set_vfo_mask(room, mask);
+   }
 #endif
    ws_send_notice(cptr, "Room %s added", room);
    dict_free(d);
@@ -219,6 +243,10 @@ static void rrserver_handle_room_vfo_list(const char *event, const char *data, r
 static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event; (void)user;
 
+   if (!cptr || !cptr->authenticated || !cptr->user || !has_priv(cptr->user->uid, "admin|owner")) {
+      ws_send_error(cptr, "Room management requires admin or owner");
+      return;
+   }
    if (!data) { return; }
    dict *d = json2dict(data);
 
@@ -270,7 +298,7 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    binding = rr_server_vfo_id(vfo);
 
    if (room && binding) {
-      bool ok = db_room_ensure(masterdb, room, true, 0);
+      bool ok = db_room_ensure(masterdb, room, true, 0, cptr->chatname);
 
       if (ok && action && strcasecmp(action, "add") == 0) {
          ok = db_room_vfo_add(masterdb, room, binding);
@@ -304,7 +332,7 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
 
       free(copy);
       ws_room_set_vfo_mask(room, mask);
-      db_room_ensure(masterdb, room, mask != 0, mask);
+      db_room_ensure(masterdb, room, mask != 0, mask, cptr->chatname);
       dict_add_bool(d, "room.has-vfos", mask != 0);
       dict_add_ulong(d, "room.vfo-mask", mask);
       dict_add_bool(d, "room.tx-control", false);
@@ -325,6 +353,38 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    dict_free(d);
 }
 
+#ifdef USE_SQLITE
+struct room_confirmation {
+   rrconn_t *client;
+   char session[HTTP_TOKEN_LEN + 1];
+   char room[128];
+   char token[7];
+   time_t expires;
+   bool force, history;
+};
+static struct room_confirmation room_confirmations[HTTP_MAX_SESSIONS];
+
+static void rrserver_room_confirmation_close(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event; (void)data; (void)user;
+   for (size_t i = 0; i < HTTP_MAX_SESSIONS; i++) {
+      if (room_confirmations[i].client == client) { memset(&room_confirmations[i], 0, sizeof(room_confirmations[i])); }
+   }
+}
+
+static void rrserver_room_join_check(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
+   (void)event; (void)user;
+   if (len != sizeof(rr_room_join_check_t)) { return; }
+   rr_room_join_check_t *check = (rr_room_join_check_t *)data;
+   bool exists, deleted;
+   if (!db_room_status(masterdb, check->room, &exists, &deleted) || deleted ||
+       (!exists && (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")))) {
+      check->allowed = false;
+   } else if (!exists && !db_room_ensure(masterdb, check->room, false, 0, client->chatname)) {
+      check->allowed = false;
+   }
+}
+#endif
+
 static void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event; (void)cptr; (void)user;
 
@@ -342,7 +402,50 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
    }
 #ifdef USE_SQLITE
 
-   if ( room && !db_room_delete(masterdb, room) ) {
+   bool force = dict_get_bool(d, "talk.force", false);
+   bool history = dict_get_bool(d, "talk.history", false);
+   bool exists, deleted;
+   if (!cptr || !cptr->authenticated || !cptr->user || !has_priv(cptr->user->uid, "admin|owner") || !room ||
+       strlen(room) >= sizeof(room_confirmations[0].room) ||
+       !db_room_status(masterdb, room, &exists, &deleted) || !exists || (deleted && !force) || (history && !force)) {
+      ws_send_error(cptr, "Room is unavailable for removal");
+      dict_free(d);
+      return;
+   }
+   struct room_confirmation *challenge = NULL, *available = NULL;
+   for (size_t i = 0; i < HTTP_MAX_SESSIONS; i++) {
+      struct room_confirmation *entry = &room_confirmations[i];
+      if (entry->expires <= now) { memset(entry, 0, sizeof(*entry)); }
+      if (!entry->client && !available) { available = entry; }
+      if (entry->client == cptr) { challenge = entry; }
+   }
+   const char *token = dict_get(d, "talk.confirmation", NULL);
+   if (!token) {
+      if (!challenge) { challenge = available; }
+      if (!challenge) {
+         ws_send_error(cptr, "Unable to issue room removal confirmation");
+      } else {
+         challenge->client = cptr;
+         snprintf(challenge->session, sizeof(challenge->session), "%s", cptr->token);
+         snprintf(challenge->room, sizeof(challenge->room), "%s", room);
+         snprintf(challenge->token, sizeof(challenge->token), "%06x", arc4random_uniform(0x1000000));
+         challenge->expires = now + 300;
+         challenge->force = force; challenge->history = history;
+         ws_send_notice(cptr, "To confirm, please use /room remove %s%s%s %s", room,
+            force ? " --force" : "", history ? " --history" : "", challenge->token);
+      }
+      dict_free(d);
+      return;
+   }
+   if (!challenge || strcmp(challenge->session, cptr->token) || strcmp(challenge->room, room) ||
+       strcmp(challenge->token, token) || challenge->force != force || challenge->history != history) {
+      ws_send_error(cptr, "Invalid or expired confirmation; use /room remove %s again", room);
+      dict_free(d);
+      return;
+   }
+   memset(challenge, 0, sizeof(*challenge));
+   dict_del(d, "talk.confirmation");
+   if ( !db_room_delete(masterdb, room, cptr->chatname, force, history) ) {
       Log(LOG_WARN, "db", "failed to delete room metadata %s", room);
       ws_send_error(cptr, "Unable to remove room %s", room);
       dict_free(d);
@@ -357,6 +460,7 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
 #endif
 
    if (room) {
+      if (ws_room_rig_namespace(room)) { ws_room_set_vfo_mask(room, 0); }
       ws_send_notice(cptr, "Room %s removed", room);
       ws_broadcast_room_dict(NULL, d, room);
 
@@ -1652,6 +1756,10 @@ void rrserver_register_events(void) {
    event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
    event_on(RR_PROPERTY_CHANGED_EVENT, rrserver_handle_rig_property_changed, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
+#ifdef USE_SQLITE
+   event_on_binary(RR_ROOM_JOIN_CHECK_EVENT, rrserver_room_join_check, NULL);
+   event_on(RR_OBJECT_CLOSE_EVENT, rrserver_room_confirmation_close, NULL);
+#endif
    event_on("room.join", rrserver_handle_room_join, NULL);
    event_on("room.part", rrserver_handle_room_part, NULL);
    event_on("room.add", rrserver_handle_room_add, NULL);

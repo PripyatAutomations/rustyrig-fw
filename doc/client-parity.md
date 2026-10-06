@@ -204,3 +204,12 @@ dropdown is open. Width selectors use A for NARR, N for NORM, and W for WIDE.
 These keyboard bindings are GTK-specific and preserve modified global shortcuts.
 Native `/help` documents these bindings; native and browser help include a
 command-chain example alongside the current discovery command names.
+
+## Room management
+
+Native `rrclient/cmd.chat.c:cmd_room` and browser `js/webui.chat.js` forward
+`/room` arguments to the authoritative `librrprotocol/srv.chat.c` parser and
+`rrserver/events.c` policy handlers. Both clients support action-first add/remove,
+legacy room-first commands, confirmation tokens and `--force/-f --history/-h`.
+Help and completion describe the same commands. Server policy requires admin or
+owner and confirms every removal; database auditing belongs to rrserver.

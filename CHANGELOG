@@ -1,4 +1,8 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Add admin/owner room removal with session-bound, expiring confirmation;
+    retain room metadata by default, support --force/-f and --history/-h
+    cleanup, and audit creation, removal and restoration atomically in SQLite.
+    Preserve rig PTT logs and recordings; update native/browser help/completion.
   * Restore chained rig chat commands and publish confirmed backend mode,
     frequency and width changes promptly; update GTK mode/width controls
     without sending observations back as edits. Add mode-letter cycling and

@@ -70,7 +70,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab"
    },
    {
-      .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "List or manage rooms and room VFO mappings"
+      .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ..."
    },
    {
       .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback"
