@@ -50,6 +50,10 @@ static dict *state(const char *uuid, uint64_t seq, uint64_t version,
    return d;
 }
 
+static char display[8192];
+static void display_line(const char *line, void *user) {
+   snprintf(display+strlen(display),sizeof(display)-strlen(display),"%s\n",line);
+}
 int main(void) {
    rr_object_cache_t *c = rr_object_cache_new();
    dict *d = msg("object", "begin", 0);
@@ -78,6 +82,13 @@ int main(void) {
    assert(!rr_object_cache_property(c, vfo0, "frequency", true));
    d = msg("object", "end", 4); dict_add(d, "request.id", "test");
    assert(apply(c, d) && rr_object_cache_ready(c));
+   assert(rr_object_cache_dump_selected(c,"rig1.A",display_line,NULL));
+   assert(strstr(display,"vfo rig1.A") && strstr(display,"frequency: 7074000 Hz"));
+   assert(!strstr(display,"rig0.A"));
+   display[0]='\0';assert(rr_object_cache_dump_selected(c,"rig0",display_line,NULL));
+   assert(strstr(display,"rig rig0") && strstr(display,"vfo rig0.A") && !strstr(display,"rig1.A"));
+   assert(!rr_object_cache_dump_selected(c,"A",display_line,NULL));
+   char reference[128];assert(rr_object_cache_ref_iter(c,0,reference,sizeof(reference)) && *reference);
    assert(apply(c, state(vfo1, 5, 3, true, true, false, 7074000)));
    dict *p = (dict *)rr_object_cache_property(c, vfo1, "frequency", false);
    assert(dict_get_bool(p, "property.known", false));
@@ -93,6 +104,7 @@ int main(void) {
    assert(!rr_object_cache_object(c, vfo1));
    assert(!rr_object_cache_find_alias(c, "vfo", rig1, "A"));
    assert(!rr_object_cache_property(c, vfo1, "frequency", false));
+   assert(!rr_object_cache_dump_selected(c,"rig1.A",display_line,NULL));
    object(c, vfo1, "vfo", rig1, "A", 6); // Late snapshot must not resurrect.
    assert(!rr_object_cache_object(c, vfo1));
    assert(rr_object_cache_object(c, vfo0));

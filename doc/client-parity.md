@@ -166,3 +166,13 @@ subscribe to separate MODEM/`nmea` receiver streams. Browser integrations may
 subscribe explicitly through `/media`; both clients validate complete sentences
 and route them through their existing GPS output events. Default `gps-out`
 ports continue using compact `gpsp` records and local RMC synthesis.
+
+## Human resource navigation
+
+Native GTK/TUI and browser `/media subscribe|unsubscribe` resolve unique,
+case-insensitive stream names locally and send UUIDs. Media and codec listings
+show names and room/subscription metadata; completion inserts names and displays
+separate descriptive labels. Ambiguous/unknown names are rejected. `/objects`
+shows readable cached object/property data and accepts UUIDs or qualified
+symbols such as `rig0` and `rig0.A`. These conveniences do not change wire
+addressing or the site-wide `/rig subscribe` semantics.

@@ -70,7 +70,7 @@ extern void rrclient_poll_events(void);
 extern void rrclient_poll_events_reconnect(void);
 extern void ws_client_init(void);
 extern bool parse_chat_input_real(const char *msg); // cmd.c
-extern char **client_cmd_completions(const char *line, const char *word); // cmd.c
+#include <rrclient/cmd.h>
 extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional: IRC server list)
 extern bool cfg_network_save_init(void);  // cfg.network.c
 extern const char *config_file;           // librustyaxe/config.c
@@ -659,6 +659,7 @@ int main(int argc, char *argv[]) {
 
    // Setup the tab complete and hotkeys
    tui_register_completion_provider(client_cmd_completions);
+   tui_set_completion_describer(client_cmd_completion_describe);
    tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
    tui_hotkey_register(' ', TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
    tui_hotkey_register(0, TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);

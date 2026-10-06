@@ -202,21 +202,74 @@ bool rr_object_cache_apply(rr_object_cache_t *c, dict *d) {
    return true;
 }
 
-void rr_object_cache_dump(rr_object_cache_t *c, rr_object_cache_dump_fn emit, void *user) {
-   if (!c || !emit) return;
+// Human references are local conveniences; wire addresses remain UUIDs.
+static void object_symbol(rr_object_cache_t *c, cached_object_t *o, char *out, size_t capacity) {
+   const char *alias = dict_get(o->descriptor,"object.alias",o->uuid);
+   cached_object_t *owner = find(c,dict_get(o->descriptor,"object.owner",""),false);
+   if (!strcmp(dict_get(o->descriptor,"object.type",""),"vfo") && owner && !owner->removed && owner->descriptor) {
+      snprintf(out,capacity,"%s.%s",dict_get(owner->descriptor,"object.alias",owner->uuid),alias);
+   } else snprintf(out,capacity,"%s",alias);
+}
+
+const dict *rr_object_cache_ref_iter(rr_object_cache_t *c, int index, char *reference, size_t capacity) {
+   if (index < 0 || !reference || !capacity) return NULL;
+   for (cached_object_t *o = c ? c->objects : NULL; o; o = o->next) {
+      if (o->removed || !o->descriptor) continue;
+      if (index--) continue;
+      object_symbol(c,o,reference,capacity);
+      return o->descriptor;
+   }
+   return NULL;
+}
+
+bool rr_object_cache_dump_selected(rr_object_cache_t *c, const char *reference,
+   rr_object_cache_dump_fn emit, void *user) {
+   if (!c || !emit) return false;
+   cached_object_t *selected = NULL;
+   if (reference) {
+      for (cached_object_t *o = c->objects; o; o = o->next) {
+         if (!o->removed && o->descriptor && !strcasecmp(o->uuid,reference)) { selected=o; break; }
+      }
+      if (!selected) for (cached_object_t *o = c->objects; o; o = o->next) {
+         if (o->removed || !o->descriptor) continue;
+         char symbol[128];object_symbol(c,o,symbol,sizeof(symbol));
+         if (strcasecmp(symbol,reference)) continue;
+         if (selected) return false;
+         selected=o;
+      }
+      if (!selected) return false;
+   }
    emit(c->ready ? "Object snapshot complete" : "Object snapshot incomplete", user);
    for (cached_object_t *o = c->objects; o; o = o->next) {
       if (o->removed || !o->descriptor) continue;
-      char line[1024];
-      snprintf(line, sizeof(line), "%s %s alias=%s owner=%s", dict_get(o->descriptor, "object.type", "?"),
-         o->uuid, dict_get(o->descriptor, "object.alias", ""), dict_get(o->descriptor, "object.owner", "-"));
-      emit(line, user);
+      if (selected && o != selected && strcmp(dict_get(o->descriptor,"object.owner",""),selected->uuid)) continue;
+      char line[1024], symbol[128];object_symbol(c,o,symbol,sizeof(symbol));
+      snprintf(line,sizeof(line),"%s %s — %s%s%s (uuid=%s)",
+         dict_get(o->descriptor,"object.type","?"),symbol,
+         dict_get(o->descriptor,"object.name",symbol),
+         dict_get(o->descriptor,"object.backend",NULL) ? " / " : "",
+         dict_get(o->descriptor,"object.backend",""),o->uuid);
+      emit(line,user);
       for (cached_property_t *p = o->properties; p; p = p->next) {
-         char *json = p->state ? dict2json(p->state) : NULL;
-         snprintf(line, sizeof(line), "  %s: %s", p->name, json ? json : "no observation");
-         emit(line, user); free(json);
+         char value[512] = "unknown";
+         if (p->state && dict_get_bool(p->state,"property.known",false)) {
+            const char *type = dict_get(p->state,"property.type","");
+            if (!strcmp(type,"integer")) snprintf(value,sizeof(value),"%lld",dict_get_llong(p->state,"property.value",0));
+            else if (!strcmp(type,"boolean")) snprintf(value,sizeof(value),"%s",dict_get_bool(p->state,"property.value",false) ? "true" : "false");
+            else if (!strcmp(type,"number")) snprintf(value,sizeof(value),"%g",dict_get_double(p->state,"property.value",0));
+            else snprintf(value,sizeof(value),"%s",dict_get(p->state,"property.value","unknown"));
+         }
+         const char *unit = p->descriptor ? dict_get(p->descriptor,"property.unit","") : "";
+         snprintf(line,sizeof(line),"  %s: %s%s%s%s%s",p->name,value,*unit ? " " : "",unit,
+            p->state && !dict_get_bool(p->state,"property.available",false) ? " (unavailable)" : "",
+            p->descriptor && dict_get_bool(p->descriptor,"property.writable",false) ? " [writable]" : "");
+         emit(line,user);
       }
    }
+   return true;
+}
+void rr_object_cache_dump(rr_object_cache_t *c, rr_object_cache_dump_fn emit, void *user) {
+   rr_object_cache_dump_selected(c,NULL,emit,user);
 }
 
 const dict *rr_object_cache_find_alias(rr_object_cache_t *c, const char *type,

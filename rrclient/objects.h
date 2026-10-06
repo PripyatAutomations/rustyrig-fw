@@ -19,6 +19,9 @@ const dict *rr_object_cache_property(rr_object_cache_t *, const char *uuid,
    const char *name, bool descriptor);
 typedef void (*rr_object_cache_dump_fn)(const char *line, void *user);
 void rr_object_cache_dump(rr_object_cache_t *, rr_object_cache_dump_fn, void *);
+const dict *rr_object_cache_ref_iter(rr_object_cache_t *, int index, char *reference, size_t capacity);
+const dict *rrclient_object_ref_iter(int index, char *reference, size_t capacity);
+bool rr_object_cache_dump_selected(rr_object_cache_t *, const char *reference, rr_object_cache_dump_fn, void *);
 void rrclient_objects_register_events(void);
 bool cmd_rig(int argc, char **args);
 bool cmd_gps(int argc, char **args);

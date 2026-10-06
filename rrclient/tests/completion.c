@@ -11,15 +11,21 @@ static bool admin;
 bool media_have_priv(const char *p) { return admin; }
 const char *media_get_common_codecs(void) { return "pc16 opus g722 oggv opuT"; }
 static struct rr_client_media_chan channels[] = {
-   {.uuid="rx-active", .subsystem=1, .direction=0, .subscribed=true},
+   {.uuid="rx-active", .name="rig0.vfo_a.rx", .descr="Main receiver", .codec="opus", .room="#station-rig0", .joined=true, .subsystem=1, .direction=0, .subscribed=true},
    {.uuid="rx-disabled", .subsystem=1, .direction=0, .disabled=true},
    {.uuid="tx-active", .subsystem=1, .direction=1, .subscribed=true},
    {.uuid="video", .subsystem=2, .direction=0, .subscribed=true},
-   {.uuid="rx-other", .subsystem=1, .direction=0}
+   {.uuid="rx-other", .name="rig1.vfo_a.rx", .subsystem=1, .direction=0}
 };
 const struct rr_client_media_chan *rrclient_media_chan_iter(int i, int *number) {
    *number = i + 1;
    return i < 5 ? &channels[i] : NULL;
+}
+const dict *rrclient_object_ref_iter(int i, char *reference, size_t capacity) {
+   static dict *object;
+   if (i) return NULL;
+   if (!object) { object=dict_new();dict_add(object,"object.uuid","rig-id");dict_add(object,"object.type","rig");dict_add(object,"object.name","Main transceiver"); }
+   snprintf(reference,capacity,"rig0");return object;
 }
 static void check(const char *line, const char *word, const char *expected) {
    char **matches = client_cmd_completions(line, word);
@@ -44,7 +50,16 @@ int main(void) {
    check("/rxcodec ", "", "NONE");
    check("/rxcodec OP", "OP", "opus");
    check("/rxcodec opu", "opu", "opuT");
-   check("/rxcodec opus ", "", "rx-active");
+   check("/rxcodec opus ", "", "rig0.vfo_a.rx");
+   char label[512];
+   client_cmd_completion_describe("/media subscribe ","rig0.vfo_a.rx",label,sizeof(label));
+   assert(strstr(label,"Main receiver") && strstr(label,"RX opus") && strstr(label,"subscribed") && strstr(label,"#station-rig0"));
+   check("/objects rig", "rig", "rig0");
+   client_cmd_completion_describe("/objects ","rig0",label,sizeof(label));
+   assert(strstr(label,"Main transceiver"));
+   char **names=client_cmd_completions("/media SUB ","");
+   for (int i=0;names && names[i];i++) assert(strcmp(names[i],"rx-active") && strcmp(names[i],"rx-other"));
+   completion_free(names);
    check("/rxcodec opus rx-d", "rx-d", "rx-disabled");
    check("/rxcodec opus rx-o", "rx-o", NULL);
    check("/rxcodec opus tx", "tx", NULL);

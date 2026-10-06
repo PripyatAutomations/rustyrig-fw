@@ -57,7 +57,7 @@ bool media_send_codec_select(rrconn_t *cptr, const char *codec, const char *uuid
    snprintf(last_codec, sizeof(last_codec), "%s", codec);
    return true;
 }
-bool media_send_subscribe(rrconn_t *cptr, const char *uuid) { subscribed++; return !fail_send; }
+bool media_send_subscribe(rrconn_t *cptr, const char *uuid) { subscribed++;snprintf(last_uuid,sizeof(last_uuid),"%s",uuid); return !fail_send; }
 bool media_send_unsubscribe(rrconn_t *cptr, const char *uuid) { unsubscribed++; return !fail_send; }
 
 static void announce(const char *uuid, const char *codec, int vfo) {
@@ -87,7 +87,9 @@ int main(void) {
    // never become codec-select requests, while its "none" ID unsubscribes.
    assert(rrclient_media_select_codec(ws_conn, false, "----"));
    assert(selected == 0 && unsubscribed == 0);
-   char *set[] = {"rxcodec", "G722", "#2"};
+   snprintf(known_chans[1].name,sizeof(known_chans[1].name),"rig0.vfo_b.rx");
+   assert(rrclient_media_chan_lookup("RIG0.VFO_B.RX") == &known_chans[1]);
+   char *set[] = {"rxcodec", "G722", "rig0.vfo_b.rx"};
    assert(!cmd_rxcodec(3, set));
    assert(selected == 1 && !strcmp(last_uuid, "rx-b") && !strcmp(last_codec, "g722"));
    assert(!strcmp(known_chans[1].codec, "mu16")); // wait for the server
@@ -208,6 +210,17 @@ int main(void) {
    gps_outputs_changed(NULL,"",NULL,NULL);
    assert(!known_chans[3].subscribed);
    assert(!known_chans[0].subscribed && !known_chans[1].subscribed);
+   assert(rrclient_media_chan_lookup("RIG0.GPS.RX") == &known_chans[0]);
+   assert(rrclient_media_chan_lookup("#1junk") == NULL);
+   char *by_name[]={"media","subscribe","rig0.nmea.rx"};
+   assert(!cmd_media(3,by_name) && !strcmp(last_uuid,"nmea0"));
+   unsigned before_sub=subscribed;
+   char *bad_name[]={"media","subscribe","missing.gps.rx"};
+   assert(cmd_media(3,bad_name) && subscribed==before_sub);
+   known_chans[4]=known_chans[3];snprintf(known_chans[4].uuid,sizeof(known_chans[4].uuid),"other-nmea");
+   assert(!rrclient_media_chan_lookup("rig0.nmea.rx"));
+   assert(cmd_media(3,by_name) && subscribed==before_sub);
+   assert(rrclient_media_chan_lookup("nmea0") == &known_chans[3]);
    puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
    return 0;
 }

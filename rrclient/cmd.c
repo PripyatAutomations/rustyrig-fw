@@ -64,7 +64,7 @@ client_cmd_t client_cmds[] = {
       .desc = "Serial endpoints: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>"
    },
    {
-      .cmd = "objects", .cb = cmd_objects, .desc = "Dump UUID object/property cache"
+      .cmd = "objects", .cb = cmd_objects, .desc = "Inspect objects: /objects [rig0|rig0.A|uuid]"
    },
    {
       .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab"

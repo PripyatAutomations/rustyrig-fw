@@ -66,9 +66,12 @@ static void print_line(const char *line, void *user) {
 }
 
 bool cmd_objects(int argc, char **args) {
-   (void)argc; (void)args;
+   if (argc > 2) { ui_print(NULL,"Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)"); return true; }
    if (!cache) ui_print(NULL, "No object snapshot received");
-   else rr_object_cache_dump(cache, print_line, NULL);
+   else if (!rr_object_cache_dump_selected(cache,argc == 2 ? args[1] : NULL,print_line,NULL)) {
+      ui_print(NULL,"Unknown or ambiguous object %s; use /objects to choose a qualified symbol or UUID",args[1]);
+      return true;
+   }
    return false;
 }
 
@@ -123,4 +126,8 @@ const dict *rrclient_object_property(const char *uuid, const char *name) {
 const dict *rrclient_object_find_alias(const char *type, const char *owner,
    const char *alias) {
    return rr_object_cache_find_alias(cache, type, owner, alias);
+}
+
+const dict *rrclient_object_ref_iter(int index, char *reference, size_t capacity) {
+   return rr_object_cache_ref_iter(cache,index,reference,capacity);
 }

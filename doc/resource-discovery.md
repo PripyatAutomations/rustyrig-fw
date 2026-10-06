@@ -20,7 +20,7 @@ site station-name  uuid=... room=#station-name
 
 UUIDs appear only for resources that have them. Serial exports, symbolic CAT
 bindings and GPS inputs are names, not invented UUID objects. GPS outputs
-refer to their actual NMEA media UUID. Unknown/no-fix coordinates are omitted;
+refer to their actual gpsp or NMEA media UUID. Unknown/no-fix coordinates are omitted;
 station fallback reports the effective source. Rig RX subrooms appear under
 that rig; unrelated rooms remain chat-only. CAT attachments use the native
 client's existing serial interface and retain the server's control checks.
@@ -33,7 +33,7 @@ client's existing serial interface and retain the server's control checks.
 | `/join <room>`, `/part <room>` | Enter or leave the resource's room |
 | `/media` | Refresh available stream metadata |
 | `/media list` | Show cached streams and current subscriptions |
-| `/media subscribe <uuid>`, `/media unsubscribe <uuid>` | Manage a specific stream |
+| `/media subscribe <name|uuid|#number>`, `/media unsubscribe <name|uuid|#number>` | Manage a specific stream |
 | `/gps list` | Discover GPS services within the site tree |
 | `/gps subscribe <rig-alias|station>` | Subscribe to that scope's NMEA output |
 | `/gps unsubscribe <rig-alias|station>` | Stop that NMEA subscription |
@@ -44,7 +44,7 @@ client's existing serial interface and retain the server's control checks.
 | `/sercom disconnect ttyHOST0` | Release the attachment and remote port |
 
 The browser can discover serial exports through `/sercom remote`, but cannot
-create local PTYs. Existing `/objects` dumps the native property cache.
+create local PTYs. `/objects` shows readable cached objects and their properties in both clients.
 `/rig subscribe` refreshes that cache after unsubscribing; ordinary login
 already subscribes to property updates.
 
@@ -57,6 +57,40 @@ Audit events are stored in the server's SQLite `audit_log` table and can be
 read on the server with `tools/rr-get-audit-log`. Client audit replay and a
 `/audit` command are not implemented. Automatic chat replay is a separate
 feature and does not replay audit events.
+
+## Human references and completion
+
+Use symbolic stream names for routine operations:
+
+```text
+/media subscribe rig0.vfo_a.rx
+/media unsubscribe station.gps.rx
+/rxcodec opus rig0.vfo_a.rx
+/objects rig0
+/objects rig0.A
+```
+
+`/media list` leads with stream names, descriptions, codec, room and subscription
+state. Tab completion inserts symbolic names and shows descriptive labels in
+GTK, TUI and the browser. Labels never become command arguments. Numeric
+references and UUIDs remain available; type `#` or a UUID prefix to complete
+them explicitly. Channels without a unique name fall back to UUID choices.
+Names are matched case-insensitively; ambiguous names are rejected and require
+an exact UUID or list number. Unknown references are rejected locally; use
+`/media` to refresh discovery after a resource changes.
+
+`/objects [symbol|uuid]` inspects a rig and its immediate children, or a single
+VFO such as `rig0.A`. VFO names are qualified by their owning rig so another
+rig's VFO A cannot be selected accidentally. Object views show display names,
+backend, readable values and units, availability, and writable flags. They use
+the current property cache; `/rig subscribe` refreshes a stopped cache.
+`/objects` and `/gps subscribe|unsubscribe` also complete their symbolic scopes.
+
+Symbol resolution belongs to the clients and uses current discovery metadata.
+The protocol still addresses objects and streams by UUID. `/rig subscribe`
+continues to subscribe to the site's object/property stream; it does not gain
+a per-rig subscription argument. Browser-console `rrObjectsDump()` remains
+available for the structured diagnostic view.
 
 ## Permission boundaries
 

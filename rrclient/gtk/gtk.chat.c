@@ -275,11 +275,13 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
 
    // Multi-column layout across a few lines (column-major, like the TUI)
    {
+      char labels[TUI_MAX_COMPLETIONS_SHOWN][512];
       int maxlen = 0;
       int nshown = nmatch > TUI_MAX_COMPLETIONS_SHOWN ? TUI_MAX_COMPLETIONS_SHOWN : nmatch;
 
       for (int i = 0; i < nshown; i++) {
-         int l = (int)strlen(matches[i]);
+         completion_describe(gtk_entry_get_text(entry),matches[i],labels[i],sizeof(labels[i]));
+         int l = (int)strlen(labels[i]);
 
          if (l > maxlen) {
             maxlen = l;
@@ -307,7 +309,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
             if (idx >= nshown) {
                break;
             }
-            pos += snprintf(line + pos, sizeof(line) - pos, "%-*s  ", maxlen, matches[idx]);
+            pos += snprintf(line + pos, sizeof(line) - pos, "%-*s  ", maxlen, labels[idx]);
 
             if (pos >= sizeof(line) - 1) {
                break;

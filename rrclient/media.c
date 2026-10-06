@@ -745,7 +745,8 @@ const struct rr_media_known *rrclient_media_chan_get(int idx) {
    return NULL;
 }
 
-// Find a stored channel by (case-insensitive) uuid or 1-based list index.
+// PARITY: rustyrig-www/js/webui.media.js mediaChanLookup.
+// Resolve UUID/index or a unique symbolic name; ambiguous names require UUID.
 // Returns NULL when not found.
 const struct rr_media_known *rrclient_media_chan_lookup(const char *arg) {
    if (!arg || arg[0] == '\0') {
@@ -763,7 +764,14 @@ const struct rr_media_known *rrclient_media_chan_lookup(const char *arg) {
    if (end != number && !*end && index > 0 && index <= RR_MEDIA_MAX_CHANS) {
       return rrclient_media_chan_get((int)index - 1);
    }
-   return NULL;
+   const struct rr_media_known *match = NULL;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      const struct rr_media_known *channel = &known_chans[i];
+      if (!channel->uuid[0] || !channel->name[0] || strcasecmp(channel->name, arg)) continue;
+      if (match) return NULL;
+      match = channel;
+   }
+   return match;
 }
 
 // Subscribe (or unsubscribe) to a channel by uuid. Returns false on OK.
@@ -820,7 +828,7 @@ void rrclient_media_refresh(void) {
    }
 }
 
-// /media [LIST | SUBSCRIBE <uuid|#> | UNSUBSCRIBE <uuid|#>] - the LIST form
+// /media [LIST | SUBSCRIBE <name|uuid|#number> | UNSUBSCRIBE <name|uuid|#number>] - the LIST form
 // (or no args) shows known channels and our subscriptions.
 // PARITY: rustyrig-www/js/webui.media.js (channel list / subscribe handling)
 bool cmd_media(int argc, char **args) {
@@ -838,15 +846,16 @@ bool cmd_media(int argc, char **args) {
            continue;
         }
         n++;
-      char vfo = (kp->vfo < 26) ? (char)('A' + kp->vfo) : '-';
-        media_print( " %2d. %s%s %s  [%s]  VFO %c rig %u {magenta}%s{reset}", n,
-           (kp->subscribed ? "{green}*{reset} " : "  "),
-           (kp->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx"), kp->uuid,
-           (kp->codec[0] != '\0' ? kp->codec : "----"),
-           vfo, kp->rig,
-           (kp->descr[0] != '\0' ? kp->descr : "-") );
+        media_print(" #%d %s [%s %s, %s] room=%s %s%s — %s (uuid=%s)", n,
+           kp->name[0] ? kp->name : kp->uuid,
+           kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ? "audio" :
+              kp->subsystem == RR_BINFRAME_SUBSYS_MODEM ? "GPS/serial" : "media",
+           kp->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX",
+           kp->codec[0] ? kp->codec : "----", kp->room[0] ? kp->room : "any",
+           kp->subscribed ? "subscribed" : "unsubscribed", !kp->room[0] || kp->joined ? "" : " (join room first)",
+           kp->descr[0] ? kp->descr : "-", kp->uuid);
      }
-     media_print( "{bright-cyan}End of list ({reset}%d{bright-cyan} channels, {reset}*{bright-cyan} = subscribed){reset}", n);
+     media_print("End of list (%d channels). Use names, #numbers, or UUIDs.",n);
      Log(LOG_INFO, "ws.media", "/media LIST: %d stored channels", n);
 
       if (sub) {
@@ -860,43 +869,36 @@ bool cmd_media(int argc, char **args) {
       bool unsub = (strncasecmp(sub, "UN", 2) == 0);
 
       if (argc < 3 || !args[2] || args[2][0] == '\0') {
-         media_print( "Usage: /media %s <uuid|#>", sub);
+         media_print( "Usage: /media %s <name|uuid|#number>", sub);
          return true;
       }
       const struct rr_media_known *kp = rrclient_media_chan_lookup(args[2]);
 
       if (!kp) {
-         if (unsub) {
-            media_print( "No such channel |%s|", args[2]);
-            return true;
-         }
-         // Not in our table - pass the arg through as a creation request; the
-         // server generates a new channel for subscribe-without-uuid.
-         media_print( "No stored channel matches |%s|; asking server to create one", args[2]);
-
-         return rrclient_media_subscribe(args[2]);
+         media_print("Unknown or ambiguous channel '%s'; use /media list and choose a name, #number or UUID", args[2]);
+         return true;
       }
       if (unsub) {
          if (!kp->subscribed) {
-            media_print( "Not subscribed to %s", kp->uuid);
+            media_print( "Not subscribed to %s", kp->name[0] ? kp->name : kp->uuid);
             return false;
          }
-         media_print( "Unsubscribing from %s (%s)", kp->uuid,
+         media_print( "Unsubscribing from %s (%s)", kp->name[0] ? kp->name : kp->uuid,
             (kp->descr[0] != '\0' ? kp->descr : "-"));
 
          return rrclient_media_unsubscribe(kp->uuid);
       }
       if (kp->subscribed) {
-         media_print( "Already subscribed to %s (%s)", kp->uuid,
+         media_print( "Already subscribed to %s (%s)", kp->name[0] ? kp->name : kp->uuid,
             (kp->descr[0] != '\0' ? kp->descr : "-"));
          return false;
       }
-      media_print( "Subscribing to %s (%s)", kp->uuid,
+      media_print( "Subscribing to %s (%s)", kp->name[0] ? kp->name : kp->uuid,
          (kp->descr[0] != '\0' ? kp->descr : "-"));
 
       return rrclient_media_subscribe(kp->uuid);
    }
-   media_print( "Usage: /media [LIST | SUB|SUBSCRIBE <uuid|#> | UNSUB|UNSUBSCRIBE <uuid|#>]");
+   media_print( "Usage: /media [LIST | SUB|SUBSCRIBE <name|uuid|#number> | UNSUB|UNSUBSCRIBE <name|uuid|#number>]");
 
    return true;
 }
@@ -905,7 +907,7 @@ bool cmd_media(int argc, char **args) {
 static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
    const char *command = is_tx ? "txcodec" : "rxcodec";
    if (argc > 3 || (argc == 3 && strcasecmp(args[1], "list") == 0)) {
-      media_print( "Usage: /%s [LIST | <codec>|NONE [uuid|#number]]", command);
+      media_print( "Usage: /%s [LIST | <codec>|NONE [name|uuid|#number]]", command);
       return true;
    }
    if (argc < 2 || strcasecmp(args[1], "list") == 0) {
@@ -947,10 +949,10 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
    if (!failed) {
       char vfo = (target && target->vfo < 26) ? (char)('A' + target->vfo) : '-';
-      media_print( "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)",
-         is_tx ? "TX" : "RX", args[1], target ? (int)(target - known_chans) + 1 : 0,
-         target ? target->uuid : (argc == 3 ? args[2] : "<active>"), vfo,
-         target && target->descr[0] ? target->descr : "audio");
+      media_print("Requested %s codec %s for %s VFO %c (%s; uuid=%s)",
+         is_tx ? "TX" : "RX",args[1],target && target->name[0] ? target->name : "active audio",vfo,
+         target && target->descr[0] ? target->descr : "audio",
+         target ? target->uuid : "active");
    }
    return failed;
 }
