@@ -15,11 +15,8 @@ void tui_refresh_sb_window(void) {}
 void tui_refresh_sb_vfo(void) {}
 void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {}
 const char *rrclient_media_current_codec(bool tx) { return tx ? NULL : "opuT"; }
-const char *rrclient_room_vfos(const char *room) {
-   return room && !strcmp(room, "#rig") ? "rig0.vfo_a" : "";
-}
-
-const char *rrclient_media_active_room(void) { return ""; }
+// Exercise the real per-room selection state used by vfo.c.
+const char *rrclient_media_active_room(void) { return "#rig"; }
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) { return NULL; }
 const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
 static unsigned redraws;
@@ -62,6 +59,7 @@ int main(void) {
    cfg = dict_new();
    default_cfg = dict_new();
    dict_add(default_cfg, "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE);
+   assert(rrclient_room_set_vfos("#rig", "rig0.vfo_a"));
    server_name = "station";
    ws_connected = 1;
    cfg_tui_colors = false;
@@ -214,5 +212,6 @@ int main(void) {
    assert(dup2(saved_stdout, STDOUT_FILENO) >= 0);
    close(saved_stdout);
    fclose(output);
+   rrclient_rooms_clear();
    puts("PASS: live TUI rows, redraw batching, inactive logs, clipping, and terminal cleanup");
 }

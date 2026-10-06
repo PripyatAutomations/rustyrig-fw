@@ -15,11 +15,11 @@ from ws_helpers import WebSocket
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-def login(client):
-    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": "TEST"}})
+def login(client, username="TEST"):
+    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": username}})
     challenge = client.until(lambda m: m.get("auth", {}).get("cmd") == "challenge")["auth"]
     password = hashlib.sha1((hashlib.sha1(b"test-password").hexdigest() + "+" + challenge["nonce"]).encode()).hexdigest()
-    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": "TEST", "pass": password, "token": challenge["token"]}})
+    client.send({"msg": {"type": "auth"}, "auth": {"cmd": "pass", "user": username, "pass": password, "token": challenge["token"]}})
     client.until(lambda m: m.get("auth", {}).get("cmd") == "authorized")
 
 def command(client, cmd, **fields):
@@ -56,6 +56,8 @@ with tempfile.TemporaryDirectory(prefix="rr-serial-live-") as temporary:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)",
                    ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,view,radio,edit,chat"))
+        db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,?,?,?,?,?)",
+                   ("RESTRICTED", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "view,radio,chat"))
     master, slave = pty.openpty()
     tty.setraw(slave)
     device = os.ttyname(slave)
@@ -157,11 +159,12 @@ buffer-bytes=0
             serial(second, "closed")
             # A newly authenticated user without serial privileges cannot
             # discover or open a physical export, but still sees rig GPS.
-            with sqlite3.connect(database) as db:
-                db.execute("UPDATE users SET permissions='view,radio,chat' WHERE uid=1")
+            # Users are loaded at startup (or explicit rehash), so seed the
+            # restricted account before launching instead of editing SQLite
+            # behind the running server's cached authentication table.
             restricted = WebSocket(port)
             clients.append(restricted)
-            login(restricted)
+            login(restricted, "RESTRICTED")
             rows = inventory(restricted)
             assert not any(r['kind'] == 'serial' for r in rows)
             assert any(r['name'] == 'rig0.gps-out' for r in rows)
