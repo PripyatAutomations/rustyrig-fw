@@ -12,15 +12,27 @@
 #include <librrprotocol/ws.mediachan.h>
 static rr_object_cache_t *cache;
 static unsigned inventory_request;
-static char inventory_id[48];
+#define INVENTORY_REQUESTS_MAX 32
+static struct inventory_request {
+   char id[48], window[128];
+} inventory_requests[INVENTORY_REQUESTS_MAX];
 
 // PARITY: rustyrig-www/js/webui.objects.js rrInventoryMessage.
 static bool inventory_message(dict *d) {
    const char *cmd = dict_get(d, "object.cmd", "");
    if (strcmp(cmd, "inventory-entry") && strcmp(cmd, "inventory-end")) return false;
-   if (strcmp(dict_get(d, "request.id", ""), inventory_id)) return true;
+   struct inventory_request *request = NULL;
+   const char *id = dict_get(d,"request.id","");
+   for (unsigned i = 0; i < INVENTORY_REQUESTS_MAX; i++) {
+      if (inventory_requests[i].id[0] && !strcmp(inventory_requests[i].id,id)) {
+         request = &inventory_requests[i];break;
+      }
+   }
+   if (!request) return true;
+   const char *window = request->window[0] ? request->window : NULL;
    if (!strcmp(cmd, "inventory-end")) {
-      ui_print(NULL, "End of resource tree. /rig subscribe|unsubscribe controls property updates; /media and /gps manage streams.");
+      ui_print(window, "End of resource tree. /rig subscribe|unsubscribe controls property updates; /media and /gps manage streams.");
+      memset(request,0,sizeof(*request));
       return true;
    }
    unsigned depth = dict_get_uint(d, "inventory.depth", 0);
@@ -32,7 +44,7 @@ static bool inventory_message(dict *d) {
       const char *value = dict_get(d, key, NULL);
       if (value && *value) snprintf(details + strlen(details), sizeof(details) - strlen(details), "  %s=%s", keys[i], value);
    }
-   ui_print(NULL, "%*s%s%s %s%s", depth ? (int)(depth - 1) * 3 : 0, "",
+   ui_print(window, "%*s%s%s %s%s", depth ? (int)(depth - 1) * 3 : 0, "",
       depth ? "+- " : "", dict_get(d, "inventory.kind", "resource"),
       dict_get(d, "inventory.name", ""), details);
    return true;
@@ -50,7 +62,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)data; (void)client; (void)user;
-   inventory_id[0] = '\0';
+   memset(inventory_requests,0,sizeof(inventory_requests));
    rr_object_cache_free(cache); cache = NULL;
    if (strcmp(event, "authorized") || !ws_conn) return;
    cache = rr_object_cache_new();
@@ -61,42 +73,55 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
 }
 
 static void print_line(const char *line, void *user) {
-   (void)user;
-   ui_print(NULL, "%s", line);
+   ui_print((const char *)user, "%s", line);
 }
 
 bool cmd_objects(int argc, char **args) {
-   if (argc > 2) { ui_print(NULL,"Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)"); return true; }
-   if (!cache) ui_print(NULL, "No object snapshot received");
-   else if (!rr_object_cache_dump_selected(cache,argc == 2 ? args[1] : NULL,print_line,NULL)) {
-      ui_print(NULL,"Unknown or ambiguous object %s; use /objects to choose a qualified symbol or UUID",args[1]);
+   const char *window = ui_active_window_name();
+   if (argc > 2) { ui_print(window,"Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)"); return true; }
+   if (!cache) ui_print(window, "No object snapshot received");
+   else if (!rr_object_cache_dump_selected(cache,argc == 2 ? args[1] : NULL,print_line,(void *)window)) {
+      ui_print(window,"Unknown or ambiguous object %s; use /objects to choose a qualified symbol or UUID",args[1]);
       return true;
    }
    return false;
 }
 
 bool cmd_rig(int argc, char **args) {
+   const char *window = ui_active_window_name();
    const char *cmd = argc == 1 || (argc == 2 && !strcasecmp(args[1], "list")) ? "inventory" :
       argc == 2 && !strcasecmp(args[1], "subscribe") ? "snapshot" :
       argc == 2 && !strcasecmp(args[1], "unsubscribe") ? "unsubscribe" : NULL;
-   if (!cmd) { ui_print(NULL, "Usage: /rig list|subscribe|unsubscribe"); return true; }
-   if (!ws_conn) { ui_print(NULL, "Not connected"); return true; }
+   if (!cmd) { ui_print(window, "Usage: /rig list|subscribe|unsubscribe"); return true; }
+   if (!ws_conn) { ui_print(window, "Not connected"); return true; }
    dict *d = dict_new();
    if (!d) return true;
    char id[48]; snprintf(id, sizeof(id), "rig-%u", ++inventory_request);
-   if (!strcmp(cmd, "inventory")) snprintf(inventory_id, sizeof(inventory_id), "%s", id);
+   struct inventory_request *pending = NULL;
+   if (!strcmp(cmd,"inventory")) {
+      for (unsigned i = 0; i < INVENTORY_REQUESTS_MAX; i++) {
+         if (!inventory_requests[i].id[0]) { pending=&inventory_requests[i];break; }
+      }
+      if (!pending) {
+         ui_print(window,"Wait for an outstanding resource listing to finish");dict_free(d);return true;
+      }
+      snprintf(pending->id,sizeof(pending->id),"%s",id);
+      snprintf(pending->window,sizeof(pending->window),"%s",window ? window : "");
+   }
    dict_add(d, "msg.type", "object"); dict_add(d, "object.cmd", cmd);
    dict_add(d, "request.id", id);
    bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+   if (!sent && pending) memset(pending,0,sizeof(*pending));
    return !sent;
 }
 
 bool cmd_gps(int argc, char **args) {
+   const char *window = ui_active_window_name();
    if (argc == 1 || (argc == 2 && !strcasecmp(args[1], "list"))) return cmd_rig(1, args);
    bool unsub = argc == 3 && !strcasecmp(args[1], "unsubscribe");
    if (argc != 3 || (!unsub && strcasecmp(args[1], "subscribe"))) {
-      ui_print(NULL, "Usage: /gps list|subscribe|unsubscribe <rig-alias|station>"); return true;
+      ui_print(window, "Usage: /gps list|subscribe|unsubscribe <rig-alias|station>"); return true;
    }
    char name[96]; snprintf(name, sizeof(name), "%s.gps.rx", args[2]);
    for (int i = 0; i < RR_CLIENT_MEDIA_MAX_CHANS; i++) {
@@ -107,7 +132,7 @@ bool cmd_gps(int argc, char **args) {
       char *media_args[] = { command, action, (char *)ch->uuid };
       return cmd_media(3, media_args);
    }
-   ui_print(NULL, "No GPS output for %s; use /rig list and /media to refresh discovery", args[2]);
+   ui_print(window, "No GPS output for %s; use /rig list and /media to refresh discovery", args[2]);
    return true;
 }
 

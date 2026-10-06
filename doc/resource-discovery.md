@@ -124,6 +124,8 @@ object/property cache. Clients must not feed it into that cache. Existing
 Server components contribute through `server.inventory.collect` event
 listeners, using the requested scope and depth. This keeps GPS and serial
 state in their owning components. Clients render the records locally.
+Command output goes to the issuing window; inventory replies retain that
+destination even when the user switches windows before the response arrives.
 
 ## Checks to run
 
