@@ -160,3 +160,9 @@ GTK and TUI default to shared command/chat history across windows via
 also shares input history. GTK Up/Down operates on the originating entry,
 restores that entry's unfinished draft after the newest item, and retains up
 to 50 entries. GTK and browser suppress consecutive duplicate submissions.
+
+Explicit native `rig.nmea-out`, `rigN.nmea-out` and `station.nmea-out` ports
+subscribe to separate MODEM/`nmea` receiver streams. Browser integrations may
+subscribe explicitly through `/media`; both clients validate complete sentences
+and route them through their existing GPS output events. Default `gps-out`
+ports continue using compact `gpsp` records and local RMC synthesis.

@@ -98,7 +98,7 @@ bool cmd_gps(int argc, char **args) {
    char name[96]; snprintf(name, sizeof(name), "%s.gps.rx", args[2]);
    for (int i = 0; i < RR_CLIENT_MEDIA_MAX_CHANS; i++) {
       const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, NULL);
-      if (!ch || strcmp(ch->name, name) || strcmp(ch->codec, "nmea")) continue;
+      if (!ch || strcmp(ch->name, name) || strcmp(ch->codec, "gpsp")) continue;
       char command[] = "media", action[12];
       snprintf(action, sizeof(action), "%s", unsub ? "unsubscribe" : "subscribe");
       char *media_args[] = { command, action, (char *)ch->uuid };

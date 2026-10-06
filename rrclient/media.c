@@ -324,8 +324,9 @@ bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) 
 // Track pending subscriptions so we only subscribe once per channel
 static bool gps_wanted(const struct rr_media_known *channel) {
    if(channel->subsystem!=RR_BINFRAME_SUBSYS_MODEM || channel->direction!=RR_BINFRAME_DIR_RX ||
-      strcmp(channel->codec,RR_GPS_FRAME_CODEC) || !channel->joined) return false;
-   const char *suffix=strstr(channel->name,".gps.rx");
+      (strcmp(channel->codec,RR_GPS_FRAME_CODEC) && strcmp(channel->codec,RR_NMEA_FRAME_CODEC)) || !channel->joined) return false;
+   bool raw = !strcmp(channel->codec,RR_NMEA_FRAME_CODEC);
+   const char *suffix=strstr(channel->name,raw ? ".nmea.rx" : ".gps.rx");
    if(!suffix) return false;
    char source[64];size_t len=suffix-channel->name;
    if(len>=sizeof(source)) return false;
@@ -333,6 +334,9 @@ static bool gps_wanted(const struct rr_media_known *channel) {
    char scopes[sizeof(gps_scopes)];snprintf(scopes,sizeof(scopes),"%s",gps_scopes);
    char *save=NULL;
    for(char *scope=strtok_r(scopes," ",&save);scope;scope=strtok_r(NULL," ",&save)) {
+      bool requested_raw = !strncmp(scope,"nmea:",5);
+      if (requested_raw != raw) continue;
+      if (requested_raw) scope += 5;
       if(!strcmp(scope,source)) return true;
       if(!strcmp(scope,"active") &&
          (ws_room_same_rig(media_room,channel->control_room) ||
@@ -373,7 +377,7 @@ static void gps_outputs_changed(const char *event, const char *data,
       struct rr_media_known *kp = &known_chans[i];
       if (gps_wanted(kp)) media_try_autosubscribe(ws_conn, kp);
       else if (kp->subscribed && kp->subsystem == RR_BINFRAME_SUBSYS_MODEM &&
-               !strcmp(kp->codec, RR_GPS_FRAME_CODEC)) {
+               (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC))) {
          media_send_unsubscribe(ws_conn, kp->uuid);
          kp->subscribed = false;
       }
@@ -633,35 +637,42 @@ void rrclient_media_room_parted(const char *room) {
    rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
 }
 
-/* PARITY: rustyrig-www/js/webui.audio.framing.js binframe_gps_position. */
+/* PARITY: rustyrig-www/js/webui.audio.framing.js binframe_gps_position/binframe_gps_nmea. */
 static bool gps_sentence(int32_t lat, int32_t lon, uint8_t flags, char *sentence, size_t capacity) {
    return rr_gps_nmea_rmc(lat, lon, flags, time(NULL), sentence, capacity) != 0;
 }
 static void gps_frame(const char *event,const void *data,size_t len,rrconn_t *client,void *user) {
    (void)event;(void)user;
    struct rr_binframe frame;
-   if(rr_binframe_parse(data,len,&frame) || frame.len != RR_GPS_POSITION_PAYLOAD_LEN ||
-      len != RR_BINFRAME_HDR_LEN + frame.len) return;
-   int32_t lat = (int32_t)((uint32_t)frame.data[0] << 24 | (uint32_t)frame.data[1] << 16 |
-      (uint32_t)frame.data[2] << 8 | frame.data[3]);
-   int32_t lon = (int32_t)((uint32_t)frame.data[4] << 24 | (uint32_t)frame.data[5] << 16 |
-      (uint32_t)frame.data[6] << 8 | frame.data[7]);
-   uint8_t flags = frame.data[8];
-   if (lat < -900000 || lat > 900000 || lon < -1800000 || lon > 1800000 ||
-       (flags & ~(RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL))) return;
-   char sentence[128];
-   if(!gps_sentence(lat, lon, flags, sentence, sizeof(sentence)) || !rr_nmea_valid(sentence)) return;
+   if(rr_binframe_parse(data,len,&frame) || len != RR_BINFRAME_HDR_LEN + frame.len ||
+      frame.hdr.subsystem != RR_BINFRAME_SUBSYS_MODEM || frame.hdr.direction != RR_BINFRAME_DIR_RX ||
+      frame.hdr.vfo != RR_BINFRAME_VFO_NA || !frame.hdr.stream) return;
+   bool raw = !memcmp(frame.hdr.codec,RR_NMEA_FRAME_CODEC,4);
+   char sentence[512];
+   if (raw) {
+      if (!frame.len || frame.len >= sizeof(sentence) || memchr(frame.data,0,frame.len)) return;
+      memcpy(sentence,frame.data,frame.len);sentence[frame.len]='\0';
+   } else {
+      if (memcmp(frame.hdr.codec,RR_GPS_FRAME_CODEC,4) || frame.len != RR_GPS_POSITION_PAYLOAD_LEN) return;
+      int32_t lat = (int32_t)((uint32_t)frame.data[0]<<24 | (uint32_t)frame.data[1]<<16 |
+         (uint32_t)frame.data[2]<<8 | frame.data[3]);
+      int32_t lon = (int32_t)((uint32_t)frame.data[4]<<24 | (uint32_t)frame.data[5]<<16 |
+         (uint32_t)frame.data[6]<<8 | frame.data[7]);
+      if (!gps_sentence(lat,lon,frame.data[8],sentence,sizeof(sentence))) return;
+   }
+   if (!rr_nmea_valid(sentence)) return;
    for(int i=0;i<RR_MEDIA_MAX_CHANS;i++) {
       struct rr_media_known *channel=&known_chans[i];
       if(!channel->subscribed || !channel->stream_valid || channel->stream!=frame.hdr.stream ||
-         channel->subsystem!=RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec,RR_GPS_FRAME_CODEC) ||
+         channel->subsystem!=RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec,raw ? RR_NMEA_FRAME_CODEC : RR_GPS_FRAME_CODEC) ||
          channel->rig!=frame.hdr.rig || !channel->joined) continue;
-      const char *suffix=strstr(channel->name,".gps.rx");if(!suffix) return;
+      const char *suffix=strstr(channel->name,raw ? ".nmea.rx" : ".gps.rx");if(!suffix) return;
       char source[64];size_t size=suffix-channel->name;
       if(size>=sizeof(source)) return;
       memcpy(source,channel->name,size);source[size]='\0';
       dict *d=dict_new();if(!d) return;
       dict_add(d,"gps.source",source);dict_add(d,"gps.nmea",sentence);
+      dict_add_bool(d,"gps.raw",raw);
       dict_add_bool(d,"gps.selected",ws_room_same_rig(media_room,channel->control_room) ||
          (!strcmp(source,"station") && !rrclient_room_vfo_mask(media_room)));
       event_emit_dict("serial.gps.output",NULL,d);dict_free(d);return;
@@ -671,6 +682,7 @@ static void gps_frame(const char *event,const void *data,size_t len,rrconn_t *cl
 void rrclient_media_register_events(void) {
    event_on("serial.gps.outputs.changed", gps_outputs_changed, NULL);
    event_on_binary(RR_GPS_FRAME_EVENT,gps_frame,NULL);
+   event_on_binary(RR_NMEA_FRAME_EVENT,gps_frame,NULL);
    // media.* messages are dispatched directly from events.c (see
    // rrclient_handle_media) with the parsed dict; only connection state
    // needs the event bus here.

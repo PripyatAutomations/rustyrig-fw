@@ -76,6 +76,8 @@ defconfig_t defcfg[] = {
    { "debug.noisy-eeprom", "false", "Extra debugging msgs from eeprom code?", DEFCONFIG_BOOL, NULL },
    { "rig:rig0.gps.position", NULL, "Manual rig position: latitude,longitude in decimal degrees" },
    { "station.gps.position", NULL, "Manual station position inherited by rigs without their own GPS" },
+   { "gps.output", "position", "Default GPS serial output: position summary or complete receiver nmea" },
+   { "serial:ttyGPS0.gps-output", NULL, "Override GPS serial output mode for this endpoint" },
    { "gpsd.target", "station", "GPS source supplied by the gpsd module: station or rig alias" },
    { "gpsd.url", "tcp://127.0.0.1:2947", "GPS daemon WATCH endpoint" },
    { "gpsd.device", NULL, "Optional gpsd receiver device selector" },

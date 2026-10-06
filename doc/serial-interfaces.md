@@ -160,18 +160,35 @@ one receiver. It requests NMEA WATCH output, including conversions from binary
 receivers; see the [gpsd protocol](https://gpsd.io/gpsd_json.html). Configured
 coordinates disable connection to gpsd for that target.
 
-The server extracts RMC/GGA/GLL positions using integer arithmetic. The network
-carries only the effective position and valid/manual flags; each client synthesizes
+The server extracts RMC/GGA/GLL positions using integer arithmetic. The default `gpsp` stream
+carries the effective position and valid/manual flags; each client synthesizes
 checksum-correct RMC with its current UTC. Configured coordinates use manual mode
 `M`; receiver positions use automatic mode `A`; no-fix output uses status `V`/mode
 `N`. The generated position changes to the selected radio's coordinates when the
 operator switches rigs; it does not report the operator's computer location or
 interpolate a journey between rigs. Server-side serial GPS outputs use the same
-`librrprotocol` NMEA generator.
+`librustyaxe` NMEA generator.
 
-Position snapshots are sent immediately to a new media subscriber and then at
-most once per source every five minutes as a refresh. Receiver updates do not
-cause per-sentence network traffic; they are reflected in the next snapshot.
+Server `gps-out` endpoints default to synthesized position RMC. Set
+`[serial:ttyGPS2] gps-output=nmea` to forward every checksum-valid sentence
+from that endpoint's effective receiver, including GGA, GSA, GSV and other
+records. Multiple outputs may follow the same station or rig independently.
+`[general] gps.output=position` sets the default (`nmea` is also supported).
+Fixed sources still synthesize RMC in NMEA mode. Rigs inheriting the station
+also inherit its complete receiver stream; rigs with their own input remain
+independent. For native client ports, use `ttyNMEA0=rig.nmea-out@4800`,
+`rigN.nmea-out`, or `station.nmea-out` to request complete receiver data.
+These ports subscribe to separate read-only MODEM/`nmea` channels named
+`station.nmea.rx` or `rigN.nmea.rx`; ordinary `gps-out` ports subscribe only
+to `gpsp`. Each NMEA frame contains one checksum-valid sentence without CRLF;
+the native serial writer adds CRLF. Full receiver data crosses the network
+only for explicit NMEA subscribers. The browser can explicitly subscribe via
+`/media` and emits the same `rustyrig:gps-nmea` event for raw frames.
+
+Position snapshots are sent immediately to a new media subscriber, whenever
+the effective coordinates or valid/manual flags change, and every
+five minutes as a refresh. Repeated receiver sentences with unchanged position
+do not cause `gpsp` network traffic.
 Switching the native client's active rig replaces its automatic GPS subscription
 and therefore updates its logger immediately without updating other operators.
 `rig.gps-out` follows the active rig (or the station in the lobby).
@@ -192,7 +209,7 @@ create operating-system PTYs.
 Adapters feed the server `gps.nmea.input` event with `gps.source`/`gps.nmea`
 JSON fields. Server serial outputs consume `serial.gps.position` events with
 `gps.source`, signed `gps.lat`/`gps.lon` (1e-7 degrees), and `gps.flags`; the
-shared protocol helper formats the local RMC sentence. Native clients emit
+shared `librustyaxe` helper formats the local RMC sentence. Native clients emit
 `serial.gps.output` with `gps.source`, `gps.nmea`, and `gps.selected` for routing
 to the active rig's logger.
 

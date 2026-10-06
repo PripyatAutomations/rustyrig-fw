@@ -7,6 +7,7 @@ import select
 import socket
 import sqlite3
 import subprocess
+import struct
 import tempfile
 import time
 from ws_helpers import WebSocket
@@ -29,8 +30,8 @@ def join(client, room):
 def snapshot(client, channel):
     client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": channel}})
     client.until(lambda m: m.get("media", {}).get("cmd") == "subscribed" and m["media"]["chan-uuid"] == channel)
-    _, frame = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b"RR\x01\x04nmea")
-    return frame[10], frame[28:]
+    _, frame = client.until_frame(lambda opcode, data: opcode == 2 and data[:8] == b"RR\x01\x04gpsp")
+    return frame[10], struct.unpack("!iiB", frame[28:])
 
 
 def inventory(client):
@@ -94,16 +95,20 @@ rrserver-gps-nmea=
 ttyGPS0=rig2.gps-in@4800
 ttyGPS1=station.gps-out@4800
 ttyGPSfixed=rig0.gps-in@4800
+ttyGPSraw=station.gps-out@4800
 [serial:ttyGPS0]
 path={work}/ttyGPS0
 [serial:ttyGPS1]
 path={work}/ttyGPS1
+[serial:ttyGPSraw]
+path={work}/ttyGPSraw
+gps-output=nmea
 [serial:ttyGPSfixed]
 path={work}/disabled-fixed-input
 """)
     client = None
     peer = None
-    gps_in = gps_out = None
+    gps_in = gps_out = gps_raw = None
     with (work / "console.log").open("w") as output:
         process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, stdout=output, stderr=subprocess.STDOUT)
         try:
@@ -118,6 +123,7 @@ path={work}/disabled-fixed-input
             assert not (work / "disabled-fixed-input").exists()
             gps_in = os.open(work / "ttyGPS0", os.O_RDWR | os.O_NONBLOCK)
             gps_out = os.open(work / "ttyGPS1", os.O_RDWR | os.O_NONBLOCK)
+            gps_raw = os.open(work / "ttyGPSraw", os.O_RDWR | os.O_NONBLOCK)
             # Fragmented input and oversize/bad-checksum records resynchronize.
             peer.sendall(b'{"class":"VERSION"}\n' + b'$' + b'x' * 520 + b'\n$GPGLL*00\n')
             position = nmea('GPRMC,123519,A,4807.038,N,01131.000,E,0.0,,230394,,,A')
@@ -127,6 +133,12 @@ path={work}/disabled-fixed-input
             assert select.select([gps_out], [], [], 5)[0]
             generated = os.read(gps_out, 1024)
             assert b',A,4807.038000,N,01131.000002,E,' in generated
+            assert select.select([gps_raw], [], [], 5)[0]
+            assert position in os.read(gps_raw, 1024)
+            satellites = nmea('GPGSV,1,1,00')
+            peer.sendall(satellites)
+            assert select.select([gps_raw], [], [], 5)[0]
+            assert satellites in os.read(gps_raw, 1024)
             time.sleep(0.1)
             assert not select.select([gps_out], [], [], 0.1)[0], 'GPS must not stream continuously'
             client = WebSocket(port)
@@ -134,7 +146,7 @@ path={work}/disabled-fixed-input
             client.send({"msg": {"type": "media"}, "media": {"cmd": "list"}})
             channels = {}
             while len(channels) < 4:
-                message = client.until(lambda m: m.get("media", {}).get("cmd") == "available" and m["media"].get("codec") == "nmea")
+                message = client.until(lambda m: m.get("media", {}).get("cmd") == "available" and m["media"].get("codec") == "gpsp")
                 media = message['media']
                 channels[media['name']] = (media['chan-uuid'], media['rig'])
                 if media['name'] == 'station.gps.rx':
@@ -143,31 +155,40 @@ path={work}/disabled-fixed-input
             assert rows[0]['kind'] == 'site' and rows[0]['uuid']
             assert len([r for r in rows if r['kind'] == 'rig']) == 3
             assert len([r for r in rows if r['kind'] == 'vfo']) >= 3
-            output = next(r for r in rows if r['name'] == 'rig0.gps-out')
-            assert output['coordinates'] == '38.1234567,-80.7654321'
-            assert output['uuid'] == channels['rig0.gps.rx'][0]
+            gps_row = next(r for r in rows if r['name'] == 'rig0.gps-out')
+            assert gps_row['coordinates'] == '38.1234567,-80.7654321'
+            assert gps_row['uuid'] == channels['rig0.gps.rx'][0]
             assert any(r['name'] == 'rig0.gps-in' and r['state'] == 'disabled-by-fixed-position' for r in rows)
             # Discovery is not permission to consume another room's media.
-            client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": output['uuid']}})
+            client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": gps_row['uuid']}})
             client.until(lambda m: m.get('msg', {}).get('type') == 'error')
             index, data = snapshot(client, channels['station.gps.rx'][0])
-            assert index == 255 and b',A,4807.038000,N,01131.000002,E,' in data
+            assert index == 255 and data == (481173000, 115166667, 1)
+            client.send({"msg": {"type": "media"}, "media": {"cmd": "list"}})
+            raw_channel = client.until(lambda m: m.get("media", {}).get("name") == "station.nmea.rx")['media']['chan-uuid']
+            client.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": raw_channel}})
+            client.until(lambda m: m.get('media', {}).get('cmd') == 'subscribed' and m['media']['chan-uuid'] == raw_channel)
+            peer.sendall(satellites)
+            _, raw_frame = client.until_frame(lambda op, data: op == 2 and data[:8] == b"RR\x01\x04nmea")
+            assert raw_frame[28:] == satellites.rstrip(b'\r\n')
+            client.send({"msg": {"type": "media"}, "media": {"cmd": "unsubscribe", "chan-uuid": raw_channel}})
+            client.until(lambda m: m.get('media', {}).get('cmd') == 'unsubscribed')
             join(client, '#gpstest-rig0')
             index, data = snapshot(client, channels['rig0.gps.rx'][0])
-            assert index == channels['rig0.gps.rx'][1] and b',A,3807.407402,N,08045.925926,W,' in data and b',M*' in data
+            assert index == channels['rig0.gps.rx'][1] and data == (381234567, -807654321, 3)
             client.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": channels['rig0.gps.rx'][0], "codec": "pc16"}})
             client.until(lambda m: m.get('msg', {}).get('type') == 'error')
             join(client, '#gpstest-rig1')
             index, data = snapshot(client, channels['rig1.gps.rx'][0])
-            assert index == channels['rig1.gps.rx'][1] and b',A,4807.038000,N,01131.000002,E,' in data
+            assert index == channels['rig1.gps.rx'][1] and data == (481173000, 115166667, 1)
             join(client, '#gpstest-rig2.rx')
             index, data = snapshot(client, channels['rig2.gps.rx'][0])
-            assert index == channels['rig2.gps.rx'][1] and b',A,3351.000000,S,15112.000000,E,' in data
+            assert index == channels['rig2.gps.rx'][1] and data == (-338500000, 1512000000, 1)
             # Unsubscribe/resubscribe provides the current snapshot without the 5m wait.
             client.send({"msg": {"type": "media"}, "media": {"cmd": "unsubscribe", "chan-uuid": channels['rig0.gps.rx'][0]}})
             client.until(lambda m: m.get('media', {}).get('cmd') == 'unsubscribed')
             index, data = snapshot(client, channels['rig0.gps.rx'][0])
-            assert index == channels['rig0.gps.rx'][1] and b',M*' in data
+            assert index == channels['rig0.gps.rx'][1] and data[2] == 3
             print('PASS: production GPS modules, gpsd WATCH, scoped PTYs, generated rig coordinates, fallback and switch snapshots')
             # Configured station coordinates prevent the daemon connection too.
             client.socket.close()
@@ -193,7 +214,7 @@ path={work}/disabled-fixed-input
             client.send({'msg': {'type': 'media'}, 'media': {'cmd': 'list'}})
             metadata = client.until(lambda m: m.get('media', {}).get('name') == 'station.gps.rx')['media']
             index, data = snapshot(client, metadata['chan-uuid'])
-            assert index == 255 and b',A,4200.000000,N,07100.000000,W,' in data and b',M*' in data
+            assert index == 255 and data == (420000000, -710000000, 3)
             daemon.settimeout(0.2)
             try:
                 unwanted, _ = daemon.accept()
@@ -213,7 +234,7 @@ path={work}/disabled-fixed-input
             if peer:
                 peer.close()
             daemon.close()
-            for fd in (gps_in, gps_out):
+            for fd in (gps_in, gps_out, gps_raw):
                 if fd is not None:
                     os.close(fd)
             process.terminate()

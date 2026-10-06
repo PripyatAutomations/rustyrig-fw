@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "rrclient/gtk.userlist.c"
+#include "rrclient/gtk/gtk.userlist.c"
 bool dying, restarting;
 time_t now;
 static char selected_room[128], command[32];

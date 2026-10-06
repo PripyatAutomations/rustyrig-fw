@@ -17,6 +17,16 @@ rrconn_t *ws_conn = &connection;
 static unsigned selected, subscribed, unsubscribed;
 static char last_uuid[64], last_codec[5], local_codec[2][5], output[8192];
 static bool fail_send;
+static unsigned gps_delivered;
+static bool gps_raw;
+static char gps_text[512];
+void event_emit_dict(const char *event, rrconn_t *client, dict *data) {
+   if (strcmp(event,"serial.gps.output")) return;
+   gps_delivered++;
+   gps_raw=dict_get_bool(data,"gps.raw",false);
+   snprintf(gps_text,sizeof(gps_text),"%s",dict_get(data,"gps.nmea",""));
+   assert(!strcmp(dict_get(data,"gps.source",""),"rig0"));
+}
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {}
 bool ui_print(const char *window, const char *fmt, ...) {
    va_list ap;
@@ -159,13 +169,16 @@ int main(void) {
    // Active GPS switches subscriptions with the rig; pinned output stays subscribed.
    memset(known_chans,0,sizeof(known_chans));
    snprintf(media_room,sizeof(media_room),"#site-rig0");
-   known_chans[0]=(struct rr_media_known){.uuid="gps0",.name="rig0.gps.rx",.codec="nmea",
+   known_chans[0]=(struct rr_media_known){.uuid="gps0",.name="rig0.gps.rx",.codec="gpsp",
       .subsystem=4,.direction=0,.vfo=255,.rig=0,.joined=true,.room="#site-rig0",.control_room="#site-rig0"};
-   known_chans[1]=(struct rr_media_known){.uuid="gps1",.name="rig1.gps.rx",.codec="nmea",
+   known_chans[1]=(struct rr_media_known){.uuid="gps1",.name="rig1.gps.rx",.codec="gpsp",
       .subsystem=4,.direction=0,.vfo=255,.rig=1,.joined=true,.room="#site-rig1",.control_room="#site-rig1"};
-   known_chans[2]=(struct rr_media_known){.uuid="station-gps",.name="station.gps.rx",.codec="nmea",
+   known_chans[2]=(struct rr_media_known){.uuid="station-gps",.name="station.gps.rx",.codec="gpsp",
       .subsystem=4,.direction=0,.vfo=255,.rig=255,.joined=true,.room="#site",.control_room="#site"};
+   known_chans[3]=(struct rr_media_known){.uuid="nmea0",.name="rig0.nmea.rx",.codec="nmea",
+      .subsystem=4,.direction=0,.vfo=255,.rig=0,.joined=true,.room="#site-rig0",.control_room="#site-rig0"};
    gps_outputs_changed(NULL,"active rig1",NULL,NULL);
+   assert(!known_chans[3].subscribed);
    assert(known_chans[0].subscribed && known_chans[1].subscribed && !known_chans[2].subscribed);
    snprintf(media_room,sizeof(media_room),"#site-rig1");
    rrclient_handle_media_vfo(NULL,NULL,NULL,NULL);
@@ -174,10 +187,26 @@ int main(void) {
    rrclient_handle_media_vfo(NULL,NULL,NULL,NULL);
    assert(known_chans[0].subscribed && known_chans[1].subscribed);
    dict *gps_ack=dict_new();dict_add(gps_ack,"media.chan-uuid","gps0");
-   dict_add_int(gps_ack,"media.stream",7);dict_add(gps_ack,"media.codec","nmea");
+   dict_add_int(gps_ack,"media.stream",7);dict_add(gps_ack,"media.codec","gpsp");
    rrclient_media_subscribed(gps_ack,false);dict_free(gps_ack);
    assert(known_chans[0].stream_valid && known_chans[0].stream==7);
+   uint8_t *frame=NULL;
+   uint8_t position[9]={22,185,45,135,207,220,44,79,3};
+   int length=rr_binframe_frame(&frame,4,"gpsp",0,255,0,7,1,0,position,sizeof(position));
+   assert(length>0);gps_frame(NULL,frame,length,ws_conn,NULL);free(frame);
+   assert(gps_delivered==1 && !gps_raw && rr_nmea_valid(gps_text));
+   assert(strstr(gps_text,",A,3807.407402,N,08045.925926,W,"));
+   gps_outputs_changed(NULL,"nmea:active",NULL,NULL);
+   assert(known_chans[3].subscribed && !known_chans[0].subscribed && !known_chans[1].subscribed);
+   known_chans[3].stream_valid=true;known_chans[3].stream=8;
+   length=rr_binframe_frame(&frame,4,"nmea",0,255,0,8,2,0,(const uint8_t *)"$GPGLL*50",9);
+   assert(length>0);gps_frame(NULL,frame,length,ws_conn,NULL);free(frame);
+   assert(gps_delivered==2 && gps_raw && !strcmp(gps_text,"$GPGLL*50"));
+   length=rr_binframe_frame(&frame,4,"nmea",0,255,0,8,3,0,(const uint8_t *)"$GPGLL*00",9);
+   assert(length>0);gps_frame(NULL,frame,length,ws_conn,NULL);free(frame);
+   assert(gps_delivered==2);
    gps_outputs_changed(NULL,"",NULL,NULL);
+   assert(!known_chans[3].subscribed);
    assert(!known_chans[0].subscribed && !known_chans[1].subscribed);
    puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
    return 0;

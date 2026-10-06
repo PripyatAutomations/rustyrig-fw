@@ -259,9 +259,10 @@ static bool gps_scope(const serial_binding_t *b,char *scope,size_t capacity) {
 }
 static void gps_outputs_changed(void) {
    char scopes[1024]="";
-   for(serial_binding_t *b=bindings;b;b=b->next) if(!strcmp(gps_service(b),"gps-out")) {
+   for(serial_binding_t *b=bindings;b;b=b->next) if(!strcmp(gps_service(b),"gps-out") || !strcmp(gps_service(b),"nmea-out")) {
       char scope[64];gps_scope(b,scope,sizeof(scope));
-      if(strlen(scopes)+strlen(scope)+2<sizeof(scopes)) {
+      if(strlen(scopes)+strlen(scope)+7<sizeof(scopes)) {
+         if (!strcmp(gps_service(b),"nmea-out")) strcat(scopes,"nmea:");
          strcat(scopes,scope);strcat(scopes," ");
       }
    }
@@ -275,7 +276,8 @@ static void gps_output(const char *event,const char *data,rrconn_t *client,void 
    bool selected=d && dict_get_bool(d,"gps.selected",false);
    if(rr_nmea_valid(sentence)) {
       char frame[516];int len=snprintf(frame,sizeof(frame),"%s\r\n",sentence);
-      for(serial_binding_t *b=bindings;b;b=b->next) if(!strcmp(gps_service(b),"gps-out")) {
+      for(serial_binding_t *b=bindings;b;b=b->next) if(!strcmp(gps_service(b),"gps-out") || !strcmp(gps_service(b),"nmea-out")) {
+         if (d && dict_get_bool(d,"gps.raw",false) != !strcmp(gps_service(b),"nmea-out")) continue;
          char scope[64];gps_scope(b,scope,sizeof(scope));
          if(!strcmp(scope,source) || (!strcmp(scope,"active") && selected)) rr_serial_write(b->port,frame,len);
       }
@@ -348,7 +350,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    snprintf(b->name,sizeof(b->name),"%s",name);
    char key[128];
    snprintf(key,sizeof(key),"serial:%s.baud",name);
-   int baud=cfg_get_int(key,strstr(service,"gps-") ? 4800 : 9600);
+   int baud=cfg_get_int(key,(strstr(service,"gps-") || strstr(service,"nmea-")) ? 4800 : 9600);
    b->settings_override=strchr(service,'@') || cfg_get(key);
    b->requested=(rr_serial_settings_t){.baud=baud,.bits=8,.parity='n',.stops=1};
    snprintf(key,sizeof(key),"serial:%s.mode",name);
@@ -358,7 +360,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       !rr_serial_spec_parse(service,b->service,sizeof(b->service),&b->requested)) goto failed;
    baud=b->requested.baud;
    if(!service_radio(b->service,b->radio,sizeof(b->radio)) && strcmp(gps_service(b),"gps-in") &&
-      strcmp(gps_service(b),"gps-out") && strncmp(b->service,"host:",5)) goto failed;
+      strcmp(gps_service(b),"gps-out") && strcmp(gps_service(b),"nmea-out") && strncmp(b->service,"host:",5)) goto failed;
    if(!strncmp(b->service,"host:",5)) {
       if(!name_valid(b->service+5)) goto failed;
       snprintf(b->host_port,sizeof(b->host_port),"%s",b->service+5);
@@ -491,6 +493,6 @@ bool cmd_sercom(int argc, char **args) {
       bool ok = rr_sercom_disconnect(args[2]);
       ui_print(NULL, "%s: %s", args[2], ok ? "disconnected" : "not attached"); return !ok;
    }
-   ui_print(NULL, "Usage: /sercom [list | remote | attach <name> <rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|host:port[@baud,mode]> [device] | disconnect <name>]");
+   ui_print(NULL, "Usage: /sercom [list | remote | attach <name> <rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|rig.nmea-out|rigN.nmea-out|station.nmea-out|host:port[@baud,mode]> [device] | disconnect <name>]");
    return true;
 }

@@ -252,3 +252,8 @@ the sentence-facing API. These use separate stream registries even though both
 have subsystem MODEM. Routing must include the codec. See
 [serial interfaces and GPS](serial-interfaces.md#serial-wire-format) for control,
 flow control, line settings, coordinate sources and publication timing.
+
+MODEM/`nmea` is a separate read-only RX media stream for explicitly requested
+complete receiver data. Its payload is one checksum-valid ASCII sentence,
+without CRLF, of 1–509 bytes. Ordinary GPS ports use `gpsp` position records
+and synthesize RMC locally; they do not subscribe to `nmea` streams.

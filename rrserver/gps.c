@@ -29,10 +29,12 @@ extern time_t now;
 #define GPS_SOURCES_MAX 33
 struct gps_source {
    char alias[64];
-   struct rr_mediachan *channel;
+   struct rr_mediachan *channel, *nmea_channel;
    bool own_input, fixed, published, received, valid, manual;
    int32_t lat, lon; // degrees * 10^7
    uint64_t sent_at;
+   int32_t sent_lat, sent_lon;
+   uint8_t sent_flags;
 };
 static struct gps_source sources[GPS_SOURCES_MAX];
 static unsigned count;
@@ -120,40 +122,6 @@ static bool available(const struct gps_source *source) {
    return source->fixed || source->received;
 }
 
-static void nmea_angle(int32_t angle, unsigned width, char *buf, size_t capacity) {
-   uint32_t absolute = angle < 0 ? -(int64_t)angle : angle;
-   unsigned degrees = absolute / 10000000;
-   uint64_t minutes = ((uint64_t)(absolute % 10000000) * 60 + 5) / 10;
-   if (minutes == 60000000) {
-      degrees++;
-      minutes = 0;
-   }
-   snprintf(buf, capacity, "%0*u%02u.%06u", width, degrees, (unsigned)(minutes / 1000000), (unsigned)(minutes % 1000000));
-}
-
-static void fixed_sentence(const struct gps_source *source, char *buf, size_t capacity) {
-   char lat[24], lon[24], utc[16], date[16];
-   nmea_angle(source->lat, 2, lat, sizeof(lat));
-   nmea_angle(source->lon, 3, lon, sizeof(lon));
-   struct tm tm; gmtime_r(&now, &tm);
-   strftime(utc, sizeof(utc), "%H%M%S", &tm);
-   strftime(date, sizeof(date), "%d%m%y", &tm);
-   // RMC mode M explicitly identifies manually configured coordinates.
-   bool valid=source->received ? source->valid : source->fixed;
-   int len;
-   if (valid) {
-      len=snprintf(buf,capacity,"$GPRMC,%s,A,%s,%c,%s,%c,0.0,,%s,,,%c", utc,lat,source->lat<0 ? 'S' : 'N',lon,source->lon<0 ? 'W' : 'E',date, source->received ? (source->manual ? 'M' : 'A') : 'M');
-   } else {
-      len=snprintf(buf,capacity,"$GPRMC,%s,V,,,,,0.0,,%s,,,N",utc,date);
-   }
-
-   unsigned checksum = 0;
-   for (int i = 1; i < len; i++) {
-      checksum ^= (unsigned char)buf[i];
-   }
-   snprintf(buf + len, capacity - len, "*%02X", checksum);
-}
-
 static void send_position(struct gps_source *source, rrconn_t *client) {
    if (!source->channel) {
       return;
@@ -171,6 +139,11 @@ static void send_position(struct gps_source *source, rrconn_t *client) {
          (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0))
    };
    ws_media_send_frame(source->channel, client, payload, sizeof(payload), RR_GPS_FRAME_CODEC);
+   if (position->fixed && source->nmea_channel) {
+      char sentence[128];
+      size_t n = rr_nmea_rmc(position->lat, position->lon, payload[8], now, sentence, sizeof(sentence));
+      if (n) ws_media_send_frame(source->nmea_channel, client, (const uint8_t *)sentence, n, RR_NMEA_FRAME_CODEC);
+   }
    if (!client) {
       dict *d = dict_new();
       if (d) {
@@ -178,11 +151,15 @@ static void send_position(struct gps_source *source, rrconn_t *client) {
          dict_add_int(d, "gps.lat", position->lat);
          dict_add_int(d, "gps.lon", position->lon);
          dict_add_int(d, "gps.flags", payload[8]);
+         dict_add_bool(d, "gps.fixed", position->fixed);
          event_emit_dict("serial.gps.position", NULL, d);
          dict_free(d);
       }
       source->sent_at = mono_us();
       source->published = true;
+      source->sent_lat = position->lat;
+      source->sent_lon = position->lon;
+      source->sent_flags = payload[8];
    }
 }
 static void publish(struct gps_source *source, rrconn_t *client) {
@@ -241,21 +218,44 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
    struct gps_source *source = find(alias);
    if (source && !source->fixed && sentence && strlen(sentence) >= 6 && strlen(sentence) <= 509 && rr_nmea_valid(sentence)) {
       receiver_position(source,sentence);
+      // Forward every validated sentence, including non-position records, to
+      // outputs using this receiver (and rigs inheriting the station receiver).
+      for (unsigned i = 0; i < count; i++) {
+         if (effective(&sources[i]) != source) continue;
+         dict *output = dict_new();
+         if (!output) continue;
+         dict_add(output, "gps.source", sources[i].alias);
+         dict_add(output, "gps.nmea", sentence);
+         if (sources[i].nmea_channel) {
+            ws_media_send_frame(sources[i].nmea_channel, NULL, (const uint8_t *)sentence,
+               strlen(sentence), RR_NMEA_FRAME_CODEC);
+         }
+         event_emit_dict("serial.gps.nmea", NULL, output);
+         dict_free(output);
+      }
    }
    if (d) dict_free(d);
 }
 static void poll_gps(const char *event, const char *data, rrconn_t *client, void *user) {
    uint64_t time = mono_us();
-   for (unsigned i = 0; i < count; i++)
-      if (!sources[i].published || time - sources[i].sent_at >= UINT64_C(300000000)) {
-         publish(&sources[i], NULL);
+   for (unsigned i = 0; i < count; i++) {
+      struct gps_source *source = &sources[i];
+      const struct gps_source *position = effective(source);
+      uint8_t flags = (position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) |
+         (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0);
+      if (!source->published || source->sent_lat != position->lat ||
+          source->sent_lon != position->lon || source->sent_flags != flags ||
+          time - source->sent_at >= UINT64_C(300000000)) {
+         publish(source, NULL);
       }
+   }
 }
 static void subscribed(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data); if (!d) return;
    const char *uuid = dict_get(d, "media.chan-uuid", "");
    for (unsigned i = 0; i < count; i++)
-      if (sources[i].channel && !strcmp(sources[i].channel->uuid, uuid)) {
+      if (sources[i].channel && (!strcmp(sources[i].channel->uuid, uuid) ||
+          (sources[i].nmea_channel && !strcmp(sources[i].nmea_channel->uuid, uuid)))) {
          publish(&sources[i], client);
       }
    dict_free(d);
@@ -301,6 +301,16 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
    }
    return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
 }
+static void add_nmea_channel(struct gps_source *source) {
+   struct rr_mediachan *position = source->channel;
+   if (!position) return;
+   source->nmea_channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX,
+      RR_BINFRAME_VFO_NA, position->rig, RR_NMEA_FRAME_CODEC, "Complete GPS receiver NMEA");
+   if (!source->nmea_channel) return;
+   snprintf(source->nmea_channel->name, sizeof(source->nmea_channel->name), "%s.nmea.rx", source->alias);
+   snprintf(source->nmea_channel->room, sizeof(source->nmea_channel->room), "%s", position->room);
+   snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
+}
 static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
    if (!client || !client->authenticated) {
       return;
@@ -316,11 +326,12 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
    if (source) {
       const struct gps_source *position = effective(source);
 
-      for (unsigned output = 0; output < 2; output++) {
-         char name[80]; snprintf(name, sizeof(name), "%s.gps-%s", scope, output ? "out" : "in");
+      for (unsigned output = 0; output < 3; output++) {
+         char name[80]; snprintf(name, sizeof(name), output == 2 ? "%s.nmea-%s" : "%s.gps-%s", scope, output ? "out" : "in");
+         struct rr_mediachan *channel = output == 2 ? source->nmea_channel : source->channel;
          dict *row = rr_inventory_row(dict_get(request, "request.id", ""),
             dict_get_uint(request, "inventory.depth", 1), "gps", name,
-            output && source->channel ? source->channel->uuid : NULL);
+            output && channel ? channel->uuid : NULL);
 
          if (!row) {
             continue;
@@ -329,10 +340,10 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
             (available(position) && (position->fixed || position->valid) ? "position-known" : "no-fix") :
             source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
          dict_add(row, "inventory.source", position->alias);
-         dict_add(row, "inventory.action", output ? "/gps subscribe|unsubscribe <scope>" : "server-config-only");
+         dict_add(row, "inventory.action", output == 2 ? "/media subscribe|unsubscribe <uuid>" : output ? "/gps subscribe|unsubscribe <scope>" : "server-config-only");
 
-         if (output && source->channel) {
-            dict_add(row, "inventory.room", source->channel->room);
+         if (output && channel) {
+            dict_add(row, "inventory.room", channel->room);
          }
 
          if (output && available(position) && (position->fixed || position->valid)) {
@@ -361,6 +372,7 @@ bool rrserver_gps_init(void) {
    if (!configure_source(&sources[0],cfg_get("station.gps.position")) || rr_rig_registry_foreach(rig.rigs,add_rig,NULL)) {
       rrserver_gps_fini();return true;
    }
+   for (unsigned i = 0; i < count; i++) add_nmea_channel(&sources[i]);
    inventory_token = event_on_token(RR_INVENTORY_EVENT, inventory_gps, NULL);
    input_token = event_on_token("gps.nmea.input", gps_input, NULL);
    poll_token = event_on_token("server.poll", poll_gps, NULL);
@@ -376,6 +388,10 @@ void rrserver_gps_fini(void) {
    for (unsigned i = 0; i < count; i++) if (sources[i].channel) {
       media_send_chan_removed_all(sources[i].channel);
       media_chan_remove(sources[i].channel->uuid);
+      if (sources[i].nmea_channel) {
+         media_send_chan_removed_all(sources[i].nmea_channel);
+         media_chan_remove(sources[i].nmea_channel->uuid);
+      }
    }
    memset(sources, 0, sizeof(sources)); count = 0;
 }

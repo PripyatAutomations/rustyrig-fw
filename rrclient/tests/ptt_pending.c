@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "rrclient/gtk.ptt-btn.c"
+#include "rrclient/gtk/gtk.ptt-btn.c"
 bool dying, restarting, ptt_active;
 time_t now;
 const char *login_user = "operator";

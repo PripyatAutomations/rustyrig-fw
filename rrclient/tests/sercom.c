@@ -138,7 +138,17 @@ int main(int argc, char **argv) {
    char no_data;assert(read(station_fd,&no_data,1)<0);
    dict_add(position,"gps.source","station");dict_add_bool(position,"gps.selected",false);
    event_emit_dict("serial.gps.output",NULL,position);expect(station_fd,"$GPGLL*50\r\n");
-   assert(read(out,&no_data,1)<0);dict_free(position);close(station_fd);
+   assert(read(out,&no_data,1)<0);
+   char raw_path[512];snprintf(raw_path,sizeof(raw_path),"%s/rawGPS",argv[1]);
+   dict_add(cfg,"serial:rawGPS.path",raw_path);
+   assert(rr_sercom_attach("rawGPS","station.nmea-out@4800",NULL));
+   int raw_fd=open(raw_path,O_RDWR|O_NOCTTY|O_NONBLOCK);assert(raw_fd>=0);
+   event_emit_dict("serial.gps.output",NULL,position);expect(station_fd,"$GPGLL*50\r\n");
+   assert(read(raw_fd,&no_data,1)<0);
+   dict_add_bool(position,"gps.raw",true);
+   event_emit_dict("serial.gps.output",NULL,position);expect(raw_fd,"$GPGLL*50\r\n");
+   assert(read(station_fd,&no_data,1)<0);
+   dict_free(position);close(station_fd);close(raw_fd);
    // Exercise full-duplex real-device transport using a separate PTY as hardware.
    char wire_path[512]; snprintf(wire_path,sizeof(wire_path),"%s/wire",argv[1]);
    rr_serial_t *wire = rr_serial_open("wire", true, wire_path, 9600, collect, wire_rx);

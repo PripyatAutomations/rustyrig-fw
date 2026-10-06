@@ -34,7 +34,7 @@ struct serial_session {
 struct serial_export {
    char name[64], path[PATH_MAX], client_name[64], slave[128], gps_scope[64];
    unsigned service; // 0 raw export, 1 GPS input, 2 GPS output
-   bool pty, dropping;
+   bool pty, dropping, nmea_output;
    int keeper;
    unsigned char *buffer;
    size_t buffer_limit, buffered;
@@ -53,7 +53,7 @@ struct serial_export {
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
 static struct serial_session *sessions;
-static rr_event_token_t request_token, closed_token, frame_token, gps_token, inventory_token;
+static rr_event_token_t request_token, closed_token, frame_token, gps_token, nmea_token, inventory_token;
 
 static bool allowed(rrconn_t *client, const struct serial_export *port) {
    if (!client || !client->authenticated || !client->user || !cfg_get_bool("serial.enable", true)) return false;
@@ -234,12 +234,19 @@ static void gps_output(const char *event,const char *data,rrconn_t *client,void 
    int32_t lat = (int32_t)dict_get_long(d,"gps.lat",0);
    int32_t lon = (int32_t)dict_get_long(d,"gps.lon",0);
    uint8_t flags = (uint8_t)dict_get_int(d,"gps.flags",0);
-   char sentence[128];
-   size_t n = rr_gps_nmea_rmc(lat, lon, flags, time(NULL), sentence, sizeof(sentence));
+   char sentence[512];
+   bool raw = !strcmp(event, "serial.gps.nmea");
+   const char *input = dict_get(d, "gps.nmea", "");
+   size_t n = raw ? strlen(input) : rr_nmea_rmc(lat, lon, flags, time(NULL), sentence, sizeof(sentence));
+   if (raw) {
+      if (n >= sizeof(sentence)) { dict_free(d); return; }
+      memcpy(sentence, input, n + 1);
+   }
    if (n && rr_nmea_valid(sentence)) {
       for(unsigned i=0;i<count;i++) {
          struct serial_export *p=&exports[i];
          if(p->service!=2 || p->fd<0 || strcmp(p->gps_scope,scope)) continue;
+         if (raw ? !p->nmea_output : (p->nmea_output && !dict_get_bool(d,"gps.fixed",false))) continue;
          if(n+2>p->buffer_limit-p->buffered) {Log(LOG_WARN,"serial","%s GPS output buffer full",p->name);continue;}
          memcpy(p->buffer+p->buffered,sentence,n);p->buffered+=n;
          p->buffer[p->buffered++]='\r';p->buffer[p->buffered++]='\n';
@@ -377,6 +384,13 @@ void rrserver_serial_init(void) {
          if(scope_len>=sizeof(p->gps_scope)) continue;
          snprintf(p->gps_scope,sizeof(p->gps_scope),"%.*s",(int)scope_len,dot ? target : "station");
          p->service=!strcmp(service,"gps-in") ? 1 : 2;
+         snprintf(option,sizeof(option),"serial:%s.gps-output",p->name);
+         const char *output=cfg_get(option);
+         if (!output) output=cfg_get("gps.output");
+         if (p->service==2 && output && strcmp(output,"position") && strcmp(output,"nmea")) {
+            Log(LOG_WARN,"serial","Invalid GPS output mode for %s",p->name);continue;
+         }
+         p->nmea_output=output && !strcmp(output,"nmea");
          if(p->service==1) {
             char position_key[128];
             snprintf(position_key,sizeof(position_key),!strcmp(p->gps_scope,"station") ?
@@ -412,6 +426,7 @@ void rrserver_serial_init(void) {
    }
    inventory_token=event_on_token(RR_INVENTORY_EVENT,inventory_serial,NULL);
    gps_token=event_on_token("serial.gps.position",gps_output,NULL);
+   nmea_token=event_on_token("serial.gps.nmea",gps_output,NULL);
    request_token=event_on_token("serial.request",request,NULL);
    closed_token=event_on_token("serial.session.closed",closed,NULL);
    frame_token=event_on_binary_token(RR_SERIAL_FRAME_EVENT,frame,NULL);
@@ -422,6 +437,7 @@ void rrserver_serial_fini(void) {
    while(sessions){struct serial_session *s=sessions;sessions=s->next;free(s);}
    event_off_token(inventory_token);inventory_token=NULL;
    event_off_token(gps_token);gps_token=NULL;
+   event_off_token(nmea_token);nmea_token=NULL;
    event_off_token(request_token); event_off_token(closed_token); event_off_token(frame_token);
    request_token=closed_token=frame_token=NULL;
 }

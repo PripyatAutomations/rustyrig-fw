@@ -6,7 +6,12 @@ rustyrig-fw (20261006.01) testing; urgency=medium
     and rrserver objects).
   * Replace GPS NMEA media streams with compact per-position MODEM/gpsp records;
     synthesize checksum-correct RMC locally in C/browser clients and retain
-    server-side serial GPS output through a shared librrprotocol generator.
+    server-side serial GPS output through a shared librustyaxe generator.
+  * Complete shared NMEA formatting with correct 1e-7-degree validation,
+    publish GPS summaries on position/fix changes and every five minutes,
+    and allow server GPS serial outputs to forward complete receiver NMEA.
+  * Add opt-in MODEM/nmea streams and native nmea-out ports alongside
+    default gpsp coordinate streams; mirror raw frame validation in WebUI.
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 06 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261005.01) testing; urgency=medium
