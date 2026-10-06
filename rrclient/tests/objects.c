@@ -34,6 +34,10 @@ static void object(rr_object_cache_t *c, const char *uuid, const char *type,
    dict_add(d, "object.uuid", uuid); dict_add(d, "object.type", type);
    if (owner) dict_add(d, "object.owner", owner);
    dict_add(d, "object.alias", alias);
+   if (!strcmp(type,"node")) dict_add(d,"object.room","#station");
+   if (!strcmp(type,"rig")) {
+      char room[64];snprintf(room,sizeof(room),"#station-%s",alias);dict_add(d,"object.room",room);
+   }
    assert(apply(c, d));
 }
 
@@ -88,6 +92,12 @@ int main(void) {
    display[0]='\0';assert(rr_object_cache_dump_selected(c,"rig0",display_line,NULL));
    assert(strstr(display,"rig rig0") && strstr(display,"vfo rig0.A") && !strstr(display,"rig1.A"));
    assert(!rr_object_cache_dump_selected(c,"A",display_line,NULL));
+   display[0]=0;assert(rr_object_cache_dump_context(c,NULL,"#station-rig0.rx",display_line,NULL));
+   assert(strstr(display,"vfo rig0.A") && !strstr(display,"rig1") && !strstr(display,"node station"));
+   display[0]=0;assert(rr_object_cache_dump_context(c,NULL,"#station",display_line,NULL));
+   assert(strstr(display,"vfo rig0.A") && strstr(display,"vfo rig1.A") && strstr(display,"node station"));
+   display[0]=0;assert(rr_object_cache_dump_context(c,NULL,"#other",display_line,NULL));
+   assert(!strstr(display,"vfo ") && !strstr(display,"rig rig"));
    char reference[128];assert(rr_object_cache_ref_iter(c,0,reference,sizeof(reference)) && *reference);
    assert(apply(c, state(vfo1, 5, 3, true, true, false, 7074000)));
    dict *p = (dict *)rr_object_cache_property(c, vfo1, "frequency", false);

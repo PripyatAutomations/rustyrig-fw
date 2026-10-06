@@ -119,6 +119,7 @@ static void send_object(object_send_t *ctx, const char *cmd) {
    dict_add(d, "object.type", ctx->vfo ? "vfo" : "rig");
    dict_add(d, "object.owner", ctx->vfo ? rr_server_rig_id(ctx->radio) : rr_rig_registry_node(rig.rigs));
    dict_add(d, "object.alias", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_rig_registry_alias(rig.rigs, ctx->radio));
+   dict_add(d, "object.room", rr_rig_registry_room(rig.rigs, ctx->radio));
    dict_add(d, "object.name", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_server_rig_name(ctx->radio));
    dict_add(d, "object.lifecycle", ctx->vfo && rr_server_vfo_lifecycle(ctx->vfo) == RR_VFO_EPHEMERAL ? "ephemeral" : "persistent");
    if (!ctx->vfo) dict_add(d, "object.backend", rr_server_rig_backend(ctx->radio)->type->name);
@@ -310,6 +311,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          }
          dict_add(node, "object.uuid", rr_rig_registry_node(rig.rigs));
          dict_add(node, "object.type", "node");
+         dict_add(node, "object.room", ws_site_room());
          dict_add(node, "object.alias", cfg_get("station.name"));
          dict_add(node, "object.lifecycle", "persistent");
          send_message(client, node);

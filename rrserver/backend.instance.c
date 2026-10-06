@@ -1,4 +1,4 @@
-// rrserver/backend.instance.c: allocated backend instance lifecycle
+// rrserver/backend.instance.c: Support for multiple backends and their lifecycles
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -13,6 +13,7 @@
 #include <rrserver/rig.config.h>
 #include <rrserver/rig.properties.h>
 
+// XXX: Move this to $PROFILE.config.json
 #define RR_BACKEND_TYPE_MAX 16
 static const rr_backend_type_t *registered_types[RR_BACKEND_TYPE_MAX];
 
@@ -34,7 +35,10 @@ bool rr_backend_type_register(const rr_backend_type_t *type) {
 }
 
 const rr_backend_type_t *rr_backend_type_find(const char *name) {
-   if (!name) return NULL;
+   if (!name) {
+      return NULL;
+   }
+
    for (int i = 0; i < RR_BACKEND_TYPE_MAX && registered_types[i]; i++) {
       if (!strcasecmp(registered_types[i]->name, name)) {
          return registered_types[i];

@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // PARITY: rustyrig-www/js/webui.objects.js (UUID cache and version rules).
 #include <string.h>
+#include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
 typedef struct cached_property {
    char *name;
@@ -222,8 +223,23 @@ const dict *rr_object_cache_ref_iter(rr_object_cache_t *c, int index, char *refe
    return NULL;
 }
 
-bool rr_object_cache_dump_selected(rr_object_cache_t *c, const char *reference,
-   rr_object_cache_dump_fn emit, void *user) {
+static bool object_in_context(rr_object_cache_t *c, cached_object_t *o, const char *room) {
+   if (!room || !*room || room[0] != '#') return true;
+   // VFOs inherit the rig room; a bounded walk also guards malformed ownership.
+   for (unsigned depth = 0; o && o->descriptor && depth < 3; depth++) {
+      const char *owner_room = dict_get(o->descriptor,"object.room",NULL);
+      if (owner_room) return rrclient_resource_matches(room,owner_room);
+      o = find(c,dict_get(o->descriptor,"object.owner",""),false);
+   }
+   return false;
+}
+
+bool rr_object_cache_in_context(rr_object_cache_t *c, const char *uuid, const char *room) {
+   return object_in_context(c,find(c,uuid,false),room);
+}
+
+bool rr_object_cache_dump_context(rr_object_cache_t *c, const char *reference,
+   const char *room, rr_object_cache_dump_fn emit, void *user) {
    if (!c || !emit) return false;
    cached_object_t *selected = NULL;
    if (reference) {
@@ -242,6 +258,7 @@ bool rr_object_cache_dump_selected(rr_object_cache_t *c, const char *reference,
    emit(c->ready ? "Object snapshot complete" : "Object snapshot incomplete", user);
    for (cached_object_t *o = c->objects; o; o = o->next) {
       if (o->removed || !o->descriptor) continue;
+      if (!reference && !object_in_context(c,o,room)) continue;
       if (selected && o != selected && strcmp(dict_get(o->descriptor,"object.owner",""),selected->uuid)) continue;
       char line[1024], symbol[128];object_symbol(c,o,symbol,sizeof(symbol));
       snprintf(line,sizeof(line),"%s %s — %s%s%s (uuid=%s)",
@@ -267,6 +284,10 @@ bool rr_object_cache_dump_selected(rr_object_cache_t *c, const char *reference,
       }
    }
    return true;
+}
+bool rr_object_cache_dump_selected(rr_object_cache_t *c, const char *reference,
+   rr_object_cache_dump_fn emit, void *user) {
+   return rr_object_cache_dump_context(c,reference,NULL,emit,user);
 }
 void rr_object_cache_dump(rr_object_cache_t *c, rr_object_cache_dump_fn emit, void *user) {
    rr_object_cache_dump_selected(c,NULL,emit,user);

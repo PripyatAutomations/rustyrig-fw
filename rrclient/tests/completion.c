@@ -7,6 +7,8 @@ client_cmd_t client_cmds[] = {
    {.cmd="rig"}, {.cmd="gps"}, {.cmd="sercom"}, {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
    {.cmd="kick", .admin=true}, {.cmd="user", .admin=true}, {0}
 };
+static const char *active_window;
+const char *ui_active_window_name(void) { return active_window; }
 static bool admin;
 bool media_have_priv(const char *p) { return admin; }
 const char *media_get_common_codecs(void) { return "pc16 opus g722 oggv opuT"; }
@@ -91,5 +93,10 @@ int main(void) {
    check("/ki", "/ki", NULL);
    admin = true;
    check("/ki", "/ki", "/kick");
+   active_window="#station-rig1";
+   check("/media SUB ", "", NULL);
+   active_window="#station-rig0.rx";
+   check("/media SUB ", "", "rig0.vfo_a.rx");
+   active_window=NULL;
    puts("PASS: command/codec/user/channel completion and argument boundaries");
 }

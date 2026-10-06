@@ -176,3 +176,10 @@ separate descriptive labels. Ambiguous/unknown names are rejected. `/objects`
 shows readable cached object/property data and accepts UUIDs or qualified
 symbols such as `rig0` and `rig0.A`. These conveniences do not change wire
 addressing or the site-wide `/rig subscribe` semantics.
+
+Resource command replies use the issuing window in C and JS. Inventory requests
+retain that window across tab switches. `/rig`, `/gps`, `/objects`, `/media` and
+codec listings/completion filter by site or rig room (including RX rooms);
+status/no-room contexts see all resources. Explicit names/UUIDs remain usable
+outside those default listings. See `rrclient/resource.context.h` and
+`rustyrig-www/js/webui.media.js` (`mediaResourceMatches`).

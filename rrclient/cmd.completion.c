@@ -13,6 +13,8 @@
 #include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
 #include <rrclient/rooms.h>
+#include <rrclient/ui.h>
+#include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librustyaxe/tui.h>
@@ -187,6 +189,7 @@ char **client_cmd_completions(const char *line, const char *word) {
             int number;
             const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i,&number);
             if (!ch) break;
+            if (!rrclient_resource_matches(ui_active_window_name(),ch->control_room[0] ? ch->control_room : ch->room)) continue;
             const char *suffix = strstr(ch->name,".gps.rx");
             if (!suffix || strcmp(suffix,".gps.rx") || strcmp(ch->codec,"gpsp")) continue;
             if (!strcasecmp(first,"UNSUBSCRIBE") && !ch->subscribed) continue;
@@ -216,6 +219,7 @@ char **client_cmd_completions(const char *line, const char *word) {
                const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
 
                if (!ch) { break; }
+               if (!rrclient_resource_matches(ui_active_window_name(),ch->control_room[0] ? ch->control_room : ch->room)) continue;
 
                if ( media ? (unsub && !ch->subscribed) :
                     ( ch->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||

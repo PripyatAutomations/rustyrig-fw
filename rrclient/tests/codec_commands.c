@@ -12,7 +12,8 @@ bool dying, restarting;
 enum GuiMode ui_mode = UI_MODE_NONE;
 time_t now;
 tui_window_t *tui_active_window(void) { return NULL; }
-const char *ui_active_window_name(void) { return "#command-room"; }
+static const char *active_window = "commands";
+const char *ui_active_window_name(void) { return active_window; }
 rrconn_t *ws_conn = &connection;
 static unsigned selected, subscribed, unsubscribed;
 static char last_uuid[64], last_codec[5], local_codec[2][5], output[8192];
@@ -29,7 +30,7 @@ void event_emit_dict(const char *event, rrconn_t *client, dict *data) {
 }
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {}
 bool ui_print(const char *window, const char *fmt, ...) {
-   assert(window && !strcmp(window,"#command-room"));
+   assert(window && !strcmp(window,active_window));
    va_list ap;
    va_start(ap, fmt);
    size_t used = strlen(output);
@@ -222,6 +223,19 @@ int main(void) {
    assert(!rrclient_media_chan_lookup("rig0.nmea.rx"));
    assert(cmd_media(3,by_name) && subscribed==before_sub);
    assert(rrclient_media_chan_lookup("nmea0") == &known_chans[3]);
+   memset(known_chans,0,sizeof(known_chans));
+   known_chans[0] = (struct rr_media_known){ .uuid="one", .room="#alpha-rig1", .subsystem=1, .subscribed=true };
+   known_chans[1] = (struct rr_media_known){ .uuid="ten", .room="#alpha-rig10", .subsystem=1, .subscribed=true };
+   known_chans[2] = (struct rr_media_known){ .uuid="other", .room="#beta-rig1", .subsystem=1, .subscribed=true };
+   char *media_list[] = {"media"};
+   active_window="#alpha-rig1.rx";output[0]=0;assert(!cmd_media(1,media_list));
+   assert(strstr(output,"uuid=one") && !strstr(output,"uuid=ten") && !strstr(output,"uuid=other"));
+   output[0]=0;assert(!cmd_rxcodec(2,list));
+   assert(strstr(output,"[one]") && !strstr(output,"[ten]") && !strstr(output,"[other]"));
+   active_window="#alpha";output[0]=0;assert(!cmd_media(1,media_list));
+   assert(strstr(output,"uuid=one") && strstr(output,"uuid=ten") && !strstr(output,"uuid=other"));
+   active_window="status";output[0]=0;assert(!cmd_media(1,media_list));
+   assert(strstr(output,"uuid=one") && strstr(output,"uuid=ten") && strstr(output,"uuid=other"));
    puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
    return 0;
 }

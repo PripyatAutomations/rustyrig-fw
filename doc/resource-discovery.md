@@ -143,3 +143,18 @@ node www/tests/resource_discovery.js
 The live checks use temporary servers and databases. They check UUID/GPS
 discovery, coordinate formatting, room-gated subscriptions, serial permissions,
 path rejection, and lossless binary serial transport.
+
+## Window context
+
+Native and browser resource listings and parameter completion use the issuing
+window's context. A site room shows that site's resources and rigs; a rig room
+(including its RX rooms) shows that rig and its VFOs, media, GPS and serial
+services. The native status window shows everything discoverable. Other windows
+without a room context also show everything. Delayed inventory replies keep
+both the destination and context captured when the command was issued.
+
+The server includes `object.room` on node and rig descriptors; VFOs inherit
+their owner's room. This is descriptive metadata, not an authorization change.
+Explicit `/objects <symbol|uuid>` selections and named/UUID subscriptions can
+still address resources outside the current listing. Media `#numbers` retain
+their global positions, so filtering does not retarget an existing reference.

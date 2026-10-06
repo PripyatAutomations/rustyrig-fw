@@ -1,6 +1,5 @@
 //
-// rrserver/backend.c
-//    Backend type registration, runtime orchestration, and default wrappers.
+// rrserver/backend.c: Abstraction to allow implementing new pluggable backends
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -45,8 +44,7 @@ static rr_backend_t *rr_default_backend(void) {
    return radio ? rr_server_rig_backend(radio) : NULL;
 }
 
-static rr_server_vfo_t *rr_radio_vfo(rr_server_rig_t *radio,
-   rr_vfo_t native_index) {
+static rr_server_vfo_t *rr_radio_vfo(rr_server_rig_t *radio, rr_vfo_t native_index) {
    if (!radio || native_index < VFO_A || native_index >= MAX_VFOS) {
       return NULL;
    }
@@ -58,69 +56,53 @@ static rr_server_vfo_t *rr_default_vfo(rr_vfo_t native_index) {
    return rr_radio_vfo(rr_default_radio(), native_index);
 }
 
-bool rr_backend_vfo_supported(rr_server_rig_t *radio,
-   rr_server_vfo_t *vfo) {
+bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
-   if (!vfo || rr_server_vfo_owner(vfo) != radio || !backend ||
-       !backend->type || !backend->type->api) {
+   if (!vfo || rr_server_vfo_owner(vfo) != radio || !backend || !backend->type || !backend->type->api) {
       return false;
    }
    return backend->type->api->vfo_supported ?
       backend->type->api->vfo_supported(backend, vfo) : true;
 }
 
-static bool rr_cat_compat_vfo_supported(rr_server_rig_t *radio,
-   rr_vfo_t vfo, void *user) {
-   (void)user;
+static bool rr_cat_compat_vfo_supported(rr_server_rig_t *radio, rr_vfo_t vfo, void *user) {
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
    return object && rr_backend_vfo_supported(radio, object);
 }
 
-static bool rr_cat_compat_ptt_get(rr_server_rig_t *radio, rr_vfo_t vfo,
-   void *user) {
-   (void)user;
+static bool rr_cat_compat_ptt_get(rr_server_rig_t *radio, rr_vfo_t vfo,  void *user) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
-   if (!backend || !backend->type || !backend->type->api ||
-       !backend->type->api->ptt_get || !object) {
+   if (!backend || !backend->type || !backend->type->api || !backend->type->api->ptt_get || !object) {
       return false;
    }
    return backend->type->api->ptt_get(backend, object);
 }
 
-static int rr_cat_compat_widths_get(rr_server_rig_t *radio, rr_vfo_t vfo,
-   int *widths, int max, void *user) {
-   (void)user;
+static int rr_cat_compat_widths_get(rr_server_rig_t *radio, rr_vfo_t vfo, int *widths, int max, void *user) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
-   if (!backend || !backend->type || !backend->type->api ||
-       !backend->type->api->widths_get || !object) {
+   if (!backend || !backend->type || !backend->type->api || !backend->type->api->widths_get || !object) {
       return 0;
    }
    return backend->type->api->widths_get(backend, object, widths, max);
 }
 
-static rrconn_t *rr_cat_compat_talker_get(rr_server_rig_t *radio,
-   void *user) {
-   (void)radio;
-   (void)user;
+static rrconn_t *rr_cat_compat_talker_get(rr_server_rig_t *radio, void *user) {
    return whos_talking();
 }
 
-static char *rr_runtime_uuid(const char *identity_namespace,
-   const char *alias) {
+static char *rr_runtime_uuid(const char *identity_namespace, const char *alias) {
 #ifdef USE_SQLITE
    if (masterdb) {
-      char *stored = db_rig_uuid_get_or_create(masterdb,
-         identity_namespace, alias);
+      char *stored = db_rig_uuid_get_or_create(masterdb, identity_namespace, alias);
       if (rr_object_uuid_valid(stored)) {
          return stored;
       }
       free(stored);
    }
 #endif
-   Log(LOG_CRIT, "backend", "Cannot persist identity for %s/%s",
-      identity_namespace, alias);
+   Log(LOG_CRIT, "backend", "Cannot persist identity for %s/%s", identity_namespace, alias);
    return NULL;
 }
 
@@ -128,16 +110,14 @@ static char *rr_runtime_vfo_uuid(const char *rig_uuid,
    const char *config_id) {
 #ifdef USE_SQLITE
    if (masterdb) {
-      char *stored = db_vfo_uuid_get_or_create(masterdb, rig_uuid,
-         config_id);
+      char *stored = db_vfo_uuid_get_or_create(masterdb, rig_uuid, config_id);
       if (rr_object_uuid_valid(stored)) {
          return stored;
       }
       free(stored);
    }
 #endif
-   Log(LOG_CRIT, "backend", "Cannot persist VFO identity for %s/%s",
-      rig_uuid, config_id);
+   Log(LOG_CRIT, "backend", "Cannot persist VFO identity for %s/%s", rig_uuid, config_id);
    return NULL;
 }
 
@@ -157,35 +137,35 @@ static bool rr_configure_vfos(rr_server_rig_t *radio, const char *alias) {
       return true;
    }
    char **tokens = g_strsplit_set(configured, " ,\t\r\n", -1);
-   if (!tokens) return true;
+   if (!tokens) {
+      return true;
+   }
+
    size_t added = 0;
    bool failed = false;
    for (size_t i = 0; tokens[i]; i++) {
-      if (!*tokens[i]) continue;
-      if (strlen(tokens[i]) != 1 ||
-          !isalpha((unsigned char)tokens[i][0]) ||
-          rr_token_seen(tokens, i, tokens[i])) {
-         Log(LOG_CRIT, "core", "Rig %s has invalid or duplicate VFO alias %s",
-            alias, tokens[i]);
+      if (!*tokens[i]) {
+         continue;
+      }
+
+      if (strlen(tokens[i]) != 1 || !isalpha((unsigned char)tokens[i][0]) || rr_token_seen(tokens, i, tokens[i])) {
+         Log(LOG_CRIT, "core", "Rig %s has invalid or duplicate VFO alias %s", alias, tokens[i]);
          failed = true;
          break;
       }
       tokens[i][0] = (char)toupper((unsigned char)tokens[i][0]);
       char *uuid = rr_runtime_vfo_uuid(rr_server_rig_id(radio), tokens[i]);
-      rr_server_vfo_t *vfo = uuid ? rr_server_vfo_add(radio, uuid,
-         tokens[i], tokens[i], RR_VFO_PERSISTENT) : NULL;
+      rr_server_vfo_t *vfo = uuid ? rr_server_vfo_add(radio, uuid, tokens[i], tokens[i], RR_VFO_PERSISTENT) : NULL;
       free(uuid);
-      if (!vfo || !rr_backend_vfo_supported(radio, vfo) ||
-          rr_rig_define_vfo_properties(radio, tokens[i][0])) {
-         Log(LOG_CRIT, "core", "Unable to instantiate VFO %s for rig %s",
-            tokens[i], alias);
+
+      if (!vfo || !rr_backend_vfo_supported(radio, vfo) || rr_rig_define_vfo_properties(radio, tokens[i][0])) {
+         Log(LOG_CRIT, "core", "Unable to instantiate VFO %s for rig %s", tokens[i], alias);
          failed = true;
          break;
       }
       added++;
       Log(LOG_INFO, "backend", "rig %s: VFO %s (%s), native %s, persistent",
-         alias, rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo),
-         rr_server_vfo_native_id(vfo));
+         alias, rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo), rr_server_vfo_native_id(vfo));
    }
    g_strfreev(tokens);
    return failed || added == 0;
@@ -208,9 +188,11 @@ bool rr_backend_init(void) {
    if (!identity_namespace || !*identity_namespace) {
       identity_namespace = station_name;
    }
+
    if (!identity_namespace || !*identity_namespace) {
       identity_namespace = "default";
    }
+
    // @node cannot be a configured rig alias; it reserves a namespace identity.
    char *node_uuid = rr_runtime_uuid(identity_namespace, "@node");
    if (!node_uuid || rr_rig_registry_set_node(rig.rigs, node_uuid)) {
@@ -219,6 +201,7 @@ bool rr_backend_init(void) {
       return true;
    }
    free(node_uuid);
+
    char **aliases = g_strsplit_set(configured_rigs, " ,\t\r\n", -1);
    if (!aliases) {
       rr_backend_fini();
@@ -228,9 +211,11 @@ bool rr_backend_init(void) {
    bool failed = false;
    for (size_t i = 0; aliases[i]; i++) {
       const char *alias = aliases[i];
-      if (!*alias) continue;
-      if (!rr_rig_config_alias_valid(alias) || rr_token_seen(aliases, i,
-            alias)) {
+      if (!*alias) {
+         continue;
+      }
+
+      if (!rr_rig_config_alias_valid(alias) || rr_token_seen(aliases, i, alias)) {
          Log(LOG_CRIT, "core", "Invalid or duplicate rig alias %s", alias);
          failed = true;
          break;
@@ -244,7 +229,10 @@ bool rr_backend_init(void) {
          break;
       }
       const char *name = rr_rig_config_get(alias, "name");
-      if (!name || !*name) name = alias;
+      if (!name || !*name) {
+         name = alias;
+      }
+
       char *uuid = rr_runtime_uuid(identity_namespace, alias);
       rr_server_rig_t *radio = uuid ? rr_rig_registry_add(rig.rigs, uuid,
          alias, name, type) : NULL;
@@ -255,11 +243,11 @@ bool rr_backend_init(void) {
          failed = true;
          break;
       }
-      Log(LOG_INFO, "core", "Runtime rig %s (%s) uses backend type %s",
-         rr_server_rig_id(radio), alias, type->name);
+      Log(LOG_INFO, "core", "Runtime rig %s (%s) uses backend type %s", rr_server_rig_id(radio), alias, type->name);
       created++;
    }
    g_strfreev(aliases);
+
    if (failed || created == 0) {
       rr_backend_fini();
       return true;
@@ -270,8 +258,7 @@ bool rr_backend_init(void) {
    if (default_alias && *default_alias) {
       radio = rr_rig_registry_find_alias(rig.rigs, default_alias);
       if (!radio) {
-         Log(LOG_CRIT, "core", "rig.default references unknown rig %s",
-            default_alias);
+         Log(LOG_CRIT, "core", "rig.default references unknown rig %s", default_alias);
          rr_backend_fini();
          return true;
       }
@@ -309,9 +296,7 @@ bool rr_backend_init(void) {
       }
    }
 
-   Log(LOG_INFO, "core", "Default rig is %s (%s)",
-      rr_server_rig_id(radio),
-      rr_rig_registry_alias(rig.rigs, radio));
+   Log(LOG_INFO, "core", "Default rig is %s (%s)", rr_server_rig_id(radio), rr_rig_registry_alias(rig.rigs, radio));
    return false;
 }
 
@@ -329,12 +314,12 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
       Log(LOG_CRIT, "rig", "Got be_set_ptt without a user!");
       return true;
    }
+
    rr_backend_t *backend = rr_default_backend();
    if (!backend || !backend->type->api->ptt_set) {
       return true;
    }
-   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state),
-      cptr->chatname);
+   Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
    return rr_ptt_apply(vfo, state);
 }
 
@@ -342,10 +327,12 @@ bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
    rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_default_radio();
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
+
    if (!backend || !backend->type || !backend->type->api ||
        !backend->type->api->ptt_set || !object) {
       return true;
    }
+
    if (backend->type->api->ptt_set(backend, object, state)) {
       Log(LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.",
          rr_vfo_name(vfo), bool2str(state));
@@ -357,8 +344,7 @@ bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
 bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
-   if (!cptr || !backend || !backend->type || !backend->type->api ||
-       !backend->type->api->ptt_get || !object) {
+   if (!cptr || !backend || !backend->type || !backend->type->api || !backend->type->api->ptt_get || !object) {
       return false;
    }
    return backend->type->api->ptt_get(backend, object);
@@ -368,10 +354,10 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
    rr_server_rig_t *radio = rr_default_radio();
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
-   if (!object || !backend || !backend->type ||
-       !backend->type->api || !backend->type->api->freq_set) {
+   if (!object || !backend || !backend->type || !backend->type->api || !backend->type->api->freq_set) {
       return true;
    }
+
    bool failed;
    if (backend->type->uses_property_state) {
       rr_control_request_t request = {
@@ -386,6 +372,7 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
    } else {
       failed = backend->type->api->freq_set(backend, object, freq);
    }
+
    if (failed) {
       Log(LOG_WARN, "rig", "Setting freq for VFO %s to %d failed.",
          rr_vfo_name(vfo), freq);
@@ -398,15 +385,13 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
 float rr_freq_get(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
-   return (!backend || !backend->type->api->freq_get || !object) ? 0 :
-      backend->type->api->freq_get(backend, object);
+   return (!backend || !backend->type->api->freq_get || !object) ? 0 : backend->type->api->freq_get(backend, object);
 }
 
 float rr_get_power(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
-   return (!backend || !backend->type->api->power_get || !object) ? 0 :
-      backend->type->api->power_get(backend, object);
+   return (!backend || !backend->type->api->power_get || !object) ? 0 : backend->type->api->power_get(backend, object);
 }
 
 bool rr_set_power(rr_vfo_t vfo, float power) {
@@ -426,19 +411,26 @@ uint16_t rr_get_width(rr_vfo_t vfo) {
 bool rr_set_width(rr_vfo_t vfo, const char *width) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
+
    if (!backend || !backend->type->api->width_set || !object) {
       return true;
    }
+
    bool failed = backend->type->api->width_set(backend, object, width);
    if (!failed && vfo >= VFO_A && vfo < MAX_VFOS) {
-      uint16_t result = backend->type->api->width_get ?
-         backend->type->api->width_get(backend, object) : 0;
+      uint16_t result = backend->type->api->width_get ? backend->type->api->width_get(backend, object) : 0;
+
       if (!result && width) {
          const char *p = width;
-         while (*p == ' ' || *p == '\t') p++;
+         while (*p == ' ' || *p == '\t') {
+            p++;
+         }
          result = (uint16_t)atol(p);
       }
-      if (result) vfos[vfo].width = result;
+
+      if (result) {
+         vfos[vfo].width = result;
+      }
    }
    return failed;
 }
@@ -446,15 +438,13 @@ bool rr_set_width(rr_vfo_t vfo, const char *width) {
 int rr_widths_get(rr_vfo_t vfo, int *widths, int max) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
-   return (!backend || !backend->type->api->widths_get || !object) ? 0 :
-      backend->type->api->widths_get(backend, object, widths, max);
+   return (!backend || !backend->type->api->widths_get || !object) ? 0 : backend->type->api->widths_get(backend, object, widths, max);
 }
 
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
-   return (!backend || !backend->type->api->mode_get || !object) ?
-      MODE_NONE : backend->type->api->mode_get(backend, object);
+   return (!backend || !backend->type->api->mode_get || !object) ? MODE_NONE : backend->type->api->mode_get(backend, object);
 }
 
 const char *rr_get_mode_str(rr_vfo_t vfo) {
@@ -469,10 +459,10 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    rr_server_rig_t *radio = rr_default_radio();
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
-   if (!object || !backend ||
-       !backend->type->api->mode_set) {
+   if (!object || !backend || !backend->type->api->mode_set) {
       return true;
    }
+
    bool failed;
    if (backend->type->uses_property_state) {
       rr_control_request_t request = {
@@ -487,15 +477,26 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    } else {
       failed = backend->type->api->mode_set(backend, object, mode);
    }
-   if (!failed) vfos[vfo].mode = mode;
+
+   if (!failed) {
+      vfos[vfo].mode = mode;
+   }
    return failed;
 }
 
 static void rr_be_merge_default_poll(rr_vfo_t vfo, rr_vfo_data_t *fresh) {
    rr_vfo_data_t *current = &vfos[vfo];
-   if (fresh->freq > 0) current->freq = fresh->freq;
-   if (fresh->mode != MODE_NONE) current->mode = fresh->mode;
-   if (fresh->width > 0) current->width = fresh->width;
+   if (fresh->freq > 0) {
+      current->freq = fresh->freq;
+   }
+
+   if (fresh->mode != MODE_NONE) {
+      current->mode = fresh->mode;
+   }
+
+   if (fresh->width > 0) {
+      current->width = fresh->width;
+   }
    current->power = fresh->power;
    current->type = fresh->type;
    current->id = vfo;
@@ -503,28 +504,29 @@ static void rr_be_merge_default_poll(rr_vfo_t vfo, rr_vfo_data_t *fresh) {
 
 bool rr_backend_poll_rig(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
    rr_vfo_t native_index = VFO_NONE;
-   if (!radio || !vfo || rr_server_vfo_owner(vfo) != radio ||
-       !rr_server_vfo_native_index(vfo, &native_index)) {
+   if (!radio || !vfo || rr_server_vfo_owner(vfo) != radio || !rr_server_vfo_native_index(vfo, &native_index)) {
       return true;
    }
+
    rr_backend_t *backend = rr_server_rig_backend(radio);
-   if (!backend || !backend->type || !backend->type->api ||
-       !backend->type->api->poll_state) {
+   if (!backend || !backend->type || !backend->type->api || !backend->type->api->poll_state) {
       return true;
    }
+
    if (radio == rr_default_radio()) {
       backend->active_vfo = active_vfo;
       rr_cat_compat_prepare_poll(rig.default_cat, native_index);
    }
+
    rr_vfo_data_t *fresh = backend->type->api->poll_state(backend, vfo);
    if (!fresh) {
       return true;
    }
+
    if (radio == rr_default_radio()) {
       rr_be_merge_default_poll(native_index, fresh);
       if (backend->type->uses_property_state && rig.default_cat) {
-         rr_cat_compat_publish(rig.default_cat, native_index,
-            rr_backend_config_get_int(backend, "state-interval", 15));
+         rr_cat_compat_publish(rig.default_cat, native_index, rr_backend_config_get_int(backend, "state-interval", 15));
       }
    }
    free(fresh);
@@ -538,9 +540,11 @@ typedef struct rr_poll_vfo_context {
 
 static bool rr_backend_poll_vfo(rr_server_vfo_t *vfo, void *user) {
    rr_poll_vfo_context_t *context = user;
+
    if (!rr_backend_vfo_supported(context->radio, vfo)) {
       return false;
    }
+
    if (rr_backend_poll_rig(context->radio, vfo)) {
       context->failed = true;
    }
@@ -548,7 +552,6 @@ static bool rr_backend_poll_vfo(rr_server_vfo_t *vfo, void *user) {
 }
 
 static bool rr_backend_poll_one(rr_server_rig_t *radio, void *user) {
-   (void)user;
    rr_poll_vfo_context_t context = { .radio = radio };
    rr_server_vfo_foreach(radio, rr_backend_poll_vfo, &context);
    return context.failed;
@@ -572,6 +575,7 @@ bool rr_be_vfo_supported(rr_vfo_t vfo) {
 bool rr_cat_state_send(rrconn_t *cptr) {
    rr_server_rig_t *default_rig = rr_default_radio();
    rr_backend_t *backend = default_rig ? rr_server_rig_backend(default_rig) : NULL;
+
    if (!backend || !backend->type->uses_property_state || !rig.default_cat) {
       return true;
    }

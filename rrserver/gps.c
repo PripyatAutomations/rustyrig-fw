@@ -208,7 +208,10 @@ static void receiver_position(struct gps_source *source,const char *sentence) {
    if(valid && (!receiver_angle(fields[lat],fields[lat+1],true,&a) ||
       !receiver_angle(fields[lon],fields[lon+1],false,&b))) return;
    source->received=true;source->valid=valid;source->manual=manual;
-   if(valid) {source->lat=a;source->lon=b;}
+   if (valid) {
+      source->lat = a;
+      source->lon = b;
+   }
 }
 
 static void gps_input(const char *event, const char *data, rrconn_t *client, void *user) {
@@ -217,13 +220,19 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
    const char *alias = d ? dict_get(d, "gps.source", "station") : "station";
    struct gps_source *source = find(alias);
    if (source && !source->fixed && sentence && strlen(sentence) >= 6 && strlen(sentence) <= 509 && rr_nmea_valid(sentence)) {
-      receiver_position(source,sentence);
+      receiver_position(source, sentence);
       // Forward every validated sentence, including non-position records, to
       // outputs using this receiver (and rigs inheriting the station receiver).
       for (unsigned i = 0; i < count; i++) {
-         if (effective(&sources[i]) != source) continue;
+         if (effective(&sources[i]) != source) {
+            continue;
+         }
+
          dict *output = dict_new();
-         if (!output) continue;
+         if (!output) {
+            continue;
+         }
+
          dict_add(output, "gps.source", sources[i].alias);
          dict_add(output, "gps.nmea", sentence);
          if (sources[i].nmea_channel) {
@@ -234,7 +243,9 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
          dict_free(output);
       }
    }
-   if (d) dict_free(d);
+   if (d) {
+      dict_free(d);
+   }
 }
 static void poll_gps(const char *event, const char *data, rrconn_t *client, void *user) {
    uint64_t time = mono_us();
@@ -306,7 +317,10 @@ static void add_nmea_channel(struct gps_source *source) {
    if (!position) return;
    source->nmea_channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX,
       RR_BINFRAME_VFO_NA, position->rig, RR_NMEA_FRAME_CODEC, "Complete GPS receiver NMEA");
-   if (!source->nmea_channel) return;
+   if (!source->nmea_channel) {
+      return;
+   }
+
    snprintf(source->nmea_channel->name, sizeof(source->nmea_channel->name), "%s.nmea.rx", source->alias);
    snprintf(source->nmea_channel->room, sizeof(source->nmea_channel->room), "%s", position->room);
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);

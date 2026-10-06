@@ -112,7 +112,7 @@ static void object_net_init(void) {
    for (int i = 0; i < 50 && !rr_object_cache_ready(object_cache); i++) object_pump();
    assert(rr_object_cache_ready(object_cache));
    assert(rr_object_cache_count(object_cache) == 7);
-   assert(rr_object_cache_object(object_cache, rr_rig_registry_node(rig.rigs)));
+   assert(!strcmp(dict_get((dict *)rr_object_cache_object(object_cache, rr_rig_registry_node(rig.rigs)),"object.room",""),ws_site_room()));
    for (const char *alias = "01"; *alias; alias++) {
       char name[] = "rig0";
       name[3] = *alias;
@@ -120,12 +120,15 @@ static void object_net_init(void) {
       const char *uuid = rr_server_rig_id(r);
       dict *metadata = (dict *)rr_object_cache_object(object_cache, uuid);
       assert(metadata && !strcmp(dict_get(metadata, "object.owner", ""), rr_rig_registry_node(rig.rigs)));
+      assert(!strcmp(dict_get(metadata,"object.room",""),rr_rig_registry_room(rig.rigs,r)));
       for (const char *v = "AB"; *v; v++) {
          char label[] = { *v, 0 };
          const char *child = rr_server_vfo_id(rr_server_vfo_find_alias(r, label));
          metadata = (dict *)rr_object_cache_object(object_cache, child);
          assert(metadata && !strcmp(dict_get(metadata, "object.owner", ""), uuid));
          assert(!strcmp(dict_get(metadata, "object.alias", ""), label));
+         assert(rr_object_cache_in_context(object_cache,child,rr_rig_registry_room(rig.rigs,r)));
+         assert(!rr_object_cache_in_context(object_cache,child,"#different-site"));
          dict *state = (dict *)rr_object_cache_property(object_cache, child, "frequency", false);
          assert(state && !dict_get_bool(state, "property.known", true));
          assert(dict_get_type(state, "property.value") == VAL_END);

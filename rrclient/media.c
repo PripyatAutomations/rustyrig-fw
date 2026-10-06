@@ -31,6 +31,7 @@
 #include <rrclient/media.h>
 #include <rrclient/ui.h>
 #include <rrclient/rooms.h>
+#include <rrclient/resource.context.h>
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
@@ -837,7 +838,7 @@ bool cmd_media(int argc, char **args) {
    if (!sub || sub[0] == '\0' || strcasecmp(sub, "LIST") == 0) {
      // List what we know about and our subscription state
      media_print( "{bright-cyan}Available media channels:{reset}");
-     int n = 0;
+     int n = 0, visible = 0;
 
      for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
         struct rr_media_known *kp = &known_chans[i];
@@ -846,6 +847,8 @@ bool cmd_media(int argc, char **args) {
            continue;
         }
         n++;
+        if (!rrclient_resource_matches(ui_active_window_name(),kp->control_room[0] ? kp->control_room : kp->room)) continue;
+        visible++;
         media_print(" #%d %s [%s %s, %s] room=%s %s%s — %s (uuid=%s)", n,
            kp->name[0] ? kp->name : kp->uuid,
            kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ? "audio" :
@@ -855,7 +858,7 @@ bool cmd_media(int argc, char **args) {
            kp->subscribed ? "subscribed" : "unsubscribed", !kp->room[0] || kp->joined ? "" : " (join room first)",
            kp->descr[0] ? kp->descr : "-", kp->uuid);
      }
-     media_print("End of list (%d channels). Use names, #numbers, or UUIDs.",n);
+     media_print("End of list (%d channels). Use names, #numbers, or UUIDs.",visible);
      Log(LOG_INFO, "ws.media", "/media LIST: %d stored channels", n);
 
       if (sub) {
@@ -921,6 +924,7 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
             continue;
          }
          number++;
+         if (!rrclient_resource_matches(ui_active_window_name(),kp->control_room[0] ? kp->control_room : kp->room)) continue;
          if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
              kp->direction != (is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) ||
              (!kp->subscribed && !kp->disabled)) {

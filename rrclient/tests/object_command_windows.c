@@ -27,10 +27,20 @@ bool cmd_media(int argc, char **args) { return false; }
 static void reply(const char *id, const char *cmd, const char *window) {
    dict *d = dict_new();
    dict_add(d,"object.cmd",cmd);dict_add(d,"request.id",id);
+   dict_add(d,"inventory.kind","site");dict_add(d,"inventory.room",window);
    unsigned before = printed;
    assert(inventory_message(d));
    assert(printed == before + 1);
    assert(!strcmp(destination,window));
+   dict_free(d);
+}
+static void tree_row(const char *id, unsigned depth, const char *kind, const char *room, bool visible) {
+   dict *d = dict_new();
+   dict_add(d,"object.cmd","inventory-entry");dict_add(d,"request.id",id);
+   dict_add_uint(d,"inventory.depth",depth);dict_add(d,"inventory.kind",kind);
+   if (room) dict_add(d,"inventory.room",room);
+   unsigned before = printed;
+   assert(inventory_message(d));assert(printed == before + visible);
    dict_free(d);
 }
 int main(void) {
@@ -52,6 +62,23 @@ int main(void) {
    send_ok = false;assert(cmd_rig(2,list));
    for (unsigned i = 0; i < INVENTORY_REQUESTS_MAX; i++) assert(!inventory_requests[i].id[0]);
    send_ok = true;assert(!cmd_rig(2,list));
+   connection("disconnected",NULL,NULL,NULL);
+   active="#site-rig1.rx";assert(!cmd_rig(2,list));
+   snprintf(first,sizeof(first),"%s",sent_id);
+   active="#site-rig10"; // Replies retain the original filter across tab switches.
+   tree_row(first,0,"site","#site",false);
+   tree_row(first,1,"rig","#site-rig1",true);
+   tree_row(first,2,"gps",NULL,true);
+   tree_row(first,1,"rig","#site-rig10",false);
+   tree_row(first,2,"serial",NULL,false);
+   reply(first,"inventory-end","#site-rig1.rx");
+   active="#site";assert(!cmd_rig(2,list));
+   snprintf(first,sizeof(first),"%s",sent_id);
+   tree_row(first,0,"site","#site",true);
+   tree_row(first,1,"rig","#site-rig10",true);
+   tree_row(first,2,"gps",NULL,true);
+   tree_row(first,0,"site","#other",false);
+   tree_row(first,1,"gps",NULL,false);
    connection("disconnected",NULL,NULL,NULL);
    for (unsigned i = 0; i < INVENTORY_REQUESTS_MAX; i++) assert(!inventory_requests[i].id[0]);
    puts("PASS: native command output and concurrent inventory stay in issuing windows");

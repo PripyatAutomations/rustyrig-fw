@@ -20,6 +20,8 @@ rustyrig-fw (20261006.01) testing; urgency=medium
     references locally instead of creating or changing unrelated streams.
   * Route resource command output to the issuing window and retain that
     destination for concurrent inventory requests across tab changes.
+  * Filter resource trees, object/media/codec listings and completion by
+    the issuing site or rig room; status retains all discoverable resources.
  -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 06 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261005.01) testing; urgency=medium

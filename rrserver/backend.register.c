@@ -1,4 +1,4 @@
-// rrserver/backend.register.c: composition root for compiled backend types
+// rrserver/backend.register.c: Register all available backends
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //

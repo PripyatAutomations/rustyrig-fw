@@ -5,6 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <string.h>
+#include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
@@ -15,6 +16,7 @@ static unsigned inventory_request;
 #define INVENTORY_REQUESTS_MAX 32
 static struct inventory_request {
    char id[48], window[128];
+   bool visible[5];
 } inventory_requests[INVENTORY_REQUESTS_MAX];
 
 // PARITY: rustyrig-www/js/webui.objects.js rrInventoryMessage.
@@ -37,6 +39,15 @@ static bool inventory_message(dict *d) {
    }
    unsigned depth = dict_get_uint(d, "inventory.depth", 0);
    if (depth > 4) return true;
+   bool visible = !window || window[0] != '#';
+   if (!visible) {
+      const char *kind = dict_get(d,"inventory.kind","");
+      visible = !strcmp(kind,"site") || !strcmp(kind,"rig") ?
+         rrclient_resource_matches(window,dict_get(d,"inventory.room","")) :
+         depth && request->visible[depth - 1];
+   }
+   request->visible[depth] = visible;
+   if (!visible) return true;
    char details[1536] = "";
    const char *keys[] = { "uuid", "room", "backend", "frequency", "codec", "direction", "subsystem", "coordinates", "source", "service", "state", "access", "action" };
    for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
@@ -80,7 +91,7 @@ bool cmd_objects(int argc, char **args) {
    const char *window = ui_active_window_name();
    if (argc > 2) { ui_print(window,"Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)"); return true; }
    if (!cache) ui_print(window, "No object snapshot received");
-   else if (!rr_object_cache_dump_selected(cache,argc == 2 ? args[1] : NULL,print_line,(void *)window)) {
+   else if (!rr_object_cache_dump_context(cache,argc == 2 ? args[1] : NULL,window,print_line,(void *)window)) {
       ui_print(window,"Unknown or ambiguous object %s; use /objects to choose a qualified symbol or UUID",args[1]);
       return true;
    }
@@ -154,5 +165,11 @@ const dict *rrclient_object_find_alias(const char *type, const char *owner,
 }
 
 const dict *rrclient_object_ref_iter(int index, char *reference, size_t capacity) {
-   return rr_object_cache_ref_iter(cache,index,reference,capacity);
+   if (index < 0) return NULL;
+   for (int i = 0;; i++) {
+      const dict *object = rr_object_cache_ref_iter(cache,i,reference,capacity);
+      if (!object) return NULL;
+      if (!rr_object_cache_in_context(cache,dict_get((dict *)object,"object.uuid",""),ui_active_window_name())) continue;
+      if (!index--) return object;
+   }
 }
