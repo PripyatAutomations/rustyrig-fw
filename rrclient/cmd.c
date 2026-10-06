@@ -204,7 +204,6 @@ bool parse_chat_input_real(const char *msg) {
    }
 
    if (msg[0] == '/') {
-      Log(LOG_CRIT, "debug", "msg<%d>: %s", strlen(msg), msg);
 
       if (!msg[1]) {
          return true;

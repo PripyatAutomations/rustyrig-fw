@@ -328,6 +328,50 @@ enabled=false
             owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": "add #owner-created"}})
             owner.until(lambda m: "#owner-created added" in m.get("notice", {}).get("msg", ""))
             assert query("SELECT username FROM audit_log WHERE event_type='room.created' AND details='#owner-created'") == [("OWNER",)]
+            # Account changes take effect immediately, independent of cached flags.
+            def owner_privileges(privileges):
+                owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "privs VIEWER set " + privileges}})
+                owner.until(lambda m: "privileges for VIEWER" in m.get("notice", {}).get("msg", ""))
+            owner_privileges("admin,view,chat")
+            audited = login_other("VIEWER")
+            owner_privileges("view,chat")
+            for command in ("mute", "unmute", "kick", "die", "restart", "syslog"):
+                audited.send({"msg": {"type": "talk"}, "talk": {"cmd": command, "target": "TEST" if command != "syslog" else "on", "args": {"reason": "audit permission denial"}}})
+                audited.until(lambda m: "error" in m)
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub", "target": "#roomtest.lounge", "data": "audit forbidden message"}})
+            audited.until(lambda m: "error" in m)
+            assert not query("SELECT msg_id FROM chat_log WHERE msg_data='audit forbidden message'")
+            audited.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": "unknown", "subsys": 1, "dir": 0, "rig": 240, "vfo": 240, "codec": "pc16"}})
+            audited.until(lambda m: "creation requires" in m.get("error", {}).get("msg", ""))
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#roomtest.lounge"}})
+            client.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == "#roomtest.lounge")
+            marker = "audit private room message"
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub", "target": "#roomtest.lounge", "data": marker}})
+            client.until(lambda m: m.get("talk", {}).get("data") == marker)
+            audited.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "privacy-barrier"}})
+            def privacy_barrier(message):
+                assert message.get("talk", {}).get("data") != marker
+                return message.get("request", {}).get("id") == "privacy-barrier" and message.get("object", {}).get("cmd") == "inventory-end"
+            audited.until(privacy_barrier)
+            # Codec permissions follow direction and current account, plus VFO room membership.
+            owner_privileges("view,chat,rx")
+            audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
+            audited.until(lambda m: "Join room" in m.get("error", {}).get("msg", ""))
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": rx_room}})
+            audited.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == rx_room)
+            audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
+            audited.until(lambda m: m.get("media", {}).get("cmd") == "available" and m["media"].get("chan-uuid") == rx_b["chan-uuid"])
+            owner_privileges("view,chat,tx")
+            audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
+            audited.until(lambda m: "RX privilege" in m.get("error", {}).get("msg", ""))
+            owner_privileges("view,chat")
+            audited.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": "OWNER"}})
+            audited.until(lambda m: "Already authenticated" in m.get("error", {}).get("msg", ""))
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": "add #auth-switch-denied"}})
+            audited.until(lambda m: "error" in m)
+            assert not query("SELECT name FROM rooms WHERE name='#auth-switch-denied'")
+            audited.socket.close()
+            print("PASS: immediate admin revocation, account codec directions, room message isolation and non-source creation denial")
             owner.socket.close()
             print("PASS: admin/owner room management, option-bound confirmation, soft deletion, restoration, force/history, and attributed audit")
             print("PASS: server-owned rig rooms, RX-only media, same-rig UUID mappings, and per-VFO LO-safe tuning")

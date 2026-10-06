@@ -1326,6 +1326,7 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
       return false;
    }
 
+   if (!ws_client_in_room(cptr, channel)) { return false; }
    int replay_lines = cfg_get_int("chat.replay-lines", 20);
 
    if (replay_lines <= 0) {

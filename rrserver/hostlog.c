@@ -61,7 +61,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
 
    while (cur) {
       if ( cur->is_ws && cur->authenticated && cur->conn &&
-           client_has_flag(cur, FLAG_SYSLOG) ) {
+           cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG) ) {
          mg_ws_send(cur->conn, frame, flen, WEBSOCKET_OP_BINARY);
       }
       cur = cur->next;

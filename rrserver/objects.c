@@ -401,7 +401,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       if (!schema.writable) { code = "read-only"; goto done; }
 
       if ( !client->user || client->user->is_muted || !has_priv(client->user->uid, "admin|owner|tx|noob") ||
-           ( client_has_flag(client, FLAG_NOOB) && !is_elmer_online() ) ) {
+           ( has_priv(client->user->uid, "noob") && !is_elmer_online() ) ) {
          code = "forbidden"; goto done;
       }
       const char *room = dict_get(d, "request.room", NULL);

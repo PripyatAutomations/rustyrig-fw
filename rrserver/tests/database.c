@@ -289,6 +289,8 @@ int main(void) {
       assert(db_add_chat_msg(db, 2000 + i, "test-user", "#room", "pub", line));
    }
    rrconn_t replay_client = {0};
+   assert(!db_send_chat_replay(&replay_client, "#room"));
+   snprintf(replay_client.rooms, sizeof(replay_client.rooms), "#room");
    reset_replay_frames();
    assert(db_send_chat_replay(&replay_client, "#room"));
    assert(replay_frame_count == 22); // start + configured 20 lines + complete

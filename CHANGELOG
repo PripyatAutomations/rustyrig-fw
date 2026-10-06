@@ -1,4 +1,9 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Audit user-command permissions; enforce current account privileges for
+    staff, syslog, noob/elmer and media sources. Require RX/TX privileges for
+    matching codec changes, restrict media creation, and enforce room message
+    membership. Reject authenticated account-switch attempts; fix permission
+    error crashes and elmer iteration; remove credential-bearing command logs.
   * Add admin/owner room removal with session-bound, expiring confirmation;
     retain room metadata by default, support --force/-f and --history/-h
     cleanup, and audit creation, removal and restoration atomically in SQLite.

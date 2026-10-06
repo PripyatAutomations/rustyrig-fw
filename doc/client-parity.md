@@ -213,3 +213,11 @@ Native `rrclient/cmd.chat.c:cmd_room` and browser `js/webui.chat.js` forward
 legacy room-first commands, confirmation tokens and `--force/-f --history/-h`.
 Help and completion describe the same commands. Server policy requires admin or
 owner and confirms every removal; database auditing belongs to rrserver.
+
+## Account authorization
+
+C server policy is authoritative for both clients; see [command privileges](command-privileges.md).
+Shared codec changes require explicit account `rx`/`tx` matching the concrete
+channel direction, with existing room/VFO membership checks. Admin/owner commands
+use current account privileges rather than cached connection flags. UI permissions
+are hints only; raw JSON is subject to the same server checks.

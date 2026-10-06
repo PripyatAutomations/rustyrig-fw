@@ -177,3 +177,9 @@ appsinks use backpressure rather than dropping codec packets or stream headers.
 `node www/tests/web_completion.js` check parameter completion.
 These checks do not establish that live Opus playback works on a particular
 sound device.
+
+Explicit shared RX/TX codec selection requires the account's matching `rx`/`tx`
+privilege and membership in the channel's VFO room. Admin/owner alone does not
+replace the direction privilege. Listing formats and local NONE/unsubscribe do
+not change the shared codec. Both native and browser pickers follow this server
+policy.
