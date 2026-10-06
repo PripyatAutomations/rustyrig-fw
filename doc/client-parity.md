@@ -211,8 +211,9 @@ Native `rrclient/cmd.chat.c:cmd_room` and browser `js/webui.chat.js` forward
 `/room` arguments to the authoritative `librrprotocol/srv.chat.c` parser and
 `rrserver/events.c` policy handlers. Both clients support action-first add/remove,
 legacy room-first commands, confirmation tokens and `--force/-f --history/-h`.
-Help and completion describe the same commands. Server policy requires admin or
-owner and confirms every removal; database auditing belongs to rrserver.
+Help and completion describe the same commands. Server policy reserves dashed station room creation, restoration and removal
+for admin/owner; undashed room creation is available to any authenticated account.
+It confirms every removal; database auditing belongs to rrserver.
 
 ## Account authorization
 
@@ -221,3 +222,25 @@ Shared codec changes require explicit account `rx`/`tx` matching the concrete
 channel direction, with existing room/VFO membership checks. Admin/owner commands
 use current account privileges rather than cached connection flags. UI permissions
 are hints only; raw JSON is subject to the same server checks.
+
+## Help and security rendering
+
+Native `client_cmd_t.help_section` and browser `webui_command_help.help_section`
+group and sort `/help` into Connection, Chat and rooms, Radio and discovery,
+Media, Serial, Client settings and Administration. Frontend-only commands differ.
+Staff commands are hidden according to exact account tokens; `/user PASS` for
+one's own account is available to everyone. Both clients consume current-account
+userinfo updates. `!vfo` acknowledgements apply to the issuing session and room.
+Browser chat and notice rendering escapes plain text before producing DOM HTML;
+URLs remain clickable without interpreting message text as markup.
+
+Fresh SQLite databases place the random first-login administrator password in
+`<database-path>.bootstrap-password` with mode `0600`. Login with it and run
+`/user pass admin <new-password>`, then remove the credential file securely.
+Existing databases and custom preloads are not reprovisioned. Authentication
+wire messages and password hashing remain compatible; migrated storage is deferred.
+
+Read-only listening does not require an RX flag. Account flags govern PTT, rig
+controls and explicit codec changes; channels do not carry authorization flags.
+Whois metadata is public to authenticated accounts, excluding authentication
+secrets. Room membership remains required for room chat and VFO media.

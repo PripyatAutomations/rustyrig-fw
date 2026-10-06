@@ -18,6 +18,7 @@
 typedef struct client_cmd {
    const char *cmd;
    const char *desc;
+   const char *help_section;
    int min_args;
    int max_args;
    bool admin;   // admin-only: hidden from /help and rejected for non-staff

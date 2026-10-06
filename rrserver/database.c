@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <glib.h>
@@ -79,6 +80,49 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
    return rc == SQLITE_OK;
 }
 
+/* Provision only a fresh shipped bootstrap account. Never reset an existing DB.
+ * Write its random credential to an exclusive owner-readable file, never logs. */
+static bool db_provision_admin(sqlite3 *db) {
+   sqlite3_stmt *query = NULL;
+   const char *placeholder = "SELECT 1 FROM users WHERE name='admin' AND enabled=0 AND password=''";
+   if (sqlite3_prepare_v2(db, placeholder, -1, &query, NULL) != SQLITE_OK) { return false; }
+   bool provision = sqlite3_step(query) == SQLITE_ROW;
+   sqlite3_finalize(query);
+   if (!provision) { return true; }
+   const char *database_path = sqlite3_db_filename(db, "main");
+   if (!database_path) { return false; }
+   size_t size = strlen(database_path) + sizeof(".bootstrap-password");
+   char *path = malloc(size);
+   if (!path) { return false; }
+   snprintf(path, size, "%s.bootstrap-password", database_path);
+   char password[25];
+   bool ok = auth_generate_nonce(password, sizeof(password)) == sizeof(password) - 1;
+   char *hash = ok ? hash_passwd(password) : NULL;
+   int fd = hash ? open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600) : -1;
+   if (fd < 0) { ok = false; }
+   if (fd >= 0) {
+      size_t length = strlen(password);
+      ok = write(fd, password, length) == (ssize_t)length && write(fd, "\n", 1) == 1;
+      if (close(fd) != 0) { ok = false; }
+      if (ok) {
+         sqlite3_stmt *update = NULL;
+         ok = sqlite3_prepare_v2(db, "UPDATE users SET enabled=1,password=?,password_change_required=1 WHERE name='admin' AND enabled=0 AND password=''", -1, &update, NULL) == SQLITE_OK;
+         if (ok) {
+            sqlite3_bind_text(update, 1, hash, -1, SQLITE_TRANSIENT);
+            ok = sqlite3_step(update) == SQLITE_DONE && sqlite3_changes(db) == 1;
+         }
+         sqlite3_finalize(update);
+      }
+      if (!ok) { unlink(path); }
+   }
+   if (ok) { Log(LOG_INFO, "auth", "Initial admin password written to %s; change it at first login", path); }
+   else { Log(LOG_CRIT, "auth", "Unable to provision initial admin credential file %s", path); }
+   memset(password, 0, sizeof(password));
+   free(hash);
+   free(path);
+   return ok;
+}
+
 static bool db_initialize_new(sqlite3 *db) {
    char *template_path = cfg_get_path("path.db.master.template");
    char *preload_path = cfg_get_path("path.db.master.preload");
@@ -90,6 +134,7 @@ static bool db_initialize_new(sqlite3 *db) {
 
    if (ok && preload_path) {
       ok = db_run_sql_file(db, preload_path, "preload");
+      if (ok) { ok = db_provision_admin(db); }
    }
    free( (void *)template_path );
    free( (void *)preload_path );
@@ -932,10 +977,13 @@ int db_get_users(sqlite3 *db) {
    if (rc != SQLITE_DONE) {
       Log( LOG_CRIT, "db", "db_get_users: iteration failed: %s", sqlite3_errmsg(db) );
       sqlite3_finalize(stmt);
+      memcpy(http_users, old_users, sizeof(old_users));
 
       return -1;
    }
    sqlite3_finalize(stmt);
+
+   http_reconcile_users(old_users);
 
    Log(LOG_INFO, "db", "Loaded %d users from database", user_count);
 

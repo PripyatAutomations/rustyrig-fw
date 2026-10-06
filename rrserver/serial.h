@@ -1,3 +1,4 @@
+// rrserver/serial.h: Support for serial channels
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -7,7 +8,7 @@
 #ifndef RRSERVER_SERIAL_H
 #define	RRSERVER_SERIAL_H
 #include <stdbool.h>
-void rrserver_serial_init(void);
-void rrserver_serial_fini(void);
-bool rrserver_serial_poll(void);
+extern void rrserver_serial_init(void);
+extern void rrserver_serial_fini(void);
+extern bool rrserver_serial_poll(void);
 #endif

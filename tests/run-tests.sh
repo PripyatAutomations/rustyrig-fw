@@ -26,7 +26,7 @@ run_suite() {
     rrserver)    run_dir "$suite" rrserver/tests ;;
     selftest)    run_dir "$suite" tests/selftest ;;
     librustyaxe) make -C librustyaxe/tests check ;;
-    www)         node www/tests/web_completion.js && node www/tests/media_rooms.js && node www/tests/ptt_pending.js && node www/tests/gps_nmea.js && node www/tests/resource_discovery.js && node www/tests/resource_navigation.js ;;
+    www)         node www/tests/chat_security.js && node www/tests/web_completion.js && node www/tests/media_rooms.js && node www/tests/ptt_pending.js && node www/tests/gps_nmea.js && node www/tests/resource_discovery.js && node www/tests/resource_navigation.js ;;
     *) echo "Unknown test suite: $suite" >&2; return 1 ;;
   esac
 }

@@ -79,6 +79,7 @@ extern bool rr_backend_init(void);
 extern bool rr_backend_fini(void);
 extern bool rr_backend_poll_all(void);
 extern bool rr_backend_poll_rig(struct rr_server_rig *radio, rr_server_vfo_t *vfo);
+extern bool rr_backend_power_set_rig(struct rr_server_rig *radio, rr_server_vfo_t *vfo, float power);
 extern bool rr_backend_vfo_supported(struct rr_server_rig *radio, rr_server_vfo_t *vfo);
 
 /* Default single-rig entry points. They always target the explicit default rig. */

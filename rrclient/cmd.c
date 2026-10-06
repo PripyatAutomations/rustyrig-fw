@@ -52,141 +52,138 @@ bool cmd_reload(int argc, char **args) {
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
    {
-      .cmd = "rig", .cb = cmd_rig, .max_args = 1,
-      .desc = "Radios and VFOs: LIST | SUBSCRIBE | UNSUBSCRIBE property updates"
+      .cmd = "disconnect", .help_section = "Connection", .cb = cmd_disconnect, .desc = "Disconnect from server"
    },
    {
-      .cmd = "gps", .cb = cmd_gps, .max_args = 2,
+      .cmd = "help", .help_section = "Connection", .cb = cmd_help, .desc = "Show help message"
+   },
+   {
+      .cmd = "quit", .help_section = "Connection", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)"
+   },
+   {
+      .cmd = "server", .help_section = "Connection", .cb = cmd_server, .desc = "Connect to a server"
+   },
+   {
+      .cmd = "j", .help_section = "Chat and rooms", .cb = cmd_join, .desc = "Alias for /join"
+   },
+   {
+      .cmd = "join", .help_section = "Chat and rooms", .cb = cmd_join, .desc = "Join a channel"
+   },
+   {
+      .cmd = "list", .help_section = "Chat and rooms", .cb = cmd_list, .desc = "List available rooms"
+   },
+   {
+      .cmd = "me", .help_section = "Chat and rooms", .cb = cmd_me, .desc = "Send an action to the current channel"
+   },
+   {
+      .cmd = "msg", .help_section = "Chat and rooms", .cb = cmd_msg, .max_args = 31, .desc = "Send a private message"
+   },
+   {
+      .cmd = "names", .help_section = "Chat and rooms", .cb = cmd_names, .desc = "List users with privilege flags"
+   },
+   {
+      .cmd = "part", .help_section = "Chat and rooms", .cb = cmd_part, .desc = "Leave a channel"
+   },
+   {
+      .cmd = "query", .help_section = "Chat and rooms", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
+   },
+   {
+      .cmd = "room", .help_section = "Chat and rooms", .cb = cmd_room, .max_args = 5, .desc = "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ..."
+   },
+   {
+      .cmd = "topic", .help_section = "Chat and rooms", .cb = cmd_topic, .desc = "Get or set the current room topic"
+   },
+   {
+      .cmd = "whois", .help_section = "Chat and rooms", .cb = cmd_whois, .desc = "Show client information"
+   },
+   {
+      .cmd = "gps", .help_section = "Radio and discovery", .cb = cmd_gps, .max_args = 2,
       .desc = "GPS services: LIST | SUBSCRIBE <rig|station> | UNSUBSCRIBE <rig|station>"
    },
    {
-      .cmd = "sercom", .cb = cmd_sercom, .max_args = 4,
-      .desc = "Serial ports and attachments: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>"
+      .cmd = "grid", .help_section = "Radio and discovery", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates"
    },
    {
-      .cmd = "object", .cb = cmd_object, .desc = "Inspect objects: /object [rig0|rig0.A|uuid]"
+      .cmd = "object", .help_section = "Radio and discovery", .cb = cmd_object, .desc = "Inspect objects: /object [rig0|rig0.A|uuid]"
    },
    {
-      .cmd = "admin", .cb = cmd_admin, .desc = "Focus the admin tab"
+      .cmd = "qrz", .help_section = "Radio and discovery", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign"
    },
    {
-      .cmd = "room", .cb = cmd_room, .max_args = 5, .desc = "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ..."
+      .cmd = "rig", .help_section = "Radio and discovery", .cb = cmd_rig, .max_args = 1,
+      .desc = "Radios and VFOs: LIST | SUBSCRIBE | UNSUBSCRIBE property updates"
    },
    {
-      .cmd = "clear", .cb = cmd_clear, .desc = "Clear the scrollback"
-   },
-   {
-      .cmd = "config", .cb = cmd_config, .desc = "Focus the configuration tab"
-   },
-   {
-      .cmd = "die", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"
-   },
-   {
-      .cmd = "disconnect", .cb = cmd_disconnect, .desc = "Disconnect from server"
-   },
-   {
-      .cmd = "grid", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates"
-   },
-   {
-      .cmd = "help", .cb = cmd_help, .desc = "Show help message"
-   },
-   {
-      .cmd = "j", .cb = cmd_join, .desc = "Alias for /join"
-   },
-   {
-      .cmd = "kick", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig"
-   },
-   {
-      .cmd = "join", .cb = cmd_join, .desc = "Join a channel"
-   },
-   {
-      .cmd = "list", .cb = cmd_list, .desc = "List available rooms"
-   },
-   {
-      .cmd = "log", .cb = cmd_log, .desc = "Switch to log tab"
-   },
-   {
-      .cmd = "media", .cb = cmd_media, .max_args = 2,
+      .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 2,
       .desc = "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
    },
    {
-      .cmd = "me", .cb = cmd_me, .desc = "Send an action to the current channel"
+      .cmd = "rxcodec", .help_section = "Media", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]"
    },
    {
-      .cmd = "msg", .cb = cmd_msg, .max_args = 31, .desc = "Send a private message"
+      .cmd = "rxvol", .help_section = "Media", .cb = cmd_rxvol, .desc = "Set receive volume level"
    },
    {
-      .cmd = "mute", .cb = cmd_mute, .admin = true, .desc = "Mute a user"
+      .cmd = "txcodec", .help_section = "Media", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]"
    },
    {
-      .cmd = "names", .cb = cmd_names, .desc = "List users with privilege flags"
+      .cmd = "sercom", .help_section = "Serial", .cb = cmd_sercom, .max_args = 4,
+      .desc = "Serial ports and attachments: LIST | REMOTE | ATTACH <name> <service> [device] | DISCONNECT <name>"
    },
    {
-      .cmd = "notice", .cb = cmd_notice, .desc = "Send a private notice"
+      .cmd = "clear", .help_section = "Client settings", .cb = cmd_clear, .desc = "Clear the scrollback"
    },
    {
-      .cmd = "part", .cb = cmd_part, .desc = "Leave a channel"
+      .cmd = "config", .help_section = "Client settings", .cb = cmd_config, .desc = "Focus the configuration tab"
    },
    {
-      .cmd = "qrz", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign"
+      .cmd = "log", .help_section = "Client settings", .cb = cmd_log, .desc = "Switch to log tab"
    },
    {
-      .cmd = "query", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
+      .cmd = "raw", .help_section = "Client settings", .cb = cmd_raw, .desc = "Send a raw command"
    },
    {
-      .cmd = "quit", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)"
+      .cmd = "reload", .help_section = "Client settings", .cb = cmd_reload, .desc = "Reload config file"
    },
    {
-      .cmd = "quota", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)"
+      .cmd = "save", .help_section = "Client settings", .cb = cmd_save, .max_args = 1, .desc = "Save config to ~/.config/rrclient.cfg"
    },
    {
-      .cmd = "raw", .cb = cmd_raw, .desc = "Send a raw command"
+      .cmd = "set", .help_section = "Client settings", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value"
    },
    {
-      .cmd = "rehash", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users"
+      .cmd = "win", .help_section = "Client settings", .cb = cmd_win, .desc = "Change windows"
    },
    {
-      .cmd = "reload", .cb = cmd_reload, .desc = "Reload config file"
+      .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .desc = "Focus the admin tab"
    },
    {
-      .cmd = "restart", .cb = cmd_restart, .admin = true, .desc = "Restart the server"
+      .cmd = "die", .help_section = "Administration", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"
    },
    {
-      .cmd = "rxcodec", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]"
+      .cmd = "kick", .help_section = "Administration", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig"
    },
    {
-      .cmd = "rxvol", .cb = cmd_rxvol, .desc = "Set receive volume level"
+      .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .admin = true, .desc = "Mute a user"
    },
    {
-      .cmd = "save", .cb = cmd_save, .max_args = 1, .desc = "Save config to ~/.config/rrclient.cfg"
+      .cmd = "quota", .help_section = "Administration", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)"
    },
    {
-      .cmd = "server", .cb = cmd_server, .desc = "Connect to a server"
+      .cmd = "rehash", .help_section = "Administration", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users"
    },
    {
-      .cmd = "set", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value"
+      .cmd = "restart", .help_section = "Administration", .cb = cmd_restart, .admin = true, .desc = "Restart the server"
    },
    {
-      .cmd = "syslog", .cb = cmd_syslog, .desc = "Toggle server host log stream (/syslog on|off)"
+      .cmd = "syslog", .help_section = "Administration", .cb = cmd_syslog, .admin = true, .desc = "Toggle server host log stream (/syslog on|off)"
    },
    {
-      .cmd = "topic", .cb = cmd_topic, .desc = "Get or set the current room topic"
+      .cmd = "unmute", .help_section = "Administration", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user"
    },
    {
-      .cmd = "txcodec", .cb = cmd_txcodec, .max_args = 3, .desc = "TX codecs: [LIST | <codec>|NONE [uuid|#number]]"
-   },
-   {
-      .cmd = "unmute", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user"
-   },
-   {
-      .cmd = "user", .cb = cmd_user, .max_args = 4, .admin = true,
-      .desc = "Manage server users (LIST|ADD|REMOVE|LOCK|UNLOCK|PRIVS|OLDPW|RESETPW|PASS)"
-   },
-   {
-      .cmd = "win", .cb = cmd_win, .desc = "Change windows"
-   },
-   {
-      .cmd = "whois", .cb = cmd_whois, .desc = "Show client information"
+      .cmd = "user", .help_section = "Administration", .cb = cmd_user, .max_args = 4,
+      .desc = "PASS <your-user> <password>; admin/owner: LIST|ADD|REMOVE|LOCK|UNLOCK|PRIVS|OLDPW|RESETPW"
    },
    {
       .cmd = NULL, .cb = NULL, .desc = NULL

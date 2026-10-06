@@ -573,13 +573,19 @@ static bool rr_property_define_store(dict *properties, const rr_property_descrip
                          old->has_max == descriptor->has_max && old->has_step == descriptor->has_step;
       bound.value = old->minimum;
 
-      if ( descriptor->has_min && !rr_property_values_equal(&bound, &descriptor->minimum) ) { same_bounds = false; }
+      if ( descriptor->has_min && !rr_property_values_equal(&bound, &descriptor->minimum) ) {
+         same_bounds = false;
+      }
       bound.value = old->maximum;
 
-      if ( descriptor->has_max && !rr_property_values_equal(&bound, &descriptor->maximum) ) { same_bounds = false; }
+      if ( descriptor->has_max && !rr_property_values_equal(&bound, &descriptor->maximum) ) {
+         same_bounds = false;
+      }
       bound.value = old->step;
 
-      if ( descriptor->has_step && !rr_property_values_equal(&bound, &descriptor->step) ) { same_bounds = false; }
+      if ( descriptor->has_step && !rr_property_values_equal(&bound, &descriptor->step) ) {
+         same_bounds = false;
+      }
       bool same_unit = (!existing->unit && !descriptor->unit) ||
                        (existing->unit && descriptor->unit &&
                         strcmp(existing->unit, descriptor->unit) == 0);
@@ -603,8 +609,7 @@ static bool rr_property_define_store(dict *properties, const rr_property_descrip
    property->readable = descriptor->readable;
    property->writable = descriptor->writable;
 
-   if (!property->name || (descriptor->unit && !property->unit) ||
-       (descriptor->enum_values && !property->schema.enum_values) ||
+   if (!property->name || (descriptor->unit && !property->unit) || (descriptor->enum_values && !property->schema.enum_values) ||
        dict_add_ptr(properties, property->name, property) != 0) {
       rr_property_free(property);
 
@@ -641,7 +646,9 @@ bool rr_rig_property_define(rr_server_rig_t *rig, const rr_property_descriptor_t
    }
    bool failed = rr_property_define_store(rig->properties, descriptor);
 
-   if (!failed) { event_emit("object.model.schema", NULL, rig->id); }
+   if (!failed) {
+      event_emit("object.model.schema", NULL, rig->id);
+   }
 
    return failed;
 }
@@ -649,7 +656,9 @@ bool rr_rig_property_define(rr_server_rig_t *rig, const rr_property_descriptor_t
 bool rr_vfo_property_define(rr_server_vfo_t *vfo, const rr_property_descriptor_t *descriptor) {
    bool failed = !vfo || rr_property_define_store(vfo->properties, descriptor);
 
-   if (!failed) { event_emit("object.model.schema", NULL, vfo->id); }
+   if (!failed) {
+      event_emit("object.model.schema", NULL, vfo->id);
+   }
 
    return failed;
 }
@@ -665,8 +674,7 @@ bool rr_property_vfo_name(char *buf, size_t len, char vfo_id, const char *field)
 }
 
 bool rr_property_parse_vfo(const char *name, char *vfo_id, const char **field) {
-   if (!name || strncmp(name, "vfo.", 4) != 0 ||
-       !isalpha( (unsigned char)name[4] ) || name[5] != '.' || !name[6]) {
+   if (!name || strncmp(name, "vfo.", 4) != 0 || !isalpha( (unsigned char)name[4] ) || name[5] != '.' || !name[6]) {
       return false;
    }
 
@@ -990,11 +998,15 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
                p += strspn(p, " ");
                size_t n = strcspn(p, " ");
 
-               if ( len && len == n && !strncmp(p, request->value.s, n) ) { found = true; }
+               if ( len && len == n && !strncmp(p, request->value.s, n) ) {
+                  found = true;
+               }
                p += n;
             }
 
-            if (!found) { return RR_CONTROL_INVALID; }
+            if (!found) {
+               return RR_CONTROL_INVALID;
+            }
          }
          break;
       }

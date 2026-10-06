@@ -43,7 +43,7 @@ rig.default=rig0
 path.db.master={database}
 path.modules={work}/modules
 log.file={work}/server.log
-log.level=*:info
+log.level=*:crazy
 net.http.bind=127.0.0.1
 net.http.port={port}
 net.http.tls-enabled=false
@@ -289,13 +289,20 @@ enabled=false
             assert "confirmation" in str(peer.until(lambda m: "error" in m)).lower()
             peer.socket.close()
             viewer = login_other("VIEWER")
-            for text in ("add #forbidden", "remove #cleanup", approved, "remove #cleanup -f -h", "#cleanup remove"):
+            for text in ("add #future-site", "add #nycnc04-lobby", "add &other-site", "remove #cleanup", approved, "remove #cleanup -f -h", "#cleanup remove"):
                 viewer.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": text}})
                 assert "admin or owner" in str(viewer.until(lambda m: "error" in m)).lower()
-            viewer.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#forbidden"}})
+            viewer.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#future-site"}})
             viewer.until(lambda m: "error" in m)
+            for command, room in (("add", "#freechat"), ("join", "#autochat")):
+                viewer.send({"msg": {"type": "talk"}, "talk":
+                    {"cmd": "room", "data": "add " + room} if command == "add" else
+                    {"cmd": "join", "target": room}})
+                viewer.until(lambda m: room in m.get("notice", {}).get("msg", "") if command == "add" else
+                    m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == room)
+                assert query("SELECT name FROM rooms WHERE name=?", (room,)) == [(room,)]
             viewer.socket.close()
-            assert not query("SELECT name FROM rooms WHERE name='#forbidden'")
+            assert not query("SELECT name FROM rooms WHERE name='#future-site'")
             room_command("#cleanup remove " + approved.split()[-1])
             client.until(lambda m: "#cleanup removed" in m.get("notice", {}).get("msg", ""))
             assert query("SELECT deleted,topic FROM rooms WHERE name='#cleanup'") == [(1, "keep topic")]
@@ -353,6 +360,21 @@ enabled=false
                 assert message.get("talk", {}).get("data") != marker
                 return message.get("request", {}).get("id") == "privacy-barrier" and message.get("object", {}).get("cmd") == "inventory-end"
             audited.until(privacy_barrier)
+            # Public metadata excludes authentication secrets; listening to an
+            # existing channel requires membership but no RX account flag.
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "whois", "target": "OWNER"}})
+            public_info = audited.until(lambda m: m.get("talk", {}).get("cmd") == "whois")
+            assert public_info["talk"]["privs"] == "owner,view,chat"
+            for secret in ("password", "pass", "token", "nonce", "hash"):
+                assert secret not in public_info["talk"] and secret not in public_info
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": rx_room}})
+            audited.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == rx_room)
+            audited.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": rx_b["chan-uuid"]}})
+            audited.until(lambda m: m.get("media", {}).get("cmd") == "subscribed" and m["media"].get("chan-uuid") == rx_b["chan-uuid"])
+            audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
+            audited.until(lambda m: "RX privilege" in m.get("error", {}).get("msg", ""))
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "part", "target": rx_room}})
+            audited.until(lambda m: m.get("talk", {}).get("cmd") == "part" and m["talk"].get("room") == rx_room)
             # Codec permissions follow direction and current account, plus VFO room membership.
             owner_privileges("view,chat,rx")
             audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
@@ -370,9 +392,78 @@ enabled=false
             audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": "add #auth-switch-denied"}})
             audited.until(lambda m: "error" in m)
             assert not query("SELECT name FROM rooms WHERE name='#auth-switch-denied'")
+            # One user's !vfo selection must not move another user's commands.
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#roomtest-rig0"}})
+            client.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == "#roomtest-rig0")
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#roomtest-rig0"}})
+            owner.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == "#roomtest-rig0")
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub", "target": "#roomtest-rig0", "data": "!vfo B freq 7270"}})
+            owner.until(lambda m: m.get("cat", {}).get("freq") == 7270000)
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub", "target": "#roomtest-rig0", "data": "!freq 7261"}})
+            result = client.until(lambda m: m.get("cat", {}).get("freq") == 7261000)
+            assert result["cat"]["vfo"] == "A", result
+            # Ordinary accounts can change only their own password; temporary
+            # credentials restrict every other operation until that succeeds.
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "pass OWNER change-attempt"}})
+            audited.until(lambda m: "error" in m)
+            with sqlite3.connect(database) as db:
+                db.execute("UPDATE users SET password_change_required=1 WHERE name='VIEWER'")
+            owner.send({"msg": {"type": "rehash"}})
+            owner.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "reload-barrier"}})
+            owner.until(lambda m: m.get("request", {}).get("id") == "reload-barrier" and m.get("object", {}).get("cmd") == "inventory-end")
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": "add #temporary-denied"}})
+            audited.until(lambda m: "Password change required" in m.get("error", {}).get("msg", ""))
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "pass OWNER change-attempt"}})
+            audited.until(lambda m: "own password" in m.get("error", {}).get("msg", ""))
+            new_password = "release-test-secret-4391"
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "pass VIEWER " + new_password}})
+            audited.until(lambda m: "password changed for VIEWER" in m.get("notice", {}).get("msg", ""))
+            assert query("SELECT password,password_change_required,COALESCE(password_expires,0) FROM users WHERE name='VIEWER'") == [(hashlib.sha1(new_password.encode()).hexdigest(), 0, 0)]
+            assert not query("SELECT name FROM rooms WHERE name='#temporary-denied'")
+            # Mute blocks public/private/action text, file chunks and topic writes.
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "mute", "target": "VIEWER", "reason": "test"}})
+            owner.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "mute-barrier"}})
+            owner.until(lambda m: m.get("request", {}).get("id") == "mute-barrier" and m.get("object", {}).get("cmd") == "inventory-end")
+            for kind in ("pub", "action", "priv", "file_chunk"):
+                audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": kind,
+                    "target": "OWNER" if kind == "priv" else "#roomtest", "data": "muted-injection"}})
+                audited.until(lambda m: "muted" in m.get("error", {}).get("msg", "").lower())
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "topic", "target": "#roomtest", "data": "muted-injection"}})
+            audited.until(lambda m: "muted" in m.get("error", {}).get("msg", "").lower())
+            assert not query("SELECT msg_id FROM chat_log WHERE msg_data='muted-injection'")
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "unmute", "target": "VIEWER"}})
+            owner_privileges("view,chat,tx")
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "#roomtest-rig1"}})
+            audited.until(lambda m: m.get("talk", {}).get("cmd") == "join" and m["talk"].get("room") == "#roomtest-rig1")
+            for argument in ("nan", "inf", "-1", "25bad", "1e100"):
+                audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub", "target": "#roomtest-rig1", "data": "!power " + argument}})
+                audited.until(lambda m: "finite positive" in m.get("error", {}).get("msg", ""))
+            audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub", "target": "#roomtest-rig1", "data": "!power 25"}})
+            audited.send({"msg": {"type": "object"}, "object": {"cmd": "inventory"}, "request": {"id": "power-barrier"}})
+            audited.until(lambda m: m.get("request", {}).get("id") == "power-barrier" and m.get("object", {}).get("cmd") == "inventory-end")
+            assert "User VIEWER set room #roomtest-rig1 VFO A POWER to 25" in (work / "server.log").read_text()
+            assert new_password not in (work / "server.log").read_text()
+            assert new_password not in (work / "console.log").read_text()
+            # An external DB lock takes effect on already connected sessions.
+            with sqlite3.connect(database) as db:
+                db.execute("UPDATE users SET enabled=0 WHERE name='VIEWER'")
+            owner.send({"msg": {"type": "rehash"}})
+            audited.until(lambda m: "Account disabled" in m.get("auth", {}).get("error", ""))
+            print("PASS: self-password change, temporary-account restrictions, muted chat/topics, scoped finite power, credential-free verbose logs and DB lock reconciliation")
             audited.socket.close()
             print("PASS: immediate admin revocation, account codec directions, room message isolation and non-source creation denial")
             owner.socket.close()
+            # Authentication budgets survive reconnects without retaining an
+            # unbounded set of peer records. No real account/password is used.
+            throttled = False
+            for attempt in range(22):
+                probe = WebSocket(port)
+                probe.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": "NO-SUCH-ACCOUNT"}})
+                response = probe.until(lambda m: bool(m.get("auth", {}).get("error")))
+                throttled = throttled or "Too many authentication attempts" in response["auth"]["error"]
+                probe.socket.close()
+            assert throttled
+            print("PASS: authentication attempt limits survive reconnects")
             print("PASS: admin/owner room management, option-bound confirmation, soft deletion, restoration, force/history, and attributed audit")
             print("PASS: server-owned rig rooms, RX-only media, same-rig UUID mappings, and per-VFO LO-safe tuning")
             print("PASS: production site login, rig JOIN/PART, scoped media, and persisted UUID bindings")

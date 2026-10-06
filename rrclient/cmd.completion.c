@@ -274,7 +274,8 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if ( !strcasecmp(command, "/user") ) {
          if (arg == 1) {
-            completion_words(&matches, &count, "LIST ADD REMOVE LOCK UNLOCK PRIVS OLDPW RESETPW PASS HELP", word);
+            completion_words(&matches, &count, media_have_priv("admin|owner") ?
+               "LIST ADD REMOVE LOCK UNLOCK PRIVS OLDPW RESETPW PASS HELP" : "PASS", word);
          } else if ( arg == 2 && first && !strcasecmp(first, "PRIVS") ) {
             matches = complete_usernames(word);
          } else if ( arg == 2 && first &&

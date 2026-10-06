@@ -119,7 +119,7 @@ static help_line_t help_msg_after[] = {
    { UI_MODE_NONE, "\t{bright-green}/rxcodec /txcodec {bright-yellow}Shared codec changes require account RX/TX privilege for that VFO" },
    { UI_MODE_NONE, "\t{bright-green}/room remove #room [token] {bright-yellow}Admin/owner: hide room, preserving its data; confirm with server token" },
    { UI_MODE_NONE, "\t{bright-green}/room remove #room -f [-h] [token] {bright-yellow}Delete room record/bindings; -h also deletes chat history" },
-   { UI_MODE_NONE, "\t{bright-green}/room add #room {bright-yellow}Admin/owner: create or restore room; PTT logs/recordings stay with rig" },
+   { UI_MODE_NONE, "\t{bright-green}/room add #room {bright-yellow}Anyone: create undashed room; admin/owner: dashed rooms or restoration; rig logs stay" },
    {
       UI_MODE_NONE, ""
    },
@@ -218,10 +218,18 @@ bool cmd_help(int argc, char **args) {
 
    int desc_col = 3 + longest + 2;
 
+   const char *section = NULL;
+
+   /* PARITY: rustyrig-www/js/webui.chat.js:webui_command_help */
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
       if ( client_cmds[i].admin && !media_have_priv("admin|owner") ) {
          continue;
+      }
+      const char *next_section = client_cmds[i].help_section ? client_cmds[i].help_section : "Other";
+      if (!section || strcmp(section, next_section)) {
+         ui_print(ui_active_window_name(), "{bright-yellow}%s{reset}", next_section);
+         section = next_section;
       }
       int len = strlen(client_cmds[i].cmd);
       int spaces = desc_col - 3 - len;

@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include <stddef.h>
+#include <math.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -453,12 +454,16 @@ float rr_get_power(rr_vfo_t vfo) {
    return (!backend || !backend->type->api->power_get || !object) ? 0 : backend->type->api->power_get(backend, object);
 }
 
-bool rr_set_power(rr_vfo_t vfo, float power) {
-   rr_backend_t *backend = rr_default_backend();
-   rr_server_vfo_t *object = rr_default_vfo(vfo);
+bool rr_backend_power_set_rig(rr_server_rig_t *radio, rr_server_vfo_t *object, float power) {
+   rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
+   if (!isfinite(power) || power <= 0 || !object || rr_server_vfo_owner(object) != radio ||
+       !backend || !backend->type || !backend->type->api || !backend->type->api->power_set) { return true; }
+   return backend->type->api->power_set(backend, object, power);
+}
 
-   return (!backend || !backend->type->api->power_set || !object) ? true :
-          backend->type->api->power_set(backend, object, power);
+bool rr_set_power(rr_vfo_t vfo, float power) {
+   rr_server_rig_t *radio = rr_rig_registry_default(rig.rigs);
+   return rr_backend_power_set_rig(radio, rr_default_vfo(vfo), power);
 }
 
 uint16_t rr_get_width(rr_vfo_t vfo) {

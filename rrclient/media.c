@@ -34,6 +34,7 @@
 #include <rrclient/resource.context.h>
 
 extern rrconn_t *ws_conn;
+extern const char *login_user;
 extern bool ui_print(const char *window, const char *fmt, ...);
 #include <rrclient/frontend.h>
 
@@ -610,6 +611,18 @@ static void rrclient_handle_media_conn(const char *event, const char *data, rrco
    }
 }
 
+/* PARITY: rustyrig-www/js/webui.chat.js:parse_userinfo_reply */
+static void rrclient_media_account_update(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   dict *update = data ? json2dict(data) : NULL;
+   const char *name = update ? dict_get(update, "talk.user", NULL) : NULL;
+   const char *privileges = update ? dict_get(update, "talk.privs", NULL) : NULL;
+   if (name && login_user && !strcasecmp(name, login_user) && privileges) {
+      snprintf(media_my_privs, sizeof(media_my_privs), "%s", privileges);
+   }
+   if (update) { dict_free(update); }
+}
+
 static void rrclient_handle_media_codecs(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
@@ -784,6 +797,7 @@ void rrclient_media_register_events(void) {
    event_on("media.codecs", rrclient_handle_media_codecs, NULL);
    event_on("client.vfo.changed", rrclient_handle_media_vfo, NULL);
    event_on("authorized", rrclient_handle_media_conn, NULL);
+   event_on("userinfo", rrclient_media_account_update, NULL);
    event_on("disconnected", rrclient_handle_media_conn, NULL);
 }
 

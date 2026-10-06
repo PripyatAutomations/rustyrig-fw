@@ -10,6 +10,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include <stddef.h>
+#include <math.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -153,7 +154,7 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
 static void rrserver_handle_room_add(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event; (void)user;
 
-   if (!cptr || !cptr->authenticated || !cptr->user || !has_priv(cptr->user->uid, "admin|owner")) {
+   if (!cptr || !cptr->authenticated || !cptr->user) {
       ws_send_error(cptr, "Room management requires admin or owner");
       return;
    }
@@ -163,6 +164,12 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    if (!d) { return; }
    const char *room = dict_get(d, "talk.room", NULL);
 
+   if (!ws_room_name_valid(room) ||
+       (ws_room_station_scoped(room) && !has_priv(cptr->user->uid, "admin|owner"))) {
+      ws_send_error(cptr, "Station-scoped room creation requires admin or owner");
+      dict_free(d);
+      return;
+   }
    if ( ws_room_rig_base(room) ) {
       ws_send_error(cptr, "Base rig rooms are server-owned");
       dict_free(d);
@@ -172,8 +179,17 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
 #ifdef USE_SQLITE
 
    bool exists = false, deleted = false;
-   if (!room || !db_room_status(masterdb, room, &exists, &deleted) ||
-       !db_room_restore(masterdb, room, cptr->chatname) ||
+   if (!db_room_status(masterdb, room, &exists, &deleted)) {
+      ws_send_error(cptr, "Unable to inspect room");
+      dict_free(d);
+      return;
+   }
+   if (deleted && !has_priv(cptr->user->uid, "admin|owner")) {
+      ws_send_error(cptr, "Room restoration requires admin or owner");
+      dict_free(d);
+      return;
+   }
+   if (!db_room_restore(masterdb, room, cptr->chatname) ||
        (!exists && !db_room_ensure(masterdb, room, false, 0, cptr->chatname))) {
       ws_send_error(cptr, "Unable to add room %s", room ? room : "(none)");
       dict_free(d);
@@ -377,7 +393,8 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
    rr_room_join_check_t *check = (rr_room_join_check_t *)data;
    bool exists, deleted;
    if (!db_room_status(masterdb, check->room, &exists, &deleted) || deleted ||
-       (!exists && (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")))) {
+       (!exists && (!client || !client->authenticated || !client->user ||
+                    (ws_room_station_scoped(check->room) && !has_priv(client->user->uid, "admin|owner"))))) {
       check->allowed = false;
    } else if (!exists && !db_room_ensure(masterdb, check->room, false, 0, client->chatname)) {
       check->allowed = false;
@@ -541,6 +558,18 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       return;
    }
 
+   if (!strcasecmp(rc_cmd, "power")) {
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+      if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
+         if (cptr) { ws_send_error(cptr, "Unable to set power on %s", room); }
+      } else {
+         Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
+         rr_backend_poll_rig(radio, object);
+      }
+      dict_free(d);
+      return;
+   }
+
    if ( radio != rr_rig_registry_default(rig.rigs) ) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       rr_control_request_t request = {
@@ -603,23 +632,6 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       // Audit trail: who changed which VFO to what passband width
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
       if (!rr_set_width(vfo, rc_width)) { rr_be_poll(vfo); }
-      dict_free(d);
-
-      return;
-   }
-
-   if (strcasecmp(rc_cmd, "power") == 0) {
-      // Set the rig power (from !power chat command or ws cat.cmd power)
-      if (rc_power <= 0) {
-         Log(LOG_WARN, "ws.rigctl", "POWER set with bogus value %f", rc_power);
-         dict_free(d);
-
-         return;
-      }
-
-      // Audit trail: who changed which VFO to what power
-      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s POWER to %f watts", rc_from, rc_vfo, rc_power);
-      rr_set_power(vfo, rc_power);
       dict_free(d);
 
       return;
@@ -1412,6 +1424,13 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          token && argc < (int)( sizeof(argv) / sizeof(argv[0]) ) ;
          token = strtok_r(NULL, " \t\r\n", &save) ) {
       argv[argc++] = token;
+   }
+
+   bool self_password = argc == 3 && !strcasecmp(argv[0], "pass") &&
+                        !strcasecmp(argv[1], cptr->user->name);
+   if (!has_priv(cptr->user->uid, "admin|owner") && !self_password) {
+      ws_send_error(cptr, "Account administration requires admin or owner; use /user pass <your-user> <password> for your own password");
+      return;
    }
 
    if (argc == 0 || strcasecmp(argv[0], "help") == 0) {

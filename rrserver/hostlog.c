@@ -38,7 +38,8 @@ static uint32_t logframe_seq = 0;
 // their own gates too, but parsing dropped frames still costs them CPU).
 // Must not Log() at a level that recurses into us uselessly - keep it quiet.
 static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
-   if (!subsys || !fmt) {
+   static _Thread_local bool streaming;
+   if (streaming || !subsys || !fmt) {
       return false;
    }
 
@@ -46,6 +47,8 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       return false;
    }
 
+   // Current-account privilege checks can log; suppress callback recursion.
+   streaming = true;
    char msgbuf[1024];
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
 
@@ -53,6 +56,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, strlen(msgbuf), ++logframe_seq, (uint64_t)now);
 
    if (flen < 0 || !frame) {
+      streaming = false;
       return false;   // OOM or too-long; drop quietly
    }
 
@@ -67,6 +71,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       cur = cur->next;
    }
    free(frame);
+   streaming = false;
 
    return false;
 }

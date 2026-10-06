@@ -1,15 +1,15 @@
 -- sqlite.master.preload.sql: Seed data applied to the master
 -- database after sql/sqlite.master.sql when a new database is created.
--- Users here mirror config/http.users (passwords are sha1 and shown in that
--- file's format: name:enabled:sha1:email:maxsessions:privs):
---   admin / "admin"  (5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8)
---   guest / "guest"  (disabled by default)
+-- The disabled, empty admin placeholder is provisioned with a random password
+-- on first database creation. Its credential file is beside the database with
+-- suffix .bootstrap-password, mode 0600; change it at first login.
+-- Guest remains disabled by default.
 -- Everything else (schema, indexes) belongs in sql/sqlite.master.sql.
 
 -- Users (mirror of config/http.users)
 INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions) VALUES
-   (1, 'admin', 1, '5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8', 'no@example.com',   3, 'admin,edit,view,radio,tx,elmer,syslog,chat'),
-   (2, 'guest', 0, '35675e68f4b5af7b995d9205ad0fc43842f16450', 'no@example.com', 3, 'edit,view,radio,tx,noob,syslog,chat');
+   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,edit,view,radio,tx,elmer,syslog,chat'),
+   (2, 'guest', 0, '-', 'no@example.com', 3, 'edit,view,radio,tx,noob,syslog,chat');
 
 -- TX credits for testing (seconds of TX; with quota.enforce=true users
 -- cannot key up without a row here)

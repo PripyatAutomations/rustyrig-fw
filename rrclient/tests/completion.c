@@ -5,7 +5,7 @@ time_t now;
 struct rr_user *global_userlist;
 client_cmd_t client_cmds[] = {
    {.cmd="object"}, {.cmd="rig"}, {.cmd="gps"}, {.cmd="sercom"}, {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
-   {.cmd="kick", .admin=true}, {.cmd="user", .admin=true}, {0}
+   {.cmd="kick", .admin=true}, {.cmd="user"}, {0}
 };
 static const char *active_window;
 const char *ui_active_window_name(void) { return active_window; }
@@ -81,10 +81,15 @@ int main(void) {
    check("/quota SET a", "a", "alice");
    check("/quota SET alice ", "", NULL);
    check("/quota SHOW alice a", "a", "alice");
+   check("/us", "/us", "/user");
+   check("/user p", "p", "PASS");
+   check("/user o", "o", NULL);
+   admin = true;
    check("/user o", "o", "OLDPW");
    check("/user pr", "pr", "PRIVS");
    check("/user privs ", "", "alice");
    check("/user privs alice ", "", "LIST");
+   admin = false;
    check("/room ", "", "LIST");
    check("/room re", "re", "REMOVE");
    check("/room add ", "", "#");

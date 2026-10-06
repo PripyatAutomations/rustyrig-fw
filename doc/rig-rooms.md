@@ -106,9 +106,12 @@ session in the site lobby until the operator joins a rig room.
 
 ## Room cleanup
 
-Only `admin|owner` users can create or restore rooms with `/room add #name`,
-remove rooms, or edit VFO bindings. Joining an unknown room also requires
-`admin|owner`; other users can join existing active rooms.
+Any authenticated account can create an undashed room with `/room add #name`
+or by joining an unknown undashed room. Any dash reserves the name for station
+scoping, including future sites (`#rplywv00-*`, `#nycnc04-*`); creating these
+requires `admin|owner` or server provisioning. The configured site lobby is also
+protected. Restoring deleted rooms, removing rooms and editing VFO bindings
+require `admin|owner`. Other users can join existing active rooms.
 
 `/room remove #name` replies with `To confirm, please use /room remove #name abcd13`.
 The six-digit hex token is valid for five minutes, once, in the issuing session,

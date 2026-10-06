@@ -49,6 +49,7 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid,
 #endif
 
 typedef struct fake_backend {
+   float requested_power;
    long observed_frequency;
    long requested_frequency;
    int controls;
@@ -104,6 +105,12 @@ static bool fake_vfo_supported(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    rr_vfo_t index;
    return rr_server_vfo_owner(vfo) == backend->owner &&
       rr_server_vfo_native_index(vfo, &index) && index == VFO_A;
+}
+
+static bool fake_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, float power) {
+   assert(fake_vfo_supported(backend, vfo));
+   fake_data(backend)->requested_power = power;
+   return false;
 }
 
 static bool fake_freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo, int freq) {
@@ -170,6 +177,7 @@ static const rr_backend_funcs_t fake_api = {
    .poll_state = fake_poll,
    .vfo_supported = fake_vfo_supported,
    .freq_set = fake_freq_set,
+   .power_set = fake_power_set,
    .mode_set = fake_mode_set,
    .ptt_get = fake_ptt_get,
    .widths_get = fake_widths_get,
@@ -319,6 +327,10 @@ int main(void) {
 
    fake_backend_t *data_a = fake_data(rr_server_rig_backend(radio_a));
    fake_backend_t *data_b = fake_data(rr_server_rig_backend(radio_b));
+   assert(!rr_backend_power_set_rig(radio_b, vfo_b, 25));
+   assert(data_b->requested_power == 25 && data_a->requested_power == 0);
+   assert(rr_backend_power_set_rig(radio_a, vfo_b, 30));
+   assert(data_b->requested_power == 25 && data_a->requested_power == 0);
    data_a->polls = data_b->polls = 0;
    data_b->fail_poll = true;
    assert(rr_backend_poll_all());

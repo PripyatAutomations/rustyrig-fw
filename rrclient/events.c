@@ -1166,7 +1166,7 @@ static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_logging_in(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   Log( LOG_CRAZY, "ws.auth", "Logging in: %s", (data ? data : "<NULL>") );
+   Log( LOG_CRAZY, "ws.auth", "Logging in (%zu bytes)", data ? strlen(data) : 0 );
 }
 
 static void rrclient_handle_media_capab(const char *event, const char *data, rrconn_t *cptr, void *user) {

@@ -12,66 +12,96 @@ presence alone does not authorize CAT or account management.
 
 ## Server commands
 
+### Connection
+
+| Command/action | Account privileges enforced | Additional requirements / observations |
+| --- | --- | --- |
+| Login / password response | Credentials for enabled account | Expired passwords rejected; temporary passwords permit own password change only; reconnect-proof peer limits; logged-in account switches denied |
+
+### Chat and rooms
+
+| Command/action | Account privileges enforced | Additional requirements / observations |
+| --- | --- | --- |
+| `/join`, native `/j` | Authenticated only for existing rooms | Unknown undashed rooms may be created by any account; dashed creation requires A; deleted rooms cannot be joined |
+| `/msg`, messages from `/query` tabs | C | Not muted; private target must be a username; private messages go to endpoints only |
+| `/names` | Authenticated only | Roster is scoped to recipient's joined rooms |
+| `/part` | Authenticated only | Affects own membership/subscriptions |
+| Public text, `/me`, room file chunks | C | Not muted; sender must belong to destination room; recipients are joined sessions only |
+| `/room ADD` dashed room / restore | A | Any dash reserves a station namespace, including future sites; base rig rooms server-owned |
+| `/room ADD` new undashed room | Authenticated only | Configured site lobby protected; creation audited |
+| `/room LIST`, `/list` | Authenticated only | Lists active room names; no membership requirement to discover names |
+| `/room REMOVE`, `-f`, `-f -h` | A | Session/room/options-bound confirmation; site and configured base rig rooms protected |
+| `/room … VFO ADD/REMOVE` | A | Configured base-room bindings protected; added VFO must belong to room's rig |
+| `/room … VFO LIST` | Authenticated only | Reads active room bindings; no membership requirement |
+| `/topic` read | Authenticated only | Must belong to room |
+| `/topic` write | C | Not muted; must belong to room; empty text is a query, not topic clearing |
+| `/whois` | Authenticated only | Any online user; includes email, privileges, user agent and session metadata |
+
+### Radio and discovery
+
+| Command/action | Account privileges enforced | Additional requirements / observations |
+| --- | --- | --- |
+| CAT frequency/mode/width/power (GTK, browser, raw wire) | T | Not muted; current noob/elmer checks; room/VFO restrictions |
+| CAT PTT halt for another user | T plus ownership exception | Admin/owner may halt others; elmer may halt a noob; handler still enters through T gate |
+| CAT PTT on/off | T | Not muted; TX room membership; noob/elmer and cooldown checks; ownership/preemption, quota and station interlocks |
+| `!freq`, `!mode`, `!width` | C and T | Not muted; joined eligible room; noob requires an online elmer; RX subrooms permit only LO-safe mapped frequency tuning |
+| GPS stream subscription | Authenticated only | Existing GPS stream, scope/room checks; GPS format is fixed; client-originated position frames rejected |
+| `!help` | C and T | Sent through chat; command-level outer gate requires T even for help |
+| `/object`, `/rig LIST`, `/gps LIST` | Authenticated only | Object inventory/snapshots have no separate view/rx gate |
+| `!power` | C and T | Not muted; current noob/elmer checks; joined TX-control room, scoped rig backend; finite positive watts |
+| `/qrz`, `/grid` | Authenticated only | Configured lookup service and validated input |
+| `/rig SUBSCRIBE/UNSUBSCRIBE`, `/gps SUBSCRIBE/UNSUBSCRIBE` | Authenticated only | Snapshot subscription includes generic object property updates; no separate view/rx gate |
+| UUID property SET | T | Writable schema, validated value, not muted, noob/elmer, matching rig/room/VFO restrictions |
+| `!vfo` | C and T | Not muted; mapped VFO in joined room; session-local selection in the issuing room; other users remain independent |
+
+### Media
+
+| Command/action | Account privileges enforced | Additional requirements / observations |
+| --- | --- | --- |
+| Binary media source injection | `media.source` or video-scoped `video-src` | Current account checked on every frame; channel subscription required |
+| `/media LIST` | Authenticated only | Discovery; not permission to create or transmit |
+| `/media REMOVE` (raw talk path) | A | Native/browser command UI does not currently advertise REMOVE |
+| Media source registration | `media.source` or `video-src` with video-source role | Role alone grants no permission |
+| `/media SUBSCRIBE` creating a channel (raw wire path) | `admin\|owner\|media.source` | View/chat-only accounts denied before shared-registry mutation |
+| `/media SUBSCRIBE` existing channel | Authenticated only | Channel room and VFO mapping checked; no separate rx/tx privilege gate |
+| `/media UNSUBSCRIBE` | Authenticated only | Own subscriptions |
+| Ordinary TX audio frames | T | Current account, not muted, noob/elmer; authorized PTT owner/room/VFO, codec and channel subscription |
+| `/rxcodec LIST`, `/txcodec LIST` | Local or authenticated discovery | No server codec mutation |
+| `/rxcodec NONE`, `/txcodec NONE` | Authenticated only | Local disable/unsubscribe; no shared codec mutation |
+| `/rxcodec` selection / RX picker | `rx` | Concrete channel/VFO membership, codec support and all-subscriber compatibility |
+| `/txcodec` selection / TX picker | `tx` | Concrete channel/VFO membership, codec support and all-subscriber compatibility |
+
+### Serial
+
+| Command/action | Account privileges enforced | Additional requirements / observations |
+| --- | --- | --- |
+| Serial remote LIST/OPEN/CLOSE/CONFIG and byte writes | Configured access list | `serial:<port>.access`, else `serial.access`, else A; enabled export, session ownership, framing and sequence checks |
+
+### Administration
+
 | Command/action | Account privileges enforced | Additional requirements / observations |
 | --- | --- | --- |
 | `/die`, `/restart` | A | Reason required; current account, not cached staff flag |
 | `/kick` | A | Target and reason required; no owner-target protection |
 | `/mute`, `/unmute` | A | Target required; no owner-target protection |
-| `/syslog on/off` | A | Subscription flag records opt-in only; each streamed log checks current account |
-| `/rehash` | A | Direct `msg.type=rehash` checks account too |
 | `/quota` LIST, SHOW, ADD, SET, RESET, HELP | A | Even reading quota/help requires A |
-| `/user` LIST, HELP, OLDPW | A | Reads account list/password age metadata |
+| `/rehash` | A | Direct `msg.type=rehash` checks account too |
+| `/syslog on/off` | A | Subscription flag records opt-in only; each streamed log checks current account |
 | `/user ADD` | A | Only owner can grant admin/owner; default new privileges are `view,chat` |
-| `/user REMOVE`, LOCK, UNLOCK | A | Owner required for admin/owner targets; cannot remove/lock self |
-| `/user PRIVS … LIST` | A | Can inspect elevated targets |
+| `/user` LIST, HELP, OLDPW | A | Reads account list/password age metadata |
+| `/user PASS` another account, RESETPW | A | Owner required for another elevated target |
+| `/user PASS` own account | Authenticated only | 8–128 character password; clears temporary-password restrictions |
 | `/user PRIVS … ADD/REMOVE/SET` | A | Owner required to edit elevated targets or grant elevated privileges |
-| `/user PASS`, RESETPW | A | Owner required for another elevated target; admin may change own password |
-| `/room LIST`, `/list` | Authenticated only | Lists active room names; no membership requirement to discover names |
-| `/room … VFO LIST` | Authenticated only | Reads active room bindings; no membership requirement |
-| `/room ADD` / restore | A | Base rig rooms are server-owned |
-| `/room REMOVE`, `-f`, `-f -h` | A | Session/room/options-bound confirmation; site and configured base rig rooms protected |
-| `/room … VFO ADD/REMOVE` | A | Configured base-room bindings protected; added VFO must belong to room's rig |
-| `/join`, native `/j` | Authenticated only for existing rooms | Unknown-room creation requires A; deleted rooms cannot be joined |
-| `/part` | Authenticated only | Affects own membership/subscriptions |
-| Public text, `/me`, room file chunks | C | Sender must belong to destination room; recipients are joined sessions only |
-| `/msg`, messages from `/query` tabs | C | Private target must be a username; private messages go to endpoints only |
-| `/notice` (native) | C at message entry | Sends unsupported `msg_type=notice`; no implemented delivery branch |
-| `/topic` read | Authenticated only | Must belong to room |
-| `/topic` write | C | Must belong to room; empty text is a query, not topic clearing |
-| `/names` | Authenticated only | Roster is scoped to recipient's joined rooms |
-| `/whois` | Authenticated only | Any online user; includes email, privileges, user agent and session metadata |
-| `/qrz`, `/grid` | Authenticated only | Configured lookup service and validated input |
-| `/object`, `/rig LIST`, `/gps LIST` | Authenticated only | Object inventory/snapshots have no separate view/rx gate |
-| `/rig SUBSCRIBE/UNSUBSCRIBE`, `/gps SUBSCRIBE/UNSUBSCRIBE` | Authenticated only | Snapshot subscription includes generic object property updates; no separate view/rx gate |
-| `/media LIST` | Authenticated only | Discovery; not permission to create or transmit |
-| `/media SUBSCRIBE` existing channel | Authenticated only | Channel room and VFO mapping checked; no separate rx/tx privilege gate |
-| `/media SUBSCRIBE` creating a channel (raw wire path) | `admin|owner|media.source` | View/chat-only accounts denied before shared-registry mutation |
-| `/media UNSUBSCRIBE` | Authenticated only | Own subscriptions |
-| `/media REMOVE` (raw talk path) | A | Native/browser command UI does not currently advertise REMOVE |
-| `/rxcodec` selection / RX picker | `rx` | Concrete channel/VFO membership, codec support and all-subscriber compatibility |
-| `/txcodec` selection / TX picker | `tx` | Concrete channel/VFO membership, codec support and all-subscriber compatibility |
-| `/rxcodec LIST`, `/txcodec LIST` | Local or authenticated discovery | No server codec mutation |
-| `/rxcodec NONE`, `/txcodec NONE` | Authenticated only | Local disable/unsubscribe; no shared codec mutation |
-| Serial remote LIST/OPEN/CLOSE/CONFIG and byte writes | Configured access list | `serial:<port>.access`, else `serial.access`, else A; enabled export, session ownership, framing and sequence checks |
-| GPS stream subscription | Authenticated only | Existing GPS stream, scope/room checks; GPS format is fixed; client-originated position frames rejected |
-| `!help` | C and T | Sent through chat; command-level outer gate requires T even for help |
-| `!freq`, `!mode`, `!width` | C and T | Not muted; joined eligible room; noob requires an online elmer; RX subrooms permit only LO-safe mapped frequency tuning |
-| `!power` | C and T | Not muted; joined TX-control room; **remaining scope/noob issues below** |
-| `!vfo` | C and T | Not muted; mapped VFO in joined room; updates shared active VFO |
-| CAT frequency/mode/width (GTK, browser, raw wire) | T | Not muted; current noob/elmer checks; room/VFO restrictions |
-| CAT PTT on/off | T | Not muted; TX room membership; noob/elmer and cooldown checks; ownership/preemption, quota and station interlocks |
-| CAT PTT halt for another user | T plus ownership exception | Admin/owner may halt others; elmer may halt a noob; handler still enters through T gate |
-| UUID property SET | T | Writable schema, validated value, not muted, noob/elmer, matching rig/room/VFO restrictions |
-| Media source registration | `media.source` or `video-src` with video-source role | Role alone grants no permission |
-| Binary media source injection | `media.source` or video-scoped `video-src` | Current account checked on every frame; channel subscription required |
-| Ordinary TX audio frames | T | Current account, not muted, noob/elmer; authorized PTT owner/room/VFO, codec and channel subscription |
-| Login / password response | Credentials for enabled account | Logged-in sessions cannot restart authentication; reconnect to change accounts; logout remains available |
+| `/user PRIVS … LIST` | A | Can inspect elevated targets |
+| `/user REMOVE`, LOCK, UNLOCK | A | Owner required for admin/owner targets; cannot remove/lock self |
 
 Codec selection intentionally requires explicit `rx` or `tx`: admin/owner alone
-is insufficient. Initial negotiation of an empty channel during subscription is
-still part of subscribing, not the explicit codec-switch operation. This is a
-remaining policy decision if all receive/transmit subscriptions should require
-those direction privileges too.
+is insufficient. Read-only listening and discovery require no additional flag;
+room/VFO membership still applies. Flags belong to accounts, not channels, and
+govern PTT/control changes. Initial negotiation of an empty channel remains
+part of subscribing. `/whois` publishes known account/session metadata but never
+credentials, password verifiers, authentication nonces or session tokens. These
+metadata and listening policies were confirmed by the operator on 2026-10-06.
 
 ## Local frontend commands
 
@@ -85,13 +115,11 @@ those direction privileges too.
 | Native `/raw` | None to send wire data; server still enforces action policy |
 | Browser `/cfg`, `/config`, `/clear`, `/clearlog`, `/clxfr`, `/chat`, `/query`, `/log`, `/menu`, `/reloadcss`, `/help`, `/rxvol`, `/rxmute`, `/rxunmute` | None for local operation; server operations still use their respective gates |
 | Browser `/logout`, `/quit` | Own session only |
-| Browser `/ban`, `/edit` | Parser recognizes them; server rejects them as unknown commands |
 
 Native admin-marked commands additionally check the client's copy of account
 privileges. That UI gate is not authoritative; server checks protect raw JSON.
-Existing clients cache their own privileges from login, so newly granted
-privileges may need reconnect/UI refresh even though server authorization updates
-immediately.
+Account reloads publish changed userinfo; native and browser clients refresh their
+own cached privilege hints from that update. Server authorization remains authoritative.
 
 ## Fixed in this audit
 
@@ -114,21 +142,53 @@ immediately.
 - Removed full slash-command logging in the native client and raw textframe
   logging in the server, which could include `/user pass` passwords/tokens.
 
-## Remaining release concerns (not fixed here)
+## Additional fixes in this hardening pass
 
-| Priority | Concern and evidence | Proposed follow-up |
+- Browser text is escaped before linkification for public/private/action/replayed
+  chat, notices, account data and user menus. Link attributes and inline menu
+  arguments are escaped independently. Added inert HTML regression cases.
+- Fresh databases provision a random initial administrator password in an
+  exclusive `0600` file beside the database. First login requires changing it.
+  Existing database credentials are not reset. Shipped guest/static examples are
+  disabled with unusable verifier placeholders; accidental enabling alone cannot
+  activate a known password.
+- Authentication nonces use the platform cryptographic random generator;
+  challenges are renewed, single-use and bound to account/session token.
+  A bounded 128-peer budget permits 20 auth messages per minute per peer,
+  counting challenge requests and replies across reconnects.
+- Password expiry is enforced. Temporary passwords restrict text and binary
+  operations until the authenticated user changes their own password through
+  `/user pass <user> <password>`; account administration remains A.
+- Room creation allows all authenticated accounts for undashed names. Dashed
+  names and the configured site lobby are reserved; restoration, removal and
+  VFO mapping changes remain A.
+- `!power` uses the common scoped control checks and the requested rig backend;
+  nonfinite, malformed and nonpositive watts are rejected. `!vfo` selection is
+  session-local, with acknowledgements addressed only to that session.
+- Mute blocks public/private/action/file messages and topic writes and releases
+  every keyed session for the account, preserving the owning rig scope.
+- Incoming server-originated RX frames are rejected after explicitly authorized
+  source paths. Account reloads reconcile disabled/deleted/renamed accounts,
+  preserve matching session/mute state, publish privilege changes and dekey
+  sessions that lost TX authority. Static password files validate UID bounds.
+- Event, WebSocket and configuration diagnostics log metadata rather than
+  credential-bearing payloads. Verbose live regression checks exclude test
+  passwords from server logs. Guarded syslog callback recursion exposed by
+  current-account checks; removed freed-value reads in configuration reload
+  diagnostics. Disconnect messages drain before closing; draining sessions
+  cannot submit additional requests.
+- Native/browser help groups and sorts commands by `help_section`, keeping media
+  commands together. Removed advertised unsupported native `/notice` and browser
+  `/ban`/`/edit`; browser `/topic` and self-password changes now have usable paths.
+
+## Remaining release concerns
+
+| Priority | Concern | Follow-up |
 | --- | --- | --- |
-| High | Chat HTML injection/stored XSS: `rrserver/events.c:rrserver_handle_talkmsg` forwards/stores raw text; `www/js/webui.chat.js:msg_create_links` only inserts links, and `ChatBox.Append` inserts HTML. Notices also enter HTML without escaping. | Escape text at the browser rendering boundary before linkification; preserve plain wire text; test live/replayed/private/action messages and notices with inert HTML payloads. |
-| High | Predictable enabled admin credential in `sql/sqlite.master.preload.sql`, loaded for a new database. Passwords use unsalted SHA-1 in `librrprotocol/auth.hash.c`. | Replace bootstrap credential with first-run provisioning; plan versioned password/verifier migration and rate limiting. |
-| High | `!power` checks selected room but emits `rigctl` without `rigctl.room`, so `rrserver/events.c` falls back to default rig. A user joined only to rig1 can address rig0's power. This path also skips the CAT handler's current noob/elmer check. | Route power through the same scoped control API; add tests for nondefault rigs, noobs and finite/range-checked power. |
-| Medium | Plain public/private chat and topic writes do not check `is_muted`; mute blocks rig controls but does not implement the advertised chat ban. Muting keys down only the first matching session. | Decide mute semantics; enforce account mute on all chat paths and key down every session holding PTT. |
-| Medium | `password_expires` and `password_change_required` are advertised at login but not enforced. Ordinary users cannot change their own password through `/user PASS` because its outer gate requires A. | Add authenticated self-password change and enforce temporary-password restrictions/expiry. |
-| Medium | Incoming RX-direction binary frames are dispatched by `librrprotocol/cli.main.c:ws_binframe_process_mg` after authentication without per-subsystem authority checks. Impact depends on registered consumers. | Reject server-originated directions at the server boundary and allow only explicitly authorized client frame types. |
-| Medium | `/whois` exposes email and detailed session metadata to every authenticated account. Generic object state and existing media subscriptions do not require `view`/`rx`/`tx`. | Review the table and decide metadata/receive permissions. |
-| Medium | Disabled/deleted accounts loaded through external DB edits plus rehash do not automatically disconnect existing sessions; `/user LOCK/REMOVE` does disconnect. | Reconcile active sessions after any account reload; audit privilege revocation during active PTT/source feeds. |
-| Medium | `librustyaxe/event-bus.c:event_emit` still logs serialized event payloads at CRAZY level; `user.cmd` can contain a password. Direct command/frame logs were removed, but this remaining trace path also needs redaction. | Redact sensitive event fields or log metadata only; test verbose logs for absence of credentials. |
-| Medium | No login throttling found in the owned auth/dispatcher paths; unauthenticated hello/pong remain accepted. Not a complete network DoS review. | Add bounded per-peer/auth attempt limits and verify connection/time/size limits. |
-| Low | Browser `/ban` and `/edit`, native `/notice`, and ordinary self-password changes lack usable server implementations despite partial UI paths. | Remove unsupported help/commands or implement documented behavior. |
+| High | Password verifiers remain unsalted SHA-1 and the challenge protocol is not a PAKE. A stolen verifier remains credential-equivalent. | Negotiated password/verifier migration was explicitly deferred to preserve wire compatibility. Use TLS for authentication and password changes. |
+| Medium | First-run random provisioning applies to the shipped SQLite placeholder. Existing installations or custom/static account stores can still contain known credentials; old log files may already hold secrets. | Review deployed account stores and rotate exposed credentials before public release. |
+| Medium | Authentication limits are process-local and peer-based; reconnects are covered, distributed attacks and broader HTTP/resource exhaustion are not fully assessed. | Review deployment limits; shared-NAT users share the peer budget. |
+| Medium | Backend-specific hardware power limits and unsupported power implementations remain backend responsibilities. | Verify limits/capabilities for each supported radio before enabling remote TX. |
 
 This is a source and targeted local-runtime audit, not an exhaustive security
 assessment of HTTP/TLS, dependencies, every media decoder, or deployed settings.

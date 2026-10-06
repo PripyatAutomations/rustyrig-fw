@@ -1,4 +1,15 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Reserve dashed station room creation for admin/owner, allow authenticated
+    users to create undashed chat rooms, and group/sort native/browser /help
+    and the command privilege table by help section.
+  * Harden chat HTML rendering, scoped power and session-local VFO selection;
+    enforce chat mute and release all keyed account sessions. Provision random
+    first-run admin credentials, enforce temporary password/expiry policy,
+    add self-password changes and bounded peer authentication limits, reject
+    unauthorized RX frames, and reconcile account revocation on reload.
+    Keep authentication wire compatibility; remove credential-bearing event,
+    WebSocket and configuration diagnostics and guard syslog callback recursion.
+
   * Audit user-command permissions; enforce current account privileges for
     staff, syslog, noob/elmer and media sources. Require RX/TX privileges for
     matching codec changes, restrict media creation, and enforce room message

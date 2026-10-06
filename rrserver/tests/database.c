@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sqlite3.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
@@ -341,6 +342,34 @@ int main(void) {
    assert(db);
    assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#legacy' AND topic='old topic' AND deleted=1;") == 1);
    sqlite3_close(db); unlink(migration_path);
+   char fresh_path[] = "/tmp/rr-bootstrap-XXXXXX";
+   int fresh_fd = mkstemp(fresh_path);
+   assert(fresh_fd >= 0); close(fresh_fd); unlink(fresh_path);
+   dict_add(cfg, "path.db.master.template", "sql/sqlite.master.sql");
+   dict_add(cfg, "path.db.master.preload", "sql/sqlite.master.preload.sql");
+   db = db_open(fresh_path);
+   assert(db);
+   char credential_path[128];
+   snprintf(credential_path, sizeof(credential_path), "%s.bootstrap-password", fresh_path);
+   struct stat credential_stat;
+   assert(stat(credential_path, &credential_stat) == 0);
+   assert((credential_stat.st_mode & 0777) == 0600);
+   FILE *credential = fopen(credential_path, "r");
+   assert(credential);
+   char password[64];
+   assert(fgets(password, sizeof(password), credential)); fclose(credential);
+   password[strcspn(password, "\n")] = '\0';
+   assert(strlen(password) == 24);
+   assert(db_get_users(db) == 2);
+   char *bootstrap_hash = hash_passwd(password);
+   assert(bootstrap_hash && !strcmp(http_users[1].pass, bootstrap_hash));
+   assert(http_users[1].enabled && http_users[1].password_change_required);
+   assert(db_user_update_password(db, "admin", "replacement", false, 0));
+   sqlite3_close(db);
+   db = db_open(fresh_path);
+   assert(db && db_get_users(db) == 2);
+   assert(!strcmp(http_users[1].pass, "replacement"));
+   sqlite3_close(db); unlink(fresh_path); unlink(credential_path); free(bootstrap_hash);
    dict_free(cfg);
    cfg = NULL;
    dict_free(default_cfg);
