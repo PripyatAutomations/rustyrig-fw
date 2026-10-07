@@ -62,7 +62,7 @@ static const char *topline_value(const char *name, tui_window_t *win, char *valu
    }
 
    if ( !strcmp(name, "ptt-state") ) {
-      if (ws_connected != 1) { return "{bright-yellow}PTT: WAIT{reset}"; }
+      if (ws_connected != 1) { return "\00308PTT: WAIT\017"; }
       const char *tx_user = NULL;
 
       for (struct rr_user *u = global_userlist ; u ; u = u->next) {
@@ -80,12 +80,12 @@ static const char *topline_value(const char *name, tui_window_t *win, char *valu
       if (ptt && !tx_user) { tx_user = login_user ? login_user : "TX"; }
 
       if (tx_user) {
-         snprintf(value, size, "{bright-red}PTT: %s{reset}", tx_user);
+         snprintf(value, size, "\00304PTT: %s\017", tx_user);
 
          return value;
       }
 
-      return "{bright-green}PTT: OFF{reset}";
+      return "\00309PTT: OFF\017";
    }
 
    if ( !strcmp(name, "rxcodec") || !strcmp(name, "txcodec") ) {

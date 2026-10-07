@@ -56,7 +56,7 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
 // XXX: the currently active context
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    if (!event) return FALSE;
-   if (gtk_ui_zoom_key(event)) { gtk_escape_prefix = FALSE; return TRUE; }
+   if (event->type == GDK_KEY_PRESS && gtk_ui_zoom_key(widget, event, user_data)) { gtk_escape_prefix = FALSE; return TRUE; }
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_win = wp ? wp->gtk_win : NULL;
 
@@ -219,7 +219,7 @@ static gboolean gui_global_hotkey_release_cb(GtkWidget *widget, GdkEventKey *eve
        event->keyval == GDK_KEY_space) {
       return ptt_button_hotkey_release();
    }
-   return FALSE;
+   return gtk_ui_zoom_key_release(widget, event, user_data);
 }
 
 bool gui_hotkey_register(GtkWidget *widget) {

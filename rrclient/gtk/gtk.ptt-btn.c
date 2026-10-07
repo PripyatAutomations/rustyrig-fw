@@ -263,7 +263,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    // Clicking a held transmitter requests STOP only, never a takeover.
    if (someone_else_transmitting(talker) && !i_can_halt_user(talker) ) {
       Log(LOG_AUDIT, "ui.gtk", "PTT ignored: %s is already transmitting", talker->name);
-      ui_print(NULL, "{yellow}*** {bright-red}%s{bright-yellow} is already transmitting{reset}", talker->name);
+      ui_print(NULL, "\00308*** \00304%s\00308 is already transmitting\017", talker->name);
 
       // Revert the toggle without re-entering this handler
       ptt_button_pending = false;
@@ -309,7 +309,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       const char *tx_codec = rrclient_media_current_codec(true);
       if (!tx_codec || audio_switch_codec(tx_codec, true)) {
          Log(LOG_WARN, "ui.gtk", "PTT refused: TX audio encoder is not ready");
-         ui_print(NULL, "{yellow}*** TX audio is not ready; select a TX codec first{reset}");
+         ui_print(NULL, "\00308*** TX audio is not ready; select a TX codec first\017");
          ptt_active = false;
          if (ptt_toggled_handler) g_signal_handler_block(button, ptt_toggled_handler);
          gtk_toggle_button_set_active(button, FALSE);

@@ -231,7 +231,7 @@ bool cfg_gtkcss_init(void) {
 // no restart.  This is the /css-reload command.
 bool cmd_css_reload(int argc, char **args) {
    if (!config_file) {
-      ui_print(NULL, "{bright-red}No config file loaded, nothing to reload{reset}");
+      ui_print(NULL, "\00304No config file loaded, nothing to reload\017");
 
       return true;
    }
@@ -241,7 +241,7 @@ bool cmd_css_reload(int argc, char **args) {
    FILE *fp = fopen(config_file, "r");
 
    if (!fp) {
-      ui_print( NULL, "{bright-red}Couldn't open %s: %s{reset}", config_file, strerror(errno) );
+      ui_print( NULL, "\00304Couldn't open %s: %s\017", config_file, strerror(errno) );
       Log( LOG_WARN, "config", "Failed to reload CSS from %s: %s", config_file, strerror(errno) );
 
       return true;
@@ -291,10 +291,10 @@ bool cmd_css_reload(int argc, char **args) {
    }
 
    if ( gtk_css_apply(css) ) {
-      ui_print(NULL, "{bright-red}Failed to apply CSS from %s, see log{reset}", config_file);
+      ui_print(NULL, "\00304Failed to apply CSS from %s, see log\017", config_file);
    } else {
       Log(LOG_INFO, "config", "Finished reloading CSS from %s", config_file);
-      ui_print( NULL, "{bright-green}Reloaded CSS from %s (%lu bytes){reset}", config_file,
+      ui_print( NULL, "\00309Reloaded CSS from %s (%lu bytes)\017", config_file,
          (unsigned long)strlen(css) );
    }
 

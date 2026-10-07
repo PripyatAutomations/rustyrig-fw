@@ -196,20 +196,25 @@ char *gtk_colorize_string(const char *in) {
          if (have_fg) {
             const char *name = gtk_mirc_color_name(fg_num);
             bool is_bg = false;
-            const char *color = name ? pango_color_for_tag(name, &is_bg) : NULL;
-
-            if (color) {
-               o += sprintf(o, "<span foreground=\"%s\">", color);
-               fg = color;
-            }
+            const char *fg_color = name ? pango_color_for_tag(name, &is_bg) : NULL;
+            const char *bg_color = NULL;
 
             if (have_bg) {
                name = gtk_mirc_color_name(bg_num);
-               color = name ? pango_color_for_tag(name, &is_bg) : NULL;
-               if (color) {
-                  o += sprintf(o, "</span><span background=\"%s\">", color);
-                  bg = color;
+               bg_color = name ? pango_color_for_tag(name, &is_bg) : NULL;
+            }
+
+            if (fg_color || bg_color) {
+               o += sprintf(o, "<span");
+               if (fg_color) {
+                  o += sprintf(o, " foreground=\"%s\"", fg_color);
+                  fg = fg_color;
                }
+               if (bg_color) {
+                  o += sprintf(o, " background=\"%s\"", bg_color);
+                  bg = bg_color;
+               }
+               o += sprintf(o, ">");
             }
          }
       } else if (*p == '{') {
@@ -314,7 +319,7 @@ char *gtk_colorize_string(const char *in) {
          }
          p = end + 1;
       } else {
-         const char *next = strchr(p, '{');
+         const char *next = strpbrk(p, "{\033\002\035\037\017\003");
          size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
 
          char *escaped = g_markup_escape_text(p, (gint)chunk_len);
@@ -630,6 +635,7 @@ bool gui_init(void) {
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
    gtk_ui_zoom_attach(main_window, main_notebook);
+   gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
    // ADMIN tab (alt-1)

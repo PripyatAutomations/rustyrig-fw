@@ -966,7 +966,7 @@ bool cmd_media(int argc, char **args) {
 
    if (!sub || sub[0] == '\0' || strcasecmp(sub, "LIST") == 0) {
       // List what we know about and our subscription state
-      media_print( "{bright-cyan}Available media channels:{reset}");
+      media_print( "\00311Available media channels:\017");
       int n = 0, visible = 0;
 
       for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {

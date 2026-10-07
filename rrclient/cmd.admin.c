@@ -146,7 +146,7 @@ bool cmd_raw(int argc, char **args) {
    }
 
    ui_print(ui_active_window_name(), "-raw-> %s", fullmsg);
-   ui_print(ui_active_window_name(), "{yellow}QUOTE is not supported over WebSocket{reset}");
+   ui_print(ui_active_window_name(), "\00308QUOTE is not supported over WebSocket\017");
 
    return false;
 }
@@ -170,7 +170,7 @@ bool cmd_syslog(int argc, char **args) {
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
-   ui_print(ui_active_window_name(), "{yellow}Host log streaming %s (server permitting){reset}", args[1]);
+   ui_print(ui_active_window_name(), "\00308Host log streaming %s (server permitting)\017", args[1]);
 
    return false;
 }
@@ -202,7 +202,7 @@ bool cmd_rehash(int argc, char **args) {
    (void)args;
 
    if (!ws_conn) {
-      ui_print(ui_active_window_name(), "{red}Not connected to a server!{reset}");
+      ui_print(ui_active_window_name(), "\00304Not connected to a server!\017");
 
       return true;
    }
@@ -229,7 +229,7 @@ bool cmd_quota(int argc, char **args) {
    dict *d = dict_new();
 
    if (!d) {
-      ui_print(ui_active_window_name(), "{red}/quota: out of memory{reset}");
+      ui_print(ui_active_window_name(), "\00304/quota: out of memory\017");
 
       return true;
    }
@@ -279,7 +279,7 @@ bool cmd_user(int argc, char **args) {
    dict *d = dict_new();
 
    if (!d) {
-      ui_print(ui_active_window_name(), "{red}/user: out of memory{reset}");
+      ui_print(ui_active_window_name(), "\00304/user: out of memory\017");
 
       return true;
    }

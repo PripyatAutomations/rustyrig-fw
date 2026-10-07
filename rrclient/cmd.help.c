@@ -102,13 +102,13 @@ static bool safe_name(const char *name) {
 ////////////////
 static help_line_t help_msg_before[] = {
    {
-      UI_MODE_NONE, "{headers}******************************************"
+      UI_MODE_NONE, "\00304******************************************"
    },
    {
-      UI_MODE_NONE, "{headers}*          rustyrig client help          *"
+      UI_MODE_NONE, "\00304*          rustyrig client help          *"
    },
    {
-      UI_MODE_NONE, "{headers}******************************************{reset}"
+      UI_MODE_NONE, "\00304******************************************\017"
    },
    {
       UI_MODE_NONE, NULL
@@ -116,78 +116,78 @@ static help_line_t help_msg_before[] = {
 };
 
 static help_line_t help_msg_after[] = {
-   { UI_MODE_NONE, "\t{bright-green}/rxcodec /txcodec {bright-yellow}Shared codec changes require account RX/TX privilege for that VFO" },
-   { UI_MODE_NONE, "\t{bright-green}/room remove #room [token] {bright-yellow}Admin/owner: hide room, preserving its data; confirm with server token" },
-   { UI_MODE_NONE, "\t{bright-green}/room remove #room -f [-h] [token] {bright-yellow}Delete room record/bindings; -h also deletes chat history" },
-   { UI_MODE_NONE, "\t{bright-green}/room add #room {bright-yellow}Anyone: create undashed room; admin/owner: dashed rooms or restoration; rig logs stay" },
+   { UI_MODE_NONE, "\t\00309/rxcodec /txcodec \00308Shared codec changes require account RX/TX privilege for that VFO" },
+   { UI_MODE_NONE, "\t\00309/room remove #room [token] \00308Admin/owner: hide room, preserving its data; confirm with server token" },
+   { UI_MODE_NONE, "\t\00309/room remove #room -f [-h] [token] \00308Delete room record/bindings; -h also deletes chat history" },
+   { UI_MODE_NONE, "\t\00309/room add #room \00308Anyone: create undashed room; admin/owner: dashed rooms or restoration; rig logs stay" },
    {
       UI_MODE_NONE, ""
    },
    {
-      UI_MODE_NONE, "\t{headers}*** {underline}Server rigctl commands{underline-off} ***"
+      UI_MODE_NONE, "\t\00304*** \037Server rigctl commands\037 ***"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!help        {bright-yellow}Show the server side rigctl help"
+      UI_MODE_NONE, "\t\00309!help        \00308Show the server side rigctl help"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!freq <freq> {bright-yellow}Set frequency - 7200, 7.2m or 7200000 form"
+      UI_MODE_NONE, "\t\00309!freq <freq> \00308Set frequency - 7200, 7.2m or 7200000 form"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!mode <mode> {bright-yellow}Set mode to CW|AM|LSB|USB|FM|D-L|D-U"
+      UI_MODE_NONE, "\t\00309!mode <mode> \00308Set mode to CW|AM|LSB|USB|FM|D-L|D-U"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!mode lsb freq 7200 {bright-yellow}Chain rig commands on one line"
+      UI_MODE_NONE, "\t\00309!mode lsb freq 7200 \00308Chain rig commands on one line"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!power <watts>{bright-yellow} Set power in watts (e.g. !power 25)"
+      UI_MODE_NONE, "\t\00309!power <watts>\00308 Set power in watts (e.g. !power 25)"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!width <w>   {bright-yellow}Set passband width (narrow|normal|wide)"
+      UI_MODE_NONE, "\t\00309!width <w>   \00308Set passband width (narrow|normal|wide)"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}!vfo <vfo>   {bright-yellow}Switch VFOs (A|B|C)"
+      UI_MODE_NONE, "\t\00309!vfo <vfo>   \00308Switch VFOs (A|B|C)"
    },
    {
       UI_MODE_NONE, ""
    },
    {
-      UI_MODE_NONE, "\t{headers}*** {underline}Keyboard Shortcuts{underline-off} ***"
+      UI_MODE_NONE, "\t\00304*** \037Keyboard Shortcuts\037 ***"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}alt/ctrl +/- {bright-yellow}Zoom GTK interface/window; Alt/Ctrl 0 resets to 100% (maximizes with auto scaling)"
+      UI_MODE_GTK, "\t\00309Ctrl +/-     \00308Zoom fonts and resize window; Alt +/- changes fonts only; Ctrl/Alt 0 resets zoom"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}Touch         {bright-yellow}Pinch to zoom; two-finger tap a userlist row for its menu"
+      UI_MODE_GTK, "\t\00309Touch         \00308Pinch zooms fonts only; two-finger tap opens a userlist menu"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}alt-c         {bright-yellow}Focus chat input"
+      UI_MODE_GTK, "\t\00309alt-c         \00308Focus chat input"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}alt-# (1-0)   {bright-yellow}Switch to window 1-10"
+      UI_MODE_NONE, "\t\00309alt-# (1-0)   \00308Switch to window 1-10"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}esc-# (1-0)   {bright-yellow}Switch to window 1-10"
+      UI_MODE_NONE, "\t\00309esc-# (1-0)   \00308Switch to window 1-10"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}alt-enter     {bright-yellow}Toggle PTT"
+      UI_MODE_NONE, "\t\00309alt-enter     \00308Toggle PTT"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}ctrl-space    {bright-yellow}Toggle PTT"
+      UI_MODE_NONE, "\t\00309ctrl-space    \00308Toggle PTT"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}alt-left      {bright-yellow}Switch to previous win"
+      UI_MODE_NONE, "\t\00309alt-left      \00308Switch to previous win"
    },
    {
-      UI_MODE_NONE, "\t{bright-green}alt-right     {bright-yellow}Switch to next win"
+      UI_MODE_NONE, "\t\00309alt-right     \00308Switch to next win"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}Mode first letter {bright-yellow}Cycle matching modes in the mode selector"
+      UI_MODE_GTK, "\t\00309Mode first letter \00308Cycle matching modes in the mode selector"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}Width A/N/W   {bright-yellow}Select narrow/normal/wide in the width selector"
+      UI_MODE_GTK, "\t\00309Width A/N/W   \00308Select narrow/normal/wide in the width selector"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}F11           {bright-yellow}Fullscreen toggle{reset}"
+      UI_MODE_GTK, "\t\00309F11           \00308Fullscreen toggle\017"
    },
    {
       UI_MODE_NONE, NULL
@@ -234,7 +234,7 @@ bool cmd_help(int argc, char **args) {
       }
       const char *next_section = client_cmds[i].help_section ? client_cmds[i].help_section : "Other";
       if (!section || strcmp(section, next_section)) {
-         ui_print(ui_active_window_name(), "{bright-yellow}%s{reset}", next_section);
+         ui_print(ui_active_window_name(), "\00304%s\017", next_section);
          section = next_section;
       }
       int len = strlen(client_cmds[i].cmd);
@@ -244,7 +244,7 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(ui_active_window_name(), "\t{bright-green}/%s%*s{bright-yellow}%s{reset}", client_cmds[i].cmd, spaces,
+      ui_print(ui_active_window_name(), "\t\00309/%s%*s\00308%s\017", client_cmds[i].cmd, spaces,
          "", client_cmds[i].desc);
    }
 

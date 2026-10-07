@@ -30,6 +30,9 @@ bool ui_print(const char *room, const char *fmt, ...) {
 }
 int main(void) {
    cmd_help(0,NULL);
+   assert(strstr(output,"\00304Connection\017"));
+   assert(strstr(output,"\00304Media\017"));
+   assert(!strstr(output,"{bright-") && !strstr(output,"{headers}") && !strstr(output,"{reset}"));
    assert(strstr(output,"Connection") < strstr(output,"/help"));
    assert(strstr(output,"Media") < strstr(output,"/media"));
    assert(!strstr(strstr(output,"Media")+5,"Media"));

@@ -144,7 +144,7 @@ bool cmd_me(int argc, char **args) {
          if (room && *room) { dict_add(d, "talk.target", room); }
       } else {
          ui_print(ui_active_window_name(),
-            "{yellow}Select a room tab before sending an action (status is for client logs and commands){reset}");
+            "\00308Select a room tab before sending an action (status is for client logs and commands)\017");
          dict_free(d);
 
          return false;
@@ -251,7 +251,7 @@ bool cmd_notice(int argc, char **args) {
          ui_print(ui_active_window_name(), "-> *%s* %s", notice_target, notice_msg);
       }
    }
-   ui_print(ui_active_window_name(), "TEST: {yellow}=> *%s*{reset} {bright-cyan}%s{reset}: %s", notice_target,
+   ui_print(ui_active_window_name(), "TEST: \00308=> *%s*\017 \00311%s\017: %s", notice_target,
       notice_msg);
 
    dict *d = dict_new();
@@ -302,7 +302,7 @@ bool cmd_part(int argc, char **args) {
    }
 
    if ( !target || !*target || (target[0] != '#' && target[0] != '&') ) {
-      ui_print(ui_active_window_name(), "{yellow}Usage: /part #room (select a room tab or provide the room){reset}");
+      ui_print(ui_active_window_name(), "\00308Usage: /part #room (select a room tab or provide the room)\017");
 
       return false;
    }
@@ -320,12 +320,12 @@ bool cmd_part(int argc, char **args) {
 // IRC client, with privilege flags and PTT state.
 bool cmd_names(int argc, char **args) {
    if (!global_userlist) {
-      ui_print(ui_active_window_name(), "{yellow}No users online{reset}");
+      ui_print(ui_active_window_name(), "\00308No users online\017");
 
       return true;
    }
 
-   ui_print(ui_active_window_name(), "{yellow}Users online:{reset}");
+   ui_print(ui_active_window_name(), "\00308Users online:\017");
 
    int count = 0;
 
@@ -348,10 +348,10 @@ bool cmd_names(int argc, char **args) {
          strlcpy( suffix, " 🎤", sizeof(suffix) );
       }
 
-      ui_print(ui_active_window_name(), "  {white}%s%s%s{reset}", prefix, c->name, suffix);
+      ui_print(ui_active_window_name(), "  \00300%s%s%s\017", prefix, c->name, suffix);
    }
 
-   ui_print(ui_active_window_name(), "{yellow}%d user%s online{reset}", count, (count == 1) ? "" : "s");
+   ui_print(ui_active_window_name(), "\00308%d user%s online\017", count, (count == 1) ? "" : "s");
 
    return true;
 }
@@ -370,7 +370,7 @@ bool cmd_topic(int argc, char **args) {
    }
 
    if ( !room || (room[0] != '#' && room[0] != '&') ) {
-      ui_print(ui_active_window_name(), "{yellow}Select a room tab before using /topic{reset}");
+      ui_print(ui_active_window_name(), "\00308Select a room tab before using /topic\017");
 
       return false;
    }

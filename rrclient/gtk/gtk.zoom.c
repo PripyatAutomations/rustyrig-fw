@@ -11,9 +11,10 @@ static unsigned zoom_percent = 100;
 static int base_dpi;
 static GtkCssProvider *zoom_theme_provider;
 static GtkWidget *zoom_window, *zoom_viewport;
-static gulong resize_handler, state_handler;
+static gulong resize_handler, state_handler, focus_handler;
 static guint resize_source;
 static int resize_width, resize_height;
+static bool coupled_resize_keys, coupled_resize_pending;
 typedef struct zoom_touch {
    GtkGesture *gesture;
    GtkWidget *target;
@@ -26,6 +27,8 @@ typedef struct zoom_touch {
 static GList *touch_handlers;
 static unsigned active_touches;
 static void zoom_touch_bind(GtkWidget *window);
+gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data);
+static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data);
 static guint map_signal;
 static gulong map_hook;
 
@@ -218,6 +221,8 @@ static gboolean zoom_after_resize(gpointer data) {
    (void)data;
    resize_source = 0;
    if (!zoom_window || active_touches || !cfg_get_bool("ui.gtk.scale-on-resize", true)) return G_SOURCE_REMOVE;
+   if (!coupled_resize_keys) return G_SOURCE_REMOVE;
+   if (coupled_resize_pending) coupled_resize_pending = false;
    GdkWindow *window = gtk_widget_get_window(zoom_window);
    if (!window) return G_SOURCE_REMOVE;
    GdkMonitor *monitor = zoom_monitor(zoom_window);
@@ -234,7 +239,8 @@ static gboolean zoom_after_resize(gpointer data) {
    return G_SOURCE_REMOVE;
 }
 
-static void zoom_queue_resize(void) {
+static void zoom_queue_resize(bool force) {
+   (void)force;
    if (resize_source) g_source_remove(resize_source);
    resize_source = g_timeout_add(75, zoom_after_resize, NULL);
 }
@@ -242,19 +248,20 @@ static void zoom_queue_resize(void) {
 void gtk_ui_zoom_recheck(void) {
    if (!zoom_window) return;
    gtk_window_get_size(GTK_WINDOW(zoom_window), &resize_width, &resize_height);
-   zoom_queue_resize();
+   zoom_queue_resize(true);
 }
 
 static gboolean zoom_configured(GtkWidget *widget, GdkEventConfigure *event, gpointer data) {
    (void)widget; (void)data;
    resize_width = event->width; resize_height = event->height;
-   zoom_queue_resize();
+   if (coupled_resize_keys) zoom_queue_resize(false);
    return FALSE;
 }
 
 static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer data) {
    (void)widget; (void)event; (void)data;
-   zoom_queue_resize();
+   if (!coupled_resize_keys) return FALSE;
+   zoom_queue_resize(false);
    return FALSE;
 }
 
@@ -284,6 +291,7 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    }
    resize_handler = g_signal_connect(window, "configure-event", G_CALLBACK(zoom_configured), NULL);
    state_handler = g_signal_connect(window, "window-state-event", G_CALLBACK(zoom_window_state), NULL);
+   g_signal_connect(window, "focus-out-event", G_CALLBACK(zoom_focus_out), NULL);
 }
 
 void gtk_ui_zoom_apply(void) {
@@ -323,9 +331,10 @@ static void zoom_manual_set(unsigned next) {
    if (zoom_window && gtk_widget_get_realized(zoom_window)) {
       GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(zoom_window));
       bool automatic = cfg_get_bool("ui.gtk.scale-on-resize", true);
-      if (automatic && next == 100) {
+      bool resize_for_zoom = automatic && coupled_resize_keys;
+      if (!coupled_resize_keys && automatic && next == 100) {
          gtk_window_maximize(GTK_WINDOW(zoom_window));
-      } else if (automatic && (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
+      } else if (resize_for_zoom && (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
          GdkMonitor *monitor = zoom_monitor(zoom_window);
          if (monitor) {
             GdkRectangle area;
@@ -334,7 +343,7 @@ static void zoom_manual_set(unsigned next) {
             gtk_window_unmaximize(GTK_WINDOW(zoom_window));
             gtk_window_resize(GTK_WINDOW(zoom_window), area.width * next / 100, area.height * next / 100);
          }
-      } else if (!(state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
+      } else if (resize_for_zoom && !(state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
          int width, height;
          gtk_window_get_size(GTK_WINDOW(zoom_window), &width, &height);
          // Shrink/grow the normal window along with its controls; auto-resize
@@ -365,7 +374,6 @@ static void zoom_touch_begin(GtkGesture *gesture, GdkEventSequence *sequence, gp
    touch->tap = g_list_length(points) == 2 && event &&
       (event->type == GDK_TOUCH_BEGIN || event->type == GDK_TOUCH_UPDATE);
    if (touch->tap) {
-      // begin's sequence is the second finger; anchor the menu at the first.
       touch->points[0] = points->data == sequence ? points->next->data : points->data;
       touch->points[1] = sequence;
       for (int i = 0; i < 2; i++)
@@ -428,7 +436,7 @@ static gboolean zoom_touch_finish(gpointer data) {
       if (menu) menu(touch->target, touch->menu_x, touch->menu_y, GDK_CURRENT_TIME);
    }
    zoom_touch_clear(touch);
-   if (zoom_window) zoom_queue_resize();
+   if (zoom_window) zoom_queue_resize(true);
    return G_SOURCE_REMOVE;
 }
 
@@ -436,16 +444,14 @@ static void zoom_touch_end(GtkGesture *gesture, GdkEventSequence *sequence, gpoi
    zoom_touch_t *touch = data;
    zoom_touch_update(gesture, sequence, data);
    const GdkEvent *event = gtk_gesture_get_last_event(gesture, sequence);
-   guint32 elapsed = event ? (guint32)(gdk_event_get_time(event) - touch->started) : 401;
-   if (touch->active && touch->tap && touch->target && event && event->type == GDK_TOUCH_END && elapsed < 400) {
-      // end fires when the FIRST finger lifts. Wait for the other release so
-      // it cannot accidentally activate an item in the newly opened menu.
-      touch->wait_ms = 400 - elapsed;
+   if (touch->active && touch->tap && touch->target && event && event->type == GDK_TOUCH_END) {
+      // Defer menu display until both fingers are released.
+      touch->wait_ms = 40;
       touch->finish_source = g_timeout_add(20, zoom_touch_finish, touch);
       return;
    }
    zoom_touch_clear(touch);
-   if (zoom_window) zoom_queue_resize();
+   if (zoom_window) zoom_queue_resize(false);
 }
 
 static void zoom_touch_cancel(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
@@ -477,10 +483,40 @@ static void zoom_touch_bind(GtkWidget *window) {
    g_object_set_data_full(G_OBJECT(window), "rr-touch-zoom", touch, zoom_touch_free);
 }
 
+static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data);
+
+static void zoom_key_step(int direction, bool resize_window) {
+   unsigned maximum = resize_window && zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
+   int delta = direction > 0 ? 10 : direction < 0 ? -10 : 0;
+   int next = CLAMP(direction == 0 ? 100 : (int)zoom_percent + delta, 25, (int)maximum);
+   if (next == (int)zoom_percent) return;
+   if (resize_window) {
+      coupled_resize_keys = true;
+      coupled_resize_pending = true;
+   }
+   zoom_manual_set((unsigned)next);
+}
+
 void gtk_ui_zoom_step(int direction) {
-   int maximum = zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
-   int next = CLAMP((int)zoom_percent + (direction > 0 ? 10 : -10), 25, maximum);
-   if (next != (int)zoom_percent) zoom_manual_set(next);
+   zoom_key_step(direction, false);
+}
+
+gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+   (void)widget; (void)data;
+   if (event && (event->keyval == GDK_KEY_Control_L || event->keyval == GDK_KEY_Control_R)) {
+      coupled_resize_keys = false;
+      if (coupled_resize_pending) gtk_ui_zoom_recheck();
+      coupled_resize_pending = false;
+   }
+   return FALSE;
+}
+
+static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data) {
+   (void)widget; (void)event; (void)data;
+   coupled_resize_keys = false;
+   if (coupled_resize_pending) gtk_ui_zoom_recheck();
+   coupled_resize_pending = false;
+   return FALSE;
 }
 
 void gtk_ui_zoom_shutdown(void) {
@@ -493,6 +529,9 @@ void gtk_ui_zoom_shutdown(void) {
    if (zoom_window) {
       g_signal_handler_disconnect(zoom_window, resize_handler);
       g_signal_handler_disconnect(zoom_window, state_handler);
+      if (focus_handler) g_signal_handler_disconnect(zoom_window, focus_handler);
+      focus_handler = 0;
+      coupled_resize_keys = coupled_resize_pending = false;
       g_object_remove_weak_pointer(G_OBJECT(zoom_window), (gpointer *)&zoom_window);
       zoom_window = NULL;
    }
@@ -507,15 +546,21 @@ void gtk_ui_zoom_shutdown(void) {
    if (map_hook) { g_signal_remove_emission_hook(map_signal, map_hook); map_hook = 0; }
 }
 
-bool gtk_ui_zoom_key(const GdkEventKey *event) {
-   if (!event || event->type != GDK_KEY_PRESS || !(event->state & (GDK_MOD1_MASK | GDK_CONTROL_MASK))) return false;
+gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+   (void)data;
+   if (!event || event->type != GDK_KEY_PRESS) return FALSE;
+   const GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+   const bool control = (modifiers & GDK_CONTROL_MASK) != 0;
+   const bool alt = (modifiers & GDK_MOD1_MASK) != 0;
+   if (modifiers & ~(GDK_CONTROL_MASK | GDK_MOD1_MASK)) return FALSE;
+   if (!control && !alt) return false;
    switch (event->keyval) {
       case GDK_KEY_0: case GDK_KEY_KP_0:
-         zoom_manual_set(100); return true;
+         zoom_key_step(100 - (int)zoom_percent, false); return TRUE;
       case GDK_KEY_plus: case GDK_KEY_equal: case GDK_KEY_KP_Add:
-         gtk_ui_zoom_step(1); return true;
+         zoom_key_step(1, control); return TRUE;
       case GDK_KEY_minus: case GDK_KEY_KP_Subtract:
-         gtk_ui_zoom_step(-1); return true;
+         zoom_key_step(-1, control); return TRUE;
    }
    return false;
 }

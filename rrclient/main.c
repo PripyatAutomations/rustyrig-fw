@@ -416,10 +416,10 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    }
 
    if (strcasecmp(tmed->msg_type, "action") == 0) {
-      ui_print(tmed->target[0] ? tmed->target : NULL, "%s {bright-green}* {bright-cyan}%s{reset} %s",
+      ui_print(tmed->target[0] ? tmed->target : NULL, "%s \00309* \00311%s\017 %s",
          get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {
-      ui_print(tmed->target[0] ? tmed->target : NULL, "%s {bright-black}<{cyan}%s{bright-black}>{reset} %s{reset}",
+      ui_print(tmed->target[0] ? tmed->target : NULL, "%s \00314<\00310%s\00314>\017 %s\017",
          get_chat_ts(tmed->ts), tmed->from, tmed->data);
    }
 }

@@ -118,7 +118,7 @@ bool cmd_webcam(int argc, char **args) {
    webcam_image = gtk_image_new();
    gtk_container_add(GTK_CONTAINER(webcam_win), webcam_image);
    gtk_widget_show_all(webcam_win);
-   ui_print(NULL, "{bright-cyan}Webcam viewer open; subscribe to the video channel with {reset}/media SUB <uuid|#>{bright-cyan} to start the stream{reset}");
+   ui_print(NULL, "\00311Webcam viewer open; subscribe to the video channel with \017/media SUB <uuid|#>\00311 to start the stream\017");
 
    return false;
 }

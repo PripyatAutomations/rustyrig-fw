@@ -121,7 +121,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          char key[256];
          snprintf(key, sizeof(key), "network.%s.autojoin", np);
          Log(LOG_DEBUG, "cfg.network", "Adding autojoin for %s: %s", np, val);
-         ui_print(NULL, "[{bright-green}%s{reset}] Setting autojoin: %s", np, val);
+         ui_print(NULL, "[\00309%s\017] Setting autojoin: %s", np, val);
          const char *x = cfg_get(key);
 
          if (!x) {
@@ -146,7 +146,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          }
          free(tmpbuf);
       } else {
-         ui_print("status", "[{green}%s{reset}] adding server: %s", np, buf);
+         ui_print("status", "[\00303%s\017] adding server: %s", np, buf);
 
          // Weak symbol: cfg.servers.c may be disabled (old IRC transport)
          if (add_server) {

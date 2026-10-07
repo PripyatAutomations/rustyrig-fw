@@ -570,7 +570,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
             ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
             dict_free(state);
          }
-         ws_send_error(cptr, "PTT request rejected by station safety controls or radio backend");
+         ws_send_error(cptr, "PTT request rejected (%s) for VFO %s in room %s by station safety controls or radio backend; check the server log for the cause", rc_ptt ? "start" : "stop", rc_vfo, room);
       }
       dict_free(d);
 
@@ -580,7 +580,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    if (!strcasecmp(rc_cmd, "power")) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
-         if (cptr) { ws_send_error(cptr, "Unable to set power on %s", room); }
+         if (cptr) { ws_send_error(cptr, "Unable to set power to %g watts on VFO %s in room %s", (double)rc_power, rc_vfo, room); }
       } else {
          Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
          rr_backend_poll_rig(radio, object);

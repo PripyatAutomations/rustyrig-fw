@@ -1,4 +1,19 @@
-rustyrig-fw (20261006.03) testing; urgency=medium
+rustyrig-fw (20261007.03) testing; urgency=medium
+  * Add Ctrl+B/C/I/O/R mIRC formatting controls to GTK chat input, matching
+    the TUI shortcuts; Ctrl+U clears the input as in the TUI.
+  * Wrap the GTK main notebook's tab strip into additional rows rather than
+    horizontally scrolling, keeping tabs available on narrower windows.
+  * Separate GTK zoom shortcuts: Ctrl +/- changes font/UI zoom and proportionally
+    resizes the window; Alt +/- changes font/UI zoom only. Two-finger pinch zooms
+    without resizing, and ordinary window-resize auto-scaling stays enabled.
+  * Open GTK userlist context menus with a two-finger tap on touchscreen rows;
+    preserve right-click menus for mouse and touchpad users.
+  * Render help section headings in red and use mIRC formatting for built-in
+    client output. Reuse the TUI mIRC parser, preserving numeric text and style
+    toggles. Clarify PTT, rig control and codec failures with target context.
+  * Fix RustyAxe test artifact paths so its suite can build from its registered
+    component directory, and resolve WebUI test sources relative to their script.
+
   * Add GTK pinch-to-zoom and two-finger tap userlist menus, suppressing
     accidental clicks and waiting for both fingers to lift before opening menus.
   * Default ui.gtk.scale-on-resize to true: derive GTK scale from the main

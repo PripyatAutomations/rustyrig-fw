@@ -1,5 +1,11 @@
 {
     "CodeGPT.apiKey": "CodeGPT Plus Beta",
     "cmake.sourceDirectory": "/home/orc/rustyrig-fw/ext/codec2",
-    "cmake.autoDetectSourceDirectory": false
+    "cmake.autoDetectSourceDirectory": false,
+    "chat.tools.terminal.autoApprove": {
+        "/^bash rrclient/tests/test_gtk_formatting\\.sh$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
 }

@@ -92,7 +92,8 @@ extern void gtk_ui_zoom_apply(void);
 extern void gtk_ui_zoom_recheck(void);
 extern void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content);
 extern void gtk_ui_zoom_step(int direction);
-extern bool gtk_ui_zoom_key(const GdkEventKey *event);
+extern gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data);
+extern gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data);
 extern void gtk_ui_zoom_shutdown(void);
 extern bool gtk_css_apply_cfg(void);                 // cfg.gtkcss.c
 extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c

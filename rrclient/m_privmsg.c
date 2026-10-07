@@ -57,7 +57,7 @@ bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args)
       }
    } else {
       Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      ui_print(window, "%s {bright-black}<{bright-cyan}%s{bright-black}>{reset} %s", get_chat_ts(0), cptr->nick, buf);
+      ui_print(window, "%s \00314<\00311%s\00314>\017 %s", get_chat_ts(0), cptr->nick, buf);
    }
 #endif
 
@@ -106,10 +106,10 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    }
 
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-      ui_print(NULL, "%s {bright-black}<{bright-green}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick,
+      ui_print(NULL, "%s \00314<\00309%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick,
          colored);
    } else {
-      ui_print(NULL, "%s {bright-black}<{bright-yellow}%s{bright-black}>{reset} %s{reset} ", get_chat_ts(0), tmp_nick,
+      ui_print(NULL, "%s \00314<\00308%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick,
          colored);
    }
    free(colored);

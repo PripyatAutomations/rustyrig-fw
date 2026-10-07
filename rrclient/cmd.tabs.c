@@ -60,7 +60,7 @@ bool cmd_editcfg(int argc, char **args) {
 
       return false;
    }
-   ui_print(ui_active_window_name(), "{bright-red}/editcfg is only available in the GTK UI{reset}");
+   ui_print(ui_active_window_name(), "\00304/editcfg is only available in the GTK UI\017");
 
    return false;
 }

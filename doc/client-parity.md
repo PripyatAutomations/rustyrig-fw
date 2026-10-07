@@ -306,15 +306,29 @@ monitor's usable work area, using the smaller width/height ratio, from 25% to
 100%. Maximized/fullscreen is 100%; secondary windows inherit the scale but do
 not drive it. A scrollable root lets the main window shrink below its contents'
 previous minimum; overflow remains reachable at the 25% floor. Resize updates
-are debounced and never resize the window themselves. Manual +/- also resizes
-the window proportionally; in automatic mode reset/100% maximizes it. Set the
-option false for manual 25–300% zoom. Saved window placement still applies;
+are debounced and never resize the window themselves. Ctrl +/- changes font/UI
+zoom and proportionally resizes the window; Alt +/- changes font/UI zoom only.
+Reset to 100% maximizes the window in automatic mode. Set the option false for
+manual 25–300% zoom. Saved window placement still applies;
 without saved placement, automatic mode opens at 75% of the primary monitor.
 
-GTK multitouch: two-finger pinch uses the existing manual interface/window zoom,
-in 5% steps within the current zoom limits. A stationary two-finger touchscreen
+GTK multitouch: two-finger pinch changes font/UI zoom only in 5% steps within
+the current zoom limits. Window edge resizing (with automatic scaling enabled)
+continues to update the zoom. A stationary two-finger touchscreen
 tap on a userlist row opens its existing right-click menu after both fingers
 lift (400ms tap limit, 10 logical-pixel movement tolerance). Pinches, drags,
-extra fingers and cancelled touches do not open menus. Touchpad taps already
-translated to right-click remain supported; pinch requires gesture events from
-the platform. Gestures are GTK-only and leave browser-native gestures unchanged.
+extra fingers and cancelled touches do not open menus. Mouse and touchpad
+right-click remain supported. Pinch/tap gestures are GTK-only and leave
+browser-native gestures unchanged.
+
+The GTK main notebook tab strip wraps tabs to additional rows instead of using
+horizontal scroll arrows, so every tab remains directly visible and selectable.
+
+Built-in native client messages now use mIRC color/style controls. GTK already
+renders these; TUI rendering reuses `irc_to_tui_colors`, including style toggles
+and numeric text after two-digit color codes. Chat input in GTK and TUI supports
+Ctrl+B/C/I/O/R to insert bold, color, italic, reset and reverse controls. Ctrl+U
+clears the current input. Legacy `{color}` configuration
+and theme tags remain supported. Help section headings are red in both clients.
+PTT/control errors identify the VFO and room; codec errors identify the channel
+and codec where known. Privilege rules and wire command semantics are unchanged.

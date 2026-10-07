@@ -57,11 +57,11 @@ void tui_refresh_sb_online(void) {
    memset( sb_online, 0, sizeof(sb_online) );
 
    if (ws_connected == 1) {
-      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-green}ONLINE{bright-black}]{reset}");
+      snprintf(sb_online, sizeof(sb_online), "\00314[\00309ONLINE\00314]\017");
    } else if (ws_connected == 0) {
-      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-red}OFFLINE{bright-black}]{reset}");
+      snprintf(sb_online, sizeof(sb_online), "\00314[\00304OFFLINE\00314]\017");
    } else if (ws_connected == -1) {
-      snprintf(sb_online, sizeof(sb_online), "{bright-black}[{bright-yellow}Trying{bright-black}]{reset}");
+      snprintf(sb_online, sizeof(sb_online), "\00314[\00308Trying\00314]\017");
    }
 }
 
@@ -69,12 +69,12 @@ void tui_refresh_sb_online(void) {
 void tui_refresh_sb_window(void) {
    tui_window_t *tw = tui_active_window();
    memset( sb_window, 0, sizeof(sb_window) );
-   const char *win_color = "{bright-cyan}";
+   const char *win_color = "\00311";
 
    if (tw->title[0] == '&' || tw->title[0] == '#') {
-      win_color = "{bright-magenta}";
+      win_color = "\00313";
    }
-   snprintf(sb_window, sizeof(sb_window), "{bright-black}[%s%s{bright-black}]{reset}", win_color, tw->title);
+   snprintf(sb_window, sizeof(sb_window), "\00314[%s%s\00314]\017", win_color, tw->title);
 }
 
 // Refresh statusbar VFO section
@@ -138,7 +138,7 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 
    // Print a colorized version of the test
    // XXX: Should we make a function to strip color escapes for below?
-   ui_print(NULL, "{red}*** {bright-red}ALERT {red}***{reset} %s: %s", msg_from, msg_data);
+   ui_print(NULL, "\00304*** \00304ALERT \00304***\017 %s: %s", msg_from, msg_data);
 
    char my_msg[512];
    memset( my_msg, 0, sizeof(my_msg) );
@@ -173,7 +173,7 @@ static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_
          tot_width = dict_get_int(d, "ptt.tot.width", 0);
 
          if (tot_user || tot_vfo || tot_mode) {
-            ui_print( NULL, "{red}PTT Halted: %s on VFO %s @ %ld Hz %s %d Hz after %d seconds{reset}",
+            ui_print( NULL, "\00304PTT Halted: %s on VFO %s @ %ld Hz %s %d Hz after %d seconds\017",
                tot_user ? tot_user : "unknown user", tot_vfo ? tot_vfo : "?", tot_freq, tot_mode ? tot_mode : "?",
                tot_width, ( tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
          }
@@ -183,7 +183,7 @@ static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_
 
    // Show the timeout in the TUI scrollback (both UIs print to scrollback)
    if (!tot_user && !tot_vfo && !tot_mode) {
-      ui_print( NULL, "{red}PTT Halted: Talk Timeout after %d seconds{reset}",
+      ui_print( NULL, "\00304PTT Halted: Talk Timeout after %d seconds\017",
          ( tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
    }
 
@@ -217,7 +217,7 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
       }
 
       ui_print( NULL,
-         "%s {bright-cyan}Welcome back, {bright-yellow}%s{bright-cyan}! You have {bright-green}%s{bright-cyan} privileges",
+         "%s \00311Welcome back, \00308%s\00311! You have \00309%s\00311 privileges",
          get_chat_ts(a_ts), a_user, a_privs);
 
       if (ui_mode == UI_MODE_TUI) {
@@ -262,7 +262,7 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    // Show the error in the UI and stop the reconnect engine: retrying with
    // bad credentials just hammers the server. PARITY: webui.auth.js stops
    // reconnecting on auth errors too.
-   ui_print( NULL, "%s {red}Authentication error: %s{reset}", get_chat_ts(now),
+   ui_print( NULL, "%s \00304Authentication error: %s\017", get_chat_ts(now),
       (error_msg ? error_msg : "unknown error") );
 
    dict_dump(d, NULL);
@@ -355,7 +355,7 @@ static void rrclient_handle_hello(const char *event, const char *data, rrconn_t 
    dict *d = json2dict(data);
    const char *m_hwver = dict_get(d, "hello.hwver", (char *)"misconfigured radio");
    const char *m_swver = dict_get(d, "hello.swver", (char *)"1.2.3.4");
-   ui_print(NULL, "%s {bright-yellow}Your host is running {bright-green}%s{bright-yellow} on {bright-green}%s",
+   ui_print(NULL, "%s \00308Your host is running \00309%s\00308 on \00309%s",
       get_chat_ts(0), m_swver, m_hwver);
    dict_free(d);
 }
@@ -440,31 +440,31 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    }
 
    if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
-      ui_print(output_room, "{red}>>>{reset} Start of chat chat replay. {red}<<<{reset}");
+      ui_print(output_room, "\00304>>>\017 Start of chat chat replay. \00304<<<\017");
    } else if (msg_cmd && strcasecmp(msg_cmd, "replay-completed") == 0) {
-      ui_print(output_room, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
+      ui_print(output_room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    } else if (msg_type && msg_data) {
       if (strcasecmp(msg_type, "action") == 0) {
-         ui_print(output_room, "%s {yellow}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s \00308*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "pub") == 0) {
          if (login_user != NULL && strcmp(from, login_user) == 0) {
-            ui_print(output_room, "%s {yellow}=>{reset} %s", get_chat_ts(msg_ts), msg_data);
+            ui_print(output_room, "%s \00308=>\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
-            ui_print(output_room, "%s {yellow}<{reset}%s{yellow}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
+            ui_print(output_room, "%s \00308<\017%s\00308>\017 %s", get_chat_ts(msg_ts), from, msg_data);
          }
       } else if (strcasecmp(msg_type, "replay-pub") == 0) {
-         ui_print(output_room, "%s {red}<{reset}%s{red}>{reset} %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s \00304<\017%s\00304>\017 %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "replay-action") == 0) {
-         ui_print(output_room, "%s {red}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s \00304*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "priv") == 0) {
          if (from && login_user && strcasecmp(from, login_user) == 0) {
-            ui_print(output_room, "%s {bright-green}->{reset} %s", get_chat_ts(msg_ts), msg_data);
+            ui_print(output_room, "%s \00309->\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
-            ui_print(output_room, "%s {bright-green}*{reset}%s{bright-green}*{reset} %s", get_chat_ts(msg_ts),
+            ui_print(output_room, "%s \00309*\017%s\00309*\017 %s", get_chat_ts(msg_ts),
                from ? from : "?", msg_data);
          }
       } else if (strcasecmp(msg_type, "replay-priv") == 0 || strcasecmp(msg_type, "replay-privmsg") == 0) {
-         ui_print(output_room, "%s {magenta}*{reset}%s{magenta}*{reset} %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s \00306*\017%s\00306*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       }
       cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
 
@@ -481,7 +481,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print( NULL, "%s *** {bright-yellow}Connecting{reset} ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** \00308Connecting\017 ***", get_chat_ts(now) );
       rrclient_update_connection_ui(-1);
    } else if (strcasecmp(event, "connected") == 0) {
       if (!data) {
@@ -498,7 +498,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             free( (void *)login_user );
          }
          login_user = strdup(user);
-         ui_print( NULL, "%s *** {green}Connected, logging in as %s{reset} ***", get_chat_ts(now), login_user );
+         ui_print( NULL, "%s *** \00303Connected, logging in as %s\017 ***", get_chat_ts(now), login_user );
       }
       rrclient_update_connection_ui(-1);
 
@@ -507,14 +507,14 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
-      ui_print( NULL, "%s *** {green}Logged in!{reset} ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** \00303Logged in!\017 ***", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
 
       if ( frontend_ops() ) {
          frontend_ops()->ptt_set_online(true);
       }
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
-      ui_print( NULL, "%s *** {red}DISCONNECTED{reset} ***", get_chat_ts(now) );
+      ui_print( NULL, "%s *** \00304DISCONNECTED\017 ***", get_chat_ts(now) );
       rrclient_set_offline();
 
       if ( frontend_ops() && cfg_get_bool("ui.auto-show-userlist", true) ) {
@@ -539,9 +539,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
 
       if (err) {
-         ui_print(NULL, "%s {red}*** Unable to reach server: %s{reset}", get_chat_ts(now), err);
+         ui_print(NULL, "%s \00304*** Unable to reach server: %s\017", get_chat_ts(now), err);
       } else {
-         ui_print( NULL, "%s {red}*** Unable to reach server{reset}", get_chat_ts(now) );
+         ui_print( NULL, "%s \00304*** Unable to reach server\017", get_chat_ts(now) );
       }
       free( (void *)err );
       rrclient_set_offline();
@@ -562,7 +562,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             dict_free(d);
          }
       }
-      ui_print( ui_active_window_name(), "%s {red}*** ERROR%s%s:{reset} %s", get_chat_ts(now), (from ? " from " : ""),
+      ui_print( ui_active_window_name(), "%s \00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""),
          (from ? from : ""), (err ? err : "unknown error") );
       free( (void *)err );
       free( (void *)from );
@@ -681,7 +681,7 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
       rrclient_room_set_rx_tuning_mask( room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
 
       if ( frontend_ops() ) { frontend_ops()->userlist_room_vfos_changed(room); }
-      ui_print(room, "{yellow}Room %s VFOs:{reset} %s", room, *vfos ? vfos : "(none)");
+      ui_print(room, "\00308Room %s VFOs:\017 %s", room, *vfos ? vfos : "(none)");
    }
    dict_free(d);
 }
@@ -698,9 +698,9 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
    const char *output = ui_active_window_name();
 
    if (room && *room) {
-      ui_print(output, "{yellow}VFO mappings for %s:{reset}", room);
+      ui_print(output, "\00308VFO mappings for %s:\017", room);
    } else {
-      ui_print(output, "{yellow}Room/VFO mappings:{reset}");
+      ui_print(output, "\00308Room/VFO mappings:\017");
    }
 
    if (!vfos || !*vfos) {
@@ -743,11 +743,11 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
       if ( frontend_ops() ) {
          frontend_ops()->chat_room_topic(room, topic);
       } else if (query) {
-         ui_print(room, "{yellow}Topic:{reset} %s", *topic ? topic : "(none)");
+         ui_print(room, "\00308Topic:\017 %s", *topic ? topic : "(none)");
       } else if ( from && *from && (!login_user || strcasecmp(from, login_user) != 0) ) {
-         ui_print(room, "{yellow}Topic changed by %s:{reset} %s", from, *topic ? topic : "(none)");
+         ui_print(room, "\00308Topic changed by %s:\017 %s", from, *topic ? topic : "(none)");
       } else if (!from || !*from) {
-         ui_print(room, "{yellow}Topic:{reset} %s", *topic ? topic : "(none)");
+         ui_print(room, "\00308Topic:\017 %s", *topic ? topic : "(none)");
       }
    }
    dict_free(d);
@@ -761,7 +761,7 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
 
    if (!d) { return; }
    const char *rooms = dict_get(d, "talk.rooms", "");
-   ui_print(ui_active_window_name(), "{yellow}Available rooms:{reset} %s", (rooms && *rooms) ? rooms : "(none)");
+   ui_print(ui_active_window_name(), "\00308Available rooms:\017 %s", (rooms && *rooms) ? rooms : "(none)");
    dict_free(d);
 }
 
@@ -787,7 +787,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
          if (window) { tui_window_destroy(window); }
          tui_window_focus("status");
       }
-      ui_print(NULL, "{yellow}Room %s was removed by an administrator{reset}", room);
+      ui_print(NULL, "\00308Room %s was removed by an administrator\017", room);
    }
    dict_free(d);
 }
@@ -822,7 +822,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
          if (window) { tui_window_destroy(window); }
          tui_window_focus("status");
       }
-      ui_print(NULL, "{yellow}Left room %s{reset}", room);
+      ui_print(NULL, "\00308Left room %s\017", room);
    }
    dict_free(d);
 }
@@ -881,9 +881,9 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
    if ( room && frontend_ops() ) { frontend_ops()->chat_room_add(room); }
 
    if (cmd && strcasecmp(cmd, "replay-start") == 0) {
-      ui_print(room, "{red}>>>{reset} Start of chat replay. {red}<<<{reset}");
+      ui_print(room, "\00304>>>\017 Start of chat replay. \00304<<<\017");
    } else if ( cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
-      ui_print(room, "{red}>>>{reset} Finished chat replay. {red}<<<{reset}");
+      ui_print(room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    }
    dict_free(d);
 }
@@ -915,9 +915,9 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
       if ( room && frontend_ops() ) { frontend_ops()->chat_room_add(room); }
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
-         ui_print( room, "%s {red}>>>{reset} Start of chat replay. {red}<<<{reset}", get_chat_ts(msg_ts) );
+         ui_print( room, "%s \00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
       } else if ( cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
-         ui_print( room, "%s {red}>>>{reset} Finished chat replay. {red}<<<{reset}", get_chat_ts(msg_ts) );
+         ui_print( room, "%s \00304>>>\017 Finished chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
       } else {
          Log( LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>") );
       }
@@ -972,7 +972,7 @@ static void rrclient_handle_callsign(const char *event, const char *data, rrconn
    if ( status || dict_get_bool(d, "callsign.done", false) ) {
       if (!callsign_notice_active) {
          callsign_notice_active = true;
-         ui_print( NULL, "%s {bright-yellow}CALLSIGN{reset}:", get_chat_ts( dict_get_time_t(d, "msg.ts", now) ) );
+         ui_print( NULL, "%s \00308CALLSIGN\017:", get_chat_ts( dict_get_time_t(d, "msg.ts", now) ) );
       }
    }
 
@@ -1034,7 +1034,7 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
 
       if (strncmp(msg, "200 OK ", 7) == 0) {
          callsign_notice_active = true;
-         ui_print( output, "%s {bright-yellow}NOTICE{reset}:", get_chat_ts(msg_ts) );
+         ui_print( output, "%s \00308NOTICE\017:", get_chat_ts(msg_ts) );
          rrclient_print_callsign_line(msg);
       } else if (callsign_field && callsign_notice_active) {
          rrclient_print_callsign_line(msg);
@@ -1042,7 +1042,7 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
          if (strncmp(msg, "Country:", 8) == 0) { callsign_notice_active = false; }
       } else {
          callsign_notice_active = false;
-         ui_print(output, "%s {bright-yellow}NOTICE{reset}: %s", get_chat_ts(msg_ts), msg);
+         ui_print(output, "%s \00308NOTICE\017: %s", get_chat_ts(msg_ts), msg);
       }
    }
    dict_free(d);
@@ -1126,31 +1126,31 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    time_t last_heard = dict_get_time_t(d, "talk.last_heard", 0);
    int sessions = dict_get_int(d, "talk.sessions", 0);
 
-   ui_print(output, "{cyan}***{reset} {bold}Whois for %s{reset}", username);
-   ui_print(output, "{cyan}***{reset} Email:      %s", email);
-   ui_print(output, "{cyan}***{reset} Privileges: %s", privs);
+   ui_print(output, "\00310***\017 \002Whois for %s\017", username);
+   ui_print(output, "\00310***\017 Email:      %s", email);
+   ui_print(output, "\00310***\017 Privileges: %s", privs);
 
    if (muted) {
       ui_print(output,
-         "{cyan}***{reset} {bright-red}This user is currently MUTEd. Rigctl is temporarily suspended.{reset}");
+         "\00310***\017 \00304This user is currently MUTEd. Rigctl is temporarily suspended.\017");
    }
 
-   ui_print(output, "{cyan}***{reset} Sessions:   %d", sessions);
+   ui_print(output, "\00310***\017 Sessions:   %d", sessions);
 
    if (connected > 0) {
       char buf[64];
       strftime( buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&connected) );
-      ui_print(output, "{cyan}***{reset} Connected:  %s", buf);
+      ui_print(output, "\00310***\017 Connected:  %s", buf);
    }
 
    if (last_heard > 0) {
       char buf[64];
       strftime( buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&last_heard) );
-      ui_print(output, "{cyan}***{reset} Last heard: %s", buf);
+      ui_print(output, "\00310***\017 Last heard: %s", buf);
    }
 
-   ui_print(output, "{cyan}***{reset} Client:     %s", ua);
-   ui_print(output, "{cyan}***{reset} {bold}End of WHOIS %s{reset}", username);
+   ui_print(output, "\00310***\017 Client:     %s", ua);
+   ui_print(output, "\00310***\017 \002End of WHOIS %s\017", username);
 
    dict_free(d);
 }

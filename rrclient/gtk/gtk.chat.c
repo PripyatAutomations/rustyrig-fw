@@ -362,6 +362,27 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry,
       return FALSE;
    }
 
+   GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+   if ((modifiers & GDK_CONTROL_MASK) && !(modifiers & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
+      guint8 control_code = 0;
+      switch (event->keyval) {
+         case GDK_KEY_b: case GDK_KEY_B: control_code = 0x02; break; // Bold
+         case GDK_KEY_c: case GDK_KEY_C: control_code = 0x03; break; // Color
+         case GDK_KEY_i: case GDK_KEY_I: control_code = 0x1d; break; // Italic
+         case GDK_KEY_o: case GDK_KEY_O: control_code = 0x0f; break; // Reset
+         case GDK_KEY_u: case GDK_KEY_U:
+            gtk_entry_set_text(GTK_ENTRY(entry), "");
+            return TRUE; // Ctrl-U clears input, matching the TUI
+         case GDK_KEY_r: case GDK_KEY_R: control_code = 0x16; break; // Reverse
+      }
+      if (control_code) {
+         gint position = gtk_editable_get_position(GTK_EDITABLE(entry));
+         gtk_editable_insert_text(GTK_EDITABLE(entry), (const gchar *)&control_code, 1, &position);
+         gtk_editable_set_position(GTK_EDITABLE(entry), position);
+         return TRUE;
+      }
+   }
+
    if (event->keyval == GDK_KEY_Tab) {
       gtk_chat_do_completion(GTK_ENTRY(entry));
       return TRUE;

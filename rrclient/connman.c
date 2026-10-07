@@ -88,7 +88,7 @@ static void rrclient_schedule_reconnect(void) {
    }
 
    if (reconnect_tries >= RRC_MAX_RECONNECTS) {
-      ui_print(NULL, "%s {red}Giving up after %u reconnect attempts{reset}", get_chat_ts(now), reconnect_tries);
+      ui_print(NULL, "%s \00304Giving up after %u reconnect attempts\017", get_chat_ts(now), reconnect_tries);
       reconnect_enabled = false;
 
       return;
@@ -106,7 +106,7 @@ static void rrclient_schedule_reconnect(void) {
    reconnect_at = time(NULL) + delay;
    ws_connected = -1;
    tui_refresh_sb_online();
-   ui_print(NULL, "%s {bright-yellow}Reconnecting in %u second%s (attempt %u/%u){reset}", get_chat_ts(now), delay,
+   ui_print(NULL, "%s \00308Reconnecting in %u second%s (attempt %u/%u)\017", get_chat_ts(now), delay,
       delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
 }
 

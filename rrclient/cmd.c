@@ -228,7 +228,7 @@ bool parse_chat_input_real(const char *msg) {
       }
 
       if (!cmd || !cmd->cb) {
-         ui_print(ui_active_window_name(), "{red}*** Invalid command: /%s{reset}", mp);
+         ui_print(ui_active_window_name(), "\00304*** Invalid command: /%s\017", mp);
 
          return true;
       }
@@ -316,7 +316,7 @@ bool parse_chat_input_real(const char *msg) {
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
       if ( cmd->admin && !media_have_priv("admin|owner") ) {
-         ui_print(ui_active_window_name(), "{red}You do not have enough privileges to use '/%s'{reset}", cmd_argv[0]);
+         ui_print(ui_active_window_name(), "\00304Command /%s requires account admin or owner privilege\017", cmd_argv[0]);
          free(input);
 
          return false;
@@ -325,7 +325,7 @@ bool parse_chat_input_real(const char *msg) {
       free(input);
    } else {
       if (!ws_connected) {
-         ui_print(ui_active_window_name(), "{red}*** Not connected to server ***{reset}");
+         ui_print(ui_active_window_name(), "\00304*** Not connected to server ***\017");
 
          return false;
       }
@@ -366,7 +366,7 @@ bool parse_chat_input_real(const char *msg) {
             if (room && *room) { dict_add(d, "talk.target", room); }
          } else {
             ui_print(ui_active_window_name(),
-               "{yellow}Select a room tab before sending a message (status is for client logs and commands){reset}");
+               "\00308Select a room tab before sending a message (status is for client logs and commands)\017");
             dict_free(d);
 
             return false;

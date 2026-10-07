@@ -231,7 +231,7 @@ defconfig_t defcfg[] = {
       "ui.gtk.scale-on-resize", "true", "Scale GTK controls to window size relative to its monitor", DEFCONFIG_BOOL, NULL
    },
    {
-      "ui.gtk.zoom", "100", "GTK interface size percent (25-300); Alt/Ctrl +/- adjusts by 10", DEFCONFIG_UINT, NULL
+      "ui.gtk.zoom", "100", "GTK interface zoom percent (25-300); Ctrl +/- resizes window and fonts, Alt +/- fonts only", DEFCONFIG_UINT, NULL
    },
    {
       "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?", DEFCONFIG_BOOL, NULL

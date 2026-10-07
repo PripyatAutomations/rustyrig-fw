@@ -113,7 +113,7 @@ static void cmd_set_print_key(const char *key) {
       value = "(unset)";
    }
 
-   ui_print(ui_active_window_name(), "%s%s = %s {bright-black}[%s%s]{reset}", def ? "" : "* ", key, value,
+   ui_print(ui_active_window_name(), "%s%s = %s \00314[%s%s]\017", def ? "" : "* ", key, value,
       def ? cmd_set_type_name(def->type) : "custom", def && def->help ? "; " : "", def && def->help ? def->help : "");
 }
 
@@ -184,7 +184,7 @@ static bool cmd_set_list(const char *pattern) {
    }
 
    if (!count) {
-      ui_print(ui_active_window_name(), "{yellow}No configuration keys match '%s'{reset}",
+      ui_print(ui_active_window_name(), "\00308No configuration keys match '%s'\017",
          (pattern && *pattern) ? pattern : "*");
    }
    free(keys);
@@ -212,17 +212,17 @@ bool cmd_set(int argc, char **args) {
    const defconfig_t *def = cfg_defconfig_find(args[1]);
 
    if (!def) {
-      ui_print(ui_active_window_name(), "{red}Unknown configuration key: %s{reset}", args[1]);
+      ui_print(ui_active_window_name(), "\00304Unknown configuration key: %s\017", args[1]);
 
       return false;
    }
 
    if ( !cfg_set_value(args[1], value) ) {
-      ui_print(ui_active_window_name(), "{red}Invalid value for %s{reset}", args[1]);
+      ui_print(ui_active_window_name(), "\00304Invalid value for %s\017", args[1]);
 
       return false;
    }
-   ui_print( ui_active_window_name(), "{green}Set %s = %s{reset}", args[1], cfg_get(args[1]) );
+   ui_print( ui_active_window_name(), "\00303Set %s = %s\017", args[1], cfg_get(args[1]) );
 
    return false;
 }
@@ -437,7 +437,7 @@ void rrclient_print_callsign_line(const char *line) {
     * recognizable, and align the field labels without parsing or discarding any returned
     * data. */
    if (strncmp(line, "200 OK ", 7) == 0) {
-      ui_print(ui_active_window_name(), "{bright-green}%s{reset}", line);
+      ui_print(ui_active_window_name(), "\00309%s\017", line);
 
       return;
    }
@@ -446,7 +446,7 @@ void rrclient_print_callsign_line(const char *line) {
 
    if (colon && colon != line) {
       int label_len = (int)(colon - line);
-      ui_print(ui_active_window_name(), "  {bright-cyan}%.*s:{reset}%s", label_len, line, colon + 1);
+      ui_print(ui_active_window_name(), "  \00311%.*s:\017%s", label_len, line, colon + 1);
 
       return;
    }
@@ -507,7 +507,7 @@ bool cmd_save(int argc, char **args) {
    }
 
    if (!cfg) {
-      ui_print(ui_active_window_name(), "{red}*** Cannot save: configuration is not loaded{reset}");
+      ui_print(ui_active_window_name(), "\00304*** Cannot save: configuration is not loaded\017");
 
       return false;
    }
@@ -517,17 +517,17 @@ bool cmd_save(int argc, char **args) {
    int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg", (home && *home) ? home : ".");
 
    if ( written < 0 || (size_t)written >= sizeof(path) ) {
-      ui_print(ui_active_window_name(), "{red}*** Cannot save: configuration path is too long{reset}");
+      ui_print(ui_active_window_name(), "\00304*** Cannot save: configuration path is too long\017");
 
       return false;
    }
 
    if ( !cfg_save(cfg, path) ) {
-      ui_print(ui_active_window_name(), "{red}*** Failed to save configuration to %s{reset}", path);
+      ui_print(ui_active_window_name(), "\00304*** Failed to save configuration to %s\017", path);
 
       return false;
    }
-   ui_print(ui_active_window_name(), "{green}Configuration saved to %s{reset}", path);
+   ui_print(ui_active_window_name(), "\00303Configuration saved to %s\017", path);
 
    return false;
 }
@@ -557,7 +557,7 @@ bool cmd_quit(int argc, char **args) {
       return false;
    }
 
-   ui_print(ui_active_window_name(), "{bright-cyan}Seeya soon, have a great day!{reset}");
+   ui_print(ui_active_window_name(), "\00311Seeya soon, have a great day!\017");
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "auth");
