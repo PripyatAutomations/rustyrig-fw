@@ -328,7 +328,8 @@ Built-in native client messages now use mIRC color/style controls. GTK already
 renders these; TUI rendering reuses `irc_to_tui_colors`, including style toggles
 and numeric text after two-digit color codes. Chat input in GTK and TUI supports
 Ctrl+B/C/I/O/R to insert bold, color, italic, reset and reverse controls. Ctrl+U
-clears the current input. Legacy `{color}` configuration
-and theme tags remain supported. Help section headings are red in both clients.
+clears the current input. Theme and status-line colors use the same IRC controls
+and config escapes documented in `doc/irc-formatting.md`. Help section headings
+are red in both clients.
 PTT/control errors identify the VFO and room; codec errors identify the channel
 and codec where known. Privilege rules and wire command semantics are unchanged.

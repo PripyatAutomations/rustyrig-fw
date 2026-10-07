@@ -129,6 +129,26 @@ static void completion_words(char ***matches, size_t *count, const char *values,
    free(copy);
 }
 
+static char **complete_rooms(const char *word, bool include_available) {
+   char **matches = NULL;
+   size_t count = 0;
+   for (unsigned int index = 0 ;; index++) {
+      const char *room = rrclient_room_iter(index);
+      if (!room) break;
+      if (room[0] != '#' && room[0] != '&') continue;
+      completion_add(&matches, &count, room, word);
+   }
+   if (include_available) {
+      for (unsigned int index = 0 ;; index++) {
+         const char *room = rrclient_room_available_iter(index);
+         if (!room) break;
+         if (room[0] != '#' && room[0] != '&') continue;
+         completion_add(&matches, &count, room, word);
+      }
+   }
+   return matches;
+}
+
 static char **complete_config_keys(const char *word) {
    char **matches = NULL;
    size_t count = 0;
@@ -182,7 +202,11 @@ char **client_cmd_completions(const char *line, const char *word) {
    size_t count = 0;
 
    if (arg && command) {
-      if (!strcasecmp(command, "/server") && arg == 1) {
+      if (arg == 1 && (!strcasecmp(command, "/join") || !strcasecmp(command, "/j"))) {
+         matches = complete_rooms(word, true);
+      } else if (arg == 1 && !strcasecmp(command, "/part")) {
+         matches = complete_rooms(word, false);
+      } else if (!strcasecmp(command, "/server") && arg == 1) {
          matches = complete_server_names(word);
       } else if ( arg == 1 && ( !strcasecmp(command, "/whois") ||
                                 !strcasecmp(command, "/kick") || !strcasecmp(command, "/mute") ||
@@ -287,9 +311,17 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if ( !strcasecmp(command, "/room") ) {
          if (arg == 1) {
-            completion_words(&matches, &count, "LIST ADD REMOVE #", word);
-         } else if (arg == 2 && first && (!strcasecmp(first, "ADD") || !strcasecmp(first, "REMOVE"))) {
+            completion_words(&matches, &count, "LIST ADD REMOVE", word);
+            if (word[0] == '#' || word[0] == '&') {
+               char **rooms = complete_rooms(word, true);
+               for (size_t i = 0; rooms && rooms[i]; i++)
+                  completion_add(&matches, &count, rooms[i], word);
+               completion_free(rooms);
+            }
+         } else if (arg == 2 && first && !strcasecmp(first, "ADD")) {
             completion_words(&matches, &count, "#", word);
+         } else if (arg == 2 && first && !strcasecmp(first, "REMOVE")) {
+            matches = complete_rooms(word, true);
          } else if (arg >= 3 && first && !strcasecmp(first, "REMOVE")) {
             completion_words(&matches, &count, "--force --history -f -h", word);
          } else if (arg == 2 && first && first[0] == '#') {

@@ -208,7 +208,7 @@ defconfig_t defcfg[] = {
       "server.auto-connect", NULL, "Profile name to autoconnect on start"
    },
    {
-      "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and {color} escapes"
+      "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and IRC formatting escapes"
    },
    {
       "tui.room-status-line", RRCLIENT_DEFAULT_ROOM_STATUS_LINE, "Top row template for rooms without an attached VFO"
@@ -269,10 +269,7 @@ defconfig_t defcfg[] = {
    },
 #endif // _WIN32
    {
-      "ui.theme.completion", "cyan", "Color tag used for tab-completion candidates"
-   },
-   {
-      "ui.theme.headers", "cyan", "Color tag used for headers (help banner, section titles)"
+      "ui.theme.completion", "\00310", "mIRC color prefix for tab-completion candidates"
    },
    {
       "ui.ptt-ack-timeout", "2", "How long to wait for server to ACK ptt button?", DEFCONFIG_UINT, NULL

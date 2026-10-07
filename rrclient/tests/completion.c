@@ -12,6 +12,14 @@ const char *ui_active_window_name(void) { return active_window; }
 static bool admin;
 bool media_have_priv(const char *p) { return admin; }
 const char *media_get_common_codecs(void) { return "pc16 opus g722 oggv opuT"; }
+const char *rrclient_room_iter(unsigned int index) {
+   static const char *joined[] = {"#station-rig0", "&local-room", "alice"};
+   return index < sizeof(joined) / sizeof(joined[0]) ? joined[index] : NULL;
+}
+const char *rrclient_room_available_iter(unsigned int index) {
+   static const char *available[] = {"#discovered-room", "#station-rig0", "not-a-channel"};
+   return index < sizeof(available) / sizeof(available[0]) ? available[index] : NULL;
+}
 static struct rr_client_media_chan channels[] = {
    {.uuid="rx-active", .name="rig0.vfo_a.rx", .descr="Main receiver", .codec="opus", .room="#station-rig0", .joined=true, .subsystem=1, .direction=0, .subscribed=true},
    {.uuid="rx-disabled", .subsystem=1, .direction=0, .disabled=true},
@@ -42,6 +50,11 @@ int main(void) {
    struct rr_user user = {0};
    snprintf(user.name, sizeof(user.name), "alice");
    global_userlist = &user;
+   check("/join #sta", "#sta", "#station-rig0");
+   check("/join #disc", "#disc", "#discovered-room");
+   check("/j &local", "&local", "&local-room");
+   check("/j not", "not", NULL);
+   check("/join alice", "alice", NULL);
    check("/rig su", "su", "SUBSCRIBE");
    check("/gps un", "un", "UNSUBSCRIBE");
    check("/sercom re", "re", "REMOTE");

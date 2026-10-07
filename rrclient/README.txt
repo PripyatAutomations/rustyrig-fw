@@ -38,7 +38,6 @@ Source Layout
     m_privmsg.c				IRC privmsg
     ui.bell.c				Bell support for UI (GTK and TUI)
     ui.c				User interface wrapper
-    ui.colors.c				User interface color handling
     userlist.c				Userlist stuff (common + TUI)
     win32.c				Windows support
 

@@ -43,6 +43,13 @@ typedef struct {
    bool shared;
 } GtkInputHistory;
 
+typedef struct {
+   GArray *positions;
+   char *snapshot;
+   int pending_position;
+   bool loading;
+} GtkFormatState;
+
 static void input_history_free(gpointer data) {
    GtkInputHistory *history = data;
    if (history->local) g_ptr_array_unref(history->local);
@@ -252,25 +259,17 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    }
 
    // Ambiguous: print candidates into the chat window
-   // ui.theme.completion is the color tag used to print candidates
+   // ui.theme.completion contains a decoded IRC color control prefix.
    const char *completion_color = cfg_get("ui.theme.completion");
 
    if (!completion_color || !*completion_color) {
-      completion_color = "bright-magenta";
+      completion_color = "\00313";
    }
 
-   // Config values may be braced ("{bright-magenta}", as they appear in
-   // templates) or bare; strip braces so the tag resolves and no stray '}'
-   // is printed (the TUI's theme_ansi_code() does the same). PARITY: tui.completion
+   // PARITY: TUI completion uses the same configured IRC color prefix.
    char color_tag[64];
 
    snprintf(color_tag, sizeof(color_tag), "%s", completion_color);
-   size_t clen = strlen(color_tag);
-
-   if (clen >= 2 && color_tag[0] == '{' && color_tag[clen - 1] == '}') {
-      memmove(color_tag, color_tag + 1, clen - 2);
-      color_tag[clen - 2] = '\0';
-   }
 
    // Multi-column layout across a few lines (column-major, like the TUI)
    {
@@ -317,7 +316,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
 
          char colored[1100];
 
-         snprintf(colored, sizeof(colored), "{%s}%s{reset}", color_tag, line);
+         snprintf(colored, sizeof(colored), "%s%s\017", color_tag, line);
          char *markup = gtk_colorize_string(colored);
 
          if (markup) {
@@ -348,6 +347,304 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    return false;
 }
 
+static void gtk_chat_format_state_free(gpointer data) {
+      GtkFormatState *state = data;
+      g_array_unref(state->positions);
+      g_free(state->snapshot);
+      g_free(state);
+   }
+
+static GtkFormatState *gtk_chat_format_state(GtkWidget *entry) {
+      GtkFormatState *state = g_object_get_data(G_OBJECT(entry), "rr-format-state");
+      if (!state) {
+         state = g_new0(GtkFormatState, 1);
+         state->positions = g_array_new(FALSE, FALSE, sizeof(guint));
+         state->snapshot = g_strdup("");
+         state->pending_position = -1;
+         g_object_set_data_full(G_OBJECT(entry), "rr-format-state", state,
+            gtk_chat_format_state_free);
+      }
+      return state;
+   }
+
+static gboolean gtk_chat_position_is_token(GtkFormatState *state, guint position) {
+      for (guint i = 0; i < state->positions->len; i++) {
+         guint token_position = g_array_index(state->positions, guint, i);
+         if (token_position == position) return TRUE;
+         if (token_position > position) break;
+      }
+      return FALSE;
+   }
+
+static void gtk_chat_apply_format_attributes(GtkWidget *entry, GtkFormatState *state) {
+      PangoAttrList *attrs = pango_attr_list_new();
+      for (guint i = 0; i < state->positions->len; i++) {
+         guint position = g_array_index(state->positions, guint, i);
+         const char *p = g_utf8_offset_to_pointer(state->snapshot, position);
+         if (!*p) continue;
+         guint start = (guint)(p - state->snapshot);
+         guint end = (guint)(g_utf8_next_char(p) - state->snapshot);
+         PangoAttribute *foreground = pango_attr_foreground_new(0xffff, 0xffff, 0xffff);
+         PangoAttribute *background = pango_attr_background_new(0x3030, 0x6060, 0xb0b0);
+         PangoAttribute *weight = pango_attr_weight_new(PANGO_WEIGHT_BOLD);
+         foreground->start_index = background->start_index = weight->start_index = start;
+         foreground->end_index = background->end_index = weight->end_index = end;
+         pango_attr_list_insert(attrs, foreground);
+         pango_attr_list_insert(attrs, background);
+         pango_attr_list_insert(attrs, weight);
+      }
+      gtk_entry_set_attributes(GTK_ENTRY(entry), attrs);
+      pango_attr_list_unref(attrs);
+   }
+
+static void gtk_chat_color_choice(GtkButton *button, gpointer data);
+
+static void gtk_chat_color_popover_fill(GtkWidget *entry, bool backgrounds,
+                                        unsigned int foreground) {
+      GtkWidget *popover = g_object_get_data(G_OBJECT(entry), "rr-color-popover");
+      GtkWidget *old_grid = gtk_bin_get_child(GTK_BIN(popover));
+      if (old_grid) gtk_widget_destroy(old_grid);
+      GtkWidget *grid = gtk_grid_new();
+      gtk_grid_set_row_spacing(GTK_GRID(grid), 3);
+      gtk_grid_set_column_spacing(GTK_GRID(grid), 3);
+      for (unsigned int color = 0; color < 16; color++) {
+         char sample[32];
+         if (backgrounds)
+            snprintf(sample, sizeof(sample), "\003%u,%u[%u,%u]", foreground, color,
+               foreground, color);
+         else
+            snprintf(sample, sizeof(sample), "\003%u[%u]", color, color);
+         char *markup = gtk_colorize_string(sample);
+         GtkWidget *label = gtk_label_new(NULL);
+         if (markup) {
+            gtk_label_set_markup(GTK_LABEL(label), markup);
+            g_free(markup);
+         }
+         GtkWidget *choice = gtk_button_new();
+         gtk_container_add(GTK_CONTAINER(choice), label);
+         const char *name = gtk_mirc_color_name(color);
+         char *tip = backgrounds
+            ? g_strdup_printf("%s on %s", gtk_mirc_color_name(foreground), name)
+            : g_strdup_printf("%s (%u)", name, color);
+         gtk_widget_set_tooltip_text(choice, tip);
+         g_free(tip);
+         g_object_set_data(G_OBJECT(choice), "rr-color-entry", entry);
+         g_object_set_data(G_OBJECT(choice), "rr-color-value", GUINT_TO_POINTER(color));
+         g_signal_connect(choice, "clicked", G_CALLBACK(gtk_chat_color_choice), entry);
+         gtk_grid_attach(GTK_GRID(grid), choice, color % 4, color / 4, 1, 1);
+      }
+      gtk_container_add(GTK_CONTAINER(popover), grid);
+      gtk_widget_show_all(popover);
+      gtk_popover_popup(GTK_POPOVER(popover));
+   }
+
+static char *gtk_chat_serialize_entry(GtkWidget *entry) {
+      GtkFormatState *state = gtk_chat_format_state(entry);
+      const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+      GString *serialized = g_string_new(NULL);
+      guint position = 0;
+      for (const char *p = text; *p; p = g_utf8_next_char(p), position++) {
+         if (gtk_chat_position_is_token(state, position)) {
+            guint8 control = gtk_formatting_control(g_utf8_get_char(p));
+            if (control) g_string_append_c(serialized, (char)control);
+            else g_string_append_len(serialized, p, g_utf8_next_char(p) - p);
+         } else {
+            g_string_append_len(serialized, p, g_utf8_next_char(p) - p);
+         }
+      }
+      return g_string_free(serialized, FALSE);
+   }
+
+static void gtk_chat_set_serialized_entry(GtkWidget *entry, const char *serialized) {
+      GtkFormatState *state = gtk_chat_format_state(entry);
+      GString *display = g_string_new(NULL);
+      GArray *positions = g_array_new(FALSE, FALSE, sizeof(guint));
+      guint position = 0;
+      for (const char *p = serialized; *p;) {
+         const char *token = gtk_formatting_token((guint8)*p);
+         if (token) {
+            g_array_append_val(positions, position);
+            g_string_append(display, token);
+            position++;
+            p++;
+         } else {
+            const char *next = g_utf8_next_char(p);
+            g_string_append_len(display, p, next - p);
+            position++;
+            p = next;
+         }
+      }
+      state->loading = true;
+      gtk_entry_set_text(GTK_ENTRY(entry), display->str);
+      state->loading = false;
+      g_array_unref(state->positions);
+      state->positions = positions;
+      g_free(state->snapshot);
+      state->snapshot = g_string_free(display, FALSE);
+      gtk_chat_apply_format_attributes(entry, state);
+      gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+   }
+
+   static gint gtk_chat_uint_compare(gconstpointer left, gconstpointer right) {
+      guint a = *(const guint *)left;
+      guint b = *(const guint *)right;
+      return (a > b) - (a < b);
+   }
+
+static gboolean gtk_chat_update_color_popup(gpointer data) {
+   GtkWidget *entry = GTK_WIDGET(data);
+   GtkFormatState *state = gtk_chat_format_state(entry);
+   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active")))
+      return G_SOURCE_REMOVE;
+
+   const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+   int start = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-start")) - 1;
+   int cursor = gtk_editable_get_position(GTK_EDITABLE(entry));
+   int length = (int)g_utf8_strlen(text, -1);
+   if (start < 0 || cursor <= start || start >= length) goto hide_color_popup;
+   const char *p = g_utf8_offset_to_pointer(text, start);
+   if (!gtk_chat_position_is_token(state, (guint)start) ||
+       gtk_formatting_control(g_utf8_get_char(p)) != 0x03) goto hide_color_popup;
+   p = g_utf8_next_char(p);
+   const char *end = g_utf8_offset_to_pointer(text, cursor);
+   int foreground = -1;
+   bool comma = false;
+   for (; p < end; p++) {
+      if (*p == ',') {
+         if (comma || foreground < 0) goto hide_color_popup;
+         comma = true;
+      } else if (g_ascii_isdigit(*p)) {
+         if (!comma) foreground = (foreground < 0 ? 0 : foreground) * 10 + (*p - '0');
+      } else {
+         goto hide_color_popup;
+      }
+   }
+   if (comma && (foreground < 0 || foreground >= 16)) goto hide_color_popup;
+   int previous_mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode"));
+   int previous_foreground = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-foreground")) - 1;
+   bool force_backgrounds = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-force-backgrounds"));
+   int mode = comma ? 2 :
+      (force_backgrounds || (previous_mode == 3 && previous_foreground == foreground) ? 3 : 1);
+   g_object_set_data(G_OBJECT(entry), "rr-color-insert-position", GINT_TO_POINTER(cursor + 1));
+   g_object_set_data(G_OBJECT(entry), "rr-color-mode", GINT_TO_POINTER(mode));
+   g_object_set_data(G_OBJECT(entry), "rr-color-foreground", GINT_TO_POINTER(foreground + 1));
+   g_object_set_data(G_OBJECT(entry), "rr-color-force-backgrounds", NULL);
+   if (previous_mode != mode || ((mode == 2 || mode == 3) && previous_foreground != foreground) ||
+       force_backgrounds) {
+      gtk_chat_color_popover_fill(entry, mode != 1, foreground);
+      gtk_widget_grab_focus(entry);
+      gtk_editable_select_region(GTK_EDITABLE(entry), cursor, cursor);
+      gtk_editable_set_position(GTK_EDITABLE(entry), cursor);
+   }
+   return G_SOURCE_REMOVE;
+
+hide_color_popup:
+   g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
+   gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
+   return G_SOURCE_REMOVE;
+}
+
+static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
+      (void)data;
+      GtkWidget *entry = GTK_WIDGET(editable);
+      GtkFormatState *state = gtk_chat_format_state(entry);
+      const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+      if (!state->loading) {
+         const char *old = state->snapshot;
+         const char *old_end = old + strlen(old);
+         const char *new_end = text + strlen(text);
+         const char *a = old, *b = text;
+         guint prefix = 0;
+         while (a < old_end && b < new_end && g_utf8_get_char(a) == g_utf8_get_char(b)) {
+            a = g_utf8_next_char(a);
+            b = g_utf8_next_char(b);
+            prefix++;
+         }
+         const char *old_suffix = old_end, *new_suffix = new_end;
+         guint suffix = 0;
+         while (old_suffix > a && new_suffix > b) {
+            const char *prev_old = g_utf8_find_prev_char(old, old_suffix);
+            const char *prev_new = g_utf8_find_prev_char(text, new_suffix);
+            if (!prev_old || !prev_new || g_utf8_get_char(prev_old) != g_utf8_get_char(prev_new)) break;
+            old_suffix = prev_old;
+            new_suffix = prev_new;
+            suffix++;
+         }
+         guint old_count = (guint)g_utf8_strlen(old, -1);
+         guint new_count = (guint)g_utf8_strlen(text, -1);
+         guint old_after = old_count - suffix;
+         gint delta = (gint)new_count - (gint)old_count;
+         for (guint i = 0; i < state->positions->len;) {
+            guint *position = &g_array_index(state->positions, guint, i);
+            if (*position >= old_after) {
+               *position = (guint)((gint)*position + delta);
+               i++;
+            } else if (*position >= prefix) {
+               g_array_remove_index(state->positions, i);
+            } else {
+               i++;
+            }
+         }
+         if (state->pending_position >= 0) {
+            guint pending = (guint)state->pending_position;
+            g_array_append_val(state->positions, pending);
+            state->pending_position = -1;
+            g_array_sort(state->positions, (GCompareFunc)gtk_chat_uint_compare);
+         }
+         g_free(state->snapshot);
+         state->snapshot = g_strdup(text);
+      }
+      gtk_chat_apply_format_attributes(entry, state);
+      if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active")))
+         g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, gtk_chat_update_color_popup,
+            g_object_ref(entry), g_object_unref);
+   }
+
+static void gtk_chat_color_choice(GtkButton *button, gpointer data) {
+      GtkWidget *entry = GTK_WIDGET(data);
+      unsigned int color = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-color-value"));
+   int mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode"));
+   char number[5];
+   snprintf(number, sizeof(number), mode == 3 ? ",%u" : "%u", color);
+      gint position = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-insert-position")) - 1;
+      if (position < 0) position = gtk_editable_get_position(GTK_EDITABLE(entry));
+      gtk_editable_select_region(GTK_EDITABLE(entry), position, position);
+      gtk_editable_insert_text(GTK_EDITABLE(entry), number, -1, &position);
+      gtk_editable_set_position(GTK_EDITABLE(entry), position);
+      if (mode == 1) {
+         g_object_set_data(G_OBJECT(entry), "rr-color-mode", GINT_TO_POINTER(3));
+         g_object_set_data(G_OBJECT(entry), "rr-color-foreground", GUINT_TO_POINTER(color + 1));
+         g_object_set_data(G_OBJECT(entry), "rr-color-force-backgrounds", GINT_TO_POINTER(1));
+      } else if (mode == 2 || mode == 3) {
+         g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
+         gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
+      }
+      gtk_widget_grab_focus(entry);
+      gtk_editable_select_region(GTK_EDITABLE(entry), position, position);
+      gtk_editable_set_position(GTK_EDITABLE(entry), position);
+   }
+
+static void gtk_chat_insert_format(GtkWidget *entry, guint8 control) {
+      const char *token = gtk_formatting_token(control);
+      if (!token) return;
+      gint position = gtk_editable_get_position(GTK_EDITABLE(entry));
+   gtk_editable_select_region(GTK_EDITABLE(entry), position, position);
+      GtkFormatState *state = gtk_chat_format_state(entry);
+      state->pending_position = position;
+      if (control == 0x03) {
+         g_object_set_data(G_OBJECT(entry), "rr-color-active", GINT_TO_POINTER(1));
+         g_object_set_data(G_OBJECT(entry), "rr-color-start", GINT_TO_POINTER(position + 1));
+      }
+      gtk_editable_insert_text(GTK_EDITABLE(entry), token, -1, &position);
+      gtk_editable_set_position(GTK_EDITABLE(entry), position);
+      if (control == 0x03) {
+         gtk_chat_color_popover_fill(entry, false, 0);
+         gtk_widget_grab_focus(entry);
+      }
+      gtk_editable_select_region(GTK_EDITABLE(entry), position, position);
+      gtk_editable_set_position(GTK_EDITABLE(entry), position);
+   }
+
 static void on_send_button_clicked(GtkButton *button, gpointer entry) {
    gtk_widget_grab_focus(GTK_WIDGET(entry));
    parse_chat_input_gtk(button, entry);
@@ -363,6 +660,19 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry,
    }
 
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+   if ((modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) ==
+       (GDK_CONTROL_MASK | GDK_SHIFT_MASK) && !(modifiers & GDK_MOD1_MASK)) {
+      guint8 style_code = 0;
+      switch (event->keyval) {
+         case GDK_KEY_u: case GDK_KEY_U: style_code = 0x1f; break;
+         case GDK_KEY_s: case GDK_KEY_S: style_code = 0x1e; break;
+         case GDK_KEY_m: case GDK_KEY_M: style_code = 0x11; break;
+      }
+      if (style_code) {
+         gtk_chat_insert_format(entry, style_code);
+         return TRUE;
+      }
+   }
    if ((modifiers & GDK_CONTROL_MASK) && !(modifiers & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
       guint8 control_code = 0;
       switch (event->keyval) {
@@ -376,11 +686,16 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry,
          case GDK_KEY_r: case GDK_KEY_R: control_code = 0x16; break; // Reverse
       }
       if (control_code) {
-         gint position = gtk_editable_get_position(GTK_EDITABLE(entry));
-         gtk_editable_insert_text(GTK_EDITABLE(entry), (const gchar *)&control_code, 1, &position);
-         gtk_editable_set_position(GTK_EDITABLE(entry), position);
+         gtk_chat_insert_format(entry, control_code);
          return TRUE;
       }
+   }
+
+   if (event->keyval == GDK_KEY_Escape &&
+       GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active"))) {
+      g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
+      gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
+      return TRUE;
    }
 
    if (event->keyval == GDK_KEY_Tab) {
@@ -423,7 +738,7 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry,
    if (event->keyval == GDK_KEY_Up) {
       if (history->index < 0) {
          g_free(history->draft);
-         history->draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
+         history->draft = gtk_chat_serialize_entry(entry);
          history->index = (int)lines->len - 1;
       } else if (history->index > 0) {
          history->index--;
@@ -434,8 +749,7 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry,
    }
    const char *text = history->index < 0 ? (history->draft ? history->draft : "") :
       g_ptr_array_index(lines, history->index);
-   gtk_entry_set_text(GTK_ENTRY(entry), text);
-   gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+   gtk_chat_set_serialized_entry(entry, text);
    return TRUE;
 }
 
@@ -528,6 +842,11 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
    // Chat INPUT
    chat_entry = gtk_entry_new();
+      GtkWidget *color_popover = gtk_popover_new(chat_entry);
+      gtk_popover_set_position(GTK_POPOVER(color_popover), GTK_POS_TOP);
+      gtk_popover_set_modal(GTK_POPOVER(color_popover), FALSE);
+      g_object_set_data(G_OBJECT(chat_entry), "rr-color-popover", color_popover);
+      g_signal_connect(chat_entry, "changed", G_CALLBACK(gtk_chat_entry_changed), NULL);
    // Explicitly span the full width of the box; with fill=FALSE packing an
    // entry can end up right-aligned once other widgets (vfo box) are packed
    // around it.
@@ -677,18 +996,20 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    if (text && *text) {
       // Copy before clearing/dispatch: commands may change tabs or destroy
       // the originating entry. Never retain GtkEntry's borrowed text pointer.
-      char *message = g_strdup(text);
+      char *message = gtk_chat_serialize_entry(GTK_WIDGET(entry));
       GPtrArray *lines;
       GtkInputHistory *history = entry_history(GTK_WIDGET(entry), &lines);
       // PARITY: browser chat_history_add() in js/webui.chat.completion.js;
       // TUI history is owned by librustyaxe/tui.keys.c. Shared is the default.
-      if (lines && (!lines->len || strcmp(g_ptr_array_index(lines, lines->len - 1), message))) {
+      if (lines && (!lines->len || strcmp(g_ptr_array_index(lines, lines->len - 1), text))) {
          if (lines->len >= HISTORY_LINES) g_ptr_array_remove_index(lines, 0);
          g_ptr_array_add(lines, g_strdup(message));
       }
       history->index = -1;
       g_clear_pointer(&history->draft, g_free);
       gtk_entry_set_text(GTK_ENTRY(entry), "");
+      g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
+      gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
       parse_chat_input_real(message);
       g_free(message);
    }

@@ -9,7 +9,8 @@
   - pressing tab at any point should list available username completions
     dont do it with ui_print, make it a little popup like phones do
 
-* Add ^C, etc for embedding mIRC-style colors
+* Add mIRC extended RGB colors (0x04 RRGGBB[,RRGGBB]) to GTK and TUI parsing,
+  rendering and input with matching foreground/background semantics.
 
 * tui: should probably treat status window as the syslog in gtk; make windows 2+ show rig controls
 

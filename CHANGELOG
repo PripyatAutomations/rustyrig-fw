@@ -1,4 +1,19 @@
-rustyrig-fw (20261007.04) testing; urgency=medium
+rustyrig-fw (20261007.13) testing; urgency=medium
+  * Preserve open channel tabs across reconnects and rejoin channels that remain
+    in the refreshed server room catalog in native and browser clients.
+  * Request the server room catalog after successful client authorization so
+    /j and /join completion includes rooms not yet joined.
+    * Give all 16 GTK mIRC palette indexes distinct colors, including normal and
+      bright cyan, magenta, blue and white shades.
+  * Complete /j and /join from joined and server-enumerated rooms in native and
+    browser clients; remove deleted rooms from completion candidates.
+  * Keep keyboard color entry usable with the GTK palette open; swatches remain
+    optional, show numeric indexes, and insert at the saved caret without
+    replacing selections or blocking continued typing.
+  * Show numeric foreground/background examples in the GTK color palette and
+    keep typing active after selecting a swatch.
+  * Add readable \C/\B mIRC formatting escapes for theme and status-line config
+    values; document the native palette, styles and unsupported RGB extension.
   * Add Ctrl+B/C/I/O/R mIRC formatting controls to GTK chat input, matching
     the TUI shortcuts; Ctrl+U clears the input as in the TUI.
   * Wrap the GTK main notebook's tab strip into additional rows rather than

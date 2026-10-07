@@ -12,7 +12,7 @@ tui.status-line=${topic} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${activ
 For example, show both VFOs and highlight the active one:
 
 ```
-tui.status-line={bright-cyan}VFO ${active_vfo}{reset} A:${vfo_a_freq_khz:---} B:${vfo_b_freq_khz:---} kHz ${active_mode:---} ${active_ptt:RX}
+tui.status-line=\C11VFO ${active_vfo}\O A:${vfo_a_freq_khz:---} B:${vfo_b_freq_khz:---} kHz ${active_mode:---} ${active_ptt:RX}
 ```
 
 Values are read from current client state whenever the TUI redraws. Updates
@@ -40,6 +40,8 @@ the original window topic. Long lines are clipped to the terminal width.
 
 Use `${name:fallback}` to display a fallback when a value is unavailable.
 Unknown variables without a fallback expand to an empty string. Colors use
-the existing `{red}`, `{bright-cyan}`, `{reset}`, etc. syntax and respect
-`tui.use-color`. Percent signs are literal. This template is TUI-specific;
+IRC formatting controls; in config values, `\C12` selects color 12 and `\O`
+resets formatting. The full color table and style escapes are in
+`doc/irc-formatting.md`. They respect `tui.use-color`. Percent signs are
+literal. This template is TUI-specific;
 GTK and the browser continue using their own displays of the same radio state.

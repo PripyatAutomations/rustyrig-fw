@@ -49,8 +49,8 @@ static bool log_tab_visible(void) {
 // One host log line arrived as a SUBSYS_LOG binframe payload (media.frame.log
 // event; the binframe header is already stripped by ws_binframe_process).
 // Payload: struct rr_logframe - prio byte, 16-byte NUL-padded subsys, then
-// the NUL-terminated message. Host log messages use the same {color} tags as
-// local Log() output, so render them through the GTK colorizer too.
+// the NUL-terminated message. Host log messages can contain IRC formatting
+// controls, so render them through the GTK colorizer too.
 static void host_log_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    (void)event;
    (void)cptr;
@@ -169,8 +169,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
 
       gtk_text_buffer_get_end_iter(log_buffer, &end);
 
-      // Always insert markup: lines added while the tab is hidden would
-      // otherwise show literal {color} tags when the tab is opened.
+      // Always insert markup so hidden-tab timestamps receive formatting.
       {
          const char *ts = get_chat_ts(now);
          char *ts_colorized = gtk_colorize_string(ts);
@@ -189,9 +188,7 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(priority));
       gtk_text_buffer_insert(log_buffer, &end, header, -1);
 
-      // Colorize the message body: Log() format strings carry {color} tags
-      // (the 03f283d perf change only colorized the timestamp, leaving the
-      // body inserted raw with the tags showing literally).
+      // Log messages can contain IRC formatting controls.
       {
          char *colorized = gtk_colorize_string(outbuf);
 

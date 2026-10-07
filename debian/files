@@ -1,22 +1,22 @@
-libfwdspmgr-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-libfwdspmgr-dev_20261007.04_amd64.deb hamradio optional
-libfwdspmgr_20261007.04_amd64.deb hamradio optional
-librrprotocol-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-librrprotocol-dev_20261007.04_amd64.deb hamradio optional
-librrprotocol_20261007.04_amd64.deb hamradio optional
-librustyaxe-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-librustyaxe-dev_20261007.04_amd64.deb hamradio optional
-librustyaxe_20261007.04_amd64.deb hamradio optional
-rustyrig-callsign-lookup-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-rustyrig-callsign-lookup_20261007.04_amd64.deb hamradio optional
-rustyrig-client-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-rustyrig-client-gtk-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-rustyrig-client-gtk_20261007.04_amd64.deb hamradio optional
-rustyrig-client_20261007.04_amd64.deb hamradio optional
-rustyrig-fw_20261007.04_amd64.buildinfo hamradio optional
-rustyrig-fwdsp-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-rustyrig-fwdsp_20261007.04_amd64.deb hamradio optional
-rustyrig-server-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-rustyrig-server-gpsd-dbgsym_20261007.04_amd64.deb debug optional automatic=yes
-rustyrig-server-gpsd_20261007.04_amd64.deb hamradio optional
-rustyrig-server_20261007.04_amd64.deb hamradio optional
+libfwdspmgr-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+libfwdspmgr-dev_20261007.12_amd64.deb hamradio optional
+libfwdspmgr_20261007.12_amd64.deb hamradio optional
+librrprotocol-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+librrprotocol-dev_20261007.12_amd64.deb hamradio optional
+librrprotocol_20261007.12_amd64.deb hamradio optional
+librustyaxe-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+librustyaxe-dev_20261007.12_amd64.deb hamradio optional
+librustyaxe_20261007.12_amd64.deb hamradio optional
+rustyrig-callsign-lookup-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+rustyrig-callsign-lookup_20261007.12_amd64.deb hamradio optional
+rustyrig-client-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+rustyrig-client-gtk-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+rustyrig-client-gtk_20261007.12_amd64.deb hamradio optional
+rustyrig-client_20261007.12_amd64.deb hamradio optional
+rustyrig-fw_20261007.12_amd64.buildinfo hamradio optional
+rustyrig-fwdsp-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+rustyrig-fwdsp_20261007.12_amd64.deb hamradio optional
+rustyrig-server-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+rustyrig-server-gpsd-dbgsym_20261007.12_amd64.deb debug optional automatic=yes
+rustyrig-server-gpsd_20261007.12_amd64.deb hamradio optional
+rustyrig-server_20261007.12_amd64.deb hamradio optional

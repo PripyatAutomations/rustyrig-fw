@@ -1,7 +1,9 @@
 Immediate needs
 ---------------
-* Make a popup showing colors available when hit ^C to start colors, make it hide on first non , or numeric character
-  - If a , is found for fg/bg color, show the resulting combinations of that foreground with the different backgrounds. "Example \002bold\002" 
+callsign-lookupd: fix cache expiry
+  cached: true
+  cache_fetched: 2026/09/20 20:24:53
+  cache_expiry: 2026/10/04 20:24:53
 
 packaging: make /var/log/rustyrig owned by rustyrig:rustyrig
 

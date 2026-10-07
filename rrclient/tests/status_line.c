@@ -9,6 +9,7 @@ bool dying, restarting;
 time_t now;
 enum GuiMode ui_mode = UI_MODE_NONE;
 const char *login_user = "operator";
+rrconn_t *ws_conn = (rrconn_t *)1;
 struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
 void tui_refresh_sb_window(void) {}
@@ -20,6 +21,16 @@ const char *rrclient_media_active_room(void) { return "#rig"; }
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) { return NULL; }
 const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
 static unsigned redraws;
+static char rejoin_targets[4][128];
+static unsigned rejoin_count;
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int data_type) {
+   assert(!sender && dest == ws_conn && data_type == WEBSOCKET_OP_TEXT);
+   assert(!strcmp(dict_get(message, "talk.cmd", ""), "join"));
+   assert(rejoin_count < 4);
+   snprintf(rejoin_targets[rejoin_count++], sizeof(rejoin_targets[0]), "%s",
+      dict_get(message, "talk.target", ""));
+   return true;
+}
 static char *render(tui_window_t *win) {
    redraws++;
    return rrclient_tui_topline(win);
@@ -115,7 +126,7 @@ int main(void) {
    check(&window, "literal {json: value} ${active_vfo}", "literal {json: value} B");
    check(&window, "", "");
    cfg_tui_colors = true;
-   check(&window, "{red}${active_vfo}{reset}", "\033[31mB\033[0m");
+   check(&window, "\00304${active_vfo}\017", "\033[91mB\033[0m");
    cfg_tui_colors = false;
 
    // Exercise the real redraw path and prove the bottom status is independent.
@@ -222,6 +233,19 @@ int main(void) {
    assert(dup2(saved_stdout, STDOUT_FILENO) >= 0);
    close(saved_stdout);
    fclose(output);
+   assert(rrclient_room_join("#tab-room"));
+   assert(rrclient_room_join("private-user"));
+   assert(rrclient_room_join("#removed-room"));
+   rrclient_rooms_disconnect();
+   rrclient_rooms_disconnect();
+   assert(!rrclient_room_iter(0));
+   rrclient_rooms_set_available("#rig #tab-room");
+   rrclient_rooms_rejoin_available();
+   assert(rejoin_count == 2);
+   assert((!strcmp(rejoin_targets[0], "#tab-room") && !strcmp(rejoin_targets[1], "#rig")) ||
+      (!strcmp(rejoin_targets[1], "#tab-room") && !strcmp(rejoin_targets[0], "#rig")));
+   rrclient_rooms_rejoin_available();
+   assert(rejoin_count == 2);
    rrclient_rooms_clear();
    puts("PASS: live TUI rows, redraw batching, inactive logs, clipping, and terminal cleanup");
 }

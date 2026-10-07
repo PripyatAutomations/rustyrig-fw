@@ -188,7 +188,7 @@ char *rrclient_tui_topline(tui_window_t *win) {
       }
       p = end + 1;
    }
-   // Reuse the TUI's ${name:fallback} and {color} renderer. The template is
+   // Reuse the TUI's ${name:fallback} and IRC formatting renderer. The template is
    // data, never a printf format; literal percent signs are safe.
    char *rendered = tui_render_string(values, NULL, "%s", format);
    dict_free(values);

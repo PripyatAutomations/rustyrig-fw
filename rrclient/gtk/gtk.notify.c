@@ -23,7 +23,6 @@
 #include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
-#include <rrclient/ui.colors.h>
 #include <libnotify/notify.h>
 #include <rrclient/gtk/gtk.notify.h>
 

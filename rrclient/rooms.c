@@ -28,6 +28,39 @@ typedef struct client_room {
 } client_room_t;
 
 static client_room_t *rooms;
+static char **available_rooms;
+static size_t available_room_count;
+static char **reconnect_rooms;
+static size_t reconnect_room_count;
+
+static void reconnect_rooms_clear(void) {
+   for (size_t i = 0; i < reconnect_room_count; i++) free(reconnect_rooms[i]);
+   free(reconnect_rooms);
+   reconnect_rooms = NULL;
+   reconnect_room_count = 0;
+}
+
+static void joined_rooms_clear(void) {
+   while (rooms) {
+      client_room_t *next = rooms->next;
+      free(rooms);
+      rooms = next;
+   }
+}
+
+static bool room_names_contain(char *const *list, size_t count, const char *room) {
+   for (size_t i = 0; i < count; i++) {
+      if (!strcasecmp(list[i], room)) return true;
+   }
+   return false;
+}
+
+static void available_rooms_clear(void) {
+   for (size_t i = 0; i < available_room_count; i++) free(available_rooms[i]);
+   free(available_rooms);
+   available_rooms = NULL;
+   available_room_count = 0;
+}
 
 static const char *canonical(const char *room) {
    return (room && *room) ? room : ws_authoritative_room();
@@ -90,11 +123,83 @@ bool rrclient_room_part(const char *room) {
 }
 
 void rrclient_rooms_clear(void) {
-   while (rooms) {
-      client_room_t *next = rooms->next;
-      free(rooms);
-      rooms = next;
+   joined_rooms_clear();
+   available_rooms_clear();
+   reconnect_rooms_clear();
+}
+
+void rrclient_rooms_disconnect(void) {
+   if (rooms) {
+      reconnect_rooms_clear();
+      for (client_room_t *room = rooms; room; room = room->next) {
+         if (room->name[0] != '#' && room->name[0] != '&') continue;
+         char **grown = realloc(reconnect_rooms, (reconnect_room_count + 1) * sizeof(*grown));
+         if (!grown) break;
+         reconnect_rooms = grown;
+         reconnect_rooms[reconnect_room_count] = strdup(room->name);
+         if (reconnect_rooms[reconnect_room_count]) reconnect_room_count++;
+      }
    }
+   joined_rooms_clear();
+   available_rooms_clear();
+}
+
+void rrclient_rooms_rejoin_available(void) {
+   for (size_t i = 0; i < reconnect_room_count; i++) {
+      if (room_names_contain(available_rooms, available_room_count, reconnect_rooms[i]))
+         rrclient_room_request_join(reconnect_rooms[i]);
+   }
+   reconnect_rooms_clear();
+}
+
+const char *rrclient_room_iter(unsigned int index) {
+   client_room_t *room = rooms;
+   while (room && index--) room = room->next;
+   return room ? room->name : NULL;
+}
+
+void rrclient_rooms_set_available(const char *list) {
+   available_rooms_clear();
+   char *copy = list ? strdup(list) : NULL;
+   if (!copy) return;
+   char *save = NULL;
+   for (char *room = strtok_r(copy, " \t\r\n", &save); room;
+        room = strtok_r(NULL, " \t\r\n", &save)) {
+      if (available_room_count >= 1024 || (room[0] != '#' && room[0] != '&')) continue;
+      bool duplicate = false;
+      for (size_t i = 0; i < available_room_count; i++) {
+         if (!strcasecmp(available_rooms[i], room)) { duplicate = true; break; }
+      }
+      if (duplicate) continue;
+      char **grown = realloc(available_rooms, (available_room_count + 1) * sizeof(*grown));
+      if (!grown) break;
+      available_rooms = grown;
+      available_rooms[available_room_count] = strdup(room);
+      if (available_rooms[available_room_count]) available_room_count++;
+   }
+   free(copy);
+}
+
+void rrclient_room_available_remove(const char *room) {
+   if (!room) return;
+   for (size_t i = 0; i < reconnect_room_count;) {
+      if (strcasecmp(reconnect_rooms[i], room)) { i++; continue; }
+      free(reconnect_rooms[i]);
+      memmove(&reconnect_rooms[i], &reconnect_rooms[i + 1],
+         (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+      reconnect_room_count--;
+   }
+   for (size_t i = 0; i < available_room_count;) {
+      if (strcasecmp(available_rooms[i], room)) { i++; continue; }
+      free(available_rooms[i]);
+      memmove(&available_rooms[i], &available_rooms[i + 1],
+         (available_room_count - i - 1) * sizeof(*available_rooms));
+      available_room_count--;
+   }
+}
+
+const char *rrclient_room_available_iter(unsigned int index) {
+   return index < available_room_count ? available_rooms[index] : NULL;
 }
 
 bool rrclient_room_set_vfos(const char *room, const char *vfos) {

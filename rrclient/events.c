@@ -103,7 +103,7 @@ static void rrclient_set_offline(void) {
 
    rrclient_update_connection_ui(0);
    userlist_clear_all();
-   rrclient_rooms_clear();
+   rrclient_rooms_disconnect();
 
    if ( frontend_ops() ) {
       // PTT button goes back to dark grey while offline
@@ -513,6 +513,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       if ( frontend_ops() ) {
          frontend_ops()->ptt_set_online(true);
       }
+      cmd_list(0, NULL);
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print( NULL, "%s *** \00304DISCONNECTED\017 ***", get_chat_ts(now) );
       rrclient_set_offline();
@@ -761,6 +762,8 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
 
    if (!d) { return; }
    const char *rooms = dict_get(d, "talk.rooms", "");
+   rrclient_rooms_set_available(rooms);
+   rrclient_rooms_rejoin_available();
    ui_print(ui_active_window_name(), "\00308Available rooms:\017 %s", (rooms && *rooms) ? rooms : "(none)");
    dict_free(d);
 }
@@ -778,6 +781,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       userlist_remove_room(room);
       rrclient_media_room_parted(room);
       rrclient_room_part(room);
+      rrclient_room_available_remove(room);
 
       if ( frontend_ops() ) { frontend_ops()->chat_room_remove(room); }
 

@@ -19,7 +19,6 @@
 #include <time.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/color.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
@@ -27,7 +26,6 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.vol-box.h>
-#include <rrclient/ui.colors.h>
 
 #define	MSGBUF_SIZE 8096
 
@@ -74,13 +72,50 @@ extern GtkWidget *init_admin_tab(void);
 extern bool chat_init(void);             // gtk.chat.c
 bool cfg_fullscreen = false;
 
-static const char *gtk_mirc_color_name(unsigned int n) {
+const char *gtk_mirc_color_name(unsigned int n) {
    static const char *colors[] = {
-      "white", "black", "blue", "green", "red", "brown", "magenta", "orange",
-      "yellow", "bright-green", "cyan", "bright-cyan", "bright-blue",
-      "bright-magenta", "bright-black", "bright-white"
+   "bright-white", "black", "blue", "green", "bright-red", "brown",
+   "magenta", "orange", "bright-yellow", "bright-green", "cyan",
+   "bright-cyan", "bright-blue", "bright-magenta", "bright-black", "white"
    };
    return n < 16 ? colors[n] : NULL;
+}
+
+static const char *gtk_mirc_color_value(unsigned int color) {
+   static const char *values[] = {
+   "#ffffff", "#000000", "#00007f", "#009300", "#ff0000", "#7f0000",
+   "#9c009c", "#fc7f00", "#ffff00", "#00fc00", "#009393", "#00ffff",
+   "#0000fc", "#ff00ff", "#7f7f7f", "#d2d2d2"
+   };
+   return color < G_N_ELEMENTS(values) ? values[color] : NULL;
+}
+
+guint8 gtk_formatting_control(gunichar token) {
+   switch (token) {
+   case 'B': return 0x02;
+   case 'C': return 0x03;
+   case 'I': return 0x1d;
+   case 'O': return 0x0f;
+   case 'R': return 0x16;
+   case 'U': return 0x1f;
+   case 'S': return 0x1e;
+   case 'M': return 0x11;
+      default: return 0;
+   }
+}
+
+const char *gtk_formatting_token(guint8 control) {
+   switch (control) {
+   case 0x02: return "B";
+   case 0x03: return "C";
+   case 0x1d: return "I";
+   case 0x0f: return "O";
+   case 0x16: return "R";
+   case 0x1f: return "U";
+   case 0x1e: return "S";
+   case 0x11: return "M";
+      default: return NULL;
+   }
 }
 
 char *gtk_colorize_string(const char *in) {
@@ -101,6 +136,7 @@ char *gtk_colorize_string(const char *in) {
    }
    char *o = out;
    bool bold = false, italic = false, underline = false;
+   bool strikethrough = false, monospace = false, reverse = false, span_open = false;
    const char *fg = NULL, *bg = NULL;
 
    const char *p = in;
@@ -121,7 +157,10 @@ char *gtk_colorize_string(const char *in) {
                p++;
             }
          }
-      } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x1d || (unsigned char)*p == 0x1f || (unsigned char)*p == 0x0f) {
+      } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x11 ||
+              (unsigned char)*p == 0x16 || (unsigned char)*p == 0x1d ||
+              (unsigned char)*p == 0x1e || (unsigned char)*p == 0x1f ||
+              (unsigned char)*p == 0x0f) {
          unsigned char control = (unsigned char)*p++;
 
          if (control == 0x02) {
@@ -148,10 +187,49 @@ char *gtk_colorize_string(const char *in) {
                o += sprintf(o, "</u>");
                underline = false;
             }
+         } else if (control == 0x1e) {
+            if (!strikethrough) {
+               o += sprintf(o, "<s>");
+               strikethrough = true;
+            } else {
+               o += sprintf(o, "</s>");
+               strikethrough = false;
+            }
+         } else if (control == 0x11) {
+            if (!monospace) {
+               o += sprintf(o, "<tt>");
+               monospace = true;
+            } else {
+               o += sprintf(o, "</tt>");
+               monospace = false;
+            }
+         } else if (control == 0x16) {
+            reverse = !reverse;
+            if (span_open) {
+               const char *shown_fg = reverse ? (bg ? bg : "black") : fg;
+               const char *shown_bg = reverse ? (fg ? fg : "white") : bg;
+               o += sprintf(o, "</span>");
+               if (shown_fg || shown_bg) {
+                  o += sprintf(o, "<span");
+                  if (shown_fg) o += sprintf(o, " foreground=\"%s\"", shown_fg);
+                  if (shown_bg) o += sprintf(o, " background=\"%s\"", shown_bg);
+                  o += sprintf(o, ">");
+                  span_open = true;
+               } else {
+                  span_open = false;
+               }
+            } else if (reverse) {
+               o += sprintf(o, "<span foreground=\"black\" background=\"white\">");
+               span_open = true;
+            } else {
+               if (span_open) o += sprintf(o, "</span>");
+               span_open = false;
+            }
          } else {
-            if (fg || bg) {
+            if (span_open) {
                o += sprintf(o, "</span>");
                fg = bg = NULL;
+               span_open = false;
             }
 
             if (bold) {
@@ -166,6 +244,15 @@ char *gtk_colorize_string(const char *in) {
                o += sprintf(o, "</u>");
                underline = false;
             }
+            if (strikethrough) {
+               o += sprintf(o, "</s>");
+               strikethrough = false;
+            }
+            if (monospace) {
+               o += sprintf(o, "</tt>");
+               monospace = false;
+            }
+            reverse = false;
          }
       } else if ((unsigned char)*p == 0x03) {
          p++;
@@ -188,33 +275,31 @@ char *gtk_colorize_string(const char *in) {
             }
          }
 
-         if (fg || bg) {
+         if (span_open) {
             o += sprintf(o, "</span>");
             fg = bg = NULL;
+            span_open = false;
          }
 
          if (have_fg) {
-            const char *name = gtk_mirc_color_name(fg_num);
-            bool is_bg = false;
-            const char *fg_color = name ? pango_color_for_tag(name, &is_bg) : NULL;
-            const char *bg_color = NULL;
+            const char *fg_color = gtk_mirc_color_value(fg_num);
+            const char *bg_color = have_bg ? gtk_mirc_color_value(bg_num) : NULL;
 
-            if (have_bg) {
-               name = gtk_mirc_color_name(bg_num);
-               bg_color = name ? pango_color_for_tag(name, &is_bg) : NULL;
-            }
+            const char *shown_fg = reverse ? (bg_color ? bg_color : "black") : fg_color;
+            const char *shown_bg = reverse ? (fg_color ? fg_color : "white") : bg_color;
 
-            if (fg_color || bg_color) {
+            if (shown_fg || shown_bg) {
                o += sprintf(o, "<span");
-               if (fg_color) {
-                  o += sprintf(o, " foreground=\"%s\"", fg_color);
-                  fg = fg_color;
+               if (shown_fg) {
+                  o += sprintf(o, " foreground=\"%s\"", shown_fg);
                }
-               if (bg_color) {
-                  o += sprintf(o, " background=\"%s\"", bg_color);
-                  bg = bg_color;
+               if (shown_bg) {
+                  o += sprintf(o, " background=\"%s\"", shown_bg);
                }
                o += sprintf(o, ">");
+               fg = fg_color;
+               bg = bg_color;
+               span_open = true;
             }
          }
       } else if (*p == '{') {
@@ -234,9 +319,10 @@ char *gtk_colorize_string(const char *in) {
          key[key_len] = '\0';
 
          if (strcmp(key, "reset") == 0) {
-            if (fg || bg) {
+            if (span_open) {
                o += sprintf(o, "</span>");
                fg = bg = NULL;
+               span_open = false;
             }
 
             if (bold) {
@@ -250,6 +336,13 @@ char *gtk_colorize_string(const char *in) {
             if (underline) {
                o += sprintf(o, "</u>"); underline = false;
             }
+            if (strikethrough) {
+               o += sprintf(o, "</s>"); strikethrough = false;
+            }
+            if (monospace) {
+               o += sprintf(o, "</tt>"); monospace = false;
+            }
+            reverse = false;
          } else if (strcmp(key, "bold") == 0) {
             if (!bold) {
                o += sprintf(o, "<b>"); bold = true;
@@ -275,51 +368,19 @@ char *gtk_colorize_string(const char *in) {
                o += sprintf(o, "</u>"); underline = false;
             }
          } else {
-            bool is_bg = false;
-            // Hex color support: {#rgb}, {#rrggbb}, {#rrggbb:fallback} and
-            // bg- prefixed variants. Pango understands #rrggbb directly, so
-            // the fallback (for 16-color terminals) isn't needed here.
-            char hexbuf[16], fbbuf[64];
-            bool hex_bg = false;
-            const char *pango_color = NULL;
-
-            if (color_tag_parse(key, hexbuf, sizeof(hexbuf), fbbuf, sizeof(fbbuf), &hex_bg) ) {
-               pango_color = hexbuf;
-               is_bg = hex_bg;
+            /* Colors are IRC controls; preserve other brace-delimited text. */
+            char *escaped = g_markup_escape_text(p, (gssize)(end - p + 1));
+            if (escaped) {
+               o += sprintf(o, "%s", escaped);
+               g_free(escaped);
             } else {
-               pango_color = pango_color_for_tag(key, &is_bg);
-            }
-
-            if (pango_color) {
-               if (fg || bg) {
-                  o += sprintf(o, "</span>");
-                  fg = bg = NULL;
-               }
-               o += sprintf(o, "<span");
-
-               if (!is_bg) {
-                  o += sprintf(o, " foreground=\"%s\"", pango_color);
-                  fg = pango_color;
-               } else {
-                  o += sprintf(o, " background=\"%s\"", pango_color);
-                  bg = pango_color;
-               }
-               o += sprintf(o, ">");
-            } else {
-               /* Preserve unknown braces, including JSON objects. */
-               char *escaped = g_markup_escape_text(p, (gssize)(end - p + 1));
-               if (escaped) {
-                  o += sprintf(o, "%s", escaped);
-                  g_free(escaped);
-               } else {
-                  free(out);
-                  return NULL;
-               }
+               free(out);
+               return NULL;
             }
          }
          p = end + 1;
       } else {
-         const char *next = strpbrk(p, "{\033\002\035\037\017\003");
+         const char *next = strpbrk(p, "{\033\002\021\026\035\036\037\017\003");
          size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
 
          char *escaped = g_markup_escape_text(p, (gint)chunk_len);
@@ -334,7 +395,7 @@ char *gtk_colorize_string(const char *in) {
       }
    }
 
-   if (fg || bg) {
+   if (span_open) {
       o += sprintf(o, "</span>");
    }
 
@@ -348,6 +409,12 @@ char *gtk_colorize_string(const char *in) {
 
    if (underline) {
       o += sprintf(o, "</u>");
+   }
+   if (strikethrough) {
+      o += sprintf(o, "</s>");
+   }
+   if (monospace) {
+      o += sprintf(o, "</tt>");
    }
    *o = '\0';
 

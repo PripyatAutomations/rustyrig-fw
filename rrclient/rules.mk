@@ -33,7 +33,6 @@ rrclient_objs += rooms.o		# joined room tracking
 rrclient_objs += ui.statusbar.o
 rrclient_objs += ui.o			# User interface wrapper (TUI/GTK)
 rrclient_objs += ui.bell.o		# Bell/sounds support for the UI
-rrclient_objs += ui.colors.o		# User interface color handling
 rrclient_objs += frontend.o		# Frontend module host interface
 rrclient_objs += vfo.o			# VFO management
 rrclient_objs += webcam.o		# client-side v4l2 webcam video source
