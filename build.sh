@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # Try to determine if gstreamer dev package installed, if not install deps
-X=$(pkg-config --cflags gstreamer-1.0x)
+X=$(pkg-config --cflags gstreamer-1.0)
 if [ $? != 0 ]; then
    echo "Missing gstreamer - run the apt install line given below to resolve:"
    ./install-deps.sh
