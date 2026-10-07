@@ -1,4 +1,6 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Scale GTK theme minimum sizes, padding and internal controls with zoom,
+    allowing the frequency entry and VFO control row to shrink with the window.
   * Add Ctrl +/- zoom and Alt/Ctrl 0 reset; keep VFO selection session-local,
     target userlist selection to its rig room and refresh controls on selection.
     Select Hamlib TX VFO before keying, keep polling off other VFOs during TX,

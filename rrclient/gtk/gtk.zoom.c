@@ -8,6 +8,7 @@
 
 static unsigned zoom_percent = 100;
 static int base_dpi;
+static GtkCssProvider *zoom_theme_provider;
 static guint map_signal;
 static gulong map_hook;
 
@@ -69,6 +70,48 @@ char *gtk_zoom_css(const char *css) {
       }
    }
    return g_string_free(out, FALSE);
+}
+
+/* Size requests cannot shrink a control below its theme's CSS minimum.
+ * Rescale the original theme, including internal nodes (arrows, sliders,
+ * troughs), below our application and user CSS (both loaded at USER priority). */
+static void zoom_theme(GtkSettings *settings) {
+   GdkScreen *screen = gdk_screen_get_default();
+   if (zoom_theme_provider) {
+      gtk_style_context_remove_provider_for_screen(screen, GTK_STYLE_PROVIDER(zoom_theme_provider));
+      g_clear_object(&zoom_theme_provider);
+   }
+   if (zoom_percent == 100) return;
+   char *name = NULL;
+   gboolean dark = FALSE;
+   g_object_get(settings, "gtk-theme-name", &name, "gtk-application-prefer-dark-theme", &dark, NULL);
+   GtkCssProvider *theme = gtk_css_provider_get_named(name, dark ? "dark" : NULL);
+   g_free(name);
+   char *original = gtk_css_provider_to_string(theme);
+   // GTK serializes resource URLs without quotes, although its CSS reader
+   // requires strings for those URLs when reloading the serialized theme.
+   GRegex *urls = g_regex_new("url\\(([^\"'()][^()]*)\\)", 0, 0, NULL);
+   char *quoted = g_regex_replace(urls, original, -1, 0, "url(\"\\1\")", 0, NULL);
+   g_regex_unref(urls);
+   // The serializer also retains this obsolete, ignored GTK2 property.
+   GRegex *engine = g_regex_new("^[ \t]*engine:[^;\n]*;\n", G_REGEX_MULTILINE, 0, NULL);
+   char *clean = g_regex_replace(engine, quoted, -1, 0, "", 0, NULL);
+   g_regex_unref(engine);
+   char *scaled = gtk_zoom_css(clean);
+   g_free(clean);
+   g_free(quoted);
+   g_free(original);
+   zoom_theme_provider = gtk_css_provider_new();
+   GError *error = NULL;
+   if (gtk_css_provider_load_from_data(zoom_theme_provider, scaled, -1, &error)) {
+      gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(zoom_theme_provider),
+         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   } else {
+      Log(LOG_WARN, "gtk.zoom", "Unable to scale GTK theme: %s", error ? error->message : "unknown error");
+      g_clear_error(&error);
+      g_clear_object(&zoom_theme_provider);
+   }
+   g_free(scaled);
 }
 
 static void zoom_widget(GtkWidget *widget, gpointer data) {
@@ -142,6 +185,7 @@ void gtk_ui_zoom_apply(void) {
    zoom_percent = CLAMP(configured, 50, 300);
    GtkSettings *settings = gtk_settings_get_default();
    if (!settings) return;
+   zoom_theme(settings);
    if (!base_dpi) {
       g_object_get(settings, "gtk-xft-dpi", &base_dpi, NULL);
       if (base_dpi <= 0) {
@@ -169,6 +213,10 @@ void gtk_ui_zoom_step(int direction) {
 }
 
 void gtk_ui_zoom_shutdown(void) {
+   if (zoom_theme_provider) {
+      gtk_style_context_remove_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(zoom_theme_provider));
+      g_clear_object(&zoom_theme_provider);
+   }
    if (map_hook) { g_signal_remove_emission_hook(map_signal, map_hook); map_hook = 0; }
 }
 

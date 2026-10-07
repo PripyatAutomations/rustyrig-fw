@@ -294,3 +294,9 @@ Hamlib selects the requested hardware VFO before key-down and avoids polling
 other VFOs while transmitting. Key-up never changes hardware VFO selection.
 Protocol error messages contain plain text; browser rendering escapes it.
 Alt/Ctrl 0 (including keypad 0) resets GTK zoom to 100%.
+
+GTK zoom also rescales the GTK theme's pixel dimensions (including control
+minimum sizes, padding, combo arrows and slider nodes). This allows the actual
+frequency entry and VFO row to shrink, rather than only their text. The scaled
+theme stays below application/user CSS; 100% removes that override. This is a
+GTK presentation detail, with no protocol or browser behavior change.
