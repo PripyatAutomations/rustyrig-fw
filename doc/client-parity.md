@@ -310,3 +310,11 @@ are debounced and never resize the window themselves. Manual +/- also resizes
 the window proportionally; in automatic mode reset/100% maximizes it. Set the
 option false for manual 25–300% zoom. Saved window placement still applies;
 without saved placement, automatic mode opens at 75% of the primary monitor.
+
+GTK multitouch: two-finger pinch uses the existing manual interface/window zoom,
+in 5% steps within the current zoom limits. A stationary two-finger touchscreen
+tap on a userlist row opens its existing right-click menu after both fingers
+lift (400ms tap limit, 10 logical-pixel movement tolerance). Pinches, drags,
+extra fingers and cancelled touches do not open menus. Touchpad taps already
+translated to right-click remain supported; pinch requires gesture events from
+the platform. Gestures are GTK-only and leave browser-native gestures unchanged.

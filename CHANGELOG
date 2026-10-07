@@ -1,4 +1,6 @@
-rustyrig-fw (20261006.02) testing; urgency=medium
+rustyrig-fw (20261006.03) testing; urgency=medium
+  * Add GTK pinch-to-zoom and two-finger tap userlist menus, suppressing
+    accidental clicks and waiting for both fingers to lift before opening menus.
   * Default ui.gtk.scale-on-resize to true: derive GTK scale from the main
     window's monitor-relative size, allow smaller window allocations, and resize
     the normal window with manual zoom. Maximized/fullscreen uses 100%.

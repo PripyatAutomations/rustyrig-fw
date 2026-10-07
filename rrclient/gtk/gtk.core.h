@@ -86,6 +86,7 @@ extern void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const ch
 extern gboolean focus_main_later(gpointer data);
 extern bool place_window(GtkWidget *window);
 extern bool gui_init(void);
+typedef bool (*GtkTouchContextFunc)(GtkWidget *widget, double x, double y, guint32 time);
 extern char *gtk_zoom_css(const char *css);
 extern void gtk_ui_zoom_apply(void);
 extern void gtk_ui_zoom_recheck(void);

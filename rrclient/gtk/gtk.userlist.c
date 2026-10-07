@@ -244,17 +244,16 @@ static void userlist_context_menu_add(GtkWidget *menu, const char *label,
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
-static gboolean userlist_button_press(GtkWidget *widget, GdkEventButton *event,
-   gpointer user_data) {
-   (void)user_data;
-   if (!widget || !event ||
-       (event->type != GDK_BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE) ||
-       event->button != 3)
-      return FALSE;
+static void userlist_touch_menu_position(GtkMenu *menu, gint *x, gint *y, gboolean *push_in, gpointer data) {
+   (void)menu;
+   GdkPoint *point = data;
+   *x = point->x; *y = point->y; *push_in = TRUE;
+}
 
+static bool userlist_context_at(GtkWidget *widget, double x, double y, guint button, guint32 time) {
    GtkTreePath *path = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x,
-         (gint)event->y, &path, NULL, NULL, NULL)) return FALSE;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)x,
+         (gint)y, &path, NULL, NULL, NULL)) return FALSE;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
    GtkTreeIter iter;
    char *target = NULL;
@@ -281,10 +280,30 @@ static gboolean userlist_button_press(GtkWidget *widget, GdkEventButton *event,
    /* Use the legacy popup API here because it works with both older GTK 3
     * releases and tree views whose release event is not a fully populated
     * pointer event. */
-   gtk_menu_popup(GTK_MENU(menu), NULL, NULL, NULL, NULL,
-      event->button, event->time);
+   GdkPoint *point = NULL;
+   if (!button) {
+      point = g_new0(GdkPoint, 1);
+      gdk_window_get_origin(gtk_tree_view_get_bin_window(GTK_TREE_VIEW(widget)), &point->x, &point->y);
+      point->x += (int)x; point->y += (int)y;
+      g_object_set_data_full(G_OBJECT(menu), "rr-touch-position", point, g_free);
+   }
+   gtk_menu_popup(GTK_MENU(menu), NULL, NULL, point ? userlist_touch_menu_position : NULL, point,
+      button, time);
    g_free(target);
    return TRUE;
+}
+
+static gboolean userlist_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)data;
+   if (!widget || !event || event->button != 3 ||
+       (event->type != GDK_BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE)) return FALSE;
+   return userlist_context_at(widget, event->x, event->y, event->button, event->time);
+}
+
+static bool userlist_touch_context(GtkWidget *widget, double x, double y, guint32 time) {
+   int bin_x, bin_y;
+   gtk_tree_view_convert_widget_to_bin_window_coords(GTK_TREE_VIEW(widget), x, y, &bin_x, &bin_y);
+   return userlist_context_at(widget, bin_x, bin_y, 0, time);
 }
 
 static struct rr_user *room_vfo_talker(const char *room, char vfo) {
@@ -495,6 +514,7 @@ static GtkWidget *userlist_view_create(void) {
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    gtk_widget_set_name(view, "userlist-tree");
+   g_object_set_data(G_OBJECT(view), "rr-touch-context", userlist_touch_context);
    gtk_widget_add_events(view, GDK_BUTTON_RELEASE_MASK);
    g_signal_connect(view, "button-release-event", G_CALLBACK(userlist_button_press), NULL);
    g_object_unref(store);

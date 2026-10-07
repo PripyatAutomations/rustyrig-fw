@@ -1,5 +1,6 @@
 // GTK interface zoom: font DPI, authored pixel CSS and widget geometry.
 #include <ctype.h>
+#include <math.h>
 #include <string.h>
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
@@ -13,6 +14,18 @@ static GtkWidget *zoom_window, *zoom_viewport;
 static gulong resize_handler, state_handler;
 static guint resize_source;
 static int resize_width, resize_height;
+typedef struct zoom_touch {
+   GtkGesture *gesture;
+   GtkWidget *target;
+   GdkEventSequence *points[2];
+   double x[2], y[2], menu_x, menu_y;
+   guint32 started;
+   unsigned initial, finish_source, wait_ms;
+   bool active, tap, pinching;
+} zoom_touch_t;
+static GList *touch_handlers;
+static unsigned active_touches;
+static void zoom_touch_bind(GtkWidget *window);
 static guint map_signal;
 static gulong map_hook;
 
@@ -178,7 +191,7 @@ static gboolean zoom_mapped(GSignalInvocationHint *hint, guint n, const GValue *
    (void)hint; (void)data;
    if (n) {
       GtkWidget *widget = g_value_get_object(&values[0]);
-      if (GTK_IS_WINDOW(widget)) gui_hotkey_register(widget);
+      if (GTK_IS_WINDOW(widget)) { gui_hotkey_register(widget); zoom_touch_bind(widget); }
       zoom_widget(widget, NULL);
    }
    return TRUE;
@@ -204,7 +217,7 @@ static GdkMonitor *zoom_monitor(GtkWidget *widget) {
 static gboolean zoom_after_resize(gpointer data) {
    (void)data;
    resize_source = 0;
-   if (!zoom_window || !cfg_get_bool("ui.gtk.scale-on-resize", true)) return G_SOURCE_REMOVE;
+   if (!zoom_window || active_touches || !cfg_get_bool("ui.gtk.scale-on-resize", true)) return G_SOURCE_REMOVE;
    GdkWindow *window = gtk_widget_get_window(zoom_window);
    if (!window) return G_SOURCE_REMOVE;
    GdkMonitor *monitor = zoom_monitor(zoom_window);
@@ -298,7 +311,7 @@ void gtk_ui_zoom_apply(void) {
       map_hook = g_signal_add_emission_hook(map_signal, 0, zoom_mapped, NULL, NULL);
    }
    GList *windows = gtk_window_list_toplevels();
-   for (GList *it = windows; it; it = it->next) zoom_widget(it->data, NULL);
+   for (GList *it = windows; it; it = it->next) { zoom_touch_bind(it->data); zoom_widget(it->data, NULL); }
    g_list_free(windows);
 }
 
@@ -333,6 +346,137 @@ static void zoom_manual_set(unsigned next) {
    }
 }
 
+static void zoom_touch_clear(zoom_touch_t *touch) {
+   if (touch->finish_source) { g_source_remove(touch->finish_source); touch->finish_source = 0; }
+   if (touch->active) { touch->active = false; active_touches--; }
+   touch->tap = false;
+   g_clear_object(&touch->target);
+}
+
+static void zoom_touch_begin(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
+   zoom_touch_t *touch = data;
+   zoom_touch_clear(touch);
+   touch->active = true; active_touches++;
+   touch->initial = zoom_percent;
+   touch->pinching = false;
+   const GdkEvent *event = gtk_gesture_get_last_event(gesture, sequence);
+   touch->started = event ? gdk_event_get_time(event) : 0;
+   GList *points = gtk_gesture_get_sequences(gesture);
+   touch->tap = g_list_length(points) == 2 && event &&
+      (event->type == GDK_TOUCH_BEGIN || event->type == GDK_TOUCH_UPDATE);
+   if (touch->tap) {
+      // begin's sequence is the second finger; anchor the menu at the first.
+      touch->points[0] = points->data == sequence ? points->next->data : points->data;
+      touch->points[1] = sequence;
+      for (int i = 0; i < 2; i++)
+         touch->tap &= gtk_gesture_get_point(gesture, touch->points[i], &touch->x[i], &touch->y[i]);
+      const GdkEvent *first = gtk_gesture_get_last_event(gesture, touch->points[0]);
+      GtkWidget *hit = first ? gtk_get_event_widget((GdkEvent *)first) : NULL;
+      while (hit && !g_object_get_data(G_OBJECT(hit), "rr-touch-context")) hit = gtk_widget_get_parent(hit);
+      if (hit) {
+         GtkWidget *window = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(gesture));
+         int x, y;
+         if (gtk_widget_translate_coordinates(window, hit, touch->x[0], touch->y[0], &x, &y)) {
+            touch->target = g_object_ref(hit);
+            touch->menu_x = x; touch->menu_y = y;
+         }
+      }
+      if (!touch->target) touch->tap = false;
+   }
+   g_list_free(points);
+   // Cancel emulated clicks below us once two fingers are recognized. This
+   // keeps a pinch from activating a button or selecting a different VFO.
+   gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED);
+}
+
+static void zoom_touch_update(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
+   (void)sequence;
+   zoom_touch_t *touch = data;
+   if (!touch->active || !touch->tap) return;
+   for (int i = 0; i < 2; i++) {
+      double x, y;
+      if (gtk_gesture_get_point(gesture, touch->points[i], &x, &y) &&
+          ((x - touch->x[i]) * (x - touch->x[i]) + (y - touch->y[i]) * (y - touch->y[i]) > 100))
+         touch->tap = false;
+   }
+}
+
+static void zoom_touch_scale(GtkGestureZoom *gesture, double scale, gpointer data) {
+   (void)gesture;
+   zoom_touch_t *touch = data;
+   if (!touch->active || !isfinite(scale) || scale <= 0) return;
+   if (!touch->pinching && fabs(scale - 1.0) < 0.04) return;
+   touch->pinching = true; touch->tap = false;
+   unsigned maximum = zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
+   double value = CLAMP(touch->initial * scale, 25, maximum);
+   unsigned next = CLAMP(((unsigned)(value + 2.5) / 5) * 5, 25, maximum);
+   if (next != zoom_percent) zoom_manual_set(next);
+}
+
+static gboolean zoom_touch_finish(gpointer data) {
+   zoom_touch_t *touch = data;
+   GList *points = gtk_gesture_get_sequences(touch->gesture);
+   bool held = points != NULL;
+   g_list_free(points);
+   if (held && touch->wait_ms > 20) {
+      touch->wait_ms -= 20;
+      return G_SOURCE_CONTINUE;
+   }
+   touch->finish_source = 0;
+   if (!held && touch->target && gtk_widget_get_mapped(touch->target)) {
+      GtkTouchContextFunc menu = g_object_get_data(G_OBJECT(touch->target), "rr-touch-context");
+      if (menu) menu(touch->target, touch->menu_x, touch->menu_y, GDK_CURRENT_TIME);
+   }
+   zoom_touch_clear(touch);
+   if (zoom_window) zoom_queue_resize();
+   return G_SOURCE_REMOVE;
+}
+
+static void zoom_touch_end(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
+   zoom_touch_t *touch = data;
+   zoom_touch_update(gesture, sequence, data);
+   const GdkEvent *event = gtk_gesture_get_last_event(gesture, sequence);
+   guint32 elapsed = event ? (guint32)(gdk_event_get_time(event) - touch->started) : 401;
+   if (touch->active && touch->tap && touch->target && event && event->type == GDK_TOUCH_END && elapsed < 400) {
+      // end fires when the FIRST finger lifts. Wait for the other release so
+      // it cannot accidentally activate an item in the newly opened menu.
+      touch->wait_ms = 400 - elapsed;
+      touch->finish_source = g_timeout_add(20, zoom_touch_finish, touch);
+      return;
+   }
+   zoom_touch_clear(touch);
+   if (zoom_window) zoom_queue_resize();
+}
+
+static void zoom_touch_cancel(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
+   (void)gesture; (void)sequence;
+   zoom_touch_clear(data);
+}
+
+static void zoom_touch_free(gpointer data) {
+   zoom_touch_t *touch = data;
+   touch_handlers = g_list_remove(touch_handlers, touch);
+   zoom_touch_clear(touch);
+   g_object_unref(touch->gesture);
+   g_free(touch);
+}
+
+static void zoom_touch_bind(GtkWidget *window) {
+   if (!GTK_IS_WINDOW(window) || gtk_window_get_window_type(GTK_WINDOW(window)) != GTK_WINDOW_TOPLEVEL ||
+       g_object_get_data(G_OBJECT(window), "rr-touch-zoom")) return;
+   zoom_touch_t *touch = g_new0(zoom_touch_t, 1);
+   touch->gesture = gtk_gesture_zoom_new(window);
+   gtk_widget_add_events(window, GDK_TOUCH_MASK | GDK_TOUCHPAD_GESTURE_MASK);
+   gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(touch->gesture), GTK_PHASE_CAPTURE);
+   g_signal_connect(touch->gesture, "begin", G_CALLBACK(zoom_touch_begin), touch);
+   g_signal_connect(touch->gesture, "update", G_CALLBACK(zoom_touch_update), touch);
+   g_signal_connect(touch->gesture, "scale-changed", G_CALLBACK(zoom_touch_scale), touch);
+   g_signal_connect(touch->gesture, "end", G_CALLBACK(zoom_touch_end), touch);
+   g_signal_connect(touch->gesture, "cancel", G_CALLBACK(zoom_touch_cancel), touch);
+   touch_handlers = g_list_prepend(touch_handlers, touch);
+   g_object_set_data_full(G_OBJECT(window), "rr-touch-zoom", touch, zoom_touch_free);
+}
+
 void gtk_ui_zoom_step(int direction) {
    int maximum = zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
    int next = CLAMP((int)zoom_percent + (direction > 0 ? 10 : -10), 25, maximum);
@@ -340,6 +484,11 @@ void gtk_ui_zoom_step(int direction) {
 }
 
 void gtk_ui_zoom_shutdown(void) {
+   while (touch_handlers) {
+      zoom_touch_t *touch = touch_handlers->data;
+      GtkWidget *window = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(touch->gesture));
+      g_object_set_data(G_OBJECT(window), "rr-touch-zoom", NULL);
+   }
    if (resize_source) { g_source_remove(resize_source); resize_source = 0; }
    if (zoom_window) {
       g_signal_handler_disconnect(zoom_window, resize_handler);

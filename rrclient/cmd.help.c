@@ -157,6 +157,9 @@ static help_line_t help_msg_after[] = {
       UI_MODE_GTK, "\t{bright-green}alt/ctrl +/- {bright-yellow}Zoom GTK interface/window; Alt/Ctrl 0 resets to 100% (maximizes with auto scaling)"
    },
    {
+      UI_MODE_GTK, "\t{bright-green}Touch         {bright-yellow}Pinch to zoom; two-finger tap a userlist row for its menu"
+   },
+   {
       UI_MODE_GTK, "\t{bright-green}alt-c         {bright-yellow}Focus chat input"
    },
    {
