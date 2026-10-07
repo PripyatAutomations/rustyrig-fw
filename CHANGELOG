@@ -1,4 +1,4 @@
-rustyrig-fw (20261007.03) testing; urgency=medium
+rustyrig-fw (20261007.04) testing; urgency=medium
   * Add Ctrl+B/C/I/O/R mIRC formatting controls to GTK chat input, matching
     the TUI shortcuts; Ctrl+U clears the input as in the TUI.
   * Wrap the GTK main notebook's tab strip into additional rows rather than
