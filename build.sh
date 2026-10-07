@@ -9,12 +9,11 @@
 # Ensure we stop on errors
 set -euo pipefail
 
-SUDO=$(which sudo)
-
 # Try to determine if gstreamer dev package installed, if not install deps
-X=$(pkg-config --cflags gstreamer-1.0)
+X=$(pkg-config --cflags gstreamer-1.0x)
 if [ $? != 0 ]; then
-   $SUDO ./install-deps.sh
+   echo "Missing gstreamer - run the apt install line given below to resolve:"
+   ./install-deps.sh
 fi
 
 # If it looks like submodules are missing, pull them now

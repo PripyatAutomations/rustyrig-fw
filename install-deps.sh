@@ -48,5 +48,5 @@ if [ -f "${DEBVER}" ]; then
     [ "$BUILD_CALLSIGN_LOOKUP" = "true" ] && PKG="${PKG} libcurl4-openssl-dev"
 
     echo "Please use the following command to install needed build-deps:"
-    echo apt install ${PKG}
+    echo ${SUDO} apt install ${PKG}
 fi
