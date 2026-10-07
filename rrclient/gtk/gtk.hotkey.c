@@ -55,8 +55,10 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
 // XXX: We need to rewrite this so that it can build/quickly search a list of hotkeys relevant to
 // XXX: the currently active context
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+   if (!event) return FALSE;
+   if (gtk_ui_zoom_key(event)) { gtk_escape_prefix = FALSE; return TRUE; }
    gui_window_t *wp = gui_find_window(NULL, "main");
-   GtkWidget *main_win = wp->gtk_win;
+   GtkWidget *main_win = wp ? wp->gtk_win : NULL;
 
    if (!main_notebook || !event) {
       return true;
@@ -224,6 +226,8 @@ bool gui_hotkey_register(GtkWidget *widget) {
    if (!widget) {
       return true;
    }
+   if (g_object_get_data(G_OBJECT(widget), "rr-global-hotkeys")) return false;
+   g_object_set_data(G_OBJECT(widget), "rr-global-hotkeys", GINT_TO_POINTER(1));
    g_signal_connect(widget, "key-press-event", G_CALLBACK(gui_global_hotkey_cb), widget);
    g_signal_connect(widget, "key-release-event", G_CALLBACK(gui_global_hotkey_release_cb), widget);
    return false;

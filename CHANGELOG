@@ -1,4 +1,6 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Add whole-interface GTK zoom with Alt +/- (Alt = and keypad +/- too),
+    scaling fonts, pixel CSS, widget sizes, spacing and icons across windows.
   * Remove the GTK logger callback before module teardown/unload to prevent
     shutdown logging from jumping into unmapped code. Exit GTK callbacks before
     core cleanup can dlclose the frontend; add unload/reload and timer coverage.

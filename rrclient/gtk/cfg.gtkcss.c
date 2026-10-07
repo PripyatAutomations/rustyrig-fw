@@ -38,6 +38,7 @@ static char *gtk_css_buf = NULL;
 
 #ifdef USE_GTK
 #include <gtk/gtk.h>
+#include <rrclient/gtk/gtk.core.h>
 extern GtkCssProvider *css_provider;            // gtk.core.c
 #endif
 
@@ -101,7 +102,10 @@ bool gtk_css_apply(const char *css) {
    }
    GError *err = NULL;
 
-   if ( !gtk_css_provider_load_from_data(css_provider, css, -1, &err) ) {
+   char *scaled = gtk_zoom_css(css);
+   bool loaded = gtk_css_provider_load_from_data(css_provider, scaled, -1, &err);
+   g_free(scaled);
+   if (!loaded) {
       Log(LOG_WARN, "gtk.css", "Error loading user CSS (base defaults still active): %s",
          err ? err->message : "unknown");
 
@@ -122,18 +126,22 @@ bool gtk_css_apply(const char *css) {
 // Apply whatever CSS we've got (called at GUI init)
 bool gtk_css_apply_cfg(void) {
 #ifdef USE_GTK
+   gtk_ui_zoom_apply();
 
    // Apply the compiled-in defaults as a base layer first. The user's CSS
    // goes on a second provider at the same priority; user rules that match
    // the same selectors win because they're loaded later.
-   if (!base_css_provider) {
+   {
       const char *def = default_css;
 
       if (def && *def) {
-         base_css_provider = gtk_css_provider_new();
+         if (!base_css_provider) base_css_provider = gtk_css_provider_new();
          GError *err = NULL;
 
-         if ( !gtk_css_provider_load_from_data(base_css_provider, def, -1, &err) ) {
+         char *scaled = gtk_zoom_css(def);
+         bool loaded = gtk_css_provider_load_from_data(base_css_provider, scaled, -1, &err);
+         g_free(scaled);
+         if (!loaded) {
             Log(LOG_WARN, "gtk.css", "Error loading default CSS: %s", err ? err->message : "unknown");
 
             if (err) {

@@ -58,6 +58,7 @@ gtk_module_objs += gtk/gtk.codecpicker.o	# codec picker widget
 gtk_module_objs += gtk/gtk.editcfg.o	# configuration tab
 gtk_module_objs += gtk/gtk.fm-mode.o	# FM mode dialog
 gtk_module_objs += gtk/gtk.freqentry.o	# Frequency Entry Widget
+gtk_module_objs += gtk/gtk.zoom.o             # Whole-interface GTK zoom
 gtk_module_objs += gtk/gtk.hotkey.o	# Hotkey support
 gtk_module_objs += gtk/gtk.mode-box.o	# Modulation Mode / width box
 ifeq (${USE_LIBNOTIFY},true)

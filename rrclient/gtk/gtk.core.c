@@ -1021,6 +1021,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   gtk_ui_zoom_shutdown();
    // No logger callback may point into this module after dlclose().
    if (frontend_gtk_log_callback) {
       log_remove_callback(frontend_gtk_log_callback);

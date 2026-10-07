@@ -228,6 +228,9 @@ defconfig_t defcfg[] = {
       "ui.full-screen", "false", "Go full-screen at start?", DEFCONFIG_BOOL, NULL
    },
    {
+      "ui.gtk.zoom", "100", "GTK interface size percent (50-300); Alt +/- adjusts by 10", DEFCONFIG_UINT, NULL
+   },
+   {
       "ui.gtk.vfo-on-top", "false", "Place VFO controls at top of the rig window?", DEFCONFIG_BOOL, NULL
    },
    {

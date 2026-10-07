@@ -23,6 +23,8 @@ ui.show-pings=false
 ui.full-screen=false
 # Divide scroll events by this # to get single-steps
 ui.freqentry.scroll-divider=3.0
+; Whole GTK interface size in percent; Alt +/- changes it in 10% steps.
+ui.gtk.zoom=100
 ; Do we put the VFO at top or bottom of the window?
 ui.gtk.vfo-on-top=false
 ; bottom, top, left, right

@@ -278,3 +278,9 @@ GTK keeps a persistent status tab separate from the authenticated site lobby.
 Its command input uses the unscoped discovery context, matching TUI status;
 NULL/status output goes to its own buffer while room/query output remains scoped.
 Browser chat retains its existing root/status discovery context.
+
+GTK-only interface zoom: Alt +/- (Alt = and keypad +/-) changes
+`ui.gtk.zoom` in 10% steps from 50% to 300%. Point-font DPI, CSS pixel sizes,
+widget requests, margins, spacing, packing and icon sizes scale together.
+New dialogs/detached windows inherit the current zoom; CSS reload preserves it.
+TUI text sizing remains controlled by the terminal, and browser zoom by the browser.
