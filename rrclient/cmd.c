@@ -104,6 +104,10 @@ client_cmd_t client_cmds[] = {
       .cmd = "grid", .help_section = "Radio and discovery", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates"
    },
    {
+      .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 2,
+      .desc = "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
+   },
+   {
       .cmd = "object", .help_section = "Radio and discovery", .cb = cmd_object, .desc = "Inspect objects: /object [rig0|rig0.A|uuid]"
    },
    {
@@ -112,10 +116,6 @@ client_cmd_t client_cmds[] = {
    {
       .cmd = "rig", .help_section = "Radio and discovery", .cb = cmd_rig, .max_args = 1,
       .desc = "Radios and VFOs: LIST | SUBSCRIBE | UNSUBSCRIBE property updates"
-   },
-   {
-      .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 2,
-      .desc = "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
    },
    {
       .cmd = "rxcodec", .help_section = "Media", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]"

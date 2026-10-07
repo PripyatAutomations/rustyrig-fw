@@ -1,0 +1,17 @@
+* GUI pipeline composer/editor for gstreamer
+
+* Admin tab with user/room/etc management
+
+* Merge rrclient/rrserver maybe?
+  - would gain nice tui in rrserver
+  - gtk is already a module
+  - would aid in multinode linking later
+
+* Object browser / subscription manager UI
+
+* sercom/gps manager UI
+
+* Repeater module for rrserver
+
+* add a default off config option ui.gtk.scale-on-resize
+  - resize the scaling as the window resize is attempted, so the window isnt constrained to a minimum size

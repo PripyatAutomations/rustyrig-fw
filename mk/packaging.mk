@@ -15,9 +15,8 @@ indent:
 mdeb mdebs:
 	mkdir -p ../releases
 	rm -f ../releases/*.deb
+	./tools/bump-version.sh
 	${MAKE} debs
-	# XXX: we should get rid of this except in maintainer mode!
-	# XXX: Or at least ask before installing them....
 	./tools/deb-release-test.sh
 
 deb debs:
