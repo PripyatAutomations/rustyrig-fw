@@ -100,6 +100,16 @@ enabled=false
             client.send({"msg": {"type": "object"}, "object": {"cmd": "snapshot"},
                 "request": {"id": "chat-controls"}})
             client.until(lambda m: m.get("object", {}).get("cmd") == "end")
+            # Selection acknowledgements are scoped to this session and room.
+            for vfo in ("B", "A"):
+                client.send({"msg": {"type": "talk"}, "talk": {"cmd": "msg", "msg_type": "pub",
+                    "target": "#roomtest-rig0", "data": "!vfo " + vfo}})
+                selected = client.until(lambda m: m.get("cat", {}).get("state", {}).get("selected"))
+                assert selected["cat"]["room"] == "#roomtest-rig0"
+                assert selected["cat"]["state"]["vfo"] == vfo
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "join", "target": "$invalid"}})
+            error = client.until(lambda m: m.get("error"))
+            assert "# or &)" in error["error"]["msg"], error
             # A successful control must not stop parsing the remaining commands.
             for text, expected_mode, expected_frequency in (
                 ("!mode lsb", "LSB", None),

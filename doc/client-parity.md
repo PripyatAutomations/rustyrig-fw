@@ -279,8 +279,18 @@ Its command input uses the unscoped discovery context, matching TUI status;
 NULL/status output goes to its own buffer while room/query output remains scoped.
 Browser chat retains its existing root/status discovery context.
 
-GTK-only interface zoom: Alt +/- (Alt = and keypad +/-) changes
+GTK-only interface zoom: Alt/Ctrl +/- (Alt/Ctrl = and keypad +/-) changes
 `ui.gtk.zoom` in 10% steps from 50% to 300%. Point-font DPI, CSS pixel sizes,
 widget requests, margins, spacing, packing and icon sizes scale together.
 New dialogs/detached windows inherit the current zoom; CSS reload preserves it.
 TUI text sizing remains controlled by the terminal, and browser zoom by the browser.
+
+VFO selection is per client session and room. `!vfo` returns
+`cat.state.selected=true` only to its caller; physical `cat.state.active`
+poll reports never select the client UI VFO. The acknowledgement retains
+`active=true` for older clients. Native and browser clients require the updated
+server for selection acknowledgements. GTK userlist rows target their own room.
+Hamlib selects the requested hardware VFO before key-down and avoids polling
+other VFOs while transmitting. Key-up never changes hardware VFO selection.
+Protocol error messages contain plain text; browser rendering escapes it.
+Alt/Ctrl 0 (including keypad 0) resets GTK zoom to 100%.

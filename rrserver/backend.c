@@ -391,6 +391,10 @@ bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
       return true;
    }
 
+   if (state) {
+      backend->active_vfo = vfo;
+      if (radio == rr_default_radio()) active_vfo = vfo;
+   }
    return false;
 }
 

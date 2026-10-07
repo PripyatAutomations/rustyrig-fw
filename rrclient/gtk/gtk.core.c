@@ -23,6 +23,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
+#include <rrclient/media.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.vol-box.h>
@@ -739,7 +740,11 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
    GtkWidget *entry = freq_entry;
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-      if (!gtk_freq_entry_is_editing(fe)) {
+      char selection[256];
+      snprintf(selection, sizeof(selection), "%s/%s", rrclient_media_active_room(), vfo);
+      const char *displayed = g_object_get_data(G_OBJECT(entry), "rr-displayed-vfo");
+      if (!displayed || strcmp(displayed, selection) || !gtk_freq_entry_is_editing(fe)) {
+         g_object_set_data_full(G_OBJECT(entry), "rr-displayed-vfo", g_strdup(selection), g_free);
          gtk_freq_entry_set_frequency(fe, freq);
       }
    }

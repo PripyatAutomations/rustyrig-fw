@@ -97,6 +97,16 @@ int main(void) {
    check(&window, "${ptt-state}", "PTT: WAIT");
    ws_connected = 1;
    vfo_state_set_active("B");
+   dict *selection = dict_new();
+   dict_add_bool(selection, "cat.state.active", true);
+   vfo_set_dict("A", selection);
+   assert(vfo_state_get_active() == 'B'); // physical poll cannot steal selection
+   dict_add_bool(selection, "cat.state.selected", true);
+   vfo_set_dict("A", selection);
+   assert(vfo_state_get_active() == 'A');
+   vfo_set_dict("B", selection);
+   assert(vfo_state_get_active() == 'B');
+   dict_free(selection);
    check(&window, "${active_vfo}/${active_freq}/${active_mode}", "B/14250000/USB");
    check(&window, "${window}/${topic}/${server}/${user}/${connection}/${rxcodec}/${txcodec}",
       "#rig/Test topic/station/operator/ONLINE/opuT/NONE");

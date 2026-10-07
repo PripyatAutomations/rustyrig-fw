@@ -29,7 +29,12 @@ int main(void) {
    assert(gtk_ui_zoom_key(&key) && zoom_percent == 100);
    key.keyval = GDK_KEY_equal; assert(gtk_ui_zoom_key(&key) && zoom_percent == 110);
    key.keyval = GDK_KEY_KP_Subtract; assert(gtk_ui_zoom_key(&key) && zoom_percent == 100);
-   key.state = GDK_CONTROL_MASK; assert(!gtk_ui_zoom_key(&key));
+   key.state = GDK_CONTROL_MASK; assert(gtk_ui_zoom_key(&key) && zoom_percent == 90);
+   key.keyval = GDK_KEY_0; assert(gtk_ui_zoom_key(&key) && zoom_percent == 100);
+   key.keyval = GDK_KEY_plus; assert(gtk_ui_zoom_key(&key) && zoom_percent == 110);
+   key.state = GDK_MOD1_MASK; key.keyval = GDK_KEY_KP_0;
+   assert(gtk_ui_zoom_key(&key) && zoom_percent == 100);
+   key.state = 0; assert(!gtk_ui_zoom_key(&key));
    zoom_percent = 300; gtk_ui_zoom_step(1); assert(zoom_percent == 300);
    zoom_percent = 50; gtk_ui_zoom_step(-1); assert(zoom_percent == 50);
    if (gtk_init_check(NULL, NULL)) {

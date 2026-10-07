@@ -406,7 +406,14 @@ static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event
    rrclient_media_room_selected(control->room);
    char command[16];
    snprintf(command, sizeof(command), "!vfo %c", control->vfo);
-   parse_chat_input_real(command);
+   dict *request = dict_new();
+   dict_add(request, "msg.type", "talk");
+   dict_add(request, "talk.cmd", "msg");
+   dict_add(request, "talk.msg_type", "pub");
+   dict_add(request, "talk.target", control->room);
+   dict_add(request, "talk.data", command);
+   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   dict_free(request);
    return TRUE;
 }
 

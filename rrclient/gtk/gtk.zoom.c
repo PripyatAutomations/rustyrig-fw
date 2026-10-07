@@ -173,8 +173,11 @@ void gtk_ui_zoom_shutdown(void) {
 }
 
 bool gtk_ui_zoom_key(const GdkEventKey *event) {
-   if (!event || event->type != GDK_KEY_PRESS || !(event->state & GDK_MOD1_MASK)) return false;
+   if (!event || event->type != GDK_KEY_PRESS || !(event->state & (GDK_MOD1_MASK | GDK_CONTROL_MASK))) return false;
    switch (event->keyval) {
+      case GDK_KEY_0: case GDK_KEY_KP_0:
+         dict_add_int(cfg, "ui.gtk.zoom", 100);
+         gtk_css_apply_cfg(); return true;
       case GDK_KEY_plus: case GDK_KEY_equal: case GDK_KEY_KP_Add:
          gtk_ui_zoom_step(1); return true;
       case GDK_KEY_minus: case GDK_KEY_KP_Subtract:

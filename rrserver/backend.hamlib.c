@@ -34,6 +34,8 @@ typedef struct hamlib_backend {
    bool vfo_probed[MAX_VFOS];
    bool vfo_mode_ok[MAX_VFOS];
    bool connected;
+   bool transmitting;
+   rr_vfo_t tx_vfo;
    time_t retry_at;
    rig_model_t model;
    char *device;
@@ -399,7 +401,16 @@ static bool hl_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) 
       return true;
    }
 
+   // Select the transmitter only on key-down. Release must never switch it.
+   if (state && rig_set_vfo(data->rig, hl_get_vfo(index)) != RIG_OK) {
+      Log(LOG_WARN, "backend.hamlib", "Cannot select TX VFO %s", vfo_name(index));
+      return true;
+   }
    int result = rig_set_ptt(data->rig, hl_get_vfo(index), state ? RIG_PTT_ON : RIG_PTT_OFF);
+   if (result == RIG_OK) {
+      data->transmitting = state;
+      if (state) data->tx_vfo = index;
+   }
 
    if (result != RIG_OK) {
       Log( LOG_CRIT, "backend.hamlib", "%s: failed to set PTT: %s", rr_backend_instance_alias(backend),
@@ -575,10 +586,13 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       return NULL;
    }
 
+   // Polling another VFO can switch a single-receiver radio out from under TX.
+   if (data->transmitting && index != data->tx_vfo) return NULL;
+
    hamlib_vfo_state_t *state = &data->state[index];
    vfo_t hamlib_vfo = hl_get_vfo(index);
 
-   int result = rig_set_vfo(data->rig, hamlib_vfo);
+   int result = data->transmitting ? RIG_OK : rig_set_vfo(data->rig, hamlib_vfo);
 
    if (result != RIG_OK) {
       Log( LOG_WARN, "backend.hamlib", "%s: SET VFO %s failed: %s", rr_backend_instance_alias(backend), vfo_name(index),

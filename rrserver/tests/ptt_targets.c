@@ -25,12 +25,18 @@ int main(void) {
    assert(a && b);
    assert(rr_server_vfo_add(a, "vfo-0-A", "A", "A", RR_VFO_PERSISTENT));
    assert(rr_server_vfo_add(b, "vfo-1-A", "A", "A", RR_VFO_PERSISTENT));
+   assert(rr_server_vfo_add(b, "vfo-1-B", "B", "B", RR_VFO_PERSISTENT));
    assert(!rr_rig_registry_set_default(rig.rigs, a));
    rig.ptt_rig = b;
    assert(!rr_ptt_apply(VFO_A, true));
    assert(last_state && !strcmp(last_vfo, "vfo-1-A"));
    assert(!rr_ptt_apply(VFO_A, false));
    assert(!last_state && !strcmp(last_vfo, "vfo-1-A"));
+   active_vfo = VFO_A;
+   assert(!rr_ptt_apply(VFO_B, true));
+   assert(rr_server_rig_backend(b)->active_vfo == VFO_B && active_vfo == VFO_A);
+   assert(!rr_ptt_apply(VFO_B, false));
+   assert(rr_server_rig_backend(b)->active_vfo == VFO_B && active_vfo == VFO_A);
    rig.ptt_rig = NULL;
    assert(!rr_ptt_apply(VFO_A, true));
    assert(last_state && !strcmp(last_vfo, "vfo-0-A"));

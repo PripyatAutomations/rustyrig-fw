@@ -160,19 +160,15 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    };
 //   Log(LOG_CRAZY, "vfo", "vfo_set_dict: VFO %c", vfo_id);
 
-   // The server is authoritative about which VFO is active (e.g. after a
-   // !vfo switch); track its announcements so the UI shows the right VFO.
-   // This must happen BEFORE computing is_active below, so an update that
-   // switches the active VFO still refreshes the UI.
-   // PARITY: rustyrig-www/js/webui.rigctl.js (cat.state.active handling)
-   // CAT broadcasts may arrive for another rig in the same process.  Keep
-   // that rig's active VFO separate from the room currently shown by the UI.
+   // Only an explicit acknowledgement changes this session's selection.
+   // Hardware-active CAT polls must never move a client's controls.
+   // PARITY: rustyrig-www/js/webui.rigctl.js (cat.state.selected)
    const char *update_room = dict_get(d, "cat.room", NULL);
 
    if (!update_room || !*update_room) { update_room = rrclient_media_active_room(); }
    char prev_active = rrclient_room_active_vfo(update_room);
 
-   if ( dict_get_bool(d, "cat.state.active", false) ) {
+   if ( dict_get_bool(d, "cat.state.selected", false) ) {
       rrclient_room_set_active_vfo(update_room, vfo_id);
 
       if ( !strcasecmp( update_room, rrclient_media_active_room() ) ) { s_active_vfo = vfo_id; }
@@ -268,7 +264,7 @@ bool vfo_set_dict(const char *vfo, dict *d) {
       }
    }
 
-   if (vfo_state_get_active() != prev_active) {
+   if (current_room && vfo_state_get_active() != prev_active) {
       char active_str[2] = {
          vfo_state_get_active(), '\0'
       };

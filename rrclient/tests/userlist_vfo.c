@@ -1,10 +1,15 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.userlist.c"
 bool dying, restarting;
+rrconn_t *ws_conn;
 time_t now;
 static char selected_room[128], command[32];
 void rrclient_media_room_selected(const char *room) { snprintf(selected_room, sizeof(selected_room), "%s", room); }
-bool parse_chat_input_real(const char *text) { snprintf(command, sizeof(command), "%s", text); return false; }
+bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *d, int opcode) {
+   assert(!strcmp(dict_get((dict *)d, "talk.target", ""), "#site-rig0"));
+   snprintf(command, sizeof(command), "%s", dict_get((dict *)d, "talk.data", ""));
+   return true;
+}
 int main(void) {
    room_userlist_entry_t entry = { .docked = false };
    room_vfo_control_t control = { .vfo = 'B', .room = "#site-rig0", .entry = &entry };
