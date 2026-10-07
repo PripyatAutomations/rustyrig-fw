@@ -1,4 +1,29 @@
 rustyrig-fw (20261006.01) testing; urgency=medium
+  * Remove the GTK logger callback before module teardown/unload to prevent
+    shutdown logging from jumping into unmapped code. Exit GTK callbacks before
+    core cleanup can dlclose the frontend; add unload/reload and timer coverage.
+  * Keep a permanent GTK status tab with command input and top-level discovery
+    output; create the site lobby separately and preserve startup messages.
+  * Fix account target checks and staff creation checks to evaluate admin and
+    owner flags separately; enforce owner-only management of staff accounts.
+  * Default rig audio to one shared RX/TX pair; add audio.per-vfo and direction
+    overrides for independent RX/TX. Keep shared subscriptions across A/B
+    changes, preserve rig-scoped TX/subroom checks, recording and VFO displays.
+  * Clarify VFO audio route labels and GTK/browser hints: A/B can share a
+    receiver; preserve independent RX/TX routing for capable rigs.
+  * Require explicit serial or serial.<portname> account flags for raw serial
+    exports, including serial.ttyGPS* prefix patterns; remove admin/owner and
+    configured access-list bypasses and enforce revocation on active tunnels.
+  * Restrict PTT overrides to stopping lower account roles, never ownership
+    transfer; owners outrank admins, TX/elmer may stop noobs. Match GTK/browser
+    stop requests and retain ownership when backend release fails.
+  * Audit HTTP/WebSocket/serial/CAT handling; harden bounded JSON parsing and
+    numeric conversions, exact frame/routing validation, static-file containment,
+    serial stream replay/closure and control values. Enforce PTT ownership and
+    mapped VFOs; preserve TX timeout on duplicate key-down, permit key-up during
+    lockout, and start native TLS before upgrade. Add transport regressions and
+    document remaining LAN/VPN trust and backend-confirmation limitations.
+
   * Reserve dashed station room creation for admin/owner, allow authenticated
     users to create undashed chat rooms, and group/sort native/browser /help
     and the command privilege table by help section.

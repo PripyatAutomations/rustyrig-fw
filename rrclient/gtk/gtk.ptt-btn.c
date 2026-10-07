@@ -86,21 +86,16 @@ static bool someone_else_transmitting(struct rr_user *talker) {
    return (talker && (!login_user || strcmp(talker->name, login_user) != 0) );
 }
 
-// Administrators and owners may halt any other user's PTT. Elmers may halt
-// only a noob's PTT. The privilege list comes from cached userlist data.
+/* PARITY: librrprotocol/srv.rigctl.c:ws_ptt_can_override.
+ * This is a UI hint; the server checks current account flags. */
 static bool i_can_halt_user(const struct rr_user *talker) {
-   if (!talker) {
-      return false;
-   }
-
-   struct rr_user *me = (login_user ? userlist_find(login_user) : NULL);
-   if (!me) {
-      return false;
-   }
-
-   bool privileged = strcasestr(me->privs, "admin") || strcasestr(me->privs, "owner");
-   bool elmer_noob = strcasestr(me->privs, "elmer") && strcasestr(talker->privs, "noob");
-   return privileged || elmer_noob;
+   struct rr_user *me = login_user ? userlist_find(login_user) : NULL;
+   if (!talker || !me || strcasestr(talker->privs, "owner")) return false;
+   if (strcasestr(me->privs, "owner")) return true;
+   if (strcasestr(talker->privs, "admin")) return false;
+   if (strcasestr(me->privs, "admin")) return true;
+   return !strcasestr(me->privs, "noob") && strcasestr(talker->privs, "noob") &&
+      (strcasestr(me->privs, "tx") || strcasestr(me->privs, "elmer"));
 }
 
 // Apply the current state to the button widget
@@ -265,9 +260,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 
    struct rr_user *talker = tx_user();
 
-   // We can't key up while someone else holds PTT. Exception: if they're a
-   // noob and we're admin/elmer, we allow it so the server halts their TX
-   // (and starts their cooldown).
+   // Clicking a held transmitter requests STOP only, never a takeover.
    if (someone_else_transmitting(talker) && !i_can_halt_user(talker) ) {
       Log(LOG_AUDIT, "ui.gtk", "PTT ignored: %s is already transmitting", talker->name);
       ui_print(NULL, "{yellow}*** {bright-red}%s{bright-yellow} is already transmitting{reset}", talker->name);
@@ -282,7 +275,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       return;
    }
 
-   ptt_active = gtk_toggle_button_get_active(button);
+   ptt_active = someone_else_transmitting(talker) ? false : gtk_toggle_button_get_active(button);
 
    // Clicked while a request is still PENDING: cancel it. Clear the pending
    // state; the rest of this handler sends the (now opposite) command.

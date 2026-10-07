@@ -163,6 +163,7 @@ int main(void) {
    media_channels_free();
 
    dict_add(cfg, "station.name", "testsite");
+   dict_add(cfg, "rig:rig0.audio.per-vfo", "true");
    dict_add(cfg, "rig:rig1.room", "#testsite-rig1");
    rig.rigs = rr_rig_registry_new();
    rr_server_rig_t *radio0 = make_rig("radio-0", "rig0", 3);
@@ -202,11 +203,21 @@ int main(void) {
    assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, 3, 0));
 
    struct rr_mediachan *other = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
-      RR_BINFRAME_DIR_RX, 0, 1);
+      RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, 1);
    assert(other && !strcmp(other->room, "#testsite-rig1"));
    assert(!strcmp(other->rig_uuid, "radio-1"));
-   assert(!strcmp(other->vfo_uuid, "radio-1-vfo-0"));
+   assert(!other->vfo_uuid[0]);
+   assert(!strcmp(other->name, "rig1.rx"));
+   assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_RX, 0, 1));
+   assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_RX, 1, 1));
    assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_RX, 2, 1));
+
+   unsigned shared_count = 0;
+   for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+      if (media_channels[i].uuid[0] && media_channels[i].subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+          media_channels[i].rig == 1) shared_count++;
+   }
+   assert(shared_count == 2);
 
    /* Lobby membership cannot attach audio; JOIN/PART controls access. */
    rrconn_t member = { .authenticated = true, .is_ws = true };
@@ -224,6 +235,14 @@ int main(void) {
    assert(ws_client_part_room(&member, "#testsite-rig1"));
    assert(!chan_id_in_array(member.rx_channels, MAX_RX_CHANNELS, id));
    assert(!media_client_in_channel_room(&member, other));
+   // A B-only RX subroom receives shared rig audio, never its TX channel.
+   assert(ws_room_set_vfo_mask("#testsite-rig1.monitor", 2));
+   assert(ws_client_join_room(&member, "#testsite-rig1.monitor"));
+   assert(media_client_in_channel_room(&member, other));
+   struct rr_mediachan *shared_tx = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
+      RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, 1);
+   assert(shared_tx && !media_client_in_channel_room(&member, shared_tx));
+   assert(ws_client_part_room(&member, "#testsite-rig1.monitor"));
    assert(!ws_client_part_room(&member, ws_site_room()));
    dict_free(request);
 
@@ -284,13 +303,32 @@ int main(void) {
    captures[1]("src.rig0", samples, sizeof(samples), capture_users[1]);
    assert(!strcmp(pcm_channel, rx->uuid));
    struct rr_mediachan *other_tx = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
-      RR_BINFRAME_DIR_TX, 0, 1);
+      RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, 1);
    assert(other_tx && decoder_callback);
    decoder_callback(other_tx->uuid, samples, sizeof(samples), NULL);
    assert(!strcmp(pcm_sink, "sink.rig1"));
    decoder_callback(tx->uuid, samples, sizeof(samples), NULL);
    assert(!strcmp(pcm_sink, "sink.rig0"));
 
+   // PTT on B activates the shared TX decoder for the held rig.
+   rig.ptt_rig = radio1;
+   strcpy(other_tx->codec, "mu08");
+   strcpy(last_start_codec, "mu08"); strcpy(last_start_uuid, other_tx->uuid);
+   last_start_is_tx = false;
+   assert(rrserver_media_activate_ptt(VFO_B, &client));
+   assert(!strcmp(last_callback_codec, "mu08"));
+   rig.ptt_rig = NULL;
+
+   // A dual receiver with one transmitter exposes two RX channels and one TX.
+   media_channels_free();
+   dict_add(cfg, "rig:rig1.audio.rx.per-vfo", "true");
+   assert(!rrserver_media_init());
+   assert(media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_RX, 0, 1));
+   assert(media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_RX, 1, 1));
+   assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, 1));
+   assert(media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, 1));
+   assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, 0, 1));
+   assert(!media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, 1, 1));
    media_channels_free();
    rr_rig_registry_free(rig.rigs); rig.rigs = NULL;
    sqlite3_close(masterdb);

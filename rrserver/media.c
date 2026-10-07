@@ -8,13 +8,9 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-// The server owns the media channel registry. We create one RX and one TX
-// audio channel per rig VFO the backend exposes (some devices like the
-// Radioberry can RX multiple VFOs independently, so channels are per-VFO,
-// never assumed to be a single shared stream). When a client logs in we
-// push a `media.available` message per channel; the client subscribes to
-// the channels it wants (typically its RX/TX pair) with media.subscribe.
-//
+// The server owns media provisioning. Shared rigs expose one RX/TX pair
+// (VFO_NA); audio.per-vfo opts into a pair per supported VFO. Control VFOs
+// remain independent of the audio channel count.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +37,17 @@ static struct media_record_log_state media_record_logs[MAX_MEDIA_CHANNELS];
 
 static time_t rig_rx_write_warned[MAX_MEDIA_CHANNELS];
 static time_t rig_tx_write_warned[MAX_MEDIA_CHANNELS];
+
+static bool media_always_record(const struct rr_mediachan *channel) {
+   uint32_t mask = channel->vfo == RR_BINFRAME_VFO_NA ? ws_room_vfo_mask(channel->room) :
+      channel->vfo < 26 ? UINT32_C(1) << channel->vfo : 0;
+   for (unsigned vfo = 0; vfo < 26; vfo++) {
+      if (!(mask & (UINT32_C(1) << vfo))) continue;
+      char key[64]; snprintf(key, sizeof(key), "record.always.vfo_%c", 'a' + vfo);
+      if (cfg_get_bool(key, false)) return true;
+   }
+   return false;
+}
 
 static const char *rig_endpoint(rr_server_rig_t *radio, bool tx, char *buf, size_t len) {
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
@@ -71,10 +78,8 @@ static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t le
       if (channel->codec[3] == 'T' || channel->codec[3] == 'P') {
          continue;
       }
-      char always_key[64];
-      snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
 
-      if ( !ws_media_channel_has_subscribers(channel) && !cfg_get_bool(always_key, false) ) {
+      if ( !ws_media_channel_has_subscribers(channel) && !media_always_record(channel) ) {
          continue;
       }
 
@@ -204,10 +209,7 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    }
 
    if (start && !tx) {
-      char always_key[64];
-      snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
-
-      if (!cfg_get_bool(always_key, false) && http_count_clients() == 0) {
+      if (!media_always_record(channel) && http_count_clients() == 0) {
          return;
       }
    }
@@ -215,7 +217,8 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
    if ( start && tx && (!talker || !talker->chatname[0]) ) {
       return;
    }
-   const char *record_file = tx ? rr_ptt_recording_file( (rr_vfo_t)channel->vfo ) : NULL;
+   const char *record_file = tx ? rr_ptt_recording_file(channel->vfo == RR_BINFRAME_VFO_NA && talker ?
+      (rr_vfo_t)(talker->ptt_vfo - 'A') : (rr_vfo_t)channel->vfo) : NULL;
    bool failed = start ? fwdsp_cmd_start_record_named_file(channel->codec, !tx, channel->uuid,
       tx ? talker->chatname : "radio", tx, recording_id, record_file) :
                  fwdsp_cmd_stop_record_channel(channel->codec, !tx, channel->uuid);
@@ -245,9 +248,7 @@ void rrserver_media_recording_tick(void) {
          continue;
       }
 
-      char always_key[64];
-      snprintf(always_key, sizeof(always_key), "record.always.vfo_%c", 'a' + channel->vfo);
-      bool always = cfg_get_bool(always_key, false);
+      bool always = media_always_record(channel);
       bool recording = media_recording_enabled(false);
 
       if ( !recording || (!always && !clients) ) {
@@ -264,6 +265,10 @@ void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker, const c
    }
    struct rr_mediachan *channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, (uint8_t)vfo,
       rig.ptt_rig ? rr_rig_registry_media_index(rig.rigs, rig.ptt_rig) : 0);
+   if (!channel) {
+      channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA,
+         rig.ptt_rig ? rr_rig_registry_media_index(rig.rigs, rig.ptt_rig) : 0);
+   }
 
    if (channel) {
       media_record_channel(channel, talker, ptt, recording_id);
@@ -279,6 +284,10 @@ bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
    }
    struct rr_mediachan *channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, (uint8_t)vfo,
       rig.ptt_rig ? rr_rig_registry_media_index(rig.rigs, rig.ptt_rig) : 0);
+   if (!channel) {
+      channel = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA,
+         rig.ptt_rig ? rr_rig_registry_media_index(rig.rigs, rig.ptt_rig) : 0);
+   }
 
    if (!channel || !channel->codec[0]) {
       Log( LOG_WARN, "ws.media", "PTT on VFO %s has no negotiated TX codec", vfo_name(vfo) );
@@ -310,10 +319,12 @@ bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
 struct media_setup_context {
    rr_server_rig_t *radio;
    int made;
+   bool rx_per_vfo, tx_per_vfo;
 };
 
 static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    struct media_setup_context *ctx = user;
+   if (!ctx->rx_per_vfo && !ctx->tx_per_vfo && ctx->made) return false;
    rr_vfo_t index;
 
    if ( !rr_server_vfo_native_index(vfo, &index) ||
@@ -325,16 +336,26 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    uint8_t rig_index = rr_rig_registry_media_index(rig.rigs, ctx->radio);
 
    for (int tx = 0 ; tx < 2 ; tx++) {
+      bool per_vfo = tx ? ctx->tx_per_vfo : ctx->rx_per_vfo;
+      if (ctx->made && !per_vfo) continue;
       char descr[128];
-      snprintf( descr, sizeof(descr), "%s audio %s VFO %s", tx ? "TX" : "RX", alias, rr_server_vfo_alias(vfo) );
+      if (per_vfo) {
+         snprintf(descr, sizeof(descr), "%s audio %s (VFO %s route)", tx ? "TX" : "RX", alias, rr_server_vfo_alias(vfo));
+      } else {
+         snprintf(descr, sizeof(descr), "%s audio %s (shared rig audio)", tx ? "TX" : "RX", alias);
+      }
       struct rr_mediachan *cp = media_chan_add(RR_BINFRAME_SUBSYS_AUDIO, tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX,
-         index, rig_index, NULL, descr);
+         per_vfo ? index : RR_BINFRAME_VFO_NA, rig_index, NULL, descr);
 
       if (!cp) { return true; }
       snprintf(cp->room, sizeof(cp->room), "%s", room);
       snprintf( cp->rig_uuid, sizeof(cp->rig_uuid), "%s", rr_server_rig_id(ctx->radio) );
-      snprintf( cp->vfo_uuid, sizeof(cp->vfo_uuid), "%s", rr_server_vfo_id(vfo) );
-      snprintf(cp->name, sizeof(cp->name), "%s.vfo_%s.%s", alias, rr_server_vfo_alias(vfo), tx ? "tx" : "rx");
+      if (per_vfo) {
+         snprintf(cp->vfo_uuid, sizeof(cp->vfo_uuid), "%s", rr_server_vfo_id(vfo));
+         snprintf(cp->name, sizeof(cp->name), "%s.vfo_%s.%s", alias, rr_server_vfo_alias(vfo), tx ? "tx" : "rx");
+      } else {
+         snprintf(cp->name, sizeof(cp->name), "%s.%s", alias, tx ? "tx" : "rx");
+      }
    }
 
    ctx->made++;
@@ -344,8 +365,12 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
 
 static bool media_setup_rig(rr_server_rig_t *radio, void *user) {
    int *made = user;
+   const char *alias = rr_rig_registry_alias(rig.rigs, radio);
+   bool per_vfo = rr_rig_config_get_bool(alias, "audio.per-vfo", false);
    struct media_setup_context ctx = {
-      .radio = radio
+      .radio = radio,
+      .rx_per_vfo = rr_rig_config_get_bool(alias, "audio.rx.per-vfo", per_vfo),
+      .tx_per_vfo = rr_rig_config_get_bool(alias, "audio.tx.per-vfo", per_vfo)
    };
    bool failed = rr_server_vfo_foreach(radio, media_setup_vfo, &ctx);
    *made += ctx.made;
@@ -361,7 +386,7 @@ bool rrserver_media_init(void) {
 
       return true;
    }
-   Log(LOG_INFO, "ws.media", "Provisioned media channels for %d rig VFO(s)", made);
+   Log(LOG_INFO, "ws.media", "Provisioned audio routes for %d rig VFO(s)", made);
 
    return false;
 }
@@ -453,10 +478,12 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
    }
 
    const char *recording_id = channel->direction == RR_BINFRAME_DIR_TX ?
-                              rr_ptt_recording_id( (rr_vfo_t)channel->vfo ) : NULL;
+                              rr_ptt_recording_id(channel->vfo == RR_BINFRAME_VFO_NA && talker ?
+                                 (rr_vfo_t)(talker->ptt_vfo - 'A') : (rr_vfo_t)channel->vfo) : NULL;
 
    if ( channel->direction == RR_BINFRAME_DIR_RX ||
-        (talker && talker->ptt_vfo == 'A' + channel->vfo) ) {
+        (talker && !strcasecmp(talker->ptt_room, channel->room) &&
+         (channel->vfo == RR_BINFRAME_VFO_NA || talker->ptt_vfo == 'A' + channel->vfo)) ) {
       media_record_channel(channel, talker, true, recording_id);
    }
 

@@ -42,8 +42,8 @@ presence alone does not authorize CAT or account management.
 | Command/action | Account privileges enforced | Additional requirements / observations |
 | --- | --- | --- |
 | CAT frequency/mode/width/power (GTK, browser, raw wire) | T | Not muted; current noob/elmer checks; room/VFO restrictions |
-| CAT PTT halt for another user | T plus ownership exception | Admin/owner may halt others; elmer may halt a noob; handler still enters through T gate |
-| CAT PTT on/off | T | Not muted; TX room membership; noob/elmer and cooldown checks; ownership/preemption, quota and station interlocks |
+| CAT PTT halt for another user | Strictly higher account role | Owner above admin; admin above ordinary roles; TX/elmer above noob. Equal roles cannot override. Stop only, targeting the actual holder; never transfers ownership |
+| CAT PTT on/off | T | Not muted; TX room membership; noob/elmer and cooldown checks; ownership, quota and station interlocks |
 | `!freq`, `!mode`, `!width` | C and T | Not muted; joined eligible room; noob requires an online elmer; RX subrooms permit only LO-safe mapped frequency tuning |
 | GPS stream subscription | Authenticated only | Existing GPS stream, scope/room checks; GPS format is fixed; client-originated position frames rejected |
 | `!help` | C and T | Sent through chat; command-level outer gate requires T even for help |
@@ -75,7 +75,7 @@ presence alone does not authorize CAT or account management.
 
 | Command/action | Account privileges enforced | Additional requirements / observations |
 | --- | --- | --- |
-| Serial remote LIST/OPEN/CLOSE/CONFIG and byte writes | Configured access list | `serial:<port>.access`, else `serial.access`, else A; enabled export, session ownership, framing and sequence checks |
+| Serial remote LIST/OPEN/CLOSE/CONFIG and byte writes | `serial` or matching `serial.<portname>` | Exact names or trailing prefix patterns such as `serial.ttyGPS*`; no admin/owner bypass. Enabled export, session ownership, framing and sequence checks; revocation closes tunnel |
 
 ### Administration
 
@@ -180,6 +180,10 @@ own cached privilege hints from that update. Server authorization remains author
 - Native/browser help groups and sorts commands by `help_section`, keeping media
   commands together. Removed advertised unsupported native `/notice` and browser
   `/ban`/`/edit`; browser `/topic` and self-password changes now have usable paths.
+
+See the [HTTP/WebSocket/serial/CAT audit](transport-security-audit.md) for the
+subsequent transport findings and validation. LAN/VPN-only operation and deferred
+password/abuse work are the operator's current deployment policy.
 
 ## Remaining release concerns
 

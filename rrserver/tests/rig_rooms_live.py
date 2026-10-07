@@ -59,6 +59,7 @@ codecs.allowed=pc16
 [rig:rig0]
 backend=internal
 vfos=A B
+audio.per-vfo=true
 rx-independent-vfos=B
 [rig:rig1]
 backend=internal
@@ -147,7 +148,8 @@ enabled=false
             available = client.until(lambda m: media_command(m, "available") and
                 m["media"].get("room") == "#roomtest-rig1")["media"]
             assert available["joined"] is False
-            assert available["rig-uuid"] and available["vfo-uuid"]
+            assert available["rig-uuid"] and available["vfo"] == 255
+            assert "vfo-uuid" not in available
             uuid = available["chan-uuid"]
             subscribe = {"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": uuid}}
             client.send(subscribe)
@@ -174,7 +176,8 @@ enabled=false
             with sqlite3.connect(database) as db:
                 assert db.execute("SELECT has_vfos,vfo_mask FROM rooms WHERE name='#roomtest'").fetchone() == (0, 0)
                 bindings = db.execute("SELECT binding FROM room_vfos WHERE room='#roomtest-rig1'").fetchall()
-                assert bindings == [(available["vfo-uuid"],)], bindings
+                expected = db.execute("SELECT uuid FROM vfo_identities WHERE rig_uuid=?", (available["rig-uuid"],)).fetchall()
+                assert len(expected) == 1 and bindings == expected, bindings
             def room_command(text):
                 client.send({"msg": {"type": "talk"}, "talk": {"cmd": "room", "data": text}})
             def error_contains(fragment):
@@ -340,8 +343,28 @@ enabled=false
                 owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "privs VIEWER set " + privileges}})
                 owner.until(lambda m: "privileges for VIEWER" in m.get("notice", {}).get("msg", ""))
             owner_privileges("admin,view,chat")
+            # Admins cannot mutate owners or other admins, or create staff.
+            for target in ("OWNER", "VIEWER"):
+                for action in ("lock", "unlock", "remove", "resetpw", "pass", "privs"):
+                    tail = action + " " + target
+                    if action == "pass": tail += " denied-password-1234"
+                    if action == "privs": tail += " set view,chat"
+                    client.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": tail}})
+                    reply = client.until(lambda m: m.get("notice", {}).get("msg", "").startswith("USER:"))
+                    assert "insufficient privilege" in reply["notice"]["msg"] or "only owners" in reply["notice"]["msg"], reply
+            for flags in ("admin", "owner", "view,admin"):
+                client.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "add FORBIDDEN " + flags}})
+                client.until(lambda m: "cannot create" in m.get("notice", {}).get("msg", ""))
+                assert not query("SELECT name FROM users WHERE name='FORBIDDEN'")
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "lock VIEWER"}})
+            owner.until(lambda m: "Locked VIEWER" in m.get("notice", {}).get("msg", ""))
+            owner.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": "unlock VIEWER"}})
+            owner.until(lambda m: "Unlocked VIEWER" in m.get("notice", {}).get("msg", ""))
             audited = login_other("VIEWER")
             owner_privileges("view,chat")
+            for action in ("lock TEST", "oldpw"):
+                audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "user", "data": action}})
+                audited.until(lambda m: "error" in m)
             for command in ("mute", "unmute", "kick", "die", "restart", "syslog"):
                 audited.send({"msg": {"type": "talk"}, "talk": {"cmd": command, "target": "TEST" if command != "syslog" else "on", "args": {"reason": "audit permission denial"}}})
                 audited.until(lambda m: "error" in m)

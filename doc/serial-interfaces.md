@@ -10,7 +10,6 @@ Server configuration:
 
 ```ini
 [general]
-serial.access=admin|owner
 station.gps.position=38.1234567,-80.7654321
 path.modules=/usr/lib/rustyrig/modules/rrserver
 
@@ -71,10 +70,12 @@ plus permitted serial exports. `/sercom remote` lists server serial exports;
 room first. A logger attaches with `/sercom attach ttyGPS0 rig.gps-out` to
 follow the selected rig or with `rig0.gps-out` to pin one rig.
 
-Set `[serial:ttyHOST0] access=serial.ttyHOST0|admin|owner` to grant that
-physical export to accounts carrying any of those privileges. Unspecified
-exports use `serial.access` (default `admin|owner`). Discovery, open, settings,
-and binary I/O enforce the same check; revocation closes an existing tunnel.
+Raw exports require account flags `serial` (all exports), `serial.<portname>`
+(one exact symbolic export), or a trailing prefix wildcard such as
+`serial.ttyGPS*`. Admin/owner status alone does not grant raw serial access.
+Legacy `serial.access` and per-export `access` configuration no longer grant
+access. Discovery, open, settings and binary I/O enforce current account flags;
+revocation closes an existing tunnel.
 GPS emulation uses room-scoped read-only media and requires no serial privilege.
 Server GPS inputs are configured receiver services, not client write endpoints.
 
@@ -104,8 +105,8 @@ commands still select A/B. Join the rig's base room before controlling it.
 ## Server serial passthrough
 
 `serial:/dev/...` exports are allowlisted, exclusively owned by one authenticated
-WebSocket session, and require `serial.access` (default `admin|owner`). A per-port
-`access` overrides that policy. Different aliases cannot open the same active
+WebSocket session, and require `serial` or a matching `serial.<portname>`
+account flag. Different aliases cannot open the same active
 physical device. The server opens it only after an authorized attachment,
 restores its prior termios settings on close, and releases it when the session
 ends. Reopening starts with its configured baud/mode again.
@@ -227,8 +228,9 @@ a nonzero session-local stream, and 1–1024 raw payload bytes. TX means client
 to device; RX means device to client. Sequences start at 1 in each direction.
 The server sends `written` only after the whole TX block is written; the client
 sends `read` with stream/sequence after its RX block drains to the local PTY.
-Streams are never reused within a connection, preventing delayed frames from
-reaching a newly attached device. Reconnect after exhausting its 255 streams.
+Streams are never reused within a connection, even after an acknowledged close,
+preventing delayed frames from reaching a newly attached device. All 255 nonzero
+stream IDs are usable; reconnect after exhausting them.
 Queued bytes are discarded on connection loss rather than replayed into a new
 session. GPS MODEM/`gpsp` frames use media subscription streams separately,
 RX direction, no VFO, and the fixed 9-byte position record described above.

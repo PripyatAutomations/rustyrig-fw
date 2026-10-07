@@ -316,15 +316,15 @@ bool rr_ptt_set_blocked(bool blocked) {
 }
 
 // For CAT to call
-bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
+bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    char msgbuf[HTTP_WS_MAX_MSG + 1];
    rrconn_t *ptt_talker = whos_talking();
    const char *recording_id = NULL;
 
-   if (rr_ptt_check_blocked() ) {
+   if (ptt && rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
-      return false;
+      return true;
    }
 
    // Quota enforcement: when quota.enforce is true, the user needs remaining
@@ -338,18 +338,9 @@ bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
          if (credits <= 0) {
             Log(LOG_AUDIT, "ptt", "TX quota: %s denied TX (%d credits)", caller->chatname, credits);
 
-            return false;
+            return true;
          }
       }
-   }
-
-   // set or clear the talk timeout
-   // Config: rig.tot - max TX time in seconds (default 300) before the
-   // clocktick timer halts PTT. PARITY: rrserver/timer.clocktick.c TOT check
-   if (ptt) {
-      global_tot_time = now + cfg_get_int("rig.tot", 300);
-   } else {
-      global_tot_time = 0;
    }
 
    // PTT logging: snapshot VFO state on key-down; log TX seconds on key-up.
@@ -368,7 +359,6 @@ bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
          // Close the session for whoever was on this VFO (may be gone by now
          // if TOT/fault/disconnect forced TX off)
          recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
-         ptt_log_stop(ptt_talker, vfo, reason);
       }
    }
 
@@ -385,7 +375,20 @@ bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
          ptt_recording_id[vfo][0] = '\0';
          ptt_recording_file[vfo][0] = '\0';
       }
+      return true;
    } else {
+      // set or clear the talk timeout
+      // Config: rig.tot - max TX time in seconds (default 300) before the
+      // clocktick timer halts PTT. PARITY: rrserver/timer.clocktick.c TOT check
+      if (ptt) {
+         global_tot_time = now + cfg_get_int("rig.tot", 300);
+      } else {
+         global_tot_time = 0;
+      }
+
+      if (!ptt && vfo >= VFO_A && vfo < MAX_VFOS) {
+         ptt_log_stop(ptt_talker, vfo, reason);
+      }
       if ( !ptt || rrserver_media_activate_ptt(vfo, ptt_talker) ) {
          rrserver_media_record_ptt(vfo, ptt, ptt_talker, recording_id);
       } else {
@@ -418,7 +421,11 @@ bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
       dict_free(d);
    }
 
-   return ptt;
+   return false;
+}
+
+bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason) {
+   return rr_ptt_request(vfo, ptt, reason) ? false : ptt;
 }
 
 bool rr_ptt_set(rr_vfo_t vfo, bool ptt) {

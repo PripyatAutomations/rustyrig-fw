@@ -244,3 +244,37 @@ Read-only listening does not require an RX flag. Account flags govern PTT, rig
 controls and explicit codec changes; channels do not carry authorization flags.
 Whois metadata is public to authenticated accounts, excluding authentication
 secrets. Room membership remains required for room chat and VFO media.
+
+## Transport input validation
+
+C `librrprotocol/binframe.c:rr_binframe_parse` and browser
+`js/webui.binframe.js:binframe_parse` require exact header/payload lengths.
+Both reject truncated and trailing data. Server JSON/CAT/serial validation is
+authoritative for native and browser requests; named width presets and numeric
+Hz labels remain valid. PTT release permits the holder or a strictly higher account role: owner above
+admin, admin above ordinary roles, TX/elmer above noob. Overrides only stop TX;
+key-down never transfers ownership. GTK/browser clicks on another holder send
+stop requests. A keyed session must release before switching rig/VFO. Serial IDs are never recycled
+within a connection. See [transport security audit](transport-security-audit.md)
+for verified fixes, LAN/VPN assumptions and remaining findings.
+
+Raw serial discovery and tunnel access are server-authoritative for both clients.
+Account flags `serial`, exact `serial.<portname>` or a trailing prefix pattern
+(e.g. `serial.ttyGPS*`) are required; admin/owner alone does not grant access.
+Read-only GPS media retains its room membership policy.
+
+GTK VFO rows and browser VFO selectors explain that VFO audio routes may
+share a receiver/transmitter. Server media descriptions identify routes;
+per-VFO subscriptions remain available for independent RX/TX rigs.
+
+Shared rig audio is authoritative in `rrserver/media.c`: `audio.per-vfo=false`
+by default, with independent RX/TX overrides. C `rrclient/media.c` and browser
+`js/webui.media.js` select VFO_NA channels, retain them across VFO changes, and
+release them when switching rigs. Shared audio uses rig-owned VFO objects for
+control displays. The wire uses the existing VFO_NA value and unchanged room,
+codec and PTT ownership checks.
+
+GTK keeps a persistent status tab separate from the authenticated site lobby.
+Its command input uses the unscoped discovery context, matching TUI status;
+NULL/status output goes to its own buffer while room/query output remains scoped.
+Browser chat retains its existing root/status discovery context.

@@ -55,9 +55,12 @@ with tempfile.TemporaryDirectory(prefix="rr-serial-live-") as temporary:
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)",
-                   ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,view,radio,edit,chat"))
+                   ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "serial,view,radio,edit,chat"))
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,?,?,?,?,?)",
-                   ("RESTRICTED", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "view,radio,chat"))
+                   ("RESTRICTED", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,owner,view,radio,chat"))
+        for uid, name, flags in [(3, "EXACT", "serial.ttyHOST0"), (4, "PREFIX", "serial.ttyHOST*"), (5, "WRONG", "serial.ttyGPS*")]:
+            db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(?,?,1,?,3,?)",
+                (uid, name, hashlib.sha1(b"test-password").hexdigest(), flags))
     master, slave = pty.openpty()
     tty.setraw(slave)
     device = os.ttyname(slave)
@@ -144,6 +147,27 @@ buffer-bytes=0
             assert configured["baud"] == 19200 and configured["mode"] == "8n2"
             command(first, "configure", baud="oops", mode="8n1", stream=stream)
             assert serial(first, "error")["error"] == "settings-failed"
+            # An acknowledged old stream must still not be reused. Replay
+            # its first frame after reopening, when sequence 1 is valid again.
+            command(first, "close", stream=stream)
+            serial(first, "closed")
+            command(first, "open", port="ttyHOST0")
+            reopened = serial(first, "opened")
+            assert reopened["stream"] != stream
+            first.send_payload(header + payload)
+            command(first, "list")
+            serial(first, "list-end")
+            assert not select.select([master], [], [], 0.1)[0], "stale bytes reached reopened device"
+            stream = reopened["stream"]
+            header = struct.pack("!2sBB4sBBBBIIQ", b"RR", 1, 4, b"seri", 1, 255, 255, stream, 1, len(payload), 0)
+            first.send_payload(header + payload)
+            assert serial(first, "written")["seq"] == 1
+            assert device_read(master, len(payload)) == payload
+            for fields in ({"stream": stream + 256}, {"stream": 1.5}, {"seq": 4294967296}):
+                command(first, "close", **fields)
+                assert serial(first, "error")["error"] == "invalid-request"
+            command(first, "configure", baud=18446744073709551615, stream=stream)
+            assert serial(first, "error")["error"] == "settings-failed"
             second = WebSocket(port)
             clients.append(second)
             login(second)
@@ -151,6 +175,16 @@ buffer-bytes=0
             assert serial(second, "error")["error"] == "device-busy"
             command(second, "open", port="not-exported")
             assert serial(second, "error")["error"] == "forbidden-device"
+            # All 255 nonzero IDs are usable once, never recycled.
+            for expected_stream in range(stream + 1, 256):
+                command(first, "close")
+                serial(first, "closed")
+                command(first, "open", port="ttyHOST0")
+                assert serial(first, "opened")["stream"] == expected_stream
+            command(first, "close")
+            serial(first, "closed")
+            command(first, "open", port="ttyHOST0")
+            assert serial(first, "error")["error"] == "stream-limit-reconnect"
             first.socket.close()
             time.sleep(0.05)
             command(second, "open", port="ttyHOST0")
@@ -170,6 +204,19 @@ buffer-bytes=0
             assert any(r['name'] == 'rig0.gps-out' for r in rows)
             command(restricted, "open", port="ttyHOST0")
             assert serial(restricted, "error")['error'] == 'forbidden-device'
+            for name, permitted in [("EXACT", True), ("PREFIX", True), ("WRONG", False)]:
+                account = WebSocket(port)
+                clients.append(account)
+                login(account, name)
+                rows = inventory(account)
+                assert any(r['kind'] == 'serial' and r['name'] == 'ttyHOST0' for r in rows) == permitted
+                command(account, "open", port="ttyHOST0")
+                if permitted:
+                    serial(account, "opened")
+                    command(account, "close")
+                    serial(account, "closed")
+                else:
+                    assert serial(account, "error")['error'] == 'forbidden-device'
             print("PASS: production serial auth, named exports, MODEM binary bytes, settings, ownership and session cleanup")
         except Exception:
             print((work / "console.log").read_text())

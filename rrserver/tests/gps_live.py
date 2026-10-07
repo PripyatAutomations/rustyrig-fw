@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix="rr-gps-live-") as temporary:
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
         db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)",
-                   ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,view,radio,edit,chat"))
+                   ("TEST", 1, hashlib.sha1(b"test-password").hexdigest(), 3, "admin,serial,view,radio,edit,chat"))
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]

@@ -91,7 +91,7 @@ int main(int argc,char **argv) {
    char specification[160];snprintf(specification,sizeof(specification),"serial:%s@115200,8n1",device);
    dict_add(cfg,"serial.ttyHOST0",specification);dict_add(cfg,"serial:ttyHOST0.path",local);
    rrconn_t client={0},other={0}; http_user_t *user=&http_users[1]; memset(user,0,sizeof(*user)); user->uid=1; struct mg_connection connection={0};
-   snprintf(user->privs,sizeof(user->privs),"admin");
+   snprintf(user->privs,sizeof(user->privs),"serial.ttyHOST0");
    client.user=other.user=user;client.authenticated=other.authenticated=true;
    client.conn=other.conn=&connection;client.is_ws=other.is_ws=true;ws_conn=&client;
    rrserver_serial_init();
@@ -106,9 +106,11 @@ int main(int argc,char **argv) {
    assert(tx_frames>1 && rx_frames>1 && !client.is_ptt && !client.codec_tx[0]);
    control(&other,"open","other","ttyHOST0");assert(!strcmp(last_error,"device-busy"));
    control(&other,"open","other","missing");assert(!strcmp(last_error,"forbidden-device"));
+   snprintf(user->privs,sizeof(user->privs),"admin,owner");
+   control(&other,"open","other","ttyHOST0");assert(!strcmp(last_error,"forbidden-device"));
    snprintf(user->privs,sizeof(user->privs),"rx");
    control(&other,"open","other","ttyHOST0");assert(!strcmp(last_error,"forbidden-device"));
-   snprintf(user->privs,sizeof(user->privs),"admin");
+   snprintf(user->privs,sizeof(user->privs),"serial.ttyHOST0");
    rr_serial_settings_t changed={.baud=19200,.bits=8,.parity='n',.stops=2};
    assert(rr_serial_settings_apply(fd,&changed));
    for(unsigned i=0;i<50;i++) pump();
@@ -129,6 +131,13 @@ int main(int argc,char **argv) {
    // Session close releases the export before client memory is freed.
    event_emit("serial.session.closed",&client,NULL);
    control(&other,"open","other","ttyHOST0");assert(!last_error[0]);control(&other,"close","other",NULL);
+   // Current account flags are checked while a tunnel is open.
+   control(&other,"open","other","ttyHOST0");assert(!last_error[0]);
+   snprintf(user->privs,sizeof(user->privs),"admin,owner");
+   pump();assert(!strcmp(last_error,"permission-revoked"));
+   snprintf(user->privs,sizeof(user->privs),"serial.ttyHOST*");
+   control(&other,"open","other","ttyHOST0");assert(!last_error[0]);
+   control(&other,"close","other",NULL);
    event_emit("disconnected",NULL,NULL);rr_sercom_shutdown();rrserver_serial_fini();
    close(fd);close(master);close(slave);dict_free(cfg);cfg=NULL;event_shutdown();
    puts("PASS: binary serial passthrough, all byte values, flow control, settings, ownership and disconnect");

@@ -552,7 +552,26 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       if (rc_ptt) { rig.ptt_rig = radio; }
       // Key/dekey the rig (from the PTT button in the client)
       Log(LOG_AUDIT, "rigctl", "User %s set PTT to %s on vfo %s", rc_from, (rc_ptt ? "true" : "false"), rc_vfo);
-      rr_ptt_set(vfo, rc_ptt);
+      if (rr_ptt_request(vfo, rc_ptt, rc_ptt ? "key-down" : "released") && cptr) {
+         // The wire handler announced the request optimistically. Restore
+         // session ownership when key-up fails; clear it when key-down fails.
+         cptr->is_ptt = !rc_ptt;
+         cptr->ptt_vfo = rc_ptt ? 0 : rc_vfo[0];
+         snprintf(cptr->ptt_room, sizeof(cptr->ptt_room), "%s", rc_ptt ? "" : room);
+         ws_send_userinfo(cptr, NULL);
+         dict *state = dict_new();
+         if (state) {
+            dict_add(state, "msg.type", "cat");
+            dict_add(state, "cat.cmd", "ptt");
+            dict_add(state, "cat.room", room);
+            dict_add(state, "cat.vfo", rc_vfo);
+            dict_add(state, "cat.user", cptr->chatname);
+            dict_add_bool(state, "cat.ptt", !rc_ptt);
+            ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
+            dict_free(state);
+         }
+         ws_send_error(cptr, "PTT request rejected by station safety controls or radio backend");
+      }
       dict_free(d);
 
       return;
@@ -925,7 +944,12 @@ static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrc
 
    if (vfo && vfo[0]) {
       Log(LOG_AUDIT, "rigctl", "Departing user %s had PTT on vfo %s: keying down", (who ? who : "(unknown)"), vfo);
-      rr_ptt_set_reason(vfo_lookup(vfo[0]), false, "disconnect");
+      if (rr_ptt_request(vfo_lookup(vfo[0]), false, "disconnect") && cptr) {
+         // A takeover must stop if the backend cannot release the old holder.
+         cptr->is_ptt = true;
+         cptr->ptt_vfo = vfo[0];
+         ws_send_userinfo(cptr, NULL);
+      }
    } else {
       Log( LOG_WARN, "rigctl", "Departing user %s held PTT but no VFO recorded; NOT touching rig TX",
          (who ? who : "(unknown)") );
@@ -1332,7 +1356,7 @@ static bool user_privilege_remove_tokens(const char *base, const char *remove, c
 }
 
 static bool user_is_elevated(const http_user_t *user) {
-   return user && match_priv(user->privs, "admin|owner");
+   return user && user_privilege_has_elevated(user->privs);
 }
 
 static bool user_target_allowed(const http_user_t *actor, const http_user_t *target, bool password_change) {
@@ -1514,7 +1538,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       const char *privileges = argc == 3 ? argv[2] : "view,chat";
 
       if ( strlen(privileges) > USER_PRIV_LEN ||
-           ( !has_priv(cptr->user->uid, "owner") && match_priv(privileges, "admin|owner") ) ) {
+           ( !has_priv(cptr->user->uid, "owner") && user_privilege_has_elevated(privileges) ) ) {
          user_reply(cptr, "USER: administrators cannot create owner or administrator accounts");
 
          return;

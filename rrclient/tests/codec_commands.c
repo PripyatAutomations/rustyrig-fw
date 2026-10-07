@@ -73,6 +73,10 @@ static void announce(const char *uuid, const char *codec, int vfo) {
    dict_free(d);
 }
 
+static dict *shared_vfo_object;
+const dict *rrclient_object_find_alias(const char *type, const char *owner, const char *alias) {
+   return !strcmp(type, "vfo") && !strcmp(owner, "shared-rig") && !strcmp(alias, "B") ? shared_vfo_object : NULL;
+}
 int main(void) {
    media_ready = true;
    known_chans[0] = (struct rr_media_known){ .uuid="rx-a", .subsystem=1, .direction=0, .vfo=0, .codec="pc16", .subscribed=true };
@@ -236,6 +240,25 @@ int main(void) {
    assert(strstr(output,"uuid=one") && strstr(output,"uuid=ten") && !strstr(output,"uuid=other"));
    active_window="status";output[0]=0;assert(!cmd_media(1,media_list));
    assert(strstr(output,"uuid=one") && strstr(output,"uuid=ten") && strstr(output,"uuid=other"));
+   memset(known_chans, 0, sizeof(known_chans));
+   media_ready = true;
+   test_active_vfo = 'A';
+   announce("rx-shared", "mu08", RR_BINFRAME_VFO_NA);
+   known_chans[0].subscribed = true;
+   known_chans[0].automatic = true;
+   assert(!strcmp(media_current_channel(false)->uuid, "rx-shared"));
+   unsigned before_shared = unsubscribed;
+   test_active_vfo = 'B';
+   rrclient_handle_media_vfo(NULL, NULL, ws_conn, NULL);
+   assert(unsubscribed == before_shared);
+   assert(!strcmp(media_current_channel(false)->uuid, "rx-shared"));
+   assert(!strcmp(media_codec_target_channel(false)->uuid, "rx-shared"));
+   strcpy(known_chans[0].rig_uuid, "shared-rig");
+   strcpy(known_chans[0].control_room, "#site-rig0");
+   shared_vfo_object = dict_new(); dict_add(shared_vfo_object, "object.uuid", "shared-vfo-b");
+   assert(!strcmp(rrclient_media_vfo_uuid("#site-rig0", 'B'), "shared-vfo-b"));
+   assert(!rrclient_media_vfo_uuid("#site-rig1", 'B'));
+   dict_free(shared_vfo_object); shared_vfo_object = NULL;
    puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
    return 0;
 }

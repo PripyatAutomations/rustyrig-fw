@@ -93,8 +93,9 @@ privilege, room, PTT and ownership checks. GPS output is read-only media and
 needs no physical-serial privilege. `gps-in` represents a server-configured
 receiver, not permission to inject a location from a remote client.
 
-Physical exports are omitted unless the user satisfies `[serial:name] access`
-(or `serial.access`, default `admin|owner`). The same check applies to listing,
+Physical exports are omitted unless the account has `serial` or a matching
+`serial.<portname>` flag, including prefixes such as `serial.ttyGPS*`.
+Admin/owner status alone does not grant access. The same check applies to listing,
 opening, configuring, and binary transfer; revoked access closes the tunnel.
 Only symbolic server names travel over the wire. Server device paths are
 neither listed nor accepted from clients, including a `serial.path` supplied

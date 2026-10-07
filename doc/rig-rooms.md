@@ -68,13 +68,53 @@ subroom with a matching VFO binding; `media.control-room` identifies their prima
 rig room. TX channels require membership in that primary room. Unscoped channels retain their existing
 subscription behavior.
 
-Native and browser clients automatically attach the active VFO's audio pair
+Native and browser clients automatically attach the rig's shared audio pair or the active VFO's configured pair
 in a joined rig room. They have one local audio pair: joining another rig room
 or selecting its chat tab switches the automatic pair; ordinary chat tabs do
 not change it. Manual `/media` subscriptions remain possible within joined
 rooms. NONE continues to disable the selected audio direction. The server
 rejects subscriptions and codec changes outside the channel's room, removes
 subscriptions on PART, and checks membership during media delivery.
+
+
+### Shared and per-VFO audio
+
+Each `[rig:<alias>]` defaults to one shared RX channel and one shared TX
+channel, named `<alias>.rx` and `<alias>.tx`. Both announce `media.vfo=255`
+(no specific VFO), their rig UUID, and no VFO UUID. Selecting A/B changes
+controls without replacing the audio subscription. VFO state still comes
+from that rig's VFO objects.
+
+```ini
+[rig:rig0]
+vfos=A B
+audio.per-vfo=false
+
+[rig:rig1]
+vfos=A B
+; Dual RX, one shared transmitter:
+audio.rx.per-vfo=true
+audio.tx.per-vfo=false
+```
+
+`audio.per-vfo=true` opts both directions into per-VFO channels.
+`audio.rx.per-vfo` and `audio.tx.per-vfo` override their direction independently
+and otherwise inherit `audio.per-vfo`. A/B with shared audio exposes two
+channels; independent RX and shared TX exposes three; both directions per-VFO
+exposes four. Only backend-supported configured VFOs are provisioned, within
+existing channel limits. Configure independent directions only where the
+station supplies independent hardware audio; this setting does not create
+additional receivers or transmitters. Existing rigs needing per-VFO channel
+names must explicitly opt in. Changes take effect on server startup.
+
+RX subrooms may subscribe to their rig's shared receiver; TX remains restricted
+to the rig's base room and actual PTT holder. Sharing audio does not grant
+independent tuning or TX authority to an RX subroom. Codec changes apply to the
+shared channel for all its subscribers. Always-record settings on any exposed
+VFO arm that rig's shared RX recorder; TX recordings retain the actual keyed
+VFO's recording/log identity.
+
+
 
 PCM endpoints default to `[pipelines] src.<alias>` and `sink.<alias>`.
 The existing `src.rig0`/`sink.rig0` pipelines still serve rig0. Define dedicated

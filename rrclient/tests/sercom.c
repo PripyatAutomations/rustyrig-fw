@@ -138,6 +138,9 @@ int main(int argc, char **argv) {
    assert(write(fd1,"FA146",5)==5); pump(); assert(sends==0);
    assert(write(fd1,"000000;",7)==7); pump();
    assert(sends==1 && sent_freq==146000000 && !strcmp(sent_room,"#site-rig1") && !strcmp(sent_vfo,"A"));
+   const char malformed[] = "FA146000000junk;FA999999999999999999999;FB-1;FA;";
+   assert(write(fd1,malformed,sizeof(malformed)-1)==sizeof(malformed)-1);
+   expect(fd1,"FA145000000;"); assert(sends==1);
    // Oversized commands must be dropped through their terminator, not executed as tails.
    char overrun[600]; memset(overrun,'X',sizeof(overrun));
    assert(write(fd1,overrun,sizeof(overrun))==(ssize_t)sizeof(overrun));

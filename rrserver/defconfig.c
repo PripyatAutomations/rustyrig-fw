@@ -67,6 +67,15 @@ defconfig_t defcfg[] = {
       "Allow RX subroom tuning only when VFO tuning does not move the shared LO"
    },
    {
+      "rig:rig0.audio.per-vfo", "false", "Separate RX/TX media channels per supported VFO; false shares one pair per rig", DEFCONFIG_BOOL, NULL
+   },
+   {
+      "rig:rig0.audio.rx.per-vfo", NULL, "Override audio.per-vfo for RX: true exposes independent receiver channels", DEFCONFIG_BOOL, NULL
+   },
+   {
+      "rig:rig0.audio.tx.per-vfo", NULL, "Override audio.per-vfo for TX: true exposes independent transmit channels", DEFCONFIG_BOOL, NULL
+   },
+   {
       "rig:rig0.audio.source", NULL, "Rig PCM source pipeline; defaults to src.<rig alias>"
    },
    {
@@ -175,9 +184,6 @@ defconfig_t defcfg[] = {
       "serial.enable", "true", "Enable configured WebSocket serial exports"
    },
    {
-      "serial.access", "admin|owner", "Privileges required for serial-device passthrough"
-   },
-   {
       "serial.ttyHOST0", NULL, "Optional exported real serial device path"
    },
    {
@@ -188,9 +194,6 @@ defconfig_t defcfg[] = {
    },
    {
       "serial:ttyHOST0.mode", "8n1", "Exported serial data/parity/stop mode"
-   },
-   {
-      "serial:ttyHOST0.access", NULL, "Override serial.access for this export"
    },
    {
       "device.serial", NULL, "Device serial # (usually from eeprom)"

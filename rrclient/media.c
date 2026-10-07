@@ -32,6 +32,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/rooms.h>
 #include <rrclient/resource.context.h>
+#include <rrclient/objects.h>
 
 extern rrconn_t *ws_conn;
 extern const char *login_user;
@@ -188,6 +189,7 @@ static struct rr_media_known *media_codec_target_channel(bool is_tx) {
          continue;
       }
 
+      if (kp->vfo == RR_BINFRAME_VFO_NA && !fallback) fallback = kp;
       if ( kp->vfo == (uint8_t)(active - 'A') ) {
          if (kp->subscribed && !kp->disabled) {
             return kp;
@@ -408,7 +410,7 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    // PARITY: rustyrig-www/js/webui.media.js mediaTryAutosubscribe.
    // Auto audio follows the selected joined rig room; site chat has no media.
    if ( kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-        kp->vfo != (uint8_t)(vfo_state_get_active() - 'A') ||
+        (kp->vfo != RR_BINFRAME_VFO_NA && kp->vfo != (uint8_t)(vfo_state_get_active() - 'A')) ||
         ( kp->room[0] && ( !kp->joined || strcasecmp(kp->room, media_room) ) ) ) {
       return;
    }
@@ -474,9 +476,10 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          snprintf( kp->control_room, sizeof(kp->control_room), "%s", dict_get(d, "media.control-room", room) );
          kp->joined = dict_get_bool(d, "media.joined", false);
 
-         if ( kp->joined && kp->direction == RR_BINFRAME_DIR_RX && kp->vfo < 32 &&
+         if ( kp->joined && kp->direction == RR_BINFRAME_DIR_RX && (kp->vfo < 32 || kp->vfo == RR_BINFRAME_VFO_NA) &&
               ws_room_same_rig(media_room, kp->control_room) && rrclient_room_is_joined(media_room) &&
-              ( rrclient_room_vfo_mask(media_room) & (UINT32_C(1) << kp->vfo) ) ) {
+              (kp->vfo == RR_BINFRAME_VFO_NA ? rrclient_room_vfo_mask(media_room) != 0 :
+               (rrclient_room_vfo_mask(media_room) & (UINT32_C(1) << kp->vfo)) != 0) ) {
             snprintf(kp->room, sizeof(kp->room), "%s", media_room);
          }
 
@@ -660,7 +663,7 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *kp = &known_chans[i];
       bool active = gps_wanted(kp) || ( kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-                                        kp->vfo == (uint8_t)(vfo_state_get_active() - 'A') &&
+                                        (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t)(vfo_state_get_active() - 'A')) &&
                                         ( !kp->room[0] || ( kp->joined && !strcasecmp(kp->room, media_room) ) ) );
 
       if (kp->automatic && kp->subscribed && !active) {
@@ -694,10 +697,10 @@ void rrclient_media_room_joined(const char *room) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
 
-      if ( channel->direction == RR_BINFRAME_DIR_RX && channel->vfo < 32 &&
+      if ( channel->direction == RR_BINFRAME_DIR_RX && (channel->vfo < 32 || channel->vfo == RR_BINFRAME_VFO_NA) &&
            ws_room_same_rig(room, channel->control_room) && rrclient_room_is_joined(room) ) {
          snprintf(channel->room, sizeof(channel->room), "%s", room);
-         channel->joined = ( mask & (UINT32_C(1) << channel->vfo) ) != 0;
+         channel->joined = channel->vfo == RR_BINFRAME_VFO_NA ? mask != 0 : (mask & (UINT32_C(1) << channel->vfo)) != 0;
       }
    }
 
@@ -1129,6 +1132,12 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
 
+      if (channel->vfo == RR_BINFRAME_VFO_NA && channel->rig_uuid[0] &&
+          ws_room_same_rig(room, channel->control_room)) {
+         char alias[2] = { vfo, 0 };
+         const dict *object = rrclient_object_find_alias("vfo", channel->rig_uuid, alias);
+         if (object) return dict_get((dict *)object, "object.uuid", NULL);
+      }
       if ( channel->vfo == vfo - 'A' && channel->vfo_uuid[0] &&
            ws_room_same_rig(room, channel->control_room) ) { return channel->vfo_uuid; }
    }

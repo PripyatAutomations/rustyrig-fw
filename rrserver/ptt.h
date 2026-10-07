@@ -15,6 +15,8 @@
 extern bool rr_ptt_check_blocked(void);
 extern bool rr_ptt_set_blocked(bool blocked);
 extern bool rr_ptt_set(rr_vfo_t vfo, bool ptt);
+// Returns true on rejection/backend failure; legacy setters return the requested state.
+extern bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason);
 extern bool rr_ptt_set_reason(rr_vfo_t vfo, bool ptt, const char *reason);
 extern bool rr_ptt_toggle(rr_vfo_t vfo);
 extern bool rr_ptt_set_all_off(void);

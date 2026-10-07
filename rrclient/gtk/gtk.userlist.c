@@ -424,6 +424,8 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       if (vfo < 'A' || vfo > 'Z') continue;
       GtkWidget *row = gtk_event_box_new();
       gtk_widget_set_name(row, "room-vfo-row");
+      /* PARITY: rustyrig-www/js/webui.rigctl.js VFO audio explanation. */
+      gtk_widget_set_tooltip_text(row, "VFOs select tuning and audio routes. On single-receiver radios, A/B usually share receiver audio; independent RX/TX audio depends on the rig and station setup.");
       gtk_widget_add_events(row, GDK_BUTTON_RELEASE_MASK);
       GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       gtk_container_add(GTK_CONTAINER(row), content);

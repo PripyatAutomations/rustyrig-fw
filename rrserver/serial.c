@@ -19,20 +19,19 @@
 #include <librustyaxe/io.serial.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
+#include <librrprotocol/objects.h>
 #include <rrserver/serial.h>
 #include <rrserver/discovery.h>
 
 #define	SERIAL_PORTS_MAX 32
 
-// Streams a client session may hold at once: bounded by the 1-byte stream
-// field in the serial frame header. A number becomes reusable only when the
-// owning port closes while fully acknowledged (no in-flight block), so a
-// delayed frame can never land on a reused stream.
-#define	SERIAL_STREAMS_MAX 255
+#define	SERIAL_STREAMS_MAX 256
 
+// Stream zero is reserved. Allocate each of the 255 wire IDs at most once
+// per connection: acknowledged packets can still be replayed after close.
 struct serial_session {
    rrconn_t *client;
-   uint8_t live[SERIAL_STREAMS_MAX]; // per-stream open count (0/1)
+   uint8_t live[SERIAL_STREAMS_MAX]; // IDs issued during this connection
    struct serial_session *next;
 };
 
@@ -62,17 +61,14 @@ static struct serial_session *sessions;
 static rr_event_token_t request_token, closed_token, frame_token, gps_token, nmea_token, inventory_token;
 
 static bool allowed(rrconn_t *client, const struct serial_export *port) {
-   if ( !client || !client->authenticated || !client->user || !cfg_get_bool("serial.enable", true) ) { 
+   if ( !client || !client->authenticated || !client->user || client->user->password_change_required ||
+        (client->user->password_expires > 0 && client->user->password_expires <= now) || !cfg_get_bool("serial.enable", true) ) {
       return false;
    }
-   char key[96]; snprintf(key, sizeof(key), "serial:%s.access", port ? port->name : "default");
-   const char *access = cfg_get(key);
-
-   if (!access) {
-      access = cfg_get("serial.access");
-   }
-
-   return has_priv(client->user->uid, access ? access : "admin|owner");
+   if (!port) return false;
+   char privilege[sizeof(port->name) + 7];
+   snprintf(privilege, sizeof(privilege), "serial.%s", port->name);
+   return has_priv(client->user->uid, "serial") || has_priv(client->user->uid, privilege);
 }
 
 static void reply(rrconn_t *client, const char *cmd, const char *name, const struct serial_export *port, const char *error) {
@@ -115,6 +111,7 @@ static void close_port(struct serial_export *p) {
    p->client_name[0] = '\0';
    p->pending_len = p->pending_offset = 0;
    p->rx_pending = false;
+   p->close_pending = false;
    p->settings = p->defaults;
 }
 
@@ -153,7 +150,9 @@ static bool settings_from(dict *d, rr_serial_settings_t *settings) {
          if (type != VAL_INT && type != VAL_UINT && type != VAL_LONG && type != VAL_ULONG && type != VAL_LLONG && type != VAL_ULLONG) {
             return false;
          }
-         value = dict_get_long(d, "serial.baud", -1);
+         dict_value_t checked;
+         if (!rr_object_value_get(d, "serial.baud", VAL_LONG, &checked)) { return false; }
+         value = checked.l;
       }
 
       if (value < 0 || value > 921600) {
@@ -181,10 +180,7 @@ static unsigned allocate_stream(rrconn_t *client) {
       sessions = s;
    }
 
-   // Reuse retired numbers before growing: a stream is retired (never
-   // pending) once its port closed with nothing in flight, so a delayed
-   // frame cannot collide with a reused number. Only the 1-byte header
-   // bounds concurrent opens.
+   // Do not recycle a stream until its connection ends.
    for (unsigned candidate = 1 ; candidate < SERIAL_STREAMS_MAX ; candidate++) {
       if (!s->live[candidate]) {
          s->live[candidate] = 1;
@@ -194,17 +190,6 @@ static unsigned allocate_stream(rrconn_t *client) {
 
    return 0;
 }
-static void retire_stream(rrconn_t *client, unsigned stream) {
-   if (!client || !stream || stream >= SERIAL_STREAMS_MAX) {
-      return;
-   }
-
-   for (struct serial_session *s = sessions ; s ; s = s->next) {
-      if (s->client == client) {
-         s->live[stream] = 0; return;
-      }
-   }
-}
 static void request(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 
@@ -213,6 +198,14 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
    }
    const char *cmd = dict_get(d, "serial.cmd", "");
    const char *name = dict_get(d, "serial.name", "");
+   dict_value_t number;
+   if ((dict_get_type(d, "serial.stream") != VAL_END &&
+        (!rr_object_value_get(d, "serial.stream", VAL_UINT, &number) || number.ui >= SERIAL_STREAMS_MAX)) ||
+       (dict_get_type(d, "serial.seq") != VAL_END &&
+        !rr_object_value_get(d, "serial.seq", VAL_UINT, &number))) {
+      reply(client, "error", name, NULL, "invalid-request");
+      goto done;
+   }
    struct serial_export *p = owned(client, name);
 
    if ( !strcmp(cmd, "list") ) {
@@ -227,10 +220,9 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
    }
 
    if ( !strcmp(cmd, "open") ) {
-      const char *path = dict_get(d, "serial.path", NULL);
       const char *port = dict_get(d, "serial.port", NULL);
 
-      if ( !*name || strlen(name) >= 64 || ( path || !port || !*port || strchr(port, '/') ) ) {
+      if ( !*name || strlen(name) >= 64 || ( dict_get_type(d, "serial.path") != VAL_END || !port || !*port || strchr(port, '/') ) ) {
          reply(client, "error", name, NULL, "invalid-request");
          goto done;
       }
@@ -276,12 +268,6 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          reply(client, "error", name, NULL, "invalid-settings");
          goto done;
       }
-      unsigned stream = allocate_stream(client);
-
-      if (!stream) {
-         reply(client, "error", name, NULL, "stream-limit-reconnect");
-         goto done;
-      }
       p->buffer = malloc(p->buffer_limit);
 
       if (!p->buffer) {
@@ -294,6 +280,12 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          free(p->buffer);
          p->buffer = NULL;
          reply(client, "error", name, NULL, "device-open-failed");
+         goto done;
+      }
+      unsigned stream = allocate_stream(client);
+      if (!stream) {
+         close_port(p);
+         reply(client, "error", name, NULL, "stream-limit-reconnect");
          goto done;
       }
       p->settings = proposed;
@@ -316,17 +308,12 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
    }
 
    if ( !strcmp(cmd, "close") ) {
-      // Retire only when the stream is fully acknowledged: RX acked via read,
-      // TX fully written with no block in flight. Then no block can arrive or
-      // be delayed for this number and it may be reused immediately. An
-      // unacked close (device vanished) leaves the number retired for this
-      // session instead — a stale frame can never collide with a reuse.
+      // Complete queued writes before closing; the ID remains consumed.
       if (!p->pending_len) {
          reply(client, "closed", name, p, NULL);
-         retire_stream(client, p->stream);
          close_port(p);
       } else {
-         p->close_pending = true; // retire after the in-flight block is acked
+         p->close_pending = true; // close after the in-flight block is written
       }
    } else if ( !strcmp(cmd, "configure") ) {
       rr_serial_settings_t proposed = p->settings;
@@ -364,7 +351,6 @@ static void frame(const char *event, const void *data, size_t len, rrconn_t *cli
 
       if (p->pending_len || f.hdr.seq != p->tx_seq + 1) {
          reply(client, "error", p->client_name, p, "invalid-sequence");
-         retire_stream(client, p->stream);
          close_port(p);
          return;
       }
@@ -507,7 +493,7 @@ bool rrserver_serial_poll(void) {
       active = true;
 
       if ( !allowed(p->owner, p) ) {
-         reply(p->owner, "closed", p->client_name, p, "permission-revoked"); retire_stream(p->owner, p->stream);
+         reply(p->owner, "closed", p->client_name, p, "permission-revoked");
          close_port(p); continue;
       }
 
@@ -522,7 +508,7 @@ bool rrserver_serial_poll(void) {
                reply(p->owner, "written", p->client_name, p, NULL);
 
                if (p->close_pending) {
-                  reply(p->owner, "closed", p->client_name, p, NULL); retire_stream(p->owner, p->stream); close_port(p);
+                  reply(p->owner, "closed", p->client_name, p, NULL);  close_port(p);
                   continue;
                }
             }
@@ -576,7 +562,7 @@ bool rrserver_serial_poll(void) {
       continue;
 failed:
       reply(p->owner, "closed", p->client_name, p, "device-disconnected");
-      retire_stream(p->owner, p->stream);
+
       close_port(p);
    }
 
@@ -604,13 +590,9 @@ static void inventory_serial(const char *event, const char *data, rrconn_t *clie
       }
       dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : "serial");
       dict_add(row, "inventory.state", p->service ? "server-local" : p->owner ? "busy" : "available");
-      char access[96]; snprintf(access, sizeof(access), "serial:%s.access", p->name);
-      const char *privileges = cfg_get(access);
-
-      if (!privileges) {
-         privileges = cfg_get("serial.access");
-      }
-      dict_add(row, "inventory.access", privileges ? privileges : "admin|owner");
+      char privileges[sizeof(p->name) + 14];
+      snprintf(privileges, sizeof(privileges), "serial|serial.%s", p->name);
+      dict_add(row, "inventory.access", privileges);
       dict_add(row, "inventory.action", p->service ? "server-config-only" : "/sercom attach <local-name> host:<name>");
       rr_inventory_send(client, row);
    }

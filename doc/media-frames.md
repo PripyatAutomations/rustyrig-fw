@@ -202,7 +202,7 @@ Server -> client confirmation (the `stream` id matches the binframe
                  "stream": 1 } }
 
 Implementations: server `librrprotocol/ws.mediachan.c` + channel
-provisioning in `rrserver/media.c` (RX/TX audio per exposed VFO); native
+provisioning in `rrserver/media.c` (shared audio by default; per-VFO directions opt in); native
 client `rrclient/media.c` and browser client `www/js/webui.media.js`.
 Both clients auto-subscribe the audio RX/TX pair for the active VFO and
 listen for more channels as they appear. For an outgoing TX frame, the
@@ -212,6 +212,46 @@ It copies that channel's server-assigned `stream` into the frame header; a
 different VFO's channel must never be used as a fallback. The channel UUID
 is the control-plane identity, while the `(subsystem, direction, vfo, rig)`
 tuple and `stream` are the data-plane routing fields.
+
+
+### Shared and per-VFO audio
+
+Each `[rig:<alias>]` defaults to one shared RX channel and one shared TX
+channel, named `<alias>.rx` and `<alias>.tx`. Both announce `media.vfo=255`
+(no specific VFO), their rig UUID, and no VFO UUID. Selecting A/B changes
+controls without replacing the audio subscription. VFO state still comes
+from that rig's VFO objects.
+
+```ini
+[rig:rig0]
+vfos=A B
+audio.per-vfo=false
+
+[rig:rig1]
+vfos=A B
+; Dual RX, one shared transmitter:
+audio.rx.per-vfo=true
+audio.tx.per-vfo=false
+```
+
+`audio.per-vfo=true` opts both directions into per-VFO channels.
+`audio.rx.per-vfo` and `audio.tx.per-vfo` override their direction independently
+and otherwise inherit `audio.per-vfo`. A/B with shared audio exposes two
+channels; independent RX and shared TX exposes three; both directions per-VFO
+exposes four. Only backend-supported configured VFOs are provisioned, within
+existing channel limits. Configure independent directions only where the
+station supplies independent hardware audio; this setting does not create
+additional receivers or transmitters. Existing rigs needing per-VFO channel
+names must explicitly opt in. Changes take effect on server startup.
+
+RX subrooms may subscribe to their rig's shared receiver; TX remains restricted
+to the rig's base room and actual PTT holder. Sharing audio does not grant
+independent tuning or TX authority to an RX subroom. Codec changes apply to the
+shared channel for all its subscribers. Always-record settings on any exposed
+VFO arm that rig's shared RX recorder; TX recordings retain the actual keyed
+VFO's recording/log identity.
+
+
 
 ## Webcam / video sources (SUBSYS_VIDEO)
 

@@ -67,6 +67,19 @@ Unregistering is idempotent and safe from inside a callback; a stale token
 different listener, because removal matches the specific registration, not
 just (event, callback).
 
+Logger callbacks
+----------------
+
+Unloadable modules register with `log_add_callback_token()` and retain the
+returned registration. Remove it with `log_remove_callback()` before destroying
+widgets or returning from module shutdown. GTK does this before its code is
+unmapped; even the loader's post-`dlclose()` log message must not call a module
+callback. The existing boolean `log_add_callback()` API remains compatible for
+host callbacks whose code lives for the entire process.
+
+The GTK clock exits the GTK loop when shutdown is requested. Core cleanup runs
+after the loop returns, so no module callback unloads its own executing code.
+
 GTK/GLib callbacks
 ------------------
 

@@ -364,17 +364,7 @@ static GQueue *chat_backlog = NULL;
 extern GtkWidget *main_notebook;      // gtk.chat.c / gtk.core.c
 extern GtkWidget *status_tab;         // gtk.chat.c: the chat tab page widget
 
-// Is the chat tab the one the user is looking at?
-static bool chat_tab_visible(void) {
-   if (!main_notebook || !status_tab) {
-      return true;      // tabs not up yet; behave as before
-   }
-
-   return (gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
-           gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab) );
-}
-
-// Queue a raw line for later rendering while the tab is hidden
+// Queue a raw line before the status buffer exists
 static void chat_backlog_push(const char *line) {
    if (!line) {
       return;
@@ -396,9 +386,9 @@ static void chat_backlog_push(const char *line) {
 }
 
 // Render any queued lines into the chat buffer with the normal markup path.
-// Called when the chat tab is visible again (or first becomes visible).
-static void chat_backlog_flush(void) {
-   if (!chat_backlog || g_queue_is_empty(chat_backlog) || !text_buffer) {
+// Early startup messages are flushed into the dedicated status buffer.
+static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
+   if (!chat_backlog || g_queue_is_empty(chat_backlog) || !buffer) {
       return;
    }
 
@@ -409,19 +399,19 @@ static void chat_backlog_flush(void) {
 
       GtkTextIter end;
 
-      gtk_text_buffer_get_end_iter(text_buffer, &end);
+      gtk_text_buffer_get_end_iter(buffer, &end);
 
       if (colorized) {
-         gtk_text_buffer_insert_markup(text_buffer, &end, colorized, -1);
+         gtk_text_buffer_insert_markup(buffer, &end, colorized, -1);
          g_free(colorized);
       } else {
-         gtk_text_buffer_insert(text_buffer, &end, line, -1);
+         gtk_text_buffer_insert(buffer, &end, line, -1);
       }
-      gtk_text_buffer_insert(text_buffer, &end, "\n", 1);
+      gtk_text_buffer_insert(buffer, &end, "\n", 1);
       g_free(line);
    }
-   gtk_trim_scrollback(text_buffer, "ui.gtk.scrollback.chat", 200);
-   g_idle_add(ui_scroll_to_end, chat_textview);
+   gtk_trim_scrollback(buffer, "ui.gtk.scrollback.chat", 200);
+   g_idle_add(ui_scroll_to_end, view);
 }
 
 void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
@@ -469,29 +459,20 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, aq);
    va_end(aq);
 
-   // While the chat tab isn't the current notebook page, don't insert into
-   // the buffer (avoids per-line markup parsing and redraws for lines the
-   // user can't see). Queue the raw strings instead; chat_backlog_flush()
-   // renders them through the normal colorize path when the tab is focused
-   // again, so nothing is lost or left uncolored.
-   // PARITY: rrclient/gtk/gtk.syslog.c log_tab_visible() (same tab-visibility idea)
-   GtkTextBuffer *target_buffer = text_buffer;
-   GtkWidget *target_view = chat_textview;
-   bool explicit_room = window && *window;
-   if (explicit_room && !gtk_chat_room_widgets(window, &target_buffer, &target_view)) {
+   /* NULL/status output belongs to the persistent status tab, regardless
+    * of which room is selected. Keep early startup messages until it exists. */
+   GtkTextBuffer *target_buffer = NULL;
+   GtkWidget *target_view = NULL;
+   bool explicit_room = window && *window && strcasecmp(window, "status");
+   if (!gtk_chat_room_widgets(window, &target_buffer, &target_view)) {
       explicit_room = false;
-   }
-   if (!explicit_room && !chat_tab_visible() ) {
-      chat_backlog_push(msgbuf);
-      return false;
+      gtk_chat_room_widgets(NULL, &target_buffer, &target_view);
    }
    if (!target_buffer || !target_view || !GTK_IS_TEXT_VIEW(target_view)) {
-      /* Authentication can produce notices before the authoritative room
-       * has been announced and its GTK widgets have been built. */
       chat_backlog_push(msgbuf);
       return false;
    }
-   if (!explicit_room) chat_backlog_flush();
+   if (!explicit_room) chat_backlog_flush(target_buffer, target_view);
 
    bool colorize_failed = false;
    char *colorized = gtk_colorize_string(msgbuf);
@@ -947,20 +928,23 @@ static void frontend_gtk_vfo_widths(const char *vfo, const char *widths) {
    (void)vfo; (void)widths;
 }
 
+static guint frontend_gtk_update_source = 0;
+
 static gboolean frontend_gtk_update_now(gpointer user_data) {
    (void)user_data;
    extern bool dying;
-   extern bool rrclient_cleanup(void);
    now = time(NULL);
    if (!dying) ptt_button_refresh();
    if (dying) {
-      rrclient_cleanup();
+      // Return out of module code before the core can dlclose() this frontend.
+      frontend_gtk_update_source = 0;
+      if (gtk_main_level() > 0) gtk_main_quit();
       return G_SOURCE_REMOVE;
    }
    return G_SOURCE_CONTINUE;
 }
 
-static guint frontend_gtk_update_source = 0;
+static struct log_callback *frontend_gtk_log_callback = NULL;
 
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
@@ -977,7 +961,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       return true;   // gui_init failed; module loader will unload us
    }
    // Local client log pane (GTK log tab) mirrors client logs.
-   log_add_callback(log_print_va);
+   frontend_gtk_log_callback = log_add_callback_token(log_print_va);
    event_on("client.quit.request", frontend_gtk_quit_request, NULL);
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
    return false;
@@ -1037,6 +1021,11 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   // No logger callback may point into this module after dlclose().
+   if (frontend_gtk_log_callback) {
+      log_remove_callback(frontend_gtk_log_callback);
+      frontend_gtk_log_callback = NULL;
+   }
    // Stop the 1hz timer and quit the main loop if running. The main window
    // "destroy" signal handler runs gtk_main_quit when the user closes the
    // window; this path is for shutdown initiated from the core.

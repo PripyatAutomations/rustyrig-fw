@@ -25,6 +25,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include <limits.h>
+#include <ctype.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cat.h>
@@ -233,7 +236,13 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
       return;
    }
 
-   long freq = atol(args);
+   for (const unsigned char *p = (const unsigned char *)args; *p; p++) {
+      if (!isdigit(*p)) { return; }
+   }
+   char *end = NULL;
+   errno = 0;
+   long freq = strtol(args, &end, 10);
+   if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) { return; }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO A freq to %ld", freq);
    ws_send_freq_cmd_in_room( ws_conn, cat_vfo_str('A'), freq, rr_cat_room() );
@@ -248,7 +257,13 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
       return;
    }
 
-   long freq = atol(args);
+   for (const unsigned char *p = (const unsigned char *)args; *p; p++) {
+      if (!isdigit(*p)) { return; }
+   }
+   char *end = NULL;
+   errno = 0;
+   long freq = strtol(args, &end, 10);
+   if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) { return; }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO B freq to %ld", freq);
    ws_send_freq_cmd_in_room( ws_conn, cat_vfo_str('B'), freq, rr_cat_room() );
