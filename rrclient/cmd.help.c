@@ -154,7 +154,7 @@ static help_line_t help_msg_after[] = {
       UI_MODE_NONE, "\t{headers}*** {underline}Keyboard Shortcuts{underline-off} ***"
    },
    {
-      UI_MODE_GTK, "\t{bright-green}alt/ctrl +/- {bright-yellow}Zoom GTK interface; Alt/Ctrl 0 resets to 100% (= / keypad also)"
+      UI_MODE_GTK, "\t{bright-green}alt/ctrl +/- {bright-yellow}Zoom GTK interface/window; Alt/Ctrl 0 resets to 100% (maximizes with auto scaling)"
    },
    {
       UI_MODE_GTK, "\t{bright-green}alt-c         {bright-yellow}Focus chat input"

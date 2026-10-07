@@ -23,6 +23,7 @@ int main(void) {
    setbuf(stdout, NULL);
    cfg = dict_new();
    dict_add(cfg, "ui.freqentry.scroll-divider", "1");
+   dict_add_bool(cfg, "ui.gtk.scale-on-resize", false);
    GtkWidget *window = gtk_offscreen_window_new();
    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    GtkWidget *frequency = gtk_freq_entry_new(10);
@@ -35,7 +36,7 @@ int main(void) {
    GtkWidget *controls[] = { frequency, mode, volume, ptt };
    int widths[4], heights[4];
    for (unsigned i = 0; i < 4; i++) gtk_box_pack_start(GTK_BOX(row), controls[i], FALSE, FALSE, 0);
-   gtk_container_add(GTK_CONTAINER(window), row);
+   gtk_ui_zoom_attach(window, row);
    dict_add_int(cfg, "ui.gtk.zoom", 100); gtk_ui_zoom_apply();
    gtk_widget_show_all(window); settle();
    for (unsigned i = 0; i < 4; i++) {
@@ -57,7 +58,23 @@ int main(void) {
       gtk_widget_get_preferred_height(controls[i], &height, NULL);
       assert(width == widths[i] && height == heights[i]);
    }
-   gtk_ui_zoom_shutdown(); gtk_widget_destroy(window);
+   dict_add_bool(cfg, "ui.gtk.scale-on-resize", true);
+   gtk_ui_zoom_apply(); settle();
+   GdkMonitor *monitor = zoom_monitor(window);
+   GdkRectangle area; gdk_monitor_get_workarea(monitor, &area);
+   GdkEventConfigure resize = { .width = area.width / 2, .height = area.height / 2 };
+   zoom_configured(window, &resize, NULL); settle();
+   assert(zoom_percent == 50 && resize_source == 0);
+   // No automatic resize/zoom feedback after another event-loop drain.
+   settle(); assert(zoom_percent == 50 && resize_source == 0);
+   dict_add_bool(cfg, "ui.gtk.scale-on-resize", false);
+   resize.width = area.width / 4; resize.height = area.height / 4;
+   zoom_configured(window, &resize, NULL); settle();
+   assert(zoom_percent == 50);
+   zoom_queue_resize();
+   gtk_ui_zoom_shutdown();
+   assert(!resize_source && !zoom_window && !zoom_viewport);
+   gtk_widget_destroy(window);
    dict_free(cfg); cfg = NULL;
    puts("PASS: actual frequency entry, combo, slider and PTT requisitions shrink and reset");
 }

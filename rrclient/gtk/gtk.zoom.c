@@ -9,6 +9,10 @@
 static unsigned zoom_percent = 100;
 static int base_dpi;
 static GtkCssProvider *zoom_theme_provider;
+static GtkWidget *zoom_window, *zoom_viewport;
+static gulong resize_handler, state_handler;
+static guint resize_source;
+static int resize_width, resize_height;
 static guint map_signal;
 static gulong map_hook;
 
@@ -180,9 +184,102 @@ static gboolean zoom_mapped(GSignalInvocationHint *hint, guint n, const GValue *
    return TRUE;
 }
 
+// Use logical monitor pixels, matching GTK window allocations on HiDPI screens.
+static unsigned zoom_for_size(int width, int height, int screen_width, int screen_height) {
+   if (width <= 0 || height <= 0 || screen_width <= 0 || screen_height <= 0) return 100;
+   int horizontal = ((int64_t)width * 100 + screen_width / 2) / screen_width;
+   int vertical = ((int64_t)height * 100 + screen_height / 2) / screen_height;
+   return CLAMP(MIN(horizontal, vertical), 25, 100);
+}
+
+static GdkMonitor *zoom_monitor(GtkWidget *widget) {
+   GdkDisplay *display = gtk_widget_get_display(widget);
+   GdkWindow *window = gtk_widget_get_window(widget);
+   if (window && gdk_window_get_window_type(window) != GDK_WINDOW_OFFSCREEN)
+      return gdk_display_get_monitor_at_window(display, window);
+   GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+   return monitor ? monitor : gdk_display_get_monitor(display, 0);
+}
+
+static gboolean zoom_after_resize(gpointer data) {
+   (void)data;
+   resize_source = 0;
+   if (!zoom_window || !cfg_get_bool("ui.gtk.scale-on-resize", true)) return G_SOURCE_REMOVE;
+   GdkWindow *window = gtk_widget_get_window(zoom_window);
+   if (!window) return G_SOURCE_REMOVE;
+   GdkMonitor *monitor = zoom_monitor(zoom_window);
+   if (!monitor) return G_SOURCE_REMOVE;
+   GdkRectangle area;
+   gdk_monitor_get_workarea(monitor, &area);
+   GdkWindowState state = gdk_window_get_state(window);
+   unsigned next = (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)) ? 100 :
+      zoom_for_size(resize_width, resize_height, area.width, area.height);
+   if (next != zoom_percent) {
+      dict_add_int(cfg, "ui.gtk.zoom", next);
+      gtk_css_apply_cfg();
+   }
+   return G_SOURCE_REMOVE;
+}
+
+static void zoom_queue_resize(void) {
+   if (resize_source) g_source_remove(resize_source);
+   resize_source = g_timeout_add(75, zoom_after_resize, NULL);
+}
+
+void gtk_ui_zoom_recheck(void) {
+   if (!zoom_window) return;
+   gtk_window_get_size(GTK_WINDOW(zoom_window), &resize_width, &resize_height);
+   zoom_queue_resize();
+}
+
+static gboolean zoom_configured(GtkWidget *widget, GdkEventConfigure *event, gpointer data) {
+   (void)widget; (void)data;
+   resize_width = event->width; resize_height = event->height;
+   zoom_queue_resize();
+   return FALSE;
+}
+
+static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer data) {
+   (void)widget; (void)event; (void)data;
+   zoom_queue_resize();
+   return FALSE;
+}
+
+void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
+   zoom_window = window;
+   g_object_add_weak_pointer(G_OBJECT(window), (gpointer *)&zoom_window);
+   // A viewport removes the notebook's natural minimum from the window's
+   // resize constraints. Scrollbars retain access at the minimum zoom limit.
+   zoom_viewport = gtk_scrolled_window_new(NULL, NULL);
+   g_object_add_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *)&zoom_viewport);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(zoom_viewport), 320);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(zoom_viewport), 180);
+   GtkPolicyType policy = cfg_get_bool("ui.gtk.scale-on-resize", true) ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER;
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), policy, policy);
+   gtk_container_add(GTK_CONTAINER(zoom_viewport), content);
+   gtk_container_add(GTK_CONTAINER(window), zoom_viewport);
+   if (cfg_get_bool("ui.gtk.scale-on-resize", true)) {
+      GdkDisplay *display = gtk_widget_get_display(window);
+      GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+      if (!monitor) monitor = gdk_display_get_monitor(display, 0);
+      if (monitor) {
+         GdkRectangle area;
+         gdk_monitor_get_workarea(monitor, &area);
+         // Saved placement still overrides this in place_window().
+         gtk_window_set_default_size(GTK_WINDOW(window), area.width * 3 / 4, area.height * 3 / 4);
+      }
+   }
+   resize_handler = g_signal_connect(window, "configure-event", G_CALLBACK(zoom_configured), NULL);
+   state_handler = g_signal_connect(window, "window-state-event", G_CALLBACK(zoom_window_state), NULL);
+}
+
 void gtk_ui_zoom_apply(void) {
    int configured = cfg_get_int("ui.gtk.zoom", 100);
-   zoom_percent = CLAMP(configured, 50, 300);
+   zoom_percent = CLAMP(configured, 25, 300);
+   if (zoom_viewport) {
+      GtkPolicyType policy = cfg_get_bool("ui.gtk.scale-on-resize", true) ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER;
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), policy, policy);
+   }
    GtkSettings *settings = gtk_settings_get_default();
    if (!settings) return;
    zoom_theme(settings);
@@ -205,14 +302,55 @@ void gtk_ui_zoom_apply(void) {
    g_list_free(windows);
 }
 
-void gtk_ui_zoom_step(int direction) {
-   int next = CLAMP((int)zoom_percent + (direction > 0 ? 10 : -10), 50, 300);
-   if (next == (int)zoom_percent) return;
+static void zoom_manual_set(unsigned next) {
+   unsigned previous = zoom_percent;
+   if (resize_source) { g_source_remove(resize_source); resize_source = 0; }
    dict_add_int(cfg, "ui.gtk.zoom", next);
    gtk_css_apply_cfg();
+   if (zoom_window && gtk_widget_get_realized(zoom_window)) {
+      GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(zoom_window));
+      bool automatic = cfg_get_bool("ui.gtk.scale-on-resize", true);
+      if (automatic && next == 100) {
+         gtk_window_maximize(GTK_WINDOW(zoom_window));
+      } else if (automatic && (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
+         GdkMonitor *monitor = zoom_monitor(zoom_window);
+         if (monitor) {
+            GdkRectangle area;
+            gdk_monitor_get_workarea(monitor, &area);
+            gtk_window_unfullscreen(GTK_WINDOW(zoom_window));
+            gtk_window_unmaximize(GTK_WINDOW(zoom_window));
+            gtk_window_resize(GTK_WINDOW(zoom_window), area.width * next / 100, area.height * next / 100);
+         }
+      } else if (!(state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
+         int width, height;
+         gtk_window_get_size(GTK_WINDOW(zoom_window), &width, &height);
+         // Shrink/grow the normal window along with its controls; auto-resize
+         // never requests a new window size, avoiding a resize/zoom loop.
+         gtk_window_resize(GTK_WINDOW(zoom_window),
+            MAX(1, (int)((int64_t)width * next / previous)),
+            MAX(1, (int)((int64_t)height * next / previous)));
+      }
+   }
+}
+
+void gtk_ui_zoom_step(int direction) {
+   int maximum = zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
+   int next = CLAMP((int)zoom_percent + (direction > 0 ? 10 : -10), 25, maximum);
+   if (next != (int)zoom_percent) zoom_manual_set(next);
 }
 
 void gtk_ui_zoom_shutdown(void) {
+   if (resize_source) { g_source_remove(resize_source); resize_source = 0; }
+   if (zoom_window) {
+      g_signal_handler_disconnect(zoom_window, resize_handler);
+      g_signal_handler_disconnect(zoom_window, state_handler);
+      g_object_remove_weak_pointer(G_OBJECT(zoom_window), (gpointer *)&zoom_window);
+      zoom_window = NULL;
+   }
+   if (zoom_viewport) {
+      g_object_remove_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *)&zoom_viewport);
+      zoom_viewport = NULL;
+   }
    if (zoom_theme_provider) {
       gtk_style_context_remove_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(zoom_theme_provider));
       g_clear_object(&zoom_theme_provider);
@@ -224,8 +362,7 @@ bool gtk_ui_zoom_key(const GdkEventKey *event) {
    if (!event || event->type != GDK_KEY_PRESS || !(event->state & (GDK_MOD1_MASK | GDK_CONTROL_MASK))) return false;
    switch (event->keyval) {
       case GDK_KEY_0: case GDK_KEY_KP_0:
-         dict_add_int(cfg, "ui.gtk.zoom", 100);
-         gtk_css_apply_cfg(); return true;
+         zoom_manual_set(100); return true;
       case GDK_KEY_plus: case GDK_KEY_equal: case GDK_KEY_KP_Add:
          gtk_ui_zoom_step(1); return true;
       case GDK_KEY_minus: case GDK_KEY_KP_Subtract:

@@ -25,6 +25,8 @@ ui.full-screen=false
 ui.freqentry.scroll-divider=3.0
 ; Whole GTK interface size in percent; Alt/Ctrl +/- changes it in 10% steps.
 ui.gtk.zoom=100
+; Scale to window size; maximized/fullscreen is 100%. False keeps manual zoom.
+ui.gtk.scale-on-resize=true
 ; Do we put the VFO at top or bottom of the window?
 ui.gtk.vfo-on-top=false
 ; bottom, top, left, right

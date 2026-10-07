@@ -280,7 +280,7 @@ NULL/status output goes to its own buffer while room/query output remains scoped
 Browser chat retains its existing root/status discovery context.
 
 GTK-only interface zoom: Alt/Ctrl +/- (Alt/Ctrl = and keypad +/-) changes
-`ui.gtk.zoom` in 10% steps from 50% to 300%. Point-font DPI, CSS pixel sizes,
+`ui.gtk.zoom` in 10% steps from 25% to 300%. Point-font DPI, CSS pixel sizes,
 widget requests, margins, spacing, packing and icon sizes scale together.
 New dialogs/detached windows inherit the current zoom; CSS reload preserves it.
 TUI text sizing remains controlled by the terminal, and browser zoom by the browser.
@@ -300,3 +300,13 @@ minimum sizes, padding, combo arrows and slider nodes). This allows the actual
 frequency entry and VFO row to shrink, rather than only their text. The scaled
 theme stays below application/user CSS; 100% removes that override. This is a
 GTK presentation detail, with no protocol or browser behavior change.
+
+`ui.gtk.scale-on-resize=true` (default) scales the main window against its
+monitor's usable work area, using the smaller width/height ratio, from 25% to
+100%. Maximized/fullscreen is 100%; secondary windows inherit the scale but do
+not drive it. A scrollable root lets the main window shrink below its contents'
+previous minimum; overflow remains reachable at the 25% floor. Resize updates
+are debounced and never resize the window themselves. Manual +/- also resizes
+the window proportionally; in automatic mode reset/100% maximizes it. Set the
+option false for manual 25–300% zoom. Saved window placement still applies;
+without saved placement, automatic mode opens at 75% of the primary monitor.

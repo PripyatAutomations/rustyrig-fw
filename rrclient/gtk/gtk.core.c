@@ -67,6 +67,7 @@ static void frontend_gtk_config_refresh(const char *key) {
 
 static bool frontend_gtk_config_refresh_cb(void) {
    frontend_gtk_config_refresh(NULL);
+   if (main_window) { gtk_css_apply_cfg(); gtk_ui_zoom_recheck(); }
    return false;
 }
 extern GtkWidget *init_admin_tab(void);
@@ -628,7 +629,7 @@ bool gui_init(void) {
    // (labels, buttons, tabs, ...) inherits this one.
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
-   gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
+   gtk_ui_zoom_attach(main_window, main_notebook);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
    // ADMIN tab (alt-1)

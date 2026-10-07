@@ -18,6 +18,12 @@ int main(void) {
    zoom_percent = 100;
    const char *original = "* { margin:2px; font-size:12.5px; }";
    css = gtk_zoom_css(original); assert(!strcmp(css, original)); g_free(css);
+   assert(zoom_for_size(1920, 1080, 1920, 1080) == 100);
+   assert(zoom_for_size(960, 540, 1920, 1080) == 50);
+   assert(zoom_for_size(960, 1080, 1920, 1080) == 50);
+   assert(zoom_for_size(1920, 540, 1920, 1080) == 50);
+   assert(zoom_for_size(10, 10, 1920, 1080) == 25);
+   assert(zoom_for_size(3840, 2160, 1920, 1080) == 100);
    assert(zoom_dimension(-1, 150) == -1);
    assert(zoom_dimension(100, 150) == 150);
    assert(zoom_dimension(3, 50) == 2);
@@ -36,7 +42,7 @@ int main(void) {
    assert(gtk_ui_zoom_key(&key) && zoom_percent == 100);
    key.state = 0; assert(!gtk_ui_zoom_key(&key));
    zoom_percent = 300; gtk_ui_zoom_step(1); assert(zoom_percent == 300);
-   zoom_percent = 50; gtk_ui_zoom_step(-1); assert(zoom_percent == 50);
+   zoom_percent = 25; gtk_ui_zoom_step(-1); assert(zoom_percent == 25);
    if (gtk_init_check(NULL, NULL)) {
       GtkWidget *window = gtk_offscreen_window_new();
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
