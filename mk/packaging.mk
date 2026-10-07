@@ -11,7 +11,7 @@ endif
 indent:
 	./tools/indent.sh
 
-# Maintainer - debs
+# Maintainer - debs, will remove old debs, and install for testing
 mdeb mdebs:
 	mkdir -p ../releases
 	rm -f ../releases/*.deb

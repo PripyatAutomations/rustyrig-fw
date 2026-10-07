@@ -40,7 +40,7 @@ BUILD
 -----
      # install deps (this currently only works for debian, please add checks
      # for your distro and appropriate commands ;)
-     sudo ./install-deps.sh
+     ./install-deps.sh
 
      Build it:
      ./build.sh
