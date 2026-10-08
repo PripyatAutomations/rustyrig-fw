@@ -1,4 +1,7 @@
-rustyrig-fw (20261007.16) testing; urgency=medium
+rustyrig-fw (20261007.17) testing; urgency=medium
+  * Provide weak librustyaxe fallback definitions for dying, restarting and now,
+    allowing standalone consumers to link while strong application definitions
+    continue to take precedence.
   * Restore usable WebUI multiroom tabs and suppress duplicate JOIN events for
     rooms that are already joined.
   * Fix GTK multiroom userlist docking; closing a detached list docks it back,
