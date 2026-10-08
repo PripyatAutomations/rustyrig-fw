@@ -2,7 +2,7 @@
 # Starter Arch Linux packaging; update pkgver/source for each release.
 pkgbase=rustyrig
 pkgname=(rustyrig-server-gpsd rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
-pkgver=20261007.13
+pkgver=20261007.16
 pkgrel=1
 pkgdesc='RustyRig remote radio software'
 arch=('x86_64')

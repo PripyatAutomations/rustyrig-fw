@@ -1077,7 +1077,25 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
 
    ui_print(NULL, "%s * %s (%s) quit from %s: %s", get_chat_ts(m_ts), m_user, m_ip, m_target, m_reason);
 
-   userlist_remove_by_name_room(m_user, m_target);
+   /* PARITY: rustyrig-www/js/webui.chat.js:UserCache.remove; a quit is per session. */
+   int sessions = dict_get_int(d, "talk.sessions", 0);
+   struct rr_user *current = userlist_find_in_room(m_user, m_target);
+   if (sessions > 0) {
+      if (current) {
+         current->sessions = sessions;
+      } else {
+         dict *remaining = dict_new();
+         if (remaining) {
+            dict_add(remaining, "talk.user", m_user);
+            dict_add(remaining, "talk.room", m_target);
+            dict_add_int(remaining, "talk.sessions", sessions);
+            userlist_add_or_update(remaining);
+            dict_free(remaining);
+         }
+      }
+   } else if (current) {
+      userlist_remove_by_name_room(m_user, m_target);
+   }
    dict_free(d);
 }
 

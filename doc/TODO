@@ -5,13 +5,11 @@ callsign-lookupd: fix cache expiry
   cache_fetched: 2026/09/20 20:24:53
   cache_expiry: 2026/10/04 20:24:53
 
-packaging: make /var/log/rustyrig owned by rustyrig:rustyrig
-
 rrserver: Add support for SCRAM gpio
 
-*: If /webcam show is requested and only one video stream exists, subscribe to it
+rrclient: Multiple server conn. support
 
-rrclient: Need to split gtk into its own package as a loadable module using events asap
+*: If /webcam show is requested and only one video stream exists, subscribe to it
 
 * Move all socket code out of librrprotocol
   - It needs to go into client and server code
@@ -21,8 +19,6 @@ rrclient: Need to split gtk into its own package as a loadable module using even
 * Elmer/noob mode needs a dialog confirmation system
   - Noob requests elevated privs and is cautioned about their responsibility
   - Elmers are prompted and one can accept responsibility for the user
-
-* Support for multiple rigs
 
 * Anywhere with a bool return type needs to ensure
   that it returns true on success, false on failure

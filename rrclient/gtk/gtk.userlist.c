@@ -51,6 +51,7 @@ typedef struct room_userlist_entry {
    GtkWidget *dock_button;
    GtkWidget *window;
    GtkPaned *paned;
+   GtkPaned *dock_paned;
    bool docked;
    guint refresh_id;
 } room_userlist_entry_t;
@@ -69,6 +70,24 @@ typedef struct room_vfo_control {
 static int userlist_default_width(void) {
    int width = cfg_get_int("ui.userlist-width", 220);
    return width < 120 ? 120 : width;
+}
+
+static gboolean userlist_fit_width_idle(gpointer data) {
+   GtkWidget *view = GTK_WIDGET(data);
+   if (!view || !GTK_IS_TREE_VIEW(view)) return G_SOURCE_REMOVE;
+   GtkRequisition natural;
+   gtk_widget_get_preferred_size(view, NULL, &natural);
+   gint width = natural.width;
+   GtkWidget *scroll = gtk_widget_get_parent(view);
+   if (scroll && GTK_IS_VIEWPORT(scroll)) scroll = gtk_widget_get_parent(scroll);
+   if (scroll && GTK_IS_SCROLLED_WINDOW(scroll) && width > 0) {
+      gtk_widget_set_size_request(scroll, width, -1);
+   }
+   return G_SOURCE_REMOVE;
+}
+
+static void userlist_fit_width(GtkWidget *view) {
+   if (view && GTK_IS_WIDGET(view)) g_idle_add(userlist_fit_width_idle, view);
 }
 
 static void userlist_remove_from_parent(void) {
@@ -208,6 +227,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
          c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
 
+   userlist_fit_width(view);
    gtk_widget_queue_draw(view);
 }
 
@@ -529,6 +549,7 @@ static GtkWidget *userlist_view_create(void) {
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes(
       "Username", text, "text", COL_USERNAME, NULL);
+   gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);
 
@@ -605,20 +626,22 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
 static void room_userlist_set_title(room_userlist_entry_t *entry) {
    if (!entry || !entry->window || !GTK_IS_WINDOW(entry->window)) return;
    char title[192];
-   snprintf(title, sizeof(title), "User List - %s", entry->room && *entry->room ? entry->room : "(no room)");
+   snprintf(title, sizeof(title), "%s User List", entry->room && *entry->room ? entry->room : "(no room)");
    gtk_window_set_title(GTK_WINDOW(entry->window), title);
 }
 
 static gboolean on_room_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
    (void)event;
    room_userlist_entry_t *entry = (room_userlist_entry_t *)data;
-   if (entry && widget && !entry->docked && entry->paned) {
+   if (entry && widget && !entry->docked && entry->dock_paned) {
       GtkWidget *parent = gtk_widget_get_parent(entry->panel);
       if (parent && GTK_IS_CONTAINER(parent)) gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
-      gtk_paned_pack2(entry->paned, entry->panel, FALSE, FALSE);
+      if (parent == entry->window && !gtk_widget_get_parent(entry->panel))
+         gtk_paned_pack2(entry->dock_paned, entry->panel, FALSE, FALSE);
+      entry->paned = entry->dock_paned;
       entry->docked = true;
-      entry->window = widget;
       gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
+      gtk_widget_show_all(entry->panel);
    }
    if (widget) gtk_widget_hide(widget);
    return TRUE;
@@ -642,20 +665,22 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
       GtkWidget *parent = gtk_widget_get_parent(entry->panel);
       if (parent && GTK_IS_CONTAINER(parent)) gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
       gtk_container_add(GTK_CONTAINER(entry->window), entry->panel);
-      entry->docked = false;
       entry->paned = NULL;
+      entry->docked = false;
       gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Dock");
       room_userlist_set_title(entry);
       gtk_widget_show_all(entry->window);
       place_window(entry->window);
    } else {
-      if (!entry->paned) return;
+      if (!entry->dock_paned) return;
       if (entry->window && GTK_IS_WINDOW(entry->window) &&
           gtk_widget_get_parent(entry->panel) == entry->window) {
          gtk_container_remove(GTK_CONTAINER(entry->window), entry->panel);
          gtk_widget_hide(entry->window);
       }
-      gtk_paned_pack2(entry->paned, entry->panel, FALSE, FALSE);
+      if (!gtk_widget_get_parent(entry->panel))
+         gtk_paned_pack2(entry->dock_paned, entry->panel, FALSE, FALSE);
+      entry->paned = entry->dock_paned;
       entry->docked = true;
       gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
       gtk_widget_show_all(entry->panel);
@@ -664,7 +689,6 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
 
 static GtkWidget *userlist_panel_create(void) {
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   gtk_widget_set_size_request(panel, userlist_default_width(), -1);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
    GtkWidget *label = gtk_label_new("Users");
    userlist_dock_button = gtk_button_new_with_label("Undock");
@@ -710,10 +734,10 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    if (!entry) return;
    entry->room = g_strdup(room);
    entry->paned = paned;
+   entry->dock_paned = paned;
    entry->docked = true;
 
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   gtk_widget_set_size_request(panel, userlist_default_width(), -1);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
    GtkWidget *label = gtk_label_new("Users");
    entry->dock_button = gtk_button_new_with_label("Undock");
@@ -752,7 +776,10 @@ void userlist_remove_room_view(const char *room) {
    if (entry) {
       GtkWidget *parent = gtk_widget_get_parent(entry->panel);
       if (parent && GTK_IS_CONTAINER(parent)) gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
-      if (entry->window && GTK_IS_WIDGET(entry->window)) gtk_widget_destroy(entry->window);
+      if (entry->window && GTK_IS_WIDGET(entry->window)) {
+         g_signal_handlers_disconnect_by_func(entry->window, G_CALLBACK(on_room_userlist_delete), entry);
+         gtk_widget_destroy(entry->window);
+      }
       if (entry->refresh_id) g_source_remove(entry->refresh_id);
       if (entry->panel && G_IS_OBJECT(entry->panel)) g_object_unref(entry->panel);
       free(entry->room);

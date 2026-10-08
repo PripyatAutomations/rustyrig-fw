@@ -1,8 +1,6 @@
 [general]
 - Make sure PTT button goes ORANGE on PTT expiry
 
-* Support PTT lock; controlled by ctrl or shift clicking PTT button (disable ptt lock by default)
-
 * make @username auto-complete once enough unique is typed
   - save last typed before completing so backspace will remove the completed part
     - continue completion only if user presses tab
@@ -12,16 +10,7 @@
 * Add mIRC extended RGB colors (0x04 RRGGBB[,RRGGBB]) to GTK and TUI parsing,
   rendering and input with matching foreground/background semantics.
 
-* tui: should probably treat status window as the syslog in gtk; make windows 2+ show rig controls
-
 * Make hotkeys context (tab/window) sensitive
-
-* Support for connecting to multiple servers
-
-* Populate config tab from defconfig, showing radio/text field/etc based on default value check
-  - use active values, just take descriptions, from defconfig
-
-* Add mute/unmute button for RX audio which halts sending the samples entirely
 
 * Implement rest of controls typically used by hams
 
@@ -30,10 +19,6 @@
 * Add a start/stop RX audio button for saving bw isntead of just muting
   - or maybe send the mute/unmute to server who will start/stop sending samples
     as well as sending a start/stop message so gstreamer can be paused
-
-* Make VFO widgets able to undock/float too
-  - maybe not, this breaks spirit of multiplayer UNLESS we
-    force docked mode if multiple users are connected?
 
 * C4FM mode / dialog
 
@@ -44,11 +29,3 @@
 [bluetooth]	LOW PRIORITY
 * Support bluetooth PTT buttons
 * Maybe automate routing of headsets when connected, if reasonably feasible?
-
-[cfgedit]	URGENT
-! Make save config moves the file to .old first
-* Add a button in config editor to replace the config editor contents with 
-  in-memory settings instead of config file values
-
-[TUI]
-* Make log window selectable between host and client logs.

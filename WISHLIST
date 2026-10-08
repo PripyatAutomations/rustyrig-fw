@@ -1,3 +1,5 @@
+* I would like to make the client support multiple server connections. Ideally we should have support for selecting a protocol; websocket, webtransport, or irc: We could put that in the server config block like a url irc://irc.efnet.org:6667/ or ws://10.10.11.3/ -- much of the irc stuff already exists, but we'll have to implement media ports maybe RTP or RTSP later for /DCC AUDIO - i guess we could just do the binary frames from ws just thrown on the udp socket?
+
 * GUI pipeline composer/editor for gstreamer
 
 * Admin tab with user/room/etc management

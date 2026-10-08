@@ -1,4 +1,8 @@
-rustyrig-fw (20261007.13) testing; urgency=medium
+rustyrig-fw (20261007.16) testing; urgency=medium
+  * Restore usable WebUI multiroom tabs and suppress duplicate JOIN events for
+    rooms that are already joined.
+  * Fix GTK multiroom userlist docking; closing a detached list docks it back,
+    and detached window titles identify the room.
   * Preserve open channel tabs across reconnects and rejoin channels that remain
     in the refreshed server room catalog in native and browser clients.
   * Request the server room catalog after successful client authorization so

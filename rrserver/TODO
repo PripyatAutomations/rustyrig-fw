@@ -1,8 +1,13 @@
 ============
 = rrserver =
 ============
+
+[sbitx]
+* Implement support for running this thing
+
 * Need to clean up a few things related to hamlib (model, host, etc) in
   pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
+
 * Need to make eeprom contain a 'lite' version of what sqlite db would hold
 
 * DEBUG_PROTO_UNKNOWN ' ' ' -- remove this!
@@ -26,9 +31,6 @@
   - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
 
 [core]
-* Test TX halt when PTTing user disconnects.
-  - also halt TX by FLAG_NOOB users if the last elmer logs out
-  - Should work, needs tested
 
 [eeprom/config]
 * remove need for the key field (why not use the name of the entry itself?) in eeprom_layout
@@ -82,6 +84,3 @@
 
 [radioberry]
 * Implement support for this thing
-
-[sbitx]
-* Implement support for running on here too

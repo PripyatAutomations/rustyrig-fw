@@ -92,10 +92,12 @@ int next_chat_tab = 5;
 static gboolean gtk_chat_set_userlist_width(gpointer data) {
    GtkWidget *paned = GTK_WIDGET(data);
    if (!paned || !GTK_IS_PANED(paned)) return G_SOURCE_REMOVE;
-   int width = cfg_get_int("ui.userlist-width", 220);
+   GtkWidget *userlist = gtk_paned_get_child2(GTK_PANED(paned));
+   if (!userlist) return G_SOURCE_REMOVE;
+   gint minimum = 0, natural = 0;
+   gtk_widget_get_preferred_width(userlist, &minimum, &natural);
    int total = gtk_widget_get_allocated_width(paned);
-   if (width < 120) width = 120;
-   if (total > width) gtk_paned_set_position(GTK_PANED(paned), total - width);
+   if (total > natural) gtk_paned_set_position(GTK_PANED(paned), total - natural);
    return G_SOURCE_REMOVE;
 }
 

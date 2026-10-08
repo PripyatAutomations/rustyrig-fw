@@ -3,7 +3,17 @@
 - See *P and *T pipelines for pink noise and single tone tests, if audio.debug is true
 
 [cat]
-- Basic yaesu CAT is acceptable on dev/ttyCAT0 device
+- Basic yaesu style CAT is acceptable on dev/ttyCAT0 device
+- Skeleton of KPA500 style CAT support
+
+[gps]
+- Basic NMEA generator for static positions of rigs/stations
+- NMEA proxying via sercom
+
+[sercom]
+- Support for exposing generated or proxied NMEA data on pty or serial
+- Support for yaesu CAT on pty or serial
+- Support for proxying remote sercom port to local pty
 
 [rigs]
 - Internal backend stores rig state and is a good base for new radio support
