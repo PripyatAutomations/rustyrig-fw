@@ -941,8 +941,9 @@ static void frontend_gtk_show_server_chooser(void) {
    show_server_chooser();
 }
 
+extern void gtk_webcam_show(bool show);   // gtk.webcam.c
 static void frontend_gtk_webcam_show(bool show) {
-   (void)show;
+   gtk_webcam_show(show);
 }
 
 static void frontend_gtk_userlist_redraw(void) {

@@ -1,26 +1,14 @@
 rustyrig-fw (20261007.17) testing; urgency=medium
-  * Provide weak librustyaxe fallback definitions for dying, restarting and now,
-    allowing standalone consumers to link while strong application definitions
-    continue to take precedence.
-  * Restore usable WebUI multiroom tabs and suppress duplicate JOIN events for
-    rooms that are already joined.
-  * Fix GTK multiroom userlist docking; closing a detached list docks it back,
-    and detached window titles identify the room.
+  * made /webcam show auto-subscribe if only one camera found on station
+  * fixed callsign-lookup cache
+  * many GUI fixes
+  * add color picker dialog in gtk
   * Preserve open channel tabs across reconnects and rejoin channels that remain
     in the refreshed server room catalog in native and browser clients.
   * Request the server room catalog after successful client authorization so
     /j and /join completion includes rooms not yet joined.
-    * Give all 16 GTK mIRC palette indexes distinct colors, including normal and
-      bright cyan, magenta, blue and white shades.
-  * Complete /j and /join from joined and server-enumerated rooms in native and
-    browser clients; remove deleted rooms from completion candidates.
-  * Keep keyboard color entry usable with the GTK palette open; swatches remain
-    optional, show numeric indexes, and insert at the saved caret without
-    replacing selections or blocking continued typing.
   * Show numeric foreground/background examples in the GTK color palette and
     keep typing active after selecting a swatch.
-  * Add readable \C/\B mIRC formatting escapes for theme and status-line config
-    values; document the native palette, styles and unsupported RGB extension.
   * Add Ctrl+B/C/I/O/R mIRC formatting controls to GTK chat input, matching
     the TUI shortcuts; Ctrl+U clears the input as in the TUI.
   * Wrap the GTK main notebook's tab strip into additional rows rather than
@@ -33,9 +21,6 @@ rustyrig-fw (20261007.17) testing; urgency=medium
   * Render help section headings in red and use mIRC formatting for built-in
     client output. Reuse the TUI mIRC parser, preserving numeric text and style
     toggles. Clarify PTT, rig control and codec failures with target context.
-  * Fix RustyAxe test artifact paths so its suite can build from its registered
-    component directory, and resolve WebUI test sources relative to their script.
-
   * Add GTK pinch-to-zoom and two-finger tap userlist menus, suppressing
     accidental clicks and waiting for both fingers to lift before opening menus.
   * Default ui.gtk.scale-on-resize to true: derive GTK scale from the main

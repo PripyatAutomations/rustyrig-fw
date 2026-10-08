@@ -24,6 +24,7 @@
 #include <gtk/gtk.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.winmgr.h>
+#include <rrclient/media.h>
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
@@ -95,20 +96,17 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
    }
 }
 
-// /webcam [SHOW|HIDE] - toggle the viewer window; frames are only decoded
-// when the window exists (and we're subscribed to the channel)
-bool cmd_webcam(int argc, char **args) {
-   const char *sub = (argc > 1 ? args[1] : "SHOW");
-
-   if (strcasecmp(sub, "HIDE") == 0 || strcasecmp(sub, "CLOSE") == 0) {
+// Show or hide the viewer window; frames are only decoded when it exists.
+void gtk_webcam_show(bool show) {
+   if (!show) {
       if (webcam_win) {
          gtk_widget_destroy(webcam_win);   // destroy cb clears the state
       }
-      return false;
+      return;
    }
    if (webcam_win) {
       gtk_window_present(GTK_WINDOW(webcam_win) );
-      return false;
+      return;
    }
    webcam_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(webcam_win), "Webcam");
@@ -118,9 +116,11 @@ bool cmd_webcam(int argc, char **args) {
    webcam_image = gtk_image_new();
    gtk_container_add(GTK_CONTAINER(webcam_win), webcam_image);
    gtk_widget_show_all(webcam_win);
-   ui_print(NULL, "\00311Webcam viewer open; subscribe to the video channel with \017/media SUB <uuid|#>\00311 to start the stream\017");
-
-   return false;
+   if (rrclient_media_subscribe_single_video()) {
+      ui_print(NULL, "\00311Webcam viewer open; subscribed to the only video stream\017");
+   } else {
+      ui_print(NULL, "\00311Webcam viewer open; subscribe to the video channel with \017/media SUB <uuid|#>\00311 to start the stream\017");
+   }
 }
 
 // Register the video frame listener (called from gtk init)

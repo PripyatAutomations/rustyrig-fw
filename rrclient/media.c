@@ -920,6 +920,33 @@ bool rrclient_media_subscribe(const char *uuid) {
    return !sent;
 }
 
+// Automatically subscribe when the server has exactly one receive video stream.
+bool rrclient_media_subscribe_single_video(void) {
+   struct rr_media_known *video = NULL;
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      struct rr_media_known *kp = &known_chans[i];
+
+      if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_VIDEO ||
+          kp->direction != RR_BINFRAME_DIR_RX) {
+         continue;
+      }
+      if (video) {
+         return false;
+      }
+      video = kp;
+   }
+
+   if (!video) {
+      return false;
+   }
+   if (!video->subscribed && rrclient_media_subscribe(video->uuid)) {
+      return false;
+   }
+
+   return true;
+}
+
 bool rrclient_media_unsubscribe(const char *uuid) {
    rrconn_t *cptr = ws_conn;
 

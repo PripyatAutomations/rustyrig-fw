@@ -49,6 +49,28 @@ bool cmd_reload(int argc, char **args) {
    return false;
 }
 
+bool cmd_webcam(int argc, char **args) {
+   const char *action = argc > 1 ? args[1] : "SHOW";
+   bool show;
+
+   if (!strcasecmp(action, "SHOW") || !strcasecmp(action, "OPEN")) {
+      show = true;
+   } else if (!strcasecmp(action, "HIDE") || !strcasecmp(action, "CLOSE")) {
+      show = false;
+   } else {
+      ui_print(ui_active_window_name(), "Usage: /webcam [SHOW|HIDE]");
+      return true;
+   }
+
+   if (!frontend_ops() || !frontend_ops()->webcam_show) {
+      ui_print(ui_active_window_name(), "The webcam viewer is only available in the GTK client");
+      return false;
+   }
+
+   frontend_ops()->webcam_show(show);
+   return false;
+}
+
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
    {
@@ -106,6 +128,10 @@ client_cmd_t client_cmds[] = {
    {
       .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 2,
       .desc = "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
+   },
+   {
+      .cmd = "webcam", .help_section = "Media", .max_args = 1, .cb = cmd_webcam,
+      .desc = "Show or hide the webcam viewer"
    },
    {
       .cmd = "object", .help_section = "Radio and discovery", .cb = cmd_object, .desc = "Inspect objects: /object [rig0|rig0.A|uuid]"

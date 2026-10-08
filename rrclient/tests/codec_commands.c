@@ -174,6 +174,20 @@ int main(void) {
    assert(!rrclient_media_current_channel(false));
    assert(!known_chans[0].subscribed);
    dict_free(room_channel);
+   // /webcam SHOW auto-subscribes only when exactly one RX video channel exists.
+   memset(known_chans, 0, sizeof(known_chans));
+   unsigned before_video = subscribed;
+   assert(!rrclient_media_subscribe_single_video() && subscribed == before_video);
+   known_chans[0] = (struct rr_media_known){.uuid="video-one", .subsystem=RR_BINFRAME_SUBSYS_VIDEO,
+      .direction=RR_BINFRAME_DIR_RX};
+   assert(rrclient_media_subscribe_single_video());
+   assert(subscribed == before_video + 1 && !strcmp(last_uuid, "video-one"));
+   known_chans[0].subscribed = true;
+   assert(rrclient_media_subscribe_single_video() && subscribed == before_video + 1);
+   known_chans[1] = (struct rr_media_known){.uuid="video-two", .subsystem=RR_BINFRAME_SUBSYS_VIDEO,
+      .direction=RR_BINFRAME_DIR_RX};
+   known_chans[0].subscribed = false;
+   assert(!rrclient_media_subscribe_single_video() && subscribed == before_video + 1);
    // Active GPS switches subscriptions with the rig; pinned output stays subscribed.
    memset(known_chans,0,sizeof(known_chans));
    snprintf(media_room,sizeof(media_room),"#site-rig0");

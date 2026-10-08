@@ -17,7 +17,9 @@
 #include <rrserver/discovery.h>
 #include <rrserver/database.h>
 #include <librrprotocol/ws.mediachan.h>
+
 extern struct GlobalState rig;
+
 typedef struct subscriber {
    rrconn_t *client;
    GPtrArray *pending;
@@ -25,9 +27,7 @@ typedef struct subscriber {
    char *request;
    struct subscriber *next;
 } subscriber_t;
-static subscriber_t *subscribers;
-static char *epoch;
-static uint64_t sequence;
+
 typedef struct object_send {
    rrconn_t *client;
    const char *request;
@@ -35,10 +35,17 @@ typedef struct object_send {
    rr_server_vfo_t *vfo;
 } object_send_t;
 
+static subscriber_t *subscribers;
+static char *epoch;
+static uint64_t sequence;
+
 static dict *message(const char *family, const char *cmd, const char *request) {
    dict *d = dict_new();
 
-   if (!d) { return NULL; }
+   if (!d) {
+      return NULL;
+   }
+
    dict_add(d, "msg.type", family);
    dict_add(d, !strcmp(family, "object") ? "object.cmd" : "property.cmd", cmd);
    dict_add(d, "stream.epoch", epoch);
@@ -198,7 +205,7 @@ static void result(rrconn_t *client, const char *family, const char *id, const c
    send_message(client, d);
 }
 
-static void close_client(const char *event, const char *data, rrconn_t *client, void *user) {
+static void rr_object_close_client(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event; (void)data; (void)user;
    subscriber_t **link = &subscribers;
    while (*link) {
@@ -323,7 +330,7 @@ static void inventory(rrconn_t *client, const char *id) {
    send_message( client, message("object", "inventory-end", id) );
 }
 
-static void request(const char *event, const char *data, rrconn_t *client, void *user) {
+static void rr_object_request(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event; (void)user;
 
    if (!client || !client->authenticated || !data) { return; }
@@ -345,12 +352,12 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          inventory(client, id);
          dict_free(d); return;
       } else if ( !strcmp(cmd, "unsubscribe") ) {
-         close_client(NULL, NULL, client, NULL); code = "ok";
+         rr_object_close_client(NULL, NULL, client, NULL); code = "ok";
       } else if ( !strcmp(cmd, "snapshot") ) {
          if ( !rr_rig_registry_node(rig.rigs) ) { code = "unavailable"; goto done; }
 
          if (rr_rig_registry_count(rig.rigs) > 128) { code = "too-large"; goto done; }
-         close_client(NULL, NULL, client, NULL);
+         rr_object_close_client(NULL, NULL, client, NULL);
          subscriber_t *s = calloc( 1, sizeof(*s) );
 
          if (!s) { code = "unavailable"; goto done; }
@@ -359,18 +366,18 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          s->pending = g_ptr_array_new_with_free_func(g_free);
 
          if (!s->request || !s->pending) {
-            close_client(NULL, NULL, client, NULL); code = "unavailable"; goto done;
+            rr_object_close_client(NULL, NULL, client, NULL); code = "unavailable"; goto done;
          }
          rr_rig_registry_foreach(rig.rigs, collect_rig, s->pending);
 
          if (s->pending->len >= 4096) {
-            close_client(NULL, NULL, client, NULL); code = "too-large"; goto done;
+            rr_object_close_client(NULL, NULL, client, NULL); code = "too-large"; goto done;
          }
          send_message( client, message("object", "begin", id) );
          dict *node = message("object", "descriptor", id);
 
          if (!node) {
-            close_client(NULL, NULL, client, NULL); code = "unavailable"; goto done;
+            rr_object_close_client(NULL, NULL, client, NULL); code = "unavailable"; goto done;
          }
          dict_add( node, "object.uuid", rr_rig_registry_node(rig.rigs) );
          dict_add(node, "object.type", "node");
@@ -475,7 +482,7 @@ done:
    dict_free(d);
 }
 
-static void changed(const char *event, const char *data, rrconn_t *client, void *user) {
+static void rr_object_changed(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event; (void)client; (void)user;
 
    if (!data) { return; }
@@ -494,7 +501,7 @@ static void changed(const char *event, const char *data, rrconn_t *client, void 
    dict_free(d);
 }
 
-static void lifecycle(const char *event, const char *uuid, rrconn_t *client, void *user) {
+static void rr_object_lifecycle(const char *event, const char *uuid, rrconn_t *client, void *user) {
    (void)client; (void)user;
    sequence++;
 
@@ -515,15 +522,15 @@ static void lifecycle(const char *event, const char *uuid, rrconn_t *client, voi
 }
 
 void rrserver_objects_register_events(void) {
-   event_on(RR_OBJECT_REQUEST_EVENT, request, NULL);
-   event_on(RR_OBJECT_CLOSE_EVENT, close_client, NULL);
-   event_on(RR_PROPERTY_CHANGED_EVENT, changed, NULL);
-   event_on("object.model.added", lifecycle, NULL);
-   event_on("object.model.removed", lifecycle, NULL);
-   event_on("object.model.schema", lifecycle, NULL);
+   event_on(RR_OBJECT_REQUEST_EVENT, rr_object_request, NULL);
+   event_on(RR_OBJECT_CLOSE_EVENT, rr_object_close_client, NULL);
+   event_on(RR_PROPERTY_CHANGED_EVENT, rr_object_changed, NULL);
+   event_on("object.model.added", rr_object_lifecycle, NULL);
+   event_on("object.model.removed", rr_object_lifecycle, NULL);
+   event_on("object.model.schema", rr_object_lifecycle, NULL);
 }
 
 void rrserver_objects_fini(void) {
-   while (subscribers) { close_client(NULL, NULL, subscribers->client, NULL); }
+   while (subscribers) { rr_object_close_client(NULL, NULL, subscribers->client, NULL); }
    g_free(epoch); epoch = NULL; sequence = 0;
 }
