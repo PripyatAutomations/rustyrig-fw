@@ -143,15 +143,24 @@ static char **complete_rooms(const char *word, bool include_available) {
    size_t count = 0;
    for (unsigned int index = 0 ;; index++) {
       const char *room = rrclient_room_iter(index);
-      if (!room) break;
-      if (room[0] != '#' && room[0] != '&') continue;
+      if (!room) {
+         break;
+      }
+
+      if (room[0] != '#' && room[0] != '&') {
+         continue;
+      }
       completion_add(&matches, &count, room, word);
    }
    if (include_available) {
       for (unsigned int index = 0 ;; index++) {
          const char *room = rrclient_room_available_iter(index);
-         if (!room) break;
-         if (room[0] != '#' && room[0] != '&') continue;
+         if (!room) {
+            break;
+         }
+         if (room[0] != '#' && room[0] != '&') {
+            continue;
+         }
          completion_add(&matches, &count, room, word);
       }
    }

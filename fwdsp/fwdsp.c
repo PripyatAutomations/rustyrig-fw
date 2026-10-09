@@ -64,6 +64,7 @@ enum pcm_processor_mode {
    PCM_PROCESSOR_MODE_PLAYBACK
 };
 
+
 static bool processor_mode = false;
 static enum pcm_processor_mode processor_io_mode = PCM_PROCESSOR_MODE_AUTO;
 static char processor_name[64]; // qualified pipeline name: proc.*, src.*, sink.*, or
@@ -216,7 +217,9 @@ static void *recorder_thread_main(void *arg) {
       Log(LOG_CRIT, "record", "Unable to create %s recorder: %s", recording_codec,
          parse_error ? parse_error->message : "unknown error");
 
-      if (parse_error) { g_error_free(parse_error); }
+      if (parse_error) {
+         g_error_free(parse_error);
+      }
       unlink(rec->filename);
 
       return NULL;
@@ -320,7 +323,9 @@ static void *recorder_thread_main(void *arg) {
    GstMessage *record_done = gst_bus_timed_pop_filtered(record_bus, 5 * GST_SECOND,
       GST_MESSAGE_EOS | GST_MESSAGE_ERROR);
 
-   if (record_done) { gst_message_unref(record_done); }
+   if (record_done) {
+      gst_message_unref(record_done);
+   }
    gst_object_unref(record_bus);
    gst_element_set_state(record_pipeline, GST_STATE_NULL);
    gst_object_unref(record_src);
@@ -863,17 +868,29 @@ static void run_loop(struct audio_config *cfg) {
          Log(LOG_CRIT, "fwdsp", "Audio pipeline %s has invalid endpoints or non-mono S16LE 16 kHz appsrc caps",
             processor_name);
 
-         if (appsrc) { gst_object_unref(appsrc); }
+         if (appsrc) {
+            gst_object_unref(appsrc);
+         }
 
-         if (appsink) { gst_object_unref(appsink); }
+         if (appsink) {
+            gst_object_unref(appsink);
+         }
 
-         if (volume) { gst_object_unref(volume); }
+         if (volume) {
+            gst_object_unref(volume);
+         }
 
-         if (record_sink) { gst_object_unref(record_sink); }
+         if (record_sink) {
+            gst_object_unref(record_sink);
+         }
 
-         if (record_encoded_sink) { gst_object_unref(record_encoded_sink); }
+         if (record_encoded_sink) {
+            gst_object_unref(record_encoded_sink);
+         }
 
-         if (hub_sink) { gst_object_unref(hub_sink); }
+         if (hub_sink) {
+            gst_object_unref(hub_sink);
+         }
          cleanup_pipeline(&pipeline);
 
          return;
@@ -886,15 +903,21 @@ static void run_loop(struct audio_config *cfg) {
          GstMessage *state_msg = gst_bus_timed_pop_filtered(state_bus, 250 * GST_MSECOND, GST_MESSAGE_ERROR);
 
          if (state_msg) {
-            GError *state_err = NULL; gchar *state_dbg = NULL;
+            GError *state_err = NULL;
+            gchar *state_dbg = NULL;
             gst_message_parse_error(state_msg, &state_err, &state_dbg);
             g_printerr("Failed to set pipeline to PLAYING state: %s\n",
                state_err ? state_err->message : "unknown GStreamer error");
 
-            if (state_dbg) { g_printerr("GStreamer details: %s\n", state_dbg); }
+            if (state_dbg) {
+               g_printerr("GStreamer details: %s\n", state_dbg);
+            }
 
-            if (state_err) { g_error_free(state_err); }
-            g_free(state_dbg); gst_message_unref(state_msg);
+            if (state_err) {
+               g_error_free(state_err);
+            }
+            g_free(state_dbg);
+            gst_message_unref(state_msg);
          } else {
             g_printerr("Failed to set pipeline to PLAYING state (no GStreamer error message).\n");
          }
@@ -921,7 +944,9 @@ static void run_loop(struct audio_config *cfg) {
             gst_object_unref(record_encoded_sink);
          }
 
-         if (hub_sink) { gst_object_unref(hub_sink); }
+         if (hub_sink) {
+            gst_object_unref(hub_sink);
+         }
 
          return;
       }
@@ -1462,7 +1487,9 @@ int main(int argc, char *argv[]) {
       snprintf(recording_codec, sizeof(recording_codec), "%s", cfg_recording_codec);
 
       for (char *p = recording_codec ; *p ; p++) {
-         if (*p >= 'A' && *p <= 'Z') { *p = (char)(*p - 'A' + 'a'); }
+         if (*p >= 'A' && *p <= 'Z') {
+            *p = (char)(*p - 'A' + 'a');
+         }
       }
    } else if (cfg_recording_codec && *cfg_recording_codec) {
       Log(LOG_WARN, "record", "Unsupported recording.codec=%s; using flac", cfg_recording_codec);

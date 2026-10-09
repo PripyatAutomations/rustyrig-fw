@@ -1468,8 +1468,7 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
 
    // Start the replacement first so switching never creates an avoidable
    // media gap. Then release the old process. Encoders linger; decoders die.
-   if (old_codec && strlen(old_codec) == 4 &&
-       strncmp(old_codec, new_codec, 4) != 0) {
+   if (old_codec && strlen(old_codec) == 4 && strncmp(old_codec, new_codec, 4) != 0) {
       fwdsp_codec_stop_channel(old_codec, is_tx, channel_uuid);
    }
 
