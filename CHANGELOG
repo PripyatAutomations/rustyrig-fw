@@ -1,3 +1,7 @@
+rustyrig-fw (20261009.1) testing; urgency=medium
+  * Add a GNU indent profile matching librustyaxe's 3-space, same-line-brace
+    style; set Uncrustify code/comment width to 160 and expand one-line controls.
+
 rustyrig-fw (20261008.1) testing; urgency=medium
   * Use only the room name (#room) for GTK userlist window titles.
 
