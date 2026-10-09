@@ -39,13 +39,16 @@ static void receive(const char *data, size_t len) {
                if (d) {
                   dict_add(d, "gps.source", cfg_get("gpsd.target") ? cfg_get("gpsd.target") : "station");
                   dict_add(d, "gps.nmea", line);
-                  event_emit_dict("gps.nmea.input", NULL, d); dict_free(d);
+                  event_emit_dict("gps.nmea.input", NULL, d);
+                  dict_free(d);
                }
             }
          }
-         used = 0; dropping = false;
+         used = 0;
+         dropping = false;
       } else if ( (unsigned char)ch < 32 || (unsigned char)ch > 126 ) {
-         dropping = true; used = 0;
+         dropping = true;
+         used = 0;
       } else if (!dropping) {
          if ( used + 1 == sizeof(line) ) {
             dropping = true;
@@ -88,7 +91,9 @@ static void handler(struct mg_connection *c, int ev, void *data) {
    } else if (ev == MG_EV_ERROR) {
       Log(LOG_WARN, "gpsd", "GPS daemon: %s", (const char *)data);
    } else if (ev == MG_EV_CLOSE) {
-      connection = NULL; used = 0; dropping = false;
+      connection = NULL;
+      used = 0;
+      dropping = false;
       reconnect_at = mono_us() + UINT64_C(5000000);
    }
 }
@@ -119,8 +124,11 @@ bool rr_module_init(void) {
       Log(LOG_INFO, "gpsd", "%s uses configured coordinates; GPS daemon adapter disabled", target ? target : "station");
       return false;
    }
-   used = 0; dropping = false; reconnect_at = 0;
-   mg_mgr_init(&manager); initialized = true;
+   used = 0;
+   dropping = false;
+   reconnect_at = 0;
+   mg_mgr_init(&manager);
+   initialized = true;
    poll_token = event_on_token("server.poll", poll_gpsd, NULL);
 
    if (!poll_token) {
@@ -132,7 +140,8 @@ bool rr_module_init(void) {
    return false;
 }
 void rr_module_shutdown(void) {
-   event_off_token(poll_token); poll_token = NULL;
+   event_off_token(poll_token);
+   poll_token = NULL;
 
    if (initialized) {
       mg_mgr_free(&manager);

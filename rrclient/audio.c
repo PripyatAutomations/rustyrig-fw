@@ -98,9 +98,13 @@ bool audio_init(void) {
       Log(LOG_CRIT, "audio", "Unable to start client PCM endpoints (mic=%s, speaker=%s)", mic_ok ? "ready" : "failed",
          speaker_ok ? "ready" : "failed");
 
-      if (mic_ok) { fwdsp_processor_stop("src.client.dsp0"); }
+      if (mic_ok) {
+         fwdsp_processor_stop("src.client.dsp0");
+      }
 
-      if (speaker_ok) { fwdsp_processor_stop("sink.client.dsp0"); }
+      if (speaker_ok) {
+         fwdsp_processor_stop("sink.client.dsp0");
+      }
 
       return true;
    }
@@ -245,20 +249,25 @@ bool audio_process_frame(const char *data, size_t len) {
 // decoder (corruption) and stops frames being fed to a torn-down decoder
 // (post-NONE silence).
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
    audio_full_frame_payload(data, len);
 }
 
 static void audio_full_frame_payload(const void *data, size_t len) {
    struct rr_binframe frame;
 
-   if (rr_binframe_parse(data, len, &frame) || !frame.len) { return; }
+   if (rr_binframe_parse(data, len, &frame) || !frame.len) {
+      return;
+   }
    const char *codec = rrclient_media_rx_codec_for_stream(frame.hdr.stream, (const char *)frame.hdr.codec);
 
-   if (!codec) { return; }
+   if (!codec) {
+      return;
+   }
 
    if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {
-      if ( audio_switch_codec(codec, false) ) { return; }
+      if ( audio_switch_codec(codec, false) ) {
+         return;
+      }
    }
 
    if ( fwdsp_write_samples(rx_codec, false, frame.data, frame.len) ) {

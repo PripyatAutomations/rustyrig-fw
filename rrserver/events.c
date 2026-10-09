@@ -37,14 +37,17 @@ extern struct GlobalState rig;
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
 
+extern void rrserver_media_register_events(void);   // media.c
 
 static void rrserver_handle_room_join(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
 #ifdef USE_SQLITE
    const char *room = dict_get(d, "talk.room", NULL);
 
@@ -72,22 +75,24 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
 }
 
 static void rrserver_handle_room_part(const char *event, const char *room, rrconn_t *client, void *user) {
-   (void)event; (void)user;
-
    if (client && client->is_ptt && room && rig.ptt_rig) {
       const char *base = rr_rig_registry_room(rig.rigs, rig.ptt_rig);
 
-      if ( base && !strcasecmp(base, room) ) { rr_ptt_set_all_off_reason("left-tx-room"); }
+      if ( base && !strcasecmp(base, room) ) {
+         rr_ptt_set_all_off_reason("left-tx-room");
+      }
    }
 }
 
 static void rrserver_handle_room_topic(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
    const char *topic = dict_get(d, "talk.topic", "");
    bool query = dict_get_bool(d, "talk.query", false);
@@ -134,9 +139,9 @@ static void rrserver_handle_room_topic(const char *event, const char *data, rrco
 }
 
 static void rrserver_handle_room_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)data; (void)user;
-
-   if (!cptr) { return; }
+   if (!cptr) {
+      return;
+   }
    dict *reply = dict_new();
    dict_add(reply, "msg.type", "talk");
    dict_add(reply, "talk.cmd", "room-list");
@@ -145,23 +150,28 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
    db_room_ensure(masterdb, ws_site_room(), false, 0, "server");
    char *rooms = db_room_list(masterdb);
 
-   if (rooms) { dict_add(reply, "talk.rooms", rooms); free(rooms); }
+   if (rooms) {
+      dict_add(reply, "talk.rooms", rooms);
+      free(rooms);
+   }
 #endif
    ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
    dict_free(reply);
 }
 
 static void rrserver_handle_room_add(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-
    if (!cptr || !cptr->authenticated || !cptr->user) {
       ws_send_error(cptr, "Room management requires admin or owner");
       return;
    }
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
 
    if (!ws_room_name_valid(room) ||
@@ -223,10 +233,11 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
 }
 
 static void rrserver_handle_room_vfo_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-
-   if (!cptr) { return; }
-   dict *reply = dict_new(); dict_add(reply, "msg.type", "talk");
+   if (!cptr) {
+      return;
+   }
+   dict *reply = dict_new();
+   dict_add(reply, "msg.type", "talk");
    dict_add(reply, "talk.cmd", "room-vfo-list");
 #ifdef USE_SQLITE
    const char *requested_room = NULL;
@@ -237,7 +248,9 @@ static void rrserver_handle_room_vfo_list(const char *event, const char *data, r
       if (request) {
          requested_room = dict_get(request, "talk.room", NULL);
 
-         if (requested_room && *requested_room) { dict_add(reply, "talk.room", requested_room); }
+         if (requested_room && *requested_room) {
+            dict_add(reply, "talk.room", requested_room);
+         }
          char *vfos = requested_room && *requested_room ?
                       db_room_vfo_list(masterdb, requested_room) : db_room_vfo_map_list(masterdb);
          dict_add(reply, "talk.vfos", vfos ? vfos : "");
@@ -248,25 +261,30 @@ static void rrserver_handle_room_vfo_list(const char *event, const char *data, r
       }
    } else {
       char *map = db_room_vfo_map_list(masterdb);
-      dict_add(reply, "talk.vfos", map ? map : ""); free(map);
+      dict_add(reply, "talk.vfos", map ? map : "");
+      free(map);
    }
 #else
    dict_add(reply, "talk.vfos", "");
 #endif
-   ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT); dict_free(reply);
+   ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
+   dict_free(reply);
 }
 
 static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-
    if (!cptr || !cptr->authenticated || !cptr->user || !has_priv(cptr->user->uid, "admin|owner")) {
       ws_send_error(cptr, "Room management requires admin or owner");
       return;
    }
-   if (!data) { return; }
+
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
    const char *binding = dict_get(d, "talk.vfo", NULL);
    const char *action = dict_get(d, "talk.action", NULL);
@@ -292,10 +310,12 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       const char *dot = strstr(binding, ".vfo_");
 
       if (dot && dot[5] && !dot[6]) {
-         char alias[64]; size_t len = (size_t)(dot - binding);
+         char alias[64];
+         size_t len = (size_t)(dot - binding);
 
          if ( len < sizeof(alias) ) {
-            memcpy(alias, binding, len); alias[len] = '\0';
+            memcpy(alias, binding, len);
+            alias[len] = '\0';
 
             if (rr_rig_registry_find_alias(rig.rigs, alias) == radio) {
                char native[2] = {
@@ -309,7 +329,8 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
 
    if (!radio || !vfo || rr_server_vfo_owner(vfo) != radio) {
       ws_send_error(cptr, "VFO binding must belong to the rig named by the room");
-      dict_free(d); return;
+      dict_free(d);
+      return;
    }
    binding = rr_server_vfo_id(vfo);
 
@@ -357,7 +378,9 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       ws_broadcast_room_dict(NULL, d, room);
 
       for (rrconn_t *member = http_client_list ; member ; member = member->next) {
-         if ( member->authenticated && ws_client_in_room(member, room) ) { media_send_available_all(member); }
+         if ( member->authenticated && ws_client_in_room(member, room) ) {
+            media_send_available_all(member);
+         }
       }
 
       ws_send_notice(cptr, "Room %s VFO %s %s", room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed");
@@ -381,15 +404,17 @@ struct room_confirmation {
 static struct room_confirmation room_confirmations[HTTP_MAX_SESSIONS];
 
 static void rrserver_room_confirmation_close(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)data; (void)user;
    for (size_t i = 0; i < HTTP_MAX_SESSIONS; i++) {
-      if (room_confirmations[i].client == client) { memset(&room_confirmations[i], 0, sizeof(room_confirmations[i])); }
+      if (room_confirmations[i].client == client) {
+         memset(&room_confirmations[i], 0, sizeof(room_confirmations[i]));
+      }
    }
 }
 
 static void rrserver_room_join_check(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
-   (void)event; (void)user;
-   if (len != sizeof(rr_room_join_check_t)) { return; }
+   if (len != sizeof(rr_room_join_check_t)) {
+      return;
+   }
    rr_room_join_check_t *check = (rr_room_join_check_t *)data;
    bool exists, deleted;
    if (!db_room_status(masterdb, check->room, &exists, &deleted) || deleted ||
@@ -403,12 +428,14 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
 #endif
 
 static void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
 
    if ( room && ( !strcasecmp( room, ws_site_room() ) || rrserver_rig_room_configured(room) ) ) {
@@ -432,13 +459,21 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
    struct room_confirmation *challenge = NULL, *available = NULL;
    for (size_t i = 0; i < HTTP_MAX_SESSIONS; i++) {
       struct room_confirmation *entry = &room_confirmations[i];
-      if (entry->expires <= now) { memset(entry, 0, sizeof(*entry)); }
-      if (!entry->client && !available) { available = entry; }
-      if (entry->client == cptr) { challenge = entry; }
+      if (entry->expires <= now) {
+         memset(entry, 0, sizeof(*entry));
+      }
+      if (!entry->client && !available) {
+         available = entry;
+      }
+      if (entry->client == cptr) {
+         challenge = entry;
+      }
    }
    const char *token = dict_get(d, "talk.confirmation", NULL);
    if (!token) {
-      if (!challenge) { challenge = available; }
+      if (!challenge) {
+         challenge = available;
+      }
       if (!challenge) {
          ws_send_error(cptr, "Unable to issue room removal confirmation");
       } else {
@@ -447,7 +482,8 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
          snprintf(challenge->room, sizeof(challenge->room), "%s", room);
          snprintf(challenge->token, sizeof(challenge->token), "%06x", arc4random_uniform(0x1000000));
          challenge->expires = now + 300;
-         challenge->force = force; challenge->history = history;
+         challenge->force = force;
+         challenge->history = history;
          ws_send_notice(cptr, "To confirm, please use /room remove %s%s%s %s", room,
             force ? " --force" : "", history ? " --history" : "", challenge->token);
       }
@@ -477,7 +513,9 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
 #endif
 
    if (room) {
-      if (ws_room_rig_namespace(room)) { ws_room_set_vfo_mask(room, 0); }
+      if (ws_room_rig_namespace(room)) {
+         ws_room_set_vfo_mask(room, 0);
+      }
       ws_send_notice(cptr, "Room %s removed", room);
       ws_broadcast_room_dict(NULL, d, room);
 
@@ -546,10 +584,15 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    const char *room = dict_get( d, "rigctl.room", ws_authoritative_room() );
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
 
-   if (!radio) { dict_free(d); return; }
+   if (!radio) {
+      dict_free(d);
+      return;
+   }
 
    if (strcasecmp(rc_cmd, "ptt") == 0) {
-      if (rc_ptt) { rig.ptt_rig = radio; }
+      if (rc_ptt) {
+         rig.ptt_rig = radio;
+      }
       // Key/dekey the rig (from the PTT button in the client)
       Log(LOG_AUDIT, "rigctl", "User %s set PTT to %s on vfo %s", rc_from, (rc_ptt ? "true" : "false"), rc_vfo);
       if (rr_ptt_request(vfo, rc_ptt, rc_ptt ? "key-down" : "released") && cptr) {
@@ -580,7 +623,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    if (!strcasecmp(rc_cmd, "power")) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
-         if (cptr) { ws_send_error(cptr, "Unable to set power to %g watts on VFO %s in room %s", (double)rc_power, rc_vfo, room); }
+         if (cptr) {
+            ws_send_error(cptr, "Unable to set power to %g watts on VFO %s in room %s", (double)rc_power, rc_vfo, room);
+         }
       } else {
          Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
          rr_backend_poll_rig(radio, object);
@@ -596,11 +641,16 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       };
 
       if ( !strcmp(rc_cmd, "freq") ) {
-         request.property = RR_PROP_VFO_FREQUENCY; request.value_type = VAL_LONG; request.value.l = rc_freq;
+         request.property = RR_PROP_VFO_FREQUENCY;
+         request.value_type = VAL_LONG;
+         request.value.l = rc_freq;
       } else if ( !strcmp(rc_cmd, "mode") ) {
-         request.property = RR_PROP_VFO_MODE; request.value_type = VAL_STR; request.value.s = rc_mode;
+         request.property = RR_PROP_VFO_MODE;
+         request.value_type = VAL_STR;
+         request.value.s = rc_mode;
       } else if ( !strcmp(rc_cmd, "width") ) {
-         request.property = RR_PROP_VFO_WIDTH; request.value_type = VAL_LONG;
+         request.property = RR_PROP_VFO_WIDTH;
+         request.value_type = VAL_LONG;
          request.value.l = rc_width ? strtol(rc_width, NULL, 10) : 0;
       }
 
@@ -609,7 +659,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       } else {
          rr_backend_poll_rig(radio, object);
       }
-      dict_free(d); return;
+      dict_free(d);
+      return;
    }
 
    if (strcasecmp(rc_cmd, "mode") == 0) {
@@ -633,7 +684,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       // Audit trail: who changed which VFO to what mode
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
       // Confirm the new values for UUID-backed clients immediately, including width changes caused by mode.
-      if (!rr_set_mode(vfo, new_mode)) { rr_be_poll(vfo); }
+      if (!rr_set_mode(vfo, new_mode)) {
+         rr_be_poll(vfo);
+      }
       dict_free(d);
 
       return;
@@ -650,7 +703,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
       // Audit trail: who changed which VFO to what passband width
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
-      if (!rr_set_width(vfo, rc_width)) { rr_be_poll(vfo); }
+      if (!rr_set_width(vfo, rc_width)) {
+         rr_be_poll(vfo);
+      }
       dict_free(d);
 
       return;
@@ -661,7 +716,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    // Audit trail: who changed which VFO to what frequency
    Log(LOG_AUDIT, "rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
 
-   if (!rr_freq_set(vfo, rc_freq)) { rr_be_poll(vfo); }
+   if (!rr_freq_set(vfo, rc_freq)) {
+      rr_be_poll(vfo);
+   }
    dict_free(d);
 }
 
@@ -772,7 +829,9 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       dict_add(d, "talk.msg_type", "priv");
       ws_send_dict(cptr, target, d, WEBSOCKET_OP_TEXT);
 
-      if (target != cptr) { ws_send_dict(cptr, cptr, d, WEBSOCKET_OP_TEXT); }
+      if (target != cptr) {
+         ws_send_dict(cptr, cptr, d, WEBSOCKET_OP_TEXT);
+      }
       dict_free(d);
 
       return;
@@ -1257,10 +1316,14 @@ static void user_reply(rrconn_t *cptr, const char *fmt, ...) {
 }
 
 static bool user_name_valid(const char *name) {
-   if (!name || !*name || strlen(name) > HTTP_USER_LEN) { return false; }
+   if (!name || !*name || strlen(name) > HTTP_USER_LEN) {
+      return false;
+   }
 
    for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) {
-      if (!isalnum(*p) && *p != '_' && *p != '-') { return false; }
+      if (!isalnum(*p) && *p != '_' && *p != '-') {
+         return false;
+      }
    }
 
    return true;
@@ -1269,18 +1332,26 @@ static bool user_name_valid(const char *name) {
 /* Privileges are stored as a comma-separated list. Keep the list deliberately
  * conservative here because this command changes authorization state. */
 static bool user_privilege_list_valid(const char *privileges, bool allow_empty) {
-   if (!privileges) { return false; }
+   if (!privileges) {
+      return false;
+   }
 
-   if (!*privileges) { return allow_empty; }
+   if (!*privileges) {
+      return allow_empty;
+   }
 
-   if (strlen(privileges) > USER_PRIV_LEN) { return false; }
+   if (strlen(privileges) > USER_PRIV_LEN) {
+      return false;
+   }
 
    const char *p = privileges;
    while (*p) {
       const char *end = strchr(p, ',');
       size_t len = end ? (size_t)(end - p) : strlen(p);
 
-      if (len == 0 || len >= 64) { return false; }
+      if (len == 0 || len >= 64) {
+         return false;
+      }
 
       for (size_t i = 0 ; i < len ; i++) {
          unsigned char ch = (unsigned char)p[i];
@@ -1290,21 +1361,27 @@ static bool user_privilege_list_valid(const char *privileges, bool allow_empty) 
          }
       }
 
-      if (end && end[1] == '\0') { return false; }
+      if (end && end[1] == '\0') {
+         return false;
+      }
       p = end ? end + 1 : p + len;
    }
    return true;
 }
 
 static bool user_privilege_contains(const char *privileges, const char *wanted) {
-   if (!privileges || !wanted || !*wanted) { return false; }
+   if (!privileges || !wanted || !*wanted) {
+      return false;
+   }
    char copy[USER_PRIV_LEN + 1];
    strlcpy( copy, privileges, sizeof(copy) );
    char *save = NULL;
 
    for ( char *token = strtok_r(copy, ",", &save) ; token ;
          token = strtok_r(NULL, ",", &save) ) {
-      if (strcasecmp(token, wanted) == 0) { return true; }
+      if (strcasecmp(token, wanted) == 0) {
+         return true;
+      }
    }
 
    return false;
@@ -1316,7 +1393,9 @@ static bool user_privilege_has_elevated(const char *privileges) {
 }
 
 static bool user_privilege_add_tokens(const char *base, const char *extra, char *out, size_t out_len) {
-   if (!base || !extra || !out || out_len == 0) { return false; }
+   if (!base || !extra || !out || out_len == 0) {
+      return false;
+   }
    snprintf(out, out_len, "%s", base);
    char copy[USER_PRIV_LEN + 1];
    strlcpy( copy, extra, sizeof(copy) );
@@ -1324,18 +1403,24 @@ static bool user_privilege_add_tokens(const char *base, const char *extra, char 
 
    for ( char *token = strtok_r(copy, ",", &save) ; token ;
          token = strtok_r(NULL, ",", &save) ) {
-      if ( user_privilege_contains(out, token) ) { continue; }
+      if ( user_privilege_contains(out, token) ) {
+         continue;
+      }
       size_t used = strlen(out);
       int written = snprintf(out + used, out_len - used, "%s%s", used ? "," : "", token);
 
-      if (written < 0 || (size_t)written >= out_len - used) { return false; }
+      if (written < 0 || (size_t)written >= out_len - used) {
+         return false;
+      }
    }
 
    return true;
 }
 
 static bool user_privilege_remove_tokens(const char *base, const char *remove, char *out, size_t out_len) {
-   if (!base || !remove || !out || out_len == 0) { return false; }
+   if (!base || !remove || !out || out_len == 0) {
+      return false;
+   }
    out[0] = '\0';
    char base_copy[USER_PRIV_LEN + 1];
    char remove_copy[USER_PRIV_LEN + 1];
@@ -1345,11 +1430,15 @@ static bool user_privilege_remove_tokens(const char *base, const char *remove, c
 
    for ( char *token = strtok_r(base_copy, ",", &save) ; token ;
          token = strtok_r(NULL, ",", &save) ) {
-      if ( user_privilege_contains(remove_copy, token) ) { continue; }
+      if ( user_privilege_contains(remove_copy, token) ) {
+         continue;
+      }
       size_t used = strlen(out);
       int written = snprintf(out + used, out_len - used, "%s%s", used ? "," : "", token);
 
-      if (written < 0 || (size_t)written >= out_len - used) { return false; }
+      if (written < 0 || (size_t)written >= out_len - used) {
+         return false;
+      }
    }
 
    return true;
@@ -1360,9 +1449,13 @@ static bool user_is_elevated(const http_user_t *user) {
 }
 
 static bool user_target_allowed(const http_user_t *actor, const http_user_t *target, bool password_change) {
-   if (!actor || !target) { return false; }
+   if (!actor || !target) {
+      return false;
+   }
 
-   if ( has_priv(actor->uid, "owner") ) { return true; }
+   if ( has_priv(actor->uid, "owner") ) {
+      return true;
+   }
 
    if ( user_is_elevated(target) ) {
       return password_change && actor->uid == target->uid;
@@ -1372,7 +1465,9 @@ static bool user_target_allowed(const http_user_t *actor, const http_user_t *tar
 }
 
 static bool user_temp_password(char *password, size_t length) {
-   if (!password || length < 9) { return false; }
+   if (!password || length < 9) {
+      return false;
+   }
    unsigned value = arc4random_uniform(100000000U);
 
    return snprintf(password, length, "%08u", value) > 0;
@@ -1389,12 +1484,16 @@ static bool user_reload_database(rrconn_t *cptr) {
 }
 
 static void user_disconnect_sessions(const http_user_t *target, const char *reason) {
-   if (!target) { return; }
+   if (!target) {
+      return;
+   }
 
    for (rrconn_t *cur = http_client_list ; cur ; ) {
       rrconn_t *next = cur->next;
 
-      if (cur->user == target) { ws_kick_client(cur, reason); }
+      if (cur->user == target) {
+         ws_kick_client(cur, reason);
+      }
       cur = next;
    }
 }
@@ -1405,12 +1504,16 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 #ifndef USE_SQLITE
    (void)data;
 
-   if (cptr) { ws_send_error(cptr, "USER: account management requires SQLite support"); }
+   if (cptr) {
+      ws_send_error(cptr, "USER: account management requires SQLite support");
+   }
 
    return;
 #else
 
-   if (!cptr || !cptr->user || !data) { return; }
+   if (!cptr || !cptr->user || !data) {
+      return;
+   }
 
    if (!masterdb) {
       ws_send_error(cptr, "USER: account database is not open");
@@ -1475,7 +1578,9 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       for (int i = 0 ; i < HTTP_MAX_USERS ; i++) {
          http_user_t *entry = &http_users[i];
 
-         if (!entry->name[0]) { continue; }
+         if (!entry->name[0]) {
+            continue;
+         }
          char expiry[32] = "never";
 
          if (entry->password_expires > 0) {
@@ -1511,14 +1616,18 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       for (int i = 0 ; i < HTTP_MAX_USERS ; i++) {
          http_user_t *entry = &http_users[i];
 
-         if (!entry->name[0] || entry->password_set <= 0 || entry->password_set > cutoff) { continue; }
+         if (!entry->name[0] || entry->password_set <= 0 || entry->password_set > cutoff) {
+            continue;
+         }
          int days = (int)( (now - entry->password_set) / 86400 );
          user_reply(cptr, "  %-16s password set %d days ago%s", entry->name, days,
             entry->password_change_required ? " (change required)" : "");
          found++;
       }
 
-      if (!found) { user_reply(cptr, "USER: no passwords are older than %u days", max_age); }
+      if (!found) {
+         user_reply(cptr, "USER: no passwords are older than %u days", max_age);
+      }
 
       return;
    }
@@ -1554,7 +1663,9 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       char *password_hash = NULL;
       bool ok = user_temp_password( password, sizeof(password) );
 
-      if (ok) { password_hash = hash_passwd(password); }
+      if (ok) {
+         password_hash = hash_passwd(password);
+      }
       ok = ok && password_hash && db_user_create(masterdb, uid, argv[1], true, password_hash, "no@example.com", 1,
          privileges, true, now + 7 * 86400);
       free(password_hash);
@@ -1780,7 +1891,6 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 void rrserver_register_events(void) {
    extern void rrserver_objects_register_events(void);
    rrserver_objects_register_events();
-   extern void rrserver_media_register_events(void);   // media.c
    rrserver_media_register_events();
    Log(LOG_CRAZY, "events", "Registering rrserver events");
 

@@ -100,7 +100,9 @@ bool au_recording_config_refresh(const char *key) {
    char *new_dir = cfg_get_path("path.record-dir");
    int new_max = cfg_get_int("record.max", 16);
 
-   if (new_max < 1) { new_max = 1; }
+   if (new_max < 1) {
+      new_max = 1;
+   }
 
    /* The active table cannot be resized while recordings may still refer to it. Apply a
     * changed limit on the next process start instead of risking an out-of-bounds access

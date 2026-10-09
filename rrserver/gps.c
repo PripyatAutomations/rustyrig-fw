@@ -104,7 +104,9 @@ bool rrserver_gps_position_parse(const char *text, int32_t *lat, int32_t *lon) {
    if (!coordinate(&text, &a, 90) || *text++ != ',' || !coordinate(&text, &b, 180) || *text) {
       return false;
    }
-   *lat = a; *lon = b; return true;
+   *lat = a;
+   *lon = b;
+   return true;
 }
 
 static struct gps_source *find(const char *alias) {
@@ -152,7 +154,9 @@ static void send_position(struct gps_source *source, rrconn_t *client) {
       char sentence[128];
       size_t n = rr_nmea_rmc( position->lat, position->lon, payload[8], now, sentence, sizeof(sentence) );
 
-      if (n) { ws_media_send_frame(source->nmea_channel, client, (const uint8_t *)sentence, n, RR_NMEA_FRAME_CODEC); }
+      if (n) {
+         ws_media_send_frame(source->nmea_channel, client, (const uint8_t *)sentence, n, RR_NMEA_FRAME_CODEC);
+      }
    }
 
    if (!client) {
@@ -178,62 +182,99 @@ static void publish(struct gps_source *source, rrconn_t *client) {
    send_position(source, client);
 }
 static bool receiver_angle(const char *text, const char *hemisphere, bool latitude, int32_t *result) {
-   if (!text || !hemisphere || strlen(hemisphere) != 1) { return false; }
+   if (!text || !hemisphere || strlen(hemisphere) != 1) {
+      return false;
+   }
    size_t whole = strcspn(text, ".");
    unsigned degree_digits = latitude ? 2 : 3, maximum = latitude ? 90 : 180;
 
-   if (whole != degree_digits + 2) { return false; }
+   if (whole != degree_digits + 2) {
+      return false;
+   }
    unsigned degrees = 0;
 
    for (unsigned i = 0 ; i < degree_digits ; i++) {
-      if ( !isdigit( (unsigned char)text[i] ) ) { return false; }
+      if ( !isdigit( (unsigned char)text[i] ) ) {
+         return false;
+      }
       degrees = degrees * 10 + (text[i] - '0');
    }
 
-   const char *minutes = text + degree_digits; int32_t min;
+   const char *minutes = text + degree_digits;
+   int32_t min;
 
-   if ( !coordinate(&minutes, &min, 60) || *minutes || min < 0 || min >= 600000000 ||
-        degrees > maximum || (degrees == maximum && min) ) { return false; }
+   if ( !coordinate(&minutes, &min, 60) || *minutes || min < 0 || min >= 600000000 || degrees > maximum || (degrees == maximum && min) ) {
+      return false;
+   }
    int32_t angle = degrees * 10000000 + (min + 30) / 60;
 
    if ( hemisphere[0] == (latitude ? 'S' : 'W') ) {
       angle = -angle;
-   } else if ( hemisphere[0] != (latitude ? 'N' : 'E') ) { return false; }
-   *result = angle; return true;
+   } else if ( hemisphere[0] != (latitude ? 'N' : 'E') ) {
+      return false;
+   }
+   *result = angle;
+   return true;
 }
 static void receiver_position(struct gps_source *source, const char *sentence) {
-   char copy[512]; snprintf(copy, sizeof(copy), "%s", sentence);
+   char copy[512];
+   snprintf(copy, sizeof(copy), "%s", sentence);
    char *star = strchr(copy, '*');
 
-   if (star) { *star = '\0'; }
-   char *fields[24], *cursor = copy; unsigned count = 0;
-   while (cursor && count < 24) { fields[count++] = strsep(&cursor, ","); }
+   if (star) {
+      *star = '\0';
+   }
+   char *fields[24], *cursor = copy;
+   unsigned count = 0;
+   while (cursor && count < 24) {
+      fields[count++] = strsep(&cursor, ",");
+   }
 
-   if (count < 7 || strlen(fields[0]) != 6) { return; }
-   unsigned lat, lon; bool valid, manual = false;
+   if (count < 7 || strlen(fields[0]) != 6) {
+      return;
+   }
+   unsigned lat, lon;
+   bool valid, manual = false;
    const char *kind = fields[0] + 3;
 
    if ( !strcmp(kind, "RMC") ) {
-      lat = 3; lon = 5; valid = !strcmp(fields[2], "A");
+      lat = 3;
+      lon = 5;
+      valid = !strcmp(fields[2], "A");
 
-      if ( strcmp(fields[2], "A") && strcmp(fields[2], "V") ) { return; }
+      if ( strcmp(fields[2], "A") && strcmp(fields[2], "V") ) {
+         return;
+      }
       manual = count > 12 && !strcmp(fields[12], "M");
    } else if ( !strcmp(kind, "GGA") ) {
-      lat = 2; lon = 4;
+      lat = 2;
+      lon = 4;
 
-      if (strlen(fields[6]) != 1 || fields[6][0] < '0' || fields[6][0] > '8') { return; }
-      valid = fields[6][0] != '0'; manual = fields[6][0] == '7';
+      if (strlen(fields[6]) != 1 || fields[6][0] < '0' || fields[6][0] > '8') {
+         return;
+      }
+      valid = fields[6][0] != '0';
+      manual = fields[6][0] == '7';
    } else if ( !strcmp(kind, "GLL") ) {
-      lat = 1; lon = 3; valid = !strcmp(fields[6], "A");
+      lat = 1;
+      lon = 3;
+      valid = !strcmp(fields[6], "A");
 
-      if ( strcmp(fields[6], "A") && strcmp(fields[6], "V") ) { return; }
+      if ( strcmp(fields[6], "A") && strcmp(fields[6], "V") ) {
+         return;
+      }
       manual = count > 7 && !strcmp(fields[7], "M");
-   } else { return; }
+   } else {
+      return;
+   }
    int32_t a, b;
 
-   if ( valid && ( !receiver_angle(fields[lat], fields[lat + 1], true, &a) ||
-                   !receiver_angle(fields[lon], fields[lon + 1], false, &b) ) ) { return; }
-   source->received = true; source->valid = valid; source->manual = manual;
+   if ( valid && ( !receiver_angle(fields[lat], fields[lat + 1], true, &a) || !receiver_angle(fields[lon], fields[lon + 1], false, &b) ) ) {
+      return;
+   }
+   source->received = true;
+   source->valid = valid;
+   source->manual = manual;
 
    if (valid) {
       source->lat = a;
@@ -299,7 +340,9 @@ static void poll_gps(const char *event, const char *data, rrconn_t *client, void
 static void subscribed(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *uuid = dict_get(d, "media.chan-uuid", "");
 
    for (unsigned i = 0 ; i < count ; i++) {
@@ -315,13 +358,18 @@ static bool configure_source(struct gps_source *source, const char *position) {
    if (position && *position) {
       source->fixed = rrserver_gps_position_parse(position, &source->lat, &source->lon);
 
-      if (!source->fixed) { Log(LOG_CRIT, "gps", "Invalid GPS position for %s: %s", source->alias, position); }
+      if (!source->fixed) {
+         Log(LOG_CRIT, "gps", "Invalid GPS position for %s: %s", source->alias, position);
+      }
       source->own_input = true;
 
       return source->fixed;
    }
-   const char *key; char *value; int rank = 0;
-   char target[96]; snprintf(target, sizeof(target), "%s.gps-in", source->alias);
+   const char *key;
+   char *value;
+   int rank = 0;
+   char target[96];
+   snprintf(target, sizeof(target), "%s.gps-in", source->alias);
    while ( ( rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0 ) {
       if (!key || strncmp(key, "serial.", 7) || !value) {
          continue;
@@ -344,7 +392,9 @@ static bool configure_source(struct gps_source *source, const char *position) {
 static bool add_rig(rr_server_rig_t *radio, void *user) {
    (void)user;
 
-   if (count == GPS_SOURCES_MAX) { return true; }
+   if (count == GPS_SOURCES_MAX) {
+      return true;
+   }
    struct gps_source *source = &sources[count++];
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    snprintf(source->alias, sizeof(source->alias), "%s", alias);
@@ -362,7 +412,9 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
 static void add_nmea_channel(struct gps_source *source) {
    struct rr_mediachan *position = source->channel;
 
-   if (!position) { return; }
+   if (!position) {
+      return;
+   }
    source->nmea_channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA,
       position->rig, RR_NMEA_FRAME_CODEC, "Complete GPS receiver NMEA");
 
@@ -427,7 +479,8 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
    dict_free(request);
 }
 bool rrserver_gps_init(void) {
-   memset( sources, 0, sizeof(sources) ); count = 1;
+   memset( sources, 0, sizeof(sources) );
+   count = 1;
    snprintf(sources[0].alias, sizeof(sources[0].alias), "station");
    sources[0].channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA,
       RR_BINFRAME_RIG_NA, RR_GPS_FRAME_CODEC, "Station GPS position");
@@ -438,7 +491,8 @@ bool rrserver_gps_init(void) {
    }
 
    if ( !configure_source( &sources[0], cfg_get("station.gps.position") ) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL) ) {
-      rrserver_gps_fini(); return true;
+      rrserver_gps_fini();
+      return true;
    }
 
    for (unsigned i = 0 ; i < count ; i++) {
@@ -453,10 +507,14 @@ bool rrserver_gps_init(void) {
    return false;
 }
 void rrserver_gps_fini(void) {
-   event_off_token(inventory_token); inventory_token = NULL;
-   event_off_token(input_token); input_token = NULL;
-   event_off_token(poll_token); poll_token = NULL;
-   event_off_token(subscribed_token); subscribed_token = NULL;
+   event_off_token(inventory_token);
+   inventory_token = NULL;
+   event_off_token(input_token);
+   input_token = NULL;
+   event_off_token(poll_token);
+   poll_token = NULL;
+   event_off_token(subscribed_token);
+   subscribed_token = NULL;
 
    for (unsigned i = 0 ; i < count ; i++) {
       if (sources[i].channel) {
@@ -470,5 +528,6 @@ void rrserver_gps_fini(void) {
       }
    }
 
-   memset( sources, 0, sizeof(sources) ); count = 0;
+   memset( sources, 0, sizeof(sources) );
+   count = 0;
 }

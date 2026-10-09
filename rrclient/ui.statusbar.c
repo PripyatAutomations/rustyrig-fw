@@ -22,7 +22,9 @@ static char *cached_room_status_line = NULL;
 static const char *rrclient_status_line_template(const char *key, const char *fallback, char **cache) {
    const char *configured = cfg ? dict_get(cfg, key, NULL) : NULL;
 
-   if (!configured) { configured = fallback; }
+   if (!configured) {
+      configured = fallback;
+   }
 
    if (!*cache || strcmp(*cache, configured) != 0) {
       char *copy = strdup(configured);
@@ -49,24 +51,36 @@ static const char *topline_value(const char *name, tui_window_t *win, char *valu
       return value;
    }
 
-   if ( !strcmp(name, "window") || !strcmp(name, "win.title") ) { return win ? win->title : NULL; }
+   if ( !strcmp(name, "window") || !strcmp(name, "win.title") ) {
+      return win ? win->title : NULL;
+   }
 
-   if ( !strcmp(name, "topic") ) { return win ? win->status_line : NULL; }
+   if ( !strcmp(name, "topic") ) {
+      return win ? win->status_line : NULL;
+   }
 
-   if ( !strcmp(name, "server") ) { return server_name; }
+   if ( !strcmp(name, "server") ) {
+      return server_name;
+   }
 
-   if ( !strcmp(name, "user") ) { return login_user; }
+   if ( !strcmp(name, "user") ) {
+      return login_user;
+   }
 
    if ( !strcmp(name, "connection") ) {
       return ws_connected == 1 ? "ONLINE" : (ws_connected == -1 ? "CONNECTING" : "OFFLINE");
    }
 
    if ( !strcmp(name, "ptt-state") ) {
-      if (ws_connected != 1) { return "\00308PTT: WAIT\017"; }
+      if (ws_connected != 1) {
+         return "\00308PTT: WAIT\017";
+      }
       const char *tx_user = NULL;
 
       for (struct rr_user *u = global_userlist ; u ; u = u->next) {
-         if (u->room[0] && strcasecmp( u->room, ws_authoritative_room() ) != 0) { continue; }
+         if (u->room[0] && strcasecmp( u->room, ws_authoritative_room() ) != 0) {
+            continue;
+         }
 
          if (u->is_ptt) {
             tx_user = u->name;
@@ -77,7 +91,9 @@ static const char *topline_value(const char *name, tui_window_t *win, char *valu
       const char active = vfo_state_get_active();
       const bool ptt = vfo_state_get_bool( (char[]) { active, 0 }, "cat.state.ptt", false );
 
-      if (ptt && !tx_user) { tx_user = login_user ? login_user : "TX"; }
+      if (ptt && !tx_user) {
+         tx_user = login_user ? login_user : "TX";
+      }
 
       if (tx_user) {
          snprintf(value, size, "\00304PTT: %s\017", tx_user);
@@ -115,12 +131,16 @@ static const char *topline_value(const char *name, tui_window_t *win, char *valu
       return NULL;
    }
 
-   if ( !strcmp(field, "mode") ) { return vfo_state_get(vfo, "cat.state.mode", NULL); }
+   if ( !strcmp(field, "mode") ) {
+      return vfo_state_get(vfo, "cat.state.mode", NULL);
+   }
 
    if ( !strcmp(field, "ptt") ) {
       // Different defaults distinguish a missing value from a reported RX.
       if ( vfo_state_get_bool(vfo, "cat.state.ptt", false) !=
-           vfo_state_get_bool(vfo, "cat.state.ptt", true) ) { return NULL; }
+           vfo_state_get_bool(vfo, "cat.state.ptt", true) ) {
+         return NULL;
+      }
 
       return vfo_state_get_bool(vfo, "cat.state.ptt", false) ? "TX" : "RX";
    }
@@ -131,19 +151,31 @@ static const char *topline_value(const char *name, tui_window_t *win, char *valu
    if ( !strcmp(field, "freq") || !strcmp(field, "freq_hz") ) {
       key = "cat.state.freq";
    } else if ( !strcmp(field, "freq_khz") ) {
-      key = "cat.state.freq"; divisor = 1000; decimals = 3;
+      key = "cat.state.freq";
+      divisor = 1000;
+      decimals = 3;
    } else if ( !strcmp(field, "freq_mhz") ) {
-      key = "cat.state.freq"; divisor = 1000000; decimals = 6;
-   } else if ( !strcmp(field, "width") ) { key = "cat.state.width"; } else if ( !strcmp(field, "power") ) {
+      key = "cat.state.freq";
+      divisor = 1000000;
+      decimals = 6;
+   } else if ( !strcmp(field, "width") ) {
+      key = "cat.state.width";
+   } else if ( !strcmp(field, "power") ) {
       key = "cat.state.power";
    }
 
-   if (!key) { return NULL; }
+   if (!key) {
+      return NULL;
+   }
    long number = vfo_state_get_long(vfo, key, -1);
 
-   if (number < 0) { return NULL; }
+   if (number < 0) {
+      return NULL;
+   }
 
-   if (divisor == 1) { snprintf(value, size, "%ld", number); } else {
+   if (divisor == 1) {
+      snprintf(value, size, "%ld", number);
+   } else {
       snprintf(value, size, "%ld.%0*ld", number / divisor, decimals, number % divisor);
    }
 
@@ -167,14 +199,18 @@ char *rrclient_tui_topline(tui_window_t *win) {
     * for the rig room (or another mapped room). Custom templates remain untouched. */
    dict *values = dict_new();
 
-   if (!values) { return NULL; }
+   if (!values) {
+      return NULL;
+   }
 
    // Resolve only fields mentioned by the template; no per-VFO state copies.
    const char *p = format;
    while ( ( p = strstr(p, "${") ) ) {
       const char *end = strchr(p + 2, '}');
 
-      if (!end) { break; }
+      if (!end) {
+         break;
+      }
       const char *colon = memchr( p + 2, ':', (size_t)(end - p - 2) );
       size_t len = (size_t)( (colon ? colon : end) - p - 2 );
       char name[128], value[128];
@@ -184,7 +220,9 @@ char *rrclient_tui_topline(tui_window_t *win) {
          name[len] = '\0';
          const char *resolved = topline_value( name, win, value, sizeof(value) );
 
-         if (resolved) { dict_add(values, name, resolved); }
+         if (resolved) {
+            dict_add(values, name, resolved);
+         }
       }
       p = end + 1;
    }

@@ -23,8 +23,10 @@ int cat_pty_fd(void) {
 }
 int cat_pty_printf(const char *fmt, ...) {
    char buffer[512];
-   va_list args; va_start(args, fmt);
-   int len = vsnprintf(buffer, sizeof(buffer), fmt, args); va_end(args);
+   va_list args;
+   va_start(args, fmt);
+   int len = vsnprintf(buffer, sizeof(buffer), fmt, args);
+   va_end(args);
 
    return len > 0 && len < (int)sizeof(buffer) ? rr_cat_serial_reply(buffer, len) : -1;
 }

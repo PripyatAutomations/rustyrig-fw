@@ -75,13 +75,19 @@ static bool rrserver_config_refresh(const char *key) {
    (void)key;
    cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
 
-   if (cfg_backend_poll_interval < 1) { cfg_backend_poll_interval = 1000; }
+   if (cfg_backend_poll_interval < 1) {
+      cfg_backend_poll_interval = 1000;
+   }
    cfg_backend_announce_interval = cfg_get_int("backend.announce-interval", 10000);
 
-   if (cfg_backend_announce_interval < 1) { cfg_backend_announce_interval = 10000; }
+   if (cfg_backend_announce_interval < 1) {
+      cfg_backend_announce_interval = 10000;
+   }
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
-   if (cfg_tick_interval < 1) { cfg_tick_interval = 100; }
+   if (cfg_tick_interval < 1) {
+      cfg_tick_interval = 100;
+   }
    protection_init();
    au_recording_config_refresh(NULL);
    Log(LOG_DEBUG, "config", "Refreshed cached server configuration");
@@ -183,7 +189,9 @@ int main(int argc, char **argv) {
    }
    cfg_modules_init();
 
-   if ( !rr_serial_config_register() ) { return EXIT_FAILURE; }
+   if ( !rr_serial_config_register() ) {
+      return EXIT_FAILURE;
+   }
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
    // [pipelines] keys land as pipeline:<codec>.<dir> -- the format bin/fwdsp
    // looks up with cfg_get() (see fwdsp/fwdsp.c)
@@ -454,15 +462,21 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-   if ( rrserver_gps_init() ) { return EXIT_FAILURE; }
+   if ( rrserver_gps_init() ) {
+      return EXIT_FAILURE;
+   }
    bool modules_loaded = false;
 
    for (int i = 0 ; ; i++) {
       const char *module = cfg_modules_get(i, NULL);
 
-      if (!module) { break; }
+      if (!module) {
+         break;
+      }
 
-      if ( !rr_load_module(module) ) { modules_loaded = true; }
+      if ( !rr_load_module(module) ) {
+         modules_loaded = true;
+      }
    }
 
    rrserver_serial_init();
@@ -493,16 +507,22 @@ int main(int argc, char **argv) {
    for (int i = 0 ; ; i++) {
       const char *module = cfg_modules_get(i, NULL);
 
-      if (!module) { break; }
+      if (!module) {
+         break;
+      }
 
-      if ( rr_find_loaded_module(module) ) { rr_unload_module(module); }
+      if ( rr_find_loaded_module(module) ) {
+         rr_unload_module(module);
+      }
    }
 
    rrserver_serial_fini();
    rrserver_gps_fini();
    rrserver_objects_fini();
 
-   if (fwdsp_ready) { fwdsp_fini(); }
+   if (fwdsp_ready) {
+      fwdsp_fini();
+   }
    rr_backend_fini();
    host_cleanup();
 

@@ -31,24 +31,34 @@ static internal_backend_t *be_data(rr_backend_t *backend) {
 static void be_widths_for_mode(rr_mode_t mode, int *narr, int *norm, int *wide) {
    switch (mode) {
       case MODE_CW: {
-         *narr = 250; *norm = 500; *wide = 1000;
+         *narr = 250;
+         *norm = 500;
+         *wide = 1000;
          break;
       }
       case MODE_AM: {
-         *narr = 4000; *norm = 6000; *wide = 9000;
+         *narr = 4000;
+         *norm = 6000;
+         *wide = 9000;
          break;
       }
       case MODE_FM: {
-         *narr = 5000; *norm = 12500; *wide = 25000;
+         *narr = 5000;
+         *norm = 12500;
+         *wide = 25000;
          break;
       }
       case MODE_DU:
       case MODE_DL: {
-         *narr = 1200; *norm = 2400; *wide = 3000;
+         *narr = 1200;
+         *norm = 2400;
+         *wide = 3000;
          break;
       }
       default: {
-         *narr = 1800; *norm = 3000; *wide = 3600;
+         *narr = 1800;
+         *norm = 3000;
+         *wide = 3600;
          break;
       }
    }
@@ -178,7 +188,9 @@ static bool be_internal_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo, c
    }
 
    const char *p = width;
-   while (*p == ' ' || *p == '\t') { p++; }
+   while (*p == ' ' || *p == '\t') {
+      p++;
+   }
    int narr = 0, norm = 0, wide = 0;
    be_widths_for_mode(data->vfos[index].mode, &narr, &norm, &wide);
 

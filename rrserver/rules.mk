@@ -73,11 +73,13 @@ bin/rrserver: ${EEPROM_FILE} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${
 
 rrserver-deps:
 
+###########
+# Modules #
+###########
 # Receiver adapters use the existing loadable-module lifecycle and event bus.
 gps_modules := bin/rrserver-gps-nmea.so
-ifeq (${USE_MONGOOSE},true)
+# XXX: This is mongoose based but needs thats fixed asap
 gps_modules += bin/rrserver-gpsd.so
-endif
 bins += ${gps_modules}
 bin/rrserver-gps-nmea.so: ${BUILD_DIR}/rrserver/module.gps-nmea.o ${librustyaxe} ${librrprotocol}
 	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}

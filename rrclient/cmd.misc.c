@@ -127,7 +127,9 @@ static bool cmd_set_list(const char *pattern) {
 
    /* cfg contains user-defined keys, including keys with no defconfig entry. */
    while (cfg && ( rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
-      if ( !cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key) ) { continue; }
+      if ( !cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key) ) {
+         continue;
+      }
 
       if (count == capacity) {
          size_t next = capacity ? capacity * 2 : 64;
@@ -271,11 +273,15 @@ static bool run_local_lookup(const char *program, const char *config, const char
          }
       } else {
          if (has_dir) {
-            if (no_cache) { execl(program, program, "-q", "-f", config, "-n", query, (char *)NULL); } else {
+            if (no_cache) {
+               execl(program, program, "-q", "-f", config, "-n", query, (char *)NULL);
+            } else {
                execl(program, program, "-q", "-f", config, query, (char *)NULL);
             }
          } else {
-            if (no_cache) { execlp(program, program, "-q", "-f", config, "-n", query, (char *)NULL); } else {
+            if (no_cache) {
+               execlp(program, program, "-q", "-f", config, "-n", query, (char *)NULL);
+            } else {
                execlp(program, program, "-q", "-f", config, query, (char *)NULL);
             }
          }
@@ -465,8 +471,6 @@ bool cmd_clear(int argc, char **args) {
 }
 
 bool cmd_clearlog(int argc, char **args) {
-   (void)argc; (void)args;
-
    if ( frontend_ops() ) {
       frontend_ops()->syslog_clear();
    }

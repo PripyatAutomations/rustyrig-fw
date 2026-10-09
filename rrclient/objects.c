@@ -32,7 +32,10 @@ struct rr_object_cache {
 static dict *copy_message(dict *d) {
    dict *copy = dict_new();
 
-   if ( copy && dict_merge(copy, d) ) { dict_free(copy); return NULL; }
+   if ( copy && dict_merge(copy, d) ) {
+      dict_free(copy);
+      return NULL;
+   }
 
    return copy;
 }
@@ -41,7 +44,10 @@ static void free_properties(cached_object_t *o) {
    while (o->properties) {
       cached_property_t *p = o->properties;
       o->properties = p->next;
-      free(p->name); dict_free(p->descriptor); dict_free(p->state); free(p);
+      free(p->name);
+      dict_free(p->descriptor);
+      dict_free(p->state);
+      free(p);
    }
 }
 
@@ -49,9 +55,13 @@ static void clear(rr_object_cache_t *c) {
    while (c->objects) {
       cached_object_t *o = c->objects;
       c->objects = o->next;
-      free_properties(o); dict_free(o->descriptor); free(o->uuid); free(o);
+      free_properties(o);
+      dict_free(o->descriptor);
+      free(o->uuid);
+      free(o);
    }
-   free(c->epoch); free(c->request);
+   free(c->epoch);
+   free(c->request);
    memset( c, 0, sizeof(*c) );
 }
 
@@ -60,7 +70,8 @@ rr_object_cache_t *rr_object_cache_new(void) {
 }
 void rr_object_cache_free(rr_object_cache_t *c) {
    if (c) {
-      clear(c); free(c);
+      clear(c);
+      free(c);
    }
 }
 bool rr_object_cache_ready(const rr_object_cache_t *c) {
@@ -68,20 +79,33 @@ bool rr_object_cache_ready(const rr_object_cache_t *c) {
 }
 
 static cached_object_t *find(rr_object_cache_t *c, const char *uuid, bool create) {
-   if ( !c || !rr_object_uuid_valid(uuid) ) { return NULL; }
-
-   for (cached_object_t *o = c->objects ; o ; o = o->next) {
-      if ( !strcmp(o->uuid, uuid) ) { return o; }
+   if ( !c || !rr_object_uuid_valid(uuid) ) {
+      return NULL;
    }
 
-   if (!create || c->allocated >= 4096) { return NULL; }
+   for (cached_object_t *o = c->objects ; o ; o = o->next) {
+      if ( !strcmp(o->uuid, uuid) ) {
+         return o;
+      }
+   }
+
+   if (!create || c->allocated >= 4096) {
+      return NULL;
+   }
    cached_object_t *o = calloc( 1, sizeof(*o) );
 
-   if (!o) { return NULL; }
+   if (!o) {
+      return NULL;
+   }
    o->uuid = strdup(uuid);
 
-   if (!o->uuid) { free(o); return NULL; }
-   o->next = c->objects; c->objects = o; c->allocated++;
+   if (!o->uuid) {
+      free(o);
+      return NULL;
+   }
+   o->next = c->objects;
+   c->objects = o;
+   c->allocated++;
 
    return o;
 }
@@ -96,17 +120,27 @@ static cached_property_t *property(cached_object_t *o, const char *name, bool cr
    unsigned count = 0;
 
    for (cached_property_t *p = o->properties ; p ; p = p->next, count++) {
-      if ( !strcmp(p->name, name) ) { return p; }
+      if ( !strcmp(p->name, name) ) {
+         return p;
+      }
    }
 
-   if (!create || count >= 256) { return NULL; }
+   if (!create || count >= 256) {
+      return NULL;
+   }
    cached_property_t *p = calloc( 1, sizeof(*p) );
 
-   if (!p) { return NULL; }
+   if (!p) {
+      return NULL;
+   }
    p->name = strdup(name);
 
-   if (!p->name) { free(p); return NULL; }
-   p->next = o->properties; o->properties = p;
+   if (!p->name) {
+      free(p);
+      return NULL;
+   }
+   p->next = o->properties;
+   o->properties = p;
 
    return p;
 }
@@ -114,7 +148,9 @@ static cached_property_t *property(cached_object_t *o, const char *name, bool cr
 const dict *rr_object_cache_property(rr_object_cache_t *c, const char *uuid, const char *name, bool descriptor) {
    cached_object_t *o = find(c, uuid, false);
 
-   if (!o || o->removed || !name) { return NULL; }
+   if (!o || o->removed || !name) {
+      return NULL;
+   }
    cached_property_t *p = property(o, name, false);
 
    return p ? (descriptor ? p->descriptor : p->state) : NULL;
@@ -124,14 +160,17 @@ size_t rr_object_cache_count(const rr_object_cache_t *c) {
    size_t count = 0;
 
    for (cached_object_t *o = c ? c->objects : NULL ; o ; o = o->next) {
-      if (!o->removed && o->descriptor) { count++; }
+      if (!o->removed && o->descriptor) {
+         count++;
+      }
    }
 
    return count;
 }
 
 static void remove_object(rr_object_cache_t *c, cached_object_t *o, uint64_t seq) {
-   o->removed = true; o->seq = seq;
+   o->removed = true;
+   o->seq = seq;
    free_properties(o);
    // Keep owner metadata in tombstones to cascade without discovery ordering.
    bool changed;
@@ -139,101 +178,156 @@ static void remove_object(rr_object_cache_t *c, cached_object_t *o, uint64_t seq
       changed = false;
 
       for (cached_object_t *child = c->objects ; child ; child = child->next) {
-         if (child->removed || !child->descriptor) { continue; }
+         if (child->removed || !child->descriptor) {
+            continue;
+         }
          cached_object_t *parent = find(c, dict_get(child->descriptor, "object.owner", NULL), false);
 
          if (parent && parent->removed && child->seq <= parent->seq) {
-            child->removed = true; child->seq = parent->seq;
-            free_properties(child); changed = true;
+            child->removed = true;
+            child->seq = parent->seq;
+            free_properties(child);
+            changed = true;
          }
       }
    } while (changed);
 }
 
 bool rr_object_cache_apply(rr_object_cache_t *c, dict *d) {
-   if (!c || !d) { return false; }
+   if (!c || !d) {
+      return false;
+   }
    const char *family = dict_get(d, "msg.type", "");
    bool object = !strcmp(family, "object");
 
-   if ( !object && strcmp(family, "property") ) { return false; }
+   if ( !object && strcmp(family, "property") ) {
+      return false;
+   }
    const char *cmd = dict_get(d, object ? "object.cmd" : "property.cmd", "");
 
-   if ( !strcmp(cmd, "result") ) { return true; } // Never mutate observed state on SET
+   if ( !strcmp(cmd, "result") ) {
+      return true;
+   } // Never mutate observed state on SET
                                                   // success.
    const char *epoch = dict_get(d, "stream.epoch", NULL);
    uint64_t seq;
 
-   if ( !rr_object_uuid_valid(epoch) || !rr_object_seq_get(d, "stream.seq", &seq) ) { return false; }
+   if ( !rr_object_uuid_valid(epoch) || !rr_object_seq_get(d, "stream.seq", &seq) ) {
+      return false;
+   }
    const char *request = dict_get(d, "request.id", NULL);
 
    if ( object && !strcmp(cmd, "begin") ) {
-      if (!request || !*request || strlen(request) > 64) { return false; }
-      clear(c); c->epoch = strdup(epoch); c->request = strdup(request);
+      if (!request || !*request || strlen(request) > 64) {
+         return false;
+      }
+      clear(c);
+      c->epoch = strdup(epoch);
+      c->request = strdup(request);
 
       return c->epoch && c->request;
    }
 
-   if ( !c->epoch || strcmp(c->epoch, epoch) ) { return false; }
+   if ( !c->epoch || strcmp(c->epoch, epoch) ) {
+      return false;
+   }
 
-   if ( request && ( !c->request || strcmp(c->request, request) ) ) { return false; }
+   if ( request && ( !c->request || strcmp(c->request, request) ) ) {
+      return false;
+   }
 
    if ( object && !strcmp(cmd, "end") ) {
-      if (!request) { return false; }
-      c->ready = true; return true;
+      if (!request) {
+         return false;
+      }
+      c->ready = true;
+      return true;
    }
    const char *uuid = dict_get(d, object ? "object.uuid" : "target", NULL);
 
-   if ( !rr_object_uuid_valid(uuid) ) { return false; }
+   if ( !rr_object_uuid_valid(uuid) ) {
+      return false;
+   }
 
    if (object) {
-      if ( strcmp(cmd, "descriptor") && strcmp(cmd, "added") && strcmp(cmd, "removed") ) { return false; }
+      if ( strcmp(cmd, "descriptor") && strcmp(cmd, "added") && strcmp(cmd, "removed") ) {
+         return false;
+      }
 
       if ( strcmp(cmd, "removed") ) {
          const char *type = dict_get(d, "object.type", "");
 
-         if ( strcmp(type, "node") && strcmp(type, "rig") && strcmp(type, "vfo") ) { return false; }
+         if ( strcmp(type, "node") && strcmp(type, "rig") && strcmp(type, "vfo") ) {
+            return false;
+         }
 
-         if ( strcmp(type, "node") && !rr_object_uuid_valid( dict_get(d, "object.owner", NULL) ) ) { return false; }
+         if ( strcmp(type, "node") && !rr_object_uuid_valid( dict_get(d, "object.owner", NULL) ) ) {
+            return false;
+         }
       }
       cached_object_t *o = find(c, uuid, true);
 
-      if (!o) { return false; }
+      if (!o) {
+         return false;
+      }
 
-      if ( seq < o->seq || (o->removed && seq <= o->seq) ) { return true; }
+      if ( seq < o->seq || (o->removed && seq <= o->seq) ) {
+         return true;
+      }
 
-      if ( !strcmp(cmd, "removed") ) { remove_object(c, o, seq); return true; }
+      if ( !strcmp(cmd, "removed") ) {
+         remove_object(c, o, seq);
+         return true;
+      }
       cached_object_t *parent = find(c, dict_get(d, "object.owner", NULL), false);
 
-      if (parent && parent->removed && seq <= parent->seq) { remove_object(c, o, parent->seq); return true; }
+      if (parent && parent->removed && seq <= parent->seq) {
+         remove_object(c, o, parent->seq);
+         return true;
+      }
       dict *copy = copy_message(d);
 
-      if (!copy) { return false; }
-      dict_free(o->descriptor); o->descriptor = copy; o->seq = seq; o->removed = false;
+      if (!copy) {
+         return false;
+      }
+      dict_free(o->descriptor);
+      o->descriptor = copy;
+      o->seq = seq;
+      o->removed = false;
 
       return true;
    }
    bool descriptor = !strcmp(cmd, "descriptor");
 
-   if ( !descriptor && strcmp(cmd, "state") && strcmp(cmd, "changed") ) { return false; }
+   if ( !descriptor && strcmp(cmd, "state") && strcmp(cmd, "changed") ) {
+      return false;
+   }
    const char *name = dict_get(d, "property.name", NULL);
    const char *type = dict_get(d, "property.type", "");
 
-   if ( !rr_object_name_valid(name) ) { return false; }
+   if ( !rr_object_name_valid(name) ) {
+      return false;
+   }
    val_type_t value_type = !strcmp(type, "string") ? VAL_STR :
                            !strcmp(type, "boolean") ? VAL_BOOL : !strcmp(type, "integer") ? VAL_LLONG :
                            !strcmp(type, "number") ? VAL_DOUBLE : VAL_END;
 
-   if (value_type == VAL_END) { return false; }
+   if (value_type == VAL_END) {
+      return false;
+   }
    uint64_t version = 0;
 
    if (descriptor) {
-      if (dict_get_type(d, "property.readable") != VAL_BOOL ||
-          dict_get_type(d, "property.writable") != VAL_BOOL) { return false; }
+      if (dict_get_type(d, "property.readable") != VAL_BOOL || dict_get_type(d, "property.writable") != VAL_BOOL) {
+         return false;
+      }
    } else {
       if ( dict_get_type(d, "property.known") != VAL_BOOL ||
            dict_get_type(d, "property.available") != VAL_BOOL ||
            dict_get_type(d, "property.observed") != VAL_BOOL ||
-           !rr_object_seq_get(d, "property.version", &version) ) { return false; }
+           !rr_object_seq_get(d, "property.version", &version) ) {
+         return false;
+      }
       bool known = dict_get_bool(d, "property.known", false);
       bool available = dict_get_bool(d, "property.available", false);
       bool observed = dict_get_bool(d, "property.observed", false);
@@ -241,25 +335,44 @@ bool rr_object_cache_apply(rr_object_cache_t *c, dict *d) {
 
       if ( (available && !known) || ( !observed && (known || available) ) ||
            ( known && !rr_object_value_get(d, "property.value", value_type, &value) ) ||
-           (!known && dict_get_type(d, "property.value") != VAL_END) ) { return false; }
+           (!known && dict_get_type(d, "property.value") != VAL_END) ) {
+         return false;
+      }
    }
    cached_object_t *o = find(c, uuid, true);
 
-   if (!o) { return false; }
+   if (!o) {
+      return false;
+   }
 
-   if (o->removed || seq < o->seq) { return true; }
+   if (o->removed || seq < o->seq) {
+      return true;
+   }
    cached_property_t *p = property(o, name, true);
 
-   if (!p) { return false; }
+   if (!p) {
+      return false;
+   }
 
    if ( descriptor ? (p->descriptor && seq < p->descriptor_seq) :
-        ( p->state && (version <= p->version || seq < p->state_seq) ) ) { return true; }
+        ( p->state && (version <= p->version || seq < p->state_seq) ) ) {
+      return true;
+   }
    dict *copy = copy_message(d);
 
-   if (!copy) { return false; }
+   if (!copy) {
+      return false;
+   }
 
-   if (descriptor) { dict_free(p->descriptor); p->descriptor = copy; p->descriptor_seq = seq; } else {
-      dict_free(p->state); p->state = copy; p->state_seq = seq; p->version = version;
+   if (descriptor) {
+      dict_free(p->descriptor);
+      p->descriptor = copy;
+      p->descriptor_seq = seq;
+   } else {
+      dict_free(p->state);
+      p->state = copy;
+      p->state_seq = seq;
+      p->version = version;
    }
 
    return true;
@@ -272,16 +385,24 @@ static void object_symbol(rr_object_cache_t *c, cached_object_t *o, char *out, s
 
    if (!strcmp(dict_get(o->descriptor, "object.type", ""), "vfo") && owner && !owner->removed && owner->descriptor) {
       snprintf(out, capacity, "%s.%s", dict_get(owner->descriptor, "object.alias", owner->uuid), alias);
-   } else { snprintf(out, capacity, "%s", alias); }
+   } else {
+      snprintf(out, capacity, "%s", alias);
+   }
 }
 
 const dict *rr_object_cache_ref_iter(rr_object_cache_t *c, int index, char *reference, size_t capacity) {
-   if (index < 0 || !reference || !capacity) { return NULL; }
+   if (index < 0 || !reference || !capacity) {
+      return NULL;
+   }
 
    for (cached_object_t *o = c ? c->objects : NULL ; o ; o = o->next) {
-      if (o->removed || !o->descriptor) { continue; }
+      if (o->removed || !o->descriptor) {
+         continue;
+      }
 
-      if (index--) { continue; }
+      if (index--) {
+         continue;
+      }
       object_symbol(c, o, reference, capacity);
 
       return o->descriptor;
@@ -291,13 +412,17 @@ const dict *rr_object_cache_ref_iter(rr_object_cache_t *c, int index, char *refe
 }
 
 static bool object_in_context(rr_object_cache_t *c, cached_object_t *o, const char *room) {
-   if (!room || !*room || room[0] != '#') { return true; }
+   if (!room || !*room || room[0] != '#') {
+      return true;
+   }
 
    // VFOs inherit the rig room; a bounded walk also guards malformed ownership.
    for (unsigned depth = 0 ; o && o->descriptor && depth < 3 ; depth++) {
       const char *owner_room = dict_get(o->descriptor, "object.room", NULL);
 
-      if (owner_room) { return rrclient_resource_matches(room, owner_room); }
+      if (owner_room) {
+         return rrclient_resource_matches(room, owner_room);
+      }
       o = find(c, dict_get(o->descriptor, "object.owner", ""), false);
    }
 
@@ -310,39 +435,58 @@ bool rr_object_cache_in_context(rr_object_cache_t *c, const char *uuid, const ch
 
 bool rr_object_cache_dump_context(rr_object_cache_t *c, const char *reference, const char *room,
                                   rr_object_cache_dump_fn emit, void *user) {
-   if (!c || !emit) { return false; }
+   if (!c || !emit) {
+      return false;
+   }
    cached_object_t *selected = NULL;
 
    if (reference) {
       for (cached_object_t *o = c->objects ; o ; o = o->next) {
-         if ( !o->removed && o->descriptor && !strcasecmp(o->uuid, reference) ) { selected = o; break; }
+         if ( !o->removed && o->descriptor && !strcasecmp(o->uuid, reference) ) {
+            selected = o;
+            break;
+         }
       }
 
       if (!selected) {
          for (cached_object_t *o = c->objects ; o ; o = o->next) {
-            if (o->removed || !o->descriptor) { continue; }
-            char symbol[128]; object_symbol( c, o, symbol, sizeof(symbol) );
+            if (o->removed || !o->descriptor) {
+               continue;
+            }
+            char symbol[128];
+            object_symbol( c, o, symbol, sizeof(symbol) );
 
-            if ( strcasecmp(symbol, reference) ) { continue; }
+            if ( strcasecmp(symbol, reference) ) {
+               continue;
+            }
 
-            if (selected) { return false; }
+            if (selected) {
+               return false;
+            }
             selected = o;
          }
       }
 
-      if (!selected) { return false; }
+      if (!selected) {
+         return false;
+      }
    }
    emit(c->ready ? "Object snapshot complete" : "Object snapshot incomplete", user);
 
    for (cached_object_t *o = c->objects ; o ; o = o->next) {
-      if (o->removed || !o->descriptor) { continue; }
+      if (o->removed || !o->descriptor) {
+         continue;
+      }
 
-      if ( !reference && !object_in_context(c, o, room) ) { continue; }
+      if ( !reference && !object_in_context(c, o, room) ) {
+         continue;
+      }
 
       if ( selected && o != selected && strcmp(dict_get(o->descriptor, "object.owner", ""), selected->uuid) ) {
          continue;
       }
-      char line[1024], symbol[128]; object_symbol( c, o, symbol, sizeof(symbol) );
+      char line[1024], symbol[128];
+      object_symbol( c, o, symbol, sizeof(symbol) );
       snprintf(line, sizeof(line), "%s %s — %s%s%s (uuid=%s)", dict_get(o->descriptor, "object.type", "?"), symbol,
          dict_get(o->descriptor, "object.name", symbol), dict_get(o->descriptor, "object.backend", NULL) ? " / " : "",
          dict_get(o->descriptor, "object.backend", ""), o->uuid);
@@ -354,13 +498,15 @@ bool rr_object_cache_dump_context(rr_object_cache_t *c, const char *reference, c
          if ( p->state && dict_get_bool(p->state, "property.known", false) ) {
             const char *type = dict_get(p->state, "property.type", "");
 
-            if ( !strcmp(type, "integer") ) { snprintf( value, sizeof(value), "%lld",
-               dict_get_llong(p->state, "property.value", 0) ); } else if ( !strcmp(type, "boolean") ) {
-               snprintf(value, sizeof(value), "%s",
-                  dict_get_bool(p->state, "property.value", false) ? "true" : "false");
-            } else if ( !strcmp(type, "number") ) { snprintf( value, sizeof(value), "%g",
-               dict_get_double(p->state, "property.value", 0) );
-            } else { snprintf( value, sizeof(value), "%s", dict_get(p->state, "property.value", "unknown") ); }
+            if ( !strcmp(type, "integer") ) {
+               snprintf( value, sizeof(value), "%lld", dict_get_llong(p->state, "property.value", 0) );
+            } else if ( !strcmp(type, "boolean") ) {
+               snprintf(value, sizeof(value), "%s", dict_get_bool(p->state, "property.value", false) ? "true" : "false");
+            } else if ( !strcmp(type, "number") ) {
+               snprintf( value, sizeof(value), "%g", dict_get_double(p->state, "property.value", 0) );
+            } else {
+               snprintf( value, sizeof(value), "%s", dict_get(p->state, "property.value", "unknown") );
+            }
          }
          const char *unit = p->descriptor ? dict_get(p->descriptor, "property.unit", "") : "";
          snprintf(line, sizeof(line), "  %s: %s%s%s%s%s", p->name, value, *unit ? " " : "", unit,
@@ -381,16 +527,23 @@ void rr_object_cache_dump(rr_object_cache_t *c, rr_object_cache_dump_fn emit, vo
 }
 
 const dict *rr_object_cache_find_alias(rr_object_cache_t *c, const char *type, const char *owner, const char *alias) {
-   if (!c || !type || !alias) { return NULL; }
+   if (!c || !type || !alias) {
+      return NULL;
+   }
 
    for (cached_object_t *o = c->objects ; o ; o = o->next) {
-      if (o->removed || !o->descriptor) { continue; }
+      if (o->removed || !o->descriptor) {
+         continue;
+      }
       dict *d = o->descriptor;
 
-      if ( strcmp(dict_get(d, "object.type", ""), type) ||
-           strcmp(dict_get(d, "object.alias", ""), alias) ) { continue; }
+      if ( strcmp(dict_get(d, "object.type", ""), type) || strcmp(dict_get(d, "object.alias", ""), alias) ) {
+         continue;
+      }
 
-      if ( !owner || !strcmp(dict_get(d, "object.owner", ""), owner) ) { return d; }
+      if ( !owner || !strcmp(dict_get(d, "object.owner", ""), owner) ) {
+         return d;
+      }
    }
 
    return NULL;

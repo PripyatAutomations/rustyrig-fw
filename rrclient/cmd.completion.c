@@ -77,7 +77,9 @@ static char **complete_usernames(const char *word) {
    size_t len = word ? strlen(word) : 0;
 
    for (struct rr_user *uptr = global_userlist ; uptr ; uptr = uptr->next) {
-      if (uptr->room[0] && strcasecmp( uptr->room, ws_authoritative_room() ) != 0) { continue; }
+      if (uptr->room[0] && strcasecmp( uptr->room, ws_authoritative_room() ) != 0) {
+         continue;
+      }
 
       if (len && strncasecmp(uptr->name, word, len) != 0) {
          continue;
@@ -99,7 +101,9 @@ static char **complete_usernames(const char *word) {
 }
 
 static void completion_add(char ***matches, size_t *count, const char *value, const char *word) {
-   if (!value || !*value || strncasecmp( value, word, strlen(word) ) != 0) { return; }
+   if (!value || !*value || strncasecmp( value, word, strlen(word) ) != 0) {
+      return;
+   }
 
    for (size_t i = 0 ; i < *count ; i++) {
       if (!strcmp( (*matches)[i], value ) ) {
@@ -109,10 +113,15 @@ static void completion_add(char ***matches, size_t *count, const char *value, co
 
    char *copy = strdup(value);
 
-   if (!copy) { return; }
+   if (!copy) {
+      return;
+   }
    char **tmp = realloc( *matches, (*count + 2) * sizeof(char *) );
 
-   if (!tmp) { free(copy); return; }
+   if (!tmp) {
+      free(copy);
+      return;
+   }
    *matches = tmp;
    tmp[(*count)++] = copy;
    tmp[*count] = NULL;
@@ -158,7 +167,9 @@ static char **complete_config_keys(const char *word) {
    extern defconfig_t defcfg[];
 #endif
 
-   if (!defcfg) { return NULL; }
+   if (!defcfg) {
+      return NULL;
+   }
 
    for (size_t i = 0 ; defcfg[i].key ; i++) {
       completion_add(&matches, &count, defcfg[i].key, word);
@@ -168,33 +179,47 @@ static char **complete_config_keys(const char *word) {
 }
 
 static bool completion_unique_channel_name(const struct rr_client_media_chan *channel) {
-   if (!channel->name[0] || strpbrk(channel->name, " \t\r\n") ) { return false; }
+   if (!channel->name[0] || strpbrk(channel->name, " \t\r\n") ) {
+      return false;
+   }
 
    for (int i = 0 ;; i++) {
       int number;
       const struct rr_client_media_chan *other = rrclient_media_chan_iter(i, &number);
 
-      if (!other) { return true; }
+      if (!other) {
+         return true;
+      }
 
-      if (other != channel && !strcasecmp(other->name, channel->name) ) { return false; }
+      if (other != channel && !strcasecmp(other->name, channel->name) ) {
+         return false;
+      }
    }
 }
 
 // line ends at the cursor, word is its last (possibly empty) token.
 char **client_cmd_completions(const char *line, const char *word) {
-   if ( !line || !word || strlen(word) > strlen(line) ) { return NULL; }
+   if ( !line || !word || strlen(word) > strlen(line) ) {
+      return NULL;
+   }
    char *prefix = strndup( line, strlen(line) - strlen(word) );
 
-   if (!prefix) { return NULL; }
+   if (!prefix) {
+      return NULL;
+   }
    char *save = NULL, *command = strtok_r(prefix, " \t", &save);
    char *first = NULL;
    char *second = NULL;
    unsigned arg = 0;
 
    for ( char *p = command ; p ; p = strtok_r(NULL, " \t", &save) ) {
-      if (arg == 1) { first = p; }
+      if (arg == 1) {
+         first = p;
+      }
 
-      if (arg == 2) { second = p; }
+      if (arg == 2) {
+         second = p;
+      }
       arg++;
    }
 
@@ -222,7 +247,9 @@ char **client_cmd_completions(const char *line, const char *word) {
             int number;
             const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
 
-            if (!ch) { break; }
+            if (!ch) {
+               break;
+            }
 
             if (!rrclient_resource_matches(ui_active_window_name(),
                ch->control_room[0] ? ch->control_room : ch->room) ) {
@@ -230,13 +257,19 @@ char **client_cmd_completions(const char *line, const char *word) {
             }
             const char *suffix = strstr(ch->name, ".gps.rx");
 
-            if (!suffix || strcmp(suffix, ".gps.rx") || strcmp(ch->codec, "gpsp") ) { continue; }
+            if (!suffix || strcmp(suffix, ".gps.rx") || strcmp(ch->codec, "gpsp") ) {
+               continue;
+            }
 
-            if (!strcasecmp(first, "UNSUBSCRIBE") && !ch->subscribed) { continue; }
+            if (!strcasecmp(first, "UNSUBSCRIBE") && !ch->subscribed) {
+               continue;
+            }
             char scope[64];
             size_t size = suffix - ch->name;
 
-            if (size >= sizeof(scope) ) { continue; }
+            if (size >= sizeof(scope) ) {
+               continue;
+            }
             memcpy(scope, ch->name, size); scope[size] = '\0';
             completion_add(&matches, &count, scope, word);
          }
@@ -250,7 +283,9 @@ char **client_cmd_completions(const char *line, const char *word) {
          if (arg == 1) {
             completion_words(&matches, &count, media ? "LIST SUBSCRIBE UNSUBSCRIBE SUB UNSUB" : "LIST NONE", word);
 
-            if (!media) { completion_words(&matches, &count, media_get_common_codecs(), word); }
+            if (!media) {
+               completion_words(&matches, &count, media_get_common_codecs(), word);
+            }
          } else if (arg == 2 && first && strcasecmp(first, "LIST") != 0) {
             bool unsub = !strcasecmp(first, "UNSUB") || !strcasecmp(first, "UNSUBSCRIBE");
             bool sub = !strcasecmp(first, "SUB") || !strcasecmp(first, "SUBSCRIBE");
@@ -259,28 +294,35 @@ char **client_cmd_completions(const char *line, const char *word) {
                int number;
                const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
 
-               if (!ch) { break; }
+               if (!ch) {
+                  break;
+               }
 
-               if (!rrclient_resource_matches(ui_active_window_name(),
-                  ch->control_room[0] ? ch->control_room : ch->room) ) { continue; }
+               if (!rrclient_resource_matches(ui_active_window_name(), ch->control_room[0] ? ch->control_room : ch->room) ) {
+                  continue;
+               }
 
-               if ( media ? (unsub && !ch->subscribed) :
-                    ( ch->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-                      ch->direction != (tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) ||
-                      (!ch->subscribed && !ch->disabled) ) ) { continue; }
+               if ( media ? (unsub && !ch->subscribed) : ( ch->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+                   ch->direction != (tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) || (!ch->subscribed && !ch->disabled) ) ) {
+                  continue;
+               }
                char num[16];
                snprintf(num, sizeof(num), word[0] == '#' ? "#%d" : "%d", number);
                // Names are the normal choices; numeric/UUID references remain
                // completable when explicitly typed, or for unnamed channels.
                bool named = completion_unique_channel_name(ch);
 
-               if (named) { completion_add(&matches, &count, ch->name, word); }
+               if (named) {
+                  completion_add(&matches, &count, ch->name, word);
+               }
 
                if (word[0] == '#' || isdigit( (unsigned char)word[0] ) ) {
                   completion_add(&matches, &count, num, word);
                }
 
-               if (*word || !named) { completion_add(&matches, &count, ch->uuid, word); }
+               if (*word || !named) {
+                  completion_add(&matches, &count, ch->uuid, word);
+               }
             }
          }
       } else if ( !strcasecmp(command, "/quota") ) {
@@ -292,7 +334,9 @@ char **client_cmd_completions(const char *line, const char *word) {
                             ( ( !strcasecmp(first, "SHOW") || !strcasecmp(first, "RESET") ) ||
                               ( arg == 2 && ( !strcasecmp(first, "ADD") || !strcasecmp(first, "SET") ) ) ) ) ) {
             for (struct rr_user *u = global_userlist ; u ; u = u->next) {
-               if (u->room[0] && strcasecmp( u->room, ws_authoritative_room() ) != 0) { continue; }
+               if (u->room[0] && strcasecmp( u->room, ws_authoritative_room() ) != 0) {
+                  continue;
+               }
                completion_add(&matches, &count, u->name, word);
             }
          }
@@ -342,10 +386,14 @@ char **client_cmd_completions(const char *line, const char *word) {
             char reference[128];
             const dict *object = rrclient_object_ref_iter( i, reference, sizeof(reference) );
 
-            if (!object) { break; }
+            if (!object) {
+               break;
+            }
             bool named = *reference && !strpbrk(reference, " \t\r\n");
 
-            if (named) { completion_add(&matches, &count, reference, word); }
+            if (named) {
+               completion_add(&matches, &count, reference, word);
+            }
 
             if (*word || !named) {
                completion_add(&matches, &count, dict_get( (dict *)object, "object.uuid", NULL ), word);
@@ -428,7 +476,9 @@ void client_cmd_completion_describe(const char *line, const char *value, char *o
          char reference[128];
          const dict *object = rrclient_object_ref_iter( i, reference, sizeof(reference) );
 
-         if (!object) { return; }
+         if (!object) {
+            return;
+         }
 
          if (strcasecmp(reference, value) && strcasecmp(dict_get( (dict *)object, "object.uuid", "" ), value) ) {
             continue;
@@ -440,20 +490,24 @@ void client_cmd_completion_describe(const char *line, const char *value, char *o
       }
    }
 
-   if (!line || (strncasecmp(line, "/media ", 7) && strncasecmp(line, "/rxcodec ", 9) &&
-                 strncasecmp(line, "/txcodec ", 9) && strncasecmp(line, "/gps ", 5) ) ) { return; }
+   if (!line || (strncasecmp(line, "/media ", 7) && strncasecmp(line, "/rxcodec ", 9) && strncasecmp(line, "/txcodec ", 9) && strncasecmp(line, "/gps ", 5) ) ) {
+      return;
+   }
 
    for (int i = 0 ;; i++) {
       int number;
       const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
 
-      if (!ch) { return; }
+      if (!ch) {
+         return;
+      }
       char index[16], scope[64]; snprintf(index, sizeof(index), "#%d", number);
       snprintf(scope, sizeof(scope), "%s.gps.rx", value);
 
-      if (strcasecmp(value, ch->name) && strcasecmp(value, ch->uuid) && strcmp(value, index) && strcmp(value,
-         index + 1) &&
-          (strncasecmp(line, "/gps ", 5) || strcasecmp(scope, ch->name) ) ) { continue; }
+      if (strcasecmp(value, ch->name) && strcasecmp(value, ch->uuid) && strcmp(value, index) && strcmp(value, index + 1) &&
+          (strncasecmp(line, "/gps ", 5) || strcasecmp(scope, ch->name) ) ) {
+         continue;
+      }
       snprintf(out, capacity, "%s — %s [%s %s; %s; room %s%s]", value, ch->descr[0] ? ch->descr : ch->name,
          ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX", ch->codec, ch->subscribed ? "subscribed" : "unsubscribed",
          ch->room[0] ? ch->room : "any", !ch->room[0] || ch->joined ? "" : "; join first");

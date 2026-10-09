@@ -88,3 +88,7 @@ debian/rustyrig-server*
 # Python integration-test bytecode
 __pycache__/
 *.py[cod]
+
+rrserver/master.db
+*/*.o
+*/*/*.o

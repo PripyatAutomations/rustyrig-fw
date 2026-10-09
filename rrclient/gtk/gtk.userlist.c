@@ -577,7 +577,7 @@ static GtkWidget *userlist_view_create(void) {
 static void userlist_update_title(void) {
    const char *room = rrclient_current_room();
    char title[192];
-   snprintf(title, sizeof(title), "User List - %s", room && *room ? room : "(no room)");
+   snprintf(title, sizeof(title), "%s", room && *room ? room : "(no room)");
    if (userlist_window && GTK_IS_WINDOW(userlist_window)) {
       gtk_window_set_title(GTK_WINDOW(userlist_window), title);
    }
@@ -626,7 +626,7 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
 static void room_userlist_set_title(room_userlist_entry_t *entry) {
    if (!entry || !entry->window || !GTK_IS_WINDOW(entry->window)) return;
    char title[192];
-   snprintf(title, sizeof(title), "%s User List", entry->room && *entry->room ? entry->room : "(no room)");
+   snprintf(title, sizeof(title), "%s", entry->room && *entry->room ? entry->room : "(no room)");
    gtk_window_set_title(GTK_WINDOW(entry->window), title);
 }
 

@@ -42,7 +42,9 @@ static void free_http_ua_bans(void) {
       http_ua_ban_t *next = ban->next;
       free(ban->useragent);
 
-      if (ban->regex_compiled) { regfree(&ban->regex); }
+      if (ban->regex_compiled) {
+         regfree(&ban->regex);
+      }
       free(ban->description);
       free(ban);
       ban = next;
@@ -137,7 +139,9 @@ bool load_http_ua_bans(const char *path) {
          http_ua_bans = new_ban;
       } else {
          http_ua_ban_t *tail = http_ua_bans;
-         while (tail->next) { tail = tail->next; }
+         while (tail->next) {
+            tail = tail->next;
+         }
          tail->next = new_ban;
       }
    }

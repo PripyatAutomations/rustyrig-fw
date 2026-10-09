@@ -64,7 +64,9 @@ const char *rr_ptt_recording_file(rr_vfo_t vfo) {
 }
 
 static void ptt_filename_part(char *dst, size_t dst_len, const char *src) {
-   if (!dst || dst_len == 0) { return; }
+   if (!dst || dst_len == 0) {
+      return;
+   }
    snprintf(dst, dst_len, "%s", src && *src ? src : "unknown");
 
    for (char *p = dst ; *p ; p++) {
@@ -98,9 +100,13 @@ static bool ptt_prepare_recording_file(rr_vfo_t vfo, const char *username, const
    }
    const char *codec = cfg_get("fwdsp:recording.codec");
 
-   if (!codec || !*codec) { codec = cfg_get("recording.codec"); }
+   if (!codec || !*codec) {
+      codec = cfg_get("recording.codec");
+   }
 
-   if (!codec || !*codec) { codec = "flac"; }
+   if (!codec || !*codec) {
+      codec = "flac";
+   }
    const char *extension = codec && strcasecmp(codec, "ogg") == 0 ? "ogg" : "flac";
    time_t timestamp = time(NULL);
    struct tm local_time;
@@ -408,7 +414,9 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
       dict *d = dict_new();
       dict_add(d, "msg.type", "cat.state");
 
-      if (rig.ptt_rig) { dict_add( d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig) ); }
+      if (rig.ptt_rig) {
+         dict_add( d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig) );
+      }
       dict_add( d, "cat.state.vfo", vfo_name(vfo) );
       dict_add(d, "cat.state.mode", mode_str);
       dict_add_bool(d, "cat.state.ptt", ptt);

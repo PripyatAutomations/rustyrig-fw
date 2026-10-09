@@ -460,8 +460,9 @@ float rr_get_power(rr_vfo_t vfo) {
 
 bool rr_backend_power_set_rig(rr_server_rig_t *radio, rr_server_vfo_t *object, float power) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
-   if (!isfinite(power) || power <= 0 || !object || rr_server_vfo_owner(object) != radio ||
-       !backend || !backend->type || !backend->type->api || !backend->type->api->power_set) { return true; }
+   if (!isfinite(power) || power <= 0 || !object || rr_server_vfo_owner(object) != radio || !backend || !backend->type || !backend->type->api || !backend->type->api->power_set) {
+      return true;
+   }
    return backend->type->api->power_set(backend, object, power);
 }
 

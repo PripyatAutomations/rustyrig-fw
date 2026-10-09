@@ -41,11 +41,15 @@ extern rrconn_t *ws_conn;
  * database and the server decides whether this user may perform the requested operation.
  */
 bool cmd_room(int argc, char **args) {
-   if (!ws_conn) { return true; }
+   if (!ws_conn) {
+      return true;
+   }
    char data[512] = "";
 
    for (int i = 1 ; i < argc ; i++) {
-      if (i > 1) { strlcat( data, " ", sizeof(data) ); }
+      if (i > 1) {
+         strlcat( data, " ", sizeof(data) );
+      }
       strlcat( data, args[i], sizeof(data) );
    }
 
@@ -60,9 +64,9 @@ bool cmd_room(int argc, char **args) {
 }
 
 bool cmd_list(int argc, char **args) {
-   (void)argc; (void)args;
-
-   if (!ws_conn) { return true; }
+   if (!ws_conn) {
+      return true;
+   }
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "list");
@@ -73,12 +77,16 @@ bool cmd_list(int argc, char **args) {
 }
 
 bool cmd_query(int argc, char **args) {
-   if (argc < 2 || !args[1] || !*args[1]) { return true; }
+   if (argc < 2 || !args[1] || !*args[1]) {
+      return true;
+   }
 
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_window_find(args[1]);
 
-      if (!window) { window = tui_window_create(args[1]); }
+      if (!window) {
+         window = tui_window_create(args[1]);
+      }
 
       if (window) {
          window->cptr = ws_conn;
@@ -141,7 +149,9 @@ bool cmd_me(int argc, char **args) {
       } else if ( cfg_get_bool("tui.status-chat", false) ) {
          const char *room = ws_authoritative_room();
 
-         if (room && *room) { dict_add(d, "talk.target", room); }
+         if (room && *room) {
+            dict_add(d, "talk.target", room);
+         }
       } else {
          ui_print(ui_active_window_name(),
             "\00308Select a room tab before sending an action (status is for client logs and commands)\017");
@@ -289,12 +299,16 @@ bool cmd_part(int argc, char **args) {
 
    /* Query tabs are local conversations rather than joined server rooms. */
    if (argc < 2 && target && *target && target[0] != '#' && target[0] != '&') {
-      if ( frontend_ops() ) { frontend_ops()->chat_room_remove(target); }
+      if ( frontend_ops() ) {
+         frontend_ops()->chat_room_remove(target);
+      }
 
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(target);
 
-         if (window) { tui_window_destroy(window); }
+         if (window) {
+            tui_window_destroy(window);
+         }
          tui_window_focus("status");
       }
 
@@ -330,7 +344,9 @@ bool cmd_names(int argc, char **args) {
    int count = 0;
 
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
-      if (c->room[0] && strcasecmp( c->room, rrclient_current_room() ) != 0) { continue; }
+      if (c->room[0] && strcasecmp( c->room, rrclient_current_room() ) != 0) {
+         continue;
+      }
       count++;
 
       // @ before the name for admin|owner, + for noob.
@@ -383,7 +399,9 @@ bool cmd_topic(int argc, char **args) {
       char topic[512] = "";
 
       for (int i = 1 ; i < argc ; i++) {
-         if (i > 1) { strlcat( topic, " ", sizeof(topic) ); }
+         if (i > 1) {
+            strlcat( topic, " ", sizeof(topic) );
+         }
          strlcat( topic, args[i], sizeof(topic) );
       }
 
@@ -392,7 +410,9 @@ bool cmd_topic(int argc, char **args) {
       dict_add(d, "talk.data", "");
    }
 
-   if (ws_conn) { ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT); }
+   if (ws_conn) {
+      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   }
    dict_free(d);
 
    return false;

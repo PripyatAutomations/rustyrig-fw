@@ -272,12 +272,16 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
 /* PARITY: rustyrig-www/js/webui.rigctl.js ptt_confirm_state(). Only authoritative updates
  * for our displayed VFO acknowledge local PTT. */
 static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) {
-   if ( !who || !login_user || strcasecmp(who, login_user) ) { return; }
+   if ( !who || !login_user || strcasecmp(who, login_user) ) {
+      return;
+   }
    char current[2] = {
       vfo_state_get_active(), '\0'
    };
 
-   if ( vfo && *vfo && strcasecmp(vfo, current) ) { return; }
+   if ( vfo && *vfo && strcasecmp(vfo, current) ) {
+      return;
+   }
 
    if (frontend_ops() && frontend_ops()->ptt_set_state) {
       frontend_ops()->ptt_set_state(active);
@@ -285,7 +289,6 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
 }
 
 static void rrclient_handle_object_observation(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)data; (void)client; (void)user;
    vfo_update_ui();
 }
 
@@ -305,7 +308,8 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
 
    if ( selected && ( ( scope && strcasecmp(scope, selected->room) && !ws_room_same_rig(selected->room, scope) &&
                         !ws_room_same_rig(scope, selected->room) ) || (!scope && selected->rig != 0) ) ) {
-      dict_free(d); return;
+      dict_free(d);
+      return;
    }
 
    if ( dict_get_type(d, "cat.state.vfo") == VAL_END && dict_get(d, "cat.vfo", NULL) ) {
@@ -434,7 +438,9 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
        strcasecmp( output_room, ws_authoritative_room() ) != 0) {
       /* talk.target is also used for private messages.  Treat an unseen target as a
        * conversation tab so private replies are not dumped into the rig room. */
-      if (private_msg) { frontend_ops()->chat_query_add(output_room); } else {
+      if (private_msg) {
+         frontend_ops()->chat_query_add(output_room);
+      } else {
          frontend_ops()->chat_room_add(output_room);
       }
    }
@@ -588,12 +594,18 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
 }
 
 static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
-   if (!room || !*room) { return tui_window_find("status"); }
+   if (!room || !*room) {
+      return tui_window_find("status");
+   }
    tui_window_t *window = tui_window_find(room);
 
-   if (!window && create) { window = tui_window_create(room); }
+   if (!window && create) {
+      window = tui_window_create(room);
+   }
 
-   if (window) { window->cptr = ws_conn; }
+   if (window) {
+      window->cptr = ws_conn;
+   }
 
    return window;
 }
@@ -623,14 +635,20 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
             dict_get_bool(d, "room.rx-tunable", false) );
          rrclient_room_set_rx_tuning_mask( m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
 
-         if ( frontend_ops() ) { frontend_ops()->userlist_room_vfos_changed(m_room); }
+         if ( frontend_ops() ) {
+            frontend_ops()->userlist_room_vfos_changed(m_room);
+         }
 
-         if (has_vfos) { rrclient_media_room_joined(m_room); }
+         if (has_vfos) {
+            rrclient_media_room_joined(m_room);
+         }
 
          if ( dict_get_bool(d, "room.site", false) ) {
             ws_set_authoritative_room(m_room);
 
-            if ( frontend_ops() ) { frontend_ops()->chat_set_authoritative_room(m_room); }
+            if ( frontend_ops() ) {
+               frontend_ops()->chat_set_authoritative_room(m_room);
+            }
          }
          rrclient_room_join(m_room);
 
@@ -646,8 +664,9 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          userlist_add_or_update(d);
       }
 
-      if (frontend_ops() && m_user && login_user &&
-          strcasecmp(m_user, login_user) == 0) { frontend_ops()->chat_room_add(m_room); }
+      if (frontend_ops() && m_user && login_user && strcasecmp(m_user, login_user) == 0) {
+         frontend_ops()->chat_room_add(m_room);
+      }
       ui_print(m_room, "%s * %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
       dict_free(d);
 
@@ -664,36 +683,44 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
    const char *vfos = dict_get(d, "talk.vfos", "");
 
    if (room) {
       if (dict_get_type(d, "room.vfo-mask") != VAL_END) {
          rrclient_room_set_vfo_mask( room, dict_get_ulong(d, "room.vfo-mask", 0) );
-      } else { rrclient_room_set_vfos(room, vfos); }
+      } else {
+         rrclient_room_set_vfos(room, vfos);
+      }
       rrclient_room_set_control_flags( room, dict_get_bool(d, "room.tx-control", false),
          dict_get_bool(d, "room.rx-tunable", false) );
       rrclient_room_set_rx_tuning_mask( room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
 
-      if ( frontend_ops() ) { frontend_ops()->userlist_room_vfos_changed(room); }
+      if ( frontend_ops() ) {
+         frontend_ops()->userlist_room_vfos_changed(room);
+      }
       ui_print(room, "\00308Room %s VFOs:\017 %s", room, *vfos ? vfos : "(none)");
    }
    dict_free(d);
 }
 
 static void rrclient_handle_room_vfo_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *vfos = dict_get(d, "talk.vfos", "");
    const char *room = dict_get(d, "talk.room", NULL);
    const char *output = ui_active_window_name();
@@ -710,8 +737,7 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
       char *lines = strdup(vfos);
       char *save = NULL;
 
-      for ( char *line = lines ? strtok_r(lines, "\n", &save) : NULL ;
-            line ; line = strtok_r(NULL, "\n", &save) ) {
+      for ( char *line = lines ? strtok_r(lines, "\n", &save) : NULL ; line ; line = strtok_r(NULL, "\n", &save) ) {
          ui_print(output, "  %s", line);
       }
 
@@ -721,12 +747,14 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
 }
 
 static void rrclient_handle_room_topic(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
    const char *topic = dict_get(d, "talk.topic", "");
    const char *from = dict_get(d, "talk.user", NULL);
@@ -738,7 +766,9 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = rrclient_tui_room_window(room, true);
 
-         if (window) { snprintf(window->status_line, sizeof(window->status_line), "%s", topic); }
+         if (window) {
+            snprintf(window->status_line, sizeof(window->status_line), "%s", topic);
+         }
       }
 
       if ( frontend_ops() ) {
@@ -755,12 +785,14 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
 }
 
 static void rrclient_handle_room_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *rooms = dict_get(d, "talk.rooms", "");
    rrclient_rooms_set_available(rooms);
    rrclient_rooms_rejoin_available();
@@ -769,12 +801,14 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
 }
 
 static void rrclient_handle_room_deleted(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
 
    if (room) {
@@ -783,12 +817,16 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       rrclient_room_part(room);
       rrclient_room_available_remove(room);
 
-      if ( frontend_ops() ) { frontend_ops()->chat_room_remove(room); }
+      if ( frontend_ops() ) {
+         frontend_ops()->chat_room_remove(room);
+      }
 
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(room);
 
-         if (window) { tui_window_destroy(window); }
+         if (window) {
+            tui_window_destroy(window);
+         }
          tui_window_focus("status");
       }
       ui_print(NULL, "\00308Room %s was removed by an administrator\017", room);
@@ -797,17 +835,25 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
 }
 
 static void rrclient_handle_part(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", NULL);
 
-   if (!room) { room = dict_get(d, "talk.target", NULL); }
+   if (!room) {
+      room = dict_get(d, "talk.target", NULL);
+   }
    const char *member = dict_get(d, "talk.user", NULL);
    const char *session = dict_get(d, "talk.session", NULL);
 
-   if (member && room) { userlist_remove_by_name_room(member, room); }
+   if (member && room) {
+      userlist_remove_by_name_room(member, room);
+   }
    /* Usernames are not unique across simultaneous sessions.  The server echoes the
     * authenticated session token on the PART confirmation so only the client that
     * requested the part closes its room tab. */
@@ -818,12 +864,16 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
       rrclient_media_room_parted(room);
       rrclient_room_part(room);
 
-      if ( frontend_ops() ) { frontend_ops()->chat_room_remove(room); }
+      if ( frontend_ops() ) {
+         frontend_ops()->chat_room_remove(room);
+      }
 
       if (ui_mode == UI_MODE_TUI) {
          tui_window_t *window = tui_window_find(room);
 
-         if (window) { tui_window_destroy(window); }
+         if (window) {
+            tui_window_destroy(window);
+         }
          tui_window_focus("status");
       }
       ui_print(NULL, "\00308Left room %s\017", room);
@@ -832,8 +882,6 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
    if ( !data || !frontend_ops() ) {
       return;
    }
@@ -851,7 +899,9 @@ static void rrclient_handle_talk(const char *event, const char *data, rrconn_t *
 static const char *rrclient_replay_room(dict *d) {
    const char *room = dict_get(d, "talk.target", NULL);
 
-   if (room && *room) { return room; }
+   if (room && *room) {
+      return room;
+   }
 
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
@@ -861,7 +911,9 @@ static const char *rrclient_replay_room(dict *d) {
       }
    }
 
-   if ( frontend_ops() ) { return frontend_ops()->chat_current_room(); }
+   if ( frontend_ops() ) {
+      return frontend_ops()->chat_current_room();
+   }
 
    return NULL;
 }
@@ -880,9 +932,13 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
    const char *cmd = dict_get(d, "talk.cmd", NULL);
    const char *room = rrclient_replay_room(d);
 
-   if (room && ui_mode == UI_MODE_TUI) { rrclient_tui_room_window(room, true); }
+   if (room && ui_mode == UI_MODE_TUI) {
+      rrclient_tui_room_window(room, true);
+   }
 
-   if ( room && frontend_ops() ) { frontend_ops()->chat_room_add(room); }
+   if ( room && frontend_ops() ) {
+      frontend_ops()->chat_room_add(room);
+   }
 
    if (cmd && strcasecmp(cmd, "replay-start") == 0) {
       ui_print(room, "\00304>>>\017 Start of chat replay. \00304<<<\017");
@@ -914,9 +970,13 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
       const char *cmd = dict_get(d, "talk.cmd", NULL);
       const char *room = rrclient_replay_room(d);
 
-      if (room && ui_mode == UI_MODE_TUI) { rrclient_tui_room_window(room, true); }
+      if (room && ui_mode == UI_MODE_TUI) {
+         rrclient_tui_room_window(room, true);
+      }
 
-      if ( room && frontend_ops() ) { frontend_ops()->chat_room_add(room); }
+      if ( room && frontend_ops() ) {
+         frontend_ops()->chat_room_add(room);
+      }
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
          ui_print( room, "%s \00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
@@ -943,7 +1003,9 @@ static int callsign_field_rank(const char *key) {
    };
 
    for (int i = 0 ; order[i] ; i++) {
-      if (strcmp(key, order[i]) == 0) { return i; }
+      if (strcmp(key, order[i]) == 0) {
+         return i;
+      }
    }
 
    return 1000;
@@ -960,16 +1022,22 @@ static int callsign_field_cmp(const void *a, const void *b) {
    int ra = callsign_field_rank(fa->key);
    int rb = callsign_field_rank(fb->key);
 
-   if (ra != rb) { return ra - rb; }
+   if (ra != rb) {
+      return ra - rb;
+   }
 
    return strcmp(fa->key, fb->key);
 }
 
 static void rrclient_handle_callsign(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (!data) { return; }
+   if (!data) {
+      return;
+   }
    dict *d = json2dict(data);
 
-   if (!d) { return; }
+   if (!d) {
+      return;
+   }
    bool done = dict_get_bool(d, "callsign.done", false);
    const char *status = dict_get(d, "callsign.status", NULL);
 
@@ -1005,7 +1073,9 @@ static void rrclient_handle_callsign(const char *event, const char *data, rrconn
       rrclient_print_callsign_line(line);
    }
 
-   if (done) { callsign_notice_active = false; }
+   if (done) {
+      callsign_notice_active = false;
+   }
    dict_free(d);
 }
 
@@ -1043,7 +1113,9 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
       } else if (callsign_field && callsign_notice_active) {
          rrclient_print_callsign_line(msg);
 
-         if (strncmp(msg, "Country:", 8) == 0) { callsign_notice_active = false; }
+         if (strncmp(msg, "Country:", 8) == 0) {
+            callsign_notice_active = false;
+         }
       } else {
          callsign_notice_active = false;
          ui_print(output, "%s \00308NOTICE\017: %s", get_chat_ts(msg_ts), msg);
@@ -1064,7 +1136,9 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
    const char *m_reason = dict_get(d, "talk.reason", NULL);
    const char *m_target = dict_get(d, "talk.room", NULL);
 
-   if (!m_target) { m_target = ws_authoritative_room(); }
+   if (!m_target) {
+      m_target = ws_authoritative_room();
+   }
 
    time_t m_ts = dict_get_time_t(d, "msg.ts", now);
    const char *s_unknown = "<UNKNOWN>";

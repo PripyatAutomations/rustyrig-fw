@@ -507,7 +507,9 @@ static bool hl_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo, const char
    hl_mode_get(backend, vfo);
    hamlib_vfo_state_t *state = &data->state[index];
    const char *p = width;
-   while (*p == ' ' || *p == '\t') { p++; }
+   while (*p == ' ' || *p == '\t') {
+      p++;
+   }
    pbwidth_t target = 0;
 
    if ( !strncasecmp(p, "narr", 4) || !strcasecmp(width, "nar") ) {
@@ -626,7 +628,9 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
          state->mode = RIG_MODE_NONE;
          state->width = 0;
 
-         if (index != backend->active_vfo) { data->vfo_mode_ok[index] = false; }
+         if (index != backend->active_vfo) {
+            data->vfo_mode_ok[index] = false;
+         }
          hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
          hl_property_unavailable(backend, vfo, RR_PROP_VFO_WIDTH);
       } else {

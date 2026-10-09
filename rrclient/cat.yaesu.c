@@ -101,28 +101,36 @@ static void cat_mode_set(const char *digit) {
    switch (digit[0]) {
       case '0':
       case '1': {
-         mode = "LSB"; break;
+         mode = "LSB";
+         break;
       }
       case '2': {
-         mode = "USB"; break;
+         mode = "USB";
+         break;
       }
       case '3': {
-         mode = "CW"; break;
+         mode = "CW";
+         break;
       }
       case '4': {
-         mode = "FM"; break;
+         mode = "FM";
+         break;
       }
       case '6': {
-         mode = "D-L"; break;
+         mode = "D-L";
+         break;
       }
       case '7': {
-         mode = "D-U"; break;
+         mode = "D-U";
+         break;
       }
       case '8': {
-         mode = "D-L"; break;
+         mode = "D-L";
+         break;
       }
       case '9': {
-         mode = "D-U"; break;
+         mode = "D-U";
+         break;
       }
       default: {
          Log(LOG_WARN, "cat.yaesu", "Unknown MODE digit %c", digit[0]);
@@ -237,12 +245,16 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
    }
 
    for (const unsigned char *p = (const unsigned char *)args; *p; p++) {
-      if (!isdigit(*p)) { return; }
+      if (!isdigit(*p)) {
+         return;
+      }
    }
    char *end = NULL;
    errno = 0;
    long freq = strtol(args, &end, 10);
-   if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) { return; }
+   if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) {
+      return;
+   }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO A freq to %ld", freq);
    ws_send_freq_cmd_in_room( ws_conn, cat_vfo_str('A'), freq, rr_cat_room() );
@@ -258,12 +270,16 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
    }
 
    for (const unsigned char *p = (const unsigned char *)args; *p; p++) {
-      if (!isdigit(*p)) { return; }
+      if (!isdigit(*p)) {
+         return;
+      }
    }
    char *end = NULL;
    errno = 0;
    long freq = strtol(args, &end, 10);
-   if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) { return; }
+   if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) {
+      return;
+   }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO B freq to %ld", freq);
    ws_send_freq_cmd_in_room( ws_conn, cat_vfo_str('B'), freq, rr_cat_room() );

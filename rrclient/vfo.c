@@ -66,14 +66,20 @@ static const char *vfo_state_key(char vfo, const char *key, char *buf, size_t le
 static const dict *room_vfo_property(const char *vfo, const char *key, bool *scoped) {
    *scoped = false;
 
-   if (!key) { return NULL; }
+   if (!key) {
+      return NULL;
+   }
    const char *property = !strcmp(key, "cat.state.freq") ? "frequency" :
                           !strcmp(key, "cat.state.mode") ? "mode" : !strcmp(key, "cat.state.width") ? "width" : NULL;
 
-   if (!property) { return NULL; }
+   if (!property) {
+      return NULL;
+   }
    const char *uuid = rrclient_media_vfo_uuid( rrclient_media_active_room(), vfo_state_check_id(vfo) );
 
-   if (!uuid) { return NULL; }
+   if (!uuid) {
+      return NULL;
+   }
    *scoped = true;
    const dict *state = rrclient_object_property(uuid, property);
 
@@ -87,7 +93,9 @@ const char *vfo_state_get(const char *vfo, const char *key, const char *def) {
    bool scoped;
    const dict *state = room_vfo_property(vfo, key, &scoped);
 
-   if (scoped) { return state ? dict_get( (dict *)state, "property.value", def ) : def; }
+   if (scoped) {
+      return state ? dict_get( (dict *)state, "property.value", def ) : def;
+   }
 
    if (!vfo_state || !key) {
       return def;
@@ -104,7 +112,9 @@ long vfo_state_get_long(const char *vfo, const char *key, long def) {
    bool scoped;
    const dict *state = room_vfo_property(vfo, key, &scoped);
 
-   if (scoped) { return state ? dict_get_long( (dict *)state, "property.value", def ) : def; }
+   if (scoped) {
+      return state ? dict_get_long( (dict *)state, "property.value", def ) : def;
+   }
 
    if (!vfo_state || !key) {
       return def;
@@ -165,13 +175,17 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    // PARITY: rustyrig-www/js/webui.rigctl.js (cat.state.selected)
    const char *update_room = dict_get(d, "cat.room", NULL);
 
-   if (!update_room || !*update_room) { update_room = rrclient_media_active_room(); }
+   if (!update_room || !*update_room) {
+      update_room = rrclient_media_active_room();
+   }
    char prev_active = rrclient_room_active_vfo(update_room);
 
    if ( dict_get_bool(d, "cat.state.selected", false) ) {
       rrclient_room_set_active_vfo(update_room, vfo_id);
 
-      if ( !strcasecmp( update_room, rrclient_media_active_room() ) ) { s_active_vfo = vfo_id; }
+      if ( !strcasecmp( update_room, rrclient_media_active_room() ) ) {
+         s_active_vfo = vfo_id;
+      }
    }
 
    // Track whether this update is for the VFO the UI is showing, so we
@@ -273,7 +287,9 @@ bool vfo_set_dict(const char *vfo, dict *d) {
 
    // A custom top line can show inactive VFOs too. Re-render it when their
    // state changes, while preserving the active-VFO-only GTK widget updates.
-   if (!is_active && ui_mode == UI_MODE_TUI) { tui_redraw_topline(); }
+   if (!is_active && ui_mode == UI_MODE_TUI) {
+      tui_redraw_topline();
+   }
 
    // Only refresh the UI if this update touched the VFO currently displayed
    return is_active ? vfo_update_ui() : false;

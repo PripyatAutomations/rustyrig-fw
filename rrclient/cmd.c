@@ -44,7 +44,9 @@ extern dict *cfg;
 bool cmd_reload(int argc, char **args) {
    cfg_reload(config_file);
 
-   if (ui_mode == UI_MODE_TUI) { tui_redraw_screen(); }
+   if (ui_mode == UI_MODE_TUI) {
+      tui_redraw_screen();
+   }
 
    return false;
 }
@@ -389,7 +391,9 @@ bool parse_chat_input_real(const char *msg) {
          } else if ( cfg_get_bool("tui.status-chat", false) ) {
             const char *room = ws_authoritative_room();
 
-            if (room && *room) { dict_add(d, "talk.target", room); }
+            if (room && *room) {
+               dict_add(d, "talk.target", room);
+            }
          } else {
             ui_print(ui_active_window_name(),
                "\00308Select a room tab before sending a message (status is for client logs and commands)\017");

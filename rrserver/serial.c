@@ -151,7 +151,9 @@ static bool settings_from(dict *d, rr_serial_settings_t *settings) {
             return false;
          }
          dict_value_t checked;
-         if (!rr_object_value_get(d, "serial.baud", VAL_LONG, &checked)) { return false; }
+         if (!rr_object_value_get(d, "serial.baud", VAL_LONG, &checked)) {
+            return false;
+         }
          value = checked.l;
       }
 
@@ -400,7 +402,10 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
    size_t n = raw ? strlen(input) : rr_nmea_rmc( lat, lon, flags, time(NULL), sentence, sizeof(sentence) );
 
    if (raw) {
-      if ( n >= sizeof(sentence) ) { dict_free(d); return; }
+      if ( n >= sizeof(sentence) ) {
+         dict_free(d);
+         return;
+      }
       memcpy(sentence, input, n + 1);
    }
 
@@ -612,7 +617,7 @@ void rrserver_serial_init(void) {
       }
       struct serial_export *p = &exports[count]; memset( p, 0, sizeof(*p) ); p->fd = p->keeper = -1;
       snprintf(p->name, sizeof(p->name), "%s", key + 7);
-      p->settings = (rr_serial_settings_t) { .baud = strstr(value, "gps-") ? 4800 : 9600, .bits = 8, .parity = 'n', .stops = 1  };
+      p->settings = (rr_serial_settings_t) {.baud = strstr(value, "gps-") ? 4800 : 9600, .bits = 8, .parity = 'n', .stops = 1  };
 
       char option[96];
       snprintf(option, sizeof(option), "serial:%s.baud", p->name);
@@ -623,7 +628,8 @@ void rrserver_serial_init(void) {
 
       if ( ( mode && !rr_serial_mode_parse(mode, &p->settings) ) ||
            !rr_serial_spec_parse(value, target, sizeof(target), &p->settings) ) {
-         Log(LOG_WARN, "serial", "Ignoring invalid serial binding %s", key); continue;
+         Log(LOG_WARN, "serial", "Ignoring invalid serial binding %s", key);
+         continue;
       }
 
       if (!strncmp(target, "serial:", 7) && target[7] == '/') {
@@ -649,7 +655,8 @@ void rrserver_serial_init(void) {
          }
 
          if ( p->service == 2 && output && strcmp(output, "position") && strcmp(output, "nmea") ) {
-            Log(LOG_WARN, "serial", "Invalid GPS output mode for %s", p->name); continue;
+            Log(LOG_WARN, "serial", "Invalid GPS output mode for %s", p->name);
+            continue;
          }
          p->nmea_output = output && !strcmp(output, "nmea");
 
@@ -665,7 +672,8 @@ void rrserver_serial_init(void) {
             }
          }
          snprintf(option, sizeof(option), "serial:%s.type", p->name);
-         const char *type = cfg_get(option); p->pty = !type || !strcmp(type, "pty");
+         const char *type = cfg_get(option);
+         p->pty = !type || !strcmp(type, "pty");
 
          if ( type && strcmp(type, "pty") && strcmp(type, "serial") ) {
             continue;
@@ -675,7 +683,8 @@ void rrserver_serial_init(void) {
          snprintf(p->path, sizeof(p->path), "%s", path ? path : "");
 
          if (!p->path[0]) {
-            memcpy(p->path, "./dev/", 6); memcpy(p->path + 6, p->name, strlen(p->name) + 1);
+            memcpy(p->path, "./dev/", 6);
+            memcpy(p->path + 6, p->name, strlen(p->name) + 1);
          }
       } else {
          continue;
@@ -696,7 +705,9 @@ void rrserver_serial_init(void) {
          }
 
          if (p->pty) {
-            char *dir = g_path_get_dirname(p->path); int error = g_mkdir_with_parents(dir, 0755); g_free(dir);
+            char *dir = g_path_get_dirname(p->path);
+            int error = g_mkdir_with_parents(dir, 0755);
+            g_free(dir);
 
             if (!error) {
                p->fd = rr_serial_pty_open( p->path, &p->settings, &p->keeper, p->slave, sizeof(p->slave) );
@@ -706,7 +717,9 @@ void rrserver_serial_init(void) {
          }
 
          if (p->fd < 0) {
-            Log(LOG_WARN, "serial", "Cannot open GPS endpoint %s", p->name); free(p->buffer); p->buffer = NULL;
+            Log(LOG_WARN, "serial", "Cannot open GPS endpoint %s", p->name);
+            free(p->buffer);
+            p->buffer = NULL;
             continue;
          }
       }
@@ -731,9 +744,14 @@ void rrserver_serial_fini(void) {
       sessions = s->next;
       free(s);
    }
-   event_off_token(inventory_token); inventory_token = NULL;
-   event_off_token(gps_token); gps_token = NULL;
-   event_off_token(nmea_token); nmea_token = NULL;
-   event_off_token(request_token); event_off_token(closed_token); event_off_token(frame_token);
+   event_off_token(inventory_token);
+   inventory_token = NULL;
+   event_off_token(gps_token);
+   gps_token = NULL;
+   event_off_token(nmea_token);
+   nmea_token = NULL;
+   event_off_token(request_token);
+   event_off_token(closed_token);
+   event_off_token(frame_token);
    request_token = closed_token = frame_token = NULL;
 }

@@ -63,7 +63,9 @@ bool rr_rig_config_section_cb(const char *path, int line, const char *section, c
       return true;
    }
    *value++ = '\0';
-   while ( *value && isspace( (unsigned char)*value ) ) { value++; }
+   while ( *value && isspace( (unsigned char)*value ) ) {
+      value++;
+   }
    char *key_end = copy + strlen(copy);
    while ( key_end > copy && isspace( (unsigned char)key_end[-1] ) ) {
       *--key_end = '\0';
@@ -145,29 +147,39 @@ uint32_t rr_rig_config_default_vfo_mask(void) {
    if (!alias || !*alias) {
       const char *instances = cfg_get("rig.instances");
 
-      if (!instances) { return 0; }
-      while ( *instances && (isspace( (unsigned char)*instances ) ||
-                             *instances == ',') ) { instances++; }
+      if (!instances) {
+         return 0;
+      }
+      while ( *instances && (isspace( (unsigned char)*instances ) || *instances == ',') ) {
+         instances++;
+      }
       size_t len = strcspn(instances, " ,\t\r\n");
 
-      if (!len) { return 0; }
+      if (!len) {
+         return 0;
+      }
       first_alias = strndup(instances, len);
       alias = first_alias;
    }
    const char *configured = rr_rig_config_get(alias, "vfos");
    free(first_alias);
 
-   if (!configured) { return 0; }
+   if (!configured) {
+      return 0;
+   }
 
    uint32_t mask = 0;
    char **tokens = g_strsplit_set(configured, " ,\t\r\n", -1);
 
    for (size_t i = 0 ; tokens && tokens[i] ; i++) {
-      if ( strlen(tokens[i]) != 1 ||
-           !isalpha( (unsigned char)tokens[i][0] ) ) { continue; }
+      if ( strlen(tokens[i]) != 1 || !isalpha( (unsigned char)tokens[i][0] ) ) {
+         continue;
+      }
       int index = toupper( (unsigned char)tokens[i][0] ) - 'A';
 
-      if (index >= 0 && index < 32) { mask |= UINT32_C(1) << index; }
+      if (index >= 0 && index < 32) {
+         mask |= UINT32_C(1) << index;
+      }
    }
 
    g_strfreev(tokens);

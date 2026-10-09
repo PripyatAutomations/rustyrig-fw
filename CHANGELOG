@@ -1,3 +1,6 @@
+rustyrig-fw (20261008.1) testing; urgency=medium
+  * Use only the room name (#room) for GTK userlist window titles.
+
 rustyrig-fw (20261007.17) testing; urgency=medium
   * made /webcam show auto-subscribe if only one camera found on station
   * fixed callsign-lookup cache

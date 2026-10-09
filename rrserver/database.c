@@ -85,25 +85,37 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
 static bool db_provision_admin(sqlite3 *db) {
    sqlite3_stmt *query = NULL;
    const char *placeholder = "SELECT 1 FROM users WHERE name='admin' AND enabled=0 AND password=''";
-   if (sqlite3_prepare_v2(db, placeholder, -1, &query, NULL) != SQLITE_OK) { return false; }
+   if (sqlite3_prepare_v2(db, placeholder, -1, &query, NULL) != SQLITE_OK) {
+      return false;
+   }
    bool provision = sqlite3_step(query) == SQLITE_ROW;
    sqlite3_finalize(query);
-   if (!provision) { return true; }
+   if (!provision) {
+      return true;
+   }
    const char *database_path = sqlite3_db_filename(db, "main");
-   if (!database_path) { return false; }
+   if (!database_path) {
+      return false;
+   }
    size_t size = strlen(database_path) + sizeof(".bootstrap-password");
    char *path = malloc(size);
-   if (!path) { return false; }
+   if (!path) {
+      return false;
+   }
    snprintf(path, size, "%s.bootstrap-password", database_path);
    char password[25];
    bool ok = auth_generate_nonce(password, sizeof(password)) == sizeof(password) - 1;
    char *hash = ok ? hash_passwd(password) : NULL;
    int fd = hash ? open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0600) : -1;
-   if (fd < 0) { ok = false; }
+   if (fd < 0) {
+      ok = false;
+   }
    if (fd >= 0) {
       size_t length = strlen(password);
       ok = write(fd, password, length) == (ssize_t)length && write(fd, "\n", 1) == 1;
-      if (close(fd) != 0) { ok = false; }
+      if (close(fd) != 0) {
+         ok = false;
+      }
       if (ok) {
          sqlite3_stmt *update = NULL;
          ok = sqlite3_prepare_v2(db, "UPDATE users SET enabled=1,password=?,password_change_required=1 WHERE name='admin' AND enabled=0 AND password=''", -1, &update, NULL) == SQLITE_OK;
@@ -113,10 +125,16 @@ static bool db_provision_admin(sqlite3 *db) {
          }
          sqlite3_finalize(update);
       }
-      if (!ok) { unlink(path); }
+      if (!ok) {
+         unlink(path);
+      }
    }
-   if (ok) { Log(LOG_INFO, "auth", "Initial admin password written to %s; change it at first login", path); }
-   else { Log(LOG_CRIT, "auth", "Unable to provision initial admin credential file %s", path); }
+
+   if (ok) {
+      Log(LOG_INFO, "auth", "Initial admin password written to %s; change it at first login", path);
+   } else {
+      Log(LOG_CRIT, "auth", "Unable to provision initial admin credential file %s", path);
+   }
    memset(password, 0, sizeof(password));
    free(hash);
    free(path);
@@ -134,7 +152,9 @@ static bool db_initialize_new(sqlite3 *db) {
 
    if (ok && preload_path) {
       ok = db_run_sql_file(db, preload_path, "preload");
-      if (ok) { ok = db_provision_admin(db); }
+      if (ok) {
+         ok = db_provision_admin(db);
+      }
    }
    free( (void *)template_path );
    free( (void *)preload_path );
@@ -143,7 +163,9 @@ static bool db_initialize_new(sqlite3 *db) {
 }
 
 static void db_ensure_rooms(sqlite3 *db) {
-   if (!db) { return; }
+   if (!db) {
+      return;
+   }
    const char *sql =
       "CREATE TABLE IF NOT EXISTS rooms (name TEXT PRIMARY KEY, has_vfos INTEGER NOT NULL DEFAULT 0, vfo_mask INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0, topic TEXT NOT NULL DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);";
    char *error = NULL;
@@ -183,7 +205,9 @@ static void db_ensure_rooms(sqlite3 *db) {
 }
 
 static void db_ensure_rig_identities(sqlite3 *db) {
-   if (!db) { return; }
+   if (!db) {
+      return;
+   }
    const char *sql =
       "CREATE TABLE IF NOT EXISTS rig_identities ("
       "identity_namespace TEXT NOT NULL,"
@@ -200,7 +224,9 @@ static void db_ensure_rig_identities(sqlite3 *db) {
 }
 
 static void db_ensure_vfo_identities(sqlite3 *db) {
-   if (!db) { return; }
+   if (!db) {
+      return;
+   }
    const char *sql =
       "CREATE TABLE IF NOT EXISTS vfo_identities ("
       "rig_uuid TEXT NOT NULL,"
@@ -219,7 +245,9 @@ static void db_ensure_vfo_identities(sqlite3 *db) {
 }
 
 static void db_ensure_user_columns(sqlite3 *db) {
-   if (!db) { return; }
+   if (!db) {
+      return;
+   }
    const char *columns[] = {
       "ALTER TABLE users ADD COLUMN password_set INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE users ADD COLUMN password_expires INTEGER DEFAULT NULL;",
@@ -370,11 +398,15 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    sqlite3_finalize(stmt);
 
    // Only a successful lookup with no row permits creating an identity.
-   if (status != SQLITE_DONE) { return uuid; }
+   if (status != SQLITE_DONE) {
+      return uuid;
+   }
 
    gchar *generated = g_uuid_string_random();
 
-   if (!generated) { return NULL; }
+   if (!generated) {
+      return NULL;
+   }
    const char *insert_sql =
       "INSERT OR IGNORE INTO rig_identities(identity_namespace,alias,uuid) "
       "VALUES(?,?,?);";
@@ -391,7 +423,9 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    sqlite3_finalize(stmt);
    g_free(generated);
 
-   if (!inserted) { return NULL; }
+   if (!inserted) {
+      return NULL;
+   }
 
    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
       return NULL;
@@ -428,11 +462,15 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
    }
    sqlite3_finalize(stmt);
 
-   if (status != SQLITE_DONE) { return uuid; }
+   if (status != SQLITE_DONE) {
+      return uuid;
+   }
 
    gchar *generated = g_uuid_string_random();
 
-   if (!generated) { return NULL; }
+   if (!generated) {
+      return NULL;
+   }
    const char *insert_sql =
       "INSERT OR IGNORE INTO vfo_identities(rig_uuid,config_id,uuid) "
       "VALUES(?,?,?);";
@@ -449,7 +487,9 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
    sqlite3_finalize(stmt);
    g_free(generated);
 
-   if (!inserted) { return NULL; }
+   if (!inserted) {
+      return NULL;
+   }
 
    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
       return NULL;
@@ -467,35 +507,46 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
 
 
 static bool db_room_change_end(sqlite3 *db, bool ok) {
-   if (ok && sqlite3_exec(db, "RELEASE room_change;", NULL, NULL, NULL) == SQLITE_OK) { return true; }
+   if (ok && sqlite3_exec(db, "RELEASE room_change;", NULL, NULL, NULL) == SQLITE_OK) {
+      return true;
+   }
    sqlite3_exec(db, "ROLLBACK TO room_change;", NULL, NULL, NULL);
    sqlite3_exec(db, "RELEASE room_change;", NULL, NULL, NULL);
    return false;
 }
 
 bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_mask, const char *username) {
-   if (!db || !name || !*name) { return false; }
+   if (!db || !name || !*name) {
+      return false;
+   }
    bool exists, deleted;
-   if (!db_room_status(db, name, &exists, &deleted) || deleted ||
-       sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) { return false; }
+   if (!db_room_status(db, name, &exists, &deleted) || deleted || sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) { 
+      return false;
+   }
    const char *sql = exists
       ? "UPDATE rooms SET has_vfos=?2,vfo_mask=?3 WHERE name=?1 COLLATE NOCASE AND deleted=0;"
       : "INSERT INTO rooms(name,has_vfos,vfo_mask) VALUES(?,?,?);";
    sqlite3_stmt *st = NULL;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) { return db_room_change_end(db, false); }
+   if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      return db_room_change_end(db, false);
+   }
    sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(st, 2, has_vfos ? 1 : 0);
    sqlite3_bind_int64(st, 3, (sqlite3_int64)vfo_mask);
    bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(st);
 
-   if (ok && !exists) { ok = db_add_audit_event(db, username ? username : "server", "room.created", name); }
+   if (ok && !exists) {
+      ok = db_add_audit_event(db, username ? username : "server", "room.created", name);
+   }
    return db_room_change_end(db, ok);
 }
 
 bool db_room_set_topic(sqlite3 *db, const char *name, const char *topic) {
-   if (!db || !name || !*name || !topic) { return false; }
+   if (!db || !name || !*name || !topic) {
+      return false;
+   }
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, "UPDATE rooms SET topic=? WHERE name=? COLLATE NOCASE AND deleted=0;", -1, &st, NULL) != SQLITE_OK) {
@@ -510,7 +561,9 @@ bool db_room_set_topic(sqlite3 *db, const char *name, const char *topic) {
 }
 
 char *db_room_get_topic(sqlite3 *db, const char *name) {
-   if (!db || !name || !*name) { return NULL; }
+   if (!db || !name || !*name) {
+      return NULL;
+   }
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, "SELECT topic FROM rooms WHERE name=? COLLATE NOCASE;", -1, &st, NULL) != SQLITE_OK) {
@@ -530,22 +583,35 @@ char *db_room_get_topic(sqlite3 *db, const char *name) {
 
 // Distinguish missing rows from tombstones; room identity is case-insensitive.
 bool db_room_status(sqlite3 *db, const char *name, bool *exists, bool *deleted) {
-   if (!db || !name || !exists || !deleted) { return false; }
+   if (!db || !name || !exists || !deleted) {
+      return false;
+   }
    *exists = *deleted = false;
    sqlite3_stmt *st = NULL;
-   if (sqlite3_prepare_v2(db, "SELECT deleted FROM rooms WHERE name=? COLLATE NOCASE;", -1, &st, NULL) != SQLITE_OK) { return false; }
+   if (sqlite3_prepare_v2(db, "SELECT deleted FROM rooms WHERE name=? COLLATE NOCASE;", -1, &st, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
    int status = sqlite3_step(st);
-   if (status == SQLITE_ROW) { *exists = true; *deleted = sqlite3_column_int(st, 0) != 0; }
+   if (status == SQLITE_ROW) {
+      *exists = true;
+      *deleted = sqlite3_column_int(st, 0) != 0;
+   }
    sqlite3_finalize(st);
    return status == SQLITE_ROW || status == SQLITE_DONE;
 }
 
 bool db_room_restore(sqlite3 *db, const char *name, const char *username) {
    bool exists, deleted;
-   if (!db || !name || !*name || !db_room_status(db, name, &exists, &deleted)) { return false; }
-   if (!deleted) { return true; }
-   if (sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) { return false; }
+   if (!db || !name || !*name || !db_room_status(db, name, &exists, &deleted)) {
+      return false;
+   }
+   if (!deleted) {
+      return true;
+   }
+   if (sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_stmt *st = NULL;
    if (sqlite3_prepare_v2(db, "UPDATE rooms SET deleted=0 WHERE name=? COLLATE NOCASE AND deleted=1;", -1, &st, NULL) != SQLITE_OK) {
       return db_room_change_end(db, false);
@@ -553,7 +619,9 @@ bool db_room_restore(sqlite3 *db, const char *name, const char *username) {
    sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
    bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(st);
-   if (ok) { ok = db_add_audit_event(db, username ? username : "server", "room.restored", name); }
+   if (ok) {
+      ok = db_add_audit_event(db, username ? username : "server", "room.restored", name);
+   }
    return db_room_change_end(db, ok);
 }
 
@@ -583,35 +651,54 @@ bool db_room_delete(sqlite3 *db, const char *name, const char *username, bool fo
       }
    }
    char *details = force ? g_strdup_printf("%s --force%s", name, history ? " --history" : "") : NULL;
-   if (ok) { ok = db_add_audit_event(db, username ? username : "server", "room.removed", details ? details : name); }
+   if (ok) {
+      ok = db_add_audit_event(db, username ? username : "server", "room.removed", details ? details : name);
+   }
    g_free(details);
    return db_room_change_end(db, ok);
 }
 
 char *db_room_list(sqlite3 *db) {
-   if (!db) { return NULL; }
+   if (!db) {
+      return NULL;
+   }
    sqlite3_stmt *st = NULL;
 
-   if (sqlite3_prepare_v2(db, "SELECT name FROM rooms WHERE deleted=0 ORDER BY name;", -1, &st, NULL) != SQLITE_OK) { return NULL; }
+   if (sqlite3_prepare_v2(db, "SELECT name FROM rooms WHERE deleted=0 ORDER BY name;", -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
    size_t cap = 256, len = 0;
    char *out = calloc(1, cap);
 
-   if (!out) { sqlite3_finalize(st); return NULL; }
+   if (!out) {
+      sqlite3_finalize(st);
+      return NULL;
+   }
    while (sqlite3_step(st) == SQLITE_ROW) {
       const char *name = (const char *)sqlite3_column_text(st, 0);
 
-      if (!name) { continue; }
+      if (!name) {
+         continue;
+      }
       size_t need = strlen(name) + (len ? 1 : 0);
 
       if (len + need + 1 > cap) {
-         while (len + need + 1 > cap) { cap *= 2; }
+         while (len + need + 1 > cap) {
+            cap *= 2;
+         }
          char *tmp = realloc(out, cap);
 
-         if (!tmp) { free(out); sqlite3_finalize(st); return NULL; }
+         if (!tmp) {
+            free(out);
+            sqlite3_finalize(st);
+            return NULL;
+         }
          out = tmp;
       }
 
-      if (len) { out[len++] = ' '; }
+      if (len) {
+         out[len++] = ' ';
+      }
       memcpy( out + len, name, strlen(name) );
       len += strlen(name);
       out[len] = 0;
@@ -625,39 +712,66 @@ char *db_room_list(sqlite3 *db) {
 static char *db_join_rows(sqlite3 *db, const char *sql, const char *room, bool include_room) {
    sqlite3_stmt *st = NULL;
 
-   if (!db || sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) { return NULL; }
+   if (!db || sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
 
-   if (room) { sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT); }
+   if (room) {
+      sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   }
    size_t cap = 256, len = 0;
    char *out = calloc(1, cap);
 
-   if (!out) { sqlite3_finalize(st); return NULL; }
+   if (!out) {
+      sqlite3_finalize(st);
+      return NULL;
+   }
    while (sqlite3_step(st) == SQLITE_ROW) {
       const char *a = (const char *)sqlite3_column_text(st, 0);
       const char *b = include_room ? (const char *)sqlite3_column_text(st, 1) : NULL;
 
-      if (!a) { continue; }
+      if (!a) {
+         continue;
+      }
       size_t need = strlen(a) + (b ? strlen(b) + 1 : 0) + (len ? 1 : 0);
 
-      if (len + need + 1 > cap) { while (len + need + 1 > cap) { cap *= 2; }
+      if (len + need + 1 > cap) { while (len + need + 1 > cap) {
+         cap *= 2;
+      }
          char *tmp = realloc(out, cap);
 
          if (!tmp) {
-            free(out); sqlite3_finalize(st); return NULL;
+            free(out);
+            sqlite3_finalize(st);
+            return NULL;
          }
-         out = tmp; }
+         out = tmp;
+      }
 
-      if (len) { out[len++] = ' '; }
+      if (len) {
+         out[len++] = ' ';
+      }
 
-      if (b) { memcpy( out + len, a, strlen(a) ); len += strlen(a); out[len++] = '='; memcpy( out + len, b, strlen(b) );
-         len += strlen(b); } else { memcpy( out + len, a, strlen(a) ); len += strlen(a); }
+      if (b) {
+         memcpy( out + len, a, strlen(a) );
+         len += strlen(a);
+         out[len++] = '=';
+         memcpy( out + len, b, strlen(b) );
+         len += strlen(b);
+      } else {
+         memcpy( out + len, a, strlen(a) );
+         len += strlen(a);
+      }
       out[len] = 0;
    }
-   sqlite3_finalize(st); return out;
+   sqlite3_finalize(st);
+   return out;
 }
 
 bool db_room_vfos_clear(sqlite3 *db, const char *room) {
-   if (!db || !room || !*room) { return false; }
+   if (!db || !room || !*room) {
+      return false;
+   }
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=?;", -1, &st, NULL) != SQLITE_OK) {
@@ -671,26 +785,36 @@ bool db_room_vfos_clear(sqlite3 *db, const char *room) {
 }
 
 bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding) {
-   if (!db || !room || !binding) { return false; }
+   if (!db || !room || !binding) {
+      return false;
+   }
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO room_vfos(room,binding) VALUES(?,?);", -1, &st,
       NULL) != SQLITE_OK) {
       return false;
    }
-   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT); sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
-   bool ok = sqlite3_step(st) == SQLITE_DONE; sqlite3_finalize(st); return ok;
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   return ok;
 }
 
 bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding) {
-   if (!db || !room || !binding) { return false; }
+   if (!db || !room || !binding) {
+      return false;
+   }
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=? AND binding=?;", -1, &st, NULL) != SQLITE_OK) {
       return false;
    }
-   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT); sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
-   bool ok = sqlite3_step(st) == SQLITE_DONE; sqlite3_finalize(st); return ok;
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+   return ok;
 }
 
 char *db_room_vfo_list(sqlite3 *db, const char *room) {
@@ -700,31 +824,45 @@ char *db_room_vfo_list(sqlite3 *db, const char *room) {
 char *db_room_vfo_map_list(sqlite3 *db) {
    sqlite3_stmt *st = NULL;
 
-   if (!db || sqlite3_prepare_v2(db, "SELECT room,binding FROM room_vfos JOIN rooms ON rooms.name=room_vfos.room WHERE rooms.deleted=0 ORDER BY room,binding;", -1, &st,
-      NULL) != SQLITE_OK) { return NULL; }
+   if (!db || sqlite3_prepare_v2(db, "SELECT room,binding FROM room_vfos JOIN rooms ON rooms.name=room_vfos.room WHERE rooms.deleted=0 ORDER BY room,binding;", -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
    size_t cap = 256, len = 0;
    char *out = calloc(1, cap);
    char current_room[256] = "";
 
-   if (!out) { sqlite3_finalize(st); return NULL; }
+   if (!out) {
+      sqlite3_finalize(st);
+      return NULL;
+   }
    while (sqlite3_step(st) == SQLITE_ROW) {
       const char *room = (const char *)sqlite3_column_text(st, 0);
       const char *binding = (const char *)sqlite3_column_text(st, 1);
 
-      if (!room || !binding) { continue; }
+      if (!room || !binding) {
+         continue;
+      }
       bool new_room = strcmp(current_room, room) != 0;
       size_t need = strlen(binding) + (new_room ? strlen(room) + 2 + (len ? 1 : 0) : 2);
 
       if (len + need + 1 > cap) {
-         while (len + need + 1 > cap) { cap *= 2; }
+         while (len + need + 1 > cap) {
+            cap *= 2;
+         }
          char *tmp = realloc(out, cap);
 
-         if (!tmp) { free(out); sqlite3_finalize(st); return NULL; }
+         if (!tmp) {
+            free(out);
+            sqlite3_finalize(st);
+            return NULL;
+         }
          out = tmp;
       }
 
       if (new_room) {
-         if (len) { out[len++] = '\n'; }
+         if (len) {
+            out[len++] = '\n';
+         }
          len += (size_t)snprintf(out + len, cap - len, "%s: %s", room, binding);
          snprintf(current_room, sizeof(current_room), "%s", room);
       } else {
@@ -776,13 +914,17 @@ bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const 
                      "(uid,name,enabled,password,password_set,password_expires,password_change_required,email,maxsessions,permissions) "
                      "VALUES (?,?,?,?,unixepoch(),?,?,?, ?,?);";
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) { return false; }
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_int(stmt, 1, uid);
    sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
    sqlite3_bind_text(stmt, 4, password, -1, SQLITE_TRANSIENT);
 
-   if (password_expires > 0) { sqlite3_bind_int64(stmt, 5, (sqlite3_int64)password_expires); } else {
+   if (password_expires > 0) {
+      sqlite3_bind_int64(stmt, 5, (sqlite3_int64)password_expires);
+   } else {
       sqlite3_bind_null(stmt, 5);
    }
    sqlite3_bind_int(stmt, 6, password_change_required ? 1 : 0);
@@ -796,10 +938,14 @@ bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const 
 }
 
 static bool db_user_update(sqlite3 *db, const char *sql, const char *name, bool enabled) {
-   if (!db || !name || !*name) { return false; }
+   if (!db || !name || !*name) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) { return false; }
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_int(stmt, 1, enabled ? 1 : 0);
    sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
    bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
@@ -830,9 +976,13 @@ bool db_user_set_privileges(sqlite3 *db, const char *name, const char *privilege
 }
 
 bool db_user_remove(sqlite3 *db, const char *name) {
-   if (!db || !name || !*name) { return false; }
+   if (!db || !name || !*name) {
+      return false;
+   }
 
-   if (sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) { return false; }
+   if (sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
    bool ok = sqlite3_prepare_v2(db, "DELETE FROM users WHERE name=?;", -1, &stmt, NULL) == SQLITE_OK;
 
@@ -852,23 +1002,30 @@ bool db_user_remove(sqlite3 *db, const char *name) {
       sqlite3_finalize(stmt);
    }
 
-   if (sqlite3_exec(db, ok ? "COMMIT;" : "ROLLBACK;", NULL, NULL, NULL) != SQLITE_OK) { ok = false; }
+   if (sqlite3_exec(db, ok ? "COMMIT;" : "ROLLBACK;", NULL, NULL, NULL) != SQLITE_OK) {
+      ok = false;
+   }
 
    return ok;
 }
 
-bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash, bool password_change_required,
-                             time_t password_expires) {
-   if (!db || !name || !*name || !password_hash || !*password_hash) { return false; }
+bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash, bool password_change_required, time_t password_expires) {
+   if (!db || !name || !*name || !password_hash || !*password_hash) {
+       return false;
+   }
    sqlite3_stmt *stmt = NULL;
    const char *sql = "UPDATE users SET password=?, password_set=unixepoch(), password_expires=?, "
                      "password_change_required=? WHERE name=?;";
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) { return false; }
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, password_hash, -1, SQLITE_TRANSIENT);
 
-   if (password_expires > 0) { sqlite3_bind_int64(stmt, 2, (sqlite3_int64)password_expires); } else {
-      sqlite3_bind_null(stmt, 2);
+   if (password_expires > 0) {
+      sqlite3_bind_int64(stmt, 2, (sqlite3_int64)password_expires);
+   } else {
+     sqlite3_bind_null(stmt, 2);
    }
    sqlite3_bind_int(stmt, 3, password_change_required ? 1 : 0);
    sqlite3_bind_text(stmt, 4, name, -1, SQLITE_TRANSIENT);
@@ -879,7 +1036,9 @@ bool db_user_update_password(sqlite3 *db, const char *name, const char *password
 }
 
 int db_user_next_uid(sqlite3 *db) {
-   if (!db) { return -1; }
+   if (!db) {
+      return -1;
+   }
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, "SELECT COALESCE(MAX(uid)+1,1) FROM users;", -1, &stmt, NULL) != SQLITE_OK) {
@@ -1374,7 +1533,9 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
       return false;
    }
 
-   if (!ws_client_in_room(cptr, channel)) { return false; }
+   if (!ws_client_in_room(cptr, channel)) {
+      return false;
+   }
    int replay_lines = cfg_get_int("chat.replay-lines", 20);
 
    if (replay_lines <= 0) {

@@ -88,8 +88,6 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
 
 // Called via event_on_binary() when the fwdsp subprocess emits a captured frame
 static void webcam_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
-
    if (!data || len == 0) {
       return;
    }
@@ -137,10 +135,6 @@ void webcam_client_stop(void) {
 // Event: auth state changed; when we're configured as a video source, start
 // the capture once we're authorized
 static void webcam_conn_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)data;
-   (void)cptr;
-   (void)user;
-
    if (!event) {
       return;
    }

@@ -231,8 +231,9 @@ const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[
       if (!channel->uuid[0] || !channel->subscribed || !channel->stream_valid ||
           channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
           channel->direction != RR_BINFRAME_DIR_RX ||
-          channel->stream != stream ||
-          strncmp(channel->codec, codec, 4) != 0) { continue; }
+          channel->stream != stream || strncmp(channel->codec, codec, 4) != 0) {
+         continue;
+      }
 
       return channel->codec;
    }
@@ -368,30 +369,45 @@ bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) 
 static bool gps_wanted(const struct rr_media_known *channel) {
    if (channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || channel->direction != RR_BINFRAME_DIR_RX ||
        ( strcmp(channel->codec, RR_GPS_FRAME_CODEC) && strcmp(channel->codec,
-          RR_NMEA_FRAME_CODEC) ) || !channel->joined) { return false; }
+          RR_NMEA_FRAME_CODEC) ) || !channel->joined) {
+      return false;
+   }
    bool raw = !strcmp(channel->codec, RR_NMEA_FRAME_CODEC);
    const char *suffix = strstr(channel->name, raw ? ".nmea.rx" : ".gps.rx");
 
-   if (!suffix) { return false; }
+   if (!suffix) {
+      return false;
+   }
    char source[64]; size_t len = suffix - channel->name;
 
-   if ( len >= sizeof(source) ) { return false; }
+   if ( len >= sizeof(source) ) {
+      return false;
+   }
    memcpy(source, channel->name, len); source[len] = '\0';
-   char scopes[sizeof(gps_scopes)]; snprintf(scopes, sizeof(scopes), "%s", gps_scopes);
+   char scopes[sizeof(gps_scopes)];
+   snprintf(scopes, sizeof(scopes), "%s", gps_scopes);
    char *save = NULL;
 
    for ( char *scope = strtok_r(scopes, " ", &save) ; scope ; scope = strtok_r(NULL, " ", &save) ) {
       bool requested_raw = !strncmp(scope, "nmea:", 5);
 
-      if (requested_raw != raw) { continue; }
+      if (requested_raw != raw) {
+         continue;
+      }
 
-      if (requested_raw) { scope += 5; }
+      if (requested_raw) {
+         scope += 5;
+      }
 
-      if ( !strcmp(scope, source) ) { return true; }
+      if ( !strcmp(scope, source) ) {
+         return true;
+      }
 
       if ( !strcmp(scope, "active") &&
            ( ws_room_same_rig(media_room, channel->control_room) ||
-             ( !strcmp(source, "station") && !rrclient_room_vfo_mask(media_room) ) ) ) { return true; }
+             ( !strcmp(source, "station") && !rrclient_room_vfo_mask(media_room) ) ) ) {
+         return true;
+      }
    }
 
    return false;
@@ -402,7 +418,10 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    }
 
    if ( gps_wanted(kp) ) {
-      if ( media_send_subscribe(cptr, kp->uuid) ) { kp->subscribed = true; kp->automatic = true; }
+      if ( media_send_subscribe(cptr, kp->uuid) ) {
+         kp->subscribed = true;
+         kp->automatic = true;
+      }
 
       return;
    }
@@ -428,7 +447,6 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
 }
 
 static void gps_outputs_changed(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)client; (void)user;
    snprintf(gps_scopes, sizeof(gps_scopes), "%s", data ? data : "");
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -616,14 +634,15 @@ static void rrclient_handle_media_conn(const char *event, const char *data, rrco
 
 /* PARITY: rustyrig-www/js/webui.chat.js:parse_userinfo_reply */
 static void rrclient_media_account_update(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
    dict *update = data ? json2dict(data) : NULL;
    const char *name = update ? dict_get(update, "talk.user", NULL) : NULL;
    const char *privileges = update ? dict_get(update, "talk.privs", NULL) : NULL;
    if (name && login_user && !strcasecmp(name, login_user) && privileges) {
       snprintf(media_my_privs, sizeof(media_my_privs), "%s", privileges);
    }
-   if (update) { dict_free(update); }
+   if (update) {
+      dict_free(update);
+   }
 }
 
 static void rrclient_handle_media_codecs(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -678,7 +697,9 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
 }
 
 void rrclient_media_room_joined(const char *room) {
-   if (!room || !*room) { return; }
+   if (!room || !*room) {
+      return;
+   }
    snprintf(media_room, sizeof(media_room), "%s", room);
    uint32_t mask = rrclient_room_vfo_mask(room);
    char active = vfo_state_get_active();
@@ -708,10 +729,13 @@ void rrclient_media_room_joined(const char *room) {
 }
 
 void rrclient_media_room_selected(const char *room) {
-   if ( !room || !strcasecmp(room, media_room) ) { return; }
+   if ( !room || !strcasecmp(room, media_room) ) {
+      return;
+   }
 
    if ( rrclient_room_is_joined(room) && rrclient_room_vfo_mask(room) ) {
-      rrclient_media_room_joined(room); return;
+      rrclient_media_room_joined(room);
+      return;
    }
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -724,13 +748,19 @@ void rrclient_media_room_selected(const char *room) {
 }
 
 void rrclient_media_room_parted(const char *room) {
-   if (!room) { return; }
-
-   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
-      if ( !strcasecmp(known_chans[i].room, room) ) { known_chans[i].joined = false; }
+   if (!room) {
+      return;
    }
 
-   if ( !strcasecmp(media_room, room) ) { media_room[0] = '\0'; }
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      if ( !strcasecmp(known_chans[i].room, room) ) {
+         known_chans[i].joined = false;
+      }
+   }
+
+   if ( !strcasecmp(media_room, room) ) {
+      media_room[0] = '\0';
+   }
    rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
 }
 
@@ -740,29 +770,39 @@ static bool gps_sentence(int32_t lat, int32_t lon, uint8_t flags, char *sentence
    return rr_gps_nmea_rmc(lat, lon, flags, time(NULL), sentence, capacity) != 0;
 }
 static void gps_frame(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
-   (void)event; (void)user;
    struct rr_binframe frame;
 
    if (rr_binframe_parse(data, len, &frame) || len != RR_BINFRAME_HDR_LEN + frame.len ||
        frame.hdr.subsystem != RR_BINFRAME_SUBSYS_MODEM || frame.hdr.direction != RR_BINFRAME_DIR_RX ||
-       frame.hdr.vfo != RR_BINFRAME_VFO_NA || !frame.hdr.stream) { return; }
+       frame.hdr.vfo != RR_BINFRAME_VFO_NA || !frame.hdr.stream) {
+      return;
+   }
    bool raw = !memcmp(frame.hdr.codec, RR_NMEA_FRAME_CODEC, 4);
    char sentence[512];
 
    if (raw) {
-      if ( !frame.len || frame.len >= sizeof(sentence) || memchr(frame.data, 0, frame.len) ) { return; }
-      memcpy(sentence, frame.data, frame.len); sentence[frame.len] = '\0';
+      if ( !frame.len || frame.len >= sizeof(sentence) || memchr(frame.data, 0, frame.len) ) {
+         return;
+      }
+      memcpy(sentence, frame.data, frame.len);
+      sentence[frame.len] = '\0';
    } else {
-      if (memcmp(frame.hdr.codec, RR_GPS_FRAME_CODEC, 4) || frame.len != RR_GPS_POSITION_PAYLOAD_LEN) { return; }
+      if (memcmp(frame.hdr.codec, RR_GPS_FRAME_CODEC, 4) || frame.len != RR_GPS_POSITION_PAYLOAD_LEN) {
+         return;
+      }
       int32_t lat = (int32_t)( (uint32_t)frame.data[0] << 24 | (uint32_t)frame.data[1] << 16 |
                                (uint32_t)frame.data[2] << 8 | frame.data[3] );
       int32_t lon = (int32_t)( (uint32_t)frame.data[4] << 24 | (uint32_t)frame.data[5] << 16 |
                                (uint32_t)frame.data[6] << 8 | frame.data[7] );
 
-      if ( !gps_sentence( lat, lon, frame.data[8], sentence, sizeof(sentence) ) ) { return; }
+      if ( !gps_sentence( lat, lon, frame.data[8], sentence, sizeof(sentence) ) ) {
+         return;
+      }
    }
 
-   if ( !rr_nmea_valid(sentence) ) { return; }
+   if ( !rr_nmea_valid(sentence) ) {
+      return;
+   }
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
@@ -770,17 +810,25 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       if (!channel->subscribed || !channel->stream_valid || channel->stream != frame.hdr.stream ||
           channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec,
              raw ? RR_NMEA_FRAME_CODEC : RR_GPS_FRAME_CODEC) ||
-          channel->rig != frame.hdr.rig || !channel->joined) { continue; }
+          channel->rig != frame.hdr.rig || !channel->joined) {
+         continue;
+      }
       const char *suffix = strstr(channel->name, raw ? ".nmea.rx" : ".gps.rx");
 
-      if (!suffix) { return; }
+      if (!suffix) {
+         return;
+      }
       char source[64]; size_t size = suffix - channel->name;
 
-      if ( size >= sizeof(source) ) { return; }
+      if ( size >= sizeof(source) ) {
+         return;
+      }
       memcpy(source, channel->name, size); source[size] = '\0';
       dict *d = dict_new();
 
-      if (!d) { return; }
+      if (!d) {
+         return;
+      }
       dict_add(d, "gps.source", source); dict_add(d, "gps.nmea", sentence);
       dict_add_bool(d, "gps.raw", raw);
       dict_add_bool( d, "gps.selected", ws_room_same_rig(media_room, channel->control_room) ||
@@ -888,9 +936,13 @@ const struct rr_media_known *rrclient_media_chan_lookup(const char *arg) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       const struct rr_media_known *channel = &known_chans[i];
 
-      if ( !channel->uuid[0] || !channel->name[0] || strcasecmp(channel->name, arg) ) { continue; }
+      if ( !channel->uuid[0] || !channel->name[0] || strcasecmp(channel->name, arg) ) {
+         continue;
+      }
 
-      if (match) { return NULL; }
+      if (match) {
+         return NULL;
+      }
       match = channel;
    }
 
@@ -1154,7 +1206,9 @@ const char *rrclient_media_active_room(void) {
 }
 
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
-   if (!room || vfo < 'A' || vfo > 'Z') { return NULL; }
+   if (!room || vfo < 'A' || vfo > 'Z') {
+      return NULL;
+   }
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
@@ -1165,8 +1219,9 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
          const dict *object = rrclient_object_find_alias("vfo", channel->rig_uuid, alias);
          if (object) return dict_get((dict *)object, "object.uuid", NULL);
       }
-      if ( channel->vfo == vfo - 'A' && channel->vfo_uuid[0] &&
-           ws_room_same_rig(room, channel->control_room) ) { return channel->vfo_uuid; }
+      if ( channel->vfo == vfo - 'A' && channel->vfo_uuid[0] && ws_room_same_rig(room, channel->control_room) ) {
+           return channel->vfo_uuid;
+      }
    }
 
    return NULL;

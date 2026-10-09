@@ -272,37 +272,48 @@ static bool rr_property_dict_add_value(dict *d, const char *key, val_type_t type
 
    switch (type) {
       case VAL_STR: {
-         rc = dict_add(d, key, value->s); break;
+         rc = dict_add(d, key, value->s);
+         break;
       }
       case VAL_INT: {
-         rc = dict_add_int(d, key, value->i); break;
+         rc = dict_add_int(d, key, value->i);
+         break;
       }
       case VAL_UINT: {
-         rc = dict_add_uint(d, key, value->ui); break;
+         rc = dict_add_uint(d, key, value->ui);
+         break;
       }
       case VAL_LONG: {
-         rc = dict_add_long(d, key, value->l); break;
+         rc = dict_add_long(d, key, value->l);
+         break;
       }
       case VAL_ULONG: {
-         rc = dict_add_ulong(d, key, value->ul); break;
+         rc = dict_add_ulong(d, key, value->ul);
+         break;
       }
       case VAL_LLONG: {
-         rc = dict_add_llong(d, key, value->ll); break;
+         rc = dict_add_llong(d, key, value->ll);
+         break;
       }
       case VAL_ULLONG: {
-         rc = dict_add_ullong(d, key, value->ull); break;
+         rc = dict_add_ullong(d, key, value->ull);
+         break;
       }
       case VAL_FLOAT: {
-         rc = dict_add_float(d, key, value->f); break;
+         rc = dict_add_float(d, key, value->f);
+         break;
       }
       case VAL_BOOL: {
-         rc = dict_add_bool(d, key, value->i != 0); break;
+         rc = dict_add_bool(d, key, value->i != 0);
+         break;
       }
       case VAL_DOUBLE: {
-         rc = dict_add_double(d, key, value->d); break;
+         rc = dict_add_double(d, key, value->d);
+         break;
       }
       case VAL_CHAR: {
-         rc = dict_add_char(d, key, value->c); break;
+         rc = dict_add_char(d, key, value->c);
+         break;
       }
       default: {
                break;
@@ -556,8 +567,9 @@ static bool rr_property_define_store(dict *properties, const rr_property_descrip
    if ( (descriptor->enum_values && descriptor->type != VAL_STR) ||
         ( (descriptor->has_min || descriptor->has_max || descriptor->has_step) &&
           (descriptor->type == VAL_STR || descriptor->type == VAL_BOOL) ) ||
-        ( descriptor->has_step &&
-          (descriptor->type == VAL_FLOAT || descriptor->type == VAL_DOUBLE) ) ) { return true; }
+        ( descriptor->has_step && (descriptor->type == VAL_FLOAT || descriptor->type == VAL_DOUBLE) ) ) {
+      return true;
+   }
 
    rr_rig_property_t *existing = rr_property_find_store(properties, descriptor->name);
 
@@ -748,7 +760,9 @@ static bool rr_property_describe_store(dict *properties, const char *name, rr_pr
 }
 
 static bool rr_property_foreach(dict *store, rr_property_iter_fn cb, void *user) {
-   if (!store || !cb) { return true; }
+   if (!store || !cb) {
+      return true;
+   }
    int rank = 0;
    const char *key;
    dict_value_t value;
@@ -957,38 +971,49 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
 
    switch (property->type) {
       case VAL_INT: {
-         CHECK_INTEGER(i); break;
+         CHECK_INTEGER(i);
+         break;
       }
       case VAL_UINT: {
-         CHECK_INTEGER(ui); break;
+         CHECK_INTEGER(ui);
+         break;
       }
       case VAL_LONG: {
-         CHECK_INTEGER(l); break;
+         CHECK_INTEGER(l);
+         break;
       }
       case VAL_ULONG: {
-         CHECK_INTEGER(ul); break;
+         CHECK_INTEGER(ul);
+         break;
       }
       case VAL_LLONG: {
-         CHECK_INTEGER(ll); break;
+         CHECK_INTEGER(ll);
+         break;
       }
       case VAL_ULLONG: {
-         CHECK_INTEGER(ull); break;
+         CHECK_INTEGER(ull);
+         break;
       }
       case VAL_CHAR: {
-         CHECK_INTEGER(c); break;
+         CHECK_INTEGER(c);
+         break;
       }
       case VAL_FLOAT: {
-         if ( (s->has_min && request->value.f < s->minimum.f) ||
-              (s->has_max && request->value.f > s->maximum.f) ) { return RR_CONTROL_INVALID; }
+         if ( (s->has_min && request->value.f < s->minimum.f) || (s->has_max && request->value.f > s->maximum.f) ) {
+            return RR_CONTROL_INVALID;
+         }
          break;
       }
       case VAL_DOUBLE: {
-         if ( (s->has_min && request->value.d < s->minimum.d) ||
-              (s->has_max && request->value.d > s->maximum.d) ) { return RR_CONTROL_INVALID; }
+         if ( (s->has_min && request->value.d < s->minimum.d) || (s->has_max && request->value.d > s->maximum.d) ) {
+            return RR_CONTROL_INVALID;
+         }
          break;
       }
       case VAL_STR: {
-         if (!request->value.s) { return RR_CONTROL_INVALID; }
+         if (!request->value.s) {
+            return RR_CONTROL_INVALID;
+         }
 
          if (s->enum_values) {
             bool found = false;

@@ -123,7 +123,9 @@ static bool rrclient_config_refresh(const char *key) {
    cfg_ui_ptt_ack_timeout = cfg_get_int("ui.ptt-ack-timeout", 2);
    cfg_ui_ptt_hold_delay = cfg_get_int("ui.ptt-hold-delay", 500);
 
-   if (cfg_ui_ptt_hold_delay < 0) { cfg_ui_ptt_hold_delay = 0; }
+   if (cfg_ui_ptt_hold_delay < 0) {
+      cfg_ui_ptt_hold_delay = 0;
+   }
    cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
@@ -172,7 +174,9 @@ static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifi
       return frontend_ops()->ptt_hotkey_toggle();
    }
 
-   if (!ws_conn || ws_connected != 1) { return true; }
+   if (!ws_conn || ws_connected != 1) {
+      return true;
+   }
    char vfo[2] = {
       vfo_state_get_active(), '\0'
    };
@@ -347,12 +351,16 @@ static void rrclient_tui_host_log_frame(const char *event, const void *data, siz
          while (src_pos < message_len) {
             unsigned char end = src[src_pos++];
 
-            if (end >= '@' && end <= '~') { break; }
+            if (end >= '@' && end <= '~') {
+               break;
+            }
          }
          continue;
       }
 
-      if (ch < 32 || ch == 127) { ch = ' '; }
+      if (ch < 32 || ch == 127) {
+         ch = ' ';
+      }
       message[out++] = (char)ch;
    }
    message[out] = '\0';
@@ -389,7 +397,9 @@ static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys
    for (size_t i = 0 ; message[i] ; i++) {
       unsigned char ch = (unsigned char)message[i];
 
-      if (ch < 32 || ch == 127) { message[i] = ' '; }
+      if (ch < 32 || ch == 127) {
+         message[i] = ' ';
+      }
    }
 
    log_printing = true;
@@ -616,7 +626,9 @@ int main(int argc, char *argv[]) {
    cfg_add_callback(NULL, "network:*", config_network_cb);
    config_fwdsp_init();
 
-   if ( !rr_serial_config_register() ) { return EXIT_FAILURE; }
+   if ( !rr_serial_config_register() ) {
+      return EXIT_FAILURE;
+   }
    cfg_modules_init();
 
    // Register config save callbacks so module-owned sections get saved.

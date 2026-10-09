@@ -34,7 +34,9 @@ static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
    }
 #ifdef USE_SQLITE
 
-   if ( !db_room_vfo_add( masterdb, ctx->room, rr_server_vfo_id(vfo) ) ) { return true; }
+   if ( !db_room_vfo_add( masterdb, ctx->room, rr_server_vfo_id(vfo) ) ) {
+      return true;
+   }
 #endif
 
    return false;
@@ -76,9 +78,13 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
    }
 #endif
 
-   if (!failed) { failed = rr_server_vfo_foreach(radio, collect_vfo, &ctx); }
+   if (!failed) {
+      failed = rr_server_vfo_foreach(radio, collect_vfo, &ctx);
+   }
 
-   if (!failed) { failed = !ws_room_set_vfo_mask(room, ctx.mask); }
+   if (!failed) {
+      failed = !ws_room_set_vfo_mask(room, ctx.mask);
+   }
    uint32_t tuning_mask = rr_rig_config_get_bool(alias, "rx-independent-tuning", false) ? ctx.mask : 0;
    char *independent = rr_rig_config_get_exp(alias, "rx-independent-vfos");
 
@@ -102,10 +108,14 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
    }
    free(independent);
 
-   if (!failed) { failed = !ws_room_set_rx_tuning_mask(room, tuning_mask); }
+   if (!failed) {
+      failed = !ws_room_set_rx_tuning_mask(room, tuning_mask);
+   }
 #ifdef USE_SQLITE
 
-   if (!failed) { failed = !db_room_ensure(masterdb, room, true, ctx.mask, "server"); }
+   if (!failed) {
+      failed = !db_room_ensure(masterdb, room, true, ctx.mask, "server");
+   }
 #endif
 
    if ( !failed && radio == rr_rig_registry_default(rig.rigs) ) {
@@ -113,7 +123,9 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
       ws_set_authoritative_vfo_mask(ctx.mask);
    }
 
-   if (!failed) { Log(LOG_INFO, "rig.rooms", "Rig %s uses room %s", alias, room); }
+   if (!failed) {
+      Log(LOG_INFO, "rig.rooms", "Rig %s uses room %s", alias, room);
+   }
    free(configured);
 
    return failed;
@@ -123,13 +135,17 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
 static bool restore_rx_rooms(void) {
    sqlite3_stmt *statement = NULL;
 
-   if (sqlite3_prepare_v2(masterdb, "SELECT name FROM rooms WHERE deleted=0;", -1, &statement, NULL) != SQLITE_OK) { return true; }
+   if (sqlite3_prepare_v2(masterdb, "SELECT name FROM rooms WHERE deleted=0;", -1, &statement, NULL) != SQLITE_OK) {
+      return true;
+   }
    bool failed = false;
    int status;
    while ( ( status = sqlite3_step(statement) ) == SQLITE_ROW && !failed ) {
       const char *room = (const char *)sqlite3_column_text(statement, 0);
 
-      if ( rrserver_rig_room_configured(room) ) { continue; }
+      if ( rrserver_rig_room_configured(room) ) {
+         continue;
+      }
       rr_server_rig_t *radio = ws_room_rig_namespace(room) && !ws_room_rig_base(room)
          ? rrserver_rig_for_room(room) : NULL;
       uint32_t mask = 0;
@@ -142,17 +158,25 @@ static bool restore_rx_rooms(void) {
 
          if (vfo && rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
             mask |= UINT32_C(1) << index;
-         } else if ( !db_room_vfo_remove(masterdb, room, id) ) { failed = true; }
+         } else if ( !db_room_vfo_remove(masterdb, room, id) ) {
+            failed = true;
+         }
       }
 
       free(bindings);
 
-      if ( !db_room_ensure(masterdb, room, mask != 0, mask, "server") ) { failed = true; }
+      if ( !db_room_ensure(masterdb, room, mask != 0, mask, "server") ) {
+         failed = true;
+      }
 
-      if ( radio && !ws_room_set_vfo_mask(room, mask) ) { failed = true; }
+      if ( radio && !ws_room_set_vfo_mask(room, mask) ) {
+         failed = true;
+      }
    }
 
-   if (status != SQLITE_DONE && !failed) { failed = true; }
+   if (status != SQLITE_DONE && !failed) {
+      failed = true;
+   }
    sqlite3_finalize(statement);
 
    return failed;
@@ -160,10 +184,14 @@ static bool restore_rx_rooms(void) {
 #endif
 
 bool rrserver_rig_rooms_init(void) {
-   if ( !rig.rigs || !ws_room_name_valid( ws_site_room() ) ) { return true; }
+   if ( !rig.rigs || !ws_room_name_valid( ws_site_room() ) ) {
+      return true;
+   }
 #ifdef USE_SQLITE
 
-   if (sqlite3_exec(masterdb, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) { return true; }
+   if (sqlite3_exec(masterdb, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) {
+      return true;
+   }
    bool failed = !db_room_restore(masterdb, ws_site_room(), "server") || !db_room_ensure(masterdb, ws_site_room(), false, 0, "server") ||
                  !db_room_vfos_clear( masterdb, ws_site_room() );
 #else
@@ -176,7 +204,9 @@ bool rrserver_rig_rooms_init(void) {
    }
 #ifdef USE_SQLITE
 
-   if (!failed) { failed = restore_rx_rooms(); }
+   if (!failed) {
+      failed = restore_rx_rooms();
+   }
 
    if (sqlite3_exec(masterdb, failed ? "ROLLBACK;" : "COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
       failed = true;
@@ -203,7 +233,10 @@ static bool find_room_rig(rr_server_rig_t *radio, void *data) {
    struct lookup_room_context *ctx = data;
    const char *base = rr_rig_registry_room(rig.rigs, radio);
 
-   if ( base && ws_room_same_rig(ctx->room, base) ) { ctx->radio = radio; return true; }
+   if ( base && ws_room_same_rig(ctx->room, base) ) {
+      ctx->radio = radio;
+      return true;
+   }
 
    return false;
 }
@@ -212,7 +245,9 @@ rr_server_rig_t *rrserver_rig_for_room(const char *room) {
       .room = room
    };
 
-   if (room && rig.rigs) { rr_rig_registry_foreach(rig.rigs, find_room_rig, &ctx); }
+   if (room && rig.rigs) {
+      rr_rig_registry_foreach(rig.rigs, find_room_rig, &ctx);
+   }
 
    return ctx.radio;
 }

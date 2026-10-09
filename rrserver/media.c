@@ -43,7 +43,8 @@ static bool media_always_record(const struct rr_mediachan *channel) {
       channel->vfo < 26 ? UINT32_C(1) << channel->vfo : 0;
    for (unsigned vfo = 0; vfo < 26; vfo++) {
       if (!(mask & (UINT32_C(1) << vfo))) continue;
-      char key[64]; snprintf(key, sizeof(key), "record.always.vfo_%c", 'a' + vfo);
+      char key[64];
+      snprintf(key, sizeof(key), "record.always.vfo_%c", 'a' + vfo);
       if (cfg_get_bool(key, false)) return true;
    }
    return false;
@@ -53,7 +54,9 @@ static const char *rig_endpoint(rr_server_rig_t *radio, bool tx, char *buf, size
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    const char *configured = rr_rig_config_get(alias, tx ? "audio.sink" : "audio.source");
 
-   if (configured && *configured) { return configured; }
+   if (configured && *configured) {
+      return configured;
+   }
    snprintf(buf, len, "%s.%s", tx ? "sink" : "src", alias);
 
    return buf;
@@ -112,7 +115,9 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
    struct rr_mediachan *channel = media_chan_find_uuid(channel_uuid);
    rr_server_rig_t *radio = channel ? rr_rig_registry_find_uuid(rig.rigs, channel->rig_uuid) : NULL;
 
-   if (!radio) { return; }
+   if (!radio) {
+      return;
+   }
    char endpoint[128];
    const char *sink = rig_endpoint( radio, true, endpoint, sizeof(endpoint) );
    size_t slot = channel - media_channels;
@@ -146,11 +151,15 @@ bool rrserver_media_audio_init(void) {
 }
 
 static bool media_record_log_transition(const char *uuid, bool active) {
-   if (!uuid || !*uuid) { return true; }
+   if (!uuid || !*uuid) {
+      return true;
+   }
    struct media_record_log_state *slot = NULL;
 
    for (int i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
-      if (!media_record_logs[i].uuid[0] && !slot) { slot = &media_record_logs[i]; }
+      if (!media_record_logs[i].uuid[0] && !slot) {
+         slot = &media_record_logs[i];
+      }
 
       if ( media_record_logs[i].uuid[0] && !strcmp(media_record_logs[i].uuid, uuid) ) {
          slot = &media_record_logs[i];
@@ -158,11 +167,17 @@ static bool media_record_log_transition(const char *uuid, bool active) {
       }
    }
 
-   if (!slot) { return true; }
+   if (!slot) {
+      return true;
+   }
 
-   if (!slot->uuid[0]) { snprintf(slot->uuid, sizeof(slot->uuid), "%s", uuid); }
+   if (!slot->uuid[0]) {
+      snprintf(slot->uuid, sizeof(slot->uuid), "%s", uuid);
+   }
 
-   if (slot->active == active) { return false; }
+   if (slot->active == active) {
+      return false;
+   }
    slot->active = active;
 
    return true;
@@ -327,12 +342,15 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    if (!ctx->rx_per_vfo && !ctx->tx_per_vfo && ctx->made) return false;
    rr_vfo_t index;
 
-   if ( !rr_server_vfo_native_index(vfo, &index) ||
-        !rr_backend_vfo_supported(ctx->radio, vfo) ) { return false; }
+   if ( !rr_server_vfo_native_index(vfo, &index) || !rr_backend_vfo_supported(ctx->radio, vfo) ) {
+      return false;
+   }
    const char *alias = rr_rig_registry_alias(rig.rigs, ctx->radio);
    const char *room = rr_rig_registry_room(rig.rigs, ctx->radio);
 
-   if (!room) { return true; }
+   if (!room) {
+      return true;
+   }
    uint8_t rig_index = rr_rig_registry_media_index(rig.rigs, ctx->radio);
 
    for (int tx = 0 ; tx < 2 ; tx++) {
@@ -347,7 +365,9 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
       struct rr_mediachan *cp = media_chan_add(RR_BINFRAME_SUBSYS_AUDIO, tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX,
          per_vfo ? index : RR_BINFRAME_VFO_NA, rig_index, NULL, descr);
 
-      if (!cp) { return true; }
+      if (!cp) {
+         return true;
+      }
       snprintf(cp->room, sizeof(cp->room), "%s", room);
       snprintf( cp->rig_uuid, sizeof(cp->rig_uuid), "%s", rr_server_rig_id(ctx->radio) );
       if (per_vfo) {
@@ -499,13 +519,19 @@ static void rrserver_media_talker_frame(const char *event, const void *payload, 
    (void)user;
    struct rr_binframe frame;
 
-   if (!cptr || rr_binframe_parse(payload, len, &frame) < 0) { return; }
+   if (!cptr || rr_binframe_parse(payload, len, &frame) < 0) {
+      return;
+   }
    struct rr_mediachan *channel = media_chan_find(frame.hdr.subsystem, frame.hdr.direction, frame.hdr.vfo,
       frame.hdr.rig);
 
-   if ( !channel || !channel->codec[0] || !media_client_in_channel_room(cptr, channel) ) { return; }
+   if ( !channel || !channel->codec[0] || !media_client_in_channel_room(cptr, channel) ) {
+      return;
+   }
 
-   if ( rig.ptt_rig && strcmp( channel->rig_uuid, rr_server_rig_id(rig.ptt_rig) ) ) { return; }
+   if ( rig.ptt_rig && strcmp( channel->rig_uuid, rr_server_rig_id(rig.ptt_rig) ) ) {
+      return;
+   }
 
    if ( !fwdsp_write_channel_samples(channel->codec, false, channel->uuid, frame.data, frame.len) ) {
       Log(LOG_WARN, "pcm.hub", "Unable to decode incoming TX audio for %s on channel %s", cptr->chatname,
@@ -550,9 +576,13 @@ static void rrserver_media_subscribed(const char *event, const char *data, rrcon
       }
    }
 
-   if (channel && cptr) { fwdsp_send_stream_headers(channel->uuid, cptr); }
+   if (channel && cptr) {
+      fwdsp_send_stream_headers(channel->uuid, cptr);
+   }
 
-   if (d) { dict_free(d); }
+   if (d) {
+      dict_free(d);
+   }
 }
 
 void rrserver_media_register_events(void) {

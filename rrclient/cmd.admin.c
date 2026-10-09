@@ -289,7 +289,9 @@ bool cmd_user(int argc, char **args) {
    for (int i = 1 ; i < argc ; i++) {
       int n = snprintf(data + pos, sizeof(data) - pos, "%s%s", i > 1 ? " " : "", args[i] ? args[i] : "");
 
-      if (n < 0 || (size_t)n >= sizeof(data) - pos) { break; }
+      if (n < 0 || (size_t)n >= sizeof(data) - pos) {
+         break;
+      }
       pos += (size_t)n;
    }
 

@@ -29,7 +29,9 @@ rr_rig_registry_t *rr_rig_registry_new(void) {
 }
 
 bool rr_rig_registry_set_node(rr_rig_registry_t *registry, const char *uuid) {
-   if (!registry || !uuid || registry->node_uuid) { return true; }
+   if (!registry || !uuid || registry->node_uuid) {
+      return true;
+   }
    registry->node_uuid = strdup(uuid);
 
    return !registry->node_uuid;
@@ -69,8 +71,7 @@ rr_server_rig_t *rr_rig_registry_find_uuid(const rr_rig_registry_t *registry, co
       return NULL;
    }
 
-   for (rr_rig_registry_entry_t *entry = registry->head ; entry ;
-        entry = entry->next) {
+   for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
       if (strcmp(rr_server_rig_id(entry->radio), uuid) == 0) {
          return entry->radio;
       }
@@ -237,7 +238,9 @@ rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry) {
 }
 
 bool rr_rig_registry_set_room(rr_rig_registry_t *registry, rr_server_rig_t *radio, const char *room) {
-   if (!registry || !room || strlen(room) >= 128) { return true; }
+   if (!registry || !room || strlen(room) >= 128) {
+      return true;
+   }
 
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
       if (entry->radio == radio) {
@@ -251,10 +254,14 @@ bool rr_rig_registry_set_room(rr_rig_registry_t *registry, rr_server_rig_t *radi
 }
 
 const char *rr_rig_registry_room(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
-   if (!registry) { return NULL; }
+   if (!registry) {
+      return NULL;
+   }
 
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
-      if (entry->radio == radio) { return entry->room[0] ? entry->room : NULL; }
+      if (entry->radio == radio) {
+         return entry->room[0] ? entry->room : NULL;
+      }
    }
 
    return NULL;
@@ -263,7 +270,9 @@ const char *rr_rig_registry_room(const rr_rig_registry_t *registry, const rr_ser
 uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
    if (registry) {
       for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
-         if (entry->radio == radio) { return entry->media_index; }
+         if (entry->radio == radio) {
+            return entry->media_index;
+         }
       }
    }
 
