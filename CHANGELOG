@@ -1,4 +1,7 @@
 rustyrig-fw (20261009.1) testing; urgency=medium
+  * Restore IRC protocol sources to the build; migrate application events to
+    JSON, repair parser/callback lifetime and channel state, and cover socket
+    registration, fragmented input, CTCP and partial writes with regressions.
   * Check IRC client nonblocking socket setup, preserve descriptor flags and
     close failed sockets; add loopback connection regression coverage.
   * Add a GNU indent profile matching librustyaxe's 3-space, same-line-brace
