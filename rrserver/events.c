@@ -1118,20 +1118,10 @@ static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t
  *   SET <user> <minutes>
  * Replies to the requesting client via ws_send_notice().
  */
-static void quota_reply(rrconn_t *cptr, const char *fmt, ...) {
-   char buf[HTTP_WS_MAX_MSG + 1];
-   va_list ap;
-
-   va_start(ap, fmt);
-   vsnprintf(buf, sizeof(buf), fmt, ap);
-   va_end(ap);
-
-   ws_send_notice(cptr, "%s", buf);
-}
 
 // db_quota_list callback: print one row to the requesting client
 static int quota_list_cb(const char *name, int credits, void *user) {
-   quota_reply( (rrconn_t *)user, "  %-16s %s", name, time_t2dhms(credits) );
+   ws_send_notice( (rrconn_t *)user, "  %-16s %s", name, time_t2dhms(credits) );
 
    return 1;
 }
@@ -1142,23 +1132,23 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
    }
 
    if (strcasecmp(subcmd, "LIST") == 0) {
-      quota_reply(cptr, "TX quotas (time remaining):");
+      ws_send_notice(cptr, "TX quotas (time remaining):");
       db_quota_list(masterdb, quota_list_cb, cptr);
 
       return;
    }
 
    if (strcasecmp(subcmd, "HELP") == 0) {
-      quota_reply(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <time> | RESET <user>... | SET <user> <time>");
-      quota_reply(cptr, "  ADD/SET take a dhms time string like 30m, 2h, 1d or 1w2d (0 = no TX allowed);");
-      quota_reply(cptr, "  SHOW shows exact seconds too.");
+      ws_send_notice(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <time> | RESET <user>... | SET <user> <time>");
+      ws_send_notice(cptr, "  ADD/SET take a dhms time string like 30m, 2h, 1d or 1w2d (0 = no TX allowed);");
+      ws_send_notice(cptr, "  SHOW shows exact seconds too.");
 
       return;
    }
 
    if (strcasecmp(subcmd, "SHOW") == 0 || strcasecmp(subcmd, "RESET") == 0) {
       if (argc < 1) {
-         quota_reply(cptr, "quota %s: no user given", subcmd);
+         ws_send_notice(cptr, "quota %s: no user given", subcmd);
 
          return;
       }
@@ -1170,14 +1160,14 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          if (strcasecmp(subcmd, "SHOW") == 0) {
             int mins = (before < 0 ? 0 : before) / 60;
 
-            quota_reply(cptr, "%s: %s remaining", name, time_t2dhms(before) );
+            ws_send_notice(cptr, "%s: %s remaining", name, time_t2dhms(before) );
          } else {
             if (db_quota_set(masterdb, name, 60 * 60) ) {
                Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60m (was %s)", actor, name, time_t2dhms(before) );
-               quota_reply(cptr, "%s: reset to 60m", name);
+               ws_send_notice(cptr, "%s: reset to 60m", name);
                quota_reset_warned(name);
             } else {
-               quota_reply(cptr, "quota RESET: failed for %s", name);
+               ws_send_notice(cptr, "quota RESET: failed for %s", name);
             }
          }
       }
@@ -1187,7 +1177,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
 
    if (strcasecmp(subcmd, "ADD") == 0 || strcasecmp(subcmd, "SET") == 0) {
       if (argc < 2) {
-         quota_reply(cptr, "Usage: /quota %s <user> <time> [user2 time2 ...] (time like 30m, 2h, 1d)", subcmd);
+         ws_send_notice(cptr, "Usage: /quota %s <user> <time> [user2 time2 ...] (time like 30m, 2h, 1d)", subcmd);
 
          return;
       }
@@ -1200,14 +1190,14 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          int before = db_quota_get(masterdb, name);
 
          if (secs <= 0 && argv[i + 1][0] != '0') {
-            quota_reply(cptr, "quota %s: invalid time '%s' for %s (try 30m, 2h, 1d)", subcmd, argv[i + 1], name);
+            ws_send_notice(cptr, "quota %s: invalid time '%s' for %s (try 30m, 2h, 1d)", subcmd, argv[i + 1], name);
 
             return;
          }
 
          if (secs <= 0 && strcasecmp(subcmd, "ADD") == 0) {
             // ADD 0 is a no-op (would just leave credits unchanged)
-            quota_reply(cptr, "quota ADD: nothing to add for %s (got 0)", name);
+            ws_send_notice(cptr, "quota ADD: nothing to add for %s (got 0)", name);
             continue;
          }
          bool ok;
@@ -1220,7 +1210,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
                char *added = time_t2dhms(secs);
                char *now = time_t2dhms( (time_t)db_quota_get(masterdb, name) );
                Log(LOG_AUDIT, "quota", "%s added %s to %s's TX quota (was %s)", actor, added, name, was);
-               quota_reply(cptr, "added %s (now %s) to %s's quota", added, now, name);
+               ws_send_notice(cptr, "added %s (now %s) to %s's quota", added, now, name);
                free( (void *)was);
                free( (void *)added);
                free( (void *)now);
@@ -1232,27 +1222,27 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
                char *was = time_t2dhms( (time_t)(before < 0 ? 0 : before) );
                char *set = time_t2dhms(secs);
                Log(LOG_AUDIT, "quota", "%s set %s's TX quota to %s (was %s)", actor, name, set, was);
-               quota_reply(cptr, "%s set %s's quota to %s", actor, name, set);
+               ws_send_notice(cptr, "%s set %s's quota to %s", actor, name, set);
                free( (void *)was);
                free( (void *)set);
             }
          }
 
          if (!ok) {
-            quota_reply(cptr, "quota %s: failed for %s", subcmd, name);
+            ws_send_notice(cptr, "quota %s: failed for %s", subcmd, name);
          } else {
             quota_reset_warned(name);
          }
       }
 
       if (argc % 2 != 0) {
-         quota_reply(cptr, "quota %s: dangling argument '%s' (expected user time pairs)", subcmd, argv[argc - 1]);
+         ws_send_notice(cptr, "quota %s: dangling argument '%s' (expected user time pairs)", subcmd, argv[argc - 1]);
       }
 
       return;
    }
 
-   quota_reply(cptr, "Unknown quota subcommand: %s (try LIST, SHOW, ADD, RESET, SET)", subcmd);
+   ws_send_notice(cptr, "Unknown quota subcommand: %s (try LIST, SHOW, ADD, RESET, SET)", subcmd);
 }
 
 static void rrserver_handle_quota_cmd(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -1329,14 +1319,6 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    dict_free(d);
 }
 
-static void user_reply(rrconn_t *cptr, const char *fmt, ...) {
-   char buf[HTTP_WS_MAX_MSG + 1];
-   va_list ap;
-   va_start(ap, fmt);
-   vsnprintf(buf, sizeof(buf), fmt, ap);
-   va_end(ap);
-   ws_send_notice(cptr, "%s", buf);
-}
 
 static bool user_name_valid(const char *name) {
    if (!name || !*name || strlen(name) > HTTP_USER_LEN) {
@@ -1583,7 +1565,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    }
 
    if (argc == 0 || strcasecmp(argv[0], "help") == 0) {
-      user_reply(cptr,
+      ws_send_notice(cptr,
          "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | "
          "oldpw | resetpw <user> | pass <user> <password>");
 
@@ -1592,11 +1574,11 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
    if (strcasecmp(argv[0], "list") == 0) {
       if (argc != 1) {
-         user_reply(cptr, "Usage: /user list");
+         ws_send_notice(cptr, "Usage: /user list");
 
          return;
       }
-      user_reply(cptr, "Users:");
+      ws_send_notice(cptr, "Users:");
 
       for (int i = 0 ; i < HTTP_MAX_USERS ; i++) {
          http_user_t *entry = &http_users[i];
@@ -1611,7 +1593,8 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
             localtime_r(&entry->password_expires, &tm_value);
             strftime(expiry, sizeof(expiry), "%Y-%m-%d", &tm_value);
          }
-         user_reply(cptr, "  %-16s %-7s sessions=%d privs=%s password-expires=%s%s", entry->name, entry->enabled ? "enabled" : "locked", entry->sessions, entry
+         ws_send_notice(cptr, "  %-16s %-7s sessions=%d privs=%s password-expires=%s%s", entry->name, entry->enabled ? "enabled" : "locked", entry->sessions,
+            entry
             ->privs[0] ? entry->privs : "none", expiry, entry->password_change_required ? " (change required)" : "");
       }
 
@@ -1620,7 +1603,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
    if (strcasecmp(argv[0], "oldpw") == 0) {
       if (argc != 1) {
-         user_reply(cptr, "Usage: /user oldpw");
+         ws_send_notice(cptr, "Usage: /user oldpw");
 
          return;
       }
@@ -1628,7 +1611,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       unsigned max_age = configured_age > 0 ? (unsigned)configured_age : 0;
 
       if (max_age == 0) {
-         user_reply(cptr, "USER: password age reporting is disabled");
+         ws_send_notice(cptr, "USER: password age reporting is disabled");
 
          return;
       }
@@ -1642,12 +1625,12 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
             continue;
          }
          int days = (int)( (now - entry->password_set) / 86400);
-         user_reply(cptr, "  %-16s password set %d days ago%s", entry->name, days, entry->password_change_required ? " (change required)" : "");
+         ws_send_notice(cptr, "  %-16s password set %d days ago%s", entry->name, days, entry->password_change_required ? " (change required)" : "");
          found++;
       }
 
       if (!found) {
-         user_reply(cptr, "USER: no passwords are older than %u days", max_age);
+         ws_send_notice(cptr, "USER: no passwords are older than %u days", max_age);
       }
 
       return;
@@ -1655,13 +1638,13 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
    if (strcasecmp(argv[0], "add") == 0) {
       if (argc < 2 || argc > 3 || !user_name_valid(argv[1]) ) {
-         user_reply(cptr, "Usage: /user add <user> [privileges]");
+         ws_send_notice(cptr, "Usage: /user add <user> [privileges]");
 
          return;
       }
 
       if (http_getuid(argv[1]) >= 0) {
-         user_reply(cptr, "USER: account already exists: %s", argv[1]);
+         ws_send_notice(cptr, "USER: account already exists: %s", argv[1]);
 
          return;
       }
@@ -1669,14 +1652,14 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
       if (strlen(privileges) > USER_PRIV_LEN ||
          (!has_priv(cptr->user->uid, "owner") && user_privilege_has_elevated(privileges) ) ) {
-         user_reply(cptr, "USER: administrators cannot create owner or administrator accounts");
+         ws_send_notice(cptr, "USER: administrators cannot create owner or administrator accounts");
 
          return;
       }
       int uid = db_user_next_uid(masterdb);
 
       if (uid < 1 || uid >= HTTP_MAX_USERS) {
-         user_reply(cptr, "USER: no user slots are available");
+         ws_send_notice(cptr, "USER: no user slots are available");
 
          return;
       }
@@ -1691,12 +1674,12 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       free(password_hash);
 
       if (!ok || !user_reload_database(cptr) ) {
-         user_reply(cptr, "USER: failed to add %s", argv[1]);
+         ws_send_notice(cptr, "USER: failed to add %s", argv[1]);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s added user %s with privileges %s", cptr->chatname, argv[1], privileges);
-      user_reply(cptr, "USER: added %s with temporary password %s (password change required at next login)", argv[1], password);
+      ws_send_notice(cptr, "USER: added %s with temporary password %s (password change required at next login)", argv[1], password);
 
       return;
    }
@@ -1707,7 +1690,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    bool password_change = strcasecmp(argv[0], "pass") == 0 || strcasecmp(argv[0], "resetpw") == 0;
 
    if (!target_name || !target || !target->name[0]) {
-      user_reply(cptr, "USER: account not found: %s", target_name ? target_name : "(missing)");
+      ws_send_notice(cptr, "USER: account not found: %s", target_name ? target_name : "(missing)");
 
       return;
    }
@@ -1716,7 +1699,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       if (argc < 3 || argc > 4 ||
          (strcasecmp(argv[2], "list") != 0 && argc != 4) ||
          (argc == 4 && strcasecmp(argv[2], "list") == 0) ) {
-         user_reply(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
+         ws_send_notice(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
 
          return;
       }
@@ -1724,13 +1707,13 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       bool actor_is_owner = has_priv(cptr->user->uid, "owner");
 
       if (strcasecmp(argv[2], "list") == 0) {
-         user_reply(cptr, "USER: %s privileges: %s", target->name, target->privs[0] ? target->privs : "none");
+         ws_send_notice(cptr, "USER: %s privileges: %s", target->name, target->privs[0] ? target->privs : "none");
 
          return;
       }
 
       if (user_is_elevated(target) && !actor_is_owner) {
-         user_reply(cptr, "USER: only owners may change administrator or owner privileges");
+         ws_send_notice(cptr, "USER: only owners may change administrator or owner privileges");
 
          return;
       }
@@ -1739,7 +1722,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
       if (!user_privilege_list_valid(requested, false) ||
          (strcasecmp(requested, "none") == 0 && strcasecmp(argv[2], "set") != 0) ) {
-         user_reply(cptr, "USER: invalid privilege list: %s", requested ? requested : "(missing)");
+         ws_send_notice(cptr, "USER: invalid privilege list: %s", requested ? requested : "(missing)");
 
          return;
       }
@@ -1754,80 +1737,80 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          }
       } else if (strcasecmp(argv[2], "add") == 0) {
          if (!user_privilege_add_tokens(target->privs, requested, updated, sizeof(updated) ) ) {
-            user_reply(cptr, "USER: resulting privilege list is too long");
+            ws_send_notice(cptr, "USER: resulting privilege list is too long");
 
             return;
          }
       } else if (strcasecmp(argv[2], "remove") == 0) {
          if (!user_privilege_remove_tokens(target->privs, requested, updated, sizeof(updated) ) ) {
-            user_reply(cptr, "USER: resulting privilege list is too long");
+            ws_send_notice(cptr, "USER: resulting privilege list is too long");
 
             return;
          }
       } else {
-         user_reply(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
+         ws_send_notice(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
 
          return;
       }
 
       if (!actor_is_owner && user_privilege_has_elevated(updated) ) {
-         user_reply(cptr, "USER: administrators cannot grant owner or administrator privileges");
+         ws_send_notice(cptr, "USER: administrators cannot grant owner or administrator privileges");
 
          return;
       }
 
       if (!db_user_set_privileges(masterdb, target->name, updated) ||
          !user_reload_database(cptr) ) {
-         user_reply(cptr, "USER: failed to update privileges for %s", target->name);
+         ws_send_notice(cptr, "USER: failed to update privileges for %s", target->name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s changed privileges for %s to %s", cptr->chatname, target->name, updated[0] ? updated : "none");
-      user_reply(cptr, "USER: %s privileges for %s: %s", argv[2], target->name, updated[0] ? updated : "none");
+      ws_send_notice(cptr, "USER: %s privileges for %s: %s", argv[2], target->name, updated[0] ? updated : "none");
 
       return;
    }
 
    if (!user_target_allowed(cptr->user, target, password_change) ) {
-      user_reply(cptr, "USER: insufficient privilege to modify %s", target->name);
+      ws_send_notice(cptr, "USER: insufficient privilege to modify %s", target->name);
 
       return;
    }
 
    if (strcasecmp(argv[0], "lock") == 0 || strcasecmp(argv[0], "unlock") == 0) {
       if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner") ) ) {
-         user_reply(cptr, "USER: admins cannot lock owners or administrators");
+         ws_send_notice(cptr, "USER: admins cannot lock owners or administrators");
 
          return;
       }
 
       if (target == cptr->user) {
-         user_reply(cptr, "USER: you cannot lock or unlock your own account");
+         ws_send_notice(cptr, "USER: you cannot lock or unlock your own account");
 
          return;
       }
       bool enabled = strcasecmp(argv[0], "unlock") == 0;
 
       if (!db_user_set_enabled(masterdb, target->name, enabled) || !user_reload_database(cptr) ) {
-         user_reply(cptr, "USER: failed to %s %s", enabled ? "unlock" : "lock", target->name);
+         ws_send_notice(cptr, "USER: failed to %s %s", enabled ? "unlock" : "lock", target->name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s %s user %s", cptr->chatname, enabled ? "unlocked" : "locked", target->name);
-      user_reply(cptr, "USER: %s %s", enabled ? "Unlocked" : "Locked", target->name);
+      ws_send_notice(cptr, "USER: %s %s", enabled ? "Unlocked" : "Locked", target->name);
 
       return;
    }
 
    if (strcasecmp(argv[0], "remove") == 0) {
       if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner") ) ) {
-         user_reply(cptr, "USER: admins cannot remove owners or administrators");
+         ws_send_notice(cptr, "USER: admins cannot remove owners or administrators");
 
          return;
       }
 
       if (target == cptr->user) {
-         user_reply(cptr, "USER: you cannot remove your own account");
+         ws_send_notice(cptr, "USER: you cannot remove your own account");
 
          return;
       }
@@ -1835,33 +1818,33 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       strlcpy(removed_name, target->name, sizeof(removed_name) );
 
       if (!db_user_remove(masterdb, removed_name) ) {
-         user_reply(cptr, "USER: failed to remove %s", removed_name);
+         ws_send_notice(cptr, "USER: failed to remove %s", removed_name);
 
          return;
       }
       user_disconnect_sessions(target, "Your account was removed by an administrator");
 
       if (!user_reload_database(cptr) ) {
-         user_reply(cptr, "USER: removed %s, but account reload failed", removed_name);
+         ws_send_notice(cptr, "USER: removed %s, but account reload failed", removed_name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s removed user %s", cptr->chatname, removed_name);
-      user_reply(cptr, "USER: removed %s", removed_name);
+      ws_send_notice(cptr, "USER: removed %s", removed_name);
 
       return;
    }
 
    if (strcasecmp(argv[0], "resetpw") == 0) {
       if (argc != 2) {
-         user_reply(cptr, "Usage: /user resetpw <user>");
+         ws_send_notice(cptr, "Usage: /user resetpw <user>");
 
          return;
       }
       char password[9];
 
       if (!user_temp_password(password, sizeof(password) ) ) {
-         user_reply(cptr, "USER: unable to generate a temporary password");
+         ws_send_notice(cptr, "USER: unable to generate a temporary password");
 
          return;
       }
@@ -1870,19 +1853,19 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       free(password_hash);
 
       if (!ok || !user_reload_database(cptr) ) {
-         user_reply(cptr, "USER: failed to reset password for %s", target->name);
+         ws_send_notice(cptr, "USER: failed to reset password for %s", target->name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s reset password for %s", cptr->chatname, target->name);
-      user_reply(cptr, "USER: temporary password for %s: %s (password change required at next login)", target->name, password);
+      ws_send_notice(cptr, "USER: temporary password for %s: %s (password change required at next login)", target->name, password);
 
       return;
    }
 
    if (strcasecmp(argv[0], "pass") == 0) {
       if (argc != 3 || !argv[2] || strlen(argv[2]) < 8 || strlen(argv[2]) > 128) {
-         user_reply(cptr, "Usage: /user pass <user> <password> (8-128 characters)");
+         ws_send_notice(cptr, "Usage: /user pass <user> <password> (8-128 characters)");
 
          return;
       }
@@ -1891,17 +1874,17 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       free(password_hash);
 
       if (!ok || !user_reload_database(cptr) ) {
-         user_reply(cptr, "USER: failed to change password for %s", target->name);
+         ws_send_notice(cptr, "USER: failed to change password for %s", target->name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s changed password for %s", cptr->chatname, target->name);
-      user_reply(cptr, "USER: password changed for %s", target->name);
+      ws_send_notice(cptr, "USER: password changed for %s", target->name);
 
       return;
    }
 
-   user_reply(cptr, "USER: unknown subcommand %s", argv[0]);
+   ws_send_notice(cptr, "USER: unknown subcommand %s", argv[0]);
 #endif
 }
 

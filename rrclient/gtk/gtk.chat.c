@@ -98,27 +98,6 @@ static GHashTable *room_tabs = NULL;
 static GtkRoomTab *status_room_tab = NULL;
 int next_chat_tab = 5;
 
-static gboolean gtk_chat_set_userlist_width(gpointer data) {
-   GtkWidget *paned = GTK_WIDGET(data);
-
-   if (!paned || !GTK_IS_PANED(paned)) {
-      return G_SOURCE_REMOVE;
-   }
-   GtkWidget *userlist = gtk_paned_get_child2(GTK_PANED(paned));
-
-   if (!userlist) {
-      return G_SOURCE_REMOVE;
-   }
-   gint minimum = 0, natural = 0;
-   gtk_widget_get_preferred_width(userlist, &minimum, &natural);
-   int total = gtk_widget_get_allocated_width(paned);
-
-   if (total > natural) {
-      gtk_paned_set_position(GTK_PANED(paned), total - natural);
-   }
-
-   return G_SOURCE_REMOVE;
-}
 
 static GtkWidget *room_vfo_box;
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
@@ -997,7 +976,6 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
       gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
-      g_idle_add(gtk_chat_set_userlist_width, paned);
 
       if (is_rig) {
          userlist_dock_into(GTK_PANED(paned));

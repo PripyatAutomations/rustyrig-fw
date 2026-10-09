@@ -234,7 +234,7 @@ enabled=false
                 else:
                     error_contains("shared LO")
             client.send({"msg": {"type": "cat"}, "cat": {"cmd": "ptt", "room": rx_room, "vfo": "B", "ptt": True}})
-            error_contains("not allowed")
+            error_contains(f"Cannot apply ptt to VFO B in room {rx_room}: join its TX control room")
             for name, expected in (("frequency", "ok"), ("mode", "forbidden-room")):
                 client.send({"msg": {"type": "property"}, "request": {"id": "rx-policy", "room": rx_room},
                     "target": rx_b["vfo-uuid"], "property": {"cmd": "set", "name": name,
@@ -405,7 +405,7 @@ enabled=false
             audited.send({"msg": {"type": "media"}, "media": {"cmd": "subscribe", "chan-uuid": rx_b["chan-uuid"]}})
             audited.until(lambda m: m.get("media", {}).get("cmd") == "subscribed" and m["media"].get("chan-uuid") == rx_b["chan-uuid"])
             audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
-            audited.until(lambda m: "RX privilege" in m.get("error", {}).get("msg", ""))
+            audited.until(lambda m: "requires RX account privilege" in m.get("error", {}).get("msg", ""))
             audited.send({"msg": {"type": "talk"}, "talk": {"cmd": "part", "target": rx_room}})
             audited.until(lambda m: m.get("talk", {}).get("cmd") == "part" and m["talk"].get("room") == rx_room)
             # Codec permissions follow direction and current account, plus VFO room membership.
@@ -418,7 +418,7 @@ enabled=false
             audited.until(lambda m: m.get("media", {}).get("cmd") == "available" and m["media"].get("chan-uuid") == rx_b["chan-uuid"])
             owner_privileges("view,chat,tx")
             audited.send({"msg": {"type": "media"}, "media": {"cmd": "codec", "chan-uuid": rx_b["chan-uuid"], "codec": "pc16"}})
-            audited.until(lambda m: "RX privilege" in m.get("error", {}).get("msg", ""))
+            audited.until(lambda m: "requires RX account privilege" in m.get("error", {}).get("msg", ""))
             owner_privileges("view,chat")
             audited.send({"msg": {"type": "auth"}, "auth": {"cmd": "login", "user": "OWNER"}})
             audited.until(lambda m: "Already authenticated" in m.get("error", {}).get("msg", ""))

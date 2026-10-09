@@ -1,9 +1,6 @@
 Immediate needs
 ---------------
-callsign-lookupd: fix cache expiry
-  cached: true
-  cache_fetched: 2026/09/20 20:24:53
-  cache_expiry: 2026/10/04 20:24:53
+*: Make hotkeys configurable
 
 rrserver: Add support for SCRAM gpio
 

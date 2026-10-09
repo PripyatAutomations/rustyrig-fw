@@ -5,9 +5,21 @@ rustyrig-fw (20261009.1) testing; urgency=medium
     statement on its own line. Make tools/indent.sh cover nested sources and
     owned C submodules while excluding ext/ and www/.
   * Remove automated GTK zoom tests in favor of manual validation for now.
+  * Send quota/account replies directly through ws_send_notice instead of
+    formatting twice; add printf format checking to protocol and CAT APIs.
+  * Let GTK size docked userlists from the complete panel and reserve scroller
+    chrome separately, keeping Undock and VFO/PTT controls visible.
+  * Match live rig-room tests to current room-authorization and RX codec
+    privilege errors, retaining rejected command, VFO and room checks.
+  * Avoid GTK function/object pointer conversions when storing touch callbacks
+    and disconnecting detached room userlist handlers.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 05 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261008.1) testing; urgency=medium
   * Use only the room name (#room) for GTK userlist window titles.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 05 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261007.17) testing; urgency=medium
   * made /webcam show auto-subscribe if only one camera found on station

@@ -60,7 +60,7 @@ typedef struct CATcmd {
    struct CATcmd *next;
 } CATcmd;
 
-extern int32_t rr_cat_printf(const char *str, ...);
+extern int32_t rr_cat_printf(const char *str, ...) __attribute__((format(printf, 1, 2)));
 extern int32_t rr_cat_parse_line(char *line);
 extern int32_t rr_cat_parse_line_real(char *line);
 extern int32_t rr_cat_parse_amp_line(char *line);

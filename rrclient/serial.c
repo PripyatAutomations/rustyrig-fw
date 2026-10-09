@@ -57,7 +57,6 @@ void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {
 }
 
 static gboolean writable(GIOChannel *channel, GIOCondition condition, gpointer user) {
-   (void)channel;
    rr_serial_t *p = user;
 
    if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL) ) {
@@ -100,7 +99,6 @@ bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
 }
 
 static gboolean readable(GIOChannel *channel, GIOCondition condition, gpointer user) {
-   (void)channel;
    rr_serial_t *p = user;
    char buffer[512];
 
@@ -167,6 +165,7 @@ void rr_serial_close(rr_serial_t *p) {
    if (!p) {
       return;
    }
+
    rr_serial_t **link = &ports;
    while (*link && *link != p) {
       link = &(*link)->next;

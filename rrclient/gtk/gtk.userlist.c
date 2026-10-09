@@ -89,7 +89,7 @@ static gboolean userlist_fit_width_idle(gpointer data) {
    }
 
    if (scroll && GTK_IS_SCROLLED_WINDOW(scroll) && width > 0) {
-      gtk_widget_set_size_request(scroll, width, -1);
+      gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), width);
    }
 
    return G_SOURCE_REMOVE;
@@ -379,6 +379,9 @@ static bool userlist_touch_context(GtkWidget *widget, double x, double y, guint3
 
    return userlist_context_at(widget, bin_x, bin_y, 0, time);
 }
+
+// GObject data holds an object pointer, so store the address of the callback.
+static GtkTouchContextFunc userlist_touch_callback = userlist_touch_context;
 
 static struct rr_user *room_vfo_talker(const char *room, char vfo) {
    for (struct rr_user *user = global_userlist ; user ; user = user->next) {
@@ -681,7 +684,7 @@ static GtkWidget *userlist_view_create(void) {
    GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    gtk_widget_set_name(view, "userlist-tree");
-   g_object_set_data(G_OBJECT(view), "rr-touch-context", userlist_touch_context);
+   g_object_set_data(G_OBJECT(view), "rr-touch-context", &userlist_touch_callback);
    gtk_widget_add_events(view, GDK_BUTTON_RELEASE_MASK);
    g_signal_connect(view, "button-release-event", G_CALLBACK(userlist_button_press), NULL);
    g_object_unref(store);
@@ -966,7 +969,7 @@ void userlist_remove_room_view(const char *room) {
       }
 
       if (entry->window && GTK_IS_WIDGET(entry->window)) {
-         g_signal_handlers_disconnect_by_func(entry->window, G_CALLBACK(on_room_userlist_delete), entry);
+         g_signal_handlers_disconnect_by_data(entry->window, entry);
          gtk_widget_destroy(entry->window);
       }
 

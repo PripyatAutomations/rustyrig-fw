@@ -610,10 +610,10 @@ static gboolean zoom_touch_finish(gpointer data) {
    touch->finish_source = 0;
 
    if (!held && touch->target && gtk_widget_get_mapped(touch->target)) {
-      GtkTouchContextFunc menu = g_object_get_data(G_OBJECT(touch->target), "rr-touch-context");
+      const GtkTouchContextFunc *menu = g_object_get_data(G_OBJECT(touch->target), "rr-touch-context");
 
-      if (menu) {
-         menu(touch->target, touch->menu_x, touch->menu_y, GDK_CURRENT_TIME);
+      if (menu && *menu) {
+         (*menu)(touch->target, touch->menu_x, touch->menu_y, GDK_CURRENT_TIME);
       }
    }
    zoom_touch_clear(touch);
