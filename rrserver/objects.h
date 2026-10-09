@@ -7,7 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RR_SERVER_OBJECTS_H
-#define	RR_SERVER_OBJECTS_H
+#define RR_SERVER_OBJECTS_H
 void rrserver_objects_register_events(void);
 void rrserver_objects_fini(void);
 void rrserver_objects_poll(void);

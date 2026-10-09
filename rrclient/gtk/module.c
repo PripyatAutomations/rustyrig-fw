@@ -51,24 +51,29 @@ bool rr_module_token_add(rr_event_token_t token) {
    if (!token) {
       return true;
    }
+
    if (module_token_count == module_token_capacity) {
       size_t cap = module_token_capacity ? module_token_capacity * 2 : 16;
       rr_event_token_t *grown = realloc(module_tokens, cap * sizeof(*grown));
+
       if (!grown) {
          event_off_token(token);
+
          return true;
       }
       module_tokens = grown;
       module_token_capacity = cap;
    }
    module_tokens[module_token_count++] = token;
+
    return false;
 }
 
 static void rr_module_tokens_release(void) {
-   for (size_t i = 0; i < module_token_count; i++) {
+   for (size_t i = 0 ; i < module_token_count ; i++) {
       event_off_token(module_tokens[i]);
    }
+
    free(module_tokens);
    module_tokens = NULL;
    module_token_count = 0;
@@ -78,8 +83,10 @@ static void rr_module_tokens_release(void) {
 bool rr_module_init(void) {
    if (module_running) {
       Log(LOG_CRIT, "module", "rrclient-gtk: init called twice");
+
       return true;
    }
+
    if (frontend_ops_register(&gtk_frontend_ops)) {
       return true;
    }
@@ -88,6 +95,7 @@ bool rr_module_init(void) {
    // initialized yet.
    module_running = true;
    Log(LOG_INFO, "module", "rrclient-gtk: frontend registered");
+
    return false;
 }
 

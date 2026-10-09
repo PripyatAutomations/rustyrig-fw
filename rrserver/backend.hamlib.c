@@ -155,8 +155,7 @@ static void hl_property_observe_int(rr_backend_t *backend, rr_server_vfo_t *vfo,
    }
 }
 
-static void hl_property_observe_string(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *field,
-                                       const char *value) {
+static void hl_property_observe_string(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *field, const char *value) {
    dict_value_t observed = {
       .s = value
    };
@@ -191,7 +190,7 @@ static void hl_reconnect_disabled(rr_backend_t *backend) {
    const char *alias = rr_backend_instance_alias(backend);
    // During construction the registry has not selected its default yet.
    bool non_default = default_rig ? default_rig != backend->owner :
-                      default_alias && *default_alias && strcmp(default_alias, alias);
+      default_alias && *default_alias && strcmp(default_alias, alias);
 
    if (non_default) {
       Log(LOG_WARN, "backend.hamlib", "%s: reconnect disabled; non-default instance remains offline", alias);
@@ -216,8 +215,7 @@ static void hl_schedule_retry(rr_backend_t *backend, const char *why) {
 
    if (data->reconnect_interval > 0) {
       data->retry_at = now + data->reconnect_interval;
-      Log(LOG_WARN, "backend.hamlib", "%s: retrying in %d seconds", rr_backend_instance_alias(backend),
-         data->reconnect_interval);
+      Log(LOG_WARN, "backend.hamlib", "%s: retrying in %d seconds", rr_backend_instance_alias(backend), data->reconnect_interval);
    } else {
       hl_reconnect_disabled(backend);
    }
@@ -230,13 +228,12 @@ static bool hl_connect(rr_backend_t *backend) {
       return true;
    }
 
-   /* hamlib.baud applies to serial devices; network/rigctld endpoints ignore the
-    * serial_speed token. Format: model/IP:port or model/serial:baud. */
+   /* hamlib.baud applies to serial devices; network/rigctld endpoints ignore the serial_speed token. Format: model/IP:port or model/serial:baud. */
    char serial_speed[32];
    snprintf(serial_speed, sizeof(serial_speed), "%d", data->baud);
 
-   Log(LOG_INFO, "backend.hamlib", "%s: connecting to %s (model=%d, baud=%d, reconnect-interval=%d)",
-      rr_backend_instance_alias(backend), data->device, data->model, data->baud, data->reconnect_interval);
+   Log(LOG_INFO, "backend.hamlib", "%s: connecting to %s (model=%d, baud=%d, reconnect-interval=%d)", rr_backend_instance_alias(backend), data->device, data->
+      model, data->baud, data->reconnect_interval);
    data->rig = rig_init(data->model);
 
    if (!data->rig) {
@@ -244,8 +241,7 @@ static bool hl_connect(rr_backend_t *backend) {
 
       if (data->reconnect_interval > 0) {
          data->retry_at = now + data->reconnect_interval;
-         Log(LOG_WARN, "backend.hamlib", "%s: retrying rig_init in %d seconds", rr_backend_instance_alias(backend),
-            data->reconnect_interval);
+         Log(LOG_WARN, "backend.hamlib", "%s: retrying rig_init in %d seconds", rr_backend_instance_alias(backend), data->reconnect_interval);
       } else {
          hl_reconnect_disabled(backend);
       }
@@ -253,23 +249,20 @@ static bool hl_connect(rr_backend_t *backend) {
       return false;
    }
    rig_set_conf(data->rig, rig_token_lookup(data->rig, "rig_pathname"), data->device);
-   /* PARITY: doc/rrserver.cfg.example hamlib.* keys. The speed token is ignored by
-   * network/rigctld backends and applies to serial devices. */
+   /* PARITY: doc/rrserver.cfg.example hamlib.* keys. The speed token is ignored by network/rigctld backends and applies to serial devices. */
    rig_set_conf(data->rig, rig_token_lookup(data->rig, "serial_speed"), serial_speed);
 
    int result = rig_open(data->rig);
 
    if (result != RIG_OK) {
-      Log( LOG_CRIT, "backend.hamlib", "%s: connection to %s failed: %s", rr_backend_instance_alias(backend),
-         data->device, rigerror(result) );
+      Log(LOG_CRIT, "backend.hamlib", "%s: connection to %s failed: %s", rr_backend_instance_alias(backend), data->device, rigerror(result) );
       rig_cleanup(data->rig);
       data->rig = NULL;
       data->connected = false;
 
       if (data->reconnect_interval > 0) {
          data->retry_at = now + data->reconnect_interval;
-         Log(LOG_WARN, "backend.hamlib", "%s: retrying connection in %d seconds", rr_backend_instance_alias(backend),
-            data->reconnect_interval);
+         Log(LOG_WARN, "backend.hamlib", "%s: retrying connection in %d seconds", rr_backend_instance_alias(backend), data->reconnect_interval);
 
          return false;
       }
@@ -280,16 +273,16 @@ static bool hl_connect(rr_backend_t *backend) {
 
    data->connected = true;
    data->retry_at = 0;
-   memset( data->vfo_probed, 0, sizeof(data->vfo_probed) );
-   memset( data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok) );
-   rig_set_vfo( data->rig, hl_get_vfo(backend->active_vfo) );
+   memset(data->vfo_probed, 0, sizeof(data->vfo_probed) );
+   memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok) );
+   rig_set_vfo(data->rig, hl_get_vfo(backend->active_vfo) );
    Log(LOG_INFO, "backend.hamlib", "%s: connected to %s", rr_backend_instance_alias(backend), data->device);
 
    return false;
 }
 
 static bool hl_create(rr_backend_t *backend) {
-   hamlib_backend_t *data = calloc( 1, sizeof(*data) );
+   hamlib_backend_t *data = calloc(1, sizeof(*data) );
 
    if (!data) {
       return true;
@@ -318,7 +311,7 @@ static bool hl_create(rr_backend_t *backend) {
    rig_set_debug(RIG_DEBUG_ERR);
 #endif
 
-   if ( hl_connect(backend) ) {
+   if (hl_connect(backend) ) {
       free(data->device);
       free(data);
       rr_backend_instance_set_data(backend, NULL);
@@ -345,7 +338,7 @@ static bool hl_vfo_supported(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !hl_index(vfo, &index) ) {
+   if (!data || !hl_index(vfo, &index) ) {
       return false;
    }
 
@@ -367,7 +360,7 @@ static rr_mode_t hl_mode_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !data->rig || !hl_index(vfo, &index) ) {
+   if (!data || !data->rig || !hl_index(vfo, &index) ) {
       return MODE_NONE;
    }
    hamlib_vfo_state_t *state = &data->state[index];
@@ -386,7 +379,7 @@ static const char *hl_mode_get_str(rr_backend_t *backend, rr_server_vfo_t *vfo) 
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !hl_index(vfo, &index) ) {
+   if (!data || !hl_index(vfo, &index) ) {
       return rig_strrmode(RIG_MODE_NONE);
    }
 
@@ -397,24 +390,28 @@ static bool hl_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) 
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !data->rig || !hl_index(vfo, &index) ) {
+   if (!data || !data->rig || !hl_index(vfo, &index) ) {
       return true;
    }
 
    // Select the transmitter only on key-down. Release must never switch it.
    if (state && rig_set_vfo(data->rig, hl_get_vfo(index)) != RIG_OK) {
       Log(LOG_WARN, "backend.hamlib", "Cannot select TX VFO %s", vfo_name(index));
+
       return true;
    }
    int result = rig_set_ptt(data->rig, hl_get_vfo(index), state ? RIG_PTT_ON : RIG_PTT_OFF);
+
    if (result == RIG_OK) {
       data->transmitting = state;
-      if (state) data->tx_vfo = index;
+
+      if (state) {
+         data->tx_vfo = index;
+      }
    }
 
    if (result != RIG_OK) {
-      Log( LOG_CRIT, "backend.hamlib", "%s: failed to set PTT: %s", rr_backend_instance_alias(backend),
-         rigerror(result) );
+      Log(LOG_CRIT, "backend.hamlib", "%s: failed to set PTT: %s", rr_backend_instance_alias(backend), rigerror(result) );
    }
 
    return result != RIG_OK;
@@ -431,15 +428,14 @@ static bool hl_freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo, int freq) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !data->rig || !hl_index(vfo, &index) ) {
+   if (!data || !data->rig || !hl_index(vfo, &index) ) {
       return true;
    }
 
    int result = rig_set_freq(data->rig, hl_get_vfo(index), freq);
 
    if (result != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "%s: failed to set frequency: %s", rr_backend_instance_alias(backend),
-         rigerror(result) );
+      Log(LOG_WARN, "backend.hamlib", "%s: failed to set frequency: %s", rr_backend_instance_alias(backend), rigerror(result) );
    }
 
    return result != RIG_OK;
@@ -449,7 +445,7 @@ static float hl_freq_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return ( !data || !hl_index(vfo, &index) ) ? 0 :
+   return (!data || !hl_index(vfo, &index) ) ? 0 :
           (float)data->state[index].freq;
 }
 
@@ -472,7 +468,7 @@ static float hl_power_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    };
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !data->rig || !hl_index(vfo, &index) ) {
+   if (!data || !data->rig || !hl_index(vfo, &index) ) {
       return 0;
    }
 
@@ -480,8 +476,7 @@ static float hl_power_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       return 0;
    }
 
-   /* Preserve the legacy API's watts semantics. Hamlib reports a normalized fraction
-    * here, not watts, so it cannot be returned without calibration. */
+   /* Preserve the legacy API's watts semantics. Hamlib reports a normalized fraction here, not watts, so it cannot be returned without calibration. */
    return 0;
 }
 
@@ -489,7 +484,7 @@ static uint16_t hl_width_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !hl_index(vfo, &index) ) {
+   if (!data || !hl_index(vfo, &index) ) {
       return 0;
    }
    hl_mode_get(backend, vfo);
@@ -501,7 +496,7 @@ static bool hl_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo, const char
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !data->rig || !width || !hl_index(vfo, &index) ) {
+   if (!data || !data->rig || !width || !hl_index(vfo, &index) ) {
       return true;
    }
    hl_mode_get(backend, vfo);
@@ -512,11 +507,11 @@ static bool hl_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo, const char
    }
    pbwidth_t target = 0;
 
-   if ( !strncasecmp(p, "narr", 4) || !strcasecmp(width, "nar") ) {
+   if (!strncasecmp(p, "narr", 4) || !strcasecmp(width, "nar") ) {
       target = rig_passband_narrow(data->rig, state->mode);
-   } else if ( !strncasecmp(p, "norm", 4) || !strcasecmp(width, "normal") ) {
+   } else if (!strncasecmp(p, "norm", 4) || !strcasecmp(width, "normal") ) {
       target = RIG_PASSBAND_NORMAL;
-   } else if ( !strcasecmp(width, "wide") ) {
+   } else if (!strcasecmp(width, "wide") ) {
       target = rig_passband_wide(data->rig, state->mode);
    } else {
       long hz = atol(p);
@@ -536,7 +531,7 @@ static int hl_widths_get(rr_backend_t *backend, rr_server_vfo_t *vfo, int *width
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !data->rig || !widths || max < 3 || !hl_index(vfo, &index) ) {
+   if (!data || !data->rig || !widths || max < 3 || !hl_index(vfo, &index) ) {
       return 0;
    }
 
@@ -574,22 +569,24 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !hl_index(vfo, &index) ) {
+   if (!data || !hl_index(vfo, &index) ) {
       return NULL;
    }
 
    if (!data->rig && data->reconnect_interval > 0 && data->retry_at && now >= data->retry_at) {
-      Log( LOG_INFO, "backend.hamlib", "%s: attempting reconnect", rr_backend_instance_alias(backend) );
+      Log(LOG_INFO, "backend.hamlib", "%s: attempting reconnect", rr_backend_instance_alias(backend) );
       data->retry_at = 0;
       hl_connect(backend);
    }
 
-   if ( !data->rig || !hl_vfo_supported(backend, vfo) ) {
+   if (!data->rig || !hl_vfo_supported(backend, vfo) ) {
       return NULL;
    }
 
    // Polling another VFO can switch a single-receiver radio out from under TX.
-   if (data->transmitting && index != data->tx_vfo) return NULL;
+   if (data->transmitting && index != data->tx_vfo) {
+      return NULL;
+   }
 
    hamlib_vfo_state_t *state = &data->state[index];
    vfo_t hamlib_vfo = hl_get_vfo(index);
@@ -597,8 +594,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    int result = data->transmitting ? RIG_OK : rig_set_vfo(data->rig, hamlib_vfo);
 
    if (result != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "%s: SET VFO %s failed: %s", rr_backend_instance_alias(backend), vfo_name(index),
-         rigerror(result) );
+      Log(LOG_WARN, "backend.hamlib", "%s: SET VFO %s failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result) );
       hl_schedule_retry(backend, "rig_set_vfo failed");
 
       return NULL;
@@ -606,8 +602,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    result = rig_get_freq(data->rig, hamlib_vfo, &state->freq);
 
    if (result != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "%s: GET VFO %s frequency failed: %s", rr_backend_instance_alias(backend),
-         vfo_name(index), rigerror(result) );
+      Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s frequency failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result) );
 
       if (index == backend->active_vfo) {
          hl_schedule_retry(backend, "rig_get_freq failed");
@@ -623,8 +618,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       result = rig_get_mode(data->rig, hamlib_vfo, &state->mode, &state->width);
 
       if (result != RIG_OK) {
-         Log( LOG_WARN, "backend.hamlib", "%s: GET VFO %s mode failed: %s", rr_backend_instance_alias(backend),
-            vfo_name(index), rigerror(result) );
+         Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s mode failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result) );
          state->mode = RIG_MODE_NONE;
          state->width = 0;
 
@@ -640,7 +634,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
          if (mode == MODE_NONE) {
             hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
          } else {
-            hl_property_observe_string( backend, vfo, RR_PROP_VFO_MODE, vfo_mode_name(mode) );
+            hl_property_observe_string(backend, vfo, RR_PROP_VFO_MODE, vfo_mode_name(mode) );
          }
 
          if (state->width > 0) {
@@ -659,15 +653,13 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
 
    if (result != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "%s: GET VFO %s PTT failed: %s", rr_backend_instance_alias(backend),
-         vfo_name(index), rigerror(result) );
+      Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s PTT failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result) );
    }
 
    result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
 
    if (result != RIG_OK) {
-      Log( LOG_WARN, "backend.hamlib", "%s: GET VFO %s strength failed: %s", rr_backend_instance_alias(backend),
-         vfo_name(index), rigerror(result) );
+      Log(LOG_WARN, "backend.hamlib", "%s: GET VFO %s strength failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result) );
    }
 
    // suppress hamlib's stuffing received power level? into POWER...
@@ -675,7 +667,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       state->power = 0;
    }
 
-   rr_vfo_data_t *reply = calloc( 1, sizeof(*reply) );
+   rr_vfo_data_t *reply = calloc(1, sizeof(*reply) );
 
    if (!reply) {
       return NULL;

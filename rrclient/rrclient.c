@@ -80,7 +80,7 @@ bool rrclient_autoconnect(void) {
    if (server) {
       char server_name[256];
       snprintf(server_name, sizeof(server_name), "%s", server);
-      free( (void *)server );
+      free( (void *)server);
 
       char fullkey[1024];
       snprintf(fullkey, sizeof(fullkey), "server:%s.server.url", server_name);
@@ -88,7 +88,7 @@ bool rrclient_autoconnect(void) {
 
       if (url) {
          rrclient_connect(url);
-         free( (void *)url );
+         free( (void *)url);
       }
    }
 

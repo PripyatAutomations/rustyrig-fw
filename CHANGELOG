@@ -1,6 +1,10 @@
 rustyrig-fw (20261009.1) testing; urgency=medium
   * Add a GNU indent profile matching librustyaxe's 3-space, same-line-brace
     style; set Uncrustify code/comment width to 160 and expand one-line controls.
+  * Format owned C sources consistently, add control-flow braces, and put each
+    statement on its own line. Make tools/indent.sh cover nested sources and
+    owned C submodules while excluding ext/ and www/.
+  * Remove automated GTK zoom tests in favor of manual validation for now.
 
 rustyrig-fw (20261008.1) testing; urgency=medium
   * Use only the room name (#room) for GTK userlist window titles.

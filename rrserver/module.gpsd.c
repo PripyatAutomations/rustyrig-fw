@@ -23,7 +23,9 @@ static uint64_t reconnect_at;
 static char line[512];
 static size_t used;
 static bool dropping;
-rr_module_event_t modexports[] = { { 0 } };
+rr_module_event_t modexports[] = { {
+                                      0
+                                   } };
 
 static void receive(const char *data, size_t len) {
    for (size_t i = 0 ; i < len ; i++) {
@@ -33,7 +35,7 @@ static void receive(const char *data, size_t len) {
          if (!dropping && used) {
             line[used] = '\0';
 
-            if ( rr_nmea_valid(line) ) {
+            if (rr_nmea_valid(line) ) {
                dict *d = dict_new();
 
                if (d) {
@@ -46,11 +48,11 @@ static void receive(const char *data, size_t len) {
          }
          used = 0;
          dropping = false;
-      } else if ( (unsigned char)ch < 32 || (unsigned char)ch > 126 ) {
+      } else if ( (unsigned char)ch < 32 || (unsigned char)ch > 126) {
          dropping = true;
          used = 0;
       } else if (!dropping) {
-         if ( used + 1 == sizeof(line) ) {
+         if (used + 1 == sizeof(line) ) {
             dropping = true;
             used = 0;
          } else {
@@ -65,6 +67,7 @@ static void handler(struct mg_connection *c, int ev, void *data) {
 
       if (!watch) {
          c->is_closing = 1;
+
          return;
       }
       dict_add_bool(watch, "enable", true);
@@ -86,7 +89,7 @@ static void handler(struct mg_connection *c, int ev, void *data) {
       }
       dict_free(watch);
    } else if (ev == MG_EV_READ) {
-      receive( (const char *)c->recv.buf, c->recv.len );
+      receive( (const char *)c->recv.buf, c->recv.len);
       mg_iobuf_del(&c->recv, 0, c->recv.len);
    } else if (ev == MG_EV_ERROR) {
       Log(LOG_WARN, "gpsd", "GPS daemon: %s", (const char *)data);
@@ -120,8 +123,10 @@ bool rr_module_init(void) {
    }
 
    const char *position = cfg_get(key);
+
    if (position && *position) {
       Log(LOG_INFO, "gpsd", "%s uses configured coordinates; GPS daemon adapter disabled", target ? target : "station");
+
       return false;
    }
    used = 0;
@@ -134,6 +139,7 @@ bool rr_module_init(void) {
    if (!poll_token) {
       mg_mgr_free(&manager);
       initialized = false;
+
       return true;
    }
 

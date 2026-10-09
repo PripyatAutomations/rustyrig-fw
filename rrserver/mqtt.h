@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrserver_mqtt_h)
-#define	__rrserver_mqtt_h
+#define __rrserver_mqtt_h
 #include <librustyaxe/core.h>
 #include <stdbool.h>
 #include <stdint.h>

@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #ifndef __rrserver_audio_h
-#define	__rrserver_audio_h
+#define __rrserver_audio_h
 #include <stdbool.h>
 #include <stddef.h>
 #include <librrprotocol/codecneg.h>
@@ -56,8 +56,8 @@ extern void au_unix_socket_poll(void);
 extern const char *au_recording_start(int channel);
 extern bool au_recording_stop(const char *id);
 extern bool au_recording_config_refresh(const char *key);
-#define	RECORDING_ID_LEN 12
-#define	RECORDING_ID_BUFSIZE (RECORDING_ID_LEN + 3)
+#define RECORDING_ID_LEN 12
+#define RECORDING_ID_BUFSIZE (RECORDING_ID_LEN + 3)
 extern bool au_recording_generate_id(char *buffer, size_t length);
 
 //#include "rrserver/au.pcm5102.h"

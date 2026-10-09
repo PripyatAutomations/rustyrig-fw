@@ -66,8 +66,7 @@ bool cmd_kick(int argc, char **args) {
    char reason[256] = "";
 
    for (int i = 2 ; i < argc ; i++) {
-      int n = snprintf(reason + strlen(reason), sizeof(reason) - strlen(reason), "%s%s", (i > 2 ? " " : ""),
-         args[i] ? args[i] : "");
+      int n = snprintf(reason + strlen(reason), sizeof(reason) - strlen(reason), "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
 
       if (n < 0) {
          break;
@@ -133,7 +132,7 @@ bool cmd_raw(int argc, char **args) {
       return true;
    }
    char fullmsg[502];
-   memset( fullmsg, 0, sizeof(fullmsg) );
+   memset(fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
 
    for (int i = 1 ; i < argc ; i++) {
@@ -157,7 +156,7 @@ bool cmd_raw(int argc, char **args) {
 // as RR_BINFRAME_SUBSYS_LOG binframes for the Host Log tab.
 // PARITY: rustyrig-www/js/webui.chat.js (syslog toggle)
 bool cmd_syslog(int argc, char **args) {
-   if ( argc < 2 || !args[1] || ( !strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
+   if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
       ui_print(ui_active_window_name(), "Usage: /syslog <on|off>");
 
       return true;
@@ -242,8 +241,8 @@ bool cmd_quota(int argc, char **args) {
    char tail[512] = "";
 
    if (strcasecmp(args[1], "list") == 0 || strcasecmp(args[1], "show") == 0 ||
-       strcasecmp(args[1], "add") == 0 || strcasecmp(args[1], "reset") == 0 ||
-       strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0) {
+      strcasecmp(args[1], "add") == 0 || strcasecmp(args[1], "reset") == 0 ||
+      strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0) {
       size_t pos = 0;
 
       for (int i = 2 ; i < argc ; i++) {
@@ -272,7 +271,8 @@ bool cmd_quota(int argc, char **args) {
 bool cmd_user(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(),
-         "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | oldpw | resetpw <user> | pass <user> <password>");
+         "Usage: /user list | add <user> [privileges] | remove <user> | lock <user> | unlock <user> | privs <user> list|add|remove|set [privileges] | "
+         "oldpw | resetpw <user> | pass <user> <password>");
 
       return true;
    }

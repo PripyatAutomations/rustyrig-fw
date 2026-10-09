@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrserver_console_h)
-#define	__rrserver_console_h
+#define __rrserver_console_h
 
 #include "build_config.h"
 #include <stdbool.h>
@@ -17,7 +17,7 @@
 struct cons_cmds {
    char verb[16];
    int min_args,
-       max_args;
+      max_args;
    bool (*hndlr)();
 };
 #endif // !defined(__rrserver_console_h)

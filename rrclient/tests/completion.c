@@ -4,50 +4,113 @@ bool dying, restarting;
 time_t now;
 struct rr_user *global_userlist;
 client_cmd_t client_cmds[] = {
-   {.cmd="object"}, {.cmd="rig"}, {.cmd="gps"}, {.cmd="sercom"}, {.cmd="rxcodec"}, {.cmd="txcodec"}, {.cmd="media"}, {.cmd="room"},
-   {.cmd="kick", .admin=true}, {.cmd="user"}, {0}
+   {
+      .cmd = "object"
+   }, {
+      .cmd = "rig"
+   }, {
+      .cmd = "gps"
+   }, {
+      .cmd = "sercom"
+   }, {
+      .cmd = "rxcodec"
+   }, {
+      .cmd = "txcodec"
+   }, {
+      .cmd = "media"
+   }, {
+      .cmd = "room"
+   },
+   {
+      .cmd = "kick", .admin = true
+   }, {
+      .cmd = "user"
+   }, {
+      0
+   }
 };
 static const char *active_window;
-const char *ui_active_window_name(void) { return active_window; }
+const char *ui_active_window_name(void) {
+   return active_window;
+}
 static bool admin;
-bool media_have_priv(const char *p) { return admin; }
-const char *media_get_common_codecs(void) { return "pc16 opus g722 oggv opuT"; }
+bool media_have_priv(const char *p) {
+   return admin;
+}
+const char *media_get_common_codecs(void) {
+   return "pc16 opus g722 oggv opuT";
+}
 const char *rrclient_room_iter(unsigned int index) {
-   static const char *joined[] = {"#station-rig0", "&local-room", "alice"};
+   static const char *joined[] = {
+      "#station-rig0", "&local-room", "alice"
+   };
+
    return index < sizeof(joined) / sizeof(joined[0]) ? joined[index] : NULL;
 }
 const char *rrclient_room_available_iter(unsigned int index) {
-   static const char *available[] = {"#discovered-room", "#station-rig0", "not-a-channel"};
+   static const char *available[] = {
+      "#discovered-room", "#station-rig0", "not-a-channel"
+   };
+
    return index < sizeof(available) / sizeof(available[0]) ? available[index] : NULL;
 }
 static struct rr_client_media_chan channels[] = {
-   {.uuid="rx-active", .name="rig0.vfo_a.rx", .descr="Main receiver", .codec="opus", .room="#station-rig0", .joined=true, .subsystem=1, .direction=0, .subscribed=true},
-   {.uuid="rx-disabled", .subsystem=1, .direction=0, .disabled=true},
-   {.uuid="tx-active", .subsystem=1, .direction=1, .subscribed=true},
-   {.uuid="video", .subsystem=2, .direction=0, .subscribed=true},
-   {.uuid="rx-other", .name="rig1.vfo_a.rx", .subsystem=1, .direction=0}
+   {
+      .uuid = "rx-active", .name = "rig0.vfo_a.rx", .descr = "Main receiver", .codec = "opus", .room = "#station-rig0", .joined = true, .subsystem = 1, .
+      direction = 0, .subscribed = true
+   },
+   {
+      .uuid = "rx-disabled", .subsystem = 1, .direction = 0, .disabled = true
+   },
+   {
+      .uuid = "tx-active", .subsystem = 1, .direction = 1, .subscribed = true
+   },
+   {
+      .uuid = "video", .subsystem = 2, .direction = 0, .subscribed = true
+   },
+   {
+      .uuid = "rx-other", .name = "rig1.vfo_a.rx", .subsystem = 1, .direction = 0
+   }
 };
 const struct rr_client_media_chan *rrclient_media_chan_iter(int i, int *number) {
    *number = i + 1;
+
    return i < 5 ? &channels[i] : NULL;
 }
 const dict *rrclient_object_ref_iter(int i, char *reference, size_t capacity) {
    static dict *object;
-   if (i) return NULL;
-   if (!object) { object=dict_new();dict_add(object,"object.uuid","rig-id");dict_add(object,"object.type","rig");dict_add(object,"object.name","Main transceiver"); }
-   snprintf(reference,capacity,"rig0");return object;
+
+   if (i) {
+      return NULL;
+   }
+
+   if (!object) {
+      object = dict_new();
+      dict_add(object, "object.uuid", "rig-id");
+      dict_add(object, "object.type", "rig");
+      dict_add(object, "object.name", "Main transceiver");
+   }
+   snprintf(reference, capacity, "rig0");
+
+   return object;
 }
 static void check(const char *line, const char *word, const char *expected) {
    char **matches = client_cmd_completions(line, word);
    bool found = false;
-   for (int i=0; matches && matches[i]; i++) {
-      if (expected && !strcmp(matches[i], expected)) found = true;
+
+   for (int i = 0 ; matches && matches[i] ; i++) {
+      if (expected && !strcmp(matches[i], expected)) {
+         found = true;
+      }
    }
+
    assert(expected ? found : !matches || !matches[0]);
    completion_free(matches);
 }
 int main(void) {
-   struct rr_user user = {0};
+   struct rr_user user = {
+      0
+   };
    snprintf(user.name, sizeof(user.name), "alice");
    global_userlist = &user;
    check("/join #sta", "#sta", "#station-rig0");
@@ -67,15 +130,19 @@ int main(void) {
    check("/rxcodec opu", "opu", "opuT");
    check("/rxcodec opus ", "", "rig0.vfo_a.rx");
    char label[512];
-   client_cmd_completion_describe("/media subscribe ","rig0.vfo_a.rx",label,sizeof(label));
-   assert(strstr(label,"Main receiver") && strstr(label,"RX opus") && strstr(label,"subscribed") && strstr(label,"#station-rig0"));
+   client_cmd_completion_describe("/media subscribe ", "rig0.vfo_a.rx", label, sizeof(label));
+   assert(strstr(label, "Main receiver") && strstr(label, "RX opus") && strstr(label, "subscribed") && strstr(label, "#station-rig0"));
    check("/obj", "/obj", "/object");
    check("/objects", "/objects", NULL);
    check("/object rig", "rig", "rig0");
-   client_cmd_completion_describe("/object ","rig0",label,sizeof(label));
-   assert(strstr(label,"Main transceiver"));
-   char **names=client_cmd_completions("/media SUB ","");
-   for (int i=0;names && names[i];i++) assert(strcmp(names[i],"rx-active") && strcmp(names[i],"rx-other"));
+   client_cmd_completion_describe("/object ", "rig0", label, sizeof(label));
+   assert(strstr(label, "Main transceiver"));
+   char **names = client_cmd_completions("/media SUB ", "");
+
+   for (int i = 0 ; names && names[i] ; i++) {
+      assert(strcmp(names[i], "rx-active") && strcmp(names[i], "rx-other"));
+   }
+
    completion_free(names);
    check("/rxcodec opus rx-d", "rx-d", "rx-disabled");
    check("/rxcodec opus rx-o", "rx-o", NULL);
@@ -117,10 +184,10 @@ int main(void) {
    check("/ki", "/ki", NULL);
    admin = true;
    check("/ki", "/ki", "/kick");
-   active_window="#station-rig1";
+   active_window = "#station-rig1";
    check("/media SUB ", "", NULL);
-   active_window="#station-rig0.rx";
+   active_window = "#station-rig0.rx";
    check("/media SUB ", "", "rig0.vfo_a.rx");
-   active_window=NULL;
+   active_window = NULL;
    puts("PASS: command/codec/user/channel completion and argument boundaries");
 }

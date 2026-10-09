@@ -38,7 +38,7 @@ static void focus_main_window(void) {
    gui_window_t *wp = gui_find_window(NULL, "main");
 
    if (wp && wp->gtk_win) {
-      gtk_window_present( GTK_WINDOW(wp->gtk_win) );
+      gtk_window_present(GTK_WINDOW(wp->gtk_win) );
    }
 }
 
@@ -66,12 +66,13 @@ static void do_connect_from_tree(GtkTreeView *view) {
          if (server_name && strcmp(server_name, new_server) != 0) {
             disconnect_server(server_name);
          }
-         free( (char *)server_name );
+         free( (char *)server_name);
          server_name = strdup(new_server);
          connect_server(server_name);
       }
       g_free(entry);
    }
+
    if (server_window) {
       // This will cause the removal in the destroyed callback added by
       // gui_new_window() in gtk.winmgr.c
@@ -84,13 +85,14 @@ static void do_connect_from_tree(GtkTreeView *view) {
    // Return focus to the chat input. This must be deferred: focus-set
    // during destruction gets overridden when GTK finishes processing
    // the window removal, so we grab it on the next idle cycle instead.
-   g_idle_add( (GSourceFunc)focus_chat_entry_idle, NULL );
+   g_idle_add( (GSourceFunc)focus_chat_entry_idle, NULL);
 }
 
 static gboolean focus_chat_entry_idle(gpointer user_data) {
    if (chat_entry && GTK_IS_WIDGET(chat_entry) ) {
       gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
    }
+
    return G_SOURCE_REMOVE;   // one-shot
 }
 
@@ -98,7 +100,7 @@ void on_connect_clicked(GtkButton *btn, gpointer user_data) {
    if (!user_data) {
       return;
    }
-   do_connect_from_tree( GTK_TREE_VIEW(user_data) );
+   do_connect_from_tree(GTK_TREE_VIEW(user_data) );
 }
 
 gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col, gpointer user_data) {
@@ -130,13 +132,14 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
       if (main_notebook) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
       }
-      g_idle_add( (GSourceFunc)focus_chat_entry_idle, NULL );
+      g_idle_add( (GSourceFunc)focus_chat_entry_idle, NULL);
+
       return TRUE;
    } else if (ev->keyval == GDK_KEY_Return || ev->keyval == GDK_KEY_KP_Enter) {
-      GtkWidget *focus = gtk_window_get_focus( GTK_WINDOW( gtk_widget_get_toplevel(w) ) );
+      GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(gtk_widget_get_toplevel(w) ) );
 
       if (GTK_IS_TREE_VIEW(focus) ) {
-         do_connect_from_tree( GTK_TREE_VIEW(focus) );
+         do_connect_from_tree(GTK_TREE_VIEW(focus) );
       }
 
       return TRUE;
@@ -144,4 +147,3 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 
    return FALSE;
 }
-

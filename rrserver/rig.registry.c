@@ -25,7 +25,7 @@ struct rr_rig_registry {
 };
 
 rr_rig_registry_t *rr_rig_registry_new(void) {
-   return calloc( 1, sizeof(rr_rig_registry_t) );
+   return calloc(1, sizeof(rr_rig_registry_t) );
 }
 
 bool rr_rig_registry_set_node(rr_rig_registry_t *registry, const char *uuid) {
@@ -45,7 +45,7 @@ static void rr_rig_registry_entry_free(rr_rig_registry_entry_t *entry) {
    if (!entry) {
       return;
    }
-   rr_backend_instance_free( rr_server_rig_backend(entry->radio) );
+   rr_backend_instance_free(rr_server_rig_backend(entry->radio) );
    rr_server_rig_set_backend(entry->radio, NULL);
    rr_server_rig_free(entry->radio);
    free(entry->alias);
@@ -86,7 +86,7 @@ rr_server_rig_t *rr_rig_registry_find_alias(const rr_rig_registry_t *registry, c
    }
 
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ;
-        entry = entry->next) {
+      entry = entry->next) {
       if (strcmp(entry->alias, alias) == 0) {
          return entry->radio;
       }
@@ -101,7 +101,7 @@ rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(const rr_rig_registry_t *registry
    }
 
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ;
-        entry = entry->next) {
+      entry = entry->next) {
       rr_server_vfo_t *vfo = rr_server_vfo_find_uuid(entry->radio, uuid);
 
       if (vfo) {
@@ -112,15 +112,15 @@ rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(const rr_rig_registry_t *registry
    return NULL;
 }
 
-rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uuid, const char *alias, const char *name,
-                                     const rr_backend_type_t *backend_type) {
-   if ( !registry || registry->count >= 255 || !uuid || !*uuid || !alias || !*alias || !backend_type ||
-        rr_rig_registry_find_uuid(registry, uuid) ||
-        rr_rig_registry_find_alias(registry, alias) ) {
+rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uuid, const char *alias, const char *name, const rr_backend_type_t *backend_type)
+{
+   if (!registry || registry->count >= 255 || !uuid || !*uuid || !alias || !*alias || !backend_type ||
+      rr_rig_registry_find_uuid(registry, uuid) ||
+      rr_rig_registry_find_alias(registry, alias) ) {
       return NULL;
    }
 
-   rr_rig_registry_entry_t *entry = calloc( 1, sizeof(*entry) );
+   rr_rig_registry_entry_t *entry = calloc(1, sizeof(*entry) );
    rr_server_rig_t *radio = rr_server_rig_new(uuid, name);
 
    if (!entry || !radio) {
@@ -169,8 +169,7 @@ bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid) {
          continue;
       }
 
-      /* Compatibility adapters borrow the explicit default rig. Its owner must clear that
-       * designation (and free adapters) before removal. */
+      /* Compatibility adapters borrow the explicit default rig. Its owner must clear that designation (and free adapters) before removal. */
       if (registry->default_rig == entry->radio) {
          return true;
       }
@@ -190,7 +189,7 @@ const char *rr_rig_registry_alias(const rr_rig_registry_t *registry, const rr_se
    }
 
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ;
-        entry = entry->next) {
+      entry = entry->next) {
       if (entry->radio == radio) {
          return entry->alias;
       }
@@ -210,8 +209,8 @@ bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_f
    bool failed = false;
 
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ;
-        entry = entry->next) {
-      if ( callback(entry->radio, user) ) {
+      entry = entry->next) {
+      if (callback(entry->radio, user) ) {
          failed = true;
       }
    }
@@ -220,7 +219,7 @@ bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_f
 }
 
 bool rr_rig_registry_set_default(rr_rig_registry_t *registry, rr_server_rig_t *radio) {
-   if ( !registry || ( radio && !rr_rig_registry_alias(registry, radio) ) ) {
+   if (!registry || (radio && !rr_rig_registry_alias(registry, radio) ) ) {
       return true;
    }
    registry->default_rig = radio;

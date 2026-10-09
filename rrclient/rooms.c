@@ -34,9 +34,10 @@ static char **reconnect_rooms;
 static size_t reconnect_room_count;
 
 static void reconnect_rooms_clear(void) {
-   for (size_t i = 0; i < reconnect_room_count; i++) {
+   for (size_t i = 0 ; i < reconnect_room_count ; i++) {
       free(reconnect_rooms[i]);
    }
+
    free(reconnect_rooms);
    reconnect_rooms = NULL;
    reconnect_room_count = 0;
@@ -51,16 +52,20 @@ static void joined_rooms_clear(void) {
 }
 
 static bool room_names_contain(char *const *list, size_t count, const char *room) {
-   for (size_t i = 0; i < count; i++) {
-      if (!strcasecmp(list[i], room)) return true;
+   for (size_t i = 0 ; i < count ; i++) {
+      if (!strcasecmp(list[i], room)) {
+         return true;
+      }
    }
+
    return false;
 }
 
 static void available_rooms_clear(void) {
-   for (size_t i = 0; i < available_room_count; i++) {
+   for (size_t i = 0 ; i < available_room_count ; i++) {
       free(available_rooms[i]);
    }
+
    free(available_rooms);
    available_rooms = NULL;
    available_room_count = 0;
@@ -74,7 +79,7 @@ bool rrclient_room_is_joined(const char *room) {
    const char *want = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, want) ) {
+      if (!strcasecmp(r->name, want) ) {
          return true;
       }
    }
@@ -85,15 +90,15 @@ bool rrclient_room_is_joined(const char *room) {
 bool rrclient_room_join(const char *room) {
    const char *name = canonical(room);
 
-   if ( !name || !*name || rrclient_room_is_joined(name) ) {
+   if (!name || !*name || rrclient_room_is_joined(name) ) {
       return true;
    }
-   client_room_t *r = calloc( 1, sizeof(*r) );
+   client_room_t *r = calloc(1, sizeof(*r) );
 
    if (!r) {
       return false;
    }
-   strlcpy( r->name, name, sizeof(r->name) );
+   strlcpy(r->name, name, sizeof(r->name) );
    r->active_vfo = 'A';
    r->next = rooms;
    rooms = r;
@@ -102,7 +107,7 @@ bool rrclient_room_join(const char *room) {
 }
 
 bool rrclient_room_request_join(const char *room) {
-   if ( !room || !*room || !ws_conn || rrclient_room_is_joined(room) ) {
+   if (!room || !*room || !ws_conn || rrclient_room_is_joined(room) ) {
       return false;
    }
    dict *d = dict_new();
@@ -125,7 +130,7 @@ bool rrclient_room_part(const char *room) {
    while (*pp) {
       client_room_t *r = *pp;
 
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          *pp = r->next;
          free(r);
 
@@ -145,13 +150,22 @@ void rrclient_rooms_clear(void) {
 void rrclient_rooms_disconnect(void) {
    if (rooms) {
       reconnect_rooms_clear();
-      for (client_room_t *room = rooms; room; room = room->next) {
-         if (room->name[0] != '#' && room->name[0] != '&') continue;
+
+      for (client_room_t *room = rooms ; room ; room = room->next) {
+         if (room->name[0] != '#' && room->name[0] != '&') {
+            continue;
+         }
          char **grown = realloc(reconnect_rooms, (reconnect_room_count + 1) * sizeof(*grown));
-         if (!grown) break;
+
+         if (!grown) {
+            break;
+         }
          reconnect_rooms = grown;
          reconnect_rooms[reconnect_room_count] = strdup(room->name);
-         if (reconnect_rooms[reconnect_room_count]) reconnect_room_count++;
+
+         if (reconnect_rooms[reconnect_room_count]) {
+            reconnect_room_count++;
+         }
       }
    }
    joined_rooms_clear();
@@ -159,63 +173,86 @@ void rrclient_rooms_disconnect(void) {
 }
 
 void rrclient_rooms_rejoin_available(void) {
-   for (size_t i = 0; i < reconnect_room_count; i++) {
-      if (room_names_contain(available_rooms, available_room_count, reconnect_rooms[i]))
+   for (size_t i = 0 ; i < reconnect_room_count ; i++) {
+      if (room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
          rrclient_room_request_join(reconnect_rooms[i]);
+      }
    }
+
    reconnect_rooms_clear();
 }
 
 const char *rrclient_room_iter(unsigned int index) {
    client_room_t *room = rooms;
-   while (room && index--) room = room->next;
+   while (room && index--) {
+      room = room->next;
+   }
    return room ? room->name : NULL;
 }
 
 void rrclient_rooms_set_available(const char *list) {
    available_rooms_clear();
    char *copy = list ? strdup(list) : NULL;
-   if (!copy) return;
+
+   if (!copy) {
+      return;
+   }
    char *save = NULL;
-   for (char *room = strtok_r(copy, " \t\r\n", &save); room; room = strtok_r(NULL, " \t\r\n", &save)) {
-      if (available_room_count >= 1024 || (room[0] != '#' && room[0] != '&')) continue;
+
+   for (char *room = strtok_r(copy, " \t\r\n", &save) ; room ; room = strtok_r(NULL, " \t\r\n", &save)) {
+      if (available_room_count >= 1024 || (room[0] != '#' && room[0] != '&')) {
+         continue;
+      }
       bool duplicate = false;
-      for (size_t i = 0; i < available_room_count; i++) {
+
+      for (size_t i = 0 ; i < available_room_count ; i++) {
          if (!strcasecmp(available_rooms[i], room)) {
             duplicate = true;
             break;
          }
       }
-      if (duplicate) continue;
+
+      if (duplicate) {
+         continue;
+      }
       char **grown = realloc(available_rooms, (available_room_count + 1) * sizeof(*grown));
-      if (!grown) break;
+
+      if (!grown) {
+         break;
+      }
       available_rooms = grown;
       available_rooms[available_room_count] = strdup(room);
-      if (available_rooms[available_room_count]) available_room_count++;
+
+      if (available_rooms[available_room_count]) {
+         available_room_count++;
+      }
    }
+
    free(copy);
 }
 
 void rrclient_room_available_remove(const char *room) {
-   if (!room) return;
-   for (size_t i = 0; i < reconnect_room_count;) {
+   if (!room) {
+      return;
+   }
+
+   for (size_t i = 0 ; i < reconnect_room_count ; ) {
       if (strcasecmp(reconnect_rooms[i], room)) {
          i++;
          continue;
       }
       free(reconnect_rooms[i]);
-      memmove(&reconnect_rooms[i], &reconnect_rooms[i + 1],
-         (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+      memmove(&reconnect_rooms[i], &reconnect_rooms[i + 1], (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
       reconnect_room_count--;
    }
-   for (size_t i = 0; i < available_room_count;) {
+
+   for (size_t i = 0 ; i < available_room_count ; ) {
       if (strcasecmp(available_rooms[i], room)) {
          i++;
          continue;
       }
       free(available_rooms[i]);
-      memmove(&available_rooms[i], &available_rooms[i + 1],
-         (available_room_count - i - 1) * sizeof(*available_rooms));
+      memmove(&available_rooms[i], &available_rooms[i + 1], (available_room_count - i - 1) * sizeof(*available_rooms));
       available_room_count--;
    }
 }
@@ -225,14 +262,15 @@ const char *rrclient_room_available_iter(unsigned int index) {
 }
 
 bool rrclient_room_set_vfos(const char *room, const char *vfos) {
-   if ( !rrclient_room_join(room) ) {
+   if (!rrclient_room_join(room) ) {
       return false;
    }
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
-         strlcpy( r->vfos, vfos ? vfos : "", sizeof(r->vfos) );
+      if (!strcasecmp(r->name, name) ) {
+         strlcpy(r->vfos, vfos ? vfos : "", sizeof(r->vfos) );
+
          return true;
       }
    }
@@ -245,10 +283,10 @@ bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
    size_t used = 0;
 
    for (unsigned int i = 0 ; i < 32 ; i++) {
-      if ( !( mask & (1UL << i) ) ) {
+      if (!(mask & (1UL << i) ) ) {
          continue;
       }
-      int n = snprintf( vfos + used, sizeof(vfos) - used, "%srig0.vfo_%c", used ? " " : "", (char)('a' + i) );
+      int n = snprintf(vfos + used, sizeof(vfos) - used, "%srig0.vfo_%c", used ? " " : "", (char)('a' + i) );
 
       if (n < 0 || (size_t)n >= sizeof(vfos) - used) {
          break;
@@ -260,7 +298,7 @@ bool rrclient_room_set_vfo_mask(const char *room, unsigned long mask) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          r->vfo_mask = (uint32_t)mask;
          break;
       }
@@ -273,7 +311,7 @@ const char *rrclient_room_vfos(const char *room) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          return r->vfos;
       }
    }
@@ -282,14 +320,14 @@ const char *rrclient_room_vfos(const char *room) {
 }
 
 bool rrclient_room_set_topic(const char *room, const char *topic) {
-   if ( !rrclient_room_join(room) ) {
+   if (!rrclient_room_join(room) ) {
       return false;
    }
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
-         strlcpy( r->topic, topic ? topic : "", sizeof(r->topic) );
+      if (!strcasecmp(r->name, name) ) {
+         strlcpy(r->topic, topic ? topic : "", sizeof(r->topic) );
 
          return true;
       }
@@ -302,7 +340,7 @@ const char *rrclient_room_topic(const char *room) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          return r->topic;
       }
    }
@@ -311,7 +349,7 @@ const char *rrclient_room_topic(const char *room) {
 }
 
 const char *rrclient_current_room(void) {
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       const char *room = frontend_ops()->chat_current_room();
 
       if (room && *room) {
@@ -326,9 +364,10 @@ void rrclient_room_set_control_flags(const char *room, bool tx, bool rx) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          r->tx_control = tx;
          r->rx_tunable = rx;
+
          return;
       }
    }
@@ -337,7 +376,7 @@ bool rrclient_room_tx_control(const char *room) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          return r->tx_control;
       }
    }
@@ -348,7 +387,7 @@ bool rrclient_room_rx_tunable(const char *room) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          return r->rx_tunable;
       }
    }
@@ -360,8 +399,9 @@ void rrclient_room_set_rx_tuning_mask(const char *room, uint32_t mask) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          r->rx_tuning_mask = mask;
+
          return;
       }
    }
@@ -370,7 +410,7 @@ uint32_t rrclient_room_rx_tuning_mask(const char *room) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          return r->rx_tuning_mask;
       }
    }
@@ -382,7 +422,7 @@ uint32_t rrclient_room_vfo_mask(const char *room) {
    const char *name = canonical(room);
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          return r->vfo_mask;
       }
    }
@@ -410,8 +450,9 @@ void rrclient_room_set_active_vfo(const char *room, char vfo) {
    }
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
-      if ( !strcasecmp(r->name, name) ) {
+      if (!strcasecmp(r->name, name) ) {
          r->active_vfo = vfo;
+
          return;
       }
    }

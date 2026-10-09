@@ -33,23 +33,45 @@
 #ifndef _WIN32
 #include <arpa/inet.h>
 #endif
-#define	FWDSP_MAX_SUBPROCS 100
+#define FWDSP_MAX_SUBPROCS 100
 
 defconfig_t defcfg_fwdsp[] = {
-   { "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codecs" },
+   {
+      "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codecs"
+   },
 #ifdef _WIN32
-   { "fwdsp:path", "bin/fwdsp.exe", "Path to fwdsp binary" },
+   {
+      "fwdsp:path", "bin/fwdsp.exe", "Path to fwdsp binary"
+   },
 #else
-   { "fwdsp:path", "bin/fwdsp", "Path to fwdsp binary" },
+   {
+      "fwdsp:path", "bin/fwdsp", "Path to fwdsp binary"
+   },
 #endif
-   { "fwdsp:recording.path", "./recordings", "Path to audio recordings" },
-   { "recording.codec", "flac", "Recording container/codec: flac or ogg" },
-   { "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg" },
-   { "fwdsp:recording.rx", "false", "Record received audio" },
-   { "fwdsp:recording.tx", "false", "Record transmitted audio" },
-   { "fwdsp:subproc.max", "16", "Maximum allowed de/encoder processes" },
-   { "fwdsp:hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately" },
-   { NULL, NULL, NULL }
+   {
+      "fwdsp:recording.path", "./recordings", "Path to audio recordings"
+   },
+   {
+      "recording.codec", "flac", "Recording container/codec: flac or ogg"
+   },
+   {
+      "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg"
+   },
+   {
+      "fwdsp:recording.rx", "false", "Record received audio"
+   },
+   {
+      "fwdsp:recording.tx", "false", "Record transmitted audio"
+   },
+   {
+      "fwdsp:subproc.max", "16", "Maximum allowed de/encoder processes"
+   },
+   {
+      "fwdsp:hangtime", "60", "How long to keep unused encoders alive after last use; decoders stop immediately"
+   },
+   {
+      NULL, NULL, NULL
+   }
 };
 
 const char *fwdsp_path = NULL;
@@ -81,11 +103,9 @@ static bool fwdsp_slot_active(const struct fwdsp_subproc *sp) {
 
 static void fwdsp_subproc_exit_cb(struct fwdsp_subproc *sp, int status) {
    if (sp && sp->role == FWDSP_ROLE_PROCESSOR) {
-      Log(LOG_INFO, "fwdsp", "Processor %s at pid %d exited (status=%d)",
-         sp->processor_name, sp->pid, status);
+      Log(LOG_INFO, "fwdsp", "Processor %s at pid %d exited (status=%d)", sp->processor_name, sp->pid, status);
    } else if (sp) {
-      Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)",
-         sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid, status);
+      Log(LOG_INFO, "fwdsp", "Pipeline %s.%s at pid %d exited (status=%d)", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid, status);
    }
    // XXX: notify websocket clients, or log, etc.
 }
@@ -105,8 +125,8 @@ static void fwdsp_sigchld(int sig) {
 #define FWDSP_FRAME_HEADER_SIZE 4
 #define FWDSP_MAX_FRAME_SIZE (64U * 1024U * 1024U)
 #define FWDSP_FRAME_STREAM_HEADER 0x80000000U
-#define FWDSP_FRAME_PCM_TAP      0x40000000U
-#define FWDSP_FRAME_LENGTH_MASK  0x3FFFFFFFU
+#define FWDSP_FRAME_PCM_TAP 0x40000000U
+#define FWDSP_FRAME_LENGTH_MASK 0x3FFFFFFFU
 
 static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
    header[0] = (uint8_t)(len >> 24);
@@ -133,22 +153,26 @@ static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
          continue;
       } else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 #ifndef _WIN32
-         /* Never let a stalled GStreamer child block the server event loop.
-          * A media frame may be dropped under backpressure; the caller will
-          * retire the unhealthy child and recreate it on the next tick. */
-         struct pollfd pfd = { .fd = fd, .events = POLLOUT };
+         /* Never let a stalled GStreamer child block the server event loop. A media frame may be dropped under backpressure; the caller will retire the
+          * unhealthy child and recreate it on the next tick. */
+         struct pollfd pfd = {
+            .fd = fd, .events = POLLOUT
+         };
          int ready;
          do {
             ready = poll(&pfd, 1, 5);
          } while (ready < 0 && errno == EINTR);
-         if (ready > 0 && (pfd.revents & POLLOUT)) continue;
+
+         if (ready > 0 && (pfd.revents & POLLOUT)) {
+            continue;
+         }
 #endif
+
          return false;
       } else {
          return false;
       }
    }
-
    return true;
 }
 
@@ -180,6 +204,7 @@ void fwdsp_reap_children(void) {
    while ( (pid = waitpid(-1, &status, WNOHANG) ) > 0) {
       for (int i = 0 ; i < max_subprocs ; i++) {
          struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
          if (sp->pid == pid) {
             if (on_fwdsp_exit) {
                on_fwdsp_exit(sp, status);
@@ -194,12 +219,14 @@ void fwdsp_reap_children(void) {
 
 // Header packets keep their existing encoded payload on the network. Only
 // child IPC carries the marker used to cache them for late subscribers.
-static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp,
-   struct rr_mediachan *channel, rrconn_t *cptr) {
-   for (size_t pos = 0; pos + 4 <= sp->stream_headers_len;) {
+static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp, struct rr_mediachan *channel, rrconn_t *cptr) {
+   for (size_t pos = 0 ; pos + 4 <= sp->stream_headers_len ; ) {
       uint32_t len = frame_length_decode(sp->stream_headers + pos);
       pos += 4;
-      if (len > sp->stream_headers_len - pos) break;
+
+      if (len > sp->stream_headers_len - pos) {
+         break;
+      }
       ws_media_send_frame(channel, cptr, sp->stream_headers + pos, len, sp->pl_id);
       pos += len;
    }
@@ -207,10 +234,16 @@ static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp,
 
 void fwdsp_send_stream_headers(const char *uuid, rrconn_t *cptr) {
    struct rr_mediachan *channel = media_chan_find_uuid(uuid);
-   if (!channel || channel->direction != RR_BINFRAME_DIR_RX) return;
+
+   if (!channel || channel->direction != RR_BINFRAME_DIR_RX) {
+      return;
+   }
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(channel->codec, true, uuid);
+
    // A resumed encoder will replay to all subscribers before its next packet.
-   if (sp && !sp->replay_headers) fwdsp_replay_stream_headers(sp, channel, cptr);
+   if (sp && !sp->replay_headers) {
+      fwdsp_replay_stream_headers(sp, channel, cptr);
+   }
 }
 
 static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
@@ -224,7 +257,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
    if (ev == MG_EV_READ && ctx->sp) {
       if (ctx->is_stderr) {
-         for (;;) {
+         for ( ;; ) {
             uint8_t *newline = memchr(c->recv.buf, '\n', c->recv.len);
 
             if (!newline) {
@@ -239,6 +272,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
             }
 
             char *message = malloc(line_len + 1);
+
             if (!message) {
                Log(LOG_CRIT, "fwdsp", "OOM buffering fwdsp stderr");
                mg_iobuf_del(&c->recv, 0, consumed);
@@ -265,33 +299,30 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
             uint32_t frame_len = frame_flags & FWDSP_FRAME_LENGTH_MASK;
 
             if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE) {
-               Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s",
-                  frame_len, ctx->sp->role == FWDSP_ROLE_PROCESSOR ?
-                  ctx->sp->processor_name : ctx->sp->pl_id,
-               ctx->sp->is_tx ? "tx" : "rx");
+               Log(LOG_CRIT, "fwdsp", "Invalid frame length %u from %s.%s", frame_len, ctx->sp->role == FWDSP_ROLE_PROCESSOR ?
+                  ctx->sp->processor_name : ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
                mg_iobuf_del(&c->recv, 0, c->recv.len);
                break;
             }
 
             size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
+
             if (c->recv.len < total_len) {
                break;
             }
 
             if (is_pcm_tap) {
                struct fwdsp_subproc *sp = ctx->sp;
+
                if (is_header || (frame_len & 1U) != 0) {
-                  Log(LOG_WARN, "fwdsp", "Discarding malformed PCM tap frame from %s.%s",
-                     sp->pl_id, sp->is_tx ? "tx" : "rx");
+                  Log(LOG_WARN, "fwdsp", "Discarding malformed PCM tap frame from %s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
                } else if (sp->role == FWDSP_ROLE_CODEC && !sp->is_tx &&
-                          sp->processor_output) {
+                  sp->processor_output) {
                   fwdsp_processor_output_cb output_cb = sp->processor_output;
                   void *output_data = sp->processor_output_data;
                   char name[sizeof(sp->channel_uuid)];
                   snprintf(name, sizeof(name), "%s", sp->channel_uuid);
-                  output_cb(name,
-                     (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
-                     frame_len, output_data);
+                  output_cb(name, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
                }
                mg_iobuf_del(&c->recv, 0, total_len);
                continue;
@@ -299,15 +330,13 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             if (ctx->sp->role == FWDSP_ROLE_PROCESSOR) {
                struct fwdsp_subproc *sp = ctx->sp;
+
                if (is_header) {
-                  Log(LOG_WARN, "fwdsp", "Ignoring codec header from PCM processor %s",
-                     sp->processor_name);
+                  Log(LOG_WARN, "fwdsp", "Ignoring codec header from PCM processor %s", sp->processor_name);
                } else if ((frame_len & 1U) != 0) {
-                  Log(LOG_WARN, "fwdsp", "Discarding odd-byte PCM output from processor %s",
-                     sp->processor_name);
+                  Log(LOG_WARN, "fwdsp", "Discarding odd-byte PCM output from processor %s", sp->processor_name);
                } else if (sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK) {
-                  Log(LOG_WARN, "fwdsp", "Discarding unexpected PCM output from playback endpoint %s",
-                     sp->processor_name);
+                  Log(LOG_WARN, "fwdsp", "Discarding unexpected PCM output from playback endpoint %s", sp->processor_name);
                } else if (sp->processor_output) {
                   // The callback may stop this processor, clearing its slot.
                   // Copy the name and callback state before entering user code.
@@ -315,9 +344,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   snprintf(name, sizeof(name), "%s", sp->processor_name);
                   fwdsp_processor_output_cb output_cb = sp->processor_output;
                   void *output_data = sp->processor_output_data;
-                  output_cb(name,
-                     (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
-                     frame_len, output_data);
+                  output_cb(name, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
                }
                mg_iobuf_del(&c->recv, 0, total_len);
                continue;
@@ -325,9 +352,11 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             if (is_header) {
                struct fwdsp_subproc *sp = ctx->sp;
+
                // Bound retained codec setup data, independent of media payload size.
                if (total_len <= 256 * 1024 - sp->stream_headers_len) {
                   uint8_t *headers = realloc(sp->stream_headers, sp->stream_headers_len + total_len);
+
                   if (headers) {
                      sp->stream_headers = headers;
                      frame_length_encode(headers + sp->stream_headers_len, frame_len);
@@ -341,35 +370,28 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             struct rr_mediachan *channel = ctx->sp->channel_uuid[0] != '\0' ?
                media_chan_find_uuid(ctx->sp->channel_uuid) :
-               media_chan_find(RR_BINFRAME_SUBSYS_AUDIO,
-                  ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX,
-                  0, 0);
+               media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, ctx->sp->is_tx ? RR_BINFRAME_DIR_RX : RR_BINFRAME_DIR_TX, 0, 0);
 
             if (channel && ctx->sp->refcount > 0 &&
-                strncmp(channel->codec, ctx->sp->pl_id, 4) == 0) {
+               strncmp(channel->codec, ctx->sp->pl_id, 4) == 0) {
                if (ctx->sp->replay_headers) {
                   fwdsp_replay_stream_headers(ctx->sp, channel, NULL);
                   ctx->sp->replay_headers = false;
                }
-               ws_media_broadcast_subscribed(channel,
-                  (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
-                  frame_len, ctx->sp->pl_id);
+               ws_media_broadcast_subscribed(channel, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
             } else if (!channel && ctx->sp->channel_uuid[0] != '\0' &&
-                       ctx->sp->refcount > 0) {
-               /* A pipeline can produce packets briefly while its media
-                * channel is being replaced or unsubscribed.  Do not emit a
-                * warning for every packet in that transient state.  Idle
-                * encoders are intentionally retained for hangtime and may
-                * still drain a final buffer after their channel is gone. */
+               ctx->sp->refcount > 0) {
+               /* A pipeline can produce packets briefly while its media channel is being replaced or unsubscribed.  Do not emit a warning for every packet in
+                * that transient state.  Idle encoders are intentionally retained for hangtime and may still drain a final buffer after their channel is gone.
+                */
                if (ctx->sp->last_no_channel_warn == 0 ||
-                   now < ctx->sp->last_no_channel_warn ||
-                   now - ctx->sp->last_no_channel_warn >= 5) {
+                  now < ctx->sp->last_no_channel_warn ||
+                  now - ctx->sp->last_no_channel_warn >= 5) {
                   // Encoders intentionally linger for fwdsp:hangtime after
                   // their last subscriber leaves. Packets produced while
                   // that channel is being unsubscribed have no destination,
                   // but are harmless and should not look like a client error.
-                  Log(LOG_DEBUG, "fwdsp", "No media channel for %s.%s output",
-                     ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
+                  Log(LOG_DEBUG, "fwdsp", "No media channel for %s.%s output", ctx->sp->pl_id, ctx->sp->is_tx ? "tx" : "rx");
                   ctx->sp->last_no_channel_warn = now;
                }
             }
@@ -389,6 +411,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
             ctx->sp->fw_stdout = -1;
          }
       }
+
       if (ctx->is_stderr && c->recv.len > 0) {
          char *message = malloc(c->recv.len + 1);
 
@@ -413,45 +436,54 @@ bool fwdsp_init(void) {
    }
 
    const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");
+
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdspmgr initializing with %d slots available", max_subprocs);
       free((char *)max_subprocs_s);
    } else {
       Log(LOG_CRIT, "config", "fwdsp:subproc.max must be set in config for fwdsp manager to work!");
+
       return true;
    }
 
    // Sanity check as some hams are crazy? ;)
    if (max_subprocs <= 0 || max_subprocs > FWDSP_MAX_SUBPROCS) {
       Log(LOG_CRIT, "config", "fwdsp:subproc.max <%d> is invalid: range=0-%d", max_subprocs, FWDSP_MAX_SUBPROCS);
+
       return true;
    }
 
    char *record_dir = cfg_get_path("fwdsp:recording.path");
    bool record_dir_owned = record_dir != NULL;
+
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
       record_dir = "./recordings";
       record_dir_owned = false;
    }
+
    if (!mkdir_p(record_dir)) {
-      Log(LOG_CRIT, "fwdsp-mgr", "Unable to create recording directory %s: %s",
-         record_dir, strerror(errno));
+      Log(LOG_CRIT, "fwdsp-mgr", "Unable to create recording directory %s: %s", record_dir, strerror(errno));
+
       if (record_dir_owned) {
          free((char *)record_dir);
       }
+
       return true;
    }
+
    if (record_dir_owned) {
       free((char *)record_dir);
    }
 
    // if not allocated, try to allocate it
    if (!fwdsp_subprocs) {
-      fwdsp_subprocs = calloc( max_subprocs + 1, sizeof(struct fwdsp_subproc) );
+      fwdsp_subprocs = calloc(max_subprocs + 1, sizeof(struct fwdsp_subproc) );
+
       if (!fwdsp_subprocs) {
          Log(LOG_CRIT, "fwdsp-mgr", "fwdsp_init failed to allocate fwdsp_subprocs! errno %d", errno);
+
          return true;
       }
    }
@@ -473,21 +505,22 @@ bool fwdsp_init(void) {
    sigemptyset(&sa.sa_mask);
    sigaction(SIGCHLD, &sa, NULL);
    /*
-    * Child IPC uses write(2) on Unix socketpairs.  A child can close its
-    * input while a final encoded page is being delivered; ignore SIGPIPE so
-    * that the manager reports the failed write and reaps the child instead
-    * of terminating the host process.
+    * Child IPC uses write(2) on Unix socketpairs.  A child can close its input while a final encoded page is being delivered; ignore SIGPIPE so that the
+    * manager reports the failed write and reaps the child instead of terminating the host process.
     */
    signal(SIGPIPE, SIG_IGN);
    fwdsp_set_exit_cb(fwdsp_subproc_exit_cb);
 
    // Find the fwdsp path
    fwdsp_path = cfg_get_path("fwdsp:path");
+
    if (!fwdsp_path) {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp binary");
+
       return true;
    }
    fwdsp_mgr_ready = true;
+
    return false;
 }
 
@@ -497,9 +530,8 @@ bool fwdsp_fini(void) {
    }
 
    /*
-    * Tear down every remaining subprocess, including encoders retained by
-    * fwdsp:hangtime. fwdsp_destroy() also closes IPC and releases any cached
-    * stream headers associated with the slot.
+    * Tear down every remaining subprocess, including encoders retained by fwdsp:hangtime. fwdsp_destroy() also closes IPC and releases any cached stream
+    * headers associated with the slot.
     */
    if (fwdsp_subprocs) {
       for (int i = 0 ; i < max_subprocs ; i++) {
@@ -537,39 +569,44 @@ static int fwdsp_find_offset(const char *id, bool is_tx) {
          return i;
       }
    }
+
    return -1;
 }
 
-struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx,
-   const char *channel_uuid) {
+struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx, const char *channel_uuid) {
    if (!id || !channel_uuid || !*channel_uuid || !fwdsp_subprocs) {
       return NULL;
    }
+
    for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
       if (sp->role == FWDSP_ROLE_CODEC && sp->is_tx == is_tx &&
-          strncmp(sp->pl_id, id, 4) == 0 &&
-          strncmp(sp->channel_uuid, channel_uuid, sizeof(sp->channel_uuid)) == 0) {
+         strncmp(sp->pl_id, id, 4) == 0 &&
+         strncmp(sp->channel_uuid, channel_uuid, sizeof(sp->channel_uuid)) == 0) {
          return sp;
       }
    }
+
    return NULL;
 }
 
 struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
    int i = fwdsp_find_offset(id, is_tx);
+
    return (i >= 0) ? &fwdsp_subprocs[i] : NULL;
 }
 
-static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx,
-   const char *channel_uuid) {
+static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx, const char *channel_uuid) {
    if (!id) {
       Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id == NULL");
+
       return NULL;
    }
 
    if (active_slots >= max_subprocs) {
       Log(LOG_CRIT, "fwdsp", "We're out of fwdsp slots. %d of %d used", active_slots, max_subprocs);
+
       return NULL;
    }
 
@@ -583,10 +620,11 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
       if (sp && sp->role == FWDSP_ROLE_NONE) {
          Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id, (is_tx ? "tx" : "rx"));
          // Clear the memory for reuse
-         memset( sp, 0, sizeof(struct fwdsp_subproc) );
+         memset(sp, 0, sizeof(struct fwdsp_subproc) );
          // Fill the struct
          sp->role = FWDSP_ROLE_CODEC;
          memcpy(sp->pl_id, id, 4);
+
          if (channel_uuid) {
             snprintf(sp->channel_uuid, sizeof(sp->channel_uuid), "%s", channel_uuid);
          }
@@ -606,18 +644,23 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
                break;
             }
          }
+
          if (fwdsp_spawn(sp)) {
             return sp;
          }
 
          memset(sp, 0, sizeof(*sp));
+
          if (active_slots > 0) {
             active_slots--;
          }
+
          return NULL;
       }
    }
+
    Log(LOG_CRIT, "fwdsp", "Out of subproc slots?! %d > %d", active_slots, max_subprocs);
+
    return NULL;
 }
 
@@ -626,28 +669,30 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 
    if (!sp) {
       sp = fwdsp_create(id, io_type, is_tx, NULL);
+
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
       } else {
-         Log(LOG_DEBUG, "fwdsp", "Spawned new instance of fwdsp at %p for codec %s.%s", (void *)sp, id,
-            (is_tx ? "tx" : "rx"));
+         Log(LOG_DEBUG, "fwdsp", "Spawned new instance of fwdsp at %p for codec %s.%s", (void *)sp, id, (is_tx ? "tx" : "rx"));
       }
    } else {
       Log(LOG_DEBUG, "fwdsp", "Using existing fwdsp instance %p for codec %s.%s", (void *)sp, id, (is_tx ? "tx" : "rx"));
    }
+
    return sp;
 }
 
-static bool fwdsp_endpoint_identity(const char *name, const char *default_namespace,
-   char namespace_out[8], char name_out[64]) {
+static bool fwdsp_endpoint_identity(const char *name, const char *default_namespace, char namespace_out[8], char name_out[64]) {
    if (!name || !*name || !namespace_out || !name_out) {
       return false;
    }
    const char *dot = strchr(name, '.');
    const char *base = name;
    const char *namespace = default_namespace;
+
    if (dot) {
       size_t namespace_len = (size_t)(dot - name);
+
       if (namespace_len == 0 || namespace_len >= 8 || !dot[1]) {
          return false;
       }
@@ -661,66 +706,74 @@ static bool fwdsp_endpoint_identity(const char *name, const char *default_namesp
       }
       snprintf(namespace_out, 8, "%s", default_namespace);
    }
+
    if (strcmp(namespace, "proc") != 0 && strcmp(namespace, "src") != 0 &&
-       strcmp(namespace, "sink") != 0 && strcmp(namespace, "recode") != 0) {
+      strcmp(namespace, "sink") != 0 && strcmp(namespace, "recode") != 0) {
       return false;
    }
+
    if (strlen(base) >= 64) {
       return false;
    }
    snprintf(name_out, 64, "%s", base);
+
    return true;
 }
 
-static struct fwdsp_subproc *fwdsp_find_processor(const char *name,
-   const char *default_namespace) {
+static struct fwdsp_subproc *fwdsp_find_processor(const char *name, const char *default_namespace) {
    char namespace[8];
    char base[64];
+
    if (!fwdsp_endpoint_identity(name, default_namespace, namespace, base) ||
-       !fwdsp_subprocs) {
+      !fwdsp_subprocs) {
       return NULL;
    }
-   for (int i = 0; i < max_subprocs; i++) {
+
+   for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
       if (sp->role == FWDSP_ROLE_PROCESSOR &&
-          strcmp(sp->processor_namespace, namespace) == 0 &&
-          strcmp(sp->processor_name, base) == 0) {
+         strcmp(sp->processor_namespace, namespace) == 0 &&
+         strcmp(sp->processor_name, base) == 0) {
          return sp;
       }
    }
+
    return NULL;
 }
 
-static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline,
-   enum fwdsp_processor_io processor_io,
-   fwdsp_processor_output_cb output_cb, void *user_data) {
+static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline, enum fwdsp_processor_io processor_io, fwdsp_processor_output_cb output_cb, void *
+   user_data) {
    if (!fwdsp_mgr_ready || !name || !*name ||
-       strlen(name) >= sizeof(((struct fwdsp_subproc *)0)->processor_name) ||
-       (pipeline && strlen(pipeline) >= sizeof(((struct fwdsp_subproc *)0)->pipeline)) ||
-       (processor_io != FWDSP_PROCESSOR_IO_PLAYBACK && !output_cb) ||
-       (processor_io == FWDSP_PROCESSOR_IO_PLAYBACK && output_cb)) {
+      strlen(name) >= sizeof(((struct fwdsp_subproc *)0)->processor_name) ||
+      (pipeline && strlen(pipeline) >= sizeof(((struct fwdsp_subproc *)0)->pipeline)) ||
+      (processor_io != FWDSP_PROCESSOR_IO_PLAYBACK && !output_cb) ||
+      (processor_io == FWDSP_PROCESSOR_IO_PLAYBACK && output_cb)) {
       return false;
    }
    const char *namespace = processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "src" :
       processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "sink" : "proc";
    char endpoint_namespace[8];
    char endpoint_name[64];
+
    if (!fwdsp_endpoint_identity(name, namespace, endpoint_namespace, endpoint_name) ||
-       strcmp(endpoint_namespace, namespace) != 0 ||
-       fwdsp_find_processor(name, namespace) || active_slots >= max_subprocs || !fwdsp_subprocs) {
+      strcmp(endpoint_namespace, namespace) != 0 ||
+      fwdsp_find_processor(name, namespace) || active_slots >= max_subprocs || !fwdsp_subprocs) {
       return false;
    }
 
-   for (const unsigned char *p = (const unsigned char *)endpoint_name; *p; p++) {
+   for (const unsigned char *p = (const unsigned char *)endpoint_name ; *p ; p++) {
       if (!( (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-             (*p >= '0' && *p <= '9') || *p == '_' || *p == '-' || *p == '.') ) {
+         (*p >= '0' && *p <= '9') || *p == '_' || *p == '-' || *p == '.') ) {
          Log(LOG_WARN, "fwdsp", "Rejecting invalid processor name '%s'", name);
+
          return false;
       }
    }
 
-   for (int i = 0; i < max_subprocs; i++) {
+   for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
+
       if (sp->role != FWDSP_ROLE_NONE) {
          continue;
       }
@@ -730,6 +783,7 @@ static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline,
       sp->processor_io = processor_io;
       snprintf(sp->processor_namespace, sizeof(sp->processor_namespace), "%s", namespace);
       snprintf(sp->processor_name, sizeof(sp->processor_name), "%s", endpoint_name);
+
       if (pipeline) {
          snprintf(sp->pipeline, sizeof(sp->pipeline), "%s", pipeline);
       }
@@ -745,64 +799,88 @@ static bool fwdsp_audio_endpoint_start(const char *name, const char *pipeline,
 
       if (!fwdsp_spawn(sp)) {
          fwdsp_destroy(sp);
+
          return false;
       }
-      Log(LOG_INFO, "fwdsp", "Started %s audio endpoint %s",
-         processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" :
-         processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : "PCM processor",
-         endpoint_name);
+      Log(LOG_INFO, "fwdsp", "Started %s audio endpoint %s", processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" :
+         processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : "PCM processor", endpoint_name);
+
       return true;
    }
 
    return false;
 }
 
-bool fwdsp_processor_start(const char *name, const char *pipeline,
-   fwdsp_processor_output_cb output_cb, void *user_data) {
-   return fwdsp_audio_endpoint_start(name, pipeline,
-      FWDSP_PROCESSOR_IO_BIDIRECTIONAL, output_cb, user_data);
+bool fwdsp_processor_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data) {
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_BIDIRECTIONAL, output_cb, user_data);
 }
 
-bool fwdsp_audio_capture_start(const char *name, const char *pipeline,
-   fwdsp_processor_output_cb output_cb, void *user_data) {
-   return fwdsp_audio_endpoint_start(name, pipeline,
-      FWDSP_PROCESSOR_IO_CAPTURE, output_cb, user_data);
+bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data) {
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_CAPTURE, output_cb, user_data);
 }
 
 bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
-   return fwdsp_audio_endpoint_start(name, pipeline,
-      FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL);
+   return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_PLAYBACK, NULL, NULL);
 }
 
 bool fwdsp_processor_write(const char *name, const void *samples, size_t len) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
-   if (!sp) sp = fwdsp_find_processor(name, "sink");
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "sink");
+   }
+
    if (!sp || sp->pid <= 0 || sp->fw_stdin < 0 || !samples || len == 0 ||
-       sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ||
-       (len & 1) != 0 || len > FWDSP_MAX_FRAME_SIZE) {
+      sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ||
+      (len & 1) != 0 || len > FWDSP_MAX_FRAME_SIZE) {
       return false;
    }
-   if (fwdsp_write_frame(sp->fw_stdin, samples, len)) return true;
+
+   if (fwdsp_write_frame(sp->fw_stdin, samples, len)) {
+      return true;
+   }
    fwdsp_destroy(sp);
+
    return false;
 }
 
 bool fwdsp_processor_setvol(const char *name, int percent) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
-   if (!sp) sp = fwdsp_find_processor(name, "sink");
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "sink");
+   }
+
    if (!sp || sp->pid <= 0 || sp->fw_control < 0) {
       return true;
    }
-   if (percent < 0) percent = 0;
-   if (percent > 100) percent = 100;
+
+   if (percent < 0) {
+      percent = 0;
+   }
+
+   if (percent > 100) {
+      percent = 100;
+   }
+
    return fwdsp_send_control(sp, FWDSP_CTRL_SET_VOLUME, (uint8_t)percent);
 }
 
 bool fwdsp_processor_stop(const char *name) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
-   if (!sp) sp = fwdsp_find_processor(name, "src");
-   if (!sp) sp = fwdsp_find_processor(name, "sink");
-   if (!sp) sp = fwdsp_find_processor(name, "recode");
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "src");
+   }
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "sink");
+   }
+
+   if (!sp) {
+      sp = fwdsp_find_processor(name, "recode");
+   }
+
    return sp ? fwdsp_destroy(sp) : false;
 }
 
@@ -818,12 +896,14 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    // contexts before the slot is reused; never free a connection mid-poll or
    // close its descriptor behind the event loop's back.
 #ifdef USE_MONGOOSE
+
    if (sp->mg_stdout_conn) {
       ((struct fwdsp_io_conn *)sp->mg_stdout_conn->fn_data)->sp = NULL;
       sp->mg_stdout_conn->is_closing = 1;
       sp->mg_stdout_conn = NULL;
       sp->fw_stdout = -1;
    }
+
    if (sp->mg_stderr_conn) {
       ((struct fwdsp_io_conn *)sp->mg_stderr_conn->fn_data)->sp = NULL;
       sp->mg_stderr_conn->is_closing = 1;
@@ -870,11 +950,12 @@ static bool fwdsp_destroy(struct fwdsp_subproc *sp) {
    sp->stream_headers_len = 0;
    free(stream_headers);
    // Clear struct
-   memset( sp, 0, sizeof(*sp) );
+   memset(sp, 0, sizeof(*sp) );
 
    if (active_slots > 0) {
       active_slots--;
    }
+
    return true;
 }
 
@@ -886,6 +967,7 @@ static bool fwdsp_child_dup_fd(int oldfd, int newfd) {
    if (dup2(oldfd, newfd) < 0) {
       return false;
    }
+
    return true;
 }
 
@@ -897,9 +979,19 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       return false;
    }
 
-   int in_pipe[2] = { -1, -1 }, out_pipe[2] = { -1, -1 };
-   int err_pipe[2] = { -1, -1 }, control_pipe[2] = { -1, -1 };
-   int sock_pair[2] = { -1, -1 };
+   int in_pipe[2] = {
+      -1, -1
+   }, out_pipe[2] = {
+      -1, -1
+   };
+   int err_pipe[2] = {
+      -1, -1
+   }, control_pipe[2] = {
+      -1, -1
+   };
+   int sock_pair[2] = {
+      -1, -1
+   };
    struct mg_mgr *manager = fwdsp_mg_manager();
 
    if (sp->io_type == FW_IO_STDIO) {
@@ -907,39 +999,44 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          return false;
       }
 #ifndef _WIN32
+
       if (socketpair(AF_UNIX, SOCK_STREAM, 0, in_pipe) ||
-          socketpair(AF_UNIX, SOCK_STREAM, 0, out_pipe) ||
-          socketpair(AF_UNIX, SOCK_STREAM, 0, err_pipe) ||
-          socketpair(AF_UNIX, SOCK_STREAM, 0, control_pipe)) {
+         socketpair(AF_UNIX, SOCK_STREAM, 0, out_pipe) ||
+         socketpair(AF_UNIX, SOCK_STREAM, 0, err_pipe) ||
+         socketpair(AF_UNIX, SOCK_STREAM, 0, control_pipe)) {
 #else
+
       if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) || pipe(control_pipe)) {
 #endif
          perror("pipe");
+
          return false;
       }
    }
 
    pid_t pid = fork();
+
    if (pid < 0) {
       perror("fork");
+
       return false;
    }
 
    char *fwdsp_path = cfg_get_path("fwdsp:path");
    const char *fwdsp_config = config_file;
    char pipeline_key[128];
+
    if (sp->role == FWDSP_ROLE_PROCESSOR) {
-      snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s",
-         sp->processor_namespace, sp->processor_name);
+      snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->processor_namespace, sp->processor_name);
    } else {
-      snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id,
-         sp->is_tx ? "tx" : "rx");
+      snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
    }
    // The parent passes the selected pipeline so the child does not silently
    // substitute its standalone defaults or select a different processing chain.
    const char *child_pipeline = sp->pipeline[0] ? sp->pipeline : cfg_get(pipeline_key);
    bool emit_pcm_tap = sp->role == FWDSP_ROLE_CODEC && !sp->is_tx &&
       cfg_get_bool("fwdsp:pcm-hub", false);
+
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp bin");
 
@@ -952,21 +1049,17 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          /*
           * Move the child ends to their fixed descriptors.
           *
-          * stdin   = media input
-          * stdout  = media output
-          * stderr  = logging
-          * fd 3    = control
+          * stdin   = media input stdout  = media output stderr  = logging fd 3    = control
           */
          if (!fwdsp_child_dup_fd(in_pipe[0], STDIN_FILENO) ||
-             !fwdsp_child_dup_fd(out_pipe[1], STDOUT_FILENO) ||
-             !fwdsp_child_dup_fd(err_pipe[1], STDERR_FILENO) ||
-             !fwdsp_child_dup_fd(control_pipe[0], 3)) {
+            !fwdsp_child_dup_fd(out_pipe[1], STDOUT_FILENO) ||
+            !fwdsp_child_dup_fd(err_pipe[1], STDERR_FILENO) ||
+            !fwdsp_child_dup_fd(control_pipe[0], 3)) {
             _exit(126);
          }
 
          /*
-          * Close every socketpair descriptor except descriptors which are now
-          * one of our fixed child descriptors.
+          * Close every socketpair descriptor except descriptors which are now one of our fixed child descriptors.
           */
          int child_fds[] = {
             in_pipe[0],
@@ -980,14 +1073,14 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          };
 
          for (size_t i = 0 ;
-              i < sizeof(child_fds) / sizeof(child_fds[0]) ;
-              i++) {
+            i < sizeof(child_fds) / sizeof(child_fds[0]) ;
+            i++) {
             int fd = child_fds[i];
 
             if (fd != STDIN_FILENO &&
-                fd != STDOUT_FILENO &&
-                fd != STDERR_FILENO &&
-                fd != 3) {
+               fd != STDOUT_FILENO &&
+               fd != STDERR_FILENO &&
+               fd != 3) {
                close(fd);
             }
          }
@@ -997,46 +1090,16 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
          const char *processor_mode =
             sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" :
             sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : "process";
-         execl(fwdsp_path, fwdsp_path,
-            "-f", fwdsp_config,
-            "-T",
-            "-M", processor_mode,
-            "-P", pipeline_key + strlen("pipeline:"),
-            "-C", "3",
-            "-p", child_pipeline ? child_pipeline : "",
-            NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-T", "-M", processor_mode, "-P", pipeline_key + strlen("pipeline:"), "-C", "3", "-p", child_pipeline
+            ? child_pipeline : "", NULL);
       } else if (sp->is_tx) {
-         execl(fwdsp_path, fwdsp_path,
-            "-f", fwdsp_config,
-            "-c", sp->pl_id,
-            "-C", "3",
-            "-p", child_pipeline ? child_pipeline : "",
-            "-t",
-            NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-p", child_pipeline ? child_pipeline : "", "-t", NULL);
       } else if (sp->is_video) {
-         execl(fwdsp_path, fwdsp_path,
-            "-f", fwdsp_config,
-            "-c", sp->pl_id,
-            "-C", "3",
-            "-p", child_pipeline ? child_pipeline : "",
-            "-v",
-            "-t",
-            NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-p", child_pipeline ? child_pipeline : "", "-v", "-t", NULL);
       } else if (emit_pcm_tap) {
-         execl(fwdsp_path, fwdsp_path,
-            "-f", fwdsp_config,
-            "-c", sp->pl_id,
-            "-C", "3",
-            "-p", child_pipeline ? child_pipeline : "",
-            "-H",
-            NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-p", child_pipeline ? child_pipeline : "", "-H", NULL);
       } else {
-         execl(fwdsp_path, fwdsp_path,
-            "-f", fwdsp_config,
-            "-c", sp->pl_id,
-            "-C", "3",
-            "-p", child_pipeline ? child_pipeline : "",
-            NULL);
+         execl(fwdsp_path, fwdsp_path, "-f", fwdsp_config, "-c", sp->pl_id, "-C", "3", "-p", child_pipeline ? child_pipeline : "", NULL);
       }
 
       perror("execl");
@@ -1046,7 +1109,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    sp->pid = pid;
 
    // cfg_get_exp() returns a malloc'd string we own
-   free( (char *)fwdsp_path );
+   free( (char *)fwdsp_path);
    fwdsp_path = NULL;
 
    if (sp->io_type == FW_IO_STDIO) {
@@ -1060,12 +1123,14 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       sp->fw_control = control_pipe[1];
 #ifndef _WIN32
       int stdin_flags = fcntl(sp->fw_stdin, F_GETFL, 0);
+
       if (stdin_flags >= 0) {
          (void)fcntl(sp->fw_stdin, F_SETFL, stdin_flags | O_NONBLOCK);
       }
 #endif
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
+
       // Hook up stdout/stderr to Mongoose immediately. The fn_data must be a
       // heap-allocated struct fwdsp_io_conn: fwdsp_read_cb() frees it on
       // MG_EV_CLOSE. Passing `sp` itself (which lives inside the shared
@@ -1083,8 +1148,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
             sp->mg_stdout_conn = NULL;
          }
       }
+
       if (sp->fw_stderr) {
          struct fwdsp_io_conn *ctx = calloc(1, sizeof(*ctx) );
+
          if (ctx) {
             ctx->sp = sp;
             ctx->is_stderr = true;
@@ -1095,19 +1162,17 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
 
       if (!sp->mg_stdout_conn || !sp->mg_stderr_conn) {
-         Log(LOG_CRIT, "fwdsp",
-            "Failed to attach fds to event loop for %s",
-            sp->role == FWDSP_ROLE_PROCESSOR ? sp->processor_name : sp->pl_id);
+         Log(LOG_CRIT, "fwdsp", "Failed to attach fds to event loop for %s", sp->role == FWDSP_ROLE_PROCESSOR ? sp->processor_name : sp->pl_id);
+
          return false;
       }
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    }
+
    if (sp->role == FWDSP_ROLE_PROCESSOR) {
-      Log(LOG_DEBUG, "fwdsp", "Spawned audio processor %s at pid %d",
-         sp->processor_name, sp->pid);
+      Log(LOG_DEBUG, "fwdsp", "Spawned audio processor %s at pid %d", sp->processor_name, sp->pid);
    } else {
-      Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d",
-         sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
+      Log(LOG_DEBUG, "fwdsp", "Spawned codec %s.%s at pid %d", sp->pl_id, sp->is_tx ? "tx" : "rx", sp->pid);
    }
 
    // The application starts recording with its user and radio direction.
@@ -1121,6 +1186,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
    }
 
    char *tmp = strdup(codec_list);
+
    if (!tmp) {
       return NULL;
    }
@@ -1135,6 +1201,7 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
          if (!sp || !sp->pid) {
             if (!sp || !fwdsp_spawn(sp) ) {
                Log(LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for codec %s.%s", token, (tx_mode ? "tx" : "rx"));
+
                if (sp) {
                   fwdsp_destroy(sp);
                }
@@ -1142,87 +1209,92 @@ struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool t
             }
          }
          free(tmp);
+
          return sp;
       }
       token = strtok_r(NULL, " ", &saveptr);
    }
    free(tmp);
    Log(LOG_CRIT, "fwdsp", "No usable codecs found in list: %s for %s", codec_list, (tx_mode ? "tx" : "rx"));
+
    return NULL;
 }
 
 int fwdsp_get_chan_id(const char *magic, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(magic, is_tx);
+
    return (sp) ? sp->chan_id : -1;
 }
 
-bool fwdsp_write_samples(const char codec_id[5], bool is_tx,
-   const void *data, size_t len) {
+bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
 
    if (!sp) {
-      Log(LOG_WARN, "fwdsp",
-         "write_samples: no fwdsp instance for %s.%s",
-         codec_id, is_tx ? "tx" : "rx");
+      Log(LOG_WARN, "fwdsp", "write_samples: no fwdsp instance for %s.%s", codec_id, is_tx ? "tx" : "rx");
+
       return true;
    }
 
    if (sp->fw_stdin <= 0) {
-      Log(LOG_WARN, "fwdsp",
-         "write_samples: %s.%s has invalid stdin fd %d pid %d",
-         codec_id, is_tx ? "tx" : "rx",
-         sp->fw_stdin, sp->pid);
+      Log(LOG_WARN, "fwdsp", "write_samples: %s.%s has invalid stdin fd %d pid %d", codec_id, is_tx ? "tx" : "rx", sp->fw_stdin, sp->pid);
+
       return true;
    }
 
    if (!data || len == 0) {
-      Log(LOG_WARN, "fwdsp",
-         "write_samples: %s.%s got empty frame",
-         codec_id, is_tx ? "tx" : "rx");
+      Log(LOG_WARN, "fwdsp", "write_samples: %s.%s got empty frame", codec_id, is_tx ? "tx" : "rx");
+
       return true;
    }
 
    if (len > UINT32_MAX) {
-      Log(LOG_WARN, "fwdsp",
-         "write_samples: %s.%s frame too large: %zu bytes",
-         codec_id, is_tx ? "tx" : "rx", len);
+      Log(LOG_WARN, "fwdsp", "write_samples: %s.%s frame too large: %zu bytes", codec_id, is_tx ? "tx" : "rx", len);
+
       return true;
    }
-   if (fwdsp_write_frame(sp->fw_stdin, data, len)) return false;
-   /* A full child input socket must never stall the host. Retire the
-    * unhealthy process; the normal codec/endpoint owner will recreate it. */
+
+   if (fwdsp_write_frame(sp->fw_stdin, data, len)) {
+      return false;
+   }
+   /* A full child input socket must never stall the host. Retire the unhealthy process; the normal codec/endpoint owner will recreate it. */
    fwdsp_destroy(sp);
+
    return true;
 }
 
-bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx,
-   const char *channel_uuid, const void *data, size_t len) {
+bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx, const char *channel_uuid, const void *data, size_t len) {
    if (!codec_id || strlen(codec_id) != 4 || !channel_uuid || !*channel_uuid ||
-       !data || len == 0 || len > FWDSP_MAX_FRAME_SIZE) {
+      !data || len == 0 || len > FWDSP_MAX_FRAME_SIZE) {
       return false;
    }
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid);
+
    if (!sp || sp->pid <= 0 || sp->fw_stdin < 0) {
       return false;
    }
-   if (fwdsp_write_frame(sp->fw_stdin, data, len)) return true;
+
+   if (fwdsp_write_frame(sp->fw_stdin, data, len)) {
+      return true;
+   }
    fwdsp_destroy(sp);
+
    return false;
 }
 
-bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid,
-   fwdsp_processor_output_cb output_cb, void *user_data) {
+bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid, fwdsp_processor_output_cb output_cb, void *user_data) {
    if (!codec_id || strlen(codec_id) != 4 || !output_cb) {
       return false;
    }
    struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
       fwdsp_find_channel_instance(codec_id, false, channel_uuid) :
       fwdsp_find_instance(codec_id, false);
+
    if (!sp || sp->role != FWDSP_ROLE_CODEC || sp->pid <= 0) {
       return false;
    }
    sp->processor_output = output_cb;
    sp->processor_output_data = user_data;
+
    return true;
 }
 
@@ -1245,6 +1317,7 @@ static int fwdsp_encoder_hangtime(void) {
    int hangtime = hangtime_s ? atoi(hangtime_s) : 60;
 
    free((char *)hangtime_s);
+
    return hangtime < 0 ? 0 : hangtime;
 }
 
@@ -1268,6 +1341,7 @@ static void fwdsp_idle_pipeline(struct fwdsp_subproc *sp) {
          fwdsp_send_control(sp, FWDSP_CTRL_PAUSE, 0);
          sp->idle_since = time(NULL);
          sp->cleanup_deadline = sp->idle_since + hangtime;
+
          return;
       }
    }
@@ -1294,7 +1368,7 @@ void fwdsp_sweep_expired(void) {
       // server subscription table.
       if (sp->channel_uuid[0] == '\0') {
          if (sp->refcount == 0 && sp->cleanup_deadline > 0 &&
-             sweep_now >= sp->cleanup_deadline) {
+            sweep_now >= sp->cleanup_deadline) {
             fwdsp_destroy(sp);
          }
          continue;
@@ -1313,10 +1387,10 @@ void fwdsp_sweep_expired(void) {
 
       while (active_codec && cur) {
          if (cur->is_ws && cur->authenticated &&
-             ((channel->direction == RR_BINFRAME_DIR_RX &&
-               chan_id_in_array(cur->rx_channels, MAX_RX_CHANNELS, chan_id)) ||
-              (channel->direction == RR_BINFRAME_DIR_TX &&
-               chan_id_in_array(cur->tx_channels, MAX_TX_CHANNELS, chan_id)))) {
+            ((channel->direction == RR_BINFRAME_DIR_RX &&
+            chan_id_in_array(cur->rx_channels, MAX_RX_CHANNELS, chan_id)) ||
+            (channel->direction == RR_BINFRAME_DIR_TX &&
+            chan_id_in_array(cur->tx_channels, MAX_TX_CHANNELS, chan_id)))) {
             users++;
          }
          cur = cur->next;
@@ -1336,11 +1410,10 @@ void fwdsp_sweep_expired(void) {
       }
 
       if (sp->pid > 0 && sp->refcount == 0 && sp->cleanup_deadline > 0 &&
-          sweep_now >= sp->cleanup_deadline) {
+         sweep_now >= sp->cleanup_deadline) {
          time_t idle_seconds = sp->idle_since > 0 && sweep_now >= sp->idle_since ?
             sweep_now - sp->idle_since : 0;
-         Log(LOG_INFO, "fwdsp", "Cleaning up idle encoder %s.%s after %ld seconds idle",
-            sp->pl_id, (sp->is_tx ? "tx" : "rx"), (long)idle_seconds);
+         Log(LOG_INFO, "fwdsp", "Cleaning up idle encoder %s.%s after %ld seconds idle", sp->pl_id, (sp->is_tx ? "tx" : "rx"), (long)idle_seconds);
          fwdsp_destroy(sp);
       }
    }
@@ -1354,6 +1427,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
    }
 
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid);
+
    if (!sp && (!channel_uuid || !*channel_uuid)) {
       sp = fwdsp_find_or_create(codec_id, FW_IO_STDIO, is_tx);
    }
@@ -1364,12 +1438,14 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
 
    if (!sp) {
       Log(LOG_CRIT, "fwdsp", "Failed to start fwdsp for %s.%s", codec_id, (is_tx ? "tx" : "rx"));
+
       return -1;
    }
 
    if (!sp->pid) {
       if (!fwdsp_spawn(sp) ) {
          Log(LOG_CRIT, "fwdsp", "Failed to spawn fwdsp for %s.%s", codec_id, (is_tx ? "tx" : "rx"));
+
          return -1;
       }
    } else if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
@@ -1380,6 +1456,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
    sp->cleanup_deadline = 0;
    sp->idle_since = 0;
    sp->refcount++;
+
    return sp->chan_id;
 }
 
@@ -1392,17 +1469,19 @@ int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_
    }
 
    struct fwdsp_subproc *sp = NULL;
+
    if (channel_uuid && *channel_uuid) {
       sp = fwdsp_find_channel_instance(codec, is_tx, channel_uuid);
-      /* Older pipelines were created before channel UUIDs were attached.
-       * Retire an otherwise unbound legacy instance during renegotiation so
-       * it cannot keep emitting packets with no media destination. */
+
+      /* Older pipelines were created before channel UUIDs were attached. Retire an otherwise unbound legacy instance during renegotiation so it cannot keep
+       * emitting packets with no media destination. */
       if (!sp && fwdsp_subprocs) {
-         for (int i = 0; i < max_subprocs; i++) {
+         for (int i = 0 ; i < max_subprocs ; i++) {
             struct fwdsp_subproc *candidate = &fwdsp_subprocs[i];
+
             if (candidate->pl_id[0] && candidate->is_tx == is_tx &&
-                !candidate->channel_uuid[0] &&
-                !strncmp(candidate->pl_id, codec, 4)) {
+               !candidate->channel_uuid[0] &&
+               !strncmp(candidate->pl_id, codec, 4)) {
                sp = candidate;
                break;
             }
@@ -1413,8 +1492,8 @@ int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_
    }
 
    if (!sp) {
-      Log(LOG_DEBUG, "fwdsp", "fwdsp_codec_stop: no instance for %s.%s channel %s",
-         codec, (is_tx ? "tx" : "rx"), (channel_uuid ? channel_uuid : "-"));
+      Log(LOG_DEBUG, "fwdsp", "fwdsp_codec_stop: no instance for %s.%s channel %s", codec, (is_tx ? "tx" : "rx"), (channel_uuid ? channel_uuid : "-"));
+
       return -1;
    }
 
@@ -1425,6 +1504,7 @@ int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_
    if (sp->refcount == 0) {
       fwdsp_idle_pipeline(sp);
    }
+
    return 0;
 }
 
@@ -1432,14 +1512,13 @@ int fwdsp_codec_stop(const char *codec, bool is_tx) {
    return fwdsp_codec_stop_channel(codec, is_tx, NULL);
 }
 
-int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
-   const char *channel_uuid) {
+int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx, const char *channel_uuid) {
    if (!new_codec || strlen(new_codec) != 4) {
       return -1;
    }
 
    if (old_codec && strlen(old_codec) == 4 &&
-       strncmp(old_codec, new_codec, 4) == 0) {
+      strncmp(old_codec, new_codec, 4) == 0) {
       struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
          fwdsp_find_channel_instance(new_codec, is_tx, channel_uuid) :
          fwdsp_find_instance(new_codec, is_tx);
@@ -1448,11 +1527,13 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
          if (sp->refcount > 0) {
             return sp->chan_id;
          }
+
          return fwdsp_codec_start(new_codec, is_tx, channel_uuid);
       }
    }
 
    int chan_id = fwdsp_codec_start(new_codec, is_tx, channel_uuid);
+
    if (chan_id < 0) {
       return -1;
    }
@@ -1462,6 +1543,7 @@ int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx,
    struct fwdsp_subproc *replacement = channel_uuid && *channel_uuid ?
       fwdsp_find_channel_instance(new_codec, is_tx, channel_uuid) :
       fwdsp_find_instance(new_codec, is_tx);
+
    if (replacement && replacement->stream_headers_len) {
       replacement->replay_headers = true;
    }
@@ -1489,14 +1571,13 @@ int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, const char
    }
 
    if (!sp) {
-      Log(LOG_DEBUG, "fwdsp",
-         "fwdsp_codec_stop_immediate: no instance for %s.%s channel %s",
-         codec, is_tx ? "tx" : "rx",
-         channel_uuid ? channel_uuid : "-");
+      Log(LOG_DEBUG, "fwdsp", "fwdsp_codec_stop_immediate: no instance for %s.%s channel %s", codec, is_tx ? "tx" : "rx", channel_uuid ? channel_uuid : "-");
+
       return -1;
    }
 
    fwdsp_destroy(sp);
+
    return 0;
 }
 

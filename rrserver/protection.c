@@ -47,11 +47,11 @@ bool protection_lockout(const char *reason) {
    rig.tx_blocked = true;
 
    char timestamp[32];
-   memset( timestamp, 0, sizeof(timestamp) );
+   memset(timestamp, 0, sizeof(timestamp) );
    snprintf(timestamp, sizeof(timestamp), "%lu", now);
 
    dict *d = dict_new();
-   dict_add( d, "protection.reason", (char *)(reason ? reason : "No reason given") );
+   dict_add(d, "protection.reason", (char *)(reason ? reason : "No reason given") );
    dict_add(d, "protection.ts", timestamp);
    event_emit_dict("protection", NULL, d);
    dict_free(d);

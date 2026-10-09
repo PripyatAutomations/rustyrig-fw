@@ -42,8 +42,8 @@ static bool log_tab_visible(void) {
       return false;
    }
 
-   return (gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
-           gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
+   return(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
+      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
 }
 
 // One host log line arrived as a SUBSYS_LOG binframe payload (media.frame.log
@@ -87,6 +87,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    char tsbuf[128];
    snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now) );
    char *ts_markup = gtk_colorize_string(tsbuf);
+
    if (ts_markup) {
       gtk_text_buffer_insert_markup(host_log_buffer, &end, ts_markup, -1);
       g_free(ts_markup);
@@ -99,10 +100,12 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(prio) );
    gtk_text_buffer_insert(host_log_buffer, &end, header, -1);
    char *msg_copy = malloc(mlen + 1);
+
    if (msg_copy) {
       memcpy(msg_copy, msg, mlen);
       msg_copy[mlen] = '\0';
       char *msg_markup = gtk_colorize_string(msg_copy);
+
       if (msg_markup) {
          gtk_text_buffer_insert_markup(host_log_buffer, &end, msg_markup, -1);
          g_free(msg_markup);
@@ -116,8 +119,8 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 
    // Only bother scrolling when the user is actually watching this tab
    if (main_notebook && host_log_page &&
-       gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
-       gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), host_log_page) ) {
+      gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
+      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), host_log_page) ) {
       g_idle_add(ui_scroll_to_end, host_log_view);
    }
 }
@@ -147,11 +150,13 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    if (!fmt || !ap) {
       return true;
    }
+
    // During shutdown the GTK widgets (and log_buffer) are destroyed before
    // the network/Log() teardown completes; refuse to touch them once dying.
    if (dying || !log_buffer) {
       return true;
    }
+
    // Respect the configured log level.  Without this we rendered EVERY Log()
    // call (including LOG_CRAZY websocket dumps) into the log tab, which made
    // CPU usage climb the longer the client ran.
@@ -159,56 +164,57 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
       return true;
    }
 
-      char outbuf[8096];
-      memset(outbuf, 0, sizeof(outbuf));
-      vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
+   char outbuf[8096];
+   memset(outbuf, 0, sizeof(outbuf));
+   vsnprintf(outbuf, sizeof(outbuf), fmt, ap);
 
-      bool visible = log_tab_visible();
+   bool visible = log_tab_visible();
 
-      GtkTextIter end;
+   GtkTextIter end;
 
-      gtk_text_buffer_get_end_iter(log_buffer, &end);
+   gtk_text_buffer_get_end_iter(log_buffer, &end);
 
-      // Always insert markup so hidden-tab timestamps receive formatting.
-      {
-         const char *ts = get_chat_ts(now);
-         char *ts_colorized = gtk_colorize_string(ts);
+   // Always insert markup so hidden-tab timestamps receive formatting.
+   {
+      const char *ts = get_chat_ts(now);
+      char *ts_colorized = gtk_colorize_string(ts);
 
-         if (ts_colorized) {
-            gtk_text_buffer_insert_markup(log_buffer, &end, ts_colorized, -1);
-            free(ts_colorized);
-         } else {
-            gtk_text_buffer_insert(log_buffer, &end, ts, -1);
-         }
+      if (ts_colorized) {
+         gtk_text_buffer_insert_markup(log_buffer, &end, ts_colorized, -1);
+         free(ts_colorized);
+      } else {
+         gtk_text_buffer_insert(log_buffer, &end, ts, -1);
       }
-
-      char header[512];
-      memset(header, 0, sizeof(header));
-      // get_chat_ts() already includes the separator after the timestamp.
-      snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(priority));
-      gtk_text_buffer_insert(log_buffer, &end, header, -1);
-
-      // Log messages can contain IRC formatting controls.
-      {
-         char *colorized = gtk_colorize_string(outbuf);
-
-         if (colorized) {
-            gtk_text_buffer_insert_markup(log_buffer, &end, colorized, -1);
-            free(colorized);
-         } else {
-            gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
-         }
-      }
-      gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
-      gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);
-
-      // Hidden: no scroll idle callback; log_tab_switched() scrolls to the
-      // end when the user opens the tab.
-      if (visible) {
-         g_idle_add(ui_scroll_to_end, log_view);
-      }
-      return false;
    }
+
+   char header[512];
+   memset(header, 0, sizeof(header));
+   // get_chat_ts() already includes the separator after the timestamp.
+   snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(priority));
+   gtk_text_buffer_insert(log_buffer, &end, header, -1);
+
+   // Log messages can contain IRC formatting controls.
+   {
+      char *colorized = gtk_colorize_string(outbuf);
+
+      if (colorized) {
+         gtk_text_buffer_insert_markup(log_buffer, &end, colorized, -1);
+         free(colorized);
+      } else {
+         gtk_text_buffer_insert(log_buffer, &end, outbuf, -1);
+      }
+   }
+   gtk_text_buffer_insert(log_buffer, &end, "\n", 1);
+   gtk_trim_scrollback(log_buffer, "ui.gtk.scrollback.syslog", 200);
+
+   // Hidden: no scroll idle callback; log_tab_switched() scrolls to the
+   // end when the user opens the tab.
+   if (visible) {
+      g_idle_add(ui_scroll_to_end, log_view);
+   }
+
+   return false;
+}
 
 // print to syslog
 bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...) {
@@ -219,6 +225,7 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
    // This usually indicates a bug has occurred...
    if (!log_buffer) {
       fprintf(stderr, "log_print called with no log_buffer");
+
       return false;
    }
    va_list ap;
@@ -241,7 +248,7 @@ GtkWidget *init_log_tab(void) {
 
    log_view = gtk_text_view_new();
    gtk_widget_set_name(log_view, "log-view");
-   log_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(log_view) );
+   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
@@ -265,7 +272,7 @@ GtkWidget *init_host_log_tab(void) {
 
    host_log_view = gtk_text_view_new();
    gtk_widget_set_name(host_log_view, "host-log-view");
-   host_log_buffer = gtk_text_view_get_buffer( GTK_TEXT_VIEW(host_log_view) );
+   host_log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(host_log_view) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(host_log_view), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(host_log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(host_log_view), GTK_WRAP_WORD_CHAR);

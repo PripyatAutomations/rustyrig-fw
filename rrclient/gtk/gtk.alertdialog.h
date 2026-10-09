@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__gtk_alertdialog_h)
-#define	__gtk_alertdialog_h
+#define __gtk_alertdialog_h
 
 typedef enum {
    MSG_ERROR,

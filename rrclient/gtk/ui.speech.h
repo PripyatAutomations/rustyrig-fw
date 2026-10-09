@@ -10,7 +10,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_ui_speech_h)
-#define	__rrclient_ui_speech_h
+#define __rrclient_ui_speech_h
 #include <librustyaxe/config.h>
 #pragma once
 #if     defined(USE_GTK)

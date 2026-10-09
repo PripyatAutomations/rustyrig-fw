@@ -12,11 +12,9 @@
  *
  * Here we parse commands for the various functions of the radio.
  *
- * Since this module is designed to be used either with an existing rig or eventually as a
- * stand-alone transceiver, we support two protocols for control
+ * Since this module is designed to be used either with an existing rig or eventually as a stand-alone transceiver, we support two protocols for control
  *
- * CAT_KPA500: Electraft KPA-500 amplifier control protocol CAT_YAESU: Yaesu FT-891/991A
- * rig control protocol You can enable both protocols or just one.
+ * CAT_KPA500: Electraft KPA-500 amplifier control protocol CAT_YAESU: Yaesu FT-891/991A rig control protocol You can enable both protocols or just one.
  */
 #include <stddef.h>
 #include <stdarg.h>
@@ -254,7 +252,7 @@ static int32_t rr_cat_kpa500_fwversion(struct AmpState *amp, char *args) {
 
 static int32_t rr_cat_kpa500_serial(struct AmpState *amp, char *args) {
 #ifdef USE_EEPROM
-   rr_cat_printf( "^SN%05d", get_serial_number() );
+   rr_cat_printf("^SN%05d", get_serial_number() );
 #else // USE_EEPROM
    const char *s = cfg_get("device.serial");
 
@@ -282,7 +280,7 @@ static int32_t rr_cat_kpa500_get_temp(struct AmpState *amp, char *args) {
       }
       sensor = tmp;
    }
-   rr_cat_printf( "^TM%03d", get_thermal(sensor) );
+   rr_cat_printf("^TM%03d", get_thermal(sensor) );
 
    return 0;
 }

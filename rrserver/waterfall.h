@@ -7,6 +7,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_waterfall_h)
-#define	__rr_waterfall_h
+#define __rr_waterfall_h
 
 #endif // !defined(__rr_waterfall_h)

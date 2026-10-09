@@ -12,14 +12,25 @@ const char *login_user = "operator";
 rrconn_t *ws_conn = (rrconn_t *)1;
 struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
-void tui_refresh_sb_window(void) {}
-void tui_refresh_sb_vfo(void) {}
-void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {}
-const char *rrclient_media_current_codec(bool tx) { return tx ? NULL : "opuT"; }
+void tui_refresh_sb_window(void) {
+}
+void tui_refresh_sb_vfo(void) {
+}
+void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
+}
+const char *rrclient_media_current_codec(bool tx) {
+   return tx ? NULL : "opuT";
+}
 // Exercise the real per-room selection state used by vfo.c.
-const char *rrclient_media_active_room(void) { return "#rig"; }
-const char *rrclient_media_vfo_uuid(const char *room, char vfo) { return NULL; }
-const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
+const char *rrclient_media_active_room(void) {
+   return "#rig";
+}
+const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
+   return NULL;
+}
+const dict *rrclient_object_property(const char *uuid, const char *name) {
+   return NULL;
+}
 static unsigned redraws;
 static char rejoin_targets[4][128];
 static unsigned rejoin_count;
@@ -27,12 +38,13 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int data_type
    assert(!sender && dest == ws_conn && data_type == WEBSOCKET_OP_TEXT);
    assert(!strcmp(dict_get(message, "talk.cmd", ""), "join"));
    assert(rejoin_count < 4);
-   snprintf(rejoin_targets[rejoin_count++], sizeof(rejoin_targets[0]), "%s",
-      dict_get(message, "talk.target", ""));
+   snprintf(rejoin_targets[rejoin_count++], sizeof(rejoin_targets[0]), "%s", dict_get(message, "talk.target", ""));
+
    return true;
 }
 static char *render(tui_window_t *win) {
    redraws++;
+
    return rrclient_tui_topline(win);
 }
 static void state(const char *vfo, long frequency, const char *mode) {
@@ -48,7 +60,10 @@ static void state(const char *vfo, long frequency, const char *mode) {
 static void check(tui_window_t *win, const char *format, const char *expected) {
    dict_add(cfg, "tui.status-line", format);
    char *line = rrclient_tui_topline(win);
-   if (!line || strcmp(line, expected)) fprintf(stderr, "template: %s\nexpected: %s\nactual: %s\n", format, expected, line ? line : "(null)");
+
+   if (!line || strcmp(line, expected)) {
+      fprintf(stderr, "template: %s\nexpected: %s\nactual: %s\n", format, expected, line ? line : "(null)");
+   }
    assert(line && !strcmp(line, expected));
    free(line);
 }
@@ -64,6 +79,7 @@ static char *capture_read(FILE *file) {
    char *text = calloc(1, size + 1);
    rewind(file);
    assert(fread(text, 1, size, file) == (size_t)size);
+
    return text;
 }
 int main(void) {
@@ -74,7 +90,9 @@ int main(void) {
    server_name = "station";
    ws_connected = 1;
    cfg_tui_colors = false;
-   tui_window_t window = {0};
+   tui_window_t window = {
+      0
+   };
    strcpy(window.title, "chat");
    strcpy(window.status_line, "Test topic");
    char *initial = rrclient_tui_topline(&window);
@@ -91,10 +109,8 @@ int main(void) {
    strcpy(window.title, "#rig");
    state("A", 7200123, "LSB");
    state("B", 14250000, "USB");
-   check(&window, "${active_vfo} ${vfo_a_freq} ${vfo_a_freq_hz} ${vfo_a_freq_khz} ${vfo_a_freq_mhz}",
-      "A 7200123 7200123 7200.123 7.200123");
-   check(&window, "${vfo_B_mode} ${active_mode} ${active_width} ${active_power} ${active_ptt}",
-      "USB LSB 2700 25 RX");
+   check(&window, "${active_vfo} ${vfo_a_freq} ${vfo_a_freq_hz} ${vfo_a_freq_khz} ${vfo_a_freq_mhz}", "A 7200123 7200123 7200.123 7.200123");
+   check(&window, "${vfo_B_mode} ${active_mode} ${active_width} ${active_power} ${active_ptt}", "USB LSB 2700 25 RX");
    check(&window, "${ptt-state}", "PTT: OFF");
    state("B", 14250000, "USB");
    dict_add(cfg, "tui.status-line", "${ptt-state}");
@@ -119,8 +135,7 @@ int main(void) {
    assert(vfo_state_get_active() == 'B');
    dict_free(selection);
    check(&window, "${active_vfo}/${active_freq}/${active_mode}", "B/14250000/USB");
-   check(&window, "${window}/${topic}/${server}/${user}/${connection}/${rxcodec}/${txcodec}",
-      "#rig/Test topic/station/operator/ONLINE/opuT/NONE");
+   check(&window, "${window}/${topic}/${server}/${user}/${connection}/${rxcodec}/${txcodec}", "#rig/Test topic/station/operator/ONLINE/opuT/NONE");
    check(&window, "${missing} ${vfo_z_freq:unknown} ${vfo_z_mode:---} 100%", " unknown --- 100%");
    check(&window, "broken ${active_vfo", "broken ${active_vfo");
    check(&window, "literal {json: value} ${active_vfo}", "literal {json: value} B");
@@ -207,7 +222,9 @@ int main(void) {
    screen = capture_read(output);
    const char *top = strstr(screen, "\033[1;1H ") + strlen("\033[1;1H ");
    unsigned columns = 0;
-   while (top[columns] == 'X') columns++;
+   while (top[columns] == 'X') {
+      columns++;
+   }
    assert(columns == (unsigned)tui_cols() - 1);
    free(screen);
 

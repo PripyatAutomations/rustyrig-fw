@@ -19,7 +19,7 @@ bool cat_pty_active(void) {
    return rr_serial_find("ttyCAT0") != NULL;
 }
 int cat_pty_fd(void) {
-   return rr_serial_fd( rr_serial_find("ttyCAT0") );
+   return rr_serial_fd(rr_serial_find("ttyCAT0") );
 }
 int cat_pty_printf(const char *fmt, ...) {
    char buffer[512];

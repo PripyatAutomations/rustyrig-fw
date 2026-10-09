@@ -65,15 +65,18 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
          if (ulen >= HTTP_USER_LEN || plen >= HTTP_PASS_LEN) {
             return false;
          }
-         memcpy(user, p, ulen); user[ulen] = '\0';
-         memcpy(pass, colon + 1, plen); pass[plen] = '\0';
+         memcpy(user, p, ulen);
+         user[ulen] = '\0';
+         memcpy(pass, colon + 1, plen);
+         pass[plen] = '\0';
       } else {
          size_t ulen = at - p;
 
          if (ulen >= HTTP_USER_LEN) {
             return false;
          }
-         memcpy(user, p, ulen); user[ulen] = '\0';
+         memcpy(user, p, ulen);
+         user[ulen] = '\0';
          pass[0] = '\0';
       }
       p = at + 1;
@@ -92,7 +95,8 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
       if (hlen >= 256) {
          return false;
       }
-      memcpy(host, p, hlen); host[hlen] = '\0';
+      memcpy(host, p, hlen);
+      host[hlen] = '\0';
       *port = atoi(colon + 1);
    } else {
       size_t hlen = hostend - p;
@@ -100,19 +104,20 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
       if (hlen >= 256) {
          return false;
       }
-      memcpy(host, p, hlen); host[hlen] = '\0';
+      memcpy(host, p, hlen);
+      host[hlen] = '\0';
    }
 
    return true;
 }
 
 serverlist_t *serverlist_add(const char *name, const char *url) {
-   serverlist_t *sp = malloc( sizeof(serverlist_t) );
+   serverlist_t *sp = malloc(sizeof(serverlist_t) );
 
    if (!sp) {
       return NULL;
    }
-   memset( sp, 0, sizeof(*sp) );
+   memset(sp, 0, sizeof(*sp) );
 
    char host[256];
    int port = -1;
@@ -134,8 +139,10 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    sp->next = NULL;
 
    if (!sp->name || !sp->host || !sp->user || !sp->pass) {
-      free(sp->name); free(sp->host);
-      free(sp->user); free(sp->pass);
+      free(sp->name);
+      free(sp->host);
+      free(sp->user);
+      free(sp->pass);
       free(sp);
 
       return NULL;
@@ -178,10 +185,10 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
 
    for (serverlist_t *sp = head ; sp ; sp = sp->next) {
       if (sp->port == port &&
-          sp->proto == proto &&
-          strcmp(sp->host, host) == 0 &&
-          strcmp(sp->user, user) == 0 &&
-          strcmp(sp->pass, pass) == 0) {
+         sp->proto == proto &&
+         strcmp(sp->host, host) == 0 &&
+         strcmp(sp->user, user) == 0 &&
+         strcmp(sp->pass, pass) == 0) {
          return sp;
       }
    }

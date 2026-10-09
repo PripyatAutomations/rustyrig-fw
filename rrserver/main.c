@@ -68,9 +68,8 @@ int cfg_backend_poll_interval = 1000;
 int cfg_backend_announce_interval = 10000;
 int cfg_tick_interval = 100;
 
-/* Refresh server settings which are consumed from globals by timers and protection code.
- *  Config reload replaces the dictionary atomically; this callback keeps those long-lived
- * mirrors in step with it. */
+/* Refresh server settings which are consumed from globals by timers and protection code. Config reload replaces the dictionary atomically; this callback keeps
+ * those long-lived mirrors in step with it. */
 static bool rrserver_config_refresh(const char *key) {
    (void)key;
    cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
@@ -132,7 +131,7 @@ void restart_rig(void) {
    execv(my_argv[0], my_argv);
 
    // If execv fails
-   Log( LOG_CRIT, "core", "restart_rig failed in execve(): %d: %s", errno, strerror(errno) );
+   Log(LOG_CRIT, "core", "restart_rig failed in execve(): %d: %s", errno, strerror(errno) );
    exit(EXIT_FAILURE);
 }
 
@@ -149,8 +148,8 @@ static void timer_check_faults_fn(void *arg) {
 // cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
    (void)arg;
-   /* One scheduler services every registered rig. A failed rig is recorded by the
-    * aggregate result but never prevents later registry entries from being polled. */
+   /* One scheduler services every registered rig. A failed rig is recorded by the aggregate result but never prevents later registry entries from being polled.
+    */
    rr_backend_poll_all();
 
    if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
@@ -182,14 +181,14 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if ( !rr_rig_config_init() ) {
+   if (!rr_rig_config_init() ) {
       Log(LOG_CRIT, "cfg.rig", "Unable to register rig configuration sections");
 
       return EXIT_FAILURE;
    }
    cfg_modules_init();
 
-   if ( !rr_serial_config_register() ) {
+   if (!rr_serial_config_register() ) {
       return EXIT_FAILURE;
    }
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
@@ -227,7 +226,7 @@ int main(int argc, char **argv) {
    if (config_file) {
       if (!(cfg = cfg_load(config_file) ) ) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
-         free( (void *)config_file );
+         free( (void *)config_file);
          config_file = NULL;
          exit(1);
       }
@@ -251,7 +250,7 @@ int main(int argc, char **argv) {
    printf("Loading config %s\n", config_file);
    // apply some global configuration
    char *logfile = cfg_get_path("log.file");
-   logger_init( (logfile ? logfile : "-"), false );
+   logger_init( (logfile ? logfile : "-"), false);
 
    if (logfile) {
       free(logfile);
@@ -261,17 +260,17 @@ int main(int argc, char **argv) {
    char *ua_ban_path = cfg_get_path("net.http.ua-bans");
 
    if (ua_ban_path) {
-      if ( load_http_ua_bans(ua_ban_path) ) {
+      if (load_http_ua_bans(ua_ban_path) ) {
          Log(LOG_WARN, "http", "Unable to load HTTP User-Agent bans from %s", ua_ban_path);
       }
       free(ua_ban_path);
    }
 
-   srand( (unsigned int)now );
+   srand( (unsigned int)now);
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
-   memset( &rig, 0, sizeof(struct GlobalState) );
+   memset(&rig, 0, sizeof(struct GlobalState) );
    load_defaults();
 
 // Core dump setup
@@ -297,12 +296,12 @@ int main(int argc, char **argv) {
 
    if (!(masterdb = db_open(masterdb_path) ) ) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", masterdb_path);
-      free( (void *)masterdb_path );
+      free( (void *)masterdb_path);
       exit(EXIT_FAILURE);
    }
    uint32_t default_vfo_mask = rr_rig_config_default_vfo_mask();
    ws_set_authoritative_vfo_mask(default_vfo_mask);
-   free( (void *)masterdb_path );
+   free( (void *)masterdb_path);
    audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
    hostlog_init();   // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
@@ -322,8 +321,7 @@ int main(int argc, char **argv) {
    }
 #endif // USE_EEPROM
 
-   /* EEPROM-backed settings may have augmented the config, so refresh the same cached
-    * values once more before timers and backends start. */
+   /* EEPROM-backed settings may have augmented the config, so refresh the same cached values once more before timers and backends start. */
    rrserver_config_refresh(NULL);
 
 //   i2c_init();
@@ -357,8 +355,7 @@ int main(int argc, char **argv) {
    rr_atu_init_all();
 
    if (auto_block_ptt) {
-      Log(LOG_INFO, "core",
-         "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
+      Log(LOG_INFO, "core", "*** Enabling PTT block at startup - change features/auto-block-ptt to false to disable ***");
       rr_ptt_set_blocked(true);
    }
 
@@ -374,13 +371,13 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
 
-   if ( rrserver_rig_rooms_init() ) {
+   if (rrserver_rig_rooms_init() ) {
       Log(LOG_CRIT, "core", "Unable to configure rig rooms");
       exit(EXIT_FAILURE);
    }
 
    // Provision the media channels (RX/TX audio per exposed VFO)
-   if ( rrserver_media_init() ) {
+   if (rrserver_media_init() ) {
       Log(LOG_CRIT, "core", "Unable to provision rig media");
       exit(EXIT_FAILURE);
    }
@@ -408,9 +405,8 @@ int main(int argc, char **argv) {
    // Launch the persistent callsign helper while the radio is coming online.
    // Readiness is checked when the first /qrz or /grid request arrives so a
    // slow helper cannot delay the websocket server from starting.
-   if ( !ws_callsign_lookup_init() ) {
-      Log(LOG_WARN, "callsign",
-         "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
+   if (!ws_callsign_lookup_init() ) {
+      Log(LOG_WARN, "callsign", "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
    }
 
    // Network connectivity
@@ -429,7 +425,7 @@ int main(int argc, char **argv) {
 
    mg_mgr_init(&mg_mgr);
 
-   if ( fwdsp_ready && !rrserver_media_audio_init() ) {
+   if (fwdsp_ready && !rrserver_media_audio_init() ) {
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
    }
 #if     defined(USE_HTTP)
@@ -462,7 +458,7 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-   if ( rrserver_gps_init() ) {
+   if (rrserver_gps_init() ) {
       return EXIT_FAILURE;
    }
    bool modules_loaded = false;
@@ -474,7 +470,7 @@ int main(int argc, char **argv) {
          break;
       }
 
-      if ( !rr_load_module(module) ) {
+      if (!rr_load_module(module) ) {
          modules_loaded = true;
       }
    }
@@ -511,7 +507,7 @@ int main(int argc, char **argv) {
          break;
       }
 
-      if ( rr_find_loaded_module(module) ) {
+      if (rr_find_loaded_module(module) ) {
          rr_unload_module(module);
       }
    }

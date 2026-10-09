@@ -24,7 +24,7 @@
 // unregister also resets ui_mode so the core falls back safely.
 //
 #if     !defined(__rrclient_frontend_h)
-#define	__rrclient_frontend_h
+#define __rrclient_frontend_h
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -33,13 +33,11 @@
 typedef struct rr_frontend_ops {
    const char *name;                        // "gtk" etc, for diagnostics
 
-   /* Formatted output into a named chat/window (va_list form). The module owns
-    * formatting/colorization. */
+   /* Formatted output into a named chat/window (va_list form). The module owns formatting/colorization. */
    void (*vprint)(const char *window, const char *fmt, va_list ap);
 
-   /* Present per-VFO observation state to the widgets. vfo is the VFO letter string
-    * ("A".."D"). Fields may be NULL/0 when unknown. The module decides edit-delay
-    * suppression internally. */
+   /* Present per-VFO observation state to the widgets. vfo is the VFO letter string ("A".."D"). Fields may be NULL/0 when unknown. The module decides
+    * edit-delay suppression internally. */
    void (*vfo_state)(const char *vfo, long freq, const char *mode, int width, int power, bool ptt);
 
    /* Single-field echoes (server poll echo / ws.msg.cat). */
@@ -57,8 +55,7 @@ typedef struct rr_frontend_ops {
    void (*chat_show_status)(void);
    void (*chat_set_authoritative_room)(const char *room);
    void (*chat_room_vfos_changed)(const char *room);
-   /* Selected chat tab's room, or NULL. The returned string remains owned by the frontend
-    * and is valid until the next frontend call. */
+   /* Selected chat tab's room, or NULL. The returned string remains owned by the frontend and is valid until the next frontend call. */
    const char *(*chat_current_room)(void);
 
    /* Private-query tab management. */
@@ -72,8 +69,7 @@ typedef struct rr_frontend_ops {
    void (*ptt_set_state)(bool active);      // reflect server state
    void (*ptt_tot_expired)(int tot_secs);
    void (*ptt_refresh)(void);               // users TX state changed
-   /* Hotkey toggle entry point (alt-enter/ctrl-space). Returns false when the frontend
-    * handled it. */
+   /* Hotkey toggle entry point (alt-enter/ctrl-space). Returns false when the frontend handled it. */
    bool (*ptt_hotkey_toggle)(void);
 
    /* Codec picker reflects the current selected channel's codec. */
@@ -87,8 +83,7 @@ typedef struct rr_frontend_ops {
    /* Switch to notebook page by 1-based index (client /win N). */
    void (*switch_window)(int id);
 
-   /* Modal confirmation; returns false when the user declined or no frontend can ask
-    * (callers must treat "no frontend" as confirmed). */
+   /* Modal confirmation; returns false when the user declined or no frontend can ask (callers must treat "no frontend" as confirmed). */
    bool (*confirm_dialog)(const char *message);
 
    /* Open the config editor window (path may be NULL for default). */
@@ -120,8 +115,7 @@ typedef struct rr_frontend_ops {
    /* Volume slider set by /vol (0-100). */
    void (*rx_volume)(int value);
 
-   /* Main loop: initialize the frontend (creates windows), then run the frontend's main
-    * loop until exit. run() returns when the loop ends. */
+   /* Main loop: initialize the frontend (creates windows), then run the frontend's main loop until exit. run() returns when the loop ends. */
    bool (*init)(int *argc, char ***argv);
    void (*run)(void);
    /* Request the frontend main loop to quit (idempotent). */
@@ -132,13 +126,11 @@ typedef struct rr_frontend_ops {
    void (*stop)(void);
 } rr_frontend_ops_t;
 
-/* Register the frontend ops. Returns false if a frontend is already registered. Takes no
- * ownership of ops; the pointed-to table must outlive the registration (static storage in
- * the module). */
+/* Register the frontend ops. Returns false if a frontend is already registered. Takes no ownership of ops; the pointed-to table must outlive the registration
+ * (static storage in the module). */
 extern bool frontend_ops_register(const rr_frontend_ops_t *ops);
 
-/* Unregister. Safe to call when nothing is registered. After this the core treats every
- * op as a no-op and ui_mode falls back to TUI. */
+/* Unregister. Safe to call when nothing is registered. After this the core treats every op as a no-op and ui_mode falls back to TUI. */
 extern void frontend_ops_unregister(void);
 
 /* The currently registered ops, or NULL. */

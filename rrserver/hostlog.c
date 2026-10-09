@@ -39,11 +39,12 @@ static uint32_t logframe_seq = 0;
 // Must not Log() at a level that recurses into us uselessly - keep it quiet.
 static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    static _Thread_local bool streaming;
+
    if (streaming || !subsys || !fmt) {
       return false;
    }
 
-   if ( debug_filter(subsys, priority) ) {
+   if (debug_filter(subsys, priority) ) {
       return false;
    }
 
@@ -57,6 +58,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
 
    if (flen < 0 || !frame) {
       streaming = false;
+
       return false;   // OOM or too-long; drop quietly
    }
 
@@ -64,8 +66,8 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    rrconn_t *cur = http_client_list;
 
    while (cur) {
-      if ( cur->is_ws && cur->authenticated && cur->conn &&
-           cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG) ) {
+      if (cur->is_ws && cur->authenticated && cur->conn &&
+         cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG) ) {
          mg_ws_send(cur->conn, frame, flen, WEBSOCKET_OP_BINARY);
       }
       cur = cur->next;

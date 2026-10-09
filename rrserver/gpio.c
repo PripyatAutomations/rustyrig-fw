@@ -26,7 +26,7 @@
 #ifdef  HOST_POSIX
 #include <stdio.h>
 #include <gpiod.h>              // Linux hosts
-#define	MAX_GPIOCHIPS 8
+#define MAX_GPIOCHIPS 8
 radio_gpiochip gpiochips[MAX_GPIOCHIPS];
 #endif // HOST_POSIX
 

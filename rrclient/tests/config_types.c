@@ -13,15 +13,19 @@ time_t now;
 int main(void) {
    cfg = dict_new();
    assert(cfg);
-   for (size_t i = 0; defcfg[i].key; i++) {
+
+   for (size_t i = 0 ; defcfg[i].key ; i++) {
       assert(defcfg[i].help && defcfg[i].help[0]);
+
       if (defcfg[i].type == DEFCONFIG_ENUM) {
          assert(defcfg[i].choices && defcfg[i].choices[0]);
       }
-      for (size_t j = i + 1; defcfg[j].key; j++) {
+
+      for (size_t j = i + 1 ; defcfg[j].key ; j++) {
          assert(strcmp(defcfg[i].key, defcfg[j].key) != 0);
       }
    }
+
    /* The authoritative room identity belongs to rrserver. */
    assert(cfg_defconfig_find("station.name") == NULL);
    /* Logging controls use the log.* namespace; old debug.* aliases are gone. */
@@ -53,5 +57,6 @@ int main(void) {
    dict_free(cfg);
    cfg = NULL;
    puts("PASS: typed configuration values and enum choices");
+
    return 0;
 }

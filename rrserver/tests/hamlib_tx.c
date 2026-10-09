@@ -6,28 +6,43 @@ time_t now;
 static unsigned switches, keys;
 static int select_result;
 static vfo_t selected;
-void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {}
-void shutdown_rig(uint32_t code) { abort(); }
+void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
+}
+void shutdown_rig(uint32_t code) {
+   abort();
+}
 int rig_set_vfo(RIG *radio, vfo_t vfo) {
-   switches++; selected = vfo; return select_result;
+   switches++;
+   selected = vfo;
+
+   return select_result;
 }
 int rig_set_ptt(RIG *radio, vfo_t vfo, ptt_t state) {
    keys++;
    assert(vfo == selected);
+
    return RIG_OK;
 }
 int main(void) {
    rr_rig_registry_t *registry = rr_rig_registry_new();
-   rr_backend_funcs_t api = {0};
-   rr_backend_type_t type = { .name = "fixture", .api = &api };
+   rr_backend_funcs_t api = {
+      0
+   };
+   rr_backend_type_t type = {
+      .name = "fixture", .api = &api
+   };
    rr_server_rig_t *radio = rr_rig_registry_add(registry, "rig", "rig0", "rig0", &type);
    assert(radio);
    rr_server_vfo_t *a = rr_server_vfo_add(radio, "a", "A", "A", RR_VFO_PERSISTENT);
    rr_server_vfo_t *b = rr_server_vfo_add(radio, "b", "B", "B", RR_VFO_PERSISTENT);
    rr_backend_t *backend = rr_server_rig_backend(radio);
-   RIG device = {0};
+   RIG device = {
+      0
+   };
    device.state.vfo_list = RIG_VFO_A | RIG_VFO_B;
-   hamlib_backend_t data = { .rig = &device };
+   hamlib_backend_t data = {
+      .rig = &device
+   };
    rr_backend_instance_set_data(backend, &data);
    select_result = -1;
    assert(hl_ptt_set(backend, b, true));

@@ -12,7 +12,7 @@
 #include <librustyaxe/core.h>
 #include <rrserver/rig.config.h>
 
-#define	RR_RIG_CONFIG_KEY_MAX 256
+#define RR_RIG_CONFIG_KEY_MAX 256
 
 bool rr_rig_config_alias_valid(const char *alias) {
    if (!alias || !*alias) {
@@ -43,7 +43,7 @@ bool rr_rig_config_section_cb(const char *path, int line, const char *section, c
    }
    const char *alias = section + 4;
 
-   if ( !rr_rig_config_alias_valid(alias) ) {
+   if (!rr_rig_config_alias_valid(alias) ) {
       Log(LOG_CRIT, "cfg.rig", "Invalid rig alias in [%s] at %s:%d", section, path, line);
 
       return true;
@@ -63,15 +63,15 @@ bool rr_rig_config_section_cb(const char *path, int line, const char *section, c
       return true;
    }
    *value++ = '\0';
-   while ( *value && isspace( (unsigned char)*value ) ) {
+   while (*value && isspace( (unsigned char)*value) ) {
       value++;
    }
    char *key_end = copy + strlen(copy);
-   while ( key_end > copy && isspace( (unsigned char)key_end[-1] ) ) {
+   while (key_end > copy && isspace( (unsigned char)key_end[-1]) ) {
       *--key_end = '\0';
    }
    char *value_end = value + strlen(value);
-   while ( value_end > value && isspace( (unsigned char)value_end[-1] ) ) {
+   while (value_end > value && isspace( (unsigned char)value_end[-1]) ) {
       *--value_end = '\0';
    }
 
@@ -85,7 +85,7 @@ bool rr_rig_config_section_cb(const char *path, int line, const char *section, c
    char fullkey[RR_RIG_CONFIG_KEY_MAX];
 
    if (!rr_rig_config_key(fullkey, sizeof(fullkey), alias, copy) ||
-       dict_add(cfg, fullkey, value) != 0) {
+      dict_add(cfg, fullkey, value) != 0) {
       Log(LOG_CRIT, "cfg.rig", "Unable to store %s for [%s] at %s:%d", copy, section, path, line);
       free(copy);
 
@@ -103,7 +103,7 @@ bool rr_rig_config_init(void) {
 const char *rr_rig_config_get(const char *alias, const char *key) {
    char fullkey[RR_RIG_CONFIG_KEY_MAX];
 
-   if ( !rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
+   if (!rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
       return NULL;
    }
 
@@ -113,7 +113,7 @@ const char *rr_rig_config_get(const char *alias, const char *key) {
 char *rr_rig_config_get_exp(const char *alias, const char *key) {
    char fullkey[RR_RIG_CONFIG_KEY_MAX];
 
-   if ( !rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
+   if (!rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
       return NULL;
    }
 
@@ -123,7 +123,7 @@ char *rr_rig_config_get_exp(const char *alias, const char *key) {
 int rr_rig_config_get_int(const char *alias, const char *key, int default_value) {
    char fullkey[RR_RIG_CONFIG_KEY_MAX];
 
-   if ( !rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
+   if (!rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
       return default_value;
    }
 
@@ -133,7 +133,7 @@ int rr_rig_config_get_int(const char *alias, const char *key, int default_value)
 bool rr_rig_config_get_bool(const char *alias, const char *key, bool default_value) {
    char fullkey[RR_RIG_CONFIG_KEY_MAX];
 
-   if ( !rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
+   if (!rr_rig_config_key(fullkey, sizeof(fullkey), alias, key) ) {
       return default_value;
    }
 
@@ -150,7 +150,7 @@ uint32_t rr_rig_config_default_vfo_mask(void) {
       if (!instances) {
          return 0;
       }
-      while ( *instances && (isspace( (unsigned char)*instances ) || *instances == ',') ) {
+      while (*instances && (isspace( (unsigned char)*instances) || *instances == ',') ) {
          instances++;
       }
       size_t len = strcspn(instances, " ,\t\r\n");
@@ -172,10 +172,10 @@ uint32_t rr_rig_config_default_vfo_mask(void) {
    char **tokens = g_strsplit_set(configured, " ,\t\r\n", -1);
 
    for (size_t i = 0 ; tokens && tokens[i] ; i++) {
-      if ( strlen(tokens[i]) != 1 || !isalpha( (unsigned char)tokens[i][0] ) ) {
+      if (strlen(tokens[i]) != 1 || !isalpha( (unsigned char)tokens[i][0]) ) {
          continue;
       }
-      int index = toupper( (unsigned char)tokens[i][0] ) - 'A';
+      int index = toupper( (unsigned char)tokens[i][0]) - 'A';
 
       if (index >= 0 && index < 32) {
          mask |= UINT32_C(1) << index;

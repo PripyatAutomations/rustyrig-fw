@@ -39,7 +39,7 @@ static void net_print_listeners(const char *listenaddr) {
    }
 
    if (getifaddrs(&ifaddr) == -1) {
-      Log( LOG_CRIT, "net", "getifaddrs: %s", strerror(errno) );
+      Log(LOG_CRIT, "net", "getifaddrs: %s", strerror(errno) );
       exit(EXIT_FAILURE);
    }
 
@@ -54,15 +54,15 @@ static void net_print_listeners(const char *listenaddr) {
              ? (void *)&( (struct sockaddr_in *)ifa->ifa_addr)->sin_addr
              : (void *)&( (struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
 
-         if (!inet_ntop( family, addr_ptr, addr, sizeof(addr) ) ) {
-            Log( LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno) );
+         if (!inet_ntop(family, addr_ptr, addr, sizeof(addr) ) ) {
+            Log(LOG_CRIT, "net", "inet_ntop failed: %s", strerror(errno) );
             continue;
          }
 
          if (!listenaddr ||
-             strcmp(addr, listenaddr) == 0 ||
-             (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
-             (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
+            strcmp(addr, listenaddr) == 0 ||
+            (strcmp(listenaddr, "0.0.0.0") == 0 && family == AF_INET) ||
+            (strcmp(listenaddr, "::") == 0 && family == AF_INET6) ) {
             Log(LOG_INFO, "net", " => %s: %s", ifa->ifa_name, addr);
          }
       }
@@ -125,11 +125,11 @@ void show_network_info(void) {
    Log(LOG_INFO, "net", "  Interface: %s\tCurrent VLAN: %d\tMTU: %d\tMode: Static", iface, vlan, mtu);
 
    char s_ip[16], s_mask[16], s_gw[16], s_dns1[16], s_dns2[16];
-   snprintf( s_ip, 16, "%s", inet_ntoa(sa_ip) );
-   snprintf( s_gw, 16, "%s", inet_ntoa(sa_gw) );
-   snprintf( s_mask, 16, "%s", inet_ntoa(sa_mask) );
-   snprintf( s_dns1, 16, "%s", inet_ntoa(sa_dns1) );
-   snprintf( s_dns2, 16, "%s", inet_ntoa(sa_dns2) );
+   snprintf(s_ip, 16, "%s", inet_ntoa(sa_ip) );
+   snprintf(s_gw, 16, "%s", inet_ntoa(sa_gw) );
+   snprintf(s_mask, 16, "%s", inet_ntoa(sa_mask) );
+   snprintf(s_dns1, 16, "%s", inet_ntoa(sa_dns1) );
+   snprintf(s_dns2, 16, "%s", inet_ntoa(sa_dns2) );
 
    Log(LOG_INFO, "net", "Static IP: %s (%s) GW: %s", s_ip, s_mask, s_gw);
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);

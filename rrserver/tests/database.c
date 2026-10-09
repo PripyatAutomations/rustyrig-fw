@@ -39,6 +39,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int data_type) {
    snprintf(frame->type, sizeof(frame->type), "%s", dict_get(d, "talk.msg_type", ""));
    snprintf(frame->target, sizeof(frame->target), "%s", dict_get(d, "talk.target", ""));
    snprintf(frame->data, sizeof(frame->data), "%s", dict_get(d, "talk.data", ""));
+
    return true;
 }
 
@@ -70,6 +71,7 @@ static int count_rows(sqlite3 *db, const char *sql) {
    assert(sqlite3_step(stmt) == SQLITE_ROW);
    int count = sqlite3_column_int(stmt, 0);
    sqlite3_finalize(stmt);
+
    return count;
 }
 
@@ -146,16 +148,13 @@ int main(void) {
    sqlite3 *restart_db = NULL;
    assert(sqlite3_open(restart_path, &restart_db) == SQLITE_OK);
    run_file(restart_db, "sql/sqlite.master.sql");
-   char *restart_rig = db_rig_uuid_get_or_create(restart_db,
-      "restart-node", "rig0");
-   char *before_restart = db_vfo_uuid_get_or_create(restart_db,
-      restart_rig, "A");
+   char *restart_rig = db_rig_uuid_get_or_create(restart_db, "restart-node", "rig0");
+   char *before_restart = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
    assert(restart_rig && before_restart);
    sqlite3_close(restart_db);
    restart_db = NULL;
    assert(sqlite3_open(restart_path, &restart_db) == SQLITE_OK);
-   char *after_restart = db_vfo_uuid_get_or_create(restart_db,
-      restart_rig, "A");
+   char *after_restart = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
    assert(after_restart && strcmp(before_restart, after_restart) == 0);
    assert(sqlite3_exec(restart_db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK);
    assert(!db_rig_uuid_get_or_create(restart_db, "restart-node", "new-rig"));
@@ -205,17 +204,23 @@ int main(void) {
    assert(!db_room_ensure(db, "#alpha", false, 0, "TEST"));
    assert(!db_room_delete(db, "#alpha", "TEST", false, false));
    rooms = db_room_list(db);
-   assert(rooms && !strstr(rooms, "#alpha")); free(rooms);
-   assert(sqlite3_exec(db, "CREATE TRIGGER fail_restore_audit BEFORE INSERT ON audit_log WHEN NEW.event_type='room.restored' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;", NULL, NULL, NULL) == SQLITE_OK);
+   assert(rooms && !strstr(rooms, "#alpha"));
+   free(rooms);
+   assert(sqlite3_exec(db,
+      "CREATE TRIGGER fail_restore_audit BEFORE INSERT ON audit_log WHEN NEW.event_type='room.restored' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;",
+      NULL, NULL, NULL) == SQLITE_OK);
    assert(!db_room_restore(db, "#alpha", "TEST"));
    assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#alpha' AND deleted=1;") == 1);
    assert(sqlite3_exec(db, "DROP TRIGGER fail_restore_audit;", NULL, NULL, NULL) == SQLITE_OK);
    assert(db_room_restore(db, "#ALPHA", "TEST"));
    topic = db_room_get_topic(db, "#alpha");
-   assert(topic && !strcmp(topic, "Test topic")); free(topic);
+   assert(topic && !strcmp(topic, "Test topic"));
+   free(topic);
    assert(count_rows(db, "SELECT COUNT(*) FROM audit_log WHERE event_type='room.restored' AND details='#ALPHA';") == 1);
    // Audit failure must roll back creation, removal and restoration.
-   assert(sqlite3_exec(db, "CREATE TRIGGER fail_room_audit BEFORE INSERT ON audit_log WHEN NEW.event_type LIKE 'room.%' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;", NULL, NULL, NULL) == SQLITE_OK);
+   assert(sqlite3_exec(db,
+      "CREATE TRIGGER fail_room_audit BEFORE INSERT ON audit_log WHEN NEW.event_type LIKE 'room.%' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;", NULL,
+      NULL, NULL) == SQLITE_OK);
    assert(!db_room_ensure(db, "#audit-failed", false, 0, "TEST"));
    assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#audit-failed';") == 0);
    assert(!db_room_delete(db, "#alpha", "TEST", true, true));
@@ -246,8 +251,7 @@ int main(void) {
    assert(http_users[9].password_set > 0);
 
    assert(db_user_next_uid(db) == 10);
-   assert(db_user_create(db, 10, "new-user", true, "new-hash", "new@example.invalid",
-      1, "view,chat", true, now + 7 * 86400));
+   assert(db_user_create(db, 10, "new-user", true, "new-hash", "new@example.invalid", 1, "view,chat", true, now + 7 * 86400));
    assert(db_get_users(db) == 4);
    assert(http_users[10].password_change_required);
    assert(http_users[10].password_expires > now);
@@ -273,23 +277,26 @@ int main(void) {
    assert(db_get_users(db) == 3);
    assert(count_rows(db, "SELECT COUNT(*) FROM tx_credits WHERE name='new-user';") == 0);
 
-   int session = db_ptt_start(db, "test-user", "A", 14074000, "USB", 3000, 25.0f,
-      "/tmp/20260923.rec-123.test-user.tx.ogg", "rec-123");
+   int session = db_ptt_start(db, "test-user", "A", 14074000, "USB", 3000, 25.0f, "/tmp/20260923.rec-123.test-user.tx.ogg", "rec-123");
    assert(session > 0);
    int duration = -1;
    assert(db_ptt_stop(db, session, &duration, "timeout"));
    assert(duration >= 0);
-   assert(count_rows(db, "SELECT COUNT(*) FROM ptt_log WHERE recording_id='rec-123' AND record_file LIKE '%rec-123%' AND stop_reason='timeout' AND end_time IS NOT NULL;") == 1);
+   assert(count_rows(db,
+      "SELECT COUNT(*) FROM ptt_log WHERE recording_id='rec-123' AND record_file LIKE '%rec-123%' AND stop_reason='timeout' AND end_time IS NOT NULL;") == 1);
 
    assert(db_add_chat_msg(db, 1234, "test-user", "#room", "pub", "hello"));
    assert(count_rows(db, "SELECT COUNT(*) FROM chat_log WHERE msg_data='hello';") == 1);
 
-   for (int i = 0; i < 30; i++) {
+   for (int i = 0 ; i < 30 ; i++) {
       char line[32];
       snprintf(line, sizeof(line), "line-%02d", i);
       assert(db_add_chat_msg(db, 2000 + i, "test-user", "#room", "pub", line));
    }
-   rrconn_t replay_client = {0};
+
+   rrconn_t replay_client = {
+      0
+   };
    assert(!db_send_chat_replay(&replay_client, "#room"));
    snprintf(replay_client.rooms, sizeof(replay_client.rooms), "#room");
    reset_replay_frames();
@@ -328,10 +335,12 @@ int main(void) {
    // Migration preserves existing metadata and defaults old rooms to active.
    char migration_path[] = "/tmp/rr-room-migration-XXXXXX";
    int migration_fd = mkstemp(migration_path);
-   assert(migration_fd >= 0); close(migration_fd);
+   assert(migration_fd >= 0);
+   close(migration_fd);
    assert(sqlite3_open(migration_path, &db) == SQLITE_OK);
    run_file(db, "sql/sqlite.master.sql");
-   assert(sqlite3_exec(db, "ALTER TABLE rooms DROP COLUMN deleted; INSERT INTO rooms(name,topic) VALUES('#legacy','old topic');", NULL, NULL, NULL) == SQLITE_OK);
+   assert(sqlite3_exec(db, "ALTER TABLE rooms DROP COLUMN deleted; INSERT INTO rooms(name,topic) VALUES('#legacy','old topic');", NULL, NULL, NULL) == SQLITE_OK
+      );
    sqlite3_close(db);
    db = db_open(migration_path);
    assert(db);
@@ -341,10 +350,13 @@ int main(void) {
    db = db_open(migration_path);
    assert(db);
    assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#legacy' AND topic='old topic' AND deleted=1;") == 1);
-   sqlite3_close(db); unlink(migration_path);
+   sqlite3_close(db);
+   unlink(migration_path);
    char fresh_path[] = "/tmp/rr-bootstrap-XXXXXX";
    int fresh_fd = mkstemp(fresh_path);
-   assert(fresh_fd >= 0); close(fresh_fd); unlink(fresh_path);
+   assert(fresh_fd >= 0);
+   close(fresh_fd);
+   unlink(fresh_path);
    dict_add(cfg, "path.db.master.template", "sql/sqlite.master.sql");
    dict_add(cfg, "path.db.master.preload", "sql/sqlite.master.preload.sql");
    db = db_open(fresh_path);
@@ -357,7 +369,8 @@ int main(void) {
    FILE *credential = fopen(credential_path, "r");
    assert(credential);
    char password[64];
-   assert(fgets(password, sizeof(password), credential)); fclose(credential);
+   assert(fgets(password, sizeof(password), credential));
+   fclose(credential);
    password[strcspn(password, "\n")] = '\0';
    assert(strlen(password) == 24);
    assert(db_get_users(db) == 2);
@@ -369,11 +382,15 @@ int main(void) {
    db = db_open(fresh_path);
    assert(db && db_get_users(db) == 2);
    assert(!strcmp(http_users[1].pass, "replacement"));
-   sqlite3_close(db); unlink(fresh_path); unlink(credential_path); free(bootstrap_hash);
+   sqlite3_close(db);
+   unlink(fresh_path);
+   unlink(credential_path);
+   free(bootstrap_hash);
    dict_free(cfg);
    cfg = NULL;
    dict_free(default_cfg);
    default_cfg = NULL;
    puts("PASS: database schema, persistent rig/VFO UUID identities, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
+
    return 0;
 }

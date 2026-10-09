@@ -5,7 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef __rrserver_media_h
-#define	__rrserver_media_h
+#define __rrserver_media_h
 
 #include <librrprotocol/rrprotocol.h>
 

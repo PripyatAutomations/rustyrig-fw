@@ -61,15 +61,18 @@ bool cmd_webcam(int argc, char **args) {
       show = false;
    } else {
       ui_print(ui_active_window_name(), "Usage: /webcam [SHOW|HIDE]");
+
       return true;
    }
 
    if (!frontend_ops() || !frontend_ops()->webcam_show) {
       ui_print(ui_active_window_name(), "The webcam viewer is only available in the GTK client");
+
       return false;
    }
 
    frontend_ops()->webcam_show(show);
+
    return false;
 }
 
@@ -112,7 +115,8 @@ client_cmd_t client_cmds[] = {
       .cmd = "query", .help_section = "Chat and rooms", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
    },
    {
-      .cmd = "room", .help_section = "Chat and rooms", .cb = cmd_room, .max_args = 5, .desc = "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ..."
+      .cmd = "room", .help_section = "Chat and rooms", .cb = cmd_room, .max_args = 5, .desc =
+         "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ..."
    },
    {
       .cmd = "topic", .help_section = "Chat and rooms", .cb = cmd_topic, .desc = "Get or set the current room topic"
@@ -242,14 +246,14 @@ bool parse_chat_input_real(const char *msg) {
          const char *p = mp;
          const char *c = client_cmds[i].cmd;
 
-         while ( *p && *c &&
-                 !isspace( (unsigned char)*p ) &&
-                 tolower( (unsigned char)*p ) == tolower( (unsigned char)*c ) ) {
+         while (*p && *c &&
+            !isspace( (unsigned char)*p) &&
+            tolower( (unsigned char)*p) == tolower( (unsigned char)*c) ) {
             p++;
             c++;
          }
 
-         if ( !*c && ( !*p || isspace( (unsigned char)*p ) ) ) {
+         if (!*c && (!*p || isspace( (unsigned char)*p) ) ) {
             cmd = &client_cmds[i];
             break;
          }
@@ -262,8 +266,7 @@ bool parse_chat_input_real(const char *msg) {
       }
 
       /*
-       * Work on a writable copy since we're going to replace whitespace with NUL
-       * terminators.
+       * Work on a writable copy since we're going to replace whitespace with NUL terminators.
        */
       char *input = strdup(mp);
 
@@ -274,8 +277,7 @@ bool parse_chat_input_real(const char *msg) {
       }
 
       /*
-       * Keep this reasonably sized. cmd_argv is only used for the duration of the
-       * callback.
+       * Keep this reasonably sized. cmd_argv is only used for the duration of the callback.
        */
       char *cmd_argv[32];
       int cmd_argc = 0;
@@ -285,7 +287,7 @@ bool parse_chat_input_real(const char *msg) {
       /* argv[0] is the command itself. */
       cmd_argv[cmd_argc++] = p;
 
-      while ( *p && !isspace( (unsigned char)*p ) ) {
+      while (*p && !isspace( (unsigned char)*p) ) {
          p++;
       }
 
@@ -294,13 +296,12 @@ bool parse_chat_input_real(const char *msg) {
       }
 
       /*
-       * max_args is the number of arguments after argv[0]. Zero means one argument
-       * containing the remainder.
+       * max_args is the number of arguments after argv[0]. Zero means one argument containing the remainder.
        */
       int max_args = cmd->max_args ? cmd->max_args : 1;
 
-      while ( *p && cmd_argc < (int)( sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
-         while ( isspace( (unsigned char)*p ) ) {
+      while (*p && cmd_argc < (int)(sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
+         while (isspace( (unsigned char)*p) ) {
             p++;
          }
 
@@ -311,14 +312,13 @@ bool parse_chat_input_real(const char *msg) {
          cmd_argv[cmd_argc++] = p;
 
          /*
-          * If this is the last allowed argument, leave the remainder of the string
-          * intact.
+          * If this is the last allowed argument, leave the remainder of the string intact.
           */
          if (cmd_argc - 1 >= max_args) {
             break;
          }
 
-         while ( *p && !isspace( (unsigned char)*p ) ) {
+         while (*p && !isspace( (unsigned char)*p) ) {
             p++;
          }
 
@@ -327,14 +327,13 @@ bool parse_chat_input_real(const char *msg) {
          }
       }
       /*
-       * When we break on the max_args limit the remainder is left intact, which can leave
-       * trailing whitespace on the last argument (e.g. tab-completed
+       * When we break on the max_args limit the remainder is left intact, which can leave trailing whitespace on the last argument (e.g. tab-completed
        * '/whois admin '). Strip it so arguments are clean.
        */
       char *last = cmd_argv[cmd_argc - 1];
       char *end = last + strlen(last);
 
-      while ( end > last && isspace( (unsigned char)end[-1] ) ) {
+      while (end > last && isspace( (unsigned char)end[-1]) ) {
          end--;
       }
       *end = '\0';
@@ -343,7 +342,7 @@ bool parse_chat_input_real(const char *msg) {
 
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
-      if ( cmd->admin && !media_have_priv("admin|owner") ) {
+      if (cmd->admin && !media_have_priv("admin|owner") ) {
          ui_print(ui_active_window_name(), "\00304Command /%s requires account admin or owner privilege\017", cmd_argv[0]);
          free(input);
 
@@ -363,9 +362,8 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
 
-      if ( frontend_ops() ) {
-         /* Frontend chat tabs represent rooms.  Include the selected tab's room so
-          * side-room messages are delivered there instead of defaulting to the
+      if (frontend_ops() ) {
+         /* Frontend chat tabs represent rooms.  Include the selected tab's room so side-room messages are delivered there instead of defaulting to the
           * authoritative rig room on the server. */
          const char *room = frontend_ops()->chat_current_room();
 
@@ -377,26 +375,25 @@ bool parse_chat_input_real(const char *msg) {
             }
          }
       } else if (ui_mode == UI_MODE_TUI) {
-         /* TUI windows represent both rooms and private conversations.  The status window
-          * is the client log, so target the authoritative room when it is active. */
+         /* TUI windows represent both rooms and private conversations.  The status window is the client log, so target the authoritative room when it is
+          * active. */
          tui_window_t *window = tui_active_window();
 
          if (window && window->title[0] &&
-             strcasecmp(window->title, "status") != 0) {
+            strcasecmp(window->title, "status") != 0) {
             dict_add(d, "talk.target", window->title);
 
             if (window->title[0] != '#' && window->title[0] != '&') {
                dict_add(d, "talk.msg_type", "priv");
             }
-         } else if ( cfg_get_bool("tui.status-chat", false) ) {
+         } else if (cfg_get_bool("tui.status-chat", false) ) {
             const char *room = ws_authoritative_room();
 
             if (room && *room) {
                dict_add(d, "talk.target", room);
             }
          } else {
-            ui_print(ui_active_window_name(),
-               "\00308Select a room tab before sending a message (status is for client logs and commands)\017");
+            ui_print(ui_active_window_name(), "\00308Select a room tab before sending a message (status is for client logs and commands)\017");
             dict_free(d);
 
             return false;

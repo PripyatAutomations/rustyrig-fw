@@ -8,8 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /*
- * Here we implement the Yaesu 891/991a style CAT protocol for control of the rig ft891
- * has complete CAT enough for all uses, so it's our milestone goal
+ * Here we implement the Yaesu 891/991a style CAT protocol for control of the rig ft891 has complete CAT enough for all uses, so it's our milestone goal
  *
  * We have two entry points here
  * - rr_cat_parse_line(): Parses a line from io (sock|net|pipe)
@@ -140,7 +139,7 @@ static void cat_mode_set(const char *digit) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set MODE to %s", mode);
-   ws_send_mode_cmd_in_room( ws_conn, cat_vfo_str(0), mode, rr_cat_room() );
+   ws_send_mode_cmd_in_room(ws_conn, cat_vfo_str(0), mode, rr_cat_room() );
 }
 
 // Function stubs for all FT-891 CAT commands
@@ -244,20 +243,22 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
       return;
    }
 
-   for (const unsigned char *p = (const unsigned char *)args; *p; p++) {
+   for (const unsigned char *p = (const unsigned char *)args ; *p ; p++) {
       if (!isdigit(*p)) {
          return;
       }
    }
+
    char *end = NULL;
    errno = 0;
    long freq = strtol(args, &end, 10);
+
    if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) {
       return;
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO A freq to %ld", freq);
-   ws_send_freq_cmd_in_room( ws_conn, cat_vfo_str('A'), freq, rr_cat_room() );
+   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('A'), freq, rr_cat_room() );
 }               // Read/Set VFO A frequency
 
 void rr_cat_yaesu_set_vfo_b(const char *args) {
@@ -269,20 +270,22 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
       return;
    }
 
-   for (const unsigned char *p = (const unsigned char *)args; *p; p++) {
+   for (const unsigned char *p = (const unsigned char *)args ; *p ; p++) {
       if (!isdigit(*p)) {
          return;
       }
    }
+
    char *end = NULL;
    errno = 0;
    long freq = strtol(args, &end, 10);
+
    if (errno || end == args || *end || freq <= 0 || freq > INT_MAX) {
       return;
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO B freq to %ld", freq);
-   ws_send_freq_cmd_in_room( ws_conn, cat_vfo_str('B'), freq, rr_cat_room() );
+   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('B'), freq, rr_cat_room() );
 }               // Read/Set VFO B frequency
 
 void rr_cat_yaesu_fast_step(const char *args) {
@@ -409,7 +412,7 @@ void rr_cat_yaesu_narrow(const char *args) {
    // Set: args[0] is 0/1. Map onto the width command (narrow/normal) so the
    // server applies a real filter change.
    Log(LOG_CRAZY, "cat.yaesu", "Set NARROW to %c", args[0]);
-   ws_send_width_cmd_in_room( ws_conn, cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal"), rr_cat_room() );
+   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal"), rr_cat_room() );
 }               // Narrow
 
 void rr_cat_yaesu_noise_blanker(const char *args) {
@@ -491,14 +494,14 @@ void rr_cat_yaesu_width(const char *args) {
 
       // "SH0<nnnn>;" -- set width on the main band
       Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args + 1);
-      ws_send_width_cmd_in_room( ws_conn, cat_vfo_str(0), args + 1, rr_cat_room() );
+      ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args + 1, rr_cat_room() );
 
       return;
    }
 
    // Legacy "SH<nnnn>;" set form
    Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args);
-   ws_send_width_cmd_in_room( ws_conn, cat_vfo_str(0), args, rr_cat_room() );
+   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args, rr_cat_room() );
 }               // Width
 
 void rr_cat_yaesu_s_meter(const char *args) {
@@ -529,8 +532,8 @@ void rr_cat_yaesu_ptt(const char *args) {
 
    bool ptt = (args[0] == '1');
 
-   Log( LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF") );
-   ws_send_ptt_cmd_in_room( ws_conn, cat_vfo_str(0), ptt, rr_cat_room() );
+   Log(LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF") );
+   ws_send_ptt_cmd_in_room(ws_conn, cat_vfo_str(0), ptt, rr_cat_room() );
 }
 
 void rr_cat_yaesu_unlock(const char *args) {

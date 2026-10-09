@@ -19,8 +19,7 @@
 #include <librrprotocol/ws.mediachan.h>
 #include <librustyaxe/tui.h>
 
-/* Complete server names as the argument to /server, from the same cfg keys the server
- * chooser lists. PARITY: rrclient/ui.c show_server_chooser()
+/* Complete server names as the argument to /server, from the same cfg keys the server chooser lists. PARITY: rrclient/ui.c show_server_chooser()
  */
 static char **complete_server_names(const char *word) {
    char **matches = NULL;
@@ -30,7 +29,7 @@ static char **complete_server_names(const char *word) {
    const char *k;
    char *v;
 
-   while ( ( rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0 ) {
+   while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
       if (!k) {
          continue;
       }
@@ -52,7 +51,7 @@ static char **complete_server_names(const char *word) {
       if (len && strncasecmp(server, word, len) != 0) {
          continue;
       }
-      char **tmp = realloc( matches, (count + 2) * sizeof(char *) );
+      char **tmp = realloc(matches, (count + 2) * sizeof(char *) );
 
       if (!tmp) {
          continue;
@@ -77,14 +76,14 @@ static char **complete_usernames(const char *word) {
    size_t len = word ? strlen(word) : 0;
 
    for (struct rr_user *uptr = global_userlist ; uptr ; uptr = uptr->next) {
-      if (uptr->room[0] && strcasecmp( uptr->room, ws_authoritative_room() ) != 0) {
+      if (uptr->room[0] && strcasecmp(uptr->room, ws_authoritative_room() ) != 0) {
          continue;
       }
 
       if (len && strncasecmp(uptr->name, word, len) != 0) {
          continue;
       }
-      char **tmp = realloc( matches, (count + 2) * sizeof(char *) );
+      char **tmp = realloc(matches, (count + 2) * sizeof(char *) );
 
       if (!tmp) {
          continue;
@@ -101,12 +100,12 @@ static char **complete_usernames(const char *word) {
 }
 
 static void completion_add(char ***matches, size_t *count, const char *value, const char *word) {
-   if (!value || !*value || strncasecmp( value, word, strlen(word) ) != 0) {
+   if (!value || !*value || strncasecmp(value, word, strlen(word) ) != 0) {
       return;
    }
 
    for (size_t i = 0 ; i < *count ; i++) {
-      if (!strcmp( (*matches)[i], value ) ) {
+      if (!strcmp( (*matches)[i], value) ) {
          return;
       }
    }
@@ -116,10 +115,11 @@ static void completion_add(char ***matches, size_t *count, const char *value, co
    if (!copy) {
       return;
    }
-   char **tmp = realloc( *matches, (*count + 2) * sizeof(char *) );
+   char **tmp = realloc(*matches, (*count + 2) * sizeof(char *) );
 
    if (!tmp) {
       free(copy);
+
       return;
    }
    *matches = tmp;
@@ -130,8 +130,8 @@ static void completion_add(char ***matches, size_t *count, const char *value, co
 static void completion_words(char ***matches, size_t *count, const char *values, const char *word) {
    char *copy = values ? strdup(values) : NULL, *save = NULL;
 
-   for ( char *p = copy ? strtok_r(copy, " \t", &save) : NULL ; p ;
-         p = strtok_r(NULL, " \t", &save) ) {
+   for (char *p = copy ? strtok_r(copy, " \t", &save) : NULL ; p ;
+      p = strtok_r(NULL, " \t", &save) ) {
       completion_add(matches, count, p, word);
    }
 
@@ -141,8 +141,10 @@ static void completion_words(char ***matches, size_t *count, const char *values,
 static char **complete_rooms(const char *word, bool include_available) {
    char **matches = NULL;
    size_t count = 0;
+
    for (unsigned int index = 0 ;; index++) {
       const char *room = rrclient_room_iter(index);
+
       if (!room) {
          break;
       }
@@ -152,18 +154,22 @@ static char **complete_rooms(const char *word, bool include_available) {
       }
       completion_add(&matches, &count, room, word);
    }
+
    if (include_available) {
       for (unsigned int index = 0 ;; index++) {
          const char *room = rrclient_room_available_iter(index);
+
          if (!room) {
             break;
          }
+
          if (room[0] != '#' && room[0] != '&') {
             continue;
          }
          completion_add(&matches, &count, room, word);
       }
    }
+
    return matches;
 }
 
@@ -208,10 +214,10 @@ static bool completion_unique_channel_name(const struct rr_client_media_chan *ch
 
 // line ends at the cursor, word is its last (possibly empty) token.
 char **client_cmd_completions(const char *line, const char *word) {
-   if ( !line || !word || strlen(word) > strlen(line) ) {
+   if (!line || !word || strlen(word) > strlen(line) ) {
       return NULL;
    }
-   char *prefix = strndup( line, strlen(line) - strlen(word) );
+   char *prefix = strndup(line, strlen(line) - strlen(word) );
 
    if (!prefix) {
       return NULL;
@@ -221,7 +227,7 @@ char **client_cmd_completions(const char *line, const char *word) {
    char *second = NULL;
    unsigned arg = 0;
 
-   for ( char *p = command ; p ; p = strtok_r(NULL, " \t", &save) ) {
+   for (char *p = command ; p ; p = strtok_r(NULL, " \t", &save) ) {
       if (arg == 1) {
          first = p;
       }
@@ -242,16 +248,16 @@ char **client_cmd_completions(const char *line, const char *word) {
          matches = complete_rooms(word, false);
       } else if (!strcasecmp(command, "/server") && arg == 1) {
          matches = complete_server_names(word);
-      } else if ( arg == 1 && ( !strcasecmp(command, "/whois") ||
-                                !strcasecmp(command, "/kick") || !strcasecmp(command, "/mute") ||
-                                !strcasecmp(command, "/unmute") || !strcasecmp(command, "/msg") ||
-                                !strcasecmp(command, "/query") ||
-                                !strcasecmp(command, "/notice") ) ) {
+      } else if (arg == 1 && (!strcasecmp(command, "/whois") ||
+         !strcasecmp(command, "/kick") || !strcasecmp(command, "/mute") ||
+         !strcasecmp(command, "/unmute") || !strcasecmp(command, "/msg") ||
+         !strcasecmp(command, "/query") ||
+         !strcasecmp(command, "/notice") ) ) {
          matches = complete_usernames(word);
-      } else if ( arg == 1 && ( !strcasecmp(command, "/rig") || !strcasecmp(command, "/gps") ) ) {
+      } else if (arg == 1 && (!strcasecmp(command, "/rig") || !strcasecmp(command, "/gps") ) ) {
          completion_words(&matches, &count, "LIST SUBSCRIBE UNSUBSCRIBE", word);
       } else if (arg == 2 && !strcasecmp(command, "/gps") && first &&
-                 (!strcasecmp(first, "SUBSCRIBE") || !strcasecmp(first, "UNSUBSCRIBE") ) ) {
+         (!strcasecmp(first, "SUBSCRIBE") || !strcasecmp(first, "UNSUBSCRIBE") ) ) {
          for (int i = 0 ;; i++) {
             int number;
             const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
@@ -260,8 +266,7 @@ char **client_cmd_completions(const char *line, const char *word) {
                break;
             }
 
-            if (!rrclient_resource_matches(ui_active_window_name(),
-               ch->control_room[0] ? ch->control_room : ch->room) ) {
+            if (!rrclient_resource_matches(ui_active_window_name(), ch->control_room[0] ? ch->control_room : ch->room) ) {
                continue;
             }
             const char *suffix = strstr(ch->name, ".gps.rx");
@@ -279,13 +284,14 @@ char **client_cmd_completions(const char *line, const char *word) {
             if (size >= sizeof(scope) ) {
                continue;
             }
-            memcpy(scope, ch->name, size); scope[size] = '\0';
+            memcpy(scope, ch->name, size);
+            scope[size] = '\0';
             completion_add(&matches, &count, scope, word);
          }
       } else if (!strcasecmp(command, "/sercom") && arg == 1) {
          completion_words(&matches, &count, "LIST REMOTE ATTACH DISCONNECT", word);
-      } else if ( !strcasecmp(command, "/rxcodec") || !strcasecmp(command, "/txcodec") ||
-                  !strcasecmp(command, "/media") ) {
+      } else if (!strcasecmp(command, "/rxcodec") || !strcasecmp(command, "/txcodec") ||
+         !strcasecmp(command, "/media") ) {
          bool media = !strcasecmp(command, "/media");
          bool tx = !strcasecmp(command, "/txcodec");
 
@@ -311,8 +317,8 @@ char **client_cmd_completions(const char *line, const char *word) {
                   continue;
                }
 
-               if ( media ? (unsub && !ch->subscribed) : ( ch->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-                   ch->direction != (tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) || (!ch->subscribed && !ch->disabled) ) ) {
+               if (media ? (unsub && !ch->subscribed) : (ch->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
+                  ch->direction != (tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) || (!ch->subscribed && !ch->disabled) ) ) {
                   continue;
                }
                char num[16];
@@ -325,7 +331,7 @@ char **client_cmd_completions(const char *line, const char *word) {
                   completion_add(&matches, &count, ch->name, word);
                }
 
-               if (word[0] == '#' || isdigit( (unsigned char)word[0] ) ) {
+               if (word[0] == '#' || isdigit( (unsigned char)word[0]) ) {
                   completion_add(&matches, &count, num, word);
                }
 
@@ -334,41 +340,45 @@ char **client_cmd_completions(const char *line, const char *word) {
                }
             }
          }
-      } else if ( !strcasecmp(command, "/quota") ) {
+      } else if (!strcasecmp(command, "/quota") ) {
          if (arg == 1) {
             completion_words(&matches, &count, "LIST SHOW ADD RESET SET HELP", word);
          }
 
-         if ( arg == 1 || ( first &&
-                            ( ( !strcasecmp(first, "SHOW") || !strcasecmp(first, "RESET") ) ||
-                              ( arg == 2 && ( !strcasecmp(first, "ADD") || !strcasecmp(first, "SET") ) ) ) ) ) {
+         if (arg == 1 || (first &&
+            ( (!strcasecmp(first, "SHOW") || !strcasecmp(first, "RESET") ) ||
+            (arg == 2 && (!strcasecmp(first, "ADD") || !strcasecmp(first, "SET") ) ) ) ) ) {
             for (struct rr_user *u = global_userlist ; u ; u = u->next) {
-               if (u->room[0] && strcasecmp( u->room, ws_authoritative_room() ) != 0) {
+               if (u->room[0] && strcasecmp(u->room, ws_authoritative_room() ) != 0) {
                   continue;
                }
                completion_add(&matches, &count, u->name, word);
             }
          }
-      } else if ( !strcasecmp(command, "/user") ) {
+      } else if (!strcasecmp(command, "/user") ) {
          if (arg == 1) {
             completion_words(&matches, &count, media_have_priv("admin|owner") ?
                "LIST ADD REMOVE LOCK UNLOCK PRIVS OLDPW RESETPW PASS HELP" : "PASS", word);
-         } else if ( arg == 2 && first && !strcasecmp(first, "PRIVS") ) {
+         } else if (arg == 2 && first && !strcasecmp(first, "PRIVS") ) {
             matches = complete_usernames(word);
-         } else if ( arg == 2 && first &&
-                     (strcasecmp(first, "ADD") != 0 && strcasecmp(first, "LIST") != 0 &&
-                      strcasecmp(first, "HELP") != 0 && strcasecmp(first, "OLDPW") != 0) ) {
+         } else if (arg == 2 && first &&
+            (strcasecmp(first, "ADD") != 0 && strcasecmp(first, "LIST") != 0 &&
+            strcasecmp(first, "HELP") != 0 && strcasecmp(first, "OLDPW") != 0) ) {
             matches = complete_usernames(word);
-         } else if ( arg == 3 && first && !strcasecmp(first, "PRIVS") ) {
+         } else if (arg == 3 && first && !strcasecmp(first, "PRIVS") ) {
             completion_words(&matches, &count, "LIST ADD REMOVE SET", word);
          }
-      } else if ( !strcasecmp(command, "/room") ) {
+      } else if (!strcasecmp(command, "/room") ) {
          if (arg == 1) {
             completion_words(&matches, &count, "LIST ADD REMOVE", word);
+
             if (word[0] == '#' || word[0] == '&') {
                char **rooms = complete_rooms(word, true);
-               for (size_t i = 0; rooms && rooms[i]; i++)
+
+               for (size_t i = 0 ; rooms && rooms[i] ; i++) {
                   completion_add(&matches, &count, rooms[i], word);
+               }
+
                completion_free(rooms);
             }
          } else if (arg == 2 && first && !strcasecmp(first, "ADD")) {
@@ -379,21 +389,21 @@ char **client_cmd_completions(const char *line, const char *word) {
             completion_words(&matches, &count, "--force --history -f -h", word);
          } else if (arg == 2 && first && first[0] == '#') {
             completion_words(&matches, &count, "ADD REMOVE VFO", word);
-         } else if ( arg == 3 && first && !strcasecmp(second, "VFO") ) {
+         } else if (arg == 3 && first && !strcasecmp(second, "VFO") ) {
             completion_words(&matches, &count, "ADD LIST REMOVE", word);
          }
       } else if (!strcasecmp(command, "/set") && arg == 1) {
          matches = complete_config_keys(word);
-      } else if ( arg == 1 && !strcasecmp(command, "/syslog") ) {
+      } else if (arg == 1 && !strcasecmp(command, "/syslog") ) {
          completion_words(&matches, &count, "on off", word);
-      } else if ( arg == 1 && !strcasecmp(command, "/webcam") ) {
+      } else if (arg == 1 && !strcasecmp(command, "/webcam") ) {
          completion_words(&matches, &count, "SHOW HIDE", word);
-      } else if ( arg == 1 && !strcasecmp(command, "/quit") ) {
+      } else if (arg == 1 && !strcasecmp(command, "/quit") ) {
          completion_words(&matches, &count, "-yes -y yes y", word);
       } else if (arg == 1 && !strcasecmp(command, "/object") ) {
          for (int i = 0 ;; i++) {
             char reference[128];
-            const dict *object = rrclient_object_ref_iter( i, reference, sizeof(reference) );
+            const dict *object = rrclient_object_ref_iter(i, reference, sizeof(reference) );
 
             if (!object) {
                break;
@@ -405,12 +415,12 @@ char **client_cmd_completions(const char *line, const char *word) {
             }
 
             if (*word || !named) {
-               completion_add(&matches, &count, dict_get( (dict *)object, "object.uuid", NULL ), word);
+               completion_add(&matches, &count, dict_get( (dict *)object, "object.uuid", NULL), word);
             }
          }
-      } else if ( arg == 1 && !strcasecmp(command, "/help") ) {
+      } else if (arg == 1 && !strcasecmp(command, "/help") ) {
          for (int i = 0 ; client_cmds[i].cmd ; i++) {
-            if ( !client_cmds[i].admin || media_have_priv("admin|owner") ) {
+            if (!client_cmds[i].admin || media_have_priv("admin|owner") ) {
                completion_add(&matches, &count, client_cmds[i].cmd, word);
             }
          }
@@ -423,7 +433,7 @@ char **client_cmd_completions(const char *line, const char *word) {
    // Only complete the first word, and only when it starts with '/'
    const char *p = line;
 
-   while ( *p && !isspace( (unsigned char)*p ) ) {
+   while (*p && !isspace( (unsigned char)*p) ) {
       p++;
    }
 
@@ -444,7 +454,7 @@ char **client_cmd_completions(const char *line, const char *word) {
 
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
-      if ( client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
          continue;
       }
 
@@ -461,7 +471,7 @@ char **client_cmd_completions(const char *line, const char *word) {
 
       snprintf(m, mlen, "%s%s", lead_slash ? "/" : "", client_cmds[i].cmd);
 
-      char **tmp = realloc( matches, (count + 2) * sizeof(char *) );
+      char **tmp = realloc(matches, (count + 2) * sizeof(char *) );
 
       if (!tmp) {
          free(m);
@@ -483,23 +493,23 @@ void client_cmd_completion_describe(const char *line, const char *value, char *o
    if (line && !strncasecmp(line, "/object ", 8) ) {
       for (int i = 0 ;; i++) {
          char reference[128];
-         const dict *object = rrclient_object_ref_iter( i, reference, sizeof(reference) );
+         const dict *object = rrclient_object_ref_iter(i, reference, sizeof(reference) );
 
          if (!object) {
             return;
          }
 
-         if (strcasecmp(reference, value) && strcasecmp(dict_get( (dict *)object, "object.uuid", "" ), value) ) {
+         if (strcasecmp(reference, value) && strcasecmp(dict_get( (dict *)object, "object.uuid", ""), value) ) {
             continue;
          }
-         snprintf( out, capacity, "%s — %s %s", value, dict_get( (dict *)object, "object.type", "object" ),
-            dict_get( (dict *)object, "object.name", reference ) );
+         snprintf(out, capacity, "%s — %s %s", value, dict_get( (dict *)object, "object.type", "object"), dict_get( (dict *)object, "object.name", reference) );
 
          return;
       }
    }
 
-   if (!line || (strncasecmp(line, "/media ", 7) && strncasecmp(line, "/rxcodec ", 9) && strncasecmp(line, "/txcodec ", 9) && strncasecmp(line, "/gps ", 5) ) ) {
+   if (!line || (strncasecmp(line, "/media ", 7) && strncasecmp(line, "/rxcodec ", 9) && strncasecmp(line, "/txcodec ", 9) && strncasecmp(line, "/gps ", 5) ) )
+   {
       return;
    }
 
@@ -510,16 +520,16 @@ void client_cmd_completion_describe(const char *line, const char *value, char *o
       if (!ch) {
          return;
       }
-      char index[16], scope[64]; snprintf(index, sizeof(index), "#%d", number);
+      char index[16], scope[64];
+      snprintf(index, sizeof(index), "#%d", number);
       snprintf(scope, sizeof(scope), "%s.gps.rx", value);
 
       if (strcasecmp(value, ch->name) && strcasecmp(value, ch->uuid) && strcmp(value, index) && strcmp(value, index + 1) &&
-          (strncasecmp(line, "/gps ", 5) || strcasecmp(scope, ch->name) ) ) {
+         (strncasecmp(line, "/gps ", 5) || strcasecmp(scope, ch->name) ) ) {
          continue;
       }
-      snprintf(out, capacity, "%s — %s [%s %s; %s; room %s%s]", value, ch->descr[0] ? ch->descr : ch->name,
-         ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX", ch->codec, ch->subscribed ? "subscribed" : "unsubscribed",
-         ch->room[0] ? ch->room : "any", !ch->room[0] || ch->joined ? "" : "; join first");
+      snprintf(out, capacity, "%s — %s [%s %s; %s; room %s%s]", value, ch->descr[0] ? ch->descr : ch->name, ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX",
+         ch->codec, ch->subscribed ? "subscribed" : "unsubscribed", ch->room[0] ? ch->room : "any", !ch->room[0] || ch->joined ? "" : "; join first");
 
       return;
    }

@@ -34,7 +34,7 @@ static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
    }
 #ifdef USE_SQLITE
 
-   if ( !db_room_vfo_add( masterdb, ctx->room, rr_server_vfo_id(vfo) ) ) {
+   if (!db_room_vfo_add(masterdb, ctx->room, rr_server_vfo_id(vfo) ) ) {
       return true;
    }
 #endif
@@ -60,10 +60,10 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
       .room = room
    };
 
-   if ( ( !configured && ( len < 0 || (size_t)len >= sizeof(generated) ) ) ||
-        !ws_room_rig_base(room) || !ws_room_rig_namespace(room) ||
-        strcasecmp(room, generated) || !strcasecmp( room, ws_site_room() ) ||
-        rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx) ) {
+   if ( (!configured && (len < 0 || (size_t)len >= sizeof(generated) ) ) ||
+      !ws_room_rig_base(room) || !ws_room_rig_namespace(room) ||
+      strcasecmp(room, generated) || !strcasecmp(room, ws_site_room() ) ||
+      rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx) ) {
       Log(LOG_CRIT, "cfg.rig", "Invalid or duplicate room %s for rig %s", room, alias);
       free(configured);
 
@@ -74,7 +74,7 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
 
    if (!failed) {
       failed = !db_room_restore(masterdb, room, "server") || !db_room_ensure(masterdb, room, true, 0, "server") ||
-               !db_room_vfos_clear(masterdb, room);
+         !db_room_vfos_clear(masterdb, room);
    }
 #endif
 
@@ -92,16 +92,17 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
       tuning_mask = 0;
       char *save = NULL;
 
-      for ( char *id = strtok_r(independent, ", \t", &save) ; id ; id = strtok_r(NULL, ", \t", &save) ) {
+      for (char *id = strtok_r(independent, ", \t", &save) ; id ; id = strtok_r(NULL, ", \t", &save) ) {
          char native[2] = {
-            (char)toupper( (unsigned char)id[0] ), 0
+            (char)toupper( (unsigned char)id[0]), 0
          };
          rr_server_vfo_t *vfo = !id[1] ? rr_server_vfo_find_alias(radio, native) : NULL;
          rr_vfo_t index;
 
          if (!vfo || !rr_server_vfo_native_index(vfo, &index) || index < 0 || index >= 32) {
             Log(LOG_CRIT, "cfg.rig", "Unknown independent RX VFO %s for rig %s", id, alias);
-            failed = true; break;
+            failed = true;
+            break;
          }
          tuning_mask |= UINT32_C(1) << index;
       }
@@ -118,7 +119,7 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
    }
 #endif
 
-   if ( !failed && radio == rr_rig_registry_default(rig.rigs) ) {
+   if (!failed && radio == rr_rig_registry_default(rig.rigs) ) {
       ws_set_authoritative_room(room);
       ws_set_authoritative_vfo_mask(ctx.mask);
    }
@@ -140,10 +141,10 @@ static bool restore_rx_rooms(void) {
    }
    bool failed = false;
    int status;
-   while ( ( status = sqlite3_step(statement) ) == SQLITE_ROW && !failed ) {
+   while ( (status = sqlite3_step(statement) ) == SQLITE_ROW && !failed) {
       const char *room = (const char *)sqlite3_column_text(statement, 0);
 
-      if ( rrserver_rig_room_configured(room) ) {
+      if (rrserver_rig_room_configured(room) ) {
          continue;
       }
       rr_server_rig_t *radio = ws_room_rig_namespace(room) && !ws_room_rig_base(room)
@@ -151,25 +152,25 @@ static bool restore_rx_rooms(void) {
       uint32_t mask = 0;
       char *bindings = db_room_vfo_list(masterdb, room), *save = NULL;
 
-      for ( char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL ;
-            id ; id = strtok_r(NULL, " \t\r\n", &save) ) {
+      for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL ;
+         id ; id = strtok_r(NULL, " \t\r\n", &save) ) {
          rr_server_vfo_t *vfo = radio ? rr_server_vfo_find_uuid(radio, id) : NULL;
          rr_vfo_t index;
 
          if (vfo && rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
             mask |= UINT32_C(1) << index;
-         } else if ( !db_room_vfo_remove(masterdb, room, id) ) {
+         } else if (!db_room_vfo_remove(masterdb, room, id) ) {
             failed = true;
          }
       }
 
       free(bindings);
 
-      if ( !db_room_ensure(masterdb, room, mask != 0, mask, "server") ) {
+      if (!db_room_ensure(masterdb, room, mask != 0, mask, "server") ) {
          failed = true;
       }
 
-      if ( radio && !ws_room_set_vfo_mask(room, mask) ) {
+      if (radio && !ws_room_set_vfo_mask(room, mask) ) {
          failed = true;
       }
    }
@@ -184,7 +185,7 @@ static bool restore_rx_rooms(void) {
 #endif
 
 bool rrserver_rig_rooms_init(void) {
-   if ( !rig.rigs || !ws_room_name_valid( ws_site_room() ) ) {
+   if (!rig.rigs || !ws_room_name_valid(ws_site_room() ) ) {
       return true;
    }
 #ifdef USE_SQLITE
@@ -193,14 +194,14 @@ bool rrserver_rig_rooms_init(void) {
       return true;
    }
    bool failed = !db_room_restore(masterdb, ws_site_room(), "server") || !db_room_ensure(masterdb, ws_site_room(), false, 0, "server") ||
-                 !db_room_vfos_clear( masterdb, ws_site_room() );
+      !db_room_vfos_clear(masterdb, ws_site_room() );
 #else
    bool failed = false;
 #endif
 
    if (!failed) {
       failed = !ws_room_set_vfo_mask(ws_site_room(), 0) ||
-               rr_rig_registry_foreach(rig.rigs, configure_room, NULL);
+         rr_rig_registry_foreach(rig.rigs, configure_room, NULL);
    }
 #ifdef USE_SQLITE
 
@@ -227,14 +228,16 @@ bool rrserver_rig_room_configured(const char *room) {
 }
 
 struct lookup_room_context {
-   const char *room; rr_server_rig_t *radio;
+   const char *room;
+   rr_server_rig_t *radio;
 };
 static bool find_room_rig(rr_server_rig_t *radio, void *data) {
    struct lookup_room_context *ctx = data;
    const char *base = rr_rig_registry_room(rig.rigs, radio);
 
-   if ( base && ws_room_same_rig(ctx->room, base) ) {
+   if (base && ws_room_same_rig(ctx->room, base) ) {
       ctx->radio = radio;
+
       return true;
    }
 

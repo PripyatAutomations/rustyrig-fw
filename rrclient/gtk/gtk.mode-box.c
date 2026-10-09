@@ -55,11 +55,13 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       // Send width command over websocket: the server accepts both the
       // canned NARR/NORM/WIDE labels and numeric "<hz> Hz" entries.
 #if     defined(USE_MONGOOSE)
-      char vfo[2] = { vfo_state_get_active(), '\0' };
+      char vfo[2] = {
+         vfo_state_get_active(), '\0'
+      };
       ws_send_width_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
       widthbox_last_send = now;
 #endif // defined(USE_MONGOOSE)
-      g_free( (gchar *)text );
+      g_free( (gchar *)text);
    }
 }
 
@@ -69,7 +71,9 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
    if (text) {
       // Send mode command over websocket as before
 #if     defined(USE_MONGOOSE)
-      char vfo[2] = { vfo_state_get_active(), '\0' };
+      char vfo[2] = {
+         vfo_state_get_active(), '\0'
+      };
       ws_send_mode_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
       modebox_last_send = now;
 #endif // defined(USE_MONGOOSE)
@@ -86,20 +90,22 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       } else {
          fm_dialog_hide();
       }
-      g_free( (gchar *)text );
+      g_free( (gchar *)text);
    }
 }
 
 // Search the actual combo model so newly advertised modes participate too.
 static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
-   if (!event || (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) { return FALSE; }
+   if (!event || (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) {
+      return FALSE;
+   }
    GtkComboBox *combo = GTK_COMBO_BOX(user_data);
    GtkTreeModel *model = gtk_combo_box_get_model(combo);
    guint letter = gdk_keyval_to_lower(event->keyval);
    int count = gtk_tree_model_iter_n_children(model, NULL);
    int active = gtk_combo_box_get_active(combo);
 
-   for (int step = 1; step <= count; step++) {
+   for (int step = 1 ; step <= count ; step++) {
       int index = (active + step) % count;
       GtkTreeIter iter;
       gchar *text = NULL;
@@ -108,35 +114,58 @@ static gboolean on_mode_keypress(GtkWidget *widget, GdkEventKey *event, gpointer
       bool match = text && g_ascii_tolower(text[0]) == letter;
       g_free(text);
 
-      if (match) { gtk_combo_box_set_active(combo, index); return TRUE; }
+      if (match) {
+         gtk_combo_box_set_active(combo, index);
+
+         return TRUE;
+      }
    }
 
    return FALSE;
 }
 
 static gboolean on_width_keypress(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
-   if (!event || (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) { return FALSE; }
+   if (!event || (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) {
+      return FALSE;
+   }
    const char *width = NULL;
 
    switch (gdk_keyval_to_lower(event->keyval)) {
-      case GDK_KEY_a: width = "NARR"; break;
-      case GDK_KEY_n: width = "NORM"; break;
-      case GDK_KEY_w: width = "WIDE"; break;
-      default: return FALSE;
+      case GDK_KEY_a: {
+         width = "NARR";
+         break;
+      }
+      case GDK_KEY_n: {
+         width = "NORM";
+         break;
+      }
+      case GDK_KEY_w: {
+         width = "WIDE";
+         break;
+      }
+      default: {
+         return FALSE;
+      }
    }
    set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(user_data), width);
+
    return TRUE;
 }
 
 static gboolean on_selector_keypress(GtkWidget *widget, GdkEventKey *event, gpointer combo) {
    gboolean handled = combo == width_combo ? on_width_keypress(widget, event, combo) :
-                                            on_mode_keypress(widget, event, combo);
+      on_mode_keypress(widget, event, combo);
+
    if (handled && GTK_IS_MENU(widget) && gtk_widget_get_realized(widget)) {
       GList *items = gtk_container_get_children(GTK_CONTAINER(widget));
       GtkWidget *item = g_list_nth_data(items, gtk_combo_box_get_active(GTK_COMBO_BOX(combo)));
-      if (item) { gtk_menu_shell_select_item(GTK_MENU_SHELL(widget), item); }
+
+      if (item) {
+         gtk_menu_shell_select_item(GTK_MENU_SHELL(widget), item);
+      }
       g_list_free(items);
    }
+
    return handled;
 }
 
@@ -159,7 +188,10 @@ static void connect_popup_keys(GtkComboBox *combo) {
 static void on_selector_popup(GtkComboBox *combo, GParamSpec *pspec, gpointer user) {
    gboolean shown = FALSE;
    g_object_get(combo, "popup-shown", &shown, NULL);
-   if (shown) { connect_popup_keys(combo); }
+
+   if (shown) {
+      connect_popup_keys(combo);
+   }
 }
 
 // Server observations must not fire the user-edit handlers and send controls back.
@@ -174,7 +206,8 @@ void modebox_update_state(const char *mode, int width) {
       g_signal_handler_block(width_combo, width_changed_handler_id);
       // Keep the three named presets and one exact observed width.
       gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(width_combo), 3);
-      char label[32]; snprintf(label, sizeof(label), "%d Hz", width);
+      char label[32];
+      snprintf(label, sizeof(label), "%d Hz", width);
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), label);
       gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), 3);
       g_signal_handler_unblock(width_combo, width_changed_handler_id);

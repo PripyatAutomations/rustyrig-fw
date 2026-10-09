@@ -106,11 +106,9 @@ void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
    }
 
    if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-      ui_print(NULL, "%s \00314<\00309%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick,
-         colored);
+      ui_print(NULL, "%s \00314<\00309%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick, colored);
    } else {
-      ui_print(NULL, "%s \00314<\00308%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick,
-         colored);
+      ui_print(NULL, "%s \00314<\00308%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick, colored);
    }
    free(colored);
 

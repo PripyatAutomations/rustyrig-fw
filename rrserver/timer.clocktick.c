@@ -64,14 +64,13 @@ void timer_clock_tick_fn(void *arg) {
    // Has the TOT expired?
    if (global_tot_time > 0 && global_tot_time <= now) {
       rrconn_t *talker = whos_talking();
-      Log( LOG_AUDIT, "ptt", "TOT (rig.tot: %d) expired, halting TX!", cfg_get_int("rig.tot", 300) );
+      Log(LOG_AUDIT, "ptt", "TOT (rig.tot: %d) expired, halting TX!", cfg_get_int("rig.tot", 300) );
       // rr_ptt_set_all_off() also clears the talker's is_ptt/ptt_vfo, so
       // whos_talking() doesn't keep returning them after TOT.
       rr_ptt_set_all_off_reason("timeout");
       global_tot_time = 0;
       char msgbuf[HTTP_WS_MAX_MSG + 1];
-      prepare_msg( msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s",
-         (talker ? talker->chatname : "**UNKNOWN***") );
+      prepare_msg(msgbuf, sizeof(msgbuf), "TOT expired, halting TX! PTT User: %s", (talker ? talker->chatname : "**UNKNOWN***") );
       send_global_alert("***SERVER***", msgbuf);
 
       // Tell clients TX was halted by TOT so they can flag it in their UI.
@@ -79,7 +78,7 @@ void timer_clock_tick_fn(void *arg) {
       // echo doesn't overwrite the client's TOT warning state.
       dict *tot_msg = dict_new();
       dict_add(tot_msg, "msg.type", "ptt.tot-expired");
-      dict_add_int( tot_msg, "ptt.tot.secs", cfg_get_int("rig.tot", 300) );
+      dict_add_int(tot_msg, "ptt.tot.secs", cfg_get_int("rig.tot", 300) );
       dict_add_ulong(tot_msg, "msg.ts", now);
 
       if (talker) {
@@ -87,10 +86,10 @@ void timer_clock_tick_fn(void *arg) {
 
          if (talker->ptt_vfo >= 0 && talker->ptt_vfo < MAX_VFOS) {
             rr_vfo_t vfo = talker->ptt_vfo;
-            dict_add( tot_msg, "ptt.tot.vfo", vfo_name(vfo) );
+            dict_add(tot_msg, "ptt.tot.vfo", vfo_name(vfo) );
             dict_add_long(tot_msg, "ptt.tot.freq", vfos[vfo].freq);
-            dict_add( tot_msg, "ptt.tot.mode", vfo_mode_name( rr_get_mode(vfo) ) );
-            dict_add_int( tot_msg, "ptt.tot.width", rr_get_width(vfo) );
+            dict_add(tot_msg, "ptt.tot.mode", vfo_mode_name(rr_get_mode(vfo) ) );
+            dict_add_int(tot_msg, "ptt.tot.width", rr_get_width(vfo) );
          }
       }
       ws_broadcast_dict(NULL, tot_msg, WEBSOCKET_OP_TEXT);
@@ -119,7 +118,7 @@ void timer_clock_tick_fn(void *arg) {
    bool force_send_state = false;
 
    // Should we send rig state announcements?
-   if ( (be_poll_last + cfg_backend_announce_interval) <= now ) {
+   if ( (be_poll_last + cfg_backend_announce_interval) <= now) {
       // Yes, we must send it
       force_send_state = true;
    }

@@ -47,25 +47,32 @@ static void apply_gtk(GtkWidget *widget, const ui_speech_hint_t *hint) {
    // XXX: Why dont we just store teh ATK_ROLE??
    switch (hint->role) {
       case UI_ROLE_BUTTON: {
-         atk_object_set_role(a11y, ATK_ROLE_PUSH_BUTTON); break;
+         atk_object_set_role(a11y, ATK_ROLE_PUSH_BUTTON);
+         break;
       }
       case UI_ROLE_ENTRY: {
-         atk_object_set_role(a11y, ATK_ROLE_ENTRY); break;
+         atk_object_set_role(a11y, ATK_ROLE_ENTRY);
+         break;
       }
       case UI_ROLE_LABEL: {
-         atk_object_set_role(a11y, ATK_ROLE_LABEL); break;
+         atk_object_set_role(a11y, ATK_ROLE_LABEL);
+         break;
       }
       case UI_ROLE_CHECKBOX: {
-         atk_object_set_role(a11y, ATK_ROLE_CHECK_BOX); break;
+         atk_object_set_role(a11y, ATK_ROLE_CHECK_BOX);
+         break;
       }
       case UI_ROLE_SLIDER: {
-         atk_object_set_role(a11y, ATK_ROLE_SLIDER); break;
+         atk_object_set_role(a11y, ATK_ROLE_SLIDER);
+         break;
       }
       case UI_ROLE_COMBOBOX: {
-         atk_object_set_role(a11y, ATK_ROLE_COMBO_BOX); break;
+         atk_object_set_role(a11y, ATK_ROLE_COMBO_BOX);
+         break;
       }
       default: {
-         atk_object_set_role(a11y, ATK_ROLE_UNKNOWN); break;
+         atk_object_set_role(a11y, ATK_ROLE_UNKNOWN);
+         break;
       }
    }
 }

@@ -83,9 +83,9 @@ static void populate_tone_combo(GtkComboBoxText *combo, const char **tones) {
 
 /* Update RX/TX tone combos enable state and contents */
 static void update_tone_dropdowns(void) {
-   const gchar *mode = gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(fm_mode_combo) );
+   const gchar *mode = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(fm_mode_combo) );
    const gchar *tone_type =
-      gtk_combo_box_text_get_active_text( GTK_COMBO_BOX_TEXT(tone_type_combo) );
+      gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(tone_type_combo) );
    const char **tones = g_strcmp0(tone_type, "DCS") == 0 ? dcs_tones : ctcss_tones;
 
    gboolean rx_enabled = FALSE;
@@ -106,13 +106,13 @@ static void update_tone_dropdowns(void) {
    if (rx_enabled) {
       populate_tone_combo(GTK_COMBO_BOX_TEXT(rx_tone_combo), tones);
    } else {
-      gtk_combo_box_text_remove_all( GTK_COMBO_BOX_TEXT(rx_tone_combo) );
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(rx_tone_combo) );
    }
 
    if (tx_enabled) {
       populate_tone_combo(GTK_COMBO_BOX_TEXT(tx_tone_combo), tones);
    } else {
-      gtk_combo_box_text_remove_all( GTK_COMBO_BOX_TEXT(tx_tone_combo) );
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(tx_tone_combo) );
    }
 }
 
@@ -234,7 +234,7 @@ void fm_dialog_show(void) {
    } else {
       fm_dialog = ui_win->gtk_win;
       gtk_widget_show(fm_dialog);
-      gtk_window_present( GTK_WINDOW(fm_dialog) );
+      gtk_window_present(GTK_WINDOW(fm_dialog) );
    }
    place_window(fm_dialog);
 }

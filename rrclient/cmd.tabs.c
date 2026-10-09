@@ -36,7 +36,7 @@ extern rrconn_t *ws_conn;
 
 
 bool cmd_admin(int argc, char **args) {
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->focus_tab("admin");
    } else if (ui_mode == UI_MODE_TUI) {
    }
@@ -45,7 +45,7 @@ bool cmd_admin(int argc, char **args) {
 }
 
 bool cmd_config(int argc, char **args) {
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->focus_tab("config");
    } else if (ui_mode == UI_MODE_TUI) {
    }
@@ -66,7 +66,7 @@ bool cmd_editcfg(int argc, char **args) {
 }
 
 bool cmd_log(int argc, char **args) {
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->focus_tab("log");
    } else if (ui_mode == UI_MODE_TUI) {
    }
@@ -91,7 +91,7 @@ bool cmd_win(int argc, char **args) {
          if (argc >= 3) {
             id = atoi(args[2]);
          } else {
-            return tui_window_destroy( tui_active_window() );
+            return tui_window_destroy(tui_active_window() );
          }
 
          if (id > 0) {
@@ -112,7 +112,7 @@ bool cmd_win(int argc, char **args) {
          return true;
       }
       tui_window_focus_id(id);
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       // XXX: add window commands (close, etc)
       if (argc < 2) {
          return true;

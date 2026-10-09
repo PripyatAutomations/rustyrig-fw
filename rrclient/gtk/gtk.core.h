@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_gtk_core_h)
-#define	__rrclient_gtk_core_h
+#define __rrclient_gtk_core_h
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -25,14 +25,14 @@
 extern bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget **view);
 extern bool ui_confirm_dialog(GtkWindow *parent, const char *message);
 
-#define	HTTP_USER_LEN 16                 // username length (16 char)
-#define	HTTP_PASS_LEN 40                 // sha1: 40, sha256: 64
-#define	HTTP_HASH_LEN 40                 // sha1
-#define	HTTP_TOKEN_LEN 14                // session-id / nonce length,
-                                          // longer moar secure
-#define	HTTP_UA_LEN 512                  // allow 128 bytes
-#define	USER_PRIV_LEN 100                // privileges list
-#define	USER_EMAIL_LEN 128               // email address
+#define HTTP_USER_LEN 16           // username length (16 char)
+#define HTTP_PASS_LEN 40           // sha1: 40, sha256: 64
+#define HTTP_HASH_LEN 40           // sha1
+#define HTTP_TOKEN_LEN 14          // session-id / nonce length,
+                                   // longer moar secure
+#define HTTP_UA_LEN 512            // allow 128 bytes
+#define USER_PRIV_LEN 100          // privileges list
+#define USER_EMAIL_LEN 128         // email address
 
 // GUI (GTK) window
 struct GuiWindow {
@@ -75,9 +75,9 @@ typedef struct GuiWidget gui_widget_t;
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/gtk/gtk.hotkey.h>
 #include <rrclient/gtk/gtk.alertdialog.h>
-#ifdef	USE_LIBNOTIFY
+#ifdef  USE_LIBNOTIFY
 #include <rrclient/gtk/gtk.notify.h>
-#endif	// USE_LIBNOTIFY
+#endif // USE_LIBNOTIFY
 
 extern void update_connection_button(int connected, GtkWidget *btn);
 extern void update_ptt_button_ui(GtkToggleButton *button, int active);
@@ -114,7 +114,7 @@ extern GtkWidget *width_combo;
 extern void enable_windows_dark_mode_for_gtk_window(GtkWidget *window);
 extern bool set_window_icon(GtkWidget *window, const char *icon_name);
 extern void disable_console_quick_edit(void);
-#endif	// _WIN32
+#endif // _WIN32
 
 extern GtkWidget *ptt_button_create(void);
 extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);            // gtk.codecpicker.c

@@ -26,6 +26,7 @@ GtkWidget *rx_rig_vol_slider = NULL;     // Rig side setting
 
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    (void)user_data;
+
    if (!range) {
       return;
    }
@@ -61,10 +62,12 @@ GtkWidget *create_volbox(void) {
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_label, TRUE, TRUE, 0);
 
    int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
-   if (rx_vol_slider && GTK_IS_RANGE(rx_vol_slider))
-      gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
 
-   g_signal_connect(rx_vol_slider, "value-changed",
-      G_CALLBACK(on_rx_volume_changed), NULL);
+   if (rx_vol_slider && GTK_IS_RANGE(rx_vol_slider)) {
+      gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
+   }
+
+   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), NULL);
+
    return rx_vol_vbox;
 }

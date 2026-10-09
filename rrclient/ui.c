@@ -34,7 +34,7 @@ const char *ui_active_window_name(void) {
       }
    }
 
-   if ( frontend_present() ) {
+   if (frontend_present() ) {
       return frontend_ops()->chat_current_room();
    }
 
@@ -47,14 +47,13 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
       return true;
    }
 
-   if ( frontend_present() ) {
+   if (frontend_present() ) {
       frontend_ops()->vprint(window, fmt, ap);
    } else if (ui_mode == UI_MODE_TUI) {
       tui_window_t *win = tui_window_find(window);
 
-      /* Chat/event replies can arrive before the frontend has created the corresponding
-       * tab.  Create the destination instead of silently falling back to the status
-       * window. */
+      /* Chat/event replies can arrive before the frontend has created the corresponding tab.  Create the destination instead of silently falling back to the
+       * status window. */
       if (!win && window && *window && strcasecmp(window, "status") != 0) {
          win = tui_window_create(window);
       }
@@ -80,7 +79,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
 }
 
 void show_server_chooser(void) {
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->show_server_chooser();
    } else if (ui_mode == UI_MODE_TUI) {
       ui_print(NULL, "| Server picker:");
@@ -89,7 +88,7 @@ void show_server_chooser(void) {
       int rank = 0;
       const char *k;
       char *v;
-      while ( ( rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0 ) {
+      while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
          if (!k) {
             continue;
          }

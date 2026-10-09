@@ -58,8 +58,7 @@ void webcam_init(void) {
 
    // One RX video channel; vfo/rig NA since a webcam isn't tied to a rig, it's station
    // wide
-   webcam_chan = media_chan_add(RR_BINFRAME_SUBSYS_VIDEO, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA,
-      webcam_codec, "Webcam video");
+   webcam_chan = media_chan_add(RR_BINFRAME_SUBSYS_VIDEO, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, webcam_codec, "Webcam video");
 
    if (!webcam_chan) {
       Log(LOG_CRIT, "webcam", "Failed to provision video media channel");
@@ -71,7 +70,7 @@ void webcam_init(void) {
    // itself (v4l2src -> jpegenc) is defined in the fwdsp config; gstreamer
    // lives entirely inside the subprocess, never linked into rrserver.
    char event_name[32];
-   memset( event_name, 0, sizeof(event_name) );
+   memset(event_name, 0, sizeof(event_name) );
    snprintf(event_name, sizeof(event_name), "fwdsp.frame.%.4s", webcam_codec);
    event_on_binary(event_name, webcam_frame_cb, NULL);
    webcam_fwdsp_chan = fwdsp_video_start(webcam_codec, false);
@@ -79,8 +78,7 @@ void webcam_init(void) {
    if (webcam_fwdsp_chan < 0) {
       Log(LOG_CRIT, "webcam", "Failed to start fwdsp video pipeline for %s (device %s)", webcam_codec, device);
    } else {
-      Log(LOG_INFO, "webcam", "Webcam capture started via fwdsp on %s (codec %s, channel %s)", device, webcam_codec,
-         webcam_chan->uuid);
+      Log(LOG_INFO, "webcam", "Webcam capture started via fwdsp on %s (codec %s, channel %s)", device, webcam_codec, webcam_chan->uuid);
    }
 }
 

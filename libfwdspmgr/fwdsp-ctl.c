@@ -37,6 +37,7 @@ bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent) {
    if (!sp || sp->fw_control <= 0) {
       return true;
    }
+
    return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
 }
 
@@ -51,12 +52,12 @@ bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
    if (!sp || sp->fw_control <= 0) {
       return true;
    }
+
    return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
 }
 
 
-static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx,
-   const char *channel_uuid, bool start) {
+static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx, const char *channel_uuid, bool start) {
    struct fwdsp_subproc *sp = NULL;
 
    if (channel_uuid && *channel_uuid) {
@@ -80,33 +81,29 @@ static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx,
    }
 
    bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
+
    if (!failed) {
       sp->recording_active = start;
    }
+
    return failed;
 }
 
-bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx,
-   const char *channel_uuid) {
+bool fwdsp_cmd_start_record_channel(const char codec_id[5], bool is_tx, const char *channel_uuid) {
    return fwdsp_cmd_record(codec_id, is_tx, channel_uuid, true);
 }
 
-bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx,
-   const char *channel_uuid, const char *username, bool record_tx) {
-   return fwdsp_cmd_start_record_named_id(codec_id, is_tx, channel_uuid,
-      username, record_tx, NULL);
+bool fwdsp_cmd_start_record_named(const char codec_id[5], bool is_tx, const char *channel_uuid, const char *username, bool record_tx) {
+   return fwdsp_cmd_start_record_named_id(codec_id, is_tx, channel_uuid, username, record_tx, NULL);
 }
 
-bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx,
-   const char *channel_uuid, const char *username, bool record_tx,
-   const char *recording_id) {
-   return fwdsp_cmd_start_record_named_file(codec_id, is_tx, channel_uuid,
-      username, record_tx, recording_id, NULL);
+bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx, const char *channel_uuid, const char *username, bool record_tx, const char *
+   recording_id) {
+   return fwdsp_cmd_start_record_named_file(codec_id, is_tx, channel_uuid, username, record_tx, recording_id, NULL);
 }
 
-bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx,
-   const char *channel_uuid, const char *username, bool record_tx,
-   const char *recording_id, const char *record_file) {
+bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx, const char *channel_uuid, const char *username, bool record_tx, const char *
+   recording_id, const char *record_file) {
    struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
       fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid) :
       fwdsp_find_instance(codec_id, is_tx);
@@ -118,39 +115,45 @@ bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx,
    };
 
    if (!sp || sp->fw_control <= 0 || !username || !*username ||
-       strlen(username) >= sizeof(msg.record_user) ||
-       (recording_id && strlen(recording_id) >= sizeof(msg.record_id)) ||
-       (record_file && strlen(record_file) >= sizeof(msg.record_file))) {
+      strlen(username) >= sizeof(msg.record_user) ||
+      (recording_id && strlen(recording_id) >= sizeof(msg.record_id)) ||
+      (record_file && strlen(record_file) >= sizeof(msg.record_file))) {
       return true;
    }
+
    if (sp->recording_active) {
       return false;
    }
    snprintf(msg.record_user, sizeof(msg.record_user), "%s", username);
+
    if (recording_id) {
       snprintf(msg.record_id, sizeof(msg.record_id), "%s", recording_id);
    }
+
    if (record_file) {
       snprintf(msg.record_file, sizeof(msg.record_file), "%s", record_file);
    }
    bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
+
    if (!failed) {
       sp->recording_active = true;
    }
+
    return failed;
 }
 
-bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx,
-   const char *channel_uuid) {
+bool fwdsp_cmd_stop_record_channel(const char codec_id[5], bool is_tx, const char *channel_uuid) {
    return fwdsp_cmd_record(codec_id, is_tx, channel_uuid, false);
 }
 
 bool fwdsp_cmd_start_record(const char codec_id[5], bool is_tx, int unused1) {
    (void)unused1;
+
    return fwdsp_cmd_start_record_channel(codec_id, is_tx, NULL);
 }
 
 bool fwdsp_cmd_stop_record(const char codec_id[5], bool is_tx, int unused1) {
    (void)unused1;
+
    return fwdsp_cmd_stop_record_channel(codec_id, is_tx, NULL);
 }

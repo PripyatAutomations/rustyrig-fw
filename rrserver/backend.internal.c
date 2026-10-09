@@ -68,14 +68,12 @@ static bool be_index(rr_server_vfo_t *vfo, rr_vfo_t *index) {
    return rr_server_vfo_native_index(vfo, index) && *index >= VFO_A && *index < MAX_VFOS;
 }
 
-static bool be_observe(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *field, val_type_t type,
-                       dict_value_t value) {
-   return !vfo || rr_server_vfo_owner(vfo) != backend->owner || rr_vfo_property_observe(vfo, field, type,
-      &value) == RR_PROPERTY_ERROR;
+static bool be_observe(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *field, val_type_t type, dict_value_t value) {
+   return !vfo || rr_server_vfo_owner(vfo) != backend->owner || rr_vfo_property_observe(vfo, field, type, &value) == RR_PROPERTY_ERROR;
 }
 
 static bool be_internal_create(rr_backend_t *backend) {
-   internal_backend_t *data = calloc( 1, sizeof(*data) );
+   internal_backend_t *data = calloc(1, sizeof(*data) );
 
    if (!data) {
       return true;
@@ -90,13 +88,13 @@ static bool be_internal_create(rr_backend_t *backend) {
    }
 
    rr_backend_instance_set_data(backend, data);
-   Log( LOG_INFO, "backend.internal", "Internal backend instance %s initialized", rr_backend_instance_alias(backend) );
+   Log(LOG_INFO, "backend.internal", "Internal backend instance %s initialized", rr_backend_instance_alias(backend) );
 
    return false;
 }
 
 static void be_internal_destroy(rr_backend_t *backend) {
-   free( be_data(backend) );
+   free(be_data(backend) );
    rr_backend_instance_set_data(backend, NULL);
 }
 
@@ -111,7 +109,7 @@ static bool be_internal_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, boo
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !be_index(vfo, &index) ) {
+   if (!data || !be_index(vfo, &index) ) {
       return true;
    }
    data->vfos[index].ptt = state;
@@ -142,18 +140,18 @@ static float be_internal_freq_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return ( !data || !be_index(vfo, &index) ) ? 0 : (float)data->vfos[index].freq;
+   return (!data || !be_index(vfo, &index) ) ? 0 : (float)data->vfos[index].freq;
 }
 
 static rr_mode_t be_internal_mode_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return ( !data || !be_index(vfo, &index) ) ? MODE_NONE : data->vfos[index].mode;
+   return (!data || !be_index(vfo, &index) ) ? MODE_NONE : data->vfos[index].mode;
 }
 
 static const char *be_internal_mode_get_str(rr_backend_t *backend, rr_server_vfo_t *vfo) {
-   return vfo_mode_name( be_internal_mode_get(backend, vfo) );
+   return vfo_mode_name(be_internal_mode_get(backend, vfo) );
 }
 
 static bool be_internal_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t mode) {
@@ -175,7 +173,7 @@ static uint16_t be_internal_width_get(rr_backend_t *backend, rr_server_vfo_t *vf
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return ( !data || !be_index(vfo, &index) ) ? 0 :
+   return (!data || !be_index(vfo, &index) ) ? 0 :
           (uint16_t)data->vfos[index].width;
 }
 
@@ -183,7 +181,7 @@ static bool be_internal_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo, c
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !width || !be_index(vfo, &index) ) {
+   if (!data || !width || !be_index(vfo, &index) ) {
       return true;
    }
 
@@ -194,11 +192,11 @@ static bool be_internal_width_set(rr_backend_t *backend, rr_server_vfo_t *vfo, c
    int narr = 0, norm = 0, wide = 0;
    be_widths_for_mode(data->vfos[index].mode, &narr, &norm, &wide);
 
-   if ( !strncasecmp(p, "narr", 4) || !strcasecmp(width, "nar") ) {
+   if (!strncasecmp(p, "narr", 4) || !strcasecmp(width, "nar") ) {
       data->vfos[index].width = narr;
-   } else if ( !strncasecmp(p, "norm", 4) || !strcasecmp(width, "normal") ) {
+   } else if (!strncasecmp(p, "norm", 4) || !strcasecmp(width, "normal") ) {
       data->vfos[index].width = norm;
-   } else if ( !strcasecmp(width, "wide") ) {
+   } else if (!strcasecmp(width, "wide") ) {
       data->vfos[index].width = wide;
    } else {
       long hz = atol(p);
@@ -216,7 +214,7 @@ static int be_internal_widths_get(rr_backend_t *backend, rr_server_vfo_t *vfo, i
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !widths || max < 3 || !be_index(vfo, &index) ) {
+   if (!data || !widths || max < 3 || !be_index(vfo, &index) ) {
       return 0;
    }
    be_widths_for_mode(data->vfos[index].mode, &widths[0], &widths[1], &widths[2]);
@@ -228,7 +226,7 @@ static bool be_internal_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, f
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !be_index(vfo, &index) ) {
+   if (!data || !be_index(vfo, &index) ) {
       return true;
    }
    data->vfos[index].power = power;
@@ -240,14 +238,14 @@ static float be_internal_power_get(rr_backend_t *backend, rr_server_vfo_t *vfo) 
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return ( !data || !be_index(vfo, &index) ) ? 0 : data->vfos[index].power;
+   return (!data || !be_index(vfo, &index) ) ? 0 : data->vfos[index].power;
 }
 
 static rr_vfo_data_t *be_internal_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    internal_backend_t *data = be_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if ( !data || !be_index(vfo, &index) ) {
+   if (!data || !be_index(vfo, &index) ) {
       return NULL;
    }
 
@@ -261,7 +259,7 @@ static rr_vfo_data_t *be_internal_poll(rr_backend_t *backend, rr_server_vfo_t *v
    value.i = state->width;
    be_observe(backend, vfo, RR_PROP_VFO_WIDTH, VAL_INT, value);
 
-   rr_vfo_data_t *result = calloc( 1, sizeof(*result) );
+   rr_vfo_data_t *result = calloc(1, sizeof(*result) );
 
    if (!result) {
       return NULL;

@@ -38,8 +38,8 @@ bool rr_amp_init(uint8_t index) {
    Log(LOG_INFO, "amp", " => Unit #%d initializing", index);
 
    if (!amp_data[index]) {
-      amp_data[index] = malloc( sizeof(rr_amp_state_t) );
-      memset( amp_data[index], 0, sizeof(rr_amp_state_t) );
+      amp_data[index] = malloc(sizeof(rr_amp_state_t) );
+      memset(amp_data[index], 0, sizeof(rr_amp_state_t) );
    } else {
       Log(LOG_CRIT, "amp", "  * Unit %d already initialized at %x", index, amp_data[index]);
    }

@@ -57,8 +57,7 @@ static bool ptt_hotkey_held = false;
 static bool ptt_hotkey_initial_active = false;
 static gint64 ptt_hotkey_pressed_at = 0;
 
-/* A quick tap toggles the PTT lock, matching the TUI. Holding the shortcut
- * keeps PTT active only until release. */
+/* A quick tap toggles the PTT lock, matching the TUI. Holding the shortcut keeps PTT active only until release. */
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
 static bool ptt_btn_online = false;
@@ -71,31 +70,48 @@ static int ptt_btn_tot_secs = 0;
 // Red while active for ANY user: find them in the cached userlist
 static struct rr_user *tx_user(void) {
    char active_vfo = vfo_state_get_active();
-   for (struct rr_user *c = global_userlist; c; c = c->next) {
-      if (c->room[0] && strcasecmp(c->room, rrclient_current_room()) != 0) continue;
+
+   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
+      if (c->room[0] && strcasecmp(c->room, rrclient_current_room()) != 0) {
+         continue;
+      }
+
       if (c->is_ptt && c->ptt_vfo == active_vfo &&
-          (!c->ptt_room[0] || !strcasecmp(c->ptt_room, rrclient_current_room()))) {
+         (!c->ptt_room[0] || !strcasecmp(c->ptt_room, rrclient_current_room()))) {
          return c;
       }
    }
+
    return NULL;
 }
 
 // True if someone OTHER than us is transmitting
 static bool someone_else_transmitting(struct rr_user *talker) {
-   return (talker && (!login_user || strcmp(talker->name, login_user) != 0) );
+   return(talker && (!login_user || strcmp(talker->name, login_user) != 0) );
 }
 
-/* PARITY: librrprotocol/srv.rigctl.c:ws_ptt_can_override.
- * This is a UI hint; the server checks current account flags. */
+/* PARITY: librrprotocol/srv.rigctl.c:ws_ptt_can_override. This is a UI hint; the server checks current account flags. */
 static bool i_can_halt_user(const struct rr_user *talker) {
    struct rr_user *me = login_user ? userlist_find(login_user) : NULL;
-   if (!talker || !me || strcasestr(talker->privs, "owner")) return false;
-   if (strcasestr(me->privs, "owner")) return true;
-   if (strcasestr(talker->privs, "admin")) return false;
-   if (strcasestr(me->privs, "admin")) return true;
+
+   if (!talker || !me || strcasestr(talker->privs, "owner")) {
+      return false;
+   }
+
+   if (strcasestr(me->privs, "owner")) {
+      return true;
+   }
+
+   if (strcasestr(talker->privs, "admin")) {
+      return false;
+   }
+
+   if (strcasestr(me->privs, "admin")) {
+      return true;
+   }
+
    return !strcasestr(me->privs, "noob") && strcasestr(talker->privs, "noob") &&
-      (strcasestr(me->privs, "tx") || strcasestr(me->privs, "elmer"));
+          (strcasestr(me->privs, "tx") || strcasestr(me->privs, "elmer"));
 }
 
 // Apply the current state to the button widget
@@ -104,13 +120,12 @@ static void ptt_button_apply(void) {
       return;
    }
 
-   GtkStyleContext *ctx = gtk_widget_get_style_context( GTK_WIDGET(ptt_button) );
+   GtkStyleContext *ctx = gtk_widget_get_style_context(GTK_WIDGET(ptt_button) );
    const gchar *label;
    const char *cls;
    struct rr_user *talker = tx_user();
 
-   vfo_controls_set_ptt_state(ptt_active || someone_else_transmitting(talker),
-      ptt_active);
+   vfo_controls_set_ptt_state(ptt_active || someone_else_transmitting(talker), ptt_active);
 
    // grey = offline, yellow = pending, orange = TOT fired, green = idle,
    // red = any user TX, showing their callsign (css in gtk.core.c)
@@ -129,15 +144,13 @@ static void ptt_button_apply(void) {
       cls = "ptt-pending";
    } else if (ptt_btn_tot) {
       static char totbuf[32];
-      snprintf(totbuf, sizeof(totbuf), "TIMED OUT %ds",
-         (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300) );
+      snprintf(totbuf, sizeof(totbuf), "TIMED OUT %ds", (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300) );
       label = totbuf;
       cls = "ptt-tot";
    } else if (ptt_active) {
       // We're the talker: show our callsign (red, same as anyone else's TX)
       static char namebuf[PTT_LABEL_MAXLEN + 1];
-      snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN,
-         talker ? talker->name : login_user);
+      snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker ? talker->name : login_user);
       label = namebuf;
       cls = "ptt-active";
    } else {
@@ -161,8 +174,11 @@ void ptt_button_refresh(void) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_button_pending_quiet = false;
-      char vfo[2] = { vfo_state_get_active(), '\0' };
+      char vfo[2] = {
+         vfo_state_get_active(), '\0'
+      };
       ptt_button_set_state(vfo_state_get_bool(vfo, "cat.state.ptt", false));
+
       return;
    }
    ptt_button_apply();
@@ -172,6 +188,7 @@ void ptt_button_refresh(void) {
 // PARITY: rustyrig-www/js/webui.rigctl.js ptt_tot_expired()
 void ptt_button_tot_expired(int tot_secs) {
    ptt_btn_tot = true;
+
    if (tot_secs > 0) {
       ptt_btn_tot_secs = tot_secs;
    }
@@ -197,6 +214,7 @@ void ptt_button_set_online(bool online) {
       ptt_btn_tot = false;
       ptt_btn_tot_secs = 0;
       ptt_active = false;
+
       if (ptt_button) {
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), FALSE);
       }
@@ -210,14 +228,20 @@ void ptt_button_set_online(bool online) {
 // the server would broadcast it back: an infinite ping-pong.
 // (PARITY: rustyrig-www/js/webui.rigctl.js sets checkbox.checked directly)
 void ptt_button_set_state(bool active) {
-   if (dying) return;
+   if (dying) {
+      return;
+   }
+
    // Ignore a stale echo while waiting for the state we requested.
-   if (ptt_button_pending && active != ptt_button_pending_state) return;
+   if (ptt_button_pending && active != ptt_button_pending_state) {
+      return;
+   }
    ptt_button_pending = false;
    ptt_button_pending_expire = 0;
    ptt_button_pending_quiet = false;
    ptt_btn_tot = false;
    ptt_active = active;
+
    if (!ptt_button) {
       return;
    }
@@ -226,11 +250,18 @@ void ptt_button_set_state(bool active) {
 
    if (gtk_toggle_button_get_active(btn) == active) {
       ptt_button_apply();
+
       return;
    }
-   if (ptt_toggled_handler) g_signal_handler_block(ptt_button, ptt_toggled_handler);
+
+   if (ptt_toggled_handler) {
+      g_signal_handler_block(ptt_button, ptt_toggled_handler);
+   }
    gtk_toggle_button_set_active(btn, active);
-   if (ptt_toggled_handler) g_signal_handler_unblock(ptt_button, ptt_toggled_handler);
+
+   if (ptt_toggled_handler) {
+      g_signal_handler_unblock(ptt_button, ptt_toggled_handler);
+   }
    ptt_button_apply();
 }
 
@@ -268,10 +299,17 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       // Revert the toggle without re-entering this handler
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
-      if (ptt_toggled_handler) g_signal_handler_block(button, ptt_toggled_handler);
+
+      if (ptt_toggled_handler) {
+         g_signal_handler_block(button, ptt_toggled_handler);
+      }
       gtk_toggle_button_set_active(button, FALSE);
-      if (ptt_toggled_handler) g_signal_handler_unblock(button, ptt_toggled_handler);
+
+      if (ptt_toggled_handler) {
+         g_signal_handler_unblock(button, ptt_toggled_handler);
+      }
       ptt_button_apply();
+
       return;
    }
 
@@ -288,7 +326,10 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    poll_block_expire = now + poll_block_delay;
 
    // Send the new state to the server
-   char vfo[2] = { vfo_state_get_active(), '\0' };
+   char vfo[2] = {
+      vfo_state_get_active(), '\0'
+   };
+
    if (!ptt_active) {
       // Turning OFF needs no visible PENDING: off is the safe default, apply
       // it immediately. We DO keep a quiet pending filter until the server's
@@ -307,14 +348,22 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       // acknowledgement, so keeping this gate ahead of the command ensures
       // the first spoken samples have a live path when the button turns red.
       const char *tx_codec = rrclient_media_current_codec(true);
+
       if (!tx_codec || audio_switch_codec(tx_codec, true)) {
          Log(LOG_WARN, "ui.gtk", "PTT refused: TX audio encoder is not ready");
          ui_print(NULL, "\00308*** TX audio is not ready; select a TX codec first\017");
          ptt_active = false;
-         if (ptt_toggled_handler) g_signal_handler_block(button, ptt_toggled_handler);
+
+         if (ptt_toggled_handler) {
+            g_signal_handler_block(button, ptt_toggled_handler);
+         }
          gtk_toggle_button_set_active(button, FALSE);
-         if (ptt_toggled_handler) g_signal_handler_unblock(button, ptt_toggled_handler);
+
+         if (ptt_toggled_handler) {
+            g_signal_handler_unblock(button, ptt_toggled_handler);
+         }
          ptt_button_apply();
+
          return;
       }
       Log(LOG_CRAZY, "ui.gtk", "Turning PTT on");
@@ -329,38 +378,50 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
 }
 
 bool ptt_button_hotkey_toggle(void) {
-   if (!ptt_button) return false;
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button),
-      !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)));
+   if (!ptt_button) {
+      return false;
+   }
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)));
+
    return true;
 }
 
 bool ptt_button_hotkey_press(void) {
-   if (!ptt_button) return false;
-   if (ptt_hotkey_held) return true;
+   if (!ptt_button) {
+      return false;
+   }
+
+   if (ptt_hotkey_held) {
+      return true;
+   }
    ptt_hotkey_held = true;
    ptt_hotkey_initial_active = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button));
    ptt_hotkey_pressed_at = g_get_monotonic_time();
+
    if (!ptt_hotkey_initial_active) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), TRUE);
    }
+
    return true;
 }
 
 bool ptt_button_hotkey_release(void) {
-   if (!ptt_button || !ptt_hotkey_held) return false;
+   if (!ptt_button || !ptt_hotkey_held) {
+      return false;
+   }
    gint64 elapsed = g_get_monotonic_time() - ptt_hotkey_pressed_at;
    gint64 hold_delay = (gint64)cfg_ui_ptt_hold_delay * 1000;
    bool quick_tap = elapsed >= 0 && elapsed < hold_delay;
    ptt_hotkey_held = false;
    ptt_hotkey_pressed_at = 0;
 
-   /* A short press is a lock toggle. A held shortcut always keys down only
-    * for the duration of the key hold. */
+   /* A short press is a lock toggle. A held shortcut always keys down only for the duration of the key hold. */
    bool desired_active = quick_tap ? !ptt_hotkey_initial_active : false;
+
    if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)) != desired_active) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), desired_active);
    }
+
    return true;
 }
 
@@ -393,9 +454,8 @@ GtkWidget *ptt_button_create(void) {
    ptt_toggled_handler = g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    // Start out dark grey until we're online with the server
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-offline");
-   /* The connection may have completed before the GTK widget was created.
-    * Apply the cached connection state immediately instead of waiting for a
-    * later click or server echo to repaint the button. */
+   /* The connection may have completed before the GTK widget was created. Apply the cached connection state immediately instead of waiting for a later click or
+    * server echo to repaint the button. */
    ptt_button_apply();
 
    return ptt_box;

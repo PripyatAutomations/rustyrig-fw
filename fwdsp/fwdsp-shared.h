@@ -9,10 +9,10 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 
 #if     !defined(__fwdsp_shared_h)
-#define	__fwdsp_shared_h
+#define __fwdsp_shared_h
 
-#define	DEFAULT_SOCKET_PATH_TX "./dev/fwdsp.tx.sock"
-#define	DEFAULT_SOCKET_PATH_RX "./dev/fwdsp.rx.sock"
+#define DEFAULT_SOCKET_PATH_TX "./dev/fwdsp.tx.sock"
+#define DEFAULT_SOCKET_PATH_RX "./dev/fwdsp.rx.sock"
 
 struct audio_config {
    const char *pipeline;

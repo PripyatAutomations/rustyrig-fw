@@ -5,7 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__RRSERVER_GLOBALSTATE_H)
-#define	__RRSERVER_GLOBALSTATE_H
+#define __RRSERVER_GLOBALSTATE_H
 #include "build_config.h"
 #include <rrserver/amp.h>
 #include <rrserver/atu.h>
@@ -32,7 +32,7 @@ struct GlobalState {
 
    // Statistics
    time_t time_tx_total,                // Lifetime TX time total
-          time_tx_last;                  // Last transmission length
+      time_tx_last;                      // Last transmission length
    float power_tx_watts;                 // Lifetime total watts used
                                          // transmitting
 

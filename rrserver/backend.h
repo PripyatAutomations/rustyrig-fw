@@ -6,7 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if !defined(__rrserver_backend_h)
-#define	__rrserver_backend_h
+#define __rrserver_backend_h
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,9 +18,8 @@ typedef struct rr_backend rr_backend_t;
 typedef struct rr_backend_type rr_backend_type_t;
 
 /*
- * Every callback receives the allocated backend instance. Immutable callback tables
- * describe a backend TYPE; all radio-specific mutable data belongs in rr_backend_t::data
- * and is allocated by create().
+ * Every callback receives the allocated backend instance. Immutable callback tables describe a backend TYPE; all radio-specific mutable data belongs in
+ * rr_backend_t::data and is allocated by create().
  */
 typedef struct rr_backend_funcs {
    bool (*create)(rr_backend_t *backend);
@@ -61,8 +60,7 @@ struct rr_backend {
    rr_vfo_t active_vfo;
 };
 
-extern rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, struct rr_server_rig *owner,
-                                             const char *config_alias);
+extern rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, struct rr_server_rig *owner, const char *config_alias);
 extern void rr_backend_instance_free(rr_backend_t *backend);
 extern bool rr_backend_type_register(const rr_backend_type_t *type);
 extern const rr_backend_type_t *rr_backend_type_find(const char *name);

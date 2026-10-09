@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrserver_i2c_h)
-#define	__rrserver_i2c_h
+#define __rrserver_i2c_h
 #include "build_config.h"
 #include <stdint.h>
 #include <stdbool.h>

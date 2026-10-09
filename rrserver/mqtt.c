@@ -38,7 +38,7 @@ struct sub {
 };
 static struct sub *s_subs = NULL;
 
-#define	MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT 256
+#define MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT 256
 
 // Are we debugging (hexdump) mqtt?
 bool mqtt_debug_sock = false;
@@ -52,7 +52,7 @@ int mqtt_port = 0;
 
 
 bool mqtt_server_init(struct mg_mgr *mgr) {
-   if ( !cfg_get_bool("net.mqtt.enabled", false) ) {
+   if (!cfg_get_bool("net.mqtt.enabled", false) ) {
       Log(LOG_DEBUG, "mqtt", "MQTT listener disabled");
 
       return false;
@@ -65,7 +65,7 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
    }
 
    char listen_addr[512];
-   memset( listen_addr, 0, sizeof(listen_addr) );
+   memset(listen_addr, 0, sizeof(listen_addr) );
    const char *mqtt_bind = cfg_get("net.mqtt.bind");
    int mqtt_port = cfg_get_int("net.mqtt.port", 18383);
 
@@ -98,11 +98,11 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
 //////
 static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *topic, uint8_t *qos, size_t pos) {
    if (!msg || !topic || !msg->dgram.buf || pos > msg->dgram.len ||
-       msg->dgram.len - pos < 2) {
+      msg->dgram.len - pos < 2) {
       return 0;
    }
    unsigned char *buf = (unsigned char *)msg->dgram.buf + pos;
-   size_t topic_len = (size_t)( ( (unsigned)buf[0] << 8 ) | buf[1] );
+   size_t topic_len = (size_t)( ( (unsigned)buf[0] << 8) | buf[1]);
    size_t suffix_len = qos ? 1 : 0;
    size_t remaining = msg->dgram.len - pos - 2;
 
@@ -136,7 +136,7 @@ static void mqtt_subscription_free(struct sub *sub) {
    if (!sub) {
       return;
    }
-   mg_free( (void *)sub->topic.buf );
+   mg_free( (void *)sub->topic.buf);
    free(sub);
 }
 
@@ -188,10 +188,10 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                uint8_t response[] = {
                   0, 0
                };
-               mg_mqtt_send_header( c, MQTT_CMD_CONNACK, 0, sizeof(response) );
+               mg_mqtt_send_header(c, MQTT_CMD_CONNACK, 0, sizeof(response) );
 
 
-               mg_send( c, response, sizeof(response) );
+               mg_send(c, response, sizeof(response) );
             }
             break;
          }
@@ -202,7 +202,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
             struct mg_str topic;
             size_t num_topics = 0;
             size_t client_topics = mqtt_subscription_count(c);
-            memset( resp, 0, sizeof(resp) );
+            memset(resp, 0, sizeof(resp) );
 
             if (pos == SIZE_MAX) {
                Log(LOG_WARN, "mqtt.req", "Malformed MQTT subscription packet");
@@ -212,7 +212,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             while ( ( (pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0) ) {
                if (num_topics >= sizeof(resp) ||
-                   client_topics >= MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT) {
+                  client_topics >= MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT) {
                   Log(LOG_WARN, "mqtt.req", "Too many MQTT subscriptions from connection %p", c);
                   c->is_closing = 1;
                   break;
@@ -223,7 +223,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                   c->is_closing = 1;
                   break;
                }
-               struct sub *sub = calloc( 1, sizeof(*sub) );
+               struct sub *sub = calloc(1, sizeof(*sub) );
 
                if (!sub) {
                   Log(LOG_CRIT, "mqtt.req", "SUB empty in MQTT_CMD_SUBSCRIBE");
@@ -258,13 +258,12 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
          case MQTT_CMD_PUBLISH: {
             // Client published message. Push to all subscribed channels
-            Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int) mm->data.len, mm->data.buf,
-               (int) mm->topic.len, mm->topic.buf);
+            Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int) mm->data.len, mm->data.buf, (int) mm->topic.len, mm->topic.buf);
 
             for (struct sub *sub = s_subs ; sub ; sub = sub->next) {
                if (mg_match(mm->topic, sub->topic, NULL) ) {
                   struct mg_mqtt_opts pub_opts;
-                  memset( &pub_opts, 0, sizeof(pub_opts) );
+                  memset(&pub_opts, 0, sizeof(pub_opts) );
                   pub_opts.topic = mm->topic;
                   pub_opts.message = mm->data;
                   pub_opts.qos = 1, pub_opts.retain = false;
@@ -305,14 +304,14 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
 
-   if ( !cfg_get_bool("net.mqtt-client.enabled", false) ) {
+   if (!cfg_get_bool("net.mqtt-client.enabled", false) ) {
       Log(LOG_DEBUG, "mqtt.cli", "Outbound MQTT client disabled");
 
       return false;
    }
 
    const char *configured_user = cfg_get("net.mqtt-client.user");
-   strlcpy( mqtt_user_buf, configured_user ? configured_user : "", sizeof(mqtt_user_buf) );
+   strlcpy(mqtt_user_buf, configured_user ? configured_user : "", sizeof(mqtt_user_buf) );
    mqtt_user = mqtt_user_buf;
    mqtt_host = cfg_get("net.mqtt-client.host");
    mqtt_port = cfg_get_int("net.mqtt-client.port", 0);
@@ -326,17 +325,17 @@ bool mqtt_client_init(void) {
    }
 
    if (!(fp = fopen(secret_file, "r") ) ) {
-      Log( LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno) );
+      Log(LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno) );
       free(secret_file);
 
       return false;
    }
    char read_secret[512];
-   memset( mqtt_secret, 0, sizeof(mqtt_secret) );
-   memset( read_secret, 0, sizeof(read_secret) );
+   memset(mqtt_secret, 0, sizeof(mqtt_secret) );
+   memset(read_secret, 0, sizeof(read_secret) );
 
    if (!fgets(read_secret, sizeof(read_secret), fp) ) {
-      Log( LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno) );
+      Log(LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno) );
       fclose(fp);
       free(secret_file);
 
@@ -351,11 +350,11 @@ bool mqtt_client_init(void) {
    char *s_secret = strtok(NULL, ":\n");
 
    if (s_user) {
-      strlcpy( mqtt_user_buf, s_user, sizeof(mqtt_user_buf) );
+      strlcpy(mqtt_user_buf, s_user, sizeof(mqtt_user_buf) );
    }
 
    if (s_secret) {
-      strlcpy( mqtt_secret, s_secret, sizeof(mqtt_secret) );
+      strlcpy(mqtt_secret, s_secret, sizeof(mqtt_secret) );
    }
 
    Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", host=\"%s:%d\"", mqtt_user, mqtt_host, mqtt_port);

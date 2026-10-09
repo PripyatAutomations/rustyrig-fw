@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_gtk_vfo_box_h)
-#define	__rrclient_gtk_vfo_box_h
+#define __rrclient_gtk_vfo_box_h
 #include <librustyaxe/config.h>
 
 extern GtkWidget *create_vfo_box(void);

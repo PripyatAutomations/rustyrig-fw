@@ -4,7 +4,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if !defined(__rrserver_rig_config_h)
-#define	__rrserver_rig_config_h
+#define __rrserver_rig_config_h
 
 #include <stdbool.h>
 #include <stdint.h>

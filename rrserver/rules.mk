@@ -7,7 +7,7 @@ rrserver_headers += $(wildcard rrserver/*.h)
 rrserver_src = $(addprefix rrserver/,$(rrserver_objs:.o=.c))
 
 #rrserver_objs += au.o			# core abstractions
-rrserver_objs += au.pcm5102.o           # Support for TI PCM5102 i2c DAC
+#rrserver_objs += au.pcm5102.o           # Support for TI PCM5102 i2c DAC
 rrserver_objs += au.recording.o		# support for recording session audio
 rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control

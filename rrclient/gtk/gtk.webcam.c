@@ -58,8 +58,10 @@ static void webcam_decode(const uint8_t *data, size_t len) {
          Log(LOG_DEBUG, "webcam", "Failed to decode %zu byte video frame: %s", len, err->message);
          g_error_free(err);
       }
+
       return;
    }
+
    if (webcam_frame) {
       g_object_unref(webcam_frame);
    }
@@ -70,8 +72,7 @@ static void webcam_decode(const uint8_t *data, size_t len) {
 }
 
 // media.frame.video binframes (PARITY: librrprotocol/binframe.c dispatch)
-static void webcam_frame_handler(const char *event, const void *data, size_t len,
-   rrconn_t *cptr, void *user) {
+static void webcam_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    (void)event;
    (void)cptr;
    (void)user;
@@ -102,10 +103,13 @@ void gtk_webcam_show(bool show) {
       if (webcam_win) {
          gtk_widget_destroy(webcam_win);   // destroy cb clears the state
       }
+
       return;
    }
+
    if (webcam_win) {
       gtk_window_present(GTK_WINDOW(webcam_win) );
+
       return;
    }
    webcam_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -116,6 +120,7 @@ void gtk_webcam_show(bool show) {
    webcam_image = gtk_image_new();
    gtk_container_add(GTK_CONTAINER(webcam_win), webcam_image);
    gtk_widget_show_all(webcam_win);
+
    if (rrclient_media_subscribe_single_video()) {
       ui_print(NULL, "\00311Webcam viewer open; subscribed to the only video stream\017");
    } else {

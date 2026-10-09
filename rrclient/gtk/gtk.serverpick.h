@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_gtk_serverpick_h)
-#define	__rrclient_gtk_serverpick_h
+#define __rrclient_gtk_serverpick_h
 #include <librustyaxe/config.h>
 
 #if     defined(USE_GTK)

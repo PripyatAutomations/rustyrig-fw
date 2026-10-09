@@ -27,7 +27,7 @@
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 
-#define	MSGBUF_SIZE 8096
+#define MSGBUF_SIZE 8096
 
 extern dict *cfg;
 extern time_t now;
@@ -52,6 +52,7 @@ static void frontend_gtk_config_refresh(const char *key) {
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
    const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
+
    if (tabstrip && strcasecmp(tabstrip, "left") == 0) {
       cfg_ui_gtk_main_tabstrip = GTK_POS_LEFT;
    } else if (tabstrip && strcasecmp(tabstrip, "right") == 0) {
@@ -65,7 +66,12 @@ static void frontend_gtk_config_refresh(const char *key) {
 
 static bool frontend_gtk_config_refresh_cb(void) {
    frontend_gtk_config_refresh(NULL);
-   if (main_window) { gtk_css_apply_cfg(); gtk_ui_zoom_recheck(); }
+
+   if (main_window) {
+      gtk_css_apply_cfg();
+      gtk_ui_zoom_recheck();
+   }
+
    return false;
 }
 extern GtkWidget *init_admin_tab(void);
@@ -74,47 +80,85 @@ bool cfg_fullscreen = false;
 
 const char *gtk_mirc_color_name(unsigned int n) {
    static const char *colors[] = {
-   "bright-white", "black", "blue", "green", "bright-red", "brown",
-   "magenta", "orange", "bright-yellow", "bright-green", "cyan",
-   "bright-cyan", "bright-blue", "bright-magenta", "bright-black", "white"
+      "bright-white", "black", "blue", "green", "bright-red", "brown",
+      "magenta", "orange", "bright-yellow", "bright-green", "cyan",
+      "bright-cyan", "bright-blue", "bright-magenta", "bright-black", "white"
    };
+
    return n < 16 ? colors[n] : NULL;
 }
 
 static const char *gtk_mirc_color_value(unsigned int color) {
    static const char *values[] = {
-   "#ffffff", "#000000", "#00007f", "#009300", "#ff0000", "#7f0000",
-   "#9c009c", "#fc7f00", "#ffff00", "#00fc00", "#009393", "#00ffff",
-   "#0000fc", "#ff00ff", "#7f7f7f", "#d2d2d2"
+      "#ffffff", "#000000", "#00007f", "#009300", "#ff0000", "#7f0000",
+      "#9c009c", "#fc7f00", "#ffff00", "#00fc00", "#009393", "#00ffff",
+      "#0000fc", "#ff00ff", "#7f7f7f", "#d2d2d2"
    };
+
    return color < G_N_ELEMENTS(values) ? values[color] : NULL;
 }
 
 guint8 gtk_formatting_control(gunichar token) {
    switch (token) {
-   case 'B': return 0x02;
-   case 'C': return 0x03;
-   case 'I': return 0x1d;
-   case 'O': return 0x0f;
-   case 'R': return 0x16;
-   case 'U': return 0x1f;
-   case 'S': return 0x1e;
-   case 'M': return 0x11;
-      default: return 0;
+      case 'B': {
+         return 0x02;
+      }
+      case 'C': {
+         return 0x03;
+      }
+      case 'I': {
+         return 0x1d;
+      }
+      case 'O': {
+         return 0x0f;
+      }
+      case 'R': {
+         return 0x16;
+      }
+      case 'U': {
+         return 0x1f;
+      }
+      case 'S': {
+         return 0x1e;
+      }
+      case 'M': {
+         return 0x11;
+      }
+      default: {
+         return 0;
+      }
    }
 }
 
 const char *gtk_formatting_token(guint8 control) {
    switch (control) {
-   case 0x02: return "B";
-   case 0x03: return "C";
-   case 0x1d: return "I";
-   case 0x0f: return "O";
-   case 0x16: return "R";
-   case 0x1f: return "U";
-   case 0x1e: return "S";
-   case 0x11: return "M";
-      default: return NULL;
+      case 0x02: {
+         return "B";
+      }
+      case 0x03: {
+         return "C";
+      }
+      case 0x1d: {
+         return "I";
+      }
+      case 0x0f: {
+         return "O";
+      }
+      case 0x16: {
+         return "R";
+      }
+      case 0x1f: {
+         return "U";
+      }
+      case 0x1e: {
+         return "S";
+      }
+      case 0x11: {
+         return "M";
+      }
+      default: {
+         return NULL;
+      }
    }
 }
 
@@ -123,10 +167,11 @@ char *gtk_colorize_string(const char *in) {
       return NULL;
    }
    size_t len = strlen(in);
-   /* Markup expands color/control sequences substantially.  Keep enough
-    * headroom for mIRC color codes and escaped text without truncating. */
+
+   /* Markup expands color/control sequences substantially.  Keep enough headroom for mIRC color codes and escaped text without truncating. */
    if (len > (SIZE_MAX - 256) / 64) {
       Log(LOG_WARN, "gtk", "Refusing oversized colorized string (%zu bytes)", len);
+
       return NULL;
    }
    char *out = malloc(len * 64 + 256);
@@ -142,10 +187,10 @@ char *gtk_colorize_string(const char *in) {
    const char *p = in;
    while (*p) {
       if ((unsigned char)*p == 0x1b) {
-         /* GStreamer/fwdsp diagnostics can contain ANSI CSI color sequences.
-          * GTK consumes Pango markup, so strip terminal styling here rather
-          * than exposing escape bytes or feeding them to the markup parser. */
+         /* GStreamer/fwdsp diagnostics can contain ANSI CSI color sequences. GTK consumes Pango markup, so strip terminal styling here rather than exposing
+          * escape bytes or feeding them to the markup parser. */
          p++;
+
          if (*p == '[') {
             p++;
 
@@ -158,9 +203,9 @@ char *gtk_colorize_string(const char *in) {
             }
          }
       } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x11 ||
-              (unsigned char)*p == 0x16 || (unsigned char)*p == 0x1d ||
-              (unsigned char)*p == 0x1e || (unsigned char)*p == 0x1f ||
-              (unsigned char)*p == 0x0f) {
+         (unsigned char)*p == 0x16 || (unsigned char)*p == 0x1d ||
+         (unsigned char)*p == 0x1e || (unsigned char)*p == 0x1f ||
+         (unsigned char)*p == 0x0f) {
          unsigned char control = (unsigned char)*p++;
 
          if (control == 0x02) {
@@ -205,14 +250,22 @@ char *gtk_colorize_string(const char *in) {
             }
          } else if (control == 0x16) {
             reverse = !reverse;
+
             if (span_open) {
                const char *shown_fg = reverse ? (bg ? bg : "black") : fg;
                const char *shown_bg = reverse ? (fg ? fg : "white") : bg;
                o += sprintf(o, "</span>");
+
                if (shown_fg || shown_bg) {
                   o += sprintf(o, "<span");
-                  if (shown_fg) o += sprintf(o, " foreground=\"%s\"", shown_fg);
-                  if (shown_bg) o += sprintf(o, " background=\"%s\"", shown_bg);
+
+                  if (shown_fg) {
+                     o += sprintf(o, " foreground=\"%s\"", shown_fg);
+                  }
+
+                  if (shown_bg) {
+                     o += sprintf(o, " background=\"%s\"", shown_bg);
+                  }
                   o += sprintf(o, ">");
                   span_open = true;
                } else {
@@ -222,7 +275,9 @@ char *gtk_colorize_string(const char *in) {
                o += sprintf(o, "<span foreground=\"black\" background=\"white\">");
                span_open = true;
             } else {
-               if (span_open) o += sprintf(o, "</span>");
+               if (span_open) {
+                  o += sprintf(o, "</span>");
+               }
                span_open = false;
             }
          } else {
@@ -236,18 +291,22 @@ char *gtk_colorize_string(const char *in) {
                o += sprintf(o, "</b>");
                bold = false;
             }
+
             if (italic) {
                o += sprintf(o, "</i>");
                italic = false;
             }
+
             if (underline) {
                o += sprintf(o, "</u>");
                underline = false;
             }
+
             if (strikethrough) {
                o += sprintf(o, "</s>");
                strikethrough = false;
             }
+
             if (monospace) {
                o += sprintf(o, "</tt>");
                monospace = false;
@@ -258,9 +317,11 @@ char *gtk_colorize_string(const char *in) {
          p++;
          unsigned int fg_num = 0, bg_num = 0;
          bool have_fg = false, have_bg = false;
+
          if (isdigit((unsigned char)*p)) {
             have_fg = true;
             fg_num = (unsigned int)(*p++ - '0');
+
             if (isdigit((unsigned char)*p)) {
                fg_num = fg_num * 10 + (unsigned int)(*p++ - '0');
             }
@@ -269,6 +330,7 @@ char *gtk_colorize_string(const char *in) {
                p++;
                have_bg = true;
                bg_num = (unsigned int)(*p++ - '0');
+
                if (isdigit((unsigned char)*p)) {
                   bg_num = bg_num * 10 + (unsigned int)(*p++ - '0');
                }
@@ -290,9 +352,11 @@ char *gtk_colorize_string(const char *in) {
 
             if (shown_fg || shown_bg) {
                o += sprintf(o, "<span");
+
                if (shown_fg) {
                   o += sprintf(o, " foreground=\"%s\"", shown_fg);
                }
+
                if (shown_bg) {
                   o += sprintf(o, " background=\"%s\"", shown_bg);
                }
@@ -326,55 +390,70 @@ char *gtk_colorize_string(const char *in) {
             }
 
             if (bold) {
-               o += sprintf(o, "</b>"); bold = false;
+               o += sprintf(o, "</b>");
+               bold = false;
             }
 
             if (italic) {
-               o += sprintf(o, "</i>"); italic = false;
+               o += sprintf(o, "</i>");
+               italic = false;
             }
 
             if (underline) {
-               o += sprintf(o, "</u>"); underline = false;
+               o += sprintf(o, "</u>");
+               underline = false;
             }
+
             if (strikethrough) {
-               o += sprintf(o, "</s>"); strikethrough = false;
+               o += sprintf(o, "</s>");
+               strikethrough = false;
             }
+
             if (monospace) {
-               o += sprintf(o, "</tt>"); monospace = false;
+               o += sprintf(o, "</tt>");
+               monospace = false;
             }
             reverse = false;
          } else if (strcmp(key, "bold") == 0) {
             if (!bold) {
-               o += sprintf(o, "<b>"); bold = true;
+               o += sprintf(o, "<b>");
+               bold = true;
             }
          } else if (strcmp(key, "italic") == 0) {
             if (!italic) {
-               o += sprintf(o, "<i>"); italic = true;
+               o += sprintf(o, "<i>");
+               italic = true;
             }
          } else if (strcmp(key, "underline") == 0) {
             if (!underline) {
-               o += sprintf(o, "<u>"); underline = true;
+               o += sprintf(o, "<u>");
+               underline = true;
             }
          } else if (strcmp(key, "bold-off") == 0) {
             if (bold) {
-               o += sprintf(o, "</b>"); bold = false;
+               o += sprintf(o, "</b>");
+               bold = false;
             }
          } else if (strcmp(key, "italic-off") == 0) {
             if (italic) {
-               o += sprintf(o, "</i>"); italic = false;
+               o += sprintf(o, "</i>");
+               italic = false;
             }
          } else if (strcmp(key, "underline-off") == 0) {
             if (underline) {
-               o += sprintf(o, "</u>"); underline = false;
+               o += sprintf(o, "</u>");
+               underline = false;
             }
          } else {
             /* Colors are IRC controls; preserve other brace-delimited text. */
             char *escaped = g_markup_escape_text(p, (gssize)(end - p + 1));
+
             if (escaped) {
                o += sprintf(o, "%s", escaped);
                g_free(escaped);
             } else {
                free(out);
+
                return NULL;
             }
          }
@@ -384,8 +463,10 @@ char *gtk_colorize_string(const char *in) {
          size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
 
          char *escaped = g_markup_escape_text(p, (gint)chunk_len);
+
          if (!escaped) {
             free(out);
+
             return NULL;
          }
          o += sprintf(o, "%s", escaped);
@@ -410,9 +491,11 @@ char *gtk_colorize_string(const char *in) {
    if (underline) {
       o += sprintf(o, "</u>");
    }
+
    if (strikethrough) {
       o += sprintf(o, "</s>");
    }
+
    if (monospace) {
       o += sprintf(o, "</tt>");
    }
@@ -443,6 +526,7 @@ static void chat_backlog_push(const char *line) {
    if (!line) {
       return;
    }
+
    if (!chat_backlog) {
       chat_backlog = g_queue_new();
    }
@@ -500,11 +584,13 @@ void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
    scrollback_skip = 0;
 
    int max = cfg_get_int(cfg_key, def);
+
    if (max <= 0) {
       return;                       // unlimited
    }
 
    int count = gtk_text_buffer_get_line_count(buf);
+
    if (count <= max) {
       return;
    }
@@ -519,6 +605,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    if (!fmt) {
       return true;
    }
+
    // During shutdown the chat text buffer is destroyed before the network
    // layer finishes tearing down; don't touch GTK widgets once dying.
    if (dying) {
@@ -526,27 +613,32 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    }
 
    char msgbuf[MSGBUF_SIZE];
-   memset( msgbuf, 0, sizeof(msgbuf) );
+   memset(msgbuf, 0, sizeof(msgbuf) );
 
    va_list aq;
    va_copy(aq, ap);
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, aq);
    va_end(aq);
 
-   /* NULL/status output belongs to the persistent status tab, regardless
-    * of which room is selected. Keep early startup messages until it exists. */
+   /* NULL/status output belongs to the persistent status tab, regardless of which room is selected. Keep early startup messages until it exists. */
    GtkTextBuffer *target_buffer = NULL;
    GtkWidget *target_view = NULL;
    bool explicit_room = window && *window && strcasecmp(window, "status");
+
    if (!gtk_chat_room_widgets(window, &target_buffer, &target_view)) {
       explicit_room = false;
       gtk_chat_room_widgets(NULL, &target_buffer, &target_view);
    }
+
    if (!target_buffer || !target_view || !GTK_IS_TEXT_VIEW(target_view)) {
       chat_backlog_push(msgbuf);
+
       return false;
    }
-   if (!explicit_room) chat_backlog_flush(target_buffer, target_view);
+
+   if (!explicit_room) {
+      chat_backlog_flush(target_buffer, target_view);
+   }
 
    bool colorize_failed = false;
    char *colorized = gtk_colorize_string(msgbuf);
@@ -577,7 +669,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    if (!combo || !text) {
       return;
    }
-   GtkTreeModel *model = gtk_combo_box_get_model( GTK_COMBO_BOX(combo) );
+   GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo) );
    GtkTreeIter iter;
    int index = 0;
 
@@ -649,14 +741,18 @@ static gboolean on_confirm_dialog_key(GtkWidget *widget, GdkEventKey *ev, gpoint
 
    switch (ev->keyval) {
       case 'y':
-      case 'Y':
-         gtk_dialog_response( GTK_DIALOG(widget), GTK_RESPONSE_YES );
+      case 'Y': {
+         gtk_dialog_response(GTK_DIALOG(widget), GTK_RESPONSE_YES);
+
          return TRUE;
+      }
 
       case 'n':
-      case 'N':
-         gtk_dialog_response( GTK_DIALOG(widget), GTK_RESPONSE_NO );
+      case 'N': {
+         gtk_dialog_response(GTK_DIALOG(widget), GTK_RESPONSE_NO);
+
          return TRUE;
+      }
    }
 
    return FALSE;
@@ -667,15 +763,14 @@ bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
       return false;
    }
 
-   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
-      GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
-   /* Keep confirmation prompts in the middle of the display even when the
-    * parent is a tab or a partially off-screen window. */
+   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
+   /* Keep confirmation prompts in the middle of the display even when the parent is a tab or a partially off-screen window. */
    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_YES);
    gboolean confirmed = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES;
    gtk_widget_destroy(dialog);
+
    return confirmed;
 }
 
@@ -684,6 +779,7 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
    (void)event;
    (void)data;
    event_emit("client.quit.request", NULL, NULL);
+
    return TRUE;      // core handles shutdown after GTK confirmation
 }
 
@@ -751,9 +847,10 @@ bool gui_init(void) {
 
       g_idle_add(fullscreen_later, NULL);
    }
-   gtk_widget_grab_focus( GTK_WIDGET(chat_entry) );
+   gtk_widget_grab_focus(GTK_WIDGET(chat_entry) );
 
-   ui_print( NULL, "%s rustyrig client started", get_chat_ts(now) );
+   ui_print(NULL, "%s rustyrig client started", get_chat_ts(now) );
+
    return false;
 }
 
@@ -766,7 +863,7 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    if (!GTK_IS_WINDOW(toplevel) ) {
       return FALSE;
    }
-   GtkWidget *focused = gtk_window_get_focus( GTK_WINDOW(toplevel) );
+   GtkWidget *focused = gtk_window_get_focus(GTK_WINDOW(toplevel) );
 
    for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
       if (w == ancestor) {
@@ -779,10 +876,10 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
 
 bool gui_fullscreen_toggle(void) {
    if (cfg_fullscreen) {
-      gtk_window_unfullscreen( GTK_WINDOW(main_window) );
+      gtk_window_unfullscreen(GTK_WINDOW(main_window) );
       gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
    } else {
-      gtk_window_fullscreen( GTK_WINDOW(main_window) );
+      gtk_window_fullscreen(GTK_WINDOW(main_window) );
       gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
    }
    cfg_fullscreen = !cfg_fullscreen;
@@ -809,27 +906,32 @@ extern GtkWidget *chat_textview;              // gtk.chat.c
 extern GtkWidget *admin_tab, *config_tab;     // gtk.core.c (this file)
 extern bool cfg_gtkcss_init(void);            // cfg.gtkcss.c
 
-static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
-   int width, int power, bool ptt) {
+static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
    GtkWidget *entry = freq_entry;
+
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
       char selection[256];
       snprintf(selection, sizeof(selection), "%s/%s", rrclient_media_active_room(), vfo);
       const char *displayed = g_object_get_data(G_OBJECT(entry), "rr-displayed-vfo");
+
       if (!displayed || strcmp(displayed, selection) || !gtk_freq_entry_is_editing(fe)) {
          g_object_set_data_full(G_OBJECT(entry), "rr-displayed-vfo", g_strdup(selection), g_free);
          gtk_freq_entry_set_frequency(fe, freq);
       }
    }
    modebox_update_state(mode, width);
-   (void)vfo; (void)power; (void)ptt;
+   (void)vfo;
+   (void)power;
+   (void)ptt;
 }
 
 static void frontend_gtk_freq_set(long freq) {
    GtkWidget *entry = freq_entry;
+
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
+
       if (!gtk_freq_entry_is_editing(fe)) {
          gtk_freq_entry_set_frequency(fe, freq);
       }
@@ -874,15 +976,24 @@ static void frontend_gtk_syslog_clear(void) {
 
 static void frontend_gtk_focus_tab(const char *tab) {
    GtkWidget *page = NULL;
-   if (!strcasecmp(tab, "admin")) page = admin_tab;
-   else if (!strcasecmp(tab, "config")) page = config_tab;
-   else if (!strcasecmp(tab, "log")) page = log_tab;
-   else if (!strcasecmp(tab, "host log")) page = host_log_tab;
-   else if (!strcasecmp(tab, "status")) page = status_tab;
+
+   if (!strcasecmp(tab, "admin")) {
+      page = admin_tab;
+   } else if (!strcasecmp(tab, "config")) {
+      page = config_tab;
+   } else if (!strcasecmp(tab, "log")) {
+      page = log_tab;
+   } else if (!strcasecmp(tab, "host log")) {
+      page = host_log_tab;
+   } else if (!strcasecmp(tab, "status")) {
+      page = status_tab;
+   }
+
    if (!page || !main_notebook) {
       return;
    }
    int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), page);
+
    if (index != -1) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
    }
@@ -890,6 +1001,7 @@ static void frontend_gtk_focus_tab(const char *tab) {
 
 static void frontend_gtk_switch_window(int id) {
    int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
+
    if (id >= 1 && id <= pages) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), id - 1);
    }
@@ -897,7 +1009,11 @@ static void frontend_gtk_switch_window(int id) {
 
 static bool frontend_gtk_confirm_dialog(const char *message) {
    GtkWindow *parent = NULL;
-   if (main_window && GTK_IS_WINDOW(main_window)) parent = GTK_WINDOW(main_window);
+
+   if (main_window && GTK_IS_WINDOW(main_window)) {
+      parent = GTK_WINDOW(main_window);
+   }
+
    return ui_confirm_dialog(parent, message);
 }
 
@@ -905,12 +1021,12 @@ static void frontend_gtk_alert(const char *message) {
    alert_dialog(GTK_WINDOW(main_window), MSG_ERROR, message ? message : "");
 }
 
-static void frontend_gtk_quit_request(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
+static void frontend_gtk_quit_request(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
    (void)cptr;
    (void)user;
+
    if (ui_confirm_dialog(main_window && GTK_IS_WINDOW(main_window)
          ? GTK_WINDOW(main_window) : NULL, "Confirm quit?")) {
       extern bool dying;
@@ -924,6 +1040,7 @@ static void frontend_gtk_edit_config(const char *path) {
 
 static void frontend_gtk_bell(void) {
    GdkDisplay *display = gtk_widget_get_display(main_window ? main_window : chat_textview);
+
    if (display) {
       gdk_display_beep(display);
    }
@@ -933,7 +1050,8 @@ static void frontend_gtk_notify(const char *title, const char *message) {
 #ifdef USE_LIBNOTIFY
    ui_message_notify(title, message);
 #else
-   (void)title; (void)message;
+   (void)title;
+   (void)message;
 #endif
 }
 
@@ -964,7 +1082,9 @@ static void frontend_gtk_chat_clear(void) {
 
 static void frontend_gtk_rx_volume(int value) {
    /* Core state can arrive before the GTK VFO panel has been built. */
-   if (!rx_vol_slider || !GTK_IS_RANGE(rx_vol_slider)) return;
+   if (!rx_vol_slider || !GTK_IS_RANGE(rx_vol_slider)) {
+      return;
+   }
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), value);
 }
 
@@ -1005,7 +1125,8 @@ static void frontend_gtk_vprint(const char *window, const char *fmt, va_list ap)
 }
 
 static void frontend_gtk_vfo_widths(const char *vfo, const char *widths) {
-   (void)vfo; (void)widths;
+   (void)vfo;
+   (void)widths;
 }
 
 static guint frontend_gtk_update_source = 0;
@@ -1014,13 +1135,22 @@ static gboolean frontend_gtk_update_now(gpointer user_data) {
    (void)user_data;
    extern bool dying;
    now = time(NULL);
-   if (!dying) ptt_button_refresh();
+
+   if (!dying) {
+      ptt_button_refresh();
+   }
+
    if (dying) {
       // Return out of module code before the core can dlclose() this frontend.
       frontend_gtk_update_source = 0;
-      if (gtk_main_level() > 0) gtk_main_quit();
+
+      if (gtk_main_level() > 0) {
+         gtk_main_quit();
+      }
+
       return G_SOURCE_REMOVE;
    }
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -1029,6 +1159,7 @@ static struct log_callback *frontend_gtk_log_callback = NULL;
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
 #ifdef USE_LIBNOTIFY
+
    if (!ui_notify_init()) {
       Log(LOG_WARN, "gtk.notify", "Desktop notifications unavailable");
    }
@@ -1037,6 +1168,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    cfg_gtkcss_init();
    frontend_gtk_config_refresh(NULL);
    reload_event_add(NULL, frontend_gtk_config_refresh_cb, "refresh cached GTK settings after config reload");
+
    if (gui_init()) {
       return true;   // gui_init failed; module loader will unload us
    }
@@ -1044,6 +1176,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    frontend_gtk_log_callback = log_add_callback_token(log_print_va);
    event_on("client.quit.request", frontend_gtk_quit_request, NULL);
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
+
    return false;
 }
 
@@ -1102,6 +1235,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 
 void gtk_frontend_stop(void) {
    gtk_ui_zoom_shutdown();
+
    // No logger callback may point into this module after dlclose().
    if (frontend_gtk_log_callback) {
       log_remove_callback(frontend_gtk_log_callback);
@@ -1111,6 +1245,7 @@ void gtk_frontend_stop(void) {
    // "destroy" signal handler runs gtk_main_quit when the user closes the
    // window; this path is for shutdown initiated from the core.
    extern void gtk_userlist_stop_timers(void);   // gtk.userlist.c
+
    if (frontend_gtk_update_source) {
       g_source_remove(frontend_gtk_update_source);
       frontend_gtk_update_source = 0;
@@ -1119,10 +1254,12 @@ void gtk_frontend_stop(void) {
    extern void gtk_winmgr_stop_sources(void);   // gtk.winmgr.c
    gtk_winmgr_stop_sources();
    extern bool dying;
+
    if (!dying && main_window && GTK_IS_WINDOW(main_window)) {
       gtk_widget_destroy(main_window);
       main_window = NULL;
    }
+
    if (gtk_main_level() > 0) {
       gtk_main_quit();
    }

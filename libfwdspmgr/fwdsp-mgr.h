@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if     !defined(__rr_fwdsp_mgr_h)
-#define	__rr_fwdsp_mgr_h
+#define __rr_fwdsp_mgr_h
 
 enum fwdsp_io_type {
    FW_IO_NONE = 0,              // invalid
@@ -28,8 +28,7 @@ enum fwdsp_processor_io {
    FWDSP_PROCESSOR_IO_PLAYBACK
 };
 
-typedef void (*fwdsp_processor_output_cb)(const char *name,
-   const void *samples, size_t len, void *user_data);
+typedef void (*fwdsp_processor_output_cb)(const char *name, const void *samples, size_t len, void *user_data);
 
 struct fwdsp_io_conn {
    struct fwdsp_subproc *sp;
@@ -39,18 +38,18 @@ struct fwdsp_io_conn {
 // Local child IPC: high length bit marks codec/container initialization data.
 #define FWDSP_FRAME_STREAM_HEADER 0x80000000U
 
-#define FWDSP_CTRL_MAGIC          0x46574453U
-#define FWDSP_CTRL_SET_VOLUME     1	// set volume
-#define	FWDSP_CTRL_SHUTDOWN       2	// shut down process
-#define	FWDSP_CTRL_CONFIGURE	  3	// Configure the pipeline
-#define	FWDSP_CTRL_PAUSE	  4     // Pause the stream
-#define	FWDSP_CTRL_RESUME	  5     // Resume the stream
-#define	FWDSP_CTRL_FLUSH	  6     // Flush the buffer
-#define	FWDSP_CTRL_START_RECORD	  7	// Start recording the raw audio
-#define FWDSP_CTRL_STOP_RECORD    8     // Stop recording the raw audio
-#define FWDSP_RECORD_USER_LEN     64
-#define FWDSP_RECORD_ID_LEN       64
-#define FWDSP_RECORD_FILE_LEN     512
+#define FWDSP_CTRL_MAGIC 0x46574453U
+#define FWDSP_CTRL_SET_VOLUME 1   // set volume
+#define FWDSP_CTRL_SHUTDOWN 2     // shut down process
+#define FWDSP_CTRL_CONFIGURE 3    // Configure the pipeline
+#define FWDSP_CTRL_PAUSE 4        // Pause the stream
+#define FWDSP_CTRL_RESUME 5       // Resume the stream
+#define FWDSP_CTRL_FLUSH 6        // Flush the buffer
+#define FWDSP_CTRL_START_RECORD 7 // Start recording the raw audio
+#define FWDSP_CTRL_STOP_RECORD 8  // Stop recording the raw audio
+#define FWDSP_RECORD_USER_LEN 64
+#define FWDSP_RECORD_ID_LEN 64
+#define FWDSP_RECORD_FILE_LEN 512
 
 struct fwdsp_control_msg {
    uint32_t magic;
@@ -94,13 +93,13 @@ struct fwdsp_subproc {
    int fw_stderr;
    int fw_control;
 
-#ifdef	USE_MONGOOSE
+#ifdef  USE_MONGOOSE
    // --- Mongoose tracking for polling ---
    struct mg_connection *mg_stdin_conn;
    struct mg_connection *mg_stdout_conn;
    struct mg_connection *mg_stderr_conn;
 // Otherwise, we should probably use glib
-#endif	// USE_MONGOOSE
+#endif // USE_MONGOOSE
    enum fwdsp_processor_io processor_io;
    fwdsp_processor_output_cb processor_output;
    void *processor_output_data;
@@ -127,11 +126,9 @@ extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *cha
 extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
 // Write framed payload to the instance bound to a specific media channel.
 // Returns true when all bytes are accepted by the child pipe.
-extern bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx,
-   const char *channel_uuid, const void *data, size_t len);
+extern bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx, const char *channel_uuid, const void *data, size_t len);
 // Receive the decoded PCM tap from one active RX decoder.
-extern bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid,
-   fwdsp_processor_output_cb output_cb, void *user_data);
+extern bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent);
 extern bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
@@ -151,10 +148,8 @@ extern int fwdsp_codec_stop_channel_immediate(const char *codec, bool is_tx, con
 // pipeline:sink.<name>. fwdsp also accepts pipeline:recode.<name> for recoders.
 // Output buffers are borrowed during the callback;
 // callbacks run on the manager/event-loop thread and should return promptly.
-extern bool fwdsp_processor_start(const char *name, const char *pipeline,
-   fwdsp_processor_output_cb output_cb, void *user_data);
-extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline,
-   fwdsp_processor_output_cb output_cb, void *user_data);
+extern bool fwdsp_processor_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data);
+extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_audio_playback_start(const char *name, const char *pipeline);
 // Write one even-length PCM frame to a processor or playback endpoint. true
 // means the complete framed sample data was accepted by the child pipe.

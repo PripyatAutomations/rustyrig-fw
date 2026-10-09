@@ -22,7 +22,7 @@
 #include <rrserver/atu.h>
 
 // Tell atu_tables we want the data (we are the tuner code)
-#define	ANT_TUNER
+#define ANT_TUNER
 //#include "atu_tables.h"
 
 // Extract the memories from eeprom and optionally json file on posix
@@ -73,7 +73,7 @@ rr_atu_tv *rr_atu_find_saved_state(int uid) {
       return NULL;
    }
    rr_atu_tv *closest_low = NULL,
-             *closest_high = NULL;
+      *closest_high = NULL;
 
 //   if (tv_is_closest(closest_low, closest_high)) {
 //   }

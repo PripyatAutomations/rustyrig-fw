@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_vfo_h)
-#define	__rrclient_vfo_h
+#define __rrclient_vfo_h
 #include <librustyaxe/config.h>
 
 // Central VFO state (rrclient/vfo.c) -- UI-agnostic, shared by TUI and GTK.

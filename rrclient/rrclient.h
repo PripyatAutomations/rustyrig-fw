@@ -6,7 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // rrclient/rrclient.h
 #ifndef __rrclient_rrclient_h
-#define	__rrclient_rrclient_h
+#define __rrclient_rrclient_h
 
 #include <stdbool.h>
 

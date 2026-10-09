@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrserver_channels_h)
-#define	__rrserver_channels_h
+#define __rrserver_channels_h
 #include "rrserver/config.h"
 #include "rrserver/eeprom_laout.h"
 

@@ -32,7 +32,7 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    if (!gtk_widget_get_realized(window) ) {
       return;
    }
-   HWND hwnd = GDK_WINDOW_HWND( gtk_widget_get_window(window) );
+   HWND hwnd = GDK_WINDOW_HWND(gtk_widget_get_window(window) );
 
    if (!hwnd) {
       return;
@@ -40,12 +40,12 @@ void enable_windows_dark_mode_for_gtk_window(GtkWidget *window) {
    BOOL use_dark = TRUE;
    // DWMWA_USE_IMMERSIVE_DARK_MODE = 20 or 19 depending on build
    int attr = 20;
-   HRESULT hr = DwmSetWindowAttribute( hwnd, attr, &use_dark, sizeof(use_dark) );
+   HRESULT hr = DwmSetWindowAttribute(hwnd, attr, &use_dark, sizeof(use_dark) );
 
    if (FAILED(hr) ) {
       // Try fallback for older builds
       attr = 19;
-      DwmSetWindowAttribute( hwnd, attr, &use_dark, sizeof(use_dark) );
+      DwmSetWindowAttribute(hwnd, attr, &use_dark, sizeof(use_dark) );
    }
 }
 
@@ -95,7 +95,7 @@ char *strcasestr(const char *haystack, const char *needle) {
       const char *h = haystack;
       const char *n = needle;
 
-      while (*h && *n && tolower( (unsigned char)*h ) == tolower( (unsigned char)*n ) ) {
+      while (*h && *n && tolower( (unsigned char)*h) == tolower( (unsigned char)*n) ) {
          h++;
          n++;
       }
@@ -113,8 +113,7 @@ bool is_windows_dark_mode(void) {
    DWORD size = sizeof(DWORD);
    HKEY hKey;
 
-   if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0,
-      KEY_READ, &hKey) == ERROR_SUCCESS) {
+   if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
       if (RegQueryValueExA(hKey, "AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size) != ERROR_SUCCESS) {
          value = 1;
       }

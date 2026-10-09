@@ -14,8 +14,7 @@ time_t now;
 bool dying;
 bool restarting;
 
-/* Include the component so this regression test can inspect its private
- * subscription list and drive the same callback registered with Mongoose. */
+/* Include the component so this regression test can inspect its private subscription list and drive the same callback registered with Mongoose. */
 #include "../mqtt.c"
 
 static size_t encode_remaining_length(uint8_t *out, size_t value) {
@@ -24,6 +23,7 @@ static size_t encode_remaining_length(uint8_t *out, size_t value) {
    do {
       uint8_t byte = (uint8_t)(value % 128);
       value /= 128;
+
       if (value) {
          byte |= 0x80;
       }
@@ -51,11 +51,14 @@ static uint8_t *make_subscribe_packet(size_t topics, size_t *packet_len) {
       packet[pos + 3] = 0;
       pos += 4;
    }
+
    return packet;
 }
 
 static void test_short_subscription(void) {
-   const uint8_t packet[] = { 0x82, 0x03, 0x00, 0x01, 0x00 };
+   const uint8_t packet[] = {
+      0x82, 0x03, 0x00, 0x01, 0x00
+   };
    struct mg_mqtt_message message;
    assert(mg_mqtt_parse(packet, sizeof(packet), 4, &message) == MQTT_OK);
    assert(mqtt_subscription_start(&message) == 4);
@@ -66,12 +69,13 @@ static void test_short_subscription(void) {
 
 static void test_subscription_limit_and_cleanup(void) {
    size_t packet_len;
-   uint8_t *packet = make_subscribe_packet(
-      MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT + 1, &packet_len);
+   uint8_t *packet = make_subscribe_packet(MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT + 1, &packet_len);
    struct mg_mqtt_message message;
    assert(mg_mqtt_parse(packet, packet_len, 4, &message) == MQTT_OK);
 
-   struct mg_connection connection = {0};
+   struct mg_connection connection = {
+      0
+   };
    // The limit test subscribes and unsubscribes MQTT_MAX_SUBSCRIPTIONS_PER_
    // CLIENT+1 topics; each logs at debug. Silence mqtt.req for this section
    // (as test.audit.c does for auth) and restore the filter afterwards.
@@ -108,5 +112,6 @@ int main(void) {
    test_subscription_limit_and_cleanup();
    test_listener_disabled();
    puts("PASS: MQTT bounds, subscription limit, cleanup, and enable switch");
+
    return 0;
 }

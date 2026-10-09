@@ -13,18 +13,20 @@ time_t now;
 int main(void) {
    cfg = dict_new();
    assert(cfg);
-   for (size_t i = 0; defcfg[i].key; i++) {
+
+   for (size_t i = 0 ; defcfg[i].key ; i++) {
       assert(defcfg[i].help && defcfg[i].help[0]);
+
       if (defcfg[i].type == DEFCONFIG_ENUM) {
          assert(defcfg[i].choices && defcfg[i].choices[0]);
       }
-      for (size_t j = i + 1; defcfg[j].key; j++) {
+
+      for (size_t j = i + 1 ; defcfg[j].key ; j++) {
          assert(strcmp(defcfg[i].key, defcfg[j].key) != 0);
       }
    }
 
-   /* Logging controls use log.* consistently; these old debug aliases must
-    * not silently reappear in the generated configuration editor. */
+   /* Logging controls use log.* consistently; these old debug aliases must not silently reappear in the generated configuration editor. */
    assert(cfg_defconfig_find("debug.http") == NULL);
    assert(cfg_defconfig_find("debug.http.crazy") == NULL);
    assert(cfg_defconfig_find("debug.mongoose") == NULL);
@@ -48,5 +50,6 @@ int main(void) {
    dict_free(cfg);
    cfg = NULL;
    puts("PASS: typed server configuration values and enum choices");
+
    return 0;
 }

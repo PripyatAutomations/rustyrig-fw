@@ -10,7 +10,9 @@
 #include <librustyaxe/io.serial.h>
 
 static rr_event_token_t input_token;
-rr_module_event_t modexports[] = { { 0 } };
+rr_module_event_t modexports[] = { {
+                                      0
+                                   } };
 
 static void input(const char *event, const char *sentence, rrconn_t *client, void *user) {
    if (sentence) {
@@ -20,6 +22,7 @@ static void input(const char *event, const char *sentence, rrconn_t *client, voi
 
 bool rr_module_init(void) {
    input_token = event_on_token("serial.gps.input", input, NULL);
+
    return input_token == NULL;
 }
 

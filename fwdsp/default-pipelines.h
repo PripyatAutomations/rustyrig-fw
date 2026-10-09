@@ -6,39 +6,37 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Native audio defaults. Keep both supplied configuration files in sync.
 #ifndef FWDSP_DEFAULT_PIPELINES_H
-#define	FWDSP_DEFAULT_PIPELINES_H
+#define FWDSP_DEFAULT_PIPELINES_H
 
-#define	FWDSP_DEFAULT_CODECS \
+#define FWDSP_DEFAULT_CODECS \
         "pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT pc1P g72P mu1P mu0P opuP oggP aacP flaP"
 
-/* pulsesrc is the desktop default-source API and is provided by PipeWire's PulseAudio
- * compatibility server on PipeWire systems. Deployments that do not provide that
- * compatibility layer can override the TX pipeline with a pipewiresrc-based definition in
- * their config. */
-#define	FWDSP_CAPTURE_SOURCE \
+/* pulsesrc is the desktop default-source API and is provided by PipeWire's PulseAudio compatibility server on PipeWire systems. Deployments that do not provide
+ * that compatibility layer can override the TX pipeline with a pipewiresrc-based definition in their config. */
+#define FWDSP_CAPTURE_SOURCE \
         "pulsesrc name=tx-source client-name=fwdsp-tx do-timestamp=true ! audioconvert ! audioresample"
-#define	FWDSP_NOISE_SOURCE \
+#define FWDSP_NOISE_SOURCE \
         "audiotestsrc is-live=true wave=pink-noise volume=0.15 samplesperbuffer=320 do-timestamp=true"
 
-#define	FWDSP_RIG_PCM_SOURCE \
+#define FWDSP_RIG_PCM_SOURCE \
         "appsrc name=tx-src is-live=true format=time do-timestamp=true " \
         "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved"
 
-#define	FWDSP_PCM_HOST_MIC \
+#define FWDSP_PCM_HOST_MIC \
         "pulsesrc name=processor-mic client-name=fwdsp-mic do-timestamp=true ! " \
         "audioconvert ! audioresample ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
         "appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_PCM_HOST_SPEAKER \
+#define FWDSP_PCM_HOST_SPEAKER \
         "appsrc name=processor-src is-live=true format=time do-timestamp=true " \
         "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
         "audioconvert ! audioresample ! " \
         "pulsesink device=default name=processor-speaker client-name=fwdsp-speaker sync=false"
 
-#define	FWDSP_PCM_CLIENT_SPEAKER \
+#define FWDSP_PCM_CLIENT_SPEAKER \
         "appsrc name=processor-src is-live=true format=time do-timestamp=true " \
         "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
@@ -48,14 +46,14 @@
 // Temporary PCM hub endpoints used by rrserver while rig audio hardware is
 // not yet connected. Keep these separate from codec TX/RX pipelines so the
 // hub has stable canonical-PCM source and sink points.
-#define	FWDSP_PCM_RIG_RX_TEST_SOURCE \
+#define FWDSP_PCM_RIG_RX_TEST_SOURCE \
         "audiotestsrc is-live=true wave=pink-noise volume=0.15 " \
         "samplesperbuffer=320 do-timestamp=true ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
         "appsink name=processor-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_PCM_RIG_TX_FILE_SINK \
+#define FWDSP_PCM_RIG_TX_FILE_SINK \
         "appsrc name=processor-src is-live=true format=time do-timestamp=true " \
         "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
@@ -63,13 +61,14 @@
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "vorbisenc quality=0.3 ! oggmux ! filesink location=./rig-tx.ogg"
 
-#define	FWDSP_PC16_RX \
+#define FWDSP_PC16_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         " tee name=t  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
-        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_PC16_TX(source) \
+#define FWDSP_PC16_TX(source) \
         source " ! " \
         "volume name=tx-vol ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
@@ -79,7 +78,7 @@
         "queue max-size-buffers=4 leaky=downstream ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_G722_RX \
+#define FWDSP_G722_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/G722,rate=16000,channels=1 ! " \
         " avdec_g722 ! " \
         "audioconvert ! " \
@@ -87,9 +86,10 @@
         " audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "tee name=t  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
-        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_G722_TX(source) \
+#define FWDSP_G722_TX(source) \
         source " ! " \
         "volume name=tx-vol ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
@@ -100,7 +100,7 @@
         "queue max-size-buffers=4 leaky=downstream ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_MU16_RX \
+#define FWDSP_MU16_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=16000,channels=1 ! " \
         " mulawdec ! " \
         "audioconvert ! " \
@@ -108,9 +108,10 @@
         " audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "tee name=t  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
-        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_MU16_TX(source) \
+#define FWDSP_MU16_TX(source) \
         source " ! " \
         "volume name=tx-vol ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
@@ -122,7 +123,7 @@
         "queue max-size-buffers=4 leaky=downstream ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_MU08_RX \
+#define FWDSP_MU08_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-mulaw,rate=8000,channels=1 ! " \
         " mulawdec ! " \
         "audioconvert ! " \
@@ -130,9 +131,10 @@
         " audio/x-raw,format=S16LE,rate=8000,channels=1,layout=interleaved ! " \
         "tee name=t  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
-        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_MU08_TX(source) \
+#define FWDSP_MU08_TX(source) \
         source " ! " \
         "volume name=tx-vol ! " \
         "audioresample ! " \
@@ -145,7 +147,7 @@
         "queue max-size-buffers=4 leaky=downstream ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_OPUS_RX \
+#define FWDSP_OPUS_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-opus,rate=16000,channels=1,channel-mapping-family=0 ! " \
         " opusdec ! " \
         "audioconvert ! " \
@@ -153,9 +155,10 @@
         " audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "tee name=t  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
-        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_OPUS_TX(source) \
+#define FWDSP_OPUS_TX(source) \
         source " ! " \
         "volume name=tx-vol ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
@@ -166,15 +169,16 @@
         "queue max-size-buffers=4 leaky=downstream ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_AAC_RX \
+#define FWDSP_AAC_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/mpeg,mpegversion=4,stream-format=adts,framed=true,rate=16000,channels=1 ! " \
         " aacparse ! avdec_aac ! audioconvert ! audioresample ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "tee name=t  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
-        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_AAC_TX(source) \
+#define FWDSP_AAC_TX(source) \
         source " ! audioconvert ! audioresample ! audio/x-raw,format=F32LE,rate=16000,channels=1,layout=interleaved ! " \
         "volume name=tx-vol ! tee name=t  t. ! " \
         "queue max-size-buffers=2 leaky=downstream ! " \
@@ -184,7 +188,7 @@
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_OGGV_RX \
+#define FWDSP_OGGV_RX \
         "appsrc name=rx-src is-live=true format=bytes caps=application/ogg ! " \
         " tee name=encoded-t " \
         " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
@@ -196,9 +200,10 @@
         " audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         " tee name=t t. ! " \
         " queue max-size-buffers=4 leaky=downstream ! " \
-        " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_OGGV_TX(source) \
+#define FWDSP_OGGV_TX(source) \
         source " ! " \
         "volume name=tx-vol ! " \
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
@@ -215,7 +220,7 @@
         " queue max-size-buffers=4 leaky=downstream ! " \
         " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_FLAC_RX \
+#define FWDSP_FLAC_RX \
         "appsrc name=rx-src is-live=true format=time do-timestamp=true caps=audio/x-flac,framed=true ! " \
         " tee name=encoded-t encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
         " appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true " \
@@ -223,9 +228,10 @@
         " audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! tee name=t " \
         " t. ! " \
         " queue max-size-buffers=4 leaky=downstream ! " \
-        " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
+        " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true t. ! queue max-size-buffers=8 leaky=downstream ! audioresample ! " \
+        "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! appsink name=hub-sink emit-signals=false sync=false max-buffers=5 drop=true"
 
-#define	FWDSP_FLAC_TX(source) \
+#define FWDSP_FLAC_TX(source) \
         source " ! volume name=tx-vol ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         " tee name=t t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t " \
         " encoded-t. ! queue max-size-buffers=8 ! " \
@@ -235,7 +241,7 @@
         " queue max-size-buffers=4 leaky=downstream ! " \
         " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-#define	FWDSP_AUDIO_PIPELINE_DEFAULTS(source) \
+#define FWDSP_AUDIO_PIPELINE_DEFAULTS(source) \
         { "pipeline:pc16.rx", FWDSP_PC16_RX, "Default pc16.rx audio pipeline" }, \
         { "pipeline:pc16.tx", FWDSP_PC16_TX(source), "Default pc16.tx audio pipeline" }, \
         { "pipeline:pc1T.rx", FWDSP_PC16_RX, "Default pc1T.rx audio pipeline" }, \

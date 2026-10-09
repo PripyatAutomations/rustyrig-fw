@@ -40,10 +40,10 @@ static bool audit_log_cb(logpriority_t priority, const char *subsys, const char 
    }
 
    char details[1024];
-   memset( details, 0, sizeof(details) );
+   memset(details, 0, sizeof(details) );
    vsnprintf(details, sizeof(details), fmt, ap);
 
-   if ( !db_add_audit_event(masterdb, "-", subsys, details) ) {
+   if (!db_add_audit_event(masterdb, "-", subsys, details) ) {
       // Do NOT Log() at LOG_AUDIT level in here or we might recurse!
       Log(LOG_WARN, "audit.db", "Failed to save audit event, type:<%s>", subsys);
    }

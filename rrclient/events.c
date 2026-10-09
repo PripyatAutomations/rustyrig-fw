@@ -42,7 +42,7 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create);
 void rrclient_update_connection_ui(int connected) {
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->conn_button_update(connected);
    }
 }
@@ -54,7 +54,7 @@ const char *current_vfo = "A";
 
 // Refresh status bar online status section
 void tui_refresh_sb_online(void) {
-   memset( sb_online, 0, sizeof(sb_online) );
+   memset(sb_online, 0, sizeof(sb_online) );
 
    if (ws_connected == 1) {
       snprintf(sb_online, sizeof(sb_online), "\00314[\00309ONLINE\00314]\017");
@@ -68,7 +68,7 @@ void tui_refresh_sb_online(void) {
 // Refresh statusbar window name section
 void tui_refresh_sb_window(void) {
    tui_window_t *tw = tui_active_window();
-   memset( sb_window, 0, sizeof(sb_window) );
+   memset(sb_window, 0, sizeof(sb_window) );
    const char *win_color = "\00311";
 
    if (tw->title[0] == '&' || tw->title[0] == '#') {
@@ -82,7 +82,7 @@ void tui_refresh_sb_window(void) {
 // the GTK UI uses.  Shows the ACTIVE VFO (single upper case letter).
 // Never hardcode values here.
 void tui_refresh_sb_vfo(void) {
-   memset( sb_vfo, 0, sizeof(sb_vfo) );
+   memset(sb_vfo, 0, sizeof(sb_vfo) );
 
    char vfo_str[2] = {
       vfo_state_get_active(), 0
@@ -97,7 +97,7 @@ void tui_refresh_sb_vfo(void) {
 
 static void rrclient_set_offline(void) {
    if (login_user) {
-      free( (void *)login_user );
+      free( (void *)login_user);
       login_user = NULL;
    }
 
@@ -105,12 +105,12 @@ static void rrclient_set_offline(void) {
    userlist_clear_all();
    rrclient_rooms_disconnect();
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       // PTT button goes back to dark grey while offline
       frontend_ops()->ptt_set_online(false);
 
       // Hide the userlist again when we disconnect
-      if ( cfg_get_bool("ui.auto-show-userlist", true) ) {
+      if (cfg_get_bool("ui.auto-show-userlist", true) ) {
          frontend_ops()->userlist_set_visible(false);
       }
    }
@@ -141,11 +141,11 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    ui_print(NULL, "\00304*** \00304ALERT \00304***\017 %s: %s", msg_from, msg_data);
 
    char my_msg[512];
-   memset( my_msg, 0, sizeof(my_msg) );
+   memset(my_msg, 0, sizeof(my_msg) );
    snprintf(my_msg, sizeof(my_msg), "*** ALERT ***\nFrom: %s\nnMessage:\n\t%s", msg_from, msg_data);
    Log(LOG_INFO, "proto.alert", "*** ALERT From: %s --- ***", msg_from, msg_data);
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->bell();
       frontend_ops()->alert(my_msg);
    }
@@ -173,9 +173,8 @@ static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_
          tot_width = dict_get_int(d, "ptt.tot.width", 0);
 
          if (tot_user || tot_vfo || tot_mode) {
-            ui_print( NULL, "\00304PTT Halted: %s on VFO %s @ %ld Hz %s %d Hz after %d seconds\017",
-               tot_user ? tot_user : "unknown user", tot_vfo ? tot_vfo : "?", tot_freq, tot_mode ? tot_mode : "?",
-               tot_width, ( tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
+            ui_print(NULL, "\00304PTT Halted: %s on VFO %s @ %ld Hz %s %d Hz after %d seconds\017", tot_user ? tot_user : "unknown user", tot_vfo ? tot_vfo :
+               "?", tot_freq, tot_mode ? tot_mode : "?", tot_width, (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
          }
          dict_free(d);
       }
@@ -183,11 +182,10 @@ static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_
 
    // Show the timeout in the TUI scrollback (both UIs print to scrollback)
    if (!tot_user && !tot_vfo && !tot_mode) {
-      ui_print( NULL, "\00304PTT Halted: Talk Timeout after %d seconds\017",
-         ( tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
+      ui_print(NULL, "\00304PTT Halted: Talk Timeout after %d seconds\017", (tot_secs > 0 ? tot_secs : cfg_get_int("rig.tot", 300) ) );
    }
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->ptt_tot_expired(tot_secs);
    }
 }
@@ -207,24 +205,21 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
       const char *a_privs = dict_get(d, "auth.privs", NULL);
 
       /* PARITY: rustyrig-www/js/webui.auth.js (server-assigned guest name). */
-      if ( a_user && ( !login_user || strcmp(login_user, a_user) ) ) {
+      if (a_user && (!login_user || strcmp(login_user, a_user) ) ) {
          char *name = strdup(a_user);
 
          if (name) {
-            free( (void *)login_user );
+            free( (void *)login_user);
             login_user = name;
          }
       }
 
-      ui_print( NULL,
-         "%s \00311Welcome back, \00308%s\00311! You have \00309%s\00311 privileges",
-         get_chat_ts(a_ts), a_user, a_privs);
+      ui_print(NULL, "%s \00311Welcome back, \00308%s\00311! You have \00309%s\00311 privileges", get_chat_ts(a_ts), a_user, a_privs);
 
       if (ui_mode == UI_MODE_TUI) {
          tui_refresh_sb_online();
       }
-      /* The server joins the site lobby. Extra room joins are client preferences and are
-       * sent only when configured on this server profile. */
+      /* The server joins the site lobby. Extra room joins are client preferences and are sent only when configured on this server profile. */
       const char *autojoin = server_name ? get_server_property(server_name, "autojoin") : NULL;
 
       if (autojoin && *autojoin) {
@@ -233,8 +228,8 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
          if (list) {
             char *save = NULL;
 
-            for ( char *room = strtok_r(list, ", \t\r\n", &save) ;
-                  room ; room = strtok_r(NULL, ", \t\r\n", &save) ) {
+            for (char *room = strtok_r(list, ", \t\r\n", &save) ;
+               room ; room = strtok_r(NULL, ", \t\r\n", &save) ) {
                rrclient_room_request_join(room);
             }
 
@@ -257,29 +252,27 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    if (!error_msg) {
       error_msg = dict_get(d, "error.msg", NULL);
    }
-   Log( LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", (error_msg ? error_msg : "unknown") );
+   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", (error_msg ? error_msg : "unknown") );
 
    // Show the error in the UI and stop the reconnect engine: retrying with
    // bad credentials just hammers the server. PARITY: webui.auth.js stops
    // reconnecting on auth errors too.
-   ui_print( NULL, "%s \00304Authentication error: %s\017", get_chat_ts(now),
-      (error_msg ? error_msg : "unknown error") );
+   ui_print(NULL, "%s \00304Authentication error: %s\017", get_chat_ts(now), (error_msg ? error_msg : "unknown error") );
 
    dict_dump(d, NULL);
    dict_free(d);
 }
 
-/* PARITY: rustyrig-www/js/webui.rigctl.js ptt_confirm_state(). Only authoritative updates
- * for our displayed VFO acknowledge local PTT. */
+/* PARITY: rustyrig-www/js/webui.rigctl.js ptt_confirm_state(). Only authoritative updates for our displayed VFO acknowledge local PTT. */
 static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) {
-   if ( !who || !login_user || strcasecmp(who, login_user) ) {
+   if (!who || !login_user || strcasecmp(who, login_user) ) {
       return;
    }
    char current[2] = {
       vfo_state_get_active(), '\0'
    };
 
-   if ( vfo && *vfo && strcasecmp(vfo, current) ) {
+   if (vfo && *vfo && strcasecmp(vfo, current) ) {
       return;
    }
 
@@ -306,14 +299,15 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    const char *scope = dict_get(d, "cat.room", NULL);
    const struct rr_client_media_chan *selected = rrclient_media_current_channel(false);
 
-   if ( selected && ( ( scope && strcasecmp(scope, selected->room) && !ws_room_same_rig(selected->room, scope) &&
-                        !ws_room_same_rig(scope, selected->room) ) || (!scope && selected->rig != 0) ) ) {
+   if (selected && ( (scope && strcasecmp(scope, selected->room) && !ws_room_same_rig(selected->room, scope) &&
+      !ws_room_same_rig(scope, selected->room) ) || (!scope && selected->rig != 0) ) ) {
       dict_free(d);
+
       return;
    }
 
-   if ( dict_get_type(d, "cat.state.vfo") == VAL_END && dict_get(d, "cat.vfo", NULL) ) {
-      dict_add( d, "cat.state.vfo", dict_get(d, "cat.vfo", NULL) );
+   if (dict_get_type(d, "cat.state.vfo") == VAL_END && dict_get(d, "cat.vfo", NULL) ) {
+      dict_add(d, "cat.state.vfo", dict_get(d, "cat.vfo", NULL) );
    }
    // vfo_set_dict() saves all cat.* keys into the central VFO state, namespaced
    // by the VFO letter from the dict (cat.state.vfo), and pushes the update for
@@ -324,15 +318,14 @@ static void rrclient_handle_cat(const char *event, const char *data, rrconn_t *c
    };
    const char *cmd = dict_get(d, "cat.cmd", NULL);
 
-   if ( cmd && !strcasecmp(cmd, "ptt") && (dict_get_type(d, "cat.ptt") != VAL_END) ) {
-      dict_add_bool( d, "cat.state.ptt", dict_get_bool(d, "cat.ptt", false) );
-      dict_add( d, "cat.state.vfo", dict_get(d, "cat.vfo", current) );
+   if (cmd && !strcasecmp(cmd, "ptt") && (dict_get_type(d, "cat.ptt") != VAL_END) ) {
+      dict_add_bool(d, "cat.state.ptt", dict_get_bool(d, "cat.ptt", false) );
+      dict_add(d, "cat.state.vfo", dict_get(d, "cat.vfo", current) );
    }
    vfo_set_dict(NULL, d);
 
    if (dict_get_type(d, "cat.state.ptt") != VAL_END) {
-      rrclient_confirm_ptt( dict_get(d, "cat.user", login_user), dict_get(d, "cat.state.vfo", NULL),
-         dict_get_bool(d, "cat.state.ptt", false) );
+      rrclient_confirm_ptt(dict_get(d, "cat.user", login_user), dict_get(d, "cat.state.vfo", NULL), dict_get_bool(d, "cat.state.ptt", false) );
    }
    dict_free(d);
 }
@@ -359,15 +352,14 @@ static void rrclient_handle_hello(const char *event, const char *data, rrconn_t 
    dict *d = json2dict(data);
    const char *m_hwver = dict_get(d, "hello.hwver", (char *)"misconfigured radio");
    const char *m_swver = dict_get(d, "hello.swver", (char *)"1.2.3.4");
-   ui_print(NULL, "%s \00308Your host is running \00309%s\00308 on \00309%s",
-      get_chat_ts(0), m_swver, m_hwver);
+   ui_print(NULL, "%s \00308Your host is running \00309%s\00308 on \00309%s", get_chat_ts(0), m_swver, m_hwver);
    dict_free(d);
 }
 
 static void rrclient_handle_log(const char *event, const char *data, rrconn_t *cptr, void *user) {
    dict *d = json2dict(data);
    char logmsg[512];
-   memset( logmsg, 0, sizeof(logmsg) );
+   memset(logmsg, 0, sizeof(logmsg) );
 
    if (d) {
       const char *log_from = dict_get(d, "log.from", (char *)"*unknown*");
@@ -376,8 +368,7 @@ static void rrclient_handle_log(const char *event, const char *data, rrconn_t *c
       const char *log_prio = dict_get(d, "log.prio", (char *)"info");
       time_t log_ts = dict_get_time_t(d, (char *)"msg.ts", now);
 
-      snprintf(logmsg, sizeof(logmsg), "[%s] <%s.%s> From %s: %s", get_chat_ts(log_ts), log_subsys, log_prio, log_from,
-         log_msg);
+      snprintf(logmsg, sizeof(logmsg), "[%s] <%s.%s> From %s: %s", get_chat_ts(log_ts), log_subsys, log_prio, log_from, log_msg);
    }
 }
 
@@ -395,8 +386,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    }
 
    /* Finish the event's window selection and buffered writes before painting.
-    * tui_vprint() records the dirty screen while this batch is deferred, and the flush at
-    * the end guarantees one complete log-area redraw. */
+    * tui_vprint() records the dirty screen while this batch is deferred, and the flush at the end guarantees one complete log-area redraw. */
    if (ui_mode == UI_MODE_TUI) {
       tui_redraw_defer();
    }
@@ -408,10 +398,9 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    const char *msg_cmd = dict_get(d, "talk.cmd", NULL);
    const char *target_room = dict_get(d, "talk.target", NULL);
    bool private_msg = msg_type &&
-                      (strcasecmp(msg_type, "priv") == 0 ||
-                       strcasecmp(msg_type, "privmsg") == 0);
-   /* Room and private messages both use talk.target.  Give every explicit target its own
-    * numbered window; the status window is reserved for the client log. */
+      (strcasecmp(msg_type, "priv") == 0 ||
+         strcasecmp(msg_type, "privmsg") == 0);
+   /* Room and private messages both use talk.target.  Give every explicit target its own numbered window; the status window is reserved for the client log. */
    const char *output_room = target_room;
 
    if (!output_room && !private_msg) {
@@ -421,7 +410,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          if (active && active->title[0] && strcasecmp(active->title, "status") != 0) {
             output_room = active->title;
          }
-      } else if ( frontend_ops() ) {
+      } else if (frontend_ops() ) {
          output_room = frontend_ops()->chat_current_room();
       }
    }
@@ -435,9 +424,8 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    }
 
    if (frontend_ops() && output_room &&
-       strcasecmp( output_room, ws_authoritative_room() ) != 0) {
-      /* talk.target is also used for private messages.  Treat an unseen target as a
-       * conversation tab so private replies are not dumped into the rig room. */
+      strcasecmp(output_room, ws_authoritative_room() ) != 0) {
+      /* talk.target is also used for private messages.  Treat an unseen target as a conversation tab so private replies are not dumped into the rig room. */
       if (private_msg) {
          frontend_ops()->chat_query_add(output_room);
       } else {
@@ -466,8 +454,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          if (from && login_user && strcasecmp(from, login_user) == 0) {
             ui_print(output_room, "%s \00309->\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
-            ui_print(output_room, "%s \00309*\017%s\00309*\017 %s", get_chat_ts(msg_ts),
-               from ? from : "?", msg_data);
+            ui_print(output_room, "%s \00309*\017%s\00309*\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
          }
       } else if (strcasecmp(msg_type, "replay-priv") == 0 || strcasecmp(msg_type, "replay-privmsg") == 0) {
          ui_print(output_room, "%s \00306*\017%s\00306*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
@@ -487,7 +474,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print( NULL, "%s *** \00308Connecting\017 ***", get_chat_ts(now) );
+      ui_print(NULL, "%s *** \00308Connecting\017 ***", get_chat_ts(now) );
       rrclient_update_connection_ui(-1);
    } else if (strcasecmp(event, "connected") == 0) {
       if (!data) {
@@ -501,30 +488,30 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          // XXX: multiserver bug, discard old value if saved so we can store new without a
          // leak
          if (login_user) {
-            free( (void *)login_user );
+            free( (void *)login_user);
          }
          login_user = strdup(user);
-         ui_print( NULL, "%s *** \00303Connected, logging in as %s\017 ***", get_chat_ts(now), login_user );
+         ui_print(NULL, "%s *** \00303Connected, logging in as %s\017 ***", get_chat_ts(now), login_user);
       }
       rrclient_update_connection_ui(-1);
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->ptt_set_online(true);   // button turns green once we're online
       }
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
-      ui_print( NULL, "%s *** \00303Logged in!\017 ***", get_chat_ts(now) );
+      ui_print(NULL, "%s *** \00303Logged in!\017 ***", get_chat_ts(now) );
       rrclient_update_connection_ui(1);
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->ptt_set_online(true);
       }
       cmd_list(0, NULL);
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
-      ui_print( NULL, "%s *** \00304DISCONNECTED\017 ***", get_chat_ts(now) );
+      ui_print(NULL, "%s *** \00304DISCONNECTED\017 ***", get_chat_ts(now) );
       rrclient_set_offline();
 
-      if ( frontend_ops() && cfg_get_bool("ui.auto-show-userlist", true) ) {
+      if (frontend_ops() && cfg_get_bool("ui.auto-show-userlist", true) ) {
          frontend_ops()->userlist_set_visible(false);
       }
    } else if (strcasecmp(event, "http.error") == 0) {
@@ -541,16 +528,16 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          }
       }
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->chat_show_status();
       }
 
       if (err) {
          ui_print(NULL, "%s \00304*** Unable to reach server: %s\017", get_chat_ts(now), err);
       } else {
-         ui_print( NULL, "%s \00304*** Unable to reach server\017", get_chat_ts(now) );
+         ui_print(NULL, "%s \00304*** Unable to reach server\017", get_chat_ts(now) );
       }
-      free( (void *)err );
+      free( (void *)err);
       rrclient_set_offline();
    } else if (strcasecmp(event, "error") == 0) {
       // Non-fatal protocol error message from the server (cli.error.c);
@@ -569,10 +556,10 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             dict_free(d);
          }
       }
-      ui_print( ui_active_window_name(), "%s \00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""),
-         (from ? from : ""), (err ? err : "unknown error") );
-      free( (void *)err );
-      free( (void *)from );
+      ui_print(ui_active_window_name(), "%s \00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""), (from ? from : ""), (err ? err :
+         "unknown error") );
+      free( (void *)err);
+      free( (void *)from);
    }
 
    if (ui_mode == UI_MODE_TUI) {
@@ -587,7 +574,7 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
    dict *d = json2dict(data);
    long freq = dict_get_long(d, "cat.state.freq", 0);
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       frontend_ops()->freq_set(freq);
    }
    dict_free(d);
@@ -625,17 +612,15 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
 
    if (m_room) {
       if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
-         /* The server includes the room's VFO mapping on our join event. Clear any stale
-          * client-side mapping when joining an ordinary room; otherwise its top line
-          * incorrectly retains PTT/VFO state from the rig room. */
+         /* The server includes the room's VFO mapping on our join event. Clear any stale client-side mapping when joining an ordinary room; otherwise its top
+          * line incorrectly retains PTT/VFO state from the rig room. */
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          rrclient_room_set_vfo_mask(m_room, has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
-         rrclient_room_set_control_flags( m_room,
-            dict_get_bool( d, "room.tx-control", has_vfos && ws_room_rig_base(m_room) ),
-            dict_get_bool(d, "room.rx-tunable", false) );
-         rrclient_room_set_rx_tuning_mask( m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
+         rrclient_room_set_control_flags(m_room, dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room) ), dict_get_bool(d, "room.rx-tunable",
+            false) );
+         rrclient_room_set_rx_tuning_mask(m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
 
-         if ( frontend_ops() ) {
+         if (frontend_ops() ) {
             frontend_ops()->userlist_room_vfos_changed(m_room);
          }
 
@@ -643,10 +628,10 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
             rrclient_media_room_joined(m_room);
          }
 
-         if ( dict_get_bool(d, "room.site", false) ) {
+         if (dict_get_bool(d, "room.site", false) ) {
             ws_set_authoritative_room(m_room);
 
-            if ( frontend_ops() ) {
+            if (frontend_ops() ) {
                frontend_ops()->chat_set_authoritative_room(m_room);
             }
          }
@@ -658,9 +643,8 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          }
       }
 
-      /* Room join announcements identify the member; roster userinfo messages carry the
-       * complete per-room user state. */
-      if ( m_user && (!login_user || strcasecmp(m_user, login_user) != 0) ) {
+      /* Room join announcements identify the member; roster userinfo messages carry the complete per-room user state. */
+      if (m_user && (!login_user || strcasecmp(m_user, login_user) != 0) ) {
          userlist_add_or_update(d);
       }
 
@@ -696,15 +680,14 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
 
    if (room) {
       if (dict_get_type(d, "room.vfo-mask") != VAL_END) {
-         rrclient_room_set_vfo_mask( room, dict_get_ulong(d, "room.vfo-mask", 0) );
+         rrclient_room_set_vfo_mask(room, dict_get_ulong(d, "room.vfo-mask", 0) );
       } else {
          rrclient_room_set_vfos(room, vfos);
       }
-      rrclient_room_set_control_flags( room, dict_get_bool(d, "room.tx-control", false),
-         dict_get_bool(d, "room.rx-tunable", false) );
-      rrclient_room_set_rx_tuning_mask( room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
+      rrclient_room_set_control_flags(room, dict_get_bool(d, "room.tx-control", false), dict_get_bool(d, "room.rx-tunable", false) );
+      rrclient_room_set_rx_tuning_mask(room, dict_get_ulong(d, "room.rx-tuning-mask", 0) );
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->userlist_room_vfos_changed(room);
       }
       ui_print(room, "\00308Room %s VFOs:\017 %s", room, *vfos ? vfos : "(none)");
@@ -737,7 +720,7 @@ static void rrclient_handle_room_vfo_list(const char *event, const char *data, r
       char *lines = strdup(vfos);
       char *save = NULL;
 
-      for ( char *line = lines ? strtok_r(lines, "\n", &save) : NULL ; line ; line = strtok_r(NULL, "\n", &save) ) {
+      for (char *line = lines ? strtok_r(lines, "\n", &save) : NULL ; line ; line = strtok_r(NULL, "\n", &save) ) {
          ui_print(output, "  %s", line);
       }
 
@@ -771,11 +754,11 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
          }
       }
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->chat_room_topic(room, topic);
       } else if (query) {
          ui_print(room, "\00308Topic:\017 %s", *topic ? topic : "(none)");
-      } else if ( from && *from && (!login_user || strcasecmp(from, login_user) != 0) ) {
+      } else if (from && *from && (!login_user || strcasecmp(from, login_user) != 0) ) {
          ui_print(room, "\00308Topic changed by %s:\017 %s", from, *topic ? topic : "(none)");
       } else if (!from || !*from) {
          ui_print(room, "\00308Topic:\017 %s", *topic ? topic : "(none)");
@@ -817,7 +800,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       rrclient_room_part(room);
       rrclient_room_available_remove(room);
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->chat_room_remove(room);
       }
 
@@ -854,17 +837,16 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    if (member && room) {
       userlist_remove_by_name_room(member, room);
    }
-   /* Usernames are not unique across simultaneous sessions.  The server echoes the
-    * authenticated session token on the PART confirmation so only the client that
+   /* Usernames are not unique across simultaneous sessions.  The server echoes the authenticated session token on the PART confirmation so only the client that
     * requested the part closes its room tab. */
    bool is_self = session && *session && session_token[0] &&
-                  strcmp(session, session_token) == 0;
+      strcmp(session, session_token) == 0;
 
    if (room && is_self) {
       rrclient_media_room_parted(room);
       rrclient_room_part(room);
 
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->chat_room_remove(room);
       }
 
@@ -882,10 +864,10 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
 }
 
 static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if ( !data || !frontend_ops() ) {
+   if (!data || !frontend_ops() ) {
       return;
    }
-   frontend_ops()->mode_set( (const char *)data );
+   frontend_ops()->mode_set( (const char *)data);
 }
 
 // Generic ws.msg.talk listener: the specific commands are dispatched by
@@ -893,7 +875,7 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
 // chat.replay, ...). We register a handler so the event system doesn't fire
 // NOMATCH for every talk message.
 static void rrclient_handle_talk(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   Log( LOG_CRAZY, "ws.talk", "ws.msg.talk: %s", (data ? data : "<NULL>") );
+   Log(LOG_CRAZY, "ws.talk", "ws.msg.talk: %s", (data ? data : "<NULL>") );
 }
 
 static const char *rrclient_replay_room(dict *d) {
@@ -911,7 +893,7 @@ static const char *rrclient_replay_room(dict *d) {
       }
    }
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       return frontend_ops()->chat_current_room();
    }
 
@@ -936,13 +918,13 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
       rrclient_tui_room_window(room, true);
    }
 
-   if ( room && frontend_ops() ) {
+   if (room && frontend_ops() ) {
       frontend_ops()->chat_room_add(room);
    }
 
    if (cmd && strcasecmp(cmd, "replay-start") == 0) {
       ui_print(room, "\00304>>>\017 Start of chat replay. \00304<<<\017");
-   } else if ( cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
+   } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
       ui_print(room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    }
    dict_free(d);
@@ -974,19 +956,19 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
          rrclient_tui_room_window(room, true);
       }
 
-      if ( room && frontend_ops() ) {
+      if (room && frontend_ops() ) {
          frontend_ops()->chat_room_add(room);
       }
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
-         ui_print( room, "%s \00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
-      } else if ( cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
-         ui_print( room, "%s \00304>>>\017 Finished chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
+         ui_print(room, "%s \00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
+      } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
+         ui_print(room, "%s \00304>>>\017 Finished chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
       } else {
-         Log( LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>") );
+         Log(LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>") );
       }
    } else {
-      Log( LOG_DEBUG, "ws.nomatch", "Unhandled msg.type:|%s|", (msg_type ? msg_type : "<NONE>") );
+      Log(LOG_DEBUG, "ws.nomatch", "Unhandled msg.type:|%s|", (msg_type ? msg_type : "<NONE>") );
    }
    dict_free(d);
 }
@@ -1041,10 +1023,10 @@ static void rrclient_handle_callsign(const char *event, const char *data, rrconn
    bool done = dict_get_bool(d, "callsign.done", false);
    const char *status = dict_get(d, "callsign.status", NULL);
 
-   if ( status || dict_get_bool(d, "callsign.done", false) ) {
+   if (status || dict_get_bool(d, "callsign.done", false) ) {
       if (!callsign_notice_active) {
          callsign_notice_active = true;
-         ui_print( NULL, "%s \00308CALLSIGN\017:", get_chat_ts( dict_get_time_t(d, "msg.ts", now) ) );
+         ui_print(NULL, "%s \00308CALLSIGN\017:", get_chat_ts(dict_get_time_t(d, "msg.ts", now) ) );
       }
    }
 
@@ -1058,7 +1040,7 @@ static void rrclient_handle_callsign(const char *event, const char *data, rrconn
    const char *key = NULL;
    char *value = NULL;
    int rank = 0;
-   while ( ( rank = dict_enumerate(d, rank, &key, &value) ) >= 0 ) {
+   while ( (rank = dict_enumerate(d, rank, &key, &value) ) >= 0) {
       if (key && value && strncmp(key, "callsign.fields.", 16) == 0 && field_count < 64) {
          fields[field_count].key = key + 16;
          fields[field_count].value = value;
@@ -1097,18 +1079,18 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
    if (msg) {
       // Notices are plain text, one line per notice.
       bool callsign_field = strncmp(msg, "Callsign:", 9) == 0 ||
-                            strncmp(msg, "Cached:", 7) == 0 || strncmp(msg, "Name:", 5) == 0 ||
-                            strncmp(msg, "Class:", 6) == 0 || strncmp(msg, "Grid:", 5) == 0 ||
-                            strncmp(msg, "WGS-84:", 7) == 0 || strncmp(msg, "Heading:", 8) == 0 ||
-                            strncmp(msg, "DXCC:", 5) == 0 || strncmp(msg, "Email:", 6) == 0 ||
-                            strncmp(msg, "Address1:", 9) == 0 || strncmp(msg, "Address2:", 9) == 0 ||
-                            strncmp(msg, "State:", 6) == 0 || strncmp(msg, "Zip:", 4) == 0 ||
-                            strncmp(msg, "County:", 7) == 0 || strncmp(msg, "License Effective:", 18) == 0 ||
-                            strncmp(msg, "License Expires:", 16) == 0 || strncmp(msg, "Country:", 8) == 0;
+         strncmp(msg, "Cached:", 7) == 0 || strncmp(msg, "Name:", 5) == 0 ||
+         strncmp(msg, "Class:", 6) == 0 || strncmp(msg, "Grid:", 5) == 0 ||
+         strncmp(msg, "WGS-84:", 7) == 0 || strncmp(msg, "Heading:", 8) == 0 ||
+         strncmp(msg, "DXCC:", 5) == 0 || strncmp(msg, "Email:", 6) == 0 ||
+         strncmp(msg, "Address1:", 9) == 0 || strncmp(msg, "Address2:", 9) == 0 ||
+         strncmp(msg, "State:", 6) == 0 || strncmp(msg, "Zip:", 4) == 0 ||
+         strncmp(msg, "County:", 7) == 0 || strncmp(msg, "License Effective:", 18) == 0 ||
+         strncmp(msg, "License Expires:", 16) == 0 || strncmp(msg, "Country:", 8) == 0;
 
       if (strncmp(msg, "200 OK ", 7) == 0) {
          callsign_notice_active = true;
-         ui_print( output, "%s \00308NOTICE\017:", get_chat_ts(msg_ts) );
+         ui_print(output, "%s \00308NOTICE\017:", get_chat_ts(msg_ts) );
          rrclient_print_callsign_line(msg);
       } else if (callsign_field && callsign_notice_active) {
          rrclient_print_callsign_line(msg);
@@ -1154,11 +1136,13 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
    /* PARITY: rustyrig-www/js/webui.chat.js:UserCache.remove; a quit is per session. */
    int sessions = dict_get_int(d, "talk.sessions", 0);
    struct rr_user *current = userlist_find_in_room(m_user, m_target);
+
    if (sessions > 0) {
       if (current) {
          current->sessions = sessions;
       } else {
          dict *remaining = dict_new();
+
          if (remaining) {
             dict_add(remaining, "talk.user", m_user);
             dict_add(remaining, "talk.room", m_target);
@@ -1182,11 +1166,10 @@ static void rrclient_handle_userinfo(const char *event, const char *data, rrconn
    const char *ptt_room = d ? dict_get(d, "talk.ptt-room", NULL) : NULL;
    const char *selected_room = rrclient_media_active_room();
    bool same_rig = !ptt_room || !*ptt_room || !selected_room || !*selected_room ||
-                   !strcasecmp(ptt_room, selected_room) || ws_room_same_rig(selected_room, ptt_room);
+      !strcasecmp(ptt_room, selected_room) || ws_room_same_rig(selected_room, ptt_room);
 
-   if ( d && ( same_rig || !dict_get_bool(d, "talk.tx", false) ) && (dict_get_type(d, "talk.tx") != VAL_END) ) {
-      rrclient_confirm_ptt( dict_get(d, "talk.user", NULL), dict_get(d, "talk.ptt-vfo", NULL),
-         dict_get_bool(d, "talk.tx", false) );
+   if (d && (same_rig || !dict_get_bool(d, "talk.tx", false) ) && (dict_get_type(d, "talk.tx") != VAL_END) ) {
+      rrclient_confirm_ptt(dict_get(d, "talk.user", NULL), dict_get(d, "talk.ptt-vfo", NULL), dict_get_bool(d, "talk.tx", false) );
    }
 
    if (!userlist_add_or_update(d) ) {
@@ -1227,21 +1210,20 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    ui_print(output, "\00310***\017 Privileges: %s", privs);
 
    if (muted) {
-      ui_print(output,
-         "\00310***\017 \00304This user is currently MUTEd. Rigctl is temporarily suspended.\017");
+      ui_print(output, "\00310***\017 \00304This user is currently MUTEd. Rigctl is temporarily suspended.\017");
    }
 
    ui_print(output, "\00310***\017 Sessions:   %d", sessions);
 
    if (connected > 0) {
       char buf[64];
-      strftime( buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&connected) );
+      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&connected) );
       ui_print(output, "\00310***\017 Connected:  %s", buf);
    }
 
    if (last_heard > 0) {
       char buf[64];
-      strftime( buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&last_heard) );
+      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&last_heard) );
       ui_print(output, "\00310***\017 Last heard: %s", buf);
    }
 
@@ -1258,20 +1240,19 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
 // registering them keeps the event system from firing NOMATCH for expected
 // traffic. The real handling happens in the in-process message handlers.
 static void rrclient_handle_ping(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   Log( LOG_CRAZY, "ws.ping", "Server ping: %s", (data ? data : "<NULL>") );
+   Log(LOG_CRAZY, "ws.ping", "Server ping: %s", (data ? data : "<NULL>") );
 }
 
 static void rrclient_handle_logging_in(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   Log( LOG_CRAZY, "ws.auth", "Logging in (%zu bytes)", data ? strlen(data) : 0 );
+   Log(LOG_CRAZY, "ws.auth", "Logging in (%zu bytes)", data ? strlen(data) : 0);
 }
 
 static void rrclient_handle_media_capab(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   Log( LOG_CRAZY, "ws.media", "Media capabilities: %s", (data ? data : "<NULL>") );
+   Log(LOG_CRAZY, "ws.media", "Media capabilities: %s", (data ? data : "<NULL>") );
 }
 
-/* media_sync_audio() emits this notification for the native audio layer. It intentionally
- * carries no JSON payload; registering a listener keeps it out of the generic NOMATCH
- * path, which expects JSON websocket messages. */
+/* media_sync_audio() emits this notification for the native audio layer. It intentionally carries no JSON payload; registering a listener keeps it out of the
+ * generic NOMATCH path, which expects JSON websocket messages. */
 static void rrclient_handle_media_changed(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
@@ -1282,8 +1263,8 @@ static void rrclient_handle_media_changed(const char *event, const char *data, r
    if (ops && ops->codec_set_active) {
       // Resolve both directions from the selected room/VFO, including NULL
       // (NONE). The last announced channel may belong to another rig.
-      ops->codec_set_active( false, rrclient_media_current_codec(false) );
-      ops->codec_set_active( true, rrclient_media_current_codec(true) );
+      ops->codec_set_active(false, rrclient_media_current_codec(false) );
+      ops->codec_set_active(true, rrclient_media_current_codec(true) );
    }
 }
 
@@ -1304,12 +1285,11 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 
    if (cmd && strcasecmp(cmd, "capab") == 0) {
       const char *codecs = dict_get(d, "media.codecs", NULL);
-      Log( LOG_DEBUG, "ws.media", "Server media capabilities: %s", (codecs ? codecs : "<none>") );
+      Log(LOG_DEBUG, "ws.media", "Server media capabilities: %s", (codecs ? codecs : "<none>") );
    } else if (cmd && strcasecmp(cmd, "isupport") == 0) {
       const char *codecs = dict_get(d, "media.codecs", NULL);
       const char *preferred = dict_get(d, "media.preferred", NULL);
-      Log( LOG_INFO, "ws.media", "Negotiated codec: %s (server supports: %s)", (preferred ? preferred : "<none>"),
-         (codecs ? codecs : "<none>") );
+      Log(LOG_INFO, "ws.media", "Negotiated codec: %s (server supports: %s)", (preferred ? preferred : "<none>"), (codecs ? codecs : "<none>") );
    } else if (cmd && strcasecmp(cmd, "available") == 0) {
       // Server is telling us about a subscribable media channel. There is
       // one channel per (subsystem, direction, vfo, rig) - e.g. RX audio
@@ -1322,16 +1302,14 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       const char *descr = dict_get(d, "media.descr", NULL);
 
       if (!uuid || !*uuid) {
-         Log(LOG_WARN, "ws.media", "Ignoring media.available without channel UUID (subsys 0x%02X, dir %u, VFO %u)",
-            subsys, dir, vfo);
+         Log(LOG_WARN, "ws.media", "Ignoring media.available without channel UUID (subsys 0x%02X, dir %u, VFO %u)", subsys, dir, vfo);
          dict_free(d);
 
          return;
       }
 
-      Log( LOG_INFO, "ws.media", "Media channel available: uuid %s subsys 0x%02X %s VFO %c rig %u (%s)",
-         (uuid ? uuid : "<none>"), subsys, (dir == RR_BINFRAME_DIR_TX ? "tx" : "rx"),
-         (vfo < 26 ? (char)('A' + vfo) : '-'), rig, (descr ? descr : "-") );
+      Log(LOG_INFO, "ws.media", "Media channel available: uuid %s subsys 0x%02X %s VFO %c rig %u (%s)", (uuid ? uuid : "<none>"), subsys, (dir ==
+         RR_BINFRAME_DIR_TX ? "tx" : "rx"), (vfo < 26 ? (char)('A' + vfo) : '-'), rig, (descr ? descr : "-") );
 
       // Hand the parsed dict straight to the media layer (no JSON
       // round-trip); it stores the channel and auto-subscribes as needed.
@@ -1351,19 +1329,19 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
       uint32_t vfo = dict_get_ulong(d, "media.vfo", RR_BINFRAME_VFO_NA);
 
-      Log( LOG_INFO, "ws.media", "Subscribed to media channel uuid %s (stream %u, %s VFO %c)", (uuid ? uuid : "<none>"),
-         stream, (dir == RR_BINFRAME_DIR_TX ? "tx" : "rx"), (vfo < 26 ? (char)('A' + vfo) : '-') );
+      Log(LOG_INFO, "ws.media", "Subscribed to media channel uuid %s (stream %u, %s VFO %c)", (uuid ? uuid : "<none>"), stream, (dir == RR_BINFRAME_DIR_TX ?
+         "tx" : "rx"), (vfo < 26 ? (char)('A' + vfo) : '-') );
       rrclient_media_subscribed(d, false);
    } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
       rrclient_media_subscribed(d, true);
    } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
 
-      Log( LOG_INFO, "ws.media", "Media channel removed: %s", (uuid ? uuid : "<none>") );
+      Log(LOG_INFO, "ws.media", "Media channel removed: %s", (uuid ? uuid : "<none>") );
 
       rrclient_media_chan_removed(d);
    } else {
-      Log( LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>") );
+      Log(LOG_DEBUG, "ws.media", "Unhandled media cmd:|%s|", (cmd ? cmd : "<NONE>") );
    }
    dict_free(d);
 }

@@ -9,13 +9,13 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_ui_statusbar_h)
-#define	__rrclient_ui_statusbar_h
+#define __rrclient_ui_statusbar_h
 #include <librustyaxe/config.h>
 #include <librustyaxe/tui.h>
 
-#define	RRCLIENT_DEFAULT_STATUS_LINE \
+#define RRCLIENT_DEFAULT_STATUS_LINE \
         "${topic} | ${ptt-state} | VFO ${active_vfo}: ${active_freq_khz:---} kHz ${active_mode:---}"
-#define	RRCLIENT_DEFAULT_ROOM_STATUS_LINE "${topic} | ${connection}"
+#define RRCLIENT_DEFAULT_ROOM_STATUS_LINE "${topic} | ${connection}"
 extern char *rrclient_tui_topline(tui_window_t *win);
 
 extern char sb_online[128];     // due to formatting (24 char real)

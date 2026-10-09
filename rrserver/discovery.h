@@ -6,12 +6,11 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Server inventory contributors. Wire contract: doc/resource-discovery.md.
 #ifndef RRSERVER_DISCOVERY_H
-#define	RRSERVER_DISCOVERY_H
+#define RRSERVER_DISCOVERY_H
 #include <librrprotocol/rrprotocol.h>
 
-#define	RR_INVENTORY_EVENT "server.inventory.collect"
-static inline dict *rr_inventory_row(const char *request, unsigned depth, const char *kind, const char *name,
-                                     const char *uuid) {
+#define RR_INVENTORY_EVENT "server.inventory.collect"
+static inline dict *rr_inventory_row(const char *request, unsigned depth, const char *kind, const char *name, const char *uuid) {
    dict *d = dict_new();
 
    if (!d) {

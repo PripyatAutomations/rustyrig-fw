@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__gtk_chat_h)
-#define	__gtk_chat_h
+#define __gtk_chat_h
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
 extern GtkWidget *chat_textview;

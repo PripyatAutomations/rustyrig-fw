@@ -11,13 +11,13 @@
 // Support for rendering to a framebuffer
 //
 #if     !defined(__rr_gui_fb_h)
-#define	__rr_gui_fb_h
+#define __rr_gui_fb_h
 #include "build_config.h"
 
 struct gui_fb_state {
    uint8_t fb_width,
-           fb_height,
-           fb_depth;                     // bits per pixel
+      fb_height,
+      fb_depth;                          // bits per pixel
    uint8_t     *framebuffer;
 };
 typedef struct gui_fb_state gui_fb_state_t;

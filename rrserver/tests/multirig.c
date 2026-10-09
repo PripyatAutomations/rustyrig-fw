@@ -31,18 +31,24 @@ sqlite3 *masterdb;
 static bool identity_failure;
 static bool rig_identity_failure;
 static bool vfo_identity_failure;
-char *db_rig_uuid_get_or_create(sqlite3 *db,
-   const char *identity_namespace, const char *alias) {
+char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, const char *alias) {
    (void)identity_namespace;
-   if (!db || identity_failure || (rig_identity_failure && strcmp(alias, "@node"))) return NULL;
+
+   if (!db || identity_failure || (rig_identity_failure && strcmp(alias, "@node"))) {
+      return NULL;
+   }
+
    return strdup(!strcmp(alias, "@node") ? "00000000-0000-4000-8000-000000000001" :
       !strcmp(alias, "first") ? "00000000-0000-4000-8000-000000000002" :
       "00000000-0000-4000-8000-000000000003");
 }
-char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid,
-   const char *alias) {
+char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *alias) {
    (void)alias;
-   if (!db || identity_failure || vfo_identity_failure) return NULL;
+
+   if (!db || identity_failure || vfo_identity_failure) {
+      return NULL;
+   }
+
    return strdup(!strcmp(rig_uuid, "00000000-0000-4000-8000-000000000002") ?
       "00000000-0000-4000-8000-000000000004" : "00000000-0000-4000-8000-000000000005");
 }
@@ -69,9 +75,12 @@ void ws_broadcast_dict(rrconn_t *sender, dict *message, int data_type) {
    last_broadcast_frequency = dict_get_long(message, "cat.state.freq", -1);
 }
 
-bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message,
-   int data_type) {
-   (void)sender; (void)dest; (void)message; (void)data_type;
+bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int data_type) {
+   (void)sender;
+   (void)dest;
+   (void)message;
+   (void)data_type;
+
    return false;
 }
 
@@ -84,32 +93,38 @@ static bool fake_create(rr_backend_t *backend) {
       return true;
    }
    fake_backend_t *data = calloc(1, sizeof(*data));
-   if (!data) return true;
-   data->observed_frequency = !strcmp(rr_backend_instance_alias(backend),
-      "rig0") ? 14074000 : 7074000;
+
+   if (!data) {
+      return true;
+   }
+   data->observed_frequency = !strcmp(rr_backend_instance_alias(backend), "rig0") ? 14074000 : 7074000;
    const char *token = rr_backend_config_get(backend, "test-token");
-   snprintf(data->config_token, sizeof(data->config_token), "%s",
-      token ? token : rr_backend_instance_alias(backend));
+   snprintf(data->config_token, sizeof(data->config_token), "%s", token ? token : rr_backend_instance_alias(backend));
    rr_backend_instance_set_data(backend, data);
    live_backends++;
+
    return false;
 }
 
 static void fake_destroy(rr_backend_t *backend) {
-   if (fake_data(backend)) live_backends--;
+   if (fake_data(backend)) {
+      live_backends--;
+   }
    free(fake_data(backend));
    rr_backend_instance_set_data(backend, NULL);
 }
 
 static bool fake_vfo_supported(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    rr_vfo_t index;
+
    return rr_server_vfo_owner(vfo) == backend->owner &&
-      rr_server_vfo_native_index(vfo, &index) && index == VFO_A;
+          rr_server_vfo_native_index(vfo, &index) && index == VFO_A;
 }
 
 static bool fake_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, float power) {
    assert(fake_vfo_supported(backend, vfo));
    fake_data(backend)->requested_power = power;
+
    return false;
 }
 
@@ -118,56 +133,70 @@ static bool fake_freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo, int freq)
    assert(fake_vfo_supported(backend, vfo));
    data->controls++;
    data->requested_frequency = freq;
+
    return false;
 }
 
-static bool fake_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo,
-   rr_mode_t mode) {
-   (void)backend; (void)vfo; (void)mode;
+static bool fake_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t mode) {
+   (void)backend;
+   (void)vfo;
+   (void)mode;
+
    return false;
 }
 
 static bool fake_ptt_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
-   (void)backend; (void)vfo;
+   (void)backend;
+   (void)vfo;
+
    return false;
 }
 
-static int fake_widths_get(rr_backend_t *backend, rr_server_vfo_t *vfo,
-   int *widths, int max) {
-   (void)backend; (void)vfo;
-   if (!widths || max < 3) return 0;
-   widths[0] = 1800; widths[1] = 3000; widths[2] = 3600;
+static int fake_widths_get(rr_backend_t *backend, rr_server_vfo_t *vfo, int *widths, int max) {
+   (void)backend;
+   (void)vfo;
+
+   if (!widths || max < 3) {
+      return 0;
+   }
+   widths[0] = 1800;
+   widths[1] = 3000;
+   widths[2] = 3600;
+
    return 3;
 }
 
 static rr_vfo_data_t *fake_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    fake_backend_t *data = fake_data(backend);
    data->polls++;
-   if (data->fail_poll) return NULL;
+
+   if (data->fail_poll) {
+      return NULL;
+   }
    char property[RR_PROPERTY_NAME_MAX];
-   assert(rr_property_vfo_name(property, sizeof(property), 'A',
-      RR_PROP_VFO_FREQUENCY));
-   dict_value_t value = { .l = data->observed_frequency };
-   assert(rr_rig_property_observe(backend->owner, property, VAL_LONG,
-      &value) != RR_PROPERTY_ERROR);
+   assert(rr_property_vfo_name(property, sizeof(property), 'A', RR_PROP_VFO_FREQUENCY));
+   dict_value_t value = {
+      .l = data->observed_frequency
+   };
+   assert(rr_rig_property_observe(backend->owner, property, VAL_LONG, &value) != RR_PROPERTY_ERROR);
    value.s = "USB";
-   assert(rr_property_vfo_name(property, sizeof(property), 'A',
-      RR_PROP_VFO_MODE));
-   assert(rr_rig_property_observe(backend->owner, property, VAL_STR,
-      &value) != RR_PROPERTY_ERROR);
+   assert(rr_property_vfo_name(property, sizeof(property), 'A', RR_PROP_VFO_MODE));
+   assert(rr_rig_property_observe(backend->owner, property, VAL_STR, &value) != RR_PROPERTY_ERROR);
    value.i = 3000;
-   assert(rr_property_vfo_name(property, sizeof(property), 'A',
-      RR_PROP_VFO_WIDTH));
-   assert(rr_rig_property_observe(backend->owner, property, VAL_INT,
-      &value) != RR_PROPERTY_ERROR);
+   assert(rr_property_vfo_name(property, sizeof(property), 'A', RR_PROP_VFO_WIDTH));
+   assert(rr_rig_property_observe(backend->owner, property, VAL_INT, &value) != RR_PROPERTY_ERROR);
 
    rr_vfo_data_t *result = calloc(1, sizeof(*result));
-   if (!result) return NULL;
+
+   if (!result) {
+      return NULL;
+   }
    assert(fake_vfo_supported(backend, vfo));
    assert(rr_server_vfo_native_index(vfo, &result->id));
    result->freq = data->observed_frequency;
    result->mode = MODE_USB;
    result->width = 3000;
+
    return result;
 }
 
@@ -199,29 +228,37 @@ const rr_backend_type_t rr_backend_hamlib = {
 };
 #endif
 
-static void ignore_property_event(const char *event, const char *data,
-   rrconn_t *client, void *user) {
-   (void)event; (void)data; (void)client; (void)user;
+static void ignore_property_event(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)data;
+   (void)client;
+   (void)user;
 }
 
-static bool compat_supported(rr_server_rig_t *radio, rr_vfo_t vfo,
-   void *user) {
+static bool compat_supported(rr_server_rig_t *radio, rr_vfo_t vfo, void *user) {
    assert(radio == user);
+
    return vfo == VFO_A;
 }
 
 static bool compat_ptt(rr_server_rig_t *radio, rr_vfo_t vfo, void *user) {
    assert(radio == user);
    (void)vfo;
+
    return false;
 }
 
-static int compat_widths(rr_server_rig_t *radio, rr_vfo_t vfo,
-   int *widths, int max, void *user) {
+static int compat_widths(rr_server_rig_t *radio, rr_vfo_t vfo, int *widths, int max, void *user) {
    assert(radio == user);
    (void)vfo;
-   if (max < 3) return 0;
-   widths[0] = 1800; widths[1] = 3000; widths[2] = 3600;
+
+   if (max < 3) {
+      return 0;
+   }
+   widths[0] = 1800;
+   widths[1] = 3000;
+   widths[2] = 3600;
+
    return 3;
 }
 
@@ -234,11 +271,13 @@ static void define_properties(rr_server_rig_t *radio) {
 
 static long read_frequency(rr_server_rig_t *radio) {
    char property[RR_PROPERTY_NAME_MAX];
-   rr_property_snapshot_t snapshot = { 0 };
-   assert(rr_property_vfo_name(property, sizeof(property), 'A',
-      RR_PROP_VFO_FREQUENCY));
+   rr_property_snapshot_t snapshot = {
+      0
+   };
+   assert(rr_property_vfo_name(property, sizeof(property), 'A', RR_PROP_VFO_FREQUENCY));
    assert(rr_rig_property_read(radio, property, &snapshot));
    assert(snapshot.known);
+
    return snapshot.value.l;
 }
 
@@ -256,10 +295,8 @@ int main(void) {
    assert(rig.rigs);
    const char *uuid_a = "11111111-1111-4111-8111-111111111111";
    const char *uuid_b = "22222222-2222-4222-8222-222222222222";
-   rr_server_rig_t *radio_a = rr_rig_registry_add(rig.rigs, uuid_a,
-      "rig0", "Radio A", &rr_backend_internal);
-   rr_server_rig_t *radio_b = rr_rig_registry_add(rig.rigs, uuid_b,
-      "rig1", "Radio B", &rr_backend_internal);
+   rr_server_rig_t *radio_a = rr_rig_registry_add(rig.rigs, uuid_a, "rig0", "Radio A", &rr_backend_internal);
+   rr_server_rig_t *radio_b = rr_rig_registry_add(rig.rigs, uuid_b, "rig1", "Radio B", &rr_backend_internal);
    assert(radio_a && radio_b && radio_a != radio_b);
    assert(rr_rig_registry_count(rig.rigs) == 2);
    assert(rr_rig_registry_find_uuid(rig.rigs, uuid_a) == radio_a);
@@ -301,8 +338,7 @@ int main(void) {
    assert(last_broadcast_frequency == 14074000);
 
    char frequency[RR_PROPERTY_NAME_MAX];
-   assert(rr_property_vfo_name(frequency, sizeof(frequency), 'A',
-      RR_PROP_VFO_FREQUENCY));
+   assert(rr_property_vfo_name(frequency, sizeof(frequency), 'A', RR_PROP_VFO_FREQUENCY));
    rr_control_request_t request_a = {
       .rig = radio_a, .property = frequency, .value_type = VAL_LONG,
       .value.l = 14200000, .source = "test",
@@ -349,8 +385,7 @@ int main(void) {
    rig.rigs = NULL;
    assert(live_backends == 0);
 
-   /* Full configuration startup: two instances of one backend receive only
-    * their scoped values and an explicit default selection. */
+   /* Full configuration startup: two instances of one backend receive only their scoped values and an explicit default selection. */
    dict_add(cfg, "station.name", "test-node");
    masterdb = (sqlite3 *)1; // Identity helper mock handle, never dereferenced.
    dict_add(cfg, "rig.identity-namespace", "test-node");
@@ -370,10 +405,8 @@ int main(void) {
    rr_server_rig_t *second = rr_rig_registry_find_alias(rig.rigs, "second");
    assert(first && second && first != second);
    assert(rr_rig_registry_default(rig.rigs) == second);
-   assert(!strcmp(fake_data(rr_server_rig_backend(first))->config_token,
-      "alpha"));
-   assert(!strcmp(fake_data(rr_server_rig_backend(second))->config_token,
-      "beta"));
+   assert(!strcmp(fake_data(rr_server_rig_backend(first))->config_token, "alpha"));
+   assert(!strcmp(fake_data(rr_server_rig_backend(second))->config_token, "beta"));
    assert(rr_server_rig_backend(first)->type ==
       rr_server_rig_backend(second)->type);
    assert(strcmp(rr_server_rig_id(first), rr_server_rig_id(second)));
@@ -381,13 +414,11 @@ int main(void) {
    rr_server_vfo_t *second_a = rr_server_vfo_find_alias(second, "A");
    assert(first_a && second_a && first_a != second_a);
    assert(strcmp(rr_server_vfo_id(first_a), rr_server_vfo_id(second_a)));
-   assert(rr_rig_registry_find_vfo_uuid(rig.rigs,
-      rr_server_vfo_id(first_a)) == first_a);
+   assert(rr_rig_registry_find_vfo_uuid(rig.rigs, rr_server_vfo_id(first_a)) == first_a);
    rr_backend_fini();
    assert(!rig.rigs && !rig.default_cat && live_backends == 0);
 
-   /* Duplicate aliases and invalid backend names are deterministic startup
-    * failures and always tear down partially constructed instances. */
+   /* Duplicate aliases and invalid backend names are deterministic startup failures and always tear down partially constructed instances. */
    dict_add(cfg, "rig.instances", "first first");
    assert(rr_backend_init());
    assert(!rig.rigs && live_backends == 0);
@@ -432,8 +463,11 @@ int main(void) {
    assert(rr_backend_init());
    assert(!rig.rigs && live_backends == 0);
    event_shutdown();
-   dict_free(cfg); cfg = NULL;
-   dict_free(default_cfg); default_cfg = NULL;
+   dict_free(cfg);
+   cfg = NULL;
+   dict_free(default_cfg);
+   default_cfg = NULL;
    puts("PASS: independent UUID-addressed rigs and backend instances");
+
    return 0;
 }

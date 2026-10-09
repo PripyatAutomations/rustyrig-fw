@@ -22,7 +22,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 
-#define	HELP_DESC_COL 18
+#define HELP_DESC_COL 18
 
 extern client_cmd_t client_cmds[];
 
@@ -116,10 +116,18 @@ static help_line_t help_msg_before[] = {
 };
 
 static help_line_t help_msg_after[] = {
-   { UI_MODE_NONE, "\t\00309/rxcodec /txcodec \00308Shared codec changes require account RX/TX privilege for that VFO" },
-   { UI_MODE_NONE, "\t\00309/room remove #room [token] \00308Admin/owner: hide room, preserving its data; confirm with server token" },
-   { UI_MODE_NONE, "\t\00309/room remove #room -f [-h] [token] \00308Delete room record/bindings; -h also deletes chat history" },
-   { UI_MODE_NONE, "\t\00309/room add #room \00308Anyone: create undashed room; admin/owner: dashed rooms or restoration; rig logs stay" },
+   {
+      UI_MODE_NONE, "\t\00309/rxcodec /txcodec \00308Shared codec changes require account RX/TX privilege for that VFO"
+   },
+   {
+      UI_MODE_NONE, "\t\00309/room remove #room [token] \00308Admin/owner: hide room, preserving its data; confirm with server token"
+   },
+   {
+      UI_MODE_NONE, "\t\00309/room remove #room -f [-h] [token] \00308Delete room record/bindings; -h also deletes chat history"
+   },
+   {
+      UI_MODE_NONE, "\t\00309/room add #room \00308Anyone: create undashed room; admin/owner: dashed rooms or restoration; rig logs stay"
+   },
    {
       UI_MODE_NONE, ""
    },
@@ -207,7 +215,7 @@ bool cmd_help(int argc, char **args) {
    // Pre-message
    for (int i = 0 ; help_msg_before[i].line ; i++) {
       if (help_msg_before[i].mode == UI_MODE_NONE ||
-          ui_mode == help_msg_before[i].mode) {
+         ui_mode == help_msg_before[i].mode) {
          ui_print(ui_active_window_name(), help_msg_before[i].line);
       }
    }
@@ -229,10 +237,11 @@ bool cmd_help(int argc, char **args) {
    /* PARITY: rustyrig-www/js/webui.chat.js:webui_command_help */
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
-      if ( client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
          continue;
       }
       const char *next_section = client_cmds[i].help_section ? client_cmds[i].help_section : "Other";
+
       if (!section || strcmp(section, next_section)) {
          ui_print(ui_active_window_name(), "\00304%s\017", next_section);
          section = next_section;
@@ -244,14 +253,13 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(ui_active_window_name(), "\t\00309/%s%*s\00308%s\017", client_cmds[i].cmd, spaces,
-         "", client_cmds[i].desc);
+      ui_print(ui_active_window_name(), "\t\00309/%s%*s\00308%s\017", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
    // After-message
    for (int i = 0 ; help_msg_after[i].line ; i++) {
       if (help_msg_after[i].mode == UI_MODE_NONE ||
-          ui_mode == help_msg_after[i].mode) {
+         ui_mode == help_msg_after[i].mode) {
          ui_print(ui_active_window_name(), help_msg_after[i].line);
       }
    }

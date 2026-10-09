@@ -37,18 +37,22 @@ static GtkWidget *vfo_codec_box = NULL;
 
 // Should we pause the VFO widget being updated until after the server has sent response?
 bool vfo_muted = false;
-struct timeval vfo_muted_since = { 0 };
+struct timeval vfo_muted_since = {
+   0
+};
 
 void vfo_controls_set_ptt_state(bool any_tx, bool own_tx) {
    if (vfo_tunable_box) {
       gtk_widget_set_sensitive(vfo_tunable_box, !any_tx);
    }
+
    if (vfo_codec_box) {
       // RX codec selection remains available while another user transmits.
       // TX is locked separately below because it is shared by everyone on
       // the transmitting channel.
       gtk_widget_set_sensitive(vfo_codec_box, true);
    }
+
    if (tx_codec_combo) {
       // Changing this codec changes the shared TX stream and can leave an
       // active listener unable to decode it.
@@ -60,7 +64,7 @@ static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
    if (!button) {
       return;
    }
-   connect_or_disconnect( server_name );
+   connect_or_disconnect(server_name);
 }
 
 static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
@@ -78,12 +82,13 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    }
 
    if ( (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
-        (event->state & GDK_SHIFT_MASK) ) {
+      (event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->chat_entry);
 
       return TRUE;
    } else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
       gtk_widget_grab_focus(d->mode_combo);
+
       return TRUE;
    }
 
@@ -102,10 +107,8 @@ GtkWidget *create_vfo_box(void) {
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
-   /* The connection may already be established when a VFO widget is built
-    * (for example after the authoritative room arrives).  Paint the button
-    * from the cached protocol state immediately instead of leaving the
-    * initial _Offline label until the next click. */
+   /* The connection may already be established when a VFO widget is built (for example after the authoritative room arrives).  Paint the button from the cached
+    * protocol state immediately instead of leaving the initial _Offline label until the next click. */
    update_connection_button(ws_connected, conn_button);
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
@@ -141,16 +144,45 @@ GtkWidget *create_vfo_box(void) {
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
-   if (conn_button) g_object_add_weak_pointer(G_OBJECT(conn_button), (gpointer *)&conn_button);
-   if (vfo_tunable_box) g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *)&vfo_tunable_box);
-   if (vfo_codec_box) g_object_add_weak_pointer(G_OBJECT(vfo_codec_box), (gpointer *)&vfo_codec_box);
-   if (freq_entry) g_object_add_weak_pointer(G_OBJECT(freq_entry), (gpointer *)&freq_entry);
-   if (mode_combo) g_object_add_weak_pointer(G_OBJECT(mode_combo), (gpointer *)&mode_combo);
-   if (width_combo) g_object_add_weak_pointer(G_OBJECT(width_combo), (gpointer *)&width_combo);
-   if (tx_codec_combo) g_object_add_weak_pointer(G_OBJECT(tx_codec_combo), (gpointer *)&tx_codec_combo);
-   if (rx_codec_combo) g_object_add_weak_pointer(G_OBJECT(rx_codec_combo), (gpointer *)&rx_codec_combo);
-   if (rx_vol_slider) g_object_add_weak_pointer(G_OBJECT(rx_vol_slider), (gpointer *)&rx_vol_slider);
-   if (rx_rig_vol_slider) g_object_add_weak_pointer(G_OBJECT(rx_rig_vol_slider), (gpointer *)&rx_rig_vol_slider);
+   if (conn_button) {
+      g_object_add_weak_pointer(G_OBJECT(conn_button), (gpointer *)&conn_button);
+   }
+
+   if (vfo_tunable_box) {
+      g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *)&vfo_tunable_box);
+   }
+
+   if (vfo_codec_box) {
+      g_object_add_weak_pointer(G_OBJECT(vfo_codec_box), (gpointer *)&vfo_codec_box);
+   }
+
+   if (freq_entry) {
+      g_object_add_weak_pointer(G_OBJECT(freq_entry), (gpointer *)&freq_entry);
+   }
+
+   if (mode_combo) {
+      g_object_add_weak_pointer(G_OBJECT(mode_combo), (gpointer *)&mode_combo);
+   }
+
+   if (width_combo) {
+      g_object_add_weak_pointer(G_OBJECT(width_combo), (gpointer *)&width_combo);
+   }
+
+   if (tx_codec_combo) {
+      g_object_add_weak_pointer(G_OBJECT(tx_codec_combo), (gpointer *)&tx_codec_combo);
+   }
+
+   if (rx_codec_combo) {
+      g_object_add_weak_pointer(G_OBJECT(rx_codec_combo), (gpointer *)&rx_codec_combo);
+   }
+
+   if (rx_vol_slider) {
+      g_object_add_weak_pointer(G_OBJECT(rx_vol_slider), (gpointer *)&rx_vol_slider);
+   }
+
+   if (rx_rig_vol_slider) {
+      g_object_add_weak_pointer(G_OBJECT(rx_rig_vol_slider), (gpointer *)&rx_rig_vol_slider);
+   }
 
    // Create PTT button widget; pack at the far right edge. NB: must be
    // packed FALSE/FALSE - with expand=TRUE the box stretches but the button
@@ -161,11 +193,9 @@ GtkWidget *create_vfo_box(void) {
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
 
-   /* CAT state commonly arrives while authentication is building the room
-    * tab.  The user list reads that cached state directly, but the controls
-    * are created afterwards and would otherwise keep their zero/default
-    * values until the next CAT poll.  Push the already-received state into
-    * the newly-created widgets immediately. */
+   /* CAT state commonly arrives while authentication is building the room tab.  The user list reads that cached state directly, but the controls are created
+    * afterwards and would otherwise keep their zero/default values until the next CAT poll.  Push the already-received state into the newly-created widgets
+    * immediately. */
    vfo_update_ui();
 
    return control_box;
@@ -174,11 +204,12 @@ GtkWidget *create_vfo_box(void) {
 gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
    if (!vfo_box || vfo == '\0') {
       Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%p> vfo |%c|", vfo_box, vfo);
+
       return NULL;
    }
    // prepare a programmatic name for the VFO
    char win_name[32];
-   memset( win_name, 0, sizeof(win_name) );
+   memset(win_name, 0, sizeof(win_name) );
    snprintf(win_name, sizeof(win_name), "vfo-%c", vfo);
 
    // Lets see if we recognize that window...

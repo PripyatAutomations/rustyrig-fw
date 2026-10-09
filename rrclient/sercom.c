@@ -52,7 +52,7 @@ static bool host_binding(const serial_binding_t *b) {
 
 static serial_binding_t *binding(const char *name) {
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      if ( name && !strcmp(name, b->name) ) {
+      if (name && !strcmp(name, b->name) ) {
          return b;
       }
    }
@@ -74,10 +74,10 @@ const char *rr_cat_room(void) {
    if (!cat_context) {
       return NULL;
    } // Older non-serial parser callers retain
-                                      // default-rig routing.
+   // default-rig routing.
    const char *lobby = ws_authoritative_room();
 
-   if ( !lobby || snprintf(room, sizeof(room), "%s-%s", lobby, cat_context->radio) >= (int)sizeof(room) ) {
+   if (!lobby || snprintf(room, sizeof(room), "%s-%s", lobby, cat_context->radio) >= (int)sizeof(room) ) {
       return NULL;
    }
 
@@ -89,7 +89,7 @@ static const dict *cat_property(const char *vfo, const char *property) {
    if (!radio) {
       return NULL;
    }
-   const char *uuid = dict_get( (dict *)radio, "object.uuid", NULL );
+   const char *uuid = dict_get( (dict *)radio, "object.uuid", NULL);
 
    if (vfo) {
       char alias[2] = {
@@ -100,11 +100,11 @@ static const dict *cat_property(const char *vfo, const char *property) {
       if (!object) {
          return NULL;
       }
-      uuid = dict_get( (dict *)object, "object.uuid", NULL );
+      uuid = dict_get( (dict *)object, "object.uuid", NULL);
    }
    const dict *state = rrclient_object_property(uuid, property);
 
-   return state && dict_get_bool( (dict *)state, "property.known", false ) ? state : NULL;
+   return state && dict_get_bool( (dict *)state, "property.known", false) ? state : NULL;
 }
 const char *rr_cat_property(const char *vfo, const char *property, const char *fallback) {
    if (!cat_context) {
@@ -112,29 +112,29 @@ const char *rr_cat_property(const char *vfo, const char *property, const char *f
    }
    const dict *state = cat_property(vfo, property);
 
-   return state ? dict_get( (dict *)state, "property.value", fallback ) : fallback;
+   return state ? dict_get( (dict *)state, "property.value", fallback) : fallback;
 }
 long rr_cat_property_long(const char *vfo, const char *property, long fallback) {
    if (!cat_context) {
       const char *key = !strcmp(property, "frequency") ? "cat.state.freq" :
-                        !strcmp(property, "width") ? "cat.state.width" : "cat.state.key_speed";
+         !strcmp(property, "width") ? "cat.state.width" : "cat.state.key_speed";
 
       return vfo_state_get_long(vfo, key, fallback);
    }
    const dict *state = cat_property(vfo, property);
 
-   return state ? dict_get_long( (dict *)state, "property.value", fallback ) : fallback;
+   return state ? dict_get_long( (dict *)state, "property.value", fallback) : fallback;
 }
 bool rr_cat_property_bool(const char *property, bool fallback) {
    if (!cat_context) {
       return vfo_state_get_bool("A", "cat.state.ptt", fallback);
    }
 
-   if ( !strcmp(property, "ptt") ) {
+   if (!strcmp(property, "ptt") ) {
       const char *room = rr_cat_room();
 
       for (struct rr_user *u = global_userlist ; u ; u = u->next) {
-         if ( u->is_ptt && room && !strcasecmp(u->ptt_room, room) ) {
+         if (u->is_ptt && room && !strcasecmp(u->ptt_room, room) ) {
             return true;
          }
       }
@@ -143,7 +143,7 @@ bool rr_cat_property_bool(const char *property, bool fallback) {
    }
    const dict *state = cat_property(NULL, property);
 
-   return state ? dict_get_bool( (dict *)state, "property.value", fallback ) : fallback;
+   return state ? dict_get_bool( (dict *)state, "property.value", fallback) : fallback;
 }
 char rr_cat_active_vfo(void) {
    if (!cat_context) {
@@ -183,7 +183,7 @@ static void host_command(serial_binding_t *b, const char *command) {
       dict_add(d, "serial.mode", mode);
    }
 
-   if ( !strcmp(command, "read") ) {
+   if (!strcmp(command, "read") ) {
       dict_add_uint(d, "serial.seq", b->rx_seq);
    }
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
@@ -193,12 +193,12 @@ static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
 static void host_sync(serial_binding_t *b) {
-   if ( !host_binding(b) ) {
+   if (!host_binding(b) ) {
       return;
    }
    rr_serial_settings_t observed;
 
-   if ( rr_serial_get_settings(b->port, &observed) && line_changed(&observed, &b->local) ) {
+   if (rr_serial_get_settings(b->port, &observed) && line_changed(&observed, &b->local) ) {
       b->local = observed;
       b->requested = observed;
       b->settings_override = true;
@@ -221,7 +221,7 @@ static void host_sync(serial_binding_t *b) {
       return;
    }
 
-   if ( b->rx_pending && !rr_serial_pending_bytes(b->port) ) {
+   if (b->rx_pending && !rr_serial_pending_bytes(b->port) ) {
       b->rx_pending = false;
       host_command(b, "read");
    }
@@ -241,11 +241,12 @@ static void host_sync(serial_binding_t *b) {
       n = RR_SERIAL_BLOCK_MAX;
    }
    uint8_t *packet = NULL;
-   int len = rr_binframe_frame(&packet, RR_BINFRAME_SUBSYS_MODEM, RR_SERIAL_FRAME_CODEC, RR_BINFRAME_DIR_TX,
-      RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, b->stream, ++b->tx_seq, 0, b->host_pending->data, n);
+   int len = rr_binframe_frame(&packet, RR_BINFRAME_SUBSYS_MODEM, RR_SERIAL_FRAME_CODEC, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, b->stream,
+      ++b->tx_seq, 0, b->host_pending->data, n);
 
    if (len < 0) {
       b->tx_seq--;
+
       return;
    }
    struct mg_str data = {
@@ -270,7 +271,7 @@ static void host_connection(const char *event, const char *data, rrconn_t *clien
    host_authorized = !strcmp(event, "authorized");
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      if ( host_binding(b) ) {
+      if (host_binding(b) ) {
          b->stream = 0;
          b->opening = b->tx_pending = b->rx_pending = b->failed = false;
          b->tx_seq = b->rx_seq = 0;
@@ -293,25 +294,24 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
       return;
    }
 
-   if ( !strcmp(dict_get(d, "serial.cmd", ""), "available") ) {
-      ui_print( NULL, "Server serial %s: %u baud %s; /sercom attach <local-name> host:%s",
-         dict_get(d, "serial.port", ""), dict_get_uint(d, "serial.baud", 0), dict_get(d, "serial.mode", ""),
-         dict_get(d, "serial.port", "") );
+   if (!strcmp(dict_get(d, "serial.cmd", ""), "available") ) {
+      ui_print(NULL, "Server serial %s: %u baud %s; /sercom attach <local-name> host:%s", dict_get(d, "serial.port", ""), dict_get_uint(d, "serial.baud", 0),
+         dict_get(d, "serial.mode", ""), dict_get(d, "serial.port", "") );
       goto done;
    }
 
-   if ( !strcmp(dict_get(d, "serial.cmd", ""), "list-end") ) {
+   if (!strcmp(dict_get(d, "serial.cmd", ""), "list-end") ) {
       ui_print(NULL, "End of permitted server serial exports");
       goto done;
    }
-   serial_binding_t *b = binding( dict_get(d, "serial.name", NULL) );
+   serial_binding_t *b = binding(dict_get(d, "serial.name", NULL) );
 
-   if ( !b || !host_binding(b) ) {
+   if (!b || !host_binding(b) ) {
       goto done;
    }
    const char *cmd = dict_get(d, "serial.cmd", "");
 
-   if ( !strcmp(cmd, "opened") ) {
+   if (!strcmp(cmd, "opened") ) {
       unsigned stream = dict_get_uint(d, "serial.stream", 0);
 
       if (b->opening && stream && stream < 256) {
@@ -321,15 +321,15 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          actual.baud = dict_get_uint(d, "serial.baud", actual.baud);
          const char *mode = dict_get(d, "serial.mode", "8n1");
 
-         if ( rr_serial_mode_parse(mode, &actual) ) {
+         if (rr_serial_mode_parse(mode, &actual) ) {
             if (b->settings_override) {
-               if ( line_changed(&actual, &b->requested) ) {
+               if (line_changed(&actual, &b->requested) ) {
                   host_command(b, "configure");
                }
             } else {
                b->requested = actual;
 
-               if ( !rr_serial_set_settings(b->port, &actual) ) {
+               if (!rr_serial_set_settings(b->port, &actual) ) {
                   actual.bits = 8;
                   actual.parity = 'n';
                   actual.stops = 1;
@@ -340,7 +340,7 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          }
          host_sync(b);
       }
-   } else if ( !strcmp(cmd, "written") ) {
+   } else if (!strcmp(cmd, "written") ) {
       if (dict_get_uint(d, "serial.stream", 0) != b->stream) {
          goto done;
       }
@@ -349,15 +349,15 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          b->tx_pending = false;
          host_sync(b);
       }
-   } else if ( !strcmp(cmd, "error") || !strcmp(cmd, "closed") ) {
+   } else if (!strcmp(cmd, "error") || !strcmp(cmd, "closed") ) {
       unsigned stream = dict_get_uint(d, "serial.stream", 0);
 
       if (stream && stream != b->stream) {
          goto done;
       }
-      Log( LOG_WARN, "serial", "%s: %s", b->name, dict_get(d, "serial.error", cmd) );
+      Log(LOG_WARN, "serial", "%s: %s", b->name, dict_get(d, "serial.error", cmd) );
 
-      if ( strcmp(dict_get(d, "serial.error", ""), "settings-failed") ) {
+      if (strcmp(dict_get(d, "serial.error", ""), "settings-failed") ) {
          b->failed = true;
          b->stream = 0;
          b->opening = false;
@@ -368,28 +368,30 @@ done:
    dict_free(d);
 }
 static void host_frame(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
-   if ( !host_authorized || (client && client != ws_conn) ) {
+   if (!host_authorized || (client && client != ws_conn) ) {
       return;
    }
    struct rr_binframe f;
 
    if (rr_binframe_parse(data, len, &f) || !rr_serial_frame_valid(&f) ||
-       f.hdr.direction != RR_BINFRAME_DIR_RX || len != RR_BINFRAME_HDR_LEN + f.len) {
+      f.hdr.direction != RR_BINFRAME_DIR_RX || len != RR_BINFRAME_HDR_LEN + f.len) {
       return;
    }
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
       if (host_binding(b) && b->stream == f.hdr.stream) {
-         if ( b->rx_pending || f.hdr.seq != b->rx_seq + 1 || !rr_serial_write(b->port, (const char *)f.data, f.len) ) {
+         if (b->rx_pending || f.hdr.seq != b->rx_seq + 1 || !rr_serial_write(b->port, (const char *)f.data, f.len) ) {
             Log(LOG_WARN, "serial", "%s: invalid serial stream sequence or blocked output", b->name);
             host_command(b, "close");
             b->failed = true;
             b->stream = 0;
             rr_serial_read_enabled(b->port, false);
+
             return;
          }
          b->rx_seq = f.hdr.seq;
          b->rx_pending = true;
+
          return;
       }
    }
@@ -405,6 +407,7 @@ static bool gps_scope(const serial_binding_t *b, char *scope, size_t capacity) {
 
    if (!dot) {
       snprintf(scope, capacity, "active");
+
       return true;
    }
    size_t len = dot - b->service;
@@ -415,7 +418,7 @@ static bool gps_scope(const serial_binding_t *b, char *scope, size_t capacity) {
    memcpy(scope, b->service, len);
    scope[len] = '\0';
 
-   if ( !strcmp(scope, "rig") ) {
+   if (!strcmp(scope, "rig") ) {
       snprintf(scope, capacity, "active");
    }
 
@@ -425,12 +428,12 @@ static void gps_outputs_changed(void) {
    char scopes[1024] = "";
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      if ( !strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out") ) {
+      if (!strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out") ) {
          char scope[64];
-         gps_scope( b, scope, sizeof(scope) );
+         gps_scope(b, scope, sizeof(scope) );
 
-         if ( strlen(scopes) + strlen(scope) + 7 < sizeof(scopes) ) {
-            if ( !strcmp(gps_service(b), "nmea-out") ) {
+         if (strlen(scopes) + strlen(scope) + 7 < sizeof(scopes) ) {
+            if (!strcmp(gps_service(b), "nmea-out") ) {
                strcat(scopes, "nmea:");
             }
             strcat(scopes, scope);
@@ -447,19 +450,19 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
    const char *source = d ? dict_get(d, "gps.source", "station") : "active";
    bool selected = d && dict_get_bool(d, "gps.selected", false);
 
-   if ( rr_nmea_valid(sentence) ) {
+   if (rr_nmea_valid(sentence) ) {
       char frame[516];
       int len = snprintf(frame, sizeof(frame), "%s\r\n", sentence);
 
       for (serial_binding_t *b = bindings ; b ; b = b->next) {
-         if ( !strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out") ) {
-            if ( d && dict_get_bool(d, "gps.raw", false) != !strcmp(gps_service(b), "nmea-out") ) {
+         if (!strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out") ) {
+            if (d && dict_get_bool(d, "gps.raw", false) != !strcmp(gps_service(b), "nmea-out") ) {
                continue;
             }
             char scope[64];
-            gps_scope( b, scope, sizeof(scope) );
+            gps_scope(b, scope, sizeof(scope) );
 
-            if ( !strcmp(scope, source) || (!strcmp(scope, "active") && selected) ) {
+            if (!strcmp(scope, source) || (!strcmp(scope, "active") && selected) ) {
                rr_serial_write(b->port, frame, len);
             }
          }
@@ -474,7 +477,7 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
    serial_binding_t *b = user;
    (void)port;
 
-   if ( host_binding(b) ) {
+   if (host_binding(b) ) {
       if (b->failed) {
          return;
       }
@@ -484,11 +487,12 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
          rr_serial_read_enabled(b->port, false);
       }
       host_sync(b);
+
       return;
    }
    bool cat = b->radio[0] != '\0';
 
-   if ( !cat && strcmp(gps_service(b), "gps-in") ) {
+   if (!cat && strcmp(gps_service(b), "gps-in") ) {
       return;
    }
 
@@ -505,17 +509,17 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
                cat_context = b;
                rr_cat_parse_line(b->buffer);
                cat_context = previous;
-            } else if ( rr_nmea_valid(b->buffer) ) {
+            } else if (rr_nmea_valid(b->buffer) ) {
                // Synchronous event payload; GPS consumers subscribe with event_on().
-               if ( strchr(b->service, '.') ) {
+               if (strchr(b->service, '.') ) {
                   dict *d = dict_new();
 
                   if (d) {
                      char scope[64];
-                     gps_scope( b, scope, sizeof(scope) );
+                     gps_scope(b, scope, sizeof(scope) );
                      dict_add(d, "gps.source", scope);
                      dict_add(d, "gps.nmea", b->buffer);
-                     dict_add_bool( d, "gps.selected", !strcmp(scope, "active") );
+                     dict_add_bool(d, "gps.selected", !strcmp(scope, "active") );
                      event_emit_dict("serial.gps.input", NULL, d);
                      event_emit_dict("serial.gps.output", NULL, d);
                      dict_free(d);
@@ -528,11 +532,11 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
          }
          b->used = 0;
          b->dropping = false;
-      } else if ( !cat && ( (unsigned char)ch < 32 || (unsigned char)ch > 126 ) ) {
+      } else if (!cat && ( (unsigned char)ch < 32 || (unsigned char)ch > 126) ) {
          b->used = 0;
          b->dropping = true;
       } else if (ch != '\r' && ch != '\n' && !b->dropping) {
-         if ( b->used + 1 >= sizeof(b->buffer) ) {
+         if (b->used + 1 >= sizeof(b->buffer) ) {
             b->used = 0;
             b->dropping = true;
          } else {
@@ -548,7 +552,7 @@ static bool name_valid(const char *name) {
    }
 
    for (const char *p = name ; *p ; p++) {
-      if (!isalnum( (unsigned char)*p ) && *p != '_' && *p != '-') {
+      if (!isalnum( (unsigned char)*p) && *p != '_' && *p != '-') {
          return false;
       }
    }
@@ -558,18 +562,18 @@ static bool name_valid(const char *name) {
 static bool service_radio(const char *service, char *radio, size_t len) {
    size_t n = service ? strlen(service) : 0;
 
-   if ( n <= 4 || n >= len + 4 || strcmp(service + n - 4, ".cat") ) {
+   if (n <= 4 || n >= len + 4 || strcmp(service + n - 4, ".cat") ) {
       return false;
    }
    memcpy(radio, service, n - 4);
    radio[n - 4] = '\0';
 
-   if ( strncmp(radio, "rig", 3) || !isdigit( (unsigned char)radio[3] ) ) {
+   if (strncmp(radio, "rig", 3) || !isdigit( (unsigned char)radio[3]) ) {
       return false;
    }
 
    for (const char *p = radio + 3 ; *p ; p++) {
-      if ( !isdigit( (unsigned char)*p ) ) {
+      if (!isdigit( (unsigned char)*p) ) {
          return false;
       }
    }
@@ -577,10 +581,10 @@ static bool service_radio(const char *service, char *radio, size_t len) {
    return true;
 }
 bool rr_sercom_attach(const char *name, const char *service, const char *device) {
-   if ( !name_valid(name) || !service || strlen(service) >= 96 || binding(name) ) {
+   if (!name_valid(name) || !service || strlen(service) >= 96 || binding(name) ) {
       return false;
    }
-   serial_binding_t *b = calloc( 1, sizeof(*b) );
+   serial_binding_t *b = calloc(1, sizeof(*b) );
 
    if (!b) {
       return false;
@@ -588,7 +592,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    snprintf(b->name, sizeof(b->name), "%s", name);
    char key[128];
    snprintf(key, sizeof(key), "serial:%s.baud", name);
-   int baud = cfg_get_int(key, ( strstr(service, "gps-") || strstr(service, "nmea-") ) ? 4800 : 9600);
+   int baud = cfg_get_int(key, (strstr(service, "gps-") || strstr(service, "nmea-") ) ? 4800 : 9600);
    b->settings_override = strchr(service, '@') || cfg_get(key);
    b->requested = (rr_serial_settings_t) {
       .baud = baud, .bits = 8, .parity = 'n', .stops = 1
@@ -600,19 +604,19 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       b->settings_override = true;
    }
 
-   if ( ( mode && !rr_serial_mode_parse(mode, &b->requested) ) ||
-        !rr_serial_spec_parse(service, b->service, sizeof(b->service), &b->requested) ) {
+   if ( (mode && !rr_serial_mode_parse(mode, &b->requested) ) ||
+      !rr_serial_spec_parse(service, b->service, sizeof(b->service), &b->requested) ) {
       goto failed;
    }
    baud = b->requested.baud;
 
-   if ( !service_radio( b->service, b->radio, sizeof(b->radio) ) && strcmp(gps_service(b), "gps-in") &&
-        strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) ) {
+   if (!service_radio(b->service, b->radio, sizeof(b->radio) ) && strcmp(gps_service(b), "gps-in") &&
+      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) ) {
       goto failed;
    }
 
-   if ( !strncmp(b->service, "host:", 5) ) {
-      if ( !name_valid(b->service + 5) ) {
+   if (!strncmp(b->service, "host:", 5) ) {
+      if (!name_valid(b->service + 5) ) {
          goto failed;
       }
       snprintf(b->host_port, sizeof(b->host_port), "%s", b->service + 5);
@@ -622,21 +626,21 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    const char *vfo = cfg_get(key);
    b->vfo = vfo && *vfo ? vfo[0] : 'A';
 
-   if ( b->vfo < 'A' || b->vfo > 'Z' || (vfo && vfo[0] && vfo[1]) ) {
+   if (b->vfo < 'A' || b->vfo > 'Z' || (vfo && vfo[0] && vfo[1]) ) {
       goto failed;
    }
    snprintf(key, sizeof(key), "serial:%s.type", name);
    const char *type = cfg_get(key);
    bool pty = device ? false : !type || !strcmp(type, "pty");
 
-   if ( type && strcmp(type, "pty") && strcmp(type, "serial") ) {
+   if (type && strcmp(type, "pty") && strcmp(type, "serial") ) {
       goto failed;
    }
    snprintf(key, sizeof(key), "serial:%s.path", name);
    const char *configured = device ? device : cfg_get(key);
 
    // Honor existing single-PTY configurations without making routing implicit.
-   if ( !configured && !strcmp(name, "ttyCAT0") ) {
+   if (!configured && !strcmp(name, "ttyCAT0") ) {
       configured = cfg_get("cat.pty.path");
    }
 
@@ -645,7 +649,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    } else {
       char *expanded = expand_path(configured);
 
-      if ( !expanded || strlen(expanded) >= sizeof(path) ) {
+      if (!expanded || strlen(expanded) >= sizeof(path) ) {
          free(expanded);
          goto failed;
       }
@@ -674,7 +678,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       goto failed;
    }
 
-   if ( host_binding(b) ) {
+   if (host_binding(b) ) {
       if (!pty || device) {
          goto failed;
       }
@@ -700,17 +704,18 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
 
    return true;
 failed:
-   Log( LOG_WARN, "serial", "Cannot attach %s to %s: %s", name, service, strerror(errno) );
+   Log(LOG_WARN, "serial", "Cannot attach %s to %s: %s", name, service, strerror(errno) );
 
    if (b->host_pending) {
       g_byte_array_unref(b->host_pending);
    }
    free(b);
+
    return false;
 }
 bool rr_sercom_disconnect(const char *name) {
    serial_binding_t **link = &bindings;
-   while ( *link && strcmp( (*link)->name, name ) ) {
+   while (*link && strcmp( (*link)->name, name) ) {
       link = &(*link)->next;
    }
 
@@ -720,7 +725,7 @@ bool rr_sercom_disconnect(const char *name) {
    serial_binding_t *b = *link;
    *link = b->next;
 
-   if ( host_binding(b) ) {
+   if (host_binding(b) ) {
       host_command(b, "close");
    }
    rr_serial_close(b->port);
@@ -730,6 +735,7 @@ bool rr_sercom_disconnect(const char *name) {
    }
    free(b);
    gps_outputs_changed();
+
    return true;
 }
 void rr_sercom_shutdown(void) {
@@ -794,36 +800,36 @@ bool rr_sercom_init(void) {
    const char *key;
    char *value;
    int rank = 0;
-   while (cfg && ( rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
-      if ( !key || strncmp(key, "serial.", 7) ) {
+   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
+      if (!key || strncmp(key, "serial.", 7) ) {
          continue;
       }
       const char *name = key + 7;
 
-      if ( !strcmp(name, "ttyCAT0") ) {
+      if (!strcmp(name, "ttyCAT0") ) {
          have_default = true;
       }
 
-      if ( !strcmp(name, "ttyCAT0") && !cfg_get_bool("cat.pty.enable", true) ) {
+      if (!strcmp(name, "ttyCAT0") && !cfg_get_bool("cat.pty.enable", true) ) {
          continue;
       }
       const char *service = cfg_get(key);
 
-      if ( service && *service && strcmp(service, "none") && !binding(name) ) {
-         if ( !rr_sercom_attach(name, service, NULL) ) {
+      if (service && *service && strcmp(service, "none") && !binding(name) ) {
+         if (!rr_sercom_attach(name, service, NULL) ) {
             ok = false;
          }
       }
    }
 
-   if ( !have_default && !binding("ttyCAT0") && cfg_get_bool("cat.pty.enable", true) ) {
+   if (!have_default && !binding("ttyCAT0") && cfg_get_bool("cat.pty.enable", true) ) {
       const char *service = cfg_get("serial.ttyCAT0");
 
       if (!service) {
          service = "rig0.cat";
       }
 
-      if ( *service && strcmp(service, "none") && !rr_sercom_attach("ttyCAT0", service, NULL) ) {
+      if (*service && strcmp(service, "none") && !rr_sercom_attach("ttyCAT0", service, NULL) ) {
          ok = false;
       }
    }
@@ -831,7 +837,7 @@ bool rr_sercom_init(void) {
    return ok;
 }
 static void list_port(rr_serial_t *port, void *user) {
-   const char *service = rr_sercom_binding( rr_serial_name(port) );
+   const char *service = rr_sercom_binding(rr_serial_name(port) );
    ui_print(NULL, "%s: %s -> %s", rr_serial_name(port), rr_serial_path(port), service ? service : "unbound");
 }
 bool cmd_sercom(int argc, char **args) {
@@ -841,13 +847,17 @@ bool cmd_sercom(int argc, char **args) {
    if (list || remote) {
       if (list) {
          ui_print(NULL, "Local serial attachments:");
+
          if (!bindings) {
             ui_print(NULL, "No serial endpoints attached");
          }
          rr_serial_foreach(list_port, NULL);
       }
+
       if (!ws_conn) {
-         ui_print(NULL, "Not connected; server serial ports unavailable"); return remote;
+         ui_print(NULL, "Not connected; server serial ports unavailable");
+
+         return remote;
       }
       dict *d = dict_new();
 
@@ -859,6 +869,7 @@ bool cmd_sercom(int argc, char **args) {
       dict_add(d, "serial.cmd", "list");
       bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
+
       return !sent;
    }
 
@@ -869,13 +880,15 @@ bool cmd_sercom(int argc, char **args) {
       return !ok;
    }
 
-   if ( argc == 3 && !strcasecmp(args[1], "disconnect") ) {
+   if (argc == 3 && !strcasecmp(args[1], "disconnect") ) {
       bool ok = rr_sercom_disconnect(args[2]);
       ui_print(NULL, "%s: %s", args[2], ok ? "disconnected" : "not attached");
+
       return !ok;
    }
-   ui_print(NULL,
-      "Usage: /sercom [list | remote | attach <name> <rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|rig.nmea-out|rigN.nmea-out|station.nmea-out|host:port[@baud,mode]> [device] | disconnect <name>]");
+   ui_print(NULL, "Usage: /sercom [list | remote | attach <name> "
+      "<rigN.cat|rig.gps-out|rigN.gps-in/out|station.gps-in/out|rig.nmea-out|rigN.nmea-out|station.nmea-out|host:port[@baud,mode]> [device] | disconnect "
+      "<name>]");
 
    return true;
 }

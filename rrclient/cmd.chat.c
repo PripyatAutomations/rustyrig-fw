@@ -37,8 +37,8 @@ extern time_t now;
 extern rrconn_t *ws_conn;
 
 /* PARITY: rustyrig-www/js/webui.chat.js room command forwarding.
- * /room is deliberately sent to the server.  Room administration belongs to the server
- * database and the server decides whether this user may perform the requested operation.
+ * /room is deliberately sent to the server.  Room administration belongs to the server database and the server decides whether this user may perform the
+ * requested operation.
  */
 bool cmd_room(int argc, char **args) {
    if (!ws_conn) {
@@ -48,9 +48,9 @@ bool cmd_room(int argc, char **args) {
 
    for (int i = 1 ; i < argc ; i++) {
       if (i > 1) {
-         strlcat( data, " ", sizeof(data) );
+         strlcat(data, " ", sizeof(data) );
       }
-      strlcat( data, args[i], sizeof(data) );
+      strlcat(data, args[i], sizeof(data) );
    }
 
    dict *d = dict_new();
@@ -92,7 +92,7 @@ bool cmd_query(int argc, char **args) {
          window->cptr = ws_conn;
          tui_window_focus(window->title);
       }
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       frontend_ops()->chat_query_add(args[1]);
    }
 
@@ -133,7 +133,7 @@ bool cmd_me(int argc, char **args) {
    dict_add(d, "talk.data", buf);
    dict_add(d, "talk.msg_type", "action");
 
-   if ( frontend_ops() ) {
+   if (frontend_ops() ) {
       const char *room = frontend_ops()->chat_current_room();
 
       if (room && room[0]) {
@@ -146,15 +146,14 @@ bool cmd_me(int argc, char **args) {
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
          dict_add(d, "talk.target", window->title);
-      } else if ( cfg_get_bool("tui.status-chat", false) ) {
+      } else if (cfg_get_bool("tui.status-chat", false) ) {
          const char *room = ws_authoritative_room();
 
          if (room && *room) {
             dict_add(d, "talk.target", room);
          }
       } else {
-         ui_print(ui_active_window_name(),
-            "\00308Select a room tab before sending an action (status is for client logs and commands)\017");
+         ui_print(ui_active_window_name(), "\00308Select a room tab before sending an action (status is for client logs and commands)\017");
          dict_free(d);
 
          return false;
@@ -176,7 +175,7 @@ bool cmd_msg(int argc, char **args) {
 
    char *target = args[1];
    char fullmsg[502];
-   memset( fullmsg, 0, sizeof(fullmsg) );
+   memset(fullmsg, 0, sizeof(fullmsg) );
    size_t pos = 0;
 
    for (int i = 2 ; i < argc ; i++) {
@@ -198,7 +197,7 @@ bool cmd_msg(int argc, char **args) {
       if (window) {
          window->cptr = ws_conn;
       }
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       frontend_ops()->chat_query_add(target);
    }
 
@@ -225,7 +224,7 @@ bool cmd_notice(int argc, char **args) {
 
    char *notice_target = args[1];
    char notice_msg[502];
-   memset( notice_msg, 0, sizeof(notice_msg) );
+   memset(notice_msg, 0, sizeof(notice_msg) );
    size_t pos = 0;
 
    for (int i = 2 ; i < argc ; i++) {
@@ -261,8 +260,7 @@ bool cmd_notice(int argc, char **args) {
          ui_print(ui_active_window_name(), "-> *%s* %s", notice_target, notice_msg);
       }
    }
-   ui_print(ui_active_window_name(), "TEST: \00308=> *%s*\017 \00311%s\017: %s", notice_target,
-      notice_msg);
+   ui_print(ui_active_window_name(), "TEST: \00308=> *%s*\017 \00311%s\017: %s", notice_target, notice_msg);
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
@@ -289,17 +287,17 @@ bool cmd_part(int argc, char **args) {
          tui_window_t *window = tui_active_window();
 
          if (window && window->title[0] &&
-             strcasecmp(window->title, "status") != 0) {
+            strcasecmp(window->title, "status") != 0) {
             target = window->title;
          }
-      } else if ( frontend_ops() ) {
+      } else if (frontend_ops() ) {
          target = frontend_ops()->chat_current_room();
       }
    }
 
    /* Query tabs are local conversations rather than joined server rooms. */
    if (argc < 2 && target && *target && target[0] != '#' && target[0] != '&') {
-      if ( frontend_ops() ) {
+      if (frontend_ops() ) {
          frontend_ops()->chat_room_remove(target);
       }
 
@@ -315,7 +313,7 @@ bool cmd_part(int argc, char **args) {
       return false;
    }
 
-   if ( !target || !*target || (target[0] != '#' && target[0] != '&') ) {
+   if (!target || !*target || (target[0] != '#' && target[0] != '&') ) {
       ui_print(ui_active_window_name(), "\00308Usage: /part #room (select a room tab or provide the room)\017");
 
       return false;
@@ -344,7 +342,7 @@ bool cmd_names(int argc, char **args) {
    int count = 0;
 
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
-      if (c->room[0] && strcasecmp( c->room, rrclient_current_room() ) != 0) {
+      if (c->room[0] && strcasecmp(c->room, rrclient_current_room() ) != 0) {
          continue;
       }
       count++;
@@ -355,13 +353,13 @@ bool cmd_names(int argc, char **args) {
       char suffix[16] = "";
 
       if (strcasestr(c->privs, "owner") || strcasestr(c->privs, "admin") ) {
-         strlcpy( prefix, "@", sizeof(prefix) );
+         strlcpy(prefix, "@", sizeof(prefix) );
       } else if (strcasestr(c->privs, "noob") ) {
-         strlcpy( prefix, "+", sizeof(prefix) );
+         strlcpy(prefix, "+", sizeof(prefix) );
       }
 
       if (c->is_ptt) {
-         strlcpy( suffix, " 🎤", sizeof(suffix) );
+         strlcpy(suffix, " 🎤", sizeof(suffix) );
       }
 
       ui_print(ui_active_window_name(), "  \00300%s%s%s\017", prefix, c->name, suffix);
@@ -381,11 +379,11 @@ bool cmd_topic(int argc, char **args) {
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
          room = window->title;
       }
-   } else if ( frontend_ops() ) {
+   } else if (frontend_ops() ) {
       room = frontend_ops()->chat_current_room();
    }
 
-   if ( !room || (room[0] != '#' && room[0] != '&') ) {
+   if (!room || (room[0] != '#' && room[0] != '&') ) {
       ui_print(ui_active_window_name(), "\00308Select a room tab before using /topic\017");
 
       return false;
@@ -400,9 +398,9 @@ bool cmd_topic(int argc, char **args) {
 
       for (int i = 1 ; i < argc ; i++) {
          if (i > 1) {
-            strlcat( topic, " ", sizeof(topic) );
+            strlcat(topic, " ", sizeof(topic) );
          }
-         strlcat( topic, args[i], sizeof(topic) );
+         strlcat(topic, args[i], sizeof(topic) );
       }
 
       dict_add(d, "talk.data", topic);

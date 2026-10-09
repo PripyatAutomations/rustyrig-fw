@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #ifndef __rrserver_network_h
-#define	__rrserver_network_h
+#define __rrserver_network_h
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

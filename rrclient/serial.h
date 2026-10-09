@@ -6,15 +6,14 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Generic native-client serial transport; services own framing and semantics.
 #ifndef RRCLIENT_SERIAL_H
-#define	RRCLIENT_SERIAL_H
+#define RRCLIENT_SERIAL_H
 #include <stdbool.h>
 #include <stddef.h>
 #include <librustyaxe/io.serial.h>
 typedef struct rr_serial rr_serial_t;
 typedef void (*rr_serial_receive_fn)(rr_serial_t *, const char *, size_t, void *);
 typedef void (*rr_serial_visit_fn)(rr_serial_t *, void *);
-rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsigned baud, rr_serial_receive_fn receive,
-                            void *user);
+rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsigned baud, rr_serial_receive_fn receive, void *user);
 void rr_serial_close(rr_serial_t *port);
 void rr_serial_shutdown(void);
 rr_serial_t *rr_serial_find(const char *name);

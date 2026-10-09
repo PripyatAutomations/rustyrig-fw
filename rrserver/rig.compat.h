@@ -6,7 +6,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if !defined(__rrserver_rig_compat_h)
-#define	__rrserver_rig_compat_h
+#define __rrserver_rig_compat_h
 
 #include <stdbool.h>
 #include <librrprotocol/rrprotocol.h>

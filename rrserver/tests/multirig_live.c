@@ -29,7 +29,8 @@ void shutdown_rig(uint32_t signal) {
 }
 
 void ws_broadcast_dict(rrconn_t *sender, dict *message, int type) {
-   (void)sender; (void)type;
+   (void)sender;
+   (void)type;
    assert(!strcmp(dict_get(message, "msg.type", ""), "cat"));
    assert(dict_get_long(message, "cat.state.freq", 0) == internal_frequency);
    broadcasts++;
@@ -37,26 +38,37 @@ void ws_broadcast_dict(rrconn_t *sender, dict *message, int type) {
 
 #ifndef RR_TEST_OBJECT_PROTOCOL
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
-   (void)sender; (void)dest; (void)message; (void)type;
+   (void)sender;
+   (void)dest;
+   (void)message;
+   (void)type;
+
    return false;
 }
 #endif
 
-static bool ignore_section(const char *path, int line,
-   const char *section, const char *buf) {
-   (void)path; (void)line; (void)section; (void)buf;
+static bool ignore_section(const char *path, int line, const char *section, const char *buf) {
+   (void)path;
+   (void)line;
+   (void)section;
+   (void)buf;
+
    return false;
 }
 
-static void property_event(const char *event, const char *data,
-   rrconn_t *client, void *user) {
-   (void)event; (void)data; (void)client; (void)user;
+static void property_event(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)data;
+   (void)client;
+   (void)user;
 }
 
-static rr_property_snapshot_t snapshot(rr_server_vfo_t *vfo,
-   const char *property) {
-   rr_property_snapshot_t value = { 0 };
+static rr_property_snapshot_t snapshot(rr_server_vfo_t *vfo, const char *property) {
+   rr_property_snapshot_t value = {
+      0
+   };
    assert(rr_vfo_property_read(vfo, property, &value));
+
    return value;
 }
 
@@ -70,21 +82,19 @@ static bool dump_vfo(rr_server_vfo_t *vfo, void *user) {
    assert(g_uuid_string_is_valid(rr_server_vfo_id(vfo)));
    rr_property_snapshot_t freq = snapshot(vfo, RR_PROP_VFO_FREQUENCY);
    rr_property_snapshot_t mode = snapshot(vfo, RR_PROP_VFO_MODE);
-   printf("VFO %s %s %s frequency=%ld known=%d available=%d mode=%s mode-available=%d\n",
-      alias, rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo),
-      freq.known ? freq.value.l : 0, freq.known, freq.available,
-      mode.known ? mode.value.s : "unknown", mode.available);
+   printf("VFO %s %s %s frequency=%ld known=%d available=%d mode=%s mode-available=%d\n", alias, rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo), freq.known ?
+      freq.value.l : 0, freq.known, freq.available, mode.known ? mode.value.s : "unknown", mode.available);
+
    return false;
 }
 
 static bool dump_rig(rr_server_rig_t *radio, void *user) {
    (void)user;
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
-   printf("RIG %s %s %s default=%d\n", alias, rr_server_rig_id(radio),
-      rr_server_rig_backend(radio)->type->name,
-      radio == rr_rig_registry_default(rig.rigs));
+   printf("RIG %s %s %s default=%d\n", alias, rr_server_rig_id(radio), rr_server_rig_backend(radio)->type->name, radio == rr_rig_registry_default(rig.rigs));
    assert(g_uuid_string_is_valid(rr_server_rig_id(radio)));
    assert(rr_server_vfo_count(radio) == 2);
+
    return rr_server_vfo_foreach(radio, dump_vfo, (void *)alias);
 }
 
@@ -118,11 +128,8 @@ int main(int argc, char **argv) {
    assert(rr_server_rig_backend(r0)->type == &rr_backend_internal);
    rr_backend_t *hamlib = rr_server_rig_backend(r1);
    assert(hamlib->type == &rr_backend_hamlib);
-   printf("CONFIG rig1 model=%d device=%s baud=%d reconnect=%d\n",
-      rr_backend_config_get_int(hamlib, "hamlib.model", 2),
-      rr_backend_config_get(hamlib, "hamlib.device"),
-      rr_backend_config_get_int(hamlib, "hamlib.baud", 38400),
-      rr_backend_config_get_int(hamlib, "reconnect-interval", 30));
+   printf("CONFIG rig1 model=%d device=%s baud=%d reconnect=%d\n", rr_backend_config_get_int(hamlib, "hamlib.model", 2), rr_backend_config_get(hamlib,
+      "hamlib.device"), rr_backend_config_get_int(hamlib, "hamlib.baud", 38400), rr_backend_config_get_int(hamlib, "reconnect-interval", 30));
    rr_server_vfo_t *a0 = rr_server_vfo_find_alias(r0, "A");
    rr_server_vfo_t *a1 = rr_server_vfo_find_alias(r1, "A");
    assert(a0 && a1 && strcmp(rr_server_vfo_id(a0), rr_server_vfo_id(a1)));
@@ -135,7 +142,9 @@ int main(int argc, char **argv) {
 
    char command[32];
    while (fgets(command, sizeof(command), stdin)) {
-      if (!strncmp(command, "quit", 4)) break;
+      if (!strncmp(command, "quit", 4)) {
+         break;
+      }
       bool offline = !strncmp(command, "offline", 7);
       bool observe = !strncmp(command, "observe", 7);
       // Advance the existing project clock to exercise scheduled retries.
@@ -152,17 +161,22 @@ int main(int argc, char **argv) {
       assert(vfos[VFO_A].freq == internal_frequency);
       assert(vfos[VFO_B].freq == internal_frequency);
       assert(broadcasts > 0);
+
       if (!offline && !observe) {
          assert(f1.known && f1.available && f1.value.l > 0);
          assert(m1.known && m1.available && *m1.value.s);
       }
-      for (const char *alias = "AB"; *alias; alias++) {
-         char name[2] = { *alias, 0 };
+
+      for (const char *alias = "AB" ; *alias ; alias++) {
+         char name[2] = {
+            *alias, 0
+         };
          rr_server_vfo_t *vfo = rr_server_vfo_find_alias(r1, name);
          assert(vfo && rr_server_vfo_owner(vfo) == r1);
          rr_property_snapshot_t freq = snapshot(vfo, RR_PROP_VFO_FREQUENCY);
          rr_property_snapshot_t mode = snapshot(vfo, RR_PROP_VFO_MODE);
          rr_property_snapshot_t width = snapshot(vfo, RR_PROP_VFO_WIDTH);
+
          if (offline) {
             assert(!freq.available && !mode.available && !width.available);
          } else if (!observe) {
@@ -171,6 +185,7 @@ int main(int argc, char **argv) {
             assert(!strcmp(mode.value.s, "FM"));
          }
       }
+
       unsigned before = broadcasts;
       rr_vfo_data_t legacy = vfos[VFO_A];
       rr_backend_poll_rig(r1, a1);
@@ -179,6 +194,7 @@ int main(int argc, char **argv) {
       assert(!rr_rig_registry_foreach(rig.rigs, dump_rig, NULL));
 #ifdef RR_TEST_OBJECT_PROTOCOL
       static bool validated;
+
       if (!validated && !offline) {
          object_validate(r0, r1, true);
          validated = true;
@@ -199,5 +215,6 @@ int main(int argc, char **argv) {
    sqlite3_close(masterdb);
    masterdb = NULL;
    cfg_fini();
+
    return 0;
 }

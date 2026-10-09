@@ -9,9 +9,12 @@
 extern defconfig_t defcfg[];
 time_t now;
 
-static bool ignore_section(const char *path, int line,
-   const char *section, const char *buf) {
-   (void)path; (void)line; (void)section; (void)buf;
+static bool ignore_section(const char *path, int line, const char *section, const char *buf) {
+   (void)path;
+   (void)line;
+   (void)section;
+   (void)buf;
+
    return false;
 }
 
@@ -56,5 +59,6 @@ int main(int argc, char **argv) {
    assert(rr_rig_config_default_vfo_mask() == 3);
    cfg_fini();
    puts("PASS: rig section parsing, shipped configuration, defaults, and isolation");
+
    return 0;
 }

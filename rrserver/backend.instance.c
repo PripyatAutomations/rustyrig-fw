@@ -14,7 +14,7 @@
 #include <rrserver/rig.properties.h>
 
 // XXX: Move this to $PROFILE.config.json
-#define	RR_BACKEND_TYPE_MAX 16
+#define RR_BACKEND_TYPE_MAX 16
 static const rr_backend_type_t *registered_types[RR_BACKEND_TYPE_MAX];
 
 bool rr_backend_type_register(const rr_backend_type_t *type) {
@@ -23,8 +23,8 @@ bool rr_backend_type_register(const rr_backend_type_t *type) {
    }
 
    for (int i = 0 ; i < RR_BACKEND_TYPE_MAX ; i++) {
-      if ( registered_types[i] &&
-           !strcasecmp(registered_types[i]->name, type->name) ) {
+      if (registered_types[i] &&
+         !strcasecmp(registered_types[i]->name, type->name) ) {
          return registered_types[i] != type;
       }
 
@@ -44,7 +44,7 @@ const rr_backend_type_t *rr_backend_type_find(const char *name) {
    }
 
    for (int i = 0 ; i < RR_BACKEND_TYPE_MAX && registered_types[i] ; i++) {
-      if ( !strcasecmp(registered_types[i]->name, name) ) {
+      if (!strcasecmp(registered_types[i]->name, name) ) {
          return registered_types[i];
       }
    }
@@ -56,25 +56,24 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
    rr_backend_t *backend = user;
 
    if (!request || !backend || request->rig != backend->owner ||
-       rr_server_rig_backend(request->rig) != backend || !backend->type ||
-       !backend->type->api || !request->vfo ||
-       rr_server_vfo_owner(request->vfo) != request->rig) {
+      rr_server_rig_backend(request->rig) != backend || !backend->type ||
+      !backend->type->api || !request->vfo ||
+      rr_server_vfo_owner(request->vfo) != request->rig) {
       return RR_CONTROL_INVALID;
    }
 
    if (strcmp(request->property, RR_PROP_VFO_FREQUENCY) == 0) {
       if (request->value_type != VAL_LONG || request->value.l < 0 ||
-          request->value.l > INT32_MAX || !backend->type->api->freq_set) {
+         request->value.l > INT32_MAX || !backend->type->api->freq_set) {
          return RR_CONTROL_INVALID;
       }
 
-      return backend->type->api->freq_set(backend, request->vfo,
-         (int)request->value.l) ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
+      return backend->type->api->freq_set(backend, request->vfo, (int)request->value.l) ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
    }
 
    if (strcmp(request->property, RR_PROP_VFO_MODE) == 0) {
       if (request->value_type != VAL_STR || !request->value.s ||
-          !backend->type->api->mode_set) {
+         !backend->type->api->mode_set) {
          return RR_CONTROL_INVALID;
       }
       rr_mode_t mode = vfo_parse_mode(request->value.s);
@@ -91,11 +90,11 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
 }
 
 rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, rr_server_rig_t *owner, const char *config_alias) {
-   if ( !type || !type->name || !type->api || !owner || !config_alias ||
-        !*config_alias || rr_server_rig_backend(owner) ) {
+   if (!type || !type->name || !type->api || !owner || !config_alias ||
+      !*config_alias || rr_server_rig_backend(owner) ) {
       return NULL;
    }
-   rr_backend_t *backend = calloc( 1, sizeof(*backend) );
+   rr_backend_t *backend = calloc(1, sizeof(*backend) );
 
    if (!backend) {
       return NULL;
@@ -113,7 +112,7 @@ rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, rr_server_r
    rr_server_rig_set_backend(owner, backend);
    rr_server_rig_set_control_handler(owner, rr_backend_property_control, backend);
 
-   if ( type->api->create && type->api->create(backend) ) {
+   if (type->api->create && type->api->create(backend) ) {
       rr_server_rig_set_control_handler(owner, NULL, NULL);
       rr_server_rig_set_backend(owner, NULL);
       free(backend->config_alias);

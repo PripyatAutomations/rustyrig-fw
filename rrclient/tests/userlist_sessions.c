@@ -8,10 +8,18 @@ bool dying;
 enum GuiMode ui_mode;
 time_t now;
 
-const rr_frontend_ops_t *frontend_ops(void) { return NULL; }
-const char *rrclient_current_room(void) { return "#site"; }
-const char *ws_authoritative_room(void) { return "#site"; }
-bool rrclient_room_is_joined(const char *room) { return true; }
+const rr_frontend_ops_t *frontend_ops(void) {
+   return NULL;
+}
+const char *rrclient_current_room(void) {
+   return "#site";
+}
+const char *ws_authoritative_room(void) {
+   return "#site";
+}
+bool rrclient_room_is_joined(const char *room) {
+   return true;
+}
 
 static dict *userinfo(const char *name, int sessions) {
    dict *d = dict_new();
@@ -19,6 +27,7 @@ static dict *userinfo(const char *name, int sessions) {
    dict_add(d, "talk.user", name);
    dict_add(d, "talk.room", "#site");
    dict_add_int(d, "talk.sessions", sessions);
+
    return d;
 }
 
@@ -38,5 +47,6 @@ int main(void) {
    assert(global_userlist == NULL);
 
    puts("PASS: per-session quit preserves names roster until the final session leaves");
+
    return 0;
 }

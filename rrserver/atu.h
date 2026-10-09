@@ -8,7 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef __rrserver_atu_h
-#define	__rrserver_atu_h
+#define __rrserver_atu_h
 #include <librustyaxe/config.h>
 
 // A tuning value
@@ -24,7 +24,7 @@ typedef struct rr_atu_tv rr_atu_tv;
 // Antenna Matching Unit current state
 struct ATUState {
    float power_fwd,                     // Measured forward power
-         power_rev;                      // Measured reflected power
+      power_rev;                         // Measured reflected power
    float thermal;                        // Reported temperature or -1000 if not
                                          // available
 //   rr_atu_tv *tv;        // Active tuning values

@@ -4,7 +4,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if !defined(__rrserver_rig_vfo_h)
-#define	__rrserver_rig_vfo_h
+#define __rrserver_rig_vfo_h
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -21,8 +21,7 @@ typedef enum rr_vfo_lifecycle {
 
 typedef bool (*rr_server_vfo_iter_fn)(rr_server_vfo_t *vfo, void *user);
 
-extern rr_server_vfo_t *rr_server_vfo_add(struct rr_server_rig *rig, const char *uuid, const char *alias,
-                                          const char *native_id, rr_vfo_lifecycle_t lifecycle);
+extern rr_server_vfo_t *rr_server_vfo_add(struct rr_server_rig *rig, const char *uuid, const char *alias, const char *native_id, rr_vfo_lifecycle_t lifecycle);
 /* Returns false on success, matching the existing registry convention. */
 extern bool rr_server_vfo_remove(struct rr_server_rig *rig, const char *uuid);
 extern rr_server_vfo_t *rr_server_vfo_find_uuid(const struct rr_server_rig *rig, const char *uuid);
@@ -36,8 +35,7 @@ extern const char *rr_server_vfo_native_id(const rr_server_vfo_t *vfo);
 extern rr_vfo_lifecycle_t rr_server_vfo_lifecycle(const rr_server_vfo_t *vfo);
 extern struct rr_server_rig *rr_server_vfo_owner(const rr_server_vfo_t *vfo);
 
-/* Traditional A-Z backends use this adapter. Native identity, not the display alias,
- * determines the native Hamlib/internal VFO selector. */
+/* Traditional A-Z backends use this adapter. Native identity, not the display alias, determines the native Hamlib/internal VFO selector. */
 extern bool rr_server_vfo_native_index(const rr_server_vfo_t *vfo, rr_vfo_t *index);
 
 #endif // !defined(__rrserver_rig_vfo_h)

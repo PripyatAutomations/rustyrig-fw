@@ -78,8 +78,7 @@ static const char *rec_mkpath(const char *recording_id, int channel) {
    const char *codec = "*";
    char tmpbuf[PATH_MAX + 1];
    memset(tmpbuf, 0, PATH_MAX + 1);
-   size_t tmp_len = snprintf(tmpbuf, sizeof(tmpbuf), "%s/%s.%s.%s", cfg_path_record_dir, recording_id,
-      (is_tx ? "tx" : "rx"), codec);
+   size_t tmp_len = snprintf(tmpbuf, sizeof(tmpbuf), "%s/%s.%s.%s", cfg_path_record_dir, recording_id, (is_tx ? "tx" : "rx"), codec);
 
    if (tmp_len > 0) {
       if (!(rv = strdup(tmpbuf) ) ) {
@@ -104,16 +103,14 @@ bool au_recording_config_refresh(const char *key) {
       new_max = 1;
    }
 
-   /* The active table cannot be resized while recordings may still refer to it. Apply a
-    * changed limit on the next process start instead of risking an out-of-bounds access
-    * during a live reload. */
+   /* The active table cannot be resized while recordings may still refer to it. Apply a changed limit on the next process start instead of risking an
+    * out-of-bounds access during a live reload. */
    if (active_recordings && new_max != cfg_recording_max) {
-      Log(LOG_WARN, "au.record", "record.max changed while recordings are active; keeping %d until restart",
-         cfg_recording_max);
+      Log(LOG_WARN, "au.record", "record.max changed while recordings are active; keeping %d until restart", cfg_recording_max);
    } else {
       cfg_recording_max = new_max;
    }
-   free( (char *)cfg_path_record_dir );
+   free( (char *)cfg_path_record_dir);
    cfg_path_record_dir = new_dir;
    f_recdir_unset = false;
 
@@ -127,7 +124,7 @@ const char *au_recording_start(int channel) {
    }
    char *recording_id = malloc(RECORDING_ID_BUFSIZE);
 
-   if ( !recording_id || !au_recording_generate_id(recording_id, RECORDING_ID_BUFSIZE) ) {
+   if (!recording_id || !au_recording_generate_id(recording_id, RECORDING_ID_BUFSIZE) ) {
       free(recording_id);
 
       return NULL;
@@ -139,7 +136,7 @@ const char *au_recording_start(int channel) {
 
       if (!active_recordings) {
          Log(LOG_CRIT, "au.record", "Unable to allocate recording table");
-         free( (char *)cfg_path_record_dir );
+         free( (char *)cfg_path_record_dir);
          cfg_path_record_dir = NULL;
          free(recording_id);
 
@@ -160,13 +157,13 @@ const char *au_recording_start(int channel) {
 
    if (!fp) {
       Log(LOG_CRIT, "au.record", "Failed to open file %s for recording of channel %d", rec_file, channel);
-      free( (char *)rec_file );
+      free( (char *)rec_file);
       free(recording_id);
 
       return NULL;
    }
-   free( (char *)rec_file );
-   struct RecordingData *rd = malloc( sizeof(struct RecordingData) );
+   free( (char *)rec_file);
+   struct RecordingData *rd = malloc(sizeof(struct RecordingData) );
 
    if (!rd) {
       fprintf(stderr, "OOM in au_recording_start?!\n");
@@ -175,7 +172,7 @@ const char *au_recording_start(int channel) {
 
       return NULL;
    }
-   memset( rd, 0, sizeof(struct RecordingData) );
+   memset(rd, 0, sizeof(struct RecordingData) );
    rd->fp = fp;
    rd->rec_id = recording_id;
 
@@ -210,7 +207,7 @@ recording_data_t *au_recording_find(const char *id) {
 
    for (int i = 0 ; i < cfg_recording_max ; i++) {
       if (active_recordings[i] && active_recordings[i]->rec_id &&
-          strcmp(active_recordings[i]->rec_id, id) == 0) {
+         strcmp(active_recordings[i]->rec_id, id) == 0) {
          return active_recordings[i];
       }
    }
@@ -241,7 +238,7 @@ bool au_recording_stop(const char *id) {
       }
    }
 
-   free( (char *)rp->rec_id );
+   free( (char *)rp->rec_id);
    free(rp);
 
    return false;

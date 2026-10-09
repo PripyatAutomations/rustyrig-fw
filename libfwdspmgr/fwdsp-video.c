@@ -35,15 +35,19 @@ int fwdsp_video_start(const char codec_id[5], bool is_tx) {
 
    if (fwdsp_init() ) {
       Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: mgr init failed");
+
       return -1;
    }
 
    struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, !is_tx);
+
    if (!sp) {
       // create + spawn, marking the instance as video before exec
       sp = fwdsp_find_or_create(codec_id, FW_IO_STDIO, is_tx);
+
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: failed to create %s", codec_id);
+
          return -1;
       }
 
@@ -51,12 +55,15 @@ int fwdsp_video_start(const char codec_id[5], bool is_tx) {
       // only spawn here when it has no pid yet.
       if (!sp->pid) {
          sp->is_video = true;
+
          if (!fwdsp_spawn(sp) ) {
             Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: spawn failed for %s", codec_id);
+
             return -1;
          }
       }
    }
    sp->refcount++;
+
    return sp->chan_id;
 }

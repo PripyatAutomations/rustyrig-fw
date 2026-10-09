@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_gtk_txpower_h)
-#define	__rrclient_gtk_txpower_h
+#define __rrclient_gtk_txpower_h
 #include <librustyaxe/config.h>
 
 extern GtkWidget *tx_power_slider;

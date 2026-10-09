@@ -36,8 +36,8 @@ static long rr_cat_property_long(rr_cat_compat_t *adapter, rr_vfo_t vfo, const c
    rr_property_snapshot_t snapshot;
 
    if (!rr_cat_property_name(name, sizeof(name), vfo, field) ||
-       !rr_rig_property_read(adapter->rig, name, &snapshot) ||
-       !snapshot.known) {
+      !rr_rig_property_read(adapter->rig, name, &snapshot) ||
+      !snapshot.known) {
       return fallback;
    }
 
@@ -52,14 +52,13 @@ static long rr_cat_property_long(rr_cat_compat_t *adapter, rr_vfo_t vfo, const c
    return fallback;
 }
 
-static const char *rr_cat_property_string(rr_cat_compat_t *adapter, rr_vfo_t vfo, const char *field,
-                                          const char *fallback) {
+static const char *rr_cat_property_string(rr_cat_compat_t *adapter, rr_vfo_t vfo, const char *field, const char *fallback) {
    char name[RR_PROPERTY_NAME_MAX];
    rr_property_snapshot_t snapshot;
 
    if (!rr_cat_property_name(name, sizeof(name), vfo, field) ||
-       !rr_rig_property_read(adapter->rig, name, &snapshot) ||
-       !snapshot.known || snapshot.value_type != VAL_STR) {
+      !rr_rig_property_read(adapter->rig, name, &snapshot) ||
+      !snapshot.known || snapshot.value_type != VAL_STR) {
       return fallback;
    }
 
@@ -85,15 +84,15 @@ static dict *rr_cat_build_state(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
       return NULL;
    }
    rrconn_t *talker = adapter->ops.talker_get ?
-                      adapter->ops.talker_get(adapter->rig, adapter->ops.user) : NULL;
+      adapter->ops.talker_get(adapter->rig, adapter->ops.user) : NULL;
    bool ptt = adapter->ops.ptt_get ?
-              adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
+      adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
    const char *fallback_mode = vfo_mode_name(vfos[vfo].mode);
 
    dict_add(d, "msg.type", "cat");
-   dict_add( d, "cat.state.vfo", vfo_name(vfo) );
+   dict_add(d, "cat.state.vfo", vfo_name(vfo) );
    dict_add_bool(d, "cat.state.active", vfo == active_vfo);
-   dict_add( d, "cat.state.mode", rr_cat_property_string(adapter, vfo, RR_PROP_VFO_MODE, fallback_mode) );
+   dict_add(d, "cat.state.mode", rr_cat_property_string(adapter, vfo, RR_PROP_VFO_MODE, fallback_mode) );
 
    if (adapter->ops.widths_get) {
       int widths[8];
@@ -115,17 +114,17 @@ static dict *rr_cat_build_state(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
             used += (size_t)written;
          }
 
-         if ( used < sizeof(list) ) {
+         if (used < sizeof(list) ) {
             dict_add(d, "cat.state.widths", list);
          }
       }
    }
 
    dict_add(d, "cat.user", talker ? talker->chatname : "");
-   dict_add_int( d, "cat.state.width", (int)rr_cat_property_long(adapter, vfo, RR_PROP_VFO_WIDTH, vfos[vfo].width) );
+   dict_add_int(d, "cat.state.width", (int)rr_cat_property_long(adapter, vfo, RR_PROP_VFO_WIDTH, vfos[vfo].width) );
    dict_add_int(d, "cat.state.power", (int)vfos[vfo].power);
    dict_add_bool(d, "cat.state.ptt", ptt);
-   dict_add_long( d, "cat.state.freq", rr_cat_property_long(adapter, vfo, RR_PROP_VFO_FREQUENCY, vfos[vfo].freq) );
+   dict_add_long(d, "cat.state.freq", rr_cat_property_long(adapter, vfo, RR_PROP_VFO_FREQUENCY, vfos[vfo].freq) );
    dict_add_ulong(d, "msg.ts", now);
 
    return d;
@@ -142,14 +141,13 @@ static dict *rr_cat_build_initial_state(rr_cat_compat_t *adapter, rr_vfo_t vfo) 
       return NULL;
    }
    bool ptt = adapter->ops.ptt_get ?
-              adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
+      adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
    dict_add(d, "msg.type", "cat");
-   dict_add( d, "cat.state.vfo", vfo_name(vfo) );
+   dict_add(d, "cat.state.vfo", vfo_name(vfo) );
    dict_add_bool(d, "cat.state.active", vfo == active_vfo);
-   dict_add( d, "cat.state.mode",
-      rr_cat_property_string( adapter, vfo, RR_PROP_VFO_MODE, vfo_mode_name(vfos[vfo].mode) ) );
-   dict_add_int( d, "cat.state.width", (int)rr_cat_property_long(adapter, vfo, RR_PROP_VFO_WIDTH, vfos[vfo].width) );
-   dict_add_long( d, "cat.state.freq", rr_cat_property_long(adapter, vfo, RR_PROP_VFO_FREQUENCY, vfos[vfo].freq) );
+   dict_add(d, "cat.state.mode", rr_cat_property_string(adapter, vfo, RR_PROP_VFO_MODE, vfo_mode_name(vfos[vfo].mode) ) );
+   dict_add_int(d, "cat.state.width", (int)rr_cat_property_long(adapter, vfo, RR_PROP_VFO_WIDTH, vfos[vfo].width) );
+   dict_add_long(d, "cat.state.freq", rr_cat_property_long(adapter, vfo, RR_PROP_VFO_FREQUENCY, vfos[vfo].freq) );
    dict_add_bool(d, "cat.state.ptt", ptt);
    dict_add_ulong(d, "msg.ts", now);
 
@@ -165,12 +163,12 @@ static dict *rr_cat_comparable_state(dict *state) {
    if (!out) {
       return NULL;
    }
-   dict_add_long( out, "cat.state.freq", dict_get_long(state, "cat.state.freq", 0) );
-   dict_add( out, "cat.state.mode", dict_get(state, "cat.state.mode", "NONE") );
-   dict_add_int( out, "cat.state.width", dict_get_int(state, "cat.state.width", 0) );
-   dict_add_bool( out, "cat.state.ptt", dict_get_bool(state, "cat.state.ptt", false) );
-   dict_add_bool( out, "cat.state.active", dict_get_bool(state, "cat.state.active", false) );
-   dict_add( out, "cat.user", dict_get(state, "cat.user", "") );
+   dict_add_long(out, "cat.state.freq", dict_get_long(state, "cat.state.freq", 0) );
+   dict_add(out, "cat.state.mode", dict_get(state, "cat.state.mode", "NONE") );
+   dict_add_int(out, "cat.state.width", dict_get_int(state, "cat.state.width", 0) );
+   dict_add_bool(out, "cat.state.ptt", dict_get_bool(state, "cat.state.ptt", false) );
+   dict_add_bool(out, "cat.state.active", dict_get_bool(state, "cat.state.active", false) );
+   dict_add(out, "cat.user", dict_get(state, "cat.user", "") );
 
    return out;
 }
@@ -201,7 +199,7 @@ rr_cat_compat_t *rr_cat_compat_new(rr_server_rig_t *rig, const rr_cat_compat_ops
    if (!rig) {
       return NULL;
    }
-   rr_cat_compat_t *adapter = calloc( 1, sizeof(*adapter) );
+   rr_cat_compat_t *adapter = calloc(1, sizeof(*adapter) );
 
    if (!adapter) {
       return NULL;
@@ -229,17 +227,17 @@ void rr_cat_compat_free(rr_cat_compat_t *adapter) {
 
 void rr_cat_compat_prepare_poll(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
    if (!adapter || vfo < VFO_A || vfo >= MAX_VFOS ||
-       adapter->probed[vfo]) {
+      adapter->probed[vfo]) {
       return;
    }
    adapter->probed[vfo] = true;
 
    if (vfo != active_vfo && vfos[vfo].freq == 0 &&
-       active_vfo >= VFO_A && active_vfo < MAX_VFOS &&
-       vfos[active_vfo].freq > 0) {
+      active_vfo >= VFO_A && active_vfo < MAX_VFOS &&
+      vfos[active_vfo].freq > 0) {
       vfos[vfo] = vfos[active_vfo];
       vfos[vfo].id = vfo;
-      Log( LOG_DEBUG, "backend", "Default-rig VFO %s seeded from active VFO %s", vfo_name(vfo), vfo_name(active_vfo) );
+      Log(LOG_DEBUG, "backend", "Default-rig VFO %s seeded from active VFO %s", vfo_name(vfo), vfo_name(active_vfo) );
    }
 }
 
@@ -288,7 +286,7 @@ bool rr_cat_compat_send_state(rr_cat_compat_t *adapter, rrconn_t *cptr) {
    }
 
    for (int i = 0 ; i < MAX_VFOS ; i++) {
-      if ( !rr_cat_vfo_supported(adapter, (rr_vfo_t)i) ) {
+      if (!rr_cat_vfo_supported(adapter, (rr_vfo_t)i) ) {
          continue;
       }
       dict *state = dict_new();

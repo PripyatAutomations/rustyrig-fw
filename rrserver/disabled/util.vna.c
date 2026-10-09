@@ -1,6 +1,6 @@
 //
 // util.vna.c
-// 	This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//    This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
@@ -9,9 +9,7 @@
 /*
  * util_vna.c: Lightweight Vector Network Analyzer features
  *
- * Here we support using the DDS to sweep the antenna and
- * provide a data set for calculating L&C values in the ant_tuner
- * code later.
+ * Here we support using the DDS to sweep the antenna and provide a data set for calculating L&C values in the ant_tuner code later.
  *
  * Someone implement this ;)
  */

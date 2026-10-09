@@ -35,8 +35,7 @@ void ui_notify_fini(void) {
 }
 #include <libnotify/notify.h>
 
-bool ui_notify_message(const char *title, const char *message,
-   int urgency, int timeout) {
+bool ui_notify_message(const char *title, const char *message, int urgency, int timeout) {
    if (!title || !message) {
       return false;
    }
@@ -49,7 +48,7 @@ bool ui_notify_message(const char *title, const char *message,
    }
 
    if (urgency >= NOTIFY_URGENCY_LOW &&
-       urgency <= NOTIFY_URGENCY_CRITICAL) {
+      urgency <= NOTIFY_URGENCY_CRITICAL) {
       notify_notification_set_urgency(n, urgency);
    }
 

@@ -62,7 +62,7 @@ extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
 static const unsigned int reconnect_delays[] = {
    1, 2, 5, 10, 30, 60
 };
-#define	RRC_MAX_RECONNECTS 10
+#define RRC_MAX_RECONNECTS 10
 
 static bool reconnect_enabled = false;
 static bool reconnect_pending = false;
@@ -106,8 +106,8 @@ static void rrclient_schedule_reconnect(void) {
    reconnect_at = time(NULL) + delay;
    ws_connected = -1;
    tui_refresh_sb_online();
-   ui_print(NULL, "%s \00308Reconnecting in %u second%s (attempt %u/%u)\017", get_chat_ts(now), delay,
-      delay == 1 ? "" : "s", reconnect_tries, RRC_MAX_RECONNECTS);
+   ui_print(NULL, "%s \00308Reconnecting in %u second%s (attempt %u/%u)\017", get_chat_ts(now), delay, delay == 1 ? "" : "s", reconnect_tries,
+      RRC_MAX_RECONNECTS);
 }
 
 static void rrclient_handle_auth_error_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -205,14 +205,14 @@ bool connect_server(const char *server) {
 #ifdef  USE_MONGOOSE
 
       if (!ws_conn) {
-         ws_conn = malloc( sizeof(rrconn_t) );
+         ws_conn = malloc(sizeof(rrconn_t) );
 
          if (!ws_conn) {
             Log(LOG_CRIT, "connman", "Unable to allocate WebSocket connection state");
 
             return true;
          }
-         memset( ws_conn, 0, sizeof(rrconn_t) );
+         memset(ws_conn, 0, sizeof(rrconn_t) );
       }
 
       // Pass ws_conn as fn_data: events can fire before mg_ws_connect()
@@ -220,7 +220,7 @@ bool connect_server(const char *server) {
       struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, ws_conn, NULL);
 
       if (!c) {
-         ui_print( NULL, "%s Socket connect error", get_chat_ts(now) );
+         ui_print(NULL, "%s Socket connect error", get_chat_ts(now) );
          ws_connected = 0;
          event_emit("http.error", NULL, NULL);
 
@@ -229,9 +229,8 @@ bool connect_server(const char *server) {
       ws_conn->conn = c;
 #endif // defined(USE_MONGOOSE)
    } else {
-      ui_print(NULL,
-         "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?",
-         get_chat_ts(now), resolved_server);
+      ui_print(NULL, "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", get_chat_ts(now), resolved_server)
+      ;
    }
 
    return false;
@@ -250,7 +249,7 @@ bool connect_or_disconnect(const char *server) {
       disconnect_server(resolved_server);
    } else {
       if (!server_name || strcmp(server_name, resolved_server) != 0) {
-         free( (void *)server_name );
+         free( (void *)server_name);
          server_name = strdup(resolved_server);
       }
       connect_server(resolved_server);
@@ -273,14 +272,14 @@ void connman_autoconnect(void) {
       char *sp = strtok(tv, ",");
       while (sp) {
          char this_server[256];
-         memset( this_server, 0, sizeof(this_server) );
+         memset(this_server, 0, sizeof(this_server) );
          snprintf(this_server, sizeof(this_server), "%s", sp);
          ui_print(NULL, "%s * Autoconnect profile: %s *", get_chat_ts(now), this_server);
          sp = strtok(NULL, ",");
-         connect_or_disconnect( this_server );
+         connect_or_disconnect(this_server);
       }
       free(tv);
-      free( (void *)autoconnect );
+      free( (void *)autoconnect);
       autoconnect = NULL;
    } else {
       show_server_chooser();

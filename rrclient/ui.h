@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_ui_h)
-#define	__rrclient_ui_h
+#define __rrclient_ui_h
 #include <librustyaxe/config.h>
 
 // TUI statusbar refreshers (tui_refresh_sb_vfo reads the central VFO state

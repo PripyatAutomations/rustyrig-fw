@@ -36,7 +36,7 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 
-#define	DEFAULT_CSS \
+#define DEFAULT_CSS \
         /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
         "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
         "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
@@ -57,7 +57,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
         "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
 
 
-#define	DEFAULT_CSS \
+#define DEFAULT_CSS \
         /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
         "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
         "label { font-family: \"Sans\"; font-size: 11pt; }\n" \

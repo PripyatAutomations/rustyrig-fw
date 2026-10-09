@@ -32,8 +32,8 @@
 #include <windows.h>
 #endif
 
-#define	MAX_WINDOWS 32
-#define	INPUT_HISTORY_MAX 64
+#define MAX_WINDOWS 32
+#define INPUT_HISTORY_MAX 64
 
 extern bool add_server(const char *network, const char *str) __attribute__( (weak) );   // cfg.servers.c
                                                                                         // (optional:
@@ -66,7 +66,7 @@ static bool config_network_save_cb(FILE *fp, const char *path) {
       }
       char netname[128];
 
-      if ( dot - name >= (ptrdiff_t)sizeof(netname) ) {
+      if (dot - name >= (ptrdiff_t)sizeof(netname) ) {
          Log(LOG_WARN, "cfg.network", "network name too long to save: %s", name);
          continue;
       }

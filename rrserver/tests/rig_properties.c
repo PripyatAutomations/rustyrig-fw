@@ -24,11 +24,14 @@ static long last_control_frequency;
 static int broadcasts;
 static int direct_sends;
 static dict *last_cat_state;
-static rrconn_t talker = { .chatname = "W1TEST" };
+static rrconn_t talker = {
+   .chatname = "W1TEST"
+};
 
 static bool count_vfo(rr_server_vfo_t *vfo, void *user) {
    assert(vfo);
    (*(size_t *)user)++;
+
    return false;
 }
 
@@ -36,6 +39,7 @@ void ws_broadcast_dict(rrconn_t *sender, dict *d, int data_type) {
    (void)sender;
    assert(data_type == WEBSOCKET_OP_TEXT);
    broadcasts++;
+
    if (last_cat_state) {
       dict_free(last_cat_state);
    }
@@ -48,44 +52,47 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int data_type) {
    assert(dest);
    assert(data_type == WEBSOCKET_OP_TEXT);
    direct_sends++;
+
    if (last_cat_state) {
       dict_free(last_cat_state);
    }
    last_cat_state = dict_new();
    assert(last_cat_state && !dict_merge(last_cat_state, d));
+
    return false;
 }
 
-static bool fake_vfo_supported(rr_server_rig_t *rig, rr_vfo_t vfo,
-   void *user) {
+static bool fake_vfo_supported(rr_server_rig_t *rig, rr_vfo_t vfo, void *user) {
    assert(rig == user);
+
    return vfo == VFO_A || vfo == VFO_B;
 }
 
 static bool fake_ptt_get(rr_server_rig_t *rig, rr_vfo_t vfo, void *user) {
    assert(rig == user);
    (void)vfo;
+
    return false;
 }
 
-static int fake_widths_get(rr_server_rig_t *rig, rr_vfo_t vfo, int *widths,
-   int max, void *user) {
+static int fake_widths_get(rr_server_rig_t *rig, rr_vfo_t vfo, int *widths, int max, void *user) {
    assert(rig == user);
    (void)vfo;
    assert(max >= 3);
    widths[0] = 1800;
    widths[1] = 3000;
    widths[2] = 3600;
+
    return 3;
 }
 
 static rrconn_t *fake_talker_get(rr_server_rig_t *rig, void *user) {
    assert(rig == user);
+
    return &talker;
 }
 
-static void on_property_changed(const char *event, const char *data,
-   rrconn_t *cptr, void *user) {
+static void on_property_changed(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)cptr;
    (void)user;
    assert(strcmp(event, RR_PROPERTY_CHANGED_EVENT) == 0);
@@ -98,8 +105,7 @@ static void on_property_changed(const char *event, const char *data,
    property_events++;
 }
 
-static rr_control_result_t fake_control(const rr_control_request_t *request,
-   void *user) {
+static rr_control_result_t fake_control(const rr_control_request_t *request, void *user) {
    rr_server_rig_t *expected = user;
    assert(request);
    assert(request->rig == expected);
@@ -107,9 +113,9 @@ static rr_control_result_t fake_control(const rr_control_request_t *request,
    assert(request->vfo == rr_server_vfo_find_alias(expected, "A"));
    assert(request->value_type == VAL_LONG);
    backend_requests++;
-   snprintf(last_control_property, sizeof(last_control_property), "%s",
-      request->property);
+   snprintf(last_control_property, sizeof(last_control_property), "%s", request->property);
    last_control_frequency = request->value.l;
+
    return backend_should_fail ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
 }
 
@@ -139,15 +145,19 @@ static void define_fake_rig(rr_server_rig_t *rig) {
    assert(!rr_rig_property_define(rig, &signal));
 }
 
-static rr_property_snapshot_t read_property(rr_server_rig_t *rig,
-   const char *name) {
-   rr_property_snapshot_t snapshot = { 0 };
+static rr_property_snapshot_t read_property(rr_server_rig_t *rig, const char *name) {
+   rr_property_snapshot_t snapshot = {
+      0
+   };
    assert(rr_rig_property_read(rig, name, &snapshot));
+
    return snapshot;
 }
 
 static rr_control_result_t accept_constraint(const rr_control_request_t *r, void *user) {
-   (void)r; (void)user;
+   (void)r;
+   (void)user;
+
    return RR_CONTROL_OK;
 }
 
@@ -155,23 +165,30 @@ static void test_constraints(void) {
    rr_server_rig_t *r = rr_server_rig_new("constraints", "Constraints");
    assert(r);
    rr_server_rig_set_control_handler(r, accept_constraint, NULL);
-   rr_property_descriptor_t s = { .name = "grid", .type = VAL_LONG,
+   rr_property_descriptor_t s = {
+      .name = "grid", .type = VAL_LONG,
       .readable = true, .writable = true, .has_min = true, .has_max = true,
-      .has_step = true, .minimum.l = LONG_MIN, .maximum.l = LONG_MAX, .step.l = 2 };
+      .has_step = true, .minimum.l = LONG_MIN, .maximum.l = LONG_MAX, .step.l = 2
+   };
    assert(!rr_rig_property_define(r, &s));
-   rr_control_request_t request = { .rig = r, .property = "grid",
-      .value_type = VAL_LONG, .value.l = LONG_MAX };
+   rr_control_request_t request = {
+      .rig = r, .property = "grid",
+      .value_type = VAL_LONG, .value.l = LONG_MAX
+   };
    assert(rr_rig_control(&request) == RR_CONTROL_INVALID);
    request.value.l--;
    assert(rr_rig_control(&request) == RR_CONTROL_OK);
    s.step.l = 3;
    assert(rr_rig_property_define(r, &s)); // Schema cannot silently change.
    char choices[] = "USB FM";
-   s = (rr_property_descriptor_t){ .name = "choice", .type = VAL_STR,
-      .readable = true, .writable = true, .enum_values = choices };
+   s = (rr_property_descriptor_t) {
+      .name = "choice", .type = VAL_STR,
+      .readable = true, .writable = true, .enum_values = choices
+   };
    assert(!rr_rig_property_define(r, &s));
    choices[0] = 'X'; // Descriptor owns its own copy.
-   request.property = "choice"; request.value_type = VAL_STR;
+   request.property = "choice";
+   request.value_type = VAL_STR;
    request.value.s = "USB";
    assert(rr_rig_control(&request) == RR_CONTROL_OK);
    request.value.s = "US";
@@ -207,8 +224,7 @@ int main(void) {
    assert(rr_server_vfo_lifecycle(rig0_a) == RR_VFO_PERSISTENT);
    assert(!strcmp(rr_server_vfo_native_id(rig0_a), "A"));
 
-   rr_server_vfo_t *ephemeral = rr_server_vfo_add(rig1,
-      "ephemeral-vfo-c", "C", "C", RR_VFO_EPHEMERAL);
+   rr_server_vfo_t *ephemeral = rr_server_vfo_add(rig1, "ephemeral-vfo-c", "C", "C", RR_VFO_EPHEMERAL);
    assert(ephemeral);
    assert(rr_server_vfo_lifecycle(ephemeral) == RR_VFO_EPHEMERAL);
    assert(!rr_server_vfo_remove(rig1, rr_server_vfo_id(ephemeral)));
@@ -219,21 +235,20 @@ int main(void) {
    char b_freq[RR_PROPERTY_NAME_MAX];
    char b_mode[RR_PROPERTY_NAME_MAX];
    char b_width[RR_PROPERTY_NAME_MAX];
-   assert(rr_property_vfo_name(a_freq, sizeof(a_freq), 'A',
-      RR_PROP_VFO_FREQUENCY));
-   assert(rr_property_vfo_name(a_mode, sizeof(a_mode), 'A',
-      RR_PROP_VFO_MODE));
-   assert(rr_property_vfo_name(b_freq, sizeof(b_freq), 'B',
-      RR_PROP_VFO_FREQUENCY));
-   assert(rr_property_vfo_name(b_mode, sizeof(b_mode), 'B',
-      RR_PROP_VFO_MODE));
-   assert(rr_property_vfo_name(b_width, sizeof(b_width), 'B',
-      RR_PROP_VFO_WIDTH));
+   assert(rr_property_vfo_name(a_freq, sizeof(a_freq), 'A', RR_PROP_VFO_FREQUENCY));
+   assert(rr_property_vfo_name(a_mode, sizeof(a_mode), 'A', RR_PROP_VFO_MODE));
+   assert(rr_property_vfo_name(b_freq, sizeof(b_freq), 'B', RR_PROP_VFO_FREQUENCY));
+   assert(rr_property_vfo_name(b_mode, sizeof(b_mode), 'B', RR_PROP_VFO_MODE));
+   assert(rr_property_vfo_name(b_width, sizeof(b_width), 'B', RR_PROP_VFO_WIDTH));
 
-   dict_value_t value = { .l = 14074000 };
+   dict_value_t value = {
+      .l = 14074000
+   };
    assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) ==
       RR_PROPERTY_CHANGED);
-   rr_property_snapshot_t canonical = { 0 };
+   rr_property_snapshot_t canonical = {
+      0
+   };
    assert(rr_vfo_property_read(rig0_a, RR_PROP_VFO_FREQUENCY, &canonical));
    assert(canonical.known && canonical.value.l == 14074000);
    value.s = "USB";
@@ -273,11 +288,12 @@ int main(void) {
 
    /* Canonical VFO properties and legacy paths resolve to one value/version. */
    value.l = 10137000;
-   assert(rr_vfo_property_observe(rig1_a, RR_PROP_VFO_FREQUENCY, VAL_LONG,
-      &value) == RR_PROPERTY_CHANGED);
+   assert(rr_vfo_property_observe(rig1_a, RR_PROP_VFO_FREQUENCY, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    canonical = read_property(rig1, a_freq);
    assert(canonical.value.l == 10137000);
-   rr_property_snapshot_t direct = { 0 };
+   rr_property_snapshot_t direct = {
+      0
+   };
    assert(rr_vfo_property_read(rig1_a, RR_PROP_VFO_FREQUENCY, &direct));
    assert(direct.version == canonical.version);
    snapshot = canonical;
@@ -410,7 +426,9 @@ int main(void) {
    assert(broadcasts == 4);
    assert(dict_get_long(last_cat_state, "cat.state.freq", -1) == 0);
 
-   rrconn_t new_client = { 0 };
+   rrconn_t new_client = {
+      0
+   };
    assert(!rr_cat_compat_send_state(compat, &new_client));
    assert(direct_sends == 2); /* VFO A and B are both supported. */
 
@@ -430,5 +448,6 @@ int main(void) {
    rr_server_rig_free(rig0);
    event_shutdown();
    puts("PASS: explicit per-rig typed property ownership and control");
+
    return 0;
 }

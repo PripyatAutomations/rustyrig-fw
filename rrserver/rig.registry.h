@@ -4,7 +4,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #if !defined(__rrserver_rig_registry_h)
-#define	__rrserver_rig_registry_h
+#define __rrserver_rig_registry_h
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -19,8 +19,8 @@ extern rr_rig_registry_t *rr_rig_registry_new(void);
 extern bool rr_rig_registry_set_node(rr_rig_registry_t *, const char *uuid);
 extern const char *rr_rig_registry_node(const rr_rig_registry_t *);
 extern void rr_rig_registry_free(rr_rig_registry_t *registry);
-extern rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uuid, const char *alias,
-                                            const char *name, const rr_backend_type_t *backend_type);
+extern rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uuid, const char *alias, const char *name, const rr_backend_type_t *
+   backend_type);
 extern bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid);
 extern rr_server_rig_t *rr_rig_registry_find_uuid(const rr_rig_registry_t *registry, const char *uuid);
 extern rr_server_rig_t *rr_rig_registry_find_alias(const rr_rig_registry_t *registry, const char *alias);

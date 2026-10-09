@@ -9,7 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #if     !defined(__rrclient_userlist_h)
-#define	__rrclient_userlist_h
+#define __rrclient_userlist_h
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>

@@ -15,6 +15,7 @@ static dict *msg(const char *family, const char *cmd, uint64_t seq) {
    dict_add(d, !strcmp(family, "object") ? "object.cmd" : "property.cmd", cmd);
    dict_add(d, "stream.epoch", epoch);
    rr_object_seq_put(d, "stream.seq", seq);
+
    return d;
 }
 
@@ -24,44 +25,61 @@ static bool apply(rr_object_cache_t *c, dict *d) {
    dict *wire = json2dict(json);
    assert(wire);
    bool result = rr_object_cache_apply(c, wire);
-   dict_free(wire); dict_free(d); free(json);
+   dict_free(wire);
+   dict_free(d);
+   free(json);
+
    return result;
 }
 
-static void object(rr_object_cache_t *c, const char *uuid, const char *type,
-   const char *owner, const char *alias, uint64_t seq) {
+static void object(rr_object_cache_t *c, const char *uuid, const char *type, const char *owner, const char *alias, uint64_t seq) {
    dict *d = msg("object", "added", seq);
-   dict_add(d, "object.uuid", uuid); dict_add(d, "object.type", type);
-   if (owner) dict_add(d, "object.owner", owner);
+   dict_add(d, "object.uuid", uuid);
+   dict_add(d, "object.type", type);
+
+   if (owner) {
+      dict_add(d, "object.owner", owner);
+   }
    dict_add(d, "object.alias", alias);
-   if (!strcmp(type,"node")) dict_add(d,"object.room","#station");
-   if (!strcmp(type,"rig")) {
-      char room[64];snprintf(room,sizeof(room),"#station-%s",alias);dict_add(d,"object.room",room);
+
+   if (!strcmp(type, "node")) {
+      dict_add(d, "object.room", "#station");
+   }
+
+   if (!strcmp(type, "rig")) {
+      char room[64];
+      snprintf(room, sizeof(room), "#station-%s", alias);
+      dict_add(d, "object.room", room);
    }
    assert(apply(c, d));
 }
 
-static dict *state(const char *uuid, uint64_t seq, uint64_t version,
-   bool observed, bool known, bool available, long value) {
+static dict *state(const char *uuid, uint64_t seq, uint64_t version, bool observed, bool known, bool available, long value) {
    dict *d = msg("property", "changed", seq);
-   dict_add(d, "target", uuid); dict_add(d, "property.name", "frequency");
+   dict_add(d, "target", uuid);
+   dict_add(d, "property.name", "frequency");
    dict_add(d, "property.type", "integer");
    rr_object_seq_put(d, "property.version", version);
    dict_add_bool(d, "property.observed", observed);
    dict_add_bool(d, "property.known", known);
    dict_add_bool(d, "property.available", available);
-   if (known) dict_add_long(d, "property.value", value);
+
+   if (known) {
+      dict_add_long(d, "property.value", value);
+   }
+
    return d;
 }
 
 static char display[8192];
 static void display_line(const char *line, void *user) {
-   snprintf(display+strlen(display),sizeof(display)-strlen(display),"%s\n",line);
+   snprintf(display + strlen(display), sizeof(display) - strlen(display), "%s\n", line);
 }
 int main(void) {
    rr_object_cache_t *c = rr_object_cache_new();
    dict *d = msg("object", "begin", 0);
-   dict_add(d, "request.id", "test"); assert(apply(c, d));
+   dict_add(d, "request.id", "test");
+   assert(apply(c, d));
    // Children and their states arrive before either owner descriptor.
    object(c, vfo1, "vfo", rig1, "A", 1);
    object(c, vfo0, "vfo", rig0, "A", 1);
@@ -78,43 +96,55 @@ int main(void) {
    assert(!rr_object_cache_find_alias(c, "vfo", epoch, "A"));
    assert(!strcmp(dict_get((dict *)rr_object_cache_object(c, vfo1), "object.owner", ""), rig1));
    d = msg("property", "descriptor", 4);
-   dict_add(d, "target", vfo1); dict_add(d, "property.name", "frequency");
-   dict_add(d, "property.type", "integer"); dict_add(d, "property.unit", "Hz");
-   dict_add_bool(d, "property.readable", true); dict_add_bool(d, "property.writable", true);
+   dict_add(d, "target", vfo1);
+   dict_add(d, "property.name", "frequency");
+   dict_add(d, "property.type", "integer");
+   dict_add(d, "property.unit", "Hz");
+   dict_add_bool(d, "property.readable", true);
+   dict_add_bool(d, "property.writable", true);
    assert(apply(c, d));
    assert(rr_object_cache_property(c, vfo1, "frequency", true));
    assert(!rr_object_cache_property(c, vfo0, "frequency", true));
-   d = msg("object", "end", 4); dict_add(d, "request.id", "test");
+   d = msg("object", "end", 4);
+   dict_add(d, "request.id", "test");
    assert(apply(c, d) && rr_object_cache_ready(c));
-   assert(rr_object_cache_dump_selected(c,"rig1.A",display_line,NULL));
-   assert(strstr(display,"vfo rig1.A") && strstr(display,"frequency: 7074000 Hz"));
-   assert(!strstr(display,"rig0.A"));
-   display[0]='\0';assert(rr_object_cache_dump_selected(c,"rig0",display_line,NULL));
-   assert(strstr(display,"rig rig0") && strstr(display,"vfo rig0.A") && !strstr(display,"rig1.A"));
-   assert(!rr_object_cache_dump_selected(c,"A",display_line,NULL));
-   display[0]=0;assert(rr_object_cache_dump_context(c,NULL,"#station-rig0.rx",display_line,NULL));
-   assert(strstr(display,"vfo rig0.A") && !strstr(display,"rig1") && !strstr(display,"node station"));
-   display[0]=0;assert(rr_object_cache_dump_context(c,NULL,"#station",display_line,NULL));
-   assert(strstr(display,"vfo rig0.A") && strstr(display,"vfo rig1.A") && strstr(display,"node station"));
-   display[0]=0;assert(rr_object_cache_dump_context(c,NULL,"#other",display_line,NULL));
-   assert(!strstr(display,"vfo ") && !strstr(display,"rig rig"));
-   char reference[128];assert(rr_object_cache_ref_iter(c,0,reference,sizeof(reference)) && *reference);
+   assert(rr_object_cache_dump_selected(c, "rig1.A", display_line, NULL));
+   assert(strstr(display, "vfo rig1.A") && strstr(display, "frequency: 7074000 Hz"));
+   assert(!strstr(display, "rig0.A"));
+   display[0] = '\0';
+   assert(rr_object_cache_dump_selected(c, "rig0", display_line, NULL));
+   assert(strstr(display, "rig rig0") && strstr(display, "vfo rig0.A") && !strstr(display, "rig1.A"));
+   assert(!rr_object_cache_dump_selected(c, "A", display_line, NULL));
+   display[0] = 0;
+   assert(rr_object_cache_dump_context(c, NULL, "#station-rig0.rx", display_line, NULL));
+   assert(strstr(display, "vfo rig0.A") && !strstr(display, "rig1") && !strstr(display, "node station"));
+   display[0] = 0;
+   assert(rr_object_cache_dump_context(c, NULL, "#station", display_line, NULL));
+   assert(strstr(display, "vfo rig0.A") && strstr(display, "vfo rig1.A") && strstr(display, "node station"));
+   display[0] = 0;
+   assert(rr_object_cache_dump_context(c, NULL, "#other", display_line, NULL));
+   assert(!strstr(display, "vfo ") && !strstr(display, "rig rig"));
+   char reference[128];
+   assert(rr_object_cache_ref_iter(c, 0, reference, sizeof(reference)) && *reference);
    assert(apply(c, state(vfo1, 5, 3, true, true, false, 7074000)));
    dict *p = (dict *)rr_object_cache_property(c, vfo1, "frequency", false);
    assert(dict_get_bool(p, "property.known", false));
    assert(!dict_get_bool(p, "property.available", true));
    assert(dict_get_long(p, "property.value", 0) == 7074000);
-   d = msg("property", "result", 6); dict_add(d, "result.code", "ok");
-   dict_add(d, "target", vfo1); dict_add_long(d, "property.value", 123);
+   d = msg("property", "result", 6);
+   dict_add(d, "result.code", "ok");
+   dict_add(d, "target", vfo1);
+   dict_add_long(d, "property.value", 123);
    assert(apply(c, d));
    assert(dict_get_long((dict *)rr_object_cache_property(c, vfo1, "frequency", false), "property.value", 0) == 7074000);
    assert(!apply(c, state(vfo1, 7, 4, false, false, true, 0)));
-   d = msg("object", "removed", 8); dict_add(d, "object.uuid", rig1);
+   d = msg("object", "removed", 8);
+   dict_add(d, "object.uuid", rig1);
    assert(apply(c, d));
    assert(!rr_object_cache_object(c, vfo1));
    assert(!rr_object_cache_find_alias(c, "vfo", rig1, "A"));
    assert(!rr_object_cache_property(c, vfo1, "frequency", false));
-   assert(!rr_object_cache_dump_selected(c,"rig1.A",display_line,NULL));
+   assert(!rr_object_cache_dump_selected(c, "rig1.A", display_line, NULL));
    object(c, vfo1, "vfo", rig1, "A", 6); // Late snapshot must not resurrect.
    assert(!rr_object_cache_object(c, vfo1));
    assert(rr_object_cache_object(c, vfo0));
@@ -126,5 +156,6 @@ int main(void) {
    assert(!dict_get_bool((dict *)rr_object_cache_property(c, vfo1, "frequency", false), "property.known", true));
    rr_object_cache_free(c);
    puts("PASS: UUID cache, ownership ordering, schema/state, stale snapshot merge, removal, no optimistic SET");
+
    return 0;
 }

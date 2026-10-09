@@ -4,10 +4,17 @@ bool dying, restarting, ptt_active;
 time_t now;
 const char *login_user = "operator";
 struct rr_user *global_userlist;
-char vfo_state_get_active(void) { return 'A'; }
-bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) { return false; }
-const char *rrclient_current_room(void) { return "#rig"; }
-void vfo_controls_set_ptt_state(bool locked, bool local) {}
+char vfo_state_get_active(void) {
+   return 'A';
+}
+bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
+   return false;
+}
+const char *rrclient_current_room(void) {
+   return "#rig";
+}
+void vfo_controls_set_ptt_state(bool locked, bool local) {
+}
 int main(void) {
    ptt_button_pending = true;
    ptt_button_pending_state = true;

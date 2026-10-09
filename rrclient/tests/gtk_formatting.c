@@ -5,7 +5,9 @@ time_t now;
 bool dying, restarting;
 
 static void drain_gtk_events(void) {
-   while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, FALSE);
+   while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, FALSE);
+   }
 }
 
 static void type_entry_text(GtkWidget *entry, const char *text) {
@@ -21,20 +23,26 @@ static GtkWidget *find_color_choice(GtkWidget *popover, guint color) {
    GList *children = gtk_container_get_children(GTK_CONTAINER(grid));
    GtkWidget *found = NULL;
    assert(g_list_length(children) == 16);
-   for (GList *item = children; item; item = item->next) {
-      if (GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item->data), "rr-color-value")) == color)
+
+   for (GList *item = children ; item ; item = item->next) {
+      if (GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item->data), "rr-color-value")) == color) {
          found = GTK_WIDGET(item->data);
+      }
    }
+
    g_list_free(children);
    assert(found);
+
    return found;
 }
 
 static void test_color_popup(void) {
    int argc = 0;
    char **argv = NULL;
+
    if (!gtk_init_check(&argc, &argv)) {
       puts("SKIP: GTK popup test requires a display");
+
       return;
    }
 
@@ -53,8 +61,7 @@ static void test_color_popup(void) {
    drain_gtk_events();
    g_assert_cmpstr(gtk_entry_get_text(GTK_ENTRY(entry)), ==, "C");
    gint marker_selection_start, marker_selection_end;
-   assert(!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry),
-      &marker_selection_start, &marker_selection_end));
+   assert(!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &marker_selection_start, &marker_selection_end));
    assert(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode")) == 1);
    GtkWidget *sample = gtk_bin_get_child(GTK_BIN(find_color_choice(popover, 4)));
    g_assert_cmpstr(gtk_label_get_text(GTK_LABEL(sample)), ==, "[4]");
@@ -138,9 +145,11 @@ int main(void) {
    assert(strstr(text, "foreground=\"#ffffff\">G</span><span foreground=\"#d2d2d2\">H"));
    g_free(text);
    text = gtk_colorize_string("\00304123,45\017");
-   assert(strstr(text, ">123,45</span>")); g_free(text);
+   assert(strstr(text, ">123,45</span>"));
+   g_free(text);
    text = gtk_colorize_string("\00304<&>\017");
-   assert(strstr(text, "&lt;&amp;&gt;")); g_free(text);
+   assert(strstr(text, "&lt;&amp;&gt;"));
+   g_free(text);
    text = gtk_colorize_string("\002bold\002 and \037underlined\037");
    assert(strstr(text, "<b>bold</b>"));
    assert(strstr(text, "<u>underlined</u>"));
