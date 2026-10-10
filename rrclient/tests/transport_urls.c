@@ -200,6 +200,45 @@ int main(void) {
    assert(!strcmp(rrclient_connection_iter(2), "adhoc.test"));
    assert(!rrclient_connection_iter(3));
 
+   dict_add(cfg, "server.proxy", "socks5h://localhost:1080");
+   assert(!rrclient_connect_url(NULL, "irc://proxied.test"));
+   assert(!strcmp(last_url, "tcp://localhost:1080"));
+   struct mg_connection *pc = ws_conn->conn;
+   assert(!pc->send.len && !pc->is_tls);
+   pc->fn(pc, MG_EV_CONNECT, NULL);
+   assert(pc->send.len == 3 && !memcmp(pc->send.buf, "\5\1\0", 3));
+   mg_iobuf_del(&pc->send, 0, pc->send.len);
+   mg_iobuf_add(&pc->recv, 0, "\5\0", 2);
+   pc->fn(pc, MG_EV_READ, NULL);
+   assert(pc->send.len == 19 && !memcmp(pc->send.buf + 5, "proxied.test", 12));
+   mg_iobuf_del(&pc->send, 0, pc->send.len);
+   mg_iobuf_add(&pc->recv, 0, "\5\0\0\1\0\0\0\0\0\0", 10);
+   pc->fn(pc, MG_EV_READ, NULL);
+   assert(ws_conn->sent_login && pc->send.len > 3);
+   assert(!disconnect_server("proxied.test"));
+   pc->fn(pc, MG_EV_CLOSE, NULL);
+   assert(!rrclient_connect_url(NULL, "irc://proxied.test"));
+   assert(!strcmp(last_url, "tcp://localhost:1080") && !ws_conn->sent_login);
+   pc = ws_conn->conn;
+   pc->fn(pc, MG_EV_CONNECT, NULL);
+   assert(pc->send.len == 3);
+   pc->fn(pc, MG_EV_ERROR, "proxy lost");
+   pc->fn(pc, MG_EV_CLOSE, NULL);
+   /* The headless fixture omits m_privmsg.c, which maps this IRC event. */
+   event_emit("disconnected", ws_conn, NULL);
+   unsigned before_retry = connection_count;
+   now += 2;
+   rrclient_poll_events_reconnect();
+   assert(connection_count > before_retry && !strcmp(last_url, "tcp://localhost:1080"));
+   assert(!ws_conn->sent_login && !ws_conn->conn->send.len);
+   dict_add(cfg, "server:direct.server.proxy", "");
+   assert(!rrclient_connect_url("direct", "irc://direct.test"));
+   assert(!strcmp(last_url, "tcp://direct.test:6667"));
+   dict_add(cfg, "server:broken.server.proxy", "socks4://localhost");
+   before_retry = connection_count;
+   assert(rrclient_connect_url("broken", "irc://broken.test"));
+   assert(connection_count == before_retry);
+
    for (unsigned i = 0 ; i < connection_count ; i++) {
       mg_iobuf_free(&connections[i].recv);
       mg_iobuf_free(&connections[i].send);

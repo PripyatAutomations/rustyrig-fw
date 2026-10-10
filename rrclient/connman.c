@@ -8,6 +8,7 @@
 #include <librrprotocol/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
+#include <rrclient/socks.h>
 
 extern const char *login_user;
 extern bool dying;
@@ -315,6 +316,10 @@ typedef struct {
    rrconn_t connection;
    server_cfg_t server;
    client_server_t *owner;
+   rrclient_socks_t socks;
+   bool proxy_pending;
+   mg_event_handler_t websocket_handler;
+   struct mg_iobuf websocket_request;
 } rrclient_transport_t;
 
 static void rrclient_transport_handler(struct mg_connection *c, int ev, void *data) {
@@ -328,6 +333,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
 
    if (s->connection != cptr) {
       if (ev == MG_EV_CLOSE) {
+         mg_iobuf_free(&t->websocket_request);
          free(t);
          c->fn_data = NULL;
       }
@@ -348,6 +354,52 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       cptr->conn = c;
    }
 
+   if (t->proxy_pending && ev != MG_EV_ERROR && ev != MG_EV_CLOSE && ev != MG_EV_OPEN) {
+      int result = rrclient_socks_event(&t->socks, c, ev);
+
+      if (result != 1) {
+         dispatch_depth--;
+         activate(dispatch_depth ? previous : selected);
+
+         return;
+      }
+      t->proxy_pending = false;
+      c->is_tls = t->server.tls;
+      c->pfn = t->websocket_handler;
+
+      if (cptr->is_ws) {
+         /* Release the destination's upgrade request only inside the tunnel. */
+         mg_send(c, t->websocket_request.buf, t->websocket_request.len);
+         mg_iobuf_free(&t->websocket_request);
+         http_handler(c, MG_EV_CONNECT, NULL);
+      } else {
+         irc_mongoose_handler(c, MG_EV_CONNECT, NULL);
+      }
+
+      /* Mongoose normally kicks TLS from its TCP-connect path; this CONNECT occurs later, after the SOCKS reply, so start ClientHello explicitly. */
+      if (c->is_tls_hs && !c->is_closing) {
+         mg_tls_handshake(c);
+      }
+
+      /* IRC greetings may share a TCP read with the SOCKS CONNECT reply. */
+      if (!c->is_tls && c->recv.len) {
+         if (c->pfn) {
+            c->pfn(c, MG_EV_READ, data);
+         }
+
+         if (cptr->is_ws) {
+            http_handler(c, MG_EV_READ, data);
+         } else {
+            irc_mongoose_handler(c, MG_EV_READ, data);
+         }
+      }
+      dispatch_depth--;
+      s->connected = ws_connected;
+      activate(dispatch_depth ? previous : selected);
+
+      return;
+   }
+
    if (cptr->is_ws) {
       http_handler(c, ev, data);
    } else {
@@ -356,6 +408,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    dispatch_depth--;
 
    if (ev == MG_EV_CLOSE) {
+      mg_iobuf_free(&t->websocket_request);
       cptr->conn = NULL;
       /* Keep the offline profile selectable, but never retain a dead socket. */
    }
@@ -520,6 +573,29 @@ bool rrclient_connect_url(const char *profile, const char *url) {
    const char *nick = get_server_property(s->name, "server.user");
    const char *pass = get_server_property(s->name, "server.pass");
    const char *autojoin = get_server_property(s->name, "autojoin");
+   const char *proxy = get_server_property(s->name, "server.proxy");
+
+   if (!proxy) {
+      proxy = cfg_get("server.proxy");
+   }
+   const char *proxy_user = get_server_property(s->name, "server.proxy.user");
+   const char *proxy_pass = get_server_property(s->name, "server.proxy.pass");
+
+   if (!proxy_user) {
+      proxy_user = cfg_get("server.proxy.user");
+   }
+
+   if (!proxy_pass) {
+      proxy_pass = cfg_get("server.proxy.pass");
+   }
+
+   if (!rrclient_socks_init(&t->socks, proxy, proxy_user, proxy_pass, &endpoint)) {
+      ui_print(NULL, "Invalid server.proxy: use socks5h://host[:port] or socks5://host[:port], with optional proxy user/pass keys");
+      free(t);
+
+      return true;
+   }
+   t->proxy_pending = t->socks.url[0] != '\0';
 
    if (endpoint.irc && (!nick || !*nick)) {
       nick = cfg_get("irc.nick");
@@ -592,8 +668,25 @@ bool rrclient_connect_url(const char *profile, const char *url) {
       return true;
    }
    dispatch_depth++;
-   struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, connect_url, rrclient_transport_handler, t) :
-      mg_ws_connect(&mgr, connect_url, rrclient_transport_handler, t, NULL);
+   const char *socket_url = t->proxy_pending ? t->socks.url : connect_url;
+   struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, socket_url, rrclient_transport_handler, t) :
+      mg_ws_connect(&mgr, socket_url, rrclient_transport_handler, t, NULL);
+
+   if (c && t->proxy_pending && !endpoint.irc) {
+      /* Keep Mongoose's WebSocket parser without running it on SOCKS replies. Its initial request describes the proxy; replace it with the destination. */
+      t->websocket_handler = c->pfn;
+      c->pfn = NULL;
+      mg_iobuf_del(&c->send, 0, c->send.len);
+      char nonce[16], key[30];
+      mg_random(nonce, sizeof(nonce));
+      mg_base64_encode((unsigned char *)nonce, sizeof(nonce), key, sizeof(key));
+      mg_printf(c, "GET %s HTTP/1.1\r\nHost: %s%s%s:%u\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+         "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: %s\r\n\r\n", endpoint.path, endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
+         endpoint.port, key);
+      t->websocket_request = c->send;
+      memset(&c->send, 0, sizeof(c->send));
+      c->send.align = t->websocket_request.align;
+   }
    dispatch_depth--;
 
    if (!c) {

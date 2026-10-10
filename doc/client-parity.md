@@ -27,6 +27,9 @@ The WebUI is in the separate repository:
 This map is deliberately conservative. Verify the actual implementation
 before treating a row as a one-to-one mapping.
 
+SOCKS5 connection settings are native-only transport configuration. Browsers
+manage proxies outside the WebUI; no JavaScript SOCKS handshake is mirrored.
+
 ## Deferred media parity
 
 The native client now provides `/rxcodec` and `/txcodec` in GTK and TUI,

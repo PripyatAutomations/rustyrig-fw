@@ -80,6 +80,15 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
 const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
+   {
+      "server.proxy", "", "Native SOCKS5 proxy URL; empty connects directly"
+   },
+   {
+      "server.proxy.user", "", "Optional SOCKS5 authentication username"
+   },
+   {
+      "server.proxy.pass", "", "Optional SOCKS5 authentication password"
+   },
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
    {
       "audio.test-mode", "true", "Show and advertise tone/pink test codecs", DEFCONFIG_BOOL, NULL

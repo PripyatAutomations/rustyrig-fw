@@ -22,6 +22,7 @@ rrclient_objs += cmd.help.o		# help texts
 rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
 rrclient_objs += connman.o		# connection manager
+rrclient_objs += socks.o                 # SOCKS5 TCP proxy negotiation
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
 rrclient_objs += rrclient.o		# client connection state & core connect/disconnect

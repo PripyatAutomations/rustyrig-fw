@@ -40,6 +40,35 @@ use IRC wire commands. Sent messages are displayed locally because capability
 negotiation for server echo is not enabled. Reconnect retains joined channel tabs.
 TLS uses the same Mongoose backend and CA settings as secure WebSocket.
 
+## SSH SOCKS proxy
+
+Native GTK and TUI can send any of the four transports through an existing
+`ssh -D` SOCKS5 proxy, without an additional library:
+
+```ini
+[server:chat]
+server.url=ircs://chat.example.org
+server.proxy=socks5h://localhost:1080
+server.user=MYCALL
+```
+
+`server.proxy` accepts `socks5h://host[:port]` or `socks5://host[:port]`;
+both send destination hostnames to the proxy for remote resolution. The
+proxy port defaults to 1080. IPv6 proxy addresses use brackets. SSH's
+dynamic forward requires no proxy credentials. Other SOCKS5 proxies can
+use separate `server.proxy.user` and `server.proxy.pass` keys; both must be
+nonempty and at most 255 bytes when authentication is enabled.
+
+Set these keys in a `[server:name]` profile for that connection, or in a
+`[general]` section as defaults for all connections, including ad hoc `/server`
+URLs. An explicitly empty profile `server.proxy` connects directly.
+The server URL, default destination ports and WebSocket path remain unchanged.
+TLS starts after the tunnel opens and retains the destination hostname and
+existing CA settings. Proxy negotiation has a 30-second timeout and uses the
+normal per-server reconnect handling. SOCKS4, UDP relay and GSSAPI are not
+implemented. Browser proxy configuration belongs to the browser/OS;
+the WebUI does not consume these native settings.
+
 IRC transport carries conventional chat. RustyRig JSON resource discovery,
 CAT/PTT control, binary media and account administration require a WebSocket
 connection; JSON-only requests are rejected on IRC connections.

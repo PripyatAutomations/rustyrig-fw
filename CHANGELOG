@@ -1,4 +1,7 @@
 rustyrig-fw (20261009.01) testing; urgency=medium
+  * Add dependency-free native SOCKS5 TCP tunnels for SSH dynamic forwards,
+    with proxy-side DNS, optional credentials and per-server/global settings;
+    defer IRC registration, TLS and WebSocket upgrade until the tunnel opens.
   * Resolve native shared libraries relative to the executable instead of the
     working directory; install their versioned SONAME links to prevent loading
     stale system protocol libraries.
