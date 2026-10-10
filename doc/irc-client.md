@@ -166,3 +166,9 @@ Profiles are discovered from `[server:name]` sections containing `server.url`;
 by this process. To select a specific configuration file, launch with
 `rrclient -f /etc/rustyrig/rrclient.cfg`; `/reload` reloads that same file.
 The client reports the loaded file when a named profile has no `server.url`.
+
+Before the server welcome, NOTICE and PRIVMSG output goes to shared `status`,
+with the configured server-name prefix, without opening query tabs. After
+registration, normal chat routing resumes. `/disconnect` cancels pending
+retries and closes that connection's server notice tabs. The default shared
+`status` tab remains open; unexpected drops retain tabs for reconnects.

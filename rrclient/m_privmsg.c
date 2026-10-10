@@ -136,6 +136,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
    if ((!strcasecmp(cmd, "PRIVMSG") || !strcasecmp(cmd, "NOTICE")) && argc >= 3) {
       bool channel = arg1[0] == '#' || arg1[0] == '&';
+
       dict_add(d, "talk.target", channel ? arg1 : from);
       const char *kind = !strcasecmp(cmd, "NOTICE") ? "notice" : channel ? "pub" : "priv";
       const char *text = arg2;
@@ -150,6 +151,21 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          action[length - 9] = '\0';
          text = action;
          kind = "action";
+      }
+
+      if (!cptr->authenticated) {
+         if (!strcmp(kind, "notice")) {
+            ui_print(NULL, "%s -%s- %s", get_chat_ts(now), from, text);
+         } else if (!strcmp(kind, "action")) {
+            ui_print(NULL, "%s * %s %s", get_chat_ts(now), from, text);
+         } else {
+            ui_print(NULL, "%s <%s> %s", get_chat_ts(now), from, text);
+         }
+         goto done;
+      }
+
+      if (!channel && !strcasecmp(cmd, "NOTICE") && *from && !strchr(prefix, '!')) {
+         rrclient_server_status_window(from);
       }
       dict_add(d, "talk.msg_type", kind);
       dict_add(d, "talk.data", text);

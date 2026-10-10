@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/irc.h>
@@ -17,10 +18,19 @@ const char *login_user;
 rrconn_t *ws_conn, *ws_tx_conn;
 static char last_event[64];
 static dict *last;
-static unsigned events, rejoins;
+static unsigned events, rejoins, status_windows;
+void rrclient_server_status_window(const char *room) {
+   assert(room && *room);
+   status_windows++;
+}
+static char status_text[1024];
+static bool printed_status;
 bool ui_print(const char *window, const char *fmt, ...) {
-   (void)window;
-   (void)fmt;
+   printed_status = !window || !strcmp(window, "status");
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(status_text, sizeof(status_text), fmt, ap);
+   va_end(ap);
 
    return false;
 }
@@ -90,8 +100,15 @@ int main(void) {
       event_on(observed[i], observe, NULL);
    }
 
+   assert(!irc_process_message(&client, ":uranium.libera.chat NOTICE * :*** Checking Ident"));
+   assert(strstr(status_text, "-uranium.libera.chat- *** Checking Ident") && printed_status && !status_windows && !events);
+   assert(!irc_process_message(&client, ":server PRIVMSG tester :registration message"));
+   assert(strstr(status_text, "<server> registration message") && printed_status && !status_windows && !events);
+   client.authenticated = true; /* The protocol marks this on welcome numeric 001. */
    event_emit("irc.connected", &client, "");
    assert(ws_connected == 1 && !strcmp(login_user, "tester") && rejoins == 1);
+   assert(!irc_process_message(&client, ":uranium.libera.chat 002 tester :Your host is uranium.libera.chat, running version solanum"));
+   assert(printed_status && strstr(status_text, "[002] Your host is uranium.libera.chat"));
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :hello"));
    assert(!strcmp(last_event, "talk.msg"));
    assert(!strcmp(dict_get(last, "talk.from", ""), "alice"));
@@ -101,7 +118,11 @@ int main(void) {
    assert(!strcmp(dict_get(last, "talk.msg_type", ""), "action"));
    assert(!strcmp(dict_get(last, "talk.data", ""), "waves"));
    assert(!irc_process_message(&client, ":server NOTICE tester :notice"));
-   assert(!strcmp(dict_get(last, "talk.msg_type", ""), "notice"));
+   assert(!strcmp(dict_get(last, "talk.msg_type", ""), "notice") && status_windows == 1);
+   assert(!irc_process_message(&client, ":alice!user@host NOTICE tester :user notice"));
+   assert(status_windows == 1);
+   assert(!irc_process_message(&client, ":server NOTICE #room :channel notice"));
+   assert(status_windows == 1);
    assert(!irc_process_message(&client, ":tester JOIN :#room"));
    assert(!strcmp(last_event, "userinfo"));
    assert(!strcmp(dict_get(last, "talk.room", ""), "#room"));

@@ -1407,6 +1407,7 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
 
 void rrclient_register_events(void) {
    event_on("client.server.selected", rrclient_server_selected, NULL);
+   event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();
    rrclient_media_register_events();
 

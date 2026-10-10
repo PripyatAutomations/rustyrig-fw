@@ -150,3 +150,25 @@ bool ui_confirm_quit(void) {
 
    return true;
 }
+
+
+/* Called in the owning server context; the shared status tab has no owner. */
+void ui_server_status_close(const char *event, const char *room, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)connection;
+   (void)user;
+
+   if (!room || !*room || !strcasecmp(room, "status")) {
+      return;
+   }
+
+   if (frontend_ops() && frontend_ops()->chat_room_remove) {
+      frontend_ops()->chat_room_remove(room);
+   } else if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_window_find(rrclient_window_name(room));
+
+      if (window) {
+         tui_window_destroy(window);
+      }
+   }
+}

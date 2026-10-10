@@ -207,6 +207,7 @@ bool rrclient_connection_cycle(void) {
 typedef struct client_window {
    char key[64];
    char *room;
+   bool server_status;
    client_server_t *server;
    struct client_window *next;
 } client_window_t;
@@ -237,6 +238,23 @@ const char *rrclient_window_name(const char *room) {
    windows = w;
 
    return w->key;
+}
+
+/* IRC server notices can have their own tab, separate from shared status. */
+void rrclient_server_status_window(const char *room) {
+   const char *key = rrclient_window_name(room);
+
+   if (!key || !room || !*room || !strcasecmp(room, "status")) {
+      return;
+   }
+
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (w->server == context && !strcmp(w->key, key)) {
+         w->server_status = true;
+
+         return;
+      }
+   }
 }
 
 const char *rrclient_window_room(const char *window) {
@@ -463,6 +481,25 @@ bool disconnect_server(const char *name) {
    if (s == context) {
       ws_connected = 0;
    }
+
+   client_server_t *previous = context;
+   activate(s);
+   dispatch_depth++;
+   client_window_t **link = &windows;
+   while (*link) {
+      client_window_t *w = *link;
+
+      if (w->server != s || !w->server_status) {
+         link = &w->next;
+         continue;
+      }
+      event_emit("client.server.status.close", s->connection, w->room);
+      *link = w->next;
+      free(w->room);
+      free(w);
+   }
+   dispatch_depth--;
+   activate(dispatch_depth ? previous : selected);
 
    return false;
 }

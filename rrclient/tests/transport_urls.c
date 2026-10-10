@@ -53,15 +53,21 @@ static void capture(const char *window, const char *fmt, va_list ap) {
 static const char *current_room(void) {
    return NULL;
 }
+static unsigned closed_status_tabs;
+static void remove_status_tab(const char *room) {
+   assert(!strcmp(room, "server.notice") && !strcmp(server_name, "beta"));
+   closed_status_tabs++;
+}
+static bool tui_only;
 static unsigned chooser_calls;
 static void chooser(void) {
    chooser_calls++;
 }
 static const rr_frontend_ops_t ops = {
-   .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser
+   .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab
 };
 const rr_frontend_ops_t *frontend_ops(void) {
-   return &ops;
+   return tui_only ? NULL : &ops;
 }
 bool frontend_present(void) {
    return true;
@@ -109,6 +115,7 @@ int main(void) {
    connman_register_events();
    event_on("authorized", auth, NULL);
    event_on("irc.message", message, NULL);
+   event_on("client.server.status.close", ui_server_status_close, NULL);
    cfg = dict_new();
    dict_add(cfg, "server:alpha.server.user", "alice");
    dict_add(cfg, "server:alpha.server.pass", "alpha-secret");
@@ -182,9 +189,13 @@ int main(void) {
    rrclient_connection_select_window(alpha_window);
    assert(ws_conn == a);
 
+   assert(rrclient_connection_select("beta"));
+   rrclient_server_status_window("server.notice");
+   rrclient_server_status_window("status");
+   assert(rrclient_connection_select("alpha"));
    assert(!disconnect_server("beta") && bc->is_closing && !ac->is_closing);
    bc->fn(bc, MG_EV_CLOSE, NULL);
-   assert(ws_conn == a && !a->conn->is_closing);
+   assert(ws_conn == a && !a->conn->is_closing && closed_status_tabs == 1);
    assert(!rrclient_connect_url("beta", "wss://example.test"));
    b = ws_conn;
    bc = b->conn;
@@ -334,6 +345,21 @@ int main(void) {
    assert(q2->send.len == strlen(quit_line) && !memcmp(q2->send.buf, quit_line, strlen(quit_line)));
    rrclient_quit_servers("Client exiting");
    assert(q1->send.len == strlen(quit_line) && q2->send.len == strlen(quit_line));
+
+   /* Explicit disconnect removes an owned notice window in the TUI as well. */
+   tui_only = true;
+   ui_mode = UI_MODE_TUI;
+   tui_window_t *shared_status = tui_window_create("status");
+   assert(shared_status);
+   const char *notice_key = rrclient_window_name("server.notice");
+   char saved_notice_key[64];
+   snprintf(saved_notice_key, sizeof(saved_notice_key), "%s", notice_key);
+   assert(tui_window_create(notice_key));
+   rrclient_server_status_window("server.notice");
+   rrclient_server_status_window("status");
+   assert(!disconnect_server("quit-two"));
+   assert(!tui_window_find(saved_notice_key) && tui_window_find("status") == shared_status);
+   tui_only = false;
 
    for (unsigned i = 0 ; i < connection_count ; i++) {
       mg_iobuf_free(&connections[i].recv);
