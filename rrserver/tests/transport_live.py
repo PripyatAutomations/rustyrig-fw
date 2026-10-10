@@ -1,5 +1,6 @@
 """Exercise HTTP, malformed WebSocket messages and CAT isolation on disposable rigs."""
 import json
+import os
 import hashlib
 import http.client
 import pathlib
@@ -84,6 +85,7 @@ net.http.ua-bans={work}/absent-ua-bans
 net.mqtt.enabled=false
 net.mqtt-client.enabled=false
 quota.enforce=true
+accounting.strict=true
 noob.cool-down=0
 atu.max=0
 chat.replay-lines=0
@@ -236,6 +238,7 @@ enabled=false
             deny(owner, True)  # even owner cannot take over by key-down
             stop(owner, "ADMIN")
             key(second)
+            time.sleep(1.1)  # ensure session AUDIT includes measurable TX duration
             stop(first, "TX")
             key(noob)
             stop(second, "NOOB")
@@ -256,6 +259,10 @@ enabled=false
             first.send({"msg": {"type": "talk"}, "talk": {"cmd": "whois", "target": "TX"}})
             accounting = first.until(lambda m: m.get("talk", {}).get("cmd") == "whois")["talk"]["usage"]
             assert int(accounting["rx-text-frames"]) > 0 and int(accounting["tx-text-bytes"]) > 0
+            assert accounting["tx-enforced"] is True and int(accounting["tx-remaining"]) > 0
+            for staff in [owner, elmer]:
+                staff.send({"msg":{"type":"talk"},"talk":{"cmd":"whois","target":"TX"}})
+                assert "tx-remaining" in staff.until(lambda m: m.get("talk",{}).get("cmd")=="whois")["talk"]["usage"]
             second.send({"msg": {"type": "talk"}, "talk": {"cmd": "whois", "target": "ADMIN"}})
             assert "usage" not in second.until(lambda m: m.get("talk", {}).get("cmd") == "whois")["talk"]
             drain(second)
@@ -276,8 +283,59 @@ enabled=false
                 if closed: break
                 time.sleep(.05)
             assert len(closed) == 1 and "saved=yes" in closed[0][0] and row is not None
+            with sqlite3.connect(database) as db:
+                tx_seconds=db.execute("SELECT sum(duration) FROM ptt_log WHERE username='TX'").fetchone()[0]
+            assert tx_seconds > 0 and f"tx_time={tx_seconds}s" in closed[0][0], closed
             assert row[1] == 0, row # pre-reset receives must not be charged twice at close
             print("PASS: live TX/BW quotas, SI allowances, private WHOIS usage, reset checkpoints and one end-session AUDIT record")
+            drain(first)
+            first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"LIST"}})
+            listing = drain(first)
+            assert any("TX remaining=" in m.get("notice",{}).get("msg","") for m in listing)
+            assert any("BW used=" in m.get("notice",{}).get("msg","") for m in listing)
+            first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"BW","data":"SET *O* 3M"}})
+            drain(first)
+            with sqlite3.connect(database) as db:
+                assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='NOOB'").fetchone()[0] <= 3000000
+                assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='OWNER'").fetchone()[0] <= 3000000
+            first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"BW","data":"ADD *O* 1M OWNER 1M"}})
+            drain(first)
+            with sqlite3.connect(database) as db:
+                assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='OWNER'").fetchone()[0] <= 4000000
+                assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='OWNER'").fetchone()[0] > 3900000
+            first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"BW","data":"SET 'OR* 2G"}})
+            first.until(lambda m: "no users match" in m.get("error",{}).get("msg",""))
+            print("PASS: owner/admin/elmer WHOIS quotas, combined LIST, safe wildcard expansion and overlap deduplication")
+            # Real write failures must dekey hardware, including an unwritable DB.
+            failure = os.environ.get("RR_TEST_ACCOUNTING_FAILURE", "audit")
+            if failure != "ptt-start": key(first)
+            table = {"audit":"audit_log", "quota":"tx_credits", "usage":"user_usage", "ptt-start":"ptt_log"}.get(failure)
+            with sqlite3.connect(database) as db:
+                if failure == "readonly":
+                    # SQLite enforces query_only per connection; persistent
+                    # triggers reject every writer exactly as an unwritable DB.
+                    for name in ["audit_log", "tx_credits", "user_usage", "ptt_log"]:
+                        for action in ["INSERT", "UPDATE"]:
+                            db.execute(f"CREATE TRIGGER reject_{name}_{action} BEFORE {action} ON {name} BEGIN SELECT RAISE(FAIL,'database unwritable'); END")
+                else:
+                    action = "UPDATE" if failure in ["quota","usage"] else "INSERT"
+                    db.execute(f"CREATE TRIGGER reject_accounting BEFORE {action} ON {table} BEGIN SELECT RAISE(FAIL,'injected accounting failure'); END")
+            if failure == "ptt-start": cat(first,"ptt",ptt=True)
+            else:
+                first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"TX" if failure == "quota" else "BW","data":"SET ADMIN 30m" if failure == "quota" else "SET ADMIN 1G"}})
+            first.until(lambda m: "locked until server restart" in m.get("error",{}).get("msg",""))
+            first.until(lambda m: m.get("cat",{}).get("state",{}).get("ptt") is False or m.get("cat",{}).get("ptt") is False)
+            with sqlite3.connect(database) as db:
+                triggers = db.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'reject_%'").fetchall()
+                for (name,) in triggers: db.execute('DROP TRIGGER "'+name+'"')
+            drain(first)
+            cat(first,"ptt",ptt=True)
+            messages=drain(first)
+            assert any(m.get("msg",{}).get("type")=="error" for m in messages)
+            assert any(m.get("cat",{}).get("ptt") is False for m in messages)
+            cat(first,"ptt",ptt=False)
+            drain(first)
+            print(f"PASS: {failure} write failure dekeys PTT, stays locked after DB repair and permits safety key-up")
             print("PASS: strict stop hierarchy, admin/owner boundary and no PTT ownership transfer")
             print("PASS: malformed WebSocket input, strict CAT targets/values and PTT ownership")
             assert process.poll() is None

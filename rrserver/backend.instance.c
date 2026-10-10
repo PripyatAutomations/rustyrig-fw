@@ -10,7 +10,7 @@
 
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 #include <rrserver/rig.properties.h>
 
 // XXX: Move this to $PROFILE.config.json

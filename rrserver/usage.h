@@ -18,6 +18,7 @@ bool db_usage_bandwidth_set(sqlite3 *db, const char *name, uint64_t bytes, bool 
 bool db_usage_reset(sqlite3 *db, const char *name, uint64_t allowance);
 bool db_usage_reset_tx(sqlite3 *db, const char *name);
 #endif
+bool rrserver_quota_matches(const char *pattern, const char *name);
 bool rr_usage_parse_bytes(const char *text, uint64_t *bytes);
 void rrserver_usage_register_events(void);
 bool rrserver_usage_flush_user(const char *name);

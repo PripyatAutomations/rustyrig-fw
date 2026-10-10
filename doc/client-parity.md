@@ -363,7 +363,9 @@ Native and browser clients share compact `media.feedback` fields, relative
 monotonic timing, per-stream sequence-gap detection and bounded playback recovery.
 Native DSP and WebCodecs have different decoder capabilities; neither client
 advertises codecs its active implementation cannot decode. The server alone owns
-persistent usage, allowance decisions and staff visibility in `/whois`. Both clients
+persistent usage, allowance decisions and owner/admin/elmer quota visibility in
+`/whois`. Both clients display TX/BW status; strict accounting failures reject
+PTT on while keeping PTT off available. Both clients
 forward complete `/quota [TX|BW]` command tails, complete unit/action parameters,
 and display staff usage when present. IRC remains native-only.
 

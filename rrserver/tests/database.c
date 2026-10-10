@@ -28,6 +28,12 @@ struct replay_frame {
 };
 static struct replay_frame replay_frames[MAX_REPLAY_FRAMES];
 static int replay_frame_count;
+static unsigned accounting_failures;
+static void accounting_failed_test(const char *event, const char *data, rrconn_t *peer, void *user) {
+   (void)event; (void)peer; (void)user;
+   assert(data && *data);
+   accounting_failures++;
+}
 
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int data_type) {
    (void)sender;
@@ -350,6 +356,19 @@ int main(void) {
    assert(db_quota_set(db, "new-user", 25));
    assert(db_quota_get(db, "new-user") == 25);
 
+   event_init();
+   event_on("accounting.write.failed", accounting_failed_test, NULL);
+   assert(sqlite3_exec(db, "PRAGMA query_only=ON", NULL, NULL, NULL)==SQLITE_OK);
+   struct rr_traffic pending = {.rx_text_bytes=1, .rx_text_frames=1};
+   assert(!db_quota_set(db, "admin", 100));
+   assert(!db_usage_record(db, "admin", &pending, 1));
+   assert(db_ptt_start(db, "admin", "A", 14074000, "USB", 2400, 1, NULL, "read-only") < 0);
+   assert(!db_add_audit_event(db, "admin", "readonly", "test"));
+   assert(accounting_failures==4);
+   assert(sqlite3_exec(db, "PRAGMA query_only=OFF", NULL, NULL, NULL)==SQLITE_OK);
+   assert(db_quota_set(db, "admin", 100));
+   assert(accounting_failures==4);
+   event_off("accounting.write.failed", accounting_failed_test, NULL);
    sqlite3_close(db);
    masterdb = NULL;
    // Migration preserves existing metadata and defaults old rooms to active.

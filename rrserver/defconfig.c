@@ -420,6 +420,9 @@ defconfig_t defcfg[] = {
       "record.max", "16", "Maximum concurrent audio recordings", DEFCONFIG_UINT, NULL
    },
    {
+      "accounting.strict", "false", "Lock PTT until restart after quota, usage or audit database write failure", DEFCONFIG_BOOL, NULL
+   },
+   {
       "quota.enforce", "true", "Require TX credits (tx_credits table) for users to TX?", DEFCONFIG_BOOL, NULL
    },
    {

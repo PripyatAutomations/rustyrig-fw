@@ -1,4 +1,4 @@
-// rrserver/rig.config.c: scoped configuration for named rig instances
+// rrserver/cfg.rig.c: scoped configuration for named rig instances
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
@@ -10,7 +10,7 @@
 #include <glib.h>
 
 #include <librustyaxe/core.h>
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 
 #define RR_RIG_CONFIG_KEY_MAX 256
 

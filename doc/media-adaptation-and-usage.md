@@ -93,13 +93,17 @@ disabled. A reset during active PTT counts only the portion after the reset.
 Signed database counters saturate at INT64_MAX. Wire usage values are decimal
 strings to preserve exact integers in JavaScript.
 
-Only `admin|owner` requesters receive usage fields in `/whois`. Public account
+Only `admin|owner|elmer` requesters receive usage and TX/BW quota status fields in `/whois`. Public account
 information keeps its existing visibility. Both clients display bytes, frame
 counts, TX time, session time and remaining bandwidth when included. `/whois`
 retains its existing online-user lookup; `/quota BW SHOW` can inspect configured
 offline accounts.
 
 ## Allowances and commands
+
+Quota mutations remain restricted to `admin|owner`; elmers can inspect quota status
+in `/whois`. Unqualified `/quota LIST` shows both TX and BW quotas for all accounts.
+Explicit `/quota TX LIST` and `/quota BW LIST` select the corresponding view.
 
 Staff commands:
 
@@ -133,7 +137,44 @@ Active connection checkpoints are saved before reset so earlier traffic is never
 charged again. Database-save failure prevents a bandwidth quota mutation.
 
 Bandwidth exhaustion **warns only**. Negative remaining balances record overage;
-chat/control, new radio transmissions and safety key-up remain available. Existing
+chat/control, new radio transmissions and PTT off remain available. Existing
 TX-time enforcement remains governed by its existing configuration. These records
 support station accounting and requests for project contributions, without adding
 payments or mandatory bandwidth enforcement.
+
+## Strict accounting interlock
+
+Set `accounting.strict=true` in the server's general configuration to lock TX after
+an actual quota, usage, PTT-log or audit database write failure. The default is
+false, preserving advisory accounting. Exhausting bandwidth remains warning-only
+in either mode; write failure and allowance exhaustion are different conditions.
+
+The failure event immediately latches PTT-on rejection. A failed PTT-log insert
+prevents the radio from being keyed. If already transmitting, the server sends
+PTT off to the active rig's supported VFOs on its next poll, after database
+statement finalization and rollback. Backend PTT-off failures are logged and retried
+once per second. The release path never depends on successful database writes.
+Clients receive an error explaining that TX is locked until server restart.
+
+Repairing the database, topping up quotas, admin unblocking or disabling strict
+mode with rehash does not clear a latched failure. Restart after resolving the
+write problem. Chat/control and PTT off stay available. The end-session
+AUDIT record includes the owning connection's TX time even when PTT off cleared
+its talker flag before the PTT-log close.
+
+## Username wildcard arguments
+
+Quota SHOW/SET/ADD/RESET and LIST filters accept case-insensitive `*` (zero or more
+characters) and `?` (one character), for example:
+
+```text
+/quota LIST test*
+/quota TX SHOW r?b
+/quota BW ADD test* 1G
+```
+
+Expansion uses only configured usernames in server memory. Each account is acted
+on at most once per command; with overlapping patterns the first matching pair
+wins. Unknown/malformed patterns produce an error. Character classes, quoting,
+backslash escapes and SQL syntax are not patterns. Resolved literal usernames go
+through bound SQL parameters; wildcards are never placed in a SQL expression.

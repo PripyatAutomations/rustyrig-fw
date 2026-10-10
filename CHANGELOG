@@ -1,4 +1,10 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Show TX/BW quota status to owner/admin/elmer WHOIS requesters; list both
+    quotas by default and safely expand simple username wildcards in memory.
+  * Add opt-in strict accounting: failed quota/usage/PTT/audit writes halt PTT,
+    latch PTT-on rejection until restart and retry failed PTT-off requests.
+  * Preserve session TX duration through key-up and rename server rig config
+    sources to cfg.rig.c/h with all build/include/test references updated.
   * Adapt live Opus quality to sustained queue pressure, relative RTT and
     scoped receiver feedback, with gradual recovery and no clock synchronization.
   * Track media sequence gaps per connection/stream, protect codec setup packets

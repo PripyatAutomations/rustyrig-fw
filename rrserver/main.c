@@ -27,7 +27,7 @@
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/serial.h>
 #include <rrserver/gps.h>

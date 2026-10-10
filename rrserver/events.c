@@ -1178,6 +1178,7 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
                ws_send_notice(cptr, "%s: reset to 60m", name);
                quota_reset_warned(name);
             } else {
+               event_emit("accounting.write.failed", NULL, "TX quota reset transaction");
                ws_send_notice(cptr, "quota RESET: failed for %s", name);
             }
          }
@@ -1321,17 +1322,43 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
 
    if (argc < 1) {
       // Bare /quota is a shortcut for LIST; use /quota help for the help text
-      quota_apply(cptr, cptr->chatname, "LIST", 0, NULL);
+      rrserver_usage_quota(cptr, "LIST", 0, NULL);
       dict_free(d);
 
       return;
    }
 
-   if (!strcasecmp(argv[0], "BW")) {
-      rrserver_usage_quota(cptr, argc > 1 ? argv[1] : "LIST", argc > 1 ? argc - 2 : 0, &argv[2]);
-   } else if (!strcasecmp(argv[0], "TX")) {
-      quota_apply(cptr, cptr->chatname, argc > 1 ? argv[1] : "LIST", argc > 1 ? argc - 2 : 0, &argv[2]);
-   } else quota_apply(cptr, cptr->chatname, argv[0], argc - 1, &argv[1]);
+   bool explicit_unit = !strcasecmp(argv[0], "BW") || !strcasecmp(argv[0], "TX");
+   bool bandwidth = explicit_unit && !strcasecmp(argv[0], "BW");
+   const char *action = explicit_unit ? (argc > 1 ? argv[1] : "LIST") : argv[0];
+   int start = explicit_unit ? 2 : 1;
+   bool list = !strcasecmp(action, "LIST"), show = !strcasecmp(action, "SHOW"), reset = !strcasecmp(action, "RESET");
+   bool pairs = !strcasecmp(action, "SET") || !strcasecmp(action, "ADD");
+   if ((!list && !show && !reset && !pairs) || (!list && argc <= start) || (pairs && (argc-start)%2)) {
+      if (bandwidth) rrserver_usage_quota(cptr, action, argc > start ? argc-start : 0, &argv[start]);
+      else quota_apply(cptr, cptr->chatname, action, argc > start ? argc-start : 0, &argv[start]);
+      dict_free(d);
+      return;
+   }
+   /* Expand against known accounts in memory, then bind literal usernames.
+    * Overlapping patterns affect each account at most once per command. */
+   bool seen[HTTP_MAX_USERS] = {false};
+   int stop = argc > start ? argc : start+1;
+   for (int i=start; i<stop; i += pairs ? 2 : 1) {
+      const char *pattern = i < argc ? argv[i] : "*";
+      bool matched = false;
+      for (unsigned uid=0; uid<HTTP_MAX_USERS; uid++) {
+         const char *name = http_users[uid].name;
+         if (!*name || !rrserver_quota_matches(pattern, name)) continue;
+         matched = true;
+         if (seen[uid]) continue;
+         seen[uid] = true;
+         char *single[] = {(char *)name, pairs ? argv[i+1] : NULL};
+         if (bandwidth || (list && !explicit_unit)) rrserver_usage_quota(cptr, list ? "SHOW" : action, pairs ? 2 : 1, single);
+         else quota_apply(cptr, cptr->chatname, list ? "SHOW" : action, pairs ? 2 : 1, single);
+      }
+      if (!matched) ws_send_error(cptr, "quota: no users match %s (simple * and ? wildcards only)", pattern);
+   }
    dict_free(d);
 }
 
@@ -1909,6 +1936,7 @@ void rrserver_register_events(void) {
    rrserver_objects_register_events();
    rrserver_media_register_events();
    rrserver_usage_register_events();
+   rr_ptt_register_accounting_events();
    Log(LOG_CRAZY, "events", "Registering rrserver events");
 
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);

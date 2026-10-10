@@ -1279,6 +1279,10 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    }
 
    if (dict_get(d, "talk.usage.total-bytes", NULL)) {
+      /* PARITY: rustyrig-www/js/webui.chat.js WHOIS quota status. */
+      ui_print(output, "\00310***\017 Quotas:     TX remaining %ss (%s); BW %s (warning only)",
+         dict_get(d, "talk.usage.tx-remaining", "0"), dict_get_bool(d, "talk.usage.tx-enforced", false) ? "enforced" : "advisory",
+         dict_get(d, "talk.usage.bandwidth-status", "unlimited"));
       ui_print(output, "\00310***\017 Usage:      %s bytes; BW remaining %s bytes; TX %ss; session time %ss",
          dict_get(d, "talk.usage.total-bytes", "0"), dict_get(d, "talk.usage.bandwidth-remaining", "unlimited"),
          dict_get(d, "talk.usage.tx-seconds", "0"), dict_get(d, "talk.usage.session-seconds", "0"));

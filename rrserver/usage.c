@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -30,6 +31,22 @@ bool rr_usage_parse_bytes(const char *text, uint64_t *bytes) {
    if (value > INT64_MAX / scale) return false;
    *bytes = value * scale;
    return true;
+}
+
+/* Match only simple username globs; patterns never become SQL. */
+bool rrserver_quota_matches(const char *pattern, const char *name) {
+   if (!pattern || !*pattern || !name || strlen(pattern) > HTTP_USER_LEN) return false;
+   for (const unsigned char *p=(const unsigned char *)pattern; *p; p++)
+      if (!isalnum(*p) && *p!='_' && *p!='-' && *p!='*' && *p!='?') return false;
+   const char *star=NULL, *retry=NULL;
+   while (*name) {
+      if (*pattern=='?' || (*pattern && tolower((unsigned char)*pattern)==tolower((unsigned char)*name))) { pattern++; name++; }
+      else if (*pattern=='*') { star=pattern++; retry=name; }
+      else if (star) { pattern=star+1; name=++retry; }
+      else return false;
+   }
+   while (*pattern=='*') pattern++;
+   return !*pattern;
 }
 
 #ifdef USE_SQLITE
@@ -103,7 +120,7 @@ static void usage_whois(const char *event, const char *data, rrconn_t *requester
    (void)event; (void)user;
    dict *reply = data ? json2dict(data) : NULL;
    if (!reply || !requester || !requester->authenticated) { dict_free(reply); return; }
-   if (requester->user && has_priv(requester->user->uid, "admin|owner")) {
+   if (requester->user && has_priv(requester->user->uid, "admin|owner|elmer")) {
       const char *name = dict_get(reply, "talk.username", NULL);
       rrserver_usage_flush_user(name);
       struct rr_usage usage;
@@ -113,6 +130,11 @@ static void usage_whois(const char *event, const char *data, rrconn_t *requester
          usage_add_number(reply, "talk.usage.session-seconds", usage.session_seconds);
          usage_add_number(reply, "talk.usage.tx-seconds", usage.tx_seconds);
          usage_add_number(reply, "talk.usage.reset-at", usage.reset_at);
+         char remaining[32];
+         snprintf(remaining, sizeof(remaining), "%d", db_quota_get(masterdb, name));
+         dict_add(reply, "talk.usage.tx-remaining", remaining);
+         dict_add_bool(reply, "talk.usage.tx-enforced", cfg_get_bool("quota.enforce", true));
+         dict_add(reply, "talk.usage.bandwidth-status", !usage.bandwidth_limited ? "unlimited" : usage.bandwidth_remaining <= 0 ? "exhausted" : "available");
          char allowance[32];
          if (usage.bandwidth_limited) snprintf(allowance, sizeof(allowance), "%" PRId64, usage.bandwidth_remaining);
          else snprintf(allowance, sizeof(allowance), "unlimited");
@@ -134,6 +156,7 @@ static void usage_show(rrconn_t *requester, const char *name) {
    rrserver_usage_flush_user(name);
    struct rr_usage usage;
    if (!db_usage_get(masterdb, name, &usage)) { ws_send_error(requester, "Cannot read bandwidth usage for %s", name); return; }
+   ws_send_notice(requester, "%s: TX remaining=%d seconds (%s)", name, db_quota_get(masterdb, name), cfg_get_bool("quota.enforce", true) ? "enforced" : "advisory");
    if (usage.bandwidth_limited)
       ws_send_notice(requester, "%s: BW used=%" PRIu64 " bytes, remaining=%" PRId64 " bytes; TX used=%" PRIu64 "s, session time=%" PRIu64 "s",
          name, total_bytes(&usage.traffic), usage.bandwidth_remaining, usage.tx_seconds, usage.session_seconds);

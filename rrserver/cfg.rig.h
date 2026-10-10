@@ -1,10 +1,10 @@
-// rrserver/rig.config.h: scoped configuration for named rig instances
+// rrserver/cfg.rig.h: scoped configuration for named rig instances
 //    This is part of rustyrig-fw.
 // https://github.com/pripyatautomations/rustyrig-fw
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#if !defined(__rrserver_rig_config_h)
-#define __rrserver_rig_config_h
+#if !defined(__rrserver_cfg_rig_h)
+#define __rrserver_cfg_rig_h
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,4 +20,4 @@ extern bool rr_rig_config_get_bool(const char *alias, const char *key, bool defa
 /* Compatibility mask for the configured default rig's traditional A-Z VFOs. */
 extern uint32_t rr_rig_config_default_vfo_mask(void);
 
-#endif // !defined(__rrserver_rig_config_h)
+#endif // !defined(__rrserver_cfg_rig_h)

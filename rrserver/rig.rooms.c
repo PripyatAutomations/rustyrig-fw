@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.rooms.h>

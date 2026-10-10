@@ -25,7 +25,7 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
 extern struct GlobalState rig;
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 #include <rrserver/ptt.h>
 
 extern time_t now;

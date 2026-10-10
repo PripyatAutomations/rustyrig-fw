@@ -14,6 +14,9 @@ time_t now, ptt_tot_time;
 bool dying, restarting;
 sqlite3 *masterdb;
 static unsigned applied;
+rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry) { return (rr_server_rig_t *)1; }
+rr_server_vfo_t *rr_server_vfo_find_alias(const rr_server_rig_t *radio, const char *alias) { return *alias=='A' ? (rr_server_vfo_t *)1 : NULL; }
+bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *object) { return true; }
 static bool fail_release;
 bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
    assert(vfo == VFO_A && !state);
@@ -84,6 +87,24 @@ int main(void) {
    fail_release = false;
    assert(!rr_ptt_request(VFO_A, false, "retry"));
    assert(applied == 3 && !global_tot_time);
+   event_init();
+   rr_ptt_register_accounting_events();
+   event_emit("accounting.write.failed", NULL, "advisory-test");
+   assert(!rr_ptt_accounting_locked());
+   dict_add(cfg, "accounting.strict", "true");
+   event_emit("accounting.write.failed", NULL, "strict-test");
+   assert(rr_ptt_accounting_locked());
+   rr_ptt_set_blocked(false);
+   dict_add(cfg, "accounting.strict", "false");
+   assert(rr_ptt_check_blocked()); // neither admin unblock nor rehash clears latch
+   assert(rr_ptt_request(VFO_A, true, "locked"));
+   assert(!rr_ptt_request(VFO_A, false, "safe-release"));
+   assert(applied==4);
+   fail_release=true;
+   assert(rr_ptt_set_all_off_reason("failed-safety-stop"));
+   fail_release=false;
+   assert(!rr_ptt_set_all_off_reason("retry-safety-stop"));
+   assert(applied==6);
    dict_free(cfg);
    cfg = NULL;
    puts("PASS: TX lockout blocks key-down but permits safety key-up");

@@ -19,7 +19,7 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.compat.h>
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 #include <rrserver/rig.properties.h>
 #include <rrserver/rig.registry.h>
 #ifdef USE_SQLITE

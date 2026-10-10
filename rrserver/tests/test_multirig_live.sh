@@ -18,7 +18,7 @@ ${CC:-cc} ${CFLAGS:-} -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrserver/backend.instance.c rrserver/backend.register.c \
    rrserver/backend.internal.c rrserver/backend.hamlib.c \
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
-   rrserver/rig.config.c rrserver/database.c rrserver/defconfig.c \
+   rrserver/cfg.rig.c rrserver/database.c rrserver/defconfig.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs glib-2.0 hamlib sqlite3) ${LDFLAGS:-} \
    -o "$work/multirig-live"

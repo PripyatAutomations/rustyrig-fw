@@ -19,5 +19,12 @@ int main(void) {
       assert(!rr_usage_parse_bytes(invalid[i],&bytes) && bytes == 123);
    }
    assert(!rr_usage_parse_bytes("1",NULL));
+   assert(rrserver_quota_matches("*", "alice"));
+   assert(rrserver_quota_matches("a*?E", "alice"));
+   assert(rrserver_quota_matches("A?ICE", "alice"));
+   assert(!rrserver_quota_matches("a??", "alice"));
+   assert(!rrserver_quota_matches("*' OR 1=1--", "alice"));
+   assert(!rrserver_quota_matches("[ab]*", "alice"));
+   assert(!rrserver_quota_matches("", "alice"));
    puts("PASS: bandwidth quota SI units, implicit 1M chunks, strict syntax and database integer limits");
 }

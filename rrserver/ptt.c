@@ -44,6 +44,7 @@ int vfos_enabled = 2;                    // A + B by default
 
 // VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
 static int ptt_log_session[MAX_VFOS];
+static rrconn_t *ptt_log_owner[MAX_VFOS];
 static char ptt_recording_id[MAX_VFOS][RECORDING_ID_BUFSIZE];
 static char ptt_recording_file[MAX_VFOS][FWDSP_RECORD_FILE_LEN];
 
@@ -144,6 +145,7 @@ void quota_reset_warned(const char *username) {
    }
 }
 
+#ifdef USE_SQLITE
 static void quota_maybe_warn(rrconn_t *talker, int left) {
    if (!talker || !talker->user || talker->user->uid < 0 || talker->user->uid >= HTTP_MAX_USERS) {
       return;
@@ -201,6 +203,8 @@ static char *ptt_log_username(int session) {
    return ret;
 }
 
+#endif // USE_SQLITE
+
 // Snapshot the VFO state and open a ptt_log row for the talker
 static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_id) {
 #ifdef  USE_SQLITE
@@ -225,6 +229,7 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
       return;
    }
    ptt_log_session[vfo] = session;
+   ptt_log_owner[vfo] = talker;
    talker->ptt_session = session;
    Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz", session, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq);
 #else
@@ -244,6 +249,8 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    if (!masterdb || vfo < 0 || vfo >= MAX_VFOS) {
       return;
    }
+   if (!talker) talker = ptt_log_owner[vfo];
+   ptt_log_owner[vfo] = NULL;
    int session = ptt_log_session[vfo];
 
    if (session <= 0 && talker) {
@@ -282,7 +289,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
-      if (cfg_get_bool("quota.enforce", true) && who) {
+      if (cfg_get_bool("quota.enforce", true) && who && secs > 0) {
          if (!db_quota_spend(masterdb, who, secs) ) {
             Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s", secs, who);
          } else {
@@ -303,8 +310,35 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 #endif
 }
 
+static bool accounting_locked, accounting_stop_pending;
+bool rr_ptt_accounting_locked(void) { return accounting_locked; }
+
+static void accounting_failed(const char *event, const char *data, rrconn_t *peer, void *user) {
+   (void)event; (void)peer; (void)user;
+   if (accounting_locked || !cfg_get_bool("accounting.strict", false)) return;
+   accounting_locked = accounting_stop_pending = true;
+   Log(LOG_CRIT, "accounting", "Accounting write failed (%s); TX locked until server restart", data ? data : "unknown");
+   for (rrconn_t *client=http_client_list; client; client=client->next)
+      if (client->authenticated) ws_send_error(client, "Accounting database write failed: PTT halted and locked until server restart");
+}
+
+static void accounting_poll(const char *event, const char *data, rrconn_t *peer, void *user) {
+   (void)event; (void)data; (void)peer; (void)user;
+   static uint64_t retry_at;
+   uint64_t at = mono_us();
+   if (!accounting_stop_pending || (retry_at && at < retry_at)) return;
+   /* Run after statement finalization/rollback; stopping PTT also writes usage. */
+   accounting_stop_pending = rr_ptt_set_all_off_reason("accounting-failure");
+   retry_at = accounting_stop_pending ? at + 1000000 : 0;
+}
+
+void rr_ptt_register_accounting_events(void) {
+   event_on("accounting.write.failed", accounting_failed, NULL);
+   event_on("server.poll", accounting_poll, NULL);
+}
+
 bool rr_ptt_check_blocked(void) {
-   if (rig.tx_blocked) {
+   if (rig.tx_blocked || accounting_locked) {
       return true;
    }
 
@@ -324,12 +358,20 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    rrconn_t *ptt_talker = whos_talking();
    const char *recording_id = NULL;
 
+   if (ptt && cfg_get_bool("accounting.strict", false)) {
+#ifdef USE_SQLITE
+      if (!masterdb) accounting_failed(NULL, "database not open", NULL, NULL);
+#else
+      accounting_failed(NULL, "SQLite accounting unavailable", NULL, NULL);
+#endif
+   }
    if (ptt && rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
       return true;
    }
 
+#ifdef USE_SQLITE
    // Quota enforcement: when quota.enforce is true, the user needs remaining
    // TX credits (tx_credits table) to key up. PARITY: rrserver/database.c
    if (ptt && cfg_get_bool("quota.enforce", true) && masterdb) {
@@ -345,6 +387,8 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
          }
       }
    }
+
+#endif // USE_SQLITE
 
    // PTT logging: snapshot VFO state on key-down; log TX seconds on key-up.
    // whos_talking() is updated by librrprotocol (cptr->is_ptt) before the
@@ -368,6 +412,7 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    // Go through backend.c (rr_ptt_apply) rather than poking the backend api
    // directly. PARITY: rrserver/backend.c rr_ptt_apply()
    // NB: rr_ptt_apply() returns false on SUCCESS, true on failure.
+   if (ptt && accounting_locked) return true;
    if (rr_ptt_apply(vfo, ptt) ) {
       Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
 
@@ -381,6 +426,10 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
       return true;
    } else {
+      if (ptt && accounting_locked) {
+         rr_ptt_set_all_off_reason("accounting-failure");
+         return true;
+      }
       // set or clear the talk timeout
       // Config: rig.tot - max TX time in seconds (default 300) before the
       // clocktick timer halts PTT. PARITY: rrserver/timer.clocktick.c TOT check
@@ -443,11 +492,18 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 bool rr_ptt_set_all_off_reason(const char *reason) {
    Log(LOG_AUDIT, "core", "PTT turned off for all VFOs!");
 
+   bool failed = false;
+   rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
    for (int i = VFO_A ; i < MAX_VFOS ; i++) {
-      rr_ptt_set_reason( (rr_vfo_t)i, false, reason ? reason : "forced");
+      if (radio) {
+         char alias[2] = {(char)('A'+i), 0};
+         rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, alias);
+         if (!object || !rr_backend_vfo_supported(radio, object)) continue;
+      }
+      if (rr_ptt_request((rr_vfo_t)i, false, reason ? reason : "forced")) failed = true;
    }
 
-   global_tot_time = 0;
+   if (!failed) global_tot_time = 0;
 
    // Clear the talker's TX state AFTER the VFO loop so ptt_log_stop() above
    // still sees the talker for the quota debit / log line. is_ptt is
@@ -456,13 +512,13 @@ bool rr_ptt_set_all_off_reason(const char *reason) {
    // leave a phantom talker holding the channel until they bounce PTT.
    rrconn_t *talker = whos_talking();
 
-   if (talker) {
+   if (talker && !failed) {
       talker->is_ptt = false;
       talker->ptt_vfo = 0;
       ws_send_userinfo(talker, NULL);
    }
 
-   return false;
+   return failed;
 }
 
 bool rr_ptt_set_all_off(void) {

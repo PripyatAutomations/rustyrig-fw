@@ -8,7 +8,7 @@ ${CC:-cc} ${CFLAGS:-} -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
    $(pkg-config --cflags glib-2.0) \
    rrserver/tests/multirig.c rrserver/backend.c \
    rrserver/backend.instance.c rrserver/rig.properties.c \
-   rrserver/rig.compat.c rrserver/rig.registry.c rrserver/rig.config.c \
+   rrserver/rig.compat.c rrserver/rig.registry.c rrserver/cfg.rig.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs glib-2.0) ${LDFLAGS:-} \
    -o "$work/multirig"

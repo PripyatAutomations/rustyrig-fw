@@ -1197,6 +1197,24 @@ int db_get_users(sqlite3 *db) {
    return user_count;
 }
 
+/* Emit a server-owned safety event; listeners latch immediately and defer
+ * any database-writing PTT cleanup until after this statement is finalized. */
+static int accounting_prepare(sqlite3 *db, const char *sql, int bytes, sqlite3_stmt **stmt, const char **tail, const char *operation) {
+   int result = sqlite3_prepare_v2(db, sql, bytes, stmt, tail);
+   if (result != SQLITE_OK) event_emit("accounting.write.failed", NULL, operation);
+   return result;
+}
+static int accounting_step(sqlite3_stmt *stmt, const char *operation) {
+   int result = sqlite3_step(stmt);
+   if (result != SQLITE_DONE && result != SQLITE_ROW) event_emit("accounting.write.failed", NULL, operation);
+   return result;
+}
+static int accounting_exec(sqlite3 *db, const char *sql, int (*callback)(void *, int, char **, char **), void *user, char **error, const char *operation) {
+   int result = sqlite3_exec(db, sql, callback, user, error);
+   if (result != SQLITE_OK) event_emit("accounting.write.failed", NULL, operation);
+   return result;
+}
+
 bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) {
    if (!db || !username || !event_type || !details) {
       return false;
@@ -1205,7 +1223,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 
    sqlite3_stmt *stmt;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_add_audit_event") != SQLITE_OK) {
       Log(LOG_CRIT, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db) );
 
       return false;
@@ -1214,7 +1232,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    sqlite3_bind_text(stmt, 2, event_type, -1, SQLITE_STATIC);
    sqlite3_bind_text(stmt, 3, details ? details : "", -1, SQLITE_STATIC);
 
-   int result = sqlite3_step(stmt);
+   int result = accounting_step(stmt, "db_add_audit_event");
    bool success = result == SQLITE_DONE;
    if (!success) Log(LOG_WARN, "db", "Failed saving audit event %s: SQLite %d: %s", event_type, result, sqlite3_errmsg(db));
    sqlite3_finalize(stmt);
@@ -1234,7 +1252,7 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
 
    sqlite3_stmt *stmt;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_ptt_start") != SQLITE_OK) {
       Log(LOG_CRIT, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db) );
 
       return -1;
@@ -1253,7 +1271,7 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    }
    sqlite3_bind_text(stmt, 8, recording_id, -1, SQLITE_STATIC);
 
-   if (sqlite3_step(stmt) != SQLITE_DONE) {
+   if (accounting_step(stmt, "db_ptt_start") != SQLITE_DONE) {
       sqlite3_finalize(stmt);
 
       return -1;
@@ -1270,23 +1288,23 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
 // how long the user transmitted); -1 if the row wasn't found.
 bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *stop_reason) {
    if (!db || session_id < 0) return false;
-   if (sqlite3_exec(db, "SAVEPOINT ptt_usage", NULL, NULL, NULL) != SQLITE_OK) return false;
+   if (accounting_exec(db, "SAVEPOINT ptt_usage", NULL, NULL, NULL, "db_ptt_stop") != SQLITE_OK) return false;
    sqlite3_stmt *stmt = NULL;
    const char *sql = "UPDATE ptt_log SET end_time=CURRENT_TIMESTAMP, duration=MAX(0,CAST(ROUND((julianday('now')-julianday(start_time))*86400) AS INTEGER)),stop_reason=? WHERE id=? AND end_time IS NULL";
-   bool ok = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK;
+   bool ok = accounting_prepare(db, sql, -1, &stmt, NULL, "db_ptt_stop") == SQLITE_OK;
    if (ok) {
       sqlite3_bind_text(stmt, 1, stop_reason && *stop_reason ? stop_reason : "released", -1, SQLITE_STATIC);
       sqlite3_bind_int(stmt, 2, session_id);
-      ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+      ok = accounting_step(stmt, "db_ptt_stop") == SQLITE_DONE && sqlite3_changes(db) == 1;
    }
    sqlite3_finalize(stmt); stmt = NULL;
    int duration = -1;
    if (ok) {
       const char *read = "SELECT username,duration,MAX(0,MIN(duration,unixepoch(end_time)-MAX(unixepoch(start_time),coalesce((SELECT MAX(reset_at,tx_reset_at) FROM user_usage WHERE name=ptt_log.username),0)))) FROM ptt_log WHERE id=?";
-      ok = sqlite3_prepare_v2(db, read, -1, &stmt, NULL) == SQLITE_OK;
+      ok = accounting_prepare(db, read, -1, &stmt, NULL, "db_ptt_stop") == SQLITE_OK;
       if (ok) {
          sqlite3_bind_int(stmt, 1, session_id);
-         ok = sqlite3_step(stmt) == SQLITE_ROW;
+         ok = accounting_step(stmt, "db_ptt_stop") == SQLITE_ROW;
          if (ok) {
             duration = sqlite3_column_int(stmt, 1);
             ok = db_usage_add_tx(db, (const char *)sqlite3_column_text(stmt, 0), sqlite3_column_int64(stmt, 2));
@@ -1295,12 +1313,12 @@ bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *st
       sqlite3_finalize(stmt);
    }
    if (!ok) {
-      sqlite3_exec(db, "ROLLBACK TO ptt_usage", NULL, NULL, NULL);
-      sqlite3_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL);
+      accounting_exec(db, "ROLLBACK TO ptt_usage", NULL, NULL, NULL, "db_ptt_stop");
+      accounting_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL, "db_ptt_stop");
       Log(LOG_WARN, "db", "PTT session/usage close failed for %d: %s", session_id, sqlite3_errmsg(db));
       return false;
    }
-   if (sqlite3_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL) != SQLITE_OK) return false;
+   if (accounting_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL, "db_ptt_stop") != SQLITE_OK) return false;
    if (duration_secs) *duration_secs = duration;
    return true;
 }
@@ -1392,7 +1410,7 @@ bool db_quota_spend(sqlite3 *db, const char *username, int secs) {
 
    sqlite3_stmt *stmt = NULL;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_quota_spend") != SQLITE_OK) {
       Log(LOG_CRIT, "db", "db_quota_spend: prepare failed: %s", sqlite3_errmsg(db) );
 
       return false;
@@ -1400,7 +1418,7 @@ bool db_quota_spend(sqlite3 *db, const char *username, int secs) {
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
    sqlite3_bind_int(stmt, 2, secs);
 
-   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   bool success = (accounting_step(stmt, "db_quota_spend") == SQLITE_DONE);
    sqlite3_finalize(stmt);
 
    if (!success) {
@@ -1424,7 +1442,7 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
 
    sqlite3_stmt *stmt = NULL;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_quota_add") != SQLITE_OK) {
       Log(LOG_CRIT, "db", "db_quota_add: prepare failed: %s", sqlite3_errmsg(db) );
 
       return false;
@@ -1432,7 +1450,7 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
    sqlite3_bind_int(stmt, 2, credits);
 
-   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   bool success = (accounting_step(stmt, "db_quota_add") == SQLITE_DONE);
    sqlite3_finalize(stmt);
 
    return success;
@@ -1451,7 +1469,7 @@ bool db_quota_set(sqlite3 *db, const char *username, int credits) {
 
    sqlite3_stmt *stmt = NULL;
 
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_quota_set") != SQLITE_OK) {
       Log(LOG_CRIT, "db", "db_quota_set: prepare failed: %s", sqlite3_errmsg(db) );
 
       return false;
@@ -1459,7 +1477,7 @@ bool db_quota_set(sqlite3 *db, const char *username, int credits) {
    sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
    sqlite3_bind_int(stmt, 2, credits);
 
-   bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+   bool success = (accounting_step(stmt, "db_quota_set") == SQLITE_DONE);
    sqlite3_finalize(stmt);
 
    return success;
@@ -1554,12 +1572,12 @@ bool db_usage_record(sqlite3 *db, const char *name, const struct rr_traffic *del
       "rx_binary_frames=CASE WHEN rx_binary_frames > 9223372036854775807-excluded.rx_binary_frames THEN 9223372036854775807 ELSE rx_binary_frames+excluded.rx_binary_frames END, "
       "session_seconds=CASE WHEN session_seconds > 9223372036854775807-excluded.session_seconds THEN 9223372036854775807 ELSE session_seconds+excluded.session_seconds END, "
       "bandwidth_remaining=CASE WHEN bandwidth_remaining IS NULL THEN NULL WHEN bandwidth_remaining < -9223372036854775807+? THEN -9223372036854775807 ELSE bandwidth_remaining-? END";
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_record") != SQLITE_OK) return false;
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    for (unsigned i=0; i<9; i++) sqlite3_bind_int64(stmt, i+2, values[i]);
    sqlite3_bind_int64(stmt, 11, bytes);
    sqlite3_bind_int64(stmt, 12, bytes);
-   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   bool ok = accounting_step(stmt, "db_usage_record") == SQLITE_DONE;
    sqlite3_finalize(stmt);
    return ok;
 }
@@ -1568,10 +1586,10 @@ bool db_usage_add_tx(sqlite3 *db, const char *name, uint64_t seconds) {
    if (!db || !name || !*name || seconds > INT64_MAX) return false;
    sqlite3_stmt *stmt = NULL;
    const char *sql = "INSERT INTO user_usage(name,tx_seconds) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET tx_seconds=CASE WHEN tx_seconds>9223372036854775807-excluded.tx_seconds THEN 9223372036854775807 ELSE tx_seconds+excluded.tx_seconds END";
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_add_tx") != SQLITE_OK) return false;
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(stmt, 2, seconds);
-   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   bool ok = accounting_step(stmt, "db_usage_add_tx") == SQLITE_DONE;
    sqlite3_finalize(stmt);
    return ok;
 }
@@ -1582,10 +1600,10 @@ bool db_usage_bandwidth_set(sqlite3 *db, const char *name, uint64_t bytes, bool 
    const char *sql = add ?
       "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET bandwidth_remaining=coalesce(bandwidth_remaining,0)+excluded.bandwidth_remaining WHERE coalesce(bandwidth_remaining,0)<=9223372036854775807-excluded.bandwidth_remaining" :
       "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET bandwidth_remaining=excluded.bandwidth_remaining";
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_bandwidth_set") != SQLITE_OK) return false;
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(stmt, 2, bytes);
-   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   bool ok = accounting_step(stmt, "db_usage_bandwidth_set") == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(stmt);
    return ok;
 }
@@ -1594,10 +1612,10 @@ bool db_usage_reset(sqlite3 *db, const char *name, uint64_t allowance) {
    if (!db || !name || !*name || allowance > INT64_MAX) return false;
    sqlite3_stmt *stmt = NULL;
    const char *sql = "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET reset_at=unixepoch(),tx_reset_at=unixepoch(),bandwidth_remaining=excluded.bandwidth_remaining,tx_text_bytes=0,tx_text_frames=0,tx_binary_bytes=0,tx_binary_frames=0,rx_text_bytes=0,rx_text_frames=0,rx_binary_bytes=0,rx_binary_frames=0,session_seconds=0,tx_seconds=0";
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_reset") != SQLITE_OK) return false;
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(stmt, 2, allowance);
-   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   bool ok = accounting_step(stmt, "db_usage_reset") == SQLITE_DONE;
    sqlite3_finalize(stmt);
    return ok;
 }
@@ -1605,9 +1623,9 @@ bool db_usage_reset(sqlite3 *db, const char *name, uint64_t allowance) {
 bool db_usage_reset_tx(sqlite3 *db, const char *name) {
    if (!db || !name || !*name) return false;
    sqlite3_stmt *stmt = NULL;
-   if (sqlite3_prepare_v2(db, "INSERT INTO user_usage(name,tx_reset_at) VALUES (?,unixepoch()) ON CONFLICT(name) DO UPDATE SET tx_seconds=0,tx_reset_at=unixepoch()", -1, &stmt, NULL) != SQLITE_OK) return false;
+   if (accounting_prepare(db, "INSERT INTO user_usage(name,tx_reset_at) VALUES (?,unixepoch()) ON CONFLICT(name) DO UPDATE SET tx_seconds=0,tx_reset_at=unixepoch()", -1, &stmt, NULL, "db_usage_reset_tx") != SQLITE_OK) return false;
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
-   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   bool ok = accounting_step(stmt, "db_usage_reset_tx") == SQLITE_DONE;
    sqlite3_finalize(stmt);
    return ok;
 }

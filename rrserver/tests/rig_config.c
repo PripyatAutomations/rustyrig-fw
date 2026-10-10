@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
-#include <rrserver/rig.config.h>
+#include <rrserver/cfg.rig.h>
 
 extern defconfig_t defcfg[];
 time_t now;
