@@ -43,6 +43,7 @@
 #include <librustyaxe/util.file.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/fwdsp-shared.h>
+#include <fwdsp/quality.h>
 #include <librrprotocol/cfg.fwdsp.h>
 
 extern const char **configs;
@@ -782,6 +783,8 @@ static void run_loop(struct audio_config *cfg) {
       }
 
       configure_pipeline_buffers(pipeline);
+      fwdsp_quality_t quality;
+      fwdsp_quality_init(pipeline, &quality);
 
       GstElement *appsrc = gst_bin_get_by_name(GST_BIN(pipeline), processor_mode ? "processor-src" : "rx-src");
 
@@ -1139,6 +1142,12 @@ static void run_loop(struct audio_config *cfg) {
                }
 
                switch (control.type) {
+                  case FWDSP_CTRL_SET_QUALITY: {
+                     if (fwdsp_quality_apply(pipeline, &quality, control.value)) {
+                        Log(LOG_INFO, "fwdsp", "Encoder quality hint: %u%%", control.value);
+                     }
+                     break;
+                  }
                   case FWDSP_CTRL_SET_VOLUME: {
                      if (volume) {
                         g_object_set(G_OBJECT(volume), "volume", control.value / 100.0, NULL);

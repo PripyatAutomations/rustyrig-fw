@@ -103,3 +103,5 @@ int main(void) {
    registered_ops = NULL;
    puts("PASS: room-list request after auth and native PTT confirmation/ownership handling");
 }
+
+void vfo_state_disconnect(void) {}

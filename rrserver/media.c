@@ -588,9 +588,31 @@ static void rrserver_media_subscribed(const char *event, const char *data, rrcon
    }
 }
 
+static void rrserver_media_quality_hint(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   dict *hint = data ? json2dict(data) : NULL;
+   if (!hint) return;
+   struct rr_mediachan *channel = media_chan_find(dict_get_uint(hint, "media.subsys", 0),
+      dict_get_uint(hint, "media.direction", 0), dict_get_uint(hint, "media.vfo", 255), dict_get_uint(hint, "media.rig", 255));
+   if (channel && channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO) {
+      unsigned quality = 100;
+      u_int32_t id = (u_int32_t)(channel - media_channels) + 1;
+      for (rrconn_t *peer = http_client_list; peer; peer = peer->next) {
+         u_int32_t *channels = channel->direction == RR_BINFRAME_DIR_TX ? peer->tx_channels : peer->rx_channels;
+         int count = channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS;
+         if (peer->is_ws && peer->authenticated && peer->conn && !peer->conn->is_closing &&
+            chan_id_in_array(channels, count, id) && media_client_in_channel_room(peer, channel) &&
+            peer->media_quality && peer->media_quality < quality) quality = peer->media_quality;
+      }
+      fwdsp_set_quality_hint(fwdsp_find_channel_instance(channel->codec, true, channel->uuid), quality);
+   }
+   dict_free(hint);
+}
+
 void rrserver_media_register_events(void) {
    event_on_binary("media.frame.tx.channel", rrserver_media_talker_frame, NULL);
    event_on("media.subscribed", rrserver_media_subscribed, NULL);
+   event_on("media.quality-hint", rrserver_media_quality_hint, NULL);
    event_on("send-media-channels", rrserver_handle_send_media_channels, NULL);
    event_on("remove-media-channel", rrserver_handle_remove_media_channel, NULL);
    event_on("media.codec-select", rrserver_handle_codec_select, NULL);

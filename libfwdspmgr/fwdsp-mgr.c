@@ -1003,7 +1003,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       if (socketpair(AF_UNIX, SOCK_STREAM, 0, in_pipe) ||
          socketpair(AF_UNIX, SOCK_STREAM, 0, out_pipe) ||
          socketpair(AF_UNIX, SOCK_STREAM, 0, err_pipe) ||
-         socketpair(AF_UNIX, SOCK_STREAM, 0, control_pipe)) {
+         socketpair(AF_UNIX, SOCK_SEQPACKET, 0, control_pipe)) {
 #else
 
       if (pipe(in_pipe) || pipe(out_pipe) || pipe(err_pipe) || pipe(control_pipe)) {

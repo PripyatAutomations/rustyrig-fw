@@ -1,4 +1,5 @@
 """Exercise HTTP, malformed WebSocket messages and CAT isolation on disposable rigs."""
+import json
 import hashlib
 import http.client
 import pathlib
@@ -34,7 +35,7 @@ def drain(client):
 
 
 def cat(client, cmd, **fields):
-    client.send({"msg": {"type": "cat"}, "cat": {"cmd": cmd, "room": "#transport-rig0", "vfo": "A", **fields}})
+    client.send_payload(json.dumps({"op": "cat." + cmd, "room": "#transport-rig0", "vfo": "A", **fields}).encode(), 1)
 
 
 with tempfile.TemporaryDirectory(prefix="rr-transport-audit-") as temporary:
@@ -118,6 +119,16 @@ enabled=false
                 assert b"outside secret" not in body and b"private metadata" not in body
                 c.close()
                 return body
+            for protocol in (None, 'rustyrig.v0'):
+                connection = http.client.HTTPConnection('127.0.0.1', port, timeout=3)
+                headers = {'Upgrade': 'websocket', 'Connection': 'Upgrade',
+                    'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ=='}
+                if protocol: headers['Sec-WebSocket-Protocol'] = protocol
+                connection.request('GET', '/ws', headers=headers)
+                response = connection.getresponse()
+                assert response.status == 426
+                assert response.getheader('Sec-WebSocket-Protocol') == 'rustyrig.v1'
+                response.read(); connection.close()
             assert http_request("/", 200) == b"safe index"
             assert http_request("/inside.js", 200) == b"safe asset"
             assert http_request("/asset.js", 200, "HEAD") == b""
@@ -159,6 +170,14 @@ enabled=false
             first.until(lambda m: m.get("cat", {}).get("cmd") == "width")
             cat(first, "width", width="2400 Hz")
             first.until(lambda m: m.get("cat", {}).get("cmd") == "width")
+            cat(first, "mode", mode="USB")
+            acknowledgement = first.until(lambda m: m.get("cat", {}).get("cmd") == "mode")
+            assert "state" not in acknowledgement["cat"], acknowledgement
+            for cmd, value in [("freq", 14074000), ("mode", "USB"), ("width", "2400"), ("ptt", False)]:
+                cat(first, cmd, state={cmd: value})
+                messages = drain(first)
+                assert any(m.get("msg", {}).get("type") == "error" for m in messages), (cmd, messages)
+                assert not any(m.get("cat", {}).get("cmd") == cmd for m in messages), (cmd, messages)
             second = WebSocket(port)
             clients.append(second)
             login(second, "TX")

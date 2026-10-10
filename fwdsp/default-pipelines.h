@@ -164,7 +164,7 @@
         "audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
         "tee name=t  t. ! " \
         "queue max-size-buffers=2 leaky=downstream ! " \
-        "opusenc audio-type=generic frame-size=20 bitrate=24000 bitrate-type=cbr ! " \
+        "opusenc name=rr-encoder audio-type=generic frame-size=20 bitrate=24000 bitrate-type=vbr ! " \
         " appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false  t. ! " \
         "queue max-size-buffers=4 leaky=downstream ! " \
         "appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
@@ -210,7 +210,7 @@
         " tee name=t t. ! " \
         " queue max-size-buffers=2 leaky=downstream ! " \
         " audioconvert ! " \
-        " vorbisenc quality=0.3 ! " \
+        " vorbisenc name=rr-encoder quality=0.3 ! " \
         " oggmux max-delay=20000000 max-page-delay=20000000 ! " \
         " tee name=encoded-t " \
         " encoded-t. ! queue max-size-buffers=8 ! " \

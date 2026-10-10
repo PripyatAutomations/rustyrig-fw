@@ -83,7 +83,8 @@ static const dict *room_vfo_property(const char *vfo, const char *key, bool *sco
    *scoped = true;
    const dict *state = rrclient_object_property(uuid, property);
 
-   return state && dict_get_bool( (dict *)state, "property.known", false) ? state : NULL;
+   return state && dict_get_bool( (dict *)state, "property.known", false) &&
+      dict_get_bool( (dict *)state, "property.available", false) ? state : NULL;
 }
 
 // Accessors for other modules.  `vfo` is the single upper case VFO letter
@@ -152,6 +153,12 @@ void vfo_state_set_active(const char *vfo) {
    s_active_vfo = active;
 }
 
+void vfo_state_disconnect(void) {
+   dict_free(vfo_state);
+   vfo_state = dict_new();
+   vfo_update_ui();
+}
+
 bool vfo_set_dict(const char *vfo, dict *d) {
    if (!d) {
       return true;
@@ -194,6 +201,19 @@ bool vfo_set_dict(const char *vfo, dict *d) {
    bool current_room = !strcasecmp(update_room, rrclient_media_active_room() );
    bool is_active = current_room && (vfo_id == vfo_state_get_active() ||
       vfo_state_get_active() != prev_active);
+
+   /* PARITY: rustyrig-www/js/webui.rigctl.js: unavailable observations clear
+    * the displayed value rather than leaving the last successful poll live. */
+   const char *fields[] = {"freq", "mode", "width"};
+   for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
+      char key[64], flag[80], saved[128];
+      snprintf(key, sizeof(key), "cat.state.%s", fields[i]);
+      snprintf(flag, sizeof(flag), "%s-available", key);
+      if (dict_get_type(d, flag) != VAL_END && !dict_get_bool(d, flag, false)) {
+         vfo_state_key(vfo_id, key, saved, sizeof(saved));
+         dict_del(vfo_state, saved);
+      }
+   }
 
    // Save every cat.* key we receive into the central state, namespaced
    // per-VFO (dict handles replace-on-add, so no duplicates accumulate)

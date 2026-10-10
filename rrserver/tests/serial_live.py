@@ -1,4 +1,5 @@
 """Exercise serial commands and MODEM/seri payloads through real WebSockets."""
+import json
 import hashlib
 import os
 import pathlib
@@ -23,7 +24,10 @@ def login(client, username="TEST"):
     client.until(lambda m: m.get("auth", {}).get("cmd") == "authorized")
 
 def command(client, cmd, **fields):
-    client.send({"msg": {"type": "serial"}, "serial": {"cmd": cmd, "name": "ttyHOST0", **fields}})
+    if "path" in fields:
+        client.send_payload(json.dumps({"op": "serial." + cmd, "name": "ttyHOST0", **fields}).encode(), 1)
+    else:
+        client.send({"msg": {"type": "serial"}, "serial": {"cmd": cmd, "name": "ttyHOST0", **fields}})
 
 def serial(client, cmd):
     return client.until(lambda m: m.get("serial", {}).get("cmd") == cmd)["serial"]
@@ -125,9 +129,9 @@ buffer-bytes=0
             assert available["name"] == "ttyHOST0" and available["baud"] == 115200
             assert available["port"] == "ttyHOST0" and "path" not in available
             command(first, "open", path=device)
-            assert serial(first, "error")["error"] == "invalid-request"
+            first.until(lambda m: m.get("msg", {}).get("type") == "error")
             command(first, "open", port="ttyHOST0", path=device)
-            assert serial(first, "error")["error"] == "invalid-request"
+            first.until(lambda m: m.get("msg", {}).get("type") == "error")
             command(first, "open", port="ttyHOST0")
             opened = serial(first, "opened")
             stream = opened["stream"]
@@ -166,8 +170,8 @@ buffer-bytes=0
             for fields in ({"stream": stream + 256}, {"stream": 1.5}, {"seq": 4294967296}):
                 command(first, "close", **fields)
                 assert serial(first, "error")["error"] == "invalid-request"
-            command(first, "configure", baud=18446744073709551615, stream=stream)
-            assert serial(first, "error")["error"] == "settings-failed"
+            first.send_payload(json.dumps({"op": "serial.configure", "name": "ttyHOST0", "baud": 18446744073709551615, "stream": stream}).encode(), 1)
+            first.until(lambda m: m.get("msg", {}).get("type") == "error")
             second = WebSocket(port)
             clients.append(second)
             login(second)

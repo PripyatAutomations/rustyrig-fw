@@ -68,7 +68,8 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    while (cur) {
       if (cur->is_ws && cur->authenticated && cur->conn &&
          cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG) ) {
-         mg_ws_send(cur->conn, frame, flen, WEBSOCKET_OP_BINARY);
+         struct mg_str payload = {(char *)frame, flen};
+         ws_send_to_cptr(NULL, cur, &payload, WEBSOCKET_OP_BINARY);
       }
       cur = cur->next;
    }

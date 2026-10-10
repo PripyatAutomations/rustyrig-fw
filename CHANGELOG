@@ -1,11 +1,18 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Cut over all live WebSocket messages to compact rustyrig.v1 with an
+    authoritative generated C/JS registry, strict handshake and no fallback.
+  * Bound sends without closing slow peers; skip excess realtime media,
+    expose encoder quality hints and use Opus VBR. Measure correlated reply
+    latency on local monotonic clocks without per-message timing overhead.
+  * Separate receipt acknowledgements from confirmed radio observations;
+    propagate unavailable reads and clear stale state on disconnect.
+  * Document deferred WWV/WWVH time-source work and link it from TODO.
   * Extend compact codecs to auth/hello/keepalive/notice/error/alert with shared
     vectors; consolidate dictionary/kick/frame sends and structure staff notices.
   * Fix unaligned dictionary hash reads without changing the hash algorithm;
     add offset-key checks and a manual lookup/allocation/JSON benchmark.
   * Implement the compact object/property wire codec foundation in C and JS,
-    with shared golden/rejection vectors and no old-envelope decoder; keep
-    live transport unchanged until the complete single-format cutover.
+    with shared golden/rejection vectors and no old-envelope decoder.
   * Place the protocol wire-size audit script beside protocol tests.
   * Audit wire overhead and propose readable compact envelopes, bounded
     batching/bindings and server-link authority/resync rules; add a reproducible

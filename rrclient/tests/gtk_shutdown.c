@@ -13,7 +13,11 @@ void gtk_main_quit(void) {
 void ptt_button_refresh(void) {
    refresh_calls++;
 }
+void gtk_widget_set_tooltip_text(GtkWidget *widget, const gchar *text) {
+   assert(text && *text);
+}
 static bool editing;
+static bool frequency_available = true;
 static unsigned long displayed_frequency;
 static const char *selected_room = "#rig0";
 const char *rrclient_media_active_room(void) {
@@ -28,6 +32,13 @@ bool gtk_freq_entry_is_editing(GtkFreqEntry *fe) {
 void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long frequency) {
    displayed_frequency = frequency;
    editing = false;
+}
+void gtk_freq_entry_set_unavailable(GtkFreqEntry *fe) {
+   displayed_frequency = 0;
+   editing = false;
+}
+long vfo_state_get_long(const char *vfo, const char *key, long fallback) {
+   return frequency_available ? 7200000 : fallback;
 }
 void modebox_update_state(const char *mode, int width) {
 }
@@ -44,6 +55,9 @@ int main(void) {
    selected_room = "#rig1";
    frontend_gtk_vfo_state("B", 145000000, "FM", 12000, 0, false);
    assert(displayed_frequency == 145000000 && !editing);
+   frequency_available = false;
+   frontend_gtk_vfo_state("B", 0, "---", 0, 0, false);
+   assert(displayed_frequency == 0 && !editing);
    g_object_unref(freq_entry);
    freq_entry = NULL;
    puts("PASS: GTK selection refreshes frequency across VFOs/rooms while same-VFO polling preserves edits");

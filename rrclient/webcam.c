@@ -81,7 +81,8 @@ static void webcam_push_frame(const uint8_t *data, size_t len) {
       return;
    }
 #ifdef USE_MONGOOSE
-   mg_ws_send(ws_conn->conn, frame, flen, WEBSOCKET_OP_BINARY);
+   struct mg_str payload = {(char *)frame, flen};
+   ws_send_to_cptr(NULL, ws_conn, &payload, WEBSOCKET_OP_BINARY);
 #endif
    free(frame);
 }

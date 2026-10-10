@@ -157,3 +157,15 @@ bool fwdsp_cmd_stop_record(const char codec_id[5], bool is_tx, int unused1) {
 
    return fwdsp_cmd_stop_record_channel(codec_id, is_tx, NULL);
 }
+
+// A hint must not block the network event loop if the child is busy.
+bool fwdsp_set_quality_hint(struct fwdsp_subproc *sp, unsigned percent) {
+   if (!sp || sp->fw_control < 0 || percent < 25 || percent > 100) return true;
+   if (sp->quality_hint == percent) return false;
+   struct fwdsp_control_msg message = {
+      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_QUALITY, .value = (uint8_t)percent
+   };
+   if (send(sp->fw_control, &message, sizeof(message), MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)sizeof(message)) return true;
+   sp->quality_hint = percent;
+   return false;
+}

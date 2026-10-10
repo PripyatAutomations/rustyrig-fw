@@ -46,6 +46,7 @@ struct fwdsp_io_conn {
 #define FWDSP_CTRL_RESUME 5       // Resume the stream
 #define FWDSP_CTRL_FLUSH 6        // Flush the buffer
 #define FWDSP_CTRL_START_RECORD 7 // Start recording the raw audio
+#define FWDSP_CTRL_SET_QUALITY 9 // normalized encoder quality hint, 25..100
 #define FWDSP_CTRL_STOP_RECORD 8  // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN 64
 #define FWDSP_RECORD_ID_LEN 64
@@ -70,6 +71,7 @@ struct fwdsp_subproc {
    char pl_id[5];
    char processor_namespace[8];
    char processor_name[64];
+   unsigned quality_hint; // last successfully queued hint; 0 means unset
    bool destroying;                    // teardown is in progress; ignore re-entry
    char channel_uuid[64];
    char pipeline[1024];

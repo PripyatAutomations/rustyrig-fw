@@ -78,12 +78,25 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
 static void audio_full_frame_payload(const void *data, size_t len);
 
+static void audio_quality_hint(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)user;
+   if (cptr != ws_conn || !data || !tx_codec[0]) return;
+   dict *hint = json2dict(data);
+   if (!hint) return;
+   if (!strcmp(dict_get(hint, "media.codec", ""), tx_codec)) {
+      struct fwdsp_subproc *sp = fwdsp_find_instance(tx_codec, true);
+      fwdsp_set_quality_hint(sp, dict_get_uint(hint, "media.quality", 100));
+   }
+   dict_free(hint);
+}
+
 bool audio_init(void) {
    // RX audio is routed by the frame header (stream id + codec) via the
    // full-frame event; see audio_full_frame_cb. The legacy payload-only
    // media.frame.audio event is deliberately not consumed: a frame would
    // otherwise be decoded twice (both events fire per packet).
    event_on_binary(RR_AUDIO_FRAME_EVENT, audio_full_frame_cb, NULL);
+   event_on("media.quality-hint", audio_quality_hint, NULL);
 
    if (fwdsp_init() ) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");

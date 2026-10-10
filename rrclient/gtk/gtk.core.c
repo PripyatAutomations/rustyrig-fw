@@ -23,6 +23,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
+#include <rrclient/vfo.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.vol-box.h>
@@ -911,6 +912,13 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
 
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
+      bool available = vfo_state_get_long(vfo, "cat.state.freq", -1) >= 0;
+      gtk_widget_set_tooltip_text(entry, available ? "Observed frequency" : "Frequency unavailable");
+      if (!available) {
+         gtk_freq_entry_set_unavailable(fe);
+         modebox_update_state(mode, width);
+         return;
+      }
       char selection[256];
       snprintf(selection, sizeof(selection), "%s/%s", rrclient_media_active_room(), vfo);
       const char *displayed = g_object_get_data(G_OBJECT(entry), "rr-displayed-vfo");

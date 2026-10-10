@@ -47,7 +47,7 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *d, int type) {
 
    return true;
 }
-void ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, int type) {
+bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, int type) {
    (void)sender;
    assert(type == WEBSOCKET_OP_BINARY);
    struct rr_binframe f;
@@ -61,6 +61,7 @@ void ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, i
       rx_frames++;
       assert(ws_binframe_process(payload->buf, payload->len));
    }
+   return true;
 }
 int32_t rr_cat_parse_line(char *line) {
    (void)line;

@@ -196,12 +196,18 @@ static void on_selector_popup(GtkComboBox *combo, GParamSpec *pspec, gpointer us
 
 // Server observations must not fire the user-edit handlers and send controls back.
 void modebox_update_state(const char *mode, int width) {
-   if (mode_combo && mode) {
+   if (mode_combo) {
       g_signal_handler_block(mode_combo, mode_changed_handler_id);
-      set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+      if (mode) set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+      else gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), -1);
       g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
    }
 
+   if (width_combo && width <= 0) {
+      g_signal_handler_block(width_combo, width_changed_handler_id);
+      gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), -1);
+      g_signal_handler_unblock(width_combo, width_changed_handler_id);
+   }
    if (width_combo && width > 0) {
       g_signal_handler_block(width_combo, width_changed_handler_id);
       // Keep the three named presets and one exact observed width.

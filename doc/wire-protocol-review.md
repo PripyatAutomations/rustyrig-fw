@@ -27,7 +27,7 @@ not an improvement.
 | Sending | `librrprotocol/srv.send.c:ws_send_dict` | Some senders serialize directly (`cli.main.c`, `cli.rigctl.c`); broadcasts serialize once per recipient. A wire codec must cover every transport send path. |
 | Text dispatch | `librrprotocol/srv.http.c`, `cli.main.c` | `msg.type` selects family, family `.cmd` selects operation. Authentication gating precedes server dispatch. |
 | Object/property model | `librrprotocol/objects.c`, `rrserver/objects.c` | `rrclient/objects*.c`, `www/js/webui.objects.js`; schema and state are distinct, versions/cursors are uint64 decimal strings. |
-| CAT/PTT | `librrprotocol/srv.rigctl.c`, `ws.cat.c` | Native VFO/event handlers and `www/js/webui.rigctl.js`; echoed controls and actual observations must remain distinct. |
+| CAT/PTT | `librrprotocol/srv.rigctl.c`, `ws.cat.c` | Native VFO/event handlers and `www/js/webui.rigctl.js`; receipt acknowledgements and actual observations must remain distinct. |
 | Chat and accounts | `librrprotocol/srv.chat.c`, `cli.chat.c` | Native chat/event handlers and `www/js/webui.chat.js`; room membership and account checks remain server policy. |
 | Media/serial/file | `ws.mediachan.c`, `ws.serial.c`, `ws.file-xfer.c`, `binframe.c` | Native media/serial and browser media/framing/file handlers; not every legacy path uses the binary format. |
 | Authentication/hello | `srv.auth.c`, `ws.auth.c`, `auth.hash.c` | Native and browser auth; current hello reports software/hardware/role, not a strict protocol-version agreement. |
@@ -61,7 +61,7 @@ excluded; each current message is counted separately without array overhead.
 | Property change, explicit target/epoch bindings | 287 | 172 | 40.1% |
 | Four property changes sharing a cursor | 1148 | 758 | 34.0% |
 | Sixteen property changes sharing a cursor | 4592 | 2726 | 40.6% |
-| Frequency echo, duplicate value removed | 143 | 90 | 37.1% |
+| Frequency acknowledgement, duplicate value removed | 143 | 90 | 37.1% |
 
 Binding savings exclude binding setup messages. Batch measurements repeat a
 representative property at different targets: they show structural savings,
@@ -90,8 +90,9 @@ Use one timestamp location and unit, with explicit semantics for absent time.
 Keep full-range uint64 counters as canonical decimal strings for JavaScript;
 keep frequency in integer Hz and do not substitute floats for counters.
 
-A CAT frequency echo currently contains both `cat.freq` and `cat.state.freq`.
-Choose one field in the new schema and migrate all readers. Do not merge
+The old CAT frequency receipt acknowledgement contained both `cat.freq` and
+`cat.state.freq`. The cutover keeps only the request value in the acknowledgement;
+backend observations supply state. Do not merge
 request success with observed hardware state: a correlated result acknowledges
 the request; an observation reports actual state. Selection acknowledgments
 must also remain distinct from physical active-VFO observations.

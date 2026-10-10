@@ -85,7 +85,7 @@ def serve(conn):
                        if line.startswith(b"Sec-WebSocket-Key:"))
             accept = base64.b64encode(hashlib.sha1(key + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest())
             conn.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
-                         b"Connection: Upgrade\r\nSec-WebSocket-Accept: " + accept + b"\r\n\r\n")
+                         b"Connection: Upgrade\r\nSec-WebSocket-Protocol: rustyrig.v1\r\nSec-WebSocket-Accept: " + accept + b"\r\n\r\n")
         release.wait(15)
     except Exception as error:
         errors.append(error)

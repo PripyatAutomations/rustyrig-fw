@@ -410,18 +410,15 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
    if (mode_str) {
       dict *d = dict_new();
-      dict_add(d, "msg.type", "cat.state");
+      dict_add(d, "msg.type", "cat");
 
       if (rig.ptt_rig) {
          dict_add(d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig) );
       }
       dict_add(d, "cat.state.vfo", vfo_name(vfo) );
-      dict_add(d, "cat.state.mode", mode_str);
       dict_add_bool(d, "cat.state.ptt", ptt);
       // Read freq/width from the vfos[] table (polled from the active backend);
       // hl_state is a hamlib-only cache and is zeroed for other backends.
-      dict_add_int(d, "cat.state.freq", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].freq : 0) );
-      dict_add_int(d, "cat.state.width", (vfo >= 0 && vfo < MAX_VFOS ? vfos[vfo].width : 0) );
       dict_add_ulong(d, "msg.ts", now);
       ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
       dict_free(d);

@@ -11,6 +11,7 @@ The WebUI is in the separate repository:
 
 | Concept | Native C | WebUI JS | Parity |
 |---|---|---|---|
+| Compact wire boundary | `librrprotocol/wire.c`, `wire-schema.json` | `js/webui.wire.js`, generated registry | Yes: rustyrig.v1 only, strict decode and bounded sends |
 | Connection management | `rrclient/connman.c` | `js/webui.js` and connection-related code | Yes |
 | UUID object/property cache | `rrclient/objects.c`, `objects.events.c` | `js/webui.objects.js` | Yes: discovery, ownership, versions, lifecycle; diagnostic UI differs |
 | Frequency/VFO behavior | `rrclient/vfo.c` | `js/webui.frequency.js` | Yes |

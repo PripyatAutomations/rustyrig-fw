@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+
+* Deferred WWV/WWVH time-source worker: see doc/wwv-time-decoder-plan.md.
+  Not required for monotonic protocol RTT; implement after beta transport/state work.
 *: Make hotkeys configurable
 
 rrserver: Add support for SCRAM gpio

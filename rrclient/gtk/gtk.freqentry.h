@@ -31,6 +31,7 @@ G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
 
 // Public API
 extern GtkWidget *gtk_freq_entry_new(int num_digits);
+extern void gtk_freq_entry_set_unavailable(GtkFreqEntry *fi);
 extern void gtk_freq_entry_set_frequency(GtkFreqEntry *fi, unsigned long freq);
 extern unsigned long gtk_freq_entry_get_frequency(GtkFreqEntry *fi);
 extern GtkWidget *gtk_freq_entry_last_touched_digit(GtkFreqEntry *fi);

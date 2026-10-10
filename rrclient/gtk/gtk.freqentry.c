@@ -861,6 +861,13 @@ unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fe) {
    return strtoul(buf, NULL, 10);
 }
 
+void gtk_freq_entry_set_unavailable(GtkFreqEntry *fe) {
+   if (!fe) return;
+   for (int i = 0; i < fe->num_digits; i++) gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), "-");
+   fe->freq = fe->prev_freq = 0;
+   fe->editing = false;
+}
+
 void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long freq) {
    if (!fe || fe->num_digits <= 0) {
       return;

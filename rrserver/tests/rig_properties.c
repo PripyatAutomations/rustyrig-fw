@@ -368,6 +368,9 @@ int main(void) {
    assert(rr_rig_control(&request) == RR_CONTROL_TYPE_MISMATCH);
    assert(backend_requests == 2);
 
+   /* A successful write is not a read: restore the independent observation. */
+   value.l = 14074000;
+   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    /* cat.state remains a wire adapter above generic observed state. */
    vfos[VFO_A].freq = 1;
    vfos[VFO_A].mode = MODE_AM;
@@ -391,7 +394,8 @@ int main(void) {
    assert(strcmp(dict_get(last_cat_state, "cat.state.vfo", ""), "A") == 0);
    assert(strcmp(dict_get(last_cat_state, "cat.state.mode", ""), "USB") == 0);
    assert(dict_get_long(last_cat_state, "cat.state.freq", -1) == 14074000);
-   assert(dict_get_int(last_cat_state, "cat.state.width", -1) == 3000);
+   assert(dict_get_type(last_cat_state, "cat.state.width") == VAL_END);
+   assert(!dict_get_bool(last_cat_state, "cat.state.width-available", true));
    assert(!dict_get_bool(last_cat_state, "cat.state.ptt", true));
    assert(strcmp(dict_get(last_cat_state, "cat.user", ""), "W1TEST") == 0);
 
@@ -413,17 +417,20 @@ int main(void) {
    assert(broadcasts == 3);
    assert(strcmp(dict_get(last_cat_state, "cat.state.mode", ""), "LSB") == 0);
 
-   /* A failed read keeps the last value and does not create wire churn. */
+   /* A failed read explicitly marks the displayed value unavailable. */
    assert(rr_rig_property_unavailable(rig0, a_freq) == RR_PROPERTY_CHANGED);
    assert(!rr_cat_compat_publish(compat, VFO_A, 15));
-   assert(broadcasts == 3);
+   assert(broadcasts == 4);
+   assert(!dict_get_bool(last_cat_state, "cat.state.freq-available", true));
+   assert(dict_get_type(last_cat_state, "cat.state.freq") == VAL_END);
 
    /* A known zero remains a real value at the compatibility boundary. */
    value.l = 0;
    assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) ==
       RR_PROPERTY_CHANGED);
    assert(!rr_cat_compat_publish(compat, VFO_A, 15));
-   assert(broadcasts == 4);
+   assert(broadcasts == 5);
+   assert(dict_get_bool(last_cat_state, "cat.state.freq-available", false));
    assert(dict_get_long(last_cat_state, "cat.state.freq", -1) == 0);
 
    rrconn_t new_client = {

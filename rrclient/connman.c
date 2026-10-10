@@ -1,3 +1,4 @@
+#include <librrprotocol/wire.h>
 // Native connection manager. Wire handlers remain in librrprotocol.
 #include <stdlib.h>
 #include <string.h>
@@ -780,7 +781,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    dispatch_depth++;
    const char *socket_url = t->proxy_pending ? t->socks.url : connect_url;
    struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, socket_url, rrclient_transport_handler, t) :
-      mg_ws_connect(&mgr, socket_url, rrclient_transport_handler, t, NULL);
+      mg_ws_connect(&mgr, socket_url, rrclient_transport_handler, t, "Sec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\n");
 
    if (c && t->proxy_pending && !endpoint.irc) {
       /* Keep Mongoose's WebSocket parser without running it on SOCKS replies. Its initial request describes the proxy; replace it with the destination. */
@@ -791,7 +792,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       mg_random(nonce, sizeof(nonce));
       mg_base64_encode((unsigned char *)nonce, sizeof(nonce), key, sizeof(key));
       mg_printf(c, "GET %s HTTP/1.1\r\nHost: %s%s%s:%u\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-         "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: %s\r\n\r\n", endpoint.path, endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
+         "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\nSec-WebSocket-Key: %s\r\n\r\n", endpoint.path, endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
          endpoint.port, key);
       t->websocket_request = c->send;
       memset(&c->send, 0, sizeof(c->send));

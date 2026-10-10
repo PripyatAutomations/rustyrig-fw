@@ -101,8 +101,17 @@ void tui_refresh_sb_vfo(void) {
    long freq = vfo_state_get_long(vfo_str, "cat.state.freq", 0);
    const char *mode = vfo_state_get(vfo_str, "cat.state.mode", "---");
    long width = vfo_state_get_long(vfo_str, "cat.state.width", 0);
+   if (freq == 0 && !strcmp(mode, "---")) {
+      snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: unavailable>", vfo);
+      return;
+   }
    // Show freq in kHz with hz precision: 7200000 -> 7200.000
    snprintf(sb_vfo, sizeof(sb_vfo), "<VFO %s: %.3f/%s@%ld>", vfo, freq / 1000.0, mode, width);
+}
+
+static void rrclient_backpressure(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)cptr; (void)user;
+   ui_print("status", "%s %s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
 }
 
 static void rrclient_set_offline(void) {
@@ -114,6 +123,7 @@ static void rrclient_set_offline(void) {
    rrclient_update_connection_ui(0);
    userlist_clear_all();
    rrclient_rooms_disconnect();
+   vfo_state_disconnect();
 
    if (frontend_ops() ) {
       // PTT button goes back to dark grey while offline
@@ -143,9 +153,9 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
    }
 
    dict *d = json2dict(data);
-   time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
+   time_t msg_ts = dict_get_time_t(d, "alert.ts", 0);
    const char *msg_from = dict_get(d, "alert.from", (char *)"*unknown*");
-   const char *msg_data = dict_get(d, "alert.data", (char *)"*No message*");
+   const char *msg_data = dict_get(d, "alert.msg", (char *)"*No message*");
    const char *msg_type = dict_get(d, "alert.type", (char *)"warning");
 
    // Print a colorized version of the test
@@ -451,7 +461,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
    if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
       ui_print(output_room, "\00304>>>\017 Start of chat chat replay. \00304<<<\017");
-   } else if (msg_cmd && strcasecmp(msg_cmd, "replay-completed") == 0) {
+   } else if (msg_cmd && strcasecmp(msg_cmd, "replay-complete") == 0) {
       ui_print(output_room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    } else if (msg_type && msg_data) {
       if (strcasecmp(msg_type, "action") == 0) {
@@ -965,7 +975,7 @@ static void rrclient_handle_chat_replay(const char *event, const char *data, rrc
 
    if (cmd && strcasecmp(cmd, "replay-start") == 0) {
       ui_print(room, "\00304>>>\017 Start of chat replay. \00304<<<\017");
-   } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
+   } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0) ) {
       ui_print(room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    }
    dict_free(d);
@@ -1003,7 +1013,7 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
          ui_print(room, "%s \00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
-      } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0 || strcasecmp(cmd, "replay-completed") == 0) ) {
+      } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0) ) {
          ui_print(room, "%s \00304>>>\017 Finished chat replay. \00304<<<\017", get_chat_ts(msg_ts) );
       } else {
          Log(LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>") );
@@ -1424,6 +1434,7 @@ void rrclient_register_events(void) {
    event_on("disconnected", rrclient_handle_connection, NULL);
    event_on("error", rrclient_handle_connection, NULL);
    event_on("http.error", rrclient_handle_connection, NULL);
+   event_on("protocol.backpressure", rrclient_backpressure, NULL);
    event_on("join", rrclient_handle_join, NULL);
    event_on("log", rrclient_handle_log, NULL);
    event_on("logging-in", rrclient_handle_logging_in, NULL);
@@ -1444,7 +1455,6 @@ void rrclient_register_events(void) {
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
    event_on("client.objects.changed", rrclient_handle_object_observation, NULL);
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
-   event_on("ws.msg.cat.state", rrclient_handle_cat, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);
    event_on("ws.msg.media", rrclient_handle_media, NULL);
    // this is where notices in the client come from

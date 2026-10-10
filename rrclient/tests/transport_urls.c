@@ -1,3 +1,4 @@
+#include <librrprotocol/wire.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,10 +144,13 @@ static void auth(const char *event, const char *data, rrconn_t *conn, void *user
    ws_connected = 1;
 }
 static void receive(struct mg_connection *c, const char *json) {
-   struct mg_ws_message m = {
-      .data = mg_str(json), .flags = WEBSOCKET_OP_TEXT
-   };
+   dict *message = json2dict(json);
+   char *wire = rr_wire_encode(message);
+   assert(wire);
+   struct mg_ws_message m = {.data = mg_str(wire), .flags = WEBSOCKET_OP_TEXT};
    c->fn(c, MG_EV_WS_MSG, &m);
+   free(wire);
+   dict_free(message);
 }
 int main(void) {
    ui_mode = UI_MODE_GTK;

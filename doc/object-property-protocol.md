@@ -1,7 +1,7 @@
 # UUID object/property protocol (Phase 4)
 
-Status: implemented on `multirig`, alongside the legacy protocol. This is
-pre-1.0 protocol, not a version-negotiation framework. Phase 5 is not started.
+Status: implemented on `multirig`. Live WebSockets require the single
+`rustyrig.v1` compact wire format; there is no old-protocol compatibility.
 
 ## Ownership and implementation
 
@@ -20,9 +20,11 @@ is node -> rig -> VFO. Backend instances are not protocol objects.
 
 ## Messages and serialization
 
-Messages use existing `dict_value_t`, `dict2json()` and `json2dict()`. Dotted
-dictionary keys serialize as nested JSON, as in the examples below. No new
-value container or encoding is introduced.
+Messages use existing `dict_value_t` event dictionaries and the compact
+`rr_wire_encode`/`rr_wire_decode` boundary. `op` carries family and command;
+payload fields are at the root. See [the compact wire guide](compact-wire-codec.md)
+and `librrprotocol/wire-schema.json` for the complete mapping. Dotted keys in
+API descriptions below name semantic event fields, not an alternate wire format.
 
 | `msg.type` | `object.cmd` / `property.cmd` | Direction |
 | --- | --- | --- |

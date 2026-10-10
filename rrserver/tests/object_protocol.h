@@ -1,3 +1,4 @@
+#include <librrprotocol/wire.h>
 // Live WebSocket harness using production serialization, server protocol,
 // backend instances, and rrclient's generic cache. Authentication is pre-set
 // for this loopback fixture; unauthenticated requests have separate coverage.
@@ -47,7 +48,7 @@ static void object_socket(struct mg_connection *c, int ev, void *data) {
    if (ev == MG_EV_WS_MSG) {
       struct mg_ws_message *wm = data;
       char *json = strndup(wm->data.buf, wm->data.len);
-      dict *d = json2dict(json);
+      dict *d = rr_wire_decode(json);
       assert(d);
 
       if (server) {
@@ -72,7 +73,7 @@ static void object_pump(void) {
 }
 
 static void object_request(dict *d) {
-   char *json = dict2json(d);
+   char *json = rr_wire_encode(d);
    assert(json && object_client);
    mg_ws_send(object_client, json, strlen(json), WEBSOCKET_OP_TEXT);
    free(json);
