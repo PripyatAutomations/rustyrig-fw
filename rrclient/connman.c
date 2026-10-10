@@ -24,6 +24,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
 #include <librrprotocol/http.h>
+#include <librrprotocol/irc.h>
 
 // Server connections
 extern int ws_connected;
@@ -57,6 +58,37 @@ static const char *rrclient_resolve_server_name(const char *requested_server) {
 #ifdef  USE_MONGOOSE
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
+
+typedef struct {
+   rrconn_t connection;
+   server_cfg_t server;
+} rrclient_transport_t;
+
+static void rrclient_transport_handler(struct mg_connection *c, int ev, void *data) {
+   rrconn_t *cptr = c->fn_data;
+   if (!cptr) {
+      return;
+   }
+   if (cptr != ws_conn) {
+      if (ev == MG_EV_CLOSE) {
+         free(cptr);
+      }
+      return;
+   }
+   if (ev == MG_EV_OPEN) {
+      cptr->conn = c;
+   }
+   if (cptr->is_ws) {
+      http_handler(c, ev, data);
+      // Fatal WS error listeners release the native state before CLOSE.
+      if (ev == MG_EV_ERROR && ws_conn != cptr) {
+         c->fn_data = NULL;
+      }
+   } else {
+      irc_mongoose_handler(c, ev, data);
+   }
+}
+
 #endif // USE_MONGOOSE
 
 static const unsigned int reconnect_delays[] = {
@@ -119,7 +151,7 @@ static void rrclient_handle_auth_error_event(const char *event, const char *data
 }
 
 static void rrclient_handle_reconnect_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (strcasecmp(event, "authorized") == 0) {
+   if (strcasecmp(event, "authorized") == 0 || strcasecmp(event, "irc.connected") == 0) {
       reconnect_pending = false;
       reconnect_tries = 0;
       reconnect_at = 0;
@@ -133,6 +165,7 @@ static void rrclient_handle_reconnect_event(const char *event, const char *data,
 
 void connman_register_events(void) {
    event_on("authorized", rrclient_handle_reconnect_event, NULL);
+   event_on("irc.connected", rrclient_handle_reconnect_event, NULL);
    event_on("disconnected", rrclient_handle_reconnect_event, NULL);
    event_on("http.error", rrclient_handle_reconnect_event, NULL);
    event_on("auth.error", rrclient_handle_auth_error_event, NULL);
@@ -164,10 +197,10 @@ bool disconnect_server(const char *server) {
    rrclient_cancel_reconnect();
    rrclient_update_connection_ui(0);
 
-   if (ws_connected) {
+   if (ws_conn) {
 #ifdef  USE_MONGOOSE
 
-      if (ws_conn) {
+      if (ws_conn->conn) {
          ws_conn->conn->is_closing = 1;
       }
 #endif // defined(USE_MONGOOSE)
@@ -180,60 +213,113 @@ bool disconnect_server(const char *server) {
 
 // XXX: pass pointer to the server structure
 bool connect_server(const char *server) {
-   rrconn_t *cptr = NULL;
    const char *resolved_server = rrclient_resolve_server_name(server);
-
    if (!resolved_server) {
-      Log(LOG_DEBUG, "connman", "connect_server with no server name!");
-
       return true;
    }
+   const char *url = get_server_property(resolved_server, "server.url");
+   return rrclient_connect_url(resolved_server, url);
+}
 
+bool rrclient_connect_url(const char *profile, const char *url) {
+   rr_server_url_t endpoint;
+   if (!rr_server_url_parse(url, &endpoint)) {
+      ui_print(NULL, "\00304Invalid server.url: use ws://host:port/path, wss://host:port/path, irc://host:port or ircs://host:port\017");
+      return true;
+   }
+#ifdef USE_MONGOOSE
+   if (ws_conn && ws_conn->conn && !ws_conn->conn->is_closing) {
+      ui_print(NULL, "\00308Disconnect the current server before connecting\017");
+      return true;
+   }
+   rrclient_transport_t *transport = calloc(1, sizeof(*transport));
+   if (!transport) {
+      return true;
+   }
+   char *name = strdup(profile && *profile ? profile : "direct");
+   if (!name) {
+      free(transport);
+      return true;
+   }
+   free((void *)server_name);
+   server_name = name;
    if (!reconnect_attempting) {
       reconnect_enabled = true;
       reconnect_pending = false;
       reconnect_tries = 0;
       reconnect_at = 0;
    }
-   const char *url = get_server_property(resolved_server, "server.url");
-   Log(LOG_DEBUG, "connman", "server: |%s| url: |%s|", resolved_server, url);
-
-   if (url) {
-      rrclient_update_connection_ui(-1);
-      ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
-
-#ifdef  USE_MONGOOSE
-
-      if (!ws_conn) {
-         ws_conn = malloc(sizeof(rrconn_t) );
-
-         if (!ws_conn) {
-            Log(LOG_CRIT, "connman", "Unable to allocate WebSocket connection state");
-
-            return true;
+   rrconn_t *cptr = &transport->connection;
+   cptr->fd = -1;
+   cptr->is_ws = !endpoint.irc;
+   if (endpoint.irc) {
+      cptr->server = &transport->server;
+      snprintf(cptr->server->host, sizeof(cptr->server->host), "%s", endpoint.host);
+      snprintf(cptr->server->network, sizeof(cptr->server->network), "%s", server_name);
+      cptr->server->port = endpoint.port;
+      cptr->server->tls = endpoint.tls;
+      const char *nick = get_server_property(server_name, "server.user");
+      const char *pass = get_server_property(server_name, "server.pass");
+      const char *autojoin = get_server_property(server_name, "autojoin");
+      if (!nick || !*nick) {
+         nick = cfg_get("irc.nick");
+         if (!nick || !*nick) {
+            nick = "nonick";
          }
-         memset(ws_conn, 0, sizeof(rrconn_t) );
       }
-
-      // Pass ws_conn as fn_data: events can fire before mg_ws_connect()
-      // returns (early errors/closes), and http_handler() needs cptr then.
-      struct mg_connection *c = mg_ws_connect(&mgr, url, http_handler, ws_conn, NULL);
-
-      if (!c) {
-         ui_print(NULL, "%s Socket connect error", get_chat_ts(now) );
-         ws_connected = 0;
-         event_emit("http.error", NULL, NULL);
-
+      if (strlen(nick) >= sizeof(cptr->nick) ||
+          (pass && strlen(pass) >= sizeof(cptr->server->pass)) ||
+          (autojoin && strlen(autojoin) >= sizeof(cptr->server->autojoin))) {
+         ui_print(NULL, "\00304IRC nickname, password or autojoin exceeds the protocol limit\017");
+         free(transport);
          return true;
       }
-      ws_conn->conn = c;
-#endif // defined(USE_MONGOOSE)
-   } else {
-      ui_print(NULL, "[%s] * Server '%s' does not have a server.url configured! Check your config or maybe you mistyped it?", get_chat_ts(now), resolved_server)
-      ;
+      snprintf(cptr->nick, sizeof(cptr->nick), "%s", nick);
+      snprintf(cptr->server->nick, sizeof(cptr->server->nick), "%s", cptr->nick);
+      snprintf(cptr->server->pass, sizeof(cptr->server->pass), "%s", pass ? pass : "");
+      snprintf(cptr->server->autojoin, sizeof(cptr->server->autojoin), "%s", autojoin ? autojoin : "");
+      if (irc_init()) {
+         free(transport);
+         return true;
+      }
    }
-
+   ws_conn = cptr;
+   ws_connected = -1;
+   rrclient_update_connection_ui(-1);
+   ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
+   char connect_url[2048];
+   const char *scheme = endpoint.irc ? (endpoint.tls ? "tls" : "tcp") :
+      (endpoint.tls ? "wss" : "ws");
+   int length = snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", scheme,
+      endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
+      endpoint.port, endpoint.irc ? "" : endpoint.path);
+   if (length < 0 || (size_t)length >= sizeof(connect_url)) {
+      free(ws_conn);
+      ws_conn = NULL;
+      ws_connected = 0;
+      rrclient_update_connection_ui(0);
+      return true;
+   }
+   struct mg_connection *connection = endpoint.irc ?
+      mg_connect(&mgr, connect_url, rrclient_transport_handler, cptr) :
+      mg_ws_connect(&mgr, connect_url, rrclient_transport_handler, cptr, NULL);
+   if (!connection) {
+      if (ws_conn == cptr) {
+         free(ws_conn);
+         ws_conn = NULL;
+      }
+      ws_connected = 0;
+      event_emit("http.error", NULL, NULL);
+      return true;
+   }
+   if (ws_conn == cptr) {
+      cptr->conn = connection;
+   }
    return false;
+#else
+   ui_print(NULL, "Server connections require the Mongoose transport backend");
+   return true;
+#endif
 }
 
 bool connect_or_disconnect(const char *server) {

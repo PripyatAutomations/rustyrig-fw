@@ -18,6 +18,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/rrclient.h>
 #include <rrclient/ui.h>
+#include <rrclient/connman.h>
 #include <librrprotocol/ws.h>
 #include <librrprotocol/vfo.h>
 
@@ -29,43 +30,14 @@ extern struct mg_mgr mgr;
 rrconn_t *ws_conn = NULL;
 rrconn_t *ws_tx_conn = NULL;
 
-static void rrclient_ws_handler(struct mg_connection *c, int ev, void *ev_data) {
-   Log(LOG_CRIT, "rrclient", "rrclient_ws_handler() called");
-}
 #endif // USE_MONGOOSE
 
 bool rrclient_connect(const char *url) {
-   if (!url) {
-      return true;
-   }
-   event_emit("connecting", NULL, NULL);
-
-#ifdef  USE_MONGOOSE
-
-   if (!ws_conn) {
-      event_emit("http.error", NULL, NULL);
-
-      return true;
-   }
-
-   ws_conn->conn = mg_ws_connect(&mgr, url, rrclient_ws_handler, NULL, NULL);
-#endif // USE_MONGOOSE
-
-   return false;
+   return rrclient_connect_url(server_name, url);
 }
 
 bool rrclient_disconnect(void) {
-#ifdef USE_MONGOOSE
-
-   if (ws_conn) {
-      mg_ws_send(ws_conn->conn, NULL, 0, WEBSOCKET_OP_CLOSE);
-      ws_conn->conn->is_closing = 1;
-      ws_conn = NULL;
-   }
-#endif // USE_MONGOOSE
-   ws_connected = false;
-
-   return false;
+   return disconnect_server(server_name);
 }
 
 void rrclient_poll_events(void) {

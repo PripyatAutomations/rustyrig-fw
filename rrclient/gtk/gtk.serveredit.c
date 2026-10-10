@@ -22,10 +22,7 @@
 
 extern dict *cfg;
 
-typedef enum {
-   SERVER_WS,
-   SERVER_WSS
-} server_proto_t;
+typedef rr_transport_t server_proto_t;
 
 typedef struct serverlist {
    char *name;           // friendly name
@@ -38,76 +35,14 @@ typedef struct serverlist {
 } serverlist_t;
 
 bool server_parse_url(const char *url, char *host, int *port, char *user, char *pass, server_proto_t *proto) {
-   const char *p = url;
-
-   // Scheme
-   if (strncmp(p, "ws://", 5) == 0) {
-      *proto = SERVER_WS;
-      *port = 80;
-      p += 5;
-   } else if (strncmp(p, "wss://", 6) == 0) {
-      *proto = SERVER_WSS;
-      *port = 443;
-      p += 6;
-   } else {
+   rr_server_url_t parsed;
+   if (!rr_server_url_parse(url, &parsed) || strlen(parsed.host) >= 256) {
       return false;
    }
-   // Optional user[:pass]@
-   const char *at = strchr(p, '@');
-
-   if (at) {
-      const char *colon = memchr(p, ':', at - p);
-
-      if (colon) {
-         size_t ulen = colon - p;
-         size_t plen = at - colon - 1;
-
-         if (ulen >= HTTP_USER_LEN || plen >= HTTP_PASS_LEN) {
-            return false;
-         }
-         memcpy(user, p, ulen);
-         user[ulen] = '\0';
-         memcpy(pass, colon + 1, plen);
-         pass[plen] = '\0';
-      } else {
-         size_t ulen = at - p;
-
-         if (ulen >= HTTP_USER_LEN) {
-            return false;
-         }
-         memcpy(user, p, ulen);
-         user[ulen] = '\0';
-         pass[0] = '\0';
-      }
-      p = at + 1;
-   } else {
-      user[0] = '\0';
-      pass[0] = '\0';
-   }
-   // Host[:port]
-   const char *slash = strchr(p, '/');
-   const char *hostend = slash ? slash : p + strlen(p);
-   const char *colon = memchr(p, ':', hostend - p);
-
-   if (colon) {
-      size_t hlen = colon - p;
-
-      if (hlen >= 256) {
-         return false;
-      }
-      memcpy(host, p, hlen);
-      host[hlen] = '\0';
-      *port = atoi(colon + 1);
-   } else {
-      size_t hlen = hostend - p;
-
-      if (hlen >= 256) {
-         return false;
-      }
-      memcpy(host, p, hlen);
-      host[hlen] = '\0';
-   }
-
+   snprintf(host, 256, "%s", parsed.host);
+   *port = parsed.port;
+   *proto = parsed.transport;
+   user[0] = pass[0] = '\0';
    return true;
 }
 

@@ -333,3 +333,17 @@ and config escapes documented in `doc/irc-formatting.md`. Help section headings
 are red in both clients.
 PTT/control errors identify the VFO and room; codec errors identify the channel
 and codec where known. Privilege rules and wire command semantics are unchanged.
+
+## Server URL transports
+
+Native GTK/TUI profiles require a complete `server.url` with an explicit port:
+`ws://host:port/path`, `wss://host:port/path`, `irc://host:port`, or
+`ircs://host:port`. The shared native connection manager selects WebSocket,
+WebSocket with TLS, IRC, or IRC with TLS. IRC message events are JSON and
+native application listeners translate them into shared chat/room events.
+IRC provides conventional chat; RustyRig JSON control/media commands require
+WebSocket. See [IRC and server URLs](irc-client.md).
+
+IRC transport is native-only. The WebUI does not need to implement, track or
+mirror IRC behavior, now or in future changes. Do not make WebUI changes for
+IRC parity. The browser retains its existing WebSocket connection behavior.

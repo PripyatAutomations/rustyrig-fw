@@ -260,17 +260,17 @@ bool cmd_notice(int argc, char **args) {
          ui_print(ui_active_window_name(), "-> *%s* %s", notice_target, notice_msg);
       }
    }
-   ui_print(ui_active_window_name(), "TEST: \00308=> *%s*\017 \00311%s\017: %s", notice_target, notice_msg);
 
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
-   dict_add(d, "talk.msg-type", (char *)"notice");
-   dict_add(d, "talk.msg", notice_msg);
+   dict_add(d, "talk.cmd", "msg");
+   dict_add(d, "talk.msg_type", "notice");
+   dict_add(d, "talk.data", notice_msg);
    dict_add(d, "talk.target", notice_target);
 
-   // XXX: Send it to the network
-   // Send it for display? (XXX: Should we do this or let the network echo it back?)
-   event_emit_dict("talk", NULL, d);
+   if (ws_conn) {
+      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   }
    dict_free(d);
 
    return false;

@@ -28,6 +28,7 @@
 
 // These belong in headers
 extern void rrclient_objects_register_events(void);
+extern void rrclient_irc_register_events(void);
 extern void rrclient_media_register_events(void);   // media.c
 extern void rrclient_media_available(dict *d, rrconn_t *cptr);   // media.c
 extern void rrclient_media_subscribed(dict *d, bool unsub);   // media.c
@@ -456,6 +457,8 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          } else {
             ui_print(output_room, "%s \00309*\017%s\00309*\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
          }
+      } else if (strcasecmp(msg_type, "notice") == 0) {
+         ui_print(output_room, "%s \00308-%s-\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
       } else if (strcasecmp(msg_type, "replay-priv") == 0 || strcasecmp(msg_type, "replay-privmsg") == 0) {
          ui_print(output_room, "%s \00306*\017%s\00306*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       }
@@ -841,6 +844,10 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
     * requested the part closes its room tab. */
    bool is_self = session && *session && session_token[0] &&
       strcmp(session, session_token) == 0;
+   if (cptr && !cptr->is_ws && cptr->server && member &&
+       !strcasecmp(member, cptr->nick)) {
+      is_self = true;
+   }
 
    if (room && is_self) {
       rrclient_media_room_parted(room);
@@ -1354,6 +1361,7 @@ void rrclient_register_events(void) {
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
    event_on("alert", rrclient_handle_alert, NULL);
    event_on("auth.error", rrclient_handle_autherr, NULL);
+   rrclient_irc_register_events();
    event_on("authorized", rrclient_handle_connection, NULL);
    event_on("cat.cmd", rrclient_handle_catcmd, NULL);
    event_on("chat.replay", rrclient_handle_chat_replay, NULL);

@@ -150,7 +150,9 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
 
          // Weak symbol: cfg.servers.c may be disabled (old IRC transport)
          if (add_server) {
-            add_server(np, buf);
+            if (!add_server(np, buf)) {
+               Log(LOG_WARN, "cfg.network", "%s:%d: IRC server needs an irc:// or ircs:// URL with an explicit port", path, line);
+            }
          } else {
             Log(LOG_DEBUG, "cfg.network", "add_server not available (cfg.servers disabled), skipping %s", buf);
          }

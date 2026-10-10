@@ -1,4 +1,12 @@
 rustyrig-fw (20261009.1) testing; urgency=medium
+  * Select IRC, IRC + TLS, WebSocket or WebSocket + TLS from server URLs;
+    require explicit protocols/ports, share IPv6-aware address validation and
+    retain explicit ports when saving legacy IRC network entries.
+  * Route native GTK/TUI IRC chat and room events through common client
+    handlers; send registration after TLS handshake and reject JSON-only
+    controls on IRC. Fix native /notice transmission and stale connection teardown.
+  * Document native-only IRC transport with no WebUI parity requirement; add
+    transport selection and local TCP/TLS regressions.
   * Restore IRC protocol sources to the build; migrate application events to
     JSON, repair parser/callback lifetime and channel state, and cover socket
     registration, fragmented input, CTCP and partial writes with regressions.

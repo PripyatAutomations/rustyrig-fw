@@ -1,116 +1,229 @@
-//
-// rrclient/m_privmsg.c:
-//    This is part of rustyrig-fw.
-// https://github.com/pripyatautomations/rustyrig-fw
-//
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
-//
+// Native IRC event adapter, shared by GTK and TUI.
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <fnmatch.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <time.h>
-#include <termios.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <librustyaxe/core.h>
-#include <librustyaxe/tui.h>
+#include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/irc.h>
+#include <rrclient/connman.h>
 #include <rrclient/ui.h>
+#include <rrclient/frontend.h>
+#include <rrclient/rooms.h>
+#include <rrclient/userlist.h>
 
-extern time_t now;
-extern bool dying, cfg_mirc_colors;
+extern const char *login_user;
+extern void rrclient_update_connection_ui(int connected);
+extern void tui_refresh_sb_online(void);
 
 bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args) {
-#if     0       // fix this
-   char buf[1024];
-   memset(buf, 0, 1024);
-   size_t pos = 0;
-   char *target = wp->title;
-
-   for (int i = 0 ; i < argc ; i++) {
-      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 0 ? " " : ""), args[i] ? args[i] : "");
-
-      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
-         break;
-      }
-      pos += n;
+   if (!cptr || !window || argc < 1 || !args) {
+      return true;
    }
-
-   Log(LOG_DEBUG, "irc", "sending privmsg to %s", target);
-
-// XXX: re-enable this
-//   irc_send(wp->cptr, "PRIVMSG %s :%s", target, buf);
-   if (*buf == '\001') {
-      // CTCP
-      if (strncasecmp(buf + 1, "ACTION", 6) == 0) {
-         Log(LOG_INFO, "irc", "[%s] * %s / %s %s", irc_name(cptr), target, cptr->nick, buf + 8);
-         ui_print(window, "%s * %s %s", get_chat_ts(0), cptr->nick, buf + 8);
+   char message[IRC_MSGLEN] = "";
+   for (int i = 0; i < argc; i++) {
+      if ((i && strlcat(message, " ", sizeof(message)) >= sizeof(message)) ||
+          strlcat(message, args[i], sizeof(message)) >= sizeof(message)) {
+         return true;
       }
-   } else {
-      Log(LOG_INFO, "irc", "[%s] %s <%s> %s", irc_name(cptr), target, cptr->nick, buf);
-      ui_print(window, "%s \00314<\00311%s\00314>\017 %s", get_chat_ts(0), cptr->nick, buf);
    }
-#endif
-
-   return false;
+   return !irc_send(cptr, "PRIVMSG %s :%s", window, message);
 }
 
-void on_privmsg(const char *event, void *data, rrconn_t *cptr, void *user) {
-   if (!data) {
+static void rrclient_irc_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)data;
+   (void)user;
+   if (!cptr || cptr != ws_conn) {
       return;
    }
-
-   irc_message_t *mp = data;
-
-   char *nick = mp->prefix;
-
-   if (!nick) {
+   if (!strcmp(event, "irc.disconnected")) {
+      ws_connected = 0;
+      event_emit("disconnected", cptr, NULL);
       return;
    }
-
-   char *nick_end = strchr(nick, '!');
-   char tmp_nick[NICKLEN + 1];
-   char *network = cptr->server->network;
-   size_t nicklen = (nick_end - nick);
-
-   memset(tmp_nick, 0, NICKLEN + 1);
-   snprintf(tmp_nick, NICKLEN + 1, "%.*s", (int)nicklen, nick);
-
-   Log(LOG_CRIT, "irc.event", "on_privmsg: argc %d args0 %s args1 %s", mp->argc, mp->argv[0], mp->argv[1]);
-   char *win_title = tmp_nick;
-   // Is this a query or channel message?
-   bool is_private = true;
-
-   if (*mp->argv[1] == '&' || *mp->argv[1] == '#') {
-      is_private = false;
-      win_title = mp->argv[1];
+   char *name = strdup(cptr->nick);
+   if (name) {
+      free((void *)login_user);
+      login_user = name;
    }
+   ws_connected = 1;
+   rrclient_update_connection_ui(1);
+   tui_refresh_sb_online();
+   if (frontend_ops()) {
+      /* A conventional IRC server has no RustyRig PTT/media controls. */
+      frontend_ops()->ptt_set_online(false);
+   }
+   ui_print(NULL, "%s Connected to IRC as %s", get_chat_ts(now), cptr->nick);
+   const char *autojoin = cptr->server ? cptr->server->autojoin : "";
+   char *copy = strdup(autojoin);
+   if (copy) {
+      char *save = NULL;
+      for (char *room = strtok_r(copy, ", \t", &save); room; room = strtok_r(NULL, ", \t", &save)) {
+         char *key = strchr(room, ':');
+         if (key) {
+            *key++ = '\0';
+            irc_send(cptr, "JOIN %s %s", room, key);
+         } else {
+            irc_send(cptr, "JOIN %s", room);
+         }
+      }
+      free(copy);
+   }
+   /* Rejoin tabs retained by the common reconnect model. */
+   rrclient_rooms_rejoin_available();
+}
 
-   Log(LOG_INFO, "irc", "[%s] %s <%s> %s", network, win_title, tmp_nick, mp->argv[2]);
-
-   char *colored = NULL;
-
-   if (cfg_mirc_colors) {
-      colored = irc_to_tui_colors(mp->argv[2]);
+static void rrclient_irc_send_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)user;
+   if (!data || cptr != ws_conn) {
+      return;
+   }
+   dict *d = json2dict(data);
+   if (!d) {
+      return;
+   }
+   if (!strcmp(event, "irc.sent")) {
+      dict_add(d, "talk.from", cptr->nick);
+      dict_add_long(d, "msg.ts", now);
+      event_emit_dict("talk.msg", cptr, d);
    } else {
-      colored = strip_mirc_formatting(mp->argv[2]);
+      ui_print(ui_active_window_name(), "\00308This IRC server does not support the requested %s command (%s)\017",
+         dict_get(d, "msg.type", ""), dict_get(d, "talk.cmd", ""));
    }
+   dict_free(d);
+}
 
-   if (strcasestr(mp->argv[2], cptr->nick) == 0) {
-      ui_print(NULL, "%s \00314<\00309%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick, colored);
-   } else {
-      ui_print(NULL, "%s \00314<\00308%s\00314>\017 %s\017 ", get_chat_ts(0), tmp_nick, colored);
+static void rrclient_irc_message(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+   if (!data || !cptr || cptr != ws_conn) {
+      return;
    }
-   free(colored);
+   dict *message = json2dict(data);
+   dict *d = dict_new();
+   if (!message || !d) {
+      dict_free(message);
+      dict_free(d);
+      return;
+   }
+   const char *cmd = dict_get(message, "msg.cmd", "");
+   const char *prefix = dict_get(message, "msg.prefix", "");
+   char from[NICKLEN + 1];
+   snprintf(from, sizeof(from), "%.*s", (int)strcspn(prefix, "!"), prefix);
+   const char *arg1 = dict_get(message, "msg.arg1", "");
+   const char *arg2 = dict_get(message, "msg.arg2", "");
+   int argc = dict_get_int(message, "msg.argc", 0);
+   dict_add_long(d, "msg.ts", now);
+   dict_add(d, "talk.user", from);
+   dict_add(d, "talk.from", from);
+   dict_add(d, "talk.privs", "");
+   if ((!strcasecmp(cmd, "PRIVMSG") || !strcasecmp(cmd, "NOTICE")) && argc >= 3) {
+      bool channel = arg1[0] == '#' || arg1[0] == '&';
+      dict_add(d, "talk.target", channel ? arg1 : from);
+      const char *kind = !strcasecmp(cmd, "NOTICE") ? "notice" : channel ? "pub" : "priv";
+      const char *text = arg2;
+      char action[IRC_MSGLEN];
+      size_t length = strlen(text);
+      if (*text == '\001') {
+         if (length < 9 || strncmp(text, "\001ACTION ", 8) || text[length - 1] != '\001') {
+            goto done;
+         }
+         memcpy(action, text + 8, length - 9);
+         action[length - 9] = '\0';
+         text = action;
+         kind = "action";
+      }
+      dict_add(d, "talk.msg_type", kind);
+      dict_add(d, "talk.data", text);
+      event_emit_dict("talk.msg", cptr, d);
+   } else if (!strcasecmp(cmd, "JOIN") && argc >= 2 && *from) {
+      dict_add(d, "talk.room", arg1);
+      event_emit_dict("join", cptr, d);
+      dict_add_int(d, "talk.sessions", 1);
+      event_emit_dict("userinfo", cptr, d);
+   } else if (!strcasecmp(cmd, "PART") && argc >= 2 && *from) {
+      dict_add(d, "talk.room", arg1);
+      event_emit_dict("part", cptr, d);
+   } else if (!strcasecmp(cmd, "KICK") && argc >= 3) {
+      dict_add(d, "talk.room", arg1);
+      dict_add(d, "talk.user", arg2);
+      event_emit_dict("part", cptr, d);
+      ui_print(arg1, "%s * %s kicked %s: %s", get_chat_ts(now), from, arg2,
+         dict_get(message, "msg.arg3", ""));
+   } else if (!strcasecmp(cmd, "QUIT") && *from) {
+      while (userlist_remove_by_name_room(from, NULL)) {
+         /* QUIT removes this nick from every joined channel. */
+      }
+      ui_print(NULL, "%s * %s quit: %s", get_chat_ts(now), from, arg1);
+   } else if (!strcasecmp(cmd, "NICK") && argc >= 2 && *from) {
+      if (!strcasecmp(from, cptr->nick)) {
+         snprintf(cptr->nick, sizeof(cptr->nick), "%s", arg1);
+         char *name = strdup(arg1);
+         if (name) {
+            free((void *)login_user);
+            login_user = name;
+         }
+      }
+      for (unsigned i = 0; rrclient_room_iter(i); i++) {
+         const char *room = rrclient_room_iter(i);
+         if (userlist_find_in_room(from, room)) {
+            userlist_remove_by_name_room(from, room);
+            dict_add(d, "talk.room", room);
+            dict_add(d, "talk.user", arg1);
+            event_emit_dict("userinfo", cptr, d);
+         }
+      }
+      ui_print(NULL, "%s * %s is now %s", get_chat_ts(now), from, arg1);
+   } else if ((!strcasecmp(cmd, "TOPIC") && argc >= 3) || (!strcmp(cmd, "332") && argc >= 4)) {
+      dict_add(d, "talk.room", !strcmp(cmd, "332") ? arg2 : arg1);
+      dict_add(d, "talk.topic", !strcmp(cmd, "332") ? dict_get(message, "msg.arg3", "") : arg2);
+      event_emit_dict("room.topic", cptr, d);
+   } else if (!strcmp(cmd, "353") && argc >= 5) {
+      dict_add(d, "talk.room", dict_get(message, "msg.arg3", ""));
+      char *names = strdup(dict_get(message, "msg.arg4", ""));
+      if (names) {
+         char *save = NULL;
+         for (char *name = strtok_r(names, " ", &save); name; name = strtok_r(NULL, " ", &save)) {
+            name += strspn(name, "@+%&~");
+            dict_add(d, "talk.user", name);
+            dict_add_int(d, "talk.sessions", 1);
+            event_emit_dict("userinfo", cptr, d);
+         }
+         free(names);
+      }
+   } else if (strlen(cmd) == 3 && cmd[0] >= '0' && cmd[0] <= '9') {
+      char key[32];
+      snprintf(key, sizeof(key), "msg.arg%d", argc > 1 ? argc - 1 : 0);
+      const char *text = dict_get(message, key, "");
+      if (!strcmp(cmd, "464")) {
+         dict_add(d, "auth.error", text);
+         event_emit_dict("auth.error", cptr, d);
+      } else if (strcmp(cmd, "001")) {
+         ui_print(NULL, "%s [%s] %s", get_chat_ts(now), cmd, text);
+      }
+   }
+done:
+   dict_free(d);
+   dict_free(message);
+}
 
-   return;
+static void rrclient_irc_error(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+   if (!data || cptr != ws_conn) {
+      return;
+   }
+   dict *d = json2dict(data);
+   if (d) {
+      ui_print(NULL, "\00304IRC error: %s\017", dict_get(d, "error.msg", dict_get(d, "msg.arg1", "unknown error")));
+      dict_free(d);
+   }
+}
+
+void rrclient_irc_register_events(void) {
+   event_on("irc.message", rrclient_irc_message, NULL);
+   event_on("irc.connected", rrclient_irc_connection, NULL);
+   event_on("irc.disconnected", rrclient_irc_connection, NULL);
+   event_on("irc.error", rrclient_irc_error, NULL);
+   event_on("irc.sent", rrclient_irc_send_event, NULL);
+   event_on("irc.command.unsupported", rrclient_irc_send_event, NULL);
 }

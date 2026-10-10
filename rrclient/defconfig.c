@@ -208,6 +208,9 @@ defconfig_t defcfg[] = {
       "server.auto-connect", NULL, "Profile name to autoconnect on start"
    },
    {
+      "irc.nick", "nonick", "Fallback IRC nickname when the server profile has no server.user"
+   },
+   {
       "tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, "Top row template with live ${variable} and IRC formatting escapes"
    },
    {

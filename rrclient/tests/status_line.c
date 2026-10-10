@@ -9,7 +9,8 @@ bool dying, restarting;
 time_t now;
 enum GuiMode ui_mode = UI_MODE_NONE;
 const char *login_user = "operator";
-rrconn_t *ws_conn = (rrconn_t *)1;
+static rrconn_t connection = { .is_ws = true };
+rrconn_t *ws_conn = &connection;
 struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
 void tui_refresh_sb_window(void) {

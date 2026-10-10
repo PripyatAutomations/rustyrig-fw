@@ -62,6 +62,10 @@ When changing client behavior, check both repositories:
 Observable client behavior should remain equivalent unless a difference
 is explicitly documented as frontend-specific.
 
+IRC transport and IRC client behavior are native-only. The WebUI does not
+need to implement or mirror IRC, now or in future work. Do not make WebUI
+changes to maintain IRC parity.
+
 See `doc/client-parity.md` for the current parity map.
 
 ## Important rules

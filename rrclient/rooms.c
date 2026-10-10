@@ -174,7 +174,8 @@ void rrclient_rooms_disconnect(void) {
 
 void rrclient_rooms_rejoin_available(void) {
    for (size_t i = 0 ; i < reconnect_room_count ; i++) {
-      if (room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
+      if ((ws_conn && ws_conn->server && !ws_conn->is_ws) ||
+          room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
          rrclient_room_request_join(reconnect_rooms[i]);
       }
    }
