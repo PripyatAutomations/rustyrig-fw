@@ -5,3 +5,15 @@ Description: Password for the RustyRig admin account:
  Choose the password used to log in as the RustyRig admin user.  This is
  required when creating a new server database.  An existing database is not
  changed during upgrades.
+
+Template: rustyrig-server/enable-guest
+Type: boolean
+Default: false
+Description: Enable the shared guest account?
+ Guests log in with username "guest" and password "guest". The shipped guest
+ permissions allow chat, radio control and transmission, subject to server
+ restrictions and quotas. Enable this only if you want shared guest access
+ to your LAN/VPN station.
+ .
+ The account is disabled by default. This choice applies only when creating
+ a new server database; existing accounts are preserved during upgrades.

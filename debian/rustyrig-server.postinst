@@ -30,9 +30,13 @@ if [ -r /usr/share/debconf/confmodule ]; then
 fi
 
 admin_password=
+guest_enabled=false
 if command -v db_get >/dev/null 2>&1; then
     db_get rustyrig-server/admin-password || true
     admin_password=${RET:-}
+    if db_get rustyrig-server/enable-guest; then
+        guest_enabled=${RET:-false}
+    fi
 fi
 
 master_db=/var/lib/rustyrig/db/master.db
@@ -55,6 +59,11 @@ if [ "$new_database" = true ]; then
     admin_hash=$(printf '%s' "$admin_password" | sha1sum | cut -d ' ' -f 1)
     sqlite3 "$master_db" \
         "UPDATE users SET enabled=1,password='$admin_hash' WHERE name='admin';"
+    if [ "$guest_enabled" = true ]; then
+        guest_hash=$(printf '%s' guest | sha1sum | cut -d ' ' -f 1)
+        sqlite3 "$master_db" \
+            "UPDATE users SET enabled=1,password='$guest_hash' WHERE name='guest';"
+    fi
     chown rustyrig:rustyrig "$master_db"
     chmod 0660 "$master_db"
 fi

@@ -1,5 +1,7 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
 
+  * Offer opt-in guest/guest access during fresh Debian server installation,
+    defaulting to disabled and preserving existing accounts on upgrades.
   * Update beta installation/first-login/audio guidance, enable the Debian fresh
     admin account and fix the native window-close command const warning.
   * Restore Debian changelog trailers and refresh their timestamps on version
@@ -41,7 +43,7 @@ rustyrig-fw (20261010.01) testing; urgency=medium
     batching/bindings and server-link authority/resync rules; add a reproducible
     size tool and specify a clean cutover with no legacy compatibility.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 04:26:19 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 04:28:58 -0400
 
 rustyrig-fw (20261009.01) testing; urgency=medium
 

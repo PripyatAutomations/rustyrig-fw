@@ -95,7 +95,10 @@ temporary password immediately:
     /user pass admin <new-password>
 
 Remove the bootstrap-password file after successfully changing the password.
-There is no shipped admin/admin login; guest is disabled by default. Existing
+There is no shipped admin/admin login. Guest is disabled by default; Debian's
+fresh-install prompt can enable the shared guest/guest login with the shipped
+guest chat, radio-control and TX permissions, subject to restrictions and quotas.
+Source-tree bootstrap leaves guest disabled. Existing
 databases keep their credentials. Do not delete a database to reset a password.
 Use /user list to inspect accounts and /help user for account administration.
 
