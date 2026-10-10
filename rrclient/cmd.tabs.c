@@ -30,6 +30,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/rooms.h>
+#include <rrclient/media.h>
 
 extern bool dying;
 extern time_t now;
@@ -77,14 +78,16 @@ bool cmd_log(int argc, char **args) {
 
 bool cmd_win(int argc, char **args) {
    if (argc < 2 || !args || !args[1]) {
-      ui_print(ui_active_window_name(), "Usage: /win <number|close>");
+      ui_print(ui_active_window_name(), "Usage: /win <number|close [-force]>");
 
       return true;
    }
 
    if (!strcasecmp(args[1], "close")) {
-      if (argc != 2) {
-         ui_print(ui_active_window_name(), "Use /win close to close the current window");
+      bool force = argc == 3 && !strcasecmp(args[2], "-force");
+
+      if (argc != 2 && !force) {
+         ui_print(ui_active_window_name(), "Use /win close [-force] to close the current window");
 
          return true;
       }
@@ -114,6 +117,11 @@ bool cmd_win(int argc, char **args) {
          };
          /* The self-PART confirmation performs room/media/tab cleanup. */
          error = cmd_part(2, part_args);
+         if (force) {
+            rrclient_media_room_parted(room);
+            rrclient_room_part(room);
+            error = ui_close_window(room);
+         }
       } else {
          rrclient_room_part(room); /* Also forget offline reconnect intent. */
          error = ui_close_window(room);

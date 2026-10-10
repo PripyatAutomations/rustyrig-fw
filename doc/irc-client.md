@@ -181,5 +181,7 @@ changing the selected connection.
 
 `/win close` protects shared `status`. It closes query tabs locally; joined
 room tabs send PART to their owning server and close on self-PART confirmation.
-A failed PART keeps the room open. Closing an offline room also removes its
+A failed PART keeps the room open. `/win close -force` attempts PART and closes
+immediately, even if sending fails or no response arrives; it still protects
+`status`. Closing an offline room also removes its
 pending rejoin request. `/win number` retains window switching.

@@ -30,7 +30,7 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
 }
 static unsigned parted_media_rooms;
 void rrclient_media_room_parted(const char *room) {
-   assert(!strcmp(room, "#closeme"));
+   assert(room && room[0] == '#');
    parted_media_rooms++;
 }
 
@@ -405,6 +405,29 @@ int main(void) {
       "win"
    };
    assert(cmd_win(1, win_missing));
+
+   char *win_force[] = {
+      "win", "close", "-force"
+   };
+   assert(cmd_win(3, win_force)); /* Even force protects shared status. */
+   active_room = "#force";
+   status_active = false;
+   assert(rrclient_room_join(active_room));
+   before_close = closed_status_tabs;
+   unsigned before_media = parted_media_rooms;
+   assert(!cmd_win(3, win_force));
+   assert(window_connection->send.len == strlen("PART #force\r\n") &&
+      !memcmp(window_connection->send.buf, "PART #force\r\n", window_connection->send.len));
+   assert(closed_status_tabs == before_close + 1 && !rrclient_room_is_joined(active_room));
+   assert(parted_media_rooms == before_media + 1);
+   active_room = "#forcefailed";
+   status_active = false;
+   assert(rrclient_room_join(active_room));
+   window_connection->is_closing = 1;
+   assert(!cmd_win(3, win_force));
+   assert(closed_status_tabs == before_close + 2 && !rrclient_room_is_joined(active_room));
+   window_connection->is_closing = 0;
+   mg_iobuf_del(&window_connection->send, 0, window_connection->send.len);
 
    rrclient_rooms_clear();
    assert(rrclient_room_join("#offline"));
