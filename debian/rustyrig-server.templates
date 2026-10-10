@@ -11,9 +11,8 @@ Type: boolean
 Default: false
 Description: Enable the shared guest account?
  Guests log in with username "guest" and password "guest". The shipped guest
- permissions allow chat, radio control and transmission, subject to server
- restrictions and quotas. Enable this only if you want shared guest access
- to your LAN/VPN station.
+ permissions allow receive audio and chat only. Enable this if you want
+ shared guest access to your LAN/VPN station.
  .
  The account is disabled by default. This choice applies only when creating
  a new server database; existing accounts are preserved during upgrades.

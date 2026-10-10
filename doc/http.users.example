@@ -2,5 +2,5 @@
 # Replace the password field with your own SHA-1 verifier before enabling an account.
 # Fresh SQLite installations provision a random admin credential instead.
 1:admin:0:-:no@example.com:3:admin,edit,view,radio,tx,elmer,syslog,chat
-2:guest:0:-:no@example.com:3:edit,view,radio,tx,noob,syslog,chat
+2:guest:0:-:no@example.com:3:rx,chat
 3:bob:0:-:none@example.com:3:admin,edit,view,radio,tx,elmer,syslog,chat,restart

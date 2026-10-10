@@ -32,8 +32,7 @@ GStreamer runtime dependencies; custom pipelines may require extra plugins.
 
 A fresh server install asks for an admin password and initializes its database.
 It also asks whether to enable the shared guest account, defaulting to No.
-If enabled, its login is guest/guest, with the shipped guest radio/chat/TX
-permissions subject to server restrictions and quotas.
+If enabled, its login is guest/guest, with RX and chat privileges only.
 Existing databases and modified configuration are preserved during upgrades.
 Configure /etc/rustyrig/rrserver.cfg before starting:
 
