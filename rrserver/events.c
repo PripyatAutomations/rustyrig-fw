@@ -1,3 +1,4 @@
+#include <rrserver/usage.h>
 //
 // rrserver/events.c: event listeners for shared protocol events from
 // librrprotocol
@@ -1139,8 +1140,9 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
    }
 
    if (strcasecmp(subcmd, "HELP") == 0) {
-      ws_send_notice(cptr, "Usage: /quota LIST | SHOW <user>... | ADD <user> <time> | RESET <user>... | SET <user> <time>");
+      ws_send_notice(cptr, "Usage: /quota [TX|BW] LIST | SHOW <user>... | ADD <user> <amount> | RESET <user>... | SET <user> <amount>");
       ws_send_notice(cptr, "  ADD/SET take a dhms time string like 30m, 2h, 1d or 1w2d (0 = no TX allowed);");
+      ws_send_notice(cptr, "  BW amounts: 10=10M bytes; whole decimal M/G/T/P units. BW RESET clears usage and restores quota.bandwidth.default.");
       ws_send_notice(cptr, "  SHOW shows exact seconds too.");
 
       return;
@@ -1160,9 +1162,18 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
          if (strcasecmp(subcmd, "SHOW") == 0) {
             int mins = (before < 0 ? 0 : before) / 60;
 
-            ws_send_notice(cptr, "%s: %s remaining", name, time_t2dhms(before) );
+            struct rr_usage usage;
+            if (db_usage_get(masterdb, name, &usage))
+               ws_send_notice(cptr, "%s: %s remaining; TX used=%llu seconds since reset", name, time_t2dhms(before), (unsigned long long)usage.tx_seconds);
+            else ws_send_notice(cptr, "%s: %s remaining", name, time_t2dhms(before));
          } else {
-            if (db_quota_set(masterdb, name, 60 * 60) ) {
+            bool saved = sqlite3_exec(masterdb, "SAVEPOINT quota_tx_reset", NULL, NULL, NULL) == SQLITE_OK;
+            if (saved) {
+               saved = db_quota_set(masterdb, name, 60 * 60) && db_usage_reset_tx(masterdb, name);
+               if (!saved) sqlite3_exec(masterdb, "ROLLBACK TO quota_tx_reset", NULL, NULL, NULL);
+               saved = sqlite3_exec(masterdb, "RELEASE quota_tx_reset", NULL, NULL, NULL) == SQLITE_OK && saved;
+            }
+            if (saved) {
                Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60m (was %s)", actor, name, time_t2dhms(before) );
                ws_send_notice(cptr, "%s: reset to 60m", name);
                quota_reset_warned(name);
@@ -1274,7 +1285,8 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    bool target_is_cmd = target &&
       (strcasecmp(target, "LIST") == 0 || strcasecmp(target, "SHOW") == 0 ||
          strcasecmp(target, "ADD") == 0 || strcasecmp(target, "RESET") == 0 ||
-         strcasecmp(target, "SET") == 0 || strcasecmp(target, "HELP") == 0);
+         strcasecmp(target, "SET") == 0 || strcasecmp(target, "HELP") == 0 ||
+         !strcasecmp(target, "BW") || !strcasecmp(target, "TX"));
 
    if (target_is_cmd) {
       snprintf(tail, sizeof(tail), "%s %s", target, data_str ? data_str : "");
@@ -1315,7 +1327,11 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
       return;
    }
 
-   quota_apply(cptr, cptr->chatname, argv[0], argc - 1, &argv[1]);
+   if (!strcasecmp(argv[0], "BW")) {
+      rrserver_usage_quota(cptr, argc > 1 ? argv[1] : "LIST", argc > 1 ? argc - 2 : 0, &argv[2]);
+   } else if (!strcasecmp(argv[0], "TX")) {
+      quota_apply(cptr, cptr->chatname, argc > 1 ? argv[1] : "LIST", argc > 1 ? argc - 2 : 0, &argv[2]);
+   } else quota_apply(cptr, cptr->chatname, argv[0], argc - 1, &argv[1]);
    dict_free(d);
 }
 
@@ -1892,6 +1908,7 @@ void rrserver_register_events(void) {
    extern void rrserver_objects_register_events(void);
    rrserver_objects_register_events();
    rrserver_media_register_events();
+   rrserver_usage_register_events();
    Log(LOG_CRAZY, "events", "Registering rrserver events");
 
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);

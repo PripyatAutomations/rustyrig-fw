@@ -90,6 +90,9 @@ bool ws_media_broadcast_subscribed(struct rr_mediachan *cp, const uint8_t *data,
 bool ws_media_send_frame(struct rr_mediachan *cp, rrconn_t *client, const uint8_t *data, size_t len, const char codec[4]) {
    return ws_media_broadcast_subscribed(cp, data, len, codec);
 }
+bool ws_media_send_setup_frame(struct rr_mediachan *cp, rrconn_t *client, const uint8_t *data, size_t len, const char codec[4]) {
+   return ws_media_send_frame(cp, client, data, len, codec);
+}
 static void poll_for(unsigned milliseconds) {
    uint64_t until = mg_millis() + milliseconds;
    while (mg_millis() < until) {

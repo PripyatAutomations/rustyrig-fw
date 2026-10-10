@@ -242,7 +242,8 @@ bool cmd_quota(int argc, char **args) {
 
    if (strcasecmp(args[1], "list") == 0 || strcasecmp(args[1], "show") == 0 ||
       strcasecmp(args[1], "add") == 0 || strcasecmp(args[1], "reset") == 0 ||
-      strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0) {
+      strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0 ||
+      !strcasecmp(args[1], "BW") || !strcasecmp(args[1], "TX")) {
       size_t pos = 0;
 
       for (int i = 2 ; i < argc ; i++) {

@@ -1278,6 +1278,14 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
       ui_print(output, "\00310***\017 Last heard: %s", buf);
    }
 
+   if (dict_get(d, "talk.usage.total-bytes", NULL)) {
+      ui_print(output, "\00310***\017 Usage:      %s bytes; BW remaining %s bytes; TX %ss; session time %ss",
+         dict_get(d, "talk.usage.total-bytes", "0"), dict_get(d, "talk.usage.bandwidth-remaining", "unlimited"),
+         dict_get(d, "talk.usage.tx-seconds", "0"), dict_get(d, "talk.usage.session-seconds", "0"));
+      ui_print(output, "\00310***\017 Frames:     TX text %s / binary %s; RX text %s / binary %s",
+         dict_get(d, "talk.usage.tx-text-frames", "0"), dict_get(d, "talk.usage.tx-binary-frames", "0"),
+         dict_get(d, "talk.usage.rx-text-frames", "0"), dict_get(d, "talk.usage.rx-binary-frames", "0"));
+   }
    ui_print(output, "\00310***\017 Client:     %s", ua);
    ui_print(output, "\00310***\017 \002End of WHOIS %s\017", username);
 

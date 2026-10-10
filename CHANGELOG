@@ -1,4 +1,14 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Adapt live Opus quality to sustained queue pressure, relative RTT and
+    scoped receiver feedback, with gradual recovery and no clock synchronization.
+  * Track media sequence gaps per connection/stream, protect codec setup packets
+    and bound decoded playback bursts for every codec without splitting encoded data.
+  * Account for connection TX/RX payload bytes and text/binary frames; persist
+    user totals, session/TX time and end-session AUDIT records with concurrent readers.
+  * Expose usage to staff in /whois; add /quota TX and BW show/set/add/reset/list,
+    whole decimal M/G/T/P amounts and warning-only bandwidth exhaustion.
+  * Preserve quota argument tails and complete TX/BW subcommands in native/browser
+    clients; test all-codec impairment recovery, quota limits and live audit/privacy.
   * Cut over all live WebSocket messages to compact rustyrig.v1 with an
     authoritative generated C/JS registry, strict handshake and no fallback.
   * Bound sends without closing slow peers; skip excess realtime media,

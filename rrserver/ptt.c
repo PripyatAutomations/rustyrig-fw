@@ -268,6 +268,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    }
 
    if (secs >= 0) {
+      if (talker) talker->session_tx_seconds += (uint64_t)secs;
       // If the talker is unknown at key-up, recover their name from the
       // session row so the log line and quota debit still work.
       const char *who = (talker ? talker->chatname : NULL);

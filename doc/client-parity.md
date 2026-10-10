@@ -356,3 +356,15 @@ IRC parity. The browser retains its existing WebSocket connection behavior.
 Native simultaneous connections, status-tab server selection and per-server
 conversation tabs are frontend-specific for this change. The browser keeps
 its existing connection presentation; IRC remains outside browser parity.
+
+## Media adaptation and usage accounting
+
+Native and browser clients share compact `media.feedback` fields, relative
+monotonic timing, per-stream sequence-gap detection and bounded playback recovery.
+Native DSP and WebCodecs have different decoder capabilities; neither client
+advertises codecs its active implementation cannot decode. The server alone owns
+persistent usage, allowance decisions and staff visibility in `/whois`. Both clients
+forward complete `/quota [TX|BW]` command tails, complete unit/action parameters,
+and display staff usage when present. IRC remains native-only.
+
+See [Media adaptation and usage accounting](media-adaptation-and-usage.md).

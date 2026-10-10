@@ -180,6 +180,11 @@ int main(void) {
    check("/whois\ta", "a", "alice");
    check("/quota SET a", "a", "alice");
    check("/quota SET alice ", "", NULL);
+   check("/quota B", "B", "BW");
+   check("/quota BW S", "S", "SET");
+   check("/quota BW ADD a", "a", "alice");
+   check("/quota BW ADD alice ", "", NULL);
+   check("/quota TX SHOW a", "a", "alice");
    check("/quota SHOW alice a", "a", "alice");
    check("/us", "/us", "/user");
    check("/user p", "p", "PASS");

@@ -133,3 +133,34 @@ int main(void) {
                 pcm.byteswap()
             assert len(pcm) > 100 and sum(abs(s) for s in pcm) // len(pcm) > 100
             print(f'PASS: {label} {codec}: {len(packets)} encoded frames, {len(pcm)} decoded samples', flush=True)
+            if label == 'defaults-server' and codec in BASE_CODECS:
+                # Preserve setup packets, skip one complete data chunk, flag the
+                # discontinuity, then deliver a delayed burst for every codec.
+                raw = encoded.stdout
+                marked = []
+                while raw:
+                    flags = int.from_bytes(raw[:4], 'big')
+                    size = flags & 0x1fffffff
+                    marked.append((raw[4:4+size], bool(flags & 0x80000000)))
+                    raw = raw[4+size:]
+                candidates = [i for i, (_, header) in enumerate(marked) if not header and i >= 3 and i < len(marked)-1]
+                assert candidates, (codec, 'no data packet for loss test')
+                missing = candidates[len(candidates)//2]
+                damaged = b''.join((len(payload) | (0x20000000 if i == missing+1 else 0)).to_bytes(4,'big') + payload
+                    for i,(payload,header) in enumerate(marked) if i != missing)
+                with (work / 'impaired').open('wb') as out, (work / 'impaired.log').open('wb') as log_file:
+                    impaired = subprocess.Popen(args + ['-H'], stdin=subprocess.PIPE, stdout=out, stderr=log_file, env=ENV)
+                try:
+                    time.sleep(.3)
+                    impaired.stdin.write(damaged)
+                    impaired.stdin.flush()
+                    time.sleep(.3)
+                    impaired.stdin.close()
+                    assert impaired.wait(timeout=15) == 0
+                finally:
+                    if impaired.poll() is None: impaired.kill(); impaired.wait()
+                recovered = frames((work / 'impaired').read_bytes())
+                errors = (work / 'impaired.log').read_text()
+                assert recovered and all(0 < len(p) <= 3200 and len(p)%2 == 0 for p in recovered), (codec,errors)
+                assert 'GStreamer error:' not in errors and 'CRITICAL' not in errors, (codec,errors)
+                print(f'PASS: {codec} resumes after skipped data and delayed burst; decoded PCM batches <=100ms', flush=True)

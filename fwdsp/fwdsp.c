@@ -44,6 +44,7 @@
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/fwdsp-shared.h>
 #include <fwdsp/quality.h>
+#include <libfwdspmgr/pcm-backlog.h>
 #include <librrprotocol/cfg.fwdsp.h>
 
 extern const char **configs;
@@ -521,7 +522,8 @@ static bool write_all(int fd, const uint8_t *data, size_t len) {
 #define FWDSP_READER_MAX_BUFFER (FWDSP_MAX_FRAME_SIZE + 4096U)
 #define FWDSP_FRAME_STREAM_HEADER 0x80000000U
 #define FWDSP_FRAME_PCM_TAP 0x40000000U
-#define FWDSP_FRAME_LENGTH_MASK 0x3FFFFFFFU
+#define FWDSP_FRAME_DISCONT 0x20000000U
+#define FWDSP_FRAME_LENGTH_MASK 0x1FFFFFFFU
 
 static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
    header[0] = (uint8_t)(len >> 24);
@@ -646,8 +648,8 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
 
    while (reader->len >= FWDSP_FRAME_HEADER_SIZE) {
       /* The high bits carry stream/tap flags on encoded output frames.  They are metadata, not part of the payload length. */
-      uint32_t frame_len = frame_length_decode(reader->buf) &
-         FWDSP_FRAME_LENGTH_MASK;
+      uint32_t frame_flags = frame_length_decode(reader->buf);
+      uint32_t frame_len = frame_flags & FWDSP_FRAME_LENGTH_MASK;
 
       if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE ||
          (processor_mode && (frame_len & 1U) != 0) ) {
@@ -669,6 +671,7 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
       }
 
       gst_buffer_fill(buffer, 0, reader->buf + FWDSP_FRAME_HEADER_SIZE, frame_len);
+      if (frame_flags & FWDSP_FRAME_DISCONT) GST_BUFFER_FLAG_SET(buffer, GST_BUFFER_FLAG_DISCONT);
 
       if (raw_rate > 0 && raw_channels > 0) {
          GstClockTime frame_duration = (GST_SECOND * (guint64)frame_len) /
@@ -981,20 +984,20 @@ static void run_loop(struct audio_config *cfg) {
          }
 
          if (hub_sink) {
+            struct fwdsp_pcm_backlog pcm = {0};
             GstSample *hub_sample;
             while ( (hub_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(hub_sink), 0) ) ) {
                GstBuffer *hub_buffer = gst_sample_get_buffer(hub_sample);
                GstMapInfo hub_map;
 
                if (hub_buffer && gst_buffer_map(hub_buffer, &hub_map, GST_MAP_READ) ) {
-                  if (pcm_hub_mode && !cfg->tx_mode && !processor_mode &&
-                     !write_pcm_tap_frame(STDOUT_FD, hub_map.data, hub_map.size) ) {
-                     dying = true;
-                  }
+                  if (pcm_hub_mode && !cfg->tx_mode && !processor_mode)
+                     fwdsp_pcm_backlog_append(&pcm, hub_map.data, hub_map.size);
                   gst_buffer_unmap(hub_buffer, &hub_map);
                }
                gst_sample_unref(hub_sample);
             }
+            if (pcm.len && !write_pcm_tap_frame(STDOUT_FD, pcm.data, pcm.len)) dying = true;
          }
 
          // Record either the encoded Ogg stream or the PCM recording branch.

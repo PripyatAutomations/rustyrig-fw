@@ -13,6 +13,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/auth.h>
 #include <rrserver/database.h>
+#include <rrserver/usage.h>
 
 time_t now;
 bool dying;
@@ -282,6 +283,25 @@ int main(void) {
    int duration = -1;
    assert(db_ptt_stop(db, session, &duration, "timeout"));
    assert(duration >= 0);
+   assert(!db_ptt_stop(db, session, &duration, "duplicate"));
+   struct rr_usage usage;
+   struct rr_traffic transfer = {.tx_text_bytes=123,.tx_text_frames=2,.rx_binary_bytes=1000000,.rx_binary_frames=50};
+   assert(db_usage_get(db,"test-user",&usage));
+   assert(db_usage_bandwidth_set(db,"test-user",2000000,false));
+   assert(db_usage_record(db,"test-user",&transfer,30));
+   assert(db_usage_get(db,"TEST-USER",&usage));
+   assert(usage.traffic.tx_text_bytes==123 && usage.traffic.rx_binary_frames==50);
+   assert(usage.bandwidth_remaining==999877 && usage.session_seconds==30);
+   assert(db_usage_bandwidth_set(db,"test-user",1000000,true));
+   assert(db_usage_get(db,"test-user",&usage) && usage.bandwidth_remaining==1999877);
+   assert(!db_usage_bandwidth_set(db,"test-user",UINT64_MAX,false));
+   assert(db_usage_reset(db,"test-user",5000000));
+   assert(db_usage_get(db,"test-user",&usage) && !usage.traffic.rx_binary_bytes && !usage.session_seconds && usage.bandwidth_remaining==5000000);
+   assert(db_usage_add_tx(db,"test-user",20));
+   assert(db_usage_get(db,"test-user",&usage) && usage.tx_seconds==20);
+   assert(db_usage_reset_tx(db,"test-user"));
+   assert(db_usage_get(db,"test-user",&usage) && usage.tx_seconds==0);
+
    assert(count_rows(db,
       "SELECT COUNT(*) FROM ptt_log WHERE recording_id='rec-123' AND record_file LIKE '%rec-123%' AND stop_reason='timeout' AND end_time IS NOT NULL;") == 1);
 

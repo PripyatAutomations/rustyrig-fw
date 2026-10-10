@@ -423,6 +423,9 @@ defconfig_t defcfg[] = {
       "quota.enforce", "true", "Require TX credits (tx_credits table) for users to TX?", DEFCONFIG_BOOL, NULL
    },
    {
+      "quota.bandwidth.default", "1G", "Bandwidth allowance restored by /quota BW RESET (decimal M/G/T/P units)", DEFCONFIG_STRING, NULL
+   },
+   {
       "quota.warning", "30", "Send a one-time low-credits notice at X min of remaining TX credits", DEFCONFIG_UINT, NULL
    },
    {

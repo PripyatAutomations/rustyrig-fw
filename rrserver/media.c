@@ -1,3 +1,4 @@
+#include <librrprotocol/media.health.h>
 //
 // rrserver/media.c: media channel provisioning
 //    This is part of rustyrig-fw.
@@ -540,7 +541,14 @@ static void rrserver_media_talker_frame(const char *event, const void *payload, 
       return;
    }
 
-   if (!fwdsp_write_channel_samples(channel->codec, false, channel->uuid, frame.data, frame.len) ) {
+   bool discontinuity;
+   dict *feedback = NULL;
+   if (!rr_media_observe(cptr, &frame.hdr, mono_us(), &discontinuity, &feedback)) return;
+   if (feedback) {
+      ws_send_dict(NULL, cptr, feedback, WEBSOCKET_OP_TEXT);
+      dict_free(feedback);
+   }
+   if (!fwdsp_write_audio_samples(channel->codec, channel->uuid, frame.data, frame.len, discontinuity)) {
       Log(LOG_WARN, "pcm.hub", "Unable to decode incoming TX audio for %s on channel %s", cptr->chatname, channel->uuid);
    }
 }
@@ -602,7 +610,10 @@ static void rrserver_media_quality_hint(const char *event, const char *data, rrc
          int count = channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS;
          if (peer->is_ws && peer->authenticated && peer->conn && !peer->conn->is_closing &&
             chan_id_in_array(channels, count, id) && media_client_in_channel_room(peer, channel) &&
-            peer->media_quality && peer->media_quality < quality) quality = peer->media_quality;
+            peer->media_quality) {
+            unsigned hint = rr_media_flow_quality(peer, id, channel->direction, channel->codec, mono_us());
+            if (hint < quality) quality = hint;
+         }
       }
       fwdsp_set_quality_hint(fwdsp_find_channel_instance(channel->codec, true, channel->uuid), quality);
    }

@@ -241,6 +241,43 @@ enabled=false
             stop(second, "NOOB")
             key(noob)
             stop(elmer, "NOOB")
+            def quota(kind, command, name, amount=None):
+                tail = f"{command} {name}" + (f" {amount}" if amount is not None else "")
+                first.send({"msg": {"type": "talk"}, "talk": {"cmd": "quota", "target": kind, "data": tail}})
+                return first.until(lambda m: name in m.get("notice", {}).get("msg", "") and "BW used=" in m["notice"]["msg"])
+            quota("BW", "SET", "TX", "2")
+            with sqlite3.connect(database) as db:
+                assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='TX'").fetchone()[0] <= 2000000
+            quota("BW", "ADD", "TX", "1G")
+            with sqlite3.connect(database) as db:
+                assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='TX'").fetchone()[0] > 1000000000
+            first.send({"msg": {"type": "talk"}, "talk": {"cmd": "quota", "target": "TX", "data": "SHOW TX"}})
+            first.until(lambda m: "TX:" in m.get("notice", {}).get("msg", "") and "remaining" in m["notice"]["msg"])
+            first.send({"msg": {"type": "talk"}, "talk": {"cmd": "whois", "target": "TX"}})
+            accounting = first.until(lambda m: m.get("talk", {}).get("cmd") == "whois")["talk"]["usage"]
+            assert int(accounting["rx-text-frames"]) > 0 and int(accounting["tx-text-bytes"]) > 0
+            second.send({"msg": {"type": "talk"}, "talk": {"cmd": "whois", "target": "ADMIN"}})
+            assert "usage" not in second.until(lambda m: m.get("talk", {}).get("cmd") == "whois")["talk"]
+            drain(second)
+            quota("BW", "SET", "TX", "0")
+            second.until(lambda m: "Bandwidth allowance exhausted" in m.get("notice", {}).get("msg", ""))
+            key(second)  # BW exhaustion is advisory: normal key-down/up remain available.
+            stop(second, "TX")
+            quota("BW", "RESET", "TX")
+            with sqlite3.connect(database) as db:
+                before = db.execute("SELECT tx_text_bytes,rx_text_bytes FROM user_usage WHERE name='TX'").fetchone()
+                assert sum(before) == 0, before
+            second.socket.close()
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline:
+                with sqlite3.connect(database) as db:
+                    closed = db.execute("SELECT details FROM audit_log WHERE event_type='session.usage' AND details LIKE '%user=TX %'").fetchall()
+                    row = db.execute("SELECT tx_text_bytes,rx_text_bytes FROM user_usage WHERE name='TX'").fetchone()
+                if closed: break
+                time.sleep(.05)
+            assert len(closed) == 1 and "saved=yes" in closed[0][0] and row is not None
+            assert row[1] == 0, row # pre-reset receives must not be charged twice at close
+            print("PASS: live TX/BW quotas, SI allowances, private WHOIS usage, reset checkpoints and one end-session AUDIT record")
             print("PASS: strict stop hierarchy, admin/owner boundary and no PTT ownership transfer")
             print("PASS: malformed WebSocket input, strict CAT targets/values and PTT ownership")
             assert process.poll() is None

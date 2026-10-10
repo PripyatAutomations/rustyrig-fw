@@ -1,3 +1,4 @@
+#include <librrprotocol/media.health.h>
 //
 // rrclient/audio.c: client-side audio transport through fwdsp.
 //      This is part of rustyrig-fw.
@@ -28,6 +29,7 @@
 #include <librrprotocol/connman.h>
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
+#include <rrclient/cmd.h>
 #include <rrclient/vfo.h>
 
 extern rrconn_t *ws_conn;
@@ -90,6 +92,16 @@ static void audio_quality_hint(const char *event, const char *data, rrconn_t *cp
    dict_free(hint);
 }
 
+static void audio_feedback(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event; (void)user;
+   if (cptr != ws_conn || !data) return;
+   dict *message = json2dict(data);
+   const struct rr_client_media_chan *channel = rrclient_media_current_channel(true);
+   if (message && channel && !strcmp(dict_get(message, "media.cmd", ""), "feedback"))
+      rr_media_feedback(cptr, message, channel->stream, RR_BINFRAME_DIR_TX, channel->codec, mono_us());
+   dict_free(message);
+}
+
 bool audio_init(void) {
    // RX audio is routed by the frame header (stream id + codec) via the
    // full-frame event; see audio_full_frame_cb. The legacy payload-only
@@ -97,6 +109,7 @@ bool audio_init(void) {
    // otherwise be decoded twice (both events fire per packet).
    event_on_binary(RR_AUDIO_FRAME_EVENT, audio_full_frame_cb, NULL);
    event_on("media.quality-hint", audio_quality_hint, NULL);
+   event_on("ws.msg.media", audio_feedback, NULL);
 
    if (fwdsp_init() ) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
@@ -260,7 +273,7 @@ bool audio_process_frame(const char *data, size_t len) {
 // decoder (corruption) and stops frames being fed to a torn-down decoder
 // (post-NONE silence).
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
-   audio_full_frame_payload(data, len);
+   if (!cptr || cptr == ws_conn) audio_full_frame_payload(data, len);
 }
 
 static void audio_full_frame_payload(const void *data, size_t len) {
@@ -281,7 +294,14 @@ static void audio_full_frame_payload(const void *data, size_t len) {
       }
    }
 
-   if (fwdsp_write_samples(rx_codec, false, frame.data, frame.len) ) {
+   bool discontinuity = false;
+   dict *feedback = NULL;
+   if (ws_conn && !rr_media_observe(ws_conn, &frame.hdr, mono_us(), &discontinuity, &feedback)) return;
+   if (feedback) {
+      ws_send_dict(NULL, ws_conn, feedback, WEBSOCKET_OP_TEXT);
+      dict_free(feedback);
+   }
+   if (!fwdsp_write_audio_samples(rx_codec, NULL, frame.data, frame.len, discontinuity)) {
       Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", rx_codec);
    }
 }

@@ -352,13 +352,14 @@ char **client_cmd_completions(const char *line, const char *word) {
             }
          }
       } else if (!strcasecmp(command, "/quota") ) {
-         if (arg == 1) {
-            completion_words(&matches, &count, "LIST SHOW ADD RESET SET HELP", word);
-         }
-
-         if (arg == 1 || (first &&
-            ( (!strcasecmp(first, "SHOW") || !strcasecmp(first, "RESET") ) ||
-            (arg == 2 && (!strcasecmp(first, "ADD") || !strcasecmp(first, "SET") ) ) ) ) ) {
+         bool unit = first && (!strcasecmp(first, "TX") || !strcasecmp(first, "BW"));
+         const char *action = unit ? second : first;
+         unsigned position = unit ? arg - 1 : arg;
+         if (arg == 1) completion_words(&matches, &count, "TX BW", word);
+         if (position == 1) completion_words(&matches, &count, "LIST SHOW ADD RESET SET HELP", word);
+         if ((!unit && arg == 1) || (action &&
+            ((!strcasecmp(action, "SHOW") || !strcasecmp(action, "RESET")) ||
+            (position >= 2 && !(position & 1) && (!strcasecmp(action, "ADD") || !strcasecmp(action, "SET")))))) {
             for (struct rr_user *u = global_userlist ; u ; u = u->next) {
                if (u->room[0] && strcasecmp(u->room, ws_authoritative_room() ) != 0) {
                   continue;

@@ -1,3 +1,4 @@
+#include <libfwdspmgr/pcm-backlog.h>
 //
 // libfwdsp/fwpdsp-mgr.c: Deal with starting and stopping fwdsp instances as needed
 //    This is part of rustyrig-fw.
@@ -126,7 +127,8 @@ static void fwdsp_sigchld(int sig) {
 #define FWDSP_MAX_FRAME_SIZE (64U * 1024U * 1024U)
 #define FWDSP_FRAME_STREAM_HEADER 0x80000000U
 #define FWDSP_FRAME_PCM_TAP 0x40000000U
-#define FWDSP_FRAME_LENGTH_MASK 0x3FFFFFFFU
+#define FWDSP_FRAME_DISCONT 0x20000000U
+#define FWDSP_FRAME_LENGTH_MASK 0x1FFFFFFFU
 
 static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
    header[0] = (uint8_t)(len >> 24);
@@ -176,20 +178,41 @@ static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
    return true;
 }
 
-static bool fwdsp_write_frame(int fd, const uint8_t *data, size_t len) {
+static bool fwdsp_write_frame_flags(int fd, const uint8_t *data, size_t len, uint32_t flags) {
    uint8_t header[FWDSP_FRAME_HEADER_SIZE];
 
    if (!data || len == 0 || len > UINT32_MAX || len > FWDSP_MAX_FRAME_SIZE) {
       return false;
    }
 
-   frame_length_encode(header, (uint32_t)len);
+   frame_length_encode(header, (uint32_t)len | flags);
 
    if (!fwdsp_write_all(fd, header, sizeof(header))) {
       return false;
    }
 
    return fwdsp_write_all(fd, data, len);
+}
+
+static bool fwdsp_write_frame(int fd, const uint8_t *data, size_t len) {
+   return fwdsp_write_frame_flags(fd, data, len, 0);
+}
+
+/* Count complete newer decoded samples already received from a child. Keep
+ * encoded packets untouched; the PCM playout path may discard old sound. */
+static size_t newer_pcm_bytes(const uint8_t *data, size_t size, size_t position) {
+   size_t bytes = 0;
+   while (position + FWDSP_FRAME_HEADER_SIZE <= size) {
+      uint32_t flags = frame_length_decode(data + position);
+      size_t len = flags & FWDSP_FRAME_LENGTH_MASK;
+      if (!len || len > size - position - FWDSP_FRAME_HEADER_SIZE) break;
+      if ((flags & FWDSP_FRAME_PCM_TAP) && !(flags & FWDSP_FRAME_STREAM_HEADER) && !(len & 1)) {
+         bytes += len;
+         if (bytes >= FWDSP_PCM_BACKLOG_BYTES) return FWDSP_PCM_BACKLOG_BYTES;
+      }
+      position += FWDSP_FRAME_HEADER_SIZE + len;
+   }
+   return bytes;
 }
 
 // Called from the main event loop; reaps dead fwdsp children safely.
@@ -227,7 +250,7 @@ static void fwdsp_replay_stream_headers(struct fwdsp_subproc *sp, struct rr_medi
       if (len > sp->stream_headers_len - pos) {
          break;
       }
-      ws_media_send_frame(channel, cptr, sp->stream_headers + pos, len, sp->pl_id);
+      ws_media_send_setup_frame(channel, cptr, sp->stream_headers + pos, len, sp->pl_id);
       pos += len;
    }
 }
@@ -322,7 +345,10 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   void *output_data = sp->processor_output_data;
                   char name[sizeof(sp->channel_uuid)];
                   snprintf(name, sizeof(name), "%s", sp->channel_uuid);
-                  output_cb(name, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, output_data);
+                  size_t newer = newer_pcm_bytes(c->recv.buf, c->recv.len, total_len);
+                  size_t keep = FWDSP_PCM_BACKLOG_BYTES - newer;
+                  if (keep > frame_len) keep = frame_len;
+                  if (keep) output_cb(name, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE + frame_len - keep, keep, output_data);
                }
                mg_iobuf_del(&c->recv, 0, total_len);
                continue;
@@ -378,7 +404,8 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                   fwdsp_replay_stream_headers(ctx->sp, channel, NULL);
                   ctx->sp->replay_headers = false;
                }
-               ws_media_broadcast_subscribed(channel, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
+               if (is_header) ws_media_send_setup_frame(channel, NULL, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
+               else ws_media_broadcast_subscribed(channel, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, ctx->sp->pl_id);
             } else if (!channel && ctx->sp->channel_uuid[0] != '\0' &&
                ctx->sp->refcount > 0) {
                /* A pipeline can produce packets briefly while its media channel is being replaced or unsubscribed.  Do not emit a warning for every packet in
@@ -1224,6 +1251,16 @@ int fwdsp_get_chan_id(const char *magic, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(magic, is_tx);
 
    return (sp) ? sp->chan_id : -1;
+}
+
+bool fwdsp_write_audio_samples(const char codec[5], const char *channel_uuid, const void *data, size_t len, bool discontinuity) {
+   struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
+      fwdsp_find_channel_instance(codec, false, channel_uuid) : fwdsp_find_instance(codec, false);
+   if (!sp || sp->fw_stdin < 0 || !data || !len || len > FWDSP_MAX_FRAME_SIZE) return false;
+   if (fwdsp_write_frame_flags(sp->fw_stdin, data, len, discontinuity ? FWDSP_FRAME_DISCONT : 0)) return true;
+   /* A partial framed write cannot be skipped; retire the damaged IPC stream. */
+   fwdsp_destroy(sp);
+   return false;
 }
 
 bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len) {

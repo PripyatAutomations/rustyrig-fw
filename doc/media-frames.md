@@ -40,9 +40,9 @@ is 28 bytes, packed, followed by `payload_len` bytes of payload.
     10      1     rig (rig index; 0 = the one and only rig; 0xFF = n/a)
     11      1     stream (per-connection stream id assigned by the sender;
                           0 = default/only stream)
-    12      4     seq (uint32 sequence number, wraps; 0 = first frame)
+    12      4     seq (uint32 sequence per connection/stream, wraps; 0 = first frame)
     16      4     payload_len (uint32; see limits below)
-    20      8     ts (uint64, microseconds since the UNIX epoch; 0 = unset)
+    20      8     ts (uint64, sender monotonic microseconds; 0 = unset)
     28      ...   payload
 
 In C:
@@ -297,3 +297,6 @@ MODEM/`nmea` is a separate read-only RX media stream for explicitly requested
 complete receiver data. Its payload is one checksum-valid ASCII sentence,
 without CRLF, of 1–509 bytes. Ordinary GPS ports use `gpsp` position records
 and synthesize RMC locally; they do not subscribe to `nmea` streams.
+
+For congestion feedback, playback recovery and payload-byte accounting, see
+[Media adaptation and usage accounting](media-adaptation-and-usage.md).

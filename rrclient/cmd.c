@@ -201,7 +201,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .admin = true, .desc = "Mute a user"
    },
    {
-      .cmd = "quota", .help_section = "Administration", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX quota admin (LIST|SHOW|ADD|RESET|SET)"
+      .cmd = "quota", .help_section = "Administration", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX/BW quota admin ([TX|BW] LIST|SHOW|ADD|RESET|SET)"
    },
    {
       .cmd = "rehash", .help_section = "Administration", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users"

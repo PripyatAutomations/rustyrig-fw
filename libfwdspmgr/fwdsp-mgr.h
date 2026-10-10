@@ -125,6 +125,8 @@ extern int fwdsp_get_chan_id(const char *magic, bool is_tx);
 extern void fwdsp_sweep_expired(void);
 extern struct fwdsp_subproc *fwdsp_start_stdio_from_list(const char *codec_list, bool tx_mode);
 extern int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid);
+/* Feed a decoder, preserving complete encoded chunks and flagging gaps. true = accepted. */
+extern bool fwdsp_write_audio_samples(const char codec[5], const char *channel_uuid, const void *data, size_t len, bool discontinuity);
 extern bool fwdsp_write_samples(const char codec_id[5], bool is_tx, const void *data, size_t len);
 // Write framed payload to the instance bound to a specific media channel.
 // Returns true when all bytes are accepted by the child pipe.
