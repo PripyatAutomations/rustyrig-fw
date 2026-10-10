@@ -17,3 +17,4 @@
 
 * add a default off config option ui.gtk.scale-on-resize
   - resize the scaling as the window resize is attempted, so the window isnt constrained to a minimum size
+Can we merge the librustyaxe rr_subproc and subproc stuff into a clean API? I think right now is the time we need to investigate our APIs and try to make things consistent and logical before too many people start trying to join in on dev

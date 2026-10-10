@@ -8,7 +8,7 @@
 
 -- Users (mirror of config/http.users)
 INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions) VALUES
-   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,edit,view,radio,tx,elmer,syslog,chat'),
+   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,edit,view,radio,tx,rx,elmer,syslog,chat'),
    (2, 'guest', 0, '-', 'no@example.com', 3, 'rx,chat');
 
 -- TX credits for testing (seconds of TX; with quota.enforce=true users

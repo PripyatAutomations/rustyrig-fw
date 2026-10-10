@@ -1,0 +1,3 @@
+rrclient/gtk: userlist
+  - when connected to IRC, userlist fields are removed from *all* tabs not just irc
+  - 

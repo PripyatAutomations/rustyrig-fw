@@ -32,4 +32,4 @@ DEBS="$DEBS ../rustyrig-server-dbgsym_*_${ARCH}.deb"
 DEBS="$DEBS ../rustyrig-server-gpsd_*_${ARCH}.deb"
 DEBS="$DEBS ../rustyrig-server-gpsd-dbgsym_*_${ARCH}.deb"
 
-apt install -y ${DEBS}
+dpkg -i ${DEBS}
