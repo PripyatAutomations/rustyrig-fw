@@ -1,4 +1,7 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Implement the compact object/property wire codec foundation in C and JS,
+    with shared golden/rejection vectors and no old-envelope decoder; keep
+    live transport unchanged until the complete single-format cutover.
   * Place the protocol wire-size audit script beside protocol tests.
   * Audit wire overhead and propose readable compact envelopes, bounded
     batching/bindings and server-link authority/resync rules; add a reproducible

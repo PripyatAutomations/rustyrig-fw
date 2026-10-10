@@ -1,6 +1,7 @@
 # Wire protocol review — 2026-10-10
 
-Status: audit and proposed design, not an implemented replacement protocol.
+Status: audit and proposed design. The [object/property codec foundation](compact-wire-codec.md)
+is implemented and tested; the live wire replacement is not yet enabled.
 The current C implementation is authoritative. This review covers RustyRig
 WebSocket control and binary media, not conventional IRC wire syntax.
 
