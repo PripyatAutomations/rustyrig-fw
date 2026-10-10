@@ -29,6 +29,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#include <rrclient/rooms.h>
 
 extern bool dying;
 extern time_t now;
@@ -75,33 +76,54 @@ bool cmd_log(int argc, char **args) {
 }
 
 bool cmd_win(int argc, char **args) {
-   if (argc < 1) {
+   if (argc < 2 || !args || !args[1]) {
+      ui_print(ui_active_window_name(), "Usage: /win <number|close>");
+
       return true;
    }
 
-   if (ui_mode == UI_MODE_TUI) {
-      if (strcasecmp(args[1], "close") == 0) {
-         Log(LOG_CRIT, "test", "argc: %d args0: %s args1: %s", argc, args[0], args[1]);
-
-         if (argc < 2) {
-            return true;
-         }
-         int id = -1;
-
-         if (argc >= 3) {
-            id = atoi(args[2]);
-         } else {
-            return tui_window_destroy(tui_active_window() );
-         }
-
-         if (id > 0) {
-            tui_window_destroy_id(id);
-
-            return false;
-         }
+   if (!strcasecmp(args[1], "close")) {
+      if (argc != 2) {
+         ui_print(ui_active_window_name(), "Use /win close to close the current window");
 
          return true;
       }
+
+      if (ui_status_active()) {
+         ui_print(NULL, "The status window cannot be closed");
+
+         return true;
+      }
+      const char *active = ui_active_window_name();
+
+      if (!active || !*active || !strcasecmp(active, "status")) {
+         ui_print(NULL, "Select a conversation window to close");
+
+         return true;
+      }
+      char *room = strdup(active);
+
+      if (!room) {
+         return true;
+      }
+      bool error;
+
+      if ((room[0] == '#' || room[0] == '&') && ws_connected == 1 && ws_conn) {
+         char *part_args[] = {
+            "part", room
+         };
+         /* The self-PART confirmation performs room/media/tab cleanup. */
+         error = cmd_part(2, part_args);
+      } else {
+         rrclient_room_part(room); /* Also forget offline reconnect intent. */
+         error = ui_close_window(room);
+      }
+      free(room);
+
+      return error;
+   }
+
+   if (ui_mode == UI_MODE_TUI) {
       int id = atoi(args[1]);
 
       ui_print(ui_active_window_name(), "ID: %s", args[1]);
@@ -113,7 +135,6 @@ bool cmd_win(int argc, char **args) {
       }
       tui_window_focus_id(id);
    } else if (frontend_ops() ) {
-      // XXX: add window commands (close, etc)
       if (argc < 2) {
          return true;
       }

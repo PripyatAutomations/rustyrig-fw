@@ -257,7 +257,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          matches = complete_rooms(word, true);
       } else if (arg == 1 && !strcasecmp(command, "/part")) {
          matches = complete_rooms(word, false);
-      } else if (!strcasecmp(command, "/server") && arg == 1) {
+      } else if (arg == 1 && (!strcasecmp(command, "/server") || !strcasecmp(command, "/disconnect"))) {
          matches = complete_server_names(word);
       } else if (arg == 1 && (!strcasecmp(command, "/whois") ||
          !strcasecmp(command, "/kick") || !strcasecmp(command, "/mute") ||

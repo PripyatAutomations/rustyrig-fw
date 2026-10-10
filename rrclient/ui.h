@@ -34,6 +34,10 @@ extern const char *ui_active_window_name(void);
 extern void ui_message_bell(void);
 extern void ui_message_notify(const char *title, const char *message);
 extern void show_server_chooser(void);
+extern void ui_list_servers(void);
+extern bool ui_status_active(void);
+/* False means success, true means the window could not be closed. */
+extern bool ui_close_window(const char *room);
 extern bool ui_confirm_quit(void);
 extern void ui_server_status_close(const char *event, const char *room, rrconn_t *connection, void *user);
 

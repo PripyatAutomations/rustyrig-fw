@@ -475,7 +475,22 @@ bool cmd_clearlog(int argc, char **args) {
 }
 
 bool cmd_disconnect(int argc, char **args) {
-   disconnect_server(server_name);
+   const char *name = argc > 1 && args ? args[1] : NULL;
+
+   if (!name || !*name) {
+      if (!ui_status_active()) {
+         ui_print(ui_active_window_name(), "Use /disconnect in status, or /disconnect <server-name>");
+
+         return true;
+      }
+      name = rrclient_selected_server();
+   }
+
+   if (!name || disconnect_server(name)) {
+      ui_print(NULL, "Unknown or unselected server: %s", name ? name : "(none)");
+
+      return true;
+   }
 
    return false;
 }

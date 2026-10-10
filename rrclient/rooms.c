@@ -127,6 +127,23 @@ bool rrclient_room_request_join(const char *room) {
 
 bool rrclient_room_part(const char *room) {
    const char *name = canonical(room);
+
+   if (!name || !*name) {
+      return false;
+   }
+   bool removed = false;
+
+   for (size_t i = 0 ; i < reconnect_room_count ; ) {
+      if (!strcasecmp(reconnect_rooms[i], name)) {
+         free(reconnect_rooms[i]);
+         memmove(reconnect_rooms + i, reconnect_rooms + i + 1, (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+         reconnect_room_count--;
+         removed = true;
+      } else {
+         i++;
+      }
+   }
+
    client_room_t **pp = &rooms;
    while (*pp) {
       client_room_t *r = *pp;
@@ -139,7 +156,7 @@ bool rrclient_room_part(const char *room) {
       }
       pp = &r->next;
    }
-   return false;
+   return removed;
 }
 
 void rrclient_rooms_clear(void) {

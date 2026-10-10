@@ -172,3 +172,14 @@ with the configured server-name prefix, without opening query tabs. After
 registration, normal chat routing resumes. `/disconnect` cancels pending
 retries and closes that connection's server notice tabs. The default shared
 `status` tab remains open; unexpected drops retain tabs for reconnects.
+
+`/server` lists configured profiles and connected/connecting servers in shared
+status, marking the selected connection, and opens the GTK picker. An
+unnamed `/disconnect` is allowed only from shared `status` and disconnects
+the selected server. `/disconnect name` works from any conversation without
+changing the selected connection.
+
+`/win close` protects shared `status`. It closes query tabs locally; joined
+room tabs send PART to their owning server and close on self-PART confirmation.
+A failed PART keeps the room open. Closing an offline room also removes its
+pending rejoin request. `/win number` retains window switching.

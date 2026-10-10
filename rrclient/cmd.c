@@ -79,7 +79,7 @@ bool cmd_webcam(int argc, char **args) {
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
    {
-      .cmd = "disconnect", .help_section = "Connection", .cb = cmd_disconnect, .desc = "Disconnect from server"
+      .cmd = "disconnect", .help_section = "Connection", .cb = cmd_disconnect, .desc = "Disconnect selected server from status, or /disconnect <name>"
    },
    {
       .cmd = "help", .help_section = "Connection", .cb = cmd_help, .desc = "Show help message"
@@ -88,7 +88,8 @@ client_cmd_t client_cmds[] = {
       .cmd = "quit", .help_section = "Connection", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)"
    },
    {
-      .cmd = "server", .help_section = "Connection", .cb = cmd_server, .max_args = 3, .desc = "Connect: /server [-proxy socks5h://host[:port]] <name|URL>"
+      .cmd = "server", .help_section = "Connection", .cb = cmd_server, .max_args = 3, .desc =
+         "List configured/connected servers; connect: /server [-proxy socks5h://host[:port]] <name|URL>"
    },
    {
       .cmd = "j", .help_section = "Chat and rooms", .cb = cmd_join, .desc = "Alias for /join"
@@ -184,7 +185,8 @@ client_cmd_t client_cmds[] = {
       .cmd = "set", .help_section = "Client settings", .cb = cmd_set, .max_args = 31, .desc = "Set a typed configuration value"
    },
    {
-      .cmd = "win", .help_section = "Client settings", .cb = cmd_win, .desc = "Change windows"
+      .cmd = "win", .help_section = "Client settings", .cb = cmd_win, .max_args = 2, .desc =
+         "Switch: /win <number>; /win close parts/closes the current conversation (status is protected)"
    },
    {
       .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .desc = "Focus the admin tab"

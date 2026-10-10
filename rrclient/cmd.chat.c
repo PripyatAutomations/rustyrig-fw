@@ -319,13 +319,21 @@ bool cmd_part(int argc, char **args) {
       return false;
    }
    dict *d = dict_new();
+
+   if (!d) {
+      return true;
+   }
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "part");
    dict_add(d, "talk.target", target);
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
-   return false;
+   if (!sent) {
+      ui_print(ui_active_window_name(), "Unable to send PART for %s", target);
+   }
+
+   return !sent;
 }
 
 // PARITY: rrclient/cmd.names.c (C client) - /names prints the userlist like an

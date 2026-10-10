@@ -114,25 +114,86 @@ bool ui_print(const char *window, const char *fmt, ...) {
    return ret;
 }
 
+void ui_list_servers(void) {
+   ui_print(NULL, "Configured servers:");
+   int rank = 0;
+   const char *key;
+   char *url;
+   unsigned configured = 0;
+   while ((rank = dict_enumerate(cfg, rank, &key, &url)) >= 0) {
+      char name[512];
+
+      if (rrclient_server_profile_name(key, name, sizeof(name))) {
+         ui_print(NULL, "  %s - %s", name, url ? url : "");
+         configured++;
+      }
+   }
+
+   if (!configured) {
+      ui_print(NULL, "  (none)");
+   }
+   ui_print(NULL, "Connected servers (including connection attempts):");
+   unsigned connected = 0;
+   const char *name;
+
+   for (unsigned i = 0 ; (name = rrclient_connection_iter(i)) ; i++) {
+      int state = rrclient_connection_state(name);
+
+      if (!state) {
+         continue;
+      }
+      const char *selected = rrclient_selected_server();
+      ui_print(NULL, "  %s - %s%s", name, state == 1 ? "connected" : "connecting/retrying", selected && !strcmp(selected, name) ? " (selected)" : "");
+      connected++;
+   }
+
+   if (!connected) {
+      ui_print(NULL, "  (none)");
+   }
+}
+
 void show_server_chooser(void) {
+   ui_list_servers();
+
    if (frontend_ops() && frontend_ops()->show_server_chooser) {
       frontend_ops()->show_server_chooser();
    } else if (ui_mode == UI_MODE_TUI) {
-      ui_print(NULL, "| Server picker:");
-
-      // fill list from cfg, matching the gtk.serverpick.c logic
-      int rank = 0;
-      const char *k;
-      char *v;
-      while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
-         char server[512];
-
-         if (rrclient_server_profile_name(k, server, sizeof(server))) {
-            ui_print(NULL, "|    %s - %s", server, v ? v : "");
-         }
-      }
-      ui_print(NULL, "| Type /server [name] to connect to one of these.");
+      ui_print(NULL, "Type /server <name|URL> to connect.");
    }
+}
+
+bool ui_status_active(void) {
+   if (frontend_ops()) {
+      return frontend_ops()->chat_status_active && frontend_ops()->chat_status_active();
+   }
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+
+      return window && !strcasecmp(window->title, "status");
+   }
+
+   return false;
+}
+
+bool ui_close_window(const char *room) {
+   if (!room || !*room || !strcasecmp(room, "status")) {
+      return true;
+   }
+
+   if (frontend_ops() && frontend_ops()->chat_room_remove) {
+      frontend_ops()->chat_room_remove(room);
+
+      return false;
+   }
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_window_find(rrclient_window_name(room));
+
+      return !window || tui_window_destroy(window);
+   }
+
+   return true;
 }
 
 bool ui_confirm_quit(void) {
@@ -162,13 +223,5 @@ void ui_server_status_close(const char *event, const char *room, rrconn_t *conne
       return;
    }
 
-   if (frontend_ops() && frontend_ops()->chat_room_remove) {
-      frontend_ops()->chat_room_remove(room);
-   } else if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *window = tui_window_find(rrclient_window_name(room));
-
-      if (window) {
-         tui_window_destroy(window);
-      }
-   }
+   ui_close_window(room);
 }

@@ -11,6 +11,29 @@
 #include <rrclient/frontend.h>
 #include <rrclient/cmd.h>
 
+/* Reuse the real PART listener while this headless probe supplies its own connection/status rendering hooks. Unused event handlers are discarded. */
+#define rrclient_update_connection_ui unused_event_connection_ui
+#define tui_refresh_sb_online unused_event_sb_online
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#include <rrclient/events.c>
+#pragma GCC diagnostic pop
+#undef rrclient_update_connection_ui
+#undef tui_refresh_sb_online
+
+bool userlist_remove_by_name_room(const char *name, const char *room) {
+   (void)name;
+   (void)room;
+
+   return true;
+}
+static unsigned parted_media_rooms;
+void rrclient_media_room_parted(const char *room) {
+   assert(!strcmp(room, "#closeme"));
+   parted_media_rooms++;
+}
+
 time_t now = 100, poll_block_expire, poll_block_delay;
 bool dying, restarting;
 const char *server_name, *login_user;
@@ -44,19 +67,33 @@ struct mg_connection *mg_ws_connect(struct mg_mgr *manager, const char *url, mg_
 
    return fake_connect(url, fn, data);
 }
-static char last_status[4096];
+static char last_status[4096], server_listing[16384];
+static const char *active_room;
+static bool status_active = true;
 static void capture(const char *window, const char *fmt, va_list ap) {
    if (!window || !strcmp(window, "status")) {
       vsnprintf(last_status, sizeof(last_status), fmt, ap);
+      strlcat(server_listing, last_status, sizeof(server_listing));
+      strlcat(server_listing, "\n", sizeof(server_listing));
    }
 }
 static const char *current_room(void) {
-   return NULL;
+   return active_room;
+}
+static bool current_status(void) {
+   return status_active;
 }
 static unsigned closed_status_tabs;
 static void remove_status_tab(const char *room) {
-   assert(!strcmp(room, "server.notice") && !strcmp(server_name, "beta"));
+   assert(strcasecmp(room, "status"));
    closed_status_tabs++;
+
+   if (!strcmp(room, "server.notice")) {
+      assert(!strcmp(server_name, "beta"));
+   } else {
+      active_room = NULL;
+      status_active = true;
+   }
 }
 static bool tui_only;
 static unsigned chooser_calls;
@@ -64,13 +101,14 @@ static void chooser(void) {
    chooser_calls++;
 }
 static const rr_frontend_ops_t ops = {
-   .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab
+   .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab, .chat_status_active =
+      current_status
 };
 const rr_frontend_ops_t *frontend_ops(void) {
    return tui_only ? NULL : &ops;
 }
 bool frontend_present(void) {
-   return true;
+   return !tui_only;
 }
 void rrclient_update_connection_ui(int connected) {
    ws_connected = connected;
@@ -111,11 +149,13 @@ static void receive(struct mg_connection *c, const char *json) {
    c->fn(c, MG_EV_WS_MSG, &m);
 }
 int main(void) {
+   ui_mode = UI_MODE_GTK;
    event_init();
    connman_register_events();
    event_on("authorized", auth, NULL);
    event_on("irc.message", message, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
+   event_on("part", rrclient_handle_part, NULL);
    cfg = dict_new();
    dict_add(cfg, "server:alpha.server.user", "alice");
    dict_add(cfg, "server:alpha.server.pass", "alpha-secret");
@@ -325,6 +365,84 @@ int main(void) {
    failed->fn(failed, MG_EV_CLOSE, NULL);
    assert(!rrclient_connect_url("inherited.test", "ircs://inherited.test"));
    assert(connection_count == before_retry + 1 && !strcmp(last_url, "tcp://localhost:1080"));
+   /* Closing an online room queues PART and waits for server confirmation. */
+   assert(!rrclient_connect_url("window", "irc://window.test"));
+   struct mg_connection *window_connection = ws_conn->conn;
+   window_connection->fn(window_connection, MG_EV_CONNECT, NULL);
+   event_emit("irc.connected", ws_conn, NULL);
+   active_room = "#closeme";
+   status_active = false;
+   assert(rrclient_room_join(active_room));
+   mg_iobuf_del(&window_connection->send, 0, window_connection->send.len);
+   char *win_close[] = {
+      "win", "close"
+   };
+   unsigned before_close = closed_status_tabs;
+   assert(!cmd_win(2, win_close));
+   assert(window_connection->send.len == strlen("PART #closeme\r\n") &&
+      !memcmp(window_connection->send.buf, "PART #closeme\r\n", window_connection->send.len));
+   assert(closed_status_tabs == before_close && rrclient_room_is_joined("#closeme"));
+   /* Existing self-PART event handling then removes the membership and tab. */
+   dict *part_confirmation = dict_new();
+   dict_add(part_confirmation, "talk.room", "#closeme");
+   dict_add(part_confirmation, "talk.user", ws_conn->nick);
+   event_emit_dict("part", ws_conn, part_confirmation);
+   dict_free(part_confirmation);
+   assert(!rrclient_room_is_joined("#closeme") && closed_status_tabs == before_close + 1 && parted_media_rooms == 1);
+   active_room = "#failed";
+   status_active = false;
+   assert(rrclient_room_join(active_room));
+   window_connection->is_closing = 1;
+   assert(cmd_win(2, win_close) && closed_status_tabs == before_close + 1);
+   assert(rrclient_room_is_joined("#failed"));
+   window_connection->is_closing = 0;
+   active_room = "alice";
+   mg_iobuf_del(&window_connection->send, 0, window_connection->send.len);
+   assert(!cmd_win(2, win_close) && !window_connection->send.len);
+   assert(closed_status_tabs == before_close + 2);
+   assert(cmd_win(2, win_close)); /* Shared status cannot be closed. */
+   char *win_missing[] = {
+      "win"
+   };
+   assert(cmd_win(1, win_missing));
+
+   rrclient_rooms_clear();
+   assert(rrclient_room_join("#offline"));
+   rrclient_rooms_disconnect();
+   ws_connected = 0;
+   active_room = "#offline";
+   status_active = false;
+   assert(!cmd_win(2, win_close));
+   ws_connected = 1;
+   rrclient_rooms_rejoin_available();
+   assert(!window_connection->send.len); /* Closed offline room must not rejoin. */
+
+   active_room = "#stay";
+   status_active = false;
+   char *disconnect_current[] = {
+      "disconnect"
+   };
+   assert(cmd_disconnect(1, disconnect_current) && !window_connection->is_closing);
+   assert(!rrclient_connect_url("named-disconnect", "irc://named.test"));
+   struct mg_connection *named_connection = ws_conn->conn;
+   assert(rrclient_connection_select("window"));
+   char *disconnect_named[] = {
+      "disconnect", "named-disconnect"
+   };
+   assert(!cmd_disconnect(2, disconnect_named));
+   assert(named_connection->is_closing && !window_connection->is_closing && !strcmp(rrclient_selected_server(), "window"));
+   char *disconnect_unknown[] = {
+      "disconnect", "does-not-exist"
+   };
+   assert(cmd_disconnect(2, disconnect_unknown) && !window_connection->is_closing);
+   server_listing[0] = '\0';
+   active_room = NULL;
+   status_active = true;
+   assert(cmd_server(1, picker_args));
+   assert(strstr(server_listing, "Configured servers:") && strstr(server_listing, "alpha - ws://localhost:8420/ws/"));
+   assert(strstr(server_listing, "Connected servers") && strstr(server_listing, "window - connected (selected)"));
+   assert(!cmd_disconnect(1, disconnect_current) && window_connection->is_closing);
+
    dict_add(cfg, "server:quit-one.server.proxy", "");
    dict_add(cfg, "server:quit-two.server.proxy", "");
    assert(!rrclient_connect_url("quit-one", "irc://quit-one.test"));
@@ -357,6 +475,14 @@ int main(void) {
    assert(tui_window_create(notice_key));
    rrclient_server_status_window("server.notice");
    rrclient_server_status_window("status");
+   const char *query_key = rrclient_window_name("bob");
+   char saved_query_key[64];
+   snprintf(saved_query_key, sizeof(saved_query_key), "%s", query_key);
+   assert(tui_window_create(query_key) && tui_window_focus(query_key));
+   assert(!cmd_win(2, win_close));
+   assert(!tui_window_find(saved_query_key));
+   tui_window_focus("status");
+   assert(cmd_win(2, win_close) && tui_window_find("status") == shared_status);
    assert(!disconnect_server("quit-two"));
    assert(!tui_window_find(saved_notice_key) && tui_window_find("status") == shared_status);
    tui_only = false;

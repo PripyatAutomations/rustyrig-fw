@@ -124,6 +124,9 @@ typedef struct rr_frontend_ops {
    /* Called by the module glue when shutting down: destroy windows/sources.
     * (Internal to the GTK module.) */
    void (*stop)(void);
+
+   /* True only for the shared status chat tab, not other frontend pages. */
+   bool (*chat_status_active)(void);
 } rr_frontend_ops_t;
 
 /* Register the frontend ops. Returns false if a frontend is already registered. Takes no ownership of ops; the pointed-to table must outlive the registration

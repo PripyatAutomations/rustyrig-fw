@@ -1197,6 +1197,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .chat_set_authoritative_room = frontend_gtk_chat_set_authoritative_room,
    .chat_room_vfos_changed = frontend_gtk_chat_room_vfos_changed,
    .chat_current_room = frontend_gtk_chat_current_room,
+   .chat_status_active = gtk_chat_status_active,
    .chat_query_add = frontend_gtk_chat_query_add,
    .ptt_set_online = frontend_gtk_ptt_set_online,
    .ptt_set_state = frontend_gtk_ptt_set_state,
