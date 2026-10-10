@@ -6,6 +6,8 @@ struct rr_user *global_userlist;
 rrconn_t *ws_conn;
 client_cmd_t client_cmds[] = {
    {
+      .cmd = "server"
+   }, {
       .cmd = "object"
    }, {
       .cmd = "rig"
@@ -112,9 +114,17 @@ static unsigned intercepted;
 static bool completion_handler(tui_window_t *window) {
    (void)window;
    intercepted++;
+
    return true;
 }
 int main(void) {
+   cfg = dict_new();
+   dict_add(cfg, "server:libera.server.url", "irc://irc.libera.chat:6667/");
+   dict_add(cfg, "server:irc.example.org.server.url", "ircs://irc.example.org");
+   dict_add(cfg, "server:invalid.server.user", "not-a-profile");
+   check("/server li", "li", "libera");
+   check("/server irc.", "irc.", "irc.example.org");
+   check("/server invalid", "invalid", NULL);
    struct rr_user user = {
       0
    };

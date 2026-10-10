@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <rrclient/cmd.h>
+#include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/rooms.h>
 #include <rrclient/ui.h>
@@ -30,23 +31,11 @@ static char **complete_server_names(const char *word) {
    char *v;
 
    while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
-      if (!k) {
-         continue;
-      }
-      size_t klen = strlen(k);
+      char server[512];
 
-      // match the server chooser check for keys ending in ".server.user"
-      if (klen < 12 || strcmp(&k[klen - 12], ".server.user") != 0) {
+      if (!rrclient_server_profile_name(k, server, sizeof(server))) {
          continue;
       }
-      const char *name_start = strchr(k, ':');
-
-      if (!name_start) {
-         continue;
-      }
-      name_start++;
-      char server[32];
-      sscanf(name_start, "%31[^.]", server);
 
       if (len && strncasecmp(server, word, len) != 0) {
          continue;

@@ -115,7 +115,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
 }
 
 void show_server_chooser(void) {
-   if (frontend_ops() ) {
+   if (frontend_ops() && frontend_ops()->show_server_chooser) {
       frontend_ops()->show_server_chooser();
    } else if (ui_mode == UI_MODE_TUI) {
       ui_print(NULL, "| Server picker:");
@@ -125,24 +125,11 @@ void show_server_chooser(void) {
       const char *k;
       char *v;
       while ( (rank = dict_enumerate(cfg, rank, &k, &v) ) >= 0) {
-         if (!k) {
-            continue;
-         }
-         size_t klen = strlen(k);
+         char server[512];
 
-         // match the gtk.serverpick.c check for keys ending in ".server.user"
-         if (klen < 12 || strcmp(&k[klen - 12], ".server.user") != 0) {
-            continue;
+         if (rrclient_server_profile_name(k, server, sizeof(server))) {
+            ui_print(NULL, "|    %s - %s", server, v ? v : "");
          }
-         const char *name_start = strchr(k, ':');
-
-         if (!name_start) {
-            continue;
-         }
-         name_start++;
-         char server[32];
-         sscanf(name_start, "%31[^.]", server);
-         ui_print(NULL, "|    %s - %s", server, v);
       }
       ui_print(NULL, "| Type /server [name] to connect to one of these.");
    }

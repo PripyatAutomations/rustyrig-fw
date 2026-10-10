@@ -53,7 +53,9 @@ static void capture(const char *window, const char *fmt, va_list ap) {
 static const char *current_room(void) {
    return NULL;
 }
+static unsigned chooser_calls;
 static void chooser(void) {
+   chooser_calls++;
 }
 static const rr_frontend_ops_t ops = {
    .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser
@@ -113,6 +115,31 @@ int main(void) {
    dict_add(cfg, "server:beta.server.user", "bob");
    dict_add(cfg, "server:beta.server.pass", "beta-secret");
    dict_add(cfg, "server:alpha.server.url", "ws://localhost:8420/ws/");
+   char *picker_args[] = {
+      "server"
+   };
+   assert(cmd_server(1, picker_args) && chooser_calls == 1 && !connection_count);
+   char *unknown_args[] = {
+      "server", "libera"
+   };
+   config_file = "./config/rrclient.cfg";
+   assert(cmd_server(2, unknown_args) && !connection_count);
+   assert(strstr(last_status, "No server.url for profile 'libera'") && strstr(last_status, config_file));
+   dict_add(cfg, "server:libera.server.url", "irc://irc.libera.chat:6667/");
+   dict_add(cfg, "server:libera.server.user", "w00kien00kie");
+   dict_add(cfg, "server:libera.server.proxy", "socks5h://localhost:8111");
+   assert(!cmd_server(2, unknown_args));
+   assert(!strcmp(last_url, "tcp://localhost:8111"));
+   assert(!strcmp(ws_conn->nick, "w00kien00kie") && !strcmp(server_name, "libera"));
+   connman_shutdown();
+
+   for (unsigned i = 0 ; i < connection_count ; i++) {
+      mg_iobuf_free(&connections[i].recv);
+      mg_iobuf_free(&connections[i].send);
+   }
+
+   memset(connections, 0, sizeof(connections));
+   connection_count = tcp_calls = 0;
    assert(rrclient_connect_url("invalid", "localhost:6667"));
    assert(!connection_count);
    assert(!rrclient_connect_url("alpha", "irc://localhost"));

@@ -24,6 +24,22 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
+/* Profile names come from server URLs, not optional login usernames. */
+static inline bool rrclient_server_profile_name(const char *key, char *name, size_t capacity) {
+   if (!key || strncmp(key, "server:", 7)) {
+      return false;
+   }
+   size_t length = strlen(key);
+
+   if (length <= 18 || strcmp(key + length - 11, ".server.url") || length - 18 >= capacity) {
+      return false;
+   }
+   memcpy(name, key + 7, length - 18);
+   name[length - 18] = '\0';
+
+   return true;
+}
+
 /* Connection selection and iteration use configuration section names. */
 /* Optional when a component is linked alone by a unit test. */
 extern bool rrclient_context_is_selected(void) __attribute__((weak));

@@ -1045,7 +1045,7 @@ static void frontend_gtk_notify(const char *title, const char *message) {
 }
 
 static void frontend_gtk_show_server_chooser(void) {
-   show_server_chooser();
+   gtk_show_server_chooser();
 }
 
 extern void gtk_webcam_show(bool show);   // gtk.webcam.c

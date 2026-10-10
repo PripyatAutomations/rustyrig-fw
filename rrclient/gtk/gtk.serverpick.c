@@ -57,12 +57,9 @@ static void do_connect_from_tree(GtkTreeView *view) {
    if (gtk_tree_selection_get_selected(sel, &model, &iter) ) {
       gchar *entry;
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
-      const char *at = entry ? strchr(entry, '@') : NULL;
 
-      if (at && at[1]) {
-         const char *new_server = at + 1;
-
-         connect_server(new_server);
+      if (entry && *entry) {
+         connect_server(entry);
       }
       g_free(entry);
    }
@@ -113,8 +110,10 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 
    if (ev->keyval == GDK_KEY_Escape) {
       gui_window_t *win = gui_find_window(NULL, "serverpick");
-      GtkWidget *server_window = win->gtk_win;
-      gtk_widget_destroy(server_window);
+
+      if (win && win->gtk_win) {
+         gtk_widget_destroy(win->gtk_win);
+      }
 
       // Give the main window focus before scheduling the chat input grab.
       focus_main_window();
@@ -140,4 +139,67 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    }
 
    return FALSE;
+}
+
+
+void gtk_show_server_chooser(void) {
+   gui_window_t *existing = gui_find_window(NULL, "serverpick");
+
+   if (existing && existing->gtk_win) {
+      gtk_window_present(GTK_WINDOW(existing->gtk_win));
+
+      return;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_window_set_title(GTK_WINDOW(window), "Server picker");
+   gtk_window_set_default_size(GTK_WINDOW(window), 600, 300);
+   gui_window_t *main = gui_find_window(NULL, "main");
+
+   if (main && main->gtk_win) {
+      gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main->gtk_win));
+   }
+   ui_new_window(window, "serverpick");
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+   gtk_container_add(GTK_CONTAINER(window), box);
+   GtkListStore *store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+   int rank = 0;
+   const char *key;
+   char *value;
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      char name[512];
+
+      if (!rrclient_server_profile_name(key, name, sizeof(name))) {
+         continue;
+      }
+      const char *nick = get_server_property(name, "server.user");
+      GtkTreeIter iter;
+      gtk_list_store_append(store, &iter);
+      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", -1);
+   }
+   GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+   g_object_unref(store);
+   const char *titles[] = {
+      "Server", "User", "URL"
+   };
+
+   for (int i = 0 ; i < 3 ; i++) {
+      GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+      gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL));
+   }
+
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_container_add(GTK_CONTAINER(scroll), tree);
+   gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   GtkWidget *button = gtk_button_new_with_label("Connect");
+   gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
+   g_signal_connect(button, "clicked", G_CALLBACK(on_connect_clicked), tree);
+   g_signal_connect(tree, "row-activated", G_CALLBACK(on_row_activated), NULL);
+   g_signal_connect(window, "key-press-event", G_CALLBACK(on_key), NULL);
+   GtkTreeIter first;
+
+   if (gtk_tree_model_get_iter_first(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)), &first)) {
+      gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &first);
+   }
+   gtk_widget_show_all(window);
+   gtk_widget_grab_focus(tree);
 }

@@ -158,3 +158,11 @@ all connections. Frontends can use `rrclient_connection_iter/find/select/name`
 and the `client.server.selected` event to present connection selection. The
 native connection manager owns connection lifetime; UI tabs store stable
 profile names rather than socket pointers.
+
+
+`/server` opens the native server picker (or lists profiles in the TUI).
+Profiles are discovered from `[server:name]` sections containing `server.url`;
+`server.user` is optional for IRC. `/server name` uses the configuration loaded
+by this process. To select a specific configuration file, launch with
+`rrclient -f /etc/rustyrig/rrclient.cfg`; `/reload` reloads that same file.
+The client reports the loaded file when a named profile has no `server.url`.

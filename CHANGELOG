@@ -1,4 +1,7 @@
 rustyrig-fw (20261009.01) testing; urgency=medium
+  * Restore the GTK /server picker without recursive frontend dispatch;
+    enumerate URL profiles in GTK/TUI/completion, split /server -proxy options,
+    and report missing named-server URLs with the loaded config path.
   * Move SOCKS5 negotiation into librustyaxe for reuse by client/server;
     fail closed on proxy errors, add /server -proxy for standalone URLs,
     retain proxy routing across reconnects and prevent empty profile overrides.

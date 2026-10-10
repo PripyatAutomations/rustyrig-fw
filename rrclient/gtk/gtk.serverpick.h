@@ -15,6 +15,7 @@
 #if     defined(USE_GTK)
 #include <gtk/gtk.h>
 
+extern void gtk_show_server_chooser(void);
 extern void on_connect_clicked(GtkButton *btn, gpointer user_data);
 extern gboolean on_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *col, gpointer user_data);
 extern gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data);

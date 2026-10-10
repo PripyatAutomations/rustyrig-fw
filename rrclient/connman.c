@@ -498,6 +498,13 @@ bool rrclient_connect_url(const char *profile, const char *url) {
 bool rrclient_connect_url_proxy(const char *profile, const char *url, const char *proxy_override) {
    rr_server_url_t endpoint;
 
+   if (profile && (!url || !*url)) {
+      ui_print(NULL, "No server.url for profile '%s' in %s; use /server to list loaded profiles", profile, config_file ? config_file :
+         "the loaded configuration");
+
+      return true;
+   }
+
    if (!rr_server_url_parse(url, &endpoint)) {
       ui_print(NULL, "\00304Invalid server.url: use ws://host/path, wss://host/path, irc://host or ircs://host (optional :port)\017");
 
