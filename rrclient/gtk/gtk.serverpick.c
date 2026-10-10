@@ -161,7 +161,7 @@ void gtk_show_server_chooser(void) {
    ui_new_window(window, "serverpick");
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_add(GTK_CONTAINER(window), box);
-   GtkListStore *store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+   GtkListStore *store = gtk_list_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    int rank = 0;
    const char *key;
    char *value;
@@ -172,17 +172,22 @@ void gtk_show_server_chooser(void) {
          continue;
       }
       const char *nick = get_server_property(name, "server.user");
+      const char *proxy = get_server_property(name, "server.proxy");
+
+      if (!proxy || !*proxy) {
+         proxy = cfg_get("server.proxy");
+      }
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
-      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", -1);
+      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", -1);
    }
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
    const char *titles[] = {
-      "Server", "User", "URL"
+      "Server", "User", "URL", "Proxy"
    };
 
-   for (int i = 0 ; i < 3 ; i++) {
+   for (int i = 0 ; i < 4 ; i++) {
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL));
    }

@@ -47,6 +47,7 @@ void userlist_dock_into(GtkPaned *paned);
 
 typedef struct room_userlist_entry {
    char *room;
+   char *server;
    GtkWidget *panel;
    GtkWidget *view;
    GtkWidget *dock_button;
@@ -238,7 +239,22 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    }
 }
 
-static void userlist_set_columns(GtkWidget *view, const rrconn_t *connection) {
+static void userlist_view_set_server(GtkWidget *view, const char *server) {
+   g_object_set_data_full(G_OBJECT(view), "rr-roster-server", g_strdup(server ? server : ""), g_free);
+}
+
+static const rrconn_t *userlist_view_connection(GtkWidget *view) {
+   if (view == cul_view) {
+      return ws_conn;
+   }
+   const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
+   rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
+
+   return connection ? connection : ws_conn;
+}
+
+static void userlist_set_columns(GtkWidget *view) {
+   const rrconn_t *connection = userlist_view_connection(view);
    bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
 
    for (int column = COL_TALK_ICON ; column <= COL_ELMERNOOB_ICON ; column++) {
@@ -251,11 +267,12 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       return;
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
+   const rrconn_t *view_connection = userlist_view_connection(view);
 
-   if (view != cul_view && profile && ws_conn && ws_conn->server && strcmp(profile, ws_conn->server->network)) {
+   if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
       return;
    }
-   userlist_set_columns(view, ws_conn);
+   userlist_set_columns(view);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
 
    if (!store) {
@@ -698,10 +715,7 @@ void userlist_redraw_gtk(void) {
 static GtkWidget *userlist_view_create(void) {
    GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-
-   if (ws_conn && ws_conn->server) {
-      g_object_set_data_full(G_OBJECT(view), "rr-roster-server", g_strdup(ws_conn->server->network), g_free);
-   }
+   userlist_view_set_server(view, server_name);
    gtk_widget_set_name(view, "userlist-tree");
    g_object_set_data(G_OBJECT(view), "rr-touch-context", &userlist_touch_callback);
    gtk_widget_add_events(view, GDK_BUTTON_RELEASE_MASK);
@@ -734,7 +748,7 @@ static GtkWidget *userlist_view_create(void) {
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new_with_attributes("Role", elmernoob_icon, "text", COL_ELMERNOOB_ICON, NULL);
    g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
-   userlist_set_columns(view, ws_conn);
+   userlist_set_columns(view);
 
    return view;
 }
@@ -942,6 +956,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    entry->paned = paned;
    entry->dock_paned = paned;
    entry->docked = true;
+   entry->server = g_strdup(server_name ? server_name : "");
 
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
@@ -952,6 +967,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    gtk_box_pack_end(GTK_BOX(header), entry->dock_button, FALSE, FALSE, 2);
    gtk_box_pack_start(GTK_BOX(panel), header, FALSE, FALSE, 0);
    GtkWidget *view = userlist_view_create();
+   userlist_view_set_server(view, entry->server);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), view);
@@ -1000,8 +1016,8 @@ void userlist_remove_room_view(const char *room) {
       if (entry->panel && G_IS_OBJECT(entry->panel)) {
          g_object_unref(entry->panel);
       }
-      free(entry->room);
-      entry->room = NULL;
+      g_free(entry->room);
+      g_free(entry->server);
    }
    g_hash_table_remove(room_userlist_views, room);
 }

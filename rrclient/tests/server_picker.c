@@ -58,6 +58,7 @@ int main(int argc, char **argv) {
    cfg = dict_new();
    dict_add(cfg, "server:libera.server.url", "irc://irc.libera.chat:6667/");
    dict_add(cfg, "server:libera.server.user", "testnick");
+   dict_add(cfg, "server:libera.server.proxy", "socks5h://proxy.example:1080");
    dict_add(cfg, "server:irc.example.org.server.url", "ircs://irc.example.org");
    dict_add(cfg, "server:missing-url.server.user", "only-user");
    /* Exercise the real frontend callback: calling the core dispatcher here previously recursed until its stack overflowed. */
@@ -74,11 +75,17 @@ int main(int argc, char **argv) {
    assert(gtk_tree_model_get_iter_first(model, &iter));
    unsigned count = 0;
    do {
-      char *name;
+      char *name, *proxy;
       gtk_tree_model_get(model, &iter, 0, &name, -1);
+      gtk_tree_model_get(model, &iter, 3, &proxy, -1);
       assert(!strcmp(name, "libera") || !strcmp(name, "irc.example.org"));
+
+      if (!strcmp(name, "libera")) {
+         assert(!strcmp(proxy, "socks5h://proxy.example:1080"));
+      }
       count++;
       g_free(name);
+      g_free(proxy);
    } while (gtk_tree_model_iter_next(model, &iter));
    assert(count == 2);
    assert(gtk_tree_model_get_iter_first(model, &iter));

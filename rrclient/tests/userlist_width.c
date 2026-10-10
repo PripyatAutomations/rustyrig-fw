@@ -2,7 +2,14 @@
 #include "rrclient/gtk/gtk.userlist.c"
 bool dying, restarting;
 rrconn_t *ws_conn;
+const char *server_name;
 time_t now;
+static rrconn_t *roster_connection;
+rrconn_t *rrclient_connection_find(const char *name) {
+   (void)name;
+
+   return roster_connection;
+}
 void gtk_chat_query_add(const char *user) {
 }
 int main(void) {
@@ -12,11 +19,17 @@ int main(void) {
       return 0;
    }
    GtkWidget *window = gtk_offscreen_window_new();
-   GtkWidget *view = userlist_view_create();
    rrconn_t client = {
       .fd = -1
    };
-   userlist_set_columns(view, &client);
+   rrconn_t selected_websocket = {
+      .fd = -1, .is_ws = true
+   };
+   server_name = "irc-profile";
+   roster_connection = &client;
+   ws_conn = &selected_websocket; /* The active server differs from this room roster. */
+   GtkWidget *view = userlist_view_create();
+   userlist_set_columns(view);
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));
 
    for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
@@ -24,17 +37,17 @@ int main(void) {
    }
 
    irc_process_message(&client, ":server 005 tester RUSTYRIG :supported");
-   userlist_set_columns(view, &client);
+   userlist_set_columns(view);
 
    for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
       assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
    }
 
    irc_process_message(&client, ":server 005 tester -RUSTYRIG :supported");
-   userlist_set_columns(view, &client);
+   userlist_set_columns(view);
    assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
    client.is_ws = true;
-   userlist_set_columns(view, &client);
+   userlist_set_columns(view);
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
    irc_capabilities_clear(&client);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));

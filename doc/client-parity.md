@@ -353,9 +353,9 @@ IRC transport is native-only. The WebUI does not need to implement, track or
 mirror IRC behavior, now or in future changes. Do not make WebUI changes for
 IRC parity. The browser retains its existing WebSocket connection behavior.
 
-Native simultaneous connections, status-tab server selection and per-server
-conversation tabs are frontend-specific for this change. The browser keeps
-its existing connection presentation; IRC remains outside browser parity.
+Native simultaneous connections, status-tab server selection, per-profile proxy
+settings and conversation tabs are frontend-specific for this change. The browser
+keeps its existing connection presentation; IRC remains outside browser parity.
 
 ## Media adaptation and usage accounting
 

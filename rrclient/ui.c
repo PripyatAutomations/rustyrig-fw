@@ -124,7 +124,16 @@ void ui_list_servers(void) {
       char name[512];
 
       if (rrclient_server_profile_name(key, name, sizeof(name))) {
-         ui_print(NULL, "  %s - %s", name, url ? url : "");
+         const char *proxy = get_server_property(name, "server.proxy");
+
+         if (!proxy || !*proxy) {
+            proxy = cfg_get("server.proxy");
+         }
+         if (proxy && *proxy) {
+            ui_print(NULL, "  %s - %s (proxy: %s)", name, url ? url : "", proxy);
+         } else {
+            ui_print(NULL, "  %s - %s", name, url ? url : "");
+         }
          configured++;
       }
    }

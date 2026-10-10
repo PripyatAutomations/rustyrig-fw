@@ -365,6 +365,8 @@ server.url=ws://localhost:8420/ws/
 ;server.url=ws://10.219.1.1:8420/ws/
 server.user=admin
 server.pass=password
+; Optional per-server SOCKS5 proxy; blank inherits the global server.proxy setting.
+server.proxy=
 ; Optional chat rooms to join after login, separated by commas or spaces.
 ; The server's authoritative rig room is joined automatically by the server.
 ; Optional rig rooms to join after login, e.g. #rplywv00-rig0,#rplywv00-rig1
@@ -376,6 +378,8 @@ autojoin=
 server.enabled=true
 ;server.url=ws://localhost:8420/ws/
 server.url=ws://10.219.1.1:8420/ws/
+; Optional per-server SOCKS5 proxy; blank inherits the global server.proxy setting.
+server.proxy=
 ; Optional chat rooms to join after login, separated by commas or spaces.
 ; Optional rig rooms to join after login, e.g. #rplywv00-rig0,#rplywv00-rig1
 autojoin=

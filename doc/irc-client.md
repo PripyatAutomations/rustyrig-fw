@@ -80,7 +80,9 @@ nonempty and at most 255 bytes when authentication is enabled.
 Set these keys in a `[server:name]` profile for that connection, or in a
 `[general]` section as defaults for all connections, including ad hoc `/server`
 URLs. A nonempty server-section setting overrides the global setting; an
-empty section setting inherits it. For a standalone connection, use:
+empty section setting inherits it. `/server` lists the effective proxy beside
+each configured profile, and the GTK picker includes a Proxy column. For a
+standalone connection, use:
 
 ```
 /server -proxy socks5h://localhost:1080 irc://irc.example.net

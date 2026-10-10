@@ -3,6 +3,11 @@
 bool dying, restarting;
 rrconn_t *ws_conn;
 time_t now;
+rrconn_t *rrclient_connection_find(const char *name) {
+   (void)name;
+
+   return NULL;
+}
 static GtkWidget *opened_menu;
 void gtk_chat_query_add(const char *user) {
 }

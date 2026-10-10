@@ -1,5 +1,10 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
-
+  * Show each configured profile's effective SOCKS proxy in /server and add a
+    Proxy column to the GTK server picker.
+  * Bind GTK roster feature columns to the connection owning that room instead
+    of the globally selected server.
+  * Prevent a crash on auth replies that lack auth.cmd by checking the parsed
+    dictionary and command before calling strcasecmp.
   * Limit newly provisioned guest accounts to RX and chat, remove seeded guest
     TX credits and align Debian installer text and account examples.
   * Offer opt-in guest/guest access during fresh Debian server installation,
@@ -45,7 +50,7 @@ rustyrig-fw (20261010.01) testing; urgency=medium
     batching/bindings and server-link authority/resync rules; add a reproducible
     size tool and specify a clean cutover with no legacy compatibility.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 04:30:12 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 10:38:32 -0400
 
 rustyrig-fw (20261009.01) testing; urgency=medium
 

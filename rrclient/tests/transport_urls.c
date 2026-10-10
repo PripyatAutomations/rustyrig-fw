@@ -465,8 +465,9 @@ int main(void) {
    server_listing[0] = '\0';
    active_room = NULL;
    status_active = true;
+   dict_add(cfg, "server:alpha.server.proxy", "socks5h://proxy.example:1080");
    assert(cmd_server(1, picker_args));
-   assert(strstr(server_listing, "Configured servers:") && strstr(server_listing, "alpha - ws://localhost:8420/ws/"));
+   assert(strstr(server_listing, "Configured servers:") && strstr(server_listing, "alpha - ws://localhost:8420/ws/ (proxy: socks5h://proxy.example:1080)"));
    assert(strstr(server_listing, "Connected servers") && strstr(server_listing, "window - connected (selected)"));
    assert(!cmd_disconnect(1, disconnect_current) && window_connection->is_closing);
 

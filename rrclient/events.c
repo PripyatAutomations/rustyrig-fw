@@ -220,9 +220,14 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
    }
 
    dict *d = json2dict(data);
+
+   if (!d) {
+      return;
+   }
+
    const char *a_cmd = dict_get(d, "auth.cmd", NULL);
 
-   if (strcasecmp(a_cmd, "authorized") == 0) {
+   if (a_cmd && strcasecmp(a_cmd, "authorized") == 0) {
       time_t a_ts = dict_get_time_t(d, "msg.ts", now);
       const char *a_user = dict_get(d, "auth.user", NULL);
       const char *a_token = dict_get(d, "auth.token", NULL);
