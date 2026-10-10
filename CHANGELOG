@@ -1,3 +1,9 @@
+rustyrig-fw (20261010.01) testing; urgency=medium
+  * Place the protocol wire-size audit script beside protocol tests.
+  * Audit wire overhead and propose readable compact envelopes, bounded
+    batching/bindings and server-link authority/resync rules; add a reproducible
+    size tool and specify a clean cutover with no legacy compatibility.
+
 rustyrig-fw (20261009.01) testing; urgency=medium
   * Add /win close -force to attempt PART and close immediately regardless
     of server response, while keeping status protected.
