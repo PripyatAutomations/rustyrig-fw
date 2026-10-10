@@ -226,19 +226,67 @@ int main(void) {
    pc->fn(pc, MG_EV_CLOSE, NULL);
    /* The headless fixture omits m_privmsg.c, which maps this IRC event. */
    event_emit("disconnected", ws_conn, NULL);
+   dict_add(cfg, "server.proxy", ""); /* A retry must keep its original proxy. */
    unsigned before_retry = connection_count;
    now += 2;
    rrclient_poll_events_reconnect();
    assert(connection_count > before_retry && !strcmp(last_url, "tcp://localhost:1080"));
    assert(!ws_conn->sent_login && !ws_conn->conn->send.len);
+   dict_add(cfg, "server.proxy", "socks5h://localhost:1080");
    dict_add(cfg, "server:direct.server.proxy", "");
    assert(!rrclient_connect_url("direct", "irc://direct.test"));
-   assert(!strcmp(last_url, "tcp://direct.test:6667"));
+   assert(!strcmp(last_url, "tcp://localhost:1080"));
    dict_add(cfg, "server:broken.server.proxy", "socks4://localhost");
    before_retry = connection_count;
    assert(rrclient_connect_url("broken", "irc://broken.test"));
    assert(connection_count == before_retry);
 
+   dict_add(cfg, "server.proxy", "");
+   before_retry = connection_count;
+   char *missing_proxy[] = {
+      "server", "-proxy"
+   };
+   assert(cmd_server(2, missing_proxy) && connection_count == before_retry);
+   char *invalid_proxy[] = {
+      "server", "-proxy", "socks4://localhost", "irc://invalid-option.test"
+   };
+   assert(cmd_server(4, invalid_proxy) && connection_count == before_retry);
+   dict_add(cfg, "server:override.server.url", "irc://override.test");
+   dict_add(cfg, "server:override.server.proxy", "socks5h://localhost:1082");
+   dict_add(cfg, "server.proxy", "socks5h://localhost:1081");
+   char *override_args[] = {
+      "server", "-proxy", "socks5h://localhost:1083", "override"
+   };
+   assert(!cmd_server(4, override_args));
+   assert(!strcmp(last_url, "tcp://localhost:1083"));
+   assert(!disconnect_server("override"));
+   ws_conn->conn->fn(ws_conn->conn, MG_EV_CLOSE, NULL);
+   assert(!connect_server("override"));
+   assert(!strcmp(last_url, "tcp://localhost:1083"));
+   assert(!rrclient_connect_url("section", "irc://section.test"));
+   assert(!strcmp(last_url, "tcp://localhost:1081"));
+   dict_add(cfg, "server:section.server.proxy", "socks5h://localhost:1082");
+   assert(!disconnect_server("section"));
+   ws_conn->conn->fn(ws_conn->conn, MG_EV_CLOSE, NULL);
+   assert(!rrclient_connect_url("section", "irc://section.test"));
+   assert(!strcmp(last_url, "tcp://localhost:1082"));
+   dict_add(cfg, "server.proxy", "");
+   assert(!rrclient_connect_url(NULL, "irc://standalone-direct.test"));
+   assert(!strcmp(last_url, "tcp://standalone-direct.test:6667"));
+   char *proxy_args[] = {
+      "server", "ircs://inherited.test", "-proxy", "socks5h://localhost:1080"
+   };
+   assert(!cmd_server(4, proxy_args));
+   assert(!strcmp(last_url, "tcp://localhost:1080") && !ws_conn->sent_login);
+   struct mg_connection *failed = ws_conn->conn;
+   failed->fn(failed, MG_EV_CONNECT, NULL);
+   mg_iobuf_add(&failed->recv, 0, "\5\377", 2);
+   failed->fn(failed, MG_EV_READ, NULL);
+   assert(failed->is_closing && !ws_conn->sent_login && !failed->is_tls);
+   before_retry = connection_count;
+   failed->fn(failed, MG_EV_CLOSE, NULL);
+   assert(!rrclient_connect_url("inherited.test", "ircs://inherited.test"));
+   assert(connection_count == before_retry + 1 && !strcmp(last_url, "tcp://localhost:1080"));
    dict_add(cfg, "server:quit-one.server.proxy", "");
    dict_add(cfg, "server:quit-two.server.proxy", "");
    assert(!rrclient_connect_url("quit-one", "irc://quit-one.test"));

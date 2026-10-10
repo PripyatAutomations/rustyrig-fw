@@ -48,6 +48,8 @@ extern char active_server[512];
 extern rr_connection_t *active_connections;
 extern bool disconnect_server(const char *server);
 extern bool rrclient_connect_url(const char *profile, const char *url);
+/* NULL inherits configured settings; a nonempty override is mandatory on retries. */
+extern bool rrclient_connect_url_proxy(const char *profile, const char *url, const char *proxy);
 extern bool connect_server(const char *server);
 #if     defined(USE_MONGOOSE)
 extern rrconn_t *ws_conn, *ws_tx_conn;

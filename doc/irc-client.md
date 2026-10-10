@@ -79,11 +79,40 @@ nonempty and at most 255 bytes when authentication is enabled.
 
 Set these keys in a `[server:name]` profile for that connection, or in a
 `[general]` section as defaults for all connections, including ad hoc `/server`
-URLs. An explicitly empty profile `server.proxy` connects directly.
+URLs. A nonempty server-section setting overrides the global setting; an
+empty section setting inherits it. For a standalone connection, use:
+
+```
+/server -proxy socks5h://localhost:1080 irc://irc.example.net
+```
+
+The `-proxy` option can appear before or after the server URL/name and
+has highest priority. Without a command option, section setting or global
+setting, the connection is direct. The selected status server does not
+supply proxy settings for a new standalone connection.
+A connection retains its required proxy across retries and reconnects,
+even if its configuration keys are subsequently cleared. Restart the client
+to deliberately remove that retained proxy setting.
+
+Invalid settings, unavailable proxies, authentication failures, rejected
+CONNECT requests and handshake timeouts fail closed: no direct destination
+connection is attempted, and registration/TLS/WebSocket traffic waits for
+successful proxy negotiation.
 The server URL, default destination ports and WebSocket path remain unchanged.
 TLS starts after the tunnel opens and retains the destination hostname and
 existing CA settings. Proxy negotiation has a 30-second timeout and uses the
-normal per-server reconnect handling. SOCKS4, UDP relay and GSSAPI are not
+normal per-server reconnect handling.
+
+The reusable implementation lives in `librustyaxe/socks.h` and `socks.c`,
+without IRC or client dependencies. Other Mongoose consumers, including
+rrserver, can initialize `rr_socks_t` with a proxy URL, optional credentials,
+and destination host/port, then connect only to its `url`. Feed transport
+events to `rr_socks_event()`; `1` opens the tunnel, `0` means negotiation is
+pending, and `-1` means failure with the socket marked for closing. Only
+start application I/O after `1`; failed initialization must abort connection.
+No rrserver proxy configuration is introduced by this move.
+
+SOCKS4, UDP relay and GSSAPI are not
 implemented. Browser proxy configuration belongs to the browser/OS;
 the WebUI does not consume these native settings.
 

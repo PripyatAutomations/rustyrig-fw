@@ -8,7 +8,7 @@
 #include <librrprotocol/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
-#include <rrclient/socks.h>
+#include <librustyaxe/socks.h>
 
 extern const char *login_user;
 extern bool dying;
@@ -31,6 +31,10 @@ extern void rrclient_objects_context_free(void *) __attribute__((weak));
 
 typedef struct client_server {
    char *name, *url;
+#ifdef USE_MONGOOSE
+   rr_socks_t *proxy;
+   bool proxy_override;
+#endif
    rrconn_t *connection;
    const char *user;
    int connected;
@@ -316,7 +320,7 @@ typedef struct {
    rrconn_t connection;
    server_cfg_t server;
    client_server_t *owner;
-   rrclient_socks_t socks;
+   rr_socks_t socks;
    bool proxy_pending;
    mg_event_handler_t websocket_handler;
    struct mg_iobuf websocket_request;
@@ -355,8 +359,12 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       cptr->conn = c;
    }
 
+   if (t->proxy_pending && (ev == MG_EV_ERROR || ev == MG_EV_CLOSE)) {
+      rr_socks_event(&t->socks, c, ev);
+   }
+
    if (t->proxy_pending && ev != MG_EV_ERROR && ev != MG_EV_CLOSE && ev != MG_EV_OPEN) {
-      int result = rrclient_socks_event(&t->socks, c, ev);
+      int result = rr_socks_event(&t->socks, c, ev);
 
       if (result != 1) {
          dispatch_depth--;
@@ -484,6 +492,10 @@ static bool same_url(const char *a, const char *b) {
 }
 
 bool rrclient_connect_url(const char *profile, const char *url) {
+   return rrclient_connect_url_proxy(profile, url, NULL);
+}
+
+bool rrclient_connect_url_proxy(const char *profile, const char *url, const char *proxy_override) {
    rr_server_url_t endpoint;
 
    if (!rr_server_url_parse(url, &endpoint)) {
@@ -515,11 +527,65 @@ bool rrclient_connect_url(const char *profile, const char *url) {
    }
    client_server_t *s = find_server(profile);
 
+   const char *proxy = get_server_property(profile, "server.proxy");
+
+   if (!proxy || !*proxy) {
+      proxy = cfg_get("server.proxy");
+   }
+   const char *proxy_user = get_server_property(profile, "server.proxy.user");
+   const char *proxy_pass = get_server_property(profile, "server.proxy.pass");
+
+   if (!proxy_user) {
+      proxy_user = cfg_get("server.proxy.user");
+   }
+
+   if (!proxy_pass) {
+      proxy_pass = cfg_get("server.proxy.pass");
+   }
+
+   char pinned_url[1024];
+   const rr_socks_t *pinned = s ? s->proxy : NULL;
+
+   if (proxy_override) {
+      if (!*proxy_override) {
+         ui_print(NULL, "The -proxy option requires a nonempty SOCKS5 URL");
+
+         return true;
+      }
+      proxy = proxy_override;
+   } else if (pinned && (s->proxy_override || reconnect_attempting || !proxy || !*proxy)) {
+      snprintf(pinned_url, sizeof(pinned_url), "socks5h://%s", pinned->url + 6);
+      proxy = pinned_url;
+      proxy_user = pinned->user;
+      proxy_pass = pinned->pass;
+   }
+   bool proxy_pending = proxy && *proxy;
+   rr_socks_t socks;
+
+   if (proxy_pending && !rr_socks_init(&socks, proxy, proxy_user, proxy_pass, endpoint.host, endpoint.port)) {
+      if (s && !s->proxy && s->connection && s->connection->conn) {
+         s->connection->conn->is_closing = 1;
+      }
+      ui_print(NULL, "Invalid server.proxy: use socks5h://host[:port] or socks5://host[:port], with optional proxy user/pass keys");
+
+      return true;
+   }
+
+   if (s && proxy_pending && (!s->proxy || (proxy_override &&
+      (strcmp(s->proxy->url, socks.url) || strcmp(s->proxy->user, socks.user) || strcmp(s->proxy->pass, socks.pass)))) &&
+      s->connection && s->connection->conn) {
+      s->connection->conn->is_closing = 1;
+   }
+
    if (s && s->connection && s->connection->conn && !s->connection->conn->is_closing) {
       if (!same_url(s->url, url)) {
          ui_print(NULL, "Server name %s is already connected; use a distinct configuration section for another endpoint", profile);
 
          return true;
+      }
+
+      if (proxy_override) {
+         s->proxy_override = true;
       }
       rrclient_connection_select(s->name);
 
@@ -574,29 +640,28 @@ bool rrclient_connect_url(const char *profile, const char *url) {
    const char *nick = get_server_property(s->name, "server.user");
    const char *pass = get_server_property(s->name, "server.pass");
    const char *autojoin = get_server_property(s->name, "autojoin");
-   const char *proxy = get_server_property(s->name, "server.proxy");
+   t->proxy_pending = proxy_pending;
 
-   if (!proxy) {
-      proxy = cfg_get("server.proxy");
-   }
-   const char *proxy_user = get_server_property(s->name, "server.proxy.user");
-   const char *proxy_pass = get_server_property(s->name, "server.proxy.pass");
-
-   if (!proxy_user) {
-      proxy_user = cfg_get("server.proxy.user");
+   if (proxy_pending) {
+      t->socks = socks;
    }
 
-   if (!proxy_pass) {
-      proxy_pass = cfg_get("server.proxy.pass");
-   }
+   if (t->proxy_pending) {
+      if (!s->proxy) {
+         s->proxy = malloc(sizeof(*s->proxy));
+      }
 
-   if (!rrclient_socks_init(&t->socks, proxy, proxy_user, proxy_pass, &endpoint)) {
-      ui_print(NULL, "Invalid server.proxy: use socks5h://host[:port] or socks5://host[:port], with optional proxy user/pass keys");
-      free(t);
+      if (!s->proxy) {
+         free(t);
 
-      return true;
+         return true;
+      }
+      *s->proxy = t->socks;
+
+      if (proxy_override) {
+         s->proxy_override = true;
+      }
    }
-   t->proxy_pending = t->socks.url[0] != '\0';
 
    if (endpoint.irc && (!nick || !*nick)) {
       nick = cfg_get("irc.nick");
@@ -705,6 +770,7 @@ bool rrclient_connect_url(const char *profile, const char *url) {
 
    return !c;
 #else
+   (void)proxy_override;
    ui_print(NULL, "Server connections require the Mongoose transport backend");
 
    return true;
@@ -824,6 +890,9 @@ void connman_shutdown(void) {
       free(servers->connection);
       free(servers->name);
       free(servers->url);
+#ifdef USE_MONGOOSE
+      free(servers->proxy);
+#endif
       free(servers);
       servers = next;
    }

@@ -41,7 +41,8 @@ static void observe(const char *event, const char *data, rrconn_t *c, void *user
    }
 }
 int main(int argc, char **argv) {
-   assert(argc == 2);
+   assert(argc == 2 || argc == 3);
+   bool fail_closed = argc == 3;
    now = time(NULL);
    cfg = dict_new();
    event_init();
@@ -68,10 +69,18 @@ int main(int argc, char **argv) {
          snprintf(key, sizeof(key), "server:%s.server.proxy.pass", name);
          dict_add(cfg, key, "secret");
       }
-      assert(!rrclient_connect_url(name, urls[i]));
+      char failure_url[128];
+
+      if (fail_closed) {
+         const char *schemes[] = {
+            "irc", "ircs", "ws", "wss"
+         };
+         snprintf(failure_url, sizeof(failure_url), "%s://127.0.0.1:%s/", schemes[i], argv[2]);
+      }
+      assert(!rrclient_connect_url(name, fail_closed ? failure_url : urls[i]));
    }
 
-   for (unsigned i = 0 ; i < 1000 && ready < 4 ; i++) {
+   for (unsigned i = 0 ; i < (fail_closed ? 150 : 1000) && ready < 4 ; i++) {
       now = time(NULL);
       mg_mgr_poll(&mgr, 10);
    }
@@ -84,6 +93,6 @@ int main(int argc, char **argv) {
    irc_shutdown();
    event_shutdown();
    dict_free(cfg);
-   assert(ready == 4);
+   assert(ready == (fail_closed ? 0 : 4));
    puts("PASS: concurrent IRC/IRCS/WS/WSS tunnels with proxy DNS, auth and deferred TLS/upgrade");
 }

@@ -88,7 +88,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "quit", .help_section = "Connection", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)"
    },
    {
-      .cmd = "server", .help_section = "Connection", .cb = cmd_server, .desc = "Connect to a server"
+      .cmd = "server", .help_section = "Connection", .cb = cmd_server, .desc = "Connect: /server [-proxy socks5h://host[:port]] <name|URL>"
    },
    {
       .cmd = "j", .help_section = "Chat and rooms", .cb = cmd_join, .desc = "Alias for /join"

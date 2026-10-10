@@ -1,4 +1,9 @@
 rustyrig-fw (20261009.01) testing; urgency=medium
+  * Move SOCKS5 negotiation into librustyaxe for reuse by client/server;
+    fail closed on proxy errors, add /server -proxy for standalone URLs,
+    retain proxy routing across reconnects and prevent empty profile overrides.
+    Test refused/auth/rejected/dropped proxy connections against a destination
+    listener for all four native transports.
   * Hide native IRC TX/Mute/Role roster columns without RUSTYRIG support;
     negotiate capabilities, honor PREFIX and track channel op/voice changes.
   * Require a slash for command completion and cycle room nicknames with

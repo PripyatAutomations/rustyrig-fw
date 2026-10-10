@@ -621,8 +621,35 @@ bool cmd_server(int argc, char **args) {
       return true;
    }
 
-   const char *server = args[1];
+   const char *server = NULL, *proxy = NULL;
 
-   // A URL opens an ad hoc connection; a name opens its configuration profile.
-   return connect_server(server);
+   for (int i = 1 ; i < argc ; i++) {
+      if (!strcmp(args[i], "-proxy")) {
+         if (proxy || i + 1 >= argc || !args[i + 1] || !*args[i + 1]) {
+            ui_print(NULL, "Usage: /server [-proxy socks5h://host[:port]] <name|URL>");
+
+            return true;
+         }
+         proxy = args[++i];
+      } else if (!server && args[i][0] != '-') {
+         server = args[i];
+      } else {
+         ui_print(NULL, "Usage: /server [-proxy socks5h://host[:port]] <name|URL>");
+
+         return true;
+      }
+   }
+
+   if (!server) {
+      ui_print(NULL, "Usage: /server [-proxy socks5h://host[:port]] <name|URL>");
+
+      return true;
+   }
+
+   if (!proxy) {
+      return connect_server(server);
+   }
+   bool is_url = strstr(server, "://") != NULL;
+
+   return rrclient_connect_url_proxy(is_url ? NULL : server, is_url ? server : get_server_property(server, "server.url"), proxy);
 }
