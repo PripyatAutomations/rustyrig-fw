@@ -10,7 +10,7 @@ If not listed, look at the top of the script for more info. Names should be clea
     ft891-rigctld.sh		Start rigctld with ft891 backend, if not running
     git-push-all.sh		Push changes to all of my submodules to github
     gst-test.sh			gstreamer test - ignore this
-    indent.sh			Indent the source (not finished)
+    indent.sh			Format owned C sources with GNU indent, then Uncrustify
     longline.sh			Print a long line (# characters as first arg || 256)
     pipewire-test.sh		Launch pipewire user session
     rename-header.sh		Renames a header and replaces all #include references - not finished.

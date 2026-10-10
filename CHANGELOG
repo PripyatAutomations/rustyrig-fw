@@ -1,4 +1,6 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Run GNU indent before Uncrustify for owned C sources, using repository
+    profiles and preserving source files when either formatter fails.
   * Show TX/BW quota status to owner/admin/elmer WHOIS requesters; list both
     quotas by default and safely expand simple username wildcards in memory.
   * Add opt-in strict accounting: failed quota/usage/PTT/audit writes halt PTT,

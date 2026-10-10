@@ -49,7 +49,7 @@ make -j$(nproc) world
 
 ### Code Quality
 
-- Uses **uncrustify** for code formatting (config in `.uncrustify.cfg`)
+- Uses **GNU indent**, then **uncrustify**, via `tools/indent.sh` (profiles in `.indent.pro` and `.uncrustify.cfg`)
 - No automated linting in build pipeline; style is maintained manually
 - Compilation flags include extensive error checking and debug symbols by default
 
