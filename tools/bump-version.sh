@@ -88,11 +88,32 @@ if $dry_run; then
    exit 0
 fi
 
-printf '%s\n' "$new_version" > .version
-
 if [[ -f CHANGELOG ]]; then
-   sed -i -E "1s/^rustyrig-fw \([^)]*\)/rustyrig-fw (${new_version})/" CHANGELOG
+   # Keep the newest Debian entry complete, including when its trailer is missing.
+   changelog_date=$(LC_ALL=C date -R)
+   python3 - "$new_version" "$changelog_date" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path('CHANGELOG')
+text = path.read_text()
+entries = re.split(r'(?=^rustyrig-fw \()', text, flags=re.MULTILINE)
+entries = [entry for entry in entries if entry]
+if not entries or not entries[0].startswith('rustyrig-fw ('):
+    raise SystemExit('CHANGELOG must start with a Debian package entry')
+trailer_pattern = r'^ -- (.+?)  [^\n]+$'
+author = re.search(trailer_pattern, text, flags=re.MULTILINE)
+identity = author.group(1) if author else 'Pripyat Automations <dangerousdevices@istabpeople.com>'
+header, body = entries[0].split('\n', 1)
+header = re.sub(r'^rustyrig-fw \([^)]*\)', f'rustyrig-fw ({sys.argv[1]})', header)
+body = re.sub(trailer_pattern, '', body, flags=re.MULTILINE).strip('\n')
+entries[0] = f'{header}\n\n{body}\n\n -- {identity}  {sys.argv[2]}\n\n'
+path.write_text(''.join(entries))
+PY
 fi
+
+printf '%s\n' "$new_version" > .version
 
 if [[ -f packaging/PKGBUILD ]]; then
    sed -i -E "s/^pkgver=.*/pkgver=${new_version}/" packaging/PKGBUILD

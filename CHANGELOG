@@ -1,4 +1,7 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+
+  * Restore Debian changelog trailers and refresh their timestamps on version
+    bumps; reject missing trailers and parser warnings in regression checks.
   * Run GNU indent before Uncrustify for owned C sources, using repository
     profiles and preserving source files when either formatter fails.
   * Show TX/BW quota status to owner/admin/elmer WHOIS requesters; list both
@@ -36,7 +39,10 @@ rustyrig-fw (20261010.01) testing; urgency=medium
     batching/bindings and server-link authority/resync rules; add a reproducible
     size tool and specify a clean cutover with no legacy compatibility.
 
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 03:02:46 -0400
+
 rustyrig-fw (20261009.01) testing; urgency=medium
+
   * Add /win close -force to attempt PART and close immediately regardless
     of server response, while keeping status protected.
   * Add /win close for GTK/TUI conversations with PART confirmation and
@@ -99,14 +105,16 @@ rustyrig-fw (20261009.01) testing; urgency=medium
   * Avoid GTK function/object pointer conversions when storing touch callbacks
     and disconnecting detached room userlist handlers.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 05 Oct 2026 00:00:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 09 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261008.1) testing; urgency=medium
+
   * Use only the room name (#room) for GTK userlist window titles.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 05 Oct 2026 00:00:00 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 08 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261007.17) testing; urgency=medium
+
   * made /webcam show auto-subscribe if only one camera found on station
   * fixed callsign-lookup cache
   * many GUI fixes
@@ -219,7 +227,8 @@ rustyrig-fw (20261007.17) testing; urgency=medium
     destination for concurrent inventory requests across tab changes.
   * Filter resource trees, object/media/codec listings and completion by
     the issuing site or rig room; status retains all discoverable resources.
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 06 Oct 2026 00:00:00 -0400
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 07 Oct 2026 00:00:00 -0400
 
 rustyrig-fw (20261005.01) testing; urgency=medium
   * Refresh native RX/TX codec pickers on media state changes so switching
