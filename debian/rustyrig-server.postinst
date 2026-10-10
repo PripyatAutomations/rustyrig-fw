@@ -22,9 +22,9 @@ done
 install -d -o rustyrig-modems -g rustyrig-modems -m 0770 /var/lib/rustyrig/modems
 install -d -o rustyrig -g rustyrig -m 0770 /var/run/rustyrig
 
-# The preload SQL intentionally contains admin/admin for source-tree and test
-# databases.  Debian installs must replace that password before the service
-# can start.  Existing databases are never reset during upgrades.
+# The preload SQL contains a disabled admin placeholder with an empty password.
+# Enable it with the chosen password before the service can start. Existing
+# databases are never reset during upgrades.
 if [ -r /usr/share/debconf/confmodule ]; then
     . /usr/share/debconf/confmodule
 fi
@@ -54,7 +54,7 @@ if [ "$new_database" = true ]; then
     # hash_passwd() uses SHA-1 for the existing wire-auth database format.
     admin_hash=$(printf '%s' "$admin_password" | sha1sum | cut -d ' ' -f 1)
     sqlite3 "$master_db" \
-        "UPDATE users SET password='$admin_hash' WHERE name='admin';"
+        "UPDATE users SET enabled=1,password='$admin_hash' WHERE name='admin';"
     chown rustyrig:rustyrig "$master_db"
     chmod 0660 "$master_db"
 fi

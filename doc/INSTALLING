@@ -1,3 +1,80 @@
-Installation isn't yet recommended.
+RustyRig installation for the LAN/VPN beta
+========================================
 
-There's a make install target, but you're on your own for now.
+Use doc/QUICKSTART.txt for station configuration, first login and receive-audio
+checks. The following describes the current install paths; clean-machine
+package installation and physical-radio acceptance still need release testing.
+
+Debian packages
+---------------
+Build packages from a matching source/submodule checkout:
+
+    sudo apt update
+    sudo apt install jq fakeroot dpkg-dev debhelper
+    ./install-deps.sh
+
+Run the apt command it prints with sudo, then:
+
+    make -j4 PROFILE=radio debs
+
+Packages are written to the parent directory. Install only the packages you
+need using sudo apt install with their explicit ./ paths. Shared-library and
+DSP dependencies must come from the same release. Typical selections:
+
+    rustyrig-server       Backend and station configuration
+    rustyrig-client       Native terminal client
+    rustyrig-client-gtk   GTK frontend, installed alongside the client
+    rustyrig-fwdsp        GStreamer audio worker used by server/client
+
+Optional packages include rustyrig-server-gpsd and callsign-lookup. Debug-symbol
+and development packages are not needed for normal operation. apt resolves
+GStreamer runtime dependencies; custom pipelines may require extra plugins.
+
+A fresh server install asks for an admin password and initializes its database.
+Existing databases and modified configuration are preserved during upgrades.
+Configure /etc/rustyrig/rrserver.cfg before starting:
+
+    sudo systemctl enable --now rustyrig-server
+    sudo journalctl -u rustyrig-server -f
+
+The service runs as rustyrig, with /var/lib/rustyrig as its working directory.
+Database: /var/lib/rustyrig/db/master.db.
+Native config: /etc/rustyrig/rrclient.cfg.
+Modules: /usr/lib/rustyrig/modules/rrserver and .../rrclient.
+WebUI: /var/lib/rustyrig/www.
+Grant the service account access to the specific audio/serial devices required
+by your station. Keep code/module directories owned by root.
+
+Source-tree runs and manual installation
+---------------------------------------
+You can run ./bin/rrserver and ./bin/rrclient without installing. The quickstart
+lists the local database, module, DSP and WebUI path overrides required when
+using copies of the packaged example configs.
+
+make install copies binaries and libraries under INSTALL_DIR (default
+/usr/local), configuration into CONF_DIR (default /etc/rustyrig), and WebUI
+assets into WEB_ROOT (default /var/lib/rustyrig/www). It prompts before replacing
+changed configuration files. It does not perform Debian's account/database
+provisioning or service setup. For example, after building:
+
+    sudo make PROFILE=radio install
+
+Set path.modules to /usr/local/lib/rustyrig/modules/rrserver or .../rrclient,
+and [fwdsp] path=/usr/local/bin/fwdsp when using that prefix. Ensure SQL template
+and preload paths point to the repository's sql files or your installed copies,
+and create writable database/runtime directories for the account running the
+server. First database creation uses the random bootstrap-password flow described
+in the quickstart.
+
+Other distributions
+-------------------
+packaging/PKGBUILD and packaging/rustyrig.spec are starter Arch/RPM packaging.
+See packaging/README.md for their current limitations and module layout.
+
+Upgrades
+--------
+Back up configuration and the database using SQLite's backup facility before
+upgrading. Preserve accounts, quota/audit history and your pipeline/device
+settings. Upgrade server, libraries, native client and served WebUI together;
+old wire-protocol compatibility is not provided. Check path.modules in existing
+configs after upgrades, then repeat login, receive-audio and PTT-off checks.

@@ -112,9 +112,8 @@ bool cmd_win(int argc, char **args) {
       bool error;
 
       if ((room[0] == '#' || room[0] == '&') && ws_connected == 1 && ws_conn) {
-         char *part_args[] = {
-            "part", room
-         };
+         char part_command[] = "part";
+         char *part_args[] = { part_command, room };
          /* The self-PART confirmation performs room/media/tab cleanup. */
          error = cmd_part(2, part_args);
          if (force) {

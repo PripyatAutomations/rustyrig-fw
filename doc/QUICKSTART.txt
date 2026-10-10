@@ -1,108 +1,139 @@
------
-FETCH
------
-Pull the repo initially (this saves space and time):
-     git clone https://github.com/pripyatautomations/rustyrig-fw --depth=1
-     cd rustyrig-fw
-     git submodule init
-     git submodule update --depth=1
+RustyRig LAN/VPN beta quickstart
+==============================
 
-----	OR ----
+Keep the server on your LAN or VPN for this beta. Install matching server,
+native-client and WebUI revisions: the compact rustyrig.v1 protocol has no
+fallback for older releases.
 
-Fetch updates & submodules
-     make update
+1. Install or build
+-------------------
+For Debian packages and service setup, follow doc/INSTALLING. For a source
+build on Debian/Ubuntu, fetch the checkout and install the profile reader:
 
+    git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+    cd rustyrig-fw
+    sudo apt update
+    sudo apt install jq
+    ./install-deps.sh
 
----------
-CONFIGURE
----------
-* Edit things in config/ as appropriate.
-   # - Default profile is 'radio'
-   - config/${PROFILE}.config.json has build-time config
+install-deps.sh PRINTS the apt command for the selected profile; run that
+command with sudo to install the dependencies. Then build:
 
-   Edit config/rrserver.cfg to set it up
-   -- SQLite is preferred; see sql/sqlite.master.preload.sql
-   * SQL is preferred method of user management! *
+    make -j4 PROFILE=radio world
 
-   Source-tree databases start with the test users from the preload file.  A
-   Debian server package asks for the admin password through debconf and
-   applies it when creating the first database.  Existing package databases
-   are preserved on upgrades.
+The default profile is radio. Build options live in config/radio.config.json.
+For updates, use git pull followed by git submodule update --init --recursive,
+then rebuild the matching components.
 
-   Once logged in as an admin or owner, use `/user list` to inspect accounts.
-   `/user add`, `lock`, `unlock`, `remove`, `resetpw`, and `pass` manage
-   accounts; `/user oldpw` reports passwords older than
-   `security.max-pw-age` days.
+2. Configure a station
+----------------------
+Packaged server config: /etc/rustyrig/rrserver.cfg.
+Source runs: copy config/rrserver.cfg to config/rrserver.local.cfg, edit the
+copy, and pass it explicitly with -f. Adjust existing settings/sections rather
+than adding duplicate sections. Start with one rig and station.name=beta:
 
+    [general]
+    station.name=beta
+    rig.instances=rig0
+    rig.default=rig0
+    audio.test-mode=false
 
------
-BUILD
------
-     # install deps (this currently only works for debian, please add checks
-     # for your distro and appropriate commands ;)
-     ./install-deps.sh
+    [rig:rig0]
+    backend=hamlib
+    vfos=A B
+    room=#beta-rig0
+    hamlib.model=2
+    hamlib.device=127.0.0.1:4532
 
-     Build it:
-     ./build.sh
+To try this without hardware, start Hamlib's dummy rig in another terminal:
 
-	* or if using debian or it's offspring *
-     make debs
+    rigctld -o -m 1
 
-Server setup below
--------------------------------------
-Probably wise to use a VPN for now.
+For real hardware, choose the appropriate model/device; rigctld -l lists
+models. See doc/rig-rooms.md for multiple rigs and room mappings. Configure
+[fwdsp] device/pipeline settings for your station's audio interface; leave
+PTT off while confirming receive audio.
 
-Feel free to contribute changes or improvements via github or .diff's!
+For source-tree runs, override these settings in the copied server config:
 
-Long story short, on a debian-based system do the following to try it:
+    [general]
+    log.file=-
+    path.modules=./bin
+    path.db.master=./db/master.db
+    path.db.master.template=./sql/sqlite.master.sql
+    path.db.master.preload=./sql/sqlite.master.preload.sql
+    path.sock-dir=./run
+    net.http.www-root=./www
+    net.mqtt.enabled=false
 
-   Find your rig's model # in hamlib:
-	rigctld -l | less
+    [fwdsp]
+    path=./bin/fwdsp
 
-   Start up rigctld connected to your rig (example is dummy) - the -o is important!:
-	rigctld -o -m 1 &
+Create the local runtime directories and start from the repository root:
 
-   In rrserver.cfg (/etc/rustyrig or ./config), list the rig and select it:
-        rig.instances=rig0
-        rig.default=rig0
-   Then configure its section:
-        [rig:rig0]
-        backend=hamlib
-        vfos=A B
-        hamlib.model=2
-        hamlib.device=127.0.0.1:4532
+    mkdir -p db run
+    ./bin/rrserver -f config/rrserver.local.cfg
 
-   Multiple hamlib rigs can live on one server - list each alias in
-   rig.instances, add a [rig:alias] section per rig, and set its own
-   hamlib.model plus hamlib.device (an IP:port for rigctld/network, or a
-   serial device path with hamlib.baud for a directly connected rig):
+For Debian packages, start the service after configuring it:
 
-        rig.instances=rig0 rig1
-        [rig:rig0]
-        backend=hamlib
-        hamlib.model=2
-        hamlib.device=127.0.0.1:4532
-        [rig:rig1]
-        backend=hamlib
-        hamlib.model=3073
-        hamlib.device=/dev/ttyUSB0
-        hamlib.baud=4800
+    sudo systemctl enable --now rustyrig-server
+    sudo journalctl -u rustyrig-server -f
 
-   Run it with ./bin/rrserver or 'rrserver' if installed
+3. First login
+--------------
+Debian fresh installations ask for the admin password through debconf. Use
+that password; package upgrades preserve existing accounts and databases.
 
-   Open a browser and connect to the http (port 8420) or https (port 4420):
-	firefox	https://localhost:4420/
+A fresh source-tree database using the shipped SQL provisions admin with a
+random password, saved beside the database in a mode-0600 file:
 
-You should probably use https otherwise crypto.subtle isn't available so we cant use sha1
-for authentication except on localhost!
+    db/master.db.bootstrap-password
 
+Read it as the account running the server. Log in as admin, then change the
+temporary password immediately:
 
-Client setup
-------------
-Native client rrclient has gtk and TUI (-T) modes- check it out!
+    /user pass admin <new-password>
 
-Edit config/rrclient.cfg (or /etc/rustyrig/rrclient.cfg)
-Run rrclient for gtk or rrclient -T (or unset $DISPLAY) for TUI.
+Remove the bootstrap-password file after successfully changing the password.
+There is no shipped admin/admin login; guest is disabled by default. Existing
+databases keep their credentials. Do not delete a database to reset a password.
+Use /user list to inspect accounts and /help user for account administration.
 
---
-See doc/STATUS for status of subsystems.
+4. Connect a client and receive audio
+------------------------------------
+Native client: copy config/rrclient.cfg to config/rrclient.local.cfg for a
+source run, or edit /etc/rustyrig/rrclient.cfg for an installed client. Set the
+localhost profile's credentials and disable unused profiles such as camp:
+
+    [server:localhost]
+    server.enabled=true
+    server.url=ws://localhost:8420/ws/
+    server.user=admin
+    server.pass=<your-admin-password>
+
+For source runs, set [general] path.modules=./bin, path.help-dir=./help,
+and [fwdsp] path=./bin/fwdsp. Protect a config containing a password:
+
+    chmod 600 config/rrclient.local.cfg
+    ./bin/rrclient -f config/rrclient.local.cfg
+
+Use -T for the terminal frontend. Installed commands are rrclient and
+rrclient -T; -f also works with installed configurations.
+
+The native server URL must include its scheme. Ports are optional: ws=8420,
+wss=4420, irc=6667, ircs=6697. RustyRig radio/audio uses ws or wss; native IRC
+is chat-only. See doc/irc-client.md for proxy and multiple-server settings.
+
+For the browser, open http://localhost:8420/ on the server machine. Remote
+browser login needs HTTPS for Web Crypto: configure net.http.tls-enabled=true
+with net.http.tls-cert and net.http.tls-key, then open https://<server>:4420/.
+The example config has TLS disabled; configure it before using that URL.
+A VPN does not make a remote HTTP origin a browser secure context.
+
+After login, /join #beta-rig0 attaches to the radio room. Confirm rig state,
+select a codec supported by the client, and verify receive audio before TX.
+Opus is a useful initial choice; native /rxcodec opus selects it. Use /help
+for codec controls and doc/media-codecs.md for decoder/pipeline requirements.
+
+For reports, include the release version, frontend, selected codec, relevant
+status/log messages and steps to reproduce. Redact passwords and proxy secrets.

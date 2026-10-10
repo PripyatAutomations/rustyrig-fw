@@ -1,5 +1,7 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
 
+  * Update beta installation/first-login/audio guidance, enable the Debian fresh
+    admin account and fix the native window-close command const warning.
   * Restore Debian changelog trailers and refresh their timestamps on version
     bumps; reject missing trailers and parser warnings in regression checks.
   * Run GNU indent before Uncrustify for owned C sources, using repository
@@ -39,7 +41,7 @@ rustyrig-fw (20261010.01) testing; urgency=medium
     batching/bindings and server-link authority/resync rules; add a reproducible
     size tool and specify a clean cutover with no legacy compatibility.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 03:02:46 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 04:26:19 -0400
 
 rustyrig-fw (20261009.01) testing; urgency=medium
 
