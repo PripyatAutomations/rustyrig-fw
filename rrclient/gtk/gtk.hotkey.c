@@ -24,6 +24,8 @@
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/userlist.h>
 #include <rrclient/ui.h>
+#include <rrclient/connman.h>
+#include <rrclient/gtk/gtk.chat.h>
 
 extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
@@ -68,6 +70,12 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       gtk_escape_prefix = FALSE;
 
       return TRUE;
+   }
+
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab &&
+      (event->state & GDK_CONTROL_MASK) &&
+      !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && gtk_chat_status_active()) {
+      return rrclient_connection_cycle_status(gtk_chat_status_active());
    }
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_win = wp ? wp->gtk_win : NULL;

@@ -297,6 +297,10 @@ bool vfo_set_dict(const char *vfo, dict *d) {
 
 // Push the saved state out to the active UI.  Reads ONLY vfo_state.
 bool vfo_update_ui(void) {
+   if (!rrclient_present_context()) {
+      return false;
+   }
+
    if (!vfo_state) {
       return true;
    }
@@ -319,8 +323,8 @@ bool vfo_update_ui(void) {
 
       tui_refresh_sb_window();
       const bool is_room = tw && (tw->title[0] == '#' || tw->title[0] == '&');
-      const bool has_vfos = is_room && rrclient_room_vfos(tw->title) &&
-         *rrclient_room_vfos(tw->title);
+      const bool has_vfos = is_room && rrclient_room_vfos(rrclient_window_room(tw->title)) &&
+         *rrclient_room_vfos(rrclient_window_room(tw->title));
 
       if (has_vfos || !is_room) {
          tui_refresh_sb_vfo();
@@ -334,4 +338,45 @@ bool vfo_update_ui(void) {
    }
 
    return false;
+}
+
+/* Save/load the component view when entering a server connection context. */
+typedef struct {
+   dict *vfo_state;
+   char s_active_vfo;
+} rrclient_vfo_context;
+void rrclient_vfo_context_swap(void **saved) {
+   if (!*saved) {
+      *saved = calloc(1, sizeof(rrclient_vfo_context));
+
+      if (!*saved) {
+         abort();
+      }
+      ((rrclient_vfo_context *)*saved)->s_active_vfo = 'A';
+   }
+   rrclient_vfo_context *state = *saved;
+   {
+      __typeof__(vfo_state) temporary;
+      memcpy(&temporary, &vfo_state, sizeof(vfo_state));
+      memcpy(&vfo_state, &state->vfo_state, sizeof(vfo_state));
+      memcpy(&state->vfo_state, &temporary, sizeof(vfo_state));
+   }
+   {
+      __typeof__(s_active_vfo) temporary;
+      memcpy(&temporary, &s_active_vfo, sizeof(s_active_vfo));
+      memcpy(&s_active_vfo, &state->s_active_vfo, sizeof(s_active_vfo));
+      memcpy(&state->s_active_vfo, &temporary, sizeof(s_active_vfo));
+   }
+}
+
+void rrclient_vfo_context_free(void *saved) {
+   if (!saved) {
+      return;
+   }
+   rrclient_vfo_context_swap(&saved);
+   dict_free(vfo_state);
+   vfo_state = NULL;
+   s_active_vfo = 'A';
+   rrclient_vfo_context_swap(&saved);
+   free(saved);
 }

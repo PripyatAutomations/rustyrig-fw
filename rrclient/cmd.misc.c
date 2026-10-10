@@ -612,36 +612,6 @@ bool cmd_server(int argc, char **args) {
 
    const char *server = args[1];
 
-   // Trim trailing whitespace; tab completion adds a space after the name
-   char trimmed[64];
-   snprintf(trimmed, sizeof(trimmed), "%s", server ? server : "");
-
-   for (char *tp = trimmed + strlen(trimmed) ; tp > trimmed && isspace( (unsigned char)tp[-1]) ; tp--) {
-      tp[-1] = '\0';
-   }
-
-   server = trimmed;
-
-   if (server && server[0] != '\0') {
-      ui_print(ui_active_window_name(), "%s * Changing server profile to %s", get_chat_ts(now), server);
-      disconnect_server(server);
-
-      // Set the profile name unconditionally, server_name may be NULL on a
-      // fresh start when nothing has connected yet
-      free( (char *)server_name);
-      server_name = strdup(server);
-
-      if (!server_name) {
-         fprintf(stderr, "OOM in parse_chat_input /server\n");
-
-         return true;
-      }
-      Log(LOG_DEBUG, "gtk.core", "Set server profile to %s by console cmd", server);
-      connect_server(server);
-   } else {
-      ui_print(ui_active_window_name(), "Try /server servername to connect");
-      show_server_chooser();
-   }
-
-   return false;
+   // A URL opens an ad hoc connection; a name opens its configuration profile.
+   return connect_server(server);
 }

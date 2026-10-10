@@ -33,7 +33,7 @@ rrconn_t *ws_tx_conn = NULL;
 #endif // USE_MONGOOSE
 
 bool rrclient_connect(const char *url) {
-   return rrclient_connect_url(server_name, url);
+   return rrclient_connect_url(NULL, url);
 }
 
 bool rrclient_disconnect(void) {

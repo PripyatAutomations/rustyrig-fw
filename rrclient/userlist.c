@@ -22,6 +22,7 @@
 #include <rrclient/userlist.h>
 #include <rrclient/frontend.h>
 #include <rrclient/ui.h>
+#include <rrclient/connman.h>
 #include <rrclient/rooms.h>
 
 extern dict *cfg;
@@ -94,7 +95,9 @@ bool userlist_add_or_update(dict *d) {
       }
 
       if (frontend_ops() ) {
-         frontend_ops()->userlist_redraw();
+         if (rrclient_present_context()) {
+            frontend_ops()->userlist_redraw();
+         }
       }
       userlist_refresh_ptt_status();
 
@@ -140,7 +143,9 @@ bool userlist_add_or_update(dict *d) {
    Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
    if (frontend_ops() ) {
-      frontend_ops()->userlist_redraw();
+      if (rrclient_present_context()) {
+         frontend_ops()->userlist_redraw();
+      }
    }
    userlist_refresh_ptt_status();
 
@@ -167,7 +172,9 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
          free(c);
 
          if (frontend_ops() ) {
-            frontend_ops()->userlist_redraw();
+            if (rrclient_present_context()) {
+               frontend_ops()->userlist_redraw();
+            }
          }
          userlist_refresh_ptt_status();
 
@@ -201,7 +208,9 @@ void userlist_remove_room(const char *room) {
    }
 
    if (!dying && frontend_ops() ) {
-      frontend_ops()->userlist_redraw();
+      if (rrclient_present_context()) {
+         frontend_ops()->userlist_redraw();
+      }
    }
    userlist_refresh_ptt_status();
 }
@@ -234,7 +243,9 @@ void userlist_clear_all(void) {
    }
 
    if (frontend_ops() ) {
-      frontend_ops()->userlist_redraw();
+      if (rrclient_present_context()) {
+         frontend_ops()->userlist_redraw();
+      }
    }
    userlist_refresh_ptt_status();
 }
@@ -256,4 +267,35 @@ struct rr_user *userlist_find_in_room(const char *name, const char *room) {
 
 struct rr_user *userlist_find(const char *name) {
    return userlist_find_in_room(name, rrclient_current_room() );
+}
+
+/* Save/load the component view when entering a server connection context. */
+typedef struct {
+   struct rr_user *global_userlist;
+} rrclient_userlist_context;
+void rrclient_userlist_context_swap(void **saved) {
+   if (!*saved) {
+      *saved = calloc(1, sizeof(rrclient_userlist_context));
+
+      if (!*saved) {
+         abort();
+      }
+   }
+   rrclient_userlist_context *state = *saved;
+   {
+      __typeof__(global_userlist) temporary;
+      memcpy(&temporary, &global_userlist, sizeof(global_userlist));
+      memcpy(&global_userlist, &state->global_userlist, sizeof(global_userlist));
+      memcpy(&state->global_userlist, &temporary, sizeof(global_userlist));
+   }
+}
+
+void rrclient_userlist_context_free(void *saved) {
+   if (!saved) {
+      return;
+   }
+   rrclient_userlist_context_swap(&saved);
+   userlist_clear_all();
+   rrclient_userlist_context_swap(&saved);
+   free(saved);
 }

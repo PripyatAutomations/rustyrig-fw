@@ -42,8 +42,7 @@ static void focus_main_window(void) {
    }
 }
 
-// Connect to the server selected in the tree. Always connects (dropping any
-// existing connection first); this button is not a connect/disconnect toggle.
+// Connect to the selected profile without closing other sessions.
 static void do_connect_from_tree(GtkTreeView *view) {
    if (!view) {
       return;
@@ -63,12 +62,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
       if (at && at[1]) {
          const char *new_server = at + 1;
 
-         if (server_name && strcmp(server_name, new_server) != 0) {
-            disconnect_server(server_name);
-         }
-         free( (char *)server_name);
-         server_name = strdup(new_server);
-         connect_server(server_name);
+         connect_server(new_server);
       }
       g_free(entry);
    }

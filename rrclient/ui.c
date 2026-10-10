@@ -21,16 +21,23 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#include <rrclient/connman.h>
 
 // Default to TUI mode, it will be set to UI_MODE_GTK if $DISPLAY is set
 enum GuiMode ui_mode = UI_MODE_TUI;
 
 const char *ui_active_window_name(void) {
+   if (!rrclient_present_context()) {
+      return NULL;
+   }
+
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
-         return window->title;
+         rrclient_connection_select_window(window->title);
+
+         return rrclient_window_room(window->title);
       }
    }
 
@@ -41,25 +48,54 @@ const char *ui_active_window_name(void) {
    return NULL;
 }
 
-// Print formatted texted, stdarg version
+static void ui_output(const char *window, const char *fmt, ...) {
+   va_list ap;
+   va_start(ap, fmt);
+
+   if (frontend_present()) {
+      frontend_ops()->vprint(window, fmt, ap);
+   } else if (ui_mode == UI_MODE_TUI) {
+      const char *name = rrclient_window_name(window);
+      tui_window_t *win = tui_window_find(name);
+
+      if (!win && name && *name && strcasecmp(name, "status")) {
+         win = tui_window_create(name);
+      }
+
+      if (win && name && *name && strcasecmp(name, "status")) {
+         win->cptr = ws_conn;
+      }
+      tui_vprint(win, fmt, ap);
+   }
+   va_end(ap);
+}
+
+// All server status output shares one tab, qualified by profile name.
 bool ui_vprint(const char *window, const char *fmt, va_list ap) {
    if (!fmt) {
       return true;
    }
+   va_list copy;
+   va_copy(copy, ap);
+   int length = vsnprintf(NULL, 0, fmt, copy);
+   va_end(copy);
 
-   if (frontend_present() ) {
-      frontend_ops()->vprint(window, fmt, ap);
-   } else if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *win = tui_window_find(window);
-
-      /* Chat/event replies can arrive before the frontend has created the corresponding tab.  Create the destination instead of silently falling back to the
-       * status window. */
-      if (!win && window && *window && strcasecmp(window, "status") != 0) {
-         win = tui_window_create(window);
-      }
-
-      tui_vprint(win, fmt, ap);
+   if (length < 0) {
+      return true;
    }
+   char *message = malloc((size_t)length + 1);
+
+   if (!message) {
+      return true;
+   }
+   vsnprintf(message, (size_t)length + 1, fmt, ap);
+
+   if ((!window || !*window || !strcasecmp(window, "status")) && server_name && *server_name) {
+      ui_output(window, "|%s| %s", server_name, message);
+   } else {
+      ui_output(window, "%s", message);
+   }
+   free(message);
 
    return false;
 }

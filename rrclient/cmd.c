@@ -226,6 +226,9 @@ client_cmd_t client_cmds[] = {
 
 
 bool parse_chat_input_real(const char *msg) {
+   /* Selecting a TUI conversation selects its server before any command. */
+   (void)ui_active_window_name();
+
    if (!msg || !*msg) {
       Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
 
@@ -381,7 +384,7 @@ bool parse_chat_input_real(const char *msg) {
 
          if (window && window->title[0] &&
             strcasecmp(window->title, "status") != 0) {
-            dict_add(d, "talk.target", window->title);
+            dict_add(d, "talk.target", rrclient_window_room(window->title));
 
             if (window->title[0] != '#' && window->title[0] != '&') {
                dict_add(d, "talk.msg_type", "priv");

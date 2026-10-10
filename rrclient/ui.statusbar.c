@@ -41,6 +41,7 @@ static const char *rrclient_status_line_template(const char *key, const char *fa
 #include <rrclient/media.h>
 #include <rrclient/userlist.h>
 #include <rrclient/rooms.h>
+#include <rrclient/connman.h>
 
 extern const char *login_user;
 
@@ -187,8 +188,8 @@ char *rrclient_tui_topline(tui_window_t *win) {
    // redraw can recurse through the TUI log callback. The copied template is
    // refreshed only when the live config value changes.
    const bool is_room = win && (win->title[0] == '#' || win->title[0] == '&');
-   const bool has_vfos = is_room && rrclient_room_vfos(win->title) &&
-      *rrclient_room_vfos(win->title);
+   const bool has_vfos = is_room && rrclient_room_vfos(rrclient_window_room(win->title)) &&
+      *rrclient_room_vfos(rrclient_window_room(win->title));
    const char *format = !has_vfos ?
       rrclient_status_line_template("tui.room-status-line", RRCLIENT_DEFAULT_ROOM_STATUS_LINE, &cached_room_status_line) :
       rrclient_status_line_template("tui.status-line", RRCLIENT_DEFAULT_STATUS_LINE, &cached_status_line);

@@ -30,6 +30,7 @@
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
 #include <rrclient/ui.h>
+#include <rrclient/connman.h>
 #include <rrclient/rooms.h>
 #include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
@@ -242,6 +243,10 @@ const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[
 }
 
 static void media_sync_audio(void) {
+   if (!rrclient_present_context()) {
+      return;
+   }
+
    for (int tx = 0 ; tx < 2 ; tx++) {
       const char *codec = rrclient_media_current_codec(tx);
 
@@ -846,7 +851,16 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
    }
 }
 
+static void media_server_selected(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+   media_sync_audio();
+}
+
 void rrclient_media_register_events(void) {
+   event_on("client.server.selected", media_server_selected, NULL);
    event_on("serial.gps.outputs.changed", gps_outputs_changed, NULL);
    event_on_binary(RR_GPS_FRAME_EVENT, gps_frame, NULL);
    event_on_binary(RR_NMEA_FRAME_EVENT, gps_frame, NULL);
@@ -1237,4 +1251,58 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    }
 
    return NULL;
+}
+
+/* Save/load the component view when entering a server connection context. */
+typedef struct {
+   char media_my_privs[128];
+   struct rr_media_known known_chans[RR_MEDIA_MAX_CHANS];
+   char media_room[128], gps_scopes[1024];
+   bool media_ready, direction_disabled[2];
+} rrclient_media_context;
+void rrclient_media_context_swap(void **saved) {
+   if (!*saved) {
+      *saved = calloc(1, sizeof(rrclient_media_context));
+
+      if (!*saved) {
+         abort();
+      }
+   }
+   rrclient_media_context *state = *saved;
+   {
+      __typeof__(media_my_privs) temporary;
+      memcpy(&temporary, &media_my_privs, sizeof(media_my_privs));
+      memcpy(&media_my_privs, &state->media_my_privs, sizeof(media_my_privs));
+      memcpy(&state->media_my_privs, &temporary, sizeof(media_my_privs));
+   }
+   {
+      __typeof__(known_chans) temporary;
+      memcpy(&temporary, &known_chans, sizeof(known_chans));
+      memcpy(&known_chans, &state->known_chans, sizeof(known_chans));
+      memcpy(&state->known_chans, &temporary, sizeof(known_chans));
+   }
+   {
+      __typeof__(media_room) temporary;
+      memcpy(&temporary, &media_room, sizeof(media_room));
+      memcpy(&media_room, &state->media_room, sizeof(media_room));
+      memcpy(&state->media_room, &temporary, sizeof(media_room));
+   }
+   {
+      __typeof__(gps_scopes) temporary;
+      memcpy(&temporary, &gps_scopes, sizeof(gps_scopes));
+      memcpy(&gps_scopes, &state->gps_scopes, sizeof(gps_scopes));
+      memcpy(&state->gps_scopes, &temporary, sizeof(gps_scopes));
+   }
+   {
+      __typeof__(media_ready) temporary;
+      memcpy(&temporary, &media_ready, sizeof(media_ready));
+      memcpy(&media_ready, &state->media_ready, sizeof(media_ready));
+      memcpy(&state->media_ready, &temporary, sizeof(media_ready));
+   }
+   {
+      __typeof__(direction_disabled) temporary;
+      memcpy(&temporary, &direction_disabled, sizeof(direction_disabled));
+      memcpy(&direction_disabled, &state->direction_disabled, sizeof(direction_disabled));
+      memcpy(&state->direction_disabled, &temporary, sizeof(direction_disabled));
+   }
 }

@@ -9,7 +9,9 @@ bool dying, restarting;
 time_t now;
 enum GuiMode ui_mode = UI_MODE_NONE;
 const char *login_user = "operator";
-static rrconn_t connection = { .is_ws = true };
+static rrconn_t connection = {
+   .is_ws = true
+};
 rrconn_t *ws_conn = &connection;
 struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
@@ -83,6 +85,11 @@ static char *capture_read(FILE *file) {
 
    return text;
 }
+/* This single-server fixture uses unqualified conversation names. */
+const char *rrclient_window_room(const char *window) {
+   return window;
+}
+
 int main(void) {
    cfg = dict_new();
    default_cfg = dict_new();

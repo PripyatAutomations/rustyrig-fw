@@ -11,6 +11,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/rooms.h>
+#include <rrclient/connman.h>
 #include <rrclient/frontend.h>
 
 extern rrconn_t *ws_conn;
@@ -175,7 +176,7 @@ void rrclient_rooms_disconnect(void) {
 void rrclient_rooms_rejoin_available(void) {
    for (size_t i = 0 ; i < reconnect_room_count ; i++) {
       if ((ws_conn && ws_conn->server && !ws_conn->is_ws) ||
-          room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
+         room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
          rrclient_room_request_join(reconnect_rooms[i]);
       }
    }
@@ -350,6 +351,10 @@ const char *rrclient_room_topic(const char *room) {
 }
 
 const char *rrclient_current_room(void) {
+   if (!rrclient_present_context()) {
+      return ws_authoritative_room();
+   }
+
    if (frontend_ops() ) {
       const char *room = frontend_ops()->chat_current_room();
 
@@ -457,4 +462,61 @@ void rrclient_room_set_active_vfo(const char *room, char vfo) {
          return;
       }
    }
+}
+
+/* Save/load the component view when entering a server connection context. */
+typedef struct {
+   client_room_t *rooms;
+   char **available_rooms, **reconnect_rooms;
+   size_t available_room_count, reconnect_room_count;
+} rrclient_rooms_context;
+void rrclient_rooms_context_swap(void **saved) {
+   if (!*saved) {
+      *saved = calloc(1, sizeof(rrclient_rooms_context));
+
+      if (!*saved) {
+         abort();
+      }
+   }
+   rrclient_rooms_context *state = *saved;
+   {
+      __typeof__(rooms) temporary;
+      memcpy(&temporary, &rooms, sizeof(rooms));
+      memcpy(&rooms, &state->rooms, sizeof(rooms));
+      memcpy(&state->rooms, &temporary, sizeof(rooms));
+   }
+   {
+      __typeof__(available_rooms) temporary;
+      memcpy(&temporary, &available_rooms, sizeof(available_rooms));
+      memcpy(&available_rooms, &state->available_rooms, sizeof(available_rooms));
+      memcpy(&state->available_rooms, &temporary, sizeof(available_rooms));
+   }
+   {
+      __typeof__(available_room_count) temporary;
+      memcpy(&temporary, &available_room_count, sizeof(available_room_count));
+      memcpy(&available_room_count, &state->available_room_count, sizeof(available_room_count));
+      memcpy(&state->available_room_count, &temporary, sizeof(available_room_count));
+   }
+   {
+      __typeof__(reconnect_rooms) temporary;
+      memcpy(&temporary, &reconnect_rooms, sizeof(reconnect_rooms));
+      memcpy(&reconnect_rooms, &state->reconnect_rooms, sizeof(reconnect_rooms));
+      memcpy(&state->reconnect_rooms, &temporary, sizeof(reconnect_rooms));
+   }
+   {
+      __typeof__(reconnect_room_count) temporary;
+      memcpy(&temporary, &reconnect_room_count, sizeof(reconnect_room_count));
+      memcpy(&reconnect_room_count, &state->reconnect_room_count, sizeof(reconnect_room_count));
+      memcpy(&state->reconnect_room_count, &temporary, sizeof(reconnect_room_count));
+   }
+}
+
+void rrclient_rooms_context_free(void *saved) {
+   if (!saved) {
+      return;
+   }
+   rrclient_rooms_context_swap(&saved);
+   rrclient_rooms_clear();
+   rrclient_rooms_context_swap(&saved);
+   free(saved);
 }

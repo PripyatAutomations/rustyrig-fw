@@ -1,373 +1,694 @@
-//
-// rrclient/connman.c: Connection Manager
-//    This is part of rustyrig-fw.
-// https://github.com/pripyatautomations/rustyrig-fw
-//
-// Do not pay money for this, except donations to the project, if you wish to.
-// The software is not for sale. It is freely available, always.
-//
-// Licensed under MIT license, if built without mongoose or GPL if built with.
-//
-// XXX: This needs finished to fully support multiple connections in one client
-//
-#include <stddef.h>
-#include <stdarg.h>
+// Native connection manager. Wire handlers remain in librrprotocol.
 #include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <unistd.h>
 #include <string.h>
-#include <time.h>
+#include <stdio.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
-#include <rrclient/userlist.h>
-#include <rrclient/ui.h>
 #include <librrprotocol/http.h>
 #include <librrprotocol/irc.h>
+#include <rrclient/connman.h>
+#include <rrclient/ui.h>
 
-// Server connections
-extern int ws_connected;
 extern const char *login_user;
-extern rrconn_t *ws_conn, *ws_tx_conn;
-extern rr_connection_t *active_connections;
-extern dict *cfg;
 extern bool dying;
-extern time_t now, poll_block_expire, poll_block_delay;
 extern char session_token[HTTP_TOKEN_LEN + 1];
-extern void rrclient_update_connection_ui(int connected);       // events.c
-extern void tui_refresh_sb_online(void);                        // events.c
+extern void rrclient_update_connection_ui(int connected);
+extern void tui_refresh_sb_online(void);
 
-static const char *rrclient_resolve_server_name(const char *requested_server) {
-   if (requested_server && *requested_server) {
-      return requested_server;
-   }
-   const char *autoconnect = cfg_get_exp("server.auto-connect");
+/* Component-owned views are exchanged only on the main event-loop thread. Weak hooks let headless transport probes omit unrelated client components. */
+extern void rrclient_rooms_context_swap(void **) __attribute__((weak));
+extern void rrclient_userlist_context_swap(void **) __attribute__((weak));
+extern void rrclient_vfo_context_swap(void **) __attribute__((weak));
+extern void rrclient_objects_context_swap(void **) __attribute__((weak));
+extern void rrclient_media_context_swap(void **) __attribute__((weak));
+extern void ws_rooms_context_swap(void **);
+extern void rrclient_rooms_context_free(void *) __attribute__((weak));
+extern void rrclient_userlist_context_free(void *) __attribute__((weak));
+extern void rrclient_vfo_context_free(void *) __attribute__((weak));
+extern void rrclient_objects_context_free(void *) __attribute__((weak));
 
-   if (autoconnect) {
-      return autoconnect;
-   }
 
-   if (server_name && *server_name) {
-      return server_name;
+typedef struct client_server {
+   char *name, *url;
+   rrconn_t *connection;
+   const char *user;
+   int connected;
+   bool reconnect_enabled, reconnect_pending;
+   unsigned reconnect_tries;
+   time_t reconnect_at;
+   void *rooms, *users, *vfos, *objects, *media, *wire_rooms;
+   struct client_server *next;
+} client_server_t;
+
+static client_server_t *servers, *selected, *context;
+static unsigned dispatch_depth;
+static bool reconnect_attempting;
+static const unsigned reconnect_delays[] = {
+   1, 2, 5, 10, 30, 60
+};
+#define RRC_MAX_RECONNECTS 10
+
+static client_server_t *find_server(const char *name) {
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (name && !strcmp(s->name, name)) {
+         return s;
+      }
    }
 
    return NULL;
 }
 
-#ifdef  USE_MONGOOSE
-extern struct mg_mgr mgr;
-extern void http_handler(struct mg_connection *c, int ev, void *ev_data);
+static void exchange_views(client_server_t *s) {
+   if (rrclient_rooms_context_swap) {
+      rrclient_rooms_context_swap(&s->rooms);
+   }
 
-typedef struct {
-   rrconn_t connection;
-   server_cfg_t server;
-} rrclient_transport_t;
+   if (rrclient_userlist_context_swap) {
+      rrclient_userlist_context_swap(&s->users);
+   }
 
-static void rrclient_transport_handler(struct mg_connection *c, int ev, void *data) {
-   rrconn_t *cptr = c->fn_data;
-   if (!cptr) {
+   if (rrclient_vfo_context_swap) {
+      rrclient_vfo_context_swap(&s->vfos);
+   }
+
+   if (rrclient_objects_context_swap) {
+      rrclient_objects_context_swap(&s->objects);
+   }
+
+   if (rrclient_media_context_swap) {
+      rrclient_media_context_swap(&s->media);
+   }
+   ws_rooms_context_swap(&s->wire_rooms);
+}
+
+static void activate(client_server_t *s) {
+   if (context == s) {
       return;
    }
-   if (cptr != ws_conn) {
-      if (ev == MG_EV_CLOSE) {
-         free(cptr);
+
+   if (context) {
+      context->user = login_user;
+      context->connected = ws_connected;
+      exchange_views(context);
+   }
+   context = s;
+   free((void *)server_name);
+   server_name = s ? strdup(s->name) : NULL;
+   login_user = s ? s->user : NULL;
+   ws_conn = s ? s->connection : NULL;
+   ws_connected = s ? s->connected : 0;
+   memset(session_token, 0, sizeof(session_token));
+
+   if (s) {
+      if (s->connection) {
+         memcpy(session_token, s->connection->token, sizeof(session_token));
       }
-      return;
+      exchange_views(s);
    }
-   if (ev == MG_EV_OPEN) {
-      cptr->conn = c;
-   }
-   if (cptr->is_ws) {
-      http_handler(c, ev, data);
-      // Fatal WS error listeners release the native state before CLOSE.
-      if (ev == MG_EV_ERROR && ws_conn != cptr) {
-         c->fn_data = NULL;
+}
+
+bool rrclient_context_is_selected(void) {
+   return !context || context == selected;
+}
+
+const char *rrclient_selected_server(void) {
+   return selected ? selected->name : NULL;
+}
+
+const char *rrclient_connection_name(const rrconn_t *connection) {
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (s->connection == connection) {
+         return s->name;
       }
-   } else {
-      irc_mongoose_handler(c, ev, data);
    }
+
+   return NULL;
 }
 
-#endif // USE_MONGOOSE
+rrconn_t *rrclient_connection_find(const char *name) {
+   client_server_t *s = find_server(name);
 
-static const unsigned int reconnect_delays[] = {
-   1, 2, 5, 10, 30, 60
-};
-#define RRC_MAX_RECONNECTS 10
-
-static bool reconnect_enabled = false;
-static bool reconnect_pending = false;
-static bool reconnect_attempting = false;
-static unsigned int reconnect_tries = 0;
-static time_t reconnect_at = 0;
-
-static void rrclient_cancel_reconnect(void) {
-   reconnect_enabled = false;
-   reconnect_pending = false;
-   reconnect_tries = 0;
-   reconnect_at = 0;
+   return s ? s->connection : NULL;
 }
 
-static void rrclient_schedule_reconnect(void) {
-   if (!reconnect_enabled || reconnect_pending || dying || !server_name || !*server_name) {
+int rrclient_connection_state(const char *name) {
+   client_server_t *s = find_server(name);
+
+   return s ? (s == context ? ws_connected : s->connected) : 0;
+}
+
+const char *rrclient_connection_iter(unsigned index) {
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (!index--) {
+         return s->name;
+      }
+   }
+
+   return NULL;
+}
+
+bool rrclient_connection_select(const char *name) {
+   client_server_t *s = find_server(name);
+
+   if (!s) {
+      return false;
+   }
+
+   if (dispatch_depth) {
+      return s == selected;
+   }
+
+   if (selected == s && context == s) {
+      return true;
+   }
+   selected = s;
+
+   if (!dispatch_depth) {
+      activate(s);
+      rrclient_update_connection_ui(ws_connected);
+      tui_refresh_sb_online();
+   }
+   event_emit("client.server.selected", s->connection, s->name);
+
+   return true;
+}
+
+bool rrclient_connection_cycle_status(bool status_active) {
+   return status_active && rrclient_connection_cycle();
+}
+
+bool rrclient_connection_cycle(void) {
+#ifndef USE_MONGOOSE
+
+   return false;
+#else
+
+   if (!servers) {
+      return false;
+   }
+   client_server_t *next = selected && selected->next ? selected->next : servers;
+   client_server_t *first = next;
+   do {
+      if (next->connection && next->connection->conn && !next->connection->conn->is_closing) {
+         return rrclient_connection_select(next->name);
+      }
+      next = next->next ? next->next : servers;
+   } while (next != first);
+   return false;
+#endif
+}
+
+/* Stable, bounded window keys keep equal room names on different servers separate without changing their wire names or storing stale socket pointers. */
+typedef struct client_window {
+   char key[64];
+   char *room;
+   client_server_t *server;
+   struct client_window *next;
+} client_window_t;
+static client_window_t *windows;
+static unsigned window_id;
+
+const char *rrclient_window_name(const char *room) {
+   if (!room || !*room || !strcasecmp(room, "status") || !context) {
+      return room;
+   }
+
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (w->server == context && !strcmp(w->room, room)) {
+         return w->key;
+      }
+   }
+
+   client_window_t *w = calloc(1, sizeof(*w));
+
+   if (!w || !(w->room = strdup(room))) {
+      free(w);
+
+      return NULL;
+   }
+   w->server = context;
+   snprintf(w->key, sizeof(w->key), "%.32s|%.18s|%u", room, context->name, ++window_id);
+   w->next = windows;
+   windows = w;
+
+   return w->key;
+}
+
+const char *rrclient_window_room(const char *window) {
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (window && !strcmp(w->key, window)) {
+         return w->room;
+      }
+   }
+
+   return window;
+}
+
+void rrclient_connection_select_window(const char *window) {
+   if (dispatch_depth) {
       return;
    }
 
-   // Never schedule a reconnect while we're already trying to connect
-   if (ws_connected) {
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (window && !strcmp(w->key, window)) {
+         rrclient_connection_select(w->server->name);
+
+         return;
+      }
+   }
+}
+
+static void cancel_reconnect(client_server_t *s) {
+   if (!s) {
+      return;
+   }
+   s->reconnect_enabled = s->reconnect_pending = false;
+   s->reconnect_tries = 0;
+}
+
+static void connection_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)data;
+   (void)user;
+   client_server_t *s = context;
+
+   if (!s || (cptr && cptr != s->connection)) {
       return;
    }
 
-   if (reconnect_tries >= RRC_MAX_RECONNECTS) {
-      ui_print(NULL, "%s \00304Giving up after %u reconnect attempts\017", get_chat_ts(now), reconnect_tries);
-      reconnect_enabled = false;
+   if (!strcmp(event, "auth.error")) {
+      cancel_reconnect(s);
+   } else if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected")) {
+      s->reconnect_pending = false;
+      s->reconnect_tries = 0;
+      ws_connected = 1;
+   } else if (s->reconnect_enabled && !s->reconnect_pending && !dying) {
+      if (s->reconnect_tries >= RRC_MAX_RECONNECTS) {
+         cancel_reconnect(s);
+         ui_print(NULL, "Giving up after %u reconnect attempts", RRC_MAX_RECONNECTS);
 
-      return;
-   }
+         return;
+      }
+      unsigned i = s->reconnect_tries++;
 
-   unsigned int delay_index = reconnect_tries;
-
-   if (delay_index >= sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) ) {
-      delay_index = sizeof(reconnect_delays) / sizeof(reconnect_delays[0]) - 1;
-   }
-   unsigned int delay = reconnect_delays[delay_index];
-
-   reconnect_tries++;
-   reconnect_pending = true;
-   reconnect_at = time(NULL) + delay;
-   ws_connected = -1;
-   tui_refresh_sb_online();
-   ui_print(NULL, "%s \00308Reconnecting in %u second%s (attempt %u/%u)\017", get_chat_ts(now), delay, delay == 1 ? "" : "s", reconnect_tries,
-      RRC_MAX_RECONNECTS);
-}
-
-static void rrclient_handle_auth_error_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   // Auth failures (bad login/password, kicked, disabled account) are not
-   // transient: never auto-reconnect, the user must fix credentials and
-   // connect manually. The red error display happens in the auth.error
-   // handler in events.c
-   rrclient_cancel_reconnect();
-}
-
-static void rrclient_handle_reconnect_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (strcasecmp(event, "authorized") == 0 || strcasecmp(event, "irc.connected") == 0) {
-      reconnect_pending = false;
-      reconnect_tries = 0;
-      reconnect_at = 0;
-   } else if (strcasecmp(event, "disconnected") == 0 || strcasecmp(event, "http.error") == 0) {
-      // "disconnected" and "http.error" (MG_EV_ERROR) are connection failures:
-      // schedule a reconnect. Plain "error" events are non-fatal protocol error
-      // messages from the server (cli.error.c) and must NOT drop the connection.
-      rrclient_schedule_reconnect();
+      if (i >= sizeof(reconnect_delays) / sizeof(*reconnect_delays)) {
+         i = sizeof(reconnect_delays) / sizeof(*reconnect_delays) - 1;
+      }
+      s->reconnect_pending = true;
+      s->reconnect_at = now + reconnect_delays[i];
+      ws_connected = -1;
+      ui_print(NULL, "Reconnecting in %u seconds (attempt %u/%u)", reconnect_delays[i], s->reconnect_tries, RRC_MAX_RECONNECTS);
    }
 }
 
 void connman_register_events(void) {
-   event_on("authorized", rrclient_handle_reconnect_event, NULL);
-   event_on("irc.connected", rrclient_handle_reconnect_event, NULL);
-   event_on("disconnected", rrclient_handle_reconnect_event, NULL);
-   event_on("http.error", rrclient_handle_reconnect_event, NULL);
-   event_on("auth.error", rrclient_handle_auth_error_event, NULL);
-   // NB: no event_on("error", ...) here - server protocol errors are non-fatal
+   event_on("authorized", connection_event, NULL);
+   event_on("irc.connected", connection_event, NULL);
+   event_on("disconnected", connection_event, NULL);
+   event_on("http.error", connection_event, NULL);
+   event_on("auth.error", connection_event, NULL);
 }
 
-// Reconnect engine poll - split from the mg_mgr_poll() side so the GTK GSource
-// can block inside mg_mgr_poll() and still drive reconnects.
-void rrclient_poll_events_reconnect(void) {
-   if (reconnect_pending && time(NULL) >= reconnect_at) {
-      reconnect_pending = false;
+#ifdef USE_MONGOOSE
+extern struct mg_mgr mgr;
+extern void http_handler(struct mg_connection *, int, void *);
+typedef struct {
+   rrconn_t connection;
+   server_cfg_t server;
+   client_server_t *owner;
+} rrclient_transport_t;
 
-      // ws_connected == 1 means connected; 0 offline; -1 "trying" from
-      // schedule_reconnect() - all but 1 are valid states to (re)connect in.
-      if (reconnect_enabled && ws_connected != 1 && !dying) {
-         reconnect_attempting = true;
-         connect_server(server_name);
-         reconnect_attempting = false;
+static void rrclient_transport_handler(struct mg_connection *c, int ev, void *data) {
+   rrclient_transport_t *t = c->fn_data;
+
+   if (!t) {
+      return;
+   }
+   client_server_t *s = t->owner;
+   rrconn_t *cptr = &t->connection;
+
+   if (s->connection != cptr) {
+      if (ev == MG_EV_CLOSE) {
+         free(t);
+         c->fn_data = NULL;
+      }
+
+      return;
+   }
+
+   /* Only the selected server feeds shared audio/serial output devices. Text updates still populate every server's independent protocol/client state. */
+   if (ev == MG_EV_WS_MSG && s != selected && data &&
+      ((((struct mg_ws_message *)data)->flags & 15) == WEBSOCKET_OP_BINARY)) {
+      return;
+   }
+   client_server_t *previous = context;
+   activate(s);
+   dispatch_depth++;
+
+   if (ev == MG_EV_OPEN) {
+      cptr->conn = c;
+   }
+
+   if (cptr->is_ws) {
+      http_handler(c, ev, data);
+   } else {
+      irc_mongoose_handler(c, ev, data);
+   }
+   dispatch_depth--;
+
+   if (ev == MG_EV_CLOSE) {
+      cptr->conn = NULL;
+      /* Keep the offline profile selectable, but never retain a dead socket. */
+   }
+   s->connected = ws_connected;
+   activate(dispatch_depth ? previous : selected);
+}
+#endif
+
+void rrclient_poll_events_reconnect(void) {
+#ifdef USE_MONGOOSE
+
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      if (s->reconnect_pending && now >= s->reconnect_at && !dying &&
+         (!s->connection || !s->connection->conn)) {
+         s->reconnect_pending = false;
+
+         if (s->reconnect_enabled) {
+            reconnect_attempting = true;
+            rrclient_connect_url(s->name, s->url);
+            reconnect_attempting = false;
+         }
       }
    }
+
+#endif
 }
 
-///////////////////////////////////////////////////////////
-// Handle properly connect, disconnect, and error events //
-///////////////////////////////////////////////////////////
-bool disconnect_server(const char *server) {
-   Log(LOG_DEBUG, "connman", "disconnect_server: |%s|", server);
+bool disconnect_server(const char *name) {
+   client_server_t *s = name && *name ? find_server(name) : selected;
 
-   rrclient_cancel_reconnect();
-   rrclient_update_connection_ui(0);
+   if (!s) {
+      return true;
+   }
+   cancel_reconnect(s);
+#ifdef USE_MONGOOSE
 
-   if (ws_conn) {
-#ifdef  USE_MONGOOSE
+   if (s->connection && s->connection->conn) {
+      s->connection->conn->is_closing = 1;
+   }
+#endif
+   s->connected = 0;
 
-      if (ws_conn->conn) {
-         ws_conn->conn->is_closing = 1;
-      }
-#endif // defined(USE_MONGOOSE)
-      ws_connected = false;
-      userlist_clear_all();
+   if (s == context) {
+      ws_connected = 0;
    }
 
    return false;
 }
 
-// XXX: pass pointer to the server structure
-bool connect_server(const char *server) {
-   const char *resolved_server = rrclient_resolve_server_name(server);
-   if (!resolved_server) {
+bool connect_server(const char *name) {
+   if (!name || !*name) {
+      name = rrclient_selected_server();
+   }
+
+   if (!name) {
       return true;
    }
-   const char *url = get_server_property(resolved_server, "server.url");
-   return rrclient_connect_url(resolved_server, url);
+
+   if (strstr(name, "://")) {
+      return rrclient_connect_url(NULL, name);
+   }
+
+   return rrclient_connect_url(name, get_server_property(name, "server.url"));
+}
+
+static bool same_url(const char *a, const char *b) {
+   rr_server_url_t left, right;
+
+   return rr_server_url_parse(a, &left) && rr_server_url_parse(b, &right) &&
+          left.transport == right.transport && left.port == right.port &&
+          !strcasecmp(left.host, right.host) && (left.irc || !strcmp(left.path, right.path));
 }
 
 bool rrclient_connect_url(const char *profile, const char *url) {
    rr_server_url_t endpoint;
+
    if (!rr_server_url_parse(url, &endpoint)) {
-      ui_print(NULL, "\00304Invalid server.url: use ws://host:port/path, wss://host:port/path, irc://host:port or ircs://host:port\017");
+      ui_print(NULL, "\00304Invalid server.url: use ws://host/path, wss://host/path, irc://host or ircs://host (optional :port)\017");
+
       return true;
    }
 #ifdef USE_MONGOOSE
-   if (ws_conn && ws_conn->conn && !ws_conn->conn->is_closing) {
-      ui_print(NULL, "\00308Disconnect the current server before connecting\017");
-      return true;
-   }
-   rrclient_transport_t *transport = calloc(1, sizeof(*transport));
-   if (!transport) {
-      return true;
-   }
-   char *name = strdup(profile && *profile ? profile : "direct");
-   if (!name) {
-      free(transport);
-      return true;
-   }
-   free((void *)server_name);
-   server_name = name;
-   if (!reconnect_attempting) {
-      reconnect_enabled = true;
-      reconnect_pending = false;
-      reconnect_tries = 0;
-      reconnect_at = 0;
-   }
-   rrconn_t *cptr = &transport->connection;
-   cptr->fd = -1;
-   cptr->is_ws = !endpoint.irc;
-   if (endpoint.irc) {
-      cptr->server = &transport->server;
-      snprintf(cptr->server->host, sizeof(cptr->server->host), "%s", endpoint.host);
-      snprintf(cptr->server->network, sizeof(cptr->server->network), "%s", server_name);
-      cptr->server->port = endpoint.port;
-      cptr->server->tls = endpoint.tls;
-      const char *nick = get_server_property(server_name, "server.user");
-      const char *pass = get_server_property(server_name, "server.pass");
-      const char *autojoin = get_server_property(server_name, "autojoin");
-      if (!nick || !*nick) {
-         nick = cfg_get("irc.nick");
-         if (!nick || !*nick) {
-            nick = "nonick";
+
+   /* A configured profile name takes precedence over the URL hostname. */
+   if (!profile || !*profile) {
+      int rank = 0;
+      const char *key;
+      char *value;
+      while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+         size_t n = strlen(key);
+
+         if (!strncmp(key, "server:", 7) && n > 18 && !strcmp(key + n - 11, ".server.url") && value && same_url(value, url)) {
+            static char matched[512];
+            snprintf(matched, sizeof(matched), "%.*s", (int)(n - 18), key + 7);
+            profile = matched;
+            break;
          }
       }
-      if (strlen(nick) >= sizeof(cptr->nick) ||
-          (pass && strlen(pass) >= sizeof(cptr->server->pass)) ||
-          (autojoin && strlen(autojoin) >= sizeof(cptr->server->autojoin))) {
-         ui_print(NULL, "\00304IRC nickname, password or autojoin exceeds the protocol limit\017");
-         free(transport);
-         return true;
-      }
-      snprintf(cptr->nick, sizeof(cptr->nick), "%s", nick);
-      snprintf(cptr->server->nick, sizeof(cptr->server->nick), "%s", cptr->nick);
-      snprintf(cptr->server->pass, sizeof(cptr->server->pass), "%s", pass ? pass : "");
-      snprintf(cptr->server->autojoin, sizeof(cptr->server->autojoin), "%s", autojoin ? autojoin : "");
-      if (irc_init()) {
-         free(transport);
-         return true;
+
+      if (!profile || !*profile) {
+         profile = endpoint.host;
       }
    }
-   ws_conn = cptr;
+   client_server_t *s = find_server(profile);
+
+   if (s && s->connection && s->connection->conn && !s->connection->conn->is_closing) {
+      if (!same_url(s->url, url)) {
+         ui_print(NULL, "Server name %s is already connected; use a distinct configuration section for another endpoint", profile);
+
+         return true;
+      }
+      rrclient_connection_select(s->name);
+
+      return false;
+   }
+   char *saved_url = strdup(url);
+
+   if (!saved_url) {
+      return true;
+   }
+
+   if (!s) {
+      s = calloc(1, sizeof(*s));
+
+      if (!s) {
+         free(saved_url);
+
+         return true;
+      }
+      s->name = strdup(profile);
+
+      if (!s->name) {
+         free(s);
+         free(saved_url);
+
+         return true;
+      }
+      client_server_t **tail = &servers;
+      while (*tail) {
+         tail = &(*tail)->next;
+      }
+      *tail = s;
+   }
+   free(s->url);
+   s->url = saved_url;
+   url = s->url;
+   rr_server_url_parse(url, &endpoint);
+   rrclient_transport_t *t = calloc(1, sizeof(*t));
+
+   if (!t) {
+      return true;
+   }
+   t->owner = s;
+   t->connection.fd = -1;
+   t->connection.is_ws = !endpoint.irc;
+   /* Every transport owns its profile/host, including secure WebSockets. */
+   t->connection.server = &t->server;
+   snprintf(t->server.host, sizeof(t->server.host), "%s", endpoint.host);
+   snprintf(t->server.network, sizeof(t->server.network), "%s", s->name);
+   t->server.port = endpoint.port;
+   t->server.tls = endpoint.tls;
+   const char *nick = get_server_property(s->name, "server.user");
+   const char *pass = get_server_property(s->name, "server.pass");
+   const char *autojoin = get_server_property(s->name, "autojoin");
+
+   if (endpoint.irc && (!nick || !*nick)) {
+      nick = cfg_get("irc.nick");
+   }
+
+   if (!nick || !*nick) {
+      nick = endpoint.irc ? "nonick" : "guest";
+   }
+
+   if (strlen(nick) >= sizeof(t->connection.nick) || (pass && strlen(pass) >= sizeof(t->server.pass)) ||
+      (autojoin && strlen(autojoin) >= sizeof(t->server.autojoin))) {
+      free(t);
+
+      return true;
+   }
+   snprintf(t->connection.nick, sizeof(t->connection.nick), "%s", nick);
+   snprintf(t->server.nick, sizeof(t->server.nick), "%s", nick);
+   snprintf(t->server.pass, sizeof(t->server.pass), "%s", pass ? pass : "");
+   snprintf(t->server.autojoin, sizeof(t->server.autojoin), "%s", autojoin ? autojoin : "");
+
+   if (endpoint.irc && irc_init()) {
+      free(t);
+
+      return true;
+   }
+   rrconn_t *old = s->connection;
+   s->connection = &t->connection;
+
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (w->server == s) {
+         tui_window_t *window = tui_window_find(w->key);
+
+         if (window) {
+            window->cptr = s->connection;
+         }
+      }
+   }
+
+   if (old && !old->conn) {
+      free(old);
+   }
+   bool reconnecting = reconnect_attempting;
+
+   if (!reconnecting) {
+      s->reconnect_tries = 0;
+   }
+   s->reconnect_enabled = true;
+   s->reconnect_pending = false;
+   s->connected = -1;
+
+   if (!selected || !reconnecting) {
+      selected = s;
+   }
+   activate(s);
+   ws_conn = s->connection;
    ws_connected = -1;
-   rrclient_update_connection_ui(-1);
    ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
    char connect_url[2048];
-   const char *scheme = endpoint.irc ? (endpoint.tls ? "tls" : "tcp") :
-      (endpoint.tls ? "wss" : "ws");
-   int length = snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", scheme,
-      endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
+   const char *scheme = endpoint.irc ? (endpoint.tls ? "tls" : "tcp") : (endpoint.tls ? "wss" : "ws");
+   int length = snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", scheme, endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
       endpoint.port, endpoint.irc ? "" : endpoint.path);
+
    if (length < 0 || (size_t)length >= sizeof(connect_url)) {
-      free(ws_conn);
+      free(t);
+      s->connection = NULL;
       ws_conn = NULL;
       ws_connected = 0;
-      rrclient_update_connection_ui(0);
+      activate(selected);
+
       return true;
    }
-   struct mg_connection *connection = endpoint.irc ?
-      mg_connect(&mgr, connect_url, rrclient_transport_handler, cptr) :
-      mg_ws_connect(&mgr, connect_url, rrclient_transport_handler, cptr, NULL);
-   if (!connection) {
-      if (ws_conn == cptr) {
-         free(ws_conn);
-         ws_conn = NULL;
-      }
+   dispatch_depth++;
+   struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, connect_url, rrclient_transport_handler, t) :
+      mg_ws_connect(&mgr, connect_url, rrclient_transport_handler, t, NULL);
+   dispatch_depth--;
+
+   if (!c) {
       ws_connected = 0;
-      event_emit("http.error", NULL, NULL);
-      return true;
+      event_emit("http.error", s->connection, NULL);
+      free(t);
+      s->connection = NULL;
+      ws_conn = NULL;
+   } else {
+      t->connection.conn = c;
    }
-   if (ws_conn == cptr) {
-      cptr->conn = connection;
-   }
-   return false;
+   s->connected = ws_connected;
+   activate(selected);
+   event_emit("client.server.selected", selected ? selected->connection : NULL, rrclient_selected_server());
+
+   return !c;
 #else
    ui_print(NULL, "Server connections require the Mongoose transport backend");
+
    return true;
 #endif
 }
 
-bool connect_or_disconnect(const char *server) {
-   const char *resolved_server = rrclient_resolve_server_name(server);
+bool connect_or_disconnect(const char *name) {
+   client_server_t *s = find_server(name);
+#ifdef USE_MONGOOSE
 
-   if (!resolved_server) {
-      Log(LOG_WARN, "connman", "connect_or_disconnect called with no server");
-
-      return true;
+   if (s && s->connection && s->connection->conn && !s->connection->conn->is_closing) {
+      return disconnect_server(name);
    }
+#else
+   (void)s;
+#endif
 
-   if (ws_connected) {
-      disconnect_server(resolved_server);
-   } else {
-      if (!server_name || strcmp(server_name, resolved_server) != 0) {
-         free( (void *)server_name);
-         server_name = strdup(resolved_server);
-      }
-      connect_server(resolved_server);
-   }
-
-   return false;
+   return connect_server(name);
 }
 
 void connman_autoconnect(void) {
-   // Should we connect to a server on startup?
-   const char *autoconnect = cfg_get_exp("server.auto-connect");
+   char *list = (char *)cfg_get_exp("server.auto-connect");
 
-   if (autoconnect && *autoconnect) {
-      char *tv = strdup(autoconnect);
-
-      if (!tv) {
-         abort();
-      }
-      // Split this on ',' and connect to allow configured servers
-      char *sp = strtok(tv, ",");
-      while (sp) {
-         char this_server[256];
-         memset(this_server, 0, sizeof(this_server) );
-         snprintf(this_server, sizeof(this_server), "%s", sp);
-         ui_print(NULL, "%s * Autoconnect profile: %s *", get_chat_ts(now), this_server);
-         sp = strtok(NULL, ",");
-         connect_or_disconnect(this_server);
-      }
-      free(tv);
-      free( (void *)autoconnect);
-      autoconnect = NULL;
-   } else {
+   if (!list || !*list) {
+      free(list);
       show_server_chooser();
+
+      return;
+   }
+   char *save = NULL;
+
+   for (char *name = strtok_r(list, ", \t", &save) ; name ; name = strtok_r(NULL, ", \t", &save)) {
+      connect_server(name);
+   }
+
+   free(list);
+}
+
+/* Call after the transport manager has emitted final CLOSE notifications. */
+void connman_shutdown(void) {
+   selected = NULL;
+   activate(NULL);
+   while (windows) {
+      client_window_t *next = windows->next;
+      tui_window_t *window = tui_window_find(windows->key);
+
+      if (window) {
+         window->cptr = NULL;
+      }
+      free(windows->room);
+      free(windows);
+      windows = next;
+   }
+   while (servers) {
+      client_server_t *next = servers->next;
+
+      if (rrclient_rooms_context_free) {
+         rrclient_rooms_context_free(servers->rooms);
+      }
+
+      if (rrclient_userlist_context_free) {
+         rrclient_userlist_context_free(servers->users);
+      }
+
+      if (rrclient_vfo_context_free) {
+         rrclient_vfo_context_free(servers->vfos);
+      }
+
+      if (rrclient_objects_context_free) {
+         rrclient_objects_context_free(servers->objects);
+      }
+      free(servers->media);
+      free(servers->wire_rooms);
+      free((void *)servers->user);
+      free(servers->connection);
+      free(servers->name);
+      free(servers->url);
+      free(servers);
+      servers = next;
    }
 }

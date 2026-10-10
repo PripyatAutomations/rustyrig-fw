@@ -82,10 +82,10 @@ bool cmd_query(int argc, char **args) {
    }
 
    if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *window = tui_window_find(args[1]);
+      tui_window_t *window = tui_window_find(rrclient_window_name(args[1]));
 
       if (!window) {
-         window = tui_window_create(args[1]);
+         window = tui_window_create(rrclient_window_name(args[1]));
       }
 
       if (window) {
@@ -145,7 +145,7 @@ bool cmd_me(int argc, char **args) {
       tui_window_t *window = tui_active_window();
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
-         dict_add(d, "talk.target", window->title);
+         dict_add(d, "talk.target", rrclient_window_room(window->title));
       } else if (cfg_get_bool("tui.status-chat", false) ) {
          const char *room = ws_authoritative_room();
 
@@ -188,10 +188,10 @@ bool cmd_msg(int argc, char **args) {
    }
 
    if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *window = tui_window_find(target);
+      tui_window_t *window = tui_window_find(rrclient_window_name(target));
 
       if (!window) {
-         window = tui_window_create(target);
+         window = tui_window_create(rrclient_window_name(target));
       }
 
       if (window) {
@@ -241,11 +241,11 @@ bool cmd_notice(int argc, char **args) {
       bool new_win = false;
 
       if (*args[1]) {
-         wp = tui_window_find(args[1]);
+         wp = tui_window_find(rrclient_window_name(args[1]));
 
          if (!wp) {
             new_win = true;
-            wp = tui_window_create(args[1]);
+            wp = tui_window_create(rrclient_window_name(args[1]));
             wp->cptr = tui_active_window()->cptr;
          }
       }
@@ -288,7 +288,7 @@ bool cmd_part(int argc, char **args) {
 
          if (window && window->title[0] &&
             strcasecmp(window->title, "status") != 0) {
-            target = window->title;
+            target = rrclient_window_room(window->title);
          }
       } else if (frontend_ops() ) {
          target = frontend_ops()->chat_current_room();
@@ -302,7 +302,7 @@ bool cmd_part(int argc, char **args) {
       }
 
       if (ui_mode == UI_MODE_TUI) {
-         tui_window_t *window = tui_window_find(target);
+         tui_window_t *window = tui_window_find(rrclient_window_name(target));
 
          if (window) {
             tui_window_destroy(window);
@@ -377,7 +377,7 @@ bool cmd_topic(int argc, char **args) {
       tui_window_t *window = tui_active_window();
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
-         room = window->title;
+         room = rrclient_window_room(window->title);
       }
    } else if (frontend_ops() ) {
       room = frontend_ops()->chat_current_room();

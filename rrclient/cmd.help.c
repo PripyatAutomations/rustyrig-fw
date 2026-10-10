@@ -162,6 +162,9 @@ static help_line_t help_msg_after[] = {
       UI_MODE_NONE, "\t\00304*** \037Keyboard Shortcuts\037 ***"
    },
    {
+      UI_MODE_NONE, "\t\00309Ctrl-Tab     \00308On the status tab, select the next server for commands (Send|servername|)"
+   },
+   {
       UI_MODE_GTK, "\t\00309Ctrl +/-     \00308Zoom fonts and resize window; Alt +/- changes fonts only; Ctrl/Alt 0 resets zoom"
    },
    {

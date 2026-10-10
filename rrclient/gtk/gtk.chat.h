@@ -22,6 +22,7 @@ extern void gtk_chat_room_remove(const char *room);
 extern void gtk_chat_set_authoritative_room(const char *room);
 extern void gtk_chat_show_status(void);
 extern const char *gtk_chat_current_room(void);
+extern bool gtk_chat_status_active(void);
 extern void gtk_chat_room_set_topic(const char *room, const char *topic);
 
 extern void gtk_chat_room_vfos_changed(const char *room);

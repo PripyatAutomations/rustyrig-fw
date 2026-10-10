@@ -164,7 +164,19 @@ time_t poll_block_expire = 0;    // Here we set this to now +
                                  // config:cat.poll-blocking to prevent rig
                                  // polling from sclearing local controls
 
+static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned modifiers, void *user_data) {
+   (void)key;
+   (void)user_data;
+
+   if (modifiers & (TERMKEY_KEYMOD_ALT | TERMKEY_KEYMOD_SHIFT)) {
+      return false;
+   }
+
+   return rrclient_connection_cycle_status(win && !strcasecmp(win->title, "status"));
+}
+
 static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifiers, void *user_data) {
+   (void)ui_active_window_name();
    (void)win;
    (void)key;
    (void)modifiers;
@@ -458,6 +470,7 @@ bool rrclient_cleanup(void) {
    ws_fini(&mgr);
 #endif // defined(USE_MONGOOSE)
 
+   connman_shutdown();
    cat_pty_shutdown();
    event_shutdown();
 
@@ -702,6 +715,7 @@ int main(int argc, char *argv[]) {
    // Setup the tab complete and hotkeys
    tui_register_completion_provider(client_cmd_completions);
    tui_set_completion_describer(client_cmd_completion_describe);
+   tui_hotkey_register(TERMKEY_SYM_TAB, TERMKEY_KEYMOD_CTRL, rrclient_server_hotkey, NULL);
    tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
    tui_hotkey_register(' ', TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
    tui_hotkey_register(0, TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);

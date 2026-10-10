@@ -1,4 +1,10 @@
 rustyrig-fw (20261009.1) testing; urgency=medium
+  * Support simultaneous native server connections with per-server login,
+    reconnect, room, roster, VFO, object and media state. Share status output
+    with configuration-name prefixes; Ctrl-Tab selects its command server and
+    Send|servername| shows the selection. Room tabs retain their own server.
+  * Accept ad hoc /server URLs and optional ports, defaulting IRC/IRCS to
+    6667/6697 and WS/WSS to 8420/4420; ad hoc names use the hostname.
   * Select IRC, IRC + TLS, WebSocket or WebSocket + TLS from server URLs;
     require explicit protocols/ports, share IPv6-aware address validation and
     retain explicit ports when saving legacy IRC network entries.

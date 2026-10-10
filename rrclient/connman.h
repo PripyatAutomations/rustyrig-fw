@@ -24,6 +24,25 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 
+/* Connection selection and iteration use configuration section names. */
+/* Optional when a component is linked alone by a unit test. */
+extern bool rrclient_context_is_selected(void) __attribute__((weak));
+static inline bool rrclient_present_context(void) {
+   return !rrclient_context_is_selected || rrclient_context_is_selected();
+}
+extern const char *rrclient_selected_server(void);
+extern const char *rrclient_connection_name(const rrconn_t *connection);
+extern rrconn_t *rrclient_connection_find(const char *name);
+extern const char *rrclient_connection_iter(unsigned index);
+/* 0 offline, -1 connecting/retrying, 1 online. */
+extern int rrclient_connection_state(const char *name);
+extern bool rrclient_connection_select(const char *name);
+extern bool rrclient_connection_cycle(void);
+extern bool rrclient_connection_cycle_status(bool status_active);
+extern const char *rrclient_window_name(const char *room);
+extern const char *rrclient_window_room(const char *window);
+extern void rrclient_connection_select_window(const char *window);
+
 // Connected sessions
 extern char active_server[512];
 extern rr_connection_t *active_connections;
@@ -36,6 +55,8 @@ extern rrconn_t *ws_conn, *ws_tx_conn;
 extern const char *get_server_property(const char *server, const char *prop);
 extern bool connect_or_disconnect(const char *server);
 extern void connman_register_events(void);
+extern void connman_shutdown(void);
+extern void rrclient_poll_events_reconnect(void);
 
 extern bool config_network_cb(const char *path, int line, const char *section, const char *buf);
 

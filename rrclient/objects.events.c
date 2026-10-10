@@ -293,3 +293,50 @@ const dict *rrclient_object_ref_iter(int index, char *reference, size_t capacity
       }
    }
 }
+
+/* Save/load the component view when entering a server connection context. */
+typedef struct {
+   rr_object_cache_t *cache;
+   unsigned inventory_request;
+   struct inventory_request inventory_requests[INVENTORY_REQUESTS_MAX];
+} rrclient_objects_context;
+void rrclient_objects_context_swap(void **saved) {
+   if (!*saved) {
+      *saved = calloc(1, sizeof(rrclient_objects_context));
+
+      if (!*saved) {
+         abort();
+      }
+   }
+   rrclient_objects_context *state = *saved;
+   {
+      __typeof__(cache) temporary;
+      memcpy(&temporary, &cache, sizeof(cache));
+      memcpy(&cache, &state->cache, sizeof(cache));
+      memcpy(&state->cache, &temporary, sizeof(cache));
+   }
+   {
+      __typeof__(inventory_request) temporary;
+      memcpy(&temporary, &inventory_request, sizeof(inventory_request));
+      memcpy(&inventory_request, &state->inventory_request, sizeof(inventory_request));
+      memcpy(&state->inventory_request, &temporary, sizeof(inventory_request));
+   }
+   {
+      __typeof__(inventory_requests) temporary;
+      memcpy(&temporary, &inventory_requests, sizeof(inventory_requests));
+      memcpy(&inventory_requests, &state->inventory_requests, sizeof(inventory_requests));
+      memcpy(&state->inventory_requests, &temporary, sizeof(inventory_requests));
+   }
+}
+
+void rrclient_objects_context_free(void *saved) {
+   if (!saved) {
+      return;
+   }
+   rrclient_objects_context_swap(&saved);
+   rr_object_cache_free(cache);
+   cache = NULL;
+   memset(inventory_requests, 0, sizeof(inventory_requests));
+   rrclient_objects_context_swap(&saved);
+   free(saved);
+}

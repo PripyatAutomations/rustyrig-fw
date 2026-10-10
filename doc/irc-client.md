@@ -1,7 +1,7 @@
 # IRC and server URLs
 
 Native GTK and TUI use the same server profiles and connection manager.
-Each `server.url` must specify its protocol, host and port:
+Each `server.url` must specify its protocol and host. Ports are optional:
 
 | URL | Transport |
 | --- | --- |
@@ -10,10 +10,11 @@ Each `server.url` must specify its protocol, host and port:
 | `irc://chat.example.org:6667` | IRC over TCP |
 | `ircs://chat.example.org:6697` | IRC over TLS |
 
-Ports are explicit even for conventional defaults. WebSocket paths and query
+Omitted ports default to 8420 (WS), 4420 (WSS), 6667 (IRC), and 6697 (IRCS).
+Explicit ports override these defaults. WebSocket paths and query
 strings are preserved. IRC URLs accept an empty path or `/`; put channel
 names in `autojoin`. Bracket IPv6 hosts, for example `ircs://[::1]:6697`.
-Invalid schemes, missing/invalid ports, embedded credentials, fragments and
+Invalid schemes, invalid ports, embedded credentials, fragments and
 whitespace are rejected before connecting. Credentials belong in profile keys.
 
 ```ini
@@ -50,9 +51,34 @@ handlers contain no UI code. `irc.connected` means IRC registration succeeded,
 while `irc.disconnected` marks transport closure. The native connection manager
 owns connection state and profile lifetime.
 
-Legacy `[network:NAME]` IRC server lines also require `irc://`/`ircs://` plus
-an explicit port and retain that port when saved. The normal connection picker
+Legacy `[network:NAME]` IRC server lines also require `irc://`/`ircs://`, accept
+optional ports and save their resolved port explicitly. The normal connection picker
 uses `[server:NAME]` profiles shown above.
 
 The WebUI is outside the IRC scope. It retains its existing WebSocket behavior
 and has no IRC parity requirement, including for future work.
+
+## Multiple native connections
+
+`/server localhost` connects the `[server:localhost]` profile without closing
+other sessions. `/server irc://localhost` opens an ad hoc connection using the
+hostname as its name. A URL matching a configured profile uses that section's
+name instead. Distinct endpoints sharing a hostname need distinct configuration
+section names. `server.auto-connect` can list multiple profile names.
+
+Status output shares one tab and starts with `|servername|`. On the status tab,
+Ctrl-Tab cycles through live/connecting servers to select where commands such
+as `/join #whatever` go. Its Send button reads `Send|servername|`; room/query
+buttons read `Send`. Commands in room/query tabs always use that tab's server.
+The server chooser also adds connections; `/disconnect` closes the selected
+server without affecting others. Ctrl-Tab does not change the command server
+outside the status tab. Terminals must encode Ctrl-Tab distinctly for the TUI
+shortcut to work.
+
+Each server retains its own login/token, reconnect schedule, rooms, roster,
+VFO observations, object inventory and media metadata. Shared audio/serial
+outputs follow the selected server; background text messages continue to update
+all connections. Frontends can use `rrclient_connection_iter/find/select/name`
+and the `client.server.selected` event to present connection selection. The
+native connection manager owns connection lifetime; UI tabs store stable
+profile names rather than socket pointers.

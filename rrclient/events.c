@@ -41,6 +41,12 @@ bool cfg_ui_bell_chat = false;
 static tui_window_t *rrclient_tui_room_window(const char *room, bool create);
 
 void rrclient_update_connection_ui(int connected) {
+   ws_connected = connected;
+
+   if (!rrclient_present_context()) {
+      return;
+   }
+
    // XXX: This should move to authenticated, so we show yellow 'til server has
    // approved us...
    if (frontend_ops() ) {
@@ -55,6 +61,9 @@ const char *current_vfo = "A";
 
 // Refresh status bar online status section
 void tui_refresh_sb_online(void) {
+   if (!rrclient_present_context()) {
+      return;
+   }
    memset(sb_online, 0, sizeof(sb_online) );
 
    if (ws_connected == 1) {
@@ -108,11 +117,15 @@ static void rrclient_set_offline(void) {
 
    if (frontend_ops() ) {
       // PTT button goes back to dark grey while offline
-      frontend_ops()->ptt_set_online(false);
+      if (rrclient_present_context()) {
+         frontend_ops()->ptt_set_online(false);
+      }
 
       // Hide the userlist again when we disconnect
       if (cfg_get_bool("ui.auto-show-userlist", true) ) {
-         frontend_ops()->userlist_set_visible(false);
+         if (rrclient_present_context()) {
+            frontend_ops()->userlist_set_visible(false);
+         }
       }
    }
 
@@ -121,9 +134,7 @@ static void rrclient_set_offline(void) {
    }
 
    ws_connected = false;
-   ws_conn->conn = NULL;
-   free(ws_conn);
-   ws_conn = NULL;
+   // Connection lifetime belongs to connman; CLOSE may still be pending.
 }
 
 static void rrclient_handle_alert(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -187,7 +198,9 @@ static void rrclient_handle_ptt_tot(const char *event, const char *data, rrconn_
    }
 
    if (frontend_ops() ) {
-      frontend_ops()->ptt_tot_expired(tot_secs);
+      if (rrclient_present_context()) {
+         frontend_ops()->ptt_tot_expired(tot_secs);
+      }
    }
 }
 
@@ -278,7 +291,9 @@ static void rrclient_confirm_ptt(const char *who, const char *vfo, bool active) 
    }
 
    if (frontend_ops() && frontend_ops()->ptt_set_state) {
-      frontend_ops()->ptt_set_state(active);
+      if (rrclient_present_context()) {
+         frontend_ops()->ptt_set_state(active);
+      }
    }
 }
 
@@ -409,7 +424,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          tui_window_t *active = tui_active_window();
 
          if (active && active->title[0] && strcasecmp(active->title, "status") != 0) {
-            output_room = active->title;
+            output_room = rrclient_window_room(active->title);
          }
       } else if (frontend_ops() ) {
          output_room = frontend_ops()->chat_current_room();
@@ -499,7 +514,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       rrclient_update_connection_ui(-1);
 
       if (frontend_ops() ) {
-         frontend_ops()->ptt_set_online(true);   // button turns green once we're online
+         if (rrclient_present_context()) {
+            frontend_ops()->ptt_set_online(true);
+         }                                                                           // button turns green once we're online
       }
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
@@ -507,7 +524,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       rrclient_update_connection_ui(1);
 
       if (frontend_ops() ) {
-         frontend_ops()->ptt_set_online(true);
+         if (rrclient_present_context()) {
+            frontend_ops()->ptt_set_online(true);
+         }
       }
       cmd_list(0, NULL);
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
@@ -515,7 +534,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       rrclient_set_offline();
 
       if (frontend_ops() && cfg_get_bool("ui.auto-show-userlist", true) ) {
-         frontend_ops()->userlist_set_visible(false);
+         if (rrclient_present_context()) {
+            frontend_ops()->userlist_set_visible(false);
+         }
       }
    } else if (strcasecmp(event, "http.error") == 0) {
       // Fatal connection-level error (MG_EV_ERROR, cli.main.c) - the conn is gone
@@ -532,7 +553,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
 
       if (frontend_ops() ) {
-         frontend_ops()->chat_show_status();
+         if (rrclient_present_context()) {
+            frontend_ops()->chat_show_status();
+         }
       }
 
       if (err) {
@@ -578,7 +601,9 @@ static void rrclient_handle_freq(const char *event, const char *data, rrconn_t *
    long freq = dict_get_long(d, "cat.state.freq", 0);
 
    if (frontend_ops() ) {
-      frontend_ops()->freq_set(freq);
+      if (rrclient_present_context()) {
+         frontend_ops()->freq_set(freq);
+      }
    }
    dict_free(d);
 }
@@ -587,10 +612,10 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
    if (!room || !*room) {
       return tui_window_find("status");
    }
-   tui_window_t *window = tui_window_find(room);
+   tui_window_t *window = tui_window_find(rrclient_window_name(room));
 
    if (!window && create) {
-      window = tui_window_create(room);
+      window = tui_window_create(rrclient_window_name(room));
    }
 
    if (window) {
@@ -635,14 +660,19 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
             ws_set_authoritative_room(m_room);
 
             if (frontend_ops() ) {
-               frontend_ops()->chat_set_authoritative_room(m_room);
+               if (rrclient_present_context()) {
+                  frontend_ops()->chat_set_authoritative_room(m_room);
+               }
             }
          }
          rrclient_room_join(m_room);
 
          if (ui_mode == UI_MODE_TUI) {
             rrclient_tui_room_window(m_room, true);
-            tui_window_focus(m_room);
+
+            if (rrclient_present_context()) {
+               tui_window_focus(rrclient_window_name(m_room));
+            }
          }
       }
 
@@ -808,7 +838,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       }
 
       if (ui_mode == UI_MODE_TUI) {
-         tui_window_t *window = tui_window_find(room);
+         tui_window_t *window = tui_window_find(rrclient_window_name(room));
 
          if (window) {
             tui_window_destroy(window);
@@ -844,8 +874,9 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
     * requested the part closes its room tab. */
    bool is_self = session && *session && session_token[0] &&
       strcmp(session, session_token) == 0;
+
    if (cptr && !cptr->is_ws && cptr->server && member &&
-       !strcasecmp(member, cptr->nick)) {
+      !strcasecmp(member, cptr->nick)) {
       is_self = true;
    }
 
@@ -858,7 +889,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
       }
 
       if (ui_mode == UI_MODE_TUI) {
-         tui_window_t *window = tui_window_find(room);
+         tui_window_t *window = tui_window_find(rrclient_window_name(room));
 
          if (window) {
             tui_window_destroy(window);
@@ -874,7 +905,10 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
    if (!data || !frontend_ops() ) {
       return;
    }
-   frontend_ops()->mode_set( (const char *)data);
+
+   if (rrclient_present_context()) {
+      frontend_ops()->mode_set((const char *)data);
+   }
 }
 
 // Generic ws.msg.talk listener: the specific commands are dispatched by
@@ -896,7 +930,7 @@ static const char *rrclient_replay_room(dict *d) {
       tui_window_t *window = tui_active_window();
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
-         return window->title;
+         return rrclient_window_room(window->title);
       }
    }
 
@@ -1353,7 +1387,26 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
    dict_free(d);
 }
 
+static void rrclient_server_selected(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)user;
+
+   if (!rrclient_present_context()) {
+      return;
+   }
+   rrclient_update_connection_ui(ws_connected);
+   tui_refresh_sb_online();
+   vfo_update_ui();
+
+   if (frontend_ops()) {
+      frontend_ops()->userlist_redraw();
+      frontend_ops()->ptt_set_online(cptr && cptr->is_ws && ws_connected == 1);
+   }
+}
+
 void rrclient_register_events(void) {
+   event_on("client.server.selected", rrclient_server_selected, NULL);
    rrclient_objects_register_events();
    rrclient_media_register_events();
 
