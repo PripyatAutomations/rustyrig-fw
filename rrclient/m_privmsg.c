@@ -86,7 +86,7 @@ static void rrclient_irc_connection(const char *event, const char *data, rrconn_
 static void rrclient_irc_send_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)user;
 
-   if (!data || cptr != ws_conn) {
+   if (!data || !cptr) {
       return;
    }
    dict *d = json2dict(data);
@@ -110,7 +110,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
    (void)event;
    (void)user;
 
-   if (!data || !cptr || cptr != ws_conn) {
+   if (!data || !cptr) {
       return;
    }
    dict *message = json2dict(data);
@@ -311,7 +311,7 @@ static void rrclient_irc_error(const char *event, const char *data, rrconn_t *cp
    (void)event;
    (void)user;
 
-   if (!data || cptr != ws_conn) {
+   if (!data || !cptr || !rrclient_present_context()) {
       return;
    }
    dict *d = json2dict(data);
@@ -327,7 +327,7 @@ static void rrclient_irc_capabilities(const char *event, const char *data, rrcon
    (void)data;
    (void)user;
 
-   if (cptr == ws_conn && rrclient_present_context() && frontend_ops()) {
+   if (cptr && rrclient_present_context() && frontend_ops()) {
       frontend_ops()->userlist_redraw();
    }
 }

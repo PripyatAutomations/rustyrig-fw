@@ -451,7 +451,11 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    }
 
    if (ui_mode == UI_MODE_TUI && output_room) {
-      rrclient_tui_room_window(output_room, true);
+      tui_window_t *window = rrclient_tui_room_window(output_room, true);
+
+      if (window && cptr) {
+         window->cptr = cptr;
+      }
    }
 
    if (frontend_ops() && output_room &&
@@ -627,14 +631,19 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
    if (!room || !*room) {
       return tui_window_find("status");
    }
-   tui_window_t *window = tui_window_find(rrclient_window_name(room));
+   const char *window_name = rrclient_window_name(room);
+   tui_window_t *window = tui_window_find(window_name);
 
    if (!window && create) {
       window = tui_window_create(rrclient_window_name(room));
    }
 
    if (window) {
-      window->cptr = ws_conn;
+      window->cptr = rrclient_connection_for_window(window_name);
+
+      if (!window->cptr) {
+         window->cptr = ws_conn;
+      }
    }
 
    return window;
@@ -683,8 +692,11 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          rrclient_room_join(m_room);
 
          if (ui_mode == UI_MODE_TUI) {
-            rrclient_tui_room_window(m_room, true);
+            tui_window_t *window = rrclient_tui_room_window(m_room, true);
 
+            if (window && cptr) {
+               window->cptr = cptr;
+            }
             if (rrclient_present_context()) {
                tui_window_focus(rrclient_window_name(m_room));
             }
@@ -1422,6 +1434,7 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
    if (!rrclient_present_context()) {
       return;
    }
+   userlist_sort();
    rrclient_update_connection_ui(ws_connected);
    tui_refresh_sb_online();
    vfo_update_ui();

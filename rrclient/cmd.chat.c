@@ -25,6 +25,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>
 #include <rrclient/rooms.h>
@@ -35,6 +36,16 @@
 extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
+
+static bool cmd_irc_room(rrconn_t *connection, const char *room) {
+   if (!connection || connection->is_ws || !room || (room[0] != '#' && room[0] != '&')) {
+      ui_print(ui_active_window_name(), "Select an IRC channel tab first");
+
+      return false;
+   }
+
+   return true;
+}
 
 /* PARITY: rustyrig-www/js/webui.chat.js room command forwarding.
  * /room is deliberately sent to the server.  Room administration belongs to the server database and the server decides whether this user may perform the
@@ -64,7 +75,16 @@ bool cmd_room(int argc, char **args) {
 }
 
 bool cmd_list(int argc, char **args) {
-   if (!ws_conn) {
+   (void)argc;
+   (void)args;
+   rrconn_t *connection = rrclient_active_connection();
+
+   if (connection && !connection->is_ws) {
+      bool sent = irc_send(connection, "LIST");
+
+      return !sent;
+   }
+   if (!connection) {
       return true;
    }
    dict *d = dict_new();
@@ -80,16 +100,18 @@ bool cmd_query(int argc, char **args) {
    if (argc < 2 || !args[1] || !*args[1]) {
       return true;
    }
+   rrconn_t *connection = rrclient_active_connection();
 
    if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *window = tui_window_find(rrclient_window_name(args[1]));
+      const char *window_name = rrclient_window_name(args[1]);
+      tui_window_t *window = tui_window_find(window_name);
 
       if (!window) {
-         window = tui_window_create(rrclient_window_name(args[1]));
+         window = tui_window_create(window_name);
       }
 
       if (window) {
-         window->cptr = ws_conn;
+         window->cptr = connection;
          tui_window_focus(window->title);
       }
    } else if (frontend_ops() ) {
@@ -100,8 +122,35 @@ bool cmd_query(int argc, char **args) {
 }
 
 bool cmd_join(int argc, char **args) {
-   if (argc < 2 || !ws_conn) {
+   rrconn_t *connection = rrclient_active_connection();
+
+   if (argc < 2 || !connection) {
       return true;
+   }
+   if (!connection->is_ws) {
+      if (!args[1] || !*args[1] || strpbrk(args[1], " \t\r\n,")) {
+         ui_print(ui_active_window_name(), "Usage: /join <IRC channel>");
+
+         return false;
+      }
+      bool sent = irc_send(connection, "JOIN %s", args[1]);
+      const char *window_name = rrclient_window_name(args[1]);
+
+      if (sent && ui_mode == UI_MODE_TUI) {
+         tui_window_t *window = tui_window_find(window_name);
+
+         if (!window) {
+            window = tui_window_create(window_name);
+         }
+         if (window) {
+            window->cptr = connection;
+            tui_window_focus(window->title);
+         }
+      } else if (sent && ui_mode == UI_MODE_GTK && frontend_ops() && frontend_ops()->chat_room_add) {
+         rrclient_connection_select(rrclient_window_server(window_name));
+         frontend_ops()->chat_room_add(args[1]);
+      }
+      return !sent;
    }
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
@@ -114,6 +163,26 @@ bool cmd_join(int argc, char **args) {
 }
 
 bool cmd_me(int argc, char **args) {
+   rrconn_t *connection = rrclient_active_connection();
+   const char *active_room = rrclient_active_room();
+
+   if (connection && !connection->is_ws) {
+      if (!cmd_irc_room(connection, active_room) || argc < 2) {
+         return false;
+      }
+      char action[IRC_MSGLEN - 16] = "";
+
+      for (int i = 1 ; i < argc ; i++) {
+         if ((i && strlcat(action, " ", sizeof(action)) >= sizeof(action)) ||
+            strlcat(action, args[i], sizeof(action)) >= sizeof(action)) {
+            ui_print(ui_active_window_name(), "IRC action is too long");
+
+            return false;
+         }
+      }
+      bool sent = irc_send(connection, "PRIVMSG %s :\001ACTION %s\001", active_room, action);
+      return !sent;
+   }
    char buf[1024];
    memset(buf, 0, 1024);
    size_t pos = 0;
@@ -169,6 +238,8 @@ bool cmd_me(int argc, char **args) {
 }
 
 bool cmd_msg(int argc, char **args) {
+   rrconn_t *connection = rrclient_active_connection();
+
    if (argc < 3 || !args[1] || !args[2] || !*args[1]) {
       return true;
    }
@@ -187,15 +258,32 @@ bool cmd_msg(int argc, char **args) {
       pos += n;
    }
 
+   if (connection && !connection->is_ws) {
+      bool sent = irc_send(connection, "PRIVMSG %s :%s", target, fullmsg);
+
+      if (sent && ui_mode == UI_MODE_TUI) {
+         const char *window_name = rrclient_window_name(target);
+         tui_window_t *window = tui_window_find(window_name);
+
+         if (!window) {
+            window = tui_window_create(window_name);
+         }
+         if (window) {
+            window->cptr = connection;
+         }
+      }
+      return !sent;
+   }
    if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *window = tui_window_find(rrclient_window_name(target));
+      const char *window_name = rrclient_window_name(target);
+      tui_window_t *window = tui_window_find(window_name);
 
       if (!window) {
-         window = tui_window_create(rrclient_window_name(target));
+         window = tui_window_create(window_name);
       }
 
       if (window) {
-         window->cptr = ws_conn;
+         window->cptr = connection;
       }
    } else if (frontend_ops() ) {
       frontend_ops()->chat_query_add(target);
@@ -218,11 +306,34 @@ bool cmd_msg(int argc, char **args) {
 }
 
 bool cmd_notice(int argc, char **args) {
+   rrconn_t *connection = rrclient_active_connection();
+
    if (argc < 2) {
       return true;
    }
 
    char *notice_target = args[1];
+
+   if (connection && !connection->is_ws) {
+      if (argc < 3) {
+         ui_print(ui_active_window_name(), "Usage: /notice <nick|#channel> <message>");
+
+         return false;
+      }
+      char notice[IRC_MSGLEN] = "";
+
+      for (int i = 2 ; i < argc ; i++) {
+         if ((i > 2 && strlcat(notice, " ", sizeof(notice)) >= sizeof(notice)) ||
+            strlcat(notice, args[i], sizeof(notice)) >= sizeof(notice)) {
+            ui_print(ui_active_window_name(), "IRC notice is too long");
+
+            return false;
+         }
+      }
+      bool sent = irc_send(connection, "NOTICE %s :%s", notice_target, notice);
+
+      return !sent;
+   }
    char notice_msg[502];
    memset(notice_msg, 0, sizeof(notice_msg) );
    size_t pos = 0;
@@ -237,28 +348,17 @@ bool cmd_notice(int argc, char **args) {
    }
 
    if (ui_mode == UI_MODE_TUI) {
-      tui_window_t *wp = NULL;
-      bool new_win = false;
+      const char *window_name = rrclient_window_name(args[1]);
+      tui_window_t *window = tui_window_find(window_name);
 
-      if (*args[1]) {
-         wp = tui_window_find(rrclient_window_name(args[1]));
-
-         if (!wp) {
-            new_win = true;
-            wp = tui_window_create(rrclient_window_name(args[1]));
-            wp->cptr = tui_active_window()->cptr;
-         }
+      if (!window) {
+         window = tui_window_create(window_name);
       }
-
-      if (!wp) {
-         wp = tui_active_window();
+      if (window) {
+         window->cptr = connection;
       }
-
-      if (wp->cptr) {
-         char *notice_target = wp->title;
-
-         ui_print(ui_active_window_name(), "-> *%s* %s", notice_target, notice_msg);
-      }
+   } else if (frontend_ops() ) {
+      frontend_ops()->chat_query_add(args[1]);
    }
 
    dict *d = dict_new();
@@ -268,8 +368,8 @@ bool cmd_notice(int argc, char **args) {
    dict_add(d, "talk.data", notice_msg);
    dict_add(d, "talk.target", notice_target);
 
-   if (ws_conn) {
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   if (connection && connection->is_ws) {
+      ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    }
    dict_free(d);
 
@@ -277,10 +377,14 @@ bool cmd_notice(int argc, char **args) {
 }
 
 bool cmd_part(int argc, char **args) {
-   if (!ws_conn) {
+   rrconn_t *connection = rrclient_active_connection();
+   const char *active_room = rrclient_active_room();
+
+   if (!connection) {
       return true;
    }
-   const char *target = argc >= 2 ? args[1] : NULL;
+   const char *target = argc >= 2 ? args[1] : active_room;
+   const bool is_irc = !connection->is_ws;
 
    if (!target || !*target) {
       if (ui_mode == UI_MODE_TUI) {
@@ -296,7 +400,7 @@ bool cmd_part(int argc, char **args) {
    }
 
    /* Query tabs are local conversations rather than joined server rooms. */
-   if (argc < 2 && target && *target && target[0] != '#' && target[0] != '&') {
+   if (!is_irc && argc < 2 && target && *target && target[0] != '#' && target[0] != '&') {
       if (frontend_ops() ) {
          frontend_ops()->chat_room_remove(target);
       }
@@ -317,6 +421,26 @@ bool cmd_part(int argc, char **args) {
       ui_print(ui_active_window_name(), "\00308Usage: /part #room (select a room tab or provide the room)\017");
 
       return false;
+   }
+   if (is_irc) {
+      const char *reason = argc >= 3 ? args[2] : NULL;
+
+      if (strpbrk(target, " \t\r\n,")) {
+         ui_print(ui_active_window_name(), "Invalid IRC channel name");
+
+         return false;
+      }
+      if (reason && strpbrk(reason, "\r\n")) {
+         ui_print(ui_active_window_name(), "Invalid IRC PART reason");
+
+         return false;
+      }
+      bool sent = reason && *reason ? irc_send(connection, "PART %s :%s", target, reason) : irc_send(connection, "PART %s", target);
+
+      if (!sent) {
+         ui_print(ui_active_window_name(), "Unable to send IRC PART for %s", target);
+      }
+      return !sent;
    }
    dict *d = dict_new();
 
@@ -339,6 +463,17 @@ bool cmd_part(int argc, char **args) {
 // PARITY: rrclient/cmd.names.c (C client) - /names prints the userlist like an
 // IRC client, with privilege flags and PTT state.
 bool cmd_names(int argc, char **args) {
+   rrconn_t *connection = rrclient_active_connection();
+   const char *room = rrclient_active_room();
+
+   if (!connection) {
+      return true;
+   }
+   if (!connection->is_ws) {
+      bool sent = room && *room ? irc_send(connection, "NAMES %s", room) : irc_send(connection, "NAMES");
+
+      return !sent;
+   }
    if (!global_userlist) {
       ui_print(ui_active_window_name(), "\00308No users online\017");
 
@@ -350,7 +485,7 @@ bool cmd_names(int argc, char **args) {
    int count = 0;
 
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
-      if (c->room[0] && strcasecmp(c->room, rrclient_current_room() ) != 0) {
+      if (c->room[0] && room && strcasecmp(c->room, room) != 0) {
          continue;
       }
       count++;
@@ -379,7 +514,32 @@ bool cmd_names(int argc, char **args) {
 }
 
 bool cmd_topic(int argc, char **args) {
-   const char *room = NULL;
+   rrconn_t *connection = rrclient_active_connection();
+   const char *room = rrclient_active_room();
+
+   if (connection && !connection->is_ws) {
+      if (!cmd_irc_room(connection, room)) {
+         return false;
+      }
+      if (argc < 2) {
+         bool sent = irc_send(connection, "TOPIC %s", room);
+
+         return !sent;
+      }
+      char topic[IRC_MSGLEN] = "";
+
+      for (int i = 1 ; i < argc ; i++) {
+         if ((i > 1 && strlcat(topic, " ", sizeof(topic)) >= sizeof(topic)) ||
+            strlcat(topic, args[i], sizeof(topic)) >= sizeof(topic)) {
+            ui_print(ui_active_window_name(), "IRC topic is too long");
+
+            return false;
+         }
+      }
+      bool sent = irc_send(connection, "TOPIC %s :%s", room, topic);
+
+      return !sent;
+   }
 
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();

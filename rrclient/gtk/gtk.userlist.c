@@ -268,7 +268,12 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
    const rrconn_t *view_connection = userlist_view_connection(view);
+   const char *selected_room = rrclient_current_room();
+   const char *selected_server = selected_room ? rrclient_window_server(rrclient_window_name(selected_room)) : NULL;
 
+   if (view != cul_view && profile && selected_server && strcmp(profile, selected_server)) {
+      return;
+   }
    if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
       return;
    }
@@ -287,8 +292,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
 
-      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON, c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->
-         is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
+      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON, c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
 
    userlist_fit_width(view);

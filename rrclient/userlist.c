@@ -35,6 +35,86 @@ static void userlist_refresh_ptt_status(void) {
    }
 }
 
+static bool userlist_priv(const struct rr_user *user, const char *priv) {
+   if (!user || !priv || !*priv) {
+      return false;
+   }
+   const char *p = user->privs;
+
+   while (*p) {
+      while (*p && !isalnum((unsigned char)*p)) {
+         p++;
+      }
+      const char *start = p;
+
+      while (*p && isalnum((unsigned char)*p)) {
+         p++;
+      }
+      size_t length = (size_t)(p - start);
+
+      if (length == strlen(priv) && !strncasecmp(start, priv, length)) {
+         return true;
+      }
+   }
+
+   return false;
+}
+
+static unsigned userlist_group(const struct rr_user *user) {
+   if (!strncmp(user->privs, "irc:", 4)) {
+      const char *modes = user->privs + 4;
+
+      if (strchr(modes, 'v')) {
+         return 1;
+      }
+      if (strchr(modes, 'o') || strchr(modes, 'q') || strchr(modes, 'a') || strchr(modes, 'h')) {
+         return 0;
+      }
+      return 2;
+   }
+
+   if (userlist_priv(user, "owner") || userlist_priv(user, "admin")) {
+      return 0;
+   }
+
+   if (userlist_priv(user, "elmer")) {
+      return 1;
+   }
+
+   if (userlist_priv(user, "noob")) {
+      return 2;
+   }
+
+   return 3;
+}
+
+int userlist_compare(const struct rr_user *left, const struct rr_user *right) {
+   unsigned left_group = userlist_group(left), right_group = userlist_group(right);
+
+   if (left_group != right_group) {
+      return left_group < right_group ? -1 : 1;
+   }
+   return strcasecmp(left->name, right->name);
+}
+
+void userlist_sort(void) {
+   struct rr_user *sorted = NULL;
+
+   while (global_userlist) {
+      struct rr_user *user = global_userlist;
+      global_userlist = user->next;
+      user->next = NULL;
+      struct rr_user **insert = &sorted;
+
+      while (*insert && userlist_compare(*insert, user) <= 0) {
+         insert = &(*insert)->next;
+      }
+      user->next = *insert;
+      *insert = user;
+   }
+   global_userlist = sorted;
+}
+
 // Add or update an entry, matching on name.
 // All old information will be replaced with the new
 bool userlist_add_or_update(dict *d) {
@@ -89,6 +169,28 @@ bool userlist_add_or_update(dict *d) {
       strlcpy(c->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(c->ptt_room) );
       c->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper( (unsigned char)t_ptt_vfo[0]) : 0;
 
+      // Keep insertion order stable for every frontend and update sort position after privilege changes.
+      if (c != global_userlist) {
+         struct rr_user **link = &global_userlist;
+
+         while (*link && *link != c) {
+            link = &(*link)->next;
+         }
+         if (*link) {
+            *link = c->next;
+         }
+      } else {
+         global_userlist = c->next;
+      }
+      c->next = NULL;
+      struct rr_user **insert = &global_userlist;
+
+      while (*insert && userlist_compare(*insert, c) <= 0) {
+         insert = &(*insert)->next;
+      }
+      c->next = *insert;
+      *insert = c;
+
       // Another user starting/stopping TX changes the PTT button color
       if (frontend_ops() ) {
          frontend_ops()->ptt_refresh();
@@ -99,6 +201,7 @@ bool userlist_add_or_update(dict *d) {
             frontend_ops()->userlist_redraw();
          }
       }
+      userlist_sort();
       userlist_refresh_ptt_status();
 
       return true;
@@ -129,16 +232,13 @@ bool userlist_add_or_update(dict *d) {
       frontend_ops()->ptt_refresh();
    }
 
-   /* Append to the end of the list. */
-   if (!global_userlist) {
-      global_userlist = n;
-   } else {
-      c = global_userlist;
-      while (c->next) {
-         c = c->next;
-      }
-      c->next = n;
+   struct rr_user **insert = &global_userlist;
+
+   while (*insert && userlist_compare(*insert, n) <= 0) {
+      insert = &(*insert)->next;
    }
+   n->next = *insert;
+   *insert = n;
 
    Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
@@ -147,9 +247,10 @@ bool userlist_add_or_update(dict *d) {
          frontend_ops()->userlist_redraw();
       }
    }
+   userlist_sort();
    userlist_refresh_ptt_status();
 
-   return true;
+ return true;
 }
 
 // Remove a user from the list, by name. While there should only ever be ONE,

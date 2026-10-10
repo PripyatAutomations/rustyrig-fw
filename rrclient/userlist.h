@@ -69,6 +69,8 @@ extern void userlist_remove_room(const char *room);
 extern struct rr_user *userlist_find_in_room(const char *name, const char *room);
 extern void userlist_clear_all(void);  // destroys the list
 extern struct rr_user *userlist_find(const char *name);
+extern int userlist_compare(const struct rr_user *left, const struct rr_user *right);
+extern void userlist_sort(void);
 extern void userlist_redraw_gtk(void);
 
 

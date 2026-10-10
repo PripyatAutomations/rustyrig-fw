@@ -29,8 +29,11 @@ extern void win32_check_darkmode(void);
 extern enum GuiMode ui_mode;    // in ui.c
 
 extern bool ui_print(const char *window, const char *fmt, ...);
-/* Current conversation destination, or NULL when the status/log view is active. */
+/* Current conversation destination or NULL when the status/log view is active. */
 extern const char *ui_active_window_name(void);
+/* Protocol and room associated with the active conversation tab. */
+extern rrconn_t *rrclient_active_connection(void);
+extern const char *rrclient_active_room(void);
 extern void ui_message_bell(void);
 extern void ui_message_notify(const char *title, const char *message);
 extern void show_server_chooser(void);

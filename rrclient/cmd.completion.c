@@ -260,7 +260,7 @@ char **client_cmd_completions(const char *line, const char *word) {
       } else if (arg == 1 && (!strcasecmp(command, "/server") || !strcasecmp(command, "/disconnect"))) {
          matches = complete_server_names(word);
       } else if (arg == 1 && (!strcasecmp(command, "/whois") ||
-         !strcasecmp(command, "/kick") || !strcasecmp(command, "/mute") ||
+         !strcasecmp(command, "/kick") || !strcasecmp(command, "/ban") || !strcasecmp(command, "/mute") ||
          !strcasecmp(command, "/unmute") || !strcasecmp(command, "/msg") ||
          !strcasecmp(command, "/query") ||
          !strcasecmp(command, "/notice") ) ) {

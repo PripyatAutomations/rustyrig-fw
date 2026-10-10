@@ -27,18 +27,21 @@
 enum GuiMode ui_mode = UI_MODE_TUI;
 
 const char *ui_active_window_name(void) {
-   if (!rrclient_present_context()) {
-      return NULL;
-   }
-
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
       if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
          rrclient_connection_select_window(window->title);
 
+         if (!rrclient_present_context()) {
+            return NULL;
+         }
          return rrclient_window_room(window->title);
       }
+   }
+
+   if (!rrclient_present_context()) {
+      return NULL;
    }
 
    if (frontend_present() ) {
@@ -46,6 +49,36 @@ const char *ui_active_window_name(void) {
    }
 
    return NULL;
+}
+
+rrconn_t *rrclient_active_connection(void) {
+   (void)ui_active_window_name();
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+
+      if (window && window->cptr && !rrclient_window_is_status(window->title)) {
+         rrconn_t *connection = rrclient_connection_for_window(window->title);
+
+         return connection ? connection : window->cptr;
+      }
+   }
+   return ws_conn;
+}
+
+const char *rrclient_active_room(void) {
+   (void)rrclient_active_connection();
+
+   if (ui_mode == UI_MODE_TUI) {
+      tui_window_t *window = tui_active_window();
+
+      if (!window || !window->title[0] || !strcasecmp(window->title, "status")) {
+         return NULL;
+      }
+      return rrclient_window_room(window->title);
+   }
+
+   return frontend_ops() ? frontend_ops()->chat_current_room() : NULL;
 }
 
 static void ui_output(const char *window, const char *fmt, ...) {

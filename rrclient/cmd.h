@@ -83,7 +83,12 @@ extern bool cmd_help(int argc, char **args);
 extern bool cmd_join(int argc, char **args);
 extern bool cmd_list(int argc, char **args);
 extern bool cmd_query(int argc, char **args);
+extern rrconn_t *rrclient_active_connection(void);
+extern const char *rrclient_active_room(void);
 extern bool cmd_kick(int argc, char **args);
+extern bool cmd_nick(int argc, char **args);
+extern bool cmd_mode(int argc, char **args);
+extern bool cmd_ban(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
 extern bool cmd_media(int argc, char **args);
 extern bool cmd_webcam(int argc, char **args);   // cmd.c

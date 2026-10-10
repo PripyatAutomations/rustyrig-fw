@@ -19,6 +19,7 @@ rrconn_t *ws_conn, *ws_tx_conn;
 static char last_event[64];
 static dict *last;
 static unsigned events, rejoins, status_windows;
+static rrconn_t *expected_connection;
 void rrclient_server_status_window(const char *room) {
    assert(room && *room);
    status_windows++;
@@ -69,8 +70,8 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
    return false;
 }
 static void observe(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)cptr;
    (void)user;
+   assert(cptr == expected_connection);
    dict_free(last);
    last = json2dict(data);
    assert(last);
@@ -90,6 +91,7 @@ int main(void) {
    };
    snprintf(client.nick, sizeof(client.nick), "tester");
    ws_conn = &client;
+   expected_connection = &client;
    event_init();
    rrclient_irc_register_events();
    const char *observed[] = {
@@ -155,8 +157,10 @@ int main(void) {
    rrconn_t stale = {
       0
    };
+   expected_connection = &stale;
    irc_process_message(&stale, ":alice PRIVMSG tester :stale");
    assert(events == previous);
+   expected_connection = &client;
    free((void *)login_user);
    dict_free(last);
    event_shutdown();

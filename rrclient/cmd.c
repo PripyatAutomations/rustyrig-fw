@@ -26,6 +26,7 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <librrprotocol/irc.h>
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/media.h>
@@ -110,7 +111,16 @@ client_cmd_t client_cmds[] = {
       .cmd = "names", .help_section = "Chat and rooms", .cb = cmd_names, .desc = "List users with privilege flags"
    },
    {
-      .cmd = "part", .help_section = "Chat and rooms", .cb = cmd_part, .desc = "Leave a channel"
+      .cmd = "part", .help_section = "Chat and rooms", .cb = cmd_part, .max_args = 2, .desc = "Leave a channel or IRC room"
+   },
+   {
+      .cmd = "nick", .help_section = "Chat and rooms", .cb = cmd_nick, .max_args = 1, .desc = "Change nickname on IRC"
+   },
+   {
+      .cmd = "mode", .help_section = "Chat and rooms", .cb = cmd_mode, .max_args = 31, .desc = "Set IRC channel modes (not rig mode)"
+   },
+   {
+      .cmd = "ban", .help_section = "Chat and rooms", .cb = cmd_ban, .max_args = 1, .desc = "Ban an IRC user from a room"
    },
    {
       .cmd = "query", .help_section = "Chat and rooms", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
@@ -173,7 +183,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "log", .help_section = "Client settings", .cb = cmd_log, .desc = "Switch to log tab"
    },
    {
-      .cmd = "raw", .help_section = "Client settings", .cb = cmd_raw, .desc = "Send a raw command"
+      .cmd = "raw", .help_section = "Client settings", .cb = cmd_raw, .desc = "Send a raw IRC command"
    },
    {
       .cmd = "reload", .help_section = "Client settings", .cb = cmd_reload, .desc = "Reload config file"
@@ -195,7 +205,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "die", .help_section = "Administration", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"
    },
    {
-      .cmd = "kick", .help_section = "Administration", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the rig"
+      .cmd = "kick", .help_section = "Administration", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the current room/IRC channel"
    },
    {
       .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .admin = true, .desc = "Mute a user"
@@ -230,6 +240,8 @@ client_cmd_t client_cmds[] = {
 bool parse_chat_input_real(const char *msg) {
    /* Selecting a TUI conversation selects its server before any command. */
    (void)ui_active_window_name();
+
+   rrconn_t *active_connection = rrclient_active_connection();
 
    if (!msg || !*msg) {
       Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
@@ -347,7 +359,7 @@ bool parse_chat_input_real(const char *msg) {
 
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
-      if (cmd->admin && !media_have_priv("admin|owner") ) {
+      if (cmd->admin && (!active_connection || active_connection->is_ws) && !media_have_priv("admin|owner") ) {
          ui_print(ui_active_window_name(), "\00304Command /%s requires account admin or owner privilege\017", cmd_argv[0]);
          free(input);
 
@@ -356,6 +368,26 @@ bool parse_chat_input_real(const char *msg) {
       cmd->cb(cmd_argc, cmd_argv);
       free(input);
    } else {
+      const char *active_room = rrclient_active_room();
+
+      if (active_connection && !active_connection->is_ws) {
+         if (!ws_connected || !active_connection->authenticated) {
+            ui_print(ui_active_window_name(), "\00304Not connected to IRC server\017");
+
+            return false;
+         }
+         if (!active_room || !*active_room) {
+            ui_print(ui_active_window_name(), "\00308Select an IRC channel or query tab before sending a message\017");
+
+            return false;
+         }
+         const char *target = active_room;
+
+         if (target[0] != '#' && target[0] != '&') {
+            target = rrclient_window_room(target);
+         }
+         return !irc_send(active_connection, "PRIVMSG %s :%s", target, msg);
+      }
       if (!ws_connected) {
          ui_print(ui_active_window_name(), "\00304*** Not connected to server ***\017");
 

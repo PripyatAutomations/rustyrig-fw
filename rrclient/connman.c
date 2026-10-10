@@ -268,6 +268,37 @@ const char *rrclient_window_room(const char *window) {
    return window;
 }
 
+rrconn_t *rrclient_connection_for_window(const char *window) {
+   if (!window || !*window) {
+      return NULL;
+   }
+
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (!strcmp(w->key, window)) {
+         return w->server->connection;
+      }
+   }
+   return NULL;
+}
+
+bool rrclient_window_is_status(const char *window) {
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (window && !strcmp(w->key, window)) {
+         return w->server_status;
+      }
+   }
+   return false;
+}
+
+const char *rrclient_window_server(const char *window) {
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (window && !strcmp(w->key, window)) {
+         return w->server->name;
+      }
+   }
+   return NULL;
+}
+
 void rrclient_connection_select_window(const char *window) {
    if (dispatch_depth) {
       return;
