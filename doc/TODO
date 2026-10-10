@@ -1,6 +1,8 @@
 Immediate needs
 ---------------
-rrclient: Sort userlist
+rrclient: /raw should send raw IRC commands if on IRC
+rrclient: Maybe some sorta activity notification in inactive tabs later, and change text color if someone say my name
+rrclient: Make shift-ctrl-c copy since ctrl-c is color
 
 * Deferred WWV/WWVH time-source worker: see doc/wwv-time-decoder-plan.md.
   Not required for monotonic protocol RTT; implement after beta transport/state work.
