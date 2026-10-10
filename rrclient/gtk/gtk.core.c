@@ -921,9 +921,6 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
       }
    }
    modebox_update_state(mode, width);
-   (void)vfo;
-   (void)power;
-   (void)ptt;
 }
 
 static void frontend_gtk_freq_set(long freq) {
@@ -1022,11 +1019,6 @@ static void frontend_gtk_alert(const char *message) {
 }
 
 static void frontend_gtk_quit_request(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)data;
-   (void)cptr;
-   (void)user;
-
    if (ui_confirm_dialog(main_window && GTK_IS_WINDOW(main_window)
          ? GTK_WINDOW(main_window) : NULL, "Confirm quit?")) {
       extern bool dying;
@@ -1049,9 +1041,6 @@ static void frontend_gtk_bell(void) {
 static void frontend_gtk_notify(const char *title, const char *message) {
 #ifdef USE_LIBNOTIFY
    ui_message_notify(title, message);
-#else
-   (void)title;
-   (void)message;
 #endif
 }
 

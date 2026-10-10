@@ -7,27 +7,28 @@ CONFIG_FILES=config/rrserver.cfg config/rrclient.cfg \
 LOG_TOOLS=tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 WEB_ROOT ?= /var/lib/rustyrig/www
 
-.PHONY: windows-install posix-install install install-config install-assets install-tools
+.PHONY: windows-install posix-install install install-libs install-config install-assets install-tools
 
 windows-install:
 	@echo "Windows builds do not need to install. A NSIS installer can be built using win64-installer target"
 
-posix-install: install-config install-assets install-tools
+posix-install: ${bin} install-libs install-config install-assets install-tools
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	install -Dm755 ${bin} ${INSTALL_DIR}/bin/$(shell basename "${bin}")
 
-install: install-config install-assets install-tools
+install: ${bins} install-libs install-config install-assets install-tools
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/lib ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av $(filter-out %.so,${bins}) ${INSTALL_DIR}/bin
 	# Frontend and GPS shared objects also go in the module directory.
 	install -d ${INSTALL_DIR}/lib/rustyrig/modules/rrserver ${INSTALL_DIR}/lib/rustyrig/modules/rrclient
 	for m in ${bins}; do case $$m in *rrserver*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrserver/$$(basename $$m);; *rrclient*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrclient/$$(basename $$m);; esac; done
-	# Shared libs (librustyaxe.so, librrprotocol.so, libfwdspmgr.so) all build
-	# at the top of the tree and land in ${libs}; install them so the binaries
-	# can find them (see -Wl,-rpath in mk/compile.mk)
-	cp -av ${libs} ${INSTALL_DIR}/lib
 #	cp -av archive-config.sh *-rigctld.sh killall.sh rrgtk.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
+
+# Install the SONAME links too: programs request *.so.0 at runtime.
+install-libs: ${libs}
+	install -d "${INSTALL_DIR}/lib"
+	cp -av ${libs} $(addsuffix .0,${libs}) "${INSTALL_DIR}/lib/"
 
 # Install the native icon, desktop entry, and WebUI bundle (including the
 # browser notification sounds). WEB_ROOT matches the packaged server config;

@@ -1,4 +1,7 @@
-rustyrig-fw (20261009.1) testing; urgency=medium
+rustyrig-fw (20261009.01) testing; urgency=medium
+  * Resolve native shared libraries relative to the executable instead of the
+    working directory; install their versioned SONAME links to prevent loading
+    stale system protocol libraries.
   * Support simultaneous native server connections with per-server login,
     reconnect, room, roster, VFO, object and media state. Share status output
     with configuration-name prefixes; Ctrl-Tab selects its command server and

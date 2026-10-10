@@ -67,6 +67,9 @@ include mk/debug.mk
 include mk/resource.mk
 include mk/packaging.mk
 
+# Relink programs and libraries when their runtime search paths change.
+${bins} ${libs}: mk/compile.mk
+
 # pack-eeprom-generated files (see mk/eeprom.mk) are built in one run.
 ${EEPROM_FILE}: $(wildcard res/*.json)
 

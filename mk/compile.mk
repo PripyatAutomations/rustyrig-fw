@@ -47,7 +47,9 @@ CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g -fstack-check 
 LDFLAGS += -fsanitize=address,undefined -fstack-check
 endif
 
-LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,.
+# Resolve shared libraries beside the executable/library or in its prefix,
+# including bin/ programs running directly from the source tree.
+LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$$ORIGIN:$$ORIGIN/../lib:$$ORIGIN/..'
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
 # librustyaxe (tui.keys.c etc) uses g_unix_fd_add() from glib, which lives in
 # libglib-2.0; glib is already a runtime dep via GTK/GStreamer.
