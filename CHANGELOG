@@ -1,4 +1,8 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Extend compact codecs to auth/hello/keepalive/notice/error/alert with shared
+    vectors; consolidate dictionary/kick/frame sends and structure staff notices.
+  * Fix unaligned dictionary hash reads without changing the hash algorithm;
+    add offset-key checks and a manual lookup/allocation/JSON benchmark.
   * Implement the compact object/property wire codec foundation in C and JS,
     with shared golden/rejection vectors and no old-envelope decoder; keep
     live transport unchanged until the complete single-format cutover.
