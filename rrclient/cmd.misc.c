@@ -557,12 +557,23 @@ bool cmd_quit(int argc, char **args) {
 
    ui_print(ui_active_window_name(), "\00311Seeya soon, have a great day!\017");
 
+   char reason[IRC_MSGLEN - 8] = "";
+
+   for (int i = first_arg ; i < argc && args[i] ; i++) {
+      if (*reason) {
+         strlcat(reason, " ", sizeof(reason));
+      }
+      strlcat(reason, args[i], sizeof(reason));
+   }
+
+   quitmsg = *reason ? reason : quitmsg;
+   rrclient_quit_servers(quitmsg);
    dict *d = dict_new();
    dict_add(d, "msg.type", "auth");
    dict_add(d, "auth.cmd", "quit");
    dict_add(d, "auth.msg", quitmsg);
 
-   if (d && ws_conn) {
+   if (d && ws_conn && ws_conn->is_ws) {
       ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    }
    dict_free(d);

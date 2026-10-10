@@ -217,6 +217,28 @@ char **client_cmd_completions(const char *line, const char *word) {
    if (!line || !word || strlen(word) > strlen(line) ) {
       return NULL;
    }
+
+   if (*line != '/') {
+      const char *room = ui_active_window_name();
+
+      if (!room || (room[0] != '#' && room[0] != '&') || !*word) {
+         return NULL;
+      }
+      char **matches = NULL;
+      size_t count = 0;
+      bool first = strlen(line) == strlen(word);
+
+      for (struct rr_user *u = global_userlist ; u ; u = u->next) {
+         if (strcasecmp(u->room, room)) {
+            continue;
+         }
+         char nick[HTTP_USER_LEN + 2];
+         snprintf(nick, sizeof(nick), "%s%s", u->name, first ? ":" : "");
+         completion_add(&matches, &count, nick, word);
+      }
+
+      return matches;
+   }
    char *prefix = strndup(line, strlen(line) - strlen(word) );
 
    if (!prefix) {
@@ -483,6 +505,112 @@ char **client_cmd_completions(const char *line, const char *word) {
    }
 
    return matches;
+}
+
+typedef struct {
+   char **matches;
+   char *snapshot, *room;
+   const rrconn_t *connection;
+   size_t start, end, index, count;
+} chat_completion_t;
+
+void client_chat_completion_free(void *data) {
+   chat_completion_t *s = data;
+
+   if (s) {
+      completion_free(s->matches);
+      free(s->snapshot);
+      free(s->room);
+      free(s);
+   }
+}
+
+char *client_chat_complete(const char *line, size_t *cursor, void **data) {
+   if (!line || !cursor || !data || *cursor > strlen(line)) {
+      return NULL;
+   }
+   const char *room = ui_active_window_name();
+   chat_completion_t *s = *data;
+   extern rrconn_t *ws_conn;
+   bool repeat = s && s->snapshot && room && s->connection == ws_conn && !strcmp(s->room, room) && *cursor == s->end && !strcmp(s->snapshot, line);
+
+   if (!repeat) {
+      client_chat_completion_free(s);
+      *data = NULL;
+
+      if (*line == '/' || !room || (room[0] != '#' && room[0] != '&') || !*cursor) {
+         return NULL;
+      }
+      size_t start = *cursor;
+      while (start && !isspace((unsigned char)line[start - 1])) {
+         start--;
+      }
+      char *prefix = strndup(line, *cursor);
+
+      if (!prefix) {
+         return NULL;
+      }
+      char **matches = client_cmd_completions(prefix, prefix + start);
+      free(prefix);
+
+      if (!matches || !matches[0]) {
+         completion_free(matches);
+
+         return NULL;
+      }
+      s = calloc(1, sizeof(*s));
+
+      if (!s) {
+         completion_free(matches);
+
+         return NULL;
+      }
+      s->matches = matches;
+      s->room = strdup(room);
+      s->connection = ws_conn;
+      s->start = start;
+      s->end = *cursor;
+      while (matches[s->count]) {
+         s->count++;
+      }
+
+      if (!s->room) {
+         client_chat_completion_free(s);
+
+         return NULL;
+      }
+      *data = s;
+   } else {
+      s->index = (s->index + 1) % s->count;
+   }
+   size_t length = strlen(s->matches[s->index]);
+   size_t end = s->start + length + 1;
+   const char *suffix = line + s->end;
+
+   if (*suffix && isspace((unsigned char)*suffix)) {
+      suffix++;
+   }
+   char *result = malloc(end + strlen(suffix) + 1);
+
+   if (!result) {
+      return NULL;
+   }
+   memcpy(result, line, s->start);
+   memcpy(result + s->start, s->matches[s->index], length);
+   result[end - 1] = ' ';
+   strcpy(result + end, suffix);
+   char *snapshot = strdup(result);
+
+   if (!snapshot) {
+      free(result);
+
+      return NULL;
+   }
+   free(s->snapshot);
+   s->snapshot = snapshot;
+   s->end = *cursor = end;
+
+   return result;
 }
 
 // Display labels are separate from the words inserted into GTK/TUI inputs.

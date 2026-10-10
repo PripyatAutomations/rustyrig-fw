@@ -13,6 +13,7 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/irc.h>
 #if     defined(USE_GTK)
 #include <gtk/gtk.h>
 #endif
@@ -27,6 +28,12 @@ enum {
 };
 
 static inline const char *select_user_icon(struct rr_user *cptr) {
+   if (!strncmp(cptr->privs, "irc:", 4)) {
+      extern rrconn_t *ws_conn;
+
+      return irc_modes_symbol(ws_conn, cptr->privs + 4);
+   }
+
    if (strcasestr(cptr->privs, "owner") ) {
       return "👑";
    }

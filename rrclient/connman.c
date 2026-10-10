@@ -333,6 +333,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
 
    if (s->connection != cptr) {
       if (ev == MG_EV_CLOSE) {
+         irc_capabilities_clear(cptr);
          mg_iobuf_free(&t->websocket_request);
          free(t);
          c->fn_data = NULL;
@@ -740,6 +741,48 @@ void connman_autoconnect(void) {
    }
 
    free(list);
+}
+
+void rrclient_quit_servers(const char *reason) {
+#ifdef USE_MONGOOSE
+
+   for (client_server_t *s = servers ; s ; s = s->next) {
+      rrconn_t *c = s->connection;
+      cancel_reconnect(s);
+
+      if (c && !c->is_ws && c->sent_login && c->conn && !c->conn->is_closing && !c->conn->is_draining) {
+         if (!irc_send(c, "QUIT :%s", reason ? reason : "Client exiting")) {
+            irc_send(c, "QUIT :Client exiting");
+         }
+         c->conn->is_draining = 1;
+      }
+   }
+
+#else
+   (void)reason;
+#endif
+}
+
+void rrclient_flush_quit(void) {
+#ifdef USE_MONGOOSE
+   uint64_t deadline = mg_millis() + 1000;
+   while (mg_millis() < deadline) {
+      bool pending = false;
+
+      for (client_server_t *s = servers ; s ; s = s->next) {
+         rrconn_t *c = s->connection;
+
+         if (c && !c->is_ws && c->conn && c->conn->is_draining) {
+            pending = true;
+         }
+      }
+
+      if (!pending) {
+         break;
+      }
+      mg_mgr_poll(&mgr, 10);
+   }
+#endif
 }
 
 /* Call after the transport manager has emitted final CLOSE notifications. */

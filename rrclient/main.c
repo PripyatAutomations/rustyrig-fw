@@ -175,6 +175,29 @@ static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned mod
    return rrclient_connection_cycle_status(win && !strcasecmp(win->title, "status"));
 }
 
+static void *tui_nick_completion;
+static bool rrclient_tui_chat_completion(tui_window_t *win) {
+   (void)win;
+   extern char input_buf[TUI_INPUTLEN];
+   extern int tui_cursor_pos, tui_input_len;
+   size_t cursor = (size_t)tui_cursor_pos;
+   char *result = client_chat_complete(input_buf, &cursor, &tui_nick_completion);
+
+   if (!result) {
+      return false;
+   }
+   bool fits = strlen(result) < TUI_INPUTLEN;
+
+   if (fits) {
+      strcpy(input_buf, result);
+      tui_input_len = (int)strlen(result);
+      tui_cursor_pos = (int)cursor;
+   }
+   free(result);
+
+   return fits;
+}
+
 static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifiers, void *user_data) {
    (void)ui_active_window_name();
    (void)win;
@@ -449,6 +472,11 @@ bool rrclient_cleanup(void) {
       return true;
    }
    cleaned_up = true;
+   rrclient_quit_servers("Client exiting");
+   rrclient_flush_quit();
+   tui_set_completion_handler(NULL);
+   client_chat_completion_free(tui_nick_completion);
+   tui_nick_completion = NULL;
 
    tui_over_ssh = tui_is_over_ssh();
 
@@ -714,6 +742,7 @@ int main(int argc, char *argv[]) {
 
    // Setup the tab complete and hotkeys
    tui_register_completion_provider(client_cmd_completions);
+   tui_set_completion_handler(rrclient_tui_chat_completion);
    tui_set_completion_describer(client_cmd_completion_describe);
    tui_hotkey_register(TERMKEY_SYM_TAB, TERMKEY_KEYMOD_CTRL, rrclient_server_hotkey, NULL);
    tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);

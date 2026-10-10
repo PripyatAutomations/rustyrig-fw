@@ -28,17 +28,35 @@ autojoin=#rustyrig,#radio
 
 For IRC, `server.user` is the nickname and `server.pass` is the optional server
 PASS password. `irc.nick=nonick` is the built-in fallback when the profile has
-no nickname. PASS is distinct from IRCv3 SASL authentication; SASL and capability
-negotiation are not implemented yet. Autojoin accepts comma/space-separated
+no nickname. PASS is distinct from IRCv3 SASL authentication; SASL is not
+implemented yet. Autojoin accepts comma/space-separated
 channels and `#channel:key` for channels requiring a key.
 
-The client registers immediately after TCP connection or successful TLS
-handshake, handles PING/PONG, and displays IRC chat, notices, actions, channel
+The client starts capability negotiation and registration after TCP connection
+or successful TLS handshake, handles PING/PONG, and displays IRC chat, notices, actions, channel
 membership, topics and NAMES rosters through the shared GTK/TUI handlers.
 `/join`, `/part`, `/msg`, `/me`, `/notice`, `/topic`, `/list` and `/whois`
 use IRC wire commands. Sent messages are displayed locally because capability
 negotiation for server echo is not enabled. Reconnect retains joined channel tabs.
 TLS uses the same Mongoose backend and CA settings as secure WebSocket.
+
+The roster shows IRC privilege symbols from NAMES and subsequent MODE changes,
+using the server's PREFIX mapping (normally `@` for operators and `+` for voice).
+The TX, Mute and Role columns are hidden unless the connection acknowledges the
+RUSTYRIG capability or advertises the RUSTYRIG ISUPPORT token. Capability removal
+hides them again; WebSocket rosters retain their RustyRig columns. The client
+requests `multi-prefix` when offered so combined op/voice modes remain available.
+Other advertised capabilities, including SASL, are not requested.
+
+In a room, plain text followed by Tab cycles through matching room members.
+For example, `Ro` completes to `Rob: ` at the start of a message. Subsequent
+Tabs cycle through other matching nicknames. Typing or moving the cursor starts
+a new completion; command completion requires a leading `/`.
+
+`/quit` sends `QUIT :reason` to all registered IRC connections, including
+background servers, then drains their output before closing sockets. Shutdown
+waits at most one second for output to drain, so an unresponsive connection
+cannot prevent the client from exiting.
 
 ## SSH SOCKS proxy
 

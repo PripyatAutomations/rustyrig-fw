@@ -239,6 +239,27 @@ int main(void) {
    assert(rrclient_connect_url("broken", "irc://broken.test"));
    assert(connection_count == before_retry);
 
+   dict_add(cfg, "server:quit-one.server.proxy", "");
+   dict_add(cfg, "server:quit-two.server.proxy", "");
+   assert(!rrclient_connect_url("quit-one", "irc://quit-one.test"));
+   struct mg_connection *q1 = ws_conn->conn;
+   q1->fn(q1, MG_EV_CONNECT, NULL);
+   assert(!rrclient_connect_url("quit-two", "irc://quit-two.test"));
+   struct mg_connection *q2 = ws_conn->conn;
+   q2->fn(q2, MG_EV_CONNECT, NULL);
+   mg_iobuf_del(&q1->send, 0, q1->send.len);
+   mg_iobuf_del(&q2->send, 0, q2->send.len);
+   char *quit_args[] = {
+      "QUIT", "-y", "leaving", "now"
+   };
+   assert(!cmd_quit(4, quit_args) && dying);
+   const char *quit_line = "QUIT :leaving now\r\n";
+   assert(q1->is_draining && q2->is_draining);
+   assert(q1->send.len == strlen(quit_line) && !memcmp(q1->send.buf, quit_line, strlen(quit_line)));
+   assert(q2->send.len == strlen(quit_line) && !memcmp(q2->send.buf, quit_line, strlen(quit_line)));
+   rrclient_quit_servers("Client exiting");
+   assert(q1->send.len == strlen(quit_line) && q2->send.len == strlen(quit_line));
+
    for (unsigned i = 0 ; i < connection_count ; i++) {
       mg_iobuf_free(&connections[i].recv);
       mg_iobuf_free(&connections[i].send);

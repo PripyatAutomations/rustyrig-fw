@@ -25,6 +25,7 @@
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
 #include <rrclient/objects.h>
+#include <rrclient/connman.h>
 #include <limits.h>
 
 #include <rrclient/gtk/gtk.core.h>
@@ -237,10 +238,24 @@ void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    }
 }
 
+static void userlist_set_columns(GtkWidget *view, const rrconn_t *connection) {
+   bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
+
+   for (int column = COL_TALK_ICON ; column <= COL_ELMERNOOB_ICON ; column++) {
+      gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), column), extensions);
+   }
+}
+
 static void userlist_redraw_view(GtkWidget *view, const char *room) {
    if (!view || !GTK_IS_TREE_VIEW(view)) {
       return;
    }
+   const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
+
+   if (view != cul_view && profile && ws_conn && ws_conn->server && strcmp(profile, ws_conn->server->network)) {
+      return;
+   }
+   userlist_set_columns(view, ws_conn);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
 
    if (!store) {
@@ -683,6 +698,10 @@ void userlist_redraw_gtk(void) {
 static GtkWidget *userlist_view_create(void) {
    GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+
+   if (ws_conn && ws_conn->server) {
+      g_object_set_data_full(G_OBJECT(view), "rr-roster-server", g_strdup(ws_conn->server->network), g_free);
+   }
    gtk_widget_set_name(view, "userlist-tree");
    g_object_set_data(G_OBJECT(view), "rr-touch-context", &userlist_touch_callback);
    gtk_widget_add_events(view, GDK_BUTTON_RELEASE_MASK);
@@ -715,6 +734,7 @@ static GtkWidget *userlist_view_create(void) {
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new_with_attributes("Role", elmernoob_icon, "text", COL_ELMERNOOB_ICON, NULL);
    g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
+   userlist_set_columns(view, ws_conn);
 
    return view;
 }

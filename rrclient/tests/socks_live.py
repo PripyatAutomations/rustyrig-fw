@@ -35,6 +35,7 @@ listener.listen(4)
 listener.settimeout(15)
 errors = []
 ports = []
+quits = []
 threads = []
 release = threading.Event()
 
@@ -71,6 +72,11 @@ def serve(conn):
                 assert len(registration) < 4096
             assert b"NICK nonick\r\n" in registration
             conn.sendall(b":fixture 001 nonick :Welcome\r\n")
+            departing = b""
+            while b"QUIT :fixture shutdown\r\n" not in departing:
+                departing += exact(conn, 1)
+                assert len(departing) < 4096
+            quits.append(port)
         else:
             request = headers(conn)
             assert request.startswith(b"GET /path?test=1 HTTP/1.1\r\n"), request
@@ -110,4 +116,5 @@ finally:
     listener.close()
 assert not errors, errors
 assert sorted(ports) == [4420, 6667, 6697, 8420], ports
+assert sorted(quits) == [6667, 6697], quits
 assert result.returncode == 0, result.returncode

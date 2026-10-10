@@ -56,6 +56,8 @@ extern const char *get_server_property(const char *server, const char *prop);
 extern bool connect_or_disconnect(const char *server);
 extern void connman_register_events(void);
 extern void connman_shutdown(void);
+extern void rrclient_quit_servers(const char *reason);
+extern void rrclient_flush_quit(void);
 extern void rrclient_poll_events_reconnect(void);
 
 extern bool config_network_cb(const char *path, int line, const char *section, const char *buf);

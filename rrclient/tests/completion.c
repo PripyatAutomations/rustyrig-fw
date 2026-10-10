@@ -3,6 +3,7 @@
 bool dying, restarting;
 time_t now;
 struct rr_user *global_userlist;
+rrconn_t *ws_conn;
 client_cmd_t client_cmds[] = {
    {
       .cmd = "object"
@@ -107,6 +108,12 @@ static void check(const char *line, const char *word, const char *expected) {
    assert(expected ? found : !matches || !matches[0]);
    completion_free(matches);
 }
+static unsigned intercepted;
+static bool completion_handler(tui_window_t *window) {
+   (void)window;
+   intercepted++;
+   return true;
+}
 int main(void) {
    struct rr_user user = {
       0
@@ -189,5 +196,49 @@ int main(void) {
    active_window = "#station-rig0.rx";
    check("/media SUB ", "", "rig0.vfo_a.rx");
    active_window = NULL;
-   puts("PASS: command/codec/user/channel completion and argument boundaries");
+   struct rr_user rob = {
+      .name = "Rob", .room = "#chat"
+   };
+   struct rr_user robert = {
+      .name = "Robert", .room = "#chat"
+   };
+   struct rr_user elsewhere = {
+      .name = "Robin", .room = "#elsewhere"
+   };
+   rob.next = &robert;
+   robert.next = &elsewhere;
+   global_userlist = &rob;
+   active_window = "#chat";
+   check("Ro", "Ro", "Rob:");
+   check("hello Ro", "Ro", "Rob");
+   check("rig", "rig", NULL);
+   check("/ri", "/ri", "/rig");
+   void *state = NULL;
+   size_t cursor = 2;
+   char *line = client_chat_complete("Ro", &cursor, &state);
+   assert(line && !strcmp(line, "Rob: ") && cursor == 5);
+   char *next = client_chat_complete(line, &cursor, &state);
+   assert(next && !strcmp(next, "Robert: "));
+   free(line);
+   line = client_chat_complete(next, &cursor, &state);
+   assert(line && !strcmp(line, "Rob: "));
+   free(next);
+   free(line);
+   cursor = 8;
+   line = client_chat_complete("hello Ro suffix", &cursor, &state);
+   assert(line && !strcmp(line, "hello Rob suffix"));
+   free(line);
+   active_window = "status";
+   cursor = 2;
+   assert(!client_chat_complete("Ro", &cursor, &state) && !state);
+   assert(!client_cmd_completions("ri", "ri"));
+   active_window = "#elsewhere";
+   line = client_chat_complete("Ro", &cursor, &state);
+   assert(line && !strcmp(line, "Robin: "));
+   free(line);
+   client_chat_completion_free(state);
+   tui_set_completion_handler(completion_handler);
+   assert(tui_do_completion(NULL) && intercepted == 1);
+   tui_set_completion_handler(NULL);
+   puts("PASS: command/codec/user/channel completion, room nick cycling and argument boundaries");
 }

@@ -1,4 +1,10 @@
 rustyrig-fw (20261009.01) testing; urgency=medium
+  * Hide native IRC TX/Mute/Role roster columns without RUSTYRIG support;
+    negotiate capabilities, honor PREFIX and track channel op/voice changes.
+  * Require a slash for command completion and cycle room nicknames with
+    Tab, adding a colon at message start in GTK and TUI.
+  * Send QUIT to every connected IRC server and drain queued TCP/TLS output
+    before shutdown, preserving multi-word quit reasons.
   * Add dependency-free native SOCKS5 TCP tunnels for SSH dynamic forwards,
     with proxy-side DNS, optional credentials and per-server/global settings;
     defer IRC registration, TLS and WebSocket upgrade until the tunnel opens.

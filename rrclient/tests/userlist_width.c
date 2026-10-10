@@ -13,6 +13,30 @@ int main(void) {
    }
    GtkWidget *window = gtk_offscreen_window_new();
    GtkWidget *view = userlist_view_create();
+   rrconn_t client = {
+      .fd = -1
+   };
+   userlist_set_columns(view, &client);
+   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));
+
+   for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
+      assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
+   }
+
+   irc_process_message(&client, ":server 005 tester RUSTYRIG :supported");
+   userlist_set_columns(view, &client);
+
+   for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
+      assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
+   }
+
+   irc_process_message(&client, ":server 005 tester -RUSTYRIG :supported");
+   userlist_set_columns(view, &client);
+   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
+   client.is_ws = true;
+   userlist_set_columns(view, &client);
+   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
+   irc_capabilities_clear(&client);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);

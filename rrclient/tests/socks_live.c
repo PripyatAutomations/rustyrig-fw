@@ -77,6 +77,8 @@ int main(int argc, char **argv) {
    }
 
    dying = true;
+   rrclient_quit_servers("fixture shutdown");
+   rrclient_flush_quit();
    mg_mgr_free(&mgr);
    connman_shutdown();
    irc_shutdown();

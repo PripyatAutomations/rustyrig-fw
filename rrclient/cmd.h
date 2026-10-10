@@ -69,6 +69,8 @@ extern bool parse_chat_input_real(const char *msg);
 extern bool tui_register_completion_provider(char **(*fn) (const char *line, const char *word) );
 extern void client_cmd_completion_describe(const char *line, const char *value, char *out, size_t capacity);
 extern char **client_cmd_completions(const char *line, const char *word);
+extern char *client_chat_complete(const char *line, size_t *cursor, void **state);
+extern void client_chat_completion_free(void *state);
 extern bool cmd_admin(int argc, char **args);
 extern bool cmd_room(int argc, char **args);
 extern bool cmd_clear(int argc, char **args);

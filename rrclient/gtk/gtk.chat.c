@@ -208,11 +208,34 @@ gboolean ui_scroll_to_end(gpointer data) {
 //////////
 
 static bool gtk_chat_do_completion(GtkEntry *entry) {
+   const char *profile = g_object_get_data(G_OBJECT(entry), "rr-server-name");
+
+   if (profile && *profile) {
+      rrclient_connection_select(profile);
+   }
    const char *line = gtk_entry_get_text(entry);
    int tui_cursor_pos = gtk_editable_get_position(GTK_EDITABLE(entry));
 
    if (!line || tui_cursor_pos <= 0) {
       return false;
+   }
+   size_t cursor = (size_t)(g_utf8_offset_to_pointer(line, tui_cursor_pos) - line);
+   void *old_state = g_object_get_data(G_OBJECT(entry), "rr-nick-completion");
+   void *state = old_state;
+   char *completed = client_chat_complete(line, &cursor, &state);
+
+   if (state != old_state) {
+      /* The common helper already released the old state. */
+      g_object_steal_data(G_OBJECT(entry), "rr-nick-completion");
+      g_object_set_data_full(G_OBJECT(entry), "rr-nick-completion", state, client_chat_completion_free);
+   }
+
+   if (completed) {
+      gtk_entry_set_text(entry, completed);
+      gtk_editable_set_position(GTK_EDITABLE(entry), g_utf8_pointer_to_offset(completed, completed + cursor));
+      free(completed);
+
+      return true;
    }
 
    // Find start of word before cursor
