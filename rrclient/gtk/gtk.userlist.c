@@ -253,13 +253,17 @@ static const rrconn_t *userlist_view_connection(GtkWidget *view) {
    return connection ? connection : ws_conn;
 }
 
-static void userlist_set_columns(GtkWidget *view) {
+static void userlist_set_columns(GtkWidget *view, const char *room) {
    const rrconn_t *connection = userlist_view_connection(view);
    bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
 
-   for (int column = COL_TALK_ICON ; column <= COL_ELMERNOOB_ICON ; column++) {
-      gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), column), extensions);
-   }
+   const char *vfos = room && *room ? rrclient_room_vfos(room) : NULL;
+   bool has_vfos = vfos && *vfos;
+
+   /* Radio status belongs to VFO-enabled rooms, independent of transport. */
+   gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON), has_vfos);
+   gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON), has_vfos);
+   gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_ELMERNOOB_ICON), extensions);
 }
 
 static void userlist_redraw_view(GtkWidget *view, const char *room) {
@@ -277,7 +281,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
       return;
    }
-   userlist_set_columns(view);
+   userlist_set_columns(view, room);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
 
    if (!store) {
@@ -752,7 +756,7 @@ static GtkWidget *userlist_view_create(void) {
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new_with_attributes("Role", elmernoob_icon, "text", COL_ELMERNOOB_ICON, NULL);
    g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
-   userlist_set_columns(view);
+   userlist_set_columns(view, NULL);
 
    return view;
 }
@@ -972,6 +976,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    gtk_box_pack_start(GTK_BOX(panel), header, FALSE, FALSE, 0);
    GtkWidget *view = userlist_view_create();
    userlist_view_set_server(view, entry->server);
+   userlist_set_columns(view, room);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), view);
@@ -1043,6 +1048,7 @@ void userlist_room_vfos_changed(const char *room) {
    if (!entry || !entry->panel) {
       return;
    }
+   userlist_set_columns(entry == &rig_userlist_entry ? cul_view : entry->view, room);
    GtkWidget *old = g_object_get_data(G_OBJECT(entry->panel), "rr-room-vfo-strip");
    g_object_set_data(G_OBJECT(entry->panel), "rr-room-vfo-strip", NULL);
 

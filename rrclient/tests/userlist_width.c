@@ -5,6 +5,12 @@ rrconn_t *ws_conn;
 const char *server_name;
 time_t now;
 static rrconn_t *roster_connection;
+static const char *room_vfos = "";
+const char *rrclient_room_vfos(const char *room) {
+   assert(!strcmp(room, "#rig"));
+
+   return room_vfos;
+}
 rrconn_t *rrclient_connection_find(const char *name) {
    (void)name;
 
@@ -29,26 +35,35 @@ int main(void) {
    roster_connection = &client;
    ws_conn = &selected_websocket; /* The active server differs from this room roster. */
    GtkWidget *view = userlist_view_create();
-   userlist_set_columns(view);
+   userlist_set_columns(view, "#rig");
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));
 
    for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
       assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
    }
 
+   room_vfos = "rig0.vfo_a";
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
+   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON)));
+   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_ELMERNOOB_ICON)));
    irc_process_message(&client, ":server 005 tester RUSTYRIG :supported");
-   userlist_set_columns(view);
+   userlist_set_columns(view, "#rig");
 
    for (int i = COL_TALK_ICON ; i <= COL_ELMERNOOB_ICON ; i++) {
       assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), i)));
    }
 
    irc_process_message(&client, ":server 005 tester -RUSTYRIG :supported");
-   userlist_set_columns(view);
-   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
-   client.is_ws = true;
-   userlist_set_columns(view);
+   userlist_set_columns(view, "#rig");
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
+   client.is_ws = true;
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
+   room_vfos = "";
+   userlist_set_columns(view, "#rig");
+   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
+   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON)));
    irc_capabilities_clear(&client);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);

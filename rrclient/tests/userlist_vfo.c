@@ -8,6 +8,11 @@ rrconn_t *rrclient_connection_find(const char *name) {
 
    return NULL;
 }
+const char *rrclient_room_vfos(const char *room) {
+   (void)room;
+
+   return "";
+}
 static GtkWidget *opened_menu;
 void gtk_chat_query_add(const char *user) {
 }
