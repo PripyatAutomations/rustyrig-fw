@@ -568,6 +568,7 @@ static bool same_url(const char *a, const char *b) {
 
    return rr_server_url_parse(a, &left) && rr_server_url_parse(b, &right) &&
           left.transport == right.transport && left.port == right.port &&
+          left.credentials == right.credentials && !strcmp(left.user, right.user) && !strcmp(left.pass, right.pass) &&
           !strcasecmp(left.host, right.host) && (left.irc || !strcmp(left.path, right.path));
 }
 
@@ -726,6 +727,10 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    t->server.tls = endpoint.tls;
    const char *nick = get_server_property(s->name, "server.user");
    const char *pass = get_server_property(s->name, "server.pass");
+   if (endpoint.credentials) {
+      nick = endpoint.user;
+      pass = endpoint.pass;
+   }
    const char *autojoin = get_server_property(s->name, "autojoin");
    t->proxy_pending = proxy_pending;
 
@@ -805,7 +810,6 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    activate(s);
    ws_conn = s->connection;
    ws_connected = -1;
-   ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), url);
    char connect_url[2048];
    const char *scheme = endpoint.irc ? (endpoint.tls ? "tls" : "tcp") : (endpoint.tls ? "wss" : "ws");
    int length = snprintf(connect_url, sizeof(connect_url), "%s://%s%s%s:%u%s", scheme, endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
@@ -821,6 +825,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       return true;
    }
    dispatch_depth++;
+   ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), endpoint.credentials ? connect_url : url);
    const char *socket_url = t->proxy_pending ? t->socks.url : connect_url;
    struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, socket_url, rrclient_transport_handler, t) :
       mg_ws_connect(&mgr, socket_url, rrclient_transport_handler, t, "Sec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\n");

@@ -370,3 +370,9 @@ forward complete `/quota [TX|BW]` command tails, complete unit/action parameters
 and display staff usage when present. IRC remains native-only.
 
 See [Media adaptation and usage accounting](media-adaptation-and-usage.md).
+
+Native `/server` WS/WSS URLs may include `user:pass@` for connection-specific
+RustyRig login credentials. This command syntax follows native profile and
+multiple-connection management. The browser has no `/server` command and
+continues using its page-origin WebSocket URL and authentication controls;
+no browser URL userinfo or HTTP Basic authentication is introduced.

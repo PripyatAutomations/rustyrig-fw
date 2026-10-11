@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
    tls_ca_path = "*";
    tls_ca_path_str = mg_str("*");
    const char *urls[] = {
-      "irc://target.invalid", "ircs://target.invalid", "ws://target.invalid/path?test=1", "wss://target.invalid/path?test=1"
+      "irc://target.invalid", "ircs://target.invalid", "ws://alice:p%40ss@target.invalid/path?test=1", "wss://bob:@target.invalid/path?test=1"
    };
 
    for (unsigned i = 0 ; i < 4 ; i++) {
@@ -69,6 +69,12 @@ int main(int argc, char **argv) {
          snprintf(key, sizeof(key), "server:%s.server.proxy.pass", name);
          dict_add(cfg, key, "secret");
       }
+      if (i >= 2) {
+         snprintf(key, sizeof(key), "server:%s.server.user", name);
+         dict_add(cfg, key, "profile-user");
+         snprintf(key, sizeof(key), "server:%s.server.pass", name);
+         dict_add(cfg, key, "profile-password");
+      }
       char failure_url[128];
 
       if (fail_closed) {
@@ -78,6 +84,15 @@ int main(int argc, char **argv) {
          snprintf(failure_url, sizeof(failure_url), "%s://127.0.0.1:%s/", schemes[i], argv[2]);
       }
       assert(!rrclient_connect_url(name, fail_closed ? failure_url : urls[i]));
+      rrconn_t *connection = rrclient_connection_find(name);
+      assert(connection && connection->server);
+      if (!fail_closed && i >= 2) {
+         assert(!strcmp(connection->nick, i == 2 ? "alice" : "bob"));
+         assert(!strcmp(connection->server->pass, i == 2 ? "p@ss" : ""));
+      } else if (i >= 2) {
+         assert(!strcmp(connection->nick, "profile-user"));
+         assert(!strcmp(connection->server->pass, "profile-password"));
+      }
    }
 
    for (unsigned i = 0 ; i < (fail_closed ? 150 : 1000) && ready < 4 ; i++) {

@@ -223,3 +223,12 @@ See https://modern.ircdocs.horse/ctcp.html for CTCP framing and reply semantics.
 
 Numeric 477 join failures create or reuse the affected channel window and
 display the server reason there, including NickServ account requirements.
+
+Native GTK/TUI `/server` also accepts WebSocket login credentials:
+`/server ws://user:pass@host:8420/ws/` or
+`/server wss://user:pass@host:4420/ws/`. URL credentials override the selected
+profile's `server.user` and `server.pass` for that connection and reconnects.
+Use percent escapes for reserved credential characters, such as `%40` for
+`@` and `%3A` for `:`; `user:` explicitly supplies an empty password.
+The client uses the usual RustyRig authentication exchange, with credentials
+removed from the socket URL and connection status message.

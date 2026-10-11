@@ -147,19 +147,52 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
    }
 }
 
-bool gtk_chat_copy_selection(void) {
-   if (!chat_textview || !GTK_IS_TEXT_VIEW(chat_textview)) {
-      return false;
-   }
-   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
+static bool gtk_chat_copy_widgets(GtkWidget *view, GtkWidget *entry) {
+   gint first, last;
+   bool input_selected = entry && GTK_IS_EDITABLE(entry) &&
+      gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last);
+   GtkTextBuffer *buffer = view && GTK_IS_TEXT_VIEW(view) ?
+      gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)) : NULL;
    GtkTextIter start, end;
+   bool transcript_selected = buffer && gtk_text_buffer_get_selection_bounds(buffer, &start, &end);
 
-   if (!gtk_text_buffer_get_selection_bounds(buffer, &start, &end)) {
-      return false;
+   /* GTK can retain selections in both widgets. Prefer the focused one. */
+   if (input_selected && (!transcript_selected || !gtk_widget_has_focus(view))) {
+      gtk_editable_copy_clipboard(GTK_EDITABLE(entry));
+      return true;
    }
-   gtk_text_buffer_copy_clipboard(buffer, gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+   if (transcript_selected) {
+      gtk_text_buffer_copy_clipboard(buffer, gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+      return true;
+   }
+   return false;
+}
 
-   return true;
+static gboolean gtk_chat_view_keypress(GtkWidget *view, GdkEventKey *event, gpointer user_data) {
+   (void)user_data;
+   if (!event || event->type != GDK_KEY_PRESS ||
+       (event->keyval != GDK_KEY_c && event->keyval != GDK_KEY_C)) {
+      return FALSE;
+   }
+   GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+   if (modifiers != (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
+      return FALSE;
+   }
+   return gtk_chat_copy_widgets(view, g_object_get_data(G_OBJECT(view), "rr-chat-entry"));
+}
+
+bool gtk_chat_copy_selection(void) {
+   GtkWidget *view = chat_textview, *entry = chat_entry;
+   if (main_notebook) {
+      GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+         gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+      GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+      if (tab) {
+         view = tab->view;
+         entry = tab->entry;
+      }
+   }
+   return gtk_chat_copy_widgets(view, entry);
 }
 
 bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget **view) {
@@ -1041,6 +1074,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
    chat_textview = gtk_text_view_new();
    gtk_widget_set_name(chat_textview, "chat-view");
+   g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview) );
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
@@ -1065,6 +1099,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
    // Chat INPUT
    chat_entry = gtk_entry_new();
+   g_object_set_data(G_OBJECT(chat_textview), "rr-chat-entry", chat_entry);
    GtkWidget *color_popover = gtk_popover_new(chat_entry);
    gtk_popover_set_position(GTK_POPOVER(color_popover), GTK_POS_TOP);
    gtk_popover_set_modal(GTK_POPOVER(color_popover), FALSE);

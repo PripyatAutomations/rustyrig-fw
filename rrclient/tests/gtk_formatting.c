@@ -160,6 +160,62 @@ static void test_color_popup(void) {
    gtk_widget_destroy(window);
 }
 
+static void test_transcript_copy(void) {
+   if (!gtk_init_check(NULL, NULL)) {
+      return;
+   }
+   GtkWidget *view = gtk_text_view_new();
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   gtk_text_buffer_set_text(buffer, "copy this transcript", -1);
+   GtkTextIter start, end;
+   gtk_text_buffer_get_bounds(buffer, &start, &end);
+   gtk_text_buffer_select_range(buffer, &start, &end);
+   g_signal_connect(view, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
+   GdkEventKey event = { .type = GDK_KEY_PRESS, .keyval = GDK_KEY_C,
+      .state = GDK_CONTROL_MASK | GDK_SHIFT_MASK };
+   gboolean handled = FALSE;
+   g_signal_emit_by_name(view, "key-press-event", &event, &handled);
+   assert(handled);
+   gchar *copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+   assert(copied && !strcmp(copied, "copy this transcript"));
+   g_free(copied);
+   /* Global copy must follow the selected page even after another tab was built. */
+   main_notebook = gtk_notebook_new();
+   GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkRoomTab tab = { .view = view };
+   g_object_set_data(G_OBJECT(page), "rr-room-tab", &tab);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), page, NULL);
+   gtk_widget_show(page);
+   chat_textview = gtk_text_view_new();
+   assert(gtk_chat_copy_selection());
+   copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+   assert(copied && !strcmp(copied, "copy this transcript"));
+   g_free(copied);
+   GtkWidget *entry = gtk_entry_new();
+   GtkWidget *input_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_container_add(GTK_CONTAINER(input_window), entry);
+   gtk_widget_show_all(input_window);
+   drain_gtk_events();
+   tab.entry = entry;
+   gtk_entry_set_text(GTK_ENTRY(entry), "copy selected input");
+   gtk_editable_select_region(GTK_EDITABLE(entry), 5, 13);
+   assert(on_chat_entry_keypress(entry, &event, NULL));
+   copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+   assert(copied && !strcmp(copied, "selected"));
+   g_free(copied);
+   gtk_editable_select_region(GTK_EDITABLE(entry), 0, 0);
+   gtk_text_buffer_select_range(buffer, &start, &end);
+   assert(on_chat_entry_keypress(entry, &event, NULL));
+   copied = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+   assert(copied && !strcmp(copied, "copy this transcript"));
+   g_free(copied);
+   gtk_widget_destroy(input_window);
+   gtk_widget_destroy(chat_textview);
+   gtk_widget_destroy(main_notebook);
+   gtk_widget_destroy(view);
+   chat_textview = main_notebook = NULL;
+}
+
 int main(void) {
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
@@ -212,5 +268,6 @@ int main(void) {
    assert(!strcmp(text, "<span foreground=\"black\" background=\"white\">reverse</span>plain"));
    g_free(text);
    test_color_popup();
+   test_transcript_copy();
    puts("PASS: GTK mIRC red headings, numeric text, reset and markup escaping");
 }

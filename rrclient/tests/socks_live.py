@@ -79,6 +79,7 @@ def serve(conn):
             quits.append(port)
         else:
             request = headers(conn)
+            assert b"Authorization:" not in request and b"p%40ss" not in request and b"p@ss" not in request, request
             assert request.startswith(b"GET /path?test=1 HTTP/1.1\r\n"), request
             assert f"Host: target.invalid:{port}\r\n".encode() in request, request
             key = next(line.split(b": ", 1)[1] for line in request.split(b"\r\n")
