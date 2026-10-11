@@ -212,7 +212,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "kick", .help_section = "Administration", .cb = cmd_kick, .max_args = 2, .admin = true, .desc = "Kick a user from the current room/IRC channel"
    },
    {
-      .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .admin = true, .desc = "Mute a user"
+      .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .max_args = 2, .admin = true, .desc = "Mute a user"
    },
    {
       .cmd = "quota", .help_section = "Administration", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX/BW quota admin ([TX|BW] LIST|SHOW|ADD|RESET|SET)"

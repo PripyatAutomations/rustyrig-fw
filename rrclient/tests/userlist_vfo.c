@@ -23,20 +23,10 @@ const char *rrclient_room_vfos(const char *room) {
 
    return "";
 }
-static char whois_window[128], whois_target[128];
-bool rrclient_whois_send(rrconn_t *connection, const char *window, const char *nick) {
-   snprintf(whois_window, sizeof(whois_window), "%s", window);
-   snprintf(whois_target, sizeof(whois_target), "%s", nick);
-   return false;
-}
-const char *ui_active_window_name(void) { return "#unrelated"; }
-static char kick_room[128], kick_target[128];
-const char *rrclient_active_room(void) { return "#unrelated"; }
-bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *window, int argc, char **args) {
-   assert(argc == 3);
-   snprintf(kick_room, sizeof(kick_room), "%s", room);
-   snprintf(kick_target, sizeof(kick_target), "%s", args[1]);
-   assert(!strcmp(window, "#origin|server|1"));
+static char menu_window[128], menu_command[256];
+bool gtk_chat_execute_command(const char *window, const char *command) {
+   snprintf(menu_window, sizeof(menu_window), "%s", window);
+   snprintf(menu_command, sizeof(menu_command), "%s", command);
    return false;
 }
 static GtkWidget *opened_menu;
@@ -192,20 +182,19 @@ int main(void) {
          }
       }
 
-      rrconn_t connection = {0};
-      ws_conn = &connection;
       g_object_set_data(G_OBJECT(view), "rr-roster-window", "#origin|server|1");
-      gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, 1)));
-      assert(!strcmp(whois_target, "BOB"));
-      assert(!strcmp(whois_window, "#origin|server|1"));
-      room_userlist_entry_t origin = { .room = "#menu-room" };
-      g_object_set_data(G_OBJECT(view), "rr-room-roster", &origin);
-      gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, 5)));
-      assert(!strcmp(kick_room, "#menu-room"));
-      assert(!strcmp(kick_target, "BOB"));
-      ws_conn = NULL;
-      puts("PASS: menu KICK uses the roster channel instead of the active tab");
-      puts("PASS: menu WHOIS uses the roster origin instead of the active window");
+      const char *commands[] = { "/query BOB", "/whois BOB", NULL,
+         "/mute BOB Requested from the user list", "/unmute BOB",
+         "/kick BOB Requested from the user list" };
+      for (int i = 0; i < 6; i++) {
+         if (!commands[i]) {
+            continue;
+         }
+         gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, i)));
+         assert(!strcmp(menu_command, commands[i]));
+         assert(!strcmp(menu_window, "#origin|server|1"));
+      }
+      puts("PASS: all roster menu actions execute slash commands in the originating window");
       g_list_free(items);
       gtk_widget_destroy(opened_menu);
       gtk_tree_path_free(path);

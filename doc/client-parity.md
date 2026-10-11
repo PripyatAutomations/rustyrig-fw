@@ -408,3 +408,7 @@ determine its natural auto-sized width. Manual divider collapse remains allowed.
 Docked GTK frequency/mode/codec/PTT controls have their own horizontal scroller.
 Their minimum width must not enlarge the entire notebook in the main zoom
 viewport and place the room roster outside the visible window.
+
+GTK roster Query/Whois/Mute/Unmute/Kick actions select their existing room tab
+and invoke the native slash-command parser directly. They leave the input
+draft and history untouched; browser menu presentation remains separate.

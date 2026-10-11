@@ -10,7 +10,13 @@ fallback for older releases.
 For Debian packages and service setup, follow doc/INSTALLING. For a source
 build on Debian/Ubuntu, fetch the checkout and install the profile reader:
 
+XXX: This will drag in a fair bit of external sources NOT linked by
+XXX: default-- this is because we need it available for offline builds
+XXX: of rustyrig firmware (from the pi). This might change soon!
+
     git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+    # include submodules & third party libraries we might need
+    ./tools/git-pull-all.sh
     cd rustyrig-fw
     sudo apt update
     sudo apt install jq

@@ -1152,6 +1152,20 @@ static void gtk_chat_select_existing_tab(GtkRoomTab *tab) {
    }
 }
 
+/* Menu actions use the same command path as Enter, without serializing,
+ * clearing, or recording the user's draft in the input widget. */
+bool gtk_chat_execute_command(const char *window, const char *command) {
+   GtkRoomTab *tab = window && room_tabs ? g_hash_table_lookup(room_tabs, window) : NULL;
+   if (window && !tab) {
+      return false;
+   }
+   if (tab) {
+      rrclient_connection_select(tab->server);
+      gtk_chat_select_existing_tab(tab);
+   }
+   return parse_chat_input_real(command);
+}
+
 static void gtk_chat_tab_add(const char *room, bool is_query) {
    if (!room || !*room || !main_notebook) {
       return;

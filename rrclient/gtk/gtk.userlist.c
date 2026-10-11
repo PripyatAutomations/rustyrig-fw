@@ -24,7 +24,6 @@
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
-#include <rrclient/irc.whois.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <limits.h>
@@ -447,52 +446,17 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
 static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
    const char *target = g_object_get_data(G_OBJECT(item), "rr-user-target");
    const char *command = g_object_get_data(G_OBJECT(item), "rr-user-command");
+   GtkWidget *view = user_data;
+   const char *window = g_object_get_data(G_OBJECT(view), "rr-roster-window");
 
-   if (!target || !*target || !command || !ws_conn) {
+   if (!target || !*target || !command) {
       return;
    }
-
-   if (strcasecmp(command, "query") == 0) {
-#ifdef USE_GTK
-      gtk_chat_query_add(target);
-#endif
-
-      return;
-   }
-
-   if (strcasecmp(command, "whois") == 0) {
-      GtkWidget *view = user_data;
-      const char *window = g_object_get_data(G_OBJECT(view), "rr-roster-window");
-      rrclient_whois_send((rrconn_t *)userlist_view_connection(view),
-         window ? window : ui_active_window_name(), target);
-      return;
-   }
-
-   if (strcasecmp(command, "kick") == 0) {
-      GtkWidget *view = user_data;
-      room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
-      const char *window = g_object_get_data(G_OBJECT(view), "rr-roster-window");
-      char *args[] = { "kick", (char *)target, "Requested from the user list" };
-      rrclient_kick_send((rrconn_t *)userlist_view_connection(view),
-         entry ? entry->room : rrclient_active_room(),
-         window ? window : ui_active_window_name(), 3, args);
-      return;
-   }
-
-   dict *d = dict_new();
-
-   if (!d) {
-      return;
-   }
-   dict_add(d, "msg.type", "talk");
-   dict_add(d, "talk.cmd", command);
-   dict_add(d, "talk.target", target);
-
-   if (strcasecmp(command, "mute") == 0) {
-      dict_add(d, "talk.reason", "Requested from the user list");
-   }
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
-   dict_free(d);
+   const char *reason = !strcasecmp(command, "kick") || !strcasecmp(command, "mute") ?
+      " Requested from the user list" : "";
+   char *input = g_strdup_printf("/%s %s%s", command, target, reason);
+   gtk_chat_execute_command(window, input);
+   g_free(input);
 }
 
 static void userlist_context_menu_add(GtkWidget *menu, const char *label, const char *command, const char *target, GtkWidget *view) {

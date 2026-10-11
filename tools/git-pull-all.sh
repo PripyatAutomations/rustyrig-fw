@@ -3,6 +3,7 @@ subdirs="librrprotocol librustyaxe www callsign-lookup"
 subdirs_ext="libmongoose mbedtls sqlite wslay"
 
 git pull
+git submodule init
 
 git submodule update --remote --recursive
 

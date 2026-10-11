@@ -157,7 +157,7 @@ bool cmd_mute(int argc, char **args) {
    dict_add(d, "talk.cmd", "mute");
    dict_add(d, "talk.target", args[1]);
 
-   if (args[2]) {
+   if (argc > 2 && args[2]) {
       dict_add(d, "talk.reason", args[2]);
    }
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);

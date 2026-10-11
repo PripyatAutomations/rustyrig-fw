@@ -20,6 +20,7 @@ extern void gtk_chat_room_add(const char *room);
 extern void gtk_chat_query_add(const char *user);
 extern void gtk_chat_room_remove(const char *room);
 extern bool gtk_chat_copy_selection(void);
+extern bool gtk_chat_execute_command(const char *window, const char *command);
 extern void gtk_chat_set_authoritative_room(const char *room);
 extern void gtk_chat_show_status(void);
 extern const char *gtk_chat_current_room(void);

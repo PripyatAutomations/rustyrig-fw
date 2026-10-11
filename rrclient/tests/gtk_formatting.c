@@ -21,7 +21,16 @@ void client_chat_completion_free(void *state) {
 rrconn_t *rrclient_active_connection(void) {
    return NULL;
 }
+static char selected_server[128];
 bool rrclient_connection_select(const char *name) {
+   snprintf(selected_server, sizeof(selected_server), "%s", name);
+   return true;
+}
+static char parsed_menu_command[128];
+bool parse_chat_input_real(const char *message) {
+   assert(!strcmp(gtk_chat_current_room(), "#origin"));
+   assert(!strcmp(selected_server, "server"));
+   snprintf(parsed_menu_command, sizeof(parsed_menu_command), "%s", message);
    return false;
 }
 bool rrclient_connection_cycle_status(bool status_active) {
@@ -255,6 +264,19 @@ static void test_incoming_chat_preserves_draft(void) {
       gint first, last;
       assert(!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last));
    }
+   snprintf(tab.room, sizeof(tab.room), "#origin");
+   snprintf(tab.server, sizeof(tab.server), "server");
+   g_object_set_data(G_OBJECT(page), "rr-room-tab", &tab);
+   room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
+   g_hash_table_insert(room_tabs, "origin-key", &tab);
+   assert(!gtk_chat_execute_command("origin-key", "/whois BOB"));
+   assert(!strcmp(parsed_menu_command, "/whois BOB"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+   assert(gtk_editable_get_position(GTK_EDITABLE(entry)) == 4);
+   assert(!gtk_chat_execute_command("closed-key", "/whois BOB"));
+   g_hash_table_destroy(room_tabs);
+   room_tabs = NULL;
+   puts("PASS: roster commands reach the normal parser with room/server context and preserve the draft");
    type_entry_text(entry, "X");
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfiXnished draft"));
    gtk_editable_select_region(GTK_EDITABLE(entry), 2, 6);
