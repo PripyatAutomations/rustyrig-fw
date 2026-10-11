@@ -240,7 +240,7 @@ bool userlist_add_or_update(dict *d) {
    n->next = *insert;
    *insert = n;
 
-   Log(LOG_INFO, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
+   Log(LOG_CRAZY, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
    if (frontend_ops() ) {
       if (rrclient_present_context()) {

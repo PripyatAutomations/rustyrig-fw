@@ -180,7 +180,18 @@ bool cmd_me(int argc, char **args) {
             return false;
          }
       }
-      bool sent = irc_send(connection, "PRIVMSG %s :\001ACTION %s\001", active_room, action);
+      dict *request = dict_new();
+
+      if (!request) {
+         return true;
+      }
+      dict_add(request, "msg.type", "talk");
+      dict_add(request, "talk.cmd", "msg");
+      dict_add(request, "talk.target", active_room);
+      dict_add(request, "talk.msg_type", "action");
+      dict_add(request, "talk.data", action);
+      bool sent = irc_send_dict(connection, request);
+      dict_free(request);
       return !sent;
    }
    char buf[1024];
@@ -259,8 +270,18 @@ bool cmd_msg(int argc, char **args) {
    }
 
    if (connection && !connection->is_ws) {
-      bool sent = irc_send(connection, "PRIVMSG %s :%s", target, fullmsg);
+      dict *request = dict_new();
 
+      if (!request) {
+         return true;
+      }
+      dict_add(request, "msg.type", "talk");
+      dict_add(request, "talk.cmd", "msg");
+      dict_add(request, "talk.target", target);
+      dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
+      dict_add(request, "talk.data", fullmsg);
+      bool sent = irc_send_dict(connection, request);
+      dict_free(request);
       if (sent && ui_mode == UI_MODE_TUI) {
          const char *window_name = rrclient_window_name(target);
          tui_window_t *window = tui_window_find(window_name);

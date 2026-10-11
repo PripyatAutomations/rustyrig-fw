@@ -17,9 +17,19 @@ bool dying, restarting;
 const char *login_user;
 rrconn_t *ws_conn, *ws_tx_conn;
 static char last_event[64];
-static dict *last;
+static dict *last, *last_talk;
 static unsigned events, rejoins, status_windows;
 static rrconn_t *expected_connection;
+static char irc_send_buffer[1024];
+static bool irc_send_result = true;
+bool irc_send(rrconn_t *connection, const char *format, ...) {
+   assert(connection == expected_connection);
+   va_list args;
+   va_start(args, format);
+   vsnprintf(irc_send_buffer, sizeof(irc_send_buffer), format, args);
+   va_end(args);
+   return irc_send_result;
+}
 void rrclient_server_status_window(const char *room) {
    assert(room && *room);
    status_windows++;
@@ -76,6 +86,12 @@ static void observe(const char *event, const char *data, rrconn_t *cptr, void *u
    last = json2dict(data);
    assert(last);
 
+   if (!strcmp(event, "talk.msg")) {
+      dict_free(last_talk);
+      last_talk = json2dict(data);
+      assert(last_talk);
+   }
+
    if (!strcmp(event, "userinfo") && !strcmp(dict_get(last, "talk.user", ""), member.name)) {
       strlcpy(member.privs, dict_get(last, "talk.privs", ""), sizeof(member.privs));
    }
@@ -106,11 +122,30 @@ int main(void) {
    assert(strstr(status_text, "-uranium.libera.chat- *** Checking Ident") && printed_status && !status_windows && !events);
    assert(!irc_process_message(&client, ":server PRIVMSG tester :registration message"));
    assert(strstr(status_text, "<server> registration message") && printed_status && !status_windows && !events);
+   event_on("talk.msg", observe, NULL);
    client.authenticated = true; /* The protocol marks this on welcome numeric 001. */
    event_emit("irc.connected", &client, "");
    assert(ws_connected == 1 && !strcmp(login_user, "tester") && rejoins == 1);
    assert(!irc_process_message(&client, ":uranium.libera.chat 002 tester :Your host is uranium.libera.chat, running version solanum"));
    assert(printed_status && strstr(status_text, "[002] Your host is uranium.libera.chat"));
+   dict *outgoing = dict_new();
+   dict_add(outgoing, "msg.type", "talk");
+   dict_add(outgoing, "talk.cmd", "msg");
+   dict_add(outgoing, "talk.target", "#room");
+   dict_add(outgoing, "talk.msg_type", "pub");
+   dict_add(outgoing, "talk.data", "sent message");
+   assert(irc_send_dict(&client, outgoing));
+   assert(!strcmp(dict_get(last_talk, "talk.from", ""), "tester"));
+   assert(!strcmp(dict_get(last_talk, "talk.target", ""), "#room"));
+   assert(!strcmp(dict_get(last_talk, "talk.msg_type", ""), "pub"));
+   assert(!strcmp(dict_get(last_talk, "talk.data", ""), "sent message"));
+   assert(!strcmp(irc_send_buffer, "PRIVMSG #room :sent message"));
+   unsigned delivered = events;
+   irc_send_result = false;
+   assert(!irc_send_dict(&client, outgoing));
+   assert(events == delivered);
+   irc_send_result = true;
+   dict_free(outgoing);
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :hello"));
    assert(!strcmp(last_event, "talk.msg"));
    assert(!strcmp(dict_get(last, "talk.from", ""), "alice"));
@@ -162,6 +197,7 @@ int main(void) {
    assert(events == previous);
    expected_connection = &client;
    free((void *)login_user);
+   dict_free(last_talk);
    dict_free(last);
    event_shutdown();
    puts("PASS: native IRC events map chat/actions/notices, membership, topics, NAMES and nick/auth state");

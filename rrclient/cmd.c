@@ -389,7 +389,19 @@ bool parse_chat_input_real(const char *msg) {
          if (target[0] != '#' && target[0] != '&') {
             target = rrclient_window_room(target);
          }
-         return !irc_send(active_connection, "PRIVMSG %s :%s", target, msg);
+         dict *request = dict_new();
+
+         if (!request) {
+            return true;
+         }
+         dict_add(request, "msg.type", "talk");
+         dict_add(request, "talk.cmd", "msg");
+         dict_add(request, "talk.target", target);
+         dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
+         dict_add(request, "talk.data", msg);
+         bool sent = irc_send_dict(active_connection, request);
+         dict_free(request);
+         return !sent;
       }
       if (!ws_connected) {
          ui_print(ui_active_window_name(), "\00304*** Not connected to server ***\017");

@@ -446,7 +446,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
-   if (private_msg && from && login_user && strcmp(from, login_user) != 0) {
+   if (private_msg && from && login_user && strcasecmp(from, login_user) != 0) {
       output_room = from;
    }
 
@@ -1480,6 +1480,7 @@ void rrclient_register_events(void) {
    event_on("room.deleted", rrclient_handle_room_deleted, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);
+   event_on("irc.sent", rrclient_handle_talk_msg, NULL);
    event_on("userinfo", rrclient_handle_userinfo, NULL);
    event_on("whois", rrclient_handle_whois, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
