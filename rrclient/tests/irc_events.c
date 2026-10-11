@@ -167,7 +167,6 @@ int main(void) {
    assert(strstr(status_text, "-uranium.libera.chat- *** Checking Ident") && printed_status && !status_windows && !events);
    assert(!irc_process_message(&client, ":server PRIVMSG tester :registration message"));
    assert(strstr(status_text, "<server> registration message") && printed_status && !status_windows && !events);
-   event_on("talk.msg", observe, NULL);
    client.authenticated = true; /* The protocol marks this on welcome numeric 001. */
    event_emit("irc.connected", &client, "");
    assert(ws_connected == 1 && !strcmp(login_user, "tester") && rejoins == 1);
@@ -264,6 +263,23 @@ int main(void) {
    assert(!irc_send_dict(&client, outgoing));
    assert(events == delivered);
    irc_send_result = true;
+   dict_add(outgoing, "talk.target", "TESTER");
+   const char *self_kinds[] = { "priv", "action", "notice" };
+   const char *self_lines[] = {
+      ":tester!user@host PRIVMSG tester :sent message",
+      ":tester!user@host PRIVMSG tester :\001ACTION sent message\001",
+      ":tester!user@host NOTICE tester :sent message"
+   };
+   for (unsigned i = 0 ; i < 3 ; i++) {
+      dict_add(outgoing, "talk.msg_type", self_kinds[i]);
+      delivered = events;
+      assert(irc_send_dict(&client, outgoing));
+      assert(events == delivered); /* No local duplicate for a self-target. */
+      assert(!irc_process_message(&client, self_lines[i]));
+      assert(events == delivered + 1);
+      assert(!strcmp(dict_get(last_talk, "talk.data", ""), "sent message"));
+      assert(!strcmp(dict_get(last_talk, "talk.msg_type", ""), self_kinds[i]));
+   }
    dict_free(outgoing);
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :hello"));
    assert(!strcmp(last_event, "talk.msg"));

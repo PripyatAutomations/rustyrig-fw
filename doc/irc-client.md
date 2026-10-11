@@ -51,7 +51,8 @@ pending requests. Unmatched or expired replies go to status. Field layouts follo
 [IRC client protocol reference](https://modern.ircdocs.horse/#whois-message);
 IRC presentation is native-only.
 Sent messages are displayed locally because capability
-negotiation for server echo is not enabled. Reconnect retains joined channel tabs.
+negotiation for server echo is not enabled. Messages, actions and notices to
+one's own nickname use the server-delivered copy, avoiding a duplicate local echo. Reconnect retains joined channel tabs.
 Channel-forward numeric 470 closes the requested channel tab and creates or
 reuses the destination tab on the same server in GTK and TUI. It forgets the
 old channel's reconnect intent; the following self-JOIN confirms destination

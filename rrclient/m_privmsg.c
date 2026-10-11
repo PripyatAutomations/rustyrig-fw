@@ -101,6 +101,12 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
    }
 
    if (!strcmp(event, "irc.sent")) {
+      /* IRC delivers messages addressed to our own nick back to us. Render
+       * that server copy once, rather than also adding a local echo. */
+      if (!strcasecmp(dict_get(d, "talk.target", ""), cptr->nick)) {
+         dict_free(d);
+         return;
+      }
       dict_add(d, "talk.from", cptr->nick);
       dict_add_long(d, "msg.ts", now);
       event_emit_dict("talk.msg", cptr, d);
