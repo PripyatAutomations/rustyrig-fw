@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+source "$(dirname -- "${BASH_SOURCE[0]}")/test-env.sh"
 SESSION="rustyrig"
 WAIT=5
 
@@ -8,9 +10,9 @@ fi
 
 if command -v tmux >/dev/null 2>&1; then
    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
-      tmux new-session -d -s "$SESSION" './test-server.sh'   # window 0 for server
+      tmux new-session -d -s "$SESSION" './tools/test-server.sh'   # window 0 for server
       tmux new-window -t "$SESSION" -n client                 # creates window 1, just a shell
-      tmux send-keys -t "$SESSION:client" "echo 'Waiting ${WAIT}s before starting client...'; sleep ${WAIT}; ./test-client.sh" C-m
+      tmux send-keys -t "$SESSION:client" "echo 'Waiting ${WAIT}s before starting client...'; sleep ${WAIT}; ./tools/test-client.sh" C-m
       tmux attach -t "$SESSION"
    else
       echo "Tmux session '$SESSION' already exists."
@@ -19,12 +21,12 @@ if command -v tmux >/dev/null 2>&1; then
 elif command -v screen >/dev/null 2>&1; then
    if ! screen -list | grep -q "$SESSION"; then
       # Window 0: server
-      screen -S "$SESSION" -d -m bash -c './test-server.sh; exec bash'
+      screen -S "$SESSION" -d -m bash -c './tools/test-server.sh; exec bash'
       
       # Window 1: client (just opens a shell first)
       screen -S "$SESSION" -X screen bash
       # Send commands to the last created window
-      screen -S "$SESSION" -p 1 -X stuff $'echo "Waiting ${WAIT}s before starting client..."\nsleep ${WAIT}\n./test-client.sh\n'
+      screen -S "$SESSION" -p 1 -X stuff $'echo "Waiting ${WAIT}s before starting client..."\nsleep ${WAIT}\n./tools/test-client.sh\n'
       
       # Attach
       screen -r "$SESSION"

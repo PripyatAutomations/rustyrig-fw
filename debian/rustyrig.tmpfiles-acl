@@ -1,0 +1,4 @@
+# Preserve administrator access for new database/log files.
+a+ /var/lib/rustyrig - - - - g:rradmin:rwx,g:rustyrig:rwx,d:g:rradmin:rwx,d:g:rustyrig:rwx,d:o::---
+a+ /var/lib/rustyrig/db - - - - g:rradmin:rwx,g:rustyrig:rwx,d:g:rradmin:rwx,d:g:rustyrig:rwx,d:o::---
+a+ /var/log/rustyrig - - - - g:rradmin:rwx,g:rustyrig:rwx,d:g:rradmin:rwx,d:g:rustyrig:rwx,d:o::---

@@ -1,39 +1,9 @@
 #!/bin/bash
 set -e
-VALGRIND_LOG="audit-logs/valgrind.rrclient.%p.log"
-VALGRIND_OPTS="--leak-check=full --track-origins=yes --show-leak-kinds=all"
-
-# XXX: This should go away someday...
-mkdir -p run/rrclient
-
-#if [ ! -f ~/.config/rrclient.cfg ]; then
-#   echo "No config found at ~/.config/rrclient.cfg, copy example? [N/y]"
-#   read line
-#   if [ "${line}" == "y" -o "${line}" == "Y" ]; then
-#      cp config/rrclient.cfg ~/.config/rrclient.cfg
-#   else
-#      echo "Skipping!"
-#      exit 1
-#   fi
-#fi
-
-#while [ ! -z $1 ]; do
-   case "$1" in
-      gtk)
-        G_DEBUG=fatal-criticals gdb --ex run --args ./bin/rrclient
-        ;;
-      gdb)
-        gdb ./bin/rrclient -ex run
-        ;;
-
-      valgrind)
-        rm -f audit-logs/valgrind.rrclient.*.log
-        valgrind ${VALGRIND_OPTS} --log-file="${VALGRIND_LOG}" ./bin/rrclient
-        ;;
-
-      *)
-        ./bin/rrclient
-        ;;
-   esac
-#   shift
-#done
+source "$(dirname -- "${BASH_SOURCE[0]}")/test-env.sh"
+rr_test_config=$(python3 tools/test-config.py "$rr_test_root" rrclient)
+case "${1:-}" in
+    gtk|gdb) G_DEBUG=fatal-criticals exec gdb --ex run --args "$rr_test_root/bin/rrclient" -f "$rr_test_config" ;;
+    valgrind) exec valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all --log-file="$rr_test_root/audit-logs/valgrind.rrclient.%p.log" "$rr_test_root/bin/rrclient" -f "$rr_test_config" ;;
+    *) exec "$rr_test_root/bin/rrclient" -f "$rr_test_config" ;;
+esac

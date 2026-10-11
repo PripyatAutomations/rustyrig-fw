@@ -181,6 +181,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_Return: {
             return ptt_button_hotkey_press();
          }
+         case GDK_KEY_X:
+         case GDK_KEY_x: {
+            show_server_chooser();
+            return TRUE;
+         }
          case GDK_KEY_C:
          case GDK_KEY_c: {
             gtk_widget_grab_focus(GTK_WIDGET(chat_entry) );

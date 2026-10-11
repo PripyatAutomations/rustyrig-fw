@@ -21,6 +21,7 @@ rrclient_objs += cmd.chat.o		# chat commands
 rrclient_objs += cmd.help.o		# help texts
 rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
+rrclient_objs += config.layers.o
 rrclient_objs += connman.o		# connection manager
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers

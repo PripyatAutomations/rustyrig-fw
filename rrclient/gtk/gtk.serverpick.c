@@ -142,6 +142,43 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 }
 
 
+static void on_edit_clicked(GtkButton *button, gpointer data) {
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(data));
+   GtkTreeModel *model;
+   GtkTreeIter iter;
+   if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
+      gchar *profile;
+      gtk_tree_model_get(model, &iter, 0, &profile, -1);
+      gtk_show_server_editor(profile);
+      g_free(profile);
+   }
+}
+
+void gtk_server_picker_refresh_profile(const char *profile) {
+   gui_window_t *picker = gui_find_window(NULL, "serverpick");
+   GtkWidget *tree = picker && picker->gtk_win ? g_object_get_data(G_OBJECT(picker->gtk_win), "rr-server-tree") : NULL;
+   if (!tree) {
+      return;
+   }
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+   GtkTreeIter iter;
+   gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+   while (valid) {
+      gchar *name;
+      gtk_tree_model_get(model, &iter, 0, &name, -1);
+      bool match = !strcmp(name, profile);
+      g_free(name);
+      if (match) {
+         const char *user = get_server_property(profile, "server.user");
+         const char *url = get_server_property(profile, "server.url");
+         const char *proxy = get_server_property(profile, "server.proxy");
+         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 1, user ? user : "", 2, url ? url : "", 3, proxy ? proxy : "", -1);
+         return;
+      }
+      valid = gtk_tree_model_iter_next(model, &iter);
+   }
+}
+
 void gtk_show_server_chooser(void) {
    gui_window_t *existing = gui_find_window(NULL, "serverpick");
 
@@ -183,6 +220,7 @@ void gtk_show_server_chooser(void) {
    }
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
+   g_object_set_data(G_OBJECT(window), "rr-server-tree", tree);
    const char *titles[] = {
       "Server", "User", "URL", "Proxy"
    };
@@ -195,6 +233,9 @@ void gtk_show_server_chooser(void) {
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   GtkWidget *edit = gtk_button_new_with_label("Edit");
+   gtk_box_pack_start(GTK_BOX(box), edit, FALSE, FALSE, 0);
+   g_signal_connect(edit, "clicked", G_CALLBACK(on_edit_clicked), tree);
    GtkWidget *button = gtk_button_new_with_label("Connect");
    gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_connect_clicked), tree);

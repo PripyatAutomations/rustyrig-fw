@@ -1,3 +1,4 @@
+#include <rrclient/config.layers.h>
 //
 // rrclient/gtk/gtk.editcfg.h
 //    This is part of rustyrig-fw.
@@ -306,7 +307,7 @@ static void apply_config(const char *filename) {
       return;
    }
 
-   cfg_reload(filename);
+   rrclient_config_reload(filename);
 }
 
 static void destroy_editor(EditorContext *ctx) {
@@ -513,7 +514,7 @@ static void on_reload_config_button(GtkButton *btn, gpointer user_data) {
       return;
    }
 
-   cfg_reload((const char *)user_data);
+   rrclient_config_reload((const char *)user_data);
 }
 
 void gui_edit_config(const char *filepath) {

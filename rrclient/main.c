@@ -1,3 +1,4 @@
+#include <rrclient/config.layers.h>
 //
 // rrclient/main.c: Core of the client
 //    This is part of rustyrig-fw.
@@ -535,7 +536,6 @@ void show_arg_help(int argc, char **argv) {
 ////////////////////////////
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
-   char *fullpath = NULL;
    char *autoconnect_server = NULL;   // -s: server profile to connect to on start
 
    // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
@@ -673,32 +673,11 @@ int main(int argc, char *argv[]) {
    }
    cfg_network_save_init();
 
-   if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
-         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
-         free( (void *)config_file);
-         config_file = NULL;
-         exit(1);
-      } else {
-         printf("Loading config %s\n", config_file);
-      }
-   }
-
-   if (!config_file && (fullpath = find_file_by_list(configs, num_configs) ) ) {
-      config_file = strdup(fullpath);
-
-      if (!(cfg = cfg_load(fullpath) ) ) {
-         Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
-      }
-      printf("Loading config %s\n", config_file);
-      free(fullpath);
-   }
-
-   if (!config_file) {
-      // Use default settings builtin
-      fprintf(stderr, "No config found :(\n");
+   if (!rrclient_config_load()) {
+      Log(LOG_CRIT, "config", "Unable to load client configuration");
       exit(1);
    }
+   printf("Loading config %s\n", config_file);
 
    // -s overrides server.auto-connect so we connect to the given profile on start
    if (autoconnect_server) {

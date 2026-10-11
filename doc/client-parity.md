@@ -376,3 +376,13 @@ RustyRig login credentials. This command syntax follows native profile and
 multiple-connection management. The browser has no `/server` command and
 continues using its page-origin WebSocket URL and authentication controls;
 no browser URL userinfo or HTTP Basic authentication is introduced.
+
+Native configuration loads `/etc/rustyrig/rrclient.cfg` followed by
+`~/.config/rrclient.cfg`. The latter overrides individual values, including
+credentials, and reload preserves this order. Source-tree binaries instead
+use local configuration; an explicit `-f` file remains standalone.
+GTK's server chooser has Edit and Alt-X opens the chooser. Editing writes only
+changed profile settings to the user file, with private file permissions,
+retaining other user overrides and leaving the system configuration untouched.
+These native profile/editor and filesystem conventions do not change the
+browser's page-origin connection or authentication controls.

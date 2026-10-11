@@ -68,14 +68,14 @@ Description: Development files for libfwdspmgr
 Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
-Depends: debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: acl, debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig server
  Backend server for remote radio operation.
 
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
  in rustyrig-client-gtk as a loadable module.

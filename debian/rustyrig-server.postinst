@@ -54,9 +54,26 @@ if [ "$new_database" = true ]; then
     chmod 0660 "$master_db"
 fi
 
-if command -v db_purge >/dev/null 2>&1 && [ "$new_database" = true ]; then
+if command -v db_set >/dev/null 2>&1 && [ "$new_database" = true ]; then
     # Do not retain the cleartext password in the debconf database.
-    db_purge rustyrig-server/admin-password || true
+    db_set rustyrig-server/admin-password "" || true
 fi
 
+# Grant administrative access without changing service ownership.
+/usr/lib/rustyrig/admin-permissions
+if [ -r /usr/share/debconf/confmodule ]; then
+    . /usr/share/debconf/confmodule
+fi
+if command -v db_get >/dev/null 2>&1 && db_get rustyrig/admin-users; then
+    for user in ${RET:-}; do
+        case "$user" in
+            -*|*[!a-zA-Z0-9_.-]*) echo "Invalid local username: $user" >&2; exit 1 ;;
+        esac
+        if ! getent passwd "$user" >/dev/null; then
+            echo "Unknown local user: $user" >&2
+            exit 1
+        fi
+        adduser "$user" rradmin
+    done
+fi
 exit 0

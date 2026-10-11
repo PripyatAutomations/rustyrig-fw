@@ -42,3 +42,23 @@ Package managers preserve modified configuration. On upgrade, update existing
 `path.modules` values from `/var/lib/rustyrig/modules` to the appropriate new
 directory. Do not make the module directories writable by the service account.
 `doc/*.cfg.example` are exact copies of the shipped `config/*.cfg` files.
+
+Debian client/server packages create `rradmin` and ask for existing local
+usernames to add (space-separated; empty adds nobody). Existing members are
+retained; log in again to activate new membership. Reconfigure either package
+with `dpkg-reconfigure` to change the requested additions. State remains under
+`/var/lib/rustyrig` and logs under `/var/log/rustyrig`; `/var/lib/rustyrig/db`
+is the FHS location for application databases, rather than BSD's `/var/db`.
+Package setup makes existing directories listable/traversable and removes
+public file access. Access and default ACLs grant the `rustyrig` and `rradmin`
+groups maintenance access, including SQLite journal/WAL files and new logs.
+No database reset or service ownership change is performed.
+
+Installed rrclient loads `/etc/rustyrig/rrclient.cfg` and then
+`~/.config/rrclient.cfg`; use the latter for personal credentials and overrides.
+The GTK server editor saves changed values only to that user file (mode 0600).
+`tools/test-client.sh`, `tools/test-server.sh` and `tools/test-all.sh` prefer
+source libraries/binaries, require local shared libraries, and generate local
+configs in `run/`. Database, log, recording and module paths point inside the
+source tree. These launchers work from other working directories and never
+stop unrelated installed services. Explicit `-f` bypasses configuration layering.

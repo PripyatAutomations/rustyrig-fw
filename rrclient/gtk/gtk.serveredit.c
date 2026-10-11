@@ -1,3 +1,6 @@
+#include <sys/stat.h>
+#include <rrclient/config.layers.h>
+#include <rrclient/gtk/gtk.serverpick.h>
 //
 // rrclient/gtk/gtk.serveredit.c: Server editor
 //    This is part of rustyrig-fw.
@@ -131,24 +134,128 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    return NULL;
 }
 
+typedef struct {
+   char *profile;
+   GtkWidget *fields[6];
+   char *initial[6];
+   GtkWidget *error;
+} GtkServerEditor;
+
+static const char *editor_keys[] = {
+   "server.url", "server.user", "server.pass", "server.proxy", "autojoin", "autojoin.rig"
+};
+
+static void server_editor_free(gpointer data) {
+   GtkServerEditor *editor = data;
+   for (unsigned i = 0 ; i < 6 ; i++) {
+      g_free(editor->initial[i]);
+   }
+   g_free(editor->profile);
+   g_free(editor);
+}
+
+static void server_editor_save(GtkButton *button, gpointer data) {
+   GtkWidget *window = GTK_WIDGET(data);
+   GtkServerEditor *editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
+   rr_server_url_t endpoint;
+   if (!rr_server_url_parse(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])), &endpoint)) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Enter a valid WS, WSS, IRC or IRCS URL.");
+      return;
+   }
+   char *path = rrclient_user_config_path();
+   if (!path) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Cannot locate your home directory.");
+      return;
+   }
+   gchar *directory = g_path_get_dirname(path);
+   if (g_mkdir_with_parents(directory, 0700)) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Cannot create your configuration directory.");
+      g_free(directory);
+      free(path);
+      return;
+   }
+   g_free(directory);
+   dict *overrides = file_exists(path) ? cfg_load(path) : dict_new();
+   if (!overrides) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Cannot read your configuration file.");
+      free(path);
+      return;
+   }
+   bool changed = false;
+   for (unsigned i = 0 ; i < 6 ; i++) {
+      const char *value = gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
+      if (strcmp(value, editor->initial[i])) {
+         char key[640];
+         snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
+         dict_add(overrides, key, value);
+         changed = true;
+      }
+   }
+   /* Only user overrides are serialized; site configuration stays in /etc. */
+   mode_t previous = umask(0077);
+   bool saved = !changed || cfg_save_overrides(overrides, path);
+   umask(previous);
+   if (saved) {
+      for (unsigned i = 0 ; i < 6 ; i++) {
+         if (strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[i])), editor->initial[i])) {
+            char key[640];
+            snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
+            dict_add(cfg, key, gtk_entry_get_text(GTK_ENTRY(editor->fields[i])));
+         }
+      }
+      gtk_server_picker_refresh_profile(editor->profile);
+      gtk_widget_destroy(window);
+   } else {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Could not save your configuration. Changes remain open.");
+   }
+   dict_free(overrides);
+   free(path);
+}
+
+GtkWidget *gtk_show_server_editor(const char *profile) {
+   gui_window_t *existing = gui_find_window(NULL, "serveredit");
+   if (existing && existing->gtk_win) {
+      gtk_window_present(GTK_WINDOW(existing->gtk_win));
+      return existing->gtk_win;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_window_set_title(GTK_WINDOW(window), "Edit server");
+   gui_window_t *parent = gui_find_window(NULL, "serverpick");
+   if (parent && parent->gtk_win) {
+      gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(parent->gtk_win));
+   }
+   ui_new_window(window, "serveredit");
+   GtkServerEditor *editor = g_new0(GtkServerEditor, 1);
+   editor->profile = g_strdup(profile);
+   g_object_set_data_full(G_OBJECT(window), "rr-server-editor", editor, server_editor_free);
+   GtkWidget *grid = gtk_grid_new();
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+   gtk_container_add(GTK_CONTAINER(window), grid);
+   const char *labels[] = { "URL", "Username", "Password", "Proxy", "Chat rooms", "Rig rooms" };
+   for (unsigned i = 0 ; i < 6 ; i++) {
+      const char *value = get_server_property(profile, editor_keys[i]);
+      editor->initial[i] = g_strdup(value ? value : "");
+      editor->fields[i] = gtk_entry_new();
+      gtk_entry_set_text(GTK_ENTRY(editor->fields[i]), editor->initial[i]);
+      gtk_entry_set_width_chars(GTK_ENTRY(editor->fields[i]), 48);
+      gtk_entry_set_visibility(GTK_ENTRY(editor->fields[i]), i != 2);
+      gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
+   }
+   editor->error = gtk_label_new("");
+   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 6, 2, 1);
+   GtkWidget *save = gtk_button_new_with_label("Save");
+   GtkWidget *cancel = gtk_button_new_with_label("Cancel");
+   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 7, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), save, 1, 7, 1, 1);
+   g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_widget_destroy), window);
+   g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
+   gtk_widget_show_all(window);
+   return window;
+}
+
 GtkWidget *server_edit_create(serverlist_t *sp) {
-   // Show the server edit dialog
-   GtkWidget *w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-
-   if (!w) {
-      return NULL;
-   }
-   gtk_window_set_title(GTK_WINDOW(w), "Server Editor");
-   gui_window_t *window_t = ui_new_window(w, "serveredit");
-
-   if (!window_t) {
-      // XXX: Free w
-   }
-
-   // If sp passed, populate with the server's details
-   if (sp) {
-      //
-   }
-
-   return w;
+   return sp ? gtk_show_server_editor(sp->name) : NULL;
 }

@@ -11,7 +11,7 @@ if getent group audio >/dev/null; then
 fi
 if [ -d /var/lib/rustyrig/recordings ]; then
     chown rustyrig:rustyrig /var/lib/rustyrig/recordings
-    chmod 0770 /var/lib/rustyrig/recordings
+    chmod 0775 /var/lib/rustyrig/recordings
 fi
 
 exit 0

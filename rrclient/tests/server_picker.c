@@ -4,7 +4,11 @@
 
 GtkWidget *chat_entry;
 static gui_window_t picker;
-static char connected_profile[512];
+static char connected_profile[512], edited_profile[512];
+GtkWidget *gtk_show_server_editor(const char *profile) {
+   snprintf(edited_profile, sizeof(edited_profile), "%s", profile);
+   return NULL;
+}
 const char *server_name;
 time_t now;
 
@@ -92,6 +96,16 @@ int main(int argc, char **argv) {
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &iter);
    gchar *expected;
    gtk_tree_model_get(model, &iter, 0, &expected, -1);
+   on_edit_clicked(NULL, tree);
+   assert(!strcmp(edited_profile, expected) && !connected_profile[0]);
+   char key[640];
+   snprintf(key, sizeof(key), "server:%s.server.user", expected);
+   dict_add(cfg, key, "updated-user");
+   gtk_server_picker_refresh_profile(expected);
+   gchar *updated;
+   gtk_tree_model_get(model, &iter, 1, &updated, -1);
+   assert(!strcmp(updated, "updated-user"));
+   g_free(updated);
    do_connect_from_tree(GTK_TREE_VIEW(tree));
    assert(!strcmp(connected_profile, expected));
    g_free(expected);

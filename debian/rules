@@ -29,6 +29,7 @@ override_dh_auto_build:
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
 
 override_dh_auto_install:
+	install -Dm755 packaging/admin-permissions.sh debian/librustyaxe/usr/lib/rustyrig/admin-permissions
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
@@ -42,20 +43,21 @@ override_dh_auto_install:
 	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server/usr/bin/rr-get-audit-log
 	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server/usr/bin/rr-get-chat-log
 	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server/usr/bin/rr-get-ptt-log
-	install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/db
-	install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/recordings
-	install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/modems
+	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/db
+	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/recordings
+	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/modems
 	install -d debian/rustyrig-server/var/lib/rustyrig/sql
 	install -d debian/rustyrig-server/var/lib/rustyrig/www
 	install -d debian/rustyrig-server/var/lib/rustyrig/tools
 	install -d debian/rustyrig-server/var/run/rustyrig
-	install -d -m0770 debian/rustyrig-server/var/log/rustyrig
+	install -d -m0775 debian/rustyrig-server/var/log/rustyrig
 	install -Dm644 packaging/rustyrig.tmpfiles debian/rustyrig-server/usr/lib/tmpfiles.d/rustyrig.conf
+	cat debian/rustyrig.tmpfiles-acl >> debian/rustyrig-server/usr/lib/tmpfiles.d/rustyrig.conf
 	install -Dm644 packaging/rrserver.service debian/rustyrig-server/usr/lib/systemd/system/rustyrig-server.service
-	install -d -m0770 debian/rustyrig-client/var/lib/rustyrig/db
+	install -d -m0775 debian/rustyrig-client/var/lib/rustyrig/db
 	install -d debian/rustyrig-client/var/lib/rustyrig/help
-	install -d -m0770 debian/rustyrig-client/var/lib/rustyrig/recordings/client
-	install -d -m0770 debian/rustyrig-client/var/log/rustyrig
+	install -d -m0775 debian/rustyrig-client/var/lib/rustyrig/recordings/client
+	install -d -m0775 debian/rustyrig-client/var/log/rustyrig
 	install -d debian/rustyrig-client/var/run/rustyrig
 	install -d debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient
 	install -d debian/rustyrig-server/etc/rustyrig

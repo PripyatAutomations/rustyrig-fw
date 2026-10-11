@@ -1,0 +1,9 @@
+
+Template: rustyrig/admin-users
+Type: string
+Default:
+Description: Local users to add to the rradmin group:
+ Enter existing local usernames separated by spaces. Members can read,
+ modify and delete RustyRig logs and maintain its SQLite databases.
+ Leave empty to add nobody. Existing group members are retained.
+ Users must log in again after being added to the group.
