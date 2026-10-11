@@ -58,6 +58,14 @@ typedef struct room_userlist_entry {
    guint refresh_id;
 } room_userlist_entry_t;
 static room_userlist_entry_t rig_userlist_entry;
+static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data);
+
+static room_userlist_entry_t *current_room_userlist(void) {
+   const char *room = rrclient_current_room();
+   return room && room_userlist_views ?
+      g_hash_table_lookup(room_userlist_views, rrclient_window_name(room)) : NULL;
+}
+
 
 typedef struct room_vfo_control {
    char vfo;
@@ -99,7 +107,7 @@ static gboolean userlist_fit_width_idle(gpointer data) {
 
 static void userlist_fit_width(GtkWidget *view) {
    if (view && GTK_IS_WIDGET(view)) {
-      g_idle_add(userlist_fit_width_idle, view);
+      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, userlist_fit_width_idle, g_object_ref(view), g_object_unref);
    }
 }
 
@@ -118,15 +126,18 @@ static void userlist_remove_from_parent(void) {
 // panel available in the room instead of making the list disappear.
 static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
    (void)data;
+   (void)event;
 
-   if (!widget || !event) {
+   if (!widget) {
       return TRUE;
    }
 
    if (!userlist_is_docked && userlist_dock_paned) {
       userlist_dock_into(GTK_PANED(userlist_dock_paned));
    }
-   gtk_widget_hide(widget);
+   if (userlist_is_docked) {
+      gtk_widget_hide(widget);
+   }
 
    return TRUE;
 }
@@ -164,9 +175,22 @@ void userlist_refocus_main(void) {
    g_idle_add(refocus_main_idle, NULL);
 }
 
-// Show or hide the userlist window (creates it if needed).
-// Used by the connect/disconnect handlers when ui.auto-show-userlist is set.
+// Restore the roster when requested; disconnects must not hide room rosters.
 void userlist_set_visible(bool visible) {
+   if (!visible) {
+      return;
+   }
+   room_userlist_entry_t *entry = current_room_userlist();
+   if (entry) {
+      gtk_widget_show_all(entry->panel);
+      if (!entry->docked && entry->window) {
+         gtk_window_present(GTK_WINDOW(entry->window));
+      }
+      return;
+   }
+   if (room_userlist_views && g_hash_table_size(room_userlist_views)) {
+      return;
+   }
    if (userlist_is_docked && userlist_panel) {
       if (visible) {
          userlist_redraw_gtk();
@@ -204,39 +228,12 @@ void userlist_set_visible(bool visible) {
 }
 
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
-   if (userlist_is_docked && userlist_panel) {
-      if (gtk_widget_get_visible(userlist_panel)) {
-         gtk_widget_hide(userlist_panel);
-      } else {
-         userlist_redraw_gtk();
-         gtk_widget_show_all(userlist_panel);
-      }
-
+   room_userlist_entry_t *entry = current_room_userlist();
+   if (entry) {
+      on_room_userlist_dock_clicked(button, entry);
       return;
    }
-   // Toggle the userlist
-   gui_window_t *wp = gui_find_window(NULL, "userlist");
-
-   // if userlist window hasn't been initialized yet, do so now
-   if (!wp) {
-      userlist_create();
-      wp = gui_find_window(NULL, "userlist");
-   }
-
-   // (re)try
-   if (wp) {
-      userlist_window = wp->gtk_win;
-
-      if (gtk_widget_get_visible(userlist_window) ) {
-         gtk_widget_hide(userlist_window);
-      } else {
-         // Record focus state BEFORE showing, so we know if main had focus
-         refocus_main();
-         userlist_redraw_gtk();
-         gtk_widget_show_all(userlist_window);
-         place_window(userlist_window);
-      }
-   }
+   userlist_set_visible(true);
 }
 
 static void userlist_view_set_server(GtkWidget *view, const char *server) {
@@ -253,6 +250,87 @@ static const rrconn_t *userlist_view_connection(GtkWidget *view) {
    return connection ? connection : ws_conn;
 }
 
+/* Column identity must survive GTK's user-controlled display order. */
+static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id) {
+   char key[32];
+   snprintf(key, sizeof(key), "rr-column-%d", id);
+   return g_object_get_data(G_OBJECT(view), key);
+}
+
+static const char *userlist_type(GtkWidget *view) {
+   const char *type = g_object_get_data(G_OBJECT(view), "rr-roster-type");
+   return type ? type : "room";
+}
+
+static int userlist_layout_int(GtkWidget *view, const char *field, int fallback) {
+   char key[80];
+   snprintf(key, sizeof(key), "ui.userlist.%s.%s", userlist_type(view), field);
+   return cfg_get_int(key, fallback);
+}
+
+static void userlist_layout_save(GtkWidget *view, const char *field, int value) {
+   char key[80], text[32];
+   snprintf(key, sizeof(key), "ui.userlist.%s.%s", userlist_type(view), field);
+   snprintf(text, sizeof(text), "%d", value);
+   if (cfg) {
+      dict_add(cfg, key, text);
+   }
+}
+
+static void userlist_columns_changed(GtkTreeView *tree, gpointer data) {
+   (void)data;
+   if (!cfg || g_object_get_data(G_OBJECT(tree), "rr-layout-loading")) {
+      return;
+   }
+   GList *columns = gtk_tree_view_get_columns(tree);
+   if (g_list_length(columns) != NUM_COLS) {
+      g_list_free(columns);
+      return; /* GTK also emits this signal while destroying columns. */
+   }
+   GString *order = g_string_new(NULL);
+   for (GList *item = columns; item; item = item->next) {
+      int id = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item->data), "rr-column-id")) - 1;
+      g_string_append_printf(order, "%s%d", order->len ? "," : "", id);
+   }
+   char key[80];
+   snprintf(key, sizeof(key), "ui.userlist.%s.columns", userlist_type(GTK_WIDGET(tree)));
+   dict_add(cfg, key, order->str);
+   g_object_set_data_full(G_OBJECT(tree), "rr-roster-order", g_strdup(order->str), g_free);
+   g_string_free(order, TRUE);
+   g_list_free(columns);
+}
+
+static void userlist_apply_layout(GtkWidget *view, const char *type) {
+   const char *old = g_object_get_data(G_OBJECT(view), "rr-roster-type");
+   char key[80];
+   snprintf(key, sizeof(key), "ui.userlist.%s.columns", type);
+   const char *order = cfg_get(key);
+   const char *previous_order = g_object_get_data(G_OBJECT(view), "rr-roster-order");
+   if (old && !strcmp(old, type) && !g_strcmp0(previous_order, order)) {
+      return;
+   }
+   g_object_set_data_full(G_OBJECT(view), "rr-roster-type", g_strdup(type), g_free);
+   g_object_set_data_full(G_OBJECT(view), "rr-roster-order", g_strdup(order), g_free);
+   int ids[NUM_COLS], used = 0;
+   if (!order || sscanf(order, "%d,%d,%d,%d,%d", &ids[0], &ids[1], &ids[2], &ids[3], &ids[4]) != NUM_COLS) {
+      return;
+   }
+   for (int i = 0; i < NUM_COLS; i++) {
+      if (ids[i] < 0 || ids[i] >= NUM_COLS || (used & (1 << ids[i]))) {
+         return;
+      }
+      used |= 1 << ids[i];
+   }
+   g_object_set_data(G_OBJECT(view), "rr-layout-loading", GINT_TO_POINTER(1));
+   GtkTreeViewColumn *previous = NULL;
+   for (int i = 0; i < NUM_COLS; i++) {
+      GtkTreeViewColumn *column = userlist_column(view, ids[i]);
+      gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), column, previous);
+      previous = column;
+   }
+   g_object_set_data(G_OBJECT(view), "rr-layout-loading", NULL);
+}
+
 static void userlist_set_columns(GtkWidget *view, const char *room) {
    const rrconn_t *connection = userlist_view_connection(view);
    bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
@@ -260,10 +338,12 @@ static void userlist_set_columns(GtkWidget *view, const char *room) {
    const char *vfos = room && *room ? rrclient_room_vfos(room) : NULL;
    bool has_vfos = vfos && *vfos;
 
+   userlist_apply_layout(view, has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room");
+
    /* Radio status belongs to VFO-enabled rooms, independent of transport. */
-   gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON), has_vfos);
-   gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON), has_vfos);
-   gtk_tree_view_column_set_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_ELMERNOOB_ICON), extensions);
+   gtk_tree_view_column_set_visible(userlist_column(view, COL_TALK_ICON), has_vfos);
+   gtk_tree_view_column_set_visible(userlist_column(view, COL_MUTE_ICON), has_vfos);
+   gtk_tree_view_column_set_visible(userlist_column(view, COL_ELMERNOOB_ICON), extensions);
 }
 
 static void userlist_redraw_view(GtkWidget *view, const char *room) {
@@ -272,12 +352,6 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
    const rrconn_t *view_connection = userlist_view_connection(view);
-   const char *selected_room = rrclient_current_room();
-   const char *selected_server = selected_room ? rrclient_window_server(rrclient_window_name(selected_room)) : NULL;
-
-   if (view != cul_view && profile && selected_server && strcmp(profile, selected_server)) {
-      return;
-   }
    if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
       return;
    }
@@ -501,6 +575,11 @@ static gboolean room_vfo_refresh(gpointer data) {
    if (!entry || !entry->panel) {
       return G_SOURCE_REMOVE;
    }
+   /* Object, user and VFO caches belong to the current dispatch connection. */
+   rrconn_t *connection = entry->server && *entry->server ? rrclient_connection_find(entry->server) : NULL;
+   if (connection && connection != ws_conn) {
+      return G_SOURCE_CONTINUE;
+   }
    GtkWidget *strip = g_object_get_data(G_OBJECT(entry->panel), "rr-room-vfo-strip");
 
    if (!strip) {
@@ -711,7 +790,7 @@ void userlist_redraw_gtk(void) {
          room_userlist_entry_t *entry = (room_userlist_entry_t *)value;
 
          if (entry) {
-            userlist_redraw_view(entry->view, (const char *)key);
+            userlist_redraw_view(entry->view, entry->room);
          }
       }
    }
@@ -756,7 +835,17 @@ static GtkWidget *userlist_view_create(void) {
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new_with_attributes("Role", elmernoob_icon, "text", COL_ELMERNOOB_ICON, NULL);
    g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
+   for (int i = 0; i < NUM_COLS; i++) {
+      GtkTreeViewColumn *column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
+      char key[32];
+      snprintf(key, sizeof(key), "rr-column-%d", i);
+      g_object_set_data(G_OBJECT(view), key, column);
+      g_object_set_data(G_OBJECT(column), "rr-column-id", GINT_TO_POINTER(i + 1));
+      gtk_tree_view_column_set_reorderable(column, TRUE);
+
+   }
    userlist_set_columns(view, NULL);
+   g_signal_connect(view, "columns-changed", G_CALLBACK(userlist_columns_changed), NULL);
 
    return view;
 }
@@ -828,31 +917,63 @@ static void room_userlist_set_title(room_userlist_entry_t *entry) {
    gtk_window_set_title(GTK_WINDOW(entry->window), title);
 }
 
-static gboolean on_room_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
-   (void)event;
-   room_userlist_entry_t *entry = (room_userlist_entry_t *)data;
-
-   if (entry && widget && !entry->docked && entry->dock_paned) {
-      GtkWidget *parent = gtk_widget_get_parent(entry->panel);
-
-      if (parent && GTK_IS_CONTAINER(parent)) {
+static void room_userlist_dock(room_userlist_entry_t *entry) {
+   if (!entry || !entry->dock_paned || !GTK_IS_PANED(entry->dock_paned)) {
+      return;
+   }
+   GtkWidget *parent = gtk_widget_get_parent(entry->panel);
+   if (parent != GTK_WIDGET(entry->dock_paned)) {
+      if (parent) {
          gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
       }
-
-      if (parent == entry->window && !gtk_widget_get_parent(entry->panel)) {
-         gtk_paned_pack2(entry->dock_paned, entry->panel, FALSE, FALSE);
-      }
-      entry->paned = entry->dock_paned;
-      entry->docked = true;
-      gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
-      gtk_widget_show_all(entry->panel);
+      gtk_paned_pack2(entry->dock_paned, entry->panel, FALSE, TRUE);
    }
-
-   if (widget) {
-      gtk_widget_hide(widget);
+   if (gtk_widget_get_parent(entry->panel) != GTK_WIDGET(entry->dock_paned)) {
+      return;
    }
+   entry->paned = entry->dock_paned;
+   entry->docked = true;
+   gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
+   gtk_widget_show_all(entry->panel);
+   int width = gtk_widget_get_allocated_width(GTK_WIDGET(entry->dock_paned));
+   gtk_paned_set_position(entry->dock_paned, MAX(0, width - userlist_layout_int(entry->view, "dock-width", userlist_default_width())));
+   if (entry->window) {
+      gtk_widget_hide(entry->window);
+   }
+}
 
+static gboolean on_room_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
+   (void)widget;
+   (void)event;
+   room_userlist_dock(data);
    return TRUE;
+}
+
+static gboolean room_userlist_configure(GtkWidget *widget, GdkEventConfigure *event, gpointer data) {
+   (void)widget;
+   room_userlist_entry_t *entry = data;
+   if (!entry->docked && event->width > 0 && event->height > 0) {
+      userlist_layout_save(entry->view, "width", event->width);
+      userlist_layout_save(entry->view, "height", event->height);
+   }
+   return FALSE;
+}
+
+static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpointer data) {
+   (void)property;
+   room_userlist_entry_t *entry = data;
+   int width = gtk_widget_get_allocated_width(GTK_WIDGET(paned)) - gtk_paned_get_position(paned);
+   if (g_object_get_data(G_OBJECT(paned), "rr-roster-sized") && width >= 40) {
+      userlist_layout_save(entry->view, "dock-width", width);
+   }
+}
+
+static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
+   room_userlist_entry_t *entry = data;
+   if (allocation->width > 1 && !g_object_get_data(G_OBJECT(widget), "rr-roster-sized")) {
+      gtk_paned_set_position(GTK_PANED(widget), MAX(0, allocation->width - userlist_layout_int(entry->view, "dock-width", userlist_default_width())));
+      g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
+   }
 }
 
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
@@ -866,10 +987,9 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
    if (entry->docked) {
       if (!entry->window || !GTK_IS_WINDOW(entry->window)) {
          entry->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-         char window_name[256];
-         snprintf(window_name, sizeof(window_name), "userlist-%s", entry->room ? entry->room : "room");
-         ui_new_window(entry->window, window_name);
-         gtk_window_set_default_size(GTK_WINDOW(entry->window), userlist_default_width(), 320);
+         /* Geometry is shared by room type, never by room/server name. */
+         gtk_window_set_default_size(GTK_WINDOW(entry->window), userlist_layout_int(entry->view, "width", userlist_default_width()), userlist_layout_int(entry->view, "height", 320));
+         g_signal_connect(entry->window, "configure-event", G_CALLBACK(room_userlist_configure), entry);
          g_signal_connect(entry->window, "delete-event", G_CALLBACK(on_room_userlist_delete), entry);
          gui_hotkey_register(entry->window);
       }
@@ -883,26 +1003,11 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
       entry->docked = false;
       gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Dock");
       room_userlist_set_title(entry);
+      gtk_window_resize(GTK_WINDOW(entry->window), MAX(120, userlist_layout_int(entry->view, "width", userlist_default_width())), MAX(120, userlist_layout_int(entry->view, "height", 320)));
       gtk_widget_show_all(entry->window);
-      place_window(entry->window);
+
    } else {
-      if (!entry->dock_paned) {
-         return;
-      }
-
-      if (entry->window && GTK_IS_WINDOW(entry->window) &&
-         gtk_widget_get_parent(entry->panel) == entry->window) {
-         gtk_container_remove(GTK_CONTAINER(entry->window), entry->panel);
-         gtk_widget_hide(entry->window);
-      }
-
-      if (!gtk_widget_get_parent(entry->panel)) {
-         gtk_paned_pack2(entry->dock_paned, entry->panel, FALSE, FALSE);
-      }
-      entry->paned = entry->dock_paned;
-      entry->docked = true;
-      gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
-      gtk_widget_show_all(entry->panel);
+      room_userlist_dock(entry);
    }
 }
 
@@ -951,7 +1056,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
       room_userlist_views = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, free);
    }
 
-   if (g_hash_table_lookup(room_userlist_views, room)) {
+   if (g_hash_table_lookup(room_userlist_views, rrclient_window_name(room))) {
       return;
    }
 
@@ -985,7 +1090,6 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    entry->view = view;
    /* Keep the panel alive while it moves between the chat pane and a detachable window.  The extra reference is released when the room is removed. */
    g_object_ref_sink(panel);
-   g_object_ref(panel);
    GtkWidget *vfo_strip = room_vfo_strip_create(entry);
 
    if (vfo_strip) {
@@ -994,8 +1098,10 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
       entry->refresh_id = g_timeout_add(500, room_vfo_refresh, entry);
    }
    g_signal_connect(entry->dock_button, "clicked", G_CALLBACK(on_room_userlist_dock_clicked), entry);
-   gtk_paned_pack2(paned, panel, FALSE, FALSE);
-   g_hash_table_insert(room_userlist_views, g_strdup(room), entry);
+   gtk_paned_pack2(paned, panel, FALSE, TRUE);
+   g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), entry);
+   g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), entry);
+   g_hash_table_insert(room_userlist_views, g_strdup(rrclient_window_name(room)), entry);
    userlist_redraw_view(view, room);
    gtk_widget_show_all(panel);
 }
@@ -1004,9 +1110,10 @@ void userlist_remove_room_view(const char *room) {
    if (!room_userlist_views || !room) {
       return;
    }
-   room_userlist_entry_t *entry = g_hash_table_lookup(room_userlist_views, room);
+   room_userlist_entry_t *entry = g_hash_table_lookup(room_userlist_views, rrclient_window_name(room));
 
    if (entry) {
+      g_signal_handlers_disconnect_by_data(entry->dock_paned, entry);
       GtkWidget *parent = gtk_widget_get_parent(entry->panel);
 
       if (parent && GTK_IS_CONTAINER(parent)) {
@@ -1028,7 +1135,7 @@ void userlist_remove_room_view(const char *room) {
       g_free(entry->room);
       g_free(entry->server);
    }
-   g_hash_table_remove(room_userlist_views, room);
+   g_hash_table_remove(room_userlist_views, rrclient_window_name(room));
 }
 
 void userlist_room_vfos_changed(const char *room) {
@@ -1037,18 +1144,25 @@ void userlist_room_vfos_changed(const char *room) {
    }
    room_userlist_entry_t *entry = NULL;
 
-   if (strcasecmp(room, ws_authoritative_room()) == 0) {
+   if (room_userlist_views) {
+      entry = g_hash_table_lookup(room_userlist_views, rrclient_window_name(room));
+   }
+   if (!entry && strcasecmp(room, ws_authoritative_room()) == 0) {
       entry = &rig_userlist_entry;
-      /* The initial GTK layout may be built before authentication supplies the station's configured authoritative room name. */
       entry->room = (char *)ws_authoritative_room();
-   } else if (room_userlist_views) {
-      entry = g_hash_table_lookup(room_userlist_views, room);
    }
 
    if (!entry || !entry->panel) {
       return;
    }
-   userlist_set_columns(entry == &rig_userlist_entry ? cul_view : entry->view, room);
+   GtkWidget *view = entry == &rig_userlist_entry ? cul_view : entry->view;
+   char *old_type = g_strdup(userlist_type(view));
+   userlist_set_columns(view, room);
+   if (entry->dock_paned && strcmp(old_type, userlist_type(view))) {
+      g_object_set_data(G_OBJECT(entry->dock_paned), "rr-roster-sized", NULL);
+      gtk_widget_queue_resize(GTK_WIDGET(entry->dock_paned));
+   }
+   g_free(old_type);
    GtkWidget *old = g_object_get_data(G_OBJECT(entry->panel), "rr-room-vfo-strip");
    g_object_set_data(G_OBJECT(entry->panel), "rr-room-vfo-strip", NULL);
 

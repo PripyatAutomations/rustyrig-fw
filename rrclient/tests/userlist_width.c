@@ -5,6 +5,7 @@ rrconn_t *ws_conn;
 const char *server_name;
 time_t now;
 static rrconn_t *roster_connection;
+struct rr_user *global_userlist;
 static const char *room_vfos = "";
 const char *rrclient_room_vfos(const char *room) {
    assert(!strcmp(room, "#rig"));
@@ -147,6 +148,29 @@ int main(void) {
       assert(x >= 0 && x + gtk_widget_get_allocated_width(buttons[i]) <= gtk_widget_get_allocated_width(panel));
    }
 
+   /* A message from another server must not change this roster's columns. */
+   room_vfos = "rig0.vfo_a";
+   client.is_ws = true;
+   ws_conn = &selected_websocket;
+   userlist_redraw_view(view, "#rig");
+   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   ws_conn = &client;
+   userlist_redraw_view(view, "#rig");
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   room_vfos = "";
+   cfg = dict_new();
+   dict_add(cfg, "ui.userlist.room.columns", "4,1,0,3,2");
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
+   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   room_vfos = "rig0.vfo_a";
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), userlist_column(view, COL_USERNAME), NULL);
+   assert(!strcmp(cfg_get("ui.userlist.vfo.columns"), "1,4,0,3,2"));
+   room_vfos = "";
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
    gtk_widget_destroy(window);
    puts("PASS: userlist fits usernames, scrollbar chrome and growing Undock/PTT controls");
 

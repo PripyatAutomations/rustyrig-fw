@@ -95,6 +95,21 @@ int main(void) {
       g_signal_connect(room_b.window, "delete-event", G_CALLBACK(on_room_userlist_delete), &room_b);
       room_a.docked = false;
       room_b.docked = false;
+      cfg = dict_new();
+      g_object_set_data_full(G_OBJECT(room_a.view), "rr-roster-type", g_strdup("irc"), g_free);
+      g_object_set_data_full(G_OBJECT(room_b.view), "rr-roster-type", g_strdup("vfo"), g_free);
+      GdkEventConfigure geometry = { .width = 300, .height = 450 };
+      room_userlist_configure(room_a.window, &geometry, &room_a);
+      assert(cfg_get_int("ui.userlist.irc.width", 0) == 300);
+      assert(cfg_get_int("ui.userlist.irc.height", 0) == 450);
+      assert(cfg_get_int("ui.userlist.vfo.width", 0) == 0);
+      /* No dock destination must never hide the still-detached roster. */
+      gtk_widget_show_all(room_a.window);
+      room_a.dock_paned = NULL;
+      on_room_userlist_delete(room_a.window, NULL, &room_a);
+      assert(gtk_widget_get_visible(room_a.window));
+      assert(!room_a.docked);
+      room_a.dock_paned = paned_a;
       on_room_userlist_delete(room_a.window, NULL, &room_a);
       on_room_userlist_delete(room_b.window, NULL, &room_b);
       assert(gtk_widget_get_parent(room_a.panel) == GTK_WIDGET(paned_a));

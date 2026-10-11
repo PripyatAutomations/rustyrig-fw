@@ -386,3 +386,10 @@ changed profile settings to the user file, with private file permissions,
 retaining other user overrides and leaving the system configuration untouched.
 These native profile/editor and filesystem conventions do not change the
 browser's page-origin connection or authentication controls.
+
+GTK room rosters are owned by a server-qualified room. Detached roster close
+buttons dock the roster; Alt-U restores/docks or detaches the current room's
+roster. The divider may collapse it without destroying it. Saved configuration
+uses `ui.userlist.{irc,vfo,room}.{width,height,dock-width,columns}` for shared
+layout preferences by room type; column IDs remain stable when reordered.
+These widget and window preferences are native GTK-specific.

@@ -1081,18 +1081,14 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
-   /* Keep room user lists beside their chat. Private query tabs stay chat-only; GtkPaned gives room tabs a draggable divider, and the authoritative room
-    * additionally supports the detachable list window. */
+   /* Every room owns its detachable roster, including authoritative rooms
+    * on different servers. Private query tabs stay chat-only. */
    if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
       gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
 
-      if (is_rig) {
-         userlist_dock_into(GTK_PANED(paned));
-      } else {
-         userlist_dock_room_into(GTK_PANED(paned), room);
-      }
+      userlist_dock_room_into(GTK_PANED(paned), room);
    } else {
       gtk_box_pack_start(GTK_BOX(chat_box), scrolled, TRUE, TRUE, 0);
    }

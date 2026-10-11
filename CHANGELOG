@@ -1,5 +1,9 @@
 rustyrig-fw (20261011.02) testing; urgency=medium
 
+  * Keep independent GTK rosters for each server/room, restore detached lists
+    by docking on close, allow divider collapse and column reordering, and
+    save roster sizes/field order globally for IRC, VFO and other rooms.
+
   * Make packaged state/log directories browsable and grant rustyrig/rradmin
     access to private existing/new files via ACLs; create rradmin and prompt
     for local members without changing database contents or service ownership.
@@ -39,7 +43,7 @@ rustyrig-fw (20261011.02) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 14:05:14 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 14:15:06 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,
