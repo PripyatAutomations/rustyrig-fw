@@ -212,3 +212,11 @@ A failed PART keeps the room open. `/win close -force` attempts PART and closes
 immediately, even if sending fails or no response arrives; it still protects
 `status`. Closing an offline room also removes its
 pending rejoin request. `/win number` retains window switching.
+
+CTCP queries are emitted by librrprotocol as `irc.ctcp` events. The native
+client answers PING (preserving the query parameters), VERSION, CLIENTINFO,
+TIME, SOURCE, FINGER and USERINFO with private NOTICE replies. VERSION reports
+`rustyrig rrclient` followed by the compiled build version. ACTION continues
+through the chat adapter; unsupported requests receive no reply. Incoming
+CTCP NOTICE replies are displayed in the sender's window and never answered.
+See https://modern.ircdocs.horse/ctcp.html for CTCP framing and reply semantics.

@@ -162,6 +162,68 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
    }
 }
 
+/* CTCP policy belongs to the client; the protocol library only emits queries. */
+static void rrclient_irc_ctcp(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+   if (!data || !cptr || cptr->is_ws || cptr != ws_conn) {
+      return;
+   }
+   dict *message = json2dict(data);
+   if (!message) {
+      return;
+   }
+   const char *prefix = dict_get(message, "msg.prefix", "");
+   const char *text = dict_get(message, "msg.arg2", "");
+   size_t length = strlen(text);
+   char nick[NICKLEN + 1], payload[IRC_MSGLEN];
+   size_t nicklen = strcspn(prefix, "!");
+   if (strcasecmp(dict_get(message, "msg.cmd", ""), "PRIVMSG") ||
+       !nicklen || nicklen > NICKLEN || length < 2 || length >= sizeof(payload) ||
+       text[0] != '\001' || text[length - 1] != '\001') {
+      goto done;
+   }
+   memcpy(nick, prefix, nicklen);
+   nick[nicklen] = '\0';
+   if (strpbrk(nick, " ,:\r\n")) {
+      goto done;
+   }
+   memcpy(payload, text + 1, length - 2);
+   payload[length - 2] = '\0';
+   if (strpbrk(payload, "\001\r\n")) {
+      goto done;
+   }
+   char *params = strchr(payload, ' ');
+   if (params) {
+      *params++ = '\0';
+   }
+   const char *reply = NULL;
+   char info[128];
+   if (!strcasecmp(payload, "PING")) {
+      /* Preserve the complete query, including its original parameters. */
+      irc_send(cptr, "NOTICE %s :%s", nick, text);
+   } else {
+      if (!strcasecmp(payload, "VERSION") || !strcasecmp(payload, "FINGER")) {
+         reply = "rustyrig rrclient " VERSION;
+      } else if (!strcasecmp(payload, "CLIENTINFO")) {
+         reply = "ACTION CLIENTINFO FINGER PING SOURCE TIME USERINFO VERSION";
+      } else if (!strcasecmp(payload, "SOURCE")) {
+         reply = "https://github.com/PripyatAutomations/rustyrig-fw";
+      } else if (!strcasecmp(payload, "TIME")) {
+         format_timestamp(now, info, sizeof(info));
+         reply = info;
+      } else if (!strcasecmp(payload, "USERINFO")) {
+         snprintf(info, sizeof(info), "%s (rustyrig rrclient)", cptr->nick);
+         reply = info;
+      }
+      if (reply) {
+         irc_send(cptr, "NOTICE %s :\001%s %s\001", nick, payload, reply);
+      }
+   }
+done:
+   dict_free(message);
+}
+
 static void rrclient_irc_message(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)user;
@@ -200,6 +262,12 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       size_t length = strlen(text);
 
       if (*text == '\001') {
+         if (!strcasecmp(cmd, "NOTICE") && length >= 2 && length < IRC_MSGLEN &&
+             text[length - 1] == '\001') {
+            ui_print(from, "%s CTCP reply from %s: %.*s", get_chat_ts(now), from,
+                     (int)(length - 2), text + 1);
+            goto done;
+         }
          if (length < 9 || strncmp(text, "\001ACTION ", 8) || text[length - 1] != '\001') {
             goto done;
          }
@@ -424,6 +492,7 @@ static void rrclient_irc_capabilities(const char *event, const char *data, rrcon
 void rrclient_irc_register_events(void) {
    event_on("irc.channel.redirect", rrclient_irc_redirect, NULL);
    event_on("irc.capabilities", rrclient_irc_capabilities, NULL);
+   event_on("irc.ctcp", rrclient_irc_ctcp, NULL);
    event_on("irc.message", rrclient_irc_message, NULL);
    event_on("irc.connected", rrclient_irc_connection, NULL);
    event_on("irc.disconnected", rrclient_irc_connection, NULL);

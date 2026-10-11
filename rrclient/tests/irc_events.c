@@ -22,8 +22,10 @@ static dict *last, *last_talk;
 static unsigned events, rejoins, status_windows;
 static rrconn_t *expected_connection;
 static char irc_send_buffer[1024];
+static unsigned irc_sends;
 static bool irc_send_result = true;
 bool irc_send(rrconn_t *connection, const char *format, ...) {
+   irc_sends++;
    assert(connection == expected_connection);
    va_list args;
    va_start(args, format);
@@ -168,6 +170,23 @@ int main(void) {
    assert(!irc_process_message(&client, ":server PRIVMSG tester :registration message"));
    assert(strstr(status_text, "<server> registration message") && printed_status && !status_windows && !events);
    client.authenticated = true; /* The protocol marks this on welcome numeric 001. */
+   unsigned sends = irc_sends;
+   assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :\001PING 123 token\001"));
+   assert(irc_sends == ++sends && !strcmp(irc_send_buffer, "NOTICE alice :\001PING 123 token\001"));
+   assert(!irc_process_message(&client, ":alice!user@host PRIVMSG #room :\001VERSION\001"));
+   assert(irc_sends == ++sends && !strcmp(irc_send_buffer, "NOTICE alice :\001VERSION rustyrig rrclient " VERSION "\001"));
+   const char *requests[] = { "CLIENTINFO", "TIME", "SOURCE", "FINGER", "USERINFO" };
+   for (size_t i = 0; i < sizeof(requests) / sizeof(requests[0]); i++) {
+      char line[256];
+      snprintf(line, sizeof(line), ":alice!user@host PRIVMSG tester :\001%s\001", requests[i]);
+      assert(!irc_process_message(&client, line));
+      assert(irc_sends == ++sends && !strncmp(irc_send_buffer, "NOTICE alice :\001", 15));
+      assert(strstr(irc_send_buffer, requests[i]));
+   }
+   assert(!irc_process_message(&client, ":alice!user@host NOTICE tester :\001VERSION other client\001"));
+   assert(irc_sends == sends && strstr(status_text, "CTCP reply from alice: VERSION other client"));
+   assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :\001UNKNOWN\001"));
+   assert(irc_sends == sends);
    event_emit("irc.connected", &client, "");
    assert(ws_connected == 1 && !strcmp(login_user, "tester") && rejoins == 1);
    assert(!irc_process_message(&client, ":uranium.libera.chat 002 tester :Your host is uranium.libera.chat, running version solanum"));
