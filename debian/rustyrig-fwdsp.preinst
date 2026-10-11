@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+case "$1" in
+    install|upgrade)
+        if ! getent group rustyrig >/dev/null; then
+            addgroup --system rustyrig
+        fi
+        if ! getent passwd rustyrig >/dev/null; then
+            adduser --system --ingroup rustyrig --home /var/lib/rustyrig \
+                --no-create-home --shell /usr/sbin/nologin rustyrig
+        fi
+        if ! getent group rustyrig-dsp >/dev/null; then
+            addgroup --system rustyrig-dsp
+        fi
+        if ! getent passwd rustyrig-dsp >/dev/null; then
+            adduser --system --ingroup rustyrig-dsp --home /var/lib/rustyrig \
+                --no-create-home --shell /usr/sbin/nologin rustyrig-dsp
+        fi
+        ;;
+esac
+exit 0

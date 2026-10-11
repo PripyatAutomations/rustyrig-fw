@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+case "$1" in
+    install|upgrade)
+        if ! getent group rustyrig >/dev/null; then
+            addgroup --system rustyrig
+        fi
+        if ! getent passwd rustyrig >/dev/null; then
+            adduser --system --ingroup rustyrig --home /var/lib/rustyrig \
+                --no-create-home --shell /usr/sbin/nologin rustyrig
+        fi
+        if ! getent group rustyrig-modems >/dev/null; then
+            addgroup --system rustyrig-modems
+        fi
+        if ! getent passwd rustyrig-modems >/dev/null; then
+            adduser --system --ingroup rustyrig-modems --home /var/lib/rustyrig \
+                --no-create-home --shell /usr/sbin/nologin rustyrig-modems
+        fi
+        ;;
+esac
+exit 0
