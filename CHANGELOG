@@ -1,5 +1,9 @@
 rustyrig-fw (20261011.04) testing; urgency=medium
 
+  * Add a bounded server-link tree foundation with multi-peer next-hop routing,
+    atomic component validation, branch ownership and disconnect withdrawal;
+    document WSS handshake, routing and future WebTransport integration.
+
   * Keep Available rooms display aligned with the per-server LIST cache and
     verify independent caches across connections, retaining all returned
     rooms including ordinary chat channels without station-name filtering.
@@ -77,7 +81,7 @@ rustyrig-fw (20261011.04) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 19:29:50 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 19:36:11 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,
