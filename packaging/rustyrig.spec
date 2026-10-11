@@ -89,7 +89,6 @@ install -Dpm0644 sql/sqlite.master.preload.sql %{buildroot}%{_sharedstatedir}/ru
 install -Dpm0755 tools/dummy-rigctld.sh %{buildroot}%{_sharedstatedir}/rustyrig/tools/dummy-rigctld.sh
 mkdir -p %{buildroot}%{_sharedstatedir}/rustyrig/{db,recordings,modems,www,help}
 mkdir -p %{buildroot}%{_localstatedir}/log/rustyrig
-chown rustyrig:rustyrig %{buildroot}%{_localstatedir}/log/rustyrig
 chmod 0770 %{buildroot}%{_localstatedir}/log/rustyrig
 find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/www/ \;
 find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sharedstatedir}/rustyrig/help/ \;
@@ -97,6 +96,8 @@ find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} %{buildroot}%{_sha
 %pre server
 getent group rustyrig >/dev/null || groupadd -r rustyrig
 getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig -s /sbin/nologin rustyrig
+getent group rustyrig-modems >/dev/null || groupadd -r rustyrig-modems
+getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /var/lib/rustyrig -s /sbin/nologin rustyrig-modems
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
 %systemd_post rustyrig-server.service
@@ -110,6 +111,9 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %{_libdir}/librrprotocol.so.0
 %{_libdir}/libfwdspmgr.so.0
 %files server
+%dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/db
+%dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/recordings
+%dir %attr(0770,rustyrig-modems,rustyrig-modems) %{_sharedstatedir}/rustyrig/modems
 %{_bindir}/rrserver
 %{_bindir}/rr-get-audit-log
 %{_bindir}/rr-get-chat-log
@@ -127,6 +131,8 @@ getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig
 %files -n rustyrig-server-gpsd
 /usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
 %files client
+%dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/db
+%dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/recordings
 %{_bindir}/rrclient
 %config(noreplace) %{_sysconfdir}/rustyrig/rrclient.cfg
 %config(noreplace) %{_sysconfdir}/rustyrig/callsign-lookup.cli.cfg

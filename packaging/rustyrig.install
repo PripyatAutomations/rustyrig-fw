@@ -1,0 +1,30 @@
+_create_service_accounts() {
+    getent group rustyrig >/dev/null || groupadd -r rustyrig
+    getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig -s /usr/bin/nologin rustyrig
+    getent group rustyrig-modems >/dev/null || groupadd -r rustyrig-modems
+    getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /var/lib/rustyrig -s /usr/bin/nologin rustyrig-modems
+    getent group rustyrig-dsp >/dev/null || groupadd -r rustyrig-dsp
+    getent passwd rustyrig-dsp >/dev/null || useradd -r -g rustyrig-dsp -d /var/lib/rustyrig -s /usr/bin/nologin rustyrig-dsp
+    usermod -a -G rustyrig rustyrig-dsp
+    if getent group audio >/dev/null; then
+        usermod -a -G audio rustyrig-dsp
+    fi
+}
+
+pre_install() {
+    _create_service_accounts
+}
+
+post_install() {
+    _create_service_accounts
+    ldconfig
+}
+
+post_upgrade() {
+    _create_service_accounts
+    ldconfig
+}
+
+pre_remove() {
+    ldconfig
+}

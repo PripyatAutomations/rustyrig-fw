@@ -1,4 +1,11 @@
 rustyrig-fw (20261010.01) testing; urgency=medium
+  * Provision RustyRig service users and groups before Debian unpacks server,
+    client or DSP files; assign ownership in the package staging tree without
+    requiring those accounts on the build machine. Add pre-install account hooks
+    to RPM and Arch packaging as well.
+  * Lower verbose per-userlist-entry allocation logging to the CRAZY log level.
+  * Echo successfully sent native IRC channel, query and action messages in the
+    sender's local conversation, sharing the normal talk-message display path.
   * Add GTK Ctrl+Shift+C to copy selected chat text without affecting Ctrl+C's
     mIRC color selector.
   * Add /quote as an alias for /raw so unsupported IRC commands can be sent.
@@ -59,7 +66,7 @@ rustyrig-fw (20261010.01) testing; urgency=medium
     batching/bindings and server-link authority/resync rules; add a reproducible
     size tool and specify a clean cutover with no legacy compatibility.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 21:16:48 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sat, 10 Oct 2026 22:55:30 -0400
 rustyrig-fw (20261009.01) testing; urgency=medium
 
   * Add /win close -force to attempt PART and close immediately regardless

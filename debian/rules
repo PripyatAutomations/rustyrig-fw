@@ -42,21 +42,20 @@ override_dh_auto_install:
 	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server/usr/bin/rr-get-audit-log
 	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server/usr/bin/rr-get-chat-log
 	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server/usr/bin/rr-get-ptt-log
-
-	install -d debian/rustyrig-server/var/lib/rustyrig/db
-	install -d debian/rustyrig-server/var/lib/rustyrig/recordings
-	install -d debian/rustyrig-server/var/lib/rustyrig/modems
+	install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/db
+	install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/recordings
+	install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/modems
 	install -d debian/rustyrig-server/var/lib/rustyrig/sql
 	install -d debian/rustyrig-server/var/lib/rustyrig/www
 	install -d debian/rustyrig-server/var/lib/rustyrig/tools
 	install -d debian/rustyrig-server/var/run/rustyrig
-	install -d -orustyrig -grustyrig -m0770 debian/rustyrig-server/var/log/rustyrig
+	install -d -m0770 debian/rustyrig-server/var/log/rustyrig
 	install -Dm644 packaging/rustyrig.tmpfiles debian/rustyrig-server/usr/lib/tmpfiles.d/rustyrig.conf
 	install -Dm644 packaging/rrserver.service debian/rustyrig-server/usr/lib/systemd/system/rustyrig-server.service
-	install -d debian/rustyrig-client/var/lib/rustyrig/db
+	install -d -m0770 debian/rustyrig-client/var/lib/rustyrig/db
 	install -d debian/rustyrig-client/var/lib/rustyrig/help
-	install -d debian/rustyrig-client/var/lib/rustyrig/recordings/client
-	install -d -orustyrig -grustyrig -m0770 debian/rustyrig-client/var/log/rustyrig
+	install -d -m0770 debian/rustyrig-client/var/lib/rustyrig/recordings/client
+	install -d -m0770 debian/rustyrig-client/var/log/rustyrig
 	install -d debian/rustyrig-client/var/run/rustyrig
 	install -d debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient
 	install -d debian/rustyrig-server/etc/rustyrig
@@ -97,3 +96,6 @@ override_dh_auto_install:
 
 override_dh_installinit:
 	dh_installinit --name=rrserver -p rustyrig-server
+
+override_dh_installdeb:
+	for p in rustyrig-server rustyrig-client rustyrig-fwdsp; do install -Dm755 debian/$$p.preinst debian/$$p/DEBIAN/preinst; done

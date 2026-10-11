@@ -2,6 +2,8 @@
 # Starter Arch Linux packaging; update pkgver/source for each release.
 pkgbase=rustyrig
 pkgname=(rustyrig-server-gpsd rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
+install=rustyrig.install
+options=('!emptydirs')
 pkgver=20261010.01
 pkgrel=1
 pkgdesc='RustyRig remote radio software'
@@ -40,7 +42,7 @@ package_rustyrig-libs() {
 }
 
 package_rustyrig-server() {
-   pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'hamlib' 'libgpiod')
+   pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'hamlib' 'libgpiod' 'shadow')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
    install -Dm755 bin/rrserver-gps-nmea.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so"
@@ -57,7 +59,7 @@ package_rustyrig-server() {
    install -Dm644 sql/sqlite.master.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.sql"
    install -Dm644 sql/sqlite.master.preload.sql "$pkgdir/var/lib/rustyrig/sql/sqlite.master.preload.sql"
    install -Dm755 tools/dummy-rigctld.sh "$pkgdir/var/lib/rustyrig/tools/dummy-rigctld.sh"
-   install -d -orustyrig -grustyrig -m0770 "$pkgdir/var/log/rustyrig"
+   install -d -m0770 "$pkgdir/var/log/rustyrig"
    install -d "$pkgdir/var/lib/rustyrig"/{db,recordings,modems,sql,tools,www}
    find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/www/" \;
 }
@@ -82,7 +84,7 @@ package_rustyrig-client-gtk() {
    install -Dm644 res/rustyrig.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/rustyrig.png"
 }
 package_rustyrig-fwdsp() {
-   pkgdesc='RustyRig GStreamer audio DSP service'; depends=('rustyrig-libs' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad')
+   pkgdesc='RustyRig GStreamer audio DSP service'; depends=('rustyrig-libs' 'gstreamer' 'gst-plugins-base' 'gst-plugins-good' 'gst-plugins-bad' 'shadow')
    cd "$srcdir/rustyrig-fw"; install -Dm755 bin/fwdsp "$pkgdir/usr/bin/fwdsp"
 }
 package_rustyrig-callsign-lookup() {
