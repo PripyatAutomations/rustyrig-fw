@@ -86,6 +86,7 @@ extern bool cmd_query(int argc, char **args);
 extern rrconn_t *rrclient_active_connection(void);
 extern const char *rrclient_active_room(void);
 extern bool cmd_kick(int argc, char **args);
+extern bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *window, int argc, char **args);
 extern bool cmd_nick(int argc, char **args);
 extern bool cmd_mode(int argc, char **args);
 extern bool cmd_ban(int argc, char **args);

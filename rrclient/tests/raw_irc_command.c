@@ -6,6 +6,11 @@
 #include "rrclient/cmd.admin.c"
 
 bool dying, restarting;
+rrconn_t *ws_conn;
+bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *data, int opcode) {
+   assert(false);
+   return false;
+}
 static rrconn_t connection;
 static char sent[IRC_MSGLEN + 1];
 static bool send_ok = true;
@@ -52,6 +57,20 @@ int main(void) {
 
    connection.connected = 1;
    connection.authenticated = true;
+   char *kick[] = { "kick", "alice", "Please follow channel rules" };
+   assert(!cmd_kick(3, kick));
+   assert(!strcmp(sent, "KICK #room alice :Please follow channel rules"));
+   assert(!cmd_kick(2, kick));
+   assert(!strcmp(sent, "KICK #room alice"));
+   assert(!rrclient_kick_send(&connection, "#menu-room", "menu-window", 3, kick));
+   assert(!strcmp(sent, "KICK #menu-room alice :Please follow channel rules"));
+   char *bad_kick[] = { "kick", "alice bob" };
+   sent[0] = 0;
+   cmd_kick(2, bad_kick);
+   assert(!sent[0]);
+   send_ok = false;
+   assert(cmd_kick(3, kick));
+   send_ok = true;
    char *ban[] = { "mode", "+b", "*!*@bad.example" };
    assert(!cmd_mode(3, ban));
    assert(!strcmp(sent, "MODE #room +b *!*@bad.example"));

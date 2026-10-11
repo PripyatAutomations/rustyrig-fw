@@ -209,7 +209,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "die", .help_section = "Administration", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"
    },
    {
-      .cmd = "kick", .help_section = "Administration", .cb = cmd_kick, .admin = true, .desc = "Kick a user from the current room/IRC channel"
+      .cmd = "kick", .help_section = "Administration", .cb = cmd_kick, .max_args = 2, .admin = true, .desc = "Kick a user from the current room/IRC channel"
    },
    {
       .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .admin = true, .desc = "Mute a user"

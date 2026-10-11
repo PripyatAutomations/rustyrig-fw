@@ -30,6 +30,15 @@ bool rrclient_whois_send(rrconn_t *connection, const char *window, const char *n
    return false;
 }
 const char *ui_active_window_name(void) { return "#unrelated"; }
+static char kick_room[128], kick_target[128];
+const char *rrclient_active_room(void) { return "#unrelated"; }
+bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *window, int argc, char **args) {
+   assert(argc == 3);
+   snprintf(kick_room, sizeof(kick_room), "%s", room);
+   snprintf(kick_target, sizeof(kick_target), "%s", args[1]);
+   assert(!strcmp(window, "#origin|server|1"));
+   return false;
+}
 static GtkWidget *opened_menu;
 void gtk_chat_query_add(const char *user) {
 }
@@ -189,7 +198,13 @@ int main(void) {
       gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, 1)));
       assert(!strcmp(whois_target, "BOB"));
       assert(!strcmp(whois_window, "#origin|server|1"));
+      room_userlist_entry_t origin = { .room = "#menu-room" };
+      g_object_set_data(G_OBJECT(view), "rr-room-roster", &origin);
+      gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, 5)));
+      assert(!strcmp(kick_room, "#menu-room"));
+      assert(!strcmp(kick_target, "BOB"));
       ws_conn = NULL;
+      puts("PASS: menu KICK uses the roster channel instead of the active tab");
       puts("PASS: menu WHOIS uses the roster origin instead of the active window");
       g_list_free(items);
       gtk_widget_destroy(opened_menu);

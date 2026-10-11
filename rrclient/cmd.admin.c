@@ -56,27 +56,29 @@ bool cmd_die(int argc, char **args) {
 }
 
 bool cmd_kick(int argc, char **args) {
-   rrconn_t *connection = rrclient_active_connection();
-   const char *room = rrclient_active_room();
+   return rrclient_kick_send(rrclient_active_connection(), rrclient_active_room(),
+      ui_active_window_name(), argc, args);
+}
 
-   if (argc < 2 || !args[1] || !connection) {
-      ui_print(ui_active_window_name(), "Usage: /kick <user> [reason]");
+bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *window, int argc, char **args) {
+   if (argc < 2 || !args || !args[1] || !connection) {
+      ui_print(window, "Usage: /kick <user> [reason]");
 
       return true;
    }
    if (!connection->is_ws && (!connection->connected || !connection->authenticated)) {
-      ui_print(ui_active_window_name(), "Not connected to IRC server");
+      ui_print(window, "Not connected to IRC server");
 
       return false;
    }
    if (!connection->is_ws) {
       if (!args[1] || !*args[1] || strpbrk(args[1], " \t\r\n,:")) {
-         ui_print(ui_active_window_name(), "Invalid IRC nickname");
+         ui_print(window, "Invalid IRC nickname");
 
          return false;
       }
       if (!room || (room[0] != '#' && room[0] != '&')) {
-         ui_print(ui_active_window_name(), "Select an IRC channel tab first");
+         ui_print(window, "Select an IRC channel tab first");
 
          return false;
       }
@@ -85,20 +87,20 @@ bool cmd_kick(int argc, char **args) {
       for (int i = 2 ; i < argc ; i++) {
          if ((i > 2 && strlcat(reason, " ", sizeof(reason)) >= sizeof(reason)) ||
             strlcat(reason, args[i], sizeof(reason)) >= sizeof(reason)) {
-            ui_print(ui_active_window_name(), "IRC kick reason is too long");
+            ui_print(window, "IRC kick reason is too long");
 
             return false;
          }
       }
       if (strpbrk(room, " \t\r\n,")) {
-         ui_print(ui_active_window_name(), "Invalid IRC channel name");
+         ui_print(window, "Invalid IRC channel name");
 
          return false;
       }
       bool sent = reason[0] ? irc_send(connection, "KICK %s %s :%s", room, args[1], reason) : irc_send(connection, "KICK %s %s", room, args[1]);
 
       if (!sent) {
-         ui_print(ui_active_window_name(), "Unable to send IRC KICK for %s", args[1]);
+         ui_print(window, "Unable to send IRC KICK for %s", args[1]);
       }
       return !sent;
    }
@@ -115,10 +117,10 @@ bool cmd_kick(int argc, char **args) {
       }
    }
 
-   if (!ws_conn) {
+   dict *d = dict_new();
+   if (!d) {
       return true;
    }
-   dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "kick");
    dict_add(d, "talk.target", args[1]);
@@ -126,10 +128,10 @@ bool cmd_kick(int argc, char **args) {
    if (reason[0]) {
       dict_add(d, "talk.reason", reason);
    }
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   bool sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 
-   return false;
+   return !sent;
 }
 
 /* PARITY: rustyrig-www/js/webui (mute/unmute send msg.type talk, talk.cmd) */

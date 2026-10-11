@@ -232,3 +232,7 @@ Use percent escapes for reserved credential characters, such as `%40` for
 `@` and `%3A` for `:`; `user:` explicitly supplies an empty password.
 The client uses the usual RustyRig authentication exchange, with credentials
 removed from the socket URL and connection status message.
+
+`/kick <nick> [reason]` sends IRC KICK for the selected channel, with the
+optional reason preserved as text. The GTK userlist Kick action uses its own
+roster channel and connection, including when the roster is detached.

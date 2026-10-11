@@ -468,6 +468,17 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
       return;
    }
 
+   if (strcasecmp(command, "kick") == 0) {
+      GtkWidget *view = user_data;
+      room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
+      const char *window = g_object_get_data(G_OBJECT(view), "rr-roster-window");
+      char *args[] = { "kick", (char *)target, "Requested from the user list" };
+      rrclient_kick_send((rrconn_t *)userlist_view_connection(view),
+         entry ? entry->room : rrclient_active_room(),
+         window ? window : ui_active_window_name(), 3, args);
+      return;
+   }
+
    dict *d = dict_new();
 
    if (!d) {
@@ -477,7 +488,7 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
    dict_add(d, "talk.cmd", command);
    dict_add(d, "talk.target", target);
 
-   if (strcasecmp(command, "mute") == 0 || strcasecmp(command, "kick") == 0) {
+   if (strcasecmp(command, "mute") == 0) {
       dict_add(d, "talk.reason", "Requested from the user list");
    }
    ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
