@@ -23,6 +23,13 @@ const char *rrclient_room_vfos(const char *room) {
 
    return "";
 }
+static char whois_window[128], whois_target[128];
+bool rrclient_whois_send(rrconn_t *connection, const char *window, const char *nick) {
+   snprintf(whois_window, sizeof(whois_window), "%s", window);
+   snprintf(whois_target, sizeof(whois_target), "%s", nick);
+   return false;
+}
+const char *ui_active_window_name(void) { return "#unrelated"; }
 static GtkWidget *opened_menu;
 void gtk_chat_query_add(const char *user) {
 }
@@ -176,6 +183,14 @@ int main(void) {
          }
       }
 
+      rrconn_t connection = {0};
+      ws_conn = &connection;
+      g_object_set_data(G_OBJECT(view), "rr-roster-window", "#origin|server|1");
+      gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, 1)));
+      assert(!strcmp(whois_target, "BOB"));
+      assert(!strcmp(whois_window, "#origin|server|1"));
+      ws_conn = NULL;
+      puts("PASS: menu WHOIS uses the roster origin instead of the active window");
       g_list_free(items);
       gtk_widget_destroy(opened_menu);
       gtk_tree_path_free(path);

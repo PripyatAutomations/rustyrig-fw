@@ -222,6 +222,11 @@ int main(void) {
       assert(printed_status && strstr(status_text, whois_replies[i].first));
       assert(strstr(status_text, whois_replies[i].second));
    }
+   active_window = "#unrelated";
+   assert(!rrclient_whois_send(&client, "#menu-origin", "menu-user"));
+   irc_process_message(&client, ":server 311 tester menu-user ident host * :Menu User");
+   assert(!strcmp(printed_room, "#menu-origin"));
+   rrclient_irc_whois_complete(&client, "menu-user");
    active_window = "#first";
    assert(!request_whois("alice"));
    assert(!strcmp(irc_send_buffer, "WHOIS alice"));

@@ -94,11 +94,13 @@ bool cmd_whois(int argc, char **args) {
       return true;
    }
 
-   rrconn_t *connection = rrclient_active_connection();
-   const char *window = ui_active_window_name();
+   return rrclient_whois_send(rrclient_active_connection(), ui_active_window_name(), args[1]);
+}
+
+bool rrclient_whois_send(rrconn_t *connection, const char *window, const char *nick) {
    struct irc_whois_request *request = NULL;
    if (connection && !connection->is_ws) {
-      if (strlen(args[1]) > NICKLEN || irc_whois_find(connection, args[1])) {
+      if (strlen(nick) > NICKLEN || irc_whois_find(connection, nick)) {
          ui_print(window, "WHOIS nickname is too long or already has a pending request");
          return true;
       }
@@ -113,7 +115,7 @@ bool cmd_whois(int argc, char **args) {
          return true;
       }
       request->connection = connection;
-      strlcpy(request->nick, args[1], sizeof(request->nick));
+      strlcpy(request->nick, nick, sizeof(request->nick));
       strlcpy(request->window, window && *window ? window : "status", sizeof(request->window));
       request->started = mono_ms();
    }
@@ -126,7 +128,7 @@ bool cmd_whois(int argc, char **args) {
    }
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "whois");
-   dict_add(d, "talk.target", args[1]);
+   dict_add(d, "talk.target", nick);
    bool sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    if (!sent && request) {
       memset(request, 0, sizeof(*request));

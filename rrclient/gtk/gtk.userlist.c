@@ -24,6 +24,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
+#include <rrclient/irc.whois.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <limits.h>
@@ -444,7 +445,6 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
 }
 
 static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
-   (void)user_data;
    const char *target = g_object_get_data(G_OBJECT(item), "rr-user-target");
    const char *command = g_object_get_data(G_OBJECT(item), "rr-user-command");
 
@@ -457,6 +457,14 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
       gtk_chat_query_add(target);
 #endif
 
+      return;
+   }
+
+   if (strcasecmp(command, "whois") == 0) {
+      GtkWidget *view = user_data;
+      const char *window = g_object_get_data(G_OBJECT(view), "rr-roster-window");
+      rrclient_whois_send((rrconn_t *)userlist_view_connection(view),
+         window ? window : ui_active_window_name(), target);
       return;
    }
 
@@ -476,11 +484,11 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
    dict_free(d);
 }
 
-static void userlist_context_menu_add(GtkWidget *menu, const char *label, const char *command, const char *target) {
+static void userlist_context_menu_add(GtkWidget *menu, const char *label, const char *command, const char *target, GtkWidget *view) {
    GtkWidget *item = gtk_menu_item_new_with_label(label);
    g_object_set_data_full(G_OBJECT(item), "rr-user-target", g_strdup(target), g_free);
    g_object_set_data_full(G_OBJECT(item), "rr-user-command", g_strdup(command), g_free);
-   g_signal_connect(item, "activate", G_CALLBACK(userlist_context_action), NULL);
+   g_signal_connect(item, "activate", G_CALLBACK(userlist_context_action), view);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
@@ -518,12 +526,12 @@ static bool userlist_context_at(GtkWidget *widget, double x, double y, guint but
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), &iter);
 
    GtkWidget *menu = gtk_menu_new();
-   userlist_context_menu_add(menu, "Open private query", "query", target);
-   userlist_context_menu_add(menu, "Whois", "whois", target);
+   userlist_context_menu_add(menu, "Open private query", "query", target, widget);
+   userlist_context_menu_add(menu, "Whois", "whois", target, widget);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
-   userlist_context_menu_add(menu, "Mute", "mute", target);
-   userlist_context_menu_add(menu, "Unmute", "unmute", target);
-   userlist_context_menu_add(menu, "Kick", "kick", target);
+   userlist_context_menu_add(menu, "Mute", "mute", target, widget);
+   userlist_context_menu_add(menu, "Unmute", "unmute", target, widget);
+   userlist_context_menu_add(menu, "Kick", "kick", target, widget);
    gtk_widget_show_all(menu);
    /* Use the legacy popup API here because it works with both older GTK 3 releases and tree views whose release event is not a fully populated pointer event.
     */
@@ -1217,6 +1225,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    entry->auto_dock_width = userlist_layout_int(view, "dock-width", 0) <= 0;
    entry->auto_window_width = userlist_layout_int(view, "width", 0) <= 0;
    g_object_set_data(G_OBJECT(view), "rr-room-roster", entry);
+   g_object_set_data_full(G_OBJECT(view), "rr-roster-window", g_strdup(rrclient_window_name(room)), g_free);
    userlist_fit_columns(view);
    /* Keep the panel alive while it moves between the chat pane and a detachable window.  The extra reference is released when the room is removed. */
    g_object_ref_sink(panel);
