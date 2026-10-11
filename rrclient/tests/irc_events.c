@@ -336,6 +336,14 @@ int main(void) {
    assert(redirects == 3 && !strcmp(closed_room, "#finalchannel"));
    assert(!strcmp(printed_room, "&local"));
    assert(!irc_send_buffer[0]);
+   use_frontend = true;
+   assert(!irc_process_message(&client, ":server 477 tester #electronics :Cannot join channel (+r) - you need to be logged into your NickServ account"));
+   assert(!strcmp(added_room, "#electronics") && !strcmp(printed_room, "#electronics"));
+   assert(strstr(status_text, "Cannot join #electronics:") && strstr(status_text, "NickServ account"));
+   assert(!irc_send_buffer[0]);
+   use_frontend = false;
+   assert(!irc_process_message(&client, ":server 477 tester &local :Registered users only"));
+   assert(!strcmp(printed_room, "&local") && strstr(status_text, "Registered users only"));
    assert(!irc_process_message(&client, ":tester JOIN :#room"));
    assert(!strcmp(last_event, "userinfo"));
    assert(!strcmp(dict_get(last, "talk.room", ""), "#room"));

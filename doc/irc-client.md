@@ -220,3 +220,6 @@ TIME, SOURCE, FINGER and USERINFO with private NOTICE replies. VERSION reports
 through the chat adapter; unsupported requests receive no reply. Incoming
 CTCP NOTICE replies are displayed in the sender's window and never answered.
 See https://modern.ircdocs.horse/ctcp.html for CTCP framing and reply semantics.
+
+Numeric 477 join failures create or reuse the affected channel window and
+display the server reason there, including NickServ account requirements.

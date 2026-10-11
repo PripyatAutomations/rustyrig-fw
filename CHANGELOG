@@ -1,5 +1,7 @@
 rustyrig-fw (20261011.01) testing; urgency=medium
 
+  * Show IRC numeric 477 join failures and the server reason in the affected
+    channel tab, creating the tab even when JOIN is rejected.
   * Answer common IRC CTCP requests in the native client, identify VERSION as
     rustyrig rrclient with the build version, and display CTCP replies.
   * Complete chat command nicknames from the selected room in GTK/TUI; add
@@ -21,7 +23,7 @@ rustyrig-fw (20261011.01) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 13:02:16 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 13:03:40 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,

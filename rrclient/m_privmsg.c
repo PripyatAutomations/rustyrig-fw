@@ -125,7 +125,15 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
    const char *arg3 = dict_get(message, "msg.arg3", "");
    const char *arg4 = dict_get(message, "msg.arg4", "");
 
-   if (!strcmp(cmd, "311") && argc >= 7) {
+   if (!strcmp(cmd, "477") && argc >= 4 &&
+       (nick[0] == '#' || nick[0] == '&') &&
+       !strcasecmp(dict_get(message, "msg.arg1", ""), connection->nick)) {
+      /* A rejected JOIN has no membership event to create the room window. */
+      if (frontend_ops() && frontend_ops()->chat_room_add) {
+         frontend_ops()->chat_room_add(nick);
+      }
+      ui_print(nick, "%s Cannot join %s: %s", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "311") && argc >= 7) {
       ui_print(output, "%s WHOIS %s: %s@%s (%s)", get_chat_ts(now), nick,
          arg3, arg4, dict_get(message, "msg.arg6", ""));
    } else if (!strcmp(cmd, "312") && argc >= 5) {
