@@ -396,3 +396,8 @@ These widget and window preferences are native GTK-specific.
 Unset roster widths (`0`) fit all visible fields and VFO controls at first
 allocation; the measured width is retained in the running configuration and
 persisted by the normal save commands. Explicit widths take precedence.
+An initially auto-sized GTK roster keeps growing while JOIN/userinfo messages
+populate it. Dragging its divider or resizing its detached window stops that
+automatic growth; measurements include the scrollbar and divider. Saved sizes
+are honored on subsequent launches. Maximized window size is not saved over
+the detached window's normal size.

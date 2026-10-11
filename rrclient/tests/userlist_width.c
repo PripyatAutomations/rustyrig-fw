@@ -29,6 +29,106 @@ rrconn_t *rrclient_connection_find(const char *name) {
 }
 void gtk_chat_query_add(const char *user) {
 }
+static void pump_layout(void) {
+   for (int i = 0; i < 40; i++) {
+      while (gtk_events_pending()) {
+         gtk_main_iteration();
+      }
+      g_usleep(1000);
+   }
+}
+
+static void test_late_roster_autosize(void) {
+   dict_add(cfg, "ui.userlist.vfo.dock-width", "0");
+   dict_add(cfg, "ui.userlist.vfo.columns", "0,1,2,3,4");
+   room_vfos = "rig0.vfo_a rig0.vfo_b";
+   GtkWidget *window = gtk_offscreen_window_new();
+   GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+   GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *view = userlist_view_create();
+   userlist_set_columns(view, "#rig");
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
+   gtk_container_add(GTK_CONTAINER(scroll), view);
+   gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
+   gtk_paned_pack1(GTK_PANED(paned), gtk_label_new("Chat"), TRUE, FALSE);
+   gtk_paned_pack2(GTK_PANED(paned), panel, FALSE, TRUE);
+   room_userlist_entry_t entry = {
+      .panel = panel, .view = view, .dock_paned = GTK_PANED(paned),
+      .docked = true, .auto_dock_width = true
+   };
+   g_object_set_data(G_OBJECT(view), "rr-room-roster", &entry);
+   g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), &entry);
+   g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), &entry);
+   gtk_container_add(GTK_CONTAINER(window), paned);
+   gtk_window_set_default_size(GTK_WINDOW(window), 1000, 300);
+   gtk_widget_show_all(window);
+   userlist_fit_width(view);
+   pump_layout();
+   int initial = cfg_get_int("ui.userlist.vfo.dock-width", 0);
+   GtkTreeIter row;
+   GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
+   gtk_list_store_append(store, &row);
+   gtk_list_store_set(store, &row, COL_USERNAME, "LONG_OPERATOR_CALLSIGN", -1);
+   pump_layout();
+   userlist_fit_width(view);
+   pump_layout();
+   assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) > initial);
+   assert(gtk_scrolled_window_get_min_content_width(GTK_SCROLLED_WINDOW(scroll)) == -1);
+   GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scroll));
+   assert(gtk_adjustment_get_upper(horizontal) <= gtk_adjustment_get_page_size(horizontal) + 1);
+   for (int i = 0; i < NUM_COLS; i++) {
+      GtkTreeViewColumn *column = userlist_column(view, i);
+      assert(gtk_tree_view_column_get_visible(column));
+      GtkWidget *header = gtk_tree_view_column_get_button(column);
+      int x, y;
+      assert(gtk_widget_translate_coordinates(header, scroll, 0, 0, &x, &y));
+      assert(x >= 0 && x + gtk_widget_get_allocated_width(header) <= gtk_widget_get_allocated_width(scroll));
+   }
+   GdkEventButton drag = { .window = gtk_paned_get_handle_window(GTK_PANED(paned)) };
+   room_userlist_resize_started(paned, &drag, &entry);
+   assert(!entry.auto_dock_width);
+   room_userlist_set_width(&entry, 220);
+   room_userlist_position(GTK_PANED(paned), NULL, &entry);
+   pump_layout();
+   int saved = cfg_get_int("ui.userlist.vfo.dock-width", 0);
+   gtk_list_store_set(store, &row, COL_USERNAME, "AN_EVEN_LONGER_OPERATOR_CALLSIGN", -1);
+   pump_layout();
+   userlist_fit_width(view);
+   pump_layout();
+   assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == saved);
+   /* A newly detached auto-sized window must fit the populated roster too. */
+   GtkWidget *detached = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   g_object_ref(panel);
+   gtk_container_remove(GTK_CONTAINER(paned), panel);
+   gtk_container_add(GTK_CONTAINER(detached), panel);
+   g_object_unref(panel);
+   entry.docked = false;
+   entry.window = detached;
+   entry.auto_window_width = true;
+   dict_add(cfg, "ui.userlist.vfo.width", "0");
+   int detached_width = room_userlist_width(&entry, "width");
+   assert(detached_width > 220);
+   gtk_window_set_default_size(GTK_WINDOW(detached), detached_width, 300);
+   gtk_widget_show_all(detached);
+   pump_layout();
+   userlist_fit_width(view);
+   pump_layout();
+   assert(cfg_get_int("ui.userlist.vfo.width", 0) > 220);
+   horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scroll));
+   assert(gtk_adjustment_get_upper(horizontal) <= gtk_adjustment_get_page_size(horizontal) + 1);
+   GdkEventConfigure resized = { .width = 200, .height = 300 };
+   room_userlist_configure(detached, &resized, &entry);
+   assert(!entry.auto_window_width);
+   userlist_fit_width(view);
+   pump_layout();
+   assert(cfg_get_int("ui.userlist.vfo.width", 0) == 200);
+   g_object_set_data(G_OBJECT(view), "rr-room-roster", NULL);
+   gtk_widget_destroy(detached);
+   gtk_widget_destroy(window);
+   puts("PASS: late roster users fit all rig headers; manual sizing disables automatic growth");
+}
+
 int main(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: userlist width test requires a display");
@@ -196,6 +296,7 @@ int main(void) {
    userlist_set_columns(view, "#rig");
    assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
    gtk_widget_destroy(window);
+   test_late_roster_autosize();
    puts("PASS: userlist fits usernames, scrollbar chrome and growing Undock/PTT controls");
 
    return 0;
