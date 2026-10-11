@@ -1,5 +1,9 @@
 rustyrig-fw (20261011.01) testing; urgency=medium
 
+  * Render complete native IRC WHOIS identity, server, channel and idle/signon
+    replies; preserve all numeric parameters for daemon-specific extensions.
+    Route replies to the issuing window using up to ten connection/nickname
+    requests, expiring after three minutes and clearing on completion/disconnect.
   * Prevent IRC room-send crashes by rendering only normalized talk.msg echoes;
     display a fallback nickname for chat messages without a sender.
   * Restore Debian conffile registration so upgrades prompt for modified
@@ -10,7 +14,7 @@ rustyrig-fw (20261011.01) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 12:37:26 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 12:46:51 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,

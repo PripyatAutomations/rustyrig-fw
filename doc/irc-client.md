@@ -36,7 +36,21 @@ The client starts capability negotiation and registration after TCP connection
 or successful TLS handshake, handles PING/PONG, and displays IRC chat, notices, actions, channel
 membership, topics and NAMES rosters through the shared GTK/TUI handlers.
 `/join`, `/part`, `/msg`, `/me`, `/notice`, `/topic`, `/list` and `/whois`
-use IRC wire commands. Sent messages are displayed locally because capability
+use IRC wire commands. WHOIS displays the queried nick, user/host and real name,
+server and description, channels, idle seconds, optional signon timestamp, and
+end-of-WHOIS replies. Account, away, operator, TLS/certificate and other daemon
+extensions retain all reply parameters (including unknown numerics) rather than
+showing only the trailing description. Older idle replies without signon time
+remain supported. Replies follow the window that issued `/whois`, even across
+tab/server switches. Up to ten requests are tracked across all connections for
+three minutes, matched by connection and case-insensitive nickname. Duplicate
+lookups for the same nickname on one connection and requests beyond the cap are
+rejected until a reply or timeout frees a slot. End-of-WHOIS and missing-nick
+replies clear the request after rendering; disconnect drops that connection's
+pending requests. Unmatched or expired replies go to status. Field layouts follow the
+[IRC client protocol reference](https://modern.ircdocs.horse/#whois-message);
+IRC presentation is native-only.
+Sent messages are displayed locally because capability
 negotiation for server echo is not enabled. Reconnect retains joined channel tabs.
 Channel-forward numeric 470 closes the requested channel tab and creates or
 reuses the destination tab on the same server in GTK and TUI. It forgets the

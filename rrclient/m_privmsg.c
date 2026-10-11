@@ -10,6 +10,7 @@
 #include <rrclient/frontend.h>
 #include <rrclient/rooms.h>
 #include <rrclient/userlist.h>
+#include <rrclient/irc.whois.h>
 
 extern const char *login_user;
 extern void rrclient_update_connection_ui(int connected);
@@ -34,6 +35,10 @@ bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args)
 static void rrclient_irc_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)data;
    (void)user;
+
+   if (!strcmp(event, "irc.disconnected") && cptr) {
+      rrclient_irc_whois_forget(cptr);
+   }
 
    if (!cptr || cptr != ws_conn) {
       return;
@@ -104,6 +109,51 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
          "talk.cmd", ""));
    }
    dict_free(d);
+}
+
+/* Keep complete numeric parameters for daemon-specific WHOIS extensions and
+ * malformed/older replies, whose layouts cannot safely be assumed. */
+static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrconn_t *connection) {
+   const char *nick = dict_get(message, "msg.arg2", "");
+   const char *output = rrclient_irc_whois_window(connection, nick);
+   const char *arg3 = dict_get(message, "msg.arg3", "");
+   const char *arg4 = dict_get(message, "msg.arg4", "");
+
+   if (!strcmp(cmd, "311") && argc >= 7) {
+      ui_print(output, "%s WHOIS %s: %s@%s (%s)", get_chat_ts(now), nick,
+         arg3, arg4, dict_get(message, "msg.arg6", ""));
+   } else if (!strcmp(cmd, "312") && argc >= 5) {
+      ui_print(output, "%s WHOIS %s: server %s (%s)", get_chat_ts(now), nick, arg3, arg4);
+   } else if (!strcmp(cmd, "319") && argc >= 4) {
+      ui_print(output, "%s WHOIS %s: channels %s", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "317") && argc >= 4 && *arg3 && strspn(arg3, "0123456789") == strlen(arg3)) {
+      /* Some older daemons omit signon time. Do not interpret their trailing
+       * explanatory text as an epoch timestamp. */
+      if (argc >= 5 && *arg4 && strspn(arg4, "0123456789") == strlen(arg4)) {
+         char signon[64];
+         format_timestamp(dict_get_time_t(message, "msg.arg4", 0), signon, sizeof(signon));
+         ui_print(output, "%s WHOIS %s: idle %s seconds; signed on %s (%s)", get_chat_ts(now), nick, arg3, signon, arg4);
+      } else {
+         ui_print(output, "%s WHOIS %s: idle %s seconds", get_chat_ts(now), nick, arg3);
+      }
+   } else if (!strcmp(cmd, "318") && argc >= 3) {
+      ui_print(output, "%s WHOIS %s: %s", get_chat_ts(now), nick,
+         dict_get(message, "msg.arg3", "End of WHOIS"));
+   } else {
+      char parameters[IRC_MSGLEN] = "";
+
+      /* Skip only the numeric and recipient. This retains the queried nick,
+       * account, address, TLS/cert info and every extension's other fields. */
+      for (int i = 2 ; i < argc ; i++) {
+         char key[32];
+         snprintf(key, sizeof(key), "msg.arg%d", i);
+         if (i > 2) {
+            strlcat(parameters, " ", sizeof(parameters));
+         }
+         strlcat(parameters, dict_get(message, key, ""), sizeof(parameters));
+      }
+      ui_print(output, "%s [%s] %s", get_chat_ts(now), cmd, parameters);
+   }
 }
 
 static void rrclient_irc_message(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -299,7 +349,10 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          dict_add(d, "auth.error", text);
          event_emit_dict("auth.error", cptr, d);
       } else if (strcmp(cmd, "001") && strcmp(cmd, "470")) {
-         ui_print(NULL, "%s [%s] %s", get_chat_ts(now), cmd, text);
+         rrclient_irc_numeric(message, cmd, argc, cptr);
+         if (!strcmp(cmd, "318") || !strcmp(cmd, "401") || !strcmp(cmd, "406")) {
+            rrclient_irc_whois_complete(cptr, arg2);
+         }
       }
    }
 done:

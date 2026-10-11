@@ -10,6 +10,7 @@
 #include <rrclient/frontend.h>
 #include <rrclient/userlist.h>
 #include <rrclient/connman.h>
+#include <rrclient/irc.whois.h>
 
 extern void rrclient_irc_register_events(void);
 time_t now = 100;
@@ -59,6 +60,25 @@ static const rr_frontend_ops_t redirect_frontend = {
 static bool use_frontend;
 static char status_text[1024], printed_room[128];
 static bool printed_status;
+static const char *active_window = "status";
+static long long clock_ms = 1000;
+long long mono_ms(void) {
+   return clock_ms;
+}
+rrconn_t *rrclient_active_connection(void) {
+   return expected_connection;
+}
+bool ws_send_dict(rrconn_t *sender, rrconn_t *destination, dict *message, int opcode) {
+   (void)sender;
+   (void)opcode;
+   return irc_send_dict(destination, message);
+}
+extern bool cmd_whois(int argc, char **args);
+static bool request_whois(const char *nick) {
+   char command[] = "whois";
+   char *args[] = { command, (char *)nick };
+   return cmd_whois(2, args);
+}
 bool ui_print(const char *window, const char *fmt, ...) {
    snprintf(printed_room, sizeof(printed_room), "%s", window ? window : "status");
    printed_status = !window || !strcmp(window, "status");
@@ -70,7 +90,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
    return false;
 }
 const char *ui_active_window_name(void) {
-   return "status";
+   return active_window;
 }
 const rr_frontend_ops_t *frontend_ops(void) {
    return use_frontend ? &redirect_frontend : NULL;
@@ -153,6 +173,80 @@ int main(void) {
    assert(ws_connected == 1 && !strcmp(login_user, "tester") && rejoins == 1);
    assert(!irc_process_message(&client, ":uranium.libera.chat 002 tester :Your host is uranium.libera.chat, running version solanum"));
    assert(printed_status && strstr(status_text, "[002] Your host is uranium.libera.chat"));
+   const struct {
+      const char *line, *first, *second;
+   } whois_replies[] = {
+      { ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice: ident@host.example", "Alice Example" },
+      { ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob: user@2001:db8::1", "Unknown" },
+      { ":server 312 tester alice irc.example :Yet another IRC Server running on Debian GNU/Linux", "server irc.example", "Debian GNU/Linux" },
+      { ":server 319 tester alice :@#hamradio +#radio", "WHOIS alice: channels", "@#hamradio +#radio" },
+      { ":server 317 tester alice 123 1700000000 :seconds idle, signon time", "idle 123 seconds; signed on", "1700000000" },
+      { ":server 317 tester alice 5 :seconds idle", "WHOIS alice: idle 5 seconds", "idle" },
+      { ":server 318 tester alice :End of WHOIS list", "WHOIS alice:", "End of WHOIS list" },
+      { ":server 301 tester alice :Away from keyboard", "alice", "Away from keyboard" },
+      { ":server 307 tester alice :is a registered nick", "alice", "registered nick" },
+      { ":server 313 tester alice :is an IRC operator", "alice", "IRC operator" },
+      { ":server 320 tester alice :custom network information", "alice", "custom network information" },
+      { ":server 330 tester alice account-name :is logged in as", "alice account-name", "is logged in as" },
+      { ":server 338 tester alice ident@real.example 192.0.2.1 :actually using host", "alice ident@real.example 192.0.2.1", "actually using host" },
+      { ":server 338 tester alice 192.0.2.1 :actual IP", "alice 192.0.2.1", "actual IP" },
+      { ":server 378 tester alice :is connecting from ident@host.example 192.0.2.1", "alice", "ident@host.example 192.0.2.1" },
+      { ":server 379 tester alice :is using modes +iw", "alice", "+iw" },
+      { ":server 671 tester alice :is using a secure connection", "alice", "secure connection" },
+      { ":server 276 tester alice :has client certificate fingerprint ABCDEF", "alice", "ABCDEF" },
+      { ":server 650 tester alice custom-value :unknown extension", "alice custom-value", "unknown extension" },
+      { ":server 401 tester missing :No such nick/channel", "missing", "No such nick/channel" },
+      { ":server 311 tester alice", "[311] alice", "alice" },
+      { ":server 317 tester alice nope bad-time :malformed idle", "alice nope bad-time", "malformed idle" }
+   };
+   for (size_t i = 0 ; i < sizeof(whois_replies) / sizeof(whois_replies[0]) ; i++) {
+      irc_process_message(&client, whois_replies[i].line);
+      assert(printed_status && strstr(status_text, whois_replies[i].first));
+      assert(strstr(status_text, whois_replies[i].second));
+   }
+   active_window = "#first";
+   assert(!request_whois("alice"));
+   assert(!strcmp(irc_send_buffer, "WHOIS alice"));
+   active_window = "#second";
+   assert(!request_whois("bob"));
+   active_window = "#unrelated";
+   irc_process_message(&client, ":server 311 tester ALICE ident host * :Alice");
+   assert(!strcmp(printed_room, "#first"));
+   irc_process_message(&client, ":server 330 tester bob account :logged in as");
+   assert(!strcmp(printed_room, "#second"));
+   assert(request_whois("ALICE")); /* Avoid ambiguous duplicate lookups. */
+   irc_process_message(&client, ":server 318 tester alice :End of WHOIS");
+   assert(!strcmp(printed_room, "#first"));
+   irc_process_message(&client, ":server 311 tester alice ident host * :Unsolicited");
+   assert(printed_status);
+   irc_process_message(&client, ":server 401 tester bob :No such nick");
+   assert(!strcmp(printed_room, "#second"));
+   assert(!request_whois("bob"));
+   rrclient_irc_whois_forget(&client);
+   for (unsigned i = 0 ; i < 10 ; i++) {
+      char nick[24];
+      snprintf(nick, sizeof(nick), "pending%u", i);
+      assert(!request_whois(nick));
+   }
+   assert(request_whois("overflow"));
+   clock_ms += 180000;
+   assert(!request_whois("overflow"));
+   assert(!rrclient_irc_whois_window(&client, "pending0"));
+   rrconn_t other_server = { .fd = -1 };
+   expected_connection = &other_server;
+   active_window = "#other-server";
+   assert(!request_whois("overflow"));
+   assert(!strcmp(rrclient_irc_whois_window(&other_server, "overflow"), "#other-server"));
+   event_emit("irc.disconnected", &other_server, "");
+   assert(!rrclient_irc_whois_window(&other_server, "overflow"));
+   assert(rrclient_irc_whois_window(&client, "overflow"));
+   expected_connection = &client;
+   rrclient_irc_whois_forget(&client);
+   irc_send_result = false;
+   assert(request_whois("failed"));
+   assert(!rrclient_irc_whois_window(&client, "failed"));
+   irc_send_result = true;
+   active_window = "status";
    dict *outgoing = dict_new();
    dict_add(outgoing, "msg.type", "talk");
    dict_add(outgoing, "talk.cmd", "msg");
