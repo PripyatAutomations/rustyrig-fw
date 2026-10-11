@@ -58,12 +58,20 @@ static void test_late_roster_autosize(void) {
       .docked = true, .auto_dock_width = true
    };
    g_object_set_data(G_OBJECT(view), "rr-room-roster", &entry);
+   userlist_fit_columns(view);
    g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), &entry);
    g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), &entry);
    gtk_container_add(GTK_CONTAINER(window), paned);
    gtk_window_set_default_size(GTK_WINDOW(window), 1000, 300);
    gtk_widget_show_all(window);
    userlist_fit_width(view);
+   pump_layout();
+   /* Previously saved narrow widths must not restore clipped rig fields. */
+   dict_add(cfg, "ui.userlist.vfo.dock-width", "180");
+   int repaired = room_userlist_width(&entry, "dock-width");
+   assert(repaired > 180);
+   assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == repaired);
+   room_userlist_set_width(&entry, repaired);
    pump_layout();
    int initial = cfg_get_int("ui.userlist.vfo.dock-width", 0);
    GtkTreeIter row;
@@ -97,6 +105,20 @@ static void test_late_roster_autosize(void) {
    userlist_fit_width(view);
    pump_layout();
    assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == saved);
+   /* Saved/manual panes must reveal every status field when widened,
+    * even if the complete username would require much more space. */
+   gtk_list_store_set(store, &row, COL_USERNAME,
+      "A_VERY_LONG_USERNAME_THAT_MUST_NOT_PUSH_RADIO_STATUS_OFF_THE_RIGHT_EDGE", -1);
+   room_userlist_set_width(&entry, 400);
+   pump_layout();
+   userlist_fit_width(view);
+   pump_layout();
+   for (int i = 0; i < NUM_COLS; i++) {
+      GtkWidget *header = gtk_tree_view_column_get_button(userlist_column(view, i));
+      int x, y;
+      assert(gtk_widget_translate_coordinates(header, scroll, 0, 0, &x, &y));
+      assert(x >= 0 && x + gtk_widget_get_allocated_width(header) <= gtk_widget_get_allocated_width(scroll));
+   }
    /* A newly detached auto-sized window must fit the populated roster too. */
    GtkWidget *detached = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    g_object_ref(panel);

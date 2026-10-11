@@ -63,6 +63,7 @@ typedef struct room_userlist_entry {
 static room_userlist_entry_t rig_userlist_entry;
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data);
 static void room_userlist_fit(room_userlist_entry_t *entry, int width);
+static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id);
 
 static room_userlist_entry_t *current_room_userlist(void) {
    const char *room = rrclient_current_room();
@@ -87,9 +88,46 @@ static int userlist_default_width(void) {
    return width < 120 ? 120 : width;
 }
 
-static int userlist_natural_width(GtkWidget *view, GtkWidget *panel) {
+/* Let Username consume spare space, not the space needed by status columns.
+ * Ellipsizing is presentation only: the model still carries the full name. */
+static void userlist_fit_columns(GtkWidget *view) {
+   GtkTreeViewColumn *column = userlist_column(view, COL_USERNAME);
+   GtkCellRenderer *text = g_object_get_data(G_OBJECT(view), "rr-username-renderer");
+   g_object_set(text, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+   gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+   gtk_tree_view_column_set_fixed_width(column, 100);
+   g_object_set_data(G_OBJECT(view), "rr-fit-columns", GINT_TO_POINTER(1));
+}
+
+static int userlist_content_width(GtkWidget *view) {
    GtkRequisition natural;
    gtk_widget_get_preferred_size(view, NULL, &natural);
+   if (!g_object_get_data(G_OBJECT(view), "rr-fit-columns")) {
+      return natural.width;
+   }
+   /* Preserve full-name auto-sizing even though a manually narrowed roster
+    * uses ellipses. Measure model cells rather than the fixed column width. */
+   GtkTreeViewColumn *column = userlist_column(view, COL_USERNAME);
+   GtkCellRenderer *text = g_object_get_data(G_OBJECT(view), "rr-username-renderer");
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(view));
+   GtkTreeIter row;
+   int longest = gtk_tree_view_column_get_fixed_width(column);
+   for (gboolean valid = gtk_tree_model_get_iter_first(model, &row); valid;
+      valid = gtk_tree_model_iter_next(model, &row)) {
+      int width;
+      gtk_tree_view_column_cell_set_cell_data(column, model, &row, FALSE, FALSE);
+      gtk_cell_renderer_get_preferred_width(text, view, NULL, &width);
+      longest = MAX(longest, width);
+   }
+   return natural.width + longest - gtk_tree_view_column_get_fixed_width(column);
+}
+
+static int userlist_natural_width(GtkWidget *view, GtkWidget *panel, bool full_names) {
+   GtkRequisition natural;
+   gtk_widget_get_preferred_size(view, NULL, &natural);
+   if (full_names) {
+      natural.width = userlist_content_width(view);
+   }
    GtkWidget *scroll = gtk_widget_get_parent(view);
    if (scroll && GTK_IS_VIEWPORT(scroll)) {
       scroll = gtk_widget_get_parent(scroll);
@@ -107,12 +145,10 @@ static int userlist_natural_width(GtkWidget *view, GtkWidget *panel) {
 static gboolean userlist_fit_width_idle(gpointer data) {
    GtkWidget *view = GTK_WIDGET(data);
 
-   if (!view || !GTK_IS_TREE_VIEW(view)) {
+   if (!view || !GTK_IS_TREE_VIEW(view) || gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) != NUM_COLS) {
       return G_SOURCE_REMOVE;
    }
-   GtkRequisition natural;
-   gtk_widget_get_preferred_size(view, NULL, &natural);
-   gint width = natural.width;
+   gint width = userlist_content_width(view);
    GtkWidget *scroll = gtk_widget_get_parent(view);
 
    if (scroll && GTK_IS_VIEWPORT(scroll)) {
@@ -125,7 +161,7 @@ static gboolean userlist_fit_width_idle(gpointer data) {
       if (entry) {
          /* Measure the tree plus scrollbar/chrome and controls, then release
           * the minimum: a shrinkable pane must not crop its own children. */
-         room_userlist_fit(entry, userlist_natural_width(view, entry->panel));
+         room_userlist_fit(entry, userlist_natural_width(view, entry->panel, true));
       }
    }
 
@@ -847,6 +883,7 @@ static GtkWidget *userlist_view_create(void) {
 
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_USERNAME, NULL);
+   g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);
@@ -950,9 +987,16 @@ static void room_userlist_set_title(room_userlist_entry_t *entry) {
 static int room_userlist_width(room_userlist_entry_t *entry, const char *field) {
    int width = userlist_layout_int(entry->view, field, 0);
    if (width > 0) {
+      if (!strcmp(userlist_type(entry->view), "vfo") &&
+         g_object_get_data(G_OBJECT(entry->view), "rr-fit-columns")) {
+         /* Older saves may contain a width that cuts off radio fields.
+          * Restore enough space for headers/controls, with names ellipsized. */
+         width = MAX(width, userlist_natural_width(entry->view, entry->panel, false));
+         userlist_layout_save(entry->view, field, width);
+      }
       return width;
    }
-   width = userlist_natural_width(entry->view, entry->panel);
+   width = userlist_natural_width(entry->view, entry->panel, true);
    userlist_layout_save(entry->view, field, width);
    return width;
 }
@@ -1173,6 +1217,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    entry->auto_dock_width = userlist_layout_int(view, "dock-width", 0) <= 0;
    entry->auto_window_width = userlist_layout_int(view, "width", 0) <= 0;
    g_object_set_data(G_OBJECT(view), "rr-room-roster", entry);
+   userlist_fit_columns(view);
    /* Keep the panel alive while it moves between the chat pane and a detachable window.  The extra reference is released when the room is removed. */
    g_object_ref_sink(panel);
    GtkWidget *vfo_strip = room_vfo_strip_create(entry);

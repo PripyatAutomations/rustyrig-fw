@@ -401,3 +401,7 @@ populate it. Dragging its divider or resizing its detached window stops that
 automatic growth; measurements include the scrollbar and divider. Saved sizes
 are honored on subsequent launches. Maximized window size is not saved over
 the detached window's normal size.
+GTK room Username columns expand into remaining roster space and ellipsize
+when narrowed, leaving room for visible status fields. Restoring a saved VFO
+roster enforces enough width for its headers and controls; full usernames still
+determine its natural auto-sized width. Manual divider collapse remains allowed.
