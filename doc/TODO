@@ -2,8 +2,7 @@ Immediate needs
 ---------------
 rrclient: Maybe some sorta activity notification in inactive tabs later, and change text color if someone say my name
 
-* Deferred WWV/WWVH time-source worker: see doc/wwv-time-decoder-plan.md.
-  Not required for monotonic protocol RTT; implement after beta transport/state work.
+rrclient: handle channel redirects and such
 
 rrclient: Make hotkeys configurable
 
@@ -36,3 +35,6 @@ librustyaxe: logger - extend log.level so its allows throttling like log.level=*
   - https://github.com/ngtcp2/ngtcp2/
   - https://github.com/ngtcp2/nghttp3/
   - https://developer.mozilla.org/en-US/docs/Web/API/WebTransport#examples
+
+* Deferred WWV/WWVH time-source worker: see doc/wwv-time-decoder-plan.md.
+  Not required for monotonic protocol RTT; implement after beta transport/state work.

@@ -1,3 +1,6 @@
 rrclient/gtk: userlist
   - when connected to IRC, userlist fields are removed from *all* tabs not just irc
-  - 
+rrclient/gtk: chat
+  - channel /me's show twice
+rrclient/gtk: serverpicker
+  - if server picker is closed without selection, we jump to tab 1 (why?)

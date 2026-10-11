@@ -101,8 +101,6 @@ See `doc/client-parity.md` for the current parity map.
 - Register component suites in `tests/run-tests.sh` so `make test` can run
   them. Add a test wrapper in the owning component when its suite needs a
   project-wide runner to discover it.
-- Before changing code, run the relevant existing tests and note any baseline
-  failures. After the change, rerun those tests and the broader affected suite.
 
 ## Before modifying code
 1. Before changing: do a git commit for safety.
