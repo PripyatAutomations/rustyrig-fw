@@ -81,7 +81,7 @@ world: after-eeprom
 
 # Build configured programs and run the maintained project test suites.
 # The external librustyaxe submodule suite can be selected explicitly.
-TEST_SUITES ?= selftest librustyaxe librrprotocol rrserver rrclient fwdsp www
+TEST_SUITES ?= selftest packaging librustyaxe librrprotocol rrserver rrclient fwdsp www
 .PHONY: test
 test tests: ${bins}
 	./tests/run-tests.sh ${TEST_SUITES}

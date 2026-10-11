@@ -110,7 +110,6 @@ void tui_refresh_sb_vfo(void) {
 }
 
 static void rrclient_backpressure(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)cptr; (void)user;
    ui_print("status", "%s %s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
 }
 
@@ -530,8 +529,8 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          login_user = strdup(user);
          ui_print(NULL, "%s *** \00303Connected, logging in as %s\017 ***", get_chat_ts(now), login_user);
       }
-      rrclient_update_connection_ui(-1);
 
+      rrclient_update_connection_ui(-1);
       if (frontend_ops() ) {
          if (rrclient_present_context()) {
             frontend_ops()->ptt_set_online(true);
@@ -1334,10 +1333,6 @@ static void rrclient_handle_media_capab(const char *event, const char *data, rrc
 /* media_sync_audio() emits this notification for the native audio layer. It intentionally carries no JSON payload; registering a listener keeps it out of the
  * generic NOMATCH path, which expects JSON websocket messages. */
 static void rrclient_handle_media_changed(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)data;
-   (void)cptr;
-   (void)user;
    const rr_frontend_ops_t *ops = frontend_ops();
 
    if (ops && ops->codec_set_active) {
@@ -1427,10 +1422,6 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 }
 
 static void rrclient_server_selected(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)data;
-   (void)user;
-
    if (!rrclient_present_context()) {
       return;
    }
@@ -1451,7 +1442,7 @@ void rrclient_register_events(void) {
    rrclient_objects_register_events();
    rrclient_media_register_events();
 
-// XXX: We need to sort this according to profiling results
+   // XXX: We need to sort this according to profiling results
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
    event_on("alert", rrclient_handle_alert, NULL);
    event_on("auth.error", rrclient_handle_autherr, NULL);
@@ -1488,6 +1479,7 @@ void rrclient_register_events(void) {
    event_on("ws.msg.cat", rrclient_handle_cat, NULL);
    event_on("ws.msg.hello", rrclient_handle_hello, NULL);
    event_on("ws.msg.media", rrclient_handle_media, NULL);
+
    // this is where notices in the client come from
    event_on("notice.msg", rrclient_handle_notice, NULL);
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);

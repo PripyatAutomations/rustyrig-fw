@@ -30,6 +30,14 @@ Source-tree runs can explicitly set `path.modules=./bin`.
 in `[modules]` and configure `gpsd.url`/`gpsd.target`. The NMEA adapter remains
 in the server package. GTK remains in `rustyrig-client-gtk`.
 
+Debian registers every packaged file under `/etc` as a conffile through
+`dh_installdeb`. Upgrades prompt when both the local configuration and the
+packaged default have changed; the default answer keeps the local file and
+saves the new default as `.dpkg-dist`. The first fixed package also prompts
+for locally changed files installed by older packages without conffile metadata.
+An unchanged packaged default needs no prompt. Explicit dpkg/apt force-conf
+options can override this behavior.
+
 Package managers preserve modified configuration. On upgrade, update existing
 `path.modules` values from `/var/lib/rustyrig/modules` to the appropriate new
 directory. Do not make the module directories writable by the service account.
