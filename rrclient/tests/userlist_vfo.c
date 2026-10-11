@@ -98,6 +98,16 @@ int main(void) {
       cfg = dict_new();
       g_object_set_data_full(G_OBJECT(room_a.view), "rr-roster-type", g_strdup("irc"), g_free);
       g_object_set_data_full(G_OBJECT(room_b.view), "rr-roster-type", g_strdup("vfo"), g_free);
+      GtkWidget *wide_control = gtk_label_new("VFO A 145.123000 MHz FM PTT OFF — all fields must fit initially");
+      gtk_box_pack_start(GTK_BOX(room_b.panel), wide_control, FALSE, FALSE, 0);
+      gtk_widget_show_all(room_b.panel);
+      GtkRequisition natural;
+      gtk_widget_get_preferred_size(room_b.panel, NULL, &natural);
+      int initial_width = room_userlist_width(&room_b, "dock-width");
+      assert(initial_width >= natural.width);
+      assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == initial_width);
+      dict_add(cfg, "ui.userlist.vfo.dock-width", "180");
+      assert(room_userlist_width(&room_b, "dock-width") == 180);
       GdkEventConfigure geometry = { .width = 300, .height = 450 };
       room_userlist_configure(room_a.window, &geometry, &room_a);
       assert(cfg_get_int("ui.userlist.irc.width", 0) == 300);

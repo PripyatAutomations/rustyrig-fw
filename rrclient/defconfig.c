@@ -312,37 +312,37 @@ defconfig_t defcfg[] = {
       "ui.userlist-width", "220", "Default width in pixels for GTK room user lists", DEFCONFIG_UINT, NULL
    },
    {
-      "ui.userlist.irc.width", "220", "GTK irc roster width", DEFCONFIG_UINT, NULL
+      "ui.userlist.irc.width", "0", "GTK irc roster width (0 fits all fields initially)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.userlist.irc.height", "320", "GTK irc roster height", DEFCONFIG_UINT, NULL
    },
    {
-      "ui.userlist.irc.dock-width", "220", "GTK irc roster dock-width", DEFCONFIG_UINT, NULL
+      "ui.userlist.irc.dock-width", "0", "GTK irc roster dock-width (0 fits all fields initially)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.userlist.irc.columns", "0,1,2,3,4", "GTK irc roster columns", DEFCONFIG_STRING, NULL
    },
    {
-      "ui.userlist.vfo.width", "220", "GTK vfo roster width", DEFCONFIG_UINT, NULL
+      "ui.userlist.vfo.width", "0", "GTK vfo roster width (0 fits all fields initially)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.userlist.vfo.height", "320", "GTK vfo roster height", DEFCONFIG_UINT, NULL
    },
    {
-      "ui.userlist.vfo.dock-width", "220", "GTK vfo roster dock-width", DEFCONFIG_UINT, NULL
+      "ui.userlist.vfo.dock-width", "0", "GTK vfo roster dock-width (0 fits all fields initially)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.userlist.vfo.columns", "0,1,2,3,4", "GTK vfo roster columns", DEFCONFIG_STRING, NULL
    },
    {
-      "ui.userlist.room.width", "220", "GTK room roster width", DEFCONFIG_UINT, NULL
+      "ui.userlist.room.width", "0", "GTK room roster width (0 fits all fields initially)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.userlist.room.height", "320", "GTK room roster height", DEFCONFIG_UINT, NULL
    },
    {
-      "ui.userlist.room.dock-width", "220", "GTK room roster dock-width", DEFCONFIG_UINT, NULL
+      "ui.userlist.room.dock-width", "0", "GTK room roster dock-width (0 fits all fields initially)", DEFCONFIG_UINT, NULL
    },
    {
       "ui.userlist.room.columns", "0,1,2,3,4", "GTK room roster columns", DEFCONFIG_STRING, NULL

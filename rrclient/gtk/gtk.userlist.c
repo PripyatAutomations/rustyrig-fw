@@ -917,6 +917,18 @@ static void room_userlist_set_title(room_userlist_entry_t *entry) {
    gtk_window_set_title(GTK_WINDOW(entry->window), title);
 }
 
+static int room_userlist_width(room_userlist_entry_t *entry, const char *field) {
+   int width = userlist_layout_int(entry->view, field, 0);
+   if (width > 0) {
+      return width;
+   }
+   GtkRequisition natural;
+   gtk_widget_get_preferred_size(entry->panel, NULL, &natural);
+   width = MAX(userlist_default_width(), natural.width);
+   userlist_layout_save(entry->view, field, width);
+   return width;
+}
+
 static void room_userlist_dock(room_userlist_entry_t *entry) {
    if (!entry || !entry->dock_paned || !GTK_IS_PANED(entry->dock_paned)) {
       return;
@@ -936,7 +948,7 @@ static void room_userlist_dock(room_userlist_entry_t *entry) {
    gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
    gtk_widget_show_all(entry->panel);
    int width = gtk_widget_get_allocated_width(GTK_WIDGET(entry->dock_paned));
-   gtk_paned_set_position(entry->dock_paned, MAX(0, width - userlist_layout_int(entry->view, "dock-width", userlist_default_width())));
+   gtk_paned_set_position(entry->dock_paned, MAX(0, width - room_userlist_width(entry, "dock-width")));
    if (entry->window) {
       gtk_widget_hide(entry->window);
    }
@@ -971,7 +983,7 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
    if (allocation->width > 1 && !g_object_get_data(G_OBJECT(widget), "rr-roster-sized")) {
-      gtk_paned_set_position(GTK_PANED(widget), MAX(0, allocation->width - userlist_layout_int(entry->view, "dock-width", userlist_default_width())));
+      gtk_paned_set_position(GTK_PANED(widget), MAX(0, allocation->width - room_userlist_width(entry, "dock-width")));
       g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
    }
 }
@@ -988,7 +1000,7 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
       if (!entry->window || !GTK_IS_WINDOW(entry->window)) {
          entry->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
          /* Geometry is shared by room type, never by room/server name. */
-         gtk_window_set_default_size(GTK_WINDOW(entry->window), userlist_layout_int(entry->view, "width", userlist_default_width()), userlist_layout_int(entry->view, "height", 320));
+         gtk_window_set_default_size(GTK_WINDOW(entry->window), room_userlist_width(entry, "width"), userlist_layout_int(entry->view, "height", 320));
          g_signal_connect(entry->window, "configure-event", G_CALLBACK(room_userlist_configure), entry);
          g_signal_connect(entry->window, "delete-event", G_CALLBACK(on_room_userlist_delete), entry);
          gui_hotkey_register(entry->window);
@@ -1003,7 +1015,7 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
       entry->docked = false;
       gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Dock");
       room_userlist_set_title(entry);
-      gtk_window_resize(GTK_WINDOW(entry->window), MAX(120, userlist_layout_int(entry->view, "width", userlist_default_width())), MAX(120, userlist_layout_int(entry->view, "height", 320)));
+      gtk_window_resize(GTK_WINDOW(entry->window), MAX(120, room_userlist_width(entry, "width")), MAX(120, userlist_layout_int(entry->view, "height", 320)));
       gtk_widget_show_all(entry->window);
 
    } else {
@@ -1104,6 +1116,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    g_hash_table_insert(room_userlist_views, g_strdup(rrclient_window_name(room)), entry);
    userlist_redraw_view(view, room);
    gtk_widget_show_all(panel);
+   /* Initial allocation measures visible columns and VFO controls after show. */
 }
 
 void userlist_remove_room_view(const char *room) {

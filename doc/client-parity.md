@@ -393,3 +393,6 @@ roster. The divider may collapse it without destroying it. Saved configuration
 uses `ui.userlist.{irc,vfo,room}.{width,height,dock-width,columns}` for shared
 layout preferences by room type; column IDs remain stable when reordered.
 These widget and window preferences are native GTK-specific.
+Unset roster widths (`0`) fit all visible fields and VFO controls at first
+allocation; the measured width is retained in the running configuration and
+persisted by the normal save commands. Explicit widths take precedence.
