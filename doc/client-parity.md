@@ -413,7 +413,7 @@ GTK roster Query/Whois/Mute/Unmute/Kick actions select their existing room tab
 and invoke the native slash-command parser directly. They leave the input
 draft and history untouched; browser menu presentation remains separate.
 
-Native and browser Available rooms display/completion use the connected
-server's advertised site lobby and its dashed room namespace. Foreign station
-rooms are excluded until linking supplies explicit ownership/routing metadata.
-Native IRC channel listing remains unrestricted.
+Available rooms display/completion preserves the connected server's LIST.
+Native room state, including the available-room cache, is saved separately
+per server connection; selecting another server selects its own LIST. Room
+names are not filtered by station prefix.

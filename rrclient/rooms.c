@@ -217,19 +217,10 @@ void rrclient_rooms_set_available(const char *list) {
       return;
    }
    char *save = NULL;
-   const char *site = ws_authoritative_room();
-   bool local_only = ws_conn && ws_conn->is_ws && rrclient_room_is_joined(site);
-   size_t site_len = strlen(site);
-
-   /* PARITY: rustyrig-www/js/webui.chat.js room-list handling.
-    * Until linking supplies ownership metadata, completion follows this
-    * connection's advertised lobby namespace, never another station's. */
+   /* Available rooms belong to the current connection's saved room context.
+    * Keep the server's LIST intact; room names do not establish ownership. */
    for (char *room = strtok_r(copy, " \t\r\n", &save) ; room ; room = strtok_r(NULL, " \t\r\n", &save)) {
       if (available_room_count >= 1024 || (room[0] != '#' && room[0] != '&')) {
-         continue;
-      }
-      if (local_only && (strncasecmp(room, site, site_len) ||
-         (room[site_len] && room[site_len] != '-'))) {
          continue;
       }
       bool duplicate = false;
