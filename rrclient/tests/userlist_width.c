@@ -7,6 +7,16 @@ time_t now;
 static rrconn_t *roster_connection;
 struct rr_user *global_userlist;
 static const char *room_vfos = "";
+static bool room_tx_control;
+static uint32_t room_vfo_mask;
+bool rrclient_room_tx_control(const char *room) {
+   (void)room;
+   return room_tx_control;
+}
+uint32_t rrclient_room_vfo_mask(const char *room) {
+   (void)room;
+   return room_vfo_mask;
+}
 const char *rrclient_room_vfos(const char *room) {
    assert(!strcmp(room, "#rig"));
 
@@ -47,7 +57,7 @@ int main(void) {
    userlist_set_columns(view, "#rig");
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON)));
-   assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_ELMERNOOB_ICON)));
+   assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_ELMERNOOB_ICON)));
    irc_process_message(&client, ":server 005 tester RUSTYRIG :supported");
    userlist_set_columns(view, "#rig");
 
@@ -65,6 +75,20 @@ int main(void) {
    userlist_set_columns(view, "#rig");
    assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_TALK_ICON)));
    assert(!gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_MUTE_ICON)));
+   /* Rig JOIN metadata must expose radio columns before bindings arrive. */
+   room_tx_control = true;
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_MUTE_ICON)));
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_ELMERNOOB_ICON)));
+   room_tx_control = false;
+   room_vfo_mask = 3;
+   userlist_set_columns(view, "#rig");
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
+   assert(gtk_tree_view_column_get_visible(userlist_column(view, COL_MUTE_ICON)));
+   room_vfo_mask = 0;
+   userlist_set_columns(view, "#rig");
+   assert(!gtk_tree_view_column_get_visible(userlist_column(view, COL_TALK_ICON)));
    irc_capabilities_clear(&client);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);

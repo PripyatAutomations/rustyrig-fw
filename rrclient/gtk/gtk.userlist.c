@@ -336,14 +336,17 @@ static void userlist_set_columns(GtkWidget *view, const char *room) {
    bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
 
    const char *vfos = room && *room ? rrclient_room_vfos(room) : NULL;
-   bool has_vfos = vfos && *vfos;
+   /* JOIN capability flags can arrive before the detailed VFO bindings.
+    * Use the same TX capability as the room's radio controls as well. */
+   bool has_vfos = room && *room && ((vfos && *vfos) ||
+      rrclient_room_vfo_mask(room) || rrclient_room_tx_control(room));
 
    userlist_apply_layout(view, has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room");
 
    /* Radio status belongs to VFO-enabled rooms, independent of transport. */
    gtk_tree_view_column_set_visible(userlist_column(view, COL_TALK_ICON), has_vfos);
    gtk_tree_view_column_set_visible(userlist_column(view, COL_MUTE_ICON), has_vfos);
-   gtk_tree_view_column_set_visible(userlist_column(view, COL_ELMERNOOB_ICON), extensions);
+   gtk_tree_view_column_set_visible(userlist_column(view, COL_ELMERNOOB_ICON), extensions || has_vfos);
 }
 
 static void userlist_redraw_view(GtkWidget *view, const char *room) {

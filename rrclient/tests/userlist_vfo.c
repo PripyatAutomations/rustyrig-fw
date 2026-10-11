@@ -8,6 +8,16 @@ rrconn_t *rrclient_connection_find(const char *name) {
 
    return NULL;
 }
+static bool room_tx_control;
+static uint32_t room_vfo_mask;
+bool rrclient_room_tx_control(const char *room) {
+   (void)room;
+   return room_tx_control;
+}
+uint32_t rrclient_room_vfo_mask(const char *room) {
+   (void)room;
+   return room_vfo_mask;
+}
 const char *rrclient_room_vfos(const char *room) {
    (void)room;
 
