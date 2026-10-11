@@ -1,5 +1,8 @@
 rustyrig-fw (20261011.03) testing; urgency=medium
 
+  * Dispatch media.feedback to the existing authenticated stream-quality
+    handler instead of rejecting RTT/codec adaptation reports as invalid.
+
   * Fix IRC /kick nickname/reason parsing and route GTK roster KICK through
     the shared sender using the originating channel and server connection.
 
@@ -67,7 +70,7 @@ rustyrig-fw (20261011.03) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 18:13:30 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 19:03:57 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,
