@@ -70,7 +70,12 @@ Other advertised capabilities, including SASL, are not requested.
 
 In a room, plain text followed by Tab cycles through matching room members.
 For example, `Ro` completes to `Rob: ` at the start of a message. Subsequent
-Tabs cycle through other matching nicknames. Typing or moving the cursor starts
+Tabs cycle through other matching nicknames. `/msg`, `/whois`, `/kick`, `/mute`
+and `/unmute` complete nicknames from the selected room. `/mode +b mask` uses
+that IRC channel; `+o`, `-o`, `+v` and `-v` complete nickname arguments, including
+combined mode strings and explicit `/mode #channel ...` targets. Mixed modes
+consume arguments according to the server's PREFIX/CHANMODES metadata, so ban
+masks, keys and limits are not completed as nicknames. Typing or moving the cursor starts
 a new completion; command completion requires a leading `/`.
 
 `/quit` sends `QUIT :reason` to all registered IRC connections, including

@@ -18,6 +18,10 @@ const char *ui_active_window_name(void) {
    return "#room";
 }
 
+const char *rrclient_active_room(void) {
+   return "#room";
+}
+
 bool ui_print(const char *window, const char *fmt, ...) {
    (void)window;
    (void)fmt;
@@ -46,6 +50,20 @@ int main(void) {
    char *newline[] = {"raw", "PRIVMSG #room :line1\nline2"};
    assert(cmd_raw(2, newline));
 
+   connection.connected = 1;
+   connection.authenticated = true;
+   char *ban[] = { "mode", "+b", "*!*@bad.example" };
+   assert(!cmd_mode(3, ban));
+   assert(!strcmp(sent, "MODE #room +b *!*@bad.example"));
+   char *op[] = { "mode", "+o", "alice" };
+   assert(!cmd_mode(3, op));
+   assert(!strcmp(sent, "MODE #room +o alice"));
+   char *voice[] = { "mode", "-v", "alice" };
+   assert(!cmd_mode(3, voice));
+   assert(!strcmp(sent, "MODE #room -v alice"));
+   char *explicit_room[] = { "mode", "#other", "-o", "bob" };
+   assert(!cmd_mode(4, explicit_room));
+   assert(!strcmp(sent, "MODE #other -o bob"));
    send_ok = false;
    assert(cmd_raw(4, raw));
 

@@ -227,6 +227,29 @@ int main(void) {
    robert.next = &elsewhere;
    global_userlist = &rob;
    active_window = "#chat";
+   const char *nick_commands[] = { "/msg Ro", "/whois Ro", "/kick Ro", "/mute Ro", "/unmute Ro" };
+   for (unsigned i = 0 ; i < 5 ; i++) {
+      check(nick_commands[i], "Ro", "Rob");
+   }
+   check("/whois Robi", "Robi", NULL);
+   rrconn_t irc = { .fd = -1 };
+   ws_conn = &irc;
+   check("/ki", "/ki", "/kick");
+   check("/help ki", "ki", "kick");
+   check("/mode +o Ro", "Ro", "Rob");
+   check("/mode -o Ro", "Ro", "Rob");
+   check("/mode +v Ro", "Ro", "Rob");
+   check("/mode -v Ro", "Ro", "Rob");
+   check("/mode +ov Rob Ro", "Ro", "Robert");
+   check("/mode +bov *!*@bad Rob Ro", "Ro", "Robert");
+   check("/mode -l+v Ro", "Ro", "Rob");
+   check("/mode +b Ro", "Ro", NULL);
+   check("/mode +k Ro", "Ro", NULL);
+   check("/mode #elsewhere +o Ro", "Ro", "Robin");
+   check("/mode #chat +o Ro", "Ro", "Rob");
+   irc.is_ws = true;
+   check("/mode +o Ro", "Ro", NULL);
+   ws_conn = NULL;
    check("Ro", "Ro", "Rob:");
    check("hello Ro", "Ro", "Rob");
    check("rig", "rig", NULL);

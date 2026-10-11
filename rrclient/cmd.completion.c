@@ -58,14 +58,15 @@ static char **complete_server_names(const char *word) {
 /*
  * complete_usernames: complete usernames from the global userlist for commands like
  * /whois, /kick, /ban, /mute, /unmute.
+ * PARITY: rustyrig-www/js/webui.chat.js UserCache.get_all scopes names to the active room.
  */
-static char **complete_usernames(const char *word) {
+static char **complete_usernames(const char *word, const char *room) {
    char **matches = NULL;
    size_t count = 0;
    size_t len = word ? strlen(word) : 0;
 
    for (struct rr_user *uptr = global_userlist ; uptr ; uptr = uptr->next) {
-      if (uptr->room[0] && strcasecmp(uptr->room, ws_authoritative_room() ) != 0) {
+      if (room && uptr->room[0] && strcasecmp(uptr->room, room) != 0) {
          continue;
       }
 
@@ -201,6 +202,30 @@ static bool completion_unique_channel_name(const struct rr_client_media_chan *ch
    }
 }
 
+/* IRC-only: consume mode arguments using the server's PREFIX/CHANMODES rules,
+ * so ban masks, keys and limits before an op/voice target do not shift it. */
+static bool completion_mode_target(char **tokens, unsigned arg, const char **room) {
+   unsigned mode_index = tokens[1] && (tokens[1][0] == '#' || tokens[1][0] == '&') ? 2 : 1;
+   if (mode_index == 2) {
+      *room = tokens[1];
+   }
+   if (!ws_conn || ws_conn->is_ws || arg <= mode_index || !tokens[mode_index]) {
+      return false;
+   }
+   bool adding = true;
+   unsigned parameter = mode_index + 1;
+   for (const char *mode = tokens[mode_index] ; *mode ; mode++) {
+      if (*mode == '+' || *mode == '-') {
+         adding = *mode == '+';
+      } else if (irc_mode_has_argument(ws_conn, *mode, adding)) {
+         if (parameter++ == arg) {
+            return *mode == 'o' || *mode == 'v';
+         }
+      }
+   }
+   return false;
+}
+
 // line ends at the cursor, word is its last (possibly empty) token.
 char **client_cmd_completions(const char *line, const char *word) {
    if (!line || !word || strlen(word) > strlen(line) ) {
@@ -237,8 +262,12 @@ char **client_cmd_completions(const char *line, const char *word) {
    char *first = NULL;
    char *second = NULL;
    unsigned arg = 0;
+   char *tokens[32] = { 0 };
 
    for (char *p = command ; p ; p = strtok_r(NULL, " \t", &save) ) {
+      if (arg < 32) {
+         tokens[arg] = p;
+      }
       if (arg == 1) {
          first = p;
       }
@@ -252,6 +281,10 @@ char **client_cmd_completions(const char *line, const char *word) {
    char **matches = NULL;
    size_t count = 0;
 
+   const char *room = ui_active_window_name();
+   if (!room || (room[0] != '#' && room[0] != '&')) {
+      room = NULL;
+   }
    if (arg && command) {
       if (arg == 1 && (!strcasecmp(command, "/join") || !strcasecmp(command, "/j"))) {
          matches = complete_rooms(word, true);
@@ -264,7 +297,9 @@ char **client_cmd_completions(const char *line, const char *word) {
          !strcasecmp(command, "/unmute") || !strcasecmp(command, "/msg") ||
          !strcasecmp(command, "/query") ||
          !strcasecmp(command, "/notice") ) ) {
-         matches = complete_usernames(word);
+         matches = complete_usernames(word, room);
+      } else if (!strcasecmp(command, "/mode") && completion_mode_target(tokens, arg, &room)) {
+         matches = complete_usernames(word, room);
       } else if (arg == 1 && (!strcasecmp(command, "/rig") || !strcasecmp(command, "/gps") ) ) {
          completion_words(&matches, &count, "LIST SUBSCRIBE UNSUBSCRIBE", word);
       } else if (arg == 2 && !strcasecmp(command, "/gps") && first &&
@@ -372,11 +407,11 @@ char **client_cmd_completions(const char *line, const char *word) {
             completion_words(&matches, &count, media_have_priv("admin|owner") ?
                "LIST ADD REMOVE LOCK UNLOCK PRIVS OLDPW RESETPW PASS HELP" : "PASS", word);
          } else if (arg == 2 && first && !strcasecmp(first, "PRIVS") ) {
-            matches = complete_usernames(word);
+            matches = complete_usernames(word, ws_authoritative_room());
          } else if (arg == 2 && first &&
             (strcasecmp(first, "ADD") != 0 && strcasecmp(first, "LIST") != 0 &&
             strcasecmp(first, "HELP") != 0 && strcasecmp(first, "OLDPW") != 0) ) {
-            matches = complete_usernames(word);
+            matches = complete_usernames(word, ws_authoritative_room());
          } else if (arg == 3 && first && !strcasecmp(first, "PRIVS") ) {
             completion_words(&matches, &count, "LIST ADD REMOVE SET", word);
          }
@@ -432,7 +467,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if (arg == 1 && !strcasecmp(command, "/help") ) {
          for (int i = 0 ; client_cmds[i].cmd ; i++) {
-            if (!client_cmds[i].admin || media_have_priv("admin|owner") ) {
+            if (!client_cmds[i].admin || (ws_conn && !ws_conn->is_ws) || media_have_priv("admin|owner") ) {
                completion_add(&matches, &count, client_cmds[i].cmd, word);
             }
          }
@@ -466,7 +501,7 @@ char **client_cmd_completions(const char *line, const char *word) {
 
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
-      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+      if (client_cmds[i].admin && (!ws_conn || ws_conn->is_ws) && !media_have_priv("admin|owner") ) {
          continue;
       }
 
