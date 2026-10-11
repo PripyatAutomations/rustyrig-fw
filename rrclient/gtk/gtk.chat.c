@@ -1135,6 +1135,20 @@ GtkWidget *create_chat_box(void) {
    return create_chat_box_for_room(true, ws_authoritative_room(), false);
 }
 
+static void gtk_chat_select_existing_tab(GtkRoomTab *tab) {
+   gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), tab->page);
+
+   /* Incoming chat ensures the tab exists on every message. Re-grabbing
+    * GtkEntry focus selects the draft again, so the next key replaces it. */
+   if (page < 0 || page == gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) {
+      return;
+   }
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
+   if (tab->entry && GTK_IS_WIDGET(tab->entry)) {
+      gtk_widget_grab_focus(tab->entry);
+   }
+}
+
 static void gtk_chat_tab_add(const char *room, bool is_query) {
    if (!room || !*room || !main_notebook) {
       return;
@@ -1149,15 +1163,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
       if (!rrclient_present_context()) {
          return;
       }
-      gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), existing->page);
-
-      if (page >= 0) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
-      }
-
-      if (existing->entry && GTK_IS_WIDGET(existing->entry)) {
-         gtk_widget_grab_focus(existing->entry);
-      }
+      gtk_chat_select_existing_tab(existing);
 
       return;
    }

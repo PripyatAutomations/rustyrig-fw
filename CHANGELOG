@@ -1,5 +1,7 @@
 rustyrig-fw (20261011.02) testing; urgency=medium
 
+  * Preserve GTK chat drafts, cursor and selection when messages arrive in
+    the selected room instead of repeatedly selecting the entire input.
   * Fix GTK Ctrl+Shift+C copying from either the chat input or transcript,
     preferring the focused widget when both retain a selection.
   * Accept WS/WSS server URL credentials for native login, including percent
@@ -28,7 +30,7 @@ rustyrig-fw (20261011.02) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 13:27:48 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 13:30:28 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,

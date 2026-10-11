@@ -216,6 +216,47 @@ static void test_transcript_copy(void) {
    chat_textview = main_notebook = NULL;
 }
 
+static void test_incoming_chat_preserves_draft(void) {
+   if (!gtk_init_check(NULL, NULL)) {
+      return;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   main_notebook = gtk_notebook_new();
+   GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *entry = gtk_entry_new();
+   GtkWidget *view = gtk_text_view_new();
+   gtk_box_pack_start(GTK_BOX(page), view, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(page), entry, FALSE, FALSE, 0);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), page, NULL);
+   gtk_container_add(GTK_CONTAINER(window), main_notebook);
+   gtk_widget_show_all(window);
+   gtk_widget_grab_focus(entry);
+   drain_gtk_events();
+   gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
+   gtk_editable_set_position(GTK_EDITABLE(entry), 4);
+   GtkRoomTab tab = { .page = page, .entry = entry, .view = view };
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   for (int i = 0 ; i < 3 ; i++) {
+      /* The incoming message path ensures the existing tab, then appends. */
+      gtk_chat_select_existing_tab(&tab);
+      gtk_text_buffer_insert_at_cursor(buffer, "incoming message\n", -1);
+      drain_gtk_events();
+      assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+      assert(gtk_editable_get_position(GTK_EDITABLE(entry)) == 4);
+      gint first, last;
+      assert(!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last));
+   }
+   type_entry_text(entry, "X");
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfiXnished draft"));
+   gtk_editable_select_region(GTK_EDITABLE(entry), 2, 6);
+   gtk_chat_select_existing_tab(&tab);
+   gint first, last;
+   assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last));
+   assert(first == 2 && last == 6);
+   gtk_widget_destroy(window);
+   main_notebook = NULL;
+}
+
 int main(void) {
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
@@ -269,5 +310,6 @@ int main(void) {
    g_free(text);
    test_color_popup();
    test_transcript_copy();
+   test_incoming_chat_preserves_draft();
    puts("PASS: GTK mIRC red headings, numeric text, reset and markup escaping");
 }
