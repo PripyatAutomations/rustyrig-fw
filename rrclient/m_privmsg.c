@@ -298,7 +298,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       if (!strcmp(cmd, "464")) {
          dict_add(d, "auth.error", text);
          event_emit_dict("auth.error", cptr, d);
-      } else if (strcmp(cmd, "001")) {
+      } else if (strcmp(cmd, "001") && strcmp(cmd, "470")) {
          ui_print(NULL, "%s [%s] %s", get_chat_ts(now), cmd, text);
       }
    }
@@ -322,6 +322,36 @@ static void rrclient_irc_error(const char *event, const char *data, rrconn_t *cp
    }
 }
 
+static void rrclient_irc_redirect(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+
+   if (!data || !cptr || cptr != ws_conn || cptr->is_ws) {
+      return;
+   }
+   dict *message = json2dict(data);
+
+   if (!message) {
+      return;
+   }
+   const char *old_room = dict_get(message, "msg.arg2", "");
+   const char *new_room = dict_get(message, "msg.arg3", "");
+
+   /* The numeric handler validates the channel pair. Forget the old reconnect
+    * intent without sending PART/JOIN; the server will confirm the new JOIN. */
+   userlist_remove_room(old_room);
+   rrclient_room_part(old_room);
+   ui_close_window(old_room);
+
+   if (frontend_ops() && frontend_ops()->chat_room_add) {
+      frontend_ops()->chat_room_add(new_room);
+   }
+   ui_print(new_room, "%s * %s redirects %s to %s: %s", get_chat_ts(now),
+      dict_get(message, "msg.prefix", "server"), old_room, new_room,
+      dict_get(message, "msg.arg4", "Forwarding to another channel"));
+   dict_free(message);
+}
+
 static void rrclient_irc_capabilities(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
@@ -333,6 +363,7 @@ static void rrclient_irc_capabilities(const char *event, const char *data, rrcon
 }
 
 void rrclient_irc_register_events(void) {
+   event_on("irc.channel.redirect", rrclient_irc_redirect, NULL);
    event_on("irc.capabilities", rrclient_irc_capabilities, NULL);
    event_on("irc.message", rrclient_irc_message, NULL);
    event_on("irc.connected", rrclient_irc_connection, NULL);

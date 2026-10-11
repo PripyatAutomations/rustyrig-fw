@@ -2,8 +2,6 @@ Immediate needs
 ---------------
 rrclient: Maybe some sorta activity notification in inactive tabs later, and change text color if someone say my name
 
-rrclient: handle channel redirects and such
-
 rrclient: Make hotkeys configurable
 
 rrserver: Add support for SCRAM gpio

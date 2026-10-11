@@ -38,13 +38,18 @@ membership, topics and NAMES rosters through the shared GTK/TUI handlers.
 `/join`, `/part`, `/msg`, `/me`, `/notice`, `/topic`, `/list` and `/whois`
 use IRC wire commands. Sent messages are displayed locally because capability
 negotiation for server echo is not enabled. Reconnect retains joined channel tabs.
+Channel-forward numeric 470 closes the requested channel tab and creates or
+reuses the destination tab on the same server in GTK and TUI. It forgets the
+old channel's reconnect intent; the following self-JOIN confirms destination
+membership. Redirects do not send another JOIN or PART, and chained redirects
+replace each intermediate tab.
 TLS uses the same Mongoose backend and CA settings as secure WebSocket.
 
 The roster shows IRC privilege symbols from NAMES and subsequent MODE changes,
 using the server's PREFIX mapping (normally `@` for operators and `+` for voice).
-The TX, Mute and Role columns are hidden unless the connection acknowledges the
-RUSTYRIG capability or advertises the RUSTYRIG ISUPPORT token. Capability removal
-hides them again; WebSocket rosters retain their RustyRig columns. The client
+The TX and Mute columns appear only in rooms with advertised VFO mappings,
+independent of transport. Role columns require WebSocket or the IRC RUSTYRIG
+capability/ISUPPORT token; capability removal hides the IRC Role column. The client
 requests `multi-prefix` when offered so combined op/voice modes remain available.
 Other advertised capabilities, including SASL, are not requested.
 

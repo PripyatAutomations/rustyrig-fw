@@ -34,9 +34,33 @@ void rrclient_server_status_window(const char *room) {
    assert(room && *room);
    status_windows++;
 }
-static char status_text[1024];
+static char closed_room[128], added_room[128], forgotten_room[128], cleared_room[128];
+static unsigned redirects;
+bool ui_close_window(const char *room) {
+   snprintf(closed_room, sizeof(closed_room), "%s", room);
+   redirects++;
+
+   return false;
+}
+bool rrclient_room_part(const char *room) {
+   snprintf(forgotten_room, sizeof(forgotten_room), "%s", room);
+
+   return true;
+}
+void userlist_remove_room(const char *room) {
+   snprintf(cleared_room, sizeof(cleared_room), "%s", room);
+}
+static void room_add(const char *room) {
+   snprintf(added_room, sizeof(added_room), "%s", room);
+}
+static const rr_frontend_ops_t redirect_frontend = {
+   .chat_room_add = room_add
+};
+static bool use_frontend;
+static char status_text[1024], printed_room[128];
 static bool printed_status;
 bool ui_print(const char *window, const char *fmt, ...) {
+   snprintf(printed_room, sizeof(printed_room), "%s", window ? window : "status");
    printed_status = !window || !strcmp(window, "status");
    va_list ap;
    va_start(ap, fmt);
@@ -49,7 +73,7 @@ const char *ui_active_window_name(void) {
    return "status";
 }
 const rr_frontend_ops_t *frontend_ops(void) {
-   return NULL;
+   return use_frontend ? &redirect_frontend : NULL;
 }
 void rrclient_update_connection_ui(int connected) {
    (void)connected;
@@ -109,6 +133,7 @@ int main(void) {
    ws_conn = &client;
    expected_connection = &client;
    event_init();
+   assert(!irc_init());
    rrclient_irc_register_events();
    const char *observed[] = {
       "talk.msg", "join", "part", "userinfo", "room.topic", "auth.error"
@@ -160,6 +185,28 @@ int main(void) {
    assert(status_windows == 1);
    assert(!irc_process_message(&client, ":server NOTICE #room :channel notice"));
    assert(status_windows == 1);
+   use_frontend = true;
+   irc_send_buffer[0] = '\0';
+   assert(!irc_process_message(&client, ":server 470 tester #oldchannel #newchannel :Forwarding to another channel"));
+   assert(redirects == 1 && !strcmp(closed_room, "#oldchannel"));
+   assert(!strcmp(forgotten_room, "#oldchannel") && !strcmp(cleared_room, "#oldchannel"));
+   assert(!strcmp(added_room, "#newchannel") && strstr(status_text, "#oldchannel to #newchannel"));
+   assert(!irc_send_buffer[0]); /* Redirects must not issue a redundant JOIN/PART. */
+   assert(!irc_process_message(&client, ":tester!user@host JOIN :#newchannel"));
+   assert(!strcmp(dict_get(last, "talk.room", ""), "#newchannel"));
+   assert(!irc_process_message(&client, ":server 470 tester #newchannel #finalchannel :Forwarding again"));
+   assert(redirects == 2 && !strcmp(closed_room, "#newchannel") && !strcmp(added_room, "#finalchannel"));
+   assert(!irc_process_message(&client, ":server 470 tester #finalchannel #FINALCHANNEL :Same channel"));
+   assert(redirects == 2);
+   assert(irc_process_message(&client, ":server 470 someoneelse #oldchannel #other :Wrong recipient"));
+   assert(irc_process_message(&client, ":server 470 tester #oldchannel"));
+   assert(irc_process_message(&client, ":server 470 tester #oldchannel nickname :Invalid channel"));
+   assert(redirects == 2);
+   use_frontend = false; /* TUI uses ui_print to create the destination window. */
+   assert(!irc_process_message(&client, ":server 470 tester #finalchannel &local :Forwarding"));
+   assert(redirects == 3 && !strcmp(closed_room, "#finalchannel"));
+   assert(!strcmp(printed_room, "&local"));
+   assert(!irc_send_buffer[0]);
    assert(!irc_process_message(&client, ":tester JOIN :#room"));
    assert(!strcmp(last_event, "userinfo"));
    assert(!strcmp(dict_get(last, "talk.room", ""), "#room"));
@@ -195,6 +242,9 @@ int main(void) {
    expected_connection = &stale;
    irc_process_message(&stale, ":alice PRIVMSG tester :stale");
    assert(events == previous);
+   snprintf(stale.nick, sizeof(stale.nick), "tester");
+   assert(!irc_process_message(&stale, ":server 470 tester #oldchannel #other :Stale connection"));
+   assert(redirects == 3);
    expected_connection = &client;
    free((void *)login_user);
    dict_free(last_talk);
