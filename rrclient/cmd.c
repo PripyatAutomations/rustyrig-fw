@@ -126,6 +126,9 @@ client_cmd_t client_cmds[] = {
       .cmd = "query", .help_section = "Chat and rooms", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
    },
    {
+      .cmd = "quote", .help_section = "Chat and rooms", .cb = cmd_raw, .desc = "Send a raw IRC command (alias for /raw)"
+   },
+   {
       .cmd = "room", .help_section = "Chat and rooms", .cb = cmd_room, .max_args = 5, .desc =
          "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ..."
    },
@@ -183,7 +186,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "log", .help_section = "Client settings", .cb = cmd_log, .desc = "Switch to log tab"
    },
    {
-      .cmd = "raw", .help_section = "Client settings", .cb = cmd_raw, .desc = "Send a raw IRC command"
+      .cmd = "raw", .help_section = "Client settings", .cb = cmd_raw, .desc = "Send a raw IRC command (alias: /quote)"
    },
    {
       .cmd = "reload", .help_section = "Client settings", .cb = cmd_reload, .desc = "Reload config file"

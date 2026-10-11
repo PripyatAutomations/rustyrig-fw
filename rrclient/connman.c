@@ -215,13 +215,24 @@ typedef struct client_window {
 static client_window_t *windows;
 static unsigned window_id;
 
+static bool window_room_equal(const client_window_t *window, const char *room) {
+   bool is_channel = room && (room[0] == '#' || room[0] == '&');
+   bool is_irc = !window->server->connection || !window->server->connection->is_ws;
+
+   if (is_irc && is_channel && (window->room[0] == '#' || window->room[0] == '&')) {
+      return !strcasecmp(window->room, room);
+   }
+
+   return !strcmp(window->room, room);
+}
+
 const char *rrclient_window_name(const char *room) {
    if (!room || !*room || !strcasecmp(room, "status") || !context) {
       return room;
    }
 
    for (client_window_t *w = windows ; w ; w = w->next) {
-      if (w->server == context && !strcmp(w->room, room)) {
+      if (w->server == context && window_room_equal(w, room)) {
          return w->key;
       }
    }

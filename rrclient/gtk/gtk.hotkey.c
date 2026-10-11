@@ -80,7 +80,19 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_win = wp ? wp->gtk_win : NULL;
 
-   if (!main_notebook || !event) {
+   if (!event) {
+      return false;
+   }
+
+   GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+
+   if (event->type == GDK_KEY_PRESS && (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C) &&
+      (modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) &&
+      !(modifiers & GDK_MOD1_MASK)) {
+      return gtk_chat_copy_selection();
+   }
+
+   if (!main_notebook) {
       return true;
    }
 

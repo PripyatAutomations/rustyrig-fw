@@ -147,6 +147,21 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
    }
 }
 
+bool gtk_chat_copy_selection(void) {
+   if (!chat_textview || !GTK_IS_TEXT_VIEW(chat_textview)) {
+      return false;
+   }
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
+   GtkTextIter start, end;
+
+   if (!gtk_text_buffer_get_selection_bounds(buffer, &start, &end)) {
+      return false;
+   }
+   gtk_text_buffer_copy_clipboard(buffer, gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+
+   return true;
+}
+
 bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget **view) {
    GtkRoomTab *tab = NULL;
 
@@ -787,6 +802,12 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
    }
 
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+
+   if (event->type == GDK_KEY_PRESS && (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C) &&
+      (modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) &&
+      !(modifiers & GDK_MOD1_MASK)) {
+      return gtk_chat_copy_selection();
+   }
 
    if ((modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) ==
       (GDK_CONTROL_MASK | GDK_SHIFT_MASK) && !(modifiers & GDK_MOD1_MASK)) {

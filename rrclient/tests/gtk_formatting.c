@@ -1,6 +1,23 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 #include "rrclient/gtk/gtk.chat.c"
+rrconn_t *rrclient_connection_find(const char *name) {
+   return NULL;
+}
+char *client_chat_complete(const char *line, size_t *cursor, void **state) {
+   return NULL;
+}
+void client_chat_completion_free(void *state) {
+}
+rrconn_t *rrclient_active_connection(void) {
+   return NULL;
+}
+bool rrclient_connection_select(const char *name) {
+   return false;
+}
+bool rrclient_connection_cycle_status(bool status_active) {
+   return false;
+}
 time_t now;
 bool dying, restarting;
 
@@ -48,6 +65,13 @@ static void test_color_popup(void) {
 
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    GtkWidget *entry = gtk_entry_new();
+   GtkWidget *view = gtk_text_view_new();
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   gtk_text_buffer_set_text(buffer, "copy me", -1);
+   GtkTextIter start, end;
+   gtk_text_buffer_get_bounds(buffer, &start, &end);
+   gtk_text_buffer_select_range(buffer, &start, &end);
+   chat_textview = view;
    gtk_container_add(GTK_CONTAINER(window), entry);
    GtkWidget *popover = gtk_popover_new(entry);
    gtk_popover_set_modal(GTK_POPOVER(popover), FALSE);
@@ -84,6 +108,28 @@ static void test_color_popup(void) {
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C4,3hello"));
    char *serialized = gtk_chat_serialize_entry(entry);
    assert(!strcmp(serialized, "\0034,3hello"));
+   g_free(serialized);
+
+   GdkEventKey copy_event = {0};
+   copy_event.type = GDK_KEY_PRESS;
+   copy_event.keyval = GDK_KEY_C;
+   copy_event.state = GDK_CONTROL_MASK | GDK_SHIFT_MASK;
+   assert(on_chat_entry_keypress(entry, &copy_event, NULL));
+   GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+   char *copied = gtk_clipboard_wait_for_text(clipboard);
+   assert(copied && !strcmp(copied, "copy me"));
+   g_free(copied);
+   GtkTextIter selected_start, selected_end;
+   assert(gtk_text_buffer_get_selection_bounds(buffer, &selected_start, &selected_end));
+   gtk_text_buffer_select_range(buffer, &selected_start, &selected_start);
+   assert(!on_chat_entry_keypress(entry, &copy_event, NULL));
+   gtk_entry_set_text(GTK_ENTRY(entry), "");
+   gtk_editable_set_position(GTK_EDITABLE(entry), 0);
+   copy_event.state = GDK_CONTROL_MASK;
+   copy_event.keyval = GDK_KEY_c;
+   assert(on_chat_entry_keypress(entry, &copy_event, NULL));
+   serialized = gtk_chat_serialize_entry(entry);
+   assert(!strcmp(serialized, "\003"));
    g_free(serialized);
 
    gtk_editable_delete_text(GTK_EDITABLE(entry), 0, -1);

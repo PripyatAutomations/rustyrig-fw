@@ -40,7 +40,7 @@ if [ -f "${DEBVER}" ]; then
     # fwdsp is a separate component, but its C sources always use GStreamer.
     if [ "$BUILD_FWDSP" = "true" ]; then
         PKG="${PKG} libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev"
-        PKG="${PKG} gstreamer1.0-plugins-good gstreamer1.0-plugins-bad"
+        PKG="${PKG} gstreamer1.0-pulseaudio gstreamer1.0-plugins-good gstreamer1.0-plugins-bad"
         PKG="${PKG} gstreamer1.0-tools gstreamer1.0-plugins-rtp"
     fi
 

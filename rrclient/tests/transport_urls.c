@@ -200,6 +200,9 @@ int main(void) {
    assert(!strcmp(server_name, "alpha") && !strcmp(a->nick, "alice"));
    assert(!strncmp(last_status, "|alpha| ", 8));
    const char *alpha_window = rrclient_window_name("#shared");
+   assert(!strcmp(alpha_window, rrclient_window_name("#SHARED")));
+   assert(!strcmp(alpha_window, rrclient_window_name("#ShArEd")));
+   assert(strcmp(alpha_window, rrclient_window_name("shared")));
    assert(rrclient_room_join("#shared"));
    assert(rrclient_room_set_topic("#shared", "alpha topic"));
    assert(!rrclient_connect_url("beta", "ircs://[::1]"));
