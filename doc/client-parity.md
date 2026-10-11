@@ -412,3 +412,8 @@ viewport and place the room roster outside the visible window.
 GTK roster Query/Whois/Mute/Unmute/Kick actions select their existing room tab
 and invoke the native slash-command parser directly. They leave the input
 draft and history untouched; browser menu presentation remains separate.
+
+Native and browser Available rooms display/completion use the connected
+server's advertised site lobby and its dashed room namespace. Foreign station
+rooms are excluded until linking supplies explicit ownership/routing metadata.
+Native IRC channel listing remains unrestricted.

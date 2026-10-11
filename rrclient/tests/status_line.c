@@ -272,5 +272,19 @@ int main(void) {
    rrclient_rooms_rejoin_available();
    assert(rejoin_count == 2);
    rrclient_rooms_clear();
+   ws_conn->is_ws = true;
+   ws_set_authoritative_room("#nycvny37");
+   assert(rrclient_room_join("#nycvny37"));
+   rrclient_rooms_set_available("#nycvny37 #nycvny37-rig0 #nycvny37-rig1 #rplywv00 #rplywv00-rig0 #rplywv00-rig1 #nycvny370-rig0");
+   assert(!strcmp(rrclient_room_available_iter(0), "#nycvny37"));
+   assert(!strcmp(rrclient_room_available_iter(1), "#nycvny37-rig0"));
+   assert(!strcmp(rrclient_room_available_iter(2), "#nycvny37-rig1"));
+   assert(!rrclient_room_available_iter(3));
+   ws_conn->is_ws = false;
+   rrclient_rooms_set_available("#other #any-channel");
+   assert(!strcmp(rrclient_room_available_iter(0), "#other"));
+   assert(!strcmp(rrclient_room_available_iter(1), "#any-channel"));
+   rrclient_rooms_clear();
+   puts("PASS: WS available rooms follow the connected lobby namespace; IRC lists are unrestricted");
    puts("PASS: live TUI rows, redraw batching, inactive logs, clipping, and terminal cleanup");
 }

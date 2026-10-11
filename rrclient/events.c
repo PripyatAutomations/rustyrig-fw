@@ -838,7 +838,18 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
    const char *rooms = dict_get(d, "talk.rooms", "");
    rrclient_rooms_set_available(rooms);
    rrclient_rooms_rejoin_available();
-   ui_print(ui_active_window_name(), "\00308Available rooms:\017 %s", (rooms && *rooms) ? rooms : "(none)");
+   size_t capacity = strlen(rooms) + 1;
+   char *listed = calloc(1, capacity);
+   if (listed) {
+      for (unsigned i = 0; rrclient_room_available_iter(i); i++) {
+         if (*listed) {
+            strlcat(listed, " ", capacity);
+         }
+         strlcat(listed, rrclient_room_available_iter(i), capacity);
+      }
+      ui_print(ui_active_window_name(), "\00308Available rooms:\017 %s", *listed ? listed : "(none)");
+      free(listed);
+   }
    dict_free(d);
 }
 

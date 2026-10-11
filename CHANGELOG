@@ -1,5 +1,9 @@
 rustyrig-fw (20261011.04) testing; urgency=medium
 
+  * Scope client Available rooms display and completion to the connected
+    server's advertised lobby namespace until station linking is supported;
+    mirror the filtering in the WebUI and preserve IRC LIST behavior.
+
   * Execute GTK userlist menu actions through the normal slash-command parser
     in the originating room without modifying input drafts or history.
 
@@ -73,7 +77,7 @@ rustyrig-fw (20261011.04) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 19:18:26 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 19:25:25 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,
