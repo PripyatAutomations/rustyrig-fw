@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 
 P=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 commit_message=${1-}
