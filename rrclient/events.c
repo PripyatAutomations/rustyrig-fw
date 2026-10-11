@@ -421,7 +421,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       tui_redraw_defer();
    }
 
-   const char *from = dict_get(d, "talk.from", NULL);
+   const char *from = dict_get(d, "talk.from", "?");
    time_t msg_ts = dict_get_time_t(d, "msg.ts", 0);
    const char *msg_type = dict_get(d, "talk.msg_type", NULL);
    const char *msg_data = dict_get(d, "talk.data", NULL);
@@ -1471,7 +1471,6 @@ void rrclient_register_events(void) {
    event_on("room.deleted", rrclient_handle_room_deleted, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);
-   event_on("irc.sent", rrclient_handle_talk_msg, NULL);
    event_on("userinfo", rrclient_handle_userinfo, NULL);
    event_on("whois", rrclient_handle_whois, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
