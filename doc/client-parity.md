@@ -405,3 +405,6 @@ GTK room Username columns expand into remaining roster space and ellipsize
 when narrowed, leaving room for visible status fields. Restoring a saved VFO
 roster enforces enough width for its headers and controls; full usernames still
 determine its natural auto-sized width. Manual divider collapse remains allowed.
+Docked GTK frequency/mode/codec/PTT controls have their own horizontal scroller.
+Their minimum width must not enlarge the entire notebook in the main zoom
+viewport and place the room roster outside the visible window.

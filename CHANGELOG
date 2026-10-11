@@ -1,5 +1,9 @@
 rustyrig-fw (20261011.03) testing; urgency=medium
 
+  * Contain wide GTK VFO controls in their own horizontal scroller so the
+    default main zoom viewport cannot push the rig roster off-screen after
+    JOIN, hiding TX/Mute/Role even when the roster pane itself is sized correctly.
+
   * Keep GTK rig TX/Mute/Role columns in view by giving Username the remaining
     width and ellipsizing long names; restore undersized saved rig panes wide
     enough for all headers/controls while retaining full-name auto-sizing.
@@ -57,7 +61,7 @@ rustyrig-fw (20261011.03) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 17:40:49 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 17:51:40 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,

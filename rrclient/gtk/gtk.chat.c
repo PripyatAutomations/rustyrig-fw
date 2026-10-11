@@ -996,7 +996,14 @@ static GtkWidget *chatbox_vfo_init(void) {
       return NULL;
    }
 
-   return vfo;
+   /* Keep wide frequency controls from enlarging the whole notebook inside
+    * the main zoom viewport. Otherwise the room roster sits off-screen even
+    * when every column fits its own pane. Only the radio strip may scroll. */
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
+   gtk_container_add(GTK_CONTAINER(scroll), vfo);
+   return scroll;
 }
 
 // A single control box follows the selected rig room.  The site lobby and

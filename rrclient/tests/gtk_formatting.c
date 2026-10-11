@@ -1,6 +1,15 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 #include "rrclient/gtk/gtk.chat.c"
+GtkWidget *create_vfo_box(void) {
+   GtkWidget *controls = gtk_label_new("Wide frequency, mode, codec and PTT controls");
+   gtk_widget_set_size_request(controls, 1400, 60);
+   return controls;
+}
+gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
+   assert(!"This test uses docked VFO controls");
+   return NULL;
+}
 rrconn_t *rrclient_connection_find(const char *name) {
    return NULL;
 }
@@ -257,6 +266,45 @@ static void test_incoming_chat_preserves_draft(void) {
    main_notebook = NULL;
 }
 
+static void test_radio_overflow_preserves_roster(void) {
+   if (!gtk_init_check(NULL, NULL)) {
+      return;
+   }
+   GtkWidget *window = gtk_offscreen_window_new();
+   GtkWidget *outer = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(outer), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(outer), 320);
+   GtkWidget *notebook = gtk_notebook_new();
+   GtkWidget *room = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *radio = chatbox_vfo_init();
+   gtk_box_pack_start(GTK_BOX(room), radio, FALSE, FALSE, 0);
+   GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+   GtkWidget *roster = gtk_label_new("Privs Username TX Mute Role");
+   gtk_widget_set_size_request(roster, 300, 200);
+   gtk_paned_pack1(GTK_PANED(paned), gtk_text_view_new(), TRUE, FALSE);
+   gtk_paned_pack2(GTK_PANED(paned), roster, FALSE, TRUE);
+   gtk_box_pack_start(GTK_BOX(room), paned, TRUE, TRUE, 0);
+   gtk_notebook_append_page(GTK_NOTEBOOK(notebook), room, gtk_label_new("#rig"));
+   gtk_container_add(GTK_CONTAINER(outer), notebook);
+   gtk_container_add(GTK_CONTAINER(window), outer);
+   gtk_window_set_default_size(GTK_WINDOW(window), 1000, 400);
+   gtk_widget_show_all(window);
+   for (int i = 0; i < 40; i++) {
+      drain_gtk_events();
+      g_usleep(1000);
+   }
+   GtkAdjustment *whole_page = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(outer));
+   assert(gtk_adjustment_get_upper(whole_page) <= gtk_adjustment_get_page_size(whole_page) + 1);
+   int x, y;
+   assert(gtk_widget_translate_coordinates(roster, window, 0, 0, &x, &y));
+   assert(x >= 0 && x + gtk_widget_get_allocated_width(roster) <= gtk_widget_get_allocated_width(window));
+   assert(GTK_IS_SCROLLED_WINDOW(radio));
+   GtkAdjustment *radio_scroll = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(radio));
+   assert(gtk_adjustment_get_upper(radio_scroll) > gtk_adjustment_get_page_size(radio_scroll));
+   gtk_widget_destroy(window);
+   puts("PASS: wide VFO controls scroll locally and keep the rig roster inside the main viewport");
+}
+
 int main(void) {
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
@@ -308,6 +356,7 @@ int main(void) {
    text = gtk_colorize_string("\026reverse\017plain");
    assert(!strcmp(text, "<span foreground=\"black\" background=\"white\">reverse</span>plain"));
    g_free(text);
+   test_radio_overflow_preserves_roster();
    test_color_popup();
    test_transcript_copy();
    test_incoming_chat_preserves_draft();
