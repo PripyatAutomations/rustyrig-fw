@@ -109,6 +109,9 @@ client_cmd_t client_cmds[] = {
       .cmd = "msg", .help_section = "Chat and rooms", .cb = cmd_msg, .max_args = 31, .desc = "Send a private message"
    },
    {
+      .cmd = "users", .help_section = "Chat and rooms", .cb = cmd_users, .max_args = 0, .desc = "List online users and their owning servers"
+   },
+   {
       .cmd = "names", .help_section = "Chat and rooms", .cb = cmd_names, .desc = "List users with privilege flags"
    },
    {

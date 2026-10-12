@@ -826,6 +826,18 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
    dict_free(d);
 }
 
+/* PARITY: rustyrig-www/js/webui.chat.js LIST decoration leaves completion names unchanged. */
+static bool room_list_remote(const char *list, const char *room) {
+   size_t length = strlen(room);
+   for (const char *p = list; *p;) {
+      while (*p == ' ') p++;
+      size_t token = strcspn(p, " ");
+      if (token == length && !strncasecmp(p, room, length)) return true;
+      p += token;
+   }
+   return false;
+}
+
 static void rrclient_handle_room_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -838,13 +850,17 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
    const char *rooms = dict_get(d, "talk.rooms", "");
    rrclient_rooms_set_available(rooms);
    rrclient_rooms_rejoin_available();
-   size_t capacity = strlen(rooms) + 1;
+   const char *remote = dict_get(d, "talk.remote-rooms", "");
+   const char *servers = dict_get(d, "talk.servers", NULL);
+   if (servers) ui_print(ui_active_window_name(), "Servers (↗ remote): %s", servers);
+   size_t capacity = strlen(rooms) * 5 + 1;
    char *listed = calloc(1, capacity);
    if (listed) {
       for (unsigned i = 0; rrclient_room_available_iter(i); i++) {
          if (*listed) {
             strlcat(listed, " ", capacity);
          }
+         if (room_list_remote(remote, rrclient_room_available_iter(i))) strlcat(listed, "↗", capacity);
          strlcat(listed, rrclient_room_available_iter(i), capacity);
       }
       ui_print(ui_active_window_name(), "\00308Available rooms:\017 %s", *listed ? listed : "(none)");

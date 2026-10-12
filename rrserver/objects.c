@@ -1,3 +1,5 @@
+#include <rrserver/relay.h>
+#include <librrprotocol/server.events.h>
 // rrserver/objects.c: Server authority for UUID discovery, subscriptions, and property
 // controls.
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
@@ -66,6 +68,8 @@ static void send_message(rrconn_t *client, dict *d) {
    if (client) {
       ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    } else {
+      rr_server_publish_t publish = { .message = d };
+      event_emit_binary(RR_SERVER_PUBLISH_EVENT, NULL, &publish, sizeof(publish));
       for (subscriber_t *s = subscribers ; s ; s = s->next) {
          if (s->client->authenticated) {
             ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT);
@@ -232,6 +236,7 @@ void rrserver_objects_poll(void) {
       }
 
       if (s->cursor == s->pending->len) {
+         rrserver_relay_objects(s->client, s->request);
          send_message(s->client, message("object", "end", s->request) );
          g_ptr_array_free(s->pending, true);
          s->pending = NULL;
@@ -390,6 +395,7 @@ static void inventory(rrconn_t *client, const char *id) {
    inventory_services(&ctx, "station", 1);
    inventory_media(&ctx, "", 1);
    rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
+   rrserver_relay_inventory(client, id);
    send_message(client, message("object", "inventory-end", id) );
 }
 
@@ -609,9 +615,6 @@ static void rr_object_changed(const char *event, const char *data, rrconn_t *cli
    }
    sequence++;
 
-   if (!subscribers) {
-      return;
-   }
    dict *d = json2dict(data);
 
    if (!d) {
@@ -669,4 +672,29 @@ void rrserver_objects_fini(void) {
    g_free(epoch);
    epoch = NULL;
    sequence = 0;
+}
+
+// PARITY: rrclient/objects.c and rustyrig-www/js/webui.objects.js consume one
+// connection-local stream. Owner property versions remain per target/property.
+void rrserver_objects_remote(rrconn_t *client, dict *d) {
+   if (!epoch) epoch = g_uuid_string_random();
+   dict_add(d, "stream.epoch", epoch);
+   rr_object_seq_put(d, "stream.seq", ++sequence);
+   if (client) ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
+   else for (subscriber_t *s = subscribers; s; s = s->next) {
+      if (s->client->authenticated) ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT);
+   }
+}
+void rrserver_objects_room_state(rrconn_t *client, const char *room) {
+   object_send_t ctx = { .client = client };
+   ctx.radio = rrserver_rig_for_room(room);
+   if (!ctx.radio) return;
+   rr_rig_property_foreach(ctx.radio, send_property, &ctx);
+   GPtrArray *ids = g_ptr_array_new_with_free_func(g_free);
+   if (!ids) return;
+   rr_server_vfo_foreach(ctx.radio, collect_vfo, ids);
+   for (unsigned i = 0; i < ids->len; i++) {
+      if (resolve(g_ptr_array_index(ids, i), &ctx)) rr_vfo_property_foreach(ctx.vfo, send_property, &ctx);
+   }
+   g_ptr_array_free(ids, true);
 }

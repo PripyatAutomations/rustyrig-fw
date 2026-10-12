@@ -1,3 +1,4 @@
+#include <rrserver/relay.h>
 //
 // rrserver/main.c
 //    This is part of rustyrig-fw.
@@ -429,6 +430,7 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "link", "Unable to initialize configured server links");
       mg_mgr_free(&mg_mgr);
       rrserver_links_fini();
+   rrserver_relay_fini();
       return 1;
    }
 
@@ -487,6 +489,7 @@ int main(int argc, char **argv) {
    // Main loop
    while (1) {
       extern void rrserver_objects_poll(void);
+      rrserver_relay_poll();
       rrserver_objects_poll();
       event_emit("server.poll", NULL, NULL);
       bool serial_active = rrserver_serial_poll();
@@ -533,6 +536,7 @@ int main(int argc, char **argv) {
 #ifdef  USE_MONGOOSE
    mg_mgr_free(&mg_mgr);
    rrserver_links_fini();
+   rrserver_relay_fini();
 #endif
 
    event_shutdown();

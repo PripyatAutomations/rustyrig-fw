@@ -1,3 +1,4 @@
+#include <rrserver/relay.h>
 #include <rrserver/usage.h>
 //
 // rrserver/events.c: event listeners for shared protocol events from
@@ -152,10 +153,16 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
    char *rooms = db_room_list(masterdb);
 
    if (rooms) {
-      dict_add(reply, "talk.rooms", rooms);
+      char *all = rrserver_relay_rooms(rooms);
+      dict_add(reply, "talk.rooms", all ? all : rooms);
+      free(all);
       free(rooms);
    }
 #endif
+   char *remote = rrserver_relay_remote_rooms(), *servers = rrserver_relay_servers();
+   if (remote && *remote) dict_add(reply, "talk.remote-rooms", remote);
+   if (servers) dict_add(reply, "talk.servers", servers);
+   free(remote); free(servers);
    ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
    dict_free(reply);
 }
@@ -1934,6 +1941,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 void rrserver_register_events(void) {
    extern void rrserver_objects_register_events(void);
    rrserver_objects_register_events();
+   rrserver_relay_register_events();
    rrserver_media_register_events();
    rrserver_usage_register_events();
    rr_ptt_register_accounting_events();

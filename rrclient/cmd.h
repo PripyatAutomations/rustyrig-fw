@@ -96,6 +96,7 @@ extern bool cmd_webcam(int argc, char **args);   // cmd.c
 extern bool media_have_priv(const char *priv);   // media.c
 extern bool cmd_me(int argc, char **args);
 extern bool cmd_msg(int argc, char **args);
+extern bool cmd_users(int argc, char **args);
 extern bool cmd_names(int argc, char **args);
 extern bool cmd_mute(int argc, char **args);
 extern bool cmd_notice(int argc, char **args);

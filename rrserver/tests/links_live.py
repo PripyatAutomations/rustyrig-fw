@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix='rr-links-') as temporary:
         '-keyout', str(key), '-out', str(cert)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     context = ssl.create_default_context(cafile=str(cert))
     ports = {name: port() for name in ('alpha', 'beta', 'gamma')}
-    processes, outputs = {}, {}
+    processes, outputs, client_ports = {}, {}, {}
     def peer(name, remote, role, url=True):
         return f'''[{'peer' if name == 'alpha' else 'peer:' + remote}]
 enabled=true
@@ -70,6 +70,10 @@ role={role}
                 db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
                 db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,'TEST',1,?,3,'admin,view,chat')",
                     (hashlib.sha1(b'test-password').hexdigest(),))
+                if name == 'alpha':
+                    db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,'MISSING',1,?,3,'admin,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
+                db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(3,'READER',1,?,3,?)", (hashlib.sha1(b'test-password').hexdigest(), 'admin,view,chat' if name == 'alpha' else 'view,chat'))
+        client_ports[name] = port()
         config = work / f'{name}.cfg'
         settings = f'''[general]
 station.name={name}
@@ -78,9 +82,9 @@ rig.default=rig0
 path.db.master={database}
 path.modules={work}/modules
 log.file={work}/{name}.log
-log.level=*:info
+log.level=*:info,relay:debug
 net.http.bind=127.0.0.1
-net.http.port={port()}
+net.http.port={client_ports[name]}
 net.http.tls-enabled=false
 net.http.authdb-dynamic=true
 net.http.www-root={ROOT}/www
@@ -186,6 +190,83 @@ enabled=false
         start('gamma')
         wait(lambda: 'Introduced server' in log('alpha') and 'servers 3' in log('alpha') and
             'Linked site beta' in log('gamma') and 'servers 3' in log('gamma'), 'three-server tree did not converge')
+        def login(name, username='TEST'):
+            c = WebSocket(client_ports[name])
+            c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': username}})
+            challenge = c.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
+            first_hash = hashlib.sha1(b'test-password').hexdigest()
+            password = hashlib.sha1((first_hash + '+' + challenge['nonce']).encode()).hexdigest()
+            c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': username,
+                'pass': password, 'token': challenge['token']}})
+            c.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
+            return c
+        origin, owner = login('alpha'), login('gamma')
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'list'}})
+        listed = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-list')
+        assert '#gamma-rig0' in listed['talk']['rooms'], listed
+        assert '#gamma-rig0' in listed['talk']['remote-rooms'], listed
+        assert '#alpha-rig0' not in listed['talk']['remote-rooms'], listed
+        assert '↗gamma' in listed['talk']['servers'], listed
+        def remote_users_visible():
+            rows = []
+            origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'users', 'target': '#alpha'}})
+            def finished(m):
+                text = m.get('talk', {}).get('data', '')
+                rows.append(text)
+                return text in ('End of users', 'No users online')
+            origin.until(finished)
+            return any('TEST@gamma' in row for row in rows)
+        wait(remote_users_visible, '/users did not discover remote online user')
+        missing = login('alpha', 'MISSING')
+        missing.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
+        missing.until(lambda m: 'enabled local account' in m.get('error', {}).get('msg', ''))
+        missing.socket.close()
+        reader = login('alpha', 'READER')
+        reader.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
+        reader.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0')
+        reader.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14300000}})
+        reader.until(lambda m: bool(m.get('error', {}).get('msg')))
+        # Two local subscribers share one upstream branch subscription.
+        second = login('alpha')
+        second.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
+        second.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0')
+        origin.send({'msg': {'type': 'object'}, 'object': {'cmd': 'snapshot'}, 'request': {'id': 'relay-objects'}})
+        objects = []
+        def snapshot_done(m):
+            if m.get('object', {}).get('cmd') == 'descriptor': objects.append(m['object'])
+            return m.get('object', {}).get('cmd') == 'end' and m.get('request', {}).get('id') == 'relay-objects'
+        origin.until(snapshot_done)
+        assert any(o.get('type') == 'vfo' and o.get('room') == '#gamma-rig0' for o in objects), objects
+        for c in (origin, owner):
+            c.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
+            c.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0')
+        # Control is applied at gamma and observed at both ends of a two-hop path.
+        sent_before = log('gamma').count('State cat freq room #gamma-rig0')
+        origin.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14250000}})
+        for c in (owner, origin, second):
+            c.until(lambda m: m.get('cat', {}).get('freq') == 14250000 and m['cat'].get('room') == '#gamma-rig0')
+        assert log('gamma').count('State cat freq room #gamma-rig0') == sent_before + 1
+        owner.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'msg', 'msg_type': 'pub', 'target': '#gamma-rig0', 'data': 'owner-to-tree'}})
+        origin.until(lambda m: m.get('talk', {}).get('data') == 'owner-to-tree')
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'msg', 'msg_type': 'pub', 'target': '#gamma-rig0', 'data': 'tree-to-owner'}})
+        owner.until(lambda m: m.get('talk', {}).get('data') == 'tree-to-owner')
+        origin.until(lambda m: m.get('talk', {}).get('data') == 'tree-to-owner')
+        # Owner property controls use the same object identity found in discovery.
+        vfo = next(o['uuid'] for o in objects if o.get('type') == 'vfo' and o.get('room') == '#gamma-rig0')
+        origin.send({'msg': {'type': 'property'}, 'property': {'cmd': 'set', 'name': 'frequency', 'value': 14260000},
+            'target': vfo, 'request': {'id': 'remote-frequency', 'room': '#gamma-rig0'}})
+        origin.until(lambda m: m.get('property', {}).get('cmd') == 'result' and m.get('result', {}).get('code') == 'ok')
+        # All subscribers leave: subsequent CAT state must not traverse beta.
+        for c in (origin, second, reader):
+            c.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'part', 'target': '#gamma-rig0'}})
+            c.until(lambda m: m.get('talk', {}).get('cmd') == 'part' and m['talk'].get('room') == '#gamma-rig0')
+        time.sleep(.2)
+        idle_before = log('gamma').count('State cat freq room #gamma-rig0')
+        owner.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14270000}})
+        owner.until(lambda m: m.get('cat', {}).get('freq') == 14270000)
+        assert log('gamma').count('State cat freq room #gamma-rig0') == idle_before
+        for c in (origin, second, reader, owner): c.socket.close()
+        print('PASS: multi-hop catalog, remote room JOIN, owner-executed VFO controls and authoritative chat/state fanout')
         before = log('alpha').count('Linked site beta')
         stop('beta')
         wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 1' in log('gamma'), 'disconnect did not withdraw branch')

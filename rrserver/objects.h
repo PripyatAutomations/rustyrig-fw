@@ -8,6 +8,9 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RR_SERVER_OBJECTS_H
 #define RR_SERVER_OBJECTS_H
+#include <librrprotocol/rrprotocol.h>
+void rrserver_objects_remote(rrconn_t *client, dict *message);
+void rrserver_objects_room_state(rrconn_t *client, const char *room);
 void rrserver_objects_register_events(void);
 void rrserver_objects_fini(void);
 void rrserver_objects_poll(void);

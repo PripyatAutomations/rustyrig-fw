@@ -89,6 +89,22 @@ static dict *message(const char *op) {
    return d;
 }
 
+const char *rrserver_links_node(void) { return links.node; }
+const char *rrserver_links_route(const char *node) { return rr_link_tree_route(links.tree, node); }
+bool rrserver_links_send(const char *node, dict *d) {
+   const char *next = rrserver_links_route(node);
+   if (!next) return false;
+   for (struct link_session *s = links.sessions; s; s = s->next) {
+      if (s->established && !strcmp(s->node, next)) return send_message(s, d);
+   }
+   return false;
+}
+void rrserver_links_broadcast(dict *d) {
+   for (struct link_session *s = links.sessions; s; s = s->next) {
+      if (s->established && !s->connection->is_closing) send_message(s, d);
+   }
+}
+
 static void send_hello(struct link_session *session) {
    dict *d = message("link.hello");
    if (!d) { fail(session, "Out of memory"); return; }
@@ -166,6 +182,7 @@ static void establish(struct link_session *session) {
          }
       }
    }
+   event_emit("server.link.ready", NULL, session->node);
 }
 
 static void handle_hello(struct link_session *session, dict *d) {
@@ -271,7 +288,11 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       const char *node = dict_get(d, "node", "");
       if (!strcmp(node, session->node) || !strcmp(node, links.root)) fail(session, "Upstream withdrew itself or the tree root");
       else if (!rr_link_tree_remove(links.tree, session->node, node)) fail(session, "Invalid subtree withdrawal");
-      else { links.generation++; broadcast(session, d); }
+      else { links.generation++; broadcast(session, d); event_emit("server.link.lost", NULL, node); }
+   } else if (session->established && !strcmp(op, "link.application")) {
+      const char *origin = dict_get(d, "node", ""), *route = rrserver_links_route(origin);
+      if (!route || strcmp(route, session->node)) fail(session, "Application origin outside peer branch");
+      else event_emit_dict("server.link.application", NULL, d);
    } else fail(session, "Unexpected link operation");
    dict_free(d);
 }
@@ -309,6 +330,7 @@ static void close_session(struct link_session *session) {
          }
       }
    }
+   event_emit("server.link.lost", NULL, session->node);
    struct link_session **p = &links.sessions;
    while (*p && *p != session) p = &(*p)->next;
    if (*p) *p = session->next;
@@ -493,6 +515,10 @@ void rrserver_links_fini(void) {
    free((void *)links.cert.buf); free((void *)links.key.buf); free((void *)links.ca.buf);
 }
 #else
+const char *rrserver_links_node(void) { return ""; }
+const char *rrserver_links_route(const char *node) { (void)node; return NULL; }
+bool rrserver_links_send(const char *node, dict *d) { (void)node; (void)d; return false; }
+void rrserver_links_broadcast(dict *d) { (void)d; }
 bool rrserver_links_init(struct mg_mgr *manager) { (void)manager; return true; }
 void rrserver_links_poll(void) {}
 void rrserver_links_fini(void) {}

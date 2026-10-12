@@ -74,6 +74,25 @@ bool cmd_room(int argc, char **args) {
    return false;
 }
 
+/* PARITY: rustyrig-www/js/webui.chat.js /users forwarding. */
+bool cmd_users(int argc, char **args) {
+   (void)argc; (void)args;
+   rrconn_t *connection = rrclient_active_connection();
+   if (!connection) return true;
+   if (!connection->is_ws) {
+      ui_print(ui_active_window_name(), "/users requires a RustyRig connection; use /names on IRC");
+      return false;
+   }
+   dict *d = dict_new();
+   if (!d) return true;
+   dict_add(d, "msg.type", "talk"); dict_add(d, "talk.cmd", "users");
+   const char *room = rrclient_active_room();
+   if (room) dict_add(d, "talk.target", room);
+   bool sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return !sent;
+}
+
 bool cmd_list(int argc, char **args) {
    (void)argc;
    (void)args;
