@@ -1383,6 +1383,12 @@ void fwdsp_sweep_expired(void) {
          cur = cur->next;
       }
 
+      // Linked subscribers are represented by the server's media-demand
+      // callback, rather than entries in the local HTTP client list.
+      if (active_codec && users == 0 && ws_media_channel_has_subscribers(channel)) {
+         users = 1;
+      }
+
       if (users > 0) {
          if (sp->is_tx && sp->refcount == 0 && sp->cleanup_deadline > 0) {
             sp->replay_headers = true;

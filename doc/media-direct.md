@@ -135,6 +135,11 @@ routing and permissions without requiring a physical radio or microphone.
 of SRTP support, including `WITH_RTP=false` builds; the existing component test
 runner discovers both wrappers for `make test`.
 
+DSP cleanup must include linked subscribers through the existing media-demand
+query. A rig with only remote listeners still needs its encoder after the
+periodic subscriber sweep. `fwdsp/tests/test_switching.sh` covers remote-only
+demand, departure and warm encoder resumption with real DSP processes.
+
 ## RTP port ranges and ACLs
 
 ```ini

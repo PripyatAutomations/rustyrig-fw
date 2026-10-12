@@ -1,5 +1,12 @@
 rustyrig-fw (20261012.01) testing; urgency=medium
 
+  * Snapshot event profiling counters and owned event names under the registry
+    lock, then log after unlocking. Prevent syslog media callbacks from
+    deadlocking the server during periodic profiler dumps; cover re-entry,
+    listener removal and rate limiting.
+  * Include linked media demand in DSP subscriber sweeps so remote-only RX
+    encoders remain active. Cover remote departure and warm resubscription
+    with real DSP processes.
   * Extend the common subproc API with caller-owned descriptor mappings for
     pipes, socketpairs and binary control channels. Migrate libfwdspmgr worker
     lifecycle and reap only its children, preserving other helper exit statuses.
@@ -50,7 +57,7 @@ rustyrig-fw (20261012.01) testing; urgency=medium
     Cover disabled owner RTP, sustained/invalid audio, permissions and revocation,
     including proxy-only builds without SRTP.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 18:08:33 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 19:49:22 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

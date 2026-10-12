@@ -82,3 +82,8 @@ processes, multiple queued lines, merged/separate stderr, exit status, graceful
 and escalated shutdown, close semantics, handle reuse and colliding descriptor
 mappings. The DSP switching fixture also verifies manager reaping cannot consume
 an unrelated helper's exit status.
+
+Channel-bound DSP lifetime uses both local subscriptions and the protocol's
+media-demand query for linked sessions. A remote-only listener must keep its
+encoder active across cleanup sweeps; leaving and rejoining retain the normal
+encoder pause/resume and hangtime behavior.

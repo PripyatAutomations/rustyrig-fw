@@ -4,6 +4,7 @@
 #define FWDSP_MANAGER_SOURCE "libfwdspmgr/fwdsp-mgr.c"
 #endif
 #include FWDSP_MANAGER_SOURCE
+#include <librrprotocol/server.events.h>
 
 struct mg_mgr mg_mgr;
 bool dying, restarting;
@@ -15,6 +16,13 @@ static unsigned frames_received, decoded_samples;
 static bool feed_decoder = true;
 static const char *parent_pipeline;
 static const char *soak_codec;
+static bool remote_subscribed;
+static void remote_demand(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
+   assert(len == sizeof(rr_media_demand_t));
+   rr_media_demand_t *query = (rr_media_demand_t *)data;
+   assert(query->channel == &media_channels[0]);
+   query->interested = remote_subscribed;
+}
 static void soak_pcm(const char *name, const void *data, size_t len, void *user) {
    decoded_samples += len / 2;
 }
@@ -170,6 +178,30 @@ int main(int argc, char **argv) {
    frames_received = 0;
    poll_for(1500);
    assert(frames_received >= 5 && encoder->refcount == 1);
+   // A linked listener has no local HTTP client. Sweeps must keep its
+   // encoder running, pause after it leaves, and resume when it rejoins.
+   event_init();
+   event_on_binary(RR_MEDIA_DEMAND_EVENT, remote_demand, NULL);
+   snprintf(media_channels[0].uuid, sizeof(media_channels[0].uuid), "channel");
+   http_client_list = NULL;
+   remote_subscribed = true;
+   fwdsp_sweep_expired();
+   frames_received = 0;
+   poll_for(1500);
+   assert(frames_received >= 5 && encoder->refcount == 1);
+   remote_subscribed = false;
+   fwdsp_sweep_expired();
+   frames_received = 0;
+   poll_for(200);
+   assert(frames_received == 0 && encoder->refcount == 0 && encoder->cleanup_deadline > 0);
+   remote_subscribed = true;
+   fwdsp_sweep_expired();
+   frames_received = 0;
+   poll_for(1500);
+   assert(frames_received >= 5 && encoder->refcount == 1 && encoder->cleanup_deadline == 0);
+   event_off_binary(RR_MEDIA_DEMAND_EVENT, remote_demand, NULL);
+   event_shutdown();
+   http_client_list = &listener;
    // Optional long run for audio that stops after several minutes. Exercise
    // the real child pipes and subscriber sweep while decoding continuously.
    const char *soak = getenv("FWDSP_SOAK_SECONDS");
