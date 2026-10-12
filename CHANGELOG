@@ -1,5 +1,8 @@
 rustyrig-fw (20261011.04) testing; urgency=medium
 
+  * Include a disabled [peer] example in the shipped rrserver configuration
+    with connection, credentials, expected site and tree-role settings.
+
   * Replace the GTK server editor's separate chat/rig room fields with one
     space-delimited Rooms list, merging legacy entries and saving edited lists
     only to the user's configuration.
@@ -107,7 +110,7 @@ rustyrig-fw (20261011.04) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 21:04:27 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 21:05:27 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,
