@@ -33,6 +33,18 @@ bool parse_chat_input_real(const char *message) {
    snprintf(parsed_menu_command, sizeof(parsed_menu_command), "%s", message);
    return false;
 }
+static char joined_room[128], joined_server[128];
+bool cmd_join(int argc, char **args) {
+   assert(argc == 2);
+   snprintf(joined_room, sizeof(joined_room), "%s", args[1]);
+   snprintf(joined_server, sizeof(joined_server), "%s", selected_server);
+   return false;
+}
+const char *rrclient_window_name(const char *room) {
+   static char key[256];
+   snprintf(key, sizeof(key), "%s:%s", selected_server, room);
+   return key;
+}
 bool rrclient_connection_cycle_status(bool status_active) {
    return false;
 }
@@ -327,6 +339,65 @@ static void test_radio_overflow_preserves_roster(void) {
    puts("PASS: wide VFO controls scroll locally and keep the rig roster inside the main viewport");
 }
 
+static void test_room_links(void) {
+   if (!gtk_init_check(NULL, NULL)) {
+      return;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   main_notebook = gtk_notebook_new();
+   GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *view = gtk_text_view_new();
+   GtkWidget *entry = gtk_entry_new();
+   gtk_box_pack_start(GTK_BOX(page), view, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(page), entry, FALSE, FALSE, 0);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), page, NULL);
+   gtk_container_add(GTK_CONTAINER(window), main_notebook);
+   gtk_widget_show_all(window);
+   drain_gtk_events();
+   gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
+   g_object_set_data(G_OBJECT(view), "rr-server-name", "origin-server");
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   g_signal_connect_after(buffer, "insert-text", G_CALLBACK(gtk_chat_link_inserted), NULL);
+   gtk_text_buffer_insert_at_cursor(buffer, "é See #remote", -1);
+   gtk_text_buffer_insert_at_cursor(buffer, "-rig0. next", -1);
+   drain_gtk_events();
+   GtkTextIter iter;
+   gtk_text_buffer_get_iter_at_offset(buffer, &iter, 7);
+   GdkRectangle rectangle;
+   gtk_text_view_get_iter_location(GTK_TEXT_VIEW(view), &iter, &rectangle);
+   gint x, y;
+   gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT,
+      rectangle.x + 1, rectangle.y + 1, &x, &y);
+   GdkEvent event = { .button = { .type = GDK_BUTTON_RELEASE, .button = 1, .x = x, .y = y } };
+   GtkRoomTab other_tab = { .page = page, .entry = entry, .view = view };
+   room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
+   g_hash_table_insert(room_tabs, "other-server:#remote-rig0", &other_tab);
+   gtk_chat_link_event(view, &event, NULL);
+   g_hash_table_destroy(room_tabs);
+   room_tabs = NULL;
+   assert(!strcmp(joined_room, "#remote-rig0"));
+   assert(!strcmp(joined_server, "origin-server"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+   /* Existing rooms switch tabs without sending a JOIN. */
+   GtkRoomTab tab = { .page = page, .entry = entry, .view = view };
+   room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
+   g_hash_table_insert(room_tabs, "origin-server:#remote-rig0", &tab);
+   joined_room[0] = 0;
+   gtk_chat_link_event(view, &event, NULL);
+   assert(!joined_room[0]);
+   g_hash_table_destroy(room_tabs);
+   room_tabs = NULL;
+   /* Selecting text suppresses activation, even over a link. */
+   GtkTextIter a, b;
+   gtk_text_buffer_get_bounds(buffer, &a, &b);
+   gtk_text_buffer_select_range(buffer, &a, &b);
+   gtk_chat_link_event(view, &event, NULL);
+   assert(!joined_room[0]);
+   gtk_widget_destroy(window);
+   main_notebook = NULL;
+   puts("PASS: GTK room links keep source-server context, select tabs, preserve drafts and allow text selection");
+}
+
 int main(void) {
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
@@ -382,5 +453,6 @@ int main(void) {
    test_color_popup();
    test_transcript_copy();
    test_incoming_chat_preserves_draft();
+   test_room_links();
    puts("PASS: GTK mIRC red headings, numeric text, reset and markup escaping");
 }

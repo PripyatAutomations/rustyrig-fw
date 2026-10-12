@@ -186,9 +186,10 @@ release semantics are defined. Media relay and direct media, private-message
 routing, cross-server moderation and additional inventory service types remain
 future work. WebTransport remains a separate transport project.
 
-Wishlist: clickable `#room` references should join or select a room using the
-connection of the containing tab, including rooms discovered through its links.
-No clickable-room UI is introduced by this relay implementation.
+Native GTK and browser transcripts make `#room` references clickable in chat,
+notices, topics and LIST output. Activation selects an existing room tab or sends
+JOIN through the containing tab's connection, including remotely discovered
+rooms. It preserves input drafts; transcript text remains selectable.
 
 ## Transport foundation and WebTransport follow-up
 

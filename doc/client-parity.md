@@ -424,3 +424,8 @@ keep plain room names for completion. Both support `/users` with notices in the
 issuing room. Owner object updates use the connection's normal stream epoch and
 sequence; remote JOIN supplies the subscribed room's property schema/state.
 IRC behavior remains native-only.
+
+GTK and browser transcripts link room references in chat, topics, notices and
+LIST output. Activating a reference selects an existing room tab or joins using
+the containing transcript's connection. Drafts remain untouched; existing URL
+links and text selection remain usable. Terminal rendering remains plain text.

@@ -1064,6 +1064,10 @@ void gtk_chat_room_vfos_changed(const char *room) {
    gtk_chat_update_vfo_controls(tab);
 }
 
+static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location,
+   gchar *text, gint length, gpointer user);
+static void gtk_chat_link_event(GtkWidget *view, GdkEvent *event, gpointer user);
+
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
@@ -1081,8 +1085,12 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
    chat_textview = gtk_text_view_new();
    gtk_widget_set_name(chat_textview, "chat-view");
+   gtk_widget_add_events(chat_textview, GDK_POINTER_MOTION_MASK);
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
    text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview) );
+   g_object_set_data_full(G_OBJECT(chat_textview), "rr-server-name", room ? g_strdup(server_name) : NULL, g_free);
+   g_signal_connect_after(text_buffer, "insert-text", G_CALLBACK(gtk_chat_link_inserted), NULL);
+   g_signal_connect(chat_textview, "event-after", G_CALLBACK(gtk_chat_link_event), NULL);
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
@@ -1164,6 +1172,127 @@ bool gtk_chat_execute_command(const char *window, const char *command) {
       gtk_chat_select_existing_tab(tab);
    }
    return parse_chat_input_real(command);
+}
+
+/* PARITY: rustyrig-www/js/webui.chat.js chat_room_links/ActivateRoom.
+ * Tags are presentation only; activation uses the originating view's server. */
+static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location,
+      gchar *text, gint length, gpointer user) {
+   (void)user;
+   GtkTextIter start = *location, end = *location;
+   gtk_text_iter_backward_chars(&start, g_utf8_strlen(text, length));
+   gtk_text_iter_set_line_offset(&start, 0);
+   if (!gtk_text_iter_ends_line(&end)) {
+      gtk_text_iter_forward_to_line_end(&end);
+   }
+   /* Rescanning a growing token must replace its previous link, preserving
+    * unrelated formatting tags. */
+   for (GtkTextIter cursor = start; gtk_text_iter_compare(&cursor, &end) < 0;
+         gtk_text_iter_forward_char(&cursor)) {
+      GSList *tags = gtk_text_iter_get_tags(&cursor);
+      for (GSList *entry = tags; entry; entry = entry->next) {
+         if (g_object_get_data(G_OBJECT(entry->data), "rr-room-link")) {
+            gtk_text_buffer_remove_tag(buffer, entry->data, &start, &end);
+         }
+      }
+      g_slist_free(tags);
+   }
+   char *line = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+   GRegex *pattern = g_object_get_data(G_OBJECT(buffer), "rr-room-pattern");
+   if (!pattern) {
+      pattern = g_regex_new("(?<![A-Za-z0-9_/#])#[A-Za-z0-9_][A-Za-z0-9_.+-]*", 0, 0, NULL);
+      g_object_set_data_full(G_OBJECT(buffer), "rr-room-pattern", pattern, (GDestroyNotify)g_regex_unref);
+   }
+   GMatchInfo *matches = NULL;
+   g_regex_match(pattern, line, 0, &matches);
+   while (g_match_info_matches(matches)) {
+      gint first, last;
+      g_match_info_fetch_pos(matches, 0, &first, &last);
+      while (last > first && line[last - 1] == '.') {
+         last--;
+      }
+      char *room = g_strndup(line + first, last - first);
+      char *name = g_strconcat("rr-room-link:", room, NULL);
+      GtkTextTag *tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(buffer), name);
+      if (!tag) {
+         tag = gtk_text_buffer_create_tag(buffer, name, "underline", PANGO_UNDERLINE_SINGLE, NULL);
+         g_object_set_data_full(G_OBJECT(tag), "rr-room-link", g_strdup(room), g_free);
+      }
+      GtkTextIter a = start, b = start;
+      gtk_text_iter_forward_chars(&a, g_utf8_pointer_to_offset(line, line + first));
+      gtk_text_iter_forward_chars(&b, g_utf8_pointer_to_offset(line, line + last));
+      gtk_text_buffer_apply_tag(buffer, tag, &a, &b);
+      g_free(name);
+      g_free(room);
+      g_match_info_next(matches, NULL);
+   }
+   g_match_info_free(matches);
+   g_free(line);
+}
+
+static char *gtk_chat_link_at(GtkWidget *view, gint x, gint y) {
+   gint bx, by;
+   GtkTextIter iter;
+   gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_WIDGET, x, y, &bx, &by);
+   gtk_text_view_get_iter_at_location(GTK_TEXT_VIEW(view), &iter, bx, by);
+   GSList *tags = gtk_text_iter_get_tags(&iter);
+   char *room = NULL;
+   for (GSList *entry = tags; entry; entry = entry->next) {
+      const char *value = g_object_get_data(G_OBJECT(entry->data), "rr-room-link");
+      if (value) {
+         room = g_strdup(value);
+         break;
+      }
+   }
+   g_slist_free(tags);
+   return room;
+}
+
+static void gtk_chat_link_event(GtkWidget *view, GdkEvent *event, gpointer user) {
+   (void)user;
+   if (event->type == GDK_MOTION_NOTIFY) {
+      gint bx, by, x, y;
+      gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT,
+         event->motion.x, event->motion.y, &bx, &by);
+      gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_WIDGET, bx, by, &x, &y);
+      char *room = gtk_chat_link_at(view, x, y);
+      GdkWindow *window = gtk_text_view_get_window(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT);
+      GdkCursor *cursor = gdk_cursor_new_from_name(gtk_widget_get_display(view), room ? "pointer" : "text");
+      gdk_window_set_cursor(window, cursor);
+      g_clear_object(&cursor);
+      g_free(room);
+      return;
+   }
+   if (event->type != GDK_BUTTON_RELEASE || event->button.button != 1) {
+      return;
+   }
+   GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+   if (gtk_text_buffer_get_has_selection(buffer)) {
+      return;
+   }
+   /* Button coordinates belong to the text window, whereas link_at uses widget coordinates. */
+   gint x, y;
+   gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT,
+      event->button.x, event->button.y, &x, &y);
+   gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_WIDGET, x, y, &x, &y);
+   char *room = gtk_chat_link_at(view, x, y);
+   if (!room) {
+      return;
+   }
+   const char *server = g_object_get_data(G_OBJECT(view), "rr-server-name");
+   if (server && !rrclient_connection_select(server)) {
+      g_free(room);
+      return;
+   }
+   GtkRoomTab *tab = room_tabs ? g_hash_table_lookup(room_tabs, rrclient_window_name(room)) : NULL;
+   if (tab) {
+      gtk_chat_select_existing_tab(tab);
+   } else {
+      char command[] = "/join";
+      char *args[] = { command, room };
+      cmd_join(2, args);
+   }
+   g_free(room);
 }
 
 static void gtk_chat_tab_add(const char *room, bool is_query) {
