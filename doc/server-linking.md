@@ -129,6 +129,57 @@ room membership and chat precede remote control and media in implementation.
 Clients keep per-connection LIST caches until explicit remote inventory and
 routing are available; station-name prefixes do not establish ownership.
 
+### Application relay contract (next implementation)
+
+Discovery and live state are separate. Every admitted link carries the catalog
+of available sites, rooms, rigs, VFOs and other objects, with their owning node
+UUIDs and object-parent relationships. An intermediate server caches and forwards
+that catalog; it does not become the owner. Object descriptors and capabilities
+may be advertised without a subscriber. Property values, room traffic and other
+live state require subscriptions. Media transport remains deferred, including
+both relayed and direct-media modes.
+
+A control request follows the unique route to its owning node, rather than
+being broadcast to peer links. Intermediate nodes validate the origin branch
+and destination and forward the request without applying it. The owner checks
+the user, room membership, permissions and backend constraints through the same
+authoritative handlers used for locally connected users. A forwarded request
+must not carry an implicitly trusted local admin role. Remote user identity and
+owner-side account authorization must be settled before enabling execution.
+
+Subscriptions are aggregated per object or room and per next-hop branch. The
+first interested local client or downstream branch creates an upstream
+subscription; the final unsubscribe removes it. Joining a room subscribes to
+that room's chat and required rig/VFO state. Merely displaying the catalog does
+not subscribe to every rig. A subscription is committed by the owner, and its
+initial state precedes subsequent changes so joining during a VFO adjustment
+cannot leave a client with an older value.
+
+Only the owner publishes resulting state. It sends each change once to each
+interested link and to interested local users. Intermediate nodes fan that
+change out to their subscribed local users and downstream branches, excluding
+the incoming link. This includes the command issuer; clients must reconcile
+with the owner's result rather than treating a locally sent command as applied
+state. State versions retain their owner identity; combining several owners on
+one client connection must not mix their epochs or reset another owner's cache.
+The current C and browser caches use one snapshot epoch per connection, so this
+requires an explicit stream adaptation or synchronized cache/protocol change.
+
+Request acknowledgements and errors return to the issuing session, separately
+from subscriber state fanout. Private messages retain their recipient scope.
+Owner-origin validation applies to state and catalog messages as well as
+requests: a peer may advertise only objects owned by nodes reachable through
+its branch. Bounds apply to catalog entries, subscriptions, outstanding requests
+and payload sizes, in addition to the existing link send queues.
+
+Link loss removes affected catalog entries, subscriptions and pending requests.
+Reconnect first rebuilds the catalog and then obtains fresh snapshots for
+subscriptions that still have local demand. It never replays queued controls.
+Tests must cover an idle branch receiving discovery but no live state, two
+subscribers sharing one upstream subscription, final unsubscribe, multi-hop
+owner execution with issuer-visible state, unauthorized controls, and withdrawal
+or reconnection while a request or snapshot is in flight.
+
 The rig owner alone authorizes, arbitrates and executes PTT. Never replay PTT-on
 on reconnection. Define cancellation/deadline and session-loss release semantics
 before exposing remote TX. Do not import a peer's admin role as local authority.
