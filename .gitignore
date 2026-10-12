@@ -75,6 +75,7 @@ core
 debian/*.log
 debian/.debhelper
 debian/debhelper-build-stamp
+debian/*.debhelper
 debian/libfwdspmgr/*
 debian/librrprotocol/*
 debian/librustyaxe/*

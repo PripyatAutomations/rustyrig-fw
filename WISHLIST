@@ -17,4 +17,5 @@
 * Repeater module for rrserver
 
 * add a default off config option ui.gtk.scale-on-resize
-  - resize the scaling as the window resize is attempted, so the window isnt constrained to a minimum size
+  - change the scaling as the window resize is attempted, so the window isnt constrained to a minimum size
+  - shrink/grow stuff to fit the window size selected by the user.
