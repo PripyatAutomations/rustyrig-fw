@@ -35,10 +35,10 @@
 #define MAX_WINDOWS 32
 #define INPUT_HISTORY_MAX 64
 
-extern bool add_server(const char *network, const char *str) __attribute__( (weak) );   // cfg.servers.c
-                                                                                        // (optional:
-                                                                                        // IRC
-                                                                                        // transport)
+extern bool add_server(const char *network, const char *str) __attribute__((weak)); // cfg.servers.c
+// (optional:
+// IRC
+// transport)
 
 // Save callback: emit [network:NAME] autojoin lines.  These live in the
 // cfg dict as network.<name>.autojoin keys, written by config_network_cb()
@@ -52,11 +52,10 @@ static bool config_network_save_cb(FILE *fp, const char *path) {
    const char *key;
    char *val;
 
-   while ( (rank = dict_enumerate(cfg, rank, &key, &val) ) >= 0) {
+   while ((rank = dict_enumerate(cfg, rank, &key, &val)) >= 0) {
       if (strncmp(key, "network.", 8) != 0) {
          continue;
       }
-
       // network.<name>.autojoin => [network:<name>] autojoin=<val>
       const char *name = key + 8;
       const char *dot = strstr(name, ".autojoin");
@@ -66,7 +65,7 @@ static bool config_network_save_cb(FILE *fp, const char *path) {
       }
       char netname[128];
 
-      if (dot - name >= (ptrdiff_t)sizeof(netname) ) {
+      if (dot - name >= (ptrdiff_t)sizeof(netname)) {
          Log(LOG_WARN, "cfg.network", "network name too long to save: %s", name);
          continue;
       }
@@ -106,7 +105,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
 
             return false;
          }
-         *val++ = '\0';   // split at '='
+         *val++ = '\0';         // split at '='
          while (*val == ' ' || *val == '\t') {
             val++;
          }
@@ -134,7 +133,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
 
             size_t len = strlen(buf);
 
-            if (len + 1 < sizeof(buf) ) {
+            if (len + 1 < sizeof(buf)) {
                // +1 for comma
                strncat(buf, ",", sizeof(buf) - len - 1);
                strncat(buf, val, sizeof(buf) - strlen(buf) - 1);

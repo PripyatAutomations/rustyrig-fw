@@ -57,7 +57,7 @@
 #include <sys/select.h>
 
 #define VERSION "2024-02-19.02"
-#define BUFFER_SIZE 512           // this should be plenty
+#define BUFFER_SIZE 512         // this should be plenty
 
 #define DEFAULT_PORT "/dev/ttyACM0"
 
@@ -67,8 +67,8 @@
 //#define BAUD_RATE B115200
 
 // Configuration of things that shouldn't need changed unless using a different board...
-#define MAX_CHAN 4                // how many channels? ad9959 has 4...
-#define MAX_ARGS 5                // max arguments to a function...
+#define MAX_CHAN 4              // how many channels? ad9959 has 4...
+#define MAX_ARGS 5              // max arguments to a function...
 #define MAX_FREQ 200000000
 #define MIN_FREQ 1
 
@@ -88,22 +88,16 @@ int debug = 0;
 char read_buffer[BUFFER_SIZE];
 int buffer_index = 0;
 int starting_up = 1;
-char brd_ver[32];       // board version
-int ref_clk = 25000000; // reference clock
-int clk_mult = 1;       // clock multiplier
+char brd_ver[32];               // board version
+int ref_clk = 25000000;         // reference clock
+int clk_mult = 1;               // clock multiplier
 int curr_chan = 1;
 struct ChannelState {
    int power;
    int phase;
    char mode[8];
-   int sweep_start_power,
-      sweep_end_power,
-      sweep_time,
-      sweep_active;
-   double freq,
-      sweep_start_freq,
-      sweep_end_freq,
-      sweep_step;
+   int sweep_start_power, sweep_end_power, sweep_time, sweep_active;
+   double freq, sweep_start_freq, sweep_end_freq, sweep_step;
 };
 struct ChannelState chan_state[MAX_CHAN];
 
@@ -172,7 +166,7 @@ void uppercase(char *str) {
 
 double convertPhaseToAngle(int value) {
    // Convert value to angle in the range 0-360
-   return round(((double)value / 16383.0) * 360.0 * 10) / 10.0; // Round to nearest 0.1 degree
+   return round(((double)value / 16383.0) * 360.0 * 10) / 10.0;   // Round to nearest 0.1 degree
 }
 
 int convertAngleToPhase(double angle) {
@@ -214,15 +208,18 @@ double convert_to_hertz(const char *frequency) {
 
       if (*endptr != '\0') {
          switch (*endptr) {
-            case 'k': case 'K': {
+            case 'k':
+            case 'K': {
                multiplier = 1000.0;
                break;
             }
-            case 'm': case 'M': {
+            case 'm':
+            case 'M': {
                multiplier = 1000000.0;
                break;
             }
-            case 'g': case 'G': {
+            case 'g':
+            case 'G': {
                multiplier = 1000000000.0;
                break;
             }
@@ -271,7 +268,7 @@ void save_config(const char *path) {
          fprintf(fp, "step %.0f\n", chan_state[i].sweep_step);
          fprintf(fp, "time %d\n", chan_state[i].sweep_time);
          fprintf(fp, "sweep %s\n", (chan_state[i].sweep_active ? "on" : "off"));
-      }   // other modes not supported by hardware so ignored for now...
+      }                         // other modes not supported by hardware so ignored for now...
    }
 
    fclose(fp);
@@ -1007,10 +1004,10 @@ int main(int argc, char **argv) {
                debug = atoi(optarg);
 
                if (debug < 1) {
-                  debug = 1;       // Set debug to 1 if an invalid value is provided
+                  debug = 1;    // Set debug to 1 if an invalid value is provided
                }
             } else {
-               debug = 1;      // Default debug level if no value provided
+               debug = 1;       // Default debug level if no value provided
             }
             break;
          }
@@ -1095,7 +1092,7 @@ int main(int argc, char **argv) {
       FD_SET(serial_fd, &rfds);
 
       tv.tv_sec = 0;
-      tv.tv_usec = 10000;   // 10ms
+      tv.tv_usec = 10000;       // 10ms
 
       if (select(serial_fd + 1, &rfds, NULL, NULL, &tv) > 0) {
          if (FD_ISSET(STDIN_FILENO, &rfds)) {

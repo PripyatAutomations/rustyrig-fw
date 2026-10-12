@@ -8,14 +8,17 @@ rrconn_t *rrclient_connection_find(const char *name) {
 
    return NULL;
 }
+
 static bool room_tx_control;
 static uint32_t room_vfo_mask;
 bool rrclient_room_tx_control(const char *room) {
    (void)room;
+
    return room_tx_control;
 }
 uint32_t rrclient_room_vfo_mask(const char *room) {
    (void)room;
+
    return room_vfo_mask;
 }
 const char *rrclient_room_vfos(const char *room) {
@@ -23,12 +26,15 @@ const char *rrclient_room_vfos(const char *room) {
 
    return "";
 }
+
 static char menu_window[128], menu_command[256];
 bool gtk_chat_execute_command(const char *window, const char *command) {
    snprintf(menu_window, sizeof(menu_window), "%s", window);
    snprintf(menu_command, sizeof(menu_command), "%s", command);
+
    return false;
 }
+
 static GtkWidget *opened_menu;
 void gtk_chat_query_add(const char *user) {
 }
@@ -45,13 +51,14 @@ void gtk_menu_popup(GtkMenu *menu, GtkWidget *parent_menu_shell, GtkWidget *pare
    time) {
    opened_menu = GTK_WIDGET(menu);
 }
+
 static char selected_room[128], command[32];
 void rrclient_media_room_selected(const char *room) {
    snprintf(selected_room, sizeof(selected_room), "%s", room);
 }
 bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *d, int opcode) {
-   assert(!strcmp(dict_get((dict *)d, "talk.target", ""), "#site-rig0"));
-   snprintf(command, sizeof(command), "%s", dict_get((dict *)d, "talk.data", ""));
+   assert(!strcmp(dict_get((dict *) d, "talk.target", ""), "#site-rig0"));
+   snprintf(command, sizeof(command), "%s", dict_get((dict *) d, "talk.data", ""));
 
    return true;
 }
@@ -124,7 +131,9 @@ int main(void) {
       assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == initial_width);
       dict_add(cfg, "ui.userlist.vfo.dock-width", "180");
       assert(room_userlist_width(&room_b, "dock-width") == 180);
-      GdkEventConfigure geometry = { .width = 300, .height = 450 };
+      GdkEventConfigure geometry = {
+         .width = 300, .height = 450
+      };
       room_userlist_configure(room_a.window, &geometry, &room_a);
       assert(cfg_get_int("ui.userlist.irc.width", 0) == 300);
       assert(cfg_get_int("ui.userlist.irc.height", 0) == 450);
@@ -183,10 +192,13 @@ int main(void) {
       }
 
       g_object_set_data(G_OBJECT(view), "rr-roster-window", "#origin|server|1");
-      const char *commands[] = { "/query BOB", "/whois BOB", NULL,
+      const char *commands[] = {
+         "/query BOB", "/whois BOB", NULL,
          "/mute BOB Requested from the user list", "/unmute BOB",
-         "/kick BOB Requested from the user list" };
-      for (int i = 0; i < 6; i++) {
+         "/kick BOB Requested from the user list"
+      };
+
+      for (int i = 0 ; i < 6 ; i++) {
          if (!commands[i]) {
             continue;
          }
@@ -194,6 +206,7 @@ int main(void) {
          assert(!strcmp(menu_command, commands[i]));
          assert(!strcmp(menu_window, "#origin|server|1"));
       }
+
       puts("PASS: all roster menu actions execute slash commands in the originating window");
       g_list_free(items);
       gtk_widget_destroy(opened_menu);

@@ -55,7 +55,6 @@ void webcam_init(void) {
    if (codec && strlen(codec) == 4) {
       webcam_codec = codec;
    }
-
    // One RX video channel; vfo/rig NA since a webcam isn't tied to a rig, it's station
    // wide
    webcam_chan = media_chan_add(RR_BINFRAME_SUBSYS_VIDEO, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, webcam_codec, "Webcam video");
@@ -65,12 +64,11 @@ void webcam_init(void) {
 
       return;
    }
-
    // Frames come from the fwdsp subprocess via the event bus. The pipeline
    // itself (v4l2src -> jpegenc) is defined in the fwdsp config; gstreamer
    // lives entirely inside the subprocess, never linked into rrserver.
    char event_name[32];
-   memset(event_name, 0, sizeof(event_name) );
+   memset(event_name, 0, sizeof(event_name));
    snprintf(event_name, sizeof(event_name), "fwdsp.frame.%.4s", webcam_codec);
    event_on_binary(event_name, webcam_frame_cb, NULL);
    webcam_fwdsp_chan = fwdsp_video_start(webcam_codec, false);

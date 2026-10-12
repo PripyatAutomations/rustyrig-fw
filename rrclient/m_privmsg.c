@@ -23,8 +23,7 @@ bool irc_send_privmsg(rrconn_t *cptr, const char *window, int argc, char **args)
    char message[IRC_MSGLEN] = "";
 
    for (int i = 0 ; i < argc ; i++) {
-      if ((i && strlcat(message, " ", sizeof(message)) >= sizeof(message)) ||
-         strlcat(message, args[i], sizeof(message)) >= sizeof(message)) {
+      if ((i && strlcat(message, " ", sizeof(message)) >= sizeof(message)) || strlcat(message, args[i], sizeof(message)) >= sizeof(message)) {
          return true;
       }
    }
@@ -101,10 +100,10 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
    }
 
    if (!strcmp(event, "irc.sent")) {
-      /* IRC delivers messages addressed to our own nick back to us. Render
-       * that server copy once, rather than also adding a local echo. */
+      /* IRC delivers messages addressed to our own nick back to us. Render that server copy once, rather than also adding a local echo. */
       if (!strcasecmp(dict_get(d, "talk.target", ""), cptr->nick)) {
          dict_free(d);
+
          return;
       }
       dict_add(d, "talk.from", cptr->nick);
@@ -117,32 +116,27 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
    dict_free(d);
 }
 
-/* Keep complete numeric parameters for daemon-specific WHOIS extensions and
- * malformed/older replies, whose layouts cannot safely be assumed. */
+/* Keep complete numeric parameters for daemon-specific WHOIS extensions and malformed/older replies, whose layouts cannot safely be assumed. */
 static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrconn_t *connection) {
    const char *nick = dict_get(message, "msg.arg2", "");
    const char *output = rrclient_irc_whois_window(connection, nick);
    const char *arg3 = dict_get(message, "msg.arg3", "");
    const char *arg4 = dict_get(message, "msg.arg4", "");
 
-   if (!strcmp(cmd, "477") && argc >= 4 &&
-       (nick[0] == '#' || nick[0] == '&') &&
-       !strcasecmp(dict_get(message, "msg.arg1", ""), connection->nick)) {
+   if (!strcmp(cmd, "477") && argc >= 4 && (nick[0] == '#' || nick[0] == '&') && !strcasecmp(dict_get(message, "msg.arg1", ""), connection->nick)) {
       /* A rejected JOIN has no membership event to create the room window. */
       if (frontend_ops() && frontend_ops()->chat_room_add) {
          frontend_ops()->chat_room_add(nick);
       }
       ui_print(nick, "%s Cannot join %s: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "311") && argc >= 7) {
-      ui_print(output, "%s WHOIS %s: %s@%s (%s)", get_chat_ts(now), nick,
-         arg3, arg4, dict_get(message, "msg.arg6", ""));
+      ui_print(output, "%s WHOIS %s: %s@%s (%s)", get_chat_ts(now), nick, arg3, arg4, dict_get(message, "msg.arg6", ""));
    } else if (!strcmp(cmd, "312") && argc >= 5) {
       ui_print(output, "%s WHOIS %s: server %s (%s)", get_chat_ts(now), nick, arg3, arg4);
    } else if (!strcmp(cmd, "319") && argc >= 4) {
       ui_print(output, "%s WHOIS %s: channels %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "317") && argc >= 4 && *arg3 && strspn(arg3, "0123456789") == strlen(arg3)) {
-      /* Some older daemons omit signon time. Do not interpret their trailing
-       * explanatory text as an epoch timestamp. */
+      /* Some older daemons omit signon time. Do not interpret their trailing explanatory text as an epoch timestamp. */
       if (argc >= 5 && *arg4 && strspn(arg4, "0123456789") == strlen(arg4)) {
          char signon[64];
          format_timestamp(dict_get_time_t(message, "msg.arg4", 0), signon, sizeof(signon));
@@ -151,21 +145,21 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
          ui_print(output, "%s WHOIS %s: idle %s seconds", get_chat_ts(now), nick, arg3);
       }
    } else if (!strcmp(cmd, "318") && argc >= 3) {
-      ui_print(output, "%s WHOIS %s: %s", get_chat_ts(now), nick,
-         dict_get(message, "msg.arg3", "End of WHOIS"));
+      ui_print(output, "%s WHOIS %s: %s", get_chat_ts(now), nick, dict_get(message, "msg.arg3", "End of WHOIS"));
    } else {
       char parameters[IRC_MSGLEN] = "";
 
-      /* Skip only the numeric and recipient. This retains the queried nick,
-       * account, address, TLS/cert info and every extension's other fields. */
+      /* Skip only the numeric and recipient. This retains the queried nick, account, address, TLS/cert info and every extension's other fields. */
       for (int i = 2 ; i < argc ; i++) {
          char key[32];
          snprintf(key, sizeof(key), "msg.arg%d", i);
+
          if (i > 2) {
             strlcat(parameters, " ", sizeof(parameters));
          }
          strlcat(parameters, dict_get(message, key, ""), sizeof(parameters));
       }
+
       ui_print(output, "%s [%s] %s", get_chat_ts(now), cmd, parameters);
    }
 }
@@ -174,10 +168,12 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
 static void rrclient_irc_ctcp(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)user;
+
    if (!data || !cptr || cptr->is_ws || cptr != ws_conn) {
       return;
    }
    dict *message = json2dict(data);
+
    if (!message) {
       return;
    }
@@ -186,27 +182,31 @@ static void rrclient_irc_ctcp(const char *event, const char *data, rrconn_t *cpt
    size_t length = strlen(text);
    char nick[NICKLEN + 1], payload[IRC_MSGLEN];
    size_t nicklen = strcspn(prefix, "!");
+
    if (strcasecmp(dict_get(message, "msg.cmd", ""), "PRIVMSG") ||
-       !nicklen || nicklen > NICKLEN || length < 2 || length >= sizeof(payload) ||
-       text[0] != '\001' || text[length - 1] != '\001') {
+      !nicklen || nicklen > NICKLEN || length < 2 || length >= sizeof(payload) || text[0] != '\001' || text[length - 1] != '\001') {
       goto done;
    }
    memcpy(nick, prefix, nicklen);
    nick[nicklen] = '\0';
+
    if (strpbrk(nick, " ,:\r\n")) {
       goto done;
    }
    memcpy(payload, text + 1, length - 2);
    payload[length - 2] = '\0';
+
    if (strpbrk(payload, "\001\r\n")) {
       goto done;
    }
    char *params = strchr(payload, ' ');
+
    if (params) {
       *params++ = '\0';
    }
    const char *reply = NULL;
    char info[128];
+
    if (!strcasecmp(payload, "PING")) {
       /* Preserve the complete query, including its original parameters. */
       irc_send(cptr, "NOTICE %s :%s", nick, text);
@@ -224,6 +224,7 @@ static void rrclient_irc_ctcp(const char *event, const char *data, rrconn_t *cpt
          snprintf(info, sizeof(info), "%s (rustyrig rrclient)", cptr->nick);
          reply = info;
       }
+
       if (reply) {
          irc_send(cptr, "NOTICE %s :\001%s %s\001", nick, payload, reply);
       }
@@ -270,12 +271,11 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       size_t length = strlen(text);
 
       if (*text == '\001') {
-         if (!strcasecmp(cmd, "NOTICE") && length >= 2 && length < IRC_MSGLEN &&
-             text[length - 1] == '\001') {
-            ui_print(from, "%s CTCP reply from %s: %.*s", get_chat_ts(now), from,
-                     (int)(length - 2), text + 1);
+         if (!strcasecmp(cmd, "NOTICE") && length >= 2 && length < IRC_MSGLEN && text[length - 1] == '\001') {
+            ui_print(from, "%s CTCP reply from %s: %.*s", get_chat_ts(now), from, (int)(length - 2), text + 1);
             goto done;
          }
+
          if (length < 9 || strncmp(text, "\001ACTION ", 8) || text[length - 1] != '\001') {
             goto done;
          }
@@ -432,6 +432,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          event_emit_dict("auth.error", cptr, d);
       } else if (strcmp(cmd, "001") && strcmp(cmd, "470")) {
          rrclient_irc_numeric(message, cmd, argc, cptr);
+
          if (!strcmp(cmd, "318") || !strcmp(cmd, "401") || !strcmp(cmd, "406")) {
             rrclient_irc_whois_complete(cptr, arg2);
          }
@@ -472,8 +473,7 @@ static void rrclient_irc_redirect(const char *event, const char *data, rrconn_t 
    const char *old_room = dict_get(message, "msg.arg2", "");
    const char *new_room = dict_get(message, "msg.arg3", "");
 
-   /* The numeric handler validates the channel pair. Forget the old reconnect
-    * intent without sending PART/JOIN; the server will confirm the new JOIN. */
+   /* The numeric handler validates the channel pair. Forget the old reconnect intent without sending PART/JOIN; the server will confirm the new JOIN. */
    userlist_remove_room(old_room);
    rrclient_room_part(old_room);
    ui_close_window(old_room);
@@ -481,9 +481,8 @@ static void rrclient_irc_redirect(const char *event, const char *data, rrconn_t 
    if (frontend_ops() && frontend_ops()->chat_room_add) {
       frontend_ops()->chat_room_add(new_room);
    }
-   ui_print(new_room, "%s * %s redirects %s to %s: %s", get_chat_ts(now),
-      dict_get(message, "msg.prefix", "server"), old_room, new_room,
-      dict_get(message, "msg.arg4", "Forwarding to another channel"));
+   ui_print(new_room, "%s * %s redirects %s to %s: %s", get_chat_ts(now), dict_get(message, "msg.prefix", "server"), old_room, new_room, dict_get(message,
+      "msg.arg4", "Forwarding to another channel"));
    dict_free(message);
 }
 

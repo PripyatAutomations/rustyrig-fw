@@ -75,9 +75,7 @@ static struct fwdsp_subproc started_subproc = {
 };
 
 struct fwdsp_subproc *fwdsp_find_channel_instance(const char *id, bool is_tx, const char *channel_uuid) {
-   if (codec_starts > 0 && is_tx == last_start_is_tx &&
-      strcmp(id, last_start_codec) == 0 &&
-      strcmp(channel_uuid, last_start_uuid) == 0) {
+   if (codec_starts > 0 && is_tx == last_start_is_tx && strcmp(id, last_start_codec) == 0 && strcmp(channel_uuid, last_start_uuid) == 0) {
       return &started_subproc;
    }
 
@@ -143,6 +141,7 @@ bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
 static const rr_backend_funcs_t fake_api = {
    0
 };
+
 static const rr_backend_type_t fake_type = {
    .name = "fake", .api = &fake_api
 };
@@ -230,8 +229,7 @@ int main(void) {
    unsigned shared_count = 0;
 
    for (unsigned i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
-      if (media_channels[i].uuid[0] && media_channels[i].subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-         media_channels[i].rig == 1) {
+      if (media_channels[i].uuid[0] && media_channels[i].subsystem == RR_BINFRAME_SUBSYS_AUDIO && media_channels[i].rig == 1) {
          shared_count++;
       }
    }
@@ -320,9 +318,9 @@ int main(void) {
    const short samples[2] = {
       1, 2
    };
-   captures[0]("src.rig1", samples, sizeof(samples), capture_users[0]);
+   captures[0] ("src.rig1", samples, sizeof(samples), capture_users[0]);
    assert(!strcmp(pcm_channel, other->uuid));
-   captures[1]("src.rig0", samples, sizeof(samples), capture_users[1]);
+   captures[1] ("src.rig0", samples, sizeof(samples), capture_users[1]);
    assert(!strcmp(pcm_channel, rx->uuid));
    struct rr_mediachan *other_tx = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, 1);
    assert(other_tx && decoder_callback);

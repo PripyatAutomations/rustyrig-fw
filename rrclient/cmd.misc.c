@@ -79,9 +79,8 @@ static bool cmd_set_matches(const char *pattern, const char *key) {
       return true;
    }
 
-   return (strchr(pattern, '*') || strchr(pattern, '?') )
-      ? fnmatch(pattern, key, 0) == 0
-      : strcmp(pattern, key) == 0;
+   return (strchr(pattern, '*') || strchr(pattern, '?'))
+      ? fnmatch(pattern, key, 0) == 0 : strcmp(pattern, key) == 0;
 }
 
 static bool cmd_set_has_key(char **keys, size_t count, const char *key) {
@@ -126,14 +125,14 @@ static bool cmd_set_list(const char *pattern) {
    int rank = 0;
 
    /* cfg contains user-defined keys, including keys with no defconfig entry. */
-   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
-      if (!cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key) ) {
+   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!cmd_set_matches(pattern, key) || cmd_set_has_key(keys, count, key)) {
          continue;
       }
 
       if (count == capacity) {
          size_t next = capacity ? capacity * 2 : 64;
-         char **grown = realloc(keys, next * sizeof(*keys) );
+         char **grown = realloc(keys, next * sizeof(*keys));
 
          if (!grown) {
             free(keys);
@@ -151,13 +150,13 @@ static bool cmd_set_list(const char *pattern) {
       const char *defkey = defcfg[i].key;
       const char *defvalue = default_cfg ? dict_get(default_cfg, defkey, NULL) : NULL;
 
-      if (!defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey) ) {
+      if (!defvalue || !cmd_set_matches(pattern, defkey) || cmd_set_has_key(keys, count, defkey)) {
          continue;
       }
 
       if (count == capacity) {
          size_t next = capacity ? capacity * 2 : 64;
-         char **grown = realloc(keys, next * sizeof(*keys) );
+         char **grown = realloc(keys, next * sizeof(*keys));
 
          if (!grown) {
             free(keys);
@@ -176,8 +175,7 @@ static bool cmd_set_list(const char *pattern) {
       cmd_set_print_key(keys[i]);
    }
 
-   if (!count && pattern && *pattern && !strchr(pattern, '*') && !strchr(pattern, '?') &&
-      cfg_defconfig_find(pattern) ) {
+   if (!count && pattern && *pattern && !strchr(pattern, '*') && !strchr(pattern, '?') && cfg_defconfig_find(pattern)) {
       /* A known key may intentionally have no value (for example an optional site setting).  /set key should still explain that key and show it as unset rather
        * than reporting it as unknown. */
       cmd_set_print_key(pattern);
@@ -204,9 +202,9 @@ bool cmd_set(int argc, char **args) {
 
    for (int i = 2 ; i < argc ; i++) {
       if (i > 2) {
-         strlcat(value, " ", sizeof(value) );
+         strlcat(value, " ", sizeof(value));
       }
-      strlcat(value, args[i] ? args[i] : "", sizeof(value) );
+      strlcat(value, args[i] ? args[i] : "", sizeof(value));
    }
 
    const defconfig_t *def = cfg_defconfig_find(args[1]);
@@ -217,12 +215,12 @@ bool cmd_set(int argc, char **args) {
       return false;
    }
 
-   if (!cfg_set_value(args[1], value) ) {
+   if (!cfg_set_value(args[1], value)) {
       ui_print(ui_active_window_name(), "\00304Invalid value for %s\017", args[1]);
 
       return false;
    }
-   ui_print(ui_active_window_name(), "\00303Set %s = %s\017", args[1], cfg_get(args[1]) );
+   ui_print(ui_active_window_name(), "\00303Set %s = %s\017", args[1], cfg_get(args[1]));
 
    return false;
 }
@@ -252,8 +250,7 @@ static bool run_local_lookup(const char *program, const char *config, const char
    if (child == 0) {
       close(output_pipe[0]);
 
-      if (dup2(output_pipe[1], STDOUT_FILENO) < 0 ||
-         dup2(output_pipe[1], STDERR_FILENO) < 0) {
+      if (dup2(output_pipe[1], STDOUT_FILENO) < 0 || dup2(output_pipe[1], STDERR_FILENO) < 0) {
          _exit(126);
       }
       close(output_pipe[1]);
@@ -283,7 +280,7 @@ static bool run_local_lookup(const char *program, const char *config, const char
             }
          }
       }
-      dprintf(STDERR_FILENO, "callsign lookup exec failed for %s: %s\n", program, strerror(errno) );
+      dprintf(STDERR_FILENO, "callsign lookup exec failed for %s: %s\n", program, strerror(errno));
       _exit(127);
    }
 
@@ -298,15 +295,13 @@ static bool run_local_lookup(const char *program, const char *config, const char
    }
 
    char line[1024];
-   while (fgets(line, sizeof(line), output) ) {
+   while (fgets(line, sizeof(line), output)) {
       line[strcspn(line, "\r\n")] = '\0';
 
       if (*line && strncmp(line, "+NOTICE ", 8) != 0 &&
          strncmp(line, "+OK ", 4) != 0 &&
          strncmp(line, "+PROTO ", 7) != 0 &&
-         strncmp(line, "+GOODBYE", 8) != 0 &&
-         strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' &&
-         strncmp(line, "==", 2) != 0) {
+         strncmp(line, "+GOODBYE", 8) != 0 && strcmp(line, "+EOR") != 0 && line[0] != '[' && line[0] != '<' && strncmp(line, "==", 2) != 0) {
          rrclient_print_callsign_line(line);
       }
    }
@@ -324,7 +319,7 @@ static bool run_local_lookup(const char *program, const char *config, const char
 bool cmd_qrz(int argc, char **args) {
    bool no_cache = argc == 3 && args[2] && strcasecmp(args[2], "nocache") == 0;
 
-   if ( (argc != 2 && !no_cache) || (argc == 3 && !no_cache) || !args[1] || !args[1][0]) {
+   if ((argc != 2 && !no_cache) || (argc == 3 && !no_cache) || !args[1] || !args[1][0]) {
       ui_print(ui_active_window_name(), "Usage: /qrz CALLSIGN [NOCACHE]");
 
       return true;
@@ -390,8 +385,7 @@ bool cmd_grid(int argc, char **args) {
    }
 
    for (const unsigned char *p = (const unsigned char *)args[1] ; *p ; p++) {
-      if (!isalnum(*p) && *p != '-' && *p != '.' && *p != ',' &&
-         *p != '+' && *p != ' ') {
+      if (!isalnum(*p) && *p != '-' && *p != '.' && *p != ',' && *p != '+' && *p != ' ') {
          ui_print(ui_active_window_name(), "Invalid grid or coordinates: %s", args[1]);
 
          return true;
@@ -458,8 +452,8 @@ void rrclient_print_callsign_line(const char *line) {
 
 bool cmd_clear(int argc, char **args) {
    if (ui_mode == UI_MODE_TUI) {
-      tui_clear_scrollback(tui_active_window() );
-   } else if (frontend_ops() ) {
+      tui_clear_scrollback(tui_active_window());
+   } else if (frontend_ops()) {
       frontend_ops()->chat_clear();
    }
 
@@ -467,7 +461,7 @@ bool cmd_clear(int argc, char **args) {
 }
 
 bool cmd_clearlog(int argc, char **args) {
-   if (frontend_ops() ) {
+   if (frontend_ops()) {
       frontend_ops()->syslog_clear();
    }
 
@@ -499,14 +493,13 @@ bool cmd_save(int argc, char **args) {
    bool confirmed = false;
 
    for (int i = 1 ; i < argc ; i++) {
-      if (args[i] && (strcasecmp(args[i], "-y") == 0 ||
-         strcasecmp(args[i], "yes") == 0 || strcasecmp(args[i], "y") == 0) ) {
+      if (args[i] && (strcasecmp(args[i], "-y") == 0 || strcasecmp(args[i], "yes") == 0 || strcasecmp(args[i], "y") == 0)) {
          confirmed = true;
       }
    }
 
    if (frontend_ops() && frontend_ops()->confirm_dialog && !confirmed) {
-      if (!frontend_ops()->confirm_dialog("Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up.") ) {
+      if (!frontend_ops()->confirm_dialog("Save configuration to ~/.config/rrclient.cfg?\nThe existing file will be backed up.")) {
          confirmed = true;
 
          return false;
@@ -529,13 +522,13 @@ bool cmd_save(int argc, char **args) {
    const char *home = getenv("HOME");
    int written = snprintf(path, sizeof(path), "%s/.config/rrclient.cfg", (home && *home) ? home : ".");
 
-   if (written < 0 || (size_t)written >= sizeof(path) ) {
+   if (written < 0 || (size_t)written >= sizeof(path)) {
       ui_print(ui_active_window_name(), "\00304*** Cannot save: configuration path is too long\017");
 
       return false;
    }
 
-   if (!cfg_save(cfg, path) ) {
+   if (!cfg_save(cfg, path)) {
       ui_print(ui_active_window_name(), "\00304*** Failed to save configuration to %s\017", path);
 
       return false;
@@ -555,7 +548,7 @@ bool cmd_quit(int argc, char **args) {
 
    while (first_arg < argc && args[first_arg] &&
       (strcasecmp(args[first_arg], "-y") == 0 || strcasecmp(args[first_arg], "-yes") == 0 ||
-      strcasecmp(args[first_arg], "y") == 0 || strcasecmp(args[first_arg], "yes") == 0) ) {
+      strcasecmp(args[first_arg], "y") == 0 || strcasecmp(args[first_arg], "yes") == 0)) {
       confirmed = true;
       first_arg++;
    }
@@ -566,7 +559,7 @@ bool cmd_quit(int argc, char **args) {
 
    // Confirm before quitting; the active frontend handles its own dialog via
    // the client.quit.request event.
-   if (!confirmed && !ui_confirm_quit() ) {
+   if (!confirmed && !ui_confirm_quit()) {
       return false;
    }
 
@@ -619,7 +612,7 @@ bool cmd_rxvol(int argc, char **args) {
 
    if (ui_mode == UI_MODE_TUI) {
       // do stuff
-   } else if (frontend_ops() ) {
+   } else if (frontend_ops()) {
       frontend_ops()->rx_volume(val);
       ui_print(ui_active_window_name(), "* Set rx-vol to %d", val);
    }

@@ -26,15 +26,15 @@
 #include <rrserver/console.h>
 #include <rrserver/help.h>
 
-bool cons_help(void /*io *port*/) {
+bool cons_help(void /*io *port */) {
    return false;
 }
 
-bool cons_restart(void /*io *port*/) {
+bool cons_restart(void /*io *port */) {
    return false;
 }
 
-bool cons_shutdown(void /*io *port*/) {
+bool cons_shutdown(void /*io *port */) {
    return false;
 }
 

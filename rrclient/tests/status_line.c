@@ -12,6 +12,7 @@ const char *login_user = "operator";
 static rrconn_t connection = {
    .is_ws = true
 };
+
 rrconn_t *ws_conn = &connection;
 struct rr_user *global_userlist = NULL;
 char sb_online[128], sb_window[128], sb_vfo[32];
@@ -24,6 +25,7 @@ void Log(logpriority_t priority, const char *subsys, const char *fmt, ...) {
 const char *rrclient_media_current_codec(bool tx) {
    return tx ? NULL : "opuT";
 }
+
 // Exercise the real per-room selection state used by vfo.c.
 const char *rrclient_media_active_room(void) {
    return "#rig";
@@ -34,6 +36,7 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    return NULL;
 }
+
 static unsigned redraws;
 static char rejoin_targets[4][128];
 static unsigned rejoin_count;
@@ -85,6 +88,7 @@ static char *capture_read(FILE *file) {
 
    return text;
 }
+
 /* This single-server fixture uses unqualified conversation names. */
 const char *rrclient_window_room(const char *window) {
    return window;
@@ -207,7 +211,7 @@ int main(void) {
    capture_reset(output);
    ui_mode = UI_MODE_TUI;
    unsigned before = redraws;
-   state("A", 7100456, "LSB"); // inactive VFO still changes top row immediately
+   state("A", 7100456, "LSB");  // inactive VFO still changes top row immediately
    assert(redraws > before);
    screen = capture_read(output);
    assert(strstr(screen, "\033[1;1H TOPMARK B 7100456"));
@@ -215,7 +219,7 @@ int main(void) {
 
    capture_reset(output);
    dict_add(cfg, "tui.status-line", "NEW ${active_mode}");
-   tui_redraw_screen(); // edits/reload picked up without changing render registration
+   tui_redraw_screen();         // edits/reload picked up without changing render registration
    screen = capture_read(output);
    assert(strstr(screen, "\033[1;1H NEW USB"));
    assert(strstr(screen, "BOTTOM-SENTINEL"));
@@ -251,7 +255,7 @@ int main(void) {
    capture_reset(output);
    tui_fini();
    screen = capture_read(output);
-   assert(!*screen); // shutdown is safe when cleanup and atexit both invoke it
+   assert(!*screen);            // shutdown is safe when cleanup and atexit both invoke it
    free(screen);
 
    fflush(stdout);

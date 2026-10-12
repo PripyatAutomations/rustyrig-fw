@@ -4,10 +4,12 @@
 GtkWidget *create_vfo_box(void) {
    GtkWidget *controls = gtk_label_new("Wide frequency, mode, codec and PTT controls");
    gtk_widget_set_size_request(controls, 1400, 60);
+
    return controls;
 }
 gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
    assert(!"This test uses docked VFO controls");
+
    return NULL;
 }
 rrconn_t *rrclient_connection_find(const char *name) {
@@ -21,33 +23,41 @@ void client_chat_completion_free(void *state) {
 rrconn_t *rrclient_active_connection(void) {
    return NULL;
 }
+
 static char selected_server[128];
 bool rrclient_connection_select(const char *name) {
    snprintf(selected_server, sizeof(selected_server), "%s", name);
+
    return true;
 }
+
 static char parsed_menu_command[128];
 bool parse_chat_input_real(const char *message) {
    assert(!strcmp(gtk_chat_current_room(), "#origin"));
    assert(!strcmp(selected_server, "server"));
    snprintf(parsed_menu_command, sizeof(parsed_menu_command), "%s", message);
+
    return false;
 }
+
 static char joined_room[128], joined_server[128];
 bool cmd_join(int argc, char **args) {
    assert(argc == 2);
    snprintf(joined_room, sizeof(joined_room), "%s", args[1]);
    snprintf(joined_server, sizeof(joined_server), "%s", selected_server);
+
    return false;
 }
 const char *rrclient_window_name(const char *room) {
    static char key[256];
    snprintf(key, sizeof(key), "%s:%s", selected_server, room);
+
    return key;
 }
 bool rrclient_connection_cycle_status(bool status_active) {
    return false;
 }
+
 time_t now;
 bool dying, restarting;
 
@@ -140,7 +150,9 @@ static void test_color_popup(void) {
    assert(!strcmp(serialized, "\0034,3hello"));
    g_free(serialized);
 
-   GdkEventKey copy_event = {0};
+   GdkEventKey copy_event = {
+      0
+   };
    copy_event.type = GDK_KEY_PRESS;
    copy_event.keyval = GDK_KEY_C;
    copy_event.state = GDK_CONTROL_MASK | GDK_SHIFT_MASK;
@@ -201,8 +213,10 @@ static void test_transcript_copy(void) {
    gtk_text_buffer_get_bounds(buffer, &start, &end);
    gtk_text_buffer_select_range(buffer, &start, &end);
    g_signal_connect(view, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
-   GdkEventKey event = { .type = GDK_KEY_PRESS, .keyval = GDK_KEY_C,
-      .state = GDK_CONTROL_MASK | GDK_SHIFT_MASK };
+   GdkEventKey event = {
+      .type = GDK_KEY_PRESS, .keyval = GDK_KEY_C,
+      .state = GDK_CONTROL_MASK | GDK_SHIFT_MASK
+   };
    gboolean handled = FALSE;
    g_signal_emit_by_name(view, "key-press-event", &event, &handled);
    assert(handled);
@@ -212,7 +226,9 @@ static void test_transcript_copy(void) {
    /* Global copy must follow the selected page even after another tab was built. */
    main_notebook = gtk_notebook_new();
    GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkRoomTab tab = { .view = view };
+   GtkRoomTab tab = {
+      .view = view
+   };
    g_object_set_data(G_OBJECT(page), "rr-room-tab", &tab);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), page, NULL);
    gtk_widget_show(page);
@@ -264,8 +280,11 @@ static void test_incoming_chat_preserves_draft(void) {
    drain_gtk_events();
    gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
    gtk_editable_set_position(GTK_EDITABLE(entry), 4);
-   GtkRoomTab tab = { .page = page, .entry = entry, .view = view };
+   GtkRoomTab tab = {
+      .page = page, .entry = entry, .view = view
+   };
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+
    for (int i = 0 ; i < 3 ; i++) {
       /* The incoming message path ensures the existing tab, then appends. */
       gtk_chat_select_existing_tab(&tab);
@@ -276,6 +295,7 @@ static void test_incoming_chat_preserves_draft(void) {
       gint first, last;
       assert(!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last));
    }
+
    snprintf(tab.room, sizeof(tab.room), "#origin");
    snprintf(tab.server, sizeof(tab.server), "server");
    g_object_set_data(G_OBJECT(page), "rr-room-tab", &tab);
@@ -323,10 +343,12 @@ static void test_radio_overflow_preserves_roster(void) {
    gtk_container_add(GTK_CONTAINER(window), outer);
    gtk_window_set_default_size(GTK_WINDOW(window), 1000, 400);
    gtk_widget_show_all(window);
-   for (int i = 0; i < 40; i++) {
+
+   for (int i = 0 ; i < 40 ; i++) {
       drain_gtk_events();
       g_usleep(1000);
    }
+
    GtkAdjustment *whole_page = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(outer));
    assert(gtk_adjustment_get_upper(whole_page) <= gtk_adjustment_get_page_size(whole_page) + 1);
    int x, y;
@@ -366,10 +388,15 @@ static void test_room_links(void) {
    GdkRectangle rectangle;
    gtk_text_view_get_iter_location(GTK_TEXT_VIEW(view), &iter, &rectangle);
    gint x, y;
-   gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT,
-      rectangle.x + 1, rectangle.y + 1, &x, &y);
-   GdkEvent event = { .button = { .type = GDK_BUTTON_RELEASE, .button = 1, .x = x, .y = y } };
-   GtkRoomTab other_tab = { .page = page, .entry = entry, .view = view };
+   gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT, rectangle.x + 1, rectangle.y + 1, &x, &y);
+   GdkEvent event = {
+      .button = {
+         .type = GDK_BUTTON_RELEASE, .button = 1, .x = x, .y = y
+      }
+   };
+   GtkRoomTab other_tab = {
+      .page = page, .entry = entry, .view = view
+   };
    room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
    g_hash_table_insert(room_tabs, "other-server:#remote-rig0", &other_tab);
    gtk_chat_link_event(view, &event, NULL);
@@ -379,7 +406,9 @@ static void test_room_links(void) {
    assert(!strcmp(joined_server, "origin-server"));
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
    /* Existing rooms switch tabs without sending a JOIN. */
-   GtkRoomTab tab = { .page = page, .entry = entry, .view = view };
+   GtkRoomTab tab = {
+      .page = page, .entry = entry, .view = view
+   };
    room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
    g_hash_table_insert(room_tabs, "origin-server:#remote-rig0", &tab);
    joined_room[0] = 0;

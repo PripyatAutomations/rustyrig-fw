@@ -81,7 +81,7 @@ static const char *rec_mkpath(const char *recording_id, int channel) {
    size_t tmp_len = snprintf(tmpbuf, sizeof(tmpbuf), "%s/%s.%s.%s", cfg_path_record_dir, recording_id, (is_tx ? "tx" : "rx"), codec);
 
    if (tmp_len > 0) {
-      if (!(rv = strdup(tmpbuf) ) ) {
+      if (!(rv = strdup(tmpbuf))) {
          Log(LOG_CRIT, "au.record", "OOM in rec_mkpath");
          exit(EXIT_FAILURE);
       }
@@ -110,7 +110,7 @@ bool au_recording_config_refresh(const char *key) {
    } else {
       cfg_recording_max = new_max;
    }
-   free( (char *)cfg_path_record_dir);
+   free((char *)cfg_path_record_dir);
    cfg_path_record_dir = new_dir;
    f_recdir_unset = false;
 
@@ -124,7 +124,7 @@ const char *au_recording_start(int channel) {
    }
    char *recording_id = malloc(RECORDING_ID_BUFSIZE);
 
-   if (!recording_id || !au_recording_generate_id(recording_id, RECORDING_ID_BUFSIZE) ) {
+   if (!recording_id || !au_recording_generate_id(recording_id, RECORDING_ID_BUFSIZE)) {
       free(recording_id);
 
       return NULL;
@@ -132,11 +132,11 @@ const char *au_recording_start(int channel) {
 
    if (!active_recordings) {
       au_recording_config_refresh(NULL);
-      active_recordings = calloc( (size_t)cfg_recording_max, sizeof(*active_recordings) );
+      active_recordings = calloc((size_t)cfg_recording_max, sizeof(*active_recordings));
 
       if (!active_recordings) {
          Log(LOG_CRIT, "au.record", "Unable to allocate recording table");
-         free( (char *)cfg_path_record_dir);
+         free((char *)cfg_path_record_dir);
          cfg_path_record_dir = NULL;
          free(recording_id);
 
@@ -157,13 +157,13 @@ const char *au_recording_start(int channel) {
 
    if (!fp) {
       Log(LOG_CRIT, "au.record", "Failed to open file %s for recording of channel %d", rec_file, channel);
-      free( (char *)rec_file);
+      free((char *)rec_file);
       free(recording_id);
 
       return NULL;
    }
-   free( (char *)rec_file);
-   struct RecordingData *rd = malloc(sizeof(struct RecordingData) );
+   free((char *)rec_file);
+   struct RecordingData *rd = malloc(sizeof(struct RecordingData));
 
    if (!rd) {
       fprintf(stderr, "OOM in au_recording_start?!\n");
@@ -172,7 +172,7 @@ const char *au_recording_start(int channel) {
 
       return NULL;
    }
-   memset(rd, 0, sizeof(struct RecordingData) );
+   memset(rd, 0, sizeof(struct RecordingData));
    rd->fp = fp;
    rd->rec_id = recording_id;
 
@@ -206,8 +206,7 @@ recording_data_t *au_recording_find(const char *id) {
    recording_data_t *rp = NULL;
 
    for (int i = 0 ; i < cfg_recording_max ; i++) {
-      if (active_recordings[i] && active_recordings[i]->rec_id &&
-         strcmp(active_recordings[i]->rec_id, id) == 0) {
+      if (active_recordings[i] && active_recordings[i]->rec_id && strcmp(active_recordings[i]->rec_id, id) == 0) {
          return active_recordings[i];
       }
    }
@@ -238,7 +237,7 @@ bool au_recording_stop(const char *id) {
       }
    }
 
-   free( (char *)rp->rec_id);
+   free((char *)rp->rec_id);
    free(rp);
 
    return false;

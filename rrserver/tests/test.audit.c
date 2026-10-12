@@ -5,18 +5,17 @@
 #include <rrserver/database.h>
 #include <rrserver/globalstate.h>
 
-extern void audit_init(void);               // audit.c
-extern void rrserver_register_events(void); // events.c
+extern void audit_init(void);   // audit.c
+extern void rrserver_register_events(void);  // events.c
 time_t now;
-bool dying = false; // these are provided by rrserver/main.c in the real server
+bool dying = false;             // these are provided by rrserver/main.c in the real server
 bool restarting = false;
-struct GlobalState rig;                              // stubbed here, real one lives in rrserver/main.c
+struct GlobalState rig;         // stubbed here, real one lives in rrserver/main.c
 void shutdown_rig(uint32_t signum) {
    (void)signum;
-}                                                    // stub, real one in rrserver/main.c
+}                               // stub, real one in rrserver/main.c
 
-static void dump_rows(void)
-{
+static void dump_rows(void) {
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(masterdb, "SELECT id, timestamp, username, event_type, details FROM audit_log ORDER BY id;", -1, &stmt, NULL) != SQLITE_OK) {
@@ -33,8 +32,7 @@ static void dump_rows(void)
    sqlite3_finalize(stmt);
 }
 
-int main(void)
-{
+int main(void) {
    now = time(NULL);
    masterdb = db_open("/tmp/audit_test.db");
 
@@ -54,7 +52,7 @@ int main(void)
    }
 
    audit_init();
-   event_init(); // the event bus must be initialized before registering
+   event_init();                // the event bus must be initialized before registering
    rrserver_register_events();
 
    // Simulate the chat !freq path: the rigctl event as emitted by srv.chat.c

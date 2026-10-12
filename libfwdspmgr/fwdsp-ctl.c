@@ -31,14 +31,14 @@ bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent) {
    struct fwdsp_control_msg msg = {
       .magic = FWDSP_CTRL_MAGIC,
       .type = FWDSP_CTRL_SET_VOLUME,
-      .value = (uint8_t)(percent < 0 ? 0 : percent > 100 ? 100 : percent)
+      .value = (uint8_t) (percent < 0 ? 0 : percent > 100 ? 100 : percent)
    };
 
    if (!sp || sp->fw_control <= 0) {
       return true;
    }
 
-   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t) sizeof(msg) ? false : true;
 }
 
 bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
@@ -46,14 +46,14 @@ bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1) {
    struct fwdsp_control_msg msg = {
       .magic = FWDSP_CTRL_MAGIC,
       .type = FWDSP_CTRL_SHUTDOWN,
-      .value = (uint8_t)1
+      .value = (uint8_t) 1
    };
 
    if (!sp || sp->fw_control <= 0) {
       return true;
    }
 
-   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t)sizeof(msg) ? false : true;
+   return send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) == (ssize_t) sizeof(msg) ? false : true;
 }
 
 
@@ -80,7 +80,7 @@ static bool fwdsp_cmd_record(const char codec_id[5], bool is_tx, const char *cha
       return false;
    }
 
-   bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
+   bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t) sizeof(msg);
 
    if (!failed) {
       sp->recording_active = start;
@@ -104,9 +104,7 @@ bool fwdsp_cmd_start_record_named_id(const char codec_id[5], bool is_tx, const c
 
 bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx, const char *channel_uuid, const char *username, bool record_tx, const char *
    recording_id, const char *record_file) {
-   struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ?
-      fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid) :
-      fwdsp_find_instance(codec_id, is_tx);
+   struct fwdsp_subproc *sp = channel_uuid && *channel_uuid ? fwdsp_find_channel_instance(codec_id, is_tx, channel_uuid) : fwdsp_find_instance(codec_id, is_tx);
    struct fwdsp_control_msg msg = {
       .magic = FWDSP_CTRL_MAGIC,
       .type = FWDSP_CTRL_START_RECORD,
@@ -116,8 +114,7 @@ bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx, const
 
    if (!sp || sp->fw_control <= 0 || !username || !*username ||
       strlen(username) >= sizeof(msg.record_user) ||
-      (recording_id && strlen(recording_id) >= sizeof(msg.record_id)) ||
-      (record_file && strlen(record_file) >= sizeof(msg.record_file))) {
+      (recording_id && strlen(recording_id) >= sizeof(msg.record_id)) || (record_file && strlen(record_file) >= sizeof(msg.record_file))) {
       return true;
    }
 
@@ -133,7 +130,7 @@ bool fwdsp_cmd_start_record_named_file(const char codec_id[5], bool is_tx, const
    if (record_file) {
       snprintf(msg.record_file, sizeof(msg.record_file), "%s", record_file);
    }
-   bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t)sizeof(msg);
+   bool failed = send(sp->fw_control, &msg, sizeof(msg), MSG_NOSIGNAL) != (ssize_t) sizeof(msg);
 
    if (!failed) {
       sp->recording_active = true;
@@ -160,12 +157,21 @@ bool fwdsp_cmd_stop_record(const char codec_id[5], bool is_tx, int unused1) {
 
 // A hint must not block the network event loop if the child is busy.
 bool fwdsp_set_quality_hint(struct fwdsp_subproc *sp, unsigned percent) {
-   if (!sp || sp->fw_control < 0 || percent < 25 || percent > 100) return true;
-   if (sp->quality_hint == percent) return false;
+   if (!sp || sp->fw_control < 0 || percent < 25 || percent > 100) {
+      return true;
+   }
+
+   if (sp->quality_hint == percent) {
+      return false;
+   }
    struct fwdsp_control_msg message = {
-      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_QUALITY, .value = (uint8_t)percent
+      .magic = FWDSP_CTRL_MAGIC, .type = FWDSP_CTRL_SET_QUALITY, .value = (uint8_t) percent
    };
-   if (send(sp->fw_control, &message, sizeof(message), MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)sizeof(message)) return true;
+
+   if (send(sp->fw_control, &message, sizeof(message), MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t) sizeof(message)) {
+      return true;
+   }
    sp->quality_hint = percent;
+
    return false;
 }

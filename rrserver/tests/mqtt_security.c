@@ -21,7 +21,7 @@ static size_t encode_remaining_length(uint8_t *out, size_t value) {
    size_t used = 0;
 
    do {
-      uint8_t byte = (uint8_t)(value % 128);
+      uint8_t byte = (uint8_t) (value % 128);
       value /= 128;
 
       if (value) {
@@ -83,8 +83,7 @@ static void test_subscription_limit_and_cleanup(void) {
 
    mqtt_server_cb(&connection, MG_EV_MQTT_CMD, &message);
    assert(connection.is_closing);
-   assert(mqtt_subscription_count(&connection) ==
-      MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT);
+   assert(mqtt_subscription_count(&connection) == MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT);
 
    mqtt_server_cb(&connection, MG_EV_CLOSE, NULL);
    assert(mqtt_subscription_count(&connection) == 0);

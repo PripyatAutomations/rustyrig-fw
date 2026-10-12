@@ -46,6 +46,7 @@ extern bool rrclient_context_is_selected(void) __attribute__((weak));
 static inline bool rrclient_present_context(void) {
    return !rrclient_context_is_selected || rrclient_context_is_selected();
 }
+
 extern const char *rrclient_selected_server(void);
 extern const char *rrclient_connection_name(const rrconn_t *connection);
 extern rrconn_t *rrclient_connection_find(const char *name);

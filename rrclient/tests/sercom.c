@@ -68,7 +68,7 @@ bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
 }
 char vfo_state_get_active(void) {
    return 'Z';
-}                                               // Must never affect endpoint CAT.
+}                               // Must never affect endpoint CAT.
 void ui_print(const char *win, const char *fmt, ...) {
    (void)win;
 
@@ -166,14 +166,14 @@ int main(int argc, char **argv) {
    dict_add(cfg, "serial:ttyCAT1.path", path1);
    dict_add(cfg, "serial:ttyGPS0.path", input);
    dict_add(cfg, "serial:ttyGPS1.path", output);
-   assert(rr_sercom_init()); // Unconfigured mapping defaults rig0 -> ttyCAT0.
+   assert(rr_sercom_init());    // Unconfigured mapping defaults rig0 -> ttyCAT0.
    assert(!strcmp(rr_sercom_binding("ttyCAT0"), "rig0.cat"));
    char *list_args[] = {
       "sercom", "list"
    }, *remote_args[] = {
       "sercom", "remote"
    };
-   assert(!cmd_sercom(1, list_args)); // Local listings work while offline.
+   assert(!cmd_sercom(1, list_args));  // Local listings work while offline.
    assert(local_rows == 1 && serial_lists == 0);
    rrconn_t connection = {
       0
@@ -222,7 +222,7 @@ int main(int argc, char **argv) {
    // Oversized commands must be dropped through their terminator, not executed as tails.
    char overrun[600];
    memset(overrun, 'X', sizeof(overrun));
-   assert(write(fd1, overrun, sizeof(overrun)) == (ssize_t)sizeof(overrun));
+   assert(write(fd1, overrun, sizeof(overrun)) == (ssize_t) sizeof(overrun));
    assert(write(fd1, "FA146000000;FA;", 15) == 15);
    expect(fd1, "FA145000000;");
    assert(sends == 1);

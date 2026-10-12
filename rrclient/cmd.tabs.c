@@ -38,7 +38,7 @@ extern rrconn_t *ws_conn;
 
 
 bool cmd_admin(int argc, char **args) {
-   if (frontend_ops() ) {
+   if (frontend_ops()) {
       frontend_ops()->focus_tab("admin");
    } else if (ui_mode == UI_MODE_TUI) {
       // XXX: We don't have an admin tab, just inline commands in TUI
@@ -48,7 +48,7 @@ bool cmd_admin(int argc, char **args) {
 }
 
 bool cmd_config(int argc, char **args) {
-   if (frontend_ops() ) {
+   if (frontend_ops()) {
       frontend_ops()->focus_tab("config");
    } else if (ui_mode == UI_MODE_TUI) {
       // XXX: We don't have a config editor in TUI yet
@@ -61,43 +61,50 @@ bool cmd_config(int argc, char **args) {
 bool cmd_editcfg(int argc, char **args) {
    if (frontend_ops() && frontend_ops()->edit_config) {
       frontend_ops()->edit_config(argc > 1 ? args[1] : NULL);
+
       return false;
    }
    ui_print(ui_active_window_name(), "\00304/editcfg is only available in the GTK UI\017");
+
    return false;
 }
 
 bool cmd_log(int argc, char **args) {
-   if (frontend_ops() ) {
+   if (frontend_ops()) {
       frontend_ops()->focus_tab("log");
    } else if (ui_mode == UI_MODE_TUI) {
       // XXX: We should switch to 'log' tab by name
    }
+
    return false;
 }
 
 bool cmd_win(int argc, char **args) {
    if (argc < 2 || !args || !args[1]) {
       ui_print(ui_active_window_name(), "Usage: /win <number|close [-force]>");
+
       return true;
    }
 
    if (!strcasecmp(args[1], "close")) {
-      bool force = argc == 3 && ( !strcasecmp(args[2], "-force") || !strcasecmp(args[2], "-f") );
+      bool force = argc == 3 && (!strcasecmp(args[2], "-force") || !strcasecmp(args[2], "-f"));
 
       if (argc != 2 && !force) {
          ui_print(ui_active_window_name(), "Use /win close [-force] to close the current window");
+
          return true;
       }
 
       if (ui_status_active()) {
          ui_print(NULL, "The status window cannot be closed");
+
          return true;
       }
       const char *active = ui_active_window_name();
 
       if (!active || !*active || !strcasecmp(active, "status")) {
          ui_print(NULL, "Select a conversation window to close");
+
          return true;
       }
       char *room = strdup(active);
@@ -109,19 +116,23 @@ bool cmd_win(int argc, char **args) {
 
       if ((room[0] == '#' || room[0] == '&') && ws_connected == 1 && ws_conn) {
          char part_command[] = "part";
-         char *part_args[] = { part_command, room };
+         char *part_args[] = {
+            part_command, room
+         };
          /* The self-PART confirmation performs room/media/tab cleanup. */
          error = cmd_part(2, part_args);
+
          if (force) {
             rrclient_media_room_parted(room);
             rrclient_room_part(room);
             error = ui_close_window(room);
          }
       } else {
-         rrclient_room_part(room); /* Also forget offline reconnect intent. */
+         rrclient_room_part(room);  /* Also forget offline reconnect intent. */
          error = ui_close_window(room);
       }
       free(room);
+
       return error;
    }
 
@@ -132,10 +143,11 @@ bool cmd_win(int argc, char **args) {
 
       if (id < 1 || id > TUI_MAX_WINDOWS) {
          ui_print(ui_active_window_name(), "Invalid window %d, must be between 1 and %d", id, TUI_MAX_WINDOWS);
+
          return true;
       }
       tui_window_focus_id(id);
-   } else if (frontend_ops() ) {
+   } else if (frontend_ops()) {
       if (argc < 2) {
          return true;
       }
@@ -145,8 +157,10 @@ bool cmd_win(int argc, char **args) {
          frontend_ops()->switch_window(id);
       } else {
          ui_print(ui_active_window_name(), "Invalid window id %d given", id);
+
          return true;
       }
    }
+
    return false;
 }

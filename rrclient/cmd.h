@@ -21,7 +21,7 @@ typedef struct client_cmd {
    const char *help_section;
    int min_args;
    int max_args;
-   bool admin;   // admin-only: hidden from /help and rejected for non-staff
+   bool admin;                  // admin-only: hidden from /help and rejected for non-staff
    bool (*cb)(int argc, char **args);
    event_cb_t (*event_cb)(const char *event, void *data, rrconn_t *cptr, void *user);
 } client_cmd_t;
@@ -40,10 +40,10 @@ struct rr_client_media_chan {
    uint8_t rig;
    uint8_t stream;
    bool stream_valid;
-   char codec[5];                  // active (negotiated) codec magic
+   char codec[5];               // active (negotiated) codec magic
    char descr[128];
    bool subscribed;
-   bool disabled;                 // explicit NONE, eligible for re-enable
+   bool disabled;               // explicit NONE, eligible for re-enable
    char room[128];
    bool joined;
    bool automatic;
@@ -66,7 +66,7 @@ extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);
 #endif
 
 extern bool parse_chat_input_real(const char *msg);
-extern bool tui_register_completion_provider(char **(*fn) (const char *line, const char *word) );
+extern bool tui_register_completion_provider(char **(*fn) (const char *line, const char *word));
 extern void client_cmd_completion_describe(const char *line, const char *value, char *out, size_t capacity);
 extern char **client_cmd_completions(const char *line, const char *word);
 extern char *client_chat_complete(const char *line, size_t *cursor, void **state);
@@ -78,7 +78,7 @@ extern bool cmd_clearlog(int argc, char **args);
 extern bool cmd_config(int argc, char **args);
 extern bool cmd_die(int argc, char **args);
 extern bool cmd_disconnect(int argc, char **args);
-extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c
+extern bool cmd_css_reload(int argc, char **args); // cfg.gtkcss.c
 extern bool cmd_help(int argc, char **args);
 extern bool cmd_join(int argc, char **args);
 extern bool cmd_list(int argc, char **args);
@@ -92,8 +92,8 @@ extern bool cmd_mode(int argc, char **args);
 extern bool cmd_ban(int argc, char **args);
 extern bool cmd_log(int argc, char **args);
 extern bool cmd_media(int argc, char **args);
-extern bool cmd_webcam(int argc, char **args);   // cmd.c
-extern bool media_have_priv(const char *priv);   // media.c
+extern bool cmd_webcam(int argc, char **args);  // cmd.c
+extern bool media_have_priv(const char *priv);  // media.c
 extern bool cmd_me(int argc, char **args);
 extern bool cmd_msg(int argc, char **args);
 extern bool cmd_users(int argc, char **args);

@@ -39,15 +39,15 @@ struct fwdsp_io_conn {
 #define FWDSP_FRAME_STREAM_HEADER 0x80000000U
 
 #define FWDSP_CTRL_MAGIC 0x46574453U
-#define FWDSP_CTRL_SET_VOLUME 1   // set volume
-#define FWDSP_CTRL_SHUTDOWN 2     // shut down process
-#define FWDSP_CTRL_CONFIGURE 3    // Configure the pipeline
-#define FWDSP_CTRL_PAUSE 4        // Pause the stream
-#define FWDSP_CTRL_RESUME 5       // Resume the stream
-#define FWDSP_CTRL_FLUSH 6        // Flush the buffer
-#define FWDSP_CTRL_START_RECORD 7 // Start recording the raw audio
+#define FWDSP_CTRL_SET_VOLUME 1 // set volume
+#define FWDSP_CTRL_SHUTDOWN 2   // shut down process
+#define FWDSP_CTRL_CONFIGURE 3  // Configure the pipeline
+#define FWDSP_CTRL_PAUSE 4      // Pause the stream
+#define FWDSP_CTRL_RESUME 5     // Resume the stream
+#define FWDSP_CTRL_FLUSH 6      // Flush the buffer
+#define FWDSP_CTRL_START_RECORD 7   // Start recording the raw audio
 #define FWDSP_CTRL_SET_QUALITY 9 // normalized encoder quality hint, 25..100
-#define FWDSP_CTRL_STOP_RECORD 8  // Stop recording the raw audio
+#define FWDSP_CTRL_STOP_RECORD 8 // Stop recording the raw audio
 #define FWDSP_RECORD_USER_LEN 64
 #define FWDSP_RECORD_ID_LEN 64
 #define FWDSP_RECORD_FILE_LEN 512
@@ -71,14 +71,14 @@ struct fwdsp_subproc {
    char pl_id[5];
    char processor_namespace[8];
    char processor_name[64];
-   unsigned quality_hint; // last successfully queued hint; 0 means unset
-   bool destroying;                    // teardown is in progress; ignore re-entry
+   unsigned quality_hint;       // last successfully queued hint; 0 means unset
+   bool destroying;             // teardown is in progress; ignore re-entry
    char channel_uuid[64];
    char pipeline[1024];
    bool is_tx;
-   bool is_video;                        // video (webcam etc) pipeline? passed
-                                         // as -v so fwdsp sets FW_MEDIA_VIDEO
-   uint8_t *stream_headers;          // length-framed initialization packets
+   bool is_video;               // video (webcam etc) pipeline? passed
+   // as -v so fwdsp sets FW_MEDIA_VIDEO
+   uint8_t *stream_headers;     // length-framed initialization packets
    size_t stream_headers_len;
    bool replay_headers;
    int refcount;

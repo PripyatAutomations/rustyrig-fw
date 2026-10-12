@@ -73,8 +73,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    }
 
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab &&
-      (event->state & GDK_CONTROL_MASK) &&
-      !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && gtk_chat_status_active()) {
+      (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && gtk_chat_status_active()) {
       return rrclient_connection_cycle_status(gtk_chat_status_active());
    }
    gui_window_t *wp = gui_find_window(NULL, "main");
@@ -87,8 +86,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
 
    if (event->type == GDK_KEY_PRESS && (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C) &&
-      (modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) &&
-      !(modifiers & GDK_MOD1_MASK)) {
+      (modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) && !(modifiers & GDK_MOD1_MASK)) {
       return gtk_chat_copy_selection();
    }
 
@@ -129,20 +127,19 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
    }
 
    // F11 toggles fullscreen
-   if ( (event->keyval == GDK_KEY_F11) ) {
+   if ((event->keyval == GDK_KEY_F11)) {
       gui_fullscreen_toggle();
 
       return TRUE;
    }
 
    // ALT-* keys
-   if ( (event->state & GDK_MOD1_MASK) ) {
+   if ((event->state & GDK_MOD1_MASK)) {
       if (!main_win) {
          Log(LOG_DEBUG, "gtk", "main_win is null in alt-# handler");
 
          return TRUE;
       }
-
       // raise main window if a tab is selected
       int digit = -1;
 
@@ -184,36 +181,37 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          case GDK_KEY_X:
          case GDK_KEY_x: {
             show_server_chooser();
+
             return TRUE;
          }
          case GDK_KEY_C:
          case GDK_KEY_c: {
-            gtk_widget_grab_focus(GTK_WIDGET(chat_entry) );
+            gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
             break;
          }
          case GDK_KEY_D:
          case GDK_KEY_d: {
-            gtk_widget_grab_focus(GTK_WIDGET(mode_combo) );
-            gtk_combo_box_popup(GTK_COMBO_BOX(mode_combo) );
+            gtk_widget_grab_focus(GTK_WIDGET(mode_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(mode_combo));
             break;
          }
          case GDK_KEY_F:
          case GDK_KEY_f: {
-            GtkWidget *wp = gtk_freq_entry_last_touched_digit(GTK_FREQ_ENTRY(freq_entry) );
+            GtkWidget *wp = gtk_freq_entry_last_touched_digit(GTK_FREQ_ENTRY(freq_entry));
 
             if (wp) {
                Log(LOG_CRAZY, "gtk.hotkey", "Switching to digit at <%p>", wp);
                gtk_widget_grab_focus(wp);
             } else {
                Log(LOG_CRAZY, "gtk.hotkey", "No last digit saved, defaulting to left-most");
-               int digits = gtk_freq_entry_num_digits(GTK_FREQ_ENTRY(freq_entry) );
+               int digits = gtk_freq_entry_num_digits(GTK_FREQ_ENTRY(freq_entry));
                gtk_freq_entry_focus_digit(GTK_FREQ_ENTRY(freq_entry), digits);
             }
             break;
          }
          case GDK_KEY_G:
          case GDK_KEY_g: {
-            gtk_widget_grab_focus(GTK_WIDGET(rx_rig_vol_slider) );
+            gtk_widget_grab_focus(GTK_WIDGET(rx_rig_vol_slider));
             break;
          }
          case GDK_KEY_H:
@@ -223,19 +221,19 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_P:
          case GDK_KEY_p: {
-            gtk_widget_grab_focus(GTK_WIDGET(tx_power_slider) );
+            gtk_widget_grab_focus(GTK_WIDGET(tx_power_slider));
             break;
          }
          case GDK_KEY_R:
          case GDK_KEY_r: {
-            gtk_widget_grab_focus(GTK_WIDGET(rx_combo) );
-            gtk_combo_box_popup(GTK_COMBO_BOX(rx_combo) );
+            gtk_widget_grab_focus(GTK_WIDGET(rx_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(rx_combo));
             break;
          }
          case GDK_KEY_T:
          case GDK_KEY_t: {
-            gtk_widget_grab_focus(GTK_WIDGET(tx_combo) );
-            gtk_combo_box_popup(GTK_COMBO_BOX(tx_combo) );
+            gtk_widget_grab_focus(GTK_WIDGET(tx_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(tx_combo));
             break;
          }
          case GDK_KEY_U:
@@ -246,13 +244,13 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_V:
          case GDK_KEY_v: {
-            gtk_widget_grab_focus(GTK_WIDGET(rx_vol_slider) );
+            gtk_widget_grab_focus(GTK_WIDGET(rx_vol_slider));
             break;
          }
          case GDK_KEY_W:
          case GDK_KEY_w: {
-            gtk_widget_grab_focus(GTK_WIDGET(width_combo) );
-            gtk_combo_box_popup(GTK_COMBO_BOX(width_combo) );
+            gtk_widget_grab_focus(GTK_WIDGET(width_combo));
+            gtk_combo_box_popup(GTK_COMBO_BOX(width_combo));
             break;
          }
       }
@@ -271,8 +269,7 @@ static gboolean gui_global_hotkey_release_cb(GtkWidget *widget, GdkEventKey *eve
       return FALSE;
    }
 
-   if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter ||
-      event->keyval == GDK_KEY_space) {
+   if (event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter || event->keyval == GDK_KEY_space) {
       return ptt_button_hotkey_release();
    }
 

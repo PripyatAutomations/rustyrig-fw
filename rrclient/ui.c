@@ -36,6 +36,7 @@ const char *ui_active_window_name(void) {
          if (!rrclient_present_context()) {
             return NULL;
          }
+
          return rrclient_window_room(window->title);
       }
    }
@@ -44,7 +45,7 @@ const char *ui_active_window_name(void) {
       return NULL;
    }
 
-   if (frontend_present() ) {
+   if (frontend_present()) {
       return frontend_ops()->chat_current_room();
    }
 
@@ -63,6 +64,7 @@ rrconn_t *rrclient_active_connection(void) {
          return connection ? connection : window->cptr;
       }
    }
+
    return ws_conn;
 }
 
@@ -75,6 +77,7 @@ const char *rrclient_active_room(void) {
       if (!window || !window->title[0] || !strcasecmp(window->title, "status")) {
          return NULL;
       }
+
       return rrclient_window_room(window->title);
    }
 
@@ -162,6 +165,7 @@ void ui_list_servers(void) {
          if (!proxy || !*proxy) {
             proxy = cfg_get("server.proxy");
          }
+
          if (proxy && *proxy) {
             ui_print(NULL, "  %s - %s (proxy: %s)", name, url ? url : "", proxy);
          } else {

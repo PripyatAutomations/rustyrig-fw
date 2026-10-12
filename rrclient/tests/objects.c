@@ -94,7 +94,7 @@ int main(void) {
    assert(rr_object_cache_find_alias(c, "vfo", rig1, "A") == rr_object_cache_object(c, vfo1));
    assert(rr_object_cache_find_alias(c, "vfo", rig0, "A") == rr_object_cache_object(c, vfo0));
    assert(!rr_object_cache_find_alias(c, "vfo", epoch, "A"));
-   assert(!strcmp(dict_get((dict *)rr_object_cache_object(c, vfo1), "object.owner", ""), rig1));
+   assert(!strcmp(dict_get((dict *) rr_object_cache_object(c, vfo1), "object.owner", ""), rig1));
    d = msg("property", "descriptor", 4);
    dict_add(d, "target", vfo1);
    dict_add(d, "property.name", "frequency");
@@ -127,7 +127,7 @@ int main(void) {
    char reference[128];
    assert(rr_object_cache_ref_iter(c, 0, reference, sizeof(reference)) && *reference);
    assert(apply(c, state(vfo1, 5, 3, true, true, false, 7074000)));
-   dict *p = (dict *)rr_object_cache_property(c, vfo1, "frequency", false);
+   dict *p = (dict *) rr_object_cache_property(c, vfo1, "frequency", false);
    assert(dict_get_bool(p, "property.known", false));
    assert(!dict_get_bool(p, "property.available", true));
    assert(dict_get_long(p, "property.value", 0) == 7074000);
@@ -136,7 +136,7 @@ int main(void) {
    dict_add(d, "target", vfo1);
    dict_add_long(d, "property.value", 123);
    assert(apply(c, d));
-   assert(dict_get_long((dict *)rr_object_cache_property(c, vfo1, "frequency", false), "property.value", 0) == 7074000);
+   assert(dict_get_long((dict *) rr_object_cache_property(c, vfo1, "frequency", false), "property.value", 0) == 7074000);
    assert(!apply(c, state(vfo1, 7, 4, false, false, true, 0)));
    d = msg("object", "removed", 8);
    dict_add(d, "object.uuid", rig1);
@@ -145,7 +145,7 @@ int main(void) {
    assert(!rr_object_cache_find_alias(c, "vfo", rig1, "A"));
    assert(!rr_object_cache_property(c, vfo1, "frequency", false));
    assert(!rr_object_cache_dump_selected(c, "rig1.A", display_line, NULL));
-   object(c, vfo1, "vfo", rig1, "A", 6); // Late snapshot must not resurrect.
+   object(c, vfo1, "vfo", rig1, "A", 6);  // Late snapshot must not resurrect.
    assert(!rr_object_cache_object(c, vfo1));
    assert(rr_object_cache_object(c, vfo0));
    object(c, rig1, "rig", epoch, "rig1", 9);
@@ -153,7 +153,7 @@ int main(void) {
    assert(apply(c, state(vfo1, 7, 100, true, true, true, 123)));
    assert(!rr_object_cache_property(c, vfo1, "frequency", false));
    assert(apply(c, state(vfo1, 11, 0, false, false, false, 0)));
-   assert(!dict_get_bool((dict *)rr_object_cache_property(c, vfo1, "frequency", false), "property.known", true));
+   assert(!dict_get_bool((dict *) rr_object_cache_property(c, vfo1, "frequency", false), "property.known", true));
    rr_object_cache_free(c);
    puts("PASS: UUID cache, ownership ordering, schema/state, stale snapshot merge, removal, no optimistic SET");
 

@@ -16,6 +16,7 @@ void ptt_button_refresh(void) {
 void gtk_widget_set_tooltip_text(GtkWidget *widget, const gchar *text) {
    assert(text && *text);
 }
+
 static bool editing;
 static bool frequency_available = true;
 static unsigned long displayed_frequency;
@@ -43,7 +44,7 @@ long vfo_state_get_long(const char *vfo, const char *key, long fallback) {
 void modebox_update_state(const char *mode, int width) {
 }
 int main(void) {
-   freq_entry = (GtkWidget *)g_object_new(G_TYPE_OBJECT, NULL);
+   freq_entry = (GtkWidget *) g_object_new(G_TYPE_OBJECT, NULL);
    frontend_gtk_vfo_state("A", 7200000, "LSB", 2700, 0, false);
    assert(displayed_frequency == 7200000);
    editing = true;

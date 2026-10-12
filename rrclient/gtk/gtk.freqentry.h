@@ -24,11 +24,8 @@
 #include <librustyaxe/dict.h>
 
 G_BEGIN_DECLS
-
 #define GTK_TYPE_FREQ_ENTRY (gtk_freq_entry_get_type() )
-
 G_DECLARE_FINAL_TYPE(GtkFreqEntry, gtk_freq_entry, GTK, FREQ_ENTRY, GtkBox)
-
 // Public API
 extern GtkWidget *gtk_freq_entry_new(int num_digits);
 extern void gtk_freq_entry_set_unavailable(GtkFreqEntry *fi);
@@ -44,5 +41,4 @@ extern void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq);
 extern unsigned long gtk_freq_entry_get_value(GtkFreqEntry *fe);
 
 G_END_DECLS
-
 #endif // !defined(__rrclient_gtk_freqinput_h)

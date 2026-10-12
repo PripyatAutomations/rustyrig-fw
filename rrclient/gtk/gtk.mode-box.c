@@ -23,7 +23,7 @@
 #include <rrclient/vfo.h>
 extern rrconn_t *ws_conn;
 extern time_t now;
-extern int cfg_ui_edit_delay;       // main.c
+extern int cfg_ui_edit_delay;   // main.c
 GtkWidget *mode_combo = NULL;
 GtkWidget *width_combo = NULL;
 
@@ -61,7 +61,7 @@ static void on_width_changed(GtkComboBoxText *combo, gpointer user_data) {
       ws_send_width_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
       widthbox_last_send = now;
 #endif // defined(USE_MONGOOSE)
-      g_free( (gchar *)text);
+      g_free((gchar *) text);
    }
 }
 
@@ -79,7 +79,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 #endif // defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode
-      if (g_str_equal(text, "FM") ) {
+      if (g_str_equal(text, "FM")) {
          fm_dialog_show();
          gui_window_t *wp = gui_find_window(NULL, "main");
 
@@ -90,7 +90,7 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       } else {
          fm_dialog_hide();
       }
-      g_free( (gchar *)text);
+      g_free((gchar *) text);
    }
 }
 
@@ -153,8 +153,7 @@ static gboolean on_width_keypress(GtkWidget *widget, GdkEventKey *event, gpointe
 }
 
 static gboolean on_selector_keypress(GtkWidget *widget, GdkEventKey *event, gpointer combo) {
-   gboolean handled = combo == width_combo ? on_width_keypress(widget, event, combo) :
-      on_mode_keypress(widget, event, combo);
+   gboolean handled = combo == width_combo ? on_width_keypress(widget, event, combo) : on_mode_keypress(widget, event, combo);
 
    if (handled && GTK_IS_MENU(widget) && gtk_widget_get_realized(widget)) {
       GList *items = gtk_container_get_children(GTK_CONTAINER(widget));
@@ -170,8 +169,7 @@ static gboolean on_selector_keypress(GtkWidget *widget, GdkEventKey *event, gpoi
 }
 
 static gboolean on_selector_event(GtkWidget *widget, GdkEvent *event, gpointer combo) {
-   return event && event->type == GDK_KEY_PRESS ?
-          on_selector_keypress(widget, (GdkEventKey *)event, combo) : FALSE;
+   return event && event->type == GDK_KEY_PRESS ? on_selector_keypress(widget, (GdkEventKey *) event, combo) : FALSE;
 }
 
 // Handle the popup's generic event before GTK's own combo key handler consumes it.
@@ -198,8 +196,12 @@ static void on_selector_popup(GtkComboBox *combo, GParamSpec *pspec, gpointer us
 void modebox_update_state(const char *mode, int width) {
    if (mode_combo) {
       g_signal_handler_block(mode_combo, mode_changed_handler_id);
-      if (mode) set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-      else gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), -1);
+
+      if (mode) {
+         set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+      } else {
+         gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), -1);
+      }
       g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
    }
 
@@ -208,6 +210,7 @@ void modebox_update_state(const char *mode, int width) {
       gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), -1);
       g_signal_handler_unblock(width_combo, width_changed_handler_id);
    }
+
    if (width_combo && width > 0) {
       g_signal_handler_block(width_combo, width_changed_handler_id);
       // Keep the three named presets and one exact observed width.

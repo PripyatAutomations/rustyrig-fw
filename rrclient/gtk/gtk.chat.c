@@ -29,10 +29,9 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/userlist.h>
 
-extern dict *cfg;                // main.c
-extern time_t now;               // main.c
-extern GtkWidget *main_notebook,
-   *status_tab;
+extern dict *cfg;               // main.c
+extern time_t now;              // main.c
+extern GtkWidget *main_notebook, *status_tab;
 extern bool cfg_ui_gtk_vfo_on_top;
 
 ///////////////
@@ -84,6 +83,7 @@ static GtkInputHistory *entry_history(GtkWidget *entry, GPtrArray **lines) {
 
    return history;
 }
+
 GtkWidget *chat_textview = NULL;
 GtkWidget *chat_entry = NULL;
 GtkTextBuffer *text_buffer = NULL;
@@ -121,6 +121,7 @@ static void gtk_chat_server_selected(const char *event, const char *data, rrconn
       gtk_button_set_label(GTK_BUTTON(status_send_button), label);
    }
 }
+
 int next_chat_tab = 5;
 
 
@@ -149,49 +150,55 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
 
 static bool gtk_chat_copy_widgets(GtkWidget *view, GtkWidget *entry) {
    gint first, last;
-   bool input_selected = entry && GTK_IS_EDITABLE(entry) &&
-      gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last);
-   GtkTextBuffer *buffer = view && GTK_IS_TEXT_VIEW(view) ?
-      gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)) : NULL;
+   bool input_selected = entry && GTK_IS_EDITABLE(entry) && gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &first, &last);
+   GtkTextBuffer *buffer = view && GTK_IS_TEXT_VIEW(view) ? gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)) : NULL;
    GtkTextIter start, end;
    bool transcript_selected = buffer && gtk_text_buffer_get_selection_bounds(buffer, &start, &end);
 
    /* GTK can retain selections in both widgets. Prefer the focused one. */
    if (input_selected && (!transcript_selected || !gtk_widget_has_focus(view))) {
       gtk_editable_copy_clipboard(GTK_EDITABLE(entry));
+
       return true;
    }
+
    if (transcript_selected) {
       gtk_text_buffer_copy_clipboard(buffer, gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
+
       return true;
    }
+
    return false;
 }
 
 static gboolean gtk_chat_view_keypress(GtkWidget *view, GdkEventKey *event, gpointer user_data) {
    (void)user_data;
-   if (!event || event->type != GDK_KEY_PRESS ||
-       (event->keyval != GDK_KEY_c && event->keyval != GDK_KEY_C)) {
+
+   if (!event || event->type != GDK_KEY_PRESS || (event->keyval != GDK_KEY_c && event->keyval != GDK_KEY_C)) {
       return FALSE;
    }
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
+
    if (modifiers != (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) {
       return FALSE;
    }
+
    return gtk_chat_copy_widgets(view, g_object_get_data(G_OBJECT(view), "rr-chat-entry"));
 }
 
 bool gtk_chat_copy_selection(void) {
    GtkWidget *view = chat_textview, *entry = chat_entry;
+
    if (main_notebook) {
-      GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-         gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+      GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
       GtkRoomTab *tab = page ? g_object_get_data(G_OBJECT(page), "rr-room-tab") : NULL;
+
       if (tab) {
          view = tab->view;
          entry = tab->entry;
       }
    }
+
    return gtk_chat_copy_widgets(view, entry);
 }
 
@@ -253,6 +260,7 @@ gboolean ui_scroll_to_end(gpointer data) {
    // remove the idle handler after it runs
    return FALSE;
 }
+
 //////////
 
 static bool gtk_chat_do_completion(GtkEntry *entry) {
@@ -285,7 +293,6 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
 
       return true;
    }
-
    // Find start of word before cursor
    tui_cursor_pos = (int)(g_utf8_offset_to_pointer(line, tui_cursor_pos) - line);
    int start = tui_cursor_pos;
@@ -328,9 +335,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    for (int i = 1 ; i < nmatch ; i++) {
       size_t j = 0;
 
-      while (j < plen &&
-         matches[i][j] &&
-         matches[0][j] == matches[i][j]) {
+      while (j < plen && matches[i][j] && matches[0][j] == matches[i][j]) {
          j++;
       }
       plen = j;
@@ -370,7 +375,6 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
 
       return true;
    }
-
    // Ambiguous: print candidates into the chat window
    // ui.theme.completion contains a decoded IRC color control prefix.
    const char *completion_color = cfg_get("ui.theme.completion");
@@ -378,7 +382,6 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
    if (!completion_color || !*completion_color) {
       completion_color = "\00313";
    }
-
    // PARITY: TUI completion uses the same configured IRC color prefix.
    char color_tag[64];
 
@@ -415,7 +418,7 @@ static bool gtk_chat_do_completion(GtkEntry *entry) {
          pos += snprintf(line + pos, sizeof(line) - pos, "  ");
 
          for (int c = 0 ; c < cols ; c++) {
-            int idx = c * rows + r;   // column-major so matches read down each column
+            int idx = c * rows + r; // column-major so matches read down each column
 
             if (idx >= nshown) {
                break;
@@ -506,8 +509,8 @@ static void gtk_chat_apply_format_attributes(GtkWidget *entry, GtkFormatState *s
       if (!*p) {
          continue;
       }
-      guint start = (guint)(p - state->snapshot);
-      guint end = (guint)(g_utf8_next_char(p) - state->snapshot);
+      guint start = (guint) (p - state->snapshot);
+      guint end = (guint) (g_utf8_next_char(p) - state->snapshot);
       PangoAttribute *foreground = pango_attr_foreground_new(0xffff, 0xffff, 0xffff);
       PangoAttribute *background = pango_attr_background_new(0x3030, 0x6060, 0xb0b0);
       PangoAttribute *weight = pango_attr_weight_new(PANGO_WEIGHT_BOLD);
@@ -553,9 +556,8 @@ static void gtk_chat_color_popover_fill(GtkWidget *entry, bool backgrounds, unsi
       GtkWidget *choice = gtk_button_new();
       gtk_container_add(GTK_CONTAINER(choice), label);
       const char *name = gtk_mirc_color_name(color);
-      char *tip = backgrounds
-            ? g_strdup_printf("%s on %s", gtk_mirc_color_name(foreground), name)
-            : g_strdup_printf("%s (%u)", name, color);
+      char *tip = backgrounds ? g_strdup_printf("%s on %s", gtk_mirc_color_name(foreground), name)
+         : g_strdup_printf("%s (%u)", name, color);
       gtk_widget_set_tooltip_text(choice, tip);
       g_free(tip);
       g_object_set_data(G_OBJECT(choice), "rr-color-entry", entry);
@@ -650,8 +652,7 @@ static gboolean gtk_chat_update_color_popup(gpointer data) {
    }
    const char *p = g_utf8_offset_to_pointer(text, start);
 
-   if (!gtk_chat_position_is_token(state, (guint)start) ||
-      gtk_formatting_control(g_utf8_get_char(p)) != 0x03) {
+   if (!gtk_chat_position_is_token(state, (guint) start) || gtk_formatting_control(g_utf8_get_char(p)) != 0x03) {
       goto hide_color_popup;
    }
    p = g_utf8_next_char(p);
@@ -680,15 +681,13 @@ static gboolean gtk_chat_update_color_popup(gpointer data) {
    int previous_mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode"));
    int previous_foreground = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-foreground")) - 1;
    bool force_backgrounds = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-force-backgrounds"));
-   int mode = comma ? 2 :
-      (force_backgrounds || (previous_mode == 3 && previous_foreground == foreground) ? 3 : 1);
+   int mode = comma ? 2 : (force_backgrounds || (previous_mode == 3 && previous_foreground == foreground) ? 3 : 1);
    g_object_set_data(G_OBJECT(entry), "rr-color-insert-position", GINT_TO_POINTER(cursor + 1));
    g_object_set_data(G_OBJECT(entry), "rr-color-mode", GINT_TO_POINTER(mode));
    g_object_set_data(G_OBJECT(entry), "rr-color-foreground", GINT_TO_POINTER(foreground + 1));
    g_object_set_data(G_OBJECT(entry), "rr-color-force-backgrounds", NULL);
 
-   if (previous_mode != mode || ((mode == 2 || mode == 3) && previous_foreground != foreground) ||
-      force_backgrounds) {
+   if (previous_mode != mode || ((mode == 2 || mode == 3) && previous_foreground != foreground) || force_backgrounds) {
       gtk_chat_color_popover_fill(entry, mode != 1, foreground);
       gtk_widget_grab_focus(entry);
       gtk_editable_select_region(GTK_EDITABLE(entry), cursor, cursor);
@@ -734,16 +733,16 @@ static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
          new_suffix = prev_new;
          suffix++;
       }
-      guint old_count = (guint)g_utf8_strlen(old, -1);
-      guint new_count = (guint)g_utf8_strlen(text, -1);
+      guint old_count = (guint) g_utf8_strlen(old, -1);
+      guint new_count = (guint) g_utf8_strlen(text, -1);
       guint old_after = old_count - suffix;
-      gint delta = (gint)new_count - (gint)old_count;
+      gint delta = (gint) new_count - (gint) old_count;
 
       for (guint i = 0 ; i < state->positions->len ; ) {
          guint *position = &g_array_index(state->positions, guint, i);
 
          if (*position >= old_after) {
-            *position = (guint)((gint) * position + delta);
+            *position = (guint) ((gint) * position + delta);
             i++;
          } else if (*position >= prefix) {
             g_array_remove_index(state->positions, i);
@@ -753,10 +752,10 @@ static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
       }
 
       if (state->pending_position >= 0) {
-         guint pending = (guint)state->pending_position;
+         guint pending = (guint) state->pending_position;
          g_array_append_val(state->positions, pending);
          state->pending_position = -1;
-         g_array_sort(state->positions, (GCompareFunc)gtk_chat_uint_compare);
+         g_array_sort(state->positions, (GCompareFunc) gtk_chat_uint_compare);
       }
       g_free(state->snapshot);
       state->snapshot = g_strdup(text);
@@ -828,8 +827,7 @@ static void on_send_button_clicked(GtkButton *button, gpointer entry) {
 }
 
 // Here we support input history for the chat/control window entry input
-static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpointer user_data)
-{
+static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpointer user_data) {
    if (!event || !entry) {
       return FALSE;
    }
@@ -837,25 +835,26 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
 
    if (event->type == GDK_KEY_PRESS && (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C) &&
-      (modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) &&
-      !(modifiers & GDK_MOD1_MASK)) {
+      (modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) && !(modifiers & GDK_MOD1_MASK)) {
       return gtk_chat_copy_selection();
    }
 
-   if ((modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) ==
-      (GDK_CONTROL_MASK | GDK_SHIFT_MASK) && !(modifiers & GDK_MOD1_MASK)) {
+   if ((modifiers & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == (GDK_CONTROL_MASK | GDK_SHIFT_MASK) && !(modifiers & GDK_MOD1_MASK)) {
       guint8 style_code = 0;
 
       switch (event->keyval) {
-         case GDK_KEY_u: case GDK_KEY_U: {
+         case GDK_KEY_u:
+         case GDK_KEY_U: {
             style_code = 0x1f;
             break;
          }
-         case GDK_KEY_s: case GDK_KEY_S: {
+         case GDK_KEY_s:
+         case GDK_KEY_S: {
             style_code = 0x1e;
             break;
          }
-         case GDK_KEY_m: case GDK_KEY_M: {
+         case GDK_KEY_m:
+         case GDK_KEY_M: {
             style_code = 0x11;
             break;
          }
@@ -872,30 +871,36 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
       guint8 control_code = 0;
 
       switch (event->keyval) {
-         case GDK_KEY_b: case GDK_KEY_B: {
+         case GDK_KEY_b:
+         case GDK_KEY_B: {
             control_code = 0x02;
-            break;                                                   // Bold
+            break;              // Bold
          }
-         case GDK_KEY_c: case GDK_KEY_C: {
+         case GDK_KEY_c:
+         case GDK_KEY_C: {
             control_code = 0x03;
-            break;                                                   // Color
+            break;              // Color
          }
-         case GDK_KEY_i: case GDK_KEY_I: {
+         case GDK_KEY_i:
+         case GDK_KEY_I: {
             control_code = 0x1d;
-            break;                                                   // Italic
+            break;              // Italic
          }
-         case GDK_KEY_o: case GDK_KEY_O: {
+         case GDK_KEY_o:
+         case GDK_KEY_O: {
             control_code = 0x0f;
-            break;                                                   // Reset
+            break;              // Reset
          }
-         case GDK_KEY_u: case GDK_KEY_U: {
+         case GDK_KEY_u:
+         case GDK_KEY_U: {
             gtk_entry_set_text(GTK_ENTRY(entry), "");
 
-            return TRUE; // Ctrl-U clears input, matching the TUI
+            return TRUE;        // Ctrl-U clears input, matching the TUI
          }
-         case GDK_KEY_r: case GDK_KEY_R: {
+         case GDK_KEY_r:
+         case GDK_KEY_R: {
             control_code = 0x16;
-            break;                                                   // Reverse
+            break;              // Reverse
          }
       }
 
@@ -906,16 +911,14 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
       }
    }
 
-   if (event->keyval == GDK_KEY_Escape &&
-      GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active"))) {
+   if (event->keyval == GDK_KEY_Escape && GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active"))) {
       g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
       gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
 
       return TRUE;
    }
 
-   if (event->keyval == GDK_KEY_Tab && (modifiers & GDK_CONTROL_MASK) &&
-      !(modifiers & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
+   if (event->keyval == GDK_KEY_Tab && (modifiers & GDK_CONTROL_MASK) && !(modifiers & (GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
       return rrclient_connection_cycle_status(gtk_chat_status_active());
    }
 
@@ -926,21 +929,17 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
    }
 
    if (event->keyval == GDK_KEY_Page_Up) {
-      GtkAdjustment *adj =
-         gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
+      GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
 
-      gtk_adjustment_set_value(adj, gtk_adjustment_get_value(adj) -
-         gtk_adjustment_get_page_increment(adj));
+      gtk_adjustment_set_value(adj, gtk_adjustment_get_value(adj) - gtk_adjustment_get_page_increment(adj));
 
       return TRUE;
    }
 
    if (event->keyval == GDK_KEY_Page_Down) {
-      GtkAdjustment *adj =
-         gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
+      GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
 
-      gtk_adjustment_set_value(adj, gtk_adjustment_get_value(adj) +
-         gtk_adjustment_get_page_increment(adj));
+      gtk_adjustment_set_value(adj, gtk_adjustment_get_value(adj) + gtk_adjustment_get_page_increment(adj));
 
       return TRUE;
    }
@@ -976,8 +975,7 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
          history->index = -1;
       }
    }
-   const char *text = history->index < 0 ? (history->draft ? history->draft : "") :
-      g_ptr_array_index(lines, history->index);
+   const char *text = history->index < 0 ? (history->draft ? history->draft : "") : g_ptr_array_index(lines, history->index);
    gtk_chat_set_serialized_entry(entry, text);
 
    return TRUE;
@@ -996,13 +994,13 @@ static GtkWidget *chatbox_vfo_init(void) {
       return NULL;
    }
 
-   /* Keep wide frequency controls from enlarging the whole notebook inside
-    * the main zoom viewport. Otherwise the room roster sits off-screen even
-    * when every column fits its own pane. Only the radio strip may scroll. */
+   /* Keep wide frequency controls from enlarging the whole notebook inside the main zoom viewport. Otherwise the room roster sits off-screen even when every
+    * column fits its own pane. Only the radio strip may scroll. */
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_container_add(GTK_CONTAINER(scroll), vfo);
+
    return scroll;
 }
 
@@ -1031,7 +1029,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
       if (!room_vfo_box) {
          return;
       }
-      g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *)&room_vfo_box);
+      g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
    }
 
    if (!cfg_get_bool("ui.gtk.vfo-docked", true)) {
@@ -1064,8 +1062,7 @@ void gtk_chat_room_vfos_changed(const char *room) {
    gtk_chat_update_vfo_controls(tab);
 }
 
-static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location,
-   gchar *text, gint length, gpointer user);
+static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location, gchar *text, gint length, gpointer user);
 static void gtk_chat_link_event(GtkWidget *view, GdkEvent *event, gpointer user);
 
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
@@ -1087,7 +1084,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_widget_set_name(chat_textview, "chat-view");
    gtk_widget_add_events(chat_textview, GDK_POINTER_MOTION_MASK);
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
-   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview) );
+   text_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(chat_textview));
    g_object_set_data_full(G_OBJECT(chat_textview), "rr-server-name", room ? g_strdup(server_name) : NULL, g_free);
    g_signal_connect_after(text_buffer, "insert-text", G_CALLBACK(gtk_chat_link_inserted), NULL);
    g_signal_connect(chat_textview, "event-after", G_CALLBACK(gtk_chat_link_event), NULL);
@@ -1096,8 +1093,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
-   /* Every room owns its detachable roster, including authoritative rooms
-    * on different servers. Private query tabs stay chat-only. */
+   /* Every room owns its detachable roster, including authoritative rooms on different servers. Private query tabs stay chat-only. */
    if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
@@ -1149,59 +1145,63 @@ GtkWidget *create_chat_box(void) {
 static void gtk_chat_select_existing_tab(GtkRoomTab *tab) {
    gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), tab->page);
 
-   /* Incoming chat ensures the tab exists on every message. Re-grabbing
-    * GtkEntry focus selects the draft again, so the next key replaces it. */
+   /* Incoming chat ensures the tab exists on every message. Re-grabbing GtkEntry focus selects the draft again, so the next key replaces it. */
    if (page < 0 || page == gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook))) {
       return;
    }
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
+
    if (tab->entry && GTK_IS_WIDGET(tab->entry)) {
       gtk_widget_grab_focus(tab->entry);
    }
 }
 
-/* Menu actions use the same command path as Enter, without serializing,
- * clearing, or recording the user's draft in the input widget. */
+/* Menu actions use the same command path as Enter, without serializing, clearing, or recording the user's draft in the input widget. */
 bool gtk_chat_execute_command(const char *window, const char *command) {
    GtkRoomTab *tab = window && room_tabs ? g_hash_table_lookup(room_tabs, window) : NULL;
+
    if (window && !tab) {
       return false;
    }
+
    if (tab) {
       rrclient_connection_select(tab->server);
       gtk_chat_select_existing_tab(tab);
    }
+
    return parse_chat_input_real(command);
 }
 
-/* PARITY: rustyrig-www/js/webui.chat.js chat_room_links/ActivateRoom.
- * Tags are presentation only; activation uses the originating view's server. */
-static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location,
-      gchar *text, gint length, gpointer user) {
+/* PARITY: rustyrig-www/js/webui.chat.js chat_room_links/ActivateRoom. Tags are presentation only; activation uses the originating view's server. */
+static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location, gchar *text, gint length, gpointer user) {
    (void)user;
    GtkTextIter start = *location, end = *location;
    gtk_text_iter_backward_chars(&start, g_utf8_strlen(text, length));
    gtk_text_iter_set_line_offset(&start, 0);
+
    if (!gtk_text_iter_ends_line(&end)) {
       gtk_text_iter_forward_to_line_end(&end);
    }
-   /* Rescanning a growing token must replace its previous link, preserving
-    * unrelated formatting tags. */
-   for (GtkTextIter cursor = start; gtk_text_iter_compare(&cursor, &end) < 0;
-         gtk_text_iter_forward_char(&cursor)) {
+
+   /* Rescanning a growing token must replace its previous link, preserving unrelated formatting tags. */
+   for (GtkTextIter cursor = start ; gtk_text_iter_compare(&cursor, &end) < 0 ; gtk_text_iter_forward_char(&cursor)) {
       GSList *tags = gtk_text_iter_get_tags(&cursor);
-      for (GSList *entry = tags; entry; entry = entry->next) {
+
+      for (GSList *entry = tags ; entry ; entry = entry->next) {
          if (g_object_get_data(G_OBJECT(entry->data), "rr-room-link")) {
             gtk_text_buffer_remove_tag(buffer, entry->data, &start, &end);
          }
       }
+
       g_slist_free(tags);
    }
+
    char *line = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
    GRegex *pattern = g_object_get_data(G_OBJECT(buffer), "rr-room-pattern");
+
    if (!pattern) {
       pattern = g_regex_new("(?<![A-Za-z0-9_/#])#[A-Za-z0-9_][A-Za-z0-9_.+-]*", 0, 0, NULL);
-      g_object_set_data_full(G_OBJECT(buffer), "rr-room-pattern", pattern, (GDestroyNotify)g_regex_unref);
+      g_object_set_data_full(G_OBJECT(buffer), "rr-room-pattern", pattern, (GDestroyNotify) g_regex_unref);
    }
    GMatchInfo *matches = NULL;
    g_regex_match(pattern, line, 0, &matches);
@@ -1214,6 +1214,7 @@ static void gtk_chat_link_inserted(GtkTextBuffer *buffer, GtkTextIter *location,
       char *room = g_strndup(line + first, last - first);
       char *name = g_strconcat("rr-room-link:", room, NULL);
       GtkTextTag *tag = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(buffer), name);
+
       if (!tag) {
          tag = gtk_text_buffer_create_tag(buffer, name, "underline", PANGO_UNDERLINE_SINGLE, NULL);
          g_object_set_data_full(G_OBJECT(tag), "rr-room-link", g_strdup(room), g_free);
@@ -1237,23 +1238,27 @@ static char *gtk_chat_link_at(GtkWidget *view, gint x, gint y) {
    gtk_text_view_get_iter_at_location(GTK_TEXT_VIEW(view), &iter, bx, by);
    GSList *tags = gtk_text_iter_get_tags(&iter);
    char *room = NULL;
-   for (GSList *entry = tags; entry; entry = entry->next) {
+
+   for (GSList *entry = tags ; entry ; entry = entry->next) {
       const char *value = g_object_get_data(G_OBJECT(entry->data), "rr-room-link");
+
       if (value) {
          room = g_strdup(value);
          break;
       }
    }
+
    g_slist_free(tags);
+
    return room;
 }
 
 static void gtk_chat_link_event(GtkWidget *view, GdkEvent *event, gpointer user) {
    (void)user;
+
    if (event->type == GDK_MOTION_NOTIFY) {
       gint bx, by, x, y;
-      gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT,
-         event->motion.x, event->motion.y, &bx, &by);
+      gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT, event->motion.x, event->motion.y, &bx, &by);
       gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_WIDGET, bx, by, &x, &y);
       char *room = gtk_chat_link_at(view, x, y);
       GdkWindow *window = gtk_text_view_get_window(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT);
@@ -1261,35 +1266,43 @@ static void gtk_chat_link_event(GtkWidget *view, GdkEvent *event, gpointer user)
       gdk_window_set_cursor(window, cursor);
       g_clear_object(&cursor);
       g_free(room);
+
       return;
    }
+
    if (event->type != GDK_BUTTON_RELEASE || event->button.button != 1) {
       return;
    }
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+
    if (gtk_text_buffer_get_has_selection(buffer)) {
       return;
    }
    /* Button coordinates belong to the text window, whereas link_at uses widget coordinates. */
    gint x, y;
-   gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT,
-      event->button.x, event->button.y, &x, &y);
+   gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_TEXT, event->button.x, event->button.y, &x, &y);
    gtk_text_view_buffer_to_window_coords(GTK_TEXT_VIEW(view), GTK_TEXT_WINDOW_WIDGET, x, y, &x, &y);
    char *room = gtk_chat_link_at(view, x, y);
+
    if (!room) {
       return;
    }
    const char *server = g_object_get_data(G_OBJECT(view), "rr-server-name");
+
    if (server && !rrclient_connection_select(server)) {
       g_free(room);
+
       return;
    }
    GtkRoomTab *tab = room_tabs ? g_hash_table_lookup(room_tabs, rrclient_window_name(room)) : NULL;
+
    if (tab) {
       gtk_chat_select_existing_tab(tab);
    } else {
       char command[] = "/join";
-      char *args[] = { command, room };
+      char *args[] = {
+         command, room
+      };
       cmd_join(2, args);
    }
    g_free(room);
@@ -1425,7 +1438,7 @@ bool chat_init(void) {
    gtk_label_set_markup(GTK_LABEL(status_tab_label), tab_desc);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), status_tab, status_tab_label);
    input_history = g_ptr_array_new_with_free_func(g_free);
-   g_object_set_data_full(G_OBJECT(main_notebook), "rr-shared-input-history", input_history, (GDestroyNotify)g_ptr_array_unref);
+   g_object_set_data_full(G_OBJECT(main_notebook), "rr-shared-input-history", input_history, (GDestroyNotify) g_ptr_array_unref);
 
    status_room_tab = g_new0(GtkRoomTab, 1);
    status_room_tab->page = status_tab;

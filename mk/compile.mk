@@ -1,4 +1,16 @@
 UNAME_S := $(shell uname -s)
+# Host RTP support is optional; ESP32 can provide its own SRTP adapter.
+WITH_RTP ?= $(shell pkg-config --exists libsrtp2 && echo true || echo false)
+WITH_RTP_ENCRYPTION ?= false
+SRTP_CFLAGS ?= $(shell pkg-config --cflags libsrtp2 2>/dev/null)
+SRTP_LIBS ?= $(shell pkg-config --libs libsrtp2 2>/dev/null)
+ifeq (${WITH_RTP},true)
+CFLAGS += -DRR_HAVE_SRTP=1 ${SRTP_CFLAGS}
+LDFLAGS += ${SRTP_LIBS}
+ifeq (${WITH_RTP_ENCRYPTION},true)
+CFLAGS += -DRR_RTP_ENCRYPTION=1
+endif
+endif
 ifeq ($(findstring MINGW64_NT,$(UNAME_S)),MINGW64_NT)
 OS := MINGW64
 else ifeq ($(findstring MSYS_NT,$(UNAME_S)),MSYS_NT)

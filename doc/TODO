@@ -10,8 +10,8 @@ rrserver: Add support for SCRAM gpio
 
 * Move all socket code out of librrprotocol
   - It needs to go into client and server code
-    - client glib/wslay
-    - server glib/wslay OR libmongoose
+    - client glib/wslay/$webtransport or libmongoose (embedded)
+    - server glib/wslay/$webtransport OR libmongoose (embedded)
 
 * Elmer/noob mode needs a dialog confirmation system
   - Noob requests elevated privs and is cautioned about their responsibility

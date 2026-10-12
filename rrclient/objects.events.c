@@ -25,14 +25,14 @@ static struct inventory_request {
 static bool inventory_message(dict *d) {
    const char *cmd = dict_get(d, "object.cmd", "");
 
-   if (strcmp(cmd, "inventory-entry") && strcmp(cmd, "inventory-end") ) {
+   if (strcmp(cmd, "inventory-entry") && strcmp(cmd, "inventory-end")) {
       return false;
    }
    struct inventory_request *request = NULL;
    const char *id = dict_get(d, "request.id", "");
 
    for (unsigned i = 0 ; i < INVENTORY_REQUESTS_MAX ; i++) {
-      if (inventory_requests[i].id[0] && !strcmp(inventory_requests[i].id, id) ) {
+      if (inventory_requests[i].id[0] && !strcmp(inventory_requests[i].id, id)) {
          request = &inventory_requests[i];
          break;
       }
@@ -43,9 +43,9 @@ static bool inventory_message(dict *d) {
    }
    const char *window = request->window[0] ? request->window : NULL;
 
-   if (!strcmp(cmd, "inventory-end") ) {
+   if (!strcmp(cmd, "inventory-end")) {
       ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
-      memset(request, 0, sizeof(*request) );
+      memset(request, 0, sizeof(*request));
 
       return true;
    }
@@ -59,8 +59,7 @@ static bool inventory_message(dict *d) {
    if (!visible) {
       const char *kind = dict_get(d, "inventory.kind", "");
       visible = !strcmp(kind, "site") || !strcmp(kind, "rig") ?
-         rrclient_resource_matches(window, dict_get(d, "inventory.room", "") ) :
-         depth && request->visible[depth - 1];
+         rrclient_resource_matches(window, dict_get(d, "inventory.room", "")) : depth && request->visible[depth - 1];
    }
    request->visible[depth] = visible;
 
@@ -69,8 +68,7 @@ static bool inventory_message(dict *d) {
    }
    const char *kind = dict_get(d, "inventory.kind", "");
 
-   bool matches_kind = !strcmp(request->kind, "gps") ? !strcmp(kind, "gps") :
-      !strcmp(kind, "rig") || !strcmp(kind, "vfo");
+   bool matches_kind = !strcmp(request->kind, "gps") ? !strcmp(kind, "gps") : !strcmp(kind, "rig") || !strcmp(kind, "vfo");
 
    if (!matches_kind) {
       return true;
@@ -105,7 +103,7 @@ static bool inventory_message(dict *d) {
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 
-   if (d && inventory_message(d) ) {
+   if (d && inventory_message(d)) {
       dict_free(d);
 
       return;
@@ -115,7 +113,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       cache = rr_object_cache_new();
    }
 
-   if (d && !rr_object_cache_apply(cache, d) ) {
+   if (d && !rr_object_cache_apply(cache, d)) {
       Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
    }
    dict_free(d);
@@ -123,7 +121,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 }
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
-   memset(inventory_requests, 0, sizeof(inventory_requests) );
+   memset(inventory_requests, 0, sizeof(inventory_requests));
    rr_object_cache_free(cache);
    cache = NULL;
 
@@ -140,7 +138,7 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
 }
 
 static void print_line(const char *line, void *user) {
-   ui_print( (const char *)user, "%s", line);
+   ui_print((const char *)user, "%s", line);
 }
 
 bool cmd_object(int argc, char **args) {
@@ -154,7 +152,7 @@ bool cmd_object(int argc, char **args) {
 
    if (!cache) {
       ui_print(window, "No object snapshot received");
-   } else if (!rr_object_cache_dump_context(cache, argc == 2 ? args[1] : NULL, window, print_line, (void *)window) ) {
+   } else if (!rr_object_cache_dump_context(cache, argc == 2 ? args[1] : NULL, window, print_line, (void *)window)) {
       ui_print(window, "Unknown or ambiguous object %s; use /object to choose a qualified symbol or UUID", args[1]);
 
       return true;
@@ -165,9 +163,8 @@ bool cmd_object(int argc, char **args) {
 
 bool cmd_rig(int argc, char **args) {
    const char *window = ui_active_window_name();
-   const char *cmd = argc == 1 || (argc == 2 && !strcasecmp(args[1], "list") ) ? "inventory" :
-      argc == 2 && !strcasecmp(args[1], "subscribe") ? "snapshot" :
-      argc == 2 && !strcasecmp(args[1], "unsubscribe") ? "unsubscribe" : NULL;
+   const char *cmd = argc == 1 || (argc == 2 && !strcasecmp(args[1], "list")) ? "inventory" :
+      argc == 2 && !strcasecmp(args[1], "subscribe") ? "snapshot" : argc == 2 && !strcasecmp(args[1], "unsubscribe") ? "unsubscribe" : NULL;
 
    if (!cmd) {
       ui_print(window, "Usage: /rig list|subscribe|unsubscribe");
@@ -189,7 +186,7 @@ bool cmd_rig(int argc, char **args) {
    snprintf(id, sizeof(id), "rig-%u", ++inventory_request);
    struct inventory_request *pending = NULL;
 
-   if (!strcmp(cmd, "inventory") ) {
+   if (!strcmp(cmd, "inventory")) {
       for (unsigned i = 0 ; i < INVENTORY_REQUESTS_MAX ; i++) {
          if (!inventory_requests[i].id[0]) {
             pending = &inventory_requests[i];
@@ -214,7 +211,7 @@ bool cmd_rig(int argc, char **args) {
    dict_free(d);
 
    if (!sent && pending) {
-      memset(pending, 0, sizeof(*pending) );
+      memset(pending, 0, sizeof(*pending));
    }
 
    return !sent;
@@ -223,12 +220,12 @@ bool cmd_rig(int argc, char **args) {
 bool cmd_gps(int argc, char **args) {
    const char *window = ui_active_window_name();
 
-   if (argc == 1 || (argc == 2 && !strcasecmp(args[1], "list") ) ) {
+   if (argc == 1 || (argc == 2 && !strcasecmp(args[1], "list"))) {
       return cmd_rig(1, args);
    }
    bool unsub = argc == 3 && !strcasecmp(args[1], "unsubscribe");
 
-   if (argc != 3 || (!unsub && strcasecmp(args[1], "subscribe") ) ) {
+   if (argc != 3 || (!unsub && strcasecmp(args[1], "subscribe"))) {
       ui_print(window, "Usage: /gps list|subscribe|unsubscribe <rig-alias|station>");
 
       return true;
@@ -239,7 +236,7 @@ bool cmd_gps(int argc, char **args) {
    for (int i = 0 ; i < RR_CLIENT_MEDIA_MAX_CHANS ; i++) {
       const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, NULL);
 
-      if (!ch || strcmp(ch->name, name) || strcmp(ch->codec, "gpsp") ) {
+      if (!ch || strcmp(ch->name, name) || strcmp(ch->codec, "gpsp")) {
          continue;
       }
       char command[] = "media", action[12];
@@ -284,7 +281,7 @@ const dict *rrclient_object_ref_iter(int index, char *reference, size_t capacity
          return NULL;
       }
 
-      if (!rr_object_cache_in_context(cache, dict_get( (dict *)object, "object.uuid", ""), ui_active_window_name() ) ) {
+      if (!rr_object_cache_in_context(cache, dict_get((dict *) object, "object.uuid", ""), ui_active_window_name())) {
          continue;
       }
 

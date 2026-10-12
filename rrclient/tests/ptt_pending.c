@@ -21,7 +21,7 @@ int main(void) {
    ptt_button_pending_expire = 102;
    now = 100;
    ptt_button_set_state(false);
-   assert(ptt_button_pending); // stale contradictory echo
+   assert(ptt_button_pending);  // stale contradictory echo
    ptt_button_set_state(true);
    assert(!ptt_button_pending && ptt_active && !ptt_button_pending_expire);
    ptt_button_pending = true;

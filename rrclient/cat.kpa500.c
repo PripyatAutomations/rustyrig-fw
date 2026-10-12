@@ -252,7 +252,7 @@ static int32_t rr_cat_kpa500_fwversion(struct AmpState *amp, char *args) {
 
 static int32_t rr_cat_kpa500_serial(struct AmpState *amp, char *args) {
 #ifdef USE_EEPROM
-   rr_cat_printf("^SN%05d", get_serial_number() );
+   rr_cat_printf("^SN%05d", get_serial_number());
 #else // USE_EEPROM
    const char *s = cfg_get("device.serial");
 
@@ -280,7 +280,7 @@ static int32_t rr_cat_kpa500_get_temp(struct AmpState *amp, char *args) {
       }
       sensor = tmp;
    }
-   rr_cat_printf("^TM%03d", get_thermal(sensor) );
+   rr_cat_printf("^TM%03d", get_thermal(sensor));
 
    return 0;
 }
@@ -340,7 +340,7 @@ static int32_t rr_cat_kpa500_power_info(struct AmpState *amp, char *args) {
       if (tmp > 1) {
          tmp = 1;
       }
-      volts = get_voltage(0);    // in power.c
+      volts = get_voltage(0);   // in power.c
       curr = get_current(0);
    }
    rr_cat_printf("^VI%03d %03d", volts, curr);

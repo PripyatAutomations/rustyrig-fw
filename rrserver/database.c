@@ -36,13 +36,13 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
    FILE *fp = fopen(path, "rb");
 
    if (!fp) {
-      Log(LOG_CRIT, "db", "Cannot open database %s %s: %s", description, path, strerror(errno) );
+      Log(LOG_CRIT, "db", "Cannot open database %s %s: %s", description, path, strerror(errno));
 
       return false;
    }
 
    if (fseek(fp, 0, SEEK_END) != 0) {
-      Log(LOG_CRIT, "db", "Cannot seek database SQL %s: %s", path, strerror(errno) );
+      Log(LOG_CRIT, "db", "Cannot seek database SQL %s: %s", path, strerror(errno));
       fclose(fp);
 
       return false;
@@ -57,7 +57,7 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
       return false;
    }
 
-   char *sql = malloc( (size_t)length + 1);
+   char *sql = malloc((size_t)length + 1);
 
    if (!sql || fread(sql, 1, (size_t)length, fp) != (size_t)length) {
       free(sql);
@@ -72,7 +72,7 @@ static bool db_run_sql_file(sqlite3 *db, const char *path, const char *descripti
    int rc = sqlite3_exec(db, sql, NULL, NULL, &error);
 
    if (rc != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "Cannot run database %s %s: %s", description, path, error ? error : sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "Cannot run database %s %s: %s", description, path, error ? error : sqlite3_errmsg(db));
    }
    sqlite3_free(error);
    free(sql);
@@ -117,7 +117,7 @@ static bool db_provision_admin(sqlite3 *db) {
 
    if (fd >= 0) {
       size_t length = strlen(password);
-      ok = write(fd, password, length) == (ssize_t)length && write(fd, "\n", 1) == 1;
+      ok = write(fd, password, length) == (ssize_t) length && write(fd, "\n", 1) == 1;
 
       if (close(fd) != 0) {
          ok = false;
@@ -125,7 +125,8 @@ static bool db_provision_admin(sqlite3 *db) {
 
       if (ok) {
          sqlite3_stmt *update = NULL;
-         ok = sqlite3_prepare_v2(db, "UPDATE users SET enabled=1,password=?,password_change_required=1 WHERE name='admin' AND enabled=0 AND password=''", -1, &
+         ok =
+            sqlite3_prepare_v2(db, "UPDATE users SET enabled=1,password=?,password_change_required=1 WHERE name='admin' AND enabled=0 AND password=''", -1, &
             update, NULL) == SQLITE_OK;
 
          if (ok) {
@@ -168,8 +169,8 @@ static bool db_initialize_new(sqlite3 *db) {
          ok = db_provision_admin(db);
       }
    }
-   free( (void *)template_path);
-   free( (void *)preload_path);
+   free((void *)template_path);
+   free((void *)preload_path);
 
    return ok;
 }
@@ -184,7 +185,7 @@ static void db_ensure_rooms(sqlite3 *db) {
    char *error = NULL;
 
    if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) {
-      Log(LOG_WARN, "db", "Unable to create rooms table: %s", error ? error : sqlite3_errmsg(db) );
+      Log(LOG_WARN, "db", "Unable to create rooms table: %s", error ? error : sqlite3_errmsg(db));
    }
    sqlite3_free(error);
    /* Upgrade databases created before room topics were introduced.  SQLite reports a duplicate-column error when this has already been applied;
@@ -192,8 +193,7 @@ static void db_ensure_rooms(sqlite3 *db) {
    error = NULL;
 
    if (sqlite3_exec(db, "ALTER TABLE rooms ADD COLUMN topic TEXT NOT NULL DEFAULT '';", NULL, NULL, &error) != SQLITE_OK) {
-      if (error && strstr(error, "duplicate column name") == NULL &&
-         strstr(error, "no such table") == NULL) {
+      if (error && strstr(error, "duplicate column name") == NULL && strstr(error, "no such table") == NULL) {
          Log(LOG_WARN, "db", "Unable to add rooms.topic: %s", error);
       }
    }
@@ -211,7 +211,7 @@ static void db_ensure_rooms(sqlite3 *db) {
    if (sqlite3_exec(db,
       "CREATE TABLE IF NOT EXISTS room_vfos (room TEXT NOT NULL, binding TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY "
       "KEY(room,binding));", NULL, NULL, &error) != SQLITE_OK) {
-      Log(LOG_WARN, "db", "Unable to create room_vfos table: %s", error ? error : sqlite3_errmsg(db) );
+      Log(LOG_WARN, "db", "Unable to create room_vfos table: %s", error ? error : sqlite3_errmsg(db));
    }
    sqlite3_free(error);
 }
@@ -223,14 +223,11 @@ static void db_ensure_rig_identities(sqlite3 *db) {
    const char *sql =
       "CREATE TABLE IF NOT EXISTS rig_identities ("
       "identity_namespace TEXT NOT NULL,"
-      "alias TEXT NOT NULL,"
-      "uuid TEXT NOT NULL UNIQUE,"
-      "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-      "PRIMARY KEY(identity_namespace,alias));";
+      "alias TEXT NOT NULL," "uuid TEXT NOT NULL UNIQUE," "created_at DATETIME DEFAULT CURRENT_TIMESTAMP," "PRIMARY KEY(identity_namespace,alias));";
    char *error = NULL;
 
    if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) {
-      Log(LOG_WARN, "db", "Unable to create rig_identities table: %s", error ? error : sqlite3_errmsg(db) );
+      Log(LOG_WARN, "db", "Unable to create rig_identities table: %s", error ? error : sqlite3_errmsg(db));
    }
    sqlite3_free(error);
 }
@@ -245,13 +242,11 @@ static void db_ensure_vfo_identities(sqlite3 *db) {
       "config_id TEXT NOT NULL,"
       "uuid TEXT NOT NULL UNIQUE,"
       "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-      "PRIMARY KEY(rig_uuid,config_id),"
-      "FOREIGN KEY(rig_uuid) REFERENCES rig_identities(uuid) "
-      "ON DELETE CASCADE);";
+      "PRIMARY KEY(rig_uuid,config_id)," "FOREIGN KEY(rig_uuid) REFERENCES rig_identities(uuid) " "ON DELETE CASCADE);";
    char *error = NULL;
 
    if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) {
-      Log(LOG_WARN, "db", "Unable to create vfo_identities table: %s", error ? error : sqlite3_errmsg(db) );
+      Log(LOG_WARN, "db", "Unable to create vfo_identities table: %s", error ? error : sqlite3_errmsg(db));
    }
    sqlite3_free(error);
 }
@@ -276,7 +271,7 @@ static void db_ensure_user_columns(sqlite3 *db) {
 
       if (sqlite3_exec(db, columns[i], NULL, NULL, &error) != SQLITE_OK) {
          if (!error || strstr(error, "duplicate column name") == NULL) {
-            Log(LOG_WARN, "db", "Unable to upgrade users table: %s", error ? error : sqlite3_errmsg(db) );
+            Log(LOG_WARN, "db", "Unable to upgrade users table: %s", error ? error : sqlite3_errmsg(db));
          }
       }
       sqlite3_free(error);
@@ -285,7 +280,7 @@ static void db_ensure_user_columns(sqlite3 *db) {
          error = NULL;
 
          if (sqlite3_exec(db, updates[i], NULL, NULL, &error) != SQLITE_OK) {
-            Log(LOG_WARN, "db", "Unable to initialize users table: %s", error ? error : sqlite3_errmsg(db) );
+            Log(LOG_WARN, "db", "Unable to initialize users table: %s", error ? error : sqlite3_errmsg(db));
          }
          sqlite3_free(error);
       }
@@ -369,15 +364,16 @@ sqlite3 *db_open(const char *path) {
    sqlite3 *db = NULL;
 
    if (sqlite3_open(path, &db) == SQLITE_OK) {
-      /* Readers must not block final usage/audit writes. Bound contention
-       * with other writers so the network loop never waits indefinitely. */
+      /* Readers must not block final usage/audit writes. Bound contention with other writers so the network loop never waits indefinitely. */
       sqlite3_busy_timeout(db, 50);
       char *journal_error = NULL;
+
       if (sqlite3_exec(db, "PRAGMA journal_mode=WAL;", NULL, NULL, &journal_error) != SQLITE_OK) {
          Log(LOG_WARN, "db", "Cannot enable concurrent database readers: %s", journal_error);
          sqlite3_free(journal_error);
       }
-      if (new_database && !db_initialize_new(db) ) {
+
+      if (new_database && !db_initialize_new(db)) {
          sqlite3_close(db);
          unlink(path);
 
@@ -388,7 +384,12 @@ sqlite3 *db_open(const char *path) {
       db_ensure_rooms(db);
       db_ensure_rig_identities(db);
       db_ensure_vfo_identities(db);
-      if (!db_usage_init(db)) { sqlite3_close(db); return NULL; }
+
+      if (!db_usage_init(db)) {
+         sqlite3_close(db);
+
+         return NULL;
+      }
 
       return db;
    }
@@ -397,13 +398,11 @@ sqlite3 *db_open(const char *path) {
 }
 
 char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, const char *alias) {
-   if (!db || !identity_namespace || !*identity_namespace || !alias ||
-      !*alias) {
+   if (!db || !identity_namespace || !*identity_namespace || !alias || !*alias) {
       return NULL;
    }
    sqlite3_stmt *stmt = NULL;
-   const char *select_sql =
-      "SELECT uuid FROM rig_identities WHERE identity_namespace=? AND alias=?;";
+   const char *select_sql = "SELECT uuid FROM rig_identities WHERE identity_namespace=? AND alias=?;";
 
    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
       return NULL;
@@ -413,8 +412,8 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    char *uuid = NULL;
    int status = sqlite3_step(stmt);
 
-   if (status == SQLITE_ROW && sqlite3_column_text(stmt, 0) ) {
-      uuid = strdup( (const char *)sqlite3_column_text(stmt, 0) );
+   if (status == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
 
@@ -428,9 +427,7 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    if (!generated) {
       return NULL;
    }
-   const char *insert_sql =
-      "INSERT OR IGNORE INTO rig_identities(identity_namespace,alias,uuid) "
-      "VALUES(?,?,?);";
+   const char *insert_sql = "INSERT OR IGNORE INTO rig_identities(identity_namespace,alias,uuid) " "VALUES(?,?,?);";
 
    if (sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL) != SQLITE_OK) {
       g_free(generated);
@@ -454,8 +451,8 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    sqlite3_bind_text(stmt, 1, identity_namespace, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 2, alias, -1, SQLITE_TRANSIENT);
 
-   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0) ) {
-      uuid = strdup( (const char *)sqlite3_column_text(stmt, 0) );
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
 
@@ -467,8 +464,7 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
       return NULL;
    }
    sqlite3_stmt *stmt = NULL;
-   const char *select_sql =
-      "SELECT uuid FROM vfo_identities WHERE rig_uuid=? AND config_id=?;";
+   const char *select_sql = "SELECT uuid FROM vfo_identities WHERE rig_uuid=? AND config_id=?;";
 
    if (sqlite3_prepare_v2(db, select_sql, -1, &stmt, NULL) != SQLITE_OK) {
       return NULL;
@@ -478,8 +474,8 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
    char *uuid = NULL;
    int status = sqlite3_step(stmt);
 
-   if (status == SQLITE_ROW && sqlite3_column_text(stmt, 0) ) {
-      uuid = strdup( (const char *)sqlite3_column_text(stmt, 0) );
+   if (status == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
 
@@ -492,9 +488,7 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
    if (!generated) {
       return NULL;
    }
-   const char *insert_sql =
-      "INSERT OR IGNORE INTO vfo_identities(rig_uuid,config_id,uuid) "
-      "VALUES(?,?,?);";
+   const char *insert_sql = "INSERT OR IGNORE INTO vfo_identities(rig_uuid,config_id,uuid) " "VALUES(?,?,?);";
 
    if (sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL) != SQLITE_OK) {
       g_free(generated);
@@ -518,8 +512,8 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *c
    sqlite3_bind_text(stmt, 1, rig_uuid, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 2, config_id, -1, SQLITE_TRANSIENT);
 
-   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0) ) {
-      uuid = strdup( (const char *)sqlite3_column_text(stmt, 0) );
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      uuid = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
 
@@ -547,8 +541,7 @@ bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_m
       return false;
    }
    const char *sql = exists
-      ? "UPDATE rooms SET has_vfos=?2,vfo_mask=?3 WHERE name=?1 COLLATE NOCASE AND deleted=0;"
-      : "INSERT INTO rooms(name,has_vfos,vfo_mask) VALUES(?,?,?);";
+      ? "UPDATE rooms SET has_vfos=?2,vfo_mask=?3 WHERE name=?1 COLLATE NOCASE AND deleted=0;" : "INSERT INTO rooms(name,has_vfos,vfo_mask) VALUES(?,?,?);";
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
@@ -556,7 +549,7 @@ bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_m
    }
    sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(st, 2, has_vfos ? 1 : 0);
-   sqlite3_bind_int64(st, 3, (sqlite3_int64)vfo_mask);
+   sqlite3_bind_int64(st, 3, (sqlite3_int64) vfo_mask);
    bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(st);
 
@@ -743,7 +736,7 @@ char *db_room_list(sqlite3 *db) {
       if (len) {
          out[len++] = ' ';
       }
-      memcpy(out + len, name, strlen(name) );
+      memcpy(out + len, name, strlen(name));
       len += strlen(name);
       out[len] = 0;
    }
@@ -800,13 +793,13 @@ static char *db_join_rows(sqlite3 *db, const char *sql, const char *room, bool i
       }
 
       if (b) {
-         memcpy(out + len, a, strlen(a) );
+         memcpy(out + len, a, strlen(a));
          len += strlen(a);
          out[len++] = '=';
-         memcpy(out + len, b, strlen(b) );
+         memcpy(out + len, b, strlen(b));
          len += strlen(b);
       } else {
-         memcpy(out + len, a, strlen(a) );
+         memcpy(out + len, a, strlen(a));
          len += strlen(a);
       }
       out[len] = 0;
@@ -932,13 +925,12 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
       return false;
    }
    const char *sql = "INSERT INTO users "
-      "(uid, name, enabled, password, password_set, email, maxsessions, permissions) "
-      "VALUES (?, ?, ?, ?, unixepoch(), ?, ?, ?);";
+      "(uid, name, enabled, password, password_set, email, maxsessions, permissions) " "VALUES (?, ?, ?, ?, unixepoch(), ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "failed preparing statement in db_add_user: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "failed preparing statement in db_add_user: %s", sqlite3_errmsg(db));
 
       return false;
    }
@@ -975,7 +967,7 @@ bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const 
    sqlite3_bind_text(stmt, 4, password, -1, SQLITE_TRANSIENT);
 
    if (password_expires > 0) {
-      sqlite3_bind_int64(stmt, 5, (sqlite3_int64)password_expires);
+      sqlite3_bind_int64(stmt, 5, (sqlite3_int64) password_expires);
    } else {
       sqlite3_bind_null(stmt, 5);
    }
@@ -1066,8 +1058,7 @@ bool db_user_update_password(sqlite3 *db, const char *name, const char *password
       return false;
    }
    sqlite3_stmt *stmt = NULL;
-   const char *sql = "UPDATE users SET password=?, password_set=unixepoch(), password_expires=?, "
-      "password_change_required=? WHERE name=?;";
+   const char *sql = "UPDATE users SET password=?, password_set=unixepoch(), password_expires=?, " "password_change_required=? WHERE name=?;";
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       return false;
@@ -1075,7 +1066,7 @@ bool db_user_update_password(sqlite3 *db, const char *name, const char *password
    sqlite3_bind_text(stmt, 1, password_hash, -1, SQLITE_TRANSIENT);
 
    if (password_expires > 0) {
-      sqlite3_bind_int64(stmt, 2, (sqlite3_int64)password_expires);
+      sqlite3_bind_int64(stmt, 2, (sqlite3_int64) password_expires);
    } else {
       sqlite3_bind_null(stmt, 2);
    }
@@ -1116,7 +1107,7 @@ int db_get_users(sqlite3 *db) {
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "db_get_users: prepare failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_get_users: prepare failed: %s", sqlite3_errmsg(db));
 
       return -1;
    }
@@ -1124,19 +1115,18 @@ int db_get_users(sqlite3 *db) {
    /* Reload the persistent fields without dropping live connection state. Authentication keeps pointers into this array, so preserve the fields maintained by
     * the protocol layer while replacing the database-backed account data. */
    http_user_t old_users[HTTP_MAX_USERS];
-   memcpy(old_users, http_users, sizeof(old_users) );
-   memset(http_users, 0, sizeof(http_users) );
+   memcpy(old_users, http_users, sizeof(old_users));
+   memset(http_users, 0, sizeof(http_users));
    int user_count = 0;
    int rc;
 
-   while ( (rc = sqlite3_step(stmt) ) == SQLITE_ROW && user_count < HTTP_MAX_USERS) {
+   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && user_count < HTTP_MAX_USERS) {
       int uid = sqlite3_column_int(stmt, 0);
       const char *name = (const char *)sqlite3_column_text(stmt, 1);
       bool enabled = sqlite3_column_int(stmt, 2) != 0;
       const char *pass = (const char *)sqlite3_column_text(stmt, 3);
-      time_t password_set = (time_t)sqlite3_column_int64(stmt, 4);
-      time_t password_expires = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? 0 :
-         (time_t)sqlite3_column_int64(stmt, 5);
+      time_t password_set = (time_t) sqlite3_column_int64(stmt, 4);
+      time_t password_expires = sqlite3_column_type(stmt, 5) == SQLITE_NULL ? 0 : (time_t) sqlite3_column_int64(stmt, 5);
       bool password_change_required = sqlite3_column_int(stmt, 6) != 0;
       const char *email = (const char *)sqlite3_column_text(stmt, 7);
       int maxsessions = sqlite3_column_int(stmt, 8);
@@ -1152,18 +1142,18 @@ int db_get_users(sqlite3 *db) {
       up->uid = uid;
       up->sessions = old_users[uid].sessions;
       up->is_muted = old_users[uid].is_muted;
-      strlcpy(up->name, name, sizeof(up->name) );
+      strlcpy(up->name, name, sizeof(up->name));
       up->enabled = enabled;
       up->password_set = password_set;
       up->password_expires = password_expires;
       up->password_change_required = password_change_required;
 
       if (pass) {
-         strlcpy(up->pass, pass, sizeof(up->pass) );
+         strlcpy(up->pass, pass, sizeof(up->pass));
       }
 
       if (email) {
-         strlcpy(up->email, email, sizeof(up->email) );
+         strlcpy(up->email, email, sizeof(up->email));
       }
 
       if (maxsessions < 1 || maxsessions > HTTP_MAX_SESSIONS) {
@@ -1173,7 +1163,7 @@ int db_get_users(sqlite3 *db) {
       up->max_sessions = maxsessions;
 
       if (privs) {
-         strlcpy(up->privs, privs, sizeof(up->privs) );
+         strlcpy(up->privs, privs, sizeof(up->privs));
       }
 
       Log(LOG_CRAZY, "db", "db_get_users: uid=%d, user=%s, email=%s, enabled=%s, privs=%s, max_sessions=%d", uid, up->name, (up->email[0] != '\0' ? up->email :
@@ -1182,7 +1172,7 @@ int db_get_users(sqlite3 *db) {
    }
 
    if (rc != SQLITE_DONE) {
-      Log(LOG_CRIT, "db", "db_get_users: iteration failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_get_users: iteration failed: %s", sqlite3_errmsg(db));
       sqlite3_finalize(stmt);
       memcpy(http_users, old_users, sizeof(old_users));
 
@@ -1197,21 +1187,32 @@ int db_get_users(sqlite3 *db) {
    return user_count;
 }
 
-/* Emit a server-owned safety event; listeners latch immediately and defer
- * any database-writing PTT cleanup until after this statement is finalized. */
+/* Emit a server-owned safety event; listeners latch immediately and defer any database-writing PTT cleanup until after this statement is finalized. */
 static int accounting_prepare(sqlite3 *db, const char *sql, int bytes, sqlite3_stmt **stmt, const char **tail, const char *operation) {
    int result = sqlite3_prepare_v2(db, sql, bytes, stmt, tail);
-   if (result != SQLITE_OK) event_emit("accounting.write.failed", NULL, operation);
+
+   if (result != SQLITE_OK) {
+      event_emit("accounting.write.failed", NULL, operation);
+   }
+
    return result;
 }
 static int accounting_step(sqlite3_stmt *stmt, const char *operation) {
    int result = sqlite3_step(stmt);
-   if (result != SQLITE_DONE && result != SQLITE_ROW) event_emit("accounting.write.failed", NULL, operation);
+
+   if (result != SQLITE_DONE && result != SQLITE_ROW) {
+      event_emit("accounting.write.failed", NULL, operation);
+   }
+
    return result;
 }
-static int accounting_exec(sqlite3 *db, const char *sql, int (*callback)(void *, int, char **, char **), void *user, char **error, const char *operation) {
+static int accounting_exec(sqlite3 *db, const char *sql, int (*callback) (void *, int, char **, char **), void *user, char **error, const char *operation) {
    int result = sqlite3_exec(db, sql, callback, user, error);
-   if (result != SQLITE_OK) event_emit("accounting.write.failed", NULL, operation);
+
+   if (result != SQLITE_OK) {
+      event_emit("accounting.write.failed", NULL, operation);
+   }
+
    return result;
 }
 
@@ -1224,7 +1225,7 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    sqlite3_stmt *stmt;
 
    if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_add_audit_event") != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "failed preparing statement in db_add_audit_event: %s", sqlite3_errmsg(db));
 
       return false;
    }
@@ -1234,7 +1235,10 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 
    int result = accounting_step(stmt, "db_add_audit_event");
    bool success = result == SQLITE_DONE;
-   if (!success) Log(LOG_WARN, "db", "Failed saving audit event %s: SQLite %d: %s", event_type, result, sqlite3_errmsg(db));
+
+   if (!success) {
+      Log(LOG_WARN, "db", "Failed saving audit event %s: SQLite %d: %s", event_type, result, sqlite3_errmsg(db));
+   }
    sqlite3_finalize(stmt);
 
    return success;
@@ -1246,14 +1250,12 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
       return -1;
    }
    // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
-   const char *sql =
-      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id) "
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+   const char *sql = "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id) " "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
    if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_ptt_start") != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "failed preparing statement in db_ptt_start: %s", sqlite3_errmsg(db));
 
       return -1;
    }
@@ -1280,31 +1282,43 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    sqlite3_finalize(stmt);
 
    // Pass the session key
-   return row_id;   // Caller should store this to end the session
+   return row_id;               // Caller should store this to end the session
 }
 
 // Close out a PTT session row: stamp end_time and duration (seconds).
 // Returns the duration via *duration_secs when non-NULL (so callers can log
 // how long the user transmitted); -1 if the row wasn't found.
 bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *stop_reason) {
-   if (!db || session_id < 0) return false;
-   if (accounting_exec(db, "SAVEPOINT ptt_usage", NULL, NULL, NULL, "db_ptt_stop") != SQLITE_OK) return false;
+   if (!db || session_id < 0) {
+      return false;
+   }
+
+   if (accounting_exec(db, "SAVEPOINT ptt_usage", NULL, NULL, NULL, "db_ptt_stop") != SQLITE_OK) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
-   const char *sql = "UPDATE ptt_log SET end_time=CURRENT_TIMESTAMP, duration=MAX(0,CAST(ROUND((julianday('now')-julianday(start_time))*86400) AS INTEGER)),stop_reason=? WHERE id=? AND end_time IS NULL";
+   const char *sql =
+      "UPDATE ptt_log SET end_time=CURRENT_TIMESTAMP, duration=MAX(0,CAST(ROUND((julianday('now')-julianday(start_time))*86400) AS INTEGER)),stop_reason=? WHERE id=? AND end_time IS NULL";
    bool ok = accounting_prepare(db, sql, -1, &stmt, NULL, "db_ptt_stop") == SQLITE_OK;
+
    if (ok) {
       sqlite3_bind_text(stmt, 1, stop_reason && *stop_reason ? stop_reason : "released", -1, SQLITE_STATIC);
       sqlite3_bind_int(stmt, 2, session_id);
       ok = accounting_step(stmt, "db_ptt_stop") == SQLITE_DONE && sqlite3_changes(db) == 1;
    }
-   sqlite3_finalize(stmt); stmt = NULL;
+   sqlite3_finalize(stmt);
+   stmt = NULL;
    int duration = -1;
+
    if (ok) {
-      const char *read = "SELECT username,duration,MAX(0,MIN(duration,unixepoch(end_time)-MAX(unixepoch(start_time),coalesce((SELECT MAX(reset_at,tx_reset_at) FROM user_usage WHERE name=ptt_log.username),0)))) FROM ptt_log WHERE id=?";
+      const char *read =
+         "SELECT username,duration,MAX(0,MIN(duration,unixepoch(end_time)-MAX(unixepoch(start_time),coalesce((SELECT MAX(reset_at,tx_reset_at) FROM user_usage WHERE name=ptt_log.username),0)))) FROM ptt_log WHERE id=?";
       ok = accounting_prepare(db, read, -1, &stmt, NULL, "db_ptt_stop") == SQLITE_OK;
+
       if (ok) {
          sqlite3_bind_int(stmt, 1, session_id);
          ok = accounting_step(stmt, "db_ptt_stop") == SQLITE_ROW;
+
          if (ok) {
             duration = sqlite3_column_int(stmt, 1);
             ok = db_usage_add_tx(db, (const char *)sqlite3_column_text(stmt, 0), sqlite3_column_int64(stmt, 2));
@@ -1312,14 +1326,23 @@ bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *st
       }
       sqlite3_finalize(stmt);
    }
+
    if (!ok) {
       accounting_exec(db, "ROLLBACK TO ptt_usage", NULL, NULL, NULL, "db_ptt_stop");
       accounting_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL, "db_ptt_stop");
       Log(LOG_WARN, "db", "PTT session/usage close failed for %d: %s", session_id, sqlite3_errmsg(db));
+
       return false;
    }
-   if (accounting_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL, "db_ptt_stop") != SQLITE_OK) return false;
-   if (duration_secs) *duration_secs = duration;
+
+   if (accounting_exec(db, "RELEASE ptt_usage", NULL, NULL, NULL, "db_ptt_stop") != SQLITE_OK) {
+      return false;
+   }
+
+   if (duration_secs) {
+      *duration_secs = duration;
+   }
+
    return true;
 }
 
@@ -1331,20 +1354,17 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
       return false;
    }
 
-   const char *sql =
-      "INSERT INTO chat_log "
-      "(msg_ts, msg_src, msg_dest, msg_type, msg_data) "
-      "VALUES (?, ?, ?, ?, ?);";
+   const char *sql = "INSERT INTO chat_log " "(msg_ts, msg_src, msg_dest, msg_type, msg_data) " "VALUES (?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "failed preparing statement in db_add_chat_msg: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "failed preparing statement in db_add_chat_msg: %s", sqlite3_errmsg(db));
 
       return false;
    }
 
-   sqlite3_bind_int64(stmt, 1, (sqlite3_int64)msg_ts);
+   sqlite3_bind_int64(stmt, 1, (sqlite3_int64) msg_ts);
    sqlite3_bind_text(stmt, 2, msg_src, -1, SQLITE_TRANSIENT);
 
    if (msg_dest) {
@@ -1359,7 +1379,7 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
 
    if (!success) {
-      Log(LOG_CRIT, "db", "db_add_chat_msg failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_add_chat_msg failed: %s", sqlite3_errmsg(db));
    }
 
    sqlite3_finalize(stmt);
@@ -1380,7 +1400,7 @@ int db_quota_get(sqlite3 *db, const char *username) {
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "db_quota_get: prepare failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_quota_get: prepare failed: %s", sqlite3_errmsg(db));
 
       return -1;
    }
@@ -1404,14 +1424,12 @@ bool db_quota_spend(sqlite3 *db, const char *username, int secs) {
    }
    const char *sql =
       "INSERT INTO tx_credits (name, credits) VALUES (?, -?) "
-      "ON CONFLICT(name) DO UPDATE SET "
-      "credits = credits + excluded.credits, "
-      "updated = CURRENT_TIMESTAMP;";
+      "ON CONFLICT(name) DO UPDATE SET " "credits = credits + excluded.credits, " "updated = CURRENT_TIMESTAMP;";
 
    sqlite3_stmt *stmt = NULL;
 
    if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_quota_spend") != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "db_quota_spend: prepare failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_quota_spend: prepare failed: %s", sqlite3_errmsg(db));
 
       return false;
    }
@@ -1436,14 +1454,12 @@ bool db_quota_add(sqlite3 *db, const char *username, int credits) {
    }
    const char *sql =
       "INSERT INTO tx_credits (name, credits) VALUES (?, ?) "
-      "ON CONFLICT(name) DO UPDATE SET "
-      "credits = credits + excluded.credits, "
-      "updated = CURRENT_TIMESTAMP;";
+      "ON CONFLICT(name) DO UPDATE SET " "credits = credits + excluded.credits, " "updated = CURRENT_TIMESTAMP;";
 
    sqlite3_stmt *stmt = NULL;
 
    if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_quota_add") != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "db_quota_add: prepare failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_quota_add: prepare failed: %s", sqlite3_errmsg(db));
 
       return false;
    }
@@ -1462,15 +1478,12 @@ bool db_quota_set(sqlite3 *db, const char *username, int credits) {
       return false;
    }
    const char *sql =
-      "INSERT INTO tx_credits (name, credits) VALUES (?, ?) "
-      "ON CONFLICT(name) DO UPDATE SET "
-      "credits = excluded.credits, "
-      "updated = CURRENT_TIMESTAMP;";
+      "INSERT INTO tx_credits (name, credits) VALUES (?, ?) " "ON CONFLICT(name) DO UPDATE SET " "credits = excluded.credits, " "updated = CURRENT_TIMESTAMP;";
 
    sqlite3_stmt *stmt = NULL;
 
    if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_quota_set") != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "db_quota_set: prepare failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_quota_set: prepare failed: %s", sqlite3_errmsg(db));
 
       return false;
    }
@@ -1490,26 +1503,23 @@ bool db_quota_list(sqlite3 *db, int (*cb) (const char *name, int credits, void *
       return false;
    }
    // All users with their credits; users without a tx_credits row show 0
-   const char *sql =
-      "SELECT u.name, COALESCE(c.credits, 0) "
-      "FROM users u LEFT JOIN tx_credits c ON c.name = u.name "
-      "ORDER BY u.name;";
+   const char *sql = "SELECT u.name, COALESCE(c.credits, 0) " "FROM users u LEFT JOIN tx_credits c ON c.name = u.name " "ORDER BY u.name;";
 
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "db_quota_list: prepare failed: %s", sqlite3_errmsg(db) );
+      Log(LOG_CRIT, "db", "db_quota_list: prepare failed: %s", sqlite3_errmsg(db));
 
       return false;
    }
 
    int rc;
 
-   while ( (rc = sqlite3_step(stmt) ) == SQLITE_ROW) {
+   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
       const char *name = (const char *)sqlite3_column_text(stmt, 0);
       int credits = sqlite3_column_int(stmt, 1);
 
-      if (!cb(name, credits, user) ) {
+      if (!cb(name, credits, user)) {
          break;
       }
    }
@@ -1520,48 +1530,81 @@ bool db_quota_list(sqlite3 *db, int (*cb) (const char *name, int credits, void *
 
 /* Usage counters saturate at SQLite's signed integer limit, never wrap to REAL. */
 bool db_usage_init(sqlite3 *db) {
-   if (!db) return false;
-   return sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS user_usage (name TEXT PRIMARY KEY COLLATE NOCASE, reset_at INTEGER NOT NULL DEFAULT (unixepoch()), tx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_bytes >= 0), tx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_frames >= 0), tx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_bytes >= 0), tx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_frames >= 0), rx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_bytes >= 0), rx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_frames >= 0), rx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_bytes >= 0), rx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_frames >= 0), session_seconds INTEGER NOT NULL DEFAULT 0 CHECK(session_seconds >= 0), tx_seconds INTEGER NOT NULL DEFAULT 0 CHECK(tx_seconds >= 0), bandwidth_remaining INTEGER, tx_reset_at INTEGER NOT NULL DEFAULT 0);", NULL, NULL, NULL) == SQLITE_OK;
+   if (!db) {
+      return false;
+   }
+
+   return sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS user_usage (name TEXT PRIMARY KEY COLLATE NOCASE, reset_at INTEGER NOT NULL DEFAULT (unixepoch()), tx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_bytes >= 0), tx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_frames >= 0), tx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_bytes >= 0), tx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_frames >= 0), rx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_bytes >= 0), rx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_frames >= 0), rx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_bytes >= 0), rx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_frames >= 0), session_seconds INTEGER NOT NULL DEFAULT 0 CHECK(session_seconds >= 0), tx_seconds INTEGER NOT NULL DEFAULT 0 CHECK(tx_seconds >= 0), bandwidth_remaining INTEGER, tx_reset_at INTEGER NOT NULL DEFAULT 0);",
+      NULL, NULL, NULL) == SQLITE_OK;
 }
 
 bool db_usage_get(sqlite3 *db, const char *name, struct rr_usage *usage) {
-   if (!db || !name || !*name || !usage) return false;
+   if (!db || !name || !*name || !usage) {
+      return false;
+   }
    memset(usage, 0, sizeof(*usage));
    sqlite3_stmt *stmt = NULL;
-   if (sqlite3_prepare_v2(db, "SELECT tx_text_bytes,tx_text_frames,tx_binary_bytes,tx_binary_frames,rx_text_bytes,rx_text_frames,rx_binary_bytes,rx_binary_frames,session_seconds,tx_seconds,bandwidth_remaining,reset_at FROM user_usage WHERE name=?", -1, &stmt, NULL) != SQLITE_OK) return false;
+
+   if (sqlite3_prepare_v2(db,
+      "SELECT tx_text_bytes,tx_text_frames,tx_binary_bytes,tx_binary_frames,rx_text_bytes,rx_text_frames,rx_binary_bytes,rx_binary_frames,session_seconds,tx_seconds,bandwidth_remaining,reset_at FROM user_usage WHERE name=?",
+      -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    int result = sqlite3_step(stmt);
+
    if (result == SQLITE_ROW) {
-      usage->traffic.tx_text_bytes = (uint64_t)sqlite3_column_int64(stmt, 0);
-      usage->traffic.tx_text_frames = (uint64_t)sqlite3_column_int64(stmt, 1);
-      usage->traffic.tx_binary_bytes = (uint64_t)sqlite3_column_int64(stmt, 2);
-      usage->traffic.tx_binary_frames = (uint64_t)sqlite3_column_int64(stmt, 3);
-      usage->traffic.rx_text_bytes = (uint64_t)sqlite3_column_int64(stmt, 4);
-      usage->traffic.rx_text_frames = (uint64_t)sqlite3_column_int64(stmt, 5);
-      usage->traffic.rx_binary_bytes = (uint64_t)sqlite3_column_int64(stmt, 6);
-      usage->traffic.rx_binary_frames = (uint64_t)sqlite3_column_int64(stmt, 7);
-      usage->session_seconds = (uint64_t)sqlite3_column_int64(stmt, 8);
-      usage->tx_seconds = (uint64_t)sqlite3_column_int64(stmt, 9);
+      usage->traffic.tx_text_bytes = (uint64_t) sqlite3_column_int64(stmt, 0);
+      usage->traffic.tx_text_frames = (uint64_t) sqlite3_column_int64(stmt, 1);
+      usage->traffic.tx_binary_bytes = (uint64_t) sqlite3_column_int64(stmt, 2);
+      usage->traffic.tx_binary_frames = (uint64_t) sqlite3_column_int64(stmt, 3);
+      usage->traffic.rx_text_bytes = (uint64_t) sqlite3_column_int64(stmt, 4);
+      usage->traffic.rx_text_frames = (uint64_t) sqlite3_column_int64(stmt, 5);
+      usage->traffic.rx_binary_bytes = (uint64_t) sqlite3_column_int64(stmt, 6);
+      usage->traffic.rx_binary_frames = (uint64_t) sqlite3_column_int64(stmt, 7);
+      usage->session_seconds = (uint64_t) sqlite3_column_int64(stmt, 8);
+      usage->tx_seconds = (uint64_t) sqlite3_column_int64(stmt, 9);
       usage->bandwidth_limited = sqlite3_column_type(stmt, 10) != SQLITE_NULL;
       usage->bandwidth_remaining = sqlite3_column_int64(stmt, 10);
       usage->reset_at = sqlite3_column_int64(stmt, 11);
    }
    sqlite3_finalize(stmt);
+
    return result == SQLITE_ROW || result == SQLITE_DONE;
 }
 
 bool db_usage_record(sqlite3 *db, const char *name, const struct rr_traffic *delta, uint64_t seconds) {
-   if (!db || !name || !*name || !delta || seconds > INT64_MAX) return false;
-   const uint64_t values[] = {delta->tx_text_bytes,delta->tx_text_frames,delta->tx_binary_bytes,delta->tx_binary_frames,delta->rx_text_bytes,delta->rx_text_frames,delta->rx_binary_bytes,delta->rx_binary_frames,seconds};
-   for (unsigned i=0; i<9; i++) if (values[i] > INT64_MAX) return false;
+   if (!db || !name || !*name || !delta || seconds > INT64_MAX) {
+      return false;
+   }
+   const uint64_t values[] =
+   {
+      delta->tx_text_bytes, delta->tx_text_frames, delta->tx_binary_bytes, delta->tx_binary_frames, delta->rx_text_bytes, delta->rx_text_frames,
+      delta->rx_binary_bytes, delta->rx_binary_frames, seconds
+   };
+
+   for (unsigned i = 0 ; i < 9 ; i++) {
+      if (values[i] > INT64_MAX) {
+         return false;
+      }
+   }
+
    uint64_t bytes = 0;
-   const uint64_t octets[] = {delta->tx_text_bytes,delta->tx_binary_bytes,delta->rx_text_bytes,delta->rx_binary_bytes};
-   for (unsigned i=0; i<4; i++) {
-      if (octets[i] > INT64_MAX - bytes) return false;
+   const uint64_t octets[] = {
+      delta->tx_text_bytes, delta->tx_binary_bytes, delta->rx_text_bytes, delta->rx_binary_bytes
+   };
+
+   for (unsigned i = 0 ; i < 4 ; i++) {
+      if (octets[i] > INT64_MAX - bytes) {
+         return false;
+      }
       bytes += octets[i];
    }
+
    sqlite3_stmt *stmt = NULL;
-   const char *sql = "INSERT INTO user_usage (name,tx_text_bytes,tx_text_frames,tx_binary_bytes,tx_binary_frames,rx_text_bytes,rx_text_frames,rx_binary_bytes,rx_binary_frames,session_seconds) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET "
+   const char *sql =
+      "INSERT INTO user_usage (name,tx_text_bytes,tx_text_frames,tx_binary_bytes,tx_binary_frames,rx_text_bytes,rx_text_frames,rx_binary_bytes,rx_binary_frames,session_seconds) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET "
       "tx_text_bytes=CASE WHEN tx_text_bytes > 9223372036854775807-excluded.tx_text_bytes THEN 9223372036854775807 ELSE tx_text_bytes+excluded.tx_text_bytes END, "
       "tx_text_frames=CASE WHEN tx_text_frames > 9223372036854775807-excluded.tx_text_frames THEN 9223372036854775807 ELSE tx_text_frames+excluded.tx_text_frames END, "
       "tx_binary_bytes=CASE WHEN tx_binary_bytes > 9223372036854775807-excluded.tx_binary_bytes THEN 9223372036854775807 ELSE tx_binary_bytes+excluded.tx_binary_bytes END, "
@@ -1572,61 +1615,97 @@ bool db_usage_record(sqlite3 *db, const char *name, const struct rr_traffic *del
       "rx_binary_frames=CASE WHEN rx_binary_frames > 9223372036854775807-excluded.rx_binary_frames THEN 9223372036854775807 ELSE rx_binary_frames+excluded.rx_binary_frames END, "
       "session_seconds=CASE WHEN session_seconds > 9223372036854775807-excluded.session_seconds THEN 9223372036854775807 ELSE session_seconds+excluded.session_seconds END, "
       "bandwidth_remaining=CASE WHEN bandwidth_remaining IS NULL THEN NULL WHEN bandwidth_remaining < -9223372036854775807+? THEN -9223372036854775807 ELSE bandwidth_remaining-? END";
-   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_record") != SQLITE_OK) return false;
+
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_record") != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
-   for (unsigned i=0; i<9; i++) sqlite3_bind_int64(stmt, i+2, values[i]);
+
+   for (unsigned i = 0 ; i < 9 ; i++) {
+      sqlite3_bind_int64(stmt, i + 2, values[i]);
+   }
+
    sqlite3_bind_int64(stmt, 11, bytes);
    sqlite3_bind_int64(stmt, 12, bytes);
    bool ok = accounting_step(stmt, "db_usage_record") == SQLITE_DONE;
    sqlite3_finalize(stmt);
+
    return ok;
 }
 
 bool db_usage_add_tx(sqlite3 *db, const char *name, uint64_t seconds) {
-   if (!db || !name || !*name || seconds > INT64_MAX) return false;
+   if (!db || !name || !*name || seconds > INT64_MAX) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
-   const char *sql = "INSERT INTO user_usage(name,tx_seconds) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET tx_seconds=CASE WHEN tx_seconds>9223372036854775807-excluded.tx_seconds THEN 9223372036854775807 ELSE tx_seconds+excluded.tx_seconds END";
-   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_add_tx") != SQLITE_OK) return false;
+   const char *sql =
+      "INSERT INTO user_usage(name,tx_seconds) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET tx_seconds=CASE WHEN tx_seconds>9223372036854775807-excluded.tx_seconds THEN 9223372036854775807 ELSE tx_seconds+excluded.tx_seconds END";
+
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_add_tx") != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(stmt, 2, seconds);
    bool ok = accounting_step(stmt, "db_usage_add_tx") == SQLITE_DONE;
    sqlite3_finalize(stmt);
+
    return ok;
 }
 
 bool db_usage_bandwidth_set(sqlite3 *db, const char *name, uint64_t bytes, bool add) {
-   if (!db || !name || !*name || bytes > INT64_MAX) return false;
+   if (!db || !name || !*name || bytes > INT64_MAX) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
    const char *sql = add ?
-      "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET bandwidth_remaining=coalesce(bandwidth_remaining,0)+excluded.bandwidth_remaining WHERE coalesce(bandwidth_remaining,0)<=9223372036854775807-excluded.bandwidth_remaining" :
-      "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET bandwidth_remaining=excluded.bandwidth_remaining";
-   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_bandwidth_set") != SQLITE_OK) return false;
+      "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET bandwidth_remaining=coalesce(bandwidth_remaining,0)+excluded.bandwidth_remaining WHERE coalesce(bandwidth_remaining,0)<=9223372036854775807-excluded.bandwidth_remaining"
+      : "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET bandwidth_remaining=excluded.bandwidth_remaining";
+
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_bandwidth_set") != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(stmt, 2, bytes);
    bool ok = accounting_step(stmt, "db_usage_bandwidth_set") == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(stmt);
+
    return ok;
 }
 
 bool db_usage_reset(sqlite3 *db, const char *name, uint64_t allowance) {
-   if (!db || !name || !*name || allowance > INT64_MAX) return false;
+   if (!db || !name || !*name || allowance > INT64_MAX) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
-   const char *sql = "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET reset_at=unixepoch(),tx_reset_at=unixepoch(),bandwidth_remaining=excluded.bandwidth_remaining,tx_text_bytes=0,tx_text_frames=0,tx_binary_bytes=0,tx_binary_frames=0,rx_text_bytes=0,rx_text_frames=0,rx_binary_bytes=0,rx_binary_frames=0,session_seconds=0,tx_seconds=0";
-   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_reset") != SQLITE_OK) return false;
+   const char *sql =
+      "INSERT INTO user_usage(name,bandwidth_remaining) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET reset_at=unixepoch(),tx_reset_at=unixepoch(),bandwidth_remaining=excluded.bandwidth_remaining,tx_text_bytes=0,tx_text_frames=0,tx_binary_bytes=0,tx_binary_frames=0,rx_text_bytes=0,rx_text_frames=0,rx_binary_bytes=0,rx_binary_frames=0,session_seconds=0,tx_seconds=0";
+
+   if (accounting_prepare(db, sql, -1, &stmt, NULL, "db_usage_reset") != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int64(stmt, 2, allowance);
    bool ok = accounting_step(stmt, "db_usage_reset") == SQLITE_DONE;
    sqlite3_finalize(stmt);
+
    return ok;
 }
 
 bool db_usage_reset_tx(sqlite3 *db, const char *name) {
-   if (!db || !name || !*name) return false;
+   if (!db || !name || !*name) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
-   if (accounting_prepare(db, "INSERT INTO user_usage(name,tx_reset_at) VALUES (?,unixepoch()) ON CONFLICT(name) DO UPDATE SET tx_seconds=0,tx_reset_at=unixepoch()", -1, &stmt, NULL, "db_usage_reset_tx") != SQLITE_OK) return false;
+
+   if (accounting_prepare(db,
+      "INSERT INTO user_usage(name,tx_reset_at) VALUES (?,unixepoch()) ON CONFLICT(name) DO UPDATE SET tx_seconds=0,tx_reset_at=unixepoch()", -1, &stmt, NULL,
+      "db_usage_reset_tx") != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
    bool ok = accounting_step(stmt, "db_usage_reset_tx") == SQLITE_DONE;
    sqlite3_finalize(stmt);
+
    return ok;
 }
 #endif // USE_SQLITE
@@ -1658,7 +1737,7 @@ bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text) {
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.msg_type", replay_type);
    dict_add(d, "talk.from", "&server");
-   dict_add(d, "talk.target", ws_authoritative_room() );
+   dict_add(d, "talk.target", ws_authoritative_room());
    dict_add(d, "talk.data", text);
    dict_add_ulong(d, "msg.ts", now);
 
@@ -1674,15 +1753,15 @@ const char *replay_msg_type(const char *msg_type) {
       return NULL;
    }
 
-   if (!strcmp(msg_type, "pub") ) {
+   if (!strcmp(msg_type, "pub")) {
       return "replay-pub";
    }
 
-   if (!strcmp(msg_type, "action") ) {
+   if (!strcmp(msg_type, "action")) {
       return "replay-action";
    }
 
-   if (!strcmp(msg_type, "privmsg") ) {
+   if (!strcmp(msg_type, "privmsg")) {
       return "replay-privmsg";
    }
 
@@ -1712,15 +1791,12 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
       " SELECT msg_id, msg_ts, msg_src, msg_dest, msg_type, msg_data "
       " FROM chat_log "
       " WHERE msg_dest = ? AND msg_type IN ('pub', 'action', 'privmsg') "
-      " ORDER BY msg_ts DESC, msg_id DESC "
-      " LIMIT ?"
-      ") "
-      "ORDER BY msg_ts ASC, msg_id ASC;";
+      " ORDER BY msg_ts DESC, msg_id DESC " " LIMIT ?" ") " "ORDER BY msg_ts ASC, msg_id ASC;";
 
    sqlite3_stmt *stmt = NULL;
 
    if (sqlite3_prepare_v2(masterdb, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_CRIT, "db.replay", "db_send_chat_replay: failed preparing statement: %s", sqlite3_errmsg(masterdb) );
+      Log(LOG_CRIT, "db.replay", "db_send_chat_replay: failed preparing statement: %s", sqlite3_errmsg(masterdb));
 
       return false;
    }
@@ -1746,21 +1822,17 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
    bool success = true;
    int rc;
 
-   while ( (rc = sqlite3_step(stmt) ) == SQLITE_ROW) {
+   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
       sqlite3_int64 msg_id = sqlite3_column_int64(stmt, 0);
-      time_t msg_ts = (time_t)sqlite3_column_int64(stmt, 1);
+      time_t msg_ts = (time_t) sqlite3_column_int64(stmt, 1);
 
-      const char *msg_src =
-         (const char *)sqlite3_column_text(stmt, 2);
+      const char *msg_src = (const char *)sqlite3_column_text(stmt, 2);
 
-      const char *msg_dest =
-         (const char *)sqlite3_column_text(stmt, 3);
+      const char *msg_dest = (const char *)sqlite3_column_text(stmt, 3);
 
-      const char *msg_type =
-         (const char *)sqlite3_column_text(stmt, 4);
+      const char *msg_type = (const char *)sqlite3_column_text(stmt, 4);
 
-      const char *msg_text =
-         (const char *)sqlite3_column_text(stmt, 5);
+      const char *msg_text = (const char *)sqlite3_column_text(stmt, 5);
 
       const char *replay_type = replay_msg_type(msg_type);
 
@@ -1782,7 +1854,7 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
          dict_add(start, "talk.cmd", "replay-start");
          dict_add(start, "talk.target", channel);
 
-         if (!ws_send_dict(NULL, cptr, start, WEBSOCKET_OP_TEXT) ) {
+         if (!ws_send_dict(NULL, cptr, start, WEBSOCKET_OP_TEXT)) {
             Log(LOG_CRIT, "db.replay", "db_send_chat_replay: failed sending replay-start to cptr:<%p>", cptr);
             dict_free(start);
             success = false;
@@ -1844,7 +1916,7 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
     * If we broke out of the loop because ws_send_dict() failed, rc will still be SQLITE_ROW. Don't mistake that for a SQLite iteration error.
     */
    if (rc != SQLITE_DONE && success) {
-      Log(LOG_CRIT, "db.replay", "db_send_chat_replay: sqlite iteration failed: %s", sqlite3_errmsg(masterdb) );
+      Log(LOG_CRIT, "db.replay", "db_send_chat_replay: sqlite iteration failed: %s", sqlite3_errmsg(masterdb));
       success = false;
    }
 
@@ -1869,7 +1941,7 @@ bool db_send_chat_replay(rrconn_t *cptr, const char *channel) {
       dict_add(complete, "talk.cmd", "replay-complete");
       dict_add(complete, "talk.target", channel);
 
-      if (!ws_send_dict(NULL, cptr, complete, WEBSOCKET_OP_TEXT) ) {
+      if (!ws_send_dict(NULL, cptr, complete, WEBSOCKET_OP_TEXT)) {
          Log(LOG_CRIT, "db.replay", "db_send_chat_replay: failed sending replay-complete to cptr:<%p>", cptr);
          success = false;
       }

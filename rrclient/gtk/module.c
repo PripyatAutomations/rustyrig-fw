@@ -38,7 +38,7 @@
 #include <rrclient/frontend.h>
 #include "gtk.core.h"
 
-static rr_event_token_t *module_tokens = NULL;   // owned event registrations
+static rr_event_token_t *module_tokens = NULL;  // owned event registrations
 static size_t module_token_count = 0;
 static size_t module_token_capacity = 0;
 static bool module_running = false;

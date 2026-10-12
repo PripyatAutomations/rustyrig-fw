@@ -6,4 +6,6 @@ if ! grep -q '^#define USE_SQLITE' "build/${PROFILE:-radio}/build_config.h" ||
    echo 'SKIP: live server links require SQLite, Mongoose and openssl'
    exit 0
 fi
-python3 rrserver/tests/links_live.py
+for listener in dedicated shared shared-plain; do
+   RR_LINK_LISTENER="$listener" python3 rrserver/tests/links_live.py
+done

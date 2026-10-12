@@ -218,7 +218,8 @@ client_cmd_t client_cmds[] = {
       .cmd = "mute", .help_section = "Administration", .cb = cmd_mute, .max_args = 2, .admin = true, .desc = "Mute a user"
    },
    {
-      .cmd = "quota", .help_section = "Administration", .cb = cmd_quota, .max_args = 8, .admin = true, .desc = "TX/BW quota admin ([TX|BW] LIST|SHOW|ADD|RESET|SET)"
+      .cmd = "quota", .help_section = "Administration", .cb = cmd_quota, .max_args = 8, .admin = true, .desc =
+         "TX/BW quota admin ([TX|BW] LIST|SHOW|ADD|RESET|SET)"
    },
    {
       .cmd = "rehash", .help_section = "Administration", .cb = cmd_rehash, .admin = true, .desc = "Ask server to reload config & users"
@@ -240,6 +241,7 @@ client_cmd_t client_cmds[] = {
       .cmd = NULL, .cb = NULL, .desc = NULL
    }
 };
+
 ////////////////////////////////////////////////
 
 
@@ -270,14 +272,12 @@ bool parse_chat_input_real(const char *msg) {
          const char *p = mp;
          const char *c = client_cmds[i].cmd;
 
-         while (*p && *c &&
-            !isspace( (unsigned char)*p) &&
-            tolower( (unsigned char)*p) == tolower( (unsigned char)*c) ) {
+         while (*p && *c && !isspace((unsigned char)*p) && tolower((unsigned char)*p) == tolower((unsigned char)*c)) {
             p++;
             c++;
          }
 
-         if (!*c && (!*p || isspace( (unsigned char)*p) ) ) {
+         if (!*c && (!*p || isspace((unsigned char)*p))) {
             cmd = &client_cmds[i];
             break;
          }
@@ -311,7 +311,7 @@ bool parse_chat_input_real(const char *msg) {
       /* argv[0] is the command itself. */
       cmd_argv[cmd_argc++] = p;
 
-      while (*p && !isspace( (unsigned char)*p) ) {
+      while (*p && !isspace((unsigned char)*p)) {
          p++;
       }
 
@@ -324,8 +324,8 @@ bool parse_chat_input_real(const char *msg) {
        */
       int max_args = cmd->max_args ? cmd->max_args : 1;
 
-      while (*p && cmd_argc < (int)(sizeof(cmd_argv) / sizeof(cmd_argv[0]) ) ) {
-         while (isspace( (unsigned char)*p) ) {
+      while (*p && cmd_argc < (int)(sizeof(cmd_argv) / sizeof(cmd_argv[0]))) {
+         while (isspace((unsigned char)*p)) {
             p++;
          }
 
@@ -342,7 +342,7 @@ bool parse_chat_input_real(const char *msg) {
             break;
          }
 
-         while (*p && !isspace( (unsigned char)*p) ) {
+         while (*p && !isspace((unsigned char)*p)) {
             p++;
          }
 
@@ -357,7 +357,7 @@ bool parse_chat_input_real(const char *msg) {
       char *last = cmd_argv[cmd_argc - 1];
       char *end = last + strlen(last);
 
-      while (end > last && isspace( (unsigned char)end[-1]) ) {
+      while (end > last && isspace((unsigned char)end[-1])) {
          end--;
       }
       *end = '\0';
@@ -366,7 +366,7 @@ bool parse_chat_input_real(const char *msg) {
 
       // Admin-only commands are rejected for non-staff users (and hidden
       // from /help); staff is set by the server from admin|owner privs.
-      if (cmd->admin && (!active_connection || active_connection->is_ws) && !media_have_priv("admin|owner") ) {
+      if (cmd->admin && (!active_connection || active_connection->is_ws) && !media_have_priv("admin|owner")) {
          ui_print(ui_active_window_name(), "\00304Command /%s requires account admin or owner privilege\017", cmd_argv[0]);
          free(input);
 
@@ -383,6 +383,7 @@ bool parse_chat_input_real(const char *msg) {
 
             return false;
          }
+
          if (!active_room || !*active_room) {
             ui_print(ui_active_window_name(), "\00308Select an IRC channel or query tab before sending a message\017");
 
@@ -405,8 +406,10 @@ bool parse_chat_input_real(const char *msg) {
          dict_add(request, "talk.data", msg);
          bool sent = irc_send_dict(active_connection, request);
          dict_free(request);
+
          return !sent;
       }
+
       if (!ws_connected) {
          ui_print(ui_active_window_name(), "\00304*** Not connected to server ***\017");
 
@@ -418,7 +421,7 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
 
-      if (frontend_ops() ) {
+      if (frontend_ops()) {
          /* Frontend chat tabs represent rooms.  Include the selected tab's room so side-room messages are delivered there instead of defaulting to the
           * authoritative rig room on the server. */
          const char *room = frontend_ops()->chat_current_room();
@@ -435,14 +438,13 @@ bool parse_chat_input_real(const char *msg) {
           * active. */
          tui_window_t *window = tui_active_window();
 
-         if (window && window->title[0] &&
-            strcasecmp(window->title, "status") != 0) {
+         if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
             dict_add(d, "talk.target", rrclient_window_room(window->title));
 
             if (window->title[0] != '#' && window->title[0] != '&') {
                dict_add(d, "talk.msg_type", "priv");
             }
-         } else if (cfg_get_bool("tui.status-chat", false) ) {
+         } else if (cfg_get_bool("tui.status-chat", false)) {
             const char *room = ws_authoritative_room();
 
             if (room && *room) {

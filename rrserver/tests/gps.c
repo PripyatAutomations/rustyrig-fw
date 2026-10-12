@@ -11,11 +11,12 @@ static uint64_t clock_us = 1;
 long long mono_us(void) {
    return clock_us;
 }
+
 static struct rr_mediachan channels[6];
 static unsigned sent[3], direct[3];
 static uint8_t payload[3][RR_GPS_POSITION_PAYLOAD_LEN];
 static rr_server_rig_t *radios[2] = {
-   (rr_server_rig_t *)1, (rr_server_rig_t *)2
+   (rr_server_rig_t *) 1, (rr_server_rig_t *) 2
 };
 bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_fn cb, void *user) {
    (void)registry;
@@ -91,8 +92,8 @@ bool media_chan_remove(const char *uuid) {
 static const char *sentence(unsigned index) {
    static char text[128];
    uint8_t *p = payload[index];
-   int32_t lat = (int32_t)((uint32_t)p[0] << 24 | (uint32_t)p[1] << 16 | (uint32_t)p[2] << 8 | p[3]);
-   int32_t lon = (int32_t)((uint32_t)p[4] << 24 | (uint32_t)p[5] << 16 | (uint32_t)p[6] << 8 | p[7]);
+   int32_t lat = (int32_t) ((uint32_t) p[0] << 24 | (uint32_t) p[1] << 16 | (uint32_t) p[2] << 8 | p[3]);
+   int32_t lon = (int32_t) ((uint32_t) p[4] << 24 | (uint32_t) p[5] << 16 | (uint32_t) p[6] << 8 | p[7]);
    assert(rr_nmea_rmc(lat, lon, p[8], now, text, sizeof(text)));
    assert(rr_nmea_valid(text));
 
@@ -134,8 +135,8 @@ int main(void) {
    event_emit("server.poll", NULL, NULL);
    assert(sent[0] == 1 && sent[1] == 1 && sent[2] == 1);
    assert(!memcmp(payload[0], payload[1], sizeof(payload[0])) && memcmp(payload[1], payload[2], sizeof(payload[1])));
-   assert((int32_t)((uint32_t)payload[1][0] << 24 | (uint32_t)payload[1][1] << 16 | (uint32_t)payload[1][2] << 8 | payload[1][3]) == 381234567);
-   assert((int32_t)((uint32_t)payload[1][4] << 24 | (uint32_t)payload[1][5] << 16 | (uint32_t)payload[1][6] << 8 | payload[1][7]) == -807654321);
+   assert((int32_t) ((uint32_t) payload[1][0] << 24 | (uint32_t) payload[1][1] << 16 | (uint32_t) payload[1][2] << 8 | payload[1][3]) == 381234567);
+   assert((int32_t) ((uint32_t) payload[1][4] << 24 | (uint32_t) payload[1][5] << 16 | (uint32_t) payload[1][6] << 8 | payload[1][7]) == -807654321);
    assert(payload[1][8] == (RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL));
    clock_us += 299999999;
    event_emit("server.poll", NULL, NULL);

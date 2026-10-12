@@ -42,7 +42,7 @@ typedef struct rr_property_descriptor {
    // Optional schema constraints, in the property's native value type.
    bool has_min, has_max, has_step;
    dict_value_t minimum, maximum, step;
-   const char *enum_values; // Space-separated string choices; copied on define.
+   const char *enum_values;     // Space-separated string choices; copied on define.
 } rr_property_descriptor_t;
 
 typedef bool (*rr_property_iter_fn)(const rr_property_descriptor_t *, void *);

@@ -41,7 +41,7 @@ int rr_serial_fd(const rr_serial_t *p) {
 }
 rr_serial_t *rr_serial_find(const char *name) {
    for (rr_serial_t *p = ports ; p ; p = p->next) {
-      if (name && !strcmp(name, p->name) ) {
+      if (name && !strcmp(name, p->name)) {
          return p;
       }
    }
@@ -59,7 +59,7 @@ void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {
 static gboolean writable(GIOChannel *channel, GIOCondition condition, gpointer user) {
    rr_serial_t *p = user;
 
-   if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL) ) {
+   if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)) {
       goto failed;
    }
    while (p->pending->len) {
@@ -104,7 +104,7 @@ static gboolean readable(GIOChannel *channel, GIOCondition condition, gpointer u
 
    // Drain buffered data before processing hangup; avoid an idle HUP spin.
    for (unsigned batch = 0 ; batch < 32 ; batch++) {
-      ssize_t count = read(p->fd, buffer, sizeof(buffer) );
+      ssize_t count = read(p->fd, buffer, sizeof(buffer));
 
       if (count > 0) {
          p->receive(p, buffer, count, p->user);
@@ -119,7 +119,7 @@ static gboolean readable(GIOChannel *channel, GIOCondition condition, gpointer u
          continue;
       }
 
-      if (count < 0 && errno == EAGAIN && !(condition & (G_IO_HUP | G_IO_ERR | G_IO_NVAL) ) ) {
+      if (count < 0 && errno == EAGAIN && !(condition & (G_IO_HUP | G_IO_ERR | G_IO_NVAL))) {
          return G_SOURCE_CONTINUE;
       }
       p->input = 0;
@@ -206,7 +206,7 @@ void rr_serial_close(rr_serial_t *p) {
       if (len >= 0) {
          target[len] = '\0';
 
-         if (!strcmp(target, p->slave) ) {
+         if (!strcmp(target, p->slave)) {
             unlink(p->path);
          }
       }
@@ -227,12 +227,12 @@ void rr_serial_shutdown(void) {
 }
 
 rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsigned baud, rr_serial_receive_fn receive, void *user) {
-   if (!name || !*name || !path || !*path || !receive || rr_serial_find(name) ) {
+   if (!name || !*name || !path || !*path || !receive || rr_serial_find(name)) {
       errno = EINVAL;
 
       return NULL;
    }
-   rr_serial_t *p = calloc(1, sizeof(*p) );
+   rr_serial_t *p = calloc(1, sizeof(*p));
 
    if (!p) {
       return NULL;
@@ -251,7 +251,7 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
       rr_serial_settings_t line = {
          .baud = baud, .bits = 8, .parity = 'n', .stops = 1
       };
-      p->fd = rr_serial_pty_open(path, &line, &p->keeper, slave, sizeof(slave) );
+      p->fd = rr_serial_pty_open(path, &line, &p->keeper, slave, sizeof(slave));
 
       if (p->fd < 0) {
          goto failed;
@@ -273,7 +273,7 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
    }
    struct termios settings;
 
-   if (tcgetattr(settings_fd, &settings) ) {
+   if (tcgetattr(settings_fd, &settings)) {
       goto failed;
    }
 
@@ -285,7 +285,7 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
       .baud = baud, .bits = 8, .parity = 'n', .stops = 1
    };
 
-   if (!rr_serial_settings_apply(settings_fd, &line) ) {
+   if (!rr_serial_settings_apply(settings_fd, &line)) {
       goto failed;
    }
    p->pending = g_byte_array_new();

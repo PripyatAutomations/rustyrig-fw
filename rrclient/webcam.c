@@ -66,22 +66,24 @@ static void webcam_register_source(void) {
 // server validates our source flag and fans it out to subscribers (PARITY:
 // librrprotocol/cli.main.c - video source frame routing)
 static void webcam_push_frame(const uint8_t *data, size_t len) {
-   if (!ws_conn || !ws_conn->conn || !data || len == 0 ||
-      len > RR_BINFRAME_MAX_PAYLOAD) {
+   if (!ws_conn || !ws_conn->conn || !data || len == 0 || len > RR_BINFRAME_MAX_PAYLOAD) {
       return;
    }
    const char codec[4] = {
       'j', 'p', 'e', 'g'
    };
    uint8_t *frame = NULL;
-   int flen = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_VIDEO, codec, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE, ++
+   int flen =
+      rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_VIDEO, codec, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, RR_BINFRAME_STREAM_NONE, ++
       webcam_seq, mono_us(), data, len);
 
    if (flen < 0) {
       return;
    }
 #ifdef USE_MONGOOSE
-   struct mg_str payload = {(char *)frame, flen};
+   struct mg_str payload = {
+      (char *)frame, flen
+   };
    ws_send_to_cptr(NULL, ws_conn, &payload, WEBSOCKET_OP_BINARY);
 #endif
    free(frame);
@@ -92,7 +94,7 @@ static void webcam_frame_cb(const char *event, const void *data, size_t len, rrc
    if (!data || len == 0) {
       return;
    }
-   webcam_push_frame( (const uint8_t *)data, len);
+   webcam_push_frame((const uint8_t *)data, len);
 }
 
 // Start grabbing frames (called after auth when we're a video source)

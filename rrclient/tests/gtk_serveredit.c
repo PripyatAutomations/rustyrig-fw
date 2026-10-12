@@ -3,9 +3,15 @@
 #include <rrclient/gtk/gtk.serveredit.c>
 static char user_path[512];
 static unsigned refreshed;
-char *rrclient_user_config_path(void) { return strdup(user_path); }
-gui_window_t *gui_find_window(GtkWidget *widget, const char *name) { return NULL; }
-gui_window_t *ui_new_window(GtkWidget *widget, const char *name) { return NULL; }
+char *rrclient_user_config_path(void) {
+   return strdup(user_path);
+}
+gui_window_t *gui_find_window(GtkWidget *widget, const char *name) {
+   return NULL;
+}
+gui_window_t *ui_new_window(GtkWidget *widget, const char *name) {
+   return NULL;
+}
 void gtk_server_picker_refresh_profile(const char *name) {
    assert(!strcmp(name, "site.example"));
    refreshed++;
@@ -13,6 +19,7 @@ void gtk_server_picker_refresh_profile(const char *name) {
 int main(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: GTK display unavailable");
+
       return 0;
    }
    char directory[] = "/tmp/rrclient-serveredit-XXXXXX";

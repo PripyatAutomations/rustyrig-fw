@@ -16,8 +16,7 @@
 
 struct cons_cmds {
    char verb[16];
-   int min_args,
-      max_args;
+   int min_args, max_args;
    bool (*hndlr)();
 };
 #endif // !defined(__rrserver_console_h)

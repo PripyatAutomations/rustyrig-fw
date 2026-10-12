@@ -39,7 +39,7 @@ extern struct GlobalState rig;
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
 
-extern void rrserver_media_register_events(void);   // media.c
+extern void rrserver_media_register_events(void);  // media.c
 
 static void rrserver_handle_room_join(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
@@ -53,8 +53,8 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
 #ifdef USE_SQLITE
    const char *room = dict_get(d, "talk.room", NULL);
 
-   if (room && !db_room_ensure(masterdb, room, dict_get_bool(d, "room.has-vfos", false), (uint32_t)dict_get_ulong(d, "room.vfo-mask", 0), cptr ? cptr->chatname
-      : "server") ) {
+   if (room && !db_room_ensure(masterdb, room, dict_get_bool(d, "room.has-vfos", false), (uint32_t) dict_get_ulong(d, "room.vfo-mask", 0), cptr ? cptr->chatname
+         : "server")) {
       Log(LOG_WARN, "db", "failed to persist room %s", room);
    }
 
@@ -80,7 +80,7 @@ static void rrserver_handle_room_part(const char *event, const char *room, rrcon
    if (client && client->is_ptt && room && rig.ptt_rig) {
       const char *base = rr_rig_registry_room(rig.rigs, rig.ptt_rig);
 
-      if (base && !strcasecmp(base, room) ) {
+      if (base && !strcasecmp(base, room)) {
          rr_ptt_set_all_off_reason("left-tx-room");
       }
    }
@@ -117,7 +117,7 @@ static void rrserver_handle_room_topic(const char *event, const char *data, rrco
       return;
    }
 
-   if (!db_room_set_topic(masterdb, room, topic) ) {
+   if (!db_room_set_topic(masterdb, room, topic)) {
       ws_send_error(cptr, "Unable to set topic for room %s", room);
       dict_free(d);
 
@@ -160,9 +160,16 @@ static void rrserver_handle_room_list(const char *event, const char *data, rrcon
    }
 #endif
    char *remote = rrserver_relay_remote_rooms(), *servers = rrserver_relay_servers();
-   if (remote && *remote) dict_add(reply, "talk.remote-rooms", remote);
-   if (servers) dict_add(reply, "talk.servers", servers);
-   free(remote); free(servers);
+
+   if (remote && *remote) {
+      dict_add(reply, "talk.remote-rooms", remote);
+   }
+
+   if (servers) {
+      dict_add(reply, "talk.servers", servers);
+   }
+   free(remote);
+   free(servers);
    ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
    dict_free(reply);
 }
@@ -184,15 +191,14 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
    }
    const char *room = dict_get(d, "talk.room", NULL);
 
-   if (!ws_room_name_valid(room) ||
-      (ws_room_station_scoped(room) && !has_priv(cptr->user->uid, "admin|owner"))) {
+   if (!ws_room_name_valid(room) || (ws_room_station_scoped(room) && !has_priv(cptr->user->uid, "admin|owner"))) {
       ws_send_error(cptr, "Station-scoped room creation requires admin or owner");
       dict_free(d);
 
       return;
    }
 
-   if (ws_room_rig_base(room) ) {
+   if (ws_room_rig_base(room)) {
       ws_send_error(cptr, "Base rig rooms are server-owned");
       dict_free(d);
 
@@ -216,8 +222,7 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
       return;
    }
 
-   if (!db_room_restore(masterdb, room, cptr->chatname) ||
-      (!exists && !db_room_ensure(masterdb, room, false, 0, cptr->chatname))) {
+   if (!db_room_restore(masterdb, room, cptr->chatname) || (!exists && !db_room_ensure(masterdb, room, false, 0, cptr->chatname))) {
       ws_send_error(cptr, "Unable to add room %s", room ? room : "(none)");
       dict_free(d);
 
@@ -272,8 +277,7 @@ static void rrserver_handle_room_vfo_list(const char *event, const char *data, r
          if (requested_room && *requested_room) {
             dict_add(reply, "talk.room", requested_room);
          }
-         char *vfos = requested_room && *requested_room ?
-            db_room_vfo_list(masterdb, requested_room) : db_room_vfo_map_list(masterdb);
+         char *vfos = requested_room && *requested_room ? db_room_vfo_list(masterdb, requested_room) : db_room_vfo_map_list(masterdb);
          dict_add(reply, "talk.vfos", vfos ? vfos : "");
          free(vfos);
          dict_free(request);
@@ -311,14 +315,14 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    const char *binding = dict_get(d, "talk.vfo", NULL);
    const char *action = dict_get(d, "talk.action", NULL);
 
-   if (action && !strcasecmp(action, "add") && !ws_room_rig_namespace(room) ) {
+   if (action && !strcasecmp(action, "add") && !ws_room_rig_namespace(room)) {
       ws_send_error(cptr, "VFO controls require a room in this site's numbered rig namespace");
       dict_free(d);
 
       return;
    }
 
-   if (rrserver_rig_room_configured(room) ) {
+   if (rrserver_rig_room_configured(room)) {
       ws_send_error(cptr, "Rig room VFO bindings are managed by rig configuration");
       dict_free(d);
 
@@ -335,13 +339,13 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
          char alias[64];
          size_t len = (size_t)(dot - binding);
 
-         if (len < sizeof(alias) ) {
+         if (len < sizeof(alias)) {
             memcpy(alias, binding, len);
             alias[len] = '\0';
 
             if (rr_rig_registry_find_alias(rig.rigs, alias) == radio) {
                char native[2] = {
-                  (char)toupper( (unsigned char)dot[5]), 0
+                  (char)toupper((unsigned char)dot[5]), 0
                };
                vfo = rr_server_vfo_find_alias(radio, native);
             }
@@ -380,7 +384,7 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       uint32_t mask = 0;
       char *copy = strdup(vfos ? vfos : ""), *save = NULL;
 
-      for (char *id = copy ? strtok_r(copy, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save) ) {
+      for (char *id = copy ? strtok_r(copy, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save)) {
          rr_server_vfo_t *mapped = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
          rr_vfo_t index;
 
@@ -395,12 +399,12 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       dict_add_bool(d, "room.has-vfos", mask != 0);
       dict_add_ulong(d, "room.vfo-mask", mask);
       dict_add_bool(d, "room.tx-control", false);
-      dict_add_bool(d, "room.rx-tunable", ws_room_rx_tunable(room) );
-      dict_add_ulong(d, "room.rx-tuning-mask", ws_room_rx_tuning_mask(room) );
+      dict_add_bool(d, "room.rx-tunable", ws_room_rx_tunable(room));
+      dict_add_ulong(d, "room.rx-tuning-mask", ws_room_rx_tuning_mask(room));
       ws_broadcast_room_dict(NULL, d, room);
 
       for (rrconn_t *member = http_client_list ; member ; member = member->next) {
-         if (member->authenticated && ws_client_in_room(member, room) ) {
+         if (member->authenticated && ws_client_in_room(member, room)) {
             media_send_available_all(member);
          }
       }
@@ -437,7 +441,7 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
    if (len != sizeof(rr_room_join_check_t)) {
       return;
    }
-   rr_room_join_check_t *check = (rr_room_join_check_t *)data;
+   rr_room_join_check_t *check = (rr_room_join_check_t *) data;
    bool exists, deleted;
 
    if (!db_room_status(masterdb, check->room, &exists, &deleted) || deleted ||
@@ -461,7 +465,7 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
    }
    const char *room = dict_get(d, "talk.room", NULL);
 
-   if (room && (!strcasecmp(room, ws_site_room() ) || rrserver_rig_room_configured(room) ) ) {
+   if (room && (!strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
       ws_send_error(cptr, "Site and configured rig rooms cannot be removed");
       dict_free(d);
 
@@ -533,7 +537,7 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
    memset(challenge, 0, sizeof(*challenge));
    dict_del(d, "talk.confirmation");
 
-   if (!db_room_delete(masterdb, room, cptr->chatname, force, history) ) {
+   if (!db_room_delete(masterdb, room, cptr->chatname, force, history)) {
       Log(LOG_WARN, "db", "failed to delete room metadata %s", room);
       ws_send_error(cptr, "Unable to remove room %s", room);
       dict_free(d);
@@ -616,7 +620,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
 
-   const char *room = dict_get(d, "rigctl.room", ws_authoritative_room() );
+   const char *room = dict_get(d, "rigctl.room", ws_authoritative_room());
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
 
    if (!radio) {
@@ -670,15 +674,22 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
          rr_backend_poll_rig(radio, object);
          rr_backend_t *backend = rr_server_rig_backend(radio);
+
          if (backend && backend->type->api->power_get) {
             float observed = backend->type->api->power_get(backend, object);
+
             if (isfinite(observed) && observed >= 0) {
                dict *state = dict_new();
+
                if (state) {
-                  dict_add(state, "msg.type", "cat"); dict_add(state, "cat.cmd", "power");
-                  dict_add(state, "cat.room", room); dict_add(state, "cat.vfo", rc_vfo);
-                  dict_add_float(state, "cat.power", observed); dict_add(state, "cat.user", rc_from);
-                  ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT); dict_free(state);
+                  dict_add(state, "msg.type", "cat");
+                  dict_add(state, "cat.cmd", "power");
+                  dict_add(state, "cat.room", room);
+                  dict_add(state, "cat.vfo", rc_vfo);
+                  dict_add_float(state, "cat.power", observed);
+                  dict_add(state, "cat.user", rc_from);
+                  ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
+                  dict_free(state);
                }
             }
          }
@@ -688,21 +699,21 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       return;
    }
 
-   if (radio != rr_rig_registry_default(rig.rigs) ) {
+   if (radio != rr_rig_registry_default(rig.rigs)) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       rr_control_request_t request = {
          .rig = radio, .vfo = object, .source = "rigctl", .context = cptr
       };
 
-      if (!strcmp(rc_cmd, "freq") ) {
+      if (!strcmp(rc_cmd, "freq")) {
          request.property = RR_PROP_VFO_FREQUENCY;
          request.value_type = VAL_LONG;
          request.value.l = rc_freq;
-      } else if (!strcmp(rc_cmd, "mode") ) {
+      } else if (!strcmp(rc_cmd, "mode")) {
          request.property = RR_PROP_VFO_MODE;
          request.value_type = VAL_STR;
          request.value.s = rc_mode;
-      } else if (!strcmp(rc_cmd, "width") ) {
+      } else if (!strcmp(rc_cmd, "width")) {
          request.property = RR_PROP_VFO_WIDTH;
          request.value_type = VAL_LONG;
          request.value.l = rc_width ? strtol(rc_width, NULL, 10) : 0;
@@ -735,7 +746,6 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
          return;
       }
-
       // Audit trail: who changed which VFO to what mode
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
 
@@ -756,7 +766,6 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
          return;
       }
-
       // Audit trail: who changed which VFO to what passband width
       Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
 
@@ -877,7 +886,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
       }
 #ifdef USE_SQLITE
 
-      if (!db_add_chat_msg(masterdb, now, cptr->chatname, target_name, "privmsg", dict_get(d, "talk.data", "") ) ) {
+      if (!db_add_chat_msg(masterdb, now, cptr->chatname, target_name, "privmsg", dict_get(d, "talk.data", ""))) {
          Log(LOG_WARN, "db", "failed to save private message");
       }
 #endif
@@ -895,13 +904,12 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
    /*
     * Normal public/action messages.
     */
-   if (strcasecmp(msg_type, "pub") == 0 ||
-      strcasecmp(msg_type, "action") == 0) {
+   if (strcasecmp(msg_type, "pub") == 0 || strcasecmp(msg_type, "action") == 0) {
 
       if (strcasecmp(msg_type, "action") == 0) {
-         Log(LOG_INFO, "ws.chat", "** %s * %s%s", channel ? channel : ws_authoritative_room(), cptr->chatname, dict_get(d, "talk.data", "") );
+         Log(LOG_INFO, "ws.chat", "** %s * %s%s", channel ? channel : ws_authoritative_room(), cptr->chatname, dict_get(d, "talk.data", ""));
       } else if (strcasecmp(msg_type, "pub") == 0) {
-         Log(LOG_INFO, "ws.chat", "** %s <%s> %s", channel ? channel : ws_authoritative_room(), cptr->chatname, dict_get(d, "talk.data", "") );
+         Log(LOG_INFO, "ws.chat", "** %s <%s> %s", channel ? channel : ws_authoritative_room(), cptr->chatname, dict_get(d, "talk.data", ""));
       }
 
       const char *talk_from = dict_get(d, "talk.from", NULL);
@@ -912,7 +920,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
 #ifdef USE_SQLITE
 
       if (channel) {
-         if (!db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, talk_msg) ) {
+         if (!db_add_chat_msg(masterdb, now, cptr->chatname, channel, msg_type, talk_msg)) {
             Log(LOG_WARN, "db", "failed to save chat message");
          }
       }
@@ -955,7 +963,7 @@ static bool rrserver_recording_control(const char *data, bool start) {
    struct rr_mediachan *channel = uuid ? media_chan_find_uuid(uuid) : NULL;
 
    if (!channel) {
-      Log(LOG_WARN, "record", "recording-%s for unknown media channel %s", start ? "start" : "stop", (uuid ? uuid : "<none>") );
+      Log(LOG_WARN, "record", "recording-%s for unknown media channel %s", start ? "start" : "stop", (uuid ? uuid : "<none>"));
       dict_free(d);
 
       return true;
@@ -976,19 +984,16 @@ static bool rrserver_recording_control(const char *data, bool start) {
 
    bool fwdsp_tx = (channel->direction == RR_BINFRAME_DIR_RX);
    rrconn_t *talker = whos_talking();
-   const char *recording_id = (!fwdsp_tx && start) ?
-      rr_ptt_recording_id( (rr_vfo_t)channel->vfo) : NULL;
-   const char *who = fwdsp_tx ? "radio" :
-      (talker && talker->ptt_vfo == 'A' + channel->vfo ? talker->chatname : NULL);
+   const char *recording_id = (!fwdsp_tx && start) ? rr_ptt_recording_id((rr_vfo_t) channel->vfo) : NULL;
+   const char *who = fwdsp_tx ? "radio" : (talker && talker->ptt_vfo == 'A' + channel->vfo ? talker->chatname : NULL);
 
-   if (start && (!who || !*who) ) {
+   if (start && (!who || !*who)) {
       Log(LOG_WARN, "record", "No transmitter for recording on channel %s", channel->uuid);
       dict_free(d);
 
       return true;
    }
-   const char *record_file = (!fwdsp_tx && channel->vfo >= 0) ?
-      rr_ptt_recording_file( (rr_vfo_t)channel->vfo) : NULL;
+   const char *record_file = (!fwdsp_tx && channel->vfo >= 0) ? rr_ptt_recording_file((rr_vfo_t) channel->vfo) : NULL;
    bool failed = start ?
       fwdsp_cmd_start_record_named_file(codec, fwdsp_tx, channel->uuid, who, !fwdsp_tx, recording_id, record_file) :
       fwdsp_cmd_stop_record_channel(codec, fwdsp_tx, channel->uuid);
@@ -1035,7 +1040,7 @@ static void rrserver_handle_ptt_off(const char *event, const char *data, rrconn_
    (void)data;
    (void)cptr;
    (void)user;
-   Log(LOG_AUDIT, "ptt", "Forced TX off (%s event)", (event ? event : "ptt.off") );
+   Log(LOG_AUDIT, "ptt", "Forced TX off (%s event)", (event ? event : "ptt.off"));
    rr_ptt_set_all_off_reason("forced");
 }
 
@@ -1059,7 +1064,7 @@ static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrc
          ws_send_userinfo(cptr, NULL);
       }
    } else {
-      Log(LOG_WARN, "rigctl", "Departing user %s held PTT but no VFO recorded; NOT touching rig TX", (who ? who : "(unknown)") );
+      Log(LOG_WARN, "rigctl", "Departing user %s held PTT but no VFO recorded; NOT touching rig TX", (who ? who : "(unknown)"));
    }
 
    if (d) {
@@ -1117,12 +1122,11 @@ static void rrserver_handle_authdb_load(const char *event, const char *data, rrc
  * sqlite users table or the http.users file depending on net.http.authdb-dynamic).
  */
 static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   Log(LOG_INFO, "core", "Rehashing server configuration (requested by %s)", (cptr && cptr->chatname[0] != '\0' ? cptr->chatname : "internal") );
+   Log(LOG_INFO, "core", "Rehashing server configuration (requested by %s)", (cptr && cptr->chatname[0] != '\0' ? cptr->chatname : "internal"));
 
-   if (!cfg_reload(NULL) ) {
+   if (!cfg_reload(NULL)) {
       Log(LOG_CRIT, "core", "Config reload failed; keeping previous configuration");
    }
-
    // Reload users after the config, since authdb path/dynamic may have changed
    int users = http_reload_users();
 
@@ -1142,7 +1146,7 @@ static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t
 
 // db_quota_list callback: print one row to the requesting client
 static int quota_list_cb(const char *name, int credits, void *user) {
-   ws_send_notice( (rrconn_t *)user, "  %-16s %s", name, time_t2dhms(credits) );
+   ws_send_notice((rrconn_t *) user, "  %-16s %s", name, time_t2dhms(credits));
 
    return 1;
 }
@@ -1183,18 +1187,26 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
             int mins = (before < 0 ? 0 : before) / 60;
 
             struct rr_usage usage;
-            if (db_usage_get(masterdb, name, &usage))
+
+            if (db_usage_get(masterdb, name, &usage)) {
                ws_send_notice(cptr, "%s: %s remaining; TX used=%llu seconds since reset", name, time_t2dhms(before), (unsigned long long)usage.tx_seconds);
-            else ws_send_notice(cptr, "%s: %s remaining", name, time_t2dhms(before));
+            } else {
+               ws_send_notice(cptr, "%s: %s remaining", name, time_t2dhms(before));
+            }
          } else {
             bool saved = sqlite3_exec(masterdb, "SAVEPOINT quota_tx_reset", NULL, NULL, NULL) == SQLITE_OK;
+
             if (saved) {
                saved = db_quota_set(masterdb, name, 60 * 60) && db_usage_reset_tx(masterdb, name);
-               if (!saved) sqlite3_exec(masterdb, "ROLLBACK TO quota_tx_reset", NULL, NULL, NULL);
+
+               if (!saved) {
+                  sqlite3_exec(masterdb, "ROLLBACK TO quota_tx_reset", NULL, NULL, NULL);
+               }
                saved = sqlite3_exec(masterdb, "RELEASE quota_tx_reset", NULL, NULL, NULL) == SQLITE_OK && saved;
             }
+
             if (saved) {
-               Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60m (was %s)", actor, name, time_t2dhms(before) );
+               Log(LOG_AUDIT, "quota", "%s reset %s's TX quota to 60m (was %s)", actor, name, time_t2dhms(before));
                ws_send_notice(cptr, "%s: reset to 60m", name);
                quota_reset_warned(name);
             } else {
@@ -1238,25 +1250,25 @@ static void quota_apply(rrconn_t *cptr, const char *actor, const char *subcmd, i
             ok = db_quota_add(masterdb, name, (int)secs);
 
             if (ok) {
-               char *was = time_t2dhms( (time_t)(before < 0 ? 0 : before) );
+               char *was = time_t2dhms((time_t) (before < 0 ? 0 : before));
                char *added = time_t2dhms(secs);
-               char *now = time_t2dhms( (time_t)db_quota_get(masterdb, name) );
+               char *now = time_t2dhms((time_t) db_quota_get(masterdb, name));
                Log(LOG_AUDIT, "quota", "%s added %s to %s's TX quota (was %s)", actor, added, name, was);
                ws_send_notice(cptr, "added %s (now %s) to %s's quota", added, now, name);
-               free( (void *)was);
-               free( (void *)added);
-               free( (void *)now);
+               free((void *)was);
+               free((void *)added);
+               free((void *)now);
             }
          } else {
             ok = db_quota_set(masterdb, name, (int)secs);
 
             if (ok) {
-               char *was = time_t2dhms( (time_t)(before < 0 ? 0 : before) );
+               char *was = time_t2dhms((time_t) (before < 0 ? 0 : before));
                char *set = time_t2dhms(secs);
                Log(LOG_AUDIT, "quota", "%s set %s's TX quota to %s (was %s)", actor, name, set, was);
                ws_send_notice(cptr, "%s set %s's quota to %s", actor, name, set);
-               free( (void *)was);
-               free( (void *)set);
+               free((void *)was);
+               free((void *)set);
             }
          }
 
@@ -1296,7 +1308,6 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    if (!d) {
       return;
    }
-
    // Command layout: clients put the subcommand in talk.target (LIST/SHOW/
    // ADD/RESET/SET) with the rest of the args in talk.data. A non-keyword
    // target with no data is a single-user SHOW shortcut.
@@ -1306,12 +1317,11 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    bool target_is_cmd = target &&
       (strcasecmp(target, "LIST") == 0 || strcasecmp(target, "SHOW") == 0 ||
          strcasecmp(target, "ADD") == 0 || strcasecmp(target, "RESET") == 0 ||
-         strcasecmp(target, "SET") == 0 || strcasecmp(target, "HELP") == 0 ||
-         !strcasecmp(target, "BW") || !strcasecmp(target, "TX"));
+         strcasecmp(target, "SET") == 0 || strcasecmp(target, "HELP") == 0 || !strcasecmp(target, "BW") || !strcasecmp(target, "TX"));
 
    if (target_is_cmd) {
       snprintf(tail, sizeof(tail), "%s %s", target, data_str ? data_str : "");
-   } else if ( (!data_str || data_str[0] == '\0') && target) {
+   } else if ((!data_str || data_str[0] == '\0') && target) {
       snprintf(tail, sizeof(tail), "SHOW %s", target);
    } else {
       snprintf(tail, sizeof(tail), "%s", data_str ? data_str : "");
@@ -1354,31 +1364,55 @@ static void rrserver_handle_quota_cmd(const char *event, const char *data, rrcon
    int start = explicit_unit ? 2 : 1;
    bool list = !strcasecmp(action, "LIST"), show = !strcasecmp(action, "SHOW"), reset = !strcasecmp(action, "RESET");
    bool pairs = !strcasecmp(action, "SET") || !strcasecmp(action, "ADD");
-   if ((!list && !show && !reset && !pairs) || (!list && argc <= start) || (pairs && (argc-start)%2)) {
-      if (bandwidth) rrserver_usage_quota(cptr, action, argc > start ? argc-start : 0, &argv[start]);
-      else quota_apply(cptr, cptr->chatname, action, argc > start ? argc-start : 0, &argv[start]);
+
+   if ((!list && !show && !reset && !pairs) || (!list && argc <= start) || (pairs && (argc - start) % 2)) {
+      if (bandwidth) {
+         rrserver_usage_quota(cptr, action, argc > start ? argc - start : 0, &argv[start]);
+      } else {
+         quota_apply(cptr, cptr->chatname, action, argc > start ? argc - start : 0, &argv[start]);
+      }
       dict_free(d);
+
       return;
    }
-   /* Expand against known accounts in memory, then bind literal usernames.
-    * Overlapping patterns affect each account at most once per command. */
-   bool seen[HTTP_MAX_USERS] = {false};
-   int stop = argc > start ? argc : start+1;
-   for (int i=start; i<stop; i += pairs ? 2 : 1) {
+   /* Expand against known accounts in memory, then bind literal usernames. Overlapping patterns affect each account at most once per command. */
+   bool seen[HTTP_MAX_USERS] = {
+      false
+   };
+   int stop = argc > start ? argc : start + 1;
+
+   for (int i = start ; i < stop ; i += pairs ? 2 : 1) {
       const char *pattern = i < argc ? argv[i] : "*";
       bool matched = false;
-      for (unsigned uid=0; uid<HTTP_MAX_USERS; uid++) {
+
+      for (unsigned uid = 0 ; uid < HTTP_MAX_USERS ; uid++) {
          const char *name = http_users[uid].name;
-         if (!*name || !rrserver_quota_matches(pattern, name)) continue;
+
+         if (!*name || !rrserver_quota_matches(pattern, name)) {
+            continue;
+         }
          matched = true;
-         if (seen[uid]) continue;
+
+         if (seen[uid]) {
+            continue;
+         }
          seen[uid] = true;
-         char *single[] = {(char *)name, pairs ? argv[i+1] : NULL};
-         if (bandwidth || (list && !explicit_unit)) rrserver_usage_quota(cptr, list ? "SHOW" : action, pairs ? 2 : 1, single);
-         else quota_apply(cptr, cptr->chatname, list ? "SHOW" : action, pairs ? 2 : 1, single);
+         char *single[] = {
+            (char *)name, pairs ? argv[i + 1] : NULL
+         };
+
+         if (bandwidth || (list && !explicit_unit)) {
+            rrserver_usage_quota(cptr, list ? "SHOW" : action, pairs ? 2 : 1, single);
+         } else {
+            quota_apply(cptr, cptr->chatname, list ? "SHOW" : action, pairs ? 2 : 1, single);
+         }
       }
-      if (!matched) ws_send_error(cptr, "quota: no users match %s (simple * and ? wildcards only)", pattern);
+
+      if (!matched) {
+         ws_send_error(cptr, "quota: no users match %s (simple * and ? wildcards only)", pattern);
+      }
    }
+
    dict_free(d);
 }
 
@@ -1441,11 +1475,10 @@ static bool user_privilege_contains(const char *privileges, const char *wanted) 
       return false;
    }
    char copy[USER_PRIV_LEN + 1];
-   strlcpy(copy, privileges, sizeof(copy) );
+   strlcpy(copy, privileges, sizeof(copy));
    char *save = NULL;
 
-   for (char *token = strtok_r(copy, ",", &save) ; token ;
-      token = strtok_r(NULL, ",", &save) ) {
+   for (char *token = strtok_r(copy, ",", &save) ; token ; token = strtok_r(NULL, ",", &save)) {
       if (strcasecmp(token, wanted) == 0) {
          return true;
       }
@@ -1455,8 +1488,7 @@ static bool user_privilege_contains(const char *privileges, const char *wanted) 
 }
 
 static bool user_privilege_has_elevated(const char *privileges) {
-   return user_privilege_contains(privileges, "admin") ||
-          user_privilege_contains(privileges, "owner");
+   return user_privilege_contains(privileges, "admin") || user_privilege_contains(privileges, "owner");
 }
 
 static bool user_privilege_add_tokens(const char *base, const char *extra, char *out, size_t out_len) {
@@ -1465,12 +1497,11 @@ static bool user_privilege_add_tokens(const char *base, const char *extra, char 
    }
    snprintf(out, out_len, "%s", base);
    char copy[USER_PRIV_LEN + 1];
-   strlcpy(copy, extra, sizeof(copy) );
+   strlcpy(copy, extra, sizeof(copy));
    char *save = NULL;
 
-   for (char *token = strtok_r(copy, ",", &save) ; token ;
-      token = strtok_r(NULL, ",", &save) ) {
-      if (user_privilege_contains(out, token) ) {
+   for (char *token = strtok_r(copy, ",", &save) ; token ; token = strtok_r(NULL, ",", &save)) {
+      if (user_privilege_contains(out, token)) {
          continue;
       }
       size_t used = strlen(out);
@@ -1491,13 +1522,12 @@ static bool user_privilege_remove_tokens(const char *base, const char *remove, c
    out[0] = '\0';
    char base_copy[USER_PRIV_LEN + 1];
    char remove_copy[USER_PRIV_LEN + 1];
-   strlcpy(base_copy, base, sizeof(base_copy) );
-   strlcpy(remove_copy, remove, sizeof(remove_copy) );
+   strlcpy(base_copy, base, sizeof(base_copy));
+   strlcpy(remove_copy, remove, sizeof(remove_copy));
    char *save = NULL;
 
-   for (char *token = strtok_r(base_copy, ",", &save) ; token ;
-      token = strtok_r(NULL, ",", &save) ) {
-      if (user_privilege_contains(remove_copy, token) ) {
+   for (char *token = strtok_r(base_copy, ",", &save) ; token ; token = strtok_r(NULL, ",", &save)) {
+      if (user_privilege_contains(remove_copy, token)) {
          continue;
       }
       size_t used = strlen(out);
@@ -1520,11 +1550,11 @@ static bool user_target_allowed(const http_user_t *actor, const http_user_t *tar
       return false;
    }
 
-   if (has_priv(actor->uid, "owner") ) {
+   if (has_priv(actor->uid, "owner")) {
       return true;
    }
 
-   if (user_is_elevated(target) ) {
+   if (user_is_elevated(target)) {
       return password_change && actor->uid == target->uid;
    }
 
@@ -1612,14 +1642,11 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    int argc = 0;
    char *save = NULL;
 
-   for (char *token = strtok_r(input, " \t\r\n", &save) ;
-      token && argc < (int)(sizeof(argv) / sizeof(argv[0]) ) ;
-      token = strtok_r(NULL, " \t\r\n", &save) ) {
+   for (char *token = strtok_r(input, " \t\r\n", &save) ; token && argc < (int)(sizeof(argv) / sizeof(argv[0])) ; token = strtok_r(NULL, " \t\r\n", &save)) {
       argv[argc++] = token;
    }
 
-   bool self_password = argc == 3 && !strcasecmp(argv[0], "pass") &&
-      !strcasecmp(argv[1], cptr->user->name);
+   bool self_password = argc == 3 && !strcasecmp(argv[0], "pass") && !strcasecmp(argv[1], cptr->user->name);
 
    if (!has_priv(cptr->user->uid, "admin|owner") && !self_password) {
       ws_send_error(cptr, "Account administration requires admin or owner; use /user pass <your-user> <password> for your own password");
@@ -1657,8 +1684,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
             strftime(expiry, sizeof(expiry), "%Y-%m-%d", &tm_value);
          }
          ws_send_notice(cptr, "  %-16s %-7s sessions=%d privs=%s password-expires=%s%s", entry->name, entry->enabled ? "enabled" : "locked", entry->sessions,
-            entry
-            ->privs[0] ? entry->privs : "none", expiry, entry->password_change_required ? " (change required)" : "");
+            entry->privs[0] ? entry->privs : "none", expiry, entry->password_change_required ? " (change required)" : "");
       }
 
       return;
@@ -1678,7 +1704,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      time_t cutoff = now - (time_t)max_age * 86400;
+      time_t cutoff = now - (time_t) max_age * 86400;
       int found = 0;
 
       for (int i = 0 ; i < HTTP_MAX_USERS ; i++) {
@@ -1687,7 +1713,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          if (!entry->name[0] || entry->password_set <= 0 || entry->password_set > cutoff) {
             continue;
          }
-         int days = (int)( (now - entry->password_set) / 86400);
+         int days = (int)((now - entry->password_set) / 86400);
          ws_send_notice(cptr, "  %-16s password set %d days ago%s", entry->name, days, entry->password_change_required ? " (change required)" : "");
          found++;
       }
@@ -1700,7 +1726,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    }
 
    if (strcasecmp(argv[0], "add") == 0) {
-      if (argc < 2 || argc > 3 || !user_name_valid(argv[1]) ) {
+      if (argc < 2 || argc > 3 || !user_name_valid(argv[1])) {
          ws_send_notice(cptr, "Usage: /user add <user> [privileges]");
 
          return;
@@ -1713,8 +1739,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
       const char *privileges = argc == 3 ? argv[2] : "view,chat";
 
-      if (strlen(privileges) > USER_PRIV_LEN ||
-         (!has_priv(cptr->user->uid, "owner") && user_privilege_has_elevated(privileges) ) ) {
+      if (strlen(privileges) > USER_PRIV_LEN || (!has_priv(cptr->user->uid, "owner") && user_privilege_has_elevated(privileges))) {
          ws_send_notice(cptr, "USER: administrators cannot create owner or administrator accounts");
 
          return;
@@ -1728,7 +1753,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
       char password[9];
       char *password_hash = NULL;
-      bool ok = user_temp_password(password, sizeof(password) );
+      bool ok = user_temp_password(password, sizeof(password));
 
       if (ok) {
          password_hash = hash_passwd(password);
@@ -1736,7 +1761,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       ok = ok && password_hash && db_user_create(masterdb, uid, argv[1], true, password_hash, "no@example.com", 1, privileges, true, now + 7 * 86400);
       free(password_hash);
 
-      if (!ok || !user_reload_database(cptr) ) {
+      if (!ok || !user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to add %s", argv[1]);
 
          return;
@@ -1759,9 +1784,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    }
 
    if (strcasecmp(argv[0], "privs") == 0) {
-      if (argc < 3 || argc > 4 ||
-         (strcasecmp(argv[2], "list") != 0 && argc != 4) ||
-         (argc == 4 && strcasecmp(argv[2], "list") == 0) ) {
+      if (argc < 3 || argc > 4 || (strcasecmp(argv[2], "list") != 0 && argc != 4) || (argc == 4 && strcasecmp(argv[2], "list") == 0)) {
          ws_send_notice(cptr, "Usage: /user privs <user> list|add|remove|set [privileges]");
 
          return;
@@ -1783,8 +1806,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
       const char *requested = argv[3];
 
-      if (!user_privilege_list_valid(requested, false) ||
-         (strcasecmp(requested, "none") == 0 && strcasecmp(argv[2], "set") != 0) ) {
+      if (!user_privilege_list_valid(requested, false) || (strcasecmp(requested, "none") == 0 && strcasecmp(argv[2], "set") != 0)) {
          ws_send_notice(cptr, "USER: invalid privilege list: %s", requested ? requested : "(missing)");
 
          return;
@@ -1796,16 +1818,16 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          if (strcasecmp(requested, "none") == 0) {
             updated[0] = '\0';
          } else {
-            strlcpy(updated, requested, sizeof(updated) );
+            strlcpy(updated, requested, sizeof(updated));
          }
       } else if (strcasecmp(argv[2], "add") == 0) {
-         if (!user_privilege_add_tokens(target->privs, requested, updated, sizeof(updated) ) ) {
+         if (!user_privilege_add_tokens(target->privs, requested, updated, sizeof(updated))) {
             ws_send_notice(cptr, "USER: resulting privilege list is too long");
 
             return;
          }
       } else if (strcasecmp(argv[2], "remove") == 0) {
-         if (!user_privilege_remove_tokens(target->privs, requested, updated, sizeof(updated) ) ) {
+         if (!user_privilege_remove_tokens(target->privs, requested, updated, sizeof(updated))) {
             ws_send_notice(cptr, "USER: resulting privilege list is too long");
 
             return;
@@ -1816,14 +1838,13 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          return;
       }
 
-      if (!actor_is_owner && user_privilege_has_elevated(updated) ) {
+      if (!actor_is_owner && user_privilege_has_elevated(updated)) {
          ws_send_notice(cptr, "USER: administrators cannot grant owner or administrator privileges");
 
          return;
       }
 
-      if (!db_user_set_privileges(masterdb, target->name, updated) ||
-         !user_reload_database(cptr) ) {
+      if (!db_user_set_privileges(masterdb, target->name, updated) || !user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to update privileges for %s", target->name);
 
          return;
@@ -1834,14 +1855,14 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       return;
    }
 
-   if (!user_target_allowed(cptr->user, target, password_change) ) {
+   if (!user_target_allowed(cptr->user, target, password_change)) {
       ws_send_notice(cptr, "USER: insufficient privilege to modify %s", target->name);
 
       return;
    }
 
    if (strcasecmp(argv[0], "lock") == 0 || strcasecmp(argv[0], "unlock") == 0) {
-      if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner") ) ) {
+      if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner"))) {
          ws_send_notice(cptr, "USER: admins cannot lock owners or administrators");
 
          return;
@@ -1854,7 +1875,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
       bool enabled = strcasecmp(argv[0], "unlock") == 0;
 
-      if (!db_user_set_enabled(masterdb, target->name, enabled) || !user_reload_database(cptr) ) {
+      if (!db_user_set_enabled(masterdb, target->name, enabled) || !user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to %s %s", enabled ? "unlock" : "lock", target->name);
 
          return;
@@ -1866,7 +1887,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
    }
 
    if (strcasecmp(argv[0], "remove") == 0) {
-      if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner") ) ) {
+      if (argc != 2 || (user_is_elevated(target) && !has_priv(cptr->user->uid, "owner"))) {
          ws_send_notice(cptr, "USER: admins cannot remove owners or administrators");
 
          return;
@@ -1878,16 +1899,16 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          return;
       }
       char removed_name[HTTP_USER_LEN + 1];
-      strlcpy(removed_name, target->name, sizeof(removed_name) );
+      strlcpy(removed_name, target->name, sizeof(removed_name));
 
-      if (!db_user_remove(masterdb, removed_name) ) {
+      if (!db_user_remove(masterdb, removed_name)) {
          ws_send_notice(cptr, "USER: failed to remove %s", removed_name);
 
          return;
       }
       user_disconnect_sessions(target, "Your account was removed by an administrator");
 
-      if (!user_reload_database(cptr) ) {
+      if (!user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: removed %s, but account reload failed", removed_name);
 
          return;
@@ -1906,7 +1927,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
       char password[9];
 
-      if (!user_temp_password(password, sizeof(password) ) ) {
+      if (!user_temp_password(password, sizeof(password))) {
          ws_send_notice(cptr, "USER: unable to generate a temporary password");
 
          return;
@@ -1915,7 +1936,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, true, now + 7 * 86400);
       free(password_hash);
 
-      if (!ok || !user_reload_database(cptr) ) {
+      if (!ok || !user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to reset password for %s", target->name);
 
          return;
@@ -1936,7 +1957,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, false, 0);
       free(password_hash);
 
-      if (!ok || !user_reload_database(cptr) ) {
+      if (!ok || !user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to change password for %s", target->name);
 
          return;

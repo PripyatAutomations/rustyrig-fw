@@ -32,7 +32,7 @@
 
 extern dict *cfg;
 extern time_t now;
-extern bool dying;               // main.c
+extern bool dying;              // main.c
 GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
@@ -41,10 +41,10 @@ GtkWidget *status_tab = NULL;
 GtkWidget *log_tab = NULL;
 GtkWidget *host_log_tab = NULL;
 GtkCssProvider *css_provider = NULL;
-bool cfg_use_gtk = true;         // Default to using GTK3
+bool cfg_use_gtk = true;        // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_host_log_tab(void);
-static int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM;   // module-local
+static int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM; // module-local
 bool cfg_ui_gtk_vfo_on_top = true;
 extern bool cfg_fullscreen;
 
@@ -75,8 +75,9 @@ static bool frontend_gtk_config_refresh_cb(void) {
 
    return false;
 }
+
 extern GtkWidget *init_admin_tab(void);
-extern bool chat_init(void);             // gtk.chat.c
+extern bool chat_init(void);    // gtk.chat.c
 bool cfg_fullscreen = false;
 
 const char *gtk_mirc_color_name(unsigned int n) {
@@ -204,9 +205,7 @@ char *gtk_colorize_string(const char *in) {
             }
          }
       } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x11 ||
-         (unsigned char)*p == 0x16 || (unsigned char)*p == 0x1d ||
-         (unsigned char)*p == 0x1e || (unsigned char)*p == 0x1f ||
-         (unsigned char)*p == 0x0f) {
+         (unsigned char)*p == 0x16 || (unsigned char)*p == 0x1d || (unsigned char)*p == 0x1e || (unsigned char)*p == 0x1f || (unsigned char)*p == 0x0f) {
          unsigned char control = (unsigned char)*p++;
 
          if (control == 0x02) {
@@ -374,10 +373,10 @@ char *gtk_colorize_string(const char *in) {
             *o++ = *p++;
             continue;
          }
-         size_t key_len = (size_t)(end - (p + 1) );
+         size_t key_len = (size_t)(end - (p + 1));
          char key[64];
 
-         if (key_len >= sizeof(key) ) {
+         if (key_len >= sizeof(key)) {
             key_len = sizeof(key) - 1;
          }
          memcpy(key, p + 1, key_len);
@@ -447,7 +446,7 @@ char *gtk_colorize_string(const char *in) {
             }
          } else {
             /* Colors are IRC controls; preserve other brace-delimited text. */
-            char *escaped = g_markup_escape_text(p, (gssize)(end - p + 1));
+            char *escaped = g_markup_escape_text(p, (gssize) (end - p + 1));
 
             if (escaped) {
                o += sprintf(o, "%s", escaped);
@@ -463,7 +462,7 @@ char *gtk_colorize_string(const char *in) {
          const char *next = strpbrk(p, "{\033\002\021\026\035\036\037\017\003");
          size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
 
-         char *escaped = g_markup_escape_text(p, (gint)chunk_len);
+         char *escaped = g_markup_escape_text(p, (gint) chunk_len);
 
          if (!escaped) {
             free(out);
@@ -519,8 +518,8 @@ static GQueue *chat_backlog = NULL;
 // Old lines beyond the cap are dropped, matching the scrollback trim.
 #define CHAT_BACKLOG_MAX 200
 
-extern GtkWidget *main_notebook;      // gtk.chat.c / gtk.core.c
-extern GtkWidget *status_tab;         // gtk.chat.c: the chat tab page widget
+extern GtkWidget *main_notebook; // gtk.chat.c / gtk.core.c
+extern GtkWidget *status_tab;   // gtk.chat.c: the chat tab page widget
 
 // Queue a raw line before the status buffer exists
 static void chat_backlog_push(const char *line) {
@@ -540,7 +539,7 @@ static void chat_backlog_push(const char *line) {
    g_queue_push_tail(chat_backlog, copy);
 
    while (g_queue_get_length(chat_backlog) > CHAT_BACKLOG_MAX) {
-      g_free(g_queue_pop_head(chat_backlog) );
+      g_free(g_queue_pop_head(chat_backlog));
    }
 }
 
@@ -553,7 +552,7 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
 
    char *line;
 
-   while ( (line = g_queue_pop_head(chat_backlog) ) ) {
+   while ((line = g_queue_pop_head(chat_backlog))) {
       char *colorized = gtk_colorize_string(line);
 
       GtkTextIter end;
@@ -587,7 +586,7 @@ void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
    int max = cfg_get_int(cfg_key, def);
 
    if (max <= 0) {
-      return;                       // unlimited
+      return;                   // unlimited
    }
 
    int count = gtk_text_buffer_get_line_count(buf);
@@ -614,7 +613,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    }
 
    char msgbuf[MSGBUF_SIZE];
-   memset(msgbuf, 0, sizeof(msgbuf) );
+   memset(msgbuf, 0, sizeof(msgbuf));
 
    va_list aq;
    va_copy(aq, ap);
@@ -670,11 +669,11 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
    if (!combo || !text) {
       return;
    }
-   GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo) );
+   GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(combo));
    GtkTreeIter iter;
    int index = 0;
 
-   if (gtk_tree_model_get_iter_first(model, &iter) ) {
+   if (gtk_tree_model_get_iter_first(model, &iter)) {
       do {
          gchar *str = NULL;
          gtk_tree_model_get(model, &iter, 0, &str, -1);
@@ -687,7 +686,7 @@ void set_combo_box_text_active_by_string(GtkComboBoxText *combo, const char *tex
          }
          g_free(str);
          index++;
-      } while (gtk_tree_model_iter_next(model, &iter) );
+      } while (gtk_tree_model_iter_next(model, &iter));
    }
 }
 
@@ -781,7 +780,7 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
    (void)data;
    event_emit("client.quit.request", NULL, NULL);
 
-   return TRUE;      // core handles shutdown after GTK confirmation
+   return TRUE;                 // core handles shutdown after GTK confirmation
 }
 
 bool gui_init(void) {
@@ -827,7 +826,7 @@ bool gui_init(void) {
    gui_hotkey_register(main_window);
 
    // Video (webcam) frame listener
-   extern void rrclient_webcam_register(void);   // gtk.webcam.c
+   extern void rrclient_webcam_register(void);  // gtk.webcam.c
    rrclient_webcam_register();
 
    // Make the main window on screen
@@ -848,9 +847,9 @@ bool gui_init(void) {
 
       g_idle_add(fullscreen_later, NULL);
    }
-   gtk_widget_grab_focus(GTK_WIDGET(chat_entry) );
+   gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 
-   ui_print(NULL, "%s rustyrig client started", get_chat_ts(now) );
+   ui_print(NULL, "%s rustyrig client started", get_chat_ts(now));
 
    return false;
 }
@@ -861,12 +860,12 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
    }
    GtkWidget *toplevel = gtk_widget_get_toplevel(ancestor);
 
-   if (!GTK_IS_WINDOW(toplevel) ) {
+   if (!GTK_IS_WINDOW(toplevel)) {
       return FALSE;
    }
-   GtkWidget *focused = gtk_window_get_focus(GTK_WINDOW(toplevel) );
+   GtkWidget *focused = gtk_window_get_focus(GTK_WINDOW(toplevel));
 
-   for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w) ) {
+   for (GtkWidget *w = focused ; w ; w = gtk_widget_get_parent(w)) {
       if (w == ancestor) {
          return TRUE;
       }
@@ -877,10 +876,10 @@ gboolean is_widget_or_descendant_focused(GtkWidget *ancestor) {
 
 bool gui_fullscreen_toggle(void) {
    if (cfg_fullscreen) {
-      gtk_window_unfullscreen(GTK_WINDOW(main_window) );
+      gtk_window_unfullscreen(GTK_WINDOW(main_window));
       gtk_window_set_decorated(GTK_WINDOW(main_window), TRUE);
    } else {
-      gtk_window_fullscreen(GTK_WINDOW(main_window) );
+      gtk_window_fullscreen(GTK_WINDOW(main_window));
       gtk_window_set_decorated(GTK_WINDOW(main_window), FALSE);
    }
    cfg_fullscreen = !cfg_fullscreen;
@@ -899,13 +898,13 @@ bool gui_fullscreen_toggle(void) {
 #include <rrclient/frontend.h>
 #include <dlfcn.h>
 
-extern bool ptt_button_hotkey_toggle(void);   // gtk.ptt-btn.c
-extern bool syslog_clear(void);               // gtk.syslog.c
-extern GtkTextBuffer *text_buffer;            // gtk.chat.c
-extern GtkWidget *rx_vol_slider;              // gtk.vol-box.c
-extern GtkWidget *chat_textview;              // gtk.chat.c
-extern GtkWidget *admin_tab, *config_tab;     // gtk.core.c (this file)
-extern bool cfg_gtkcss_init(void);            // cfg.gtkcss.c
+extern bool ptt_button_hotkey_toggle(void);  // gtk.ptt-btn.c
+extern bool syslog_clear(void); // gtk.syslog.c
+extern GtkTextBuffer *text_buffer;  // gtk.chat.c
+extern GtkWidget *rx_vol_slider; // gtk.vol-box.c
+extern GtkWidget *chat_textview; // gtk.chat.c
+extern GtkWidget *admin_tab, *config_tab; // gtk.core.c (this file)
+extern bool cfg_gtkcss_init(void);  // cfg.gtkcss.c
 
 static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
    GtkWidget *entry = freq_entry;
@@ -914,9 +913,11 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
       bool available = vfo_state_get_long(vfo, "cat.state.freq", -1) >= 0;
       gtk_widget_set_tooltip_text(entry, available ? "Observed frequency" : "Frequency unavailable");
+
       if (!available) {
          gtk_freq_entry_set_unavailable(fe);
          modebox_update_state(mode, width);
+
          return;
       }
       char selection[256];
@@ -1167,7 +1168,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    reload_event_add(NULL, frontend_gtk_config_refresh_cb, "refresh cached GTK settings after config reload");
 
    if (gui_init()) {
-      return true;   // gui_init failed; module loader will unload us
+      return true;              // gui_init failed; module loader will unload us
    }
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va);
@@ -1242,7 +1243,7 @@ void gtk_frontend_stop(void) {
    // Stop the 1hz timer and quit the main loop if running. The main window
    // "destroy" signal handler runs gtk_main_quit when the user closes the
    // window; this path is for shutdown initiated from the core.
-   extern void gtk_userlist_stop_timers(void);   // gtk.userlist.c
+   extern void gtk_userlist_stop_timers(void);  // gtk.userlist.c
 
    if (frontend_gtk_update_source) {
       g_source_remove(frontend_gtk_update_source);

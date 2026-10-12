@@ -56,8 +56,7 @@ bool cmd_die(int argc, char **args) {
 }
 
 bool cmd_kick(int argc, char **args) {
-   return rrclient_kick_send(rrclient_active_connection(), rrclient_active_room(),
-      ui_active_window_name(), argc, args);
+   return rrclient_kick_send(rrclient_active_connection(), rrclient_active_room(), ui_active_window_name(), argc, args);
 }
 
 bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *window, int argc, char **args) {
@@ -66,17 +65,20 @@ bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *wind
 
       return true;
    }
+
    if (!connection->is_ws && (!connection->connected || !connection->authenticated)) {
       ui_print(window, "Not connected to IRC server");
 
       return false;
    }
+
    if (!connection->is_ws) {
       if (!args[1] || !*args[1] || strpbrk(args[1], " \t\r\n,:")) {
          ui_print(window, "Invalid IRC nickname");
 
          return false;
       }
+
       if (!room || (room[0] != '#' && room[0] != '&')) {
          ui_print(window, "Select an IRC channel tab first");
 
@@ -85,13 +87,13 @@ bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *wind
       char reason[IRC_MSGLEN] = "";
 
       for (int i = 2 ; i < argc ; i++) {
-         if ((i > 2 && strlcat(reason, " ", sizeof(reason)) >= sizeof(reason)) ||
-            strlcat(reason, args[i], sizeof(reason)) >= sizeof(reason)) {
+         if ((i > 2 && strlcat(reason, " ", sizeof(reason)) >= sizeof(reason)) || strlcat(reason, args[i], sizeof(reason)) >= sizeof(reason)) {
             ui_print(window, "IRC kick reason is too long");
 
             return false;
          }
       }
+
       if (strpbrk(room, " \t\r\n,")) {
          ui_print(window, "Invalid IRC channel name");
 
@@ -102,9 +104,9 @@ bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *wind
       if (!sent) {
          ui_print(window, "Unable to send IRC KICK for %s", args[1]);
       }
+
       return !sent;
    }
-
    // Everything after the target is the reason; the server requires a
    // minimum length (CHAT_MIN_REASON_LEN in librrprotocol/srv.chat.c)
    char reason[256] = "";
@@ -118,6 +120,7 @@ bool rrclient_kick_send(rrconn_t *connection, const char *room, const char *wind
    }
 
    dict *d = dict_new();
+
    if (!d) {
       return true;
    }
@@ -143,6 +146,7 @@ bool cmd_mute(int argc, char **args) {
 
       return false;
    }
+
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(), "Usage: /mute <user> [reason]");
 
@@ -174,6 +178,7 @@ bool cmd_unmute(int argc, char **args) {
 
       return false;
    }
+
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(), "Usage: /unmute <user>");
 
@@ -201,11 +206,13 @@ bool cmd_nick(int argc, char **args) {
 
       return false;
    }
+
    if (!connection->connected || !connection->authenticated) {
       ui_print(ui_active_window_name(), "Not connected to IRC server");
 
       return false;
    }
+
    if (argc < 2 || !args[1] || !*args[1] || strlen(args[1]) > NICKLEN || strpbrk(args[1], " ,*?!@:")) {
       ui_print(ui_active_window_name(), "Usage: /nick <nickname>");
 
@@ -216,6 +223,7 @@ bool cmd_nick(int argc, char **args) {
    if (!sent) {
       ui_print(ui_active_window_name(), "Unable to send IRC NICK");
    }
+
    return !sent;
 }
 
@@ -234,11 +242,13 @@ bool cmd_mode(int argc, char **args) {
       room = args[1];
       first_mode = 2;
    }
+
    if (!connection->connected || !connection->authenticated) {
       ui_print(ui_active_window_name(), "Not connected to IRC server");
 
       return false;
    }
+
    if (!room || (room[0] != '#' && room[0] != '&') || argc <= first_mode || !args[first_mode][0] || strpbrk(room, " \t\r\n,")) {
       ui_print(ui_active_window_name(), "Usage: /mode [+|-mode] [arguments] (select an IRC channel tab)");
 
@@ -260,11 +270,13 @@ bool cmd_mode(int argc, char **args) {
       }
       length += added;
    }
+
    bool sent = irc_send(connection, "%s", command);
 
    if (!sent) {
       ui_print(ui_active_window_name(), "Unable to send IRC MODE");
    }
+
    return !sent;
 }
 
@@ -277,11 +289,13 @@ bool cmd_ban(int argc, char **args) {
 
       return false;
    }
+
    if (!connection->connected || !connection->authenticated) {
       ui_print(ui_active_window_name(), "Not connected to IRC server");
 
       return false;
    }
+
    if (argc < 2 || !args[1] || !*args[1] || !room || (room[0] != '#' && room[0] != '&') || strpbrk(args[1], " \t\r\n,")) {
       ui_print(ui_active_window_name(), "Usage: /ban <nick|mask> (select an IRC channel tab)");
 
@@ -292,6 +306,7 @@ bool cmd_ban(int argc, char **args) {
    if (!sent) {
       ui_print(ui_active_window_name(), "Unable to send IRC BAN");
    }
+
    return !sent;
 }
 
@@ -303,26 +318,28 @@ bool cmd_raw(int argc, char **args) {
 
       return true;
    }
+
    if (!connection->is_ws && argc < 2) {
       ui_print(ui_active_window_name(), "Usage: /raw <IRC command> [arguments]");
 
       return true;
    }
+
    if (!connection->is_ws) {
       char command[IRC_MSGLEN] = "";
 
       for (int i = 1 ; i < argc ; i++) {
-         if ((i > 1 && strlcat(command, " ", sizeof(command)) >= sizeof(command)) ||
-            strlcat(command, args[i], sizeof(command)) >= sizeof(command)) {
+         if ((i > 1 && strlcat(command, " ", sizeof(command)) >= sizeof(command)) || strlcat(command, args[i], sizeof(command)) >= sizeof(command)) {
             ui_print(ui_active_window_name(), "IRC command is too long");
 
             return false;
          }
       }
+
       return !irc_send(connection, "%s", command);
    }
    char fullmsg[502];
-   memset(fullmsg, 0, sizeof(fullmsg) );
+   memset(fullmsg, 0, sizeof(fullmsg));
    size_t pos = 0;
 
    for (int i = 1 ; i < argc ; i++) {
@@ -346,7 +363,7 @@ bool cmd_raw(int argc, char **args) {
 // as RR_BINFRAME_SUBSYS_LOG binframes for the Host Log tab.
 // PARITY: rustyrig-www/js/webui.chat.js (syslog toggle)
 bool cmd_syslog(int argc, char **args) {
-   if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off") ) ) {
+   if (argc < 2 || !args[1] || (!strcasecmp(args[1], "on") && !strcasecmp(args[1], "off"))) {
       ui_print(ui_active_window_name(), "Usage: /syslog <on|off>");
 
       return true;
@@ -432,8 +449,7 @@ bool cmd_quota(int argc, char **args) {
 
    if (strcasecmp(args[1], "list") == 0 || strcasecmp(args[1], "show") == 0 ||
       strcasecmp(args[1], "add") == 0 || strcasecmp(args[1], "reset") == 0 ||
-      strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0 ||
-      !strcasecmp(args[1], "BW") || !strcasecmp(args[1], "TX")) {
+      strcasecmp(args[1], "set") == 0 || strcasecmp(args[1], "help") == 0 || !strcasecmp(args[1], "BW") || !strcasecmp(args[1], "TX")) {
       size_t pos = 0;
 
       for (int i = 2 ; i < argc ; i++) {

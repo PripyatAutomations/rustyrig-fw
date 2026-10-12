@@ -22,7 +22,7 @@
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
 
-extern dict *cfg;                // config.c
+extern dict *cfg;               // config.c
 
 extern GtkWidget *main_notebook;
 GtkWidget *admin_view = NULL;
@@ -35,10 +35,10 @@ GtkWidget *init_admin_tab(void) {
    if (admin_view) {
       // add stuff to the window
       gtk_container_add(GTK_CONTAINER(nw), admin_view);
-      ui_speech_set(nw, "Admin Tab",         // name
-         "Server administration",            // description
-         UI_ROLE_BUTTON,                     // role
-         true);                              // focusable
+      ui_speech_set(nw, "Admin Tab",   // name
+         "Server administration",   // description
+         UI_ROLE_BUTTON,        // role
+         true);                 // focusable
    }
 
    GtkWidget *admin_tab_label = gtk_label_new(NULL);

@@ -21,8 +21,8 @@
 #include <rrclient/audio.h>
 #include <rrclient/gtk/gtk.core.h>
 
-GtkWidget *rx_vol_slider = NULL;         // gstreamer volume
-GtkWidget *rx_rig_vol_slider = NULL;     // Rig side setting
+GtkWidget *rx_vol_slider = NULL; // gstreamer volume
+GtkWidget *rx_rig_vol_slider = NULL;   // Rig side setting
 
 void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    (void)user_data;

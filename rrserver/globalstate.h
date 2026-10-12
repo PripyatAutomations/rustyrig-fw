@@ -15,37 +15,37 @@ struct rr_rig_registry;
 struct rr_cat_compat;
 
 struct GlobalState {
-   logpriority_t log_level;              // Minimum log level to show
-   bool tx_blocked;                      // is TX blocked (user control)?
-   bool ptt;                             // Are we transmitting?
-   bool faultbeep;                       // Beep on faults
-   bool bc_standby;                      // Stay in STANDBY on band change?
-   uint32_t serial;                      // Device serial #
-   uint8_t fan_speed;                    // Fan speed: 0-6 (0: auto)
-   uint32_t fault_code;                  // Current fault code
-   uint32_t faults;                      // Faults since last cleared
-   uint32_t tr_delay;                    // T/R delay
+   logpriority_t log_level;     // Minimum log level to show
+   bool tx_blocked;             // is TX blocked (user control)?
+   bool ptt;                    // Are we transmitting?
+   bool faultbeep;              // Beep on faults
+   bool bc_standby;             // Stay in STANDBY on band change?
+   uint32_t serial;             // Device serial #
+   uint8_t fan_speed;           // Fan speed: 0-6 (0: auto)
+   uint32_t fault_code;         // Current fault code
+   uint32_t faults;             // Faults since last cleared
+   uint32_t tr_delay;           // T/R delay
 
    // Thermals
-   float therm_inlet;                    // Air inlet temp
-   float therm_enclosure;                // Current temperature INSIDE box
+   float therm_inlet;           // Air inlet temp
+   float therm_enclosure;       // Current temperature INSIDE box
 
    // Statistics
-   time_t time_tx_total,                // Lifetime TX time total
-      time_tx_last;                      // Last transmission length
-   float power_tx_watts;                 // Lifetime total watts used
-                                         // transmitting
+   time_t time_tx_total,        // Lifetime TX time total
+      time_tx_last;             // Last transmission length
+   float power_tx_watts;        // Lifetime total watts used
+   // transmitting
 
    // Sub-units
 
    struct AmpState amps[RR_MAX_AMPS];
    struct ATUState atus[RR_MAX_ATUS];
    struct FilterState filters[RR_MAX_FILTERS];
-   struct rr_server_rig *ptt_rig;         // Rig selected by the current TX control room
-   struct rr_rig_registry *rigs;         // Owns all runtime rigs/backends
-   struct rr_cat_compat *default_cat;     // Explicit default-rig wire adapter
+   struct rr_server_rig *ptt_rig;   // Rig selected by the current TX control room
+   struct rr_rig_registry *rigs; // Owns all runtime rigs/backends
+   struct rr_cat_compat *default_cat;  // Explicit default-rig wire adapter
 
-#if     defined(HOST_POSIX)   // Host build fd's/buffers/etc
+#if     defined(HOST_POSIX)     // Host build fd's/buffers/etc
    uint32_t logfile_fd;
    uint32_t catpipe_fd;
 #endif // defined(HOST_POSIX)

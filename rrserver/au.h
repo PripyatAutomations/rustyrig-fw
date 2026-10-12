@@ -15,13 +15,13 @@
 #include <librrprotocol/codecneg.h>
 
 typedef enum {
-   AU_BACKEND_NULL_SINK = 0,  // Null sink that discards all input but generates
-                              // logging statistics
-   AU_BACKEND_PIPEWIRE,       // Pipewire interface for Linux hosts
-   AU_BACKEND_I2S,            // For ESP32 PCM5102, etc.
-   AU_BACKEND_ALSA,           // ALSA backend
-   AU_BACKEND_OSS,            // OSS backend
-   AU_BACKEND_PIPE,           // PCM via pipe/socket
+   AU_BACKEND_NULL_SINK = 0,    // Null sink that discards all input but generates
+   // logging statistics
+   AU_BACKEND_PIPEWIRE,         // Pipewire interface for Linux hosts
+   AU_BACKEND_I2S,              // For ESP32 PCM5102, etc.
+   AU_BACKEND_ALSA,             // ALSA backend
+   AU_BACKEND_OSS,              // OSS backend
+   AU_BACKEND_PIPE,             // PCM via pipe/socket
 } rr_au_backend_t;
 
 typedef float rr_au_sample_t;
@@ -42,7 +42,7 @@ extern void rr_au_cleanup(rr_au_backend_interface_t *be, rr_au_device_t *dev);
 
 //////////
 struct au_recording_instance {
-   int channel;                  // Audio channel ID
+   int channel;                 // Audio channel ID
 };
 typedef struct au_recording_instance au_recording_t;
 

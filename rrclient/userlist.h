@@ -34,15 +34,15 @@ static inline const char *select_user_icon(struct rr_user *cptr) {
       return irc_modes_symbol(ws_conn, cptr->privs + 4);
    }
 
-   if (strcasestr(cptr->privs, "owner") ) {
+   if (strcasestr(cptr->privs, "owner")) {
       return "👑";
    }
 
-   if (strcasestr(cptr->privs, "admin") ) {
+   if (strcasestr(cptr->privs, "admin")) {
       return "⭐";
    }
 
-   if (strcasestr(cptr->privs, "tx") ) {
+   if (strcasestr(cptr->privs, "tx")) {
       return "👤";
    }
 
@@ -50,11 +50,11 @@ static inline const char *select_user_icon(struct rr_user *cptr) {
 }
 
 static inline const char *select_elmernoob_icon(struct rr_user *cptr) {
-   if (strcasestr(cptr->privs, "elmer") ) {
+   if (strcasestr(cptr->privs, "elmer")) {
       return "🧙";
    }
 
-   if (strcasestr(cptr->privs, "noob") ) {
+   if (strcasestr(cptr->privs, "noob")) {
       return "🐣";
    }
 
@@ -88,7 +88,7 @@ extern void userlist_remove_room_view(const char *room);
 extern void userlist_room_vfos_changed(const char *room);
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern void userlist_set_visible(bool visible);
-extern void userlist_refocus_main(void);   // return focus to main after showing userlist
+extern void userlist_refocus_main(void);  // return focus to main after showing userlist
 #endif // defined(USE_GTK)
 
 #include <librrprotocol/client-flags.h>

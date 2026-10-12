@@ -23,13 +23,13 @@ extern const uint32_t max__rr_gpiochips;
 #define GPIO_KEYLEN 8
 struct GPIO_pin {
    char key[GPIO_KEYLEN + 1];
-   struct gpiod_chip    *gpiochip;
+   struct gpiod_chip *gpiochip;
    // XXX: properties (in/out/etc)
 };
 typedef struct GPIO_pin GPIOpin;
 
 typedef struct radio__rr_gpiochip {
-   struct gpiod_chip    *chip;
+   struct gpiod_chip *chip;
    char key[GPIO_KEYLEN + 1];
    bool active;
 } radio_gpiochip;

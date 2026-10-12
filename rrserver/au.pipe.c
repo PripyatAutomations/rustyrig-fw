@@ -100,9 +100,9 @@ static int au_start_listener(const char *path) {
    unlink(path);
 
    addr.sun_family = AF_UNIX;
-   strlcpy(addr.sun_path, path, sizeof(addr.sun_path) );
+   strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
 
-   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr) ) < 0) {
+   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
       perror("bind");
       close(fd);
 
@@ -167,7 +167,7 @@ void au_unix_socket_poll(void) {
       fcntl(client_fd, F_SETFL, O_NONBLOCK);
       rx_client_fd = client_fd;
 
-      return;  // accept one connection per poll, or loop if you want multiple
+      return;                   // accept one connection per poll, or loop if you want multiple
    } else if (errno != EAGAIN) {
       perror("accept");
    }
@@ -178,7 +178,7 @@ void au_unix_socket_poll(void) {
    }
    // Read from the client socket
    uint8_t buf[800];
-   ssize_t n = read(rx_client_fd, buf, sizeof(buf) );
+   ssize_t n = read(rx_client_fd, buf, sizeof(buf));
 
    if (n > 0) {
 // XXX: We need to find the channel ID associated with the connection
@@ -199,7 +199,7 @@ void au_unix_socket_poll(void) {
          return;
       }
       // Real error reading
-      Log(LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing. error %d:%s", rx_client_fd, errno, strerror(errno) );
+      Log(LOG_WARN, "au", "fwdsp read error on UNIX socket client (fd=%d), closing. error %d:%s", rx_client_fd, errno, strerror(errno));
       close(rx_client_fd);
       rx_client_fd = -1;
    }

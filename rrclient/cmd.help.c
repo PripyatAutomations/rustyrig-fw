@@ -38,7 +38,7 @@ static bool safe_name(const char *name) {
       return false;
    }
 
-   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\') ) {
+   if (strstr(name, "..") || strchr(name, '/') || strchr(name, '\\')) {
       return false;
    }
 
@@ -220,8 +220,7 @@ bool cmd_help(int argc, char **args) {
 
    // Pre-message
    for (int i = 0 ; help_msg_before[i].line ; i++) {
-      if (help_msg_before[i].mode == UI_MODE_NONE ||
-         ui_mode == help_msg_before[i].mode) {
+      if (help_msg_before[i].mode == UI_MODE_NONE || ui_mode == help_msg_before[i].mode) {
          ui_print(ui_active_window_name(), help_msg_before[i].line);
       }
    }
@@ -243,7 +242,7 @@ bool cmd_help(int argc, char **args) {
    /* PARITY: rustyrig-www/js/webui.chat.js:webui_command_help */
    for (int i = 0 ; client_cmds[i].cmd ; i++) {
       // Hide admin-only commands from non-staff users
-      if (client_cmds[i].admin && !media_have_priv("admin|owner") ) {
+      if (client_cmds[i].admin && !media_have_priv("admin|owner")) {
          continue;
       }
       const char *next_section = client_cmds[i].help_section ? client_cmds[i].help_section : "Other";
@@ -264,8 +263,7 @@ bool cmd_help(int argc, char **args) {
 
    // After-message
    for (int i = 0 ; help_msg_after[i].line ; i++) {
-      if (help_msg_after[i].mode == UI_MODE_NONE ||
-         ui_mode == help_msg_after[i].mode) {
+      if (help_msg_after[i].mode == UI_MODE_NONE || ui_mode == help_msg_after[i].mode) {
          ui_print(ui_active_window_name(), help_msg_after[i].line);
       }
    }

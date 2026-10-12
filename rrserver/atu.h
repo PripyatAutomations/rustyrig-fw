@@ -13,20 +13,20 @@
 
 // A tuning value
 struct rr_atu_tv {
-   float frequency;              // Frequency in hz
-   float L;                      // Inductance selected
-   float C;                      // Capacitance selected
-   bool bypass;                  // Bypass tuner?
-   bool hi_z;                    // Hi-Z switch
+   float frequency;             // Frequency in hz
+   float L;                     // Inductance selected
+   float C;                     // Capacitance selected
+   bool bypass;                 // Bypass tuner?
+   bool hi_z;                   // Hi-Z switch
 };
 typedef struct rr_atu_tv rr_atu_tv;
 
 // Antenna Matching Unit current state
 struct ATUState {
-   float power_fwd,                     // Measured forward power
-      power_rev;                         // Measured reflected power
-   float thermal;                        // Reported temperature or -1000 if not
-                                         // available
+   float power_fwd,             // Measured forward power
+      power_rev;                // Measured reflected power
+   float thermal;               // Reported temperature or -1000 if not
+   // available
 //   rr_atu_tv *tv;        // Active tuning values
 };
 

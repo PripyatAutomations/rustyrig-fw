@@ -51,7 +51,9 @@ bool irc_send(rrconn_t *connection, const char *fmt, ...) {
    return send_ok;
 }
 int main(void) {
-   rrconn_t connection = { .fd = -1 };
+   rrconn_t connection = {
+      .fd = -1
+   };
    snprintf(connection.nick, sizeof(connection.nick), "%s", login_user);
    ws_conn = &connection;
    event_init();

@@ -182,11 +182,10 @@ static void test_constraints(void) {
    assert(rr_rig_property_define(r, &s)); // Schema cannot silently change.
    char choices[] = "USB FM";
    s = (rr_property_descriptor_t) {
-      .name = "choice", .type = VAL_STR,
-      .readable = true, .writable = true, .enum_values = choices
+      .name = "choice", .type = VAL_STR, .readable = true, .writable = true, .enum_values = choices
    };
    assert(!rr_rig_property_define(r, &s));
-   choices[0] = 'X'; // Descriptor owns its own copy.
+   choices[0] = 'X';            // Descriptor owns its own copy.
    request.property = "choice";
    request.value_type = VAL_STR;
    request.value.s = "USB";
@@ -216,8 +215,7 @@ int main(void) {
    rr_server_vfo_t *rig0_b = rr_server_vfo_find_alias(rig0, "B");
    rr_server_vfo_t *rig1_a = rr_server_vfo_find_alias(rig1, "A");
    assert(rig0_a && rig0_b && rig1_a);
-   assert(rr_server_vfo_find_uuid(rig0, rr_server_vfo_id(rig0_a)) ==
-      rig0_a);
+   assert(rr_server_vfo_find_uuid(rig0, rr_server_vfo_id(rig0_a)) == rig0_a);
    assert(strcmp(rr_server_vfo_id(rig0_a), rr_server_vfo_id(rig0_b)));
    assert(strcmp(rr_server_vfo_id(rig0_a), rr_server_vfo_id(rig1_a)));
    assert(rr_server_vfo_owner(rig0_a) == rig0);
@@ -244,25 +242,20 @@ int main(void) {
    dict_value_t value = {
       .l = 14074000
    };
-   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    rr_property_snapshot_t canonical = {
       0
    };
    assert(rr_vfo_property_read(rig0_a, RR_PROP_VFO_FREQUENCY, &canonical));
    assert(canonical.known && canonical.value.l == 14074000);
    value.s = "USB";
-   assert(rr_rig_property_observe(rig0, a_mode, VAL_STR, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, a_mode, VAL_STR, &value) == RR_PROPERTY_CHANGED);
    value.l = 7074000;
-   assert(rr_rig_property_observe(rig0, b_freq, VAL_LONG, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, b_freq, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    value.s = "USB";
-   assert(rr_rig_property_observe(rig0, b_mode, VAL_STR, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, b_mode, VAL_STR, &value) == RR_PROPERTY_CHANGED);
    value.i = 0;
-   assert(rr_rig_property_observe(rig0, RR_PROP_PTT, VAL_BOOL, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, RR_PROP_PTT, VAL_BOOL, &value) == RR_PROPERTY_CHANGED);
 
    /* An independently created rig must not see rig0's observations. */
    rr_property_snapshot_t snapshot = read_property(rig1, a_freq);
@@ -271,14 +264,12 @@ int main(void) {
    assert(!snapshot.available);
 
    /* A failed first observation is distinct from never having tried. */
-   assert(rr_rig_property_unavailable(rig1, b_width) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_unavailable(rig1, b_width) == RR_PROPERTY_CHANGED);
    snapshot = read_property(rig1, b_width);
    assert(snapshot.observed && !snapshot.known && !snapshot.available);
 
    value.l = 10136000;
-   assert(rr_rig_property_observe(rig1, a_freq, VAL_LONG, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig1, a_freq, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    snapshot = read_property(rig0, a_freq);
    assert(snapshot.observed && snapshot.known && snapshot.available);
    assert(snapshot.value_type == VAL_LONG);
@@ -301,8 +292,7 @@ int main(void) {
    /* Re-observing an identical value is not a state change. */
    uint64_t version = snapshot.version;
    int events = property_events;
-   assert(rr_rig_property_observe(rig1, a_freq, VAL_LONG, &value) ==
-      RR_PROPERTY_UNCHANGED);
+   assert(rr_rig_property_observe(rig1, a_freq, VAL_LONG, &value) == RR_PROPERTY_UNCHANGED);
    snapshot = read_property(rig1, a_freq);
    assert(snapshot.version == version);
    assert(property_events == events);
@@ -314,13 +304,11 @@ int main(void) {
    assert(snapshot.observed && snapshot.known && !snapshot.available);
    assert(snapshot.value.l == 14074000);
    assert(snapshot.changed_at == now);
-   assert(rr_rig_property_unavailable(rig0, a_freq) ==
-      RR_PROPERTY_UNCHANGED);
+   assert(rr_rig_property_unavailable(rig0, a_freq) == RR_PROPERTY_UNCHANGED);
 
    /* Zero and false are real known values, never availability sentinels. */
    value.i = 0;
-   assert(rr_rig_property_observe(rig0, RR_PROP_SIGNAL, VAL_INT, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, RR_PROP_SIGNAL, VAL_INT, &value) == RR_PROPERTY_CHANGED);
    snapshot = read_property(rig0, RR_PROP_SIGNAL);
    assert(snapshot.known && snapshot.available && snapshot.value.i == 0);
    snapshot = read_property(rig0, RR_PROP_PTT);
@@ -329,8 +317,7 @@ int main(void) {
    /* String observations are copied and outlive the caller's buffer. */
    char mode[] = "LSB";
    value.s = mode;
-   assert(rr_rig_property_observe(rig1, a_mode, VAL_STR, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig1, a_mode, VAL_STR, &value) == RR_PROPERTY_CHANGED);
    mode[0] = 'X';
    snapshot = read_property(rig1, a_mode);
    assert(strcmp(snapshot.value.s, "LSB") == 0);
@@ -404,15 +391,13 @@ int main(void) {
    assert(broadcasts == 1);
 
    value.l = 14100000;
-   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    assert(!rr_cat_compat_publish(compat, VFO_A, 15));
    assert(broadcasts == 2);
    assert(dict_get_long(last_cat_state, "cat.state.freq", -1) == 14100000);
 
    value.s = "LSB";
-   assert(rr_rig_property_observe(rig0, a_mode, VAL_STR, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, a_mode, VAL_STR, &value) == RR_PROPERTY_CHANGED);
    assert(!rr_cat_compat_publish(compat, VFO_A, 15));
    assert(broadcasts == 3);
    assert(strcmp(dict_get(last_cat_state, "cat.state.mode", ""), "LSB") == 0);
@@ -426,8 +411,7 @@ int main(void) {
 
    /* A known zero remains a real value at the compatibility boundary. */
    value.l = 0;
-   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) ==
-      RR_PROPERTY_CHANGED);
+   assert(rr_rig_property_observe(rig0, a_freq, VAL_LONG, &value) == RR_PROPERTY_CHANGED);
    assert(!rr_cat_compat_publish(compat, VFO_A, 15));
    assert(broadcasts == 5);
    assert(dict_get_bool(last_cat_state, "cat.state.freq-available", false));
@@ -437,7 +421,7 @@ int main(void) {
       0
    };
    assert(!rr_cat_compat_send_state(compat, &new_client));
-   assert(direct_sends == 2); /* VFO A and B are both supported. */
+   assert(direct_sends == 2);   /* VFO A and B are both supported. */
 
    rr_cat_compat_free(compat);
    dict_free(last_cat_state);

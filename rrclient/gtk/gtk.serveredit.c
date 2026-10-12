@@ -28,17 +28,18 @@ extern dict *cfg;
 typedef rr_transport_t server_proto_t;
 
 typedef struct serverlist {
-   char *name;           // friendly name
-   char *host;           // host from URL
-   int port;             // parsed port
-   char *user;           // optional user
-   char *pass;           // optional pass
+   char *name;                  // friendly name
+   char *host;                  // host from URL
+   int port;                    // parsed port
+   char *user;                  // optional user
+   char *pass;                  // optional pass
    server_proto_t proto;
    struct serverlist *next;
 } serverlist_t;
 
 bool server_parse_url(const char *url, char *host, int *port, char *user, char *pass, server_proto_t *proto) {
    rr_server_url_t parsed;
+
    if (!rr_server_url_parse(url, &parsed) || strlen(parsed.host) >= 256) {
       return false;
    }
@@ -46,16 +47,17 @@ bool server_parse_url(const char *url, char *host, int *port, char *user, char *
    *port = parsed.port;
    *proto = parsed.transport;
    user[0] = pass[0] = '\0';
+
    return true;
 }
 
 serverlist_t *serverlist_add(const char *name, const char *url) {
-   serverlist_t *sp = malloc(sizeof(serverlist_t) );
+   serverlist_t *sp = malloc(sizeof(serverlist_t));
 
    if (!sp) {
       return NULL;
    }
-   memset(sp, 0, sizeof(*sp) );
+   memset(sp, 0, sizeof(*sp));
 
    char host[256];
    int port = -1;
@@ -63,7 +65,7 @@ serverlist_t *serverlist_add(const char *name, const char *url) {
    char pass[HTTP_PASS_LEN];
    server_proto_t proto;
 
-   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
+   if (!server_parse_url(url, host, &port, user, pass, &proto)) {
       free(sp);
 
       return NULL;
@@ -117,16 +119,12 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
    int port = -1;
    server_proto_t proto;
 
-   if (!server_parse_url(url, host, &port, user, pass, &proto) ) {
+   if (!server_parse_url(url, host, &port, user, pass, &proto)) {
       return NULL;
    }
 
    for (serverlist_t *sp = head ; sp ; sp = sp->next) {
-      if (sp->port == port &&
-         sp->proto == proto &&
-         strcmp(sp->host, host) == 0 &&
-         strcmp(sp->user, user) == 0 &&
-         strcmp(sp->pass, pass) == 0) {
+      if (sp->port == port && sp->proto == proto && strcmp(sp->host, host) == 0 && strcmp(sp->user, user) == 0 && strcmp(sp->pass, pass) == 0) {
          return sp;
       }
    }
@@ -151,32 +149,39 @@ static char *server_editor_rooms(const char *rooms, const char *rig_rooms) {
    gchar **tokens = g_strsplit_set(combined, ", \t\r\n", -1);
    GString *result = g_string_new("");
    GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-   for (unsigned i = 0; tokens[i]; i++) {
+
+   for (unsigned i = 0 ; tokens[i] ; i++) {
       if (!*tokens[i]) {
          continue;
       }
       char *key = g_ascii_strdown(tokens[i], -1);
+
       if (g_hash_table_contains(seen, key)) {
          g_free(key);
          continue;
       }
       g_hash_table_add(seen, key);
+
       if (result->len) {
          g_string_append_c(result, ' ');
       }
       g_string_append(result, tokens[i]);
    }
+
    g_hash_table_destroy(seen);
    g_strfreev(tokens);
    g_free(combined);
+
    return g_string_free(result, FALSE);
 }
 
 static void server_editor_free(gpointer data) {
    GtkServerEditor *editor = data;
+
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       g_free(editor->initial[i]);
    }
+
    g_free(editor->profile);
    g_free(editor);
 }
@@ -185,27 +190,35 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    GtkWidget *window = GTK_WIDGET(data);
    GtkServerEditor *editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
    rr_server_url_t endpoint;
+
    if (!rr_server_url_parse(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])), &endpoint)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a valid WS, WSS, IRC or IRCS URL.");
+
       return;
    }
    char *path = rrclient_user_config_path();
+
    if (!path) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Cannot locate your home directory.");
+
       return;
    }
    gchar *directory = g_path_get_dirname(path);
+
    if (g_mkdir_with_parents(directory, 0700)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Cannot create your configuration directory.");
       g_free(directory);
       free(path);
+
       return;
    }
    g_free(directory);
    dict *overrides = file_exists(path) ? cfg_load(path) : dict_new();
+
    if (!overrides) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Cannot read your configuration file.");
       free(path);
+
       return;
    }
    char *rooms = server_editor_rooms(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), NULL);
@@ -213,8 +226,10 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    g_free(rooms);
    bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
    bool changed = false;
+
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       const char *value = gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
+
       if (strcmp(value, editor->initial[i])) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
@@ -222,6 +237,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          changed = true;
       }
    }
+
    if (rooms_changed) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
@@ -232,6 +248,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    mode_t previous = umask(0077);
    bool saved = !changed || cfg_save_overrides(overrides, path);
    umask(previous);
+
    if (saved) {
       for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
          if (strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[i])), editor->initial[i])) {
@@ -240,6 +257,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
             dict_add(cfg, key, gtk_entry_get_text(GTK_ENTRY(editor->fields[i])));
          }
       }
+
       if (rooms_changed) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
@@ -256,13 +274,16 @@ static void server_editor_save(GtkButton *button, gpointer data) {
 
 GtkWidget *gtk_show_server_editor(const char *profile) {
    gui_window_t *existing = gui_find_window(NULL, "serveredit");
+
    if (existing && existing->gtk_win) {
       gtk_window_present(GTK_WINDOW(existing->gtk_win));
+
       return existing->gtk_win;
    }
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "Edit server");
    gui_window_t *parent = gui_find_window(NULL, "serverpick");
+
    if (parent && parent->gtk_win) {
       gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(parent->gtk_win));
    }
@@ -275,15 +296,18 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
    gtk_container_add(GTK_CONTAINER(window), grid);
-   const char *labels[] = { "URL", "Username", "Password", "Proxy", "Rooms" };
+   const char *labels[] = {
+      "URL", "Username", "Password", "Proxy", "Rooms"
+   };
+
    for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       const char *value = get_server_property(profile, editor_keys[i]);
-      editor->initial[i] = i == 4 ? server_editor_rooms(value,
-         get_server_property(profile, "autojoin.rig")) : g_strdup(value ? value : "");
+      editor->initial[i] = i == 4 ? server_editor_rooms(value, get_server_property(profile, "autojoin.rig")) : g_strdup(value ? value : "");
       editor->fields[i] = gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(editor->fields[i]), editor->initial[i]);
       gtk_entry_set_width_chars(GTK_ENTRY(editor->fields[i]), 48);
       gtk_entry_set_visibility(GTK_ENTRY(editor->fields[i]), i != 2);
+
       if (i == 4) {
          gtk_entry_set_placeholder_text(GTK_ENTRY(editor->fields[i]), "#lobby #station-rig0 #hamradio");
          gtk_widget_set_tooltip_text(editor->fields[i], "Rooms to join, separated by spaces.");
@@ -291,6 +315,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
    }
+
    editor->error = gtk_label_new("");
    gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 5, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
@@ -300,6 +325,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_widget_destroy), window);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
    gtk_widget_show_all(window);
+
    return window;
 }
 

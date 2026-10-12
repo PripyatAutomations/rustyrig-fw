@@ -103,7 +103,7 @@ int main(void) {
    active = "#site-rig1.rx";
    assert(!cmd_rig(2, list));
    snprintf(first, sizeof(first), "%s", sent_id);
-   active = "#site-rig10"; // Replies retain the original filter across tab switches.
+   active = "#site-rig10";      // Replies retain the original filter across tab switches.
    tree_row(first, 0, "site", "#site", false);
    tree_row(first, 1, "rig", "#site-rig1", true);
    tree_row(first, 2, "vfo", NULL, true);
@@ -128,7 +128,7 @@ int main(void) {
    snprintf(first, sizeof(first), "%s", sent_id);
    active = "#site-rig10";
    tree_row(first, 0, "site", "#site", false);
-   tree_row(first, 1, "gps", NULL, false); // Station GPS is outside this rig.
+   tree_row(first, 1, "gps", NULL, false);   // Station GPS is outside this rig.
    tree_row(first, 1, "rig", "#site-rig1", false); // Hidden parent still sets context.
    tree_row(first, 2, "vfo", NULL, false);
    tree_row(first, 2, "gps", NULL, true);

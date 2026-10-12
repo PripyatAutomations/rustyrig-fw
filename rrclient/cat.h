@@ -23,9 +23,9 @@ typedef enum rr_cat_req_type {
 // For the command table structure
 struct rr_cat_cmd {
    char verb[6];
-   int32_t (*hndlr)();                           // handler
-   int32_t min_args,                    // minimum arguments for SET mode
-      max_args;                          // maximum arguments for SET mode
+   int32_t (*hndlr)();          // handler
+   int32_t min_args,            // minimum arguments for SET mode
+      max_args;                 // maximum arguments for SET mode
 };
 
 // Command lookup table

@@ -43,7 +43,7 @@ static int zoom_dimension(int value, unsigned percent) {
    if (value < 0) {
       return value;
    }
-   int64_t scaled = ((int64_t)value * percent + 50) / 100;
+   int64_t scaled = ((int64_t) value * percent + 50) / 100;
 
    return scaled > G_MAXINT ? G_MAXINT : (int)scaled;
 }
@@ -102,8 +102,7 @@ char *gtk_zoom_css(const char *css) {
          char *end;
          double value = g_ascii_strtod(p, &end);
 
-         if (end > p && !strncmp(end, "px", 2) && !g_ascii_isalnum(end[2]) && end[2] != '_' &&
-            value >= 0 && value <= 1000000 && zoom_percent != 100) {
+         if (end > p && !strncmp(end, "px", 2) && !g_ascii_isalnum(end[2]) && end[2] != '_' && value >= 0 && value <= 1000000 && zoom_percent != 100) {
             char number[64];
             g_ascii_formatd(number, sizeof(number), "%.3f", value * zoom_percent / 100);
             char *tail = number + strlen(number) - 1;
@@ -282,8 +281,8 @@ static unsigned zoom_for_size(int width, int height, int screen_width, int scree
    if (width <= 0 || height <= 0 || screen_width <= 0 || screen_height <= 0) {
       return 100;
    }
-   int horizontal = ((int64_t)width * 100 + screen_width / 2) / screen_width;
-   int vertical = ((int64_t)height * 100 + screen_height / 2) / screen_height;
+   int horizontal = ((int64_t) width * 100 + screen_width / 2) / screen_width;
+   int vertical = ((int64_t) height * 100 + screen_height / 2) / screen_height;
 
    return CLAMP(MIN(horizontal, vertical), 25, 100);
 }
@@ -384,11 +383,11 @@ static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event,
 
 void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    zoom_window = window;
-   g_object_add_weak_pointer(G_OBJECT(window), (gpointer *)&zoom_window);
+   g_object_add_weak_pointer(G_OBJECT(window), (gpointer *) &zoom_window);
    // A viewport removes the notebook's natural minimum from the window's
    // resize constraints. Scrollbars retain access at the minimum zoom limit.
    zoom_viewport = gtk_scrolled_window_new(NULL, NULL);
-   g_object_add_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *)&zoom_viewport);
+   g_object_add_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *) &zoom_viewport);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(zoom_viewport), 320);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(zoom_viewport), 180);
    GtkPolicyType policy = cfg_get_bool("ui.gtk.scale-on-resize", true) ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER;
@@ -489,7 +488,7 @@ static void zoom_manual_set(unsigned next) {
          gtk_window_get_size(GTK_WINDOW(zoom_window), &width, &height);
          // Shrink/grow the normal window along with its controls; auto-resize
          // never requests a new window size, avoiding a resize/zoom loop.
-         gtk_window_resize(GTK_WINDOW(zoom_window), MAX(1, (int)((int64_t)width * next / previous)), MAX(1, (int)((int64_t)height * next / previous)));
+         gtk_window_resize(GTK_WINDOW(zoom_window), MAX(1, (int)((int64_t) width * next / previous)), MAX(1, (int)((int64_t) height * next / previous)));
       }
    }
 }
@@ -518,8 +517,7 @@ static void zoom_touch_begin(GtkGesture *gesture, GdkEventSequence *sequence, gp
    const GdkEvent *event = gtk_gesture_get_last_event(gesture, sequence);
    touch->started = event ? gdk_event_get_time(event) : 0;
    GList *points = gtk_gesture_get_sequences(gesture);
-   touch->tap = g_list_length(points) == 2 && event &&
-      (event->type == GDK_TOUCH_BEGIN || event->type == GDK_TOUCH_UPDATE);
+   touch->tap = g_list_length(points) == 2 && event && (event->type == GDK_TOUCH_BEGIN || event->type == GDK_TOUCH_UPDATE);
 
    if (touch->tap) {
       touch->points[0] = points->data == sequence ? points->next->data : points->data;
@@ -530,7 +528,7 @@ static void zoom_touch_begin(GtkGesture *gesture, GdkEventSequence *sequence, gp
       }
 
       const GdkEvent *first = gtk_gesture_get_last_event(gesture, touch->points[0]);
-      GtkWidget *hit = first ? gtk_get_event_widget((GdkEvent *)first) : NULL;
+      GtkWidget *hit = first ? gtk_get_event_widget((GdkEvent *) first) : NULL;
       while (hit && !g_object_get_data(G_OBJECT(hit), "rr-touch-context")) {
          hit = gtk_widget_get_parent(hit);
       }
@@ -567,8 +565,7 @@ static void zoom_touch_update(GtkGesture *gesture, GdkEventSequence *sequence, g
    for (int i = 0 ; i < 2 ; i++) {
       double x, y;
 
-      if (gtk_gesture_get_point(gesture, touch->points[i], &x, &y) &&
-         ((x - touch->x[i]) * (x - touch->x[i]) + (y - touch->y[i]) * (y - touch->y[i]) > 100)) {
+      if (gtk_gesture_get_point(gesture, touch->points[i], &x, &y) && ((x - touch->x[i]) * (x - touch->x[i]) + (y - touch->y[i]) * (y - touch->y[i]) > 100)) {
          touch->tap = false;
       }
    }
@@ -613,7 +610,7 @@ static gboolean zoom_touch_finish(gpointer data) {
       const GtkTouchContextFunc *menu = g_object_get_data(G_OBJECT(touch->target), "rr-touch-context");
 
       if (menu && *menu) {
-         (*menu)(touch->target, touch->menu_x, touch->menu_y, GDK_CURRENT_TIME);
+         (*menu) (touch->target, touch->menu_x, touch->menu_y, GDK_CURRENT_TIME);
       }
    }
    zoom_touch_clear(touch);
@@ -659,8 +656,8 @@ static void zoom_touch_free(gpointer data) {
 }
 
 static void zoom_touch_bind(GtkWidget *window) {
-   if (!GTK_IS_WINDOW(window) || gtk_window_get_window_type(GTK_WINDOW(window)) != GTK_WINDOW_TOPLEVEL ||
-      g_object_get_data(G_OBJECT(window), "rr-touch-zoom")) {
+   if (!GTK_IS_WINDOW(window) || gtk_window_get_window_type(GTK_WINDOW(window)) != GTK_WINDOW_TOPLEVEL || g_object_get_data(G_OBJECT(window), "rr-touch-zoom"))
+   {
       return;
    }
    zoom_touch_t *touch = g_new0(zoom_touch_t, 1);
@@ -749,12 +746,12 @@ void gtk_ui_zoom_shutdown(void) {
       }
       focus_handler = 0;
       coupled_resize_keys = coupled_resize_pending = false;
-      g_object_remove_weak_pointer(G_OBJECT(zoom_window), (gpointer *)&zoom_window);
+      g_object_remove_weak_pointer(G_OBJECT(zoom_window), (gpointer *) &zoom_window);
       zoom_window = NULL;
    }
 
    if (zoom_viewport) {
-      g_object_remove_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *)&zoom_viewport);
+      g_object_remove_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *) &zoom_viewport);
       zoom_viewport = NULL;
    }
 
@@ -788,17 +785,21 @@ gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    }
 
    switch (event->keyval) {
-      case GDK_KEY_0: case GDK_KEY_KP_0: {
+      case GDK_KEY_0:
+      case GDK_KEY_KP_0: {
          zoom_key_step(100 - (int)zoom_percent, false);
 
          return TRUE;
       }
-      case GDK_KEY_plus: case GDK_KEY_equal: case GDK_KEY_KP_Add: {
+      case GDK_KEY_plus:
+      case GDK_KEY_equal:
+      case GDK_KEY_KP_Add: {
          zoom_key_step(1, control);
 
          return TRUE;
       }
-      case GDK_KEY_minus: case GDK_KEY_KP_Subtract: {
+      case GDK_KEY_minus:
+      case GDK_KEY_KP_Subtract: {
          zoom_key_step(-1, control);
 
          return TRUE;

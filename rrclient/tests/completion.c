@@ -34,10 +34,12 @@ client_cmd_t client_cmds[] = {
       0
    }
 };
+
 static const char *active_window;
 const char *ui_active_window_name(void) {
    return active_window;
 }
+
 static bool admin;
 bool media_have_priv(const char *p) {
    return admin;
@@ -59,10 +61,12 @@ const char *rrclient_room_available_iter(unsigned int index) {
 
    return index < sizeof(available) / sizeof(available[0]) ? available[index] : NULL;
 }
+
 static struct rr_client_media_chan channels[] = {
    {
       .uuid = "rx-active", .name = "rig0.vfo_a.rx", .descr = "Main receiver", .codec = "opus", .room = "#station-rig0", .joined = true, .subsystem = 1, .
-      direction = 0, .subscribed = true
+      direction =
+         0, .subscribed = true
    },
    {
       .uuid = "rx-disabled", .subsystem = 1, .direction = 0, .disabled = true
@@ -112,6 +116,7 @@ static void check(const char *line, const char *word, const char *expected) {
    assert(expected ? found : !matches || !matches[0]);
    completion_free(matches);
 }
+
 static unsigned intercepted;
 static bool completion_handler(tui_window_t *window) {
    (void)window;
@@ -227,12 +232,18 @@ int main(void) {
    robert.next = &elsewhere;
    global_userlist = &rob;
    active_window = "#chat";
-   const char *nick_commands[] = { "/msg Ro", "/whois Ro", "/kick Ro", "/mute Ro", "/unmute Ro" };
+   const char *nick_commands[] = {
+      "/msg Ro", "/whois Ro", "/kick Ro", "/mute Ro", "/unmute Ro"
+   };
+
    for (unsigned i = 0 ; i < 5 ; i++) {
       check(nick_commands[i], "Ro", "Rob");
    }
+
    check("/whois Robi", "Robi", NULL);
-   rrconn_t irc = { .fd = -1 };
+   rrconn_t irc = {
+      .fd = -1
+   };
    ws_conn = &irc;
    check("/ki", "/ki", "/kick");
    check("/help ki", "ki", "kick");

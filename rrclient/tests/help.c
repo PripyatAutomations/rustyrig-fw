@@ -22,6 +22,7 @@ client_cmd_t client_cmds[] = {
       0
    }
 };
+
 enum GuiMode ui_mode = UI_MODE_NONE;
 static bool staff;
 static char output[16384];

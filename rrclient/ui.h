@@ -17,7 +17,7 @@
 #include <rrclient/ui.statusbar.h>
 
 enum GuiMode {
-   UI_MODE_NONE = 0,    // in help, show for all modes
+   UI_MODE_NONE = 0,            // in help, show for all modes
    UI_MODE_TUI,
    UI_MODE_GTK
 };

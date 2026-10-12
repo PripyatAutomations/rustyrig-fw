@@ -39,8 +39,8 @@ static inline double degF_to_degC(double tempF) {
 }
 
 extern struct ThermalLimits thermal_limits;
-extern uint32_t get_thermal(uint32_t sensor);            // Query temp in degC
-                                                         // for sensor id given
+extern uint32_t get_thermal(uint32_t sensor);   // Query temp in degC
+// for sensor id given
 // Is the radio on fire? Shut down if so
 extern bool are_we_on_fire(void);
 

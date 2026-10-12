@@ -31,12 +31,14 @@ bool irc_send(rrconn_t *connection, const char *format, ...) {
    va_start(args, format);
    vsnprintf(irc_send_buffer, sizeof(irc_send_buffer), format, args);
    va_end(args);
+
    return irc_send_result;
 }
 void rrclient_server_status_window(const char *room) {
    assert(room && *room);
    status_windows++;
 }
+
 static char closed_room[128], added_room[128], forgotten_room[128], cleared_room[128];
 static unsigned redirects;
 bool ui_close_window(const char *room) {
@@ -56,9 +58,11 @@ void userlist_remove_room(const char *room) {
 static void room_add(const char *room) {
    snprintf(added_room, sizeof(added_room), "%s", room);
 }
+
 static const rr_frontend_ops_t redirect_frontend = {
    .chat_room_add = room_add
 };
+
 static bool use_frontend;
 static char status_text[1024], printed_room[128];
 static bool printed_status;
@@ -73,12 +77,17 @@ rrconn_t *rrclient_active_connection(void) {
 bool ws_send_dict(rrconn_t *sender, rrconn_t *destination, dict *message, int opcode) {
    (void)sender;
    (void)opcode;
+
    return irc_send_dict(destination, message);
 }
+
 extern bool cmd_whois(int argc, char **args);
 static bool request_whois(const char *nick) {
    char command[] = "whois";
-   char *args[] = { command, (char *)nick };
+   char *args[] = {
+      command, (char *)nick
+   };
+
    return cmd_whois(2, args);
 }
 bool ui_print(const char *window, const char *fmt, ...) {
@@ -113,6 +122,7 @@ bool rrclient_room_request_join(const char *room) {
 const char *rrclient_room_iter(unsigned index) {
    return index == 0 ? "#room" : NULL;
 }
+
 static struct rr_user member = {
    .name = "bob", .room = "#room"
 };
@@ -175,14 +185,18 @@ int main(void) {
    assert(irc_sends == ++sends && !strcmp(irc_send_buffer, "NOTICE alice :\001PING 123 token\001"));
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG #room :\001VERSION\001"));
    assert(irc_sends == ++sends && !strcmp(irc_send_buffer, "NOTICE alice :\001VERSION rustyrig rrclient " VERSION "\001"));
-   const char *requests[] = { "CLIENTINFO", "TIME", "SOURCE", "FINGER", "USERINFO" };
-   for (size_t i = 0; i < sizeof(requests) / sizeof(requests[0]); i++) {
+   const char *requests[] = {
+      "CLIENTINFO", "TIME", "SOURCE", "FINGER", "USERINFO"
+   };
+
+   for (size_t i = 0 ; i < sizeof(requests) / sizeof(requests[0]) ; i++) {
       char line[256];
       snprintf(line, sizeof(line), ":alice!user@host PRIVMSG tester :\001%s\001", requests[i]);
       assert(!irc_process_message(&client, line));
       assert(irc_sends == ++sends && !strncmp(irc_send_buffer, "NOTICE alice :\001", 15));
       assert(strstr(irc_send_buffer, requests[i]));
    }
+
    assert(!irc_process_message(&client, ":alice!user@host NOTICE tester :\001VERSION other client\001"));
    assert(irc_sends == sends && strstr(status_text, "CTCP reply from alice: VERSION other client"));
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :\001UNKNOWN\001"));
@@ -194,34 +208,80 @@ int main(void) {
    const struct {
       const char *line, *first, *second;
    } whois_replies[] = {
-      { ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice: ident@host.example", "Alice Example" },
-      { ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob: user@2001:db8::1", "Unknown" },
-      { ":server 312 tester alice irc.example :Yet another IRC Server running on Debian GNU/Linux", "server irc.example", "Debian GNU/Linux" },
-      { ":server 319 tester alice :@#hamradio +#radio", "WHOIS alice: channels", "@#hamradio +#radio" },
-      { ":server 317 tester alice 123 1700000000 :seconds idle, signon time", "idle 123 seconds; signed on", "1700000000" },
-      { ":server 317 tester alice 5 :seconds idle", "WHOIS alice: idle 5 seconds", "idle" },
-      { ":server 318 tester alice :End of WHOIS list", "WHOIS alice:", "End of WHOIS list" },
-      { ":server 301 tester alice :Away from keyboard", "alice", "Away from keyboard" },
-      { ":server 307 tester alice :is a registered nick", "alice", "registered nick" },
-      { ":server 313 tester alice :is an IRC operator", "alice", "IRC operator" },
-      { ":server 320 tester alice :custom network information", "alice", "custom network information" },
-      { ":server 330 tester alice account-name :is logged in as", "alice account-name", "is logged in as" },
-      { ":server 338 tester alice ident@real.example 192.0.2.1 :actually using host", "alice ident@real.example 192.0.2.1", "actually using host" },
-      { ":server 338 tester alice 192.0.2.1 :actual IP", "alice 192.0.2.1", "actual IP" },
-      { ":server 378 tester alice :is connecting from ident@host.example 192.0.2.1", "alice", "ident@host.example 192.0.2.1" },
-      { ":server 379 tester alice :is using modes +iw", "alice", "+iw" },
-      { ":server 671 tester alice :is using a secure connection", "alice", "secure connection" },
-      { ":server 276 tester alice :has client certificate fingerprint ABCDEF", "alice", "ABCDEF" },
-      { ":server 650 tester alice custom-value :unknown extension", "alice custom-value", "unknown extension" },
-      { ":server 401 tester missing :No such nick/channel", "missing", "No such nick/channel" },
-      { ":server 311 tester alice", "[311] alice", "alice" },
-      { ":server 317 tester alice nope bad-time :malformed idle", "alice nope bad-time", "malformed idle" }
+      {
+         ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice: ident@host.example", "Alice Example"
+      },
+      {
+         ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob: user@2001:db8::1", "Unknown"
+      },
+      {
+         ":server 312 tester alice irc.example :Yet another IRC Server running on Debian GNU/Linux", "server irc.example", "Debian GNU/Linux"
+      },
+      {
+         ":server 319 tester alice :@#hamradio +#radio", "WHOIS alice: channels", "@#hamradio +#radio"
+      },
+      {
+         ":server 317 tester alice 123 1700000000 :seconds idle, signon time", "idle 123 seconds; signed on", "1700000000"
+      },
+      {
+         ":server 317 tester alice 5 :seconds idle", "WHOIS alice: idle 5 seconds", "idle"
+      },
+      {
+         ":server 318 tester alice :End of WHOIS list", "WHOIS alice:", "End of WHOIS list"
+      },
+      {
+         ":server 301 tester alice :Away from keyboard", "alice", "Away from keyboard"
+      },
+      {
+         ":server 307 tester alice :is a registered nick", "alice", "registered nick"
+      },
+      {
+         ":server 313 tester alice :is an IRC operator", "alice", "IRC operator"
+      },
+      {
+         ":server 320 tester alice :custom network information", "alice", "custom network information"
+      },
+      {
+         ":server 330 tester alice account-name :is logged in as", "alice account-name", "is logged in as"
+      },
+      {
+         ":server 338 tester alice ident@real.example 192.0.2.1 :actually using host", "alice ident@real.example 192.0.2.1", "actually using host"
+      },
+      {
+         ":server 338 tester alice 192.0.2.1 :actual IP", "alice 192.0.2.1", "actual IP"
+      },
+      {
+         ":server 378 tester alice :is connecting from ident@host.example 192.0.2.1", "alice", "ident@host.example 192.0.2.1"
+      },
+      {
+         ":server 379 tester alice :is using modes +iw", "alice", "+iw"
+      },
+      {
+         ":server 671 tester alice :is using a secure connection", "alice", "secure connection"
+      },
+      {
+         ":server 276 tester alice :has client certificate fingerprint ABCDEF", "alice", "ABCDEF"
+      },
+      {
+         ":server 650 tester alice custom-value :unknown extension", "alice custom-value", "unknown extension"
+      },
+      {
+         ":server 401 tester missing :No such nick/channel", "missing", "No such nick/channel"
+      },
+      {
+         ":server 311 tester alice", "[311] alice", "alice"
+      },
+      {
+         ":server 317 tester alice nope bad-time :malformed idle", "alice nope bad-time", "malformed idle"
+      }
    };
+
    for (size_t i = 0 ; i < sizeof(whois_replies) / sizeof(whois_replies[0]) ; i++) {
       irc_process_message(&client, whois_replies[i].line);
       assert(printed_status && strstr(status_text, whois_replies[i].first));
       assert(strstr(status_text, whois_replies[i].second));
    }
+
    active_window = "#unrelated";
    assert(!rrclient_whois_send(&client, "#menu-origin", "menu-user"));
    irc_process_message(&client, ":server 311 tester menu-user ident host * :Menu User");
@@ -237,7 +297,7 @@ int main(void) {
    assert(!strcmp(printed_room, "#first"));
    irc_process_message(&client, ":server 330 tester bob account :logged in as");
    assert(!strcmp(printed_room, "#second"));
-   assert(request_whois("ALICE")); /* Avoid ambiguous duplicate lookups. */
+   assert(request_whois("ALICE"));  /* Avoid ambiguous duplicate lookups. */
    irc_process_message(&client, ":server 318 tester alice :End of WHOIS");
    assert(!strcmp(printed_room, "#first"));
    irc_process_message(&client, ":server 311 tester alice ident host * :Unsolicited");
@@ -246,16 +306,20 @@ int main(void) {
    assert(!strcmp(printed_room, "#second"));
    assert(!request_whois("bob"));
    rrclient_irc_whois_forget(&client);
+
    for (unsigned i = 0 ; i < 10 ; i++) {
       char nick[24];
       snprintf(nick, sizeof(nick), "pending%u", i);
       assert(!request_whois(nick));
    }
+
    assert(request_whois("overflow"));
    clock_ms += 180000;
    assert(!request_whois("overflow"));
    assert(!rrclient_irc_whois_window(&client, "pending0"));
-   rrconn_t other_server = { .fd = -1 };
+   rrconn_t other_server = {
+      .fd = -1
+   };
    expected_connection = &other_server;
    active_window = "#other-server";
    assert(!request_whois("overflow"));
@@ -288,22 +352,26 @@ int main(void) {
    assert(events == delivered);
    irc_send_result = true;
    dict_add(outgoing, "talk.target", "TESTER");
-   const char *self_kinds[] = { "priv", "action", "notice" };
+   const char *self_kinds[] = {
+      "priv", "action", "notice"
+   };
    const char *self_lines[] = {
       ":tester!user@host PRIVMSG tester :sent message",
       ":tester!user@host PRIVMSG tester :\001ACTION sent message\001",
       ":tester!user@host NOTICE tester :sent message"
    };
+
    for (unsigned i = 0 ; i < 3 ; i++) {
       dict_add(outgoing, "talk.msg_type", self_kinds[i]);
       delivered = events;
       assert(irc_send_dict(&client, outgoing));
-      assert(events == delivered); /* No local duplicate for a self-target. */
+      assert(events == delivered);  /* No local duplicate for a self-target. */
       assert(!irc_process_message(&client, self_lines[i]));
       assert(events == delivered + 1);
       assert(!strcmp(dict_get(last_talk, "talk.data", ""), "sent message"));
       assert(!strcmp(dict_get(last_talk, "talk.msg_type", ""), self_kinds[i]));
    }
+
    dict_free(outgoing);
    assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :hello"));
    assert(!strcmp(last_event, "talk.msg"));
@@ -336,7 +404,7 @@ int main(void) {
    assert(irc_process_message(&client, ":server 470 tester #oldchannel"));
    assert(irc_process_message(&client, ":server 470 tester #oldchannel nickname :Invalid channel"));
    assert(redirects == 2);
-   use_frontend = false; /* TUI uses ui_print to create the destination window. */
+   use_frontend = false;        /* TUI uses ui_print to create the destination window. */
    assert(!irc_process_message(&client, ":server 470 tester #finalchannel &local :Forwarding"));
    assert(redirects == 3 && !strcmp(closed_room, "#finalchannel"));
    assert(!strcmp(printed_room, "&local"));

@@ -33,7 +33,7 @@ int fwdsp_video_start(const char codec_id[5], bool is_tx) {
       return -1;
    }
 
-   if (fwdsp_init() ) {
+   if (fwdsp_init()) {
       Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: mgr init failed");
 
       return -1;
@@ -56,7 +56,7 @@ int fwdsp_video_start(const char codec_id[5], bool is_tx) {
       if (!sp->pid) {
          sp->is_video = true;
 
-         if (!fwdsp_spawn(sp) ) {
+         if (!fwdsp_spawn(sp)) {
             Log(LOG_CRIT, "fwdsp", "fwdsp_video_start: spawn failed for %s", codec_id);
 
             return -1;

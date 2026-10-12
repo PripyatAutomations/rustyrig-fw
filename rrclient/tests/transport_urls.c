@@ -29,6 +29,7 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
 
    return true;
 }
+
 static unsigned parted_media_rooms;
 void rrclient_media_room_parted(const char *room) {
    assert(room && room[0] == '#');
@@ -68,6 +69,7 @@ struct mg_connection *mg_ws_connect(struct mg_mgr *manager, const char *url, mg_
 
    return fake_connect(url, fn, data);
 }
+
 static char last_status[4096], server_listing[16384];
 static const char *active_room;
 static bool status_active = true;
@@ -84,6 +86,7 @@ static const char *current_room(void) {
 static bool current_status(void) {
    return status_active;
 }
+
 static unsigned closed_status_tabs;
 static void remove_status_tab(const char *room) {
    assert(strcasecmp(room, "status"));
@@ -96,11 +99,13 @@ static void remove_status_tab(const char *room) {
       status_active = true;
    }
 }
+
 static bool tui_only;
 static unsigned chooser_calls;
 static void chooser(void) {
    chooser_calls++;
 }
+
 static const rr_frontend_ops_t ops = {
    .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab, .chat_status_active =
       current_status
@@ -147,7 +152,9 @@ static void receive(struct mg_connection *c, const char *json) {
    dict *message = json2dict(json);
    char *wire = rr_wire_encode(message);
    assert(wire);
-   struct mg_ws_message m = {.data = mg_str(wire), .flags = WEBSOCKET_OP_TEXT};
+   struct mg_ws_message m = {
+      .data = mg_str(wire), .flags = WEBSOCKET_OP_TEXT
+   };
    c->fn(c, MG_EV_WS_MSG, &m);
    free(wire);
    dict_free(message);
@@ -311,7 +318,7 @@ int main(void) {
    pc->fn(pc, MG_EV_CLOSE, NULL);
    /* The headless fixture omits m_privmsg.c, which maps this IRC event. */
    event_emit("disconnected", ws_conn, NULL);
-   dict_add(cfg, "server.proxy", ""); /* A retry must keep its original proxy. */
+   dict_add(cfg, "server.proxy", "");  /* A retry must keep its original proxy. */
    unsigned before_retry = connection_count;
    now += 2;
    rrclient_poll_events_reconnect();
@@ -386,8 +393,7 @@ int main(void) {
    };
    unsigned before_close = closed_status_tabs;
    assert(!cmd_win(2, win_close));
-   assert(window_connection->send.len == strlen("PART #closeme\r\n") &&
-      !memcmp(window_connection->send.buf, "PART #closeme\r\n", window_connection->send.len));
+   assert(window_connection->send.len == strlen("PART #closeme\r\n") && !memcmp(window_connection->send.buf, "PART #closeme\r\n", window_connection->send.len));
    assert(closed_status_tabs == before_close && rrclient_room_is_joined("#closeme"));
    /* Existing self-PART event handling then removes the membership and tab. */
    dict *part_confirmation = dict_new();
@@ -407,7 +413,7 @@ int main(void) {
    mg_iobuf_del(&window_connection->send, 0, window_connection->send.len);
    assert(!cmd_win(2, win_close) && !window_connection->send.len);
    assert(closed_status_tabs == before_close + 2);
-   assert(cmd_win(2, win_close)); /* Shared status cannot be closed. */
+   assert(cmd_win(2, win_close));   /* Shared status cannot be closed. */
    char *win_missing[] = {
       "win"
    };
@@ -416,15 +422,14 @@ int main(void) {
    char *win_force[] = {
       "win", "close", "-force"
    };
-   assert(cmd_win(3, win_force)); /* Even force protects shared status. */
+   assert(cmd_win(3, win_force));   /* Even force protects shared status. */
    active_room = "#force";
    status_active = false;
    assert(rrclient_room_join(active_room));
    before_close = closed_status_tabs;
    unsigned before_media = parted_media_rooms;
    assert(!cmd_win(3, win_force));
-   assert(window_connection->send.len == strlen("PART #force\r\n") &&
-      !memcmp(window_connection->send.buf, "PART #force\r\n", window_connection->send.len));
+   assert(window_connection->send.len == strlen("PART #force\r\n") && !memcmp(window_connection->send.buf, "PART #force\r\n", window_connection->send.len));
    assert(closed_status_tabs == before_close + 1 && !rrclient_room_is_joined(active_room));
    assert(parted_media_rooms == before_media + 1);
    active_room = "#forcefailed";
@@ -445,7 +450,7 @@ int main(void) {
    assert(!cmd_win(2, win_close));
    ws_connected = 1;
    rrclient_rooms_rejoin_available();
-   assert(!window_connection->send.len); /* Closed offline room must not rejoin. */
+   assert(!window_connection->send.len);  /* Closed offline room must not rejoin. */
 
    active_room = "#stay";
    status_active = false;

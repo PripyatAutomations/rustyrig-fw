@@ -31,7 +31,7 @@ extern bool ui_print(const char *window, const char *fmt, ...);
 
 static GtkWidget *webcam_win = NULL;
 static GtkWidget *webcam_image = NULL;
-static GdkPixbuf *webcam_frame = NULL;   // latest decoded frame
+static GdkPixbuf *webcam_frame = NULL; // latest decoded frame
 
 static gboolean webcam_blit_cb(gpointer user) {
    (void)user;
@@ -80,7 +80,7 @@ static void webcam_frame_handler(const char *event, const void *data, size_t len
    if (dying || !data || len == 0) {
       return;
    }
-   webcam_decode( (const uint8_t *)data, len);
+   webcam_decode((const uint8_t *)data, len);
 }
 
 // Called when the viewer window is destroyed
@@ -101,14 +101,14 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
 void gtk_webcam_show(bool show) {
    if (!show) {
       if (webcam_win) {
-         gtk_widget_destroy(webcam_win);   // destroy cb clears the state
+         gtk_widget_destroy(webcam_win);  // destroy cb clears the state
       }
 
       return;
    }
 
    if (webcam_win) {
-      gtk_window_present(GTK_WINDOW(webcam_win) );
+      gtk_window_present(GTK_WINDOW(webcam_win));
 
       return;
    }

@@ -30,7 +30,9 @@ static struct replay_frame replay_frames[MAX_REPLAY_FRAMES];
 static int replay_frame_count;
 static unsigned accounting_failures;
 static void accounting_failed_test(const char *event, const char *data, rrconn_t *peer, void *user) {
-   (void)event; (void)peer; (void)user;
+   (void)event;
+   (void)peer;
+   (void)user;
    assert(data && *data);
    accounting_failures++;
 }
@@ -189,7 +191,7 @@ int main(void) {
    free(topic);
    assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_a"));
    assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_b"));
-   assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_a")); // idempotent
+   assert(db_room_vfo_add(db, "#alpha", "rig0.vfo_a"));  // idempotent
    char *vfos = db_room_vfo_list(db, "#alpha");
    assert(vfos && strcmp(vfos, "rig0.vfo_a rig0.vfo_b") == 0);
    free(vfos);
@@ -291,25 +293,28 @@ int main(void) {
    assert(duration >= 0);
    assert(!db_ptt_stop(db, session, &duration, "duplicate"));
    struct rr_usage usage;
-   struct rr_traffic transfer = {.tx_text_bytes=123,.tx_text_frames=2,.rx_binary_bytes=1000000,.rx_binary_frames=50};
-   assert(db_usage_get(db,"test-user",&usage));
-   assert(db_usage_bandwidth_set(db,"test-user",2000000,false));
-   assert(db_usage_record(db,"test-user",&transfer,30));
-   assert(db_usage_get(db,"TEST-USER",&usage));
-   assert(usage.traffic.tx_text_bytes==123 && usage.traffic.rx_binary_frames==50);
-   assert(usage.bandwidth_remaining==999877 && usage.session_seconds==30);
-   assert(db_usage_bandwidth_set(db,"test-user",1000000,true));
-   assert(db_usage_get(db,"test-user",&usage) && usage.bandwidth_remaining==1999877);
-   assert(!db_usage_bandwidth_set(db,"test-user",UINT64_MAX,false));
-   assert(db_usage_reset(db,"test-user",5000000));
-   assert(db_usage_get(db,"test-user",&usage) && !usage.traffic.rx_binary_bytes && !usage.session_seconds && usage.bandwidth_remaining==5000000);
-   assert(db_usage_add_tx(db,"test-user",20));
-   assert(db_usage_get(db,"test-user",&usage) && usage.tx_seconds==20);
-   assert(db_usage_reset_tx(db,"test-user"));
-   assert(db_usage_get(db,"test-user",&usage) && usage.tx_seconds==0);
+   struct rr_traffic transfer = {
+      .tx_text_bytes = 123, .tx_text_frames = 2, .rx_binary_bytes = 1000000, .rx_binary_frames = 50
+   };
+   assert(db_usage_get(db, "test-user", &usage));
+   assert(db_usage_bandwidth_set(db, "test-user", 2000000, false));
+   assert(db_usage_record(db, "test-user", &transfer, 30));
+   assert(db_usage_get(db, "TEST-USER", &usage));
+   assert(usage.traffic.tx_text_bytes == 123 && usage.traffic.rx_binary_frames == 50);
+   assert(usage.bandwidth_remaining == 999877 && usage.session_seconds == 30);
+   assert(db_usage_bandwidth_set(db, "test-user", 1000000, true));
+   assert(db_usage_get(db, "test-user", &usage) && usage.bandwidth_remaining == 1999877);
+   assert(!db_usage_bandwidth_set(db, "test-user", UINT64_MAX, false));
+   assert(db_usage_reset(db, "test-user", 5000000));
+   assert(db_usage_get(db, "test-user", &usage) && !usage.traffic.rx_binary_bytes && !usage.session_seconds && usage.bandwidth_remaining == 5000000);
+   assert(db_usage_add_tx(db, "test-user", 20));
+   assert(db_usage_get(db, "test-user", &usage) && usage.tx_seconds == 20);
+   assert(db_usage_reset_tx(db, "test-user"));
+   assert(db_usage_get(db, "test-user", &usage) && usage.tx_seconds == 0);
 
    assert(count_rows(db,
-      "SELECT COUNT(*) FROM ptt_log WHERE recording_id='rec-123' AND record_file LIKE '%rec-123%' AND stop_reason='timeout' AND end_time IS NOT NULL;") == 1);
+      "SELECT COUNT(*) FROM ptt_log WHERE recording_id='rec-123' AND record_file LIKE '%rec-123%' AND stop_reason='timeout' AND end_time IS NOT NULL;") ==
+      1);
 
    assert(db_add_chat_msg(db, 1234, "test-user", "#room", "pub", "hello"));
    assert(count_rows(db, "SELECT COUNT(*) FROM chat_log WHERE msg_data='hello';") == 1);
@@ -327,7 +332,7 @@ int main(void) {
    snprintf(replay_client.rooms, sizeof(replay_client.rooms), "#room");
    reset_replay_frames();
    assert(db_send_chat_replay(&replay_client, "#room"));
-   assert(replay_frame_count == 22); // start + configured 20 lines + complete
+   assert(replay_frame_count == 22);   // start + configured 20 lines + complete
    assert(strcmp(replay_frames[0].cmd, "replay-start") == 0);
    assert(strcmp(replay_frames[1].data, "line-10") == 0);
    assert(strcmp(replay_frames[20].data, "line-29") == 0);
@@ -358,16 +363,18 @@ int main(void) {
 
    event_init();
    event_on("accounting.write.failed", accounting_failed_test, NULL);
-   assert(sqlite3_exec(db, "PRAGMA query_only=ON", NULL, NULL, NULL)==SQLITE_OK);
-   struct rr_traffic pending = {.rx_text_bytes=1, .rx_text_frames=1};
+   assert(sqlite3_exec(db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK);
+   struct rr_traffic pending = {
+      .rx_text_bytes = 1, .rx_text_frames = 1
+   };
    assert(!db_quota_set(db, "admin", 100));
    assert(!db_usage_record(db, "admin", &pending, 1));
    assert(db_ptt_start(db, "admin", "A", 14074000, "USB", 2400, 1, NULL, "read-only") < 0);
    assert(!db_add_audit_event(db, "admin", "readonly", "test"));
-   assert(accounting_failures==4);
-   assert(sqlite3_exec(db, "PRAGMA query_only=OFF", NULL, NULL, NULL)==SQLITE_OK);
+   assert(accounting_failures == 4);
+   assert(sqlite3_exec(db, "PRAGMA query_only=OFF", NULL, NULL, NULL) == SQLITE_OK);
    assert(db_quota_set(db, "admin", 100));
-   assert(accounting_failures==4);
+   assert(accounting_failures == 4);
    event_off("accounting.write.failed", accounting_failed_test, NULL);
    sqlite3_close(db);
    masterdb = NULL;

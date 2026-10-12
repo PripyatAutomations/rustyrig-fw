@@ -11,10 +11,12 @@ static bool room_tx_control;
 static uint32_t room_vfo_mask;
 bool rrclient_room_tx_control(const char *room) {
    (void)room;
+
    return room_tx_control;
 }
 uint32_t rrclient_room_vfo_mask(const char *room) {
    (void)room;
+
    return room_vfo_mask;
 }
 const char *rrclient_room_vfos(const char *room) {
@@ -30,7 +32,7 @@ rrconn_t *rrclient_connection_find(const char *name) {
 void gtk_chat_query_add(const char *user) {
 }
 static void pump_layout(void) {
-   for (int i = 0; i < 40; i++) {
+   for (int i = 0 ; i < 40 ; i++) {
       while (gtk_events_pending()) {
          gtk_main_iteration();
       }
@@ -85,7 +87,8 @@ static void test_late_roster_autosize(void) {
    assert(gtk_scrolled_window_get_min_content_width(GTK_SCROLLED_WINDOW(scroll)) == -1);
    GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scroll));
    assert(gtk_adjustment_get_upper(horizontal) <= gtk_adjustment_get_page_size(horizontal) + 1);
-   for (int i = 0; i < NUM_COLS; i++) {
+
+   for (int i = 0 ; i < NUM_COLS ; i++) {
       GtkTreeViewColumn *column = userlist_column(view, i);
       assert(gtk_tree_view_column_get_visible(column));
       GtkWidget *header = gtk_tree_view_column_get_button(column);
@@ -93,7 +96,10 @@ static void test_late_roster_autosize(void) {
       assert(gtk_widget_translate_coordinates(header, scroll, 0, 0, &x, &y));
       assert(x >= 0 && x + gtk_widget_get_allocated_width(header) <= gtk_widget_get_allocated_width(scroll));
    }
-   GdkEventButton drag = { .window = gtk_paned_get_handle_window(GTK_PANED(paned)) };
+
+   GdkEventButton drag = {
+      .window = gtk_paned_get_handle_window(GTK_PANED(paned))
+   };
    room_userlist_resize_started(paned, &drag, &entry);
    assert(!entry.auto_dock_width);
    room_userlist_set_width(&entry, 220);
@@ -105,20 +111,20 @@ static void test_late_roster_autosize(void) {
    userlist_fit_width(view);
    pump_layout();
    assert(cfg_get_int("ui.userlist.vfo.dock-width", 0) == saved);
-   /* Saved/manual panes must reveal every status field when widened,
-    * even if the complete username would require much more space. */
-   gtk_list_store_set(store, &row, COL_USERNAME,
-      "A_VERY_LONG_USERNAME_THAT_MUST_NOT_PUSH_RADIO_STATUS_OFF_THE_RIGHT_EDGE", -1);
+   /* Saved/manual panes must reveal every status field when widened, even if the complete username would require much more space. */
+   gtk_list_store_set(store, &row, COL_USERNAME, "A_VERY_LONG_USERNAME_THAT_MUST_NOT_PUSH_RADIO_STATUS_OFF_THE_RIGHT_EDGE", -1);
    room_userlist_set_width(&entry, 400);
    pump_layout();
    userlist_fit_width(view);
    pump_layout();
-   for (int i = 0; i < NUM_COLS; i++) {
+
+   for (int i = 0 ; i < NUM_COLS ; i++) {
       GtkWidget *header = gtk_tree_view_column_get_button(userlist_column(view, i));
       int x, y;
       assert(gtk_widget_translate_coordinates(header, scroll, 0, 0, &x, &y));
       assert(x >= 0 && x + gtk_widget_get_allocated_width(header) <= gtk_widget_get_allocated_width(scroll));
    }
+
    /* A newly detached auto-sized window must fit the populated roster too. */
    GtkWidget *detached = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    g_object_ref(panel);
@@ -139,7 +145,9 @@ static void test_late_roster_autosize(void) {
    assert(cfg_get_int("ui.userlist.vfo.width", 0) > 220);
    horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scroll));
    assert(gtk_adjustment_get_upper(horizontal) <= gtk_adjustment_get_page_size(horizontal) + 1);
-   GdkEventConfigure resized = { .width = 200, .height = 300 };
+   GdkEventConfigure resized = {
+      .width = 200, .height = 300
+   };
    room_userlist_configure(detached, &resized, &entry);
    assert(!entry.auto_window_width);
    userlist_fit_width(view);
@@ -166,7 +174,7 @@ int main(void) {
    };
    server_name = "irc-profile";
    roster_connection = &client;
-   ws_conn = &selected_websocket; /* The active server differs from this room roster. */
+   ws_conn = &selected_websocket;   /* The active server differs from this room roster. */
    GtkWidget *view = userlist_view_create();
    userlist_set_columns(view, "#rig");
    assert(gtk_tree_view_column_get_visible(gtk_tree_view_get_column(GTK_TREE_VIEW(view), COL_PRIV_ICON)));

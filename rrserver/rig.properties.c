@@ -94,9 +94,9 @@ static void rr_property_value_free(rr_rig_property_t *property) {
    }
 
    if (property->known && property->type == VAL_STR) {
-      free( (char *)property->value.s);
+      free((char *)property->value.s);
    }
-   memset(&property->value, 0, sizeof(property->value) );
+   memset(&property->value, 0, sizeof(property->value));
    property->known = false;
 }
 
@@ -107,7 +107,7 @@ static void rr_property_free(rr_rig_property_t *property) {
    rr_property_value_free(property);
    free(property->name);
    free(property->unit);
-   free( (char *)property->schema.enum_values);
+   free((char *)property->schema.enum_values);
    free(property);
 }
 
@@ -120,7 +120,7 @@ static void rr_property_store_free(dict *properties) {
    dict_value_t value;
    val_type_t type;
 
-   while ( (rank = dict_enumerate_typed(properties, rank, &key, &value, &type) ) >= 0) {
+   while ((rank = dict_enumerate_typed(properties, rank, &key, &value, &type)) >= 0) {
       if (type == VAL_PTR) {
          rr_property_free(value.p);
       }
@@ -146,9 +146,7 @@ static bool rr_property_values_equal(const rr_rig_property_t *property, const di
 
    switch (property->type) {
       case VAL_STR: {
-         return property->value.s == value->s ||
-                (property->value.s && value->s &&
-                   strcmp(property->value.s, value->s) == 0);
+         return property->value.s == value->s || (property->value.s && value->s && strcmp(property->value.s, value->s) == 0);
       }
       case VAL_INT:
       case VAL_BOOL: {
@@ -339,14 +337,13 @@ static void rr_property_emit(rr_server_rig_t *rig, rr_server_vfo_t *vfo, const r
       dict_add(event, "vfo.alias", vfo->alias);
       char compat_name[RR_PROPERTY_NAME_MAX];
 
-      if (strlen(vfo->alias) == 1 &&
-         rr_property_vfo_name(compat_name, sizeof(compat_name), vfo->alias[0], property->name) ) {
+      if (strlen(vfo->alias) == 1 && rr_property_vfo_name(compat_name, sizeof(compat_name), vfo->alias[0], property->name)) {
          dict_add(event, "property.compat-name", compat_name);
       }
    }
    dict_add(event, "property.name", property->name);
-   dict_add(event, "property.type", rr_property_type_name(property->type) );
-   dict_add(event, "property.status", rr_property_status_name(property) );
+   dict_add(event, "property.type", rr_property_type_name(property->type));
+   dict_add(event, "property.status", rr_property_status_name(property));
    dict_add_bool(event, "property.known", property->known);
    dict_add_bool(event, "property.available", property->available);
    dict_add_ullong(event, "property.version", property->version);
@@ -366,7 +363,7 @@ rr_server_rig_t *rr_server_rig_new(const char *id, const char *name) {
       return NULL;
    }
 
-   rr_server_rig_t *rig = calloc(1, sizeof(*rig) );
+   rr_server_rig_t *rig = calloc(1, sizeof(*rig));
 
    if (!rig) {
       return NULL;
@@ -439,12 +436,10 @@ rr_server_vfo_t *rr_server_vfo_find_alias(const rr_server_rig_t *rig, const char
 rr_server_vfo_t *rr_server_vfo_add(rr_server_rig_t *rig, const char *uuid, const char *alias, const char *native_id, rr_vfo_lifecycle_t lifecycle) {
    if (!rig || !uuid || !*uuid || !alias || !*alias || !native_id ||
       !*native_id || (lifecycle != RR_VFO_PERSISTENT &&
-      lifecycle != RR_VFO_EPHEMERAL) ||
-      rr_server_vfo_find_uuid(rig, uuid) ||
-      rr_server_vfo_find_alias(rig, alias) ) {
+      lifecycle != RR_VFO_EPHEMERAL) || rr_server_vfo_find_uuid(rig, uuid) || rr_server_vfo_find_alias(rig, alias)) {
       return NULL;
    }
-   rr_server_vfo_t *vfo = calloc(1, sizeof(*vfo) );
+   rr_server_vfo_t *vfo = calloc(1, sizeof(*vfo));
 
    if (!vfo) {
       return NULL;
@@ -502,7 +497,7 @@ bool rr_server_vfo_foreach(rr_server_rig_t *rig, rr_server_vfo_iter_fn callback,
    bool failed = false;
 
    for (rr_server_vfo_t *vfo = rig->vfos ; vfo ; vfo = vfo->next) {
-      if (callback(vfo, user) ) {
+      if (callback(vfo, user)) {
          failed = true;
       }
    }
@@ -555,17 +550,16 @@ struct rr_backend *rr_server_rig_backend(const rr_server_rig_t *rig) {
 }
 
 static bool rr_property_define_store(dict *properties, const rr_property_descriptor_t *descriptor) {
-   if (!properties || !descriptor || !descriptor->name ||
-      !*descriptor->name || !rr_property_type_supported(descriptor->type) ) {
+   if (!properties || !descriptor || !descriptor->name || !*descriptor->name || !rr_property_type_supported(descriptor->type)) {
       return true;
    }
 
    // Numeric step grids are integer-only. String choices are whitespace-free
    // tokens; neither constraint may be silently advertised on another type.
-   if ( (descriptor->enum_values && descriptor->type != VAL_STR) ||
-      ( (descriptor->has_min || descriptor->has_max || descriptor->has_step) &&
-      (descriptor->type == VAL_STR || descriptor->type == VAL_BOOL) ) ||
-      (descriptor->has_step && (descriptor->type == VAL_FLOAT || descriptor->type == VAL_DOUBLE) ) ) {
+   if ((descriptor->enum_values && descriptor->type != VAL_STR) ||
+      ((descriptor->has_min || descriptor->has_max || descriptor->has_step) &&
+      (descriptor->type == VAL_STR || descriptor->type == VAL_BOOL)) ||
+      (descriptor->has_step && (descriptor->type == VAL_FLOAT || descriptor->type == VAL_DOUBLE))) {
       return true;
    }
 
@@ -574,45 +568,40 @@ static bool rr_property_define_store(dict *properties, const rr_property_descrip
    if (existing) {
       const rr_property_descriptor_t *old = &existing->schema;
       bool same_enum = (!old->enum_values && !descriptor->enum_values) ||
-         (old->enum_values && descriptor->enum_values && !strcmp(old->enum_values, descriptor->enum_values) );
+         (old->enum_values && descriptor->enum_values && !strcmp(old->enum_values, descriptor->enum_values));
       rr_rig_property_t bound = {
          .known = true, .type = descriptor->type
       };
-      bool same_bounds = old->has_min == descriptor->has_min &&
-         old->has_max == descriptor->has_max && old->has_step == descriptor->has_step;
+      bool same_bounds = old->has_min == descriptor->has_min && old->has_max == descriptor->has_max && old->has_step == descriptor->has_step;
       bound.value = old->minimum;
 
-      if (descriptor->has_min && !rr_property_values_equal(&bound, &descriptor->minimum) ) {
+      if (descriptor->has_min && !rr_property_values_equal(&bound, &descriptor->minimum)) {
          same_bounds = false;
       }
       bound.value = old->maximum;
 
-      if (descriptor->has_max && !rr_property_values_equal(&bound, &descriptor->maximum) ) {
+      if (descriptor->has_max && !rr_property_values_equal(&bound, &descriptor->maximum)) {
          same_bounds = false;
       }
       bound.value = old->step;
 
-      if (descriptor->has_step && !rr_property_values_equal(&bound, &descriptor->step) ) {
+      if (descriptor->has_step && !rr_property_values_equal(&bound, &descriptor->step)) {
          same_bounds = false;
       }
-      bool same_unit = (!existing->unit && !descriptor->unit) ||
-         (existing->unit && descriptor->unit &&
-            strcmp(existing->unit, descriptor->unit) == 0);
+      bool same_unit = (!existing->unit && !descriptor->unit) || (existing->unit && descriptor->unit && strcmp(existing->unit, descriptor->unit) == 0);
 
       return existing->type != descriptor->type ||
-             existing->readable != descriptor->readable ||
-             existing->writable != descriptor->writable || !same_unit || !same_enum || !same_bounds;
+             existing->readable != descriptor->readable || existing->writable != descriptor->writable || !same_unit || !same_enum || !same_bounds;
    }
 
-   rr_rig_property_t *property = calloc(1, sizeof(*property) );
+   rr_rig_property_t *property = calloc(1, sizeof(*property));
 
    if (!property) {
       return true;
    }
    property->name = strdup(descriptor->name);
    property->schema = *descriptor;
-   property->schema.enum_values = descriptor->enum_values ?
-      strdup(descriptor->enum_values) : NULL;
+   property->schema.enum_values = descriptor->enum_values ? strdup(descriptor->enum_values) : NULL;
    property->unit = descriptor->unit ? strdup(descriptor->unit) : NULL;
    property->type = descriptor->type;
    property->readable = descriptor->readable;
@@ -633,7 +622,7 @@ static rr_server_vfo_t *rr_compat_vfo_property(const rr_server_rig_t *rig, const
       0
    };
 
-   if (!rig || !rr_property_parse_vfo(name, &alias[0], field) ) {
+   if (!rig || !rr_property_parse_vfo(name, &alias[0], field)) {
       return NULL;
    }
 
@@ -673,22 +662,22 @@ bool rr_vfo_property_define(rr_server_vfo_t *vfo, const rr_property_descriptor_t
 }
 
 bool rr_property_vfo_name(char *buf, size_t len, char vfo_id, const char *field) {
-   if (!buf || !len || !field || !*field || !isalpha( (unsigned char)vfo_id) ) {
+   if (!buf || !len || !field || !*field || !isalpha((unsigned char)vfo_id)) {
       return false;
    }
-   vfo_id = (char)toupper( (unsigned char)vfo_id);
+   vfo_id = (char)toupper((unsigned char)vfo_id);
    int written = snprintf(buf, len, "vfo.%c.%s", vfo_id, field);
 
    return written > 0 && (size_t)written < len;
 }
 
 bool rr_property_parse_vfo(const char *name, char *vfo_id, const char **field) {
-   if (!name || strncmp(name, "vfo.", 4) != 0 || !isalpha( (unsigned char)name[4]) || name[5] != '.' || !name[6]) {
+   if (!name || strncmp(name, "vfo.", 4) != 0 || !isalpha((unsigned char)name[4]) || name[5] != '.' || !name[6]) {
       return false;
    }
 
    if (vfo_id) {
-      *vfo_id = (char)toupper( (unsigned char)name[4]);
+      *vfo_id = (char)toupper((unsigned char)name[4]);
    }
 
    if (field) {
@@ -700,7 +689,7 @@ bool rr_property_parse_vfo(const char *name, char *vfo_id, const char **field) {
 
 bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
    char alias[2] = {
-      (char)toupper( (unsigned char)vfo_id), '\0'
+      (char)toupper((unsigned char)vfo_id), '\0'
    };
    rr_server_vfo_t *vfo = rr_server_vfo_find_alias(rig, alias);
    rr_property_descriptor_t descriptor = {
@@ -719,7 +708,7 @@ bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
    descriptor.maximum.l = INT32_MAX;
    descriptor.step.l = 1;
 
-   if (rr_vfo_property_define(vfo, &descriptor) ) {
+   if (rr_vfo_property_define(vfo, &descriptor)) {
       return true;
    }
 
@@ -728,7 +717,7 @@ bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
    descriptor.type = VAL_STR;
    descriptor.unit = NULL;
 
-   if (rr_vfo_property_define(vfo, &descriptor) ) {
+   if (rr_vfo_property_define(vfo, &descriptor)) {
       return true;
    }
 
@@ -764,10 +753,10 @@ static bool rr_property_foreach(dict *store, rr_property_iter_fn cb, void *user)
    const char *key;
    dict_value_t value;
    val_type_t type;
-   while ( (rank = dict_enumerate_typed(store, rank, &key, &value, &type) ) >= 0) {
+   while ((rank = dict_enumerate_typed(store, rank, &key, &value, &type)) >= 0) {
       rr_property_descriptor_t descriptor;
 
-      if (rr_property_describe_store(store, key, &descriptor) && cb(&descriptor, user) ) {
+      if (rr_property_describe_store(store, key, &descriptor) && cb(&descriptor, user)) {
          return true;
       }
    }
@@ -789,8 +778,7 @@ bool rr_rig_property_describe(const rr_server_rig_t *rig, const char *name, rr_p
    const char *field = NULL;
    rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
 
-   return vfo ? rr_vfo_property_describe(vfo, field, descriptor) :
-          rr_property_describe_store(rig->properties, name, descriptor);
+   return vfo ? rr_vfo_property_describe(vfo, field, descriptor) : rr_property_describe_store(rig->properties, name, descriptor);
 }
 
 bool rr_vfo_property_describe(const rr_server_vfo_t *vfo, const char *name, rr_property_descriptor_t *descriptor) {
@@ -805,14 +793,13 @@ static rr_property_update_t rr_property_observe_store(rr_server_rig_t *rig, rr_s
       return RR_PROPERTY_ERROR;
    }
 
-   bool changed = !property->observed || !property->available ||
-      !rr_property_values_equal(property, value);
+   bool changed = !property->observed || !property->available || !rr_property_values_equal(property, value);
 
    if (!changed) {
       return RR_PROPERTY_UNCHANGED;
    }
 
-   if (rr_property_value_copy(property, value) ) {
+   if (rr_property_value_copy(property, value)) {
       return RR_PROPERTY_ERROR;
    }
    property->observed = true;
@@ -831,8 +818,7 @@ rr_property_update_t rr_rig_property_observe(rr_server_rig_t *rig, const char *n
    const char *field = NULL;
    rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
 
-   return vfo ? rr_vfo_property_observe(vfo, field, type, value) :
-          rr_property_observe_store(rig, NULL, rig->properties, &rig->version, name, type, value);
+   return vfo ? rr_vfo_property_observe(vfo, field, type, value) : rr_property_observe_store(rig, NULL, rig->properties, &rig->version, name, type, value);
 }
 
 rr_property_update_t rr_vfo_property_observe(rr_server_vfo_t *vfo, const char *name, val_type_t type, const dict_value_t *value) {
@@ -865,8 +851,7 @@ rr_property_update_t rr_rig_property_unavailable(rr_server_rig_t *rig, const cha
    const char *field = NULL;
    rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
 
-   return vfo ? rr_vfo_property_unavailable(vfo, field) :
-          rr_property_unavailable_store(rig, NULL, rig->properties, &rig->version, name);
+   return vfo ? rr_vfo_property_unavailable(vfo, field) : rr_property_unavailable_store(rig, NULL, rig->properties, &rig->version, name);
 }
 
 rr_property_update_t rr_vfo_property_unavailable(rr_server_vfo_t *vfo, const char *name) {
@@ -879,7 +864,7 @@ static bool rr_property_read_store(dict *properties, const char *name, rr_proper
    if (!property || !snapshot) {
       return false;
    }
-   memset(snapshot, 0, sizeof(*snapshot) );
+   memset(snapshot, 0, sizeof(*snapshot));
    snapshot->value_type = property->type;
    snapshot->value = property->value;
    snapshot->observed = property->observed;
@@ -898,8 +883,7 @@ bool rr_rig_property_read(const rr_server_rig_t *rig, const char *name, rr_prope
    const char *field = NULL;
    rr_server_vfo_t *vfo = rr_compat_vfo_property(rig, name, &field);
 
-   return vfo ? rr_vfo_property_read(vfo, field, snapshot) :
-          rr_property_read_store(rig->properties, name, snapshot);
+   return vfo ? rr_vfo_property_read(vfo, field, snapshot) : rr_property_read_store(rig->properties, name, snapshot);
 }
 
 bool rr_vfo_property_read(const rr_server_vfo_t *vfo, const char *name, rr_property_snapshot_t *snapshot) {
@@ -918,10 +902,9 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
    if (!request || !request->property || !*request->property) {
       return RR_CONTROL_INVALID;
    }
-   rr_server_rig_t *rig = request->vfo ?
-      rr_server_vfo_owner(request->vfo) : request->rig;
+   rr_server_rig_t *rig = request->vfo ? rr_server_vfo_owner(request->vfo) : request->rig;
 
-   if (!rig || (request->rig && request->rig != rig) ) {
+   if (!rig || (request->rig && request->rig != rig)) {
       return RR_CONTROL_INVALID;
    }
 
@@ -995,13 +978,13 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
          break;
       }
       case VAL_FLOAT: {
-         if ( (s->has_min && request->value.f < s->minimum.f) || (s->has_max && request->value.f > s->maximum.f) ) {
+         if ((s->has_min && request->value.f < s->minimum.f) || (s->has_max && request->value.f > s->maximum.f)) {
             return RR_CONTROL_INVALID;
          }
          break;
       }
       case VAL_DOUBLE: {
-         if ( (s->has_min && request->value.d < s->minimum.d) || (s->has_max && request->value.d > s->maximum.d) ) {
+         if ((s->has_min && request->value.d < s->minimum.d) || (s->has_max && request->value.d > s->maximum.d)) {
             return RR_CONTROL_INVALID;
          }
          break;
@@ -1019,7 +1002,7 @@ rr_control_result_t rr_rig_control(const rr_control_request_t *request) {
                p += strspn(p, " ");
                size_t n = strcspn(p, " ");
 
-               if (len && len == n && !strncmp(p, request->value.s, n) ) {
+               if (len && len == n && !strncmp(p, request->value.s, n)) {
                   found = true;
                }
                p += n;

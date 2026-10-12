@@ -36,11 +36,11 @@
 #include <rrserver/database.h>
 #endif
 
-extern struct GlobalState rig;          // Global state
+extern struct GlobalState rig;  // Global state
 extern time_t ptt_tot_time;
 
-time_t global_tot_time = 0;              // TOT
-int vfos_enabled = 2;                    // A + B by default
+time_t global_tot_time = 0;     // TOT
+int vfos_enabled = 2;           // A + B by default
 
 // VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
 static int ptt_log_session[MAX_VFOS];
@@ -71,8 +71,7 @@ static void ptt_filename_part(char *dst, size_t dst_len, const char *src) {
    snprintf(dst, dst_len, "%s", src && *src ? src : "unknown");
 
    for (char *p = dst ; *p ; p++) {
-      if (!( ('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z') ||
-         ('0' <= *p && *p <= '9') || *p == '-' || *p == '_') ) {
+      if (!(('a' <= *p && *p <= 'z') || ('A' <= *p && *p <= 'Z') || ('0' <= *p && *p <= '9') || *p == '-' || *p == '_')) {
          *p = '_';
       }
    }
@@ -83,8 +82,7 @@ static bool ptt_prepare_recording_file(rr_vfo_t vfo, const char *username, const
       return false;
    }
 
-   if (!cfg_get_bool("fwdsp:recording.tx", false) &&
-      !cfg_get_bool("record.tx", false) ) {
+   if (!cfg_get_bool("fwdsp:recording.tx", false) && !cfg_get_bool("record.tx", false)) {
       return false;
    }
    char *record_dir = cfg_get_path("fwdsp:recording.path");
@@ -118,11 +116,11 @@ static bool ptt_prepare_recording_file(rr_vfo_t vfo, const char *username, const
    strftime(stamp, sizeof(stamp), "%Y%m%d.%H%M%S", &local_time);
    ptt_filename_part(safe_user, sizeof(safe_user), username);
    ptt_filename_part(safe_id, sizeof(safe_id), recording_id);
-   int written = snprintf(ptt_recording_file[vfo], sizeof(ptt_recording_file[vfo]), "%s/%s.%s.%s.%s.%s", record_dir, stamp, safe_id, safe_user, "tx", extension)
-   ;
+   int written =
+      snprintf(ptt_recording_file[vfo], sizeof(ptt_recording_file[vfo]), "%s/%s.%s.%s.%s.%s", record_dir, stamp, safe_id, safe_user, "tx", extension);
    free(record_dir);
 
-   if (written < 0 || (size_t)written >= sizeof(ptt_recording_file[vfo]) ) {
+   if (written < 0 || (size_t)written >= sizeof(ptt_recording_file[vfo])) {
       ptt_recording_file[vfo][0] = '\0';
       Log(LOG_WARN, "ptt", "PTT recording filename is too long");
 
@@ -156,14 +154,14 @@ static void quota_maybe_warn(rrconn_t *talker, int left) {
 
    if (left > warning || left <= 0) {
       if (left <= 0) {
-         quota_warned[uid] = false;   // reset so they get re-warned after a top-up
+         quota_warned[uid] = false; // reset so they get re-warned after a top-up
       }
 
       return;
    }
 
    if (quota_warned[uid]) {
-      return;   // only once per crossing
+      return;                   // only once per crossing
    }
    quota_warned[uid] = true;
 
@@ -172,7 +170,7 @@ static void quota_maybe_warn(rrconn_t *talker, int left) {
    snprintf(msg, sizeof(msg), "Low TX credits: %d minutes of TX remaining for %s", left / 60, talker->chatname);
    Log(LOG_WARN, "ptt", "TX quota: %s low credits: %d remaining", talker->chatname, left);
 
-   if (!db_send_notice(talker, "privmsg", msg) ) {
+   if (!db_send_notice(talker, "privmsg", msg)) {
       Log(LOG_WARN, "ptt", "TX quota: failed to send low-credits notice to %s", talker->chatname);
    }
 }
@@ -189,14 +187,14 @@ static char *ptt_log_username(int session) {
    char *ret = NULL;
 
    if (sqlite3_prepare_v2(masterdb, sql, -1, &stmt, NULL) != SQLITE_OK) {
-      Log(LOG_WARN, "ptt", "PTT log: failed to look up session %d: %s", session, sqlite3_errmsg(masterdb) );
+      Log(LOG_WARN, "ptt", "PTT log: failed to look up session %d: %s", session, sqlite3_errmsg(masterdb));
 
       return NULL;
    }
    sqlite3_bind_int(stmt, 1, session);
 
-   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0) ) {
-      ret = strdup( (const char *)sqlite3_column_text(stmt, 0) );
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_text(stmt, 0)) {
+      ret = strdup((const char *)sqlite3_column_text(stmt, 0));
    }
    sqlite3_finalize(stmt);
 
@@ -214,14 +212,15 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
    }
 
    if (ptt_log_session[vfo] > 0) {
-      return;   // already logging this VFO
+      return;                   // already logging this VFO
    }
 
    float power = rr_get_power(vfo);
    // Read state from the vfos[] table (polled from the active backend), not
    // the hamlib cache: other backends (internal) don't maintain hl_state.
-   int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo) ), (int)rr_get_width(vfo), power
-      , ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "");
+   int session =
+      db_ptt_start(masterdb, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
+      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "");
 
    if (session < 0) {
       Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s", talker->chatname);
@@ -249,7 +248,10 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    if (!masterdb || vfo < 0 || vfo >= MAX_VFOS) {
       return;
    }
-   if (!talker) talker = ptt_log_owner[vfo];
+
+   if (!talker) {
+      talker = ptt_log_owner[vfo];
+   }
    ptt_log_owner[vfo] = NULL;
    int session = ptt_log_session[vfo];
 
@@ -268,14 +270,16 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 
    int secs = -1;
 
-   if (!db_ptt_stop(masterdb, session, &secs, reason) ) {
-      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, (talker ? talker->chatname : "unknown") );
+   if (!db_ptt_stop(masterdb, session, &secs, reason)) {
+      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, (talker ? talker->chatname : "unknown"));
 
       return;
    }
 
    if (secs >= 0) {
-      if (talker) talker->session_tx_seconds += (uint64_t)secs;
+      if (talker) {
+         talker->session_tx_seconds += (uint64_t) secs;
+      }
       // If the talker is unknown at key-up, recover their name from the
       // session row so the log line and quota debit still work.
       const char *who = (talker ? talker->chatname : NULL);
@@ -290,7 +294,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
       if (cfg_get_bool("quota.enforce", true) && who && secs > 0) {
-         if (!db_quota_spend(masterdb, who, secs) ) {
+         if (!db_quota_spend(masterdb, who, secs)) {
             Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s", secs, who);
          } else {
             int left = db_quota_get(masterdb, who);
@@ -311,22 +315,39 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 }
 
 static bool accounting_locked, accounting_stop_pending;
-bool rr_ptt_accounting_locked(void) { return accounting_locked; }
+bool rr_ptt_accounting_locked(void) {
+   return accounting_locked;
+}
 
 static void accounting_failed(const char *event, const char *data, rrconn_t *peer, void *user) {
-   (void)event; (void)peer; (void)user;
-   if (accounting_locked || !cfg_get_bool("accounting.strict", false)) return;
+   (void)event;
+   (void)peer;
+   (void)user;
+
+   if (accounting_locked || !cfg_get_bool("accounting.strict", false)) {
+      return;
+   }
    accounting_locked = accounting_stop_pending = true;
    Log(LOG_CRIT, "accounting", "Accounting write failed (%s); TX locked until server restart", data ? data : "unknown");
-   for (rrconn_t *client=http_client_list; client; client=client->next)
-      if (client->authenticated) ws_send_error(client, "Accounting database write failed: PTT halted and locked until server restart");
+
+   for (rrconn_t *client = http_client_list ; client ; client = client->next) {
+      if (client->authenticated) {
+         ws_send_error(client, "Accounting database write failed: PTT halted and locked until server restart");
+      }
+   }
 }
 
 static void accounting_poll(const char *event, const char *data, rrconn_t *peer, void *user) {
-   (void)event; (void)data; (void)peer; (void)user;
+   (void)event;
+   (void)data;
+   (void)peer;
+   (void)user;
    static uint64_t retry_at;
    uint64_t at = mono_us();
-   if (!accounting_stop_pending || (retry_at && at < retry_at)) return;
+
+   if (!accounting_stop_pending || (retry_at && at < retry_at)) {
+      return;
+   }
    /* Run after statement finalization/rollback; stopping PTT also writes usage. */
    accounting_stop_pending = rr_ptt_set_all_off_reason("accounting-failure");
    retry_at = accounting_stop_pending ? at + 1000000 : 0;
@@ -346,7 +367,7 @@ bool rr_ptt_check_blocked(void) {
 }
 
 bool rr_ptt_set_blocked(bool blocked) {
-   Log(LOG_AUDIT, "ptt", "PTT %sBLOCKED", (blocked ? "" : "un") );
+   Log(LOG_AUDIT, "ptt", "PTT %sBLOCKED", (blocked ? "" : "un"));
    rig.tx_blocked = blocked;
 
    return blocked;
@@ -360,11 +381,15 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
    if (ptt && cfg_get_bool("accounting.strict", false)) {
 #ifdef USE_SQLITE
-      if (!masterdb) accounting_failed(NULL, "database not open", NULL, NULL);
+
+      if (!masterdb) {
+         accounting_failed(NULL, "database not open", NULL, NULL);
+      }
 #else
       accounting_failed(NULL, "SQLite accounting unavailable", NULL, NULL);
 #endif
    }
+
    if (ptt && rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
@@ -372,6 +397,7 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    }
 
 #ifdef USE_SQLITE
+
    // Quota enforcement: when quota.enforce is true, the user needs remaining
    // TX credits (tx_credits table) to key up. PARITY: rrserver/database.c
    if (ptt && cfg_get_bool("quota.enforce", true) && masterdb) {
@@ -396,7 +422,7 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    if (vfo >= 0 && vfo < MAX_VFOS) {
       if (ptt && ptt_talker) {
          if (!ptt_recording_id[vfo][0]) {
-            au_recording_generate_id(ptt_recording_id[vfo], sizeof(ptt_recording_id[vfo]) );
+            au_recording_generate_id(ptt_recording_id[vfo], sizeof(ptt_recording_id[vfo]));
          }
          recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
          ptt_recording_file[vfo][0] = '\0';
@@ -412,9 +438,12 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    // Go through backend.c (rr_ptt_apply) rather than poking the backend api
    // directly. PARITY: rrserver/backend.c rr_ptt_apply()
    // NB: rr_ptt_apply() returns false on SUCCESS, true on failure.
-   if (ptt && accounting_locked) return true;
-   if (rr_ptt_apply(vfo, ptt) ) {
-      Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF") );
+   if (ptt && accounting_locked) {
+      return true;
+   }
+
+   if (rr_ptt_apply(vfo, ptt)) {
+      Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF"));
 
       // A failed key-down must not leave an open database session or a
       // recording ID that will be attached to a later transmission.
@@ -428,8 +457,10 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    } else {
       if (ptt && accounting_locked) {
          rr_ptt_set_all_off_reason("accounting-failure");
+
          return true;
       }
+
       // set or clear the talk timeout
       // Config: rig.tot - max TX time in seconds (default 300) before the
       // clocktick timer halts PTT. PARITY: rrserver/timer.clocktick.c TOT check
@@ -443,10 +474,10 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
          ptt_log_stop(ptt_talker, vfo, reason);
       }
 
-      if (!ptt || rrserver_media_activate_ptt(vfo, ptt_talker) ) {
+      if (!ptt || rrserver_media_activate_ptt(vfo, ptt_talker)) {
          rrserver_media_record_ptt(vfo, ptt, ptt_talker, recording_id);
       } else {
-         Log(LOG_WARN, "ptt", "TX audio decoder could not be activated on VFO %s", vfo_name(vfo) );
+         Log(LOG_WARN, "ptt", "TX audio decoder could not be activated on VFO %s", vfo_name(vfo));
       }
    }
 
@@ -463,9 +494,9 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
       dict_add(d, "msg.type", "cat");
 
       if (rig.ptt_rig) {
-         dict_add(d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig) );
+         dict_add(d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig));
       }
-      dict_add(d, "cat.state.vfo", vfo_name(vfo) );
+      dict_add(d, "cat.state.vfo", vfo_name(vfo));
       dict_add_bool(d, "cat.state.ptt", ptt);
       // Read freq/width from the vfos[] table (polled from the active backend);
       // hl_state is a hamlib-only cache and is zeroed for other backends.
@@ -494,16 +525,27 @@ bool rr_ptt_set_all_off_reason(const char *reason) {
 
    bool failed = false;
    rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
+
    for (int i = VFO_A ; i < MAX_VFOS ; i++) {
       if (radio) {
-         char alias[2] = {(char)('A'+i), 0};
+         char alias[2] = {
+            (char)('A' + i), 0
+         };
          rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, alias);
-         if (!object || !rr_backend_vfo_supported(radio, object)) continue;
+
+         if (!object || !rr_backend_vfo_supported(radio, object)) {
+            continue;
+         }
       }
-      if (rr_ptt_request((rr_vfo_t)i, false, reason ? reason : "forced")) failed = true;
+
+      if (rr_ptt_request((rr_vfo_t) i, false, reason ? reason : "forced")) {
+         failed = true;
+      }
    }
 
-   if (!failed) global_tot_time = 0;
+   if (!failed) {
+      global_tot_time = 0;
+   }
 
    // Clear the talker's TX state AFTER the VFO loop so ptt_log_stop() above
    // still sees the talker for the quota debit / log line. is_ptt is

@@ -69,6 +69,7 @@ int main(int argc, char **argv) {
          snprintf(key, sizeof(key), "server:%s.server.proxy.pass", name);
          dict_add(cfg, key, "secret");
       }
+
       if (i >= 2) {
          snprintf(key, sizeof(key), "server:%s.server.user", name);
          dict_add(cfg, key, "profile-user");
@@ -86,6 +87,7 @@ int main(int argc, char **argv) {
       assert(!rrclient_connect_url(name, fail_closed ? failure_url : urls[i]));
       rrconn_t *connection = rrclient_connection_find(name);
       assert(connection && connection->server);
+
       if (!fail_closed && i >= 2) {
          assert(!strcmp(connection->nick, i == 2 ? "alice" : "bob"));
          assert(!strcmp(connection->server->pass, i == 2 ? "p@ss" : ""));

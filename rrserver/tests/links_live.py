@@ -13,6 +13,8 @@ import tempfile
 import time
 from ws_helpers import WebSocket
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+LISTENER = os.environ.get('RR_LINK_LISTENER', 'dedicated')
+PLAINTEXT = LISTENER == 'shared-plain'
 
 def port():
     with socket.socket() as s:
@@ -21,7 +23,8 @@ def port():
 
 class LinkSocket(WebSocket):
     def __init__(self, port, context, protocol='rustyrig-link.v1'):
-        self.socket = context.wrap_socket(socket.create_connection(('127.0.0.1', port), timeout=3), server_hostname='localhost')
+        self.socket = socket.create_connection(('127.0.0.1', port), timeout=3)
+        if context: self.socket = context.wrap_socket(self.socket, server_hostname='localhost')
         self.buffer = b''
         key = base64.b64encode(os.urandom(16)).decode()
         self.socket.sendall((f'GET /link HTTP/1.1\r\nHost: localhost:{port}\r\n'
@@ -50,14 +53,14 @@ with tempfile.TemporaryDirectory(prefix='rr-links-') as temporary:
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
         '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost',
         '-keyout', str(key), '-out', str(cert)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    context = ssl.create_default_context(cafile=str(cert))
+    context = None if PLAINTEXT else ssl.create_default_context(cafile=str(cert))
     ports = {name: port() for name in ('alpha', 'beta', 'gamma')}
     processes, outputs, client_ports = {}, {}, {}
     def peer(name, remote, role, url=True):
         return f'''[{'peer' if name == 'alpha' else 'peer:' + remote}]
 enabled=true
 autoconnect=true
-server.url={'wss://localhost:' + str(ports[remote]) + '/link' if url else ''}
+server.url={('ws://' if PLAINTEXT else 'wss://') + 'localhost:' + str(ports[remote]) + '/link' if url else ''}
 username=tree-test
 password=disposable-link-secret
 site.name={remote}
@@ -73,7 +76,7 @@ role={role}
                 if name == 'alpha':
                     db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,'MISSING',1,?,3,'admin,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
                 db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(3,'READER',1,?,3,?)", (hashlib.sha1(b'test-password').hexdigest(), 'admin,view,chat' if name == 'alpha' else 'view,chat'))
-        client_ports[name] = port()
+        client_ports[name] = ports[name] if PLAINTEXT else port()
         config = work / f'{name}.cfg'
         settings = f'''[general]
 station.name={name}
@@ -109,6 +112,13 @@ pcm-hub=false
 [callsign-lookup]
 enabled=false
 '''
+        if LISTENER != 'dedicated':
+            settings = settings.replace(f'links.listen=https://127.0.0.1:{ports[name]}', 'links.listen=')
+            settings = settings.replace('net.http.tls-enabled=false',
+                f'net.http.tls-enabled={"false" if PLAINTEXT else "true"}\n'
+                f'net.http.tls-bind=127.0.0.1\nnet.http.tls-port={ports[name]}\n'
+                f'net.http.tls-cert={cert}\nnet.http.tls-key={key}\n'
+                f'links.allow-insecure={"true" if PLAINTEXT else "false"}')
         if name == 'alpha': settings += peer(name, 'beta', 'child')
         elif name == 'beta': settings += peer(name, 'alpha', 'parent') + peer(name, 'gamma', 'child', False)
         else: settings += peer(name, 'beta', 'parent')
@@ -145,6 +155,11 @@ enabled=false
                 return True
             except (ConnectionRefusedError, ssl.SSLError): return False
         wait(accepts, 'link listener did not start')
+        if LISTENER == 'shared':
+            denied = LinkSocket(client_ports['alpha'], None)
+            assert b'403' in denied.headers
+            denied.socket.close()
+            print('PASS: shared plaintext listener rejects links unless explicitly enabled')
         # Invalid credentials must close without replying with local credentials.
         bad = LinkSocket(ports['alpha'], context)
         assert b'101' in bad.headers
@@ -178,20 +193,21 @@ enabled=false
         except (EOFError, ConnectionResetError): pass
         finally: duplicate.socket.close()
         assert log('alpha').count('Unlinked site beta') == before_duplicates
-        # Native outbound TLS must reject an unrelated trust anchor.
-        bad_cert, bad_key = work / 'bad-ca.pem', work / 'bad-key.pem'
-        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
-            '-subj', '/CN=untrusted', '-keyout', str(bad_key), '-out', str(bad_cert)],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        start('gamma', bad_cert)
-        wait(lambda: 'Transport error' in log('gamma'), 'outbound TLS did not reject untrusted certificate')
-        assert 'Linked site beta' not in log('gamma')
-        stop('gamma')
+        if not PLAINTEXT:
+            # Native outbound TLS must reject an unrelated trust anchor.
+            bad_cert, bad_key = work / 'bad-ca.pem', work / 'bad-key.pem'
+            subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+                '-subj', '/CN=untrusted', '-keyout', str(bad_key), '-out', str(bad_cert)],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            start('gamma', bad_cert)
+            wait(lambda: 'Transport error' in log('gamma'), 'outbound TLS did not reject untrusted certificate')
+            assert 'Linked site beta' not in log('gamma')
+            stop('gamma')
         start('gamma')
         wait(lambda: 'Introduced server' in log('alpha') and 'servers 3' in log('alpha') and
             'Linked site beta' in log('gamma') and 'servers 3' in log('gamma'), 'three-server tree did not converge')
         def login(name, username='TEST'):
-            c = WebSocket(client_ports[name])
+            c = WebSocket(ports[name], context) if LISTENER == "shared" and name == "gamma" else WebSocket(client_ports[name])
             c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': username}})
             challenge = c.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
             first_hash = hashlib.sha1(b'test-password').hexdigest()
@@ -319,7 +335,7 @@ enabled=false
         origin.socket.close(); owner.socket.close()
         print('PASS: fresh authorized room subscription and control restored after middle-server restart')
         assert 'disposable-link-secret' not in ''.join(log(n) for n in processes)
-        print('PASS: mutual WSS authentication/CA verification, separate protocol, concurrent dials, incoming-only peer, three-server tree withdrawal and autoconnect')
+        print(f'PASS: {LISTENER} listener, peer authentication, separate protocol, concurrent dials, incoming-only peer, withdrawal and autoconnect')
     except Exception:
         for name in processes:
             print(name, log(name), flush=True)

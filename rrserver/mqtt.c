@@ -52,7 +52,7 @@ int mqtt_port = 0;
 
 
 bool mqtt_server_init(struct mg_mgr *mgr) {
-   if (!cfg_get_bool("net.mqtt.enabled", false) ) {
+   if (!cfg_get_bool("net.mqtt.enabled", false)) {
       Log(LOG_DEBUG, "mqtt", "MQTT listener disabled");
 
       return false;
@@ -65,7 +65,7 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
    }
 
    char listen_addr[512];
-   memset(listen_addr, 0, sizeof(listen_addr) );
+   memset(listen_addr, 0, sizeof(listen_addr));
    const char *mqtt_bind = cfg_get("net.mqtt.bind");
    int mqtt_port = cfg_get_int("net.mqtt.port", 18383);
 
@@ -78,10 +78,10 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
 
    snprintf(listen_addr, sizeof(listen_addr), "mqtt://%s:%d", mqtt_bind, mqtt_port);
 
-   if (!mg_mqtt_listen(mgr, listen_addr, mqtt_server_cb, NULL) ) {
+   if (!mg_mqtt_listen(mgr, listen_addr, mqtt_server_cb, NULL)) {
       Log(LOG_CRIT, "mqtt", "Failed to start MQTT listener on %s", listen_addr);
 
-      if (cfg_get_bool("net.mqtt.required", false) ) {
+      if (cfg_get_bool("net.mqtt.required", false)) {
          exit(EXIT_FAILURE);
       }
 
@@ -97,12 +97,11 @@ bool mqtt_server_init(struct mg_mgr *mgr) {
 // based on mongoose examples
 //////
 static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *topic, uint8_t *qos, size_t pos) {
-   if (!msg || !topic || !msg->dgram.buf || pos > msg->dgram.len ||
-      msg->dgram.len - pos < 2) {
+   if (!msg || !topic || !msg->dgram.buf || pos > msg->dgram.len || msg->dgram.len - pos < 2) {
       return 0;
    }
    unsigned char *buf = (unsigned char *)msg->dgram.buf + pos;
-   size_t topic_len = (size_t)( ( (unsigned)buf[0] << 8) | buf[1]);
+   size_t topic_len = (size_t)(((unsigned)buf[0] << 8) | buf[1]);
    size_t suffix_len = qos ? 1 : 0;
    size_t remaining = msg->dgram.len - pos - 2;
 
@@ -110,7 +109,7 @@ static size_t mg_mqtt_next_topic(struct mg_mqtt_message *msg, struct mg_str *top
       return 0;
    }
    topic->len = topic_len;
-   topic->buf = (char *) buf + 2;
+   topic->buf = (char *)buf + 2;
    size_t new_pos = pos + 2 + topic_len + suffix_len;
 
    if (qos) {
@@ -136,7 +135,7 @@ static void mqtt_subscription_free(struct sub *sub) {
    if (!sub) {
       return;
    }
-   mg_free( (void *)sub->topic.buf);
+   mg_free((void *)sub->topic.buf);
    free(sub);
 }
 
@@ -174,7 +173,7 @@ size_t mg_mqtt_next_unsub(struct mg_mqtt_message *msg, struct mg_str *topic, siz
 // Event handler function
 static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
    if (ev == MG_EV_MQTT_CMD) {
-      struct mg_mqtt_message *mm = (struct mg_mqtt_message *) ev_data;
+      struct mg_mqtt_message *mm = (struct mg_mqtt_message *)ev_data;
       Log(LOG_DEBUG, "mqtt.req", "cmd %d qos %d", mm->cmd, mm->qos);
 
       switch (mm->cmd) {
@@ -188,10 +187,10 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                uint8_t response[] = {
                   0, 0
                };
-               mg_mqtt_send_header(c, MQTT_CMD_CONNACK, 0, sizeof(response) );
+               mg_mqtt_send_header(c, MQTT_CMD_CONNACK, 0, sizeof(response));
 
 
-               mg_send(c, response, sizeof(response) );
+               mg_send(c, response, sizeof(response));
             }
             break;
          }
@@ -202,7 +201,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
             struct mg_str topic;
             size_t num_topics = 0;
             size_t client_topics = mqtt_subscription_count(c);
-            memset(resp, 0, sizeof(resp) );
+            memset(resp, 0, sizeof(resp));
 
             if (pos == SIZE_MAX) {
                Log(LOG_WARN, "mqtt.req", "Malformed MQTT subscription packet");
@@ -210,9 +209,8 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                break;
             }
 
-            while ( ( (pos = mg_mqtt_next_sub(mm, &topic, &qos, pos) ) > 0) ) {
-               if (num_topics >= sizeof(resp) ||
-                  client_topics >= MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT) {
+            while (((pos = mg_mqtt_next_sub(mm, &topic, &qos, pos)) > 0)) {
+               if (num_topics >= sizeof(resp) || client_topics >= MQTT_MAX_SUBSCRIPTIONS_PER_CLIENT) {
                   Log(LOG_WARN, "mqtt.req", "Too many MQTT subscriptions from connection %p", c);
                   c->is_closing = 1;
                   break;
@@ -223,7 +221,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                   c->is_closing = 1;
                   break;
                }
-               struct sub *sub = calloc(1, sizeof(*sub) );
+               struct sub *sub = calloc(1, sizeof(*sub));
 
                if (!sub) {
                   Log(LOG_CRIT, "mqtt.req", "SUB empty in MQTT_CMD_SUBSCRIBE");
@@ -240,12 +238,12 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
                sub->qos = qos;
                LIST_ADD_HEAD(struct sub, &s_subs, sub);
                client_topics++;
-               Log(LOG_DEBUG, "mqtt.req", "SUB %p [%.*s]", c->fd, (int) sub->topic.len, sub->topic.buf);
+               Log(LOG_DEBUG, "mqtt.req", "SUB %p [%.*s]", c->fd, (int)sub->topic.len, sub->topic.buf);
 
                // Change '+' to '*' for topic matching using mg_match
                for (size_t i = 0 ; i < sub->topic.len ; i++) {
                   if (sub->topic.buf[i] == '+') {
-                     ( (char *) sub->topic.buf)[i] = '*';
+                     ((char *)sub->topic.buf)[i] = '*';
                   }
                }
 
@@ -258,12 +256,12 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
          }
          case MQTT_CMD_PUBLISH: {
             // Client published message. Push to all subscribed channels
-            Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int) mm->data.len, mm->data.buf, (int) mm->topic.len, mm->topic.buf);
+            Log(LOG_DEBUG, "mqtt.debug", "PUB %p [%.*s] -> [%.*s]", c->fd, (int)mm->data.len, mm->data.buf, (int)mm->topic.len, mm->topic.buf);
 
             for (struct sub *sub = s_subs ; sub ; sub = sub->next) {
-               if (mg_match(mm->topic, sub->topic, NULL) ) {
+               if (mg_match(mm->topic, sub->topic, NULL)) {
                   struct mg_mqtt_opts pub_opts;
-                  memset(&pub_opts, 0, sizeof(pub_opts) );
+                  memset(&pub_opts, 0, sizeof(pub_opts));
                   pub_opts.topic = mm->topic;
                   pub_opts.message = mm->data;
                   pub_opts.qos = 1, pub_opts.retain = false;
@@ -293,7 +291,7 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
          if (c != sub->c) {
             continue;
          }
-         Log(LOG_DEBUG, "mqtt.req", "UNSUB %p [%.*s]", c->fd, (int) sub->topic.len, sub->topic.buf);
+         Log(LOG_DEBUG, "mqtt.req", "UNSUB %p [%.*s]", c->fd, (int)sub->topic.len, sub->topic.buf);
          LIST_DELETE(struct sub, &s_subs, sub);
          mqtt_subscription_free(sub);
       }
@@ -304,45 +302,45 @@ static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
 bool mqtt_client_init(void) {
    FILE *fp = NULL;
 
-   if (!cfg_get_bool("net.mqtt-client.enabled", false) ) {
+   if (!cfg_get_bool("net.mqtt-client.enabled", false)) {
       Log(LOG_DEBUG, "mqtt.cli", "Outbound MQTT client disabled");
 
       return false;
    }
 
    const char *configured_user = cfg_get("net.mqtt-client.user");
-   strlcpy(mqtt_user_buf, configured_user ? configured_user : "", sizeof(mqtt_user_buf) );
+   strlcpy(mqtt_user_buf, configured_user ? configured_user : "", sizeof(mqtt_user_buf));
    mqtt_user = mqtt_user_buf;
    mqtt_host = cfg_get("net.mqtt-client.host");
    mqtt_port = cfg_get_int("net.mqtt-client.port", 0);
    char *secret_file = cfg_get_path("net.mqtt-client.secret-file");
 
-   if (!file_exists(secret_file) ) {
+   if (!file_exists(secret_file)) {
       Log(LOG_CRIT, "mqtt.cli", "Secret file '%s' doesn't exist", secret_file);
       free(secret_file);
 
       return false;
    }
 
-   if (!(fp = fopen(secret_file, "r") ) ) {
-      Log(LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno) );
+   if (!(fp = fopen(secret_file, "r"))) {
+      Log(LOG_CRIT, "mqtt.cli", "Unable to open secret file '%s' - %d:%s", secret_file, errno, strerror(errno));
       free(secret_file);
 
       return false;
    }
    char read_secret[512];
-   memset(mqtt_secret, 0, sizeof(mqtt_secret) );
-   memset(read_secret, 0, sizeof(read_secret) );
+   memset(mqtt_secret, 0, sizeof(mqtt_secret));
+   memset(read_secret, 0, sizeof(read_secret));
 
-   if (!fgets(read_secret, sizeof(read_secret), fp) ) {
-      Log(LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno) );
+   if (!fgets(read_secret, sizeof(read_secret), fp)) {
+      Log(LOG_CRIT, "mqtt.cli", "Unable to read secret from file '%s' - %d:%s", secret_file, errno, strerror(errno));
       fclose(fp);
       free(secret_file);
 
       return true;
    }
    char *end = read_secret + strlen(read_secret) - 1;
-   while (end >= read_secret && (*end == '\r' || *end == '\n') ) {
+   while (end >= read_secret && (*end == '\r' || *end == '\n')) {
       *end = '\0';
       end--;
    }
@@ -350,11 +348,11 @@ bool mqtt_client_init(void) {
    char *s_secret = strtok(NULL, ":\n");
 
    if (s_user) {
-      strlcpy(mqtt_user_buf, s_user, sizeof(mqtt_user_buf) );
+      strlcpy(mqtt_user_buf, s_user, sizeof(mqtt_user_buf));
    }
 
    if (s_secret) {
-      strlcpy(mqtt_secret, s_secret, sizeof(mqtt_secret) );
+      strlcpy(mqtt_secret, s_secret, sizeof(mqtt_secret));
    }
 
    Log(LOG_DEBUG, "mqtt.cli", "Connect to mqtt: user=\"%s\", host=\"%s:%d\"", mqtt_user, mqtt_host, mqtt_port);

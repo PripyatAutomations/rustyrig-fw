@@ -42,8 +42,10 @@ def transform(message, encode):
     raise ValueError('Unregistered wire operation')
 
 class WebSocket:
-    def __init__(self, port):
+    def __init__(self, port, tls_context=None):
         self.socket = socket.create_connection(("127.0.0.1", port), timeout=3)
+        if tls_context:
+            self.socket = tls_context.wrap_socket(self.socket, server_hostname="localhost")
         self.buffer = b""
         key = base64.b64encode(os.urandom(16)).decode()
         self.socket.sendall((f"GET /ws HTTP/1.1\r\nHost: localhost:{port}\r\n"

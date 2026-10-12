@@ -72,8 +72,7 @@ rr_atu_tv *rr_atu_find_saved_state(int uid) {
    if (uid < 0) {
       return NULL;
    }
-   rr_atu_tv *closest_low = NULL,
-      *closest_high = NULL;
+   rr_atu_tv *closest_low = NULL, *closest_high = NULL;
 
 //   if (tv_is_closest(closest_low, closest_high)) {
 //   }
@@ -92,7 +91,7 @@ int rr_atu_init(int uid) {
    Log(LOG_INFO, "atu", " => ATU #%d initializing", uid);
 
    // do we have saved tuning parameters for this unit?
-   if ( (tv = rr_atu_find_saved_state(uid) ) ) {
+   if ((tv = rr_atu_find_saved_state(uid))) {
       // Apply them
    }
 
@@ -119,7 +118,7 @@ int rr_atu_init_all(void) {
    Log(LOG_INFO, "atu", "Initializing all ATUs (%d total)", tuners);
 
    for (int i = 0 ; i < tuners ; i++) {
-      if (rr_atu_init(i) ) {
+      if (rr_atu_init(i)) {
          rv++;
       }
    }

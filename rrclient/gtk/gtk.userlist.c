@@ -34,7 +34,7 @@
 extern dict *cfg;
 extern rrconn_t *ws_conn;
 extern const char *login_user;
-extern struct rr_user *global_userlist;          // userlist.c
+extern struct rr_user *global_userlist;   // userlist.c
 GtkWidget *userlist_window;
 GtkWidget *cul_view = NULL;
 static GtkWidget *userlist_panel = NULL;
@@ -67,8 +67,8 @@ static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id);
 
 static room_userlist_entry_t *current_room_userlist(void) {
    const char *room = rrclient_current_room();
-   return room && room_userlist_views ?
-      g_hash_table_lookup(room_userlist_views, rrclient_window_name(room)) : NULL;
+
+   return room && room_userlist_views ? g_hash_table_lookup(room_userlist_views, rrclient_window_name(room)) : NULL;
 }
 
 
@@ -88,8 +88,7 @@ static int userlist_default_width(void) {
    return width < 120 ? 120 : width;
 }
 
-/* Let Username consume spare space, not the space needed by status columns.
- * Ellipsizing is presentation only: the model still carries the full name. */
+/* Let Username consume spare space, not the space needed by status columns. Ellipsizing is presentation only: the model still carries the full name. */
 static void userlist_fit_columns(GtkWidget *view) {
    GtkTreeViewColumn *column = userlist_column(view, COL_USERNAME);
    GtkCellRenderer *text = g_object_get_data(G_OBJECT(view), "rr-username-renderer");
@@ -102,43 +101,49 @@ static void userlist_fit_columns(GtkWidget *view) {
 static int userlist_content_width(GtkWidget *view) {
    GtkRequisition natural;
    gtk_widget_get_preferred_size(view, NULL, &natural);
+
    if (!g_object_get_data(G_OBJECT(view), "rr-fit-columns")) {
       return natural.width;
    }
-   /* Preserve full-name auto-sizing even though a manually narrowed roster
-    * uses ellipses. Measure model cells rather than the fixed column width. */
+   /* Preserve full-name auto-sizing even though a manually narrowed roster uses ellipses. Measure model cells rather than the fixed column width. */
    GtkTreeViewColumn *column = userlist_column(view, COL_USERNAME);
    GtkCellRenderer *text = g_object_get_data(G_OBJECT(view), "rr-username-renderer");
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(view));
    GtkTreeIter row;
    int longest = gtk_tree_view_column_get_fixed_width(column);
-   for (gboolean valid = gtk_tree_model_get_iter_first(model, &row); valid;
-      valid = gtk_tree_model_iter_next(model, &row)) {
+
+   for (gboolean valid = gtk_tree_model_get_iter_first(model, &row) ; valid ; valid = gtk_tree_model_iter_next(model, &row)) {
       int width;
       gtk_tree_view_column_cell_set_cell_data(column, model, &row, FALSE, FALSE);
       gtk_cell_renderer_get_preferred_width(text, view, NULL, &width);
       longest = MAX(longest, width);
    }
+
    return natural.width + longest - gtk_tree_view_column_get_fixed_width(column);
 }
 
 static int userlist_natural_width(GtkWidget *view, GtkWidget *panel, bool full_names) {
    GtkRequisition natural;
    gtk_widget_get_preferred_size(view, NULL, &natural);
+
    if (full_names) {
       natural.width = userlist_content_width(view);
    }
    GtkWidget *scroll = gtk_widget_get_parent(view);
+
    if (scroll && GTK_IS_VIEWPORT(scroll)) {
       scroll = gtk_widget_get_parent(scroll);
    }
+
    if (scroll && GTK_IS_SCROLLED_WINDOW(scroll)) {
       gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), natural.width);
    }
    gtk_widget_get_preferred_size(panel, NULL, &natural);
+
    if (scroll && GTK_IS_SCROLLED_WINDOW(scroll)) {
       gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), -1);
    }
+
    return MAX(userlist_default_width(), natural.width);
 }
 
@@ -158,9 +163,9 @@ static gboolean userlist_fit_width_idle(gpointer data) {
    if (scroll && GTK_IS_SCROLLED_WINDOW(scroll) && width > 0) {
       gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), width);
       room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
+
       if (entry) {
-         /* Measure the tree plus scrollbar/chrome and controls, then release
-          * the minimum: a shrinkable pane must not crop its own children. */
+         /* Measure the tree plus scrollbar/chrome and controls, then release the minimum: a shrinkable pane must not crop its own children. */
          room_userlist_fit(entry, userlist_natural_width(view, entry->panel, true));
       }
    }
@@ -198,6 +203,7 @@ static gboolean on_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer 
    if (!userlist_is_docked && userlist_dock_paned) {
       userlist_dock_into(GTK_PANED(userlist_dock_paned));
    }
+
    if (userlist_is_docked) {
       gtk_widget_hide(widget);
    }
@@ -215,7 +221,7 @@ static gboolean refocus_main_idle(gpointer user_data) {
    extern GtkWidget *main_window;   // gtk.core.c
 
    if (main_window && main_was_focused) {
-      gtk_window_present(GTK_WINDOW(main_window) );
+      gtk_window_present(GTK_WINDOW(main_window));
    }
 
    return G_SOURCE_REMOVE;
@@ -234,7 +240,7 @@ static void refocus_main(void) {
 // userlist after we return.
 void userlist_refocus_main(void) {
    extern GtkWidget *main_window;   // gtk.core.c
-   main_was_focused = (main_window && gtk_window_is_active(GTK_WINDOW(main_window)) );
+   main_was_focused = (main_window && gtk_window_is_active(GTK_WINDOW(main_window)));
    g_idle_add(refocus_main_idle, NULL);
 }
 
@@ -244,16 +250,21 @@ void userlist_set_visible(bool visible) {
       return;
    }
    room_userlist_entry_t *entry = current_room_userlist();
+
    if (entry) {
       gtk_widget_show_all(entry->panel);
+
       if (!entry->docked && entry->window) {
          gtk_window_present(GTK_WINDOW(entry->window));
       }
+
       return;
    }
+
    if (room_userlist_views && g_hash_table_size(room_userlist_views)) {
       return;
    }
+
    if (userlist_is_docked && userlist_panel) {
       if (visible) {
          userlist_redraw_gtk();
@@ -292,8 +303,10 @@ void userlist_set_visible(bool visible) {
 
 void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data) {
    room_userlist_entry_t *entry = current_room_userlist();
+
    if (entry) {
       on_room_userlist_dock_clicked(button, entry);
+
       return;
    }
    userlist_set_visible(true);
@@ -317,17 +330,20 @@ static const rrconn_t *userlist_view_connection(GtkWidget *view) {
 static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id) {
    char key[32];
    snprintf(key, sizeof(key), "rr-column-%d", id);
+
    return g_object_get_data(G_OBJECT(view), key);
 }
 
 static const char *userlist_type(GtkWidget *view) {
    const char *type = g_object_get_data(G_OBJECT(view), "rr-roster-type");
+
    return type ? type : "room";
 }
 
 static int userlist_layout_int(GtkWidget *view, const char *field, int fallback) {
    char key[80];
    snprintf(key, sizeof(key), "ui.userlist.%s.%s", userlist_type(view), field);
+
    return cfg_get_int(key, fallback);
 }
 
@@ -335,6 +351,7 @@ static void userlist_layout_save(GtkWidget *view, const char *field, int value) 
    char key[80], text[32];
    snprintf(key, sizeof(key), "ui.userlist.%s.%s", userlist_type(view), field);
    snprintf(text, sizeof(text), "%d", value);
+
    if (cfg) {
       dict_add(cfg, key, text);
    }
@@ -342,19 +359,24 @@ static void userlist_layout_save(GtkWidget *view, const char *field, int value) 
 
 static void userlist_columns_changed(GtkTreeView *tree, gpointer data) {
    (void)data;
+
    if (!cfg || g_object_get_data(G_OBJECT(tree), "rr-layout-loading")) {
       return;
    }
    GList *columns = gtk_tree_view_get_columns(tree);
+
    if (g_list_length(columns) != NUM_COLS) {
       g_list_free(columns);
-      return; /* GTK also emits this signal while destroying columns. */
+
+      return;                   /* GTK also emits this signal while destroying columns. */
    }
    GString *order = g_string_new(NULL);
-   for (GList *item = columns; item; item = item->next) {
+
+   for (GList *item = columns ; item ; item = item->next) {
       int id = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item->data), "rr-column-id")) - 1;
       g_string_append_printf(order, "%s%d", order->len ? "," : "", id);
    }
+
    char key[80];
    snprintf(key, sizeof(key), "ui.userlist.%s.columns", userlist_type(GTK_WIDGET(tree)));
    dict_add(cfg, key, order->str);
@@ -369,28 +391,34 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
    snprintf(key, sizeof(key), "ui.userlist.%s.columns", type);
    const char *order = cfg_get(key);
    const char *previous_order = g_object_get_data(G_OBJECT(view), "rr-roster-order");
+
    if (old && !strcmp(old, type) && !g_strcmp0(previous_order, order)) {
       return;
    }
    g_object_set_data_full(G_OBJECT(view), "rr-roster-type", g_strdup(type), g_free);
    g_object_set_data_full(G_OBJECT(view), "rr-roster-order", g_strdup(order), g_free);
    int ids[NUM_COLS], used = 0;
+
    if (!order || sscanf(order, "%d,%d,%d,%d,%d", &ids[0], &ids[1], &ids[2], &ids[3], &ids[4]) != NUM_COLS) {
       return;
    }
-   for (int i = 0; i < NUM_COLS; i++) {
+
+   for (int i = 0 ; i < NUM_COLS ; i++) {
       if (ids[i] < 0 || ids[i] >= NUM_COLS || (used & (1 << ids[i]))) {
          return;
       }
       used |= 1 << ids[i];
    }
+
    g_object_set_data(G_OBJECT(view), "rr-layout-loading", GINT_TO_POINTER(1));
    GtkTreeViewColumn *previous = NULL;
-   for (int i = 0; i < NUM_COLS; i++) {
+
+   for (int i = 0 ; i < NUM_COLS ; i++) {
       GtkTreeViewColumn *column = userlist_column(view, ids[i]);
       gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), column, previous);
       previous = column;
    }
+
    g_object_set_data(G_OBJECT(view), "rr-layout-loading", NULL);
 }
 
@@ -399,10 +427,8 @@ static void userlist_set_columns(GtkWidget *view, const char *room) {
    bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
 
    const char *vfos = room && *room ? rrclient_room_vfos(room) : NULL;
-   /* JOIN capability flags can arrive before the detailed VFO bindings.
-    * Use the same TX capability as the room's radio controls as well. */
-   bool has_vfos = room && *room && ((vfos && *vfos) ||
-      rrclient_room_vfo_mask(room) || rrclient_room_tx_control(room));
+   /* JOIN capability flags can arrive before the detailed VFO bindings. Use the same TX capability as the room's radio controls as well. */
+   bool has_vfos = room && *room && ((vfos && *vfos) || rrclient_room_vfo_mask(room) || rrclient_room_tx_control(room));
 
    userlist_apply_layout(view, has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room");
 
@@ -418,6 +444,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");
    const rrconn_t *view_connection = userlist_view_connection(view);
+
    if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
       return;
    }
@@ -436,7 +463,8 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
 
-      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON, c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
+      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON, c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->
+         is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
    }
 
    userlist_fit_width(view);
@@ -452,8 +480,7 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
    if (!target || !*target || !command) {
       return;
    }
-   const char *reason = !strcasecmp(command, "kick") || !strcasecmp(command, "mute") ?
-      " Requested from the user list" : "";
+   const char *reason = !strcasecmp(command, "kick") || !strcasecmp(command, "mute") ? " Requested from the user list" : "";
    char *input = g_strdup_printf("/%s %s%s", command, target, reason);
    gtk_chat_execute_command(window, input);
    g_free(input);
@@ -478,7 +505,7 @@ static void userlist_touch_menu_position(GtkMenu *menu, gint *x, gint *y, gboole
 static bool userlist_context_at(GtkWidget *widget, double x, double y, guint button, guint32 time) {
    GtkTreePath *path = NULL;
 
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)x, (gint)y, &path, NULL, NULL, NULL)) {
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint) x, (gint) y, &path, NULL, NULL, NULL)) {
       return FALSE;
    }
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
@@ -528,8 +555,7 @@ static bool userlist_context_at(GtkWidget *widget, double x, double y, guint but
 static gboolean userlist_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)data;
 
-   if (!widget || !event || event->button != 3 ||
-      (event->type != GDK_BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE)) {
+   if (!widget || !event || event->button != 3 || (event->type != GDK_BUTTON_PRESS && event->type != GDK_BUTTON_RELEASE)) {
       return FALSE;
    }
 
@@ -549,8 +575,7 @@ static GtkTouchContextFunc userlist_touch_callback = userlist_touch_context;
 static struct rr_user *room_vfo_talker(const char *room, char vfo) {
    for (struct rr_user *user = global_userlist ; user ; user = user->next) {
       if (user->is_ptt && user->ptt_vfo == vfo &&
-         (!user->ptt_room[0] || !strcasecmp(user->ptt_room, room)) &&
-         (!room || !*room || strcasecmp(user->room, room) == 0)) {
+         (!user->ptt_room[0] || !strcasecmp(user->ptt_room, room)) && (!room || !*room || strcasecmp(user->room, room) == 0)) {
          return user;
       }
    }
@@ -563,8 +588,7 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
       return;
    }
    GtkStyleContext *row_ctx = gtk_widget_get_style_context(control->row);
-   bool selected = control->vfo == vfo_state_get_active() &&
-      !strcasecmp(control->room, rrclient_media_active_room());
+   bool selected = control->vfo == vfo_state_get_active() && !strcasecmp(control->room, rrclient_media_active_room());
 
    if (selected) {
       gtk_style_context_add_class(row_ctx, "room-vfo-active");
@@ -577,10 +601,10 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    const char *uuid = rrclient_media_vfo_uuid(control->room, control->vfo);
    const dict *frequency = rrclient_object_property(uuid, "frequency");
    const dict *mode_state = rrclient_object_property(uuid, "mode");
-   long freq = frequency && dict_get_bool((dict *)frequency, "property.known", false)
-      ? dict_get_long((dict *)frequency, "property.value", 0) : 0;
-   const char *mode = mode_state && dict_get_bool((dict *)mode_state, "property.known", false)
-      ? dict_get((dict *)mode_state, "property.value", "---") : "---";
+   long freq = frequency && dict_get_bool((dict *) frequency, "property.known", false)
+      ? dict_get_long((dict *) frequency, "property.value", 0) : 0;
+   const char *mode = mode_state && dict_get_bool((dict *) mode_state, "property.known", false)
+      ? dict_get((dict *) mode_state, "property.value", "---") : "---";
    char freq_text[64];
 
    if (freq > 0) {
@@ -619,13 +643,14 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
 }
 
 static gboolean room_vfo_refresh(gpointer data) {
-   room_userlist_entry_t *entry = (room_userlist_entry_t *)data;
+   room_userlist_entry_t *entry = (room_userlist_entry_t *) data;
 
    if (!entry || !entry->panel) {
       return G_SOURCE_REMOVE;
    }
    /* Object, user and VFO caches belong to the current dispatch connection. */
    rrconn_t *connection = entry->server && *entry->server ? rrclient_connection_find(entry->server) : NULL;
+
    if (connection && connection != ws_conn) {
       return G_SOURCE_CONTINUE;
    }
@@ -651,7 +676,7 @@ static gboolean room_vfo_refresh(gpointer data) {
 
 static void room_vfo_stop_clicked(GtkButton *button, gpointer data) {
    (void)button;
-   room_vfo_control_t *control = (room_vfo_control_t *)data;
+   room_vfo_control_t *control = (room_vfo_control_t *) data;
 
    if (!control || !ws_conn) {
       return;
@@ -675,7 +700,7 @@ static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
    GtkWidget *input = gtk_entry_new();
    const dict *state = rrclient_object_property(rrclient_media_vfo_uuid(control->room, control->vfo), "frequency");
    char frequency[32];
-   snprintf(frequency, sizeof(frequency), "%ld", state ? dict_get_long((dict *)state, "property.value", 0) : 0);
+   snprintf(frequency, sizeof(frequency), "%ld", state ? dict_get_long((dict *) state, "property.value", 0) : 0);
    gtk_entry_set_text(GTK_ENTRY(input), frequency);
    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), input);
    gtk_widget_show_all(dialog);
@@ -711,7 +736,7 @@ static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event
    }
 
    // The PTT release button remains a separate action, never a VFO selector.
-   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *)event) ; hit ; hit = gtk_widget_get_parent(hit)) {
+   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event) ; hit ; hit = gtk_widget_get_parent(hit)) {
       if (hit == control->ptt) {
          return FALSE;
       }
@@ -836,7 +861,7 @@ void userlist_redraw_gtk(void) {
       gpointer key, value;
       g_hash_table_iter_init(&iter, room_userlist_views);
       while (g_hash_table_iter_next(&iter, &key, &value)) {
-         room_userlist_entry_t *entry = (room_userlist_entry_t *)value;
+         room_userlist_entry_t *entry = (room_userlist_entry_t *) value;
 
          if (entry) {
             userlist_redraw_view(entry->view, entry->room);
@@ -885,7 +910,8 @@ static GtkWidget *userlist_view_create(void) {
    GtkTreeViewColumn *elmernoob_col = gtk_tree_view_column_new_with_attributes("Role", elmernoob_icon, "text", COL_ELMERNOOB_ICON, NULL);
    g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
-   for (int i = 0; i < NUM_COLS; i++) {
+
+   for (int i = 0 ; i < NUM_COLS ; i++) {
       GtkTreeViewColumn *column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
       char key[32];
       snprintf(key, sizeof(key), "rr-column-%d", i);
@@ -894,6 +920,7 @@ static GtkWidget *userlist_view_create(void) {
       gtk_tree_view_column_set_reorderable(column, TRUE);
 
    }
+
    userlist_set_columns(view, NULL);
    g_signal_connect(view, "columns-changed", G_CALLBACK(userlist_columns_changed), NULL);
 
@@ -949,8 +976,7 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
          return;
       }
 
-      if (userlist_window && GTK_IS_WINDOW(userlist_window) &&
-         gtk_widget_get_parent(userlist_panel) == userlist_window) {
+      if (userlist_window && GTK_IS_WINDOW(userlist_window) && gtk_widget_get_parent(userlist_panel) == userlist_window) {
          gtk_container_remove(GTK_CONTAINER(userlist_window), userlist_panel);
          gtk_widget_hide(userlist_window);
       }
@@ -969,18 +995,19 @@ static void room_userlist_set_title(room_userlist_entry_t *entry) {
 
 static int room_userlist_width(room_userlist_entry_t *entry, const char *field) {
    int width = userlist_layout_int(entry->view, field, 0);
+
    if (width > 0) {
-      if (!strcmp(userlist_type(entry->view), "vfo") &&
-         g_object_get_data(G_OBJECT(entry->view), "rr-fit-columns")) {
-         /* Older saves may contain a width that cuts off radio fields.
-          * Restore enough space for headers/controls, with names ellipsized. */
+      if (!strcmp(userlist_type(entry->view), "vfo") && g_object_get_data(G_OBJECT(entry->view), "rr-fit-columns")) {
+         /* Older saves may contain a width that cuts off radio fields. Restore enough space for headers/controls, with names ellipsized. */
          width = MAX(width, userlist_natural_width(entry->view, entry->panel, false));
          userlist_layout_save(entry->view, field, width);
       }
+
       return width;
    }
    width = userlist_natural_width(entry->view, entry->panel, true);
    userlist_layout_save(entry->view, field, width);
+
    return width;
 }
 
@@ -1010,9 +1037,11 @@ static void room_userlist_fit(room_userlist_entry_t *entry, int width) {
 
 static gboolean room_userlist_resize_started(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    room_userlist_entry_t *entry = data;
+
    if (event->window == gtk_paned_get_handle_window(GTK_PANED(widget))) {
       entry->auto_dock_width = false;
    }
+
    return FALSE;
 }
 
@@ -1021,12 +1050,14 @@ static void room_userlist_dock(room_userlist_entry_t *entry) {
       return;
    }
    GtkWidget *parent = gtk_widget_get_parent(entry->panel);
+
    if (parent != GTK_WIDGET(entry->dock_paned)) {
       if (parent) {
          gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
       }
       gtk_paned_pack2(entry->dock_paned, entry->panel, FALSE, TRUE);
    }
+
    if (gtk_widget_get_parent(entry->panel) != GTK_WIDGET(entry->dock_paned)) {
       return;
    }
@@ -1035,6 +1066,7 @@ static void room_userlist_dock(room_userlist_entry_t *entry) {
    gtk_button_set_label(GTK_BUTTON(entry->dock_button), "Undock");
    gtk_widget_show_all(entry->panel);
    room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
+
    if (entry->window) {
       gtk_widget_hide(entry->window);
    }
@@ -1044,14 +1076,17 @@ static gboolean on_room_userlist_delete(GtkWidget *widget, GdkEvent *event, gpoi
    (void)widget;
    (void)event;
    room_userlist_dock(data);
+
    return TRUE;
 }
 
 static gboolean room_userlist_configure(GtkWidget *widget, GdkEventConfigure *event, gpointer data) {
    room_userlist_entry_t *entry = data;
+
    if (gtk_window_is_maximized(GTK_WINDOW(widget))) {
       return FALSE;
    }
+
    if (!entry->docked && event->width > 0 && event->height > 0) {
       if (event->width != userlist_layout_int(entry->view, "width", 0)) {
          entry->auto_window_width = false;
@@ -1059,6 +1094,7 @@ static gboolean room_userlist_configure(GtkWidget *widget, GdkEventConfigure *ev
       userlist_layout_save(entry->view, "width", event->width);
       userlist_layout_save(entry->view, "height", event->height);
    }
+
    return FALSE;
 }
 
@@ -1068,9 +1104,11 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
    int handle = 0;
    gtk_widget_style_get(GTK_WIDGET(paned), "handle-size", &handle, NULL);
    int width = gtk_widget_get_allocated_width(GTK_WIDGET(paned)) - handle - gtk_paned_get_position(paned);
+
    if (entry->adjusting_width || entry->auto_dock_width) {
       return;
    }
+
    if (g_object_get_data(G_OBJECT(paned), "rr-roster-sized") && width >= 40) {
       userlist_layout_save(entry->view, "dock-width", width);
    }
@@ -1078,6 +1116,7 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
 
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
+
    if (allocation->width > 1 && !g_object_get_data(G_OBJECT(widget), "rr-roster-sized")) {
       room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
       g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
@@ -1086,7 +1125,7 @@ static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation,
 
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
    (void)button;
-   room_userlist_entry_t *entry = (room_userlist_entry_t *)data;
+   room_userlist_entry_t *entry = (room_userlist_entry_t *) data;
 
    if (!entry || !entry->panel) {
       return;
@@ -1264,6 +1303,7 @@ void userlist_room_vfos_changed(const char *room) {
    if (room_userlist_views) {
       entry = g_hash_table_lookup(room_userlist_views, rrclient_window_name(room));
    }
+
    if (!entry && strcasecmp(room, ws_authoritative_room()) == 0) {
       entry = &rig_userlist_entry;
       entry->room = (char *)ws_authoritative_room();
@@ -1275,6 +1315,7 @@ void userlist_room_vfos_changed(const char *room) {
    GtkWidget *view = entry == &rig_userlist_entry ? cul_view : entry->view;
    char *old_type = g_strdup(userlist_type(view));
    userlist_set_columns(view, room);
+
    if (entry->dock_paned && strcmp(old_type, userlist_type(view))) {
       entry->auto_dock_width = userlist_layout_int(view, "dock-width", 0) <= 0;
       entry->auto_window_width = userlist_layout_int(view, "width", 0) <= 0;

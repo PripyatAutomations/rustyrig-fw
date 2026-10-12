@@ -31,13 +31,13 @@
 // per connection: acknowledged packets can still be replayed after close.
 struct serial_session {
    rrconn_t *client;
-   uint8_t live[SERIAL_STREAMS_MAX]; // IDs issued during this connection
+   uint8_t live[SERIAL_STREAMS_MAX];   // IDs issued during this connection
    struct serial_session *next;
 };
 
 struct serial_export {
    char name[64], path[PATH_MAX], client_name[64], slave[128], gps_scope[64];
-   unsigned service; // 0 raw export, 1 GPS input, 2 GPS output
+   unsigned service;            // 0 raw export, 1 GPS input, 2 GPS output
    bool pty, dropping, nmea_output;
    int keeper;
    unsigned char *buffer;
@@ -62,7 +62,7 @@ static rr_event_token_t request_token, closed_token, frame_token, gps_token, nme
 
 static bool allowed(rrconn_t *client, const struct serial_export *port) {
    if (!client || !client->authenticated || !client->user || client->user->password_change_required ||
-      (client->user->password_expires > 0 && client->user->password_expires <= now) || !cfg_get_bool("serial.enable", true) ) {
+      (client->user->password_expires > 0 && client->user->password_expires <= now) || !cfg_get_bool("serial.enable", true)) {
       return false;
    }
 
@@ -126,7 +126,7 @@ static void close_port(struct serial_export *p) {
 
 static struct serial_export *owned(rrconn_t *client, const char *name) {
    for (unsigned i = 0 ; i < count ; i++) {
-      if (exports[i].owner == client && name && !strcmp(exports[i].client_name, name) ) {
+      if (exports[i].owner == client && name && !strcmp(exports[i].client_name, name)) {
          return &exports[i];
       }
    }
@@ -138,7 +138,7 @@ static bool settings_from(dict *d, rr_serial_settings_t *settings) {
    rr_serial_settings_t proposed = *settings;
    const char *mode = dict_get(d, "serial.mode", NULL);
 
-   if (mode && !rr_serial_mode_parse(mode, &proposed) ) {
+   if (mode && !rr_serial_mode_parse(mode, &proposed)) {
       return false;
    }
 
@@ -184,7 +184,7 @@ static unsigned allocate_stream(rrconn_t *client) {
    }
 
    if (!s) {
-      s = calloc(1, sizeof(*s) );
+      s = calloc(1, sizeof(*s));
 
       if (!s) {
          return 0;
@@ -217,16 +217,15 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
 
    if ((dict_get_type(d, "serial.stream") != VAL_END &&
       (!rr_object_value_get(d, "serial.stream", VAL_UINT, &number) || number.ui >= SERIAL_STREAMS_MAX)) ||
-      (dict_get_type(d, "serial.seq") != VAL_END &&
-      !rr_object_value_get(d, "serial.seq", VAL_UINT, &number))) {
+      (dict_get_type(d, "serial.seq") != VAL_END && !rr_object_value_get(d, "serial.seq", VAL_UINT, &number))) {
       reply(client, "error", name, NULL, "invalid-request");
       goto done;
    }
    struct serial_export *p = owned(client, name);
 
-   if (!strcmp(cmd, "list") ) {
+   if (!strcmp(cmd, "list")) {
       for (unsigned i = 0 ; i < count ; i++) {
-         if (!exports[i].service && allowed(client, &exports[i]) ) {
+         if (!exports[i].service && allowed(client, &exports[i])) {
             reply(client, "available", exports[i].name, &exports[i], NULL);
          }
       }
@@ -235,16 +234,16 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
-   if (!strcmp(cmd, "open") ) {
+   if (!strcmp(cmd, "open")) {
       const char *port = dict_get(d, "serial.port", NULL);
 
-      if (!*name || strlen(name) >= 64 || (dict_get_type(d, "serial.path") != VAL_END || !port || !*port || strchr(port, '/') ) ) {
+      if (!*name || strlen(name) >= 64 || (dict_get_type(d, "serial.path") != VAL_END || !port || !*port || strchr(port, '/'))) {
          reply(client, "error", name, NULL, "invalid-request");
          goto done;
       }
 
       if (p) {
-         if (!allowed(client, p) || strcmp(p->name, port) ) {
+         if (!allowed(client, p) || strcmp(p->name, port)) {
             reply(client, "error", name, NULL, "forbidden-device");
          } else {
             reply(client, "opened", name, p, NULL);
@@ -253,13 +252,13 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
 
       for (unsigned i = 0 ; i < count ; i++) {
-         if (!exports[i].service && (port && !strcmp(exports[i].name, port) ) ) {
+         if (!exports[i].service && (port && !strcmp(exports[i].name, port))) {
             p = &exports[i];
             break;
          }
       }
 
-      if (!p || !allowed(client, p) ) {
+      if (!p || !allowed(client, p)) {
          reply(client, "error", name, NULL, "forbidden-device");
          goto done;
       }
@@ -270,7 +269,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
       struct stat candidate, existing;
 
-      if (!stat(p->path, &candidate) ) {
+      if (!stat(p->path, &candidate)) {
          for (unsigned i = 0 ; i < count ; i++) {
             if (exports[i].owner && !fstat(exports[i].fd, &existing) && candidate.st_rdev == existing.st_rdev) {
                reply(client, "error", name, NULL, "device-busy");
@@ -280,7 +279,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
       rr_serial_settings_t proposed = p->settings;
 
-      if (!settings_from(d, &proposed) ) {
+      if (!settings_from(d, &proposed)) {
          reply(client, "error", name, NULL, "invalid-settings");
          goto done;
       }
@@ -314,7 +313,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
-   if (!p || !allowed(client, p) ) {
+   if (!p || !allowed(client, p)) {
       reply(client, "error", name, NULL, "not-open");
       goto done;
    }
@@ -324,24 +323,24 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
-   if (!strcmp(cmd, "close") ) {
+   if (!strcmp(cmd, "close")) {
       // Complete queued writes before closing; the ID remains consumed.
       if (!p->pending_len) {
          reply(client, "closed", name, p, NULL);
          close_port(p);
       } else {
-         p->close_pending = true; // close after the in-flight block is written
+         p->close_pending = true;   // close after the in-flight block is written
       }
-   } else if (!strcmp(cmd, "configure") ) {
+   } else if (!strcmp(cmd, "configure")) {
       rr_serial_settings_t proposed = p->settings;
 
-      if (!settings_from(d, &proposed) || !rr_serial_settings_apply(p->fd, &proposed) ) {
+      if (!settings_from(d, &proposed) || !rr_serial_settings_apply(p->fd, &proposed)) {
          reply(client, "error", name, p, "settings-failed");
       } else {
          p->settings = proposed;
          reply(client, "configured", name, p, NULL);
       }
-   } else if (!strcmp(cmd, "read") ) {
+   } else if (!strcmp(cmd, "read")) {
       if (p->rx_pending && dict_get_uint(d, "serial.seq", 0) == p->rx_seq) {
          p->rx_pending = false;
       }
@@ -362,7 +361,7 @@ static void frame(const char *event, const void *data, size_t len, rrconn_t *cli
    for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
 
-      if (p->service || p->owner != client || p->stream != f.hdr.stream || !allowed(client, p) ) {
+      if (p->service || p->owner != client || p->stream != f.hdr.stream || !allowed(client, p)) {
          continue;
       }
 
@@ -409,16 +408,16 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
       return;
    }
    const char *scope = dict_get(d, "gps.source", "station");
-   int32_t lat = (int32_t)dict_get_long(d, "gps.lat", 0);
-   int32_t lon = (int32_t)dict_get_long(d, "gps.lon", 0);
-   uint8_t flags = (uint8_t)dict_get_int(d, "gps.flags", 0);
+   int32_t lat = (int32_t) dict_get_long(d, "gps.lat", 0);
+   int32_t lon = (int32_t) dict_get_long(d, "gps.lon", 0);
+   uint8_t flags = (uint8_t) dict_get_int(d, "gps.flags", 0);
    char sentence[512];
    bool raw = !strcmp(event, "serial.gps.nmea");
    const char *input = dict_get(d, "gps.nmea", "");
-   size_t n = raw ? strlen(input) : rr_nmea_rmc(lat, lon, flags, time(NULL), sentence, sizeof(sentence) );
+   size_t n = raw ? strlen(input) : rr_nmea_rmc(lat, lon, flags, time(NULL), sentence, sizeof(sentence));
 
    if (raw) {
-      if (n >= sizeof(sentence) ) {
+      if (n >= sizeof(sentence)) {
          dict_free(d);
 
          return;
@@ -426,15 +425,15 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
       memcpy(sentence, input, n + 1);
    }
 
-   if (n && rr_nmea_valid(sentence) ) {
+   if (n && rr_nmea_valid(sentence)) {
       for (unsigned i = 0 ; i < count ; i++) {
          struct serial_export *p = &exports[i];
 
-         if (p->service != 2 || p->fd < 0 || strcmp(p->gps_scope, scope) ) {
+         if (p->service != 2 || p->fd < 0 || strcmp(p->gps_scope, scope)) {
             continue;
          }
 
-         if (raw ? !p->nmea_output : (p->nmea_output && !dict_get_bool(d, "gps.fixed", false) ) ) {
+         if (raw ? !p->nmea_output : (p->nmea_output && !dict_get_bool(d, "gps.fixed", false))) {
             continue;
          }
 
@@ -458,7 +457,7 @@ static void gps_input(struct serial_export *p, const char *data, size_t len) {
          if (!p->dropping && p->line_len) {
             p->line[p->line_len] = '\0';
 
-            if (rr_nmea_valid(p->line) ) {
+            if (rr_nmea_valid(p->line)) {
                dict *d = dict_new();
 
                if (d) {
@@ -471,11 +470,11 @@ static void gps_input(struct serial_export *p, const char *data, size_t len) {
          }
          p->line_len = 0;
          p->dropping = false;
-      } else if ( (unsigned char)ch < 32 || (unsigned char)ch > 126) {
+      } else if ((unsigned char)ch < 32 || (unsigned char)ch > 126) {
          p->dropping = true;
          p->line_len = 0;
       } else if (!p->dropping) {
-         if (p->line_len + 1 >= sizeof(p->line) ) {
+         if (p->line_len + 1 >= sizeof(p->line)) {
             p->dropping = true;
             p->line_len = 0;
          } else {
@@ -507,11 +506,11 @@ bool rrserver_serial_poll(void) {
             }
          } else if (p->service == 1) {
             char bytes[512];
-            ssize_t n = read(p->fd, bytes, sizeof(bytes) );
+            ssize_t n = read(p->fd, bytes, sizeof(bytes));
 
             if (n > 0) {
                gps_input(p, bytes, n);
-            } else if (!n || (errno != EAGAIN && errno != EINTR) ) {
+            } else if (!n || (errno != EAGAIN && errno != EINTR)) {
                close_port(p);
             }
          }
@@ -523,7 +522,7 @@ bool rrserver_serial_poll(void) {
       }
       active = true;
 
-      if (!allowed(p->owner, p) ) {
+      if (!allowed(p->owner, p)) {
          reply(p->owner, "closed", p->client_name, p, "permission-revoked");
          close_port(p);
          continue;
@@ -560,7 +559,7 @@ bool rrserver_serial_poll(void) {
 
          if (n > 0) {
             p->buffered += n;
-         } else if (!n || (errno != EAGAIN && errno != EINTR) ) {
+         } else if (!n || (errno != EAGAIN && errno != EINTR)) {
             goto failed;
          }
       }
@@ -580,8 +579,9 @@ bool rrserver_serial_poll(void) {
          n = RR_SERIAL_BLOCK_MAX;
       }
       uint8_t *packet = NULL;
-      int length = rr_binframe_frame(&packet, RR_BINFRAME_SUBSYS_MODEM, RR_SERIAL_FRAME_CODEC, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, p->
-         stream, ++p->rx_seq, 0, p->buffer, n);
+      int length =
+         rr_binframe_frame(&packet, RR_BINFRAME_SUBSYS_MODEM, RR_SERIAL_FRAME_CODEC, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, p->stream, ++p
+         ->rx_seq, 0, p->buffer, n);
 
       if (length < 0) {
          goto failed;
@@ -614,7 +614,7 @@ static void inventory_serial(const char *event, const char *data, rrconn_t *clie
    for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
 
-      if (strcmp(scope, p->service ? p->gps_scope : "station") || !allowed(client, p) ) {
+      if (strcmp(scope, p->service ? p->gps_scope : "station") || !allowed(client, p)) {
          continue;
       }
       dict *row = rr_inventory_row(dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1), "serial", p->name, NULL);
@@ -638,8 +638,8 @@ void rrserver_serial_init(void) {
    char *value;
    int rank = 0;
 
-   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
-      if (!key || strncmp(key, "serial.", 7) || !value || !*value || !strcmp(value, "none") ) {
+   while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+      if (!key || strncmp(key, "serial.", 7) || !value || !*value || !strcmp(value, "none")) {
          continue;
       }
 
@@ -647,7 +647,7 @@ void rrserver_serial_init(void) {
          continue;
       }
       struct serial_export *p = &exports[count];
-      memset(p, 0, sizeof(*p) );
+      memset(p, 0, sizeof(*p));
       p->fd = p->keeper = -1;
       snprintf(p->name, sizeof(p->name), "%s", key + 7);
       p->settings = (rr_serial_settings_t) {
@@ -661,8 +661,7 @@ void rrserver_serial_init(void) {
       const char *mode = cfg_get(option);
       char target[PATH_MAX];
 
-      if ( (mode && !rr_serial_mode_parse(mode, &p->settings) ) ||
-         !rr_serial_spec_parse(value, target, sizeof(target), &p->settings) ) {
+      if ((mode && !rr_serial_mode_parse(mode, &p->settings)) || !rr_serial_spec_parse(value, target, sizeof(target), &p->settings)) {
          Log(LOG_WARN, "serial", "Ignoring invalid serial binding %s", key);
          continue;
       }
@@ -672,12 +671,12 @@ void rrserver_serial_init(void) {
       } else if (target[0] == '/') {
          snprintf(p->path, sizeof(p->path), "%s", target);
       } else if (!strcmp(target, "gps-in") || !strcmp(target, "gps-out") || (strlen(target) > 7 && (!strcmp(target + strlen(target) - 7, ".gps-in") ||
-         (strlen(target) > 8 && !strcmp(target + strlen(target) - 8, ".gps-out") ) ) ) ) {
+         (strlen(target) > 8 && !strcmp(target + strlen(target) - 8, ".gps-out"))))) {
          const char *dot = strrchr(target, '.');
          const char *service = dot ? dot + 1 : target;
          size_t scope_len = dot ? (size_t)(dot - target) : 7;
 
-         if (scope_len >= sizeof(p->gps_scope) ) {
+         if (scope_len >= sizeof(p->gps_scope)) {
             continue;
          }
          snprintf(p->gps_scope, sizeof(p->gps_scope), "%.*s", (int)scope_len, dot ? target : "station");
@@ -689,7 +688,7 @@ void rrserver_serial_init(void) {
             output = cfg_get("gps.output");
          }
 
-         if (p->service == 2 && output && strcmp(output, "position") && strcmp(output, "nmea") ) {
+         if (p->service == 2 && output && strcmp(output, "position") && strcmp(output, "nmea")) {
             Log(LOG_WARN, "serial", "Invalid GPS output mode for %s", p->name);
             continue;
          }
@@ -697,8 +696,7 @@ void rrserver_serial_init(void) {
 
          if (p->service == 1) {
             char position_key[128];
-            snprintf(position_key, sizeof(position_key), !strcmp(p->gps_scope, "station") ?
-               "station.gps.position" : "rig:%s.gps.position", p->gps_scope);
+            snprintf(position_key, sizeof(position_key), !strcmp(p->gps_scope, "station") ? "station.gps.position" : "rig:%s.gps.position", p->gps_scope);
             const char *position = cfg_get(position_key);
 
             if (position && *position) {
@@ -710,7 +708,7 @@ void rrserver_serial_init(void) {
          const char *type = cfg_get(option);
          p->pty = !type || !strcmp(type, "pty");
 
-         if (type && strcmp(type, "pty") && strcmp(type, "serial") ) {
+         if (type && strcmp(type, "pty") && strcmp(type, "serial")) {
             continue;
          }
          snprintf(option, sizeof(option), "serial:%s.path", p->name);
@@ -727,7 +725,7 @@ void rrserver_serial_init(void) {
       snprintf(option, sizeof(option), "serial:%s.buffer-bytes", p->name);
       int buffering = cfg_get_int(option, 16384);
 
-      if (buffering < 0 || buffering > 1048576 || (buffering && buffering < 1024) ) {
+      if (buffering < 0 || buffering > 1048576 || (buffering && buffering < 1024)) {
          continue;
       }
       p->buffer_limit = buffering ? buffering : 1024;
@@ -745,7 +743,7 @@ void rrserver_serial_init(void) {
             g_free(dir);
 
             if (!error) {
-               p->fd = rr_serial_pty_open(p->path, &p->settings, &p->keeper, p->slave, sizeof(p->slave) );
+               p->fd = rr_serial_pty_open(p->path, &p->settings, &p->keeper, p->slave, sizeof(p->slave));
             }
          } else {
             p->fd = rr_serial_device_open(p->path, &p->settings, &p->original);

@@ -27,11 +27,11 @@
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
 
-extern bool parse_chat_input(GtkButton *button, gpointer entry);         // chat.cmd.c
+extern bool parse_chat_input(GtkButton *button, gpointer entry);  // chat.cmd.c
 extern dict *cfg;
 extern time_t now;
 extern bool ptt_active;
-extern const char *login_user;   // connman.c
+extern const char *login_user;  // connman.c
 extern rrconn_t *ws_conn;
 extern time_t poll_block_expire, poll_block_delay;
 extern bool dying;              // main.c
@@ -48,8 +48,8 @@ bool ptt_button_pending_state = false;
 // Quiet pending: filter contradictory echoes but DON'T show PENDING on the
 // button (used after sending PTT off, so a stale "on" ack can't bounce us)
 bool ptt_button_pending_quiet = false;
-extern int cfg_ui_ptt_ack_timeout;          // main.c
-extern int cfg_ui_ptt_hold_delay;           // main.c
+extern int cfg_ui_ptt_ack_timeout;  // main.c
+extern int cfg_ui_ptt_hold_delay;   // main.c
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 static gulong ptt_toggled_handler = 0;
@@ -76,8 +76,7 @@ static struct rr_user *tx_user(void) {
          continue;
       }
 
-      if (c->is_ptt && c->ptt_vfo == active_vfo &&
-         (!c->ptt_room[0] || !strcasecmp(c->ptt_room, rrclient_current_room()))) {
+      if (c->is_ptt && c->ptt_vfo == active_vfo && (!c->ptt_room[0] || !strcasecmp(c->ptt_room, rrclient_current_room()))) {
          return c;
       }
    }
@@ -87,7 +86,7 @@ static struct rr_user *tx_user(void) {
 
 // True if someone OTHER than us is transmitting
 static bool someone_else_transmitting(struct rr_user *talker) {
-   return(talker && (!login_user || strcmp(talker->name, login_user) != 0) );
+   return(talker && (!login_user || strcmp(talker->name, login_user) != 0));
 }
 
 /* PARITY: librrprotocol/srv.rigctl.c:ws_ptt_can_override. This is a UI hint; the server checks current account flags. */
@@ -110,8 +109,7 @@ static bool i_can_halt_user(const struct rr_user *talker) {
       return true;
    }
 
-   return !strcasestr(me->privs, "noob") && strcasestr(talker->privs, "noob") &&
-          (strcasestr(me->privs, "tx") || strcasestr(me->privs, "elmer"));
+   return !strcasestr(me->privs, "noob") && strcasestr(talker->privs, "noob") && (strcasestr(me->privs, "tx") || strcasestr(me->privs, "elmer"));
 }
 
 // Apply the current state to the button widget
@@ -120,7 +118,7 @@ static void ptt_button_apply(void) {
       return;
    }
 
-   GtkStyleContext *ctx = gtk_widget_get_style_context(GTK_WIDGET(ptt_button) );
+   GtkStyleContext *ctx = gtk_widget_get_style_context(GTK_WIDGET(ptt_button));
    const gchar *label;
    const char *cls;
    struct rr_user *talker = tx_user();
@@ -132,7 +130,7 @@ static void ptt_button_apply(void) {
    if (!ptt_btn_online) {
       label = "OFFLINE";
       cls = "ptt-offline";
-   } else if (someone_else_transmitting(talker) ) {
+   } else if (someone_else_transmitting(talker)) {
       // Another user is on the air even if a local request is still pending.
       // The shared rig state is the most useful status to show here.
       static char namebuf[PTT_LABEL_MAXLEN + 1];
@@ -144,7 +142,7 @@ static void ptt_button_apply(void) {
       cls = "ptt-pending";
    } else if (ptt_btn_tot) {
       static char totbuf[32];
-      snprintf(totbuf, sizeof(totbuf), "TIMED OUT %ds", (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300) );
+      snprintf(totbuf, sizeof(totbuf), "TIMED OUT %ds", (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300));
       label = totbuf;
       cls = "ptt-tot";
    } else if (ptt_active) {
@@ -276,11 +274,11 @@ void update_ptt_button_ui(GtkToggleButton *button, int active) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_button_pending_quiet = false;
-      ptt_btn_tot = false;   // confirmed state supersedes a TOT warning
+      ptt_btn_tot = false;      // confirmed state supersedes a TOT warning
       ptt_active = (active == 1);
    }
 
-   (void)button;   // we always render onto the global ptt_button
+   (void)button;                // we always render onto the global ptt_button
    ptt_button_apply();
 }
 
@@ -292,7 +290,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    struct rr_user *talker = tx_user();
 
    // Clicking a held transmitter requests STOP only, never a takeover.
-   if (someone_else_transmitting(talker) && !i_can_halt_user(talker) ) {
+   if (someone_else_transmitting(talker) && !i_can_halt_user(talker)) {
       Log(LOG_AUDIT, "ui.gtk", "PTT ignored: %s is already transmitting", talker->name);
       ui_print(NULL, "\00308*** \00304%s\00308 is already transmitting\017", talker->name);
 
@@ -410,7 +408,7 @@ bool ptt_button_hotkey_release(void) {
       return false;
    }
    gint64 elapsed = g_get_monotonic_time() - ptt_hotkey_pressed_at;
-   gint64 hold_delay = (gint64)cfg_ui_ptt_hold_delay * 1000;
+   gint64 hold_delay = (gint64) cfg_ui_ptt_hold_delay * 1000;
    bool quick_tap = elapsed >= 0 && elapsed < hold_delay;
    ptt_hotkey_held = false;
    ptt_hotkey_pressed_at = 0;
@@ -450,7 +448,7 @@ GtkWidget *ptt_button_create(void) {
    // The main window can be rebuilt during a reconnect or shutdown.  Let
    // GTK clear this borrowed pointer when the widget is finalized so event
    // callbacks cannot update a stale button.
-   g_object_add_weak_pointer(G_OBJECT(ptt_button), (gpointer *)&ptt_button);
+   g_object_add_weak_pointer(G_OBJECT(ptt_button), (gpointer *) &ptt_button);
    ptt_toggled_handler = g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
    // Start out dark grey until we're online with the server
    gtk_style_context_add_class(gtk_widget_get_style_context(ptt_button), "ptt-offline");

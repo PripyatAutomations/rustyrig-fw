@@ -27,13 +27,14 @@
 #include <rrclient/cmd.h>
 #include <rrclient/media.h>
 extern rrconn_t *ws_conn;
-extern rrconn_t *ws_tx_conn;   // rrclient/rrclient.c
+extern rrconn_t *ws_tx_conn;    // rrclient/rrclient.c
 GtkWidget *tx_combo = NULL;
 GtkWidget *rx_combo = NULL;
 static bool updating_codecs = false;
 static char picker_codec_list[256] = {
    0
 };
+
 static bool picker_list_initialized = false;
 void codec_pickers_refresh(void);
 void codec_picker_set_active(bool is_tx, const char *codec);
@@ -45,8 +46,7 @@ static int codec_channel_number(const struct rr_client_media_chan *channel) {
 
    for (int i = 0 ; i < RR_CLIENT_MEDIA_MAX_CHANS ; i++) {
       int number = 0;
-      const struct rr_client_media_chan *candidate =
-         rrclient_media_chan_iter(i, &number);
+      const struct rr_client_media_chan *candidate = rrclient_media_chan_iter(i, &number);
 
       if (candidate == channel) {
          return number;
@@ -69,10 +69,10 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
    if (!ctx || updating_codecs) {
       return;
    }
-   const char *codec = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo) );
+   const char *codec = gtk_combo_box_get_active_id(GTK_COMBO_BOX(combo));
 
    if (codec) {
-      Log(LOG_CRAZY, "gtk.codecpicker", "setting active codec: %s for %s", codec, (ctx->is_tx ? "TX" : "RX") );
+      Log(LOG_CRAZY, "gtk.codecpicker", "setting active codec: %s for %s", codec, (ctx->is_tx ? "TX" : "RX"));
       // Tell the server which codec we want for this direction; it spawns
       // the matching fwdsp pipeline and re-announces the channel with the
       // active codec magic.
@@ -80,14 +80,11 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       rrconn_t *cptr = ws_conn;
 
       if (cptr) {
-         const struct rr_client_media_chan *channel =
-            rrclient_media_codec_target_channel(ctx->is_tx);
+         const struct rr_client_media_chan *channel = rrclient_media_codec_target_channel(ctx->is_tx);
 
          if (!rrclient_media_select_codec(cptr, ctx->is_tx, codec)) {
-            char vfo = channel && channel->vfo < 26 ?
-               (char)('A' + channel->vfo) : '-';
-            const char *description = channel && channel->descr[0] ?
-               channel->descr : "audio";
+            char vfo = channel && channel->vfo < 26 ? (char)('A' + channel->vfo) : '-';
+            const char *description = channel && channel->descr[0] ? channel->descr : "audio";
             ui_print(NULL, "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)", ctx->is_tx ? "TX" : "RX", codec, codec_channel_number(channel), channel
                ? channel->uuid : "<active>", vfo, description);
          }
@@ -106,7 +103,7 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
    gtk_combo_box_text_remove_all(combo);
    gtk_combo_box_text_append(combo, "none", "NONE");
 
-   for (char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr) ) {
+   for (char *tok = strtok_r(list, " ", &saveptr) ; tok ; tok = strtok_r(NULL, " ", &saveptr)) {
       gtk_combo_box_text_append(combo, tok, tok);
 
       if (default_id && strcmp(tok, default_id) == 0) {
@@ -156,8 +153,8 @@ void codec_pickers_refresh(void) {
    if (!picker_list_initialized || strcmp(available, picker_codec_list) != 0) {
       snprintf(picker_codec_list, sizeof(picker_codec_list), "%s", available);
       picker_list_initialized = true;
-      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), available, (default_rx && default_rx[0] ? default_rx : NULL) );
-      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), available, (default_tx && default_tx[0] ? default_tx : NULL) );
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(rx_combo), available, (default_rx && default_rx[0] ? default_rx : NULL));
+      populate_codec_combo(GTK_COMBO_BOX_TEXT(tx_combo), available, (default_tx && default_tx[0] ? default_tx : NULL));
    } else {
       // The negotiated list is unchanged, so preserve the widgets and only
       // reflect the currently selected channel codec.
@@ -193,16 +190,16 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    gtk_label_set_markup(GTK_LABEL(widget_label), "<u>T</u>X/<u>R</u>X Codecs");
 
    tx_combo = gtk_combo_box_text_new();
-   ui_speech_set(tx_combo, "TX Codec",                 // name
-      "Transmit Codec",                   // description
-      UI_ROLE_COMBOBOX,                     // role
-      true);                               // focusable
+   ui_speech_set(tx_combo, "TX Codec", // name
+      "Transmit Codec",         // description
+      UI_ROLE_COMBOBOX,         // role
+      true);                    // focusable
    gtk_widget_set_tooltip_text(tx_combo, "Transmit codec");
    rx_combo = gtk_combo_box_text_new();
-   ui_speech_set(rx_combo, "Receive Codec",            // name
-      "Receiver Codec",                   // description
-      UI_ROLE_COMBOBOX,                     // role
-      true);                               // focusable
+   ui_speech_set(rx_combo, "Receive Codec",  // name
+      "Receiver Codec",         // description
+      UI_ROLE_COMBOBOX,         // role
+      true);                    // focusable
    gtk_widget_set_tooltip_text(rx_combo, "Receive codec");
    picker_list_initialized = false;
 

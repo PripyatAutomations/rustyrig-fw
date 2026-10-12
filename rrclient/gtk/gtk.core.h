@@ -25,39 +25,39 @@
 extern bool gtk_chat_room_widgets(const char *room, GtkTextBuffer **buffer, GtkWidget **view);
 extern bool ui_confirm_dialog(GtkWindow *parent, const char *message);
 
-#define HTTP_USER_LEN 16           // username length (16 char)
-#define HTTP_PASS_LEN 40           // sha1: 40, sha256: 64
-#define HTTP_HASH_LEN 40           // sha1
-#define HTTP_TOKEN_LEN 14          // session-id / nonce length,
-                                   // longer moar secure
-#define HTTP_UA_LEN 512            // allow 128 bytes
-#define USER_PRIV_LEN 100          // privileges list
-#define USER_EMAIL_LEN 128         // email address
+#define HTTP_USER_LEN 16        // username length (16 char)
+#define HTTP_PASS_LEN 40        // sha1: 40, sha256: 64
+#define HTTP_HASH_LEN 40        // sha1
+#define HTTP_TOKEN_LEN 14       // session-id / nonce length,
+                                // longer moar secure
+#define HTTP_UA_LEN 512         // allow 128 bytes
+#define USER_PRIV_LEN 100       // privileges list
+#define USER_EMAIL_LEN 128      // email address
 
 // GUI (GTK) window
 struct GuiWindow {
-   char name[128];               // Window name
+   char name[128];              // Window name
    GdkEventConfigure *move_evt;
-   GtkWidget *gtk_win;           // GTK window widget
-   int x, y, w, h;               // Location and size
-   int last_x, last_y, last_w, last_h;   // Previous locations (if moving)
-   bool is_moving;               // Is the window being moved?
-   bool win_raised;              // Raised?
-   bool win_minimized;           // Is the window minimized?
-   bool win_modal;               // Always on top
-   bool win_hidden;              // Hidden from view
-   bool win_nohide;              // Don't hide this window when main window is
-                                 // minimized
-   bool win_stashed;             // Was the window hidden because main was
-                                 // minimized? This ensures it's restored
+   GtkWidget *gtk_win;          // GTK window widget
+   int x, y, w, h;              // Location and size
+   int last_x, last_y, last_w, last_h; // Previous locations (if moving)
+   bool is_moving;              // Is the window being moved?
+   bool win_raised;             // Raised?
+   bool win_minimized;          // Is the window minimized?
+   bool win_modal;              // Always on top
+   bool win_hidden;             // Hidden from view
+   bool win_nohide;             // Don't hide this window when main window is
+   // minimized
+   bool win_stashed;            // Was the window hidden because main was
+   // minimized? This ensures it's restored
    struct GuiWindow *next;
 };
 typedef struct GuiWindow gui_window_t;
 
 struct GuiWidget {
    char name[128];
-   GtkWidget *gtk_widget;        // GtkWidget for the widget
-   struct GuiWidget *next;       // next in list
+   GtkWidget *gtk_widget;       // GtkWidget for the widget
+   struct GuiWidget *next;      // next in list
 };
 typedef struct GuiWidget gui_widget_t;
 
@@ -95,15 +95,15 @@ extern void gtk_ui_zoom_step(int direction);
 extern gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data);
 extern gboolean gtk_ui_zoom_key_release(GtkWidget *widget, GdkEventKey *event, gpointer data);
 extern void gtk_ui_zoom_shutdown(void);
-extern bool gtk_css_apply_cfg(void);                 // cfg.gtkcss.c
-extern bool cmd_css_reload(int argc, char **args);   // cfg.gtkcss.c
+extern bool gtk_css_apply_cfg(void);   // cfg.gtkcss.c
+extern bool cmd_css_reload(int argc, char **args); // cfg.gtkcss.c
 extern GtkWidget *conn_button;
 extern bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
 extern void gui_edit_config(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
-extern GtkWidget *mode_combo;           // if mode_combo is a GtkWidget*
+extern GtkWidget *mode_combo;   // if mode_combo is a GtkWidget*
 extern GtkWidget *width_combo;
 
 #ifdef _WIN32
@@ -117,9 +117,9 @@ extern void disable_console_quick_edit(void);
 #endif // _WIN32
 
 extern GtkWidget *ptt_button_create(void);
-extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);            // gtk.codecpicker.c
-extern void codec_pickers_refresh(void);                                                        // gtk.codecpicker.c
-extern void codec_picker_set_active(bool is_tx, const char *codec);                            // gtk.codecpicker.c
+extern GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx);     // gtk.codecpicker.c
+extern void codec_pickers_refresh(void);  // gtk.codecpicker.c
+extern void codec_picker_set_active(bool is_tx, const char *codec);  // gtk.codecpicker.c
 extern void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const char *default_id);
 extern void modebox_update_state(const char *mode, int width);
 extern gulong mode_changed_handler_id;
@@ -137,12 +137,12 @@ extern guint8 gtk_formatting_control(gunichar token);
 extern const char *gtk_formatting_token(guint8 control);
 extern bool cfg_use_gtk;
 extern void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def);
-extern bool gui_fullscreen_toggle(void);        // gui.core.c
+extern bool gui_fullscreen_toggle(void);  // gui.core.c
 
 extern GtkWidget *main_window;
 extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
-extern bool cfg_fullscreen;             // gtk.core.c
+extern bool cfg_fullscreen;     // gtk.core.c
 #endif // !defined(__rrclient_gtk_core_h)

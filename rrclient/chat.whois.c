@@ -49,6 +49,7 @@ static struct irc_whois_request {
 
 static void irc_whois_expire(void) {
    long long current = mono_ms();
+
    for (unsigned i = 0 ; i < IRC_WHOIS_PENDING_MAX ; i++) {
       if (irc_whois_requests[i].connection && current - irc_whois_requests[i].started >= IRC_WHOIS_TIMEOUT_MS) {
          memset(&irc_whois_requests[i], 0, sizeof(irc_whois_requests[i]));
@@ -58,22 +59,27 @@ static void irc_whois_expire(void) {
 
 static struct irc_whois_request *irc_whois_find(rrconn_t *connection, const char *nick) {
    irc_whois_expire();
+
    for (unsigned i = 0 ; i < IRC_WHOIS_PENDING_MAX ; i++) {
       struct irc_whois_request *request = &irc_whois_requests[i];
+
       if (request->connection == connection && nick && !strcasecmp(request->nick, nick)) {
          return request;
       }
    }
+
    return NULL;
 }
 
 const char *rrclient_irc_whois_window(rrconn_t *connection, const char *nick) {
    struct irc_whois_request *request = irc_whois_find(connection, nick);
+
    return request ? request->window : NULL;
 }
 
 void rrclient_irc_whois_complete(rrconn_t *connection, const char *nick) {
    struct irc_whois_request *request = irc_whois_find(connection, nick);
+
    if (request) {
       memset(request, 0, sizeof(*request));
    }
@@ -99,19 +105,24 @@ bool cmd_whois(int argc, char **args) {
 
 bool rrclient_whois_send(rrconn_t *connection, const char *window, const char *nick) {
    struct irc_whois_request *request = NULL;
+
    if (connection && !connection->is_ws) {
       if (strlen(nick) > NICKLEN || irc_whois_find(connection, nick)) {
          ui_print(window, "WHOIS nickname is too long or already has a pending request");
+
          return true;
       }
+
       for (unsigned i = 0 ; i < IRC_WHOIS_PENDING_MAX ; i++) {
          if (!irc_whois_requests[i].connection) {
             request = &irc_whois_requests[i];
             break;
          }
       }
+
       if (!request) {
          ui_print(window, "10 WHOIS requests are pending; wait for a reply or timeout");
+
          return true;
       }
       request->connection = connection;
@@ -120,16 +131,19 @@ bool rrclient_whois_send(rrconn_t *connection, const char *window, const char *n
       request->started = mono_ms();
    }
    dict *d = dict_new();
+
    if (!d) {
       if (request) {
          memset(request, 0, sizeof(*request));
       }
+
       return true;
    }
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "whois");
    dict_add(d, "talk.target", nick);
    bool sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
+
    if (!sent && request) {
       memset(request, 0, sizeof(*request));
    }

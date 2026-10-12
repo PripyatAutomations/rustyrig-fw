@@ -14,10 +14,12 @@ time_t now;
 tui_window_t *tui_active_window(void) {
    return NULL;
 }
+
 static const char *active_window = "commands";
 const char *ui_active_window_name(void) {
    return active_window;
 }
+
 rrconn_t *ws_conn = &connection;
 static unsigned selected, subscribed, unsubscribed;
 static char last_uuid[64], last_codec[5], local_codec[2][5], output[8192];
@@ -46,6 +48,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
 
    return false;
 }
+
 static char test_active_vfo = 'A';
 bool rrclient_room_is_joined(const char *room) {
    return false;
@@ -151,7 +154,7 @@ int main(void) {
    };
    assert(!cmd_rxcodec(3, set));
    assert(selected == 1 && !strcmp(last_uuid, "rx-b") && !strcmp(last_codec, "g722"));
-   assert(!strcmp(known_chans[1].codec, "mu16")); // wait for the server
+   assert(!strcmp(known_chans[1].codec, "mu16"));  // wait for the server
    announce("rx-b", "g722", 1);
    char *wrong[] = {
       "txcodec", "pc16", "rx-a"
@@ -167,22 +170,21 @@ int main(void) {
    };
    assert(!cmd_rxcodec(3, off_one));
    assert(unsubscribed == 1 && known_chans[0].disabled);
-   assert(!strcmp(local_codec[0], "g722")); // preserve the other subscription
+   assert(!strcmp(local_codec[0], "g722"));  // preserve the other subscription
    char *off[] = {
       "rxcodec", "none"
    };
    assert(!cmd_rxcodec(2, off));
    assert(unsubscribed == 2 && !local_codec[0][0] && !local_codec[1][0]);
    test_active_vfo = 'A';
-   const struct rr_client_media_chan *target =
-      rrclient_media_codec_target_channel(false);
+   const struct rr_client_media_chan *target = rrclient_media_codec_target_channel(false);
    assert(target && !strcmp(target->uuid, "rx-a"));
-   assert(known_chans[3].subscribed); // video unaffected
+   assert(known_chans[3].subscribed);  // video unaffected
    announce("rx-a", "pc16", 0); // an announcement cannot undo NONE
    assert(known_chans[0].disabled && !local_codec[0][0] && subscribed == 0);
    dict *d = dict_new();
    dict_add(d, "media.chan-uuid", "rx-a");
-   rrclient_media_subscribed(d, false); // late subscribe confirmation
+   rrclient_media_subscribed(d, false);   // late subscribe confirmation
    dict_free(d);
    assert(known_chans[0].disabled && !known_chans[0].subscribed);
    char *on[] = {

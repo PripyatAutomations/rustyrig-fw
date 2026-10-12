@@ -52,7 +52,7 @@ int main(void) {
    assert(keys == 1 && data.transmitting && data.tx_vfo == VFO_B);
    unsigned before = switches;
    assert(hl_poll(backend, a) == NULL);
-   assert(switches == before); // polling A must not move a transmitting B
+   assert(switches == before);  // polling A must not move a transmitting B
    assert(!hl_ptt_set(backend, b, false));
    assert(keys == 2 && !data.transmitting && switches == before);
    rr_backend_instance_set_data(backend, NULL);

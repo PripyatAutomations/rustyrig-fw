@@ -16,7 +16,7 @@
 extern time_t now;
 
 struct rr_cat_compat {
-   rr_server_rig_t *rig;              // borrowed; rig outlives this adapter
+   rr_server_rig_t *rig;        // borrowed; rig outlives this adapter
    rr_cat_compat_ops_t ops;
    dict *last_state[MAX_VFOS];
    time_t last_sent[MAX_VFOS];
@@ -31,10 +31,8 @@ static bool rr_cat_property_name(char *name, size_t len, rr_vfo_t vfo, const cha
    return rr_property_vfo_name(name, len, (char)('A' + vfo), field);
 }
 
-/* Observations have explicit availability; cached or requested values must not
- * be advertised as a successful backend read. */
-static void rr_cat_property_state(rr_cat_compat_t *adapter, rr_vfo_t vfo, dict *d,
-   const char *property, const char *field) {
+/* Observations have explicit availability; cached or requested values must not be advertised as a successful backend read. */
+static void rr_cat_property_state(rr_cat_compat_t *adapter, rr_vfo_t vfo, dict *d, const char *property, const char *field) {
    char name[RR_PROPERTY_NAME_MAX], key[64], availability[80];
    rr_property_snapshot_t snapshot;
    bool available = rr_cat_property_name(name, sizeof(name), vfo, property) &&
@@ -42,10 +40,18 @@ static void rr_cat_property_state(rr_cat_compat_t *adapter, rr_vfo_t vfo, dict *
    snprintf(key, sizeof(key), "cat.state.%s", field);
    snprintf(availability, sizeof(availability), "%s-available", key);
    dict_add_bool(d, availability, available);
-   if (!available) return;
-   if (snapshot.value_type == VAL_STR) dict_add(d, key, snapshot.value.s);
-   else if (snapshot.value_type == VAL_LONG) dict_add_long(d, key, snapshot.value.l);
-   else if (snapshot.value_type == VAL_INT) dict_add_int(d, key, snapshot.value.i);
+
+   if (!available) {
+      return;
+   }
+
+   if (snapshot.value_type == VAL_STR) {
+      dict_add(d, key, snapshot.value.s);
+   } else if (snapshot.value_type == VAL_LONG) {
+      dict_add_long(d, key, snapshot.value.l);
+   } else if (snapshot.value_type == VAL_INT) {
+      dict_add_int(d, key, snapshot.value.i);
+   }
 }
 
 static bool rr_cat_vfo_supported(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
@@ -66,13 +72,11 @@ static dict *rr_cat_build_state(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
    if (!d) {
       return NULL;
    }
-   rrconn_t *talker = adapter->ops.talker_get ?
-      adapter->ops.talker_get(adapter->rig, adapter->ops.user) : NULL;
-   bool ptt = adapter->ops.ptt_get ?
-      adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
+   rrconn_t *talker = adapter->ops.talker_get ? adapter->ops.talker_get(adapter->rig, adapter->ops.user) : NULL;
+   bool ptt = adapter->ops.ptt_get ? adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
 
    dict_add(d, "msg.type", "cat");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo) );
+   dict_add(d, "cat.state.vfo", vfo_name(vfo));
    dict_add_bool(d, "cat.state.active", vfo == active_vfo);
    rr_cat_property_state(adapter, vfo, d, RR_PROP_VFO_MODE, "mode");
 
@@ -96,7 +100,7 @@ static dict *rr_cat_build_state(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
             used += (size_t)written;
          }
 
-         if (used < sizeof(list) ) {
+         if (used < sizeof(list)) {
             dict_add(d, "cat.state.widths", list);
          }
       }
@@ -122,10 +126,9 @@ static dict *rr_cat_build_initial_state(rr_cat_compat_t *adapter, rr_vfo_t vfo) 
    if (!d) {
       return NULL;
    }
-   bool ptt = adapter->ops.ptt_get ?
-      adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
+   bool ptt = adapter->ops.ptt_get ? adapter->ops.ptt_get(adapter->rig, vfo, adapter->ops.user) : false;
    dict_add(d, "msg.type", "cat");
-   dict_add(d, "cat.state.vfo", vfo_name(vfo) );
+   dict_add(d, "cat.state.vfo", vfo_name(vfo));
    dict_add_bool(d, "cat.state.active", vfo == active_vfo);
    rr_cat_property_state(adapter, vfo, d, RR_PROP_VFO_MODE, "mode");
    rr_cat_property_state(adapter, vfo, d, RR_PROP_VFO_WIDTH, "width");
@@ -148,12 +151,12 @@ static dict *rr_cat_comparable_state(dict *state) {
    dict_add_bool(out, "cat.state.freq-available", dict_get_bool(state, "cat.state.freq-available", false));
    dict_add_bool(out, "cat.state.mode-available", dict_get_bool(state, "cat.state.mode-available", false));
    dict_add_bool(out, "cat.state.width-available", dict_get_bool(state, "cat.state.width-available", false));
-   dict_add_long(out, "cat.state.freq", dict_get_long(state, "cat.state.freq", 0) );
-   dict_add(out, "cat.state.mode", dict_get(state, "cat.state.mode", "NONE") );
-   dict_add_int(out, "cat.state.width", dict_get_int(state, "cat.state.width", 0) );
-   dict_add_bool(out, "cat.state.ptt", dict_get_bool(state, "cat.state.ptt", false) );
-   dict_add_bool(out, "cat.state.active", dict_get_bool(state, "cat.state.active", false) );
-   dict_add(out, "cat.user", dict_get(state, "cat.user", "") );
+   dict_add_long(out, "cat.state.freq", dict_get_long(state, "cat.state.freq", 0));
+   dict_add(out, "cat.state.mode", dict_get(state, "cat.state.mode", "NONE"));
+   dict_add_int(out, "cat.state.width", dict_get_int(state, "cat.state.width", 0));
+   dict_add_bool(out, "cat.state.ptt", dict_get_bool(state, "cat.state.ptt", false));
+   dict_add_bool(out, "cat.state.active", dict_get_bool(state, "cat.state.active", false));
+   dict_add(out, "cat.user", dict_get(state, "cat.user", ""));
 
    return out;
 }
@@ -184,7 +187,7 @@ rr_cat_compat_t *rr_cat_compat_new(rr_server_rig_t *rig, const rr_cat_compat_ops
    if (!rig) {
       return NULL;
    }
-   rr_cat_compat_t *adapter = calloc(1, sizeof(*adapter) );
+   rr_cat_compat_t *adapter = calloc(1, sizeof(*adapter));
 
    if (!adapter) {
       return NULL;
@@ -211,18 +214,15 @@ void rr_cat_compat_free(rr_cat_compat_t *adapter) {
 }
 
 void rr_cat_compat_prepare_poll(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
-   if (!adapter || vfo < VFO_A || vfo >= MAX_VFOS ||
-      adapter->probed[vfo]) {
+   if (!adapter || vfo < VFO_A || vfo >= MAX_VFOS || adapter->probed[vfo]) {
       return;
    }
    adapter->probed[vfo] = true;
 
-   if (vfo != active_vfo && vfos[vfo].freq == 0 &&
-      active_vfo >= VFO_A && active_vfo < MAX_VFOS &&
-      vfos[active_vfo].freq > 0) {
+   if (vfo != active_vfo && vfos[vfo].freq == 0 && active_vfo >= VFO_A && active_vfo < MAX_VFOS && vfos[active_vfo].freq > 0) {
       vfos[vfo] = vfos[active_vfo];
       vfos[vfo].id = vfo;
-      Log(LOG_DEBUG, "backend", "Default-rig VFO %s seeded from active VFO %s", vfo_name(vfo), vfo_name(active_vfo) );
+      Log(LOG_DEBUG, "backend", "Default-rig VFO %s seeded from active VFO %s", vfo_name(vfo), vfo_name(active_vfo));
    }
 }
 
@@ -271,7 +271,7 @@ bool rr_cat_compat_send_state(rr_cat_compat_t *adapter, rrconn_t *cptr) {
    }
 
    for (int i = 0 ; i < MAX_VFOS ; i++) {
-      if (!rr_cat_vfo_supported(adapter, (rr_vfo_t)i) ) {
+      if (!rr_cat_vfo_supported(adapter, (rr_vfo_t) i)) {
          continue;
       }
       dict *state = dict_new();
@@ -283,7 +283,7 @@ bool rr_cat_compat_send_state(rr_cat_compat_t *adapter, rrconn_t *cptr) {
          }
       } else if (state) {
          dict_free(state);
-         state = rr_cat_build_initial_state(adapter, (rr_vfo_t)i);
+         state = rr_cat_build_initial_state(adapter, (rr_vfo_t) i);
       }
 
       if (!state) {

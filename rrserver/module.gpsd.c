@@ -35,7 +35,7 @@ static void receive(const char *data, size_t len) {
          if (!dropping && used) {
             line[used] = '\0';
 
-            if (rr_nmea_valid(line) ) {
+            if (rr_nmea_valid(line)) {
                dict *d = dict_new();
 
                if (d) {
@@ -48,11 +48,11 @@ static void receive(const char *data, size_t len) {
          }
          used = 0;
          dropping = false;
-      } else if ( (unsigned char)ch < 32 || (unsigned char)ch > 126) {
+      } else if ((unsigned char)ch < 32 || (unsigned char)ch > 126) {
          dropping = true;
          used = 0;
       } else if (!dropping) {
-         if (used + 1 == sizeof(line) ) {
+         if (used + 1 == sizeof(line)) {
             dropping = true;
             used = 0;
          } else {
@@ -89,7 +89,7 @@ static void handler(struct mg_connection *c, int ev, void *data) {
       }
       dict_free(watch);
    } else if (ev == MG_EV_READ) {
-      receive( (const char *)c->recv.buf, c->recv.len);
+      receive((const char *)c->recv.buf, c->recv.len);
       mg_iobuf_del(&c->recv, 0, c->recv.len);
    } else if (ev == MG_EV_ERROR) {
       Log(LOG_WARN, "gpsd", "GPS daemon: %s", (const char *)data);
@@ -116,7 +116,7 @@ bool rr_module_init(void) {
    const char *target = cfg_get("gpsd.target");
    char key[128];
 
-   if (target && strcmp(target, "station") ) {
+   if (target && strcmp(target, "station")) {
       snprintf(key, sizeof(key), "rig:%s.gps.position", target);
    } else {
       snprintf(key, sizeof(key), "station.gps.position");

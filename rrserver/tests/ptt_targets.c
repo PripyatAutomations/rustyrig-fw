@@ -19,9 +19,11 @@ static bool ptt(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) {
 
    return false;
 }
+
 static const rr_backend_funcs_t api = {
    .ptt_set = ptt
 };
+
 static const rr_backend_type_t type = {
    .name = "test", .api = &api
 };

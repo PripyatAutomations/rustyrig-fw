@@ -46,8 +46,7 @@ static bool key(GtkWidget *combo, guint letter, guint modifiers) {
       .keyval = letter, .state = modifiers
    };
 
-   return combo == mode_combo ? on_mode_keypress(combo, &event, combo) :
-          on_width_keypress(combo, &event, combo);
+   return combo == mode_combo ? on_mode_keypress(combo, &event, combo) : on_width_keypress(combo, &event, combo);
 }
 int main(int argc, char **argv) {
    if (!gtk_init_check(&argc, &argv)) {
@@ -77,7 +76,7 @@ int main(int argc, char **argv) {
    assert(key(mode_combo, GDK_KEY_l, 0));
    selected(mode_combo, "LSB");
    connect_popup_keys(GTK_COMBO_BOX(mode_combo));
-   connect_popup_keys(GTK_COMBO_BOX(mode_combo)); // Reopening must not duplicate handlers.
+   connect_popup_keys(GTK_COMBO_BOX(mode_combo));  // Reopening must not duplicate handlers.
    AtkObject *accessible = gtk_combo_box_get_popup_accessible(GTK_COMBO_BOX(mode_combo));
    GtkWidget *popup = gtk_accessible_get_widget(GTK_ACCESSIBLE(accessible));
    GdkEventKey popup_key = {
@@ -116,7 +115,7 @@ int main(int argc, char **argv) {
    gtk_widget_destroy(box);
    g_object_unref(box);
    mode_combo = width_combo = NULL;
-   modebox_update_state("USB", 3000); // Safe before creation and after destruction.
+   modebox_update_state("USB", 3000);  // Safe before creation and after destruction.
    puts("PASS: GTK mode/width observations, no command echo, letter cycling and preset shortcuts");
 
    return 0;

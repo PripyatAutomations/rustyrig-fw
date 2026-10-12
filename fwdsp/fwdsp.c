@@ -58,7 +58,7 @@ static int control_fd = -1;
 const char *logfile = "./fwdsp.log";
 bool codec_tx_mode = false;
 bool config_video = false;
-static bool pcm_hub_mode = false;               // is this audio or video stream?
+static bool pcm_hub_mode = false;   // is this audio or video stream?
 enum pcm_processor_mode {
    PCM_PROCESSOR_MODE_AUTO = 0,
    PCM_PROCESSOR_MODE_BIDIRECTIONAL,
@@ -76,8 +76,8 @@ bool restarting = false;
 bool empty_config = true;
 static GstElement *pipeline = NULL;
 
-time_t now = -1;                 // time() called once a second in main loop to
-                                 // update
+time_t now = -1;                // time() called once a second in main loop to
+                                // update
 
 // Use the same section callbacks as rrclient/rrserver.  The child receives
 // the parent application's config file with -f, so there is one source of
@@ -110,6 +110,7 @@ struct fwdsp_recorder {
 static struct fwdsp_recorder recorder = {
    0
 };
+
 static bool record_requested = false;
 static char record_user[FWDSP_RECORD_USER_LEN] = "unknown";
 static char record_id[FWDSP_RECORD_ID_LEN];
@@ -127,8 +128,7 @@ static bool codec_is_modem(const char *codec) {
 
    // *T IDs are synthetic test-tone codecs. Data/modem codecs use an
    // explicit .drx/.dtx marker (or the compact drx/dtx form) instead.
-   return strstr(codec, ".drx") || strstr(codec, ".dtx") ||
-          strstr(codec, "drx") || strstr(codec, "dtx");
+   return strstr(codec, ".drx") || strstr(codec, ".dtx") || strstr(codec, "drx") || strstr(codec, "dtx");
 }
 
 static bool recording_codec_valid(const char *codec) {
@@ -152,11 +152,11 @@ static FILE *recorder_open_file(struct fwdsp_recorder *rec) {
       const char *extension = strcmp(recording_codec, "ogg") == 0 ? "ogg" : "flac";
       int len = record_file_explicit ?
          (suffix ? snprintf(rec->filename, sizeof(rec->filename), "%s.%u", base, suffix) :
-            snprintf(rec->filename, sizeof(rec->filename), "%s", base) ) :
+            snprintf(rec->filename, sizeof(rec->filename), "%s", base)) :
          (suffix ? snprintf(rec->filename, sizeof(rec->filename), "%s.%u.%s", base, suffix, extension) :
-            snprintf(rec->filename, sizeof(rec->filename), "%s.%s", base, extension) );
+            snprintf(rec->filename, sizeof(rec->filename), "%s.%s", base, extension));
 
-      if (len < 0 || (size_t)len >= sizeof(rec->filename) ) {
+      if (len < 0 || (size_t)len >= sizeof(rec->filename)) {
          errno = ENAMETOOLONG;
 
          return NULL;
@@ -192,18 +192,15 @@ static void *recorder_thread_main(void *arg) {
    FILE *file = recorder_open_file(rec);
 
    if (!file) {
-      Log(LOG_CRIT, "record", "Unable to create recording %s: %s", rec->filename, strerror(errno) );
+      Log(LOG_CRIT, "record", "Unable to create recording %s: %s", rec->filename, strerror(errno));
 
       return NULL;
    }
-
    // The file is opened above only to reserve a collision-free name. GStreamer
    // owns the actual output file and supplies either FLAC or Ogg/Vorbis.
    fclose(file);
    GError *parse_error = NULL;
-   const char *encode = recording_encoded ? "identity" :
-      (strcmp(recording_codec, "ogg") == 0 ?
-         "audioconvert ! vorbisenc quality=0.3 ! oggmux" : "flacenc");
+   const char *encode = recording_encoded ? "identity" : (strcmp(recording_codec, "ogg") == 0 ? "audioconvert ! vorbisenc quality=0.3 ! oggmux" : "flacenc");
    char pipeline_desc[512];
 
    if (recording_encoded) {
@@ -228,7 +225,7 @@ static void *recorder_thread_main(void *arg) {
    GstCaps *record_caps = recording_encoded ?
       gst_caps_new_empty_simple(strcmp(recording_codec, "ogg") == 0 ?
       "application/ogg" : "audio/x-flac") :
-      gst_caps_new_simple("audio/x-raw", "format", G_TYPE_STRING, "S16LE", "rate", G_TYPE_INT, (gint)rec->sample_rate, "channels", G_TYPE_INT, (gint)rec->
+      gst_caps_new_simple("audio/x-raw", "format", G_TYPE_STRING, "S16LE", "rate", G_TYPE_INT, (gint) rec->sample_rate, "channels", G_TYPE_INT, (gint) rec->
       channels, "layout", G_TYPE_STRING, "interleaved", NULL);
    gst_app_src_set_caps(GST_APP_SRC(record_src), record_caps);
    gst_caps_unref(record_caps);
@@ -316,7 +313,7 @@ static void *recorder_thread_main(void *arg) {
       }
    }
 
-   gst_app_src_end_of_stream(GST_APP_SRC(record_src) );
+   gst_app_src_end_of_stream(GST_APP_SRC(record_src));
    GstBus *record_bus = gst_element_get_bus(record_pipeline);
    GstMessage *record_done = gst_bus_timed_pop_filtered(record_bus, 5 * GST_SECOND, GST_MESSAGE_EOS | GST_MESSAGE_ERROR);
 
@@ -327,11 +324,10 @@ static void *recorder_thread_main(void *arg) {
    gst_element_set_state(record_pipeline, GST_STATE_NULL);
    gst_object_unref(record_src);
    gst_object_unref(record_pipeline);
-   time_t recording_seconds = recording_started > 0 && time(NULL) >= recording_started ?
-      time(NULL) - recording_started : 0;
+   time_t recording_seconds = recording_started > 0 && time(NULL) >= recording_started ? time(NULL) - recording_started : 0;
 
    if (!recording_encoded && rec->sample_rate > 0) {
-      recording_seconds = (time_t)(recorded_samples / rec->sample_rate);
+      recording_seconds = (time_t) (recorded_samples / rec->sample_rate);
    }
    Log(LOG_INFO, "record", "Closed recording %s after %ld seconds", rec->filename, (long)recording_seconds);
 
@@ -346,7 +342,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return true;
    }
 
-   if ( (!recording_encoded && bits_per_sample != 16) || channels == 0 || sample_rate == 0) {
+   if ((!recording_encoded && bits_per_sample != 16) || channels == 0 || sample_rate == 0) {
       Log(LOG_WARN, "record", "Unsupported raw recording format: %u Hz, %u ch, %u bit", sample_rate, channels, bits_per_sample);
 
       return false;
@@ -361,8 +357,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
    snprintf(safe_user, sizeof(safe_user), "%s", record_user);
 
    for (char *p = safe_user ; *p ; p++) {
-      if (!( (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-         (*p >= '0' && *p <= '9') || *p == '-' || *p == '_') ) {
+      if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '-' || *p == '_')) {
          *p = '_';
       }
    }
@@ -371,8 +366,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
    snprintf(safe_id, sizeof(safe_id), "%s", record_id);
 
    for (char *p = safe_id ; *p ; p++) {
-      if (!( (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-         (*p >= '0' && *p <= '9') || *p == '-' || *p == '_') ) {
+      if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '-' || *p == '_')) {
          *p = '_';
       }
    }
@@ -387,7 +381,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
          snprintf(recorder.filename, sizeof(recorder.filename), "%s/%s.%s.%s", record_dir, stamp, safe_user, record_tx ? "tx" : "rx");
    }
 
-   if (name_len < 0 || (size_t)name_len >= sizeof(recorder.filename) ) {
+   if (name_len < 0 || (size_t)name_len >= sizeof(recorder.filename)) {
       Log(LOG_CRIT, "record", "Recording path is too long");
 
       return false;
@@ -420,11 +414,11 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
    int thread_rc = pthread_create(&recorder.thread, NULL, recorder_thread_main, &recorder);
 
    if (thread_rc != 0) {
-      Log(LOG_CRIT, "record", "Unable to start recording thread: %s", strerror(thread_rc) );
+      Log(LOG_CRIT, "record", "Unable to start recording thread: %s", strerror(thread_rc));
       pthread_cond_destroy(&recorder.cond);
       pthread_mutex_destroy(&recorder.lock);
       free(recorder.ring);
-      memset(&recorder, 0, sizeof(recorder) );
+      memset(&recorder, 0, sizeof(recorder));
 
       return false;
    }
@@ -451,7 +445,7 @@ static void recorder_stop(void) {
    pthread_cond_destroy(&recorder.cond);
    pthread_mutex_destroy(&recorder.lock);
    free(recorder.ring);
-   memset(&recorder, 0, sizeof(recorder) );
+   memset(&recorder, 0, sizeof(recorder));
 }
 
 static void recorder_write(const uint8_t *data, size_t len) {
@@ -526,17 +520,14 @@ static bool write_all(int fd, const uint8_t *data, size_t len) {
 #define FWDSP_FRAME_LENGTH_MASK 0x1FFFFFFFU
 
 static void frame_length_encode(uint8_t header[FWDSP_FRAME_HEADER_SIZE], uint32_t len) {
-   header[0] = (uint8_t)(len >> 24);
-   header[1] = (uint8_t)(len >> 16);
-   header[2] = (uint8_t)(len >> 8);
-   header[3] = (uint8_t)len;
+   header[0] = (uint8_t) (len >> 24);
+   header[1] = (uint8_t) (len >> 16);
+   header[2] = (uint8_t) (len >> 8);
+   header[3] = (uint8_t) len;
 }
 
 static uint32_t frame_length_decode(const uint8_t header[FWDSP_FRAME_HEADER_SIZE]) {
-   return ( (uint32_t)header[0] << 24) |
-          ( (uint32_t)header[1] << 16) |
-          ( (uint32_t)header[2] << 8) |
-          (uint32_t)header[3];
+   return ((uint32_t) header[0] << 24) | ((uint32_t) header[1] << 16) | ((uint32_t) header[2] << 8) | (uint32_t) header[3];
 }
 
 static bool write_frame(int fd, const uint8_t *data, size_t len, bool is_header) {
@@ -546,9 +537,9 @@ static bool write_frame(int fd, const uint8_t *data, size_t len, bool is_header)
       return false;
    }
 
-   frame_length_encode(header, (uint32_t)len | (is_header ? FWDSP_FRAME_STREAM_HEADER : 0) );
+   frame_length_encode(header, (uint32_t) len | (is_header ? FWDSP_FRAME_STREAM_HEADER : 0));
 
-   if (!write_all(fd, header, sizeof(header) ) ) {
+   if (!write_all(fd, header, sizeof(header))) {
       return false;
    }
 
@@ -558,13 +549,12 @@ static bool write_frame(int fd, const uint8_t *data, size_t len, bool is_header)
 static bool write_pcm_tap_frame(int fd, const uint8_t *data, size_t len) {
    uint8_t header[FWDSP_FRAME_HEADER_SIZE];
 
-   if (!data || len == 0 || len > FWDSP_FRAME_LENGTH_MASK || len > FWDSP_MAX_FRAME_SIZE ||
-      (len & 1U) != 0) {
+   if (!data || len == 0 || len > FWDSP_FRAME_LENGTH_MASK || len > FWDSP_MAX_FRAME_SIZE || (len & 1U) != 0) {
       return false;
    }
-   frame_length_encode(header, (uint32_t)len | FWDSP_FRAME_PCM_TAP);
+   frame_length_encode(header, (uint32_t) len | FWDSP_FRAME_PCM_TAP);
 
-   return write_all(fd, header, sizeof(header) ) && write_all(fd, data, len);
+   return write_all(fd, header, sizeof(header)) && write_all(fd, data, len);
 }
 
 struct fwdsp_frame_reader {
@@ -590,8 +580,7 @@ static bool frame_reader_append(struct fwdsp_frame_reader *reader, const uint8_t
       return false;
    }
 
-   if (len > FWDSP_READER_MAX_BUFFER ||
-      reader->len > FWDSP_READER_MAX_BUFFER - len) {
+   if (len > FWDSP_READER_MAX_BUFFER || reader->len > FWDSP_READER_MAX_BUFFER - len) {
       return false;
    }
 
@@ -651,8 +640,7 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
       uint32_t frame_flags = frame_length_decode(reader->buf);
       uint32_t frame_len = frame_flags & FWDSP_FRAME_LENGTH_MASK;
 
-      if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE ||
-         (processor_mode && (frame_len & 1U) != 0) ) {
+      if (frame_len == 0 || frame_len > FWDSP_MAX_FRAME_SIZE || (processor_mode && (frame_len & 1U) != 0)) {
          Log(LOG_CRIT, "fwdsp", "Invalid framed input length %u", frame_len);
 
          return false;
@@ -671,11 +659,13 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
       }
 
       gst_buffer_fill(buffer, 0, reader->buf + FWDSP_FRAME_HEADER_SIZE, frame_len);
-      if (frame_flags & FWDSP_FRAME_DISCONT) GST_BUFFER_FLAG_SET(buffer, GST_BUFFER_FLAG_DISCONT);
+
+      if (frame_flags & FWDSP_FRAME_DISCONT) {
+         GST_BUFFER_FLAG_SET(buffer, GST_BUFFER_FLAG_DISCONT);
+      }
 
       if (raw_rate > 0 && raw_channels > 0) {
-         GstClockTime frame_duration = (GST_SECOND * (guint64)frame_len) /
-            ( (guint64)raw_rate * (guint64)raw_channels * 2U);
+         GstClockTime frame_duration = (GST_SECOND * (guint64) frame_len) / ((guint64) raw_rate * (guint64) raw_channels * 2U);
 
          if (frame_duration == 0) {
             frame_duration = 1;
@@ -711,25 +701,25 @@ static void configure_pipeline_buffers(GstElement *pipeline) {
       return;
    }
 
-   GstIterator *iterator = gst_bin_iterate_recurse(GST_BIN(pipeline) );
+   GstIterator *iterator = gst_bin_iterate_recurse(GST_BIN(pipeline));
    GValue item = G_VALUE_INIT;
    bool done = false;
 
    while (!done) {
-      switch (gst_iterator_next(iterator, &item) ) {
+      switch (gst_iterator_next(iterator, &item)) {
          case GST_ITERATOR_OK: {
             GstElement *element = g_value_get_object(&item);
             GstElementFactory *factory = element ? gst_element_get_factory(element) : NULL;
-            const gchar *name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory) ) : NULL;
+            const gchar *name = factory ? gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory)) : NULL;
 
-            if (name && (!strcmp(name, "queue") || !strcmp(name, "queue2") ) ) {
-               g_object_set(G_OBJECT(element), "max-size-buffers", 8u, "max-size-time", (guint64)100000000, NULL);
-            } else if (element && GST_IS_APP_SINK(element) ) {
+            if (name && (!strcmp(name, "queue") || !strcmp(name, "queue2"))) {
+               g_object_set(G_OBJECT(element), "max-size-buffers", 8u, "max-size-time", (guint64) 100000000, NULL);
+            } else if (element && GST_IS_APP_SINK(element)) {
                g_object_set(G_OBJECT(element), "max-buffers", 8u, NULL);
 
                /* max-time was added in GStreamer 1.24. */
-               if (g_object_class_find_property(G_OBJECT_GET_CLASS(element), "max-time") ) {
-                  g_object_set(G_OBJECT(element), "max-time", (guint64)100000000, NULL);
+               if (g_object_class_find_property(G_OBJECT_GET_CLASS(element), "max-time")) {
+                  g_object_set(G_OBJECT(element), "max-time", (guint64) 100000000, NULL);
                }
             }
             g_value_reset(&item);
@@ -762,8 +752,7 @@ static bool processor_pcm_caps(GstCaps *caps) {
    return gst_structure_has_name(structure, "audio/x-raw") && format &&
           strcmp(format, "S16LE") == 0 &&
           (!layout || strcmp(layout, "interleaved") == 0) &&
-          gst_structure_get_int(structure, "rate", &rate) && rate == 16000 &&
-          gst_structure_get_int(structure, "channels", &channels) && channels == 1;
+          gst_structure_get_int(structure, "rate", &rate) && rate == 16000 && gst_structure_get_int(structure, "channels", &channels) && channels == 1;
 }
 
 static void run_loop(struct audio_config *cfg) {
@@ -795,7 +784,7 @@ static void run_loop(struct audio_config *cfg) {
          appsrc = gst_bin_get_by_name(GST_BIN(pipeline), "tx-src");
       }
 
-      if (appsrc && !GST_IS_APP_SRC(appsrc) ) {
+      if (appsrc && !GST_IS_APP_SRC(appsrc)) {
          gst_object_unref(appsrc);
          appsrc = NULL;
       }
@@ -806,43 +795,41 @@ static void run_loop(struct audio_config *cfg) {
          appsink = gst_bin_get_by_name(GST_BIN(pipeline), "tx-sink");
       }
 
-      if (appsink && !GST_IS_APP_SINK(appsink) ) {
+      if (appsink && !GST_IS_APP_SINK(appsink)) {
          gst_object_unref(appsink);
          appsink = NULL;
       }
 
       GstElement *record_sink = gst_bin_get_by_name(GST_BIN(pipeline), "record-sink");
 
-      if (record_sink && !GST_IS_APP_SINK(record_sink) ) {
+      if (record_sink && !GST_IS_APP_SINK(record_sink)) {
          gst_object_unref(record_sink);
          record_sink = NULL;
       }
       GstElement *record_encoded_sink = gst_bin_get_by_name(GST_BIN(pipeline), "record-encoded-sink");
 
-      if (record_encoded_sink && !GST_IS_APP_SINK(record_encoded_sink) ) {
+      if (record_encoded_sink && !GST_IS_APP_SINK(record_encoded_sink)) {
          gst_object_unref(record_encoded_sink);
          record_encoded_sink = NULL;
       }
-
       // Optional decoded-PCM tap used by rrserver to route a remote talker
       // into the rig TX sink, and by rrclient to play RX audio through its
       // persistent local speaker endpoint.
       GstElement *hub_sink = gst_bin_get_by_name(GST_BIN(pipeline), "hub-sink");
 
-      if (hub_sink && !GST_IS_APP_SINK(hub_sink) ) {
+      if (hub_sink && !GST_IS_APP_SINK(hub_sink)) {
          gst_object_unref(hub_sink);
          hub_sink = NULL;
       }
 
-      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), processor_mode ? "processor-vol" : (cfg->tx_mode ? "tx-vol" : "rx-vol") );
+      GstElement *volume = gst_bin_get_by_name(GST_BIN(pipeline), processor_mode ? "processor-vol" : (cfg->tx_mode ? "tx-vol" : "rx-vol"));
 
       // Preserve compatibility with older custom TX pipelines that only
       // exposed rx-vol.
       if (!volume && cfg->tx_mode) {
          volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       }
-      GstCaps *processor_input_caps = processor_mode && appsrc ?
-         gst_app_src_get_caps(GST_APP_SRC(appsrc) ) : NULL;
+      GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
       bool processor_input_ok = !appsrc || processor_pcm_caps(processor_input_caps);
 
       if (processor_input_caps) {
@@ -858,7 +845,7 @@ static void run_loop(struct audio_config *cfg) {
          processor_endpoints_ok = appsrc && !appsink;
       }
 
-      if (processor_mode && (!processor_endpoints_ok || !processor_input_ok) ) {
+      if (processor_mode && (!processor_endpoints_ok || !processor_input_ok)) {
          Log(LOG_CRIT, "fwdsp", "Audio pipeline %s has invalid endpoints or non-mono S16LE 16 kHz appsrc caps", processor_name);
 
          if (appsrc) {
@@ -950,7 +937,7 @@ static void run_loop(struct audio_config *cfg) {
       struct fwdsp_control_msg control;
       size_t control_used = 0;
       record_tx = cfg->tx_mode;
-      record_requested = false;   // application supplies recording policy and identity
+      record_requested = false; // application supplies recording policy and identity
       bool pipeline_paused = false;
       bool input_eos = false;
 
@@ -958,23 +945,21 @@ static void run_loop(struct audio_config *cfg) {
 
          if (appsink) {
             GstSample *sample;
-            while ( (sample = gst_app_sink_try_pull_sample(GST_APP_SINK(appsink), 0) ) ) {
+            while ((sample = gst_app_sink_try_pull_sample(GST_APP_SINK(appsink), 0))) {
                GstBuffer *buffer = gst_sample_get_buffer(sample);
                GstMapInfo map;
 
-               if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ) ) {
+               if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
                   bool output_ok = true;
 
-                  if (processor_mode &&
-                     (!processor_pcm_caps(gst_sample_get_caps(sample) ) || (map.size & 1U) != 0) ) {
+                  if (processor_mode && (!processor_pcm_caps(gst_sample_get_caps(sample)) || (map.size & 1U) != 0)) {
                      Log(LOG_CRIT, "fwdsp", "Audio pipeline %s produced non-S16LE/16kHz/mono output", processor_name);
                      output_ok = false;
                      dying = true;
                   }
-                  bool is_header = !processor_mode &&
-                     GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_HEADER);
+                  bool is_header = !processor_mode && GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_HEADER);
 
-                  if (output_ok && !write_frame(STDOUT_FD, map.data, map.size, is_header) ) {
+                  if (output_ok && !write_frame(STDOUT_FD, map.data, map.size, is_header)) {
                      dying = true;
                   }
                   gst_buffer_unmap(buffer, &map);
@@ -984,22 +969,27 @@ static void run_loop(struct audio_config *cfg) {
          }
 
          if (hub_sink) {
-            struct fwdsp_pcm_backlog pcm = {0};
+            struct fwdsp_pcm_backlog pcm = {
+               0
+            };
             GstSample *hub_sample;
-            while ( (hub_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(hub_sink), 0) ) ) {
+            while ((hub_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(hub_sink), 0))) {
                GstBuffer *hub_buffer = gst_sample_get_buffer(hub_sample);
                GstMapInfo hub_map;
 
-               if (hub_buffer && gst_buffer_map(hub_buffer, &hub_map, GST_MAP_READ) ) {
-                  if (pcm_hub_mode && !cfg->tx_mode && !processor_mode)
+               if (hub_buffer && gst_buffer_map(hub_buffer, &hub_map, GST_MAP_READ)) {
+                  if (pcm_hub_mode && !cfg->tx_mode && !processor_mode) {
                      fwdsp_pcm_backlog_append(&pcm, hub_map.data, hub_map.size);
+                  }
                   gst_buffer_unmap(hub_buffer, &hub_map);
                }
                gst_sample_unref(hub_sample);
             }
-            if (pcm.len && !write_pcm_tap_frame(STDOUT_FD, pcm.data, pcm.len)) dying = true;
-         }
 
+            if (pcm.len && !write_pcm_tap_frame(STDOUT_FD, pcm.data, pcm.len)) {
+               dying = true;
+            }
+         }
          // Record either the encoded Ogg stream or the PCM recording branch.
          GstElement *active_record_sink = recording_encoded ? record_encoded_sink : record_sink;
          // Both branches are present in the Ogg pipelines so the recording
@@ -1009,14 +999,14 @@ static void run_loop(struct audio_config *cfg) {
 
          if (inactive_record_sink) {
             GstSample *discard_sample;
-            while ( (discard_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(inactive_record_sink), 0) ) ) {
+            while ((discard_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(inactive_record_sink), 0))) {
                gst_sample_unref(discard_sample);
             }
          }
 
          if (active_record_sink) {
             GstSample *record_sample;
-            while ( (record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(active_record_sink), 0) ) ) {
+            while ((record_sample = gst_app_sink_try_pull_sample(GST_APP_SINK(active_record_sink), 0))) {
                GstBuffer *record_buffer = gst_sample_get_buffer(record_sample);
                GstCaps *caps = gst_sample_get_caps(record_sample);
                GstMapInfo record_map;
@@ -1050,8 +1040,7 @@ static void run_loop(struct audio_config *cfg) {
                   recorder_start(rate, channels, recording_encoded ? 8 : 16);
                }
 
-               if (record_requested && recorder.running && record_buffer &&
-                  gst_buffer_map(record_buffer, &record_map, GST_MAP_READ) ) {
+               if (record_requested && recorder.running && record_buffer && gst_buffer_map(record_buffer, &record_map, GST_MAP_READ)) {
                   recorder_write(record_map.data, record_map.size);
                   gst_buffer_unmap(record_buffer, &record_map);
                }
@@ -1066,7 +1055,7 @@ static void run_loop(struct audio_config *cfg) {
                GError *warning = NULL;
                gchar *details = NULL;
                gst_message_parse_warning(msg, &warning, &details);
-               Log(LOG_WARN, "audio.gstreamer", "%s: %s", GST_OBJECT_NAME(GST_MESSAGE_SRC(msg) ), warning ? warning->message : "Unknown warning");
+               Log(LOG_WARN, "audio.gstreamer", "%s: %s", GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)), warning ? warning->message : "Unknown warning");
 
                if (details) {
                   Log(LOG_DEBUG, "audio.gstreamer", "%s", details);
@@ -1101,17 +1090,16 @@ static void run_loop(struct audio_config *cfg) {
                .fd = STDIN_FD, .events = POLLIN
             };
 
-            if (poll(&input_poll, 1, 0) > 0 && (input_poll.revents & (POLLIN | POLLHUP) ) ) {
+            if (poll(&input_poll, 1, 0) > 0 && (input_poll.revents & (POLLIN | POLLHUP))) {
                uint8_t input[4096];
-               ssize_t bytes = read(STDIN_FD, input, sizeof(input) );
+               ssize_t bytes = read(STDIN_FD, input, sizeof(input));
 
                if (bytes > 0) {
-                  if (!frame_reader_append(&input_reader, input, (size_t)bytes) ||
-                     !frame_reader_push_appsrc(&input_reader, GST_APP_SRC(appsrc) ) ) {
+                  if (!frame_reader_append(&input_reader, input, (size_t)bytes) || !frame_reader_push_appsrc(&input_reader, GST_APP_SRC(appsrc))) {
                      dying = true;
                   }
                } else if (bytes == 0) {
-                  gst_app_src_end_of_stream(GST_APP_SRC(appsrc) );
+                  gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
                   // Let decoders drain their final access unit before the
                   // loop exits. This matters for codecs such as AAC whose
                   // decoder output is queued behind the input buffer.
@@ -1128,14 +1116,14 @@ static void run_loop(struct audio_config *cfg) {
             };
 
             if (poll(&control_poll, 1, 0) > 0) {
-               ssize_t got = read(control_fd, (uint8_t *)&control + control_used, sizeof(control) - control_used);
+               ssize_t got = read(control_fd, (uint8_t *) &control + control_used, sizeof(control) - control_used);
 
                if (got > 0) {
                   control_used += (size_t)got;
                }
             }
 
-            if (control_used == sizeof(control) ) {
+            if (control_used == sizeof(control)) {
                control_used = 0;
 
                if (control.magic != FWDSP_CTRL_MAGIC) {
@@ -1171,8 +1159,7 @@ static void run_loop(struct audio_config *cfg) {
                         bool tx = control.record_direction ? control.record_direction == 2 : cfg->tx_mode;
 
                         if (recorder.running && (strcmp(record_user, who) != 0 ||
-                           strcmp(record_id, id) != 0 || strcmp(record_file, file) != 0 ||
-                           record_tx != tx) ) {
+                           strcmp(record_id, id) != 0 || strcmp(record_file, file) != 0 || record_tx != tx)) {
                            recorder_stop();
                         }
                         snprintf(record_user, sizeof(record_user), "%s", who);
@@ -1206,8 +1193,8 @@ static void run_loop(struct audio_config *cfg) {
                   }
 
                   case FWDSP_CTRL_FLUSH: {
-                     gst_element_send_event(pipeline, gst_event_new_flush_start() );
-                     gst_element_send_event(pipeline, gst_event_new_flush_stop(TRUE) );
+                     gst_element_send_event(pipeline, gst_event_new_flush_start());
+                     gst_element_send_event(pipeline, gst_event_new_flush_stop(TRUE));
                      break;
                   }
 
@@ -1236,7 +1223,7 @@ static void run_loop(struct audio_config *cfg) {
          int wait_ms = pipeline_paused ? 100 : 2;
          int poll_rc = poll(pending, 2, wait_ms);
 
-         if (poll_rc > 0 && pending[1].revents & (POLLHUP | POLLERR | POLLNVAL) ) {
+         if (poll_rc > 0 && pending[1].revents & (POLLHUP | POLLERR | POLLNVAL)) {
             dying = true;
          }
 
@@ -1279,7 +1266,7 @@ static void run_loop(struct audio_config *cfg) {
 
 static void gst_log_handler(GstDebugCategory *category, GstDebugLevel level, const gchar *file, const gchar *function, gint line, GObject *object,
    GstDebugMessage *message, gpointer user_data) {
-   g_printerr("GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message) );
+   g_printerr("GST %s: %s\n", gst_debug_level_get_name(level), gst_debug_message_get(message));
 }
 
 int main(int argc, char *argv[]) {
@@ -1317,7 +1304,7 @@ int main(int argc, char *argv[]) {
    const char *parent_pipeline = NULL;
    bool codec_arg_set = false;
    int opt;
-   while ( (opt = getopt(argc, argv, "C:c:f:HM:p:P:Thtv") ) != -1) {
+   while ((opt = getopt(argc, argv, "C:c:f:HM:p:P:Thtv")) != -1) {
       switch (opt) {
          case 'C': {
             control_fd = atoi(optarg);
@@ -1351,8 +1338,7 @@ int main(int argc, char *argv[]) {
          case 'M': {
             if (strcmp(optarg, "auto") == 0) {
                processor_io_mode = PCM_PROCESSOR_MODE_AUTO;
-            } else if (strcmp(optarg, "process") == 0 ||
-               strcmp(optarg, "bidirectional") == 0) {
+            } else if (strcmp(optarg, "process") == 0 || strcmp(optarg, "bidirectional") == 0) {
                processor_io_mode = PCM_PROCESSOR_MODE_BIDIRECTIONAL;
             } else if (strcmp(optarg, "capture") == 0) {
                processor_io_mode = PCM_PROCESSOR_MODE_CAPTURE;
@@ -1373,8 +1359,7 @@ int main(int argc, char *argv[]) {
          case 'P': {
             const char *dot = strchr(optarg, '.');
 
-            if (!dot || dot == optarg || !dot[1] ||
-               strlen(optarg) >= sizeof(processor_name) ) {
+            if (!dot || dot == optarg || !dot[1] || strlen(optarg) >= sizeof(processor_name)) {
                fprintf(stderr, "Pipeline name must be namespace.name (proc, src, sink, or recode)\n");
 
                return 2;
@@ -1383,8 +1368,7 @@ int main(int argc, char *argv[]) {
             bool known_namespace =
                (namespace_len == 4 && memcmp(optarg, "proc", 4) == 0) ||
                (namespace_len == 3 && memcmp(optarg, "src", 3) == 0) ||
-               (namespace_len == 4 && memcmp(optarg, "sink", 4) == 0) ||
-               (namespace_len == 6 && memcmp(optarg, "recode", 6) == 0);
+               (namespace_len == 4 && memcmp(optarg, "sink", 4) == 0) || (namespace_len == 6 && memcmp(optarg, "recode", 6) == 0);
 
             if (!known_namespace) {
                fprintf(stderr, "Unknown pipeline namespace in '%s'\n", optarg);
@@ -1442,7 +1426,7 @@ int main(int argc, char *argv[]) {
    // If the user specified a config, apply it, else try to find one in a sane
    // place
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
       } else {
          Log(LOG_DEBUG, "config", "Loaded config from '%s'", config_file);
@@ -1467,16 +1451,14 @@ int main(int argc, char *argv[]) {
       return 1;
    }
    const bool modem_codec = codec_is_modem(config_codec);
-   const char *cfg_recording_codec_exp = cfg_get_exp(modem_codec ?
-      "fwdsp:recording.codec.modem" : "fwdsp:recording.codec");
+   const char *cfg_recording_codec_exp = cfg_get_exp(modem_codec ? "fwdsp:recording.codec.modem" : "fwdsp:recording.codec");
    const char *cfg_recording_codec = cfg_recording_codec_exp;
 
    if (!cfg_recording_codec) {
-      cfg_recording_codec = cfg_get(modem_codec ?
-         "recording.codec.modem" : "recording.codec");
+      cfg_recording_codec = cfg_get(modem_codec ? "recording.codec.modem" : "recording.codec");
    }
 
-   if (recording_codec_valid(cfg_recording_codec) ) {
+   if (recording_codec_valid(cfg_recording_codec)) {
       snprintf(recording_codec, sizeof(recording_codec), "%s", cfg_recording_codec);
 
       for (char *p = recording_codec ; *p ; p++) {
@@ -1490,12 +1472,12 @@ int main(int argc, char *argv[]) {
    // Ogg/Vorbis can be copied directly into an Ogg recording. Other codec /
    // recording combinations continue through the PCM recording branch.
    recording_encoded = !modem_codec &&
-      ( (strcmp(recording_codec, "ogg") == 0 && strncmp(config_codec, "ogg", 3) == 0) ||
-         (strcmp(recording_codec, "flac") == 0 && strcasecmp(config_codec, "flac") == 0) );
+      ((strcmp(recording_codec, "ogg") == 0 && strncmp(config_codec, "ogg", 3) == 0) ||
+         (strcmp(recording_codec, "flac") == 0 && strcasecmp(config_codec, "flac") == 0));
    Log(LOG_INFO, "record", "Recording format selected: %s%s", recording_codec, recording_encoded ? " (encoded stream copy)" : " (PCM encoder)");
-   free( (char *)cfg_recording_codec_exp);
+   free((char *)cfg_recording_codec_exp);
    char *logfile = cfg_get_path("fwdsp:log.file");
-   logger_init( (logfile ? logfile : "-"), false);
+   logger_init((logfile ? logfile : "-"), false);
    // The parent prefixes captured child output with its own timestamp.  Do
    // not nest another timestamp inside the fwdsp line.
    logger_set_show_timestamp(false);
@@ -1551,7 +1533,7 @@ int main(int argc, char *argv[]) {
    }
 
    char keybuf[256];
-   memset(keybuf, 0, sizeof(keybuf) );
+   memset(keybuf, 0, sizeof(keybuf));
 
    if (processor_mode) {
       snprintf(keybuf, sizeof(keybuf), "pipeline:%s", processor_name);
@@ -1590,7 +1572,7 @@ int main(int argc, char *argv[]) {
    do {
       now = time(NULL);
       run_loop(&au_cfg);
-      fprintf(stderr, "Run took %li sec\n", (now - last_run) );
+      fprintf(stderr, "Run took %li sec\n", (now - last_run));
       last_run = now;
    } while (au_cfg.persistent);
    null_stdout = open("/dev/null", O_WRONLY);

@@ -17,15 +17,15 @@ static inline bool rrclient_resource_matches(const char *context, const char *ro
    size_t length = strlen(context);
    const char *rig = NULL;
 
-   for (const char *p = context ; (p = strchr(p, '-') ) ; p++) {
-      if (!strncasecmp(p, "-rig", 4) && isdigit( (unsigned char)p[4]) ) {
+   for (const char *p = context ; (p = strchr(p, '-')) ; p++) {
+      if (!strncasecmp(p, "-rig", 4) && isdigit((unsigned char)p[4])) {
          rig = p;
       }
    }
 
    if (rig) {
       const char *end = rig + 4;
-      while (isdigit( (unsigned char)*end) ) {
+      while (isdigit((unsigned char)*end)) {
          end++;
       }
 
@@ -36,7 +36,7 @@ static inline bool rrclient_resource_matches(const char *context, const char *ro
       }
    }
 
-   if (strncasecmp(context, room, length) ) {
+   if (strncasecmp(context, room, length)) {
       return false;
    }
 
@@ -49,11 +49,11 @@ static inline bool rrclient_resource_matches(const char *context, const char *ro
    }
    const char *suffix = room + length;
 
-   if (strncasecmp(suffix, "-rig", 4) || !isdigit( (unsigned char)suffix[4]) ) {
+   if (strncasecmp(suffix, "-rig", 4) || !isdigit((unsigned char)suffix[4])) {
       return false;
    }
    suffix += 4;
-   while (isdigit( (unsigned char)*suffix) ) {
+   while (isdigit((unsigned char)*suffix)) {
       suffix++;
    }
    return !*suffix || (*suffix == '.' && suffix[1]);

@@ -46,7 +46,7 @@ static gboolean on_configure_timeout(gpointer data) {
       return true;
    }
    // Find the GTK window
-   GtkWidget *window = (GtkWidget *)data;
+   GtkWidget *window = (GtkWidget *) data;
 
    // Find our internal window
    gui_window_t *win = gui_find_window(window, NULL);
@@ -62,10 +62,7 @@ static gboolean on_configure_timeout(gpointer data) {
    // Is the name set? If not, we can't look the window up (and probably
    // shouldn't even be here!)
    if (win->name[0] != '\0') {
-      if (win->x != win->last_x ||
-         win->y != win->last_y ||
-         win->w != win->last_w ||
-         win->h != win->last_h) {
+      if (win->x != win->last_x || win->y != win->last_y || win->w != win->last_w || win->h != win->last_h) {
          // Store the position, etc 'permanently'
          win->x = win->last_x;
          win->y = win->last_y;
@@ -73,39 +70,38 @@ static gboolean on_configure_timeout(gpointer data) {
          win->h = win->last_h;
 
          char key[256];
-         memset(key, 0, sizeof(key) );
+         memset(key, 0, sizeof(key));
          snprintf(key, sizeof(key), "ui.%s", win->name);
 
          char opts[256];
          // Generate a string with the options
-         memset(opts, 0, sizeof(opts) );
+         memset(opts, 0, sizeof(opts));
          // NB: keep this in sync with the option parser below (hidden|minimized|
          // modal|no-hide|raised) so saved entries round-trip losslessly.
          int flen = 0;
 
          if (win->win_raised) {
-            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sraised", (flen ? "|" : "") );
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sraised", (flen ? "|" : ""));
          }
 
          if (win->win_modal) {
-            flen += snprintf(opts + flen, sizeof(opts) - flen, "%smodal", (flen ? "|" : "") );
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%smodal", (flen ? "|" : ""));
          }
 
          if (win->win_nohide) {
-            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sno-hide", (flen ? "|" : "") );
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sno-hide", (flen ? "|" : ""));
          }
 
          if (win->win_hidden) {
-            flen += snprintf(opts + flen, sizeof(opts) - flen, "%shidden", (flen ? "|" : "") );
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%shidden", (flen ? "|" : ""));
          }
 
          if (win->win_minimized) {
-            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sminimized", (flen ? "|" : "") );
+            flen += snprintf(opts + flen, sizeof(opts) - flen, "%sminimized", (flen ? "|" : ""));
          }
-
          // Store the value of width,height@x,y|options
          char val[512];
-         memset(val, 0, sizeof(val) );
+         memset(val, 0, sizeof(val));
          snprintf(val, sizeof(val), "%d,%d@%d,%d%s", win->last_w, win->last_h, win->last_x, win->last_y, opts);
 
          // Save it to the running-config
@@ -126,7 +122,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
    }
 
    if (event->type == GDK_CONFIGURE) {
-      GdkEventConfigure *e = (GdkEventConfigure *)event;
+      GdkEventConfigure *e = (GdkEventConfigure *) event;
 
       // Find the GTK window
       GtkWidget *window = widget;
@@ -141,7 +137,7 @@ gboolean on_window_configure(GtkWidget *widget, GdkEvent *event, gpointer user_d
       // decoration)
       win->move_evt = e;
 
-#if     0       // Alternative path to account for wm decoration frame
+#if     0                       // Alternative path to account for wm decoration frame
       GdkRectangle frame;
       gdk_window_get_frame_extents(gtk_widget_get_window(window), &frame);
       win->last_x = frame.x;
@@ -220,7 +216,7 @@ bool place_window(GtkWidget *window) {
    Log(LOG_CRAZY, "gtk.winmgr", "place_window: found gtk window <%p> at <%p> named |%s|", window, win, win->name);
 
    char key[512];
-   memset(key, 0, sizeof(key) );
+   memset(key, 0, sizeof(key));
    snprintf(key, sizeof(key), "ui.%s", win->name);
 
    const char *cfg_full = cfg_get_exp(key);
@@ -229,8 +225,8 @@ bool place_window(GtkWidget *window) {
    if (win->last_h > 0 && win->last_w > 0) {
       Log(LOG_DEBUG, "gtk.winmgr", "place_window |%s| using stored coords (w,h@x,y): %d,%d@%d,%d flags: %s%s%s%s%s%s%s", (*win->name ? win->name : ""), win->w,
          win->h, win->x, win->y, (win->win_modal ? " modal" : ""), (win->win_raised ? " raised" : ""), (win->win_hidden ? " hidden" : ""), (win->win_minimized ?
-            " minimized" : ""), (win->win_nohide ? " nohide" : ""), (win->win_stashed ? " stashed" : ""), (!win->win_modal && !win->win_raised && !win->
-            win_hidden && !win->win_minimized && !win->win_nohide && !win->win_stashed ? " none" : "") );
+            " minimized" : ""), (win->win_nohide ? " nohide" : ""), (win->win_stashed ? " stashed" : ""), (!win->win_modal && !win->win_raised
+            && !win->win_hidden && !win->win_minimized && !win->win_nohide && !win->win_stashed ? " none" : ""));
    } else if (cfg_full) {
       // If the window doesn't have h/w set, try to get them from the
       // configuration
@@ -250,31 +246,31 @@ bool place_window(GtkWidget *window) {
             win->h = cfg_height;
          }
          char flags[128];
-         memset(flags, 0, sizeof(flags) );
+         memset(flags, 0, sizeof(flags));
          int flen = 0;
 
          if (win->win_modal) {
-            flen += snprintf(flags + flen, sizeof(flags) - flen, "%smodal", (flen ? "," : "") );
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%smodal", (flen ? "," : ""));
          }
 
          if (win->win_raised) {
-            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sraised", (flen ? "," : "") );
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sraised", (flen ? "," : ""));
          }
 
          if (win->win_hidden) {
-            flen += snprintf(flags + flen, sizeof(flags) - flen, "%shidden", (flen ? "," : "") );
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%shidden", (flen ? "," : ""));
          }
 
          if (win->win_minimized) {
-            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sminimized", (flen ? "," : "") );
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sminimized", (flen ? "," : ""));
          }
 
          if (win->win_nohide) {
-            flen += snprintf(flags + flen, sizeof(flags) - flen, "%snohide", (flen ? "," : "") );
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%snohide", (flen ? "," : ""));
          }
 
          if (win->win_stashed) {
-            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sstashed", (flen ? "," : "") );
+            flen += snprintf(flags + flen, sizeof(flags) - flen, "%sstashed", (flen ? "," : ""));
          }
 
          if (!flen) {
@@ -283,7 +279,7 @@ bool place_window(GtkWidget *window) {
          Log(LOG_DEBUG, "gtk.winmgr", "Placing window %s at %d,%d with size %d,%d flags: %s", win->name, win->x, win->y, win->w, win->h, flags);
       } else {
          Log(LOG_CRIT, "config", "config key %s contains invalid window placement '%s'", key, cfg_full);
-         free( (void *)cfg_full);
+         free((void *)cfg_full);
 
          return true;
       }
@@ -296,7 +292,7 @@ bool place_window(GtkWidget *window) {
       char *opts = strchr(cfg_full, '|');
 
       if (opts) {
-         opts++;   /* skip the '|' */
+         opts++;                /* skip the '|' */
 
          while (*opts) {
             char *end = strchr(opts, '|');
@@ -322,7 +318,7 @@ bool place_window(GtkWidget *window) {
             size_t len = end - opts;
             char opt[32];
 
-            if (len >= sizeof(opt) ) {
+            if (len >= sizeof(opt)) {
                len = sizeof(opt) - 1;
             }
             memcpy(opt, opts, len);
@@ -336,7 +332,7 @@ bool place_window(GtkWidget *window) {
                }
             } else if (strcasecmp(opt, "minimized") == 0) {
                win->win_minimized = true;
-               gtk_window_iconify(GTK_WINDOW(win->gtk_win) );
+               gtk_window_iconify(GTK_WINDOW(win->gtk_win));
             } else if (strcasecmp(opt, "modal") == 0) {
                // Window is always-on-top
                win->win_modal = true;
@@ -347,7 +343,7 @@ bool place_window(GtkWidget *window) {
             } else if (strcasecmp(opt, "raised") == 0) {
                // Window should start raised
                win->win_raised = true;
-               gtk_window_present(GTK_WINDOW(win->gtk_win) );
+               gtk_window_present(GTK_WINDOW(win->gtk_win));
             }
 
             if (*end == '\0') {
@@ -356,7 +352,7 @@ bool place_window(GtkWidget *window) {
             opts = end + 1;
          }
       }
-      free( (void *)cfg_full);
+      free((void *)cfg_full);
    }
 
    if (win->w > 0 && win->h > 0) {
@@ -390,7 +386,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    GIcon *icon = g_themed_icon_new(name);
    GtkIconTheme *theme = gtk_icon_theme_get_default();
 
-   if (gtk_icon_theme_has_icon(theme, name) ) {
+   if (gtk_icon_theme_has_icon(theme, name)) {
       success = true;
    } else {
       /* Source-tree builds use ./res, while packages install the icon in the standard hicolor theme. Try both, plus the common local prefix. */
@@ -429,7 +425,7 @@ bool set_window_icon(GtkWidget *window, const char *icon_name) {
    (void)window;
    (void)icon_name;
 
-   return true;  // Assume embedded icon is fine
+   return true;                 // Assume embedded icon is fine
 #endif
 }
 
@@ -441,25 +437,25 @@ bool gui_forget_window(gui_window_t *gw, const char *name) {
    while (*pp) {
       gui_window_t *p = *pp;
 
-      if ( (gw && p == gw) || (name && strcmp(p->name, name) == 0) ) {
-         Log(LOG_DEBUG, "gtk.winmgr", "forgetting window: %p (%s)", (void*)p, p->name);
+      if ((gw && p == gw) || (name && strcmp(p->name, name) == 0)) {
+         Log(LOG_DEBUG, "gtk.winmgr", "forgetting window: %p (%s)", (void *)p, p->name);
          *pp = p->next;
          free(p);
 
-         return true;    // success
+         return true;           // success
       }
       pp = &p->next;
    }
-   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_window: no match for gw:%p name:%s", (void *)gw, name ? name : "(null)");
 
-   return false;        // failure
+   return false;                // failure
 }
 
 static void on_window_destroy(GtkWidget *w, gpointer user_data) {
    if (!w) {
       return;
    }
-   gui_window_t *p = (gui_window_t *)user_data;    // always valid
+   gui_window_t *p = (gui_window_t *) user_data;   // always valid
    gui_forget_window(p, NULL);
 }
 
@@ -490,13 +486,13 @@ gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name) {
    }
 
    // Nope, it doesn't exist, create it
-   gui_window_t *p = malloc(sizeof(gui_window_t) );
+   gui_window_t *p = malloc(sizeof(gui_window_t));
 
    if (!p) {
       Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_window_t");
       abort();
    }
-   memset(p, 0, sizeof(gui_window_t) );
+   memset(p, 0, sizeof(gui_window_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_win = gtk_win;
    Log(LOG_INFO, "gtk.winmgr", "new '%s' window <%p> stored at <%p>", name, gtk_win, p);
@@ -539,14 +535,14 @@ gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer
          for (gui_window_t *p = gui_windows ; p ; p = p->next) {
             if (!p->win_nohide && p->gtk_win) {
                p->win_stashed = TRUE;
-               gtk_window_iconify(GTK_WINDOW(p->gtk_win) );
+               gtk_window_iconify(GTK_WINDOW(p->gtk_win));
             }
          }
       } else {
          // Main window restored → restore others we minimized
          for (gui_window_t *p = gui_windows ; p ; p = p->next) {
             if (p->win_stashed && p->gtk_win) {
-               gtk_window_deiconify(GTK_WINDOW(p->gtk_win) );
+               gtk_window_deiconify(GTK_WINDOW(p->gtk_win));
                p->win_stashed = FALSE;
             }
          }
@@ -561,7 +557,7 @@ static gboolean focus_main_later_cb(gpointer data) {
    if (!data) {
       return FALSE;
    }
-   gtk_window_present(GTK_WINDOW(data) );
+   gtk_window_present(GTK_WINDOW(data));
 
    return FALSE;
 }
@@ -639,8 +635,8 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
    while (*pp) {
       gui_widget_t *p = *pp;
 
-      if ( (gw && p == gw) || (name && strcmp(p->name, name) == 0) ) {
-         Log(LOG_DEBUG, "gtk.winmgr", "forgetting widget: %p (%s)", (void*)p, p->name);
+      if ((gw && p == gw) || (name && strcmp(p->name, name) == 0)) {
+         Log(LOG_DEBUG, "gtk.winmgr", "forgetting widget: %p (%s)", (void *)p, p->name);
          *pp = p->next;
          free(p);
 
@@ -648,7 +644,7 @@ bool gui_forget_widget(gui_widget_t *gw, const char *name) {
       }
       pp = &p->next;
    }
-   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_widget: no match for gw:%p name:%s", (void*)gw, name ? name : "(null)");
+   Log(LOG_DEBUG, "gtk.winmgr", "gui_forget_widget: no match for gw:%p name:%s", (void *)gw, name ? name : "(null)");
 
    return true;
 }
@@ -672,13 +668,13 @@ gui_widget_t *gui_store_widget(GtkWidget *widget, const char *name) {
    }
 
    // Nope, it doesn't exist, create it
-   gui_widget_t *p = malloc(sizeof(gui_widget_t) );
+   gui_widget_t *p = malloc(sizeof(gui_widget_t));
 
    if (!p) {
       Log(LOG_CRIT, "gtk.winmgr", "OOM creating gui_widget_t");
       abort();
    }
-   memset(p, 0, sizeof(gui_widget_t) );
+   memset(p, 0, sizeof(gui_widget_t));
    snprintf(p->name, sizeof(p->name), "%s", name);
    p->gtk_widget = widget;
    Log(LOG_INFO, "gtk.winmgr", "new '%s' widget <%p> stored at <%p>", name, widget, p);
@@ -711,7 +707,7 @@ bool flash_main_win(void) {
    gui_window_t *win = gui_find_window(NULL, "main");
    GtkWidget *main_window = win->gtk_win;
 
-   if (!gtk_window_is_active(GTK_WINDOW(main_window) ) ) {
+   if (!gtk_window_is_active(GTK_WINDOW(main_window))) {
       gtk_window_set_urgency_hint(GTK_WINDOW(main_window), TRUE);
    }
 

@@ -110,7 +110,7 @@ static bool dump_rig(rr_server_rig_t *radio, void *user) {
 }
 
 int main(int argc, char **argv) {
-   assert(argc == 3); // config and a disposable diagnostic database
+   assert(argc == 3);           // config and a disposable diagnostic database
    setvbuf(stdout, NULL, _IOLBF, 0);
    now = time(NULL);
    default_cfg = dict_new();

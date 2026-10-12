@@ -26,7 +26,7 @@ extern GtkWidget *freq_entry;
 extern int ws_connected;
 
 typedef struct {
-   GtkWidget *fe;           /* the GtkFreqEntry container */
+   GtkWidget *fe;               /* the GtkFreqEntry container */
    GtkWidget *chat_entry;
    GtkWidget *mode_combo;
 } VfoKeyData;
@@ -73,26 +73,25 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    }
    VfoKeyData *d = user_data;
 
-   if (!d || !GTK_IS_WIDGET(d->fe) ) {
+   if (!d || !GTK_IS_WIDGET(d->fe)) {
       return FALSE;
    }
 
-   if (!is_widget_or_descendant_focused(d->fe) ) {
-      return FALSE;     /* ignore keys unless focus is somewhere inside fe */
+   if (!is_widget_or_descendant_focused(d->fe)) {
+      return FALSE;             /* ignore keys unless focus is somewhere inside fe */
    }
 
-   if ( (event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) &&
-      (event->state & GDK_SHIFT_MASK) ) {
+   if ((event->keyval == GDK_KEY_Tab || event->keyval == GDK_KEY_ISO_Left_Tab) && (event->state & GDK_SHIFT_MASK)) {
       gtk_widget_grab_focus(d->chat_entry);
 
       return TRUE;
-   } else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK) ) {
+   } else if (event->keyval == GDK_KEY_Tab && !(event->state & GDK_SHIFT_MASK)) {
       gtk_widget_grab_focus(d->mode_combo);
 
       return TRUE;
    }
 
-   return FALSE;  /* let other keys be handled normally */
+   return FALSE;                /* let other keys be handled normally */
 }
 
 GtkWidget *create_vfo_box(void) {
@@ -145,45 +144,44 @@ GtkWidget *create_vfo_box(void) {
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
    if (conn_button) {
-      g_object_add_weak_pointer(G_OBJECT(conn_button), (gpointer *)&conn_button);
+      g_object_add_weak_pointer(G_OBJECT(conn_button), (gpointer *) &conn_button);
    }
 
    if (vfo_tunable_box) {
-      g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *)&vfo_tunable_box);
+      g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *) &vfo_tunable_box);
    }
 
    if (vfo_codec_box) {
-      g_object_add_weak_pointer(G_OBJECT(vfo_codec_box), (gpointer *)&vfo_codec_box);
+      g_object_add_weak_pointer(G_OBJECT(vfo_codec_box), (gpointer *) &vfo_codec_box);
    }
 
    if (freq_entry) {
-      g_object_add_weak_pointer(G_OBJECT(freq_entry), (gpointer *)&freq_entry);
+      g_object_add_weak_pointer(G_OBJECT(freq_entry), (gpointer *) &freq_entry);
    }
 
    if (mode_combo) {
-      g_object_add_weak_pointer(G_OBJECT(mode_combo), (gpointer *)&mode_combo);
+      g_object_add_weak_pointer(G_OBJECT(mode_combo), (gpointer *) &mode_combo);
    }
 
    if (width_combo) {
-      g_object_add_weak_pointer(G_OBJECT(width_combo), (gpointer *)&width_combo);
+      g_object_add_weak_pointer(G_OBJECT(width_combo), (gpointer *) &width_combo);
    }
 
    if (tx_codec_combo) {
-      g_object_add_weak_pointer(G_OBJECT(tx_codec_combo), (gpointer *)&tx_codec_combo);
+      g_object_add_weak_pointer(G_OBJECT(tx_codec_combo), (gpointer *) &tx_codec_combo);
    }
 
    if (rx_codec_combo) {
-      g_object_add_weak_pointer(G_OBJECT(rx_codec_combo), (gpointer *)&rx_codec_combo);
+      g_object_add_weak_pointer(G_OBJECT(rx_codec_combo), (gpointer *) &rx_codec_combo);
    }
 
    if (rx_vol_slider) {
-      g_object_add_weak_pointer(G_OBJECT(rx_vol_slider), (gpointer *)&rx_vol_slider);
+      g_object_add_weak_pointer(G_OBJECT(rx_vol_slider), (gpointer *) &rx_vol_slider);
    }
 
    if (rx_rig_vol_slider) {
-      g_object_add_weak_pointer(G_OBJECT(rx_rig_vol_slider), (gpointer *)&rx_rig_vol_slider);
+      g_object_add_weak_pointer(G_OBJECT(rx_rig_vol_slider), (gpointer *) &rx_rig_vol_slider);
    }
-
    // Create PTT button widget; pack at the far right edge. NB: must be
    // packed FALSE/FALSE - with expand=TRUE the box stretches but the button
    // inside sits at its left, leaving it shy of the window edge.
@@ -209,7 +207,7 @@ gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
    }
    // prepare a programmatic name for the VFO
    char win_name[32];
-   memset(win_name, 0, sizeof(win_name) );
+   memset(win_name, 0, sizeof(win_name));
    snprintf(win_name, sizeof(win_name), "vfo-%c", vfo);
 
    // Lets see if we recognize that window...

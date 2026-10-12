@@ -7,8 +7,10 @@ static gui_window_t picker;
 static char connected_profile[512], edited_profile[512];
 GtkWidget *gtk_show_server_editor(const char *profile) {
    snprintf(edited_profile, sizeof(edited_profile), "%s", profile);
+
    return NULL;
 }
+
 const char *server_name;
 time_t now;
 

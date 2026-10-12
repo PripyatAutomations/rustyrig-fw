@@ -26,6 +26,7 @@ static bool send_request(rrconn_t *client, dict *d) {
 
    return true;
 }
+
 extern bool ws_binframe_process_mg(rrconn_t *, const char *, size_t);
 extern bool ws_binframe_process(const char *, size_t);
 
@@ -61,6 +62,7 @@ bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, i
       rx_frames++;
       assert(ws_binframe_process(payload->buf, payload->len));
    }
+
    return true;
 }
 int32_t rr_cat_parse_line(char *line) {

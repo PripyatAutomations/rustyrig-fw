@@ -19,8 +19,7 @@ static void soak_pcm(const char *name, const void *data, size_t len, void *user)
    decoded_samples += len / 2;
 }
 const char *cfg_get(const char *key) {
-   if (soak_codec && !strncmp(key, "pipeline:", 9) &&
-      !strncmp(key + 9, soak_codec, 4) && !strcmp(key + 13, ".rx")) {
+   if (soak_codec && !strncmp(key, "pipeline:", 9) && !strncmp(key + 9, soak_codec, 4) && !strcmp(key + 13, ".rx")) {
       // The native client consumes the PCM hub tap, not the legacy direct
       // playback branch which the older switching test replaces with appsink.
       return !strncmp(soak_codec, "ogg", 3) ? FWDSP_OGGV_RX : FWDSP_PC16_RX;
@@ -221,8 +220,7 @@ int main(int argc, char **argv) {
    // The parent's resolved pipeline must override the child's config/defaults.
    // A finite source proves the override was used: the file has an endless tone.
    parent_pipeline = "audiotestsrc num-buffers=5 samplesperbuffer=320 is-live=true ! "
-      "audio/x-raw,format=S16LE,rate=16000,channels=1 ! "
-      "appsink name=tx-sink sync=false";
+      "audio/x-raw,format=S16LE,rate=16000,channels=1 ! " "appsink name=tx-sink sync=false";
    memcpy(media_channels[0].codec, "pc1T", 5);
    frames_received = 0;
    assert(fwdsp_codec_start("pc1T", true, "channel") >= 0);

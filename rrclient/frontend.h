@@ -31,7 +31,7 @@
 #include <stddef.h>
 
 typedef struct rr_frontend_ops {
-   const char *name;                        // "gtk" etc, for diagnostics
+   const char *name;            // "gtk" etc, for diagnostics
 
    /* Formatted output into a named chat/window (va_list form). The module owns formatting/colorization. */
    void (*vprint)(const char *window, const char *fmt, va_list ap);
@@ -66,9 +66,9 @@ typedef struct rr_frontend_ops {
 
    /* PTT presentation. */
    void (*ptt_set_online)(bool online);
-   void (*ptt_set_state)(bool active);      // reflect server state
+   void (*ptt_set_state)(bool active); // reflect server state
    void (*ptt_tot_expired)(int tot_secs);
-   void (*ptt_refresh)(void);               // users TX state changed
+   void (*ptt_refresh)(void);   // users TX state changed
    /* Hotkey toggle entry point (alt-enter/ctrl-space). Returns false when the frontend handled it. */
    bool (*ptt_hotkey_toggle)(void);
 

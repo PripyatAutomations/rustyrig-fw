@@ -31,7 +31,7 @@ struct gps_source {
    char alias[64];
    struct rr_mediachan *channel, *nmea_channel;
    bool own_input, fixed, published, received, valid, manual;
-   int32_t lat, lon; // degrees * 10^7
+   int32_t lat, lon;            // degrees * 10^7
    uint64_t sent_at;
    int32_t sent_lat, sent_lon;
    uint8_t sent_flags;
@@ -42,7 +42,7 @@ static rr_event_token_t input_token, poll_token, subscribed_token, inventory_tok
 
 static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
    const char *p = *cursor;
-   while (isspace( (unsigned char)*p) ) {
+   while (isspace((unsigned char)*p)) {
       p++;
    }
    bool negative = *p == '-';
@@ -51,11 +51,11 @@ static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
       p++;
    }
 
-   if (!isdigit( (unsigned char)*p) ) {
+   if (!isdigit((unsigned char)*p)) {
       return false;
    }
    unsigned whole = 0, fraction = 0, scale = 1000000;
-   while (isdigit( (unsigned char)*p) ) {
+   while (isdigit((unsigned char)*p)) {
       whole = whole * 10 + (*p++ - '0');
 
       if (whole > maximum) {
@@ -66,10 +66,10 @@ static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
    if (*p == '.') {
       p++;
 
-      if (!isdigit( (unsigned char)*p) ) {
+      if (!isdigit((unsigned char)*p)) {
          return false;
       }
-      while (isdigit( (unsigned char)*p) ) {
+      while (isdigit((unsigned char)*p)) {
          if (!scale) {
             return false;
          }
@@ -81,13 +81,13 @@ static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
    if (whole == maximum && fraction) {
       return false;
    }
-   *result = (int32_t)(whole * 10000000 + fraction);
+   *result = (int32_t) (whole * 10000000 + fraction);
 
    if (negative) {
       *result = -*result;
    }
 
-   while (isspace( (unsigned char)*p) ) {
+   while (isspace((unsigned char)*p)) {
       p++;
    }
    *cursor = p;
@@ -112,7 +112,7 @@ bool rrserver_gps_position_parse(const char *text, int32_t *lat, int32_t *lon) {
 
 static struct gps_source *find(const char *alias) {
    for (unsigned i = 0 ; i < count ; i++) {
-      if (!strcmp(sources[i].alias, alias) ) {
+      if (!strcmp(sources[i].alias, alias)) {
          return &sources[i];
       }
    }
@@ -138,22 +138,21 @@ static void send_position(struct gps_source *source, rrconn_t *client) {
    }
    const struct gps_source *position = effective(source);
 
-   if (!available(position) ) {
+   if (!available(position)) {
       return;
    }
 
-   uint32_t lat = (uint32_t)position->lat, lon = (uint32_t)position->lon;
+   uint32_t lat = (uint32_t) position->lat, lon = (uint32_t) position->lon;
    uint8_t payload[RR_GPS_POSITION_PAYLOAD_LEN] = {
-      (uint8_t)(lat >> 24), (uint8_t)(lat >> 16), (uint8_t)(lat >> 8), (uint8_t)lat,
-      (uint8_t)(lon >> 24), (uint8_t)(lon >> 16), (uint8_t)(lon >> 8), (uint8_t)lon,
-      (uint8_t)( (position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) |
-         (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0) )
+      (uint8_t) (lat >> 24), (uint8_t) (lat >> 16), (uint8_t) (lat >> 8), (uint8_t) lat,
+      (uint8_t) (lon >> 24), (uint8_t) (lon >> 16), (uint8_t) (lon >> 8), (uint8_t) lon,
+      (uint8_t) ((position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) | (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0))
    };
    ws_media_send_frame(source->channel, client, payload, sizeof(payload), RR_GPS_FRAME_CODEC);
 
    if (position->fixed && source->nmea_channel) {
       char sentence[128];
-      size_t n = rr_nmea_rmc(position->lat, position->lon, payload[8], now, sentence, sizeof(sentence) );
+      size_t n = rr_nmea_rmc(position->lat, position->lon, payload[8], now, sentence, sizeof(sentence));
 
       if (n) {
          ws_media_send_frame(source->nmea_channel, client, (const uint8_t *)sentence, n, RR_NMEA_FRAME_CODEC);
@@ -195,7 +194,7 @@ static bool receiver_angle(const char *text, const char *hemisphere, bool latitu
    unsigned degrees = 0;
 
    for (unsigned i = 0 ; i < degree_digits ; i++) {
-      if (!isdigit( (unsigned char)text[i]) ) {
+      if (!isdigit((unsigned char)text[i])) {
          return false;
       }
       degrees = degrees * 10 + (text[i] - '0');
@@ -204,14 +203,14 @@ static bool receiver_angle(const char *text, const char *hemisphere, bool latitu
    const char *minutes = text + degree_digits;
    int32_t min;
 
-   if (!coordinate(&minutes, &min, 60) || *minutes || min < 0 || min >= 600000000 || degrees > maximum || (degrees == maximum && min) ) {
+   if (!coordinate(&minutes, &min, 60) || *minutes || min < 0 || min >= 600000000 || degrees > maximum || (degrees == maximum && min)) {
       return false;
    }
    int32_t angle = degrees * 10000000 + (min + 30) / 60;
 
-   if (hemisphere[0] == (latitude ? 'S' : 'W') ) {
+   if (hemisphere[0] == (latitude ? 'S' : 'W')) {
       angle = -angle;
-   } else if (hemisphere[0] != (latitude ? 'N' : 'E') ) {
+   } else if (hemisphere[0] != (latitude ? 'N' : 'E')) {
       return false;
    }
    *result = angle;
@@ -239,16 +238,16 @@ static void receiver_position(struct gps_source *source, const char *sentence) {
    bool valid, manual = false;
    const char *kind = fields[0] + 3;
 
-   if (!strcmp(kind, "RMC") ) {
+   if (!strcmp(kind, "RMC")) {
       lat = 3;
       lon = 5;
       valid = !strcmp(fields[2], "A");
 
-      if (strcmp(fields[2], "A") && strcmp(fields[2], "V") ) {
+      if (strcmp(fields[2], "A") && strcmp(fields[2], "V")) {
          return;
       }
       manual = count > 12 && !strcmp(fields[12], "M");
-   } else if (!strcmp(kind, "GGA") ) {
+   } else if (!strcmp(kind, "GGA")) {
       lat = 2;
       lon = 4;
 
@@ -257,12 +256,12 @@ static void receiver_position(struct gps_source *source, const char *sentence) {
       }
       valid = fields[6][0] != '0';
       manual = fields[6][0] == '7';
-   } else if (!strcmp(kind, "GLL") ) {
+   } else if (!strcmp(kind, "GLL")) {
       lat = 1;
       lon = 3;
       valid = !strcmp(fields[6], "A");
 
-      if (strcmp(fields[6], "A") && strcmp(fields[6], "V") ) {
+      if (strcmp(fields[6], "A") && strcmp(fields[6], "V")) {
          return;
       }
       manual = count > 7 && !strcmp(fields[7], "M");
@@ -271,7 +270,7 @@ static void receiver_position(struct gps_source *source, const char *sentence) {
    }
    int32_t a, b;
 
-   if (valid && (!receiver_angle(fields[lat], fields[lat + 1], true, &a) || !receiver_angle(fields[lon], fields[lon + 1], false, &b) ) ) {
+   if (valid && (!receiver_angle(fields[lat], fields[lat + 1], true, &a) || !receiver_angle(fields[lon], fields[lon + 1], false, &b))) {
       return;
    }
    source->received = true;
@@ -290,8 +289,7 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
    const char *alias = d ? dict_get(d, "gps.source", "station") : "station";
    struct gps_source *source = find(alias);
 
-   if (source && !source->fixed && sentence && strlen(sentence) >= 6 && strlen(sentence) <= 509 &&
-      rr_nmea_valid(sentence) ) {
+   if (source && !source->fixed && sentence && strlen(sentence) >= 6 && strlen(sentence) <= 509 && rr_nmea_valid(sentence)) {
       receiver_position(source, sentence);
 
       // Forward every validated sentence, including non-position records, to
@@ -328,12 +326,10 @@ static void poll_gps(const char *event, const char *data, rrconn_t *client, void
    for (unsigned i = 0 ; i < count ; i++) {
       struct gps_source *source = &sources[i];
       const struct gps_source *position = effective(source);
-      uint8_t flags = (position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) |
-         (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0);
+      uint8_t flags = (position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) | (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0);
 
       if (!source->published || source->sent_lat != position->lat ||
-         source->sent_lon != position->lon || source->sent_flags != flags ||
-         time - source->sent_at >= UINT64_C(300000000) ) {
+         source->sent_lon != position->lon || source->sent_flags != flags || time - source->sent_at >= UINT64_C(300000000)) {
          publish(source, NULL);
       }
    }
@@ -347,8 +343,7 @@ static void subscribed(const char *event, const char *data, rrconn_t *client, vo
    const char *uuid = dict_get(d, "media.chan-uuid", "");
 
    for (unsigned i = 0 ; i < count ; i++) {
-      if (sources[i].channel && (!strcmp(sources[i].channel->uuid, uuid) ||
-         (sources[i].nmea_channel && !strcmp(sources[i].nmea_channel->uuid, uuid) ) ) ) {
+      if (sources[i].channel && (!strcmp(sources[i].channel->uuid, uuid) || (sources[i].nmea_channel && !strcmp(sources[i].nmea_channel->uuid, uuid)))) {
          publish(&sources[i], client);
       }
    }
@@ -371,20 +366,20 @@ static bool configure_source(struct gps_source *source, const char *position) {
    int rank = 0;
    char target[96];
    snprintf(target, sizeof(target), "%s.gps-in", source->alias);
-   while ( (rank = dict_enumerate(cfg, rank, &key, &value) ) >= 0) {
+   while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
       if (!key || strncmp(key, "serial.", 7) || !value) {
          continue;
       }
 
       size_t n = strcspn(value, "@");
 
-      if (n == strlen(target) && !memcmp(value, target, n) ) {
+      if (n == strlen(target) && !memcmp(value, target, n)) {
          source->own_input = true;
       }
    }
    const char *gpsd = cfg_get("gpsd.target");
 
-   if (gpsd && !strcmp(gpsd, source->alias) && cfg_get("module:rrserver-gpsd.options") ) {
+   if (gpsd && !strcmp(gpsd, source->alias) && cfg_get("module:rrserver-gpsd.options")) {
       source->own_input = true;
    }
 
@@ -404,11 +399,11 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
 
    if (source->channel) {
       snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", alias);
-      snprintf(source->channel->room, sizeof(source->channel->room), "%s", rr_rig_registry_room(rig.rigs, radio) );
-      snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s", rr_server_rig_id(radio) );
+      snprintf(source->channel->room, sizeof(source->channel->room), "%s", rr_rig_registry_room(rig.rigs, radio));
+      snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s", rr_server_rig_id(radio));
    }
 
-   return !configure_source(source, rr_rig_config_get(alias, "gps.position") );
+   return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
 }
 static void add_nmea_channel(struct gps_source *source) {
    struct rr_mediachan *position = source->channel;
@@ -454,22 +449,20 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
          }
          dict_add(row, "inventory.state", output ?
             (available(position) && (position->fixed || position->valid) ? "position-known" : "no-fix") :
-            source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source ==
-            sources ? "unconfigured" : "station-fallback");
+            source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
          dict_add(row, "inventory.source", position->alias);
          dict_add(row, "inventory.action", output ==
-            2 ? "/media subscribe|unsubscribe <uuid>" : output ? "/gps subscribe|unsubscribe <scope>" :
-            "server-config-only");
+            2 ? "/media subscribe|unsubscribe <uuid>" : output ? "/gps subscribe|unsubscribe <scope>" : "server-config-only");
 
          if (output && channel) {
             dict_add(row, "inventory.room", channel->room);
          }
 
-         if (output && available(position) && (position->fixed || position->valid) ) {
+         if (output && available(position) && (position->fixed || position->valid)) {
             int64_t lat = position->lat, lon = position->lon;
             char coordinates[64];
             snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld,%s%lld.%07lld", lat < 0 ? "-" : "", (long long)(llabs(lat) / 10000000), (long long)(llabs(
-               lat) % 10000000), lon < 0 ? "-" : "", (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000) );
+               lat) % 10000000), lon < 0 ? "-" : "", (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
             dict_add(row, "inventory.coordinates", coordinates);
          }
          rr_inventory_send(client, row);
@@ -478,7 +471,7 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
    dict_free(request);
 }
 bool rrserver_gps_init(void) {
-   memset(sources, 0, sizeof(sources) );
+   memset(sources, 0, sizeof(sources));
    count = 1;
    snprintf(sources[0].alias, sizeof(sources[0].alias), "station");
    sources[0].channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA, RR_GPS_FRAME_CODEC,
@@ -486,10 +479,10 @@ bool rrserver_gps_init(void) {
 
    if (sources[0].channel) {
       snprintf(sources[0].channel->name, sizeof(sources[0].channel->name), "station.gps.rx");
-      snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room() );
+      snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
    }
 
-   if (!configure_source(&sources[0], cfg_get("station.gps.position") ) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL) ) {
+   if (!configure_source(&sources[0], cfg_get("station.gps.position")) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL)) {
       rrserver_gps_fini();
 
       return true;
@@ -528,6 +521,6 @@ void rrserver_gps_fini(void) {
       }
    }
 
-   memset(sources, 0, sizeof(sources) );
+   memset(sources, 0, sizeof(sources));
    count = 0;
 }

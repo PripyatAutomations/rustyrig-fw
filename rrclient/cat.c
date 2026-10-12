@@ -48,7 +48,7 @@ static CATcmd *cat_find_or_create_cmd(const char *cmd) {
       }
       c = c->next;
    }
-   CATcmd *newc = calloc(1, sizeof(*newc) );
+   CATcmd *newc = calloc(1, sizeof(*newc));
 
    if (!newc) {
       return NULL;
@@ -67,7 +67,7 @@ bool cat_register_callback(const char *cmd, CATCallback cb) {
    if (!c) {
       return false;
    }
-   CATCallbackNode *n = calloc(1, sizeof(*n) );
+   CATCallbackNode *n = calloc(1, sizeof(*n));
 
    if (!n) {
       return false;
@@ -97,7 +97,7 @@ bool cat_invoke_callbacks(const char *cmd, const char *args) {
       }
       c = c->next;
    }
-   return false;  // unknown command
+   return false;                // unknown command
 }
 
 bool cat_register_builtin_array(const CATBuiltin *arr) {
@@ -107,7 +107,7 @@ bool cat_register_builtin_array(const CATBuiltin *arr) {
 
    for (const CATBuiltin *p = arr ; p->cmd != NULL ; p++) {
       if (p->cb) {
-         if (!cat_register_callback(p->cmd, p->cb) ) {
+         if (!cat_register_callback(p->cmd, p->cb)) {
             return false;
          }
       }
@@ -129,10 +129,10 @@ int32_t rr_cat_init(void) {
 
 // XXX: Open the pipe(s)
 
-#if     defined(CAT_YAESU)              // Yaesu-style rig control
+#if     defined(CAT_YAESU)      // Yaesu-style rig control
    rr_cat_yaesu_init();
 #endif
-#if     defined(CAT_KPA500)             // KPA500 amplifier control
+#if     defined(CAT_KPA500)     // KPA500 amplifier control
 
    rr_cat_kpa500_init();
 #endif
@@ -174,7 +174,7 @@ int32_t rr_cat_parse_line_real(char *line) {
    }
 
    // Registered dynamic callbacks first (they may override the built-ins)
-   if (cat_invoke_callbacks(verb, args) ) {
+   if (cat_invoke_callbacks(verb, args)) {
       return 0;
    }
 
@@ -183,13 +183,13 @@ int32_t rr_cat_parse_line_real(char *line) {
    for (CATcmdTable *p = rr_cat_yaesu_commands ; p->command != NULL ; p++) {
       if (strcmp(p->command, verb) == 0) {
          if (p->rr_cat_yaesu_r) {
-            Log(LOG_CRAZY, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)") );
+            Log(LOG_CRAZY, "cat", "CAT cmd %s args: %s", verb, (args[0] ? args : "(none)"));
             p->rr_cat_yaesu_r(args);
          } else {
             // NB: an empty (NULL) handler that's a QUERY leaves the client
             // waiting for a response that never comes (WSJT-X hangs and
             // drops the connection). Implement the handler or answer here.
-            Log(LOG_WARN, "cat", "Unimplemented CAT command: %s (args: %s) - no response sent!", verb, (args[0] ? args : "(none)") );
+            Log(LOG_WARN, "cat", "Unimplemented CAT command: %s (args: %s) - no response sent!", verb, (args[0] ? args : "(none)"));
          }
 
          return 0;
@@ -198,7 +198,7 @@ int32_t rr_cat_parse_line_real(char *line) {
 
 #endif
 
-   Log(LOG_WARN, "cat", "Unknown CAT command: %s (args: %s)", verb, (args[0] ? args : "(none)") );
+   Log(LOG_WARN, "cat", "Unknown CAT command: %s (args: %s)", verb, (args[0] ? args : "(none)"));
 
    return -1;
 }
@@ -212,8 +212,7 @@ int32_t rr_cat_parse_line(char *line) {
    // Scrub trailing line endings, the ';' terminator and any trailing spaces
    size_t len = strlen(line);
 
-   while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' ||
-      line[len - 1] == ';' || line[len - 1] == ' ') ) {
+   while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n' || line[len - 1] == ';' || line[len - 1] == ' ')) {
       line[--len] = '\0';
    }
 

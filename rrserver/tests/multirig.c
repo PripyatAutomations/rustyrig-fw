@@ -39,8 +39,7 @@ char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, con
    }
 
    return strdup(!strcmp(alias, "@node") ? "00000000-0000-4000-8000-000000000001" :
-      !strcmp(alias, "first") ? "00000000-0000-4000-8000-000000000002" :
-      "00000000-0000-4000-8000-000000000003");
+      !strcmp(alias, "first") ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000003");
 }
 char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *alias) {
    (void)alias;
@@ -49,8 +48,7 @@ char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *a
       return NULL;
    }
 
-   return strdup(!strcmp(rig_uuid, "00000000-0000-4000-8000-000000000002") ?
-      "00000000-0000-4000-8000-000000000004" : "00000000-0000-4000-8000-000000000005");
+   return strdup(!strcmp(rig_uuid, "00000000-0000-4000-8000-000000000002") ? "00000000-0000-4000-8000-000000000004" : "00000000-0000-4000-8000-000000000005");
 }
 #endif
 
@@ -117,8 +115,7 @@ static void fake_destroy(rr_backend_t *backend) {
 static bool fake_vfo_supported(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    rr_vfo_t index;
 
-   return rr_server_vfo_owner(vfo) == backend->owner &&
-          rr_server_vfo_native_index(vfo, &index) && index == VFO_A;
+   return rr_server_vfo_owner(vfo) == backend->owner && rr_server_vfo_native_index(vfo, &index) && index == VFO_A;
 }
 
 static bool fake_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, float power) {
@@ -305,10 +302,8 @@ int main(void) {
    assert(rr_rig_registry_find_alias(rig.rigs, "rig1") == radio_b);
    assert(strcmp(rr_server_rig_id(radio_a), rr_server_rig_id(radio_b)));
    assert(rr_server_rig_backend(radio_a) != rr_server_rig_backend(radio_b));
-   assert(rr_server_rig_backend(radio_a)->type ==
-      rr_server_rig_backend(radio_b)->type);
-   assert(fake_data(rr_server_rig_backend(radio_a)) !=
-      fake_data(rr_server_rig_backend(radio_b)));
+   assert(rr_server_rig_backend(radio_a)->type == rr_server_rig_backend(radio_b)->type);
+   assert(fake_data(rr_server_rig_backend(radio_a)) != fake_data(rr_server_rig_backend(radio_b)));
    define_properties(radio_a);
    define_properties(radio_b);
 
@@ -353,10 +348,8 @@ int main(void) {
    assert(rr_rig_control(&request_b) == RR_CONTROL_OK);
    assert(fake_data(rr_server_rig_backend(radio_a))->controls == 1);
    assert(fake_data(rr_server_rig_backend(radio_b))->controls == 1);
-   assert(fake_data(rr_server_rig_backend(radio_a))->requested_frequency ==
-      14200000);
-   assert(fake_data(rr_server_rig_backend(radio_b))->requested_frequency ==
-      7100000);
+   assert(fake_data(rr_server_rig_backend(radio_a))->requested_frequency == 14200000);
+   assert(fake_data(rr_server_rig_backend(radio_b))->requested_frequency == 7100000);
    /* Successful controls do not overwrite observations. */
    assert(read_frequency(radio_a) == 14074000);
    assert(read_frequency(radio_b) == 7074000);
@@ -387,7 +380,7 @@ int main(void) {
 
    /* Full configuration startup: two instances of one backend receive only their scoped values and an explicit default selection. */
    dict_add(cfg, "station.name", "test-node");
-   masterdb = (sqlite3 *)1; // Identity helper mock handle, never dereferenced.
+   masterdb = (sqlite3 *) 1;    // Identity helper mock handle, never dereferenced.
    dict_add(cfg, "rig.identity-namespace", "test-node");
    dict_add(cfg, "rig.instances", "first second");
    dict_add(cfg, "rig.default", "second");
@@ -407,8 +400,7 @@ int main(void) {
    assert(rr_rig_registry_default(rig.rigs) == second);
    assert(!strcmp(fake_data(rr_server_rig_backend(first))->config_token, "alpha"));
    assert(!strcmp(fake_data(rr_server_rig_backend(second))->config_token, "beta"));
-   assert(rr_server_rig_backend(first)->type ==
-      rr_server_rig_backend(second)->type);
+   assert(rr_server_rig_backend(first)->type == rr_server_rig_backend(second)->type);
    assert(strcmp(rr_server_rig_id(first), rr_server_rig_id(second)));
    rr_server_vfo_t *first_a = rr_server_vfo_find_alias(first, "A");
    rr_server_vfo_t *second_a = rr_server_vfo_find_alias(second, "A");

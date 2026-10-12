@@ -62,7 +62,7 @@ static int cat_mode_digit(void) {
    const char *mode = rr_cat_property("A", "mode", NULL);
 
    if (!mode) {
-      return 2;                    // USB is a sane default for HF digital
+      return 2;                 // USB is a sane default for HF digital
    }
 
    if (strcmp(mode, "LSB") == 0) {
@@ -139,19 +139,19 @@ static void cat_mode_set(const char *digit) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set MODE to %s", mode);
-   ws_send_mode_cmd_in_room(ws_conn, cat_vfo_str(0), mode, rr_cat_room() );
+   ws_send_mode_cmd_in_room(ws_conn, cat_vfo_str(0), mode, rr_cat_room());
 }
 
 // Function stubs for all FT-891 CAT commands
 void rr_cat_yaesu_vfo_a_to_b(const char *args) {
    Log(LOG_INFO, "cat.yaesu", "VFO A -> VFO B (NYI)");
-}               // VFO A to VFO B
+}                               // VFO A to VFO B
 
 void rr_cat_yaesu_tuner_control(const char *args) {
-}       // Antenna Tuner Control
+}                               // Antenna Tuner Control
 
 void rr_cat_yaesu_af_gain(const char *args) {
-}               // Read/Set AF gain
+}                               // Read/Set AF gain
 
 // Auto Information mode: hamlib queries "AI;" during connect and expects a
 // reply; we always report it off (we don't push unsolicited CAT frames).
@@ -163,73 +163,73 @@ void rr_cat_yaesu_auto_info(const char *args) {
       return;
    }
    Log(LOG_CRAZY, "cat.yaesu", "Set AI to %c", args[0]);
-}               // Enable/Disable Auto Information mode
+}                               // Enable/Disable Auto Information mode
 
 void rr_cat_yaesu_vfo_a_to_mem(const char *args) {
-}       // Store VFO A to memory channel
+}                               // Store VFO A to memory channel
 
 void rr_cat_yaesu_vfo_b_to_a(const char *args) {
-}               // VFO B to VFO A
+}                               // VFO B to VFO A
 
 void rr_cat_yaesu_ant_select(const char *args) {
-}               // Read/Set Antenna selection
+}                               // Read/Set Antenna selection
 
 void rr_cat_yaesu_auto_notch(const char *args) {
-}               // Read/Set Auto Notch
+}                               // Read/Set Auto Notch
 
 void rr_cat_yaesu_band_down(const char *args) {
-}               // Band Down
+}                               // Band Down
 
 void rr_cat_yaesu_band_select(const char *args) {
-}       // Band Select
+}                               // Band Select
 
 void rr_cat_yaesu_band_up(const char *args) {
-}               // band up
+}                               // band up
 
 void rr_cat_yaesu_break_in(const char *args) {
-}               // Break-in
+}                               // Break-in
 
 void rr_cat_yaesu_manual_notch(const char *args) {
-}       // Manual Notch
+}                               // Manual Notch
 
 void rr_cat_yaesu_busy(const char *args) {
-}               // Busy
+}                               // Busy
 
 void rr_cat_yaesu_clarifier(const char *args) {
-}               // Clarifier
+}                               // Clarifier
 
 void rr_cat_yaesu_channel(const char *args) {
-}               // Channel
+}                               // Channel
 
 void rr_cat_yaesu_ctcss_number(const char *arg) {
-}       // CTCSS Number
+}                               // CTCSS Number
 
 void rr_cat_yaesu_contour(const char *arg) {
-}               // Contour
+}                               // Contour
 
 void rr_cat_yaesu_cw_spot(const char *arg) {
-}               // CW Spot
+}                               // CW Spot
 
 void rr_cat_yaesu_ctcss(const char *arg) {
-}               // CTCSS
+}                               // CTCSS
 
 void rr_cat_yaesu_dimmer(const char *arg) {
-}               // Dimmer
+}                               // Dimmer
 
 void rr_cat_yaesu_down(const char *args) {
-}               // Down
+}                               // Down
 
 void rr_cat_yaesu_encoder_down(const char *args) {
-}       // Encoder Down
+}                               // Encoder Down
 
 void rr_cat_yaesu_enter(const char *args) {
-}               // Enter key
+}                               // Enter key
 
 void rr_cat_yaesu_encoder_up(const char *args) {
-}               // Encoder Up
+}                               // Encoder Up
 
 void rr_cat_yaesu_menu(const char *args) {
-}               // Extended menu commands
+}                               // Extended menu commands
 
 void rr_cat_yaesu_set_vfo_a(const char *args) {
    // Read ("FA;") replies with the current frequency; set applies via backend
@@ -258,8 +258,8 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO A freq to %ld", freq);
-   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('A'), freq, rr_cat_room() );
-}               // Read/Set VFO A frequency
+   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('A'), freq, rr_cat_room());
+}                               // Read/Set VFO A frequency
 
 void rr_cat_yaesu_set_vfo_b(const char *args) {
    if (!args || !args[0]) {
@@ -285,41 +285,41 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
    }
 
    Log(LOG_CRAZY, "cat.yaesu", "Set VFO B freq to %ld", freq);
-   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('B'), freq, rr_cat_room() );
-}               // Read/Set VFO B frequency
+   ws_send_freq_cmd_in_room(ws_conn, cat_vfo_str('B'), freq, rr_cat_room());
+}                               // Read/Set VFO B frequency
 
 void rr_cat_yaesu_fast_step(const char *args) {
-}               // Fast Step
+}                               // Fast Step
 
 void rr_cat_yaesu_agc_func(const char *args) {
-}               // AGC Function
+}                               // AGC Function
 
 void rr_cat_yaesu_id(const char *args) {
    // FT-891 replies with its model code; hamlib uses this to identify the rig
    Log(LOG_CRAZY, "cat.yaesu", "ID query -> 0911");
    rr_cat_printf("ID0911;");
-}                       // IDentification
+}                               // IDentification
 
 void rr_cat_yaesu_info(const char *args) {
-}               // Get receiver status
+}                               // Get receiver status
 
 void rr_cat_yaesu_if_shift(const char *args) {
-}               // IF shift
+}                               // IF shift
 
 void rr_cat_yaesu_cw_key(const char *args) {
-}               // Send CW Keying
+}                               // Send CW Keying
 
 void rr_cat_yaesu_lock(const char *args) {
-}               // Read/Set lock status
+}                               // Read/Set lock status
 
 void rr_cat_yaesu_mem_to_vfo_a(const char *args) {
-}       // Memory to VFO A
+}                               // Memory to VFO A
 
 void rr_cat_yaesu_mem_channel(const char *args) {
-}       // Read/Set Memory Channel data
+}                               // Read/Set Memory Channel data
 
 void rr_cat_yaesu_mic_gain(const char *args) {
-}               // Mic Gain
+}                               // Mic Gain
 
 void rr_cat_yaesu_mode(const char *args) {
    // Yaesu newcat (FT-991A-family, which hamlib drives FT-891 as) sends
@@ -350,7 +350,6 @@ void rr_cat_yaesu_mode(const char *args) {
 
          return;
       }
-
       // "MD0<n>;" -- set mode <n> on the main band
       char digit[2] = {
          args[1], 0
@@ -359,31 +358,30 @@ void rr_cat_yaesu_mode(const char *args) {
 
       return;
    }
-
    // Legacy set form: "MD<n>;"
    char digit[2] = {
       args[0], 0
    };
    cat_mode_set(digit);
-}               // Read/Set operating mode
+}                               // Read/Set operating mode
 
 void rr_cat_yaesu_monitor_level(const char *args) {
-}       // Monitor Level
+}                               // Monitor Level
 
 void rr_cat_yaesu_memory_read(const char *args) {
-}       // Memory Read
+}                               // Memory Read
 
 void rr_cat_yaesu_meter_switch(const char *args) {
-}       // Meter Switch
+}                               // Meter Switch
 
 void rr_cat_yaesu_mem_write_tag(const char *args) {
-}       // Memory write & tag
+}                               // Memory write & tag
 
 void rr_cat_yaesu_mem_write(const char *args) {
-}               // Memory write
+}                               // Memory write
 
 void rr_cat_yaesu_mox(const char *args) {
-}               // MOX
+}                               // MOX
 
 void rr_cat_yaesu_narrow(const char *args) {
    // FT-891: NA0<x> where x is 0 (off) or 1 (narrow IF filter).
@@ -401,51 +399,50 @@ void rr_cat_yaesu_narrow(const char *args) {
       return;
    }
 
-   if ( (args[0] == '0' || args[0] == '1') && !args[1]) {
+   if ((args[0] == '0' || args[0] == '1') && !args[1]) {
       // band-qualified query ("NA0;" or "NA1;") - echo the selector back
       rr_cat_printf("NA%c0;", args[0]);
       Log(LOG_CRAZY, "cat.yaesu", "NARROW query (band %c) -> 0", args[0]);
 
       return;
    }
-
    // Set: args[0] is 0/1. Map onto the width command (narrow/normal) so the
    // server applies a real filter change.
    Log(LOG_CRAZY, "cat.yaesu", "Set NARROW to %c", args[0]);
-   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal"), rr_cat_room() );
-}               // Narrow
+   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), (args[0] == '1' ? "narrow" : "normal"), rr_cat_room());
+}                               // Narrow
 
 void rr_cat_yaesu_noise_blanker(const char *args) {
-}       // Read/Set Noise Blanker
+}                               // Read/Set Noise Blanker
 
 void rr_cat_yaesu_nb_level(const char *args) {
-}               // NB Level
+}                               // NB Level
 
 void rr_cat_yaesu_noise_reduction(const char *args) {
-}       // Noise Reduction
+}                               // Noise Reduction
 
 void rr_cat_yaesu_obi(const char *args) {
-}               // Opposite Band Info??
+}                               // Opposite Band Info??
 
 void rr_cat_yaesu_offset(const char *args) {
-}               // Offset
+}                               // Offset
 
 void rr_cat_yaesu_preamp(const char *args) {
-}               // Preamp
+}                               // Preamp
 
 void rr_cat_yaesu_playback(const char *args) {
-}               // Playback
+}                               // Playback
 
 void rr_cat_yaesu_preproc(const char *args) {
-}               // Preprocessor
+}                               // Preprocessor
 
 void rr_cat_yaesu_preproc_level(const char *args) {
-}       // Preprocessor level
+}                               // Preprocessor level
 
 void rr_cat_yaesu_tx_power(const char *args) {
    // FT-891: PC0xxx sets power, PC0; queries. We have no server protocol
    // command for TX power, so keep a local value and echo it back.
-   static int32_t pwr = 100;       // default 100W
+   static int32_t pwr = 100;    // default 100W
 
    if (args && args[0] == '0' && args[1]) {
       // PC0xxx - set
@@ -464,10 +461,10 @@ void rr_cat_yaesu_power(const char *args) {
       return;
    }
    Log(LOG_CRAZY, "cat.yaesu", "Set PS to %c", args[0]);
-}               // Read/Toggle power
+}                               // Read/Toggle power
 
 void rr_cat_yaesu_qmb_store(const char *args) {
-}               // QMB Store
+}                               // QMB Store
 
 void rr_cat_yaesu_width(const char *args) {
    // Newcat band-qualified form, like MD: "SH0;" queries the main band
@@ -491,33 +488,31 @@ void rr_cat_yaesu_width(const char *args) {
 
          return;
       }
-
       // "SH0<nnnn>;" -- set width on the main band
       Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args + 1);
-      ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args + 1, rr_cat_room() );
+      ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args + 1, rr_cat_room());
 
       return;
    }
-
    // Legacy "SH<nnnn>;" set form
    Log(LOG_CRAZY, "cat.yaesu", "Set WIDTH to %s", args);
-   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args, rr_cat_room() );
-}               // Width
+   ws_send_width_cmd_in_room(ws_conn, cat_vfo_str(0), args, rr_cat_room());
+}                               // Width
 
 void rr_cat_yaesu_s_meter(const char *args) {
-}               // Read S-meter/SWR/ALC/COMP
+}                               // Read S-meter/SWR/ALC/COMP
 
 void rr_cat_yaesu_squelch(const char *args) {
-}               // Read/Set squelch
+}                               // Read/Set squelch
 
 void rr_cat_yaesu_split(const char *args) {
-}               // Split
+}                               // Split
 
 void rr_cat_yaesu_swap_vfo(const char *args) {
-}               // Swap VFOs
+}                               // Swap VFOs
 
 void rr_cat_yaesu_txw(const char *args) {
-}               // Read/Set Tuning step
+}                               // Read/Set Tuning step
 
 // PTT set/query: "TX;" (no args) is a read -- hamlib polls TX state to sync;
 // report from the server-echoed cat.state.ptt.
@@ -532,24 +527,24 @@ void rr_cat_yaesu_ptt(const char *args) {
 
    bool ptt = (args[0] == '1');
 
-   Log(LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF") );
-   ws_send_ptt_cmd_in_room(ws_conn, cat_vfo_str(0), ptt, rr_cat_room() );
+   Log(LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF"));
+   ws_send_ptt_cmd_in_room(ws_conn, cat_vfo_str(0), ptt, rr_cat_room());
 }
 
 void rr_cat_yaesu_unlock(const char *args) {
-}               // Unlock
+}                               // Unlock
 
 void rr_cat_yaesu_up(const char *args) {
-}                       // UP
+}                               // UP
 
 void rr_cat_yaesu_vfo_mem(const char *args) {
-}               // VFO/Memory button
+}                               // VFO/Memory button
 
 void rr_cat_yaesu_vox_gain(const char *args) {
-}               // VOX Gain
+}                               // VOX Gain
 
 void rr_cat_yaesu_vox(const char *args) {
-}                       // VOX
+}                               // VOX
 
 // Keying speed (CW WPM): hamlib's FT-891 backend queries "KS;" at connect;
 // report a sane default and store whatever the client sets.
@@ -567,231 +562,231 @@ void rr_cat_yaesu_key_speed(const char *args) {
 }
 
 void rr_cat_yaesu_zero_in(const char *args) {
-}               // Zero In
+}                               // Zero In
 
 CATcmdTable rr_cat_yaesu_commands[] = {
    // cmd, min, max, callback
    {
       "AB", 0, 1, rr_cat_yaesu_vfo_a_to_b
-   },                                                   // VFO A to VFO B
+   },                                        // VFO A to VFO B
    {
       "AC", 1, 1, rr_cat_yaesu_tuner_control
-   },                                                   // Antenna Tuner Control
+   },                                           // Antenna Tuner Control
    {
       "AG", 1, 1, rr_cat_yaesu_af_gain
-   },                                                   // AF gain
+   },                                     // AF gain
    {
       "AI", 1, 1, rr_cat_yaesu_auto_info
-   },                                                   // Auto Information
+   },                                        // Auto Information
    {
       "AM", 1, 1, rr_cat_yaesu_vfo_a_to_mem
-   },                                                   // Store VFO A to memory
+   },                                           // Store VFO A to memory
    {
       "AN", 1, 1, rr_cat_yaesu_ant_select
-   },                                                   // ANtenna selection
-                                                        // (not on ft891)
+   },                                        // ANtenna selection
+   // (not on ft891)
    {
       "BA", 0, 1, rr_cat_yaesu_vfo_b_to_a
-   },                                                   // VFO B to VFO A
+   },                                        // VFO B to VFO A
    {
       "BC", 1, 1, rr_cat_yaesu_auto_notch
-   },                                                   // Auto Notch
+   },                                        // Auto Notch
    {
       "BI", 1, 1, rr_cat_yaesu_break_in
-   },                                                   // Break-in
+   },                                        // Break-in
    {
       "BD", 1, 1, rr_cat_yaesu_band_down
-   },                                                   // Band Down
+   },                                        // Band Down
    {
       "BP", 1, 1, rr_cat_yaesu_manual_notch
-   },                                                   // Manual notch
+   },                                           // Manual notch
    {
       "BS", 1, 1, rr_cat_yaesu_band_select
-   },                                                   // Band Select
+   },                                           // Band Select
    {
       "BU", 1, 1, rr_cat_yaesu_band_up
-   },                                                   // Band up
+   },                                     // Band up
    {
       "BY", 1, 1, rr_cat_yaesu_busy
-   },                                                   // Busy
+   },                                  // Busy
    {
       "CF", 1, 1, rr_cat_yaesu_clarifier
-   },                                                   // Clarifier
+   },                                        // Clarifier
    {
       "CH", 0, 1, rr_cat_yaesu_channel
-   },                                                   // Channel Up/Down
+   },                                     // Channel Up/Down
    {
       "CN", 0, 1, rr_cat_yaesu_ctcss_number
-   },                                                   // CTCSS Number
+   },                                           // CTCSS Number
    {
       "CO", 0, 1, rr_cat_yaesu_contour
-   },                                                   // Contour
+   },                                     // Contour
    {
       "CS", 0, 1, rr_cat_yaesu_cw_spot
-   },                                                   // CW Spot
+   },                                     // CW Spot
    {
       "CT", 0, 1, rr_cat_yaesu_ctcss
-   },                                                   // CTCSS
+   },                                     // CTCSS
    {
       "DA", 0, 1, rr_cat_yaesu_dimmer
-   },                                                   // Dimmer
+   },                                     // Dimmer
    {
       "DN", 0, 0, rr_cat_yaesu_down
-   },                                                   // DOWN
+   },                                  // DOWN
    {
       "ED", 0, 1, rr_cat_yaesu_encoder_down
-   },                                                   // Encoder Down
+   },                                           // Encoder Down
    {
       "EK", 0, 1, rr_cat_yaesu_enter
-   },                                                   // Enter key
+   },                                     // Enter key
    {
       "EU", 0, 1, rr_cat_yaesu_encoder_up
-   },                                                   // Encoder Up
+   },                                        // Encoder Up
    {
       "EX", 1, 1, rr_cat_yaesu_menu
-   },                                                   // Menu
+   },                                  // Menu
    {
       "FA", 1, 1, rr_cat_yaesu_set_vfo_a
-   },                                                   // Set VFO A freq
+   },                                        // Set VFO A freq
    {
       "FB", 1, 1, rr_cat_yaesu_set_vfo_b
-   },                                                   // Set VFO B freq
+   },                                        // Set VFO B freq
    {
       "FS", 0, 1, rr_cat_yaesu_fast_step
-   },                                                   // Fast Step
+   },                                        // Fast Step
    {
       "GT", 0, 1, rr_cat_yaesu_agc_func
-   },                                                   // AGC Function
+   },                                        // AGC Function
    {
       "ID", 0, 1, rr_cat_yaesu_id
-   },                                                   // IDentification
+   },                                  // IDentification
    {
       "IF", 0, 0, rr_cat_yaesu_info
-   },                                                   // Information
+   },                                  // Information
    {
       "IS", 1, 1, rr_cat_yaesu_if_shift
-   },                                                   // IF shift
+   },                                        // IF shift
    {
       "KY", 1, 1, rr_cat_yaesu_cw_key
-   },                                                   // CW keying
+   },                                     // CW keying
    {
       "LK", 1, 1, rr_cat_yaesu_lock
-   },                                                   // Lock
+   },                                  // Lock
    {
       "MA", 1, 1, rr_cat_yaesu_mem_to_vfo_a
-   },                                                   // Memory to VFO A
+   },                                           // Memory to VFO A
    {
       "MC", 1, 1, rr_cat_yaesu_mem_channel
-   },                                                   // Memory Channel
+   },                                           // Memory Channel
    {
       "MD", 1, 1, rr_cat_yaesu_mode
-   },                                                   // Mode
+   },                                  // Mode
    {
       "MG", 0, 1, rr_cat_yaesu_mic_gain
-   },                                                   // Mic Gain
+   },                                        // Mic Gain
    {
       "ML", 0, 1, rr_cat_yaesu_monitor_level
-   },                                                   // Monitor Level
+   },                                           // Monitor Level
    {
       "MR", 0, 1, rr_cat_yaesu_memory_read
-   },                                                   // Memory Read
+   },                                           // Memory Read
    {
       "MS", 0, 1, rr_cat_yaesu_meter_switch
-   },                                                   // Meter Switch
+   },                                           // Meter Switch
    {
       "MT", 0, 1, rr_cat_yaesu_mem_write_tag
-   },                                                   // Memory Write and Tag
+   },                                           // Memory Write and Tag
    {
       "MW", 0, 1, rr_cat_yaesu_mem_write
-   },                                                   // Memory Write
+   },                                        // Memory Write
    {
       "MX", 0, 1, rr_cat_yaesu_mox
-   },                                                   // MOX
+   },                                  // MOX
    {
       "NA", 0, 1, rr_cat_yaesu_narrow
-   },                                                   // Narrow
+   },                                     // Narrow
    {
       "NB", 0, 1, rr_cat_yaesu_noise_blanker
-   },                                                   // Noise Blanker
+   },                                           // Noise Blanker
    {
       "NL", 0, 1, rr_cat_yaesu_nb_level
-   },                                                   // NB Level
+   },                                        // NB Level
    {
       "NR", 1, 1, rr_cat_yaesu_noise_reduction
-   },                                                   // Noise Reduction
+   },                                              // Noise Reduction
    {
       "OI", 0, 1, rr_cat_yaesu_obi
-   },                                                   // Other Band Info?
+   },                                  // Other Band Info?
    {
       "OS", 0, 1, rr_cat_yaesu_offset
-   },                                                   // Offset
+   },                                     // Offset
    {
       "PA", 0, 1, rr_cat_yaesu_preamp
-   },                                                   // Preamp
+   },                                     // Preamp
    {
       "PB", 0, 1, rr_cat_yaesu_playback
-   },                                                   // Playback
+   },                                        // Playback
    {
       "PC", 1, 1, rr_cat_yaesu_tx_power
-   },                                                   // TX power level
+   },                                        // TX power level
    {
       "PL", 0, 1, rr_cat_yaesu_preproc_level
-   },                                                   // Speech preprocessor
-                                                        // level
+   },                                           // Speech preprocessor
+   // level
    {
       "PR", 0, 1, rr_cat_yaesu_preproc
-   },                                                   // Speech preprocessor
+   },                                     // Speech preprocessor
    {
       "PS", 0, 0, rr_cat_yaesu_power
-   },                                                   // Power Switch
+   },                                     // Power Switch
    {
       "QI", 0, 1, rr_cat_yaesu_qmb_store
-   },                                                   // QMB Store
+   },                                        // QMB Store
    {
       "SH", 0, 1, rr_cat_yaesu_width
-   },                                                   // Width
+   },                                     // Width
    {
       "SM", 1, 1, rr_cat_yaesu_s_meter
-   },                                                   // S-Meter
+   },                                     // S-Meter
    {
       "SQ", 1, 1, rr_cat_yaesu_squelch
-   },                                                   // Squelch
+   },                                     // Squelch
    {
       "ST", 1, 1, rr_cat_yaesu_split
-   },                                                   // Split
+   },                                     // Split
    {
       "SV", 1, 1, rr_cat_yaesu_swap_vfo
-   },                                                   // Swap VFO
+   },                                        // Swap VFO
    {
       "TS", 1, 1, rr_cat_yaesu_txw
-   },                                                   // TXW?
+   },                                  // TXW?
    {
       "TX", 0, 1, rr_cat_yaesu_ptt
-   },                                                   // TX Set (PTT)
+   },                                  // TX Set (PTT)
    {
       "UP", 0, 0, rr_cat_yaesu_down
-   },                                                   // UP
+   },                                  // UP
    {
       "UL", 0, 1, rr_cat_yaesu_unlock
-   },                                                   // Unlock
+   },                                     // Unlock
    {
       "VG", 0, 1, rr_cat_yaesu_vox_gain
-   },                                                   // VOX Gain
+   },                                        // VOX Gain
    {
       "VM", 0, 1, rr_cat_yaesu_vfo_mem
-   },                                                   // VFO/Memory button
+   },                                     // VFO/Memory button
    {
       "VX", 0, 1, rr_cat_yaesu_vox
-   },                                                   // VOX
+   },                                  // VOX
    {
       "KS", 0, 1, rr_cat_yaesu_key_speed
-   },                                                   // Keying Speed
+   },                                        // Keying Speed
    {
       "ZI", 0, 1, rr_cat_yaesu_zero_in
-   },                                                   // Zero in
+   },                                     // Zero in
    {
       NULL, -1, -1, NULL
-   }                                                     // Terminator
+   }                            // Terminator
 };
 
 bool rr_cat_yaesu_init(void) {

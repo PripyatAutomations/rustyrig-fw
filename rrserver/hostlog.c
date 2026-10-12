@@ -44,31 +44,30 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       return false;
    }
 
-   if (debug_filter(subsys, priority) ) {
+   if (debug_filter(subsys, priority)) {
       return false;
    }
-
    // Current-account privilege checks can log; suppress callback recursion.
    streaming = true;
    char msgbuf[1024];
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
 
    uint8_t *frame = NULL;
-   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, strlen(msgbuf), ++logframe_seq, (uint64_t)now);
+   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, strlen(msgbuf), ++logframe_seq, (uint64_t) now);
 
    if (flen < 0 || !frame) {
       streaming = false;
 
-      return false;   // OOM or too-long; drop quietly
+      return false;             // OOM or too-long; drop quietly
    }
-
    // Fan out to clients that asked for the host log via /syslog on
    rrconn_t *cur = http_client_list;
 
    while (cur) {
-      if (cur->is_ws && cur->authenticated && cur->conn &&
-         cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG) ) {
-         struct mg_str payload = {(char *)frame, flen};
+      if (cur->is_ws && cur->authenticated && cur->conn && cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG)) {
+         struct mg_str payload = {
+            (char *)frame, flen
+         };
          ws_send_to_cptr(NULL, cur, &payload, WEBSOCKET_OP_BINARY);
       }
       cur = cur->next;

@@ -21,17 +21,17 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <librustyaxe/logger.h>
 
-extern dict *cfg;                // config.c
+extern dict *cfg;               // config.c
 extern time_t now;
 extern GtkWidget *main_notebook;
 
 GtkWidget *log_view = NULL;
 GtkTextBuffer *log_buffer = NULL;
-static GtkWidget *log_page = NULL;       // notebook page holding log_view
-static GtkWidget *host_log_page = NULL;  // notebook page holding host_log_view
+static GtkWidget *log_page = NULL;  // notebook page holding log_view
+static GtkWidget *host_log_page = NULL;   // notebook page holding host_log_view
 GtkWidget *host_log_view = NULL;
 GtkTextBuffer *host_log_buffer = NULL;
-extern bool dying;               // main.c
+extern bool dying;              // main.c
 
 // Is the client log tab the one the user is looking at?  While it's hidden
 // we skip markup colorization, scroll re-arming and other per-line costs;
@@ -42,8 +42,7 @@ static bool log_tab_visible(void) {
       return false;
    }
 
-   return(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
-      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page) );
+   return(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), log_page));
 }
 
 // One host log line arrived as a SUBSYS_LOG binframe payload (media.frame.log
@@ -60,11 +59,11 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
       return;
    }
    const uint8_t *p = (const uint8_t *)data;
-   logpriority_t prio = (logpriority_t)p[0];
+   logpriority_t prio = (logpriority_t) p[0];
    char subsys[17];
 
    memcpy(subsys, p + 1, 16);
-   subsys[16] = '\0';   // subsys is NUL padded, but belt & braces
+   subsys[16] = '\0';           // subsys is NUL padded, but belt & braces
 
    // Respect the client's configured log level, exactly as the local log
    // pane does. Without this gate a chatty server log level (e.g. event
@@ -85,7 +84,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    gtk_text_buffer_get_end_iter(host_log_buffer, &end);
 
    char tsbuf[128];
-   snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now) );
+   snprintf(tsbuf, sizeof(tsbuf), "%s", get_chat_ts(now));
    char *ts_markup = gtk_colorize_string(tsbuf);
 
    if (ts_markup) {
@@ -97,7 +96,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 
    char header[64];
    // get_chat_ts() already includes the separator after the timestamp.
-   snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(prio) );
+   snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(prio));
    gtk_text_buffer_insert(host_log_buffer, &end, header, -1);
    char *msg_copy = malloc(mlen + 1);
 
@@ -110,7 +109,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
          gtk_text_buffer_insert_markup(host_log_buffer, &end, msg_markup, -1);
          g_free(msg_markup);
       } else {
-         gtk_text_buffer_insert(host_log_buffer, &end, msg_copy, (gint)mlen);
+         gtk_text_buffer_insert(host_log_buffer, &end, msg_copy, (gint) mlen);
       }
       free(msg_copy);
    }
@@ -119,8 +118,7 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 
    // Only bother scrolling when the user is actually watching this tab
    if (main_notebook && host_log_page &&
-      gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook) ) ==
-      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), host_log_page) ) {
+      gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), host_log_page)) {
       g_idle_add(ui_scroll_to_end, host_log_view);
    }
 }
@@ -248,7 +246,7 @@ GtkWidget *init_log_tab(void) {
 
    log_view = gtk_text_view_new();
    gtk_widget_set_name(log_view, "log-view");
-   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view) );
+   log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(log_view));
    gtk_text_view_set_editable(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(log_view), GTK_WRAP_WORD_CHAR);
@@ -272,7 +270,7 @@ GtkWidget *init_host_log_tab(void) {
 
    host_log_view = gtk_text_view_new();
    gtk_widget_set_name(host_log_view, "host-log-view");
-   host_log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(host_log_view) );
+   host_log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(host_log_view));
    gtk_text_view_set_editable(GTK_TEXT_VIEW(host_log_view), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(host_log_view), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(host_log_view), GTK_WRAP_WORD_CHAR);
