@@ -429,3 +429,8 @@ GTK and browser transcripts link room references in chat, topics, notices and
 LIST output. Activating a reference selects an existing room tab or joins using
 the containing transcript's connection. Drafts remain untouched; existing URL
 links and text selection remain usable. Terminal rendering remains plain text.
+
+The native GTK server-profile editor has one space-delimited Rooms field for
+all autojoins. It merges legacy chat/rig lists when opened and writes edited
+lists to the user's `autojoin` override, masking the legacy `autojoin.rig` list.
+The browser uses its existing site preferences rather than native profiles.

@@ -136,18 +136,45 @@ serverlist_t *serverlist_find_by_url(serverlist_t *head, const char *url) {
 
 typedef struct {
    char *profile;
-   GtkWidget *fields[6];
-   char *initial[6];
+   GtkWidget *fields[5];
+   char *initial[5];
    GtkWidget *error;
 } GtkServerEditor;
 
 static const char *editor_keys[] = {
-   "server.url", "server.user", "server.pass", "server.proxy", "autojoin", "autojoin.rig"
+   "server.url", "server.user", "server.pass", "server.proxy", "autojoin"
 };
+
+/* Existing profiles may still contain the old editor's separate rig list. */
+static char *server_editor_rooms(const char *rooms, const char *rig_rooms) {
+   gchar *combined = g_strjoin(" ", rooms ? rooms : "", rig_rooms ? rig_rooms : "", NULL);
+   gchar **tokens = g_strsplit_set(combined, ", \t\r\n", -1);
+   GString *result = g_string_new("");
+   GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   for (unsigned i = 0; tokens[i]; i++) {
+      if (!*tokens[i]) {
+         continue;
+      }
+      char *key = g_ascii_strdown(tokens[i], -1);
+      if (g_hash_table_contains(seen, key)) {
+         g_free(key);
+         continue;
+      }
+      g_hash_table_add(seen, key);
+      if (result->len) {
+         g_string_append_c(result, ' ');
+      }
+      g_string_append(result, tokens[i]);
+   }
+   g_hash_table_destroy(seen);
+   g_strfreev(tokens);
+   g_free(combined);
+   return g_string_free(result, FALSE);
+}
 
 static void server_editor_free(gpointer data) {
    GtkServerEditor *editor = data;
-   for (unsigned i = 0 ; i < 6 ; i++) {
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       g_free(editor->initial[i]);
    }
    g_free(editor->profile);
@@ -181,8 +208,12 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       free(path);
       return;
    }
+   char *rooms = server_editor_rooms(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), NULL);
+   gtk_entry_set_text(GTK_ENTRY(editor->fields[4]), rooms);
+   g_free(rooms);
+   bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
    bool changed = false;
-   for (unsigned i = 0 ; i < 6 ; i++) {
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       const char *value = gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
       if (strcmp(value, editor->initial[i])) {
          char key[640];
@@ -191,17 +222,28 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          changed = true;
       }
    }
+   if (rooms_changed) {
+      char key[640];
+      snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
+      /* An empty user override also masks an inherited legacy rig list. */
+      dict_add(overrides, key, "");
+   }
    /* Only user overrides are serialized; site configuration stays in /etc. */
    mode_t previous = umask(0077);
    bool saved = !changed || cfg_save_overrides(overrides, path);
    umask(previous);
    if (saved) {
-      for (unsigned i = 0 ; i < 6 ; i++) {
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
          if (strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[i])), editor->initial[i])) {
             char key[640];
             snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
             dict_add(cfg, key, gtk_entry_get_text(GTK_ENTRY(editor->fields[i])));
          }
+      }
+      if (rooms_changed) {
+         char key[640];
+         snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
+         dict_add(cfg, key, "");
       }
       gtk_server_picker_refresh_profile(editor->profile);
       gtk_widget_destroy(window);
@@ -233,23 +275,28 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
    gtk_container_add(GTK_CONTAINER(window), grid);
-   const char *labels[] = { "URL", "Username", "Password", "Proxy", "Chat rooms", "Rig rooms" };
-   for (unsigned i = 0 ; i < 6 ; i++) {
+   const char *labels[] = { "URL", "Username", "Password", "Proxy", "Rooms" };
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
       const char *value = get_server_property(profile, editor_keys[i]);
-      editor->initial[i] = g_strdup(value ? value : "");
+      editor->initial[i] = i == 4 ? server_editor_rooms(value,
+         get_server_property(profile, "autojoin.rig")) : g_strdup(value ? value : "");
       editor->fields[i] = gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(editor->fields[i]), editor->initial[i]);
       gtk_entry_set_width_chars(GTK_ENTRY(editor->fields[i]), 48);
       gtk_entry_set_visibility(GTK_ENTRY(editor->fields[i]), i != 2);
+      if (i == 4) {
+         gtk_entry_set_placeholder_text(GTK_ENTRY(editor->fields[i]), "#lobby #station-rig0 #hamradio");
+         gtk_widget_set_tooltip_text(editor->fields[i], "Rooms to join, separated by spaces.");
+      }
       gtk_grid_attach(GTK_GRID(grid), gtk_label_new(labels[i]), 0, i, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
    }
    editor->error = gtk_label_new("");
-   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 6, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 5, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
-   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 7, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), save, 1, 7, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 6, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), save, 1, 6, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_widget_destroy), window);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
    gtk_widget_show_all(window);

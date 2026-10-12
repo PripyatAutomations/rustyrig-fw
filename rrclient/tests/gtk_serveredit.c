@@ -24,6 +24,8 @@ int main(void) {
    dict_add(cfg, "server:site.example.server.url", "ws://shared.example/ws/");
    dict_add(cfg, "server:site.example.server.user", "shared-user");
    dict_add(cfg, "server:site.example.server.pass", "");
+   dict_add(cfg, "server:site.example.autojoin", "#lobby, #hamradio");
+   dict_add(cfg, "server:site.example.autojoin.rig", "#station-rig0 #HAMRADIO");
    dict *overrides = dict_new();
    dict_add(overrides, "site:gridsquare", "EM98");
    assert(cfg_save_overrides(overrides, user_path));
@@ -31,6 +33,7 @@ int main(void) {
    GtkWidget *window = gtk_show_server_editor("site.example");
    GtkServerEditor *editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
    assert(!gtk_entry_get_visibility(GTK_ENTRY(editor->fields[2])));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), "#lobby #hamradio #station-rig0"));
    gtk_entry_set_text(GTK_ENTRY(editor->fields[2]), "personal-secret");
    server_editor_save(NULL, window);
    assert(refreshed == 1);
@@ -41,14 +44,28 @@ int main(void) {
    assert(!dict_get(overrides, "server:site.example.server.url", NULL));
    assert(!dict_get(overrides, "server:site.example.server.user", NULL));
    assert(!dict_get(overrides, "unrelated-default", NULL));
+   assert(!dict_get(overrides, "server:site.example.autojoin", NULL));
+   assert(!dict_get(overrides, "server:site.example.autojoin.rig", NULL));
    assert(!strcmp(dict_get(cfg, "server:site.example.server.pass", ""), "personal-secret"));
    struct stat status;
    assert(!stat(user_path, &status) && (status.st_mode & 077) == 0);
    window = gtk_show_server_editor("site.example");
    editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
+   /* Removing a legacy rig room must stay removed after saving and reopening. */
+   gtk_entry_set_text(GTK_ENTRY(editor->fields[4]), "#lobby   #new-rig0\t#chat");
+   server_editor_save(NULL, window);
+   assert(refreshed == 2);
+   dict_free(overrides);
+   overrides = cfg_load(user_path);
+   assert(!strcmp(dict_get(overrides, "server:site.example.autojoin", ""), "#lobby #new-rig0 #chat"));
+   assert(!strcmp(dict_get(overrides, "server:site.example.autojoin.rig", "missing"), ""));
+   assert(!strcmp(dict_get(cfg, "server:site.example.autojoin.rig", "missing"), ""));
+   window = gtk_show_server_editor("site.example");
+   editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), "#lobby #new-rig0 #chat"));
    gtk_entry_set_text(GTK_ENTRY(editor->fields[0]), "invalid");
    server_editor_save(NULL, window);
-   assert(refreshed == 1 && *gtk_label_get_text(GTK_LABEL(editor->error)));
+   assert(refreshed == 2 && *gtk_label_get_text(GTK_LABEL(editor->error)));
    gtk_widget_destroy(window);
    dict_free(overrides);
    dict_free(cfg);
@@ -62,5 +79,5 @@ int main(void) {
    }
    g_dir_close(backups);
    assert(!rmdir(directory));
-   puts("PASS: GTK server editor saves only changed user overrides, protects credentials and rejects invalid URLs");
+   puts("PASS: GTK server editor saves only changed user overrides, merges legacy rooms, protects credentials and rejects invalid URLs");
 }
