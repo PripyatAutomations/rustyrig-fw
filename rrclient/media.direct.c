@@ -39,6 +39,8 @@ struct direct_channel {
    uint64_t renew_at, connect_deadline;
    rr_media_transport_t mode;
    bool failed, requested, preference;
+   unsigned route; /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
+   bool remote;
    uint8_t stream, owner_stream, direction;
 };
 static struct direct_channel channels[MAX_DIRECT_CHANNELS];
@@ -66,6 +68,7 @@ bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_trans
       return false;
    channel->mode = mode;
    channel->failed = false;
+   channel->route = 0;
    return true;
 }
 static void direct_failed(struct direct_channel *channel, const char *reason) {
@@ -82,6 +85,14 @@ static void direct_failed(struct direct_channel *channel, const char *reason) {
    dict_add(d, "error.target", channel->room);
    event_emit_dict("error", channel->client, d);
    dict_free(d);
+}
+static void next_route(struct direct_channel *channel) {
+   rr_rtp_socket_detach(channel->attachment);
+   channel->attachment = NULL;
+   channel->renew_at = channel->connect_deadline = 0;
+   if (!channel->remote || channel->route == 1) channel->route = 2;
+   else channel->route = 1;
+   media_send_subscribe(channel->client, channel->uuid);
 }
 static bool hex_key(const char *text, uint8_t *key) {
    if (strlen(text) != RR_RTP_KEY_LEN * 2)
@@ -112,6 +123,7 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       channel->stream = dict_get_ulong(d, "media.stream", 0);
       channel->owner_stream = dict_get_ulong(d, "media.owner-stream", channel->stream);
       channel->direction = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
+      channel->remote = channel->stream != dict_get_ulong(d, "media.owner-stream", channel->stream) || channel->remote;
       const char *security = dict_get(d, "media.direct-security", "");
       bool encrypted = !strcmp(security, "aes128cm-sha1-80");
       uint8_t key[RR_RTP_KEY_LEN];
@@ -119,12 +131,13 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       const char *endpoint = dict_get(d, "media.direct", "");
       channel->connect_deadline = mono_us() + UINT64_C(5000000);
       channel->failed = false;
-      if (channel->mode == RR_MEDIA_PROXY)
+      if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2))
          return;
       if ((channel->mode == RR_MEDIA_AUTO && !preferred(client)) || !rr_rtp_supported(encrypted) ||
          (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !*endpoint || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
          if (channel->mode == RR_MEDIA_DIRECT)
             direct_failed(channel, "the owner did not provide a usable RTP referral");
+         else if (preferred(client)) next_route(channel);
          return;
       }
       if (!media_socket)
@@ -132,8 +145,10 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       channel->attachment = rr_rtp_socket_attach(media_socket, ssrc, key, encrypted, endpoint, channel);
       memset(key, 0, sizeof(key));
       channel->renew_at = mono_us() + UINT64_C(240000000);
-      if (!channel->attachment && channel->mode == RR_MEDIA_DIRECT)
-         direct_failed(channel, "unable to open the RTP endpoint");
+      if (!channel->attachment) {
+         if (channel->mode == RR_MEDIA_DIRECT) direct_failed(channel, "unable to open the RTP endpoint");
+         else next_route(channel);
+      }
    } else if (!strcmp(cmd, "unsubscribed") || !strcmp(cmd, "chan-remove")) {
       rr_rtp_socket_detach(channel->attachment);
       memset(channel, 0, sizeof(*channel));
@@ -162,6 +177,8 @@ void rrclient_direct_poll(void) {
    rr_rtp_socket_poll(media_socket, now, NULL, received);
    for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; i++) {
       struct direct_channel *c = &channels[i];
+      if (c->mode == RR_MEDIA_AUTO && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now))
+         next_route(c);
       if (c->mode == RR_MEDIA_DIRECT && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now))
          direct_failed(c, "the RTP endpoint did not answer; use -proxy to select WebSockets");
       if (rr_rtp_socket_active(c->attachment, now))
@@ -179,6 +196,7 @@ void rrclient_direct_apply_preferences(void) {
       bool enabled = preferred(c->client);
       if (c->preference == enabled) continue;
       c->preference = enabled;
+      c->route = 0;
       if (!c->requested || c->mode != RR_MEDIA_AUTO) continue;
       if (!enabled) {
          rr_rtp_socket_detach(c->attachment);
@@ -204,6 +222,8 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
       return;
    if (!strcmp(dict_get(d, "media.cmd", ""), "unsubscribe")) {
       c->requested = false;
+      c->route = 0;
+      c->remote = false;
       rr_rtp_socket_detach(c->attachment);
       c->attachment = NULL;
       c->renew_at = 0;
@@ -217,7 +237,8 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
       else if (c->mode == RR_MEDIA_PROXY)
          dict_add(d, "media.transport", "ws");
       else
-         dict_add(d, "media.transport", *c->endpoint && preferred(client) && rr_rtp_supported(false) ? "rtp" : "ws");
+         dict_add(d, "media.transport", preferred(client) && rr_rtp_supported(false) && c->route < 2 ?
+            (c->route == 1 ? "rtp-home" : "rtp") : "ws");
    }
 }
 static void binary(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {

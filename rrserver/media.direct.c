@@ -6,6 +6,7 @@
 #include <librustyaxe/core.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/acl.h>
+#include <rrserver/relay.h>
 #if defined(HOST_POSIX) && defined(USE_MONGOOSE)
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.events.h>
@@ -31,7 +32,8 @@ struct grant {
    uint8_t key[RR_RTP_KEY_LEN];
    uint32_t ssrc;
    uint64_t expires;
-   bool headers, force;
+   bool headers, force, relay;
+   uint8_t stream, direction;
 };
 static struct grant grants[MAX_GRANTS];
 static bool initialized;
@@ -155,6 +157,10 @@ static bool valid(void *user) {
    struct grant *g = user;
    rrconn_t *c = g->client;
    struct rr_mediachan *channel = media_chan_find_uuid(g->uuid);
+   if (g->relay)
+      return c && c->authenticated && c->user && c->user->enabled && !c->user->password_change_required &&
+         (!c->user->password_expires || c->user->password_expires > now) &&
+         rrserver_relay_media_valid(c, g->uuid, g->stream);
    if (!c || !c->authenticated || !c->user || !c->user->enabled || c->user->password_change_required ||
       (c->user->password_expires && c->user->password_expires <= now) || !channel || !media_client_in_channel_room(c, channel))
       return false;
@@ -177,6 +183,15 @@ static bool receive_frame(void *user, const uint8_t *data, size_t length) {
    struct grant *g = user;
    if (!valid(g) || (uint64_t) mono_us() >= g->expires)
       return false;
+   if (g->relay) {
+      if (!data) return true;
+      struct rr_binframe frame;
+      if (g->direction != RR_BINFRAME_DIR_TX || rr_binframe_parse(data, length, &frame) ||
+         frame.hdr.stream != g->stream || frame.hdr.direction != RR_BINFRAME_DIR_TX || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO)
+         return false;
+      rr_traffic_count(g->client, false, true, length);
+      return ws_binframe_process_mg(g->client, (const char *)data, length);
+   }
    struct rr_mediachan *channel = media_chan_find_uuid(g->uuid);
    if (!data) {
       if (!g->headers && channel->direction == RR_BINFRAME_DIR_RX) {
@@ -294,6 +309,43 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
       return;
    }
 }
+bool rrserver_direct_relay_active(rrconn_t *client, const char *uuid) {
+   for (unsigned i = 0; i < MAX_GRANTS; i++) {
+      struct grant *g = &grants[i];
+      if (g->client == client && g->relay && !strcmp(g->uuid, uuid))
+         return valid(g) && rr_rtp_socket_active(g->attachment, mono_us());
+   }
+   return false;
+}
+/* Home-server grants use the same listener pools, ACLs and private keys as local rigs. */
+bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, unsigned direction) {
+   struct media_pool *pool = select_pool(client);
+   if (!pool || !rrserver_relay_media_valid(client, dict_get(d, "media.chan-uuid", ""), stream)) return false;
+   struct grant *g = NULL;
+   for (unsigned i = 0; i < MAX_GRANTS; i++) {
+      if (grants[i].client == client && !strcmp(grants[i].uuid, dict_get(d, "media.chan-uuid", ""))) {
+         remove_grant(&grants[i]); g = &grants[i]; break;
+      }
+      if (!grants[i].client && !g) g = &grants[i];
+   }
+   if (!g) return false;
+   g->client = client; g->pool = pool; g->relay = true; g->stream = stream; g->direction = direction;
+   snprintf(g->uuid, sizeof(g->uuid), "%s", dict_get(d, "media.chan-uuid", ""));
+   if (getrandom(g->key, sizeof(g->key), 0) != sizeof(g->key) || getrandom(&g->ssrc, sizeof(g->ssrc), 0) != sizeof(g->ssrc)) {
+      remove_grant(g); return false;
+   }
+   g->ssrc = (g->ssrc & UINT32_C(0x7fffffff)) | 1;
+   g->attachment = rr_rtp_socket_attach(pool->socket, g->ssrc, g->key, pool->encrypted, NULL, g);
+   if (!g->attachment) { remove_grant(g); return false; }
+   g->expires = mono_us() + UINT64_C(300000000);
+   char key[RR_RTP_KEY_LEN * 2 + 1];
+   for (unsigned i = 0; i < RR_RTP_KEY_LEN; i++) snprintf(key + i * 2, 3, "%02x", g->key[i]);
+   dict_add(d, "media.transport", "rtp-home"); dict_add(d, "media.direct", pool->endpoint);
+   dict_add(d, "media.direct-key", key); dict_add_ulong(d, "media.direct-ssrc", g->ssrc);
+   dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
+   dict_add_ulong(d, "media.owner-stream", stream);
+   return true;
+}
 static void request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -363,7 +415,8 @@ static void binary(const char *event, const void *data, size_t length, rrconn_t 
    for (unsigned i = 0; i < MAX_GRANTS; i++) {
       struct grant *g = &grants[i];
       struct rr_mediachan *channel = g->client == client ? media_chan_find_uuid(g->uuid) : NULL;
-      if (channel && channel - media_channels + 1 == frame.hdr.stream && valid(g)) {
+      if (((g->client == client && g->relay && g->stream == frame.hdr.stream) ||
+         (channel && channel - media_channels + 1 == frame.hdr.stream)) && valid(g)) {
          if (!rr_rtp_socket_active(g->attachment, mono_us()) || io->length > RR_RTP_MAX_FRAME) {
             if (g->force) {
                io->handled = true;
@@ -395,6 +448,12 @@ void rrserver_direct_register_events(void) {
    event_on_binary(RR_MEDIA_BINARY_EVENT, binary, NULL);
 }
 #else
+bool rrserver_direct_relay_active(rrconn_t *client, const char *uuid) {
+   (void)client; (void)uuid; return false;
+}
+bool rrserver_direct_relay_grant(rrconn_t *client, dict *reply, unsigned stream, unsigned direction) {
+   (void)client; (void)reply; (void)stream; (void)direction; return false;
+}
 void rrserver_direct_register_events(void) {
 }
 void rrserver_direct_close(rrconn_t *client) {

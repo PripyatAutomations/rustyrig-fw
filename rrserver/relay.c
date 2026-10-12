@@ -10,6 +10,7 @@
 #include <librrprotocol/media.health.h>
 #ifdef USE_MONGOOSE
 #include <librrprotocol/server.events.h>
+#include <librrprotocol/rtp.socket.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
 #include <librrprotocol/wire.h>
@@ -744,14 +745,17 @@ struct relay_media {
    struct relay_media *next;
    rrconn_t *client;
    char owner[37], uuid[64], room[128];
-   uint8_t stream, owner_stream, direction;
-   bool subscribed, setup;
+   uint8_t stream, owner_stream, direction, subsystem;
+   bool subscribed, setup, home;
+   rr_rtp_attachment_t *upstream;
+   dict *referral;
    uint8_t *frame;
    size_t size, received;
    uint32_t sequence;
    uint64_t started;
 };
 static struct relay_media *media_maps;
+static rr_rtp_socket_t *relay_socket;
 static unsigned media_map_count;
 static uint32_t media_sequence;
 static struct relay_media *media_map(rrconn_t *client, const char *uuid, bool create) {
@@ -784,6 +788,45 @@ static struct relay_media *media_map(rrconn_t *client, const char *uuid, bool cr
    media_map_count++;
    return m;
 }
+bool rrserver_relay_media_valid(rrconn_t *client, const char *uuid, unsigned stream) {
+   struct relay_media *m = media_map(client, uuid, false);
+   return m && m->subsystem == RR_BINFRAME_SUBSYS_AUDIO && m->home && m->subscribed && m->stream == stream && ws_client_in_room(client, m->room);
+}
+static void relay_attach(struct relay_media *m, dict *d) {
+   rr_rtp_socket_detach(m->upstream); m->upstream = NULL;
+   const char *hex = dict_get(d, "media.direct-key", "");
+   const char *security = dict_get(d, "media.direct-security", "");
+   bool encrypted = !strcmp(security, "aes128cm-sha1-80");
+   unsigned long ssrc = dict_get_ulong(d, "media.direct-ssrc", 0);
+   if (strlen(hex) != RR_RTP_KEY_LEN * 2 || !ssrc || ssrc > UINT32_MAX ||
+      (!encrypted && strcmp(security, "null-sha1-80"))) return;
+   uint8_t key[RR_RTP_KEY_LEN];
+   for (unsigned i = 0; i < sizeof(key); i++) {
+      unsigned a, b;
+      char c = hex[i * 2], e = hex[i * 2 + 1];
+      a = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : 99;
+      b = e >= '0' && e <= '9' ? e - '0' : e >= 'a' && e <= 'f' ? e - 'a' + 10 : 99;
+      if (a > 15 || b > 15) return;
+      key[i] = (a << 4) | b;
+   }
+   if (!relay_socket) relay_socket = rr_rtp_socket_open(NULL, 0);
+   m->upstream = rr_rtp_socket_attach(relay_socket, ssrc, key, encrypted, dict_get(d, "media.direct", ""), m);
+   memset(key, 0, sizeof(key));
+}
+static bool relay_receive(void *user, const uint8_t *data, size_t length) {
+   struct relay_media *m = user;
+   if (!m->home || !m->subscribed || !ws_client_in_room(m->client, m->room)) return false;
+   if (!data) return true;
+   struct rr_binframe frame;
+   if (m->direction != RR_BINFRAME_DIR_RX || rr_binframe_parse(data, length, &frame) ||
+      frame.hdr.stream != m->owner_stream || frame.hdr.direction != RR_BINFRAME_DIR_RX || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO) return false;
+   uint8_t *copy = malloc(length);
+   if (!copy) return false;
+   memcpy(copy, data, length); copy[11] = m->stream;
+   struct mg_str bytes = {.buf = (char *)copy, .len = length};
+   ws_send_to_cptr(NULL, m->client, &bytes, WEBSOCKET_OP_BINARY);
+   free(copy); return true;
+}
 static void media_forget(rrconn_t *client, const char *owner, const char *room) {
    struct relay_media **p = &media_maps;
    while (*p) {
@@ -800,6 +843,8 @@ static void media_forget(rrconn_t *client, const char *owner, const char *room) 
             }
          }
          *p = m->next;
+         rr_rtp_socket_detach(m->upstream);
+         dict_free(m->referral);
          free(m->frame);
          free(m);
          media_map_count--;
@@ -924,7 +969,10 @@ static void media_incoming(const char *event, const void *data, size_t length, r
       }
       memcpy(copy, io->frame, io->length);
       copy[11] = m->owner_stream;
-      io->result = media_packet(m->owner, "request", origin->id, client->user->name, m->uuid, m->room, copy, io->length, io->setup);
+      if (!io->setup && m->home && rr_rtp_socket_active(m->upstream, mono_us()))
+         io->result = rr_rtp_socket_send(m->upstream, copy, io->length, mono_us());
+      else
+         io->result = media_packet(m->owner, "request", origin->id, client->user->name, m->uuid, m->room, copy, io->length, io->setup);
       free(copy);
       return;
    }
@@ -1053,6 +1101,15 @@ static void route_request(const char *event, const void *data, size_t length, rr
             break;
          }
    }
+   if (media && !strcmp(dict_get(io->message, "media.cmd", ""), "subscribe")) {
+      media->home = !strcmp(dict_get(io->message, "media.transport", ""), "rtp-home");
+      if (!media->home) {
+         rr_rtp_socket_detach(media->upstream);
+         media->upstream = NULL;
+         dict_free(media->referral);
+         media->referral = NULL;
+      }
+   }
    if (media) {
       dict_add(io->message, "media.room", media->room);
       dict_add(io->message, "media.chan-uuid", media->uuid);
@@ -1106,6 +1163,9 @@ static void route_request(const char *event, const void *data, size_t length, rr
    dict *request = origin ? copy_dict(io->message) : NULL;
 
    if (request) {
+      if (media && media->home) {
+         dict_add(request, "media.transport", "rtp");
+      }
       dict_add_ulong(request, "relay.deadline", now + 10);
       dict_add(request, "relay.codecs", client->media_codecs);
       if (media && !strcmp(dict_get(request, "media.cmd", ""), "feedback"))
@@ -1627,6 +1687,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                   snprintf(m->owner, sizeof(m->owner), "%s", origin);
                   snprintf(m->room, sizeof(m->room), "%s", room);
                   m->direction = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
+                  m->subsystem = dict_get_ulong(d, "media.subsys", 0);
                } else if (strcmp(m->owner, origin) || !ws_client_in_room(c->client, m->room))
                   break;
                if (!strcmp(media_cmd, "subscribed")) {
@@ -1634,8 +1695,16 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                   m->subscribed = true;
                   dict_add_ulong(d, "media.owner-stream", m->owner_stream);
                   dict_add_ulong(d, "media.stream", m->stream);
+                  if (m->home) {
+                     rr_rtp_socket_detach(m->upstream); m->upstream = NULL;
+                     dict_free(m->referral); m->referral = copy_dict(d);
+                     dict_del(d, "media.direct"); dict_del(d, "media.direct-key");
+                     dict_del(d, "media.direct-ssrc"); dict_del(d, "media.direct-security");
+                     dict_add(d, "media.transport", "ws");
+                     rrserver_direct_relay_grant(c->client, d, m->stream, m->direction);
+                  }
                } else if (!strcmp(media_cmd, "unsubscribed") || !strcmp(media_cmd, "chan-remove"))
-                  m->subscribed = false;
+                  { m->subscribed = false; rr_rtp_socket_detach(m->upstream); m->upstream = NULL; }
                else if (!strcmp(media_cmd, "frame")) {
                   if (m->subscribed && media_reassemble(m, d)) {
                      struct rr_binframe frame;
@@ -1909,6 +1978,21 @@ static void retry_remote_ptt(struct remote_session *r, uint64_t at) {
    r->release_retry = r->client.is_ptt ? at + UINT64_C(1000000) : 0;
 }
 void rrserver_relay_poll(void) {
+   for (struct relay_media *m = media_maps; m; m = m->next) {
+      bool ready = m->home && m->subscribed && rrserver_direct_relay_active(m->client, m->uuid);
+      if (!ready) {
+         rr_rtp_socket_detach(m->upstream);
+         m->upstream = NULL;
+      } else if (!m->upstream && m->referral) {
+         relay_attach(m, m->referral);
+         if (m->upstream) {
+            /* Never restart SRTP sequence counters with a previously used key. */
+            dict_free(m->referral);
+            m->referral = NULL;
+         }
+      }
+   }
+   rr_rtp_socket_poll(relay_socket, mono_us(), NULL, relay_receive);
    for (struct relay_media * m = media_maps; m; m = m->next) {
       if (m->frame && (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
          free(m->frame);
@@ -2152,6 +2236,7 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
 }
 void rrserver_relay_fini(void) {
    media_forget(NULL, NULL, NULL);
+   rr_rtp_socket_close(relay_socket); relay_socket = NULL;
    while (directories) {
       struct directory *entry = directories;
       directories = entry->next;
@@ -2182,6 +2267,9 @@ void rrserver_relay_fini(void) {
 }
 
 #else
+bool rrserver_relay_media_valid(rrconn_t *client, const char *uuid, unsigned stream) {
+   (void)client; (void)uuid; (void)stream; return false;
+}
 void rrserver_relay_register_events(void) {
 }
 void rrserver_relay_poll(void) {

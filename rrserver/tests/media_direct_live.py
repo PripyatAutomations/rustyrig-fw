@@ -7,7 +7,7 @@ import subprocess
 import time
 
 
-def run(login, origin, owner, work, expected_port):
+def run(login, origin, owner, work, expected_port, home_port):
     room = '#gamma-rig0'
     def join(c):
         c.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': room}})
@@ -98,6 +98,35 @@ def run(login, origin, owner, work, expected_port):
         time.sleep(.15)
         source.send_payload(frame(source_tx, b'revoked'))
         assert not select.select([rx_peer.stdout], [], [], .3)[0], 'PART left direct audio authorized'
+        # The connected server issues independent keys and frames its own stream IDs.
+        direct.socket.close(); clients.remove(direct); time.sleep(.15)
+        home = login('alpha'); clients.append(home); capabilities(home); join(home)
+        home_channels = available(home)
+        home_rx = subscribe(home, home_channels[0], 'rtp-home')
+        home_tx = subscribe(home, home_channels[1], 'rtp-home')
+        assert home_rx['direct'] == home_tx['direct'] == f'rtp://127.0.0.1:{home_port}'
+        assert home_rx['owner-stream'] == home_rx['stream'] >= 128
+        assert home_tx['owner-stream'] == home_tx['stream'] >= 128
+        assert home_rx['direct-key'] != rx['direct-key']
+        home_rx_peer, home_tx_peer = peer(home_rx), peer(home_tx)
+        # Allow the downstream handshake to enable the owner's upstream attachment.
+        time.sleep(.2)
+        source.send_payload(frame(source_tx, payload))
+        assert line(home_rx_peer, 'FRAME') == f'FRAME {28+len(payload)} {checksum(payload)}'
+        home.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'ptt', 'room': room, 'vfo': 'A', 'ptt': True}})
+        listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        tx_file.write_bytes(frame(home_tx, microphone))
+        home_tx_peer.stdin.write('SEND ' + str(tx_file) + '\n'); home_tx_peer.stdin.flush()
+        assert line(home_tx_peer, 'SENT') == 'SENT 1'
+        _, echoed = listener.until_frame(lambda op, data: op == 2 and data[28:] == microphone)
+        assert echoed[11] == listen_tx['stream']
+        home_tx_peer.terminate(); home_tx_peer.wait(timeout=3)
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is False)
+        home.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'part', 'target': room}})
+        home.until(lambda m: m.get('talk', {}).get('cmd') == 'part' and m['talk'].get('room') == room)
+        time.sleep(.15); source.send_payload(frame(source_tx, b'home-revoked'))
+        assert not select.select([home_rx_peer.stdout], [], [], .3)[0], 'PART left home RTP authorized'
+        print('PASS: connected-server RTP RX/TX, private keys, stream translation and downstream-loss PTT release')
         print('PASS: two-hop private RTP grants, direct RX/TX, fragmented WS fallback, owner PTT gate, media-loss release and PART revocation')
     finally:
         for p in peers:

@@ -260,7 +260,7 @@ acl=media-staff
                 '-subj', '/CN=untrusted', '-keyout', str(bad_key), '-out', str(bad_cert)],
                 check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             start('gamma', bad_cert)
-            wait(lambda: 'Transport error' in log('gamma'), 'outbound TLS did not reject untrusted certificate')
+            wait(lambda: 'TLS handshake:' in log('gamma'), 'outbound TLS did not reject untrusted certificate')
             assert 'Linked site beta' not in log('gamma')
             stop('gamma')
         start('delta')
@@ -411,7 +411,7 @@ acl=media-staff
         print('PASS: multi-hop discovery and /users, remote LIST markers, owner permissions, chat/freq/mode/width/power, shared subscriptions and final unsubscribe')
         if DIRECT_MEDIA:
             from media_direct_live import run
-            run(login, origin, owner, work, media_ports['gamma'] + 7)
+            run(login, origin, owner, work, media_ports['gamma'] + 7, media_ports['alpha'] + 7)
         before = log('alpha').count('Linked site beta')
         leaf_links = log('gamma').count('Unlinked site delta')
         stop('beta')

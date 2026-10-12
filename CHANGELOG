@@ -41,8 +41,11 @@ rustyrig-fw (20261012.01) testing; urgency=medium
   * Reconcile stale local lobby/rig room metadata with authoritative linked
     node/rig catalogs, preserving chat history and current local rooms. Route
     affected local members through owner-authorized joins and mark rooms remote.
+  * Try owner RTP, connected-server RTP for linked rigs, then WebSocket proxy
+    media for automatic native subscriptions. Add private home-server grants,
+    owner-authorized RTP forwarding and downstream-loss PTT watchdog coverage.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 04:21:32 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 17:55:26 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

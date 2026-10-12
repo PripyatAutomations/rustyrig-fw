@@ -43,7 +43,11 @@ five seconds produces an error; live audio does not silently fall back to
 WebSockets in this mode. `/media sub -proxy <channel>` explicitly selects the
 WebSocket path. Either option can change an existing subscription, and can appear
 before or after the channel name. Omitting the option uses the normal preference
-and fallback behavior for a new subscription. Codec setup headers always use the
+and fallback behavior for a new subscription. Automatic native subscriptions try
+owner RTP first, then connected-server RTP for a linked channel, then WebSocket
+proxy media. Each silent RTP endpoint has a five-second handshake deadline;
+missing or unusable referrals advance immediately. A live endpoint that stops
+answering also advances after five seconds. Explicit `-direct` remains owner-only. Codec setup headers always use the
 reliable control path. Browsers support `-proxy` and explain that `-direct`
 requires the native client.
 
@@ -90,7 +94,20 @@ when the attachment is inactive, audio uses the private link relay and the home
 WebSocket connection. Link frames are bounded and fragmented, with separate short
 reassembly deadlines for realtime data and reliable headers.
 
-A home-server UDP endpoint for relayed rooms remains a follow-up. Remote TX over
+The connected server accepts `media.transport=rtp-home` on linked subscriptions,
+asks the owner for its ordinary RTP grant, and privately issues a separate local
+key/SSRC from its own eligible RTP pool. Client-facing RTP uses the translated
+stream ID for both `media.stream` and `media.owner-stream`. The owner's grant
+never reaches the client in this reply. ACLs apply independently at both endpoints.
+The connected server forwards RX/TX using its owner attachment; reliable setup and
+inactive RX attachments retain the existing link relay. Owner probes start only
+after the client authenticates its connected-server UDP path and stop when that
+path loses liveness. The owner's PTT watchdog therefore still releases remote TX;
+release may take up to both endpoints' three-second liveness windows. Renewals
+rotate both grants, and PART/unsubscribe/link loss revoke the forwarding state.
+The connected server needs a reachable owner RTP endpoint for remote PTT.
+
+Remote TX over
 WebSocket alone also remains deferred: remote PTT currently requires a direct TX
 attachment. TCP-only clients and browsers can receive linked audio in codecs
 supported by their frontend. Direct microphone transport does not bypass owner

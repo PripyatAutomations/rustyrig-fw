@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <librustyaxe/core.h>
@@ -11,6 +12,11 @@
 #include <librrprotocol/rtp.h>
 #include <librrprotocol/irc.h>
 #include <rrclient/media.direct.h>
+static uint64_t time_offset;
+long long mono_us(void) {
+   struct timespec t; assert(!clock_gettime(CLOCK_MONOTONIC, &t));
+   return (uint64_t)t.tv_sec * 1000000 + t.tv_nsec / 1000 + time_offset;
+}
 static int fd;
 static struct sockaddr_in return_address;
 static unsigned received_audio, errors;
@@ -165,6 +171,30 @@ int main(void) {
    dict *missing = message("subscribed", "missing");
    rrclient_direct_message(&client, missing); dict_free(missing);
    assert(errors == 1);
+   event_emit("disconnected", &client, NULL);
+   /* A silent owner advances to home RTP, then proxy; no referral does the same. */
+   assert(rrclient_direct_set_mode(&client, "fallback", RR_MEDIA_AUTO));
+   dict *retry = message("subscribe", "fallback"); rr_server_io_t retry_io = {.message = retry};
+   event_emit_binary(RR_MEDIA_REQUEST_EVENT, &client, &retry_io, sizeof(retry_io));
+   assert(!strcmp(transport, "rtp")); dict_free(retry);
+   retry = message("subscribed", "fallback");
+   dict_add_ulong(retry, "media.stream", 130); dict_add_ulong(retry, "media.owner-stream", 3);
+   dict_add(retry, "media.direct", endpoint); dict_add(retry, "media.direct-key", hex);
+   dict_add_ulong(retry, "media.direct-ssrc", 30);
+   dict_add(retry, "media.direct-security", encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
+   rrclient_direct_message(&client, retry);
+   time_offset += 5000001; rrclient_direct_poll();
+   assert(!strcmp(transport, "rtp-home"));
+   dict_add_ulong(retry, "media.owner-stream", 130);
+   rrclient_direct_message(&client, retry);
+   time_offset += 5000001; rrclient_direct_poll();
+   assert(!strcmp(transport, "ws")); dict_free(retry);
+   event_emit("disconnected", &client, NULL);
+   assert(rrclient_direct_set_mode(&client, "unavailable", RR_MEDIA_AUTO));
+   retry = message("subscribed", "unavailable");
+   dict_add_ulong(retry, "media.stream", 130); dict_add_ulong(retry, "media.owner-stream", 3);
+   rrclient_direct_message(&client, retry); assert(!strcmp(transport, "rtp-home"));
+   rrclient_direct_message(&client, retry); assert(!strcmp(transport, "ws")); dict_free(retry);
    event_emit("disconnected", &client, NULL);
    free(wire); rr_rtp_free(rx); rr_rtp_free(tx); close(fd);
    dict_free(cfg); cfg = NULL;

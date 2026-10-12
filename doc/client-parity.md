@@ -467,3 +467,10 @@ commands require explicit incoming acceptance and a user-chosen new destination
 for received files; GTK and TUI both use `librrprotocol/irc.dcc.h`. Session notices
 and chat replies retain their issuing/accepting window and server context.
 There is no browser DCC counterpart.
+
+Automatic native RTP subscriptions try the rig owner, then the connected server's
+RTP endpoint for linked channels, then WebSocket proxy media. Five-second UDP
+deadlines advance the selection; explicit `-direct` still requires owner RTP.
+Connected-server grants use independent keys and translated stream IDs, with
+owner-authorized upstream TX and downstream liveness gating. This is native
+transport behavior; browser `-proxy` and WebSocket RX remain equivalent.
