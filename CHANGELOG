@@ -1,4 +1,4 @@
-rustyrig-fw (20261012.01) testing; urgency=medium
+rustyrig-fw (20261012.02) testing; urgency=medium
 
   * Snapshot event profiling counters and owned event names under the registry
     lock, then log after unlocking. Prevent syslog media callbacks from
@@ -57,7 +57,7 @@ rustyrig-fw (20261012.01) testing; urgency=medium
     Cover disabled owner RTP, sustained/invalid audio, permissions and revocation,
     including proxy-only builds without SRTP.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 19:49:22 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 19:58:01 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 
