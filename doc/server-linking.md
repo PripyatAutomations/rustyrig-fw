@@ -33,7 +33,8 @@ snapshots, source ownership, capacity limits, and branch removal.
 
 ## Live WS/WSS link sessions
 
-`rrserver/link.c` now provides a dedicated `/link` listener and outbound
+`rrserver/link.c` provides `/link` on the existing client HTTP/HTTPS listeners
+(and an optional dedicated listener), plus outbound
 connectors using `rustyrig-link.v1`. `librrprotocol/link.wire.c` validates a
 separate, bounded flat JSON wire format. Server links never enter the ordinary client socket roster. Owner-side virtual
 sessions use the existing authenticated command dispatcher for application requests.
@@ -84,12 +85,20 @@ configuration containing the password private. Peer settings are read at startup
 restart after changing them. `autoconnect=false` still permits authenticated
 incoming connections when `enabled=true`.
 
-Under `[general]`, set `links.listen=https://0.0.0.0:8443`,
-`links.tls-cert`, and `links.tls-key` for the listener. Set `links.tls-ca` to the
-CA bundle used to validate outgoing certificates; its default is the system
-Debian CA bundle. Hostname verification remains enabled. The certificate must
-cover the hostname in `server.url`. The dedicated TCP listener port must be
-reachable between the servers. An outgoing-only server can omit `links.listen`.
+By default, `links.shared-listener=true` accepts `/link` on the existing client
+listeners: normally WS on port 8420 and WSS on port 4420. `/ws` and ordinary HTTP
+routes retain their client behavior. The `/link` upgrade requires the separate
+`rustyrig-link.v1` subprotocol and mutual peer authentication. Its socket is
+transferred out of the ordinary client roster during the upgrade handoff.
+
+For shared WSS, enable `net.http.tls-enabled` and configure `net.http.tls-cert`
+and `net.http.tls-key`. Outgoing WSS uses `links.tls-ca`, defaulting to the Debian
+system CA bundle, with hostname verification. No `links.listen` is needed.
+
+A separate listener remains optional: set `links.listen=https://0.0.0.0:4421`
+with `links.tls-cert` and `links.tls-key`, or `http://0.0.0.0:8421` for explicit
+plaintext operation. Set `links.shared-listener=false` to restrict incoming peers
+to that dedicated listener. Dedicated and shared listeners may coexist.
 
 `links.allow-insecure=false` is the default. Explicit local tests may use
 `links.allow-insecure=true` with an `http://` listener and `ws://` peer URL.

@@ -89,8 +89,7 @@ defconfig_t defcfg[] = {
    {
       "server.proxy.pass", "", "Optional SOCKS5 authentication password"
    },
-   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
-   {
+   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE) {
       "audio.test-mode", "true", "Show and advertise tone/pink test codecs", DEFCONFIG_BOOL, NULL
    },
    {

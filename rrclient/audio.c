@@ -40,9 +40,11 @@ bool gst_active = false;
 static char rx_codec[5] = {
    0
 };
+
 static char tx_codec[5] = {
    0
 };
+
 static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
@@ -59,8 +61,7 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
       return;
    }
 
-   if (fwdsp_write_samples(tx_codec, true, samples, len) &&
-      (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5) ) {
+   if (fwdsp_write_samples(tx_codec, true, samples, len) && (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5)) {
       tx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
    }
@@ -70,8 +71,7 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
    (void)name;
    (void)user_data;
 
-   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) &&
-      (rx_pcm_warned == 0 || now < rx_pcm_warned || now - rx_pcm_warned >= 5) ) {
+   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) && (rx_pcm_warned == 0 || now < rx_pcm_warned || now - rx_pcm_warned >= 5)) {
       rx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to play decoded client RX PCM");
    }
@@ -81,10 +81,18 @@ static void audio_full_frame_cb(const char *event, const void *data, size_t len,
 static void audio_full_frame_payload(const void *data, size_t len);
 
 static void audio_quality_hint(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-   if (cptr != ws_conn || !data || !tx_codec[0]) return;
+   (void)event;
+   (void)user;
+
+   if (cptr != ws_conn || !data || !tx_codec[0]) {
+      return;
+   }
    dict *hint = json2dict(data);
-   if (!hint) return;
+
+   if (!hint) {
+      return;
+   }
+
    if (!strcmp(dict_get(hint, "media.codec", ""), tx_codec)) {
       struct fwdsp_subproc *sp = fwdsp_find_instance(tx_codec, true);
       fwdsp_set_quality_hint(sp, dict_get_uint(hint, "media.quality", 100));
@@ -93,12 +101,18 @@ static void audio_quality_hint(const char *event, const char *data, rrconn_t *cp
 }
 
 static void audio_feedback(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   (void)event; (void)user;
-   if (cptr != ws_conn || !data) return;
+   (void)event;
+   (void)user;
+
+   if (cptr != ws_conn || !data) {
+      return;
+   }
    dict *message = json2dict(data);
    const struct rr_client_media_chan *channel = rrclient_media_current_channel(true);
-   if (message && channel && !strcmp(dict_get(message, "media.cmd", ""), "feedback"))
+
+   if (message && channel && !strcmp(dict_get(message, "media.cmd", ""), "feedback")) {
       rr_media_feedback(cptr, message, channel->stream, RR_BINFRAME_DIR_TX, channel->codec, mono_us());
+   }
    dict_free(message);
 }
 
@@ -111,7 +125,7 @@ bool audio_init(void) {
    event_on("media.quality-hint", audio_quality_hint, NULL);
    event_on("ws.msg.media", audio_feedback, NULL);
 
-   if (fwdsp_init() ) {
+   if (fwdsp_init()) {
       Log(LOG_CRIT, "audio", "Unable to initialize fwdsp manager for client audio");
 
       return true;
@@ -134,7 +148,7 @@ bool audio_init(void) {
       return true;
    }
 
-   fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30) );
+   fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
@@ -158,18 +172,18 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    };
 
    if (active[0] != '\0') {
-      memcpy(old_codec, active, sizeof(old_codec) );
+      memcpy(old_codec, active, sizeof(old_codec));
    }
 
    // Start the replacement first. fwdsp_codec_stop() destroys decoders
    // immediately, while encoders are retained for fwdsp.hangtime.
    if (fwdsp_init() || fwdsp_codec_start(codec, is_tx, NULL) < 0) {
-      Log(LOG_WARN, "audio", "Unable to switch client fwdsp to %s.%s", codec, (is_tx ? "tx" : "rx") );
+      Log(LOG_WARN, "audio", "Unable to switch client fwdsp to %s.%s", codec, (is_tx ? "tx" : "rx"));
 
       return true;
    }
 
-   if (!is_tx && !fwdsp_codec_set_pcm_callback(codec, NULL, client_rx_pcm, NULL) ) {
+   if (!is_tx && !fwdsp_codec_set_pcm_callback(codec, NULL, client_rx_pcm, NULL)) {
       Log(LOG_WARN, "audio", "Unable to route decoded %s RX audio to sink.client.dsp0", codec);
       fwdsp_codec_stop_immediate(codec, false);
 
@@ -179,14 +193,14 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    memcpy(active, codec, 4);
    active[4] = '\0';
 
-   if (cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false) ) {
+   if (cfg_get_bool(is_tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx", false)) {
       const char *who = "radio";
 
       if (is_tx) {
          who = server_name ? get_server_property(server_name, "server.user") : NULL;
       }
 
-      if (fwdsp_cmd_start_record_named(codec, is_tx, NULL, who && *who ? who : "unknown", is_tx) ) {
+      if (fwdsp_cmd_start_record_named(codec, is_tx, NULL, who && *who ? who : "unknown", is_tx)) {
          Log(LOG_WARN, "record", "Unable to start client %s recording", is_tx ? "tx" : "rx");
       }
    }
@@ -196,9 +210,9 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
    }
 
    if (is_tx) {
-      audio_set_tx_volume(cfg_get_int("audio.volume.tx", 40) );
+      audio_set_tx_volume(cfg_get_int("audio.volume.tx", 40));
    } else {
-      audio_set_rx_volume(cfg_get_int("audio.volume.rx", 30) );
+      audio_set_rx_volume(cfg_get_int("audio.volume.rx", 30));
    }
 
    Log(LOG_INFO, "audio", "Switched client fwdsp %s to %s", (is_tx ? "tx" : "rx"), active);
@@ -273,7 +287,9 @@ bool audio_process_frame(const char *data, size_t len) {
 // decoder (corruption) and stops frames being fed to a torn-down decoder
 // (post-NONE silence).
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
-   if (!cptr || cptr == ws_conn) audio_full_frame_payload(data, len);
+   if (!cptr || cptr == ws_conn) {
+      audio_full_frame_payload(data, len);
+   }
 }
 
 static void audio_full_frame_payload(const void *data, size_t len) {
@@ -289,18 +305,23 @@ static void audio_full_frame_payload(const void *data, size_t len) {
    }
 
    if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {
-      if (audio_switch_codec(codec, false) ) {
+      if (audio_switch_codec(codec, false)) {
          return;
       }
    }
 
    bool discontinuity = false;
    dict *feedback = NULL;
-   if (ws_conn && !rr_media_observe(ws_conn, &frame.hdr, mono_us(), &discontinuity, &feedback)) return;
+
+   if (ws_conn && !rr_media_observe(ws_conn, &frame.hdr, mono_us(), &discontinuity, &feedback)) {
+      return;
+   }
+
    if (feedback) {
       ws_send_dict(NULL, ws_conn, feedback, WEBSOCKET_OP_TEXT);
       dict_free(feedback);
    }
+
    if (!fwdsp_write_audio_samples(rx_codec, NULL, frame.data, frame.len, discontinuity)) {
       Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", rx_codec);
    }
@@ -313,7 +334,7 @@ void audio_tx_free_frame(void) {
 }
 
 
-#if     0       // we need to make audio_settings_t
+#if     0                       // we need to make audio_settings_t
 bool send_au_control_msg(rrconn_t *cptr, audio_settings_t *au) {
    if (!cptr || !au) {
       Log(LOG_CRIT, "ws.audio", "send_au_control_msg: Got invalid cptr:<%x> or au:<%x>", cptr, au);
@@ -323,8 +344,8 @@ bool send_au_control_msg(rrconn_t *cptr, audio_settings_t *au) {
 
    int codec_id = au_codec_by_id(au->codec);
    dict *d = dict_new();
-   dict_add(d, "media.codec", au_codec_get_magic(codec_id) );
-   dict_add_int(d, "media.rate", au_codec_get_samplerate(codec_id) );
+   dict_add(d, "media.codec", au_codec_get_magic(codec_id));
+   dict_add_int(d, "media.rate", au_codec_get_samplerate(codec_id));
    dict_add_bool(d, "media.active", au->active);
    ws_send_dict(NULL, cptr, d, WEBSOCKET_OP_TEXT);
    dict_free(d);

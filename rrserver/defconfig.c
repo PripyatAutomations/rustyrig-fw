@@ -37,6 +37,7 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "links.shared-listener", "true", "Accept /link on existing client HTTP/HTTPS listeners" },
    {
       "links.listen", "", "Dedicated server-link listener URL (https://host:port; /link endpoint)"
    },

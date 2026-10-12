@@ -43,26 +43,26 @@
 #include <rrserver/mqtt.h>
 #include <rrserver/au.h>
 
-extern void rrserver_register_events(void); // events.c
-extern void rrserver_media_register_events(void);   // media.c
-extern bool rrserver_media_init(void);              // media.c
-extern bool rrserver_media_audio_init(void);          // media.c
-extern void webcam_init(void);                      // webcam.c
-extern void webcam_shutdown(void);                  // webcam.c
-extern void audit_init(void);               // audit.c
-extern void hostlog_init(void);             // hostlog.c
+extern void rrserver_register_events(void);  // events.c
+extern void rrserver_media_register_events(void);  // media.c
+extern bool rrserver_media_init(void); // media.c
+extern bool rrserver_media_audio_init(void); // media.c
+extern void webcam_init(void);  // webcam.c
+extern void webcam_shutdown(void);  // webcam.c
+extern void audit_init(void);   // audit.c
+extern void hostlog_init(void); // hostlog.c
 #ifdef  USE_MONGOOSE
 struct mg_mgr mg_mgr;
 #endif
 
-struct GlobalState rig;          // Global state
+struct GlobalState rig;         // Global state
 struct timespec mono_now;
 struct timespec last_vfo_announce;
-bool dying = 0;                  // Are we shutting down?
-bool restarting = 0;             // Are we restarting?
-time_t now = -1;                 // time() at 1hz timer
-time_t started = -1;             // time() when started
-int auto_block_ptt = 0;          // Auto block PTT at boot?
+bool dying = 0;                 // Are we shutting down?
+bool restarting = 0;            // Are we restarting?
+time_t now = -1;                // time() at 1hz timer
+time_t started = -1;            // time() when started
+int auto_block_ptt = 0;         // Auto block PTT at boot?
 char *rig_name = NULL;
 
 // How often we will poll the backend in ms (default:1000)
@@ -101,10 +101,10 @@ int my_argc = -1;
 char **my_argv = NULL;
 
 // Things that probably should be in headers... ;)
-extern defconfig_t defcfg[];     // From defconfig.c
+extern defconfig_t defcfg[];    // From defconfig.c
 extern const char *configs[];
 extern const int num_configs;
-extern void timer_clock_tick_fn(void *arg);     // timer.clocktick.c
+extern void timer_clock_tick_fn(void *arg);  // timer.clocktick.c
 #ifdef USE_PROFILING
 extern void timer_profile_dump_fn(void *arg);   // timer.clocktick.c
 #endif
@@ -133,12 +133,12 @@ void restart_rig(void) {
    execv(my_argv[0], my_argv);
 
    // If execv fails
-   Log(LOG_CRIT, "core", "restart_rig failed in execve(): %d: %s", errno, strerror(errno) );
+   Log(LOG_CRIT, "core", "restart_rig failed in execve(): %d: %s", errno, strerror(errno));
    exit(EXIT_FAILURE);
 }
 
 static void timer_check_faults_fn(void *arg) {
-   if (check_faults() ) {
+   if (check_faults()) {
       Log(LOG_CRIT, "core", "Fault detected, see log above. Rig halted!");
       // Kill TX and block PTT so clients can't re-key it.
       rr_ptt_set_all_off();
@@ -183,14 +183,14 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rrserver_peer_config_init() || !rr_rig_config_init() ) {
+   if (!rrserver_peer_config_init() || !rr_rig_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
    }
    cfg_modules_init();
 
-   if (!rr_serial_config_register() ) {
+   if (!rr_serial_config_register()) {
       return EXIT_FAILURE;
    }
    cfg_add_callback(NULL, "fwdsp", config_fwdsp_section_cb);
@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
    rrserver_register_events();
 
    int opt;
-   while ( (opt = getopt(argc, argv, "f:hr:") ) != -1) {
+   while ((opt = getopt(argc, argv, "f:hr:")) != -1) {
       switch (opt) {
          case 'f': {
             config_file = strdup(optarg);
@@ -226,18 +226,18 @@ int main(int argc, char **argv) {
    rig.log_level = LOG_CRAZY;
 
    if (config_file) {
-      if (!(cfg = cfg_load(config_file) ) ) {
+      if (!(cfg = cfg_load(config_file))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", config_file);
-         free( (void *)config_file);
+         free((void *)config_file);
          config_file = NULL;
          exit(1);
       }
    }
 
-   if (!config_file && (fullpath = find_file_by_list(configs, num_configs) ) ) {
+   if (!config_file && (fullpath = find_file_by_list(configs, num_configs))) {
       config_file = strdup(fullpath);
 
-      if (!(cfg = cfg_load(fullpath) ) ) {
+      if (!(cfg = cfg_load(fullpath))) {
          Log(LOG_CRIT, "core", "Couldn't load config \"%s\", using defaults instead", fullpath);
       }
       free(fullpath);
@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
    printf("Loading config %s\n", config_file);
    // apply some global configuration
    char *logfile = cfg_get_path("log.file");
-   logger_init( (logfile ? logfile : "-"), false);
+   logger_init((logfile ? logfile : "-"), false);
 
    if (logfile) {
       free(logfile);
@@ -262,17 +262,17 @@ int main(int argc, char **argv) {
    char *ua_ban_path = cfg_get_path("net.http.ua-bans");
 
    if (ua_ban_path) {
-      if (load_http_ua_bans(ua_ban_path) ) {
+      if (load_http_ua_bans(ua_ban_path)) {
          Log(LOG_WARN, "http", "Unable to load HTTP User-Agent bans from %s", ua_ban_path);
       }
       free(ua_ban_path);
    }
 
-   srand( (unsigned int)now);
+   srand((unsigned int)now);
    host_init();
 
    Log(LOG_INFO, "core", "rustyrig radio firmware v%s starting...", VERSION);
-   memset(&rig, 0, sizeof(struct GlobalState) );
+   memset(&rig, 0, sizeof(struct GlobalState));
    load_defaults();
 
 // Core dump setup
@@ -296,17 +296,17 @@ int main(int argc, char **argv) {
       masterdb_path = strdup(MASTERDB_PATH);
    }
 
-   if (!(masterdb = db_open(masterdb_path) ) ) {
+   if (!(masterdb = db_open(masterdb_path))) {
       Log(LOG_CRIT, "core", "Cant open master db at %s", masterdb_path);
-      free( (void *)masterdb_path);
+      free((void *)masterdb_path);
       exit(EXIT_FAILURE);
    }
    uint32_t default_vfo_mask = rr_rig_config_default_vfo_mask();
    ws_set_authoritative_vfo_mask(default_vfo_mask);
-   free( (void *)masterdb_path);
-   audit_init();   // Store LOG_AUDIT level Log() messages in the db (audit.c)
+   free((void *)masterdb_path);
+   audit_init();                // Store LOG_AUDIT level Log() messages in the db (audit.c)
 #endif // USE_SQLITE
-   hostlog_init();   // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
+   hostlog_init();              // Stream Log() lines to FLAG_SYSLOG clients (hostlog.c)
 
    reload_event_add(NULL, rrserver_config_refresh, "refresh cached server settings after config reload");
    rrserver_config_refresh(NULL);
@@ -361,25 +361,25 @@ int main(int argc, char **argv) {
       rr_ptt_set_blocked(true);
    }
 
-   if (rr_io_init() ) {
+   if (rr_io_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error init i/o subsys ***");
       set_fault(FAULT_IO_ERROR);
       exit(EXIT_FAILURE);
    }
 
-   if (rr_backend_init() ) {
+   if (rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(EXIT_FAILURE);
    }
 
-   if (rrserver_rig_rooms_init() ) {
+   if (rrserver_rig_rooms_init()) {
       Log(LOG_CRIT, "core", "Unable to configure rig rooms");
       exit(EXIT_FAILURE);
    }
 
    // Provision the media channels (RX/TX audio per exposed VFO)
-   if (rrserver_media_init() ) {
+   if (rrserver_media_init()) {
       Log(LOG_CRIT, "core", "Unable to provision rig media");
       exit(EXIT_FAILURE);
    }
@@ -389,7 +389,7 @@ int main(int argc, char **argv) {
 
 #ifdef  USE_CAT
 
-   if (rr_cat_init() ) {
+   if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
       exit(EXIT_FAILURE);
@@ -407,7 +407,7 @@ int main(int argc, char **argv) {
    // Launch the persistent callsign helper while the radio is coming online.
    // Readiness is checked when the first /qrz or /grid request arrives so a
    // slow helper cannot delay the websocket server from starting.
-   if (!ws_callsign_lookup_init() ) {
+   if (!ws_callsign_lookup_init()) {
       Log(LOG_WARN, "callsign", "Callsign lookup helper was not ready at radio initialization; lookups will retry on demand");
    }
 
@@ -426,15 +426,17 @@ int main(int argc, char **argv) {
 #endif // HTTP_DEBUG_CRAZY
 
    mg_mgr_init(&mg_mgr);
+
    if (!rrserver_links_init(&mg_mgr)) {
       Log(LOG_CRIT, "link", "Unable to initialize configured server links");
       mg_mgr_free(&mg_mgr);
       rrserver_links_fini();
       rrserver_relay_fini();
+
       return 1;
    }
 
-   if (fwdsp_ready && !rrserver_media_audio_init() ) {
+   if (fwdsp_ready && !rrserver_media_audio_init()) {
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
    }
 #if     defined(USE_HTTP)
@@ -467,19 +469,19 @@ int main(int argc, char **argv) {
 
    Log(LOG_INFO, "core", "Radio initialization completed. Enjoy!");
 
-   if (rrserver_gps_init() ) {
+   if (rrserver_gps_init()) {
       return EXIT_FAILURE;
    }
    bool modules_loaded = false;
 
-   for (int i = 0 ; ; i++) {
+   for (int i = 0 ;; i++) {
       const char *module = cfg_modules_get(i, NULL);
 
       if (!module) {
          break;
       }
 
-      if (!rr_load_module(module) ) {
+      if (!rr_load_module(module)) {
          modules_loaded = true;
       }
    }
@@ -511,14 +513,14 @@ int main(int argc, char **argv) {
    extern void rrserver_objects_fini(void);
 
    // Unload configured modules while the event bus and transports still exist.
-   for (int i = 0 ; ; i++) {
+   for (int i = 0 ;; i++) {
       const char *module = cfg_modules_get(i, NULL);
 
       if (!module) {
          break;
       }
 
-      if (rr_find_loaded_module(module) ) {
+      if (rr_find_loaded_module(module)) {
          rr_unload_module(module);
       }
    }

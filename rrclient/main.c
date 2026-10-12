@@ -58,7 +58,7 @@ extern defconfig_t defcfg[];
 extern struct mg_mgr mgr;
 #endif // defined(USE_MONGOOSE)
 
-extern const char *configs[];  // from defcfg.c
+extern const char *configs[];   // from defcfg.c
 extern const int num_configs;
 extern bool cfg_ui_bell_chat;
 
@@ -70,17 +70,17 @@ extern bool rrclient_autoconnect(void);
 extern void rrclient_poll_events(void);
 extern void rrclient_poll_events_reconnect(void);
 extern void ws_client_init(void);
-extern bool parse_chat_input_real(const char *msg); // cmd.c
+extern bool parse_chat_input_real(const char *msg);   // cmd.c
 #include <rrclient/cmd.h>
-extern bool cfg_servers_init(void) __attribute__( (weak) );   // cfg.servers.c (optional:
-                                                              // IRC server list)
+extern bool cfg_servers_init(void) __attribute__((weak));   // cfg.servers.c (optional:
+                                                            // IRC server list)
 extern bool cfg_network_save_init(void);  // cfg.network.c
-extern const char *config_file;           // librustyaxe/config.c
-extern bool tui_over_ssh;               // librustyaxe/tui.c
+extern const char *config_file; // librustyaxe/config.c
+extern bool tui_over_ssh;       // librustyaxe/tui.c
 // GTK (and any other graphical frontend) lives in a dynamically loaded
 // module; core rrclient never links a GUI toolkit.
-static bool force_tui = false;       // -T: never load a frontend module
-static rr_module_t *frontend_module; // set once the module loads
+static bool force_tui = false;  // -T: never load a frontend module
+static rr_module_t *frontend_module;   // set once the module loads
 struct timespec mono_now;
 bool rrclient_cleanup(void);
 const char *cfg_log_audio = NULL;
@@ -90,20 +90,20 @@ int cfg_tick_interval = 100;
 bool dying = false;
 bool restarting = false;
 int cfg_ui_vfo_viscosity = -1;
-int cfg_ui_edit_delay = 3;          // Seconds to suppress freq updates after local edit
-int cfg_ui_ptt_ack_timeout = 2;     // Seconds to wait for a PTT ack before reverting
-                                    // (gtk.ptt-btn.c)
-int cfg_ui_ptt_hold_delay = 500;    // Milliseconds before a PTT shortcut is treated as
-                                    // hold-to-talk
+int cfg_ui_edit_delay = 3;      // Seconds to suppress freq updates after local edit
+int cfg_ui_ptt_ack_timeout = 2; // Seconds to wait for a PTT ack before reverting
+// (gtk.ptt-btn.c)
+int cfg_ui_ptt_hold_delay = 500; // Milliseconds before a PTT shortcut is treated as
+                                 // hold-to-talk
 time_t now = 0;
-time_t poll_block_delay = 0;     // CAT polling suppression delay in seconds
+time_t poll_block_delay = 0;    // CAT polling suppression delay in seconds
 
 /* Keep all long-lived client configuration mirrors in one place.  This is called once after startup config has loaded and again after every complete config
  * reload. */
 static bool rrclient_config_refresh(const char *key) {
    (void)key;
    const char *log_audio = cfg_get_exp("log.audio");
-   free( (void *)cfg_log_audio);
+   free((void *)cfg_log_audio);
    cfg_log_audio = log_audio;
 #ifdef USE_GSTREAMER
 
@@ -131,7 +131,7 @@ static bool rrclient_config_refresh(const char *key) {
    cfg_tick_interval = cfg_get_int("core.tick-interval", 100);
 
    /* This setting is shared by the GTK and TUI input implementations. */
-   tui_set_shared_input_history(cfg_get_bool("ui.shared-input-history", true) );
+   tui_set_shared_input_history(cfg_get_bool("ui.shared-input-history", true));
 
    Log(LOG_DEBUG, "main", "Refreshed cached client configuration");
 
@@ -161,9 +161,9 @@ static gboolean fwdsp_maintenance_cb(gpointer user_data) {
 }
 
 bool ptt_active = false;
-time_t poll_block_expire = 0;    // Here we set this to now +
-                                 // config:cat.poll-blocking to prevent rig
-                                 // polling from sclearing local controls
+time_t poll_block_expire = 0;   // Here we set this to now +
+                                // config:cat.poll-blocking to prevent rig
+                                // polling from sclearing local controls
 
 static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned modifiers, void *user_data) {
    (void)key;
@@ -217,7 +217,7 @@ static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifi
       vfo_state_get_active(), '\0'
    };
    bool active = vfo_state_get_bool(vfo, "cat.state.ptt", false);
-   ws_send_ptt_cmd_in_room(ws_conn, vfo, !active, ui_active_window_name() );
+   ws_send_ptt_cmd_in_room(ws_conn, vfo, !active, ui_active_window_name());
 
    return true;
 }
@@ -231,6 +231,7 @@ void shutdown_app(int signum) {
    // Signal the main loop that we are dying
    dying = true;
 }
+
 #ifdef USE_MONGOOSE
 ////////////////////////////////////
 // For polling mongoose from glib //
@@ -243,7 +244,7 @@ typedef struct {
    GSource source;
 } MgSource;
 
-static gint64 mg_next_poll_us = 0;   // monotonic usec of next due poll
+static gint64 mg_next_poll_us = 0;  // monotonic usec of next due poll
 
 // Cadence of the reconnect/poll sweep. Socket events DON'T wait for this:
 // dispatch blocks inside mg_mgr_poll()'s internal poll() and returns
@@ -264,10 +265,10 @@ static gboolean mg_source_prepare(GSource *source, gint *timeout_) {
       mg_next_poll_us = now + MG_POLL_INTERVAL_US;
       *timeout_ = 0;
 
-      return TRUE;                     // dispatch now
+      return TRUE;              // dispatch now
    }
 
-   *timeout_ = (gint)( (mg_next_poll_us - now) / 1000);
+   *timeout_ = (gint) ((mg_next_poll_us - now) / 1000);
 
    return FALSE;
 }
@@ -302,13 +303,13 @@ static GSourceFuncs mg_source_funcs = {
 };
 
 void poll_mongoose_init(void) {
-   GSource *src = g_source_new(&mg_source_funcs, sizeof(MgSource) );
+   GSource *src = g_source_new(&mg_source_funcs, sizeof(MgSource));
    g_source_set_name(src, "mongoose-poll");
    // Priority must be above the default-idle band: during UI setup and heavy
    // redraws an idle-priority source is starved, delaying socket reads (and
    // thus ping/pong RTT measurement and eventually audio) by hundreds of ms.
    g_source_set_priority(src, G_PRIORITY_HIGH);
-   g_source_attach(src, g_main_context_default() );
+   g_source_attach(src, g_main_context_default());
    g_source_unref(src);
 }
 #endif // USE_MONGOOSE
@@ -317,7 +318,7 @@ void poll_mongoose_init(void) {
 // Over SSH (SSH_TTY set) the clock is HH:MM, so we only repaint when the
 // minute actually changes instead of once a second.
 static gboolean tui_clock_cb_real(gpointer user_data) {
-   rrclient_media_room_selected(ui_active_window_name() );
+   rrclient_media_room_selected(ui_active_window_name());
    now = time(NULL);
 
    if (dying) {
@@ -331,13 +332,13 @@ static gboolean tui_clock_cb_real(gpointer user_data) {
 
    /* SIGWINCH queues a full redraw because terminal I/O is not signal-safe. Consume it before the SSH clock throttle so resized remote terminals do not keep a
     * partially rendered screen until the next minute. */
-   if (tui_redraw_if_pending() ) {
+   if (tui_redraw_if_pending()) {
       last_repaint = now;
 
       return G_SOURCE_CONTINUE;
    }
 
-   if (tui_over_ssh && last_repaint != 0 && (now / 60) == (last_repaint / 60) ) {
+   if (tui_over_ssh && last_repaint != 0 && (now / 60) == (last_repaint / 60)) {
       last_repaint = now;
 
       return G_SOURCE_CONTINUE;
@@ -363,11 +364,11 @@ static void rrclient_tui_host_log_frame(const char *event, const void *data, siz
    }
 
    const uint8_t *payload = (const uint8_t *)data;
-   char subsys[sizeof( ( (struct rr_logframe *)0)->subsys) + 1];
+   char subsys[sizeof(((struct rr_logframe *) 0)->subsys) + 1];
    memcpy(subsys, payload + 1, sizeof(subsys) - 1);
    subsys[sizeof(subsys) - 1] = '\0';
 
-   size_t message_len = strnlen( (const char *)payload + RR_LOGFRAME_HDR_LEN, len - RR_LOGFRAME_HDR_LEN);
+   size_t message_len = strnlen((const char *)payload + RR_LOGFRAME_HDR_LEN, len - RR_LOGFRAME_HDR_LEN);
 
    if (message_len == 0) {
       return;
@@ -400,7 +401,7 @@ static void rrclient_tui_host_log_frame(const char *event, const void *data, siz
    }
    message[out] = '\0';
 
-   ui_print("host log", "%s <%s.%s> %s", get_chat_ts(now), subsys, log_priority_to_str( (logpriority_t)payload[0]), message);
+   ui_print("host log", "%s <%s.%s> %s", get_chat_ts(now), subsys, log_priority_to_str((logpriority_t) payload[0]), message);
 }
 
 /* The GTK frontend has its own log tab callback.  The TUI keeps local client logs separate from status/command output; server host log events are handled by
@@ -414,7 +415,7 @@ static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys
       return true;
    }
 
-   if (!fmt || dying || debug_filter(subsys, priority) ) {
+   if (!fmt || dying || debug_filter(subsys, priority)) {
       return true;
    }
 
@@ -505,12 +506,12 @@ bool rrclient_cleanup(void) {
 
    // Persist the running config (including window placements learned while
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
-   if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false) ) {
+   if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false)) {
       Log(LOG_INFO, "config", "ui.save-on-exit: saving config to %s", config_file);
       cfg_save(cfg, config_file);
    }
 
-   free( (void *)cfg_log_audio);
+   free((void *)cfg_log_audio);
    cfg_log_audio = NULL;
    cfg_fini();
 
@@ -536,7 +537,7 @@ void show_arg_help(int argc, char **argv) {
 ////////////////////////////
 int main(int argc, char *argv[]) {
    char *display = getenv("DISPLAY");
-   char *autoconnect_server = NULL;   // -s: server profile to connect to on start
+   char *autoconnect_server = NULL; // -s: server profile to connect to on start
 
    // Apply the hard-coded defaults from defconfig.c FIRST, so keys missing
    // from the user's config fall back to them.
@@ -660,7 +661,7 @@ int main(int argc, char *argv[]) {
    cfg_add_callback(NULL, "network:*", config_network_cb);
    config_fwdsp_init();
 
-   if (!rr_serial_config_register() ) {
+   if (!rr_serial_config_register()) {
       return EXIT_FAILURE;
    }
    cfg_modules_init();
@@ -682,7 +683,7 @@ int main(int argc, char *argv[]) {
    // -s overrides server.auto-connect so we connect to the given profile on start
    if (autoconnect_server) {
       dict_add(cfg, "server.auto-connect", autoconnect_server);
-      free( (void *)autoconnect_server);
+      free((void *)autoconnect_server);
       autoconnect_server = NULL;
    }
 
@@ -695,14 +696,14 @@ int main(int argc, char *argv[]) {
    if (ui_mode != UI_MODE_GTK && strcmp(log_target, "-") == 0) {
       log_target = "rrclient.log";
    }
-   logger_init(log_target, (ui_mode == UI_MODE_TUI) );
+   logger_init(log_target, (ui_mode == UI_MODE_TUI));
 
    if (logfile) {
       free(logfile);
       logfile = NULL;
    }
 
-/////////////////////////////////////////
+   /////////////////////////////////////////
 // Store some oft used config settings //
 /////////////////////////////////////////
    reload_event_add(NULL, rrclient_config_refresh, "refresh cached client settings after config reload");
@@ -742,9 +743,9 @@ int main(int argc, char *argv[]) {
    const char *loaded_name = NULL;
 
    if (requested) {
-      Log(LOG_INFO, "core", "Requested module %s (path.modules=%s)", requested, cfg_get("path.modules") );
+      Log(LOG_INFO, "core", "Requested module %s (path.modules=%s)", requested, cfg_get("path.modules"));
 
-      if (!rr_load_module(requested) ) {
+      if (!rr_load_module(requested)) {
          frontend_module = rr_find_loaded_module(requested);
          loaded_name = requested;
 
@@ -752,7 +753,7 @@ int main(int argc, char *argv[]) {
             // init (e.g. gtk_init) needs the real argc/argv; a failed init
             // (no display, theme problems) unloads the module and we fall
             // back to TUI.
-            if (frontend_ops()->init(&argc, &argv) ) {
+            if (frontend_ops()->init(&argc, &argv)) {
                Log(LOG_CRIT, "core", "Frontend module init failed; falling back to TUI");
                rr_unload_module(requested);
                frontend_module = NULL;
@@ -760,12 +761,12 @@ int main(int argc, char *argv[]) {
             } else {
                ui_mode = UI_MODE_GTK;
 #ifdef USE_MONGOOSE
-               poll_mongoose_init();                  // Mongoose via GSource
+               poll_mongoose_init();   // Mongoose via GSource
 #endif
             }
          }
       } else {
-         Log(LOG_INFO, "core", "Requested module %s not found (path.modules=%s); TUI mode", requested, cfg_get("path.modules") );
+         Log(LOG_INFO, "core", "Requested module %s not found (path.modules=%s); TUI mode", requested, cfg_get("path.modules"));
       }
    } else {
       Log(LOG_INFO, "core", "No modules configured ([modules] section); TUI mode");

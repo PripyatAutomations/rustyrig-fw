@@ -52,6 +52,7 @@ static bool reconnect_attempting;
 static const unsigned reconnect_delays[] = {
    1, 2, 5, 10, 30, 60
 };
+
 #define RRC_MAX_RECONNECTS 10
 
 static client_server_t *find_server(const char *name) {
@@ -289,6 +290,7 @@ rrconn_t *rrclient_connection_for_window(const char *window) {
          return w->server->connection;
       }
    }
+
    return NULL;
 }
 
@@ -298,6 +300,7 @@ bool rrclient_window_is_status(const char *window) {
          return w->server_status;
       }
    }
+
    return false;
 }
 
@@ -307,6 +310,7 @@ const char *rrclient_window_server(const char *window) {
          return w->server->name;
       }
    }
+
    return NULL;
 }
 
@@ -408,8 +412,7 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    }
 
    /* Only the selected server feeds shared audio/serial output devices. Text updates still populate every server's independent protocol/client state. */
-   if (ev == MG_EV_WS_MSG && s != selected && data &&
-      ((((struct mg_ws_message *)data)->flags & 15) == WEBSOCKET_OP_BINARY)) {
+   if (ev == MG_EV_WS_MSG && s != selected && data && ((((struct mg_ws_message *)data)->flags & 15) == WEBSOCKET_OP_BINARY)) {
       return;
    }
    client_server_t *previous = context;
@@ -491,8 +494,7 @@ void rrclient_poll_events_reconnect(void) {
 #ifdef USE_MONGOOSE
 
    for (client_server_t *s = servers ; s ; s = s->next) {
-      if (s->reconnect_pending && now >= s->reconnect_at && !dying &&
-         (!s->connection || !s->connection->conn)) {
+      if (s->reconnect_pending && now >= s->reconnect_at && !dying && (!s->connection || !s->connection->conn)) {
          s->reconnect_pending = false;
 
          if (s->reconnect_enabled) {
@@ -727,6 +729,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    t->server.tls = endpoint.tls;
    const char *nick = get_server_property(s->name, "server.user");
    const char *pass = get_server_property(s->name, "server.pass");
+
    if (endpoint.credentials) {
       nick = endpoint.user;
       pass = endpoint.pass;
@@ -839,8 +842,8 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       mg_random(nonce, sizeof(nonce));
       mg_base64_encode((unsigned char *)nonce, sizeof(nonce), key, sizeof(key));
       mg_printf(c, "GET %s HTTP/1.1\r\nHost: %s%s%s:%u\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-         "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\nSec-WebSocket-Key: %s\r\n\r\n", endpoint.path, endpoint.ipv6 ? "[" : "", endpoint.host, endpoint.ipv6 ? "]" : "",
-         endpoint.port, key);
+         "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\nSec-WebSocket-Key: %s\r\n\r\n", endpoint.path, endpoint.ipv6 ? "[" : "",
+         endpoint.host, endpoint.ipv6 ? "]" : "", endpoint.port, key);
       t->websocket_request = c->send;
       memset(&c->send, 0, sizeof(c->send));
       c->send.align = t->websocket_request.align;

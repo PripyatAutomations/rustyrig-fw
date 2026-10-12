@@ -66,13 +66,13 @@ bool media_have_priv(const char *priv) {
       size_t len = sep ? (size_t)(sep - p) : strlen(p);
       char tmp[64];
 
-      if (len >= sizeof(tmp) ) {
+      if (len >= sizeof(tmp)) {
          len = sizeof(tmp) - 1;
       }
       memcpy(tmp, p, len);
       tmp[len] = '\0';
 
-      if (match_priv(media_my_privs, tmp) ) {
+      if (match_priv(media_my_privs, tmp)) {
          return true;
       }
       p = sep ? sep + 1 : NULL;
@@ -91,23 +91,23 @@ struct rr_media_known {
    uint8_t rig;
    uint8_t stream;
    bool stream_valid;
-   char codec[5];                  // active (negotiated) codec magic
+   char codec[5];               // active (negotiated) codec magic
    char descr[128];
    bool subscribed;
-   bool disabled;                 // explicit NONE, retained for re-enabling
+   bool disabled;               // explicit NONE, retained for re-enabling
    char room[128];
    bool joined;
    bool automatic;
    char rig_uuid[64];
    char vfo_uuid[64];
    char control_room[128];
-   char pending_codec[5];         // wait for confirmation before resubscribing
+   char pending_codec[5];       // wait for confirmation before resubscribing
 };
 
 static struct rr_media_known known_chans[RR_MEDIA_MAX_CHANS];
 static char media_room[128];
 static char gps_scopes[1024];
-static bool media_ready = false;         // have we got the first available batch?
+static bool media_ready = false; // have we got the first available batch?
 static bool direction_disabled[2];
 const struct rr_media_known *rrclient_media_chan_lookup(const char *arg);
 
@@ -131,7 +131,7 @@ static struct rr_media_known *media_known_add(const char *uuid) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       if (known_chans[i].uuid[0] == '\0') {
          kp = &known_chans[i];
-         memset(kp, 0, sizeof(*kp) );
+         memset(kp, 0, sizeof(*kp));
          snprintf(kp->uuid, sizeof(kp->uuid), "%s", uuid);
 
          return kp;
@@ -154,11 +154,11 @@ static struct rr_media_known *media_current_channel(bool is_tx) {
 
       if (!kp->uuid[0] || !kp->subscribed || kp->disabled ||
          kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO || kp->direction != direction ||
-         !kp->codec[0] || (kp->room[0] && (!kp->joined || strcasecmp(kp->room, media_room) ) ) ) {
+         !kp->codec[0] || (kp->room[0] && (!kp->joined || strcasecmp(kp->room, media_room)))) {
          continue;
       }
 
-      if (kp->vfo == (uint8_t)(vfo - 'A') ) {
+      if (kp->vfo == (uint8_t) (vfo - 'A')) {
          return kp;
       }
 
@@ -182,8 +182,7 @@ static struct rr_media_known *media_codec_target_channel(bool is_tx) {
       struct rr_media_known *kp = &known_chans[i];
 
       if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-         kp->direction != direction ||
-         (kp->room[0] && (!kp->joined || strcasecmp(kp->room, media_room) ) ) ) {
+         kp->direction != direction || (kp->room[0] && (!kp->joined || strcasecmp(kp->room, media_room)))) {
          continue;
       }
 
@@ -191,7 +190,7 @@ static struct rr_media_known *media_codec_target_channel(bool is_tx) {
          fallback = kp;
       }
 
-      if (kp->vfo == (uint8_t)(active - 'A') ) {
+      if (kp->vfo == (uint8_t) (active - 'A')) {
          if (kp->subscribed && !kp->disabled) {
             return kp;
          }
@@ -231,8 +230,7 @@ const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[
 
       if (!channel->uuid[0] || !channel->subscribed || !channel->stream_valid ||
          channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-         channel->direction != RR_BINFRAME_DIR_RX ||
-         channel->stream != stream || strncmp(channel->codec, codec, 4) != 0) {
+         channel->direction != RR_BINFRAME_DIR_RX || channel->stream != stream || strncmp(channel->codec, codec, 4) != 0) {
          continue;
       }
 
@@ -321,13 +319,12 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
       struct rr_media_known *kp = &known_chans[i];
 
       if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-         kp->direction != direction || (selected && kp != selected) ||
-         (!kp->subscribed && !kp->disabled) ) {
+         kp->direction != direction || (selected && kp != selected) || (!kp->subscribed && !kp->disabled)) {
          continue;
       }
 
       if (none) {
-         if (kp->subscribed && !media_send_unsubscribe(cptr, kp->uuid) ) {
+         if (kp->subscribed && !media_send_unsubscribe(cptr, kp->uuid)) {
             failed = true;
             continue;
          }
@@ -335,19 +332,19 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
          kp->subscribed = false;
          kp->pending_codec[0] = '\0';
       } else {
-         if (!media_send_codec_select(cptr, normalized, kp->uuid) ) {
+         if (!media_send_codec_select(cptr, normalized, kp->uuid)) {
             failed = true;
             continue;
          }
 
          if (kp->disabled) {
-            memcpy(kp->pending_codec, normalized, sizeof(kp->pending_codec) );
+            memcpy(kp->pending_codec, normalized, sizeof(kp->pending_codec));
          }
       }
       sent = true;
    }
 
-   if (!target && !failed && (none || sent) ) {
+   if (!target && !failed && (none || sent)) {
       direction_disabled[is_tx] = none;
    }
 
@@ -358,11 +355,11 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
       media_sync_audio();
    }
 
-   if (!sent && (target || !none) ) {
+   if (!sent && (target || !none)) {
       media_print("No subscribed %s audio channels match; use /media LIST", is_tx ? "TX" : "RX");
    }
 
-   return failed || (!sent && (target || !none) );
+   return failed || (!sent && (target || !none));
 }
 
 bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
@@ -372,7 +369,7 @@ bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) 
 // Track pending subscriptions so we only subscribe once per channel
 static bool gps_wanted(const struct rr_media_known *channel) {
    if (channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || channel->direction != RR_BINFRAME_DIR_RX ||
-      (strcmp(channel->codec, RR_GPS_FRAME_CODEC) && strcmp(channel->codec, RR_NMEA_FRAME_CODEC) ) || !channel->joined) {
+      (strcmp(channel->codec, RR_GPS_FRAME_CODEC) && strcmp(channel->codec, RR_NMEA_FRAME_CODEC)) || !channel->joined) {
       return false;
    }
    bool raw = !strcmp(channel->codec, RR_NMEA_FRAME_CODEC);
@@ -384,7 +381,7 @@ static bool gps_wanted(const struct rr_media_known *channel) {
    char source[64];
    size_t len = suffix - channel->name;
 
-   if (len >= sizeof(source) ) {
+   if (len >= sizeof(source)) {
       return false;
    }
    memcpy(source, channel->name, len);
@@ -393,7 +390,7 @@ static bool gps_wanted(const struct rr_media_known *channel) {
    snprintf(scopes, sizeof(scopes), "%s", gps_scopes);
    char *save = NULL;
 
-   for (char *scope = strtok_r(scopes, " ", &save) ; scope ; scope = strtok_r(NULL, " ", &save) ) {
+   for (char *scope = strtok_r(scopes, " ", &save) ; scope ; scope = strtok_r(NULL, " ", &save)) {
       bool requested_raw = !strncmp(scope, "nmea:", 5);
 
       if (requested_raw != raw) {
@@ -404,13 +401,12 @@ static bool gps_wanted(const struct rr_media_known *channel) {
          scope += 5;
       }
 
-      if (!strcmp(scope, source) ) {
+      if (!strcmp(scope, source)) {
          return true;
       }
 
       if (!strcmp(scope, "active") &&
-         (ws_room_same_rig(media_room, channel->control_room) ||
-         (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room) ) ) ) {
+         (ws_room_same_rig(media_room, channel->control_room) || (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room)))) {
          return true;
       }
    }
@@ -422,8 +418,8 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
       return;
    }
 
-   if (gps_wanted(kp) ) {
-      if (media_send_subscribe(cptr, kp->uuid) ) {
+   if (gps_wanted(kp)) {
+      if (media_send_subscribe(cptr, kp->uuid)) {
          kp->subscribed = true;
          kp->automatic = true;
       }
@@ -434,8 +430,8 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
    // PARITY: rustyrig-www/js/webui.media.js mediaTryAutosubscribe.
    // Auto audio follows the selected joined rig room; site chat has no media.
    if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-      (kp->vfo != RR_BINFRAME_VFO_NA && kp->vfo != (uint8_t)(vfo_state_get_active() - 'A')) ||
-      (kp->room[0] && (!kp->joined || strcasecmp(kp->room, media_room) ) ) ) {
+      (kp->vfo != RR_BINFRAME_VFO_NA && kp->vfo != (uint8_t) (vfo_state_get_active() - 'A')) ||
+      (kp->room[0] && (!kp->joined || strcasecmp(kp->room, media_room)))) {
       return;
    }
 
@@ -445,7 +441,7 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
       return;
    }
 
-   if (media_send_subscribe(cptr, kp->uuid) ) {
+   if (media_send_subscribe(cptr, kp->uuid)) {
       kp->subscribed = true;
       kp->automatic = true;
    }
@@ -457,10 +453,10 @@ static void gps_outputs_changed(const char *event, const char *data, rrconn_t *c
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *kp = &known_chans[i];
 
-      if (gps_wanted(kp) ) {
+      if (gps_wanted(kp)) {
          media_try_autosubscribe(ws_conn, kp);
       } else if (kp->subscribed && kp->subsystem == RR_BINFRAME_SUBSYS_MODEM &&
-         (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC) ) ) {
+         (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC))) {
          media_send_unsubscribe(ws_conn, kp->uuid);
          kp->subscribed = false;
       }
@@ -492,17 +488,16 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          kp->direction = dir;
          kp->vfo = vfo;
          kp->rig = rig;
-         snprintf(kp->rig_uuid, sizeof(kp->rig_uuid), "%s", dict_get(d, "media.rig-uuid", "") );
-         snprintf(kp->vfo_uuid, sizeof(kp->vfo_uuid), "%s", dict_get(d, "media.vfo-uuid", "") );
+         snprintf(kp->rig_uuid, sizeof(kp->rig_uuid), "%s", dict_get(d, "media.rig-uuid", ""));
+         snprintf(kp->vfo_uuid, sizeof(kp->vfo_uuid), "%s", dict_get(d, "media.vfo-uuid", ""));
          const char *room = dict_get(d, "media.room", "");
          snprintf(kp->room, sizeof(kp->room), "%s", room);
-         snprintf(kp->control_room, sizeof(kp->control_room), "%s", dict_get(d, "media.control-room", room) );
+         snprintf(kp->control_room, sizeof(kp->control_room), "%s", dict_get(d, "media.control-room", room));
          kp->joined = dict_get_bool(d, "media.joined", false);
 
          if (kp->joined && kp->direction == RR_BINFRAME_DIR_RX && (kp->vfo < 32 || kp->vfo == RR_BINFRAME_VFO_NA) &&
             ws_room_same_rig(media_room, kp->control_room) && rrclient_room_is_joined(media_room) &&
-            (kp->vfo == RR_BINFRAME_VFO_NA ? rrclient_room_vfo_mask(media_room) != 0 :
-            (rrclient_room_vfo_mask(media_room) & (UINT32_C(1) << kp->vfo)) != 0) ) {
+            (kp->vfo == RR_BINFRAME_VFO_NA ? rrclient_room_vfo_mask(media_room) != 0 : (rrclient_room_vfo_mask(media_room) & (UINT32_C(1) << kp->vfo)) != 0)) {
             snprintf(kp->room, sizeof(kp->room), "%s", media_room);
          }
 
@@ -524,9 +519,8 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
             snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
          }
 
-         if ( (!kp->room[0] || kp->joined) && kp->disabled && kp->pending_codec[0] &&
-            strcmp(kp->pending_codec, kp->codec) == 0 && ws_conn &&
-            media_send_subscribe(ws_conn, kp->uuid) ) {
+         if ((!kp->room[0] || kp->joined) && kp->disabled && kp->pending_codec[0] &&
+            strcmp(kp->pending_codec, kp->codec) == 0 && ws_conn && media_send_subscribe(ws_conn, kp->uuid)) {
             kp->pending_codec[0] = '\0';
             kp->disabled = false;
             kp->subscribed = true;
@@ -538,8 +532,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          media_try_autosubscribe(ws_conn, kp);
          media_sync_audio();
 
-         if (frontend_ops() &&
-            media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
+         if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
             frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, kp->codec);
          }
       }
@@ -556,8 +549,7 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
 
    if (kp) {
       if (!unsub && (kp->disabled || (kp->room[0] && !kp->joined) ||
-         (kp->automatic && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-         kp->room[0] && strcasecmp(kp->room, media_room) ) ) ) {
+         (kp->automatic && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->room[0] && strcasecmp(kp->room, media_room)))) {
          if (ws_conn) {
             media_send_unsubscribe(ws_conn, kp->uuid);
          }
@@ -573,7 +565,7 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
       const char *codec = dict_get(d, "media.codec", NULL);
 
       if (!unsub && dict_get_type(d, "media.stream") != VAL_END) {
-         kp->stream = (uint8_t)dict_get_ulong(d, "media.stream", 0);
+         kp->stream = (uint8_t) dict_get_ulong(d, "media.stream", 0);
          kp->stream_valid = true;
       }
 
@@ -582,11 +574,10 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
       }
       media_sync_audio();
 
-      if (frontend_ops() &&
-         media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
-         frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, (unsub ? NULL : kp->codec) );
+      if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
+         frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, (unsub ? NULL : kp->codec));
       }
-      Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)", (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none") );
+      Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)", (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none"));
    }
 }
 
@@ -599,8 +590,8 @@ void rrclient_media_chan_removed(dict *d) {
    struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
 
    if (kp) {
-      Log(LOG_INFO, "ws.media", "Media channel removed: %s (%s)", kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-") );
-      memset(kp, 0, sizeof(*kp) );
+      Log(LOG_INFO, "ws.media", "Media channel removed: %s (%s)", kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-"));
+      memset(kp, 0, sizeof(*kp));
       media_sync_audio();
    }
 }
@@ -614,9 +605,9 @@ static void rrclient_handle_media_conn(const char *event, const char *data, rrco
 
    if (strcasecmp(event, "disconnected") == 0) {
       media_room[0] = '\0';
-      memset(known_chans, 0, sizeof(known_chans) );
+      memset(known_chans, 0, sizeof(known_chans));
       media_ready = false;
-      memset(direction_disabled, 0, sizeof(direction_disabled) );
+      memset(direction_disabled, 0, sizeof(direction_disabled));
       media_sync_audio();
       media_my_privs[0] = '\0';
    } else if (strcasecmp(event, "authorized") == 0 && data) {
@@ -688,8 +679,8 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *kp = &known_chans[i];
       bool active = gps_wanted(kp) || (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-         (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t)(vfo_state_get_active() - 'A')) &&
-         (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room) ) ) );
+         (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t) (vfo_state_get_active() - 'A')) &&
+         (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
 
       if (kp->automatic && kp->subscribed && !active) {
          media_send_unsubscribe(ws_conn, kp->uuid);
@@ -710,9 +701,9 @@ void rrclient_media_room_joined(const char *room) {
    uint32_t mask = rrclient_room_vfo_mask(room);
    char active = vfo_state_get_active();
 
-   if (mask && (active < 'A' || active > 'Z' || !(mask & (UINT32_C(1) << (active - 'A') ) ) ) ) {
+   if (mask && (active < 'A' || active > 'Z' || !(mask & (UINT32_C(1) << (active - 'A'))))) {
       for (unsigned int i = 0 ; i < 26 ; i++) {
-         if (mask & (UINT32_C(1) << i) ) {
+         if (mask & (UINT32_C(1) << i)) {
             char id[2] = {
                (char)('A' + i), 0
             };
@@ -727,7 +718,7 @@ void rrclient_media_room_joined(const char *room) {
       struct rr_media_known *channel = &known_chans[i];
 
       if (channel->direction == RR_BINFRAME_DIR_RX && (channel->vfo < 32 || channel->vfo == RR_BINFRAME_VFO_NA) &&
-         ws_room_same_rig(room, channel->control_room) && rrclient_room_is_joined(room) ) {
+         ws_room_same_rig(room, channel->control_room) && rrclient_room_is_joined(room)) {
          snprintf(channel->room, sizeof(channel->room), "%s", room);
          channel->joined = channel->vfo == RR_BINFRAME_VFO_NA ? mask != 0 : (mask & (UINT32_C(1) << channel->vfo)) != 0;
       }
@@ -737,18 +728,18 @@ void rrclient_media_room_joined(const char *room) {
 }
 
 void rrclient_media_room_selected(const char *room) {
-   if (!room || !strcasecmp(room, media_room) ) {
+   if (!room || !strcasecmp(room, media_room)) {
       return;
    }
 
-   if (rrclient_room_is_joined(room) && rrclient_room_vfo_mask(room) ) {
+   if (rrclient_room_is_joined(room) && rrclient_room_vfo_mask(room)) {
       rrclient_media_room_joined(room);
 
       return;
    }
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
-      if (known_chans[i].joined && !strcasecmp(known_chans[i].room, room) ) {
+      if (known_chans[i].joined && !strcasecmp(known_chans[i].room, room)) {
          rrclient_media_room_joined(room);
 
          return;
@@ -762,12 +753,12 @@ void rrclient_media_room_parted(const char *room) {
    }
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
-      if (!strcasecmp(known_chans[i].room, room) ) {
+      if (!strcasecmp(known_chans[i].room, room)) {
          known_chans[i].joined = false;
       }
    }
 
-   if (!strcasecmp(media_room, room) ) {
+   if (!strcasecmp(media_room, room)) {
       media_room[0] = '\0';
    }
    rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
@@ -790,7 +781,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
    char sentence[512];
 
    if (raw) {
-      if (!frame.len || frame.len >= sizeof(sentence) || memchr(frame.data, 0, frame.len) ) {
+      if (!frame.len || frame.len >= sizeof(sentence) || memchr(frame.data, 0, frame.len)) {
          return;
       }
       memcpy(sentence, frame.data, frame.len);
@@ -799,17 +790,15 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       if (memcmp(frame.hdr.codec, RR_GPS_FRAME_CODEC, 4) || frame.len != RR_GPS_POSITION_PAYLOAD_LEN) {
          return;
       }
-      int32_t lat = (int32_t)( (uint32_t)frame.data[0] << 24 | (uint32_t)frame.data[1] << 16 |
-               (uint32_t)frame.data[2] << 8 | frame.data[3]);
-      int32_t lon = (int32_t)( (uint32_t)frame.data[4] << 24 | (uint32_t)frame.data[5] << 16 |
-               (uint32_t)frame.data[6] << 8 | frame.data[7]);
+      int32_t lat = (int32_t) ((uint32_t) frame.data[0] << 24 | (uint32_t) frame.data[1] << 16 | (uint32_t) frame.data[2] << 8 | frame.data[3]);
+      int32_t lon = (int32_t) ((uint32_t) frame.data[4] << 24 | (uint32_t) frame.data[5] << 16 | (uint32_t) frame.data[6] << 8 | frame.data[7]);
 
-      if (!gps_sentence(lat, lon, frame.data[8], sentence, sizeof(sentence) ) ) {
+      if (!gps_sentence(lat, lon, frame.data[8], sentence, sizeof(sentence))) {
          return;
       }
    }
 
-   if (!rr_nmea_valid(sentence) ) {
+   if (!rr_nmea_valid(sentence)) {
       return;
    }
 
@@ -829,7 +818,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       char source[64];
       size_t size = suffix - channel->name;
 
-      if (size >= sizeof(source) ) {
+      if (size >= sizeof(source)) {
          return;
       }
       memcpy(source, channel->name, size);
@@ -843,7 +832,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       dict_add(d, "gps.nmea", sentence);
       dict_add_bool(d, "gps.raw", raw);
       dict_add_bool(d, "gps.selected", ws_room_same_rig(media_room, channel->control_room) ||
-         (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room) ) );
+         (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room)));
       event_emit_dict("serial.gps.output", NULL, d);
       dict_free(d);
 
@@ -952,14 +941,14 @@ const struct rr_media_known *rrclient_media_chan_lookup(const char *arg) {
    long index = strtol(number, &end, 10);
 
    if (end != number && !*end && index > 0 && index <= RR_MEDIA_MAX_CHANS) {
-      return rrclient_media_chan_get( (int)index - 1);
+      return rrclient_media_chan_get((int)index - 1);
    }
    const struct rr_media_known *match = NULL;
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       const struct rr_media_known *channel = &known_chans[i];
 
-      if (!channel->uuid[0] || !channel->name[0] || strcasecmp(channel->name, arg) ) {
+      if (!channel->uuid[0] || !channel->name[0] || strcasecmp(channel->name, arg)) {
          continue;
       }
 
@@ -1002,8 +991,7 @@ bool rrclient_media_subscribe_single_video(void) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *kp = &known_chans[i];
 
-      if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_VIDEO ||
-         kp->direction != RR_BINFRAME_DIR_RX) {
+      if (!kp->uuid[0] || kp->subsystem != RR_BINFRAME_SUBSYS_VIDEO || kp->direction != RR_BINFRAME_DIR_RX) {
          continue;
       }
 
@@ -1052,7 +1040,7 @@ void rrclient_media_refresh(void) {
    rrconn_t *cptr = ws_conn;
 
    if (cptr) {
-      if (!media_send_list(cptr) ) {
+      if (!media_send_list(cptr)) {
          Log(LOG_WARN, "ws.media", "Unable to refresh media channel list: request was not sent");
          media_print("Unable to refresh media channels; connection is not writable");
       }
@@ -1081,30 +1069,29 @@ bool cmd_media(int argc, char **args) {
          }
          n++;
 
-         if (!rrclient_resource_matches(ui_active_window_name(), kp->control_room[0] ? kp->control_room : kp->room) ) {
+         if (!rrclient_resource_matches(ui_active_window_name(), kp->control_room[0] ? kp->control_room : kp->room)) {
             continue;
          }
          visible++;
          media_print(" #%d %s [%s %s, %s] room=%s %s%s — %s (uuid=%s)", n, kp->name[0] ? kp->name : kp->uuid, kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO ?
             "audio" :
             kp->subsystem == RR_BINFRAME_SUBSYS_MODEM ? "GPS/serial" : "media", kp->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX", kp->codec[0] ? kp->codec :
-            "----", kp->room[0] ? kp->room : "any", kp->subscribed ? "subscribed" : "unsubscribed", !kp->room[0] || kp->joined ? "" : " (join room first)", kp->
-            descr[0] ? kp->descr : "-", kp->uuid);
+            "----", kp->room[0] ? kp->room : "any", kp->subscribed ? "subscribed" : "unsubscribed", !kp->room[0]
+            || kp->joined ? "" : " (join room first)", kp->descr[0] ? kp->descr : "-", kp->uuid);
       }
 
       media_print("End of list (%d channels). Use names, #numbers, or UUIDs.", visible);
       Log(LOG_INFO, "ws.media", "/media LIST: %d stored channels", n);
 
       if (sub) {
-         return false;   // explicit LIST: no refresh
+         return false;          // explicit LIST: no refresh
       }
       rrclient_media_refresh();
 
       return false;
    }
 
-   if (strcasecmp(sub, "SUBSCRIBE") == 0 || strcasecmp(sub, "SUB") == 0 ||
-      strcasecmp(sub, "UNSUBSCRIBE") == 0 || strcasecmp(sub, "UNSUB") == 0) {
+   if (strcasecmp(sub, "SUBSCRIBE") == 0 || strcasecmp(sub, "SUB") == 0 || strcasecmp(sub, "UNSUBSCRIBE") == 0 || strcasecmp(sub, "UNSUB") == 0) {
       bool unsub = (strncasecmp(sub, "UN", 2) == 0);
 
       if (argc < 3 || !args[2] || args[2][0] == '\0') {
@@ -1126,17 +1113,17 @@ bool cmd_media(int argc, char **args) {
 
             return false;
          }
-         media_print("Unsubscribing from %s (%s)", kp->name[0] ? kp->name : kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-") );
+         media_print("Unsubscribing from %s (%s)", kp->name[0] ? kp->name : kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-"));
 
          return rrclient_media_unsubscribe(kp->uuid);
       }
 
       if (kp->subscribed) {
-         media_print("Already subscribed to %s (%s)", kp->name[0] ? kp->name : kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-") );
+         media_print("Already subscribed to %s (%s)", kp->name[0] ? kp->name : kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-"));
 
          return false;
       }
-      media_print("Subscribing to %s (%s)", kp->name[0] ? kp->name : kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-") );
+      media_print("Subscribing to %s (%s)", kp->name[0] ? kp->name : kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-"));
 
       return rrclient_media_subscribe(kp->uuid);
    }
@@ -1149,7 +1136,7 @@ bool cmd_media(int argc, char **args) {
 static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
    const char *command = is_tx ? "txcodec" : "rxcodec";
 
-   if (argc > 3 || (argc == 3 && strcasecmp(args[1], "list") == 0) ) {
+   if (argc > 3 || (argc == 3 && strcasecmp(args[1], "list") == 0)) {
       media_print("Usage: /%s [LIST | <codec>|NONE [name|uuid|#number]]", command);
 
       return true;
@@ -1168,13 +1155,12 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
          }
          number++;
 
-         if (!rrclient_resource_matches(ui_active_window_name(), kp->control_room[0] ? kp->control_room : kp->room) ) {
+         if (!rrclient_resource_matches(ui_active_window_name(), kp->control_room[0] ? kp->control_room : kp->room)) {
             continue;
          }
 
          if (kp->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-            kp->direction != (is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) ||
-            (!kp->subscribed && !kp->disabled) ) {
+            kp->direction != (is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX) || (!kp->subscribed && !kp->disabled)) {
             continue;
          }
          media_print(" #%d %s [%s]: %s%s (%s)", number, (kp->name[0] ? kp->name : "-"), kp->uuid, kp->disabled ? "NONE" : kp->codec, kp->pending_codec[0] ?
@@ -1200,8 +1186,7 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
 
       return true;
    }
-   const struct rr_media_known *target = (argc ==
-      3) ? rrclient_media_chan_lookup(args[2]) : media_codec_target_channel(is_tx);
+   const struct rr_media_known *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_codec_target_channel(is_tx);
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
 
    if (!failed) {
@@ -1233,19 +1218,18 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
 
-      if (channel->vfo == RR_BINFRAME_VFO_NA && channel->rig_uuid[0] &&
-         ws_room_same_rig(room, channel->control_room)) {
+      if (channel->vfo == RR_BINFRAME_VFO_NA && channel->rig_uuid[0] && ws_room_same_rig(room, channel->control_room)) {
          char alias[2] = {
             vfo, 0
          };
          const dict *object = rrclient_object_find_alias("vfo", channel->rig_uuid, alias);
 
          if (object) {
-            return dict_get((dict *)object, "object.uuid", NULL);
+            return dict_get((dict *) object, "object.uuid", NULL);
          }
       }
 
-      if (channel->vfo == vfo - 'A' && channel->vfo_uuid[0] && ws_room_same_rig(room, channel->control_room) ) {
+      if (channel->vfo == vfo - 'A' && channel->vfo_uuid[0] && ws_room_same_rig(room, channel->control_room)) {
          return channel->vfo_uuid;
       }
    }
