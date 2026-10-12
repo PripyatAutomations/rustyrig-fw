@@ -74,15 +74,20 @@ names the local configuration entry and need not match the remote site.
 | `enabled` | Explicitly set `true` to enable; `false` ignores the entire block |
 | `autoconnect` | With a URL, initiate/retry when no active or pending link exists |
 | `server.url` | `wss://host:port/link`; empty means incoming-only |
-| `username` / `password` | Shared per-link credentials; use the same pair at both ends |
+| `password` | Shared link password; use the same password at both ends |
 | `site.name` | Required expected remote `station.name`, matched exactly |
 | `node.uuid` | Optional expected persistent remote server UUID |
 
-These are link credentials, separate from ordinary user accounts. Authentication
-is mutual and also checks the expected site and optional UUID pin. Keep the
+No user account or username is required for a peer. Authentication is mutual:
+each endpoint verifies the shared password, expected remote site and optional
+UUID pin. Peer and listener ACL identity selectors use the remote site name,
+without account groups (for example, `allow=nycvny37@10.0.0.0/8`). Keep the
 configuration containing the password private. Peer settings are read at startup;
-restart after changing them. `autoconnect=false` still permits authenticated
-incoming connections when `enabled=true`.
+restart after changing them. Legacy peer `username` keys are ignored and omitted
+when saving configuration. Rebuild both servers together: the hello message
+no longer carries a username. Usernames in relayed application requests still
+identify the user for owner-side account authorization. `autoconnect=false` still
+permits authenticated incoming connections when `enabled=true`.
 
 By default, `links.shared-listener=true` accepts `/link` on the existing client
 listeners: normally WS on port 8420 and WSS on port 4420. `/ws` and ordinary HTTP
@@ -114,7 +119,7 @@ rig, database, media or client-listener configuration.
 Both examples enable autoconnect; either machine can win the initial connection.
 For incoming-only operation, remove `server.url` from that side. Startup logs
 show `Server link node <UUID> (<site>)`; a committed link logs
-`Linked site <site> (<UUID>), root <UUID>, servers <count>`.
+`Linked site <site> (<UUID>), servers <count>`.
 After a peer restart, expect `Unlinked site ...` followed by a new `Linked site ...`.
 Use the logged UUID for an optional peer `node.uuid` pin.
 

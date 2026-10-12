@@ -1818,6 +1818,18 @@ static void refresh_catalog(void) {
 
    catalog_dirty = false;
 }
+/* A revoked grant is gone even if the backend rejected its first key-up.
+ * Keep retrying from the owning session, independently of grant lifetime. */
+static void retry_remote_ptt(struct remote_session *r, uint64_t at) {
+   if (!r->client.is_ptt || rrserver_direct_tx_ready(&r->client, r->client.ptt_room)) {
+      r->release_retry = 0;
+      return;
+   }
+   if (at < r->release_retry)
+      return;
+   ws_release_ptt_on_disconnect(&r->client);
+   r->release_retry = r->client.is_ptt ? at + UINT64_C(1000000) : 0;
+}
 void rrserver_relay_poll(void) {
    for (struct relay_media * m = media_maps; m; m = m->next) {
       if (m->frame && (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
@@ -1832,8 +1844,10 @@ void rrserver_relay_poll(void) {
          r->client.user->password_change_required || (r->client.user->password_expires && r->client.user->password_expires <= now)) {
          if (!remove_remote(pending))
             pending = &r->next;
-      } else
+      } else {
+         retry_remote_ptt(r, mono_us());
          pending = &r->next;
+      }
    }
    if (!initialized && *rrserver_links_node()) {
       collect_local();

@@ -26,6 +26,13 @@ permissions, UDP-loss PTT release, room departure and link reconnection. Codec
 and media tests complement those routing fixtures. A passing automated fixture
 is not a physical-radio measurement.
 
+After changes to remote TX cleanup, run
+`bash rrserver/tests/test_relay_ptt_release.sh` and
+`bash librrprotocol/tests/test_ptt_disconnect.sh`. The first fixture injects a
+radio backend key-up rejection after the TX grant disappears, checks bounded
+retry and confirms retries stop after success. Run
+`bash rrserver/tests/test_media_direct_live.sh` for the full linked-media path.
+
 ## Two-machine acceptance
 
 Before tagging v1.0, test the built Debian packages on the two stations:

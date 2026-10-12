@@ -27,8 +27,14 @@ rustyrig-fw (20261012.01) testing; urgency=medium
     acceptance, quoted filenames, binary transfers, cumulative acknowledgements,
     expiry and cancellation. Add shared native commands, session ID completion
     and protected destination creation; retain each session's window/server scope.
+  * Retry rejected owner-side remote PTT release after direct-media grant loss,
+    independently of grant lifetime. Preserve PTT ownership if release-message
+    allocation fails; add a focused backend-failure regression fixture.
+  * Simplify peer authentication to shared password, expected site name and
+    optional UUID pin; remove peer account/username lookup and use site names
+    for peer ACL identity. Retain user identity for relayed rig permissions.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 03:12:36 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 03:48:18 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

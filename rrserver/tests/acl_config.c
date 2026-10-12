@@ -18,6 +18,9 @@ int main(int argc, char **argv) {
    assert(loaded);
    dict_free(cfg); cfg = loaded;
    assert(rrserver_acl_validate());
+   assert(!cfg_get("peer.username"));
+   assert(rrserver_acl_check("peer:branch", "10.1.2.3", NULL, "branch") == ACL_ALLOW);
+   assert(rrserver_acl_check("peer:branch", "10.1.2.3", NULL, "other") == ACL_DENY);
    assert(rrserver_acl_check("listener:http", "10.200.1.2", NULL, NULL) == ACL_DEFER);
    assert(rrserver_acl_check("listener:http", "10.200.1.2", NULL, "guest") == ACL_DENY);
    assert(rrserver_acl_check("listener:http", "10.201.1.2", NULL, "guest") == ACL_ALLOW);
@@ -35,7 +38,7 @@ int main(int argc, char **argv) {
    assert(rrserver_acl_check("listener:http", "10.200.1.2", NULL, "guest") == ACL_DENY);
    assert(rrserver_acl_check("listener:http", "10.201.1.2", NULL, "guest") == ACL_ALLOW);
    assert(!strcmp(cfg_get("peer.acl"), "private"));
-   assert(!strcmp(cfg_get("peer:branch.acl"), "staff"));
+   assert(!strcmp(cfg_get("peer:branch.acl"), "links"));
    assert(!strcmp(cfg_get("rtp.ports"), "8422-8499"));
    assert(!strcmp(cfg_get("rtp:staff.ports"), "9000-9010"));
    assert(!strcmp(cfg_get("rtp:staff.acl"), "staff"));

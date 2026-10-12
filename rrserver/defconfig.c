@@ -92,10 +92,7 @@ defconfig_t defcfg[] = {
       "peer.server.url", "", "Peer ws/wss URL; empty means incoming-only"
    },
    {
-      "peer.username", "", "Shared link authentication username"
-   },
-   {
-      "peer.password", "", "Shared link authentication password"
+      "peer.password", "", "Shared link password; no user account required"
    },
    {
       "peer.site.name", "", "Expected remote station name"

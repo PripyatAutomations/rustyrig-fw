@@ -23,7 +23,7 @@ extern struct GlobalState rig;
 struct link_session;
 struct link_peer {
    char section[128], site[128], node[37];
-   char *url, *username, *password;
+   char *url, *password;
    bool autoconnect;
    long long retry_at;
    struct link_session *session;
@@ -146,7 +146,6 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
-   dict_add(d, "username", session->peer->username);
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
    dict_free(d);
@@ -274,7 +273,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    }
 
    if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) ||
-      !equal_secret(peer->username, dict_get(d, "username", "")) || !equal_secret(peer->password, dict_get(d, "password", ""))) {
+      !equal_secret(peer->password, dict_get(d, "password", ""))) {
       fail(session, "Peer authentication failed");
 
       return;
@@ -282,11 +281,9 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    char peer_ip[64];
    mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &session->connection->rem);
-   int uid = http_getuid(peer->username);
-   const http_user_t *account = uid >= 0 && uid < HTTP_MAX_USERS ? &http_users[uid] : NULL;
    const char *listener = session->connection->is_tls ? "listener:https" : "listener:http";
-   if (rrserver_acl_check(peer->section, peer_ip, account, peer->username) != ACL_ALLOW ||
-      (!session->outbound && rrserver_acl_check(session->dedicated ? "listener:link" : listener, peer_ip, account, peer->username) != ACL_ALLOW)) {
+   if (rrserver_acl_check(peer->section, peer_ip, NULL, peer->site) != ACL_ALLOW ||
+      (!session->outbound && rrserver_acl_check(session->dedicated ? "listener:link" : listener, peer_ip, NULL, peer->site) != ACL_ALLOW)) {
       fail(session, "ACL access denied");
       return;
    }
@@ -541,9 +538,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    if (event == MG_EV_CONNECT && session->outbound) {
       char peer_ip[64];
       mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &c->rem);
-      int uid = http_getuid(session->peer->username);
-      const http_user_t *account = uid >= 0 && uid < HTTP_MAX_USERS ? &http_users[uid] : NULL;
-      if (rrserver_acl_check(session->peer->section, peer_ip, account, session->peer->username) != ACL_ALLOW) {
+      if (rrserver_acl_check(session->peer->section, peer_ip, NULL, session->peer->site) != ACL_ALLOW) {
          fail(session, "Outbound peer ACL access denied");
          return;
       }
@@ -624,10 +619,10 @@ static bool load_peer(const char *section) {
       }
    }
 
-   const char *url = peer_value(section, "server.url"), *username = peer_value(section, "username"),
+   const char *url = peer_value(section, "server.url"),
       *password = peer_value(section, "password"), *autoconnect = peer_value(section, "autoconnect");
 
-   if (!username || !*username || strlen(username) > 256 || !password || !*password || strlen(password) > 256) {
+   if (!password || !*password || strlen(password) > 256) {
       return false;
    }
 
@@ -635,7 +630,6 @@ static bool load_peer(const char *section) {
       return false;
    }
    peer->url = strdup(url ? url : "");
-   peer->username = strdup(username);
    peer->password = strdup(password);
 
    if (autoconnect && strcasecmp(autoconnect, "true") && strcasecmp(autoconnect, "false")) {
@@ -643,7 +637,7 @@ static bool load_peer(const char *section) {
    }
    peer->autoconnect = autoconnect && !strcasecmp(autoconnect, "true");
 
-   return peer->url && peer->username && peer->password;
+   return peer->url && peer->password;
 }
 
 /* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
@@ -868,7 +862,6 @@ void rrserver_links_fini(void) {
 
    for (size_t i = 0; i < links.peer_count; i++) {
       free(links.peers[i].url);
-      free(links.peers[i].username);
       free(links.peers[i].password);
    }
 

@@ -81,7 +81,6 @@ with tempfile.TemporaryDirectory(prefix='rr-links-') as temporary:
 enabled=true
 autoconnect=true
 server.url={('ws://' if PLAINTEXT else 'wss://') + 'localhost:' + str(ports[remote]) + '/link' if url else ''}
-username=tree-test
 password=disposable-link-secret
 site.name={remote}
 acl=test-local
@@ -217,7 +216,7 @@ acl=media-staff
         bad = LinkSocket(ports['alpha'], context)
         assert b'101' in bad.headers
         bad.send({'op':'link.hello', 'node':'00000000-0000-4000-8000-000000000002',
-            'site':'beta', 'username':'tree-test', 'password':'wrong'})
+            'site':'beta', 'password':'wrong'})
         try:
             bad.receive()
             raise AssertionError('unauthorized peer received a response')
@@ -225,7 +224,7 @@ acl=media-staff
         finally: bad.socket.close()
         wrong_site = LinkSocket(ports['alpha'], context)
         wrong_site.send({'op':'link.hello', 'node':'00000000-0000-4000-8000-000000000002',
-            'site':'unexpected-site', 'username':'tree-test',
+            'site':'unexpected-site',
             'password':'disposable-link-secret'})
         try:
             wrong_site.receive()
@@ -244,7 +243,7 @@ acl=media-staff
         before_duplicates = log('alpha').count('Unlinked site beta')
         duplicate = LinkSocket(ports['alpha'], context)
         duplicate.send({'op':'link.hello', 'node':node, 'site':'beta',
-            'username':'tree-test', 'password':'disposable-link-secret'})
+            'password':'disposable-link-secret'})
         try:
             duplicate.receive()
             raise AssertionError('late duplicate was accepted')
@@ -269,9 +268,9 @@ acl=media-staff
         cycle = LinkSocket(ports['alpha'], context)
         delta_node = re.search(r'Server link node ([0-9a-f-]+)', log('delta')).group(1)
         cycle.send({'op':'link.hello', 'node':delta_node, 'site':'delta',
-            'username':'tree-test', 'password':'disposable-link-secret'})
+            'password':'disposable-link-secret'})
         hello = cycle.receive()
-        assert hello['op'] == 'link.hello' and 'role' not in hello and 'root' not in hello
+        assert hello['op'] == 'link.hello' and 'username' not in hello and 'role' not in hello and 'root' not in hello
         assert cycle.receive()['op'] == 'link.snapshot'
         cycle.send({'op':'link.snapshot', 'nodes':f"{delta_node},- {hello['node']},{delta_node}"})
         try:

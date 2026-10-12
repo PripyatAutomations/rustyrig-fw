@@ -41,6 +41,9 @@ Before authentication, a potentially matching identity rule defers the decision
 until the account is verified, preserving first-match ordering. The reusable
 `librustyaxe/acl.h` matcher exposes `ACL_DEFER` for unknown identity or address;
 this result is never final authorization. Applications supply group membership.
+Server links supply the authenticated remote site name as their ACL identity,
+with no account or account groups. Use selectors such as
+`allow=nycvny37@10.0.0.0/8` for peer and link-listener policies.
 MQTT has no verified account identity here, so user/group rules cannot authorize
 MQTT clients; use network rules for that listener.
 
