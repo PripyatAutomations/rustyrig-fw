@@ -28,7 +28,7 @@ rustyrig-fw (20261012.01) testing; urgency=medium
     expiry and cancellation. Add shared native commands, session ID completion
     and protected destination creation; retain each session's window/server scope.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 02:05:04 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 03:12:36 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 
