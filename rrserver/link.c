@@ -596,6 +596,11 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    }
 }
 
+static bool invalid_peer(const char *section, const char *key, const char *reason) {
+   Log(LOG_CRIT, "link", "Invalid [%s] %s: %s", section, key, reason);
+   return false;
+}
+
 static bool load_peer(const char *section) {
    const char *enabled = peer_value(section, "enabled");
 
@@ -604,30 +609,35 @@ static bool load_peer(const char *section) {
    }
 
    if (strcasecmp(enabled, "true")) {
-      return false;
+      return invalid_peer(section, "enabled", "must be true or false");
    }
 
    if (links.peer_count == MAX_PEERS) {
-      return false;
+      return invalid_peer(section, "enabled", "configured peer limit exceeded");
    }
    struct link_peer *peer = &links.peers[links.peer_count++];
    snprintf(peer->section, sizeof(peer->section), "%s", section);
    const char *site = peer_value(section, "site.name"), *node = peer_value(section, "node.uuid");
 
-   if (!site || !*site || strlen(site) >= sizeof(peer->site) || !strcmp(site, links.site)) {
-      return false;
+   if (!site || !*site || strlen(site) >= sizeof(peer->site)) {
+      return invalid_peer(section, "site.name", "expected remote station name is required (1-127 characters)");
+   }
+   if (!strcmp(site, links.site)) {
+      char reason[256];
+      snprintf(reason, sizeof(reason), "must name the remote server; local station.name is %s", links.site);
+      return invalid_peer(section, "site.name", reason);
    }
    strcpy(peer->site, site);
    if (node && *node) {
       if (!rr_object_uuid_valid(node)) {
-         return false;
+         return invalid_peer(section, "node.uuid", "must be empty or a valid remote server UUID");
       }
       snprintf(peer->node, sizeof(peer->node), "%s", node);
    }
 
    for (size_t i = 0; i + 1 < links.peer_count; i++) {
       if (!strcmp(links.peers[i].site, site)) {
-         return false;
+         return invalid_peer(section, "site.name", "another enabled peer already uses this remote station name");
       }
    }
 
@@ -635,21 +645,25 @@ static bool load_peer(const char *section) {
       *password = peer_value(section, "password"), *autoconnect = peer_value(section, "autoconnect");
 
    if (!password || !*password || strlen(password) > 256) {
-      return false;
+      return invalid_peer(section, "password", "shared link password is required (1-256 characters)");
    }
 
    if (url && *url && strncmp(url, "wss://", 6) && !(links.insecure && !strncmp(url, "ws://", 5))) {
-      return false;
+      return invalid_peer(section, "server.url", !strncmp(url, "ws://", 5) ?
+         "ws:// requires links.allow-insecure=true in [general]" : "must use wss:// or explicitly enabled ws://");
    }
    peer->url = strdup(url ? url : "");
    peer->password = strdup(password);
 
    if (autoconnect && strcasecmp(autoconnect, "true") && strcasecmp(autoconnect, "false")) {
-      return false;
+      return invalid_peer(section, "autoconnect", "must be true or false");
    }
    peer->autoconnect = autoconnect && !strcasecmp(autoconnect, "true");
 
-   return peer->url && peer->password;
+   if (!peer->url || !peer->password) {
+      return invalid_peer(section, "credentials", "out of memory while loading peer");
+   }
+   return true;
 }
 
 /* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */

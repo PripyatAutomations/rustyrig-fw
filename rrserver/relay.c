@@ -65,6 +65,7 @@ static struct remote_session *remotes;
 static struct subscription *subscriptions;
 static size_t catalog_count, client_count, remote_count, subscription_count, wanted_count;
 static bool initialized, applying, catalog_dirty;
+static void rejoin_owned_room(const char *owner, const char *room);
 
 static dict *copy_dict(dict *d) {
    char *json = dict2json(d);
@@ -267,7 +268,7 @@ static struct remote_session *remote_for(rrconn_t *client) {
 }
 static struct catalog *find_catalog(const char *key) {
    for (struct catalog * c = catalogs; c; c = c->next) {
-      if (!strcmp(c->key, key)) {
+      if (!strcmp(c->key, key) || (!strncmp(key, "room:", 5) && !strcasecmp(c->key, key))) {
          return c;
       }
    }
@@ -304,6 +305,16 @@ static const char *message_room(dict *d) {
 
    return room;
 }
+static bool owns_station_room(const char *owner, const char *room) {
+   for (struct catalog *c = catalogs; c; c = c->next) {
+      const char *type = dict_get(c->descriptor, "object.type", "");
+      if (!strcmp(c->owner, owner) && (!strcmp(type, "node") || !strcmp(type, "rig")) &&
+         !strcasecmp(dict_get(c->descriptor, "object.room", ""), room))
+         return true;
+   }
+   return false;
+}
+
 static void catalog_put(const char *owner, dict *d) {
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
    char key[160];
@@ -338,14 +349,36 @@ static void catalog_put(const char *owner, dict *d) {
       return;
    }
    struct catalog *c = find_catalog(key);
+   bool replace = c && strcmp(c->owner, owner);
 
-   if (c && strcmp(c->owner, owner)) {
-      return;                   // Never replace another owner's identity.
+   if (replace && (uuid || !room || local_owner(owner) || !owns_station_room(owner, room) ||
+      owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
+      return;                   // Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = copy_dict(d);
 
    if (!copy) {
       return;
+   }
+
+   if (replace && local_owner(c->owner)) {
+#ifdef USE_SQLITE
+      bool exists, deleted;
+      if (!db_room_status(masterdb, room, &exists, &deleted) ||
+         (exists && !db_room_delete(masterdb, room, "server-link", true, false))) {
+         Log(LOG_WARN, "link", "Unable to remove stale local room metadata for %s", room);
+         dict_free(copy);
+         return;
+      }
+#endif
+      /* Withdraw our old claim before advertising its authoritative owner. */
+      for (struct catalog *peer = catalogs; peer; peer = peer->next) {
+         const char *next = rrserver_links_route(peer->owner);
+         if (next && !strcmp(next, peer->owner) && !strcmp(dict_get(peer->descriptor, "object.type", ""), "node"))
+            send_owned(next, c->owner, "catalog-remove", c->descriptor);
+      }
+      ws_room_set_vfo_mask(room, 0);
+      Log(LOG_INFO, "link", "Removed stale local room %s; authoritative owner is %s (chat history retained)", room, owner);
    }
 
    if (!c) {
@@ -367,9 +400,15 @@ static void catalog_put(const char *owner, dict *d) {
       catalogs = c;
       catalog_count++;
    }
+   if (replace) {
+      snprintf(c->key, sizeof(c->key), "%s", key);
+      snprintf(c->owner, sizeof(c->owner), "%s", owner);
+   }
    dict_free(c->descriptor);
    c->descriptor = copy;
    c->seen = true;
+   if (!uuid && room && !local_owner(owner))
+      rejoin_owned_room(owner, room);
 }
 static void add_object(const char *uuid, const char *type, const char *owner, const char *alias, const char *room) {
    dict *d = dict_new();
@@ -513,7 +552,7 @@ static struct relay_client *client_for(rrconn_t *client, bool create) {
 }
 static void wanted_set(struct relay_client *client, const char *owner, const char *room, bool joined) {
    struct wanted_room **link = &client->wanted;
-   while (*link && strcmp((*link)->room, room)) {
+   while (*link && strcasecmp((*link)->room, room)) {
       link = &(*link)->next;
    }
 
@@ -544,6 +583,45 @@ static void wanted_free(struct relay_client *client) {
       client->wanted = w->next;
       free(w);
       wanted_count--;
+   }
+}
+static void rejoin_owned_room(const char *owner, const char *room) {
+   for (rrconn_t *client = http_client_list; client; client = client->next) {
+      if (!client->authenticated || !client->user || !ws_client_in_room(client, room))
+         continue;
+      struct relay_client *local = client_for(client, true);
+      struct wanted_room *wanted = local ? local->wanted : NULL;
+      while (wanted && strcasecmp(wanted->room, room))
+         wanted = wanted->next;
+      if (wanted && !strcmp(wanted->owner, owner))
+         continue;
+      if (local) {
+         wanted_set(local, owner, room, true);
+         for (wanted = local->wanted; wanted; wanted = wanted->next)
+            if (!strcasecmp(wanted->room, room)) {
+               wanted->pending = true;
+               break;
+            }
+         local->retry_at = 0;
+      }
+      ws_client_part_room(client, room);
+      ws_send_notice(client, wanted ? "Room %s belongs to a linked server; rejoining through its owner" :
+         "Room %s belongs to a linked server; use /join to join its owner", room);
+   }
+   /* These virtual memberships belonged to our obsolete local room. */
+   for (struct remote_session *r = remotes; r; r = r->next)
+      if (ws_client_in_room(&r->client, room))
+         ws_client_part_room(&r->client, room);
+   struct subscription **link = &subscriptions;
+   while (*link) {
+      struct subscription *s = *link;
+      if (!strcasecmp(s->room, room) && strcmp(s->owner, owner)) {
+         *link = s->next;
+         free(s);
+         subscription_count--;
+      } else {
+         link = &s->next;
+      }
    }
 }
 static bool demand(const char *owner, const char *room) {
@@ -1482,7 +1560,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          while (*p) {
             struct catalog *entry = *p;
 
-            if (!strcmp(entry->key, key) && !strcmp(entry->owner, origin)) {
+            if ((!strcmp(entry->key, key) || (!uuid && room && !strcasecmp(entry->key, key))) && !strcmp(entry->owner, origin)) {
                if (uuid) {
                   dict_add(d, "msg.type", "object");
                   dict_add(d, "object.cmd", "removed");

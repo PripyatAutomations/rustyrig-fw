@@ -35,8 +35,14 @@ rustyrig-fw (20261012.01) testing; urgency=medium
     for peer ACL identity. Retain user identity for relayed rig permissions.
   * Report rejected server-link WebSocket upgrade HTTP status and underlying
     transport errors without logging response headers or link credentials.
+  * Identify rejected peer configuration fields at startup, including local
+    versus remote site-name mistakes and plaintext-link policy requirements,
+    without exposing configured passwords.
+  * Reconcile stale local lobby/rig room metadata with authoritative linked
+    node/rig catalogs, preserving chat history and current local rooms. Route
+    affected local members through owner-authorized joins and mark rooms remote.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 04:01:54 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 04:21:32 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

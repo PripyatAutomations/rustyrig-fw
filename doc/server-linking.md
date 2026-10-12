@@ -69,6 +69,12 @@ no pending application commands are replayed.
 Use `[peer]` for one peer, or `[peer:name]` for multiple peer blocks. The alias
 names the local configuration entry and need not match the remote site.
 
+`[general] station.name` names this server; `[peer] site.name` names the other
+server. For example, nycvny37 has `station.name=nycvny37` and a peer with
+`site.name=rplywv00`; rplywv00 has the opposite pair. Startup rejects a peer
+whose expected site equals the local station name. Invalid peer configuration
+logs identify the rejected section/key and reason without displaying passwords.
+
 | Key | Meaning |
 |---|---|
 | `enabled` | Explicitly set `true` to enable; `false` ignores the entire block |
@@ -225,3 +231,13 @@ streams, reliable codec setup delivery, negotiated datagram size limits, media
 packetization, jitter/reordering/loss handling and WS fallback. RTT adaptation
 must incorporate delivery delay and queue/loss observations. Dependency choice,
 TLS/UDP deployment and browser/native adapters remain separate work items.
+
+### Stale local room metadata
+
+An authenticated owner's node or rig descriptor establishes authority for its
+station lobby or rig room. When that room was saved locally under an earlier
+configuration, discovery removes the obsolete local database row and VFO
+bindings, preserves chat history, and replaces the catalog claim with the remote
+owner. Connected local members are rejoined through the owner and its account
+checks. The active local station/rig rooms remain protected. Ordinary chat-room
+name collisions do not establish authority and do not trigger automatic deletion.

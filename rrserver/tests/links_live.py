@@ -93,6 +93,9 @@ acl=test-local
                 db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,'TEST',1,?,3,'admin,view,chat')",
                     (hashlib.sha1(b'test-password').hexdigest(),))
                 if name == 'alpha':
+                    # Saved rooms from an old site identity must yield to its owner.
+                    db.executemany("INSERT INTO rooms(name) VALUES(?)", [('#GAMMA',), ('#gamma-rig0',), ('#ordinary-local',)])
+                    db.execute("INSERT INTO chat_log(msg_src,msg_dest,msg_type,msg_data) VALUES('TEST','#GAMMA','pub','retained-history')")
                     db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,'MISSING',1,?,3,'admin,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
                 db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(3,'READER',1,?,3,?)", (hashlib.sha1(b'test-password').hexdigest(), 'admin,view,chat' if name == 'alpha' else 'view,chat'))
         if DIRECT_MEDIA:
@@ -296,6 +299,14 @@ acl=media-staff
         listed = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-list')
         assert '#gamma-rig0' in listed['talk']['rooms'], listed
         assert '#gamma-rig0' in listed['talk']['remote-rooms'], listed
+        assert '#gamma' in listed['talk']['remote-rooms'], listed
+        assert '#GAMMA' not in listed['talk']['rooms'].split(), listed
+        with sqlite3.connect(work / 'alpha.db') as db:
+            assert db.execute("SELECT count(*) FROM rooms WHERE name COLLATE NOCASE IN ('#gamma','#gamma-rig0')").fetchone()[0] == 0
+            assert db.execute("SELECT count(*) FROM rooms WHERE name IN ('#alpha','#alpha-rig0','#ordinary-local') AND deleted=0").fetchone()[0] == 3
+            assert db.execute("SELECT count(*) FROM chat_log WHERE msg_data='retained-history'").fetchone()[0] == 1
+            assert db.execute("SELECT count(*) FROM audit_log WHERE username='server-link' AND event_type='room.removed'").fetchone()[0] == 2
+        print('PASS: authoritative linked rooms replace stale local metadata without deleting history or current local rooms')
         assert '#alpha-rig0' not in listed['talk']['remote-rooms'], listed
         assert '↗gamma' in listed['talk']['servers'], listed
         def remote_users_visible():
