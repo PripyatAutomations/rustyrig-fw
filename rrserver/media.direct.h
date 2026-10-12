@@ -1,7 +1,6 @@
 #ifndef RRSERVER_MEDIA_DIRECT_H
 #define RRSERVER_MEDIA_DIRECT_H
 #include <librustyaxe/core.h>
-bool rrserver_direct_relay_active(rrconn_t *client, const char *uuid);
 bool rrserver_direct_relay_grant(rrconn_t *client, dict *reply, unsigned stream, unsigned direction);
 bool rrserver_direct_config_init(void);
 bool rrserver_rtp_ports(const char *text, unsigned *first, unsigned *last);

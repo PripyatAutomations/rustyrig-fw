@@ -16,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 LISTENER = os.environ.get('RR_LINK_LISTENER', 'dedicated')
 PLAINTEXT = LISTENER == 'shared-plain'
 DIRECT_MEDIA = bool(os.environ.get('RR_RTP_TEST_PEER'))
+PROXY_MEDIA = bool(os.environ.get('RR_PROXY_TEST'))
 
 def port():
     with socket.socket() as s:
@@ -85,7 +86,7 @@ password=disposable-link-secret
 site.name={remote}
 acl=test-local
 '''
-    def start(name, ca=None, deny_peers=False):
+    def start(name, ca=None, deny_peers=False, direct_disabled=False):
         database = work / f'{name}.db'
         if not database.exists():
             with sqlite3.connect(database) as db:
@@ -98,7 +99,7 @@ acl=test-local
                     db.execute("INSERT INTO chat_log(msg_src,msg_dest,msg_type,msg_data) VALUES('TEST','#GAMMA','pub','retained-history')")
                     db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,'MISSING',1,?,3,'admin,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
                 db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(3,'READER',1,?,3,?)", (hashlib.sha1(b'test-password').hexdigest(), 'admin,view,chat' if name == 'alpha' else 'view,chat'))
-        if DIRECT_MEDIA:
+        if DIRECT_MEDIA or PROXY_MEDIA:
             with sqlite3.connect(database) as db:
                 db.execute("INSERT OR IGNORE INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(4,'SOURCE',1,?,3,'media.source,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
         client_ports[name] = ports[name] if PLAINTEXT else port()
@@ -179,6 +180,8 @@ acl=media-staff
         settings += '[peer:disabled]\nenabled=false\nautoconnect=true\n'
         if deny_peers:
             settings = settings.replace('acl=test-local', 'acl=test-deny') + '[acl:test-deny]\ndeny=all\n'
+        if direct_disabled:
+            settings = settings.replace('media.direct.enabled=true', 'media.direct.enabled=false')
         config.write_text(settings + TEST_ACLS)
         outputs[name] = open(work / f'{name}.console', 'a')
         env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
@@ -426,6 +429,14 @@ acl=media-staff
         for c in (owner, origin): c.until(lambda m: m.get('cat', {}).get('freq') == 14280000)
         origin.socket.close(); owner.socket.close()
         print('PASS: fresh authorized room subscription and control restored after middle-server restart')
+        if DIRECT_MEDIA or PROXY_MEDIA:
+            # Proxied TX must work even when the rig owner has no RTP listener.
+            previous = log('gamma').count('Linked site beta')
+            stop('gamma'); start('gamma', direct_disabled=True)
+            wait(lambda: log('gamma').count('Linked site beta') > previous and
+                 log('gamma').count('servers 4') >= 2, 'owner without RTP did not rejoin the tree')
+            from media_direct_live import run_proxy
+            run_proxy(login, work, media_ports['alpha'] + 7 if DIRECT_MEDIA else None)
         assert 'disposable-link-secret' not in ''.join(log(n) for n in processes)
         print(f'PASS: {LISTENER} listener, peer authentication, separate protocol, concurrent dials, incoming-only peer, branch-only withdrawal, component merging and autoconnect')
     except Exception:

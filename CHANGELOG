@@ -44,8 +44,13 @@ rustyrig-fw (20261012.01) testing; urgency=medium
   * Try owner RTP, connected-server RTP for linked rigs, then WebSocket proxy
     media for automatic native subscriptions. Add private home-server grants,
     owner-authorized RTP forwarding and downstream-loss PTT watchdog coverage.
+  * Enable linked proxy TX with owner-authorized audio subscriptions and an
+    accepted-audio watchdog. Forward connected-server RTP RX/TX over WebSocket
+    links without requiring owner UDP; retain owner/home/proxy preference order.
+    Cover disabled owner RTP, sustained/invalid audio, permissions and revocation,
+    including proxy-only builds without SRTP.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 17:55:26 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 18:08:33 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

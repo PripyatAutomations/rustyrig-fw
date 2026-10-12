@@ -136,7 +136,8 @@ static void open_pools(void) {
 }
 static void revoke_attachment(struct grant *g) {
    struct rr_mediachan *channel = media_chan_find_uuid(g->uuid);
-   if (g->client && channel && channel->direction == RR_BINFRAME_DIR_TX && g->client->is_ptt && !strcmp(g->client->ptt_room, channel->room))
+   if (g->client && channel && channel->direction == RR_BINFRAME_DIR_TX && g->client->is_ptt && !strcmp(g->client->ptt_room, channel->room) &&
+      (g->force || !rrserver_relay_proxy_tx_active(g->client, channel->room, mono_us())))
       ws_release_ptt_on_disconnect(g->client);
    rr_rtp_socket_detach(g->attachment);
    g->attachment = NULL;
@@ -238,7 +239,8 @@ static void poll_media(const char *event, const char *data, rrconn_t *c, void *u
          continue;
       struct rr_mediachan *channel = media_chan_find_uuid(g->uuid);
       if (channel && channel->direction == RR_BINFRAME_DIR_TX && g->client->is_ptt &&
-         !strcmp(g->client->ptt_room, channel->room) && !rr_rtp_socket_active(g->attachment, now))
+         !strcmp(g->client->ptt_room, channel->room) && !rr_rtp_socket_active(g->attachment, now) &&
+         (g->force || !rrserver_relay_proxy_tx_active(g->client, channel->room, now)))
          ws_release_ptt_on_disconnect(g->client);
    }
    /* Lifecycle cleanup above owns attachment slots. */
@@ -308,14 +310,6 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
       dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
       return;
    }
-}
-bool rrserver_direct_relay_active(rrconn_t *client, const char *uuid) {
-   for (unsigned i = 0; i < MAX_GRANTS; i++) {
-      struct grant *g = &grants[i];
-      if (g->client == client && g->relay && !strcmp(g->uuid, uuid))
-         return valid(g) && rr_rtp_socket_active(g->attachment, mono_us());
-   }
-   return false;
 }
 /* Home-server grants use the same listener pools, ACLs and private keys as local rigs. */
 bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, unsigned direction) {
@@ -448,9 +442,6 @@ void rrserver_direct_register_events(void) {
    event_on_binary(RR_MEDIA_BINARY_EVENT, binary, NULL);
 }
 #else
-bool rrserver_direct_relay_active(rrconn_t *client, const char *uuid) {
-   (void)client; (void)uuid; return false;
-}
 bool rrserver_direct_relay_grant(rrconn_t *client, dict *reply, unsigned stream, unsigned direction) {
    (void)client; (void)reply; (void)stream; (void)direction; return false;
 }

@@ -47,8 +47,9 @@ and fallback behavior for a new subscription. Automatic native subscriptions try
 owner RTP first, then connected-server RTP for a linked channel, then WebSocket
 proxy media. Each silent RTP endpoint has a five-second handshake deadline;
 missing or unusable referrals advance immediately. A live endpoint that stops
-answering also advances after five seconds. Explicit `-direct` remains owner-only. Codec setup headers always use the
-reliable control path. Browsers support `-proxy` and explain that `-direct`
+answering also advances after five seconds. The same order applies to RX and TX.
+Explicit `-direct` remains owner-only. Codec setup headers always use the reliable
+control path. Browsers support `-proxy` and explain that `-direct`
 requires the native client.
 
 ## Authorization and lifecycle
@@ -66,10 +67,17 @@ return-address changes require another authenticated report. Microphone packets
 must match the subscribed owner channel and pass the existing mute, privilege,
 codec, room and PTT checks.
 
-Grants expire after five minutes and native clients renew after four. Renewing a
-TX grant releases an outstanding PTT hold before rotating its key. Room departure,
-unsubscribe, account invalidation, control-session closure and link loss revoke
-attachments. Remote PTT requires a live direct TX attachment. A three-second
+Grants expire after five minutes and native clients renew after four. Renewing an
+explicit direct-only TX grant releases an outstanding PTT hold before rotating
+its key; automatic linked TX may retain PTT while its proxy path is live. Room
+departure, unsubscribe, account invalidation, control-session closure and link loss revoke
+attachments. Remote PTT requires a live direct TX attachment or an authorized
+proxy-capable TX subscription in the rig's base room. The owner still enforces
+account privileges, mute, codec, room, VFO and PTT ownership for every TX frame.
+A proxy key-down gets a three-second startup window for microphone audio. After
+that, only complete, nonempty TX audio accepted by the owner's normal media path
+keeps proxy TX live. Invalid codecs, rejected frames, partial fragments and
+repeated key-down/control messages do not extend this window. A three-second
 media-liveness watchdog releases transmit even when the control link still exists.
 If the backend fails to release a departing virtual session, the server retains
 it and retries rather than freeing accounting references while TX remains active.
@@ -95,23 +103,20 @@ WebSocket connection. Link frames are bounded and fragmented, with separate shor
 reassembly deadlines for realtime data and reliable headers.
 
 The connected server accepts `media.transport=rtp-home` on linked subscriptions,
-asks the owner for its ordinary RTP grant, and privately issues a separate local
-key/SSRC from its own eligible RTP pool. Client-facing RTP uses the translated
-stream ID for both `media.stream` and `media.owner-stream`. The owner's grant
-never reaches the client in this reply. ACLs apply independently at both endpoints.
-The connected server forwards RX/TX using its owner attachment; reliable setup and
-inactive RX attachments retain the existing link relay. Owner probes start only
-after the client authenticates its connected-server UDP path and stop when that
-path loses liveness. The owner's PTT watchdog therefore still releases remote TX;
-release may take up to both endpoints' three-second liveness windows. Renewals
-rotate both grants, and PART/unsubscribe/link loss revoke the forwarding state.
-The connected server needs a reachable owner RTP endpoint for remote PTT.
+subscribes to proxy media on the owner's authenticated WebSocket link, and
+privately issues a local key/SSRC from its own eligible RTP pool. Client-facing
+RTP uses the translated stream ID for both `media.stream` and `media.owner-stream`.
+The connected server relays RX and TX over the link; it needs no RTP listener or
+UDP reachability on the owner. Its own RTP ACL protects client-facing UDP, while
+the rig owner authorizes the relayed account, room, subscription and controls.
+Renewals rotate the local grant; PART/unsubscribe/link loss revoke forwarding.
+Loss of downstream TX audio releases owner PTT through the same proxy watchdog.
 
-Remote TX over
-WebSocket alone also remains deferred: remote PTT currently requires a direct TX
-attachment. TCP-only clients and browsers can receive linked audio in codecs
-supported by their frontend. Direct microphone transport does not bypass owner
-PTT policy.
+Full WebSocket proxy media supports both RX and TX without RTP on either server.
+Native automatic subscriptions retain the preference order above, and explicit
+`-proxy` selects this path immediately. Browsers already use WebSockets and can
+transmit to linked rigs using their supported codecs. Explicit `-direct` still
+requires live owner RTP for PTT and does not permit automatic proxy fallback.
 
 ## Verification
 
@@ -121,8 +126,14 @@ fragments and RTP sequence rollover. `rrserver/tests/test_media_direct_live.sh`
 uses three real servers with dedicated TLS, shared TLS and shared plaintext
 listeners to test owner-issued private grants, direct RX/TX, fragmented WebSocket
 fallback, PTT gating, watchdog release, room departure and tree reconnection.
+It also disables the owner's RTP listener to verify full proxy RX/TX and
+connected-server RTP over WebSocket links, sustained microphone audio, invalid
+codec rejection, proxy startup timeout, permissions, unsubscribe and disconnect.
 Fixtures use temporary accounts, databases, configs and ports. They test media
 routing and permissions without requiring a physical radio or microphone.
+`rrserver/tests/test_media_proxy_live.sh` runs the proxy-only case independently
+of SRTP support, including `WITH_RTP=false` builds; the existing component test
+runner discovers both wrappers for `make test`.
 
 ## RTP port ranges and ACLs
 

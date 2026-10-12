@@ -440,9 +440,9 @@ The browser uses its existing site preferences rather than native profiles.
 Native GTK and TUI share `rrclient/media.direct.c`: client-initiated authenticated
 RTP/UDP for RX/TX, with WebSocket fallback. Browsers continue using WebSockets;
 the owning server's private channel announcements and the home server's translated
-binary frames provide linked RX without adding a browser UDP implementation.
-Remote PTT currently requires a live owner direct TX attachment, so browser
-remote TX remains deferred. Codec support differences described above still apply.
+binary frames provide linked RX/TX without adding a browser UDP implementation.
+Proxy TX and its media-liveness watchdog are server-authoritative for both
+native and browser clients. Codec support differences described above still apply.
 The generated browser wire registry includes the new fields; keys are private
 subscription replies, never discovery/catalog broadcasts.
 
@@ -471,6 +471,11 @@ There is no browser DCC counterpart.
 Automatic native RTP subscriptions try the rig owner, then the connected server's
 RTP endpoint for linked channels, then WebSocket proxy media. Five-second UDP
 deadlines advance the selection; explicit `-direct` still requires owner RTP.
-Connected-server grants use independent keys and translated stream IDs, with
-owner-authorized upstream TX and downstream liveness gating. This is native
-transport behavior; browser `-proxy` and WebSocket RX remain equivalent.
+Connected-server grants use independent keys and translated stream IDs, then
+proxy both directions over the owner's WebSocket link. Full proxy media also
+supports both RX and TX when RTP is unavailable. Browser microphone frames in
+`js/webui.audio.js:webui_append_tx_samples` already use this same WebSocket path.
+The owner requires an authorized TX subscription and accepted microphone audio
+within three seconds of key-down; subsequent media gaps release PTT. Account,
+codec, room, VFO and PTT ownership checks remain authoritative in C. RTP
+selection itself remains native-only.
