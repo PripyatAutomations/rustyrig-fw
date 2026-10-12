@@ -1578,8 +1578,7 @@ bool db_usage_record(sqlite3 *db, const char *name, const struct rr_traffic *del
    if (!db || !name || !*name || !delta || seconds > INT64_MAX) {
       return false;
    }
-   const uint64_t values[] =
-   {
+   const uint64_t values[] = {
       delta->tx_text_bytes, delta->tx_text_frames, delta->tx_binary_bytes, delta->tx_binary_frames, delta->rx_text_bytes, delta->rx_text_frames,
       delta->rx_binary_bytes, delta->rx_binary_frames, seconds
    };

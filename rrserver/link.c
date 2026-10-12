@@ -647,37 +647,43 @@ static bool load_peer(const char *section) {
    return peer->url && peer->username && peer->password;
 }
 
-/* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol.
- * TLS is already established here; peers never become authenticated clients. */
-static void shared_link_request(const char *event, const void *data, size_t length,
-      rrconn_t *client, void *user) {
+/* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
+static void shared_link_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)client;
    (void)user;
+
    if (length != sizeof(rr_server_http_t)) {
       return;
    }
-   rr_server_http_t *request = (rr_server_http_t *)data;
+   rr_server_http_t *request = (rr_server_http_t *) data;
+
    if (!request->request || mg_strcmp(request->request->uri, mg_str("/link"))) {
       return;
    }
    request->handled = true;
    struct mg_connection *connection = request->connection;
+
    if (!connection->is_tls && !links.insecure) {
       mg_http_reply(connection, 403, "", "Plaintext server links are disabled\n");
       connection->is_draining = 1;
+
       return;
    }
    struct mg_str *protocol = mg_http_get_header(request->request, "Sec-WebSocket-Protocol");
+
    if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
       mg_http_reply(connection, 400, "", "Server-link protocol required\n");
       connection->is_draining = 1;
+
       return;
    }
    struct link_session *session = new_session();
+
    if (!session) {
       mg_http_reply(connection, 503, "", "Server-link session limit reached\n");
       connection->is_draining = 1;
+
       return;
    }
    session->connection = connection;
@@ -803,6 +809,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    if (cfg_get_bool("links.shared-listener", true)) {
       event_on_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
    }
+
    if (links.peer_count || links.listener) {
       Log(LOG_INFO, "link", "Server link node %s (%s), %zu configured peers", links.node, links.site, links.peer_count);
    }

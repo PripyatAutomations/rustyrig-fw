@@ -218,8 +218,7 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
    float power = rr_get_power(vfo);
    // Read state from the vfos[] table (polled from the active backend), not
    // the hamlib cache: other backends (internal) don't maintain hl_state.
-   int session =
-      db_ptt_start(masterdb, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
+   int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
       ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "");
 
    if (session < 0) {
