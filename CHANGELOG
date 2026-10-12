@@ -1,5 +1,14 @@
 rustyrig-fw (20261011.04) testing; urgency=medium
 
+  * Relay linked-server public chat and non-PTT rig controls to their owner,
+    enforcing matching owner-side accounts and privileges. Aggregate subscribed
+    state by branch, filter RX-room VFOs, and restore fresh room subscriptions
+    after reconnect without replaying controls.
+
+  * Advertise linked sites, rooms, rigs and VFOs; add /users and mark remote
+    LIST entries with an arrow in native and browser clients while preserving
+    plain completion names. Test multi-hop routing and local compatibility.
+
   * Specify owner-directed application routing, discovery-only catalogs and
     demand-based room/object state fanout, with owner-side authorization and
     separate private request replies; keep direct and relayed media deferred.
@@ -90,7 +99,7 @@ rustyrig-fw (20261011.04) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 20:04:05 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 20:51:32 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,

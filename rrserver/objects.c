@@ -688,13 +688,15 @@ void rrserver_objects_remote(rrconn_t *client, dict *d) {
 void rrserver_objects_room_state(rrconn_t *client, const char *room) {
    object_send_t ctx = { .client = client };
    ctx.radio = rrserver_rig_for_room(room);
-   if (!ctx.radio) return;
+   if (!ctx.radio || !ws_room_vfo_mask(room)) return;
    rr_rig_property_foreach(ctx.radio, send_property, &ctx);
    GPtrArray *ids = g_ptr_array_new_with_free_func(g_free);
    if (!ids) return;
    rr_server_vfo_foreach(ctx.radio, collect_vfo, ids);
    for (unsigned i = 0; i < ids->len; i++) {
-      if (resolve(g_ptr_array_index(ids, i), &ctx)) rr_vfo_property_foreach(ctx.vfo, send_property, &ctx);
+      rr_vfo_t index;
+      if (resolve(g_ptr_array_index(ids, i), &ctx) && rr_server_vfo_native_index(ctx.vfo, &index) &&
+         index >= 0 && index < 32 && (ws_room_vfo_mask(room) & (UINT32_C(1) << index))) rr_vfo_property_foreach(ctx.vfo, send_property, &ctx);
    }
    g_ptr_array_free(ids, true);
 }

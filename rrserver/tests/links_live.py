@@ -102,7 +102,7 @@ quota.enforce=false
 chat.replay-lines=0
 [rig:rig0]
 backend=internal
-vfos=A
+vfos={'A,B' if name == 'gamma' else 'A'}
 [fwdsp]
 path={work}/absent-fwdsp
 pcm-hub=false
@@ -219,7 +219,9 @@ enabled=false
         wait(remote_users_visible, '/users did not discover remote online user')
         missing = login('alpha', 'MISSING')
         missing.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
-        missing.until(lambda m: 'enabled local account' in m.get('error', {}).get('msg', ''))
+        def missing_error(m):
+            return 'enabled local account' in m.get('error', {}).get('msg', '')
+        missing.until(missing_error)
         missing.socket.close()
         reader = login('alpha', 'READER')
         reader.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
@@ -251,29 +253,76 @@ enabled=false
         origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'msg', 'msg_type': 'pub', 'target': '#gamma-rig0', 'data': 'tree-to-owner'}})
         owner.until(lambda m: m.get('talk', {}).get('data') == 'tree-to-owner')
         origin.until(lambda m: m.get('talk', {}).get('data') == 'tree-to-owner')
+        for command, argument in [('mode', 'LSB'), ('width', '1800'), ('power', '10')]:
+            origin.send({'msg': {'type': 'cat'}, 'cat': {'cmd': command, 'room': '#gamma-rig0', 'vfo': 'A', command: argument}})
+            for c in (owner, origin):
+                c.until(lambda m: m.get('cat', {}).get('cmd') == command and m['cat'].get('room') == '#gamma-rig0')
         # Owner property controls use the same object identity found in discovery.
-        vfo = next(o['uuid'] for o in objects if o.get('type') == 'vfo' and o.get('room') == '#gamma-rig0')
+        vfo = next(o['uuid'] for o in objects if o.get('type') == 'vfo' and o.get('room') == '#gamma-rig0' and o.get('alias') == 'A')
         origin.send({'msg': {'type': 'property'}, 'property': {'cmd': 'set', 'name': 'frequency', 'value': 14260000},
             'target': vfo, 'request': {'id': 'remote-frequency', 'room': '#gamma-rig0'}})
-        origin.until(lambda m: m.get('property', {}).get('cmd') == 'result' and m.get('result', {}).get('code') == 'ok')
+        changed = []
+        def property_applied(m):
+            if m.get('property', {}).get('cmd') == 'changed' and m.get('target') == vfo and m['property'].get('value') == 14260000:
+                changed.append(m)
+            return m.get('property', {}).get('cmd') == 'result' and m.get('result', {}).get('code') == 'ok'
+        origin.until(property_applied)
+        if not changed:
+            origin.until(lambda m: m.get('property', {}).get('cmd') == 'changed' and m.get('target') == vfo and m['property'].get('value') == 14260000)
         # All subscribers leave: subsequent CAT state must not traverse beta.
         for c in (origin, second, reader):
             c.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'part', 'target': '#gamma-rig0'}})
-            c.until(lambda m: m.get('talk', {}).get('cmd') == 'part' and m['talk'].get('room') == '#gamma-rig0')
-        time.sleep(.2)
+            c.until(lambda m: m.get('talk', {}).get('cmd') == 'part' and m['talk'].get('room') == '#gamma-rig0' and 'session' in m['talk'])
+        wait(lambda: 'Subscription removed' in log('gamma'), 'final room unsubscribe did not reach owner')
         idle_before = log('gamma').count('State cat freq room #gamma-rig0')
         owner.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14270000}})
         owner.until(lambda m: m.get('cat', {}).get('freq') == 14270000)
         assert log('gamma').count('State cat freq room #gamma-rig0') == idle_before
-        for c in (origin, second, reader, owner): c.socket.close()
-        print('PASS: multi-hop catalog, remote room JOIN, owner-executed VFO controls and authoritative chat/state fanout')
+        # RX-only rooms subscribe only to their mapped VFOs, while sharing rig ownership.
+        monitor = '#gamma-rig0.monitor'
+        owner.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'room', 'data': monitor + ' add'}})
+        owner.until(lambda m: monitor + ' added' in m.get('notice', {}).get('msg', ''))
+        owner.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'room', 'data': monitor + ' vfo add rig0.vfo_b'}})
+        owner.until(lambda m: monitor + ' VFO ' in m.get('notice', {}).get('msg', ''))
+        def monitor_visible():
+            origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'list'}})
+            m = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-list')
+            return monitor in m['talk']['rooms']
+        wait(monitor_visible, 'new remote RX room was not advertised')
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': monitor}})
+        origin.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == monitor and 'session' in m['talk'])
+        # A request/reply round trip to the owner also orders the subscription.
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'topic', 'target': monitor, 'data': ''}})
+        origin.until(lambda m: m.get('talk', {}).get('cmd') == 'topic' and m['talk'].get('room') == monitor)
+        unmapped_before = log('gamma').count('State cat freq room #gamma-rig0')
+        owner.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14275000}})
+        owner.until(lambda m: m.get('cat', {}).get('freq') == 14275000)
+        assert log('gamma').count('State cat freq room #gamma-rig0') == unmapped_before
+        owner.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'B', 'freq': 14290000}})
+        origin.until(lambda m: m.get('cat', {}).get('freq') == 14290000 and m['cat'].get('vfo') == 'B')
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'part', 'target': monitor}})
+        origin.until(lambda m: m.get('talk', {}).get('cmd') == 'part' and m['talk'].get('room') == monitor and 'session' in m['talk'])
+        print('PASS: dynamic remote room discovery and mapped-VFO-only RX subscriptions')
+        for c in (second, reader): c.socket.close()
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
+        origin.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0' and 'session' in m['talk'])
+        print('PASS: multi-hop discovery and /users, remote LIST markers, owner permissions, chat/freq/mode/width/power, shared subscriptions and final unsubscribe')
         before = log('alpha').count('Linked site beta')
         stop('beta')
         wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 1' in log('gamma'), 'disconnect did not withdraw branch')
         start('beta')
         wait(lambda: log('alpha').count('Linked site beta') > before and
             log('alpha').count('servers 3') >= 2, 'autoconnect did not restore tree')
+        origin.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0' and 'session' in m['talk'])
+        origin.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14280000}})
+        for c in (owner, origin): c.until(lambda m: m.get('cat', {}).get('freq') == 14280000)
+        origin.socket.close(); owner.socket.close()
+        print('PASS: fresh authorized room subscription and control restored after middle-server restart')
         assert 'disposable-link-secret' not in ''.join(log(n) for n in processes)
         print('PASS: mutual WSS authentication/CA verification, separate protocol, concurrent dials, incoming-only peer, three-server tree withdrawal and autoconnect')
+    except Exception:
+        for name in processes:
+            print(name, log(name), flush=True)
+        raise
     finally:
         for name in list(processes): stop(name)

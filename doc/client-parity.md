@@ -417,3 +417,10 @@ Available rooms display/completion preserves the connected server's LIST.
 Native room state, including the available-room cache, is saved separately
 per server connection; selecting another server selects its own LIST. Room
 names are not filtered by station prefix.
+
+Linked-server discovery remains scoped to each client connection. Native and
+browser LIST display `↗` for `talk.remote-rooms` and remote `talk.servers`, but
+keep plain room names for completion. Both support `/users` with notices in the
+issuing room. Owner object updates use the connection's normal stream epoch and
+sequence; remote JOIN supplies the subscribed room's property schema/state.
+IRC behavior remains native-only.

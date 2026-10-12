@@ -669,6 +669,19 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       } else {
          Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
          rr_backend_poll_rig(radio, object);
+         rr_backend_t *backend = rr_server_rig_backend(radio);
+         if (backend && backend->type->api->power_get) {
+            float observed = backend->type->api->power_get(backend, object);
+            if (isfinite(observed) && observed >= 0) {
+               dict *state = dict_new();
+               if (state) {
+                  dict_add(state, "msg.type", "cat"); dict_add(state, "cat.cmd", "power");
+                  dict_add(state, "cat.room", room); dict_add(state, "cat.vfo", rc_vfo);
+                  dict_add_float(state, "cat.power", observed); dict_add(state, "cat.user", rc_from);
+                  ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT); dict_free(state);
+               }
+            }
+         }
       }
       dict_free(d);
 

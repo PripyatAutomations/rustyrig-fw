@@ -23,7 +23,7 @@ A complete incoming component is checked before any state changes:
 - Only the owning peer may withdraw a remote subtree. Link loss withdraws that
   peer and every descendant, preserving other peer branches.
 
-The returned next-hop UUID must be resolved through the future live peer-session
+The returned next-hop UUID must be resolved through the live peer-session
 registry. Socket pointers are not stored in the topology. Local destinations
 must be handled locally; a NULL route also means an unknown destination.
 
@@ -35,13 +35,13 @@ snapshots, source ownership, capacity limits, and branch removal.
 
 `rrserver/link.c` now provides a dedicated `/link` listener and outbound
 connectors using `rustyrig-link.v1`. `librrprotocol/link.wire.c` validates a
-separate, bounded flat JSON wire format. Server links never enter the ordinary
-client roster or the client command dispatcher. No browser changes are needed.
+separate, bounded flat JSON wire format. Server links never enter the ordinary client socket roster. Owner-side virtual
+sessions use the existing authenticated command dispatcher for application requests.
 
 Implemented messages are `link.hello`, `link.snapshot`, `link.ready`,
-`link.introduce`, and `link.withdraw`. Binary media and routed application
-commands are not accepted yet. This release establishes server topology only;
-remote rooms, chat, rig control and media relay remain the next layer.
+`link.introduce`, `link.withdraw`, and `link.application`. Application kinds are
+`catalog`, `catalog-remove`, `users`, `request`, `reply`, `state`, `subscribe`,
+`unsubscribe`, and `close`. Binary media is not accepted.
 
 Each server may configure one peer with `role=parent` and multiple peers with
 `role=child`. The role describes the **remote** server, independently of which
@@ -129,61 +129,66 @@ room membership and chat precede remote control and media in implementation.
 Clients keep per-connection LIST caches until explicit remote inventory and
 routing are available; station-name prefixes do not establish ownership.
 
-### Application relay contract (next implementation)
+### Application relay
 
-Discovery and live state are separate. Every admitted link carries the catalog
-of available sites, rooms, rigs, VFOs and other objects, with their owning node
-UUIDs and object-parent relationships. An intermediate server caches and forwards
-that catalog; it does not become the owner. Object descriptors and capabilities
-may be advertised without a subscriber. Property values, room traffic and other
-live state require subscriptions. Media transport remains deferred, including
-both relayed and direct-media modes.
+`rrserver/relay.c` owns catalogs, owner-side virtual sessions, routing and
+subscription aggregation. Protocol libraries expose synchronous events for
+routing, sending, publication and roster augmentation; they do not implement
+federation policy or UI behavior.
 
-A control request follows the unique route to its owning node, rather than
-being broadcast to peer links. Intermediate nodes validate the origin branch
-and destination and forward the request without applying it. The owner checks
-the user, room membership, permissions and backend constraints through the same
-authoritative handlers used for locally connected users. A forwarded request
-must not carry an implicitly trusted local admin role. Remote user identity and
-owner-side account authorization must be settled before enabling execution.
+Every link advertises available sites, rooms, rigs and VFO descriptors, retaining
+the originating server UUID and object parents. Intermediate nodes validate
+branch ownership, cache the catalog and forward it. LIST includes all available
+rooms in the linked tree. `talk.remote-rooms` identifies remote names and
+`talk.servers` supplies the server list; native and browser displays mark these
+with `↗`, while completion retains plain names. Room names must currently be
+unique across owners; local rooms take precedence on collision. Qualified
+owner/room syntax remains future work.
 
-Subscriptions are aggregated per object or room and per next-hop branch. The
-first interested local client or downstream branch creates an upstream
-subscription; the final unsubscribe removes it. Joining a room subscribes to
-that room's chat and required rig/VFO state. Merely displaying the catalog does
-not subscribe to every rig. A subscription is committed by the owner, and its
-initial state precedes subsequent changes so joining during a VFO adjustment
-cannot leave a client with an older value.
+`/users` reports public callsigns, owning sites and connected-session counts
+across the tree. It never advertises passwords, network addresses or account
+privileges. Responses return to the issuing window through ordinary notices.
 
-Only the owner publishes resulting state. It sends each change once to each
-interested link and to interested local users. Intermediate nodes fan that
-change out to their subscribed local users and downstream branches, excluding
-the incoming link. This includes the command issuer; clients must reconcile
-with the owner's result rather than treating a locally sent command as applied
-state. State versions retain their owner identity; combining several owners on
-one client connection must not mix their epochs or reset another owner's cache.
-The current C and browser caches use one snapshot epoch per connection, so this
-requires an explicit stream adaptation or synchronized cache/protocol change.
+Remote JOIN/PART, public chat, topics, non-PTT CAT controls and property writes
+follow the unique route to the owner. Requests carry an issuing-session UUID
+and a short deadline; expired requests are rejected. The owner requires an
+enabled matching local account, checks password-expiry/change requirements,
+and applies that account's privileges through the existing command handlers.
+The originating server authenticates the callsign assertion; peer credentials
+therefore establish identity trust, but do not import privileges. A reserved
+`admin` cross-server policy remains to be defined.
 
-Request acknowledgements and errors return to the issuing session, separately
-from subscriber state fanout. Private messages retain their recipient scope.
-Owner-origin validation applies to state and catalog messages as well as
-requests: a peer may advertise only objects owned by nodes reachable through
-its branch. Bounds apply to catalog entries, subscriptions, outstanding requests
-and payload sizes, in addition to the existing link send queues.
+Joining creates an owner-side virtual room member and obtains room metadata,
+roster and the room's rig/VFO property schema and state. Replies and errors are
+private to the issuing session. Owner publications, including the issuer's
+resulting state, fan out only through interested branches. Multiple subscribers
+share one upstream subscription; the final departure removes it. RX-only rooms
+receive only their mapped VFO state. Catalog discovery alone does not subscribe
+to rig state. Owner object/property messages are adapted into the receiving
+connection's snapshot epoch and sequence, retaining object UUIDs and property
+versions, so native and browser caches remain consistent.
 
-Link loss removes affected catalog entries, subscriptions and pending requests.
-Reconnect first rebuilds the catalog and then obtains fresh snapshots for
-subscriptions that still have local demand. It never replays queued controls.
-Tests must cover an idle branch receiving discovery but no live state, two
-subscribers sharing one upstream subscription, final unsubscribe, multi-hop
-owner execution with issuer-visible state, unauthorized controls, and withdrawal
-or reconnection while a request or snapshot is in flight.
+Link loss withdraws the branch's catalog, online-user directory, virtual
+sessions and subscriptions. Still-connected clients retain desired remote room
+membership. When discovery returns, fresh JOINs recheck owner authorization and
+obtain current state. Controls are never replayed. A PART can cancel a desired
+room while its owner is unavailable.
 
-The rig owner alone authorizes, arbitrates and executes PTT. Never replay PTT-on
-on reconnection. Define cancellation/deadline and session-loss release semantics
-before exposing remote TX. Do not import a peer's admin role as local authority.
-Remote authentication, accounting, logs and moderation need explicit policies.
+Bounds include 256 topology nodes, 2,048 catalog entries, 128 originating
+sessions and 128 owner-side virtual sessions, 512 subscription/desired-room
+records, 24,000-byte application payloads and the existing bounded send queues.
+The three-server live test covers multi-hop owner execution, account refusal,
+owner-side privilege enforcement, issuer-visible state, subscription aggregation,
+final unsubscribe, RX-only filtering and fresh authorization after reconnect.
+
+Remote PTT commands remain disabled until deadline, cancellation and session-loss
+release semantics are defined. Media relay and direct media, private-message
+routing, cross-server moderation and additional inventory service types remain
+future work. WebTransport remains a separate transport project.
+
+Wishlist: clickable `#room` references should join or select a room using the
+connection of the containing tab, including rooms discovered through its links.
+No clickable-room UI is introduced by this relay implementation.
 
 ## Transport foundation and WebTransport follow-up
 

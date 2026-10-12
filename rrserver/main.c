@@ -430,7 +430,7 @@ int main(int argc, char **argv) {
       Log(LOG_CRIT, "link", "Unable to initialize configured server links");
       mg_mgr_free(&mg_mgr);
       rrserver_links_fini();
-   rrserver_relay_fini();
+      rrserver_relay_fini();
       return 1;
    }
 

@@ -1,7 +1,7 @@
 // Owner-directed application relay and demand-based branch subscriptions.
 #ifndef RR_SERVER_RELAY_H
 #define RR_SERVER_RELAY_H
-#include <librrprotocol/rrprotocol.h>
+#include <librustyaxe/core.h>
 void rrserver_relay_register_events(void);
 void rrserver_relay_poll(void);
 void rrserver_relay_fini(void);

@@ -74,6 +74,17 @@ static rr_property_snapshot_t snapshot(rr_server_vfo_t *vfo, const char *propert
 
 #ifdef RR_TEST_OBJECT_PROTOCOL
 #include "object_protocol.h"
+
+/* This fixture exercises a standalone owner, without peer sessions. */
+void rrserver_relay_objects(rrconn_t *client, const char *request) {
+   (void)client;
+   (void)request;
+}
+
+void rrserver_relay_inventory(rrconn_t *client, const char *request) {
+   (void)client;
+   (void)request;
+}
 #endif
 
 static bool dump_vfo(rr_server_vfo_t *vfo, void *user) {
