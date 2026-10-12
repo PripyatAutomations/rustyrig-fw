@@ -37,6 +37,22 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "links.listen", "", "Dedicated server-link listener URL (https://host:port; /link endpoint)" },
+   { "links.tls-cert", "", "PEM certificate for server-link listener" },
+   { "links.tls-key", "", "PEM private key for server-link listener" },
+   { "links.tls-ca", "/etc/ssl/certs/ca-certificates.crt", "CA bundle for outbound WSS links" },
+   { "links.allow-insecure", "false", "Permit plaintext WS links for explicit local testing" },
+   { "links.max-servers", "128", "Maximum servers in linked tree (1-256)" },
+   { "links.retry-seconds", "5", "Delay before retrying peer autoconnect" },
+   { "links.handshake-seconds", "10", "Maximum pending link handshake time" },
+   { "peer.enabled", "false", "Enable this peer; named peer sections have the same keys" },
+   { "peer.autoconnect", "false", "Connect automatically when URL is provided and peer is not linked" },
+   { "peer.server.url", "", "Peer ws/wss URL; empty means incoming-only" },
+   { "peer.username", "", "Shared link authentication username" },
+   { "peer.password", "", "Shared link authentication password" },
+   { "peer.site.name", "", "Expected remote station name" },
+   { "peer.node.uuid", "", "Optional expected remote server UUID" },
+   { "peer.role", "parent", "Remote peer role: parent or child; at most one parent" },
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE)
    {
       "atu.max", "4", "Maximum number of ATUs", DEFCONFIG_UINT, NULL
