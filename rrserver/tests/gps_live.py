@@ -10,7 +10,7 @@ import subprocess
 import struct
 import tempfile
 import time
-from ws_helpers import WebSocket
+from ws_helpers import TEST_ACLS, WebSocket
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 def nmea(body):
@@ -110,6 +110,7 @@ path={work}/disabled-fixed-input
     peer = None
     gps_in = gps_out = gps_raw = None
     with (work / "console.log").open("w") as output:
+        config.write_text(config.read_text() + TEST_ACLS)
         process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, stdout=output, stderr=subprocess.STDOUT)
         try:
             peer, _ = daemon.accept()

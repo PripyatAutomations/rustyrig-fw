@@ -154,6 +154,27 @@ const char *rrclient_connection_iter(unsigned index) {
    return NULL;
 }
 
+void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) {
+   if (!callback)
+      return;
+   client_server_t *target = NULL;
+   for (client_server_t *s = servers; s; s = s->next)
+      if (s->connection == connection) {
+         target = s;
+         break;
+      }
+   if (!target) {
+      callback(data);
+      return;
+   }
+   client_server_t *previous = context;
+   activate(target);
+   dispatch_depth++;
+   callback(data);
+   dispatch_depth--;
+   activate(dispatch_depth ? previous : selected);
+}
+
 bool rrclient_connection_select(const char *name) {
    client_server_t *s = find_server(name);
 

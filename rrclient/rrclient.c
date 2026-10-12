@@ -1,3 +1,5 @@
+#include <rrclient/dcc.h>
+#include <rrclient/media.direct.h>
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -41,6 +43,8 @@ bool rrclient_disconnect(void) {
 }
 
 void rrclient_poll_events(void) {
+   rrclient_direct_poll();
+   rrclient_dcc_poll();
 #ifdef  USE_MONGOOSE
    mg_mgr_poll(&mgr, 0);
 #endif // USE_MONGOOSE

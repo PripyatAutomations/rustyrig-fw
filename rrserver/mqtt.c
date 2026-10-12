@@ -1,3 +1,4 @@
+#include <rrserver/acl.h>
 //
 // rrserver/mqtt.c
 //    This is part of rustyrig-fw.
@@ -172,6 +173,15 @@ size_t mg_mqtt_next_unsub(struct mg_mqtt_message *msg, struct mg_str *topic, siz
 
 // Event handler function
 static void mqtt_server_cb(struct mg_connection *c, int ev, void *ev_data) {
+   if (ev == MG_EV_ACCEPT || ev == MG_EV_MQTT_CMD) {
+      char peer_ip[64];
+      mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &c->rem);
+      // This broker has no verified account identity; never trust MQTT usernames.
+      if (rrserver_acl_check("listener:mqtt", peer_ip, NULL, "") != ACL_ALLOW) {
+         c->is_closing = 1;
+         return;
+      }
+   }
    if (ev == MG_EV_MQTT_CMD) {
       struct mg_mqtt_message *mm = (struct mg_mqtt_message *)ev_data;
       Log(LOG_DEBUG, "mqtt.req", "cmd %d qos %d", mm->cmd, mm->qos);

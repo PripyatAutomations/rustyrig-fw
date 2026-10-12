@@ -22,6 +22,8 @@ client_cmd_t client_cmds[] = {
    }, {
       .cmd = "txcodec"
    }, {
+      .cmd = "dcc"
+   }, {
       .cmd = "media"
    }, {
       .cmd = "room"
@@ -113,6 +115,7 @@ static void check(const char *line, const char *word, const char *expected) {
       }
    }
 
+   if (!(expected ? found : !matches || !matches[0])) fprintf(stderr, "Completion failed for %s (expected %s)\n", line, expected ? expected : "none");
    assert(expected ? found : !matches || !matches[0]);
    completion_free(matches);
 }
@@ -138,6 +141,15 @@ int main(void) {
    };
    snprintf(user.name, sizeof(user.name), "alice");
    global_userlist = &user;
+   check("/dcc a", "a", "AUDIO");
+   check("/dcc audio al", "al", "alice");
+   check("/dcc audio accept alice t", "t", "tx");
+   check("/dcc c", "c", "CHAT");
+   check("/dcc send ac", "ac", "ACCEPT");
+   check("/dcc chat ms", "ms", "MSG");
+   check("/dcc audio ac", "ac", "ACCEPT");
+   check("/dcc audio close al", "al", "alice");
+   check("/media direct o", "o", "off");
    check("/join #sta", "#sta", "#station-rig0");
    check("/join #disc", "#disc", "#discovered-room");
    check("/j &local", "&local", "&local-room");
@@ -178,6 +190,10 @@ int main(void) {
    check("/media SUBSCRIBE rx-o", "rx-o", "rx-other");
    check("/media UNSUBSCRIBE rx-d", "rx-d", NULL);
    check("/media SUB #", "#", "#5");
+   check("/media sub -d", "-d", "-direct");
+   check("/media subscribe -p", "-p", "-proxy");
+   check("/media sub -direct rx-o", "rx-o", "rx-other");
+   check("/media sub rx-other -p", "-p", "-proxy");
    check("/msg a", "a", "alice");
    check("/query a", "a", "alice");
    check("/notice ", "", "alice");
@@ -215,7 +231,7 @@ int main(void) {
    admin = true;
    check("/ki", "/ki", "/kick");
    active_window = "#station-rig1";
-   check("/media SUB ", "", NULL);
+   check("/media SUB ", "", "-direct");
    active_window = "#station-rig0.rx";
    check("/media SUB ", "", "rig0.vfo_a.rx");
    active_window = NULL;

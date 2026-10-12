@@ -1,5 +1,6 @@
 #include <sys/stat.h>
 #include <rrclient/config.layers.h>
+#include <rrclient/media.direct.h>
 #include <rrclient/gtk/gtk.serverpick.h>
 //
 // rrclient/gtk/gtk.serveredit.c: Server editor
@@ -136,7 +137,8 @@ typedef struct {
    char *profile;
    GtkWidget *fields[5];
    char *initial[5];
-   GtkWidget *error;
+   GtkWidget *error, *direct;
+   bool initial_direct;
 } GtkServerEditor;
 
 static const char *editor_keys[] = {
@@ -238,6 +240,13 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       }
    }
 
+   bool direct = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct));
+   if (direct != editor->initial_direct) {
+      char key[640];
+      snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);
+      dict_add(overrides, key, direct ? "true" : "false");
+      changed = true;
+   }
    if (rooms_changed) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
@@ -262,6 +271,12 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
          dict_add(cfg, key, "");
+      }
+      if (direct != editor->initial_direct) {
+         char key[640];
+         snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);
+         dict_add(cfg, key, direct ? "true" : "false");
+         rrclient_direct_apply_preferences();
       }
       gtk_server_picker_refresh_profile(editor->profile);
       gtk_widget_destroy(window);
@@ -316,12 +331,17 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
       gtk_grid_attach(GTK_GRID(grid), editor->fields[i], 1, i, 1, 1);
    }
 
+   editor->initial_direct = rrclient_direct_preferred(profile);
+   editor->direct = gtk_check_button_new_with_label("Prefer direct RTP audio");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->direct), editor->initial_direct);
+   gtk_widget_set_tooltip_text(editor->direct, "Use direct media when available, with WebSocket fallback. Applies to this server's automatic subscriptions.");
+   gtk_grid_attach(GTK_GRID(grid), editor->direct, 0, 5, 2, 1);
    editor->error = gtk_label_new("");
-   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 5, 2, 1);
+   gtk_grid_attach(GTK_GRID(grid), editor->error, 0, 6, 2, 1);
    GtkWidget *save = gtk_button_new_with_label("Save");
    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
-   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 6, 1, 1);
-   gtk_grid_attach(GTK_GRID(grid), save, 1, 6, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), cancel, 0, 7, 1, 1);
+   gtk_grid_attach(GTK_GRID(grid), save, 1, 7, 1, 1);
    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_widget_destroy), window);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
    gtk_widget_show_all(window);

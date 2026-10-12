@@ -108,7 +108,12 @@ static void test_listener_disabled(void) {
 
 int main(void) {
    test_short_subscription();
+   cfg = dict_new(); assert(cfg);
+   dict_add(cfg, "listener:mqtt.acl", "test");
+   dict_add(cfg, "acl:test.count", "1");
+   dict_add(cfg, "acl:test.000", "allow=all");
    test_subscription_limit_and_cleanup();
+   dict_free(cfg); cfg = NULL;
    test_listener_disabled();
    puts("PASS: MQTT bounds, subscription limit, cleanup, and enable switch");
 

@@ -97,3 +97,7 @@ class WebSocket:
                 return opcode, json.loads(payload) if opcode == 1 else payload
         raise TimeoutError("expected protocol response did not arrive")
 
+
+# Explicit loopback-only policies for disposable server fixtures.
+TEST_ACLS = "\n[acl:test-local]\nallow=127.0.0.0/8\nallow=::1\n" + "".join(
+    f"[listener:{name}]\nacl=test-local\n" for name in ("http", "https", "link", "mqtt", "media"))

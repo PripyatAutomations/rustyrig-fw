@@ -80,6 +80,17 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
 const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
+   {"dcc.bind", "0.0.0.0", "DCC CHAT/SEND TCP bind address"},
+   {"dcc.host", "", "Advertised DCC CHAT/SEND IPv4 address; empty uses the IRC socket address"},
+   {"dcc.port-min", "10000", "First DCC CHAT/SEND TCP listening port", DEFCONFIG_UINT, NULL},
+   {"dcc.port-max", "10099", "Last DCC CHAT/SEND TCP listening port", DEFCONFIG_UINT, NULL},
+   {"dcc.audio.bind", "0.0.0.0", "Client-to-client DCC audio UDP bind address"},
+   {"dcc.audio.host", "", "Advertised DCC IPv4 address; empty uses IRC connection's local address"},
+   {"dcc.audio.port-min", "10000", "First client DCC audio UDP port", DEFCONFIG_UINT, NULL},
+   {"dcc.audio.port-max", "10099", "Last client DCC audio UDP port", DEFCONFIG_UINT, NULL},
+   {"dcc.audio.encrypt", "false", "Encrypt DCC audio when compiled with RTP encryption", DEFCONFIG_BOOL, NULL},
+   {"dcc.audio.mute", "false", "Mute microphone on client-to-client DCC audio sessions", DEFCONFIG_BOOL, NULL},
+   {"media.direct.prefer", "true", "Prefer authenticated direct RTP audio when available", DEFCONFIG_BOOL, NULL},
    {
       "server.proxy", "", "Native SOCKS5 proxy URL; empty connects directly"
    },

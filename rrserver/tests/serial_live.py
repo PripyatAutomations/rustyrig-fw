@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import time
 import tty
-from ws_helpers import WebSocket
+from ws_helpers import TEST_ACLS, WebSocket
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -105,6 +105,7 @@ buffer-bytes=0
 """)
     clients = []
     with (work / "console.log").open("w") as output:
+        config.write_text(config.read_text() + TEST_ACLS)
         process = subprocess.Popen([str(ROOT / "bin/rrserver"), "-f", str(config)], cwd=ROOT, stdout=output, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 10

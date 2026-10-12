@@ -11,10 +11,11 @@ import ssl
 import subprocess
 import tempfile
 import time
-from ws_helpers import WebSocket
+from ws_helpers import TEST_ACLS, WebSocket
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LISTENER = os.environ.get('RR_LINK_LISTENER', 'dedicated')
 PLAINTEXT = LISTENER == 'shared-plain'
+DIRECT_MEDIA = bool(os.environ.get('RR_RTP_TEST_PEER'))
 
 def port():
     with socket.socket() as s:
@@ -54,19 +55,38 @@ with tempfile.TemporaryDirectory(prefix='rr-links-') as temporary:
         '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost',
         '-keyout', str(key), '-out', str(cert)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     context = None if PLAINTEXT else ssl.create_default_context(cafile=str(cert))
-    ports = {name: port() for name in ('alpha', 'beta', 'gamma')}
+    ports = {name: port() for name in ('alpha', 'beta', 'gamma', 'delta')}
     processes, outputs, client_ports = {}, {}, {}
-    def peer(name, remote, role, url=True):
-        return f'''[{'peer' if name == 'alpha' else 'peer:' + remote}]
+    media_ports = {name: port() for name in ports}
+    reservations = []
+    if DIRECT_MEDIA:
+        for name in media_ports:
+            while True:
+                start_port = port()
+                if start_port > 65528: continue
+                held = []
+                try:
+                    for udp_port in range(start_port, start_port + 8):
+                        reserved = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        held.append(reserved); reserved.bind(('127.0.0.1', udp_port))
+                except OSError:
+                    for reserved in held: reserved.close()
+                    continue
+                held[-1].close()
+                reservations.extend(held[:-1])
+                media_ports[name] = start_port
+                break
+    def peer(name, remote, url=True):
+        return f'''[{'peer' if name == 'alpha' and remote == 'beta' else 'peer:' + remote}]
 enabled=true
 autoconnect=true
 server.url={('ws://' if PLAINTEXT else 'wss://') + 'localhost:' + str(ports[remote]) + '/link' if url else ''}
 username=tree-test
 password=disposable-link-secret
 site.name={remote}
-role={role}
+acl=test-local
 '''
-    def start(name, ca=None):
+    def start(name, ca=None, deny_peers=False):
         database = work / f'{name}.db'
         if not database.exists():
             with sqlite3.connect(database) as db:
@@ -76,6 +96,9 @@ role={role}
                 if name == 'alpha':
                     db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,'MISSING',1,?,3,'admin,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
                 db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(3,'READER',1,?,3,?)", (hashlib.sha1(b'test-password').hexdigest(), 'admin,view,chat' if name == 'alpha' else 'view,chat'))
+        if DIRECT_MEDIA:
+            with sqlite3.connect(database) as db:
+                db.execute("INSERT OR IGNORE INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(4,'SOURCE',1,?,3,'media.source,view,chat')", (hashlib.sha1(b'test-password').hexdigest(),))
         client_ports[name] = ports[name] if PLAINTEXT else port()
         config = work / f'{name}.cfg'
         settings = f'''[general]
@@ -103,6 +126,11 @@ links.handshake-seconds=3
 atu.max=0
 quota.enforce=false
 chat.replay-lines=0
+media.direct.enabled=true
+media.direct.host={'127.0.0.1' if DIRECT_MEDIA else ''}
+media.direct.bind=127.0.0.1
+media.direct.port={media_ports[name]}
+codecs.allowed=pc16
 [rig:rig0]
 backend=internal
 vfos={'A,B' if name == 'gamma' else 'A'}
@@ -112,6 +140,28 @@ pcm-hub=false
 [callsign-lookup]
 enabled=false
 '''
+        if DIRECT_MEDIA:
+            settings += f"""[rtp]
+enabled=false
+[acl:media-staff]
+deny=192.0.2.0/24
+allow=@admin@127.0.0.0/8
+[acl:media-denied]
+allow=192.0.2.0/24
+deny=all
+[rtp:denied]
+enabled=true
+host=127.0.0.1
+bind=127.0.0.1
+ports={port()}
+acl=media-denied
+[rtp:staff]
+enabled=true
+host=127.0.0.1
+bind=127.0.0.1
+ports={media_ports[name]}-{media_ports[name] + 7}
+acl=media-staff
+"""
         if LISTENER != 'dedicated':
             settings = settings.replace(f'links.listen=https://127.0.0.1:{ports[name]}', 'links.listen=')
             settings = settings.replace('net.http.tls-enabled=false',
@@ -119,12 +169,15 @@ enabled=false
                 f'net.http.tls-bind=127.0.0.1\nnet.http.tls-port={ports[name]}\n'
                 f'net.http.tls-cert={cert}\nnet.http.tls-key={key}\n'
                 f'links.allow-insecure={"true" if PLAINTEXT else "false"}')
-        if name == 'alpha': settings += peer(name, 'beta', 'child')
-        elif name == 'beta': settings += peer(name, 'alpha', 'parent') + peer(name, 'gamma', 'child', False)
-        else: settings += peer(name, 'beta', 'parent')
+        if name == 'alpha': settings += peer(name, 'beta') + peer(name, 'delta', False)
+        elif name == 'beta': settings += peer(name, 'alpha') + peer(name, 'gamma', False)
+        elif name == 'gamma': settings += peer(name, 'beta') + peer(name, 'delta', False)
+        else: settings += peer(name, 'gamma')
         # Explicitly disabled incomplete sections must be harmless.
         settings += '[peer:disabled]\nenabled=false\nautoconnect=true\n'
-        config.write_text(settings)
+        if deny_peers:
+            settings = settings.replace('acl=test-local', 'acl=test-deny') + '[acl:test-deny]\ndeny=all\n'
+        config.write_text(settings + TEST_ACLS)
         outputs[name] = open(work / f'{name}.console', 'a')
         env = dict(os.environ, LD_LIBRARY_PATH=str(ROOT))
         processes[name] = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT,
@@ -164,7 +217,7 @@ enabled=false
         bad = LinkSocket(ports['alpha'], context)
         assert b'101' in bad.headers
         bad.send({'op':'link.hello', 'node':'00000000-0000-4000-8000-000000000002',
-            'site':'beta', 'root':'', 'username':'tree-test', 'password':'wrong', 'role':'child'})
+            'site':'beta', 'username':'tree-test', 'password':'wrong'})
         try:
             bad.receive()
             raise AssertionError('unauthorized peer received a response')
@@ -172,21 +225,26 @@ enabled=false
         finally: bad.socket.close()
         wrong_site = LinkSocket(ports['alpha'], context)
         wrong_site.send({'op':'link.hello', 'node':'00000000-0000-4000-8000-000000000002',
-            'site':'unexpected-site', 'root':'', 'username':'tree-test',
-            'password':'disposable-link-secret', 'role':'child'})
+            'site':'unexpected-site', 'username':'tree-test',
+            'password':'disposable-link-secret'})
         try:
             wrong_site.receive()
             raise AssertionError('unexpected site was accepted')
         except (EOFError, ConnectionResetError): pass
         finally: wrong_site.socket.close()
+        start('beta', deny_peers=True)
+        wait(lambda: ': Outbound peer ACL access denied' in log('beta') and ': ACL access denied' in log('beta'), 'peer deny ACL was not enforced')
+        assert 'Linked site' not in log('beta') and 'Linked site beta' not in log('alpha')
+        stop('beta')
+        print('PASS: peer ACL denies incoming and outbound admission before linking')
         start('beta')
         wait(lambda: 'Linked site beta' in log('alpha') and 'Linked site alpha' in log('beta'), 'mutual two-server link failed')
         # A late authenticated duplicate must preserve the established link.
         node = re.search(r'Server link node ([0-9a-f-]+)', log('beta')).group(1)
         before_duplicates = log('alpha').count('Unlinked site beta')
         duplicate = LinkSocket(ports['alpha'], context)
-        duplicate.send({'op':'link.hello', 'node':node, 'site':'beta', 'root':'',
-            'username':'tree-test', 'password':'disposable-link-secret', 'role':'child'})
+        duplicate.send({'op':'link.hello', 'node':node, 'site':'beta',
+            'username':'tree-test', 'password':'disposable-link-secret'})
         try:
             duplicate.receive()
             raise AssertionError('late duplicate was accepted')
@@ -203,9 +261,27 @@ enabled=false
             wait(lambda: 'Transport error' in log('gamma'), 'outbound TLS did not reject untrusted certificate')
             assert 'Linked site beta' not in log('gamma')
             stop('gamma')
+        start('delta')
         start('gamma')
-        wait(lambda: 'Introduced server' in log('alpha') and 'servers 3' in log('alpha') and
-            'Linked site beta' in log('gamma') and 'servers 3' in log('gamma'), 'three-server tree did not converge')
+        wait(lambda: 'Introduced server' in log('alpha') and 'servers 4' in log('alpha') and
+            'Linked site beta' in log('gamma') and 'servers 4' in log('gamma') and 'Linked site gamma' in log('delta'), 'four-server tree did not converge')
+        # A configured peer already in our component must not create a cycle.
+        cycle = LinkSocket(ports['alpha'], context)
+        delta_node = re.search(r'Server link node ([0-9a-f-]+)', log('delta')).group(1)
+        cycle.send({'op':'link.hello', 'node':delta_node, 'site':'delta',
+            'username':'tree-test', 'password':'disposable-link-secret'})
+        hello = cycle.receive()
+        assert hello['op'] == 'link.hello' and 'role' not in hello and 'root' not in hello
+        assert cycle.receive()['op'] == 'link.snapshot'
+        cycle.send({'op':'link.snapshot', 'nodes':f"{delta_node},- {hello['node']},{delta_node}"})
+        try:
+            cycle.receive()
+            raise AssertionError('cyclic link admitted')
+        except (EOFError, ConnectionResetError): pass
+        finally: cycle.socket.close()
+        wait(lambda: 'Topology overlap' in log('alpha'), 'cycle was not rejected by topology admission')
+        assert 'Unlinked site' not in log('delta')
+        print('PASS: symmetric peer handshake and live cycle rejection preserve the existing tree')
         def login(name, username='TEST'):
             c = WebSocket(ports[name], context) if LISTENER == "shared" and name == "gamma" else WebSocket(client_ports[name])
             c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': username}})
@@ -323,22 +399,29 @@ enabled=false
         origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
         origin.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0' and 'session' in m['talk'])
         print('PASS: multi-hop discovery and /users, remote LIST markers, owner permissions, chat/freq/mode/width/power, shared subscriptions and final unsubscribe')
+        if DIRECT_MEDIA:
+            from media_direct_live import run
+            run(login, origin, owner, work, media_ports['gamma'] + 7)
         before = log('alpha').count('Linked site beta')
+        leaf_links = log('gamma').count('Unlinked site delta')
         stop('beta')
-        wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 1' in log('gamma'), 'disconnect did not withdraw branch')
+        wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 2' in log('gamma'), 'disconnect did not withdraw only the lost branch')
+        assert log('gamma').count('Unlinked site delta') == leaf_links
+        assert 'Unlinked site gamma' not in log('delta')
         start('beta')
         wait(lambda: log('alpha').count('Linked site beta') > before and
-            log('alpha').count('servers 3') >= 2, 'autoconnect did not restore tree')
+            log('alpha').count('servers 4') >= 2, 'autoconnect did not restore tree')
         origin.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0' and 'session' in m['talk'])
         origin.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14280000}})
         for c in (owner, origin): c.until(lambda m: m.get('cat', {}).get('freq') == 14280000)
         origin.socket.close(); owner.socket.close()
         print('PASS: fresh authorized room subscription and control restored after middle-server restart')
         assert 'disposable-link-secret' not in ''.join(log(n) for n in processes)
-        print(f'PASS: {LISTENER} listener, peer authentication, separate protocol, concurrent dials, incoming-only peer, withdrawal and autoconnect')
+        print(f'PASS: {LISTENER} listener, peer authentication, separate protocol, concurrent dials, incoming-only peer, branch-only withdrawal, component merging and autoconnect')
     except Exception:
         for name in processes:
             print(name, log(name), flush=True)
         raise
     finally:
         for name in list(processes): stop(name)
+        for reserved in reservations: reserved.close()

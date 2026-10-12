@@ -44,13 +44,13 @@ Implemented messages are `link.hello`, `link.snapshot`, `link.ready`,
 `catalog`, `catalog-remove`, `users`, `request`, `reply`, `state`, `subscribe`,
 `unsubscribe`, and `close`. Binary media is not accepted.
 
-Each server may configure one peer with `role=parent` and multiple peers with
-`role=child`. The role describes the **remote** server, independently of which
-end initiates the socket. A server without a parent is a tree root. A server
-with a parent accepts children only after it has a committed route to its root;
-losing its parent withdraws that route and closes child links. This initial
-rooted hierarchy prevents circular parent configurations from becoming active.
-Merging independent trees and automatic parent failover are not supported yet.
+Peers are symmetric: any server can connect to any configured peer, and either
+endpoint may initiate the connection. No parent/child role is required. Each
+server roots its routing table at itself. Admission exchanges complete topology
+snapshots and rejects overlapping components, preventing cycles. Disconnected
+components can merge; losing a link withdraws only that branch and preserves
+other links. Rebuild both endpoints together: the hello message no longer carries
+a global root or a peer role. Legacy `role` settings are ignored and can be removed.
 
 Snapshots are rooted at their sender. The complete snapshot is checked before
 admission, and local admissions are serialized so pending branches cannot leak
@@ -77,7 +77,6 @@ names the local configuration entry and need not match the remote site.
 | `username` / `password` | Shared per-link credentials; use the same pair at both ends |
 | `site.name` | Required expected remote `station.name`, matched exactly |
 | `node.uuid` | Optional expected persistent remote server UUID |
-| `role` | Remote role, `parent` (default) or `child` |
 
 These are link credentials, separate from ordinary user accounts. Authentication
 is mutual and also checks the expected site and optional UUID pin. Keep the
@@ -158,7 +157,7 @@ owner/room syntax remains future work.
 across the tree. It never advertises passwords, network addresses or account
 privileges. Responses return to the issuing window through ordinary notices.
 
-Remote JOIN/PART, public chat, topics, non-PTT CAT controls and property writes
+Remote JOIN/PART, public chat, topics, CAT controls and property writes
 follow the unique route to the owner. Requests carry an issuing-session UUID
 and a short deadline; expired requests are rejected. The owner requires an
 enabled matching local account, checks password-expiry/change requirements,
@@ -168,7 +167,7 @@ therefore establish identity trust, but do not import privileges. A reserved
 `admin` cross-server policy remains to be defined.
 
 Joining creates an owner-side virtual room member and obtains room metadata,
-roster and the room's rig/VFO property schema and state. Replies and errors are
+roster and the room's rig/VFO property schema, state and private media discovery. Replies and errors are
 private to the issuing session. Owner publications, including the issuer's
 resulting state, fan out only through interested branches. Multiple subscribers
 share one upstream subscription; the final departure removes it. RX-only rooms
@@ -186,14 +185,22 @@ room while its owner is unavailable.
 Bounds include 256 topology nodes, 2,048 catalog entries, 128 originating
 sessions and 128 owner-side virtual sessions, 512 subscription/desired-room
 records, 24,000-byte application payloads and the existing bounded send queues.
-The three-server live test covers multi-hop owner execution, account refusal,
+The four-server live test covers multi-hop owner execution, account refusal,
 owner-side privilege enforcement, issuer-visible state, subscription aggregation,
 final unsubscribe, RX-only filtering and fresh authorization after reconnect.
 
-Remote PTT commands remain disabled until deadline, cancellation and session-loss
-release semantics are defined. Media relay and direct media, private-message
-routing, cross-server moderation and additional inventory service types remain
-future work. WebTransport remains a separate transport project.
+Remote PTT is allowed only while the owning server has a live, authorized direct
+TX media attachment for that session and room. It uses the owner's existing
+PTT interlocks, account privileges and accounting. Owner-side virtual sessions
+participate in the talker lookup. Loss of authenticated UDP keepalives releases
+PTT after three seconds; room departure, unsubscribe and link/session loss revoke
+attachments and release PTT. A backend release failure retains the virtual
+session for retry rather than freeing accounting references. Reconnection never
+replays PTT or other controls.
+
+Private-message routing, cross-server moderation and additional inventory service
+types remain future work. WebTransport remains a separate transport project.
+See [Direct media](media-direct.md) for RTP configuration and media fallback.
 
 Native GTK and browser transcripts make `#room` references clickable in chat,
 notices, topics and LIST output. Activation selects an existing room tab or sends

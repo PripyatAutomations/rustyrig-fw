@@ -1,4 +1,56 @@
+rustyrig-fw (20261012.01) testing; urgency=medium
+
+  * Extend the common subproc API with caller-owned descriptor mappings for
+    pipes, socketpairs and binary control channels. Migrate libfwdspmgr worker
+    lifecycle and reap only its children, preserving other helper exit statuses.
+  * Remove configured parent/child roles from server links. Admit any tree of
+    disjoint components, reject cycles and preserve surviving links on branch
+    loss. Update peer examples and add four-server merge/reconnect coverage.
+  * Add reusable ordered IPv4/IPv6, username and application-group ACLs in
+    librustyaxe. Store named policies with config callbacks and apply default-deny
+    admission to listeners, authenticated peers and direct-media sources.
+  * Add named RTP UDP port ranges with per-pool ACLs, randomized port selection
+    and occupied-port retry. Filter referrals by the connected user's IP and
+    owner account, including linked sessions; retain per-session media keys.
+  * Add native IRC DCC AUDIO v1 RTP referral serialization and private-message
+    decoding. Associate offers with the authenticated parent session and an
+    existing media channel; reject malformed offers and omit keys from logging.
+  * Remove the fixed configuration callback count limit and fix a callback-list
+    diagnostic dereferencing its tail. Cover registration beyond 512 callbacks.
+  * Add per-server direct-media preference checkboxes and /media direct controls;
+    refresh automatic subscriptions immediately and save user config overrides.
+  * Add reusable IRC peer microphone DCC AUDIO v2 sessions in librrprotocol,
+    with configured client UDP ranges, independent keys, explicit acceptance,
+    expiration and per-attachment playback. Add /dcc session listing and
+    /dcc audio [accept|close] NICK [tx|rx] commands and completion.
+  * Add classic IRC DCC CHAT and SEND TCP sessions in librrprotocol: explicit
+    acceptance, quoted filenames, binary transfers, cumulative acknowledgements,
+    expiry and cancellation. Add shared native commands, session ID completion
+    and protected destination creation; retain each session's window/server scope.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 02:05:04 -0400
+
 rustyrig-fw (20261011.04) testing; urgency=medium
+
+  * Consolidate subprocess helpers into librustyaxe/subproc.h with subproc_t
+    and subproc_* names. Remove the rr_subproc header and compiled-out supervisor,
+    migrate callsign lookup, document ownership and add real-child regression
+    coverage. Clear reaped PIDs before subsequent cleanup can signal them.
+  * Include libfwdspmgr in the default make test suites and document the
+    automated and two-machine acceptance checks for v1.0.
+
+  * Add owner-issued authenticated RTP referrals for native RX/TX audio,
+    client-originated UDP keepalives, bounded packet reassembly and optional
+    compile-time payload encryption, retaining native traffic accounting. Relay linked media discovery, codec headers
+    and WebSocket fallback through private per-client stream mappings.
+  * Require live direct TX attachments for remote PTT and release transmit on
+    media loss, room departure, session closure or link failure.
+  * Add /media subscribe -direct and -proxy, including transport switching,
+    completion and direct-endpoint failure reporting. Browsers support -proxy.
+  * Link libSRTP to librrprotocol after its objects instead of adding SRTP to
+    application-wide flags, fixing unresolved symbols when linking fwdsp.
+  * Refresh package fixtures for browsable state directories and keep the
+    administrative permission helper confined to disposable test paths.
 
   * Share server-link /link upgrades with the existing client HTTP/HTTPS
     listeners on the normal 8420/4420 ports, preserving separate peer
@@ -116,7 +168,7 @@ rustyrig-fw (20261011.04) testing; urgency=medium
   * Show GTK roster TX and Mute columns in VFO-enabled room tabs, refreshing
     visibility when room VFO mappings change regardless of transport.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 21:19:33 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 11 Oct 2026 23:56:43 -0400
 
 rustyrig-fw (20261010.01) testing; urgency=medium
   * Provision RustyRig service users and groups before Debian unpacks server,

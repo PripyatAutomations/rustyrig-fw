@@ -10,6 +10,8 @@
 #if     !defined(__rr_fwdsp_mgr_h)
 #define __rr_fwdsp_mgr_h
 
+#include <librustyaxe/subproc.h>
+
 enum fwdsp_io_type {
    FW_IO_NONE = 0,              // invalid
    FW_IO_STDIO,                 // stdin/stdout
@@ -66,7 +68,7 @@ struct fwdsp_control_msg {
 };
 
 struct fwdsp_subproc {
-   pid_t pid;
+   subproc_t process;
    enum fwdsp_pipeline_role role;
    char pl_id[5];
    char processor_namespace[8];

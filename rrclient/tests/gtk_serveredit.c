@@ -16,6 +16,12 @@ void gtk_server_picker_refresh_profile(const char *name) {
    assert(!strcmp(name, "site.example"));
    refreshed++;
 }
+static unsigned preference_applied;
+bool rrclient_direct_preferred(const char *profile) {
+   char key[640]; snprintf(key, sizeof(key), "server:%s.media.direct.prefer", profile);
+   return cfg_get_bool(key, cfg_get_bool("media.direct.prefer", true));
+}
+void rrclient_direct_apply_preferences(void) { preference_applied++; }
 int main(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: GTK display unavailable");
@@ -41,11 +47,14 @@ int main(void) {
    GtkServerEditor *editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
    assert(!gtk_entry_get_visibility(GTK_ENTRY(editor->fields[2])));
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), "#lobby #hamradio #station-rig0"));
+   assert(GTK_IS_CHECK_BUTTON(editor->direct) && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct)));
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(editor->direct), FALSE);
    gtk_entry_set_text(GTK_ENTRY(editor->fields[2]), "personal-secret");
    server_editor_save(NULL, window);
-   assert(refreshed == 1);
+   assert(refreshed == 1 && preference_applied == 1);
    overrides = cfg_load(user_path);
    assert(overrides);
+   assert(!dict_get_bool(overrides, "server:site.example.media.direct.prefer", true));
    assert(!strcmp(dict_get(overrides, "server:site.example.server.pass", ""), "personal-secret"));
    assert(!strcmp(dict_get(overrides, "site:gridsquare", ""), "EM98"));
    assert(!dict_get(overrides, "server:site.example.server.url", NULL));
@@ -58,6 +67,7 @@ int main(void) {
    assert(!stat(user_path, &status) && (status.st_mode & 077) == 0);
    window = gtk_show_server_editor("site.example");
    editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
+   assert(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct)));
    /* Removing a legacy rig room must stay removed after saving and reopening. */
    gtk_entry_set_text(GTK_ENTRY(editor->fields[4]), "#lobby   #new-rig0\t#chat");
    server_editor_save(NULL, window);

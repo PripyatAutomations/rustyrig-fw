@@ -1,3 +1,6 @@
+#include <rrclient/dcc.h>
+#include <rrclient/media.direct.h>
+#include <librrprotocol/rtp.h>
 #include <rrclient/config.layers.h>
 //
 // rrclient/main.c: Core of the client
@@ -280,11 +283,11 @@ static gboolean mg_source_check(GSource *source) {
 }
 
 static gboolean mg_source_dispatch(GSource *source, GSourceFunc cb, gpointer data) {
-   // Block up to 45ms inside mg_mgr_poll's internal poll(): it returns
-   // immediately when socket data arrives, so event latency is unaffected,
-   // but idle wakeups drop to ~20/s instead of spinning at 200/s.
+   // Poll native UDP alongside control sockets; cap blocking so audio stays timely.
    if (!dying) {
 #ifdef  USE_MONGOOSE
+      rrclient_direct_poll();
+      rrclient_dcc_poll();
       mg_mgr_poll(&mgr, MG_POLL_BLOCK_MS);
 #endif
       rrclient_poll_events_reconnect();
@@ -789,7 +792,7 @@ int main(int argc, char *argv[]) {
       // 1hz TUI clock (statusbar/clock refresh, shutdown check)
       g_timeout_add(1000, tui_clock_cb_real, NULL);
       // 20hz reconnect/poll sweep
-      g_timeout_add(50, ws_poll_cb, NULL);
+      g_timeout_add(rr_rtp_supported(false) ? 10 : 50, ws_poll_cb, NULL);
    }
 
    // Register all of our core event handlers

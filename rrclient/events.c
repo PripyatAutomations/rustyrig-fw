@@ -1,3 +1,5 @@
+#include <rrclient/dcc.h>
+#include <rrclient/media.direct.h>
 //
 // rrclient/events.c: event listeners for shared protocol events from
 // librrprotocol
@@ -1391,6 +1393,7 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       return;
    }
 
+   rrclient_direct_message(cptr, d);
    const char *cmd = dict_get(d, "media.cmd", NULL);
 
    if (cmd && strcasecmp(cmd, "capab") == 0) {
@@ -1475,6 +1478,8 @@ void rrclient_register_events(void) {
    event_on("client.server.selected", rrclient_server_selected, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();
+   rrclient_direct_register_events();
+   rrclient_dcc_register_events();
    rrclient_media_register_events();
 
    // XXX: We need to sort this according to profiling results

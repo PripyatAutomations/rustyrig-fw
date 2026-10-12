@@ -5,6 +5,9 @@
 #include <string.h>
 #include <glib.h>
 #include <rrserver/relay.h>
+#include <rrserver/media.direct.h>
+#include <librrprotocol/ws.mediachan.h>
+#include <librrprotocol/media.health.h>
 #ifdef USE_MONGOOSE
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/auth.h>
@@ -44,6 +47,7 @@ struct remote_session {
    struct remote_session *next;
    char origin[37], id[37];
    rrconn_t client;
+   uint64_t release_retry;
 };
 struct subscription {
    struct subscription *next;
@@ -70,6 +74,16 @@ static dict *copy_dict(dict *d) {
    return copy;
 }
 static bool packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload) {
+   if (!strcmp(kind, "request")) {
+      /* Referral hint supplied by the authenticated origin, never by client JSON. */
+      dict_del(payload, "relay.ip");
+      for (struct relay_client *c = clients; c; c = c->next) {
+         if (session && !strcmp(c->id, session)) {
+            if (*c->client->user_ip) dict_add(payload, "relay.ip", c->client->user_ip);
+            break;
+         }
+      }
+   }
    char *json = dict2json(payload);
    dict *d = dict_new();
 
@@ -120,7 +134,7 @@ static void directory_put(const char *node, dict *d) {
       return;
    }
 
-   for (unsigned i = 0 ; i < count ; i++) {
+   for (unsigned i = 0; i < count; i++) {
       char key[64];
       snprintf(key, sizeof(key), "user.%u.name", i);
       const char *name = dict_get(d, key, NULL);
@@ -133,7 +147,7 @@ static void directory_put(const char *node, dict *d) {
    struct directory *entry = directories;
    unsigned entries = 0;
 
-   for ( ; entry ; entry = entry->next) {
+   for (; entry; entry = entry->next) {
       entries++;
 
       if (!strcmp(entry->node, node)) {
@@ -167,14 +181,13 @@ static dict *local_users(void) {
       0
    }, n = 0;
 
-   for (rrconn_t *c = http_client_list ; c ; c = c->next) {
-      if (c->authenticated && c->is_ws && c->active && c->user && !client_has_flag(c, FLAG_VIDEO_SOURCE) && c->user->uid >= 0 && c->user->uid < HTTP_MAX_USERS)
-      {
+   for (rrconn_t * c = http_client_list; c; c = c->next) {
+      if (c->authenticated && c->is_ws && c->active && c->user && !client_has_flag(c, FLAG_VIDEO_SOURCE) && c->user->uid >= 0 && c->user->uid < HTTP_MAX_USERS) {
          counts[c->user->uid]++;
       }
    }
 
-   for (unsigned i = 0 ; i < HTTP_MAX_USERS ; i++) {
+   for (unsigned i = 0; i < HTTP_MAX_USERS; i++) {
       if (counts[i]) {
          char key[64];
          snprintf(key, sizeof(key), "user.%u.name", n);
@@ -193,10 +206,10 @@ static void send_users(rrconn_t *client, const char *room) {
    rrserver_relay_poll();
    unsigned count = 0;
 
-   for (struct directory *entry = directories ; entry ; entry = entry->next) {
+   for (struct directory * entry = directories; entry; entry = entry->next) {
       struct catalog *site = NULL;
 
-      for (struct catalog *c = catalogs ; c ; c = c->next) {
+      for (struct catalog * c = catalogs; c; c = c->next) {
          if (!strcmp(c->key, entry->node)) {
             site = c;
          }
@@ -204,7 +217,7 @@ static void send_users(rrconn_t *client, const char *room) {
 
       const char *alias = site ? dict_get(site->descriptor, "object.alias", entry->node) : cfg_get("station.name");
 
-      for (unsigned i = 0 ; i < dict_get_uint(entry->users, "count", 0) ; i++) {
+      for (unsigned i = 0; i < dict_get_uint(entry->users, "count", 0); i++) {
          char key[64], text[384];
          snprintf(key, sizeof(key), "user.%u.name", i);
          const char *name = dict_get(entry->users, key, "?");
@@ -244,7 +257,7 @@ static bool local_owner(const char *node) {
    return !strcmp(node, rrserver_links_node());
 }
 static struct remote_session *remote_for(rrconn_t *client) {
-   for (struct remote_session *r = remotes ; r ; r = r->next) {
+   for (struct remote_session * r = remotes; r; r = r->next) {
       if (&r->client == client) {
          return r;
       }
@@ -253,7 +266,7 @@ static struct remote_session *remote_for(rrconn_t *client) {
    return NULL;
 }
 static struct catalog *find_catalog(const char *key) {
-   for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (struct catalog * c = catalogs; c; c = c->next) {
       if (!strcmp(c->key, key)) {
          return c;
       }
@@ -271,7 +284,7 @@ static struct catalog *room_catalog(const char *room) {
    return find_catalog(key);
 }
 static const char *message_room(dict *d) {
-   const char *room = dict_get(d, "cat.room", dict_get(d, "talk.room", dict_get(d, "request.room", NULL)));
+   const char *room = dict_get(d, "cat.room", dict_get(d, "talk.room", dict_get(d, "request.room", dict_get(d, "media.room", NULL))));
 
    if (!room) {
       const char *target = dict_get(d, "talk.target", NULL);
@@ -413,7 +426,7 @@ static void collect_local(void) {
 #ifdef USE_SQLITE
    char *rooms = db_room_list(masterdb), *save = NULL;
 
-   for (char *room = rooms ? strtok_r(rooms, " ", &save) : NULL ; room ; room = strtok_r(NULL, " ", &save)) {
+   for (char *room = rooms ? strtok_r(rooms, " ", &save) : NULL; room; room = strtok_r(NULL, " ", &save)) {
       dict *d = dict_new();
 
       if (!d) {
@@ -438,8 +451,8 @@ static void send_catalogs(const char *dest) {
       "node", "rig", "vfo", "room"
    };
 
-   for (unsigned i = 0 ; i < 4 ; i++) {
-      for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (unsigned i = 0; i < 4; i++) {
+      for (struct catalog * c = catalogs; c; c = c->next) {
          if (strcmp(dict_get(c->descriptor, "object.type", "room"), types[i])) {
             continue;
          }
@@ -471,7 +484,7 @@ static void send_catalogs(const char *dest) {
    }
 }
 static struct relay_client *client_for(rrconn_t *client, bool create) {
-   for (struct relay_client *c = clients ; c ; c = c->next) {
+   for (struct relay_client * c = clients; c; c = c->next) {
       if (c->client == client) {
          return c;
       }
@@ -534,13 +547,13 @@ static void wanted_free(struct relay_client *client) {
    }
 }
 static bool demand(const char *owner, const char *room) {
-   for (struct relay_client *c = clients ; c ; c = c->next) {
+   for (struct relay_client * c = clients; c; c = c->next) {
       if (ws_client_in_room(c->client, room)) {
          return true;
       }
    }
 
-   for (struct subscription *s = subscriptions ; s ; s = s->next) {
+   for (struct subscription * s = subscriptions; s; s = s->next) {
       if (!strcmp(s->owner, owner) && !strcmp(s->room, room)) {
          return true;
       }
@@ -601,7 +614,7 @@ static bool client_interested(rrconn_t *client, const char *room, dict *d) {
    char rooms[AUTOJOIN_LEN], *save = NULL;
    snprintf(rooms, sizeof(rooms), "%s", client->rooms);
 
-   for (char *joined = strtok_r(rooms, ",", &save) ; joined ; joined = strtok_r(NULL, ",", &save)) {
+   for (char *joined = strtok_r(rooms, ",", &save); joined; joined = strtok_r(NULL, ",", &save)) {
       if (interested(joined, room, d)) {
          return true;
       }
@@ -610,13 +623,13 @@ static bool client_interested(rrconn_t *client, const char *room, dict *d) {
    return false;
 }
 static bool state_demand(const char *owner, const char *room, dict *d) {
-   for (struct relay_client *c = clients ; c ; c = c->next) {
+   for (struct relay_client * c = clients; c; c = c->next) {
       if (client_interested(c->client, room, d)) {
          return true;
       }
    }
 
-   for (struct subscription *s = subscriptions ; s ; s = s->next) {
+   for (struct subscription * s = subscriptions; s; s = s->next) {
       if (!strcmp(s->owner, owner) && interested(s->room, room, d)) {
          return true;
       }
@@ -625,13 +638,13 @@ static bool state_demand(const char *owner, const char *room, dict *d) {
    return false;
 }
 static void publish_state(const char *owner, const char *room, dict *d) {
-   for (struct subscription *s = subscriptions ; s ; s = s->next) {
+   for (struct subscription * s = subscriptions; s; s = s->next) {
       if (strcmp(s->owner, owner) || !interested(s->room, room, d)) {
          continue;
       }
       bool duplicate = false;
 
-      for (struct subscription *before = subscriptions ; before != s ; before = before->next) {
+      for (struct subscription * before = subscriptions; before != s; before = before->next) {
          if (!strcmp(before->owner, owner) && !strcmp(before->node, s->node) && interested(before->room, room, d)) {
             duplicate = true;
          }
@@ -642,18 +655,294 @@ static void publish_state(const char *owner, const char *room, dict *d) {
       }
       packet(s->node, "state", NULL, owner, d);
       Log(LOG_DEBUG, "relay", "State %s %s room %s to branch %s", dict_get(d, "msg.type", ""), dict_get(d, "cat.cmd", dict_get(d, "property.cmd", dict_get(d,
-         "talk.cmd", ""))), room, s->node);
+                  "talk.cmd", ""))), room, s->node);
    }
 }
+
+/* Private channel discovery and stream translation are scoped to one client session. */
+#define MAX_RELAY_MEDIA 512
+#define RELAY_MEDIA_CHUNK 4000
+struct relay_media {
+   struct relay_media *next;
+   rrconn_t *client;
+   char owner[37], uuid[64], room[128];
+   uint8_t stream, owner_stream, direction;
+   bool subscribed, setup;
+   uint8_t *frame;
+   size_t size, received;
+   uint32_t sequence;
+   uint64_t started;
+};
+static struct relay_media *media_maps;
+static unsigned media_map_count;
+static uint32_t media_sequence;
+static struct relay_media *media_map(rrconn_t *client, const char *uuid, bool create) {
+   for (struct relay_media * m = media_maps; m; m = m->next)
+      if (m->client == client && !strcmp(m->uuid, uuid))
+         return m;
+   if (!create || media_map_count == MAX_RELAY_MEDIA || !*uuid || strlen(uuid) >= 64)
+      return NULL;
+   struct relay_media *m = calloc(1, sizeof(*m));
+   if (!m)
+      return NULL;
+   m->client = client;
+   snprintf(m->uuid, sizeof(m->uuid), "%s", uuid);
+   for (unsigned stream = 128; stream <= UINT8_MAX; stream++) {
+      bool used = false;
+      for (struct relay_media * p = media_maps; p; p = p->next)
+         if (p->client == client && p->stream == stream)
+            used = true;
+      if (!used) {
+         m->stream = stream;
+         break;
+      }
+   }
+   if (!m->stream) {
+      free(m);
+      return NULL;
+   }
+   m->next = media_maps;
+   media_maps = m;
+   media_map_count++;
+   return m;
+}
+static void media_forget(rrconn_t *client, const char *owner, const char *room) {
+   struct relay_media **p = &media_maps;
+   while (*p) {
+      struct relay_media *m = *p;
+      if ((!client || m->client == client) && (!owner || !strcmp(m->owner, owner)) && (!room || !strcmp(m->room, room))) {
+         if (m->subscribed) {
+            dict *d = dict_new();
+            if (d) {
+               dict_add(d, "msg.type", "media");
+               dict_add(d, "media.cmd", "chan-remove");
+               dict_add(d, "media.chan-uuid", m->uuid);
+               ws_send_dict(NULL, m->client, d, WEBSOCKET_OP_TEXT);
+               dict_free(d);
+            }
+         }
+         *p = m->next;
+         free(m->frame);
+         free(m);
+         media_map_count--;
+      } else
+         p = &m->next;
+   }
+}
+static bool media_packet(const char *dest, const char *kind, const char *session, const char *username,
+   const char *uuid, const char *room, const uint8_t *frame, size_t length, bool setup) {
+   if (!length || length > 65535)
+      return false;
+   uint32_t sequence = ++media_sequence;
+   for (size_t offset = 0; offset < length; offset += RELAY_MEDIA_CHUNK) {
+      size_t size = length - offset;
+      if (size > RELAY_MEDIA_CHUNK)
+         size = RELAY_MEDIA_CHUNK;
+      char *encoded = g_base64_encode(frame + offset, size);
+      dict *d = dict_new();
+      if (!d || !encoded) {
+         dict_free(d);
+         g_free(encoded);
+         return false;
+      }
+      dict_add(d, "msg.type", "media");
+      dict_add(d, "media.cmd", "frame");
+      dict_add(d, "media.chan-uuid", uuid);
+      dict_add(d, "media.room", room);
+      dict_add_bool(d, "media.setup", setup);
+      dict_add(d, "media.data", encoded);
+      dict_add_ulong(d, "media.fragment", offset);
+      dict_add_ulong(d, "media.total", length);
+      dict_add_ulong(d, "media.frame-seq", sequence);
+      dict_add_ulong(d, "relay.deadline", now + 2);
+      bool ok = packet(dest, kind, session, username, d);
+      dict_free(d);
+      g_free(encoded);
+      if (!ok)
+         return false;
+   }
+   return true;
+}
+static bool media_reassemble(struct relay_media *m, dict *d) {
+   unsigned long total = dict_get_ulong(d, "media.total", 0), offset = dict_get_ulong(d, "media.fragment", 65536);
+   uint32_t sequence = dict_get_ulong(d, "media.frame-seq", 0);
+   const char *encoded = dict_get(d, "media.data", "");
+   size_t encoded_length = strlen(encoded);
+   if (!total || total > 65535 || offset >= total || offset % RELAY_MEDIA_CHUNK || encoded_length > ((RELAY_MEDIA_CHUNK + 2) / 3) * 4 ||
+      encoded_length % 4 || strspn(encoded, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=") != encoded_length)
+      return false;
+   gsize size;
+   uint8_t *bytes = g_base64_decode(encoded, &size);
+   size_t expected = total - offset;
+   if (expected > RELAY_MEDIA_CHUNK)
+      expected = RELAY_MEDIA_CHUNK;
+   if (size != expected) {
+      g_free(bytes);
+      return false;
+   }
+   if (!offset) {
+      free(m->frame);
+      m->frame = malloc(total);
+      m->size = total;
+      m->received = 0;
+      m->sequence = sequence;
+      m->started = mono_us();
+      m->setup = dict_get_bool(d, "media.setup", false);
+   }
+   if (!m->frame || m->size != total || m->sequence != sequence || offset != m->received ||
+      m->setup != dict_get_bool(d, "media.setup", false) || (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
+      g_free(bytes);
+      return false;
+   }
+   memcpy(m->frame + offset, bytes, size);
+   m->received += size;
+   g_free(bytes);
+   return m->received == total;
+}
+static void media_outgoing(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (length != sizeof(rr_media_binary_t))
+      return;
+   struct remote_session *remote = remote_for(client);
+   if (!remote)
+      return;
+   rr_media_binary_t *io = (rr_media_binary_t *) data;
+   if (io->handled)
+      return;
+   struct rr_binframe frame;
+   if (rr_binframe_parse(io->frame, io->length, &frame))
+      return;
+   unsigned id = frame.hdr.stream;
+   if (!id || id > MAX_MEDIA_CHANNELS)
+      return;
+   struct rr_mediachan *channel = &media_channels[id - 1];
+   if (!channel->uuid[0] || !media_client_in_channel_room(client, channel) ||
+      !chan_id_in_array(channel->direction == RR_BINFRAME_DIR_TX ? client->tx_channels : client->rx_channels, MAX_RX_CHANNELS, id))
+      return;
+   io->handled = true;
+   io->result = media_packet(remote->origin, "reply", remote->id, NULL, channel->uuid, channel->room, io->frame, io->length, io->setup);
+}
+static void media_incoming(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (length != sizeof(rr_media_binary_t) || applying || remote_for(client))
+      return;
+   rr_media_binary_t *io = (rr_media_binary_t *) data;
+   struct rr_binframe frame;
+   if (rr_binframe_parse(io->frame, io->length, &frame))
+      return;
+   for (struct relay_media * m = media_maps; m; m = m->next) {
+      if (m->client != client || m->stream != frame.hdr.stream)
+         continue;
+      io->handled = true;
+      if (!m->subscribed || m->direction != RR_BINFRAME_DIR_TX || !ws_client_in_room(client, m->room) || !client->user)
+         return;
+      struct relay_client *origin = client_for(client, false);
+      uint8_t *copy = malloc(io->length);
+      if (!origin || !copy) {
+         free(copy);
+         return;
+      }
+      memcpy(copy, io->frame, io->length);
+      copy[11] = m->owner_stream;
+      io->result = media_packet(m->owner, "request", origin->id, client->user->name, m->uuid, m->room, copy, io->length, io->setup);
+      free(copy);
+      return;
+   }
+}
+static void remote_talker(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   if (length != sizeof(rr_server_talker_t))
+      return;
+   rr_server_talker_t *query = (rr_server_talker_t *) data;
+   if (query->client)
+      return;
+   for (struct remote_session * r = remotes; r; r = r->next)
+      if (r->client.authenticated && r->client.is_ptt) {
+         query->client = &r->client;
+         return;
+      }
+}
+static void media_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   if (length != sizeof(rr_media_catalog_t))
+      return;
+   const rr_media_catalog_t *change = data;
+   for (struct remote_session * r = remotes; r; r = r->next) {
+      if (!r->client.authenticated)
+         continue;
+      if (change->removed) {
+         if (media_client_in_channel_room(&r->client, change->channel))
+            media_send_chan_removed(&r->client, change->channel);
+      } else {
+         for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++)
+            if (media_channels[i].uuid[0] && media_client_in_channel_room(&r->client, &media_channels[i]))
+               media_send_available(&r->client, &media_channels[i]);
+      }
+   }
+}
+static void media_demand(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   if (length != sizeof(rr_media_demand_t))
+      return;
+   rr_media_demand_t *d = (rr_media_demand_t *) data;
+   unsigned id = d->channel - media_channels + 1;
+   for (struct remote_session * r = remotes; r; r = r->next)
+      if (media_client_in_channel_room(&r->client, d->channel)
+         && chan_id_in_array(d->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels, MAX_RX_CHANNELS, id))
+         d->interested = true;
+}
+static void media_fanout(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   if (length != sizeof(rr_media_fanout_t))
+      return;
+   const rr_media_fanout_t *f = data;
+   unsigned id = f->channel - media_channels + 1;
+   for (struct remote_session * r = remotes; r; r = r->next) {
+      if ((f->target && f->target != &r->client) || f->exclude == &r->client || !media_client_in_channel_room(&r->client, f->channel)
+         || !chan_id_in_array(f->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels, MAX_RX_CHANNELS, id))
+         continue;
+      uint8_t *copy = malloc(f->length);
+      if (!copy)
+         continue;
+      memcpy(copy, f->frame, f->length);
+      struct rr_binframe parsed;
+      if (rr_binframe_parse(copy, f->length, &parsed)) {
+         free(copy);
+         continue;
+      }
+      rr_binframe_pack_hdr(copy, f->length, parsed.hdr.subsystem, parsed.hdr.codec, parsed.hdr.direction,
+         parsed.hdr.vfo, parsed.hdr.rig, parsed.hdr.stream, rr_media_next_sequence(&r->client, &parsed.hdr), parsed.len, parsed.hdr.ts);
+      struct mg_str bytes = {.buf = (char *)copy,.len = f->length };
+      if (f->setup)
+         ws_send_setup_to_cptr(NULL, &r->client, &bytes);
+      else
+         ws_send_to_cptr(NULL, &r->client, &bytes, WEBSOCKET_OP_BINARY);
+      free(copy);
+   }
+}
+
 static bool permitted_message(dict *d) {
    const char *family = dict_get(d, "msg.type", ""), *cmd = dict_get(d, "talk.cmd", "");
 
-   if (!strcmp(family, "cat")) {
-      return strcasecmp(dict_get(d, "cat.cmd", ""), "ptt") != 0;
+   if (!strcmp(family, "cat"))
+      return true;
+   if (!strcmp(family, "media")) {
+      const char *cmd = dict_get(d, "media.cmd", "");
+      return !strcmp(cmd, "subscribe") || !strcmp(cmd, "unsubscribe") || !strcmp(cmd, "codec") || !strcmp(cmd, "frame") || !strcmp(cmd, "feedback");
    }
 
    if (!strcmp(family, "property")) {
-      return !strcmp(dict_get(d, "property.cmd", ""), "set") && strcmp(dict_get(d, "property.name", ""), "ptt");
+      return !strcmp(dict_get(d, "property.cmd", ""), "set");
    }
 
    return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") || !strcmp(cmd, "topic"));
@@ -676,6 +965,19 @@ static void route_request(const char *event, const void *data, size_t length, rr
       }
 
       return;
+   }
+   struct relay_media *media = media_map(client, dict_get(io->message, "media.chan-uuid", ""), false);
+   if (!media && !strcmp(dict_get(io->message, "media.cmd", ""), "feedback")) {
+      unsigned stream = dict_get_ulong(io->message, "media.stream", 0);
+      for (struct relay_media * m = media_maps; m; m = m->next)
+         if (m->client == client && m->stream == stream && m->subscribed) {
+            media = m;
+            break;
+         }
+   }
+   if (media) {
+      dict_add(io->message, "media.room", media->room);
+      dict_add(io->message, "media.chan-uuid", media->uuid);
    }
    const char *room = message_room(io->message);
    struct catalog *c = room_catalog(room);
@@ -718,7 +1020,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
    io->handled = true;
 
    if (!client->authenticated || !client->user || !permitted_message(io->message)) {
-      ws_send_error(client, "This remote command is not supported yet (media and remote PTT are deferred)");
+      ws_send_error(client, "This remote command is not supported");
 
       return;
    }
@@ -727,6 +1029,9 @@ static void route_request(const char *event, const void *data, size_t length, rr
 
    if (request) {
       dict_add_ulong(request, "relay.deadline", now + 10);
+      dict_add(request, "relay.codecs", client->media_codecs);
+      if (media && !strcmp(dict_get(request, "media.cmd", ""), "feedback"))
+         dict_add_ulong(request, "media.stream", media->owner_stream);
    }
    bool sent = request && packet(c->owner, "request", origin->id, client->user->name, request);
    dict_free(request);
@@ -746,7 +1051,7 @@ static void augment_userinfo(dict *d) {
    unsigned count = 0;
    bool remote = false;
 
-   for (struct remote_session *r = remotes ; r ; r = r->next) {
+   for (struct remote_session * r = remotes; r; r = r->next) {
       if (!strcasecmp(r->client.chatname, name) && ws_client_in_room(&r->client, room)) {
          count++;
          remote = true;
@@ -757,7 +1062,7 @@ static void augment_userinfo(dict *d) {
       return;
    }
 
-   for (rrconn_t *c = http_client_list ; c ; c = c->next) {
+   for (rrconn_t * c = http_client_list; c; c = c->next) {
       if (c->authenticated && !strcasecmp(c->chatname, name) && ws_client_in_room(c, room)) {
          count++;
       }
@@ -766,7 +1071,7 @@ static void augment_userinfo(dict *d) {
    dict_add_uint(d, "talk.sessions", count);
 }
 static void refresh_member(const char *name, const char *room) {
-   for (struct remote_session *r = remotes ; r ; r = r->next) {
+   for (struct remote_session * r = remotes; r; r = r->next) {
       if (!strcasecmp(r->client.chatname, name) && ws_client_in_room(&r->client, room)) {
          ws_send_userinfo_room(&r->client, NULL, room);
 
@@ -774,7 +1079,7 @@ static void refresh_member(const char *name, const char *room) {
       }
    }
 
-   for (rrconn_t *c = http_client_list ; c ; c = c->next) {
+   for (rrconn_t * c = http_client_list; c; c = c->next) {
       if (c->authenticated && !strcasecmp(c->chatname, name) && ws_client_in_room(c, room)) {
          ws_send_userinfo_room(c, NULL, room);
 
@@ -782,15 +1087,25 @@ static void refresh_member(const char *name, const char *room) {
       }
    }
 }
-static void remove_remote(struct remote_session **link) {
+static bool remove_remote(struct remote_session **link) {
    struct remote_session *r = *link;
    char rooms[AUTOJOIN_LEN], name[HTTP_USER_LEN + 1], *save = NULL;
    snprintf(rooms, sizeof(rooms), "%s", r->client.rooms);
    snprintf(name, sizeof(name), "%s", r->client.chatname);
+   if (!r->client.authenticated && r->release_retry > (uint64_t) mono_us())
+      return false;
+   r->client.authenticated = false;
+   ws_release_ptt_on_disconnect(&r->client);
+   rrserver_direct_close(&r->client);
+   if (r->client.is_ptt) {
+      r->release_retry = mono_us() + 1000000;
+      return false;
+   }
+   media_forget(&r->client, NULL, NULL);
    *link = r->next;
    remote_count--;
 
-   for (char *room = strtok_r(rooms, ",", &save) ; room ; room = strtok_r(NULL, ",", &save)) {
+   for (char *room = strtok_r(rooms, ",", &save); room; room = strtok_r(NULL, ",", &save)) {
       dict *part = dict_new();
 
       if (part) {
@@ -805,6 +1120,7 @@ static void remove_remote(struct remote_session **link) {
    }
 
    free(r);
+   return true;
 }
 static void send_remote(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
@@ -826,11 +1142,18 @@ static void send_remote(const char *event, const void *data, size_t length, rrco
    io->handled = true;
    const char *family = dict_get(io->message, "msg.type", "");
 
-   // Media announcements do not make a remote channel usable.
-   if (!strcmp(family, "media")) {
+   // Connection-wide capabilities belong to the client's home connection.
+   if (!strcmp(family, "media") && (!strcmp(dict_get(io->message, "media.cmd", ""), "capab") || !strcmp(dict_get(io->message, "media.cmd", ""), "isupport"))) {
       io->result = true;
 
       return;
+   }
+   if (!strcmp(family, "media") && !strcmp(dict_get(io->message, "media.cmd", ""), "available")) {
+      struct rr_mediachan *channel = media_chan_find_uuid(dict_get(io->message, "media.chan-uuid", ""));
+      if (!channel || !media_client_in_channel_room(client, channel)) {
+         io->result = true;
+         return;
+      }
    }
    dict *forward = io->message;
 
@@ -888,7 +1211,7 @@ static void roster(const char *event, const char *room, rrconn_t *client, void *
    (void)event;
    (void)user;
 
-   for (struct remote_session *r = remotes ; r ; r = r->next) {
+   for (struct remote_session * r = remotes; r; r = r->next) {
       if (ws_client_in_room(&r->client, room)) {
          ws_send_userinfo_room(&r->client, client, room);
       }
@@ -905,11 +1228,13 @@ static struct remote_session *owner_session(const char *origin, const char *id, 
       return NULL;
    }
 
-   for (struct remote_session *r = remotes ; r ; r = r->next) {
+   for (struct remote_session * r = remotes; r; r = r->next) {
       if (!strcmp(r->origin, origin) && !strcmp(r->id, id)) {
          if (strcasecmp(r->client.chatname, username)) {
             return NULL;
          }
+         if (!r->client.authenticated)
+            return NULL;
          r->client.user = &http_users[uid];
 
          return r;
@@ -953,7 +1278,42 @@ static void execute(const char *origin, const char *id, const char *username, di
 
       return;
    }
+   const char *source_ip = dict_get(d, "relay.ip", NULL);
+   acl_subject_t source;
+   if (source_ip) {
+      if (!acl_subject_init(&source, source_ip, NULL, NULL, NULL) ||
+         (*r->client.user_ip && strcmp(r->client.user_ip, source_ip))) {
+         ws_send_error(&r->client, "Invalid remote session source address");
+         return;
+      }
+      snprintf(r->client.user_ip, sizeof(r->client.user_ip), "%s", source_ip);
+   }
+   dict_del(d, "relay.ip");
+   const char *codecs = dict_get(d, "relay.codecs", NULL);
+   if (codecs)
+      snprintf(r->client.media_codecs, sizeof(r->client.media_codecs), "%s", codecs);
+   dict_del(d, "relay.codecs");
    dict_del(d, "relay.deadline");
+   bool ptt_on = (!strcmp(dict_get(d, "cat.cmd", ""), "ptt") && dict_get_bool(d, "cat.ptt", false)) ||
+      (!strcmp(dict_get(d, "property.name", ""), "ptt") && dict_get_bool(d, "property.value", false));
+   if (ptt_on && !rrserver_direct_tx_ready(&r->client, room)) {
+      ws_send_error(&r->client, "Remote PTT requires a live direct TX media attachment");
+      return;
+   }
+   if (!strcmp(dict_get(d, "msg.type", ""), "media") && !strcmp(dict_get(d, "media.cmd", ""), "frame")) {
+      struct rr_mediachan *channel = media_chan_find_uuid(dict_get(d, "media.chan-uuid", ""));
+      if (!channel || strcmp(channel->room, room) || !media_client_in_channel_room(&r->client, channel))
+         return;
+      struct relay_media *m = media_map(&r->client, channel->uuid, true);
+      if (m && media_reassemble(m, d)) {
+         struct rr_binframe frame;
+         if (!rr_binframe_parse(m->frame, m->size, &frame) && frame.hdr.stream == channel - media_channels + 1)
+            ws_binframe_process_mg(&r->client, (const char *)m->frame, m->size);
+         free(m->frame);
+         m->frame = NULL;
+      }
+      return;
+   }
    char *wire = rr_wire_encode(d);
 
    if (!wire) {
@@ -985,6 +1345,7 @@ static void execute(const char *origin, const char *id, const char *username, di
       }
       ws_send_userinfo_room(&r->client, NULL, room);
       rrserver_objects_room_state(&r->client, room);
+      media_send_available_all(&r->client);
    } else if (ok && !strcmp(cmd, "part")) {
       refresh_member(r->client.chatname, room);
    }
@@ -1001,7 +1362,7 @@ static void update_membership(rrconn_t *client, const char *room, bool joined) {
       char copy[AUTOJOIN_LEN], out[AUTOJOIN_LEN] = "", *save = NULL;
       snprintf(copy, sizeof(copy), "%s", client->rooms);
 
-      for (char *r = strtok_r(copy, ",", &save) ; r ; r = strtok_r(NULL, ",", &save)) {
+      for (char *r = strtok_r(copy, ",", &save); r; r = strtok_r(NULL, ",", &save)) {
          if (!strcasecmp(r, room)) {
             continue;
          }
@@ -1139,7 +1500,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       }
 
       // Each receiving branch forwards discovery to the other direct branches.
-      for (struct catalog *c = catalogs ; c ; c = c->next) {
+      for (struct catalog * c = catalogs; c; c = c->next) {
          if (strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
             continue;
          }
@@ -1153,7 +1514,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    } else if (!strcmp(kind, "request")) {
       execute(origin, id, dict_get(envelope, "username", ""), d);
    } else if (!strcmp(kind, "reply")) {
-      for (struct relay_client *c = clients ; c ; c = c->next) {
+      for (struct relay_client * c = clients; c; c = c->next) {
          if (!strcmp(c->id, id)) {
             const char *cmd = dict_get(d, "talk.cmd", ""), *room = dict_get(d, "talk.room", NULL);
 
@@ -1165,6 +1526,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                }
                wanted_set(c, origin, room, !strcmp(cmd, "join"));
                bool before = demand(origin, room);
+               if (!strcmp(cmd, "part"))
+                  media_forget(c->client, origin, room);
                update_membership(c->client, room, !strcmp(cmd, "join"));
                bool after = demand(origin, room);
 
@@ -1172,6 +1535,45 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                   subscribe_upstream(origin, room, after);
                }
                dict_add(d, "talk.session", c->client->token);
+            }
+            if (!strcmp(dict_get(d, "msg.type", ""), "media")) {
+               const char *media_cmd = dict_get(d, "media.cmd", "");
+               struct relay_media *m = media_map(c->client, dict_get(d, "media.chan-uuid", ""), !strcmp(media_cmd, "available"));
+               if (!m)
+                  break;
+               if (!strcmp(media_cmd, "available")) {
+                  const char *room = dict_get(d, "media.room", "");
+                  struct catalog *authority = room_catalog(room);
+                  if (!authority || strcmp(authority->owner, origin) || !ws_client_in_room(c->client, room))
+                     break;
+                  snprintf(m->owner, sizeof(m->owner), "%s", origin);
+                  snprintf(m->room, sizeof(m->room), "%s", room);
+                  m->direction = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
+               } else if (strcmp(m->owner, origin) || !ws_client_in_room(c->client, m->room))
+                  break;
+               if (!strcmp(media_cmd, "subscribed")) {
+                  m->owner_stream = dict_get_ulong(d, "media.stream", 0);
+                  m->subscribed = true;
+                  dict_add_ulong(d, "media.owner-stream", m->owner_stream);
+                  dict_add_ulong(d, "media.stream", m->stream);
+               } else if (!strcmp(media_cmd, "unsubscribed") || !strcmp(media_cmd, "chan-remove"))
+                  m->subscribed = false;
+               else if (!strcmp(media_cmd, "frame")) {
+                  if (m->subscribed && media_reassemble(m, d)) {
+                     struct rr_binframe frame;
+                     if (!rr_binframe_parse(m->frame, m->size, &frame) && frame.hdr.stream == m->owner_stream) {
+                        m->frame[11] = m->stream;
+                        struct mg_str bytes = {.buf = (char *)m->frame,.len = m->size };
+                        if (m->setup)
+                           ws_send_setup_to_cptr(NULL, c->client, &bytes);
+                        else
+                           ws_send_to_cptr(NULL, c->client, &bytes, WEBSOCKET_OP_BINARY);
+                     }
+                     free(m->frame);
+                     m->frame = NULL;
+                  }
+                  break;
+               }
             }
             deliver(c->client, d);
             break;
@@ -1189,7 +1591,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          goto done;
       }
 
-      for (struct relay_client *local = clients ; local ; local = local->next) {
+      for (struct relay_client * local = clients; local; local = local->next) {
          if (client_interested(local->client, room, d)) {
             deliver(local->client, d);
          }
@@ -1202,13 +1604,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          struct remote_session *r = *p;
 
          if (!strcmp(r->origin, origin) && !strcmp(r->id, id)) {
-            remove_remote(p);
+            if (!remove_remote(p))
+               p = &r->next;
          } else {
             p = &r->next;
          }
       }
    }
-done:
+ done:
    dict_free(d);
    dict_free(envelope);
 }
@@ -1220,7 +1623,7 @@ static void ready(const char *event, const char *node, rrconn_t *client, void *u
    send_catalogs(node);
    rrserver_relay_poll();
 
-   for (struct directory *entry = directories ; entry ; entry = entry->next) {
+   for (struct directory * entry = directories; entry; entry = entry->next) {
       const char *route = rrserver_links_route(entry->node);
 
       if (!route || strcmp(route, node)) {
@@ -1232,6 +1635,7 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
    (void)event;
    (void)data;
    (void)user;
+   media_forget(client, NULL, NULL);
    struct relay_client **p = &clients;
    while (*p) {
       struct relay_client *c = *p;
@@ -1245,7 +1649,7 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
       *p = c->next;
       client_count--;
 
-      for (struct catalog *entry = catalogs ; entry ; entry = entry->next) {
+      for (struct catalog * entry = catalogs; entry; entry = entry->next) {
          if (!strcmp(dict_get(entry->descriptor, "object.type", ""), "node") && !local_owner(entry->owner)) {
             dict *d = dict_new();
 
@@ -1258,7 +1662,7 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
 
       char *save = NULL;
 
-      for (char *room = strtok_r(rooms, ",", &save) ; room ; room = strtok_r(NULL, ",", &save)) {
+      for (char *room = strtok_r(rooms, ",", &save); room; room = strtok_r(NULL, ",", &save)) {
          struct catalog *entry = room_catalog(room);
 
          if (entry && !demand(entry->owner, room)) {
@@ -1276,14 +1680,25 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
    (void)client;
    (void)user;
 
-   for (struct relay_client *local = clients ; local ; local = local->next) {
-      for (struct wanted_room *w = local->wanted ; w ; w = w->next) {
+   for (struct relay_client * local = clients; local; local = local->next) {
+      for (struct wanted_room * w = local->wanted; w; w = w->next) {
          if (!rrserver_links_route(w->owner)) {
             w->pending = true;
          }
       }
    }
 
+   struct relay_media *m = media_maps;
+   while (m) {
+      struct relay_media *next = m->next;
+      if (*m->owner && !rrserver_links_route(m->owner)) {
+         char owner[37];
+         snprintf(owner, sizeof(owner), "%s", m->owner);
+         media_forget(NULL, owner, NULL);
+         m = media_maps;
+      } else
+         m = next;
+   }
    struct subscription **sp = &subscriptions;
    while (*sp) {
       struct subscription *s = *sp;
@@ -1301,7 +1716,8 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
       struct remote_session *r = *rp;
 
       if (!rrserver_links_route(r->origin)) {
-         remove_remote(rp);
+         if (!remove_remote(rp))
+            rp = &r->next;
       } else {
          rp = &r->next;
       }
@@ -1329,7 +1745,7 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
       const char *room = dict_get(c->descriptor, "catalog.room", NULL);
 
       if (room) {
-         for (struct relay_client *local = clients ; local ; local = local->next) {
+         for (struct relay_client * local = clients; local; local = local->next) {
             if (ws_client_in_room(local->client, room)) {
                update_membership(local->client, room, false);
                ws_send_error(local->client, "Owner of room %s disconnected; restoring its subscription when it returns", room);
@@ -1363,7 +1779,7 @@ static void dirty(const char *event, const char *data, rrconn_t *client, void *u
    catalog_dirty = true;
 }
 static void refresh_catalog(void) {
-   for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (struct catalog * c = catalogs; c; c = c->next) {
       if (local_owner(c->owner)) {
          c->seen = false;
       }
@@ -1375,7 +1791,7 @@ static void refresh_catalog(void) {
       struct catalog *c = *p;
 
       if (local_owner(c->owner) && !c->seen) {
-         for (struct catalog *peer = catalogs ; peer ; peer = peer->next) {
+         for (struct catalog * peer = catalogs; peer; peer = peer->next) {
             const char *next = rrserver_links_route(peer->owner);
 
             if (next && !strcmp(next, peer->owner) && !strcmp(dict_get(peer->descriptor, "object.type", ""), "node")) {
@@ -1392,7 +1808,7 @@ static void refresh_catalog(void) {
       }
    }
 
-   for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (struct catalog * c = catalogs; c; c = c->next) {
       const char *next = rrserver_links_route(c->owner);
 
       if (next && !strcmp(next, c->owner) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
@@ -1403,6 +1819,22 @@ static void refresh_catalog(void) {
    catalog_dirty = false;
 }
 void rrserver_relay_poll(void) {
+   for (struct relay_media * m = media_maps; m; m = m->next) {
+      if (m->frame && (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
+         free(m->frame);
+         m->frame = NULL;
+      }
+   }
+   struct remote_session **pending = &remotes;
+   while (*pending) {
+      struct remote_session *r = *pending;
+      if (!r->client.authenticated || !r->client.user || !r->client.user->enabled ||
+         r->client.user->password_change_required || (r->client.user->password_expires && r->client.user->password_expires <= now)) {
+         if (!remove_remote(pending))
+            pending = &r->next;
+      } else
+         pending = &r->next;
+   }
    if (!initialized && *rrserver_links_node()) {
       collect_local();
       initialized = true;
@@ -1416,12 +1848,12 @@ void rrserver_relay_poll(void) {
       refresh_catalog();
    }
 
-   for (struct relay_client *client = clients ; client ; client = client->next) {
+   for (struct relay_client * client = clients; client; client = client->next) {
       if (!client->client->authenticated || !client->client->user || client->retry_at > mono_ms()) {
          continue;
       }
 
-      for (struct wanted_room *w = client->wanted ; w ; w = w->next) {
+      for (struct wanted_room * w = client->wanted; w; w = w->next) {
          if (!w->pending) {
             continue;
          }
@@ -1454,7 +1886,7 @@ void rrserver_relay_poll(void) {
    }
    bool changed = !entry || dict_get_uint(entry->users, "count", 0) != dict_get_uint(local, "count", 0);
 
-   for (unsigned i = 0 ; !changed && i < dict_get_uint(local, "count", 0) ; i++) {
+   for (unsigned i = 0; !changed && i < dict_get_uint(local, "count", 0); i++) {
       char key[64];
       snprintf(key, sizeof(key), "user.%u.name", i);
       changed = strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
@@ -1465,7 +1897,7 @@ void rrserver_relay_poll(void) {
    if (changed) {
       directory_put(rrserver_links_node(), local);
 
-      for (struct catalog *c = catalogs ; c ; c = c->next) {
+      for (struct catalog * c = catalogs; c; c = c->next) {
          const char *next = rrserver_links_route(c->owner);
 
          if (next && !strcmp(next, c->owner) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
@@ -1488,6 +1920,12 @@ void rrserver_relay_register_events(void) {
    event_on("serial.session.closed", close_client, NULL);
    event_on("protocol.object.close", close_client, NULL);
    event_on(RR_SERVER_ROSTER_EVENT, roster, NULL);
+   event_on_binary(RR_MEDIA_CATALOG_EVENT, media_catalog, NULL);
+   event_on_binary(RR_SERVER_TALKER_EVENT, remote_talker, NULL);
+   event_on_binary(RR_MEDIA_BINARY_EVENT, media_outgoing, NULL);
+   event_on_binary(RR_MEDIA_INBOUND_EVENT, media_incoming, NULL);
+   event_on_binary(RR_MEDIA_FANOUT_EVENT, media_fanout, NULL);
+   event_on_binary(RR_MEDIA_DEMAND_EVENT, media_demand, NULL);
    event_on_binary(RR_SERVER_ROUTE_EVENT, route_request, NULL);
    event_on_binary(RR_SERVER_SEND_EVENT, send_remote, NULL);
    event_on_binary(RR_SERVER_PUBLISH_EVENT, publish, NULL);
@@ -1499,7 +1937,7 @@ char *rrserver_relay_remote_rooms(void) {
       return NULL;
    }
 
-   for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (struct catalog * c = catalogs; c; c = c->next) {
       const char *room = dict_get(c->descriptor, "catalog.room", NULL);
 
       if (room && !local_owner(c->owner)) {
@@ -1519,7 +1957,7 @@ char *rrserver_relay_servers(void) {
       return NULL;
    }
 
-   for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (struct catalog * c = catalogs; c; c = c->next) {
       if (!local_owner(c->owner) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
          g_string_append(text, " ↗");
          g_string_append(text, dict_get(c->descriptor, "object.alias", c->owner));
@@ -1535,7 +1973,7 @@ char *rrserver_relay_rooms(const char *local) {
       return NULL;
    }
 
-   for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (struct catalog * c = catalogs; c; c = c->next) {
       const char *room = dict_get(c->descriptor, "catalog.room", NULL);
 
       if (room && !local_owner(c->owner)) {
@@ -1566,26 +2004,26 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
 }
 void rrserver_relay_inventory(rrconn_t *client, const char *request) {
    // Keep remote site/rig/VFO context explicit in both client discovery trees.
-   for (struct catalog *site = catalogs ; site ; site = site->next) {
+   for (struct catalog * site = catalogs; site; site = site->next) {
       if (local_owner(site->owner) || strcmp(dict_get(site->descriptor, "object.type", ""), "node")) {
          continue;
       }
       inventory_entry(client, request, site, 0, "site");
 
-      for (struct catalog *c = catalogs ; c ; c = c->next) {
+      for (struct catalog * c = catalogs; c; c = c->next) {
          if (!strcmp(c->owner, site->owner) && dict_get(c->descriptor, "catalog.room", NULL) && !dict_get(c->descriptor, "catalog.rig", NULL)) {
             inventory_entry(client, request, c, 1, "room");
          }
       }
 
-      for (struct catalog *radio = catalogs ; radio ; radio = radio->next) {
+      for (struct catalog * radio = catalogs; radio; radio = radio->next) {
          if (strcmp(radio->owner, site->owner) || strcmp(dict_get(radio->descriptor, "object.type", ""), "rig")) {
             continue;
          }
          inventory_entry(client, request, radio, 1, "rig");
          const char *id = dict_get(radio->descriptor, "object.uuid", "");
 
-         for (struct catalog *c = catalogs ; c ; c = c->next) {
+         for (struct catalog * c = catalogs; c; c = c->next) {
             if (strcmp(c->owner, site->owner)) {
                continue;
             }
@@ -1605,8 +2043,8 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
       "node", "rig", "vfo"
    };
 
-   for (unsigned i = 0 ; i < 3 ; i++) {
-      for (struct catalog *c = catalogs ; c ; c = c->next) {
+   for (unsigned i = 0; i < 3; i++) {
+      for (struct catalog * c = catalogs; c; c = c->next) {
          if (local_owner(c->owner) || strcmp(dict_get(c->descriptor, "object.type", ""), types[i])) {
             continue;
          }
@@ -1621,6 +2059,7 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
    }
 }
 void rrserver_relay_fini(void) {
+   media_forget(NULL, NULL, NULL);
    while (directories) {
       struct directory *entry = directories;
       directories = entry->next;
@@ -1639,10 +2078,7 @@ void rrserver_relay_fini(void) {
       wanted_free(c);
       free(c);
    }
-   while (remotes) {
-      struct remote_session *r = remotes;
-      remotes = r->next;
-      free(r);
+   while (remotes && remove_remote(&remotes)) {
    }
    while (subscriptions) {
       struct subscription *s = subscriptions;

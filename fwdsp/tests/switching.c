@@ -204,9 +204,16 @@ int main(int argc, char **argv) {
    // Unexpected child death must release every descriptor/watcher too.
    struct fwdsp_subproc *decoder = fwdsp_find_instance(old, false);
    feed_decoder = false;
-   kill(decoder->pid, SIGKILL);
+   subproc_t helper = SUBPROC_INIT;
+   const char *helper_args[] = {"/bin/sh", "-c", "exit 7", NULL};
+   assert(subproc_spawn_fds(&helper, helper_args[0], helper_args, NULL, 0, NULL, 0));
+   kill(decoder->process.pid, SIGKILL);
    poll_for(100);
    assert(!fwdsp_find_instance(old, false));
+   int helper_status = 0;
+   assert(subproc_reap(&helper, &helper_status));
+   assert(WIFEXITED(helper_status) && WEXITSTATUS(helper_status) == 7);
+   assert(subproc_stop(&helper, SIGTERM));
 
    for (int i = 0 ; i < max_subprocs ; i++) {
       fwdsp_destroy(&fwdsp_subprocs[i]);

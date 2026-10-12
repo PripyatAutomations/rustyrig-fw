@@ -18,6 +18,7 @@ Build-Depends:
  libgstreamer-plugins-base1.0-dev,
  libncurses-dev,
  libsqlite3-dev,
+ libsrtp2-dev,
  libjson-perl,
  libterm-readline-perl-perl,
  libhash-merge-perl,

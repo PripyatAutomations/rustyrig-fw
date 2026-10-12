@@ -1,3 +1,5 @@
+#include <rrserver/acl.h>
+#include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 //
 // rrserver/main.c
@@ -183,7 +185,7 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rrserver_peer_config_init() || !rr_rig_config_init()) {
+   if (!rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
@@ -249,6 +251,9 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
+   if (!rrserver_acl_validate()) {
+      return EXIT_FAILURE;
+   }
    printf("Loading config %s\n", config_file);
    // apply some global configuration
    char *logfile = cfg_get_path("log.file");
@@ -502,7 +507,7 @@ int main(int argc, char **argv) {
 
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
-      mg_mgr_poll(&mg_mgr, (serial_active || modules_loaded) ? 10 : 1000);
+      mg_mgr_poll(&mg_mgr, (serial_active || modules_loaded || rrserver_direct_listening()) ? 10 : 1000);
       rrserver_links_poll();
 #endif
 

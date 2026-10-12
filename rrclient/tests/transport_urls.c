@@ -159,6 +159,11 @@ static void receive(struct mg_connection *c, const char *json) {
    free(wire);
    dict_free(message);
 }
+static void check_background_scope(void *data) {
+   assert(ws_conn == data && !strcmp(server_name, "alpha"));
+   assert(!strcmp(rrclient_selected_server(), "beta"));
+   assert(!rrclient_connection_select("alpha"));
+}
 int main(void) {
    ui_mode = UI_MODE_GTK;
    event_init();
@@ -216,6 +221,8 @@ int main(void) {
    rrconn_t *b = ws_conn;
    struct mg_connection *bc = b->conn;
    assert(a != b && !ac->is_closing && !strcmp(last_url, "tls://[::1]:6697"));
+   rrclient_connection_dispatch(a, check_background_scope, a);
+   assert(ws_conn == b && !strcmp(server_name, "beta") && !strcmp(rrclient_selected_server(), "beta"));
    assert(strcmp(alpha_window, rrclient_window_name("#shared")));
    assert(!rrclient_room_is_joined("#shared"));
    assert(rrclient_room_join("#beta"));

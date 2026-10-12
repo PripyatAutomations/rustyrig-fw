@@ -1,3 +1,5 @@
+#include <rrclient/dcc.h>
+#include <librrprotocol/irc.audio.session.h>
 #include <librrprotocol/media.health.h>
 //
 // rrclient/audio.c: client-side audio transport through fwdsp.
@@ -51,6 +53,7 @@ static time_t rx_pcm_warned = 0;
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
    (void)name;
    (void)user_data;
+   rrclient_dcc_capture(samples, len);
    char vfo[2] = {
       vfo_state_get_active(), '\0'
    };
@@ -116,12 +119,57 @@ static void audio_feedback(const char *event, const char *data, rrconn_t *cptr, 
    dict_free(message);
 }
 
+static struct {
+   char attachment[64], name[32];
+} dcc_sinks[IRC_AUDIO_MAX_SESSIONS];
+static void dcc_pcm(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   if (!audio_enabled || len != sizeof(irc_audio_pcm_t))
+      return;
+   const irc_audio_pcm_t *pcm = data;
+   unsigned empty = IRC_AUDIO_MAX_SESSIONS;
+   for (unsigned i = 0; i < IRC_AUDIO_MAX_SESSIONS; i++) {
+      if (!strcmp(dcc_sinks[i].attachment, pcm->attachment)) {
+         fwdsp_processor_write(dcc_sinks[i].name, pcm->samples, pcm->length);
+         return;
+      }
+      if (!dcc_sinks[i].attachment[0] && empty == IRC_AUDIO_MAX_SESSIONS)
+         empty = i;
+   }
+   /* Reuse the configured speaker pipeline with a distinct process per peer. */
+   const char *pipeline = cfg_get("pipeline:sink.client.dsp0");
+   if (empty == IRC_AUDIO_MAX_SESSIONS || !pipeline)
+      return;
+   char name[32];
+   snprintf(name, sizeof(name), "sink.client.dcc.%u", empty);
+   if (!fwdsp_audio_playback_start(name, pipeline))
+      return;
+   snprintf(dcc_sinks[empty].attachment, sizeof(dcc_sinks[empty].attachment), "%s", pcm->attachment);
+   snprintf(dcc_sinks[empty].name, sizeof(dcc_sinks[empty].name), "%s", name);
+   fwdsp_processor_setvol(name, cfg_get_int("audio.volume.rx", 30));
+   fwdsp_processor_write(name, pcm->samples, pcm->length);
+}
+static void dcc_closed(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   for (unsigned i = 0; i < IRC_AUDIO_MAX_SESSIONS; i++) {
+      if (dcc_sinks[i].attachment[0] && (!data || !strcmp(dcc_sinks[i].attachment, data))) {
+         fwdsp_processor_stop(dcc_sinks[i].name);
+         memset(&dcc_sinks[i], 0, sizeof(dcc_sinks[i]));
+      }
+   }
+}
 bool audio_init(void) {
    // RX audio is routed by the frame header (stream id + codec) via the
    // full-frame event; see audio_full_frame_cb. The legacy payload-only
    // media.frame.audio event is deliberately not consumed: a frame would
    // otherwise be decoded twice (both events fire per packet).
    event_on_binary(RR_AUDIO_FRAME_EVENT, audio_full_frame_cb, NULL);
+   event_on_binary(IRC_AUDIO_PCM_EVENT, dcc_pcm, NULL);
+   event_on(IRC_AUDIO_CLOSED_EVENT, dcc_closed, NULL);
    event_on("media.quality-hint", audio_quality_hint, NULL);
    event_on("ws.msg.media", audio_feedback, NULL);
 
@@ -231,6 +279,8 @@ bool audio_set_rx_volume(int percent) {
 
    dict_add_int(cfg, "audio.volume.rx", percent);
 
+   for (unsigned i = 0; i < IRC_AUDIO_MAX_SESSIONS; i++)
+      if (dcc_sinks[i].attachment[0]) fwdsp_processor_setvol(dcc_sinks[i].name, percent);
    return fwdsp_processor_setvol("sink.client.dsp0", percent);
 }
 
@@ -263,6 +313,7 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   dcc_closed(NULL, NULL, NULL, NULL);
    audio_stop_codec(false);
    audio_stop_codec(true);
    fwdsp_processor_stop("src.client.dsp0");

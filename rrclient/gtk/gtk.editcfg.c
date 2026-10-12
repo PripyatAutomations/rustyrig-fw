@@ -145,7 +145,10 @@ static void cfg_editor_changed(GtkWidget *widget, gpointer user_data) {
 static GtkWidget *cfg_editor_widget(const defconfig_t *def, const char *value, cfg_editor_binding_t **binding_out) {
    GtkWidget *widget = NULL;
 
-   if (def->type == DEFCONFIG_BOOL) {
+   if (def->type == DEFCONFIG_BOOL && !strcmp(def->key, "media.direct.prefer")) {
+      widget = gtk_check_button_new_with_label("Prefer direct RTP audio");
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), value && (!strcasecmp(value, "true") || !strcasecmp(value, "yes") || !strcmp(value, "1")));
+   } else if (def->type == DEFCONFIG_BOOL) {
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
       GtkWidget *on = gtk_radio_button_new_with_label(NULL, "true");
       GtkWidget *off = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(on), "false");
@@ -191,7 +194,9 @@ static GtkWidget *cfg_editor_widget(const defconfig_t *def, const char *value, c
    binding->widget = widget;
    g_object_set_data_full(G_OBJECT(widget), "rr-cfg-binding", binding, free);
 
-   if (def->type == DEFCONFIG_BOOL) {
+   if (GTK_IS_CHECK_BUTTON(widget)) {
+      g_signal_connect(widget, "toggled", G_CALLBACK(cfg_editor_changed), binding);
+   } else if (def->type == DEFCONFIG_BOOL) {
       GList *children = gtk_container_get_children(GTK_CONTAINER(widget));
 
       for (GList *it = children ; it ; it = it->next) {

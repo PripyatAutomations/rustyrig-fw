@@ -1,3 +1,5 @@
+#include <rrserver/acl.h>
+#include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 #include <rrserver/usage.h>
 //
@@ -1975,6 +1977,8 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 void rrserver_register_events(void) {
    extern void rrserver_objects_register_events(void);
    rrserver_objects_register_events();
+   rrserver_direct_register_events();
+   rrserver_acl_register_events();
    rrserver_relay_register_events();
    rrserver_media_register_events();
    rrserver_usage_register_events();

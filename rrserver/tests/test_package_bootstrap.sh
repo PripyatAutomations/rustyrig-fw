@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory() as directory:
     commands = root / 'bin'
     commands.mkdir()
     install = shutil.which('install')
-    for name in ['addgroup', 'adduser', 'chown']:
+    for name in ['addgroup', 'adduser', 'chown', 'setfacl']:
         path = commands / name
         path.write_text('#!/bin/sh\nexit 0\n')
         path.chmod(0o755)
@@ -24,15 +24,19 @@ with tempfile.TemporaryDirectory() as directory:
     path.write_text('#!/usr/bin/env python3\nimport subprocess, sys\nargs = iter(sys.argv[1:])\nfiltered = []\nfor arg in args:\n    if arg in ["-o", "-g"]: next(args)\n    else: filtered.append(arg)\nsubprocess.run([' + repr(install) + '] + filtered, check=True)\n')
     path.chmod(0o755)
     confmodule = root / 'confmodule'
-    confmodule.write_text('db_get() { RET=${RR_TEST_ADMIN_PASSWORD:-}; }\ndb_purge() { :; }\n')
+    confmodule.write_text('db_get() { RET=; case $1 in rustyrig-server/admin-password) RET=${RR_TEST_ADMIN_PASSWORD:-};; rustyrig-server/enable-guest) RET=false;; esac; }\ndb_purge() { :; }\n')
     sql = root / 'var/lib/rustyrig/sql'
     sql.mkdir(parents=True)
     for name in ['sqlite.master.sql', 'sqlite.master.preload.sql']:
         shutil.copy2(pathlib.Path('sql') / name, sql / name)
+    permissions = root / 'admin-permissions'
+    permissions.write_text(pathlib.Path('packaging/admin-permissions.sh').read_text())
+    permissions.chmod(0o755)
     script = root / 'postinst'
     script.write_text(pathlib.Path('debian/rustyrig-server.postinst').read_text()
                       .replace('/var/', str(root / 'var') + '/')
-                      .replace('/usr/share/debconf/confmodule', str(confmodule)))
+                      .replace('/usr/share/debconf/confmodule', str(confmodule))
+                      .replace('/usr/lib/rustyrig/admin-permissions', str(permissions) + ' ' + str(root)))
     env = {**os.environ, 'PATH': str(commands) + ':' + os.environ['PATH'],
            'RR_TEST_ADMIN_PASSWORD': 'disposable-test-password'}
     subprocess.run(['sh', str(script)], env=env, check=True)

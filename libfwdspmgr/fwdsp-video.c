@@ -53,7 +53,7 @@ int fwdsp_video_start(const char codec_id[5], bool is_tx) {
 
       // The instance may already be running (audio use of the same id?);
       // only spawn here when it has no pid yet.
-      if (!sp->pid) {
+      if (sp->process.pid <= 0) {
          sp->is_video = true;
 
          if (!fwdsp_spawn(sp)) {

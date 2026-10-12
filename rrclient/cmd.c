@@ -1,3 +1,4 @@
+#include <rrclient/dcc.h>
 #include <rrclient/config.layers.h>
 //
 // rrclient/commands.c: Command parser
@@ -150,8 +151,11 @@ client_cmd_t client_cmds[] = {
       .cmd = "grid", .help_section = "Radio and discovery", .cb = cmd_grid, .max_args = 1, .desc = "Look up a grid square or coordinates"
    },
    {
-      .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 2,
-      .desc = "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
+      .cmd = "dcc", .help_section = "Chat and rooms", .cb = cmd_dcc, .max_args = 4,
+      .desc = "DCC sessions: AUDIO|CHAT|SEND; /dcc lists sessions"
+   }, {
+      .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 4,
+      .desc = "Media channels: DIRECT [on|off|status] | LIST | SUBSCRIBE [-direct|-proxy] <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
    },
    {
       .cmd = "webcam", .help_section = "Media", .max_args = 1, .cb = cmd_webcam,

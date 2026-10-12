@@ -42,7 +42,7 @@ static bool peer_section(const char *path, int line, const char *section, const 
       *--end = 0;
    }
    static const char *keys[] = {
-      "enabled", "autoconnect", "server.url", "username", "password", "site.name", "node.uuid", "role"
+      "enabled", "autoconnect", "server.url", "username", "password", "site.name", "node.uuid", "role", "acl"
    };
    bool known = false;
 

@@ -434,3 +434,36 @@ The native GTK server-profile editor has one space-delimited Rooms field for
 all autojoins. It merges legacy chat/rig lists when opened and writes edited
 lists to the user's `autojoin` override, masking the legacy `autojoin.rig` list.
 The browser uses its existing site preferences rather than native profiles.
+
+## Direct and linked audio transport
+
+Native GTK and TUI share `rrclient/media.direct.c`: client-initiated authenticated
+RTP/UDP for RX/TX, with WebSocket fallback. Browsers continue using WebSockets;
+the owning server's private channel announcements and the home server's translated
+binary frames provide linked RX without adding a browser UDP implementation.
+Remote PTT currently requires a live owner direct TX attachment, so browser
+remote TX remains deferred. Codec support differences described above still apply.
+The generated browser wire registry includes the new fields; keys are private
+subscription replies, never discovery/catalog broadcasts.
+
+Both clients accept `/media subscribe -proxy <channel>`. Native clients also
+accept `-direct`, requesting a private RTP referral and reporting unreachable
+endpoints without silently switching live audio to WebSockets. Browsers explain
+that direct RTP needs the native client. Reliable codec setup stays on WebSockets.
+
+Named listener/peer/RTP ACLs are server policy and apply to all clients.
+IRC DCC AUDIO referrals are native-only, like other IRC behavior; browsers
+continue using WebSocket media and do not consume direct UDP referrals.
+
+The native server editor's direct-media checkbox and `/media direct on|off|status`
+select a per-profile preference; automatic subscriptions are refreshed immediately.
+The native config editor exposes the inherited global default as a checkbox.
+Peer DCC AUDIO v2 is microphone voice with explicit acceptance and a separate
+mute setting; v1 remains owner-authorized rig audio. Peer UDP, native profile
+preferences, and IRC commands have no browser equivalent.
+
+Classic DCC CHAT/SEND are native-only IRC transports. Shared `rrclient/dcc.c`
+commands require explicit incoming acceptance and a user-chosen new destination
+for received files; GTK and TUI both use `librrprotocol/irc.dcc.h`. Session notices
+and chat replies retain their issuing/accepting window and server context.
+There is no browser DCC counterpart.

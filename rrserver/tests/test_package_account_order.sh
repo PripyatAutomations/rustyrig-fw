@@ -4,9 +4,9 @@ cd "$(dirname "$0")/../.."
 python3 - <<'PY'
 from pathlib import Path
 rules = Path('debian/rules').read_text()
-assert 'install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/db' in rules
-assert 'install -d -m0770 debian/rustyrig-server/var/lib/rustyrig/modems' in rules
-assert 'install -d -m0770 debian/rustyrig-client/var/lib/rustyrig/db' in rules
+assert 'install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/db' in rules
+assert 'install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/modems' in rules
+assert 'install -d -m0775 debian/rustyrig-client/var/lib/rustyrig/db' in rules
 assert 'override_dh_installdeb:' in rules
 assert 'install -Dm755 debian/$$p.preinst debian/$$p/DEBIAN/preinst' in rules
 assert 'install -d -orustyrig ' not in rules

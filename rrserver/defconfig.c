@@ -37,6 +37,24 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   {"listener:http.acl", "", "Named HTTP listener ACL; empty denies all"},
+   {"listener:https.acl", "", "Named HTTPS listener ACL; empty denies all"},
+   {"listener:link.acl", "", "Named dedicated server-link listener ACL; empty denies all"},
+   {"listener:mqtt.acl", "", "Named MQTT listener ACL; empty denies all"},
+   {"listener:media.acl", "", "Named direct RTP listener ACL; empty denies all"},
+   {"peer.acl", "", "Named peer ACL; empty denies all"},
+
+   {"rtp.enabled", "true", "Enable the default RTP pool", DEFCONFIG_BOOL, NULL},
+   {"rtp.bind", "", "RTP bind address; empty inherits media.direct.bind"},
+   {"rtp.host", "", "Advertised RTP host; empty inherits media.direct.host"},
+   {"rtp.ports", "", "Inclusive UDP range or one port; empty inherits media.direct.port"},
+   {"rtp.acl", "", "Named RTP ACL; empty inherits listener:media ACL"},
+   {"rtp.encrypt", "", "RTP encryption; empty inherits media.direct.encrypt"},
+   {"media.direct.enabled", "true", "Enable authenticated direct RTP audio", DEFCONFIG_BOOL, NULL},
+   {"media.direct.bind", "0.0.0.0", "Direct RTP listener address"},
+   {"media.direct.port", "8422", "Direct RTP UDP port", DEFCONFIG_INT, NULL},
+   {"media.direct.host", "", "Client-reachable hostname/address; empty disables advertisement"},
+   {"media.direct.encrypt", "false", "Encrypt RTP (requires WITH_RTP_ENCRYPTION=true)", DEFCONFIG_BOOL, NULL},
    {
       "links.shared-listener", "true", "Accept /link on existing client HTTP/HTTPS listeners"
    },
@@ -84,9 +102,6 @@ defconfig_t defcfg[] = {
    },
    {
       "peer.node.uuid", "", "Optional expected remote server UUID"
-   },
-   {
-      "peer.role", "parent", "Remote peer role: parent or child; at most one parent"
    },
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE) {
       "atu.max", "4", "Maximum number of ATUs", DEFCONFIG_UINT, NULL

@@ -53,6 +53,7 @@ void rrclient_rooms_disconnect(void) {
 void rrclient_rooms_set_available(const char *rooms) {
    snprintf(listed_rooms, sizeof(listed_rooms), "%s", rooms ? rooms : "");
 }
+const char *rrclient_room_available_iter(unsigned int index) { (void)index; return NULL; }
 void rrclient_rooms_rejoin_available(void) {
    room_rejoin_calls++;
 }

@@ -1,3 +1,4 @@
+#include <librrprotocol/irc.dcc.h>
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -337,6 +338,31 @@ char **client_cmd_completions(const char *line, const char *word) {
             scope[size] = '\0';
             completion_add(&matches, &count, scope, word);
          }
+      } else if (!strcasecmp(command, "/dcc")) {
+         if (arg == 1) completion_words(&matches, &count, "AUDIO CHAT SEND", word);
+         else if (first && !strcasecmp(first, "audio")) {
+            bool action = second && (!strcasecmp(second, "accept") || !strcasecmp(second, "close"));
+            if (arg == 2) {
+               matches = complete_usernames(word, room);
+               if (matches) while (matches[count]) count++;
+               completion_words(&matches, &count, "ACCEPT CLOSE", word);
+            } else if (arg == 3 && action) matches = complete_usernames(word, room);
+            else if (arg == (action ? 4U : 3U)) completion_words(&matches, &count, "tx rx", word);
+         } else if (first && (!strcasecmp(first, "chat") || !strcasecmp(first, "send"))) {
+            if (arg == 2) {
+               matches = complete_usernames(word, room);
+               if (matches) while (matches[count]) count++;
+               completion_words(&matches, &count, !strcasecmp(first, "chat") ? "ACCEPT CLOSE MSG" : "ACCEPT CLOSE", word);
+            } else if (arg == 3 && second && (!strcasecmp(second, "accept") || !strcasecmp(second, "close") || !strcasecmp(second, "msg"))) {
+               irc_dcc_session_t session;
+               for (unsigned i = 0; irc_dcc_session_get(i, &session); i++) {
+                  if (session.control != ws_conn || session.type != (!strcasecmp(first, "chat") ? IRC_DCC_CHAT : IRC_DCC_SEND) ||
+                     (!strcasecmp(second, "accept") && session.state != IRC_DCC_PENDING)) continue;
+                  char id[16]; snprintf(id, sizeof(id), "%s%u", word[0] == '#' ? "#" : "", session.id);
+                  completion_add(&matches, &count, id, word);
+               }
+            }
+         }
       } else if (!strcasecmp(command, "/sercom") && arg == 1) {
          completion_words(&matches, &count, "LIST REMOTE ATTACH DISCONNECT", word);
       } else if (!strcasecmp(command, "/rxcodec") || !strcasecmp(command, "/txcodec") || !strcasecmp(command, "/media")) {
@@ -344,16 +370,21 @@ char **client_cmd_completions(const char *line, const char *word) {
          bool tx = !strcasecmp(command, "/txcodec");
 
          if (arg == 1) {
-            completion_words(&matches, &count, media ? "LIST SUBSCRIBE UNSUBSCRIBE SUB UNSUB" : "LIST NONE", word);
+            completion_words(&matches, &count, media ? "LIST DIRECT SUBSCRIBE UNSUBSCRIBE SUB UNSUB" : "LIST NONE", word);
 
             if (!media) {
                completion_words(&matches, &count, media_get_common_codecs(), word);
             }
-         } else if (arg == 2 && first && strcasecmp(first, "LIST") != 0) {
+         } else if ((arg == 2 || (media && arg == 3)) && first && strcasecmp(first, "LIST") != 0) {
+            if (media && arg == 2 && !strcasecmp(first, "DIRECT"))
+               completion_words(&matches, &count, "on off status", word);
             bool unsub = !strcasecmp(first, "UNSUB") || !strcasecmp(first, "UNSUBSCRIBE");
             bool sub = !strcasecmp(first, "SUB") || !strcasecmp(first, "SUBSCRIBE");
 
-            for (int i = 0 ; !media || sub || unsub ; i++) {
+            if (media && sub && (arg == 2 || (arg == 3 && second && second[0] != '-')))
+               completion_words(&matches, &count, "-direct -proxy", word);
+            bool channel_argument = arg == 2 || (media && sub && second && (!strcasecmp(second, "-direct") || !strcasecmp(second, "-proxy")));
+            for (int i = 0 ; channel_argument && (!media || sub || unsub) ; i++) {
                int number;
                const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
 
