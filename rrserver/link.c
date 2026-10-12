@@ -577,7 +577,19 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_WS_CTL) {
       session->last_seen = mono_ms();
    } else if (event == MG_EV_ERROR) {
-      fail(session, "Transport error");
+      struct mg_http_message response;
+      char reason[256];
+      /* Mongoose emits this error before consuming a rejected HTTP upgrade.
+       * Report only its status, never response headers or peer credentials. */
+      if (session->outbound && !c->is_websocket && c->recv.buf &&
+         mg_http_parse((const char *)c->recv.buf, c->recv.len, &response) > 0 &&
+         response.method.len >= 5 && !memcmp(response.method.buf, "HTTP/", 5) && response.uri.len == 3) {
+         snprintf(reason, sizeof(reason), "WebSocket upgrade rejected: HTTP %.*s; check /link URL and remote listener policy",
+            (int)response.uri.len, response.uri.buf);
+         fail(session, reason);
+      } else {
+         fail(session, data ? (const char *)data : "Transport error");
+      }
    } else if (event == MG_EV_CLOSE) {
       c->fn_data = NULL;
       close_session(session);
