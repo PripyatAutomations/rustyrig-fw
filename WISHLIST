@@ -1,3 +1,5 @@
+rrclient: Can we make the tab list wrap to multiple rows?
+
 * Mesh style multi-peer linking
   - Each server should be able to peer to any number of peers
   - We should track latency, loss, weight, etc metrics for each hop
