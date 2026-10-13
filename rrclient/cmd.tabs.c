@@ -38,7 +38,10 @@ extern rrconn_t *ws_conn;
 
 
 bool cmd_admin(int argc, char **args) {
-   if (argc > 1 || !frontend_present()) return cmd_admin_query(argc, args);
+   if (argc > 1 || !frontend_present()) {
+      return cmd_admin_query(argc, args);
+   }
+
    if (frontend_ops()) {
       frontend_ops()->focus_tab("admin");
    } else if (ui_mode == UI_MODE_TUI) {

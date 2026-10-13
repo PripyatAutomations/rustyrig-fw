@@ -8,24 +8,37 @@
 #include <rrclient/connman.h>
 bool rrclient_direct_preferred(const char *profile) {
    bool fallback = cfg_get_bool("media.direct.prefer", true);
-   if (!profile || !*profile) return fallback;
+
+   if (!profile || !*profile) {
+      return fallback;
+   }
    char key[640];
    snprintf(key, sizeof(key), "server:%s.media.direct.prefer", profile);
+
    return cfg_get_bool(key, fallback);
 }
 bool rrclient_direct_set_preference(rrconn_t *client, bool enabled) {
    const char *profile = rrclient_connection_name(client);
-   if (!profile) return false;
+
+   if (!profile) {
+      return false;
+   }
    char key[640];
    snprintf(key, sizeof(key), "server:%s.media.direct.prefer", profile);
-   if (!cfg || dict_add(cfg, key, enabled ? "true" : "false")) return false;
+
+   if (!cfg || dict_add(cfg, key, enabled ? "true" : "false")) {
+      return false;
+   }
    rrclient_direct_apply_preferences();
+
    return true;
 }
+
 #ifdef USE_MONGOOSE
 static bool preferred(rrconn_t *client) {
    return rrclient_direct_preferred(rrclient_connection_name(client));
 }
+
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/rtp.socket.h>
@@ -39,7 +52,7 @@ struct direct_channel {
    uint64_t renew_at, connect_deadline;
    rr_media_transport_t mode;
    bool failed, requested, preference;
-   unsigned route; /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
+   unsigned route;              /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
    bool remote;
    uint8_t stream, owner_stream, direction;
 };
@@ -47,37 +60,51 @@ static struct direct_channel channels[MAX_DIRECT_CHANNELS];
 static rr_rtp_socket_t *media_socket;
 static struct direct_channel *find(rrconn_t *client, const char *uuid, bool create) {
    struct direct_channel *empty = NULL;
-   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; i++) {
-      if (channels[i].client == client && !strcmp(channels[i].uuid, uuid))
+
+   for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
+      if (channels[i].client == client && !strcmp(channels[i].uuid, uuid)) {
          return &channels[i];
-      if (!channels[i].client && !empty)
+      }
+
+      if (!channels[i].client && !empty) {
          empty = &channels[i];
+      }
    }
-   if (!create || !empty || !client || !*uuid || strlen(uuid) >= sizeof(empty->uuid))
+
+   if (!create || !empty || !client || !*uuid || strlen(uuid) >= sizeof(empty->uuid)) {
       return NULL;
+   }
    empty->client = client;
    empty->preference = preferred(client);
    snprintf(empty->uuid, sizeof(empty->uuid), "%s", uuid);
+
    return empty;
 }
 bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_transport_t mode) {
-   if (mode == RR_MEDIA_DIRECT && !rr_rtp_supported(false))
+   if (mode == RR_MEDIA_DIRECT && !rr_rtp_supported(false)) {
       return false;
+   }
    struct direct_channel *channel = find(client, uuid, true);
-   if (!channel)
+
+   if (!channel) {
       return false;
+   }
    channel->mode = mode;
    channel->failed = false;
    channel->route = 0;
+
    return true;
 }
 static void direct_failed(struct direct_channel *channel, const char *reason) {
-   if (channel->failed)
+   if (channel->failed) {
       return;
+   }
    channel->failed = true;
    dict *d = dict_new();
-   if (!d)
+
+   if (!d) {
       return;
+   }
    char text[512];
    snprintf(text, sizeof(text), "Direct media for %s: %s", channel->uuid, reason);
    dict_add(d, "error.msg", text);
@@ -90,29 +117,41 @@ static void next_route(struct direct_channel *channel) {
    rr_rtp_socket_detach(channel->attachment);
    channel->attachment = NULL;
    channel->renew_at = channel->connect_deadline = 0;
-   if (!channel->remote || channel->route == 1) channel->route = 2;
-   else channel->route = 1;
+
+   if (!channel->remote || channel->route == 1) {
+      channel->route = 2;
+   } else {
+      channel->route = 1;
+   }
    media_send_subscribe(channel->client, channel->uuid);
 }
 static bool hex_key(const char *text, uint8_t *key) {
-   if (strlen(text) != RR_RTP_KEY_LEN * 2)
+   if (strlen(text) != RR_RTP_KEY_LEN * 2) {
       return false;
-   for (unsigned i = 0; i < RR_RTP_KEY_LEN; i++) {
+   }
+
+   for (unsigned i = 0 ; i < RR_RTP_KEY_LEN ; i++) {
       unsigned a, b;
       char c = text[i * 2], d = text[i * 2 + 1];
       a = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : 99;
       b = d >= '0' && d <= '9' ? d - '0' : d >= 'a' && d <= 'f' ? d - 'a' + 10 : 99;
-      if (a > 15 || b > 15)
+
+      if (a > 15 || b > 15) {
          return false;
+      }
       key[i] = (a << 4) | b;
    }
+
    return true;
 }
 void rrclient_direct_message(rrconn_t *client, dict *d) {
    const char *cmd = dict_get(d, "media.cmd", ""), *uuid = dict_get(d, "media.chan-uuid", "");
    struct direct_channel *channel = find(client, uuid, !strcmp(cmd, "available") || !strcmp(cmd, "subscribed"));
-   if (!channel)
+
+   if (!channel) {
       return;
+   }
+
    if (!strcmp(cmd, "available")) {
       snprintf(channel->room, sizeof(channel->room), "%s", dict_get(d, "media.room", ""));
       snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", dict_get(d, "media.direct", ""));
@@ -131,23 +170,35 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       const char *endpoint = dict_get(d, "media.direct", "");
       channel->connect_deadline = mono_us() + UINT64_C(5000000);
       channel->failed = false;
-      if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2))
-         return;
-      if ((channel->mode == RR_MEDIA_AUTO && !preferred(client)) || !rr_rtp_supported(encrypted) ||
-         (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !*endpoint || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
-         if (channel->mode == RR_MEDIA_DIRECT)
-            direct_failed(channel, "the owner did not provide a usable RTP referral");
-         else if (preferred(client)) next_route(channel);
+
+      if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2)) {
          return;
       }
-      if (!media_socket)
+
+      if ((channel->mode == RR_MEDIA_AUTO && !preferred(client)) || !rr_rtp_supported(encrypted) ||
+         (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !*endpoint || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
+         if (channel->mode == RR_MEDIA_DIRECT) {
+            direct_failed(channel, "the owner did not provide a usable RTP referral");
+         } else if (preferred(client)) {
+            next_route(channel);
+         }
+
+         return;
+      }
+
+      if (!media_socket) {
          media_socket = rr_rtp_socket_open(NULL, 0);
+      }
       channel->attachment = rr_rtp_socket_attach(media_socket, ssrc, key, encrypted, endpoint, channel);
       memset(key, 0, sizeof(key));
       channel->renew_at = mono_us() + UINT64_C(240000000);
+
       if (!channel->attachment) {
-         if (channel->mode == RR_MEDIA_DIRECT) direct_failed(channel, "unable to open the RTP endpoint");
-         else next_route(channel);
+         if (channel->mode == RR_MEDIA_DIRECT) {
+            direct_failed(channel, "unable to open the RTP endpoint");
+         } else {
+            next_route(channel);
+         }
       }
    } else if (!strcmp(cmd, "unsubscribed") || !strcmp(cmd, "chan-remove")) {
       rr_rtp_socket_detach(channel->attachment);
@@ -156,33 +207,48 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
 }
 static bool received(void *user, const uint8_t *data, size_t length) {
    struct direct_channel *channel = user;
-   if (!data)
+
+   if (!data) {
       return true;
+   }
    struct rr_binframe frame;
+
    if (!channel->client || channel->direction != RR_BINFRAME_DIR_RX || rr_binframe_parse(data, length, &frame) ||
-      frame.hdr.stream != channel->owner_stream || frame.hdr.direction != RR_BINFRAME_DIR_RX || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO)
+      frame.hdr.stream != channel->owner_stream || frame.hdr.direction != RR_BINFRAME_DIR_RX || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO) {
       return false;
+   }
    uint8_t *copy = malloc(length);
-   if (!copy)
+
+   if (!copy) {
       return false;
+   }
    memcpy(copy, data, length);
    copy[11] = channel->stream;
    rr_traffic_count(channel->client, false, true, length);
    bool result = ws_binframe_process_client(channel->client, (const char *)copy, length);
    free(copy);
+
    return result;
 }
 void rrclient_direct_poll(void) {
    uint64_t now = mono_us();
    rr_rtp_socket_poll(media_socket, now, NULL, received);
-   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; i++) {
+
+   for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
       struct direct_channel *c = &channels[i];
-      if (c->mode == RR_MEDIA_AUTO && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now))
+
+      if (c->mode == RR_MEDIA_AUTO && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
          next_route(c);
-      if (c->mode == RR_MEDIA_DIRECT && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now))
+      }
+
+      if (c->mode == RR_MEDIA_DIRECT && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
          direct_failed(c, "the RTP endpoint did not answer; use -proxy to select WebSockets");
-      if (rr_rtp_socket_active(c->attachment, now))
+      }
+
+      if (rr_rtp_socket_active(c->attachment, now)) {
          c->connect_deadline = now + UINT64_C(5000000);
+      }
+
       if (c->attachment && c->renew_at && now >= c->renew_at) {
          c->renew_at = now + UINT64_C(240000000);
          media_send_subscribe(c->client, c->uuid);
@@ -190,14 +256,24 @@ void rrclient_direct_poll(void) {
    }
 }
 void rrclient_direct_apply_preferences(void) {
-   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; i++) {
+   for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
       struct direct_channel *c = &channels[i];
-      if (!c->client) continue;
+
+      if (!c->client) {
+         continue;
+      }
       bool enabled = preferred(c->client);
-      if (c->preference == enabled) continue;
+
+      if (c->preference == enabled) {
+         continue;
+      }
       c->preference = enabled;
       c->route = 0;
-      if (!c->requested || c->mode != RR_MEDIA_AUTO) continue;
+
+      if (!c->requested || c->mode != RR_MEDIA_AUTO) {
+         continue;
+      }
+
       if (!enabled) {
          rr_rtp_socket_detach(c->attachment);
          c->attachment = NULL;
@@ -209,17 +285,23 @@ void rrclient_direct_apply_preferences(void) {
 static bool preference_reload(const char *key) {
    (void)key;
    rrclient_direct_apply_preferences();
+
    return true;
 }
 static void request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (length != sizeof(rr_server_io_t))
+
+   if (length != sizeof(rr_server_io_t)) {
       return;
+   }
    dict *d = ((rr_server_io_t *) data)->message;
    struct direct_channel *c = find(client, dict_get(d, "media.chan-uuid", ""), false);
-   if (!c)
+
+   if (!c) {
       return;
+   }
+
    if (!strcmp(dict_get(d, "media.cmd", ""), "unsubscribe")) {
       c->requested = false;
       c->route = 0;
@@ -228,47 +310,64 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
       c->attachment = NULL;
       c->renew_at = 0;
    }
-   if (*c->room)
+
+   if (*c->room) {
       dict_add(d, "media.room", c->room);
+   }
+
    if (!strcmp(dict_get(d, "media.cmd", ""), "subscribe")) {
       c->requested = true;
-      if (c->mode == RR_MEDIA_DIRECT)
+
+      if (c->mode == RR_MEDIA_DIRECT) {
          dict_add(d, "media.transport", "direct");
-      else if (c->mode == RR_MEDIA_PROXY)
+      } else if (c->mode == RR_MEDIA_PROXY) {
          dict_add(d, "media.transport", "ws");
-      else
-         dict_add(d, "media.transport", preferred(client) && rr_rtp_supported(false) && c->route < 2 ?
-            (c->route == 1 ? "rtp-home" : "rtp") : "ws");
+      } else {
+         dict_add(d, "media.transport", preferred(client) && rr_rtp_supported(false) && c->route < 2 ? (c->route == 1 ? "rtp-home" : "rtp") : "ws");
+      }
    }
 }
 static void binary(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (length != sizeof(rr_media_binary_t))
+
+   if (length != sizeof(rr_media_binary_t)) {
       return;
+   }
    rr_media_binary_t *io = (rr_media_binary_t *) data;
    struct rr_binframe frame;
-   if (io->setup || rr_binframe_parse(io->frame, io->length, &frame) || frame.hdr.direction != RR_BINFRAME_DIR_TX)
+
+   if (io->setup || rr_binframe_parse(io->frame, io->length, &frame) || frame.hdr.direction != RR_BINFRAME_DIR_TX) {
       return;
-   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; i++) {
+   }
+
+   for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
       struct direct_channel *c = &channels[i];
-      if (c->client != client || c->direction != RR_BINFRAME_DIR_TX || c->stream != frame.hdr.stream)
+
+      if (c->client != client || c->direction != RR_BINFRAME_DIR_TX || c->stream != frame.hdr.stream) {
          continue;
-      if (c->mode == RR_MEDIA_PROXY)
+      }
+
+      if (c->mode == RR_MEDIA_PROXY) {
          return;
+      }
+
       if (io->length > RR_RTP_MAX_FRAME || !rr_rtp_socket_active(c->attachment, mono_us())) {
          if (c->mode == RR_MEDIA_DIRECT) {
             io->handled = true;
             io->result = false;
          }
+
          return;
       }
       uint8_t *copy = malloc(io->length);
+
       if (!copy) {
          if (c->mode == RR_MEDIA_DIRECT) {
             io->handled = true;
             io->result = false;
          }
+
          return;
       }
       memcpy(copy, io->frame, io->length);
@@ -276,6 +375,7 @@ static void binary(const char *event, const void *data, size_t length, rrconn_t 
       io->handled = true;
       io->result = rr_rtp_socket_send(c->attachment, copy, io->length, mono_us());
       free(copy);
+
       return;
    }
 }
@@ -283,7 +383,8 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
    (void)event;
    (void)data;
    (void)user;
-   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; i++) {
+
+   for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
       if (channels[i].client == client) {
          rr_rtp_socket_detach(channels[i].attachment);
          memset(&channels[i], 0, sizeof(channels[i]));
@@ -293,17 +394,28 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
 static void irc_audio(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (!client || !client->authenticated || !*client->token || !data)
+
+   if (!client || !client->authenticated || !*client->token || !data) {
       return;
+   }
    dict *d = json2dict(data);
-   if (!d)
+
+   if (!d) {
       return;
-   if (!strcmp(dict_get(d, "media.kind", ""), "voice")) { dict_free(d); return; }
+   }
+
+   if (!strcmp(dict_get(d, "media.kind", ""), "voice")) {
+      dict_free(d);
+
+      return;
+   }
    const char *parent = dict_get(d, "media.parent-session", "");
    struct direct_channel *channel = find(client, dict_get(d, "media.chan-uuid", ""), false);
+
    /* Never attach unsolicited offers, other sessions, or another server's channels. */
-   if (channel && channel->requested && channel->mode != RR_MEDIA_PROXY && !strcmp(parent, client->token))
+   if (channel && channel->requested && channel->mode != RR_MEDIA_PROXY && !strcmp(parent, client->token)) {
       rrclient_direct_message(client, d);
+   }
    dict_free(d);
 }
 void rrclient_direct_register_events(void) {
@@ -321,6 +433,7 @@ void rrclient_direct_apply_preferences(void) {
 bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_transport_t mode) {
    (void)client;
    (void)uuid;
+
    return mode != RR_MEDIA_DIRECT;
 }
 void rrclient_direct_register_events(void) {

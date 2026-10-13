@@ -19,7 +19,7 @@ static const char *soak_codec;
 static bool remote_subscribed;
 static void remote_demand(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
    assert(len == sizeof(rr_media_demand_t));
-   rr_media_demand_t *query = (rr_media_demand_t *)data;
+   rr_media_demand_t *query = (rr_media_demand_t *) data;
    assert(query->channel == &media_channels[0]);
    query->interested = remote_subscribed;
 }
@@ -237,7 +237,9 @@ int main(int argc, char **argv) {
    struct fwdsp_subproc *decoder = fwdsp_find_instance(old, false);
    feed_decoder = false;
    subproc_t helper = SUBPROC_INIT;
-   const char *helper_args[] = {"/bin/sh", "-c", "exit 7", NULL};
+   const char *helper_args[] = {
+      "/bin/sh", "-c", "exit 7", NULL
+   };
    assert(subproc_spawn_fds(&helper, helper_args[0], helper_args, NULL, 0, NULL, 0));
    kill(decoder->process.pid, SIGKILL);
    poll_for(100);

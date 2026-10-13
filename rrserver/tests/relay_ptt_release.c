@@ -2,12 +2,16 @@
 #include <assert.h>
 #include <rrserver/relay.c>
 
-bool rrserver_supervision_allowed(rrconn_t *client) { return true; }
+bool rrserver_supervision_allowed(rrconn_t *client) {
+   return true;
+}
+
 static bool media_ready, reject_release;
 static unsigned releases;
 
 bool rrserver_direct_tx_ready(rrconn_t *client, const char *room) {
    assert(client && !strcmp(room, "#test-rig0"));
+
    return media_ready;
 }
 
@@ -18,7 +22,9 @@ void ws_release_ptt_on_disconnect(rrconn_t *client) {
 }
 
 int main(void) {
-   struct remote_session session = {0};
+   struct remote_session session = {
+      0
+   };
    strcpy(session.client.ptt_room, "#test-rig0");
    session.client.is_ptt = true;
    media_ready = true;
@@ -49,9 +55,10 @@ int main(void) {
    media_ready = false;
    retry_remote_ptt(&session, 3000400);
    assert(releases == 4 && !session.client.is_ptt);
-   /* Proxy key-down gets only three seconds of grace; subscription alone cannot
-    * keep TX keyed, and a lost subscription/room cannot retain the grace. */
-   http_user_t account = {.uid = 1, .enabled = true};
+   /* Proxy key-down gets only three seconds of grace; subscription alone cannot keep TX keyed, and a lost subscription/room cannot retain the grace. */
+   http_user_t account = {
+      .uid = 1, .enabled = true
+   };
    http_users[1] = account;
    strcpy(http_users[1].privs, "tx");
    session.client.authenticated = true;

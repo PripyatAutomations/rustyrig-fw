@@ -210,7 +210,8 @@ client_cmd_t client_cmds[] = {
          "Switch: /win <number>; /win close [-f|-force] parts/closes the current conversation; -force closes without waiting (status is protected)"
    },
    {
-      .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .max_args = 2, .desc = "Focus admin tab; USERS | ROOMS | QUOTAS | AUDIT | PTT [before-id]"
+      .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .max_args = 2, .desc =
+         "Focus admin tab; USERS | ROOMS | QUOTAS | AUDIT | PTT [before-id]"
    },
    {
       .cmd = "die", .help_section = "Administration", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"

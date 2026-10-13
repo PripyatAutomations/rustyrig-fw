@@ -41,10 +41,12 @@ static bool peer_section(const char *path, int line, const char *section, const 
    while (end > value && isspace((unsigned char)end[-1])) {
       *--end = 0;
    }
+
    /* Old configs may keep this key; identity now comes from site.name. */
    if (!strcmp(key, "username")) {
       Log(LOG_WARN, "cfg.peer", "Ignoring obsolete username in [%s]; peer identity uses site.name", section);
       free(copy);
+
       return false;
    }
    static const char *keys[] = {

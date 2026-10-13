@@ -4,15 +4,23 @@ GtkWidget *main_notebook, *main_window;
 static rrconn_t alpha;
 static const char *selected = "alpha";
 static dict *sent, *mutation;
-const char *rrclient_connection_name(const rrconn_t *connection) { return "alpha"; }
-void ptt_button_refresh(void) {}
+const char *rrclient_connection_name(const rrconn_t *connection) {
+   return "alpha";
+}
+void ptt_button_refresh(void) {
+}
+
 static const char *warning;
 static int response;
 static gboolean answer_dialog(gpointer data) {
    GList *windows = gtk_window_list_toplevels();
-   for (GList *p = windows; p; p = p->next) {
-      if (!GTK_IS_DIALOG(p->data)) continue;
+
+   for (GList *p = windows ; p ; p = p->next) {
+      if (!GTK_IS_DIALOG(p->data)) {
+         continue;
+      }
       GtkDialog *dialog = p->data;
+
       if (warning) {
          gchar *text = NULL;
          g_object_get(dialog, "text", &text, NULL);
@@ -28,22 +36,35 @@ static gboolean answer_dialog(gpointer data) {
       }
       gtk_dialog_response(dialog, response);
       g_list_free(windows);
+
       return G_SOURCE_REMOVE;
    }
+
    g_list_free(windows);
    assert(false);
+
    return G_SOURCE_REMOVE;
 }
-const char *rrclient_selected_server(void) { return selected; }
-rrconn_t *rrclient_connection_find(const char *profile) { return !strcmp(profile, "alpha") ? &alpha : NULL; }
+const char *rrclient_selected_server(void) {
+   return selected;
+}
+rrconn_t *rrclient_connection_find(const char *profile) {
+   return !strcmp(profile, "alpha") ? &alpha : NULL;
+}
 bool ws_send_dict(rrconn_t *source, rrconn_t *connection, dict *data, int opcode) {
-   (void)source; (void)opcode;
+   (void)source;
+   (void)opcode;
    assert(connection == &alpha);
    dict_free(sent);
    char *text = dict2json(data);
    sent = json2dict(text);
-   if (dict_get(data, "talk.action", NULL)) { dict_free(mutation); mutation = json2dict(text); }
+
+   if (dict_get(data, "talk.action", NULL)) {
+      dict_free(mutation);
+      mutation = json2dict(text);
+   }
    free(text);
+
    return true;
 }
 static void result(const char *table, const char *action, const char *row) {
@@ -73,7 +94,8 @@ int main(int argc, char **argv) {
    GtkTreeIter iter;
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(tables[0].store), &iter));
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tables[0].tree)), &iter);
-   warning = NULL; response = GTK_RESPONSE_OK;
+   warning = NULL;
+   response = GTK_RESPONSE_OK;
    g_idle_add(answer_dialog, NULL);
    GtkWidget *edit = gtk_button_new();
    g_object_set_data(G_OBJECT(edit), "action", "edit");
@@ -84,18 +106,21 @@ int main(int argc, char **argv) {
    dict_free(edited);
    gtk_widget_destroy(edit);
    snprintf(tables[1].profile, sizeof(tables[1].profile), "alpha");
-   warning = "It can be restored"; response = GTK_RESPONSE_CANCEL;
+   warning = "It can be restored";
+   response = GTK_RESPONSE_CANCEL;
    g_idle_add(answer_dialog, NULL);
    result("rooms", "confirm", "{\"room\":\"#test\",\"deleted\":false,\"confirmation\":\"abc\"}");
    assert(!strcmp(dict_get(mutation, "talk.action", ""), "user-edit"));
-   warning = "All chat history will be lost"; response = GTK_RESPONSE_OK;
+   warning = "All chat history will be lost";
+   response = GTK_RESPONSE_OK;
    g_idle_add(answer_dialog, NULL);
    result("rooms", "confirm", "{\"room\":\"#test\",\"deleted\":true,\"confirmation\":\"def\"}");
    assert(!strcmp(dict_get(mutation, "talk.action", ""), "room-remove"));
    assert(!strcmp(dict_get(mutation, "talk.data", ""), "def"));
-   gtk_supervision_result("{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", &alpha);
+   gtk_supervision_result(
+      "{\"talk\":{\"action\":\"request\",\"target\":\"abc\",\"room\":\"#test\",\"user\":\"NOOB\",\"data\":\"Control operator responsibility\"}}", &alpha);
    assert(g_list_length(supervision_dialogs) == 1);
-   gtk_dialog_response(GTK_DIALOG(((supervision_dialog_t *)supervision_dialogs->data)->dialog), GTK_RESPONSE_YES);
+   gtk_dialog_response(GTK_DIALOG(((supervision_dialog_t *) supervision_dialogs->data)->dialog), GTK_RESPONSE_YES);
    assert(!supervision_dialogs && !strcmp(dict_get(sent, "talk.data", ""), "accept abc"));
    selected = "beta";
    GtkWidget *lock = gtk_button_new();
@@ -113,6 +138,7 @@ int main(int argc, char **argv) {
    gtk_widget_destroy(main_window);
    assert(!tables[0].store && !tables[0].tree);
    result("users", "row", "{\"name\":\"late\"}");
-   dict_free(sent); dict_free(mutation);
+   dict_free(sent);
+   dict_free(mutation);
    puts("PASS: GTK database inventory, paging, server-scoped actions and late replies after destruction");
 }

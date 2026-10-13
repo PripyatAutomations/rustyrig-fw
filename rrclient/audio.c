@@ -126,26 +126,37 @@ static void dcc_pcm(const char *event, const void *data, size_t len, rrconn_t *c
    (void)event;
    (void)client;
    (void)user;
-   if (!audio_enabled || len != sizeof(irc_audio_pcm_t))
+
+   if (!audio_enabled || len != sizeof(irc_audio_pcm_t)) {
       return;
+   }
    const irc_audio_pcm_t *pcm = data;
    unsigned empty = IRC_AUDIO_MAX_SESSIONS;
-   for (unsigned i = 0; i < IRC_AUDIO_MAX_SESSIONS; i++) {
+
+   for (unsigned i = 0 ; i < IRC_AUDIO_MAX_SESSIONS ; i++) {
       if (!strcmp(dcc_sinks[i].attachment, pcm->attachment)) {
          fwdsp_processor_write(dcc_sinks[i].name, pcm->samples, pcm->length);
+
          return;
       }
-      if (!dcc_sinks[i].attachment[0] && empty == IRC_AUDIO_MAX_SESSIONS)
+
+      if (!dcc_sinks[i].attachment[0] && empty == IRC_AUDIO_MAX_SESSIONS) {
          empty = i;
+      }
    }
+
    /* Reuse the configured speaker pipeline with a distinct process per peer. */
    const char *pipeline = cfg_get("pipeline:sink.client.dsp0");
-   if (empty == IRC_AUDIO_MAX_SESSIONS || !pipeline)
+
+   if (empty == IRC_AUDIO_MAX_SESSIONS || !pipeline) {
       return;
+   }
    char name[32];
    snprintf(name, sizeof(name), "sink.client.dcc.%u", empty);
-   if (!fwdsp_audio_playback_start(name, pipeline))
+
+   if (!fwdsp_audio_playback_start(name, pipeline)) {
       return;
+   }
    snprintf(dcc_sinks[empty].attachment, sizeof(dcc_sinks[empty].attachment), "%s", pcm->attachment);
    snprintf(dcc_sinks[empty].name, sizeof(dcc_sinks[empty].name), "%s", name);
    fwdsp_processor_setvol(name, cfg_get_int("audio.volume.rx", 30));
@@ -155,7 +166,8 @@ static void dcc_closed(const char *event, const char *data, rrconn_t *client, vo
    (void)event;
    (void)client;
    (void)user;
-   for (unsigned i = 0; i < IRC_AUDIO_MAX_SESSIONS; i++) {
+
+   for (unsigned i = 0 ; i < IRC_AUDIO_MAX_SESSIONS ; i++) {
       if (dcc_sinks[i].attachment[0] && (!data || !strcmp(dcc_sinks[i].attachment, data))) {
          fwdsp_processor_stop(dcc_sinks[i].name);
          memset(&dcc_sinks[i], 0, sizeof(dcc_sinks[i]));
@@ -279,8 +291,12 @@ bool audio_set_rx_volume(int percent) {
 
    dict_add_int(cfg, "audio.volume.rx", percent);
 
-   for (unsigned i = 0; i < IRC_AUDIO_MAX_SESSIONS; i++)
-      if (dcc_sinks[i].attachment[0]) fwdsp_processor_setvol(dcc_sinks[i].name, percent);
+   for (unsigned i = 0 ; i < IRC_AUDIO_MAX_SESSIONS ; i++) {
+      if (dcc_sinks[i].attachment[0]) {
+         fwdsp_processor_setvol(dcc_sinks[i].name, percent);
+      }
+   }
+
    return fwdsp_processor_setvol("sink.client.dsp0", percent);
 }
 

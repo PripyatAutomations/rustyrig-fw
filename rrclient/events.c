@@ -984,12 +984,18 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
 static void rrclient_handle_admin_result(const char *event, const char *data, rrconn_t *connection, void *user) {
    (void)event;
    (void)user;
+
    if (frontend_present() && frontend_ops()->admin_result) {
       frontend_ops()->admin_result(data, connection);
+
       return;
    }
    dict *reply = data ? json2dict(data) : NULL;
-   if (!reply) return;
+
+   if (!reply) {
+      return;
+   }
+
    if (!strcmp(dict_get(reply, "talk.action", ""), "row")) {
       ui_print(NULL, "%s: %s", dict_get(reply, "talk.target", ""), dict_get(reply, "talk.data", ""));
    } else if (!strcmp(dict_get(reply, "talk.action", ""), "end")) {

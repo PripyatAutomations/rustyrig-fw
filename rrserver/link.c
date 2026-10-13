@@ -71,7 +71,7 @@ static bool equal_secret(const char *a, const char *b) {
    size_t an = a ? strlen(a) : 0, bn = b ? strlen(b) : 0;
    unsigned different = an != bn;
 
-   for (size_t i = 0; i < 256; i++) {
+   for (size_t i = 0 ; i < 256 ; i++) {
       different |= (i < an ? (unsigned char)a[i] : 0) ^ (i < bn ? (unsigned char)b[i] : 0);
    }
 
@@ -122,7 +122,7 @@ bool rrserver_links_send(const char *node, dict *d) {
       return false;
    }
 
-   for (struct link_session * s = links.sessions; s; s = s->next) {
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s->established && !strcmp(s->node, next)) {
          return send_message(s, d);
       }
@@ -131,7 +131,7 @@ bool rrserver_links_send(const char *node, dict *d) {
    return false;
 }
 void rrserver_links_broadcast(dict *d) {
-   for (struct link_session * s = links.sessions; s; s = s->next) {
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s->established && !s->connection->is_closing) {
          send_message(s, d);
       }
@@ -154,7 +154,7 @@ static void send_hello(struct link_session *session) {
 }
 
 static void broadcast(struct link_session *exclude, dict *d) {
-   for (struct link_session * s = links.sessions; s; s = s->next) {
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s != exclude && s->established && !s->connection->is_closing) {
          send_message(s, d);
       }
@@ -172,7 +172,7 @@ static void send_snapshot(struct link_session *session) {
    }
    rr_link_node_t node;
 
-   for (size_t i = 0; rr_link_tree_node(links.tree, i, &node); i++) {
+   for (size_t i = 0 ; rr_link_tree_node(links.tree, i, &node) ; i++) {
       size_t n = strlen(nodes);
       int added = snprintf(nodes + n, capacity - n, "%s%s,%s", i ? " " : "", node.server, node.parent ? node.parent : "-");
 
@@ -223,10 +223,10 @@ static void establish(struct link_session *session) {
       false
    };
 
-   for (size_t pass = 0; pass < rr_link_tree_count(links.tree); pass++) {
+   for (size_t pass = 0 ; pass < rr_link_tree_count(links.tree) ; pass++) {
       rr_link_node_t node;
 
-      for (size_t i = 1; rr_link_tree_node(links.tree, i, &node); i++) {
+      for (size_t i = 1 ; rr_link_tree_node(links.tree, i, &node) ; i++) {
          const char *route = rr_link_tree_route(links.tree, node.server);
 
          if (sent[i] || !route || strcmp(route, session->node)) {
@@ -238,7 +238,7 @@ static void establish(struct link_session *session) {
          if (!parent_known) {
             rr_link_node_t parent;
 
-            for (size_t j = 1; rr_link_tree_node(links.tree, j, &parent); j++) {
+            for (size_t j = 1 ; rr_link_tree_node(links.tree, j, &parent) ; j++) {
                if (!strcmp(parent.server, node.parent) && sent[j]) {
                   parent_known = true;
                }
@@ -266,7 +266,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    struct link_peer *peer = session->peer;
 
    if (!peer) {
-      for (size_t i = 0; i < links.peer_count; i++) {
+      for (size_t i = 0 ; i < links.peer_count ; i++) {
          if (!strcmp(links.peers[i].site, site)) {
             peer = &links.peers[i];
             break;
@@ -274,8 +274,7 @@ static void handle_hello(struct link_session *session, dict *d) {
       }
    }
 
-   if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) ||
-      !equal_secret(peer->password, dict_get(d, "password", ""))) {
+   if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) || !equal_secret(peer->password, dict_get(d, "password", ""))) {
       fail(session, "Peer authentication failed");
 
       return;
@@ -284,13 +283,17 @@ static void handle_hello(struct link_session *session, dict *d) {
    char peer_ip[64];
    mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &session->connection->rem);
    const char *listener = session->connection->is_tls ? "listener:https" : "listener:http";
+
    if (rrserver_acl_check(peer->section, peer_ip, NULL, peer->site) != ACL_ALLOW ||
       (!session->outbound && rrserver_acl_check(session->dedicated ? "listener:link" : listener, peer_ip, NULL, peer->site) != ACL_ALLOW)) {
       fail(session, "ACL access denied");
+
       return;
    }
+
    if (peer->manually_closed) {
       fail(session, "Peer is administratively closed");
+
       return;
    }
    struct link_session *old = peer->session;
@@ -314,7 +317,7 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    /* Never export an uncommitted admission in another peer's snapshot. Serialize local admissions; established upstream deltas still invalidate the generation
     * check and cause a clean retry. */
-   for (struct link_session * s = links.sessions; s; s = s->next) {
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s != session && !s->established && (s->admitted || (s->hello && !s->connection->is_closing))) {
          fail(session, "Another topology admission is pending; retry");
 
@@ -349,7 +352,7 @@ static void handle_snapshot(struct link_session *session, dict *d) {
       return;
    }
 
-   for (char *p = strtok_r(copy, " ", &save); p; p = strtok_r(NULL, " ", &save)) {
+   for (char *p = strtok_r(copy, " ", &save) ; p ; p = strtok_r(NULL, " ", &save)) {
       char *comma = strchr(p, ',');
 
       if (!comma || count == 256) {
@@ -358,7 +361,8 @@ static void handle_snapshot(struct link_session *session, dict *d) {
       }
       *comma++ = 0;
       nodes[count++] = (rr_link_node_t) {
-      p, !strcmp(comma, "-") ? NULL : comma};
+         p, !strcmp(comma, "-") ? NULL : comma
+      };
 
 
    }
@@ -517,14 +521,16 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
       session->dedicated = true;
       char peer_ip[64];
       mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &c->rem);
+
       if (rrserver_acl_check("listener:link", peer_ip, NULL, NULL) == ACL_DENY) {
          fail(session, "Listener ACL access denied");
+
          return;
       }
 
       if (links.cert.buf) {
          struct mg_tls_opts options = {
-            .cert = links.cert,.key = links.key
+            .cert = links.cert, .key = links.key
          };
          mg_tls_init(c, &options);
       }
@@ -544,15 +550,17 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    if (event == MG_EV_CONNECT && session->outbound) {
       char peer_ip[64];
       mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &c->rem);
+
       if (rrserver_acl_check(session->peer->section, peer_ip, NULL, session->peer->site) != ACL_ALLOW) {
          fail(session, "Outbound peer ACL access denied");
+
          return;
       }
    }
 
    if (event == MG_EV_CONNECT && session->outbound && !strncmp(session->peer->url, "wss://", 6)) {
       struct mg_tls_opts options = {
-         .ca = links.ca,.name = mg_url_host(session->peer->url)
+         .ca = links.ca, .name = mg_url_host(session->peer->url)
       };
       mg_tls_init(c, &options);
    } else if (event == MG_EV_HTTP_MSG) {
@@ -585,13 +593,13 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_ERROR) {
       struct mg_http_message response;
       char reason[256];
-      /* Mongoose emits this error before consuming a rejected HTTP upgrade.
-       * Report only its status, never response headers or peer credentials. */
+
+      /* Mongoose emits this error before consuming a rejected HTTP upgrade. Report only its status, never response headers or peer credentials. */
       if (session->outbound && !c->is_websocket && c->recv.buf &&
          mg_http_parse((const char *)c->recv.buf, c->recv.len, &response) > 0 &&
          response.method.len >= 5 && !memcmp(response.method.buf, "HTTP/", 5) && response.uri.len == 3) {
-         snprintf(reason, sizeof(reason), "WebSocket upgrade rejected: HTTP %.*s; check /link URL and remote listener policy",
-            (int)response.uri.len, response.uri.buf);
+         snprintf(reason, sizeof(reason), "WebSocket upgrade rejected: HTTP %.*s; check /link URL and remote listener policy", (int)response.uri.len, response.
+            uri.buf);
          fail(session, reason);
       } else {
          fail(session, data ? (const char *)data : "Transport error");
@@ -604,6 +612,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
 static bool invalid_peer(const char *section, const char *key, const char *reason) {
    Log(LOG_CRIT, "link", "Invalid [%s] %s: %s", section, key, reason);
+
    return false;
 }
 
@@ -628,12 +637,15 @@ static bool load_peer(const char *section) {
    if (!site || !*site || strlen(site) >= sizeof(peer->site)) {
       return invalid_peer(section, "site.name", "expected remote station name is required (1-127 characters)");
    }
+
    if (!strcmp(site, links.site)) {
       char reason[256];
       snprintf(reason, sizeof(reason), "must name the remote server; local station.name is %s", links.site);
+
       return invalid_peer(section, "site.name", reason);
    }
    strcpy(peer->site, site);
+
    if (node && *node) {
       if (!rr_object_uuid_valid(node)) {
          return invalid_peer(section, "node.uuid", "must be empty or a valid remote server UUID");
@@ -641,14 +653,13 @@ static bool load_peer(const char *section) {
       snprintf(peer->node, sizeof(peer->node), "%s", node);
    }
 
-   for (size_t i = 0; i + 1 < links.peer_count; i++) {
+   for (size_t i = 0 ; i + 1 < links.peer_count ; i++) {
       if (!strcmp(links.peers[i].site, site)) {
          return invalid_peer(section, "site.name", "another enabled peer already uses this remote station name");
       }
    }
 
-   const char *url = peer_value(section, "server.url"),
-      *password = peer_value(section, "password"), *autoconnect = peer_value(section, "autoconnect");
+   const char *url = peer_value(section, "server.url"), *password = peer_value(section, "password"), *autoconnect = peer_value(section, "autoconnect");
 
    if (!password || !*password || strlen(password) > 256) {
       return invalid_peer(section, "password", "shared link password is required (1-256 characters)");
@@ -677,6 +688,7 @@ static bool load_peer(const char *section) {
    if (!peer->url || !peer->password) {
       return invalid_peer(section, "credentials", "out of memory while loading peer");
    }
+
    return true;
 }
 
@@ -729,41 +741,60 @@ static void shared_link_request(const char *event, const void *data, size_t leng
 static void link_command(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) return;
+
+   if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) {
+      return;
+   }
    dict *request = data ? json2dict(data) : NULL;
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    char input[256], action[16], name[128], extra[2];
    snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
    dict_free(request);
    int argc = sscanf(input, "%15s %127s %1s", action, name, extra);
+
    if (argc <= 0 || (argc == 1 && !strcasecmp(action, "list"))) {
-      for (size_t i = 0; i < links.peer_count; i++) {
+      for (size_t i = 0 ; i < links.peer_count ; i++) {
          struct link_peer *peer = &links.peers[i];
-         ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site,
-            peer->session && peer->session->established ? "linked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
+         ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session && peer->session->established ? "linked" : peer->
+            manually_closed ? "closed" : "offline", peer->retry_seconds);
       }
+
       return;
    }
+
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
       ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer>");
+
       return;
    }
    struct link_peer *peer = NULL;
-   for (size_t i = 0; i < links.peer_count; i++) {
+
+   for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *entry = &links.peers[i];
       const char *shortname = !strncmp(entry->section, "peer:", 5) ? entry->section + 5 : entry->section;
-      if (!strcmp(name, entry->section) || !strcmp(name, shortname)) peer = entry;
+
+      if (!strcmp(name, entry->section) || !strcmp(name, shortname)) {
+         peer = entry;
+      }
    }
+
    if (!peer) {
       ws_send_error(client, "Unknown stored peer");
+
       return;
    }
    bool open = !strcasecmp(action, "open");
+
    if (open && !peer->url[0]) {
       ws_send_error(client, "Peer has no outgoing URL");
+
       return;
    }
    peer->manually_closed = !open;
+
    if (open) {
       peer->autoconnect = true;
       peer->retry_at = 0;
@@ -807,7 +838,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
 
       bool exists = false;
 
-      for (size_t i = 0; i < count; i++) {
+      for (size_t i = 0 ; i < count ; i++) {
          if (!strcmp(sections[i], section)) {
             exists = true;
          }
@@ -823,7 +854,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       strcpy(sections[count++], section);
    }
 
-   for (size_t i = 0; i < count; i++) {
+   for (size_t i = 0 ; i < count ; i++) {
       if (!load_peer(sections[i])) {
          Log(LOG_CRIT, "link", "Invalid peer configuration in [%s]", sections[i]);
 
@@ -835,6 +866,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
 
    if (!links.peer_count && (!listen || !*listen)) {
       event_on("link.cmd", link_command, NULL);
+
       return true;
    }
    int retry = cfg_get_int("links.retry-seconds", 60), timeout = cfg_get_int("links.handshake-seconds", 10);
@@ -871,7 +903,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
    bool needs_ca = false;
 
-   for (size_t i = 0; i < links.peer_count; i++) {
+   for (size_t i = 0 ; i < links.peer_count ; i++) {
       if (!strncmp(links.peers[i].url, "wss://", 6)) {
          needs_ca = true;
       }
@@ -894,6 +926,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
 
    event_on("link.cmd", link_command, NULL);
+
    return true;
 }
 
@@ -903,7 +936,7 @@ void rrserver_links_poll(void) {
    }
    long long at = mono_ms();
 
-   for (struct link_session * s = links.sessions; s; s = s->next) {
+   for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (!s->established && at - s->started > cfg_get_int("links.handshake-seconds", 10) * 1000LL) {
          fail(s, "Handshake timed out");
       }
@@ -918,7 +951,7 @@ void rrserver_links_poll(void) {
       }
    }
 
-   for (size_t i = 0; i < links.peer_count; i++) {
+   for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
 
       if (peer->manually_closed || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
@@ -951,7 +984,7 @@ void rrserver_links_fini(void) {
    rr_link_tree_free(links.tree);
    links.tree = NULL;
 
-   for (size_t i = 0; i < links.peer_count; i++) {
+   for (size_t i = 0 ; i < links.peer_count ; i++) {
       free(links.peers[i].url);
       free(links.peers[i].password);
    }

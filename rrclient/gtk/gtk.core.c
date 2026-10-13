@@ -1194,6 +1194,7 @@ static GHashTable *irc_nick_dialogs;
 
 static void irc_nick_dialog_destroy(GtkWidget *dialog, gpointer data) {
    (void)data;
+
    if (irc_nick_dialogs) {
       g_hash_table_remove(irc_nick_dialogs, g_object_get_data(G_OBJECT(dialog), "profile"));
    }
@@ -1201,11 +1202,14 @@ static void irc_nick_dialog_destroy(GtkWidget *dialog, gpointer data) {
 
 static void irc_nick_dialog_response(GtkDialog *dialog, gint response, gpointer data) {
    (void)data;
+
    if (response == GTK_RESPONSE_OK) {
       GtkEntry *entry = g_object_get_data(G_OBJECT(dialog), "nickname");
       const char *profile = g_object_get_data(G_OBJECT(dialog), "profile");
+
       if (!rrclient_irc_nick_submit(profile, gtk_entry_get_text(entry))) {
          gtk_widget_set_tooltip_text(GTK_WIDGET(entry), "Enter a valid IRC nickname");
+
          return;
       }
    }
@@ -1213,13 +1217,20 @@ static void irc_nick_dialog_response(GtkDialog *dialog, gint response, gpointer 
 }
 
 static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
-   if (!irc_nick_dialogs) irc_nick_dialogs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   if (!irc_nick_dialogs) {
+      irc_nick_dialogs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   }
    GtkWidget *existing = g_hash_table_lookup(irc_nick_dialogs, profile);
-   if (existing) gtk_widget_destroy(existing);
-   if (!nickname) return;
+
+   if (existing) {
+      gtk_widget_destroy(existing);
+   }
+
+   if (!nickname) {
+      return;
+   }
    gui_window_t *main = gui_find_window(NULL, "main");
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("IRC nickname already in use",
-      main ? GTK_WINDOW(main->gtk_win) : NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("IRC nickname already in use", main ? GTK_WINDOW(main->gtk_win) : NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
       "Wait for suffix", GTK_RESPONSE_CANCEL, "Use nickname", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    char text[512];

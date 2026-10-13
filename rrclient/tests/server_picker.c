@@ -118,7 +118,9 @@ int main(int argc, char **argv) {
    g_free(expected);
    picker.gtk_win = NULL;
    frontend_gtk_show_server_chooser();
-   GdkEventKey escape = { .type = GDK_KEY_PRESS, .keyval = GDK_KEY_Escape };
+   GdkEventKey escape = {
+      .type = GDK_KEY_PRESS, .keyval = GDK_KEY_Escape
+   };
    assert(on_key(picker.gtk_win, &escape, NULL));
    assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == 1);
    gtk_widget_destroy(main_notebook);

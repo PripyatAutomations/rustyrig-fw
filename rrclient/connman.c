@@ -156,17 +156,22 @@ const char *rrclient_connection_iter(unsigned index) {
    return NULL;
 }
 
-void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) {
-   if (!callback)
+void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
+   if (!callback) {
       return;
+   }
    client_server_t *target = NULL;
-   for (client_server_t *s = servers; s; s = s->next)
+
+   for (client_server_t *s = servers ; s ; s = s->next) {
       if (s->connection == connection) {
          target = s;
          break;
       }
+   }
+
    if (!target) {
       callback(data);
+
       return;
    }
    client_server_t *previous = context;
@@ -361,6 +366,7 @@ static void cancel_reconnect(client_server_t *s) {
 
 static void nick_prompt_close(client_server_t *s) {
    s->nick_deadline = 0;
+
    if (frontend_present() && frontend_ops()->irc_nick_prompt) {
       frontend_ops()->irc_nick_prompt(s->name, NULL);
    }
@@ -375,14 +381,17 @@ static void nick_try_suffix(client_server_t *s) {
       ui_print(NULL, "IRC nickname alternatives exhausted; disconnecting %s", s->name);
       s->nick_recovering = false;
       disconnect_server(s->name);
+
       return;
    }
+
    if (index < 7) {
       snprintf(nickname, sizeof(nickname), "%.*s%c", NICKLEN - 1, s->nick_base, suffixes[index]);
    } else {
       index -= 7;
       snprintf(nickname, sizeof(nickname), "%.*s%c%c", NICKLEN - 2, s->nick_base, suffixes[index / 7], suffixes[index % 7]);
    }
+
    if (!irc_send(s->connection, "NICK %s", nickname)) {
       disconnect_server(s->name);
    }
@@ -390,32 +399,46 @@ static void nick_try_suffix(client_server_t *s) {
 
 bool rrclient_irc_nick_submit(const char *profile, const char *nick) {
    client_server_t *s = find_server(profile);
+
    if (!s || !s->connection || s->connection->is_ws || !nick || !*nick ||
       strlen(nick) > NICKLEN || strpbrk(nick, " \t\r\n,*?!@:") ||
       !((nick[0] >= 'A' && nick[0] <= 'Z') || (nick[0] >= 'a' && nick[0] <= 'z') || strchr("_{}[]^\\`", nick[0]))) {
       return false;
    }
-   for (const unsigned char *p = (const unsigned char *)nick; *p; p++) {
-      if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') ||
-         (*p >= '0' && *p <= '9') || strchr("_{}[]-^\\`|", *p))) return false;
+
+   for (const unsigned char *p = (const unsigned char *)nick ; *p ; p++) {
+      if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || strchr("_{}[]-^\\`|", *p))) {
+         return false;
+      }
    }
-   if (!irc_send(s->connection, "NICK %s", nick)) return false;
+
+   if (!irc_send(s->connection, "NICK %s", nick)) {
+      return false;
+   }
    s->nick_deadline = 0;
    snprintf(s->nick_base, sizeof(s->nick_base), "%s", nick);
    s->nick_suffix = 0;
+
    return true;
 }
 
 static void nick_accepted(const char *event, const char *data, rrconn_t *connection, void *user) {
    (void)event;
    (void)user;
-   if (!connection || connection->is_ws || !data) return;
+
+   if (!connection || connection->is_ws || !data) {
+      return;
+   }
    dict *message = json2dict(data);
-   if (!message) return;
+
+   if (!message) {
+      return;
+   }
    const char *prefix = dict_get(message, "msg.prefix", "");
    size_t length = strcspn(prefix, "!");
+
    if (length == strlen(connection->nick) && !strncasecmp(prefix, connection->nick, length)) {
-      for (client_server_t *s = servers; s; s = s->next) {
+      for (client_server_t *s = servers ; s ; s = s->next) {
          if (s->connection == connection) {
             nick_prompt_close(s);
             s->nick_recovering = false;
@@ -429,18 +452,29 @@ static void nick_in_use(const char *event, const char *data, rrconn_t *cptr, voi
    (void)event;
    (void)user;
    client_server_t *s = NULL;
-   for (client_server_t *entry = servers; entry; entry = entry->next) {
-      if (entry->connection == cptr) s = entry;
+
+   for (client_server_t *entry = servers ; entry ; entry = entry->next) {
+      if (entry->connection == cptr) {
+         s = entry;
+      }
    }
-   if (!s || !cptr || cptr->is_ws || !data) return;
+
+   if (!s || !cptr || cptr->is_ws || !data) {
+      return;
+   }
    dict *message = json2dict(data);
-   if (!message) return;
+
+   if (!message) {
+      return;
+   }
    const char *nickname = dict_get(message, "msg.arg2", "");
    ui_print(NULL, "IRC nickname %s is already in use on %s; use /nick <nickname> to choose another", nickname, s->name);
+
    if (!s->nick_recovering) {
       s->nick_recovering = true;
       s->nick_suffix = 0;
       snprintf(s->nick_base, sizeof(s->nick_base), "%s", nickname);
+
       if (frontend_present() && frontend_ops()->irc_nick_prompt) {
          s->nick_deadline = now + 45;
          frontend_ops()->irc_nick_prompt(s->name, nickname);
@@ -485,7 +519,10 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       const char *override = get_server_property(s->name, "server.reconnect-interval");
       char *end = NULL;
       long interval = override && *override ? strtol(override, &end, 10) : cfg_get_int("server.reconnect-interval", 60);
-      if (interval < 1 || interval > 3600 || (end && *end)) interval = 60;
+
+      if (interval < 1 || interval > 3600 || (end && *end)) {
+         interval = 60;
+      }
       s->reconnect_pending = true;
       s->reconnect_at = now + interval;
       ws_connected = -1;
@@ -623,6 +660,7 @@ void rrclient_poll_events_reconnect(void) {
          nick_prompt_close(s);
          nick_try_suffix(s);
       }
+
       if (s->reconnect_pending && now >= s->reconnect_at && !dying && (!s->connection || !s->connection->conn)) {
          s->reconnect_pending = false;
 

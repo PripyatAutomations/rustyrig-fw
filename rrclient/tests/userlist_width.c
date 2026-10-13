@@ -29,7 +29,12 @@ rrconn_t *rrclient_connection_find(const char *name) {
 
    return roster_connection;
 }
-bool gtk_chat_execute_command(const char *window, const char *command) { (void)window; (void)command; return false; }
+bool gtk_chat_execute_command(const char *window, const char *command) {
+   (void)window;
+   (void)command;
+
+   return false;
+}
 void gtk_chat_query_add(const char *user) {
 }
 static void pump_layout(void) {

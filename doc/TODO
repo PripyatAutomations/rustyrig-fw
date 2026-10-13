@@ -1,6 +1,14 @@
 Immediate needs
 ---------------
-rrserver: Adjustable reconnect delay for peers
+rrclient: Add SASL AUTH for irc protocol
+
+rrclient: Since we have a top tab strip for admin tab, ctrl-left/ctrl-right or ctrl-# to change sections seems appropriate?
+
+rrclient: Be verbose about media connection type (direct vs proxy, ports etc)
+
+rrclient: When PTT is active and we switch tabs, vfo widget ptt button clears to PTT OFF (PTT is still held per userlist widget)
+
+rrclient: Make audit/ptt logs available for all connected servers (dropdown instead of relying on status tab selection)
 
 rrclient: Maybe some sorta activity notification in inactive tabs later, and change text color if someone say my name
 

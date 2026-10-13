@@ -115,7 +115,9 @@ static void check(const char *line, const char *word, const char *expected) {
       }
    }
 
-   if (!(expected ? found : !matches || !matches[0])) fprintf(stderr, "Completion failed for %s (expected %s)\n", line, expected ? expected : "none");
+   if (!(expected ? found : !matches || !matches[0])) {
+      fprintf(stderr, "Completion failed for %s (expected %s)\n", line, expected ? expected : "none");
+   }
    assert(expected ? found : !matches || !matches[0]);
    completion_free(matches);
 }

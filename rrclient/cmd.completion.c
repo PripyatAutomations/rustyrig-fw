@@ -339,26 +339,45 @@ char **client_cmd_completions(const char *line, const char *word) {
             completion_add(&matches, &count, scope, word);
          }
       } else if (!strcasecmp(command, "/dcc")) {
-         if (arg == 1) completion_words(&matches, &count, "AUDIO CHAT SEND", word);
-         else if (first && !strcasecmp(first, "audio")) {
+         if (arg == 1) {
+            completion_words(&matches, &count, "AUDIO CHAT SEND", word);
+         } else if (first && !strcasecmp(first, "audio")) {
             bool action = second && (!strcasecmp(second, "accept") || !strcasecmp(second, "close"));
+
             if (arg == 2) {
                matches = complete_usernames(word, room);
-               if (matches) while (matches[count]) count++;
+
+               if (matches) {
+                  while (matches[count]) {
+                     count++;
+                  }
+               }
                completion_words(&matches, &count, "ACCEPT CLOSE", word);
-            } else if (arg == 3 && action) matches = complete_usernames(word, room);
-            else if (arg == (action ? 4U : 3U)) completion_words(&matches, &count, "tx rx", word);
+            } else if (arg == 3 && action) {
+               matches = complete_usernames(word, room);
+            } else if (arg == (action ? 4U : 3U)) {
+               completion_words(&matches, &count, "tx rx", word);
+            }
          } else if (first && (!strcasecmp(first, "chat") || !strcasecmp(first, "send"))) {
             if (arg == 2) {
                matches = complete_usernames(word, room);
-               if (matches) while (matches[count]) count++;
+
+               if (matches) {
+                  while (matches[count]) {
+                     count++;
+                  }
+               }
                completion_words(&matches, &count, !strcasecmp(first, "chat") ? "ACCEPT CLOSE MSG" : "ACCEPT CLOSE", word);
             } else if (arg == 3 && second && (!strcasecmp(second, "accept") || !strcasecmp(second, "close") || !strcasecmp(second, "msg"))) {
                irc_dcc_session_t session;
-               for (unsigned i = 0; irc_dcc_session_get(i, &session); i++) {
+
+               for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
                   if (session.control != ws_conn || session.type != (!strcasecmp(first, "chat") ? IRC_DCC_CHAT : IRC_DCC_SEND) ||
-                     (!strcasecmp(second, "accept") && session.state != IRC_DCC_PENDING)) continue;
-                  char id[16]; snprintf(id, sizeof(id), "%s%u", word[0] == '#' ? "#" : "", session.id);
+                     (!strcasecmp(second, "accept") && session.state != IRC_DCC_PENDING)) {
+                     continue;
+                  }
+                  char id[16];
+                  snprintf(id, sizeof(id), "%s%u", word[0] == '#' ? "#" : "", session.id);
                   completion_add(&matches, &count, id, word);
                }
             }
@@ -376,14 +395,17 @@ char **client_cmd_completions(const char *line, const char *word) {
                completion_words(&matches, &count, media_get_common_codecs(), word);
             }
          } else if ((arg == 2 || (media && arg == 3)) && first && strcasecmp(first, "LIST") != 0) {
-            if (media && arg == 2 && !strcasecmp(first, "DIRECT"))
+            if (media && arg == 2 && !strcasecmp(first, "DIRECT")) {
                completion_words(&matches, &count, "on off status", word);
+            }
             bool unsub = !strcasecmp(first, "UNSUB") || !strcasecmp(first, "UNSUBSCRIBE");
             bool sub = !strcasecmp(first, "SUB") || !strcasecmp(first, "SUBSCRIBE");
 
-            if (media && sub && (arg == 2 || (arg == 3 && second && second[0] != '-')))
+            if (media && sub && (arg == 2 || (arg == 3 && second && second[0] != '-'))) {
                completion_words(&matches, &count, "-direct -proxy", word);
+            }
             bool channel_argument = arg == 2 || (media && sub && second && (!strcasecmp(second, "-direct") || !strcasecmp(second, "-proxy")));
+
             for (int i = 0 ; channel_argument && (!media || sub || unsub) ; i++) {
                int number;
                const struct rr_client_media_chan *ch = rrclient_media_chan_iter(i, &number);
@@ -420,11 +442,17 @@ char **client_cmd_completions(const char *line, const char *word) {
             }
          }
       } else if (!strcasecmp(command, "/link")) {
-         if (arg == 1) completion_words(&matches, &count, "LIST OPEN CLOSE", word);
+         if (arg == 1) {
+            completion_words(&matches, &count, "LIST OPEN CLOSE", word);
+         }
       } else if (!strcasecmp(command, "/admin")) {
-         if (arg == 1) completion_words(&matches, &count, "USERS ROOMS QUOTAS AUDIT PTT", word);
+         if (arg == 1) {
+            completion_words(&matches, &count, "USERS ROOMS QUOTAS AUDIT PTT", word);
+         }
       } else if (!strcasecmp(command, "/supervise")) {
-         if (arg == 1) completion_words(&matches, &count, "ACCEPT DECLINE", word);
+         if (arg == 1) {
+            completion_words(&matches, &count, "ACCEPT DECLINE", word);
+         }
       } else if (!strcasecmp(command, "/quota")) {
          bool unit = first && (!strcasecmp(first, "TX") || !strcasecmp(first, "BW"));
          const char *action = unit ? second : first;

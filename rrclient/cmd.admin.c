@@ -514,22 +514,31 @@ bool cmd_user(int argc, char **args) {
 /* PARITY: rustyrig-www/js/webui.chat.js link/admin command tails. */
 static bool send_management_command(const char *command, int argc, char **args) {
    rrconn_t *connection = rrclient_active_connection();
+
    if (!connection || !connection->is_ws) {
       ui_print(ui_active_window_name(), "/%s requires a RustyRig connection", command);
+
       return true;
    }
    char tail[512] = "";
-   for (int i = 1; i < argc; i++) {
-      if ((i > 1 && strlcat(tail, " ", sizeof(tail)) >= sizeof(tail)) ||
-         strlcat(tail, args[i], sizeof(tail)) >= sizeof(tail)) return true;
+
+   for (int i = 1 ; i < argc ; i++) {
+      if ((i > 1 && strlcat(tail, " ", sizeof(tail)) >= sizeof(tail)) || strlcat(tail, args[i], sizeof(tail)) >= sizeof(tail)) {
+         return true;
+      }
    }
+
    dict *request = dict_new();
-   if (!request) return true;
+
+   if (!request) {
+      return true;
+   }
    dict_add(request, "msg.type", "talk");
    dict_add(request, "talk.cmd", command);
    dict_add(request, "talk.data", tail);
    bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
    dict_free(request);
+
    return !sent;
 }
 
@@ -543,12 +552,17 @@ bool cmd_admin_query(int argc, char **args) {
 
 bool cmd_supervise(int argc, char **args) {
    rrconn_t *client = rrclient_active_connection();
+
    if (!client || !client->is_ws || argc != 4) {
       ui_print(ui_active_window_name(), "Usage: /supervise accept|decline <request-id> <rig-room> (RustyRig only)");
+
       return true;
    }
    dict *d = dict_new();
-   if (!d) return true;
+
+   if (!d) {
+      return true;
+   }
    char tail[96];
    snprintf(tail, sizeof(tail), "%s %s", args[1], args[2]);
    dict_add(d, "msg.type", "talk");
@@ -557,5 +571,6 @@ bool cmd_supervise(int argc, char **args) {
    dict_add(d, "talk.data", tail);
    bool sent = ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+
    return !sent;
 }

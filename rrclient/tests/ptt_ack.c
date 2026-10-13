@@ -7,7 +7,10 @@ time_t now;
 const char *login_user = NULL;
 rrconn_t *ws_conn;
 enum GuiMode ui_mode;
-void rrclient_supervision_clear(rrconn_t *client) { (void)client; }
+void rrclient_supervision_clear(rrconn_t *client) {
+   (void)client;
+}
+
 static unsigned confirmations;
 static unsigned room_list_requests;
 static unsigned room_rejoin_calls;
@@ -54,7 +57,11 @@ void rrclient_rooms_disconnect(void) {
 void rrclient_rooms_set_available(const char *rooms) {
    snprintf(listed_rooms, sizeof(listed_rooms), "%s", rooms ? rooms : "");
 }
-const char *rrclient_room_available_iter(unsigned int index) { (void)index; return NULL; }
+const char *rrclient_room_available_iter(unsigned int index) {
+   (void)index;
+
+   return NULL;
+}
 void rrclient_rooms_rejoin_available(void) {
    room_rejoin_calls++;
 }

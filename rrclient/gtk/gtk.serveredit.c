@@ -241,12 +241,14 @@ static void server_editor_save(GtkButton *button, gpointer data) {
    }
 
    bool direct = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct));
+
    if (direct != editor->initial_direct) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);
       dict_add(overrides, key, direct ? "true" : "false");
       changed = true;
    }
+
    if (rooms_changed) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
@@ -272,6 +274,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
          dict_add(cfg, key, "");
       }
+
       if (direct != editor->initial_direct) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);

@@ -570,8 +570,9 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          goto done;
       }
       bool releasing = !strcmp(name, RR_PROP_PTT) && !control.value.i && client->is_ptt;
-      if (!releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio),
-         !strcmp(name, RR_PROP_PTT) && control.value.i)) {
+
+      if (!releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio), !strcmp(name, RR_PROP_PTT) && control.value.i))
+      {
          code = "supervision-required";
          goto done;
       }

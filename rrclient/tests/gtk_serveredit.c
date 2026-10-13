@@ -16,12 +16,17 @@ void gtk_server_picker_refresh_profile(const char *name) {
    assert(!strcmp(name, "site.example"));
    refreshed++;
 }
+
 static unsigned preference_applied;
 bool rrclient_direct_preferred(const char *profile) {
-   char key[640]; snprintf(key, sizeof(key), "server:%s.media.direct.prefer", profile);
+   char key[640];
+   snprintf(key, sizeof(key), "server:%s.media.direct.prefer", profile);
+
    return cfg_get_bool(key, cfg_get_bool("media.direct.prefer", true));
 }
-void rrclient_direct_apply_preferences(void) { preference_applied++; }
+void rrclient_direct_apply_preferences(void) {
+   preference_applied++;
+}
 int main(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: GTK display unavailable");

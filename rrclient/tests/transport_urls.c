@@ -109,12 +109,17 @@ static void chooser(void) {
 static unsigned nick_prompts, nick_closes;
 static void nick_prompt(const char *profile, const char *nickname) {
    assert(profile && *profile);
-   if (nickname) nick_prompts++; else nick_closes++;
+
+   if (nickname) {
+      nick_prompts++;
+   } else {
+      nick_closes++;
+   }
 }
 
 static const rr_frontend_ops_t ops = {
-   .irc_nick_prompt = nick_prompt, .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab, .chat_status_active =
-      current_status
+   .irc_nick_prompt = nick_prompt, .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove =
+      remove_status_tab, .chat_status_active = current_status
 };
 const rr_frontend_ops_t *frontend_ops(void) {
    return tui_only ? NULL : &ops;
@@ -241,7 +246,11 @@ int main(void) {
    tui_only = true;
    mg_iobuf_del(&ac->send, 0, ac->send.len);
    const char *conflict = "{\"msg.arg2\":\"alice\"}";
-   for (unsigned i = 0; i < 8; i++) event_emit("irc.nick-in-use", a, conflict);
+
+   for (unsigned i = 0 ; i < 8 ; i++) {
+      event_emit("irc.nick-in-use", a, conflict);
+   }
+
    assert(ac->send.len && strstr((char *)ac->send.buf, "NICK alice_\r\n"));
    assert(strstr((char *)ac->send.buf, "NICK alice__\r\n"));
    assert(nick_prompts == 0);
@@ -584,7 +593,11 @@ int main(void) {
    rrconn_t *nick_conn = ws_conn;
    nick_conn->connected = now;
    tui_only = true;
-   for (unsigned i = 0; i < 56; i++) event_emit("irc.nick-in-use", nick_conn, "{\"msg.arg2\":\"busy\"}");
+
+   for (unsigned i = 0 ; i < 56 ; i++) {
+      event_emit("irc.nick-in-use", nick_conn, "{\"msg.arg2\":\"busy\"}");
+   }
+
    assert(!nick_conn->conn->is_closing);
    event_emit("irc.nick-in-use", nick_conn, "{\"msg.arg2\":\"busy\"}");
    assert(nick_conn->conn->is_closing);

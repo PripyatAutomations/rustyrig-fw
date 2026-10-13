@@ -1,5 +1,11 @@
 This is the source for rustyrig remote station.
 
+rrclient notes:
+- See /help -- seriously!
+- For now, admin tab only applies to server selected under status tab
+- To switch selected servers in status tab use ctrl-enter.
+- ctrl-left/ctrl-right or ctrl+1-0 will switch admin tab sections	
+
 For now it's easiest just to build/run it from this folder, but installing it should probably work.
 
 See QUICKSTART.txt for instructions of use!

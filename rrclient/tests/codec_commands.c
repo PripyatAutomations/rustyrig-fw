@@ -90,9 +90,12 @@ bool media_send_codec_select(rrconn_t *cptr, const char *codec, const char *uuid
 
    return true;
 }
+
 static rr_media_transport_t last_transport;
 bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_transport_t mode) {
-   last_transport = mode; return true;
+   last_transport = mode;
+
+   return true;
 }
 bool media_send_subscribe(rrconn_t *cptr, const char *uuid) {
    subscribed++;
@@ -106,10 +109,24 @@ bool media_send_unsubscribe(rrconn_t *cptr, const char *uuid) {
    return !fail_send;
 }
 
-const char *rrclient_connection_name(const rrconn_t *client) { (void)client; return "test"; }
+const char *rrclient_connection_name(const rrconn_t *client) {
+   (void)client;
+
+   return "test";
+}
+
 static bool direct_preference = true;
-bool rrclient_direct_preferred(const char *profile) { (void)profile; return direct_preference; }
-bool rrclient_direct_set_preference(rrconn_t *client, bool enabled) { (void)client; direct_preference = enabled; return true; }
+bool rrclient_direct_preferred(const char *profile) {
+   (void)profile;
+
+   return direct_preference;
+}
+bool rrclient_direct_set_preference(rrconn_t *client, bool enabled) {
+   (void)client;
+   direct_preference = enabled;
+
+   return true;
+}
 static void announce(const char *uuid, const char *codec, int vfo) {
    dict *d = dict_new();
    dict_add(d, "media.chan-uuid", uuid);
@@ -361,17 +378,27 @@ int main(void) {
    known_chans[2] = (struct rr_media_known) {
       .uuid = "other", .room = "#beta-rig1", .subsystem = 1, .subscribed = true
    };
-   char *direct[] = {"media", "sub", "-direct", "one"};
-   char *proxy[] = {"media", "subscribe", "one", "-proxy"};
-   char *conflict[] = {"media", "sub", "-direct", "-proxy", "one"};
+   char *direct[] = {
+      "media", "sub", "-direct", "one"
+   };
+   char *proxy[] = {
+      "media", "subscribe", "one", "-proxy"
+   };
+   char *conflict[] = {
+      "media", "sub", "-direct", "-proxy", "one"
+   };
    assert(!cmd_media(4, direct) && last_transport == RR_MEDIA_DIRECT);
    assert(!cmd_media(4, proxy) && last_transport == RR_MEDIA_PROXY);
    before_sub = subscribed;
    assert(cmd_media(5, conflict) && subscribed == before_sub);
-   char *toggle[] = {"media", "direct", "off"};
+   char *toggle[] = {
+      "media", "direct", "off"
+   };
    assert(!cmd_media(3, toggle) && !direct_preference);
-   toggle[2] = "on"; assert(!cmd_media(3, toggle) && direct_preference);
-   toggle[2] = "invalid"; assert(cmd_media(3, toggle) && direct_preference);
+   toggle[2] = "on";
+   assert(!cmd_media(3, toggle) && direct_preference);
+   toggle[2] = "invalid";
+   assert(cmd_media(3, toggle) && direct_preference);
    char *media_list[] = {
       "media"
    };

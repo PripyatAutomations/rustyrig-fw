@@ -6,67 +6,92 @@
 #include <stdio.h>
 
 bool rrserver_rtp_ports(const char *text, unsigned *first, unsigned *last) {
-   if (!text || !*text || !first || !last)
+   if (!text || !*text || !first || !last) {
       return false;
-   unsigned values[2] = { 0, 0 }, index = 0;
+   }
+   unsigned values[2] = {
+      0, 0
+   }, index = 0;
    bool digit = false;
-   for (const char *p = text; *p; p++) {
+
+   for (const char *p = text ; *p ; p++) {
       if (*p == '-' && !index && digit) {
          index = 1;
          digit = false;
          continue;
       }
-      if (!isdigit((unsigned char)*p))
+
+      if (!isdigit((unsigned char)*p)) {
          return false;
+      }
       values[index] = values[index] * 10 + (*p - '0');
-      if (values[index] > 65535)
+
+      if (values[index] > 65535) {
          return false;
+      }
       digit = true;
    }
-   if (!digit || !values[0] || (index && values[1] < values[0]))
+
+   if (!digit || !values[0] || (index && values[1] < values[0])) {
       return false;
+   }
    *first = values[0];
    *last = index ? values[1] : values[0];
+
    return true;
 }
 static bool rtp_section(const char *path, int line, const char *section, const char *input) {
    char *copy = strdup(input);
    bool ok = false;
-   if (!copy || strlen(section) >= 128 || strchr(section, '.') || (!strncmp(section, "rtp:", 4) && !section[4]))
+
+   if (!copy || strlen(section) >= 128 || strchr(section, '.') || (!strncmp(section, "rtp:", 4) && !section[4])) {
       goto done;
+   }
    char *value = strchr(copy, '=');
-   if (!value)
+
+   if (!value) {
       goto done;
+   }
    *value++ = 0;
    char *key = copy;
-   while (isspace((unsigned char)*key))
+   while (isspace((unsigned char)*key)) {
       key++;
-   while (isspace((unsigned char)*value))
+   }
+   while (isspace((unsigned char)*value)) {
       value++;
+   }
    char *end = key + strlen(key);
-   while (end > key && isspace((unsigned char)end[-1]))
+   while (end > key && isspace((unsigned char)end[-1])) {
       *--end = 0;
+   }
    end = value + strlen(value);
-   while (end > value && isspace((unsigned char)end[-1]))
+   while (end > value && isspace((unsigned char)end[-1])) {
       *--end = 0;
+   }
    unsigned first, last;
+
    if (!strcmp(key, "ports")) {
-      if (*value && !rrserver_rtp_ports(value, &first, &last))
+      if (*value && !rrserver_rtp_ports(value, &first, &last)) {
          goto done;
+      }
    } else if (!strcmp(key, "enabled") || !strcmp(key, "encrypt")) {
-      if (*value && strcmp(value, "true") && strcmp(value, "false"))
+      if (*value && strcmp(value, "true") && strcmp(value, "false")) {
          goto done;
-   } else if (strcmp(key, "bind") && strcmp(key, "host") && strcmp(key, "acl"))
+      }
+   } else if (strcmp(key, "bind") && strcmp(key, "host") && strcmp(key, "acl")) {
       goto done;
+   }
    char fullkey[256];
    snprintf(fullkey, sizeof(fullkey), "%s.%s", section, key);
    ok = dict_add(cfg, fullkey, value) == 0;
- done:
+done:
+
    if (!ok) {
       dict_add(cfg, "acl.invalid", "true");
       Log(LOG_CRIT, "rtp", "Invalid RTP configuration at %s:%d in [%s]", path, line, section);
    }
    free(copy);
+
    return !ok;
 }
 bool rrserver_direct_config_init(void) {

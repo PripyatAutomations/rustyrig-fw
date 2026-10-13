@@ -225,9 +225,10 @@ void fwdsp_reap_children(void) {
    }
    fwdsp_sigchld_pending = 0;
 
-   for (int i = 0; i < max_subprocs; i++) {
+   for (int i = 0 ; i < max_subprocs ; i++) {
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
       int status;
+
       if (subproc_reap(&sp->process, &status)) {
          if (on_fwdsp_exit) {
             on_fwdsp_exit(sp, status);
@@ -1028,11 +1029,11 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    args[n++] = fwdsp_path;
    args[n++] = "-f";
    args[n++] = fwdsp_config;
+
    if (sp->role == FWDSP_ROLE_PROCESSOR) {
       args[n++] = "-T";
       args[n++] = "-M";
-      args[n++] = sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" :
-         sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : "process";
+      args[n++] = sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" : sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : "process";
       args[n++] = "-P";
       args[n++] = pipeline_key + strlen("pipeline:");
    } else {
@@ -1043,6 +1044,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    args[n++] = "3";
    args[n++] = "-p";
    args[n++] = child_pipeline ? child_pipeline : "";
+
    if (sp->role != FWDSP_ROLE_PROCESSOR) {
       if (sp->is_tx) {
          args[n++] = "-t";
@@ -1054,16 +1056,28 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
       }
    }
    args[n] = NULL;
-   subproc_fd_t mappings[] = {{in_pipe[0], 0}, {out_pipe[1], 1}, {err_pipe[1], 2}, {control_pipe[0], 3}};
-   int close_fds[] = {in_pipe[0], in_pipe[1], out_pipe[0], out_pipe[1], err_pipe[0], err_pipe[1], control_pipe[0], control_pipe[1]};
-   for (size_t i = 0; i < 8; i++) {
+   subproc_fd_t mappings[] = { {
+                                  in_pipe[0], 0
+                               }, {
+                                  out_pipe[1], 1
+                               }, {
+                                  err_pipe[1], 2
+                               }, {
+                                  control_pipe[0], 3
+                               } };
+   int close_fds[] = {
+      in_pipe[0], in_pipe[1], out_pipe[0], out_pipe[1], err_pipe[0], err_pipe[1], control_pipe[0], control_pipe[1]
+   };
+
+   for (size_t i = 0 ; i < 8 ; i++) {
       if (close_fds[i] >= 0 && fcntl(close_fds[i], F_SETFD, FD_CLOEXEC) < 0) {
          free(fwdsp_path);
          goto failed;
       }
    }
-   bool started = subproc_spawn_fds(&sp->process, fwdsp_path, args, mappings,
-      sp->io_type == FW_IO_STDIO ? 4 : 0, close_fds, 8);
+
+   bool started = subproc_spawn_fds(&sp->process, fwdsp_path, args, mappings, sp->io_type == FW_IO_STDIO ? 4 : 0, close_fds, 8);
+
    if (!started) {
       free(fwdsp_path);
       goto failed;
@@ -1140,20 +1154,25 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
 
    return true;
 failed:
-   for (int i = 0; i < 2; i++) {
+
+   for (int i = 0 ; i < 2 ; i++) {
       if (in_pipe[i] >= 0) {
          close(in_pipe[i]);
       }
+
       if (out_pipe[i] >= 0) {
          close(out_pipe[i]);
       }
+
       if (err_pipe[i] >= 0) {
          close(err_pipe[i]);
       }
+
       if (control_pipe[i] >= 0) {
          close(control_pipe[i]);
       }
    }
+
    return false;
 }
 

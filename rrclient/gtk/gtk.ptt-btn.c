@@ -143,8 +143,7 @@ static void ptt_button_apply(void) {
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
       label = namebuf;
       cls = "ptt-active";
-   } else if (!ptt_active && ws_conn && ws_conn->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(ws_conn,
-      rrclient_current_room())) {
+   } else if (!ptt_active && ws_conn && ws_conn->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
       label = "REQUEST";
       cls = "ptt-offline";
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {
@@ -295,11 +294,15 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 
    struct rr_user *talker = tx_user();
+
    if (!ptt_active && !someone_else_transmitting(talker) && ws_conn && ws_conn->is_ws && media_have_priv("noob") &&
       !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
-      char vfo[2] = {vfo_state_get_active(), 0};
+      char vfo[2] = {
+         vfo_state_get_active(), 0
+      };
       ws_send_ptt_cmd_in_room(ws_conn, vfo, true, gtk_chat_current_room());
       ptt_button_set_state(false);
+
       return;
    }
 
@@ -406,10 +409,12 @@ bool ptt_button_hotkey_press(void) {
    if (ptt_hotkey_held || ptt_hotkey_ack) {
       return true;
    }
+
    if (ptt_btn_tot) {
       ptt_btn_tot = false;
       ptt_hotkey_ack = true;
       ptt_button_set_state(ptt_active);
+
       return true;
    }
    ptt_hotkey_held = true;
@@ -426,8 +431,10 @@ bool ptt_button_hotkey_press(void) {
 bool ptt_button_hotkey_release(void) {
    if (ptt_hotkey_ack) {
       ptt_hotkey_ack = false;
+
       return true;
    }
+
    if (!ptt_button || !ptt_hotkey_held) {
       return false;
    }
