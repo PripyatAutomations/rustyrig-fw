@@ -1,14 +1,15 @@
-* implement media ports maybe RTP or RTSP for /DCC AUDIO -
-  - binary frames from ws just thrown on the udp socket?
+* Mesh style multi-peer linking
+  - Each server should be able to peer to any number of peers
+  - We should track latency, loss, weight, etc metrics for each hop
+  - Build shortest path and lowest latency route cache
+  - Some algorithm to decide which paths to send messages to
+    such that they'll reach all subscribed nodes without duplication
+    or sending down unrelated tree branches
+  - Attempt re-routing internally as needed due to loss or latency
 
 * GUI pipeline composer/editor for gstreamer
 
 * Admin tab with user/room/etc management
-
-* Merge rrclient/rrserver maybe?
-  - would gain nice tui in rrserver
-  - gtk is already a module
-  - would aid in multinode linking later
 
 * Object browser / subscription manager UI
 

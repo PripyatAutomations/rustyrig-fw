@@ -1,5 +1,7 @@
 Immediate needs
 ---------------
+rrserver: Adjustable reconnect delay for peers
+
 rrclient: Maybe some sorta activity notification in inactive tabs later, and change text color if someone say my name
 
 rrclient: Make hotkeys configurable

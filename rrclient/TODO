@@ -1,6 +1,4 @@
 [general]
-- Make sure PTT button goes ORANGE on PTT expiry
-
 * make @username auto-complete once enough unique is typed
   - save last typed before completing so backspace will remove the completed part
     - continue completion only if user presses tab
