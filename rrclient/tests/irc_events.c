@@ -19,7 +19,15 @@ const char *login_user;
 rrconn_t *ws_conn, *ws_tx_conn;
 static char last_event[64];
 static dict *last, *last_talk;
-static unsigned events, rejoins, status_windows;
+static unsigned events, rejoins, status_windows, names_begins, names_ends;
+void userlist_names_begin(const char *room) {
+   assert(!strcmp(room, "#room"));
+   names_begins++;
+}
+void userlist_names_end(const char *room) {
+   assert(!strcmp(room, "#room"));
+   names_ends++;
+}
 static rrconn_t *expected_connection;
 static char irc_send_buffer[1024];
 static unsigned irc_sends;
@@ -423,6 +431,11 @@ int main(void) {
    assert(!irc_process_message(&client, ":server 353 tester = #room :@alice +bob"));
    assert(!strcmp(dict_get(last, "talk.user", ""), "bob"));
    assert(!strcmp(member.privs, "irc:v") && !strcmp(select_user_icon(&member), "+"));
+   assert(names_begins == 1 && names_ends == 0);
+   assert(!irc_process_message(&client, ":server 353 tester = #room :charlie"));
+   assert(names_begins == 2 && names_ends == 0);
+   assert(!irc_process_message(&client, ":server 366 tester #room :End of NAMES list"));
+   assert(names_ends == 1);
    irc_process_message(&client, ":staff MODE #room +ov bob bob");
    assert(!strcmp(select_user_icon(&member), "@"));
    irc_process_message(&client, ":staff MODE #room -o bob");

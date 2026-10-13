@@ -504,3 +504,8 @@ prompts and a clickable grey REQUEST button for unsupervised noobs; TUI prints
 an alert in the TX room with `/supervise accept|decline <id> <room>` guidance.
 Consent is per login session and TX room; idle expiry and logout release PTT
 in `rrserver/supervision.c`. IRC does not participate.
+
+Native IRC rosters defer population redraws across 353 NAMES replies until
+366 ends that room's list. Pending batches belong to each connection and are
+cleared on room removal/disconnect. GTK keeps pending rosters intact during
+other room redraws. IRC batching has no browser counterpart.

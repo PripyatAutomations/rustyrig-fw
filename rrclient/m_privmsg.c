@@ -351,6 +351,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       event_emit_dict("room.topic", cptr, d);
    } else if (!strcmp(cmd, "353") && argc >= 5) {
       dict_add(d, "talk.room", dict_get(message, "msg.arg3", ""));
+      userlist_names_begin(dict_get(message, "msg.arg3", ""));
       char *names = strdup(dict_get(message, "msg.arg4", ""));
 
       if (names) {
@@ -375,6 +376,8 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
          free(names);
       }
+   } else if (!strcmp(cmd, "366") && argc >= 3) {
+      userlist_names_end(arg2);
    } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && (arg1[0] == '#' || arg1[0] == '&')) {
       bool adding = true;
       int parameter = 3;

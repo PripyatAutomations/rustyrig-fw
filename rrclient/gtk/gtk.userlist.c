@@ -439,7 +439,7 @@ static void userlist_set_columns(GtkWidget *view, const char *room) {
 }
 
 static void userlist_redraw_view(GtkWidget *view, const char *room) {
-   if (!view || !GTK_IS_TREE_VIEW(view)) {
+   if (!view || !GTK_IS_TREE_VIEW(view) || userlist_names_pending(room)) {
       return;
    }
    const char *profile = g_object_get_data(G_OBJECT(view), "rr-roster-server");

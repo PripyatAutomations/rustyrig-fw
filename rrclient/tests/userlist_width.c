@@ -337,3 +337,8 @@ int main(void) {
 
    return 0;
 }
+
+bool userlist_names_pending(const char *room) {
+   (void)room;
+   return false;
+}

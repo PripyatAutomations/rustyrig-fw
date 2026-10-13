@@ -71,6 +71,9 @@ extern void userlist_clear_all(void);  // destroys the list
 extern struct rr_user *userlist_find(const char *name);
 extern int userlist_compare(const struct rr_user *left, const struct rr_user *right);
 extern void userlist_sort(void);
+extern void userlist_names_begin(const char *room);
+extern void userlist_names_end(const char *room);
+extern bool userlist_names_pending(const char *room);
 extern void userlist_redraw_gtk(void);
 
 

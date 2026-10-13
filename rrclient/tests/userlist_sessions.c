@@ -8,8 +8,17 @@ bool dying;
 enum GuiMode ui_mode;
 time_t now;
 
+static unsigned redraws;
+static void redraw(void) {
+   redraws++;
+}
+static void refresh(void) {
+}
+static const rr_frontend_ops_t frontend = {
+   .userlist_redraw = redraw, .ptt_refresh = refresh
+};
 const rr_frontend_ops_t *frontend_ops(void) {
-   return NULL;
+   return &frontend;
 }
 const char *rrclient_current_room(void) {
    return "#site";
@@ -46,7 +55,40 @@ int main(void) {
    assert(userlist_remove_by_name_room("ADMIN", "#site"));
    assert(global_userlist == NULL);
 
-   puts("PASS: per-session quit preserves names roster until the final session leaves");
+   redraws = 0;
+   userlist_names_begin("#site");
+   userlist_names_begin("#SITE");
+   for (unsigned i = 0 ; i < 850 ; i++) {
+      char nick[32];
+      snprintf(nick, sizeof(nick), "user%04u", i);
+      d = userinfo(nick, 1);
+      assert(userlist_add_or_update(d));
+      dict_free(d);
+   }
+   assert(redraws == 0);
+   userlist_names_begin("#second");
+   assert(userlist_remove_by_name_room("user0000", "#site"));
+   assert(redraws == 0);
+   for (struct rr_user *u = global_userlist ; u && u->next ; u = u->next) {
+      assert(userlist_compare(u, u->next) <= 0);
+   }
+   void *other = NULL;
+   rrclient_userlist_context_swap(&other);
+   assert(!userlist_names_pending("#site"));
+   userlist_names_begin("#other");
+   rrclient_userlist_context_swap(&other);
+   assert(userlist_names_pending("#site"));
+   assert(!userlist_names_pending("#other"));
+   userlist_names_end("#site");
+   assert(redraws == 1);
+   assert(userlist_names_pending("#second"));
+   userlist_names_end("#site");
+   assert(redraws == 1);
+   userlist_clear_all();
+   rrclient_userlist_context_free(other);
+   assert(!userlist_names_pending("#other"));
+
+   puts("PASS: per-session quit and 850-user NAMES batching, sorting, interleaved rooms and connection isolation");
 
    return 0;
 }

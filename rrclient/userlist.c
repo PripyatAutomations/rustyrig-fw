@@ -29,6 +29,57 @@ extern dict *cfg;
 extern bool dying;              // main.c
 struct rr_user *global_userlist = NULL;
 
+/* IRC NAMES may span multiple replies and rooms on each connection. */
+typedef struct userlist_batch {
+   char *room;
+   struct userlist_batch *next;
+} userlist_batch;
+static userlist_batch *names_batches;
+
+bool userlist_names_pending(const char *room) {
+   for (userlist_batch *batch = names_batches ; batch ; batch = batch->next) {
+      if (room && !strcasecmp(batch->room, room)) {
+         return true;
+      }
+   }
+   return false;
+}
+
+void userlist_names_begin(const char *room) {
+   if (!room || !*room || userlist_names_pending(room)) {
+      return;
+   }
+   userlist_batch *batch = calloc(1, sizeof(*batch));
+
+   if (!batch || !(batch->room = strdup(room))) {
+      abort();
+   }
+   batch->next = names_batches;
+   names_batches = batch;
+}
+
+static void userlist_refresh_ptt_status(void);
+
+void userlist_names_end(const char *room) {
+   for (userlist_batch **link = &names_batches ; *link ; link = &(*link)->next) {
+      userlist_batch *batch = *link;
+
+      if (room && !strcasecmp(batch->room, room)) {
+         *link = batch->next;
+         free(batch->room);
+         free(batch);
+
+         if (!dying && frontend_ops() && rrclient_present_context()) {
+            frontend_ops()->userlist_redraw();
+         }
+         if (!dying) {
+            userlist_refresh_ptt_status();
+         }
+         return;
+      }
+   }
+}
+
 static void userlist_refresh_ptt_status(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_redraw_topline();
@@ -195,17 +246,18 @@ bool userlist_add_or_update(dict *d) {
       *insert = c;
 
       // Another user starting/stopping TX changes the PTT button color
-      if (frontend_ops()) {
+      if (!userlist_names_pending(t_room) && frontend_ops()) {
          frontend_ops()->ptt_refresh();
       }
 
-      if (frontend_ops()) {
+      if (!userlist_names_pending(t_room) && frontend_ops()) {
          if (rrclient_present_context()) {
             frontend_ops()->userlist_redraw();
          }
       }
-      userlist_sort();
-      userlist_refresh_ptt_status();
+      if (!userlist_names_pending(t_room)) {
+         userlist_refresh_ptt_status();
+      }
 
       return true;
    }
@@ -231,7 +283,7 @@ bool userlist_add_or_update(dict *d) {
    strlcpy(n->ptt_room, dict_get(d, "talk.ptt-room", ""), sizeof(n->ptt_room));
    n->ptt_vfo = (t_ptt_vfo && t_ptt_vfo[0]) ? toupper((unsigned char)t_ptt_vfo[0]) : 0;
 
-   if (frontend_ops()) {
+   if (!userlist_names_pending(t_room) && frontend_ops()) {
       frontend_ops()->ptt_refresh();
    }
 
@@ -245,13 +297,14 @@ bool userlist_add_or_update(dict *d) {
 
    Log(LOG_CRAZY, "userlist", "Storing new userlist entry for %s at <%p> in userlist", n->name, n);
 
-   if (frontend_ops()) {
+   if (!userlist_names_pending(t_room) && frontend_ops()) {
       if (rrclient_present_context()) {
          frontend_ops()->userlist_redraw();
       }
    }
-   userlist_sort();
-   userlist_refresh_ptt_status();
+   if (!userlist_names_pending(t_room)) {
+      userlist_refresh_ptt_status();
+   }
 
    return true;
 }
@@ -273,14 +326,17 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
             global_userlist = next;
          }
          Log(LOG_DEBUG, "userlist", "Removing user %s from room %s at <%p>", name, c->room, c);
+         bool pending = userlist_names_pending(c->room);
          free(c);
 
-         if (frontend_ops()) {
+         if (!pending && frontend_ops()) {
             if (rrclient_present_context()) {
                frontend_ops()->userlist_redraw();
             }
          }
-         userlist_refresh_ptt_status();
+         if (!pending) {
+            userlist_refresh_ptt_status();
+         }
 
          return true;
       }
@@ -294,6 +350,7 @@ void userlist_remove_room(const char *room) {
    if (!room) {
       return;
    }
+   userlist_names_end(room);
    struct rr_user *c = global_userlist, *prev = NULL;
    while (c) {
       struct rr_user *next = c->next;
@@ -325,6 +382,12 @@ bool userlist_remove_by_name(const char *name) {
 
 // Clearing the userlist
 void userlist_clear_all(void) {
+   while (names_batches) {
+      userlist_batch *batch = names_batches;
+      names_batches = batch->next;
+      free(batch->room);
+      free(batch);
+   }
    struct rr_user *c = global_userlist, *next;
 
    if (!c) {
@@ -376,6 +439,7 @@ struct rr_user *userlist_find(const char *name) {
 /* Save/load the component view when entering a server connection context. */
 typedef struct {
    struct rr_user *global_userlist;
+   userlist_batch *names_batches;
 } rrclient_userlist_context;
 void rrclient_userlist_context_swap(void **saved) {
    if (!*saved) {
@@ -386,6 +450,9 @@ void rrclient_userlist_context_swap(void **saved) {
       }
    }
    rrclient_userlist_context *state = *saved;
+   userlist_batch *temporary_batches = names_batches;
+   names_batches = state->names_batches;
+   state->names_batches = temporary_batches;
    {
       __typeof__(global_userlist) temporary;
       memcpy(&temporary, &global_userlist, sizeof(global_userlist));

@@ -216,3 +216,8 @@ int main(void) {
    }
    puts("PASS: docked VFO rows use the shared selector; detached and right-click rows do not");
 }
+
+bool userlist_names_pending(const char *room) {
+   (void)room;
+   return false;
+}
