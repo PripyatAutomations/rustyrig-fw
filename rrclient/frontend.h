@@ -99,6 +99,7 @@ typedef struct rr_frontend_ops {
    void (*notify)(const char *title, const char *message);
 
    /* Database administration response, owned by the server. */
+   void (*supervision_result)(const char *data, rrconn_t *connection);
    void (*admin_result)(const char *data, rrconn_t *connection);
 
    /* IRC nickname conflict prompt; NULL nickname closes the profile prompt. */

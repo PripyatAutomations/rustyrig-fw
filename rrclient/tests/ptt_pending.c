@@ -15,9 +15,13 @@ const char *rrclient_current_room(void) {
 }
 void vfo_controls_set_ptt_state(bool locked, bool local) {
 }
-rrconn_t *ws_conn;
+static rrconn_t connection = {.is_ws = true};
+rrconn_t *ws_conn = &connection;
 int cfg_ui_ptt_ack_timeout = 2, cfg_ui_ptt_hold_delay = 250;
 time_t poll_block_expire, poll_block_delay;
+static bool noob, supervised;
+bool media_have_priv(const char *priv) { return noob && !strcmp(priv, "noob"); }
+bool rrclient_supervision_granted(rrconn_t *connection, const char *room) { return supervised; }
 static unsigned ptt_sends;
 bool ws_send_ptt_cmd_in_room(rrconn_t *connection, const char *vfo, bool state, const char *room) {
    (void)connection; (void)vfo; (void)state; (void)room;
@@ -66,6 +70,18 @@ int main(void) {
       ptt_button = gtk_toggle_button_new_with_label("PTT OFF");
       ptt_toggled_handler = g_signal_connect(ptt_button, "toggled", G_CALLBACK(on_ptt_toggled), NULL);
       ptt_btn_online = true;
+      ptt_btn_tot = false;
+      noob = true;
+      ptt_button_refresh();
+      assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "REQUEST"));
+      assert(gtk_widget_get_sensitive(ptt_button));
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), TRUE);
+      assert(ptt_sends == 1 && !ptt_active && !ptt_button_pending);
+      supervised = true;
+      ptt_button_refresh();
+      assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "PTT OFF"));
+      noob = false;
+      ptt_sends = 0;
       ptt_button_tot_expired(60);
       assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "TOT EXPIRE"));
       ptt_button_set_state(false);

@@ -422,7 +422,9 @@ char **client_cmd_completions(const char *line, const char *word) {
       } else if (!strcasecmp(command, "/link")) {
          if (arg == 1) completion_words(&matches, &count, "LIST OPEN CLOSE", word);
       } else if (!strcasecmp(command, "/admin")) {
-         if (arg == 1) completion_words(&matches, &count, "USERS ROOMS AUDIT PTT", word);
+         if (arg == 1) completion_words(&matches, &count, "USERS ROOMS QUOTAS AUDIT PTT", word);
+      } else if (!strcasecmp(command, "/supervise")) {
+         if (arg == 1) completion_words(&matches, &count, "ACCEPT DECLINE", word);
       } else if (!strcasecmp(command, "/quota")) {
          bool unit = first && (!strcasecmp(first, "TX") || !strcasecmp(first, "BW"));
          const char *action = unit ? second : first;

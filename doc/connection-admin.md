@@ -34,16 +34,24 @@ TOT shutdown. State updates do not clear it. The next click acknowledges
 locally without sending a PTT command; subsequent clicks work normally.
 GTK PTT shortcut acknowledgement also consumes repeats and release.
 
-The Admin page requests SQLite users, rooms, audit events, and PTT sessions.
-Inventory includes offline and locked users and deleted rooms. Edit changes
-account privileges or room topics; Lock/Unlock and Remove/Restore use existing
-server commands and their permissions. Accounts never expose password hashes.
+The Admin page requests SQLite users, rooms, quotas, audit events, and PTT sessions.
+Inventory includes offline and locked users and deleted rooms. Edit changes email, maximum sessions, enabled status, privileges, password expiry
+(Unix seconds, blank means never), and required password change. Account name,
+UID and password-set timestamp are read-only; Reset password uses the existing
+server command. Lock/Unlock and Remove/Restore retain server permissions.
+Quotas show TX seconds and bandwidth bytes, with SET/ADD actions using existing
+TX duration syntax (30m, 2h) and decimal BW units (10M, 1G).
+Audit and PTT sections are titled Audit Log and PTT Log.
+Remove requires confirmation. The first room removal is reversible; removing
+an already-deleted room warns that it permanently deletes metadata and all chat
+history. The GUI uses the same session-bound, expiring server challenge as CLI
+removal. Recording files and PTT logs are retained. Accounts never expose password hashes.
 Each response page contains at most 100 rows, newest first. Load older / more
 uses an exclusive row ID cursor, avoiding duplicate rows when logs grow.
 Refresh starts a new listing. GTK binds each table and action to its issuing
 server profile; browser actions use its current connection.
 
-`/admin users|rooms|audit|ptt [before-id]` provides the same inventory in TUI.
+`/admin users|rooms|quotas|audit|ptt [before-id]` provides the same inventory in TUI.
 The server authorizes each request independently. Additive `talk.link` and
 `talk.admin` operations are registered in the authoritative wire schema.
 Admin responses use `talk.target` for the table, `talk.action` for
@@ -51,3 +59,30 @@ Admin responses use `talk.target` for the table, `talk.action` for
 contains selected database fields; END contains `next` (0 means no more rows).
 SQLite remains owned by rrserver. Libraries dispatch application events and
 frontends present the results.
+
+
+## Explicit noob supervision
+
+A noob's first PTT attempt in a TX room requests supervision; it never keys RF.
+Eligible logged-in elmers receive a GTK/browser dialog or TUI alert in that TX
+room. Accepting explicitly acknowledges responsibility for the noob's actions
+and being the station's recognized control operator. TUI uses
+`/supervise accept|decline <request-id> <rig-room>`; decline also withdraws
+previous consent. Noob PTT controls show a clickable grey REQUEST while consent
+is missing. Approval restores normal PTT; the noob must press it again to transmit.
+The orange TOT EXPIRE acknowledgement takes precedence over REQUEST.
+
+Grants belong to one noob login session and TX room, not to the username or
+persistent account flags. Separate clients sharing the same username need
+separate approvals. Multiple elmer sessions may accept; losing the last active
+supervisor revokes access and releases PTT, retrying if the backend fails.
+`[general] noob.supervisor-idle-seconds` defaults to 300. Deliberate chat, CAT
+setters, property writes and supervision replies count as operator activity;
+polls, keepalives and audio frames do not. An expired grant requires fresh
+consent. Pending requests are offered to newly logged-in elmers as well.
+
+The authoritative rig server owns consent, including relayed noob/elmer sessions
+present there. `talk.supervise` replies include action, request ID in target,
+TX room, requesting user and explanation in data. Replies use data
+`accept|decline <id>` with the same room. Libraries emit application events and
+fail closed when no server supervision listener exists. IRC is unaffected.

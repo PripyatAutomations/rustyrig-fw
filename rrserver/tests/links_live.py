@@ -318,7 +318,7 @@ acl=media-staff
             return rows, metadata
         users, _ = admin_page('users')
         assert any(row['name'] == 'OFFLINE' and str(row['enabled']) == '0' for row in users), users
-        assert all('password' not in row and 'password_set' not in row for row in users)
+        assert all('password' not in row and 'password_set' in row for row in users)
         rooms, _ = admin_page('rooms')
         assert any(row['name'] == '#ordinary-local' for row in rooms)
         audit, page = admin_page('audit')

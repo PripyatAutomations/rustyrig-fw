@@ -489,8 +489,18 @@ RustyRig usernames allow multiple sessions and do not use nickname fallback.
 
 Native GTK `gtk.admin.c` and browser `js/webui.admin.js` display server-owned
 SQLite inventory and paged audit/PTT logs through `talk.admin`. Both provide
-account privilege edits, Lock/Unlock, room topic edits and Remove/Restore.
+database account edits, password reset, TX/BW quota management, Lock/Unlock,
+room topic edits and confirmed Remove/Restore. Permanent room removal warns
+that chat history will be lost.
 Native TUI uses `/admin`. `/link list|open|close` has matching C/JS command
 semantics and controls stored peers on the connected server. GTK and browser
 PTT controls retain orange `TOT EXPIRE` until a local acknowledgement click,
 which sends no command. See [Connection recovery and administration](connection-admin.md).
+
+
+Native `rrclient/supervision.c` and browser `js/webui.admin.js` consume
+server-authoritative `talk.supervise` events. GTK/browser show responsibility
+prompts and a clickable grey REQUEST button for unsupervised noobs; TUI prints
+an alert in the TX room with `/supervise accept|decline <id> <room>` guidance.
+Consent is per login session and TX room; idle expiry and logout release PTT
+in `rrserver/supervision.c`. IRC does not participate.

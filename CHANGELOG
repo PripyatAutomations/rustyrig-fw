@@ -1,5 +1,13 @@
 rustyrig-fw (20261012.03) testing; urgency=medium
 
+  * Expand database account editing and add TX/BW quota administration. Rename
+    Audit Log and PTT Log tabs; confirm all admin removals and explicitly warn
+    before permanently deleting a deleted room and its chat history.
+  * Require session- and TX-room-specific noob supervision accepted by an elmer.
+    Show GTK/browser responsibility dialogs and TUI room alerts; revoke consent
+    and release PTT when the last supervisor logs out or exceeds the configurable
+    idle interval (300 seconds by default). Show clickable grey REQUEST before
+    consent, preserving the orange TOT acknowledgement priority.
   * Add global/per-peer link reconnect intervals and per-server client intervals,
     defaulting to 60 seconds. Add admin /link list, open and close commands;
     manual close blocks retries and incoming redials until reopened.
@@ -70,7 +78,7 @@ rustyrig-fw (20261012.03) testing; urgency=medium
     Cover disabled owner RTP, sustained/invalid audio, permissions and revocation,
     including proxy-only builds without SRTP.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 23:11:46 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 23:52:40 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

@@ -518,8 +518,7 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          goto done;
       }
 
-      if (!client->user || client->user->is_muted || !has_priv(client->user->uid, "admin|owner|tx|noob") ||
-         (has_priv(client->user->uid, "noob") && !is_elmer_online())) {
+      if (!client->user || client->user->is_muted || !has_priv(client->user->uid, "admin|owner|tx|noob")) {
          code = "forbidden";
          goto done;
       }
@@ -568,6 +567,12 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
 
       if (!rr_object_value_get(d, "property.value", schema.type, &control.value)) {
          code = "invalid-value";
+         goto done;
+      }
+      bool releasing = !strcmp(name, RR_PROP_PTT) && !control.value.i && client->is_ptt;
+      if (!releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio),
+         !strcmp(name, RR_PROP_PTT) && control.value.i)) {
+         code = "supervision-required";
          goto done;
       }
       rr_property_snapshot_t state;

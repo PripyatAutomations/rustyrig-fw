@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <rrserver/relay.c>
 
+bool rrserver_supervision_allowed(rrconn_t *client) { return true; }
 static bool media_ready, reject_release;
 static unsigned releases;
 

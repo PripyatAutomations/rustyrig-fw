@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix="rr-transport-audit-") as temporary:
     database = work / "master.db"
     with sqlite3.connect(database) as db:
         db.executescript((ROOT / "sql/sqlite.master.sql").read_text())
-        for uid, name, privileges in [(1, "ADMIN", "admin,tx,chat"), (2, "TX", "tx,chat"), (3, "LIMITED", "tx,chat"), (4, "OWNER", "owner,chat"), (5, "ELMER", "elmer,chat"), (6, "NOOB", "noob,chat")]:
+        for uid, name, privileges in [(1, "ADMIN", "admin,tx,chat"), (2, "TX", "tx,chat"), (3, "LIMITED", "tx,chat"), (4, "OWNER", "owner,chat"), (5, "ELMER", "elmer,chat"), (6, "NOOB", "noob,chat"), (7, "EDIT", "view")]:
             db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(?,?,1,?,3,?)",
                 (uid, name, hashlib.sha1(b"test-password").hexdigest(), privileges))
         db.execute("INSERT INTO tx_credits(name,credits) VALUES('ADMIN',1000)")
@@ -147,6 +147,35 @@ enabled=false
             print("PASS: HTTP exact routes, read-only methods, encoded paths, hidden files and symlink confinement")
             login(first, "ADMIN")
             drain(first)
+            def admin(action='', target='', data=''):
+                first.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'admin', 'action': action, 'target': target, 'data': data}})
+            fields = dict(email='edit@example.test', maxsessions='2', permissions='chat,view', enabled='1', password_change_required='0', password_expires='0')
+            admin('user-edit', 'EDIT', json.dumps(fields))
+            first.until(lambda m: m.get('talk', {}).get('action') == 'changed')
+            with sqlite3.connect(database) as db:
+                assert db.execute("SELECT email,maxsessions,permissions FROM users WHERE name='EDIT'").fetchone() == ('edit@example.test',2,'chat,view')
+                assert db.execute("SELECT password FROM users WHERE name='EDIT'").fetchone()[0] == hashlib.sha1(b'test-password').hexdigest()
+                db.execute("INSERT INTO rooms(name) VALUES('#review')")
+                db.execute("INSERT INTO chat_log(msg_src,msg_dest,msg_type,msg_data) VALUES('ADMIN','#review','pub','history')")
+            fields['permissions'] = 'owner'
+            admin('user-edit', 'EDIT', json.dumps(fields))
+            first.until(lambda m: m.get('msg', {}).get('type') == 'error')
+            with sqlite3.connect(database) as db:
+                assert db.execute("SELECT permissions FROM users WHERE name='EDIT'").fetchone()[0] == 'chat,view'
+            admin(data='quotas')
+            first.until(lambda m: m.get('talk', {}).get('target') == 'quotas' and m['talk'].get('action') == 'end')
+            for permanent in (False, True):
+                admin('room-remove', '#review')
+                question = json.loads(first.until(lambda m: m.get('talk', {}).get('action') == 'confirm')['talk']['data'])
+                assert question['deleted'] is permanent
+                with sqlite3.connect(database) as db:
+                    assert db.execute("SELECT count(*) FROM chat_log WHERE msg_dest='#review'").fetchone()[0] == 1
+                admin('room-remove', '#review', question['confirmation'])
+                first.until(lambda m: m.get('talk', {}).get('action') == 'changed')
+                with sqlite3.connect(database) as db:
+                    assert db.execute("SELECT count(*) FROM rooms WHERE name='#review'").fetchone()[0] == (0 if permanent else 1)
+                    assert db.execute("SELECT count(*) FROM chat_log WHERE msg_dest='#review'").fetchone()[0] == (0 if permanent else 1)
+            print('PASS: expanded database editor, credential preservation, protected roles, quotas and confirmed soft/permanent room deletion')
             malformed = [b'{"msg":{"type":"cat"},"cat":{"cmd":"ptt","vfo":"A","ptt":true},}',
                 b'{"msg":{"type":"cat"},"msg.type":"auth"}', b'{"a":"trailing\\',
                 b'{"a"', b'{"a":1 "b":2}', b'[' * 512 + b'0' + b']' * 512,
@@ -241,6 +270,11 @@ enabled=false
             key(second)
             time.sleep(1.1)  # ensure session AUDIT includes measurable TX duration
             stop(first, "TX")
+            deny(noob, True)  # Presence alone never grants control.
+            invitation = elmer.until(lambda m: m.get('talk', {}).get('cmd') == 'supervise' and m['talk'].get('action') == 'request')['talk']
+            assert 'control operator' in invitation['data'] and invitation['room'] == '#transport-rig0'
+            elmer.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'supervise', 'room': invitation['room'], 'data': 'accept ' + invitation['target']}})
+            noob.until(lambda m: m.get('talk', {}).get('action') == 'granted')
             key(noob)
             stop(second, "NOOB")
             key(noob)
@@ -264,6 +298,12 @@ enabled=false
             for staff in [owner, elmer]:
                 staff.send({"msg":{"type":"talk"},"talk":{"cmd":"whois","target":"TX"}})
                 assert "tx-remaining" in staff.until(lambda m: m.get("talk",{}).get("cmd")=="whois")["talk"]["usage"]
+            key(noob)
+            elmer.socket.close()
+            noob.until(lambda m: m.get('talk', {}).get('action') == 'revoked')
+            noob.until(lambda m: m.get('cat', {}).get('ptt') is False or m.get('cat', {}).get('state', {}).get('ptt') is False)
+            deny(noob, True)
+            print('PASS: logout of the last accepting elmer revokes consent and releases active PTT')
             second.send({"msg": {"type": "talk"}, "talk": {"cmd": "whois", "target": "ADMIN"}})
             assert "usage" not in second.until(lambda m: m.get("talk", {}).get("cmd") == "whois")["talk"]
             drain(second)

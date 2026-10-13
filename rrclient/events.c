@@ -1,3 +1,4 @@
+#include <rrclient/supervision.h>
 #include <rrclient/dcc.h>
 #include <rrclient/media.direct.h>
 //
@@ -550,6 +551,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       cmd_list(0, NULL);
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
       ui_print(NULL, "%s *** \00304DISCONNECTED\017 ***", get_chat_ts(now));
+      rrclient_supervision_clear(cptr);
       rrclient_set_offline();
 
       if (frontend_ops() && cfg_get_bool("ui.auto-show-userlist", true)) {
@@ -583,6 +585,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
          ui_print(NULL, "%s \00304*** Unable to reach server\017", get_chat_ts(now));
       }
       free((void *)err);
+      rrclient_supervision_clear(cptr);
       rrclient_set_offline();
    } else if (strcasecmp(event, "error") == 0) {
       // Non-fatal protocol error message from the server (cli.error.c);
@@ -1538,6 +1541,7 @@ void rrclient_register_events(void) {
 
    // this is where notices in the client come from
    event_on("notice.msg", rrclient_handle_notice, NULL);
+   event_on("supervise.result", rrclient_supervision_result, NULL);
    event_on("admin.result", rrclient_handle_admin_result, NULL);
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);

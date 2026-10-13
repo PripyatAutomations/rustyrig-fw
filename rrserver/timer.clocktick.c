@@ -1,3 +1,4 @@
+#include <rrserver/supervision.h>
 //
 // rrserver/timer.clocktick.c: Periodic (1hz) timer
 //    This is part of rustyrig-fw.
@@ -53,6 +54,7 @@ void timer_clock_tick_fn(void *arg) {
    ws_callsign_lookup_poll();
 
    rrserver_media_recording_tick();
+   rrserver_supervision_tick();
 
    // Check thermals
    if (are_we_on_fire()) {

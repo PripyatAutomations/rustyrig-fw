@@ -1,3 +1,4 @@
+#include <rrserver/supervision.h>
 #include <rrserver/acl.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
@@ -457,6 +458,10 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
 }
 #endif
 
+#ifdef USE_SQLITE
+static bool admin_send(rrconn_t *, const char *, const char *, dict *);
+#endif
+
 static void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
       return;
@@ -523,7 +528,18 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
          challenge->expires = now + 300;
          challenge->force = force;
          challenge->history = history;
-         ws_send_notice(cptr, "To confirm, please use /room remove %s%s%s %s", room, force ? " --force" : "", history ? " --history" : "", challenge->token);
+         if (!strcmp(dict_get(d, "talk.action", ""), "admin-remove")) {
+            dict *row = dict_new();
+            if (row) {
+               dict_add(row, "room", room);
+               dict_add(row, "confirmation", challenge->token);
+               dict_add_bool(row, "deleted", deleted);
+               admin_send(cptr, "rooms", "confirm", row);
+               dict_free(row);
+            }
+         } else {
+            ws_send_notice(cptr, "To confirm, please use /room remove %s%s%s %s", room, force ? " --force" : "", history ? " --history" : "", challenge->token);
+         }
       }
       dict_free(d);
 
@@ -565,6 +581,9 @@ static void rrserver_handle_room_delete(const char *event, const char *data, rrc
          ws_client_part_room(cur, room);
       }
    }
+#ifdef USE_SQLITE
+   if (!strcmp(dict_get(d, "talk.action", ""), "admin-remove")) admin_send(cptr, "rooms", "changed", NULL);
+#endif
    dict_free(d);
 }
 
@@ -1993,6 +2012,60 @@ static bool admin_send(rrconn_t *client, const char *table, const char *action, 
    return sent;
 }
 
+/* Full account edits are atomic. Account identity and credential hashes are never editable here. */
+static void admin_user_edit(rrconn_t *client, dict *request) {
+   const char *name = dict_get(request, "talk.target", "");
+   int uid = http_getuid(name);
+   dict *fields = json2dict(dict_get(request, "talk.data", "{}"));
+   if (!fields || uid < 0 || !user_target_allowed(client->user, &http_users[uid], false)) {
+      ws_send_error(client, "Account unavailable or protected");
+      dict_free(fields);
+      return;
+   }
+   const char *email = dict_get(fields, "email", "");
+   const char *privs = dict_get(fields, "permissions", "");
+   const char *enabled = dict_get(fields, "enabled", "");
+   const char *required = dict_get(fields, "password_change_required", "");
+   const char *sessions = dict_get(fields, "maxsessions", "");
+   const char *expiry = dict_get(fields, "password_expires", "");
+   char *end;
+   errno = 0;
+   long maximum = strtol(sessions, &end, 10);
+   bool valid = *sessions && !*end && !errno && maximum >= 1 && maximum <= HTTP_MAX_SESSIONS;
+   errno = 0;
+   long long expires = *expiry ? strtoll(expiry, &end, 10) : 0;
+   valid = valid && (!*expiry || (!*end && !errno && expires >= 0));
+   valid = valid && strlen(email) <= USER_EMAIL_LEN && !strchr(email, '\n') && !strchr(email, '\r') &&
+      (!strcmp(enabled, "0") || !strcmp(enabled, "1")) && (!strcmp(required, "0") || !strcmp(required, "1")) &&
+      user_privilege_list_valid(privs, true) && (has_priv(client->user->uid, "owner") || !user_privilege_has_elevated(privs));
+   if (uid == client->user->uid && !strcmp(enabled, "0")) valid = false;
+   if (!valid) {
+      ws_send_error(client, "Invalid account fields, protected privileges, or attempted self-lock (sessions must be 1..32; expiry is Unix seconds)");
+      dict_free(fields);
+      return;
+   }
+   sqlite3_stmt *stmt = NULL;
+   bool ok = masterdb && sqlite3_prepare_v2(masterdb,
+      "UPDATE users SET email=?,permissions=?,enabled=?,maxsessions=?,password_change_required=?,password_expires=? WHERE name=? COLLATE NOCASE",
+      -1, &stmt, NULL) == SQLITE_OK;
+   if (ok) {
+      sqlite3_bind_text(stmt, 1, email, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 2, !strcasecmp(privs, "none") ? "" : privs, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_int(stmt, 3, atoi(enabled));
+      sqlite3_bind_int(stmt, 4, maximum);
+      sqlite3_bind_int(stmt, 5, atoi(required));
+      if (expires) sqlite3_bind_int64(stmt, 6, expires); else sqlite3_bind_null(stmt, 6);
+      sqlite3_bind_text(stmt, 7, name, -1, SQLITE_TRANSIENT);
+      ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(masterdb) == 1;
+   }
+   sqlite3_finalize(stmt);
+   if (ok) {
+      Log(LOG_AUDIT, "auth.users", "%s edited account %s", client->chatname, name);
+      if (user_reload_database(client)) admin_send(client, "users", "changed", NULL);
+   } else ws_send_error(client, "Unable to save account");
+   dict_free(fields);
+}
+
 #endif
 
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
@@ -2002,6 +2075,37 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
 #ifdef USE_SQLITE
    dict *request = data ? json2dict(data) : NULL;
    if (!request) return;
+   const char *action = dict_get(request, "talk.action", "");
+   if (!strcmp(action, "user-edit")) {
+      admin_user_edit(client, request);
+      dict_free(request);
+      return;
+   }
+   if (!strcmp(action, "room-remove")) {
+      const char *room = dict_get(request, "talk.target", "");
+      bool exists, deleted;
+      if (db_room_status(masterdb, room, &exists, &deleted) && exists) {
+         dict *removal = dict_new();
+         if (removal) {
+            dict_add(removal, "msg.type", "talk");
+            dict_add(removal, "talk.cmd", "room-removed");
+            dict_add(removal, "talk.user", client->chatname);
+            dict_add_ulong(removal, "msg.ts", now);
+            dict_add(removal, "talk.room", room);
+            dict_add(removal, "talk.action", "admin-remove");
+            dict_add_bool(removal, "talk.force", deleted);
+            dict_add_bool(removal, "talk.history", deleted);
+            const char *token = dict_get(request, "talk.data", "");
+            if (*token) dict_add(removal, "talk.confirmation", token);
+            char *json = dict2json(removal);
+            rrserver_handle_room_delete("room.delete", json, client, NULL);
+            free(json);
+            dict_free(removal);
+         }
+      } else ws_send_error(client, "Room is unavailable for removal");
+      dict_free(request);
+      return;
+   }
    char input[256], table[16] = "users", cursor_text[32] = "", extra[2];
    snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
    dict_free(request);
@@ -2012,7 +2116,10 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    const char *sql = NULL;
    if (!strcasecmp(table, "users")) {
       strcpy(table, "users");
-      sql = "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+      sql = "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions,password_set,password_expires,password_change_required FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+   } else if (!strcasecmp(table, "quotas")) {
+      strcpy(table, "quotas");
+      sql = "SELECT u.rowid AS cursor,u.name,COALESCE(t.credits,'unset') AS tx_remaining,COALESCE(g.tx_seconds,0) AS tx_used,COALESCE(g.bandwidth_remaining,'unlimited') AS bandwidth_remaining,COALESCE(g.tx_text_bytes+g.tx_binary_bytes+g.rx_text_bytes+g.rx_binary_bytes,0) AS bandwidth_used FROM users u LEFT JOIN tx_credits t ON t.name=u.name COLLATE NOCASE LEFT JOIN user_usage g ON g.name=u.name COLLATE NOCASE WHERE (?=0 OR u.rowid<?) ORDER BY u.rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "rooms")) {
       strcpy(table, "rooms");
       sql = "SELECT rowid AS cursor,name,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
@@ -2024,7 +2131,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       sql = "SELECT id AS cursor,id,start_time,username,vfo,frequency,mode,duration,stop_reason,recording_id FROM ptt_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    }
    if (argc > 2 || !sql || errno == ERANGE || before < 0 || (end && (*end || end == cursor_text))) {
-      ws_send_error(client, "Usage: /admin users|rooms|audit|ptt [before-id]");
+      ws_send_error(client, "Usage: /admin users|rooms|quotas|audit|ptt [before-id]");
       return;
    }
    sqlite3_stmt *statement = NULL;
@@ -2072,6 +2179,7 @@ void rrserver_register_events(void) {
    rrserver_direct_register_events();
    rrserver_acl_register_events();
    rrserver_relay_register_events();
+   rrserver_supervision_register();
    rrserver_media_register_events();
    rrserver_usage_register_events();
    rr_ptt_register_accounting_events();

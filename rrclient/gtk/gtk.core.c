@@ -1239,9 +1239,11 @@ static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickna
    gtk_widget_show_all(dialog);
 }
 
+extern void gtk_supervision_result(const char *, rrconn_t *);
 extern void gtk_admin_result(const char *, rrconn_t *);
 
 const rr_frontend_ops_t gtk_frontend_ops = {
+   .supervision_result = gtk_supervision_result,
    .admin_result = gtk_admin_result,
    .irc_nick_prompt = frontend_gtk_irc_nick_prompt,
    .name = "gtk",

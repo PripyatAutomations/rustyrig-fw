@@ -24,6 +24,7 @@ rrclient_objs += cmd.tabs.o		# tab/window switching
 rrclient_objs += config.layers.o
 rrclient_objs += connman.o		# connection manager
 rrclient_objs += defconfig.o		# default config values
+rrclient_objs += supervision.o
 rrclient_objs += events.o		# event handlers
 rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
 rrclient_objs += m_privmsg.o		# irc privmsg (NYI)

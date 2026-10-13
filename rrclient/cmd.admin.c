@@ -540,3 +540,22 @@ bool cmd_link(int argc, char **args) {
 bool cmd_admin_query(int argc, char **args) {
    return send_management_command("admin", argc, args);
 }
+
+bool cmd_supervise(int argc, char **args) {
+   rrconn_t *client = rrclient_active_connection();
+   if (!client || !client->is_ws || argc != 4) {
+      ui_print(ui_active_window_name(), "Usage: /supervise accept|decline <request-id> <rig-room> (RustyRig only)");
+      return true;
+   }
+   dict *d = dict_new();
+   if (!d) return true;
+   char tail[96];
+   snprintf(tail, sizeof(tail), "%s %s", args[1], args[2]);
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "supervise");
+   dict_add(d, "talk.room", args[3]);
+   dict_add(d, "talk.data", tail);
+   bool sent = ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return !sent;
+}

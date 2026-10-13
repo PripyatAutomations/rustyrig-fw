@@ -7,6 +7,7 @@ time_t now;
 const char *login_user = NULL;
 rrconn_t *ws_conn;
 enum GuiMode ui_mode;
+void rrclient_supervision_clear(rrconn_t *client) { (void)client; }
 static unsigned confirmations;
 static unsigned room_list_requests;
 static unsigned room_rejoin_calls;

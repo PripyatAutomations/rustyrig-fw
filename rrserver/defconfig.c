@@ -362,6 +362,8 @@ defconfig_t defcfg[] = {
       "net.vlan", "4420", "VLAN to use for ethernet interface, 0 for untagged", DEFCONFIG_UINT, NULL
    },
    {
+      "noob.supervisor-idle-seconds", "300", "Seconds without deliberate operator activity before supervision expires", DEFCONFIG_UINT, NULL
+   }, {
       "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it (seconds)", DEFCONFIG_UINT, NULL
    },
    {

@@ -1,3 +1,4 @@
+#include <rrserver/supervision.h>
 #include "build_config.h"
 #include <stdio.h>
 #include <ctype.h>
@@ -1029,7 +1030,7 @@ static bool permitted_message(dict *d) {
       return !strcmp(dict_get(d, "property.cmd", ""), "set");
    }
 
-   return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") || !strcmp(cmd, "topic"));
+   return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") || !strcmp(cmd, "topic") || !strcmp(cmd, "supervise"));
 }
 static void route_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
@@ -1185,6 +1186,7 @@ static bool remove_remote(struct remote_session **link) {
    if (!r->client.authenticated && r->release_retry > (uint64_t) mono_us())
       return false;
    r->client.authenticated = false;
+   event_emit("protocol.session.closed", &r->client, NULL);
    ws_release_ptt_on_disconnect(&r->client);
    rrserver_direct_close(&r->client);
    if (r->client.is_ptt) {
@@ -1369,7 +1371,7 @@ bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t
    struct remote_session *r = remote_for(client);
    if (!r || !client->is_ptt || !proxy_tx_subscribed(r, room) || strcmp(client->ptt_room, room) ||
       !has_priv(client->user->uid, "admin|owner|tx|noob") ||
-      (has_priv(client->user->uid, "noob") && !is_elmer_online())) return false;
+      !rrserver_supervision_allowed(client)) return false;
    uint64_t heard = r->proxy_frame > r->proxy_started ? r->proxy_frame : r->proxy_started;
    return heard && at >= heard && at - heard < UINT64_C(3000000);
 }
@@ -2290,3 +2292,7 @@ char *rrserver_relay_rooms(const char *local) {
    return strdup(local ? local : "");
 }
 #endif
+
+void rrserver_relay_visit_sessions(void (*visit)(rrconn_t *, void *), void *data) {
+   for (struct remote_session *r = remotes; r; r = r->next) visit(&r->client, data);
+}

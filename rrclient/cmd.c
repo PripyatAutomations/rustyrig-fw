@@ -210,7 +210,7 @@ client_cmd_t client_cmds[] = {
          "Switch: /win <number>; /win close [-f|-force] parts/closes the current conversation; -force closes without waiting (status is protected)"
    },
    {
-      .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .max_args = 2, .desc = "Focus admin tab; USERS | ROOMS | AUDIT | PTT [before-id]"
+      .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .max_args = 2, .desc = "Focus admin tab; USERS | ROOMS | QUOTAS | AUDIT | PTT [before-id]"
    },
    {
       .cmd = "die", .help_section = "Administration", .cb = cmd_die, .admin = true, .desc = "Shutdown the server"
@@ -238,6 +238,9 @@ client_cmd_t client_cmds[] = {
       .cmd = "unmute", .help_section = "Administration", .cb = cmd_unmute, .admin = true, .desc = "Unmute a user"
    },
    {
+      .cmd = "supervise", .help_section = "Radio", .cb = cmd_supervise, .max_args = 3,
+      .desc = "ACCEPT|DECLINE <request-id> <rig-room>; accepting assumes control-operator responsibility"
+   }, {
       .cmd = "link", .help_section = "Administration", .cb = cmd_link, .max_args = 2, .admin = true,
       .desc = "LIST | OPEN <stored-peer> | CLOSE <stored-peer>"
    },

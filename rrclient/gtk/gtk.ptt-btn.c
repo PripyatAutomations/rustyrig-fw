@@ -1,3 +1,5 @@
+#include <rrclient/supervision.h>
+#include <rrclient/cmd.h>
 //
 // rrclient/gtk/gtk.ptt-btn.c: PTT button stuff
 //    This is part of rustyrig-fw.
@@ -141,6 +143,10 @@ static void ptt_button_apply(void) {
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
       label = namebuf;
       cls = "ptt-active";
+   } else if (!ptt_active && ws_conn && ws_conn->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(ws_conn,
+      rrclient_current_room())) {
+      label = "REQUEST";
+      cls = "ptt-offline";
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {
       label = "PENDING";
       cls = "ptt-pending";
@@ -289,6 +295,13 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 
    struct rr_user *talker = tx_user();
+   if (!ptt_active && !someone_else_transmitting(talker) && ws_conn && ws_conn->is_ws && media_have_priv("noob") &&
+      !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
+      char vfo[2] = {vfo_state_get_active(), 0};
+      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, gtk_chat_current_room());
+      ptt_button_set_state(false);
+      return;
+   }
 
    // Clicking a held transmitter requests STOP only, never a takeover.
    if (someone_else_transmitting(talker) && !i_can_halt_user(talker)) {
