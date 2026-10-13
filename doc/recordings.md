@@ -40,3 +40,23 @@ The headless regression test requires built binaries, GStreamer's
 ```
 bash tests/run-tests.sh fwdsp
 ```
+
+## Session playback through file transfer
+
+The Admin PTT list now includes `recording_id` and `stop_reason`, allowing
+session rows to be associated with recording segments. Playback links are
+not yet served. `librrprotocol/ws.file-xfer.c` has a private synchronous sender
+using legacy `file_meta` frames and binary chunks, but it is not a public,
+bounded recording-download service in the current compact wire protocol.
+
+The proposed AUDIT playback path is a server-authorized request by recording
+ID, resolved against PTT accounting records and actual completed recording
+segments under `path.record-dir`. Clients should not supply filesystem paths.
+The server should stream through a bounded transfer queue, preserve transfer
+cancellation on disconnect, and reject missing, active, or inaccessible files.
+Codec changes can create multiple segments with the same recording ID, so
+playback should list those segments rather than assume a single file.
+Browser playback can use a received Blob URL; native playback can use the
+existing audio pipeline after transfer. Register transfer request/metadata
+operations in the wire schema and mirror them in both clients before adding
+AUDIT playback links.

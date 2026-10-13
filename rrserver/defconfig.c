@@ -77,13 +77,16 @@ defconfig_t defcfg[] = {
       "links.max-servers", "128", "Maximum servers in linked tree (1-256)"
    },
    {
-      "links.retry-seconds", "5", "Delay before retrying peer autoconnect"
+      "links.retry-seconds", "60", "Delay before retrying peer autoconnect"
    },
    {
       "links.handshake-seconds", "10", "Maximum pending link handshake time"
    },
    {
       "peer.enabled", "false", "Enable this peer; named peer sections have the same keys"
+   },
+   {
+      "peer.retry-seconds", "", "Peer reconnect interval in seconds; empty inherits links.retry-seconds (60)"
    },
    {
       "peer.autoconnect", "false", "Connect automatically when URL is provided and peer is not linked"

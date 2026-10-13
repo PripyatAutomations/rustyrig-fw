@@ -92,6 +92,9 @@ defconfig_t defcfg[] = {
    {"dcc.audio.mute", "false", "Mute microphone on client-to-client DCC audio sessions", DEFCONFIG_BOOL, NULL},
    {"media.direct.prefer", "true", "Prefer authenticated direct RTP audio when available", DEFCONFIG_BOOL, NULL},
    {
+      "server.reconnect-interval", "60", "Seconds between reconnect attempts (1-3600); server profiles may override"
+   },
+   {
       "server.proxy", "", "Native SOCKS5 proxy URL; empty connects directly"
    },
    {

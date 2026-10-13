@@ -85,6 +85,7 @@ server.url={('ws://' if PLAINTEXT else 'wss://') + 'localhost:' + str(ports[remo
 password=disposable-link-secret
 site.name={remote}
 acl=test-local
+retry-seconds={2 if name == "alpha" and remote == "beta" else 1}
 '''
     def start(name, ca=None, deny_peers=False, direct_disabled=False):
         database = work / f'{name}.db'
@@ -298,6 +299,40 @@ acl=media-staff
             c.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
             return c
         origin, owner = login('alpha'), login('gamma')
+        # Admin listings come from SQLite, including offline/locked accounts.
+        with sqlite3.connect(work / 'alpha.db') as db:
+            db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(90,'OFFLINE',0,'secret-hash',1,'view')")
+            db.executemany("INSERT INTO audit_log(username,event_type,details) VALUES('TEST','fixture',?)", [(f'entry-{i}',) for i in range(105)])
+            db.execute("INSERT INTO ptt_log(username,vfo,frequency,mode,bandwidth,power,recording_id,stop_reason) VALUES('TEST','A',7200000,'LSB',2700,1,'recording-id','timeout')")
+        def admin_page(table, before=None):
+            origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'admin', 'data': table + (' ' + str(before) if before else '')}})
+            rows, metadata = [], {}
+            def complete(message):
+                if message.get('talk', {}).get('cmd') != 'admin': return False
+                reply = message['talk']
+                payload = json.loads(reply['data'])
+                if reply['action'] == 'row': rows.append(payload)
+                if reply['action'] == 'end': metadata.update(payload); return True
+                return False
+            origin.until(complete)
+            return rows, metadata
+        users, _ = admin_page('users')
+        assert any(row['name'] == 'OFFLINE' and str(row['enabled']) == '0' for row in users), users
+        assert all('password' not in row and 'password_set' not in row for row in users)
+        rooms, _ = admin_page('rooms')
+        assert any(row['name'] == '#ordinary-local' for row in rooms)
+        audit, page = admin_page('audit')
+        assert len(audit) == 100 and int(page['next']) > 0
+        older, _ = admin_page('audit', page['next'])
+        assert older and not {row['id'] for row in audit}.intersection(row['id'] for row in older)
+        ptt, _ = admin_page('ptt')
+        assert any(row['recording_id'] == 'recording-id' and row['stop_reason'] == 'timeout' for row in ptt)
+        denied = login('gamma', 'READER')
+        denied.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'admin', 'data': 'users'}})
+        denied.until(lambda message: message.get('msg', {}).get('type') == 'error')
+        denied.socket.close()
+        print('PASS: SQLite admin inventory, locked/offline accounts, credential exclusion, audit paging, PTT recording IDs and permission gate')
+
         origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'list'}})
         listed = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-list')
         assert '#gamma-rig0' in listed['talk']['rooms'], listed
@@ -438,6 +473,22 @@ acl=media-staff
             from media_direct_live import run_proxy
             run_proxy(login, work, media_ports['alpha'] + 7 if DIRECT_MEDIA else None)
         assert 'disposable-link-secret' not in ''.join(log(n) for n in processes)
+        origin = login("alpha")
+        # Explicit close suppresses outbound retries and incoming redials.
+        baseline = log('alpha').count('Linked site beta')
+        departures = log('alpha').count('Unlinked site beta')
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link', 'data': 'close peer'}})
+        origin.until(lambda message: 'close requested' in message.get('notice', {}).get('msg', ''))
+        wait(lambda: log('alpha').count('Unlinked site beta') > departures, 'manual peer close failed')
+        time.sleep(3)
+        assert log('alpha').count('Linked site beta') == baseline
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link', 'data': 'list'}})
+        status = origin.until(lambda message: 'retry=2s' in message.get('notice', {}).get('msg', ''))
+        assert 'closed' in status['notice']['msg']
+        origin.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link', 'data': 'open peer'}})
+        origin.until(lambda message: 'open requested' in message.get('notice', {}).get('msg', ''))
+        wait(lambda: log('alpha').count('Linked site beta') > baseline, 'manual peer open failed')
+        print('PASS: per-peer interval override, stored-peer close suppresses redials, open restores link')
         print(f'PASS: {LISTENER} listener, peer authentication, separate protocol, concurrent dials, incoming-only peer, branch-only withdrawal, component merging and autoconnect')
     except Exception:
         for name in processes:

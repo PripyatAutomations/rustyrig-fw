@@ -116,13 +116,9 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
       // Give the main window focus before scheduling the chat input grab.
       focus_main_window();
 
-      // Return focus to the chat input like alt-c does: switch to the chat
-      // page first, then grab the entry. The grab itself must be deferred
+      // Return focus without changing the selected tab. The grab itself must be deferred
       // to the idle loop, since focus-set during window destruction gets
       // overridden by GTK when the removal completes.
-      if (main_notebook) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
-      }
       g_idle_add((GSourceFunc) focus_chat_entry_idle, NULL);
 
       return TRUE;

@@ -98,6 +98,12 @@ typedef struct rr_frontend_ops {
    /* Desktop notification (best effort). */
    void (*notify)(const char *title, const char *message);
 
+   /* Database administration response, owned by the server. */
+   void (*admin_result)(const char *data, rrconn_t *connection);
+
+   /* IRC nickname conflict prompt; NULL nickname closes the profile prompt. */
+   void (*irc_nick_prompt)(const char *profile, const char *nickname);
+
    /* Server chooser window (client /server with no args). */
    void (*show_server_chooser)(void);
 

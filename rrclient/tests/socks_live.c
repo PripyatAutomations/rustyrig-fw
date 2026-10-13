@@ -5,6 +5,9 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/irc.h>
 #include <rrclient/connman.h>
+#include <rrclient/frontend.h>
+const rr_frontend_ops_t *frontend_ops(void) { return NULL; }
+bool frontend_present(void) { return false; }
 
 time_t now;
 bool dying, restarting;

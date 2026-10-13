@@ -12,7 +12,11 @@ if pkg-config --exists gtk+-3.0; then
       $(pkg-config --cflags gtk+-3.0) rrclient/tests/ptt_pending.c \
       -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrustyaxe -lrrprotocol \
       $(pkg-config --libs gtk+-3.0) -o "$work/ptt_pending"
-   "$work/ptt_pending"
+   if command -v xvfb-run >/dev/null; then
+      xvfb-run -a "$work/ptt_pending"
+   else
+      "$work/ptt_pending"
+   fi
 else
    echo 'SKIP: GTK PTT presentation test requires GTK development headers'
 fi

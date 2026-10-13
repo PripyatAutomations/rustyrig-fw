@@ -896,6 +896,7 @@ bool gui_fullscreen_toggle(void) {
 // ------------------------------------------------------------------
 
 #include <rrclient/frontend.h>
+#include <rrclient/connman.h>
 #include <dlfcn.h>
 
 extern bool ptt_button_hotkey_toggle(void);  // gtk.ptt-btn.c
@@ -1188,7 +1189,61 @@ static void frontend_gtk_quit(void) {
    }
 }
 
+/* Dialogs are keyed by profile so simultaneous IRC connects remain independent. */
+static GHashTable *irc_nick_dialogs;
+
+static void irc_nick_dialog_destroy(GtkWidget *dialog, gpointer data) {
+   (void)data;
+   if (irc_nick_dialogs) {
+      g_hash_table_remove(irc_nick_dialogs, g_object_get_data(G_OBJECT(dialog), "profile"));
+   }
+}
+
+static void irc_nick_dialog_response(GtkDialog *dialog, gint response, gpointer data) {
+   (void)data;
+   if (response == GTK_RESPONSE_OK) {
+      GtkEntry *entry = g_object_get_data(G_OBJECT(dialog), "nickname");
+      const char *profile = g_object_get_data(G_OBJECT(dialog), "profile");
+      if (!rrclient_irc_nick_submit(profile, gtk_entry_get_text(entry))) {
+         gtk_widget_set_tooltip_text(GTK_WIDGET(entry), "Enter a valid IRC nickname");
+         return;
+      }
+   }
+   gtk_widget_destroy(GTK_WIDGET(dialog));
+}
+
+static void frontend_gtk_irc_nick_prompt(const char *profile, const char *nickname) {
+   if (!irc_nick_dialogs) irc_nick_dialogs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   GtkWidget *existing = g_hash_table_lookup(irc_nick_dialogs, profile);
+   if (existing) gtk_widget_destroy(existing);
+   if (!nickname) return;
+   gui_window_t *main = gui_find_window(NULL, "main");
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("IRC nickname already in use",
+      main ? GTK_WINDOW(main->gtk_win) : NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
+      "Wait for suffix", GTK_RESPONSE_CANCEL, "Use nickname", GTK_RESPONSE_OK, NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   char text[512];
+   snprintf(text, sizeof(text), "%s: %s is already in use. Enter another nickname.\nAfter 45 seconds, automatic suffix retries begin.", profile, nickname);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new(text), FALSE, FALSE, 6);
+   GtkWidget *entry = gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(entry), NICKLEN);
+   gtk_entry_set_text(GTK_ENTRY(entry), nickname);
+   gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+   gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 6);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
+   g_object_set_data_full(G_OBJECT(dialog), "profile", g_strdup(profile), g_free);
+   g_object_set_data(G_OBJECT(dialog), "nickname", entry);
+   g_hash_table_insert(irc_nick_dialogs, g_strdup(profile), dialog);
+   g_signal_connect(dialog, "response", G_CALLBACK(irc_nick_dialog_response), NULL);
+   g_signal_connect(dialog, "destroy", G_CALLBACK(irc_nick_dialog_destroy), NULL);
+   gtk_widget_show_all(dialog);
+}
+
+extern void gtk_admin_result(const char *, rrconn_t *);
+
 const rr_frontend_ops_t gtk_frontend_ops = {
+   .admin_result = gtk_admin_result,
+   .irc_nick_prompt = frontend_gtk_irc_nick_prompt,
    .name = "gtk",
    .init = frontend_gtk_init,
    .run = frontend_gtk_run,

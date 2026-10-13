@@ -1,2 +1,0 @@
-rrclient/gtk: serverpicker
-  - if server picker is closed without selection, we jump to tab 1 (why?)

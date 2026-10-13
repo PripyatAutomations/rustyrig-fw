@@ -1,5 +1,18 @@
 rustyrig-fw (20261012.03) testing; urgency=medium
 
+  * Add global/per-peer link reconnect intervals and per-server client intervals,
+    defaulting to 60 seconds. Add admin /link list, open and close commands;
+    manual close blocks retries and incoming redials until reopened.
+  * Handle IRC nickname collisions with a 45-second GTK prompt or immediate
+    TUI suffix recovery and /nick guidance; stop after bounded alternatives.
+    Keep RustyRig multi-session username semantics unchanged.
+  * Retain orange TOT EXPIRE until local PTT acknowledgement without a server
+    command, including GTK shortcut repeats. Preserve the selected tab when
+    Escape closes the server picker.
+  * Populate GTK/browser Admin views from SQLite users and rooms, with existing
+    edit and lock/restore actions, and paged scrollable audit/PTT logs. Exclude
+    credentials, enforce server permissions and document recording playback
+    transfer requirements before exposing session files.
   * Snapshot event profiling counters and owned event names under the registry
     lock, then log after unlocking. Prevent syslog media callbacks from
     deadlocking the server during periodic profiler dumps; cover re-entry,
@@ -57,7 +70,7 @@ rustyrig-fw (20261012.03) testing; urgency=medium
     Cover disabled owner RTP, sustained/invalid audio, permissions and revocation,
     including proxy-only builds without SRTP.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 19:58:17 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Mon, 12 Oct 2026 23:11:46 -0400
 
 rustyrig-fw (20261011.04) testing; urgency=medium
 

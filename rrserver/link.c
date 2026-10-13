@@ -26,6 +26,8 @@ struct link_peer {
    char *url, *password;
    bool autoconnect;
    long long retry_at;
+   unsigned retry_seconds;
+   bool manually_closed;
    struct link_session *session;
 };
 struct link_session {
@@ -287,6 +289,10 @@ static void handle_hello(struct link_session *session, dict *d) {
       fail(session, "ACL access denied");
       return;
    }
+   if (peer->manually_closed) {
+      fail(session, "Peer is administratively closed");
+      return;
+   }
    struct link_session *old = peer->session;
 
    if (old && old != session && !old->connection->is_closing) {
@@ -475,7 +481,7 @@ static void close_session(struct link_session *session) {
 
    if (session->peer && session->peer->session == session) {
       session->peer->session = NULL;
-      session->peer->retry_at = mono_ms() + cfg_get_int("links.retry-seconds", 5) * 1000LL;
+      session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL;
 
 
    }
@@ -659,6 +665,14 @@ static bool load_peer(const char *section) {
       return invalid_peer(section, "autoconnect", "must be true or false");
    }
    peer->autoconnect = autoconnect && !strcasecmp(autoconnect, "true");
+   const char *retry_text = peer_value(section, "retry-seconds");
+   char *retry_end = NULL;
+   long retry = retry_text && *retry_text ? strtol(retry_text, &retry_end, 10) : cfg_get_int("links.retry-seconds", 60);
+
+   if (retry < 1 || retry > 3600 || (retry_end && *retry_end)) {
+      return invalid_peer(section, "retry-seconds", "must be 1-3600 seconds");
+   }
+   peer->retry_seconds = (unsigned)retry;
 
    if (!peer->url || !peer->password) {
       return invalid_peer(section, "credentials", "out of memory while loading peer");
@@ -710,6 +724,54 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    connection->fn_data = session;
    request->detach_client = true;
    link_callback(connection, MG_EV_HTTP_MSG, request->request);
+}
+
+static void link_command(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) return;
+   dict *request = data ? json2dict(data) : NULL;
+   if (!request) return;
+   char input[256], action[16], name[128], extra[2];
+   snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
+   dict_free(request);
+   int argc = sscanf(input, "%15s %127s %1s", action, name, extra);
+   if (argc <= 0 || (argc == 1 && !strcasecmp(action, "list"))) {
+      for (size_t i = 0; i < links.peer_count; i++) {
+         struct link_peer *peer = &links.peers[i];
+         ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site,
+            peer->session && peer->session->established ? "linked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
+      }
+      return;
+   }
+   if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
+      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer>");
+      return;
+   }
+   struct link_peer *peer = NULL;
+   for (size_t i = 0; i < links.peer_count; i++) {
+      struct link_peer *entry = &links.peers[i];
+      const char *shortname = !strncmp(entry->section, "peer:", 5) ? entry->section + 5 : entry->section;
+      if (!strcmp(name, entry->section) || !strcmp(name, shortname)) peer = entry;
+   }
+   if (!peer) {
+      ws_send_error(client, "Unknown stored peer");
+      return;
+   }
+   bool open = !strcasecmp(action, "open");
+   if (open && !peer->url[0]) {
+      ws_send_error(client, "Peer has no outgoing URL");
+      return;
+   }
+   peer->manually_closed = !open;
+   if (open) {
+      peer->autoconnect = true;
+      peer->retry_at = 0;
+   } else if (peer->session) {
+      fail(peer->session, "Closed by administrator");
+   }
+   Log(LOG_AUDIT, "link", "%s requested %s for %s", client->user->name, action, peer->section);
+   ws_send_notice(client, "Peer %s: %s requested", peer->section, action);
 }
 
 bool rrserver_links_init(struct mg_mgr *manager) {
@@ -772,9 +834,10 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    const char *listen = cfg_get("links.listen");
 
    if (!links.peer_count && (!listen || !*listen)) {
+      event_on("link.cmd", link_command, NULL);
       return true;
    }
-   int retry = cfg_get_int("links.retry-seconds", 5), timeout = cfg_get_int("links.handshake-seconds", 10);
+   int retry = cfg_get_int("links.retry-seconds", 60), timeout = cfg_get_int("links.handshake-seconds", 10);
 
    if (retry < 1 || retry > 3600 || timeout < 1 || timeout > 120) {
       return false;
@@ -830,6 +893,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       Log(LOG_INFO, "link", "Server link node %s (%s), %zu configured peers", links.node, links.site, links.peer_count);
    }
 
+   event_on("link.cmd", link_command, NULL);
    return true;
 }
 
@@ -857,7 +921,7 @@ void rrserver_links_poll(void) {
    for (size_t i = 0; i < links.peer_count; i++) {
       struct link_peer *peer = &links.peers[i];
 
-      if (!peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
+      if (peer->manually_closed || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
          continue;
       }
 
@@ -881,6 +945,7 @@ void rrserver_links_poll(void) {
 
 void rrserver_links_fini(void) {
    links.stopping = true;
+   event_off("link.cmd", link_command, NULL);
    event_off_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
    /* Call after mg_mgr_free: CLOSE callbacks own session cleanup. */
    rr_link_tree_free(links.tree);

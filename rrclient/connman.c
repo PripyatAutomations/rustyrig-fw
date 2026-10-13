@@ -9,6 +9,7 @@
 #include <librrprotocol/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
+#include <rrclient/frontend.h>
 #include <librustyaxe/socks.h>
 
 extern const char *login_user;
@@ -42,6 +43,10 @@ typedef struct client_server {
    bool reconnect_enabled, reconnect_pending;
    unsigned reconnect_tries;
    time_t reconnect_at;
+   char nick_base[NICKLEN + 1];
+   unsigned nick_suffix;
+   time_t nick_deadline;
+   bool nick_recovering;
    void *rooms, *users, *vfos, *objects, *media, *wire_rooms;
    struct client_server *next;
 } client_server_t;
@@ -49,9 +54,6 @@ typedef struct client_server {
 static client_server_t *servers, *selected, *context;
 static unsigned dispatch_depth;
 static bool reconnect_attempting;
-static const unsigned reconnect_delays[] = {
-   1, 2, 5, 10, 30, 60
-};
 
 #define RRC_MAX_RECONNECTS 10
 
@@ -357,6 +359,100 @@ static void cancel_reconnect(client_server_t *s) {
    s->reconnect_tries = 0;
 }
 
+static void nick_prompt_close(client_server_t *s) {
+   s->nick_deadline = 0;
+   if (frontend_present() && frontend_ops()->irc_nick_prompt) {
+      frontend_ops()->irc_nick_prompt(s->name, NULL);
+   }
+}
+
+static void nick_try_suffix(client_server_t *s) {
+   static const char suffixes[] = "_{}[]-^";
+   char nickname[NICKLEN + 1];
+   unsigned index = s->nick_suffix++;
+
+   if (index >= 56) {
+      ui_print(NULL, "IRC nickname alternatives exhausted; disconnecting %s", s->name);
+      s->nick_recovering = false;
+      disconnect_server(s->name);
+      return;
+   }
+   if (index < 7) {
+      snprintf(nickname, sizeof(nickname), "%.*s%c", NICKLEN - 1, s->nick_base, suffixes[index]);
+   } else {
+      index -= 7;
+      snprintf(nickname, sizeof(nickname), "%.*s%c%c", NICKLEN - 2, s->nick_base, suffixes[index / 7], suffixes[index % 7]);
+   }
+   if (!irc_send(s->connection, "NICK %s", nickname)) {
+      disconnect_server(s->name);
+   }
+}
+
+bool rrclient_irc_nick_submit(const char *profile, const char *nick) {
+   client_server_t *s = find_server(profile);
+   if (!s || !s->connection || s->connection->is_ws || !nick || !*nick ||
+      strlen(nick) > NICKLEN || strpbrk(nick, " \t\r\n,*?!@:") ||
+      !((nick[0] >= 'A' && nick[0] <= 'Z') || (nick[0] >= 'a' && nick[0] <= 'z') || strchr("_{}[]^\\`", nick[0]))) {
+      return false;
+   }
+   for (const unsigned char *p = (const unsigned char *)nick; *p; p++) {
+      if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') ||
+         (*p >= '0' && *p <= '9') || strchr("_{}[]-^\\`|", *p))) return false;
+   }
+   if (!irc_send(s->connection, "NICK %s", nick)) return false;
+   s->nick_deadline = 0;
+   snprintf(s->nick_base, sizeof(s->nick_base), "%s", nick);
+   s->nick_suffix = 0;
+   return true;
+}
+
+static void nick_accepted(const char *event, const char *data, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)user;
+   if (!connection || connection->is_ws || !data) return;
+   dict *message = json2dict(data);
+   if (!message) return;
+   const char *prefix = dict_get(message, "msg.prefix", "");
+   size_t length = strcspn(prefix, "!");
+   if (length == strlen(connection->nick) && !strncasecmp(prefix, connection->nick, length)) {
+      for (client_server_t *s = servers; s; s = s->next) {
+         if (s->connection == connection) {
+            nick_prompt_close(s);
+            s->nick_recovering = false;
+         }
+      }
+   }
+   dict_free(message);
+}
+
+static void nick_in_use(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)user;
+   client_server_t *s = NULL;
+   for (client_server_t *entry = servers; entry; entry = entry->next) {
+      if (entry->connection == cptr) s = entry;
+   }
+   if (!s || !cptr || cptr->is_ws || !data) return;
+   dict *message = json2dict(data);
+   if (!message) return;
+   const char *nickname = dict_get(message, "msg.arg2", "");
+   ui_print(NULL, "IRC nickname %s is already in use on %s; use /nick <nickname> to choose another", nickname, s->name);
+   if (!s->nick_recovering) {
+      s->nick_recovering = true;
+      s->nick_suffix = 0;
+      snprintf(s->nick_base, sizeof(s->nick_base), "%s", nickname);
+      if (frontend_present() && frontend_ops()->irc_nick_prompt) {
+         s->nick_deadline = now + 45;
+         frontend_ops()->irc_nick_prompt(s->name, nickname);
+      } else {
+         nick_try_suffix(s);
+      }
+   } else if (!s->nick_deadline) {
+      nick_try_suffix(s);
+   }
+   dict_free(message);
+}
+
 static void connection_event(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)data;
    (void)user;
@@ -364,6 +460,11 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
 
    if (!s || (cptr && cptr != s->connection)) {
       return;
+   }
+
+   if (!strcmp(event, "authorized") || !strcmp(event, "irc.connected") || !strcmp(event, "disconnected")) {
+      nick_prompt_close(s);
+      s->nick_recovering = false;
    }
 
    if (!strcmp(event, "auth.error")) {
@@ -379,19 +480,22 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
 
          return;
       }
-      unsigned i = s->reconnect_tries++;
-
-      if (i >= sizeof(reconnect_delays) / sizeof(*reconnect_delays)) {
-         i = sizeof(reconnect_delays) / sizeof(*reconnect_delays) - 1;
-      }
+      s->reconnect_tries++;
+      /* PARITY: rustyrig-www/js/webui.js reconnect interval precedence. */
+      const char *override = get_server_property(s->name, "server.reconnect-interval");
+      char *end = NULL;
+      long interval = override && *override ? strtol(override, &end, 10) : cfg_get_int("server.reconnect-interval", 60);
+      if (interval < 1 || interval > 3600 || (end && *end)) interval = 60;
       s->reconnect_pending = true;
-      s->reconnect_at = now + reconnect_delays[i];
+      s->reconnect_at = now + interval;
       ws_connected = -1;
-      ui_print(NULL, "Reconnecting in %u seconds (attempt %u/%u)", reconnect_delays[i], s->reconnect_tries, RRC_MAX_RECONNECTS);
+      ui_print(NULL, "Reconnecting in %ld seconds (attempt %u/%u)", interval, s->reconnect_tries, RRC_MAX_RECONNECTS);
    }
 }
 
 void connman_register_events(void) {
+   event_on("irc.nick-in-use", nick_in_use, NULL);
+   event_on("irc.nick", nick_accepted, NULL);
    event_on("authorized", connection_event, NULL);
    event_on("irc.connected", connection_event, NULL);
    event_on("disconnected", connection_event, NULL);
@@ -515,6 +619,10 @@ void rrclient_poll_events_reconnect(void) {
 #ifdef USE_MONGOOSE
 
    for (client_server_t *s = servers ; s ; s = s->next) {
+      if (s->nick_deadline && now >= s->nick_deadline) {
+         nick_prompt_close(s);
+         nick_try_suffix(s);
+      }
       if (s->reconnect_pending && now >= s->reconnect_at && !dying && (!s->connection || !s->connection->conn)) {
          s->reconnect_pending = false;
 
@@ -535,6 +643,8 @@ bool disconnect_server(const char *name) {
    if (!s) {
       return true;
    }
+   nick_prompt_close(s);
+   s->nick_recovering = false;
    cancel_reconnect(s);
 #ifdef USE_MONGOOSE
 
@@ -984,6 +1094,7 @@ void connman_shutdown(void) {
    }
    while (servers) {
       client_server_t *next = servers->next;
+      nick_prompt_close(servers);
 
       if (rrclient_rooms_context_free) {
          rrclient_rooms_context_free(servers->rooms);

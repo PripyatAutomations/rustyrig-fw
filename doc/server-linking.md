@@ -112,7 +112,7 @@ to that dedicated listener. Dedicated and shared listeners may coexist.
 
 `links.allow-insecure=false` is the default. Explicit local tests may use
 `links.allow-insecure=true` with an `http://` listener and `ws://` peer URL.
-Normal deployments use WSS. Defaults are 128 servers (maximum 256), a five-second
+Normal deployments use WSS. Defaults are 128 servers (maximum 256), a 60-second
 retry delay and a ten-second handshake timeout, controlled by
 `links.max-servers`, `links.retry-seconds`, and `links.handshake-seconds`.
 
@@ -241,3 +241,7 @@ bindings, preserves chat history, and replaces the catalog claim with the remote
 owner. Connected local members are rejoined through the owner and its account
 checks. The active local station/rig rooms remain protected. Ordinary chat-room
 name collisions do not establish authority and do not trigger automatic deletion.
+
+Peer `retry-seconds` overrides the global reconnect interval. Admins/owners can
+manage stored peers with `/link list|open|close`; see
+[Connection recovery and administration](connection-admin.md).

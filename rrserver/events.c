@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -1974,6 +1975,97 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 #endif
 }
 
+/* PARITY: rrclient/gtk/gtk.admin.c and www/js/webui.chat.js admin results.
+ * SQLite and access control stay in the server; no credential fields leave it. */
+#ifdef USE_SQLITE
+static bool admin_send(rrconn_t *client, const char *table, const char *action, dict *row) {
+   dict *reply = dict_new();
+   if (!reply) return false;
+   char *payload = row ? dict2json(row) : NULL;
+   dict_add(reply, "msg.type", "talk");
+   dict_add(reply, "talk.cmd", "admin");
+   dict_add(reply, "talk.target", table);
+   dict_add(reply, "talk.action", action);
+   dict_add(reply, "talk.data", payload ? payload : "{}");
+   bool sent = ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   free(payload);
+   dict_free(reply);
+   return sent;
+}
+
+#endif
+
+static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) return;
+#ifdef USE_SQLITE
+   dict *request = data ? json2dict(data) : NULL;
+   if (!request) return;
+   char input[256], table[16] = "users", cursor_text[32] = "", extra[2];
+   snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
+   dict_free(request);
+   int argc = sscanf(input, "%15s %31s %1s", table, cursor_text, extra);
+   char *end = NULL;
+   errno = 0;
+   long long before = cursor_text[0] ? strtoll(cursor_text, &end, 10) : 0;
+   const char *sql = NULL;
+   if (!strcasecmp(table, "users")) {
+      strcpy(table, "users");
+      sql = "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+   } else if (!strcasecmp(table, "rooms")) {
+      strcpy(table, "rooms");
+      sql = "SELECT rowid AS cursor,name,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+   } else if (!strcasecmp(table, "audit")) {
+      strcpy(table, "audit");
+      sql = "SELECT id AS cursor,id,timestamp,username,event_type,details FROM audit_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+   } else if (!strcasecmp(table, "ptt")) {
+      strcpy(table, "ptt");
+      sql = "SELECT id AS cursor,id,start_time,username,vfo,frequency,mode,duration,stop_reason,recording_id FROM ptt_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+   }
+   if (argc > 2 || !sql || errno == ERANGE || before < 0 || (end && (*end || end == cursor_text))) {
+      ws_send_error(client, "Usage: /admin users|rooms|audit|ptt [before-id]");
+      return;
+   }
+   sqlite3_stmt *statement = NULL;
+   if (!masterdb || sqlite3_prepare_v2(masterdb, sql, -1, &statement, NULL) != SQLITE_OK) {
+      ws_send_error(client, "Database administration is unavailable");
+      return;
+   }
+   sqlite3_bind_int64(statement, 1, before);
+   sqlite3_bind_int64(statement, 2, before);
+   dict *metadata = dict_new();
+   if (!metadata) { sqlite3_finalize(statement); return; }
+   dict_add_bool(metadata, "append", before != 0);
+   if (!admin_send(client, table, "begin", metadata)) { dict_free(metadata); sqlite3_finalize(statement); return; }
+   int result, count = 0;
+   long long last = 0;
+   while ((result = sqlite3_step(statement)) == SQLITE_ROW) {
+      dict *row = dict_new();
+      if (!row) break;
+      for (int col = 0; col < sqlite3_column_count(statement); col++) {
+         const char *value = (const char *)sqlite3_column_text(statement, col);
+         dict_add(row, sqlite3_column_name(statement, col), value ? value : "");
+      }
+      last = sqlite3_column_int64(statement, 0);
+      bool sent = admin_send(client, table, "row", row);
+      dict_free(row);
+      if (!sent) break;
+      count++;
+   }
+   sqlite3_finalize(statement);
+   if (result != SQLITE_DONE && result != SQLITE_ROW) ws_send_error(client, "Unable to finish database listing");
+   char next[32];
+   snprintf(next, sizeof(next), "%lld", count == 100 ? last : 0);
+   dict_add(metadata, "next", next);
+   admin_send(client, table, "end", metadata);
+   dict_free(metadata);
+#else
+   (void)data;
+   ws_send_error(client, "Database administration requires SQLite");
+#endif
+}
+
 void rrserver_register_events(void) {
    extern void rrserver_objects_register_events(void);
    rrserver_objects_register_events();
@@ -1993,6 +2085,7 @@ void rrserver_register_events(void) {
    event_on("ptt.off", rrserver_handle_ptt_off, NULL);
    event_on("quota.cmd", rrserver_handle_quota_cmd, NULL);
    event_on("user.cmd", rrserver_handle_user_cmd, NULL);
+   event_on("admin.cmd", rrserver_handle_admin_cmd, NULL);
    event_on("recording-start", rrserver_handle_recording_start, NULL);
    event_on("recording-stop", rrserver_handle_recording_stop, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);

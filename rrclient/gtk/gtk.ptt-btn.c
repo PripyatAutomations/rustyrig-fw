@@ -54,6 +54,7 @@ extern int cfg_ui_ptt_hold_delay;   // main.c
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data);
 static gulong ptt_toggled_handler = 0;
 static bool ptt_hotkey_held = false;
+static bool ptt_hotkey_ack = false;
 static bool ptt_hotkey_initial_active = false;
 static gint64 ptt_hotkey_pressed_at = 0;
 
@@ -61,9 +62,9 @@ static gint64 ptt_hotkey_pressed_at = 0;
 // Connection state for the button: grey while offline, colored once online.
 // Set via ptt_button_set_online() from events.c
 static bool ptt_btn_online = false;
-// TOT expired on the server: show orange TIMED OUT until the next confirmed PTT update
+// TOT expired on the server: show orange TOT EXPIRE until acknowledged
 static bool ptt_btn_tot = false;
-static int ptt_btn_tot_secs = 0;
+
 
 #define PTT_LABEL_MAXLEN 16
 
@@ -127,7 +128,10 @@ static void ptt_button_apply(void) {
 
    // grey = offline, yellow = pending, orange = TOT fired, green = idle,
    // red = any user TX, showing their callsign (css in gtk.core.c)
-   if (!ptt_btn_online) {
+   if (ptt_btn_tot) {
+      label = "TOT EXPIRE";
+      cls = "ptt-tot";
+   } else if (!ptt_btn_online) {
       label = "OFFLINE";
       cls = "ptt-offline";
    } else if (someone_else_transmitting(talker)) {
@@ -140,11 +144,6 @@ static void ptt_button_apply(void) {
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {
       label = "PENDING";
       cls = "ptt-pending";
-   } else if (ptt_btn_tot) {
-      static char totbuf[32];
-      snprintf(totbuf, sizeof(totbuf), "TIMED OUT %ds", (ptt_btn_tot_secs > 0 ? ptt_btn_tot_secs : 300));
-      label = totbuf;
-      cls = "ptt-tot";
    } else if (ptt_active) {
       // We're the talker: show our callsign (red, same as anyone else's TX)
       static char namebuf[PTT_LABEL_MAXLEN + 1];
@@ -182,16 +181,17 @@ void ptt_button_refresh(void) {
    ptt_button_apply();
 }
 
-// Server TOT expired: orange warning until the next confirmed PTT state arrives
+// Server TOT expired: orange warning until clicked to acknowledge
 // PARITY: rustyrig-www/js/webui.rigctl.js ptt_tot_expired()
 void ptt_button_tot_expired(int tot_secs) {
    ptt_btn_tot = true;
-
-   if (tot_secs > 0) {
-      ptt_btn_tot_secs = tot_secs;
-   }
+   (void)tot_secs;
+   ptt_hotkey_ack = ptt_hotkey_held;
+   ptt_hotkey_held = false;
    ptt_button_pending = false;
    ptt_button_pending_expire = 0;
+   ptt_button_pending_quiet = false;
+   ptt_button_set_state(false);
    ptt_button_apply();
 }
 
@@ -203,19 +203,15 @@ void ptt_button_set_online(bool online) {
    ptt_btn_online = online;
 
    if (!online) {
-      // Going offline resets everything back to grey
+      // Going offline clears TX state; a TOT warning still needs acknowledgement.
       ptt_hotkey_held = false;
       ptt_hotkey_initial_active = false;
       ptt_hotkey_pressed_at = 0;
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
-      ptt_btn_tot = false;
-      ptt_btn_tot_secs = 0;
       ptt_active = false;
 
-      if (ptt_button) {
-         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), FALSE);
-      }
+      ptt_button_set_state(false);
    }
    ptt_button_apply();
 }
@@ -237,7 +233,6 @@ void ptt_button_set_state(bool active) {
    ptt_button_pending = false;
    ptt_button_pending_expire = 0;
    ptt_button_pending_quiet = false;
-   ptt_btn_tot = false;
    ptt_active = active;
 
    if (!ptt_button) {
@@ -274,7 +269,6 @@ void update_ptt_button_ui(GtkToggleButton *button, int active) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_button_pending_quiet = false;
-      ptt_btn_tot = false;      // confirmed state supersedes a TOT warning
       ptt_active = (active == 1);
    }
 
@@ -284,6 +278,13 @@ void update_ptt_button_ui(GtkToggleButton *button, int active) {
 
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    if (!button) {
+      return;
+   }
+
+   if (ptt_btn_tot) {
+      ptt_btn_tot = false;
+      ptt_button_set_state(ptt_active);
+
       return;
    }
 
@@ -389,7 +390,13 @@ bool ptt_button_hotkey_press(void) {
       return false;
    }
 
-   if (ptt_hotkey_held) {
+   if (ptt_hotkey_held || ptt_hotkey_ack) {
+      return true;
+   }
+   if (ptt_btn_tot) {
+      ptt_btn_tot = false;
+      ptt_hotkey_ack = true;
+      ptt_button_set_state(ptt_active);
       return true;
    }
    ptt_hotkey_held = true;
@@ -404,6 +411,10 @@ bool ptt_button_hotkey_press(void) {
 }
 
 bool ptt_button_hotkey_release(void) {
+   if (ptt_hotkey_ack) {
+      ptt_hotkey_ack = false;
+      return true;
+   }
    if (!ptt_button || !ptt_hotkey_held) {
       return false;
    }

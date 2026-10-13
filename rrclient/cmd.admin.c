@@ -207,7 +207,7 @@ bool cmd_nick(int argc, char **args) {
       return false;
    }
 
-   if (!connection->connected || !connection->authenticated) {
+   if (!connection->connected) {
       ui_print(ui_active_window_name(), "Not connected to IRC server");
 
       return false;
@@ -218,7 +218,7 @@ bool cmd_nick(int argc, char **args) {
 
       return false;
    }
-   bool sent = irc_send(connection, "NICK %s", args[1]);
+   bool sent = rrclient_irc_nick_submit(rrclient_connection_name(connection), args[1]);
 
    if (!sent) {
       ui_print(ui_active_window_name(), "Unable to send IRC NICK");
@@ -243,7 +243,7 @@ bool cmd_mode(int argc, char **args) {
       first_mode = 2;
    }
 
-   if (!connection->connected || !connection->authenticated) {
+   if (!connection->connected) {
       ui_print(ui_active_window_name(), "Not connected to IRC server");
 
       return false;
@@ -290,7 +290,7 @@ bool cmd_ban(int argc, char **args) {
       return false;
    }
 
-   if (!connection->connected || !connection->authenticated) {
+   if (!connection->connected) {
       ui_print(ui_active_window_name(), "Not connected to IRC server");
 
       return false;
@@ -509,4 +509,34 @@ bool cmd_user(int argc, char **args) {
    dict_free(d);
 
    return false;
+}
+
+/* PARITY: rustyrig-www/js/webui.chat.js link/admin command tails. */
+static bool send_management_command(const char *command, int argc, char **args) {
+   rrconn_t *connection = rrclient_active_connection();
+   if (!connection || !connection->is_ws) {
+      ui_print(ui_active_window_name(), "/%s requires a RustyRig connection", command);
+      return true;
+   }
+   char tail[512] = "";
+   for (int i = 1; i < argc; i++) {
+      if ((i > 1 && strlcat(tail, " ", sizeof(tail)) >= sizeof(tail)) ||
+         strlcat(tail, args[i], sizeof(tail)) >= sizeof(tail)) return true;
+   }
+   dict *request = dict_new();
+   if (!request) return true;
+   dict_add(request, "msg.type", "talk");
+   dict_add(request, "talk.cmd", command);
+   dict_add(request, "talk.data", tail);
+   bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
+   dict_free(request);
+   return !sent;
+}
+
+bool cmd_link(int argc, char **args) {
+   return send_management_command("link", argc, args);
+}
+
+bool cmd_admin_query(int argc, char **args) {
+   return send_management_command("admin", argc, args);
 }

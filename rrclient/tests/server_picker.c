@@ -61,6 +61,11 @@ static GtkWidget *find_tree(GtkWidget *widget) {
 }
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
+   main_notebook = gtk_notebook_new();
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), gtk_label_new("First"), NULL);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), gtk_label_new("Second"), NULL);
+   gtk_widget_show_all(main_notebook);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 1);
    cfg = dict_new();
    dict_add(cfg, "server:libera.server.url", "irc://irc.libera.chat:6667/");
    dict_add(cfg, "server:libera.server.user", "testnick");
@@ -111,6 +116,13 @@ int main(int argc, char **argv) {
    do_connect_from_tree(GTK_TREE_VIEW(tree));
    assert(!strcmp(connected_profile, expected));
    g_free(expected);
+   picker.gtk_win = NULL;
+   frontend_gtk_show_server_chooser();
+   GdkEventKey escape = { .type = GDK_KEY_PRESS, .keyval = GDK_KEY_Escape };
+   assert(on_key(picker.gtk_win, &escape, NULL));
+   assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)) == 1);
+   gtk_widget_destroy(main_notebook);
+   main_notebook = NULL;
    dict_free(cfg);
    puts("PASS: real GTK picker callback, existing-window reuse, URL profiles and selected profile connection");
 }

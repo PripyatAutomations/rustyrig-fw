@@ -106,8 +106,14 @@ static void chooser(void) {
    chooser_calls++;
 }
 
+static unsigned nick_prompts, nick_closes;
+static void nick_prompt(const char *profile, const char *nickname) {
+   assert(profile && *profile);
+   if (nickname) nick_prompts++; else nick_closes++;
+}
+
 static const rr_frontend_ops_t ops = {
-   .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab, .chat_status_active =
+   .irc_nick_prompt = nick_prompt, .vprint = capture, .chat_current_room = current_room, .show_server_chooser = chooser, .chat_room_remove = remove_status_tab, .chat_status_active =
       current_status
 };
 const rr_frontend_ops_t *frontend_ops(void) {
@@ -231,6 +237,28 @@ int main(void) {
    assert(!strcmp(rrclient_room_topic("#shared"), "alpha topic"));
    assert(!rrclient_room_is_joined("#beta"));
    a->connected = b->connected = now;
+   /* IRC-only recovery: TUI suffixes immediately, GTK gets 45 seconds. */
+   tui_only = true;
+   mg_iobuf_del(&ac->send, 0, ac->send.len);
+   const char *conflict = "{\"msg.arg2\":\"alice\"}";
+   for (unsigned i = 0; i < 8; i++) event_emit("irc.nick-in-use", a, conflict);
+   assert(ac->send.len && strstr((char *)ac->send.buf, "NICK alice_\r\n"));
+   assert(strstr((char *)ac->send.buf, "NICK alice__\r\n"));
+   assert(nick_prompts == 0);
+   event_emit("irc.connected", a, NULL);
+   tui_only = false;
+   mg_iobuf_del(&ac->send, 0, ac->send.len);
+   event_emit("irc.nick-in-use", a, conflict);
+   assert(nick_prompts == 1 && !ac->send.len);
+   now += 44;
+   rrclient_poll_events_reconnect();
+   assert(!ac->send.len);
+   now++;
+   rrclient_poll_events_reconnect();
+   assert(nick_closes && ac->send.len && strstr((char *)ac->send.buf, "NICK alice_\r\n"));
+   assert(rrclient_irc_nick_submit("alpha", "different"));
+   assert(!rrclient_irc_nick_submit("alpha", "invalid\r\nQUIT"));
+   event_emit("irc.connected", a, NULL);
    char line[] = ":nick!user@host PRIVMSG #shared :hello\r\n";
    mg_iobuf_add(&bc->recv, 0, line, sizeof(line) - 1);
    bc->fn(bc, MG_EV_READ, NULL);
@@ -280,7 +308,10 @@ int main(void) {
    ac->fn(ac, MG_EV_ERROR, "alpha failed");
    ac->fn(ac, MG_EV_CLOSE, NULL);
    assert(ws_conn == b && b->conn == bc && !bc->is_closing);
-   now += 2;
+   now += 59;
+   rrclient_poll_events_reconnect();
+   assert(rrclient_connection_find("alpha") == a);
+   now++;
    rrclient_poll_events_reconnect();
    assert(rrclient_connection_find("alpha") != a && ws_conn == b);
    char *server_args[] = {
@@ -324,13 +355,19 @@ int main(void) {
    pc->fn(pc, MG_EV_ERROR, "proxy lost");
    pc->fn(pc, MG_EV_CLOSE, NULL);
    /* The headless fixture omits m_privmsg.c, which maps this IRC event. */
+   dict_add(cfg, "server.reconnect-interval", "5");
+   dict_add(cfg, "server:proxied.test.server.reconnect-interval", "3");
    event_emit("disconnected", ws_conn, NULL);
    dict_add(cfg, "server.proxy", "");  /* A retry must keep its original proxy. */
    unsigned before_retry = connection_count;
    now += 2;
    rrclient_poll_events_reconnect();
+   assert(connection_count == before_retry);
+   now++;
+   rrclient_poll_events_reconnect();
    assert(connection_count > before_retry && !strcmp(last_url, "tcp://localhost:1080"));
    assert(!ws_conn->sent_login && !ws_conn->conn->send.len);
+   dict_add(cfg, "server.reconnect-interval", "60");
    dict_add(cfg, "server.proxy", "socks5h://localhost:1080");
    dict_add(cfg, "server:direct.server.proxy", "");
    assert(!rrclient_connect_url("direct", "irc://direct.test"));
@@ -543,6 +580,21 @@ int main(void) {
       }
    }
 
+   assert(!rrclient_connect_url("nick-exhaustion", "irc://nick.test"));
+   rrconn_t *nick_conn = ws_conn;
+   nick_conn->connected = now;
+   tui_only = true;
+   for (unsigned i = 0; i < 56; i++) event_emit("irc.nick-in-use", nick_conn, "{\"msg.arg2\":\"busy\"}");
+   assert(!nick_conn->conn->is_closing);
+   event_emit("irc.nick-in-use", nick_conn, "{\"msg.arg2\":\"busy\"}");
+   assert(nick_conn->conn->is_closing);
+   unsigned exhausted_count = connection_count;
+   nick_conn->conn->fn(nick_conn->conn, MG_EV_CLOSE, NULL);
+   event_emit("disconnected", nick_conn, NULL);
+   now += 60;
+   rrclient_poll_events_reconnect();
+   assert(connection_count == exhausted_count);
+   tui_only = false;
    connman_shutdown();
    assert(!ws_conn && !server_name && !login_user);
    dict_free(cfg);

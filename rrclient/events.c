@@ -978,6 +978,23 @@ static void rrclient_handle_mode(const char *event, const char *data, rrconn_t *
    }
 }
 
+static void rrclient_handle_admin_result(const char *event, const char *data, rrconn_t *connection, void *user) {
+   (void)event;
+   (void)user;
+   if (frontend_present() && frontend_ops()->admin_result) {
+      frontend_ops()->admin_result(data, connection);
+      return;
+   }
+   dict *reply = data ? json2dict(data) : NULL;
+   if (!reply) return;
+   if (!strcmp(dict_get(reply, "talk.action", ""), "row")) {
+      ui_print(NULL, "%s: %s", dict_get(reply, "talk.target", ""), dict_get(reply, "talk.data", ""));
+   } else if (!strcmp(dict_get(reply, "talk.action", ""), "end")) {
+      ui_print(NULL, "Admin pagination: %s (use /admin <table> <next> for more)", dict_get(reply, "talk.data", ""));
+   }
+   dict_free(reply);
+}
+
 // Generic ws.msg.talk listener: the specific commands are dispatched by
 // ws_handle_talk_msg() into dedicated events (userinfo, join, talk.msg,
 // chat.replay, ...). We register a handler so the event system doesn't fire
@@ -1521,6 +1538,7 @@ void rrclient_register_events(void) {
 
    // this is where notices in the client come from
    event_on("notice.msg", rrclient_handle_notice, NULL);
+   event_on("admin.result", rrclient_handle_admin_result, NULL);
    event_on("ws.msg.ping", rrclient_handle_ping, NULL);
    event_on("ws.msg.ptt.tot-expired", rrclient_handle_ptt_tot, NULL);
    event_on("ws.msg.talk", rrclient_handle_talk, NULL);

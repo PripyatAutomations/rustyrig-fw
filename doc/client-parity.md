@@ -479,3 +479,18 @@ The owner requires an authorized TX subscription and accepted microphone audio
 within three seconds of key-down; subsequent media gaps release PTT. Account,
 codec, room, VFO and PTT ownership checks remain authoritative in C. RTP
 selection itself remains native-only.
+
+## Connection recovery and administration
+
+Native `rrclient/connman.c` and browser `js/webui.js` use a 60-second default
+reconnect interval with global and per-server settings. Explicit disconnect
+still cancels retry. IRC nickname conflicts and GTK prompts are native-only;
+RustyRig usernames allow multiple sessions and do not use nickname fallback.
+
+Native GTK `gtk.admin.c` and browser `js/webui.admin.js` display server-owned
+SQLite inventory and paged audit/PTT logs through `talk.admin`. Both provide
+account privilege edits, Lock/Unlock, room topic edits and Remove/Restore.
+Native TUI uses `/admin`. `/link list|open|close` has matching C/JS command
+semantics and controls stored peers on the connected server. GTK and browser
+PTT controls retain orange `TOT EXPIRE` until a local acknowledgement click,
+which sends no command. See [Connection recovery and administration](connection-admin.md).
