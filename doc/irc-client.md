@@ -236,3 +236,29 @@ removed from the socket URL and connection status message.
 `/kick <nick> [reason]` sends IRC KICK for the selected channel, with the
 optional reason preserved as text. The GTK userlist Kick action uses its own
 roster channel and connection, including when the roster is detached.
+
+## Server properties and outgoing chat
+
+The protocol library retains every ISUPPORT (005) property per connection,
+including valueless flags and unknown properties. `irc_server_property()`
+looks up names without case sensitivity; absent properties return NULL and
+flags return an empty string. Later updates replace values, `-NAME` removes
+properties, and disconnect/reconnect clears them. Returned values are borrowed
+until that connection's next update or reset.
+
+CAP LS (including multiline replies) and NEW retain advertised capability
+names/values through `irc_server_capability()`. `irc_capability_enabled()`
+tracks ACK, NAK, LIST and DEL separately; retention does not request or enable
+additional capabilities. Legacy CAPAB tokens and values are available through
+`irc_server_capab()`. CAP names are case-sensitive. All caches are independent
+between connections and released on disconnect.
+
+Outgoing chat, `/msg`, `/me` and `/notice` split into lines within the server's
+LINELEN, counting the command, target, CTCP ACTION framing and CRLF. Without a
+valid LINELEN the limit is 512 bytes. The current transport buffer additionally
+caps each line at 1024 bytes even if the server advertises more; the original
+advertised value remains available in the property cache. Splitting prefers
+spaces and preserves all text bytes without splitting UTF-8 characters. Each
+accepted chunk produces its own normal local echo. A send failure stops further
+chunks; already accepted chunks remain echoed. Arbitrary commands, topics and
+other CTCP frames are not split.

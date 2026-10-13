@@ -37,6 +37,48 @@ extern bool dying;
 extern time_t now;
 extern rrconn_t *ws_conn;
 
+/* Join the complete IRC text before the protocol layer splits wire lines. */
+static bool cmd_irc_chat(rrconn_t *connection, const char *target, const char *kind, int argc, char **args, int first) {
+   size_t length = 0;
+
+   for (int i = first ; i < argc ; i++) {
+      size_t part = args[i] ? strlen(args[i]) : 0;
+      if (part >= SIZE_MAX - length - 1) {
+         return false;
+      }
+      length += part + (i > first);
+   }
+   char *text = malloc(length + 1);
+   dict *request = dict_new();
+
+   if (!text || !request) {
+      free(text);
+      dict_free(request);
+      return false;
+   }
+   char *out = text;
+
+   for (int i = first ; i < argc ; i++) {
+      if (i > first) {
+         *out++ = ' ';
+      }
+      const char *part = args[i] ? args[i] : "";
+      size_t size = strlen(part);
+      memcpy(out, part, size);
+      out += size;
+   }
+   *out = '\0';
+   dict_add(request, "msg.type", "talk");
+   dict_add(request, "talk.cmd", "msg");
+   dict_add(request, "talk.target", target);
+   dict_add(request, "talk.msg_type", kind);
+   dict_add(request, "talk.data", text);
+   bool sent = irc_send_dict(connection, request);
+   dict_free(request);
+   free(text);
+   return sent;
+}
+
 static bool cmd_irc_room(rrconn_t *connection, const char *room) {
    if (!connection || connection->is_ws || !room || (room[0] != '#' && room[0] != '&')) {
       ui_print(ui_active_window_name(), "Select an IRC channel tab first");
@@ -207,30 +249,7 @@ bool cmd_me(int argc, char **args) {
       if (!cmd_irc_room(connection, active_room) || argc < 2) {
          return false;
       }
-      char action[IRC_MSGLEN - 16] = "";
-
-      for (int i = 1 ; i < argc ; i++) {
-         if ((i && strlcat(action, " ", sizeof(action)) >= sizeof(action)) || strlcat(action, args[i], sizeof(action)) >= sizeof(action)) {
-            ui_print(ui_active_window_name(), "IRC action is too long");
-
-            return false;
-         }
-      }
-
-      dict *request = dict_new();
-
-      if (!request) {
-         return true;
-      }
-      dict_add(request, "msg.type", "talk");
-      dict_add(request, "talk.cmd", "msg");
-      dict_add(request, "talk.target", active_room);
-      dict_add(request, "talk.msg_type", "action");
-      dict_add(request, "talk.data", action);
-      bool sent = irc_send_dict(connection, request);
-      dict_free(request);
-
-      return !sent;
+      return !cmd_irc_chat(connection, active_room, "action", argc, args, 1);
    }
    char buf[1024];
    memset(buf, 0, 1024);
@@ -294,32 +313,8 @@ bool cmd_msg(int argc, char **args) {
    }
 
    char *target = args[1];
-   char fullmsg[502];
-   memset(fullmsg, 0, sizeof(fullmsg));
-   size_t pos = 0;
-
-   for (int i = 2 ; i < argc ; i++) {
-      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
-
-      if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
-         break;
-      }
-      pos += n;
-   }
-
    if (connection && !connection->is_ws) {
-      dict *request = dict_new();
-
-      if (!request) {
-         return true;
-      }
-      dict_add(request, "msg.type", "talk");
-      dict_add(request, "talk.cmd", "msg");
-      dict_add(request, "talk.target", target);
-      dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
-      dict_add(request, "talk.data", fullmsg);
-      bool sent = irc_send_dict(connection, request);
-      dict_free(request);
+      bool sent = cmd_irc_chat(connection, target, target[0] == '#' || target[0] == '&' ? "pub" : "priv", argc, args, 2);
 
       if (sent && ui_mode == UI_MODE_TUI) {
          const char *window_name = rrclient_window_name(target);
@@ -335,6 +330,19 @@ bool cmd_msg(int argc, char **args) {
       }
 
       return !sent;
+   }
+
+   char fullmsg[502];
+   memset(fullmsg, 0, sizeof(fullmsg));
+   size_t pos = 0;
+
+   for (int i = 2 ; i < argc ; i++) {
+      int n = snprintf(fullmsg + pos, sizeof(fullmsg) - pos, "%s%s", (i > 2 ? " " : ""), args[i] ? args[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(fullmsg) - pos) {
+         break;
+      }
+      pos += n;
    }
 
    if (ui_mode == UI_MODE_TUI) {
@@ -383,19 +391,7 @@ bool cmd_notice(int argc, char **args) {
 
          return false;
       }
-      char notice[IRC_MSGLEN] = "";
-
-      for (int i = 2 ; i < argc ; i++) {
-         if ((i > 2 && strlcat(notice, " ", sizeof(notice)) >= sizeof(notice)) || strlcat(notice, args[i], sizeof(notice)) >= sizeof(notice)) {
-            ui_print(ui_active_window_name(), "IRC notice is too long");
-
-            return false;
-         }
-      }
-
-      bool sent = irc_send(connection, "NOTICE %s :%s", notice_target, notice);
-
-      return !sent;
+      return !cmd_irc_chat(connection, notice_target, "notice", argc, args, 2);
    }
    char notice_msg[502];
    memset(notice_msg, 0, sizeof(notice_msg));

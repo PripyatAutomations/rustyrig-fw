@@ -514,3 +514,8 @@ GTK Admin Ctrl-Tab cycles the selected server and refreshes its inventory.
 While Admin is active, Ctrl-Left/Right wrap through the upper notebook tabs;
 Ctrl-1 through Ctrl-9 and Ctrl-0 select upper tabs 1 through 10. These are
 native GTK shortcuts; browser keyboard handling remains frontend-specific.
+
+Native IRC chat uses each connection's retained ISUPPORT LINELEN to split
+outgoing text, including /msg, /me and /notice, with per-chunk local echo.
+ISUPPORT, CAP and legacy CAPAB retention and IRC splitting are native-only;
+the browser continues using the RustyRig WebSocket protocol.
