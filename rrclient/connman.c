@@ -944,6 +944,22 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    snprintf(t->connection.nick, sizeof(t->connection.nick), "%s", nick);
    snprintf(t->server.nick, sizeof(t->server.nick), "%s", nick);
    snprintf(t->server.pass, sizeof(t->server.pass), "%s", pass ? pass : "");
+   if (endpoint.irc) {
+      const char *sasl_user = get_server_property(s->name, "server.sasl.user");
+      const char *sasl_pass = get_server_property(s->name, "server.sasl.pass");
+      const char *mechanism = get_server_property(s->name, "server.sasl.mechanism");
+      if (!mechanism || !*mechanism) mechanism = "PLAIN";
+      if ((sasl_user && strlen(sasl_user) >= sizeof(t->server.sasl_user)) ||
+         (sasl_pass && strlen(sasl_pass) >= sizeof(t->server.sasl_pass)) ||
+         (strcasecmp(mechanism, "PLAIN") && strcasecmp(mechanism, "EXTERNAL"))) {
+         ui_print(NULL, "Invalid IRC SASL settings for %s", s->name);
+         free(t);
+         return true;
+      }
+      snprintf(t->server.sasl_user, sizeof(t->server.sasl_user), "%s", sasl_user ? sasl_user : "");
+      snprintf(t->server.sasl_pass, sizeof(t->server.sasl_pass), "%s", sasl_pass ? sasl_pass : "");
+      snprintf(t->server.sasl_mechanism, sizeof(t->server.sasl_mechanism), "%s", mechanism);
+   }
    snprintf(t->server.autojoin, sizeof(t->server.autojoin), "%s", autojoin ? autojoin : "");
 
    if (endpoint.irc && irc_init()) {

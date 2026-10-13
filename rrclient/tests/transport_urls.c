@@ -186,6 +186,8 @@ int main(void) {
    cfg = dict_new();
    dict_add(cfg, "server:alpha.server.user", "alice");
    dict_add(cfg, "server:alpha.server.pass", "alpha-secret");
+   dict_add(cfg, "server:alpha.server.sasl.user", "alpha-account");
+   dict_add(cfg, "server:alpha.server.sasl.pass", "sasl-secret");
    dict_add(cfg, "server:beta.server.user", "bob");
    dict_add(cfg, "server:beta.server.pass", "beta-secret");
    dict_add(cfg, "server:alpha.server.url", "ws://localhost:8420/ws/");
@@ -228,6 +230,10 @@ int main(void) {
    assert(strcmp(alpha_window, rrclient_window_name("shared")));
    assert(rrclient_room_join("#shared"));
    assert(rrclient_room_set_topic("#shared", "alpha topic"));
+   assert(!strcmp(a->server->sasl_user, "alpha-account"));
+   assert(!strcmp(a->server->sasl_pass, "sasl-secret"));
+   assert(!strcmp(a->server->sasl_mechanism, "PLAIN"));
+   assert(!strcmp(a->server->pass, "alpha-secret"));
    assert(!rrclient_connect_url("beta", "ircs://[::1]"));
    rrconn_t *b = ws_conn;
    struct mg_connection *bc = b->conn;

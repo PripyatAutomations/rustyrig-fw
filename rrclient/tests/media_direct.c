@@ -58,6 +58,17 @@ static void error(const char *event, const char *data, rrconn_t *connection, voi
    dict_free(d);
 }
 
+static unsigned route_notices;
+static void route_notice(const char *event, const char *data, rrconn_t *connection, void *user) {
+   assert(connection == &client);
+   dict *d = json2dict(data);
+   assert(d && *dict_get(d, "media.transport", "") && *dict_get(d, "media.chan-uuid", ""));
+   const char *transport = dict_get(d, "media.transport", "");
+   assert(!strcmp(transport, "direct RTP") || !strcmp(transport, "proxy RTP") || !strcmp(transport, "proxy WebSocket"));
+   if (strcmp(transport, "proxy WebSocket")) assert(strstr(dict_get(d, "media.endpoint", ""), "127.0.0.1:"));
+   route_notices++;
+   dict_free(d);
+}
 static unsigned requests;
 static char transport[16], requested_uuid[64];
 static void request_sent(const char *event, const void *data, size_t length, rrconn_t *connection, void *user) {
@@ -118,6 +129,7 @@ int main(void) {
    client.authenticated = true;
    strcpy(client.token, "parent-session");
    event_init();
+   event_on("client.media.transport", route_notice, NULL);
    event_on("error", error, NULL);
    rrclient_direct_register_events();
    event_on_binary(RR_AUDIO_FRAME_EVENT, audio, NULL);
@@ -320,6 +332,7 @@ int main(void) {
    rrclient_direct_message(&client, retry);
    assert(!strcmp(transport, "ws"));
    dict_free(retry);
+   assert(route_notices > 0);
    event_emit("disconnected", &client, NULL);
    free(wire);
    rr_rtp_free(rx);

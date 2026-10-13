@@ -849,7 +849,24 @@ static void media_server_selected(const char *event, const char *data, rrconn_t 
    media_sync_audio();
 }
 
+static void media_transport_print(void *data) {
+   dict *d = data;
+   const char *room = dict_get(d, "media.room", "");
+   ui_print(*room ? room : NULL, "Media %s: %s via %s%s%s", dict_get(d, "media.chan-uuid", ""),
+      dict_get(d, "media.status", ""), dict_get(d, "media.transport", ""),
+      *dict_get(d, "media.endpoint", "") ? " at " : "", dict_get(d, "media.endpoint", ""));
+}
+static void media_transport_notice(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   dict *d = data ? json2dict(data) : NULL;
+   if (!d) return;
+   rrclient_connection_dispatch(client, media_transport_print, d);
+   dict_free(d);
+}
+
 void rrclient_media_register_events(void) {
+   event_on("client.media.transport", media_transport_notice, NULL);
    event_on("client.server.selected", media_server_selected, NULL);
    event_on("serial.gps.outputs.changed", gps_outputs_changed, NULL);
    event_on_binary(RR_GPS_FRAME_EVENT, gps_frame, NULL);

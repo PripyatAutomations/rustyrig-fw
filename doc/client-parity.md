@@ -534,3 +534,12 @@ Native `objects.events.c` and browser `webui.objects.js` render `/rig` as
 a connection-wide site → rig → VFO tree, including linked sites. GPS inventory
 retains site and rig parents and also spans the connection. Reply destinations
 remain the issuing window; cached object/media context filters are unchanged.
+
+IRC SASL is native-only. `librrprotocol/irc.capab.c` negotiates PLAIN or EXTERNAL
+before CAP END; `rrclient/connman.c` supplies per-profile `server.sasl.user`,
+`server.sasl.pass` and `server.sasl.mechanism`. See [IRC SASL](irc-sasl.md).
+Native media notices identify direct owner RTP, server-proxy RTP or WebSocket
+proxy and their endpoints. Browser media notices identify WebSocket proxy;
+browsers do not implement the native RTP route selection. GTK restores a local
+TX button from the current room/VFO's authoritative roster after tab switches,
+without sending CAT commands. Browser PTT rendering already consults UserCache.

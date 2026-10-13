@@ -252,6 +252,15 @@ defconfig_t defcfg[] = {
       "server.auto-connect", NULL, "Profile name to autoconnect on start"
    },
    {
+      "server.sasl.user", "", "IRC SASL account; empty disables PLAIN authentication"
+   },
+   {
+      "server.sasl.pass", "", "IRC SASL password (separate from server.pass)"
+   },
+   {
+      "server.sasl.mechanism", "PLAIN", "IRC SASL mechanism: PLAIN or EXTERNAL"
+   },
+   {
       "irc.nick", "nonick", "Fallback IRC nickname when the server profile has no server.user"
    },
    {

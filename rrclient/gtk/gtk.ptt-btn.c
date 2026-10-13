@@ -126,7 +126,8 @@ static void ptt_button_apply(void) {
    const char *cls;
    struct rr_user *talker = tx_user();
 
-   vfo_controls_set_ptt_state(ptt_active || someone_else_transmitting(talker), ptt_active);
+   bool own_tx = ptt_active || (talker && !someone_else_transmitting(talker));
+   vfo_controls_set_ptt_state(ptt_active || talker, own_tx);
 
    // grey = offline, yellow = pending, orange = TOT fired, green = idle,
    // red = any user TX, showing their callsign (css in gtk.core.c)
@@ -143,13 +144,13 @@ static void ptt_button_apply(void) {
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker->name);
       label = namebuf;
       cls = "ptt-active";
-   } else if (!ptt_active && ws_conn && ws_conn->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
+   } else if (!own_tx && ws_conn && ws_conn->is_ws && media_have_priv("noob") && !rrclient_supervision_granted(ws_conn, rrclient_current_room())) {
       label = "REQUEST";
       cls = "ptt-offline";
    } else if (ptt_button_pending && !ptt_button_pending_quiet) {
       label = "PENDING";
       cls = "ptt-pending";
-   } else if (ptt_active) {
+   } else if (own_tx) {
       // We're the talker: show our callsign (red, same as anyone else's TX)
       static char namebuf[PTT_LABEL_MAXLEN + 1];
       snprintf(namebuf, sizeof(namebuf), "%.*s", PTT_LABEL_MAXLEN, talker ? talker->name : login_user);
@@ -181,6 +182,11 @@ void ptt_button_refresh(void) {
       };
       ptt_button_set_state(vfo_state_get_bool(vfo, "cat.state.ptt", false));
 
+      return;
+   }
+   struct rr_user *talker = tx_user();
+   if (ptt_btn_online && !ptt_btn_tot && !ptt_button_pending && talker && !someone_else_transmitting(talker) && !ptt_active) {
+      ptt_button_set_state(true);
       return;
    }
    ptt_button_apply();

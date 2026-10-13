@@ -51,7 +51,7 @@ struct direct_channel {
    rr_rtp_attachment_t *attachment;
    uint64_t renew_at, connect_deadline;
    rr_media_transport_t mode;
-   bool failed, requested, preference;
+   bool failed, requested, preference, reported_active;
    unsigned route;              /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
    bool remote;
    uint8_t stream, owner_stream, direction;
@@ -94,6 +94,25 @@ bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_trans
    channel->route = 0;
 
    return true;
+}
+static void report_route(struct direct_channel *channel, const char *status, bool rtp) {
+   dict *d = dict_new();
+   if (!d) return;
+   char endpoint[384] = "";
+   if (rtp) {
+      snprintf(endpoint, sizeof(endpoint), "%s", channel->endpoint);
+   } else if (channel->client->conn && channel->client->conn->rem.port) {
+      mg_snprintf(endpoint, sizeof(endpoint), "%M", mg_print_ip_port, &channel->client->conn->rem);
+   } else if (channel->client->server) {
+      snprintf(endpoint, sizeof(endpoint), "%s:%d", channel->client->server->host, channel->client->server->port);
+   }
+   dict_add(d, "media.chan-uuid", channel->uuid);
+   dict_add(d, "media.room", channel->room);
+   dict_add(d, "media.status", status);
+   dict_add(d, "media.transport", rtp && channel->route == 0 ? "direct RTP" : rtp ? "proxy RTP" : "proxy WebSocket");
+   dict_add(d, "media.endpoint", endpoint);
+   event_emit_dict("client.media.transport", channel->client, d);
+   dict_free(d);
 }
 static void direct_failed(struct direct_channel *channel, const char *reason) {
    if (channel->failed) {
@@ -170,8 +189,10 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       const char *endpoint = dict_get(d, "media.direct", "");
       channel->connect_deadline = mono_us() + UINT64_C(5000000);
       channel->failed = false;
+      channel->reported_active = false;
 
       if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2)) {
+         report_route(channel, "connected", false);
          return;
       }
 
@@ -181,6 +202,8 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
             direct_failed(channel, "the owner did not provide a usable RTP referral");
          } else if (preferred(client)) {
             next_route(channel);
+         } else {
+            report_route(channel, "connected", false);
          }
 
          return;
@@ -189,10 +212,12 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       if (!media_socket) {
          media_socket = rr_rtp_socket_open(NULL, 0);
       }
+      snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", endpoint);
       channel->attachment = rr_rtp_socket_attach(media_socket, ssrc, key, encrypted, endpoint, channel);
       memset(key, 0, sizeof(key));
       channel->renew_at = mono_us() + UINT64_C(240000000);
 
+      if (channel->attachment) report_route(channel, "connecting", true);
       if (!channel->attachment) {
          if (channel->mode == RR_MEDIA_DIRECT) {
             direct_failed(channel, "unable to open the RTP endpoint");
@@ -246,6 +271,10 @@ void rrclient_direct_poll(void) {
       }
 
       if (rr_rtp_socket_active(c->attachment, now)) {
+         if (!c->reported_active) {
+            report_route(c, "connected", true);
+            c->reported_active = true;
+         }
          c->connect_deadline = now + UINT64_C(5000000);
       }
 

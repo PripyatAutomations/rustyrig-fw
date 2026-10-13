@@ -510,7 +510,14 @@ static void rrclient_irc_capabilities(const char *event, const char *data, rrcon
    }
 }
 
+static void rrclient_irc_sasl(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (client == ws_conn && data && *data) ui_print(NULL, "%s %s", get_chat_ts(now), data);
+}
+
 void rrclient_irc_register_events(void) {
+   event_on("irc.sasl", rrclient_irc_sasl, NULL);
    event_on("irc.channel.redirect", rrclient_irc_redirect, NULL);
    event_on("irc.capabilities", rrclient_irc_capabilities, NULL);
    event_on("irc.ctcp", rrclient_irc_ctcp, NULL);
