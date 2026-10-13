@@ -72,6 +72,10 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return TRUE;
    }
 
+   if (gtk_chat_history_keypress(widget, event)) {
+      return TRUE;
+   }
+
    bool admin_active = main_notebook && admin_tab &&
       gtk_notebook_get_nth_page(main_notebook, gtk_notebook_get_current_page(main_notebook)) == admin_tab;
 

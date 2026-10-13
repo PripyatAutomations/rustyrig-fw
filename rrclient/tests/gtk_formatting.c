@@ -427,6 +427,57 @@ static void test_room_links(void) {
    puts("PASS: GTK room links keep source-server context, select tabs, preserve drafts and allow text selection");
 }
 
+static void test_input_history_focus(void) {
+   if (!gtk_init_check(NULL, NULL)) {
+      puts("SKIP: GTK history test requires a display");
+      return;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *entry = gtk_entry_new(), *other = gtk_entry_new();
+   gtk_container_add(GTK_CONTAINER(window), box);
+   gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), other, FALSE, FALSE, 0);
+   g_object_set_data(G_OBJECT(entry), "rr-chat-input", GINT_TO_POINTER(1));
+   gtk_widget_show_all(window);
+   gtk_widget_grab_focus(entry);
+   drain_gtk_events();
+   GPtrArray *lines;
+   GtkInputHistory *history = entry_history(entry, &lines);
+   if (history->shared) {
+      input_history = g_ptr_array_new_with_free_func(g_free);
+      lines = input_history;
+   }
+   g_ptr_array_add(lines, g_strdup("older"));
+   g_ptr_array_add(lines, g_strdup("newer"));
+   gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
+   GdkEventKey event = {.type = GDK_KEY_PRESS, .keyval = GDK_KEY_Up};
+   assert(gtk_chat_history_keypress(window, &event));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "newer"));
+   event.keyval = GDK_KEY_KP_Up;
+   assert(gtk_chat_history_keypress(window, &event));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "older"));
+   event.keyval = GDK_KEY_Down;
+   assert(gtk_chat_history_keypress(window, &event));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "newer"));
+   event.keyval = GDK_KEY_KP_Down;
+   assert(gtk_chat_history_keypress(window, &event));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+   event.keyval = GDK_KEY_Up;
+   event.state = GDK_CONTROL_MASK;
+   assert(!gtk_chat_history_keypress(window, &event));
+   event.state = 0;
+   gtk_widget_grab_focus(other);
+   assert(!gtk_chat_history_keypress(window, &event));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+   if (history->shared) {
+      g_ptr_array_unref(input_history);
+      input_history = NULL;
+   }
+   gtk_widget_destroy(window);
+   puts("PASS: GTK focused chat history, keypad arrows and draft restoration; other entries keep arrows");
+}
+
 int main(void) {
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
@@ -483,5 +534,6 @@ int main(void) {
    test_transcript_copy();
    test_incoming_chat_preserves_draft();
    test_room_links();
+   test_input_history_focus();
    puts("PASS: GTK mIRC red headings, numeric text, reset and markup escaping");
 }

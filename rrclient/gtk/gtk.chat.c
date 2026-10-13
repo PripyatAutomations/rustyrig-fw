@@ -944,12 +944,25 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
       return TRUE;
    }
 
-   if (event->keyval != GDK_KEY_Up && event->keyval != GDK_KEY_Down) {
-      return FALSE;
-   }
+   return gtk_chat_history_keypress(entry, event);
+}
 
-   if (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SHIFT_MASK)) {
-      return FALSE;
+/* Window shortcuts run before GtkWindow forwards keys to the focused entry. */
+bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
+   if (!widget || !event || event->type != GDK_KEY_PRESS) {
+      return false;
+   }
+   bool previous = event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_KP_Up;
+   bool next = event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_KP_Down;
+
+   if ((!previous && !next) || (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SHIFT_MASK))) {
+      return false;
+   }
+   GtkWidget *window = gtk_widget_get_toplevel(widget);
+   GtkWidget *entry = GTK_IS_WINDOW(window) ? gtk_window_get_focus(GTK_WINDOW(window)) : NULL;
+
+   if (!entry || !GTK_IS_ENTRY(entry) || !g_object_get_data(G_OBJECT(entry), "rr-chat-input")) {
+      return false;
    }
    GPtrArray *lines;
    GtkInputHistory *history = entry_history(entry, &lines);
@@ -958,7 +971,7 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
       return FALSE;
    }
 
-   if (event->keyval == GDK_KEY_Up) {
+   if (previous) {
       if (history->index < 0) {
          g_free(history->draft);
          history->draft = gtk_chat_serialize_entry(entry);
@@ -1106,6 +1119,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
    // Chat INPUT
    chat_entry = gtk_entry_new();
+   g_object_set_data(G_OBJECT(chat_entry), "rr-chat-input", GINT_TO_POINTER(1));
    g_object_set_data(G_OBJECT(chat_textview), "rr-chat-entry", chat_entry);
    GtkWidget *color_popover = gtk_popover_new(chat_entry);
    gtk_popover_set_position(GTK_POPOVER(color_popover), GTK_POS_TOP);
