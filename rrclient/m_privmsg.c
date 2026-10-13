@@ -316,6 +316,17 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       event_emit_dict("part", cptr, d);
       ui_print(arg1, "%s * %s kicked %s: %s", get_chat_ts(now), from, arg2, dict_get(message, "msg.arg3", ""));
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
+      if (cptr != ws_conn) {
+         goto done;
+      }
+      /* Room and roster views belong to the connection dispatching this event. */
+      for (unsigned i = 0 ; rrclient_room_iter(i) ; i++) {
+         const char *room = rrclient_room_iter(i);
+
+         if (userlist_find_in_room(from, room)) {
+            ui_print(room, "%s * %s quit: %s", get_chat_ts(now), from, arg1);
+         }
+      }
       while (userlist_remove_by_name_room(from, NULL)) {
          /* QUIT removes this nick from every joined channel. */
       }

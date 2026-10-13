@@ -74,6 +74,10 @@ static const rr_frontend_ops_t redirect_frontend = {
 static bool use_frontend;
 static char status_text[1024], printed_room[128];
 static bool printed_status;
+static bool quit_test;
+static bool quit_members[3];
+static unsigned quit_notices[3], quit_removals;
+static const char *quit_rooms[] = {"#room", "#other", "&local"};
 static const char *active_window = "status";
 static long long clock_ms = 1000;
 long long mono_ms(void) {
@@ -99,6 +103,14 @@ static bool request_whois(const char *nick) {
    return cmd_whois(2, args);
 }
 bool ui_print(const char *window, const char *fmt, ...) {
+   if (quit_test && window) {
+      for (unsigned i = 0 ; i < 3 ; i++) {
+         if (!strcmp(window, quit_rooms[i])) {
+            assert(quit_members[i]); // Notices precede removal.
+            quit_notices[i]++;
+         }
+      }
+   }
    snprintf(printed_room, sizeof(printed_room), "%s", window ? window : "status");
    printed_status = !window || !strcmp(window, "status");
    va_list ap;
@@ -128,18 +140,33 @@ bool rrclient_room_request_join(const char *room) {
    return true;
 }
 const char *rrclient_room_iter(unsigned index) {
-   return index == 0 ? "#room" : NULL;
+   return quit_test ? (index < 3 ? quit_rooms[index] : NULL) : index == 0 ? "#room" : NULL;
 }
 
 static struct rr_user member = {
    .name = "bob", .room = "#room"
 };
 struct rr_user *userlist_find_in_room(const char *name, const char *room) {
+   if (quit_test) {
+      for (unsigned i = 0 ; i < 3 ; i++) {
+         if (!strcasecmp(name, "bob") && !strcmp(room, quit_rooms[i]) && quit_members[i]) {
+            return &member;
+         }
+      }
+      return NULL;
+   }
    return !strcmp(name, member.name) && !strcmp(room, member.room) ? &member : NULL;
 }
 bool userlist_remove_by_name_room(const char *name, const char *room) {
-   (void)name;
-   (void)room;
+   if (quit_test) {
+      for (unsigned i = 0 ; i < 3 ; i++) {
+         if (!strcasecmp(name, "bob") && (!room || !strcmp(room, quit_rooms[i])) && quit_members[i]) {
+            quit_members[i] = false;
+            quit_removals++;
+            return true;
+         }
+      }
+   }
 
    return false;
 }
@@ -469,6 +496,21 @@ int main(void) {
    assert(!irc_process_message(&stale, ":server 470 tester #oldchannel #other :Stale connection"));
    assert(redirects == 3);
    expected_connection = &client;
+   quit_test = true;
+   quit_members[0] = quit_members[2] = true;
+   // A stale connection must not affect the selected server's roster or tabs.
+   assert(!irc_process_message(&stale, ":bob!u@h QUIT :other server"));
+   assert(quit_members[0] && quit_members[2] && !quit_removals);
+   assert(!quit_notices[0] && !quit_notices[1] && !quit_notices[2]);
+   assert(!irc_process_message(&client, ":BOB!u@h QUIT :connection closed"));
+   assert(quit_notices[0] == 1 && quit_notices[1] == 0 && quit_notices[2] == 1);
+   assert(!quit_members[0] && !quit_members[1] && !quit_members[2] && quit_removals == 2);
+   assert(strstr(status_text, "BOB quit: connection closed"));
+   assert(!irc_process_message(&client, ":BOB!u@h QUIT"));
+   assert(quit_notices[0] == 1 && quit_notices[2] == 1 && quit_removals == 2);
+   assert(!irc_process_message(&client, ":unknown!u@h QUIT :gone"));
+   assert(quit_notices[0] == 1 && quit_notices[2] == 1 && quit_removals == 2);
+   puts("PASS: IRC QUIT notifies shared channels and removes memberships on its server only");
    free((void *)login_user);
    dict_free(last_talk);
    dict_free(last);
