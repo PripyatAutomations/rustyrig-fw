@@ -16,7 +16,6 @@ static unsigned inventory_request;
 #define INVENTORY_REQUESTS_MAX 32
 static struct inventory_request {
    char id[48], window[128];
-   bool visible[5];
    const char *kind;
    unsigned count;
 } inventory_requests[INVENTORY_REQUESTS_MAX];
@@ -54,30 +53,15 @@ static bool inventory_message(dict *d) {
    if (depth > 4) {
       return true;
    }
-   bool visible = !window || window[0] != '#';
-
-   if (!visible) {
-      const char *kind = dict_get(d, "inventory.kind", "");
-      visible = !strcmp(kind, "site") || !strcmp(kind, "rig") ?
-         rrclient_resource_matches(window, dict_get(d, "inventory.room", "")) : depth && request->visible[depth - 1];
-   }
-   request->visible[depth] = visible;
-
-   if (!visible) {
-      return true;
-   }
    const char *kind = dict_get(d, "inventory.kind", "");
-
-   bool matches_kind = !strcmp(request->kind, "gps") ? !strcmp(kind, "gps") : !strcmp(kind, "rig") || !strcmp(kind, "vfo");
+   bool parent = !strcmp(kind, "site") || !strcmp(kind, "rig");
+   bool matches_kind = parent || (!strcmp(request->kind, "gps") ? !strcmp(kind, "gps") : !strcmp(kind, "vfo"));
 
    if (!matches_kind) {
       return true;
    }
    request->count++;
 
-   if (!strcmp(request->kind, "gps")) {
-      depth = 0;
-   }
    char details[1536] = "";
    const char *keys[] = {
       "uuid", "room", "backend", "frequency", "codec", "direction", "subsystem", "coordinates", "source", "service",

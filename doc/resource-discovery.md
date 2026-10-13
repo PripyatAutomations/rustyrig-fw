@@ -2,7 +2,7 @@
 
 Discovery commands list their own resource types in native GTK, TUI and the
 browser. `/object [symbol|uuid]` inspects cached objects and properties;
-`/rig` lists radios and VFOs; `/gps` lists GPS services; `/sercom` lists serial
+`/rig` lists sites with radio and VFO subtrees; `/gps` lists GPS services; `/sercom` lists serial
 ports; `/room list` lists rooms; `/media` lists streams and refreshes discovery.
 `/rig` and `/gps` request fresh server inventory without changing subscriptions
 and filter its rows in the client. GPS listings include inputs and outputs,
@@ -25,7 +25,7 @@ client's existing serial interface and retain the server's control checks.
 | `/media` | Refresh available stream metadata |
 | `/media list` | Show cached streams and current subscriptions |
 | `/media subscribe <name|uuid|#number>`, `/media unsubscribe <name|uuid|#number>` | Manage a specific stream |
-| `/gps list` | List only GPS services |
+| `/gps list` | List GPS services under their site and rig parents |
 | `/gps subscribe <rig-alias|station>` | Subscribe to that scope's NMEA output |
 | `/gps unsubscribe <rig-alias|station>` | Stop that NMEA subscription |
 | `/sercom remote` | Discover permitted server serial exports |
@@ -139,12 +139,20 @@ path rejection, and lossless binary serial transport.
 
 ## Window context
 
-Native and browser resource listings and parameter completion use the issuing
-window's context. A site room shows that site's resources and rigs; a rig room
-(including its RX rooms) shows that rig and its VFOs, media, GPS and serial
-services. The native status window shows everything discoverable. Other windows
-without a room context also show everything. Delayed inventory replies keep
-both the destination and context captured when the command was issued.
+Native and browser `/rig` listings show every site advertised by the connected
+server, including linked sites, with rig and VFO children at the server-provided
+depths. They are not restricted to the current chat room. `/gps` retains site
+and rig parents around GPS services; browser serial inventory does likewise for
+permitted serial exports. Parent rows count toward the displayed entry total.
+The server currently advertises linked site/rig/VFO inventory, but does not
+advertise linked GPS or serial services. Empty site or rig branches may appear
+in service-specific trees. Discovery does not imply permission to control a
+resource; the existing room and subscription checks still apply.
+
+Delayed inventory replies keep the destination captured when the command was
+issued. Cached `/object` and `/media` listings and parameter completion retain
+their current window filters. Native `/sercom` uses the separate server serial
+export list, whose entries currently belong to the connected server only.
 
 The server includes `object.room` on node and rig descriptors; VFOs inherit
 their owner's room. This is descriptive metadata, not an authorization change.

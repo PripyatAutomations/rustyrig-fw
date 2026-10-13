@@ -528,3 +528,8 @@ values change. The network poll source rounds positive fractional-millisecond
 deadlines up to avoid spinning, retaining its existing 10 ms cadence. These
 changes affect native GTK scheduling/rendering, with shared client state and
 wire behavior unchanged.
+
+Native `objects.events.c` and browser `webui.objects.js` render `/rig` as
+a connection-wide site → rig → VFO tree, including linked sites. GPS inventory
+retains site and rig parents and also spans the connection. Reply destinations
+remain the issuing window; cached object/media context filters are unchanged.

@@ -10,12 +10,17 @@ rrconn_t *ws_conn = &session;
 static const char *active = "#first";
 static char destination[128], sent_id[48];
 static unsigned printed;
+static char output[2048];
 static bool send_ok = true;
 const char *ui_active_window_name(void) {
    return active;
 }
 bool ui_print(const char *window, const char *fmt, ...) {
    snprintf(destination, sizeof(destination), "%s", window ? window : "");
+   va_list ap;
+   va_start(ap, fmt);
+   vsnprintf(output, sizeof(output), fmt, ap);
+   va_end(ap);
    printed++;
 
    return false;
@@ -103,21 +108,22 @@ int main(void) {
    active = "#site-rig1.rx";
    assert(!cmd_rig(2, list));
    snprintf(first, sizeof(first), "%s", sent_id);
-   active = "#site-rig10";      // Replies retain the original filter across tab switches.
-   tree_row(first, 0, "site", "#site", false);
+   active = "#site-rig10";      // Replies retain their destination across tab switches.
+   tree_row(first, 0, "site", "#site", true);
    tree_row(first, 1, "rig", "#site-rig1", true);
    tree_row(first, 2, "vfo", NULL, true);
+   assert(!strncmp(output, "   +- vfo", 9));
    tree_row(first, 2, "gps", NULL, false);
-   tree_row(first, 1, "rig", "#site-rig10", false);
+   tree_row(first, 1, "rig", "#site-rig10", true);
    tree_row(first, 2, "serial", NULL, false);
    reply(first, "inventory-end", "#site-rig1.rx");
    active = "#site";
    assert(!cmd_rig(2, list));
    snprintf(first, sizeof(first), "%s", sent_id);
-   tree_row(first, 0, "site", "#site", false);
+   tree_row(first, 0, "site", "#site", true);
    tree_row(first, 1, "rig", "#site-rig10", true);
    tree_row(first, 2, "gps", NULL, false);
-   tree_row(first, 0, "site", "#other", false);
+   tree_row(first, 0, "site", "#other", true);
    tree_row(first, 1, "gps", NULL, false);
    reply(first, "inventory-end", "#site");
    char *gps_list[] = {
@@ -127,19 +133,19 @@ int main(void) {
    assert(!cmd_gps(2, gps_list));
    snprintf(first, sizeof(first), "%s", sent_id);
    active = "#site-rig10";
-   tree_row(first, 0, "site", "#site", false);
-   tree_row(first, 1, "gps", NULL, false);   // Station GPS is outside this rig.
-   tree_row(first, 1, "rig", "#site-rig1", false); // Hidden parent still sets context.
+   tree_row(first, 0, "site", "#site", true);
+   tree_row(first, 1, "gps", NULL, true);   // Discover station GPS from rig rooms too.
+   tree_row(first, 1, "rig", "#site-rig1", true); // Parent preserves the tree.
    tree_row(first, 2, "vfo", NULL, false);
    tree_row(first, 2, "gps", NULL, true);
    tree_row(first, 2, "serial", NULL, false);
-   tree_row(first, 1, "rig", "#site-rig10", false);
-   tree_row(first, 2, "gps", NULL, false);
+   tree_row(first, 1, "rig", "#site-rig10", true);
+   tree_row(first, 2, "gps", NULL, true);
    reply(first, "inventory-end", "#site-rig1.rx");
    active = "status";
    assert(!cmd_gps(1, gps_list));
    snprintf(first, sizeof(first), "%s", sent_id);
-   tree_row(first, 0, "site", "#other", false);
+   tree_row(first, 0, "site", "#other", true);
    tree_row(first, 1, "gps", NULL, true);
    tree_row(first, 1, "serial", NULL, false);
    reply(first, "inventory-end", "status");

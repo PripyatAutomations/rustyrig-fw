@@ -1,5 +1,8 @@
 rustyrig-fw (20261013.01) testing; urgency=medium
 
+  * Show local and linked sites with rig/VFO subtrees in native and browser
+    /rig discovery from every room; retain site/rig parents in GPS and browser
+    serial inventory trees while preserving issuing-window replies.
   * Avoid GTK network-source busy polling before millisecond deadlines.
     Update roster rows incrementally, preserve selection, coalesce width
     measurements, and skip unchanged VFO label/style updates.
@@ -11,7 +14,7 @@ rustyrig-fw (20261013.01) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 10:11:07 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 15:20:38 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 
