@@ -91,3 +91,8 @@ present there. `talk.supervise` replies include action, request ID in target,
 TX room, requesting user and explanation in data. Replies use data
 `accept|decline <id>` with the same room. Libraries emit application events and
 fail closed when no server supervision listener exists. IRC is unaffected.
+
+Native SOCKS5 failures name the credential-free proxy endpoint and destination,
+with the specific rejection, authentication or timeout reason. Proxy passwords
+are obscured in displayed error text; a disconnect before tunnel setup also
+produces an explicit proxy failure notice.

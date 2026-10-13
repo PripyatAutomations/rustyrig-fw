@@ -1,5 +1,10 @@
 rustyrig-fw (20261013.02) testing; urgency=medium
 
+  * Fix WebUI WebSocket upgrades rejected by browsers: emit the negotiated
+    subprotocol header once, including server links. Validate the exact
+    handshake header in live-server tests before authenticating.
+  * Show native SOCKS5 rejection, timeout and early-close reasons with proxy
+    and destination endpoints, obscuring proxy passwords in error messages.
   * Display separate TX/RX bandwidth usage in GTK/browser Admin quotas and
     /quota listings. Keep the shared allowance, remove SET-only hints from
     ADD prompts, and label Admin pages Users, Rooms, Quotas, Audit Log, PTT Log.
@@ -30,7 +35,7 @@ rustyrig-fw (20261013.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:22:02 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:27:00 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

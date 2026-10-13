@@ -548,7 +548,7 @@ typedef struct {
    server_cfg_t server;
    client_server_t *owner;
    rr_socks_t socks;
-   bool proxy_pending;
+   bool proxy_pending, proxy_error_shown;
    mg_event_handler_t websocket_handler;
    struct mg_iobuf websocket_request;
 } rrclient_transport_t;
@@ -585,7 +585,26 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       cptr->conn = c;
    }
 
+   char proxy_error[512];
    if (t->proxy_pending && (ev == MG_EV_ERROR || ev == MG_EV_CLOSE)) {
+      const char *reason = ev == MG_EV_ERROR && data ? data : "connection closed before the SOCKS5 tunnel was established";
+      size_t length = strlen(t->socks.pass), written = 0;
+      while (*reason && written + 1 < sizeof(proxy_error)) {
+         if (length && !strncmp(reason, t->socks.pass, length)) {
+            if (written + 3 >= sizeof(proxy_error)) break;
+            memcpy(proxy_error + written, "***", 3);
+            written += 3;
+            reason += length;
+         } else {
+            proxy_error[written++] = *reason++;
+         }
+      }
+      proxy_error[written] = '\0';
+      if (!t->proxy_error_shown) {
+         ui_print(NULL, "SOCKS5 proxy %s for %s:%d failed: %s", t->socks.url, t->server.host, t->server.port, proxy_error);
+         t->proxy_error_shown = true;
+      }
+      if (ev == MG_EV_ERROR) data = proxy_error;
       rr_socks_event(&t->socks, c, ev);
    }
 

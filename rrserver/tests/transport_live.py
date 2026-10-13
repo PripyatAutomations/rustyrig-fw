@@ -282,7 +282,7 @@ enabled=false
             def quota(kind, command, name, amount=None):
                 tail = f"{command} {name}" + (f" {amount}" if amount is not None else "")
                 first.send({"msg": {"type": "talk"}, "talk": {"cmd": "quota", "target": kind, "data": tail}})
-                return first.until(lambda m: name in m.get("notice", {}).get("msg", "") and "BW used=" in m["notice"]["msg"])
+                return first.until(lambda m: name in m.get("notice", {}).get("msg", "") and "BW TX used=" in m["notice"]["msg"] and "RX used=" in m["notice"]["msg"])
             quota("BW", "SET", "TX", "2")
             with sqlite3.connect(database) as db:
                 assert db.execute("SELECT bandwidth_remaining FROM user_usage WHERE name='TX'").fetchone()[0] <= 2000000
@@ -333,7 +333,7 @@ enabled=false
             first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"LIST"}})
             listing = drain(first)
             assert any("TX remaining=" in m.get("notice",{}).get("msg","") for m in listing)
-            assert any("BW used=" in m.get("notice",{}).get("msg","") for m in listing)
+            assert any("BW TX used=" in m.get("notice",{}).get("msg","") and "RX used=" in m.get("notice",{}).get("msg","") for m in listing)
             first.send({"msg":{"type":"talk"},"talk":{"cmd":"quota","target":"BW","data":"SET *O* 3M"}})
             drain(first)
             with sqlite3.connect(database) as db:

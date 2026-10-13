@@ -568,7 +568,8 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
       struct mg_str *protocol = mg_http_get_header(hm, "Sec-WebSocket-Protocol");
 
       if (mg_match(hm->uri, mg_str("/link"), NULL) && protocol && !mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
-         mg_ws_upgrade(c, hm, "Sec-WebSocket-Protocol: " RR_LINK_SUBPROTOCOL "\r\n");
+         /* Mongoose echoes the already-validated subprotocol once. */
+         mg_ws_upgrade(c, hm, NULL);
       } else {
          mg_http_reply(c, 400, "", "Server-link protocol required\n");
          c->is_draining = 1;

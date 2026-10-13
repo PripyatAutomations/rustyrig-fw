@@ -55,6 +55,10 @@ class WebSocket:
             self.buffer += self.socket.recv(4096)
         headers, self.buffer = self.buffer.split(b"\r\n\r\n", 1)
         assert b"101" in headers.split(b"\r\n", 1)[0], headers
+        protocols = [line.split(b":", 1)[1].strip() for line in headers.split(b"\r\n")[1:]
+                     if line.split(b":", 1)[0].lower() == b"sec-websocket-protocol"]
+        assert protocols == [b"rustyrig.v1"], ("invalid WebSocket subprotocol response", protocols)
+
 
     def exact(self, length):
         while len(self.buffer) < length:

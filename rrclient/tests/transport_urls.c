@@ -367,7 +367,8 @@ int main(void) {
    pc = ws_conn->conn;
    pc->fn(pc, MG_EV_CONNECT, NULL);
    assert(pc->send.len == 3);
-   pc->fn(pc, MG_EV_ERROR, "proxy lost");
+   pc->fn(pc, MG_EV_ERROR, "SOCKS5: authentication method rejected");
+   assert(strstr(last_status, "SOCKS5 proxy tcp://localhost:1080") && strstr(last_status, "authentication method rejected"));
    pc->fn(pc, MG_EV_CLOSE, NULL);
    /* The headless fixture omits m_privmsg.c, which maps this IRC event. */
    dict_add(cfg, "server.reconnect-interval", "5");
@@ -383,6 +384,15 @@ int main(void) {
    assert(connection_count > before_retry && !strcmp(last_url, "tcp://localhost:1080"));
    assert(!ws_conn->sent_login && !ws_conn->conn->send.len);
    dict_add(cfg, "server.reconnect-interval", "60");
+   dict_add(cfg, "server:redacted.server.proxy", "socks5h://localhost:1080");
+   dict_add(cfg, "server:redacted.server.proxy.user", "proxy-user");
+   dict_add(cfg, "server:redacted.server.proxy.pass", "private-proxy-password");
+   assert(!rrclient_connect_url("redacted", "irc://redacted.test"));
+   struct mg_connection *redacted = ws_conn->conn;
+   redacted->fn(redacted, MG_EV_ERROR, "proxy rejected private-proxy-password");
+   assert(strstr(last_status, "proxy rejected ***") && !strstr(last_status, "private-proxy-password"));
+   assert(!disconnect_server("redacted"));
+   redacted->fn(redacted, MG_EV_CLOSE, NULL);
    dict_add(cfg, "server.proxy", "socks5h://localhost:1080");
    dict_add(cfg, "server:direct.server.proxy", "");
    assert(!rrclient_connect_url("direct", "irc://direct.test"));
