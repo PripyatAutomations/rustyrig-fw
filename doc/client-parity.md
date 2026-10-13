@@ -543,3 +543,7 @@ proxy and their endpoints. Browser media notices identify WebSocket proxy;
 browsers do not implement the native RTP route selection. GTK restores a local
 TX button from the current room/VFO's authoritative roster after tab switches,
 without sending CAT commands. Browser PTT rendering already consults UserCache.
+
+GTK Config live field filtering is frontend-specific. Plain text matches keys
+and descriptions; `=text` matches only keys and `^text` matches key prefixes,
+case-insensitively. See [Config field search](config-search.md).

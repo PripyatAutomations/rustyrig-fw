@@ -233,10 +233,32 @@ static int cfg_editor_defconfig_compare(const void *left, const void *right) {
    return strcmp(a->key, b->key);
 }
 
-static GtkWidget *cfg_editor_panel(void) {
+static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
+   const char *query = gtk_entry_get_text(GTK_ENTRY(search));
+   char mode = (*query == '=' || *query == '^') ? *query++ : '\0';
+   GList *children = gtk_container_get_children(GTK_CONTAINER(user_data));
+
+   for (GList *it = children ; it ; it = it->next) {
+      GtkWidget *widget = it->data;
+      const defconfig_t *def = g_object_get_data(G_OBJECT(widget), "rr-cfg-definition");
+
+      if (!def) {
+         continue;
+      }
+      bool visible = !*query || (mode == '^' ? !strncasecmp(def->key, query, strlen(query)) :
+         strcasestr(def->key, query) != NULL || (!mode && def->help && strcasestr(def->help, query)));
+      gtk_widget_set_no_show_all(widget, !visible);
+      gtk_widget_set_visible(widget, visible);
+   }
+
+   g_list_free(children);
+}
+
+static GtkWidget *cfg_editor_panel(GtkWidget **grid_out) {
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    GtkWidget *grid = gtk_grid_new();
+   *grid_out = grid;
    gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
    gtk_container_set_border_width(GTK_CONTAINER(grid), 6);
@@ -276,6 +298,9 @@ static GtkWidget *cfg_editor_panel(void) {
          continue;
       }
       gtk_widget_set_hexpand(editor, TRUE);
+      g_object_set_data(G_OBJECT(label), "rr-cfg-definition", (gpointer)def);
+      g_object_set_data(G_OBJECT(editor), "rr-cfg-definition", (gpointer)def);
+      g_object_set_data(G_OBJECT(help), "rr-cfg-definition", (gpointer)def);
       gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), editor, 1, row, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), help, 2, row, 1, 1);
@@ -710,10 +735,20 @@ GtkWidget *init_config_tab(void) {
    gtk_label_set_markup(GTK_LABEL(cfg_tab_label), "(<u>2</u>) Config");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), nw, cfg_tab_label);
 
+   GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(header), 6);
+   gtk_box_pack_start(GTK_BOX(nw), header, FALSE, FALSE, 6);
+   GtkWidget *search = gtk_entry_new();
+   gtk_entry_set_width_chars(GTK_ENTRY(search), 20);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Filter config...");
+   gtk_widget_set_tooltip_text(search, "Filter keys and descriptions (case-insensitive). =audio: keys containing audio; ^debug: keys starting with debug. Clear to show all fields.");
+   gtk_box_pack_start(GTK_BOX(header), search, FALSE, FALSE, 0);
    GtkWidget *config_label = gtk_label_new("Please be sure to click SAVE CONFIG when done...");
-   gtk_box_pack_start(GTK_BOX(nw), config_label, FALSE, FALSE, 12);
+   gtk_box_pack_start(GTK_BOX(header), config_label, FALSE, FALSE, 0);
 
-   GtkWidget *cfg_panel = cfg_editor_panel();
+   GtkWidget *cfg_grid;
+   GtkWidget *cfg_panel = cfg_editor_panel(&cfg_grid);
+   g_signal_connect_object(search, "changed", G_CALLBACK(cfg_editor_filter_changed), cfg_grid, 0);
    gtk_widget_set_vexpand(cfg_panel, TRUE);
    gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
 
