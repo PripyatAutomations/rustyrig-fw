@@ -39,8 +39,13 @@ Inventory includes offline and locked users and deleted rooms. Edit changes emai
 (Unix seconds, blank means never), and required password change. Account name,
 UID and password-set timestamp are read-only; Reset password uses the existing
 server command. Lock/Unlock and Remove/Restore retain server permissions.
-Quotas show TX seconds and bandwidth bytes, with SET/ADD actions using existing
+Admin pages are named Users, Rooms, Quotas, Audit Log and PTT Log.
+Quotas show TX seconds plus separate `bandwidth_tx_used` and `bandwidth_rx_used`
+byte totals. TX bytes are sent by the server to the user; RX bytes are received
+by the server from the user, matching the existing traffic counters. Both
+directions still consume the shared remaining bandwidth allowance. `/quota BW LIST` also reports the directions separately. SET/ADD actions use existing
 TX duration syntax (30m, 2h) and decimal BW units (10M, 1G).
+Only SET prompts mention that zero exhausts the allowance; ADD prompts do not.
 Audit and PTT sections are titled Audit Log and PTT Log.
 Remove requires confirmation. The first room removal is reversible; removing
 an already-deleted room warns that it permanently deletes metadata and all chat

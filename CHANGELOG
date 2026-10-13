@@ -1,5 +1,8 @@
 rustyrig-fw (20261013.02) testing; urgency=medium
 
+  * Display separate TX/RX bandwidth usage in GTK/browser Admin quotas and
+    /quota listings. Keep the shared allowance, remove SET-only hints from
+    ADD prompts, and label Admin pages Users, Rooms, Quotas, Audit Log, PTT Log.
   * Add a live GTK Config search beside the save reminder: filter keys and
     descriptions, use =text for keys only or ^text for key prefixes.
   * Add per-server IRC SASL PLAIN/EXTERNAL authentication with bounded CAP
@@ -27,7 +30,7 @@ rustyrig-fw (20261013.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:08:11 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:22:02 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

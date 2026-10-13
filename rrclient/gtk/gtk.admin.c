@@ -31,9 +31,10 @@ static admin_table_t tables[] = {
          "name", "deleted", "topic", "has_vfos", "vfo_mask"
       }
    },
+   /* PARITY: rustyrig-www/js/webui.admin.js adminTables. Fields come from rrserver/events.c. */
    {
       .name = "quotas", .fields = {
-         "name", "tx_remaining", "tx_used", "bandwidth_remaining", "bandwidth_used"
+         "name", "tx_remaining", "tx_used", "bandwidth_remaining", "bandwidth_tx_used", "bandwidth_rx_used"
       }
    },
    {
@@ -163,8 +164,9 @@ static void admin_action(GtkButton *button, gpointer data) {
          GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL, "Save", GTK_RESPONSE_OK, NULL);
       GtkWidget *entry = gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(entry), quota ? "" : value ? value : "");
-      gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), gtk_label_new(quota ?
-         "TX: e.g. 30m; BW: e.g. 10M. SET 0 exhausts allowance." : "Topic"), FALSE, FALSE, 8);
+      const char *hint = !quota ? "Topic" : strstr(action, "SET") ?
+         "TX: e.g. 30m; BW: e.g. 10M. SET 0 exhausts allowance." : "TX: e.g. 30m; BW: e.g. 10M.";
+      gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), gtk_label_new(hint), FALSE, FALSE, 8);
       gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry, FALSE, FALSE, 8);
       gtk_widget_show_all(dialog);
 
@@ -331,7 +333,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(!strcmp(table->name, "audit") ? "Audit Log" : !strcmp(table->name, "ptt") ?
-         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : table->name));
+         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : !strcmp(table->name, "users") ? "Users" : "Rooms"));
    }
 
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));

@@ -547,3 +547,8 @@ without sending CAT commands. Browser PTT rendering already consults UserCache.
 GTK Config live field filtering is frontend-specific. Plain text matches keys
 and descriptions; `=text` matches only keys and `^text` matches key prefixes,
 case-insensitively. See [Config field search](config-search.md).
+
+GTK and browser Admin quota tables display separate server TX and RX bandwidth
+usage totals from `rrserver/events.c`, with a shared remaining allowance. Both
+label pages Users, Rooms, Quotas, Audit Log and PTT Log, and show the zero-to-
+exhaust hint only for SET actions.

@@ -264,12 +264,17 @@ static void usage_show(rrconn_t *requester, const char *name) {
    ws_send_notice(requester, "%s: TX remaining=%d seconds (%s)", name, db_quota_get(masterdb, name), cfg_get_bool("quota.enforce", true) ? "enforced" :
       "advisory");
 
+   uint64_t tx_bytes = usage.traffic.tx_text_bytes + usage.traffic.tx_binary_bytes;
+   uint64_t rx_bytes = usage.traffic.rx_text_bytes + usage.traffic.rx_binary_bytes;
+
    if (usage.bandwidth_limited) {
-      ws_send_notice(requester, "%s: BW used=%" PRIu64 " bytes, remaining=%" PRId64 " bytes; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name, total_bytes
-            (&usage.traffic), usage.bandwidth_remaining, usage.tx_seconds, usage.session_seconds);
+      ws_send_notice(requester, "%s: BW TX used=%" PRIu64 " bytes, RX used=%" PRIu64 " bytes, remaining=%" PRId64
+         " bytes; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name, tx_bytes, rx_bytes,
+         usage.bandwidth_remaining, usage.tx_seconds, usage.session_seconds);
    } else {
-      ws_send_notice(requester, "%s: BW used=%" PRIu64 " bytes, allowance=unlimited; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name, total_bytes(&usage.
-         traffic), usage.tx_seconds, usage.session_seconds);
+      ws_send_notice(requester, "%s: BW TX used=%" PRIu64 " bytes, RX used=%" PRIu64
+         " bytes, allowance=unlimited; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name,
+         tx_bytes, rx_bytes, usage.tx_seconds, usage.session_seconds);
    }
 }
 
