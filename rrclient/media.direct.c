@@ -201,6 +201,10 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
          if (channel->mode == RR_MEDIA_DIRECT) {
             direct_failed(channel, "the owner did not provide a usable RTP referral");
          } else if (preferred(client)) {
+            const char *reason = !*endpoint ? "unavailable: server supplied no RTP endpoint; falling back" :
+               !rr_rtp_supported(encrypted) ? "unavailable: RTP security not supported by this build; falling back" :
+               "unavailable: invalid RTP grant; falling back";
+            report_route(channel, reason, true);
             next_route(channel);
          } else {
             report_route(channel, "connected", false);
@@ -263,6 +267,7 @@ void rrclient_direct_poll(void) {
       struct direct_channel *c = &channels[i];
 
       if (c->mode == RR_MEDIA_AUTO && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
+         report_route(c, "timed out; falling back", true);
          next_route(c);
       }
 
@@ -354,6 +359,8 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
       } else {
          dict_add(d, "media.transport", preferred(client) && rr_rtp_supported(false) && c->route < 2 ? (c->route == 1 ? "rtp-home" : "rtp") : "ws");
       }
+      const char *transport = dict_get(d, "media.transport", "ws");
+      report_route(c, "requesting", strcmp(transport, "ws") != 0);
    }
 }
 static void binary(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
