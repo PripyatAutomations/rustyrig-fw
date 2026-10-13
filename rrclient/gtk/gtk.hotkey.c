@@ -141,7 +141,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return TRUE;
    }
 
-   /* Admin's nested notebook must not consume upper-strip navigation. */
+   /* Ctrl navigation stays inside Admin; Alt navigation selects main tabs. */
    if (admin_active && event->type == GDK_KEY_PRESS && modifiers == GDK_CONTROL_MASK) {
       int digit = -1;
 
@@ -152,16 +152,21 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       if (digit >= 0) {
-         return gtk_switch_tab_digit(digit, main_win);
+         int page = digit == 0 ? 9 : digit - 1;
+
+         if (page < gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_tab))) {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), page);
+         }
+         return TRUE;
       }
       if (event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left ||
          event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
-         int pages = gtk_notebook_get_n_pages(main_notebook);
-         int current = gtk_notebook_get_current_page(main_notebook);
+         int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_tab));
+         int current = gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_tab));
          bool previous = event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left;
 
          if (pages > 0) {
-            gtk_notebook_set_current_page(main_notebook, (current + (previous ? pages - 1 : 1)) % pages);
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), (current + (previous ? pages - 1 : 1)) % pages);
          }
          return TRUE;
       }
