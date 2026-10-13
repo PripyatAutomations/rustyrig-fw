@@ -42,6 +42,7 @@ bool userlist_names_pending(const char *room) {
          return true;
       }
    }
+
    return false;
 }
 
@@ -72,9 +73,11 @@ void userlist_names_end(const char *room) {
          if (!dying && frontend_ops() && rrclient_present_context()) {
             frontend_ops()->userlist_redraw();
          }
+
          if (!dying) {
             userlist_refresh_ptt_status();
          }
+
          return;
       }
    }
@@ -255,6 +258,7 @@ bool userlist_add_or_update(dict *d) {
             frontend_ops()->userlist_redraw();
          }
       }
+
       if (!userlist_names_pending(t_room)) {
          userlist_refresh_ptt_status();
       }
@@ -302,6 +306,7 @@ bool userlist_add_or_update(dict *d) {
          frontend_ops()->userlist_redraw();
       }
    }
+
    if (!userlist_names_pending(t_room)) {
       userlist_refresh_ptt_status();
    }
@@ -334,6 +339,7 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
                frontend_ops()->userlist_redraw();
             }
          }
+
          if (!pending) {
             userlist_refresh_ptt_status();
          }

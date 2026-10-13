@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <librrprotocol/wire.h>
 // Native connection manager. Wire handlers remain in librrprotocol.
 #include <stdlib.h>
@@ -586,12 +592,15 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    }
 
    char proxy_error[512];
+
    if (t->proxy_pending && (ev == MG_EV_ERROR || ev == MG_EV_CLOSE)) {
       const char *reason = ev == MG_EV_ERROR && data ? data : "connection closed before the SOCKS5 tunnel was established";
       size_t length = strlen(t->socks.pass), written = 0;
       while (*reason && written + 1 < sizeof(proxy_error)) {
          if (length && !strncmp(reason, t->socks.pass, length)) {
-            if (written + 3 >= sizeof(proxy_error)) break;
+            if (written + 3 >= sizeof(proxy_error)) {
+               break;
+            }
             memcpy(proxy_error + written, "***", 3);
             written += 3;
             reason += length;
@@ -600,11 +609,15 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
          }
       }
       proxy_error[written] = '\0';
+
       if (!t->proxy_error_shown) {
          ui_print(NULL, "SOCKS5 proxy %s for %s:%d failed: %s", t->socks.url, t->server.host, t->server.port, proxy_error);
          t->proxy_error_shown = true;
       }
-      if (ev == MG_EV_ERROR) data = proxy_error;
+
+      if (ev == MG_EV_ERROR) {
+         data = proxy_error;
+      }
       rr_socks_event(&t->socks, c, ev);
    }
 
@@ -963,16 +976,21 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
    snprintf(t->connection.nick, sizeof(t->connection.nick), "%s", nick);
    snprintf(t->server.nick, sizeof(t->server.nick), "%s", nick);
    snprintf(t->server.pass, sizeof(t->server.pass), "%s", pass ? pass : "");
+
    if (endpoint.irc) {
       const char *sasl_user = get_server_property(s->name, "server.sasl.user");
       const char *sasl_pass = get_server_property(s->name, "server.sasl.pass");
       const char *mechanism = get_server_property(s->name, "server.sasl.mechanism");
-      if (!mechanism || !*mechanism) mechanism = "PLAIN";
+
+      if (!mechanism || !*mechanism) {
+         mechanism = "PLAIN";
+      }
+
       if ((sasl_user && strlen(sasl_user) >= sizeof(t->server.sasl_user)) ||
-         (sasl_pass && strlen(sasl_pass) >= sizeof(t->server.sasl_pass)) ||
-         (strcasecmp(mechanism, "PLAIN") && strcasecmp(mechanism, "EXTERNAL"))) {
+         (sasl_pass && strlen(sasl_pass) >= sizeof(t->server.sasl_pass)) || (strcasecmp(mechanism, "PLAIN") && strcasecmp(mechanism, "EXTERNAL"))) {
          ui_print(NULL, "Invalid IRC SASL settings for %s", s->name);
          free(t);
+
          return true;
       }
       snprintf(t->server.sasl_user, sizeof(t->server.sasl_user), "%s", sasl_user ? sasl_user : "");

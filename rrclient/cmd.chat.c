@@ -43,17 +43,20 @@ static bool cmd_irc_chat(rrconn_t *connection, const char *target, const char *k
 
    for (int i = first ; i < argc ; i++) {
       size_t part = args[i] ? strlen(args[i]) : 0;
+
       if (part >= SIZE_MAX - length - 1) {
          return false;
       }
       length += part + (i > first);
    }
+
    char *text = malloc(length + 1);
    dict *request = dict_new();
 
    if (!text || !request) {
       free(text);
       dict_free(request);
+
       return false;
    }
    char *out = text;
@@ -67,6 +70,7 @@ static bool cmd_irc_chat(rrconn_t *connection, const char *target, const char *k
       memcpy(out, part, size);
       out += size;
    }
+
    *out = '\0';
    dict_add(request, "msg.type", "talk");
    dict_add(request, "talk.cmd", "msg");
@@ -76,6 +80,7 @@ static bool cmd_irc_chat(rrconn_t *connection, const char *target, const char *k
    bool sent = irc_send_dict(connection, request);
    dict_free(request);
    free(text);
+
    return sent;
 }
 
@@ -249,6 +254,7 @@ bool cmd_me(int argc, char **args) {
       if (!cmd_irc_room(connection, active_room) || argc < 2) {
          return false;
       }
+
       return !cmd_irc_chat(connection, active_room, "action", argc, args, 1);
    }
    char buf[1024];
@@ -313,6 +319,7 @@ bool cmd_msg(int argc, char **args) {
    }
 
    char *target = args[1];
+
    if (connection && !connection->is_ws) {
       bool sent = cmd_irc_chat(connection, target, target[0] == '#' || target[0] == '&' ? "pub" : "priv", argc, args, 2);
 
@@ -391,6 +398,7 @@ bool cmd_notice(int argc, char **args) {
 
          return false;
       }
+
       return !cmd_irc_chat(connection, notice_target, "notice", argc, args, 2);
    }
    char notice_msg[502];

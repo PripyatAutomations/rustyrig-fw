@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <errno.h>
 #include <ctype.h>
 #include <inttypes.h>
@@ -269,12 +275,11 @@ static void usage_show(rrconn_t *requester, const char *name) {
 
    if (usage.bandwidth_limited) {
       ws_send_notice(requester, "%s: BW TX used=%" PRIu64 " bytes, RX used=%" PRIu64 " bytes, remaining=%" PRId64
-         " bytes; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name, tx_bytes, rx_bytes,
-         usage.bandwidth_remaining, usage.tx_seconds, usage.session_seconds);
+         " bytes; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name, tx_bytes, rx_bytes, usage.bandwidth_remaining, usage.tx_seconds, usage.session_seconds
+         );
    } else {
       ws_send_notice(requester, "%s: BW TX used=%" PRIu64 " bytes, RX used=%" PRIu64
-         " bytes, allowance=unlimited; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name,
-         tx_bytes, rx_bytes, usage.tx_seconds, usage.session_seconds);
+         " bytes, allowance=unlimited; TX used=%" PRIu64 "s, session time=%" PRIu64 "s", name, tx_bytes, rx_bytes, usage.tx_seconds, usage.session_seconds);
    }
 }
 

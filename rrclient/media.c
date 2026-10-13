@@ -852,15 +852,36 @@ static void media_server_selected(const char *event, const char *data, rrconn_t 
 static void media_transport_print(void *data) {
    dict *d = data;
    const char *room = dict_get(d, "media.room", "");
-   ui_print(*room ? room : NULL, "Media %s: %s via %s%s%s", dict_get(d, "media.chan-uuid", ""),
-      dict_get(d, "media.status", ""), dict_get(d, "media.transport", ""),
-      *dict_get(d, "media.endpoint", "") ? " at " : "", dict_get(d, "media.endpoint", ""));
+   const char *uuid = dict_get(d, "media.chan-uuid", "");
+   const struct rr_media_known *channel = media_known_find(uuid);
+   const dict *rig = channel ? rrclient_object_descriptor(channel->rig_uuid) : NULL;
+   const dict *station = rig ? rrclient_object_descriptor(dict_get((dict *) rig, "object.owner", "")) : NULL;
+   char rig_name[32], vfo[8];
+   snprintf(rig_name, sizeof(rig_name), channel && channel->rig != RR_BINFRAME_RIG_NA ? "rig%u" : "unknown", channel ? channel->rig : 0);
+   snprintf(vfo, sizeof(vfo), "%s", "shared");
+
+   if (channel && channel->vfo < 26) {
+      snprintf(vfo, sizeof(vfo), "%c", 'A' + channel->vfo);
+   }
+   const char *codec = dict_get(d, "media.codec", "");
+
+   if (!*codec) {
+      codec = channel && channel->codec[0] ? channel->codec : "unknown";
+   }
+   /* PARITY: rustyrig-www/js/webui.media.js confirmed media connection notices. */
+   ui_print(*room ? room : NULL, "Media %s [station=%s rig=%s VFO=%s %s codec=%s]: %s via %s%s%s", channel && channel->name[0] ? channel->name : uuid, station ?
+      dict_get((dict *) station, "object.alias", "unknown") : "unknown", rig ? dict_get((dict *) rig, "object.alias", rig_name) : rig_name, vfo, channel &&
+      channel->direction == RR_BINFRAME_DIR_TX ? "TX" : channel && channel->direction == RR_BINFRAME_DIR_RX ? "RX" : "unknown", codec, dict_get(d,
+      "media.status", ""), dict_get(d, "media.transport", ""), *dict_get(d, "media.endpoint", "") ? " at " : "", dict_get(d, "media.endpoint", ""));
 }
 static void media_transport_notice(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
    dict *d = data ? json2dict(data) : NULL;
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    rrclient_connection_dispatch(client, media_transport_print, d);
    dict_free(d);
 }

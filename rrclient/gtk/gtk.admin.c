@@ -21,8 +21,7 @@ typedef struct {
 
 static admin_table_t tables[] = {
    {
-      .name = "users", .fields =
-      {
+      .name = "users", .fields = {
          "name", "enabled", "permissions", "email", "maxsessions", "password_set", "password_expires", "password_change_required", "uid"
       }
    },
@@ -164,8 +163,7 @@ static void admin_action(GtkButton *button, gpointer data) {
          GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL, "Save", GTK_RESPONSE_OK, NULL);
       GtkWidget *entry = gtk_entry_new();
       gtk_entry_set_text(GTK_ENTRY(entry), quota ? "" : value ? value : "");
-      const char *hint = !quota ? "Topic" : strstr(action, "SET") ?
-         "TX: e.g. 30m; BW: e.g. 10M. SET 0 exhausts allowance." : "TX: e.g. 30m; BW: e.g. 10M.";
+      const char *hint = !quota ? "Topic" : strstr(action, "SET") ? "TX: e.g. 30m; BW: e.g. 10M. SET 0 exhausts allowance." : "TX: e.g. 30m; BW: e.g. 10M.";
       gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), gtk_label_new(hint), FALSE, FALSE, 8);
       gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry, FALSE, FALSE, 8);
       gtk_widget_show_all(dialog);

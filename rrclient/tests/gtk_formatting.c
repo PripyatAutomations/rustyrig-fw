@@ -430,6 +430,7 @@ static void test_room_links(void) {
 static void test_input_history_focus(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: GTK history test requires a display");
+
       return;
    }
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -444,6 +445,7 @@ static void test_input_history_focus(void) {
    drain_gtk_events();
    GPtrArray *lines;
    GtkInputHistory *history = entry_history(entry, &lines);
+
    if (history->shared) {
       input_history = g_ptr_array_new_with_free_func(g_free);
       lines = input_history;
@@ -451,7 +453,9 @@ static void test_input_history_focus(void) {
    g_ptr_array_add(lines, g_strdup("older"));
    g_ptr_array_add(lines, g_strdup("newer"));
    gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
-   GdkEventKey event = {.type = GDK_KEY_PRESS, .keyval = GDK_KEY_Up};
+   GdkEventKey event = {
+      .type = GDK_KEY_PRESS, .keyval = GDK_KEY_Up
+   };
    assert(gtk_chat_history_keypress(window, &event));
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "newer"));
    event.keyval = GDK_KEY_KP_Up;
@@ -470,6 +474,7 @@ static void test_input_history_focus(void) {
    gtk_widget_grab_focus(other);
    assert(!gtk_chat_history_keypress(window, &event));
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+
    if (history->shared) {
       g_ptr_array_unref(input_history);
       input_history = NULL;

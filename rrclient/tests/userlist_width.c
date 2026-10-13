@@ -193,12 +193,14 @@ static void test_incremental_roster(void) {
    room_vfo_mask = 0;
    struct rr_user *users = calloc(850, sizeof(*users));
    assert(users);
+
    for (unsigned i = 0 ; i < 850 ; i++) {
       snprintf(users[i].name, sizeof(users[i].name), "user%04u", i);
       strcpy(users[i].room, "#rig");
       strcpy(users[i].privs, "irc:");
       users[i].next = i + 1 < 850 ? &users[i + 1] : NULL;
    }
+
    global_userlist = users;
    GtkWidget *view = userlist_view_create();
    g_object_ref_sink(view);
@@ -220,7 +222,9 @@ static void test_incremental_roster(void) {
    users[100].is_muted = true;
    userlist_redraw_view(view, "#rig");
    assert(updated == 1 && !inserted && !deleted && !reordered);
-   struct rr_user newcomer = { .name = "user0200a", .room = "#rig", .privs = "irc:", .next = &users[201] };
+   struct rr_user newcomer = {
+      .name = "user0200a", .room = "#rig", .privs = "irc:", .next = &users[201]
+   };
    users[200].next = &newcomer;
    reset_events();
    userlist_redraw_view(view, "#rig");
@@ -270,13 +274,17 @@ const char *rrclient_media_active_room(void) {
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    (void)room;
    (void)vfo;
+
    return "vfo-a";
 }
+
 static dict *frequency_property, *mode_property;
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    (void)uuid;
+
    return !strcmp(name, "frequency") ? frequency_property : mode_property;
 }
+
 static unsigned label_changes;
 static void label_notify(GObject *object, GParamSpec *property, gpointer data) {
    (void)object;
@@ -293,7 +301,9 @@ static void test_vfo_refresh_changes(void) {
    dict_add(mode_property, "property.value", "FM");
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    g_object_ref_sink(box);
-   room_vfo_control_t control = { .vfo = 'A', .room = "#rig", .row = box };
+   room_vfo_control_t control = {
+      .vfo = 'A', .room = "#rig", .row = box
+   };
    control.freq = gtk_label_new("");
    control.mode = gtk_label_new("");
    control.ptt = gtk_button_new_with_label("PTT OFF");
@@ -498,5 +508,6 @@ int main(void) {
 
 bool userlist_names_pending(const char *room) {
    (void)room;
+
    return false;
 }

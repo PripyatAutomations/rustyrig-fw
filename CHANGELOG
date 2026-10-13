@@ -1,5 +1,7 @@
-rustyrig-fw (20261013.02) testing; urgency=medium
+rustyrig-fw (20261013.03) testing; urgency=medium
 
+  * Identify media connection notices by station, rig, VFO, direction and
+    negotiated codec in native and browser clients.
   * Show native media transport requests before connection, and explain
     automatic RTP fallback for missing endpoints, unsupported security,
     invalid grants and timeouts.
@@ -38,7 +40,7 @@ rustyrig-fw (20261013.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:29:03 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:51:11 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

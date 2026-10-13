@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Native RTP policy: client-originated UDP, authenticated control grants, WS fallback. */
 #include "build_config.h"
 #include <stdlib.h>
@@ -47,7 +53,7 @@ static bool preferred(rrconn_t *client) {
 #define MAX_DIRECT_CHANNELS 128
 struct direct_channel {
    rrconn_t *client;
-   char uuid[64], room[128], endpoint[320];
+   char uuid[64], room[128], endpoint[320], codec[5];
    rr_rtp_attachment_t *attachment;
    uint64_t renew_at, connect_deadline;
    rr_media_transport_t mode;
@@ -97,8 +103,12 @@ bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_trans
 }
 static void report_route(struct direct_channel *channel, const char *status, bool rtp) {
    dict *d = dict_new();
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    char endpoint[384] = "";
+
    if (rtp) {
       snprintf(endpoint, sizeof(endpoint), "%s", channel->endpoint);
    } else if (channel->client->conn && channel->client->conn->rem.port) {
@@ -108,6 +118,7 @@ static void report_route(struct direct_channel *channel, const char *status, boo
    }
    dict_add(d, "media.chan-uuid", channel->uuid);
    dict_add(d, "media.room", channel->room);
+   dict_add(d, "media.codec", channel->codec);
    dict_add(d, "media.status", status);
    dict_add(d, "media.transport", rtp && channel->route == 0 ? "direct RTP" : rtp ? "proxy RTP" : "proxy WebSocket");
    dict_add(d, "media.endpoint", endpoint);
@@ -171,6 +182,12 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       return;
    }
 
+   const char *codec = dict_get(d, "media.codec", "");
+
+   if (strlen(codec) == 4) {
+      snprintf(channel->codec, sizeof(channel->codec), "%s", codec);
+   }
+
    if (!strcmp(cmd, "available")) {
       snprintf(channel->room, sizeof(channel->room), "%s", dict_get(d, "media.room", ""));
       snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", dict_get(d, "media.direct", ""));
@@ -193,6 +210,7 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
 
       if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2)) {
          report_route(channel, "connected", false);
+
          return;
       }
 
@@ -221,7 +239,10 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       memset(key, 0, sizeof(key));
       channel->renew_at = mono_us() + UINT64_C(240000000);
 
-      if (channel->attachment) report_route(channel, "connecting", true);
+      if (channel->attachment) {
+         report_route(channel, "connecting", true);
+      }
+
       if (!channel->attachment) {
          if (channel->mode == RR_MEDIA_DIRECT) {
             direct_failed(channel, "unable to open the RTP endpoint");

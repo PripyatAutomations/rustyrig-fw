@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 // Authenticated server-to-server WS/WSS links form an undirected tree.
 // Either endpoint may initiate a socket; overlapping components are rejected.
 #include <stdio.h>
@@ -759,8 +765,8 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    if (argc <= 0 || (argc == 1 && !strcasecmp(action, "list"))) {
       for (size_t i = 0 ; i < links.peer_count ; i++) {
          struct link_peer *peer = &links.peers[i];
-         ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session && peer->session->established ? "linked" : peer->
-            manually_closed ? "closed" : "offline", peer->retry_seconds);
+         ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session
+            && peer->session->established ? "linked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
       }
 
       return;

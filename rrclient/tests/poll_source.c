@@ -27,5 +27,6 @@ int main(void) {
    assert(mg_source_prepare(NULL, &timeout) && timeout == 0);
    assert(mg_next_poll_us == 60000);
    puts("PASS: GTK network source sleeps through fractional milliseconds and preserves poll cadence");
+
    return 0;
 }

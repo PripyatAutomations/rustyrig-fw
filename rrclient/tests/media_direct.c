@@ -65,10 +65,14 @@ static void route_notice(const char *event, const char *data, rrconn_t *connecti
    assert(d && *dict_get(d, "media.transport", "") && *dict_get(d, "media.chan-uuid", ""));
    const char *transport = dict_get(d, "media.transport", "");
    assert(!strcmp(transport, "direct RTP") || !strcmp(transport, "proxy RTP") || !strcmp(transport, "proxy WebSocket"));
-   if (!strcmp(dict_get(d, "media.status", ""), "connecting")) assert(strstr(dict_get(d, "media.endpoint", ""), "127.0.0.1:"));
+
+   if (!strcmp(dict_get(d, "media.status", ""), "connecting")) {
+      assert(strstr(dict_get(d, "media.endpoint", ""), "127.0.0.1:"));
+   }
    route_notices++;
    dict_free(d);
 }
+
 static unsigned requests;
 static char transport[16], requested_uuid[64];
 static void request_sent(const char *event, const void *data, size_t length, rrconn_t *connection, void *user) {

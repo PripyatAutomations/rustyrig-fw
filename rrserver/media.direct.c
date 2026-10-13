@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Owner-issued media attachments. Control-session authentication remains authoritative. */
 #include "build_config.h"
 #include <stdlib.h>
@@ -43,8 +49,8 @@ static bool source_allowed(void *context, void *user, const char *ip) {
    struct grant *g = user;
    rrconn_t *client = g ? g->client : NULL;
    acl_result_t result = rrserver_acl_check(!strcmp(pool->section, "rtp")
-      && !*dict_get(cfg, "rtp.acl", "") ? "listener:media" : pool->section, ip, client ? client->user : NULL, client && client->user ? client->user->name : NULL
-      );
+      && !*dict_get(cfg, "rtp.acl", "") ? "listener:media" : pool->section, ip, client ? client->user : NULL, client
+      && client->user ? client->user->name : NULL);
 
    return result == ACL_ALLOW || (!g && result == ACL_DEFER);
 }

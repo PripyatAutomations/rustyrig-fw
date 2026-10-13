@@ -76,8 +76,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return TRUE;
    }
 
-   bool admin_active = main_notebook && admin_tab &&
-      gtk_notebook_get_nth_page(main_notebook, gtk_notebook_get_current_page(main_notebook)) == admin_tab;
+   bool admin_active = main_notebook && admin_tab && gtk_notebook_get_nth_page(main_notebook, gtk_notebook_get_current_page(main_notebook)) == admin_tab;
 
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab &&
       (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && (gtk_chat_status_active() || admin_active)) {
@@ -86,6 +85,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       if (changed && admin_active) {
          gtk_admin_refresh();
       }
+
       return changed;
    }
    gui_window_t *wp = gui_find_window(NULL, "main");
@@ -161,10 +161,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          if (page < gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_tab))) {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), page);
          }
+
          return TRUE;
       }
-      if (event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left ||
-         event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
+
+      if (event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left || event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
          int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_tab));
          int current = gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_tab));
          bool previous = event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left;
@@ -172,6 +173,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          if (pages > 0) {
             gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_tab), (current + (previous ? pages - 1 : 1)) % pages);
          }
+
          return TRUE;
       }
    }

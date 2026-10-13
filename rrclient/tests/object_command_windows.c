@@ -134,8 +134,8 @@ int main(void) {
    snprintf(first, sizeof(first), "%s", sent_id);
    active = "#site-rig10";
    tree_row(first, 0, "site", "#site", true);
-   tree_row(first, 1, "gps", NULL, true);   // Discover station GPS from rig rooms too.
-   tree_row(first, 1, "rig", "#site-rig1", true); // Parent preserves the tree.
+   tree_row(first, 1, "gps", NULL, true); // Discover station GPS from rig rooms too.
+   tree_row(first, 1, "rig", "#site-rig1", true);  // Parent preserves the tree.
    tree_row(first, 2, "vfo", NULL, false);
    tree_row(first, 2, "gps", NULL, true);
    tree_row(first, 2, "serial", NULL, false);

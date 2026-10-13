@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 // Native IRC event adapter, shared by GTK and TUI.
 #include <stdio.h>
 #include <stdlib.h>
@@ -319,6 +325,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       if (cptr != ws_conn) {
          goto done;
       }
+
       /* Room and roster views belong to the connection dispatching this event. */
       for (unsigned i = 0 ; rrclient_room_iter(i) ; i++) {
          const char *room = rrclient_room_iter(i);
@@ -327,6 +334,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
             ui_print(room, "%s * %s quit: %s", get_chat_ts(now), from, arg1);
          }
       }
+
       while (userlist_remove_by_name_room(from, NULL)) {
          /* QUIT removes this nick from every joined channel. */
       }
@@ -513,7 +521,10 @@ static void rrclient_irc_capabilities(const char *event, const char *data, rrcon
 static void rrclient_irc_sasl(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (client == ws_conn && data && *data) ui_print(NULL, "%s %s", get_chat_ts(now), data);
+
+   if (client == ws_conn && data && *data) {
+      ui_print(NULL, "%s %s", get_chat_ts(now), data);
+   }
 }
 
 void rrclient_irc_register_events(void) {

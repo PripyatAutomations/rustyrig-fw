@@ -149,6 +149,7 @@ static int userlist_natural_width(GtkWidget *view, GtkWidget *panel, bool full_n
 
 static gboolean userlist_fit_width_idle(gpointer data) {
    GtkWidget *view = GTK_WIDGET(data);
+
    if (!view || !GTK_IS_TREE_VIEW(view)) {
       return G_SOURCE_REMOVE;
    }
@@ -440,16 +441,22 @@ static bool userlist_set_columns(GtkWidget *view, const char *room) {
    userlist_apply_layout(view, type);
 
    /* Radio status belongs to VFO-enabled rooms, independent of transport. */
-   const int ids[] = { COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON };
-   const bool visible[] = { has_vfos, has_vfos, extensions || has_vfos };
+   const int ids[] = {
+      COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON
+   };
+   const bool visible[] = {
+      has_vfos, has_vfos, extensions || has_vfos
+   };
 
    for (unsigned i = 0 ; i < sizeof(ids) / sizeof(ids[0]) ; i++) {
       GtkTreeViewColumn *column = userlist_column(view, ids[i]);
+
       if (gtk_tree_view_column_get_visible(column) != visible[i]) {
          gtk_tree_view_column_set_visible(column, visible[i]);
          changed = true;
       }
    }
+
    return changed;
 }
 
@@ -470,7 +477,9 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       return;
    }
    GtkTreeModel *model = GTK_TREE_MODEL(store);
-   GtkTreeIter cursor = { 0 };
+   GtkTreeIter cursor = {
+      0
+   };
    GHashTable *members = g_hash_table_new(g_str_hash, g_str_equal);
 
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
@@ -478,6 +487,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
          g_hash_table_add(members, c->name);
       }
    }
+
    /* Remove departed users first, so one QUIT does not move every later row. */
    gboolean valid = gtk_tree_model_get_iter_first(model, &cursor);
    while (valid) {
@@ -485,6 +495,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       gtk_tree_model_get(model, &cursor, COL_USERNAME, &name, -1);
       bool present = name && g_hash_table_contains(members, name);
       g_free(name);
+
       if (!present) {
          valid = gtk_list_store_remove(store, &cursor);
          changed = true;
@@ -509,8 +520,10 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
          gtk_tree_model_get(model, &search, COL_USERNAME, &name, -1);
          found = name && !strcmp(name, c->name);
          g_free(name);
+
          if (found) {
             row = search;
+
             if (!first) {
                gtk_list_store_move_before(store, &row, &cursor);
                changed = true;
@@ -519,6 +532,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
          }
          first = false;
       }
+
       if (!found) {
          gtk_list_store_insert_before(store, &row, valid ? &cursor : NULL);
          changed = true;
@@ -526,27 +540,32 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       const char *values[NUM_COLS] = {
          select_user_icon(c), c->name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c)
       };
-      char *previous[NUM_COLS] = { 0 };
-      gtk_tree_model_get(model, &row, COL_PRIV_ICON, &previous[COL_PRIV_ICON], COL_USERNAME, &previous[COL_USERNAME],
-         COL_TALK_ICON, &previous[COL_TALK_ICON], COL_MUTE_ICON, &previous[COL_MUTE_ICON], COL_ELMERNOOB_ICON, &previous[COL_ELMERNOOB_ICON], -1);
+      char *previous[NUM_COLS] = {
+         0
+      };
+      gtk_tree_model_get(model, &row, COL_PRIV_ICON, &previous[COL_PRIV_ICON], COL_USERNAME, &previous[COL_USERNAME], COL_TALK_ICON, &previous[COL_TALK_ICON],
+         COL_MUTE_ICON, &previous[COL_MUTE_ICON], COL_ELMERNOOB_ICON, &previous[COL_ELMERNOOB_ICON], -1);
       bool update = false;
 
       for (int i = 0 ; i < NUM_COLS ; i++) {
          update |= g_strcmp0(previous[i], values[i]) != 0;
          g_free(previous[i]);
       }
+
       if (update) {
-         gtk_list_store_set(store, &row, COL_PRIV_ICON, values[COL_PRIV_ICON], COL_USERNAME, values[COL_USERNAME],
-            COL_TALK_ICON, values[COL_TALK_ICON], COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], -1);
+         gtk_list_store_set(store, &row, COL_PRIV_ICON, values[COL_PRIV_ICON], COL_USERNAME, values[COL_USERNAME], COL_TALK_ICON, values[COL_TALK_ICON],
+            COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], -1);
          changed = true;
       }
       cursor = row;
       valid = gtk_tree_model_iter_next(model, &cursor);
    }
+
    while (valid) {
       valid = gtk_list_store_remove(store, &cursor);
       changed = true;
    }
+
    if (changed) {
       userlist_fit_width(view);
    }
@@ -708,10 +727,12 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    } else {
       snprintf(freq_text, sizeof(freq_text), "---");
    }
+
    if (strcmp(gtk_label_get_text(GTK_LABEL(control->freq)), freq_text)) {
       gtk_label_set_text(GTK_LABEL(control->freq), freq_text);
    }
    const char *mode_text = mode ? mode : "---";
+
    if (strcmp(gtk_label_get_text(GTK_LABEL(control->mode)), mode_text)) {
       gtk_label_set_text(GTK_LABEL(control->mode), mode_text);
    }
@@ -724,15 +745,18 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    /* Keep the compact control consistent with the main VFO widget.  The active/idle color conveys state; the action remains the familiar PTT OFF release
     * control. */
    const char *label = talker ? talker->name : "PTT OFF";
+
    if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), label)) {
       gtk_button_set_label(GTK_BUTTON(control->ptt), label);
    }
    GtkStyleContext *ctx = gtk_widget_get_style_context(control->ptt);
    const char *active_class = transmitting ? "ptt-active" : "ptt-idle";
    const char *old_class = transmitting ? "ptt-idle" : "ptt-active";
+
    if (gtk_style_context_has_class(ctx, old_class)) {
       gtk_style_context_remove_class(ctx, old_class);
    }
+
    if (!gtk_style_context_has_class(ctx, active_class)) {
       gtk_style_context_add_class(ctx, active_class);
    }

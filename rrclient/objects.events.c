@@ -245,6 +245,10 @@ void rrclient_objects_register_events(void) {
    event_on("auth.error", connection, NULL);
 }
 
+const dict *rrclient_object_descriptor(const char *uuid) {
+   return cache && uuid ? rr_object_cache_object(cache, uuid) : NULL;
+}
+
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    return cache && uuid ? rr_object_cache_property(cache, uuid, name, false) : NULL;
 }

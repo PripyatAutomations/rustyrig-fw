@@ -219,5 +219,6 @@ int main(void) {
 
 bool userlist_names_pending(const char *room) {
    (void)room;
+
    return false;
 }

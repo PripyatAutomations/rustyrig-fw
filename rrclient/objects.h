@@ -27,6 +27,7 @@ void rrclient_objects_register_events(void);
 bool cmd_rig(int argc, char **args);
 bool cmd_gps(int argc, char **args);
 bool cmd_object(int argc, char **args);
+const dict *rrclient_object_descriptor(const char *uuid);
 const dict *rrclient_object_property(const char *uuid, const char *name);
 const dict *rr_object_cache_find_alias(rr_object_cache_t *, const char *type, const char *owner, const char *alias);
 const dict *rrclient_object_find_alias(const char *type, const char *owner, const char *alias);

@@ -185,8 +185,10 @@ void ptt_button_refresh(void) {
       return;
    }
    struct rr_user *talker = tx_user();
+
    if (ptt_btn_online && !ptt_btn_tot && !ptt_button_pending && talker && !someone_else_transmitting(talker) && !ptt_active) {
       ptt_button_set_state(true);
+
       return;
    }
    ptt_button_apply();

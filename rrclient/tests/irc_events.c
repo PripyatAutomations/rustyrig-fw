@@ -28,6 +28,7 @@ void userlist_names_end(const char *room) {
    assert(!strcmp(room, "#room"));
    names_ends++;
 }
+
 static rrconn_t *expected_connection;
 static char irc_send_buffer[1024];
 static unsigned irc_sends;
@@ -77,7 +78,10 @@ static bool printed_status;
 static bool quit_test;
 static bool quit_members[3];
 static unsigned quit_notices[3], quit_removals;
-static const char *quit_rooms[] = {"#room", "#other", "&local"};
+static const char *quit_rooms[] = {
+   "#room", "#other", "&local"
+};
+
 static const char *active_window = "status";
 static long long clock_ms = 1000;
 long long mono_ms(void) {
@@ -106,7 +110,7 @@ bool ui_print(const char *window, const char *fmt, ...) {
    if (quit_test && window) {
       for (unsigned i = 0 ; i < 3 ; i++) {
          if (!strcmp(window, quit_rooms[i])) {
-            assert(quit_members[i]); // Notices precede removal.
+            assert(quit_members[i]);   // Notices precede removal.
             quit_notices[i]++;
          }
       }
@@ -153,8 +157,10 @@ struct rr_user *userlist_find_in_room(const char *name, const char *room) {
             return &member;
          }
       }
+
       return NULL;
    }
+
    return !strcmp(name, member.name) && !strcmp(room, member.room) ? &member : NULL;
 }
 bool userlist_remove_by_name_room(const char *name, const char *room) {
@@ -163,6 +169,7 @@ bool userlist_remove_by_name_room(const char *name, const char *room) {
          if (!strcasecmp(name, "bob") && (!room || !strcmp(room, quit_rooms[i])) && quit_members[i]) {
             quit_members[i] = false;
             quit_removals++;
+
             return true;
          }
       }

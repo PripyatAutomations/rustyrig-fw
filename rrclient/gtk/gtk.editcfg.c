@@ -298,9 +298,9 @@ static GtkWidget *cfg_editor_panel(GtkWidget **grid_out) {
          continue;
       }
       gtk_widget_set_hexpand(editor, TRUE);
-      g_object_set_data(G_OBJECT(label), "rr-cfg-definition", (gpointer)def);
-      g_object_set_data(G_OBJECT(editor), "rr-cfg-definition", (gpointer)def);
-      g_object_set_data(G_OBJECT(help), "rr-cfg-definition", (gpointer)def);
+      g_object_set_data(G_OBJECT(label), "rr-cfg-definition", (gpointer) def);
+      g_object_set_data(G_OBJECT(editor), "rr-cfg-definition", (gpointer) def);
+      g_object_set_data(G_OBJECT(help), "rr-cfg-definition", (gpointer) def);
       gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), editor, 1, row, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), help, 2, row, 1, 1);
@@ -741,7 +741,8 @@ GtkWidget *init_config_tab(void) {
    GtkWidget *search = gtk_entry_new();
    gtk_entry_set_width_chars(GTK_ENTRY(search), 20);
    gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Filter config...");
-   gtk_widget_set_tooltip_text(search, "Filter keys and descriptions (case-insensitive). =audio: keys containing audio; ^debug: keys starting with debug. Clear to show all fields.");
+   gtk_widget_set_tooltip_text(search,
+      "Filter keys and descriptions (case-insensitive). =audio: keys containing audio; ^debug: keys starting with debug. Clear to show all fields.");
    gtk_box_pack_start(GTK_BOX(header), search, FALSE, FALSE, 0);
    GtkWidget *config_label = gtk_label_new("Please be sure to click SAVE CONFIG when done...");
    gtk_box_pack_start(GTK_BOX(header), config_label, FALSE, FALSE, 0);

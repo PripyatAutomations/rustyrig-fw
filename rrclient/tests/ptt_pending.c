@@ -15,6 +15,7 @@ const char *rrclient_current_room(void) {
 }
 void vfo_controls_set_ptt_state(bool locked, bool local) {
 }
+
 static rrconn_t connection = {
    .is_ws = true
 };
@@ -127,15 +128,17 @@ int main(void) {
       assert(ptt_button_hotkey_press() && !ptt_btn_tot && ptt_sends == 1);
       assert(ptt_button_hotkey_press() && ptt_sends == 1);
       assert(ptt_button_hotkey_release() && ptt_sends == 1);
-      struct rr_user own = {.name = "operator", .room = "#rig", .ptt_room = "#rig", .ptt_vfo = 'A', .is_ptt = true};
+      struct rr_user own = {
+         .name = "operator", .room = "#rig", .ptt_room = "#rig", .ptt_vfo = 'A', .is_ptt = true
+      };
       global_userlist = &own;
-      ptt_button_set_state(false); // Tab refresh cleared the local widget state.
+      ptt_button_set_state(false);  // Tab refresh cleared the local widget state.
       unsigned before_restore = ptt_sends;
       ptt_button_refresh();
       assert(ptt_active && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)));
       assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "operator"));
       assert(gtk_style_context_has_class(gtk_widget_get_style_context(ptt_button), "ptt-active"));
-      assert(ptt_sends == before_restore); // Restoring presentation sends no CAT command.
+      assert(ptt_sends == before_restore);   // Restoring presentation sends no CAT command.
       global_userlist = NULL;
       gtk_widget_destroy(ptt_button);
       ptt_button = NULL;
