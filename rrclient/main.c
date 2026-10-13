@@ -271,7 +271,8 @@ static gboolean mg_source_prepare(GSource *source, gint *timeout_) {
       return TRUE;              // dispatch now
    }
 
-   *timeout_ = (gint) ((mg_next_poll_us - now) / 1000);
+   /* Round up: a positive sub-millisecond remainder must not busy-poll GLib. */
+   *timeout_ = (gint) ((mg_next_poll_us - now + 999) / 1000);
 
    return FALSE;
 }

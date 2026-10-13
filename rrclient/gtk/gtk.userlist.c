@@ -149,8 +149,12 @@ static int userlist_natural_width(GtkWidget *view, GtkWidget *panel, bool full_n
 
 static gboolean userlist_fit_width_idle(gpointer data) {
    GtkWidget *view = GTK_WIDGET(data);
+   if (!view || !GTK_IS_TREE_VIEW(view)) {
+      return G_SOURCE_REMOVE;
+   }
+   g_object_set_data(G_OBJECT(view), "rr-roster-fit-pending", NULL);
 
-   if (!view || !GTK_IS_TREE_VIEW(view) || gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) != NUM_COLS) {
+   if (gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) != NUM_COLS) {
       return G_SOURCE_REMOVE;
    }
    gint width = userlist_content_width(view);
@@ -174,7 +178,8 @@ static gboolean userlist_fit_width_idle(gpointer data) {
 }
 
 static void userlist_fit_width(GtkWidget *view) {
-   if (view && GTK_IS_WIDGET(view)) {
+   if (view && GTK_IS_WIDGET(view) && !g_object_get_data(G_OBJECT(view), "rr-roster-fit-pending")) {
+      g_object_set_data(G_OBJECT(view), "rr-roster-fit-pending", GINT_TO_POINTER(1));
       g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, userlist_fit_width_idle, g_object_ref(view), g_object_unref);
    }
 }
@@ -422,7 +427,7 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
    g_object_set_data(G_OBJECT(view), "rr-layout-loading", NULL);
 }
 
-static void userlist_set_columns(GtkWidget *view, const char *room) {
+static bool userlist_set_columns(GtkWidget *view, const char *room) {
    const rrconn_t *connection = userlist_view_connection(view);
    bool extensions = !connection || connection->is_ws || irc_supports_rustyrig(connection);
 
@@ -430,12 +435,22 @@ static void userlist_set_columns(GtkWidget *view, const char *room) {
    /* JOIN capability flags can arrive before the detailed VFO bindings. Use the same TX capability as the room's radio controls as well. */
    bool has_vfos = room && *room && ((vfos && *vfos) || rrclient_room_vfo_mask(room) || rrclient_room_tx_control(room));
 
-   userlist_apply_layout(view, has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room");
+   const char *type = has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room";
+   bool changed = g_strcmp0(g_object_get_data(G_OBJECT(view), "rr-roster-type"), type) != 0;
+   userlist_apply_layout(view, type);
 
    /* Radio status belongs to VFO-enabled rooms, independent of transport. */
-   gtk_tree_view_column_set_visible(userlist_column(view, COL_TALK_ICON), has_vfos);
-   gtk_tree_view_column_set_visible(userlist_column(view, COL_MUTE_ICON), has_vfos);
-   gtk_tree_view_column_set_visible(userlist_column(view, COL_ELMERNOOB_ICON), extensions || has_vfos);
+   const int ids[] = { COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON };
+   const bool visible[] = { has_vfos, has_vfos, extensions || has_vfos };
+
+   for (unsigned i = 0 ; i < sizeof(ids) / sizeof(ids[0]) ; i++) {
+      GtkTreeViewColumn *column = userlist_column(view, ids[i]);
+      if (gtk_tree_view_column_get_visible(column) != visible[i]) {
+         gtk_tree_view_column_set_visible(column, visible[i]);
+         changed = true;
+      }
+   }
+   return changed;
 }
 
 static void userlist_redraw_view(GtkWidget *view, const char *room) {
@@ -448,27 +463,93 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    if (view != cul_view && profile && view_connection && ws_conn && view_connection != ws_conn) {
       return;
    }
-   userlist_set_columns(view, room);
+   bool changed = userlist_set_columns(view, room);
    GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(view)));
 
    if (!store) {
       return;
    }
-   gtk_list_store_clear(store);
+   GtkTreeModel *model = GTK_TREE_MODEL(store);
+   GtkTreeIter cursor = { 0 };
+   GHashTable *members = g_hash_table_new(g_str_hash, g_str_equal);
+
+   for (struct rr_user *c = global_userlist ; c ; c = c->next) {
+      if (!room || !*room || !strcasecmp(c->room, room)) {
+         g_hash_table_add(members, c->name);
+      }
+   }
+   /* Remove departed users first, so one QUIT does not move every later row. */
+   gboolean valid = gtk_tree_model_get_iter_first(model, &cursor);
+   while (valid) {
+      char *name = NULL;
+      gtk_tree_model_get(model, &cursor, COL_USERNAME, &name, -1);
+      bool present = name && g_hash_table_contains(members, name);
+      g_free(name);
+      if (!present) {
+         valid = gtk_list_store_remove(store, &cursor);
+         changed = true;
+      } else {
+         valid = gtk_tree_model_iter_next(model, &cursor);
+      }
+   }
+   g_hash_table_destroy(members);
+   valid = gtk_tree_model_get_iter_first(model, &cursor);
 
    for (struct rr_user *c = global_userlist ; c ; c = c->next) {
       if (room && *room && strcasecmp(c->room, room) != 0) {
          continue;
       }
-      GtkTreeIter iter;
-      gtk_list_store_append(store, &iter);
+      GtkTreeIter row, search = cursor;
+      gboolean found = FALSE;
+      bool first = true;
 
-      gtk_list_store_set(store, &iter, COL_PRIV_ICON, select_user_icon(c), COL_USERNAME, c->name, COL_TALK_ICON, c->is_ptt ? "🎤" : "", COL_MUTE_ICON, c->
-         is_muted ? "🙊" : "", COL_ELMERNOOB_ICON, select_elmernoob_icon(c), -1);
+      /* Keep existing rows (and selection) when membership or privileges change. */
+      for (gboolean more = valid ; more ; more = gtk_tree_model_iter_next(model, &search)) {
+         char *name = NULL;
+         gtk_tree_model_get(model, &search, COL_USERNAME, &name, -1);
+         found = name && !strcmp(name, c->name);
+         g_free(name);
+         if (found) {
+            row = search;
+            if (!first) {
+               gtk_list_store_move_before(store, &row, &cursor);
+               changed = true;
+            }
+            break;
+         }
+         first = false;
+      }
+      if (!found) {
+         gtk_list_store_insert_before(store, &row, valid ? &cursor : NULL);
+         changed = true;
+      }
+      const char *values[NUM_COLS] = {
+         select_user_icon(c), c->name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c)
+      };
+      char *previous[NUM_COLS] = { 0 };
+      gtk_tree_model_get(model, &row, COL_PRIV_ICON, &previous[COL_PRIV_ICON], COL_USERNAME, &previous[COL_USERNAME],
+         COL_TALK_ICON, &previous[COL_TALK_ICON], COL_MUTE_ICON, &previous[COL_MUTE_ICON], COL_ELMERNOOB_ICON, &previous[COL_ELMERNOOB_ICON], -1);
+      bool update = false;
+
+      for (int i = 0 ; i < NUM_COLS ; i++) {
+         update |= g_strcmp0(previous[i], values[i]) != 0;
+         g_free(previous[i]);
+      }
+      if (update) {
+         gtk_list_store_set(store, &row, COL_PRIV_ICON, values[COL_PRIV_ICON], COL_USERNAME, values[COL_USERNAME],
+            COL_TALK_ICON, values[COL_TALK_ICON], COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], -1);
+         changed = true;
+      }
+      cursor = row;
+      valid = gtk_tree_model_iter_next(model, &cursor);
    }
-
-   userlist_fit_width(view);
-   gtk_widget_queue_draw(view);
+   while (valid) {
+      valid = gtk_list_store_remove(store, &cursor);
+      changed = true;
+   }
+   if (changed) {
+      userlist_fit_width(view);
+   }
 }
 
 static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
@@ -590,10 +671,12 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    GtkStyleContext *row_ctx = gtk_widget_get_style_context(control->row);
    bool selected = control->vfo == vfo_state_get_active() && !strcasecmp(control->room, rrclient_media_active_room());
 
-   if (selected) {
-      gtk_style_context_add_class(row_ctx, "room-vfo-active");
-   } else {
-      gtk_style_context_remove_class(row_ctx, "room-vfo-active");
+   if (selected != gtk_style_context_has_class(row_ctx, "room-vfo-active")) {
+      if (selected) {
+         gtk_style_context_add_class(row_ctx, "room-vfo-active");
+      } else {
+         gtk_style_context_remove_class(row_ctx, "room-vfo-active");
+      }
    }
    char vfo[2] = {
       control->vfo, 0
@@ -625,8 +708,13 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    } else {
       snprintf(freq_text, sizeof(freq_text), "---");
    }
-   gtk_label_set_text(GTK_LABEL(control->freq), freq_text);
-   gtk_label_set_text(GTK_LABEL(control->mode), mode ? mode : "---");
+   if (strcmp(gtk_label_get_text(GTK_LABEL(control->freq)), freq_text)) {
+      gtk_label_set_text(GTK_LABEL(control->freq), freq_text);
+   }
+   const char *mode_text = mode ? mode : "---";
+   if (strcmp(gtk_label_get_text(GTK_LABEL(control->mode)), mode_text)) {
+      gtk_label_set_text(GTK_LABEL(control->mode), mode_text);
+   }
 
    if (!control->ptt) {
       return;
@@ -635,11 +723,19 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    bool transmitting = talker != NULL;
    /* Keep the compact control consistent with the main VFO widget.  The active/idle color conveys state; the action remains the familiar PTT OFF release
     * control. */
-   gtk_button_set_label(GTK_BUTTON(control->ptt), talker ? talker->name : (transmitting && login_user ? login_user : "PTT OFF"));
+   const char *label = talker ? talker->name : "PTT OFF";
+   if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), label)) {
+      gtk_button_set_label(GTK_BUTTON(control->ptt), label);
+   }
    GtkStyleContext *ctx = gtk_widget_get_style_context(control->ptt);
-   gtk_style_context_remove_class(ctx, "ptt-active");
-   gtk_style_context_remove_class(ctx, "ptt-idle");
-   gtk_style_context_add_class(ctx, transmitting ? "ptt-active" : "ptt-idle");
+   const char *active_class = transmitting ? "ptt-active" : "ptt-idle";
+   const char *old_class = transmitting ? "ptt-idle" : "ptt-active";
+   if (gtk_style_context_has_class(ctx, old_class)) {
+      gtk_style_context_remove_class(ctx, old_class);
+   }
+   if (!gtk_style_context_has_class(ctx, active_class)) {
+      gtk_style_context_add_class(ctx, active_class);
+   }
 }
 
 static gboolean room_vfo_refresh(gpointer data) {

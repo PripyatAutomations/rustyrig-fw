@@ -165,6 +165,162 @@ static void test_late_roster_autosize(void) {
    puts("PASS: late roster users fit all rig headers; manual sizing disables automatic growth");
 }
 
+static unsigned inserted, deleted, updated, reordered;
+static void row_event(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
+   (void)model;
+   (void)path;
+   (void)iter;
+   (*(unsigned *)data)++;
+}
+static void deleted_event(GtkTreeModel *model, GtkTreePath *path, gpointer data) {
+   (void)model;
+   (void)path;
+   (*(unsigned *)data)++;
+}
+static void reordered_event(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gint *order, gpointer data) {
+   (void)model;
+   (void)path;
+   (void)iter;
+   (void)order;
+   (*(unsigned *)data)++;
+}
+static void reset_events(void) {
+   inserted = deleted = updated = reordered = 0;
+}
+static void test_incremental_roster(void) {
+   room_vfos = "";
+   room_tx_control = false;
+   room_vfo_mask = 0;
+   struct rr_user *users = calloc(850, sizeof(*users));
+   assert(users);
+   for (unsigned i = 0 ; i < 850 ; i++) {
+      snprintf(users[i].name, sizeof(users[i].name), "user%04u", i);
+      strcpy(users[i].room, "#rig");
+      strcpy(users[i].privs, "irc:");
+      users[i].next = i + 1 < 850 ? &users[i + 1] : NULL;
+   }
+   global_userlist = users;
+   GtkWidget *view = userlist_view_create();
+   g_object_ref_sink(view);
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(view));
+   g_signal_connect(model, "row-inserted", G_CALLBACK(row_event), &inserted);
+   g_signal_connect(model, "row-changed", G_CALLBACK(row_event), &updated);
+   g_signal_connect(model, "row-deleted", G_CALLBACK(deleted_event), &deleted);
+   g_signal_connect(model, "rows-reordered", G_CALLBACK(reordered_event), &reordered);
+   userlist_redraw_view(view, "#rig");
+   assert(inserted == 850 && !deleted);
+   GtkTreePath *path = gtk_tree_path_new_from_indices(500, -1);
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(view));
+   gtk_tree_selection_select_path(selection, path);
+   GtkTreeRowReference *reference = gtk_tree_row_reference_new(model, path);
+   gtk_tree_path_free(path);
+   reset_events();
+   userlist_redraw_view(view, "#rig");
+   assert(!inserted && !deleted && !updated && !reordered);
+   users[100].is_muted = true;
+   userlist_redraw_view(view, "#rig");
+   assert(updated == 1 && !inserted && !deleted && !reordered);
+   struct rr_user newcomer = { .name = "user0200a", .room = "#rig", .privs = "irc:", .next = &users[201] };
+   users[200].next = &newcomer;
+   reset_events();
+   userlist_redraw_view(view, "#rig");
+   assert(inserted == 1 && updated == 1 && !deleted && !reordered);
+   users[399].next = &users[401];
+   reset_events();
+   userlist_redraw_view(view, "#rig");
+   assert(deleted == 1 && !inserted && !updated && !reordered);
+   /* A privilege change moves the same selected row to the front. */
+   users[499].next = &users[501];
+   users[500].next = global_userlist;
+   strcpy(users[500].privs, "irc:o");
+   global_userlist = &users[500];
+   reset_events();
+   userlist_redraw_view(view, "#rig");
+   assert(reordered == 1 && updated == 1 && !inserted && !deleted);
+   GtkTreeIter selected;
+   assert(gtk_tree_selection_get_selected(selection, NULL, &selected));
+   char *name = NULL;
+   gtk_tree_model_get(model, &selected, COL_USERNAME, &name, -1);
+   assert(!strcmp(name, "user0500"));
+   g_free(name);
+   path = gtk_tree_row_reference_get_path(reference);
+   assert(path && gtk_tree_path_get_indices(path)[0] == 0);
+   gtk_tree_path_free(path);
+   gtk_tree_row_reference_free(reference);
+   /* Repeated redraw requests share a single pending width measurement. */
+   assert(g_object_get_data(G_OBJECT(view), "rr-roster-fit-pending"));
+   pump_layout();
+   assert(!g_object_get_data(G_OBJECT(view), "rr-roster-fit-pending"));
+   global_userlist = NULL;
+   userlist_redraw_view(view, "#rig");
+   assert(gtk_tree_model_iter_n_children(model, NULL) == 0);
+   gtk_widget_destroy(view);
+   pump_layout();
+   g_object_unref(view);
+   free(users);
+   puts("PASS: 850-user GTK roster skips unchanged updates, preserves selection and changes only affected rows");
+}
+
+char vfo_state_get_active(void) {
+   return 'A';
+}
+const char *rrclient_media_active_room(void) {
+   return "#rig";
+}
+const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
+   (void)room;
+   (void)vfo;
+   return "vfo-a";
+}
+static dict *frequency_property, *mode_property;
+const dict *rrclient_object_property(const char *uuid, const char *name) {
+   (void)uuid;
+   return !strcmp(name, "frequency") ? frequency_property : mode_property;
+}
+static unsigned label_changes;
+static void label_notify(GObject *object, GParamSpec *property, gpointer data) {
+   (void)object;
+   (void)property;
+   (void)data;
+   label_changes++;
+}
+static void test_vfo_refresh_changes(void) {
+   frequency_property = dict_new();
+   mode_property = dict_new();
+   dict_add_bool(frequency_property, "property.known", true);
+   dict_add_long(frequency_property, "property.value", 145000000);
+   dict_add_bool(mode_property, "property.known", true);
+   dict_add(mode_property, "property.value", "FM");
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   g_object_ref_sink(box);
+   room_vfo_control_t control = { .vfo = 'A', .room = "#rig", .row = box };
+   control.freq = gtk_label_new("");
+   control.mode = gtk_label_new("");
+   control.ptt = gtk_button_new_with_label("PTT OFF");
+   gtk_container_add(GTK_CONTAINER(box), control.freq);
+   gtk_container_add(GTK_CONTAINER(box), control.mode);
+   gtk_container_add(GTK_CONTAINER(box), control.ptt);
+   room_vfo_refresh_one(&control);
+   assert(!strcmp(gtk_label_get_text(GTK_LABEL(control.freq)), "145,000.000"));
+   g_signal_connect(control.freq, "notify::label", G_CALLBACK(label_notify), NULL);
+   g_signal_connect(control.mode, "notify::label", G_CALLBACK(label_notify), NULL);
+   g_signal_connect(control.ptt, "notify::label", G_CALLBACK(label_notify), NULL);
+   label_changes = 0;
+   room_vfo_refresh_one(&control);
+   assert(label_changes == 0);
+   dict_add_long(frequency_property, "property.value", 145001000);
+   room_vfo_refresh_one(&control);
+   assert(label_changes == 1);
+   assert(!strcmp(gtk_label_get_text(GTK_LABEL(control.freq)), "145,001.000"));
+   assert(gtk_style_context_has_class(gtk_widget_get_style_context(box), "room-vfo-active"));
+   assert(gtk_style_context_has_class(gtk_widget_get_style_context(control.ptt), "ptt-idle"));
+   gtk_widget_destroy(box);
+   g_object_unref(box);
+   dict_free(frequency_property);
+   dict_free(mode_property);
+   puts("PASS: unchanged VFO polling emits no label notifications; changed frequency refreshes once");
+}
+
 int main(void) {
    if (!gtk_init_check(NULL, NULL)) {
       puts("SKIP: userlist width test requires a display");
@@ -333,6 +489,8 @@ int main(void) {
    assert(gtk_tree_view_get_column(GTK_TREE_VIEW(view), 0) == userlist_column(view, COL_ELMERNOOB_ICON));
    gtk_widget_destroy(window);
    test_late_roster_autosize();
+   test_incremental_roster();
+   test_vfo_refresh_changes();
    puts("PASS: userlist fits usernames, scrollbar chrome and growing Undock/PTT controls");
 
    return 0;

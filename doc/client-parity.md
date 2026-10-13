@@ -519,3 +519,12 @@ Native IRC chat uses each connection's retained ISUPPORT LINELEN to split
 outgoing text, including /msg, /me and /notice, with per-chunk local echo.
 ISUPPORT, CAP and legacy CAPAB retention and IRC splitting are native-only;
 the browser continues using the RustyRig WebSocket protocol.
+
+GTK roster presentation updates existing rows and moves them for ordering
+changes, preserving selection rather than clearing the model. Unchanged
+rosters produce no row notifications; width measurements are coalesced until
+the next idle callback. VFO polling updates labels/styles only when displayed
+values change. The network poll source rounds positive fractional-millisecond
+deadlines up to avoid spinning, retaining its existing 10 ms cadence. These
+changes affect native GTK scheduling/rendering, with shared client state and
+wire behavior unchanged.
