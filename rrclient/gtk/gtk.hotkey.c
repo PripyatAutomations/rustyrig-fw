@@ -72,9 +72,17 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return TRUE;
    }
 
+   bool admin_active = main_notebook && admin_tab &&
+      gtk_notebook_get_nth_page(main_notebook, gtk_notebook_get_current_page(main_notebook)) == admin_tab;
+
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Tab &&
-      (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && gtk_chat_status_active()) {
-      return rrclient_connection_cycle_status(gtk_chat_status_active());
+      (event->state & GDK_CONTROL_MASK) && !(event->state & (GDK_MOD1_MASK | GDK_SHIFT_MASK)) && (gtk_chat_status_active() || admin_active)) {
+      bool changed = rrclient_connection_cycle();
+
+      if (changed && admin_active) {
+         gtk_admin_refresh();
+      }
+      return changed;
    }
    gui_window_t *wp = gui_find_window(NULL, "main");
    GtkWidget *main_win = wp ? wp->gtk_win : NULL;
@@ -131,6 +139,32 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       gui_fullscreen_toggle();
 
       return TRUE;
+   }
+
+   /* Admin's nested notebook must not consume upper-strip navigation. */
+   if (admin_active && event->type == GDK_KEY_PRESS && modifiers == GDK_CONTROL_MASK) {
+      int digit = -1;
+
+      if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
+         digit = (int)(event->keyval - GDK_KEY_0);
+      } else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9) {
+         digit = (int)(event->keyval - GDK_KEY_KP_0);
+      }
+
+      if (digit >= 0) {
+         return gtk_switch_tab_digit(digit, main_win);
+      }
+      if (event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left ||
+         event->keyval == GDK_KEY_Right || event->keyval == GDK_KEY_KP_Right) {
+         int pages = gtk_notebook_get_n_pages(main_notebook);
+         int current = gtk_notebook_get_current_page(main_notebook);
+         bool previous = event->keyval == GDK_KEY_Left || event->keyval == GDK_KEY_KP_Left;
+
+         if (pages > 0) {
+            gtk_notebook_set_current_page(main_notebook, (current + (previous ? pages - 1 : 1)) % pages);
+         }
+         return TRUE;
+      }
    }
 
    // ALT-* keys

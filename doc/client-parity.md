@@ -509,3 +509,8 @@ Native IRC rosters defer population redraws across 353 NAMES replies until
 366 ends that room's list. Pending batches belong to each connection and are
 cleared on room removal/disconnect. GTK keeps pending rosters intact during
 other room redraws. IRC batching has no browser counterpart.
+
+GTK Admin Ctrl-Tab cycles the selected server and refreshes its inventory.
+While Admin is active, Ctrl-Left/Right wrap through the upper notebook tabs;
+Ctrl-1 through Ctrl-9 and Ctrl-0 select upper tabs 1 through 10. These are
+native GTK shortcuts; browser keyboard handling remains frontend-specific.

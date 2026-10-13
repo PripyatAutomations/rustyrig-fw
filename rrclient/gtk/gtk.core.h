@@ -144,5 +144,6 @@ extern GtkWidget *main_tab;
 extern GtkWidget *log_tab;
 extern GtkWidget *config_tab;
 extern GtkWidget *admin_tab;
+extern void gtk_admin_refresh(void);
 extern bool cfg_fullscreen;     // gtk.core.c
 #endif // !defined(__rrclient_gtk_core_h)

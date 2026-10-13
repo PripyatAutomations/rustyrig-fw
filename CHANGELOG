@@ -1,9 +1,11 @@
 rustyrig-fw (20261013.01) testing; urgency=medium
 
+  * Add GTK Admin Ctrl-Tab server cycling with refreshed inventory, and
+    Ctrl-Left/Right and Ctrl-1 through Ctrl-0 upper notebook navigation.
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 09:32:04 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 09:40:47 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

@@ -255,6 +255,12 @@ static void admin_table_destroy(GtkWidget *widget, gpointer data) {
    table->profile[0] = 0;
 }
 
+void gtk_admin_refresh(void) {
+   for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
+      admin_refresh(NULL, &tables[i]);
+   }
+}
+
 static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
    (void)notebook;
    (void)number;
@@ -264,9 +270,7 @@ static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint nu
       return;
    }
 
-   for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
-      admin_refresh(NULL, &tables[i]);
-   }
+   gtk_admin_refresh();
 }
 
 GtkWidget *init_admin_tab(void) {
