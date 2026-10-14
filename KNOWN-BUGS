@@ -1,5 +1,2 @@
-rrclient: /me has a stray space at teh start of string on IRC
 rrclient: Config editor should check if ~/.config/rrclient.cfg exists
   - if not, save in-memory config to there before opening
-rrclient: Channels with lots of users cause excessive CPU usage
-  - doesnt resolve after leaving
