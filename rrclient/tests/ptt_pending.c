@@ -4,14 +4,15 @@ bool dying, restarting, ptt_active;
 time_t now;
 const char *login_user = "operator";
 struct rr_user *global_userlist;
-char vfo_state_get_active(void) {
-   return 'A';
-}
+static char test_current_vfo = 'A';
+static const char *current_room = "#rig";
+char vfo_state_get_active(void) { return test_current_vfo; }
+static bool legacy_cached_ptt;
 bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
-   return false;
+   return legacy_cached_ptt;
 }
 const char *rrclient_current_room(void) {
-   return "#rig";
+   return current_room;
 }
 void vfo_controls_set_ptt_state(bool locked, bool local) {
 }
@@ -43,7 +44,7 @@ bool ws_send_ptt_cmd_in_room(rrconn_t *connection, const char *vfo, bool state, 
    return true;
 }
 const char *gtk_chat_current_room(void) {
-   return "#rig";
+   return current_room;
 }
 const char *rrclient_media_current_codec(bool tx) {
    (void)tx;
@@ -69,6 +70,7 @@ bool ui_print(const char *window, const char *format, ...) {
 }
 
 int main(void) {
+   ptt_sync_context();
    ptt_button_pending = true;
    ptt_button_pending_state = true;
    ptt_button_pending_expire = 102;
@@ -140,7 +142,39 @@ int main(void) {
       assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "operator"));
       assert(gtk_style_context_has_class(gtk_widget_get_style_context(ptt_button), "ptt-active"));
       assert(ptt_sends == before_restore);   // Restoring presentation sends no CAT command.
+      current_room = "#other-rig";
+      ptt_button_refresh();
+      assert(!ptt_active && !gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ptt_button)));
+      assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "PTT OFF"));
+      assert(ptt_sends == before_restore);
+      current_room = "#rig";
+      ptt_button_refresh();
+      assert(ptt_active && !strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "operator"));
+      test_current_vfo = 'B';
+      ptt_button_refresh();
+      assert(!ptt_active && !strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "PTT OFF"));
+      test_current_vfo = 'A';
+      ptt_button_refresh();
+      assert(ptt_active && ptt_sends == before_restore);
+      ptt_button_pending = true;
+      current_room = "#other-rig";
+      ptt_button_refresh();
+      assert(!ptt_active && !ptt_button_pending);
+      legacy_cached_ptt = true;  // VFO A's old rig must not drive timeout recovery.
+      ptt_button_pending = true;
+      ptt_button_pending_expire = now;
+      ptt_button_refresh();
+      assert(!ptt_active && !ptt_button_pending);
+      legacy_cached_ptt = false;
+      current_room = "#rig";
+      ptt_button_refresh();
+      assert(ptt_active && ptt_sends == before_restore);
+      rrconn_t other_connection = {.is_ws=true};
       global_userlist = NULL;
+      ws_conn = &other_connection;
+      ptt_button_refresh();
+      assert(!ptt_active && !strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "PTT OFF"));
+      ws_conn = &connection;
       room_offline = true;
       ptt_button_refresh();
       assert(!gtk_widget_get_sensitive(ptt_button));

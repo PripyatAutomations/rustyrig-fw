@@ -87,9 +87,40 @@ static struct rr_user *tx_user(void) {
    return NULL;
 }
 
+// The global widget follows one connection/room/VFO at a time. A retained
+// local toggle or pending request belongs only to that displayed context.
+// PARITY: rustyrig-www/js/webui.rigctl.js ptt_sync_context().
+static rrconn_t *ptt_display_connection;
+static char ptt_display_room[128];
+static char ptt_display_vfo;
+static void ptt_sync_context(void) {
+   const char *room = rrclient_current_room();
+   char vfo = vfo_state_get_active();
+   if (ptt_display_connection == ws_conn && ptt_display_vfo == vfo &&
+      !strcasecmp(ptt_display_room, room)) {
+      return;
+   }
+   ptt_display_connection = ws_conn;
+   snprintf(ptt_display_room, sizeof(ptt_display_room), "%s", room);
+   ptt_display_vfo = vfo;
+   ptt_button_pending = false;
+   ptt_button_pending_expire = 0;
+   ptt_button_pending_quiet = false;
+   ptt_hotkey_held = false;
+   ptt_hotkey_initial_active = false;
+   ptt_hotkey_pressed_at = 0;
+   struct rr_user *talker = tx_user();
+   ptt_active = talker && login_user && !strcasecmp(talker->name, login_user);
+   if (ptt_button) {
+      if (ptt_toggled_handler) g_signal_handler_block(ptt_button, ptt_toggled_handler);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), ptt_active);
+      if (ptt_toggled_handler) g_signal_handler_unblock(ptt_button, ptt_toggled_handler);
+   }
+}
+
 // True if someone OTHER than us is transmitting
 static bool someone_else_transmitting(struct rr_user *talker) {
-   return(talker && (!login_user || strcmp(talker->name, login_user) != 0));
+   return(talker && (!login_user || strcasecmp(talker->name, login_user) != 0));
 }
 
 /* PARITY: librrprotocol/srv.rigctl.c:ws_ptt_can_override. This is a UI hint; the server checks current account flags. */
@@ -117,6 +148,7 @@ static bool i_can_halt_user(const struct rr_user *talker) {
 
 // Apply the current state to the button widget
 static void ptt_button_apply(void) {
+   ptt_sync_context();
    if (!ptt_button) {
       return;
    }
@@ -177,14 +209,13 @@ static void ptt_button_apply(void) {
 // Re-evaluate button state (called when the userlist changes, since another
 // user starting/stopping TX changes the color)
 void ptt_button_refresh(void) {
+   ptt_sync_context();
    if (ptt_button_pending && ptt_button_pending_expire && now >= ptt_button_pending_expire) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
       ptt_button_pending_quiet = false;
-      char vfo[2] = {
-         vfo_state_get_active(), '\0'
-      };
-      ptt_button_set_state(vfo_state_get_bool(vfo, "cat.state.ptt", false));
+      struct rr_user *talker = tx_user();
+      ptt_button_set_state(talker && !someone_else_transmitting(talker));
 
       return;
    }
@@ -239,6 +270,7 @@ void ptt_button_set_online(bool online) {
 // the server would broadcast it back: an infinite ping-pong.
 // (PARITY: rustyrig-www/js/webui.rigctl.js sets checkbox.checked directly)
 void ptt_button_set_state(bool active) {
+   ptt_sync_context();
    if (dying) {
       return;
    }

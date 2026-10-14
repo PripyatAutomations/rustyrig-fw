@@ -906,6 +906,12 @@ static void media_transport_print(void *data) {
       Log(LOG_DEBUG, "ws.media", "Media %s: %s via %s%s%s", description, status, transport, *endpoint ? " at " : "", endpoint);
       return;
    }
+   const char *fallback = dict_get(d, "media.fallback", "");
+   if (*fallback) {
+      ui_print(*room ? room : NULL, "Media %s: %s %s%s%s; falling back to %s", description, transport, status,
+         *endpoint ? " at " : "", endpoint, fallback);
+      return;
+   }
    /* PARITY: rustyrig-www/js/webui.media.js confirmed connection notices. */
    ui_print(*room ? room : NULL, "Media %s: %s via %s%s%s", description, status, transport, *endpoint ? " at " : "", endpoint);
 }

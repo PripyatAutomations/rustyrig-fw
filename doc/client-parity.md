@@ -525,10 +525,11 @@ GTK roster presentation updates existing rows and moves them for ordering
 changes, preserving selection rather than clearing the model. Unchanged
 rosters produce no row notifications; width measurements are coalesced until
 the next idle callback. VFO polling updates labels/styles only when displayed
-values change. The network poll source rounds positive fractional-millisecond
-deadlines up to avoid spinning, retaining its existing 10 ms cadence. These
-changes affect native GTK scheduling/rendering, with shared client state and
-wire behavior unchanged.
+values change. GTK and TUI use the same nonblocking transport sweep. GTK schedules
+it at a high-priority 10 ms GLib timeout, leaving GLib to wait between sweeps rather
+than blocking GTK inside Mongoose. This scheduling is native-specific; browser
+WebSocket events are driven by its event loop. Shared client state and wire
+behavior are unchanged.
 
 Native `objects.events.c` and browser `webui.objects.js` render `/rig` as
 a connection-wide site → rig → VFO tree, including linked sites. GPS inventory
@@ -542,7 +543,10 @@ Native media notices identify direct owner RTP, server-proxy RTP or WebSocket
 proxy and their endpoints. Browser media notices identify WebSocket proxy;
 browsers do not implement the native RTP route selection. GTK restores a local
 TX button from the current room/VFO's authoritative roster after tab switches,
-without sending CAT commands. Browser PTT rendering already consults UserCache.
+without sending CAT commands. Both clients bind the main PTT presentation and
+pending state to the displayed room/VFO, clearing the prior context on a switch
+and restoring only that context's cached talker. GTK also isolates connections.
+Browser talker rendering filters explicit PTT room/VFO metadata.
 
 GTK Config live field filtering is frontend-specific. Plain text matches keys
 and descriptions; `=text` matches only keys and `^text` matches key prefixes,

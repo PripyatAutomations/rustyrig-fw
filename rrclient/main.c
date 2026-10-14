@@ -143,10 +143,11 @@ static bool rrclient_config_refresh(const char *key) {
 }
 
 static gboolean ws_poll_cb(gpointer user_data) {
+   if (dying) {
+      return G_SOURCE_REMOVE;
+   }
    rrclient_poll_events();
-   // Drive the reconnect engine too: in TUI mode this is the only poll sweep,
-   // and without it a scheduled reconnect never fires (the GTK GSource path
-   // calls rrclient_poll_events_reconnect() from mg_source_dispatch()).
+   // GTK and TUI share the nonblocking transport sweep and reconnect engine.
    rrclient_poll_events_reconnect();
 
    return G_SOURCE_CONTINUE;
@@ -237,85 +238,12 @@ void shutdown_app(int signum) {
 }
 
 #ifdef USE_MONGOOSE
-////////////////////////////////////
-// For polling mongoose from glib //
-////////////////////////////////////
-// Mongoose GSource integration (GTK mode).  Instead of a plain g_timeout_add() we hook a
-// custom GSource into the GTK main loop so poll scheduling behaves like a
-// real event source: prepare()/check() decide when to dispatch, and
-// mg_mgr_poll() gets a small blocking timeout so idle wakeups are cheap.
-typedef struct {
-   GSource source;
-} MgSource;
-
-static gint64 mg_next_poll_us = 0;  // monotonic usec of next due poll
-
-// Cadence of the reconnect/poll sweep. Socket events DON'T wait for this:
-// dispatch blocks inside mg_mgr_poll()'s internal poll() and returns
-// immediately when data arrives. Keep interval > poll block time or the
-// source stays permanently ready and starves GTK.
-//
-// The 10ms/8ms split keeps the client ~90% blocked in poll() (near-zero CPU)
-// while capping event latency at ~10ms. Don't lengthen the interval without
-// lengthening the block to match -- GLib sleep time is NOT woken by socket
-// data since we register no GPollFDs.
-#define MG_POLL_INTERVAL_US 10000
-#define MG_POLL_BLOCK_MS 8
-
-static gboolean mg_source_prepare(GSource *source, gint *timeout_) {
-   gint64 now = g_get_monotonic_time();
-
-   if (now >= mg_next_poll_us) {
-      mg_next_poll_us = now + MG_POLL_INTERVAL_US;
-      *timeout_ = 0;
-
-      return TRUE;              // dispatch now
-   }
-
-   /* Round up: a positive sub-millisecond remainder must not busy-poll GLib. */
-   *timeout_ = (gint) ((mg_next_poll_us - now + 999) / 1000);
-
-   return FALSE;
-}
-
-static gboolean mg_source_check(GSource *source) {
-   // Must stay FALSE: returning TRUE makes the source permanently ready,
-   // spinning the main loop at 100% CPU.
-   return FALSE;
-}
-
-static gboolean mg_source_dispatch(GSource *source, GSourceFunc cb, gpointer data) {
-   // Poll native UDP alongside control sockets; cap blocking so audio stays timely.
-   if (!dying) {
-#ifdef  USE_MONGOOSE
-      rrclient_direct_poll();
-      rrclient_dcc_poll();
-      mg_mgr_poll(&mgr, MG_POLL_BLOCK_MS);
-#endif
-      rrclient_poll_events_reconnect();
-   }
-
-   return G_SOURCE_CONTINUE;
-}
-
-static void mg_source_finalize(GSource *source) {
-   (void)source;
-}
-
-static GSourceFuncs mg_source_funcs = {
-   mg_source_prepare, mg_source_check, mg_source_dispatch, mg_source_finalize,
-   NULL, NULL
-};
+// GLib owns the wait between sweeps. Blocking in Mongoose here also blocks
+// GTK rendering and input; TUI uses this same nonblocking transport callback.
+#define MG_POLL_INTERVAL_MS 10
 
 void poll_mongoose_init(void) {
-   GSource *src = g_source_new(&mg_source_funcs, sizeof(MgSource));
-   g_source_set_name(src, "mongoose-poll");
-   // Priority must be above the default-idle band: during UI setup and heavy
-   // redraws an idle-priority source is starved, delaying socket reads (and
-   // thus ping/pong RTT measurement and eventually audio) by hundreds of ms.
-   g_source_set_priority(src, G_PRIORITY_HIGH);
-   g_source_attach(src, g_main_context_default());
-   g_source_unref(src);
+   g_timeout_add_full(G_PRIORITY_HIGH, MG_POLL_INTERVAL_MS, ws_poll_cb, NULL, NULL);
 }
 #endif // USE_MONGOOSE
 
@@ -766,7 +694,7 @@ int main(int argc, char *argv[]) {
             } else {
                ui_mode = UI_MODE_GTK;
 #ifdef USE_MONGOOSE
-               poll_mongoose_init();   // Mongoose via GSource
+               poll_mongoose_init();   // Nonblocking transport sweeps via GLib
 #endif
             }
          }

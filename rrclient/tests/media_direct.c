@@ -59,6 +59,7 @@ static void error(const char *event, const char *data, rrconn_t *connection, voi
 }
 
 static unsigned route_notices;
+static char fallback_from[32], fallback_to[32];
 static void route_notice(const char *event, const char *data, rrconn_t *connection, void *user) {
    assert(connection == &client);
    dict *d = json2dict(data);
@@ -68,6 +69,11 @@ static void route_notice(const char *event, const char *data, rrconn_t *connecti
 
    if (!strcmp(dict_get(d, "media.status", ""), "connecting")) {
       assert(strstr(dict_get(d, "media.endpoint", ""), "127.0.0.1:"));
+   }
+   if (*dict_get(d, "media.fallback", "")) {
+      snprintf(fallback_from, sizeof(fallback_from), "%s", transport);
+      snprintf(fallback_to, sizeof(fallback_to), "%s", dict_get(d, "media.fallback", ""));
+      assert(!strstr(dict_get(d, "media.status", ""), "falling back"));
    }
    route_notices++;
    dict_free(d);
@@ -320,11 +326,13 @@ int main(void) {
    time_offset += 5000001;
    rrclient_direct_poll();
    assert(!strcmp(transport, "rtp-home"));
+   assert(!strcmp(fallback_from, "direct RTP") && !strcmp(fallback_to, "proxy RTP"));
    dict_add_ulong(retry, "media.owner-stream", 130);
    rrclient_direct_message(&client, retry);
    time_offset += 5000001;
    rrclient_direct_poll();
    assert(!strcmp(transport, "ws"));
+   assert(!strcmp(fallback_from, "proxy RTP") && !strcmp(fallback_to, "proxy WebSocket"));
    dict_free(retry);
    event_emit("disconnected", &client, NULL);
    assert(rrclient_direct_set_mode(&client, "unavailable", RR_MEDIA_AUTO));
@@ -333,6 +341,7 @@ int main(void) {
    dict_add_ulong(retry, "media.owner-stream", 3);
    rrclient_direct_message(&client, retry);
    assert(!strcmp(transport, "rtp-home"));
+   assert(!strcmp(fallback_from, "direct RTP") && !strcmp(fallback_to, "proxy RTP"));
    rrclient_direct_message(&client, retry);
    assert(!strcmp(transport, "ws"));
    dict_free(retry);

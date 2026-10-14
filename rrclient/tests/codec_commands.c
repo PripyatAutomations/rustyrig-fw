@@ -469,6 +469,17 @@ int main(void) {
    fail_send = false;
    assert(!cmd_rxcodec(3, codec_request));
    assert(strstr(output, "Requested RX codec opuT") && strstr(output, "rplywv00.rig0.vfo-a.rx"));
+   dict *fallback_notice = dict_new();
+   dict_add(fallback_notice, "media.chan-uuid", "describe");
+   dict_add(fallback_notice, "media.room", "#rplywv00-rig0");
+   dict_add(fallback_notice, "media.status", "unavailable: server supplied no RTP endpoint");
+   dict_add(fallback_notice, "media.transport", "direct RTP");
+   dict_add(fallback_notice, "media.fallback", "proxy RTP");
+   output[0] = 0;
+   media_transport_print(fallback_notice);
+   assert(strstr(output, "direct RTP unavailable: server supplied no RTP endpoint; falling back to proxy RTP"));
+   assert(!strstr(output, "falling back via direct RTP"));
+   dict_free(fallback_notice);
    expected_window = NULL;
    dict_free(description_rig);
    dict_free(description_station);

@@ -1,7 +1,10 @@
 # Media connection notices and readable diagnostics
 
 Native room chat shows one connection result per RX/TX stream, plus failure or
-fallback reasons. Routine requesting/connecting stages go to debug logs.
+fallback reasons. Failure notices identify the failed transport and the next
+route separately, for example `direct RTP unavailable: server supplied no RTP
+endpoint; falling back to proxy RTP`. Routine requesting/connecting stages go
+to debug logs.
 Codec-selection confirmations appear in the selected channel's room, including
 when initiated from a global widget or status tab.
 
