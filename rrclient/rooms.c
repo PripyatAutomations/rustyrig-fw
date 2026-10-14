@@ -11,6 +11,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/rooms.h>
+#include <rrclient/ui.h>
 #include <rrclient/connman.h>
 #include <rrclient/frontend.h>
 
@@ -21,7 +22,7 @@ typedef struct client_room {
    char vfos[512];
    char topic[512];
    uint32_t vfo_mask;
-   bool tx_control;
+   bool tx_control, offline;
    bool rx_tunable;
    uint32_t rx_tuning_mask;
    char active_vfo;
@@ -105,6 +106,29 @@ bool rrclient_room_join(const char *room) {
    rooms = r;
 
    return true;
+}
+
+bool rrclient_room_offline(const char *room) {
+   if (!room || !*room) return false;
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms ; r ; r = r->next) {
+      if (!strcasecmp(r->name, name)) return r->offline;
+   }
+   return false;
+}
+void rrclient_room_set_offline(const char *room, bool offline) {
+   if (!room || !*room) return;
+   const char *name = canonical(room);
+   for (client_room_t *r = rooms ; r ; r = r->next) {
+      if (!strcasecmp(r->name, name)) {
+         r->offline = offline;
+         return;
+      }
+   }
+}
+bool rrclient_chat_input_blocked(const char *text) {
+   const char *room = ui_active_window_name();
+   return text && *text && *text != '/' && rrclient_room_offline(room ? room : rrclient_current_room());
 }
 
 bool rrclient_room_request_join(const char *room) {
@@ -400,7 +424,7 @@ bool rrclient_room_tx_control(const char *room) {
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
       if (!strcasecmp(r->name, name)) {
-         return r->tx_control;
+         return r->tx_control && !r->offline;
       }
    }
 
@@ -411,7 +435,7 @@ bool rrclient_room_rx_tunable(const char *room) {
 
    for (client_room_t *r = rooms ; r ; r = r->next) {
       if (!strcasecmp(r->name, name)) {
-         return r->rx_tunable;
+         return r->rx_tunable && !r->offline;
       }
    }
 

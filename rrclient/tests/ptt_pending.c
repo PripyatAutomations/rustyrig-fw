@@ -23,7 +23,8 @@ static rrconn_t connection = {
 rrconn_t *ws_conn = &connection;
 int cfg_ui_ptt_ack_timeout = 2, cfg_ui_ptt_hold_delay = 250;
 time_t poll_block_expire, poll_block_delay;
-static bool noob, supervised;
+static bool noob, supervised, room_offline;
+bool rrclient_room_offline(const char *room) { return room_offline; }
 bool media_have_priv(const char *priv) {
    return noob && !strcmp(priv, "noob");
 }
@@ -140,6 +141,14 @@ int main(void) {
       assert(gtk_style_context_has_class(gtk_widget_get_style_context(ptt_button), "ptt-active"));
       assert(ptt_sends == before_restore);   // Restoring presentation sends no CAT command.
       global_userlist = NULL;
+      room_offline = true;
+      ptt_button_refresh();
+      assert(!gtk_widget_get_sensitive(ptt_button));
+      assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ptt_button)), "OFFLINE"));
+      assert(!ptt_button_hotkey_press());
+      room_offline = false;
+      ptt_button_refresh();
+      assert(gtk_widget_get_sensitive(ptt_button));
       gtk_widget_destroy(ptt_button);
       ptt_button = NULL;
    }

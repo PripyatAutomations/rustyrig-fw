@@ -669,6 +669,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       if (m_user && login_user && strcasecmp(m_user, login_user) == 0) {
          /* The server includes the room's VFO mapping on our join event. Clear any stale client-side mapping when joining an ordinary room; otherwise its top
           * line incorrectly retains PTT/VFO state from the rig room. */
+         rrclient_room_set_offline(m_room, false);
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          rrclient_room_set_vfo_mask(m_room, has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
          rrclient_room_set_control_flags(m_room, dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room)), dict_get_bool(d, "room.rx-tunable",
@@ -847,6 +848,22 @@ static bool room_list_remote(const char *list, const char *room) {
    }
 
    return false;
+}
+
+static void rrclient_handle_room_state(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   dict *d = data ? json2dict(data) : NULL;
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", "");
+   bool offline = !dict_get_bool(d, "talk.connected", false);
+   rrclient_room_set_offline(room, offline);
+   if (offline) userlist_remove_room(room);
+   if (frontend_ops() && frontend_ops()->room_state_changed) frontend_ops()->room_state_changed(room);
+   if (frontend_ops() && rrclient_present_context()) {
+      if (frontend_ops()->userlist_redraw) frontend_ops()->userlist_redraw();
+      if (frontend_ops()->ptt_refresh) frontend_ops()->ptt_refresh();
+   }
+   ui_print(room, "%s Room %s", get_chat_ts(now), offline ? "OFFLINE; chat draft retained until its owner returns" : "ONLINE");
+   dict_free(d);
 }
 
 static void rrclient_handle_room_list(const char *event, const char *data, rrconn_t *cptr, void *user) {
@@ -1447,13 +1464,13 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
          return;
       }
 
-      Log(LOG_INFO, "ws.media", "Media channel available: uuid %s subsys 0x%02X %s VFO %c rig %u (%s)", (uuid ? uuid : "<none>"), subsys, (dir ==
-         RR_BINFRAME_DIR_TX ? "tx" : "rx"), (vfo < 26 ? (char)('A' + vfo) : '-'), rig, (descr ? descr : "-"));
-
       // Hand the parsed dict straight to the media layer (no JSON
       // round-trip); it stores the channel and auto-subscribes as needed.
 
       rrclient_media_available(d, cptr);
+      char description[512];
+      rrclient_media_description(uuid, description, sizeof(description));
+      Log(LOG_INFO, "ws.media", "Media channel available: %s", description);
    } else if (cmd && strcasecmp(cmd, "subscribed") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
       uint32_t stream = dict_get_ulong(d, "media.stream", 0);
@@ -1465,18 +1482,13 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
          return;
       }
 
-      uint32_t dir = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
-      uint32_t vfo = dict_get_ulong(d, "media.vfo", RR_BINFRAME_VFO_NA);
-
-      Log(LOG_INFO, "ws.media", "Subscribed to media channel uuid %s (stream %u, %s VFO %c)", (uuid ? uuid : "<none>"), stream, (dir == RR_BINFRAME_DIR_TX ?
-         "tx" : "rx"), (vfo < 26 ? (char)('A' + vfo) : '-'));
       rrclient_media_subscribed(d, false);
    } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
       rrclient_media_subscribed(d, true);
    } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
 
-      Log(LOG_INFO, "ws.media", "Media channel removed: %s", (uuid ? uuid : "<none>"));
+
 
       rrclient_media_chan_removed(d);
    } else {
@@ -1530,6 +1542,7 @@ void rrclient_register_events(void) {
    event_on("callsign.line", rrclient_handle_callsign, NULL);
    event_on("privmsg", rrclient_handle_talk_msg, NULL);
    event_on("part", rrclient_handle_part, NULL);
+   event_on("room.state", rrclient_handle_room_state, NULL);
    event_on("room.list", rrclient_handle_room_list, NULL);
    event_on("room.vfo", rrclient_handle_room_vfo, NULL);
    event_on("room.vfo-list", rrclient_handle_room_vfo_list, NULL);

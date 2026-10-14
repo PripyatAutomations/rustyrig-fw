@@ -15,7 +15,13 @@ tui_window_t *tui_active_window(void) {
    return NULL;
 }
 
+bool rrclient_room_offline(const char *room) { return false; }
+static dict *description_rig, *description_station;
+const dict *rrclient_object_descriptor(const char *uuid) {
+   return !strcmp(uuid, "describe-rig") ? description_rig : !strcmp(uuid, "describe-station") ? description_station : NULL;
+}
 static const char *active_window = "commands";
+static const char *expected_window;
 const char *ui_active_window_name(void) {
    return active_window;
 }
@@ -39,7 +45,7 @@ void event_emit_dict(const char *event, rrconn_t *client, dict *data) {
 void Log(logpriority_t level, const char *subsys, const char *fmt, ...) {
 }
 bool ui_print(const char *window, const char *fmt, ...) {
-   assert(window && !strcmp(window, active_window));
+   assert(window && !strcmp(window, expected_window ? expected_window : active_window));
    va_list ap;
    va_start(ap, fmt);
    size_t used = strlen(output);
@@ -438,6 +444,28 @@ int main(void) {
    assert(!rrclient_media_vfo_uuid("#site-rig1", 'B'));
    dict_free(shared_vfo_object);
    shared_vfo_object = NULL;
+   description_rig = dict_new();
+   description_station = dict_new();
+   dict_add(description_rig, "object.alias", "rig0");
+   dict_add(description_rig, "object.owner", "describe-station");
+   dict_add(description_station, "object.alias", "rplywv00");
+   known_chans[0] = (struct rr_media_known) {.uuid="describe", .name="rig0.vfo_a.rx", .rig_uuid="describe-rig", .vfo=0, .direction=0,
+      .subsystem=RR_BINFRAME_SUBSYS_AUDIO, .codec="pc16", .subscribed=true, .joined=true, .room="#rplywv00-rig0"};
+   media_ready = true;
+   char description[512];
+   rrclient_media_description("describe", description, sizeof(description));
+   assert(strstr(description, "rplywv00.rig0.vfo-a.rx") && strstr(description, "codec=pc16") && strstr(description, "uuid=describe"));
+   char *codec_request[] = {"rxcodec", "opuT", "describe"};
+   active_window = "status";
+   expected_window = "#rplywv00-rig0";
+   output[0] = 0;
+   fail_send = false;
+   assert(!cmd_rxcodec(3, codec_request));
+   assert(strstr(output, "Requested RX codec opuT") && strstr(output, "rplywv00.rig0.vfo-a.rx"));
+   expected_window = NULL;
+   dict_free(description_rig);
+   dict_free(description_station);
+   description_rig = description_station = NULL;
    puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
 
    return 0;

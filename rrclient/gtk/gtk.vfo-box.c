@@ -1,3 +1,4 @@
+#include <rrclient/rooms.h>
 //
 // rrclient/gtk/gtk.vfo-box.c: VFO control widget
 //    This is part of rustyrig-fw.
@@ -42,21 +43,22 @@ struct timeval vfo_muted_since = {
 };
 
 void vfo_controls_set_ptt_state(bool any_tx, bool own_tx) {
+   bool offline = rrclient_room_offline(rrclient_current_room());
    if (vfo_tunable_box) {
-      gtk_widget_set_sensitive(vfo_tunable_box, !any_tx);
+      gtk_widget_set_sensitive(vfo_tunable_box, !any_tx && !offline);
    }
 
    if (vfo_codec_box) {
       // RX codec selection remains available while another user transmits.
       // TX is locked separately below because it is shared by everyone on
       // the transmitting channel.
-      gtk_widget_set_sensitive(vfo_codec_box, true);
+      gtk_widget_set_sensitive(vfo_codec_box, !offline);
    }
 
    if (tx_codec_combo) {
       // Changing this codec changes the shared TX stream and can leave an
       // active listener unable to decode it.
-      gtk_widget_set_sensitive(tx_codec_combo, !any_tx);
+      gtk_widget_set_sensitive(tx_codec_combo, !any_tx && !offline);
    }
 }
 

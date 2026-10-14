@@ -1071,6 +1071,10 @@ static void frontend_gtk_userlist_set_visible(bool visible) {
    userlist_set_visible(visible);
 }
 
+static void frontend_gtk_room_state_changed(const char *room) {
+   userlist_room_state_changed(room);
+}
+
 static void frontend_gtk_userlist_room_vfos_changed(const char *room) {
    gtk_chat_room_vfos_changed(room);
 }
@@ -1292,6 +1296,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .notify = frontend_gtk_notify,
    .show_server_chooser = frontend_gtk_show_server_chooser,
    .webcam_show = frontend_gtk_webcam_show,
+   .room_state_changed = frontend_gtk_room_state_changed,
    .userlist_redraw = frontend_gtk_userlist_redraw,
    .userlist_set_visible = frontend_gtk_userlist_set_visible,
    .userlist_room_vfos_changed = frontend_gtk_userlist_room_vfos_changed,

@@ -7,7 +7,8 @@ time_t now;
 static rrconn_t *roster_connection;
 struct rr_user *global_userlist;
 static const char *room_vfos = "";
-static bool room_tx_control;
+static bool room_tx_control, room_offline;
+bool rrclient_room_offline(const char *room) { return room_offline; }
 static uint32_t room_vfo_mask;
 bool rrclient_room_tx_control(const char *room) {
    (void)room;
@@ -278,6 +279,26 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    return "vfo-a";
 }
 
+static void test_offline_roster(void) {
+   GtkWidget *view = userlist_view_create();
+   g_object_ref_sink(view);
+   room_offline = true;
+   userlist_redraw_view(view, "#rig");
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(view));
+   GtkTreeIter row;
+   assert(gtk_tree_model_iter_n_children(model, NULL) == 1);
+   assert(gtk_tree_model_get_iter_first(model, &row));
+   char *name = NULL;
+   gtk_tree_model_get(model, &row, COL_USERNAME, &name, -1);
+   assert(!strcmp(name, "OFFLINE"));
+   g_free(name);
+   room_offline = false;
+   userlist_redraw_view(view, "#rig");
+   assert(!gtk_tree_model_iter_n_children(model, NULL));
+   gtk_widget_destroy(view);
+   g_object_unref(view);
+}
+
 static dict *frequency_property, *mode_property;
 const dict *rrclient_object_property(const char *uuid, const char *name) {
    (void)uuid;
@@ -324,6 +345,13 @@ static void test_vfo_refresh_changes(void) {
    assert(!strcmp(gtk_label_get_text(GTK_LABEL(control.freq)), "145,001.000"));
    assert(gtk_style_context_has_class(gtk_widget_get_style_context(box), "room-vfo-active"));
    assert(gtk_style_context_has_class(gtk_widget_get_style_context(control.ptt), "ptt-idle"));
+   room_offline = true;
+   room_vfo_refresh_one(&control);
+   assert(!gtk_widget_get_sensitive(box) && !strcmp(gtk_button_get_label(GTK_BUTTON(control.ptt)), "OFFLINE"));
+   assert(gtk_style_context_has_class(gtk_widget_get_style_context(control.ptt), "ptt-offline"));
+   room_offline = false;
+   room_vfo_refresh_one(&control);
+   assert(gtk_widget_get_sensitive(box) && !gtk_style_context_has_class(gtk_widget_get_style_context(control.ptt), "ptt-offline"));
    gtk_widget_destroy(box);
    g_object_unref(box);
    dict_free(frequency_property);
@@ -501,6 +529,7 @@ int main(void) {
    test_late_roster_autosize();
    test_incremental_roster();
    test_vfo_refresh_changes();
+   test_offline_roster();
    puts("PASS: userlist fits usernames, scrollbar chrome and growing Undock/PTT controls");
 
    return 0;

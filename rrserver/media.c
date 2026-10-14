@@ -99,14 +99,16 @@ static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t le
          if (fwdsp_codec_start(channel->codec, true, channel->uuid) < 0 &&
             (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] || now - rig_rx_write_warned[i] >= 5)) {
             rig_rx_write_warned[i] = now;
-            Log(LOG_WARN, "pcm.hub", "Unable to start %s.tx for channel %s", channel->codec, channel->uuid);
+            char description[512];
+            Log(LOG_WARN, "pcm.hub", "Unable to start %s.tx for channel %s", channel->codec, media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
          }
       }
 
       if (!fwdsp_write_channel_samples(channel->codec, true, channel->uuid, samples, len) &&
          (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] || now - rig_rx_write_warned[i] >= 5)) {
          rig_rx_write_warned[i] = now;
-         Log(LOG_WARN, "pcm.hub", "Unable to feed rig RX PCM to %s.tx for channel %s", channel->codec, channel->uuid);
+         char description[512];
+         Log(LOG_WARN, "pcm.hub", "Unable to feed rig RX PCM to %s.tx for channel %s", channel->codec, media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
       }
    }
 }
@@ -126,7 +128,8 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
    if (!fwdsp_processor_write(sink, samples, len) &&
       (rig_tx_write_warned[slot] == 0 || now < rig_tx_write_warned[slot] || now - rig_tx_write_warned[slot] >= 5)) {
       rig_tx_write_warned[slot] = now;
-      Log(LOG_WARN, "pcm.hub", "Unable to feed decoded talker PCM to %s (%s)", sink, channel_uuid);
+      char description[512];
+      Log(LOG_WARN, "pcm.hub", "Unable to feed decoded talker PCM to %s (%s)", sink, media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
    }
 }
 
@@ -203,7 +206,8 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
 
    if (!channel->codec[0]) {
       if (start) {
-         Log(LOG_DEBUG, "record", "No %s codec selected for channel %s; recording not armed", tx ? "TX" : "RX", channel->uuid);
+         char description[512];
+         Log(LOG_DEBUG, "record", "No %s codec selected for channel %s; recording not armed", tx ? "TX" : "RX", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
       }
 
       return;
@@ -211,7 +215,8 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
 
    if (!fwdsp_find_channel_instance(channel->codec, !tx, channel->uuid)) {
       if (start) {
-         Log(LOG_DEBUG, "record", "No fwdsp pipeline for %s channel %s; recording not armed", tx ? "TX" : "RX", channel->uuid);
+         char description[512];
+         Log(LOG_DEBUG, "record", "No fwdsp pipeline for %s channel %s; recording not armed", tx ? "TX" : "RX", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
       }
 
       return;
@@ -236,10 +241,12 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
       fwdsp_cmd_stop_record_channel(channel->codec, !tx, channel->uuid);
 
    if (failed) {
-      Log(LOG_WARN, "record", "Unable to %s recording for channel %s", start ? "start" : "stop", channel->uuid);
+      char description[512];
+      Log(LOG_WARN, "record", "Unable to %s recording for channel %s", start ? "start" : "stop", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
    } else {
       if (media_record_log_transition(channel->uuid, start)) {
-         Log(LOG_INFO, "record", "%s %s recording for channel %s (%s)%s", start ? "Armed" : "Stopped", (tx ? "TX" : "RX"), channel->uuid, channel->codec, (start
+         char description[512];
+         Log(LOG_INFO, "record", "%s %s recording for channel %s (%s)%s", start ? "Armed" : "Stopped", (tx ? "TX" : "RX"), media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)), channel->codec, (start
                ? "; file is created when samples arrive" : ""));
       }
    }
@@ -314,7 +321,8 @@ bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
       int chan_id = fwdsp_codec_switch(NULL, channel->codec, false, channel->uuid);
 
       if (chan_id < 0) {
-         Log(LOG_CRIT, "ws.media", "Failed to activate TX decoder %s.rx for %s", channel->codec, channel->uuid);
+         char description[512];
+         Log(LOG_CRIT, "ws.media", "Failed to activate TX decoder %s.rx for %s", channel->codec, media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
 
          return false;
       }
@@ -322,7 +330,8 @@ bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker) {
    }
 
    if (!fwdsp_codec_set_pcm_callback(channel->codec, channel->uuid, rrserver_talker_pcm, NULL)) {
-      Log(LOG_CRIT, "ws.media", "Unable to connect decoded TX PCM from %s to sink.rig0", channel->uuid);
+      char description[512];
+      Log(LOG_CRIT, "ws.media", "Unable to connect decoded TX PCM from %s to sink.rig0", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
 
       return false;
    }
@@ -487,14 +496,16 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
    int chan_id = fwdsp_codec_switch(old_codec, codec, fwdsp_tx, channel->uuid);
 
    if (chan_id < 0) {
-      Log(LOG_CRIT, "ws.media", "Failed to switch fwdsp pipeline to %s.%s for %s", codec, (fwdsp_tx ? "tx" : "rx"), channel->uuid);
+      char description[512];
+      Log(LOG_CRIT, "ws.media", "Failed to switch fwdsp pipeline to %s.%s for %s", codec, (fwdsp_tx ? "tx" : "rx"), media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
       dict_free(d);
 
       return;
    }
 
    if (channel->direction == RR_BINFRAME_DIR_TX && !fwdsp_codec_set_pcm_callback(codec, channel->uuid, rrserver_talker_pcm, NULL)) {
-      Log(LOG_CRIT, "ws.media", "Unable to connect prewarmed TX decoder for %s", channel->uuid);
+      char description[512];
+      Log(LOG_CRIT, "ws.media", "Unable to connect prewarmed TX decoder for %s", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
       dict_free(d);
 
       return;
@@ -508,8 +519,9 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
       media_record_channel(channel, talker, true, recording_id);
    }
 
+   char description[512];
    Log(LOG_INFO, "ws.media", "Active fwdsp pipeline %s.%s (chan %d) for %s channel %s", codec, (fwdsp_tx ? "tx" : "rx"), chan_id, (cptr ? cptr->chatname : "?"),
-      channel->uuid);
+      media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
    dict_free(d);
 }
 
@@ -545,7 +557,8 @@ static void rrserver_media_talker_frame(const char *event, const void *payload, 
    }
 
    if (!fwdsp_write_audio_samples(channel->codec, channel->uuid, frame.data, frame.len, discontinuity)) {
-      Log(LOG_WARN, "pcm.hub", "Unable to decode incoming TX audio for %s on channel %s", cptr->chatname, channel->uuid);
+      char description[512];
+      Log(LOG_WARN, "pcm.hub", "Unable to decode incoming TX audio for %s on channel %s", cptr->chatname, media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
    }
 }
 
@@ -562,11 +575,13 @@ static void rrserver_media_subscribed(const char *event, const char *data, rrcon
       int chan_id = sp ? sp->chan_id : fwdsp_codec_start(channel->codec, fwdsp_tx, channel->uuid);
 
       if (chan_id < 0) {
+         char description[512];
          Log(LOG_CRIT, "ws.media", "Failed to prewarm subscribed %s %s.%s for %s", channel->direction == RR_BINFRAME_DIR_RX ? "RX encoder" : "TX decoder",
-            channel->codec, fwdsp_tx ? "tx" : "rx", channel->uuid);
+            channel->codec, fwdsp_tx ? "tx" : "rx", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
       } else {
          if (channel->direction == RR_BINFRAME_DIR_TX && !fwdsp_codec_set_pcm_callback(channel->codec, channel->uuid, rrserver_talker_pcm, NULL)) {
-            Log(LOG_CRIT, "ws.media", "Unable to connect prewarmed TX decoder for %s", channel->uuid);
+            char description[512];
+            Log(LOG_CRIT, "ws.media", "Unable to connect prewarmed TX decoder for %s", media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
          }
 
          if (channel->direction == RR_BINFRAME_DIR_RX) {
@@ -574,8 +589,9 @@ static void rrserver_media_subscribed(const char *event, const char *data, rrcon
          }
 
          if (!sp) {
+            char description[512];
             Log(LOG_INFO, "ws.media", "Prewarmed subscribed %s %s.%s (chan %d) for %s", channel->direction == RR_BINFRAME_DIR_RX ? "RX encoder" : "TX decoder",
-               channel->codec, fwdsp_tx ? "tx" : "rx", chan_id, channel->uuid);
+               channel->codec, fwdsp_tx ? "tx" : "rx", chan_id, media_chan_description(channel, cfg_get("station.name"), description, sizeof(description)));
          }
       }
    }

@@ -112,6 +112,7 @@ typedef struct rr_frontend_ops {
    void (*webcam_show)(bool show);
 
    /* Userlist presentation changed (redraw). */
+   void (*room_state_changed)(const char *room);
    void (*userlist_redraw)(void);
    void (*userlist_set_visible)(bool visible);
    void (*userlist_room_vfos_changed)(const char *room);

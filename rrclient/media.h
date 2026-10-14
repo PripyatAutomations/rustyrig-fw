@@ -25,6 +25,7 @@ extern bool cmd_rxcodec(int argc, char **args);
 extern bool cmd_txcodec(int argc, char **args);
 
 /* Selected room of the automatic local audio pair. */
+void rrclient_media_description(const char *uuid, char *out, size_t capacity);
 const char *rrclient_media_active_room(void);
 
 const char *rrclient_media_vfo_uuid(const char *room, char vfo);

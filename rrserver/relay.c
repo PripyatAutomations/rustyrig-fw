@@ -2100,6 +2100,15 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
       if (room) {
          for (struct relay_client *local = clients ; local ; local = local->next) {
             if (ws_client_in_room(local->client, room)) {
+               dict *state = dict_new();
+               if (state) {
+                  dict_add(state, "msg.type", "talk");
+                  dict_add(state, "talk.cmd", "room-state");
+                  dict_add(state, "talk.room", room);
+                  dict_add_bool(state, "talk.connected", false);
+                  ws_send_dict(NULL, local->client, state, WEBSOCKET_OP_TEXT);
+                  dict_free(state);
+               }
                update_membership(local->client, room, false);
                ws_send_error(local->client, "Owner of room %s disconnected; restoring its subscription when it returns", room);
             }

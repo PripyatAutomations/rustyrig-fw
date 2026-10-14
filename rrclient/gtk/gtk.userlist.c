@@ -476,6 +476,13 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
    if (!store) {
       return;
    }
+   if (rrclient_room_offline(room)) {
+      gtk_list_store_clear(store);
+      GtkTreeIter offline;
+      gtk_list_store_append(store, &offline);
+      gtk_list_store_set(store, &offline, COL_USERNAME, "OFFLINE", -1);
+      return;
+   }
    GtkTreeModel *model = GTK_TREE_MODEL(store);
    GtkTreeIter cursor = {
       0
@@ -687,6 +694,18 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    if (!control) {
       return;
    }
+   bool offline = rrclient_room_offline(control->room);
+   gtk_widget_set_sensitive(control->row, !offline);
+   if (offline) {
+      if (control->ptt) {
+         GtkStyleContext *ctx = gtk_widget_get_style_context(control->ptt);
+         gtk_button_set_label(GTK_BUTTON(control->ptt), "OFFLINE");
+         gtk_style_context_remove_class(ctx, "ptt-active");
+         gtk_style_context_remove_class(ctx, "ptt-idle");
+         gtk_style_context_add_class(ctx, "ptt-offline");
+      }
+      return;
+   }
    GtkStyleContext *row_ctx = gtk_widget_get_style_context(control->row);
    bool selected = control->vfo == vfo_state_get_active() && !strcasecmp(control->room, rrclient_media_active_room());
 
@@ -750,6 +769,7 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
       gtk_button_set_label(GTK_BUTTON(control->ptt), label);
    }
    GtkStyleContext *ctx = gtk_widget_get_style_context(control->ptt);
+   gtk_style_context_remove_class(ctx, "ptt-offline");
    const char *active_class = transmitting ? "ptt-active" : "ptt-idle";
    const char *old_class = transmitting ? "ptt-idle" : "ptt-active";
 
@@ -1412,6 +1432,16 @@ void userlist_remove_room_view(const char *room) {
       g_free(entry->server);
    }
    g_hash_table_remove(room_userlist_views, rrclient_window_name(room));
+}
+
+void userlist_room_state_changed(const char *room) {
+   if (!room || !*room) return;
+   room_userlist_entry_t *entry = room_userlist_views ?
+      g_hash_table_lookup(room_userlist_views, rrclient_window_name(room)) : NULL;
+   if (!entry && rrclient_present_context() && !strcasecmp(room, ws_authoritative_room())) entry = &rig_userlist_entry;
+   if (!entry) return;
+   userlist_redraw_view(entry == &rig_userlist_entry ? cul_view : entry->view, room);
+   if (entry->panel) room_vfo_refresh(entry);
 }
 
 void userlist_room_vfos_changed(const char *room) {

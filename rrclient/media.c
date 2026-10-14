@@ -415,7 +415,7 @@ static bool gps_wanted(const struct rr_media_known *channel) {
    return false;
 }
 static void media_try_autosubscribe(rrconn_t *cptr, struct rr_media_known *kp) {
-   if (!cptr || !kp || !media_ready || kp->subscribed || kp->disabled) {
+   if (!cptr || !kp || !media_ready || kp->subscribed || kp->disabled || rrclient_room_offline(kp->room)) {
       return;
    }
 
@@ -578,7 +578,9 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
       if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
          frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, (unsub ? NULL : kp->codec));
       }
-      Log(LOG_INFO, "ws.media", "Media subscription %s: %s (codec %s)", (unsub ? "removed" : "confirmed"), kp->uuid, (kp->codec[0] ? kp->codec : "none"));
+      char description[512];
+      rrclient_media_description(kp->uuid, description, sizeof(description));
+      Log(LOG_INFO, "ws.media", "Media subscription %s: %s", unsub ? "removed" : "confirmed", description);
    }
 }
 
@@ -591,7 +593,9 @@ void rrclient_media_chan_removed(dict *d) {
    struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
 
    if (kp) {
-      Log(LOG_INFO, "ws.media", "Media channel removed: %s (%s)", kp->uuid, (kp->descr[0] != '\0' ? kp->descr : "-"));
+      char description[512];
+      rrclient_media_description(kp->uuid, description, sizeof(description));
+      Log(LOG_INFO, "ws.media", "Media channel removed: %s", description);
       memset(kp, 0, sizeof(*kp));
       media_sync_audio();
    }
@@ -849,30 +853,44 @@ static void media_server_selected(const char *event, const char *data, rrconn_t 
    media_sync_audio();
 }
 
+static void media_description(const char *uuid, const char *codec, bool diagnostic, char *out, size_t capacity) {
+   const struct rr_media_known *channel = media_known_find(uuid);
+   if (!channel) {
+      snprintf(out, capacity, "%s (undiscovered)", uuid ? uuid : "unknown");
+      return;
+   }
+   const dict *rig = rrclient_object_descriptor(channel->rig_uuid);
+   const dict *station = rig ? rrclient_object_descriptor(dict_get((dict *)rig, "object.owner", "")) : NULL;
+   char rig_name[32], vfo[16] = "";
+   snprintf(rig_name, sizeof(rig_name), "rig%u", channel->rig);
+   if (channel->vfo < 26) snprintf(vfo, sizeof(vfo), ".vfo-%c", 'a' + channel->vfo);
+   snprintf(out, capacity, "%s.%s%s.%s (codec=%s%s%s)",
+      station ? dict_get((dict *)station, "object.alias", "unknown") : "unknown",
+      rig ? dict_get((dict *)rig, "object.alias", rig_name) : rig_name, vfo,
+      channel->direction == RR_BINFRAME_DIR_TX ? "tx" : channel->direction == RR_BINFRAME_DIR_RX ? "rx" : "unknown",
+      codec && *codec ? codec : channel->codec[0] ? channel->codec : "unknown", diagnostic ? "; uuid=" : "", diagnostic ? channel->uuid : "");
+}
+
+void rrclient_media_description(const char *uuid, char *out, size_t capacity) {
+   media_description(uuid, NULL, true, out, capacity);
+}
+
 static void media_transport_print(void *data) {
    dict *d = data;
    const char *room = dict_get(d, "media.room", "");
    const char *uuid = dict_get(d, "media.chan-uuid", "");
-   const struct rr_media_known *channel = media_known_find(uuid);
-   const dict *rig = channel ? rrclient_object_descriptor(channel->rig_uuid) : NULL;
-   const dict *station = rig ? rrclient_object_descriptor(dict_get((dict *) rig, "object.owner", "")) : NULL;
-   char rig_name[32], vfo[8];
-   snprintf(rig_name, sizeof(rig_name), channel && channel->rig != RR_BINFRAME_RIG_NA ? "rig%u" : "unknown", channel ? channel->rig : 0);
-   snprintf(vfo, sizeof(vfo), "%s", "shared");
-
-   if (channel && channel->vfo < 26) {
-      snprintf(vfo, sizeof(vfo), "%c", 'A' + channel->vfo);
+   char description[512];
+   const char *status = dict_get(d, "media.status", "");
+   bool intermediate = !strcmp(status, "requesting") || !strcmp(status, "connecting");
+   media_description(uuid, dict_get(d, "media.codec", ""), intermediate, description, sizeof(description));
+   const char *transport = dict_get(d, "media.transport", "");
+   const char *endpoint = dict_get(d, "media.endpoint", "");
+   if (intermediate) {
+      Log(LOG_DEBUG, "ws.media", "Media %s: %s via %s%s%s", description, status, transport, *endpoint ? " at " : "", endpoint);
+      return;
    }
-   const char *codec = dict_get(d, "media.codec", "");
-
-   if (!*codec) {
-      codec = channel && channel->codec[0] ? channel->codec : "unknown";
-   }
-   /* PARITY: rustyrig-www/js/webui.media.js confirmed media connection notices. */
-   ui_print(*room ? room : NULL, "Media %s [station=%s rig=%s VFO=%s %s codec=%s]: %s via %s%s%s", channel && channel->name[0] ? channel->name : uuid, station ?
-      dict_get((dict *) station, "object.alias", "unknown") : "unknown", rig ? dict_get((dict *) rig, "object.alias", rig_name) : rig_name, vfo, channel &&
-      channel->direction == RR_BINFRAME_DIR_TX ? "TX" : channel && channel->direction == RR_BINFRAME_DIR_RX ? "RX" : "unknown", codec, dict_get(d,
-      "media.status", ""), dict_get(d, "media.transport", ""), *dict_get(d, "media.endpoint", "") ? " at " : "", dict_get(d, "media.endpoint", ""));
+   /* PARITY: rustyrig-www/js/webui.media.js confirmed connection notices. */
+   ui_print(*room ? room : NULL, "Media %s: %s via %s%s%s", description, status, transport, *endpoint ? " at " : "", endpoint);
 }
 static void media_transport_notice(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
@@ -1279,9 +1297,10 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
    bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
 
    if (!failed) {
-      char vfo = (target && target->vfo < 26) ? (char)('A' + target->vfo) : '-';
-      media_print("Requested %s codec %s for %s VFO %c (%s; uuid=%s)", is_tx ? "TX" : "RX", args[1], target && target->name[0] ? target->name : "active audio",
-         vfo, target && target->descr[0] ? target->descr : "audio", target ? target->uuid : "active");
+      char description[512];
+      rrclient_media_description(target ? target->uuid : NULL, description, sizeof(description));
+      const char *room = target && target->room[0] ? target->room : media_output_window();
+      ui_print(room, "Requested %s codec %s for %s", is_tx ? "TX" : "RX", args[1], description);
    }
 
    return failed;

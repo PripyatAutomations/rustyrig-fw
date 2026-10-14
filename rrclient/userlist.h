@@ -88,6 +88,7 @@ extern GtkWidget *userlist_create(void);
 extern void userlist_dock_into(GtkPaned *paned);
 extern void userlist_dock_room_into(GtkPaned *paned, const char *room);
 extern void userlist_remove_room_view(const char *room);
+extern void userlist_room_state_changed(const char *room);
 extern void userlist_room_vfos_changed(const char *room);
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern void userlist_set_visible(bool visible);

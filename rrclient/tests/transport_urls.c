@@ -229,6 +229,15 @@ int main(void) {
    assert(!strcmp(alpha_window, rrclient_window_name("#ShArEd")));
    assert(strcmp(alpha_window, rrclient_window_name("shared")));
    assert(rrclient_room_join("#shared"));
+   rrclient_room_set_offline("#shared", true);
+   assert(rrclient_room_offline("#shared"));
+   active_room = "#shared";
+   assert(rrclient_chat_input_blocked("unsent draft"));
+   assert(!rrclient_chat_input_blocked("/part") && !rrclient_chat_input_blocked("/win close"));
+   active_room = "status";
+   assert(!rrclient_room_tx_control("#shared") && !rrclient_room_rx_tunable("#shared"));
+   rrclient_room_set_offline("#shared", false);
+   assert(!rrclient_room_offline("#shared"));
    assert(rrclient_room_set_topic("#shared", "alpha topic"));
    assert(!strcmp(a->server->sasl_user, "alpha-account"));
    assert(!strcmp(a->server->sasl_pass, "sasl-secret"));

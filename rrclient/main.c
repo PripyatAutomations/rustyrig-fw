@@ -1,3 +1,4 @@
+#include <rrclient/rooms.h>
 #include <rrclient/dcc.h>
 #include <rrclient/media.direct.h>
 #include <librrprotocol/rtp.h>
@@ -779,6 +780,7 @@ int main(int argc, char *argv[]) {
    (void)loaded_name;
 
    if (ui_mode == UI_MODE_TUI) {
+      tui_input_blocked_cb = rrclient_chat_input_blocked;
       tui_readline_cb = parse_chat_input_real;
       tui_set_topline_renderer(rrclient_tui_topline);
       tui_init();

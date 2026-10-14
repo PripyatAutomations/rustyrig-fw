@@ -131,10 +131,13 @@ static void ptt_button_apply(void) {
 
    // grey = offline, yellow = pending, orange = TOT fired, green = idle,
    // red = any user TX, showing their callsign (css in gtk.core.c)
-   if (ptt_btn_tot) {
+   if (rrclient_room_offline(rrclient_current_room())) {
+      label = "OFFLINE";
+      cls = "ptt-offline";
+   } else if (ptt_btn_tot) {
       label = "TOT EXPIRE";
       cls = "ptt-tot";
-   } else if (!ptt_btn_online) {
+   } else if (!ptt_btn_online || rrclient_room_offline(rrclient_current_room())) {
       label = "OFFLINE";
       cls = "ptt-offline";
    } else if (someone_else_transmitting(talker)) {
@@ -161,6 +164,7 @@ static void ptt_button_apply(void) {
       cls = "ptt-idle";
    }
 
+   gtk_widget_set_sensitive(ptt_button, !rrclient_room_offline(rrclient_current_room()));
    gtk_button_set_label(GTK_BUTTON(ptt_button), label);
    gtk_style_context_remove_class(ctx, "ptt-active");
    gtk_style_context_remove_class(ctx, "ptt-pending");
@@ -410,6 +414,7 @@ bool ptt_button_hotkey_toggle(void) {
 }
 
 bool ptt_button_hotkey_press(void) {
+   if (rrclient_room_offline(rrclient_current_room())) return false;
    if (!ptt_button) {
       return false;
    }

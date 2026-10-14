@@ -1,3 +1,4 @@
+#include <rrclient/rooms.h>
 #include <rrclient/dcc.h>
 #include <rrclient/config.layers.h>
 //
@@ -267,6 +268,11 @@ bool parse_chat_input_real(const char *msg) {
    if (!msg || !*msg) {
       Log(LOG_CRAZY, "chat.cmd", "parse_chat_input: msg:<%p> is empty", msg);
 
+      return true;
+   }
+
+   if (rrclient_chat_input_blocked(msg)) {
+      ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
       return true;
    }
 

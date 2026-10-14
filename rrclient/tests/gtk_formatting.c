@@ -1,6 +1,9 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 #include "rrclient/gtk/gtk.chat.c"
+bool ui_print(const char *room, const char *format, ...) { return false; }
+static bool block_chat_input;
+bool rrclient_chat_input_blocked(const char *text) { return block_chat_input; }
 GtkWidget *create_vfo_box(void) {
    GtkWidget *controls = gtk_label_new("Wide frequency, mode, codec and PTT controls");
    gtk_widget_set_size_request(controls, 1400, 60);
@@ -279,6 +282,11 @@ static void test_incoming_chat_preserves_draft(void) {
    gtk_widget_grab_focus(entry);
    drain_gtk_events();
    gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
+   block_chat_input = true;
+   assert(parse_chat_input_gtk(NULL, entry));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
+   assert(!g_object_get_data(G_OBJECT(entry), "rr-input-history"));
+   block_chat_input = false;
    gtk_editable_set_position(GTK_EDITABLE(entry), 4);
    GtkRoomTab tab = {
       .page = page, .entry = entry, .view = view

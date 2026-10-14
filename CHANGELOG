@@ -1,5 +1,11 @@
-rustyrig-fw (20261013.03) testing; urgency=medium
+rustyrig-fw (20261013.04) testing; urgency=medium
 
+  * Freeze linked-room tabs when their owner disconnects: show OFFLINE,
+    disable GTK/browser rig controls, and retain ordinary chat drafts in
+    GTK, TUI and browser inputs. Allow slash commands and thaw on restored JOIN.
+  * Keep routine media request/connecting stages in debug logs, show concise
+    connection results, and route codec replies to the stream room. Include
+    readable station/rig/VFO/direction paths, codecs and UUIDs in media logs.
   * Identify media connection notices by station, rig, VFO, direction and
     negotiated codec in native and browser clients.
   * Show native media transport requests before connection, and explain
@@ -40,7 +46,7 @@ rustyrig-fw (20261013.03) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 19:51:11 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 20:44:23 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

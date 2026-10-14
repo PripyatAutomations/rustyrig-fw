@@ -1479,6 +1479,10 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    }
    const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
 
+   if (rrclient_chat_input_blocked(text)) {
+      ui_print(gtk_chat_current_room(), "Room is OFFLINE; draft retained");
+      return true;
+   }
    if (text && *text) {
       // Copy before clearing/dispatch: commands may change tabs or destroy
       // the originating entry. Never retain GtkEntry's borrowed text pointer.

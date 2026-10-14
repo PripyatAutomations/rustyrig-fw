@@ -454,6 +454,8 @@ acl=media-staff
         leaf_links = log('gamma').count('Unlinked site delta')
         stop('beta')
         wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 2' in log('gamma'), 'disconnect did not withdraw only the lost branch')
+        offline = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-state' and m['talk'].get('room') == '#gamma-rig0')
+        assert offline['talk']['connected'] is False
         assert log('gamma').count('Unlinked site delta') == leaf_links
         assert 'Unlinked site gamma' not in log('delta')
         start('beta')

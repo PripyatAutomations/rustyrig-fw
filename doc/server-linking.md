@@ -245,3 +245,14 @@ name collisions do not establish authority and do not trigger automatic deletion
 Peer `retry-seconds` overrides the global reconnect interval. Admins/owners can
 manage stored peers with `/link list|open|close`; see
 [Connection recovery and administration](connection-admin.md).
+
+## Offline room tabs
+
+When an owning site becomes unreachable, the connected server sends
+`talk.room-state` with the room and `talk.connected=false`. Clients retain the
+room tab, replace the displayed roster with OFFLINE and disable rig controls.
+GTK, TUI and browser leave ordinary chat input in its buffer without sending
+or recording it in history. Slash commands remain available, including `/part`
+and window closing. Pending relay subscriptions are restored when the owner
+returns; the resulting self JOIN clears the offline state and refreshes the
+roster and controls. Preserved drafts are not sent automatically.

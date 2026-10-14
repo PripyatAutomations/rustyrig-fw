@@ -552,3 +552,14 @@ GTK and browser Admin quota tables display separate server TX and RX bandwidth
 usage totals from `rrserver/events.c`, with a shared remaining allowance. Both
 label pages Users, Rooms, Quotas, Audit Log and PTT Log, and show the zero-to-
 exhaust hint only for SET actions.
+
+Native `rooms.c` and browser `webui.chat.js` retain offline linked rooms using
+server `talk.room-state` notifications. Ordinary chat drafts stay unsent; slash
+commands remain available. GTK/browser show OFFLINE rosters and disable rig
+controls, and self JOIN thaws restored rooms. TUI uses the shared input rejection
+callback to preserve its draft. See [Offline room tabs](server-linking.md#offline-room-tabs).
+
+Native/browser media connection notices use readable stream paths. Routine
+native request/connecting phases are debug-only; confirmed connections and
+fallback reasons remain in room chat. Codec confirmations follow the stream
+room. See [Media diagnostics](media-notices.md).
