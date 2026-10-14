@@ -39,23 +39,6 @@ static bool picker_list_initialized = false;
 void codec_pickers_refresh(void);
 void codec_picker_set_active(bool is_tx, const char *codec);
 
-static int codec_channel_number(const struct rr_client_media_chan *channel) {
-   if (!channel) {
-      return 0;
-   }
-
-   for (int i = 0 ; i < RR_CLIENT_MEDIA_MAX_CHANS ; i++) {
-      int number = 0;
-      const struct rr_client_media_chan *candidate = rrclient_media_chan_iter(i, &number);
-
-      if (candidate == channel) {
-         return number;
-      }
-   }
-
-   return 0;
-}
-
 typedef struct {
 #if     defined(USE_MONGOOSE)
    struct mg_connection *conn;
@@ -83,10 +66,10 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
          const struct rr_client_media_chan *channel = rrclient_media_codec_target_channel(ctx->is_tx);
 
          if (!rrclient_media_select_codec(cptr, ctx->is_tx, codec)) {
-            char vfo = channel && channel->vfo < 26 ? (char)('A' + channel->vfo) : '-';
-            const char *description = channel && channel->descr[0] ? channel->descr : "audio";
-            ui_print(NULL, "Requested %s codec %s for channel #%d uuid %s VFO %c (%s)", ctx->is_tx ? "TX" : "RX", codec, codec_channel_number(channel), channel
-               ? channel->uuid : "<active>", vfo, description);
+            char description[512];
+            rrclient_media_description(channel ? channel->uuid : NULL, description, sizeof(description));
+            const char *room = channel && channel->room[0] ? channel->room : ui_active_window_name();
+            ui_print(room, "Requested %s codec %s for %s", ctx->is_tx ? "TX" : "RX", codec, description);
          }
       }
    }

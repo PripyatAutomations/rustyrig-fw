@@ -1,5 +1,12 @@
-rustyrig-fw (20261013.04) testing; urgency=medium
+rustyrig-fw (20261014.01) testing; urgency=medium
 
+  * Keep media catalog broadcasts off ordinary HTTP page/asset connections,
+    and stop asset closes from triggering repeated catalog refreshes.
+  * Fix WebUI password authentication by returning the server challenge token.
+  * Route GTK codec-picker replies to their rig room. Keep repeated media
+    availability in debug logs and preserve GPS/NMEA names and station context
+    in stream descriptions before object discovery completes.
+  * Include formatted monotonic uptime in cumulative event profiling headers.
   * Freeze linked-room tabs when their owner disconnects: show OFFLINE,
     disable GTK/browser rig controls, and retain ordinary chat drafts in
     GTK, TUI and browser inputs. Allow slash commands and thaw on restored JOIN.
@@ -46,7 +53,7 @@ rustyrig-fw (20261013.04) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Tue, 13 Oct 2026 20:44:23 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 07:12:00 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

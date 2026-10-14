@@ -342,6 +342,9 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
             memcpy(kp->pending_codec, normalized, sizeof(kp->pending_codec));
          }
       }
+      char description[512];
+      rrclient_media_description(kp->uuid, description, sizeof(description));
+      Log(LOG_INFO, "ws.media", "Requested %s codec %s for %s", is_tx ? "TX" : "RX", normalized, description);
       sent = true;
    }
 
@@ -861,13 +864,27 @@ static void media_description(const char *uuid, const char *codec, bool diagnost
    }
    const dict *rig = rrclient_object_descriptor(channel->rig_uuid);
    const dict *station = rig ? rrclient_object_descriptor(dict_get((dict *)rig, "object.owner", "")) : NULL;
-   char rig_name[32], vfo[16] = "";
-   snprintf(rig_name, sizeof(rig_name), "rig%u", channel->rig);
-   if (channel->vfo < 26) snprintf(vfo, sizeof(vfo), ".vfo-%c", 'a' + channel->vfo);
-   snprintf(out, capacity, "%s.%s%s.%s (codec=%s%s%s)",
-      station ? dict_get((dict *)station, "object.alias", "unknown") : "unknown",
-      rig ? dict_get((dict *)rig, "object.alias", rig_name) : rig_name, vfo,
-      channel->direction == RR_BINFRAME_DIR_TX ? "tx" : channel->direction == RR_BINFRAME_DIR_RX ? "rx" : "unknown",
+   char station_name[128] = "unknown", path[128];
+   const char *room = channel->control_room[0] ? channel->control_room : channel->room;
+   if (room[0] == '#') {
+      snprintf(station_name, sizeof(station_name), "%s", room + 1);
+      char *suffix = strstr(station_name, "-rig");
+      if (suffix) *suffix = '\0';
+   }
+   const char *station_alias = station ? dict_get((dict *)station, "object.alias", station_name) : station_name;
+   if (channel->name[0]) {
+      snprintf(path, sizeof(path), "%s", channel->name);
+   } else {
+      char vfo[16] = "";
+      if (channel->vfo < 26) snprintf(vfo, sizeof(vfo), ".vfo-%c", 'a' + channel->vfo);
+      snprintf(path, sizeof(path), "rig%u%s.%s", channel->rig, vfo,
+         channel->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx");
+   }
+   // PARITY: rustyrig-www/js/webui.media.js (confirmed transport caption).
+   // Match diagnostic VFO spelling while retaining GPS/NMEA endpoint names.
+   char *vfo = strstr(path, ".vfo_");
+   if (vfo) vfo[4] = '-';
+   snprintf(out, capacity, "%s.%s (codec=%s%s%s)", station_alias, path,
       codec && *codec ? codec : channel->codec[0] ? channel->codec : "unknown", diagnostic ? "; uuid=" : "", diagnostic ? channel->uuid : "");
 }
 

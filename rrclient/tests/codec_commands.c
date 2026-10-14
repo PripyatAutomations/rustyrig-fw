@@ -455,6 +455,13 @@ int main(void) {
    char description[512];
    rrclient_media_description("describe", description, sizeof(description));
    assert(strstr(description, "rplywv00.rig0.vfo-a.rx") && strstr(description, "codec=pc16") && strstr(description, "uuid=describe"));
+   snprintf(known_chans[0].rig_uuid, sizeof(known_chans[0].rig_uuid), "%s", "uncached-rig");
+   rrclient_media_description("describe", description, sizeof(description));
+   assert(strstr(description, "rplywv00.rig0.vfo-a.rx"));
+   snprintf(known_chans[0].name, sizeof(known_chans[0].name), "%s", "rig0.gps.rx");
+   rrclient_media_description("describe", description, sizeof(description));
+   assert(strstr(description, "rplywv00.rig0.gps.rx"));
+   snprintf(known_chans[0].name, sizeof(known_chans[0].name), "%s", "rig0.vfo_a.rx");
    char *codec_request[] = {"rxcodec", "opuT", "describe"};
    active_window = "status";
    expected_window = "#rplywv00-rig0";

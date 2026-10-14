@@ -1470,7 +1470,7 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       rrclient_media_available(d, cptr);
       char description[512];
       rrclient_media_description(uuid, description, sizeof(description));
-      Log(LOG_INFO, "ws.media", "Media channel available: %s", description);
+      Log(LOG_DEBUG, "ws.media", "Media channel available: %s", description);
    } else if (cmd && strcasecmp(cmd, "subscribed") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
       uint32_t stream = dict_get_ulong(d, "media.stream", 0);

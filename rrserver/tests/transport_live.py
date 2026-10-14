@@ -89,6 +89,7 @@ accounting.strict=true
 noob.cool-down=0
 atu.max=0
 chat.replay-lines=0
+codecs.allowed=pc16
 [rig:rig0]
 backend=internal
 vfos=A
@@ -147,6 +148,27 @@ enabled=false
             print("PASS: HTTP exact routes, read-only methods, encoded paths, hidden files and symlink confinement")
             login(first, "ADMIN")
             drain(first)
+            # Hold an ordinary HTTP connection open while a catalog broadcast runs.
+            # A partial request keeps it registered without producing a response.
+            pending_http = socket.create_connection(("127.0.0.1", port), timeout=3)
+            try:
+                pending_http.sendall(b"GET / HTTP/1.1\r\nHost: localhost\r\n")
+                drain(first)
+                first.send({"msg": {"type": "media"}, "media": {"cmd": "capab", "codecs": "pc16"}})
+                first.until(lambda m: m.get("media", {}).get("cmd") == "available")
+                drain(first)
+                pending_http.sendall(b"Connection: close\r\n\r\n")
+                response = http.client.HTTPResponse(pending_http)
+                response.begin()
+                assert response.status == 200 and response.read() == b"safe index"
+            finally:
+                pending_http.close()
+            messages = drain(first)
+            assert not any(m.get("media", {}).get("cmd") == "available" for m in messages), messages
+            assert http_request("/inside.js", 200) == b"safe asset"
+            messages = drain(first)
+            assert not any(m.get("media", {}).get("cmd") == "available" for m in messages), messages
+            print("PASS: media broadcasts preserve HTTP page responses; asset closes do not refresh catalogs")
             def admin(action='', target='', data=''):
                 first.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'admin', 'action': action, 'target': target, 'data': data}})
             fields = dict(email='edit@example.test', maxsessions='2', permissions='chat,view', enabled='1', password_change_required='0', password_expires='0')

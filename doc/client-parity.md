@@ -563,3 +563,16 @@ Native/browser media connection notices use readable stream paths. Routine
 native request/connecting phases are debug-only; confirmed connections and
 fallback reasons remain in room chat. Codec confirmations follow the stream
 room. See [Media diagnostics](media-notices.md).
+
+Native and browser password responses echo the challenge session token alongside
+the username and nonce-derived SHA-1 response (`librrprotocol/ws.auth.c` and
+`rustyrig-www/js/webui.auth.js`). Media diagnostic paths use catalog endpoint
+names, including GPS/NMEA, and fall back to the control-room station name until
+object discovery supplies its alias. GTK codec-picker replies, like native
+codec commands, are delivered to the selected channel's room.
+
+Media catalog broadcasts follow the authenticated WebSocket recipient rules in
+`librrprotocol/srv.send.c`; ordinary HTTP page and asset connections receive no
+media frames. Only authenticated WebSocket disconnects refresh the catalog.
+Explicit server-link catalog delivery continues through the existing catalog
+event and relay handlers.
