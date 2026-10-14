@@ -702,8 +702,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          rr_backend_poll_rig(radio, object);
          rr_backend_t *backend = rr_server_rig_backend(radio);
 
-         if (backend && backend->type->api->power_get) {
-            float observed = backend->type->api->power_get(backend, object);
+         if (backend && rr_backend_api(backend)->power_get) {
+            float observed = rr_backend_api(backend)->power_get(backend, object);
 
             if (isfinite(observed) && observed >= 0) {
                dict *state = dict_new();

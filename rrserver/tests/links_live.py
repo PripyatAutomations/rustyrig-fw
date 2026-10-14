@@ -464,7 +464,10 @@ acl=media-staff
         origin.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0' and 'session' in m['talk'])
         origin.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': '#gamma-rig0', 'vfo': 'A', 'freq': 14280000}})
         for c in (owner, origin): c.until(lambda m: m.get('cat', {}).get('freq') == 14280000)
-        origin.socket.close(); owner.socket.close()
+        # Reuse the authenticated admin for the final link controls. With the
+        # faster backend loop, opening another session exceeds the per-peer
+        # authentication budget inside the same minute.
+        owner.socket.close()
         print('PASS: fresh authorized room subscription and control restored after middle-server restart')
         if DIRECT_MEDIA or PROXY_MEDIA:
             # Proxied TX must work even when the rig owner has no RTP listener.
@@ -475,7 +478,6 @@ acl=media-staff
             from media_direct_live import run_proxy
             run_proxy(login, work, media_ports['alpha'] + 7 if DIRECT_MEDIA else None)
         assert 'disposable-link-secret' not in ''.join(log(n) for n in processes)
-        origin = login("alpha")
         # Explicit close suppresses outbound retries and incoming redials.
         baseline = log('alpha').count('Linked site beta')
         departures = log('alpha').count('Unlinked site beta')

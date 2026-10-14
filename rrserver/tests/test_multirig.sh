@@ -4,10 +4,10 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-${CC:-cc} ${CFLAGS:-} -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
+${CC:-cc} ${CFLAGS:-} -pthread -std=gnu11 -I. -Iinc -Ibuild/${PROFILE:-radio} \
    $(pkg-config --cflags glib-2.0) \
    rrserver/tests/multirig.c rrserver/backend.c \
-   rrserver/backend.instance.c rrserver/rig.properties.c \
+   rrserver/backend.instance.c rrserver/backend.worker.c rrserver/rig.properties.c \
    rrserver/rig.compat.c rrserver/rig.registry.c rrserver/cfg.rig.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs glib-2.0) ${LDFLAGS:-} \

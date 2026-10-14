@@ -580,3 +580,12 @@ Media catalog broadcasts follow the authenticated WebSocket recipient rules in
 media frames. Only authenticated WebSocket disconnects refresh the catalog.
 Explicit server-link catalog delivery continues through the existing catalog
 event and relay handlers.
+
+## Server backend scheduling
+
+Radio backend I/O runs on a worker per server rig. Property control results
+are sent after the hardware operation and readback complete; property updates
+remain authoritative. Native and browser clients use the existing result and
+observation messages without a wire change. Legacy CAT PTT receipts retain
+reservation semantics; confirmed CAT state follows backend completion.
+See [Backend workers](backend-workers.md) for ownership and scheduling details.

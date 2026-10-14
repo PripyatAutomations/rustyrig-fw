@@ -147,6 +147,9 @@ defconfig_t defcfg[] = {
       "backend.poll-interval", "250", "How often to poll the rig in ms", DEFCONFIG_UINT, NULL
    },
    {
+      "backend.hamlib-timeout-ms", "250", "Hamlib transaction timeout (1-5000 ms); per-rig hamlib.timeout-ms overrides", DEFCONFIG_UINT, NULL
+   },
+   {
       "rig.instances", "rig0", "Configured rig aliases (space or comma separated)"
    },
    {

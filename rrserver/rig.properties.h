@@ -77,6 +77,7 @@ typedef enum rr_control_result {
    RR_CONTROL_TYPE_MISMATCH,
    RR_CONTROL_UNSUPPORTED,
    RR_CONTROL_BACKEND_FAILED,
+   RR_CONTROL_PENDING,
 } rr_control_result_t;
 
 typedef struct rr_control_request {
@@ -88,6 +89,8 @@ typedef struct rr_control_request {
    dict_value_t value;
    const char *source;
    void *context;
+   void (*complete)(rr_control_result_t result, void *user);
+   void *complete_user;
 } rr_control_request_t;
 
 typedef rr_control_result_t (*rr_rig_control_handler_t)(const rr_control_request_t *request, void *user);

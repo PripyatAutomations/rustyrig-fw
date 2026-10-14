@@ -496,6 +496,7 @@ int main(int argc, char **argv) {
    // Main loop
    while (1) {
       extern void rrserver_objects_poll(void);
+      rr_backend_drain_all();
       rrserver_relay_poll();
       rrserver_objects_poll();
       event_emit("server.poll", NULL, NULL);
@@ -507,7 +508,7 @@ int main(int argc, char **argv) {
 
       // Process Mongoose HTTP and MQTT events, this should be at the end of
       // loop so all data is ready
-      mg_mgr_poll(&mg_mgr, (serial_active || modules_loaded || rrserver_direct_listening()) ? 10 : 1000);
+      mg_mgr_poll(&mg_mgr, 10);
       rrserver_links_poll();
 #endif
 

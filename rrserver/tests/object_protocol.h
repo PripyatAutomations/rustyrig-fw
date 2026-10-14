@@ -68,6 +68,7 @@ static void object_socket(struct mg_connection *c, int ev, void *data) {
 static void object_pump(void) {
    for (int i = 0 ; i < 20 ; i++) {
       rrserver_objects_poll();
+      rr_backend_drain_all();
       mg_mgr_poll(&object_mgr, 1);
    }
 }
@@ -211,15 +212,17 @@ static void object_validate(rr_server_rig_t *r0, rr_server_rig_t *r1, bool onlin
    assert(schema && dict_get_bool(schema, "property.writable", false));
    unsigned unchanged = object_changes;
    rr_backend_poll_all();
+   wait_workers();
    object_pump();
    assert(object_changes == unchanged);
    dict *d = object_set(uuid, "frequency");
    dict_add_long(d, "property.value", 7100000);
    expect_result(d, "ok");
-   // Request acceptance did not change the canonical server or client state.
-   assert(snapshot(rr_server_vfo_find_alias(r1, "A"), "frequency").value.l == 145000000);
-   assert(dict_get_long((dict *) rr_object_cache_property(object_cache, uuid, "frequency", false), "property.value", 0) == 145000000);
+   // The deferred result follows a completed hardware write and read-back.
+   assert(snapshot(rr_server_vfo_find_alias(r1, "A"), "frequency").value.l == 7100000);
+   assert(dict_get_long((dict *) rr_object_cache_property(object_cache, uuid, "frequency", false), "property.value", 0) == 7100000);
    rr_backend_poll_all();
+   wait_workers();
    object_pump();
    assert(dict_get_long((dict *) rr_object_cache_property(object_cache, uuid, "frequency", false), "property.value", 0) == 7100000);
    assert(snapshot(rr_server_vfo_find_alias(r0, "A"), "frequency").value.l == internal_frequency);
@@ -227,6 +230,7 @@ static void object_validate(rr_server_rig_t *r0, rr_server_rig_t *r1, bool onlin
    dict_add_long(d, "property.value", 145000000);
    expect_result(d, "ok");
    rr_backend_poll_all();
+   wait_workers();
    object_pump();
    d = object_set("malformed", "frequency");
    dict_add_int(d, "property.value", 1);

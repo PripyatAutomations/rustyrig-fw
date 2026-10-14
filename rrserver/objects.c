@@ -257,7 +257,28 @@ static void result(rrconn_t *client, const char *family, const char *id, const c
    send_message(client, d);
 }
 
+typedef struct pending_control {
+   struct pending_control *next;
+   rrconn_t *client;
+   char *id;
+} pending_control_t;
+static pending_control_t *pending_controls;
+static void object_control_completed(rr_control_result_t status, void *user) {
+   pending_control_t *pending = user;
+   pending_control_t **link = &pending_controls;
+   while (*link && *link != pending) link = &(*link)->next;
+   if (*link) *link = pending->next;
+   if (pending->client && !dying) result(pending->client, "property", pending->id, status == RR_CONTROL_OK ? "ok" : "backend-failure");
+   free(pending->id);
+   free(pending);
+}
+
 static void rr_object_close_client(const char *event, const char *data, rrconn_t *client, void *user) {
+   if (event && !strcmp(event, RR_OBJECT_CLOSE_EVENT)) {
+      for (pending_control_t *pending = pending_controls; pending; pending = pending->next) {
+         if (pending->client == client) pending->client = NULL;
+      }
+   }
    subscriber_t **link = &subscribers;
    while (*link) {
       subscriber_t *s = *link;
@@ -583,7 +604,26 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          goto done;
       }
 
-      switch (rr_rig_control(&control)) {
+      pending_control_t *pending = calloc(1, sizeof(*pending));
+      if (!pending || !(pending->id = strdup(id ? id : ""))) {
+         free(pending);
+         code = "backend-failure";
+         goto done;
+      }
+      pending->client = client;
+      pending->next = pending_controls;
+      pending_controls = pending;
+      control.complete = object_control_completed;
+      control.complete_user = pending;
+      rr_control_result_t status = rr_rig_control(&control);
+      if (status == RR_CONTROL_PENDING) {
+         dict_free(d);
+         return;
+      }
+      pending_controls = pending->next;
+      free(pending->id);
+      free(pending);
+      switch (status) {
          case RR_CONTROL_OK: {
             code = "ok";
             break;
@@ -673,6 +713,7 @@ void rrserver_objects_register_events(void) {
 }
 
 void rrserver_objects_fini(void) {
+   for (pending_control_t *pending = pending_controls; pending; pending = pending->next) pending->client = NULL;
    while (subscribers) {
       rr_object_close_client(NULL, NULL, subscribers->client, NULL);
    }

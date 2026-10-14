@@ -18,6 +18,7 @@
 #include <librrprotocol/objects.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.worker.h>
 #include <rrserver/rig.compat.h>
 #include <rrserver/cfg.rig.h>
 #include <rrserver/rig.properties.h>
@@ -68,7 +69,7 @@ bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
       return false;
    }
 
-   return backend->type->api->vfo_supported ? backend->type->api->vfo_supported(backend, vfo) : true;
+   return rr_backend_api(backend)->vfo_supported ? rr_backend_api(backend)->vfo_supported(backend, vfo) : true;
 }
 
 static bool rr_cat_compat_vfo_supported(rr_server_rig_t *radio, rr_vfo_t vfo, void *user) {
@@ -81,22 +82,22 @@ static bool rr_cat_compat_ptt_get(rr_server_rig_t *radio, rr_vfo_t vfo, void *us
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!backend || !backend->type || !backend->type->api || !backend->type->api->ptt_get || !object) {
+   if (!backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->ptt_get || !object) {
       return false;
    }
 
-   return backend->type->api->ptt_get(backend, object);
+   return rr_backend_api(backend)->ptt_get(backend, object);
 }
 
 static int rr_cat_compat_widths_get(rr_server_rig_t *radio, rr_vfo_t vfo, int *widths, int max, void *user) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!backend || !backend->type || !backend->type->api || !backend->type->api->widths_get || !object) {
+   if (!backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->widths_get || !object) {
       return 0;
    }
 
-   return backend->type->api->widths_get(backend, object, widths, max);
+   return rr_backend_api(backend)->widths_get(backend, object, widths, max);
 }
 
 static rrconn_t *rr_cat_compat_talker_get(rr_server_rig_t *radio, void *user) {
@@ -192,6 +193,17 @@ static bool rr_configure_vfos(rr_server_rig_t *radio, const char *alias) {
    g_strfreev(tokens);
 
    return failed || added == 0;
+}
+
+static void rr_backend_publish_worker(rr_backend_t *, rr_server_vfo_t *, rr_vfo_data_t *);
+static bool rr_backend_start_one(rr_server_rig_t *radio, void *unused) {
+   return rr_backend_worker_start(rr_server_rig_backend(radio), rr_backend_publish_worker);
+}
+static void rr_backend_shutdown_request(const char *event, const char *data, rrconn_t *client, void *unused) {
+   dict *d = json2dict(data);
+   int code = dict_get_int(d, "backend.shutdown-code", 100);
+   dict_free(d);
+   shutdown_rig(code);
 }
 
 bool rr_backend_init(void) {
@@ -341,12 +353,19 @@ bool rr_backend_init(void) {
       }
    }
 
+   event_on("backend.shutdown.request", rr_backend_shutdown_request, NULL);
+   if (rr_rig_registry_foreach(rig.rigs, rr_backend_start_one, NULL)) {
+      rr_backend_fini();
+      return true;
+   }
+
    Log(LOG_INFO, "core", "Default rig is %s (%s)", rr_server_rig_id(radio), rr_rig_registry_alias(rig.rigs, radio));
 
    return false;
 }
 
 bool rr_backend_fini(void) {
+   event_off("backend.shutdown.request", rr_backend_shutdown_request, NULL);
    rig.ptt_rig = NULL;
    rr_cat_compat_free(rig.default_cat);
    rig.default_cat = NULL;
@@ -365,7 +384,7 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
 
    rr_backend_t *backend = rr_default_backend();
 
-   if (!backend || !backend->type->api->ptt_set) {
+   if (!backend || !rr_backend_api(backend)->ptt_set) {
       return true;
    }
    Log(LOG_AUDIT, "rf", "PTT set to %s by user %s", bool2str(state), cptr->chatname);
@@ -373,16 +392,21 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
    return rr_ptt_apply(vfo, state);
 }
 
+rr_backend_t *rr_backend_for_ptt(void) {
+   rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_default_radio();
+   return radio ? rr_server_rig_backend(radio) : NULL;
+}
+
 bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
    rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_default_radio();
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!backend || !backend->type || !backend->type->api || !backend->type->api->ptt_set || !object) {
+   if (!backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->ptt_set || !object) {
       return true;
    }
 
-   if (backend->type->api->ptt_set(backend, object, state)) {
+   if (rr_backend_api(backend)->ptt_set(backend, object, state)) {
       Log(LOG_WARN, "rig", "Setting PTT for VFO %s to %s failed.", rr_vfo_name(vfo), bool2str(state));
 
       return true;
@@ -403,11 +427,11 @@ bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   if (!cptr || !backend || !backend->type || !backend->type->api || !backend->type->api->ptt_get || !object) {
+   if (!cptr || !backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->ptt_get || !object) {
       return false;
    }
 
-   return backend->type->api->ptt_get(backend, object);
+   return rr_backend_api(backend)->ptt_get(backend, object);
 }
 
 bool rr_freq_set(rr_vfo_t vfo, int freq) {
@@ -415,7 +439,7 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!object || !backend || !backend->type || !backend->type->api || !backend->type->api->freq_set) {
+   if (!object || !backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->freq_set) {
       return true;
    }
 
@@ -430,9 +454,10 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
          .value.l = freq,
          .source = "default.rigctl",
       };
-      failed = rr_rig_control(&request) != RR_CONTROL_OK;
+      rr_control_result_t result = rr_rig_control(&request);
+      failed = result != RR_CONTROL_OK && result != RR_CONTROL_PENDING;
    } else {
-      failed = backend->type->api->freq_set(backend, object, freq);
+      failed = rr_backend_api(backend)->freq_set(backend, object, freq);
    }
 
    if (failed) {
@@ -440,7 +465,7 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
 
       return true;
    }
-   vfos[vfo].freq = freq;
+   if (!backend->worker) vfos[vfo].freq = freq;
 
    return false;
 }
@@ -449,25 +474,25 @@ float rr_freq_get(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   return (!backend || !backend->type->api->freq_get || !object) ? 0 : backend->type->api->freq_get(backend, object);
+   return (!backend || !rr_backend_api(backend)->freq_get || !object) ? 0 : rr_backend_api(backend)->freq_get(backend, object);
 }
 
 float rr_get_power(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   return (!backend || !backend->type->api->power_get || !object) ? 0 : backend->type->api->power_get(backend, object);
+   return (!backend || !rr_backend_api(backend)->power_get || !object) ? 0 : rr_backend_api(backend)->power_get(backend, object);
 }
 
 bool rr_backend_power_set_rig(rr_server_rig_t *radio, rr_server_vfo_t *object, float power) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
 
    if (!isfinite(power) || power <= 0 || !object || rr_server_vfo_owner(object) != radio || !backend || !backend->type || !backend->type->api
-      || !backend->type->api->power_set) {
+      || !rr_backend_api(backend)->power_set) {
       return true;
    }
 
-   return backend->type->api->power_set(backend, object, power);
+   return rr_backend_api(backend)->power_set(backend, object, power);
 }
 
 bool rr_set_power(rr_vfo_t vfo, float power) {
@@ -480,21 +505,21 @@ uint16_t rr_get_width(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   return (!backend || !backend->type->api->width_get || !object) ? 0 : backend->type->api->width_get(backend, object);
+   return (!backend || !rr_backend_api(backend)->width_get || !object) ? 0 : rr_backend_api(backend)->width_get(backend, object);
 }
 
 bool rr_set_width(rr_vfo_t vfo, const char *width) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   if (!backend || !backend->type->api->width_set || !object) {
+   if (!backend || !rr_backend_api(backend)->width_set || !object) {
       return true;
    }
 
-   bool failed = backend->type->api->width_set(backend, object, width);
+   bool failed = rr_backend_api(backend)->width_set(backend, object, width);
 
-   if (!failed && vfo >= VFO_A && vfo < MAX_VFOS) {
-      uint16_t result = backend->type->api->width_get ? backend->type->api->width_get(backend, object) : 0;
+   if (!backend->worker && !failed && vfo >= VFO_A && vfo < MAX_VFOS) {
+      uint16_t result = rr_backend_api(backend)->width_get ? rr_backend_api(backend)->width_get(backend, object) : 0;
 
       if (!result && width) {
          const char *p = width;
@@ -516,21 +541,21 @@ int rr_widths_get(rr_vfo_t vfo, int *widths, int max) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   return (!backend || !backend->type->api->widths_get || !object) ? 0 : backend->type->api->widths_get(backend, object, widths, max);
+   return (!backend || !rr_backend_api(backend)->widths_get || !object) ? 0 : rr_backend_api(backend)->widths_get(backend, object, widths, max);
 }
 
 rr_mode_t rr_get_mode(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   return (!backend || !backend->type->api->mode_get || !object) ? MODE_NONE : backend->type->api->mode_get(backend, object);
+   return (!backend || !rr_backend_api(backend)->mode_get || !object) ? MODE_NONE : rr_backend_api(backend)->mode_get(backend, object);
 }
 
 const char *rr_get_mode_str(rr_vfo_t vfo) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   return (!backend || !backend->type->api->mode_get_str || !object) ? vfo_mode_name(MODE_NONE) : backend->type->api->mode_get_str(backend, object);
+   return (!backend || !rr_backend_api(backend)->mode_get_str || !object) ? vfo_mode_name(MODE_NONE) : rr_backend_api(backend)->mode_get_str(backend, object);
 }
 
 bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
@@ -538,7 +563,7 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!object || !backend || !backend->type->api->mode_set) {
+   if (!object || !backend || !rr_backend_api(backend)->mode_set) {
       return true;
    }
 
@@ -553,12 +578,13 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
          .value.s = vfo_mode_name(mode),
          .source = "default.rigctl",
       };
-      failed = rr_rig_control(&request) != RR_CONTROL_OK;
+      rr_control_result_t result = rr_rig_control(&request);
+      failed = result != RR_CONTROL_OK && result != RR_CONTROL_PENDING;
    } else {
-      failed = backend->type->api->mode_set(backend, object, mode);
+      failed = rr_backend_api(backend)->mode_set(backend, object, mode);
    }
 
-   if (!failed) {
+   if (!backend->worker && !failed) {
       vfos[vfo].mode = mode;
    }
 
@@ -584,6 +610,24 @@ static void rr_be_merge_default_poll(rr_vfo_t vfo, rr_vfo_data_t *fresh) {
    current->id = vfo;
 }
 
+static void rr_backend_publish_worker(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_vfo_data_t *fresh) {
+   rr_vfo_t index;
+   if (backend->owner == rr_default_radio() && rr_server_vfo_native_index(vfo, &index)) {
+      rr_cat_compat_prepare_poll(rig.default_cat, index);
+      rr_be_merge_default_poll(index, fresh);
+      if (backend->type->uses_property_state && rig.default_cat) {
+         rr_cat_compat_publish(rig.default_cat, index, rr_backend_config_get_int(backend, "state-interval", 15));
+      }
+   }
+}
+static bool rr_backend_drain_one(rr_server_rig_t *radio, void *unused) {
+   rr_backend_worker_drain(rr_server_rig_backend(radio));
+   return false;
+}
+void rr_backend_drain_all(void) {
+   rr_rig_registry_foreach(rig.rigs, rr_backend_drain_one, NULL);
+}
+
 bool rr_backend_poll_rig(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
    rr_vfo_t native_index = VFO_NONE;
 
@@ -593,8 +637,13 @@ bool rr_backend_poll_rig(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
 
    rr_backend_t *backend = rr_server_rig_backend(radio);
 
-   if (!backend || !backend->type || !backend->type->api || !backend->type->api->poll_state) {
+   if (!backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->poll_state) {
       return true;
+   }
+
+   if (backend->worker) {
+      if (radio == rr_default_radio()) backend->active_vfo = active_vfo;
+      return rr_backend_worker_submit(backend, vfo, RR_BACKEND_POLL, (dict_value_t){0}, NULL, NULL);
    }
 
    if (radio == rr_default_radio()) {
@@ -602,7 +651,7 @@ bool rr_backend_poll_rig(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
       rr_cat_compat_prepare_poll(rig.default_cat, native_index);
    }
 
-   rr_vfo_data_t *fresh = backend->type->api->poll_state(backend, vfo);
+   rr_vfo_data_t *fresh = rr_backend_api(backend)->poll_state(backend, vfo);
 
    if (!fresh) {
       return true;

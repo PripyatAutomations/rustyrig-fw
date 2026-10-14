@@ -12,6 +12,8 @@ atu.max=0
 backend.announce-interval=30
 ; How often to poll the rig in ms
 backend.poll-interval=250
+; Maximum duration of one Hamlib I/O attempt (1..5000 ms), no retries.
+backend.hamlib-timeout-ms=250
 ; Log chat messages in sqlite3?
 chat.log=true
 ; If logging is enabled, should we replay a bit of history when the user joins?
@@ -132,6 +134,8 @@ vfos=A B
 ; Send CAT state at most once every N seconds if unchanged.
 state-interval=15
 ; For a Hamlib rig, set backend=hamlib and configure its own endpoint:
+; Optional per-rig override of backend.hamlib-timeout-ms:
+;hamlib.timeout-ms=250
 hamlib.model=2
 hamlib.baud=38400
 hamlib.device=127.0.0.1:4532

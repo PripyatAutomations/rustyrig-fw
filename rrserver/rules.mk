@@ -1,3 +1,5 @@
+CFLAGS_RRSERVER += -pthread
+LDFLAGS_RRSERVER += -pthread
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
 rrserver_objs += objects.o serial.o gps.o
@@ -13,6 +15,7 @@ rrserver_objs += amp.o			# Support for amplifiers and their control
 rrserver_objs += atu.o			# Support for auto-tuners and their control
 rrserver_objs += audit.o		# Store LOG_AUDIT Log() messages in the audit_log db table
 rrserver_objs += backend.o		# Interface to various backends
+rrserver_objs += backend.worker.o       # Per-instance hardware workers and main-thread completions
 rrserver_objs += backend.instance.o	# Allocated backend instance lifecycle
 rrserver_objs += backend.register.o	# Build-selected backend type registration
 rrserver_objs += backend.hamlib.o	# Hamlib backend for posix hosts

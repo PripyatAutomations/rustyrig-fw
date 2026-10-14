@@ -10,6 +10,7 @@
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.worker.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.compat.h>
 #include <rrserver/rig.properties.h>
@@ -175,13 +176,13 @@ static rr_vfo_data_t *fake_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    dict_value_t value = {
       .l = data->observed_frequency
    };
-   assert(rr_rig_property_observe(backend->owner, property, VAL_LONG, &value) != RR_PROPERTY_ERROR);
+   assert(rr_backend_property_observe(backend, vfo, RR_PROP_VFO_FREQUENCY, VAL_LONG, &value) != RR_PROPERTY_ERROR);
    value.s = "USB";
    assert(rr_property_vfo_name(property, sizeof(property), 'A', RR_PROP_VFO_MODE));
-   assert(rr_rig_property_observe(backend->owner, property, VAL_STR, &value) != RR_PROPERTY_ERROR);
+   assert(rr_backend_property_observe(backend, vfo, RR_PROP_VFO_MODE, VAL_STR, &value) != RR_PROPERTY_ERROR);
    value.i = 3000;
    assert(rr_property_vfo_name(property, sizeof(property), 'A', RR_PROP_VFO_WIDTH));
-   assert(rr_rig_property_observe(backend->owner, property, VAL_INT, &value) != RR_PROPERTY_ERROR);
+   assert(rr_backend_property_observe(backend, vfo, RR_PROP_VFO_WIDTH, VAL_INT, &value) != RR_PROPERTY_ERROR);
 
    rr_vfo_data_t *result = calloc(1, sizeof(*result));
 
@@ -462,4 +463,8 @@ int main(void) {
    puts("PASS: independent UUID-addressed rigs and backend instances");
 
    return 0;
+}
+
+void shutdown_rig(uint32_t code) {
+   assert(false);
 }

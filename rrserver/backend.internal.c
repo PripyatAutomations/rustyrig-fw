@@ -10,6 +10,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.worker.h>
 #include <rrserver/rig.properties.h>
 
 typedef struct internal_vfo_state {
@@ -69,7 +70,7 @@ static bool be_index(rr_server_vfo_t *vfo, rr_vfo_t *index) {
 }
 
 static bool be_observe(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *field, val_type_t type, dict_value_t value) {
-   return !vfo || rr_server_vfo_owner(vfo) != backend->owner || rr_vfo_property_observe(vfo, field, type, &value) == RR_PROPERTY_ERROR;
+   return !vfo || rr_server_vfo_owner(vfo) != backend->owner || rr_backend_property_observe(backend, vfo, field, type, &value) == RR_PROPERTY_ERROR;
 }
 
 static bool be_internal_create(rr_backend_t *backend) {

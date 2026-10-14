@@ -28,6 +28,8 @@
 #include <rrserver/au.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.worker.h>
+#include <librrprotocol/objects.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/ptt.h>
 #include <rrserver/media.h>
@@ -372,8 +374,68 @@ bool rr_ptt_set_blocked(bool blocked) {
    return blocked;
 }
 
+typedef struct pending_ptt {
+   struct pending_ptt *next;
+   rr_backend_t *backend;
+   rr_server_rig_t *radio;
+   rrconn_t *owner;
+   rr_vfo_t vfo;
+   bool state, failed, superseded;
+   char *reason;
+} pending_ptt_t;
+static pending_ptt_t *pending_ptt, *completing_ptt;
+static void ptt_worker_closed(const char *event, const char *data, rrconn_t *client, void *user) {
+   for (pending_ptt_t *p = pending_ptt; p; p = p->next) {
+      if (p->owner == client) {
+         p->owner = NULL;
+         if (p->state) p->superseded = true;
+      }
+   }
+   for (int i = 0; i < MAX_VFOS; i++) {
+      if (ptt_log_owner[i] == client) {
+         ptt_log_stop(client, i, "disconnected");
+         ptt_log_owner[i] = NULL;
+      }
+   }
+}
+static void ptt_worker_completed(rr_backend_t *backend, rr_server_vfo_t *vfo, bool failed, void *user) {
+   pending_ptt_t *pending = user;
+   pending_ptt_t **link = &pending_ptt;
+   while (*link && *link != pending) link = &(*link)->next;
+   if (*link) *link = pending->next;
+   if (dying || pending->superseded) goto finished;
+   if (pending->state && (!pending->owner || whos_talking() != pending->owner || rig.ptt_rig != pending->radio)) {
+      rr_backend_worker_submit(backend, vfo, RR_BACKEND_PTT, (dict_value_t){.i = false}, NULL, NULL);
+      goto finished;
+   }
+   pending->failed = failed;
+   completing_ptt = pending;
+   rr_server_rig_t *previous = rig.ptt_rig;
+   rig.ptt_rig = pending->radio;
+   bool rejected = rr_ptt_request(pending->vfo, pending->state, pending->reason);
+   rig.ptt_rig = previous;
+   completing_ptt = NULL;
+   if (rejected && pending->state) {
+      rr_backend_worker_submit(backend, vfo, RR_BACKEND_PTT, (dict_value_t){.i = false}, NULL, NULL);
+      if (pending->owner) {
+         pending->owner->is_ptt = false;
+         pending->owner->ptt_vfo = 0;
+         ws_send_userinfo(pending->owner, NULL);
+         ws_send_error(pending->owner, "Radio backend rejected PTT on VFO %s", vfo_name(pending->vfo));
+      }
+   } else if (rejected && !pending->state) {
+      Log(LOG_CRIT, "ptt", "Hardware release failed; blocking key-down until a release succeeds");
+      accounting_stop_pending = true;
+      rr_ptt_set_blocked(true);
+   }
+finished:
+   free(pending->reason);
+   free(pending);
+}
+
 // For CAT to call
 bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
+   if (vfo < VFO_A || vfo >= MAX_VFOS) return true;
    char msgbuf[HTTP_WS_MAX_MSG + 1];
    rrconn_t *ptt_talker = whos_talking();
    const char *recording_id = NULL;
@@ -415,6 +477,45 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
 #endif // USE_SQLITE
 
+   rr_backend_t *backend = rr_backend_for_ptt();
+   if (backend && backend->worker && !completing_ptt) {
+      static bool registered;
+      if (!registered) {
+         event_on(RR_OBJECT_CLOSE_EVENT, ptt_worker_closed, NULL);
+         registered = true;
+      }
+      bool matching_request_seen = false;
+      for (pending_ptt_t *p = pending_ptt; p; p = p->next) {
+         if (ptt && !p->state && p->backend != backend) return true;
+         if (p->backend == backend && p->vfo == vfo && !matching_request_seen) {
+            matching_request_seen = true;
+            if (!ptt && !p->state) return false;
+         }
+      }
+      pending_ptt_t *pending = calloc(1, sizeof(*pending));
+      if (!pending) return true;
+      pending->reason = strdup(reason ? reason : "requested");
+      char alias[] = { 'A' + vfo, 0 };
+      rr_server_vfo_t *target = rr_server_vfo_find_alias(backend->owner, alias);
+      if (!pending->reason || !target) {
+         free(pending->reason); free(pending); return true;
+      }
+      pending->backend = backend; pending->radio = backend->owner;
+      pending->owner = ptt_talker; pending->vfo = vfo; pending->state = ptt;
+      if (rr_backend_worker_submit(backend, target, RR_BACKEND_PTT, (dict_value_t){.i = ptt}, ptt_worker_completed, pending)) {
+         free(pending->reason); free(pending); return true;
+      }
+      if (!ptt) {
+         for (pending_ptt_t *p = pending_ptt; p; p = p->next) {
+            if (p->backend == backend && p->vfo == vfo && p->state) p->superseded = true;
+         }
+      }
+      pending->next = pending_ptt;
+      pending_ptt = pending;
+      return false;
+   }
+   if (completing_ptt) ptt_talker = completing_ptt->owner;
+
    // PTT logging: snapshot VFO state on key-down; log TX seconds on key-up.
    // whos_talking() is updated by librrprotocol (cptr->is_ptt) before the
    // rigctl event reaches us, so the talker is already current here.
@@ -441,7 +542,7 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
       return true;
    }
 
-   if (rr_ptt_apply(vfo, ptt)) {
+   if (completing_ptt ? completing_ptt->failed : rr_ptt_apply(vfo, ptt)) {
       Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF"));
 
       // A failed key-down must not leave an open database session or a
@@ -454,6 +555,10 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
       return true;
    } else {
+      if (ptt && completing_ptt) {
+         completing_ptt->backend->active_vfo = vfo;
+         if (completing_ptt->radio == rr_rig_registry_default(rig.rigs)) active_vfo = vfo;
+      }
       if (ptt && accounting_locked) {
          rr_ptt_set_all_off_reason("accounting-failure");
 

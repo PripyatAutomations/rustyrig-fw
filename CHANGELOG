@@ -1,5 +1,11 @@
 rustyrig-fw (20261014.02) testing; urgency=medium
 
+  * Move each server radio backend onto its own I/O worker so slow rig polling
+    cannot stall chat, control traffic or other radios. Keep model updates and
+    control results on the server thread; bound/coalesce queues and prioritize
+    PTT release, including disconnect and shutdown.
+  * Bound Hamlib I/O with backend.hamlib-timeout-ms (250 ms by default), allow
+    per-rig hamlib.timeout-ms overrides, and disable repeated Hamlib retries.
   * Name the failed media transport and actual fallback destination separately
     in native RTP failure notices.
   * Scope main GTK/browser PTT presentation to the displayed rig room and VFO,
@@ -59,7 +65,7 @@ rustyrig-fw (20261014.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 08:32:44 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 19:29:59 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

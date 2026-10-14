@@ -58,7 +58,14 @@ struct rr_backend {
    char *config_alias;
    void *data;
    rr_vfo_t active_vfo;
+   struct rr_backend_worker *worker;
+   const rr_backend_funcs_t *dispatch;
 };
+
+/* Before startup and after worker shutdown the original synchronous API remains usable. */
+static inline const rr_backend_funcs_t *rr_backend_api(const rr_backend_t *backend) {
+   return backend->dispatch ? backend->dispatch : backend->type->api;
+}
 
 extern rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, struct rr_server_rig *owner, const char *config_alias);
 extern void rr_backend_instance_free(rr_backend_t *backend);
@@ -76,6 +83,7 @@ extern void rr_backend_register_builtin_types(void);
 extern bool rr_backend_init(void);
 extern bool rr_backend_fini(void);
 extern bool rr_backend_poll_all(void);
+extern void rr_backend_drain_all(void);
 extern bool rr_backend_poll_rig(struct rr_server_rig *radio, rr_server_vfo_t *vfo);
 extern bool rr_backend_power_set_rig(struct rr_server_rig *radio, rr_server_vfo_t *vfo, float power);
 extern bool rr_backend_vfo_supported(struct rr_server_rig *radio, rr_server_vfo_t *vfo);
@@ -83,6 +91,7 @@ extern bool rr_backend_vfo_supported(struct rr_server_rig *radio, rr_server_vfo_
 /* Default single-rig entry points. They always target the explicit default rig. */
 extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
 extern bool rr_ptt_apply(rr_vfo_t vfo, bool state);
+extern rr_backend_t *rr_backend_for_ptt(void);
 extern bool rr_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
 extern bool rr_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state);
 extern float rr_get_power(rr_vfo_t vfo);

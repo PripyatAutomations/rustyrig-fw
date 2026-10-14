@@ -9,6 +9,8 @@
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.worker.h>
+#include <stdatomic.h>
 #include <rrserver/database.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/cfg.rig.h>
@@ -20,6 +22,20 @@ time_t now;
 bool dying;
 bool restarting;
 struct GlobalState rig;
+static atomic_llong worker_clock;
+long long mono_ms(void) { return atomic_load(&worker_clock); }
+static bool backend_busy(rr_server_rig_t *radio, void *user) {
+   return rr_backend_worker_busy(rr_server_rig_backend(radio));
+}
+static void wait_workers(void) {
+   gint64 deadline = g_get_monotonic_time() + 5000000;
+   do {
+      rr_backend_drain_all();
+      if (!rr_rig_registry_foreach(rig.rigs, backend_busy, NULL)) return;
+      g_usleep(1000);
+   } while (g_get_monotonic_time() < deadline);
+   assert(!"backend workers did not finish");
+}
 static unsigned broadcasts;
 static long internal_frequency = 14074000;
 
@@ -113,6 +129,7 @@ int main(int argc, char **argv) {
    assert(argc == 3);           // config and a disposable diagnostic database
    setvbuf(stdout, NULL, _IOLBF, 0);
    now = time(NULL);
+   atomic_store(&worker_clock, (long long)now * 1000);
    default_cfg = dict_new();
    assert(default_cfg && cfg_set_defaults(default_cfg, defcfg));
    cfg = dict_new();
@@ -159,11 +176,14 @@ int main(int argc, char **argv) {
       bool offline = !strncmp(command, "offline", 7);
       bool observe = !strncmp(command, "observe", 7);
       // Advance the existing project clock to exercise scheduled retries.
+      wait_workers();
       now += 31;
+      atomic_store(&worker_clock, (long long)now * 1000);
       internal_frequency += 1000;
       assert(!rr_freq_set(VFO_A, (int)internal_frequency));
       assert(!rr_freq_set(VFO_B, (int)internal_frequency));
       rr_backend_poll_all();
+      wait_workers();
       assert(!dying);
       rr_property_snapshot_t f0 = snapshot(a0, RR_PROP_VFO_FREQUENCY);
       rr_property_snapshot_t f1 = snapshot(a1, RR_PROP_VFO_FREQUENCY);
@@ -200,6 +220,7 @@ int main(int argc, char **argv) {
       unsigned before = broadcasts;
       rr_vfo_data_t legacy = vfos[VFO_A];
       rr_backend_poll_rig(r1, a1);
+      wait_workers();
       assert(broadcasts == before);
       assert(!memcmp(&legacy, &vfos[VFO_A], sizeof(legacy)));
       assert(!rr_rig_registry_foreach(rig.rigs, dump_rig, NULL));

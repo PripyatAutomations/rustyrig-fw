@@ -83,6 +83,8 @@ def run(login, origin, owner, work, expected_port, home_port):
         fallback.until(lambda m: 'proxy TX subscription' in m.get('error', {}).get('msg', ''))
         direct.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'ptt', 'room': room, 'vfo': 'A', 'ptt': True}})
         listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        # The CAT receipt reserves TX; wait for the asynchronous hardware confirmation.
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
         microphone = b'\x01\x02' * 320
         tx_file = work / 'microphone.frame'; tx_file.write_bytes(frame(dict(tx, stream=tx['owner-stream']), microphone))
         tx_peer.stdin.write('SEND ' + str(tx_file) + '\n'); tx_peer.stdin.flush()
@@ -115,6 +117,7 @@ def run(login, origin, owner, work, expected_port, home_port):
         assert line(home_rx_peer, 'FRAME') == f'FRAME {28+len(payload)} {checksum(payload)}'
         home.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'ptt', 'room': room, 'vfo': 'A', 'ptt': True}})
         listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
         tx_file.write_bytes(frame(home_tx, microphone))
         home_tx_peer.stdin.write('SEND ' + str(tx_file) + '\n'); home_tx_peer.stdin.flush()
         assert line(home_tx_peer, 'SENT') == 'SENT 1'
@@ -131,6 +134,7 @@ def run(login, origin, owner, work, expected_port, home_port):
         assert 'direct-key' not in proxy_tx
         fallback.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'ptt', 'room': room, 'vfo': 'A', 'ptt': True}})
         listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
         fallback.send_payload(frame(proxy_tx, payload))
         _, echoed = listener.until_frame(lambda op, data: op == 2 and data[28:] == payload)
         assert echoed[11] == listen_tx['stream'], 'proxy TX used the home stream on the owner'
@@ -200,6 +204,7 @@ def run_proxy(login, work, home_port):
         assert echoed[11] == rx['stream']
         ptt(proxy, True)
         listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
         # Keep live audio flowing beyond the startup grace period.
         deadline = time.monotonic() + 3.4
         while time.monotonic() < deadline:
@@ -212,6 +217,7 @@ def run_proxy(login, work, home_port):
         # Invalid codecs and repeated key-down cannot extend a silent hold.
         ptt(proxy, True)
         listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
             proxy.send_payload(frame(tx, b'invalid-codec', b'mu08')); time.sleep(.1)
@@ -234,6 +240,7 @@ def run_proxy(login, work, home_port):
             expect_line(rx_peer, 'FRAME')
             ptt(home, True)
             listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+            listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
             tx_file = work / 'home-proxy.frame'; tx_file.write_bytes(frame(home_tx, microphone))
             tx_peer.stdin.write('SEND ' + str(tx_file) + '\n'); tx_peer.stdin.flush()
             assert expect_line(tx_peer, 'SENT') == 'SENT 1'
@@ -246,6 +253,7 @@ def run_proxy(login, work, home_port):
         # Closing a proxied holder must revoke PTT without waiting for its media timer.
         ptt(proxy, True)
         listener.until(lambda m: m.get('cat', {}).get('cmd') == 'ptt' and m['cat'].get('ptt') is True)
+        listener.until(lambda m: m.get('cat', {}).get('state', {}).get('ptt') is True)
         proxy.send_payload(frame(tx, microphone))
         listener.until_frame(lambda op, data: op == 2 and data[28:] == microphone)
         proxy.socket.close(); clients.remove(proxy)
