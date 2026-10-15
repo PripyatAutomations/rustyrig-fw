@@ -92,17 +92,7 @@ const char *gtk_mirc_color_name(unsigned int n) {
       "bright-cyan", "bright-blue", "bright-magenta", "bright-black", "white"
    };
 
-   return n < 16 ? colors[n] : NULL;
-}
-
-static const char *gtk_mirc_color_value(unsigned int color) {
-   static const char *values[] = {
-      "#ffffff", "#000000", "#00007f", "#009300", "#ff0000", "#7f0000",
-      "#9c009c", "#fc7f00", "#ffff00", "#00fc00", "#009393", "#00ffff",
-      "#0000fc", "#ff00ff", "#7f7f7f", "#d2d2d2"
-   };
-
-   return color < G_N_ELEMENTS(values) ? values[color] : NULL;
+   return n < 16 ? colors[n] : n == 99 ? "default" : irc_color_rgb(n);
 }
 
 guint8 gtk_formatting_control(gunichar token) {
@@ -112,6 +102,9 @@ guint8 gtk_formatting_control(gunichar token) {
       }
       case 'C': {
          return 0x03;
+      }
+      case 'H': {
+         return 0x04;
       }
       case 'I': {
          return 0x1d;
@@ -145,6 +138,9 @@ const char *gtk_formatting_token(guint8 control) {
       case 0x03: {
          return "C";
       }
+      case 0x04: {
+         return "H";
+      }
       case 0x1d: {
          return "I";
       }
@@ -169,344 +165,130 @@ const char *gtk_formatting_token(guint8 control) {
    }
 }
 
+/* Keep independent IRC styles in a fixed nesting order for valid Pango markup,
+ * including when a color changes while bold/italic/reverse are active. */
+typedef struct {
+   bool bold, italic, underline, strike, mono, reverse;
+   char fg[8], bg[8];
+} GtkIrcStyle;
+
+static void gtk_irc_style_tags(GString *out, const GtkIrcStyle *style, bool open) {
+   const char *fg = style->fg[0] ? style->fg : NULL;
+   const char *bg = style->bg[0] ? style->bg : NULL;
+   if (style->reverse) {
+      const char *swap = fg;
+      fg = bg ? bg : "black";
+      bg = swap ? swap : "white";
+   }
+   if (open) {
+      if (style->bold) g_string_append(out, "<b>");
+      if (style->italic) g_string_append(out, "<i>");
+      if (style->underline) g_string_append(out, "<u>");
+      if (style->strike) g_string_append(out, "<s>");
+      if (style->mono) g_string_append(out, "<tt>");
+      if (fg || bg) {
+         g_string_append(out, "<span");
+         if (fg) g_string_append_printf(out, " foreground=\"%s\"", fg);
+         if (bg) g_string_append_printf(out, " background=\"%s\"", bg);
+         g_string_append_c(out, '>');
+      }
+   } else {
+      if (fg || bg) g_string_append(out, "</span>");
+      if (style->mono) g_string_append(out, "</tt>");
+      if (style->strike) g_string_append(out, "</s>");
+      if (style->underline) g_string_append(out, "</u>");
+      if (style->italic) g_string_append(out, "</i>");
+      if (style->bold) g_string_append(out, "</b>");
+   }
+}
+
 char *gtk_colorize_string(const char *in) {
    if (!in) {
       return NULL;
    }
-   size_t len = strlen(in);
-
-   /* Markup expands color/control sequences substantially.  Keep enough headroom for mIRC color codes and escaped text without truncating. */
-   if (len > (SIZE_MAX - 256) / 64) {
-      Log(LOG_WARN, "gtk", "Refusing oversized colorized string (%zu bytes)", len);
-
-      return NULL;
-   }
-   char *out = malloc(len * 64 + 256);
-
-   if (!out) {
-      return NULL;
-   }
-   char *o = out;
-   bool bold = false, italic = false, underline = false;
-   bool strikethrough = false, monospace = false, reverse = false, span_open = false;
-   const char *fg = NULL, *bg = NULL;
-
+   GString *out = g_string_new(NULL);
+   GtkIrcStyle style = {0};
+   bool open = false;
    const char *p = in;
    while (*p) {
-      if ((unsigned char)*p == 0x1b) {
-         /* GStreamer/fwdsp diagnostics can contain ANSI CSI color sequences. GTK consumes Pango markup, so strip terminal styling here rather than exposing
-          * escape bytes or feeding them to the markup parser. */
+      unsigned char control = (unsigned char)*p;
+      size_t used = 1;
+      /* Legacy application style tags share the same style state as IRC. */
+      static const struct { const char *tag; unsigned char control; int enabled; } tags[] = {
+         {"{bold}", 0x02, 1}, {"{bold-off}", 0x02, 0},
+         {"{italic}", 0x1d, 1}, {"{italic-off}", 0x1d, 0},
+         {"{underline}", 0x1f, 1}, {"{underline-off}", 0x1f, 0},
+         {"{reset}", 0x0f, 0}
+      };
+      int enabled = -1;
+      if (*p == '{') {
+         for (size_t i = 0; i < G_N_ELEMENTS(tags); i++) {
+            size_t length = strlen(tags[i].tag);
+            if (!strncmp(p, tags[i].tag, length)) {
+               control = tags[i].control;
+               enabled = tags[i].enabled;
+               used = length;
+               break;
+            }
+         }
+      }
+      if (control == 0x1b) {
          p++;
-
          if (*p == '[') {
             p++;
-
-            while (*p && !isalpha((unsigned char)*p)) {
-               p++;
-            }
-
-            if (*p) {
-               p++;
-            }
+            while (*p && !isalpha((unsigned char)*p)) p++;
+            if (*p) p++;
          }
-      } else if ((unsigned char)*p == 0x02 || (unsigned char)*p == 0x11 ||
-         (unsigned char)*p == 0x16 || (unsigned char)*p == 0x1d || (unsigned char)*p == 0x1e || (unsigned char)*p == 0x1f || (unsigned char)*p == 0x0f) {
-         unsigned char control = (unsigned char)*p++;
-
-         if (control == 0x02) {
-            if (!bold) {
-               o += sprintf(o, "<b>");
-               bold = true;
-            } else {
-               o += sprintf(o, "</b>");
-               bold = false;
-            }
-         } else if (control == 0x1d) {
-            if (!italic) {
-               o += sprintf(o, "<i>");
-               italic = true;
-            } else {
-               o += sprintf(o, "</i>");
-               italic = false;
-            }
-         } else if (control == 0x1f) {
-            if (!underline) {
-               o += sprintf(o, "<u>");
-               underline = true;
-            } else {
-               o += sprintf(o, "</u>");
-               underline = false;
-            }
-         } else if (control == 0x1e) {
-            if (!strikethrough) {
-               o += sprintf(o, "<s>");
-               strikethrough = true;
-            } else {
-               o += sprintf(o, "</s>");
-               strikethrough = false;
-            }
-         } else if (control == 0x11) {
-            if (!monospace) {
-               o += sprintf(o, "<tt>");
-               monospace = true;
-            } else {
-               o += sprintf(o, "</tt>");
-               monospace = false;
-            }
-         } else if (control == 0x16) {
-            reverse = !reverse;
-
-            if (span_open) {
-               const char *shown_fg = reverse ? (bg ? bg : "black") : fg;
-               const char *shown_bg = reverse ? (fg ? fg : "white") : bg;
-               o += sprintf(o, "</span>");
-
-               if (shown_fg || shown_bg) {
-                  o += sprintf(o, "<span");
-
-                  if (shown_fg) {
-                     o += sprintf(o, " foreground=\"%s\"", shown_fg);
-                  }
-
-                  if (shown_bg) {
-                     o += sprintf(o, " background=\"%s\"", shown_bg);
-                  }
-                  o += sprintf(o, ">");
-                  span_open = true;
-               } else {
-                  span_open = false;
-               }
-            } else if (reverse) {
-               o += sprintf(o, "<span foreground=\"black\" background=\"white\">");
-               span_open = true;
-            } else {
-               if (span_open) {
-                  o += sprintf(o, "</span>");
-               }
-               span_open = false;
-            }
-         } else {
-            if (span_open) {
-               o += sprintf(o, "</span>");
-               fg = bg = NULL;
-               span_open = false;
-            }
-
-            if (bold) {
-               o += sprintf(o, "</b>");
-               bold = false;
-            }
-
-            if (italic) {
-               o += sprintf(o, "</i>");
-               italic = false;
-            }
-
-            if (underline) {
-               o += sprintf(o, "</u>");
-               underline = false;
-            }
-
-            if (strikethrough) {
-               o += sprintf(o, "</s>");
-               strikethrough = false;
-            }
-
-            if (monospace) {
-               o += sprintf(o, "</tt>");
-               monospace = false;
-            }
-            reverse = false;
-         }
-      } else if ((unsigned char)*p == 0x03) {
-         p++;
-         unsigned int fg_num = 0, bg_num = 0;
-         bool have_fg = false, have_bg = false;
-
-         if (isdigit((unsigned char)*p)) {
-            have_fg = true;
-            fg_num = (unsigned int)(*p++ - '0');
-
-            if (isdigit((unsigned char)*p)) {
-               fg_num = fg_num * 10 + (unsigned int)(*p++ - '0');
-            }
-
-            if (*p == ',' && isdigit((unsigned char)p[1])) {
-               p++;
-               have_bg = true;
-               bg_num = (unsigned int)(*p++ - '0');
-
-               if (isdigit((unsigned char)*p)) {
-                  bg_num = bg_num * 10 + (unsigned int)(*p++ - '0');
-               }
-            }
-         }
-
-         if (span_open) {
-            o += sprintf(o, "</span>");
-            fg = bg = NULL;
-            span_open = false;
-         }
-
-         if (have_fg) {
-            const char *fg_color = gtk_mirc_color_value(fg_num);
-            const char *bg_color = have_bg ? gtk_mirc_color_value(bg_num) : NULL;
-
-            const char *shown_fg = reverse ? (bg_color ? bg_color : "black") : fg_color;
-            const char *shown_bg = reverse ? (fg_color ? fg_color : "white") : bg_color;
-
-            if (shown_fg || shown_bg) {
-               o += sprintf(o, "<span");
-
-               if (shown_fg) {
-                  o += sprintf(o, " foreground=\"%s\"", shown_fg);
-               }
-
-               if (shown_bg) {
-                  o += sprintf(o, " background=\"%s\"", shown_bg);
-               }
-               o += sprintf(o, ">");
-               fg = fg_color;
-               bg = bg_color;
-               span_open = true;
-            }
-         }
-      } else if (*p == '{') {
-         const char *end = strchr(p, '}');
-
-         if (!end) {
-            *o++ = *p++;
-            continue;
-         }
-         size_t key_len = (size_t)(end - (p + 1));
-         char key[64];
-
-         if (key_len >= sizeof(key)) {
-            key_len = sizeof(key) - 1;
-         }
-         memcpy(key, p + 1, key_len);
-         key[key_len] = '\0';
-
-         if (strcmp(key, "reset") == 0) {
-            if (span_open) {
-               o += sprintf(o, "</span>");
-               fg = bg = NULL;
-               span_open = false;
-            }
-
-            if (bold) {
-               o += sprintf(o, "</b>");
-               bold = false;
-            }
-
-            if (italic) {
-               o += sprintf(o, "</i>");
-               italic = false;
-            }
-
-            if (underline) {
-               o += sprintf(o, "</u>");
-               underline = false;
-            }
-
-            if (strikethrough) {
-               o += sprintf(o, "</s>");
-               strikethrough = false;
-            }
-
-            if (monospace) {
-               o += sprintf(o, "</tt>");
-               monospace = false;
-            }
-            reverse = false;
-         } else if (strcmp(key, "bold") == 0) {
-            if (!bold) {
-               o += sprintf(o, "<b>");
-               bold = true;
-            }
-         } else if (strcmp(key, "italic") == 0) {
-            if (!italic) {
-               o += sprintf(o, "<i>");
-               italic = true;
-            }
-         } else if (strcmp(key, "underline") == 0) {
-            if (!underline) {
-               o += sprintf(o, "<u>");
-               underline = true;
-            }
-         } else if (strcmp(key, "bold-off") == 0) {
-            if (bold) {
-               o += sprintf(o, "</b>");
-               bold = false;
-            }
-         } else if (strcmp(key, "italic-off") == 0) {
-            if (italic) {
-               o += sprintf(o, "</i>");
-               italic = false;
-            }
-         } else if (strcmp(key, "underline-off") == 0) {
-            if (underline) {
-               o += sprintf(o, "</u>");
-               underline = false;
-            }
-         } else {
-            /* Colors are IRC controls; preserve other brace-delimited text. */
-            char *escaped = g_markup_escape_text(p, (gssize) (end - p + 1));
-
-            if (escaped) {
-               o += sprintf(o, "%s", escaped);
-               g_free(escaped);
-            } else {
-               free(out);
-
-               return NULL;
-            }
-         }
-         p = end + 1;
-      } else {
-         const char *next = strpbrk(p, "{\033\002\021\026\035\036\037\017\003");
-         size_t chunk_len = next ? (size_t)(next - p) : strlen(p);
-
-         char *escaped = g_markup_escape_text(p, (gint) chunk_len);
-
-         if (!escaped) {
-            free(out);
-
-            return NULL;
-         }
-         o += sprintf(o, "%s", escaped);
-         g_free(escaped);
-
-         p += chunk_len;
+         continue;
       }
+      if (strchr("\002\003\004\017\021\026\035\036\037", control)) {
+         if (open) {
+            gtk_irc_style_tags(out, &style, false);
+            open = false;
+         }
+         if (control == 0x03 || control == 0x04) {
+            irc_color_t color;
+            used = irc_color_parse(p, &color);
+            if (color.reset) {
+               style.fg[0] = style.bg[0] = '\0';
+            } else {
+               for (unsigned component = 0; component < (color.background ? 2u : 1u); component++) {
+                  char *dest = component ? style.bg : style.fg;
+                  unsigned value = component ? color.bg : color.foreground;
+                  if (color.hex) {
+                     snprintf(dest, 8, "#%06x", value);
+                  } else {
+                     const char *rgb = irc_color_rgb(value);
+                     snprintf(dest, 8, "%s", rgb ? rgb : "");
+                  }
+               }
+            }
+         } else if (control == 0x0f) {
+            style = (GtkIrcStyle){0};
+         } else {
+            bool *attribute = control == 0x02 ? &style.bold : control == 0x1d ? &style.italic :
+               control == 0x1f ? &style.underline : control == 0x1e ? &style.strike :
+               control == 0x11 ? &style.mono : &style.reverse;
+            *attribute = enabled < 0 ? !*attribute : enabled != 0;
+         }
+         p += used;
+         continue;
+      }
+      if (!open) {
+         gtk_irc_style_tags(out, &style, true);
+         open = true;
+      }
+      const char *next = strpbrk(p + 1, "{\033\002\003\004\017\021\026\035\036\037");
+      size_t length = next ? (size_t)(next - p) : strlen(p);
+      char *escaped = g_markup_escape_text(p, length);
+      g_string_append(out, escaped);
+      g_free(escaped);
+      p += length;
    }
-
-   if (span_open) {
-      o += sprintf(o, "</span>");
-   }
-
-   if (bold) {
-      o += sprintf(o, "</b>");
-   }
-
-   if (italic) {
-      o += sprintf(o, "</i>");
-   }
-
-   if (underline) {
-      o += sprintf(o, "</u>");
-   }
-
-   if (strikethrough) {
-      o += sprintf(o, "</s>");
-   }
-
-   if (monospace) {
-      o += sprintf(o, "</tt>");
-   }
-   *o = '\0';
-
-   return out;
+   if (open) gtk_irc_style_tags(out, &style, false);
+   char *result = strdup(out->str);
+   g_string_free(out, TRUE);
+   return result;
 }
 
 // Trim a text buffer to the configured scrollback length.

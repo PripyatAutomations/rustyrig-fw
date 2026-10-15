@@ -98,7 +98,7 @@ static GtkWidget *find_color_choice(GtkWidget *popover, guint color) {
    assert(GTK_IS_GRID(grid));
    GList *children = gtk_container_get_children(GTK_CONTAINER(grid));
    GtkWidget *found = NULL;
-   assert(g_list_length(children) == 16);
+   assert(g_list_length(children) == 100);
 
    for (GList *item = children ; item ; item = item->next) {
       if (GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(item->data), "rr-color-value")) == color) {
@@ -151,7 +151,7 @@ static void test_color_popup(void) {
    gtk_editable_select_region(GTK_EDITABLE(entry), 0, 1);
    gtk_button_clicked(GTK_BUTTON(find_color_choice(popover, 4)));
    drain_gtk_events();
-   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C4"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C04"));
    assert(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode")) == 3);
    sample = gtk_bin_get_child(GTK_BIN(find_color_choice(popover, 3)));
    g_assert_cmpstr(gtk_label_get_text(GTK_LABEL(sample)), ==, "[4,3]");
@@ -161,12 +161,12 @@ static void test_color_popup(void) {
    gtk_editable_select_region(GTK_EDITABLE(entry), 1, 2);
    gtk_button_clicked(GTK_BUTTON(find_color_choice(popover, 3)));
    drain_gtk_events();
-   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C4,3"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C04,03"));
    assert(!gtk_editable_get_selection_bounds(GTK_EDITABLE(entry), &selection_start, &selection_end));
    type_entry_text(entry, "hello");
-   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C4,3hello"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "C04,03hello"));
    char *serialized = gtk_chat_serialize_entry(entry);
-   assert(!strcmp(serialized, "\0034,3hello"));
+   assert(!strcmp(serialized, "\00304,03hello"));
    g_free(serialized);
 
    GdkEventKey copy_event = {
@@ -217,6 +217,27 @@ static void test_color_popup(void) {
    g_assert_cmpstr(gtk_entry_get_text(GTK_ENTRY(entry)), ==, "C1,3");
    serialized = gtk_chat_serialize_entry(entry);
    assert(!strcmp(serialized, "\0031,3"));
+   g_free(serialized);
+   gtk_chat_set_serialized_entry(entry, "");
+   type_entry_text(entry, "\004123aBc,789DEFpasted");
+   serialized = gtk_chat_serialize_entry(entry);
+   assert(!strcmp(serialized, "\004123aBc,789DEFpasted"));
+   g_free(serialized);
+   gtk_chat_set_serialized_entry(entry, "\004aAbBcC,102030RGB\00398,99extended");
+   serialized = gtk_chat_serialize_entry(entry);
+   assert(!strcmp(serialized, "\004aAbBcC,102030RGB\00398,99extended"));
+   g_free(serialized);
+   assert(strstr(gtk_entry_get_text(GTK_ENTRY(entry)), "HaAbBcC"));
+   gtk_chat_set_serialized_entry(entry, "");
+   gtk_editable_set_position(GTK_EDITABLE(entry), 0);
+   gtk_chat_insert_format(entry, 0x03);
+   drain_gtk_events();
+   gtk_button_clicked(GTK_BUTTON(find_color_choice(popover, 98)));
+   drain_gtk_events();
+   gtk_button_clicked(GTK_BUTTON(find_color_choice(popover, 99)));
+   type_entry_text(entry, "123");
+   serialized = gtk_chat_serialize_entry(entry);
+   g_assert_cmpstr(serialized, ==, "\00398,99123");
    g_free(serialized);
    gtk_widget_destroy(window);
 }
@@ -614,6 +635,24 @@ int main(void) {
    g_free(text);
    text = gtk_colorize_string("\026reverse\017plain");
    assert(!strcmp(text, "<span foreground=\"black\" background=\"white\">reverse</span>plain"));
+   g_free(text);
+   text = gtk_colorize_string("\00316,98dark\004Ab12eFhex\00399default\003,tail");
+   assert(strstr(text, "foreground=\"#470000\" background=\"#ffffff\">dark"));
+   assert(strstr(text, "foreground=\"#ab12ef\" background=\"#ffffff\">hex"));
+   assert(strstr(text, "<span background=\"#ffffff\">default</span>,tail"));
+   g_free(text);
+   text = gtk_colorize_string("\00412345,abcdef\004aabbcc,12345!");
+   assert(!strcmp(text, "12345,abcdef<span foreground=\"#aabbcc\">,12345!</span>"));
+   g_free(text);
+   /* Crossing color/style boundaries must produce properly nested markup. */
+   text = gtk_colorize_string("\002\00352,16bold\002plain\035\004AABBCCitalic\037u\035no-i\017<&>");
+   PangoAttrList *attributes = NULL;
+   char *plain = NULL;
+   GError *error = NULL;
+   assert(pango_parse_markup(text, -1, 0, &attributes, &plain, NULL, &error));
+   assert(!error && !strcmp(plain, "boldplainitalicuno-i<&>"));
+   pango_attr_list_unref(attributes);
+   g_free(plain);
    g_free(text);
    test_radio_overflow_preserves_roster();
    test_color_popup();

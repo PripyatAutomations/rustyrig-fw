@@ -370,7 +370,12 @@ and numeric text after two-digit color codes. Chat input in GTK and TUI supports
 Ctrl+B/C/I/O/R to insert bold, color, italic, reset and reverse controls. Ctrl+U
 clears the current input. Theme and status-line colors use the same IRC controls
 and config escapes documented in `doc/irc-formatting.md`. Help section headings
-are red in both clients.
+are red in both clients. Native IRC formatting supports indexed colors 0-98,
+default 99 and hex RGB foreground/background controls, preserving independent
+color/style state. GTK offers the extended palette and preserves hex controls
+in input/history; TUI emits 256-color and true-color ANSI sequences. The
+browser chat escapes/linkifies messages and has no IRC transport or formatter;
+this native IRC rendering change does not add browser IRC behavior.
 PTT/control errors identify the VFO and room; codec errors identify the channel
 and codec where known. Privilege rules and wire command semantics are unchanged.
 

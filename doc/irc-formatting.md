@@ -1,9 +1,10 @@
 # IRC Text Formatting
 
 RustyRig chat messages use IRC formatting control bytes. In GTK, shortcuts
-insert visible `B`, `C`, `I`, `O`, `R`, `U`, `S` and `M` markers styled with
-reverse colors; each behaves like one normal character. Only markers inserted
-by shortcuts become IRC control bytes when sent. Typed or pasted letters remain
+insert visible `B`, `C`, `H`, `I`, `O`, `R`, `U`, `S` and `M` markers styled with
+reverse colors; each behaves like one normal character. Markers inserted by
+shortcuts or restored from history become IRC control bytes when sent. The `H`
+marker represents a restored hex-color control. Typed or pasted letters remain
 ordinary text. Backspace, Delete, selection and input history work normally on
 markers.
 
@@ -13,6 +14,7 @@ markers.
 | --- | --- | --- |
 | `0x02` (`\002`) | Toggle bold | Ctrl+B |
 | `0x03` (`\003`) | Set foreground and optional background color | Ctrl+C |
+| `0x04` (`\004`) | Set RGB foreground and optional background | Preserved on paste/history |
 | `0x0F` (`\017`) | Reset formatting | Ctrl+O |
 | `0x11` (`\021`) | Toggle monospace | Ctrl+Shift+M |
 | `0x16` (`\026`) | Toggle reverse foreground/background | Ctrl+R |
@@ -25,12 +27,15 @@ GTK renders all controls in this table. TUI renders bold, italic, underline,
 reverse, strikethrough and reset. The TUI consumes monospace controls without a
 visual change because terminal text is already monospace.
 
-## 16-Color Palette
+## Indexed Colors
 
-The color control takes one or two decimal digits in the range 0-15. Use
+The color control takes one or two decimal digits in the range 0-99. Use
 `\003fg` for a foreground and `\003fg,bg` for foreground plus background. A
 comma belongs to the color code only when followed by a background index. A
-color control without a foreground index resets the active colors.
+color control without a foreground index resets both colors. A foreground-only
+code preserves the previous background. Index 99 restores the default for the
+selected foreground or background independently. Indices 0-15 are listed below;
+16-98 use the fixed extended IRC palette.
 
 | Index | Color | RGB |
 | ---: | --- | --- |
@@ -76,86 +81,20 @@ The config parser expands these escapes only in `theme.*`, `ui.theme.*`,
 `tui.status-line` and `tui.room-status-line` values. Other config values and
 paths are unchanged.
 
-## Extended Colors
+## Hex Colors
 
-mIRC's `0x04` RGB form (`RRGGBB[,RRGGBB]`) is not implemented by the native GTK
-or TUI parser. It is tracked in `rrclient/TODO`; use the 16-color `0x03` form
-for now.# IRC Text Formatting
+Both native frontends support `0x04` followed by exactly six hexadecimal digits:
+`\004RRGGBB` or `\004RRGGBB,RRGGBB`. For example,
+`\004FF8800,001122text\017` displays orange text on a dark background.
+Hex and indexed colors share the same foreground/background state. Bare color
+controls reset both colors without turning off bold or other styles. Incomplete
+parameters remain visible, including a comma without a valid background.
 
-RustyRig chat messages use IRC formatting control bytes. In GTK, shortcuts
-insert visible circled-letter markers which behave like one normal character;
-only markers inserted by shortcuts become IRC control bytes when the message is
-sent. Typed or pasted circled letters remain ordinary text. Backspace, Delete,
-selection and input history work normally on markers.
+GTK renders the exact palette/RGB values and preserves hex controls in input
+and history. The Ctrl+C picker offers all 100 indices in a 10-column grid;
+choices insert two digits so following numeric text is preserved. TUI uses
+256-color terminal equivalents for the extended palette and true-color ANSI
+sequences for hex colors. Hex display requires a true-color terminal.
 
-## Formatting Controls
-
-| Byte | Meaning | GTK shortcut |
-| --- | --- | --- |
-| `0x02` (`\002`) | Toggle bold | Ctrl+B |
-| `0x03` (`\003`) | Set foreground and optional background color | Ctrl+C |
-| `0x0F` (`\017`) | Reset formatting | Ctrl+O |
-| `0x11` (`\021`) | Toggle monospace | Ctrl+Shift+M |
-| `0x16` (`\026`) | Toggle reverse foreground/background | Ctrl+R |
-| `0x1D` (`\035`) | Toggle italic | Ctrl+I |
-| `0x1E` (`\036`) | Toggle strikethrough | Ctrl+Shift+S |
-| `0x1F` (`\037`) | Toggle underline | Ctrl+Shift+U |
-
-Styles toggle independently. Reset ends all active styles and clears colors.
-GTK renders all controls in this table. TUI currently renders bold, italic,
-underline, reverse and reset; monospace and strikethrough remain TODO.
-
-## 16-Color Palette
-
-The color control takes one or two decimal digits in the range 0-15. Use
-`\003fg` for a foreground and `\003fg,bg` for foreground plus background. A
-comma is part of the color code only when followed by a background index. A
-color control without a foreground index resets the active colors.
-
-| Index | Color |
-| ---: | --- |
-| 0 | bright-white |
-| 1 | black |
-| 2 | blue |
-| 3 | green |
-| 4 | bright-red |
-| 5 | brown |
-| 6 | magenta |
-| 7 | orange |
-| 8 | bright-yellow |
-| 9 | bright-green |
-| 10 | cyan |
-| 11 | bright-cyan |
-| 12 | bright-blue |
-| 13 | bright-magenta |
-| 14 | bright-black |
-| 15 | white |
-
-For example, `\00304red text\017` selects foreground 4, and
-`\0033,1green on black\017` selects foreground 3 and background 1. After
-Ctrl+C, GTK displays the available foreground colors. Typing a comma after a
-foreground shows all 16 foreground/background combinations for that foreground.
-The popup closes when a character other than a comma or digit is typed; Escape
-also closes it.
-
-## Config Files
-
-Theme and TUI status-line config values accept readable escapes. `\C` starts a
-color control, followed by an optional foreground index and optional
-`,background` index. Style escapes are `\B` bold, `\I` italic, `\U` underline,
-`\S` strikethrough, `\M` monospace, `\R` reverse and `\O` reset. For example:
-
-```ini
-tui.status-line=\C12${window}\O A:${vfo_a_freq_khz:---} kHz
-theme.status=\OStatus: \C09${online}\O
-```
-
-The config parser expands these escapes only in `theme.*`, `ui.theme.*`,
-`tui.status-line` and `tui.room-status-line` values. Other config values and
-paths are unchanged.
-
-## Extended Colors
-
-mIRC's `0x04` RGB form (`RRGGBB[,RRGGBB]`) is not implemented by the native GTK
-or TUI parser. It is tracked in `rrclient/TODO`; use the 16-color `0x03` form
-for now.
+See the [IRC formatting specification](https://modern.ircdocs.horse/formatting)
+for the extended palette and control syntax. IRC transport remains native-only.

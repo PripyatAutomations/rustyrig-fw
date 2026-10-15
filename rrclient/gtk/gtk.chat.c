@@ -542,7 +542,7 @@ static void gtk_chat_color_popover_fill(GtkWidget *entry, bool backgrounds, unsi
    gtk_grid_set_row_spacing(GTK_GRID(grid), 3);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 3);
 
-   for (unsigned int color = 0 ; color < 16 ; color++) {
+   for (unsigned int color = 0 ; color < 100 ; color++) {
       char sample[32];
 
       if (backgrounds) {
@@ -567,7 +567,7 @@ static void gtk_chat_color_popover_fill(GtkWidget *entry, bool backgrounds, unsi
       g_object_set_data(G_OBJECT(choice), "rr-color-entry", entry);
       g_object_set_data(G_OBJECT(choice), "rr-color-value", GUINT_TO_POINTER(color));
       g_signal_connect(choice, "clicked", G_CALLBACK(gtk_chat_color_choice), entry);
-      gtk_grid_attach(GTK_GRID(grid), choice, color % 4, color / 4, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), choice, color % 10, color / 10, 1, 1);
    }
 
    gtk_container_add(GTK_CONTAINER(popover), grid);
@@ -679,7 +679,7 @@ static gboolean gtk_chat_update_color_popup(gpointer data) {
       }
    }
 
-   if (comma && (foreground < 0 || foreground >= 16)) {
+   if (comma && (foreground < 0 || foreground >= 100)) {
       goto hide_color_popup;
    }
    int previous_mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode"));
@@ -776,7 +776,7 @@ static void gtk_chat_color_choice(GtkButton *button, gpointer data) {
    unsigned int color = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(button), "rr-color-value"));
    int mode = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-mode"));
    char number[5];
-   snprintf(number, sizeof(number), mode == 3 ? ",%u" : "%u", color);
+   snprintf(number, sizeof(number), mode == 3 ? ",%02u" : "%02u", color);
    gint position = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-insert-position")) - 1;
 
    if (position < 0) {

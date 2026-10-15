@@ -1,5 +1,8 @@
 rustyrig-fw (20261015.05) testing; urgency=medium
 
+  * Render the full mIRC indexed palette and hex RGB colors in GTK/TUI. Share
+    color parsing, preserve independent backgrounds/defaults and pasted hex,
+    keep interleaved styles valid, and expand the GTK picker to 100 choices.
   * Report configured GPS outputs as static, honor existing site coordinates
     as station fallback, and share the fixed-position policy with GPS adapters.
     Preserve valid/manual logger output, rig overrides and real no-fix states.
@@ -144,7 +147,7 @@ rustyrig-fw (20261015.05) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 19:01:29 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 19:08:28 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

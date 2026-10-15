@@ -5,9 +5,6 @@
   - pressing tab at any point should list available username completions
     dont do it with ui_print, make it a little popup like phones do
 
-* Add mIRC extended RGB colors (0x04 RRGGBB[,RRGGBB]) to GTK and TUI parsing,
-  rendering and input with matching foreground/background semantics.
-
 * Make hotkeys context (tab/window) sensitive
 
 * Implement rest of controls typically used by hams
