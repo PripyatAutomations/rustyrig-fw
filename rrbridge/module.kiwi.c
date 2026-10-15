@@ -18,9 +18,9 @@ struct kiwi_instance {
    rrp_sdr_host_t host;
    struct mg_mgr manager;
    struct mg_connection *connection;
-   bool started, authenticated, configured, online, closing, confirmed;
+   bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures;
-   uint64_t hz, wanted_hz, request, deadline, retry, keepalive, received;
+   uint64_t hz, wanted_hz, request, deadline, retry, keepalive, received, online_since;
    char mode[16], wanted_mode[16], url[512];
    uint32_t sequence;
    bool have_sequence;
@@ -44,6 +44,8 @@ static void unavailable(struct kiwi_instance *k) {
    }
 }
 static void fail(struct kiwi_instance *k, const char *reason) {
+   if (k->failed) return;
+   k->failed = true;
    note(k, reason);
    unavailable(k);
    if (k->connection) k->connection->is_closing = 1;
@@ -111,8 +113,14 @@ static bool parameter(struct kiwi_instance *k, const char *key, const char *valu
    if (!strcmp(key, "badp")) {
       if (strcmp(value, "0")) { fail(k, "Kiwi authentication rejected"); return false; }
       k->authenticated = true;
-   } else if (!strcmp(key, "too_busy") || !strcmp(key, "down") || !strcmp(key, "redirect") || !strcmp(key, "password_timeout")) {
-      fail(k, "Kiwi receiver unavailable or redirected"); return false;
+   } else if (!strcmp(key, "too_busy")) {
+      fail(k, "Kiwi receiver busy: no receiver channels available"); return false;
+   } else if (!strcmp(key, "down")) {
+      fail(k, "Kiwi receiver reports offline/maintenance"); return false;
+   } else if (!strcmp(key, "redirect")) {
+      fail(k, "Kiwi receiver requested a redirect; automatic redirects are unsupported"); return false;
+   } else if (!strcmp(key, "password_timeout")) {
+      fail(k, "Kiwi receiver password-entry timeout"); return false;
    } else if (!strcmp(key, "sample_rate")) {
       char *end;
       unsigned long rate = strtoul(value, &end, 10);
@@ -170,11 +178,11 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
       k->hz = k->wanted_hz;
       snprintf(k->mode, sizeof(k->mode), "%s", k->wanted_mode);
       if (!k->online) {
+         k->online_since = mono_us();
          char text[96]; snprintf(text, sizeof(text), "Kiwi receiver online (%u Hz mono PCM)", k->rate);
          note(k, text);
       }
       k->online = k->confirmed = true;
-      k->failures = 0;
       if (k->host.state) k->host.state(k->host.user, true, k->hz, k->mode);
       if (k->request && k->host.complete) k->host.complete(k->host.user, k->request, true);
       k->request = 0;
@@ -203,7 +211,7 @@ static void websocket(struct mg_connection *c, int event, void *data) {
       char auth[192];
       snprintf(auth, sizeof(auth), "SET auth t=kiwi p=%s", password);
       if (!send_command(k, auth)) fail(k, "Cannot send Kiwi authentication");
-   } else if (event == MG_EV_WS_MSG) {
+   } else if (event == MG_EV_WS_MSG && !k->failed) {
       struct mg_ws_message *m = data;
       if (!kiwi_receive(k, m->data.buf, m->data.len)) fail(k, "Invalid or unsupported Kiwi stream");
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
@@ -214,10 +222,12 @@ static void websocket(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_CLOSE && c == k->connection) {
       k->connection = NULL;
       if (!k->closing) {
-         note(k, "Kiwi receiver disconnected; scheduling reconnect");
          unavailable(k);
          unsigned delay = 1u << (k->failures < 6 ? k->failures : 6);
          if (k->failures < 6) k->failures++;
+         char text[96];
+         snprintf(text, sizeof(text), "Kiwi receiver disconnected; retrying in %u seconds", delay);
+         note(k, text);
          k->retry = mono_us() + (uint64_t)delay * 1000000;
       }
    }
@@ -249,7 +259,7 @@ static void kiwi_poll(void *instance) {
    uint64_t current = mono_us();
    if (!k->started) return;
    if (!k->connection && current >= k->retry) {
-      k->authenticated = k->configured = k->online = k->have_sequence = false;
+      k->authenticated = k->configured = k->online = k->have_sequence = k->failed = false;
       k->rate = 0;
       k->connection = mg_ws_connect(&k->manager, k->url, websocket, k, NULL);
       k->deadline = current + 10000000;
@@ -260,6 +270,7 @@ static void kiwi_poll(void *instance) {
    mg_mgr_poll(&k->manager, 0);
    current = mono_us();
    if (!k->connection) return;
+   if (k->online && current - k->online_since >= 30000000) k->failures = 0;
    if ((!k->online && current >= k->deadline) || (k->request && current >= k->deadline) || current - k->received > 10000000) {
       fail(k, "Kiwi receiver timed out"); return;
    }

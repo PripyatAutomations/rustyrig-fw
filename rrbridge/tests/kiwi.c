@@ -4,9 +4,10 @@
 #include <stdio.h>
 extern bool rr_module_init(void);
 extern void rr_module_shutdown(void);
+static char last_status[192];
 static void status(void *user, const char *msg) {
    int *calls = user;
-   assert(strcmp(msg, "Kiwi authentication rejected") == 0);
+   snprintf(last_status, sizeof(last_status), "%s", msg);
    ++*calls;
 }
 int main(void) {
@@ -35,10 +36,22 @@ int main(void) {
    assert(!driver->receive(rx, "SND", 3));
    assert(calls == 0); // Unknown peer metadata is not copied into logs.
    assert(!driver->receive(rx, "MSG badp=1", 10));
-   assert(calls == 1);
+   assert(calls == 1 && strstr(last_status, "authentication rejected"));
    assert(!driver->receive(rx, "MSG x=\0bad", 10));
    assert(!driver->receive(rx, NULL, 0));
    driver->destroy(rx);
+   const char *messages[] = {"MSG too_busy=1", "MSG down=1", "MSG redirect=example.net"};
+   const char *reasons[] = {"busy", "maintenance", "redirect"};
+   for (size_t i = 0; i < 3; i++) {
+      rx = driver->create(&host); assert(rx);
+      assert(!driver->receive(rx, messages[i], strlen(messages[i])));
+      assert(strstr(last_status, reasons[i]) && calls == (int)i + 2);
+      // The WebSocket wrapper may report the parse failure too; only one
+      // specific terminal reason should be emitted for this connection.
+      assert(!driver->receive(rx, "MSG badp=1", 10));
+      assert(calls == (int)i + 2);
+      driver->destroy(rx);
+   }
    rr_module_shutdown();
    assert(rrp_sdr_find("kiwi") == NULL);
    rrp_sdr_driver_t incompatible = *driver;

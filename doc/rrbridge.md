@@ -150,6 +150,9 @@ is ignored while the uncompressed setting takes effect. Frames are length
 checked, sequences must advance, receive/send buffering is bounded, and raw
 peer metadata/passwords are not copied to logs.
 
+The driver logs busy/maintenance/redirect/authentication failures separately.
+Its exponential reconnect delay resets only after 30 seconds of continuous
+reception, so briefly admitted streams do not trigger rapid retry loops.
 The driver reconnects with bounded exponential backoff, retains confirmed
 tuning, sends keepalives, and times out missing audio or unconfirmed commands.
 The host refreshes its process `time_t now` before startup and on every poll,

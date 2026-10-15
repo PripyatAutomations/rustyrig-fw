@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.01) testing; urgency=medium
 
+  * Report Kiwi busy, maintenance, redirect and password timeout separately;
+    avoid duplicate parser errors after a known rejection. Retain reconnect
+    backoff until reception has remained stable for 30 seconds, preventing
+    rapid retries after short-lived streams.
   * Implement live KiwiSDR WebSocket reception, authentication, keepalives,
     confirmed tuning and reconnects. Decode uncompressed mono PCM into a
     bounded media socket independent of controls; resample in isolated fwdsp
@@ -25,7 +29,7 @@ rustyrig-fw (20261015.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 06:23:42 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 06:39:04 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

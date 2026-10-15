@@ -140,6 +140,10 @@ with (work / 'console.log').open('w') as console:
             assert states[a, 'mode']['value'] == 'AM'
             _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
             assert any(frame[28:])
+        console_text = (work / 'console.log').read_text()
+        if fixture:
+            assert 'retrying in 2 seconds' in console_text, 'brief reception reset reconnect backoff'
+            assert 'Invalid or unsupported Kiwi stream' not in console_text, 'duplicate parser error after authentication rejection'
         bridge_logs = [line for line in (work / 'console.log').read_text().splitlines() if 'Kiwi receiver online' in line]
         assert bridge_logs and all(re.match(r'\[20\d\d/\d\d/\d\d \d\d:\d\d:\d\d\] <rrbridge@info>', line) for line in bridge_logs), bridge_logs
         print('PASS: Kiwi WebSocket auth, frequency/mode confirmation and 12-to-16kHz PCM through real fwdsp to client')
