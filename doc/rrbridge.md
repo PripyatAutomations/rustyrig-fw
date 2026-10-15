@@ -151,6 +151,14 @@ checked, sequences must advance, receive/send buffering is bounded, and raw
 peer metadata/passwords are not copied to logs.
 
 The driver logs busy/maintenance/redirect/authentication failures separately.
+Kiwi's `too_busy` message can mean channel capacity or an external-client
+(API) limit. Upstream firmware classifies external clients after ten seconds
+and may then send `too_busy` and close an already streaming connection; see
+[`called_every_second()` in support/stats.cpp](https://github.com/jks-prv/Beagle_SDR_GPS/blob/master/support/stats.cpp).
+The message does not distinguish these causes. A short burst of audio followed
+by rejection therefore does not establish a decoder or transport failure.
+Use a receiver whose owner permits API clients and has API capacity available;
+the bridge respects receiver admission limits.
 Its exponential reconnect delay resets only after 30 seconds of continuous
 reception, so briefly admitted streams do not trigger rapid retry loops.
 The driver reconnects with bounded exponential backoff, retains confirmed

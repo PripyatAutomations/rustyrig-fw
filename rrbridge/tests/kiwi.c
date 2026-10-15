@@ -41,7 +41,7 @@ int main(void) {
    assert(!driver->receive(rx, NULL, 0));
    driver->destroy(rx);
    const char *messages[] = {"MSG too_busy=1", "MSG down=1", "MSG redirect=example.net"};
-   const char *reasons[] = {"busy", "maintenance", "redirect"};
+   const char *reasons[] = {"channel capacity or external-client limit", "maintenance", "redirect"};
    for (size_t i = 0; i < 3; i++) {
       rx = driver->create(&host); assert(rx);
       assert(!driver->receive(rx, messages[i], strlen(messages[i])));

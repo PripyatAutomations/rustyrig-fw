@@ -114,7 +114,7 @@ static bool parameter(struct kiwi_instance *k, const char *key, const char *valu
       if (strcmp(value, "0")) { fail(k, "Kiwi authentication rejected"); return false; }
       k->authenticated = true;
    } else if (!strcmp(key, "too_busy")) {
-      fail(k, "Kiwi receiver busy: no receiver channels available"); return false;
+      fail(k, "Kiwi receiver rejected session: channel capacity or external-client limit (too_busy)"); return false;
    } else if (!strcmp(key, "down")) {
       fail(k, "Kiwi receiver reports offline/maintenance"); return false;
    } else if (!strcmp(key, "redirect")) {

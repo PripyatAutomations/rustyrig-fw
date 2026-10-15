@@ -1,5 +1,7 @@
 rustyrig-fw (20261015.01) testing; urgency=medium
 
+  * Clarify that Kiwi too_busy may reflect an external-client limit, including
+    the firmware admission check ten seconds after connection.
   * Report Kiwi busy, maintenance, redirect and password timeout separately;
     avoid duplicate parser errors after a known rejection. Retain reconnect
     backoff until reception has remained stable for 30 seconds, preventing
@@ -29,7 +31,7 @@ rustyrig-fw (20261015.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 06:39:04 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 07:01:30 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
