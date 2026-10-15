@@ -44,6 +44,7 @@ endif
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
 include librrprotocol/rules.mk
+include rrbridge/rules.mk
 include libfwdspmgr/rules.mk
 
 ifeq (${BUILD_RRCLIENT},true)

@@ -37,6 +37,9 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "bridge.instances", "", "Bridge aliases, separated by spaces or commas" },
+   { "bridge.path", "bin/rrbridge", "Path to the bridge subprocess executable" },
+   { "bridge.modules", "bin", "Directory for rrbridge SDR driver modules" },
    {
       "listener:http.acl", "", "Named HTTP listener ACL; empty denies all"
    },

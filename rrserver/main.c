@@ -32,6 +32,8 @@
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/cfg.rig.h>
+#include <rrserver/cfg.bridge.h>
+#include <rrserver/bridge.manager.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/serial.h>
 #include <rrserver/gps.h>
@@ -185,7 +187,7 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init()) {
+   if (!rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrserver_bridge_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
@@ -493,10 +495,15 @@ int main(int argc, char **argv) {
 
    rrserver_serial_init();
    (void)modules_loaded;
+   if (!rrserver_bridges_start(config_file)) {
+      Log(LOG_CRIT, "bridge", "Bridge configuration invalid");
+      return EXIT_FAILURE;
+   }
    // Main loop
    while (1) {
       extern void rrserver_objects_poll(void);
       rr_backend_drain_all();
+      rrserver_bridges_poll();
       rrserver_relay_poll();
       rrserver_objects_poll();
       event_emit("server.poll", NULL, NULL);
@@ -531,6 +538,7 @@ int main(int argc, char **argv) {
       }
    }
 
+   rrserver_bridges_stop();
    rrserver_serial_fini();
    rrserver_gps_fini();
    rrserver_objects_fini();

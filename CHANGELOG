@@ -1,5 +1,19 @@
 rustyrig-fw (20261014.04) testing; urgency=medium
 
+  * Add standalone rrbridge host with shared named-bridge config parsing and
+    dynamic SDR driver loading. Expose --probe capability validation; fail closed
+    until bridge control/stream transport is implemented.
+
+  * Register [bridge] and [bridge:name] configuration and supervise one external
+    rrbridge subprocess per enabled named SDR, using the existing subprocess API.
+    Bridge control/registration transport remains to be implemented.
+
+  * Describe SDR RX and TX capabilities separately in the bridge driver ABI,
+    including tuning ranges, modes and available media paths. Keep backend
+    properties as the server-facing mechanism; bridge integration is pending.
+  * Add an initial librrprotocol SDR driver ABI and KiwiSDR loadable module
+    with command formatting, safe control-message handling and a unit test.
+    Streaming transport and audio decoding remain pending.
   * Keep GTK radio observations and roster bursts off transport callbacks by
     coalescing paints at idle; discard stale paints after rig/server switches.
     Avoid rebuilding unchanged mode/width rows, frequency digits and PTT
@@ -79,7 +93,7 @@ rustyrig-fw (20261014.04) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 23:24:45 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 04:13:53 +0000
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 
