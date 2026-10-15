@@ -208,6 +208,7 @@ bool rrclient_connection_select(const char *name) {
       activate(s);
       rrclient_update_connection_ui(ws_connected);
       tui_refresh_sb_online();
+      if (ui_mode == UI_MODE_TUI) tui_redraw_request();
    }
    event_emit("client.server.selected", s->connection, s->name);
 
@@ -261,8 +262,12 @@ static bool window_room_equal(const client_window_t *window, const char *room) {
    return !strcmp(window->room, room);
 }
 
+bool rrclient_window_is_shared(const char *window) {
+   return window && (!strcasecmp(window, "status") || !strcasecmp(window, "client log") || !strcasecmp(window, "host log"));
+}
+
 const char *rrclient_window_name(const char *room) {
-   if (!room || !*room || !strcasecmp(room, "status") || !context) {
+   if (!room || !*room || rrclient_window_is_shared(room) || !context) {
       return room;
    }
 

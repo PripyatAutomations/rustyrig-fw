@@ -37,6 +37,9 @@ const dict *rrclient_object_property(const char *uuid, const char *name) {
    return NULL;
 }
 
+static const char *test_prompt(tui_window_t *window) {
+   return "SELECTED-SERVER";
+}
 static unsigned redraws;
 static char rejoin_targets[4][128];
 static unsigned rejoin_count;
@@ -196,6 +199,14 @@ int main(void) {
    assert(strstr(screen, "CHAT-SENTINEL"));
    assert(strstr(screen, "\033[H\033[2J"));
    free(screen);
+
+   capture_reset(output);
+   tui_set_prompt_renderer(test_prompt);
+   tui_update_input_line();
+   screen = capture_read(output);
+   assert(strstr(screen, "SELECTED-SERVER"));
+   free(screen);
+   tui_set_prompt_renderer(NULL);
 
    capture_reset(output);
    tui_window_t *client_log = tui_window_create("client log");

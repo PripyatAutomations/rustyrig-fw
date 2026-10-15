@@ -7,6 +7,7 @@ bool frontend_present(void) { return false; }
 void rrclient_connection_select_window(const char *window) { assert(false); }
 const char *rrclient_window_room(const char *window) { return window; }
 rrconn_t *rrclient_connection_for_window(const char *window) { return NULL; }
+bool rrclient_window_is_shared(const char *window) { return false; }
 bool rrclient_window_is_status(const char *window) { return false; }
 void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) {
    rrconn_t *old = ws_conn; ws_conn = connection; callback(data); ws_conn = old;

@@ -46,4 +46,6 @@ extern bool ui_close_window(const char *room);
 extern bool ui_confirm_quit(void);
 extern void ui_server_status_close(const char *event, const char *room, rrconn_t *connection, void *user);
 
+extern const char *rrclient_tui_prompt(tui_window_t *window);
+
 #endif // !defined(__rrclient_ui_h)

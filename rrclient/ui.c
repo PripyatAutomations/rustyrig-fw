@@ -42,7 +42,7 @@ const char *ui_active_window_name(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
-      if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
+      if (window && window->title[0] && !rrclient_window_is_shared(window->title)) {
          rrclient_connection_select_window(window->title);
 
          if (!rrclient_present_context()) {
@@ -64,6 +64,14 @@ const char *ui_active_window_name(void) {
    return NULL;
 }
 
+/* Selected server is global across the three shared tabs, including while
+ * background traffic temporarily dispatches in another server's context. */
+const char *rrclient_tui_prompt(tui_window_t *window) {
+   if (!window || !rrclient_window_is_shared(window->title)) return NULL;
+   const char *selected = rrclient_selected_server();
+   return selected && *selected ? selected : "no server";
+}
+
 rrconn_t *rrclient_active_connection(void) {
    if (input_context) return input_context->connection;
    (void)ui_active_window_name();
@@ -71,7 +79,7 @@ rrconn_t *rrclient_active_connection(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
-      if (window && window->cptr && !rrclient_window_is_status(window->title)) {
+      if (window && window->cptr && !rrclient_window_is_shared(window->title) && !rrclient_window_is_status(window->title)) {
          rrconn_t *connection = rrclient_connection_for_window(window->title);
 
          return connection ? connection : window->cptr;
@@ -88,7 +96,7 @@ const char *rrclient_active_room(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
-      if (!window || !window->title[0] || !strcasecmp(window->title, "status")) {
+      if (!window || !window->title[0] || rrclient_window_is_shared(window->title)) {
          return NULL;
       }
 
@@ -112,7 +120,7 @@ static void ui_output(const char *window, const char *fmt, ...) {
          win = tui_window_create(name);
       }
 
-      if (win && name && *name && strcasecmp(name, "status")) {
+      if (win && name && *name && !rrclient_window_is_shared(name)) {
          win->cptr = ws_conn;
       }
       tui_vprint(win, fmt, ap);
@@ -140,7 +148,7 @@ bool ui_vprint(const char *window, const char *fmt, va_list ap) {
    }
    vsnprintf(message, (size_t)length + 1, fmt, ap);
 
-   if ((!window || !*window || !strcasecmp(window, "status")) && server_name && *server_name) {
+   if ((!window || !*window || rrclient_window_is_shared(window)) && server_name && *server_name) {
       ui_output(window, "|%s| %s", server_name, message);
    } else {
       ui_output(window, "%s", message);
@@ -230,7 +238,7 @@ bool ui_status_active(void) {
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
-      return window && !strcasecmp(window->title, "status");
+      return window && rrclient_window_is_shared(window->title);
    }
 
    return false;

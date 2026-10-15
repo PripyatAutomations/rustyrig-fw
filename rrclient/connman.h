@@ -62,6 +62,7 @@ extern const char *rrclient_window_name(const char *room);
 extern void rrclient_server_status_window(const char *room);
 extern const char *rrclient_window_room(const char *window);
 extern rrconn_t *rrclient_connection_for_window(const char *window);
+extern bool rrclient_window_is_shared(const char *window);
 extern bool rrclient_window_is_status(const char *window);
 extern const char *rrclient_window_server(const char *window);
 extern void rrclient_connection_select_window(const char *window);

@@ -706,3 +706,11 @@ order. Displayed shortcut numbers refresh after moving or closing tabs; use
 `/win 11` and higher for tabs beyond the first ten. Left/right placement retains
 native vertical tabs. Rearrangement lasts for the current client session.
 This is GTK-specific presentation; TUI and browser window ordering is unchanged.
+
+TUI Status, Client Log and Host Log each have one shared tab across native
+connections. Log/status lines carry source profile prefixes. Ctrl-Tab in any
+of these tabs changes the same global selected server used by commands and
+shown in their prompts; changing system tabs never changes that selection.
+The shared TUI library exposes an optional prompt renderer; rrclient owns
+server selection and names. GTK retains its own system-tab presentation and
+the browser retains its existing connection presentation.

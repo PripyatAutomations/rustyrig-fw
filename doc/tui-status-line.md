@@ -45,3 +45,10 @@ resets formatting. The full color table and style escapes are in
 `doc/irc-formatting.md`. They respect `tui.use-color`. Percent signs are
 literal. This template is TUI-specific;
 GTK and the browser continue using their own displays of the same radio state.
+
+The TUI has one Status, one Client Log and one Host Log tab shared by all
+servers. Each line identifies its source server. Ctrl-Tab in any of these
+three tabs cycles the globally active server; their input prompt shows that
+server (or `no server`). Switching between them preserves the selection.
+Commands use that server, and these system tabs are not chat destinations.
+The prompt is separate from the configurable top row and the bottom tab list.

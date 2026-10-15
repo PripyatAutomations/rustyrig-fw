@@ -180,7 +180,7 @@ static bool rrclient_server_hotkey(tui_window_t *win, unsigned key, unsigned mod
       return false;
    }
 
-   return rrclient_connection_cycle_status(win && !strcasecmp(win->title, "status"));
+   return rrclient_connection_cycle_status(win && rrclient_window_is_shared(win->title));
 }
 
 static void *tui_nick_completion;
@@ -339,8 +339,8 @@ static void rrclient_tui_host_log_frame(const char *event, const void *data, siz
    ui_print("host log", "%s <%s.%s> %s", get_chat_ts(now), subsys, log_priority_to_str((logpriority_t) payload[0]), message);
 }
 
-/* The GTK frontend has its own log tab callback.  The TUI keeps local client logs separate from status/command output; server host log events are handled by
- * rrclient_tui_host_log_frame(). */
+/* The three TUI system tabs share all servers; ui_print labels each source.
+ * GTK has its own log callbacks. */
 static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    static bool log_printing = false;
 
@@ -717,10 +717,9 @@ int main(int argc, char *argv[]) {
       tui_input_blocked_cb = rrclient_chat_input_blocked;
       tui_readline_cb = parse_chat_input_real;
       tui_set_topline_renderer(rrclient_tui_topline);
+      tui_set_prompt_renderer(rrclient_tui_prompt);
       tui_init();
-      // Keep status for commands and transient client output.  Logs have
-      // dedicated windows so routine protocol/audio diagnostics do not bury
-      // useful status messages.
+      // One shared tab per system output type, independent of server count.
       tui_window_create("host log");
       tui_window_create("client log");
       event_on_binary("media.frame.log", rrclient_tui_host_log_frame, NULL);
