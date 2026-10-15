@@ -70,7 +70,11 @@ int main(int argc, char **argv) {
    if (!driver_name || !*driver_name || strlen(driver_name) >= 64 ||
       strspn(driver_name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != strlen(driver_name)) return EXIT_FAILURE;
    const char *directory = cfg_get("bridge.modules");
-   if (!directory || !*directory) directory = "bin";
+   if (!directory || !*directory || !strcmp(directory, "auto") || !strcmp(directory, "bin")) {
+      char installed[256];
+      snprintf(installed, sizeof(installed), "/usr/lib/rustyrig/modules/rrbridge/rrbridge-%s.so", driver_name);
+      directory = access(installed, R_OK) == 0 ? "/usr/lib/rustyrig/modules/rrbridge" : "bin";
+   }
    if (dict_add(cfg, "path.modules", directory)) return EXIT_FAILURE;
    char module[128];
    snprintf(module, sizeof(module), "rrbridge-%s", driver_name);

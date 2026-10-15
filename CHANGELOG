@@ -1,5 +1,8 @@
 rustyrig-fw (20261015.01) testing; urgency=medium
 
+  * Find rrbridge on PATH before the local build, honor explicit executable
+    paths, and install the bridge executable and Kiwi module with the server.
+    Discover installed bridge modules before the local bin directory.
   * Register configured bridges as ordinary persistent receiver/VFO objects,
     exposing validated tuning ranges, mode enums and supported/available state.
     Keep offline receivers discoverable and allocate numbered rig rooms without
@@ -13,7 +16,7 @@ rustyrig-fw (20261015.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 05:20:38 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 06:04:18 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

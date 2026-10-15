@@ -223,16 +223,28 @@ static void schedule_retry(struct bridge_child *b) {
    if (b->failures < 6) b->failures++;
    b->next_retry = mono_us() + (uint64_t)delay * 1000000;
 }
+static char *bridge_program_path(void) {
+   const char *configured = cfg_get("bridge.path");
+   // Accept the original shipped relative default as automatic discovery too.
+   if (configured && *configured && strcmp(configured, "auto") && strcmp(configured, "bin/rrbridge"))
+      return g_find_program_in_path(configured);
+   char *path = g_find_program_in_path("rrbridge");
+   return path ? path : g_find_program_in_path("./bin/rrbridge");
+}
 static bool spawn_child(struct bridge_child *b) {
-   const char *path = cfg_get("bridge.path");
-   if (!path || !*path) path = "bin/rrbridge";
+   char *path = bridge_program_path();
+   if (!path) {
+      Log(LOG_WARN, "bridge", "[%s] no executable rrbridge found (bridge.path, PATH, or ./bin/rrbridge)", b->name);
+      return false;
+   }
    const char *argv[] = {path, "--config", config_path, "--bridge", b->name, NULL};
    int sv[2];
-   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv)) return false;
+   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv)) { g_free(path); return false; }
    subproc_fd_t map[] = {{sv[1], RRP_BRIDGE_IPC_FD}};
    int closes[] = {sv[0], sv[1]};
    bool ok = subproc_spawn_fds(&b->process, path, argv, map, 1, closes, 2);
    close(sv[1]);
+   g_free(path);
    if (!ok) { close(sv[0]); return false; }
    b->fd = sv[0];
    b->started = b->last_seen = mono_us();

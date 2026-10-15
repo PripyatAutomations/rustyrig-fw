@@ -1,5 +1,6 @@
 // Validate the actual supervisor state machine with local IPC, no remote SDR.
 #include <assert.h>
+#include <sys/stat.h>
 #include <rrserver/bridge.manager.c>
 time_t now = 100;
 bool dying, restarting;
@@ -10,7 +11,39 @@ static void done(rr_control_result_t result, void *user) {
    completed = result;
    completions++;
 }
+static void program_lookup(void) {
+   char work[] = "/tmp/rrbridge-path-XXXXXX";
+   assert(mkdtemp(work));
+   char *cwd = g_get_current_dir(), *search = g_strdup(g_getenv("PATH"));
+   assert(!chdir(work) && !mkdir("bin", 0700) && !mkdir("system", 0700));
+   FILE *f = fopen("bin/rrbridge", "w"); assert(f); fclose(f);
+   assert(!chmod("bin/rrbridge", 0700));
+   f = fopen("system/rrbridge", "w"); assert(f); fclose(f);
+   assert(!chmod("system/rrbridge", 0700));
+   cfg = dict_new();
+   assert(cfg && !setenv("PATH", "system", 1));
+   char *path = bridge_program_path();
+   assert(path && g_str_has_suffix(path, "/system/rrbridge")); g_free(path);
+   assert(!dict_add(cfg, "bridge.path", "bin/rrbridge"));
+   path = bridge_program_path();
+   assert(path && g_str_has_suffix(path, "/system/rrbridge")); g_free(path);
+   assert(!chmod("system/rrbridge", 0600));
+   path = bridge_program_path();
+   assert(path && g_str_has_suffix(path, "/bin/rrbridge")); g_free(path);
+   assert(!chmod("system/rrbridge", 0700));
+   assert(!dict_add(cfg, "bridge.path", "./bin/rrbridge"));
+   path = bridge_program_path();
+   assert(path && g_str_has_suffix(path, "/bin/rrbridge")); g_free(path);
+   assert(!dict_add(cfg, "bridge.path", "/nonexistent/explicit-rrbridge"));
+   assert(!bridge_program_path());
+   dict_free(cfg); cfg = NULL;
+   unlink("bin/rrbridge"); unlink("system/rrbridge"); rmdir("bin"); rmdir("system");
+   assert(!chdir(cwd) && !rmdir(work));
+   if (search) setenv("PATH", search, 1); else unsetenv("PATH");
+   g_free(search); g_free(cwd);
+}
 int main(void) {
+   program_lookup();
    rr_server_rig_t *radio = rr_server_rig_new("test-rig", "receiver");
    assert(radio);
    rr_server_vfo_t *vfo = rr_server_vfo_add(radio, "test-vfo", "A", "A", RR_VFO_PERSISTENT);

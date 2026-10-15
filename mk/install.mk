@@ -20,8 +20,8 @@ install: ${bins} install-libs install-config install-assets install-tools
 	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/lib ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
 	cp -av $(filter-out %.so,${bins}) ${INSTALL_DIR}/bin
 	# Frontend and GPS shared objects also go in the module directory.
-	install -d ${INSTALL_DIR}/lib/rustyrig/modules/rrserver ${INSTALL_DIR}/lib/rustyrig/modules/rrclient
-	for m in ${bins}; do case $$m in *rrserver*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrserver/$$(basename $$m);; *rrclient*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrclient/$$(basename $$m);; esac; done
+	install -d ${INSTALL_DIR}/lib/rustyrig/modules/rrserver ${INSTALL_DIR}/lib/rustyrig/modules/rrclient ${INSTALL_DIR}/lib/rustyrig/modules/rrbridge
+	for m in ${bins}; do case $$m in *rrbridge*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrbridge/$$(basename $$m);; *rrserver*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrserver/$$(basename $$m);; *rrclient*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrclient/$$(basename $$m);; esac; done
 #	cp -av archive-config.sh *-rigctld.sh killall.sh rrgtk.sh test-run.sh ${INSTALL_DIR}/bin
 #	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
 

@@ -15,8 +15,8 @@ waterfall, IQ or transmission is implemented.
 ```ini
 [bridge]
 instances=hf-east
-path=bin/rrbridge
-modules=bin
+path=auto
+modules=auto
 
 [bridge:hf-east]
 enabled=true
@@ -25,6 +25,13 @@ host=receiver.example.net
 port=8073
 rig=hf-east
 ```
+
+`path=auto` searches `PATH` for an executable `rrbridge`, then tries
+`./bin/rrbridge`. The old shipped `path=bin/rrbridge` also uses this discovery.
+Other explicit paths are honored; use `./bin/rrbridge` to force the local build.
+`modules=auto` prefers the installed driver in
+`/usr/lib/rustyrig/modules/rrbridge`, then `./bin`; the old `modules=bin` is
+also automatic. Other explicit module directories are honored.
 
 The bridge roster is opt-in and empty in the shipped configuration. `enabled`
 accepts true/false or 1/0. Bridge/driver names and rig aliases contain only
