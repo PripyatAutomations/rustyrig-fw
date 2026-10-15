@@ -592,6 +592,18 @@ bool cmd_quit(int argc, char **args) {
    return false;
 }
 
+bool cmd_rxroute(int argc, char **args) {
+   const char *server = rrclient_selected_server();
+   const char *room = rrclient_active_room();
+   if (!server || !room || argc != 2 || !args[1] || strlen(args[1]) != 1 ||
+       !audio_set_room_route(server, room, toupper((unsigned char)args[1][0]))) {
+      ui_print(ui_active_window_name(), "Usage: /rxroute L|R|S|M in a room");
+      return true;
+   }
+   ui_print(ui_active_window_name(), "RX output for %s: %c", room, audio_room_route(server, room));
+   return false;
+}
+
 bool cmd_rxvol(int argc, char **args) {
    if (argc < 2 || !args[1]) {
       ui_print(ui_active_window_name(), "* Usage: /rxvol <0-100>");

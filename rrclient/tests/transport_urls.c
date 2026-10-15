@@ -42,11 +42,11 @@ const char *server_name, *login_user;
 rrconn_t *ws_conn, *ws_tx_conn;
 struct mg_mgr mgr;
 char session_token[HTTP_TOKEN_LEN + 1];
-static struct mg_connection connections[32];
+static struct mg_connection connections[128];
 static unsigned connection_count, ws_calls, tcp_calls, messages[2];
 static char last_url[2048];
 static struct mg_connection *fake_connect(const char *url, mg_event_handler_t fn, void *data) {
-   assert(connection_count < 32);
+   assert(connection_count < sizeof(connections) / sizeof(connections[0]));
    struct mg_connection *c = &connections[connection_count++];
    snprintf(last_url, sizeof(last_url), "%s", url);
    c->fn = fn;
@@ -329,15 +329,47 @@ int main(void) {
    assert(!strcmp(login_user, "alpha") && !strcmp(session_token, "token-a"));
    assert(rrclient_connection_cycle() && ws_conn == b);
    assert(!strcmp(login_user, "beta") && !strcmp(session_token, "token-b"));
+   dict_add(cfg, "server.reconnect-interval", "60"); // Migrate the former fixed default.
    ac->fn(ac, MG_EV_ERROR, "alpha failed");
    ac->fn(ac, MG_EV_CLOSE, NULL);
    assert(ws_conn == b && b->conn == bc && !bc->is_closing);
-   now += 59;
    rrclient_poll_events_reconnect();
    assert(rrclient_connection_find("alpha") == a);
    now++;
    rrclient_poll_events_reconnect();
    assert(rrclient_connection_find("alpha") != a && ws_conn == b);
+   rrconn_t *retry_alpha = rrclient_connection_find("alpha");
+   struct mg_connection *retry_connection = retry_alpha->conn;
+   retry_connection->fn(retry_connection, MG_EV_ERROR, "retry failed");
+   retry_connection->fn(retry_connection, MG_EV_CLOSE, NULL);
+   now++;
+   rrclient_poll_events_reconnect();
+   assert(rrclient_connection_find("alpha") == retry_alpha);
+   now++;
+   rrclient_poll_events_reconnect();
+   assert(rrclient_connection_find("alpha") != retry_alpha);
+   for (unsigned delay = 4, attempt = 3; attempt <= 10; attempt++, delay = delay < 32 ? delay * 2 : 60) {
+      retry_alpha = rrclient_connection_find("alpha");
+      retry_connection = retry_alpha->conn;
+      retry_connection->fn(retry_connection, MG_EV_ERROR, "retry failed");
+      retry_connection->fn(retry_connection, MG_EV_CLOSE, NULL);
+      unsigned before = connection_count;
+      now += delay - 1;
+      rrclient_poll_events_reconnect();
+      assert(connection_count == before);
+      now++;
+      rrclient_poll_events_reconnect();
+      assert(connection_count > before);
+   }
+   retry_alpha = rrclient_connection_find("alpha");
+   receive(retry_alpha->conn, "{\"msg.type\":\"auth\",\"auth.cmd\":\"authorized\",\"auth.user\":\"alice\"}");
+   retry_connection = retry_alpha->conn;
+   retry_connection->fn(retry_connection, MG_EV_ERROR, "new outage");
+   retry_connection->fn(retry_connection, MG_EV_CLOSE, NULL);
+   unsigned before_reset = connection_count;
+   now++;
+   rrclient_poll_events_reconnect();
+   assert(connection_count > before_reset); // Successful auth resets the backoff.
    char *server_args[] = {
       "server", "irc://adhoc.test"
    };

@@ -43,6 +43,14 @@
         "volume name=processor-vol ! audioconvert ! audioresample ! " \
         "pulsesink device=default name=processor-speaker client-name=rrclient-speaker sync=false"
 
+// Dedicated stereo mix input; the original mono endpoint remains usable by DCC.
+#define FWDSP_PCM_CLIENT_MIX \
+        "appsrc name=processor-src is-live=true format=time do-timestamp=true " \
+        "caps=audio/x-raw,format=S16LE,rate=16000,channels=2,layout=interleaved ! " \
+        "queue max-size-buffers=8 max-size-time=100000000 leaky=downstream ! " \
+        "volume name=processor-vol ! audioconvert ! audioresample ! " \
+        "pulsesink device=default name=processor-speaker client-name=rrclient-speaker sync=false"
+
 // Temporary PCM hub endpoints used by rrserver while rig audio hardware is
 // not yet connected. Keep these separate from codec TX/RX pipelines so the
 // hub has stable canonical-PCM source and sink points.
@@ -309,6 +317,7 @@
         { "pipeline:src.host-mic", FWDSP_PCM_HOST_MIC, "Host microphone to canonical PCM" }, \
         { "pipeline:sink.host-speaker", FWDSP_PCM_HOST_SPEAKER, "Canonical PCM to host speaker" }, \
         { "pipeline:src.client.dsp0", FWDSP_PCM_HOST_MIC, "Client microphone to canonical PCM" }, \
+        { "pipeline:sink.client.mix", FWDSP_PCM_CLIENT_MIX, "Stereo client RX mixer to speaker" }, \
         { "pipeline:sink.client.dsp0", FWDSP_PCM_CLIENT_SPEAKER, "Canonical PCM to client speaker" }, \
         { "pipeline:src.rig0", FWDSP_PCM_RIG_RX_TEST_SOURCE, "Temporary pink-noise rig RX source to canonical PCM" }, \
         { "pipeline:sink.rig0", FWDSP_PCM_RIG_TX_FILE_SINK, "Temporary canonical PCM rig TX sink to Ogg/Vorbis file" },

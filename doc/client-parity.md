@@ -56,6 +56,14 @@ PCM write or exited playback worker, rrclient recreates its speaker endpoint
 with bounded retries and restores the configured RX volume. Browser playback
 uses WebAudio and has no corresponding subprocess to restart.
 
+Room L/R/S/M selectors and `/rxroute` have equivalent native/browser behavior:
+routing is independent of UI selection, defaults to both ears, and mute keeps
+subscriptions and decoders alive. Settings are per server/room for the current
+session. Native RX uses a bounded integer stereo mixer; WebAudio uses gains and
+panners. Native and browser reconnects start at one second and double to sixty,
+reset on authorization, and retain the ten-attempt limit. The former default
+interval of sixty seconds is treated as a legacy default and becomes one.
+
 ## What parity means
 
 Parity means equivalent externally observable behavior, not identical

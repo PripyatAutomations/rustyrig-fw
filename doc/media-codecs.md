@@ -116,12 +116,21 @@ channels after the server confirms that codec. A direction disabled with
 `NONE` stays off through channel announcements until re-enabled or disconnected.
 
 The GTK pickers apply to subscribed channels in their direction. Each RX channel
-has an independent decoder. Changing rig tabs or VFOs keeps existing audio
-subscriptions, direct-media keepalives and RX decoders running; inactive
-channels are muted at local output. Returning to a rig unmutes its current
-live audio without resubscribing or resetting decoder state. The browser
-implements the same behavior with a gain per channel. TX selection still
-follows the selected rig/VFO; keeping a TX subscription does not key it.
+has an independent decoder. Room tabs offer **L/R/S/M** output selectors:
+left ear, right ear, stereo (a mono RX in both ears), or muted. `/rxroute L|R|S|M`
+provides the same control in GTK/TUI and the browser. New rooms default to S.
+Choices belong to the server and room and last for the client session, including
+reconnects. Changing tabs, servers, VFO selection or application focus does not
+change established streams' output. Muting does not unsubscribe or stop decoding.
+TX selection still follows the selected rig/VFO; a retained TX subscription does
+not key it.
+
+The native client mixes mono 16 kHz decoders into one stereo speaker stream,
+with a 100 ms bound per decoder, fixed 20 ms output blocks, silence on underrun
+and saturating integer sums. Configure `[pipelines] sink.client.mix` for custom
+speaker hardware; it accepts 16 kHz interleaved stereo S16LE. The existing
+`sink.client.dsp0` pipeline remains mono for DCC peers. DCC peer output does not
+use the room selector. The browser uses per-channel gain and stereo panning.
 
 NONE, PART, channel removal and disconnect release affected decoders; changing
 a codec replaces only that channel's decoder. The built-in client process

@@ -33,8 +33,11 @@ extern bool audio_set_rx_volume(int percent);
 extern bool audio_set_tx_volume(int percent);
 struct rrclient_rx_audio {
    const char *uuid, *codec;
-   bool audible;
+   const char *room;
 };
+/* Per-server room routing: L/R/S (both ears)/M. Independent of UI selection. */
+char audio_room_route(const char *server, const char *room);
+bool audio_set_room_route(const char *server, const char *room, char output);
 /* Synchronize this connection's subscribed decoders without stopping muted ones. */
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count);
 

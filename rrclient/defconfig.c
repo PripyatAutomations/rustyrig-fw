@@ -114,7 +114,7 @@ defconfig_t defcfg[] = {
       "media.direct.prefer", "true", "Prefer authenticated direct RTP audio when available", DEFCONFIG_BOOL, NULL
    },
    {
-      "server.reconnect-interval", "60", "Seconds between reconnect attempts (1-3600); server profiles may override"
+      "server.reconnect-interval", "1", "Initial reconnect delay (1-59 seconds; legacy 60 resets to 1), doubles to 60; server profiles may override"
    },
    {
       "server.proxy", "", "Native SOCKS5 proxy URL; empty connects directly"

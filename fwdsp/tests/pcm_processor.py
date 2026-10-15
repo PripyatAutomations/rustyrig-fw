@@ -137,6 +137,13 @@ with tempfile.TemporaryDirectory() as temp:
         mode="playback")
     assert result.stdout == b"", result.stdout
 
+    stereo_file = work / "stereo.pcm"
+    stereo_pipeline = playback_pipeline.replace("channels=1", "channels=2").replace("fakesink sync=false", f"filesink location={stereo_file} sync=false")
+    stereo_pcm = struct.pack('<hh', 1000, -2000) * 320
+    result = run_fwdsp(work, config, stereo_pipeline, struct.pack('!I', len(stereo_pcm)) + stereo_pcm, mode='playback')
+    assert result.stdout == b"", result.stdout
+    assert stereo_file.read_bytes() == stereo_pcm, "stereo output changed left/right samples"
+
     # Named sink endpoint resolves through the sink.* namespace.
     named_sink_config = config + "[pipelines]\nsink.rig0=" + playback_pipeline + "\n"
     config_path.write_text(named_sink_config)

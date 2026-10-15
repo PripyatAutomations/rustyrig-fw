@@ -1,5 +1,15 @@
 rustyrig-fw (20261015.02) testing; urgency=medium
 
+  * Add per-room L/R/S/M RX routing, GTK tab selectors and /rxroute for TUI.
+    Mix retained mono receivers into bounded stereo output independently of
+    tab/server/VFO selection; muting keeps subscriptions and decoding alive.
+    Add stereo playback caps and a configurable sink.client.mix pipeline.
+    Mirror routing controls in the WebUI with per-channel gain and panning.
+  * Restore client exponential reconnect delays starting at one second and
+    capped at sixty, with per-server initial delays and reset on authorization.
+    Treat the former sixty-second default as one; mirror browser behavior.
+    Test channel isolation/mixing/mute, backlog bounds, stereo PCM output,
+    GTK routing controls and reconnect growth/reset.
   * Quiet rrbridge Mongoose socket read/write debug logs while retaining
     connection diagnostics. Recover the native client speaker endpoint after
     write failure or child exit, with bounded retries and restored RX volume,
@@ -39,7 +49,7 @@ rustyrig-fw (20261015.02) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:20:34 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:33:30 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

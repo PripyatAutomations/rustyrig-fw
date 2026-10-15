@@ -251,7 +251,6 @@ const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4
 void rrclient_media_sync_audio(void) {
    struct rrclient_rx_audio channels[RR_MEDIA_MAX_CHANS];
    size_t count = 0;
-   struct rr_media_known *selected = media_current_channel(false);
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
@@ -259,7 +258,7 @@ void rrclient_media_sync_audio(void) {
       if (channel->uuid[0] && channel->subscribed && !channel->disabled && channel->codec[0] &&
          (!channel->room[0] || channel->joined) && channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO && channel->direction == RR_BINFRAME_DIR_RX) {
          channels[count++] = (struct rrclient_rx_audio) {
-            channel->uuid, channel->codec, channel == selected
+            channel->uuid, channel->codec, channel->room
          };
       }
    }
@@ -703,7 +702,7 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
          (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
 
       // PARITY: rustyrig-www/js/webui.media.js mediaSyncActiveVfo.
-      // Tab/VFO selection changes local audibility, not audio subscription lifetime.
+      // Tab/VFO selection controls TX routing; room output choices control RX playback.
       bool retain_audio = kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && (!kp->room[0] || kp->joined);
 
       if (kp->automatic && kp->subscribed && !active && !retain_audio) {

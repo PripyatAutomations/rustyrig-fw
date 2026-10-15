@@ -91,9 +91,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
    local_codec[0][0] = 0;
 
    for (size_t i = 0 ; i < count ; i++) {
-      if (channels[i].audible) {
-         snprintf(local_codec[0], sizeof(local_codec[0]), "%s", channels[i].codec);
-      }
+      snprintf(local_codec[0], sizeof(local_codec[0]), "%s", channels[i].codec);
    }
 }
 bool audio_switch_codec(const char *codec, bool tx) {

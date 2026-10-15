@@ -16,6 +16,7 @@
 // We should keep TX and RX here to make sure things stay in sync
 //
 #include <stddef.h>
+#include <glib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -51,6 +52,7 @@ static char tx_codec[5] = {
 static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
+static guint mixer_source;
 static uint64_t speaker_retry;
 static bool speaker_failed;
 
@@ -62,7 +64,7 @@ static void client_speaker_pcm(const void *samples, size_t len) {
       // A failed write retires the endpoint; an exited child can also leave a
       // slot awaiting cleanup. Clear it before recreating the persistent sink.
       fwdsp_processor_stop("sink.client.dsp0");
-      if (!fwdsp_audio_playback_start("sink.client.dsp0", NULL)) return;
+      if (!fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) return;
       fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
       speaker_failed = false;
       Log(LOG_INFO, "audio", "Restarted client RX playback endpoint");
@@ -100,23 +102,91 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
 typedef struct rx_route {
    struct rx_route *next;
    rrconn_t *connection;
-   char uuid[64], identity[64], codec[5];
-   bool audible, seen;
+   char uuid[64], identity[64], codec[5], room[128];
+   char output;
+   bool seen;
+   int16_t pending[1600];
+   size_t pending_count;
 } rx_route_t;
 static rx_route_t *rx_routes;
 
-static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
-   rx_route_t *route = user;
-   const char *profile = rrclient_connection_name(route->connection);
-   const char *selected = rrclient_selected_server();
-
-   // PARITY: rustyrig-www/js/webui.audio.js webui_rx_route_audible.
-   // Decode continuously; only the selected rig reaches the speaker sink.
-   if (!route->audible || !profile || !selected || strcmp(profile, selected)) {
-      return;
+struct room_route {
+   char *server, *room;
+   char output;
+   struct room_route *next;
+};
+static struct room_route *room_routes;
+char audio_room_route(const char *server, const char *room) {
+   for (struct room_route *r = room_routes; r; r = r->next) {
+      if (server && room && !strcmp(r->server, server) && !strcasecmp(r->room, room)) return r->output;
    }
-
-   client_speaker_pcm(samples, len);
+   return 'S';
+}
+bool audio_set_room_route(const char *server, const char *room, char output) {
+   if (!server || !room || !strchr("LRSM", output) || !output) return false;
+   struct room_route *r = room_routes;
+   while (r && (strcmp(r->server, server) || strcasecmp(r->room, room))) r = r->next;
+   if (!r) {
+      r = calloc(1, sizeof(*r));
+      if (!r) return false;
+      r->server = strdup(server); r->room = strdup(room);
+      if (!r->server || !r->room) { free(r->server); free(r->room); free(r); return false; }
+      r->next = room_routes; room_routes = r;
+   }
+   r->output = output;
+   for (rx_route_t *route = rx_routes; route; route = route->next) {
+      const char *profile = rrclient_connection_name(route->connection);
+      if (profile && !strcmp(profile, server) && !strcasecmp(route->room, room)) {
+         route->output = output;
+         route->pending_count = 0;
+      }
+   }
+   event_emit("client.audio.route.changed", NULL, NULL);
+   return true;
+}
+static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
+   (void)name;
+   rx_route_t *route = user;
+   if (route->output == 'M' || (len & 1)) return;
+   size_t count = len / sizeof(int16_t);
+   const int16_t *pcm = samples;
+   size_t capacity = sizeof(route->pending) / sizeof(route->pending[0]);
+   if (count > capacity) { pcm += count - capacity; count = capacity; }
+   if (route->pending_count + count > capacity) {
+      size_t drop = route->pending_count + count - capacity;
+      memmove(route->pending, route->pending + drop, (route->pending_count - drop) * sizeof(int16_t));
+      route->pending_count -= drop;
+   }
+   memcpy(route->pending + route->pending_count, pcm, count * sizeof(int16_t));
+   route->pending_count += count;
+}
+/* PARITY: rustyrig-www/js/webui.audio.js webui_sync_rx_routes.
+ * Mix independent mono receivers into stereo, bounded to 100 ms per stream.
+ * Selection and focus never affect routing; muted streams keep decoding. */
+static gboolean audio_mix_tick(gpointer unused) {
+   (void)unused;
+   int32_t mixed[640] = {0};
+   size_t frames = 0;
+   for (rx_route_t *r = rx_routes; r; r = r->next) {
+      size_t take = r->pending_count < 320 ? r->pending_count : 320;
+      if (r->output != 'M') {
+         frames = 320; // Fixed cadence; zero-fill underruns instead of shortening the timeline.
+         for (size_t i = 0; i < take; i++) {
+            if (r->output != 'R') mixed[2*i] += r->pending[i];
+            if (r->output != 'L') mixed[2*i+1] += r->pending[i];
+         }
+      }
+      r->pending_count -= take;
+      memmove(r->pending, r->pending + take, r->pending_count * sizeof(int16_t));
+   }
+   if (frames) {
+      int16_t stereo[640];
+      for (size_t i = 0; i < frames * 2; i++) {
+         stereo[i] = mixed[i] > INT16_MAX ? INT16_MAX : mixed[i] < INT16_MIN ? INT16_MIN : mixed[i];
+      }
+      client_speaker_pcm(stereo, frames * 2 * sizeof(int16_t));
+   }
+   return G_SOURCE_CONTINUE;
 }
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
    if (!audio_enabled) {
@@ -150,12 +220,14 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          rx_routes = route;
       }
       route->seen = true;
-      route->audible = channel->audible;
+      snprintf(route->room, sizeof(route->room), "%s", channel->room ? channel->room : "");
+      route->output = audio_room_route(rrclient_connection_name(ws_conn), route->room);
 
       if (strncmp(route->codec, channel->codec, 4)) {
          if (route->codec[0]) {
             fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          }
+         route->pending_count = 0;
          snprintf(route->codec, sizeof(route->codec), "%.4s", channel->codec);
       }
 
@@ -189,7 +261,15 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
    (void)name;
    (void)user_data;
 
-   client_speaker_pcm(samples, len);
+   const int16_t *mono = samples;
+   while (len >= sizeof(int16_t)) {
+      size_t count = len / sizeof(int16_t);
+      if (count > 320) count = 320;
+      int16_t stereo[640];
+      for (size_t i = 0; i < count; i++) stereo[2*i] = stereo[2*i+1] = mono[i];
+      client_speaker_pcm(stereo, count * 2 * sizeof(int16_t));
+      mono += count; len -= count * sizeof(int16_t);
+   }
 }
 
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
@@ -304,7 +384,7 @@ bool audio_init(void) {
    }
 
    bool mic_ok = fwdsp_audio_capture_start("src.client.dsp0", NULL, client_mic_pcm, NULL);
-   bool speaker_ok = fwdsp_audio_playback_start("sink.client.dsp0", NULL);
+   bool speaker_ok = fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"));
 
    if (!mic_ok || !speaker_ok) {
       Log(LOG_CRIT, "audio", "Unable to start client PCM endpoints (mic=%s, speaker=%s)", mic_ok ? "ready" : "failed", speaker_ok ? "ready" : "failed");
@@ -323,6 +403,7 @@ bool audio_init(void) {
    fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
    speaker_failed = false;
    speaker_retry = 0;
+   mixer_source = g_timeout_add(20, audio_mix_tick, NULL);
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
@@ -443,6 +524,11 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   if (mixer_source) { g_source_remove(mixer_source); mixer_source = 0; }
+   while (room_routes) {
+      struct room_route *next = room_routes->next;
+      free(room_routes->server); free(room_routes->room); free(room_routes); room_routes = next;
+   }
    dcc_closed(NULL, NULL, NULL, NULL);
    while (rx_routes) {
       rx_route_t *route = rx_routes;

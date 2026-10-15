@@ -521,14 +521,16 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
          return;
       }
       s->reconnect_tries++;
-      /* PARITY: rustyrig-www/js/webui.js reconnect interval precedence. */
+      /* PARITY: rustyrig-www/js/webui.js exponential reconnect base interval precedence. */
       const char *override = get_server_property(s->name, "server.reconnect-interval");
       char *end = NULL;
-      long interval = override && *override ? strtol(override, &end, 10) : cfg_get_int("server.reconnect-interval", 60);
+      long interval = override && *override ? strtol(override, &end, 10) : cfg_get_int("server.reconnect-interval", 1);
 
-      if (interval < 1 || interval > 3600 || (end && *end)) {
-         interval = 60;
+      if (interval < 1 || interval >= 60 || (end && *end)) {
+         interval = 1;
       }
+      for (unsigned i = 1; i < s->reconnect_tries && interval < 60; i++) interval *= 2;
+      if (interval > 60) interval = 60;
       s->reconnect_pending = true;
       s->reconnect_at = now + interval;
       ws_connected = -1;

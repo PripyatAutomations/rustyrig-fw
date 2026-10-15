@@ -29,7 +29,7 @@ run_suite() {
     selftest)    run_dir "$suite" tests/selftest ;;
     packaging)   run_dir "$suite" packaging/tests ;;
     librustyaxe) run_dir "$suite" librustyaxe/tests ;;
-    www)         node www/tests/auth.js && node www/tests/wire.js && node www/tests/media_health.js && node www/tests/audio_backlog.js && node www/tests/binframe_validation.js && node www/tests/chat_security.js && node www/tests/web_completion.js && node www/tests/media_rooms.js && node www/tests/ptt_pending.js && node www/tests/reconnect.js && node www/tests/gps_nmea.js && node www/tests/resource_discovery.js && node www/tests/resource_navigation.js ;;
+    www)         node www/tests/audio_routes.js && node www/tests/chat_rooms.js && node www/tests/auth.js && node www/tests/wire.js && node www/tests/media_health.js && node www/tests/audio_backlog.js && node www/tests/binframe_validation.js && node www/tests/chat_security.js && node www/tests/web_completion.js && node www/tests/media_rooms.js && node www/tests/ptt_pending.js && node www/tests/reconnect.js && node www/tests/gps_nmea.js && node www/tests/resource_discovery.js && node www/tests/resource_navigation.js ;;
     *) echo "Unknown test suite: $suite" >&2; return 1 ;;
   esac
 }

@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <gst/check/gsttestclock.h>
 
+static unsigned test_channels = 1;
 static GstBuffer *push_pcm(struct fwdsp_frame_reader *reader, GstAppSrc *src, GstAppSink *sink, uint32_t flags) {
    uint8_t frame[644] = {
       0
@@ -17,7 +18,7 @@ static GstBuffer *push_pcm(struct fwdsp_frame_reader *reader, GstAppSrc *src, Gs
    GstBuffer *buffer = gst_buffer_ref(gst_sample_get_buffer(sample));
    gst_sample_unref(sample);
    assert(gst_buffer_get_size(buffer) == 640);
-   assert(GST_BUFFER_DURATION(buffer) == 20 * GST_MSECOND);
+   assert(GST_BUFFER_DURATION(buffer) == 20 * GST_MSECOND / test_channels);
 
    return buffer;
 }
@@ -76,6 +77,18 @@ int main(int argc, char **argv) {
    reader.next_pts = 0;
    buffer = push_pcm(&reader, src, sink, 0);
    assert(GST_BUFFER_PTS(buffer) == 0);
+   gst_buffer_unref(buffer);
+   frame_reader_clear(&reader);
+   // Stereo speaker blocks use sample frames, not mono sample counts.
+   GstCaps *stereo = gst_caps_from_string("audio/x-raw,format=S16LE,rate=16000,channels=2,layout=interleaved");
+   assert(processor_pcm_caps_rate(stereo, false, true));
+   assert(!processor_pcm_caps_rate(stereo, false, false));
+   gst_app_src_set_caps(src, stereo);
+   gst_caps_unref(stereo);
+   processor_io_mode = PCM_PROCESSOR_MODE_PLAYBACK;
+   test_channels = 2;
+   buffer = push_pcm(&reader, src, sink, 0);
+   assert(GST_BUFFER_DURATION(buffer) == 10 * GST_MSECOND);
    gst_buffer_unref(buffer);
    frame_reader_clear(&reader);
    gst_element_set_state(test_pipeline, GST_STATE_NULL);

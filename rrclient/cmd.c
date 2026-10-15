@@ -176,6 +176,9 @@ client_cmd_t client_cmds[] = {
       .cmd = "rxcodec", .help_section = "Media", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]"
    },
    {
+      .cmd = "rxroute", .help_section = "Media", .cb = cmd_rxroute, .max_args = 1, .desc = "Route room RX audio: L | R | S (both ears) | M"
+   },
+   {
       .cmd = "rxvol", .help_section = "Media", .cb = cmd_rxvol, .desc = "Set receive volume level"
    },
    {

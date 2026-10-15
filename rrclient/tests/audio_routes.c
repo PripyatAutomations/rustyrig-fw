@@ -8,10 +8,11 @@ time_t now;
 static unsigned starts, stops, played, decoded, speaker_starts, speaker_stops, volume_restores;
 static bool speaker_broken, restart_fails;
 static uint64_t test_clock;
+static int16_t last_stereo[640];
 long long mono_us(void) { return test_clock; }
 int cfg_get_int(const char *name, int fallback) { return 42; }
 bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
-   assert(!strcmp(name, "sink.client.dsp0") && !pipeline);
+   assert(!strcmp(name, "sink.client.dsp0"));
    speaker_starts++;
    if (restart_fails) return false;
    speaker_broken = false;
@@ -88,6 +89,8 @@ bool fwdsp_cmd_start_record_named(const char *codec, bool tx, const char *identi
 bool fwdsp_processor_write(const char *name, const void *data, size_t length) {
    assert(!strcmp(name, "sink.client.dsp0"));
    if (speaker_broken) return false;
+   assert(length == sizeof(last_stereo));
+   memcpy(last_stereo, data, length);
    played++;
 
    return true;
@@ -99,47 +102,54 @@ static void decode_all(void) {
 
    for (unsigned i = 0 ; i < 16 ; i++) {
       if (used[i]) {
+         for (unsigned j = 0; j < 320; j++) pcm[j] = 1000 * (i + 1);
          decoded++;
          instances[i].processor_output("decoder", pcm, sizeof(pcm), instances[i].processor_output_data);
       }
    }
+   audio_mix_tick(NULL);
 }
 int main(void) {
    audio_enabled = true;
-   struct rrclient_rx_audio channels[] = { {
-                                              "rig-a", "g722", true
-                                           }, {
-                                              "rig-b", "opus", false
-                                           } };
+   struct rrclient_rx_audio channels[] = {{"rig-a", "g722", "#a"}, {"rig-b", "opus", "#b"}};
+   assert(audio_set_room_route("first", "#a", 'L'));
+   assert(audio_set_room_route("first", "#b", 'R'));
+   assert(!audio_set_room_route("first", "#a", 'X'));
    audio_sync_rx_channels(channels, 2);
-   assert(starts == 2 && !stops);
    decode_all();
-   assert(decoded == 2 && played == 1);
-   channels[0].audible = false;
-   channels[1].audible = true;
-   audio_sync_rx_channels(channels, 2);
+   assert(starts == 2 && !stops && decoded == 2 && played == 1);
+   assert(last_stereo[0] == 1000 && last_stereo[1] == 2000);
+   selected = "second"; // Selection never changes established output routing.
    decode_all();
    assert(starts == 2 && !stops && decoded == 4 && played == 2);
-   // The same remote UUID through a second server has an independent decoder.
+   assert(last_stereo[0] == 1000 && last_stereo[1] == 2000);
+   assert(audio_set_room_route("first", "#a", 'M'));
+   decode_all();
+   assert(last_stereo[0] == 0 && last_stereo[1] == 2000 && starts == 2 && !stops);
+   assert(audio_set_room_route("first", "#a", 'S'));
+   decode_all();
+   assert(last_stereo[0] == 1000 && last_stereo[1] == 3000);
+   // Same remote room/UUID through another server has independent routing.
    ws_conn = &second;
-   struct rrclient_rx_audio duplicate = {
-      "rig-b", "opus", true
-   };
+   struct rrclient_rx_audio duplicate = {"rig-b", "opus", "#a"};
+   assert(audio_set_room_route("second", "#a", 'M'));
    audio_sync_rx_channels(&duplicate, 1);
-   selected = "second";
    decode_all();
-   assert(starts == 3 && !stops && decoded == 7 && played == 3);
+   assert(starts == 3 && !stops && last_stereo[0] == 1000 && last_stereo[1] == 3000);
    ws_conn = &first;
-   audio_sync_rx_channels(NULL, 0); // Disconnect only this server.
+   audio_sync_rx_channels(NULL, 0);
    assert(stops == 2);
+   unsigned before = played;
    decode_all();
-   assert(decoded == 8 && played == 4);
+   assert(played == before); // All remaining streams muted: no speaker writes.
+   assert(audio_set_room_route("second", "#a", 'S'));
    ws_conn = &second;
    duplicate.codec = "pc16";
    audio_sync_rx_channels(&duplicate, 1);
    assert(starts == 4 && stops == 3);
+   played = 4;
    decode_all();
-   assert(played == 5);
+   assert(played == 5 && last_stereo[0] == last_stereo[1]);
    // A stalled/exited playback child must recover without a resubscription
    // or codec/tab change. Failed restarts are bounded, and volume is restored.
    speaker_broken = true;
@@ -162,7 +172,22 @@ int main(void) {
    assert(!speaker_failed && played == 6);
    decode_all();
    assert(played == 7 && speaker_starts == 2 && starts == 4 && stops == 3);
+   // Overlapping streams saturate rather than wrapping, and backlog stays bounded.
+   rx_route_t *r = rx_routes;
+   int16_t loud[2000];
+   for (unsigned i = 0; i < 2000; i++) loud[i] = 30000;
+   client_channel_pcm("", loud, sizeof(loud), r);
+   assert(r->pending_count == 1600);
+   rx_route_t extra = {.output = 'S', .pending_count = 320, .next = r};
+   for (unsigned i = 0; i < 320; i++) extra.pending[i] = 30000;
+   rx_routes = &extra;
+   audio_mix_tick(NULL);
+   assert(last_stereo[0] == INT16_MAX && last_stereo[1] == INT16_MAX);
+   rx_routes = r;
+   r->pending_count = 0;
+   audio_mix_tick(NULL);
+   for (unsigned i = 0; i < 640; i++) assert(last_stereo[i] == 0);
    audio_sync_rx_channels(NULL, 0);
    assert(stops == 4 && !rx_routes);
-   puts("PASS: independent RX decoders keep running while muted, switch tabs without restart, isolate servers, recover failed speakers with bounded retries and clean up on codec/disconnect");
+   puts("PASS: L/R/S/M stereo mixing, saturation, bounded backlog, selection independence and playback recovery");
 }

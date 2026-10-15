@@ -1,6 +1,33 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 #include "rrclient/gtk/gtk.chat.c"
+static char test_audio_route = 'S';
+char audio_room_route(const char *server, const char *room) { return test_audio_route; }
+bool audio_set_room_route(const char *server, const char *room, char output) {
+   assert(!strcmp(server, "route-server") && !strcmp(room, "#route-room"));
+   test_audio_route = output;
+   return true;
+}
+static void check_audio_selector(void) {
+   if (!gtk_init_check(NULL, NULL)) { puts("SKIP: GTK audio selector requires a display"); return; }
+   GtkRoomTab tab = {.server = "route-server", .room = "#route-room"};
+   tab.audio_route = gtk_combo_box_text_new();
+   g_object_ref_sink(tab.audio_route);
+   const char *outputs[] = {"L", "R", "S", "M"};
+   for (unsigned i = 0; i < 4; i++) gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(tab.audio_route), outputs[i], outputs[i]);
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(tab.audio_route), "S");
+   g_signal_connect(tab.audio_route, "changed", G_CALLBACK(gtk_chat_audio_route), &tab);
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(tab.audio_route), "L");
+   assert(test_audio_route == 'L');
+   room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
+   g_hash_table_insert(room_tabs, "route", &tab);
+   test_audio_route = 'M';
+   gtk_chat_audio_routes_changed(NULL, NULL, NULL, NULL);
+   assert(!strcmp(gtk_combo_box_get_active_id(GTK_COMBO_BOX(tab.audio_route)), "M"));
+   g_hash_table_destroy(room_tabs); room_tabs = NULL;
+   gtk_widget_destroy(tab.audio_route); g_object_unref(tab.audio_route);
+}
+
 bool ui_print(const char *room, const char *format, ...) {
    return false;
 }
@@ -547,6 +574,7 @@ int main(void) {
    text = gtk_colorize_string("\026reverse\017plain");
    assert(!strcmp(text, "<span foreground=\"black\" background=\"white\">reverse</span>plain"));
    g_free(text);
+   check_audio_selector();
    test_radio_overflow_preserves_roster();
    test_color_popup();
    test_transcript_copy();
