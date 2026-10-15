@@ -1,5 +1,8 @@
 rustyrig-fw (20261014.02) testing; urgency=medium
 
+  * Refresh VFO codec pickers from confirmed RX/TX state and the selected
+    server's negotiated list on tab switches, without sending codec commands.
+    Keep background-server media updates from repainting the active pickers.
   * Run GTK formatting/color-popup tests on a private Xvfb display when
     available, preventing real desktop keystrokes from corrupting test input.
   * Keep native/browser rig audio subscriptions and RX decoders running across
@@ -71,7 +74,7 @@ rustyrig-fw (20261014.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 20:03:04 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 20:17:11 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

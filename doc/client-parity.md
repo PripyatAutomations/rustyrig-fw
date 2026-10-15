@@ -134,6 +134,11 @@ Both clients select audio by room and VFO, recognize the sole TX base room,
 and permit RX-subroom frequency edits only for the advertised per-VFO tuning
 mask. GTK docked row selection, detached panels, and CSS highlighting are
 frontend-specific; browser frequency controls honor the same tuning policy.
+GTK's shared VFO codec pickers refresh from the selected tab's confirmed RX/TX
+channels and its server's negotiated list, including NONE. Repainting them
+sends no codec requests, and background-server observations update only their
+own cache. The browser has no equivalent GTK codec-picker widget.
+
 
 ## Local serial services
 

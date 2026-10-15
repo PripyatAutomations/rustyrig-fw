@@ -55,6 +55,10 @@ bool ui_print(const char *window, const char *fmt, ...) {
    return false;
 }
 
+static bool selected_context = true;
+static unsigned codec_widget_updates;
+bool rrclient_context_is_selected(void) { return selected_context; }
+static void codec_widget_updated(bool tx, const char *codec) { codec_widget_updates++; }
 static char test_active_vfo = 'A';
 bool rrclient_room_is_joined(const char *room) {
    return false;
@@ -518,6 +522,25 @@ int main(void) {
    dict_free(description_rig);
    dict_free(description_station);
    description_rig = description_station = NULL;
+   // Background connection metadata must not overwrite the shared VFO widget.
+   static const rr_frontend_ops_t spy = {.codec_set_active = codec_widget_updated};
+   registered_ops = &spy;
+   selected_context = false;
+   memset(known_chans, 0, sizeof(known_chans));
+   known_chans[0] = (struct rr_media_known){.uuid="background", .subsystem=1, .direction=0, .vfo=0, .codec="pc16", .subscribed=true};
+   test_active_vfo = 'A'; media_room[0] = 0;
+   announce("background", "opus", 0);
+   dict *background_ack = dict_new();
+   dict_add(background_ack, "media.chan-uuid", "background");
+   dict_add(background_ack, "media.codec", "opus");
+   dict_add_int(background_ack, "media.stream", 12);
+   rrclient_media_subscribed(background_ack, false);
+   dict_free(background_ack);
+   assert(codec_widget_updates == 0);
+   assert(!strcmp(rrclient_media_current_codec(false), "opus"));
+   registered_ops = NULL;
+   selected_context = true;
+   puts("PASS: background codec observations update their cache without repainting selected VFO codecs");
    puts("PASS: codec commands, UUID targeting, NONE, room subscriptions and active/pinned rig GPS");
 
    return 0;

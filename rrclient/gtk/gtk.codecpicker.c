@@ -26,6 +26,7 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/cmd.h>
 #include <rrclient/media.h>
+#include <rrclient/connman.h>
 extern rrconn_t *ws_conn;
 extern rrconn_t *ws_tx_conn;    // rrclient/rrclient.c
 GtkWidget *tx_combo = NULL;
@@ -156,15 +157,16 @@ void codec_picker_set_active(bool is_tx, const char *codec) {
    if (!combo) {
       return;
    }
+   bool was_updating = updating_codecs;
    updating_codecs = true;
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), (codec && codec[0]) ? codec : "none");
-   updating_codecs = false;
+   updating_codecs = was_updating;
 }
 
 // Event: codec negotiation completed (emitted by librrprotocol cli.media.c);
 // refresh the pickers from the negotiated list.
 static void codec_media_codecs_cb(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   codec_pickers_refresh();
+   if (rrclient_present_context()) codec_pickers_refresh();
 }
 
 GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {

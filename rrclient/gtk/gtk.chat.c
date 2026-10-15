@@ -145,6 +145,9 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
       userlist_redraw_gtk();
       rrclient_media_room_selected(tab->room);
       gtk_chat_update_vfo_controls(tab);
+      // Retained streams send no new subscription reply when revisiting a tab.
+      // Refresh after moving/creating the shared VFO widget, including its list.
+      codec_pickers_refresh();
    }
 }
 

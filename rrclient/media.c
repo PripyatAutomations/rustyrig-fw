@@ -538,9 +538,6 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          media_try_autosubscribe(ws_conn, kp);
          rrclient_media_sync_audio();
 
-         if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
-            frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, kp->codec);
-         }
       }
    }
 }
@@ -579,9 +576,6 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
       }
       rrclient_media_sync_audio();
 
-      if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
-         frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, (unsub ? NULL : kp->codec));
-      }
       char description[512];
       rrclient_media_description(kp->uuid, description, sizeof(description));
       Log(LOG_INFO, "ws.media", "Media subscription %s: %s", unsub ? "removed" : "confirmed", description);
