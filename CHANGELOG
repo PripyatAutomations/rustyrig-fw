@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.02) testing; urgency=medium
 
+  * Start receiver bridges only when a user joins the rig room, an audio
+    subscriber requests it, or recording requires it. Release idle receivers
+    gracefully, stop retries without demand, and retain confirmed tuning.
+    Test discovery without connecting, release, idle and reacquisition.
   * Add per-room L/R/S/M RX routing, GTK tab selectors and /rxroute for TUI.
     Mix retained mono receivers into bounded stereo output independently of
     tab/server/VFO selection; muting keeps subscriptions and decoding alive.
@@ -49,7 +53,7 @@ rustyrig-fw (20261015.02) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:33:30 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:40:34 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

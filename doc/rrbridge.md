@@ -1,7 +1,7 @@
 # External receiver bridges
 
 `rrserver` owns radios, authorization, rooms and client-visible properties.
-Each enabled bridge is a separate `rrbridge` process with one driver loaded
+Each requested bridge is a separate `rrbridge` process with one driver loaded
 through the existing module loader. Shared configuration, the versioned driver
 ABI, and local control IPC live in `librrprotocol/bridge.*`.
 
@@ -60,6 +60,16 @@ list a bridge alias in `rig.instances`; the bridge roster adds it.
 
 `bin/rrbridge --config FILE --bridge NAME --probe` validates module loading and
 capability declarations without claiming an external receiver connection.
+
+## Receiver demand
+
+Configured rigs remain discoverable without starting a bridge process or
+contacting the external receiver. Joining a mapped rig room, local/relayed RX
+subscribers, or explicitly configured always-recording creates demand. The last
+user leaving/disconnecting releases the receiver after demand disappears.
+Muted tabs still retain their room/subscription and therefore retain demand;
+changing tabs or focus never changes it. Idle bridges do not reconnect. A new
+request restarts the bridge and restores the last confirmed tuning.
 
 ## State and properties
 

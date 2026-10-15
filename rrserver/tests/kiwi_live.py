@@ -116,8 +116,10 @@ with (work / 'console.log').open('w') as console:
         assert set(rigs) == {'receiver'}, rigs
         radio = rigs['receiver']
         a = next(uuid for uuid,o in objects.items() if o['type'] == 'vfo' and o['owner'] == radio)
-        if not states[radio, 'online'].get('value'): state(radio, 'online', True)
+        assert not states[radio, 'online'].get('value'), 'receiver connected without demand'
+        if fixture: assert not fixture.commands, 'Kiwi contacted during startup or discovery'
         join(objects[radio]['room'])
+        state(radio, 'online', True)
         control(a, 'frequency', 7100000, 'kiwi-tune')
         assert states[a, 'frequency']['value'] == 7100000
         control(a, 'mode', 'AM', 'kiwi-mode')
@@ -178,6 +180,19 @@ with (work / 'console.log').open('w') as console:
             assert states[a, 'mode']['value'] == 'AM'
             _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
             assert any(frame[28:])
+        if fixture:
+            client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'part', 'target': objects[radio]['room']}})
+            until(lambda m: m.get('talk', {}).get('cmd') == 'part')
+            state(radio, 'online', False)
+            time.sleep(.4)
+            assert fixture.peer is None, 'last user leaving did not release Kiwi'
+            commands = len(fixture.commands)
+            time.sleep(1.2)
+            assert fixture.peer is None and len(fixture.commands) == commands, 'idle receiver retried'
+            join(objects[radio]['room'])
+            state(radio, 'online', True)
+            assert states[a, 'frequency']['value'] == 7100000
+            assert states[a, 'mode']['value'] == 'AM'
         console_text = (work / 'console.log').read_text()
         assert 'Unable to apply' not in (work / 'server.log').read_text(), 'pending CAT request logged as a failure'
         if fixture:

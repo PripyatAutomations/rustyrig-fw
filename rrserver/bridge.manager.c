@@ -28,7 +28,7 @@ struct bridge_child {
    int fd, media_fd;
    unsigned sample_rate;
    char resampler[64];
-   bool hello, ready, online, desired;
+   bool hello, ready, online, desired, idling;
    uint64_t next_retry, started, last_seen, pending, deadline, next_request, kill_deadline;
    uint64_t desired_hz, requested_hz;
    char desired_mode[16], requested_mode[16];
@@ -264,7 +264,7 @@ static bool spawn_child(struct bridge_child *b) {
    b->fd = sv[0]; b->media_fd = media[0];
    b->started = b->last_seen = mono_us();
    b->kill_deadline = 0;
-   b->hello = b->ready = false;
+   b->hello = b->ready = b->idling = false;
    Log(LOG_INFO, "bridge", "Spawned [%s] pid=%ld", b->name, (long)b->process.pid);
    return true;
 }
@@ -273,7 +273,6 @@ bool rrserver_bridges_start(const char *file) {
    stopping = false;
    if (!children) return true;
    if (!file || !(config_path = strdup(file))) return false;
-   for (struct bridge_child *b = children; b; b = b->next) if (!spawn_child(b)) schedule_retry(b);
    return true;
 }
 static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
@@ -370,13 +369,29 @@ void rrserver_bridges_poll(void) {
    if (stopping || !config_path) return;
    uint64_t current = mono_us();
    for (struct bridge_child *b = children; b; b = b->next) {
+      bool wanted = rrserver_media_rx_requested(b->backend->owner);
+      if (!wanted && !b->idling) {
+         b->idling = true;
+         b->failures = 0;
+         b->next_retry = 0;
+         if (b->fd >= 0) {
+            rrp_bridge_ipc_message_t bye;
+            message(b, &bye, RRP_BRIDGE_IPC_SHUTDOWN);
+            (void)rrp_bridge_ipc_send(b->fd, &bye);
+            offline(b);
+            b->kill_deadline = current + 2000000;
+            Log(LOG_INFO, "bridge", "[%s] receiver no longer requested; releasing connection", b->name);
+         }
+      }
+      if (b->idling && b->fd >= 0 && b->process.pid > 0 && current >= b->kill_deadline) disconnect(b);
       if (b->fd >= 0) {
          for (int i = 0; i < 8; i++) {
             rrp_bridge_ipc_message_t m;
             int got = rrp_bridge_ipc_recv(b->fd, &m);
             if (!got) break;
+            if (got > 0 && b->idling) continue;
             if (got < 0 || !handle(b, &m)) {
-               Log(LOG_WARN, "bridge", "[%s] disconnected or invalid control record", b->name);
+               if (!b->idling) Log(LOG_WARN, "bridge", "[%s] disconnected or invalid control record", b->name);
                disconnect(b); break;
             }
             b->last_seen = current;
@@ -389,12 +404,13 @@ void rrserver_bridges_poll(void) {
       if (b->process.pid > 0 && subproc_reap(&b->process, &status)) {
          disconnect(b);
          subproc_close(&b->process);
-         schedule_retry(b);
+         if (wanted && !b->idling) schedule_retry(b);
+         else b->next_retry = 0;
       }
       if (b->ready && b->media_fd >= 0) read_media(b);
       // Reset backoff only after a stable session, never on a crash loop.
       if (b->ready && current - b->started >= 30000000) b->failures = 0;
-      if (b->process.pid <= 0 && current >= b->next_retry) if (!spawn_child(b)) schedule_retry(b);
+      if (wanted && b->process.pid <= 0 && current >= b->next_retry) if (!spawn_child(b)) schedule_retry(b);
    }
 }
 void rrserver_bridges_stop(void) {

@@ -126,6 +126,13 @@ with (work / 'console.log').open('w') as console:
         a = vfos[east]
         assert len({objects[uuid]['room'] for uuid in rigs.values()}) == len(rigs), 'bridge room collision'
         assert objects[east]['backend'] == 'bridge'
+        assert states[east, 'online']['value'] is False
+        assert states[west, 'online']['value'] is False
+        assert not (work / 'east.pid').exists() and not (work / 'west.pid').exists(), 'idle bridges spawned'
+        join(objects[east]['room'])
+        state(east, 'online', True)
+        join(objects[west]['room'])
+        state(west, 'online', True)
         assert properties[a, 'frequency']['minimum'] == 100000
         assert properties[a, 'frequency']['maximum'] == 30000000
         assert properties[a, 'mode']['enum'] == 'USB AM CW'
