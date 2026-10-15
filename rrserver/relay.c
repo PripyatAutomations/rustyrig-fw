@@ -2340,6 +2340,19 @@ char *rrserver_relay_remote_rooms(void) {
 
    return g_string_free(text, false);
 }
+const char *rrserver_relay_client_server(const rrconn_t *client) {
+   for (struct remote_session *r = remotes ; r ; r = r->next) {
+      if (&r->client != client) continue;
+      for (struct catalog *c = catalogs ; c ; c = c->next) {
+         if (!strcmp(c->owner, r->origin) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
+            return dict_get(c->descriptor, "object.alias", r->origin);
+         }
+      }
+      return r->origin;
+   }
+   return cfg_get("station.name");
+}
+
 char *rrserver_relay_servers(void) {
    GString *text = g_string_new(cfg_get("station.name"));
 
@@ -2510,6 +2523,10 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
 }
 char *rrserver_relay_remote_rooms(void) {
    return strdup("");
+}
+const char *rrserver_relay_client_server(const rrconn_t *client) {
+   (void)client;
+   return cfg_get("station.name");
 }
 char *rrserver_relay_servers(void) {
    return strdup("");

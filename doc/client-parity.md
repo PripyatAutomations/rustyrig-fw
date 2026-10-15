@@ -732,3 +732,9 @@ profile-name hash and a session palette that separates close colors, with
 black text on light backgrounds or white text on dark backgrounds. Labels,
 keyboard numbers and drag order remain independent of those colors. Shared
 system tabs retain the theme; these presentation details are GTK-specific.
+
+PTT admin rows include a persisted user home-server field and server-owned
+rig/VFO scope. Both native and browser tables consume those fields; the database
+stays per node. GTK column sizing, quota display units/grouping, PTT duration
+header and frequency grouping are frontend presentation; raw quota values stay
+in seconds/bytes. Config buttons use one GTK row with a blank safety row below.

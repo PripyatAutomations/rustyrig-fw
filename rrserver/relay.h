@@ -10,6 +10,8 @@
 #include <librustyaxe/core.h>
 bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t at);
 bool rrserver_relay_media_valid(rrconn_t *client, const char *uuid, unsigned stream);
+/* Borrowed user home-site name (UUID fallback for an unknown remote catalog). */
+const char *rrserver_relay_client_server(const rrconn_t *client);
 void rrserver_relay_register_events(void);
 void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data);
 void rrserver_relay_poll(void);

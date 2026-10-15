@@ -16,6 +16,8 @@ time_t now, ptt_tot_time;
 bool dying, restarting;
 sqlite3 *masterdb;
 static unsigned applied;
+const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) { return "rig0"; }
+const char *rrserver_relay_client_server(const rrconn_t *client) { return "home-server"; }
 rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry) {
    return (rr_server_rig_t *) 1;
 }
@@ -77,7 +79,7 @@ void rrserver_media_record_ptt(rr_vfo_t vfo, bool state, rrconn_t *talker, const
 bool au_recording_generate_id(char *buffer, size_t len) {
    return false;
 }
-int db_ptt_start(sqlite3 *db, const char *user, const char *vfo, double frequency, const char *mode, int width, float power, const char *file, const char *id) {
+int db_ptt_start(sqlite3 *db, const char *user, const char *vfo, double frequency, const char *mode, int width, float power, const char *file, const char *id, const char *server) {
    assert(false);
 
    return -1;

@@ -248,6 +248,16 @@ enabled=false
                 client.send({"msg": {"type": "cat"}, "cat": {"cmd": "ptt", "room": "#roomtest-rig1", "vfo": "A", "ptt": state}})
                 ack = client.until(lambda m: m.get("cat", {}).get("cmd") == "ptt")
                 assert ack["cat"]["room"] == "#roomtest-rig1" and ack["cat"]["ptt"] is state
+            with sqlite3.connect(database) as db:
+                ptt_rows = db.execute("SELECT server,vfo FROM ptt_log WHERE username='TEST'").fetchall()
+                assert ("roomtest", "roomtest.rig0.vfo-a") in ptt_rows, ptt_rows
+                assert ("roomtest", "roomtest.rig1.vfo-a") in ptt_rows, ptt_rows
+            client.send({"msg": {"type": "talk"}, "talk": {"cmd": "admin", "data": "ptt"}})
+            ptt_row = client.until(lambda m: m.get("talk", {}).get("target") == "ptt" and m["talk"].get("action") == "row")
+            ptt_data = json.loads(ptt_row["talk"]["data"])
+            assert ptt_data["server"] == "roomtest" and ptt_data["vfo"].startswith("roomtest.rig"), ptt_data
+            client.until(lambda m: m.get("talk", {}).get("target") == "ptt" and m["talk"].get("action") == "end")
+            print("PASS: PTT logs persist the user home server and actual rig scope and expose both to Admin")
             # Room removal is confirmed, session/room/options bound, and audited.
             import re
             def confirmation(text):

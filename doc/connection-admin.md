@@ -40,8 +40,11 @@ Inventory includes offline and locked users and deleted rooms. Edit changes emai
 UID and password-set timestamp are read-only; Reset password uses the existing
 server command. Lock/Unlock and Remove/Restore retain server permissions.
 Admin pages are named Users, Rooms, Quotas, Audit Log and PTT Log.
-Quotas show TX seconds plus separate `bandwidth_tx_used` and `bandwidth_rx_used`
-byte totals. TX bytes are sent by the server to the user; RX bytes are received
+The server provides TX seconds and separate `bandwidth_tx_used` and
+`bandwidth_rx_used` byte totals. GTK displays TX remaining/used in minutes and
+bandwidth as B, decimal KB or MB (never larger units), grouping large values
+with commas. Its headers are name, TX Min, TX Used, BWRemain, BWTxUsed and
+BWRxUsed. TX bytes are sent by the server to the user; RX bytes are received
 by the server from the user, matching the existing traffic counters. Both
 directions still consume the shared remaining bandwidth allowance. `/quota BW LIST` also reports the directions separately. SET/ADD actions use existing
 TX duration syntax (30m, 2h) and decimal BW units (10M, 1G).
@@ -96,3 +99,14 @@ Native SOCKS5 failures name the credential-free proxy endpoint and destination,
 with the specific rejection, authentication or timeout reason. Proxy passwords
 are obscured in displayed error text; a disconnect before tunnel setup also
 produces an explicit proxy failure notice.
+
+GTK Users gives spare width to Privileges and keeps Chg Req fitted to its
+header. Rooms and Quotas give spare width to name. PTT Log shows the transmitting
+user's home server as its second column, duration as TxSec, grouped frequency
+and a server-owned rig/VFO scope such as `site.rig2.vfo-a`. New PTT rows snapshot
+that scope and the user's origin server (including linked sessions) in the
+node-local database. Existing databases gain a nullable server column; old
+origins and unscoped historical rigs display as unknown in GTK. The server's
+existing admin results expose the fields to all clients, including WebUI.
+Config actions occupy one horizontal row, followed by one blank text row
+before the bottom main-tab navigation to reduce accidental clicks.

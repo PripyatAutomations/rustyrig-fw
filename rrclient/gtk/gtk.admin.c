@@ -2,6 +2,7 @@
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <librustyaxe/util.time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -42,9 +43,10 @@ static admin_table_t tables[] = {
          "id", "timestamp", "username", "event_type", "details"
       }
    },
+   /* PARITY: rustyrig-www/js/webui.admin.js adminTables.ptt */
    {
       .name = "ptt", .fields = {
-         "id", "start_time", "username", "vfo", "frequency", "mode", "duration", "stop_reason", "recording_id"
+         "id", "start_time", "username", "vfo", "frequency", "mode", "duration", "stop_reason", "recording_id", "server"
       }
    }
 };
@@ -72,6 +74,71 @@ static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer
       free(duration);
       g_free(text);
    }
+   g_free(raw);
+}
+
+/* Formatting never changes the raw values used by edits or quota commands. */
+static char *admin_commas(const char *raw) {
+   if (!raw || !*raw) return g_strdup("");
+   const char *digits = raw + (*raw == '-' || *raw == '+');
+   const char *end = digits;
+   while (g_ascii_isdigit(*end)) end++;
+   if (end == digits || (*end && *end != '.')) return g_strdup(raw);
+   const char *fraction = end;
+   if (*fraction == '.') {
+      bool zero = true;
+      for (const char *p = fraction + 1 ; *p ; p++) {
+         if (!g_ascii_isdigit(*p)) return g_strdup(raw);
+         if (*p != '0') zero = false;
+      }
+      if (zero) fraction = "";
+   }
+   GString *text = g_string_new_len(raw, digits - raw);
+   for (const char *p = digits ; p < end ; p++) {
+      if (p != digits && (end - p) % 3 == 0) g_string_append_c(text, ',');
+      g_string_append_c(text, *p);
+   }
+   g_string_append(text, fraction);
+   return g_string_free(text, FALSE);
+}
+
+static char *admin_scaled(const char *raw, bool bytes) {
+   char *end;
+   errno = 0;
+   long long value = raw && *raw ? strtoll(raw, &end, 10) : 0;
+   if (!raw || !*raw || errno || *end) return g_strdup(raw ? raw : "");
+   unsigned long long magnitude = value < 0 ? (unsigned long long)(-(value + 1)) + 1 : (unsigned long long)value;
+   unsigned long long divisor = bytes ? (magnitude >= 1000000 ? 1000000 : magnitude >= 1000 ? 1000 : 1) : 60;
+   const char *unit = !bytes ? "" : divisor == 1000000 ? " MB" : divisor == 1000 ? " KB" : " B";
+   unsigned long long whole = magnitude / divisor;
+   unsigned decimal = ((magnitude % divisor) * 100 + divisor / 2) / divisor;
+   if (decimal == 100) { whole++; decimal = 0; }
+   char integer[32];
+   snprintf(integer, sizeof(integer), "%s%llu", value < 0 ? "-" : "", whole);
+   char *grouped = admin_commas(integer);
+   char *text = divisor == 1 ? g_strconcat(grouped, unit, NULL) : g_strdup_printf("%s.%02u%s", grouped, decimal, unit);
+   g_free(grouped);
+   return text;
+}
+
+static void admin_numeric_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+   GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   admin_table_t *table = g_object_get_data(G_OBJECT(column), "rr-admin-table");
+   int field = GPOINTER_TO_INT(data);
+   char *raw = NULL;
+   gtk_tree_model_get(model, iter, field, &raw, -1);
+   char *text;
+   if (!strcmp(table->name, "quotas")) {
+      text = admin_scaled(raw, field >= 3);
+   } else if (field == 9) {
+      text = g_strdup(raw && *raw ? raw : "Unknown");
+   } else if (field == 3) {
+      text = raw && raw[0] && !raw[1] ? g_strdup_printf("Unknown rig.vfo-%c", g_ascii_tolower(raw[0])) : g_strdup(raw && *raw ? raw : "Unknown");
+   } else {
+      text = admin_commas(raw);
+   }
+   g_object_set(renderer, "text", text, NULL);
+   g_free(text);
    g_free(raw);
 }
 
@@ -347,21 +414,44 @@ GtkWidget *init_admin_tab(void) {
 
       const int user_order[] = {8, 1, 0, 3, 4, 5, 6, 2, 7};
       const char *user_titles[] = {"UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"};
+      const int ptt_order[] = {0, 9, 1, 2, 3, 4, 5, 6, 7, 8};
+      const char *ptt_titles[] = {"ID", "Server", "Start", "Name", "VFO", "Frequency", "Mode", "TxSec", "Stop Reason", "Recording"};
+      const char *quota_titles[] = {"name", "TX Min", "TX Used", "BWRemain", "BWTxUsed", "BWRxUsed"};
       bool users = !strcmp(table->name, "users");
+      bool quotas = !strcmp(table->name, "quotas"), ptt = !strcmp(table->name, "ptt");
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
-         int field = users ? user_order[col] : col;
+         int field = users ? user_order[col] : ptt ? ptt_order[col] : col;
          bool flag = users && (field == 1 || field == 7);
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
-         gtk_tree_view_column_set_title(column, users ? user_titles[col] : table->fields[col]);
+         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
          if (users && (flag || field == 5 || field == 6)) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
+         } else if ((quotas && field > 0) || (ptt && (field == 3 || field == 4 || field == 9))) {
+            g_object_set_data(G_OBJECT(column), "rr-admin-table", table);
+            gtk_tree_view_column_set_cell_data_func(column, renderer, admin_numeric_cell, GINT_TO_POINTER(field), NULL);
          } else {
             gtk_tree_view_column_add_attribute(column, renderer, "text", field);
          }
          gtk_tree_view_column_set_resizable(column, TRUE);
+         gtk_tree_view_column_set_expand(column, (users && field == 2) || ((!strcmp(table->name, "rooms") || quotas) && field == 0));
+         if (users && field == 7) {
+            PangoLayout *layout = gtk_widget_create_pango_layout(table->tree, "Chg Req");
+            int width;
+            pango_layout_get_pixel_size(layout, &width, NULL);
+            g_object_unref(layout);
+            gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+            gtk_tree_view_column_set_fixed_width(column, width + 20);
+            gtk_tree_view_column_set_resizable(column, FALSE);
+         }
+         if (quotas && (field == 1 || field == 2)) {
+            GtkWidget *title = gtk_label_new(quota_titles[col]);
+            gtk_widget_set_tooltip_text(title, field == 1 ? "Remaining TX time in minutes" : "Used TX time in minutes");
+            gtk_widget_show(title);
+            gtk_tree_view_column_set_widget(column, title);
+         }
          gtk_tree_view_append_column(GTK_TREE_VIEW(table->tree), column);
       }
 

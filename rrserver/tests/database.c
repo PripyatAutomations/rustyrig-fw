@@ -109,7 +109,7 @@ int main(void) {
    assert(!db_room_vfo_add(db, "#missing", NULL));
    assert(!db_room_vfo_remove(db, NULL, "rig0.vfo_a"));
    assert(db_get_users(NULL) == -1);
-   assert(db_ptt_start(NULL, "admin", "A", 14074000, "USB", 3000, 25.0f, NULL, "id") == -1);
+   assert(db_ptt_start(NULL, "admin", "A", 14074000, "USB", 3000, 25.0f, NULL, "id", "home-server") == -1);
    assert(!db_ptt_stop(db, -1, NULL, NULL));
    assert(db_quota_get(NULL, "admin") == -1);
    assert(!db_quota_spend(db, "admin", 0));
@@ -331,8 +331,9 @@ int main(void) {
    assert(db_get_users(db) == 3);
    assert(count_rows(db, "SELECT COUNT(*) FROM tx_credits WHERE name='new-user';") == 0);
 
-   int session = db_ptt_start(db, "test-user", "A", 14074000, "USB", 3000, 25.0f, "/tmp/20260923.rec-123.test-user.tx.ogg", "rec-123");
+   int session = db_ptt_start(db, "test-user", "tx-site.rig2.vfo-a", 14074000, "USB", 3000, 25.0f, "/tmp/20260923.rec-123.test-user.tx.ogg", "rec-123", "home-server");
    assert(session > 0);
+   assert(count_rows(db, "SELECT COUNT(*) FROM ptt_log WHERE server='home-server' AND vfo='tx-site.rig2.vfo-a';") == 1);
    int duration = -1;
    assert(db_ptt_stop(db, session, &duration, "timeout"));
    assert(duration >= 0);
@@ -414,7 +415,7 @@ int main(void) {
    };
    assert(!db_quota_set(db, "admin", 100));
    assert(!db_usage_record(db, "admin", &pending, 1));
-   assert(db_ptt_start(db, "admin", "A", 14074000, "USB", 2400, 1, NULL, "read-only") < 0);
+   assert(db_ptt_start(db, "admin", "A", 14074000, "USB", 2400, 1, NULL, "read-only", "home-server") < 0);
    assert(!db_add_audit_event(db, "admin", "readonly", "test"));
    assert(accounting_failures == 4);
    assert(sqlite3_exec(db, "PRAGMA query_only=OFF", NULL, NULL, NULL) == SQLITE_OK);
@@ -430,12 +431,13 @@ int main(void) {
    close(migration_fd);
    assert(sqlite3_open(migration_path, &db) == SQLITE_OK);
    run_file(db, "sql/sqlite.master.sql");
-   assert(sqlite3_exec(db, "ALTER TABLE rooms DROP COLUMN deleted; INSERT INTO rooms(name,topic) VALUES('#legacy','old topic');", NULL, NULL, NULL) == SQLITE_OK
+   assert(sqlite3_exec(db, "ALTER TABLE ptt_log DROP COLUMN server; INSERT INTO ptt_log(username,vfo,frequency,mode,bandwidth,power) VALUES('legacy','A',14000000,'USB',2400,1); ALTER TABLE rooms DROP COLUMN deleted; INSERT INTO rooms(name,topic) VALUES('#legacy','old topic');", NULL, NULL, NULL) == SQLITE_OK
       );
    sqlite3_close(db);
    db = db_open(migration_path);
    assert(db);
    assert(count_rows(db, "SELECT COUNT(*) FROM rooms WHERE name='#legacy' AND topic='old topic' AND deleted=0;") == 1);
+   assert(count_rows(db, "SELECT COUNT(*) FROM ptt_log WHERE username='legacy' AND server IS NULL AND vfo='A';") == 1);
    assert(db_room_delete(db, "#legacy", "TEST", false, false));
    sqlite3_close(db);
    db = db_open(migration_path);

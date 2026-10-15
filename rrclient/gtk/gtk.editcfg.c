@@ -754,47 +754,31 @@ GtkWidget *init_config_tab(void) {
    gtk_widget_set_vexpand(cfg_panel, TRUE);
    gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
 
-   GtkWidget *button_grid = gtk_grid_new();
-   gtk_grid_set_column_spacing(GTK_GRID(button_grid), 8);
-   gtk_grid_set_row_spacing(GTK_GRID(button_grid), 4);
-   gtk_container_set_border_width(GTK_CONTAINER(button_grid), 6);
-   gtk_grid_set_column_homogeneous(GTK_GRID(button_grid), TRUE);
-   gtk_widget_set_halign(button_grid, GTK_ALIGN_START);
-   gtk_widget_set_size_request(button_grid, 380, -1);
-   gtk_box_pack_start(GTK_BOX(nw), button_grid, FALSE, FALSE, 0);
-
-   GtkWidget *left_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   GtkWidget *right_buttons = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   gtk_widget_set_size_request(left_buttons, 180, -1);
-   gtk_widget_set_size_request(right_buttons, 180, -1);
-   gtk_grid_attach(GTK_GRID(button_grid), left_buttons, 0, 0, 1, 1);
-   gtk_grid_attach(GTK_GRID(button_grid), right_buttons, 1, 0, 1, 1);
+   GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(buttons), 6);
+   gtk_widget_set_halign(buttons, GTK_ALIGN_START);
+   gtk_box_pack_start(GTK_BOX(nw), buttons, FALSE, FALSE, 0);
 
    GtkWidget *btn_savecfg = gtk_button_new_with_label("Save Config");
    g_signal_connect(btn_savecfg, "clicked", G_CALLBACK(on_save_config_button), NULL);
-   gtk_box_pack_start(GTK_BOX(left_buttons), btn_savecfg, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), btn_savecfg, FALSE, FALSE, 0);
 
    GtkWidget *btn_fullscreen = gtk_button_new_with_label("Toggle Fullscreen");
    g_signal_connect(btn_fullscreen, "clicked", G_CALLBACK(on_fullscreen_button), NULL);
-   gtk_box_pack_start(GTK_BOX(left_buttons), btn_fullscreen, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), btn_fullscreen, FALSE, FALSE, 0);
 
    GtkWidget *btn_cfgedit = gtk_button_new_with_label("Edit Config");
    g_signal_connect(btn_cfgedit, "clicked", G_CALLBACK(on_edit_config_button), (gpointer) config_file);
-   gtk_box_pack_start(GTK_BOX(left_buttons), btn_cfgedit, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), btn_cfgedit, FALSE, FALSE, 0);
 
    GtkWidget *btn_reloadcfg = gtk_button_new_with_label("Reload Config");
    g_signal_connect(btn_reloadcfg, "clicked", G_CALLBACK(on_reload_config_button), (gpointer) config_file);
-   gtk_box_pack_start(GTK_BOX(right_buttons), btn_reloadcfg, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), btn_reloadcfg, FALSE, FALSE, 0);
 
-   GtkWidget *actions[] = {
-      btn_savecfg, btn_fullscreen, btn_cfgedit,
-      btn_reloadcfg
-   };
-
-   for (size_t i = 0 ; i < sizeof(actions) / sizeof(actions[0]) ; i++) {
-      gtk_widget_set_size_request(actions[i], 170, -1);
-      gtk_widget_set_halign(actions[i], GTK_ALIGN_CENTER);
-   }
+   /* One empty text row separates destructive/config actions from main tabs. */
+   GtkWidget *spacer = gtk_label_new(" ");
+   gtk_widget_set_sensitive(spacer, FALSE);
+   gtk_box_pack_start(GTK_BOX(nw), spacer, FALSE, FALSE, 0);
 
    return nw;
 }

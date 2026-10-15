@@ -31,6 +31,7 @@
 #include <rrserver/backend.worker.h>
 #include <librrprotocol/objects.h>
 #include <rrserver/rig.registry.h>
+#include <rrserver/relay.h>
 #include <rrserver/ptt.h>
 #include <rrserver/media.h>
 #include <rrserver/recording.h>
@@ -228,8 +229,13 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
    float power = rr_get_power(vfo);
    // Read state from the vfos[] table (polled from the active backend), not
    // the hamlib cache: other backends (internal) don't maintain hl_state.
-   int session = db_ptt_start(masterdb, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
-      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "");
+   rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
+   const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
+   const char *site = cfg_get("station.name");
+   char scope[256];
+   snprintf(scope, sizeof(scope), "%s.%s.vfo-%c", site && *site ? site : "unknown", alias ? alias : "unknown-rig", 'a' + vfo);
+   int session = db_ptt_start(masterdb, talker->chatname, scope, (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
+      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "", rrserver_relay_client_server(talker));
 
    if (session < 0) {
       Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s", talker->chatname);

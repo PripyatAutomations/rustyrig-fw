@@ -2181,7 +2181,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    } else if (!strcasecmp(table, "ptt")) {
       strcpy(table, "ptt");
       sql =
-         "SELECT id AS cursor,id,start_time,username,vfo,frequency,mode,duration,stop_reason,recording_id FROM ptt_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+         "SELECT id AS cursor,id,server,start_time,username,vfo,frequency,mode,duration,stop_reason,recording_id FROM ptt_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    }
 
    if (argc > 2 || !sql || errno == ERANGE || before < 0 || (end && (*end || end == cursor_text))) {

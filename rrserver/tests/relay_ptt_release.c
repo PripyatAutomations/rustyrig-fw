@@ -70,6 +70,22 @@ int main(void) {
    media_channels[0].subsystem = RR_BINFRAME_SUBSYS_AUDIO;
    media_channels[0].direction = RR_BINFRAME_DIR_TX;
    remotes = &session;
+   cfg = dict_new();
+   dict_add(cfg, "station.name", "rig-site");
+   assert(!strcmp(rrserver_relay_client_server(NULL), "rig-site"));
+   strcpy(session.origin, "11111111-1111-1111-1111-111111111111");
+   assert(!strcmp(rrserver_relay_client_server(&session.client), session.origin));
+   struct catalog home = {0};
+   strcpy(home.owner, session.origin);
+   home.descriptor = dict_new();
+   dict_add(home.descriptor, "object.type", "node");
+   dict_add(home.descriptor, "object.alias", "home-site");
+   catalogs = &home;
+   assert(!strcmp(rrserver_relay_client_server(&session.client), "home-site"));
+   catalogs = NULL;
+   dict_free(home.descriptor);
+   dict_free(cfg); cfg = NULL;
+
    session.proxy_tx[0] = true;
    session.proxy_started = 4000000;
    session.client.is_ptt = true;

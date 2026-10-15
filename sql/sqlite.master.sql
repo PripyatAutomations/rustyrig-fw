@@ -18,6 +18,7 @@ CREATE TABLE audit_log (
 CREATE TABLE ptt_log (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
    username TEXT NOT NULL,
+   server TEXT,
    vfo TEXT,
    frequency REAL NOT NULL,
    mode TEXT NOT NULL,
