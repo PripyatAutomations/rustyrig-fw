@@ -80,7 +80,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
 const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
-   { "receiver-directory.url", "", "Permitted HTTPS receiver directory JSON mirror; empty disables fetching" },
+   { "receiver-directory.url", "https://cdn.aethersdr.com/kiwi.json", "Temporary HTTPS receiver directory mirror; empty disables fetching" },
    { "receiver-directory.cache", "", "Local directory cache file; empty uses the user cache directory" },
    {
       "dcc.bind", "0.0.0.0", "DCC CHAT/SEND TCP bind address"

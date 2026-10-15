@@ -9,7 +9,7 @@
 #define FWDSP_DEFAULT_PIPELINES_H
 
 #define FWDSP_DEFAULT_CODECS \
-        "pc16 g722 mu16 mu08 opus oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT pc1P g72P mu1P mu0P opuP oggP aacP flaP"
+        "opus pc16 g722 mu16 mu08 oggv aacv flac pc1T g72T mu1T mu0T opuT oggT aacT flaT pc1P g72P mu1P mu0P opuP oggP aacP flaP"
 
 /* pulsesrc is the desktop default-source API and is provided by PipeWire's PulseAudio compatibility server on PipeWire systems. Deployments that do not provide
  * that compatibility layer can override the TX pipeline with a pipewiresrc-based definition in their config. */

@@ -1,6 +1,6 @@
 # Receiver Directory
 
-Open **Browse receivers…** in the GTK server chooser (Alt-X), or use
+Press **Alt-Z** in GTK to open the Receiver Directory, or use
 `/receivers`. KiwiSDR is the first provider; the directory, UI, cache and
 configuration use generic receiver names. Other WebSDR types need explicit
 provider parsers and access rules; they are not silently treated as KiwiSDRs.
@@ -29,11 +29,12 @@ Existing demand-driven bridge activation remains authoritative.
 
 ## Fetching and caching
 
-Shipped defaults are deliberately empty:
+The temporary default is AetherSDR’s JSON mirror. Replace it with our own
+mirror before release, or set the URL empty to disable fetching:
 
 ```
 # [general], or /set keys
-receiver-directory.url =
+receiver-directory.url = https://cdn.aethersdr.com/kiwi.json
 receiver-directory.cache =
 ```
 
@@ -48,9 +49,8 @@ can use `/receivers refresh` and `/receivers` to fetch and list eligible rows.
 `RRCLIENT_RECEIVER_DIRECTORY_URL` overrides the URL for development without
 changing shipped configuration. A temporary development environment file and
 a downloaded snapshot may be kept under ignored `run/`; neither is installed.
-For this development session, the source is the documented AetherSDR JSON CDN,
-not KiwiSDR's directory origin. This is not a redistribution agreement or a
-permanent shipped source. RustyRig still needs its own permitted mirror.
+The temporary source is the documented AetherSDR JSON CDN. RustyRig still
+needs its own permitted mirror before release.
 
 KiwiSDR's maintainer asked AetherSDR to mirror its directory to reduce aggregate
 client traffic; see their [integration notes](https://github.com/aethersdr/AetherSDR/blob/main/docs/kiwisdr-public-directory.md)

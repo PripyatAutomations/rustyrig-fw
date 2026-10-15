@@ -229,6 +229,12 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
             return TRUE;
          }
+         case GDK_KEY_Z:
+         case GDK_KEY_z: {
+            event_emit("client.receiver-directory.show", NULL, NULL);
+
+            return TRUE;
+         }
          case GDK_KEY_C:
          case GDK_KEY_c: {
             gtk_widget_grab_focus(GTK_WIDGET(chat_entry));

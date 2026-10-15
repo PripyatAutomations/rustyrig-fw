@@ -56,7 +56,7 @@ PCM write or exited playback worker, rrclient recreates its speaker endpoint
 with bounded retries and restores the configured RX volume. Browser playback
 uses WebAudio and has no corresponding subprocess to restart.
 
-Room L/R/S/M selectors and `/rxroute` have equivalent native/browser behavior:
+L/R/S/M routing and `/rxroute` have equivalent native/browser behavior:
 routing is independent of UI selection, defaults to both ears, and mute keeps
 subscriptions and decoders alive. Settings are per server/room for the current
 session. Native RX uses a bounded integer stereo mixer; WebAudio uses gains and
@@ -67,8 +67,8 @@ interval of sixty seconds is treated as a legacy default and becomes one.
 The RX Audio Routing floating window is GTK-specific presentation of the
 native stream mixer. Its Split RX and per-ear stream selectors operate on
 existing subscriptions across native server connections, leave decoding alive
-when muted, and do not add protocol messages. Existing room L/R/S/M controls
-and `/rxroute` remain available in native/browser clients; the browser has no
+when muted, and do not add protocol messages. `/rxroute` remains available
+in native/browser clients, and browser room controls remain; the browser has no
 floating GTK window or cross-connection stream picker. Individual native
 stream choices last for the subscription and survive codec changes, while
 room preferences retain their existing session/reconnect lifetime.
@@ -659,3 +659,10 @@ to native/browser clients, including entitlement revocation. `bridge.admin` and
 `kiwi.connect` are separate policy checks for future bridge-management/public
 selection operations; no arbitrary endpoint connection request is exposed.
 See [Receiver Directory](receiver-directory.md).
+
+GTK opens the Receiver Directory with Alt-Z (also documented in `/help`);
+Alt-X remains the server chooser. GTK RX routing uses its separate window
+rather than tab-strip selectors; browser room controls and `/rxroute` remain.
+Native playback follows absolute monotonic 20 ms deadlines with bounded
+100 ms catch-up after late dispatch; browser playback uses its audio clock.
+The default negotiated transport preference is Opus with supported fallbacks.

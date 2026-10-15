@@ -116,8 +116,8 @@ channels after the server confirms that codec. A direction disabled with
 `NONE` stays off through channel announcements until re-enabled or disconnected.
 
 The GTK pickers apply to subscribed channels in their direction. Each RX channel
-has an independent decoder. Room tabs offer **L/R/S/M** output selectors:
-left ear, right ear, stereo (a mono RX in both ears), or muted. `/rxroute L|R|S|M`
+has an independent decoder. GTK uses the RX Audio Routing window; browser
+room controls offer **L/R/S/M**: left ear, right ear, stereo (both ears), or muted. `/rxroute L|R|S|M`
 provides the same control in GTK/TUI and the browser. New rooms default to S.
 Choices belong to the server and room and last for the client session, including
 reconnects. Changing tabs, servers, VFO selection or application focus does not

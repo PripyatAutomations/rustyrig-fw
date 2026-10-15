@@ -53,6 +53,7 @@ static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
+static uint64_t mixer_next_us;
 static uint64_t speaker_retry;
 static bool speaker_failed;
 
@@ -245,8 +246,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
 
 /* PARITY: rustyrig-www/js/webui.audio.js webui_sync_rx_routes. Mix independent mono receivers into stereo, bounded to 100 ms per stream. Selection and focus
  * never affect routing; muted streams keep decoding. */
-static gboolean audio_mix_tick(gpointer unused) {
-   (void)unused;
+static void audio_mix_block(void) {
    int32_t mixed[640] = {
       0
    };
@@ -281,9 +281,41 @@ static gboolean audio_mix_tick(gpointer unused) {
 
       client_speaker_pcm(stereo, frames * 2 * sizeof(int16_t));
    }
+}
 
+/* Keep an absolute sample clock: a late UI dispatch must not slow playback.
+ * Catch up at most the 100 ms retained by each route after a long stall. */
+static gboolean audio_mix_tick(gpointer unused) {
+   (void)unused;
+   uint64_t current = mono_us();
+
+   if (current >= mixer_next_us) {
+      uint64_t blocks = (current - mixer_next_us) / 20000 + 1;
+      mixer_next_us += blocks * 20000;
+      if (blocks > 5) {
+         blocks = 5;
+      }
+      while (blocks--) {
+         audio_mix_block();
+      }
+   }
+
+   GSource *source = g_main_current_source();
+   if (source) {
+      g_source_set_ready_time(source, mixer_next_us);
+   }
    return G_SOURCE_CONTINUE;
 }
+
+static gboolean audio_mix_dispatch(GSource *source, GSourceFunc callback, gpointer data) {
+   (void)source;
+   return callback(data);
+}
+
+static GSourceFuncs audio_mix_source_funcs = {
+   .dispatch = audio_mix_dispatch
+};
+
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
    if (!audio_enabled) {
       return;
@@ -520,7 +552,13 @@ bool audio_init(void) {
    fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
    speaker_failed = false;
    speaker_retry = 0;
-   mixer_source = g_timeout_add(20, audio_mix_tick, NULL);
+   GSource *source = g_source_new(&audio_mix_source_funcs, sizeof(GSource));
+   mixer_next_us = mono_us() + 20000;
+   g_source_set_priority(source, G_PRIORITY_HIGH);
+   g_source_set_callback(source, audio_mix_tick, NULL, NULL);
+   g_source_set_ready_time(source, mixer_next_us);
+   mixer_source = g_source_attach(source, NULL);
+   g_source_unref(source);
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");

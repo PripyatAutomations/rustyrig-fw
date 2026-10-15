@@ -129,7 +129,7 @@ static void decode_all(void) {
       }
    }
 
-   audio_mix_tick(NULL);
+   audio_mix_block();
 }
 int main(void) {
    event_init();
@@ -257,15 +257,44 @@ int main(void) {
    }
 
    rx_routes = &extra;
-   audio_mix_tick(NULL);
+   audio_mix_block();
    assert(last_stereo[0] == INT16_MAX && last_stereo[1] == INT16_MAX);
    rx_routes = r;
    r->pending_count = 0;
-   audio_mix_tick(NULL);
+   audio_mix_block();
 
    for (unsigned i = 0 ; i < 640 ; i++) {
       assert(last_stereo[i] == 0);
    }
+
+   /* Dispatch lateness must not accumulate into a slower sample clock. */
+   before = played;
+   mixer_next_us = 2020000;
+   test_clock = 2025000;
+   audio_mix_tick(NULL);
+   assert(played == before + 1 && mixer_next_us == 2040000);
+   test_clock = 2089000;
+   audio_mix_tick(NULL);
+   assert(played == before + 4 && mixer_next_us == 2100000);
+   test_clock = 4000000;
+   audio_mix_tick(NULL);
+   assert(played == before + 9 && mixer_next_us == 4020000);
+   audio_mix_tick(NULL);
+   assert(played == before + 9);
+
+   /* Exercise the actual GLib source dispatch and its next absolute deadline. */
+   GMainContext *context = g_main_context_new();
+   GSource *source = g_source_new(&audio_mix_source_funcs, sizeof(GSource));
+   g_source_set_callback(source, audio_mix_tick, NULL, NULL);
+   mixer_next_us = test_clock;
+   g_source_set_ready_time(source, 0);
+   g_source_attach(source, context);
+   assert(g_main_context_iteration(context, FALSE));
+   assert(played == before + 10);
+   assert(g_source_get_ready_time(source) == mixer_next_us);
+   g_source_destroy(source);
+   g_source_unref(source);
+   g_main_context_unref(context);
 
    audio_sync_rx_channels(NULL, 0);
    assert(stops == 4 && !rx_routes);
