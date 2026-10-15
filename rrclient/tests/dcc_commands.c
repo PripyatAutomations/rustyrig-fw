@@ -3,7 +3,15 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+extern char *expand_path(const char *path);
+static char *test_expand_path(const char *path);
+#define expand_path test_expand_path
 #include <rrclient/dcc.c>
+#undef expand_path
+static char downloads[512];
+static char *test_expand_path(const char *path) {
+   return !strcmp(path, "~/Downloads/DCC") ? strdup(downloads) : expand_path(path);
+}
 rrconn_t *ws_conn;
 static char output[32768], last_window[512];
 static const char *active_window = "commands";
@@ -84,6 +92,7 @@ int main(void) {
    strcpy(bob.nick, "bob");
    char directory[] = "/tmp/rr-dcc-cmd-XXXXXX";
    assert(mkdtemp(directory));
+   snprintf(downloads, sizeof(downloads), "%s/Downloads/DCC", directory);
    char source[512], destination[512], existing[512], link[512];
    snprintf(source, sizeof(source), "%s/source file.bin", directory);
    snprintf(destination, sizeof(destination), "%s/received file.bin", directory);
@@ -111,7 +120,7 @@ int main(void) {
    unsigned id = offer_to(&bob, irc[1], IRC_DCC_SEND);
    char identifier[16];
    snprintf(identifier, sizeof(identifier), "%u", id);
-   assert(strstr(output, "SEND offer") && strstr(output, "DESTINATION"));
+   assert(strstr(output, "SEND offer") && strstr(output, "/dcc get ") && strstr(output, "[optional-filename]"));
    char *accept[] = {
       "dcc", "send", "accept", identifier, existing
    };
@@ -125,7 +134,8 @@ int main(void) {
    ws_conn = &alice;
    assert(cmd_dcc(5, accept) && access(destination, F_OK));
    ws_conn = &bob;
-   assert(!cmd_dcc(5, accept));
+   char *get[] = {"DCC", "GET", identifier, destination};
+   assert(!cmd_dcc(4, get));
 
    for (unsigned i = 0 ; i < 1000 && irc_dcc_session_get(0, &session) ; i++) {
       rrclient_dcc_poll();
@@ -142,6 +152,47 @@ int main(void) {
    fd = open(existing, O_RDONLY);
    assert(fd >= 0 && read(fd, copied, 4) == 4 && !memcmp(copied, "keep", 4));
    close(fd);
+   /* Default acceptance creates the directory and retains the offered name,
+    * including spaces. A repeated offer must not overwrite that download. */
+   char downloaded[1024];
+   snprintf(downloaded, sizeof(downloaded), "%s/source file.bin", downloads);
+   assert(access(downloads, F_OK));
+   for (unsigned attempt = 0 ; attempt < 3 ; attempt++) {
+      fresh_port();
+      ws_conn = &alice;
+      assert(!cmd_dcc(5, send));
+      id = offer_to(&bob, irc[1], IRC_DCC_SEND);
+      snprintf(identifier, sizeof(identifier), "%u", id);
+      ws_conn = &bob;
+      if (attempt != 1) {
+         if (attempt == 2) {
+            get[3] = "renamed file.bin";
+            snprintf(downloaded, sizeof(downloaded), "%s/renamed file.bin", downloads);
+         }
+         assert(!cmd_dcc(attempt == 0 ? 3 : 4, get));
+         for (unsigned i = 0 ; i < 1000 && irc_dcc_session_get(0, &session) ; i++) {
+            rrclient_dcc_poll();
+            usleep(100);
+         }
+         assert(!irc_dcc_session_get(0, &session));
+      } else {
+         assert(cmd_dcc(3, get));
+         assert(irc_dcc_close(&bob, id));
+         assert(irc_dcc_session_get(0, &session));
+         assert(irc_dcc_close(&alice, session.id));
+      }
+      fd = open(downloaded, O_RDONLY);
+      assert(fd >= 0 && read(fd, copied, sizeof(copied)) == sizeof(copied) && !memcmp(copied, data, sizeof(data)));
+      assert(!fstat(fd, &st) && !(st.st_mode & 077));
+      close(fd);
+   }
+   unlink(downloaded);
+   snprintf(downloaded, sizeof(downloaded), "%s/source file.bin", downloads);
+   unlink(downloaded);
+   rmdir(downloads);
+   char downloads_parent[512];
+   snprintf(downloads_parent, sizeof(downloads_parent), "%s/Downloads", directory);
+   rmdir(downloads_parent);
    fresh_port();
    ws_conn = &alice;
    char *chat[] = {

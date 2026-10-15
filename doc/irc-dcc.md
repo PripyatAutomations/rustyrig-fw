@@ -20,14 +20,20 @@ and SEND entries have local numeric IDs; commands also accept `#ID`.
 /dcc chat close ID
 
 /dcc send NICK /path/to/source file.bin
-/dcc send accept ID /path/to/new destination.bin
+/dcc get ID
+/dcc get ID renamed file.bin
+/dcc get ID /path/to/new destination.bin
 /dcc send close ID
 ```
 
-Paths may contain spaces, optionally enclosed in double quotes. File acceptance
-requires an explicit destination. Received filenames are display metadata;
-they are never used to select a local path. Existing destination files and
-symlinks are refused. New files use mode 0600. On failure after acceptance,
+Paths may contain spaces, optionally enclosed in double quotes. `/dcc get ID`
+accepts an incoming SEND into `~/Downloads/DCC/`, creating that directory if
+missing and using the offered filename's final component. An optional bare
+filename overrides the name within that directory; an explicit path selects
+another destination. Offered paths cannot escape the download directory, and
+empty/dot/control-character filenames are refused. The older
+`/dcc send accept ID PATH` form remains supported. Existing files and symlinks
+are refused. New files use mode 0600. On failure after acceptance,
 partial data remains at the chosen path, with a failure notice. Close cancels
 both active sessions and pending offers. Chat lines, including incoming CTCP
 ACTION, and transfer status are displayed in the issuing/accepting window.

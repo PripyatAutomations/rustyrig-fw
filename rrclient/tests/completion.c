@@ -146,6 +146,7 @@ int main(void) {
    check("/dcc a", "a", "AUDIO");
    check("/dcc audio al", "al", "alice");
    check("/dcc audio accept alice t", "t", "tx");
+   check("/dcc g", "g", "GET");
    check("/dcc c", "c", "CHAT");
    check("/dcc send ac", "ac", "ACCEPT");
    check("/dcc chat ms", "ms", "MSG");

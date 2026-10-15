@@ -218,6 +218,74 @@ static bool matching_session(unsigned id, irc_dcc_type_t type, bool pending) {
 
    return false;
 }
+static bool receive_file(unsigned id, int argc, char **args, int first, bool download) {
+   irc_dcc_session_t session;
+   bool found = false;
+   for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
+      if (session.control == ws_conn && session.id == id && session.type == IRC_DCC_SEND &&
+         !session.outgoing && session.state == IRC_DCC_PENDING) {
+         found = true;
+         break;
+      }
+   }
+   if (!found) return false;
+
+   char *path = NULL;
+   char *input = argc > first ? command_rest(argc, args, first) : NULL;
+   if (argc > first && !input) return false;
+   if (input && (!download || strchr(input, '/') || strchr(input, '\\'))) {
+      path = expand_path(input);
+      free(input);
+   } else {
+      /* An offered path is metadata, never permission to write outside the
+       * download directory. Accept only its final Unix/Windows component. */
+      const char *name = input ? input : session.filename;
+      for (const char *p = name ; *p ; p++) {
+         if (*p == '/' || *p == '\\') name = p + 1;
+      }
+      if (!*name || !strcmp(name, ".") || !strcmp(name, "..")) {
+         free(input);
+         return false;
+      }
+      for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) {
+         if (*p < 32 || *p == 127) {
+            free(input);
+            return false;
+         }
+      }
+      char *directory = expand_path("~/Downloads/DCC");
+      if (!directory || !mkdir_p(directory)) {
+         ui_print(ui_active_window_name(), "Cannot create the DCC download directory");
+         free(directory);
+         free(input);
+         return false;
+      }
+      size_t size = strlen(directory) + strlen(name) + 2;
+      path = malloc(size);
+      if (path) snprintf(path, size, "%s/%s", directory, name);
+      free(directory);
+      free(input);
+   }
+   if (!path) return false;
+   bool result = false;
+#ifdef HOST_POSIX
+   int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+   if (fd < 0) {
+      ui_print(ui_active_window_name(), "Cannot create %s; choose a new destination file", path);
+   } else {
+      result = irc_dcc_accept(ws_conn, id, fd);
+      close(fd);
+      if (!result) unlink(path);
+   }
+#endif
+   if (result) {
+      (void)dcc_window(ws_conn, id, true);
+      ui_print(ui_active_window_name(), "DCC #%u receiving into %s", id, path);
+   }
+   free(path);
+   return result;
+}
+
 bool cmd_dcc(int argc, char **args) {
    if (argc < 1 || !args) {
       return true;
@@ -232,9 +300,10 @@ bool cmd_dcc(int argc, char **args) {
    if (!strcasecmp(args[1], "audio")) {
       return cmd_audio(argc, args);
    }
+   bool getting = !strcasecmp(args[1], "get");
    bool chat = !strcasecmp(args[1], "chat"), file = !strcasecmp(args[1], "send");
 
-   if (!chat && !file) {
+   if (!chat && !file && !getting) {
       goto usage;
    }
 
@@ -246,6 +315,14 @@ bool cmd_dcc(int argc, char **args) {
 
    if (argc < 3) {
       goto usage;
+   }
+   if (getting) {
+      unsigned id;
+      if (!session_id(args[2], &id) || !matching_session(id, IRC_DCC_SEND, true)) {
+         ui_print(ui_active_window_name(), "No matching SEND session on this IRC connection");
+         return true;
+      }
+      return !receive_file(id, argc, args, 3, true);
    }
    bool accepting = !strcasecmp(args[2], "accept"), closing = !strcasecmp(args[2], "close"), message = chat && !strcasecmp(args[2], "msg");
    irc_dcc_type_t type = chat ? IRC_DCC_CHAT : IRC_DCC_SEND;
@@ -276,27 +353,7 @@ bool cmd_dcc(int argc, char **args) {
       } else if (accepting && chat && argc == 4) {
          result = irc_dcc_accept(ws_conn, id, -1);
       } else if (accepting && file && argc >= 5) {
-         char *input = command_rest(argc, args, 4), *path = input ? expand_path(input) : NULL;
-         free(input);
-
-         if (!path) {
-            return true;
-         }
-#ifdef HOST_POSIX
-         int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
-
-         if (fd < 0) {
-            ui_print(ui_active_window_name(), "Cannot create %s; choose a new destination file", path);
-         } else {
-            result = irc_dcc_accept(ws_conn, id, fd);
-            close(fd);
-
-            if (!result) {
-               unlink(path);
-            }
-         }
-#endif
-         free(path);
+         result = receive_file(id, argc, args, 4, false);
       } else {
          goto usage;
       }
@@ -347,7 +404,7 @@ bool cmd_dcc(int argc, char **args) {
    return id == 0;
 usage:
    ui_print(ui_active_window_name(),
-      "Usage: /dcc | /dcc audio [accept|close] NICK [tx|rx] | /dcc chat NICK | /dcc chat accept|close ID | /dcc chat msg ID TEXT | /dcc send NICK PATH | /dcc send accept ID PATH | /dcc send close ID");
+      "Usage: /dcc | /dcc audio [accept|close] NICK [tx|rx] | /dcc chat NICK | /dcc chat accept|close ID | /dcc chat msg ID TEXT | /dcc send NICK PATH | /dcc get ID [FILENAME] | /dcc send close ID");
 
    return true;
 }
@@ -365,8 +422,12 @@ static void dcc_notice(const char *event, const char *data, rrconn_t *client, vo
    const char *window = dcc_window(client, id, false);
 
    if (!strcmp(status, "offer")) {
-      ui_print(window, "DCC #%u %s offer from %s on %s: %s (%llu bytes); /dcc %s accept %u%s", id, type, nick, profile ? profile : "IRC", dict_get(d,
-         "dcc.filename", ""), dict_get_ullong(d, "dcc.size", 0), !strcmp(type, "SEND") ? "send" : "chat", id, !strcmp(type, "SEND") ? " DESTINATION" : "");
+      if (!strcmp(type, "SEND")) {
+         ui_print(window, "DCC #%u SEND offer from %s on %s: %s (%llu bytes); /dcc get %u [optional-filename]", id, nick,
+            profile ? profile : "IRC", dict_get(d, "dcc.filename", ""), dict_get_ullong(d, "dcc.size", 0), id);
+      } else {
+         ui_print(window, "DCC #%u CHAT offer from %s on %s; /dcc chat accept %u", id, nick, profile ? profile : "IRC", id);
+      }
    } else {
       ui_print(window, "DCC #%u %s %s: %s %s (%llu bytes)", id, type, nick, status, dict_get(d, "dcc.text", ""), dict_get_ullong(d, "dcc.transferred", 0));
    }

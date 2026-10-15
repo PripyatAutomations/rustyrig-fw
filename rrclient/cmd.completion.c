@@ -340,7 +340,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          }
       } else if (!strcasecmp(command, "/dcc")) {
          if (arg == 1) {
-            completion_words(&matches, &count, "AUDIO CHAT SEND", word);
+            completion_words(&matches, &count, "AUDIO CHAT SEND GET", word);
          } else if (first && !strcasecmp(first, "audio")) {
             bool action = second && (!strcasecmp(second, "accept") || !strcasecmp(second, "close"));
 
@@ -357,6 +357,15 @@ char **client_cmd_completions(const char *line, const char *word) {
                matches = complete_usernames(word, room);
             } else if (arg == (action ? 4U : 3U)) {
                completion_words(&matches, &count, "tx rx", word);
+            }
+         } else if (first && !strcasecmp(first, "get") && arg == 2) {
+            irc_dcc_session_t session;
+            for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
+               if (session.control == ws_conn && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
+                  char id[16];
+                  snprintf(id, sizeof(id), "%s%u", word[0] == '#' ? "#" : "", session.id);
+                  completion_add(&matches, &count, id, word);
+               }
             }
          } else if (first && (!strcasecmp(first, "chat") || !strcasecmp(first, "send"))) {
             if (arg == 2) {

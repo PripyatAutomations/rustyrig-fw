@@ -153,7 +153,7 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "dcc", .help_section = "Chat and rooms", .cb = cmd_dcc, .max_args = 4,
-      .desc = "DCC sessions: AUDIO|CHAT|SEND; /dcc lists sessions"
+      .desc = "DCC: AUDIO|CHAT|SEND; /dcc get ID [filename] receives into ~/Downloads/DCC/ by default; /dcc lists sessions"
    }, {
       .cmd = "media", .help_section = "Media", .cb = cmd_media, .max_args = 4,
       .desc = "Media channels: DIRECT [on|off|status] | LIST | SUBSCRIBE [-direct|-proxy] <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"

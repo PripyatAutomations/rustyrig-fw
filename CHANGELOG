@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.03) testing; urgency=medium
 
+  * Accept DCC SEND offers with /dcc get ID [filename], defaulting to the
+    offered basename in ~/Downloads/DCC/ and creating missing directories.
+    Keep explicit paths and legacy acceptance, refuse overwrites/symlinks,
+    and update offer notices, help and pending-session completion.
   * Share TUI Status, Client Log and Host Log tabs across server profiles.
     Keep one global active server selected by Ctrl-Tab in all three, show it
     in their prompts, and label output by source without creating log copies.
@@ -122,7 +126,7 @@ rustyrig-fw (20261015.03) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 15:16:57 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 15:21:40 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

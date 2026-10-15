@@ -499,8 +499,8 @@ mute setting; v1 remains owner-authorized rig audio. Peer UDP, native profile
 preferences, and IRC commands have no browser equivalent.
 
 Classic DCC CHAT/SEND are native-only IRC transports. Shared `rrclient/dcc.c`
-commands require explicit incoming acceptance and a user-chosen new destination
-for received files; GTK and TUI both use `librrprotocol/irc.dcc.h`. Session notices
+commands require explicit incoming acceptance; `/dcc get ID [filename]` defaults
+to the offered basename in `~/Downloads/DCC/`, creating that directory as needed; GTK and TUI both use `librrprotocol/irc.dcc.h`. Session notices
 and chat replies retain their issuing/accepting window and server context.
 There is no browser DCC counterpart.
 
