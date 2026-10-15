@@ -1361,6 +1361,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
    g_object_set_data_full(G_OBJECT(tab->entry), "rr-server-name", g_strdup(tab->server), g_free);
    gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
    g_object_set_data(G_OBJECT(tab->page), "rr-room-tab", tab);
+   g_object_set_data_full(G_OBJECT(tab->page), "rr-server-name", g_strdup(tab->server), g_free);
    GtkWidget *label = gtk_label_new(room);
    gtk_widget_show_all(label);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), tab->page, label);

@@ -1,5 +1,10 @@
 rustyrig-fw (20261015.03) testing; urgency=medium
 
+  * Let /query user [message] open the private tab and send trailing text;
+    mirror this shared behavior in the WebUI. Add persistent config Filter
+    labeling and a GTK F1 help window using the common categorized renderer.
+    Color server tabs with a mixed name hash, separate close palette colors,
+    and choose high-contrast dark/white or light/black labels.
   * Bind GTK chat sends and offline checks to the originating entry's server
     and room instead of mixing its server with the selected notebook page.
     Refresh page-dependent state after switches; keep query/notice/action tabs
@@ -130,7 +135,7 @@ rustyrig-fw (20261015.03) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 16:03:31 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 16:10:28 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

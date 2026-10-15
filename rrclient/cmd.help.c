@@ -20,6 +20,7 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.h>
+#include <rrclient/cmd.help.h>
 #include <rrclient/ui.h>
 
 #define HELP_DESC_COL 18
@@ -204,6 +205,9 @@ static help_line_t help_msg_after[] = {
       UI_MODE_GTK, "\t\00309Width A/N/W   \00308Select narrow/normal/wide in the width selector"
    },
    {
+      UI_MODE_GTK, "\t\00309F1            \00308Open help window"
+   },
+   {
       UI_MODE_GTK, "\t\00309F11           \00308Fullscreen toggle\017"
    },
    {
@@ -211,20 +215,28 @@ static help_line_t help_msg_after[] = {
    }
 };
 
-bool cmd_help(int argc, char **args) {
-   // TUI: defer the full-screen redraw until all lines are printed, otherwise
-   // each line causes a full redraw and this takes forever
-   bool deferred = false;
-
-   if (ui_mode == UI_MODE_TUI) {
-      tui_redraw_defer();
-      deferred = true;
+static void help_emit(rrclient_help_line_cb emit, void *data, const char *format, ...) {
+   va_list ap;
+   va_start(ap, format);
+   va_list copy;
+   va_copy(copy, ap);
+   int length = vsnprintf(NULL, 0, format, copy);
+   va_end(copy);
+   char *text = length >= 0 ? malloc((size_t)length + 1) : NULL;
+   if (text) {
+      vsnprintf(text, (size_t)length + 1, format, ap);
+      emit(text, data);
+      free(text);
    }
+   va_end(ap);
+}
 
+void rrclient_help_render(rrclient_help_line_cb emit, void *data) {
+   if (!emit) return;
    // Pre-message
    for (int i = 0 ; help_msg_before[i].line ; i++) {
       if (help_msg_before[i].mode == UI_MODE_NONE || ui_mode == help_msg_before[i].mode) {
-         ui_print(ui_active_window_name(), help_msg_before[i].line);
+         help_emit(emit, data, "%s", help_msg_before[i].line);
       }
    }
 
@@ -251,7 +263,7 @@ bool cmd_help(int argc, char **args) {
       const char *next_section = client_cmds[i].help_section ? client_cmds[i].help_section : "Other";
 
       if (!section || strcmp(section, next_section)) {
-         ui_print(ui_active_window_name(), "\00304%s\017", next_section);
+         help_emit(emit, data, "\00304%s\017", next_section);
          section = next_section;
       }
       int len = strlen(client_cmds[i].cmd);
@@ -261,19 +273,29 @@ bool cmd_help(int argc, char **args) {
          spaces = 1;
       }
 
-      ui_print(ui_active_window_name(), "\t\00309/%s%*s\00308%s\017", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
+      help_emit(emit, data, "\t\00309/%s%*s\00308%s\017", client_cmds[i].cmd, spaces, "", client_cmds[i].desc);
    }
 
    // After-message
    for (int i = 0 ; help_msg_after[i].line ; i++) {
       if (help_msg_after[i].mode == UI_MODE_NONE || ui_mode == help_msg_after[i].mode) {
-         ui_print(ui_active_window_name(), help_msg_after[i].line);
+         help_emit(emit, data, "%s", help_msg_after[i].line);
       }
    }
 
-   if (deferred) {
-      tui_redraw_flush();
-   }
+}
 
+static void help_chat_line(const char *line, void *data) {
+   (void)data;
+   ui_print(ui_active_window_name(), "%s", line);
+}
+
+bool cmd_help(int argc, char **args) {
+   (void)argc;
+   (void)args;
+   bool deferred = ui_mode == UI_MODE_TUI;
+   if (deferred) tui_redraw_defer();
+   rrclient_help_render(help_chat_line, NULL);
+   if (deferred) tui_redraw_flush();
    return false;
 }

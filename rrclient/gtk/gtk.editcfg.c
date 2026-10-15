@@ -738,9 +738,10 @@ GtkWidget *init_config_tab(void) {
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(header), 6);
    gtk_box_pack_start(GTK_BOX(nw), header, FALSE, FALSE, 6);
-   GtkWidget *search = gtk_entry_new();
+   gtk_box_pack_start(GTK_BOX(header), gtk_label_new("Filter:"), FALSE, FALSE, 0);
+   GtkWidget *search = gtk_search_entry_new();
    gtk_entry_set_width_chars(GTK_ENTRY(search), 20);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Filter config...");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Filter config… (=key, ^prefix)");
    gtk_widget_set_tooltip_text(search,
       "Filter keys and descriptions (case-insensitive). =audio: keys containing audio; ^debug: keys starting with debug. Clear to show all fields.");
    gtk_box_pack_start(GTK_BOX(header), search, FALSE, FALSE, 0);

@@ -31,6 +31,7 @@
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/gtk/gtk.resources.h>
 #include <rrclient/gtk/gtk.tabs.h>
+#include <rrclient/gtk/gtk.help.h>
 
 #define MSGBUF_SIZE 8096
 
@@ -1364,6 +1365,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   gtk_help_shutdown();
    gtk_resources_shutdown();
    gtk_receiver_directory_shutdown();
    gtk_audio_routing_shutdown();

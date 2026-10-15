@@ -721,3 +721,14 @@ input dispatch owns the scoped parser context. Notebook selection refreshes
 page-dependent state after GTK updates its current page. Native IRC private
 NOTICE/ACTION events retain query classification; GTK query tabs have no
 channel roster. This is native frontend/IRC behavior, with no browser change.
+
+Native and browser `/query user [message]` both open the named private tab and
+optionally send the remaining text to that user; the native parser splits the
+username from the remaining message. GTK F1 opens the shared categorized help
+content in a separate window while `/help` retains text output. Privilege
+filtering stays in the common renderer. GTK config filtering has a permanent
+Filter label and an empty-field hint. Server-associated GTK tabs use a mixed
+profile-name hash and a session palette that separates close colors, with
+black text on light backgrounds or white text on dark backgrounds. Labels,
+keyboard numbers and drag order remain independent of those colors. Shared
+system tabs retain the theme; these presentation details are GTK-specific.

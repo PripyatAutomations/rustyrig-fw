@@ -129,7 +129,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "ban", .help_section = "Chat and rooms", .cb = cmd_ban, .max_args = 1, .desc = "Ban an IRC user from a room"
    },
    {
-      .cmd = "query", .help_section = "Chat and rooms", .cb = cmd_query, .max_args = 1, .desc = "Open a private message tab"
+      .cmd = "query", .help_section = "Chat and rooms", .cb = cmd_query, .max_args = 2, .desc = "/query user [message]: open a private tab and optionally send text"
    },
    {
       .cmd = "quote", .help_section = "Chat and rooms", .cb = cmd_raw, .desc = "Send a raw IRC command (alias for /raw)"

@@ -1,6 +1,101 @@
 /* GTK-only tab presentation; the notebook remains the page/shortcut owner. */
 #include <rrclient/gtk/gtk.tabs.h>
 
+typedef struct tab_color {
+   unsigned r, g, b;
+   gboolean light;
+} tab_color_t;
+
+static guint32 tab_hash(const char *name) {
+   guint32 hash = 2166136261u;
+   for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) hash = (hash ^ *p) * 16777619u;
+   /* Avalanche similar profile names before selecting hue and brightness. */
+   hash ^= hash >> 16; hash *= 0x7feb352du;
+   hash ^= hash >> 15; hash *= 0x846ca68bu;
+   return hash ^ (hash >> 16);
+}
+
+static tab_color_t tab_color_candidate(guint32 hash, unsigned attempt) {
+   unsigned hue = (hash % 360 + attempt * 137) % 360;
+   gboolean light = ((hash >> 12) ^ attempt) & 1;
+   unsigned saturation = light ? 25 + (hash >> 16) % 16 : 65 + (hash >> 16) % 21;
+   /* White on dark: every component <= 110 (contrast >= 5.1:1).
+    * Black on light: every component >= 132 (contrast >= 5.6:1).
+    * Bounds guarantee readable text without floating-point luminance work. */
+   unsigned value = light ? 220 + (hash >> 24) % 26 : 90 + (hash >> 24) % 21;
+   unsigned low = value * (100 - saturation) / 100;
+   unsigned rising = low + (value - low) * (hue % 60) / 60;
+   unsigned falling = value - (value - low) * (hue % 60) / 60;
+   tab_color_t color = {.light = light};
+   switch (hue / 60) {
+      case 0: color.r = value; color.g = rising; color.b = low; break;
+      case 1: color.r = falling; color.g = value; color.b = low; break;
+      case 2: color.r = low; color.g = value; color.b = rising; break;
+      case 3: color.r = low; color.g = falling; color.b = value; break;
+      case 4: color.r = rising; color.g = low; color.b = value; break;
+      default: color.r = value; color.g = low; color.b = falling; break;
+   }
+   return color;
+}
+
+static const tab_color_t *tab_server_color(GtkNotebook *notebook, const char *server) {
+   GHashTable *palette = g_object_get_data(G_OBJECT(notebook), "rr-tab-palette");
+   if (!palette) {
+      palette = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+      g_object_set_data_full(G_OBJECT(notebook), "rr-tab-palette", palette, (GDestroyNotify)g_hash_table_destroy);
+   }
+   tab_color_t *stored = g_hash_table_lookup(palette, server);
+   if (stored) return stored;
+   guint32 hash = tab_hash(server);
+   unsigned best_distance = 0;
+   tab_color_t best = {0};
+   for (unsigned attempt = 0 ; attempt < 32 ; attempt++) {
+      tab_color_t candidate = tab_color_candidate(hash, attempt);
+      unsigned nearest = G_MAXUINT;
+      GHashTableIter iter;
+      gpointer value;
+      g_hash_table_iter_init(&iter, palette);
+      while (g_hash_table_iter_next(&iter, NULL, &value)) {
+         tab_color_t *other = value;
+         int dr = (int)candidate.r - (int)other->r;
+         int dg = (int)candidate.g - (int)other->g;
+         int db = (int)candidate.b - (int)other->b;
+         unsigned distance = dr * dr + dg * dg + db * db;
+         nearest = MIN(nearest, distance);
+      }
+      if (nearest > best_distance) { best = candidate; best_distance = nearest; }
+      if (nearest >= 48 * 48) break;
+   }
+   stored = g_new(tab_color_t, 1);
+   *stored = best;
+   g_hash_table_insert(palette, g_strdup(server), stored);
+   return stored;
+}
+
+static void tab_apply_color(GtkNotebook *notebook, GtkWidget *page, GtkWidget *widget) {
+   const char *server = g_object_get_data(G_OBJECT(page), "rr-server-name");
+   if (!server || !*server) return;
+   const tab_color_t *color = tab_server_color(notebook, server);
+   const char *foreground = color->light ? "#000000" : "#ffffff";
+   char css[1024];
+   g_snprintf(css, sizeof(css),
+      "* {background-image:none; background-color:rgb(%u,%u,%u); color:%s;}"
+      "button:checked {box-shadow:inset 0 -3px %s; border-color:%s;}"
+      "button:hover {border-color:%s;} button label {color:%s;}",
+      color->r, color->g, color->b, foreground, foreground, foreground, foreground, foreground);
+   GtkCssProvider *provider = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(provider, css, -1, NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(widget), GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+   g_object_unref(provider);
+   gtk_widget_set_tooltip_text(widget, server);
+}
+
+static void tab_native_color(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
+   (void)number; (void)data;
+   GtkWidget *label = gtk_notebook_get_tab_label(notebook, page);
+   if (label) tab_apply_color(notebook, page, label);
+}
+
 static void tab_set_selected(GtkWidget *button, gboolean selected) {
    gulong handler = GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(button), "rr-tab-click-handler"));
    /* GTK emits clicked when set_active changes a toggle. */
@@ -152,6 +247,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_box_pack_start(GTK_BOX(content), number_label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(content), label, FALSE, FALSE, 0);
       gtk_container_add(GTK_CONTAINER(button), content);
+      tab_apply_color(notebook, child, button);
       gtk_widget_set_focus_on_click(button, FALSE);
       gtk_style_context_add_class(gtk_widget_get_style_context(button), "tab");
       g_object_set_data(G_OBJECT(button), "rr-tab-page", child);
@@ -173,6 +269,10 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position) {
    gtk_notebook_set_tab_pos(notebook, position);
    if (position == GTK_POS_LEFT || position == GTK_POS_RIGHT) {
+      g_signal_connect(notebook, "page-added", G_CALLBACK(tab_native_color), NULL);
+      for (int i = 0 ; i < gtk_notebook_get_n_pages(notebook) ; i++) {
+         tab_native_color(notebook, gtk_notebook_get_nth_page(notebook, i), i, NULL);
+      }
       return GTK_WIDGET(notebook);
    }
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);

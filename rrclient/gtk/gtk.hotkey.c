@@ -27,6 +27,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.chat.h>
 #include <rrclient/gtk/gtk.tabs.h>
+#include <rrclient/gtk/gtk.help.h>
 
 extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
@@ -134,6 +135,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       return ptt_button_hotkey_release();
+   }
+
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_F1 && !modifiers) {
+      gtk_help_show();
+      return TRUE;
    }
 
    // F11 toggles fullscreen

@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 #ifdef HAVE_XTEST
 #include <gdk/gdkx.h>
 #include <X11/extensions/XTest.h>
@@ -43,11 +44,32 @@ static void drag_tab(GtkWidget *source, GtkWidget *target) {
 }
 #endif
 
+static double channel_luminance(unsigned value) {
+   double s = value / 255.0;
+   return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4);
+}
+static void test_colors(GtkNotebook *notebook) {
+   const char *names[] = {"libera", "localirc", "localhost", "server1", "server2", "server3", "server4"};
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; i++) {
+      const tab_color_t *color = tab_server_color(notebook, names[i]);
+      assert(color == tab_server_color(notebook, names[i]));
+      double luminance = .2126 * channel_luminance(color->r) + .7152 * channel_luminance(color->g) + .0722 * channel_luminance(color->b);
+      double contrast = color->light ? (luminance + .05) / .05 : 1.05 / (luminance + .05);
+      assert(contrast >= 4.5);
+      for (unsigned j = 0 ; j < i ; j++) {
+         const tab_color_t *other = tab_server_color(notebook, names[j]);
+         int dr = (int)color->r - (int)other->r, dg = (int)color->g - (int)other->g, db = (int)color->b - (int)other->b;
+         assert(dr * dr + dg * dg + db * db >= 48 * 48);
+      }
+   }
+}
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    for (int top = 0; top < 2; top++) {
       GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       GtkNotebook *notebook = GTK_NOTEBOOK(gtk_notebook_new());
+      test_colors(notebook);
       GtkWidget *box = gtk_wrapping_tabs_new(notebook, top ? GTK_POS_TOP : GTK_POS_BOTTOM);
       GList *children = gtk_container_get_children(GTK_CONTAINER(box));
       GtkWidget *flow = top ? children->data : children->next->data;
@@ -62,10 +84,21 @@ int main(int argc, char **argv) {
       for (int i = 0; i < 12; i++) {
          char title[32];
          g_snprintf(title, sizeof(title), "(%d) Receiver", i + 1);
-         gtk_notebook_append_page(notebook, gtk_label_new("content"), gtk_label_new(title));
+         GtkWidget *page = gtk_label_new("content");
+         g_object_set_data_full(G_OBJECT(page), "rr-server-name", g_strdup(i % 2 ? "libera" : "localirc"), g_free);
+         gtk_notebook_append_page(notebook, page, gtk_label_new(title));
       }
       gtk_widget_show_all(window);
       settle();
+      GtkStyleContext *style = gtk_widget_get_style_context(button_at(flow, 0));
+      GdkRGBA foreground, *background = NULL;
+      gtk_style_context_get_color(style, gtk_style_context_get_state(style), &foreground);
+      gtk_style_context_get(style, gtk_style_context_get_state(style), "background-color", &background, NULL);
+      const tab_color_t *applied = tab_server_color(notebook, "localirc");
+      assert(background && fabs(background->red * 255 - applied->r) < 1);
+      assert(fabs(background->green * 255 - applied->g) < 1 && fabs(background->blue * 255 - applied->b) < 1);
+      assert(foreground.red == (applied->light ? 0 : 1));
+      gdk_rgba_free(background);
       int narrow_height = gtk_widget_get_allocated_height(flow);
       GtkAllocation first, last;
       gtk_widget_get_allocation(GTK_WIDGET(gtk_flow_box_get_child_at_index(GTK_FLOW_BOX(flow), 0)), &first);
