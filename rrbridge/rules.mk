@@ -14,7 +14,7 @@ endif
 .PHONY: test-rrbridge-kiwi
 test-rrbridge-kiwi:
 	@mkdir -p ${BUILD_DIR}/rrbridge
-	@${CC} -std=c11 -Wall -Wextra -Werror -I. -o ${BUILD_DIR}/rrbridge/test.kiwi librrprotocol/bridge.sdr.c rrbridge/module.kiwi.c rrbridge/tests/kiwi.c
+	@${CC} ${CFLAGS} -Wall -Wextra -Werror -I. -o ${BUILD_DIR}/rrbridge/test.kiwi rrbridge/module.kiwi.c rrbridge/tests/kiwi.c -L. -Wl,-rpath,"${CURDIR}" -lrrprotocol -lrustyaxe ${LDFLAGS}
 	@${BUILD_DIR}/rrbridge/test.kiwi
 
 # Bridge host uses the same named-section parser as rrserver (one source of truth).

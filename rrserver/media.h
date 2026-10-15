@@ -13,6 +13,8 @@ extern void rrserver_media_record_ptt(rr_vfo_t vfo, bool ptt, rrconn_t *talker, 
 extern bool rrserver_media_activate_ptt(rr_vfo_t vfo, rrconn_t *talker);
 extern void rrserver_media_recording_tick(void);
 extern bool rrserver_media_audio_init(void);
+struct rr_server_rig;
+extern void rrserver_media_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len);
 extern bool rrserver_media_init(void);
 extern void rrserver_media_register_events(void);
 

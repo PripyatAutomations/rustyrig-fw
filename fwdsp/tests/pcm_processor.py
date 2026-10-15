@@ -63,6 +63,25 @@ with tempfile.TemporaryDirectory() as temp:
         mode="bidirectional")
     assert_pcm_frame(result.stdout, frame)
 
+    # Device PCM rates are normalized by the isolated DSP process, preserving duration.
+    native_pipeline = (
+        "appsrc name=processor-src is-live=true format=time do-timestamp=true "
+        "caps=audio/x-raw,format=S16LE,rate=12000,channels=1,layout=interleaved "
+        "! audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved "
+        "! appsink name=processor-sink sync=false max-buffers=8 drop=false"
+    )
+    native_pcm = struct.pack('<h', 1000) * 1200
+    result = run_fwdsp(work, config, native_pipeline, struct.pack('!I', len(native_pcm)) + native_pcm, mode='resample')
+    decoded = b''
+    position = 0
+    while position < len(result.stdout):
+        size = int.from_bytes(result.stdout[position:position+4], 'big')
+        assert size and position + 4 + size <= len(result.stdout)
+        decoded += result.stdout[position+4:position+4+size]
+        position += 4 + size
+    assert 3000 <= len(decoded) <= 3400, ('12-to-16kHz duration mismatch', len(decoded))
+    assert max(struct.unpack('<' + 'h' * (len(decoded)//2), decoded)) >= 900
+
     # A real GStreamer effect modifies PCM while preserving its framing.
     loud_frame = struct.pack("<h", 12000) * 320
     loud_input = len(loud_frame).to_bytes(4, "big") + loud_frame

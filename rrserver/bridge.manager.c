@@ -11,6 +11,10 @@
 #include <unistd.h>
 #include <glib.h>
 #include <librrprotocol/bridge.ipc.h>
+#include <librrprotocol/bridge.media.h>
+#include <librrprotocol/rrprotocol.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
+#include <rrserver/media.h>
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
 #include <rrserver/bridge.manager.h>
@@ -21,7 +25,9 @@ struct bridge_child {
    char *name, *driver;
    rr_backend_t *backend;
    subproc_t process;
-   int fd;
+   int fd, media_fd;
+   unsigned sample_rate;
+   char resampler[64];
    bool hello, ready, online, desired;
    uint64_t next_retry, started, last_seen, pending, deadline, next_request, kill_deadline;
    uint64_t desired_hz, requested_hz;
@@ -60,6 +66,8 @@ static void finish(struct bridge_child *b, rr_control_result_t result) {
 }
 static void offline(struct bridge_child *b) {
    b->online = false;
+   if (b->sample_rate) fwdsp_processor_stop(b->resampler);
+   b->sample_rate = 0;
    boolean(b->backend->owner, "online", false);
    boolean(b->backend->owner, "rx.available", false);
    rr_server_vfo_t *vfo = receiver(b);
@@ -73,6 +81,8 @@ static void disconnect(struct bridge_child *b) {
    offline(b);
    if (b->fd >= 0) close(b->fd);
    b->fd = -1;
+   if (b->media_fd >= 0) close(b->media_fd);
+   b->media_fd = -1;
    b->hello = b->ready = false;
    if (b->process.pid > 0) {
       kill(b->process.pid, SIGTERM);
@@ -119,7 +129,9 @@ static bool create(rr_backend_t *backend) {
    if (!b->name || !b->driver) { free(b->name); free(b->driver); free(b); return true; }
    b->backend = backend;
    b->process = (subproc_t)SUBPROC_INIT;
-   b->fd = -1;
+   b->fd = b->media_fd = -1;
+   static unsigned identity;
+   snprintf(b->resampler, sizeof(b->resampler), "proc.bridge-%u", ++identity);
    b->next = children;
    children = b;
    backend->data = b;
@@ -238,15 +250,18 @@ static bool spawn_child(struct bridge_child *b) {
       return false;
    }
    const char *argv[] = {path, "--config", config_path, "--bridge", b->name, NULL};
-   int sv[2];
+   int sv[2], media[2];
    if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, sv)) { g_free(path); return false; }
-   subproc_fd_t map[] = {{sv[1], RRP_BRIDGE_IPC_FD}};
-   int closes[] = {sv[0], sv[1]};
-   bool ok = subproc_spawn_fds(&b->process, path, argv, map, 1, closes, 2);
-   close(sv[1]);
+   if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, media)) { close(sv[0]); close(sv[1]); g_free(path); return false; }
+   int capacity = 16384;
+   setsockopt(media[1], SOL_SOCKET, SO_SNDBUF, &capacity, sizeof(capacity));
+   subproc_fd_t map[] = {{sv[1], RRP_BRIDGE_IPC_FD}, {media[1], RRP_BRIDGE_MEDIA_FD}};
+   int closes[] = {sv[0], sv[1], media[0], media[1]};
+   bool ok = subproc_spawn_fds(&b->process, path, argv, map, 2, closes, 4);
+   close(sv[1]); close(media[1]);
    g_free(path);
-   if (!ok) { close(sv[0]); return false; }
-   b->fd = sv[0];
+   if (!ok) { close(sv[0]); close(media[0]); return false; }
+   b->fd = sv[0]; b->media_fd = media[0];
    b->started = b->last_seen = mono_us();
    b->kill_deadline = 0;
    b->hello = b->ready = false;
@@ -326,6 +341,31 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
    }
    return false;
 }
+static void decoded_pcm(const char *name, const void *samples, size_t length, void *user) {
+   (void)name;
+   struct bridge_child *b = user;
+   if (b->online) rrserver_media_rx_pcm(b->backend->owner, samples, length);
+}
+static void read_media(struct bridge_child *b) {
+   for (int i = 0; i < 8 && b->media_fd >= 0; i++) {
+      struct rrp_bridge_pcm frame;
+      int got = rrp_bridge_media_recv(b->media_fd, &frame);
+      if (!got) break;
+      if (got < 0) { disconnect(b); break; }
+      if (!b->online || !(b->caps.flags & RRP_BRIDGE_RX_AUDIO)) continue;
+      if (b->sample_rate != frame.rate) {
+         if (b->sample_rate) fwdsp_processor_stop(b->resampler);
+         b->sample_rate = 0;
+      }
+      if (!b->sample_rate) {
+         if (!fwdsp_audio_resampler_start(b->resampler, frame.rate, decoded_pcm, b)) continue;
+         b->sample_rate = frame.rate;
+      }
+      uint8_t pcm[2 * RRP_BRIDGE_MEDIA_SAMPLES];
+      for (size_t j = 0; j < frame.count; j++) { pcm[2*j] = (uint16_t)frame.samples[j]; pcm[2*j+1] = (uint16_t)frame.samples[j] >> 8; }
+      if (!fwdsp_processor_write(b->resampler, pcm, frame.count * 2)) b->sample_rate = 0;
+   }
+}
 void rrserver_bridges_poll(void) {
    if (stopping || !config_path) return;
    uint64_t current = mono_us();
@@ -351,6 +391,7 @@ void rrserver_bridges_poll(void) {
          subproc_close(&b->process);
          schedule_retry(b);
       }
+      if (b->ready && b->media_fd >= 0) read_media(b);
       // Reset backoff only after a stable session, never on a crash loop.
       if (b->ready && current - b->started >= 30000000) b->failures = 0;
       if (b->process.pid <= 0 && current >= b->next_retry) if (!spawn_child(b)) schedule_retry(b);

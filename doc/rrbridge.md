@@ -5,10 +5,11 @@ Each enabled bridge is a separate `rrbridge` process with one driver loaded
 through the existing module loader. Shared configuration, the versioned driver
 ABI, and local control IPC live in `librrprotocol/bridge.*`.
 
-This milestone implements registration and control, demonstrated end-to-end
-with a test driver. The Kiwi module remains a formatter/probe: it does not
-connect or authenticate to a Kiwi receiver and stays offline. No bridge audio,
-waterfall, IQ or transmission is implemented.
+The Kiwi driver connects to a receiver over WebSocket, authenticates, configures
+mono audio, confirms tuning changes and forwards received sound to clients.
+A separate bounded PCM socket and `fwdsp` resampler preserve DSP/process
+isolation. Waterfall, IQ, ADPCM, signal-strength publication and transmission
+are not implemented. The driver requests uncompressed PCM explicitly.
 
 ## Configuration
 
@@ -21,9 +22,12 @@ modules=auto
 [bridge:hf-east]
 enabled=true
 driver=kiwi
-host=receiver.example.net
+host=hutton.proxy.kiwisdr.com
 port=8073
 rig=hf-east
+frequency=14074000
+mode=USB
+; password=optional-receiver-password
 ```
 
 `path=auto` searches `PATH` for an executable `rrbridge`, then tries
@@ -37,6 +41,11 @@ The bridge roster is opt-in and empty in the shipped configuration. `enabled`
 accepts true/false or 1/0. Bridge/driver names and rig aliases contain only
 letters, digits, underscores or dashes and must fit in 63 bytes. Duplicate
 rig aliases, including collisions with physical radios, fail startup.
+`host` is a DNS hostname or IPv4 address, `port` defaults to 8073, and
+`frequency`/`mode` select initial tuning (14074000 Hz / USB by default).
+The initial transport is plain WebSocket as used by the receiver's HTTP
+endpoint. Passwords must fit 128 bytes and contain no whitespace. Global
+`[bridge]` host/port/password/frequency/mode provide defaults for named sections.
 Driver-specific settings remain in the configuration file and are available
 through the host's `setting` callback; credentials never enter the command line.
 
@@ -72,8 +81,8 @@ Client permissions and PTT interlocks remain under existing server authority.
 
 Existing native and browser object/property discovery consumes these standard
 schemas and observations. No Kiwi-specific client messages or UI are needed.
-The control-only milestone does not provision bridge media channels or attach
-local sound-card pipelines to an external receiver.
+Bridge receivers expose RX audio channels through the existing media protocol.
+They never provision TX channels or attach local sound-card capture pipelines.
 
 ## Driver and local IPC contracts
 
@@ -82,11 +91,11 @@ operations. External SDR networking belongs to the driver. `start` returning
 true means startup was accepted; it does not mean the receiver is connected.
 Callbacks run on the host thread. `state` reports actual connection, frequency
 and mode; `complete` acknowledges a matching accepted command after apply and
-readback. A false `set_receiver` return rejects immediately and must not also
+confirmation. A false `set_receiver` return rejects immediately and must not also
 complete the same request. Driver-owned capability strings are copied before
 sending. Mode names use the canonical spellings understood by `vfo_parse_mode`.
 
-Local IPC version 2 uses a bounded fixed record over inherited FD 3, created
+Local IPC version 3 uses a bounded fixed record over inherited FD 3, created
 with `SOCK_SEQPACKET`. Records are same-host/same-build, not a portable network
 serialization format. Public APIs expose no Mongoose types. Records validate
 size, magic/version, type, reserved fields, strings, capability flags/ranges,
@@ -97,7 +106,15 @@ The inherited socket is local authority; it is not a server-link peer.
 Messages are HELLO, CAPABILITIES, SET (frequency and mode, request ID), STATE,
 RESULT, HEARTBEAT and SHUTDOWN. There is one outstanding command per receiver;
 additional commands fail explicitly through the existing backend-failure result.
-No PCM enters this queue. Future media requires a separately bounded transport.
+No PCM enters this queue. Inherited FD 4 carries separate `SOCK_SEQPACKET`
+media records: 12-byte header (`RRBA`, version 1, mono-S16LE format 1, two
+reserved zero bytes, big-endian uint32 sample rate), followed by little-endian
+signed 16-bit samples. Rates are 8000–48000 Hz, with 1–2048 samples per record.
+Send is nonblocking; a full audio socket drops a complete record. The server
+bounds each poll to eight media records and keeps control on its separate FD.
+`fwdsp -M resample` converts native mono PCM to canonical 16 kHz in a separate
+process before the existing per-channel encoder fanout. Failed resamplers are
+recreated as audio arrives; disconnects stop the receiver's resampler.
 Nonblocking send failure closes the session instead of growing a hidden queue.
 
 The server processes at most eight records per bridge per iteration. Handshake
@@ -112,25 +129,53 @@ acknowledgment retains desired frequency/mode in server memory for restoration
 after bridge/remote reconnects; failed requests preserve the prior desired
 state. This does not add tuning persistence across a full server restart.
 
-## Kiwi scope and next milestone
+## Kiwi wire behavior and limits
 
-The current Kiwi declarations cover a conservative 0–30 MHz baseband and USB,
-LSB, AM and CW subset. The formatter's kHz frequency units and mode-specific
-passbands were checked against
-[kiwiclient's client.py](https://github.com/jks-prv/kiwiclient/blob/master/kiwi/client.py).
-Configured frequency offsets and dynamic receiver/firmware restrictions must
-be negotiated by the future live driver before reporting availability. The
-subset is not a claim that the remote device has been queried.
+The SND WebSocket URL, authentication, rate negotiation, uncompressed mono
+sample framing, endianness and mode-specific passbands follow
+[kiwiclient](https://github.com/jks-prv/kiwiclient/blob/master/kiwi/client.py).
+The NEW_FREQ flag (0x04) in
+[Kiwi firmware](https://github.com/jks-prv/Beagle_SDR_GPS/blob/master/rx/rx_sound.cpp)
+is emitted after applying frequency/mode; the bridge waits for that indication
+before marking initial reception online or completing a changed tuning request.
+An unchanged frequency/mode completes without another hardware operation.
+Kiwi does not echo a numeric tuning readback or request ID. Reported tuning
+therefore means the requested tuning was confirmed by that device flag, not an
+independent measured frequency. USB, LSB, AM and CW use fixed mode passbands.
 
-Next implement Kiwi WebSocket authentication, tuning/state confirmation and
-reconnects inside the Kiwi driver, then a separate PCM transport into the
-existing server/DSP media path. Preserve this control and process isolation.
+The initial range is a conservative 0–30 MHz baseband. Nonzero receiver
+frequency offsets are rejected rather than silently mistuning. Unsupported
+stereo/IQ or compressed streams fail closed. A short compressed startup tail
+is ignored while the uncompressed setting takes effect. Frames are length
+checked, sequences must advance, receive/send buffering is bounded, and raw
+peer metadata/passwords are not copied to logs.
+
+The driver reconnects with bounded exponential backoff, retains confirmed
+tuning, sends keepalives, and times out missing audio or unconfirmed commands.
+The host refreshes its process `time_t now` before startup and on every poll,
+so bridge/module logging has current timestamps.
+
+A live end-to-end smoke test against `hutton.proxy.kiwisdr.com:8073` succeeded:
+authentication, frequency and mode changes, native PCM reception, resampling,
+and audio frames delivered to an authenticated local RustyRig client. That
+receiver was released after the check. No long-duration playback guarantee is
+implied by this short test.
+
+Next extend passband controls, signal measurements, additional firmware/range
+negotiation and compressed audio if needed; keep device-specific behavior in
+the Kiwi driver and retain the separate DSP/media paths.
 
 ## Validation
 
 `tests/run-tests.sh rrbridge rrserver librrprotocol` discovers component suites.
 New tests cover ABI rejection, IPC framing/validation, supervisor handshake and
 queue bounds, and a real server + bridge + loaded asynchronous test driver.
-The live fixture exercises ordinary object discovery/descriptors, acknowledged
+The bridge lifecycle fixture exercises ordinary object discovery/descriptors, acknowledged
 frequency/mode requests, failed/out-of-range controls, offline Kiwi, room-number
 collisions, child crashes, wedged-command timeouts and desired-state restoration.
+
+`rrserver/tests/test_kiwi_live.sh` runs an isolated wire-level Kiwi peer, a real
+server, bridge and DSP workers. It covers authentication rejection/retry,
+NEW_FREQ-confirmed tuning, both PCM byte orders, resampled client audio and
+remote disconnect/reconnect. Protocol tests cover media framing and
+backpressure, and DSP tests check that 12-to-16 kHz conversion preserves duration.

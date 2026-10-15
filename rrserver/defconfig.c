@@ -37,6 +37,11 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "bridge.host", "", "Default receiver hostname; named bridge settings override" },
+   { "bridge.port", "8073", "Default receiver service port" },
+   { "bridge.password", "", "Optional receiver password" },
+   { "bridge.frequency", "14074000", "Initial bridge receiver frequency in Hz" },
+   { "bridge.mode", "USB", "Initial bridge receiver mode" },
    { "bridge.instances", "", "Bridge aliases, separated by spaces or commas" },
    { "bridge.path", "auto", "Bridge executable path, or auto for PATH then ./bin/rrbridge" },
    { "bridge.modules", "auto", "Bridge driver directory, or auto for installed modules then ./bin" },

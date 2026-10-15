@@ -610,5 +610,6 @@ See [Backend workers](backend-workers.md) for ownership and scheduling details.
 `rrserver/bridge.manager.c` publishes bridge receivers through the existing
 UUID object/property protocol. Native `rrclient/objects.c` and browser
 `js/webui.objects.js` consume the same frequency bounds, mode enums and
-availability without driver-specific messages. Bridge media is not provisioned
-in this control-only milestone. See [External receiver bridges](rrbridge.md).
+availability without driver-specific messages. Native and browser clients
+receive bridge RX audio through the existing codec/media paths. TX media is
+not provisioned for these receivers. See [External receiver bridges](rrbridge.md).

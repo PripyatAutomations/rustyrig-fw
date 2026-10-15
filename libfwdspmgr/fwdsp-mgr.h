@@ -27,7 +27,8 @@ enum fwdsp_pipeline_role {
 enum fwdsp_processor_io {
    FWDSP_PROCESSOR_IO_BIDIRECTIONAL = 0,
    FWDSP_PROCESSOR_IO_CAPTURE,
-   FWDSP_PROCESSOR_IO_PLAYBACK
+   FWDSP_PROCESSOR_IO_PLAYBACK,
+   FWDSP_PROCESSOR_IO_RESAMPLE
 };
 
 typedef void (*fwdsp_processor_output_cb)(const char *name, const void *samples, size_t len, void *user_data);
@@ -161,6 +162,7 @@ extern bool fwdsp_audio_capture_start(const char *name, const char *pipeline, fw
 extern bool fwdsp_audio_playback_start(const char *name, const char *pipeline);
 // Write one even-length PCM frame to a processor or playback endpoint. true
 // means the complete framed sample data was accepted by the child pipe.
+extern bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user);
 extern bool fwdsp_processor_write(const char *name, const void *samples, size_t len);
 // Set the named processor's processor-vol element to 0..100 percent.
 extern bool fwdsp_processor_setvol(const char *name, int percent);

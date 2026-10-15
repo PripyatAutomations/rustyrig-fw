@@ -6,7 +6,7 @@ extern bool rr_module_init(void);
 extern void rr_module_shutdown(void);
 static void status(void *user, const char *msg) {
    int *calls = user;
-   assert(strcmp(msg, "MSG hello") == 0);
+   assert(strcmp(msg, "Kiwi authentication rejected") == 0);
    ++*calls;
 }
 int main(void) {
@@ -24,7 +24,7 @@ int main(void) {
    assert(cap.rx_max_hz == 30000000 && cap.tx_max_hz == 0);
    assert(strcmp(cap.rx_modes, "USB LSB AM CW") == 0);
    assert(cap.tx_modes == NULL);
-   assert(driver->start(rx));
+   assert(!driver->start(rx)); // Host configuration is required for a live session.
    driver->poll(rx);
    assert(!driver->set_receiver(rx, 1, 14200000, "USB"));
    assert(driver->tune(rx, 14200000, "usb", cmd, sizeof(cmd)));
@@ -33,7 +33,11 @@ int main(void) {
    assert(!driver->tune(rx, 14200000, "usb", cmd, 4));
    assert(driver->receive(rx, "MSG hello", 9));
    assert(!driver->receive(rx, "SND", 3));
+   assert(calls == 0); // Unknown peer metadata is not copied into logs.
+   assert(!driver->receive(rx, "MSG badp=1", 10));
    assert(calls == 1);
+   assert(!driver->receive(rx, "MSG x=\0bad", 10));
+   assert(!driver->receive(rx, NULL, 0));
    driver->destroy(rx);
    rr_module_shutdown();
    assert(rrp_sdr_find("kiwi") == NULL);

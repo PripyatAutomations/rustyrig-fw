@@ -20,7 +20,7 @@ ${CC:-cc} ${CFLAGS:-} -pthread -std=gnu11 -DRR_TEST_OBJECT_PROTOCOL -I. -Iinc -I
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
    rrserver/cfg.rig.c rrserver/rig.rooms.c rrserver/database.c rrserver/defconfig.c \
    rrserver/objects.c rrclient/objects.c \
-   -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
+   -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lfwdspmgr \
    $(pkg-config --libs glib-2.0 hamlib sqlite3) ${LDFLAGS:-} \
    -o "$work/multirig-live"
 python3 rrserver/tests/multirig_live.py "$work/multirig-live" "$work"

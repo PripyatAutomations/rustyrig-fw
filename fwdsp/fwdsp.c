@@ -63,7 +63,8 @@ enum pcm_processor_mode {
    PCM_PROCESSOR_MODE_AUTO = 0,
    PCM_PROCESSOR_MODE_BIDIRECTIONAL,
    PCM_PROCESSOR_MODE_CAPTURE,
-   PCM_PROCESSOR_MODE_PLAYBACK
+   PCM_PROCESSOR_MODE_PLAYBACK,
+   PCM_PROCESSOR_MODE_RESAMPLE
 };
 
 
@@ -751,7 +752,7 @@ static void configure_pipeline_buffers(GstElement *pipeline) {
    gst_iterator_free(iterator);
 }
 
-static bool processor_pcm_caps(GstCaps *caps) {
+static bool processor_pcm_caps_rate(GstCaps *caps, bool native_rate) {
    if (!caps || gst_caps_is_empty(caps) || gst_caps_get_size(caps) != 1) {
       return false;
    }
@@ -764,7 +765,11 @@ static bool processor_pcm_caps(GstCaps *caps) {
    return gst_structure_has_name(structure, "audio/x-raw") && format &&
           strcmp(format, "S16LE") == 0 &&
           (!layout || strcmp(layout, "interleaved") == 0) &&
-          gst_structure_get_int(structure, "rate", &rate) && rate == 16000 && gst_structure_get_int(structure, "channels", &channels) && channels == 1;
+          gst_structure_get_int(structure, "rate", &rate) && (native_rate ? rate >= 8000 && rate <= 48000 : rate == 16000) && gst_structure_get_int(structure, "channels", &channels) && channels == 1;
+}
+
+static bool processor_pcm_caps(GstCaps *caps) {
+   return processor_pcm_caps_rate(caps, false);
 }
 
 static void run_loop(struct audio_config *cfg) {
@@ -842,14 +847,14 @@ static void run_loop(struct audio_config *cfg) {
          volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       }
       GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
-      bool processor_input_ok = !appsrc || processor_pcm_caps(processor_input_caps);
+      bool processor_input_ok = !appsrc || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE);
 
       if (processor_input_caps) {
          gst_caps_unref(processor_input_caps);
       }
       bool processor_endpoints_ok = appsrc || appsink;
 
-      if (processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL) {
+      if (processor_io_mode == PCM_PROCESSOR_MODE_BIDIRECTIONAL || processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE) {
          processor_endpoints_ok = appsrc && appsink;
       } else if (processor_io_mode == PCM_PROCESSOR_MODE_CAPTURE) {
          processor_endpoints_ok = !appsrc && appsink;
@@ -858,7 +863,7 @@ static void run_loop(struct audio_config *cfg) {
       }
 
       if (processor_mode && (!processor_endpoints_ok || !processor_input_ok)) {
-         Log(LOG_CRIT, "fwdsp", "Audio pipeline %s has invalid endpoints or non-mono S16LE 16 kHz appsrc caps", processor_name);
+         Log(LOG_CRIT, "fwdsp", "Audio pipeline %s has invalid endpoints or unsupported mono S16LE appsrc caps", processor_name);
 
          if (appsrc) {
             gst_object_unref(appsrc);
@@ -1352,6 +1357,8 @@ int main(int argc, char *argv[]) {
                processor_io_mode = PCM_PROCESSOR_MODE_AUTO;
             } else if (strcmp(optarg, "process") == 0 || strcmp(optarg, "bidirectional") == 0) {
                processor_io_mode = PCM_PROCESSOR_MODE_BIDIRECTIONAL;
+            } else if (strcmp(optarg, "resample") == 0) {
+               processor_io_mode = PCM_PROCESSOR_MODE_RESAMPLE;
             } else if (strcmp(optarg, "capture") == 0) {
                processor_io_mode = PCM_PROCESSOR_MODE_CAPTURE;
             } else if (strcmp(optarg, "playback") == 0) {

@@ -49,7 +49,7 @@ int main(void) {
    rr_server_vfo_t *vfo = rr_server_vfo_add(radio, "test-vfo", "A", "A", RR_VFO_PERSISTENT);
    assert(vfo && !rr_rig_define_vfo_properties(radio, 'A'));
    rr_backend_t backend = {.owner = radio};
-   struct bridge_child b = {.name = "east", .driver = "mock", .backend = &backend, .process = SUBPROC_INIT, .fd = -1};
+   struct bridge_child b = {.name = "east", .driver = "mock", .backend = &backend, .process = SUBPROC_INIT, .fd = -1, .media_fd = -1};
    boolean(radio, "online", false);
    rrp_bridge_ipc_message_t m;
    message(&b, &m, RRP_BRIDGE_IPC_CAPABILITIES);

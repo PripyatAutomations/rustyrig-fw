@@ -71,7 +71,10 @@ static const char *rig_endpoint(rr_server_rig_t *radio, bool tx, char *buf, size
 
 static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t len, void *user_data) {
    (void)name;
-   rr_server_rig_t *radio = user_data;
+   rrserver_media_rx_pcm(user_data, samples, len);
+}
+
+void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t len) {
    uint8_t index = rr_rig_registry_media_index(rig.rigs, radio);
 
    for (int i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
@@ -138,8 +141,7 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
 
 static bool start_rig_audio(rr_server_rig_t *radio, void *user) {
    (void)user;
-   // Bridge PCM transport is not implemented; never attach a local sound card
-   // or expose a TX media route for an external control-only receiver.
+   // Bridge capture arrives over its dedicated media socket, not a sound card.
    if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) return false;
    char rx_buf[128], tx_buf[128];
    const char *rx = rig_endpoint(radio, false, rx_buf, sizeof(rx_buf));
@@ -376,6 +378,7 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    uint8_t rig_index = rr_rig_registry_media_index(rig.rigs, ctx->radio);
 
    for (int tx = 0 ; tx < 2 ; tx++) {
+      if (tx && !strcmp(rr_server_rig_backend(ctx->radio)->type->name, "bridge")) continue;
       bool per_vfo = tx ? ctx->tx_per_vfo : ctx->rx_per_vfo;
 
       if (ctx->made && !per_vfo) {
@@ -411,7 +414,6 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
 }
 
 static bool media_setup_rig(rr_server_rig_t *radio, void *user) {
-   if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) return false;
    int *made = user;
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    bool per_vfo = rr_rig_config_get_bool(alias, "audio.per-vfo", false);

@@ -1,6 +1,8 @@
 // Isolated SDR host; drivers own their external device transport.
 #include <librrprotocol/bridge.sdr.h>
 #include <librrprotocol/bridge.ipc.h>
+#include <librrprotocol/bridge.media.h>
+#include <time.h>
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
 #include <poll.h>
@@ -9,6 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+time_t now;
 
 struct bridge_host {
    const char *name, *driver;
@@ -24,13 +28,23 @@ static void send_message(struct bridge_host *host, const rrp_bridge_ipc_message_
    // No unbounded output queue. A stalled parent forces a clean reconnect.
    if (!rrp_bridge_ipc_send(RRP_BRIDGE_IPC_FD, m)) host->failed = true;
 }
+static void audio(void *user, const int16_t *samples, size_t count, unsigned rate) {
+   struct bridge_host *host = user;
+   if (rrp_bridge_media_send(RRP_BRIDGE_MEDIA_FD, samples, count, rate) < 0) host->failed = true;
+}
 static void status(void *user, const char *text) {
+   now = time(NULL);
    (void)user;
    if (text) Log(LOG_INFO, "rrbridge", "%s", text);
 }
 static const char *setting(void *user, const char *key) {
    struct bridge_host *host = user;
-   return rrp_bridge_config_get(host->name, key);
+   const char *value = rrp_bridge_config_get(host->name, key);
+   if (!value) {
+      char name[96]; snprintf(name, sizeof(name), "bridge.%s", key);
+      value = cfg_get(name);
+   }
+   return value;
 }
 static void state(void *user, bool available, uint64_t hz, const char *mode) {
    struct bridge_host *host = user;
@@ -64,6 +78,7 @@ int main(int argc, char **argv) {
       else { usage(argv[0]); return EXIT_FAILURE; }
    }
    if (!file || !name || strlen(name) >= 64) { usage(argv[0]); return EXIT_FAILURE; }
+   now = time(NULL);
    logger_init("-", false);
    if (!rrp_bridge_config_init() || !(cfg = cfg_load(file))) return EXIT_FAILURE;
    const char *driver_name = rrp_bridge_config_get(name, "driver");
@@ -80,7 +95,7 @@ int main(int argc, char **argv) {
    snprintf(module, sizeof(module), "rrbridge-%s", driver_name);
    if (rr_load_module(module)) return EXIT_FAILURE;
    struct bridge_host host = {.name = name, .driver = driver_name};
-   rrp_sdr_host_t callbacks = {.status = status, .state = state, .complete = complete, .setting = setting, .user = &host};
+   rrp_sdr_host_t callbacks = {.audio_pcm16 = audio, .status = status, .state = state, .complete = complete, .setting = setting, .user = &host};
    const rrp_sdr_driver_t *driver = rrp_sdr_find(driver_name);
    void *instance = driver ? driver->create(&callbacks) : NULL;
    rrp_sdr_capabilities_t caps = {0};
@@ -105,8 +120,10 @@ int main(int argc, char **argv) {
       send_message(&host, &m);
       state(&host, false, 0, NULL);
       ok = !host.failed && driver->start(instance);
+      if (!ok) Log(LOG_WARN, "rrbridge", "Driver %s could not start [%s]; check bridge configuration", driver_name, name);
       uint64_t heartbeat = mono_us();
       while (ok && !host.failed) {
+         now = time(NULL);
          struct pollfd fd = {.fd = RRP_BRIDGE_IPC_FD, .events = POLLIN};
          int rc = poll(&fd, 1, 10);
          if (rc < 0 && errno != EINTR) { ok = false; break; }
