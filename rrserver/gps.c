@@ -494,8 +494,7 @@ bool rrserver_gps_init(void) {
       snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
    }
 
-   const char *position = cfg_get("station.gps.position");
-   if (!position || !*position) position = cfg_get("site:coordinates");
+   const char *position = rrserver_gps_station_position();
    if (!configure_source(&sources[0], position) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL)) {
       rrserver_gps_fini();
 

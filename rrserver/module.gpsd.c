@@ -115,7 +115,15 @@ static void poll_gpsd(const char *event, const char *data, rrconn_t *client, voi
 }
 bool rr_module_init(void) {
    const char *target = cfg_get("gpsd.target");
-   if (rrserver_gps_source_fixed(target)) {
+   char key[128];
+   const char *position;
+   if (target && strcmp(target, "station")) {
+      snprintf(key, sizeof(key), "rig:%s.gps.position", target);
+      position = cfg_get(key);
+   } else {
+      position = rrserver_gps_station_position();
+   }
+   if (position && *position) {
       Log(LOG_INFO, "gpsd", "%s uses configured coordinates; GPS daemon adapter disabled", target ? target : "station");
 
       return false;

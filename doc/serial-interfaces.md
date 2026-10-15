@@ -131,6 +131,11 @@ and log a full queue rather than growing indefinitely.
 
 `gps.position=latitude,longitude` in `[rig:rigN]` is the authoritative fixed
 position for that rig. `station.gps.position` in `[general]` is the site fallback.
+If it is empty, `[site] coordinates=latitude,longitude` supplies the fixed station
+position. Explicit `station.gps.position` takes precedence. `/gps` reports these
+fixed outputs as `static`, including rigs inheriting the station position.
+The output carries valid/manual flags and generates RMC status `A`, mode `M`;
+it is the configured RF location, not a live satellite fix.
 Coordinates are signed decimal degrees, with up to seven fractional digits,
 latitude within ±90 and longitude within ±180. Invalid coordinates reject
 startup. Empty/absent coordinates enable live inputs for that source.

@@ -738,3 +738,9 @@ rig/VFO scope. Both native and browser tables consume those fields; the database
 stays per node. GTK column sizing, quota display units/grouping, PTT duration
 header and frequency grouping are frontend presentation; raw quota values stay
 in seconds/bytes. Config buttons use one GTK row with a blank safety row below.
+
+Server GPS inventory reports configured coordinates as `static`, including
+station fallback inherited by rigs. `[site] coordinates` is the station fallback
+when `station.gps.position` is empty. Native and browser consumers retain the
+same valid/manual GPS flags and manual-mode RMC synthesis; real receiver
+no-fix states remain explicit and are not replaced by an invented fix.
