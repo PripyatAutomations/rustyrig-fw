@@ -1,6 +1,3 @@
-#include <rrserver/acl.h>
-#include <rrserver/media.direct.h>
-#include <rrserver/relay.h>
 //
 // rrserver/main.c
 //    This is part of rustyrig-fw.
@@ -46,6 +43,9 @@
 #include <rrserver/protection.h>
 #include <rrserver/mqtt.h>
 #include <rrserver/au.h>
+#include <rrserver/acl.h>
+#include <rrserver/media.direct.h>
+#include <rrserver/relay.h>
 
 extern void rrserver_register_events(void);  // events.c
 extern void rrserver_media_register_events(void);  // media.c

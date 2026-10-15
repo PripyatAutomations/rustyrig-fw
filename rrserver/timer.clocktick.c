@@ -1,4 +1,3 @@
-#include <rrserver/supervision.h>
 //
 // rrserver/timer.clocktick.c: Periodic (1hz) timer
 //    This is part of rustyrig-fw.
@@ -26,6 +25,7 @@
 #include <rrserver/thermal.h>
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
+#include <rrserver/supervision.h>
 
 extern struct timespec loop_start;  // main.c
 extern struct timespec mono_now;

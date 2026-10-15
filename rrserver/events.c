@@ -1,10 +1,3 @@
-#include <rrserver/supervision.h>
-#include <rrserver/acl.h>
-#include <rrserver/bridge.access.h>
-#include <rrserver/bridge.manager.h>
-#include <rrserver/media.direct.h>
-#include <rrserver/relay.h>
-#include <rrserver/usage.h>
 //
 // rrserver/events.c: event listeners for shared protocol events from
 // librrprotocol
@@ -31,7 +24,7 @@
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
-
+#include <librrprotocol/ws.mediachan.h>
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.properties.h>
@@ -39,12 +32,18 @@
 #include <rrserver/rig.vfo.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
-extern struct GlobalState rig;
 #include <rrserver/ptt.h>
-#include <librrprotocol/ws.mediachan.h>
+#include <rrserver/supervision.h>
+#include <rrserver/acl.h>
+#include <rrserver/bridge.access.h>
+#include <rrserver/bridge.manager.h>
+#include <rrserver/media.direct.h>
+#include <rrserver/relay.h>
+#include <rrserver/usage.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
 
+extern struct GlobalState rig;
 extern void rrserver_media_register_events(void);  // media.c
 
 static void rrserver_handle_room_join(const char *event, const char *data, rrconn_t *cptr, void *user) {

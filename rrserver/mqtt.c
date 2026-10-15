@@ -1,4 +1,3 @@
-#include <rrserver/acl.h>
 //
 // rrserver/mqtt.c
 //    This is part of rustyrig-fw.
@@ -22,6 +21,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <rrserver/acl.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 

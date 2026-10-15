@@ -1,4 +1,3 @@
-#include <libfwdspmgr/pcm-backlog.h>
 //
 // libfwdsp/fwpdsp-mgr.c: Deal with starting and stopping fwdsp instances as needed
 //    This is part of rustyrig-fw.
@@ -28,8 +27,9 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/util.file.h>
 #include <librrprotocol/rrprotocol.h>
-#include <libfwdspmgr/fwdsp-mgr.h>
 #include <fwdsp/default-pipelines.h>
+#include <libfwdspmgr/pcm-backlog.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
 #ifndef _WIN32
 #include <arpa/inet.h>

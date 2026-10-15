@@ -1,4 +1,3 @@
-#include <rrserver/usage.h>
 //
 // rrserver/database.c: sqlite3 database stuff
 //    This is part of rustyrig-fw.
@@ -25,6 +24,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/database.h>
+#include <rrserver/usage.h>
 
 #ifdef  USE_SQLITE
 #include <sqlite3.h>

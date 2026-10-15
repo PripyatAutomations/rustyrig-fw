@@ -1,4 +1,3 @@
-#include <librrprotocol/media.health.h>
 //
 // rrserver/media.c: media channel provisioning
 //    This is part of rustyrig-fw.
@@ -16,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <librustyaxe/core.h>
+#include <librrprotocol/media.health.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
