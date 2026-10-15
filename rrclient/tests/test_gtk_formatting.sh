@@ -11,7 +11,9 @@ ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-
    -ffunction-sections -fdata-sections $(pkg-config --cflags gtk+-3.0) \
    rrclient/tests/gtk_formatting.c -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" \
    -lrustyaxe -lrrprotocol $(pkg-config --libs gtk+-3.0) -o "$work/gtk_formatting"
-if command -v xvfb-run >/dev/null 2>&1 && [[ -z "${DISPLAY:-}" ]]; then
+# The popup grabs entry focus and exercises clipboard ownership. Always use a
+# private display when available so desktop typing cannot alter the assertions.
+if command -v xvfb-run >/dev/null 2>&1; then
    xvfb-run -a "$work/gtk_formatting"
 else
    "$work/gtk_formatting"

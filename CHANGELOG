@@ -1,5 +1,7 @@
 rustyrig-fw (20261014.02) testing; urgency=medium
 
+  * Run GTK formatting/color-popup tests on a private Xvfb display when
+    available, preventing real desktop keystrokes from corrupting test input.
   * Keep native/browser rig audio subscriptions and RX decoders running across
     tab and VFO selection; mute inactive output locally instead of reconnecting
     media. Isolate decoder state per channel/server, retain explicit NONE/PART
@@ -69,7 +71,7 @@ rustyrig-fw (20261014.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 19:42:06 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 20:03:04 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 
