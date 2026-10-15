@@ -96,6 +96,7 @@ typedef struct {
    GtkWidget *view;
    GtkWidget *entry;
    GtkWidget *audio_route;
+   bool audio_route_updating;
 } GtkRoomTab;
 
 static GHashTable *room_tabs = NULL;
@@ -133,20 +134,34 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
 static void gtk_chat_audio_route(GtkComboBox *combo, gpointer data) {
    GtkRoomTab *tab = data;
    const char *output = gtk_combo_box_get_active_id(combo);
-   if (output) audio_set_room_route(tab->server, tab->room, output[0]);
+
+   if (output && !tab->audio_route_updating) {
+      audio_set_room_route(tab->server, tab->room, output[0]);
+   }
 }
 
 static void gtk_chat_audio_routes_changed(const char *event, const char *data, rrconn_t *connection, void *user) {
-   (void)event; (void)data; (void)connection; (void)user;
-   if (!room_tabs) return;
+   (void)event;
+   (void)data;
+   (void)connection;
+   (void)user;
+
+   if (!room_tabs) {
+      return;
+   }
    GHashTableIter iter;
    gpointer value;
    g_hash_table_iter_init(&iter, room_tabs);
    while (g_hash_table_iter_next(&iter, NULL, &value)) {
       GtkRoomTab *tab = value;
+
       if (tab->audio_route) {
-         char active[] = {audio_room_route(tab->server, tab->room), 0};
+         char active[] = {
+            audio_room_route(tab->server, tab->room), 0
+         };
+         tab->audio_route_updating = true;
          gtk_combo_box_set_active_id(GTK_COMBO_BOX(tab->audio_route), active);
+         tab->audio_route_updating = false;
       }
    }
 }
@@ -1379,12 +1394,21 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
    g_object_set_data(G_OBJECT(tab->page), "rr-room-tab", tab);
    GtkWidget *label = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
    gtk_box_pack_start(GTK_BOX(label), gtk_label_new(room), FALSE, FALSE, 0);
+
    if (!is_query) {
       GtkWidget *route = gtk_combo_box_text_new();
       tab->audio_route = route;
-      const char *outputs[] = {"L", "R", "S", "M"};
-      for (unsigned i = 0; i < 4; i++) gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(route), outputs[i], outputs[i]);
-      char active[] = {audio_room_route(tab->server, tab->room), 0};
+      const char *outputs[] = {
+         "L", "R", "S", "M"
+      };
+
+      for (unsigned i = 0 ; i < 4 ; i++) {
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(route), outputs[i], outputs[i]);
+      }
+
+      char active[] = {
+         audio_room_route(tab->server, tab->room), 0
+      };
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(route), active);
       gtk_widget_set_tooltip_text(route, "RX output: Left / Right / Stereo (both ears) / Muted; independent of selected tab");
       g_signal_connect(route, "changed", G_CALLBACK(gtk_chat_audio_route), tab);

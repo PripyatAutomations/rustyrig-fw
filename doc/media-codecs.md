@@ -122,6 +122,21 @@ provides the same control in GTK/TUI and the browser. New rooms default to S.
 Choices belong to the server and room and last for the client session, including
 reconnects. Changing tabs, servers, VFO selection or application focus does not
 change established streams' output. Muting does not unsubscribe or stop decoding.
+GTK also automatically opens an always-on-top **RX Audio Routing** window
+while subscribed receiver streams exist. The fixed-size window can be minimized;
+its close button minimizes it, and routine updates leave it minimized. It hides
+when the last RX subscription disappears. Both dropdowns list streams from all
+connected servers, identifying server, room, channel UUID and codec; long labels
+have full-text tooltips. **Muted** and **All streams** are also available.
+With **Split RX** off, Left selects both ears and Right follows it, disabled.
+With Split RX on, each ear is independent. A selected receiver stays selected
+through codec changes and new subscriptions; if it disappears, its ear mutes.
+These stream choices apply to the current subscriptions, without stopping their
+decoders or changing their server subscriptions. Explicit room L/R/S/M edits
+remain available, update the window, and can appear as a custom mix. Unlike
+room preferences, individual stream selections end when those subscriptions
+are removed; there is no persistent window preference or subscription ID.
+
 TX selection still follows the selected rig/VFO; a retained TX subscription does
 not key it.
 

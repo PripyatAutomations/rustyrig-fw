@@ -38,6 +38,14 @@ struct rrclient_rx_audio {
 /* Per-server room routing: L/R/S (both ears)/M. Independent of UI selection. */
 char audio_room_route(const char *server, const char *room);
 bool audio_set_room_route(const char *server, const char *room, char output);
+/* Snapshot of all subscribed native RX streams, across connections. Opaque IDs
+ * survive codec changes; use only on the client main loop. Returns total count. */
+struct rrclient_rx_stream {
+   char id[64], server[512], room[128], uuid[64], codec[5];
+   char output;
+};
+size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity);
+bool audio_set_rx_stream_route(const char *id, char output);
 /* Synchronize this connection's subscribed decoders without stopping muted ones. */
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count);
 

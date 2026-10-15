@@ -54,6 +54,7 @@ bins += ${gtk_module}
 
 gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
 gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
+gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
 gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff

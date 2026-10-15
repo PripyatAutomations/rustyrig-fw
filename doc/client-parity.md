@@ -64,6 +64,15 @@ panners. Native and browser reconnects start at one second and double to sixty,
 reset on authorization, and retain the ten-attempt limit. The former default
 interval of sixty seconds is treated as a legacy default and becomes one.
 
+The RX Audio Routing floating window is GTK-specific presentation of the
+native stream mixer. Its Split RX and per-ear stream selectors operate on
+existing subscriptions across native server connections, leave decoding alive
+when muted, and do not add protocol messages. Existing room L/R/S/M controls
+and `/rxroute` remain available in native/browser clients; the browser has no
+floating GTK window or cross-connection stream picker. Individual native
+stream choices last for the subscription and survive codec changes, while
+room preferences retain their existing session/reconnect lifetime.
+
 Receiver bridges publish configured/cached offline capability hints through
 ordinary rig/VFO descriptors. Native and browser clients consume the same
 coverage/mode schemas; availability remains separate. User demand and metadata

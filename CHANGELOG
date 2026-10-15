@@ -1,5 +1,11 @@
 rustyrig-fw (20261015.02) testing; urgency=medium
 
+  * Add an always-on-top, fixed-size, minimizable GTK RX routing window that
+    follows subscribed streams across servers. Split RX selects each ear
+    independently; unified mode mirrors the left selector. Include mute/all
+    choices, retain live decoders, coalesce inventory paints, and synchronize
+    existing room controls without feedback. Test stream lifecycle, codec
+    changes, ear routing, custom mixes, minimization updates and shutdown.
   * Ship station recording defaults with RX disabled and TX enabled using
     Ogg/Vorbis; align standalone DSP/shared defaults and correct the client
     sample's unsupported Opus recording setting. Use FLAC for DU/DL and
@@ -67,7 +73,7 @@ rustyrig-fw (20261015.02) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 10:07:03 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 10:34:17 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

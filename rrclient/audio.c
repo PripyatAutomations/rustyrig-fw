@@ -58,20 +58,28 @@ static bool speaker_failed;
 
 static void client_speaker_pcm(const void *samples, size_t len) {
    uint64_t current = mono_us();
+
    if (speaker_failed) {
-      if (current < speaker_retry) return;
+      if (current < speaker_retry) {
+         return;
+      }
       speaker_retry = current + 1000000;
       // A failed write retires the endpoint; an exited child can also leave a
       // slot awaiting cleanup. Clear it before recreating the persistent sink.
       fwdsp_processor_stop("sink.client.dsp0");
-      if (!fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) return;
+
+      if (!fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
+         return;
+      }
       fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
       speaker_failed = false;
       Log(LOG_INFO, "audio", "Restarted client RX playback endpoint");
    }
+
    if (!fwdsp_processor_write("sink.client.dsp0", samples, len)) {
       speaker_failed = true;
       speaker_retry = current + 1000000;
+
       if (!rx_pcm_warned || now < rx_pcm_warned || now - rx_pcm_warned >= 5) {
          rx_pcm_warned = now;
          Log(LOG_WARN, "audio", "Client RX playback failed; retrying the speaker endpoint");
@@ -116,42 +124,116 @@ struct room_route {
    struct room_route *next;
 };
 static struct room_route *room_routes;
-char audio_room_route(const char *server, const char *room) {
-   for (struct room_route *r = room_routes; r; r = r->next) {
-      if (server && room && !strcmp(r->server, server) && !strcasecmp(r->room, room)) return r->output;
+size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
+   size_t count = 0;
+   for (rx_route_t *r = rx_routes; r; r = r->next) {
+      if (streams && count < capacity) {
+         struct rrclient_rx_stream *stream = &streams[count];
+         const char *server = rrclient_connection_name(r->connection);
+         snprintf(stream->id, sizeof(stream->id), "%s", r->identity);
+         snprintf(stream->server, sizeof(stream->server), "%s", server ? server : "");
+         snprintf(stream->room, sizeof(stream->room), "%s", r->room);
+         snprintf(stream->uuid, sizeof(stream->uuid), "%s", r->uuid);
+         snprintf(stream->codec, sizeof(stream->codec), "%s", r->codec);
+         stream->output = r->output;
+      }
+      count++;
    }
+   return count;
+}
+
+bool audio_set_rx_stream_route(const char *id, char output) {
+   if (!id || !output || !strchr("LRSM", output)) {
+      return false;
+   }
+   for (rx_route_t *r = rx_routes; r; r = r->next) {
+      if (!strcmp(r->identity, id)) {
+         if (r->output != output) {
+            r->output = output;
+            r->pending_count = 0;
+            event_emit("client.audio.route.changed", NULL, NULL);
+         }
+         return true;
+      }
+   }
+   return false;
+}
+
+char audio_room_route(const char *server, const char *room) {
+   /* Report effective playback to existing room controls after stream routing. */
+   for (rx_route_t *r = rx_routes; r; r = r->next) {
+      const char *profile = rrclient_connection_name(r->connection);
+      if (r->output && server && room && profile && !strcmp(server, profile) && !strcasecmp(room, r->room)) {
+         return r->output;
+      }
+   }
+   for (struct room_route *r = room_routes ; r ; r = r->next) {
+      if (server && room && !strcmp(r->server, server) && !strcasecmp(r->room, room)) {
+         return r->output;
+      }
+   }
+
    return 'S';
 }
 bool audio_set_room_route(const char *server, const char *room, char output) {
-   if (!server || !room || !strchr("LRSM", output) || !output) return false;
+   if (!server || !room || !strchr("LRSM", output) || !output) {
+      return false;
+   }
    struct room_route *r = room_routes;
-   while (r && (strcmp(r->server, server) || strcasecmp(r->room, room))) r = r->next;
+   while (r && (strcmp(r->server, server) || strcasecmp(r->room, room))) {
+      r = r->next;
+   }
+
    if (!r) {
       r = calloc(1, sizeof(*r));
-      if (!r) return false;
-      r->server = strdup(server); r->room = strdup(room);
-      if (!r->server || !r->room) { free(r->server); free(r->room); free(r); return false; }
-      r->next = room_routes; room_routes = r;
+
+      if (!r) {
+         return false;
+      }
+      r->server = strdup(server);
+      r->room = strdup(room);
+
+      if (!r->server || !r->room) {
+         free(r->server);
+         free(r->room);
+         free(r);
+
+         return false;
+      }
+      r->next = room_routes;
+      room_routes = r;
    }
    r->output = output;
-   for (rx_route_t *route = rx_routes; route; route = route->next) {
+
+   for (rx_route_t *route = rx_routes ; route ; route = route->next) {
       const char *profile = rrclient_connection_name(route->connection);
+
       if (profile && !strcmp(profile, server) && !strcasecmp(route->room, room)) {
          route->output = output;
          route->pending_count = 0;
       }
    }
+
    event_emit("client.audio.route.changed", NULL, NULL);
+
    return true;
 }
 static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
    (void)name;
    rx_route_t *route = user;
-   if (route->output == 'M' || (len & 1)) return;
+
+   if (route->output == 'M' || (len & 1)) {
+      return;
+   }
    size_t count = len / sizeof(int16_t);
    const int16_t *pcm = samples;
    size_t capacity = sizeof(route->pending) / sizeof(route->pending[0]);
-   if (count > capacity) { pcm += count - capacity; count = capacity; }
+
+   if (count > capacity) {
+      pcm += count - capacity;
+      count = capacity;
+   }
+
    if (route->pending_count + count > capacity) {
       size_t drop = route->pending_count + count - capacity;
       memmove(route->pending, route->pending + drop, (route->pending_count - drop) * sizeof(int16_t));
@@ -160,32 +242,46 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    memcpy(route->pending + route->pending_count, pcm, count * sizeof(int16_t));
    route->pending_count += count;
 }
-/* PARITY: rustyrig-www/js/webui.audio.js webui_sync_rx_routes.
- * Mix independent mono receivers into stereo, bounded to 100 ms per stream.
- * Selection and focus never affect routing; muted streams keep decoding. */
+
+/* PARITY: rustyrig-www/js/webui.audio.js webui_sync_rx_routes. Mix independent mono receivers into stereo, bounded to 100 ms per stream. Selection and focus
+ * never affect routing; muted streams keep decoding. */
 static gboolean audio_mix_tick(gpointer unused) {
    (void)unused;
-   int32_t mixed[640] = {0};
+   int32_t mixed[640] = {
+      0
+   };
    size_t frames = 0;
-   for (rx_route_t *r = rx_routes; r; r = r->next) {
+
+   for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       size_t take = r->pending_count < 320 ? r->pending_count : 320;
+
       if (r->output != 'M') {
-         frames = 320; // Fixed cadence; zero-fill underruns instead of shortening the timeline.
-         for (size_t i = 0; i < take; i++) {
-            if (r->output != 'R') mixed[2*i] += r->pending[i];
-            if (r->output != 'L') mixed[2*i+1] += r->pending[i];
+         frames = 320;          // Fixed cadence; zero-fill underruns instead of shortening the timeline.
+
+         for (size_t i = 0 ; i < take ; i++) {
+            if (r->output != 'R') {
+               mixed[2 * i] += r->pending[i];
+            }
+
+            if (r->output != 'L') {
+               mixed[2 * i + 1] += r->pending[i];
+            }
          }
       }
       r->pending_count -= take;
       memmove(r->pending, r->pending + take, r->pending_count * sizeof(int16_t));
    }
+
    if (frames) {
       int16_t stereo[640];
-      for (size_t i = 0; i < frames * 2; i++) {
+
+      for (size_t i = 0 ; i < frames * 2 ; i++) {
          stereo[i] = mixed[i] > INT16_MAX ? INT16_MAX : mixed[i] < INT16_MIN ? INT16_MIN : mixed[i];
       }
+
       client_speaker_pcm(stereo, frames * 2 * sizeof(int16_t));
    }
+
    return G_SOURCE_CONTINUE;
 }
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
@@ -193,6 +289,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
       return;
    }
 
+   bool changed = false;
    for (rx_route_t *route = rx_routes ; route ; route = route->next) {
       if (route->connection == ws_conn) {
          route->seen = false;
@@ -212,6 +309,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          if (!route) {
             continue;
          }
+         changed = true;
          static unsigned next_identity;
          snprintf(route->identity, sizeof(route->identity), "client-rx-%u", ++next_identity);
          route->connection = ws_conn;
@@ -220,10 +318,17 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          rx_routes = route;
       }
       route->seen = true;
-      snprintf(route->room, sizeof(route->room), "%s", channel->room ? channel->room : "");
-      route->output = audio_room_route(rrclient_connection_name(ws_conn), route->room);
+      const char *room = channel->room ? channel->room : "";
+      if (!route->codec[0] || strcmp(route->room, room)) {
+         /* Unchanged inventories/codec changes must retain per-stream routing. */
+         char output = audio_room_route(rrclient_connection_name(ws_conn), room);
+         snprintf(route->room, sizeof(route->room), "%s", room);
+         route->output = output;
+         changed = true;
+      }
 
       if (strncmp(route->codec, channel->codec, 4)) {
+         changed = true;
          if (route->codec[0]) {
             fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          }
@@ -251,9 +356,13 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          *link = route->next;
          free(route);
+         changed = true;
       } else {
          link = &route->next;
       }
+   }
+   if (changed) {
+      event_emit("client.audio.streams.changed", NULL, NULL);
    }
 }
 
@@ -264,11 +373,19 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
    const int16_t *mono = samples;
    while (len >= sizeof(int16_t)) {
       size_t count = len / sizeof(int16_t);
-      if (count > 320) count = 320;
+
+      if (count > 320) {
+         count = 320;
+      }
       int16_t stereo[640];
-      for (size_t i = 0; i < count; i++) stereo[2*i] = stereo[2*i+1] = mono[i];
+
+      for (size_t i = 0 ; i < count ; i++) {
+         stereo[2 * i] = stereo[2 * i + 1] = mono[i];
+      }
+
       client_speaker_pcm(stereo, count * 2 * sizeof(int16_t));
-      mono += count; len -= count * sizeof(int16_t);
+      mono += count;
+      len -= count * sizeof(int16_t);
    }
 }
 
@@ -524,10 +641,16 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
-   if (mixer_source) { g_source_remove(mixer_source); mixer_source = 0; }
+   if (mixer_source) {
+      g_source_remove(mixer_source);
+      mixer_source = 0;
+   }
    while (room_routes) {
       struct room_route *next = room_routes->next;
-      free(room_routes->server); free(room_routes->room); free(room_routes); room_routes = next;
+      free(room_routes->server);
+      free(room_routes->room);
+      free(room_routes);
+      room_routes = next;
    }
    dcc_closed(NULL, NULL, NULL, NULL);
    while (rx_routes) {
