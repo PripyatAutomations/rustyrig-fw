@@ -5,7 +5,28 @@ static rrconn_t first, second;
 rrconn_t *ws_conn = &first;
 static const char *selected = "first";
 time_t now;
-static unsigned starts, stops, played, decoded;
+static unsigned starts, stops, played, decoded, speaker_starts, speaker_stops, volume_restores;
+static bool speaker_broken, restart_fails;
+static uint64_t test_clock;
+long long mono_us(void) { return test_clock; }
+int cfg_get_int(const char *name, int fallback) { return 42; }
+bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
+   assert(!strcmp(name, "sink.client.dsp0") && !pipeline);
+   speaker_starts++;
+   if (restart_fails) return false;
+   speaker_broken = false;
+   return true;
+}
+bool fwdsp_processor_stop(const char *name) {
+   assert(!strcmp(name, "sink.client.dsp0"));
+   speaker_stops++;
+   return false;
+}
+bool fwdsp_processor_setvol(const char *name, int volume) {
+   assert(!strcmp(name, "sink.client.dsp0") && volume == 42);
+   volume_restores++;
+   return false;
+}
 static struct fwdsp_subproc instances[16];
 static bool used[16];
 const char *rrclient_connection_name(const rrconn_t *connection) {
@@ -66,6 +87,7 @@ bool fwdsp_cmd_start_record_named(const char *codec, bool tx, const char *identi
 }
 bool fwdsp_processor_write(const char *name, const void *data, size_t length) {
    assert(!strcmp(name, "sink.client.dsp0"));
+   if (speaker_broken) return false;
    played++;
 
    return true;
@@ -118,7 +140,29 @@ int main(void) {
    assert(starts == 4 && stops == 3);
    decode_all();
    assert(played == 5);
+   // A stalled/exited playback child must recover without a resubscription
+   // or codec/tab change. Failed restarts are bounded, and volume is restored.
+   speaker_broken = true;
+   decode_all();
+   assert(speaker_failed && played == 5 && !speaker_starts);
+   test_clock = 999999;
+   decode_all();
+   assert(!speaker_starts && played == 5);
+   restart_fails = true;
+   test_clock = 1000000;
+   decode_all();
+   assert(speaker_starts == 1 && speaker_stops == 1 && played == 5);
+   test_clock = 1500000;
+   decode_all();
+   assert(speaker_starts == 1);
+   restart_fails = false;
+   test_clock = 2000000;
+   decode_all();
+   assert(speaker_starts == 2 && speaker_stops == 2 && volume_restores == 1);
+   assert(!speaker_failed && played == 6);
+   decode_all();
+   assert(played == 7 && speaker_starts == 2 && starts == 4 && stops == 3);
    audio_sync_rx_channels(NULL, 0);
    assert(stops == 4 && !rx_routes);
-   puts("PASS: independent RX decoders keep running while muted, switch tabs without restart, isolate servers and clean up on codec/disconnect");
+   puts("PASS: independent RX decoders keep running while muted, switch tabs without restart, isolate servers, recover failed speakers with bounded retries and clean up on codec/disconnect");
 }

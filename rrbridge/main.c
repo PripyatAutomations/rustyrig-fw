@@ -3,6 +3,7 @@
 #include <librrprotocol/bridge.ipc.h>
 #include <librrprotocol/bridge.media.h>
 #include <time.h>
+#include <ext/libmongoose/mongoose.h>
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
 #include <poll.h>
@@ -78,6 +79,8 @@ int main(int argc, char **argv) {
       else { usage(argv[0]); return EXIT_FAILURE; }
    }
    if (!file || !name || strlen(name) >= 64) { usage(argv[0]); return EXIT_FAILURE; }
+   // Keep connection diagnostics without logging every audio socket read/write.
+   mg_log_set(MG_LL_INFO);
    now = time(NULL);
    logger_init("-", false);
    if (!rrp_bridge_config_init() || !(cfg = cfg_load(file))) return EXIT_FAILURE;

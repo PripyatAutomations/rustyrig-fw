@@ -163,6 +163,8 @@ Its exponential reconnect delay resets only after 30 seconds of continuous
 reception, so briefly admitted streams do not trigger rapid retry loops.
 The driver reconnects with bounded exponential backoff, retains confirmed
 tuning, sends keepalives, and times out missing audio or unconfirmed commands.
+The host limits Mongoose output to informational/error messages so socket
+reads and writes do not flood the log during reception.
 The host refreshes its process `time_t now` before startup and on every poll,
 so bridge/module logging has current timestamps.
 

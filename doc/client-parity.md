@@ -51,6 +51,11 @@ The `pc1T`, `g72T`, `mu1T`, `mu0T`, `opuT`, `oggT`, `aacT`, `flaT`, `pc1P`,
 `g72P`, `mu1P`, `mu0P`, `opuP`, `oggP`, `aacP` and `flaP` test IDs are native
 pipeline variants; they are not added to browser codec advertisement.
 
+Native speaker subprocess recovery is implementation-specific: after a failed
+PCM write or exited playback worker, rrclient recreates its speaker endpoint
+with bounded retries and restores the configured RX volume. Browser playback
+uses WebAudio and has no corresponding subprocess to restart.
+
 ## What parity means
 
 Parity means equivalent externally observable behavior, not identical

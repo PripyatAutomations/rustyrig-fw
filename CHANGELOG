@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.01) testing; urgency=medium
 
+  * Quiet rrbridge Mongoose socket read/write debug logs while retaining
+    connection diagnostics. Recover the native client speaker endpoint after
+    write failure or child exit, with bounded retries and restored RX volume,
+    so continuing media does not leave playback permanently silent.
   * Keep Kiwi PCM flowing while tuning confirmation is pending; treat pending
     native CAT controls as accepted rather than logging spurious failures.
     Exercise delayed confirmation and repeated frequency/mode changes with
@@ -35,7 +39,7 @@ rustyrig-fw (20261015.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 08:47:14 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:12:51 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

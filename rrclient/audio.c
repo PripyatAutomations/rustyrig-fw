@@ -51,6 +51,32 @@ static char tx_codec[5] = {
 static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
+static uint64_t speaker_retry;
+static bool speaker_failed;
+
+static void client_speaker_pcm(const void *samples, size_t len) {
+   uint64_t current = mono_us();
+   if (speaker_failed) {
+      if (current < speaker_retry) return;
+      speaker_retry = current + 1000000;
+      // A failed write retires the endpoint; an exited child can also leave a
+      // slot awaiting cleanup. Clear it before recreating the persistent sink.
+      fwdsp_processor_stop("sink.client.dsp0");
+      if (!fwdsp_audio_playback_start("sink.client.dsp0", NULL)) return;
+      fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
+      speaker_failed = false;
+      Log(LOG_INFO, "audio", "Restarted client RX playback endpoint");
+   }
+   if (!fwdsp_processor_write("sink.client.dsp0", samples, len)) {
+      speaker_failed = true;
+      speaker_retry = current + 1000000;
+      if (!rx_pcm_warned || now < rx_pcm_warned || now - rx_pcm_warned >= 5) {
+         rx_pcm_warned = now;
+         Log(LOG_WARN, "audio", "Client RX playback failed; retrying the speaker endpoint");
+      }
+   }
+}
+
 static void client_mic_pcm(const char *name, const void *samples, size_t len, void *user_data) {
    (void)name;
    (void)user_data;
@@ -90,10 +116,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
       return;
    }
 
-   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) && (!rx_pcm_warned || now < rx_pcm_warned || now - rx_pcm_warned >= 5)) {
-      rx_pcm_warned = now;
-      Log(LOG_WARN, "audio", "Unable to play decoded client RX PCM");
-   }
+   client_speaker_pcm(samples, len);
 }
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
    if (!audio_enabled) {
@@ -166,10 +189,7 @@ static void client_rx_pcm(const char *name, const void *samples, size_t len, voi
    (void)name;
    (void)user_data;
 
-   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) && (rx_pcm_warned == 0 || now < rx_pcm_warned || now - rx_pcm_warned >= 5)) {
-      rx_pcm_warned = now;
-      Log(LOG_WARN, "audio", "Unable to play decoded client RX PCM");
-   }
+   client_speaker_pcm(samples, len);
 }
 
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user);
@@ -301,6 +321,8 @@ bool audio_init(void) {
    }
 
    fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
+   speaker_failed = false;
+   speaker_retry = 0;
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
