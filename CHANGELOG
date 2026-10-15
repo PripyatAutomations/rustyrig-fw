@@ -1,3 +1,20 @@
+rustyrig-fw (20261015.01) testing; urgency=medium
+
+  * Register configured bridges as ordinary persistent receiver/VFO objects,
+    exposing validated tuning ranges, mode enums and supported/available state.
+    Keep offline receivers discoverable and allocate numbered rig rooms without
+    colliding with configured physical radios.
+  * Add versioned bridge tuning/state/result IPC and asynchronous driver hooks.
+    Validate handshake identity/order, bound pending controls and deadlines,
+    supervise stalled children, and restore successful tuning after reconnects.
+    Move shared bridge configuration into librrprotocol and keep control-only
+    bridges out of local audio capture and TX media provisioning.
+  * Keep Kiwi offline until its real transport exists; correct formatter mode
+    passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
+    discovery/control/crash-recovery tests and document the remaining media work.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 05:20:38 -0400
+
 rustyrig-fw (20261014.04) testing; urgency=medium
 
   * Add standalone rrbridge host with shared named-bridge config parsing and

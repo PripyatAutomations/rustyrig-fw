@@ -528,7 +528,7 @@ static bool initialize_vfo(rr_server_vfo_t *vfo, void *arg) {
    return false;
 }
 bool rr_backend_worker_start(rr_backend_t *backend, rr_backend_observation_fn publish) {
-   if (backend->worker) {
+   if (backend->worker || backend->type->event_driven) {
       return false;
    }
    struct rr_backend_worker *worker = calloc(1, sizeof(*worker));

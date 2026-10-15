@@ -322,6 +322,23 @@ int main(void) {
    snapshot = read_property(rig1, a_mode);
    assert(strcmp(snapshot.value.s, "LSB") == 0);
 
+   /* Runtime capability refresh copies metadata and preserves observations. */
+   rr_property_descriptor_t refreshed;
+   assert(rr_vfo_property_describe(rig1_a, RR_PROP_VFO_MODE, &refreshed));
+   char choices[] = "USB LSB AM";
+   refreshed.enum_values = choices;
+   assert(!rr_vfo_property_redefine(rig1_a, &refreshed));
+   choices[0] = 'X';
+   assert(rr_vfo_property_describe(rig1_a, RR_PROP_VFO_MODE, &refreshed));
+   assert(!strcmp(refreshed.enum_values, "USB LSB AM"));
+   snapshot = read_property(rig1, a_mode);
+   assert(snapshot.available && !strcmp(snapshot.value.s, "LSB"));
+   refreshed.type = VAL_LONG;
+   assert(rr_vfo_property_redefine(rig1_a, &refreshed));
+   assert(rr_vfo_property_describe(rig1_a, RR_PROP_VFO_MODE, &refreshed));
+   refreshed.enum_values = NULL;
+   assert(!rr_vfo_property_redefine(rig1_a, &refreshed));
+
    /* Pointer values have deliberately unspecified ownership and are rejected. */
    rr_property_descriptor_t pointer_property = {
       .name = "test.pointer",

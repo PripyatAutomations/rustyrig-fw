@@ -1,12 +1,12 @@
 // KiwiSDR receiver driver: protocol conversion, not WebSocket transport.
-// The generic rrbridge host is responsible for authentication, reconnects,
-// keepalives and forwarding the resulting PCM to librrprotocol media channels.
+// External Kiwi authentication, reconnects and wire messages belong here.
 #include <librrprotocol/bridge.sdr.h>
 #include <librustyaxe/module.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <inttypes.h>
 
 struct kiwi_instance {
@@ -33,7 +33,7 @@ static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
       .rx_waterfall = true,
       .rx_min_hz = 0,
       .rx_max_hz = 30000000,
-      .rx_modes = "usb lsb am cw"
+      .rx_modes = "USB LSB AM CW"
    };
    return true;
 }
@@ -44,14 +44,19 @@ static bool kiwi_tune(void *instance, uint64_t hz, const char *mode,
    int n;
    if (!instance || !mode || !command || !capacity || hz > 30000000)
       return false;
-   if (!strcmp(mode, "usb")) kiwi_mode = "usb";
-   else if (!strcmp(mode, "lsb")) kiwi_mode = "lsb";
-   else if (!strcmp(mode, "am")) kiwi_mode = "am";
-   else if (!strcmp(mode, "cw")) kiwi_mode = "cw";
+   if (!strcasecmp(mode, "usb")) kiwi_mode = "usb";
+   else if (!strcasecmp(mode, "lsb")) kiwi_mode = "lsb";
+   else if (!strcasecmp(mode, "am")) kiwi_mode = "am";
+   else if (!strcasecmp(mode, "cw")) kiwi_mode = "cw";
    else return false;
-   // Kiwi's mod command uses kHz, with passband edges in Hz.
-   n = snprintf(command, capacity, "SET mod=%s low_cut=-300 high_cut=2700 freq=%" PRIu64 ".%03" PRIu64,
-                kiwi_mode, hz / 1000, hz % 1000);
+   // Kiwi client.py set_mod/_default_passbands uses kHz and Hz cutoffs:
+   // https://github.com/jks-prv/kiwiclient/blob/master/kiwi/client.py
+   int low = 300, high = 2700;
+   if (!strcmp(kiwi_mode, "lsb")) { low = -2700; high = -300; }
+   else if (!strcmp(kiwi_mode, "am")) { low = -4900; high = 4900; }
+   else if (!strcmp(kiwi_mode, "cw")) { low = 300; high = 700; }
+   n = snprintf(command, capacity, "SET mod=%s low_cut=%d high_cut=%d freq=%" PRIu64 ".%03" PRIu64,
+                kiwi_mode, low, high, hz / 1000, hz % 1000);
    return n > 0 && (size_t)n < capacity;
 }
 
@@ -77,12 +82,28 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
    return false;  // SND and W/F decode intentionally not implemented yet.
 }
 
+// Loading the formatter is not a receiver connection. Remain offline until
+// Kiwi authentication and live control acknowledgments are implemented here.
+static bool kiwi_start(void *instance) {
+   struct kiwi_instance *kiwi = instance;
+   if (kiwi->host.state) kiwi->host.state(kiwi->host.user, false, 0, NULL);
+   return true;
+}
+static void kiwi_poll(void *instance) { (void)instance; }
+static bool kiwi_set_receiver(void *instance, uint64_t request, uint64_t hz, const char *mode) {
+   (void)instance; (void)request; (void)hz; (void)mode;
+   return false;
+}
+
 static const rrp_sdr_driver_t kiwi_driver = {
    .abi_version = RRP_SDR_ABI_VERSION,
    .name = "kiwi",
    .create = kiwi_create,
    .destroy = kiwi_destroy,
    .capabilities = kiwi_capabilities,
+   .start = kiwi_start,
+   .poll = kiwi_poll,
+   .set_receiver = kiwi_set_receiver,
    .tune = kiwi_tune,
    .receive = kiwi_receive
 };

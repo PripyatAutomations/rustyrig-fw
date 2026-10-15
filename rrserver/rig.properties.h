@@ -112,6 +112,9 @@ extern rr_property_update_t rr_rig_property_unavailable(rr_server_rig_t *rig, co
 extern bool rr_rig_property_read(const rr_server_rig_t *rig, const char *name, rr_property_snapshot_t *snapshot);
 
 extern bool rr_vfo_property_define(rr_server_vfo_t *vfo, const rr_property_descriptor_t *descriptor);
+// Explicit same-type schema refresh for capabilities learned after startup.
+// Retains observed state/version; callers mark stale observations unavailable.
+extern bool rr_vfo_property_redefine(rr_server_vfo_t *vfo, const rr_property_descriptor_t *descriptor);
 extern bool rr_vfo_property_describe(const rr_server_vfo_t *vfo, const char *name, rr_property_descriptor_t *descriptor);
 extern rr_property_update_t rr_vfo_property_observe(rr_server_vfo_t *vfo, const char *name, val_type_t type, const dict_value_t *value);
 extern rr_property_update_t rr_vfo_property_unavailable(rr_server_vfo_t *vfo, const char *name);

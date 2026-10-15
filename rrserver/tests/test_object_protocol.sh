@@ -15,7 +15,7 @@ trap 'rm -rf "$work"' EXIT
 ${CC:-cc} ${CFLAGS:-} -pthread -std=gnu11 -DRR_TEST_OBJECT_PROTOCOL -I. -Iinc -Ibuild/${PROFILE:-radio} \
    $(pkg-config --cflags glib-2.0 hamlib sqlite3) \
    rrserver/tests/multirig_live.c rrserver/backend.c \
-   rrserver/backend.instance.c rrserver/backend.worker.c rrserver/backend.register.c \
+   rrserver/backend.instance.c rrserver/backend.worker.c rrserver/backend.register.c rrserver/bridge.manager.c \
    rrserver/backend.internal.c rrserver/backend.hamlib.c \
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
    rrserver/cfg.rig.c rrserver/rig.rooms.c rrserver/database.c rrserver/defconfig.c \

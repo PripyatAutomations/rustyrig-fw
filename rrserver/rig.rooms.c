@@ -23,6 +23,7 @@ extern struct GlobalState rig;
 struct room_context {
    const char *room;
    uint32_t mask;
+   rr_server_rig_t *radio;
 };
 
 static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
@@ -44,7 +45,13 @@ static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
 
 static bool room_duplicate(rr_server_rig_t *radio, void *user) {
    struct room_context *ctx = user;
+   if (radio == ctx->radio) return false;
    const char *room = rr_rig_registry_room(rig.rigs, radio);
+   char generated[128];
+   if (!room && strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) {
+      snprintf(generated, sizeof(generated), "%s-%s", ws_site_room(), rr_rig_registry_alias(rig.rigs, radio));
+      room = generated;
+   }
 
    return room && !strcasecmp(room, ctx->room);
 }
@@ -54,11 +61,20 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    char *configured = rr_rig_config_get_exp(alias, "room");
    char generated[128];
-   int len = snprintf(generated, sizeof(generated), "%s-%s", ws_site_room(), alias);
+   // Bridge aliases are device names (e.g. hf-east); retain the existing
+   // numbered rig-room namespace used by authorization and linked clients.
+   int len = !strcmp(rr_server_rig_backend(radio)->type->name, "bridge") ?
+      snprintf(generated, sizeof(generated), "%s-rig%u", ws_site_room(), rr_rig_registry_media_index(rig.rigs, radio)) :
+      snprintf(generated, sizeof(generated), "%s-%s", ws_site_room(), alias);
    const char *room = configured && *configured ? configured : generated;
-   struct room_context ctx = {
-      .room = room
-   };
+   struct room_context ctx = {.room = room, .radio = radio};
+   if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge") && !configured) {
+      unsigned number = rr_rig_registry_media_index(rig.rigs, radio);
+      for (unsigned tried = 0; tried < 255 && rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx); tried++) {
+         number = (number + 1) % 255;
+         len = snprintf(generated, sizeof(generated), "%s-rig%u", ws_site_room(), number);
+      }
+   }
 
    if ((!configured && (len < 0 || (size_t)len >= sizeof(generated))) ||
       !ws_room_rig_base(room) || !ws_room_rig_namespace(room) ||

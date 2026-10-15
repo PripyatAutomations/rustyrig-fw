@@ -138,6 +138,9 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
 
 static bool start_rig_audio(rr_server_rig_t *radio, void *user) {
    (void)user;
+   // Bridge PCM transport is not implemented; never attach a local sound card
+   // or expose a TX media route for an external control-only receiver.
+   if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) return false;
    char rx_buf[128], tx_buf[128];
    const char *rx = rig_endpoint(radio, false, rx_buf, sizeof(rx_buf));
    const char *tx = rig_endpoint(radio, true, tx_buf, sizeof(tx_buf));
@@ -408,6 +411,7 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
 }
 
 static bool media_setup_rig(rr_server_rig_t *radio, void *user) {
+   if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) return false;
    int *made = user;
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    bool per_vfo = rr_rig_config_get_bool(alias, "audio.per-vfo", false);

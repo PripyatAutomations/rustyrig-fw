@@ -21,6 +21,7 @@ run_suite() {
   local suite="$1"
   case "$suite" in
     libfwdspmgr) run_dir "$suite" libfwdspmgr/tests ;;
+    rrbridge)    run_dir "$suite" rrbridge/tests ;;
     fwdsp)       run_dir "$suite" fwdsp/tests ;;
     librrprotocol) run_dir "$suite" librrprotocol/tests ;;
     rrclient)    run_dir "$suite" rrclient/tests ;;
@@ -34,7 +35,7 @@ run_suite() {
 }
 
 if [ "$#" -eq 0 ]; then
-  SUITES="selftest packaging librustyaxe librrprotocol rrserver rrclient fwdsp libfwdspmgr www"
+  SUITES="selftest packaging librustyaxe librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr www"
 else
   SUITES="$*"
 fi

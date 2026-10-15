@@ -32,7 +32,7 @@
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
 #include <rrserver/cfg.rig.h>
-#include <rrserver/cfg.bridge.h>
+#include <librrprotocol/bridge.config.h>
 #include <rrserver/bridge.manager.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/serial.h>
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrserver_bridge_config_init()) {
+   if (!rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
@@ -374,7 +374,7 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
 
-   if (rr_backend_init()) {
+   if (!rrserver_bridges_prepare() || rr_backend_init()) {
       Log(LOG_CRIT, "core", "*** Failed init backend ***");
       set_fault(FAULT_BACKEND_ERR);
       exit(EXIT_FAILURE);

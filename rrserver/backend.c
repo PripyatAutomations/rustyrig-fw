@@ -469,7 +469,7 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
       return true;
    }
 
-   if (!backend->worker) {
+   if (!backend->worker && !backend->type->event_driven) {
       vfos[vfo].freq = freq;
    }
 
@@ -590,7 +590,7 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
       failed = rr_backend_api(backend)->mode_set(backend, object, mode);
    }
 
-   if (!backend->worker && !failed) {
+   if (!backend->worker && !backend->type->event_driven && !failed) {
       vfos[vfo].mode = mode;
    }
 

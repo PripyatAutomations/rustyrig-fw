@@ -603,3 +603,12 @@ remain authoritative. Native and browser clients use the existing result and
 observation messages without a wire change. Legacy CAT PTT receipts retain
 reservation semantics; confirmed CAT state follows backend completion.
 See [Backend workers](backend-workers.md) for ownership and scheduling details.
+
+
+## External bridge receiver control
+
+`rrserver/bridge.manager.c` publishes bridge receivers through the existing
+UUID object/property protocol. Native `rrclient/objects.c` and browser
+`js/webui.objects.js` consume the same frequency bounds, mode enums and
+availability without driver-specific messages. Bridge media is not provisioned
+in this control-only milestone. See [External receiver bridges](rrbridge.md).
