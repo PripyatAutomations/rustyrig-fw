@@ -21,6 +21,8 @@ with sqlite3.connect(work / 'master.db') as db:
     db.executescript((ROOT / 'sql/sqlite.master.sql').read_text())
     db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(1,?,?,?,?,?)',
         ('TEST', 1, hashlib.sha1(b'test-password').hexdigest(), 3, 'admin,view,radio,edit,chat,rx'))
+    db.execute('INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(2,?,?,?,?,?)',
+        ('VIEWER', 1, hashlib.sha1(b'test-password').hexdigest(), 3, 'view,chat,rx'))
 with socket.socket() as reservation:
     reservation.bind(('127.0.0.1', 0))
     port = reservation.getsockname()[1]
@@ -130,15 +132,32 @@ with (work / 'console.log').open('w') as console:
         assert properties[a, 'frequency']['minimum'] == 500000
         assert properties[a, 'frequency']['maximum'] == 25000000
         if fixture: assert fixture.connections == 0 and not fixture.commands, 'Kiwi contacted during startup or discovery'
+        # Ordinary RX privilege alone cannot wake an external receiver.
+        outsider = WebSocket(port)
+        outsider.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'VIEWER'}})
+        challenge = outsider.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
+        password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
+        outsider.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'VIEWER', 'pass': password, 'token': challenge['token']}})
+        outsider.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
+        outsider.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': objects[radio]['room']}})
+        denied = outsider.until(lambda m: 'bridge.use' in str(m))
+        assert denied
+        outsider.socket.close()
+        if fixture: assert fixture.connections == 0, 'unauthorized RX user started Kiwi'
         join(objects[radio]['room'])
         state(radio, 'online', True)
         assert states[radio, 'capabilities.source']['value'] == 'live'
         assert properties[a, 'frequency']['minimum'] == 0
         assert properties[a, 'frequency']['maximum'] == (28000000 if fixture else 30000000)
         with sqlite3.connect(work / 'master.db') as db:
-            rows = db.execute('SELECT hints,updated_at FROM bridge_capabilities').fetchall()
+            rows = db.execute("SELECT hints,updated_at FROM bridge_capabilities WHERE identity NOT LIKE '%.metadata.%'").fetchall()
             assert len(rows) == 1 and rows[0][1] > 0
             assert json.loads(rows[0][0])['rx-max-hz'] == ('28000000' if fixture else '30000000')
+        if fixture:
+            assert states[radio, 'receiver.contact']['value'] == 'fixture@example.invalid'
+            assert states[radio, 'receiver.name']['value'] == 'Fixture Kiwi'
+            with sqlite3.connect(work / 'master.db') as db:
+                assert 'must-not-cache' not in repr(db.execute('SELECT hints FROM bridge_capabilities').fetchall())
         control(a, 'frequency', 7100000, 'kiwi-tune')
         assert states[a, 'frequency']['value'] == 7100000
         control(a, 'mode', 'AM', 'kiwi-mode')
@@ -238,6 +257,8 @@ with (work / 'console.log').open('w') as console:
             assert states[radio, 'capabilities.source']['value'] == 'cached'
             assert not states[radio, 'online']['value']
             assert properties[a, 'frequency']['maximum'] == 28000000
+            assert states[radio, 'receiver.contact']['value'] == 'fixture@example.invalid'
+            assert states[radio, 'receiver.name']['value'] == 'Fixture Kiwi'
             assert fixture.peer is None and fixture.connections == connection_count and len(fixture.commands) == command_count, 'cached discovery contacted Kiwi'
         print('PASS: on-demand Kiwi reception, tuning/audio, idle release and live coverage cached across server restart')
     except BaseException:

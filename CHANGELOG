@@ -1,5 +1,18 @@
 rustyrig-fw (20261015.02) testing; urgency=medium
 
+  * Add a generic Receiver Directory with a first Kiwi JSON provider, GTK
+    browser/search/access filtering, TUI command, offline coverage snippets,
+    bounded asynchronous fetching, conditional requests and persisted backoff.
+    Keep shipped mirror URL empty and never probe receivers while browsing.
+    Cache offline/deleted entries and local restrictions in SQLite; retain
+    live metadata over directory updates and purge missing entries after 90 days.
+  * Carry allowlisted receiver metadata through bridge ABI/IPC version 4 and
+    read-only rig properties, cache it across server restarts, and coalesce
+    confirmed observations into native receiver details without copying secrets.
+    Add bridge.use, bridge.admin and kiwi.connect policy checks; enforce bridge
+    access for JOIN/media/demand/delivery and protect elevated wildcard grants.
+    Test real-list parsing, cache/retry behavior, metadata precedence/retirement,
+    GTK filtering, permissions, IPC and local Kiwi lifecycle/metadata recovery.
   * Add an always-on-top, fixed-size, minimizable GTK RX routing window that
     follows subscribed streams across servers. Split RX selects each ear
     independently; unified mode mirrors the left selector. Include mute/all
@@ -73,7 +86,7 @@ rustyrig-fw (20261015.02) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 10:34:17 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 11:18:48 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

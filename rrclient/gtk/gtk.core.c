@@ -28,6 +28,7 @@
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 #include <rrclient/gtk/gtk.audio-routing.h>
+#include <rrclient/gtk/gtk.receiver-directory.h>
 
 #define MSGBUF_SIZE 8096
 
@@ -1232,6 +1233,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
       return true;              // gui_init failed; module loader will unload us
    }
    gtk_audio_routing_init();
+   gtk_receiver_directory_init();
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va);
    event_on("client.quit.request", frontend_gtk_quit_request, NULL);
@@ -1363,6 +1365,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   gtk_receiver_directory_shutdown();
    gtk_audio_routing_shutdown();
    gtk_ui_zoom_shutdown();
 

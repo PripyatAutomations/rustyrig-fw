@@ -27,6 +27,7 @@ rrserver_objs += database.o		# sqlite3 database stuff
 rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += acl.o
 rrserver_objs += bridge.hints.o
+rrserver_objs += bridge.access.o
 rrserver_objs += bridge.manager.o
 rrserver_objs += cfg.peer.o		# Peer configuration sections
 rrserver_objs += relay.o

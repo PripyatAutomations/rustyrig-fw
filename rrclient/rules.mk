@@ -6,6 +6,10 @@ rrclient := bin/rrclient
 rrclient_objs += objects.o objects.events.o
 bins += ${rrclient}
 
+rrclient_objs += receiver.directory.o
+rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
+rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
+${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
 rrclient_objs += audio.o
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
@@ -54,6 +58,7 @@ bins += ${gtk_module}
 
 gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
 gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
+gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browser
 gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
 gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
@@ -144,7 +149,7 @@ ${BUILD_DIR}/rrclient/%.o: ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUIL
 
 bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} -rdynamic -o $@ ${rrclient_real_objs} -lrustyaxe -lrrprotocol -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed ${LDFLAGS} || exit 2
+	@${CC} ${LDFLAGS_RRCLI} -rdynamic -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed ${LDFLAGS} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

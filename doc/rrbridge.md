@@ -250,3 +250,20 @@ tuning confirmations and repeated property/legacy CAT frequency and mode
 changes. Pending CAT controls are accepted without a premature failure log.
 Protocol tests cover media framing and
 backpressure, and DSP tests check that 12-to-16 kHz conversion preserves duration.
+
+## Receiver metadata
+
+Bridge driver ABI and local control IPC are version 4. Rebuild rrserver,
+rrbridge and receiver modules together. The optional host `metadata` callback
+sends bounded, allowlisted read-only receiver fields independently of controls
+and PCM. Kiwi's normal `load_cfg` can supply identity/contact/antenna information;
+passwords and the remainder of its configuration are excluded. The bridge host
+also supplies confirmed coverage. `receiver.connected_at` records successful
+online state, not process startup or discovery.
+
+rrserver caches these fields under endpoint-scoped metadata keys alongside its
+capability hints and exposes them as ordinary `receiver.*` rig properties.
+Native clients merge confirmed observations into their generic Receiver Directory
+with live-over-directory precedence. Offline server discovery restores cached
+metadata without starting a bridge. See [Receiver Directory](receiver-directory.md)
+for source etiquette, local status flags, permissions and ninety-day retirement.

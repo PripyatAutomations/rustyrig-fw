@@ -48,6 +48,7 @@ extern defconfig_t defcfg[];
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
 #include <rrclient/frontend.h>
+#include <rrclient/receiver.directory.h>
 #include <rrclient/rooms.h>
 #include <rrclient/dcc.h>
 #include <rrclient/media.direct.h>
@@ -421,6 +422,8 @@ bool rrclient_cleanup(void) {
       rr_unload_module(frontend_module->mod_name);
       frontend_module = NULL;
    }
+
+   receiver_directory_shutdown();
 
    // Stop all fwdsp children while their Mongoose wrappers and logging are
    // still alive. This also releases encoders retained by fwdsp.hangtime.

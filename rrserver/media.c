@@ -23,6 +23,7 @@
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
 #include <rrserver/recording.h>
+#include <rrserver/bridge.access.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
 extern struct GlobalState rig;
@@ -79,7 +80,7 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
       }
 
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
-         if (client->conn && client->is_ws && client->authenticated && !client->is_server && media_client_in_channel_room(client, channel)) {
+         if (client->conn && client->is_ws && client->authenticated && !client->is_server && (!rrserver_bridge_rig(radio) || rrserver_bridge_can_use(client)) && media_client_in_channel_room(client, channel)) {
             return true;
          }
       }

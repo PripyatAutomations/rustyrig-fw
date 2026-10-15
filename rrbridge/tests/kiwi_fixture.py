@@ -1,6 +1,8 @@
 """Small wire-level Kiwi peer: auth, rate negotiation, tuning and mono SND."""
 import base64
 import hashlib
+import json
+import urllib.parse
 import select
 import socket
 import struct
@@ -89,6 +91,8 @@ class KiwiFixture:
                         self.reject_auth -= 1
                         self.send(c, b'MSG badp=1')
                     else:
+                        metadata = urllib.parse.quote(json.dumps({'rx_name': 'Fixture Kiwi', 'admin_email': 'fixture@example.invalid', 'rx_location': 'Local fixture', 'rx_antenna': 'Test antenna', 'admin_password': 'must-not-cache'})).encode()
+                        self.send(c, b'MSG load_cfg=' + metadata)
                         self.send(c, b'MSG badp=0 bandwidth=28000000 audio_rate=12000 sample_rate=12000.000000 freq_offset=0')
                 if command.startswith('SET mod='):
                     streaming = True; changed = True

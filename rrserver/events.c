@@ -1,5 +1,6 @@
 #include <rrserver/supervision.h>
 #include <rrserver/acl.h>
+#include <rrserver/bridge.access.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 #include <rrserver/usage.h>
@@ -747,6 +748,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       }
 
       rr_control_result_t result = object && request.property ? rr_rig_control(&request) : RR_CONTROL_INVALID;
+
       if (result != RR_CONTROL_OK && result != RR_CONTROL_PENDING) {
          Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s", rc_cmd, room);
       } else if (result == RR_CONTROL_OK) {
@@ -1516,7 +1518,8 @@ static bool user_privilege_contains(const char *privileges, const char *wanted) 
 }
 
 static bool user_privilege_has_elevated(const char *privileges) {
-   return user_privilege_contains(privileges, "admin") || user_privilege_contains(privileges, "owner");
+   return privileges && (match_priv(privileges, "admin") || match_priv(privileges, "owner") ||
+      match_priv(privileges, "bridge.admin") || match_priv(privileges, "kiwi.connect"));
 }
 
 static bool user_privilege_add_tokens(const char *base, const char *extra, char *out, size_t out_len) {
@@ -1827,7 +1830,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
 
       if (user_is_elevated(target) && !actor_is_owner) {
-         ws_send_notice(cptr, "USER: only owners may change administrator or owner privileges");
+         ws_send_notice(cptr, "USER: only owners may change protected privileges (owner, admin, bridge.admin, kiwi.connect)");
 
          return;
       }
@@ -1867,7 +1870,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
 
       if (!actor_is_owner && user_privilege_has_elevated(updated)) {
-         ws_send_notice(cptr, "USER: administrators cannot grant owner or administrator privileges");
+         ws_send_notice(cptr, "USER: only owners may grant protected privileges (owner, admin, bridge.admin, kiwi.connect)");
 
          return;
       }
@@ -2253,6 +2256,7 @@ void rrserver_register_events(void) {
    rrserver_objects_register_events();
    rrserver_direct_register_events();
    rrserver_acl_register_events();
+   rrserver_bridge_access_register_events();
    rrserver_relay_register_events();
    rrserver_supervision_register();
    rrserver_media_register_events();

@@ -640,3 +640,22 @@ UUID object/property protocol. Native `rrclient/objects.c` and browser
 availability without driver-specific messages. Native and browser clients
 receive bridge RX audio through the existing codec/media paths. TX media is
 not provisioned for these receivers. See [External receiver bridges](rrbridge.md).
+
+## Receiver directory and bridge access
+
+The native GTK Receiver Directory and `/receivers` use a local SQLite cache
+and explicit configurable mirror/import source. This native filesystem/dialog
+integration is frontend-specific; the browser has no directory fetch or bridge
+creation control. No shared wire command was added. Kiwi is the first provider;
+other WebSDR types require their own parser and operator policy.
+
+Read-only `receiver.*` rig properties carry learned metadata through the existing
+object protocol; both clients can inspect them. Native clients additionally
+merge confirmed observations into local receiver details. Directory refreshes
+never overwrite live learned fields. Missing/offline records and local failures
+are separate, and missing records are purged after ninety days without a listing
+or live observation. Server bridge-use admission and media access apply equally
+to native/browser clients, including entitlement revocation. `bridge.admin` and
+`kiwi.connect` are separate policy checks for future bridge-management/public
+selection operations; no arbitrary endpoint connection request is exposed.
+See [Receiver Directory](receiver-directory.md).

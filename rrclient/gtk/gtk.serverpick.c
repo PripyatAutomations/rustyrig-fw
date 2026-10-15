@@ -136,6 +136,11 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
 }
 
 
+static void on_receivers_clicked(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   event_emit("client.receiver-directory.show", NULL, NULL);
+}
+
 static void on_edit_clicked(GtkButton *button, gpointer data) {
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(data));
    GtkTreeModel *model;
@@ -231,6 +236,9 @@ void gtk_show_server_chooser(void) {
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+   GtkWidget *kiwi = gtk_button_new_with_label("Browse receivers…");
+   gtk_box_pack_start(GTK_BOX(box), kiwi, FALSE, FALSE, 0);
+   g_signal_connect(kiwi, "clicked", G_CALLBACK(on_receivers_clicked), NULL);
    GtkWidget *edit = gtk_button_new_with_label("Edit");
    gtk_box_pack_start(GTK_BOX(box), edit, FALSE, FALSE, 0);
    g_signal_connect(edit, "clicked", G_CALLBACK(on_edit_clicked), tree);

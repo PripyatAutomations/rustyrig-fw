@@ -29,6 +29,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/audio.h>
+#include <rrclient/receiver.directory.h>
 #include <rrclient/cmd.h>
 #include <rrclient/frontend.h>
 #include <rrclient/ui.h>
@@ -595,12 +596,14 @@ bool cmd_quit(int argc, char **args) {
 bool cmd_rxroute(int argc, char **args) {
    const char *server = rrclient_selected_server();
    const char *room = rrclient_active_room();
-   if (!server || !room || argc != 2 || !args[1] || strlen(args[1]) != 1 ||
-       !audio_set_room_route(server, room, toupper((unsigned char)args[1][0]))) {
+
+   if (!server || !room || argc != 2 || !args[1] || strlen(args[1]) != 1 || !audio_set_room_route(server, room, toupper((unsigned char)args[1][0]))) {
       ui_print(ui_active_window_name(), "Usage: /rxroute L|R|S|M in a room");
+
       return true;
    }
    ui_print(ui_active_window_name(), "RX output for %s: %c", room, audio_room_route(server, room));
+
    return false;
 }
 
@@ -672,4 +675,25 @@ bool cmd_server(int argc, char **args) {
    bool is_url = strstr(server, "://") != NULL;
 
    return rrclient_connect_url_proxy(is_url ? NULL : server, is_url ? server : get_server_property(server, "server.url"), proxy);
+}
+
+// Native local metadata, never a connection request to a public receiver.
+bool cmd_receivers(int argc, char **args) {
+   if (argc == 2 && !strcasecmp(args[1], "refresh")) receiver_directory_refresh();
+   else if (argc == 3 && !strcasecmp(args[1], "import")) receiver_directory_import(args[2]);
+   else if (argc != 1) {
+      ui_print(ui_active_window_name(), "Usage: /receivers [refresh | import <JSON file>]");
+      return true;
+   }
+   const rr_frontend_ops_t *ops = frontend_ops();
+   if (ops && !strcmp(ops->name, "gtk")) {
+      event_emit("client.receiver-directory.show", NULL, NULL);
+   } else {
+      ui_print(ui_active_window_name(), "%s", receiver_directory_status());
+      for (size_t i = 0; i < receiver_directory_count(); i++) {
+         const receiver_directory_entry_t *r = receiver_directory_receiver(i);
+         if (receiver_directory_entry_accessible(r)) ui_print(ui_active_window_name(), "%s | %s | %s | API=%d | %s", r->name, r->location, r->url, r->ext_api, r->contact);
+      }
+   }
+   return false;
 }

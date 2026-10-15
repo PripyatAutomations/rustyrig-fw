@@ -7,6 +7,7 @@
 #include <string.h>
 #include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
+#include <rrclient/receiver.directory.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/cmd.h>
@@ -84,6 +85,27 @@ static bool inventory_message(dict *d) {
    return true;
 }
 
+static void learn_receiver_metadata(dict *message) {
+   const char *property = dict_get(message, "property.name", "");
+   if (strncmp(property, "receiver.", 9)) return;
+   const char *target = dict_get(message, "target", "");
+   const dict *url = rrclient_object_property(target, "receiver.url");
+   const dict *connected = rrclient_object_property(target, "receiver.connected_at");
+   if (!url || !connected || !dict_get_bool((dict *)url, "property.known", false) || !dict_get_bool((dict *)connected, "property.known", false)) return;
+   const char *endpoint = dict_get((dict *)url, "property.value", "");
+   if (!*endpoint) return;
+   dict *fields = dict_new();
+   const char *keys[] = { "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at" };
+   for (unsigned i = 0; i < (sizeof(keys) / sizeof(keys[0])); i++) {
+      char name[64];
+      snprintf(name, sizeof(name), "receiver.%s", keys[i]);
+      const dict *state = rrclient_object_property(target, name);
+      const char *value = state && dict_get_bool((dict *)state, "property.known", false) ? dict_get((dict *)state, "property.value", NULL) : NULL;
+      if (value && *value) dict_add(fields, keys[i], value);
+   }
+   receiver_directory_queue_learn(endpoint, fields);
+   dict_free(fields);
+}
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 
@@ -97,8 +119,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       cache = rr_object_cache_new();
    }
 
-   if (d && !rr_object_cache_apply(cache, d)) {
-      Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
+   if (d) {
+      if (!rr_object_cache_apply(cache, d)) Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
+      else learn_receiver_metadata(d);
    }
    dict_free(d);
    event_emit("client.objects.changed", NULL, NULL);
