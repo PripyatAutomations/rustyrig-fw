@@ -40,6 +40,7 @@ const dict *rrclient_object_property(const char *uuid, const char *name) {
 static const char *test_prompt(tui_window_t *window) {
    return "SELECTED-SERVER";
 }
+
 static unsigned redraws;
 static char rejoin_targets[4][128];
 static unsigned rejoin_count;

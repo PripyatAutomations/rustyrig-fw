@@ -38,8 +38,7 @@ struct rrclient_rx_audio {
 /* Per-server room routing: L/R/S (both ears)/M. Independent of UI selection. */
 char audio_room_route(const char *server, const char *room);
 bool audio_set_room_route(const char *server, const char *room, char output);
-/* Snapshot of all subscribed native RX streams, across connections. Opaque IDs
- * survive codec changes; use only on the client main loop. Returns total count. */
+/* Snapshot of all subscribed native RX streams, across connections. Opaque IDs survive codec changes; use only on the client main loop. Returns total count. */
 struct rrclient_rx_stream {
    char id[64], server[512], room[128], uuid[64], codec[5];
    char output;

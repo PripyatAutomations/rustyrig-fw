@@ -339,8 +339,7 @@ static void rrclient_tui_host_log_frame(const char *event, const void *data, siz
    ui_print("host log", "%s <%s.%s> %s", get_chat_ts(now), subsys, log_priority_to_str((logpriority_t) payload[0]), message);
 }
 
-/* The three TUI system tabs share all servers; ui_print labels each source.
- * GTK has its own log callbacks. */
+/* The three TUI system tabs share all servers; ui_print labels each source. GTK has its own log callbacks. */
 static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    static bool log_printing = false;
 

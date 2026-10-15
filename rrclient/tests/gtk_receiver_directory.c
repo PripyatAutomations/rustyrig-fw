@@ -5,26 +5,30 @@ time_t now = 1792080000;
 static const char *test_db;
 static unsigned connects;
 bool rrclient_receiver_connect(const char *url, bool save) {
-   assert(!strcmp(url, "http://a.invalid:8073") && !save); connects++; return true;
+   assert(!strcmp(url, "http://a.invalid:8073") && !save);
+   connects++;
+
+   return true;
 }
 const char *cfg_get(const char *key) {
    return !strcmp(key, "receiver-directory.cache") ? test_db : "";
 }
-void Log(logpriority_t priority, const char *subsystem, const char *format, ...) { }
+void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
+}
 static int visible_count(void) {
    return gtk_tree_model_iter_n_children(GTK_TREE_MODEL(directory_filter), NULL);
 }
 int main(int argc, char **argv) {
    assert(argc == 2);
    test_db = argv[1];
-   event_init(); gtk_init(&argc, &argv);
+   event_init();
+   gtk_init(&argc, &argv);
    g_unsetenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
    const char *data = "{\"schema\":1,\"receivers\":["
       "{\"url\":\"http://a.invalid:8073/\",\"name\":\"<b>Receiver A</b>\",\"loc\":\"North\",\"contact\":\"sysop@example.invalid\",\"ext_api\":2,\"bands\":[10000,30000000]},"
       "{\"url\":\"http://b.invalid:8073/\",\"name\":\"Receiver B\",\"loc\":\"South\",\"ext_api\":4},"
       "{\"url\":\"http://web.invalid/\",\"ext_api\":0},"
-      "{\"url\":\"http://unknown.invalid/\"},"
-      "{\"url\":\"http://offline.invalid/\",\"ext_api\":4,\"offline\":true}]}";
+      "{\"url\":\"http://unknown.invalid/\"}," "{\"url\":\"http://offline.invalid/\",\"ext_api\":4,\"offline\":true}]}";
    char *path = g_strconcat(test_db, ".json", NULL);
    assert(g_file_set_contents(path, data, -1, NULL));
    assert(receiver_directory_import(path));
@@ -35,7 +39,8 @@ int main(int argc, char **argv) {
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_filter), &iter));
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
    assert(gtk_widget_get_sensitive(config_button) && gtk_widget_get_sensitive(connect_button));
-   connect_clicked(NULL, NULL); assert(connects == 1);
+   connect_clicked(NULL, NULL);
+   assert(connects == 1);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(directory_details));
    GtkTextIter first, last;
    gtk_text_buffer_get_bounds(buffer, &first, &last);
@@ -62,9 +67,12 @@ int main(int argc, char **argv) {
    assert(!receiver_directory_busy());
    assert(hide_directory(directory_window, NULL, NULL));
    assert(!gtk_widget_get_visible(directory_window));
-   gtk_receiver_directory_shutdown(); receiver_directory_shutdown();
+   gtk_receiver_directory_shutdown();
+   receiver_directory_shutdown();
    event_emit("client.receiver-directory.show", NULL, NULL);
    assert(!directory_window);
-   event_shutdown(); g_unlink(path); g_free(path);
+   event_shutdown();
+   g_unlink(path);
+   g_free(path);
    puts("PASS: GTK directory filters policy/offline/local failures, searches metadata, displays literal details and tears down cleanly");
 }

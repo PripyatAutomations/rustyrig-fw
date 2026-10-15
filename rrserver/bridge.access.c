@@ -33,23 +33,34 @@ static bool rig_access(const rrconn_t *client, const rr_server_rig_t *radio) {
 }
 bool rrserver_bridge_rig(const rr_server_rig_t *radio) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
+
    return backend && backend->type && !strcmp(backend->type->name, "bridge");
 }
 static void room_access(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
-   (void)event; (void)unused;
-   if (length != sizeof(rr_room_join_check_t) || (client && client->is_server)) return;
-   rr_room_join_check_t *check = (rr_room_join_check_t *)data;
+   (void)event;
+   (void)unused;
+
+   if (length != sizeof(rr_room_join_check_t) || (client && client->is_server)) {
+      return;
+   }
+   rr_room_join_check_t *check = (rr_room_join_check_t *) data;
    rr_server_rig_t *radio = rrserver_rig_for_room(check->room);
+
    if (rrserver_bridge_rig(radio) && !rig_access(client, radio)) {
       check->allowed = false;
       ws_send_error(client, "Receiver access requires websdr.listen (configured) or websdr.connect (temporary)");
    }
 }
 static void media_access(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
-   (void)event; (void)unused;
-   if (length != sizeof(rr_media_access_t) || (client && client->is_server)) return;
-   rr_media_access_t *access = (rr_media_access_t *)data;
+   (void)event;
+   (void)unused;
+
+   if (length != sizeof(rr_media_access_t) || (client && client->is_server)) {
+      return;
+   }
+   rr_media_access_t *access = (rr_media_access_t *) data;
    rr_server_rig_t *radio = access->channel ? rrserver_rig_for_room(access->channel->room) : NULL;
+
    if (rrserver_bridge_rig(radio) && !rig_access(client, radio)) {
       access->allowed = false;
    }

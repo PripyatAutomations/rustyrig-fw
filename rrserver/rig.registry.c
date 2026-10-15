@@ -146,11 +146,21 @@ rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uu
    }
    rr_server_rig_set_backend(radio, backend);
    /* Runtime receivers must not reuse another rig's wire stream index. */
-   bool used[255] = {0};
-   for (rr_rig_registry_entry_t *cur = registry->head; cur; cur = cur->next) used[cur->media_index] = true;
-   for (unsigned i = 0; i < 255; i++) {
-      if (!used[i]) { entry->media_index = i; break; }
+   bool used[255] = {
+      0
+   };
+
+   for (rr_rig_registry_entry_t *cur = registry->head ; cur ; cur = cur->next) {
+      used[cur->media_index] = true;
    }
+
+   for (unsigned i = 0 ; i < 255 ; i++) {
+      if (!used[i]) {
+         entry->media_index = i;
+         break;
+      }
+   }
+
    snprintf(entry->public_alias, sizeof(entry->public_alias), "rig%u", entry->media_index);
    entry->radio = radio;
    entry->next = registry->head;
@@ -189,15 +199,21 @@ bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid) {
 }
 
 const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
-   for (rr_rig_registry_entry_t *entry = registry ? registry->head : NULL; entry; entry = entry->next) {
-      if (entry->radio == radio) return entry->public_alias;
+   for (rr_rig_registry_entry_t *entry = registry ? registry->head : NULL ; entry ; entry = entry->next) {
+      if (entry->radio == radio) {
+         return entry->public_alias;
+      }
    }
+
    return NULL;
 }
 rr_server_rig_t *rr_rig_registry_find_public_alias(const rr_rig_registry_t *registry, const char *alias) {
-   for (rr_rig_registry_entry_t *entry = registry && alias ? registry->head : NULL; entry; entry = entry->next) {
-      if (!strcmp(entry->public_alias, alias)) return entry->radio;
+   for (rr_rig_registry_entry_t *entry = registry && alias ? registry->head : NULL ; entry ; entry = entry->next) {
+      if (!strcmp(entry->public_alias, alias)) {
+         return entry->radio;
+      }
    }
+
    return NULL;
 }
 
@@ -239,23 +255,38 @@ bool rr_rig_registry_set_default(rr_rig_registry_t *registry, rr_server_rig_t *r
       return true;
    }
    registry->default_rig = radio;
-   bool used[255] = {true};
-   /* Preserve explicit rigN configuration identities where possible. The
-    * default retains slot zero; descriptive identities use remaining slots. */
-   for (rr_rig_registry_entry_t *entry = registry->head; entry; entry = entry->next) {
+   bool used[255] = {
+      true
+   };
+
+   /* Preserve explicit rigN configuration identities where possible. The default retains slot zero; descriptive identities use remaining slots. */
+   for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
       entry->media_index = entry->radio == radio ? 0 : UINT8_MAX;
       unsigned number;
       char extra;
+
       if (entry->radio != radio && sscanf(entry->alias, "rig%u%c", &number, &extra) == 1 && number > 0 && number < 255 && !used[number]) {
-         char canonical[16]; snprintf(canonical, sizeof(canonical), "rig%u", number);
-         if (!strcmp(canonical, entry->alias)) { entry->media_index = number; used[number] = true; }
+         char canonical[16];
+         snprintf(canonical, sizeof(canonical), "rig%u", number);
+
+         if (!strcmp(canonical, entry->alias)) {
+            entry->media_index = number;
+            used[number] = true;
+         }
       }
    }
+
    unsigned index = 1;
-   for (rr_rig_registry_entry_t *entry = registry->head; entry; entry = entry->next) {
+
+   for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
       if (entry->media_index == UINT8_MAX) {
-         while (index < 255 && used[index]) index++;
-         if (index == 255) index = 0;
+         while (index < 255 && used[index]) {
+            index++;
+         }
+
+         if (index == 255) {
+            index = 0;
+         }
          entry->media_index = index;
          used[index] = true;
       }

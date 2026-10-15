@@ -1,4 +1,6 @@
 rrclient: Config editor should check if ~/.config/rrclient.cfg exists
   - if not, save in-memory config to there before opening
 
-Confirm Quit dialog can get trapped under other always-on-top (modal) dialogs
+rrclient/gtk: Confirm Quit dialog can get trapped under other always-on-top (modal) dialogs
+
+rrclient/tui: Need to make the prompt simply > since we have a status line directly above it...

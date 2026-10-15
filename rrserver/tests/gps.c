@@ -92,6 +92,29 @@ bool media_chan_remove(const char *uuid) {
 
    return false;
 }
+static dict *inventory_rows[3];
+bool ws_send_dict(rrconn_t *sender, rrconn_t *client, dict *row, int type) {
+   const char *name = dict_get(row, "inventory.name", "");
+   if (strstr(name, ".gps-out")) {
+      unsigned index = !strncmp(name, "station.", 8) ? 0 : !strncmp(name, "rig0.", 5) ? 1 : 2;
+      dict_free(inventory_rows[index]);
+      char *text = dict2json(row);
+      inventory_rows[index] = json2dict(text);
+      free(text);
+   }
+   return true;
+}
+static void inventory_check(const char *scope, unsigned index, const char *state, const char *coordinates) {
+   rrconn_t client = {.authenticated = true};
+   dict *request = dict_new();
+   dict_add(request, "inventory.scope", scope);
+   event_emit_dict(RR_INVENTORY_EVENT, &client, request);
+   dict_free(request);
+   assert(inventory_rows[index]);
+   assert(!strcmp(dict_get(inventory_rows[index], "inventory.state", ""), state));
+   assert(!strcmp(dict_get(inventory_rows[index], "inventory.coordinates", ""), coordinates));
+}
+
 static const char *sentence(unsigned index) {
    static char text[128];
    uint8_t *p = payload[index];
@@ -141,6 +164,11 @@ int main(void) {
    assert((int32_t) ((uint32_t) payload[1][0] << 24 | (uint32_t) payload[1][1] << 16 | (uint32_t) payload[1][2] << 8 | payload[1][3]) == 381234567);
    assert((int32_t) ((uint32_t) payload[1][4] << 24 | (uint32_t) payload[1][5] << 16 | (uint32_t) payload[1][6] << 8 | payload[1][7]) == -807654321);
    assert(payload[1][8] == (RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL));
+   inventory_check("station", 0, "static", "38.1234567,-80.7654321");
+   inventory_check("rig0", 1, "static", "38.1234567,-80.7654321");
+   inventory_check("rig1", 2, "static", "40.5000000,-75.2500000");
+   assert(rrserver_gps_source_fixed("station") && rrserver_gps_source_fixed("rig1"));
+   assert(!rrserver_gps_source_fixed("rig0"));
    clock_us += 299999999;
    event_emit("server.poll", NULL, NULL);
    assert(sent[1] == 1);
@@ -180,7 +208,22 @@ int main(void) {
    event_emit("server.poll", NULL, NULL);
    assert(sent[1] == before + 1);
    assert(strstr(sentence(1), ",V,,,,,") && strstr(sentence(1), ",N*"));
+   inventory_check("rig0", 1, "no-fix", "");
    rrserver_gps_fini();
+   // The existing site coordinates configure the same fixed station source.
+   dict_add(cfg, "site:coordinates", "0,0");
+   assert(!rrserver_gps_init());
+   event_emit("server.poll", NULL, NULL);
+   inventory_check("station", 0, "static", "0.0000000,0.0000000");
+   inventory_check("rig0", 1, "static", "0.0000000,0.0000000");
+   assert(payload[1][8] == (RR_GPS_POSITION_VALID | RR_GPS_POSITION_MANUAL));
+   assert(strstr(sentence(1), ",A,0000.000000,N,00000.000000,E,") && strstr(sentence(1), ",M*"));
+   rrserver_gps_fini();
+   dict_add(cfg, "station.gps.position", "41,-72");
+   assert(!rrserver_gps_init());
+   inventory_check("station", 0, "static", "41.0000000,-72.0000000");
+   rrserver_gps_fini();
+   for (unsigned i = 0 ; i < 3 ; i++) dict_free(inventory_rows[i]);
    event_shutdown();
    dict_free(cfg);
    cfg = NULL;

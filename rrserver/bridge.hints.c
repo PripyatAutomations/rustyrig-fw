@@ -245,6 +245,7 @@ bool rrserver_bridge_hints_save(const char *name, const char *driver, const rrp_
 
    return ok;
 #else
+
    return true;
 #endif
 }
@@ -255,18 +256,30 @@ char *rrserver_bridge_metadata_get(const char *name, const char *driver, const c
    char *json = key ? db_bridge_hints_get(masterdb, key) : NULL;
    dict *data = json ? json2dict(json) : NULL;
    char *value = data ? g_strdup(dict_get(data, "value", "")) : NULL;
-   if (data) dict_free(data);
-   free(json); g_free(key); g_free(endpoint);
+
+   if (data) {
+      dict_free(data);
+   }
+   free(json);
+   g_free(key);
+   g_free(endpoint);
+
    return value;
 }
 bool rrserver_bridge_metadata_set(const char *name, const char *driver, const char *field, const char *value) {
-   if (!value || !*value || strlen(value) > 511) return false;
+   if (!value || !*value || strlen(value) > 511) {
+      return false;
+   }
    char *endpoint = identity(name, driver);
    char *key = endpoint ? g_strdup_printf("%s.metadata.%s", endpoint, field) : NULL;
    dict *data = dict_new();
    dict_add(data, "value", value);
    char *json = dict2json(data);
    bool ok = key && json && db_bridge_hints_set(masterdb, key, json);
-   free(json); dict_free(data); g_free(key); g_free(endpoint);
+   free(json);
+   dict_free(data);
+   g_free(key);
+   g_free(endpoint);
+
    return ok;
 }

@@ -10,8 +10,14 @@ static char receiver_name[128], receiver_contact[128];
 static void metadata(void *user, const char *key, const char *value) {
    (void)user;
    metadata_calls++;
-   if (!strcmp(key, "name")) snprintf(receiver_name, sizeof(receiver_name), "%s", value);
-   if (!strcmp(key, "contact")) snprintf(receiver_contact, sizeof(receiver_contact), "%s", value);
+
+   if (!strcmp(key, "name")) {
+      snprintf(receiver_name, sizeof(receiver_name), "%s", value);
+   }
+
+   if (!strcmp(key, "contact")) {
+      snprintf(receiver_contact, sizeof(receiver_contact), "%s", value);
+   }
 }
 static void status(void *user, const char *msg) {
    int *calls = user;
@@ -47,7 +53,8 @@ int main(void) {
    assert(driver->receive(rx, "MSG bandwidth=28000000", strlen("MSG bandwidth=28000000")));
    assert(driver->capabilities(rx, &cap) && cap.rx_max_hz == 28000000);
    assert(!driver->tune(rx, 29000000, "usb", cmd, sizeof(cmd)));
-   const char *meta = "MSG load_cfg=%7B%22rx_name%22%3A%22Live%20receiver%22%2C%22admin_email%22%3A%22sysop%40example.invalid%22%2C%22admin_password%22%3A%22do-not-copy%22%7D";
+   const char *meta =
+      "MSG load_cfg=%7B%22rx_name%22%3A%22Live%20receiver%22%2C%22admin_email%22%3A%22sysop%40example.invalid%22%2C%22admin_password%22%3A%22do-not-copy%22%7D";
    assert(driver->receive(rx, meta, strlen(meta)));
    assert(metadata_calls == 2 && !strcmp(receiver_name, "Live receiver") && !strcmp(receiver_contact, "sysop@example.invalid"));
    assert(driver->receive(rx, "MSG hello", 9));

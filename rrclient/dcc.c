@@ -221,68 +221,96 @@ static bool matching_session(unsigned id, irc_dcc_type_t type, bool pending) {
 static bool receive_file(unsigned id, int argc, char **args, int first, bool download) {
    irc_dcc_session_t session;
    bool found = false;
+
    for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
-      if (session.control == ws_conn && session.id == id && session.type == IRC_DCC_SEND &&
-         !session.outgoing && session.state == IRC_DCC_PENDING) {
+      if (session.control == ws_conn && session.id == id && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
          found = true;
          break;
       }
    }
-   if (!found) return false;
+
+   if (!found) {
+      return false;
+   }
 
    char *path = NULL;
    char *input = argc > first ? command_rest(argc, args, first) : NULL;
-   if (argc > first && !input) return false;
+
+   if (argc > first && !input) {
+      return false;
+   }
+
    if (input && (!download || strchr(input, '/') || strchr(input, '\\'))) {
       path = expand_path(input);
       free(input);
    } else {
-      /* An offered path is metadata, never permission to write outside the
-       * download directory. Accept only its final Unix/Windows component. */
+      /* An offered path is metadata, never permission to write outside the download directory. Accept only its final Unix/Windows component. */
       const char *name = input ? input : session.filename;
+
       for (const char *p = name ; *p ; p++) {
-         if (*p == '/' || *p == '\\') name = p + 1;
+         if (*p == '/' || *p == '\\') {
+            name = p + 1;
+         }
       }
+
       if (!*name || !strcmp(name, ".") || !strcmp(name, "..")) {
          free(input);
+
          return false;
       }
+
       for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) {
          if (*p < 32 || *p == 127) {
             free(input);
+
             return false;
          }
       }
+
       char *directory = expand_path("~/Downloads/DCC");
+
       if (!directory || !mkdir_p(directory)) {
          ui_print(ui_active_window_name(), "Cannot create the DCC download directory");
          free(directory);
          free(input);
+
          return false;
       }
       size_t size = strlen(directory) + strlen(name) + 2;
       path = malloc(size);
-      if (path) snprintf(path, size, "%s/%s", directory, name);
+
+      if (path) {
+         snprintf(path, size, "%s/%s", directory, name);
+      }
       free(directory);
       free(input);
    }
-   if (!path) return false;
+
+   if (!path) {
+      return false;
+   }
    bool result = false;
 #ifdef HOST_POSIX
    int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+
    if (fd < 0) {
       ui_print(ui_active_window_name(), "Cannot create %s; choose a new destination file", path);
    } else {
       result = irc_dcc_accept(ws_conn, id, fd);
       close(fd);
-      if (!result) unlink(path);
+
+      if (!result) {
+         unlink(path);
+      }
    }
 #endif
+
    if (result) {
       (void)dcc_window(ws_conn, id, true);
       ui_print(ui_active_window_name(), "DCC #%u receiving into %s", id, path);
    }
    free(path);
+
    return result;
 }
 
@@ -316,12 +344,16 @@ bool cmd_dcc(int argc, char **args) {
    if (argc < 3) {
       goto usage;
    }
+
    if (getting) {
       unsigned id;
+
       if (!session_id(args[2], &id) || !matching_session(id, IRC_DCC_SEND, true)) {
          ui_print(ui_active_window_name(), "No matching SEND session on this IRC connection");
+
          return true;
       }
+
       return !receive_file(id, argc, args, 3, true);
    }
    bool accepting = !strcasecmp(args[2], "accept"), closing = !strcasecmp(args[2], "close"), message = chat && !strcasecmp(args[2], "msg");
@@ -423,8 +455,8 @@ static void dcc_notice(const char *event, const char *data, rrconn_t *client, vo
 
    if (!strcmp(status, "offer")) {
       if (!strcmp(type, "SEND")) {
-         ui_print(window, "DCC #%u SEND offer from %s on %s: %s (%llu bytes); /dcc get %u [optional-filename]", id, nick,
-            profile ? profile : "IRC", dict_get(d, "dcc.filename", ""), dict_get_ullong(d, "dcc.size", 0), id);
+         ui_print(window, "DCC #%u SEND offer from %s on %s: %s (%llu bytes); /dcc get %u [optional-filename]", id, nick, profile ? profile : "IRC", dict_get(d,
+            "dcc.filename", ""), dict_get_ullong(d, "dcc.size", 0), id);
       } else {
          ui_print(window, "DCC #%u CHAT offer from %s on %s; /dcc chat accept %u", id, nick, profile ? profile : "IRC", id);
       }

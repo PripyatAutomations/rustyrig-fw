@@ -67,7 +67,9 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
    char generated[128];
    int len = snprintf(generated, sizeof(generated), "%s-%s", ws_site_room(), rr_rig_registry_public_alias(rig.rigs, radio));
    const char *room = configured && *configured ? configured : generated;
-   struct room_context ctx = {.room = room, .radio = radio};
+   struct room_context ctx = {
+      .room = room, .radio = radio
+   };
 
    if ((!configured && (len < 0 || (size_t)len >= sizeof(generated))) ||
       !ws_room_rig_base(room) || !ws_room_rig_namespace(room) ||

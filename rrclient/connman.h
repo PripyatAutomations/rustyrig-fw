@@ -49,7 +49,8 @@ static inline bool rrclient_present_context(void) {
 
 extern const char *rrclient_selected_server(void);
 extern const char *rrclient_connection_name(const rrconn_t *connection);
-/* Run a synchronous callback in a connection's context without changing the selected server. NULL means no connection. Used by transports polled outside Mongoose callbacks. */
+/* Run a synchronous callback in a connection's context without changing the selected server. NULL means no connection. Used by transports polled outside
+ * Mongoose callbacks. */
 extern void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data);
 extern rrconn_t *rrclient_connection_find(const char *name);
 extern const char *rrclient_connection_iter(unsigned index);

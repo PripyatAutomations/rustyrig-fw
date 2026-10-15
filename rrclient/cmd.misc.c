@@ -680,23 +680,34 @@ bool cmd_server(int argc, char **args) {
 
 // Native local metadata, never a connection request to a public receiver.
 bool cmd_receivers(int argc, char **args) {
-   if (argc == 3 && (!strcasecmp(args[1], "connect") || !strcasecmp(args[1], "add")))
+   if (argc == 3 && (!strcasecmp(args[1], "connect") || !strcasecmp(args[1], "add"))) {
       return !rrclient_receiver_connect(args[2], !strcasecmp(args[1], "add"));
-   if (argc == 2 && !strcasecmp(args[1], "refresh")) receiver_directory_refresh();
-   else if (argc == 3 && !strcasecmp(args[1], "import")) receiver_directory_import(args[2]);
-   else if (argc != 1) {
+   }
+
+   if (argc == 2 && !strcasecmp(args[1], "refresh")) {
+      receiver_directory_refresh();
+   } else if (argc == 3 && !strcasecmp(args[1], "import")) {
+      receiver_directory_import(args[2]);
+   } else if (argc != 1) {
       ui_print(ui_active_window_name(), "Usage: /receivers [refresh | import <JSON file> | connect <URL> | add <URL>]");
+
       return true;
    }
    const rr_frontend_ops_t *ops = frontend_ops();
+
    if (ops && !strcmp(ops->name, "gtk")) {
       event_emit("client.receiver-directory.show", NULL, NULL);
    } else {
       ui_print(ui_active_window_name(), "%s", receiver_directory_status());
-      for (size_t i = 0; i < receiver_directory_count(); i++) {
+
+      for (size_t i = 0 ; i < receiver_directory_count() ; i++) {
          const receiver_directory_entry_t *r = receiver_directory_receiver(i);
-         if (receiver_directory_entry_accessible(r)) ui_print(ui_active_window_name(), "%s | %s | %s | API=%d | %s", r->name, r->location, r->url, r->ext_api, r->contact);
+
+         if (receiver_directory_entry_accessible(r)) {
+            ui_print(ui_active_window_name(), "%s | %s | %s | API=%d | %s", r->name, r->location, r->url, r->ext_api, r->contact);
+         }
       }
    }
+
    return false;
 }

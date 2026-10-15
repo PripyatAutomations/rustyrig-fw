@@ -360,6 +360,7 @@ char **client_cmd_completions(const char *line, const char *word) {
             }
          } else if (first && !strcasecmp(first, "get") && arg == 2) {
             irc_dcc_session_t session;
+
             for (unsigned i = 0 ; irc_dcc_session_get(i, &session) ; i++) {
                if (session.control == ws_conn && session.type == IRC_DCC_SEND && !session.outgoing && session.state == IRC_DCC_PENDING) {
                   char id[16];

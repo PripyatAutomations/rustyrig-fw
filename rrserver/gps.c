@@ -122,8 +122,14 @@ static struct gps_source *find(const char *alias) {
 
 const char *rrserver_gps_public_scope(const char *alias) {
    struct gps_source *source = alias ? find(alias) : NULL;
+
    return source ? source->alias : alias;
 }
+bool rrserver_gps_source_fixed(const char *alias) {
+   const struct gps_source *source = find(alias ? alias : "station");
+   return source && source->fixed;
+}
+
 static const struct gps_source *effective(const struct gps_source *source) {
    if (source == sources || source->own_input || source->fixed || source->received) {
       return source;
@@ -454,7 +460,7 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
             continue;
          }
          dict_add(row, "inventory.state", output ?
-            (available(position) && (position->fixed || position->valid) ? "position-known" : "no-fix") :
+            (position->fixed ? "static" : available(position) && position->valid ? "position-known" : "no-fix") :
             source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
          dict_add(row, "inventory.source", position->alias);
          dict_add(row, "inventory.action", output ==
@@ -488,7 +494,9 @@ bool rrserver_gps_init(void) {
       snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
    }
 
-   if (!configure_source(&sources[0], cfg_get("station.gps.position")) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL)) {
+   const char *position = cfg_get("station.gps.position");
+   if (!position || !*position) position = cfg_get("site:coordinates");
+   if (!configure_source(&sources[0], position) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL)) {
       rrserver_gps_fini();
 
       return true;

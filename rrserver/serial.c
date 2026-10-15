@@ -696,11 +696,7 @@ void rrserver_serial_init(void) {
          p->nmea_output = output && !strcmp(output, "nmea");
 
          if (p->service == 1) {
-            char position_key[128];
-            snprintf(position_key, sizeof(position_key), !strcmp(p->gps_scope, "station") ? "station.gps.position" : "rig:%s.gps.position", p->gps_scope);
-            const char *position = cfg_get(position_key);
-
-            if (position && *position) {
+            if (rrserver_gps_source_fixed(p->gps_scope)) {
                Log(LOG_INFO, "gps", "%s uses configured coordinates; ignoring GPS input %s", p->gps_scope, p->name);
                continue;
             }

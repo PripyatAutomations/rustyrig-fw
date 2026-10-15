@@ -8,10 +8,17 @@ typedef struct tab_color {
 
 static guint32 tab_hash(const char *name) {
    guint32 hash = 2166136261u;
-   for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) hash = (hash ^ *p) * 16777619u;
+
+   for (const unsigned char *p = (const unsigned char *)name ; *p ; p++) {
+      hash = (hash ^ *p) * 16777619u;
+   }
+
    /* Avalanche similar profile names before selecting hue and brightness. */
-   hash ^= hash >> 16; hash *= 0x7feb352du;
-   hash ^= hash >> 15; hash *= 0x846ca68bu;
+   hash ^= hash >> 16;
+   hash *= 0x7feb352du;
+   hash ^= hash >> 15;
+   hash *= 0x846ca68bu;
+
    return hash ^ (hash >> 16);
 }
 
@@ -19,36 +26,76 @@ static tab_color_t tab_color_candidate(guint32 hash, unsigned attempt) {
    unsigned hue = (hash % 360 + attempt * 137) % 360;
    gboolean light = ((hash >> 12) ^ attempt) & 1;
    unsigned saturation = light ? 25 + (hash >> 16) % 16 : 65 + (hash >> 16) % 21;
-   /* White on dark: every component <= 110 (contrast >= 5.1:1).
-    * Black on light: every component >= 132 (contrast >= 5.6:1).
-    * Bounds guarantee readable text without floating-point luminance work. */
+   /* White on dark: every component <= 110 (contrast >= 5.1:1). Black on light: every component >= 132 (contrast >= 5.6:1). Bounds guarantee readable text
+    * without floating-point luminance work. */
    unsigned value = light ? 220 + (hash >> 24) % 26 : 90 + (hash >> 24) % 21;
    unsigned low = value * (100 - saturation) / 100;
    unsigned rising = low + (value - low) * (hue % 60) / 60;
    unsigned falling = value - (value - low) * (hue % 60) / 60;
-   tab_color_t color = {.light = light};
+   tab_color_t color = {
+      .light = light
+   };
+
    switch (hue / 60) {
-      case 0: color.r = value; color.g = rising; color.b = low; break;
-      case 1: color.r = falling; color.g = value; color.b = low; break;
-      case 2: color.r = low; color.g = value; color.b = rising; break;
-      case 3: color.r = low; color.g = falling; color.b = value; break;
-      case 4: color.r = rising; color.g = low; color.b = value; break;
-      default: color.r = value; color.g = low; color.b = falling; break;
+      case 0: {
+         color.r = value;
+         color.g = rising;
+         color.b = low;
+         break;
+      }
+      case 1: {
+         color.r = falling;
+         color.g = value;
+         color.b = low;
+         break;
+      }
+      case 2: {
+         color.r = low;
+         color.g = value;
+         color.b = rising;
+         break;
+      }
+      case 3: {
+         color.r = low;
+         color.g = falling;
+         color.b = value;
+         break;
+      }
+      case 4: {
+         color.r = rising;
+         color.g = low;
+         color.b = value;
+         break;
+      }
+      default: {
+         color.r = value;
+         color.g = low;
+         color.b = falling;
+         break;
+      }
    }
+
    return color;
 }
 
 static const tab_color_t *tab_server_color(GtkNotebook *notebook, const char *server) {
    GHashTable *palette = g_object_get_data(G_OBJECT(notebook), "rr-tab-palette");
+
    if (!palette) {
       palette = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-      g_object_set_data_full(G_OBJECT(notebook), "rr-tab-palette", palette, (GDestroyNotify)g_hash_table_destroy);
+      g_object_set_data_full(G_OBJECT(notebook), "rr-tab-palette", palette, (GDestroyNotify) g_hash_table_destroy);
    }
    tab_color_t *stored = g_hash_table_lookup(palette, server);
-   if (stored) return stored;
+
+   if (stored) {
+      return stored;
+   }
    guint32 hash = tab_hash(server);
    unsigned best_distance = 0;
-   tab_color_t best = {0};
+   tab_color_t best = {
+      0
+   };
+
    for (unsigned attempt = 0 ; attempt < 32 ; attempt++) {
       tab_color_t candidate = tab_color_candidate(hash, attempt);
       unsigned nearest = G_MAXUINT;
@@ -63,26 +110,36 @@ static const tab_color_t *tab_server_color(GtkNotebook *notebook, const char *se
          unsigned distance = dr * dr + dg * dg + db * db;
          nearest = MIN(nearest, distance);
       }
-      if (nearest > best_distance) { best = candidate; best_distance = nearest; }
-      if (nearest >= 48 * 48) break;
+
+      if (nearest > best_distance) {
+         best = candidate;
+         best_distance = nearest;
+      }
+
+      if (nearest >= 48 * 48) {
+         break;
+      }
    }
+
    stored = g_new(tab_color_t, 1);
    *stored = best;
    g_hash_table_insert(palette, g_strdup(server), stored);
+
    return stored;
 }
 
 static void tab_apply_color(GtkNotebook *notebook, GtkWidget *page, GtkWidget *widget) {
    const char *server = g_object_get_data(G_OBJECT(page), "rr-server-name");
-   if (!server || !*server) return;
+
+   if (!server || !*server) {
+      return;
+   }
    const tab_color_t *color = tab_server_color(notebook, server);
    const char *foreground = color->light ? "#000000" : "#ffffff";
    char css[1024];
-   g_snprintf(css, sizeof(css),
-      "* {background-image:none; background-color:rgb(%u,%u,%u); color:%s;}"
+   g_snprintf(css, sizeof(css), "* {background-image:none; background-color:rgb(%u,%u,%u); color:%s;}"
       "button:checked {box-shadow:inset 0 -3px %s; border-color:%s;}"
-      "button:hover {border-color:%s;} button label {color:%s;}",
-      color->r, color->g, color->b, foreground, foreground, foreground, foreground, foreground);
+      "button:hover {border-color:%s;} button label {color:%s;}", color->r, color->g, color->b, foreground, foreground, foreground, foreground, foreground);
    GtkCssProvider *provider = gtk_css_provider_new();
    gtk_css_provider_load_from_data(provider, css, -1, NULL);
    gtk_style_context_add_provider(gtk_widget_get_style_context(widget), GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
@@ -91,9 +148,13 @@ static void tab_apply_color(GtkNotebook *notebook, GtkWidget *page, GtkWidget *w
 }
 
 static void tab_native_color(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
-   (void)number; (void)data;
+   (void)number;
+   (void)data;
    GtkWidget *label = gtk_notebook_get_tab_label(notebook, page);
-   if (label) tab_apply_color(notebook, page, label);
+
+   if (label) {
+      tab_apply_color(notebook, page, label);
+   }
 }
 
 static void tab_set_selected(GtkWidget *button, gboolean selected) {
@@ -107,6 +168,7 @@ static void tab_set_selected(GtkWidget *button, gboolean selected) {
 static void tab_clicked(GtkButton *button, GtkNotebook *notebook) {
    GtkWidget *page = g_object_get_data(G_OBJECT(button), "rr-tab-page");
    int index = gtk_notebook_page_num(notebook, page);
+
    if (index >= 0) {
       gtk_notebook_set_current_page(notebook, index);
       /* Clicking the selected toggle must leave it selected, too. */
@@ -118,31 +180,45 @@ static void tabs_selected(GtkNotebook *notebook, GtkWidget *page, guint number, 
    (void)notebook;
    (void)number;
    GList *children = gtk_container_get_children(GTK_CONTAINER(flow));
-   for (GList *item = children; item; item = item->next) {
+
+   for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
       tab_set_selected(button, g_object_get_data(G_OBJECT(button), "rr-tab-page") == page);
    }
+
    g_list_free(children);
 }
 
-/* Preserve source markup, but replace legacy fixed shortcut prefixes with the
- * page's current visual number. Sources without a prefix (room tabs) work too. */
+/* Preserve source markup, but replace legacy fixed shortcut prefixes with the page's current visual number. Sources without a prefix (room tabs) work too. */
 static void tab_title_changed(GObject *source, GParamSpec *spec, GtkWidget *button) {
    (void)spec;
    const char *text = gtk_label_get_label(GTK_LABEL(source));
    const char *title = text;
+
    if (*title == '(') {
       const char *p = title + 1;
       gboolean underline = g_str_has_prefix(p, "<u>");
-      if (underline) p += 3;
+
+      if (underline) {
+         p += 3;
+      }
       const char *digits = p;
-      while (g_ascii_isdigit(*p)) p++;
+      while (g_ascii_isdigit(*p)) {
+         p++;
+      }
+
       if (p != digits) {
-         if (underline && g_str_has_prefix(p, "</u>")) p += 4;
-         if (g_str_has_prefix(p, ") ")) title = p + 2;
+         if (underline && g_str_has_prefix(p, "</u>")) {
+            p += 4;
+         }
+
+         if (g_str_has_prefix(p, ") ")) {
+            title = p + 2;
+         }
       }
    }
    GtkWidget *label = g_object_get_data(G_OBJECT(button), "rr-tab-title");
+
    if (gtk_label_get_use_markup(GTK_LABEL(source))) {
       gtk_label_set_markup(GTK_LABEL(label), title);
    } else {
@@ -154,8 +230,9 @@ static gint tabs_compare(GtkFlowBoxChild *a, GtkFlowBoxChild *b, gpointer data) 
    GtkNotebook *notebook = data;
    GtkWidget *left = gtk_bin_get_child(GTK_BIN(a));
    GtkWidget *right = gtk_bin_get_child(GTK_BIN(b));
+
    return gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(left), "rr-tab-page")) -
-      gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(right), "rr-tab-page"));
+          gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(right), "rr-tab-page"));
 }
 
 static void tabs_reordered(GtkNotebook *notebook, GtkWidget *page, guint number, GtkWidget *flow) {
@@ -164,11 +241,13 @@ static void tabs_reordered(GtkNotebook *notebook, GtkWidget *page, guint number,
    /* Keep the actual drag source alive: sorting reuses buttons. */
    gtk_flow_box_invalidate_sort(GTK_FLOW_BOX(flow));
    GList *children = gtk_container_get_children(GTK_CONTAINER(flow));
-   for (GList *item = children; item; item = item->next) {
+
+   for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
       int index = gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(button), "rr-tab-page")) + 1;
       GtkLabel *label = g_object_get_data(G_OBJECT(button), "rr-tab-number");
       char markup[48];
+
       if (index <= 10) {
          g_snprintf(markup, sizeof(markup), "(<u>%d</u>)", index == 10 ? 0 : index);
       } else {
@@ -176,15 +255,21 @@ static void tabs_reordered(GtkNotebook *notebook, GtkWidget *page, guint number,
       }
       gtk_label_set_markup(label, markup);
    }
+
    g_list_free(children);
 }
 
 static char tab_target_name[] = "application/x-rustyrig-tab";
-static const GtkTargetEntry tab_target = {tab_target_name, GTK_TARGET_SAME_APP, 0};
+static const GtkTargetEntry tab_target = {
+   tab_target_name, GTK_TARGET_SAME_APP, 0
+};
 
-static void tab_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection,
-   guint info, guint time, gpointer data) {
-   (void)widget; (void)context; (void)info; (void)time; (void)data;
+static void tab_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData *selection, guint info, guint time, gpointer data) {
+   (void)widget;
+   (void)context;
+   (void)info;
+   (void)time;
+   (void)data;
    const guchar marker = 1;
    gtk_selection_data_set(selection, gtk_selection_data_get_target(selection), 8, &marker, 1);
 }
@@ -192,25 +277,37 @@ static void tab_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSel
 static gboolean tab_move(GtkNotebook *notebook, GtkWidget *page, GtkWidget *target, gboolean after) {
    int from = gtk_notebook_page_num(notebook, page);
    int to = target ? gtk_notebook_page_num(notebook, target) : gtk_notebook_get_n_pages(notebook);
-   if (from < 0 || to < 0) return FALSE;
-   if (target && after) to++;
-   if (from < to) to--;
+
+   if (from < 0 || to < 0) {
+      return FALSE;
+   }
+
+   if (target && after) {
+      to++;
+   }
+
+   if (from < to) {
+      to--;
+   }
    gtk_notebook_reorder_child(notebook, page, to);
+
    return TRUE;
 }
 
-static void tab_drag_received(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
-   GtkSelectionData *selection, guint info, guint time, GtkNotebook *notebook) {
+static void tab_drag_received(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *selection, guint info, guint time, GtkNotebook *
+   notebook) {
    (void)info;
    GtkWidget *source = gtk_drag_get_source_widget(context);
    gboolean success = FALSE;
-   if (source && gtk_selection_data_get_length(selection) == 1 &&
-      g_object_get_data(G_OBJECT(source), "rr-tab-notebook") == notebook) {
+
+   if (source && gtk_selection_data_get_length(selection) == 1 && g_object_get_data(G_OBJECT(source), "rr-tab-notebook") == notebook) {
       GtkWidget *page = g_object_get_data(G_OBJECT(source), "rr-tab-page");
       GtkWidget *target = widget;
+
       if (GTK_IS_FLOW_BOX(widget)) {
          GtkFlowBoxChild *child = gtk_flow_box_get_child_at_pos(GTK_FLOW_BOX(widget), x, y);
          target = child ? gtk_bin_get_child(GTK_BIN(child)) : NULL;
+
          if (target) {
             gint local_y;
             gtk_widget_translate_coordinates(widget, target, x, y, &x, &local_y);
@@ -226,11 +323,14 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
    (void)page;
    (void)number;
    GList *children = gtk_container_get_children(GTK_CONTAINER(flow));
-   for (GList *item = children; item; item = item->next) {
+
+   for (GList *item = children ; item ; item = item->next) {
       gtk_widget_destroy(item->data);
    }
+
    g_list_free(children);
-   for (int i = 0; i < gtk_notebook_get_n_pages(notebook); i++) {
+
+   for (int i = 0 ; i < gtk_notebook_get_n_pages(notebook) ; i++) {
       GtkWidget *child = gtk_notebook_get_nth_page(notebook, i);
       GtkWidget *source = gtk_notebook_get_tab_label(notebook, child);
       GtkWidget *button = gtk_toggle_button_new();
@@ -239,6 +339,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       g_object_set_data(G_OBJECT(button), "rr-tab-title", label);
       g_object_set_data(G_OBJECT(button), "rr-tab-number", number_label);
+
       if (GTK_IS_LABEL(source)) {
          tab_title_changed(G_OBJECT(source), NULL, button);
          g_signal_connect_object(source, "notify::label", G_CALLBACK(tab_title_changed), button, 0);
@@ -261,6 +362,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_container_add(GTK_CONTAINER(flow), button);
       gtk_widget_set_can_focus(gtk_widget_get_parent(button), FALSE);
    }
+
    tabs_reordered(notebook, NULL, 0, flow);
    tabs_selected(notebook, gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)), 0, flow);
    gtk_widget_show_all(flow);
@@ -268,11 +370,14 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
 
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position) {
    gtk_notebook_set_tab_pos(notebook, position);
+
    if (position == GTK_POS_LEFT || position == GTK_POS_RIGHT) {
       g_signal_connect(notebook, "page-added", G_CALLBACK(tab_native_color), NULL);
+
       for (int i = 0 ; i < gtk_notebook_get_n_pages(notebook) ; i++) {
          tab_native_color(notebook, gtk_notebook_get_nth_page(notebook, i), i, NULL);
       }
+
       return GTK_WIDGET(notebook);
    }
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -287,10 +392,12 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(flow), 0);
    gtk_widget_set_valign(flow, GTK_ALIGN_START);
    gtk_notebook_set_show_tabs(notebook, FALSE);
+
    if (position == GTK_POS_TOP) {
       gtk_box_pack_start(GTK_BOX(box), flow, FALSE, FALSE, 0);
    }
    gtk_box_pack_start(GTK_BOX(box), GTK_WIDGET(notebook), TRUE, TRUE, 0);
+
    if (position == GTK_POS_BOTTOM) {
       gtk_box_pack_start(GTK_BOX(box), flow, FALSE, FALSE, 0);
    }
@@ -299,20 +406,30 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    g_signal_connect_object(notebook, "page-reordered", G_CALLBACK(tabs_reordered), flow, 0);
    g_signal_connect_object(notebook, "switch-page", G_CALLBACK(tabs_selected), flow, G_CONNECT_AFTER);
    tabs_rebuild(notebook, NULL, 0, flow);
+
    return box;
 }
 
 /* All numbered and relative navigation follows the same reordered pages. */
 gboolean gtk_tabs_select(GtkNotebook *notebook, int number) {
-   if (!notebook || number < 1 || number > gtk_notebook_get_n_pages(notebook)) return FALSE;
+   if (!notebook || number < 1 || number > gtk_notebook_get_n_pages(notebook)) {
+      return FALSE;
+   }
    gtk_notebook_set_current_page(notebook, number - 1);
+
    return TRUE;
 }
 
 gboolean gtk_tabs_step(GtkNotebook *notebook, int direction) {
-   if (!notebook) return FALSE;
+   if (!notebook) {
+      return FALSE;
+   }
    int count = gtk_notebook_get_n_pages(notebook);
-   if (count < 1) return FALSE;
+
+   if (count < 1) {
+      return FALSE;
+   }
    int current = gtk_notebook_get_current_page(notebook);
+
    return gtk_tabs_select(notebook, (current + (direction < 0 ? count - 1 : 1)) % count + 1);
 }

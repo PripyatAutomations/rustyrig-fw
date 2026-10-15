@@ -24,19 +24,9 @@ rrclient: Can we make the tab list wrap to multiple rows?
 --
 If someone else sends TX audio into the VFO, we want to hear it.
 We don't need to hear our talk-back audio.
-We also need to come up with a better way of dealing with switching between audio sources (rigs).
-Maybe we can shrink the Users tab rows a bit, make the Enabled just a non-editable checkbox showing enabled or not.
-Show password set / password expires as dhms strings, make passwordchangerequired a  similar unchangable text box named "Chg Req".
-maxsessions as MaxClones. Put uid as the leftmost column, then enabled, name, email, MaxClones, Pass Set (dhms ago), Pass Exp (dhms|never), Privileges, ChgReg.
-Make /object a similar tree to /rig  /gps 
-
-
+------
+Let improve the websdr.listen privs a little to let them join a rig someone
+else connected up, but part them from it when the last person with the
+privileged needed to create it leaves. We should tell them they were removed
+because the admin left the room
 -
-We should make that a pop up window for gtk or a text list in tui.
-Like all the other good stuff. I'd like to start making dialog windows
-for stuff like /object and /rig so they can pop up and provide clickable
-links to subscribe/unsubscribe media and the like easier for new users.
-
--
-
-We need a connect button to connect to receivers on the Receiver Directory dialog

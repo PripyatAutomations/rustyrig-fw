@@ -165,26 +165,47 @@ static bool configure(struct kiwi_instance *k) {
    return true;
 }
 static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
-   if (strlen(encoded) > 60000) return;
+   if (strlen(encoded) > 60000) {
+      return;
+   }
    char *text = malloc(strlen(encoded) + 1);
-   if (!text) return;
+
+   if (!text) {
+      return;
+   }
    int length = mg_url_decode(encoded, strlen(encoded), text, strlen(encoded) + 1, 0);
+
    if (length >= 0) {
       struct mg_str json = mg_str_n(text, length);
       long api = mg_json_get_long(json, "$.ext_api", -1);
+
       if (api >= 0 && api <= 1000000) {
          char allowance[32];
          snprintf(allowance, sizeof(allowance), "%ld", api);
-         if (k->host.metadata) k->host.metadata(k->host.user, "ext_api", allowance);
-         if (!api) fail(k, "Kiwi receiver has disabled external API access");
+
+         if (k->host.metadata) {
+            k->host.metadata(k->host.user, "ext_api", allowance);
+         }
+
+         if (!api) {
+            fail(k, "Kiwi receiver has disabled external API access");
+         }
       }
-      const char *remote[] = { "rx_name", "rx_location", "admin_email", "rx_antenna", "rx_device", "rx_grid" };
-      const char *local[] = { "name", "location", "contact", "antenna", "hardware", "grid" };
-      for (unsigned i = 0; i < sizeof(remote)/sizeof(remote[0]); i++) {
+      const char *remote[] = {
+         "rx_name", "rx_location", "admin_email", "rx_antenna", "rx_device", "rx_grid"
+      };
+      const char *local[] = {
+         "name", "location", "contact", "antenna", "hardware", "grid"
+      };
+
+      for (unsigned i = 0 ; i < sizeof(remote) / sizeof(remote[0]) ; i++) {
          char path[64];
          snprintf(path, sizeof(path), "$.%s", remote[i]);
          char *value = mg_json_get_str(json, path);
-         if (value && *value && k->host.metadata) k->host.metadata(k->host.user, local[i], value);
+
+         if (value && *value && k->host.metadata) {
+            k->host.metadata(k->host.user, local[i], value);
+         }
          free(value);
       }
    }
@@ -193,7 +214,10 @@ static void receiver_metadata(struct kiwi_instance *k, const char *encoded) {
 static bool parameter(struct kiwi_instance *k, const char *key, const char *value) {
    if (!strcmp(key, "load_cfg")) {
       receiver_metadata(k, value);
-      if (k->failed) return false;
+
+      if (k->failed) {
+         return false;
+      }
    } else if (!strcmp(key, "badp")) {
       if (strcmp(value, "0")) {
          fail(k, "Kiwi authentication rejected");
@@ -481,6 +505,7 @@ static bool kiwi_start(void *instance) {
    }
    // Same timestamped SND route as kiwiclient, with a unique process suffix.
    snprintf(k->url, sizeof(k->url), "ws://%s:%lu/%" PRIu64 "/SND", host, port, (uint64_t) time(NULL) * 1000 + (unsigned)getpid() % 1000);
+
    if (k->host.metadata) {
       char endpoint[320];
       snprintf(endpoint, sizeof(endpoint), "http://%s:%lu/", host, port);

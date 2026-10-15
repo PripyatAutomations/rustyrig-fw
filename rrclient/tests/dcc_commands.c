@@ -12,6 +12,7 @@ static char downloads[512];
 static char *test_expand_path(const char *path) {
    return !strcmp(path, "~/Downloads/DCC") ? strdup(downloads) : expand_path(path);
 }
+
 rrconn_t *ws_conn;
 static char output[32768], last_window[512];
 static const char *active_window = "commands";
@@ -134,7 +135,9 @@ int main(void) {
    ws_conn = &alice;
    assert(cmd_dcc(5, accept) && access(destination, F_OK));
    ws_conn = &bob;
-   char *get[] = {"DCC", "GET", identifier, destination};
+   char *get[] = {
+      "DCC", "GET", identifier, destination
+   };
    assert(!cmd_dcc(4, get));
 
    for (unsigned i = 0 ; i < 1000 && irc_dcc_session_get(0, &session) ; i++) {
@@ -152,11 +155,11 @@ int main(void) {
    fd = open(existing, O_RDONLY);
    assert(fd >= 0 && read(fd, copied, 4) == 4 && !memcmp(copied, "keep", 4));
    close(fd);
-   /* Default acceptance creates the directory and retains the offered name,
-    * including spaces. A repeated offer must not overwrite that download. */
+   /* Default acceptance creates the directory and retains the offered name, including spaces. A repeated offer must not overwrite that download. */
    char downloaded[1024];
    snprintf(downloaded, sizeof(downloaded), "%s/source file.bin", downloads);
    assert(access(downloads, F_OK));
+
    for (unsigned attempt = 0 ; attempt < 3 ; attempt++) {
       fresh_port();
       ws_conn = &alice;
@@ -164,16 +167,19 @@ int main(void) {
       id = offer_to(&bob, irc[1], IRC_DCC_SEND);
       snprintf(identifier, sizeof(identifier), "%u", id);
       ws_conn = &bob;
+
       if (attempt != 1) {
          if (attempt == 2) {
             get[3] = "renamed file.bin";
             snprintf(downloaded, sizeof(downloaded), "%s/renamed file.bin", downloads);
          }
          assert(!cmd_dcc(attempt == 0 ? 3 : 4, get));
+
          for (unsigned i = 0 ; i < 1000 && irc_dcc_session_get(0, &session) ; i++) {
             rrclient_dcc_poll();
             usleep(100);
          }
+
          assert(!irc_dcc_session_get(0, &session));
       } else {
          assert(cmd_dcc(3, get));
@@ -186,6 +192,7 @@ int main(void) {
       assert(!fstat(fd, &st) && !(st.st_mode & 077));
       close(fd);
    }
+
    unlink(downloaded);
    snprintf(downloaded, sizeof(downloaded), "%s/source file.bin", downloads);
    unlink(downloaded);

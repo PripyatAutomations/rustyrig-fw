@@ -181,12 +181,15 @@ bool cmd_query(int argc, char **args) {
    if (argc < 2 || !args[1] || !*args[1]) {
       return true;
    }
+
    for (const unsigned char *p = (const unsigned char *)args[1] ; *p ; p++) {
       if (*p <= ' ' || *p == 127 || (p == (const unsigned char *)args[1] && *p == ':')) {
          ui_print(ui_active_window_name(), "Usage: /query user [message]");
+
          return true;
       }
    }
+
    /* PARITY: rustyrig-www/js/webui.chat.js:parse_chat_cmd query */
    rrconn_t *connection = rrclient_active_connection();
 

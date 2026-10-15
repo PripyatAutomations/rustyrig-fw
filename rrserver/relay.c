@@ -1093,10 +1093,11 @@ static void media_demand(const char *event, const void *data, size_t length, rrc
    unsigned id = d->channel - media_channels + 1;
 
    for (struct remote_session *r = remotes ; r ; r = r->next) {
-      if (chan_id_in_array(d->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels,
-         d->channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, id)
+      if (chan_id_in_array(d->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels, d->channel->direction ==
+         RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, id)
          && media_client_in_channel_room(&r->client, d->channel)) {
          d->interested = true;
+
          return;
       }
    }
@@ -1114,8 +1115,8 @@ static void media_fanout(const char *event, const void *data, size_t length, rrc
 
    for (struct remote_session *r = remotes ; r ; r = r->next) {
       if ((f->target && f->target != &r->client) || f->exclude == &r->client
-         || !chan_id_in_array(f->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels,
-            f->channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, id)
+         || !chan_id_in_array(f->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels, f->channel->direction ==
+         RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, id)
          || !media_client_in_channel_room(&r->client, f->channel)) {
          continue;
       }
@@ -2342,14 +2343,19 @@ char *rrserver_relay_remote_rooms(void) {
 }
 const char *rrserver_relay_client_server(const rrconn_t *client) {
    for (struct remote_session *r = remotes ; r ; r = r->next) {
-      if (&r->client != client) continue;
+      if (&r->client != client) {
+         continue;
+      }
+
       for (struct catalog *c = catalogs ; c ; c = c->next) {
          if (!strcmp(c->owner, r->origin) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
             return dict_get(c->descriptor, "object.alias", r->origin);
          }
       }
+
       return r->origin;
    }
+
    return cfg_get("station.name");
 }
 
@@ -2526,6 +2532,7 @@ char *rrserver_relay_remote_rooms(void) {
 }
 const char *rrserver_relay_client_server(const rrconn_t *client) {
    (void)client;
+
    return cfg_get("station.name");
 }
 char *rrserver_relay_servers(void) {

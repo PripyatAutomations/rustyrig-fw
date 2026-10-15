@@ -50,6 +50,7 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
       place_window(main_win);
    }
    int tab_number = digit == 0 ? 10 : digit;
+
    if (!gtk_tabs_select(GTK_NOTEBOOK(main_notebook), tab_number)) {
       return FALSE;
    }
@@ -139,6 +140,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
    if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_F1 && !modifiers) {
       gtk_help_show();
+
       return TRUE;
    }
 

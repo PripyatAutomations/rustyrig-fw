@@ -158,6 +158,7 @@ path={work}/disabled-fixed-input
             assert len([r for r in rows if r['kind'] == 'vfo']) >= 3
             gps_row = next(r for r in rows if r['name'] == 'rig0.gps-out')
             assert gps_row['coordinates'] == '38.1234567,-80.7654321'
+            assert gps_row['state'] == 'static'
             assert gps_row['uuid'] == channels['rig0.gps.rx'][0]
             assert any(r['name'] == 'rig0.gps-in' and r['state'] == 'disabled-by-fixed-position' for r in rows)
             # Discovery is not permission to consume another room's media.
@@ -199,7 +200,7 @@ path={work}/disabled-fixed-input
             peer.close()
             peer = None
             config.write_text(config.read_text().replace('station.name=gpstest',
-                'station.name=gpstest\nstation.gps.position=42,-71'))
+                'station.name=gpstest\nsite:coordinates=42,-71'))
             process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=ROOT,
                 stdout=output, stderr=subprocess.STDOUT)
             deadline = time.monotonic() + 8
@@ -216,6 +217,10 @@ path={work}/disabled-fixed-input
             metadata = client.until(lambda m: m.get('media', {}).get('name') == 'station.gps.rx')['media']
             index, data = snapshot(client, metadata['chan-uuid'])
             assert index == 255 and data == (420000000, -710000000, 3)
+            static_rows = inventory(client)
+            station_out = next(r for r in static_rows if r['name'] == 'station.gps-out')
+            assert station_out['state'] == 'static' and station_out['coordinates'] == '42.0000000,-71.0000000'
+
             daemon.settimeout(0.2)
             try:
                 unwanted, _ = daemon.accept()

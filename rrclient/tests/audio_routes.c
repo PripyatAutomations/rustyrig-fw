@@ -11,6 +11,7 @@ static unsigned inventory_events;
 static void inventory_changed(const char *event, const char *data, rrconn_t *connection, void *user) {
    inventory_events++;
 }
+
 static uint64_t test_clock;
 static int16_t last_stereo[640];
 long long mono_us(void) {
@@ -146,7 +147,7 @@ int main(void) {
    audio_sync_rx_channels(channels, 2);
    assert(inventory_events == 1);
    audio_sync_rx_channels(channels, 2);
-   assert(inventory_events == 1); // No idle redraws for unchanged inventories.
+   assert(inventory_events == 1);   // No idle redraws for unchanged inventories.
    decode_all();
    assert(starts == 2 && !stops && decoded == 2 && played == 1);
    assert(last_stereo[0] == 1000 && last_stereo[1] == 2000);
@@ -175,15 +176,19 @@ int main(void) {
    assert(audio_rx_streams(streams, 1) == 3);
    assert(audio_rx_streams(streams, 3) == 3);
    char stream_id[64] = "";
-   for (size_t i = 0; i < 3; i++) {
+
+   for (size_t i = 0 ; i < 3 ; i++) {
       assert(streams[i].id[0] && streams[i].server[0] && streams[i].codec[0]);
-      for (size_t j = i + 1; j < 3; j++) {
+
+      for (size_t j = i + 1 ; j < 3 ; j++) {
          assert(strcmp(streams[i].id, streams[j].id));
       }
+
       if (!strcmp(streams[i].server, "first") && !strcmp(streams[i].uuid, "rig-a")) {
          snprintf(stream_id, sizeof(stream_id), "%s", streams[i].id);
       }
    }
+
    assert(stream_id[0]);
    assert(!audio_set_rx_stream_route("missing", 'L'));
    assert(!audio_set_rx_stream_route(stream_id, 'X'));
@@ -193,7 +198,7 @@ int main(void) {
    ws_conn = &first;
    audio_sync_rx_channels(channels, 2);
    assert(audio_room_route("first", "#a") == 'L');
-   assert(starts == 3 && !stops); // UI routing never restarts decoders.
+   assert(starts == 3 && !stops);   // UI routing never restarts decoders.
    assert(audio_set_rx_stream_route(stream_id, 'S'));
    ws_conn = &first;
    audio_sync_rx_channels(NULL, 0);

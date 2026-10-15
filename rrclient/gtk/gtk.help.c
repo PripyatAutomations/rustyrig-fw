@@ -12,6 +12,7 @@ static void help_line(const char *line, void *data) {
    char *markup = gtk_colorize_string(line);
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(buffer, &end);
+
    if (markup) {
       gtk_text_buffer_insert_markup(buffer, &end, markup, -1);
       g_free(markup);
@@ -21,19 +22,23 @@ static void help_line(const char *line, void *data) {
 
 static gboolean help_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)data;
+
    if (event->keyval == GDK_KEY_Escape) {
       gtk_widget_destroy(widget);
+
       return TRUE;
    }
+
    return FALSE;
 }
 
 void gtk_help_show(void) {
    if (!help_window) {
       help_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-      g_object_add_weak_pointer(G_OBJECT(help_window), (gpointer *)&help_window);
+      g_object_add_weak_pointer(G_OBJECT(help_window), (gpointer *) &help_window);
       gtk_window_set_title(GTK_WINDOW(help_window), "RustyRig Help");
       gtk_window_set_default_size(GTK_WINDOW(help_window), 800, 600);
+
       if (main_window) {
          gtk_window_set_transient_for(GTK_WINDOW(help_window), GTK_WINDOW(main_window));
          gtk_window_set_destroy_with_parent(GTK_WINDOW(help_window), TRUE);
@@ -64,6 +69,8 @@ void gtk_help_show(void) {
 }
 
 void gtk_help_shutdown(void) {
-   if (help_window) gtk_widget_destroy(help_window);
+   if (help_window) {
+      gtk_widget_destroy(help_window);
+   }
    help_buffer = NULL;
 }

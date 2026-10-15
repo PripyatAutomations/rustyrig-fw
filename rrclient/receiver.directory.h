@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <librustyaxe/dict.h>
 typedef struct {
-   const char *driver; // First provider: kiwi. Other receiver types use their own policy.
+   const char *driver;          // First provider: kiwi. Other receiver types use their own policy.
    char *url, *name, *location, *contact, *antenna, *hardware, *grid, *properties;
    int users, users_max, ext_api;
    bool offline, flagged, deleted;
@@ -25,7 +25,7 @@ size_t receiver_directory_count(void);
 const receiver_directory_entry_t *receiver_directory_receiver(size_t index);
 const receiver_directory_entry_t *receiver_directory_find_url(const char *url);
 const char *receiver_directory_status(void);
-char *receiver_directory_info(void); // Caller frees.
+char *receiver_directory_info(void);   // Caller frees.
 bool receiver_directory_busy(void);
 bool receiver_directory_refresh(void);
 bool receiver_directory_import(const char *path);

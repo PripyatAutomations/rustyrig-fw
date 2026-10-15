@@ -37,8 +37,12 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
-   {"websdr.max-temporary", "8", "Maximum concurrent temporary WebSDR rigs"},
-   {"websdr.idle-timeout", "60", "Unused temporary rig lifetime in seconds (1-3600)"},
+   {
+      "websdr.max-temporary", "8", "Maximum concurrent temporary WebSDR rigs"
+   },
+   {
+      "websdr.idle-timeout", "60", "Unused temporary rig lifetime in seconds (1-3600)"
+   },
    {
       "bridge.host", "", "Default receiver hostname; named bridge settings override"
    },

@@ -208,7 +208,10 @@ bool rrclient_connection_select(const char *name) {
       activate(s);
       rrclient_update_connection_ui(ws_connected);
       tui_refresh_sb_online();
-      if (ui_mode == UI_MODE_TUI) tui_redraw_request();
+
+      if (ui_mode == UI_MODE_TUI) {
+         tui_redraw_request();
+      }
    }
    event_emit("client.server.selected", s->connection, s->name);
 

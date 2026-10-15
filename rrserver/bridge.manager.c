@@ -61,8 +61,10 @@ static bool stopping;
 static uint64_t temporary_idle_us = 60000000;
 static const char *bridge_public_name(const struct bridge_child *b) {
    const char *name = rr_rig_registry_public_alias(rig.rigs, b->backend->owner);
+
    return name ? name : b->name;
 }
+
 static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m);
 static void websdr_remove(rr_server_rig_t *radio);
 static void capability_source(struct bridge_child *b, const char *source) {
@@ -79,21 +81,47 @@ static void capability_source(struct bridge_child *b, const char *source) {
    };
    rr_rig_property_observe(b->backend->owner, d.name, VAL_STR, &value);
 }
-static const char *metadata_fields[] = { "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at" };
+
+static const char *metadata_fields[] = {
+   "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at"
+};
 static bool publish_metadata(struct bridge_child *b, const char *key, const char *text, bool save) {
    bool known = false;
-   for (unsigned i = 0; i < G_N_ELEMENTS(metadata_fields); i++) known |= !strcmp(key, metadata_fields[i]);
-   if (!known || !text || !*text || strlen(text) > 511) return false;
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(metadata_fields) ; i++) {
+      known |= !strcmp(key, metadata_fields[i]);
+   }
+
+   if (!known || !text || !*text || strlen(text) > 511) {
+      return false;
+   }
    char *valid = g_utf8_make_valid(text, -1);
-   for (char *p = valid; *p; p++) if ((unsigned char)*p < 32 || *p == 127) *p = ' ';
+
+   for (char *p = valid ; *p ; p++) {
+      if ((unsigned char)*p < 32 || *p == 127) {
+         *p = ' ';
+      }
+   }
+
    char name[64];
    snprintf(name, sizeof(name), "receiver.%s", key);
-   rr_property_descriptor_t d = { .name = name, .type = VAL_STR, .readable = true }, existing;
-   if (!rr_rig_property_describe(b->backend->owner, name, &existing)) rr_rig_property_define(b->backend->owner, &d);
-   dict_value_t value = { .s = valid };
+   rr_property_descriptor_t d = {
+      .name = name, .type = VAL_STR, .readable = true
+   }, existing;
+
+   if (!rr_rig_property_describe(b->backend->owner, name, &existing)) {
+      rr_rig_property_define(b->backend->owner, &d);
+   }
+   dict_value_t value = {
+      .s = valid
+   };
    rr_rig_property_observe(b->backend->owner, name, VAL_STR, &value);
-   if (save && !b->temporary && !rrserver_bridge_metadata_set(b->name, b->driver, key, valid)) Log(LOG_WARN, "bridge", "[%s] unable to cache receiver metadata", bridge_public_name(b));
+
+   if (save && !b->temporary && !rrserver_bridge_metadata_set(b->name, b->driver, key, valid)) {
+      Log(LOG_WARN, "bridge", "[%s] unable to cache receiver metadata", bridge_public_name(b));
+   }
    g_free(valid);
+
    return true;
 }
 static rr_server_vfo_t *receiver(struct bridge_child *b) {
@@ -294,7 +322,10 @@ static void destroy(rr_backend_t *backend) {
    if (*p) {
       *p = b->next;
    }
-   if (b->runtime_config) unlink(b->runtime_config);
+
+   if (b->runtime_config) {
+      unlink(b->runtime_config);
+   }
    g_free(b->runtime_config);
    free(b->name);
    free(b->driver);
@@ -523,7 +554,7 @@ bool rrserver_bridges_start(const char *file) {
    }
    stopping = false;
    int idle = cfg_get_int("websdr.idle-timeout", 60);
-   temporary_idle_us = (uint64_t)CLAMP(idle, 1, 3600) * 1000000;
+   temporary_idle_us = (uint64_t) CLAMP(idle, 1, 3600) * 1000000;
 
    if (!file || !(config_path = strdup(file))) {
       return false;
@@ -535,11 +566,16 @@ bool rrserver_bridges_start(const char *file) {
       if (b->hint_source && !capabilities(b, &b->caps)) {
          return false;
       }
-      for (unsigned i = 0; i < G_N_ELEMENTS(metadata_fields); i++) {
+
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(metadata_fields) ; i++) {
          char *value = rrserver_bridge_metadata_get(b->name, b->driver, metadata_fields[i]);
-         if (value) publish_metadata(b, metadata_fields[i], value, false);
+
+         if (value) {
+            publish_metadata(b, metadata_fields[i], value, false);
+         }
          g_free(value);
       }
+
       b->ready = false;         // Hints never satisfy the process handshake.
    }
 
@@ -755,8 +791,12 @@ void rrserver_bridges_poll(void) {
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
       bool wanted = rrserver_media_rx_requested(b->backend->owner);
-      if (wanted) b->idle_since = 0;
-      else if (!b->idle_since) b->idle_since = current;
+
+      if (wanted) {
+         b->idle_since = 0;
+      } else if (!b->idle_since) {
+         b->idle_since = current;
+      }
 
       if (!wanted && !b->idling) {
          b->idling = true;
@@ -836,8 +876,9 @@ void rrserver_bridges_poll(void) {
          }
       }
    }
+
    /* One removal per poll keeps iteration and backend ownership straightforward. */
-   for (struct bridge_child *b = children; b; b = b->next) {
+   for (struct bridge_child *b = children ; b ; b = b->next) {
       if (b->temporary && b->idle_since && current - b->idle_since >= temporary_idle_us) {
          websdr_remove(b->backend->owner);
          break;
@@ -885,35 +926,65 @@ void rrserver_bridges_stop(void) {
 
 bool rrserver_bridge_temporary(const rr_server_rig_t *radio) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
-   if (!backend || backend->type != &type || !backend->data) return false;
+
+   if (!backend || backend->type != &type || !backend->data) {
+      return false;
+   }
+
    return ((struct bridge_child *)backend->data)->temporary;
 }
 
-/* The first supported endpoint provider is Kiwi. Keep request policy and
- * lifecycle generic so further bridge drivers can supply endpoint parsers. */
+/* The first supported endpoint provider is Kiwi. Keep request policy and lifecycle generic so further bridge drivers can supply endpoint parsers. */
 static bool websdr_endpoint(const char *driver, const char *url, char **host, unsigned *port) {
-   if (!driver || strcmp(driver, "kiwi") || !url || strlen(url) > 512) return false;
+   if (!driver || strcmp(driver, "kiwi") || !url || strlen(url) > 512) {
+      return false;
+   }
    GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
-   if (!uri) return false;
+
+   if (!uri) {
+      return false;
+   }
    const char *name = g_uri_get_host(uri), *scheme = g_uri_get_scheme(uri), *path = g_uri_get_path(uri);
    bool ok = scheme && !strcmp(scheme, "http") && name && *name && strlen(name) <= 253 &&
       !g_uri_get_userinfo(uri) && !g_uri_get_query(uri) && !g_uri_get_fragment(uri) && (!path || !*path || !strcmp(path, "/"));
-   for (const char *p = name; ok && p && *p; p++) ok = g_ascii_isalnum(*p) || *p == '.' || *p == '-';
+
+   for (const char *p = name ; ok && p && *p ; p++) {
+      ok = g_ascii_isalnum(*p) || *p == '.' || *p == '-';
+   }
+
    int number = g_uri_get_port(uri);
-   if (number == -1) number = 80;
+
+   if (number == -1) {
+      number = 80;
+   }
    ok = ok && number > 0 && number <= 65535;
-   if (ok) { *host = g_ascii_strdown(name, -1); *port = number; }
+
+   if (ok) {
+      *host = g_ascii_strdown(name, -1);
+      *port = number;
+   }
    g_uri_unref(uri);
+
    return ok;
 }
 static struct bridge_child *websdr_find(const char *driver, const char *host, unsigned port) {
-   for (struct bridge_child *b = children; b; b = b->next) {
+   for (struct bridge_child *b = children ; b ; b = b->next) {
       const char *name = rrp_bridge_config_get(b->name, "host"), *number = rrp_bridge_config_get(b->name, "port");
-      if (!name) name = cfg_get("bridge.host");
-      if (!number) number = cfg_get("bridge.port");
+
+      if (!name) {
+         name = cfg_get("bridge.host");
+      }
+
+      if (!number) {
+         number = cfg_get("bridge.port");
+      }
       unsigned configured = number ? strtoul(number, NULL, 10) : 8073;
-      if (!strcmp(b->driver, driver) && name && !g_ascii_strcasecmp(name, host) && configured == port) return b;
+
+      if (!strcmp(b->driver, driver) && name && !g_ascii_strcasecmp(name, host) && configured == port) {
+         return b;
+      }
    }
+
    return NULL;
 }
 static void runtime_setting(const char *name, const char *field, const char *value) {
@@ -925,92 +996,158 @@ static void websdr_remove(rr_server_rig_t *radio) {
    char uuid[64], alias[64];
    snprintf(uuid, sizeof(uuid), "%s", rr_server_rig_id(radio));
    snprintf(alias, sizeof(alias), "%s", rr_rig_registry_alias(rig.rigs, radio));
-   for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+
+   for (unsigned i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
       if (media_channels[i].uuid[0] && !strcmp(media_channels[i].rig_uuid, uuid)) {
          media_send_chan_removed_all(&media_channels[i]);
-         if (media_channels[i].codec[0]) fwdsp_codec_stop_channel_immediate(media_channels[i].codec, true, media_channels[i].uuid);
+
+         if (media_channels[i].codec[0]) {
+            fwdsp_codec_stop_channel_immediate(media_channels[i].codec, true, media_channels[i].uuid);
+         }
          media_chan_remove(media_channels[i].uuid);
       }
    }
+
    const char *room = rr_rig_registry_room(rig.rigs, radio);
-   if (room) ws_room_set_vfo_mask(room, 0); // Retain room history as ordinary chat.
-   rr_rig_registry_remove(rig.rigs, uuid);
-   const char *fields[] = {"driver", "host", "port"};
-   char key[160];
-   for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
-      snprintf(key, sizeof(key), "bridge:%s.%s", alias, fields[i]); dict_del(cfg, key);
+
+   if (room) {
+      ws_room_set_vfo_mask(room, 0);   // Retain room history as ordinary chat.
    }
-   snprintf(key, sizeof(key), "rig:%s.bridge", alias); dict_del(cfg, key);
+   rr_rig_registry_remove(rig.rigs, uuid);
+   const char *fields[] = {
+      "driver", "host", "port"
+   };
+   char key[160];
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
+      snprintf(key, sizeof(key), "bridge:%s.%s", alias, fields[i]);
+      dict_del(cfg, key);
+   }
+
+   snprintf(key, sizeof(key), "rig:%s.bridge", alias);
+   dict_del(cfg, key);
 }
 static struct bridge_child *websdr_create(const char *driver, const char *host, unsigned port) {
    unsigned temporary = 0;
-   for (struct bridge_child *b = children; b; b = b->next) temporary += b->temporary;
+
+   for (struct bridge_child *b = children ; b ; b = b->next) {
+      temporary += b->temporary;
+   }
+
    int limit = cfg_get_int("websdr.max-temporary", 8);
-   if (limit <= 0 || temporary >= (unsigned)limit || !config_path || stopping) return NULL;
+
+   if (limit <= 0 || temporary >= (unsigned)limit || !config_path || stopping) {
+      return NULL;
+   }
    char *uuid = g_uuid_string_random(), *vfo_uuid = g_uuid_string_random();
    char alias[64], number[16], key[160];
    snprintf(alias, sizeof(alias), "websdr-%.16s", uuid);
    snprintf(number, sizeof(number), "%u", port);
-   snprintf(key, sizeof(key), "rig:%s.bridge", alias); dict_add(cfg, key, alias);
-   runtime_setting(alias, "driver", driver); runtime_setting(alias, "host", host); runtime_setting(alias, "port", number);
+   snprintf(key, sizeof(key), "rig:%s.bridge", alias);
+   dict_add(cfg, key, alias);
+   runtime_setting(alias, "driver", driver);
+   runtime_setting(alias, "host", host);
+   runtime_setting(alias, "port", number);
    rr_server_rig_t *radio = rr_rig_registry_add(rig.rigs, uuid, alias, host, &type);
-   if (!radio) { g_free(uuid); g_free(vfo_uuid); return NULL; }
+
+   if (!radio) {
+      g_free(uuid);
+      g_free(vfo_uuid);
+
+      return NULL;
+   }
    struct bridge_child *b = rr_server_rig_backend(radio)->data;
    b->temporary = true;
    b->idle_since = mono_us();
    int fd = g_file_open_tmp("rustyrig-websdr-XXXXXX", &b->runtime_config, NULL);
    const char *modules = cfg_get("bridge.modules");
-   char *contents = g_strdup_printf("[bridge]\nmodules = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %u\n",
-      modules ? modules : "auto", alias, driver, host, port);
-   bool file_ok = fd >= 0 && write(fd, contents, strlen(contents)) == (ssize_t)strlen(contents);
-   if (fd >= 0) close(fd);
+   char *contents = g_strdup_printf("[bridge]\nmodules = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %u\n", modules ? modules : "auto", alias, driver, host,
+      port);
+   bool file_ok = fd >= 0 && write(fd, contents, strlen(contents)) == (ssize_t) strlen(contents);
+
+   if (fd >= 0) {
+      close(fd);
+   }
    g_free(contents);
    bool ok = file_ok && rr_server_vfo_add(radio, vfo_uuid, "A", "A", RR_VFO_PERSISTENT) &&
       !rr_rig_define_vfo_properties(radio, 'A') && !rrserver_rig_room_add(radio) && !rrserver_media_add_rig(radio);
-   if (!ok) { websdr_remove(radio); b = NULL; }
-   else {
+
+   if (!ok) {
+      websdr_remove(radio);
+      b = NULL;
+   } else {
       event_emit("object.model.added", NULL, uuid);
       b->ready = false;
    }
-   g_free(uuid); g_free(vfo_uuid);
+   g_free(uuid);
+   g_free(vfo_uuid);
+
    return b;
 }
 static bool websdr_save(struct bridge_child *b) {
-   if (!b->temporary) return true;
+   if (!b->temporary) {
+      return true;
+   }
    char *old = NULL;
    gsize length;
-   if (!config_path || !g_file_get_contents(config_path, &old, &length, NULL)) return false;
+
+   if (!config_path || !g_file_get_contents(config_path, &old, &length, NULL)) {
+      return false;
+   }
    const char *host = rrp_bridge_config_get(b->name, "host"), *port = rrp_bridge_config_get(b->name, "port");
    const char *roster = cfg_get("bridge.instances");
    char *names = g_strdup_printf("%s %s", roster ? roster : "", b->name);
-   char *updated = g_strdup_printf("%s\n[bridge]\ninstances = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %s\n",
-      old, names, b->name, b->driver, host, port);
+   char *updated =
+      g_strdup_printf("%s\n[bridge]\ninstances = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %s\n", old, names, b->name, b->driver, host, port);
    bool ok = g_file_set_contents(config_path, updated, -1, NULL);
+
    if (ok) {
       dict_add(cfg, "bridge.instances", names);
       b->temporary = false;
-      if (b->online) rrserver_bridge_hints_save(b->name, b->driver, &b->caps);
-      for (unsigned i = 0; i < G_N_ELEMENTS(metadata_fields); i++) {
-         char property[64]; snprintf(property, sizeof(property), "receiver.%s", metadata_fields[i]);
-         rr_property_snapshot_t value;
-         if (rr_rig_property_read(b->backend->owner, property, &value) && value.known && value.value_type == VAL_STR)
-            rrserver_bridge_metadata_set(b->name, b->driver, metadata_fields[i], value.value.s);
+
+      if (b->online) {
+         rrserver_bridge_hints_save(b->name, b->driver, &b->caps);
       }
-      if (b->runtime_config) unlink(b->runtime_config);
+
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(metadata_fields) ; i++) {
+         char property[64];
+         snprintf(property, sizeof(property), "receiver.%s", metadata_fields[i]);
+         rr_property_snapshot_t value;
+
+         if (rr_rig_property_read(b->backend->owner, property, &value) && value.known && value.value_type == VAL_STR) {
+            rrserver_bridge_metadata_set(b->name, b->driver, metadata_fields[i], value.value.s);
+         }
+      }
+
+      if (b->runtime_config) {
+         unlink(b->runtime_config);
+      }
       g_clear_pointer(&b->runtime_config, g_free);
    }
-   g_free(updated); g_free(names); g_free(old);
+   g_free(updated);
+   g_free(names);
+   g_free(old);
+
    return ok;
 }
 static void websdr_request(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
-   (void)event; (void)unused;
-   if (length != sizeof(rr_server_io_t) || !client) return;
-   rr_server_io_t *io = (rr_server_io_t *)data;
-   if (io->handled || strcmp(dict_get(io->message, "msg.type", ""), "talk") ||
-      strcmp(dict_get(io->message, "talk.cmd", ""), "admin")) return;
+   (void)event;
+   (void)unused;
+
+   if (length != sizeof(rr_server_io_t) || !client) {
+      return;
+   }
+   rr_server_io_t *io = (rr_server_io_t *) data;
+
+   if (io->handled || strcmp(dict_get(io->message, "msg.type", ""), "talk") || strcmp(dict_get(io->message, "talk.cmd", ""), "admin")) {
+      return;
+   }
    const char *action = dict_get(io->message, "talk.action", "");
    bool save = !strcmp(action, "websdr-add");
-   if (!save && strcmp(action, "websdr-connect")) return;
+
+   if (!save && strcmp(action, "websdr-connect")) {
+      return;
+   }
    io->handled = io->result = true;
    dict *request = json2dict(dict_get(io->message, "talk.data", ""));
    const char *error = "Invalid or unsupported WebSDR endpoint";
@@ -1018,23 +1155,40 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    char *host = NULL;
    unsigned port;
    const char *driver = request ? dict_get(request, "driver", "") : "";
-   if (!client->authenticated || !client->user || (save ? !rrserver_websdr_can_admin(client) : !rrserver_bridge_can_use(client)))
+
+   if (!client->authenticated || !client->user || (save ? !rrserver_websdr_can_admin(client) : !rrserver_bridge_can_use(client))) {
       error = save ? "Adding receivers requires websdr.admin" : "WebSDR access requires websdr.listen or websdr.connect";
-   else if (request && websdr_endpoint(driver, dict_get(request, "url", ""), &host, &port)) {
+   } else if (request && websdr_endpoint(driver, dict_get(request, "url", ""), &host, &port)) {
       b = websdr_find(driver, host, port);
-      if (!save && (!b || b->temporary) && !rrserver_websdr_can_connect(client)) { b = NULL; error = "This receiver is not configured; websdr.connect is required"; }
-      else if (!b && !(b = websdr_create(driver, host, port))) error = "Unable to create receiver (temporary rig limit or server configuration)";
-      if (b && save && !websdr_save(b)) { b = NULL; error = "Unable to save server configuration"; }
+
+      if (!save && (!b || b->temporary) && !rrserver_websdr_can_connect(client)) {
+         b = NULL;
+         error = "This receiver is not configured; websdr.connect is required";
+      } else if (!b && !(b = websdr_create(driver, host, port))) {
+         error = "Unable to create receiver (temporary rig limit or server configuration)";
+      }
+
+      if (b && save && !websdr_save(b)) {
+         b = NULL;
+         error = "Unable to save server configuration";
+      }
    }
    dict *result = dict_new(), *reply = dict_new();
    dict_add(result, "request", request ? dict_get(request, "request", "") : "");
    dict_add(result, "room", b ? rr_rig_registry_room(rig.rigs, b->backend->owner) : "");
    dict_add(result, "error", b ? "" : error);
    char *json = dict2json(result);
-   dict_add(reply, "msg.type", "talk"); dict_add(reply, "talk.cmd", "admin");
-   dict_add(reply, "talk.action", "websdr-result"); dict_add(reply, "talk.target", "websdr"); dict_add(reply, "talk.data", json);
+   dict_add(reply, "msg.type", "talk");
+   dict_add(reply, "talk.cmd", "admin");
+   dict_add(reply, "talk.action", "websdr-result");
+   dict_add(reply, "talk.target", "websdr");
+   dict_add(reply, "talk.data", json);
    ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
-   free(json); dict_free(result); dict_free(reply); dict_free(request); g_free(host);
+   free(json);
+   dict_free(result);
+   dict_free(reply);
+   dict_free(request);
+   g_free(host);
 }
 void rrserver_websdr_register_events(void) {
    event_on_binary(RR_SERVER_ROUTE_EVENT, websdr_request, NULL);

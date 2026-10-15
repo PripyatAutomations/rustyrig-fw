@@ -45,8 +45,11 @@ static bool inventory_message(dict *d) {
    const char *window = request->window[0] ? request->window : NULL;
 
    if (!strcmp(cmd, "inventory-end")) {
-      if (request->graphical) event_emit_dict("client.resources.row", ws_conn, d);
-      else ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
+      if (request->graphical) {
+         event_emit_dict("client.resources.row", ws_conn, d);
+      } else {
+         ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
+      }
       memset(request, 0, sizeof(*request));
 
       return true;
@@ -59,15 +62,16 @@ static bool inventory_message(dict *d) {
    const char *kind = dict_get(d, "inventory.kind", "");
    bool parent = !strcmp(kind, "site") || !strcmp(kind, "rig");
    bool matches_kind = parent || !strcmp(request->kind, "object") ||
-      (!strcmp(request->kind, "gps") ? !strcmp(kind, "gps") :
-       !strcmp(kind, "vfo") || !strcmp(kind, "media") || !strcmp(kind, "room") || !strcmp(kind, "cat"));
+      (!strcmp(request->kind, "gps") ? !strcmp(kind, "gps") : !strcmp(kind, "vfo") || !strcmp(kind, "media") || !strcmp(kind, "room") || !strcmp(kind, "cat"));
 
    if (!matches_kind) {
       return true;
    }
    request->count++;
+
    if (request->graphical) {
       event_emit_dict("client.resources.row", ws_conn, d);
+
       return true;
    }
 
@@ -95,22 +99,38 @@ static bool inventory_message(dict *d) {
 
 static void learn_receiver_metadata(dict *message) {
    const char *property = dict_get(message, "property.name", "");
-   if (strncmp(property, "receiver.", 9)) return;
+
+   if (strncmp(property, "receiver.", 9)) {
+      return;
+   }
    const char *target = dict_get(message, "target", "");
    const dict *url = rrclient_object_property(target, "receiver.url");
    const dict *connected = rrclient_object_property(target, "receiver.connected_at");
-   if (!url || !connected || !dict_get_bool((dict *)url, "property.known", false) || !dict_get_bool((dict *)connected, "property.known", false)) return;
-   const char *endpoint = dict_get((dict *)url, "property.value", "");
-   if (!*endpoint) return;
+
+   if (!url || !connected || !dict_get_bool((dict *) url, "property.known", false) || !dict_get_bool((dict *) connected, "property.known", false)) {
+      return;
+   }
+   const char *endpoint = dict_get((dict *) url, "property.value", "");
+
+   if (!*endpoint) {
+      return;
+   }
    dict *fields = dict_new();
-   const char *keys[] = { "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at" };
-   for (unsigned i = 0; i < (sizeof(keys) / sizeof(keys[0])); i++) {
+   const char *keys[] = {
+      "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at"
+   };
+
+   for (unsigned i = 0 ; i < (sizeof(keys) / sizeof(keys[0])) ; i++) {
       char name[64];
       snprintf(name, sizeof(name), "receiver.%s", keys[i]);
       const dict *state = rrclient_object_property(target, name);
-      const char *value = state && dict_get_bool((dict *)state, "property.known", false) ? dict_get((dict *)state, "property.value", NULL) : NULL;
-      if (value && *value) dict_add(fields, keys[i], value);
+      const char *value = state && dict_get_bool((dict *) state, "property.known", false) ? dict_get((dict *) state, "property.value", NULL) : NULL;
+
+      if (value && *value) {
+         dict_add(fields, keys[i], value);
+      }
    }
+
    receiver_directory_queue_learn(endpoint, fields);
    dict_free(fields);
 }
@@ -128,8 +148,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    }
 
    if (d) {
-      if (!rr_object_cache_apply(cache, d)) Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
-      else learn_receiver_metadata(d);
+      if (!rr_object_cache_apply(cache, d)) {
+         Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
+      } else {
+         learn_receiver_metadata(d);
+      }
    }
    dict_free(d);
    event_emit("client.objects.changed", NULL, NULL);
@@ -167,9 +190,13 @@ bool cmd_object(int argc, char **args) {
 
    if (argc == 1) {
       char command[] = "object";
-      char *inventory_args[] = {command};
+      char *inventory_args[] = {
+         command
+      };
+
       return cmd_rig(1, inventory_args);
    }
+
    if (!cache) {
       ui_print(window, "No object snapshot received");
    } else if (!rr_object_cache_dump_context(cache, argc == 2 ? args[1] : NULL, window, print_line, (void *)window)) {
@@ -223,7 +250,9 @@ bool cmd_rig(int argc, char **args) {
       pending->kind = !strcasecmp(args[0], "gps") ? "gps" : !strcasecmp(args[0], "object") ? "object" : "rig";
       snprintf(pending->id, sizeof(pending->id), "%s", id);
       snprintf(pending->window, sizeof(pending->window), "%s", window ? window : "");
-      rrclient_resource_view_t view = {.kind = pending->kind, .request = id};
+      rrclient_resource_view_t view = {
+         .kind = pending->kind, .request = id
+      };
       event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, ws_conn, &view, sizeof(view));
       pending->graphical = view.handled;
    }

@@ -8,8 +8,10 @@
 #include <rrclient/gtk/gtk.tabs.c>
 
 static void settle(void) {
-   for (int i = 0; i < 30; i++) {
-      while (gtk_events_pending()) gtk_main_iteration();
+   for (int i = 0 ; i < 30 ; i++) {
+      while (gtk_events_pending()) {
+         gtk_main_iteration();
+      }
       g_usleep(10000);
    }
 }
@@ -24,20 +26,19 @@ static void drag_tab(GtkWidget *source, GtkWidget *target) {
    Display *display = gdk_x11_display_get_xdisplay(gtk_widget_get_display(window));
    int root_x, root_y, from_x, from_y, to_x, to_y;
    gdk_window_get_origin(gtk_widget_get_window(window), &root_x, &root_y);
-   gtk_widget_translate_coordinates(source, window, gtk_widget_get_allocated_width(source) / 2,
-      gtk_widget_get_allocated_height(source) / 2, &from_x, &from_y);
-   gtk_widget_translate_coordinates(target, window, gtk_widget_get_allocated_width(target) * 3 / 4,
-      gtk_widget_get_allocated_height(target) / 2, &to_x, &to_y);
+   gtk_widget_translate_coordinates(source, window, gtk_widget_get_allocated_width(source) / 2, gtk_widget_get_allocated_height(source) / 2, &from_x, &from_y);
+   gtk_widget_translate_coordinates(target, window, gtk_widget_get_allocated_width(target) * 3 / 4, gtk_widget_get_allocated_height(target) / 2, &to_x, &to_y);
    XTestFakeMotionEvent(display, -1, root_x + from_x, root_y + from_y, 0);
    XTestFakeButtonEvent(display, 1, True, 0);
    XFlush(display);
    settle();
-   for (int step = 1; step <= 8; step++) {
-      XTestFakeMotionEvent(display, -1, root_x + from_x + (to_x - from_x) * step / 8,
-         root_y + from_y + (to_y - from_y) * step / 8, 0);
+
+   for (int step = 1 ; step <= 8 ; step++) {
+      XTestFakeMotionEvent(display, -1, root_x + from_x + (to_x - from_x) * step / 8, root_y + from_y + (to_y - from_y) * step / 8, 0);
       XFlush(display);
       settle();
    }
+
    XTestFakeButtonEvent(display, 1, False, 0);
    XFlush(display);
    settle();
@@ -46,16 +47,21 @@ static void drag_tab(GtkWidget *source, GtkWidget *target) {
 
 static double channel_luminance(unsigned value) {
    double s = value / 255.0;
+
    return s <= 0.04045 ? s / 12.92 : pow((s + 0.055) / 1.055, 2.4);
 }
 static void test_colors(GtkNotebook *notebook) {
-   const char *names[] = {"libera", "localirc", "localhost", "server1", "server2", "server3", "server4"};
+   const char *names[] = {
+      "libera", "localirc", "localhost", "server1", "server2", "server3", "server4"
+   };
+
    for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; i++) {
       const tab_color_t *color = tab_server_color(notebook, names[i]);
       assert(color == tab_server_color(notebook, names[i]));
       double luminance = .2126 * channel_luminance(color->r) + .7152 * channel_luminance(color->g) + .0722 * channel_luminance(color->b);
       double contrast = color->light ? (luminance + .05) / .05 : 1.05 / (luminance + .05);
       assert(contrast >= 4.5);
+
       for (unsigned j = 0 ; j < i ; j++) {
          const tab_color_t *other = tab_server_color(notebook, names[j]);
          int dr = (int)color->r - (int)other->r, dg = (int)color->g - (int)other->g, db = (int)color->b - (int)other->b;
@@ -66,7 +72,8 @@ static void test_colors(GtkNotebook *notebook) {
 
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
-   for (int top = 0; top < 2; top++) {
+
+   for (int top = 0 ; top < 2 ; top++) {
       GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       GtkNotebook *notebook = GTK_NOTEBOOK(gtk_notebook_new());
       test_colors(notebook);
@@ -81,13 +88,15 @@ int main(int argc, char **argv) {
       gtk_container_add(GTK_CONTAINER(viewport), box);
       gtk_container_add(GTK_CONTAINER(window), viewport);
       gtk_window_set_default_size(GTK_WINDOW(window), 380, 350);
-      for (int i = 0; i < 12; i++) {
+
+      for (int i = 0 ; i < 12 ; i++) {
          char title[32];
          g_snprintf(title, sizeof(title), "(%d) Receiver", i + 1);
          GtkWidget *page = gtk_label_new("content");
          g_object_set_data_full(G_OBJECT(page), "rr-server-name", g_strdup(i % 2 ? "libera" : "localirc"), g_free);
          gtk_notebook_append_page(notebook, page, gtk_label_new(title));
       }
+
       gtk_widget_show_all(window);
       settle();
       GtkStyleContext *style = gtk_widget_get_style_context(button_at(flow, 0));
@@ -125,8 +134,7 @@ int main(int argc, char **argv) {
       GtkWidget *label = g_object_get_data(G_OBJECT(button_at(flow, 2)), "rr-tab-title");
       assert(!strcmp(gtk_label_get_text(GTK_LABEL(label)), "Unread"));
       assert(gtk_label_get_use_markup(GTK_LABEL(label)));
-      /* Drop a tab across rows, before then after other tabs. The drag source
-       * widget survives reordering, and every selector uses the visible order. */
+      /* Drop a tab across rows, before then after other tabs. The drag source widget survives reordering, and every selector uses the visible order. */
       GtkWidget *drag_button = button_at(flow, 2);
       GtkWidget *last_page = gtk_notebook_get_nth_page(notebook, 11);
       assert(tab_move(notebook, page, last_page, TRUE));
@@ -136,11 +144,11 @@ int main(int argc, char **argv) {
       assert(gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)) == page);
       assert(gtk_tabs_step(notebook, 1)); /* Alt-Right wraps */
       assert(gtk_notebook_get_current_page(notebook) == 0);
-      assert(gtk_tabs_step(notebook, -1)); /* Alt-Left wraps */
+      assert(gtk_tabs_step(notebook, -1));   /* Alt-Left wraps */
       assert(gtk_notebook_get_current_page(notebook) == 11);
       assert(tab_move(notebook, page, gtk_notebook_get_nth_page(notebook, 0), FALSE));
       assert(button_at(flow, 0) == drag_button);
-      assert(gtk_tabs_select(notebook, 1)); /* Alt-1 /win 1 */
+      assert(gtk_tabs_select(notebook, 1));  /* Alt-1 /win 1 */
       assert(gtk_notebook_get_nth_page(notebook, 0) == page);
       GtkLabel *number_label = g_object_get_data(G_OBJECT(drag_button), "rr-tab-number");
       assert(!strcmp(gtk_label_get_text(number_label), "(1)"));
@@ -158,6 +166,7 @@ int main(int argc, char **argv) {
       gtk_widget_destroy(window);
       settle();
    }
+
    GtkNotebook *side = GTK_NOTEBOOK(gtk_notebook_new());
    g_object_ref_sink(side);
    assert(gtk_wrapping_tabs_new(side, GTK_POS_LEFT) == GTK_WIDGET(side));
@@ -165,5 +174,6 @@ int main(int argc, char **argv) {
    gtk_widget_destroy(GTK_WIDGET(side));
    g_object_unref(side);
    g_print("PASS: multi-row tab dragging, numbering, navigation, labels and removal\n");
+
    return 0;
 }

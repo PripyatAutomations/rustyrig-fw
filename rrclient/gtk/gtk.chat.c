@@ -1342,6 +1342,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
          existing->is_query = true;
          userlist_remove_room_view(existing->room);
       }
+
       if (!rrclient_present_context()) {
          return;
       }
@@ -1386,8 +1387,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
 }
 
 void gtk_chat_room_add(const char *room) {
-   /* IRC NOTICE/ACTION and diagnostic paths can ensure a nick tab through
-    * room_add. Only actual channels own rosters on an IRC connection. */
+   /* IRC NOTICE/ACTION and diagnostic paths can ensure a nick tab through room_add. Only actual channels own rosters on an IRC connection. */
    bool query = ws_conn && !ws_conn->is_ws && room && room[0] != '#' && room[0] != '&';
    gtk_chat_tab_add(room, query);
 }
@@ -1508,7 +1508,10 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
    const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
    const char *entry_room = g_object_get_data(G_OBJECT(entry), "rr-room-name");
    rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : rrclient_active_connection();
-   struct gtk_chat_input_check check = {.text = text};
+   struct gtk_chat_input_check check = {
+      .text = text
+   };
+
    if (entry_room) {
       rrclient_input_dispatch(connection, *entry_room ? entry_room : NULL, gtk_chat_check_origin, &check);
    } else {
@@ -1541,9 +1544,9 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
       gtk_entry_set_text(GTK_ENTRY(entry), "");
       g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
       gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
-      /* The entry owns the destination. Focus, incoming traffic and notebook
-       * reordering may change the selected page while its callback runs. */
+      /* The entry owns the destination. Focus, incoming traffic and notebook reordering may change the selected page while its callback runs. */
       char *room = g_strdup(entry_room);
+
       if (entry_room) {
          rrclient_input_dispatch(connection, room && *room ? room : NULL, gtk_chat_parse_origin, message);
       } else {

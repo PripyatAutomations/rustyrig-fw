@@ -223,6 +223,7 @@ static void help_emit(rrclient_help_line_cb emit, void *data, const char *format
    int length = vsnprintf(NULL, 0, format, copy);
    va_end(copy);
    char *text = length >= 0 ? malloc((size_t)length + 1) : NULL;
+
    if (text) {
       vsnprintf(text, (size_t)length + 1, format, ap);
       emit(text, data);
@@ -232,7 +233,10 @@ static void help_emit(rrclient_help_line_cb emit, void *data, const char *format
 }
 
 void rrclient_help_render(rrclient_help_line_cb emit, void *data) {
-   if (!emit) return;
+   if (!emit) {
+      return;
+   }
+
    // Pre-message
    for (int i = 0 ; help_msg_before[i].line ; i++) {
       if (help_msg_before[i].mode == UI_MODE_NONE || ui_mode == help_msg_before[i].mode) {
@@ -294,8 +298,15 @@ bool cmd_help(int argc, char **args) {
    (void)argc;
    (void)args;
    bool deferred = ui_mode == UI_MODE_TUI;
-   if (deferred) tui_redraw_defer();
+
+   if (deferred) {
+      tui_redraw_defer();
+   }
    rrclient_help_render(help_chat_line, NULL);
-   if (deferred) tui_redraw_flush();
+
+   if (deferred) {
+      tui_redraw_flush();
+   }
+
    return false;
 }

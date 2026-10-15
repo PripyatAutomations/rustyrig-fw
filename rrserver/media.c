@@ -75,13 +75,13 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
          continue;
       }
 
-      /* Joined local users already constitute demand. Avoid a second policy
-       * check and a relay query for every channel on every server poll. */
+      /* Joined local users already constitute demand. Avoid a second policy check and a relay query for every channel on every server poll. */
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
          if (client->conn && client->is_ws && client->authenticated && !client->is_server && media_client_in_channel_room(client, channel)) {
             return true;
          }
       }
+
       if (ws_media_channel_has_subscribers(channel)) {
          return true;
       }
@@ -454,6 +454,7 @@ static bool media_setup_rig(rr_server_rig_t *radio, void *user) {
 
 bool rrserver_media_add_rig(rr_server_rig_t *radio) {
    int made = 0;
+
    return media_setup_rig(radio, &made);
 }
 

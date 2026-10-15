@@ -398,17 +398,23 @@ ensure_stop_reason:
    }
    stmt = NULL;
    have_column = false;
+
    if (sqlite3_prepare_v2(db, "PRAGMA table_info(ptt_log);", -1, &stmt, NULL) == SQLITE_OK) {
       while (sqlite3_step(stmt) == SQLITE_ROW) {
          const char *name = (const char *)sqlite3_column_text(stmt, 1);
-         if (name && !strcmp(name, "server")) { have_column = true; break; }
+
+         if (name && !strcmp(name, "server")) {
+            have_column = true;
+            break;
+         }
       }
    }
    sqlite3_finalize(stmt);
+
    if (!have_column) {
       error = NULL;
-      if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN server TEXT;", NULL, NULL, &error) != SQLITE_OK &&
-         error && !strstr(error, "no such table")) {
+
+      if (sqlite3_exec(db, "ALTER TABLE ptt_log ADD COLUMN server TEXT;", NULL, NULL, &error) != SQLITE_OK && error && !strstr(error, "no such table")) {
          Log(LOG_WARN, "db", "Unable to add ptt_log.server: %s", error);
       }
       sqlite3_free(error);
@@ -1316,7 +1322,8 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
       return -1;
    }
    // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
-   const char *sql = "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server) " "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+   const char *sql =
+      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server) " "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 

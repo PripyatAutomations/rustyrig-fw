@@ -30,15 +30,20 @@ static struct input_context {
    rrconn_t *connection;
    const char *room;
 } *input_context;
-void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback)(void *), void *data) {
-   struct input_context current = {.connection = connection, .room = room}, *previous = input_context;
+void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback) (void *), void *data) {
+   struct input_context current = {
+      .connection = connection, .room = room
+   }, *previous = input_context;
    input_context = &current;
    rrclient_connection_dispatch(connection, callback, data);
    input_context = previous;
 }
 
 const char *ui_active_window_name(void) {
-   if (input_context) return input_context->room;
+   if (input_context) {
+      return input_context->room;
+   }
+
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
@@ -64,16 +69,20 @@ const char *ui_active_window_name(void) {
    return NULL;
 }
 
-/* Selected server is global across the three shared tabs, including while
- * background traffic temporarily dispatches in another server's context. */
+/* Selected server is global across the three shared tabs, including while background traffic temporarily dispatches in another server's context. */
 const char *rrclient_tui_prompt(tui_window_t *window) {
-   if (!window || !rrclient_window_is_shared(window->title)) return NULL;
+   if (!window || !rrclient_window_is_shared(window->title)) {
+      return NULL;
+   }
    const char *selected = rrclient_selected_server();
+
    return selected && *selected ? selected : "no server";
 }
 
 rrconn_t *rrclient_active_connection(void) {
-   if (input_context) return input_context->connection;
+   if (input_context) {
+      return input_context->connection;
+   }
    (void)ui_active_window_name();
 
    if (ui_mode == UI_MODE_TUI) {
@@ -90,7 +99,9 @@ rrconn_t *rrclient_active_connection(void) {
 }
 
 const char *rrclient_active_room(void) {
-   if (input_context) return input_context->room;
+   if (input_context) {
+      return input_context->room;
+   }
    (void)rrclient_active_connection();
 
    if (ui_mode == UI_MODE_TUI) {

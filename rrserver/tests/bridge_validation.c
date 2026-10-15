@@ -9,8 +9,12 @@ bool rrserver_bridge_hints_save(const char *name, const char *driver, const rrp_
    return true;
 }
 
-char *rrserver_bridge_metadata_get(const char *name, const char *driver, const char *key) { return NULL; }
-bool rrserver_bridge_metadata_set(const char *name, const char *driver, const char *key, const char *value) { return true; }
+char *rrserver_bridge_metadata_get(const char *name, const char *driver, const char *key) {
+   return NULL;
+}
+bool rrserver_bridge_metadata_set(const char *name, const char *driver, const char *key, const char *value) {
+   return true;
+}
 
 time_t now = 100;
 bool dying, restarting;

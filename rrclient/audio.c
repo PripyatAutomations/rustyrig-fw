@@ -127,7 +127,8 @@ struct room_route {
 static struct room_route *room_routes;
 size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
    size_t count = 0;
-   for (rx_route_t *r = rx_routes; r; r = r->next) {
+
+   for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       if (streams && count < capacity) {
          struct rrclient_rx_stream *stream = &streams[count];
          const char *server = rrclient_connection_name(r->connection);
@@ -140,6 +141,7 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
       }
       count++;
    }
+
    return count;
 }
 
@@ -147,27 +149,32 @@ bool audio_set_rx_stream_route(const char *id, char output) {
    if (!id || !output || !strchr("LRSM", output)) {
       return false;
    }
-   for (rx_route_t *r = rx_routes; r; r = r->next) {
+
+   for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       if (!strcmp(r->identity, id)) {
          if (r->output != output) {
             r->output = output;
             r->pending_count = 0;
             event_emit("client.audio.route.changed", NULL, NULL);
          }
+
          return true;
       }
    }
+
    return false;
 }
 
 char audio_room_route(const char *server, const char *room) {
    /* Report effective playback to existing room controls after stream routing. */
-   for (rx_route_t *r = rx_routes; r; r = r->next) {
+   for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       const char *profile = rrclient_connection_name(r->connection);
+
       if (r->output && server && room && profile && !strcmp(server, profile) && !strcasecmp(room, r->room)) {
          return r->output;
       }
    }
+
    for (struct room_route *r = room_routes ; r ; r = r->next) {
       if (server && room && !strcmp(r->server, server) && !strcasecmp(r->room, room)) {
          return r->output;
@@ -283,8 +290,7 @@ static void audio_mix_block(void) {
    }
 }
 
-/* Keep an absolute sample clock: a late UI dispatch must not slow playback.
- * Catch up at most the 100 ms retained by each route after a long stall. */
+/* Keep an absolute sample clock: a late UI dispatch must not slow playback. Catch up at most the 100 ms retained by each route after a long stall. */
 static gboolean audio_mix_tick(gpointer unused) {
    (void)unused;
    uint64_t current = mono_us();
@@ -292,6 +298,7 @@ static gboolean audio_mix_tick(gpointer unused) {
    if (current >= mixer_next_us) {
       uint64_t blocks = (current - mixer_next_us) / 20000 + 1;
       mixer_next_us += blocks * 20000;
+
       if (blocks > 5) {
          blocks = 5;
       }
@@ -301,14 +308,17 @@ static gboolean audio_mix_tick(gpointer unused) {
    }
 
    GSource *source = g_main_current_source();
+
    if (source) {
       g_source_set_ready_time(source, mixer_next_us);
    }
+
    return G_SOURCE_CONTINUE;
 }
 
 static gboolean audio_mix_dispatch(GSource *source, GSourceFunc callback, gpointer data) {
    (void)source;
+
    return callback(data);
 }
 
@@ -322,6 +332,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
    }
 
    bool changed = false;
+
    for (rx_route_t *route = rx_routes ; route ; route = route->next) {
       if (route->connection == ws_conn) {
          route->seen = false;
@@ -351,6 +362,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
       }
       route->seen = true;
       const char *room = channel->room ? channel->room : "";
+
       if (!route->codec[0] || strcmp(route->room, room)) {
          /* Unchanged inventories/codec changes must retain per-stream routing. */
          char output = audio_room_route(rrclient_connection_name(ws_conn), room);
@@ -361,6 +373,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
 
       if (strncmp(route->codec, channel->codec, 4)) {
          changed = true;
+
          if (route->codec[0]) {
             fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          }
@@ -393,6 +406,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          link = &route->next;
       }
    }
+
    if (changed) {
       event_emit("client.audio.streams.changed", NULL, NULL);
    }

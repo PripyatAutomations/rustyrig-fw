@@ -14,6 +14,7 @@
 #include <librustyaxe/io.serial.h>
 #include <librustyaxe/cfg.modules.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/gps.h>
 
 static struct mg_mgr manager;
 static bool initialized;
@@ -114,17 +115,7 @@ static void poll_gpsd(const char *event, const char *data, rrconn_t *client, voi
 }
 bool rr_module_init(void) {
    const char *target = cfg_get("gpsd.target");
-   char key[128];
-
-   if (target && strcmp(target, "station")) {
-      snprintf(key, sizeof(key), "rig:%s.gps.position", target);
-   } else {
-      snprintf(key, sizeof(key), "station.gps.position");
-   }
-
-   const char *position = cfg_get(key);
-
-   if (position && *position) {
+   if (rrserver_gps_source_fixed(target)) {
       Log(LOG_INFO, "gpsd", "%s uses configured coordinates; GPS daemon adapter disabled", target ? target : "station");
 
       return false;

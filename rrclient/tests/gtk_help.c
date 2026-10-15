@@ -7,14 +7,23 @@ time_t now;
 enum GuiMode ui_mode = UI_MODE_GTK;
 static bool staff;
 client_cmd_t client_cmds[] = {
-   {.cmd = "help", .desc = "Show help", .help_section = "Connection"},
-   {.cmd = "admin", .desc = "Manage accounts", .help_section = "Administration", .admin = true},
-   {0}
+   {
+      .cmd = "help", .desc = "Show help", .help_section = "Connection"
+   },
+   {
+      .cmd = "admin", .desc = "Manage accounts", .help_section = "Administration", .admin = true
+   },
+   {
+      0
+   }
 };
-bool media_have_priv(const char *priv) { return staff; }
+bool media_have_priv(const char *priv) {
+   return staff;
+}
 static char *contents(void) {
    GtkTextIter start, end;
    gtk_text_buffer_get_bounds(help_buffer, &start, &end);
+
    return gtk_text_buffer_get_text(help_buffer, &start, &end, FALSE);
 }
 int main(int argc, char **argv) {
@@ -32,7 +41,9 @@ int main(int argc, char **argv) {
    text = contents();
    assert(strstr(text, "/admin") && strstr(text, "Administration"));
    g_free(text);
-   GdkEventKey event = {.keyval = GDK_KEY_Escape};
+   GdkEventKey event = {
+      .keyval = GDK_KEY_Escape
+   };
    assert(help_key(help_window, &event, NULL));
    assert(!help_window);
    gtk_help_show();

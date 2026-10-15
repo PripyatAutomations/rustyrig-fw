@@ -75,7 +75,9 @@ int main(void) {
    assert(!strcmp(rrserver_relay_client_server(NULL), "rig-site"));
    strcpy(session.origin, "11111111-1111-1111-1111-111111111111");
    assert(!strcmp(rrserver_relay_client_server(&session.client), session.origin));
-   struct catalog home = {0};
+   struct catalog home = {
+      0
+   };
    strcpy(home.owner, session.origin);
    home.descriptor = dict_new();
    dict_add(home.descriptor, "object.type", "node");
@@ -84,7 +86,8 @@ int main(void) {
    assert(!strcmp(rrserver_relay_client_server(&session.client), "home-site"));
    catalogs = NULL;
    dict_free(home.descriptor);
-   dict_free(cfg); cfg = NULL;
+   dict_free(cfg);
+   cfg = NULL;
 
    session.proxy_tx[0] = true;
    session.proxy_started = 4000000;

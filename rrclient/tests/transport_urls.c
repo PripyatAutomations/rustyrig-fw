@@ -147,7 +147,7 @@ static void message(const char *event, const char *data, rrconn_t *conn, void *u
 
    if (!strcmp(server_name, "beta")) {
       messages[1]++;
-         assert(!rrclient_room_is_joined("#shared"));
+      assert(!rrclient_room_is_joined("#shared"));
    }
 }
 static void auth(const char *event, const char *data, rrconn_t *conn, void *user) {
@@ -265,12 +265,14 @@ int main(void) {
    rrclient_connection_dispatch(NULL, check_disconnected_scope, NULL);
    assert(ws_conn == b && !strcmp(server_name, "beta") && !strcmp(rrclient_selected_server(), "beta"));
    assert(strcmp(alpha_window, rrclient_window_name("#shared")));
-   /* Three system tabs, shared across profiles; tab focus never chooses a
-    * different server. Background output cannot capture the prompt/session. */
+   /* Three system tabs, shared across profiles; tab focus never chooses a different server. Background output cannot capture the prompt/session. */
    ui_mode = UI_MODE_TUI;
    tui_only = true;
-   const char *system_tabs[] = {"status", "client log", "host log"};
-   for (unsigned i = 0; i < 3; i++) {
+   const char *system_tabs[] = {
+      "status", "client log", "host log"
+   };
+
+   for (unsigned i = 0 ; i < 3 ; i++) {
       assert(!strcmp(rrclient_window_name(system_tabs[i]), system_tabs[i]));
       tui_window_t *tab = tui_window_create(system_tabs[i]);
       assert(tab && !tab->cptr);
@@ -279,6 +281,7 @@ int main(void) {
       assert(rrclient_active_connection() == b);
       assert(!strcmp(rrclient_tui_prompt(tab), "beta"));
    }
+
    rrclient_connection_dispatch(a, check_shared_background, a);
    assert(rrclient_active_connection() == b);
    assert(tui_window_find("host log")->log_count == 1);
@@ -286,11 +289,13 @@ int main(void) {
    assert(strstr(tui_window_find("host log")->buffer[0], "|alpha| background-host-log"));
    assert(strstr(tui_window_find("client log")->buffer[0], "|alpha| background-client-log"));
    assert(rrclient_connection_cycle_status(ui_status_active()) && ws_conn == a);
-   for (unsigned i = 0; i < 3; i++) {
+
+   for (unsigned i = 0 ; i < 3 ; i++) {
       tui_window_focus(system_tabs[i]);
       assert(rrclient_active_connection() == a);
       assert(!strcmp(rrclient_tui_prompt(tui_active_window()), "alpha"));
    }
+
    assert(rrclient_connection_select("beta"));
    ui_mode = UI_MODE_GTK;
    tui_only = false;
@@ -713,7 +718,9 @@ int main(void) {
    tui_only = false;
    connman_shutdown();
    assert(!ws_conn && !server_name && !login_user);
-   tui_window_t prompt_window = {0};
+   tui_window_t prompt_window = {
+      0
+   };
    strcpy(prompt_window.title, "host log");
    assert(!strcmp(rrclient_tui_prompt(&prompt_window), "no server"));
    dict_free(cfg);

@@ -20,6 +20,7 @@ gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
 
    return NULL;
 }
+
 static rrconn_t origin_connection;
 rrconn_t *rrclient_connection_find(const char *name) {
    return name && !strcmp(name, "server") ? &origin_connection : NULL;
@@ -43,7 +44,7 @@ bool rrclient_connection_select(const char *name) {
 static char parsed_menu_command[128];
 static const char *dispatched_room;
 static unsigned dispatched;
-void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback)(void *), void *data) {
+void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback) (void *), void *data) {
    assert(connection == &origin_connection && room && !strcmp(room, "#origin"));
    dispatched_room = room;
    dispatched++;
@@ -329,10 +330,11 @@ static void test_incoming_chat_preserves_draft(void) {
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
    assert(gtk_editable_get_position(GTK_EDITABLE(entry)) == 4);
    assert(!gtk_chat_execute_command("closed-key", "/whois BOB"));
-   /* A still-focused entry must retain its destination after another page
-    * becomes current, including page moves across the wrapping strip. */
+   /* A still-focused entry must retain its destination after another page becomes current, including page moves across the wrapping strip. */
    GtkWidget *other_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkRoomTab other_origin = {.page = other_page};
+   GtkRoomTab other_origin = {
+      .page = other_page
+   };
    snprintf(other_origin.room, sizeof(other_origin.room), "#scratchmonkey");
    g_object_set_data(G_OBJECT(other_page), "rr-room-tab", &other_origin);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), other_page, gtk_label_new("other"));
@@ -535,10 +537,16 @@ static unsigned roster_docks;
 void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    roster_docks++;
 }
-bool gui_hotkey_register(GtkWidget *widget) { return false; }
-const char *rrclient_selected_server(void) { return "server"; }
+bool gui_hotkey_register(GtkWidget *widget) {
+   return false;
+}
+const char *rrclient_selected_server(void) {
+   return "server";
+}
 static void test_query_has_no_roster(void) {
-   if (!gtk_init_check(NULL, NULL)) return;
+   if (!gtk_init_check(NULL, NULL)) {
+      return;
+   }
    unsigned before = roster_docks;
    GtkWidget *query = create_chat_box_for_room(false, "alice", true);
    g_object_ref_sink(query);

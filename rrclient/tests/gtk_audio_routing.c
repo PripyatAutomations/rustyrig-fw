@@ -8,19 +8,22 @@ size_t audio_rx_streams(struct rrclient_rx_stream *streams, size_t capacity) {
    if (streams) {
       memcpy(streams, catalog, MIN(capacity, catalog_count) * sizeof(*streams));
    }
+
    return catalog_count;
 }
 bool audio_set_rx_stream_route(const char *id, char output) {
-   for (size_t i = 0; i < catalog_count; i++) {
+   for (size_t i = 0 ; i < catalog_count ; i++) {
       if (!strcmp(catalog[i].id, id)) {
          if (catalog[i].output != output) {
             catalog[i].output = output;
             writes++;
             event_emit("client.audio.route.changed", NULL, NULL);
          }
+
          return true;
       }
    }
+
    return false;
 }
 static void flush(void) {
@@ -52,14 +55,18 @@ int main(int argc, char **argv) {
    assert(gtk_window_get_type_hint(GTK_WINDOW(routing_window)) == GDK_WINDOW_TYPE_HINT_NORMAL);
    assert(!gtk_window_get_skip_taskbar_hint(GTK_WINDOW(routing_window)));
    g_signal_connect(routing_window, "show", G_CALLBACK(shown), NULL);
-   catalog[0] = (struct rrclient_rx_stream){ .id = "rx1", .server = "first", .room = "#rig0", .uuid = "uuid1", .codec = "pc16", .output = 'S' };
+   catalog[0] = (struct rrclient_rx_stream) {
+      .id = "rx1", .server = "first", .room = "#rig0", .uuid = "uuid1", .codec = "pc16", .output = 'S'
+   };
    catalog_count = 1;
    catalog_changed();
    assert(shows == 1 && gtk_widget_get_visible(routing_window));
    assert(!gtk_widget_get_sensitive(ear_combo[1]));
    assert(!strcmp(choice(0), "rx1") && !strcmp(choice(1), "rx1"));
    // Another server's stream appears without changing the selected receiver.
-   catalog[1] = (struct rrclient_rx_stream){ .id = "rx2", .server = "second", .room = "#rig0", .uuid = "uuid2", .codec = "g722", .output = 'S' };
+   catalog[1] = (struct rrclient_rx_stream) {
+      .id = "rx2", .server = "second", .room = "#rig0", .uuid = "uuid2", .codec = "g722", .output = 'S'
+   };
    catalog_count = 2;
    catalog_changed();
    assert(catalog[0].output == 'S' && catalog[1].output == 'M');
@@ -106,7 +113,9 @@ int main(int argc, char **argv) {
    catalog_count = 3;
    catalog[0].output = 'L';
    catalog[1].output = 'L';
-   catalog[2] = (struct rrclient_rx_stream){ .id = "rx3", .server = "third", .room = "#rig0", .uuid = "uuid3", .codec = "pc16", .output = 'R' };
+   catalog[2] = (struct rrclient_rx_stream) {
+      .id = "rx3", .server = "third", .room = "#rig0", .uuid = "uuid3", .codec = "pc16", .output = 'R'
+   };
    event_emit("client.audio.route.changed", NULL, NULL);
    flush();
    assert(!strcmp(choice(0), "~") && !strcmp(choice(1), "rx3"));
