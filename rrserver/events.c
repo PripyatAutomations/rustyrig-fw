@@ -746,9 +746,10 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          request.value.l = rc_width ? strtol(rc_width, NULL, 10) : 0;
       }
 
-      if (!object || !request.property || rr_rig_control(&request) != RR_CONTROL_OK) {
+      rr_control_result_t result = object && request.property ? rr_rig_control(&request) : RR_CONTROL_INVALID;
+      if (result != RR_CONTROL_OK && result != RR_CONTROL_PENDING) {
          Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s", rc_cmd, room);
-      } else {
+      } else if (result == RR_CONTROL_OK) {
          rr_backend_poll_rig(radio, object);
       }
       dict_free(d);

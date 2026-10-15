@@ -188,5 +188,8 @@ collisions, child crashes, wedged-command timeouts and desired-state restoration
 `rrserver/tests/test_kiwi_live.sh` runs an isolated wire-level Kiwi peer, a real
 server, bridge and DSP workers. It covers authentication rejection/retry,
 NEW_FREQ-confirmed tuning, both PCM byte orders, resampled client audio and
-remote disconnect/reconnect. Protocol tests cover media framing and
+remote disconnect/reconnect. Subscribed audio remains active during delayed
+tuning confirmations and repeated property/legacy CAT frequency and mode
+changes. Pending CAT controls are accepted without a premature failure log.
+Protocol tests cover media framing and
 backpressure, and DSP tests check that 12-to-16 kHz conversion preserves duration.

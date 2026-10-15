@@ -1,5 +1,6 @@
 """Real server, bridge processes, plugin loader, IPC and generic object wire path."""
 import hashlib
+import json
 import os
 import re
 from pathlib import Path
@@ -129,6 +130,43 @@ with (work / 'console.log').open('w') as console:
         _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
         assert len(frame) > 28 and any(frame[28:]), 'no resampled Kiwi audio reached client'
         if fixture:
+            fixture.confirm_delay = .7
+            client.send({'msg': {'type': 'property'}, 'target': a,
+                'property': {'cmd': 'set', 'name': 'frequency', 'type': 'long', 'value': 7200000},
+                'request': {'id': 'delayed-tune'}})
+            audio_times = []
+            def pending_result(opcode, payload):
+                if opcode == 2 and payload[:8] == b'RR\x01\x01pc16':
+                    audio_times.append(time.monotonic())
+                if opcode != 1: return False
+                message = track(json.loads(payload))
+                return message.get('property', {}).get('cmd') == 'result' and message.get('request', {}).get('id') == 'delayed-tune'
+            _, result = client.until_frame(pending_result)
+            assert result['result']['code'] == 'ok', result
+            assert len(audio_times) >= 4 and audio_times[-1] - audio_times[0] >= .3, 'audio withheld while awaiting tuning confirmation'
+            fixture.confirm_delay = 0
+        # Exercise tuning while media is already subscribed, rather than only
+        # setting up the receiver before the audio path exists.
+        for i in range(12):
+            control(a, 'frequency', 7100000 + (i % 3) * 1000, f'kiwi-retune-{i}')
+            control(a, 'mode', ('USB', 'LSB', 'CW', 'AM')[i % 4], f'kiwi-remode-{i}')
+            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
+            assert any(frame[28:]), f'audio stopped after tuning cycle {i}'
+        # Native clients can still send legacy CAT commands for bridge rooms.
+        for i in range(4):
+            frequency = 7300000 + i * 1000
+            client.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'freq', 'room': objects[radio]['room'],
+                'vfo': 'A', 'freq': frequency}})
+            state(a, 'frequency', frequency)
+            mode = ('USB', 'LSB', 'CW', 'AM')[i]
+            client.send({'msg': {'type': 'cat'}, 'cat': {'cmd': 'mode', 'room': objects[radio]['room'],
+                'vfo': 'A', 'mode': mode}})
+            state(a, 'mode', mode)
+            _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
+            assert any(frame[28:]), f'audio stopped after CAT cycle {i}'
+        control(a, 'frequency', 7100000, 'kiwi-restore-frequency')
+        control(a, 'mode', 'AM', 'kiwi-restore-mode')
+        if fixture:
             assert any('freq=7100.000' in command for command in fixture.commands)
             assert any('mod=am low_cut=-4900 high_cut=4900' in command for command in fixture.commands)
             assert 'SET compression=0' in fixture.commands
@@ -141,6 +179,7 @@ with (work / 'console.log').open('w') as console:
             _, frame = client.until_frame(lambda opcode,data: opcode == 2 and data[:8] == b'RR\x01\x01pc16')
             assert any(frame[28:])
         console_text = (work / 'console.log').read_text()
+        assert 'Unable to apply' not in (work / 'server.log').read_text(), 'pending CAT request logged as a failure'
         if fixture:
             assert 'retrying in 2 seconds' in console_text, 'brief reception reset reconnect backoff'
             assert 'Invalid or unsupported Kiwi stream' not in console_text, 'duplicate parser error after authentication rejection'

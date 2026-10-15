@@ -187,7 +187,9 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
       if (k->request && k->host.complete) k->host.complete(k->host.user, k->request, true);
       k->request = 0;
    }
-   if (!k->online || k->request) return true;
+   // Tuning confirmation controls observed state, not audio delivery. Keep
+   // feeding the existing stream while Kiwi applies a frequency/mode change.
+   if (!k->online) return true;
    size_t count = (length - 10) / 2;
    for (size_t offset = 0; offset < count; ) {
       int16_t pcm[2048];

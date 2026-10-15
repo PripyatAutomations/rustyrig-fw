@@ -15,6 +15,7 @@ class KiwiFixture:
         self.port = self.socket.getsockname()[1]
         self.commands = []
         self.reject_auth = reject_auth
+        self.confirm_delay = 0
         self.peer = None
         self.stopping = threading.Event()
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -58,6 +59,7 @@ class KiwiFixture:
         sequence = 0
         streaming = False
         changed = False
+        confirm_at = 0
         deadline = time.monotonic()
         while not self.stopping.is_set():
             if select.select([c], [], [], .005)[0]:
@@ -88,11 +90,13 @@ class KiwiFixture:
                         self.send(c, b'MSG badp=0 audio_rate=12000 sample_rate=12000.000000 freq_offset=0')
                 if command.startswith('SET mod='):
                     streaming = True; changed = True
+                    confirm_at = time.monotonic() + self.confirm_delay
             current = time.monotonic()
             if streaming and current >= deadline:
                 sequence += 1
-                flags = (4 if changed else 0)
-                changed = False
+                confirm = changed and current >= confirm_at
+                flags = (4 if confirm else 0)
+                if confirm: changed = False
                 # Alternating endianness exercises both wire sample layouts.
                 little = sequence % 2 == 0
                 if little: flags |= 128
