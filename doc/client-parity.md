@@ -699,5 +699,10 @@ feature has no browser equivalent or new protocol operation. See
 [Native client shell commands](client-exec.md).
 
 GTK top/bottom main tabs wrap into multiple rows when space is limited.
-Page order and keyboard shortcuts remain owned by the notebook; left/right
-placement retains native vertical tabs. This is GTK-specific presentation.
+Drag tabs to rearrange them across rows; drop on either half of a tab to move
+before/after it. The strip reorders the actual notebook pages, so Alt-1 through
+Alt-9, Alt-0 (tenth tab), Alt-Left/Right and `/win <number>` follow the visible
+order. Displayed shortcut numbers refresh after moving or closing tabs; use
+`/win 11` and higher for tabs beyond the first ten. Left/right placement retains
+native vertical tabs. Rearrangement lasts for the current client session.
+This is GTK-specific presentation; TUI and browser window ordering is unchanged.

@@ -217,7 +217,7 @@ client_cmd_t client_cmds[] = {
    },
    {
       .cmd = "win", .help_section = "Client settings", .cb = cmd_win, .max_args = 2, .desc =
-         "Switch: /win <number>; /win close [-f|-force] parts/closes the current conversation; -force closes without waiting (status is protected)"
+         "Switch: /win <number> (GTK: current tab order); /win close [-f|-force] parts/closes the current conversation; -force closes without waiting (status is protected)"
    },
    {
       .cmd = "admin", .help_section = "Administration", .cb = cmd_admin, .max_args = 2, .desc =

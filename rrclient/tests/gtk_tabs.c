@@ -1,5 +1,9 @@
 #include <assert.h>
 #include <string.h>
+#ifdef HAVE_XTEST
+#include <gdk/gdkx.h>
+#include <X11/extensions/XTest.h>
+#endif
 #include <rrclient/gtk/gtk.tabs.c>
 
 static void settle(void) {
@@ -12,6 +16,32 @@ static void settle(void) {
 static GtkWidget *button_at(GtkWidget *flow, int index) {
    return gtk_bin_get_child(GTK_BIN(gtk_flow_box_get_child_at_index(GTK_FLOW_BOX(flow), index)));
 }
+
+#ifdef HAVE_XTEST
+static void drag_tab(GtkWidget *source, GtkWidget *target) {
+   GtkWidget *window = gtk_widget_get_toplevel(source);
+   Display *display = gdk_x11_display_get_xdisplay(gtk_widget_get_display(window));
+   int root_x, root_y, from_x, from_y, to_x, to_y;
+   gdk_window_get_origin(gtk_widget_get_window(window), &root_x, &root_y);
+   gtk_widget_translate_coordinates(source, window, gtk_widget_get_allocated_width(source) / 2,
+      gtk_widget_get_allocated_height(source) / 2, &from_x, &from_y);
+   gtk_widget_translate_coordinates(target, window, gtk_widget_get_allocated_width(target) * 3 / 4,
+      gtk_widget_get_allocated_height(target) / 2, &to_x, &to_y);
+   XTestFakeMotionEvent(display, -1, root_x + from_x, root_y + from_y, 0);
+   XTestFakeButtonEvent(display, 1, True, 0);
+   XFlush(display);
+   settle();
+   for (int step = 1; step <= 8; step++) {
+      XTestFakeMotionEvent(display, -1, root_x + from_x + (to_x - from_x) * step / 8,
+         root_y + from_y + (to_y - from_y) * step / 8, 0);
+      XFlush(display);
+      settle();
+   }
+   XTestFakeButtonEvent(display, 1, False, 0);
+   XFlush(display);
+   settle();
+}
+#endif
 
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
@@ -41,6 +71,12 @@ int main(int argc, char **argv) {
       gtk_widget_get_allocation(GTK_WIDGET(gtk_flow_box_get_child_at_index(GTK_FLOW_BOX(flow), 0)), &first);
       gtk_widget_get_allocation(GTK_WIDGET(gtk_flow_box_get_child_at_index(GTK_FLOW_BOX(flow), 11)), &last);
       assert(last.y > first.y); /* actual multi-row layout */
+#ifdef HAVE_XTEST
+      GtkWidget *dragged_page = gtk_notebook_get_nth_page(notebook, 0);
+      drag_tab(button_at(flow, 0), button_at(flow, 7));
+      assert(gtk_notebook_get_nth_page(notebook, 7) == dragged_page);
+      assert(gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)) == dragged_page);
+#endif
       gtk_window_resize(GTK_WINDOW(window), 1000, 350);
       settle();
       assert(gtk_widget_get_allocated_height(flow) < narrow_height);
@@ -53,13 +89,38 @@ int main(int argc, char **argv) {
       assert(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button_at(flow, 8))));
       GtkWidget *page = gtk_notebook_get_nth_page(notebook, 2);
       gtk_label_set_markup(GTK_LABEL(gtk_notebook_get_tab_label(notebook, page)), "<b>Unread</b>");
-      GtkWidget *label = gtk_bin_get_child(GTK_BIN(button_at(flow, 2)));
+      GtkWidget *label = g_object_get_data(G_OBJECT(button_at(flow, 2)), "rr-tab-title");
       assert(!strcmp(gtk_label_get_text(GTK_LABEL(label)), "Unread"));
       assert(gtk_label_get_use_markup(GTK_LABEL(label)));
-      gtk_notebook_reorder_child(notebook, page, 0);
+      /* Drop a tab across rows, before then after other tabs. The drag source
+       * widget survives reordering, and every selector uses the visible order. */
+      GtkWidget *drag_button = button_at(flow, 2);
+      GtkWidget *last_page = gtk_notebook_get_nth_page(notebook, 11);
+      assert(tab_move(notebook, page, last_page, TRUE));
+      assert(button_at(flow, 11) == drag_button);
+      assert(gtk_notebook_get_nth_page(notebook, 11) == page);
+      assert(gtk_tabs_select(notebook, 12)); /* /win 12 */
+      assert(gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)) == page);
+      assert(gtk_tabs_step(notebook, 1)); /* Alt-Right wraps */
+      assert(gtk_notebook_get_current_page(notebook) == 0);
+      assert(gtk_tabs_step(notebook, -1)); /* Alt-Left wraps */
+      assert(gtk_notebook_get_current_page(notebook) == 11);
+      assert(tab_move(notebook, page, gtk_notebook_get_nth_page(notebook, 0), FALSE));
+      assert(button_at(flow, 0) == drag_button);
+      assert(gtk_tabs_select(notebook, 1)); /* Alt-1 /win 1 */
+      assert(gtk_notebook_get_nth_page(notebook, 0) == page);
+      GtkLabel *number_label = g_object_get_data(G_OBJECT(drag_button), "rr-tab-number");
+      assert(!strcmp(gtk_label_get_text(number_label), "(1)"));
+      number_label = g_object_get_data(G_OBJECT(button_at(flow, 9)), "rr-tab-number");
+      assert(!strcmp(gtk_label_get_text(number_label), "(0)"));
+      assert(gtk_tabs_select(notebook, 10)); /* Alt-0 */
+      assert(gtk_notebook_get_current_page(notebook) == 9);
+      assert(!gtk_tabs_select(notebook, 0) && !gtk_tabs_select(notebook, 13));
       gtk_button_clicked(GTK_BUTTON(button_at(flow, 0)));
       assert(gtk_notebook_get_current_page(notebook) == 0);
       gtk_notebook_remove_page(notebook, 0);
+      number_label = g_object_get_data(G_OBJECT(button_at(flow, 0)), "rr-tab-number");
+      assert(!strcmp(gtk_label_get_text(number_label), "(1)"));
       assert(!gtk_flow_box_get_child_at_index(GTK_FLOW_BOX(flow), 11));
       gtk_widget_destroy(window);
       settle();
@@ -70,6 +131,6 @@ int main(int argc, char **argv) {
    assert(gtk_notebook_get_show_tabs(side));
    gtk_widget_destroy(GTK_WIDGET(side));
    g_object_unref(side);
-   g_print("PASS: wrapping tabs resize, selection, labels, ordering and removal\n");
+   g_print("PASS: multi-row tab dragging, numbering, navigation, labels and removal\n");
    return 0;
 }

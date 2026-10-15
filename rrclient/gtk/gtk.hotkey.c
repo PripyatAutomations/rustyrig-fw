@@ -26,6 +26,7 @@
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.chat.h>
+#include <rrclient/gtk/gtk.tabs.h>
 
 extern dict *cfg;
 extern GtkComboBoxText *tx_combo;
@@ -48,12 +49,9 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
       place_window(main_win);
    }
    int tab_number = digit == 0 ? 10 : digit;
-   int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
-
-   if (tab_number < 1 || tab_number > pages) {
+   if (!gtk_tabs_select(GTK_NOTEBOOK(main_notebook), tab_number)) {
       return FALSE;
    }
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), tab_number - 1);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 
    return TRUE;
@@ -204,19 +202,13 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       switch (event->keyval) {
          case GDK_KEY_Left:
          case GDK_KEY_KP_Left: {
-            // Previous tab
-            int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
-            int cur = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), (cur > 0 ? cur - 1 : pages - 1));
+            gtk_tabs_step(GTK_NOTEBOOK(main_notebook), -1);
 
             return TRUE;
          }
          case GDK_KEY_Right:
          case GDK_KEY_KP_Right: {
-            // Next tab
-            int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
-            int cur = gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook));
-            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), (cur + 1) % pages);
+            gtk_tabs_step(GTK_NOTEBOOK(main_notebook), 1);
 
             return TRUE;
          }

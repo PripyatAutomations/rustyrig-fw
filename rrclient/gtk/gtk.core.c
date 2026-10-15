@@ -1052,11 +1052,7 @@ static void frontend_gtk_focus_tab(const char *tab) {
 }
 
 static void frontend_gtk_switch_window(int id) {
-   int pages = gtk_notebook_get_n_pages(GTK_NOTEBOOK(main_notebook));
-
-   if (id >= 1 && id <= pages) {
-      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), id - 1);
-   }
+   gtk_tabs_select(GTK_NOTEBOOK(main_notebook), id);
 }
 
 static bool frontend_gtk_confirm_dialog(const char *message) {
