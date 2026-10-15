@@ -13,6 +13,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/auth.h>
 #include <rrserver/database.h>
+#include <rrserver/bridge.hints.h>
 #include <rrserver/usage.h>
 
 time_t now;
@@ -114,6 +115,42 @@ int main(void) {
    assert(!db_quota_spend(db, "admin", 0));
    assert(!db_quota_spend(db, NULL, 1));
 
+   dict *saved_cfg = cfg;
+   // Capability hints remain descriptions, survive persistence, and cannot
+   // follow a changed endpoint. Config hints override cache until live refresh.
+   cfg = dict_new();
+   dict_add(cfg, "bridge:receiver.host", "sdr.example");
+   dict_add(cfg, "bridge:receiver.rx-min-hz", "100000");
+   dict_add(cfg, "bridge:receiver.rx-max-hz", "30000000");
+   dict_add(cfg, "bridge:receiver.rx-modes", "USB AM CW");
+   dict_add(cfg, "bridge:receiver.rx-audio", "true");
+   rrp_bridge_ipc_message_t hints;
+   assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 2);
+   assert(hints.rx_min_hz == 100000 && hints.rx_max_hz == 30000000 && (hints.flags & RRP_BRIDGE_RX_AUDIO));
+   assert(!hints.available && !hints.frequency_hz);
+   assert(rrserver_bridge_hints_save("receiver", "kiwi", &hints));
+   dict_free(cfg); cfg = dict_new();
+   dict_add(cfg, "bridge:receiver.host", "sdr.example");
+   assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 1);
+   assert(!strcmp(hints.rx_modes, "USB AM CW"));
+   dict_add(cfg, "bridge:receiver.rx-max-hz", "20000000");
+   assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 2 && hints.rx_max_hz == 20000000);
+   dict_add(cfg, "bridge:receiver.rx-max-hz", "-1");
+   assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == -1);
+   dict_free(cfg); cfg = dict_new();
+   dict_add(cfg, "bridge:receiver.host", "other.example");
+   assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 0);
+   dict_add(cfg, "bridge:receiver.host", "sdr.example");
+   assert(rrserver_bridge_hints_load("receiver", "different-driver", &hints) == 0);
+   assert(!db_bridge_hints_set(NULL, "key", "{}"));
+   assert(!db_bridge_hints_set(db, "", "{}"));
+   assert(!db_bridge_hints_get(NULL, "key"));
+   assert(db_bridge_hints_set(db, "quoted'endpoint", "{\"schema\":\"1\"}"));
+   char *cached_json = db_bridge_hints_get(db, "quoted'endpoint");
+   assert(cached_json && !strcmp(cached_json, "{\"schema\":\"1\"}"));
+   free(cached_json);
+   dict_free(cfg); cfg = saved_cfg;
+
    char *rig0_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig0");
    char *rig0_uuid_again = db_rig_uuid_get_or_create(db, "node-a", "rig0");
    char *rig1_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig1");
@@ -160,12 +197,17 @@ int main(void) {
    char *restart_rig = db_rig_uuid_get_or_create(restart_db, "restart-node", "rig0");
    char *before_restart = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
    assert(restart_rig && before_restart);
+   assert(db_bridge_hints_set(restart_db, "persisted-endpoint", "{\"schema\":\"1\"}"));
    sqlite3_close(restart_db);
    restart_db = NULL;
    assert(sqlite3_open(restart_path, &restart_db) == SQLITE_OK);
+   cached_json = db_bridge_hints_get(restart_db, "persisted-endpoint");
+   assert(cached_json && !strcmp(cached_json, "{\"schema\":\"1\"}"));
+   free(cached_json);
    char *after_restart = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
    assert(after_restart && strcmp(before_restart, after_restart) == 0);
    assert(sqlite3_exec(restart_db, "PRAGMA query_only=ON", NULL, NULL, NULL) == SQLITE_OK);
+   assert(!db_bridge_hints_set(restart_db, "persisted-endpoint", "{}"));
    assert(!db_rig_uuid_get_or_create(restart_db, "restart-node", "new-rig"));
    assert(!db_vfo_uuid_get_or_create(restart_db, restart_rig, "new-vfo"));
    char *read_only_uuid = db_vfo_uuid_get_or_create(restart_db, restart_rig, "A");
@@ -436,7 +478,7 @@ int main(void) {
    cfg = NULL;
    dict_free(default_cfg);
    default_cfg = NULL;
-   puts("PASS: database schema, persistent rig/VFO UUID identities, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
+   puts("PASS: database schema, persisted receiver hints, rig/VFO UUID identities, rooms, users, PTT recordings, bounded chat replay, audit, and quota");
 
    return 0;
 }

@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <sys/stat.h>
 #include <rrserver/bridge.manager.c>
+int rrserver_bridge_hints_load(const char *name, const char *driver, rrp_bridge_ipc_message_t *out) { return 0; }
+bool rrserver_bridge_hints_save(const char *name, const char *driver, const rrp_bridge_ipc_message_t *caps) { return true; }
 time_t now = 100;
 bool dying, restarting;
 static unsigned completions;

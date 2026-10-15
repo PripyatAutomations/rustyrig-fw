@@ -14,6 +14,7 @@ class KiwiFixture:
         self.socket.listen()
         self.port = self.socket.getsockname()[1]
         self.commands = []
+        self.connections = 0
         self.reject_auth = reject_auth
         self.confirm_delay = 0
         self.peer = None
@@ -40,6 +41,7 @@ class KiwiFixture:
             try: c, _ = self.socket.accept()
             except socket.timeout: continue
             except OSError: break
+            self.connections += 1
             self.peer = c
             try: self.session(c)
             except (OSError, EOFError): pass
@@ -87,7 +89,7 @@ class KiwiFixture:
                         self.reject_auth -= 1
                         self.send(c, b'MSG badp=1')
                     else:
-                        self.send(c, b'MSG badp=0 audio_rate=12000 sample_rate=12000.000000 freq_offset=0')
+                        self.send(c, b'MSG badp=0 bandwidth=28000000 audio_rate=12000 sample_rate=12000.000000 freq_offset=0')
                 if command.startswith('SET mod='):
                     streaming = True; changed = True
                     confirm_at = time.monotonic() + self.confirm_delay

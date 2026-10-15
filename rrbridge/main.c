@@ -19,6 +19,9 @@ struct bridge_host {
    const char *name, *driver;
    bool failed;
    uint64_t pending;
+   const rrp_sdr_driver_t *api;
+   void *instance;
+   rrp_bridge_ipc_message_t caps;
 };
 static void message(struct bridge_host *host, rrp_bridge_ipc_message_t *m, uint32_t type) {
    rrp_bridge_ipc_init(m, type);
@@ -47,9 +50,28 @@ static const char *setting(void *user, const char *key) {
    }
    return value;
 }
+static bool capability_message(struct bridge_host *host, rrp_bridge_ipc_message_t *m) {
+   rrp_sdr_capabilities_t caps = {0};
+   if (!host->api || !host->instance || !host->api->capabilities(host->instance, &caps)) return false;
+   message(host, m, RRP_BRIDGE_IPC_CAPABILITIES);
+   m->flags = (caps.rx ? RRP_BRIDGE_RX : 0) | (caps.tx ? RRP_BRIDGE_TX : 0) |
+      (caps.rx_audio ? RRP_BRIDGE_RX_AUDIO : 0) | (caps.rx_iq ? RRP_BRIDGE_RX_IQ : 0) |
+      (caps.rx_waterfall ? RRP_BRIDGE_WATERFALL : 0) | (caps.tx_audio ? RRP_BRIDGE_TX_AUDIO : 0);
+   m->rx_min_hz = caps.rx_min_hz; m->rx_max_hz = caps.rx_max_hz;
+   m->tx_min_hz = caps.tx_min_hz; m->tx_max_hz = caps.tx_max_hz;
+   if ((caps.rx_modes && strlen(caps.rx_modes) >= sizeof(m->rx_modes)) ||
+       (caps.tx_modes && strlen(caps.tx_modes) >= sizeof(m->tx_modes))) return false;
+   snprintf(m->rx_modes, sizeof(m->rx_modes), "%s", caps.rx_modes ? caps.rx_modes : "");
+   snprintf(m->tx_modes, sizeof(m->tx_modes), "%s", caps.tx_modes ? caps.tx_modes : "");
+   return rrp_bridge_ipc_valid(m);
+}
 static void state(void *user, bool available, uint64_t hz, const char *mode) {
    struct bridge_host *host = user;
    rrp_bridge_ipc_message_t m;
+   if (available) {
+      if (!capability_message(host, &m)) { host->failed = true; return; }
+      if (memcmp(&host->caps, &m, sizeof(m))) { send_message(host, &m); host->caps = m; }
+   }
    message(host, &m, RRP_BRIDGE_IPC_STATE);
    m.available = available;
    m.frequency_hz = hz;
@@ -101,20 +123,12 @@ int main(int argc, char **argv) {
    rrp_sdr_host_t callbacks = {.audio_pcm16 = audio, .status = status, .state = state, .complete = complete, .setting = setting, .user = &host};
    const rrp_sdr_driver_t *driver = rrp_sdr_find(driver_name);
    void *instance = driver ? driver->create(&callbacks) : NULL;
+   host.api = driver; host.instance = instance;
+   rrp_bridge_ipc_message_t m = {0};
+   bool ok = instance && capability_message(&host, &m);
+   host.caps = m;
    rrp_sdr_capabilities_t caps = {0};
-   bool ok = instance && driver->capabilities(instance, &caps);
-   rrp_bridge_ipc_message_t m;
-   message(&host, &m, RRP_BRIDGE_IPC_CAPABILITIES);
-   m.flags = (caps.rx ? RRP_BRIDGE_RX : 0) | (caps.tx ? RRP_BRIDGE_TX : 0) |
-      (caps.rx_audio ? RRP_BRIDGE_RX_AUDIO : 0) | (caps.rx_iq ? RRP_BRIDGE_RX_IQ : 0) |
-      (caps.rx_waterfall ? RRP_BRIDGE_WATERFALL : 0) | (caps.tx_audio ? RRP_BRIDGE_TX_AUDIO : 0);
-   m.rx_min_hz = caps.rx_min_hz; m.rx_max_hz = caps.rx_max_hz;
-   m.tx_min_hz = caps.tx_min_hz; m.tx_max_hz = caps.tx_max_hz;
-   if ((caps.rx_modes && strlen(caps.rx_modes) >= sizeof(m.rx_modes)) ||
-      (caps.tx_modes && strlen(caps.tx_modes) >= sizeof(m.tx_modes))) ok = false;
-   snprintf(m.rx_modes, sizeof(m.rx_modes), "%s", caps.rx_modes ? caps.rx_modes : "");
-   snprintf(m.tx_modes, sizeof(m.tx_modes), "%s", caps.tx_modes ? caps.tx_modes : "");
-   ok = ok && rrp_bridge_ipc_valid(&m);
+   if (ok) ok = driver->capabilities(instance, &caps);
    if (ok && probe) printf("rrbridge [%s]: driver=%s rx=%d tx=%d rx_audio=%d\n", name, driver_name, caps.rx, caps.tx, caps.rx_audio);
    if (ok && !probe) {
       rrp_bridge_ipc_message_t hello;
@@ -139,8 +153,8 @@ int main(int argc, char **argv) {
             if (command.type == RRP_BRIDGE_IPC_SHUTDOWN) goto finished;
             if (command.type != RRP_BRIDGE_IPC_SET || host.pending) { host.failed = true; break; }
             host.pending = command.request;
-            if (command.frequency_hz < caps.rx_min_hz || command.frequency_hz > caps.rx_max_hz ||
-               !rrp_bridge_mode_valid(caps.rx_modes, command.mode) ||
+            if (command.frequency_hz < host.caps.rx_min_hz || command.frequency_hz > host.caps.rx_max_hz ||
+               !rrp_bridge_mode_valid(host.caps.rx_modes, command.mode) ||
                !driver->set_receiver(instance, command.request, command.frequency_hz, command.mode))
                complete(&host, command.request, false);
          }

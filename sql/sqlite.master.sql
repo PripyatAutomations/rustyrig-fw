@@ -106,3 +106,11 @@ CREATE TABLE users (
 
 -- Payload-byte and frame accounting; NULL allowance means unlimited.
 CREATE TABLE IF NOT EXISTS user_usage (name TEXT PRIMARY KEY COLLATE NOCASE, reset_at INTEGER NOT NULL DEFAULT (unixepoch()), tx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_bytes >= 0), tx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_frames >= 0), tx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_bytes >= 0), tx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_frames >= 0), rx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_bytes >= 0), rx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_frames >= 0), rx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_bytes >= 0), rx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_frames >= 0), session_seconds INTEGER NOT NULL DEFAULT 0 CHECK(session_seconds >= 0), tx_seconds INTEGER NOT NULL DEFAULT 0 CHECK(tx_seconds >= 0), bandwidth_remaining INTEGER, tx_reset_at INTEGER NOT NULL DEFAULT 0);
+
+-- Validated receiver capability hints, scoped to an endpoint identity digest.
+-- These describe support, never current receiver availability.
+CREATE TABLE bridge_capabilities (
+   identity TEXT PRIMARY KEY,
+   hints TEXT NOT NULL,
+   updated_at INTEGER NOT NULL
+);

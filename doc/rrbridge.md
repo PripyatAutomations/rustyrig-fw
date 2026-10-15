@@ -64,12 +64,56 @@ capability declarations without claiming an external receiver connection.
 ## Receiver demand
 
 Configured rigs remain discoverable without starting a bridge process or
-contacting the external receiver. Joining a mapped rig room, local/relayed RX
-subscribers, or explicitly configured always-recording creates demand. The last
-user leaving/disconnecting releases the receiver after demand disappears.
+contacting the external receiver. Only joining a mapped rig room or an actual
+local/relayed RX subscription creates demand. Startup, discovery, hint loading
+and always-recording settings never activate an idle receiver. The last user
+leaving/disconnecting releases the receiver after demand disappears.
 Muted tabs still retain their room/subscription and therefore retain demand;
 changing tabs or focus never changes it. Idle bridges do not reconnect. A new
 request restarts the bridge and restores the last confirmed tuning.
+
+## Offline coverage and capability hints
+
+Optional named `[bridge:name]` keys (or global `[bridge]` defaults) describe
+receivers before connection:
+
+```ini
+rx-min-hz = 0
+rx-max-hz = 30000000
+rx-modes = USB LSB AM CW
+rx-audio = true
+rx-iq = false
+rx-waterfall = false
+tx-supported = false
+```
+
+TX hints can additionally specify `tx-min-hz`, `tx-max-hz`, `tx-modes` and
+`tx-audio`; they never enable bridge TX operations. Frequencies are integer Hz,
+mode lists use canonical space-separated names, and capabilities accept
+true/false or 1/0. With no cached description, provide RX coverage and modes
+together. Invalid configured hints fail startup with a bridge-specific error.
+Hints are descriptions, not tuning restrictions or claims of availability.
+
+Live capability reports supersede hints. Once a receiver reports valid online
+state, its validated coverage, modes and media support are cached in the master
+database's `bridge_capabilities` table, with a schema version and update time.
+The cache key binds bridge name, driver, effective host and port; credentials
+are excluded. Changing those endpoint settings avoids reusing another receiver's
+hints. Existing databases gain the table automatically. Missing/corrupt caches
+are ignored; cache-write failures do not interrupt reception.
+
+At startup configured fields override cached fields; otherwise cached fields
+provide offline descriptions. Live reports take precedence while connected.
+`capabilities.source` identifies `unknown`, `configured`, `cached`, `driver` or
+`live`. Availability still requires a real connection. No client-specific
+messages or UI logic are needed: ordinary descriptors carry the hints.
+
+Kiwi coverage learns the receiver's `bandwidth` message, limited to the driver's
+implemented 0–30 MHz baseband. Modes/media describe what the driver supports,
+not every firmware feature. Nonzero frequency offsets remain unsupported.
+The host refreshes capabilities before publishing online observations; the
+server validates those updates and refreshes the cache. A full server restart
+can therefore describe a previously used receiver without opening a session.
 
 ## State and properties
 
@@ -153,7 +197,8 @@ Kiwi does not echo a numeric tuning readback or request ID. Reported tuning
 therefore means the requested tuning was confirmed by that device flag, not an
 independent measured frequency. USB, LSB, AM and CW use fixed mode passbands.
 
-The initial range is a conservative 0–30 MHz baseband. Nonzero receiver
+Before learning remote coverage, the driver declares a conservative 0–30 MHz
+baseband. The connected receiver can narrow that range with `bandwidth`. Nonzero receiver
 frequency offsets are rejected rather than silently mistuning. Unsupported
 stereo/IQ or compressed streams fail closed. A short compressed startup tail
 is ignored while the uncompressed setting takes effect. Frames are length

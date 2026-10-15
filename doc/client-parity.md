@@ -64,6 +64,11 @@ panners. Native and browser reconnects start at one second and double to sixty,
 reset on authorization, and retain the ten-attempt limit. The former default
 interval of sixty seconds is treated as a legacy default and becomes one.
 
+Receiver bridges publish configured/cached offline capability hints through
+ordinary rig/VFO descriptors. Native and browser clients consume the same
+coverage/mode schemas; availability remains separate. User demand and metadata
+persistence belong to rrserver, so no new client wire messages are required.
+
 ## What parity means
 
 Parity means equivalent externally observable behavior, not identical

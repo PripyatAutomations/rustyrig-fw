@@ -57,8 +57,8 @@ static bool media_always_record(const struct rr_mediachan *channel) {
    return false;
 }
 
-// Server-owned demand includes joined rig rooms, local/relayed subscribers,
-// and explicit recording. Merely discovering a rig never claims hardware.
+// Receiver demand requires a user: joined rig rooms or local/relayed RX
+// subscribers. Neither discovery nor always-recording may claim idle hardware.
 bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
    uint8_t index = rr_rig_registry_media_index(rig.rigs, radio);
    if (index == RR_BINFRAME_RIG_NA) return false;
@@ -66,7 +66,7 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
       struct rr_mediachan *channel = &media_channels[i];
       if (!channel->uuid[0] || channel->rig != index || channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
           channel->direction != RR_BINFRAME_DIR_RX) continue;
-      if (ws_media_channel_has_subscribers(channel) || media_always_record(channel)) return true;
+      if (ws_media_channel_has_subscribers(channel)) return true;
       for (rrconn_t *client = http_client_list; client; client = client->next) {
          if (client->conn && client->is_ws && client->authenticated && !client->is_server &&
              media_client_in_channel_room(client, channel)) return true;

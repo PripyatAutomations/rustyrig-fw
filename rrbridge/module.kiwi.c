@@ -20,7 +20,7 @@ struct kiwi_instance {
    struct mg_connection *connection;
    bool started, authenticated, configured, online, closing, confirmed, failed;
    unsigned rate, failures;
-   uint64_t hz, wanted_hz, request, deadline, retry, keepalive, received, online_since;
+   uint64_t max_hz, hz, wanted_hz, request, deadline, retry, keepalive, received, online_since;
    char mode[16], wanted_mode[16], url[512];
    uint32_t sequence;
    bool have_sequence;
@@ -58,6 +58,7 @@ static void *kiwi_create(const rrp_sdr_host_t *host) {
    struct kiwi_instance *k = host ? calloc(1, sizeof(*k)) : NULL;
    if (!k) return NULL;
    k->host = *host;
+   k->max_hz = 30000000;
    k->hz = k->wanted_hz = 14074000;
    strcpy(k->mode, "USB"); strcpy(k->wanted_mode, "USB");
    mg_mgr_init(&k->manager);
@@ -72,14 +73,14 @@ static void kiwi_destroy(void *instance) {
 static bool kiwi_capabilities(void *instance, rrp_sdr_capabilities_t *out) {
    if (!instance || !out) return false;
    *out = (rrp_sdr_capabilities_t){.rx = true, .rx_audio = true, .rx_min_hz = 0,
-      .rx_max_hz = 30000000, .rx_modes = "USB LSB AM CW"};
+      .rx_max_hz = ((struct kiwi_instance *)instance)->max_hz, .rx_modes = "USB LSB AM CW"};
    return true;
 }
 static bool kiwi_tune(void *instance, uint64_t hz, const char *mode,
                       char *command, size_t capacity) {
    const char *kiwi_mode = NULL;
    int n;
-   if (!instance || !mode || !command || !capacity || hz > 30000000)
+   if (!instance || !mode || !command || !capacity || hz > ((struct kiwi_instance *)instance)->max_hz)
       return false;
    if (!strcasecmp(mode, "usb")) kiwi_mode = "usb";
    else if (!strcasecmp(mode, "lsb")) kiwi_mode = "lsb";
@@ -121,6 +122,13 @@ static bool parameter(struct kiwi_instance *k, const char *key, const char *valu
       fail(k, "Kiwi receiver requested a redirect; automatic redirects are unsupported"); return false;
    } else if (!strcmp(key, "password_timeout")) {
       fail(k, "Kiwi receiver password-entry timeout"); return false;
+   } else if (!strcmp(key, "bandwidth")) {
+      char *end;
+      unsigned long long bandwidth = strtoull(value, &end, 10);
+      if (end == value || *end || !bandwidth || bandwidth > 1000000000) return false;
+      // Kiwi advertises its tunable baseband in Hz. Limit it to the subset
+      // implemented by this driver; nonzero frequency offsets remain unsupported.
+      k->max_hz = bandwidth < 30000000 ? bandwidth : 30000000;
    } else if (!strcmp(key, "sample_rate")) {
       char *end;
       unsigned long rate = strtoul(value, &end, 10);

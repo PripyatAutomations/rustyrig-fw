@@ -18,6 +18,7 @@
 #include <librrprotocol/bridge.config.h>
 #include <librustyaxe/core.h>
 #include <rrserver/bridge.manager.h>
+#include <rrserver/bridge.hints.h>
 #include <rrserver/cfg.rig.h>
 #include <rrserver/rig.properties.h>
 
@@ -33,6 +34,7 @@ struct bridge_child {
    uint64_t desired_hz, requested_hz;
    char desired_mode[16], requested_mode[16];
    unsigned failures;
+   int hint_source;
    void (*complete)(rr_control_result_t, void *);
    void *complete_user;
    rrp_bridge_ipc_message_t caps;
@@ -41,6 +43,14 @@ struct bridge_child {
 static struct bridge_child *children;
 static char *config_path;
 static bool stopping;
+static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m);
+static void capability_source(struct bridge_child *b, const char *source) {
+   rr_property_descriptor_t d = {.name = "capabilities.source", .type = VAL_STR, .readable = true};
+   rr_property_descriptor_t existing;
+   if (!rr_rig_property_describe(b->backend->owner, d.name, &existing)) rr_rig_property_define(b->backend->owner, &d);
+   dict_value_t value = {.s = (char *)source};
+   rr_rig_property_observe(b->backend->owner, d.name, VAL_STR, &value);
+}
 static rr_server_vfo_t *receiver(struct bridge_child *b) {
    return rr_server_vfo_find_alias(b->backend->owner, "A");
 }
@@ -65,6 +75,7 @@ static void finish(struct bridge_child *b, rr_control_result_t result) {
    if (callback) callback(result, user);
 }
 static void offline(struct bridge_child *b) {
+   if (b->online) capability_source(b, "cached");
    b->online = false;
    if (b->sample_rate) fwdsp_processor_stop(b->resampler);
    b->sample_rate = 0;
@@ -132,16 +143,24 @@ static bool create(rr_backend_t *backend) {
    b->fd = b->media_fd = -1;
    static unsigned identity;
    snprintf(b->resampler, sizeof(b->resampler), "proc.bridge-%u", ++identity);
-   b->next = children;
-   children = b;
-   backend->data = b;
-   rr_server_rig_set_control_handler(backend->owner, control, b);
    boolean(backend->owner, "online", false);
    boolean(backend->owner, "rx.available", false);
    boolean(backend->owner, "rx.supported", false);
    boolean(backend->owner, "tx.supported", false);
    // TX availability is deliberately false even for a future TX-capable driver.
    boolean(backend->owner, "tx.available", false);
+   rrp_bridge_ipc_message_t hints;
+   int source = rrserver_bridge_hints_load(name, driver, &hints);
+   if (source < 0) {
+      free(b->name); free(b->driver); free(b); return true;
+   }
+   b->hint_source = source;
+   if (source) b->caps = hints;
+   capability_source(b, source == 2 ? "configured" : source == 1 ? "cached" : "unknown");
+   b->next = children;
+   children = b;
+   backend->data = b;
+   rr_server_rig_set_control_handler(backend->owner, control, b);
    return false;
 }
 static void destroy(rr_backend_t *backend) {
@@ -273,6 +292,12 @@ bool rrserver_bridges_start(const char *file) {
    stopping = false;
    if (!children) return true;
    if (!file || !(config_path = strdup(file))) return false;
+   // Backend creation precedes VFO creation. Apply descriptions only once the
+   // ordinary rig/VFO schemas exist, before servicing client discovery.
+   for (struct bridge_child *b = children; b; b = b->next) {
+      if (b->hint_source && !capabilities(b, &b->caps)) return false;
+      b->ready = false; // Hints never satisfy the process handshake.
+   }
    return true;
 }
 static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
@@ -311,13 +336,27 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       b->hello = true;
       return true;
    }
-   if (!b->ready) return m->type == RRP_BRIDGE_IPC_CAPABILITIES && capabilities(b, m);
+   if (!b->ready) {
+      bool ok = m->type == RRP_BRIDGE_IPC_CAPABILITIES && capabilities(b, m);
+      if (ok) capability_source(b, "driver");
+      return ok;
+   }
    if (m->type == RRP_BRIDGE_IPC_HEARTBEAT) return true;
+   if (m->type == RRP_BRIDGE_IPC_CAPABILITIES) {
+      if (!capabilities(b, m)) return false;
+      if (b->online && !rrserver_bridge_hints_save(b->name, b->driver, &b->caps))
+         Log(LOG_WARN, "bridge", "[%s] unable to refresh capability cache", b->name);
+      return true;
+   }
    if (m->type == RRP_BRIDGE_IPC_STATE) {
       if (!m->available) { offline(b); return true; }
       if (m->frequency_hz < b->caps.rx_min_hz || m->frequency_hz > b->caps.rx_max_hz || !rrp_bridge_mode_valid(b->caps.rx_modes, m->mode)) return false;
       bool was_online = b->online;
       b->online = true;
+      if (!was_online) {
+         capability_source(b, "live");
+         if (!rrserver_bridge_hints_save(b->name, b->driver, &b->caps)) Log(LOG_WARN, "bridge", "[%s] unable to cache capability hints", b->name);
+      }
       boolean(b->backend->owner, "online", true);
       boolean(b->backend->owner, "rx.available", true);
       dict_value_t value = {.l = m->frequency_hz};

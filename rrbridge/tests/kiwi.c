@@ -32,6 +32,9 @@ int main(void) {
    assert(strcmp(cmd, "SET mod=usb low_cut=300 high_cut=2700 freq=14200.000") == 0);
    assert(!driver->tune(rx, 14200000, "invalid", cmd, sizeof(cmd)));
    assert(!driver->tune(rx, 14200000, "usb", cmd, 4));
+   assert(driver->receive(rx, "MSG bandwidth=28000000", strlen("MSG bandwidth=28000000")));
+   assert(driver->capabilities(rx, &cap) && cap.rx_max_hz == 28000000);
+   assert(!driver->tune(rx, 29000000, "usb", cmd, sizeof(cmd)));
    assert(driver->receive(rx, "MSG hello", 9));
    assert(!driver->receive(rx, "SND", 3));
    assert(calls == 0); // Unknown peer metadata is not copied into logs.

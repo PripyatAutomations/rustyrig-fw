@@ -15,6 +15,9 @@
 #if     defined(USE_SQLITE)
 #include <sqlite3.h>
 
+/* Caller owns the returned JSON. Endpoint identities contain no credentials. */
+extern char *db_bridge_hints_get(sqlite3 *db, const char *identity);
+extern bool db_bridge_hints_set(sqlite3 *db, const char *identity, const char *json);
 extern sqlite3 *db_open(const char *path);
 extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email, int maxsessions, const char *permissions)
 ;

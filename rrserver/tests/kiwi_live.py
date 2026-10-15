@@ -40,14 +40,19 @@ net.http.port={port}
 net.http.tls-enabled=false
 net.mqtt.enabled=false
 codecs.allowed=pc16
+record.always.vfo_a=true
 [bridge]
 instances=receiver
 path={ROOT}/bin/rrbridge
 modules={ROOT}/bin
+rx-min-hz=500000
+rx-max-hz=25000000
+rx-modes=USB AM
 [bridge:receiver]
 driver=kiwi
 host={kiwi_host}
 port={kiwi_port}
+rx-audio=true
 [fwdsp]
 path={ROOT}/bin/fwdsp
 subproc.max=24
@@ -91,24 +96,28 @@ def control(target, name, value, request, expected='ok'):
     result = until(lambda m: m.get('property', {}).get('cmd') == 'result' and m.get('request', {}).get('id') == request)
     assert result['result']['code'] == expected, result
 
+def login():
+    global client
+    for _ in range(200):
+        if process.poll() is not None:
+            raise RuntimeError('server exited: ' + (work / 'console.log').read_text())
+        try:
+            client = WebSocket(port)
+            break
+        except OSError:
+            time.sleep(0.025)
+    assert client
+    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
+    challenge = until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
+    password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
+    client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': password, 'token': challenge['token']}})
+    until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
+
 with (work / 'console.log').open('w') as console:
     process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=work,
         env=env, stdout=console, stderr=subprocess.STDOUT, start_new_session=True)
     try:
-        for _ in range(200):
-            if process.poll() is not None:
-                raise RuntimeError('server exited: ' + (work / 'console.log').read_text())
-            try:
-                client = WebSocket(port)
-                break
-            except OSError:
-                time.sleep(0.025)
-        assert client
-        client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
-        challenge = until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-        password = hashlib.sha1((hashlib.sha1(b'test-password').hexdigest() + '+' + challenge['nonce']).encode()).hexdigest()
-        client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'TEST', 'pass': password, 'token': challenge['token']}})
-        until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
+        login()
         time.sleep(.3)
         client.send({'msg': {'type': 'object'}, 'object': {'cmd': 'snapshot'}, 'request': {'id': 'kiwi-discovery'}})
         until(lambda m: m.get('object', {}).get('cmd') == 'end')
@@ -117,9 +126,19 @@ with (work / 'console.log').open('w') as console:
         radio = rigs['receiver']
         a = next(uuid for uuid,o in objects.items() if o['type'] == 'vfo' and o['owner'] == radio)
         assert not states[radio, 'online'].get('value'), 'receiver connected without demand'
-        if fixture: assert not fixture.commands, 'Kiwi contacted during startup or discovery'
+        assert states[radio, 'capabilities.source']['value'] == 'configured'
+        assert properties[a, 'frequency']['minimum'] == 500000
+        assert properties[a, 'frequency']['maximum'] == 25000000
+        if fixture: assert fixture.connections == 0 and not fixture.commands, 'Kiwi contacted during startup or discovery'
         join(objects[radio]['room'])
         state(radio, 'online', True)
+        assert states[radio, 'capabilities.source']['value'] == 'live'
+        assert properties[a, 'frequency']['minimum'] == 0
+        assert properties[a, 'frequency']['maximum'] == (28000000 if fixture else 30000000)
+        with sqlite3.connect(work / 'master.db') as db:
+            rows = db.execute('SELECT hints,updated_at FROM bridge_capabilities').fetchall()
+            assert len(rows) == 1 and rows[0][1] > 0
+            assert json.loads(rows[0][0])['rx-max-hz'] == ('28000000' if fixture else '30000000')
         control(a, 'frequency', 7100000, 'kiwi-tune')
         assert states[a, 'frequency']['value'] == 7100000
         control(a, 'mode', 'AM', 'kiwi-mode')
@@ -187,8 +206,9 @@ with (work / 'console.log').open('w') as console:
             time.sleep(.4)
             assert fixture.peer is None, 'last user leaving did not release Kiwi'
             commands = len(fixture.commands)
+            connections = fixture.connections
             time.sleep(1.2)
-            assert fixture.peer is None and len(fixture.commands) == commands, 'idle receiver retried'
+            assert fixture.peer is None and fixture.connections == connections and len(fixture.commands) == commands, 'idle receiver retried'
             join(objects[radio]['room'])
             state(radio, 'online', True)
             assert states[a, 'frequency']['value'] == 7100000
@@ -200,7 +220,26 @@ with (work / 'console.log').open('w') as console:
             assert 'Invalid or unsupported Kiwi stream' not in console_text, 'duplicate parser error after authentication rejection'
         bridge_logs = [line for line in (work / 'console.log').read_text().splitlines() if 'Kiwi receiver online' in line]
         assert bridge_logs and all(re.match(r'\[20\d\d/\d\d/\d\d \d\d:\d\d:\d\d\] <rrbridge@info>', line) for line in bridge_logs), bridge_logs
-        print('PASS: Kiwi WebSocket auth, frequency/mode confirmation and 12-to-16kHz PCM through real fwdsp to client')
+        if fixture:
+            client.socket.close(); client = None
+            os.killpg(process.pid, signal.SIGTERM)
+            process.wait(timeout=5)
+            time.sleep(.3)
+            command_count = len(fixture.commands)
+            connection_count = fixture.connections
+            # No configured hints on the second boot: only live-learned DB metadata.
+            config.write_text(re.sub(r'^rx-[^\n]*\n', '', config.read_text(), flags=re.MULTILINE))
+            objects.clear(); properties.clear(); states.clear()
+            process = subprocess.Popen([str(ROOT / 'bin/rrserver'), '-f', str(config)], cwd=work,
+                env=env, stdout=console, stderr=subprocess.STDOUT, start_new_session=True)
+            login()
+            client.send({'msg': {'type': 'object'}, 'object': {'cmd': 'snapshot'}, 'request': {'id': 'cached-discovery'}})
+            until(lambda m: m.get('object', {}).get('cmd') == 'end')
+            assert states[radio, 'capabilities.source']['value'] == 'cached'
+            assert not states[radio, 'online']['value']
+            assert properties[a, 'frequency']['maximum'] == 28000000
+            assert fixture.peer is None and fixture.connections == connection_count and len(fixture.commands) == command_count, 'cached discovery contacted Kiwi'
+        print('PASS: on-demand Kiwi reception, tuning/audio, idle release and live coverage cached across server restart')
     except BaseException:
         print((work / 'console.log').read_text()[-12000:], file=sys.stderr)
         if (work / 'server.log').exists(): print((work / 'server.log').read_text()[-12000:], file=sys.stderr)

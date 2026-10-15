@@ -216,6 +216,36 @@ static void db_ensure_rooms(sqlite3 *db) {
    sqlite3_free(error);
 }
 
+static void db_ensure_bridge_hints(sqlite3 *db) {
+   if (sqlite3_exec(db, "CREATE TABLE IF NOT EXISTS bridge_capabilities (identity TEXT PRIMARY KEY, hints TEXT NOT NULL, updated_at INTEGER NOT NULL);",
+       NULL, NULL, NULL) != SQLITE_OK) Log(LOG_WARN, "db", "Unable to create bridge capability cache: %s", sqlite3_errmsg(db));
+}
+char *db_bridge_hints_get(sqlite3 *db, const char *identity) {
+   if (!db || !identity || !*identity) return NULL;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT hints FROM bridge_capabilities WHERE identity=?;", -1, &stmt, NULL) != SQLITE_OK) return NULL;
+   sqlite3_bind_text(stmt, 1, identity, -1, SQLITE_TRANSIENT);
+   char *json = NULL;
+   if (sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_bytes(stmt, 0) <= 4096) {
+      const char *value = (const char *)sqlite3_column_text(stmt, 0);
+      if (value) json = strdup(value);
+   }
+   sqlite3_finalize(stmt);
+   return json;
+}
+bool db_bridge_hints_set(sqlite3 *db, const char *identity, const char *json) {
+   if (!db || !identity || !*identity || !json || !*json || strlen(json) > 4096) return false;
+   sqlite3_stmt *stmt = NULL;
+   const char *sql = "INSERT INTO bridge_capabilities(identity,hints,updated_at) VALUES(?,?,unixepoch()) "
+      "ON CONFLICT(identity) DO UPDATE SET hints=excluded.hints,updated_at=excluded.updated_at;";
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, identity, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, json, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
 static void db_ensure_rig_identities(sqlite3 *db) {
    if (!db) {
       return;
@@ -383,6 +413,7 @@ sqlite3 *db_open(const char *path) {
       db_ensure_ptt_columns(db);
       db_ensure_rooms(db);
       db_ensure_rig_identities(db);
+      db_ensure_bridge_hints(db);
       db_ensure_vfo_identities(db);
 
       if (!db_usage_init(db)) {
