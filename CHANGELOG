@@ -1,4 +1,4 @@
-rustyrig-fw (20261015.04) testing; urgency=medium
+rustyrig-fw (20261015.05) testing; urgency=medium
 
   * Fit GTK Admin flag columns, expand Users Privileges and Rooms/Quotas name,
     group quota/frequency numbers and cap bandwidth display at MB. Put Config
@@ -141,7 +141,7 @@ rustyrig-fw (20261015.04) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 16:27:37 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 16:28:15 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
