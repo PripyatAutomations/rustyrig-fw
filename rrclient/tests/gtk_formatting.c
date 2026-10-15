@@ -1,9 +1,14 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 #include "rrclient/gtk/gtk.chat.c"
-bool ui_print(const char *room, const char *format, ...) { return false; }
+bool ui_print(const char *room, const char *format, ...) {
+   return false;
+}
+
 static bool block_chat_input;
-bool rrclient_chat_input_blocked(const char *text) { return block_chat_input; }
+bool rrclient_chat_input_blocked(const char *text) {
+   return block_chat_input;
+}
 GtkWidget *create_vfo_box(void) {
    GtkWidget *controls = gtk_label_new("Wide frequency, mode, codec and PTT controls");
    gtk_widget_set_size_request(controls, 1400, 60);

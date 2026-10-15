@@ -5,7 +5,7 @@
 RustyRig is radio/remote-station software. The main firmware/software
 repository contains:
 
-- `fwdsp/` - GStreamer-based audio bridge
+- `fwdsp/` - DSP function subprocess, for capture/playback and (en|de)coding
 - `libfwdspmgr/` - Management for fwdsp sub processes
 - `librrprotocol/` - RustyRig protocol library and wire-level behavior
 - `librustyaxe/` - shared C code used by multiple projects

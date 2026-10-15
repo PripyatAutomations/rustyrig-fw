@@ -48,6 +48,7 @@ static bool key(GtkWidget *combo, guint letter, guint modifiers) {
 
    return combo == mode_combo ? on_mode_keypress(combo, &event, combo) : on_width_keypress(combo, &event, combo);
 }
+
 static unsigned width_model_mutations;
 static void width_row_inserted(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
    width_model_mutations++;
@@ -71,9 +72,12 @@ int main(int argc, char **argv) {
    g_signal_connect(width_model, "row-inserted", G_CALLBACK(width_row_inserted), NULL);
    g_signal_connect(width_model, "row-deleted", G_CALLBACK(width_row_deleted), NULL);
    gint64 started = g_get_monotonic_time();
-   for (int i = 0; i < 1000; i++) modebox_update_state("LSB", 2700);
-   printf("Repeated idle width updates: %u model mutations in %.2f ms\n", width_model_mutations,
-      (g_get_monotonic_time() - started) / 1000.0);
+
+   for (int i = 0 ; i < 1000 ; i++) {
+      modebox_update_state("LSB", 2700);
+   }
+
+   printf("Repeated idle width updates: %u model mutations in %.2f ms\n", width_model_mutations, (g_get_monotonic_time() - started) / 1000.0);
    assert(!width_model_mutations && !mode_sends && !width_sends);
 
    assert(key(mode_combo, GDK_KEY_d, 0));

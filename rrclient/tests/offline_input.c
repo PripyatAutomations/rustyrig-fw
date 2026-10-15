@@ -8,14 +8,26 @@
 bool dying, restarting;
 time_t now;
 rrconn_t *ws_conn;
-const char *ui_active_window_name(void) { return "#remote"; }
-bool rrclient_present_context(void) { return true; }
-const rr_frontend_ops_t *frontend_ops(void) { return NULL; }
-void tui_update_input_line(void) {}
+const char *ui_active_window_name(void) {
+   return "#remote";
+}
+bool rrclient_present_context(void) {
+   return true;
+}
+const rr_frontend_ops_t *frontend_ops(void) {
+   return NULL;
+}
+void tui_update_input_line(void) {
+}
+
 extern char input_buf[TUI_INPUTLEN];
 extern int tui_input_len;
 static unsigned submitted;
-static bool submit(const char *text) { submitted++; return false; }
+static bool submit(const char *text) {
+   submitted++;
+
+   return false;
+}
 int main(void) {
    assert(rrclient_room_join("#remote"));
    rrclient_room_set_control_flags("#remote", true, true);
@@ -23,7 +35,9 @@ int main(void) {
    assert(!rrclient_room_tx_control("#remote") && !rrclient_room_rx_tunable("#remote"));
    tui_input_blocked_cb = rrclient_chat_input_blocked;
    tui_readline_cb = submit;
-   tui_window_t window = {0};
+   tui_window_t window = {
+      0
+   };
    strcpy(input_buf, "unfinished draft");
    tui_input_len = strlen(input_buf);
    handle_enter_key(&window, 3);

@@ -120,6 +120,7 @@ static void report_route(struct direct_channel *channel, const char *status, boo
    dict_add(d, "media.room", channel->room);
    dict_add(d, "media.codec", channel->codec);
    const char *fallback = strstr(status, "; falling back");
+
    if (fallback) {
       char reason[256];
       snprintf(reason, sizeof(reason), "%.*s", (int)(fallback - status), status);
@@ -263,6 +264,7 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       memset(channel, 0, sizeof(*channel));
    }
 }
+
 struct received_frame {
    rrconn_t *client;
    const char *data;
@@ -293,7 +295,9 @@ static bool received(void *user, const uint8_t *data, size_t length) {
    memcpy(copy, data, length);
    copy[11] = channel->stream;
    rr_traffic_count(channel->client, false, true, length);
-   struct received_frame received = {channel->client, (const char *)copy, length, false};
+   struct received_frame received = {
+      channel->client, (const char *)copy, length, false
+   };
    rrclient_connection_dispatch(channel->client, dispatch_received, &received);
    free(copy);
 

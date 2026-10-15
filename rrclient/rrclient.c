@@ -1,5 +1,3 @@
-#include <rrclient/dcc.h>
-#include <rrclient/media.direct.h>
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
@@ -21,6 +19,8 @@
 #include <rrclient/rrclient.h>
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
+#include <rrclient/dcc.h>
+#include <rrclient/media.direct.h>
 #include <librrprotocol/ws.h>
 #include <librrprotocol/vfo.h>
 

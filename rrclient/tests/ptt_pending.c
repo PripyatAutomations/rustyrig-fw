@@ -6,7 +6,10 @@ const char *login_user = "operator";
 struct rr_user *global_userlist;
 static char test_current_vfo = 'A';
 static const char *current_room = "#rig";
-char vfo_state_get_active(void) { return test_current_vfo; }
+char vfo_state_get_active(void) {
+   return test_current_vfo;
+}
+
 static bool legacy_cached_ptt;
 bool vfo_state_get_bool(const char *vfo, const char *key, bool fallback) {
    return legacy_cached_ptt;
@@ -25,7 +28,9 @@ rrconn_t *ws_conn = &connection;
 int cfg_ui_ptt_ack_timeout = 2, cfg_ui_ptt_hold_delay = 250;
 time_t poll_block_expire, poll_block_delay;
 static bool noob, supervised, room_offline;
-bool rrclient_room_offline(const char *room) { return room_offline; }
+bool rrclient_room_offline(const char *room) {
+   return room_offline;
+}
 bool media_have_priv(const char *priv) {
    return noob && !strcmp(priv, "noob");
 }
@@ -160,7 +165,7 @@ int main(void) {
       current_room = "#other-rig";
       ptt_button_refresh();
       assert(!ptt_active && !ptt_button_pending);
-      legacy_cached_ptt = true;  // VFO A's old rig must not drive timeout recovery.
+      legacy_cached_ptt = true; // VFO A's old rig must not drive timeout recovery.
       ptt_button_pending = true;
       ptt_button_pending_expire = now;
       ptt_button_refresh();
@@ -169,7 +174,9 @@ int main(void) {
       current_room = "#rig";
       ptt_button_refresh();
       assert(ptt_active && ptt_sends == before_restore);
-      rrconn_t other_connection = {.is_ws=true};
+      rrconn_t other_connection = {
+         .is_ws = true
+      };
       global_userlist = NULL;
       ws_conn = &other_connection;
       ptt_button_refresh();

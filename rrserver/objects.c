@@ -1,5 +1,3 @@
-#include <rrserver/relay.h>
-#include <librrprotocol/server.events.h>
 // rrserver/objects.c: Server authority for UUID discovery, subscriptions, and property
 // controls.
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
@@ -15,6 +13,8 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/objects.h>
+#include <rrserver/relay.h>
+#include <librrprotocol/server.events.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/discovery.h>
 #include <rrserver/database.h>
@@ -266,17 +266,27 @@ static pending_control_t *pending_controls;
 static void object_control_completed(rr_control_result_t status, void *user) {
    pending_control_t *pending = user;
    pending_control_t **link = &pending_controls;
-   while (*link && *link != pending) link = &(*link)->next;
-   if (*link) *link = pending->next;
-   if (pending->client && !dying) result(pending->client, "property", pending->id, status == RR_CONTROL_OK ? "ok" : "backend-failure");
+   while (*link && *link != pending) {
+      link = &(*link)->next;
+   }
+
+   if (*link) {
+      *link = pending->next;
+   }
+
+   if (pending->client && !dying) {
+      result(pending->client, "property", pending->id, status == RR_CONTROL_OK ? "ok" : "backend-failure");
+   }
    free(pending->id);
    free(pending);
 }
 
 static void rr_object_close_client(const char *event, const char *data, rrconn_t *client, void *user) {
    if (event && !strcmp(event, RR_OBJECT_CLOSE_EVENT)) {
-      for (pending_control_t *pending = pending_controls; pending; pending = pending->next) {
-         if (pending->client == client) pending->client = NULL;
+      for (pending_control_t *pending = pending_controls ; pending ; pending = pending->next) {
+         if (pending->client == client) {
+            pending->client = NULL;
+         }
       }
    }
    subscriber_t **link = &subscribers;
@@ -605,6 +615,7 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       }
 
       pending_control_t *pending = calloc(1, sizeof(*pending));
+
       if (!pending || !(pending->id = strdup(id ? id : ""))) {
          free(pending);
          code = "backend-failure";
@@ -616,13 +627,16 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       control.complete = object_control_completed;
       control.complete_user = pending;
       rr_control_result_t status = rr_rig_control(&control);
+
       if (status == RR_CONTROL_PENDING) {
          dict_free(d);
+
          return;
       }
       pending_controls = pending->next;
       free(pending->id);
       free(pending);
+
       switch (status) {
          case RR_CONTROL_OK: {
             code = "ok";
@@ -713,7 +727,10 @@ void rrserver_objects_register_events(void) {
 }
 
 void rrserver_objects_fini(void) {
-   for (pending_control_t *pending = pending_controls; pending; pending = pending->next) pending->client = NULL;
+   for (pending_control_t *pending = pending_controls ; pending ; pending = pending->next) {
+      pending->client = NULL;
+   }
+
    while (subscribers) {
       rr_object_close_client(NULL, NULL, subscribers->client, NULL);
    }

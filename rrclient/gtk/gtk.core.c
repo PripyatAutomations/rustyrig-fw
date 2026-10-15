@@ -944,17 +944,19 @@ static gboolean frontend_gtk_flush_vfo(gpointer unused) {
    pending_vfo_paint.source = 0;
    const char *server = rrclient_selected_server();
    const char *room = rrclient_media_active_room();
+
    if (!dying && !strcmp(pending_vfo_paint.server, server ? server : "") &&
-      !strcmp(pending_vfo_paint.room, room ? room : "") &&
-      pending_vfo_paint.vfo[0] == vfo_state_get_active()) {
-      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.freq,
-         pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL,
-         pending_vfo_paint.width, pending_vfo_paint.power, pending_vfo_paint.ptt);
+      !strcmp(pending_vfo_paint.room, room ? room : "") && pending_vfo_paint.vfo[0] == vfo_state_get_active()) {
+      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.freq, pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL, pending_vfo_paint.
+         width, pending_vfo_paint.power, pending_vfo_paint.ptt);
    }
+
    return G_SOURCE_REMOVE;
 }
 static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
-   if (dying) return;
+   if (dying) {
+      return;
+   }
    const char *server = rrclient_selected_server();
    const char *room = rrclient_media_active_room();
    snprintf(pending_vfo_paint.vfo, sizeof(pending_vfo_paint.vfo), "%s", vfo ? vfo : "");
@@ -966,7 +968,10 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
    pending_vfo_paint.width = width;
    pending_vfo_paint.power = power;
    pending_vfo_paint.ptt = ptt;
-   if (!pending_vfo_paint.source) pending_vfo_paint.source = g_idle_add(frontend_gtk_flush_vfo, NULL);
+
+   if (!pending_vfo_paint.source) {
+      pending_vfo_paint.source = g_idle_add(frontend_gtk_flush_vfo, NULL);
+   }
 }
 
 static void frontend_gtk_freq_set(long freq) {
@@ -1102,7 +1107,11 @@ static void frontend_gtk_webcam_show(bool show) {
 static guint frontend_gtk_roster_source;
 static gboolean frontend_gtk_flush_roster(gpointer unused) {
    frontend_gtk_roster_source = 0;
-   if (!dying) userlist_redraw_gtk();
+
+   if (!dying) {
+      userlist_redraw_gtk();
+   }
+
    return G_SOURCE_REMOVE;
 }
 static void frontend_gtk_userlist_redraw(void) {
@@ -1368,10 +1377,12 @@ void gtk_frontend_stop(void) {
       g_source_remove(frontend_gtk_update_source);
       frontend_gtk_update_source = 0;
    }
+
    if (frontend_gtk_roster_source) {
       g_source_remove(frontend_gtk_roster_source);
       frontend_gtk_roster_source = 0;
    }
+
    if (pending_vfo_paint.source) {
       g_source_remove(pending_vfo_paint.source);
       pending_vfo_paint.source = 0;

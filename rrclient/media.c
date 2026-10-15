@@ -1,4 +1,3 @@
-#include <rrclient/media.direct.h>
 //
 // rrclient/media.c: client side media channel handling
 //    This is part of rustyrig-fw.
@@ -23,6 +22,7 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
+#include <rrclient/media.direct.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
 #include <librustyaxe/io.serial.h>
@@ -226,38 +226,56 @@ const char *rrclient_media_current_codec(bool is_tx) {
 // this instead of the mutable current-codec state so a codec switch cannot
 // cross-feed frames between decoders.
 static struct rr_media_known *media_rx_for_stream(uint8_t stream, const char codec[4]) {
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
+
       if (channel->uuid[0] && channel->subscribed && !channel->disabled && (!channel->room[0] || channel->joined) && channel->stream_valid &&
          channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO && channel->direction == RR_BINFRAME_DIR_RX &&
-         channel->stream == stream && !strncmp(channel->codec, codec, 4)) return channel;
+         channel->stream == stream && !strncmp(channel->codec, codec, 4)) {
+         return channel;
+      }
    }
+
    return NULL;
 }
 const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[4]) {
    struct rr_media_known *channel = media_rx_for_stream(stream, codec);
+
    return channel ? channel->codec : NULL;
 }
 const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4]) {
    struct rr_media_known *channel = media_rx_for_stream(stream, codec);
+
    return channel ? channel->uuid : NULL;
 }
 void rrclient_media_sync_audio(void) {
    struct rrclient_rx_audio channels[RR_MEDIA_MAX_CHANS];
    size_t count = 0;
    struct rr_media_known *selected = media_current_channel(false);
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_media_known *channel = &known_chans[i];
+
       if (channel->uuid[0] && channel->subscribed && !channel->disabled && channel->codec[0] &&
          (!channel->room[0] || channel->joined) && channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO && channel->direction == RR_BINFRAME_DIR_RX) {
-         channels[count++] = (struct rrclient_rx_audio){channel->uuid, channel->codec, channel == selected};
+         channels[count++] = (struct rrclient_rx_audio) {
+            channel->uuid, channel->codec, channel == selected
+         };
       }
    }
+
    audio_sync_rx_channels(channels, count);
-   if (!rrclient_present_context()) return;
+
+   if (!rrclient_present_context()) {
+      return;
+   }
    const char *codec = rrclient_media_current_codec(true);
-   if (codec) audio_switch_codec(codec, true);
-   else audio_stop_codec(true);
+
+   if (codec) {
+      audio_switch_codec(codec, true);
+   } else {
+      audio_stop_codec(true);
+   }
    event_emit("client.media.changed", ws_conn, "");
 }
 
@@ -687,6 +705,7 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
       // PARITY: rustyrig-www/js/webui.media.js mediaSyncActiveVfo.
       // Tab/VFO selection changes local audibility, not audio subscription lifetime.
       bool retain_audio = kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && (!kp->room[0] || kp->joined);
+
       if (kp->automatic && kp->subscribed && !active && !retain_audio) {
          media_send_unsubscribe(ws_conn, kp->uuid);
          kp->subscribed = false;
@@ -855,34 +874,46 @@ static void media_server_selected(const char *event, const char *data, rrconn_t 
 
 static void media_description(const char *uuid, const char *codec, bool diagnostic, char *out, size_t capacity) {
    const struct rr_media_known *channel = media_known_find(uuid);
+
    if (!channel) {
       snprintf(out, capacity, "%s (undiscovered)", uuid ? uuid : "unknown");
+
       return;
    }
    const dict *rig = rrclient_object_descriptor(channel->rig_uuid);
-   const dict *station = rig ? rrclient_object_descriptor(dict_get((dict *)rig, "object.owner", "")) : NULL;
+   const dict *station = rig ? rrclient_object_descriptor(dict_get((dict *) rig, "object.owner", "")) : NULL;
    char station_name[128] = "unknown", path[128];
    const char *room = channel->control_room[0] ? channel->control_room : channel->room;
+
    if (room[0] == '#') {
       snprintf(station_name, sizeof(station_name), "%s", room + 1);
       char *suffix = strstr(station_name, "-rig");
-      if (suffix) *suffix = '\0';
+
+      if (suffix) {
+         *suffix = '\0';
+      }
    }
-   const char *station_alias = station ? dict_get((dict *)station, "object.alias", station_name) : station_name;
+   const char *station_alias = station ? dict_get((dict *) station, "object.alias", station_name) : station_name;
+
    if (channel->name[0]) {
       snprintf(path, sizeof(path), "%s", channel->name);
    } else {
       char vfo[16] = "";
-      if (channel->vfo < 26) snprintf(vfo, sizeof(vfo), ".vfo-%c", 'a' + channel->vfo);
-      snprintf(path, sizeof(path), "rig%u%s.%s", channel->rig, vfo,
-         channel->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx");
+
+      if (channel->vfo < 26) {
+         snprintf(vfo, sizeof(vfo), ".vfo-%c", 'a' + channel->vfo);
+      }
+      snprintf(path, sizeof(path), "rig%u%s.%s", channel->rig, vfo, channel->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx");
    }
    // PARITY: rustyrig-www/js/webui.media.js (confirmed transport caption).
    // Match diagnostic VFO spelling while retaining GPS/NMEA endpoint names.
    char *vfo = strstr(path, ".vfo_");
-   if (vfo) vfo[4] = '-';
-   snprintf(out, capacity, "%s.%s (codec=%s%s%s)", station_alias, path,
-      codec && *codec ? codec : channel->codec[0] ? channel->codec : "unknown", diagnostic ? "; uuid=" : "", diagnostic ? channel->uuid : "");
+
+   if (vfo) {
+      vfo[4] = '-';
+   }
+   snprintf(out, capacity, "%s.%s (codec=%s%s%s)", station_alias, path, codec && *codec ? codec : channel->codec[0] ? channel->codec : "unknown", diagnostic ?
+      "; uuid=" : "", diagnostic ? channel->uuid : "");
 }
 
 void rrclient_media_description(const char *uuid, char *out, size_t capacity) {
@@ -899,14 +930,17 @@ static void media_transport_print(void *data) {
    media_description(uuid, dict_get(d, "media.codec", ""), intermediate, description, sizeof(description));
    const char *transport = dict_get(d, "media.transport", "");
    const char *endpoint = dict_get(d, "media.endpoint", "");
+
    if (intermediate) {
       Log(LOG_DEBUG, "ws.media", "Media %s: %s via %s%s%s", description, status, transport, *endpoint ? " at " : "", endpoint);
+
       return;
    }
    const char *fallback = dict_get(d, "media.fallback", "");
+
    if (*fallback) {
-      ui_print(*room ? room : NULL, "Media %s: %s %s%s%s; falling back to %s", description, transport, status,
-         *endpoint ? " at " : "", endpoint, fallback);
+      ui_print(*room ? room : NULL, "Media %s: %s %s%s%s; falling back to %s", description, transport, status, *endpoint ? " at " : "", endpoint, fallback);
+
       return;
    }
    /* PARITY: rustyrig-www/js/webui.media.js confirmed connection notices. */

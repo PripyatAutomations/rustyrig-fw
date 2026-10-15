@@ -166,7 +166,9 @@ void codec_picker_set_active(bool is_tx, const char *codec) {
 // Event: codec negotiation completed (emitted by librrprotocol cli.media.c);
 // refresh the pickers from the negotiated list.
 static void codec_media_codecs_cb(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   if (rrclient_present_context()) codec_pickers_refresh();
+   if (rrclient_present_context()) {
+      codec_pickers_refresh();
+   }
 }
 
 GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {

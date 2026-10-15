@@ -14,7 +14,10 @@ mapfile -t indent_options < "$root/.indent.pro"
 workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
 mapfile -d '' files < <(git ls-files -z -- '*.c' '*.h')
-for component in librustyaxe librrprotocol callsign-lookup; do
+
+TGT="callsign-lookup fwdsp libfwdspmgr librrprotocol librustyaxe rrclient rrserver"
+#TGT="librustyaxe librrprotocol callsign-lookup"
+for component in ${TGT}; do
    while IFS= read -r -d '' file; do
       files+=("$component/$file")
    done < <(git -C "$component" ls-files -z -- '*.c' '*.h')

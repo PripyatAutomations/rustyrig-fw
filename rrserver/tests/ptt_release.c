@@ -26,20 +26,25 @@ bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *object) {
 }
 
 static bool use_worker;
-static rr_backend_t fixture_backend = { .owner = (rr_server_rig_t *)1, .worker = (struct rr_backend_worker *)1 };
+static rr_backend_t fixture_backend = {
+   .owner = (rr_server_rig_t *) 1, .worker = (struct rr_backend_worker *)1
+};
+
 static rr_backend_completion_fn queued_completion;
 static void *queued_user;
-bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_backend_operation_t operation,
-   dict_value_t value, rr_backend_completion_fn complete, void *user) {
+bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_backend_operation_t operation, dict_value_t value, rr_backend_completion_fn
+   complete, void *user) {
    assert(use_worker && backend == &fixture_backend && operation == RR_BACKEND_PTT && !value.i);
    assert(complete);
    queued_completion = complete;
    queued_user = user;
+
    return false;
 }
 rr_backend_t *rr_backend_for_ptt(void) {
    return use_worker ? &fixture_backend : NULL;
 }
+
 static bool fail_release;
 bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
    assert(vfo == VFO_A && !state);
@@ -138,14 +143,14 @@ int main(void) {
    void *first_release = queued_user;
    assert(!rr_ptt_request(VFO_A, false, "duplicate-queued-release"));
    assert(queued_user == first_release);
-   queued_completion(&fixture_backend, (rr_server_vfo_t *)1, false, queued_user);
+   queued_completion(&fixture_backend, (rr_server_vfo_t *) 1, false, queued_user);
    assert(applied == before && global_tot_time == 0);
    global_tot_time = 456;
    assert(!rr_ptt_request(VFO_A, false, "failed-queued-release"));
-   queued_completion(&fixture_backend, (rr_server_vfo_t *)1, true, queued_user);
+   queued_completion(&fixture_backend, (rr_server_vfo_t *) 1, true, queued_user);
    assert(global_tot_time == 456 && rr_ptt_check_blocked());
    assert(!rr_ptt_request(VFO_A, false, "retry-queued-release"));
-   queued_completion(&fixture_backend, (rr_server_vfo_t *)1, false, queued_user);
+   queued_completion(&fixture_backend, (rr_server_vfo_t *) 1, false, queued_user);
    assert(global_tot_time == 0);
    puts("PASS: asynchronous PTT release updates confirmed state only after completion and retains safety lockout on failure");
    puts("PASS: TX lockout blocks key-down but permits safety key-up");

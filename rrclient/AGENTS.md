@@ -31,10 +31,11 @@ unless it is genuinely frontend-specific.
 - `cmd*.c` - command parsing and client commands
 - `chat*.c` / `m_privmsg.c` - chat behavior
 - `events.c` - client event handling
-- `gtk.*.c` - GTK-specific presentation
+- `gtk/gtk.*.c` - GTK-specific presentation
 - `ui*.c` - UI abstractions and presentation
 
-When modifying one of the first five categories, check the JS client.
+When modifying one of the categories, check the JS client and make sure it
+is kept up to date.
 GTK/TUI presentation changes generally do not require JS changes.
 We always should add a simple implementation of features when
 missing across languages.

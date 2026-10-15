@@ -4,7 +4,9 @@
 time_t now;
 bool dying, restarting;
 static unsigned quit_calls, refresh_calls, roster_paints;
-void userlist_redraw_gtk(void) { roster_paints++; }
+void userlist_redraw_gtk(void) {
+   roster_paints++;
+}
 guint gtk_main_level(void) {
    return 1;
 }
@@ -23,10 +25,16 @@ static bool frequency_available = true;
 static unsigned long displayed_frequency;
 static const char *selected_room = "#rig0";
 static char selected_vfo = 'A';
-char vfo_state_get_active(void) { return selected_vfo; }
-const char *rrclient_selected_server(void) { return "test"; }
+char vfo_state_get_active(void) {
+   return selected_vfo;
+}
+const char *rrclient_selected_server(void) {
+   return "test";
+}
 static void flush_ui(void) {
-   while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, false);
+   while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, false);
+   }
 }
 const char *rrclient_media_active_room(void) {
    return selected_room;
@@ -74,7 +82,11 @@ int main(void) {
    assert(displayed_frequency == 0 && !editing);
    frequency_available = true;
    unsigned long before_paint = displayed_frequency;
-   for (unsigned i = 0; i < 1000; i++) frontend_gtk_vfo_state("B", 145000000 + i, "FM", 12000, 0, false);
+
+   for (unsigned i = 0 ; i < 1000 ; i++) {
+      frontend_gtk_vfo_state("B", 145000000 + i, "FM", 12000, 0, false);
+   }
+
    assert(displayed_frequency == before_paint && pending_vfo_paint.source);
    flush_ui();
    assert(displayed_frequency == 145000999 && !pending_vfo_paint.source);
@@ -91,13 +103,21 @@ int main(void) {
    puts("PASS: GTK selection refreshes frequency across VFOs/rooms while same-VFO polling preserves edits");
    assert(frontend_gtk_update_now(NULL) == G_SOURCE_CONTINUE);
    assert(refresh_calls == 1 && !quit_calls);
-   for (unsigned i = 0; i < 1000; i++) frontend_gtk_userlist_redraw();
+
+   for (unsigned i = 0 ; i < 1000 ; i++) {
+      frontend_gtk_userlist_redraw();
+   }
+
    assert(!roster_paints && frontend_gtk_roster_source);
-   while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, false);
+   while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, false);
+   }
    assert(roster_paints == 1 && !frontend_gtk_roster_source);
    frontend_gtk_userlist_redraw();
    dying = true;
-   while (g_main_context_pending(NULL)) g_main_context_iteration(NULL, false);
+   while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, false);
+   }
    assert(roster_paints == 1 && !frontend_gtk_roster_source);
    puts("PASS: GTK batches roster observations after transport polling and drops pending paints during shutdown");
    frontend_gtk_update_source = 123;

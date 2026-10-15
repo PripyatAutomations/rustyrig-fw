@@ -835,7 +835,10 @@ void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq) {
    /* Assume digits are 0-9 and freq fits in num_digits */
    for (int i = fe->num_digits - 1 ; i >= 0 ; i--) {
       int digit = freq % 10;
-      char digit_text[] = {'0' + digit, 0};
+      char digit_text[] = {
+         '0' + digit, 0
+      };
+
       if (strcmp(gtk_entry_get_text(GTK_ENTRY(fe->digits[i])), digit_text)) {
          gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), digit_text);
       }
@@ -886,6 +889,7 @@ void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long freq) {
       char digit_buf[2] = {
          buf[i], 0
       };
+
       if (strcmp(gtk_entry_get_text(GTK_ENTRY(fe->digits[i])), digit_buf)) {
          gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), digit_buf);
       }

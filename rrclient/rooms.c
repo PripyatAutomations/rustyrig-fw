@@ -109,25 +109,36 @@ bool rrclient_room_join(const char *room) {
 }
 
 bool rrclient_room_offline(const char *room) {
-   if (!room || !*room) return false;
-   const char *name = canonical(room);
-   for (client_room_t *r = rooms ; r ; r = r->next) {
-      if (!strcasecmp(r->name, name)) return r->offline;
+   if (!room || !*room) {
+      return false;
    }
+   const char *name = canonical(room);
+
+   for (client_room_t *r = rooms ; r ; r = r->next) {
+      if (!strcasecmp(r->name, name)) {
+         return r->offline;
+      }
+   }
+
    return false;
 }
 void rrclient_room_set_offline(const char *room, bool offline) {
-   if (!room || !*room) return;
+   if (!room || !*room) {
+      return;
+   }
    const char *name = canonical(room);
+
    for (client_room_t *r = rooms ; r ; r = r->next) {
       if (!strcasecmp(r->name, name)) {
          r->offline = offline;
+
          return;
       }
    }
 }
 bool rrclient_chat_input_blocked(const char *text) {
    const char *room = ui_active_window_name();
+
    return text && *text && *text != '/' && rrclient_room_offline(room ? room : rrclient_current_room());
 }
 

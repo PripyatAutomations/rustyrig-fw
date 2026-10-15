@@ -354,8 +354,10 @@ bool rr_backend_init(void) {
    }
 
    event_on("backend.shutdown.request", rr_backend_shutdown_request, NULL);
+
    if (rr_rig_registry_foreach(rig.rigs, rr_backend_start_one, NULL)) {
       rr_backend_fini();
+
       return true;
    }
 
@@ -394,6 +396,7 @@ bool rr_be_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state) {
 
 rr_backend_t *rr_backend_for_ptt(void) {
    rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_default_radio();
+
    return radio ? rr_server_rig_backend(radio) : NULL;
 }
 
@@ -465,7 +468,10 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
 
       return true;
    }
-   if (!backend->worker) vfos[vfo].freq = freq;
+
+   if (!backend->worker) {
+      vfos[vfo].freq = freq;
+   }
 
    return false;
 }
@@ -612,9 +618,11 @@ static void rr_be_merge_default_poll(rr_vfo_t vfo, rr_vfo_data_t *fresh) {
 
 static void rr_backend_publish_worker(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_vfo_data_t *fresh) {
    rr_vfo_t index;
+
    if (backend->owner == rr_default_radio() && rr_server_vfo_native_index(vfo, &index)) {
       rr_cat_compat_prepare_poll(rig.default_cat, index);
       rr_be_merge_default_poll(index, fresh);
+
       if (backend->type->uses_property_state && rig.default_cat) {
          rr_cat_compat_publish(rig.default_cat, index, rr_backend_config_get_int(backend, "state-interval", 15));
       }
@@ -622,6 +630,7 @@ static void rr_backend_publish_worker(rr_backend_t *backend, rr_server_vfo_t *vf
 }
 static bool rr_backend_drain_one(rr_server_rig_t *radio, void *unused) {
    rr_backend_worker_drain(rr_server_rig_backend(radio));
+
    return false;
 }
 void rr_backend_drain_all(void) {
@@ -642,8 +651,14 @@ bool rr_backend_poll_rig(rr_server_rig_t *radio, rr_server_vfo_t *vfo) {
    }
 
    if (backend->worker) {
-      if (radio == rr_default_radio()) backend->active_vfo = active_vfo;
-      return rr_backend_worker_submit(backend, vfo, RR_BACKEND_POLL, (dict_value_t){0}, NULL, NULL);
+      if (radio == rr_default_radio()) {
+         backend->active_vfo = active_vfo;
+      }
+
+      return rr_backend_worker_submit(backend, vfo, RR_BACKEND_POLL, (dict_value_t) {
+         0
+      }
+         , NULL, NULL);
    }
 
    if (radio == rr_default_radio()) {

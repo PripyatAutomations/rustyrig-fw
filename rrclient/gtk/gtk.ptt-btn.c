@@ -96,8 +96,8 @@ static char ptt_display_vfo;
 static void ptt_sync_context(void) {
    const char *room = rrclient_current_room();
    char vfo = vfo_state_get_active();
-   if (ptt_display_connection == ws_conn && ptt_display_vfo == vfo &&
-      !strcasecmp(ptt_display_room, room)) {
+
+   if (ptt_display_connection == ws_conn && ptt_display_vfo == vfo && !strcasecmp(ptt_display_room, room)) {
       return;
    }
    ptt_display_connection = ws_conn;
@@ -111,10 +111,16 @@ static void ptt_sync_context(void) {
    ptt_hotkey_pressed_at = 0;
    struct rr_user *talker = tx_user();
    ptt_active = talker && login_user && !strcasecmp(talker->name, login_user);
+
    if (ptt_button) {
-      if (ptt_toggled_handler) g_signal_handler_block(ptt_button, ptt_toggled_handler);
+      if (ptt_toggled_handler) {
+         g_signal_handler_block(ptt_button, ptt_toggled_handler);
+      }
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ptt_button), ptt_active);
-      if (ptt_toggled_handler) g_signal_handler_unblock(ptt_button, ptt_toggled_handler);
+
+      if (ptt_toggled_handler) {
+         g_signal_handler_unblock(ptt_button, ptt_toggled_handler);
+      }
    }
 }
 
@@ -149,6 +155,7 @@ static bool i_can_halt_user(const struct rr_user *talker) {
 // Apply the current state to the button widget
 static void ptt_button_apply(void) {
    ptt_sync_context();
+
    if (!ptt_button) {
       return;
    }
@@ -197,9 +204,11 @@ static void ptt_button_apply(void) {
    }
 
    gtk_widget_set_sensitive(ptt_button, !rrclient_room_offline(rrclient_current_room()));
+
    if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(ptt_button)), label)) {
       gtk_button_set_label(GTK_BUTTON(ptt_button), label);
    }
+
    if (!gtk_style_context_has_class(ctx, cls)) {
       gtk_style_context_remove_class(ctx, "ptt-active");
       gtk_style_context_remove_class(ctx, "ptt-pending");
@@ -214,6 +223,7 @@ static void ptt_button_apply(void) {
 // user starting/stopping TX changes the color)
 void ptt_button_refresh(void) {
    ptt_sync_context();
+
    if (ptt_button_pending && ptt_button_pending_expire && now >= ptt_button_pending_expire) {
       ptt_button_pending = false;
       ptt_button_pending_expire = 0;
@@ -275,6 +285,7 @@ void ptt_button_set_online(bool online) {
 // (PARITY: rustyrig-www/js/webui.rigctl.js sets checkbox.checked directly)
 void ptt_button_set_state(bool active) {
    ptt_sync_context();
+
    if (dying) {
       return;
    }
@@ -450,7 +461,10 @@ bool ptt_button_hotkey_toggle(void) {
 }
 
 bool ptt_button_hotkey_press(void) {
-   if (rrclient_room_offline(rrclient_current_room())) return false;
+   if (rrclient_room_offline(rrclient_current_room())) {
+      return false;
+   }
+
    if (!ptt_button) {
       return false;
    }

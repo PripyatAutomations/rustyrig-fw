@@ -15,11 +15,15 @@ tui_window_t *tui_active_window(void) {
    return NULL;
 }
 
-bool rrclient_room_offline(const char *room) { return false; }
+bool rrclient_room_offline(const char *room) {
+   return false;
+}
+
 static dict *description_rig, *description_station;
 const dict *rrclient_object_descriptor(const char *uuid) {
    return !strcmp(uuid, "describe-rig") ? description_rig : !strcmp(uuid, "describe-station") ? description_station : NULL;
 }
+
 static const char *active_window = "commands";
 static const char *expected_window;
 const char *ui_active_window_name(void) {
@@ -57,8 +61,13 @@ bool ui_print(const char *window, const char *fmt, ...) {
 
 static bool selected_context = true;
 static unsigned codec_widget_updates;
-bool rrclient_context_is_selected(void) { return selected_context; }
-static void codec_widget_updated(bool tx, const char *codec) { codec_widget_updates++; }
+bool rrclient_context_is_selected(void) {
+   return selected_context;
+}
+static void codec_widget_updated(bool tx, const char *codec) {
+   codec_widget_updates++;
+}
+
 static char test_active_vfo = 'A';
 bool rrclient_room_is_joined(const char *room) {
    return false;
@@ -80,8 +89,12 @@ const char *media_get_preferred_codec(void) {
 }
 void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
    local_codec[0][0] = 0;
-   for (size_t i = 0; i < count; i++) if (channels[i].audible)
-      snprintf(local_codec[0], sizeof(local_codec[0]), "%s", channels[i].codec);
+
+   for (size_t i = 0 ; i < count ; i++) {
+      if (channels[i].audible) {
+         snprintf(local_codec[0], sizeof(local_codec[0]), "%s", channels[i].codec);
+      }
+   }
 }
 bool audio_switch_codec(const char *codec, bool tx) {
    snprintf(local_codec[tx], sizeof(local_codec[tx]), "%s", codec);
@@ -289,7 +302,8 @@ int main(void) {
    dict_free(room_channel);
    // Switching rig tabs retains RX/TX subscriptions, including delayed ACKs.
    memset(known_chans, 0, sizeof(known_chans));
-   for (int i = 0; i < 4; i++) {
+
+   for (int i = 0 ; i < 4 ; i++) {
       struct rr_media_known *channel = &known_chans[i];
       snprintf(channel->uuid, sizeof(channel->uuid), "persistent-%d", i);
       snprintf(channel->room, sizeof(channel->room), "#rig%d", i / 2);
@@ -299,6 +313,7 @@ int main(void) {
       channel->vfo = 0;
       channel->joined = channel->automatic = channel->subscribed = true;
    }
+
    before = subscribed;
    unsigned before_unsub = unsubscribed;
    snprintf(media_room, sizeof(media_room), "#rig0");
@@ -487,8 +502,10 @@ int main(void) {
    dict_add(description_rig, "object.alias", "rig0");
    dict_add(description_rig, "object.owner", "describe-station");
    dict_add(description_station, "object.alias", "rplywv00");
-   known_chans[0] = (struct rr_media_known) {.uuid="describe", .name="rig0.vfo_a.rx", .rig_uuid="describe-rig", .vfo=0, .direction=0,
-      .subsystem=RR_BINFRAME_SUBSYS_AUDIO, .codec="pc16", .subscribed=true, .joined=true, .room="#rplywv00-rig0"};
+   known_chans[0] = (struct rr_media_known) {
+      .uuid = "describe", .name = "rig0.vfo_a.rx", .rig_uuid = "describe-rig", .vfo = 0, .direction = 0,
+      .subsystem = RR_BINFRAME_SUBSYS_AUDIO, .codec = "pc16", .subscribed = true, .joined = true, .room = "#rplywv00-rig0"
+   };
    media_ready = true;
    char description[512];
    rrclient_media_description("describe", description, sizeof(description));
@@ -500,7 +517,9 @@ int main(void) {
    rrclient_media_description("describe", description, sizeof(description));
    assert(strstr(description, "rplywv00.rig0.gps.rx"));
    snprintf(known_chans[0].name, sizeof(known_chans[0].name), "%s", "rig0.vfo_a.rx");
-   char *codec_request[] = {"rxcodec", "opuT", "describe"};
+   char *codec_request[] = {
+      "rxcodec", "opuT", "describe"
+   };
    active_window = "status";
    expected_window = "#rplywv00-rig0";
    output[0] = 0;
@@ -523,12 +542,17 @@ int main(void) {
    dict_free(description_station);
    description_rig = description_station = NULL;
    // Background connection metadata must not overwrite the shared VFO widget.
-   static const rr_frontend_ops_t spy = {.codec_set_active = codec_widget_updated};
+   static const rr_frontend_ops_t spy = {
+      .codec_set_active = codec_widget_updated
+   };
    registered_ops = &spy;
    selected_context = false;
    memset(known_chans, 0, sizeof(known_chans));
-   known_chans[0] = (struct rr_media_known){.uuid="background", .subsystem=1, .direction=0, .vfo=0, .codec="pc16", .subscribed=true};
-   test_active_vfo = 'A'; media_room[0] = 0;
+   known_chans[0] = (struct rr_media_known) {
+      .uuid = "background", .subsystem = 1, .direction = 0, .vfo = 0, .codec = "pc16", .subscribed = true
+   };
+   test_active_vfo = 'A';
+   media_room[0] = 0;
    announce("background", "opus", 0);
    dict *background_ack = dict_new();
    dict_add(background_ack, "media.chan-uuid", "background");

@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 // Hardware callbacks execute on one worker per instance. Model, wire and lifecycle
 // notifications are replayed exclusively by drain() on the owning server thread.
 #include <pthread.h>
@@ -309,8 +315,8 @@ static void *worker_main(void *arg) {
    return NULL;
 }
 
-bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_backend_operation_t operation, dict_value_t value,
-   rr_backend_completion_fn complete, void *user) {
+bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_backend_operation_t operation, dict_value_t value, rr_backend_completion_fn
+   complete, void *user) {
    struct rr_backend_worker *worker = backend->worker;
    rr_vfo_t index;
 
@@ -358,8 +364,7 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
       return true;
    }
    *job = (backend_job_t) {
-      .vfo = vfo, .index = index, .active = backend->active_vfo,
-      .operation = operation, .value = value, .complete = complete, .user = user
+      .vfo = vfo, .index = index, .active = backend->active_vfo, .operation = operation, .value = value, .complete = complete, .user = user
    };
 
    if (operation == RR_BACKEND_WIDTH && !(job->text = strdup(value.s))) {
@@ -470,25 +475,43 @@ static int cached_widths(rr_backend_t *b, rr_server_vfo_t *v, int *widths, int m
    return c->width_count;
 }
 static rr_vfo_data_t *queue_poll(rr_backend_t *b, rr_server_vfo_t *v) {
-   rr_backend_worker_submit(b, v, RR_BACKEND_POLL, (dict_value_t) { 0 }, NULL, NULL);
+   rr_backend_worker_submit(b, v, RR_BACKEND_POLL, (dict_value_t) {
+      0
+   }, NULL, NULL);
 
    return NULL;
 }
 static bool queue_freq(rr_backend_t *b, rr_server_vfo_t *v, int f) {
-   return rr_backend_worker_submit(b, v, RR_BACKEND_FREQ, (dict_value_t) { .i = f }, NULL, NULL);
+   return rr_backend_worker_submit(b, v, RR_BACKEND_FREQ, (dict_value_t) {
+      .i = f
+   }
+      , NULL, NULL);
 }
 static bool queue_mode(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t m) {
-   return rr_backend_worker_submit(b, v, RR_BACKEND_MODE, (dict_value_t) { .i = m }, NULL, NULL);
+   return rr_backend_worker_submit(b, v, RR_BACKEND_MODE, (dict_value_t) {
+      .i = m
+   }
+      , NULL, NULL);
 }
 static bool queue_width(rr_backend_t *b, rr_server_vfo_t *v, const char *w) {
-   return rr_backend_worker_submit(b, v, RR_BACKEND_WIDTH, (dict_value_t) { .s = w }, NULL, NULL);
+   return rr_backend_worker_submit(b, v, RR_BACKEND_WIDTH, (dict_value_t) {
+      .s = w
+   }
+      , NULL, NULL);
 }
 static bool queue_power(rr_backend_t *b, rr_server_vfo_t *v, float p) {
-   return rr_backend_worker_submit(b, v, RR_BACKEND_POWER, (dict_value_t) { .f = p }, NULL, NULL);
+   return rr_backend_worker_submit(b, v, RR_BACKEND_POWER, (dict_value_t) {
+      .f = p
+   }
+      , NULL, NULL);
 }
 static bool queue_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool p) {
-   return rr_backend_worker_submit(b, v, RR_BACKEND_PTT, (dict_value_t) { .i = p }, NULL, NULL);
+   return rr_backend_worker_submit(b, v, RR_BACKEND_PTT, (dict_value_t) {
+      .i = p
+   }
+      , NULL, NULL);
 }
+
 static const rr_backend_funcs_t worker_api = {
    .poll_state = queue_poll, .vfo_supported = cached_supported, .ptt_set = queue_ptt, .ptt_get = cached_ptt,
    .freq_set = queue_freq, .freq_get = cached_freq, .mode_set = queue_mode, .mode_get = cached_mode, .mode_get_str = cached_mode_text,

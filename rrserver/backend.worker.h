@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 // Per-instance hardware I/O workers; all completion callbacks run on the server thread.
 #ifndef RRSERVER_BACKEND_WORKER_H
 #define RRSERVER_BACKEND_WORKER_H
@@ -16,8 +22,7 @@ void rr_backend_worker_stop(rr_backend_t *);
 void rr_backend_worker_drain(rr_backend_t *);
 bool rr_backend_worker_busy(rr_backend_t *);
 bool rr_backend_worker_yield(rr_backend_t *);
-bool rr_backend_worker_submit(rr_backend_t *, rr_server_vfo_t *, rr_backend_operation_t,
-   dict_value_t, rr_backend_completion_fn, void *);
+bool rr_backend_worker_submit(rr_backend_t *, rr_server_vfo_t *, rr_backend_operation_t, dict_value_t, rr_backend_completion_fn, void *);
 rr_property_update_t rr_backend_property_observe(rr_backend_t *, rr_server_vfo_t *, const char *, val_type_t, const dict_value_t *);
 rr_property_update_t rr_backend_property_unavailable(rr_backend_t *, rr_server_vfo_t *, const char *);
 bool rr_backend_worker_shutdown(rr_backend_t *, int code);

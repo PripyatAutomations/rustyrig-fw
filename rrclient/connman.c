@@ -4,8 +4,6 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librrprotocol/wire.h>
-// Native connection manager. Wire handlers remain in librrprotocol.
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -16,6 +14,8 @@
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+// Native connection manager. Wire handlers remain in librrprotocol.
+#include <librrprotocol/wire.h>
 #include <librustyaxe/socks.h>
 
 extern const char *login_user;
@@ -583,7 +583,10 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    if (ev == MG_EV_WS_MSG && s != selected && data && ((((struct mg_ws_message *)data)->flags & 15) == WEBSOCKET_OP_BINARY)) {
       struct mg_ws_message *message = data;
       struct rr_binframe frame;
-      if (rr_binframe_parse((const uint8_t *)message->data.buf, message->data.len, &frame) || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO) return;
+
+      if (rr_binframe_parse((const uint8_t *)message->data.buf, message->data.len, &frame) || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO) {
+         return;
+      }
    }
    client_server_t *previous = context;
    activate(s);

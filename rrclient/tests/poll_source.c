@@ -9,19 +9,27 @@ static gint64 max_ui_gap, last_ui_tick;
 void mg_mgr_poll(struct mg_mgr *manager, int wait_ms) {
    assert(wait_ms == 0);
 }
-void rrclient_direct_poll(void) {}
-void rrclient_dcc_poll(void) {}
+void rrclient_direct_poll(void) {
+}
+void rrclient_dcc_poll(void) {
+}
 void rrclient_poll_events(void) {
    network_polls++;
    mg_mgr_poll(&mgr, 0);
    // Independent UI work must also be ready while the network is serviced.
 }
-void rrclient_poll_events_reconnect(void) { reconnect_polls++; }
+void rrclient_poll_events_reconnect(void) {
+   reconnect_polls++;
+}
 static gboolean ui_tick(gpointer unused) {
    gint64 current = g_get_monotonic_time();
-   if (last_ui_tick && current - last_ui_tick > max_ui_gap) max_ui_gap = current - last_ui_tick;
+
+   if (last_ui_tick && current - last_ui_tick > max_ui_gap) {
+      max_ui_gap = current - last_ui_tick;
+   }
    last_ui_tick = current;
    ui_ticks++;
+
    return G_SOURCE_CONTINUE;
 }
 int main(void) {
@@ -43,5 +51,6 @@ int main(void) {
    dying = true;
    assert(ws_poll_cb(NULL) == G_SOURCE_REMOVE && network_polls == before_shutdown);
    puts("PASS: GTK transport preserves 10ms cadence without blocking independent UI work");
+
    return 0;
 }

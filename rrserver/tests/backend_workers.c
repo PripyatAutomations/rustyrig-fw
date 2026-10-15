@@ -126,10 +126,12 @@ static void completed(rr_backend_t *backend, rr_server_vfo_t *vfo, bool failed, 
 static void property_changed(const char *event, const char *data, rrconn_t *client, void *user) {
    assert(pthread_equal(main_thread, pthread_self()));
 }
+
 static const rr_backend_funcs_t api = {
    .create = create, .destroy = destroy,
    .poll_state = poll_state, .freq_set = freq_set, .ptt_set = ptt_set, .ptt_get = ptt_get
 };
+
 static const rr_backend_type_t type = {
    .name = "worker-fixture", .api = &api
 };
@@ -189,7 +191,9 @@ int main(void) {
    fixture_t *blocked = rr_backend_instance_data(s);
    blocked->blocked = true;
    assert(!rr_backend_worker_start(s, published) && !rr_backend_worker_start(f, published));
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_POLL, (dict_value_t) { 0 }, NULL, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_POLL, (dict_value_t) {
+      0
+   }, NULL, NULL));
    pthread_mutex_lock(&blocked->mutex);
    while (!blocked->entered) {
       pthread_cond_wait(&blocked->condition, &blocked->mutex);
@@ -197,10 +201,14 @@ int main(void) {
    pthread_mutex_unlock(&blocked->mutex);
 
    for (int i = 0 ; i < 100 ; i++) {
-      assert(!rr_backend_worker_submit(s, a, RR_BACKEND_POLL, (dict_value_t) { 0 }, NULL, NULL));
+      assert(!rr_backend_worker_submit(s, a, RR_BACKEND_POLL, (dict_value_t) {
+         0
+      }, NULL, NULL));
    }
 
-   assert(!rr_backend_worker_submit(f, b, RR_BACKEND_FREQ, (dict_value_t) { .i = 7100000 }, completed, NULL));
+   assert(!rr_backend_worker_submit(f, b, RR_BACKEND_FREQ, (dict_value_t) {
+      .i = 7100000
+   }, completed, NULL));
    drain_until_idle(f);
    assert(completions == 1 && !failures);
    rr_property_snapshot_t snapshot;
@@ -222,16 +230,34 @@ int main(void) {
    assert(pongs == 4 && worst_rtt < 500000);
    printf("PASS: blocked backend leaves other rigs and WebSocket traffic responsive (worst ping %.2f ms)\n", worst_rtt / 1000.0);
    mg_mgr_free(&manager);
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) { .i = true }, completed, NULL));
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_FREQ, (dict_value_t) { .i = 7200000 }, completed, NULL));
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) { .i = false }, completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
+      .i = true
+   }
+      , completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_FREQ, (dict_value_t) {
+      .i = 7200000
+   }
+      , completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
+      .i = false
+   }
+      , completed, NULL));
    // A second release shares the hardware operation and cancels a newer ON.
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) { .i = true }, completed, NULL));
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) { .i = false }, completed, NULL));
-   rr_backend_worker_drain(s); // Cancelled key-down is completed on this thread.
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
+      .i = true
+   }
+      , completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
+      .i = false
+   }
+      , completed, NULL));
+   rr_backend_worker_drain(s);  // Cancelled key-down is completed on this thread.
    assert(failures == 2 && !atomic_load(&hardware_starts));
    unsigned accepted = 0;
-   while (!rr_backend_worker_submit(s, a, RR_BACKEND_FREQ, (dict_value_t) { .i = 7300000 }, completed, NULL)) {
+   while (!rr_backend_worker_submit(s, a, RR_BACKEND_FREQ, (dict_value_t) {
+      .i = 7300000
+   }
+      , completed, NULL)) {
       assert(++accepted < 65);
    }
    assert(accepted > 0);
@@ -241,18 +267,26 @@ int main(void) {
    pthread_mutex_unlock(&blocked->mutex);
    drain_until_idle(s);
    assert(blocked->stop_preceded_writes && !atomic_load(&hardware_starts) && atomic_load(&hardware_stops) == 1);
-   assert(blocked->polls == blocked->writes + 1); // Repeated poll requests coalesced.
+   assert(blocked->polls == blocked->writes + 1);  // Repeated poll requests coalesced.
    unsigned errors = failures;
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_FREQ, (dict_value_t) { .i = -1 }, completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_FREQ, (dict_value_t) {
+      .i = -1
+   }, completed, NULL));
    drain_until_idle(s);
    assert(failures == errors + 1);
    // A successful key-down is physically released before worker destruction.
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) { .i = true }, completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
+      .i = true
+   }, completed, NULL));
    drain_until_idle(s);
    assert(rr_backend_api(s)->ptt_get(s, a));
    // Teardown preserves queued releases as well as dekeying an idle worker.
-   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) { .i = false }, completed, NULL));
-   assert(!rr_backend_worker_submit(f, b, RR_BACKEND_PTT, (dict_value_t) { .i = true }, completed, NULL));
+   assert(!rr_backend_worker_submit(s, a, RR_BACKEND_PTT, (dict_value_t) {
+      .i = false
+   }, completed, NULL));
+   assert(!rr_backend_worker_submit(f, b, RR_BACKEND_PTT, (dict_value_t) {
+      .i = true
+   }, completed, NULL));
    drain_until_idle(f);
    rr_rig_registry_free(registry);
    assert(atomic_load(&destroyed) == 2 && atomic_load(&hardware_stops) == 3);

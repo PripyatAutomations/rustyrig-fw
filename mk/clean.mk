@@ -2,7 +2,7 @@
 # Source Cleanup #
 ##################
 extra_clean += core.* fwdsp.core rrclient.core rrserver.core
-extra_clean += compile_commands.json
+extra_clean += compile_commands.json bin/callsign-lookup
 
 clean: ${extra_clean_targets}
 	@echo "[clean]"

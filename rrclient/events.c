@@ -1,6 +1,3 @@
-#include <rrclient/supervision.h>
-#include <rrclient/dcc.h>
-#include <rrclient/media.direct.h>
 //
 // rrclient/events.c: event listeners for shared protocol events from
 // librrprotocol
@@ -28,6 +25,9 @@
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/frontend.h>
+#include <rrclient/supervision.h>
+#include <rrclient/dcc.h>
+#include <rrclient/media.direct.h>
 
 // These belong in headers
 extern void rrclient_objects_register_events(void);
@@ -852,15 +852,30 @@ static bool room_list_remote(const char *list, const char *room) {
 
 static void rrclient_handle_room_state(const char *event, const char *data, rrconn_t *cptr, void *user) {
    dict *d = data ? json2dict(data) : NULL;
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", "");
    bool offline = !dict_get_bool(d, "talk.connected", false);
    rrclient_room_set_offline(room, offline);
-   if (offline) userlist_remove_room(room);
-   if (frontend_ops() && frontend_ops()->room_state_changed) frontend_ops()->room_state_changed(room);
+
+   if (offline) {
+      userlist_remove_room(room);
+   }
+
+   if (frontend_ops() && frontend_ops()->room_state_changed) {
+      frontend_ops()->room_state_changed(room);
+   }
+
    if (frontend_ops() && rrclient_present_context()) {
-      if (frontend_ops()->userlist_redraw) frontend_ops()->userlist_redraw();
-      if (frontend_ops()->ptt_refresh) frontend_ops()->ptt_refresh();
+      if (frontend_ops()->userlist_redraw) {
+         frontend_ops()->userlist_redraw();
+      }
+
+      if (frontend_ops()->ptt_refresh) {
+         frontend_ops()->ptt_refresh();
+      }
    }
    ui_print(room, "%s Room %s", get_chat_ts(now), offline ? "OFFLINE; chat draft retained until its owner returns" : "ONLINE");
    dict_free(d);
@@ -1463,7 +1478,6 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
 
          return;
       }
-
       // Hand the parsed dict straight to the media layer (no JSON
       // round-trip); it stores the channel and auto-subscribes as needed.
 

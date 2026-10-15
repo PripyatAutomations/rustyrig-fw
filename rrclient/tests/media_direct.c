@@ -30,7 +30,7 @@ bool cfg_get_bool(const char *key, bool fallback) {
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return connection == &client ? "test" : "other";
 }
-void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) {
+void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
    assert(connection == &client);
    callback(data);
 }
@@ -74,6 +74,7 @@ static void route_notice(const char *event, const char *data, rrconn_t *connecti
    if (!strcmp(dict_get(d, "media.status", ""), "connecting")) {
       assert(strstr(dict_get(d, "media.endpoint", ""), "127.0.0.1:"));
    }
+
    if (*dict_get(d, "media.fallback", "")) {
       snprintf(fallback_from, sizeof(fallback_from), "%s", transport);
       snprintf(fallback_to, sizeof(fallback_to), "%s", dict_get(d, "media.fallback", ""));

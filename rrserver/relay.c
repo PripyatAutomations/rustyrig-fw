@@ -2101,6 +2101,7 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
          for (struct relay_client *local = clients ; local ; local = local->next) {
             if (ws_client_in_room(local->client, room)) {
                dict *state = dict_new();
+
                if (state) {
                   dict_add(state, "msg.type", "talk");
                   dict_add(state, "talk.cmd", "room-state");

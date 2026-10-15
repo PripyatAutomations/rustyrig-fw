@@ -58,20 +58,30 @@ typedef struct backend_control_completion {
 } backend_control_completion_t;
 static void backend_control_done(rr_backend_t *backend, rr_server_vfo_t *vfo, bool failed, void *user) {
    backend_control_completion_t *completion = user;
-   if (completion->complete) completion->complete(failed ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK, completion->user);
-   else if (failed) Log(LOG_WARN, "backend", "%s: hardware control failed", rr_backend_instance_alias(backend));
+
+   if (completion->complete) {
+      completion->complete(failed ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK, completion->user);
+   } else if (failed) {
+      Log(LOG_WARN, "backend", "%s: hardware control failed", rr_backend_instance_alias(backend));
+   }
    free(completion);
 }
-static rr_control_result_t backend_queue_control(rr_backend_t *backend, const rr_control_request_t *request,
-   rr_backend_operation_t operation, dict_value_t value) {
+static rr_control_result_t backend_queue_control(rr_backend_t *backend, const rr_control_request_t *request, rr_backend_operation_t operation, dict_value_t
+   value) {
    backend_control_completion_t *completion = calloc(1, sizeof(*completion));
-   if (!completion) return RR_CONTROL_BACKEND_FAILED;
-   completion->complete = request->complete;
-   completion->user = request->complete_user;
-   if (rr_backend_worker_submit(backend, request->vfo, operation, value, backend_control_done, completion)) {
-      free(completion);
+
+   if (!completion) {
       return RR_CONTROL_BACKEND_FAILED;
    }
+   completion->complete = request->complete;
+   completion->user = request->complete_user;
+
+   if (rr_backend_worker_submit(backend, request->vfo, operation, value, backend_control_done, completion)) {
+      free(completion);
+
+      return RR_CONTROL_BACKEND_FAILED;
+   }
+
    return RR_CONTROL_PENDING;
 }
 
@@ -89,7 +99,12 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
          return RR_CONTROL_INVALID;
       }
 
-      if (backend->worker) return backend_queue_control(backend, request, RR_BACKEND_FREQ, (dict_value_t){.i = request->value.l});
+      if (backend->worker) {
+         return backend_queue_control(backend, request, RR_BACKEND_FREQ, (dict_value_t) {
+            .i = request->value.l
+         });
+      }
+
       return rr_backend_api(backend)->freq_set(backend, request->vfo, (int)request->value.l) ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
    }
 
@@ -103,7 +118,12 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
          return RR_CONTROL_INVALID;
       }
 
-      if (backend->worker) return backend_queue_control(backend, request, RR_BACKEND_MODE, (dict_value_t){.i = mode});
+      if (backend->worker) {
+         return backend_queue_control(backend, request, RR_BACKEND_MODE, (dict_value_t) {
+            .i = mode
+         });
+      }
+
       return rr_backend_api(backend)->mode_set(backend, request->vfo, mode) ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
    }
 
@@ -151,6 +171,7 @@ void rr_backend_instance_free(rr_backend_t *backend) {
 
    bool threaded = backend->worker != NULL;
    rr_backend_worker_stop(backend);
+
    if (!threaded && backend->type && backend->type->api && rr_backend_api(backend)->destroy) {
       rr_backend_api(backend)->destroy(backend);
    }

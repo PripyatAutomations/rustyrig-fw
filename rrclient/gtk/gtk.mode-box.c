@@ -196,22 +196,31 @@ static void on_selector_popup(GtkComboBox *combo, GParamSpec *pspec, gpointer us
 void modebox_update_state(const char *mode, int width) {
    if (mode_combo) {
       gchar *displayed = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo));
+
       if (g_strcmp0(displayed, mode)) {
          g_signal_handler_block(mode_combo, mode_changed_handler_id);
-         if (mode) set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
-         else gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), -1);
+
+         if (mode) {
+            set_combo_box_text_active_by_string(GTK_COMBO_BOX_TEXT(mode_combo), mode);
+         } else {
+            gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), -1);
+         }
          g_signal_handler_unblock(mode_combo, mode_changed_handler_id);
       }
       g_free(displayed);
    }
 
-   if (!width_combo) return;
+   if (!width_combo) {
+      return;
+   }
+
    if (width <= 0) {
       if (gtk_combo_box_get_active(GTK_COMBO_BOX(width_combo)) != -1) {
          g_signal_handler_block(width_combo, width_changed_handler_id);
          gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), -1);
          g_signal_handler_unblock(width_combo, width_changed_handler_id);
       }
+
       return;
    }
 
@@ -221,16 +230,25 @@ void modebox_update_state(const char *mode, int width) {
    GtkTreeIter row;
    gchar *displayed = NULL;
    bool has_observed_row = gtk_tree_model_iter_nth_child(model, &row, NULL, 3);
-   if (has_observed_row) gtk_tree_model_get(model, &row, 0, &displayed, -1);
+
+   if (has_observed_row) {
+      gtk_tree_model_get(model, &row, 0, &displayed, -1);
+   }
    bool replace = g_strcmp0(displayed, label) != 0;
    g_free(displayed);
-   if (!replace && gtk_combo_box_get_active(GTK_COMBO_BOX(width_combo)) == 3) return;
+
+   if (!replace && gtk_combo_box_get_active(GTK_COMBO_BOX(width_combo)) == 3) {
+      return;
+   }
 
    g_signal_handler_block(width_combo, width_changed_handler_id);
+
    // Preserve the exact observed row while unchanged; replacing it on every
    // poll forces GTK to rebuild layout even when the radio is idle.
    if (replace) {
-      if (has_observed_row) gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(width_combo), 3);
+      if (has_observed_row) {
+         gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(width_combo), 3);
+      }
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(width_combo), label);
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(width_combo), 3);

@@ -6,7 +6,9 @@
 #include <gst/check/gsttestclock.h>
 
 static GstBuffer *push_pcm(struct fwdsp_frame_reader *reader, GstAppSrc *src, GstAppSink *sink, uint32_t flags) {
-   uint8_t frame[644] = {0};
+   uint8_t frame[644] = {
+      0
+   };
    frame_length_encode(frame, 640 | flags);
    assert(frame_reader_append(reader, frame, sizeof(frame)));
    assert(frame_reader_push_appsrc(reader, src));
@@ -16,23 +18,24 @@ static GstBuffer *push_pcm(struct fwdsp_frame_reader *reader, GstAppSrc *src, Gs
    gst_sample_unref(sample);
    assert(gst_buffer_get_size(buffer) == 640);
    assert(GST_BUFFER_DURATION(buffer) == 20 * GST_MSECOND);
+
    return buffer;
 }
 
 int main(int argc, char **argv) {
    gst_init(&argc, &argv);
    GstClock *clock = gst_test_clock_new_with_start_time(30 * GST_SECOND);
-   GstElement *test_pipeline = gst_parse_launch(
-      "appsrc name=src is-live=true format=time do-timestamp=true "
-      "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved "
-      "! appsink name=sink sync=false async=false", NULL);
+   GstElement *test_pipeline = gst_parse_launch("appsrc name=src is-live=true format=time do-timestamp=true "
+      "caps=audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved " "! appsink name=sink sync=false async=false", NULL);
    assert(test_pipeline);
    gst_pipeline_use_clock(GST_PIPELINE(test_pipeline), clock);
    assert(gst_element_set_state(test_pipeline, GST_STATE_PLAYING) != GST_STATE_CHANGE_FAILURE);
    assert(gst_element_get_state(test_pipeline, NULL, NULL, GST_SECOND) == GST_STATE_CHANGE_SUCCESS);
    GstAppSrc *src = GST_APP_SRC(gst_bin_get_by_name(GST_BIN(test_pipeline), "src"));
    GstAppSink *sink = GST_APP_SINK(gst_bin_get_by_name(GST_BIN(test_pipeline), "sink"));
-   struct fwdsp_frame_reader reader = {0};
+   struct fwdsp_frame_reader reader = {
+      0
+   };
    processor_mode = true;
    processor_io_mode = PCM_PROCESSOR_MODE_PLAYBACK;
 
@@ -44,7 +47,7 @@ int main(int argc, char **argv) {
    gst_buffer_unref(buffer);
 
    // Packet bursts and ordinary jitter retain a continuous sample timeline.
-   for (int i = 0; i < 30; i++) {
+   for (int i = 0 ; i < 30 ; i++) {
       GstClockTime expected = reader.next_pts;
       gst_test_clock_advance_time(GST_TEST_CLOCK(clock), (i % 2 ? 30 : 10) * GST_MSECOND);
       buffer = push_pcm(&reader, src, sink, 0);
@@ -54,7 +57,7 @@ int main(int argc, char **argv) {
    }
 
    // Codec-switch gaps must not leave every subsequent buffer in the past.
-   for (int i = 0; i < 20; i++) {
+   for (int i = 0 ; i < 20 ; i++) {
       gst_test_clock_advance_time(GST_TEST_CLOCK(clock), GST_SECOND);
       GstClockTime running = gst_element_get_current_running_time(GST_ELEMENT(src));
       buffer = push_pcm(&reader, src, sink, 0);
@@ -62,6 +65,7 @@ int main(int argc, char **argv) {
       assert(GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DISCONT));
       gst_buffer_unref(buffer);
    }
+
    buffer = push_pcm(&reader, src, sink, FWDSP_FRAME_DISCONT);
    assert(GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DISCONT));
    gst_buffer_unref(buffer);
@@ -80,5 +84,6 @@ int main(int argc, char **argv) {
    gst_object_unref(test_pipeline);
    gst_object_unref(clock);
    puts("PASS: playback clock recovery after startup, jitter and repeated codec gaps");
+
    return 0;
 }

@@ -8,7 +8,10 @@ static rrconn_t *roster_connection;
 struct rr_user *global_userlist;
 static const char *room_vfos = "";
 static bool room_tx_control, room_offline;
-bool rrclient_room_offline(const char *room) { return room_offline; }
+bool rrclient_room_offline(const char *room) {
+   return room_offline;
+}
+
 static uint32_t room_vfo_mask;
 bool rrclient_room_tx_control(const char *room) {
    (void)room;

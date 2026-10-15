@@ -1,6 +1,3 @@
-#include <rrclient/rooms.h>
-#include <rrclient/dcc.h>
-#include <rrclient/config.layers.h>
 //
 // rrclient/commands.c: Command parser
 //    This is part of rustyrig-fw.
@@ -28,8 +25,11 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
-#include <rrclient/connman.h>
 #include <librrprotocol/irc.h>
+#include <rrclient/connman.h>
+#include <rrclient/rooms.h>
+#include <rrclient/dcc.h>
+#include <rrclient/config.layers.h>
 #include <rrclient/userlist.h>
 #include <rrclient/cmd.h>
 #include <rrclient/media.h>
@@ -273,6 +273,7 @@ bool parse_chat_input_real(const char *msg) {
 
    if (rrclient_chat_input_blocked(msg)) {
       ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
+
       return true;
    }
 

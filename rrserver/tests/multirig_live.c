@@ -23,7 +23,9 @@ bool dying;
 bool restarting;
 struct GlobalState rig;
 static atomic_llong worker_clock;
-long long mono_ms(void) { return atomic_load(&worker_clock); }
+long long mono_ms(void) {
+   return atomic_load(&worker_clock);
+}
 static bool backend_busy(rr_server_rig_t *radio, void *user) {
    return rr_backend_worker_busy(rr_server_rig_backend(radio));
 }
@@ -31,11 +33,15 @@ static void wait_workers(void) {
    gint64 deadline = g_get_monotonic_time() + 5000000;
    do {
       rr_backend_drain_all();
-      if (!rr_rig_registry_foreach(rig.rigs, backend_busy, NULL)) return;
+
+      if (!rr_rig_registry_foreach(rig.rigs, backend_busy, NULL)) {
+         return;
+      }
       g_usleep(1000);
    } while (g_get_monotonic_time() < deadline);
    assert(!"backend workers did not finish");
 }
+
 static unsigned broadcasts;
 static long internal_frequency = 14074000;
 

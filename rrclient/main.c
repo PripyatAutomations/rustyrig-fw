@@ -1,8 +1,3 @@
-#include <rrclient/rooms.h>
-#include <rrclient/dcc.h>
-#include <rrclient/media.direct.h>
-#include <librrprotocol/rtp.h>
-#include <rrclient/config.layers.h>
 //
 // rrclient/main.c: Core of the client
 //    This is part of rustyrig-fw.
@@ -39,6 +34,8 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.binframe.h>
 #include <librrprotocol/cfg.fwdsp.h>
+#include <librrprotocol/rtp.h>
+#include <librustyaxe/cfg.modules.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <glib.h>
 extern defconfig_t defcfg[];
@@ -51,7 +48,10 @@ extern defconfig_t defcfg[];
 #include <rrclient/ui.h>
 #include <rrclient/media.h>
 #include <rrclient/frontend.h>
-#include <librustyaxe/cfg.modules.h>
+#include <rrclient/rooms.h>
+#include <rrclient/dcc.h>
+#include <rrclient/media.direct.h>
+#include <rrclient/config.layers.h>
 #include <rrclient/cat.h>
 #include <rrclient/connman.h>
 #include <rrclient/userlist.h>

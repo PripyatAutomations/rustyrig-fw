@@ -670,18 +670,16 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
          if (frame_duration == 0) {
             frame_duration = 1;
          }
+
          /* PCM has a known sample cadence even when IPC delivers a burst. Encoded chunks do not: an Ogg chunk may contain headers, part of a page, or multiple
           * packets. Leave their timing to appsrc and the parser/decoder rather than inventing a 20 ms duration. */
          if (processor_mode && processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK) {
             GstClockTime running = gst_element_get_current_running_time(GST_ELEMENT(appsrc));
 
-            /* The speaker outlives decoders and tab/codec changes. A sample
-             * counter starting at zero falls permanently behind its hardware
-             * clock whenever input pauses. Re-anchor after an underrun, while
-             * preserving sample cadence through ordinary arrival jitter.
-             * PARITY: rustyrig-www/js/webui.audio.js ws_audio_rx rxLead. */
-            if (GST_CLOCK_TIME_IS_VALID(running) &&
-               (!reader->next_pts || reader->next_pts < running || (frame_flags & FWDSP_FRAME_DISCONT))) {
+            /* The speaker outlives decoders and tab/codec changes. A sample counter starting at zero falls permanently behind its hardware clock whenever input
+             * pauses. Re-anchor after an underrun, while preserving sample cadence through ordinary arrival jitter. PARITY: rustyrig-www/js/webui.audio.js
+             * ws_audio_rx rxLead. */
+            if (GST_CLOCK_TIME_IS_VALID(running) && (!reader->next_pts || reader->next_pts < running || (frame_flags & FWDSP_FRAME_DISCONT))) {
                reader->next_pts = running + 75 * GST_MSECOND;
                GST_BUFFER_FLAG_SET(buffer, GST_BUFFER_FLAG_DISCONT);
             }
