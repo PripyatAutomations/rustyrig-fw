@@ -74,6 +74,11 @@ const char *media_get_common_codecs(void) {
 const char *media_get_preferred_codec(void) {
    return "pc16";
 }
+void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
+   local_codec[0][0] = 0;
+   for (size_t i = 0; i < count; i++) if (channels[i].audible)
+      snprintf(local_codec[0], sizeof(local_codec[0]), "%s", channels[i].codec);
+}
 bool audio_switch_codec(const char *codec, bool tx) {
    snprintf(local_codec[tx], sizeof(local_codec[tx]), "%s", codec);
 
@@ -278,6 +283,35 @@ int main(void) {
    assert(!rrclient_media_current_channel(false));
    assert(!known_chans[0].subscribed);
    dict_free(room_channel);
+   // Switching rig tabs retains RX/TX subscriptions, including delayed ACKs.
+   memset(known_chans, 0, sizeof(known_chans));
+   for (int i = 0; i < 4; i++) {
+      struct rr_media_known *channel = &known_chans[i];
+      snprintf(channel->uuid, sizeof(channel->uuid), "persistent-%d", i);
+      snprintf(channel->room, sizeof(channel->room), "#rig%d", i / 2);
+      snprintf(channel->codec, sizeof(channel->codec), "pc16");
+      channel->subsystem = 1;
+      channel->direction = i % 2;
+      channel->vfo = 0;
+      channel->joined = channel->automatic = channel->subscribed = true;
+   }
+   before = subscribed;
+   unsigned before_unsub = unsubscribed;
+   snprintf(media_room, sizeof(media_room), "#rig0");
+   rrclient_media_room_selected("#rig1");
+   assert(subscribed == before && unsubscribed == before_unsub);
+   dict *ack = dict_new();
+   dict_add(ack, "media.chan-uuid", "persistent-0");
+   dict_add_int(ack, "media.stream", 10);
+   rrclient_media_subscribed(ack, false);
+   dict_free(ack);
+   assert(known_chans[0].subscribed && known_chans[0].stream_valid && unsubscribed == before_unsub);
+   rrclient_media_room_selected("#rig0");
+   assert(subscribed == before && unsubscribed == before_unsub);
+   rrclient_media_room_parted("#rig1");
+   assert(known_chans[0].subscribed && known_chans[1].subscribed);
+   assert(!known_chans[2].subscribed && !known_chans[3].subscribed && unsubscribed == before_unsub + 2);
+   puts("PASS: rig tab switches preserve RX/TX transport and delayed subscription acknowledgements; PART releases media");
    // /webcam SHOW auto-subscribes only when exactly one RX video channel exists.
    memset(known_chans, 0, sizeof(known_chans));
    unsigned before_video = subscribed;

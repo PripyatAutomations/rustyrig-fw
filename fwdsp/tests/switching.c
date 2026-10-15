@@ -113,6 +113,15 @@ int main(int argc, char **argv) {
    mg_log_set(MG_LL_ERROR);
    mg_mgr_init(&mg_mgr);
    assert(!fwdsp_init());
+   assert(fwdsp_codec_start_local("pc16", false, "client-rx-test") >= 0);
+   struct fwdsp_subproc *local = fwdsp_find_channel_instance("pc16", false, "client-rx-test");
+   assert(local && local->local_lifetime);
+   pid_t decoder_pid = local->process.pid;
+   fwdsp_sweep_expired();
+   poll_for(100);
+   assert(local->process.pid == decoder_pid && local->refcount == 1);
+   assert(fwdsp_codec_stop_channel_immediate("pc16", false, "client-rx-test") >= 0);
+   puts("PASS: client-owned decoder survives server subscriber sweeps until explicitly released");
    const char *codecs[] = {
       "pc16", "g722", "mu08", "mu16", "opus", "oggv"
    };

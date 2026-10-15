@@ -263,6 +263,16 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       memset(channel, 0, sizeof(*channel));
    }
 }
+struct received_frame {
+   rrconn_t *client;
+   const char *data;
+   size_t length;
+   bool result;
+};
+static void dispatch_received(void *user) {
+   struct received_frame *frame = user;
+   frame->result = ws_binframe_process_client(frame->client, frame->data, frame->length);
+}
 static bool received(void *user, const uint8_t *data, size_t length) {
    struct direct_channel *channel = user;
 
@@ -283,10 +293,11 @@ static bool received(void *user, const uint8_t *data, size_t length) {
    memcpy(copy, data, length);
    copy[11] = channel->stream;
    rr_traffic_count(channel->client, false, true, length);
-   bool result = ws_binframe_process_client(channel->client, (const char *)copy, length);
+   struct received_frame received = {channel->client, (const char *)copy, length, false};
+   rrclient_connection_dispatch(channel->client, dispatch_received, &received);
    free(copy);
 
-   return result;
+   return received.result;
 }
 void rrclient_direct_poll(void) {
    uint64_t now = mono_us();

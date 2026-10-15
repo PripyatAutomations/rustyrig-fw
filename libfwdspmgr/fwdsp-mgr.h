@@ -74,6 +74,7 @@ struct fwdsp_subproc {
    char processor_namespace[8];
    char processor_name[64];
    unsigned quality_hint;       // last successfully queued hint; 0 means unset
+   bool local_lifetime;         // caller owns lifetime, independent of server subscribers
    bool destroying;             // teardown is in progress; ignore re-entry
    char channel_uuid[64];
    char pipeline[1024];
@@ -138,6 +139,7 @@ extern bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *cha
 extern bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent);
 extern bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
+extern int fwdsp_codec_start_local(const char codec_id[5], bool is_tx, const char *identity);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);
 extern int fwdsp_codec_stop_channel(const char *codec, bool is_tx, const char *channel_uuid);
 extern int fwdsp_codec_switch(const char *old_codec, const char *new_codec, bool is_tx, const char *channel_uuid);

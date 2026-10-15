@@ -228,7 +228,7 @@ defconfig_t defcfg[] = {
       "fwdsp:path", "./bin/fwdsp", "Path to fwdsp binary"
    },
    {
-      "fwdsp:subproc.max", "4", "Maximum client fwdsp processes", DEFCONFIG_UINT, NULL
+      "fwdsp:subproc.max", "24", "Maximum client fwdsp processes", DEFCONFIG_UINT, NULL
    },
    {
       "fwdsp:hangtime", "5", "Seconds to keep unused client fwdsp alive", DEFCONFIG_UINT, NULL

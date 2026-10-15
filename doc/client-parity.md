@@ -40,7 +40,7 @@ not yet mirrored in the outdated WebUI media implementation. The browser's
 `js/webui.audio.js` implements PCM and mu-law; adding GStreamer pipelines to
 the native configuration does not add browser decoders. See
 [Native audio codec selection](media-codecs.md) for current native semantics
-and the one-local-pipeline-per-direction limitation.
+and per-channel RX playback behavior.
 
 Ogg/Vorbis (`oggv`) is also native-only; browser decoder support remains
 deferred. Shared `/media`, user-targeting, `/quota` and `/syslog` parameter
@@ -122,8 +122,12 @@ See [TUI top status line](tui-status-line.md).
 
 Native `rrclient/media.c` and browser `js/webui.media.js` honor session-specific
 `media.room`/`media.joined` metadata. Both attach the active VFO pair only in a
-joined rig room, switch automatic subscriptions when selecting another joined
-rig room, and drop room audio on PART. Login joins the site lobby; optional
+joined rig room, retain those subscriptions when selecting another joined
+rig room or VFO, and drop room audio on PART. Inactive RX channels continue
+receiving and decoding with locally muted output; selecting them again only
+changes the output gate. Each channel keeps independent decoder state, even
+when codecs match. NONE, removal, disconnect and codec replacement still
+release the affected decoder. Login joins the site lobby; optional
 autojoin uses the native server profile or the browser's site settings. See
 [Site lobby and rig rooms](rig-rooms.md) for configuration and room-scoped CAT/PTT authorization.
 Both clients select audio by room and VFO, recognize the sole TX base room,

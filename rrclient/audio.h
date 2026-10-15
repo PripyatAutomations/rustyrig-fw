@@ -31,6 +31,13 @@ extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
 extern bool audio_set_rx_volume(int percent);
 extern bool audio_set_tx_volume(int percent);
+struct rrclient_rx_audio {
+   const char *uuid, *codec;
+   bool audible;
+};
+/* Synchronize this connection's subscribed decoders without stopping muted ones. */
+void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count);
+
 extern bool audio_switch_codec(const char *codec, bool is_tx);
 extern void audio_stop_codec(bool is_tx);
 

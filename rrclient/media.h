@@ -9,6 +9,7 @@
 
 #include <librrprotocol/rrprotocol.h>
 
+void rrclient_media_sync_audio(void);
 extern void rrclient_media_room_selected(const char *room);
 extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);
@@ -17,6 +18,7 @@ extern bool rrclient_media_subscribe_single_video(void);
 extern const char *rrclient_media_current_codec(bool is_tx);
 /* Resolve a subscribed RX audio channel by wire stream id + codec; returns the codec or NULL for stale/foreign frames. */
 extern const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[4]);
+const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4]);
 /* The server-owned channel selected for the active VFO and direction. */
 struct rr_client_media_chan;
 extern const struct rr_client_media_chan *rrclient_media_current_channel(bool is_tx);

@@ -1015,7 +1015,8 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    // The parent passes the selected pipeline so the child does not silently
    // substitute its standalone defaults or select a different processing chain.
    const char *child_pipeline = sp->pipeline[0] ? sp->pipeline : cfg_get(pipeline_key);
-   bool emit_pcm_tap = sp->role == FWDSP_ROLE_CODEC && !sp->is_tx && cfg_get_bool("fwdsp:pcm-hub", false);
+   bool emit_pcm_tap = sp->role == FWDSP_ROLE_CODEC && !sp->is_tx &&
+      (sp->local_lifetime || cfg_get_bool("fwdsp:pcm-hub", false));
 
    if (!fwdsp_path || fwdsp_path[0] == '\0') {
       Log(LOG_CRIT, "fwdsp", "You must set [fwdsp] path to point at fwdsp bin");
@@ -1372,10 +1373,9 @@ void fwdsp_sweep_expired(void) {
          continue;
       }
 
-      // Channel-less instances are used only by rrclient. Their lifetime is driven
-      // explicitly by audio_switch_codec()/fwdsp_codec_stop(), not by the
-      // server subscription table.
-      if (sp->channel_uuid[0] == '\0') {
+      // Client-owned instances have explicit lifetimes, including independently
+      // named RX decoders. Server subscriber sweeps must not retire them.
+      if (sp->local_lifetime || sp->channel_uuid[0] == '\0') {
          if (sp->refcount == 0 && sp->cleanup_deadline > 0 && sweep_now >= sp->cleanup_deadline) {
             fwdsp_destroy(sp);
          }
@@ -1429,8 +1429,19 @@ void fwdsp_sweep_expired(void) {
    }
 }
 
-// Start (or ref up) a pipeline for a codec magic (e.g. "mu08") in one
-// direction. Returns the channel id, or -1 on failure.
+// Allocate an independently named codec whose caller owns its lifetime.
+// No UI policy lives here: the caller explicitly stops it when no longer needed.
+int fwdsp_codec_start_local(const char codec_id[5], bool is_tx, const char *identity) {
+   if (!codec_id || strlen(codec_id) != 4 || !identity || !*identity) return -1;
+   struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec_id, is_tx, identity);
+   if (!sp) sp = fwdsp_create(codec_id, FW_IO_STDIO, is_tx, identity);
+   if (!sp) return -1;
+   // Set ownership before spawning so local RX always emits caller-routed PCM.
+   sp->local_lifetime = true;
+   return fwdsp_codec_start(codec_id, is_tx, identity);
+}
+
+// Start (or ref up) a pipeline; return its channel id, or -1 on failure.
 int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uuid) {
    if (!codec_id || codec_id[0] == '\0') {
       return -1;

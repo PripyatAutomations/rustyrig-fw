@@ -579,9 +579,11 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       return;
    }
 
-   /* Only the selected server feeds shared audio/serial output devices. Text updates still populate every server's independent protocol/client state. */
+   /* Background audio keeps decoding with muted output. Serial output remains selected-server-only. */
    if (ev == MG_EV_WS_MSG && s != selected && data && ((((struct mg_ws_message *)data)->flags & 15) == WEBSOCKET_OP_BINARY)) {
-      return;
+      struct mg_ws_message *message = data;
+      struct rr_binframe frame;
+      if (rr_binframe_parse((const uint8_t *)message->data.buf, message->data.len, &frame) || frame.hdr.subsystem != RR_BINFRAME_SUBSYS_AUDIO) return;
    }
    client_server_t *previous = context;
    activate(s);

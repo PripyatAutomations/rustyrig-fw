@@ -32,6 +32,7 @@
 #include <rrclient/audio.h>
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
+#include <rrclient/connman.h>
 #include <rrclient/vfo.h>
 
 extern rrconn_t *ws_conn;
@@ -67,6 +68,70 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
    if (fwdsp_write_samples(tx_codec, true, samples, len) && (tx_pcm_warned == 0 || now < tx_pcm_warned || now - tx_pcm_warned >= 5)) {
       tx_pcm_warned = now;
       Log(LOG_WARN, "audio", "Unable to feed client mic PCM to %s.tx", tx_codec);
+   }
+}
+
+typedef struct rx_route {
+   struct rx_route *next;
+   rrconn_t *connection;
+   char uuid[64], identity[64], codec[5];
+   bool audible, seen;
+} rx_route_t;
+static rx_route_t *rx_routes;
+
+static void client_channel_pcm(const char *name, const void *samples, size_t len, void *user) {
+   rx_route_t *route = user;
+   const char *profile = rrclient_connection_name(route->connection);
+   const char *selected = rrclient_selected_server();
+   // PARITY: rustyrig-www/js/webui.audio.js webui_rx_route_audible.
+   // Decode continuously; only the selected rig reaches the speaker sink.
+   if (!route->audible || !profile || !selected || strcmp(profile, selected)) return;
+   if (!fwdsp_processor_write("sink.client.dsp0", samples, len) &&
+      (!rx_pcm_warned || now < rx_pcm_warned || now - rx_pcm_warned >= 5)) {
+      rx_pcm_warned = now;
+      Log(LOG_WARN, "audio", "Unable to play decoded client RX PCM");
+   }
+}
+void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t count) {
+   if (!audio_enabled) return;
+   for (rx_route_t *route = rx_routes; route; route = route->next) {
+      if (route->connection == ws_conn) route->seen = false;
+   }
+   for (size_t i = 0; i < count; i++) {
+      const struct rrclient_rx_audio *channel = &channels[i];
+      rx_route_t *route = rx_routes;
+      while (route && (route->connection != ws_conn || strcmp(route->uuid, channel->uuid))) route = route->next;
+      if (!route) {
+         route = calloc(1, sizeof(*route));
+         if (!route) continue;
+         static unsigned next_identity;
+         snprintf(route->identity, sizeof(route->identity), "client-rx-%u", ++next_identity);
+         route->connection = ws_conn;
+         snprintf(route->uuid, sizeof(route->uuid), "%s", channel->uuid);
+         route->next = rx_routes;
+         rx_routes = route;
+      }
+      route->seen = true;
+      route->audible = channel->audible;
+      if (strncmp(route->codec, channel->codec, 4)) {
+         if (route->codec[0]) fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
+         snprintf(route->codec, sizeof(route->codec), "%.4s", channel->codec);
+      }
+      if (!fwdsp_find_channel_instance(route->codec, false, route->identity)) {
+         if (fwdsp_codec_start_local(route->codec, false, route->identity) < 0) continue;
+         if (cfg_get_bool("fwdsp:recording.rx", false))
+            fwdsp_cmd_start_record_named(route->codec, false, route->identity, "radio", false);
+      }
+      fwdsp_codec_set_pcm_callback(route->codec, route->identity, client_channel_pcm, route);
+   }
+   rx_route_t **link = &rx_routes;
+   while (*link) {
+      rx_route_t *route = *link;
+      if (route->connection == ws_conn && !route->seen) {
+         fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
+         *link = route->next;
+         free(route);
+      } else link = &route->next;
    }
 }
 
@@ -330,6 +395,12 @@ void audio_stop_codec(bool is_tx) {
 
 void ws_audio_shutdown(void) {
    dcc_closed(NULL, NULL, NULL, NULL);
+   while (rx_routes) {
+      rx_route_t *route = rx_routes;
+      rx_routes = route->next;
+      fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
+      free(route);
+   }
    audio_stop_codec(false);
    audio_stop_codec(true);
    fwdsp_processor_stop("src.client.dsp0");
@@ -354,9 +425,7 @@ bool audio_process_frame(const char *data, size_t len) {
 // decoder (corruption) and stops frames being fed to a torn-down decoder
 // (post-NONE silence).
 static void audio_full_frame_cb(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
-   if (!cptr || cptr == ws_conn) {
-      audio_full_frame_payload(data, len);
-   }
+   audio_full_frame_payload(data, len);
 }
 
 static void audio_full_frame_payload(const void *data, size_t len) {
@@ -371,10 +440,17 @@ static void audio_full_frame_payload(const void *data, size_t len) {
       return;
    }
 
-   if (rx_codec[0] == '\0' || strncmp(rx_codec, codec, 4) != 0) {
-      if (audio_switch_codec(codec, false)) {
-         return;
-      }
+   const char *uuid = rrclient_media_rx_uuid_for_stream(frame.hdr.stream, (const char *)frame.hdr.codec);
+   if (!uuid) return;
+   rx_route_t *route = rx_routes;
+   while (route && (route->connection != ws_conn || strcmp(route->uuid, uuid))) route = route->next;
+   if (!route || !fwdsp_find_channel_instance(codec, false, route->identity)) {
+      // A decoder may have exited since the last subscription update.
+      // Rebuild it without altering the subscription or any other channel.
+      rrclient_media_sync_audio();
+      route = rx_routes;
+      while (route && (route->connection != ws_conn || strcmp(route->uuid, uuid))) route = route->next;
+      if (!route || !fwdsp_find_channel_instance(codec, false, route->identity)) return;
    }
 
    bool discontinuity = false;
@@ -389,8 +465,8 @@ static void audio_full_frame_payload(const void *data, size_t len) {
       dict_free(feedback);
    }
 
-   if (!fwdsp_write_audio_samples(rx_codec, NULL, frame.data, frame.len, discontinuity)) {
-      Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", rx_codec);
+   if (!fwdsp_write_audio_samples(codec, route->identity, frame.data, frame.len, discontinuity)) {
+      Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", codec);
    }
 }
 

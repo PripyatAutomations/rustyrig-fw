@@ -115,10 +115,19 @@ codec sent to the server. Selecting a codec again re-subscribes disabled
 channels after the server confirms that codec. A direction disabled with
 `NONE` stays off through channel announcements until re-enabled or disconnected.
 
-The GTK pickers apply to all subscribed channels in their direction. The native
-audio bridge still has one local pipeline per direction; the displayed codec
-prefers a subscribed channel on the active VFO. These controls do not add
-simultaneous decoding or mixing of multiple independent RX streams.
+The GTK pickers apply to subscribed channels in their direction. Each RX channel
+has an independent decoder. Changing rig tabs or VFOs keeps existing audio
+subscriptions, direct-media keepalives and RX decoders running; inactive
+channels are muted at local output. Returning to a rig unmutes its current
+live audio without resubscribing or resetting decoder state. The browser
+implements the same behavior with a gain per channel. TX selection still
+follows the selected rig/VFO; keeping a TX subscription does not key it.
+
+NONE, PART, channel removal and disconnect release affected decoders; changing
+a codec replaces only that channel's decoder. The built-in client process
+limit is 24, matching the supplied `fwdsp:subproc.max` configuration. Custom
+limits must allow for the mic/speaker endpoints, TX encoder and retained RX
+decoders.
 
 The server validates explicit audio codecs on both subscribe-create and
 codec-select requests. `NONE` and the display placeholder `----` are never

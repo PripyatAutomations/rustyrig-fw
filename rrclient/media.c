@@ -142,7 +142,7 @@ static struct rr_media_known *media_known_add(const char *uuid) {
    return NULL;
 }
 
-// One local pipeline per direction.  Prefer the exact active-VFO channel;
+// Prefer the exact active-VFO channel for playback and microphone routing;
 // a VFO from another channel must never become the TX target just because it
 // happens to remain subscribed while the operator changes VFOs.
 static struct rr_media_known *media_current_channel(bool is_tx) {
@@ -225,37 +225,39 @@ const char *rrclient_media_current_codec(bool is_tx) {
 // switch) or for a channel we no longer follow. Consumers must route by
 // this instead of the mutable current-codec state so a codec switch cannot
 // cross-feed frames between decoders.
-const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[4]) {
-   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+static struct rr_media_known *media_rx_for_stream(uint8_t stream, const char codec[4]) {
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
       struct rr_media_known *channel = &known_chans[i];
-
-      if (!channel->uuid[0] || !channel->subscribed || !channel->stream_valid ||
-         channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-         channel->direction != RR_BINFRAME_DIR_RX || channel->stream != stream || strncmp(channel->codec, codec, 4) != 0) {
-         continue;
-      }
-
-      return channel->codec;
+      if (channel->uuid[0] && channel->subscribed && !channel->disabled && (!channel->room[0] || channel->joined) && channel->stream_valid &&
+         channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO && channel->direction == RR_BINFRAME_DIR_RX &&
+         channel->stream == stream && !strncmp(channel->codec, codec, 4)) return channel;
    }
-
    return NULL;
 }
-
-static void media_sync_audio(void) {
-   if (!rrclient_present_context()) {
-      return;
-   }
-
-   for (int tx = 0 ; tx < 2 ; tx++) {
-      const char *codec = rrclient_media_current_codec(tx);
-
-      if (codec) {
-         audio_switch_codec(codec, tx);
-      } else {
-         audio_stop_codec(tx);
+const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[4]) {
+   struct rr_media_known *channel = media_rx_for_stream(stream, codec);
+   return channel ? channel->codec : NULL;
+}
+const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4]) {
+   struct rr_media_known *channel = media_rx_for_stream(stream, codec);
+   return channel ? channel->uuid : NULL;
+}
+void rrclient_media_sync_audio(void) {
+   struct rrclient_rx_audio channels[RR_MEDIA_MAX_CHANS];
+   size_t count = 0;
+   struct rr_media_known *selected = media_current_channel(false);
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      struct rr_media_known *channel = &known_chans[i];
+      if (channel->uuid[0] && channel->subscribed && !channel->disabled && channel->codec[0] &&
+         (!channel->room[0] || channel->joined) && channel->subsystem == RR_BINFRAME_SUBSYS_AUDIO && channel->direction == RR_BINFRAME_DIR_RX) {
+         channels[count++] = (struct rrclient_rx_audio){channel->uuid, channel->codec, channel == selected};
       }
    }
-
+   audio_sync_rx_channels(channels, count);
+   if (!rrclient_present_context()) return;
+   const char *codec = rrclient_media_current_codec(true);
+   if (codec) audio_switch_codec(codec, true);
+   else audio_stop_codec(true);
    event_emit("client.media.changed", ws_conn, "");
 }
 
@@ -356,7 +358,7 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
    // channel with the requested codec. NONE is local unsubscribe intent and
    // can stop audio immediately; encoded codec changes wait for confirmation.
    if (none) {
-      media_sync_audio();
+      rrclient_media_sync_audio();
    }
 
    if (!sent && (target || !none)) {
@@ -534,7 +536,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
          media_try_autosubscribe(ws_conn, kp);
-         media_sync_audio();
+         rrclient_media_sync_audio();
 
          if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
             frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, kp->codec);
@@ -552,8 +554,7 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
    struct rr_media_known *kp = (uuid ? media_known_find(uuid) : NULL);
 
    if (kp) {
-      if (!unsub && (kp->disabled || (kp->room[0] && !kp->joined) ||
-         (kp->automatic && kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && kp->room[0] && strcasecmp(kp->room, media_room)))) {
+      if (!unsub && (kp->disabled || (kp->room[0] && !kp->joined))) {
          if (ws_conn) {
             media_send_unsubscribe(ws_conn, kp->uuid);
          }
@@ -576,7 +577,7 @@ void rrclient_media_subscribed(dict *d, bool unsub) {
       if (codec && strlen(codec) == 4) {
          snprintf(kp->codec, sizeof(kp->codec), "%s", codec);
       }
-      media_sync_audio();
+      rrclient_media_sync_audio();
 
       if (frontend_ops() && media_current_channel(kp->direction == RR_BINFRAME_DIR_TX) == kp) {
          frontend_ops()->codec_set_active(kp->direction == RR_BINFRAME_DIR_TX, (unsub ? NULL : kp->codec));
@@ -600,7 +601,7 @@ void rrclient_media_chan_removed(dict *d) {
       rrclient_media_description(kp->uuid, description, sizeof(description));
       Log(LOG_INFO, "ws.media", "Media channel removed: %s", description);
       memset(kp, 0, sizeof(*kp));
-      media_sync_audio();
+      rrclient_media_sync_audio();
    }
 }
 
@@ -616,7 +617,7 @@ static void rrclient_handle_media_conn(const char *event, const char *data, rrco
       memset(known_chans, 0, sizeof(known_chans));
       media_ready = false;
       memset(direction_disabled, 0, sizeof(direction_disabled));
-      media_sync_audio();
+      rrclient_media_sync_audio();
       media_my_privs[0] = '\0';
    } else if (strcasecmp(event, "authorized") == 0 && data) {
       dict *ad = json2dict(data);
@@ -668,12 +669,11 @@ static void rrclient_handle_media_codecs(const char *event, const char *data, rr
       }
    }
 
-   media_sync_audio();
+   rrclient_media_sync_audio();
 }
 
-// Keep the media pair tied to the VFO shown by the UI. Leaving an old VFO
-// subscribed is useful for explicit /media subscriptions, but it must not
-// silently become the microphone destination after an active-VFO switch.
+// Keep playback and microphone selection tied to the VFO shown by the UI.
+// Retained audio subscriptions must not change the microphone destination.
 static void rrclient_handle_media_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
@@ -690,7 +690,10 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
          (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t) (vfo_state_get_active() - 'A')) &&
          (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
 
-      if (kp->automatic && kp->subscribed && !active) {
+      // PARITY: rustyrig-www/js/webui.media.js mediaSyncActiveVfo.
+      // Tab/VFO selection changes local audibility, not audio subscription lifetime.
+      bool retain_audio = kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && (!kp->room[0] || kp->joined);
+      if (kp->automatic && kp->subscribed && !active && !retain_audio) {
          media_send_unsubscribe(ws_conn, kp->uuid);
          kp->subscribed = false;
          kp->stream_valid = false;
@@ -698,7 +701,7 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
       media_try_autosubscribe(ws_conn, kp);
    }
 
-   media_sync_audio();
+   rrclient_media_sync_audio();
 }
 
 void rrclient_media_room_joined(const char *room) {
@@ -853,7 +856,7 @@ static void media_server_selected(const char *event, const char *data, rrconn_t 
    (void)data;
    (void)cptr;
    (void)user;
-   media_sync_audio();
+   rrclient_media_sync_audio();
 }
 
 static void media_description(const char *uuid, const char *codec, bool diagnostic, char *out, size_t capacity) {
@@ -1109,7 +1112,7 @@ bool rrclient_media_unsubscribe(const char *uuid) {
       kp->disabled = true;
       kp->subscribed = false;
       kp->pending_codec[0] = '\0';
-      media_sync_audio();
+      rrclient_media_sync_audio();
    }
 
    return !sent;

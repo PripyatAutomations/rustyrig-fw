@@ -1,5 +1,9 @@
 rustyrig-fw (20261014.02) testing; urgency=medium
 
+  * Keep native/browser rig audio subscriptions and RX decoders running across
+    tab and VFO selection; mute inactive output locally instead of reconnecting
+    media. Isolate decoder state per channel/server, retain explicit NONE/PART
+    cleanup, and align the built-in client DSP process limit with the sample.
   * Move each server radio backend onto its own I/O worker so slow rig polling
     cannot stall chat, control traffic or other radios. Keep model updates and
     control results on the server thread; bound/coalesce queues and prioritize
@@ -65,7 +69,7 @@ rustyrig-fw (20261014.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 19:29:59 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 19:42:06 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

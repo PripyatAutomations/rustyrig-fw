@@ -30,6 +30,10 @@ bool cfg_get_bool(const char *key, bool fallback) {
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return connection == &client ? "test" : "other";
 }
+void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) {
+   assert(connection == &client);
+   callback(data);
+}
 void Log(logpriority_t priority, const char *subsystem, const char *format, ...) {
    (void)priority;
    (void)subsystem;
