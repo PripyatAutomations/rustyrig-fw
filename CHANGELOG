@@ -5,7 +5,7 @@ rustyrig-fw (20261015.03) testing; urgency=medium
     buttons on one row with a blank safety row above bottom tab navigation.
   * Persist the transmitting user's home server and canonical server rig/VFO
     scope in PTT logs. Migrate existing databases without guessing old values,
-    expose origin as the second native/browser column and label duration TxSec.
+    expose origin as the second native/browser column and label duration TxLen.
   * Let /query user [message] open the private tab and send trailing text;
     mirror this shared behavior in the WebUI. Add persistent config Filter
     labeling and a GTK F1 help window using the common categorized renderer.
@@ -141,7 +141,7 @@ rustyrig-fw (20261015.03) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 16:18:14 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 16:20:13 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

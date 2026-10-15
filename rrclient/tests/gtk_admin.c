@@ -84,6 +84,7 @@ static char *cell_text(admin_table_t *table, int col, GtkTreeIter *iter) {
    char *text;
    g_object_get(cells->data, "text", &text, NULL);
    g_list_free(cells);
+
    return text;
 }
 
@@ -94,50 +95,68 @@ int main(int argc, char **argv) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
    init_admin_tab();
-   const char *titles[] = {"UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"};
-   for (unsigned i = 0; i < 9; i++) {
+   const char *titles[] = {
+      "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"
+   };
+
+   for (unsigned i = 0 ; i < 9 ; i++) {
       assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), i)), titles[i]));
    }
+
    assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), 7)));
    GtkTreeViewColumn *change_required = gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), 8);
    assert(!gtk_tree_view_column_get_expand(change_required) && !gtk_tree_view_column_get_resizable(change_required));
    assert(gtk_tree_view_column_get_sizing(change_required) == GTK_TREE_VIEW_COLUMN_FIXED);
    assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[1].tree), 0)));
    assert(gtk_tree_view_column_get_expand(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[2].tree), 0)));
-   const char *quota_headers[] = {"name", "TX Min", "TX Used", "BWRemain", "BWTxUsed", "BWRxUsed"};
+   const char *quota_headers[] = {
+      "name", "TX Min", "TX Used", "BWRemain", "BWTxUsed", "BWRxUsed"
+   };
+
    for (unsigned i = 0 ; i < 6 ; i++) {
       assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[2].tree), i)), quota_headers[i]));
    }
+
    snprintf(tables[2].profile, sizeof(tables[2].profile), "alpha");
-   result("quotas", "row", "{\"name\":\"sample\",\"tx_remaining\":\"90\",\"tx_used\":\"60\",\"bandwidth_remaining\":\"unlimited\",\"bandwidth_tx_used\":\"1234567890\",\"bandwidth_rx_used\":\"12345\"}");
+   result("quotas", "row",
+      "{\"name\":\"sample\",\"tx_remaining\":\"90\",\"tx_used\":\"60\",\"bandwidth_remaining\":\"unlimited\",\"bandwidth_tx_used\":\"1234567890\",\"bandwidth_rx_used\":\"12345\"}");
    GtkTreeIter numeric;
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(tables[2].store), &numeric));
-   const char *quota_text[] = {"sample", "1.50", "1.00", "unlimited", "1,234.57 MB", "12.35 KB"};
+   const char *quota_text[] = {
+      "sample", "1.50", "1.00", "unlimited", "1,234.57 MB", "12.35 KB"
+   };
+
    for (int i = 0 ; i < 6 ; i++) {
       char *text = cell_text(&tables[2], i, &numeric);
       assert(!strcmp(text, quota_text[i]));
       g_free(text);
    }
+
    char *edge = admin_scaled("-9223372036854775808", true);
    assert(!strcmp(edge, "-9,223,372,036,854.78 MB"));
    g_free(edge);
    snprintf(tables[4].profile, sizeof(tables[4].profile), "alpha");
    result("ptt", "row", "{\"server\":\"home-site\",\"vfo\":\"tx-site.rig2.vfo-a\",\"frequency\":\"14074000.0\"}");
    assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[4].tree), 1)), "Server"));
-   assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[4].tree), 7)), "TxSec"));
+   assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[4].tree), 7)), "TxLen"));
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(tables[4].store), &numeric));
    char *text = cell_text(&tables[4], 1, &numeric);
-   assert(!strcmp(text, "home-site")); g_free(text);
+   assert(!strcmp(text, "home-site"));
+   g_free(text);
    text = cell_text(&tables[4], 4, &numeric);
-   assert(!strcmp(text, "tx-site.rig2.vfo-a")); g_free(text);
+   assert(!strcmp(text, "tx-site.rig2.vfo-a"));
+   g_free(text);
    text = cell_text(&tables[4], 5, &numeric);
-   assert(!strcmp(text, "14,074,000")); g_free(text);
+   assert(!strcmp(text, "14,074,000"));
+   g_free(text);
    result("ptt", "row", "{\"vfo\":\"A\"}");
    assert(gtk_tree_model_iter_next(GTK_TREE_MODEL(tables[4].store), &numeric));
    text = cell_text(&tables[4], 1, &numeric);
-   assert(!strcmp(text, "Unknown")); g_free(text);
+   assert(!strcmp(text, "Unknown"));
+   g_free(text);
    text = cell_text(&tables[4], 4, &numeric);
-   assert(!strcmp(text, "Unknown rig.vfo-a")); g_free(text);
+   assert(!strcmp(text, "Unknown rig.vfo-a"));
+   g_free(text);
    gtk_widget_show_all(main_window);
    admin_refresh(NULL, &tables[0]);
    result("users", "begin", "{\"append\":false}");

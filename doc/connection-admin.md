@@ -102,7 +102,7 @@ produces an explicit proxy failure notice.
 
 GTK Users gives spare width to Privileges and keeps Chg Req fitted to its
 header. Rooms and Quotas give spare width to name. PTT Log shows the transmitting
-user's home server as its second column, duration as TxSec, grouped frequency
+user's home server as its second column, duration as TxLen, grouped frequency
 and a server-owned rig/VFO scope such as `site.rig2.vfo-a`. New PTT rows snapshot
 that scope and the user's origin server (including linked sessions) in the
 node-local database. Existing databases gain a nullable server column; old
