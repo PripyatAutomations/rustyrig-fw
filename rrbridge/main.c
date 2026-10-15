@@ -50,7 +50,9 @@ static void audio(void *user, const int16_t *samples, size_t count, unsigned rat
 }
 static void metadata(void *user, const char *key, const char *value) {
    struct bridge_host *host = user;
-   if (!key || !value || !*value) return;
+   if (!key || !value || !*value) {
+      return;
+   }
    rrp_bridge_ipc_message_t m;
    message(host, &m, RRP_BRIDGE_IPC_METADATA);
    snprintf(m.metadata_key, sizeof(m.metadata_key), "%s", key);
@@ -59,7 +61,6 @@ static void metadata(void *user, const char *key, const char *value) {
 }
 static void status(void *user, const char *text) {
    now = time(NULL);
-   (void)user;
 
    if (text) {
       Log(LOG_INFO, "rrbridge", "%s", text);
@@ -109,7 +110,6 @@ static void state(void *user, bool available, uint64_t hz, const char *mode) {
    if (available) {
       if (!capability_message(host, &m)) {
          host->failed = true;
-
          return;
       }
 
@@ -137,7 +137,6 @@ static void complete(void *user, uint64_t request, bool success) {
 
    if (!request || request != host->pending) {
       host->failed = true;
-
       return;
    }
    rrp_bridge_ipc_message_t m;
@@ -163,14 +162,12 @@ int main(int argc, char **argv) {
          probe = true;
       } else {
          usage(argv[0]);
-
          return EXIT_FAILURE;
       }
    }
 
    if (!file || !name || strlen(name) >= 64) {
       usage(argv[0]);
-
       return EXIT_FAILURE;
    }
    // Keep connection diagnostics without logging every audio socket read/write.
@@ -214,14 +211,10 @@ int main(int argc, char **argv) {
    void *instance = driver ? driver->create(&callbacks) : NULL;
    host.api = driver;
    host.instance = instance;
-   rrp_bridge_ipc_message_t m = {
-      0
-   };
+   rrp_bridge_ipc_message_t m = { 0 };
    bool ok = instance && capability_message(&host, &m);
    host.caps = m;
-   rrp_sdr_capabilities_t caps = {
-      0
-   };
+   rrp_sdr_capabilities_t caps = { 0 };
 
    if (ok) {
       ok = driver->capabilities(instance, &caps);
@@ -299,8 +292,8 @@ int main(int argc, char **argv) {
          }
       }
    }
-finished:
 
+finished:
    if (instance) {
       driver->destroy(instance);
    }
