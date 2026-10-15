@@ -1,4 +1,4 @@
-rustyrig-fw (20261015.01) testing; urgency=medium
+rustyrig-fw (20261015.02) testing; urgency=medium
 
   * Quiet rrbridge Mongoose socket read/write debug logs while retaining
     connection diagnostics. Recover the native client speaker endpoint after
@@ -39,7 +39,7 @@ rustyrig-fw (20261015.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:20:24 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:20:34 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
