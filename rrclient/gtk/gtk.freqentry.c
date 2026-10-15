@@ -835,7 +835,10 @@ void gtk_freq_entry_set_value(GtkFreqEntry *fe, guint64 freq) {
    /* Assume digits are 0-9 and freq fits in num_digits */
    for (int i = fe->num_digits - 1 ; i >= 0 ; i--) {
       int digit = freq % 10;
-      gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), g_strdup_printf("%d", digit));
+      char digit_text[] = {'0' + digit, 0};
+      if (strcmp(gtk_entry_get_text(GTK_ENTRY(fe->digits[i])), digit_text)) {
+         gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), digit_text);
+      }
       freq /= 10;
    }
 }
@@ -862,7 +865,9 @@ void gtk_freq_entry_set_unavailable(GtkFreqEntry *fe) {
    }
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
-      gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), "-");
+      if (strcmp(gtk_entry_get_text(GTK_ENTRY(fe->digits[i])), "-")) {
+         gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), "-");
+      }
    }
 
    fe->freq = fe->prev_freq = 0;
@@ -881,7 +886,9 @@ void gtk_freq_entry_set_frequency(GtkFreqEntry *fe, unsigned long freq) {
       char digit_buf[2] = {
          buf[i], 0
       };
-      gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), digit_buf);
+      if (strcmp(gtk_entry_get_text(GTK_ENTRY(fe->digits[i])), digit_buf)) {
+         gtk_entry_set_text(GTK_ENTRY(fe->digits[i]), digit_buf);
+      }
    }
 
    fe->freq = freq;

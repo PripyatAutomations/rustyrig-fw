@@ -48,6 +48,13 @@ static bool key(GtkWidget *combo, guint letter, guint modifiers) {
 
    return combo == mode_combo ? on_mode_keypress(combo, &event, combo) : on_width_keypress(combo, &event, combo);
 }
+static unsigned width_model_mutations;
+static void width_row_inserted(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
+   width_model_mutations++;
+}
+static void width_row_deleted(GtkTreeModel *model, GtkTreePath *path, gpointer data) {
+   width_model_mutations++;
+}
 int main(int argc, char **argv) {
    if (!gtk_init_check(&argc, &argv)) {
       puts("SKIP: GTK mode widget test needs a display");
@@ -60,6 +67,15 @@ int main(int argc, char **argv) {
    selected(mode_combo, "LSB");
    selected(width_combo, "2700 Hz");
    assert(mode_sends == 0 && width_sends == 0);
+   GtkTreeModel *width_model = gtk_combo_box_get_model(GTK_COMBO_BOX(width_combo));
+   g_signal_connect(width_model, "row-inserted", G_CALLBACK(width_row_inserted), NULL);
+   g_signal_connect(width_model, "row-deleted", G_CALLBACK(width_row_deleted), NULL);
+   gint64 started = g_get_monotonic_time();
+   for (int i = 0; i < 1000; i++) modebox_update_state("LSB", 2700);
+   printf("Repeated idle width updates: %u model mutations in %.2f ms\n", width_model_mutations,
+      (g_get_monotonic_time() - started) / 1000.0);
+   assert(!width_model_mutations && !mode_sends && !width_sends);
+
    assert(key(mode_combo, GDK_KEY_d, 0));
    selected(mode_combo, "D-L");
    assert(key(mode_combo, GDK_KEY_D, GDK_SHIFT_MASK));

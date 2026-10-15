@@ -907,7 +907,7 @@ extern GtkWidget *chat_textview; // gtk.chat.c
 extern GtkWidget *admin_tab, *config_tab; // gtk.core.c (this file)
 extern bool cfg_gtkcss_init(void);  // cfg.gtkcss.c
 
-static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
+static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
    GtkWidget *entry = freq_entry;
 
    if (entry) {
@@ -931,6 +931,42 @@ static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode,
       }
    }
    modebox_update_state(mode, width);
+}
+
+static struct {
+   guint source;
+   char vfo[4], mode[32], room[128], server[1024];
+   long freq;
+   int width, power;
+   bool ptt, has_mode;
+} pending_vfo_paint;
+static gboolean frontend_gtk_flush_vfo(gpointer unused) {
+   pending_vfo_paint.source = 0;
+   const char *server = rrclient_selected_server();
+   const char *room = rrclient_media_active_room();
+   if (!dying && !strcmp(pending_vfo_paint.server, server ? server : "") &&
+      !strcmp(pending_vfo_paint.room, room ? room : "") &&
+      pending_vfo_paint.vfo[0] == vfo_state_get_active()) {
+      frontend_gtk_apply_vfo_state(pending_vfo_paint.vfo, pending_vfo_paint.freq,
+         pending_vfo_paint.has_mode ? pending_vfo_paint.mode : NULL,
+         pending_vfo_paint.width, pending_vfo_paint.power, pending_vfo_paint.ptt);
+   }
+   return G_SOURCE_REMOVE;
+}
+static void frontend_gtk_vfo_state(const char *vfo, long freq, const char *mode, int width, int power, bool ptt) {
+   if (dying) return;
+   const char *server = rrclient_selected_server();
+   const char *room = rrclient_media_active_room();
+   snprintf(pending_vfo_paint.vfo, sizeof(pending_vfo_paint.vfo), "%s", vfo ? vfo : "");
+   snprintf(pending_vfo_paint.mode, sizeof(pending_vfo_paint.mode), "%s", mode ? mode : "");
+   snprintf(pending_vfo_paint.server, sizeof(pending_vfo_paint.server), "%s", server ? server : "");
+   snprintf(pending_vfo_paint.room, sizeof(pending_vfo_paint.room), "%s", room ? room : "");
+   pending_vfo_paint.has_mode = mode != NULL;
+   pending_vfo_paint.freq = freq;
+   pending_vfo_paint.width = width;
+   pending_vfo_paint.power = power;
+   pending_vfo_paint.ptt = ptt;
+   if (!pending_vfo_paint.source) pending_vfo_paint.source = g_idle_add(frontend_gtk_flush_vfo, NULL);
 }
 
 static void frontend_gtk_freq_set(long freq) {
@@ -1063,8 +1099,18 @@ static void frontend_gtk_webcam_show(bool show) {
    gtk_webcam_show(show);
 }
 
+static guint frontend_gtk_roster_source;
+static gboolean frontend_gtk_flush_roster(gpointer unused) {
+   frontend_gtk_roster_source = 0;
+   if (!dying) userlist_redraw_gtk();
+   return G_SOURCE_REMOVE;
+}
 static void frontend_gtk_userlist_redraw(void) {
-   userlist_redraw_gtk();
+   // One network sweep can deliver many observations. Drain audio/transport
+   // first, then paint the latest roster once instead of inside every callback.
+   if (!dying && !frontend_gtk_roster_source) {
+      frontend_gtk_roster_source = g_idle_add(frontend_gtk_flush_roster, NULL);
+   }
 }
 
 static void frontend_gtk_userlist_set_visible(bool visible) {
@@ -1321,6 +1367,14 @@ void gtk_frontend_stop(void) {
    if (frontend_gtk_update_source) {
       g_source_remove(frontend_gtk_update_source);
       frontend_gtk_update_source = 0;
+   }
+   if (frontend_gtk_roster_source) {
+      g_source_remove(frontend_gtk_roster_source);
+      frontend_gtk_roster_source = 0;
+   }
+   if (pending_vfo_paint.source) {
+      g_source_remove(pending_vfo_paint.source);
+      pending_vfo_paint.source = 0;
    }
    gtk_userlist_stop_timers();
    extern void gtk_winmgr_stop_sources(void);   // gtk.winmgr.c

@@ -1,5 +1,10 @@
 rustyrig-fw (20261014.02) testing; urgency=medium
 
+  * Keep GTK radio observations and roster bursts off transport callbacks by
+    coalescing paints at idle; discard stale paints after rig/server switches.
+    Avoid rebuilding unchanged mode/width rows, frequency digits and PTT
+    styles, reducing GUI work that delays audio delivery. Fix temporary digit
+    string allocations in programmatic frequency updates.
   * Refresh VFO codec pickers from confirmed RX/TX state and the selected
     server's negotiated list on tab switches, without sending codec commands.
     Keep background-server media updates from repainting the active pickers.
@@ -74,7 +79,7 @@ rustyrig-fw (20261014.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 20:17:11 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 20:58:05 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 

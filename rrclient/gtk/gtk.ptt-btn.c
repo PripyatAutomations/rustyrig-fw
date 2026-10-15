@@ -197,13 +197,17 @@ static void ptt_button_apply(void) {
    }
 
    gtk_widget_set_sensitive(ptt_button, !rrclient_room_offline(rrclient_current_room()));
-   gtk_button_set_label(GTK_BUTTON(ptt_button), label);
-   gtk_style_context_remove_class(ctx, "ptt-active");
-   gtk_style_context_remove_class(ctx, "ptt-pending");
-   gtk_style_context_remove_class(ctx, "ptt-idle");
-   gtk_style_context_remove_class(ctx, "ptt-offline");
-   gtk_style_context_remove_class(ctx, "ptt-tot");
-   gtk_style_context_add_class(ctx, cls);
+   if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(ptt_button)), label)) {
+      gtk_button_set_label(GTK_BUTTON(ptt_button), label);
+   }
+   if (!gtk_style_context_has_class(ctx, cls)) {
+      gtk_style_context_remove_class(ctx, "ptt-active");
+      gtk_style_context_remove_class(ctx, "ptt-pending");
+      gtk_style_context_remove_class(ctx, "ptt-idle");
+      gtk_style_context_remove_class(ctx, "ptt-offline");
+      gtk_style_context_remove_class(ctx, "ptt-tot");
+      gtk_style_context_add_class(ctx, cls);
+   }
 }
 
 // Re-evaluate button state (called when the userlist changes, since another

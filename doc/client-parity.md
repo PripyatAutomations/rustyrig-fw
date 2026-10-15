@@ -538,7 +538,12 @@ values change. GTK and TUI use the same nonblocking transport sweep. GTK schedul
 it at a high-priority 10 ms GLib timeout, leaving GLib to wait between sweeps rather
 than blocking GTK inside Mongoose. This scheduling is native-specific; browser
 WebSocket events are driven by its event loop. Shared client state and wire
-behavior are unchanged.
+behavior are unchanged. GTK coalesces radio observations and roster redraws
+into idle paints after transport/audio servicing. Queued VFO paints retain their
+rig/server/VFO scope and are discarded after selection changes or shutdown.
+Unchanged frequency digits, mode/width rows and PTT styles do not mutate GTK
+widgets. These rendering optimizations are frontend-specific; TUI and browser
+protocol state and command behavior are unchanged.
 
 Native `objects.events.c` and browser `webui.objects.js` render `/rig` as
 a connection-wide site → rig → VFO tree, including linked sites. GPS inventory
