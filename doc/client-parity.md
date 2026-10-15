@@ -714,3 +714,10 @@ shown in their prompts; changing system tabs never changes that selection.
 The shared TUI library exposes an optional prompt renderer; rrclient owns
 server selection and names. GTK retains its own system-tab presentation and
 the browser retains its existing connection presentation.
+
+GTK chat entries retain their original server and room for sends and offline
+checks, independently of the selected/reordered notebook page. Common native
+input dispatch owns the scoped parser context. Notebook selection refreshes
+page-dependent state after GTK updates its current page. Native IRC private
+NOTICE/ACTION events retain query classification; GTK query tabs have no
+channel roster. This is native frontend/IRC behavior, with no browser change.

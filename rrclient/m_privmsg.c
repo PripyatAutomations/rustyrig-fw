@@ -115,6 +115,8 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
       dict_add(d, "talk.from", cptr->nick);
       dict_add_long(d, "msg.ts", now);
       event_emit_dict("talk.msg", cptr, d);
+   } else if (!strcmp(dict_get(d, "talk.cmd", ""), "msg")) {
+      ui_print(ui_active_window_name(), "\00308Cannot send IRC message: invalid destination '%s'\017", dict_get(d, "talk.target", ""));
    } else {
       ui_print(ui_active_window_name(), "\00308This IRC server does not support the requested %s command (%s)\017", dict_get(d, "msg.type", ""), dict_get(d,
          "talk.cmd", ""));
@@ -271,6 +273,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       bool channel = arg1[0] == '#' || arg1[0] == '&';
 
       dict_add(d, "talk.target", channel ? arg1 : from);
+      dict_add_bool(d, "talk.query", !channel);
       const char *kind = !strcasecmp(cmd, "NOTICE") ? "notice" : channel ? "pub" : "priv";
       const char *text = arg2;
       char action[IRC_MSGLEN];

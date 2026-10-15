@@ -423,10 +423,14 @@ int main(void) {
    assert(!irc_process_message(&client, ":alice PRIVMSG #room :\001ACTION waves\001"));
    assert(!strcmp(dict_get(last, "talk.msg_type", ""), "action"));
    assert(!strcmp(dict_get(last, "talk.data", ""), "waves"));
+   assert(!dict_get_bool(last, "talk.query", true));
+   assert(!irc_process_message(&client, ":alice!user@host PRIVMSG tester :\001ACTION waves privately\001"));
+   assert(dict_get_bool(last, "talk.query", false));
    assert(!irc_process_message(&client, ":server NOTICE tester :notice"));
    assert(!strcmp(dict_get(last, "talk.msg_type", ""), "notice") && status_windows == 1);
    assert(!irc_process_message(&client, ":alice!user@host NOTICE tester :user notice"));
    assert(status_windows == 1);
+   assert(dict_get_bool(last, "talk.query", false));
    assert(!irc_process_message(&client, ":server NOTICE #room :channel notice"));
    assert(status_windows == 1);
    use_frontend = true;

@@ -431,7 +431,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    const char *msg_data = dict_get(d, "talk.data", NULL);
    const char *msg_cmd = dict_get(d, "talk.cmd", NULL);
    const char *target_room = dict_get(d, "talk.target", NULL);
-   bool private_msg = msg_type && (strcasecmp(msg_type, "priv") == 0 || strcasecmp(msg_type, "privmsg") == 0);
+   bool private_msg = dict_get_bool(d, "talk.query", false) || (msg_type && (strcasecmp(msg_type, "priv") == 0 || strcasecmp(msg_type, "privmsg") == 0));
    /* Room and private messages both use talk.target.  Give every explicit target its own numbered window; the status window is reserved for the client log. */
    const char *output_room = target_room;
 

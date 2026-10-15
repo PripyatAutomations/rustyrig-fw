@@ -20,8 +20,9 @@ gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
 
    return NULL;
 }
+static rrconn_t origin_connection;
 rrconn_t *rrclient_connection_find(const char *name) {
-   return NULL;
+   return name && !strcmp(name, "server") ? &origin_connection : NULL;
 }
 char *client_chat_complete(const char *line, size_t *cursor, void **state) {
    return NULL;
@@ -40,8 +41,17 @@ bool rrclient_connection_select(const char *name) {
 }
 
 static char parsed_menu_command[128];
+static const char *dispatched_room;
+static unsigned dispatched;
+void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback)(void *), void *data) {
+   assert(connection == &origin_connection && room && !strcmp(room, "#origin"));
+   dispatched_room = room;
+   dispatched++;
+   callback(data);
+   dispatched_room = NULL;
+}
 bool parse_chat_input_real(const char *message) {
-   assert(!strcmp(gtk_chat_current_room(), "#origin"));
+   assert(!strcmp(dispatched_room ? dispatched_room : gtk_chat_current_room(), "#origin"));
    assert(!strcmp(selected_server, "server"));
    snprintf(parsed_menu_command, sizeof(parsed_menu_command), "%s", message);
 
@@ -319,6 +329,31 @@ static void test_incoming_chat_preserves_draft(void) {
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
    assert(gtk_editable_get_position(GTK_EDITABLE(entry)) == 4);
    assert(!gtk_chat_execute_command("closed-key", "/whois BOB"));
+   /* A still-focused entry must retain its destination after another page
+    * becomes current, including page moves across the wrapping strip. */
+   GtkWidget *other_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkRoomTab other_origin = {.page = other_page};
+   snprintf(other_origin.room, sizeof(other_origin.room), "#scratchmonkey");
+   g_object_set_data(G_OBJECT(other_page), "rr-room-tab", &other_origin);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), other_page, gtk_label_new("other"));
+   gtk_widget_show_all(other_page);
+   gtk_notebook_reorder_child(GTK_NOTEBOOK(main_notebook), other_page, 0);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), 0);
+   g_object_set_data_full(G_OBJECT(entry), "rr-server-name", g_strdup("server"), g_free);
+   g_object_set_data_full(G_OBJECT(entry), "rr-room-name", g_strdup("#origin"), g_free);
+   GtkWidget *test_popover = gtk_popover_new(entry);
+   g_object_set_data(G_OBJECT(entry), "rr-color-popover", test_popover);
+   gtk_entry_set_text(GTK_ENTRY(entry), "send to origin");
+   assert(!parse_chat_input_gtk(NULL, entry));
+   assert(dispatched == 2 && !strcmp(parsed_menu_command, "send to origin"));
+   assert(!strcmp(gtk_chat_current_room(), "#scratchmonkey"));
+   g_object_set_data(G_OBJECT(entry), "rr-room-name", NULL);
+   g_object_set_data(G_OBJECT(entry), "rr-server-name", NULL);
+   gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), 0);
+   gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
+   gtk_editable_set_position(GTK_EDITABLE(entry), 4);
+   gtk_editable_select_region(GTK_EDITABLE(entry), 4, 4);
+
    g_hash_table_destroy(room_tabs);
    room_tabs = NULL;
    puts("PASS: roster commands reach the normal parser with room/server context and preserve the draft");
@@ -496,6 +531,31 @@ static void test_input_history_focus(void) {
    puts("PASS: GTK focused chat history, keypad arrows and draft restoration; other entries keep arrows");
 }
 
+static unsigned roster_docks;
+void userlist_dock_room_into(GtkPaned *paned, const char *room) {
+   roster_docks++;
+}
+bool gui_hotkey_register(GtkWidget *widget) { return false; }
+const char *rrclient_selected_server(void) { return "server"; }
+static void test_query_has_no_roster(void) {
+   if (!gtk_init_check(NULL, NULL)) return;
+   unsigned before = roster_docks;
+   GtkWidget *query = create_chat_box_for_room(false, "alice", true);
+   g_object_ref_sink(query);
+   assert(roster_docks == before);
+   GList *children = gtk_container_get_children(GTK_CONTAINER(query));
+   assert(GTK_IS_SCROLLED_WINDOW(children->data));
+   g_list_free(children);
+   gtk_widget_destroy(query);
+   g_object_unref(query);
+   GtkWidget *channel = create_chat_box_for_room(false, "#hamradio", false);
+   g_object_ref_sink(channel);
+   assert(roster_docks == before + 1);
+   gtk_widget_destroy(channel);
+   g_object_unref(channel);
+   puts("PASS: query widgets have no roster while IRC channels keep theirs");
+}
+
 int main(void) {
    assert(gtk_formatting_control('B') == 0x02);
    assert(gtk_formatting_control('C') == 0x03);
@@ -553,5 +613,6 @@ int main(void) {
    test_incoming_chat_preserves_draft();
    test_room_links();
    test_input_history_focus();
+   test_query_has_no_roster();
    puts("PASS: GTK mIRC red headings, numeric text, reset and markup escaping");
 }

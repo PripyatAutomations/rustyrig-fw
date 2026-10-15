@@ -91,6 +91,7 @@ GtkTextBuffer *text_buffer = NULL;
 typedef struct {
    char room[128];
    char server[512];
+   bool is_query;
    GtkWidget *page;
    GtkWidget *view;
    GtkWidget *entry;
@@ -1123,6 +1124,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    // Chat INPUT
    chat_entry = gtk_entry_new();
    g_object_set_data(G_OBJECT(chat_entry), "rr-chat-input", GINT_TO_POINTER(1));
+   g_object_set_data_full(G_OBJECT(chat_entry), "rr-room-name", g_strdup(room ? room : ""), g_free);
    g_object_set_data(G_OBJECT(chat_textview), "rr-chat-entry", chat_entry);
    GtkWidget *color_popover = gtk_popover_new(chat_entry);
    gtk_popover_set_position(GTK_POPOVER(color_popover), GTK_POS_TOP);
@@ -1336,6 +1338,10 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
    GtkRoomTab *existing = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
 
    if (existing) {
+      if (is_query && !existing->is_query) {
+         existing->is_query = true;
+         userlist_remove_room_view(existing->room);
+      }
       if (!rrclient_present_context()) {
          return;
       }
@@ -1344,6 +1350,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
       return;
    }
    GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
+   tab->is_query = is_query;
    snprintf(tab->room, sizeof(tab->room), "%s", room);
    snprintf(tab->server, sizeof(tab->server), "%s", server_name ? server_name : "");
    tab->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
@@ -1378,7 +1385,10 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
 }
 
 void gtk_chat_room_add(const char *room) {
-   gtk_chat_tab_add(room, false);
+   /* IRC NOTICE/ACTION and diagnostic paths can ensure a nick tab through
+    * room_add. Only actual channels own rosters on an IRC connection. */
+   bool query = ws_conn && !ws_conn->is_ws && room && room[0] != '#' && room[0] != '&';
+   gtk_chat_tab_add(room, query);
 }
 
 void gtk_chat_query_add(const char *user) {
@@ -1469,10 +1479,23 @@ bool chat_init(void) {
       status_room_tab->view = chat_textview;
       status_room_tab->entry = chat_entry;
    }
-   g_signal_connect(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
+   g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();
 
    return false;
+}
+
+static void gtk_chat_parse_origin(void *message) {
+   parse_chat_input_real(message);
+}
+
+struct gtk_chat_input_check {
+   const char *text;
+   bool blocked;
+};
+static void gtk_chat_check_origin(void *data) {
+   struct gtk_chat_input_check *check = data;
+   check->blocked = rrclient_chat_input_blocked(check->text);
 }
 
 bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
@@ -1482,9 +1505,17 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
       rrclient_connection_select(profile);
    }
    const gchar *text = gtk_entry_get_text(GTK_ENTRY(entry));
+   const char *entry_room = g_object_get_data(G_OBJECT(entry), "rr-room-name");
+   rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : rrclient_active_connection();
+   struct gtk_chat_input_check check = {.text = text};
+   if (entry_room) {
+      rrclient_input_dispatch(connection, *entry_room ? entry_room : NULL, gtk_chat_check_origin, &check);
+   } else {
+      gtk_chat_check_origin(&check);
+   }
 
-   if (rrclient_chat_input_blocked(text)) {
-      ui_print(gtk_chat_current_room(), "Room is OFFLINE; draft retained");
+   if (check.blocked) {
+      ui_print(entry_room ? entry_room : gtk_chat_current_room(), "Room is OFFLINE; draft retained");
 
       return true;
    }
@@ -1509,7 +1540,15 @@ bool parse_chat_input_gtk(GtkButton *button, gpointer entry) {
       gtk_entry_set_text(GTK_ENTRY(entry), "");
       g_object_set_data(G_OBJECT(entry), "rr-color-active", NULL);
       gtk_popover_popdown(GTK_POPOVER(g_object_get_data(G_OBJECT(entry), "rr-color-popover")));
-      parse_chat_input_real(message);
+      /* The entry owns the destination. Focus, incoming traffic and notebook
+       * reordering may change the selected page while its callback runs. */
+      char *room = g_strdup(entry_room);
+      if (entry_room) {
+         rrclient_input_dispatch(connection, room && *room ? room : NULL, gtk_chat_parse_origin, message);
+      } else {
+         parse_chat_input_real(message);
+      }
+      g_free(room);
       g_free(message);
    }
 
