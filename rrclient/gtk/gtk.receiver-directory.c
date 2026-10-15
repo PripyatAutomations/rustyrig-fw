@@ -1,14 +1,16 @@
 // GTK presentation only; directory fetching, validation and persistence are common.
 #include <gtk/gtk.h>
 #include <rrclient/receiver.directory.h>
+#include <rrclient/receiver.connect.h>
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
 
 static GtkWidget *directory_window, *search_entry, *accessible_only, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
+static GtkWidget *connect_button, *add_button;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
-static rr_event_token_t directory_token, show_token;
+static rr_event_token_t directory_token, show_token, connection_token;
 enum { COL_INDEX, COL_NAME, COL_LOCATION, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_COUNT };
 
 static const char *api_policy(const receiver_directory_entry_t *r) {
@@ -40,6 +42,8 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    char *config = receiver_directory_bridge_config(r);
    gtk_widget_set_sensitive(config_button, config != NULL);
    gtk_widget_set_sensitive(url_button, r != NULL);
+   gtk_widget_set_sensitive(connect_button, r && receiver_directory_entry_accessible(r));
+   gtk_widget_set_sensitive(add_button, r && receiver_directory_entry_accessible(r));
    g_free(config);
    GDateTime *date = r && r->state_updated > 0 ? g_date_time_new_from_unix_local(r->state_updated) : NULL;
    char *stamp = date ? g_date_time_format(date, "%Y-%m-%d %H:%M:%S %Z") : g_strdup("No local report");
@@ -133,6 +137,15 @@ static void import_clicked(GtkButton *button, gpointer unused) {
    }
    gtk_widget_destroy(chooser);
 }
+static void connect_clicked(GtkButton *button, gpointer save) {
+   (void)button;
+   const receiver_directory_entry_t *r = selected_receiver();
+   if (r) rrclient_receiver_connect(r->url, GPOINTER_TO_INT(save));
+}
+static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)connection; (void)unused;
+   if (directory_window && data) gtk_label_set_text(GTK_LABEL(directory_status), data);
+}
 static void copy_clicked(GtkButton *button, gpointer config) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -201,6 +214,14 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_box_pack_start(GTK_BOX(box), directory_status, FALSE, FALSE, 0);
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
+   connect_button = gtk_button_new_with_label("Connect");
+   add_button = gtk_button_new_with_label("Add to server config");
+   gtk_widget_set_tooltip_text(connect_button, "Use the selected RustyRig server: websdr.listen for configured receivers, websdr.connect for temporary receivers");
+   gtk_widget_set_tooltip_text(add_button, "Add this receiver to the selected server's configuration; requires websdr.admin");
+   gtk_box_pack_start(GTK_BOX(buttons), connect_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), add_button, FALSE, FALSE, 0);
+   g_signal_connect(connect_button, "clicked", G_CALLBACK(connect_clicked), NULL);
+   g_signal_connect(add_button, "clicked", G_CALLBACK(connect_clicked), GINT_TO_POINTER(1));
    refresh_button = gtk_button_new_with_label("Refresh list");
    GtkWidget *import = gtk_button_new_with_label("Import JSON…");
    url_button = gtk_button_new_with_label("Copy URL");
@@ -230,10 +251,13 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    receiver_directory_refresh(); // The common service enforces its cache/cooldown.
 }
 void gtk_receiver_directory_init(void) {
+   connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
    directory_token = event_on_token("client.receiver-directory.changed", directory_changed, NULL);
    show_token = event_on_token("client.receiver-directory.show", show_directory, NULL);
 }
 void gtk_receiver_directory_shutdown(void) {
+   if (connection_token) event_off_token(connection_token);
+   connection_token = NULL;
    if (directory_token) event_off_token(directory_token);
    if (show_token) event_off_token(show_token);
    directory_token = show_token = 0;

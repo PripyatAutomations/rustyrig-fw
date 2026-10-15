@@ -49,6 +49,7 @@ extern defconfig_t defcfg[];
 #include <rrclient/media.h>
 #include <rrclient/frontend.h>
 #include <rrclient/receiver.directory.h>
+#include <rrclient/receiver.connect.h>
 #include <rrclient/rooms.h>
 #include <rrclient/dcc.h>
 #include <rrclient/media.direct.h>
@@ -408,6 +409,7 @@ bool rrclient_cleanup(void) {
       return true;
    }
    cleaned_up = true;
+   rrclient_exec_shutdown();
    rrclient_quit_servers("Client exiting");
    rrclient_flush_quit();
    tui_set_completion_handler(NULL);
@@ -423,6 +425,7 @@ bool rrclient_cleanup(void) {
       frontend_module = NULL;
    }
 
+   rrclient_receiver_connect_shutdown();
    receiver_directory_shutdown();
 
    // Stop all fwdsp children while their Mongoose wrappers and logging are
@@ -731,6 +734,7 @@ int main(int argc, char *argv[]) {
 
    // Register all of our core event handlers
    rrclient_register_events();
+   rrclient_receiver_connect_init();
    webcam_client_register_events();
    connman_register_events();
 

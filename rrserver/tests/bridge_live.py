@@ -120,9 +120,11 @@ with (work / 'console.log').open('w') as console:
         client.send({'msg': {'type': 'object'}, 'object': {'cmd': 'snapshot'}, 'request': {'id': 'bridge-discovery'}})
         until(lambda m: m.get('object', {}).get('cmd') == 'end')
         rigs = {o['alias']: uuid for uuid, o in objects.items() if o['type'] == 'rig'}
-        assert set(rigs) == {'rig0', 'rig3', 'hf-east', 'hf-west', 'kiwi'}, rigs
+        assert set(rigs) == {'rig0', 'rig1', 'rig2', 'rig3', 'rig4'}, rigs
+        assert all(o['room'].endswith('-' + o['alias']) for o in objects.values() if o['type'] == 'rig')
+        named = {o['name']: uuid for uuid, o in objects.items() if o['type'] == 'rig'}
         vfos = {o['owner']: uuid for uuid, o in objects.items() if o['type'] == 'vfo'}
-        east, west, kiwi = (rigs[name] for name in ('hf-east', 'hf-west', 'kiwi'))
+        east, west, kiwi = (named[name] for name in ('hf-east', 'hf-west', 'kiwi'))
         a = vfos[east]
         assert len({objects[uuid]['room'] for uuid in rigs.values()}) == len(rigs), 'bridge room collision'
         assert objects[east]['backend'] == 'bridge'

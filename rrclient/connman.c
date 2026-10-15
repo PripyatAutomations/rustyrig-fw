@@ -169,13 +169,13 @@ void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *
    client_server_t *target = NULL;
 
    for (client_server_t *s = servers ; s ; s = s->next) {
-      if (s->connection == connection) {
+      if (connection && s->connection == connection) {
          target = s;
          break;
       }
    }
 
-   if (!target) {
+   if (!target && connection) {
       callback(data);
 
       return;

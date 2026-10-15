@@ -6,7 +6,7 @@ rrclient := bin/rrclient
 rrclient_objs += objects.o objects.events.o
 bins += ${rrclient}
 
-rrclient_objs += receiver.directory.o
+rrclient_objs += receiver.directory.o receiver.connect.o
 rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
@@ -19,6 +19,7 @@ rrclient_objs += cat.yaesu.o
 rrclient_objs += cfg.network.o          # network config for embedded hosts
 rrclient_objs += chat.whois.o
 rrclient_objs += cmd.completion.o
+rrclient_objs += cmd.exec.o
 rrclient_objs += cmd.o
 rrclient_objs += cmd.admin.o		# Server control tasks
 rrclient_objs += cmd.chat.o		# chat commands
@@ -58,6 +59,7 @@ bins += ${gtk_module}
 
 gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
 gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
+gtk_module_objs += gtk/gtk.resources.o
 gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browser
 gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab

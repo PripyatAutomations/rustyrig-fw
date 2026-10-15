@@ -28,7 +28,7 @@ extern time_t now;
 
 #define GPS_SOURCES_MAX 33
 struct gps_source {
-   char alias[64];
+   char alias[64], config_alias[64];
    struct rr_mediachan *channel, *nmea_channel;
    bool own_input, fixed, published, received, valid, manual;
    int32_t lat, lon;            // degrees * 10^7
@@ -112,7 +112,7 @@ bool rrserver_gps_position_parse(const char *text, int32_t *lat, int32_t *lon) {
 
 static struct gps_source *find(const char *alias) {
    for (unsigned i = 0 ; i < count ; i++) {
-      if (!strcmp(sources[i].alias, alias)) {
+      if (!strcmp(sources[i].alias, alias) || (sources[i].config_alias[0] && !strcmp(sources[i].config_alias, alias))) {
          return &sources[i];
       }
    }
@@ -120,6 +120,10 @@ static struct gps_source *find(const char *alias) {
    return NULL;
 }
 
+const char *rrserver_gps_public_scope(const char *alias) {
+   struct gps_source *source = alias ? find(alias) : NULL;
+   return source ? source->alias : alias;
+}
 static const struct gps_source *effective(const struct gps_source *source) {
    if (source == sources || source->own_input || source->fixed || source->received) {
       return source;
@@ -365,7 +369,7 @@ static bool configure_source(struct gps_source *source, const char *position) {
    char *value;
    int rank = 0;
    char target[96];
-   snprintf(target, sizeof(target), "%s.gps-in", source->alias);
+   snprintf(target, sizeof(target), "%s.gps-in", source->config_alias[0] ? source->config_alias : source->alias);
    while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
       if (!key || strncmp(key, "serial.", 7) || !value) {
          continue;
@@ -379,7 +383,7 @@ static bool configure_source(struct gps_source *source, const char *position) {
    }
    const char *gpsd = cfg_get("gpsd.target");
 
-   if (gpsd && !strcmp(gpsd, source->alias) && cfg_get("module:rrserver-gpsd.options")) {
+   if (gpsd && (!strcmp(gpsd, source->alias) || !strcmp(gpsd, source->config_alias)) && cfg_get("module:rrserver-gpsd.options")) {
       source->own_input = true;
    }
 
@@ -393,12 +397,14 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
    }
    struct gps_source *source = &sources[count++];
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
-   snprintf(source->alias, sizeof(source->alias), "%s", alias);
+   snprintf(source->config_alias, sizeof(source->config_alias), "%s", alias);
+   const char *public = rr_rig_registry_public_alias(rig.rigs, radio);
+   snprintf(source->alias, sizeof(source->alias), "%s", public);
    source->channel = media_chan_add(RR_BINFRAME_SUBSYS_MODEM, RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, rr_rig_registry_media_index(rig.rigs, radio),
       RR_GPS_FRAME_CODEC, "Rig GPS position");
 
    if (source->channel) {
-      snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", alias);
+      snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", public);
       snprintf(source->channel->room, sizeof(source->channel->room), "%s", rr_rig_registry_room(rig.rigs, radio));
       snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s", rr_server_rig_id(radio));
    }

@@ -124,8 +124,8 @@ with (work / 'console.log').open('w') as console:
         client.send({'msg': {'type': 'object'}, 'object': {'cmd': 'snapshot'}, 'request': {'id': 'kiwi-discovery'}})
         until(lambda m: m.get('object', {}).get('cmd') == 'end')
         rigs = {o['alias']: uuid for uuid, o in objects.items() if o['type'] == 'rig'}
-        assert set(rigs) == {'receiver'}, rigs
-        radio = rigs['receiver']
+        assert set(rigs) == {'rig0'}, rigs
+        radio = rigs['rig0']
         a = next(uuid for uuid,o in objects.items() if o['type'] == 'vfo' and o['owner'] == radio)
         assert not states[radio, 'online'].get('value'), 'receiver connected without demand'
         assert states[radio, 'capabilities.source']['value'] == 'configured'
@@ -140,7 +140,7 @@ with (work / 'console.log').open('w') as console:
         outsider.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': 'VIEWER', 'pass': password, 'token': challenge['token']}})
         outsider.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
         outsider.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': objects[radio]['room']}})
-        denied = outsider.until(lambda m: 'bridge.use' in str(m))
+        denied = outsider.until(lambda m: 'websdr.listen' in str(m))
         assert denied
         outsider.socket.close()
         if fixture: assert fixture.connections == 0, 'unauthorized RX user started Kiwi'

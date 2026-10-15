@@ -22,6 +22,7 @@
 #include <librrprotocol/objects.h>
 #include <rrserver/serial.h>
 #include <rrserver/discovery.h>
+#include <rrserver/gps.h>
 
 #define SERIAL_PORTS_MAX 32
 
@@ -429,7 +430,7 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
       for (unsigned i = 0 ; i < count ; i++) {
          struct serial_export *p = &exports[i];
 
-         if (p->service != 2 || p->fd < 0 || strcmp(p->gps_scope, scope)) {
+         if (p->service != 2 || p->fd < 0 || strcmp(rrserver_gps_public_scope(p->gps_scope), scope)) {
             continue;
          }
 
@@ -614,7 +615,7 @@ static void inventory_serial(const char *event, const char *data, rrconn_t *clie
    for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
 
-      if (strcmp(scope, p->service ? p->gps_scope : "station") || !allowed(client, p)) {
+      if (strcmp(scope, p->service ? rrserver_gps_public_scope(p->gps_scope) : "station") || !allowed(client, p)) {
          continue;
       }
       dict *row = rr_inventory_row(dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1), "serial", p->name, NULL);

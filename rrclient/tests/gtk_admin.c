@@ -84,6 +84,10 @@ int main(int argc, char **argv) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
    init_admin_tab();
+   const char *titles[] = {"UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"};
+   for (unsigned i = 0; i < 9; i++) {
+      assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(tables[0].tree), i)), titles[i]));
+   }
    gtk_widget_show_all(main_window);
    admin_refresh(NULL, &tables[0]);
    result("users", "begin", "{\"append\":false}");
@@ -93,6 +97,28 @@ int main(int argc, char **argv) {
    assert(gtk_widget_get_sensitive(tables[0].older));
    GtkTreeIter iter;
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(tables[0].store), &iter));
+   GtkCellRenderer *flag = gtk_cell_renderer_toggle_new();
+   g_object_ref_sink(flag);
+   admin_user_cell(NULL, flag, GTK_TREE_MODEL(tables[0].store), &iter, GINT_TO_POINTER(1));
+   gboolean active, editable;
+   g_object_get(flag, "active", &active, "activatable", &editable, NULL);
+   assert(!active && !editable);
+   g_object_unref(flag);
+   GtkCellRenderer *stamp = gtk_cell_renderer_text_new();
+   g_object_ref_sink(stamp);
+   char past[32];
+   snprintf(past, sizeof(past), "%lld", (long long)time(NULL) - 90061);
+   gtk_list_store_set(tables[0].store, &iter, 5, past, -1);
+   admin_user_cell(NULL, stamp, GTK_TREE_MODEL(tables[0].store), &iter, GINT_TO_POINTER(5));
+   char *display;
+   g_object_get(stamp, "text", &display, NULL);
+   assert(strstr(display, "ago") && strstr(display, "1d"));
+   g_free(display);
+   admin_user_cell(NULL, stamp, GTK_TREE_MODEL(tables[0].store), &iter, GINT_TO_POINTER(6));
+   g_object_get(stamp, "text", &display, NULL);
+   assert(!strcmp(display, "Never"));
+   g_free(display);
+   g_object_unref(stamp);
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tables[0].tree)), &iter);
    warning = NULL;
    response = GTK_RESPONSE_OK;

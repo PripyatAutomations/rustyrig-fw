@@ -20,12 +20,30 @@ observations; they do not probe the receiver. Reports remain separate from the
 published offline flag and external API policy. Clearing a report cannot
 permit a receiver whose operator disabled external API access.
 
-**Copy URL** copies the published endpoint. **Copy bridge config** is available
-only for API-eligible entries with a URL the current bridge driver supports.
-It creates a configuration snippet with published frequency coverage as offline
-hints; paste it into rrserver's configuration and explicitly add its instance.
-It does not configure a remote server, start a bridge, or open an audio stream.
-Existing demand-driven bridge activation remains authoritative.
+**Connect** requests the selected endpoint through the currently selected,
+authenticated RustyRig server. The server reuses an existing matching bridge or
+creates a temporary RX-only rig, then the client joins its room. Creating the
+rig does not contact the receiver; joining/subscribing supplies demand. Leaving
+the room or disconnecting releases the receiver when nobody else needs it.
+Temporary rigs expire after sixty seconds without demand, with a default cap of
+eight (`websdr.max-temporary`). `websdr.idle-timeout` sets unused rig lifetime
+in seconds (1–3600, default 60). Idle source connections are released promptly;
+this timeout controls removal of the temporary rig descriptor. Room history
+remains ordinary chat history.
+
+**Add to server config** requires `websdr.admin`. The server appends the validated
+bridge section and roster entry atomically to its main configuration file.
+The receiver is then available to `websdr.listen` users, including after restart.
+Saving does not join the room or open audio. **Copy URL** and **Copy bridge
+config** remain available for manual configuration; directory coverage fields
+are hints, while the connected driver's capabilities remain authoritative.
+
+TUI users can run `/receivers connect <URL>` or `/receivers add <URL>` using a
+listed, API-permitted endpoint or an explicit URL outside the cache. Known
+directory restrictions remain enforced. The browser supports explicit URL actions
+through its connected server, without a local directory cache or import dialog.
+Only Kiwi HTTP endpoints are currently supported; endpoint parsing belongs to
+the driver provider, while privileges and lifecycle use generic WebSDR names.
 
 ## Fetching and caching
 
@@ -111,19 +129,22 @@ permissions:
 
 | Flag | Scope |
 |---|---|
-| `bridge.use` | Join/use station-configured receiver bridges. |
-| `bridge.admin` | Bridge administration entitlement; also permits configured bridge use. It does not grant general station administration. |
-| `kiwi.connect` | Entitlement for future selection of arbitrary listed API-permitted Kiwis; independent of private configured bridge use and bridge administration. |
+| `websdr.listen` | Listen to enabled receivers from the server's configured bridge roster. |
+| `websdr.connect` | Connect to any supported endpoint through a temporary server rig; also permits configured receivers. |
+| `websdr.admin` | Add a receiver to the server configuration; does not itself grant listening or ad hoc connection. |
+| `bridge.use` / `bridge.admin` | Retained configured-bridge access compatibility. |
 
-Owners/general administrators retain bridge access. `bridge.admin`,
-`kiwi.connect`, and wildcard grants covering them are owner-controlled through
+Owners/general administrators retain access. `websdr.connect`, `websdr.admin`,
+`bridge.admin`, and wildcard grants covering them are owner-controlled through
 existing account administration. For example:
-`/user privs alice add bridge.use`.
+`/user privs alice add websdr.listen`.
+The provisional `kiwi.connect` flag is replaced by `websdr.connect`; existing
+accounts using it need an explicit owner grant of the generic flag.
 
 Configured bridge permission is enforced at room JOIN and at media membership,
 subscription, codec selection, demand and fanout, including direct RTP. Existing
-sessions lose media access when their bridge entitlement is removed. Neither
-privilege grants nor directory selection override operator API restrictions.
+sessions lose media access when their bridge entitlement is removed. Directory selection respects published operator API restrictions; the receiver
+continues to enforce its external API allowance for explicit connections.
 
 This browser does not yet expose remote bridge creation/editing or an arbitrary
 public-Kiwi connection request. The separate administration/public-selection

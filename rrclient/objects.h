@@ -7,6 +7,12 @@
 #ifndef RR_CLIENT_OBJECTS_H
 #define RR_CLIENT_OBJECTS_H
 #include <librrprotocol/objects.h>
+/* Frontends may claim a resource view; common commands retain text fallback. */
+#define RRCLIENT_RESOURCE_VIEW_EVENT "client.resources.show"
+typedef struct {
+   const char *kind, *request;
+   bool handled;
+} rrclient_resource_view_t;
 typedef struct rr_object_cache rr_object_cache_t;
 rr_object_cache_t *rr_object_cache_new(void);
 void rr_object_cache_free(rr_object_cache_t *cache);

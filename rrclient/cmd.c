@@ -159,11 +159,14 @@ client_cmd_t client_cmds[] = {
       .desc = "Media channels: DIRECT [on|off|status] | LIST | SUBSCRIBE [-direct|-proxy] <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>"
    },
    {
+      .cmd = "exec", .help_section = "Client", .cb = cmd_exec, .desc = "Local shell: [-o send stdout|-e parse stdout] <command>; -stop [id|all] (default all)"
+   },
+   {
       .cmd = "webcam", .help_section = "Media", .max_args = 1, .cb = cmd_webcam,
       .desc = "Show or hide the webcam viewer"
    },
    {
-      .cmd = "object", .help_section = "Radio and discovery", .cb = cmd_object, .desc = "Inspect objects: /object [rig0|rig0.A|uuid]"
+      .cmd = "object", .help_section = "Radio and discovery", .cb = cmd_object, .desc = "Resource tree; /object <rig0|rig0.A|uuid> inspects cached properties"
    },
    {
       .cmd = "qrz", .help_section = "Radio and discovery", .cb = cmd_qrz, .max_args = 1, .desc = "Look up a callsign"
@@ -176,7 +179,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "rxcodec", .help_section = "Media", .cb = cmd_rxcodec, .max_args = 3, .desc = "RX codecs: [LIST | <codec>|NONE [uuid|#number]]"
    },
    {
-      .cmd = "receivers", .help_section = "Radio and discovery", .cb = cmd_receivers, .max_args = 2, .desc = "Receiver directory: [refresh | import <JSON file>]"
+      .cmd = "receivers", .help_section = "Radio and discovery", .cb = cmd_receivers, .max_args = 2, .desc = "Receiver directory: [refresh | import <JSON> | connect <URL> | add <URL>]"
    },
    {
       .cmd = "rxroute", .help_section = "Media", .cb = cmd_rxroute, .max_args = 1, .desc = "Route room RX audio: L | R | S (both ears) | M"
@@ -265,7 +268,7 @@ client_cmd_t client_cmds[] = {
 
 
 
-bool parse_chat_input_real(const char *msg) {
+static bool parse_chat_input(const char *msg, bool commands) {
    /* Selecting a TUI conversation selects its server before any command. */
    (void)ui_active_window_name();
 
@@ -277,13 +280,13 @@ bool parse_chat_input_real(const char *msg) {
       return true;
    }
 
-   if (rrclient_chat_input_blocked(msg)) {
+   if (rrclient_chat_input_blocked(commands ? msg : "text")) {
       ui_print(ui_active_window_name(), "Room is OFFLINE; message not sent");
 
       return true;
    }
 
-   if (msg[0] == '/') {
+   if (commands && msg[0] == '/') {
 
       if (!msg[1]) {
          return true;
@@ -446,39 +449,15 @@ bool parse_chat_input_real(const char *msg) {
       dict_add(d, "talk.data", msg);
       dict_add(d, "talk.msg_type", "pub");
 
-      if (frontend_ops()) {
-         /* Frontend chat tabs represent rooms.  Include the selected tab's room so side-room messages are delivered there instead of defaulting to the
-          * authoritative rig room on the server. */
-         const char *room = frontend_ops()->chat_current_room();
-
-         if (room && room[0]) {
-            dict_add(d, "talk.target", room);
-
-            if (room[0] != '#' && room[0] != '&') {
-               dict_add(d, "talk.msg_type", "priv");
-            }
-         }
+      /* PARITY: rustyrig-www/js/webui.chat.js chat_send_command uses the issuing room. */
+      if (active_room && *active_room && strcasecmp(active_room, "status")) {
+         dict_add(d, "talk.target", active_room);
+         if (active_room[0] != '#' && active_room[0] != '&') dict_add(d, "talk.msg_type", "priv");
       } else if (ui_mode == UI_MODE_TUI) {
-         /* TUI windows represent both rooms and private conversations.  The status window is the client log, so target the authoritative room when it is
-          * active. */
-         tui_window_t *window = tui_active_window();
-
-         if (window && window->title[0] && strcasecmp(window->title, "status") != 0) {
-            dict_add(d, "talk.target", rrclient_window_room(window->title));
-
-            if (window->title[0] != '#' && window->title[0] != '&') {
-               dict_add(d, "talk.msg_type", "priv");
-            }
-         } else if (cfg_get_bool("tui.status-chat", false)) {
-            const char *room = ws_authoritative_room();
-
-            if (room && *room) {
-               dict_add(d, "talk.target", room);
-            }
-         } else {
+         if (cfg_get_bool("tui.status-chat", false)) dict_add(d, "talk.target", ws_authoritative_room());
+         else {
             ui_print(ui_active_window_name(), "\00308Select a room tab before sending a message (status is for client logs and commands)\017");
             dict_free(d);
-
             return false;
          }
       }
@@ -491,3 +470,6 @@ bool parse_chat_input_real(const char *msg) {
 
    return false;
 }
+
+bool parse_chat_input_real(const char *msg) { return parse_chat_input(msg, true); }
+bool parse_chat_input_text(const char *msg) { return parse_chat_input(msg, false); }

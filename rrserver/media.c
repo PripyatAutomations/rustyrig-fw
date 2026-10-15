@@ -75,14 +75,15 @@ bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
          continue;
       }
 
-      if (ws_media_channel_has_subscribers(channel)) {
-         return true;
-      }
-
+      /* Joined local users already constitute demand. Avoid a second policy
+       * check and a relay query for every channel on every server poll. */
       for (rrconn_t *client = http_client_list ; client ; client = client->next) {
-         if (client->conn && client->is_ws && client->authenticated && !client->is_server && (!rrserver_bridge_rig(radio) || rrserver_bridge_can_use(client)) && media_client_in_channel_room(client, channel)) {
+         if (client->conn && client->is_ws && client->authenticated && !client->is_server && media_client_in_channel_room(client, channel)) {
             return true;
          }
+      }
+      if (ws_media_channel_has_subscribers(channel)) {
+         return true;
       }
    }
 
@@ -390,7 +391,7 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    if (!rr_server_vfo_native_index(vfo, &index) || !rr_backend_vfo_supported(ctx->radio, vfo)) {
       return false;
    }
-   const char *alias = rr_rig_registry_alias(rig.rigs, ctx->radio);
+   const char *alias = rr_rig_registry_public_alias(rig.rigs, ctx->radio);
    const char *room = rr_rig_registry_room(rig.rigs, ctx->radio);
 
    if (!room) {
@@ -449,6 +450,11 @@ static bool media_setup_rig(rr_server_rig_t *radio, void *user) {
    *made += ctx.made;
 
    return failed;
+}
+
+bool rrserver_media_add_rig(rr_server_rig_t *radio) {
+   int made = 0;
+   return media_setup_rig(radio, &made);
 }
 
 bool rrserver_media_init(void) {

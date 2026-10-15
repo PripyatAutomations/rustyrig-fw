@@ -25,6 +25,9 @@ extern bool rr_rig_registry_remove(rr_rig_registry_t *registry, const char *uuid
 extern rr_server_rig_t *rr_rig_registry_find_uuid(const rr_rig_registry_t *registry, const char *uuid);
 extern rr_server_rig_t *rr_rig_registry_find_alias(const rr_rig_registry_t *registry, const char *alias);
 extern rr_server_vfo_t *rr_rig_registry_find_vfo_uuid(const rr_rig_registry_t *registry, const char *uuid);
+/* Configuration identity stays descriptive; public names follow the wire rig index. */
+extern const char *rr_rig_registry_public_alias(const rr_rig_registry_t *, const rr_server_rig_t *);
+extern rr_server_rig_t *rr_rig_registry_find_public_alias(const rr_rig_registry_t *, const char *);
 extern const char *rr_rig_registry_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio);
 extern size_t rr_rig_registry_count(const rr_rig_registry_t *registry);
 extern bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_fn callback, void *user);

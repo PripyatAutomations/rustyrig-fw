@@ -461,11 +461,12 @@ static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
 }
 static bool collect_rig(rr_server_rig_t *radio, void *user) {
    (void)user;
-   add_object(rr_server_rig_id(radio), "rig", rrserver_links_node(), rr_rig_registry_alias(rig.rigs, radio), rr_rig_registry_room(rig.rigs, radio));
+   add_object(rr_server_rig_id(radio), "rig", rrserver_links_node(), rr_rig_registry_public_alias(rig.rigs, radio), rr_rig_registry_room(rig.rigs, radio));
    struct catalog *c = find_catalog(rr_server_rig_id(radio));
 
    if (c) {
       dict_add(c->descriptor, "object.backend", rr_server_rig_backend(radio)->type->name);
+      dict_add(c->descriptor, "object.name", rr_server_rig_name(radio));
    }
    rr_server_vfo_foreach(radio, collect_vfo, radio);
 
@@ -1092,9 +1093,11 @@ static void media_demand(const char *event, const void *data, size_t length, rrc
    unsigned id = d->channel - media_channels + 1;
 
    for (struct remote_session *r = remotes ; r ; r = r->next) {
-      if (media_client_in_channel_room(&r->client, d->channel)
-         && chan_id_in_array(d->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels, MAX_RX_CHANNELS, id)) {
+      if (chan_id_in_array(d->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels,
+         d->channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, id)
+         && media_client_in_channel_room(&r->client, d->channel)) {
          d->interested = true;
+         return;
       }
    }
 }
@@ -1110,8 +1113,10 @@ static void media_fanout(const char *event, const void *data, size_t length, rrc
    unsigned id = f->channel - media_channels + 1;
 
    for (struct remote_session *r = remotes ; r ; r = r->next) {
-      if ((f->target && f->target != &r->client) || f->exclude == &r->client || !media_client_in_channel_room(&r->client, f->channel)
-         || !chan_id_in_array(f->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels, MAX_RX_CHANNELS, id)) {
+      if ((f->target && f->target != &r->client) || f->exclude == &r->client
+         || !chan_id_in_array(f->channel->direction == RR_BINFRAME_DIR_TX ? r->client.tx_channels : r->client.rx_channels,
+            f->channel->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, id)
+         || !media_client_in_channel_room(&r->client, f->channel)) {
          continue;
       }
       uint8_t *copy = malloc(f->length);

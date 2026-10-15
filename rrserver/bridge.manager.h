@@ -13,5 +13,7 @@ const rr_backend_type_t *rrserver_bridge_backend_type(void);
 bool rrserver_bridges_prepare(void);
 bool rrserver_bridges_start(const char *config_file);
 void rrserver_bridges_poll(void);
+bool rrserver_bridge_temporary(const struct rr_server_rig *radio);
+void rrserver_websdr_register_events(void);
 void rrserver_bridges_stop(void);
 #endif

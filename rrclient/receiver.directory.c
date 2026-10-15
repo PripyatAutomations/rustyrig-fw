@@ -673,3 +673,15 @@ void receiver_directory_shutdown(void) {
    if (cache_db) { sqlite3_close(cache_db); cache_db = NULL; }
    next_request = 0; initialized = false;
 }
+
+const receiver_directory_entry_t *receiver_directory_find_url(const char *url) {
+   ensure();
+   char *normalized = canonical_url(url);
+   const receiver_directory_entry_t *found = NULL;
+   for (size_t i = 0; normalized && i < receiver_directory_count(); i++) {
+      const receiver_directory_entry_t *receiver = receiver_directory_receiver(i);
+      if (!strcmp(receiver->url, normalized)) { found = receiver; break; }
+   }
+   g_free(normalized);
+   return found;
+}

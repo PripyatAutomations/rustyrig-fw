@@ -34,6 +34,8 @@ extern const char *ui_active_window_name(void);
 /* Protocol and room associated with the active conversation tab. */
 extern rrconn_t *rrclient_active_connection(void);
 extern const char *rrclient_active_room(void);
+/* Synchronous input context for asynchronous producers; does not focus a tab. */
+void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback)(void *), void *data);
 extern void ui_message_bell(void);
 extern void ui_message_notify(const char *title, const char *message);
 extern void show_server_chooser(void);

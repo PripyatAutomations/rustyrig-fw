@@ -645,8 +645,9 @@ not provisioned for these receivers. See [External receiver bridges](rrbridge.md
 
 The native GTK Receiver Directory and `/receivers` use a local SQLite cache
 and explicit configurable mirror/import source. This native filesystem/dialog
-integration is frontend-specific; the browser has no directory fetch or bridge
-creation control. No shared wire command was added. Kiwi is the first provider;
+integration is frontend-specific; the browser has explicit receiver URL actions
+but no directory fetch/import dialog. Receiver actions extend the existing
+admin envelope without adding a wire operation. Kiwi is the first provider;
 other WebSDR types require their own parser and operator policy.
 
 Read-only `receiver.*` rig properties carry learned metadata through the existing
@@ -656,8 +657,9 @@ never overwrite live learned fields. Missing/offline records and local failures
 are separate, and missing records are purged after ninety days without a listing
 or live observation. Server bridge-use admission and media access apply equally
 to native/browser clients, including entitlement revocation. `bridge.admin` and
-`kiwi.connect` are separate policy checks for future bridge-management/public
-selection operations; no arbitrary endpoint connection request is exposed.
+`websdr.listen`, `websdr.connect` and `websdr.admin` enforce configured listening,
+ad hoc temporary receiver creation and configuration persistence separately.
+Native and browser `/receivers connect|add <URL>` use the same server checks.
 See [Receiver Directory](receiver-directory.md).
 
 GTK opens the Receiver Directory with Alt-Z (also documented in `/help`);
@@ -666,3 +668,32 @@ rather than tab-strip selectors; browser room controls and `/rxroute` remain.
 Native playback follows absolute monotonic 20 ms deadlines with bounded
 100 ms catch-up after late dispatch; browser playback uses its audio clock.
 The default negotiated transport preference is Opus with supported fallbacks.
+
+
+GTK `/object`, `/rig` and `/gps` lists open resource tree windows. TUI and browser
+commands retain text trees. `/object` without a target now requests complete
+fresh inventory; `/object <symbol|uuid>` retains cached property inspection.
+Rig trees include media, room and CAT rows. GTK Join/Subscribe/Unsubscribe buttons
+use the originating server connection and existing common command handlers.
+Listings never change subscriptions or wake idle receivers themselves.
+
+GTK Admin Users column order, compact rows, read-only flag indicators and relative
+password timestamps are frontend presentation. Raw server field names/values
+remain in the model and account edit requests; the browser admin editor retains
+its existing presentation and the same account fields and permission checks.
+
+
+Public rig symbols use `rigN`, with N matching the server's media rig index.
+Descriptive configuration aliases remain internal identities for settings and
+UUID persistence. Object descriptors, inventory/CAT/GPS names, media channel
+names and rig rooms use the public symbol, so native/browser controls and linked
+station catalogs agree. Explicit numeric configuration aliases retain matching
+slots where available; runtime receivers use a free slot without renumbering
+existing rigs. Human-readable object names remain descriptive labels.
+
+
+Native `/exec` runs local shell commands asynchronously using the shared
+subprocess helper. `-o` sends literal stdout and `-e` uses the input parser in
+the originating server/tab context; stderr stays local. This operating-system
+feature has no browser equivalent or new protocol operation. See
+[Native client shell commands](client-exec.md).

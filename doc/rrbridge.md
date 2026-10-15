@@ -267,3 +267,18 @@ Native clients merge confirmed observations into their generic Receiver Director
 with live-over-directory precedence. Offline server discovery restores cached
 metadata without starting a bridge. See [Receiver Directory](receiver-directory.md)
 for source etiquette, local status flags, permissions and ninety-day retirement.
+
+## Explicit WebSDR selection
+
+The Receiver Directory can request a temporary RX-only rig from the selected
+server. `websdr.listen` covers configured bridges; `websdr.connect` permits ad hoc
+receivers; `websdr.admin` permits saving a validated receiver to the main server
+configuration. These roles are independent and provider-neutral. See
+[Receiver Directory](receiver-directory.md) for policy, limits and lifecycle.
+
+The request uses the existing `chat.admin` envelope with `action=websdr-connect`
+or `websdr-add`, and JSON `data` containing `request`, `driver`, and `url`.
+A `websdr-result` reply echoes `request` and supplies `room` or `error`. The client
+joins only after a successful connect result; saving never joins. Server routing
+claims only these actions and enforces their own privileges before creating or
+saving anything. Other admin actions retain their existing station-admin gate.

@@ -2,6 +2,7 @@
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
+#include <librustyaxe/util.time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
@@ -47,6 +48,32 @@ static admin_table_t tables[] = {
       }
    }
 };
+
+/* Keep raw server fields in the model for account editing. Formatting and
+ * display order belong only to the GTK view. */
+static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+   GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)column;
+   int field = GPOINTER_TO_INT(data);
+   char *raw = NULL;
+   gtk_tree_model_get(model, iter, field, &raw, -1);
+   if (field == 1 || field == 7) {
+      g_object_set(renderer, "active", raw && (!strcmp(raw, "1") || !strcasecmp(raw, "true")), "activatable", FALSE, NULL);
+   } else {
+      time_t stamp = raw ? strtoll(raw, NULL, 10) : 0;
+      time_t current = time(NULL);
+      char *duration = stamp > 0 ? time_t2dhms(field == 5 ? (current > stamp ? current - stamp : 0) : (stamp > current ? stamp - current : 0)) : NULL;
+      char *text = duration ? g_strdup_printf(field == 5 ? "%s ago" : "%s", duration) : g_strdup("Never");
+      if (field == 6 && stamp > 0 && stamp <= current) {
+         g_free(text);
+         text = g_strdup("Expired");
+      }
+      g_object_set(renderer, "text", text, NULL);
+      free(duration);
+      g_free(text);
+   }
+   g_free(raw);
+}
 
 static bool admin_command(admin_table_t *table, const char *command, const char *tail, const char *target) {
    rrconn_t *connection = rrclient_connection_find(table->profile);
@@ -318,9 +345,22 @@ GtkWidget *init_admin_tab(void) {
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       table->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(table->store));
 
+      const int user_order[] = {8, 1, 0, 3, 4, 5, 6, 2, 7};
+      const char *user_titles[] = {"UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"};
+      bool users = !strcmp(table->name, "users");
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
-         GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-         GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(table->fields[col], renderer, "text", col, NULL);
+         int field = users ? user_order[col] : col;
+         bool flag = users && (field == 1 || field == 7);
+         GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
+         g_object_set(renderer, "ypad", 1, NULL);
+         GtkTreeViewColumn *column = gtk_tree_view_column_new();
+         gtk_tree_view_column_set_title(column, users ? user_titles[col] : table->fields[col]);
+         gtk_tree_view_column_pack_start(column, renderer, TRUE);
+         if (users && (flag || field == 5 || field == 6)) {
+            gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
+         } else {
+            gtk_tree_view_column_add_attribute(column, renderer, "text", field);
+         }
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_append_column(GTK_TREE_VIEW(table->tree), column);
       }

@@ -189,7 +189,7 @@ static void send_object(object_send_t *ctx, const char *cmd) {
    dict_add(d, "object.uuid", target(ctx));
    dict_add(d, "object.type", ctx->vfo ? "vfo" : "rig");
    dict_add(d, "object.owner", ctx->vfo ? rr_server_rig_id(ctx->radio) : rr_rig_registry_node(rig.rigs));
-   dict_add(d, "object.alias", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_rig_registry_alias(rig.rigs, ctx->radio));
+   dict_add(d, "object.alias", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_rig_registry_public_alias(rig.rigs, ctx->radio));
    dict_add(d, "object.room", rr_rig_registry_room(rig.rigs, ctx->radio));
    dict_add(d, "object.name", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_server_rig_name(ctx->radio));
    dict_add(d, "object.lifecycle", ctx->vfo && rr_server_vfo_lifecycle(ctx->vfo) == RR_VFO_EPHEMERAL ? "ephemeral" : "persistent");
@@ -387,7 +387,7 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
 }
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    object_send_t *ctx = user;
-   const char *alias = rr_rig_registry_alias(rig.rigs, radio);
+   const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
    dict *row = rr_inventory_row(ctx->request, 1, "rig", alias, rr_server_rig_id(radio));
 
    if (row) {

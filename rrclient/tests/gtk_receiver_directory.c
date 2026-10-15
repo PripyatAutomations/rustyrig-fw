@@ -3,6 +3,10 @@
 #include <rrclient/gtk/gtk.receiver-directory.c>
 time_t now = 1792080000;
 static const char *test_db;
+static unsigned connects;
+bool rrclient_receiver_connect(const char *url, bool save) {
+   assert(!strcmp(url, "http://a.invalid:8073") && !save); connects++; return true;
+}
 const char *cfg_get(const char *key) {
    return !strcmp(key, "receiver-directory.cache") ? test_db : "";
 }
@@ -30,7 +34,8 @@ int main(int argc, char **argv) {
    GtkTreeIter iter;
    assert(gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_filter), &iter));
    gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
-   assert(gtk_widget_get_sensitive(config_button));
+   assert(gtk_widget_get_sensitive(config_button) && gtk_widget_get_sensitive(connect_button));
+   connect_clicked(NULL, NULL); assert(connects == 1);
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(directory_details));
    GtkTextIter first, last;
    gtk_text_buffer_get_bounds(buffer, &first, &last);

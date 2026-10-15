@@ -51,6 +51,8 @@ int main(int argc, char **argv) {
    assert(g_file_set_contents(path, fixture, -1, NULL));
    assert(receiver_directory_import(path));
    assert(receiver_directory_count() == 6);
+   assert(receiver_directory_find_url("http://allowed.invalid:8073/") == receiver_directory_find_url("http://allowed.invalid:8073"));
+   assert(receiver_directory_find_url("http://allowed.invalid:8073/") != NULL);
    assert(receiver_directory_set_state("http://allowed.invalid:8073/", "unreachable", "Connection failed (user report)"));
    assert(!receiver_directory_entry_accessible(receiver_directory_receiver(0)));
    assert(!receiver_directory_set_state("http://allowed.invalid:8073/", "bogus", ""));

@@ -19,6 +19,7 @@ static struct inventory_request {
    char id[48], window[128];
    const char *kind;
    unsigned count;
+   bool graphical;
 } inventory_requests[INVENTORY_REQUESTS_MAX];
 
 // PARITY: rustyrig-www/js/webui.objects.js rrInventoryMessage.
@@ -44,7 +45,8 @@ static bool inventory_message(dict *d) {
    const char *window = request->window[0] ? request->window : NULL;
 
    if (!strcmp(cmd, "inventory-end")) {
-      ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
+      if (request->graphical) event_emit_dict("client.resources.row", ws_conn, d);
+      else ui_print(window, "End of %s list (%u entries).", request->kind, request->count);
       memset(request, 0, sizeof(*request));
 
       return true;
@@ -56,12 +58,18 @@ static bool inventory_message(dict *d) {
    }
    const char *kind = dict_get(d, "inventory.kind", "");
    bool parent = !strcmp(kind, "site") || !strcmp(kind, "rig");
-   bool matches_kind = parent || (!strcmp(request->kind, "gps") ? !strcmp(kind, "gps") : !strcmp(kind, "vfo"));
+   bool matches_kind = parent || !strcmp(request->kind, "object") ||
+      (!strcmp(request->kind, "gps") ? !strcmp(kind, "gps") :
+       !strcmp(kind, "vfo") || !strcmp(kind, "media") || !strcmp(kind, "room") || !strcmp(kind, "cat"));
 
    if (!matches_kind) {
       return true;
    }
    request->count++;
+   if (request->graphical) {
+      event_emit_dict("client.resources.row", ws_conn, d);
+      return true;
+   }
 
    char details[1536] = "";
    const char *keys[] = {
@@ -157,6 +165,11 @@ bool cmd_object(int argc, char **args) {
       return true;
    }
 
+   if (argc == 1) {
+      char command[] = "object";
+      char *inventory_args[] = {command};
+      return cmd_rig(1, inventory_args);
+   }
    if (!cache) {
       ui_print(window, "No object snapshot received");
    } else if (!rr_object_cache_dump_context(cache, argc == 2 ? args[1] : NULL, window, print_line, (void *)window)) {
@@ -207,9 +220,12 @@ bool cmd_rig(int argc, char **args) {
 
          return true;
       }
-      pending->kind = !strcasecmp(args[0], "gps") ? "gps" : "rig";
+      pending->kind = !strcasecmp(args[0], "gps") ? "gps" : !strcasecmp(args[0], "object") ? "object" : "rig";
       snprintf(pending->id, sizeof(pending->id), "%s", id);
       snprintf(pending->window, sizeof(pending->window), "%s", window ? window : "");
+      rrclient_resource_view_t view = {.kind = pending->kind, .request = id};
+      event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, ws_conn, &view, sizeof(view));
+      pending->graphical = view.handled;
    }
    dict_add(d, "msg.type", "object");
    dict_add(d, "object.cmd", cmd);

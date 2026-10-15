@@ -11,7 +11,8 @@
 #include <rrserver/rig.properties.h>
 bool rrserver_bridge_can_use(const rrconn_t *client);
 bool rrserver_bridge_can_admin(const rrconn_t *client);
-bool rrserver_bridge_can_select_kiwi(const rrconn_t *client);
+bool rrserver_websdr_can_connect(const rrconn_t *client);
+bool rrserver_websdr_can_admin(const rrconn_t *client);
 bool rrserver_bridge_rig(const rr_server_rig_t *radio);
 void rrserver_bridge_access_register_events(void);
 #endif

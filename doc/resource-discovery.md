@@ -1,7 +1,8 @@
 # Site resource discovery
 
 Discovery commands list their own resource types in native GTK, TUI and the
-browser. `/object [symbol|uuid]` inspects cached objects and properties;
+browser. `/object` lists the complete site inventory; `/object <symbol|uuid>`
+inspects cached objects and properties;
 `/rig` lists sites with radio and VFO subtrees; `/gps` lists GPS services; `/sercom` lists serial
 ports; `/room list` lists rooms; `/media` lists streams and refreshes discovery.
 `/rig` and `/gps` request fresh server inventory without changing subscriptions
@@ -17,7 +18,8 @@ client's existing serial interface and retain the server's control checks.
 
 | Command | Purpose |
 |---|---|
-| `/object [symbol\|uuid]` | Inspect cached objects and readable properties |
+| `/object` | Fresh complete resource tree |
+| `/object <symbol\|uuid>` | Inspect cached objects and readable properties |
 | `/rig [list]` | Fresh radio and VFO listing, including room requirements |
 | `/rig subscribe` | Snapshot and ongoing UUID object/property updates for the site |
 | `/rig unsubscribe` | Stop those property updates; does not stop media |
@@ -35,7 +37,7 @@ client's existing serial interface and retain the server's control checks.
 | `/sercom disconnect ttyHOST0` | Release the attachment and remote port |
 
 The browser can discover serial exports through `/sercom remote`, but cannot
-create local PTYs. `/object` shows readable cached objects and their properties in both clients.
+create local PTYs. `/object <symbol|uuid>` shows readable cached properties in both clients.
 `/rig subscribe` refreshes that cache after unsubscribing; ordinary login
 already subscribes to property updates.
 
@@ -159,3 +161,21 @@ their owner's room. This is descriptive metadata, not an authorization change.
 Explicit `/object <symbol|uuid>` selections and named/UUID subscriptions can
 still address resources outside the current listing. Media `#numbers` retain
 their global positions, so filtering does not retarget an existing reference.
+
+## Native resource windows
+
+GTK `/object`, `/rig` and `/gps` open independent resource trees with resource
+properties, room names and stream UUIDs. Select a row and use **Join room**,
+**Subscribe media** or **Unsubscribe media**. These actions retain the originating
+server even if another server is selected later. Room membership, media privileges
+and receiver access remain server-enforced. TUI/browser listing remains text;
+`/object <symbol|uuid>` retains its detailed cached-property output.
+
+## Rig symbols and configuration identities
+
+A configured backend such as `[rig:hf-east]` or bridge rig alias `hf-east` keeps
+that identity for settings and UUID persistence. Its public object alias is
+`rigN`, using the same index as media frames. Commands use `rigN.A`,
+`rigN.cat`, `rigN.gps.rx` and `#site-rigN`; snapshots, inventories and linked
+catalogs all publish those same names. Descriptive object names may still appear
+as explanatory labels. Do not use configuration identities as command symbols.

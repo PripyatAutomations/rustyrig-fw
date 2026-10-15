@@ -1,6 +1,7 @@
 #include <rrserver/supervision.h>
 #include <rrserver/acl.h>
 #include <rrserver/bridge.access.h>
+#include <rrserver/bridge.manager.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 #include <rrserver/usage.h>
@@ -348,7 +349,7 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
             memcpy(alias, binding, len);
             alias[len] = '\0';
 
-            if (rr_rig_registry_find_alias(rig.rigs, alias) == radio) {
+            if (rr_rig_registry_find_public_alias(rig.rigs, alias) == radio) {
                char native[2] = {
                   (char)toupper((unsigned char)dot[5]), 0
                };
@@ -1519,7 +1520,7 @@ static bool user_privilege_contains(const char *privileges, const char *wanted) 
 
 static bool user_privilege_has_elevated(const char *privileges) {
    return privileges && (match_priv(privileges, "admin") || match_priv(privileges, "owner") ||
-      match_priv(privileges, "bridge.admin") || match_priv(privileges, "kiwi.connect"));
+      match_priv(privileges, "bridge.admin") || match_priv(privileges, "websdr.connect") || match_priv(privileges, "websdr.admin"));
 }
 
 static bool user_privilege_add_tokens(const char *base, const char *extra, char *out, size_t out_len) {
@@ -1830,7 +1831,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
 
       if (user_is_elevated(target) && !actor_is_owner) {
-         ws_send_notice(cptr, "USER: only owners may change protected privileges (owner, admin, bridge.admin, kiwi.connect)");
+         ws_send_notice(cptr, "USER: only owners may change protected privileges (owner, admin, bridge.admin, websdr.connect, websdr.admin)");
 
          return;
       }
@@ -1870,7 +1871,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
 
       if (!actor_is_owner && user_privilege_has_elevated(updated)) {
-         ws_send_notice(cptr, "USER: only owners may grant protected privileges (owner, admin, bridge.admin, kiwi.connect)");
+         ws_send_notice(cptr, "USER: only owners may grant protected privileges (owner, admin, bridge.admin, websdr.connect, websdr.admin)");
 
          return;
       }
@@ -2257,6 +2258,7 @@ void rrserver_register_events(void) {
    rrserver_direct_register_events();
    rrserver_acl_register_events();
    rrserver_bridge_access_register_events();
+   rrserver_websdr_register_events();
    rrserver_relay_register_events();
    rrserver_supervision_register();
    rrserver_media_register_events();

@@ -399,6 +399,11 @@ int main(void) {
    rr_server_rig_t *second = rr_rig_registry_find_alias(rig.rigs, "second");
    assert(first && second && first != second);
    assert(rr_rig_registry_default(rig.rigs) == second);
+   assert(!strcmp(rr_rig_registry_alias(rig.rigs, first), "first"));
+   assert(!strcmp(rr_rig_registry_public_alias(rig.rigs, second), "rig0"));
+   assert(!strcmp(rr_rig_registry_public_alias(rig.rigs, first), "rig1"));
+   assert(rr_rig_registry_find_public_alias(rig.rigs, "rig1") == first);
+   assert(!rr_rig_registry_find_public_alias(rig.rigs, "first"));
    assert(!strcmp(fake_data(rr_server_rig_backend(first))->config_token, "alpha"));
    assert(!strcmp(fake_data(rr_server_rig_backend(second))->config_token, "beta"));
    assert(rr_server_rig_backend(first)->type == rr_server_rig_backend(second)->type);

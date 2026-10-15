@@ -23,6 +23,7 @@ typedef struct {
 } receiver_directory_entry_t;
 size_t receiver_directory_count(void);
 const receiver_directory_entry_t *receiver_directory_receiver(size_t index);
+const receiver_directory_entry_t *receiver_directory_find_url(const char *url);
 const char *receiver_directory_status(void);
 char *receiver_directory_info(void); // Caller frees.
 bool receiver_directory_busy(void);

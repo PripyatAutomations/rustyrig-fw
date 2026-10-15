@@ -1,5 +1,28 @@
 rustyrig-fw (20261015.03) testing; urgency=medium
 
+  * Add native asynchronous /exec with shell quoting/pipelines, local stdout,
+    explicit -o chat and -e input-parser modes, original conversation/session
+    context, paced forwarding and bounded output. Keep stderr local. Default
+    /exec -stop to all jobs; support individual IDs and stop child process
+    groups on cancellation/exit through the shared subprocess helper.
+
+  * Keep descriptive rig configuration identities separate from public rigN
+    symbols. Align object discovery, linked catalogs, rooms, media, CAT and GPS
+    names with the wire rig index, preserving numeric configured slots and
+    allocating temporary receiver slots without renumbering existing rigs.
+  * Reduce media policy work: check subscriptions before access checks, stop
+    demand queries at an eligible local listener, and avoid redundant bridge
+    checks/relay demand during joined-user polls. Preserve live revocation.
+  * Add explicit directory Connect and Add to server config actions, temporary
+    RX-only rigs, bounded lifetime/count, endpoint reuse and server-enforced
+    websdr.listen/connect/admin privileges. Keep Kiwi names driver-specific.
+    Test permission boundaries, audio delivery, no eager connections and saved
+    configuration across restart using local receiver fixtures.
+  * Compact GTK Admin Users rows, reorder and label columns, show read-only
+    flags and relative password timestamps without altering raw account edits.
+    Open GTK resource trees for /object, /rig and /gps with room/media actions;
+    retain text trees in TUI/browser and correlate actions to their server.
+
   * Open Receiver Directory with Alt-Z, document it in /help, and remove its
     button from the Alt-X server chooser. Prefer Opus transport by default;
     remove GTK tab-strip routing dropdowns in favor of the routing window.
@@ -91,7 +114,7 @@ rustyrig-fw (20261015.03) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 12:12:51 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 14:45:22 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

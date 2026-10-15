@@ -17,6 +17,7 @@ struct rr_server_rig;
 extern void rrserver_media_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len);
 extern bool rrserver_media_rx_requested(struct rr_server_rig *radio);
 extern bool rrserver_media_init(void);
+bool rrserver_media_add_rig(struct rr_server_rig *radio);
 extern void rrserver_media_register_events(void);
 
 #endif

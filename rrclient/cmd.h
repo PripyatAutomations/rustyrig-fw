@@ -66,6 +66,9 @@ extern bool parse_chat_input_gtk(GtkButton *button, gpointer entry);
 #endif
 
 extern bool parse_chat_input_real(const char *msg);
+extern bool parse_chat_input_text(const char *msg);
+bool cmd_exec(int argc, char **args);
+void rrclient_exec_shutdown(void);
 extern bool tui_register_completion_provider(char **(*fn) (const char *line, const char *word));
 extern void client_cmd_completion_describe(const char *line, const char *value, char *out, size_t capacity);
 extern char **client_cmd_completions(const char *line, const char *word);

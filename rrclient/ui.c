@@ -26,7 +26,19 @@
 // Default to TUI mode, it will be set to UI_MODE_GTK if $DISPLAY is set
 enum GuiMode ui_mode = UI_MODE_TUI;
 
+static struct input_context {
+   rrconn_t *connection;
+   const char *room;
+} *input_context;
+void rrclient_input_dispatch(rrconn_t *connection, const char *room, void (*callback)(void *), void *data) {
+   struct input_context current = {.connection = connection, .room = room}, *previous = input_context;
+   input_context = &current;
+   rrclient_connection_dispatch(connection, callback, data);
+   input_context = previous;
+}
+
 const char *ui_active_window_name(void) {
+   if (input_context) return input_context->room;
    if (ui_mode == UI_MODE_TUI) {
       tui_window_t *window = tui_active_window();
 
@@ -53,6 +65,7 @@ const char *ui_active_window_name(void) {
 }
 
 rrconn_t *rrclient_active_connection(void) {
+   if (input_context) return input_context->connection;
    (void)ui_active_window_name();
 
    if (ui_mode == UI_MODE_TUI) {
@@ -69,6 +82,7 @@ rrconn_t *rrclient_active_connection(void) {
 }
 
 const char *rrclient_active_room(void) {
+   if (input_context) return input_context->room;
    (void)rrclient_active_connection();
 
    if (ui_mode == UI_MODE_TUI) {

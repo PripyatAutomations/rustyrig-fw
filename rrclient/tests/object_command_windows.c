@@ -72,7 +72,9 @@ int main(void) {
    }, *gps[] = {
       "gps", "bad"
    };
-   cmd_object(1, objects);
+   assert(!cmd_object(1, objects));
+   assert(!strcmp(inventory_requests[0].kind, "object"));
+   reply(sent_id, "inventory-end", "#first");
    assert(!strcmp(destination, "#first"));
    assert(!cmd_rig(2, list));
    char first[48];

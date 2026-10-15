@@ -30,6 +30,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/audio.h>
 #include <rrclient/receiver.directory.h>
+#include <rrclient/receiver.connect.h>
 #include <rrclient/cmd.h>
 #include <rrclient/frontend.h>
 #include <rrclient/ui.h>
@@ -679,10 +680,12 @@ bool cmd_server(int argc, char **args) {
 
 // Native local metadata, never a connection request to a public receiver.
 bool cmd_receivers(int argc, char **args) {
+   if (argc == 3 && (!strcasecmp(args[1], "connect") || !strcasecmp(args[1], "add")))
+      return !rrclient_receiver_connect(args[2], !strcasecmp(args[1], "add"));
    if (argc == 2 && !strcasecmp(args[1], "refresh")) receiver_directory_refresh();
    else if (argc == 3 && !strcasecmp(args[1], "import")) receiver_directory_import(args[2]);
    else if (argc != 1) {
-      ui_print(ui_active_window_name(), "Usage: /receivers [refresh | import <JSON file>]");
+      ui_print(ui_active_window_name(), "Usage: /receivers [refresh | import <JSON file> | connect <URL> | add <URL>]");
       return true;
    }
    const rr_frontend_ops_t *ops = frontend_ops();

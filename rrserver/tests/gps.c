@@ -28,6 +28,9 @@ const char *rr_rig_registry_alias(const rr_rig_registry_t *r, const rr_server_ri
 
    return radio == radios[0] ? "rig0" : "rig1";
 }
+const char *rr_rig_registry_public_alias(const rr_rig_registry_t *r, const rr_server_rig_t *radio) {
+   return rr_rig_registry_alias(r, radio);
+}
 const char *rr_rig_registry_room(const rr_rig_registry_t *r, const rr_server_rig_t *radio) {
    (void)r;
 
