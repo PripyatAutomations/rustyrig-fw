@@ -19,9 +19,12 @@
 
 // This control-only fixture has no DSP/media graph.
 void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t len) {
-   (void)radio; (void)samples; (void)len;
+   (void)radio;
+   (void)samples;
+   (void)len;
    assert(!"unexpected bridge audio in control-only fixture");
 }
+
 extern defconfig_t defcfg[];
 time_t now;
 bool dying;

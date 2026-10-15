@@ -15,8 +15,7 @@ workdir=$(mktemp -d)
 trap 'rm -rf "$workdir"' EXIT
 mapfile -d '' files < <(git ls-files -z -- '*.c' '*.h')
 
-TGT="callsign-lookup fwdsp libfwdspmgr librrprotocol librustyaxe rrclient rrserver"
-#TGT="librustyaxe librrprotocol callsign-lookup"
+TGT="callsign-lookup fwdsp libfwdspmgr librrprotocol librustyaxe rrclient rrserver rrbridge"
 for component in ${TGT}; do
    while IFS= read -r -d '' file; do
       files+=("$component/$file")

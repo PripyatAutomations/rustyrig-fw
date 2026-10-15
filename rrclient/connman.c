@@ -529,8 +529,14 @@ static void connection_event(const char *event, const char *data, rrconn_t *cptr
       if (interval < 1 || interval >= 60 || (end && *end)) {
          interval = 1;
       }
-      for (unsigned i = 1; i < s->reconnect_tries && interval < 60; i++) interval *= 2;
-      if (interval > 60) interval = 60;
+
+      for (unsigned i = 1 ; i < s->reconnect_tries && interval < 60 ; i++) {
+         interval *= 2;
+      }
+
+      if (interval > 60) {
+         interval = 60;
+      }
       s->reconnect_pending = true;
       s->reconnect_at = now + interval;
       ws_connected = -1;

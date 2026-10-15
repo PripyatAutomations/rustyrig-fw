@@ -662,14 +662,30 @@ bool rr_vfo_property_define(rr_server_vfo_t *vfo, const rr_property_descriptor_t
 }
 
 bool rr_vfo_property_redefine(rr_server_vfo_t *vfo, const rr_property_descriptor_t *descriptor) {
-   if (!vfo || !descriptor || !descriptor->name) return true;
+   if (!vfo || !descriptor || !descriptor->name) {
+      return true;
+   }
    rr_rig_property_t *old = rr_property_find_store(vfo->properties, descriptor->name);
-   if (!old) return rr_vfo_property_define(vfo, descriptor);
-   if (old->type != descriptor->type) return true;
+
+   if (!old) {
+      return rr_vfo_property_define(vfo, descriptor);
+   }
+
+   if (old->type != descriptor->type) {
+      return true;
+   }
    // Validate and allocate replacement metadata before touching the live schema.
    dict *temporary = dict_new();
-   if (!temporary) return true;
-   if (rr_property_define_store(temporary, descriptor)) { dict_free(temporary); return true; }
+
+   if (!temporary) {
+      return true;
+   }
+
+   if (rr_property_define_store(temporary, descriptor)) {
+      dict_free(temporary);
+
+      return true;
+   }
    rr_rig_property_t *replacement = rr_property_find_store(temporary, descriptor->name);
    free(old->unit);
    free((char *)old->schema.enum_values);
@@ -683,6 +699,7 @@ bool rr_vfo_property_redefine(rr_server_vfo_t *vfo, const rr_property_descriptor
    replacement->schema.enum_values = NULL;
    rr_property_store_free(temporary);
    event_emit("object.model.schema", NULL, vfo->id);
+
    return false;
 }
 

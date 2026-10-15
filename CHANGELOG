@@ -1,4 +1,4 @@
-rustyrig-fw (20261015.02) testing; urgency=medium
+rustyrig-fw (20261015.03) testing; urgency=medium
 
   * Open Receiver Directory with Alt-Z, document it in /help, and remove its
     button from the Alt-X server chooser. Prefer Opus transport by default;
@@ -91,7 +91,7 @@ rustyrig-fw (20261015.02) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 11:48:56 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 12:12:51 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

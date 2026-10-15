@@ -48,7 +48,7 @@ struct rr_backend_type {
    const char *name;
    const char *description;
    bool uses_property_state;
-   bool event_driven; // Nonblocking backend callbacks already run on the server loop.
+   bool event_driven;           // Nonblocking backend callbacks already run on the server loop.
    const rr_backend_funcs_t *api;
 };
 

@@ -495,8 +495,10 @@ int main(int argc, char **argv) {
 
    rrserver_serial_init();
    (void)modules_loaded;
+
    if (!rrserver_bridges_start(config_file)) {
       Log(LOG_CRIT, "bridge", "Bridge configuration invalid");
+
       return EXIT_FAILURE;
    }
    // Main loop

@@ -129,7 +129,8 @@ int main(void) {
    assert(hints.rx_min_hz == 100000 && hints.rx_max_hz == 30000000 && (hints.flags & RRP_BRIDGE_RX_AUDIO));
    assert(!hints.available && !hints.frequency_hz);
    assert(rrserver_bridge_hints_save("receiver", "kiwi", &hints));
-   dict_free(cfg); cfg = dict_new();
+   dict_free(cfg);
+   cfg = dict_new();
    dict_add(cfg, "bridge:receiver.host", "sdr.example");
    assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 1);
    assert(!strcmp(hints.rx_modes, "USB AM CW"));
@@ -137,7 +138,8 @@ int main(void) {
    assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 2 && hints.rx_max_hz == 20000000);
    dict_add(cfg, "bridge:receiver.rx-max-hz", "-1");
    assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == -1);
-   dict_free(cfg); cfg = dict_new();
+   dict_free(cfg);
+   cfg = dict_new();
    dict_add(cfg, "bridge:receiver.host", "other.example");
    assert(rrserver_bridge_hints_load("receiver", "kiwi", &hints) == 0);
    dict_add(cfg, "bridge:receiver.host", "sdr.example");
@@ -149,7 +151,8 @@ int main(void) {
    char *cached_json = db_bridge_hints_get(db, "quoted'endpoint");
    assert(cached_json && !strcmp(cached_json, "{\"schema\":\"1\"}"));
    free(cached_json);
-   dict_free(cfg); cfg = saved_cfg;
+   dict_free(cfg);
+   cfg = saved_cfg;
 
    char *rig0_uuid = db_rig_uuid_get_or_create(db, "node-a", "rig0");
    char *rig0_uuid_again = db_rig_uuid_get_or_create(db, "node-a", "rig0");

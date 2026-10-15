@@ -329,7 +329,7 @@ int main(void) {
    assert(!strcmp(login_user, "alpha") && !strcmp(session_token, "token-a"));
    assert(rrclient_connection_cycle() && ws_conn == b);
    assert(!strcmp(login_user, "beta") && !strcmp(session_token, "token-b"));
-   dict_add(cfg, "server.reconnect-interval", "60"); // Migrate the former fixed default.
+   dict_add(cfg, "server.reconnect-interval", "60");  // Migrate the former fixed default.
    ac->fn(ac, MG_EV_ERROR, "alpha failed");
    ac->fn(ac, MG_EV_CLOSE, NULL);
    assert(ws_conn == b && b->conn == bc && !bc->is_closing);
@@ -348,7 +348,8 @@ int main(void) {
    now++;
    rrclient_poll_events_reconnect();
    assert(rrclient_connection_find("alpha") != retry_alpha);
-   for (unsigned delay = 4, attempt = 3; attempt <= 10; attempt++, delay = delay < 32 ? delay * 2 : 60) {
+
+   for (unsigned delay = 4, attempt = 3 ; attempt <= 10 ; attempt++, delay = delay < 32 ? delay * 2 : 60) {
       retry_alpha = rrclient_connection_find("alpha");
       retry_connection = retry_alpha->conn;
       retry_connection->fn(retry_connection, MG_EV_ERROR, "retry failed");
@@ -361,6 +362,7 @@ int main(void) {
       rrclient_poll_events_reconnect();
       assert(connection_count > before);
    }
+
    retry_alpha = rrclient_connection_find("alpha");
    receive(retry_alpha->conn, "{\"msg.type\":\"auth\",\"auth.cmd\":\"authorized\",\"auth.user\":\"alice\"}");
    retry_connection = retry_alpha->conn;
@@ -369,7 +371,7 @@ int main(void) {
    unsigned before_reset = connection_count;
    now++;
    rrclient_poll_events_reconnect();
-   assert(connection_count > before_reset); // Successful auth resets the backoff.
+   assert(connection_count > before_reset);  // Successful auth resets the backoff.
    char *server_args[] = {
       "server", "irc://adhoc.test"
    };
