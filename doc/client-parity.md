@@ -697,3 +697,7 @@ subprocess helper. `-o` sends literal stdout and `-e` uses the input parser in
 the originating server/tab context; stderr stays local. This operating-system
 feature has no browser equivalent or new protocol operation. See
 [Native client shell commands](client-exec.md).
+
+GTK top/bottom main tabs wrap into multiple rows when space is limited.
+Page order and keyboard shortcuts remain owned by the notebook; left/right
+placement retains native vertical tabs. This is GTK-specific presentation.

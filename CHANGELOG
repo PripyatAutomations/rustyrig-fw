@@ -1,5 +1,7 @@
 rustyrig-fw (20261015.03) testing; urgency=medium
 
+  * Wrap GTK top/bottom main tabs into multiple rows as the window narrows,
+    preserving page order, shortcuts, selection and live tab labels.
   * Add native asynchronous /exec with shell quoting/pipelines, local stdout,
     explicit -o chat and -e input-parser modes, original conversation/session
     context, paced forwarding and bounded output. Keep stderr local. Default
@@ -114,7 +116,7 @@ rustyrig-fw (20261015.03) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 14:45:22 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 15:01:01 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

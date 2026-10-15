@@ -30,6 +30,7 @@
 #include <rrclient/gtk/gtk.audio-routing.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/gtk/gtk.resources.h>
+#include <rrclient/gtk/gtk.tabs.h>
 
 #define MSGBUF_SIZE 8096
 
@@ -800,7 +801,7 @@ bool gui_init(void) {
    // (labels, buttons, tabs, ...) inherits this one.
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
-   gtk_ui_zoom_attach(main_window, main_notebook);
+   gtk_ui_zoom_attach(main_window, gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip));
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
