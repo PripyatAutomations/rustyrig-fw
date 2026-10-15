@@ -1,4 +1,4 @@
-rustyrig-fw (20261014.02) testing; urgency=medium
+rustyrig-fw (20261014.03) testing; urgency=medium
 
   * Keep GTK radio observations and roster bursts off transport callbacks by
     coalescing paints at idle; discard stale paints after rig/server switches.
@@ -79,7 +79,7 @@ rustyrig-fw (20261014.02) testing; urgency=medium
   * Batch native IRC roster redraws until end of NAMES per server/room, and
     avoid redundant full-list sorting after sorted user inserts/updates.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 20:58:05 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 14 Oct 2026 21:36:52 -0400
 
 rustyrig-fw (20261012.03) testing; urgency=medium
 
