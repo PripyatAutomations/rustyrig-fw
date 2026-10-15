@@ -46,6 +46,7 @@ with tempfile.TemporaryDirectory(prefix="fwdsp-record-test-") as temp:
 log.file=-
 recording.path={records}
 recording.buffer-size=524288
+recording.codec=flac
 [pipelines]
 pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! tee name=t t. ! queue ! appsink name=tx-sink sync=false t. ! queue ! appsink name=record-sink sync=false
 """)
@@ -122,7 +123,6 @@ with tempfile.TemporaryDirectory(prefix="fwdsp-record-ogg-") as temp:
     config.write_text(f"""[fwdsp]
 log.file=-
 recording.path={records}
-recording.codec=ogg
 [pipelines]
 pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels=1 ! tee name=t t. ! queue ! appsink name=tx-sink sync=false t. ! queue ! appsink name=record-sink sync=false
 """)
@@ -144,13 +144,26 @@ pc16.tx=audiotestsrc is-live=true ! audio/x-raw,format=S16LE,rate=16000,channels
         assert files, "Ogg recording was not created"
         time.sleep(0.15)
         send_control(write_fd, 8)
+        data_file = records / "data.tx.flac"
+        voice_file = records / "voice-again.tx.ogg"
+        for file, ident in [(data_file, b"DATA1"), (voice_file, b"VOICE2")]:
+            send_control(write_fd, 7, b"admin", 2, record_id=ident, record_file=os.fsencode(file))
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline and not file.exists():
+                assert proc.poll() is None
+                time.sleep(.02)
+            assert file.exists(), file
+            time.sleep(.2)
+            send_control(write_fd, 8)
         send_control(write_fd, 2)
         assert proc.wait(timeout=5) == 0
         assert files[0].read_bytes()[:4] == b"OggS", files[0]
         assert files[0].stat().st_size > 64, files[0]
+        assert data_file.read_bytes()[:4] == b"fLaC"
+        assert voice_file.read_bytes()[:4] == b"OggS"
     finally:
         os.close(write_fd)
         if proc.poll() is None:
             proc.kill()
             proc.wait()
-    print("PASS: Ogg/Vorbis recording format and control lifecycle")
+    print("PASS: default Ogg/Vorbis, lossless data-file override and return to voice recording")

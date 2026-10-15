@@ -1,5 +1,11 @@
 rustyrig-fw (20261015.02) testing; urgency=medium
 
+  * Ship station recording defaults with RX disabled and TX enabled using
+    Ogg/Vorbis; align standalone DSP/shared defaults and correct the client
+    sample's unsupported Opus recording setting. Use FLAC for DU/DL and
+    FT4/FT8 TX from the transmitting rig's mode, matching the PTT database
+    filename to actual recorder contents. Retain explicit recording disable,
+    and create fresh containers for named transmissions across format changes.
   * Add optional bridge RX/TX coverage, mode and media capability hints for
     offline discovery. Cache validated capabilities after successful connection,
     scoped to bridge/driver/host/port with no credentials, and migrate existing
@@ -61,7 +67,7 @@ rustyrig-fw (20261015.02) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 09:56:13 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 10:07:03 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

@@ -22,6 +22,7 @@
 #include <libfwdspmgr/fwdsp-ctl.h>
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
+#include <rrserver/recording.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
 extern struct GlobalState rig;
@@ -61,17 +62,29 @@ static bool media_always_record(const struct rr_mediachan *channel) {
 // subscribers. Neither discovery nor always-recording may claim idle hardware.
 bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
    uint8_t index = rr_rig_registry_media_index(rig.rigs, radio);
-   if (index == RR_BINFRAME_RIG_NA) return false;
-   for (int i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+
+   if (index == RR_BINFRAME_RIG_NA) {
+      return false;
+   }
+
+   for (int i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
       struct rr_mediachan *channel = &media_channels[i];
-      if (!channel->uuid[0] || channel->rig != index || channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
-          channel->direction != RR_BINFRAME_DIR_RX) continue;
-      if (ws_media_channel_has_subscribers(channel)) return true;
-      for (rrconn_t *client = http_client_list; client; client = client->next) {
-         if (client->conn && client->is_ws && client->authenticated && !client->is_server &&
-             media_client_in_channel_room(client, channel)) return true;
+
+      if (!channel->uuid[0] || channel->rig != index || channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO || channel->direction != RR_BINFRAME_DIR_RX) {
+         continue;
+      }
+
+      if (ws_media_channel_has_subscribers(channel)) {
+         return true;
+      }
+
+      for (rrconn_t *client = http_client_list ; client ; client = client->next) {
+         if (client->conn && client->is_ws && client->authenticated && !client->is_server && media_client_in_channel_room(client, channel)) {
+            return true;
+         }
       }
    }
+
    return false;
 }
 
@@ -159,8 +172,11 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
 
 static bool start_rig_audio(rr_server_rig_t *radio, void *user) {
    (void)user;
+
    // Bridge capture arrives over its dedicated media socket, not a sound card.
-   if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) return false;
+   if (!strcmp(rr_server_rig_backend(radio)->type->name, "bridge")) {
+      return false;
+   }
    char rx_buf[128], tx_buf[128];
    const char *rx = rig_endpoint(radio, false, rx_buf, sizeof(rx_buf));
    const char *tx = rig_endpoint(radio, true, tx_buf, sizeof(tx_buf));
@@ -212,20 +228,6 @@ static bool media_record_log_transition(const char *uuid, bool active) {
    return true;
 }
 
-static bool media_recording_enabled(bool tx) {
-   // Current server configs may keep recording policy under [fwdsp]. The
-   // fwdsp defaults are always loaded, though, so merely checking whether
-   // that key exists would hide an explicitly enabled legacy record.tx/rx
-   // setting. Treat either spelling being true as enabled.
-   const char *key = tx ? "fwdsp:recording.tx" : "fwdsp:recording.rx";
-
-   if (cfg_get_bool(key, false)) {
-      return cfg_get_bool(key, false);
-   }
-
-   return cfg_get_bool(tx ? "record.tx" : "record.rx", false);
-}
-
 // Recording direction describes the radio, not the encoder/decoder process.
 static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker, bool start, const char *recording_id) {
    bool tx = channel->direction == RR_BINFRAME_DIR_TX;
@@ -250,7 +252,7 @@ static void media_record_channel(struct rr_mediachan *channel, rrconn_t *talker,
       return;
    }
 
-   if (start && !media_recording_enabled(tx)) {
+   if (start && !rrserver_recording_enabled(tx)) {
       return;
    }
 
@@ -296,7 +298,7 @@ void rrserver_media_recording_tick(void) {
       }
 
       bool always = media_always_record(channel);
-      bool recording = media_recording_enabled(false);
+      bool recording = rrserver_recording_enabled(false);
 
       if (!recording || (!always && !clients)) {
          fwdsp_cmd_stop_record_channel(channel->codec, true, channel->uuid);
@@ -396,7 +398,9 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    uint8_t rig_index = rr_rig_registry_media_index(rig.rigs, ctx->radio);
 
    for (int tx = 0 ; tx < 2 ; tx++) {
-      if (tx && !strcmp(rr_server_rig_backend(ctx->radio)->type->name, "bridge")) continue;
+      if (tx && !strcmp(rr_server_rig_backend(ctx->radio)->type->name, "bridge")) {
+         continue;
+      }
       bool per_vfo = tx ? ctx->tx_per_vfo : ctx->rx_per_vfo;
 
       if (ctx->made && !per_vfo) {

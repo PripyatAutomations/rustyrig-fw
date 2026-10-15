@@ -10,6 +10,7 @@
 #include <rrserver/media.h>
 #include <rrserver/au.h>
 #include <rrserver/rig.registry.h>
+#include <rrserver/rig.properties.h>
 struct GlobalState rig;
 time_t now, ptt_tot_time;
 bool dying, restarting;
@@ -21,6 +22,7 @@ rr_server_rig_t *rr_rig_registry_default(const rr_rig_registry_t *registry) {
 rr_server_vfo_t *rr_server_vfo_find_alias(const rr_server_rig_t *radio, const char *alias) {
    return *alias == 'A' ? (rr_server_vfo_t *) 1 : NULL;
 }
+bool rr_vfo_property_read(const rr_server_vfo_t *vfo, const char *name, rr_property_snapshot_t *state) { return false; }
 bool rr_backend_vfo_supported(rr_server_rig_t *radio, rr_server_vfo_t *object) {
    return true;
 }

@@ -33,6 +33,8 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/ptt.h>
 #include <rrserver/media.h>
+#include <rrserver/recording.h>
+#include <rrserver/rig.properties.h>
 #include <rrserver/timer.h>
 #ifdef  USE_SQLITE
 #include <rrserver/database.h>
@@ -84,7 +86,7 @@ static bool ptt_prepare_recording_file(rr_vfo_t vfo, const char *username, const
       return false;
    }
 
-   if (!cfg_get_bool("fwdsp:recording.tx", false) && !cfg_get_bool("record.tx", false)) {
+   if (!rrserver_recording_enabled(true)) {
       return false;
    }
    char *record_dir = cfg_get_path("fwdsp:recording.path");
@@ -99,16 +101,22 @@ static bool ptt_prepare_recording_file(rr_vfo_t vfo, const char *username, const
 
       return false;
    }
-   const char *codec = cfg_get("fwdsp:recording.codec");
+   rr_mode_t mode = MODE_NONE;
 
-   if (!codec || !*codec) {
-      codec = cfg_get("recording.codec");
-   }
+   if (rig.ptt_rig) {
+      char alias[] = {
+         (char)('A' + vfo), 0
+      };
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(rig.ptt_rig, alias);
+      rr_property_snapshot_t state;
 
-   if (!codec || !*codec) {
-      codec = "flac";
+      if (object && rr_vfo_property_read(object, RR_PROP_VFO_MODE, &state) && state.known && state.available) {
+         mode = vfo_parse_mode(state.value.s);
+      }
+   } else {
+      mode = rr_get_mode(vfo);
    }
-   const char *extension = codec && strcasecmp(codec, "ogg") == 0 ? "ogg" : "flac";
+   const char *extension = rrserver_recording_codec(mode);
    time_t timestamp = time(NULL);
    struct tm local_time;
    char stamp[32];

@@ -53,7 +53,7 @@ defconfig_t defcfg_fwdsp[] = {
       "fwdsp:recording.path", "./recordings", "Path to audio recordings"
    },
    {
-      "recording.codec", "flac", "Recording container/codec: flac or ogg"
+      "recording.codec", "ogg", "Recording container/codec: flac or ogg"
    },
    {
       "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg"
@@ -842,12 +842,15 @@ bool fwdsp_audio_playback_start(const char *name, const char *pipeline) {
 }
 
 bool fwdsp_audio_resampler_start(const char *name, unsigned rate, fwdsp_processor_output_cb output_cb, void *user) {
-   if (rate < 8000 || rate > 48000) return false;
+   if (rate < 8000 || rate > 48000) {
+      return false;
+   }
    char pipeline[512];
    snprintf(pipeline, sizeof(pipeline), "appsrc name=processor-src is-live=true format=time do-timestamp=true "
       "caps=audio/x-raw,format=S16LE,rate=%u,channels=1,layout=interleaved ! "
       "audioresample ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! "
       "appsink name=processor-sink sync=false max-buffers=8 drop=true", rate);
+
    return fwdsp_audio_endpoint_start(name, pipeline, FWDSP_PROCESSOR_IO_RESAMPLE, output_cb, user);
 }
 
@@ -1043,7 +1046,9 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (sp->role == FWDSP_ROLE_PROCESSOR) {
       args[n++] = "-T";
       args[n++] = "-M";
-      args[n++] = sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" : sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : sp->processor_io == FWDSP_PROCESSOR_IO_RESAMPLE ? "resample" : "process";
+      args[n++] =
+         sp->processor_io == FWDSP_PROCESSOR_IO_CAPTURE ? "capture" : sp->processor_io == FWDSP_PROCESSOR_IO_PLAYBACK ? "playback" : sp->processor_io ==
+         FWDSP_PROCESSOR_IO_RESAMPLE ? "resample" : "process";
       args[n++] = "-P";
       args[n++] = pipeline_key + strlen("pipeline:");
    } else {

@@ -44,7 +44,7 @@ defconfig_t defcfg[] = {
       "fwdsp:log.audio", "false", "GStreamer debug level"
    },
    {
-      "recording.codec", "flac", "Recording container/codec: flac or ogg"
+      "recording.codec", "ogg", "Recording container/codec: flac or ogg"
    },
    {
       "recording.codec.modem", "flac", "Recording codec for modem recordings: flac or ogg"

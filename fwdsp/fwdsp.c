@@ -119,7 +119,8 @@ static char record_file[FWDSP_RECORD_FILE_LEN];
 static bool record_tx = false;
 static bool record_file_explicit = false;
 static char *recording_dir = NULL;
-static char recording_codec[8] = "flac";
+static char recording_codec[8] = "ogg";
+static char recording_default_codec[8] = "ogg";
 static bool recording_encoded = false;
 
 static bool codec_is_modem(const char *codec) {
@@ -134,6 +135,31 @@ static bool codec_is_modem(const char *codec) {
 
 static bool recording_codec_valid(const char *codec) {
    return codec && (strcasecmp(codec, "flac") == 0 || strcasecmp(codec, "ogg") == 0);
+}
+
+// The server chooses the recording file at key-down from the radio mode.
+// Honor its format without changing the network codec or the next recording.
+static const char *recording_file_codec(const char *file) {
+   const char *extension = file && *file ? strrchr(file, '.') : NULL;
+
+   if (codec_is_modem(config_codec)) {
+      return "flac";
+   }
+
+   if (extension && !strcasecmp(extension, ".flac")) {
+      return "flac";
+   }
+
+   if (extension && !strcasecmp(extension, ".ogg")) {
+      return "ogg";
+   }
+
+   return recording_default_codec;
+}
+static void recording_select_codec(const char *codec, bool stream_copy) {
+   snprintf(recording_codec, sizeof(recording_codec), "%s", codec);
+   recording_encoded = stream_copy && !codec_is_modem(config_codec) &&
+      ((!strcmp(codec, "ogg") && !strncmp(config_codec, "ogg", 3)) || (!strcmp(codec, "flac") && !strcasecmp(config_codec, "flac")));
 }
 
 static void recorder_reset_ring(struct fwdsp_recorder *rec) {
@@ -649,6 +675,7 @@ static bool frame_reader_push_appsrc(struct fwdsp_frame_reader *reader, GstAppSr
 
       if (processor_mode && raw_channels > 0 && frame_len % (2U * (unsigned)raw_channels)) {
          Log(LOG_CRIT, "fwdsp", "PCM input ends within a sample frame");
+
          return false;
       }
       size_t total_len = FWDSP_FRAME_HEADER_SIZE + (size_t)frame_len;
@@ -769,7 +796,8 @@ static bool processor_pcm_caps_rate(GstCaps *caps, bool native_rate, bool stereo
    return gst_structure_has_name(structure, "audio/x-raw") && format &&
           strcmp(format, "S16LE") == 0 &&
           (!layout || strcmp(layout, "interleaved") == 0) &&
-          gst_structure_get_int(structure, "rate", &rate) && (native_rate ? rate >= 8000 && rate <= 48000 : rate == 16000) && gst_structure_get_int(structure, "channels", &channels) && (channels == 1 || (stereo && channels == 2));
+          gst_structure_get_int(structure, "rate", &rate) && (native_rate ? rate >= 8000 && rate <= 48000 : rate == 16000)
+          && gst_structure_get_int(structure, "channels", &channels) && (channels == 1 || (stereo && channels == 2));
 }
 
 static bool processor_pcm_caps(GstCaps *caps) {
@@ -851,7 +879,8 @@ static void run_loop(struct audio_config *cfg) {
          volume = gst_bin_get_by_name(GST_BIN(pipeline), "rx-vol");
       }
       GstCaps *processor_input_caps = processor_mode && appsrc ? gst_app_src_get_caps(GST_APP_SRC(appsrc)) : NULL;
-      bool processor_input_ok = !appsrc || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE, processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK);
+      bool processor_input_ok = !appsrc
+         || processor_pcm_caps_rate(processor_input_caps, processor_io_mode == PCM_PROCESSOR_MODE_RESAMPLE, processor_io_mode == PCM_PROCESSOR_MODE_PLAYBACK);
 
       if (processor_input_caps) {
          gst_caps_unref(processor_input_caps);
@@ -1179,10 +1208,16 @@ static void run_loop(struct audio_config *cfg) {
                         const char *file = control.record_file;
                         bool tx = control.record_direction ? control.record_direction == 2 : cfg->tx_mode;
 
-                        if (recorder.running && (strcmp(record_user, who) != 0 ||
+                        const char *format = recording_file_codec(file);
+
+                        if (recorder.running && (strcmp(recording_codec, format) || strcmp(record_user, who) != 0 ||
                            strcmp(record_id, id) != 0 || strcmp(record_file, file) != 0 || record_tx != tx)) {
                            recorder_stop();
                         }
+                        // Each per-transmission file needs fresh container headers.
+                        // The PCM recorder produces those even if the network stream
+                        // is an Ogg stream already in progress.
+                        recording_select_codec(format, !file[0]);
                         snprintf(record_user, sizeof(record_user), "%s", who);
                         snprintf(record_id, sizeof(record_id), "%s", id);
                         snprintf(record_file, sizeof(record_file), "%s", control.record_file);
@@ -1490,13 +1525,13 @@ int main(int argc, char *argv[]) {
          }
       }
    } else if (cfg_recording_codec && *cfg_recording_codec) {
+      strcpy(recording_codec, "flac");
       Log(LOG_WARN, "record", "Unsupported recording.codec=%s; using flac", cfg_recording_codec);
    }
    // Ogg/Vorbis can be copied directly into an Ogg recording. Other codec /
    // recording combinations continue through the PCM recording branch.
-   recording_encoded = !modem_codec &&
-      ((strcmp(recording_codec, "ogg") == 0 && strncmp(config_codec, "ogg", 3) == 0) ||
-         (strcmp(recording_codec, "flac") == 0 && strcasecmp(config_codec, "flac") == 0));
+   snprintf(recording_default_codec, sizeof(recording_default_codec), "%s", recording_codec);
+   recording_select_codec(recording_default_codec, true);
    Log(LOG_INFO, "record", "Recording format selected: %s%s", recording_codec, recording_encoded ? " (encoded stream copy)" : " (PCM encoder)");
    free((char *)cfg_recording_codec_exp);
    char *logfile = cfg_get_path("fwdsp:log.file");

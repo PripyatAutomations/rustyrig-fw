@@ -201,3 +201,22 @@ privilege and membership in the channel's VFO room. Admin/owner alone does not
 replace the direction privilege. Listing formats and local NONE/unsubscribe do
 not change the shared codec. Both native and browser pickers follow this server
 policy.
+
+## Recording defaults
+
+Station RX recording is disabled by default. TX recording is enabled and uses
+Ogg/Vorbis (`recording.codec=ogg`), not Opus. DU/DL (data USB/LSB) and FT4/FT8
+transmissions select lossless FLAC at key-down, independently of the network
+codec. Digital voice modes remain voice recordings. Modem pipelines also use
+FLAC by default (`recording.codec.modem=flac`).
+
+`[fwdsp] recording.tx=false` disables station TX recording explicitly; the
+legacy `[general] record.tx` setting remains supported. RX requires explicit
+enablement. Recording settings never activate an idle external receiver.
+
+The station chooses each PTT filename from the transmitting rig/VFO mode;
+fwdsp honors `.ogg`/`.flac` by selecting the actual recorder, so the database
+path and file contents agree. Named transmission recordings encode decoded
+PCM into a fresh container, allowing voice/data changes without restarting the
+network decoder or copying an Ogg stream midway through a page sequence.
+Custom recording codec choices for voice remain supported.

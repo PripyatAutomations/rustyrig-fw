@@ -37,25 +37,63 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
-   { "bridge.host", "", "Default receiver hostname; named bridge settings override" },
-   { "bridge.port", "8073", "Default receiver service port" },
-   { "bridge.password", "", "Optional receiver password" },
-   { "bridge.frequency", "14074000", "Initial bridge receiver frequency in Hz" },
-   { "bridge.mode", "USB", "Initial bridge receiver mode" },
-   { "bridge.rx-min-hz", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.rx-max-hz", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.rx-modes", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.rx-audio", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.rx-iq", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.rx-waterfall", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.tx-supported", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.tx-min-hz", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.tx-max-hz", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.tx-modes", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.tx-audio", "", "Optional offline capability hint; named bridge overrides" },
-   { "bridge.instances", "", "Bridge aliases, separated by spaces or commas" },
-   { "bridge.path", "auto", "Bridge executable path, or auto for PATH then ./bin/rrbridge" },
-   { "bridge.modules", "auto", "Bridge driver directory, or auto for installed modules then ./bin" },
+   {
+      "bridge.host", "", "Default receiver hostname; named bridge settings override"
+   },
+   {
+      "bridge.port", "8073", "Default receiver service port"
+   },
+   {
+      "bridge.password", "", "Optional receiver password"
+   },
+   {
+      "bridge.frequency", "14074000", "Initial bridge receiver frequency in Hz"
+   },
+   {
+      "bridge.mode", "USB", "Initial bridge receiver mode"
+   },
+   {
+      "bridge.rx-min-hz", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.rx-max-hz", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.rx-modes", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.rx-audio", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.rx-iq", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.rx-waterfall", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.tx-supported", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.tx-min-hz", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.tx-max-hz", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.tx-modes", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.tx-audio", "", "Optional offline capability hint; named bridge overrides"
+   },
+   {
+      "bridge.instances", "", "Bridge aliases, separated by spaces or commas"
+   },
+   {
+      "bridge.path", "auto", "Bridge executable path, or auto for PATH then ./bin/rrbridge"
+   },
+   {
+      "bridge.modules", "auto", "Bridge driver directory, or auto for installed modules then ./bin"
+   },
    {
       "listener:http.acl", "", "Named HTTP listener ACL; empty denies all"
    },
@@ -456,7 +494,7 @@ defconfig_t defcfg[] = {
       "record.rx", "false", "Record received audio", DEFCONFIG_BOOL, NULL
    },
    {
-      "record.tx", "false", "Record transmitted audio", DEFCONFIG_BOOL, NULL
+      "record.tx", "true", "Record transmitted audio", DEFCONFIG_BOOL, NULL
    },
    {
       "record.always.vfo_a", "false", "Record VFO A RX audio with no connected client", DEFCONFIG_BOOL, NULL
