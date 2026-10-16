@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <rrclient/gtk/gtk.resources.c>
 time_t now;
+const char *config_file;
 static rrconn_t alpha = {
    .authenticated = true, .is_ws = true
 }, beta;
@@ -34,7 +35,11 @@ const char *rr_serial_name(const rr_serial_t *port) { return ""; }
 void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {}
 rr_serial_t *rr_serial_find(const char *name) { return NULL; }
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info) { return false; }
-bool rr_sercom_attach(const char *name, const char *service, const char *device) { return false; }
+static unsigned attachments;
+bool rr_sercom_attach(const char *name, const char *service, const char *device) {
+   assert(!strcmp(name, "capture") && !strcmp(service, "station.gps-out") && device == NULL);
+   attachments++; return true;
+}
 bool rr_sercom_disconnect(const char *name) { return false; }
 const char *rrclient_selected_server(void) { return "alpha"; }
 const char *rrclient_connection_iter(unsigned index) { return index == 0 ? "alpha" : index == 1 ? "beta" : NULL; }
@@ -66,15 +71,46 @@ static void row(rrconn_t *connection, unsigned depth, const char *kind, const ch
    dict_add(d, "object.cmd", "inventory-entry");
    dict_add_uint(d, "inventory.depth", depth);
    dict_add(d, "inventory.kind", kind);
-   dict_add(d, "inventory.name", kind);
+   dict_add(d, "inventory.name", !strcmp(kind, "gps") ? "rig1.gps-out" : kind);
    dict_add(d, "inventory.uuid", uuid);
    dict_add(d, "inventory.room", "#station-rig1");
    event_emit_dict("client.resources.row", connection, d);
    dict_free(d);
 }
+static gboolean answer_port_dialog(gpointer data) {
+   bool configure = GPOINTER_TO_INT(data);
+   GList *windows = gtk_window_list_toplevels();
+   for (GList *item = windows; item; item = item->next) {
+      if (!GTK_IS_DIALOG(item->data)) continue;
+      GtkDialog *dialog = item->data;
+      if (g_strcmp0(gtk_window_get_title(GTK_WINDOW(dialog)), configure ? "Local serial ports" : "Connect serial resource")) continue;
+      GList *children = gtk_container_get_children(GTK_CONTAINER(gtk_dialog_get_content_area(dialog)));
+      if (configure) {
+         GtkGrid *grid = GTK_GRID(children->data);
+         GtkWidget *names = gtk_grid_get_child_at(grid, 1, 0);
+         gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(names))), "capture");
+         gtk_combo_box_set_active_id(GTK_COMBO_BOX(gtk_grid_get_child_at(grid, 1, 1)), "file");
+         gtk_entry_set_text(GTK_ENTRY(gtk_grid_get_child_at(grid, 1, 2)), "/tmp/rr-test-capture.nmea");
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(grid, 0, 6)), TRUE);
+      } else {
+         for (GList *child = children; child; child = child->next) {
+            if (GTK_IS_COMBO_BOX(child->data))
+               gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(child->data))), "capture");
+         }
+      }
+      g_list_free(children); g_list_free(windows);
+      gtk_dialog_response(dialog, configure ? GTK_RESPONSE_OK : GTK_RESPONSE_ACCEPT);
+      return G_SOURCE_REMOVE;
+   }
+   g_list_free(windows); assert(false); return G_SOURCE_REMOVE;
+}
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    event_init();
+   cfg = dict_new();
+   char *saved_config = NULL;
+   int saved_fd = g_file_open_tmp("rr-serial-config-XXXXXX", &saved_config, NULL);
+   assert(saved_fd >= 0); close(saved_fd); config_file = saved_config;
    gtk_resources_init();
    rrclient_resource_view_t request = {
       .kind = "object", .request = "resource-1"
@@ -111,6 +147,9 @@ int main(int argc, char **argv) {
    resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(joins == 1 && subscribes == 1);
    row(&alpha, 2, "gps", "stream-1");
+   char *gps_service = NULL;
+   gtk_tree_model_get(GTK_TREE_MODEL(view->store), &branch->parents[2], SERVICE, &gps_service, -1);
+   assert(!strcmp(gps_service, "stream-1.gps-out")); g_free(gps_service);
    channel.subscribed = true;
    strlcpy(channel.codec, "gpsp", sizeof(channel.codec));
    strlcpy(channel.gps_coordinates, "43.0000000,-72.0000000", sizeof(channel.gps_coordinates));
@@ -135,8 +174,29 @@ int main(int argc, char **argv) {
    alpha.authenticated = false;
    resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(subscribes == 1);
+   alpha.authenticated = true;
+   g_idle_add(answer_port_dialog, GINT_TO_POINTER(1));
+   gtk_serial_configure(GTK_WINDOW(view->window), "");
+   assert(!strcmp(cfg_get("serial:capture.type"), "file"));
+   assert(!strcmp(cfg_get("serial.capture"), "none"));
+   char *saved_text = NULL;
+   assert(g_file_get_contents(config_file, &saved_text, NULL, NULL));
+   assert(strstr(saved_text, "capture.type=file"));
+   assert(rr_serial_config_register());
+   dict *loaded = cfg_load(config_file);
+   assert(loaded && !strcmp(dict_get(loaded, "serial:capture.type", ""), "file"));
+   assert(!strcmp(dict_get(loaded, "serial.capture", ""), "none"));
+   dict_free(loaded);
+   g_free(saved_text);
+   resource_local_update();
+   assert(g_hash_table_contains(view->local_rows, "capture"));
+   g_idle_add(answer_port_dialog, NULL);
+   assert(gtk_serial_attach(GTK_WINDOW(view->window), "alpha", "station.gps-out"));
+   assert(attachments == 1);
    gtk_resources_shutdown();
    assert(!browser);
+   unlink(saved_config); g_free(saved_config); config_file = NULL;
+   dict_free(cfg); cfg = NULL;
    event_shutdown();
    puts("PASS: GTK resource hierarchy, server isolation, explicit room/media actions and teardown");
 }

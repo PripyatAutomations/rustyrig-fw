@@ -1,5 +1,9 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Add a Resource Explorer local-port chooser and configuration dialog for
+    PTYs, physical serial/modem ports and append-only capture files. Show
+    configured detached ports, support physical/file serial export sinks,
+    and bind GPS outputs by stream UUID to avoid linked-site alias collisions.
   * Remove extra Resource Explorer tree indentation and move coordinates into
     Details. Include known site/rig coordinates in local and linked discovery,
     and reflect subscribed GPS positions in their parent resource details.
@@ -296,7 +300,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 13:20:03 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 13:30:56 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

@@ -10,6 +10,6 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags gtk+-3.0) \
-   rrclient/tests/gtk_resources.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
+   rrclient/tests/gtk_resources.c rrclient/gtk/gtk.serial.c -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe \
    $(pkg-config --libs gtk+-3.0) -o "$work/resources"
 xvfb-run -a "$work/resources"

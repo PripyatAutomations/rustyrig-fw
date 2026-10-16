@@ -73,9 +73,10 @@ core
 # distclean should remove this stuff #
 ######################################
 debian/*.log
+debian/*.debhelper
 debian/.debhelper
 debian/debhelper-build-stamp
-debian/*.debhelper
+debian/files
 debian/libfwdspmgr/*
 debian/librrprotocol/*
 debian/librustyaxe/*

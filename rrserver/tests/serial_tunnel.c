@@ -288,6 +288,28 @@ int main(int argc, char **argv) {
    control(&other, "open", "other", "ttyHOST0");
    assert(!last_error[0]);
    control(&other, "close", "other", NULL);
+   // Export tunnels can bridge into a physical local TTY, not only a PTY we create.
+   assert(rr_sercom_disconnect("ttyHOST0"));
+   int local_master, local_slave; char local_device[128];
+   assert(!openpty(&local_master, &local_slave, local_device, NULL, NULL));
+   fcntl(local_master, F_SETFL, O_NONBLOCK);
+   dict_add(cfg, "serial:ttyHOST0.type", "serial");
+   dict_add(cfg, "serial:ttyHOST0.path", local_device);
+   assert(rr_sercom_attach("ttyHOST0", "host:ttyHOST0", NULL));
+   transfer(local_master, master, data, 4096);
+   transfer(master, local_master, data, 4096);
+   assert(rr_sercom_disconnect("ttyHOST0"));
+   close(local_master); close(local_slave);
+   // Output-only host capture receives binary bytes without truncation or TX input.
+   char capture[512]; snprintf(capture, sizeof(capture), "%s/serial.capture", argv[1]);
+   dict_add(cfg, "serial:ttyHOST0.type", "file"); dict_add(cfg, "serial:ttyHOST0.path", capture);
+   assert(rr_sercom_attach("ttyHOST0", "host:ttyHOST0", NULL));
+   assert(write(master, data, 1024) == 1024);
+   for (unsigned i = 0; i < 100; i++) pump();
+   assert(rr_sercom_disconnect("ttyHOST0"));
+   int captured = open(capture, O_RDONLY); unsigned char bytes[1024];
+   assert(captured >= 0 && read(captured, bytes, sizeof(bytes)) == sizeof(bytes));
+   assert(!memcmp(bytes, data, sizeof(bytes))); close(captured); unlink(capture);
    event_emit("disconnected", NULL, NULL);
    rr_sercom_shutdown();
    rrserver_serial_fini();

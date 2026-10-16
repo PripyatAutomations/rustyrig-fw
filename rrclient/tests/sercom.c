@@ -339,6 +339,24 @@ int main(int argc, char **argv) {
    assert(rr_sercom_init());
    assert(!rr_serial_find("ttyCAT0"));
    rr_sercom_shutdown();
+   assert(rr_sercom_init());
+   // Captures append without truncation, with no input interpreted as commands.
+   char capture[512]; snprintf(capture, sizeof(capture), "%s/capture.nmea", argv[1]);
+   int capture_fd = open(capture, O_WRONLY | O_CREAT, 0600);
+   assert(capture_fd >= 0 && write(capture_fd, "existing\n", 9) == 9); close(capture_fd);
+   dict_add(cfg, "serial:capture.type", "file"); dict_add(cfg, "serial:capture.path", capture);
+   assert(rr_sercom_attach("capture", "00112233-4455-6677-8899-aabbccddeeff.gps-out", NULL));
+   event_emit("serial.gps.output", NULL, "{\"gps.channel-uuid\":\"00112233-4455-6677-8899-aabbccddeeff\",\"gps.source\":\"station\",\"gps.nmea\":\"$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A\"}");
+   pump();
+   assert(rr_sercom_disconnect("capture"));
+   capture_fd = open(capture, O_RDONLY);
+   char recorded[512] = {0}; assert(read(capture_fd, recorded, sizeof(recorded) - 1) > 9); close(capture_fd);
+   assert(g_str_has_prefix(recorded, "existing\n$GPRMC,"));
+   assert(strstr(recorded, "*6A\r\n"));
+   char link[512]; snprintf(link, sizeof(link), "%s/capture-link", argv[1]);
+   assert(symlink(capture, link) == 0); assert(!rr_serial_open_file("refuseLink", link)); unlink(link);
+   unlink(capture);
+   rr_sercom_shutdown();
    dict_free(cfg);
    cfg = NULL;
 

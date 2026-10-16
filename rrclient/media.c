@@ -433,7 +433,7 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
          scope += 5;
       }
 
-      if (!strcmp(scope, source)) {
+      if (!strcmp(scope, source) || !strcmp(scope, channel->uuid)) {
          return true;
       }
 
@@ -868,6 +868,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       if (!d) {
          return;
       }
+      dict_add(d, "gps.channel-uuid", channel->uuid);
       dict_add(d, "gps.source", source);
       dict_add(d, "gps.nmea", sentence);
       dict_add_bool(d, "gps.raw", raw);

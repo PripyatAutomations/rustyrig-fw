@@ -185,7 +185,7 @@ defconfig_t defcfg[] = {
       DEFCONFIG_INT, NULL
    },
    {
-      "serial:ttyCAT0.type", "pty", "Serial transport: pty or serial", DEFCONFIG_ENUM, "pty serial"
+      "serial:ttyCAT0.type", "pty", "Serial transport: pty, serial device or append-only capture file", DEFCONFIG_ENUM, "pty serial file"
    },
    {
       "serial:ttyCAT0.path", NULL, "PTY link or real serial device; defaults to cat.pty.path for ttyCAT0"

@@ -11,14 +11,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <glib.h>
 #include <rrclient/serial.h>
+#include <librustyaxe/core.h>
 
 struct rr_serial {
    char *name, *path, *slave;
    int fd, keeper;
-   bool restore;
+   bool restore, file;
+   rr_serial_settings_t file_settings;
    struct termios original;
    GIOChannel *channel;
    guint input, output;
@@ -60,6 +63,7 @@ static gboolean writable(GIOChannel *channel, GIOCondition condition, gpointer u
    rr_serial_t *p = user;
 
    if (condition & (G_IO_ERR | G_IO_HUP | G_IO_NVAL)) {
+      errno = EIO;
       goto failed;
    }
    while (p->pending->len) {
@@ -79,6 +83,7 @@ static gboolean writable(GIOChannel *channel, GIOCondition condition, gpointer u
 
    return G_SOURCE_REMOVE;
 failed:
+   Log(LOG_WARN, "serial", "Write failed for %s (%s): %s", p->name, p->path, strerror(errno));
    g_byte_array_set_size(p->pending, 0);
    p->output = 0;
 
@@ -131,7 +136,7 @@ static gboolean readable(GIOChannel *channel, GIOCondition condition, gpointer u
 }
 
 void rr_serial_read_enabled(rr_serial_t *p, bool enabled) {
-   if (!p) {
+   if (!p || p->file) {
       return;
    }
 
@@ -155,9 +160,17 @@ size_t rr_serial_pending_bytes(const rr_serial_t *p) {
 }
 
 bool rr_serial_get_settings(const rr_serial_t *p, rr_serial_settings_t *settings) {
+   if (p && p->file && settings) {
+      *settings = p->file_settings;
+      return true;
+   }
    return p && rr_serial_settings_read(p->keeper >= 0 ? p->keeper : p->fd, settings);
 }
 bool rr_serial_set_settings(rr_serial_t *p, const rr_serial_settings_t *settings) {
+   if (p && p->file && settings) {
+      p->file_settings = *settings;
+      return true;
+   }
    return p && rr_serial_settings_apply(p->keeper >= 0 ? p->keeper : p->fd, settings);
 }
 
@@ -305,4 +318,42 @@ failed: {
 
       return NULL;
    }
+}
+
+rr_serial_t *rr_serial_open_file(const char *name, const char *path) {
+   if (!name || !*name || !path || !*path || rr_serial_find(name)) {
+      errno = EINVAL;
+      return NULL;
+   }
+   int fd = open(path, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_NOCTTY, 0600);
+   if (fd < 0)
+      return NULL;
+   struct stat status;
+   if (fstat(fd, &status) || !S_ISREG(status.st_mode)) {
+      close(fd);
+      errno = EINVAL;
+      return NULL;
+   }
+   rr_serial_t *p = calloc(1, sizeof(*p));
+   if (!p) {
+      close(fd);
+      return NULL;
+   }
+   p->fd = fd;
+   p->keeper = -1;
+   p->file = true;
+   p->name = strdup(name);
+   p->path = strdup(path);
+   if (!p->name || !p->path) {
+      rr_serial_close(p);
+      return NULL;
+   }
+   p->pending = g_byte_array_new();
+   p->buffer_limit = 8192;
+   p->file_settings = (rr_serial_settings_t) {
+   .baud = 9600,.bits = 8,.parity = 'n',.stops = 1};
+   p->channel = g_io_channel_unix_new(fd);
+   p->next = ports;
+   ports = p;
+   return p;
 }

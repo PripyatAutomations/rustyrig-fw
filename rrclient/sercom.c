@@ -78,7 +78,7 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    const char *state = "Attached";
    if (host_binding(b)) state = b->failed ? "Failed" : !connection || !connection->authenticated ? "Server offline" :
       b->stream ? "Connected" : b->opening ? "Connecting" : "Waiting";
-   else if (b->radio[0] && (!connection || !connection->authenticated)) state = "Server offline";
+   else if ((b->radio[0] || b->profile[0]) && (!connection || !connection->authenticated)) state = "Server offline";
    *info = (rr_sercom_info_t){b->name, b->service, b->profile, rr_serial_path(b->port), state};
    return true;
 }
@@ -480,7 +480,9 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             char scope[64];
             gps_scope(b, scope, sizeof(scope));
 
-            if (!strcmp(scope, source) || (!strcmp(scope, "active") && selected)) {
+            const char *uuid = d ? dict_get(d, "gps.channel-uuid", "") : "";
+            if (*uuid && b->profile[0] && binding_connection(b) != ws_conn) continue;
+            if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) || (!strcmp(scope, "active") && selected)) {
                rr_serial_write(b->port, frame, len);
             }
          }
@@ -642,7 +644,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       }
       snprintf(b->host_port, sizeof(b->host_port), "%s", b->service + 5);
    }
-   if (host_binding(b) || b->radio[0]) {
+   if (host_binding(b) || b->radio[0] || !strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out")) {
       const char *profile = rrclient_connection_name(ws_conn);
       if (profile) strlcpy(b->profile, profile, sizeof(b->profile));
    }
@@ -658,7 +660,12 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    const char *type = cfg_get(key);
    bool pty = device ? false : !type || !strcmp(type, "pty");
 
-   if (type && strcmp(type, "pty") && strcmp(type, "serial")) {
+   if (type && strcmp(type, "pty") && strcmp(type, "serial") && strcmp(type, "file")) {
+      goto failed;
+   }
+   if (type && !strcmp(type, "file") && (device ||
+      (!host_binding(b) && strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out")))) {
+      errno = EINVAL;
       goto failed;
    }
    snprintf(key, sizeof(key), "serial:%s.path", name);
@@ -704,12 +711,10 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    }
 
    if (host_binding(b)) {
-      if (!pty || device) {
-         goto failed;
-      }
       b->host_pending = g_byte_array_new();
    }
-   b->port = rr_serial_open(name, pty, path, b->requested.baud, receive, b);
+   b->port = !device && type && !strcmp(type, "file") ? rr_serial_open_file(name, path) :
+      rr_serial_open(name, pty, path, b->requested.baud, receive, b);
 
    if (!b->port) {
       goto failed;

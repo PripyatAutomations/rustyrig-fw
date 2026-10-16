@@ -1012,3 +1012,9 @@ See [File shares](file-shares.md) for limits and permission semantics.
 Create User is available in native GTK and browser Users administration. Both
 use the server-owned `/user add` command, present the generated temporary
 password, and refresh the user table after successful creation.
+
+Native serial endpoint management now includes a GTK configured-port chooser
+and editor, physical serial/modem bridges and append-only file captures. These
+are native operating-system features; browser GPS/NMEA events and server serial
+wire behavior remain unchanged. Native GPS output scopes may also be stream
+UUIDs to distinguish identically named resources on linked sites.

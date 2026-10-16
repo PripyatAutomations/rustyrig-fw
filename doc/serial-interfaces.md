@@ -253,3 +253,38 @@ only for their own server. Endpoints created before a server is available keep
 their existing active-server behavior until a host endpoint binds at login.
 Common `rr_sercom_info()` exposes borrowed attachment status for presentation;
 GTK does not maintain a second serial session registry.
+
+### Local endpoint chooser
+
+Resource Explorer's **Connect serial…** opens a chooser of configured local
+endpoints. **Configure local ports…**, or the explorer's **Local ports…** button,
+edits a named endpoint: PTY, physical serial/modem device, or append-only capture
+file, with baud, line mode, path and optional startup service. Settings may be
+saved to the client configuration or kept for this session. Disconnect active
+endpoints before editing them. Configured endpoints remain visible under
+**Local serial ports** even when detached or offline.
+
+Select a remote serial export, CAT endpoint or GPS/NMEA output and choose the
+local endpoint. Serial exports use the existing MODEM/`seri` transport; a modem
+on an exported serial port uses that same byte tunnel. GPS output selection
+uses stream UUIDs so linked sites with the same rig aliases do not collide.
+GPS streams still require joining their advertised room; their subscription
+follows the attached output. Input-only GPS rows remain server-managed.
+
+`type=file` is an output-only capture: received serial bytes or GPS/NMEA
+sentences append to the file without truncation or playback. It cannot serve
+CAT commands or feed a GPS input. Physical ports and PTYs are bidirectional.
+For example:
+
+```ini
+[serial]
+logger=none
+[serial:logger]
+type=file
+path=~/station.nmea
+baud=4800
+mode=8n1
+```
+
+The `none` startup mapping leaves the endpoint ready for selection in the
+chooser. Choose a GPS/NMEA output, then Connect serial and select `logger`.
