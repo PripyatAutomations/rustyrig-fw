@@ -1,5 +1,35 @@
 Immediate needs
 ---------------
+*: make TOPIC notices show who set them
+
+rrserver: Add WebSocket binary statistics to match the JSON parser counts
+
+rrclient: Parsing large pastes with extensive formatting like IRC art will lag the client badly
+
+rrclient: On IRC, alpha sort the userlist by ops, then voices, then regular users. I see its only alpha sorted overall.
+
+rrclient: On IRC, send a WHOIS on new query with output in the query
+
+rrclient: In rooms, put @ or + prefix in front of nicks
+
+rrclient: If we notice that a user is an oper (WHOIS or whatever), add ! prefix
+
+rrclient/gtk: Make links clickable in chat
+
+rrclient/gtk: Can we make ^Z undo work?
+
+rrclient: Stop scrolling when new stuff is appended to chat. stay where we are, only scroll if at the end
+
+rrserver: Make elmer/noob grants make a ticket ID that is attached to all associated log entries
+
+rrserver: When a noob user TXes with an elmer supervising, record that elmer and the grant ticket ID
+
+
+rrclient: in server dialog, show a Connected checkbox. allow right click menu for edit and (dis)connect. 
+- Maybe make connect button turn to disconnect for already online servers
+
+-----------------
+
 rrclient: Make audit/ptt logs available for all connected servers (dropdown instead of relying on status tab selection)
 
 rrclient: Maybe some sorta activity notification in inactive tabs later, and change text color if someone say my name

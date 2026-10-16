@@ -24,12 +24,8 @@ rrclient: Can we make the tab list wrap to multiple rows?
 --
 If someone else sends TX audio into the VFO, we want to hear it.
 We don't need to hear our talk-back audio.
-------
+
 Let improve the websdr.listen privs a little to let them join a rig someone
 else connected up, but part them from it when the last person with the
 privileged needed to create it leaves. We should tell them they were removed
 because the admin left the room
--
-
-rrclient: in server dialog, show a Connected checkbox. allow right click menu for edit and (dis)connect. 
-Maybe make connect button turn to disconnect for already online servers

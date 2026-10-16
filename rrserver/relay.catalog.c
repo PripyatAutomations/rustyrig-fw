@@ -5,18 +5,15 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Node/room/object discovery catalogs and merged user directories. */
-#include <rrserver/supervision.h>
 #include "build_config.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
-#include <rrserver/relay.h>
-#include <rrserver/media.direct.h>
+#ifdef USE_MONGOOSE
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
-#ifdef USE_MONGOOSE
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
@@ -29,8 +26,11 @@
 #include <rrserver/rig.rooms.h>
 #include <rrserver/database.h>
 #include <rrserver/discovery.h>
-extern struct GlobalState rig;
+#include <rrserver/relay.h>
+#include <rrserver/media.direct.h>
+#include <rrserver/supervision.h>
 #include <rrserver/relay.internal.h>
+extern struct GlobalState rig;
 bool rr_relay_catalog_dirty;
 size_t rr_relay_catalog_count;
 struct catalog *rr_relay_catalogs;

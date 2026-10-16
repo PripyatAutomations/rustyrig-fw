@@ -29,7 +29,6 @@ static bool peer_section(const char *path, int line, const char *section, const 
 
    if (!value) {
       free(copy);
-
       return true;
    }
    *value++ = 0;
@@ -52,7 +51,6 @@ static bool peer_section(const char *path, int line, const char *section, const 
    if (!strcmp(key, "username")) {
       Log(LOG_WARN, "cfg.peer", "Ignoring obsolete username in [%s]; peer identity uses site.name", section);
       free(copy);
-
       return false;
    }
    static const char *keys[] = {
@@ -76,7 +74,6 @@ static bool peer_section(const char *path, int line, const char *section, const 
       Log(LOG_CRIT, "cfg.peer", "Unknown peer key in [%s] at %s:%d", section, path, line);
    }
    free(copy);
-
    return !ok;
 }
 

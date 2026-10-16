@@ -335,10 +335,6 @@ bool rr_ptt_accounting_locked(void) {
 }
 
 static void accounting_failed(const char *event, const char *data, rrconn_t *peer, void *user) {
-   (void)event;
-   (void)peer;
-   (void)user;
-
    if (accounting_locked || !cfg_get_bool("accounting.strict", false)) {
       return;
    }
@@ -353,10 +349,6 @@ static void accounting_failed(const char *event, const char *data, rrconn_t *pee
 }
 
 static void accounting_poll(const char *event, const char *data, rrconn_t *peer, void *user) {
-   (void)event;
-   (void)data;
-   (void)peer;
-   (void)user;
    static uint64_t retry_at;
    uint64_t at = mono_us();
 

@@ -24,6 +24,7 @@ static char *trim(char *text) {
    }
    return text;
 }
+
 static bool config_section(const char *path, int line, const char *section, const char *input) {
    char *copy = strdup(input);
    bool ok = false;
@@ -76,10 +77,12 @@ done:
 
    return !ok;
 }
+
 static bool owns_key(const char *key) {
    return !strncmp(key, "acl:", 4) || !strcmp(key, "acl.invalid") ||
           !strncmp(key, "listener:", 9) || !strncmp(key, "peer.", 5) || !strncmp(key, "peer:", 5) || !strncmp(key, "rtp.", 4) || !strncmp(key, "rtp:", 4);
 }
+
 static bool save_sections(FILE *fp, const char *path) {
    (void)path;
    dict *seen = dict_new();
@@ -136,10 +139,12 @@ static bool save_sections(FILE *fp, const char *path) {
 
    return ferror(fp) != 0;
 }
+
 bool rrserver_acl_config_init(void) {
    return cfg_add_callback(NULL, "acl:*", config_section) && cfg_add_callback(NULL, "listener:*", config_section) &&
           cfg_add_owned_save_callback("named ACLs, listeners and peers", save_sections, owns_key);
 }
+
 bool rrserver_acl_validate(void) {
    if (cfg_get_bool("acl.invalid", false)) {
       return false;
@@ -168,6 +173,7 @@ bool rrserver_acl_validate(void) {
    }
    return true;
 }
+
 static bool in_group(const char *group, void *context) {
    const http_user_t *account = context;
 
@@ -187,6 +193,7 @@ static bool in_group(const char *group, void *context) {
 
    return false;
 }
+
 acl_result_t rrserver_acl_check(const char *section, const char *ip, const http_user_t *account, const char *user) {
    if (!section || cfg_get_bool("acl.invalid", false)) {
       return ACL_DENY;

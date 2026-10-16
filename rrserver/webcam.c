@@ -33,6 +33,7 @@ static struct video_profile {
    char name[32], codec[5], identity[64];
    bool active;
 } webcam_profiles[WEBCAM_MAX_PROFILES];
+
 static unsigned webcam_profile_count;
 static char webcam_profile_names[512];
 static struct video_viewer { rrconn_t *client; int profile; } webcam_viewers[WEBCAM_MAX_VIEWERS];
@@ -41,6 +42,7 @@ static int viewer_profile(rrconn_t *client) {
    for (unsigned i = 0; i < WEBCAM_MAX_VIEWERS; i++) if (webcam_viewers[i].client == client) return webcam_viewers[i].profile;
    return -1;
 }
+
 static void profile_output(const char *name, const void *data, size_t len, void *user) {
    struct video_profile *profile = user;
    int index = profile - webcam_profiles;
@@ -49,6 +51,7 @@ static void profile_output(const char *name, const void *data, size_t len, void 
       if (viewer_profile(client) == index && chan_id_in_array(client->rx_channels, MAX_RX_CHANNELS, webcam_chan - media_channels + 1)) ws_media_send_frame(webcam_chan, client, data, len, profile->codec);
    }
 }
+
 static void profile_request(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
    if (len != sizeof(rr_media_profile_request_t) || !webcam_chan) return;
    rr_media_profile_request_t *request = (void *)data;
@@ -79,9 +82,11 @@ static void profile_request(const char *event, const void *data, size_t len, rrc
    dict_free(reply);
    request->result = true;
 }
+
 static void profile_closed(const char *event, const char *data, rrconn_t *client, void *user) {
    for (unsigned i = 0; i < WEBCAM_MAX_VIEWERS; i++) if (webcam_viewers[i].client == client) webcam_viewers[i].client = NULL;
 }
+
 static void capture_subscribed(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *message = data ? json2dict(data) : NULL;
    bool ours = webcam_chan && message && !strcmp(dict_get(message, "media.chan-uuid", ""), webcam_chan->uuid);
@@ -96,6 +101,7 @@ static void capture_subscribed(const char *event, const char *data, rrconn_t *cl
    if (webcam_fwdsp_chan < 0) Log(LOG_WARN, "webcam", "Unable to start configured %s.tx capture pipeline", webcam_codec);
    else Log(LOG_INFO, "webcam", "Started configured %s.tx capture pipeline for a viewer", webcam_codec);
 }
+
 static void profile_poll(const char *event, const char *data, rrconn_t *client, void *user) {
    if (!webcam_chan) return;
    static uint64_t next_poll;
@@ -120,6 +126,7 @@ static void profile_poll(const char *event, const char *data, rrconn_t *client, 
       webcam_profiles[i].active = false;
    }
 }
+
 static void profile_catalog(void) {
    dict *configuration = dict_merge_new(default_cfg, cfg);
    int rank = 0;

@@ -336,6 +336,7 @@ static void inventory_media(object_send_t *ctx, const char *owner, unsigned dept
       rr_inventory_send(ctx->client, row);
    }
 }
+
 static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
    object_send_t *ctx = user;
    dict *row = rr_inventory_row(ctx->request, 2, "vfo", rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo));
@@ -351,6 +352,7 @@ static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
 
    return false;
 }
+
 static void inventory_services(object_send_t *ctx, const char *scope, unsigned depth) {
    dict *d = dict_new();
 
@@ -363,6 +365,7 @@ static void inventory_services(object_send_t *ctx, const char *scope, unsigned d
    event_emit_dict(RR_INVENTORY_EVENT, ctx->client, d);
    dict_free(d);
 }
+
 static void inventory_rooms(object_send_t *ctx, const char *base) {
 #ifdef USE_SQLITE
    char *rooms = db_room_list(masterdb), *save = NULL;
@@ -385,6 +388,7 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
    free(rooms);
 #endif
 }
+
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    object_send_t *ctx = user;
    const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
@@ -413,6 +417,7 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
 
    return false;
 }
+
 static void inventory(rrconn_t *client, const char *id) {
    object_send_t ctx = {
       .client = client, .request = id
@@ -758,6 +763,7 @@ void rrserver_objects_remote(rrconn_t *client, dict *d) {
       }
    }
 }
+
 void rrserver_objects_room_state(rrconn_t *client, const char *room) {
    object_send_t ctx = {
       .client = client

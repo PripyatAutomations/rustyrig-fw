@@ -5,15 +5,12 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Virtual owner sessions, room demand and authoritative request execution. */
-#include <rrserver/supervision.h>
 #include "build_config.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
-#include <rrserver/relay.h>
-#include <rrserver/media.direct.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
 #ifdef USE_MONGOOSE
@@ -21,6 +18,9 @@
 #include <librrprotocol/auth.h>
 #include <librrprotocol/objects.h>
 #include <librrprotocol/wire.h>
+#include <rrserver/supervision.h>
+#include <rrserver/relay.h>
+#include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 #include <rrserver/link.h>
 #include <rrserver/objects.h>
@@ -29,8 +29,9 @@
 #include <rrserver/rig.rooms.h>
 #include <rrserver/database.h>
 #include <rrserver/discovery.h>
-extern struct GlobalState rig;
 #include <rrserver/relay.internal.h>
+
+extern struct GlobalState rig;
 size_t rr_relay_wanted_count;
 size_t rr_relay_remote_count;
 size_t rr_relay_client_count;

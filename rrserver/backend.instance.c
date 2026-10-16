@@ -14,6 +14,11 @@
 #include <rrserver/cfg.rig.h>
 #include <rrserver/rig.properties.h>
 
+typedef struct backend_control_completion {
+   void (*complete)(rr_control_result_t, void *);
+   void *user;
+} backend_control_completion_t;
+
 // XXX: Move this to $PROFILE.config.json
 #define RR_BACKEND_TYPE_MAX 16
 static const rr_backend_type_t *registered_types[RR_BACKEND_TYPE_MAX];
@@ -52,10 +57,6 @@ const rr_backend_type_t *rr_backend_type_find(const char *name) {
    return NULL;
 }
 
-typedef struct backend_control_completion {
-   void (*complete)(rr_control_result_t, void *);
-   void *user;
-} backend_control_completion_t;
 static void backend_control_done(rr_backend_t *backend, rr_server_vfo_t *vfo, bool failed, void *user) {
    backend_control_completion_t *completion = user;
 

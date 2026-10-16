@@ -23,11 +23,13 @@ typedef struct observation {
    dict_value_t value;
    bool unavailable;
 } observation_t;
+
 typedef struct backend_log {
    struct backend_log *next;
    logpriority_t priority;
    char *subsystem, *text;
 } backend_log_t;
+
 typedef struct backend_job {
    struct backend_job *next, *followers;
    rr_server_vfo_t *vfo;
@@ -44,12 +46,14 @@ typedef struct backend_job {
    observation_t *observations;
    backend_log_t *logs;
 } backend_job_t;
+
 typedef struct backend_cache {
    bool supported, known, ptt;
    float power;
    rr_vfo_data_t state;
    int widths[3], width_count;
 } backend_cache_t;
+
 struct rr_backend_worker {
    pthread_t thread;
    pthread_mutex_t mutex;
@@ -65,11 +69,13 @@ struct rr_backend_worker {
    backend_cache_t cache[MAX_VFOS]; // Written/read only by the server thread.
    rr_backend_observation_fn publish;
 };
+
 static _Thread_local backend_job_t *running_job;
 
 static bool vfo_index(rr_server_vfo_t *vfo, rr_vfo_t *index) {
    return rr_server_vfo_native_index(vfo, index) && *index >= VFO_A && *index < MAX_VFOS;
 }
+
 static void finish_job_locked(struct rr_backend_worker *worker, backend_job_t *job) {
    if (worker->off_jobs[job->index] == job) {
       worker->off_jobs[job->index] = NULL;
@@ -93,6 +99,7 @@ static void finish_job_locked(struct rr_backend_worker *worker, backend_job_t *j
       followers = next;
    }
 }
+
 static void free_job(backend_job_t *job) {
    while (job->observations) {
       observation_t *item = job->observations;
@@ -139,6 +146,7 @@ rr_property_update_t rr_backend_property_observe(rr_backend_t *backend, rr_serve
 
    return RR_PROPERTY_CHANGED;
 }
+
 rr_property_update_t rr_backend_property_unavailable(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *name) {
    if (!running_job) {
       return rr_vfo_property_unavailable(vfo, name);
@@ -155,6 +163,7 @@ rr_property_update_t rr_backend_property_unavailable(rr_backend_t *backend, rr_s
 
    return result;
 }
+
 bool rr_backend_worker_shutdown(rr_backend_t *backend, int code) {
    if (!running_job) {
       return false;
@@ -163,6 +172,7 @@ bool rr_backend_worker_shutdown(rr_backend_t *backend, int code) {
 
    return true;
 }
+
 void rr_backend_log(rr_backend_t *backend, logpriority_t priority, const char *subsystem, const char *format, ...) {
    va_list args;
    va_start(args, format);
@@ -247,6 +257,7 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
    worker->keyed[job->index] = job->ptt;
    running_job = NULL;
 }
+
 static void *worker_main(void *arg) {
    struct rr_backend_worker *worker = arg;
 
@@ -431,39 +442,47 @@ static backend_cache_t *cached(rr_backend_t *backend, rr_server_vfo_t *vfo) {
 
    return vfo_index(vfo, &index) ? &backend->worker->cache[index] : NULL;
 }
+
 static bool cached_supported(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
 
    return c && c->supported;
 }
+
 static bool cached_ptt(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
 
    return c && c->ptt;
 }
+
 static float cached_freq(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
 
    return c && c->known ? c->state.freq : 0;
 }
+
 static float cached_power(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
 
    return c && c->known ? c->power : 0;
 }
+
 static uint16_t cached_width(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
 
    return c && c->known ? c->state.width : 0;
 }
+
 static rr_mode_t cached_mode(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
 
    return c && c->known ? c->state.mode : MODE_NONE;
 }
+
 static const char *cached_mode_text(rr_backend_t *b, rr_server_vfo_t *v) {
    return vfo_mode_name(cached_mode(b, v));
 }
+
 static int cached_widths(rr_backend_t *b, rr_server_vfo_t *v, int *widths, int max) {
    backend_cache_t *c = cached(b, v);
 
@@ -474,6 +493,7 @@ static int cached_widths(rr_backend_t *b, rr_server_vfo_t *v, int *widths, int m
 
    return c->width_count;
 }
+
 static rr_vfo_data_t *queue_poll(rr_backend_t *b, rr_server_vfo_t *v) {
    rr_backend_worker_submit(b, v, RR_BACKEND_POLL, (dict_value_t) {
       0
@@ -481,30 +501,35 @@ static rr_vfo_data_t *queue_poll(rr_backend_t *b, rr_server_vfo_t *v) {
 
    return NULL;
 }
+
 static bool queue_freq(rr_backend_t *b, rr_server_vfo_t *v, int f) {
    return rr_backend_worker_submit(b, v, RR_BACKEND_FREQ, (dict_value_t) {
       .i = f
    }
       , NULL, NULL);
 }
+
 static bool queue_mode(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t m) {
    return rr_backend_worker_submit(b, v, RR_BACKEND_MODE, (dict_value_t) {
       .i = m
    }
       , NULL, NULL);
 }
+
 static bool queue_width(rr_backend_t *b, rr_server_vfo_t *v, const char *w) {
    return rr_backend_worker_submit(b, v, RR_BACKEND_WIDTH, (dict_value_t) {
       .s = w
    }
       , NULL, NULL);
 }
+
 static bool queue_power(rr_backend_t *b, rr_server_vfo_t *v, float p) {
    return rr_backend_worker_submit(b, v, RR_BACKEND_POWER, (dict_value_t) {
       .f = p
    }
       , NULL, NULL);
 }
+
 static bool queue_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool p) {
    return rr_backend_worker_submit(b, v, RR_BACKEND_PTT, (dict_value_t) {
       .i = p
@@ -517,6 +542,7 @@ static const rr_backend_funcs_t worker_api = {
    .freq_set = queue_freq, .freq_get = cached_freq, .mode_set = queue_mode, .mode_get = cached_mode, .mode_get_str = cached_mode_text,
    .width_set = queue_width, .width_get = cached_width, .widths_get = cached_widths, .power_set = queue_power, .power_get = cached_power
 };
+
 static bool initialize_vfo(rr_server_vfo_t *vfo, void *arg) {
    struct rr_backend_worker *worker = arg;
    rr_vfo_t index;
@@ -527,6 +553,7 @@ static bool initialize_vfo(rr_server_vfo_t *vfo, void *arg) {
 
    return false;
 }
+
 bool rr_backend_worker_start(rr_backend_t *backend, rr_backend_observation_fn publish) {
    if (backend->worker || backend->type->event_driven) {
       return false;
@@ -556,6 +583,7 @@ bool rr_backend_worker_start(rr_backend_t *backend, rr_backend_observation_fn pu
 
    return false;
 }
+
 void rr_backend_worker_drain(rr_backend_t *backend) {
    struct rr_backend_worker *worker = backend->worker;
 
@@ -627,6 +655,7 @@ void rr_backend_worker_drain(rr_backend_t *backend) {
       free_job(job);
    }
 }
+
 bool rr_backend_worker_busy(rr_backend_t *backend) {
    struct rr_backend_worker *worker = backend->worker;
 
@@ -639,6 +668,7 @@ bool rr_backend_worker_busy(rr_backend_t *backend) {
 
    return busy;
 }
+
 bool rr_backend_worker_yield(rr_backend_t *backend) {
    struct rr_backend_worker *worker = backend->worker;
 

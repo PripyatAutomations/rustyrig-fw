@@ -5,7 +5,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Application envelope routing, peer lifecycle and periodic reconciliation. */
-#include <rrserver/supervision.h>
 #include "build_config.h"
 #include <stdio.h>
 #include <ctype.h>
@@ -14,6 +13,7 @@
 #include <glib.h>
 #include <rrserver/relay.h>
 #include <rrserver/media.direct.h>
+#include <rrserver/supervision.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
 #ifdef USE_MONGOOSE
@@ -73,6 +73,7 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
 
    return ok;
 }
+
 /* Forward a link payload while retaining its authoritative owner. */
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
    char *json = dict2json(payload);
@@ -117,6 +118,7 @@ bool rr_relay_permitted_message(dict *d) {
    return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") || !strcmp(cmd, "topic")
       || !strcmp(cmd, "supervise"));
 }
+
 /* Intercept commands for remote rooms and route through their catalog owner. */
 static void route_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
@@ -227,7 +229,6 @@ static void route_request(const char *event, const void *data, size_t length, rr
    }
    io->result = true;
 }
-
 
 /* Validate a received link envelope and dispatch its payload by kind. */
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
@@ -539,6 +540,7 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
       free(c);
    }
 }
+
 /* Remove discovery and session state made unreachable by a lost link. */
 static void lost(const char *event, const char *node, rrconn_t *client, void *user) {
    for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {

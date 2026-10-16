@@ -188,9 +188,11 @@ static void send_position(struct gps_source *source, rrconn_t *client) {
       source->sent_flags = payload[8];
    }
 }
+
 static void publish(struct gps_source *source, rrconn_t *client) {
    send_position(source, client);
 }
+
 static bool receiver_angle(const char *text, const char *hemisphere, bool latitude, int32_t *result) {
    if (!text || !hemisphere || strlen(hemisphere) != 1) {
       return false;
@@ -227,6 +229,7 @@ static bool receiver_angle(const char *text, const char *hemisphere, bool latitu
 
    return true;
 }
+
 static void receiver_position(struct gps_source *source, const char *sentence) {
    char copy[512];
    snprintf(copy, sizeof(copy), "%s", sentence);
@@ -330,6 +333,7 @@ static void gps_input(const char *event, const char *data, rrconn_t *client, voi
       dict_free(d);
    }
 }
+
 static void poll_gps(const char *event, const char *data, rrconn_t *client, void *user) {
    uint64_t time = mono_us();
 
@@ -344,6 +348,7 @@ static void poll_gps(const char *event, const char *data, rrconn_t *client, void
       }
    }
 }
+
 static void subscribed(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = json2dict(data);
 
@@ -360,6 +365,7 @@ static void subscribed(const char *event, const char *data, rrconn_t *client, vo
 
    dict_free(d);
 }
+
 static bool configure_source(struct gps_source *source, const char *position) {
    if (position && *position) {
       source->fixed = rrserver_gps_position_parse(position, &source->lat, &source->lon);
@@ -395,9 +401,8 @@ static bool configure_source(struct gps_source *source, const char *position) {
 
    return true;
 }
-static bool add_rig(rr_server_rig_t *radio, void *user) {
-   (void)user;
 
+static bool add_rig(rr_server_rig_t *radio, void *user) {
    if (count == GPS_SOURCES_MAX) {
       return true;
    }
@@ -417,6 +422,7 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
 
    return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
 }
+
 static void add_nmea_channel(struct gps_source *source) {
    struct rr_mediachan *position = source->channel;
 
@@ -434,6 +440,7 @@ static void add_nmea_channel(struct gps_source *source) {
    snprintf(source->nmea_channel->room, sizeof(source->nmea_channel->room), "%s", position->room);
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
 }
+
 static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
    if (!client || !client->authenticated) {
       return;
@@ -482,6 +489,7 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
    }
    dict_free(request);
 }
+
 bool rrserver_gps_init(void) {
    memset(sources, 0, sizeof(sources));
    count = 1;
@@ -512,6 +520,7 @@ bool rrserver_gps_init(void) {
 
    return false;
 }
+
 void rrserver_gps_fini(void) {
    event_off_token(inventory_token);
    inventory_token = NULL;

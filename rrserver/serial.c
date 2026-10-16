@@ -25,7 +25,6 @@
 #include <rrserver/gps.h>
 
 #define SERIAL_PORTS_MAX 32
-
 #define SERIAL_STREAMS_MAX 256
 
 // Stream zero is reserved. Allocate each of the 255 wire IDs at most once
@@ -380,6 +379,7 @@ static void frame(const char *event, const void *data, size_t len, rrconn_t *cli
       return;
    }
 }
+
 static void closed(const char *event, const char *data, rrconn_t *client, void *user) {
    if (!client) {
       return;
@@ -402,6 +402,7 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
       free(s);
    }
 }
+
 static void gps_output(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *d = data && data[0] == '{' ? json2dict(data) : NULL;
 
@@ -450,6 +451,7 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
    }
    dict_free(d);
 }
+
 static void gps_input(struct serial_export *p, const char *data, size_t len) {
    for (size_t i = 0 ; i < len ; i++) {
       char ch = data[i];
@@ -484,6 +486,7 @@ static void gps_input(struct serial_export *p, const char *data, size_t len) {
       }
    }
 }
+
 bool rrserver_serial_poll(void) {
    bool active = false;
 
@@ -598,12 +601,11 @@ bool rrserver_serial_poll(void) {
       continue;
 failed:
       reply(p->owner, "closed", p->client_name, p, "device-disconnected");
-
       close_port(p);
    }
-
    return active;
 }
+
 static void inventory_serial(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *request = json2dict(data);
 
@@ -631,9 +633,9 @@ static void inventory_serial(const char *event, const char *data, rrconn_t *clie
       dict_add(row, "inventory.action", p->service ? "server-config-only" : "/sercom attach <local-name> host:<name>");
       rr_inventory_send(client, row);
    }
-
    dict_free(request);
 }
+
 void rrserver_serial_init(void) {
    const char *key;
    char *value;
@@ -763,6 +765,7 @@ void rrserver_serial_init(void) {
    closed_token = event_on_token("serial.session.closed", closed, NULL);
    frame_token = event_on_binary_token(RR_SERIAL_FRAME_EVENT, frame, NULL);
 }
+
 void rrserver_serial_fini(void) {
    for (unsigned i = 0 ; i < count ; i++) {
       close_port(&exports[i]);

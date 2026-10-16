@@ -24,9 +24,7 @@ static uint64_t reconnect_at;
 static char line[512];
 static size_t used;
 static bool dropping;
-rr_module_event_t modexports[] = { {
-                                      0
-                                   } };
+rr_module_event_t modexports[] = { { 0 } };
 
 static void receive(const char *data, size_t len) {
    for (size_t i = 0 ; i < len ; i++) {
@@ -62,13 +60,13 @@ static void receive(const char *data, size_t len) {
       }
    }
 }
+
 static void handler(struct mg_connection *c, int ev, void *data) {
    if (ev == MG_EV_CONNECT) {
       dict *watch = dict_new();
 
       if (!watch) {
          c->is_closing = 1;
-
          return;
       }
       dict_add_bool(watch, "enable", true);
@@ -113,9 +111,11 @@ static void poll_gpsd(const char *event, const char *data, rrconn_t *client, voi
    }
    mg_mgr_poll(&manager, 0);
 }
+
 bool rr_module_init(void) {
    const char *target = cfg_get("gpsd.target");
    char key[128];
+
    const char *position;
    if (target && strcmp(target, "station")) {
       snprintf(key, sizeof(key), "rig:%s.gps.position", target);
@@ -123,9 +123,9 @@ bool rr_module_init(void) {
    } else {
       position = rrserver_gps_station_position();
    }
+
    if (position && *position) {
       Log(LOG_INFO, "gpsd", "%s uses configured coordinates; GPS daemon adapter disabled", target ? target : "station");
-
       return false;
    }
    used = 0;
@@ -138,12 +138,12 @@ bool rr_module_init(void) {
    if (!poll_token) {
       mg_mgr_free(&manager);
       initialized = false;
-
       return true;
    }
 
    return false;
 }
+
 void rr_module_shutdown(void) {
    event_off_token(poll_token);
    poll_token = NULL;

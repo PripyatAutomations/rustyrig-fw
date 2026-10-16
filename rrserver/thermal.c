@@ -52,12 +52,10 @@ uint32_t get_thermal(uint32_t sensor) {
 
       if (unit > RR_MAX_AMPS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_AMPS);
-
          return -1000;
       } else {
          float temp = rig.amps[unit].thermal;
          Log(LOG_DEBUG, "therm", "returning thermal %d (PA: %d): %f degF", sensor, unit, temp);
-
          return temp;
       }
    } else if (sensor >= 2000 && sensor <= 2099) {
@@ -65,12 +63,10 @@ uint32_t get_thermal(uint32_t sensor) {
 
       if (unit > RR_MAX_ATUS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_ATUS);
-
          return -1000;
       } else {
          float temp = rig.atus[unit].thermal;
          Log(LOG_DEBUG, "therm", "returning thermal %d (ATU: %d): %f degF", sensor, unit, temp);
-
          return temp;
       }
    } else if (sensor >= 3000 && sensor <= 3099) {
@@ -78,12 +74,10 @@ uint32_t get_thermal(uint32_t sensor) {
 
       if (unit > RR_MAX_FILTERS - 1 || unit < 0) {
          Log(LOG_DEBUG, "therm", "Request for invalid sensor %d (max: %d) returning -1000!", sensor, RR_MAX_FILTERS);
-
          return -1000;
       } else {
          float temp = rig.filters[unit].thermal;
          Log(LOG_DEBUG, "therm", "returning thermal %d (Filter: %d): %f degF", sensor, unit, temp);
-
          return temp;
       }
    }
@@ -106,7 +100,6 @@ bool are_we_on_fire(void) {
    for (int i = 0 ; i < RR_MAX_AMPS ; i++) {
       if (rig.amps[i].thermal >= thermal_limits.final_max) {
          Log(LOG_CRIT, "therm", "THERMAL ALARM: AMP %d %d > %d degF!", i, rig.amps[i].thermal, thermal_limits.final_max);
-
          return true;
       }
 
@@ -118,13 +111,11 @@ bool are_we_on_fire(void) {
    // Return TRUE on any max at or exceeded
    if (rig.therm_enclosure >= thermal_limits.encl_max) {
       Log(LOG_CRIT, "therm", "THERMAL ALARM: Case %d > %d degF!", rig.therm_enclosure, thermal_limits.encl_max);
-
       return true;
    }
 
    if (rig.therm_inlet >= thermal_limits.inlet_max) {
       Log(LOG_CRIT, "therm", "THERMAL ALARM: Inlet %d > %d degF!", rig.therm_inlet, thermal_limits.inlet_max);
-
       return true;
    }
 

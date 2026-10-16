@@ -5,7 +5,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Session-local media translation, fragmentation and proxy TX liveness. */
-#include <rrserver/supervision.h>
 #include "build_config.h"
 #include <stdio.h>
 #include <ctype.h>
@@ -14,6 +13,7 @@
 #include <glib.h>
 #include <rrserver/relay.h>
 #include <rrserver/media.direct.h>
+#include <rrserver/supervision.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
 #ifdef USE_MONGOOSE
@@ -211,9 +211,6 @@ bool rr_relay_media_reassemble(struct relay_media *m, dict *d) {
 
 /* Relay outgoing binary media through the owning client mapping. */
 void rr_relay_media_outgoing(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
-
    if (length != sizeof(rr_media_binary_t)) {
       return;
    }
@@ -249,9 +246,6 @@ void rr_relay_media_outgoing(const char *event, const void *data, size_t length,
 
 /* Translate and forward incoming client media for a remote owner. */
 void rr_relay_media_incoming(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
-
    if (length != sizeof(rr_media_binary_t) || rr_relay_applying || rr_relay_remote_for(client)) {
       return;
    }
@@ -290,10 +284,6 @@ void rr_relay_media_incoming(const char *event, const void *data, size_t length,
 
 /* Propagate authoritative remote talker changes to interested listeners. */
 void rr_relay_remote_talker(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)client;
-   (void)user;
-
    if (length != sizeof(rr_server_talker_t)) {
       return;
    }
@@ -314,10 +304,6 @@ void rr_relay_remote_talker(const char *event, const void *data, size_t length, 
 
 /* Translate remote stream discovery into per-client channel mappings. */
 void rr_relay_media_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)client;
-   (void)user;
-
    if (length != sizeof(rr_media_catalog_t)) {
       return;
    }
@@ -346,10 +332,6 @@ void rr_relay_media_catalog(const char *event, const void *data, size_t length, 
 
 /* Report whether relay subscriptions require a local media channel. */
 void rr_relay_media_demand(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)client;
-   (void)user;
-
    if (length != sizeof(rr_media_demand_t)) {
       return;
    }
@@ -369,10 +351,6 @@ void rr_relay_media_demand(const char *event, const void *data, size_t length, r
 
 /* Fan out a local media frame only to interested remote branches. */
 void rr_relay_media_fanout(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)client;
-   (void)user;
-
    if (length != sizeof(rr_media_fanout_t)) {
       return;
    }
@@ -451,8 +429,6 @@ bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t
 /* Only frames accepted by the authoritative codec, room, permission and PTT checks keep proxy TX live. Neither control traffic nor incomplete fragments count.
  * PARITY: rustyrig-www/js/webui.audio.js:webui_append_tx_samples uses this WS path. */
 void rr_relay_proxy_tx_frame(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
    struct remote_session *r = rr_relay_remote_for(client);
    struct rr_binframe frame;
 

@@ -19,10 +19,6 @@ static long long users_check_at;
 
 /* Coalesce lifecycle/account changes until the next server poll. */
 static void users_changed(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)data;
-   (void)client;
-   (void)user;
    users_dirty = true;
 }
 
@@ -46,7 +42,6 @@ void rr_relay_users_poll(bool force) {
    if (!local) {
       /* Keep the prior directory and bound allocation retries under pressure. */
       users_check_at = at + 1000;
-
       return;
    }
    struct directory *entry = rr_relay_directories;

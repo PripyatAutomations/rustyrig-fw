@@ -25,8 +25,10 @@
 #define MAX_PEERS 16
 #define MAX_SESSIONS 32
 #define MAX_QUEUE 262144
+
 extern struct GlobalState rig;
 struct link_session;
+
 struct link_peer {
    char section[128], site[128], node[37];
    char *url, *password;
@@ -36,6 +38,7 @@ struct link_peer {
    bool manually_closed;
    struct link_session *session;
 };
+
 struct link_session {
    struct link_session *next;
    struct mg_connection *connection;
@@ -45,6 +48,7 @@ struct link_session {
    char node[37];
    bool outbound, dedicated, hello, snapshot, admitted, ready, established;
 };
+
 static struct {
    struct mg_mgr *manager;
    struct mg_connection *listener;
@@ -62,14 +66,12 @@ static void link_callback(struct mg_connection *c, int event, void *data);
 
 static const char *config_value(const char *key, const char *fallback) {
    const char *value = cfg_get(key);
-
    return value ? value : fallback;
 }
 
 static const char *peer_value(const char *section, const char *key) {
    static char name[256];
    snprintf(name, sizeof(name), "%s.%s", section, key);
-
    return cfg_get(name);
 }
 
@@ -80,7 +82,6 @@ static bool equal_secret(const char *a, const char *b) {
    for (size_t i = 0 ; i < 256 ; i++) {
       different |= (i < an ? (unsigned char)a[i] : 0) ^ (i < bn ? (unsigned char)b[i] : 0);
    }
-
    return !different;
 }
 
@@ -101,7 +102,6 @@ static bool send_message(struct link_session *session, dict *d) {
    if (!ok) {
       fail(session, "Link send queue or wire limit exceeded");
    }
-
    return ok;
 }
 
@@ -111,7 +111,6 @@ static dict *message(const char *op) {
    if (d) {
       dict_add(d, "op", op);
    }
-
    return d;
 }
 
@@ -133,7 +132,6 @@ bool rrserver_links_send(const char *node, dict *d) {
          return send_message(s, d);
       }
    }
-
    return false;
 }
 void rrserver_links_broadcast(dict *d) {
@@ -149,7 +147,6 @@ static void send_hello(struct link_session *session) {
 
    if (!d) {
       fail(session, "Out of memory");
-
       return;
    }
    dict_add(d, "node", links.node);
@@ -173,7 +170,6 @@ static void send_snapshot(struct link_session *session) {
 
    if (!nodes) {
       fail(session, "Out of memory");
-
       return;
    }
    rr_link_node_t node;
@@ -185,7 +181,6 @@ static void send_snapshot(struct link_session *session) {
       if (added < 0 || (size_t)added >= capacity - n) {
          free(nodes);
          fail(session, "Topology snapshot too large");
-
          return;
       }
    }
@@ -195,7 +190,6 @@ static void send_snapshot(struct link_session *session) {
    if (!d) {
       free(nodes);
       fail(session, "Out of memory");
-
       return;
    }
    dict_add(d, "nodes", nodes);
@@ -225,9 +219,7 @@ static void establish(struct link_session *session) {
 
    Log(LOG_INFO, "link", "Linked site %s (%s), servers %zu", session->peer->site, session->node, rr_link_tree_count(links.tree));
    /* Publish this component in parent-before-child order. */
-   bool sent[256] = {
-      false
-   };
+   bool sent[256] = { false };
 
    for (size_t pass = 0 ; pass < rr_link_tree_count(links.tree) ; pass++) {
       rr_link_node_t node;
@@ -257,7 +249,6 @@ static void establish(struct link_session *session) {
          }
       }
    }
-
    event_emit("server.link.ready", NULL, session->node);
 }
 
@@ -266,7 +257,6 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    if (session->hello || !rr_object_uuid_valid(node) || !strcmp(node, links.node) || strlen(site) >= 128 || !strcmp(site, links.site)) {
       fail(session, "Invalid peer identity");
-
       return;
    }
    struct link_peer *peer = session->peer;
@@ -282,7 +272,6 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) || !equal_secret(peer->password, dict_get(d, "password", ""))) {
       fail(session, "Peer authentication failed");
-
       return;
    }
 
@@ -293,13 +282,11 @@ static void handle_hello(struct link_session *session, dict *d) {
    if (rrserver_acl_check(peer->section, peer_ip, NULL, peer->site) != ACL_ALLOW ||
       (!session->outbound && rrserver_acl_check(session->dedicated ? "listener:link" : listener, peer_ip, NULL, peer->site) != ACL_ALLOW)) {
       fail(session, "ACL access denied");
-
       return;
    }
 
    if (peer->manually_closed) {
       fail(session, "Peer is administratively closed");
-
       return;
    }
    struct link_session *old = peer->session;
@@ -307,7 +294,6 @@ static void handle_hello(struct link_session *session, dict *d) {
    if (old && old != session && !old->connection->is_closing) {
       if (old->established) {
          fail(session, "Peer already linked");
-
          return;
       }
       /* Only simultaneous attempts need a tie-break. Prefer the socket whose initiating server UUID is smaller, consistently at both endpoints. */
@@ -315,7 +301,6 @@ static void handle_hello(struct link_session *session, dict *d) {
 
       if (old->outbound == prefer_outbound || session->outbound != prefer_outbound) {
          fail(session, "Duplicate pending link");
-
          return;
       }
       fail(old, "Superseded simultaneous link");
@@ -326,7 +311,6 @@ static void handle_hello(struct link_session *session, dict *d) {
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s != session && !s->established && (s->admitted || (s->hello && !s->connection->is_closing))) {
          fail(session, "Another topology admission is pending; retry");
-
          return;
       }
    }
@@ -345,7 +329,6 @@ static void handle_hello(struct link_session *session, dict *d) {
 static void handle_snapshot(struct link_session *session, dict *d) {
    if (!session->hello || session->snapshot || session->generation != links.generation) {
       fail(session, "Stale or unexpected snapshot; retry admission");
-
       return;
    }
    char *copy = strdup(dict_get(d, "nodes", "")), *save = NULL;
@@ -354,7 +337,6 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 
    if (!copy) {
       fail(session, "Out of memory");
-
       return;
    }
 
@@ -369,14 +351,11 @@ static void handle_snapshot(struct link_session *session, dict *d) {
       nodes[count++] = (rr_link_node_t) {
          p, !strcmp(comma, "-") ? NULL : comma
       };
-
-
    }
 
    if (!count || rr_link_tree_attach(links.tree, session->node, nodes, count) != RR_LINK_OK) {
       free(copy);
       fail(session, "Topology overlap, cycle, invalid component or capacity limit");
-
       return;
    }
    free(copy);
@@ -386,7 +365,6 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 
    if (!ready) {
       fail(session, "Out of memory");
-
       return;
    }
    send_message(session, ready);
@@ -397,14 +375,12 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 static void handle_frame(struct link_session *session, struct mg_ws_message *frame) {
    if ((frame->flags & 15) != WEBSOCKET_OP_TEXT) {
       fail(session, "Only link control text is supported");
-
       return;
    }
    dict *d = rr_link_wire_decode(frame->data.buf, frame->data.len);
 
    if (!d) {
       fail(session, "Invalid link wire message");
-
       return;
    }
    const char *op = dict_get(d, "op", "");
@@ -519,7 +495,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
       if (!session) {
          c->is_closing = 1;
-
          return;
       }
       c->fn_data = session;
@@ -530,7 +505,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
       if (rrserver_acl_check("listener:link", peer_ip, NULL, NULL) == ACL_DENY) {
          fail(session, "Listener ACL access denied");
-
          return;
       }
 
@@ -549,7 +523,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
    if (event == MG_EV_READ && c->recv.len > RR_LINK_MAX_FRAME + 4096) {
       fail(session, "Link receive buffer exceeded");
-
       return;
    }
 
@@ -559,7 +532,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
       if (rrserver_acl_check(session->peer->section, peer_ip, NULL, session->peer->site) != ACL_ALLOW) {
          fail(session, "Outbound peer ACL access denied");
-
          return;
       }
    }
@@ -587,7 +559,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
          if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
             fail(session, "Server did not negotiate link protocol");
-
             return;
          }
          send_hello(session);
@@ -619,7 +590,6 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
 static bool invalid_peer(const char *section, const char *key, const char *reason) {
    Log(LOG_CRIT, "link", "Invalid [%s] %s: %s", section, key, reason);
-
    return false;
 }
 
@@ -695,16 +665,11 @@ static bool load_peer(const char *section) {
    if (!peer->url || !peer->password) {
       return invalid_peer(section, "credentials", "out of memory while loading peer");
    }
-
    return true;
 }
 
 /* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
 static void shared_link_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)client;
-   (void)user;
-
    if (length != sizeof(rr_server_http_t)) {
       return;
    }
@@ -719,7 +684,6 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    if (!connection->is_tls && !links.insecure) {
       mg_http_reply(connection, 403, "", "Plaintext server links are disabled\n");
       connection->is_draining = 1;
-
       return;
    }
    struct mg_str *protocol = mg_http_get_header(request->request, "Sec-WebSocket-Protocol");
@@ -727,7 +691,6 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
       mg_http_reply(connection, 400, "", "Server-link protocol required\n");
       connection->is_draining = 1;
-
       return;
    }
    struct link_session *session = new_session();
@@ -735,7 +698,6 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    if (!session) {
       mg_http_reply(connection, 503, "", "Server-link session limit reached\n");
       connection->is_draining = 1;
-
       return;
    }
    session->connection = connection;
@@ -746,9 +708,6 @@ static void shared_link_request(const char *event, const void *data, size_t leng
 }
 
 static void link_command(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
-
    if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) {
       return;
    }
@@ -768,13 +727,11 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
          ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session
             && peer->session->established ? "linked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
       }
-
       return;
    }
 
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
       ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer>");
-
       return;
    }
    struct link_peer *peer = NULL;
@@ -790,14 +747,12 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
 
    if (!peer) {
       ws_send_error(client, "Unknown stored peer");
-
       return;
    }
    bool open = !strcasecmp(action, "open");
 
    if (open && !peer->url[0]) {
       ws_send_error(client, "Peer has no outgoing URL");
-
       return;
    }
    peer->manually_closed = !open;
@@ -864,7 +819,6 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    for (size_t i = 0 ; i < count ; i++) {
       if (!load_peer(sections[i])) {
          Log(LOG_CRIT, "link", "Invalid peer configuration in [%s]", sections[i]);
-
          return false;
       }
    }
@@ -873,7 +827,6 @@ bool rrserver_links_init(struct mg_mgr *manager) {
 
    if (!links.peer_count && (!listen || !*listen)) {
       event_on("link.cmd", link_command, NULL);
-
       return true;
    }
    int retry = cfg_get_int("links.retry-seconds", 60), timeout = cfg_get_int("links.handshake-seconds", 10);
@@ -933,7 +886,6 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
 
    event_on("link.cmd", link_command, NULL);
-
    return true;
 }
 
@@ -1004,27 +956,25 @@ void rrserver_links_fini(void) {
 const char *rrserver_links_node(void) {
    return "";
 }
-const char *rrserver_links_route(const char *node) {
-   (void)node;
 
+const char *rrserver_links_route(const char *node) {
    return NULL;
 }
-bool rrserver_links_send(const char *node, dict *d) {
-   (void)node;
-   (void)d;
 
+bool rrserver_links_send(const char *node, dict *d) {
    return false;
 }
-void rrserver_links_broadcast(dict *d) {
-   (void)d;
-}
-bool rrserver_links_init(struct mg_mgr *manager) {
-   (void)manager;
 
+void rrserver_links_broadcast(dict *d) {
+}
+
+bool rrserver_links_init(struct mg_mgr *manager) {
    return true;
 }
+
 void rrserver_links_poll(void) {
 }
+
 void rrserver_links_fini(void) {
 }
 #endif

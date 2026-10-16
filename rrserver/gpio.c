@@ -44,7 +44,6 @@ uint32_t radio_find_gpiochip(const char *name) {
    }
 
 #endif // HOST_POSIX
-
    return -1;
 }
 
@@ -54,7 +53,6 @@ uint32_t radio_gpiochip_init(const char *chipname) {
    // Does it already exist?
    if ((i = radio_find_gpiochip(chipname)) != -1) {
       Log(LOG_WARN, "gpio", "gpio chip %s is already initialized at index %d", i);
-
       return -1;
    }
 // On posix hosts, such as linux on pi, we use libgpiod to access gpio, add
@@ -66,7 +64,6 @@ uint32_t radio_gpiochip_init(const char *chipname) {
 // XXX: v1 api remnant, safe to remove?
 //   if (!(tmp = gpiod_chip_open_by_name(chipname))) {
       Log(LOG_CRIT, "gpio", "error opening gpio chip %s", chipname);
-
       return -1;
    }
    bool slot_found = false;
@@ -86,11 +83,9 @@ uint32_t radio_gpiochip_init(const char *chipname) {
       gpiochips[i].chip = tmp;
       snprintf(gpiochips[i].key, GPIO_KEYLEN, "%s", chipname);
       gpiochips[i].active = true;
-
       return i;
    } else {
       Log(LOG_CRIT, "gpio", "No free GPIO chip slots (max: %d, used: %d)", MAX_GPIOCHIPS, i);
-
       return -1;
    }
 }
@@ -101,7 +96,6 @@ uint32_t gpio_init(void) {
 
    // XXX: Walk over configured list of gpio interfaces from config
    radio_gpiochip_init("main");
-
    return 0;
 }
 #endif // USE_GPIO

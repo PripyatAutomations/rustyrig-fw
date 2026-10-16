@@ -77,7 +77,6 @@ int cfg_tick_interval = 100;
 /* Refresh server settings which are consumed from globals by timers and protection code. Config reload replaces the dictionary atomically; this callback keeps
  * those long-lived mirrors in step with it. */
 static bool rrserver_config_refresh(const char *key) {
-   (void)key;
    cfg_backend_poll_interval = cfg_get_int("backend.poll-interval", 1000);
 
    if (cfg_backend_poll_interval < 1) {
@@ -153,9 +152,7 @@ static void timer_check_faults_fn(void *arg) {
 // This is called by our timer at 1000ms (1hz) rate by default
 // cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
-   (void)arg;
-   /* One scheduler services every registered rig. A failed rig is recorded by the aggregate result but never prevents later registry entries from being polled.
-    */
+   /* One scheduler services every registered rig. A failed rig is recorded by the aggregate result but never prevents later registry entries from being polled. */
    rr_backend_poll_all();
 
    if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
@@ -345,7 +342,6 @@ int main(int argc, char **argv) {
    }
 
 #ifdef  USE_EEPROM
-
    if (!s || serial_tmp == 0) {
       rig.serial = get_serial_number();
    }
@@ -393,7 +389,6 @@ int main(int argc, char **argv) {
 
 
 #ifdef  USE_CAT
-
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
@@ -437,12 +432,13 @@ int main(int argc, char **argv) {
       mg_mgr_free(&mg_mgr);
       rrserver_links_fini();
       rrserver_relay_fini();
-
       return 1;
    }
 
    // Camera IPC must be attached after the manager is initialized.
-   if (fwdsp_ready) webcam_init();
+   if (fwdsp_ready) {
+      webcam_init();
+   }
 
    if (fwdsp_ready && !rrserver_media_audio_init()) {
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
@@ -499,9 +495,9 @@ int main(int argc, char **argv) {
 
    if (!rrserver_bridges_start(config_file)) {
       Log(LOG_CRIT, "bridge", "Bridge configuration invalid");
-
       return EXIT_FAILURE;
    }
+
    // Main loop
    while (1) {
       extern void rrserver_objects_poll(void);

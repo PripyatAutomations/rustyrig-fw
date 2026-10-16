@@ -15,17 +15,20 @@
 #include <rrserver/supervision.h>
 
 static const char responsibility[] = "By accepting, you are responsible for this user's actions and are the recognized control operator of the station.";
+
 struct supervisor {
    rrconn_t *client;
    char token[HTTP_TOKEN_LEN + 1];
    time_t active;
 };
+
 struct supervision {
    rrconn_t *client;
    char token[HTTP_TOKEN_LEN + 1], id[33], room[128];
    struct supervisor elmers[HTTP_MAX_SESSIONS], invited[HTTP_MAX_SESSIONS];
    bool granted;
 };
+
 static rrconn_t *closing;
 static struct supervision requests[HTTP_MAX_SESSIONS];
 
@@ -33,9 +36,11 @@ static bool eligible(rrconn_t *client) {
    return client && client->authenticated && client->user && client->user->enabled && !client->user->is_muted &&
           !client->user->password_change_required && (!client->user->password_expires || client->user->password_expires > now);
 }
+
 static bool is_elmer(rrconn_t *client) {
    return eligible(client) && has_priv(client->user->uid, "elmer") && !has_priv(client->user->uid, "noob");
 }
+
 static void send_status(rrconn_t *client, struct supervision *request, const char *action, const char *text) {
    dict *d = dict_new();
 
@@ -52,6 +57,7 @@ static void send_status(rrconn_t *client, struct supervision *request, const cha
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
+
 static void offer(rrconn_t *client, void *data) {
    struct supervision *request = data;
 
@@ -77,6 +83,7 @@ static void offer(rrconn_t *client, void *data) {
    snprintf(slot->token, sizeof(slot->token), "%s", client->token);
    send_status(client, request, "request", responsibility);
 }
+
 static void close_offer(rrconn_t *client, void *data) {
    struct supervision *request = data;
 
@@ -84,6 +91,7 @@ static void close_offer(rrconn_t *client, void *data) {
       send_status(client, request, "closed", "Supervision request closed");
    }
 }
+
 static void visit(void (*callback) (rrconn_t *, void *), void *data) {
    for (rrconn_t *client = http_client_list ; client ; client = client->next) {
       callback(client, data);
@@ -91,6 +99,7 @@ static void visit(void (*callback) (rrconn_t *, void *), void *data) {
 
    rrserver_relay_visit_sessions(callback, data);
 }
+
 static struct supervision *find(rrconn_t *client, const char *room) {
    for (size_t i = 0 ; i < HTTP_MAX_SESSIONS ; i++) {
       if (requests[i].client == client && !strcmp(requests[i].token, client->token) && (!room || !strcmp(requests[i].room, room))) {
@@ -100,6 +109,7 @@ static struct supervision *find(rrconn_t *client, const char *room) {
 
    return NULL;
 }
+
 static bool active(struct supervisor *supervisor) {
    int idle = cfg_get_int("noob.supervisor-idle-seconds", 300);
 
@@ -110,6 +120,7 @@ static bool active(struct supervisor *supervisor) {
    return is_elmer(supervisor->client) && !strcmp(supervisor->token, supervisor->client->token) &&
           now >= supervisor->active && (uint64_t) (now - supervisor->active) < idle;
 }
+
 static bool allowed(struct supervision *request) {
    if (!request || !request->granted || !eligible(request->client) || strcmp(request->token, request->client->token)) {
       return false;
@@ -123,6 +134,7 @@ static bool allowed(struct supervision *request) {
 
    return false;
 }
+
 bool rrserver_supervision_allowed(rrconn_t *client) {
    if (!eligible(client)) {
       return false;
@@ -134,6 +146,7 @@ bool rrserver_supervision_allowed(rrconn_t *client) {
 
    return allowed(find(client, client->ptt_room));
 }
+
 void rrserver_supervision_tick(void) {
    for (size_t i = 0 ; i < HTTP_MAX_SESSIONS ; i++) {
       struct supervision *request = &requests[i];
@@ -163,10 +176,8 @@ void rrserver_supervision_tick(void) {
       }
    }
 }
-static void check(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
 
+static void check(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (length != sizeof(rr_server_supervision_t) || !client) {
       return;
    }
@@ -202,10 +213,8 @@ static void check(const char *event, const void *data, size_t length, rrconn_t *
    visit(offer, request);
    send_status(client, request, "pending", "Supervision requested. An elmer must accept responsibility before you may transmit.");
 }
-static void command(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
 
+static void command(const char *event, const char *data, rrconn_t *client, void *user) {
    if (!is_elmer(client)) {
       ws_send_error(client, "Only an eligible elmer may supervise");
 
@@ -270,10 +279,8 @@ static void command(const char *event, const char *data, rrconn_t *client, void 
    }
    dict_free(d);
 }
+
 static void closed(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)data;
-   (void)user;
    closing = client;
 
    for (size_t i = 0 ; i < HTTP_MAX_SESSIONS ; i++) {
@@ -298,10 +305,8 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
    rrserver_supervision_tick();
    closing = NULL;
 }
-static void activity(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
 
+static void activity(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (length != sizeof(rr_server_io_t)) {
       return;
    }
@@ -326,6 +331,7 @@ static void activity(const char *event, const void *data, size_t length, rrconn_
       }
    }
 }
+
 void rrserver_supervision_register(void) {
    event_on_binary(RR_SERVER_SUPERVISION_EVENT, check, NULL);
    event_on_binary(RR_SERVER_ROUTE_EVENT, activity, NULL);

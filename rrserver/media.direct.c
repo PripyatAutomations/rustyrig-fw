@@ -23,13 +23,17 @@
 #include <libfwdspmgr/fwdsp-mgr.h>
 #define MAX_GRANTS 128
 #define MAX_POOLS 16
+
 struct media_pool {
    char section[128], endpoint[320];
    rr_rtp_socket_t *socket;
    bool encrypted;
 };
+
 static struct media_pool pools[MAX_POOLS];
+
 static unsigned pool_count;
+
 struct grant {
    rrconn_t *client;
    struct media_pool *pool;
@@ -42,8 +46,10 @@ struct grant {
    uint8_t stream, direction;
 };
 static struct grant grants[MAX_GRANTS];
+
 static bool initialized;
 extern time_t now;
+
 static bool source_allowed(void *context, void *user, const char *ip) {
    struct media_pool *pool = context;
    struct grant *g = user;
@@ -54,6 +60,7 @@ static bool source_allowed(void *context, void *user, const char *ip) {
 
    return result == ACL_ALLOW || (!g && result == ACL_DEFER);
 }
+
 static struct media_pool *select_pool(rrconn_t *client) {
    if (!client || !client->authenticated || !client->user || !client->user->enabled) {
       return NULL;
@@ -73,6 +80,7 @@ static struct media_pool *select_pool(rrconn_t *client) {
 
    return NULL;
 }
+
 static const char *pool_setting(const char *section, const char *name, const char *legacy) {
    char key[256];
    snprintf(key, sizeof(key), "%s.%s", section, name);
@@ -80,6 +88,7 @@ static const char *pool_setting(const char *section, const char *name, const cha
 
    return value && *value ? value : dict_get(cfg, legacy, "");
 }
+
 static void open_pool(const char *section) {
    char key[256];
    snprintf(key, sizeof(key), "%s.enabled", section);
@@ -136,6 +145,7 @@ static void open_pool(const char *section) {
 
    Log(LOG_WARN, "media.direct", "No available UDP port in [%s] range %u-%u", section, first, last);
 }
+
 static void open_pools(void) {
    if (!cfg_get_bool("media.direct.enabled", true)) {
       return;
@@ -170,6 +180,7 @@ static void open_pools(void) {
    }
    dict_free(seen);
 }
+
 static void revoke_attachment(struct grant *g) {
    struct rr_mediachan *channel = media_chan_find_uuid(g->uuid);
 
@@ -182,10 +193,12 @@ static void revoke_attachment(struct grant *g) {
    memset(g->key, 0, sizeof(g->key));
    g->expires = UINT64_MAX;
 }
+
 static void remove_grant(struct grant *g) {
    revoke_attachment(g);
    memset(g, 0, sizeof(*g));
 }
+
 void rrserver_direct_close(rrconn_t *client) {
    for (unsigned i = 0 ; i < MAX_GRANTS ; i++) {
       if (grants[i].client == client) {
@@ -193,6 +206,7 @@ void rrserver_direct_close(rrconn_t *client) {
       }
    }
 }
+
 static bool valid(void *user) {
    struct grant *g = user;
    rrconn_t *c = g->client;
@@ -215,6 +229,7 @@ static bool valid(void *user) {
 
    return chan_id_in_array(channel->direction == RR_BINFRAME_DIR_TX ? c->tx_channels : c->rx_channels, MAX_RX_CHANNELS, id);
 }
+
 bool rrserver_direct_tx_ready(rrconn_t *client, const char *room) {
    for (unsigned i = 0 ; i < MAX_GRANTS ; i++) {
       struct grant *g = &grants[i];
@@ -228,6 +243,7 @@ bool rrserver_direct_tx_ready(rrconn_t *client, const char *room) {
 
    return false;
 }
+
 static bool receive_frame(void *user, const uint8_t *data, size_t length) {
    struct grant *g = user;
 
@@ -269,12 +285,8 @@ static bool receive_frame(void *user, const uint8_t *data, size_t length) {
 
    return ws_binframe_process_mg(g->client, (const char *)data, length);
 }
-static void poll_media(const char *event, const char *data, rrconn_t *c, void *user) {
-   (void)event;
-   (void)data;
-   (void)c;
-   (void)user;
 
+static void poll_media(const char *event, const char *data, rrconn_t *c, void *user) {
    if (!initialized) {
       initialized = true;
       open_pools();
@@ -320,10 +332,8 @@ static void poll_media(const char *event, const char *data, rrconn_t *c, void *u
 
    /* Lifecycle cleanup above owns attachment slots. */
 }
-static void sent(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   (void)event;
-   (void)user;
 
+static void sent(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (!pool_count || !client || length != sizeof(rr_server_io_t)) {
       return;
    }
@@ -475,6 +485,7 @@ bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, uns
 
    return true;
 }
+
 static void request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -552,6 +563,7 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
       available->expires = mono_us() + UINT64_C(300000000);
    }
 }
+
 static void binary(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -587,15 +599,15 @@ static void binary(const char *event, const void *data, size_t length, rrconn_t 
       }
    }
 }
+
 static void closed(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event;
-   (void)data;
-   (void)user;
    rrserver_direct_close(client);
 }
+
 bool rrserver_direct_listening(void) {
    return pool_count != 0;
 }
+
 void rrserver_direct_register_events(void) {
    event_on("server.poll", poll_media, NULL);
    event_on("serial.session.closed", closed, NULL);
@@ -606,21 +618,19 @@ void rrserver_direct_register_events(void) {
 }
 #else
 bool rrserver_direct_relay_grant(rrconn_t *client, dict *reply, unsigned stream, unsigned direction) {
-   (void)client;
-   (void)reply;
-   (void)stream;
-   (void)direction;
-
    return false;
 }
+
 void rrserver_direct_register_events(void) {
 }
+
 void rrserver_direct_close(rrconn_t *client) {
-   (void)client;
 }
+
 bool rrserver_direct_listening(void) {
    return false;
 }
+
 bool rrserver_direct_tx_ready(rrconn_t *client, const char *room) {
    (void)client;
    (void)room;

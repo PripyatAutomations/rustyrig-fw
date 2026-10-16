@@ -124,7 +124,6 @@ rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uu
    if (!entry || !radio) {
       free(entry);
       rr_server_rig_free(radio);
-
       return NULL;
    }
    entry->alias = strdup(alias);
@@ -132,7 +131,6 @@ rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uu
    if (!entry->alias) {
       rr_server_rig_free(radio);
       free(entry);
-
       return NULL;
    }
    rr_backend_t *backend = rr_backend_instance_new(backend_type, radio, alias);
@@ -141,14 +139,11 @@ rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uu
       rr_server_rig_free(radio);
       free(entry->alias);
       free(entry);
-
       return NULL;
    }
    rr_server_rig_set_backend(radio, backend);
    /* Runtime receivers must not reuse another rig's wire stream index. */
-   bool used[255] = {
-      0
-   };
+   bool used[255] = { 0 };
 
    for (rr_rig_registry_entry_t *cur = registry->head ; cur ; cur = cur->next) {
       used[cur->media_index] = true;
@@ -167,7 +162,6 @@ rr_server_rig_t *rr_rig_registry_add(rr_rig_registry_t *registry, const char *uu
    registry->head = entry;
    registry->count++;
    event_emit("object.model.added", NULL, uuid);
-
    return radio;
 }
 
@@ -204,16 +198,15 @@ const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, cons
          return entry->public_alias;
       }
    }
-
    return NULL;
 }
+
 rr_server_rig_t *rr_rig_registry_find_public_alias(const rr_rig_registry_t *registry, const char *alias) {
    for (rr_rig_registry_entry_t *entry = registry && alias ? registry->head : NULL ; entry ; entry = entry->next) {
       if (!strcmp(entry->public_alias, alias)) {
          return entry->radio;
       }
    }
-
    return NULL;
 }
 
@@ -227,7 +220,6 @@ const char *rr_rig_registry_alias(const rr_rig_registry_t *registry, const rr_se
          return entry->alias;
       }
    }
-
    return NULL;
 }
 
@@ -246,7 +238,6 @@ bool rr_rig_registry_foreach(rr_rig_registry_t *registry, rr_rig_registry_iter_f
          failed = true;
       }
    }
-
    return failed;
 }
 
@@ -277,7 +268,6 @@ bool rr_rig_registry_set_default(rr_rig_registry_t *registry, rr_server_rig_t *r
    }
 
    unsigned index = 1;
-
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
       if (entry->media_index == UINT8_MAX) {
          while (index < 255 && used[index]) {
@@ -292,7 +282,6 @@ bool rr_rig_registry_set_default(rr_rig_registry_t *registry, rr_server_rig_t *r
       }
       snprintf(entry->public_alias, sizeof(entry->public_alias), "rig%u", entry->media_index);
    }
-
    return false;
 }
 
@@ -308,11 +297,9 @@ bool rr_rig_registry_set_room(rr_rig_registry_t *registry, rr_server_rig_t *radi
    for (rr_rig_registry_entry_t *entry = registry->head ; entry ; entry = entry->next) {
       if (entry->radio == radio) {
          snprintf(entry->room, sizeof(entry->room), "%s", room);
-
          return false;
       }
    }
-
    return true;
 }
 
@@ -326,7 +313,6 @@ const char *rr_rig_registry_room(const rr_rig_registry_t *registry, const rr_ser
          return entry->room[0] ? entry->room : NULL;
       }
    }
-
    return NULL;
 }
 
@@ -338,6 +324,5 @@ uint8_t rr_rig_registry_media_index(const rr_rig_registry_t *registry, const rr_
          }
       }
    }
-
    return RR_BINFRAME_RIG_NA;
 }
