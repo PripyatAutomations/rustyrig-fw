@@ -1,5 +1,11 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Generate privilege catalogs from C access checks with source provenance
+    via tools/generate-privileges.py and make privileges; provide a stale-file
+    check and synchronized native/browser outputs, including serial.* grants.
+  * Add sorted Edit Privs checkbox dialogs to GTK/browser Users actions and
+    account editors. Preserve custom grants, stage editor changes until Save,
+    and retain server validation and owner-only privilege protections.
   * Add Set Password with masked confirmation and Reset PW to GTK/browser
     account editors; shorten the tab action to Reset PW. Show requester-only
     password results in popups, with selectable temporary credentials in GTK.
@@ -243,7 +249,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:18:13 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:22:22 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

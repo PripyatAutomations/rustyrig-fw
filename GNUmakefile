@@ -100,3 +100,8 @@ ptt-log:
 
 # Native programs and the child share the codec list and fallback pipelines.
 ${BUILD_DIR}/rrclient/defconfig.o ${BUILD_DIR}/rrserver/defconfig.o ${BUILD_DIR}/fwdsp/defconfig.o ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.o: fwdsp/default-pipelines.h
+
+# Refresh tracked source-derived privilege catalogs for native and browser editors.
+.PHONY: privileges
+privileges:
+	python3 tools/generate-privileges.py

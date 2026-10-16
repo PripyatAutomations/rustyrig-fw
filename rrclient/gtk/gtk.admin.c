@@ -8,6 +8,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.privileges.h>
 
 extern GtkWidget *main_notebook;
 GtkWidget *admin_view;
@@ -317,9 +318,28 @@ static void admin_action(GtkButton *button, gpointer data) {
    const char *action = g_object_get_data(G_OBJECT(button), "action");
    char tail[512];
 
+   if (!strcmp(table->name, "users") && !strcmp(action, "privileges")) {
+      char *privileges = gtk_edit_privileges(GTK_WINDOW(main_window), table->profile, name, value);
+      if (privileges && g_strcmp0(privileges, value)) {
+         dict *fields = dict_new();
+         if (fields) {
+            dict_add(fields, "permissions", privileges);
+            char *json = dict2json(fields);
+            if (json && admin_command(table, "user-edit", json, name)) {
+               gtk_label_set_text(GTK_LABEL(table->status), "Saving privileges; awaiting server confirmation");
+            }
+            free(json);
+            dict_free(fields);
+         }
+      }
+      g_free(privileges);
+      g_free(name);
+      g_free(value);
+      return;
+   }
    if (!strcmp(table->name, "users") && !strcmp(action, "edit")) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-         "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Save", GTK_RESPONSE_OK, NULL);
+         "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Edit Privs", 1003, "Save", GTK_RESPONSE_OK, NULL);
       admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
       char *original[10] = {0};
@@ -343,8 +363,12 @@ static void admin_action(GtkButton *button, gpointer data) {
       gtk_widget_show_all(dialog);
 
       int response;
-      while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == 1001 || response == 1002) {
-         if (response == 1001) admin_set_password(table, GTK_WINDOW(dialog), name);
+      while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == 1001 || response == 1002 || response == 1003) {
+         if (response == 1003) {
+            char *privileges = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile, name, gtk_entry_get_text(GTK_ENTRY(entries[2])));
+            if (privileges) gtk_entry_set_text(GTK_ENTRY(entries[2]), privileges);
+            g_free(privileges);
+         } else if (response == 1001) admin_set_password(table, GTK_WINDOW(dialog), name);
          else {
             char *request = g_strdup_printf("resetpw %s", name);
             admin_command(table, "user", request, NULL);
@@ -536,10 +560,10 @@ GtkWidget *init_admin_tab(void) {
 
       if (i < 3) {
          const char *labels[] = {
-            "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW"
+            "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW", "Edit Privs"
          };
          const char *actions[] = {
-            "edit", i == 0 ? "lock" : "remove", i == 0 ? "unlock" : "add", "remove", "resetpw"
+            "edit", i == 0 ? "lock" : "remove", i == 0 ? "unlock" : "add", "remove", "resetpw", "privileges"
          };
 
          if (i == 2) {
@@ -549,7 +573,7 @@ GtkWidget *init_admin_tab(void) {
             labels[3] = actions[3] = "BW ADD";
          }
 
-         for (int n = 0 ; n < (i == 0 ? 5 : i == 2 ? 4 : 3) ; n++) {
+         for (int n = 0 ; n < (i == 0 ? 6 : i == 2 ? 4 : 3) ; n++) {
             GtkWidget *button = gtk_button_new_with_label(labels[n]);
             g_object_set_data(G_OBJECT(button), "action", (gpointer) actions[n]);
             g_signal_connect(button, "clicked", G_CALLBACK(admin_action), table);

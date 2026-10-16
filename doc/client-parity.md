@@ -914,3 +914,22 @@ persistence, before active-state reload. The existing `audit.c` logger callback
 persists those events to SQLite even when reload fails. Account editor audit
 records name the changed editable fields without their values. Newly generated
 credentials are still returned after a successful write if reload fails.
+
+## Source-derived privilege editor
+
+`python3 tools/generate-privileges.py` (or `make privileges`) scans owned C
+access-check calls across all build profiles. It generates the native header,
+browser catalog and `doc/privileges.generated.json` mapping each privilege to
+source locations. `--check` reports stale generated artifacts without writing.
+This lexical scan includes literal alternatives and the dynamic `serial.*`
+export pattern; it cannot enumerate runtime configuration-specific export names.
+It excludes tests, comments, third-party and generated sources. Privileges used
+only in old seed/config strings are not invented as active access checks.
+
+Native GTK and browser Users actions and Edit User dialogs provide Edit Privs.
+The checkbox dialog is sorted, preselects exact existing grants and includes
+custom/unknown existing tokens, preserving them unless explicitly unchecked.
+Apply inside Edit User stages the permissions field until Save; the Users tab
+sends only a permissions patch. Server validation and owner-only grant rules
+remain authoritative. Custom grants can still be entered in the raw account
+permissions field. Both frontend catalogs are generated from authoritative C.
