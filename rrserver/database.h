@@ -14,6 +14,7 @@
 #include <time.h>
 #if     defined(USE_SQLITE)
 #include <sqlite3.h>
+#include <librustyaxe/dict.h>
 
 /* Caller owns the returned JSON. Endpoint identities contain no credentials. */
 extern char *db_bridge_hints_get(sqlite3 *db, const char *identity);
@@ -23,6 +24,8 @@ extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, co
 ;
 extern bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email, int maxsessions, const char *
    permissions, bool password_change_required, time_t password_expires);
+/* Update only allowlisted account fields supplied by the validated editor request. */
+extern bool db_user_edit(sqlite3 *db, const char *name, dict *fields);
 extern bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled);
 extern bool db_user_set_privileges(sqlite3 *db, const char *name, const char *privileges);
 extern bool db_user_remove(sqlite3 *db, const char *name);

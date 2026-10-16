@@ -879,3 +879,22 @@ resources on the locally transmitting rig/VFO, including a rig's shared RX
 stream. Other users' TX and unrelated RX streams remain audible. Native mixing
 checks the originating connection's roster, independent of the selected tab;
 decoders keep consuming muted audio rather than saving it for release.
+
+## Account editor persistence and errors
+
+Native GTK and browser Admin editors send only changed editable account fields
+in the existing `admin` / `user-edit` JSON payload. The server still accepts
+older full-field requests; missing fields are preserved, and read-only identity
+and credential metadata cannot be updated. SQLite applies the supplied fields
+in one bound UPDATE. Account writes check prepare, bind, step, affected-row and
+finalize results; failures include SQLite diagnostics in server logs without
+bound credentials. Account removal rolls back on commit failure.
+
+The server replies to editor failures with the existing Admin envelope using
+`talk.target=users`, `talk.action=error` and a JSON `message` in `talk.data`.
+GTK shows a dialog and persistent table status; the browser shows a dialog.
+`changed` is sent only after persistence and active-account reload succeed.
+A reload failure explicitly reports that SQLite already saved the account.
+Protected-account and elevated-privilege edits still require `owner`.
+Fresh SQLite seeds give the bootstrap admin both owner and admin privileges;
+existing databases retain their configured grants.

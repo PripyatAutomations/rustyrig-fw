@@ -69,24 +69,48 @@ bool rrserver_admin_send(rrconn_t *client, const char *table, const char *action
    return sent;
 }
 
-/* Full account edits are atomic. Account identity and credential hashes are never editable here. */
+/* Route editor failures back to its table, rather than only the chat error stream. */
+static void admin_user_error(rrconn_t *client, const char *message) {
+   dict *row = dict_new();
+   if (row) {
+      dict_add(row, "message", message);
+      rrserver_admin_send(client, "users", "error", row);
+      dict_free(row);
+   }
+   ws_send_error(client, "%s", message);
+}
+
+/* Partial account edits are atomic. Account identity and credential hashes are never editable here. */
 static void admin_user_edit(rrconn_t *client, dict *request) {
    const char *name = dict_get(request, "talk.target", "");
    int uid = http_getuid(name);
    dict *fields = json2dict(dict_get(request, "talk.data", "{}"));
 
-   if (!fields || uid < 0 || !rrserver_user_target_allowed(client->user, &http_users[uid], false)) {
-      ws_send_error(client, "Account unavailable or protected");
+   if (!fields || uid < 0) {
+      admin_user_error(client, "Account unavailable or invalid editor request");
       dict_free(fields);
-
       return;
    }
-   const char *email = dict_get(fields, "email", "");
-   const char *privs = dict_get(fields, "permissions", "");
-   const char *enabled = dict_get(fields, "enabled", "");
-   const char *required = dict_get(fields, "password_change_required", "");
-   const char *sessions = dict_get(fields, "maxsessions", "");
-   const char *expiry = dict_get(fields, "password_expires", "");
+   if (!rrserver_user_target_allowed(client->user, &http_users[uid], false)) {
+      admin_user_error(client, "Only owners may edit protected accounts (including admin accounts)");
+      dict_free(fields);
+      return;
+   }
+   const char *email = dict_get(fields, "email", http_users[uid].email);
+   const char *privs = dict_get(fields, "permissions", http_users[uid].privs);
+   const char *enabled = dict_get(fields, "enabled", http_users[uid].enabled ? "1" : "0");
+   const char *required = dict_get(fields, "password_change_required", http_users[uid].password_change_required ? "1" : "0");
+   char previous_sessions[32], previous_expiry[32];
+   snprintf(previous_sessions, sizeof(previous_sessions), "%d", http_users[uid].max_sessions);
+   snprintf(previous_expiry, sizeof(previous_expiry), "%lld", (long long)http_users[uid].password_expires);
+   const char *sessions = dict_get(fields, "maxsessions", previous_sessions);
+   const char *expiry = dict_get(fields, "password_expires", previous_expiry);
+   if (dict_get_type(fields, "permissions") != VAL_END &&
+       !has_priv(client->user->uid, "owner") && rrserver_user_privilege_has_elevated(privs)) {
+      admin_user_error(client, "Only owners may grant protected privileges: owner, admin, bridge.admin, websdr.connect, websdr.admin");
+      dict_free(fields);
+      return;
+   }
    char *end;
    errno = 0;
    long maximum = strtol(sessions, &end, 10);
@@ -96,48 +120,30 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    valid = valid && (!*expiry || (!*end && !errno && expires >= 0));
    valid = valid && strlen(email) <= USER_EMAIL_LEN && !strchr(email, '\n') && !strchr(email, '\r') &&
       (!strcmp(enabled, "0") || !strcmp(enabled, "1")) && (!strcmp(required, "0") || !strcmp(required, "1")) &&
-      rrserver_user_privilege_list_valid(privs, true) && (has_priv(client->user->uid, "owner") || !rrserver_user_privilege_has_elevated(privs));
+      rrserver_user_privilege_list_valid(privs, true);
 
    if (uid == client->user->uid && !strcmp(enabled, "0")) {
       valid = false;
    }
 
    if (!valid) {
-      ws_send_error(client, "Invalid account fields, protected privileges, or attempted self-lock (sessions must be 1..32; expiry is Unix seconds)");
+      admin_user_error(client, "Invalid account fields or attempted self-lock (sessions must be 1..32; expiry is Unix seconds)");
       dict_free(fields);
 
       return;
    }
-   sqlite3_stmt *stmt = NULL;
-   bool ok = masterdb && sqlite3_prepare_v2(masterdb,
-      "UPDATE users SET email=?,permissions=?,enabled=?,maxsessions=?,password_change_required=?,password_expires=? WHERE name=? COLLATE NOCASE", -1, &stmt,
-      NULL) == SQLITE_OK;
-
-   if (ok) {
-      sqlite3_bind_text(stmt, 1, email, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt, 2, !strcasecmp(privs, "none") ? "" : privs, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_int(stmt, 3, atoi(enabled));
-      sqlite3_bind_int(stmt, 4, maximum);
-      sqlite3_bind_int(stmt, 5, atoi(required));
-
-      if (expires) {
-         sqlite3_bind_int64(stmt, 6, expires);
-      } else {
-         sqlite3_bind_null(stmt, 6);
-      }
-      sqlite3_bind_text(stmt, 7, name, -1, SQLITE_TRANSIENT);
-      ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(masterdb) == 1;
-   }
-   sqlite3_finalize(stmt);
+   bool ok = db_user_edit(masterdb, name, fields);
 
    if (ok) {
       Log(LOG_AUDIT, "auth.users", "%s edited account %s", client->chatname, name);
 
       if (rrserver_user_reload_database(client)) {
          rrserver_admin_send(client, "users", "changed", NULL);
+      } else {
+         admin_user_error(client, "Account saved to SQLite, but reloading active account state failed; refresh before retrying");
       }
    } else {
-      ws_send_error(client, "Unable to save account");
+      admin_user_error(client, "Unable to save account to SQLite; see the server database log");
    }
    dict_free(fields);
 }
@@ -237,12 +243,17 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    sqlite3_stmt *statement = NULL;
 
    if (!masterdb || sqlite3_prepare_v2(masterdb, sql, -1, &statement, NULL) != SQLITE_OK) {
-      ws_send_error(client, "Database administration is unavailable");
+      Log(LOG_CRIT, "db", "Admin %s listing prepare failed: %s", table, masterdb ? sqlite3_errmsg(masterdb) : "database is not open");
+      ws_send_error(client, "Database administration is unavailable; see the server database log");
 
       return;
    }
-   sqlite3_bind_int64(statement, 1, before);
-   sqlite3_bind_int64(statement, 2, before);
+   if (sqlite3_bind_int64(statement, 1, before) != SQLITE_OK || sqlite3_bind_int64(statement, 2, before) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "Admin %s listing bind failed: %s", table, sqlite3_errmsg(masterdb));
+      sqlite3_finalize(statement);
+      ws_send_error(client, "Unable to prepare database listing");
+      return;
+   }
    dict *metadata = dict_new();
 
    if (!metadata) {
@@ -281,10 +292,12 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       }
       count++;
    }
-   sqlite3_finalize(statement);
-
    if (result != SQLITE_DONE && result != SQLITE_ROW) {
+      Log(LOG_CRIT, "db", "Admin %s listing step failed (SQLite %d): %s", table, result, sqlite3_errmsg(masterdb));
       ws_send_error(client, "Unable to finish database listing");
+   }
+   if (sqlite3_finalize(statement) != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "Admin %s listing finalize failed: %s", table, sqlite3_errmsg(masterdb));
    }
    char next[32];
    snprintf(next, sizeof(next), "%lld", count == 100 ? last : 0);

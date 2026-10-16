@@ -1,5 +1,13 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Give freshly seeded SQLite admin accounts owner privileges. Keep existing
+    account grants unchanged and report owner-only edit rejections directly.
+  * Save only changed editable account fields from GTK/browser Admin and
+    preserve omitted fields in one SQLite update. Wait for confirmed saves;
+    show editor failures and distinguish persistence from reload failures.
+  * Check and log account statement preparation, binding, execution and
+    finalization errors, including affected-row checks and removal rollback
+    after commit failure. Add SQLite diagnostics for Admin listing failures.
   * Normalize native IRC privilege indicators to @ for channel operators,
     + for voiced members and ! for IRC operators learned during the session.
     Share the prefix between chat and the roster Privs column.
@@ -229,7 +237,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 07:58:10 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:11:48 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

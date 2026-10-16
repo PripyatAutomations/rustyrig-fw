@@ -198,6 +198,7 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
       dict_add(request, "talk.target", target);
    }
    bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
+   if (!sent) gtk_label_set_text(GTK_LABEL(table->status), "Unable to send administration request");
    dict_free(request);
 
    return sent;
@@ -242,6 +243,7 @@ static void admin_action(GtkButton *button, gpointer data) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
          "Cancel", GTK_RESPONSE_CANCEL, "Save", GTK_RESPONSE_OK, NULL);
       GtkWidget *grid = gtk_grid_new(), *entries[10];
+      char *original[10] = {0};
       gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
       gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
       gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
@@ -254,7 +256,7 @@ static void admin_action(GtkButton *button, gpointer data) {
          gtk_editable_set_editable(GTK_EDITABLE(entries[col]), col != 0 && col != 5 && col != 8);
          gtk_grid_attach(GTK_GRID(grid), gtk_label_new(table->fields[col] ? table->fields[col] : ""), 0, col, 1, 1);
          gtk_grid_attach(GTK_GRID(grid), entries[col], 1, col, 1, 1);
-         g_free(text);
+         original[col] = text;
       }
 
       GtkWidget *hint = gtk_label_new("enabled / password_change_required: 0 or 1; expiry: Unix seconds, blank = never");
@@ -265,20 +267,38 @@ static void admin_action(GtkButton *button, gpointer data) {
          dict *fields = dict_new();
 
          if (fields) {
+            bool changed = false;
             for (int col = 1 ; col < 10 && table->fields[col] ; col++) {
-               dict_add(fields, table->fields[col], gtk_entry_get_text(GTK_ENTRY(entries[col])));
+               if (col == 5 || col == 8) continue;
+               const char *edited = gtk_entry_get_text(GTK_ENTRY(entries[col]));
+               if (g_strcmp0(edited, original[col] ? original[col] : "")) {
+                  dict_add(fields, table->fields[col], edited);
+                  changed = true;
+               }
             }
 
             char *json = dict2json(fields);
 
-            if (json) {
-               admin_command(table, "user-edit", json, name);
+            if (!changed) {
+               gtk_label_set_text(GTK_LABEL(table->status), "No account fields changed");
+            } else if (json) {
+               if (admin_command(table, "user-edit", json, name)) {
+                  gtk_label_set_text(GTK_LABEL(table->status), "Saving account; awaiting server confirmation");
+               }
+            } else {
+               gtk_label_set_text(GTK_LABEL(table->status), "Unable to serialize account changes");
             }
             free(json);
             dict_free(fields);
+         } else {
+            gtk_label_set_text(GTK_LABEL(table->status), "Unable to allocate account changes");
          }
       }
       gtk_widget_destroy(dialog);
+      for (int col = 0; col < 10; col++) g_free(original[col]);
+      g_free(name);
+      g_free(value);
+      return;
    } else if (!strcmp(table->name, "rooms") && !strcmp(action, "remove")) {
       admin_command(table, "room-remove", "", name);
    } else if (!strcmp(action, "edit") || !strcmp(table->name, "quotas")) {
@@ -348,7 +368,15 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
             admin_command(table, "room-remove", dict_get(row, "confirmation", ""), dict_get(row, "room", ""));
          }
          gtk_widget_destroy(dialog);
+      } else if (!strcmp(action, "error")) {
+         const char *message = dict_get(row, "message", "Account operation failed");
+         gtk_label_set_text(GTK_LABEL(table->status), message);
+         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message);
+         gtk_dialog_run(GTK_DIALOG(dialog));
+         gtk_widget_destroy(dialog);
       } else if (!strcmp(action, "changed")) {
+         gtk_label_set_text(GTK_LABEL(table->status), "Account saved");
          admin_command(table, "admin", table->name, NULL);
       } else if (!strcmp(action, "begin")) {
          if (!dict_get_bool(row, "append", false)) {
