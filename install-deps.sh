@@ -35,7 +35,7 @@ if [ -f "${DEBVER}" ]; then
     PKG="${PKG} libgpiod-dev libhamlib-dev libev-dev"
 
     [ "$USE_GTK" = "true" ] && PKG="${PKG} libgtk-3-dev"
-    [ "$USE_SQLITE" = "true" ] && PKG="${PKG} sqlite3 libsqlite3-dev"
+    [ "$USE_SQLITE" = "true" ] && PKG="${PKG} sqlite3 libsqlite3-dev libspatialite-dev"
     [ "$USE_LIBNOTIFY" = "true" ] && PKG="${PKG} libnotify-dev"
     [ "$USE_LIBMBEDTLS" = "true" ] && PKG="${PKG} libmbedtls-dev"
     [ "$USE_LIBRTP" = "true" ] && PKG="${PKG} libsrtp2-dev"
