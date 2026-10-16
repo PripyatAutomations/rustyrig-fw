@@ -1,5 +1,8 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Configure read-only logs and writable shared-storage test exports; create
+    missing shared storage during Debian setup and provide an existing-install
+    setup helper that backs up server configuration.
   * Move Hamlib into the optional rrserver-hamlib module and separate
     rustyrig-server-hamlib Debian package. Load it on demand for Hamlib rigs,
     isolate its library dependency, guard active backend callbacks against
@@ -310,7 +313,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 14:52:21 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 15:12:29 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

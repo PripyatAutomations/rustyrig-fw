@@ -109,3 +109,13 @@ request handler (`rrserver/files.c`, `list` / `request`). File flushes run in a
 two-worker pool; publication runs on `server.poll` after a fresh authorization
 check. Slow/network filesystems can still delay individual metadata or chunk
 operations. A fully asynchronous storage backend is separate future work.
+
+## Default test shares
+
+The supplied server configuration exports `/logs` from `/var/log/rustyrig`
+read-only, and `/shared` from `/home/rustyrig/SHARED` read/write. Debian setup
+creates the shared directory if missing without changing an existing directory.
+For an existing installation, run `sudo tools/setup-test-shares.sh` (optionally
+pass your server config path), then restart rrserver. The script keeps a backup
+and preserves other configuration. Grant `files.read,files.write` explicitly to
+your test account and use `/files` or **Files…** to browse and upload.

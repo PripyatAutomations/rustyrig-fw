@@ -5,6 +5,10 @@ set -e
 for dir in /var/lib/rustyrig/db /var/lib/rustyrig/recordings /var/lib/rustyrig/modems /var/log/rustyrig; do
     install -d -o rustyrig -g rustyrig -m 0770 "$dir"
 done
+# Exported shared storage; preserve an existing directory's permissions.
+if [ ! -d /home/rustyrig/SHARED ]; then
+    install -d -o rustyrig -g rustyrig -m 0770 /home/rustyrig/SHARED
+fi
 install -d -o rustyrig-modems -g rustyrig-modems -m 0770 /var/lib/rustyrig/modems
 install -d -o rustyrig -g rustyrig -m 0770 /var/run/rustyrig
 
