@@ -1,0 +1,36 @@
+Some quick notes to introduce the features of the user interface:
+
+- The tab strip at the bottom shows active tabs.
+  - You can re-arrange tabs, tab color is based on server name.
+  - Right click menu for close/force close.
+  - alt or esc-# to switch to a tab #
+  - /win close: Close a window, -f option to force closure
+  * TABS
+    - Admin Tab
+      - Ctrl-left/right or ctrl-# to switch upper tabs
+    - Config Tab
+      - Filter at top left to show only desired settings
+- HELP
+  - Press F1 or use /help
+    * Note that this soon will be improved to include help split across multiple topics
+- Chats
+  - alt-c always focuses the input field
+- Rig controls
+  - In dropdowns, shortcut keys (A/N/W) / mode first letter exist
+- PTT:
+  - alt-enter or ctrl-space to toggle PTT (hold in GTK for true PTT)
+- VFOs:
+  - Double clicking a digit resets it to 0
+  - left/right keys navigate digits, wrapping at ends
+  - up/down or direct digit entry supported
+  - Click desired VFO in userlist for the room (docked only) to switch!
+- Zoom:
+  - ctrl +/-: Zoom fonts AND window size
+  -  alt +/-: Zoom font only do not change window size
+  - ctrl/alt 0: Reset to 100% zoom/size
+  - F11: Toggle full screen
+- Servers:
+  - ctrl-tab switches active server for admin/status/host log tabs
+- Resource Explorer: ALT-O
+- Server choser: ALT-X
+- Remote Receiver directory: ALT-Z
