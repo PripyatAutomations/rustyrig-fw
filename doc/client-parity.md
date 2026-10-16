@@ -977,3 +977,15 @@ IRC QUIT and RustyRig auth.quit/auth.msg to all connected sessions, draining
 queued writes before shutdown. The existing protocol auth.msg field is honored
 by the server when announcing the quit. Browser `/quit` applies the same leading
 token handling and supplies auth.msg; `/logout` retains its default reason.
+
+## Exporting native default CSS
+
+Run `./tools/dump-css.pl > gtk-css.cfg` to extract the compiled client stylesheet
+from `rrclient/defconfig.c` as a pasteable `[gtk-css]` section. The helper decodes
+C string literals, ignores source comments, deduplicates identical definitions
+and rejects conflicting variants. It escapes leading config comment characters
+without changing CSS rules. It does not read or replace user configuration.
+Replace the existing client CSS section with the generated block, edit it and
+run `/css-reload`. Native config loading, saving and CSS reload preserve escaped
+ID selectors; a closed one-line block comment cannot consume subsequent rules.
+This helper and INI/CSS escaping are native-specific.

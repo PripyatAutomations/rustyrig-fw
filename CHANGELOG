@@ -1,5 +1,9 @@
-rustyrig-fw (20261015.06) testing; urgency=medium
+rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Add tools/dump-css.pl to extract compiled client CSS as an editable
+    [gtk-css] block, preserving C string escapes and quoting ID selectors.
+    Preserve escaped selectors when loading, reloading and saving CSS config,
+    and handle closed single-line comments without hiding subsequent rules.
   * Preserve /quit message text after stripping one leading y/yes/-y/-yes
     force token. Send it to connected IRC/RustyRig sessions, flush queued
     writes on shutdown, and honor auth.msg in RustyRig quit announcements.
@@ -267,7 +271,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 09:40:40 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 09:46:09 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

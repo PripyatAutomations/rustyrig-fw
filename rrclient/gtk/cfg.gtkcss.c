@@ -188,7 +188,8 @@ bool config_gtkcss_cb(const char *path, int line, const char *section, const cha
    buf = gtkcss_unescape(buf);
 
    // Skip blank lines and comments
-   if (buf[0] == '\0' || buf[0] == '#' || buf[0] == ';') {
+   /* The general config parser already filtered comments and decoded escaped ID selectors. */
+   if (buf[0] == '\0' || buf[0] == ';') {
       return false;
    }
 
@@ -214,9 +215,17 @@ bool config_gtkcss_save_cb(FILE *fp, const char *path) {
    if (!css || !*css) {
       return false;
    }
-   fprintf(fp, "[gtk-css]\n%s\n", css);
-
-   return false;
+   fprintf(fp, "[gtk-css]\n");
+   for (const char *line = css; *line; ) {
+      size_t length = strcspn(line, "\n"), indent = strspn(line, " \t");
+      if (indent > length) indent = length;
+      const char *content = line + indent;
+      bool escape = *content == '#' || *content == ';' || *content == '\\' || (content[0] == '/' && content[1] == '/');
+      fprintf(fp, "%.*s%s%.*s\n", (int)indent, line, escape ? "\\" : "", (int)(length - indent), content);
+      line += length;
+      if (*line == '\n') line++;
+   }
+   return ferror(fp) != 0;
 }
 
 // Called once at startup to register our section + save callbacks
@@ -273,13 +282,11 @@ bool cmd_css_reload(int argc, char **args) {
       if (!in_section) {
          continue;
       }
-      // Unescape escaped comment chars, then skip comments/blank lines
-      p = gtkcss_unescape(p);
-
+      // Filter comments before decoding an escaped selector such as \#chat-view.
       if (*p == '\0' || *p == '#' || *p == ';' || (p[0] == '/' && p[1] == '/')) {
          continue;
       }
-      gtkcss_append(p);
+      gtkcss_append(gtkcss_unescape(p));
    }
    fclose(fp);
 

@@ -22,3 +22,10 @@ If not listed, look at the top of the script for more info. Names should be clea
     start-pulse-loopback.sh	Set up pulseaudio loopback
     stop-pulse-loopback.sh	Stop pulseaudio loopback
     update-tree.sh		Update all of the tree, including third-party submodules
+
+./tools/dump-css.pl > gtk-css.cfg
+  Extract the native client's compiled default CSS into a standalone [gtk-css]
+  block, including escaped ID selectors. Copy that block into rrclient.cfg,
+  replacing the existing [gtk-css] section, then edit and run /css-reload.
+  The helper reads rrclient/defconfig.c relative to its own location, so it can
+  run from any directory. It never reads user configuration or overwrites it.
