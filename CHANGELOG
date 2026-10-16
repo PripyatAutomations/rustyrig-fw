@@ -1,5 +1,8 @@
 rustyrig-fw (20261015.05) testing; urgency=medium
 
+  * Fix callsign-lookup linking by removing accidentally duplicated GNIS
+    implementation/globals from the QRZ header; retain their single owner
+    in gnis-lookup.c and the declarations in gnis-lookup.h.
   * Keep incoming GTK chat on its background conversation without switching
     tabs or stealing draft focus. Mark unread messages and nickname mentions
     in tab titles and clear markers on viewing; retain explicit navigation.
@@ -169,7 +172,7 @@ rustyrig-fw (20261015.05) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 21:11:11 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 21:21:50 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
