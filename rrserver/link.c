@@ -92,18 +92,37 @@ static void fail(struct link_session *session, const char *reason) {
 }
 
 static bool send_message(struct link_session *session, dict *d) {
+   const char *op = dict_get(d, "op", "unknown");
    char *wire = rr_link_wire_encode(d);
-   bool ok = wire && !session->connection->is_closing && session->connection->send.len + strlen(wire) + 16 <= MAX_QUEUE;
 
-   if (ok) {
-      mg_ws_send(session->connection, wire, strlen(wire), WEBSOCKET_OP_TEXT);
+   if (!wire) {
+      char reason[256];
+      snprintf(reason, sizeof(reason), "Cannot encode %.96s message (invalid fields or wire size limit); check link protocol compatibility", op);
+      fail(session, reason);
+      return false;
    }
+
+   size_t length = strlen(wire);
+   size_t queued = session->connection->send.len;
+
+   if (session->connection->is_closing) {
+      free(wire);
+      return false;
+   }
+
+   if (queued > MAX_QUEUE || length > MAX_QUEUE - queued ||
+       MAX_QUEUE - queued - length < 16) {
+      char reason[256];
+      snprintf(reason, sizeof(reason), "Cannot send %.96s: output queue full (%zu bytes queued, %zu-byte message, %d-byte limit)",
+         op, queued, length, MAX_QUEUE);
+      free(wire);
+      fail(session, reason);
+      return false;
+   }
+
+   mg_ws_send(session->connection, wire, length, WEBSOCKET_OP_TEXT);
    free(wire);
-
-   if (!ok) {
-      fail(session, "Link send queue or wire limit exceeded");
-   }
-   return ok;
+   return true;
 }
 
 static dict *message(const char *op) {
