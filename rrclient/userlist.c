@@ -155,6 +155,11 @@ void userlist_display_name(const struct rr_user *user, char *out, size_t capacit
    if (user && !strncmp(user->privs, "irc:", 4)) {
       const char *modes = user->privs + 4;
       prefix = strpbrk(modes, "qaoh") ? "@" : strchr(modes, 'v') ? "+" : "";
+   } else if (user) {
+      /* PARITY: rustyrig-www/js/webui.chat.js room sender prefixes;
+       * native /users already uses @ for staff and + for noob accounts. */
+      if (userlist_priv(user, "owner") || userlist_priv(user, "admin")) prefix = "@";
+      else if (userlist_priv(user, "noob")) prefix = "+";
    }
    snprintf(out, capacity, "%s%s%s", user && user->irc_oper ? "!" : "", prefix, user ? user->name : "?");
 }

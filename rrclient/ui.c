@@ -71,10 +71,9 @@ const char *ui_active_window_name(void) {
 
 /* Selected server is global across the three shared tabs, including while background traffic temporarily dispatches in another server's context. */
 const char *rrclient_tui_prompt(tui_window_t *window) {
-   if (!window || !rrclient_window_is_shared(window->title)) {
-      return NULL;
-   }
-   const char *selected = rrclient_selected_server();
+   const char *selected = window && !rrclient_window_is_shared(window->title)
+      ? rrclient_window_server(window->title) : NULL;
+   if (!selected || !*selected) selected = rrclient_selected_server();
 
    return selected && *selected ? selected : "no server";
 }

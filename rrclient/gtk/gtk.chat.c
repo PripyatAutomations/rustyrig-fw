@@ -1382,12 +1382,8 @@ void gtk_chat_room_set_topic(const char *room, const char *topic) {
    if (!gtk_chat_room_widgets(room, &buffer, &view) || !buffer) {
       return;
    }
-   char line[640];
-   snprintf(line, sizeof(line), "*** Topic for %s: %s", room, (topic && *topic) ? topic : "(none)");
-   GtkTextIter end;
-   gtk_text_buffer_get_end_iter(buffer, &end);
-   gtk_text_buffer_insert(buffer, &end, line, -1);
-   gtk_text_buffer_insert(buffer, &end, "\n", 1);
+   /* Common events.c renders the notice, including setter and timestamp. */
+   if (view) gtk_widget_set_tooltip_text(view, topic && *topic ? topic : NULL);
 }
 
 void gtk_chat_set_authoritative_room(const char *room) {

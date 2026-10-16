@@ -69,7 +69,7 @@ static void rrclient_irc_connection(const char *event, const char *data, rrconn_
       /* A conventional IRC server has no RustyRig PTT/media controls. */
       frontend_ops()->ptt_set_online(false);
    }
-   ui_print(NULL, "%s Connected to IRC as %s", get_chat_ts(now), cptr->nick);
+   ui_print(NULL, "%sConnected to IRC as %s", get_chat_ts(now), cptr->nick);
    const char *autojoin = cptr->server ? cptr->server->autojoin : "";
    char *copy = strdup(autojoin);
 
@@ -136,28 +136,28 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
       if (frontend_ops() && frontend_ops()->chat_room_add) {
          frontend_ops()->chat_room_add(nick);
       }
-      ui_print(nick, "%s Cannot join %s: %s", get_chat_ts(now), nick, arg3);
+      ui_print(nick, "%sCannot join %s: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "313") && argc >= 4) {
       userlist_mark_oper(nick, true);
-      ui_print(output, "%s WHOIS %s: %s", get_chat_ts(now), nick, arg3);
+      ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "311") && argc >= 7) {
       userlist_mark_oper(nick, false);
-      ui_print(output, "%s WHOIS %s: %s@%s (%s)", get_chat_ts(now), nick, arg3, arg4, dict_get(message, "msg.arg6", ""));
+      ui_print(output, "%sWHOIS %s: %s@%s (%s)", get_chat_ts(now), nick, arg3, arg4, dict_get(message, "msg.arg6", ""));
    } else if (!strcmp(cmd, "312") && argc >= 5) {
-      ui_print(output, "%s WHOIS %s: server %s (%s)", get_chat_ts(now), nick, arg3, arg4);
+      ui_print(output, "%sWHOIS %s: server %s (%s)", get_chat_ts(now), nick, arg3, arg4);
    } else if (!strcmp(cmd, "319") && argc >= 4) {
-      ui_print(output, "%s WHOIS %s: channels %s", get_chat_ts(now), nick, arg3);
+      ui_print(output, "%sWHOIS %s: channels %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "317") && argc >= 4 && *arg3 && strspn(arg3, "0123456789") == strlen(arg3)) {
       /* Some older daemons omit signon time. Do not interpret their trailing explanatory text as an epoch timestamp. */
       if (argc >= 5 && *arg4 && strspn(arg4, "0123456789") == strlen(arg4)) {
          char signon[64];
          format_timestamp(dict_get_time_t(message, "msg.arg4", 0), signon, sizeof(signon));
-         ui_print(output, "%s WHOIS %s: idle %s seconds; signed on %s (%s)", get_chat_ts(now), nick, arg3, signon, arg4);
+         ui_print(output, "%sWHOIS %s: idle %s seconds; signed on %s (%s)", get_chat_ts(now), nick, arg3, signon, arg4);
       } else {
-         ui_print(output, "%s WHOIS %s: idle %s seconds", get_chat_ts(now), nick, arg3);
+         ui_print(output, "%sWHOIS %s: idle %s seconds", get_chat_ts(now), nick, arg3);
       }
    } else if (!strcmp(cmd, "318") && argc >= 3) {
-      ui_print(output, "%s WHOIS %s: %s", get_chat_ts(now), nick, dict_get(message, "msg.arg3", "End of WHOIS"));
+      ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, dict_get(message, "msg.arg3", "End of WHOIS"));
    } else {
       char parameters[IRC_MSGLEN] = "";
 
@@ -172,7 +172,7 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
          strlcat(parameters, dict_get(message, key, ""), sizeof(parameters));
       }
 
-      ui_print(output, "%s [%s] %s", get_chat_ts(now), cmd, parameters);
+      ui_print(output, "%s[%s] %s", get_chat_ts(now), cmd, parameters);
    }
 }
 
@@ -285,7 +285,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
       if (*text == '\001') {
          if (!strcasecmp(cmd, "NOTICE") && length >= 2 && length < IRC_MSGLEN && text[length - 1] == '\001') {
-            ui_print(from, "%s CTCP reply from %s: %.*s", get_chat_ts(now), from, (int)(length - 2), text + 1);
+            ui_print(from, "%sCTCP reply from %s: %.*s", get_chat_ts(now), from, (int)(length - 2), text + 1);
             goto done;
          }
 
@@ -300,11 +300,11 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
       if (!cptr->authenticated) {
          if (!strcmp(kind, "notice")) {
-            ui_print(NULL, "%s -%s- %s", get_chat_ts(now), from, text);
+            ui_print(NULL, "%s-%s- %s", get_chat_ts(now), from, text);
          } else if (!strcmp(kind, "action")) {
-            ui_print(NULL, "%s * %s %s", get_chat_ts(now), from, text);
+            ui_print(NULL, "%s* %s %s", get_chat_ts(now), from, text);
          } else {
-            ui_print(NULL, "%s <%s> %s", get_chat_ts(now), from, text);
+            ui_print(NULL, "%s<%s> %s", get_chat_ts(now), from, text);
          }
          goto done;
       }
@@ -327,7 +327,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       dict_add(d, "talk.room", arg1);
       dict_add(d, "talk.user", arg2);
       event_emit_dict("part", cptr, d);
-      ui_print(arg1, "%s * %s kicked %s: %s", get_chat_ts(now), from, arg2, dict_get(message, "msg.arg3", ""));
+      ui_print(arg1, "%s* %s kicked %s: %s", get_chat_ts(now), from, arg2, dict_get(message, "msg.arg3", ""));
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
       userlist_mark_oper(from, false);
       if (cptr != ws_conn) {
@@ -339,14 +339,13 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          const char *room = rrclient_room_iter(i);
 
          if (userlist_find_in_room(from, room)) {
-            ui_print(room, "%s * %s quit: %s", get_chat_ts(now), from, arg1);
+            ui_print(room, "%s* %s quit: %s", get_chat_ts(now), from, arg1);
          }
       }
 
       while (userlist_remove_by_name_room(from, NULL)) {
          /* QUIT removes this nick from every joined channel. */
       }
-      ui_print(NULL, "%s * %s quit: %s", get_chat_ts(now), from, arg1);
    } else if (!strcasecmp(cmd, "NICK") && argc >= 2 && *from) {
       bool oper = userlist_is_oper(from);
       if (!strcasecmp(from, cptr->nick)) {
@@ -375,11 +374,15 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
       userlist_mark_oper(from, false);
       userlist_mark_oper(arg1, oper);
-      ui_print(NULL, "%s * %s is now %s", get_chat_ts(now), from, arg1);
+      ui_print(NULL, "%s* %s is now %s", get_chat_ts(now), from, arg1);
    } else if ((!strcasecmp(cmd, "TOPIC") && argc >= 3) || (!strcmp(cmd, "332") && argc >= 4)) {
       dict_add(d, "talk.room", !strcmp(cmd, "332") ? arg2 : arg1);
       dict_add(d, "talk.topic", !strcmp(cmd, "332") ? dict_get(message, "msg.arg3", "") : arg2);
+      dict_add_bool(d, "talk.query", !strcmp(cmd, "332"));
       event_emit_dict("room.topic", cptr, d);
+   } else if (!strcmp(cmd, "333") && argc >= 5) {
+      const char *setter = dict_get(message, "msg.arg3", "unknown");
+      ui_print(arg2, "%sTopic for %s set by %s", get_chat_ts(now), arg2, setter);
    } else if (!strcmp(cmd, "353") && argc >= 5) {
       dict_add(d, "talk.room", dict_get(message, "msg.arg3", ""));
       userlist_names_begin(dict_get(message, "msg.arg3", ""));
@@ -525,7 +528,7 @@ static void rrclient_irc_redirect(const char *event, const char *data, rrconn_t 
    if (frontend_ops() && frontend_ops()->chat_room_add) {
       frontend_ops()->chat_room_add(new_room);
    }
-   ui_print(new_room, "%s * %s redirects %s to %s: %s", get_chat_ts(now), dict_get(message, "msg.prefix", "server"), old_room, new_room, dict_get(message,
+   ui_print(new_room, "%s* %s redirects %s to %s: %s", get_chat_ts(now), dict_get(message, "msg.prefix", "server"), old_room, new_room, dict_get(message,
       "msg.arg4", "Forwarding to another channel"));
    dict_free(message);
 }
@@ -545,7 +548,7 @@ static void rrclient_irc_sasl(const char *event, const char *data, rrconn_t *cli
    (void)user;
 
    if (client == ws_conn && data && *data) {
-      ui_print(NULL, "%s %s", get_chat_ts(now), data);
+      ui_print(NULL, "%s%s", get_chat_ts(now), data);
    }
 }
 

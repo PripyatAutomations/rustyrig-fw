@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Show topic setters in common GTK/TUI notices and IRC topic metadata.
+    Keep QUIT notices in shared rooms instead of duplicating them in Status.
+    Use smaller graphical chat timestamps with one separator before nicks,
+    compact privilege-prefixed room nicks and server-only TUI prompts.
   * Add cumulative WebSocket binary subsystem counts, bytes, rejects and
     dispatch time alongside compact JSON parser profiling.
   * Speed up formatted GTK chat with batched link scans and cheaper input
@@ -187,7 +191,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 00:21:19 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 00:25:29 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

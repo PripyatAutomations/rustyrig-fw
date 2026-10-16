@@ -13,7 +13,7 @@ rustyrig-client-dbgsym_20261015.06_amd64.deb debug optional automatic=yes
 rustyrig-client-gtk-dbgsym_20261015.06_amd64.deb debug optional automatic=yes
 rustyrig-client-gtk_20261015.06_amd64.deb hamradio optional
 rustyrig-client_20261015.06_amd64.deb hamradio optional
-rustyrig-fw_20261015.05_amd64.buildinfo hamradio optional
+rustyrig-fw_20261015.06_amd64.buildinfo hamradio optional
 rustyrig-fwdsp-dbgsym_20261015.06_amd64.deb debug optional automatic=yes
 rustyrig-fwdsp_20261015.06_amd64.deb hamradio optional
 rustyrig-server-dbgsym_20261015.06_amd64.deb debug optional automatic=yes

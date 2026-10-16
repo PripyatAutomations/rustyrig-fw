@@ -336,7 +336,7 @@ static void rrclient_tui_host_log_frame(const char *event, const void *data, siz
    }
    message[out] = '\0';
 
-   ui_print("host log", "%s <%s.%s> %s", get_chat_ts(now), subsys, log_priority_to_str((logpriority_t) payload[0]), message);
+   ui_print("host log", "%s<%s.%s> %s", get_chat_ts(now), subsys, log_priority_to_str((logpriority_t) payload[0]), message);
 }
 
 /* The three TUI system tabs share all servers; ui_print labels each source. GTK has its own log callbacks. */
@@ -370,7 +370,7 @@ static bool rrclient_tui_log_print_va(logpriority_t priority, const char *subsys
    }
 
    log_printing = true;
-   ui_print("client log", "%s <%s.%s> %s", get_chat_ts(now), subsys ? subsys : "core", log_priority_to_str(priority), message);
+   ui_print("client log", "%s<%s.%s> %s", get_chat_ts(now), subsys ? subsys : "core", log_priority_to_str(priority), message);
    log_printing = false;
 
    return false;
@@ -392,9 +392,9 @@ static void rrclient_handle_talk_msg_event(const char *event, void *data, rrconn
    }
 
    if (strcasecmp(tmed->msg_type, "action") == 0) {
-      ui_print(tmed->target[0] ? tmed->target : NULL, "%s \00309* \00311%s\017 %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+      ui_print(tmed->target[0] ? tmed->target : NULL, "%s\00309* \00311%s\017 %s", get_chat_ts(tmed->ts), tmed->from, tmed->data);
    } else {
-      ui_print(tmed->target[0] ? tmed->target : NULL, "%s \00314<\00310%s\00314>\017 %s\017", get_chat_ts(tmed->ts), tmed->from, tmed->data);
+      ui_print(tmed->target[0] ? tmed->target : NULL, "%s\00314<\00310%s\00314>\017 %s\017", get_chat_ts(tmed->ts), tmed->from, tmed->data);
    }
 }
 

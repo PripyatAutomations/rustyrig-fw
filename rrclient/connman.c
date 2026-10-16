@@ -1071,7 +1071,7 @@ bool rrclient_connect_url_proxy(const char *profile, const char *url, const char
       return true;
    }
    dispatch_depth++;
-   ui_print(NULL, "%s Connecting to %s", get_chat_ts(now), endpoint.credentials ? connect_url : url);
+   ui_print(NULL, "%sConnecting to %s", get_chat_ts(now), endpoint.credentials ? connect_url : url);
    const char *socket_url = t->proxy_pending ? t->socks.url : connect_url;
    struct mg_connection *c = endpoint.irc ? mg_connect(&mgr, socket_url, rrclient_transport_handler, t) :
       mg_ws_connect(&mgr, socket_url, rrclient_transport_handler, t, "Sec-WebSocket-Protocol: " RR_WS_SUBPROTOCOL "\r\n");

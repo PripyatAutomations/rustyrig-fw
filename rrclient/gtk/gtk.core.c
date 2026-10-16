@@ -202,7 +202,7 @@ static void gtk_irc_style_tags(GString *out, const GtkIrcStyle *style, bool open
    }
 }
 
-char *gtk_colorize_string(const char *in) {
+static char *gtk_colorize_text(const char *in) {
    if (!in) {
       return NULL;
    }
@@ -288,6 +288,27 @@ char *gtk_colorize_string(const char *in) {
    if (open) gtk_irc_style_tags(out, &style, false);
    char *result = strdup(out->str);
    g_string_free(out, TRUE);
+   return result;
+}
+
+/* PARITY: rustyrig-www/js/webui.js msg_timestamp; only presentation shrinks.
+ * Time formatting and its single separator remain owned by get_chat_ts(). */
+char *gtk_colorize_string(const char *in) {
+   const char *end = in && !strncmp(in, "\00314[", 4) ? strstr(in, "]\017") : NULL;
+   if (!end) return gtk_colorize_text(in);
+   end += 2;
+   char *stamp = g_strndup(in, end - in);
+   char *prefix = gtk_colorize_text(stamp);
+   g_free(stamp);
+   char *suffix = gtk_colorize_text(end);
+   if (!prefix || !suffix) {
+      g_free(prefix);
+      g_free(suffix);
+      return NULL;
+   }
+   char *result = g_strdup_printf("<span size=\"smaller\">%s</span>%s", prefix, suffix);
+   g_free(prefix);
+   g_free(suffix);
    return result;
 }
 
@@ -641,7 +662,7 @@ bool gui_init(void) {
    }
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 
-   ui_print(NULL, "%s rustyrig client started", get_chat_ts(now));
+   ui_print(NULL, "%srustyrig client started", get_chat_ts(now));
 
    return false;
 }

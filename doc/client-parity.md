@@ -826,3 +826,22 @@ and `supervising_elmers` at key-down so later consent expiry/disconnect does not
 rewrite history. Existing databases receive nullable columns, leaving historical
 rows unattributed. Admin PTT row dictionaries include these fields through the
 existing operation. No client permission or wire operation is added.
+
+
+Native topic notices are rendered by the common handler, including the setter
+for changes (including self changes). GTK's topic hook only updates presentation
+metadata. IRC 332 displays the initial topic; 333 identifies its original setter
+without mistaking the replying server for the author. Query responses identify
+the current topic without attributing it to the requester. Browser changes
+include the same setter when supplied. IRC QUIT appears in shared rooms only;
+native protocol QUIT is directed to its room rather than Status.
+
+GTK and browser timestamps render one font step smaller than message text.
+Native timestamp callers use the single separator already supplied by the time
+helper. Room sender decoration is contiguous, for example `<@nick>` or
+`<+nick>` (and `<!@nick>` for a known IRC oper). Native protocol staff use @ and
+noob accounts use +, matching the existing native `/users` convention; browser
+room messages mirror that convention. Regular users have no privilege marker.
+All TUI prompts use the active conversation's server profile, while shared
+system tabs use the globally selected server. Terminal font sizes stay under
+terminal control.

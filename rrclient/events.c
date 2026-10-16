@@ -116,7 +116,7 @@ void tui_refresh_sb_vfo(void) {
 }
 
 static void rrclient_backpressure(const char *event, const char *data, rrconn_t *cptr, void *user) {
-   ui_print("status", "%s %s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
+   ui_print("status", "%s%s; command was not sent", get_chat_ts(now), data ? data : "Outgoing queue full");
 }
 
 static void rrclient_set_offline(void) {
@@ -248,7 +248,7 @@ static void rrclient_handle_auth(const char *event, const char *data, rrconn_t *
          }
       }
 
-      ui_print(NULL, "%s \00311Welcome back, \00308%s\00311! You have \00309%s\00311 privileges", get_chat_ts(a_ts), a_user, a_privs);
+      ui_print(NULL, "%s\00311Welcome back, \00308%s\00311! You have \00309%s\00311 privileges", get_chat_ts(a_ts), a_user, a_privs);
 
       if (ui_mode == UI_MODE_TUI) {
          tui_refresh_sb_online();
@@ -290,7 +290,7 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    // Show the error in the UI and stop the reconnect engine: retrying with
    // bad credentials just hammers the server. PARITY: webui.auth.js stops
    // reconnecting on auth errors too.
-   ui_print(NULL, "%s \00304Authentication error: %s\017", get_chat_ts(now), (error_msg ? error_msg : "unknown error"));
+   ui_print(NULL, "%s\00304Authentication error: %s\017", get_chat_ts(now), (error_msg ? error_msg : "unknown error"));
 
    dict_dump(d, NULL);
    dict_free(d);
@@ -387,7 +387,7 @@ static void rrclient_handle_hello(const char *event, const char *data, rrconn_t 
    dict *d = json2dict(data);
    const char *m_hwver = dict_get(d, "hello.hwver", (char *)"misconfigured radio");
    const char *m_swver = dict_get(d, "hello.swver", (char *)"1.2.3.4");
-   ui_print(NULL, "%s \00308Your host is running \00309%s\00308 on \00309%s", get_chat_ts(0), m_swver, m_hwver);
+   ui_print(NULL, "%s\00308Your host is running \00309%s\00308 on \00309%s", get_chat_ts(0), m_swver, m_hwver);
    dict_free(d);
 }
 
@@ -476,7 +476,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    if (cptr && !cptr->is_ws && private_msg && userlist_is_oper(from)) {
       snprintf(decorated_from, sizeof(decorated_from), "!%s", from);
       from = decorated_from;
-   } else if (cptr && !cptr->is_ws && !private_msg) {
+   } else if (!private_msg) {
       struct rr_user *member = userlist_find_in_room(from, output_room);
       if (member) {
          userlist_display_name(member, decorated_from, sizeof(decorated_from));
@@ -490,27 +490,27 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       ui_print(output_room, "\00304>>>\017 Finished chat replay. \00304<<<\017");
    } else if (msg_type && msg_data) {
       if (strcasecmp(msg_type, "action") == 0) {
-         ui_print(output_room, "%s \00308*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s\00308*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "pub") == 0) {
          if (login_user != NULL && strcmp(raw_from, login_user) == 0) {
-            ui_print(output_room, "%s \00308=>\017 %s", get_chat_ts(msg_ts), msg_data);
+            ui_print(output_room, "%s\00308=>\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
-            ui_print(output_room, "%s \00308<\017%s\00308>\017 %s", get_chat_ts(msg_ts), from, msg_data);
+            ui_print(output_room, "%s\00308<\017%s\00308>\017 %s", get_chat_ts(msg_ts), from, msg_data);
          }
       } else if (strcasecmp(msg_type, "replay-pub") == 0) {
-         ui_print(output_room, "%s \00304<\017%s\00304>\017 %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s\00304<\017%s\00304>\017 %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "replay-action") == 0) {
-         ui_print(output_room, "%s \00304*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s\00304*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "priv") == 0) {
-         if (from && login_user && strcasecmp(from, login_user) == 0) {
-            ui_print(output_room, "%s \00309->\017 %s", get_chat_ts(msg_ts), msg_data);
+         if (raw_from && login_user && strcasecmp(raw_from, login_user) == 0) {
+            ui_print(output_room, "%s\00309->\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
-            ui_print(output_room, "%s \00309*\017%s\00309*\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
+            ui_print(output_room, "%s\00309*\017%s\00309*\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
          }
       } else if (strcasecmp(msg_type, "notice") == 0) {
-         ui_print(output_room, "%s \00308-%s-\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
+         ui_print(output_room, "%s\00308-%s-\017 %s", get_chat_ts(msg_ts), from ? from : "?", msg_data);
       } else if (strcasecmp(msg_type, "replay-priv") == 0 || strcasecmp(msg_type, "replay-privmsg") == 0) {
-         ui_print(output_room, "%s \00306*\017%s\00306*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s\00306*\017%s\00306*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       }
       cfg_ui_bell_chat = cfg_get_bool("ui.bell.chat", false);
 
@@ -527,7 +527,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
 static void rrclient_handle_connection(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (strcasecmp(event, "connecting") == 0) {
-      ui_print(NULL, "%s *** \00308Connecting\017 ***", get_chat_ts(now));
+      ui_print(NULL, "%s*** \00308Connecting\017 ***", get_chat_ts(now));
       rrclient_update_connection_ui(-1);
    } else if (strcasecmp(event, "connected") == 0) {
       if (!data) {
@@ -544,7 +544,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             free((void *)login_user);
          }
          login_user = strdup(user);
-         ui_print(NULL, "%s *** \00303Connected, logging in as %s\017 ***", get_chat_ts(now), login_user);
+         ui_print(NULL, "%s*** \00303Connected, logging in as %s\017 ***", get_chat_ts(now), login_user);
       }
 
       rrclient_update_connection_ui(-1);
@@ -556,7 +556,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
       dict_free(d);
    } else if (strcasecmp(event, "authorized") == 0) {
-      ui_print(NULL, "%s *** \00303Logged in!\017 ***", get_chat_ts(now));
+      ui_print(NULL, "%s*** \00303Logged in!\017 ***", get_chat_ts(now));
       rrclient_update_connection_ui(1);
 
       if (frontend_ops()) {
@@ -566,7 +566,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
       cmd_list(0, NULL);
    } else if (strcasecmp(event, "disconnect") == 0 || strcasecmp(event, "disconnected") == 0) {
-      ui_print(NULL, "%s *** \00304DISCONNECTED\017 ***", get_chat_ts(now));
+      ui_print(NULL, "%s*** \00304DISCONNECTED\017 ***", get_chat_ts(now));
       rrclient_supervision_clear(cptr);
       rrclient_set_offline();
 
@@ -596,9 +596,9 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
       }
 
       if (err) {
-         ui_print(NULL, "%s \00304*** Unable to reach server: %s\017", get_chat_ts(now), err);
+         ui_print(NULL, "%s\00304*** Unable to reach server: %s\017", get_chat_ts(now), err);
       } else {
-         ui_print(NULL, "%s \00304*** Unable to reach server\017", get_chat_ts(now));
+         ui_print(NULL, "%s\00304*** Unable to reach server\017", get_chat_ts(now));
       }
       free((void *)err);
       rrclient_supervision_clear(cptr);
@@ -620,7 +620,7 @@ static void rrclient_handle_connection(const char *event, const char *data, rrco
             dict_free(d);
          }
       }
-      ui_print(ui_active_window_name(), "%s \00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""), (from ? from : ""), (err ? err :
+      ui_print(ui_active_window_name(), "%s\00304*** ERROR%s%s:\017 %s", get_chat_ts(now), (from ? " from " : ""), (from ? from : ""), (err ? err :
          "unknown error"));
       free((void *)err);
       free((void *)from);
@@ -733,12 +733,12 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       if (frontend_ops() && m_user && login_user && strcasecmp(m_user, login_user) == 0) {
          frontend_ops()->chat_room_add(m_room);
       }
-      ui_print(m_room, "%s * %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
+      ui_print(m_room, "%s* %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
       dict_free(d);
 
       return;
    }
-   ui_print(NULL, "%s * %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
+   ui_print(NULL, "%s* %s (%s) joined %s", get_chat_ts(m_ts), m_user, m_ip, m_target);
 
    if (!userlist_add_or_update(d)) {
       Log(LOG_CRIT, "rrclient.events", "OOM in userlist_add_or_update");
@@ -837,12 +837,13 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
 
       if (frontend_ops()) {
          frontend_ops()->chat_room_topic(room, topic);
-      } else if (query) {
-         ui_print(room, "\00308Topic:\017 %s", *topic ? topic : "(none)");
-      } else if (from && *from && (!login_user || strcasecmp(from, login_user) != 0)) {
-         ui_print(room, "\00308Topic changed by %s:\017 %s", from, *topic ? topic : "(none)");
-      } else if (!from || !*from) {
-         ui_print(room, "\00308Topic:\017 %s", *topic ? topic : "(none)");
+      }
+      /* PARITY: rustyrig-www/js/webui.chat.js topic notices. A query's user
+       * identifies the requester, not necessarily the original topic setter. */
+      if (!query && from && *from) {
+         ui_print(room, "%s\00308Topic set by %s:\017 %s", get_chat_ts(dict_get_time_t(d, "msg.ts", now)), from, *topic ? topic : "(none)");
+      } else {
+         ui_print(room, "%s\00308Topic:\017 %s", get_chat_ts(dict_get_time_t(d, "msg.ts", now)), *topic ? topic : "(none)");
       }
    }
    dict_free(d);
@@ -894,7 +895,7 @@ static void rrclient_handle_room_state(const char *event, const char *data, rrco
          frontend_ops()->ptt_refresh();
       }
    }
-   ui_print(room, "%s Room %s", get_chat_ts(now), offline ? "OFFLINE; chat draft retained until its owner returns" : "ONLINE");
+   ui_print(room, "%sRoom %s", get_chat_ts(now), offline ? "OFFLINE; chat draft retained until its owner returns" : "ONLINE");
    dict_free(d);
 }
 
@@ -1144,9 +1145,9 @@ static void rrclient_handle_nomatch(const char *event, const char *data, rrconn_
       }
 
       if (cmd && strcasecmp(cmd, "replay-start") == 0) {
-         ui_print(room, "%s \00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts));
+         ui_print(room, "%s\00304>>>\017 Start of chat replay. \00304<<<\017", get_chat_ts(msg_ts));
       } else if (cmd && (strcasecmp(cmd, "replay-complete") == 0)) {
-         ui_print(room, "%s \00304>>>\017 Finished chat replay. \00304<<<\017", get_chat_ts(msg_ts));
+         ui_print(room, "%s\00304>>>\017 Finished chat replay. \00304<<<\017", get_chat_ts(msg_ts));
       } else {
          Log(LOG_DEBUG, "ws.nomatch", "Unhandled talk cmd:|%s|", (cmd ? cmd : "<NONE>"));
       }
@@ -1209,7 +1210,7 @@ static void rrclient_handle_callsign(const char *event, const char *data, rrconn
    if (status || dict_get_bool(d, "callsign.done", false)) {
       if (!callsign_notice_active) {
          callsign_notice_active = true;
-         ui_print(NULL, "%s \00308CALLSIGN\017:", get_chat_ts(dict_get_time_t(d, "msg.ts", now)));
+         ui_print(NULL, "%s\00308CALLSIGN\017:", get_chat_ts(dict_get_time_t(d, "msg.ts", now)));
       }
    }
 
@@ -1273,7 +1274,7 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
 
       if (strncmp(msg, "200 OK ", 7) == 0) {
          callsign_notice_active = true;
-         ui_print(output, "%s \00308NOTICE\017:", get_chat_ts(msg_ts));
+         ui_print(output, "%s\00308NOTICE\017:", get_chat_ts(msg_ts));
          rrclient_print_callsign_line(msg);
       } else if (callsign_field && callsign_notice_active) {
          rrclient_print_callsign_line(msg);
@@ -1283,7 +1284,7 @@ static void rrclient_handle_notice(const char *event, const char *data, rrconn_t
          }
       } else {
          callsign_notice_active = false;
-         ui_print(output, "%s \00308NOTICE\017: %s", get_chat_ts(msg_ts), msg);
+         ui_print(output, "%s\00308NOTICE\017: %s", get_chat_ts(msg_ts), msg);
       }
    }
    dict_free(d);
@@ -1314,7 +1315,7 @@ static void rrclient_handle_quit(const char *event, const char *data, rrconn_t *
       return;
    }
 
-   ui_print(NULL, "%s * %s (%s) quit from %s: %s", get_chat_ts(m_ts), m_user, m_ip, m_target, m_reason);
+   ui_print(m_target, "%s* %s (%s) quit from %s: %s", get_chat_ts(m_ts), m_user, m_ip, m_target, m_reason);
 
    /* PARITY: rustyrig-www/js/webui.chat.js:UserCache.remove; a quit is per session. */
    int sessions = dict_get_int(d, "talk.sessions", 0);
