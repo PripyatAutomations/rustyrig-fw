@@ -675,12 +675,15 @@ Native playback follows absolute monotonic 20 ms deadlines with bounded
 The default negotiated transport preference is Opus with supported fallbacks.
 
 
-GTK `/object`, `/rig` and `/gps` lists open resource tree windows. TUI and browser
-commands retain text trees. `/object` without a target now requests complete
-fresh inventory; `/object <symbol|uuid>` retains cached property inspection.
-Rig trees include media, room and CAT rows. GTK Join/Subscribe/Unsubscribe buttons
-use the originating server connection and existing common command handlers.
-Listings never change subscriptions or wake idle receivers themselves.
+GTK Resources (Status button or Alt-O), `/object`, `/rig` and `/gps` use one
+resource manager with all known server connections and full site/rig/VFO/service
+trees. All resources stay visible; separate columns show availability and the
+user's room/media/object/serial state. Contextual actions use the originating
+server and existing common handlers. Local serial attachments remain available
+for inspection/disconnection while servers are offline. TUI and browser commands
+retain text trees; this native resource window has no DOM/source parity
+requirement. `/object <symbol|uuid>` retains cached property inspection. See
+[Native Resources manager](resource-discovery.md#native-resources-manager).
 
 GTK Admin Users column order, compact rows, read-only flag indicators and relative
 password timestamps are frontend presentation. Raw server field names/values
@@ -855,3 +858,14 @@ of optional room/VFO metadata. Native `rrclient/events.c` and browser
 servers that omit the field retain their previous output. Connection time,
 last-heard time and client identity still describe the first matching session.
 IRC WHOIS remains independent and unchanged.
+
+
+Native media consumers share the `rr_client_media_chan` definition with the
+owning cache rather than casting a shorter duplicate record. The previous view
+omitted the profiles array before the description/subscription fields, so those
+field offsets could report incorrect state. This internal layout correction
+changes no wire fields. Common object update subscription status is scoped with
+the existing per-server object cache. Explicit native host serial and CAT
+attachments retain an originating profile; browser clients have no local
+PTY/CAT attachment equivalent. GPS output endpoints retain their existing
+active-server behavior.

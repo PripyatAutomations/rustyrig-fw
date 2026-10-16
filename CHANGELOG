@@ -1,5 +1,14 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Replace separate GTK resource lists with one Resources manager, opened
+    from Status or Alt-O. Show all server/site/rig/VFO, room, GPS, serial and
+    media resources with distinct availability and personal connection state.
+    Add contextual join/leave, subscribe/unsubscribe, server connection and
+    serial attach/disconnect actions, plus a persistent local endpoint list.
+  * Track object update subscriptions per connection and use a single native
+    media cache record layout so resource status reads the correct fields.
+    Pin explicit serial tunnels and CAT attachments to their originating
+    server so switching tabs cannot redirect their commands or traffic.
   * Cache external receiver demand per bridge for 250 ms, invalidating on
     room/subscription, account, catalog and link lifecycle changes. Reduce
     repeated user/channel scans during quiet server polls while preserving
@@ -200,7 +209,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 05:49:48 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:13:49 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

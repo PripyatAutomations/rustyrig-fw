@@ -10,6 +10,7 @@
 #include <librrprotocol/rrprotocol.h>
 
 void rrclient_media_sync_audio(void);
+void rrclient_media_refresh(void);
 extern void rrclient_media_room_selected(const char *room);
 extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);

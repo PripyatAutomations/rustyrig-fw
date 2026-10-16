@@ -8,6 +8,11 @@
 #define RRCLIENT_SERCOM_H
 #include <stdbool.h>
 #include <rrclient/serial.h>
+typedef struct {
+   const char *name, *service, *profile, *path, *state;
+} rr_sercom_info_t;
+/* Borrowed strings, valid until the attachment changes or is disconnected. */
+bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
 bool rr_sercom_init(void);
 void rr_sercom_shutdown(void);
 bool cmd_sercom(int argc, char **args);

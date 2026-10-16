@@ -239,3 +239,17 @@ stream IDs are usable; reconnect after exhausting them.
 Queued bytes are discarded on connection loss rather than replayed into a new
 session. GPS MODEM/`gpsp` frames use media subscription streams separately,
 RX direction, no VFO, and the fixed 9-byte position record described above.
+
+
+## Resource manager attachments
+
+GTK Resources lists local serial endpoints alongside server inventory and can
+attach/detach CAT services and permitted physical serial exports. Local endpoint
+names remain global so two attachments cannot claim the same PTY/name. Explicit
+host tunnels and CAT endpoints created with a live server retain that profile;
+commands, binary serial frames, acknowledgements and CAT reads use that server
+independently of the selected main-window tab. Reconnects re-open host endpoints
+only for their own server. Endpoints created before a server is available keep
+their existing active-server behavior until a host endpoint binds at login.
+Common `rr_sercom_info()` exposes borrowed attachment status for presentation;
+GTK does not maintain a second serial session registry.

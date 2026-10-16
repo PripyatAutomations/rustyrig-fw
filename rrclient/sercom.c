@@ -23,9 +23,11 @@
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
 #include <rrclient/userlist.h>
+#include <rrclient/connman.h>
 
 typedef struct serial_binding {
    char name[64], service[96], radio[64];
+   char profile[512];
    char vfo;
    char host_port[64];
    size_t buffer_limit;
@@ -44,7 +46,6 @@ static serial_binding_t *bindings, *cat_context;
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
 static guint host_timer;
-static bool host_authorized;
 extern rrconn_t *ws_conn;
 
 static bool host_binding(const serial_binding_t *b) {
@@ -64,6 +65,22 @@ const char *rr_sercom_binding(const char *name) {
    serial_binding_t *b = binding(name);
 
    return b ? b->service : NULL;
+}
+
+/* Bind host tunnels and CAT commands to their originating server. */
+static rrconn_t *binding_connection(const serial_binding_t *b) {
+   return b->profile[0] ? rrclient_connection_find(b->profile) : ws_conn;
+}
+bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
+   serial_binding_t *b = binding(name);
+   if (!b || !info) return false;
+   rrconn_t *connection = binding_connection(b);
+   const char *state = "Attached";
+   if (host_binding(b)) state = b->failed ? "Failed" : !connection || !connection->authenticated ? "Server offline" :
+      b->stream ? "Connected" : b->opening ? "Connecting" : "Waiting";
+   else if (b->radio[0] && (!connection || !connection->authenticated)) state = "Server offline";
+   *info = (rr_sercom_info_t){b->name, b->service, b->profile, rr_serial_path(b->port), state};
+   return true;
 }
 
 static const dict *cat_radio(void) {
@@ -158,9 +175,8 @@ int rr_cat_serial_reply(const char *data, size_t len) {
 }
 
 static void host_command(serial_binding_t *b, const char *command) {
-   if (!host_authorized || !ws_conn || !ws_conn->conn) {
-      return;
-   }
+   rrconn_t *connection = binding_connection(b);
+   if (!connection || !connection->authenticated || !connection->conn) return;
    dict *d = dict_new();
 
    if (!d) {
@@ -186,7 +202,7 @@ static void host_command(serial_binding_t *b, const char *command) {
    if (!strcmp(command, "read")) {
       dict_add_uint(d, "serial.seq", b->rx_seq);
    }
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
 static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings_t *b) {
@@ -208,9 +224,8 @@ static void host_sync(serial_binding_t *b) {
       }
    }
 
-   if (!host_authorized || b->failed || !ws_conn || !ws_conn->conn) {
-      return;
-   }
+   rrconn_t *connection = binding_connection(b);
+   if (b->failed || !connection || !connection->authenticated || !connection->conn) return;
 
    if (!b->stream) {
       if (!b->opening) {
@@ -231,7 +246,7 @@ static void host_sync(serial_binding_t *b) {
    }
 #ifdef USE_MONGOOSE
 
-   if (ws_conn->conn->send.len > 65536) {
+   if (connection->conn->send.len > 65536) {
       return;
    }
 #endif
@@ -252,7 +267,7 @@ static void host_sync(serial_binding_t *b) {
    struct mg_str data = {
       .buf = (char *)packet, .len = len
    };
-   ws_send_to_cptr(NULL, ws_conn, &data, WEBSOCKET_OP_BINARY);
+   ws_send_to_cptr(NULL, connection, &data, WEBSOCKET_OP_BINARY);
    free(packet);
    g_byte_array_remove_range(b->host_pending, 0, n);
    b->tx_pending = true;
@@ -268,15 +283,19 @@ static gboolean host_tick(gpointer user) {
    return G_SOURCE_CONTINUE;
 }
 static void host_connection(const char *event, const char *data, rrconn_t *client, void *user) {
-   host_authorized = !strcmp(event, "authorized");
+   bool authorized = !strcmp(event, "authorized");
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      if (host_binding(b)) {
+      if (host_binding(b) && binding_connection(b) == client) {
+         if (authorized && !b->profile[0]) {
+            const char *profile = rrclient_connection_name(client);
+            if (profile) strlcpy(b->profile, profile, sizeof(b->profile));
+         }
          b->stream = 0;
          b->opening = b->tx_pending = b->rx_pending = b->failed = false;
          b->tx_seq = b->rx_seq = 0;
 
-         if (!host_authorized) {
+         if (!authorized) {
             g_byte_array_set_size(b->host_pending, 0);
          }
          rr_serial_read_enabled(b->port, true);
@@ -306,7 +325,7 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
    }
    serial_binding_t *b = binding(dict_get(d, "serial.name", NULL));
 
-   if (!b || !host_binding(b)) {
+   if (!b || !host_binding(b) || (client && binding_connection(b) != client)) {
       goto done;
    }
    const char *cmd = dict_get(d, "serial.cmd", "");
@@ -368,7 +387,7 @@ done:
    dict_free(d);
 }
 static void host_frame(const char *event, const void *data, size_t len, rrconn_t *client, void *user) {
-   if (!host_authorized || (client && client != ws_conn)) {
+   if (!client || !client->authenticated) {
       return;
    }
    struct rr_binframe f;
@@ -378,7 +397,7 @@ static void host_frame(const char *event, const void *data, size_t len, rrconn_t
    }
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      if (host_binding(b) && b->stream == f.hdr.stream) {
+      if (host_binding(b) && binding_connection(b) == client && b->stream == f.hdr.stream) {
          if (b->rx_pending || f.hdr.seq != b->rx_seq + 1 || !rr_serial_write(b->port, (const char *)f.data, f.len)) {
             Log(LOG_WARN, "serial", "%s: invalid serial stream sequence or blocked output", b->name);
             host_command(b, "close");
@@ -472,6 +491,13 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
       dict_free(d);
    }
 }
+static void serial_cat_parse(void *data) {
+   serial_binding_t *previous = cat_context;
+   cat_context = data;
+   rr_cat_parse_line(cat_context->buffer);
+   cat_context = previous;
+}
+
 static void receive(rr_serial_t *port, const char *data, size_t len, void *user) {
    serial_binding_t *b = user;
    (void)port;
@@ -504,10 +530,7 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
             b->buffer[b->used] = '\0';
 
             if (cat) {
-               serial_binding_t *previous = cat_context;
-               cat_context = b;
-               rr_cat_parse_line(b->buffer);
-               cat_context = previous;
+               rrclient_connection_dispatch(binding_connection(b), serial_cat_parse, b);
             } else if (rr_nmea_valid(b->buffer)) {
                // Synchronous event payload; GPS consumers subscribe with event_on().
                if (strchr(b->service, '.')) {
@@ -618,6 +641,10 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
          goto failed;
       }
       snprintf(b->host_port, sizeof(b->host_port), "%s", b->service + 5);
+   }
+   if (host_binding(b) || b->radio[0]) {
+      const char *profile = rrclient_connection_name(ws_conn);
+      if (profile) strlcpy(b->profile, profile, sizeof(b->profile));
    }
    char path[PATH_MAX];
    snprintf(key, sizeof(key), "serial:%s.vfo", name);
@@ -752,7 +779,6 @@ void rr_sercom_shutdown(void) {
    event_off_token(auth_error_token);
    event_off_token(http_error_token);
    serial_message_token = serial_binary_token = authorized_token = disconnected_token = auth_error_token = http_error_token = NULL;
-   host_authorized = false;
 
    if (gps_output_token) {
       event_off_token(gps_output_token);

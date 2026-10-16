@@ -30,6 +30,8 @@ bool rr_object_cache_dump_selected(rr_object_cache_t *, const char *reference, r
 bool rr_object_cache_dump_context(rr_object_cache_t *, const char *reference, const char *room, rr_object_cache_dump_fn, void *);
 bool rr_object_cache_in_context(rr_object_cache_t *, const char *uuid, const char *room);
 void rrclient_objects_register_events(void);
+const char *rrclient_objects_subscription(void);
+bool rrclient_object_dump_selected(const char *reference, rr_object_cache_dump_fn emit, void *user);
 bool cmd_rig(int argc, char **args);
 bool cmd_gps(int argc, char **args);
 bool cmd_object(int argc, char **args);

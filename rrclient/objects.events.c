@@ -14,6 +14,9 @@
 #include <librrprotocol/ws.mediachan.h>
 static rr_object_cache_t *cache;
 static unsigned inventory_request;
+static const char *object_subscription = "Not subscribed";
+static char subscription_request[48];
+static bool subscription_stopping;
 #define INVENTORY_REQUESTS_MAX 32
 static struct inventory_request {
    char id[48], window[128];
@@ -26,7 +29,7 @@ static struct inventory_request {
 static bool inventory_message(dict *d) {
    const char *cmd = dict_get(d, "object.cmd", "");
 
-   if (strcmp(cmd, "inventory-entry") && strcmp(cmd, "inventory-end")) {
+   if (strcmp(cmd, "inventory-entry") && strcmp(cmd, "inventory-end") && strcmp(cmd, "result")) {
       return false;
    }
    struct inventory_request *request = NULL;
@@ -40,6 +43,12 @@ static bool inventory_message(dict *d) {
    }
 
    if (!request) {
+      return strcmp(cmd, "result") != 0;
+   }
+   if (!strcmp(cmd, "result")) {
+      if (request->graphical) event_emit_dict("client.resources.row", ws_conn, d);
+      else ui_print(request->window[0] ? request->window : NULL, "Resource listing failed: %s", dict_get(d, "result.code", "unknown error"));
+      memset(request, 0, sizeof(*request));
       return true;
    }
    const char *window = request->window[0] ? request->window : NULL;
@@ -151,6 +160,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       if (!rr_object_cache_apply(cache, d)) {
          Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
       } else {
+         const char *cmd = dict_get(d, "object.cmd", "");
+         if (!strcmp(cmd, "begin")) object_subscription = "Synchronizing";
+         else if (!strcmp(cmd, "end")) object_subscription = "Subscribed";
+         else if (!strcmp(cmd, "result") && subscription_request[0] && !strcmp(dict_get(d, "request.id", ""), subscription_request)) {
+            object_subscription = !strcmp(dict_get(d, "result.code", ""), "ok")
+               ? subscription_stopping ? "Not subscribed" : "Subscribed" : "Request failed";
+            subscription_request[0] = 0;
+         }
          learn_receiver_metadata(d);
       }
    }
@@ -160,6 +177,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
 static void connection(const char *event, const char *data, rrconn_t *client, void *user) {
    memset(inventory_requests, 0, sizeof(inventory_requests));
+   object_subscription = "Disconnected";
+   subscription_request[0] = 0;
    rr_object_cache_free(cache);
    cache = NULL;
 
@@ -167,11 +186,12 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
       return;
    }
    cache = rr_object_cache_new();
+   object_subscription = "Synchronizing";
    dict *d = dict_new();
    dict_add(d, "msg.type", "object");
    dict_add(d, "object.cmd", "snapshot");
    dict_add(d, "request.id", "initial-objects");
-   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) object_subscription = "Request failed";
    dict_free(d);
 }
 
@@ -255,9 +275,15 @@ bool cmd_rig(int argc, char **args) {
       };
       event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, ws_conn, &view, sizeof(view));
       pending->graphical = view.handled;
+      if (view.handled) pending->kind = "object"; // GTK's unified browser always receives the complete tree.
    }
    dict_add(d, "msg.type", "object");
    dict_add(d, "object.cmd", cmd);
+   if (strcmp(cmd, "inventory")) {
+      strlcpy(subscription_request, id, sizeof(subscription_request));
+      subscription_stopping = !strcmp(cmd, "unsubscribe");
+      object_subscription = subscription_stopping ? "Unsubscribing" : "Synchronizing";
+   }
    dict_add(d, "request.id", id);
    bool sent = ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
@@ -266,7 +292,15 @@ bool cmd_rig(int argc, char **args) {
       memset(pending, 0, sizeof(*pending));
    }
 
+   if (!sent && strcmp(cmd, "inventory")) object_subscription = "Request failed";
    return !sent;
+}
+
+const char *rrclient_objects_subscription(void) {
+   return object_subscription;
+}
+bool rrclient_object_dump_selected(const char *reference, rr_object_cache_dump_fn emit, void *user) {
+   return cache && rr_object_cache_dump_selected(cache, reference, emit, user);
 }
 
 bool cmd_gps(int argc, char **args) {
@@ -351,6 +385,9 @@ const dict *rrclient_object_ref_iter(int index, char *reference, size_t capacity
 typedef struct {
    rr_object_cache_t *cache;
    unsigned inventory_request;
+   const char *object_subscription;
+   char subscription_request[48];
+   bool subscription_stopping;
    struct inventory_request inventory_requests[INVENTORY_REQUESTS_MAX];
 } rrclient_objects_context;
 void rrclient_objects_context_swap(void **saved) {
@@ -362,6 +399,16 @@ void rrclient_objects_context_swap(void **saved) {
       }
    }
    rrclient_objects_context *state = *saved;
+   const char *temporary_subscription = object_subscription;
+   object_subscription = state->object_subscription ? state->object_subscription : "Not subscribed";
+   state->object_subscription = temporary_subscription;
+   char temporary_request[48];
+   memcpy(temporary_request, subscription_request, sizeof(temporary_request));
+   memcpy(subscription_request, state->subscription_request, sizeof(subscription_request));
+   memcpy(state->subscription_request, temporary_request, sizeof(temporary_request));
+   bool temporary_stopping = subscription_stopping;
+   subscription_stopping = state->subscription_stopping;
+   state->subscription_stopping = temporary_stopping;
    {
       __typeof__(cache) temporary;
       memcpy(&temporary, &cache, sizeof(cache));

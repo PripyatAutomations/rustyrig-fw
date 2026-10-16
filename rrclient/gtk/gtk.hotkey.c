@@ -229,6 +229,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
             return TRUE;
          }
+         case GDK_KEY_O:
+         case GDK_KEY_o: {
+            event_emit("client.resources.open", NULL, NULL);
+            return TRUE;
+         }
          case GDK_KEY_Z:
          case GDK_KEY_z: {
             event_emit("client.receiver-directory.show", NULL, NULL);

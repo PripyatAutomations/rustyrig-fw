@@ -162,14 +162,69 @@ Explicit `/object <symbol|uuid>` selections and named/UUID subscriptions can
 still address resources outside the current listing. Media `#numbers` retain
 their global positions, so filtering does not retarget an existing reference.
 
-## Native resource windows
+## Native Resources manager
 
-GTK `/object`, `/rig` and `/gps` open independent resource trees with resource
-properties, room names and stream UUIDs. Select a row and use **Join room**,
-**Subscribe media** or **Unsubscribe media**. These actions retain the originating
-server even if another server is selected later. Room membership, media privileges
-and receiver access remain server-enforced. TUI/browser listing remains text;
-`/object <symbol|uuid>` retains its detailed cached-property output.
+Open **Resources** from the GTK Status tab or press **Alt-O** from any main
+window tab. `/object`, `/rig` and `/gps` also open the same manager. All known
+server connections appear in one window, with the full resource inventory:
+
+```text
+server profile
+   site
+      station GPS / serial / media / chat rooms
+      rig
+         rig rooms and CAT service
+         VFO
+            VFO media
+         rig media / GPS / serial
+Local serial attachments
+   local endpoint → service and server
+```
+
+The tree shows all available resources, including inactive ones. **Resource
+status** shows availability or the last server inventory state; **Your
+connection / subscription** shows joined rooms, media subscriptions, object
+update subscription state and matching serial attachments. Tree lines and
+indentation separate each layer. Expand/Collapse all, incremental name search
+and a lower details pane support navigating larger inventories. UUID objects
+also show cached readable properties in that pane.
+
+Select a row to use its contextual actions:
+
+- **Join room / Leave room** follows actual membership in that row's room.
+- **Subscribe / Unsubscribe media** targets the selected stream, including GPS
+  output. Join its required room first; refresh discovery if it is not known yet.
+- **Subscribe / Stop server object updates** controls the existing server-wide
+  object/property subscription, even when invoked on a rig or VFO. It does not
+  change media subscriptions or room membership.
+- **Connect serial** on a CAT service or permitted serial export asks for a
+  local endpoint name. An empty device path creates a PTY; physical server
+  exports always use a local PTY. **Disconnect serial** releases the matching
+  endpoint. Server-local GPS receiver ports remain server-managed.
+- **Connect / Disconnect server** operates on the selected row's owning profile.
+
+The Local serial attachments branch remains usable after a server disconnects
+or its inventory no longer advertises a resource. It lists each endpoint's
+path, service, owning server where pinned, and connected/waiting/failed state.
+This lets users release attachments independently of server discovery.
+
+Personal state updates twice per second while the window is open, using common
+client caches; the timer does not poll the server. **Refresh all** requests fresh
+inventories and media metadata. Normal reconnects reload the corresponding
+branch. Successful resource actions also refresh that branch once. The manager retains inventories while offline and marks those resources
+as server-offline. Explicit refresh preserves the selected resource where it
+still exists. Discovery does not join rooms or create serial endpoints.
+
+Actions retain the row's server across main-window tab/server changes. Explicit
+native host serial tunnels and CAT attachments bind to their originating
+profile, including across reconnects. Legacy CAT endpoints created before a
+server is available retain their active-server behavior. All room, media and
+serial permission/ownership checks stay in their existing common/protocol paths.
+No new wire operation is introduced.
+
+This is GTK presentation. TUI and browser discovery commands retain their text
+trees, and `/object <symbol|uuid>` retains cached-property output. Browsers do
+not create native PTYs.
 
 ## Rig symbols and configuration identities
 
