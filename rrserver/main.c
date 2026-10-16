@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rrserver_files_config_init() || !rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
+   if (!rr_gpio_config_init() || !rrserver_files_config_init() || !rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
@@ -317,9 +317,14 @@ int main(int argc, char **argv) {
    reload_event_add(NULL, rrserver_config_refresh, "refresh cached server settings after config reload");
    rrserver_config_refresh(NULL);
    timer_init();
-#ifdef  USE_GPIO
-   gpio_init();
-#endif // USE_GPIO
+   rig.hardware = rr_hardware_new();
+   if (!rr_gpio_discover(rig.hardware) || !rr_gpio_configure(rig.hardware)) {
+      Log(LOG_CRIT, "hardware", "Unable to initialize attached hardware mappings");
+      rr_hardware_free(rig.hardware);
+      rig.hardware = NULL;
+      return EXIT_FAILURE;
+   }
+   Log(LOG_INFO, "hardware", "Registered %zu attached hardware resources", rr_hardware_count(rig.hardware));
 
 #ifdef  USE_EEPROM
 
@@ -551,6 +556,8 @@ int main(int argc, char **argv) {
       fwdsp_fini();
    }
    rr_backend_fini();
+   rr_hardware_free(rig.hardware);
+   rig.hardware = NULL;
    // Retry deferred module unloads after the backend callback owners are gone.
    for (int i = 0; ; i++) {
       const char *module = cfg_modules_get(i, NULL);

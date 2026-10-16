@@ -40,9 +40,6 @@ ${BUILD_DIR}/librustyaxe/.timestamp ${BUILD_DIR}/librrprotocol/.stamp: ${BUILD_D
 # must wait for pack-eeprom to generate the headers in build/$PROFILE first.
 ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
-ifeq (${PLATFORM},posix)
-LDFLAGS += -lgpiod
-endif
 
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk

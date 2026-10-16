@@ -37,6 +37,12 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "hardware.gpio-lines", "", "Named GPIO mappings to load (space or comma separated); restart required" },
+   { "gpio:example.chip", "", "GPIO chip device path; mappings use [gpio:name]" },
+   { "gpio:example.offset", "", "GPIO line offset within the chip, not header or WiringPi pin number" },
+   { "gpio:example.direction", "input", "GPIO direction", DEFCONFIG_ENUM, "input|output" },
+   { "gpio:example.active-low", "false", "Invert logical GPIO values", DEFCONFIG_BOOL, NULL },
+   { "gpio:example.safe-value", "0", "Logical output value on claim and release", DEFCONFIG_ENUM, "0|1" },
    { "files.max-size", "1073741824", "Maximum uploaded file size in bytes", DEFCONFIG_UINT, NULL },
    {
       "websdr.max-temporary", "8", "Maximum concurrent temporary WebSDR rigs"

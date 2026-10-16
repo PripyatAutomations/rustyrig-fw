@@ -2,7 +2,25 @@ CFLAGS_RRSERVER += -pthread
 LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
-rrserver_objs += files.o objects.o serial.o gps.o
+rrserver_objs += files.o objects.o serial.o gps.o hardware.o cfg.gpio.o
+ifeq ($(USE_GPIO),true)
+ifneq ($(OPTIONAL_SKIP_PREFLIGHT),true)
+ifeq ($(shell $(PKG_CONFIG) --atleast-version=2.0 libgpiod && echo yes),)
+$(error GPIO support requires libgpiod >= 2.0 development files; install libgpiod-dev or disable features.gpio)
+endif
+endif
+${BUILD_DIR}/rrserver/gpio.o: CFLAGS_RRSERVER += -DUSE_GPIO $(shell $(PKG_CONFIG) --cflags libgpiod)
+LDFLAGS_RRSERVER += $(shell $(PKG_CONFIG) --libs libgpiod)
+endif
+# Rebuild the adapter and relink when switching the feature without cleaning.
+.PHONY: rrserver-gpio-config-check
+${BUILD_DIR}/rrserver/gpio.config: rrserver-gpio-config-check
+	@mkdir -p $(dir $@)
+	@printf '%s\n' '$(USE_GPIO)' > $@.tmp
+	@cmp -s $@.tmp $@ || mv $@.tmp $@
+	@rm -f $@.tmp
+${BUILD_DIR}/rrserver/gpio.o bin/rrserver: ${BUILD_DIR}/rrserver/gpio.config
+extra_clean += ${BUILD_DIR}/rrserver/gpio.config
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
