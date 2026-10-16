@@ -1,0 +1,1 @@
+update users SET permissions = 'admin,bridge.admin,bridge.use,chat,elmer,files.read,files.write,media.source,noob,owner,rx,serial,serial.*,tx,video-src,websdr.admin,websdr.connect,websdr.listen' WHERE name = 'admin';

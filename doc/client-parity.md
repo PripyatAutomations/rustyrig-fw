@@ -1008,3 +1008,7 @@ remote save callback; it never applies remote text as local configuration.
 TUI `/files [path]` provides directory listings. Native downloads stream to
 disk; browser streams to disk when supported and otherwise uses a bounded Blob.
 See [File shares](file-shares.md) for limits and permission semantics.
+
+Create User is available in native GTK and browser Users administration. Both
+use the server-owned `/user add` command, present the generated temporary
+password, and refresh the user table after successful creation.

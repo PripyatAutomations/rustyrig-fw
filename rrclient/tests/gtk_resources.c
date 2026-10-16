@@ -5,7 +5,7 @@ static rrconn_t alpha = {
    .authenticated = true, .is_ws = true
 }, beta;
 
-static unsigned joins, subscribes;
+static unsigned joins, subscribes, inventories;
 const char *rrclient_connection_name(const rrconn_t *connection) {
    return connection == &alpha ? "alpha" : "beta";
 }
@@ -54,7 +54,7 @@ bool userlist_names_pending(const char *room) { return false; }
 const struct rrclient_irc_channel_stats *rrclient_irc_stats_next(const char *profile, const struct rrclient_irc_channel_stats *previous) { return NULL; }
 bool cmd_part(int argc, char **args) { return false; }
 bool cmd_rig(int argc, char **args) { return false; }
-bool cmd_object(int argc, char **args) { return false; }
+bool cmd_object(int argc, char **args) { inventories++; return false; }
 bool disconnect_server(const char *profile) { return false; }
 bool connect_server(const char *profile) { return false; }
 gui_window_t *gui_find_window(GtkWidget *window, const char *name) { return NULL; }
@@ -97,6 +97,17 @@ int main(int argc, char **argv) {
    resource_clicked(GTK_BUTTON(view->buttons[ROOM_BUTTON]), view);
    resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(joins == 1 && subscribes == 1);
+   /* A late linked catalog must get a fresh inventory even though the server
+    * stayed connected and the initial listing already completed. */
+   branch->loading = false;
+   branch->loaded = true;
+   branch->online = true;
+   branch->requested_at = mono_us();
+   resource_tick(view);
+   assert(inventories == 0);
+   branch->requested_at -= UINT64_C(31000000);
+   resource_tick(view);
+   assert(inventories == 1);
    alpha.authenticated = false;
    resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(subscribes == 1);

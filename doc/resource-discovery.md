@@ -274,3 +274,7 @@ All registered media types are listed, including webcams, other video and file
 sources. Streams whose rig/VFO parent is absent fall back to the site, so they
 remain discoverable. Exported shares appear as `share` entries; use `/files`
 or the GTK **Files…** button to browse them. See [Exported file shares](file-shares.md).
+
+The GTK explorer refreshes each connected server inventory every 30 seconds
+while open, so catalogs received after the initial listing become visible
+without reopening the window. **Refresh all** requests an immediate update.

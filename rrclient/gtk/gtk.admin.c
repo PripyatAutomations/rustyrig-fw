@@ -256,14 +256,23 @@ static void admin_password_notice(const char *event, const char *data, rrconn_t 
    dict *notice = data ? json2dict(data) : NULL;
    const char *text = notice ? dict_get(notice, "notice.msg", "") : "";
    if (g_str_has_prefix(text, "USER: temporary password for ") ||
+       g_str_has_prefix(text, "USER: failed to add ") ||
+       g_str_has_prefix(text, "USER: account already exists: ") ||
+       g_str_has_prefix(text, "USER: no user slots are available") ||
+       g_str_has_prefix(text, "USER: administrators cannot create ") ||
        (g_str_has_prefix(text, "USER: added ") && strstr(text, " with temporary password ")) ||
        g_str_has_prefix(text, "USER: password changed for ") ||
        g_str_has_prefix(text, "USER: failed to reset password for ") ||
        g_str_has_prefix(text, "USER: failed to change password for ") ||
        g_str_has_prefix(text, "USER: insufficient privilege to modify ")) {
       const char *server = rrclient_connection_name(connection);
+      if (g_str_has_prefix(text, "USER: added ") && tables[0].store &&
+          connection == rrclient_connection_find(tables[0].profile)) {
+         gtk_label_set_text(GTK_LABEL(tables[0].status), "Account created");
+         admin_command(&tables[0], "admin", "users", NULL);
+      }
       GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(admin_account_dialog ? admin_account_dialog : main_window), GTK_DIALOG_DESTROY_WITH_PARENT,
-         GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Password result — %s", server ? server : "server");
+         GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Account result — %s", server ? server : "server");
       gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", text);
       GList *labels = gtk_container_get_children(GTK_CONTAINER(gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dialog))));
       for (GList *item = labels; item; item = item->next) {
@@ -304,6 +313,61 @@ static void admin_older(GtkButton *button, gpointer data) {
    admin_command(table, "admin", tail, NULL);
 }
 
+/* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns
+ * validation, privilege checks, auditing and temporary password generation. */
+static void admin_create_user(GtkButton *button, gpointer data) {
+   (void)button;
+   admin_table_t *table = data;
+   if (!table->profile[0])
+      admin_refresh(NULL, table);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Create User", GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
+      "Edit Privs", 1003, "Create User", GTK_RESPONSE_OK, NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   char *context = g_strdup_printf("Server: %s\nA temporary password will be shown after creation.", table->profile);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
+   g_free(context);
+   GtkWidget *name = gtk_entry_new(), *privileges = gtk_entry_new(), *error = gtk_label_new("");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(name), "Username (letters, numbers, _ or -)");
+   gtk_entry_set_max_length(GTK_ENTRY(name), HTTP_USER_LEN);
+   gtk_entry_set_text(GTK_ENTRY(privileges), "view,chat");
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Username"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), name, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Privileges"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), privileges, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 3);
+   gtk_widget_show_all(dialog);
+   int response;
+   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003) {
+      if (response == 1003) {
+         char *edited = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile,
+            gtk_entry_get_text(GTK_ENTRY(name)), gtk_entry_get_text(GTK_ENTRY(privileges)));
+         if (edited)
+            gtk_entry_set_text(GTK_ENTRY(privileges), edited);
+         g_free(edited);
+         continue;
+      }
+      const char *username = gtk_entry_get_text(GTK_ENTRY(name));
+      const char *permissions = gtk_entry_get_text(GTK_ENTRY(privileges));
+      bool valid = *username != 0;
+      for (const unsigned char *p = (const unsigned char *)username; *p; p++) {
+         if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-')
+            valid = false;
+      }
+      if (!valid || !*permissions || strpbrk(permissions, " \t\r\n\v\f")) {
+         gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and a comma-separated privilege list without spaces.");
+         continue;
+      }
+      char *request = g_strdup_printf("add %s %s", username, permissions);
+      bool sent = admin_command(table, "user", request, NULL);
+      g_free(request);
+      if (!sent)
+         continue;
+      gtk_label_set_text(GTK_LABEL(table->status), "Creating account; awaiting server confirmation");
+      break;
+   }
+   gtk_widget_destroy(dialog);
+}
 static void admin_action(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
@@ -558,6 +622,11 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(refresh, "clicked", G_CALLBACK(admin_refresh), table);
       g_signal_connect(table->older, "clicked", G_CALLBACK(admin_older), table);
 
+      if (i == 0) {
+         GtkWidget *create = gtk_button_new_with_label("Create User");
+         g_signal_connect(create, "clicked", G_CALLBACK(admin_create_user), table);
+         gtk_box_pack_start(GTK_BOX(buttons), create, FALSE, FALSE, 0);
+      }
       if (i < 3) {
          const char *labels[] = {
             "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW", "Edit Privs"

@@ -88,6 +88,32 @@ static char *cell_text(admin_table_t *table, int col, GtkTreeIter *iter) {
    return text;
 }
 
+static gboolean create_account_dialog(gpointer unused) {
+   (void)unused;
+   GList *windows = gtk_window_list_toplevels();
+   for (GList *item = windows; item; item = item->next) {
+      if (!GTK_IS_DIALOG(item->data) || g_strcmp0(gtk_window_get_title(item->data), "Create User")) continue;
+      GtkDialog *dialog = item->data;
+      GList *children = gtk_container_get_children(GTK_CONTAINER(gtk_dialog_get_content_area(dialog)));
+      unsigned entries = 0;
+      for (GList *child = children; child; child = child->next) {
+         if (GTK_IS_ENTRY(child->data)) {
+            if (!entries) gtk_entry_set_text(child->data, "new-user");
+            else assert(!strcmp(gtk_entry_get_text(child->data), "view,chat"));
+            entries++;
+         }
+      }
+      assert(entries == 2);
+      g_list_free(children);
+      gtk_dialog_response(dialog, GTK_RESPONSE_OK);
+      g_list_free(windows);
+      return G_SOURCE_REMOVE;
+   }
+   g_list_free(windows);
+   assert(false);
+   return G_SOURCE_REMOVE;
+}
+
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
    alpha.is_ws = alpha.authenticated = true;
@@ -95,6 +121,11 @@ int main(int argc, char **argv) {
    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_container_add(GTK_CONTAINER(main_window), main_notebook);
    init_admin_tab();
+   snprintf(tables[0].profile, sizeof(tables[0].profile), "alpha");
+   g_idle_add(create_account_dialog, NULL);
+   admin_create_user(NULL, &tables[0]);
+   assert(!strcmp(dict_get(sent, "talk.cmd", ""), "user"));
+   assert(!strcmp(dict_get(sent, "talk.data", ""), "add new-user view,chat"));
    const char *titles[] = {
       "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"
    };
