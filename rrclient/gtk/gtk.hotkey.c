@@ -59,6 +59,23 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
    return TRUE;
 }
 
+/* Shortcut toggles only: explicit show requests still raise existing windows. */
+static bool gtk_shortcut_close_window(const char *name, GtkWidget *main_win) {
+   gui_window_t *window = gui_find_window(NULL, name);
+
+   if (!window || !window->gtk_win) {
+      return false;
+   }
+   gtk_widget_destroy(window->gtk_win);
+
+   if (main_win) {
+      gtk_window_present(GTK_WINDOW(main_win));
+      if (chat_entry) gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+   }
+
+   return true;
+}
+
 // XXX: We need to rewrite this so that it can build/quickly search a list of hotkeys relevant to
 // XXX: the currently active context
 static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
@@ -225,13 +242,17 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          }
          case GDK_KEY_X:
          case GDK_KEY_x: {
-            show_server_chooser();
+            if (!gtk_shortcut_close_window("serverpick", main_win)) {
+               show_server_chooser();
+            }
 
             return TRUE;
          }
          case GDK_KEY_O:
          case GDK_KEY_o: {
-            event_emit("client.resources.open", NULL, NULL);
+            if (!gtk_shortcut_close_window("resources", main_win)) {
+               event_emit("client.resources.open", NULL, NULL);
+            }
             return TRUE;
          }
          case GDK_KEY_Z:
