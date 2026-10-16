@@ -27,7 +27,7 @@ if [ -f "${DEBVER}" ]; then
     BUILD_FWDSP=$(jq -r '.components.fwdsp // "false"' "$CONFIG")
     BUILD_CALLSIGN_LOOKUP=$(jq -r '.components."callsign-lookup" // "false"' "$CONFIG")
 
-    PKG="build-essential jq pkg-config make libbsd-dev libncurses-dev dehelper"
+    PKG="build-essential jq pkg-config make libbsd-dev libncurses-dev debhelper"
     PKG="${PKG} ${PERL_DEPS}"
 
     # These sources are currently compiled and linked unconditionally.  They
