@@ -63,3 +63,15 @@ time; binary rows measure the complete inbound dispatcher, including handlers
 and relay routing. Rejections include malformed frames and admission failures.
 Outgoing frames and non-WebSocket transports are excluded. Binary instrumentation
 also compiles out without `USE_PROFILING`.
+
+## Interpreting receiver demand counts
+
+`protocol.media.demand` counts synchronous relay subscriber queries rather than
+media packets or elapsed CPU time. External receiver supervision caches its
+hardware-demand result for 250 ms and invalidates it on relevant lifecycle
+changes (see [Receiver demand](rrbridge.md#receiver-demand)). For a quiet bridge,
+its contribution should fall from approximately one query per server poll per
+eligible channel to roughly four demand evaluations per second. PCM and webcam
+callers can still issue their own demand queries; use counter deltas and the
+number of configured channels when comparing samples. The main `server.poll`
+count should retain its original rate.

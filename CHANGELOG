@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Cache external receiver demand per bridge for 250 ms, invalidating on
+    room/subscription, account, catalog and link lifecycle changes. Reduce
+    repeated user/channel scans during quiet server polls while preserving
+    bridge I/O, timeout handling and current per-frame media access checks.
   * Include deduplicated joined rooms across authenticated account sessions
     in RustyRig WHOIS replies. Show Rooms in native GTK/TUI and browser
     output, using the existing talk.rooms wire field.
@@ -196,7 +200,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 05:34:36 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 05:49:48 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

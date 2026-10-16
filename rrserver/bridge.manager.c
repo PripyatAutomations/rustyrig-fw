@@ -38,6 +38,9 @@ struct bridge_child {
    char *name, *driver, *runtime_config;
    bool temporary;
    uint64_t idle_since;
+   /* Event-loop-owned hardware demand, never an authorization decision. */
+   uint64_t demand_epoch, demand_check_at;
+   bool rx_requested;
    rr_backend_t *backend;
    subproc_t process;
    int fd, media_fd;
@@ -59,6 +62,46 @@ static struct bridge_child *children;
 static char *config_path;
 static bool stopping;
 static uint64_t temporary_idle_us = 60000000;
+static uint64_t demand_epoch = 1;
+#define BRIDGE_DEMAND_RECHECK_US UINT64_C(250000)
+
+/* Coalesce lifecycle changes; active I/O and timeout polling stay unthrottled. */
+static void bridge_demand_changed(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)data;
+   (void)client;
+   (void)user;
+   demand_epoch++;
+}
+
+static void bridge_demand_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   (void)data;
+   (void)length;
+   bridge_demand_changed(event, NULL, client, user);
+}
+
+/* Explicit unsubscribe currently sends a reply without a media.unsubscribed
+ * event. Invalidate on its existing routing hook before the next bridge poll. */
+static void bridge_demand_request(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   if (length != sizeof(rr_server_io_t)) return;
+   const rr_server_io_t *io = data;
+   if (!strcmp(dict_get(io->message, "msg.type", ""), "media") &&
+       !strcmp(dict_get(io->message, "media.cmd", ""), "unsubscribe")) {
+      bridge_demand_changed(event, NULL, client, user);
+   }
+}
+
+/* Reconcile time-based eligibility as well as explicit changes. The cache holds
+ * no client pointers, and media delivery still checks current access per frame. */
+static bool bridge_rx_requested(struct bridge_child *bridge, uint64_t current) {
+   if (bridge->demand_epoch != demand_epoch || current >= bridge->demand_check_at) {
+      bridge->demand_epoch = demand_epoch;
+      bridge->rx_requested = rrserver_media_rx_requested(bridge->backend->owner);
+      bridge->demand_check_at = current + BRIDGE_DEMAND_RECHECK_US;
+   }
+   return bridge->rx_requested;
+}
+
 static const char *bridge_public_name(const struct bridge_child *b) {
    const char *name = rr_rig_registry_public_alias(rig.rigs, b->backend->owner);
 
@@ -790,7 +833,7 @@ void rrserver_bridges_poll(void) {
    uint64_t current = mono_us();
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
-      bool wanted = rrserver_media_rx_requested(b->backend->owner);
+      bool wanted = bridge_rx_requested(b, current);
 
       if (wanted) {
          b->idle_since = 0;
@@ -1191,5 +1234,16 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    g_free(host);
 }
 void rrserver_websdr_register_events(void) {
+   static const char *demand_events[] = {
+      "room.join", "room.part", "room.add", "room.delete", "room.vfo",
+      "authorized", "protocol.session.closed", "protocol.object.close", "serial.session.closed",
+      "media.subscribed", "media.unsubscribed", "media.codec-select",
+      "authdb.load", "user.cmd", "admin.cmd", "rehash", "server.link.ready", "server.link.lost"
+   };
+   for (size_t i = 0; i < G_N_ELEMENTS(demand_events); i++) {
+      event_on(demand_events[i], bridge_demand_changed, NULL);
+   }
+   event_on_binary(RR_MEDIA_CATALOG_EVENT, bridge_demand_catalog, NULL);
+   event_on_binary(RR_SERVER_ROUTE_EVENT, bridge_demand_request, NULL);
    event_on_binary(RR_SERVER_ROUTE_EVENT, websdr_request, NULL);
 }

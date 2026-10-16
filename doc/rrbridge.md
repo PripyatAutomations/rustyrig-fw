@@ -72,6 +72,21 @@ Muted tabs still retain their room/subscription and therefore retain demand;
 changing tabs or focus never changes it. Idle bridges do not reconnect. A new
 request restarts the bridge and restores the last confirmed tuning.
 
+Receiver demand is cached per bridge on the server event-loop thread. Room,
+subscription, account, media catalog and link lifecycle events invalidate the
+cache for the next bridge poll; explicit unsubscribe also invalidates through
+the existing protocol routing hook. A 250 ms reconciliation interval covers
+time-based eligibility changes and any unannounced state changes. New bridges
+start with no valid cached result. Cache entries hold only a boolean, deadline
+and generation, without retaining client pointers.
+
+During unchanged state this reduces expensive demand scans from every roughly
+10 ms server poll to at most four per second per bridge. This is an expected
+reduction in evaluations, not a measured CPU-speed improvement. The main loop
+still services bridge IPC/media, process exits, retry deadlines and PTT at its
+normal rate. The cached result only controls whether receiver hardware is
+needed; media delivery continues to evaluate current access per frame.
+
 ## Offline coverage and capability hints
 
 Optional named `[bridge:name]` keys (or global `[bridge]` defaults) describe
