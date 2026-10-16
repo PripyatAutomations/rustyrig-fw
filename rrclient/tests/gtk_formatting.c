@@ -1,6 +1,8 @@
 #include <assert.h>
 #include "rrclient/gtk/gtk.core.c"
 #include "rrclient/gtk/gtk.chat.c"
+#include "rrclient/gtk/gtk.chat.links.c"
+#include "rrclient/gtk/gtk.chat.highlight.c"
 bool ui_print(const char *room, const char *format, ...) {
    return false;
 }
@@ -485,7 +487,7 @@ static void test_room_links(void) {
    gtk_entry_set_text(GTK_ENTRY(entry), "unfinished draft");
    g_object_set_data(G_OBJECT(view), "rr-server-name", "origin-server");
    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
-   g_signal_connect_after(buffer, "insert-text", G_CALLBACK(gtk_chat_link_inserted), NULL);
+   gtk_chat_links_attach(view);
    gtk_text_buffer_insert_at_cursor(buffer, "é See #remote", -1);
    gtk_text_buffer_insert_at_cursor(buffer, "-rig0. next", -1);
    drain_gtk_events();
@@ -505,7 +507,7 @@ static void test_room_links(void) {
    };
    room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
    g_hash_table_insert(room_tabs, "other-server:#remote-rig0", &other_tab);
-   gtk_chat_link_event(view, &event, NULL);
+   chat_link_event(view, &event, NULL);
    g_hash_table_destroy(room_tabs);
    room_tabs = NULL;
    assert(!strcmp(joined_room, "#remote-rig0"));
@@ -518,7 +520,7 @@ static void test_room_links(void) {
    room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
    g_hash_table_insert(room_tabs, "origin-server:#remote-rig0", &tab);
    joined_room[0] = 0;
-   gtk_chat_link_event(view, &event, NULL);
+   chat_link_event(view, &event, NULL);
    assert(!joined_room[0]);
    g_hash_table_destroy(room_tabs);
    room_tabs = NULL;
@@ -526,7 +528,7 @@ static void test_room_links(void) {
    GtkTextIter a, b;
    gtk_text_buffer_get_bounds(buffer, &a, &b);
    gtk_text_buffer_select_range(buffer, &a, &b);
-   gtk_chat_link_event(view, &event, NULL);
+   chat_link_event(view, &event, NULL);
    assert(!joined_room[0]);
    gtk_widget_destroy(window);
    main_notebook = NULL;

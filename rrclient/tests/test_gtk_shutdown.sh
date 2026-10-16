@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+if [[ ${RR_TEST_XVFB:-} != 1 ]]; then
+   exec "$(dirname "$0")/../../tests/with-xvfb.sh" bash "$0" "$@"
+fi
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 if ! pkg-config --exists gtk+-3.0; then

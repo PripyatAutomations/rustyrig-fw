@@ -170,19 +170,19 @@ const dict *rrclient_object_find_alias(const char *type, const char *owner, cons
 }
 int main(void) {
    media_ready = true;
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "rx-a", .subsystem = 1, .direction = 0, .vfo = 0, .codec = "pc16", .subscribed = true
    };
-   known_chans[1] = (struct rr_media_known) {
+   known_chans[1] = (struct rr_client_media_chan) {
       .uuid = "rx-b", .subsystem = 1, .direction = 0, .vfo = 1, .codec = "mu16", .subscribed = true
    };
-   known_chans[2] = (struct rr_media_known) {
+   known_chans[2] = (struct rr_client_media_chan) {
       .uuid = "tx-a", .subsystem = 1, .direction = 1, .vfo = 0, .codec = "pc16", .subscribed = true
    };
-   known_chans[3] = (struct rr_media_known) {
+   known_chans[3] = (struct rr_client_media_chan) {
       .uuid = "video", .subsystem = 2, .direction = 0, .codec = "jpeg", .subscribed = true
    };
-   known_chans[4] = (struct rr_media_known) {
+   known_chans[4] = (struct rr_client_media_chan) {
       .uuid = "rx-c", .subsystem = 1, .direction = 0, .vfo = 2, .codec = "pc16"
    };
    char *list[] = {
@@ -263,7 +263,7 @@ int main(void) {
    assert(!local_codec[0][0] && !local_codec[1][0] && !direction_disabled[0]);
    assert(cmd_txcodec(2, tx));
    media_ready = true;
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "rx-tone", .subsystem = 1, .direction = 0, .subscribed = true
    };
    char *tone[] = {
@@ -302,7 +302,7 @@ int main(void) {
    memset(known_chans, 0, sizeof(known_chans));
 
    for (int i = 0 ; i < 4 ; i++) {
-      struct rr_media_known *channel = &known_chans[i];
+      struct rr_client_media_chan *channel = &known_chans[i];
       snprintf(channel->uuid, sizeof(channel->uuid), "persistent-%d", i);
       snprintf(channel->room, sizeof(channel->room), "#rig%d", i / 2);
       snprintf(channel->codec, sizeof(channel->codec), "pc16");
@@ -333,7 +333,7 @@ int main(void) {
    memset(known_chans, 0, sizeof(known_chans));
    unsigned before_video = subscribed;
    assert(!rrclient_media_subscribe_single_video() && subscribed == before_video);
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "video-one", .subsystem = RR_BINFRAME_SUBSYS_VIDEO,
       .direction = RR_BINFRAME_DIR_RX
    };
@@ -341,7 +341,7 @@ int main(void) {
    assert(subscribed == before_video + 1 && !strcmp(last_uuid, "video-one"));
    known_chans[0].subscribed = true;
    assert(rrclient_media_subscribe_single_video() && subscribed == before_video + 1);
-   known_chans[1] = (struct rr_media_known) {
+   known_chans[1] = (struct rr_client_media_chan) {
       .uuid = "video-two", .subsystem = RR_BINFRAME_SUBSYS_VIDEO,
       .direction = RR_BINFRAME_DIR_RX
    };
@@ -350,19 +350,19 @@ int main(void) {
    // Active GPS switches subscriptions with the rig; pinned output stays subscribed.
    memset(known_chans, 0, sizeof(known_chans));
    snprintf(media_room, sizeof(media_room), "#site-rig0");
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "gps0", .name = "rig0.gps.rx", .codec = "gpsp",
       .subsystem = 4, .direction = 0, .vfo = 255, .rig = 0, .joined = true, .room = "#site-rig0", .control_room = "#site-rig0"
    };
-   known_chans[1] = (struct rr_media_known) {
+   known_chans[1] = (struct rr_client_media_chan) {
       .uuid = "gps1", .name = "rig1.gps.rx", .codec = "gpsp",
       .subsystem = 4, .direction = 0, .vfo = 255, .rig = 1, .joined = true, .room = "#site-rig1", .control_room = "#site-rig1"
    };
-   known_chans[2] = (struct rr_media_known) {
+   known_chans[2] = (struct rr_client_media_chan) {
       .uuid = "station-gps", .name = "station.gps.rx", .codec = "gpsp",
       .subsystem = 4, .direction = 0, .vfo = 255, .rig = 255, .joined = true, .room = "#site", .control_room = "#site"
    };
-   known_chans[3] = (struct rr_media_known) {
+   known_chans[3] = (struct rr_client_media_chan) {
       .uuid = "nmea0", .name = "rig0.nmea.rx", .codec = "nmea",
       .subsystem = 4, .direction = 0, .vfo = 255, .rig = 0, .joined = true, .room = "#site-rig0", .control_room = "#site-rig0"
    };
@@ -426,13 +426,13 @@ int main(void) {
    assert(cmd_media(3, by_name) && subscribed == before_sub);
    assert(rrclient_media_chan_lookup("nmea0") == &known_chans[3]);
    memset(known_chans, 0, sizeof(known_chans));
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "one", .room = "#alpha-rig1", .subsystem = 1, .subscribed = true
    };
-   known_chans[1] = (struct rr_media_known) {
+   known_chans[1] = (struct rr_client_media_chan) {
       .uuid = "ten", .room = "#alpha-rig10", .subsystem = 1, .subscribed = true
    };
-   known_chans[2] = (struct rr_media_known) {
+   known_chans[2] = (struct rr_client_media_chan) {
       .uuid = "other", .room = "#beta-rig1", .subsystem = 1, .subscribed = true
    };
    char *direct[] = {
@@ -500,7 +500,7 @@ int main(void) {
    dict_add(description_rig, "object.alias", "rig0");
    dict_add(description_rig, "object.owner", "describe-station");
    dict_add(description_station, "object.alias", "rplywv00");
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "describe", .name = "rig0.vfo_a.rx", .rig_uuid = "describe-rig", .vfo = 0, .direction = 0,
       .subsystem = RR_BINFRAME_SUBSYS_AUDIO, .codec = "pc16", .subscribed = true, .joined = true, .room = "#rplywv00-rig0"
    };
@@ -546,7 +546,7 @@ int main(void) {
    registered_ops = &spy;
    selected_context = false;
    memset(known_chans, 0, sizeof(known_chans));
-   known_chans[0] = (struct rr_media_known) {
+   known_chans[0] = (struct rr_client_media_chan) {
       .uuid = "background", .subsystem = 1, .direction = 0, .vfo = 0, .codec = "pc16", .subscribed = true
    };
    test_active_vfo = 'A';

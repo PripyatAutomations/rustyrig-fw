@@ -48,26 +48,27 @@ int main(int argc, char **argv) {
       .kind = "object", .request = "resource-1"
    };
    event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, &alpha, &request, sizeof(request));
-   assert(request.handled && g_list_length(views) == 1);
-   resource_view_t *view = views->data;
+   assert(request.handled && browser != NULL);
+   resource_browser *view = browser;
+   resource_branch *branch = g_hash_table_lookup(browser->branches, "alpha");
    row(&beta, 0, "site", "wrong-server");
-   assert(!gtk_tree_model_iter_n_children(GTK_TREE_MODEL(view->store), NULL));
+   assert(!gtk_tree_model_iter_n_children(GTK_TREE_MODEL(view->store), &branch->root));
    row(&alpha, 0, "site", "site-1");
    row(&alpha, 1, "rig", "rig-1");
    row(&alpha, 2, "media", "stream-1");
-   GtkTreePath *path = gtk_tree_path_new_from_string("0:0:0");
+   GtkTreePath *path = gtk_tree_path_new_from_string("1:0:0:0");
    gtk_tree_view_expand_all(GTK_TREE_VIEW(view->tree));
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(view->tree)), path);
    gtk_tree_path_free(path);
-   assert(gtk_widget_get_sensitive(view->subscribe) && gtk_widget_get_sensitive(view->join));
-   resource_clicked(GTK_BUTTON(view->join), view);
-   resource_clicked(GTK_BUTTON(view->subscribe), view);
+   assert(gtk_widget_get_sensitive(view->buttons[SUB_BUTTON]) && gtk_widget_get_sensitive(view->buttons[ROOM_BUTTON]));
+   resource_clicked(GTK_BUTTON(view->buttons[ROOM_BUTTON]), view);
+   resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(joins == 1 && subscribes == 1);
    alpha.authenticated = false;
-   resource_clicked(GTK_BUTTON(view->subscribe), view);
+   resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(subscribes == 1);
    gtk_resources_shutdown();
-   assert(!views);
+   assert(!browser);
    event_shutdown();
    puts("PASS: GTK resource hierarchy, server isolation, explicit room/media actions and teardown");
 }

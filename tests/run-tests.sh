@@ -3,6 +3,20 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+if [[ ${RR_TEST_XVFB:-} != 1 ]]; then
+  exec "$ROOT/tests/with-xvfb.sh" bash "$ROOT/tests/run-tests.sh" "$@"
+fi
+
+SKIP_CODECS=0
+if [[ ${1:-} == --skip-codecs ]]; then
+  SKIP_CODECS=1
+  shift
+fi
+if [[ ${1:-} == --help ]]; then
+  echo 'Usage: tests/run-tests.sh [--skip-codecs] [suite ...]'
+  echo 'All suites run inside Xvfb. --skip-codecs omits codec-specific checks and DSP codec integrations.'
+  exit 0
+fi
 
 run_dir() {
   local label="$1" dir="$2" total=0 t
@@ -12,7 +26,14 @@ run_dir() {
   fi
   for t in "$dir"/test_*.sh; do
     [ -e "$t" ] || continue
-    if bash "$t"; then :; else total=$((total+1)); fi
+    if [[ $SKIP_CODECS == 1 ]]; then
+      case "$t" in
+        */test_codec*.sh|*/test_gtk_codec_picker.sh|fwdsp/tests/test_switching.sh|fwdsp/tests/test_video.sh|fwdsp/tests/test_startup_stdout.sh|fwdsp/tests/test_recording_names.sh)
+          echo "SKIP (--skip-codecs): $t"; continue ;;
+      esac
+    fi
+    echo "--- test: $t ---"
+    if timeout "${RR_TEST_TIMEOUT:-180}" bash "$t"; then :; else total=$((total+1)); fi
   done
   return "$total"
 }
