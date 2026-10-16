@@ -1,5 +1,6 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Correct the native alert dialog label from "nMessage" to "Message".
   * Ask for GTK roster kick/mute reasons with server, channel/room and user
     context. Use "No reason given" for blank reasons; Cancel sends nothing.
   * Replace separate GTK resource lists with one Resources manager, opened
@@ -211,7 +212,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:18:43 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:24:48 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

@@ -169,7 +169,7 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 
    char my_msg[512];
    memset(my_msg, 0, sizeof(my_msg));
-   snprintf(my_msg, sizeof(my_msg), "*** ALERT ***\nFrom: %s\nnMessage:\n\t%s", msg_from, msg_data);
+   snprintf(my_msg, sizeof(my_msg), "*** ALERT ***\nFrom: %s\nMessage:\n\t%s", msg_from, msg_data);
    Log(LOG_INFO, "proto.alert", "*** ALERT From: %s --- ***", msg_from, msg_data);
 
    if (frontend_ops()) {
