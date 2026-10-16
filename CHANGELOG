@@ -1,5 +1,11 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Add a registry-owned Si5351A driver with Linux I2C transactions, integer
+    clock planning/calibration, independent CLK0-2 tuning, bounded status
+    polling and output-disable handling. Add named oscillator configuration
+    and a preview-first rr-si5351 bring-up tool to the server package.
+  * Document Si5351 scope, Pi deployment and the separate sbitxdsp boundary;
+    check register vectors, tuning independence and injected bus failures.
   * Start the server-owned attached-hardware registry with exclusive device
     leases, parent relationships and error state. Replace GPIO scaffolding with
     libgpiod v2 chip discovery and validated named mappings, safe-value claims
@@ -320,7 +326,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 15:43:32 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 15:53:22 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

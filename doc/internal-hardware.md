@@ -8,8 +8,8 @@ not yet tune an oscillator or claim a GPIO line.
 
 Radio signal processing will run in a **separate `sbitxdsp` process**, with its
 own lifecycle and IPC contract. It does not belong in `fwdsp`. Existing media
-transport can consume/produce audio at that boundary. This change does not
-implement the DSP process, Si5351 programming, or an sBitx board controller.
+transport can consume/produce audio at that boundary. The DSP process and sBitx board controller are not implemented yet.
+[Si5351 support](si5351.md) provides the first oscillator driver and a bring-up tool.
 
 ## Registry ownership
 
@@ -92,9 +92,9 @@ mode, edge/debounce configuration and hotplug refresh are not implemented yet.
 
 ## Next integration steps
 
-1. Add bus instances and an oscillator capability with integer frequency and
-   calibration values. Treat an Si5351 as one physical device with coordinated
-   outputs, not independently owned PLLs.
+1. Extend the initial Si5351A driver and I2C adapter to further oscillator
+   families and capabilities. Each physical chip has one owner; outputs share
+   its PLL resources.
 2. Bind named devices to internal rig instances. Implement board-specific
    frequency plans and sequencing above individual drivers. Device status must
    distinguish configured, successfully controlled, and faulted hardware.

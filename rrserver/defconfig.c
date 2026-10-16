@@ -37,6 +37,13 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "hardware.si5351", "", "Named Si5351A devices to register; restart required" },
+   { "si5351:example.bus", "", "Linux I2C adapter path (required); no automatic bus selection" },
+   { "si5351:example.address", "0x60", "Seven-bit I2C address" },
+   { "si5351:example.crystal-hz", "25000000", "Crystal frequency: 25000000 or 27000000 Hz" },
+   { "si5351:example.correction-ppb", "0", "Crystal calibration in ppb; positive means fast (-100000..100000)" },
+   { "si5351:example.load-pf", "10", "Crystal load capacitance: 6, 8 or 10 pF" },
+   { "si5351:example.drive-ma", "2", "Clock output drive: 2, 4, 6 or 8 mA" },
    { "hardware.gpio-lines", "", "Named GPIO mappings to load (space or comma separated); restart required" },
    { "gpio:example.chip", "", "GPIO chip device path; mappings use [gpio:name]" },
    { "gpio:example.offset", "", "GPIO line offset within the chip, not header or WiringPi pin number" },

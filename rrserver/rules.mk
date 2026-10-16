@@ -2,7 +2,7 @@ CFLAGS_RRSERVER += -pthread
 LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
-rrserver_objs += files.o objects.o serial.o gps.o hardware.o cfg.gpio.o
+rrserver_objs += files.o objects.o serial.o gps.o hardware.o cfg.gpio.o si5351.o hardware.si5351.o cfg.si5351.o
 ifeq ($(USE_GPIO),true)
 ifneq ($(OPTIONAL_SKIP_PREFLIGHT),true)
 ifeq ($(shell $(PKG_CONFIG) --atleast-version=2.0 libgpiod && echo yes),)
@@ -129,3 +129,9 @@ bin/rrserver-hamlib.so: ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrser
 	@${CC} ${LIB_LDFLAGS} -o $@ ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o -lrustyaxe -lrrprotocol $(shell pkg-config --libs hamlib) ${LDFLAGS}
 endif
 extra_clean += ${BUILD_DIR}/rrserver/backend.hamlib.o ${BUILD_DIR}/rrserver/module.hamlib.o bin/rrserver-hamlib.so
+
+# Standalone preview/explicit hardware bring-up tool; no radio backend required.
+bins += bin/rr-si5351
+bin/rr-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5351.o ${BUILD_DIR}/rrserver/hardware.si5351.o ${BUILD_DIR}/rrserver/hardware.o ${librustyaxe}
+	@${CC} -o $@ $(filter %.o,$^) -lrustyaxe ${LDFLAGS} || exit 1
+extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-si5351

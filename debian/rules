@@ -45,6 +45,7 @@ override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODUL
 	install -Dm755 bin/rrbridge debian/rustyrig-server/usr/bin/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
+	install -Dm755 bin/rr-si5351 debian/rustyrig-server/usr/bin/rr-si5351
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client/usr/bin/rrclient
