@@ -4,6 +4,9 @@ case ${UNAME_M} in
    x86_64)
       ARCH=amd64
       ;;
+   aarch64)
+      ARCH=arm64
+      ;;
      *)
       # Hope for the best!
       ARCH=${UNAME_M}
