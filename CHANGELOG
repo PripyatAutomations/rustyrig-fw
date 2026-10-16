@@ -1,5 +1,8 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Normalize native IRC privilege indicators to @ for channel operators,
+    + for voiced members and ! for IRC operators learned during the session.
+    Share the prefix between chat and the roster Privs column.
   * Mark IRC JOIN roster entries as ordinary IRC members so they show no
     privilege icon instead of the RustyRig-only eyes symbol.
   * Toggle GTK Server picker with Alt-X and Resources explorer with Alt-O,
@@ -226,7 +229,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 07:57:31 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 07:58:10 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

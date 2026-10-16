@@ -150,11 +150,23 @@ int userlist_compare(const struct rr_user *left, const struct rr_user *right) {
    return strcasecmp(left->name, right->name);
 }
 
+const char *userlist_irc_prefix(const struct rr_user *user) {
+   const char *modes = user->privs + 4;
+   bool op = strpbrk(modes, "qaoh") != NULL;
+   bool voice = strchr(modes, 'v') != NULL;
+
+   if (user->irc_oper) {
+      return op ? "!@" : voice ? "!+" : "!";
+   }
+
+   return op ? "@" : voice ? "+" : "";
+}
+
 void userlist_display_name(const struct rr_user *user, char *out, size_t capacity) {
    const char *prefix = "";
    if (user && !strncmp(user->privs, "irc:", 4)) {
-      const char *modes = user->privs + 4;
-      prefix = strpbrk(modes, "qaoh") ? "@" : strchr(modes, 'v') ? "+" : "";
+      snprintf(out, capacity, "%s%s", userlist_irc_prefix(user), user->name);
+      return;
    } else if (user) {
       /* PARITY: rustyrig-www/js/webui.chat.js room sender prefixes;
        * native /users already uses @ for staff and + for noob accounts. */

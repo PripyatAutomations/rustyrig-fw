@@ -28,11 +28,12 @@ enum {
    NUM_COLS
 };
 
+/* Native IRC display uses normalized channel status plus session oper knowledge. */
+extern const char *userlist_irc_prefix(const struct rr_user *user);
+
 static inline const char *select_user_icon(struct rr_user *cptr) {
    if (!strncmp(cptr->privs, "irc:", 4)) {
-      extern rrconn_t *ws_conn;
-
-      return irc_modes_symbol(ws_conn, cptr->privs + 4);
+      return userlist_irc_prefix(cptr);
    }
 
    if (strcasestr(cptr->privs, "owner")) {
