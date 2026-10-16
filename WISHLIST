@@ -31,4 +31,5 @@ privileged needed to create it leaves. We should tell them they were removed
 because the admin left the room
 -
 
-* add right click menu on tabs to close and force close (with confirm)
+rrclient: in server dialog, show a Connected checkbox. allow right click menu for edit and (dis)connect. 
+Maybe make connect button turn to disconnect for already online servers
