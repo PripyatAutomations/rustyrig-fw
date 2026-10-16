@@ -1036,7 +1036,7 @@ static GtkWidget *userlist_view_create(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), priv_col);
 
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_DISPLAY_NAME, NULL);
+   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_USERNAME, NULL);
    g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);

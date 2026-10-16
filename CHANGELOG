@@ -1,5 +1,7 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Keep GTK roster usernames undecorated; privileges remain in the Privs
+    column while chat messages retain their nickname prefixes.
   * Show topic setters in common GTK/TUI notices and IRC topic metadata.
     Keep QUIT notices in shared rooms instead of duplicating them in Status.
     Use smaller graphical chat timestamps with one separator before nicks,
@@ -191,7 +193,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 00:25:29 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 05:27:20 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
