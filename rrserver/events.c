@@ -27,6 +27,7 @@
 #include <librrprotocol/objects.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrserver/database.h>
+#include <rrserver/files.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.properties.h>
 #include <rrserver/rig.rooms.h>
@@ -430,6 +431,7 @@ static void rrserver_handle_rehash(const char *event, const char *data, rrconn_t
 void rrserver_register_events(void) {
    extern void rrserver_objects_register_events(void);
    rrserver_objects_register_events();
+   rrserver_files_register();
    rrserver_direct_register_events();
    rrserver_acl_register_events();
    rrserver_bridge_access_register_events();

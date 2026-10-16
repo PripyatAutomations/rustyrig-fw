@@ -30,6 +30,8 @@
 #include <rrclient/gtk/gtk.audio-routing.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/gtk/gtk.resources.h>
+#include <rrclient/gtk/gtk.files.h>
+#include <rrclient/gtk/gtk.editcfg.h>
 #include <rrclient/gtk/gtk.tabs.h>
 #include <rrclient/gtk/gtk.help.h>
 
@@ -1044,6 +1046,7 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_audio_routing_init();
    gtk_receiver_directory_init();
    gtk_resources_init();
+   gtk_files_init();
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va);
    event_on("client.quit.request", frontend_gtk_quit_request, NULL);
@@ -1178,6 +1181,8 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 void gtk_frontend_stop(void) {
    gtk_help_shutdown();
    gtk_resources_shutdown();
+   gtk_files_shutdown();
+   gtk_editcfg_shutdown();
    gtk_receiver_directory_shutdown();
    gtk_audio_routing_shutdown();
    gtk_ui_zoom_shutdown();

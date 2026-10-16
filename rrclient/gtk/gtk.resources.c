@@ -532,6 +532,11 @@ static gint resource_name_compare(GtkTreeModel *model, GtkTreeIter *left, GtkTre
    return order;
 }
 
+static void resource_files(GtkButton *button,gpointer data) {
+   GtkTreeModel *model;GtkTreeIter iter;char *profile=NULL;
+   if(gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)),&model,&iter))gtk_tree_model_get(model,&iter,PROFILE,&profile,-1);
+   event_emit("client.files.open",profile?rrclient_connection_find(profile):NULL,NULL);g_free(profile);
+}
 static void resource_create(void) {
    if (browser) return;
    browser = g_new0(resource_browser, 1);
@@ -555,6 +560,7 @@ static void resource_create(void) {
       if (!i) g_signal_connect(button, "clicked", G_CALLBACK(resource_refresh_all), NULL);
       else { g_object_set_data(G_OBJECT(button), "collapse", GINT_TO_POINTER(i == 2)); g_signal_connect(button, "clicked", G_CALLBACK(resource_expand), NULL); }
    }
+   GtkWidget *files=gtk_button_new_with_label("Files…");gtk_box_pack_start(GTK_BOX(toolbar),files,FALSE,FALSE,0);g_signal_connect(files,"clicked",G_CALLBACK(resource_files),NULL);
    GtkWidget *hint = gtk_label_new("All resources · select a row to manage your connection");
    gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,

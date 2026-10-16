@@ -1,10 +1,10 @@
 {
   "admin": [
-    "librrprotocol/cli.main.c:802",
+    "librrprotocol/cli.main.c:803",
     "librrprotocol/http.api.c:122",
     "librrprotocol/is.c:35",
-    "librrprotocol/srv.auth.c:436",
-    "librrprotocol/srv.auth.c:440",
+    "librrprotocol/srv.auth.c:447",
+    "librrprotocol/srv.auth.c:451",
     "librrprotocol/srv.auth.passdb.c:291",
     "librrprotocol/srv.chat.c:1002",
     "librrprotocol/srv.chat.c:1051",
@@ -22,7 +22,7 @@
     "librrprotocol/srv.chat.c:738",
     "librrprotocol/srv.chat.c:776",
     "librrprotocol/srv.chat.c:815",
-    "librrprotocol/srv.http.c:486",
+    "librrprotocol/srv.http.c:494",
     "librrprotocol/srv.rigctl.c:173",
     "librrprotocol/srv.rigctl.c:177",
     "librrprotocol/srv.rigctl.c:298",
@@ -33,7 +33,7 @@
     "librrprotocol/srv.send.c:172",
     "librrprotocol/srv.send.c:54",
     "librrprotocol/ws.mediachan.c:834",
-    "rrclient/cmd.c:399",
+    "rrclient/cmd.c:401",
     "rrclient/cmd.completion.c:513",
     "rrclient/cmd.completion.c:574",
     "rrclient/cmd.completion.c:608",
@@ -55,7 +55,7 @@
     "rrserver/hostlog.c:67",
     "rrserver/link.c:711",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:557",
+    "rrserver/objects.c:556",
     "rrserver/relay.media.c:421",
     "rrserver/usage.c:217",
     "rrserver/usage.c:287"
@@ -74,21 +74,27 @@
   ],
   "elmer": [
     "librrprotocol/is.c:54",
-    "librrprotocol/srv.auth.c:460",
+    "librrprotocol/srv.auth.c:471",
     "librrprotocol/srv.rigctl.c:181",
     "rrclient/userlist.c:152",
     "rrserver/supervision.c:41",
     "rrserver/usage.c:217"
   ],
+  "files.read": [
+    "rrserver/files.c:85"
+  ],
+  "files.write": [
+    "rrserver/files.c:85"
+  ],
   "media.source": [
-    "librrprotocol/cli.main.c:765",
-    "librrprotocol/srv.auth.c:450",
+    "librrprotocol/cli.main.c:766",
+    "librrprotocol/srv.auth.c:461",
     "librrprotocol/ws.mediachan.c:678",
     "librrprotocol/ws.mediachan.c:834"
   ],
   "noob": [
-    "librrprotocol/cli.main.c:802",
-    "librrprotocol/srv.auth.c:455",
+    "librrprotocol/cli.main.c:803",
+    "librrprotocol/srv.auth.c:466",
     "librrprotocol/srv.auth.passdb.c:291",
     "librrprotocol/srv.chat.c:1535",
     "librrprotocol/srv.client.c:343",
@@ -105,7 +111,7 @@
     "rrclient/userlist.c:156",
     "rrclient/userlist.c:194",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:557",
+    "rrserver/objects.c:556",
     "rrserver/relay.media.c:421",
     "rrserver/supervision.c:143",
     "rrserver/supervision.c:153",
@@ -113,11 +119,11 @@
     "rrserver/supervision.c:41"
   ],
   "owner": [
-    "librrprotocol/cli.main.c:802",
+    "librrprotocol/cli.main.c:803",
     "librrprotocol/http.api.c:122",
     "librrprotocol/is.c:35",
-    "librrprotocol/srv.auth.c:436",
-    "librrprotocol/srv.auth.c:440",
+    "librrprotocol/srv.auth.c:447",
+    "librrprotocol/srv.auth.c:451",
     "librrprotocol/srv.auth.passdb.c:291",
     "librrprotocol/srv.chat.c:1002",
     "librrprotocol/srv.chat.c:1051",
@@ -135,7 +141,7 @@
     "librrprotocol/srv.chat.c:738",
     "librrprotocol/srv.chat.c:776",
     "librrprotocol/srv.chat.c:815",
-    "librrprotocol/srv.http.c:486",
+    "librrprotocol/srv.http.c:494",
     "librrprotocol/srv.rigctl.c:165",
     "librrprotocol/srv.rigctl.c:169",
     "librrprotocol/srv.rigctl.c:298",
@@ -146,7 +152,7 @@
     "librrprotocol/srv.send.c:172",
     "librrprotocol/srv.send.c:54",
     "librrprotocol/ws.mediachan.c:834",
-    "rrclient/cmd.c:399",
+    "rrclient/cmd.c:401",
     "rrclient/cmd.completion.c:513",
     "rrclient/cmd.completion.c:574",
     "rrclient/cmd.completion.c:608",
@@ -174,7 +180,7 @@
     "rrserver/hostlog.c:67",
     "rrserver/link.c:711",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:557",
+    "rrserver/objects.c:556",
     "rrserver/relay.media.c:421",
     "rrserver/usage.c:217",
     "rrserver/usage.c:287"
@@ -183,16 +189,16 @@
     "librrprotocol/ws.mediachan.c:983"
   ],
   "serial": [
-    "rrserver/serial.c:631",
+    "rrserver/serial.c:625",
     "rrserver/serial.c:75"
   ],
   "serial.*": [
-    "rrserver/serial.c:631",
+    "rrserver/serial.c:625",
     "rrserver/serial.c:73"
   ],
   "tx": [
-    "librrprotocol/cli.main.c:802",
-    "librrprotocol/srv.auth.c:444",
+    "librrprotocol/cli.main.c:803",
+    "librrprotocol/srv.auth.c:455",
     "librrprotocol/srv.auth.passdb.c:291",
     "librrprotocol/srv.chat.c:1535",
     "librrprotocol/srv.rigctl.c:181",
@@ -203,7 +209,7 @@
     "librrprotocol/srv.rigctl.c:563",
     "librrprotocol/ws.mediachan.c:983",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:557",
+    "rrserver/objects.c:556",
     "rrserver/relay.media.c:421"
   ],
   "video-src": [

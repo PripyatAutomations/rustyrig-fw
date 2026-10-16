@@ -995,3 +995,16 @@ consumed by native and browser discovery. Relay-private catalog fields are
 removed before client encoding. Native Resource Explorer disables serial/CAT
 attachment for `owner-server-only` rows; browser discovery displays that status
 and does not create native PTYs.
+
+## Exported files
+
+`rrserver/files.c` owns configured share namespaces, permissions and filesystem
+operations; `librrprotocol/wire-schema.json` owns the additive file wire family.
+Native `rrclient/files.c` and browser `js/webui.files.js` use bounded chunks,
+correlated requests, upload commit/cancel, errors and disconnect cleanup. GTK
+`gtk.files.c` and browser `/files` provide expandable trees and upload, download,
+rename, edit, move, delete and mkdir actions. GTK reuses `gtk.editcfg.c` with a
+remote save callback; it never applies remote text as local configuration.
+TUI `/files [path]` provides directory listings. Native downloads stream to
+disk; browser streams to disk when supported and otherwise uses a bounded Blob.
+See [File shares](file-shares.md) for limits and permission semantics.

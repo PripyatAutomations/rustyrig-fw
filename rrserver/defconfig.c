@@ -37,6 +37,7 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "files.max-size", "1073741824", "Maximum uploaded file size in bytes", DEFCONFIG_UINT, NULL },
    {
       "websdr.max-temporary", "8", "Maximum concurrent temporary WebSDR rigs"
    },

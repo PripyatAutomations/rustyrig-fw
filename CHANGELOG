@@ -1,5 +1,15 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Add exported [share] / [share:name] namespaces and correlated file commands
+    for directory browsing, chunked transfers, atomic uploads/edits with
+    background flushes and commit-time authorization, mkdir,
+    rename/move and deletion, with per-share privileges and mutation audit.
+  * Add GTK and browser Server Files windows with expandable directory trees,
+    access indicators and working transfer/edit actions. Reuse the GTK text
+    editor for remote saves without applying remote config to the client.
+  * Include all registered media types and exported shares in discovery;
+    retain video/file sources when their rig/VFO parent is unavailable.
+    Add server confinement, native GTK transfer/editor and browser tests.
   * Restore linked-site GPS, serial, CAT and media discovery in Resource
     Explorer, preserving hierarchy, coordinates and serial privilege filters.
     Label serial/CAT resources that require a direct owner-server connection.
@@ -280,7 +290,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 10:50:36 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 11:28:34 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

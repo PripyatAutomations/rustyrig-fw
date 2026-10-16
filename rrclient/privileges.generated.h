@@ -7,6 +7,8 @@ static const char *const rrclient_known_privileges[] = {
    "bridge.use",
    "chat",
    "elmer",
+   "files.read",
+   "files.write",
    "media.source",
    "noob",
    "owner",

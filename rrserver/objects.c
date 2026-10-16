@@ -314,8 +314,7 @@ static void inventory_media(object_send_t *ctx, const char *owner, unsigned dept
       if (!ch->uuid[0]) {
          continue;
       }
-      const char *parent = ch->vfo_uuid[0] ? ch->vfo_uuid : ch->rig_uuid;
-
+      const char *parent = rr_inventory_media_parent(ch,rig.rigs,"");
       if (strcmp(parent, owner ? owner : "")) {
          continue;
       }

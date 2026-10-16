@@ -3,7 +3,7 @@ rrclient_src = $(rrclient_objs:.o=.c)
 gtk_headers := $(wildcard rrclient/gtk/*.h)
 
 rrclient := bin/rrclient
-rrclient_objs += objects.o objects.events.o
+rrclient_objs += files.o objects.o objects.events.o
 bins += ${rrclient}
 
 rrclient_objs += receiver.directory.o receiver.connect.o
@@ -63,7 +63,7 @@ gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.icons.o gtk/gtk.tabs.menu.o
 gtk_module_objs += gtk/gtk.tabs.o
 gtk_module_objs += gtk/gtk.help.o
-gtk_module_objs += gtk/gtk.resources.o
+gtk_module_objs += gtk/gtk.files.o gtk/gtk.resources.o
 gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browser
 gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
 gtk_module_objs += gtk/gtk.privileges.o

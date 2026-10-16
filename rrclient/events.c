@@ -18,6 +18,7 @@
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/files.h>
 #include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
@@ -1557,6 +1558,7 @@ void rrclient_register_events(void) {
    event_on("client.server.selected", rrclient_server_selected, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
    rrclient_objects_register_events();
+   rrclient_files_register();
    rrclient_direct_register_events();
    rrclient_dcc_register_events();
    rrclient_media_register_events();

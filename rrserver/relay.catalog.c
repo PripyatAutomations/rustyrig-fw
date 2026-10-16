@@ -268,7 +268,7 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
           strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo")) ||
-         (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat")) ||
+         (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind,"share")) ||
          strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8) ||
          strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
          return;
@@ -397,8 +397,8 @@ static void collect_services(const char *parent, const char *scope) {
    if (scope) event_emit_binary(RR_INVENTORY_CATALOG_EVENT, NULL, &collect, sizeof(collect));
    for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
       struct rr_mediachan *ch = &media_channels[i];
-      const char *owner = ch->vfo_uuid[0] ? ch->vfo_uuid : ch->rig_uuid[0] ? ch->rig_uuid : rrserver_links_node();
-      if (!ch->uuid[0] || strcmp(owner, parent)) continue;
+      const char *owner = rr_inventory_media_parent(ch,rig.rigs,rrserver_links_node());
+      if (!ch->uuid[0] || strcmp(owner,parent)) continue;
       dict *row = rr_inventory_row("", 0, "media", ch->name, ch->uuid);
       if (!row) continue;
       dict_add(row, "inventory.room", ch->room);

@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
@@ -319,7 +320,14 @@ typedef struct {
    GtkTextBuffer *buffer;
    gchar *filepath;
    gboolean modified;
+   bool (*remote_save)(const char *, void *);
+   void *remote_data;
+   GDestroyNotify remote_destroy;
+   GtkWidget *save_as, *save_button;
+   bool remote_pending, destroying;
+   rr_event_token_t remote_token;
 } EditorContext;
+static EditorContext *active_editor;
 
 static void on_buffer_changed(GtkTextBuffer *buffer, gpointer user_data) {
    if (!user_data) {
@@ -342,6 +350,9 @@ static void destroy_editor(EditorContext *ctx) {
       return;
    }
 
+   ctx->destroying=true;
+   if(active_editor==ctx)active_editor=NULL;
+
    /*
     * Remove the window from the GUI window registry before destroying the actual GTK window.
     */
@@ -355,8 +366,21 @@ static void destroy_editor(EditorContext *ctx) {
       ctx->window = NULL;
    }
 
+   if(ctx->buffer){g_signal_handlers_disconnect_by_data(ctx->buffer,ctx);g_object_unref(ctx->buffer);ctx->buffer=NULL;}
+   if (ctx->remote_token) event_off_token(ctx->remote_token);
+   if (ctx->remote_save) unlink(ctx->filepath);
+   if (ctx->remote_destroy) ctx->remote_destroy(ctx->remote_data);
    g_free(ctx->filepath);
    g_free(ctx);
+}
+
+/* External window destruction must also release the remote event listener. */
+static void editor_destroyed(GtkWidget *window,gpointer data) {
+   EditorContext *ctx=data;ctx->window=NULL;ctx->window_t=NULL;
+   if(!ctx->destroying)destroy_editor(ctx);
+}
+void gtk_editcfg_shutdown(void) {
+   if(active_editor)destroy_editor(active_editor);
 }
 
 static bool save_editor(EditorContext *ctx, const char *filename) {
@@ -418,8 +442,16 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
    }
 
    EditorContext *ctx = user_data;
+   if (ctx->remote_pending) return;
 
    if (!save_editor(ctx, ctx->filepath)) {
+      return;
+   }
+
+   if (ctx->remote_save) {
+      ctx->remote_pending = ctx->remote_save(ctx->filepath, ctx->remote_data);
+      ctx->modified = !ctx->remote_pending;
+      gtk_widget_set_sensitive(ctx->save_button,!ctx->remote_pending);
       return;
    }
 
@@ -570,12 +602,15 @@ void gui_edit_config(const char *filepath) {
    Log(LOG_DEBUG, "gtk.editcfg", "Opening %s for editing", filepath);
 
    EditorContext *ctx = g_malloc0(sizeof(EditorContext));
+   active_editor=ctx;
    ctx->filepath = g_strdup(filepath);
    ctx->modified = FALSE;
 
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    ctx->window = window;
+   g_object_set_data(G_OBJECT(window), "rr-editor-context", ctx);
    ctx->window_t = ui_new_window(window, "editcfg");
+   g_signal_connect(window,"destroy",G_CALLBACK(editor_destroyed),ctx);
 
    gtk_window_set_title(GTK_WINDOW(window), filepath);
    gtk_window_set_default_size(GTK_WINDOW(window), 640, 480);
@@ -590,6 +625,7 @@ void gui_edit_config(const char *filepath) {
    gtk_container_add(GTK_CONTAINER(scrolled), textview);
 
    ctx->buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
+   g_object_ref(ctx->buffer);
    g_signal_connect(ctx->buffer, "changed", G_CALLBACK(on_buffer_changed), ctx);
 
    /*
@@ -668,7 +704,9 @@ void gui_edit_config(const char *filepath) {
    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 3);
 
    GtkWidget *btn_save = gtk_button_new_with_label("Save");
+   ctx->save_button=btn_save;
    GtkWidget *btn_save_as = gtk_button_new_with_label("Save As");
+   ctx->save_as = btn_save_as;
    GtkWidget *btn_discard = gtk_button_new_with_label("Discard");
 
    gtk_box_pack_end(GTK_BOX(hbox), btn_discard, FALSE, FALSE, 0);
@@ -781,4 +819,57 @@ GtkWidget *init_config_tab(void) {
    gtk_box_pack_start(GTK_BOX(nw), spacer, FALSE, FALSE, 0);
 
    return nw;
+}
+
+static void remote_edit_complete(const char *event, const char *text, rrconn_t *client, void *data) {
+   EditorContext *ctx = data;
+   dict *d = json2dict(text);
+   if (!d)
+      return;
+   if (!strcmp(dict_get(d, "file.local", ""), ctx->filepath)) {
+      ctx->remote_pending = false;
+      gtk_widget_set_sensitive(ctx->save_button, TRUE);
+      const char *error = dict_get(d, "file.error", "");
+      if (*error) {
+         ctx->modified = TRUE;
+         GtkWidget *dialog =
+            gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Remote save failed: %s",
+            error);
+         g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+         gtk_widget_show(dialog);
+      }
+   }
+   dict_free(d);
+}
+
+/* Reuse the text editor, but saving publishes to the remote share and never
+ * applies that configuration to the local client. Caller owns data on failure. */
+bool gui_edit_remote_config(const char *local, const char *title, bool (*save)(const char *, void *), void *data, GDestroyNotify destroy) {
+   if(gui_find_window(NULL, "editcfg"))
+      return false;
+   struct stat st;
+   if (stat(local, &st) || !S_ISREG(st.st_mode) || st.st_size > 1048576)
+      return false;
+   gchar *text = NULL;
+   gsize size;
+   if (!g_file_get_contents(local, &text, &size, NULL))
+      return false;
+   bool valid = g_utf8_validate(text, size, NULL) && !memchr(text, 0, size);
+   g_free(text);
+   if (!valid)
+      return false;
+   gui_edit_config(local);
+   gui_window_t *win = gui_find_window(NULL, "editcfg");
+   if (!win || !win->gtk_win)
+      return false;
+   EditorContext *ctx = g_object_get_data(G_OBJECT(win->gtk_win), "rr-editor-context");
+   if (!ctx)
+      return false;
+   ctx->remote_save = save;
+   ctx->remote_data = data;
+   ctx->remote_destroy = destroy;
+   ctx->remote_token = event_on_token("client.files.complete", remote_edit_complete, ctx);
+   gtk_widget_hide(ctx->save_as);
+   gtk_window_set_title(GTK_WINDOW(ctx->window), title);
+   return true;
 }

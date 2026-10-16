@@ -269,3 +269,8 @@ permission and enabled-state edits therefore need no rehash. Failed refreshes
 reject new authentication and commands rather than authorizing stale accounts.
 Password changes affect subsequent authentications; existing sessions are
 reconciled for permissions, disabled accounts and expiry.
+
+All registered media types are listed, including webcams, other video and file
+sources. Streams whose rig/VFO parent is absent fall back to the site, so they
+remain discoverable. Exported shares appear as `share` entries; use `/files`
+or the GTK **Files…** button to browse them. See [Exported file shares](file-shares.md).

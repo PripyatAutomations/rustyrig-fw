@@ -27,6 +27,7 @@
 #include <rrserver/thermal.h>
 #include <rrserver/timer.h>
 #include <rrserver/database.h>
+#include <rrserver/files.h>
 #include <rrserver/backend.h>
 #include <rrserver/cfg.rig.h>
 #include <librrprotocol/bridge.config.h>
@@ -130,6 +131,7 @@ void shutdown_rig(uint32_t signum) {
 void restart_rig(void) {
    Log(LOG_CRIT, "core", "Restarting process...");
    host_cleanup();
+   rrserver_files_fini();
 
    // Ensure argv is NULL-terminated (it should be, but defensively set it so...)
    my_argv[my_argc] = NULL;
@@ -184,7 +186,7 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
+   if (!rrserver_files_config_init() || !rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;

@@ -2,7 +2,7 @@ CFLAGS_RRSERVER += -pthread
 LDFLAGS_RRSERVER += -pthread
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
-rrserver_objs += objects.o serial.o gps.o
+rrserver_objs += files.o objects.o serial.o gps.o
 bins += ${rrserver}
 
 rrserver_headers += $(wildcard rrserver/*.h)
