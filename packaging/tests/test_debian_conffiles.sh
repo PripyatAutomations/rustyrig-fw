@@ -22,7 +22,10 @@ cleanup() {
 trap cleanup EXIT
 
 # Exercise the real packaging override in an isolated, minimal staging tree.
-mkdir -p "$work/source/debian"
+mkdir -p "$work/source/debian" "$work/source/mk" "$work/source/packaging" "$work/source/config"
+cp mk/optional-modules.mk "$work/source/mk/"
+cp packaging/optional-modules.mk "$work/source/packaging/"
+jq '.backend.hamlib = false' config/radio.config.json > "$work/source/config/radio.config.json"
 cp debian/control debian/rules "$work/source/debian/"
 cp -L debian/changelog "$work/source/debian/changelog"
 for package in rustyrig-server rustyrig-client rustyrig-fwdsp; do

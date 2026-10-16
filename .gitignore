@@ -93,6 +93,8 @@ debian/rustyrig-client/*
 debian/rustyrig-client-gtk.substvars
 debian/rustyrig-client.substvars
 debian/rustyrig-client-gtk/*
+debian/rustyrig-server-hamlib.substvars
+debian/rustyrig-server-hamlib/*
 debian/rustyrig-server-gpsd.substvars
 debian/rustyrig-server-gpsd/*
 debian/rustyrig-server.postinst.debhelper

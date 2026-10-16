@@ -47,3 +47,27 @@ publication, bounded/coalesced work, release priority and shutdown. It also
 holds one simulated rig indefinitely while another completes controls and
 real local WebSocket ping/pong traffic stays responsive. Live multirig,
 property-control, PTT and direct-media tests exercise the integrated paths.
+
+## Optional Hamlib module
+
+Install `rustyrig-server-hamlib` to use rigs with `backend=hamlib`. The server
+loads `rrserver-hamlib.so` on demand from `path.modules` before constructing the
+first Hamlib instance. No `[modules]` entry is required. Source-tree runs can
+set `path.modules=./bin`; `make bin/rrserver-hamlib.so` builds the module when
+`backend.hamlib` is true in the build profile. Setting that build option false
+omits the module; the core server still builds without Hamlib. If Hamlib is enabled but its
+development files are missing, preflight stops with an installation hint
+before building; it never silently omits a configured package.
+`WITH_HAMLIB=yes` requires it; `WITH_HAMLIB=no` explicitly omits it.
+
+The base server and shared core libraries do not link libhamlib. Debian keeps
+the Hamlib runtime dependency in the optional package, which depends on the
+matching server version. The shipped configuration enables only `rig0`; add
+`rig1` to `rig.instances` after installing the module to enable the example
+Hamlib NET rigctl rig. Existing `backend=hamlib` settings remain valid.
+
+A missing module produces an installation/path diagnostic instead of silently
+substituting another backend. Hamlib follows the usual worker ownership rules.
+The module refuses unloading while a rig still owns its backend callbacks;
+shutdown joins the workers and frees backend instances before unloading it.
+Unloading unregisters the type so a later load can register it again.

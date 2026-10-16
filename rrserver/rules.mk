@@ -1,5 +1,5 @@
 CFLAGS_RRSERVER += -pthread
-LDFLAGS_RRSERVER += -pthread
+LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
 rrserver_objs += files.o objects.o serial.o gps.o
@@ -18,7 +18,6 @@ rrserver_objs += backend.o		# Interface to various backends
 rrserver_objs += backend.worker.o       # Per-instance hardware workers and main-thread completions
 rrserver_objs += backend.instance.o	# Allocated backend instance lifecycle
 rrserver_objs += backend.register.o	# Build-selected backend type registration
-rrserver_objs += backend.hamlib.o	# Hamlib backend for posix hosts
 rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig-fw)
 rrserver_objs += channels.o		# Channel Memories
 rrserver_objs += console.o		# Console support
@@ -102,3 +101,13 @@ bin/rrserver-gps-nmea.so: ${BUILD_DIR}/rrserver/module.gps-nmea.o ${librustyaxe}
 bin/rrserver-gpsd.so: ${BUILD_DIR}/rrserver/module.gpsd.o ${librustyaxe} ${librrprotocol}
 	@${CC} ${LIB_LDFLAGS} -o $@ $< -lrustyaxe -lrrprotocol ${LDFLAGS}
 extra_clean += ${BUILD_DIR}/rrserver/module.gps-nmea.o ${BUILD_DIR}/rrserver/module.gpsd.o ${gps_modules}
+
+# Hamlib is an optional backend module; never link it into the server/core libs.
+ifeq (${USE_HAMLIB},true)
+hamlib_module := bin/rrserver-hamlib.so
+bins += ${hamlib_module}
+${BUILD_DIR}/rrserver/backend.hamlib.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags hamlib)
+bin/rrserver-hamlib.so: ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o ${librustyaxe} ${librrprotocol}
+	@${CC} ${LIB_LDFLAGS} -o $@ ${BUILD_DIR}/rrserver/module.hamlib.o ${BUILD_DIR}/rrserver/backend.hamlib.o -lrustyaxe -lrrprotocol $(shell pkg-config --libs hamlib) ${LDFLAGS}
+endif
+extra_clean += ${BUILD_DIR}/rrserver/backend.hamlib.o ${BUILD_DIR}/rrserver/module.hamlib.o bin/rrserver-hamlib.so

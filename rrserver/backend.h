@@ -71,6 +71,8 @@ static inline const rr_backend_funcs_t *rr_backend_api(const rr_backend_t *backe
 extern rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, struct rr_server_rig *owner, const char *config_alias);
 extern void rr_backend_instance_free(rr_backend_t *backend);
 extern bool rr_backend_type_register(const rr_backend_type_t *type);
+/* Caller must stop/free every instance before unregistering its module type. */
+extern bool rr_backend_type_unregister(const rr_backend_type_t *type);
 extern const rr_backend_type_t *rr_backend_type_find(const char *name);
 extern const char *rr_backend_instance_alias(const rr_backend_t *backend);
 extern void *rr_backend_instance_data(const rr_backend_t *backend);

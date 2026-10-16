@@ -62,3 +62,31 @@ source libraries/binaries, require local shared libraries, and generate local
 configs in `run/`. Database, log, recording and module paths point inside the
 source tree. These launchers work from other working directories and never
 stop unrelated installed services. Explicit `-f` bypasses configuration layering.
+
+### Optional modules follow the build profile
+
+Native and Debian builds share `packaging/optional-modules.mk` and use
+`config/$PROFILE.config.json` (`PROFILE=radio` by default) as the build plan.
+For example, `backend.hamlib=true` builds `rustyrig-server-hamlib`;
+`backend.hamlib=false` skips that module and its package. A disabled module's
+development files are not required, even if an old binary remains in `bin/`.
+
+Before building, enabled modules are checked through pkg-config. If Hamlib
+support is enabled but its SDK is absent, the build stops with a message to
+run `sudo apt install libhamlib-dev` or disable `backend.hamlib` in the profile.
+It never silently builds an incomplete set of packages. Cleaning still works
+without the optional SDK. `WITH_HAMLIB=yes` and `WITH_HAMLIB=no` can explicitly
+override the profile for a particular native or Debian build.
+
+The opt-in `pkg.rustyrig.hamlib` Debian build profile declares a required
+Hamlib Build-Depends for builders that provision dependencies automatically.
+Ordinary builds validate the selected JSON profile themselves, so disabling
+Hamlib removes the requirement without special Debian knowledge. The Hamlib
+runtime dependency belongs only to its module package.
+
+For another optional module, add a registry entry with its friendly name,
+pkg-config SDK check, development package names, JSON profile setting, make
+feature variable, `WITH_...` switch, package name, artifact and destination.
+The common preflight, Debian staging and debhelper exclusions then apply
+automatically. Give its SDK Build-Depends an opt-in Debian build profile.
+Existing core dependencies remain required until similarly separated.

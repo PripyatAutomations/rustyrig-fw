@@ -43,6 +43,17 @@ bool rr_backend_type_register(const rr_backend_type_t *type) {
    return true;
 }
 
+bool rr_backend_type_unregister(const rr_backend_type_t *type) {
+   if (!type) return true;
+   for (unsigned i = 0; i < RR_BACKEND_TYPE_MAX; i++) {
+      if (registered_types[i] != type) continue;
+      for (unsigned j = i; j + 1 < RR_BACKEND_TYPE_MAX; j++) registered_types[j] = registered_types[j + 1];
+      registered_types[RR_BACKEND_TYPE_MAX - 1] = NULL;
+      return false;
+   }
+   return true;
+}
+
 const rr_backend_type_t *rr_backend_type_find(const char *name) {
    if (!name) {
       return NULL;

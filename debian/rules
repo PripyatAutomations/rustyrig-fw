@@ -1,6 +1,17 @@
 #!/usr/bin/make -f
 
 export DH_VERBOSE = 1
+.DEFAULT_GOAL := binary
+PROFILE ?= radio
+include mk/optional-modules.mk
+
+# Optional packages are omitted consistently at every debhelper stage.
+define optional_install_rule
+.PHONY: install-optional-$(1)
+install-optional-$(1):
+	install -Dm755 $(OPTIONAL_$(1)_ARTIFACT) debian/$(OPTIONAL_$(1)_PACKAGE)/$(OPTIONAL_$(1)_DEST)
+endef
+$(foreach m,$(ENABLED_OPTIONAL_MODULES),$(eval $(call optional_install_rule,$(m))))
 
 # dpkg-buildpackage exposes requested parallelism as parallel=N.  Direct
 # debian/rules invocations remain serial unless that option is supplied.
@@ -14,7 +25,7 @@ endif
 endif
 
 %:
-	dh $@
+	dh $@ $(OPTIONAL_DH_EXCLUDES)
 
 # Keep package builds independent of the optional hardware/integration test suite.
 override_dh_auto_test:
@@ -25,10 +36,11 @@ override_dh_auto_clean:
 	$(MAKE) -C callsign-lookup clean || true
 
 override_dh_auto_build:
-	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=radio
+	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
+	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(OPTIONAL_MAKE_FLAGS)
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
 
-override_dh_auto_install:
+override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/librustyaxe/usr/lib/rustyrig/admin-permissions
 	install -Dm755 bin/rrbridge debian/rustyrig-server/usr/bin/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
@@ -65,7 +77,7 @@ override_dh_auto_install:
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
 	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg
-	install -Dm644 config/radio.config.json debian/rustyrig-server/etc/rustyrig/radio.config.json
+	install -Dm644 config/$(PROFILE).config.json debian/rustyrig-server/etc/rustyrig/$(PROFILE).config.json
 	install -Dm644 config/callsign-lookup.srv.cfg debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg
 	install -Dm644 config/ua-bans debian/rustyrig-server/etc/rustyrig/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
@@ -102,5 +114,5 @@ override_dh_installinit:
 	dh_installinit --name=rrserver -p rustyrig-server
 
 override_dh_installdeb:
-	dh_installdeb
+	dh_installdeb $(OPTIONAL_DH_EXCLUDES)
 	for p in rustyrig-server rustyrig-client rustyrig-fwdsp; do install -Dm755 debian/$$p.preinst debian/$$p/DEBIAN/preinst; done

@@ -9,6 +9,9 @@ DATE=$(shell date +%Y%m%d)
 INSTALLER=rrclient.win64.${DATE}.exe
 
 include mk/json-config.mk
+include mk/optional-modules.mk
+# Keep targets and SDK checks in agreement, including command-line opt-outs.
+$(foreach m,$(OPTIONAL_MODULES),$(eval override $(OPTIONAL_$(m)_FEATURE) := $(OPTIONAL_$(m)_ENABLED)))
 BUILD_DIR := ./build/${PROFILE}
 include mk/compile.mk
 include mk/database.mk

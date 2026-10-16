@@ -534,6 +534,8 @@ int main(int argc, char **argv) {
          break;
       }
 
+      // Backend code remains mapped until its workers and instances are gone.
+      if (!strcmp(module, "rrserver-hamlib") || !strcmp(module, "rrserver-hamlib.so")) continue;
       if (rr_find_loaded_module(module)) {
          rr_unload_module(module);
       }
@@ -549,6 +551,13 @@ int main(int argc, char **argv) {
       fwdsp_fini();
    }
    rr_backend_fini();
+   // Retry deferred module unloads after the backend callback owners are gone.
+   for (int i = 0; ; i++) {
+      const char *module = cfg_modules_get(i, NULL);
+      if (!module) break;
+      if (rr_find_loaded_module(module)) rr_unload_module(module);
+   }
+   if (rr_find_loaded_module("rrserver-hamlib")) rr_unload_module("rrserver-hamlib");
    host_cleanup();
 
 #ifdef  USE_MONGOOSE

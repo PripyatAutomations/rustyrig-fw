@@ -16,7 +16,6 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
 
-#ifdef USE_HAMLIB
 #include <hamlib/rig.h>
 
 extern struct GlobalState rig;
@@ -733,11 +732,3 @@ const rr_backend_type_t rr_backend_hamlib = {
 void rr_backend_hamlib_register(void) {
    rr_backend_type_register(&rr_backend_hamlib);
 }
-
-#else
-
-void rr_backend_hamlib_register(void) {
-   Log(LOG_CRIT, "backend.hamlib", "Hamlib backend is not compiled in, so won't be available");
-}
-
-#endif // defined(USE_HAMLIB)

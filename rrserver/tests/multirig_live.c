@@ -174,6 +174,11 @@ int main(int argc, char **argv) {
    assert(masterdb);
    event_init();
    event_on(RR_PROPERTY_CHANGED_EVENT, property_event, NULL);
+#ifdef RR_TEST_HAMLIB_MODULE
+   dict_add(cfg, "path.modules", "./bin");
+#else
+   rr_backend_hamlib_register(); // This fixture links the implementation directly.
+#endif
    assert(!rr_backend_init());
    assert(rr_rig_registry_count(rig.rigs) == 2);
    rr_server_rig_t *r0 = rr_rig_registry_find_alias(rig.rigs, "rig0");
@@ -183,7 +188,13 @@ int main(int argc, char **argv) {
    assert(rr_rig_registry_default(rig.rigs) == r0);
    assert(rr_server_rig_backend(r0)->type == &rr_backend_internal);
    rr_backend_t *hamlib = rr_server_rig_backend(r1);
+#ifdef RR_TEST_HAMLIB_MODULE
+   assert(!strcmp(hamlib->type->name, "hamlib"));
+   assert(rr_find_loaded_module("rrserver-hamlib"));
+   assert(rr_unload_module("rrserver-hamlib")); // Active backend callbacks pin the module.
+#else
    assert(hamlib->type == &rr_backend_hamlib);
+#endif
    printf("CONFIG rig1 model=%d device=%s baud=%d reconnect=%d\n", rr_backend_config_get_int(hamlib, "hamlib.model", 2), rr_backend_config_get(hamlib,
       "hamlib.device"), rr_backend_config_get_int(hamlib, "hamlib.baud", 38400), rr_backend_config_get_int(hamlib, "reconnect-interval", 30));
    rr_server_vfo_t *a0 = rr_server_vfo_find_alias(r0, "A");
@@ -270,6 +281,13 @@ int main(int argc, char **argv) {
    object_net_fini();
 #endif
    rr_backend_fini();
+#ifdef RR_TEST_HAMLIB_MODULE
+   assert(!rr_unload_module("rrserver-hamlib"));
+   assert(!rr_backend_type_find("hamlib"));
+   assert(!rr_load_module("rrserver-hamlib"));
+   assert(rr_backend_type_find("hamlib"));
+   assert(!rr_unload_module("rrserver-hamlib"));
+#endif
    assert(!rig.rigs && !rig.default_cat);
    event_shutdown();
    sqlite3_close(masterdb);

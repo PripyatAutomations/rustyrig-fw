@@ -12,7 +12,7 @@ Build-Depends:
  libev-dev,
  libgpiod-dev,
  libglib2.0-dev,
- libhamlib-dev,
+ libhamlib-dev <pkg.rustyrig.hamlib>,
  libgtk-3-dev,
  libgstreamer1.0-dev,
  libgstreamer-plugins-base1.0-dev,
@@ -70,6 +70,7 @@ Package: rustyrig-server
 Architecture: any
 Pre-Depends: adduser
 Depends: acl, debconf, jq, sqlite3, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Suggests: rustyrig-server-hamlib
 Description: RustyRig server
  Backend server for remote radio operation.
 
@@ -111,3 +112,10 @@ Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depend
 Description: GPSD receiver module for RustyRig server
  Optional GPSD connection for station and rig coordinates, installed in
  /usr/lib/rustyrig/modules/rrserver. Enable rrserver-gpsd in [modules].
+
+Package: rustyrig-server-hamlib
+Architecture: any
+Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Hamlib backend module for RustyRig server
+ Optional Hamlib radio backend, installed in
+ /usr/lib/rustyrig/modules/rrserver. Loaded when a rig selects backend=hamlib.

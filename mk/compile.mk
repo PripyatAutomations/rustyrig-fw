@@ -80,9 +80,6 @@ LDFLAGS += -lunwind-x86_64
 endif
 endif
 
-ifeq (${USE_HAMLIB},true)
-LDFLAGS += -lhamlib
-endif
 
 ifeq (${USE_SSL},true)
 CFLAGS += -DMG_TLS=MG_TLS_MBED

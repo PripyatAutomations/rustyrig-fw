@@ -1,5 +1,13 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Move Hamlib into the optional rrserver-hamlib module and separate
+    rustyrig-server-hamlib Debian package. Load it on demand for Hamlib rigs,
+    isolate its library dependency, guard active backend callbacks against
+    unloading, and keep the default server configuration module-independent.
+  * Share optional-module SDK detection and package staging/exclusions between
+    native and Debian builds. Follow the selected JSON profile, skip disabled
+    modules, and stop before compiling with an installation hint when an enabled
+    module lacks its SDK; add explicit overrides and an opt-in build dependency.
   * Spread Receiver Directory columns across the available width with more
     cell padding; order Type, Location, Receiver, Users, API Policy, Status, URL.
   * Add a Resource Explorer local-port chooser and configuration dialog for
@@ -302,7 +310,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 14:38:23 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 14:52:21 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
