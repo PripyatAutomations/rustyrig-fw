@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Feed the active talker's decoded PCM into matching server RX encoders,
+    replacing live receiver samples during TX without pausing capture. Reuse
+    prewarmed codec pipelines for differing TX/RX formats and resume current
+    receiver input on release; preserve unrelated rig/VFO audio.
   * Default audio.mute-talkback to true: "Mute RX stream during TX to
     suppress talkback". Suppress local TX rig/VFO playback while retaining
     other transmitters and unrelated receivers; mirror the browser option.
@@ -218,7 +222,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:50:26 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:52:34 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

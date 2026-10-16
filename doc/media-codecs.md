@@ -235,3 +235,23 @@ path and file contents agree. Named transmission recordings encode decoded
 PCM into a fresh container, allowing voice/data changes without restarting the
 network decoder or copying an Ogg stream midway through a page sequence.
 Custom recording codec choices for voice remain supported.
+
+## TX monitoring on RX streams
+
+`rrserver/media.c` selects PCM at the server hub. During an admitted user's
+transmission, the matching rig/VFO RX encoder receives decoded TX PCM instead
+of real receiver samples. A shared RX stream follows TX on any VFO of its rig;
+independent VFOs and other rigs retain their receiver audio. Capture continues
+to run and drain throughout TX; receiver samples are discarded for the replaced
+stream, so release resumes current input rather than replaying buffered audio.
+
+The subscribed TX decoder and RX encoders are prewarmed by the existing media
+subscription/codec handlers. TX is decoded once to the common PCM format, then
+fed through each RX encoder's negotiated codec, including when RX and TX codecs
+differ. Missing encoders use the existing demand-limited recovery path. Generated
+tone/pink test codecs remain independent synthetic sources.
+
+Clients hear this through their normal RX subscriptions. The default-on client
+`audio.mute-talkback` option suppresses the local transmitter's playback only;
+other listeners still hear the transmitter on RX. No wire format changes are
+required, and transport fanout continues to use each RX resource's metadata.

@@ -107,7 +107,15 @@ static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t le
    rrserver_media_rx_pcm(user_data, samples, len);
 }
 
-void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t len) {
+/* The server's admitted talker owns one rig/VFO. Shared RX follows that rig's TX. */
+static bool media_rx_has_talker(rr_server_rig_t *radio, const struct rr_mediachan *channel) {
+   rrconn_t *talker = whos_talking();
+
+   return radio && rig.ptt_rig == radio && talker &&
+      (channel->vfo == RR_BINFRAME_VFO_NA || talker->ptt_vfo == 'A' + channel->vfo);
+}
+
+static void media_feed_rx(rr_server_rig_t *radio, const void *samples, size_t len, bool talkback) {
    uint8_t index = rr_rig_registry_media_index(rig.rigs, radio);
 
    for (int i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
@@ -115,6 +123,11 @@ void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t l
 
       if (!channel->uuid[0] || channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO ||
          channel->direction != RR_BINFRAME_DIR_RX || channel->rig != index || !channel->codec[0] || index == RR_BINFRAME_RIG_NA) {
+         continue;
+      }
+
+      /* Keep capture draining; select samples at the PCM hub, never pause the input. */
+      if (media_rx_has_talker(radio, channel) != talkback) {
          continue;
       }
 
@@ -145,10 +158,14 @@ void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t l
          (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] || now - rig_rx_write_warned[i] >= 5)) {
          rig_rx_write_warned[i] = now;
          char description[512];
-         Log(LOG_WARN, "pcm.hub", "Unable to feed rig RX PCM to %s.tx for channel %s", channel->codec, media_chan_description(channel, cfg_get("station.name"),
+         Log(LOG_WARN, "pcm.hub", "Unable to feed %s PCM to %s.tx for channel %s", talkback ? "talkback" : "rig RX", channel->codec, media_chan_description(channel, cfg_get("station.name"),
             description, sizeof(description)));
       }
    }
+}
+
+void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t len) {
+   media_feed_rx(radio, samples, len, false);
 }
 
 static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, size_t len, void *user_data) {
@@ -156,7 +173,8 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
    struct rr_mediachan *channel = media_chan_find_uuid(channel_uuid);
    rr_server_rig_t *radio = channel ? rr_rig_registry_find_uuid(rig.rigs, channel->rig_uuid) : NULL;
 
-   if (!radio) {
+   /* Ignore delayed decoder output once TX ownership has been released. */
+   if (!radio || !media_rx_has_talker(radio, channel)) {
       return;
    }
    char endpoint[128];
@@ -170,6 +188,9 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
       Log(LOG_WARN, "pcm.hub", "Unable to feed decoded talker PCM to %s (%s)", sink, media_chan_description(channel, cfg_get("station.name"), description,
          sizeof(description)));
    }
+   /* Decode TX once, then encode using each RX channel's negotiated codec. This
+    * also works when TX and RX codecs differ; subscribed encoders stay prewarmed. */
+   media_feed_rx(radio, samples, len, true);
 }
 
 static bool start_rig_audio(rr_server_rig_t *radio, void *user) {
