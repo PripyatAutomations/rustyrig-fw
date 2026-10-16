@@ -33,6 +33,7 @@ typedef struct hamlib_backend {
    hamlib_vfo_state_t state[MAX_VFOS];
    bool vfo_probed[MAX_VFOS];
    bool vfo_mode_ok[MAX_VFOS];
+   bool vfo_selection_unavailable; // rig_set_vfo unsupported by this Hamlib backend
    bool connected;
    bool default_instance;
    bool transmitting;
@@ -284,7 +285,8 @@ static bool hl_connect(rr_backend_t *backend) {
    data->retry_at = 0;
    memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
    memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok));
-   rig_set_vfo(data->rig, hl_get_vfo(backend->active_vfo));
+   data->vfo_selection_unavailable = false;
+   /* VFO selection is optional. Polling determines whether the backend supports it. */
    rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: connected to %s", rr_backend_instance_alias(backend), data->device);
 
    return false;
@@ -410,11 +412,27 @@ static bool hl_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) 
       return true;
    }
 
-   // Select the transmitter only on key-down. Release must never switch it.
-   if (state && rig_set_vfo(data->rig, hl_get_vfo(index)) != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "Cannot select TX VFO %s", vfo_name(index));
+   // Never key a different VFO unless Hamlib confirms it is selected.
+   // A failed selection must not silently transmit on whichever VFO is active.
+   if (state) {
+      int selected = data->vfo_selection_unavailable ? -RIG_ENAVAIL : rig_set_vfo(data->rig, hl_get_vfo(index));
 
-      return true;
+      if (selected == -RIG_ENAVAIL || selected == -RIG_ENIMPL) {
+         vfo_t current = RIG_VFO_NONE;
+         data->vfo_selection_unavailable = true;
+         int query = rig_get_vfo(data->rig, &current);
+
+         if (query != RIG_OK || current != hl_get_vfo(index)) {
+            rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+               "%s: Cannot safely transmit on VFO %s: Hamlib cannot select it or confirm it is active",
+               rr_backend_instance_alias(backend), vfo_name(index));
+            return true;
+         }
+      } else if (selected != RIG_OK) {
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select TX VFO %s: %s",
+            rr_backend_instance_alias(backend), vfo_name(index), rigerror(selected));
+         return true;
+      }
    }
 
    if (state && rr_backend_worker_yield(backend)) {
@@ -595,13 +613,22 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_vfo_state_t *state = &data->state[index];
    vfo_t hamlib_vfo = hl_get_vfo(index);
 
-   int result = data->transmitting ? RIG_OK : rig_set_vfo(data->rig, hamlib_vfo);
+   int result = RIG_OK;
 
-   if (result != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: SET VFO %s failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result));
-      hl_schedule_retry(backend, "rig_set_vfo failed");
+   if (!data->transmitting && !data->vfo_selection_unavailable) {
+      result = rig_set_vfo(data->rig, hamlib_vfo);
 
-      return NULL;
+      if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL) {
+         data->vfo_selection_unavailable = true;
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+            "%s: Hamlib cannot explicitly select VFOs; using VFO-targeted CAT operations where supported",
+            rr_backend_instance_alias(backend));
+      } else if (result != RIG_OK) {
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select VFO %s: %s",
+            rr_backend_instance_alias(backend), vfo_name(index), rigerror(result));
+         // Selecting a VFO failing does not prove the CAT connection is lost.
+         return NULL;
+      }
    }
 
    if (rr_backend_worker_yield(backend)) {
@@ -613,7 +640,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: GET VFO %s frequency failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(
          result));
 
-      if (index == backend->active_vfo) {
+      if (index == backend->active_vfo && result != -RIG_ENAVAIL && result != -RIG_ENIMPL) {
          hl_schedule_retry(backend, "rig_get_freq failed");
       }
       hl_property_unavailable(backend, vfo, RR_PROP_VFO_FREQUENCY);

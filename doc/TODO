@@ -1,5 +1,7 @@
 Immediate needs
 ---------------
+*: Make Server Files dialog support linked server's files too
+
 rrclient: Sort out GPS device mapping to be simpler
 
 rrclient: Make audit/ptt logs available for all connected servers (dropdown instead of relying on status tab selection)

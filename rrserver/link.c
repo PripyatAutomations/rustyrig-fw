@@ -443,7 +443,13 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
    dict *d = rr_link_wire_decode(frame->data.buf, frame->data.len);
 
    if (!d) {
-      fail(session, "Invalid link wire message");
+      Log(LOG_WARN, "link",
+         "Rejected link protocol message from %s (%zu bytes); "
+         "invalid format or incompatible protocol version",
+         session->peer ? session->peer->site : "unknown server",
+         frame->data.len);
+
+      fail(session, "Invalid link protocol message");
       return;
    }
    const char *op = dict_get(d, "op", "");
