@@ -316,6 +316,8 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       dict_add(d, "talk.data", text);
       event_emit_dict("talk.msg", cptr, d);
    } else if (!strcasecmp(cmd, "JOIN") && argc >= 2 && *from) {
+      /* Ordinary IRC members have no prefix; retain their transport identity. */
+      dict_add(d, "talk.privs", "irc:");
       dict_add(d, "talk.room", arg1);
       event_emit_dict("join", cptr, d);
       dict_add_int(d, "talk.sessions", 1);
