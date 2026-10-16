@@ -266,16 +266,23 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
    directory_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(directory_filter));
    const char *titles[] = {
-      "Receiver", "Location", "Users", "API policy", "Status", "URL", "Type"
+      "Type", "Location", "Receiver", "Users", "API Policy", "Status", "URL"
    };
+   const int fields[] = {COL_TYPE, COL_LOCATION, COL_NAME, COL_USERS, COL_API, COL_STATE, COL_URL};
+   const int widths[] = {65, 120, 180, 65, 105, 110, 160};
 
-   for (int i = 0 ; i < 7 ; i++) {
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(titles) ; i++) {
+      int field = fields[i];
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-      g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
-      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i + 1, NULL);
+      g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "xpad", 8, "ypad", 3, NULL);
+      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
       gtk_tree_view_column_set_resizable(column, TRUE);
-      gtk_tree_view_column_set_max_width(column, i == 0 ? 300 : 220);
-      gtk_tree_view_column_set_sort_column_id(column, i + 1);
+      gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+      gtk_tree_view_column_set_fixed_width(column, widths[i]);
+      gtk_tree_view_column_set_min_width(column, 55);
+      /* Text-heavy columns share surplus width as the directory grows. */
+      gtk_tree_view_column_set_expand(column, field == COL_LOCATION || field == COL_NAME || field == COL_URL);
+      gtk_tree_view_column_set_sort_column_id(column, field);
       gtk_tree_view_append_column(GTK_TREE_VIEW(directory_tree), column);
    }
 

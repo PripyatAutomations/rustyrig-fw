@@ -1,5 +1,7 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Spread Receiver Directory columns across the available width with more
+    cell padding; order Type, Location, Receiver, Users, API Policy, Status, URL.
   * Add a Resource Explorer local-port chooser and configuration dialog for
     PTYs, physical serial/modem ports and append-only capture files. Show
     configured detached ports, support physical/file serial export sinks,
@@ -300,7 +302,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 13:30:56 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 14:38:23 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
