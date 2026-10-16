@@ -70,6 +70,7 @@ gtk_module_objs += gtk/gtk.privileges.o
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
 gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
+gtk_module_objs += gtk/gtk.chat.highlight.o
 gtk_module_objs += gtk/gtk.chat.links.o
 gtk_module_objs += gtk/gtk.codecpicker.o	# codec picker widget
 gtk_module_objs += gtk/gtk.editcfg.o	# configuration tab

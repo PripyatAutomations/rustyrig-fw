@@ -1339,6 +1339,12 @@ void gtk_chat_incoming(const char *room, bool query, const char *text, const cha
       }
    }
 
+   if (tab) {
+      GtkTextBuffer *buffer = NULL;
+      if (gtk_chat_room_widgets(room, &buffer, NULL) && buffer) {
+         g_object_set_data(G_OBJECT(buffer), "rr-highlight-prefix", GINT_TO_POINTER(mention));
+      }
+   }
    if (tab && text) {
       if (mention) rrclient_irc_stats_highlight(ws_conn, room);
       gtk_tabs_page_activity(GTK_NOTEBOOK(main_notebook), tab->page, mention);

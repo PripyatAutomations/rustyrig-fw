@@ -958,3 +958,12 @@ Activity belongs to each connection's userlist context and is cleared with that
 context. Browser `getCULNames()` follows the same room-scoped behavior and resets
 on reconnect. Private messages and replay rows do not influence room activity;
 roster privilege ordering is unchanged.
+
+## Highlighted sender styling
+
+GTK mention detection marks the next displayed sender prefix and applies a
+buffer tag whose color comes from `@define-color rr_chat_highlight_nick yellow;`
+in `[gtk-css]`. CSS reload updates existing highlighted prefixes. Normal chat,
+actions and private prefixes retain message-body formatting and timestamps.
+The browser uses `.chat-msg-prefix.chat-mention { color: yellow; }` in
+`www/css/chat.css`, with the same nickname boundary rules for live messages.

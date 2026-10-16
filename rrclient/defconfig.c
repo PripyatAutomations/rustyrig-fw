@@ -40,6 +40,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
         /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
         "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
         "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
+        "@define-color rr_chat_highlight_nick yellow;\n" \
         "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
         "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
         "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
@@ -61,6 +62,7 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
         /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
         "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
         "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
+        "@define-color rr_chat_highlight_nick yellow;\n" \
         "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
         "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
         "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
