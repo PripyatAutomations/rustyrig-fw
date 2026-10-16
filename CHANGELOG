@@ -1,4 +1,4 @@
-rustyrig-fw (20261015.05) testing; urgency=medium
+rustyrig-fw (20261015.06) testing; urgency=medium
 
   * Fix callsign-lookup linking by removing accidentally duplicated GNIS
     implementation/globals from the QRZ header; retain their single owner
@@ -172,7 +172,7 @@ rustyrig-fw (20261015.05) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 21:21:50 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 21:26:15 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
