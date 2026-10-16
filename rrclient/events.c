@@ -460,6 +460,10 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
+   if (!private_msg && msg_type && msg_data && (!strcasecmp(msg_type, "pub") || !strcasecmp(msg_type, "action"))) {
+      userlist_note_spoke(output_room, from);
+   }
+
    if (frontend_ops() && output_room) {
       if (frontend_ops()->chat_incoming) {
          const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) &&

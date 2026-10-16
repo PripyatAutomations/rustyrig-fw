@@ -52,6 +52,7 @@ struct rr_client_media_chan {
    char vfo_uuid[64];
    char control_room[128];
    char pending_codec[5];
+   char gps_coordinates[64];
 };
 
 // Iterate stored channels: idx 0..n. Returns NULL past the end. `listno`

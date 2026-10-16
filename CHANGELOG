@@ -1,5 +1,11 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Show GPS coordinates explicitly in Resource Explorer, update subscribed
+    positions live, and label missing fixes. Print coordinate/status rows for
+    /gps in GTK as well as TUI/browser while retaining Explorer discovery.
+  * Rank native/browser room nickname completion by the most recently observed
+    live public/action speakers, with alphabetical fallback and separate
+    per-room/server activity. Keep roster privilege sorting unchanged.
   * Rename the GTK resource manager Resource Explorer. Add native IRC server
     branches with cached LIST and joined/observed channels, join time/duration,
     roster users and oper/op/voice breakdowns, incoming/sent lines and actual
@@ -254,7 +260,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:28:09 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 09:24:40 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

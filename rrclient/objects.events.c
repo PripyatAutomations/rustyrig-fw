@@ -22,7 +22,7 @@ static struct inventory_request {
    char id[48], window[128];
    const char *kind;
    unsigned count;
-   bool graphical;
+   bool graphical, gps_listing;
 } inventory_requests[INVENTORY_REQUESTS_MAX];
 
 // PARITY: rustyrig-www/js/webui.objects.js rrInventoryMessage.
@@ -47,7 +47,7 @@ static bool inventory_message(dict *d) {
    }
    if (!strcmp(cmd, "result")) {
       if (request->graphical) event_emit_dict("client.resources.row", ws_conn, d);
-      else ui_print(request->window[0] ? request->window : NULL, "Resource listing failed: %s", dict_get(d, "result.code", "unknown error"));
+      if (!request->graphical || request->gps_listing) ui_print(request->window[0] ? request->window : NULL, "Resource listing failed: %s", dict_get(d, "result.code", "unknown error"));
       memset(request, 0, sizeof(*request));
       return true;
    }
@@ -81,7 +81,7 @@ static bool inventory_message(dict *d) {
    if (request->graphical) {
       event_emit_dict("client.resources.row", ws_conn, d);
 
-      return true;
+      if (!request->gps_listing || strcmp(kind, "gps")) return true;
    }
 
    char details[1536] = "";
@@ -100,6 +100,9 @@ static bool inventory_message(dict *d) {
       }
    }
 
+   if (!strcmp(kind, "gps") && !*dict_get(d, "inventory.coordinates", "")) {
+      strlcat(details, "  coordinates=unknown/no-fix", sizeof(details));
+   }
    ui_print(window, "%*s%s%s %s%s", depth ? (int)(depth - 1) * 3 : 0, "", depth ? "+- " : "", dict_get(d, "inventory.kind", "resource"), dict_get(d,
       "inventory.name", ""), details);
 
@@ -267,6 +270,7 @@ bool cmd_rig(int argc, char **args) {
 
          return true;
       }
+      pending->gps_listing = !strcasecmp(args[0], "gps");
       pending->kind = !strcasecmp(args[0], "gps") ? "gps" : !strcasecmp(args[0], "object") ? "object" : "rig";
       snprintf(pending->id, sizeof(pending->id), "%s", id);
       snprintf(pending->window, sizeof(pending->window), "%s", window ? window : "");

@@ -56,6 +56,26 @@ static char **complete_server_names(const char *word) {
    return matches;
 }
 
+struct completion_speaker { char *name; uint64_t order; };
+static int completion_speaker_compare(const void *left, const void *right) {
+   const struct completion_speaker *a = left, *b = right;
+   if (a->order != b->order) return a->order > b->order ? -1 : 1;
+   return strcasecmp(a->name, b->name);
+}
+/* PARITY: www/js/webui.chat.completion.js getCULNames. */
+static void completion_rank_speakers(char **matches, size_t count, const char *room) {
+   struct completion_speaker *speakers = calloc(count, sizeof(*speakers));
+   if (!speakers) return;
+   for (size_t i = 0; i < count; i++) {
+      char nick[HTTP_USER_LEN + 1];
+      snprintf(nick, sizeof(nick), "%.*s", (int)strcspn(matches[i], ":"), matches[i]);
+      speakers[i] = (struct completion_speaker){matches[i], userlist_spoke_order(room, nick)};
+   }
+   qsort(speakers, count, sizeof(*speakers), completion_speaker_compare);
+   for (size_t i = 0; i < count; i++) matches[i] = speakers[i].name;
+   free(speakers);
+}
+
 /*
  * complete_usernames: complete usernames from the global userlist for commands like
  * /whois, /kick, /ban, /mute, /unmute. PARITY: rustyrig-www/js/webui.chat.js UserCache.get_all scopes names to the active room.
@@ -86,6 +106,7 @@ static char **complete_usernames(const char *word, const char *room) {
       }
    }
 
+   completion_rank_speakers(matches, count, room);
    return matches;
 }
 
@@ -235,7 +256,7 @@ char **client_cmd_completions(const char *line, const char *word) {
    }
 
    if (*line != '/') {
-      const char *room = ui_active_window_name();
+      const char *room = rrclient_current_room();
 
       if (!room || (room[0] != '#' && room[0] != '&') || !*word) {
          return NULL;
@@ -253,6 +274,7 @@ char **client_cmd_completions(const char *line, const char *word) {
          completion_add(&matches, &count, nick, word);
       }
 
+      completion_rank_speakers(matches, count, room);
       return matches;
    }
    char *prefix = strndup(line, strlen(line) - strlen(word));

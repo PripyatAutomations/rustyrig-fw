@@ -37,6 +37,26 @@ typedef struct userlist_batch {
 static userlist_batch *names_batches;
 static dict *irc_opers;
 
+static dict *recent_speakers;
+static uint64_t speaker_sequence;
+static void speaker_key(char *key, size_t capacity, const char *room, const char *name) {
+   snprintf(key, capacity, "%s\n%s", room ? room : "", name ? name : "");
+   for (char *p = key; *p; p++) *p = tolower((unsigned char)*p);
+}
+void userlist_note_spoke(const char *room, const char *name) {
+   if (!room || !*room || !name || !*name) return;
+   if (!recent_speakers) recent_speakers = dict_new();
+   if (!recent_speakers) return;
+   char key[HTTP_USER_LEN + 132];
+   speaker_key(key, sizeof(key), room, name);
+   dict_add_ullong(recent_speakers, key, ++speaker_sequence);
+}
+uint64_t userlist_spoke_order(const char *room, const char *name) {
+   char key[HTTP_USER_LEN + 132];
+   speaker_key(key, sizeof(key), room, name);
+   return recent_speakers ? dict_get_ullong(recent_speakers, key, 0) : 0;
+}
+
 bool userlist_names_pending(const char *room) {
    for (userlist_batch *batch = names_batches ; batch ; batch = batch->next) {
       if (room && !strcasecmp(batch->room, room)) {
@@ -435,6 +455,9 @@ bool userlist_remove_by_name(const char *name) {
 
 // Clearing the userlist
 void userlist_clear_all(void) {
+   dict_free(recent_speakers);
+   recent_speakers = NULL;
+   speaker_sequence = 0;
    dict_free(irc_opers);
    irc_opers = NULL;
    while (names_batches) {
@@ -495,7 +518,8 @@ struct rr_user *userlist_find(const char *name) {
 typedef struct {
    struct rr_user *global_userlist;
    userlist_batch *names_batches;
-   dict *irc_opers;
+   dict *irc_opers, *recent_speakers;
+   uint64_t speaker_sequence;
 } rrclient_userlist_context;
 void rrclient_userlist_context_swap(void **saved) {
    if (!*saved) {
@@ -506,6 +530,12 @@ void rrclient_userlist_context_swap(void **saved) {
       }
    }
    rrclient_userlist_context *state = *saved;
+   dict *temporary_speakers = recent_speakers;
+   recent_speakers = state->recent_speakers;
+   state->recent_speakers = temporary_speakers;
+   uint64_t temporary_sequence = speaker_sequence;
+   speaker_sequence = state->speaker_sequence;
+   state->speaker_sequence = temporary_sequence;
    dict *temporary_opers = irc_opers;
    irc_opers = state->irc_opers;
    state->irc_opers = temporary_opers;

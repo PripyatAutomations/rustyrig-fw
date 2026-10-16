@@ -12,7 +12,7 @@
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.resources.h"
 
-enum { NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COLUMNS };
+enum { NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, COLUMNS };
 enum { ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, BUTTONS };
 typedef struct {
    char *profile, *request, *selection;
@@ -159,6 +159,7 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
       }
       if (kind && (!strcmp(kind, "media") || !strcmp(kind, "gps")) && uuid && *uuid) {
          const struct rr_client_media_chan *channel = resource_media(uuid);
+         if (channel && channel->subscribed && channel->gps_coordinates[0]) set_string(&iter, COORDINATES, channel->gps_coordinates);
          strlcpy(ours, !branch->online ? "Disconnected" : channel && channel->subscribed ? "Subscribed" : "Not subscribed", sizeof(ours));
          if (branch->online && !strcmp(kind, "media")) availability = !room || !*room || joined || (channel && channel->joined) ? "Available" : "Join room first";
          if (branch->online && !channel) strlcpy(ours, "Not discovered yet — refresh", sizeof(ours));
@@ -315,6 +316,10 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    gtk_button_set_label(GTK_BUTTON(browser->buttons[SERVER_BUTTON]), profile && rrclient_connection_state(profile) ? "Disconnect server" : "Connect server");
    gtk_widget_set_sensitive(browser->buttons[SERVER_BUTTON], profile && *profile);
    GString *text = g_string_new(details ? details : "");
+   char *coordinates = NULL;
+   gtk_tree_model_get(model, &iter, COORDINATES, &coordinates, -1);
+   if (coordinates && *coordinates) g_string_append_printf(text, "\nCoordinates: %s", coordinates);
+   g_free(coordinates);
    g_string_append_printf(text, "\nStatus: %s\nYour state: %s", state ? state : "", ours ? ours : "");
    if (profile && *profile) g_string_append_printf(text, "\nServer: %s", profile);
    if (room && *room) g_string_append_printf(text, "\nRoom: %s", room);
@@ -553,22 +558,23 @@ static void resource_create(void) {
    GtkWidget *hint = gtk_label_new("All resources · select a row to manage your connection");
    gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
+      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING);
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser->store), NAME, resource_name_compare, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser->store), NAME, GTK_SORT_ASCENDING);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->store));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
    gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 18);
    gtk_tree_view_set_search_column(GTK_TREE_VIEW(browser->tree), NAME);
-   const char *titles[] = {"Resource", "Type", "Resource status", "Your connection / subscription", "Details"};
+   const char *titles[] = {"Resource", "Type", "Resource status", "Your connection / subscription", "Coordinates", "Details"};
    for (unsigned i = 0; i < G_N_ELEMENTS(titles); i++) {
+      int field = i < 4 ? (int)i : i == 4 ? COORDINATES : DETAILS;
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
       g_object_set(renderer, "ypad", 3, NULL);
-      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL);
+      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
       gtk_tree_view_column_set_resizable(column, TRUE);
       if (i == STATE || i == OURS) gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
       if (i == NAME) gtk_tree_view_column_set_min_width(column, 240);
-      if (i == DETAILS) {
+      if (field == DETAILS) {
          g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, 300);
@@ -691,6 +697,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       if (*value) g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
    }
    gtk_tree_store_set(browser->store, &iter, NAME, name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
+      COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""),
       UUID, dict_get(row, "inventory.uuid", ""), ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, dict_get(row, "inventory.action", ""), -1);
    if (branch->selection) {
       const char *uuid = dict_get(row, "inventory.uuid", "");

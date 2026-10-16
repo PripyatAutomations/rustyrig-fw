@@ -942,3 +942,19 @@ caches LIST, joins/parts/kicks and chat traffic in `rrclient/irc.stats.c` throug
 counts and records actual highlight detections. No IRC behavior is mirrored to
 the browser, which remains RustyRig-only. Existing RustyRig resource actions and
 Alt-O window toggling retain their behavior.
+
+## GPS coordinate visibility and recent-speaker completion
+
+Resource Explorer has a Coordinates column populated by inventory snapshots and
+updated from received `gpsp` positions; invalid live fixes show No fix. GPS rows
+without coordinates explicitly show unknown/no-fix. `/gps` and `/gps list` also
+print GPS inventory coordinates/status into their originating conversation in
+GTK, as they do in TUI/browser, while still updating the graphical explorer.
+No extra automatic subscription is introduced merely to display the inventory.
+
+Native GTK/TUI nickname completion ranks current-room live public/action
+speakers by observed arrival order, most recent first, with alphabetical fallback.
+Activity belongs to each connection's userlist context and is cleared with that
+context. Browser `getCULNames()` follows the same room-scoped behavior and resets
+on reconnect. Private messages and replay rows do not influence room activity;
+roster privilege ordering is unchanged.

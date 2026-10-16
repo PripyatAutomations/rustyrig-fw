@@ -811,7 +811,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       return;
    }
    bool raw = !memcmp(frame.hdr.codec, RR_NMEA_FRAME_CODEC, 4);
-   char sentence[512];
+   char sentence[512], coordinates[64] = "";
 
    if (raw) {
       if (!frame.len || frame.len >= sizeof(sentence) || memchr(frame.data, 0, frame.len)) {
@@ -825,6 +825,12 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       }
       int32_t lat = (int32_t) ((uint32_t) frame.data[0] << 24 | (uint32_t) frame.data[1] << 16 | (uint32_t) frame.data[2] << 8 | frame.data[3]);
       int32_t lon = (int32_t) ((uint32_t) frame.data[4] << 24 | (uint32_t) frame.data[5] << 16 | (uint32_t) frame.data[6] << 8 | frame.data[7]);
+
+      if (frame.data[8] & RR_GPS_POSITION_VALID) {
+         long long latitude = lat, longitude = lon;
+         snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld, %s%lld.%07lld", latitude < 0 ? "-" : "", llabs(latitude) / 10000000,
+            llabs(latitude) % 10000000, longitude < 0 ? "-" : "", llabs(longitude) / 10000000, llabs(longitude) % 10000000);
+      } else strlcpy(coordinates, "No fix", sizeof(coordinates));
 
       if (!gps_sentence(lat, lon, frame.data[8], sentence, sizeof(sentence))) {
          return;
@@ -843,6 +849,7 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
          channel->rig != frame.hdr.rig || !channel->joined) {
          continue;
       }
+      if (!raw) strlcpy(channel->gps_coordinates, coordinates, sizeof(channel->gps_coordinates));
       const char *suffix = strstr(channel->name, raw ? ".nmea.rx" : ".gps.rx");
 
       if (!suffix) {

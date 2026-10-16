@@ -73,6 +73,9 @@ extern void userlist_clear_all(void);  // destroys the list
 extern struct rr_user *userlist_find(const char *name);
 extern int userlist_compare(const struct rr_user *left, const struct rr_user *right);
 extern void userlist_sort(void);
+/* Completion activity is per connection and room, independent of privilege sorting. */
+void userlist_note_spoke(const char *room, const char *name);
+uint64_t userlist_spoke_order(const char *room, const char *name);
 /* Display decoration only; raw names remain command/roster identities. */
 extern void userlist_display_name(const struct rr_user *user, char *out, size_t capacity);
 extern void userlist_mark_oper(const char *nick, bool oper);
