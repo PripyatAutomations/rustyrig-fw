@@ -15,6 +15,7 @@ extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);
 extern bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec);
 extern bool rrclient_media_subscribe_single_video(void);
+bool rrclient_media_video_info(char *uuid, size_t uuid_size, char *profiles, size_t profiles_size);
 extern const char *rrclient_media_current_codec(bool is_tx);
 /* Resolve a subscribed RX audio channel by wire stream id + codec; returns the codec or NULL for stale/foreign frames. */
 extern const char *rrclient_media_rx_codec_for_stream(uint8_t stream, const char codec[4]);

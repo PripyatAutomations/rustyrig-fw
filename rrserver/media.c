@@ -522,6 +522,10 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
 
       return;
    }
+   if (channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO) {
+      dict_free(d);
+      return;
+   }
    // Media direction is from the client's point of view. Server RX-channel
    // delivery therefore needs an encoder (fwdsp tx mode), while client TX
    // media needs a decoder (fwdsp rx mode).

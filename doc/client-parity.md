@@ -749,3 +749,13 @@ station fallback inherited by rigs. `[site] coordinates` is the station fallback
 when `station.gps.position` is empty. Native and browser consumers retain the
 same valid/manual GPS flags and manual-mode RMC synthesis; real receiver
 no-fix states remain explicit and are not replaced by an invented fix.
+
+## Webcam video
+
+The server owns capture and configured delivery profiles. Native GTK and the
+browser share video discovery, subscription and `media.profile` selection;
+choices come from advertised `video.<codec>.<fps>` pipeline entries. Matching
+viewers share an encoder; other profiles remain independent. Capture and profile
+processes run only while needed. Native GTK uses configured fwdsp H.264/H.265/JPEG
+decoders and bounded local-image delivery; the browser uses JPEG profiles. TUI
+provides media discovery/subscriptions without a graphical video viewer.

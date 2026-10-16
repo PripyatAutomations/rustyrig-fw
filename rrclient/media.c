@@ -93,6 +93,7 @@ struct rr_media_known {
    uint8_t stream;
    bool stream_valid;
    char codec[5];               // active (negotiated) codec magic
+   char profiles[512];
    char descr[128];
    bool subscribed;
    bool disabled;               // explicit NONE, retained for re-enabling
@@ -507,6 +508,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          const char *descr = dict_get(d, "media.descr", NULL);
          const char *name = dict_get(d, "media.name", NULL);
 
+         snprintf(kp->profiles, sizeof(kp->profiles), "%s", dict_get(d, "media.profiles", ""));
          kp->subsystem = subsys;
          kp->direction = dir;
          kp->vfo = vfo;
@@ -1092,6 +1094,20 @@ bool rrclient_media_subscribe(const char *uuid) {
    }
 
    return !sent;
+}
+
+bool rrclient_media_video_info(char *uuid, size_t uuid_size, char *profiles, size_t profiles_size) {
+   const struct rr_media_known *video = NULL;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      if (known_chans[i].uuid[0] && known_chans[i].subsystem == RR_BINFRAME_SUBSYS_VIDEO && known_chans[i].direction == RR_BINFRAME_DIR_RX) {
+         if (video) return false;
+         video = &known_chans[i];
+      }
+   }
+   if (!video) return false;
+   snprintf(uuid, uuid_size, "%s", video->uuid);
+   snprintf(profiles, profiles_size, "%s", video->profiles);
+   return true;
 }
 
 // Automatically subscribe when the server has exactly one receive video stream.

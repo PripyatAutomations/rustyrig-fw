@@ -262,10 +262,11 @@ payload is a full encoded video frame (codec `jpeg` initially).
 
 Two source paths are supported:
 
-1. **Server webcam** (rrserver/webcam.c): with `webcam.enable: true`
-   the server grabs frames from `webcam.device` (default /dev/video0)
-   with a gstreamer `v4l2src` pipeline and fans them out to every
-   subscriber of the video channel it provisions at startup.
+1. **Server webcam** (rrserver/webcam.c): `webcam.enable=true` advertises
+   a station-wide video channel. Its configured `<codec>.tx` capture pipeline
+   starts on the first subscriber and stops when no listeners remain. The
+   default is H.264; per-viewer pipeline profiles provide independent codecs
+   and frame rates, sharing identical profiles. See [webcam setup](webcam.md).
 2. **Client webcam** (rrclient/webcam.c): a client connection configured
    with `client.role: video-source` announces `hello.role: video-source`
    in its initial HELLO. Its account must have the `video-src` privilege;
@@ -276,7 +277,7 @@ Two source paths are supported:
 Because such connections are not ordinary users, the server flags them
 (`FLAG_VIDEO_SOURCE`) and keeps them out of the chat/user lists; they
 show up only as media channels. The GTK client renders incoming video
-frames in a viewer window (`/webcam` to toggle it, `/media SUB <n>` to
+frames in a viewer window (`/webcam` to open it, `/webcam HIDE` to close it, `/media SUB <n>` to
 subscribe).
 
 

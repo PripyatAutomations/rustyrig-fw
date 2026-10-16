@@ -1499,6 +1499,8 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
       rrclient_media_subscribed(d, false);
    } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
       rrclient_media_subscribed(d, true);
+   } else if (cmd && strcasecmp(cmd, "profile") == 0) {
+      Log(LOG_INFO, "webcam", "Video profile: %s", dict_get(d, "media.profile", "source"));
    } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
       const char *uuid = dict_get(d, "media.chan-uuid", NULL);
 

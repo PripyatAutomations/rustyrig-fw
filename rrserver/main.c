@@ -391,8 +391,6 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
    }
 
-   // Grab a webcam, if we're configured with one (webcam.enable)
-   webcam_init();
 
 #ifdef  USE_CAT
 
@@ -442,6 +440,9 @@ int main(int argc, char **argv) {
 
       return 1;
    }
+
+   // Camera IPC must be attached after the manager is initialized.
+   if (fwdsp_ready) webcam_init();
 
    if (fwdsp_ready && !rrserver_media_audio_init()) {
       Log(LOG_CRIT, "pcm.hub", "Rig audio hub initialization failed");
@@ -543,6 +544,7 @@ int main(int argc, char **argv) {
    rrserver_bridges_stop();
    rrserver_serial_fini();
    rrserver_gps_fini();
+   webcam_shutdown();
    rrserver_objects_fini();
 
    if (fwdsp_ready) {

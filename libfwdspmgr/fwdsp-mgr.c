@@ -379,6 +379,22 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
                continue;
             }
 
+            if (ctx->sp->is_video) {
+               struct fwdsp_subproc *sp = ctx->sp;
+               if (sp->refcount > 0) {
+                  if (sp->processor_output) {
+                     sp->processor_output(sp->channel_uuid, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
+                        frame_len, sp->processor_output_data);
+                  } else if (frame_len <= RR_BINFRAME_MAX_PAYLOAD) {
+                     char event[32];
+                     snprintf(event, sizeof(event), "fwdsp.frame.%.4s", sp->pl_id);
+                     event_emit_binary(event, NULL, c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len);
+                  }
+               }
+               mg_iobuf_del(&c->recv, 0, total_len);
+               continue;
+            }
+
             if (is_header) {
                struct fwdsp_subproc *sp = ctx->sp;
 
@@ -464,12 +480,11 @@ bool fwdsp_init(void) {
       return false;
    }
 
-   const char *max_subprocs_s = cfg_get_exp("fwdsp:subproc.max");
+   const char *max_subprocs_s = cfg_get("fwdsp:subproc.max");
 
    if (max_subprocs_s) {
       max_subprocs = atoi(max_subprocs_s);
       Log(LOG_DEBUG, "fwdsp-mgr", "fwdspmgr initializing with %d slots available", max_subprocs);
-      free((char *)max_subprocs_s);
    } else {
       Log(LOG_CRIT, "config", "fwdsp:subproc.max must be set in config for fwdsp manager to work!");
 
@@ -624,7 +639,7 @@ struct fwdsp_subproc *fwdsp_find_instance(const char *id, bool is_tx) {
    return (i >= 0) ? &fwdsp_subprocs[i] : NULL;
 }
 
-static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx, const char *channel_uuid) {
+static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_type, bool is_tx, const char *channel_uuid, bool is_video, bool capture) {
    if (!id) {
       Log(LOG_CRIT, "fwdsp", "create: Invalid parameters: id == NULL");
 
@@ -657,6 +672,18 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          }
 
          sp->is_tx = is_tx;
+         sp->is_video = is_video;
+         sp->video_capture = capture;
+         if (is_video && channel_uuid && !strncmp(channel_uuid, "video.", 6)) {
+            char key[128];
+            snprintf(key, sizeof(key), "pipeline:%s", channel_uuid);
+            const char *pipeline = cfg_get(key);
+            if (!pipeline || strlen(pipeline) >= sizeof(sp->pipeline)) {
+               memset(sp, 0, sizeof(*sp));
+               return NULL;
+            }
+            snprintf(sp->pipeline, sizeof(sp->pipeline), "%s", pipeline);
+         }
          sp->chan_id = next_channel_id++;
          sp->io_type = io_type;
          active_slots++;
@@ -695,7 +722,7 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
    struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
 
    if (!sp) {
-      sp = fwdsp_create(id, io_type, is_tx, NULL);
+      sp = fwdsp_create(id, io_type, is_tx, NULL, false, false);
 
       if (!sp) {
          Log(LOG_CRIT, "fwdsp", "Failure in fwdsp_create call");
@@ -707,6 +734,28 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
    }
 
    return sp;
+}
+
+/* Mark video before create launches the child: camera capture must use -v -t. */
+struct fwdsp_subproc *fwdsp_find_or_create_video(const char *id, bool is_tx) {
+   struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
+   return sp ? (sp->is_video ? sp : NULL) : fwdsp_create(id, FW_IO_STDIO, is_tx, NULL, true, true);
+}
+
+int fwdsp_video_pipeline_start(const char codec[5], const char *identity, bool capture, fwdsp_processor_output_cb output, void *user) {
+   if (!codec || strlen(codec) != 4 || !identity || !*identity || !output || fwdsp_init()) return -1;
+   char key[128];
+   snprintf(key, sizeof(key), "pipeline:%s%s", !strncmp(identity, "video.", 6) ? identity : codec,
+      !strncmp(identity, "video.", 6) ? "" : capture ? ".tx" : ".rx");
+   const char *pipeline = cfg_get(key);
+   if (!pipeline || !*pipeline || strlen(identity) >= sizeof(((struct fwdsp_subproc *)0)->channel_uuid)) return -1;
+   struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec, capture, identity);
+   if (!sp) sp = fwdsp_create(codec, FW_IO_STDIO, capture, identity, true, capture);
+   if (!sp || !sp->is_video) return -1;
+   sp->processor_output = output;
+   sp->processor_output_data = user;
+   sp->refcount = 1;
+   return sp->chan_id;
 }
 
 static bool fwdsp_endpoint_identity(const char *name, const char *default_namespace, char namespace_out[8], char name_out[64]) {
@@ -1023,7 +1072,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (sp->role == FWDSP_ROLE_PROCESSOR) {
       snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->processor_namespace, sp->processor_name);
    } else {
-      snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
+      snprintf(pipeline_key, sizeof(pipeline_key), "pipeline:%s.%s", sp->pl_id, sp->is_video ? (sp->video_capture ? "tx" : "rx") : (sp->is_tx ? "tx" : "rx"));
    }
    // The parent passes the selected pipeline so the child does not silently
    // substitute its standalone defaults or select a different processing chain.
@@ -1061,10 +1110,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    args[n++] = child_pipeline ? child_pipeline : "";
 
    if (sp->role != FWDSP_ROLE_PROCESSOR) {
-      if (sp->is_tx) {
-         args[n++] = "-t";
-      } else if (sp->is_video) {
+      if (sp->is_video) {
          args[n++] = "-v";
+         if (sp->video_capture) args[n++] = "-t";
+      } else if (sp->is_tx) {
          args[n++] = "-t";
       } else if (emit_pcm_tap) {
          args[n++] = "-H";
@@ -1389,7 +1438,7 @@ void fwdsp_sweep_expired(void) {
 
       // Client-owned instances have explicit lifetimes, including independently
       // named RX decoders. Server subscriber sweeps must not retire them.
-      if (sp->local_lifetime || sp->channel_uuid[0] == '\0') {
+      if (sp->is_video || sp->local_lifetime || sp->channel_uuid[0] == '\0') {
          if (sp->refcount == 0 && sp->cleanup_deadline > 0 && sweep_now >= sp->cleanup_deadline) {
             fwdsp_destroy(sp);
          }
@@ -1452,7 +1501,7 @@ int fwdsp_codec_start_local(const char codec_id[5], bool is_tx, const char *iden
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec_id, is_tx, identity);
 
    if (!sp) {
-      sp = fwdsp_create(codec_id, FW_IO_STDIO, is_tx, identity);
+      sp = fwdsp_create(codec_id, FW_IO_STDIO, is_tx, identity, false, false);
    }
 
    if (!sp) {
@@ -1477,7 +1526,7 @@ int fwdsp_codec_start(const char codec_id[5], bool is_tx, const char *channel_uu
    }
 
    if (!sp && channel_uuid) {
-      sp = fwdsp_create(codec_id, FW_IO_STDIO, is_tx, channel_uuid);
+      sp = fwdsp_create(codec_id, FW_IO_STDIO, is_tx, channel_uuid, false, false);
    }
 
    if (!sp) {

@@ -200,6 +200,7 @@ defconfig_t defcfg[] = {
    {
       "peer.node.uuid", "", "Optional expected remote server UUID"
    },
+   FWDSP_VIDEO_PIPELINE_DEFAULTS
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE) {
       "atu.max", "4", "Maximum number of ATUs", DEFCONFIG_UINT, NULL
    },
@@ -304,16 +305,16 @@ defconfig_t defcfg[] = {
       "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order"
    },
    {
-      "codecs.allowed.video", "jpeg h264", "Preferred video codec order"
+      "codecs.allowed.video", "h264 h265 jpeg", "Preferred video codec order"
    },
    {
-      "webcam.enable", "false", "Capture a v4l2 webcam and stream it as a video media channel", DEFCONFIG_BOOL, NULL
+      "webcam.enable", "false", "Offer configured video capture to subscribed webcam viewers", DEFCONFIG_BOOL, NULL
    },
    {
-      "webcam.device", "/dev/video0", "v4l2 device to grab frames from"
+      "webcam.device", "/dev/video0", "Legacy camera hint; configure the device in its capture pipeline"
    },
    {
-      "webcam.codec", "jpeg", "4-char codec magic for the video stream", DEFCONFIG_ENUM, "jpeg|h264"
+      "webcam.codec", "h264", "Four-character capture pipeline and video codec tag"
    },
    {
       "core.daemonize", "false", "Should we go to background after starting?", DEFCONFIG_BOOL, NULL

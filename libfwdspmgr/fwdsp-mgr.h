@@ -80,6 +80,7 @@ struct fwdsp_subproc {
    char channel_uuid[64];
    char pipeline[1024];
    bool is_tx;
+   bool video_capture;
    bool is_video;               // video (webcam etc) pipeline? passed
    // as -v so fwdsp sets FW_MEDIA_VIDEO
    uint8_t *stream_headers;     // length-framed initialization packets
@@ -139,6 +140,8 @@ extern bool fwdsp_write_channel_samples(const char codec_id[5], bool is_tx, cons
 extern bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uuid, fwdsp_processor_output_cb output_cb, void *user_data);
 extern bool fwdsp_cmd_setvol(const char codec_id[5], bool is_tx, int percent);
 extern bool fwdsp_cmd_shutdown(const char codec_id[5], bool is_tx, int unused1);
+extern struct fwdsp_subproc *fwdsp_find_or_create_video(const char *id, bool is_tx);
+extern int fwdsp_video_pipeline_start(const char codec[5], const char *identity, bool capture, fwdsp_processor_output_cb output, void *user);
 extern int fwdsp_video_start(const char codec_id[5], bool is_tx);
 extern int fwdsp_codec_start_local(const char codec_id[5], bool is_tx, const char *identity);
 extern int fwdsp_codec_stop(const char *codec, bool is_tx);

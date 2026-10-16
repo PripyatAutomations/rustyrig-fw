@@ -349,10 +349,10 @@ flaT.tx=audiotestsrc is-live=true wave=sine freq=600 samplesperbuffer=320 do-tim
         encoded-t. ! queue max-size-buffers=8 leaky=downstream ! appsink name=record-encoded-sink emit-signals=false sync=false max-buffers=8 drop=true t. ! \
         queue max-size-buffers=4 leaky=downstream ! appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true
 
-; webcam capture: v4l2src frames -> jpeg. Recording currently applies only to
-; raw audio record-sink branches.
-jpeg.tx=v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=15/1 ! jpegenc quality=70 ! appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false
-jpeg.rx=appsrc name=rx-src do-timestamp=1 format=time ! jpegparse ! jpegdec ! videoconvert ! fakesink name=rx-sink sync=false
+; Optional JPEG capture; H.264 capture/delivery defaults are built in.
+; Recording applies only to raw audio record-sink branches.
+jpeg.tx=v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=15/1 ! jpegenc quality=70 ! appsink name=tx-sink emit-signals=false sync=false max-buffers=1 drop=true
+jpeg.rx=appsrc name=rx-src is-live=true do-timestamp=true format=time caps=image/jpeg ! jpegparse ! jpegdec ! videoconvert ! video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true
 
 ; Every server.url requires a scheme. Ports are optional: WS 8420, WSS 4420, IRC 6667, IRCS 6697.
 ; ws://host:8420/ws/ uses WebSocket; wss://host:4420/ws/ uses WebSocket + TLS.
