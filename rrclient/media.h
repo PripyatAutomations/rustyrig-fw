@@ -11,6 +11,8 @@
 
 void rrclient_media_sync_audio(void);
 void rrclient_media_refresh(void);
+/* Current connection: local confirmed TX feeding this RX resource. */
+bool rrclient_media_local_tx(const char *uuid);
 extern void rrclient_media_room_selected(const char *room);
 extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);

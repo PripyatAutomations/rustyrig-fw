@@ -136,6 +136,9 @@ defconfig_t defcfg[] = {
       "audio.test-mode", "true", "Show and advertise tone/pink test codecs", DEFCONFIG_BOOL, NULL
    },
    {
+      "audio.mute-talkback", "true", "Mute RX stream during TX to suppress talkback", DEFCONFIG_BOOL, NULL
+   },
+   {
       "audio.volume.rx", "30", "Default RX volume", DEFCONFIG_UINT, NULL
    },
    {

@@ -251,6 +251,16 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    route->pending_count += count;
 }
 
+struct talkback_check {
+   const char *uuid;
+   bool mute;
+};
+
+static void audio_check_talkback(void *data) {
+   struct talkback_check *check = data;
+   check->mute = rrclient_media_local_tx(check->uuid);
+}
+
 /* PARITY: rustyrig-www/js/webui.audio.js webui_sync_rx_routes. Mix independent mono receivers into stereo, bounded to 100 ms per stream. Selection and focus
  * never affect routing; muted streams keep decoding. */
 static void audio_mix_block(void) {
@@ -261,6 +271,17 @@ static void audio_mix_block(void) {
 
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       size_t take = r->pending_count < 320 ? r->pending_count : 320;
+
+      struct talkback_check check = { .uuid = r->uuid };
+
+      if (cfg_get_bool("audio.mute-talkback", true)) {
+         rrclient_connection_dispatch(r->connection, audio_check_talkback, &check);
+      }
+
+      if (check.mute) {
+         r->pending_count = 0;
+         continue;
+      }
 
       if (r->output != 'M') {
          frames = 320;          // Fixed cadence; zero-fill underruns instead of shortening the timeline.

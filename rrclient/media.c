@@ -227,6 +227,36 @@ const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4
 
    return channel ? channel->uuid : NULL;
 }
+/* PARITY: rustyrig-www/js/webui.audio.js webui_mute_talkback. */
+bool rrclient_media_local_tx(const char *uuid) {
+   extern const char *login_user;
+   extern struct rr_user *global_userlist;
+
+   if (!login_user || !uuid) {
+      return false;
+   }
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      const struct rr_client_media_chan *channel = &known_chans[i];
+
+      if (strcmp(channel->uuid, uuid)) {
+         continue;
+      }
+
+      for (const struct rr_user *user = global_userlist ; user ; user = user->next) {
+         const char *room = user->ptt_room[0] ? user->ptt_room : user->room;
+         const char *control = channel->control_room[0] ? channel->control_room : channel->room;
+
+         if (user->is_ptt && !strcasecmp(user->name, login_user) && room[0] &&
+             (!strcasecmp(room, control) || ws_room_same_rig(room, control)) && (channel->vfo == RR_BINFRAME_VFO_NA || user->ptt_vfo == 'A' + channel->vfo)) {
+            return true;
+         }
+      }
+   }
+
+   return false;
+}
+
 void rrclient_media_sync_audio(void) {
    struct rrclient_rx_audio channels[RR_MEDIA_MAX_CHANS];
    size_t count = 0;

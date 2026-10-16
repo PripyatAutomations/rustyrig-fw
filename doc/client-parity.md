@@ -869,3 +869,13 @@ the existing per-server object cache. Explicit native host serial and CAT
 attachments retain an originating profile; browser clients have no local
 PTY/CAT attachment equivalent. GPS output endpoints retain their existing
 active-server behavior.
+
+## Local TX talkback suppression
+
+Native `audio.mute-talkback` defaults to true ("Mute RX stream during TX to
+suppress talkback"). The browser exposes the same default in Config and stores
+it under the same localStorage key. Both clients suppress playback only for RX
+resources on the locally transmitting rig/VFO, including a rig's shared RX
+stream. Other users' TX and unrelated RX streams remain audible. Native mixing
+checks the originating connection's roster, independent of the selected tab;
+decoders keep consuming muted audio rather than saving it for release.
