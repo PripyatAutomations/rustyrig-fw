@@ -406,13 +406,15 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       ok = ok && password_hash && db_user_create(masterdb, uid, argv[1], true, password_hash, "no@example.com", 1, privileges, true, now + 7 * 86400);
       free(password_hash);
 
-      if (!ok || !rrserver_user_reload_database(cptr)) {
+      if (!ok) {
          ws_send_notice(cptr, "USER: failed to add %s", argv[1]);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s added user %s with privileges %s", cptr->chatname, argv[1], privileges);
       ws_send_notice(cptr, "USER: added %s with temporary password %s (password change required at next login)", argv[1], password);
+
+      rrserver_user_reload_database(cptr);
 
       return;
    }
@@ -489,12 +491,15 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          return;
       }
 
-      if (!db_user_set_privileges(masterdb, target->name, updated) || !rrserver_user_reload_database(cptr)) {
+      bool ok = db_user_set_privileges(masterdb, target->name, updated);
+      if (ok) {
+         Log(LOG_AUDIT, "auth.users", "%s changed privileges for %s to %s", cptr->chatname, target->name, updated[0] ? updated : "none");
+      }
+      if (!ok || !rrserver_user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to update privileges for %s", target->name);
 
          return;
       }
-      Log(LOG_AUDIT, "auth.users", "%s changed privileges for %s to %s", cptr->chatname, target->name, updated[0] ? updated : "none");
       ws_send_notice(cptr, "USER: %s privileges for %s: %s", argv[2], target->name, updated[0] ? updated : "none");
 
       return;
@@ -520,12 +525,15 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
       bool enabled = strcasecmp(argv[0], "unlock") == 0;
 
-      if (!db_user_set_enabled(masterdb, target->name, enabled) || !rrserver_user_reload_database(cptr)) {
+      bool ok = db_user_set_enabled(masterdb, target->name, enabled);
+      if (ok) {
+         Log(LOG_AUDIT, "auth.users", "%s %s user %s", cptr->chatname, enabled ? "unlocked" : "locked", target->name);
+      }
+      if (!ok || !rrserver_user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to %s %s", enabled ? "unlock" : "lock", target->name);
 
          return;
       }
-      Log(LOG_AUDIT, "auth.users", "%s %s user %s", cptr->chatname, enabled ? "unlocked" : "locked", target->name);
       ws_send_notice(cptr, "USER: %s %s", enabled ? "Unlocked" : "Locked", target->name);
 
       return;
@@ -551,6 +559,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
+      Log(LOG_AUDIT, "auth.users", "%s removed user %s", cptr->chatname, removed_name);
       user_disconnect_sessions(target, "Your account was removed by an administrator");
 
       if (!rrserver_user_reload_database(cptr)) {
@@ -558,7 +567,6 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      Log(LOG_AUDIT, "auth.users", "%s removed user %s", cptr->chatname, removed_name);
       ws_send_notice(cptr, "USER: removed %s", removed_name);
 
       return;
@@ -581,13 +589,15 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, true, now + 7 * 86400);
       free(password_hash);
 
-      if (!ok || !rrserver_user_reload_database(cptr)) {
+      if (!ok) {
          ws_send_notice(cptr, "USER: failed to reset password for %s", target->name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s reset password for %s", cptr->chatname, target->name);
       ws_send_notice(cptr, "USER: temporary password for %s: %s (password change required at next login)", target->name, password);
+
+      rrserver_user_reload_database(cptr);
 
       return;
    }
@@ -602,13 +612,15 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       bool ok = password_hash && db_user_update_password(masterdb, target->name, password_hash, false, 0);
       free(password_hash);
 
-      if (!ok || !rrserver_user_reload_database(cptr)) {
+      if (!ok) {
          ws_send_notice(cptr, "USER: failed to change password for %s", target->name);
 
          return;
       }
       Log(LOG_AUDIT, "auth.users", "%s changed password for %s", cptr->chatname, target->name);
       ws_send_notice(cptr, "USER: password changed for %s", target->name);
+
+      rrserver_user_reload_database(cptr);
 
       return;
    }

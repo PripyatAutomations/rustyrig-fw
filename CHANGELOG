@@ -1,5 +1,11 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Add Set Password with masked confirmation and Reset PW to GTK/browser
+    account editors; shorten the tab action to Reset PW. Show requester-only
+    password results in popups, with selectable temporary credentials in GTK.
+  * Audit successful account mutations immediately after persistence, even
+    when active-state reload fails, and identify edited fields. Keep passwords
+    out of audit records and return saved temporary credentials on reload errors.
   * Give freshly seeded SQLite admin accounts owner privileges. Keep existing
     account grants unchanged and report owner-only edit rejections directly.
   * Save only changed editable account fields from GTK/browser Admin and
@@ -237,7 +243,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:11:48 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:18:13 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

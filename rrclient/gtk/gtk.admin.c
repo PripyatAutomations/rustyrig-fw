@@ -204,6 +204,84 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
    return sent;
 }
 
+/* Reuse the server's password command; credentials never enter chat input/history. */
+static void admin_set_password(admin_table_t *table, GtkWindow *parent, const char *name) {
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Set Password", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "Cancel", GTK_RESPONSE_CANCEL, "Set Password", GTK_RESPONSE_OK, NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   char *context = g_strdup_printf("Server: %s\nUser: %s\nPassword: 8–128 bytes, no whitespace", table->profile, name);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
+   g_free(context);
+   GtkWidget *password = gtk_entry_new(), *confirmation = gtk_entry_new();
+   gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
+   gtk_entry_set_visibility(GTK_ENTRY(confirmation), FALSE);
+   gtk_entry_set_input_purpose(GTK_ENTRY(password), GTK_INPUT_PURPOSE_PASSWORD);
+   gtk_entry_set_input_purpose(GTK_ENTRY(confirmation), GTK_INPUT_PURPOSE_PASSWORD);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(password), "New password");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(confirmation), "Confirm password");
+   gtk_entry_set_activates_default(GTK_ENTRY(confirmation), TRUE);
+   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
+   gtk_box_pack_start(GTK_BOX(box), password, FALSE, FALSE, 6);
+   gtk_box_pack_start(GTK_BOX(box), confirmation, FALSE, FALSE, 6);
+   GtkWidget *error = gtk_label_new("");
+   gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 6);
+   gtk_widget_show_all(dialog);
+
+   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+      const char *value = gtk_entry_get_text(GTK_ENTRY(password));
+      if (strcmp(value, gtk_entry_get_text(GTK_ENTRY(confirmation)))) {
+         gtk_label_set_text(GTK_LABEL(error), "Passwords do not match");
+         continue;
+      }
+      if (strlen(value) < 8 || strlen(value) > 128 || strpbrk(value, " \t\r\n\v\f")) {
+         gtk_label_set_text(GTK_LABEL(error), "Use 8–128 bytes without whitespace");
+         continue;
+      }
+      char *tail = g_strdup_printf("pass %s %s", name, value);
+      admin_command(table, "user", tail, NULL);
+      memset(tail, 0, strlen(tail));
+      g_free(tail);
+      break;
+   }
+   gtk_widget_destroy(dialog);
+}
+
+static rr_event_token_t admin_password_notice_token;
+static GtkWidget *admin_account_dialog;
+
+/* Temporary credentials are returned only to the requester, never through audit. */
+static void admin_password_notice(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)unused;
+   dict *notice = data ? json2dict(data) : NULL;
+   const char *text = notice ? dict_get(notice, "notice.msg", "") : "";
+   if (g_str_has_prefix(text, "USER: temporary password for ") ||
+       (g_str_has_prefix(text, "USER: added ") && strstr(text, " with temporary password ")) ||
+       g_str_has_prefix(text, "USER: password changed for ") ||
+       g_str_has_prefix(text, "USER: failed to reset password for ") ||
+       g_str_has_prefix(text, "USER: failed to change password for ") ||
+       g_str_has_prefix(text, "USER: insufficient privilege to modify ")) {
+      const char *server = rrclient_connection_name(connection);
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(admin_account_dialog ? admin_account_dialog : main_window), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Password result — %s", server ? server : "server");
+      gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", text);
+      GList *labels = gtk_container_get_children(GTK_CONTAINER(gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dialog))));
+      for (GList *item = labels; item; item = item->next) {
+         if (GTK_IS_LABEL(item->data)) gtk_label_set_selectable(GTK_LABEL(item->data), TRUE);
+      }
+      g_list_free(labels);
+      g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+      gtk_widget_show(dialog);
+      gtk_window_present(GTK_WINDOW(dialog));
+   }
+   dict_free(notice);
+}
+
+static void admin_password_notice_destroy(GtkWidget *widget, gpointer unused) {
+   (void)widget; (void)unused;
+   if (admin_password_notice_token) event_off_token(admin_password_notice_token);
+   admin_password_notice_token = NULL;
+}
+
 static void admin_refresh(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -241,7 +319,8 @@ static void admin_action(GtkButton *button, gpointer data) {
 
    if (!strcmp(table->name, "users") && !strcmp(action, "edit")) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-         "Cancel", GTK_RESPONSE_CANCEL, "Save", GTK_RESPONSE_OK, NULL);
+         "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Save", GTK_RESPONSE_OK, NULL);
+      admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
       char *original[10] = {0};
       gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
@@ -263,7 +342,16 @@ static void admin_action(GtkButton *button, gpointer data) {
       gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), hint);
       gtk_widget_show_all(dialog);
 
-      if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+      int response;
+      while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == 1001 || response == 1002) {
+         if (response == 1001) admin_set_password(table, GTK_WINDOW(dialog), name);
+         else {
+            char *request = g_strdup_printf("resetpw %s", name);
+            admin_command(table, "user", request, NULL);
+            g_free(request);
+         }
+      }
+      if (response == GTK_RESPONSE_OK) {
          dict *fields = dict_new();
 
          if (fields) {
@@ -294,6 +382,7 @@ static void admin_action(GtkButton *button, gpointer data) {
             gtk_label_set_text(GTK_LABEL(table->status), "Unable to allocate account changes");
          }
       }
+      admin_account_dialog = NULL;
       gtk_widget_destroy(dialog);
       for (int col = 0; col < 10; col++) g_free(original[col]);
       g_free(name);
@@ -427,6 +516,8 @@ static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint nu
 
 GtkWidget *init_admin_tab(void) {
    admin_view = gtk_notebook_new();
+   admin_password_notice_token = event_on_token("notice.msg", admin_password_notice, NULL);
+   g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
@@ -445,7 +536,7 @@ GtkWidget *init_admin_tab(void) {
 
       if (i < 3) {
          const char *labels[] = {
-            "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset password"
+            "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW"
          };
          const char *actions[] = {
             "edit", i == 0 ? "lock" : "remove", i == 0 ? "unlock" : "add", "remove", "resetpw"

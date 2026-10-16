@@ -898,3 +898,19 @@ A reload failure explicitly reports that SQLite already saved the account.
 Protected-account and elevated-privilege edits still require `owner`.
 Fresh SQLite seeds give the bootstrap admin both owner and admin privileges;
 existing databases retain their configured grants.
+
+## Account password dialogs and audit timing
+
+GTK and browser account editors expose Set Password (masked new/confirmation
+inputs) and Reset PW, reusing `/user pass` and `/user resetpw`. The existing
+command grammar accepts 8–128 bytes without whitespace. Temporary-password
+notices and password-change results also open requester-local dialogs; GTK
+includes the server profile and allows copying the returned credential.
+Credentials are not written to the audit record.
+
+Successful account creation, privilege changes, locking/unlocking, removal,
+password reset/set and field edits issue `LOG_AUDIT` immediately after database
+persistence, before active-state reload. The existing `audit.c` logger callback
+persists those events to SQLite even when reload fails. Account editor audit
+records name the changed editable fields without their values. Newly generated
+credentials are still returned after a successful write if reload fails.

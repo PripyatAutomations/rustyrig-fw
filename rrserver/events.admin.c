@@ -135,7 +135,14 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    bool ok = db_user_edit(masterdb, name, fields);
 
    if (ok) {
-      Log(LOG_AUDIT, "auth.users", "%s edited account %s", client->chatname, name);
+      const char *editable[] = {"email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"};
+      char changed[256] = "";
+      for (unsigned i = 0; i < sizeof(editable) / sizeof(editable[0]); i++) {
+         if (dict_get_type(fields, editable[i]) == VAL_END) continue;
+         if (*changed) strlcat(changed, ",", sizeof(changed));
+         strlcat(changed, editable[i], sizeof(changed));
+      }
+      if (*changed) Log(LOG_AUDIT, "auth.users", "%s edited account %s fields %s", client->chatname, name, changed);
 
       if (rrserver_user_reload_database(client)) {
          rrserver_admin_send(client, "users", "changed", NULL);
