@@ -9,6 +9,14 @@
 #define RRSERVER_DISCOVERY_H
 #include <librrprotocol/rrprotocol.h>
 
+/* Internal metadata collection; no client connection or resource access is granted.
+ * Contributors transfer each row to emit(), which owns and frees it. */
+#define RR_INVENTORY_CATALOG_EVENT "server.inventory.catalog"
+typedef struct {
+   const char *scope;
+   void (*emit)(dict *row, void *context);
+   void *context;
+} rr_inventory_catalog_t;
 #define RR_INVENTORY_EVENT "server.inventory.collect"
 static inline dict *rr_inventory_row(const char *request, unsigned depth, const char *kind, const char *name, const char *uuid) {
    dict *d = dict_new();

@@ -13,7 +13,7 @@ rrconn_t *rrclient_connection_find(const char *profile) {
    return !strcmp(profile, "alpha") ? &alpha : &beta;
 }
 void rrclient_connection_dispatch(rrconn_t *connection, void (*cb) (void *), void *data) {
-   assert(connection == &alpha);
+   assert(connection == &alpha || connection == &beta);
    cb(data);
 }
 bool cmd_join(int argc, char **args) {
@@ -28,6 +28,38 @@ bool cmd_media(int argc, char **args) {
 
    return false;
 }
+/* Empty optional stores keep this fixture focused on tree routing and actions. */
+struct rr_user *global_userlist;
+const char *rr_serial_name(const rr_serial_t *port) { return ""; }
+void rr_serial_foreach(rr_serial_visit_fn visit, void *user) {}
+rr_serial_t *rr_serial_find(const char *name) { return NULL; }
+bool rr_sercom_info(const char *name, rr_sercom_info_t *info) { return false; }
+bool rr_sercom_attach(const char *name, const char *service, const char *device) { return false; }
+bool rr_sercom_disconnect(const char *name) { return false; }
+const char *rrclient_selected_server(void) { return "alpha"; }
+const char *rrclient_connection_iter(unsigned index) { return index == 0 ? "alpha" : index == 1 ? "beta" : NULL; }
+int rrclient_connection_state(const char *profile) { return !strcmp(profile, "alpha") ? 1 : 0; }
+const struct rr_client_media_chan *rrclient_media_chan_iter(int idx, int *listno) {
+   static struct rr_client_media_chan channel = { .uuid = "stream-1", .name = "test.rx", .room = "#station-rig1" };
+   if (listno) *listno = 1;
+   return idx == 0 ? &channel : NULL;
+}
+void rrclient_media_refresh(void) {}
+bool rrclient_room_is_joined(const char *room) { return false; }
+bool rrclient_room_offline(const char *room) { return false; }
+const dict *rrclient_object_property(const char *uuid, const char *name) { return NULL; }
+const char *rrclient_objects_subscription(void) { return "Subscribed"; }
+bool rrclient_object_dump_selected(const char *name, rr_object_cache_dump_fn emit, void *user) { return false; }
+bool userlist_names_pending(const char *room) { return false; }
+const struct rrclient_irc_channel_stats *rrclient_irc_stats_next(const char *profile, const struct rrclient_irc_channel_stats *previous) { return NULL; }
+bool cmd_part(int argc, char **args) { return false; }
+bool cmd_rig(int argc, char **args) { return false; }
+bool cmd_object(int argc, char **args) { return false; }
+bool disconnect_server(const char *profile) { return false; }
+bool connect_server(const char *profile) { return false; }
+gui_window_t *gui_find_window(GtkWidget *window, const char *name) { return NULL; }
+gui_window_t *ui_new_window(GtkWidget *window, const char *name) { return NULL; }
+
 static void row(rrconn_t *connection, unsigned depth, const char *kind, const char *uuid) {
    dict *d = dict_new();
    dict_add(d, "request.id", "resource-1");
@@ -56,7 +88,8 @@ int main(int argc, char **argv) {
    row(&alpha, 0, "site", "site-1");
    row(&alpha, 1, "rig", "rig-1");
    row(&alpha, 2, "media", "stream-1");
-   GtkTreePath *path = gtk_tree_path_new_from_string("1:0:0:0");
+   GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(view->store), &branch->root);
+   for (unsigned i = 0; i < 3; i++) gtk_tree_path_append_index(path, 0);
    gtk_tree_view_expand_all(GTK_TREE_VIEW(view->tree));
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(view->tree)), path);
    gtk_tree_path_free(path);

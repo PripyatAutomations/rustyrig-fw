@@ -1,5 +1,6 @@
 // Safety lockouts must inhibit key-down while always allowing key-up.
 #include <assert.h>
+#include <rrserver/supervision.h>
 #include <stdio.h>
 #include <librustyaxe/core.h>
 #include <rrserver/ptt.h>
@@ -89,6 +90,14 @@ int db_ptt_start(sqlite3 *db, const char *user, const char *vfo, double frequenc
    const char *server) {
    assert(false);
 
+   return -1;
+}
+void rrserver_supervision_snapshot(rrconn_t *client, const char *room, struct rr_supervision_attribution *out) {
+   memset(out, 0, sizeof(*out));
+}
+int db_ptt_start_supervised(sqlite3 *db, const char *user, const char *vfo, double frequency, const char *mode, int width, float power,
+   const char *file, const char *id, const char *server, const char *ticket, const char *elmers) {
+   assert(false); /* Release-only fixture must never create an accounting row. */
    return -1;
 }
 bool db_ptt_stop(sqlite3 *db, int id, int *duration, const char *reason) {

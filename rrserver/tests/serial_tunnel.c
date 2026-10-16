@@ -11,6 +11,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.serial.h>
+#include <librrprotocol/server.events.h>
 #include <rrclient/sercom.h>
 #include <rrclient/objects.h>
 #include <rrserver/serial.h>
@@ -19,6 +20,11 @@ time_t now;
 bool dying, restarting;
 rrconn_t *ws_conn;
 struct rr_user *global_userlist;
+const char *rrserver_gps_public_scope(const char *alias) { return alias; }
+bool rrserver_gps_source_fixed(const char *alias) { return false; }
+rrconn_t *rrclient_connection_find(const char *profile) { return ws_conn; }
+const char *rrclient_connection_name(const rrconn_t *connection) { return "test"; }
+void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) { callback(data); }
 static char last_error[64];
 static unsigned tx_frames, rx_frames, configured;
 static bool send_request(rrconn_t *client, dict *d) {
@@ -60,7 +66,7 @@ bool ws_send_to_cptr(rrconn_t *sender, rrconn_t *dest, struct mg_str *payload, i
       assert(ws_binframe_process_mg(dest, payload->buf, payload->len));
    } else {
       rx_frames++;
-      assert(ws_binframe_process(payload->buf, payload->len));
+      assert(ws_binframe_process_client(dest, payload->buf, payload->len));
    }
 
    return true;
@@ -201,7 +207,7 @@ int main(int argc, char **argv) {
    rrserver_serial_init();
    dict_add(cfg, "serial.ttyHOST0", "host:ttyHOST0");
    assert(rr_sercom_init());
-   event_emit("authorized", NULL, NULL);
+   /* Initialization opens bindings against the already authenticated fixture. */
    int fd = open(local, O_RDWR | O_NOCTTY | O_NONBLOCK);
    assert(fd >= 0);
    rr_serial_settings_t initial;

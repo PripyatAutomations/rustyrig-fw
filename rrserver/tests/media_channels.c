@@ -127,8 +127,9 @@ bool fwdsp_codec_set_pcm_callback(const char codec_id[5], const char *channel_uu
    return true;
 }
 
+static rrconn_t *test_talker;
 rrconn_t *whos_talking(void) {
-   return NULL;
+   return test_talker;
 }
 
 /* Distinct rig-owned VFO objects exercise the actual registry paths. */
@@ -324,8 +325,12 @@ int main(void) {
    assert(!strcmp(pcm_channel, rx->uuid));
    struct rr_mediachan *other_tx = media_chan_find(RR_BINFRAME_SUBSYS_AUDIO, RR_BINFRAME_DIR_TX, RR_BINFRAME_VFO_NA, 1);
    assert(other_tx && decoder_callback);
+   client.ptt_vfo = 'A';
+   test_talker = &client;
+   rig.ptt_rig = radio1;
    decoder_callback(other_tx->uuid, samples, sizeof(samples), NULL);
    assert(!strcmp(pcm_sink, "sink.rig1"));
+   rig.ptt_rig = radio0;
    decoder_callback(tx->uuid, samples, sizeof(samples), NULL);
    assert(!strcmp(pcm_sink, "sink.rig0"));
 
@@ -338,6 +343,7 @@ int main(void) {
    assert(rrserver_media_activate_ptt(VFO_B, &client));
    assert(!strcmp(last_callback_codec, "mu08"));
    rig.ptt_rig = NULL;
+   test_talker = NULL;
 
    // A dual receiver with one transmitter exposes two RX channels and one TX.
    media_channels_free();

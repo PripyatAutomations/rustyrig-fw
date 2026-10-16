@@ -989,3 +989,9 @@ Replace the existing client CSS section with the generated block, edit it and
 run `/css-reload`. Native config loading, saving and CSS reload preserve escaped
 ID selectors; a closed one-line block comment cannot consume subsequent rules.
 This helper and INI/CSS escaping are native-specific.
+
+Remote inventory service rows use the existing inventory wire contract and are
+consumed by native and browser discovery. Relay-private catalog fields are
+removed before client encoding. Native Resource Explorer disables serial/CAT
+attachment for `owner-server-only` rows; browser discovery displays that status
+and does not create native PTYs.

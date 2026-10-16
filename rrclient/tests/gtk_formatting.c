@@ -66,6 +66,7 @@ bool parse_chat_input_real(const char *message) {
 static char joined_room[128], joined_server[128];
 bool cmd_join(int argc, char **args) {
    assert(argc == 2);
+   if (room_tabs && g_hash_table_lookup(room_tabs, rrclient_window_name(args[1]))) return false;
    snprintf(joined_room, sizeof(joined_room), "%s", args[1]);
    snprintf(joined_server, sizeof(joined_server), "%s", selected_server);
 

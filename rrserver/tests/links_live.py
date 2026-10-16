@@ -135,6 +135,7 @@ media.direct.host={'127.0.0.1' if DIRECT_MEDIA else ''}
 media.direct.bind=127.0.0.1
 media.direct.port={media_ports[name]}
 codecs.allowed=pc16
+serial.ttyNETWORK=serial:/dev/null@115200,8n1
 [rig:rig0]
 backend=internal
 vfos={'A,B' if name == 'gamma' else 'A'}
@@ -288,17 +289,30 @@ acl=media-staff
         wait(lambda: 'Topology overlap' in log('alpha'), 'cycle was not rejected by topology admission')
         assert 'Unlinked site' not in log('delta')
         print('PASS: symmetric peer handshake and live cycle rejection preserve the existing tree')
-        def login(name, username='TEST'):
+        def login(name, username='TEST', secret='test-password'):
             c = WebSocket(ports[name], context) if LISTENER == "shared" and name == "gamma" else WebSocket(client_ports[name])
             c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': username}})
             challenge = c.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
-            first_hash = hashlib.sha1(b'test-password').hexdigest()
+            first_hash = hashlib.sha1(secret.encode()).hexdigest()
             password = hashlib.sha1((first_hash + '+' + challenge['nonce']).encode()).hexdigest()
             c.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'pass', 'user': username,
                 'pass': password, 'token': challenge['token']}})
             c.until(lambda m: m.get('auth', {}).get('cmd') == 'authorized')
             return c
         origin, owner = login('alpha'), login('gamma')
+        # Media stress variants already approach the per-peer login rate limit.
+        if not (DIRECT_MEDIA or PROXY_MEDIA):
+            with sqlite3.connect(work / 'alpha.db') as db:
+                db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(6,'LIVE',1,?,2,'view,chat')",
+                    (hashlib.sha1(b'initial-password').hexdigest(),))
+            live = login('alpha', 'LIVE', 'initial-password')
+            with sqlite3.connect(work / 'alpha.db') as db:
+                db.execute("UPDATE users SET password=?,permissions='view' WHERE name='LIVE'",
+                    (hashlib.sha1(b'external-password').hexdigest(),))
+            changed = login('alpha', 'LIVE', 'external-password')
+            changed.socket.close()
+            live.socket.close()
+            print('PASS: external SQLite account creation, password and permission edits apply without rehash')
         # Admin listings come from SQLite, including offline/locked accounts.
         with sqlite3.connect(work / 'alpha.db') as db:
             db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(90,'OFFLINE',0,'secret-hash',1,'view')")
@@ -379,6 +393,32 @@ acl=media-staff
             return m.get('object', {}).get('cmd') == 'end' and m.get('request', {}).get('id') == 'relay-objects'
         origin.until(snapshot_done)
         assert any(o.get('type') == 'vfo' and o.get('room') == '#gamma-rig0' for o in objects), objects
+        origin.send({'msg': {'type': 'object'}, 'object': {'cmd': 'inventory'}, 'request': {'id': 'relay-inventory'}})
+        resources = []
+        def inventory_done(m):
+            if m.get('request', {}).get('id') != 'relay-inventory': return False
+            if m.get('object', {}).get('cmd') == 'inventory-entry': resources.append(m['inventory'])
+            return m.get('object', {}).get('cmd') == 'inventory-end'
+        origin.until(inventory_done)
+        # Check the two-hop branch, not just services belonging to our own node.
+        gamma = next(i for i, row in enumerate(resources) if row.get('kind') == 'site' and row.get('name') == 'gamma')
+        remote = []
+        for row in resources[gamma + 1:]:
+            if row.get('depth') == 0: break
+            remote.append(row)
+        assert {'rig', 'vfo', 'gps', 'cat', 'media'} <= {row['kind'] for row in remote}, remote
+        assert all(row['depth'] in (1, 2, 3) for row in remote), remote
+        assert not any(row['kind'] == 'serial' for row in remote), remote
+        if not (DIRECT_MEDIA or PROXY_MEDIA):
+            with sqlite3.connect(work / 'alpha.db') as db:
+                db.execute("INSERT INTO users(uid,name,enabled,password,maxsessions,permissions) VALUES(7,'SERIAL',1,?,1,'view,serial.ttyNETWORK')",
+                    (hashlib.sha1(b'test-password').hexdigest(),))
+            serial_reader = login('alpha', 'SERIAL')
+            serial_reader.send({'msg': {'type': 'object'}, 'object': {'cmd': 'inventory'}, 'request': {'id': 'relay-inventory'}})
+            resources.clear()
+            serial_reader.until(inventory_done)
+            assert any(row.get('kind') == 'serial' and row.get('name') == 'ttyNETWORK' and 'owner-server-only' in row.get('state', '') for row in resources), resources
+            serial_reader.socket.close()
         for c in (origin, owner):
             c.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'join', 'target': '#gamma-rig0'}})
             c.until(lambda m: m.get('talk', {}).get('cmd') == 'join' and m['talk'].get('room') == '#gamma-rig0')

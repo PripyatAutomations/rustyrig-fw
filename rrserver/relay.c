@@ -317,8 +317,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          rr_relay_directory_put(origin, d);
       } else {
          const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
+         const char *service = dict_get(d, "catalog.service", NULL);
          char key[160];
-         snprintf(key, sizeof(key), "%s%s", uuid ? "" : "room:", uuid ? uuid : room ? room : "");
+         snprintf(key, sizeof(key), "%s%s", service || uuid ? "" : "room:", service ? service : uuid ? uuid : room ? room : "");
          struct catalog **p = &rr_relay_catalogs;
          while (*p) {
             struct catalog *entry = *p;
@@ -696,7 +697,9 @@ void rrserver_relay_poll(void) {
       return;
    }
 
-   if (rr_relay_catalog_dirty) {
+   static long long catalog_at;
+   if (rr_relay_catalog_dirty || mono_ms() - catalog_at >= 30000) {
+      catalog_at = mono_ms();
       rr_relay_refresh_catalog();
    }
 

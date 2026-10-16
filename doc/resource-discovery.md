@@ -253,3 +253,19 @@ historical counters. IRC rows support Join channel and Leave channel actions.
 
 Resource Explorer sorts siblings naturally and without case distinctions, so
 `rig2` precedes `rig10` at each hierarchy level.
+
+Linked-server inventories include GPS inputs/outputs and coordinates, media,
+CAT bindings and permission-filtered serial exports beneath their site, rig or
+VFO. Service catalogs refresh on topology/media changes and every 30 seconds.
+Per-client subscription and connection status remains client-owned. Physical
+serial and CAT attachments require a direct connection to the owning server;
+the Explorer labels these `owner-server-only` rather than attaching a same-named
+resource on the current server. Existing peers must be upgraded to advertise
+service metadata.
+
+Dynamic SQLite authentication checks `PRAGMA data_version` before logins and
+commands, plus once per second for idle sessions. External committed password,
+permission and enabled-state edits therefore need no rehash. Failed refreshes
+reject new authentication and commands rather than authorizing stale accounts.
+Password changes affect subsequent authentications; existing sessions are
+reconciled for permissions, disabled accounts and expiry.

@@ -688,7 +688,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!*room && parent >= 0) gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->parents[parent], ROOM, &inherited, -1);
    if (!*room && inherited) room = inherited;
    const char *state = dict_get(row, "inventory.state", "");
-   char *service = !strcmp(kind, "cat") ? g_strdup(name) : !strcmp(kind, "serial") && strcmp(state, "server-local") ? g_strconcat("host:", name, NULL) : NULL;
+   char *service = !strcmp(dict_get(row, "inventory.action", ""), "owner-server-only") ? NULL : !strcmp(kind, "cat") ? g_strdup(name) : !strcmp(kind, "serial") && strcmp(state, "server-local") ? g_strconcat("host:", name, NULL) : NULL;
    GString *details = g_string_new("");
    const char *fields[] = {"backend", "frequency", "codec", "direction", "coordinates", "source", "service", "access"};
    for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {

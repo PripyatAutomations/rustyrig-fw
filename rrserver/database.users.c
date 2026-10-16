@@ -27,6 +27,36 @@
 #include <rrserver/usage.h>
 
 #ifdef USE_SQLITE
+/* data_version detects commits from other SQLite connections, including tools.
+ * Server account editors already reload after writes; unrelated local audit/chat
+ * writes must not rebuild accounts. Never acknowledge a version until its
+ * account table was loaded successfully. */
+bool db_refresh_users(sqlite3 *db) {
+   static sqlite3 *loaded;
+   static int version;
+   static bool refreshing;
+   sqlite3_stmt *stmt = NULL;
+   if (!db) return false;
+   if (refreshing) return true; /* Session reconciliation can emit protocol events. */
+   int rc = sqlite3_prepare_v2(db, "PRAGMA data_version", -1, &stmt, NULL);
+   if (rc == SQLITE_OK) rc = sqlite3_step(stmt);
+   int current = rc == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+   int finished = sqlite3_finalize(stmt);
+   if (rc != SQLITE_ROW || finished != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "Cannot check live account database: %s", sqlite3_errmsg(db));
+      return false;
+   }
+   if (loaded == db && version == current) return true;
+   refreshing = true;
+   bool ok = db_get_users(db) >= 0;
+   refreshing = false;
+   if (ok) {
+      loaded = db;
+      version = current;
+   }
+   return ok;
+}
+
 /* Check bindings, execution and finalization without logging bound credentials. */
 static bool user_statement_finish(sqlite3 *db, sqlite3_stmt *stmt, int rc, const char *operation, const char *name, bool require_row) {
    if (rc == SQLITE_OK) rc = sqlite3_step(stmt);

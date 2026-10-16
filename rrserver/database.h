@@ -32,6 +32,8 @@ extern bool db_user_remove(sqlite3 *db, const char *name);
 extern bool db_user_update_password(sqlite3 *db, const char *name, const char *password_hash, bool password_change_required, time_t password_expires);
 extern int db_user_next_uid(sqlite3 *db);
 extern int db_get_users(sqlite3 *db);
+/* Refresh accounts when another SQLite writer commits changes. */
+extern bool db_refresh_users(sqlite3 *db);
 extern bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details);
 extern int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const char *
    record_file, const char *recording_id, const char *server);

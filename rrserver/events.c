@@ -23,6 +23,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/auth.h>
+#include <librrprotocol/server.events.h>
 #include <librrprotocol/objects.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrserver/database.h>
@@ -383,6 +384,28 @@ static void rrserver_handle_authdb_load(const char *event, const char *data, rrc
    }
 }
 
+/* Refresh synchronously before login and command authorization. */
+static void rrserver_auth_refresh(const char *event, const void *data, size_t length, rrconn_t *client, void *context) {
+#ifdef USE_SQLITE
+   if (length == sizeof(rr_server_auth_refresh_t) && cfg_get_bool("net.http.authdb-dynamic", false)) {
+      rr_server_auth_refresh_t *refresh = (rr_server_auth_refresh_t *)data;
+      if (!db_refresh_users(masterdb)) refresh->allowed = false;
+   }
+#endif
+}
+
+/* Idle sessions also lose revoked permissions without waiting for a command. */
+static void rrserver_auth_poll(const char *event, const char *data, rrconn_t *client, void *context) {
+#ifdef USE_SQLITE
+   static time_t checked;
+   extern time_t now;
+   if (checked != now && cfg_get_bool("net.http.authdb-dynamic", false)) {
+      checked = now;
+      db_refresh_users(masterdb);
+   }
+#endif
+}
+
 /*
  * A client (with admin/owner privs -- checked in srv.http.c) asked us to rehash: reload the config file and then the user database (which may come from the
  * sqlite users table or the http.users file depending on net.http.authdb-dynamic).
@@ -421,6 +444,8 @@ void rrserver_register_events(void) {
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);
    event_on("authdb.load", rrserver_handle_authdb_load, NULL);
+   event_on_binary(RR_SERVER_AUTH_REFRESH_EVENT, rrserver_auth_refresh, NULL);
+   event_on("server.poll", rrserver_auth_poll, NULL);
    event_on("hello", rrserver_handle_hello, NULL);
    event_on("latency", rrserver_handle_latency, NULL);
    event_on("ptt.off", rrserver_handle_ptt_off, NULL);

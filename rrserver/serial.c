@@ -58,7 +58,7 @@ struct serial_export {
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
 static struct serial_session *sessions;
-static rr_event_token_t request_token, closed_token, frame_token, gps_token, nmea_token, inventory_token;
+static rr_event_token_t request_token, closed_token, frame_token, gps_token, nmea_token, inventory_token, catalog_token;
 
 static bool allowed(rrconn_t *client, const struct serial_export *port) {
    if (!client || !client->authenticated || !client->user || client->user->password_change_required ||
@@ -606,21 +606,15 @@ failed:
    return active;
 }
 
-static void inventory_serial(const char *event, const char *data, rrconn_t *client, void *user) {
-   dict *request = json2dict(data);
-
-   if (!request) {
-      return;
-   }
-   const char *scope = dict_get(request, "inventory.scope", "");
-
+static void inventory_serial_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog) {
+   if (!cfg_get_bool("serial.enable", true)) return;
    for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
 
-      if (strcmp(scope, p->service ? rrserver_gps_public_scope(p->gps_scope) : "station") || !allowed(client, p)) {
+      if (strcmp(scope, p->service ? rrserver_gps_public_scope(p->gps_scope) : "station") || (client && !allowed(client, p))) {
          continue;
       }
-      dict *row = rr_inventory_row(dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1), "serial", p->name, NULL);
+      dict *row = rr_inventory_row(request, depth, "serial", p->name, NULL);
 
       if (!row) {
          continue;
@@ -631,9 +625,24 @@ static void inventory_serial(const char *event, const char *data, rrconn_t *clie
       snprintf(privileges, sizeof(privileges), "serial|serial.%s", p->name);
       dict_add(row, "inventory.access", privileges);
       dict_add(row, "inventory.action", p->service ? "server-config-only" : "/sercom attach <local-name> host:<name>");
-      rr_inventory_send(client, row);
+      if (catalog) catalog->emit(row, catalog->context);
+      else rr_inventory_send(client, row);
    }
+}
+
+static void inventory_serial(const char *event, const char *data, rrconn_t *client, void *user) {
+   if (!client || !client->authenticated) return;
+   dict *request = json2dict(data);
+   if (!request) return;
+   inventory_serial_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""),
+      dict_get_uint(request, "inventory.depth", 1), NULL);
    dict_free(request);
+}
+
+static void inventory_serial_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   if (length != sizeof(rr_inventory_catalog_t)) return;
+   const rr_inventory_catalog_t *catalog = data;
+   inventory_serial_rows(NULL, catalog->scope, "", 0, catalog);
 }
 
 void rrserver_serial_init(void) {
@@ -758,6 +767,7 @@ void rrserver_serial_init(void) {
       p->defaults = p->settings;
       count++;
    }
+   catalog_token = event_on_binary_token(RR_INVENTORY_CATALOG_EVENT, inventory_serial_catalog, NULL);
    inventory_token = event_on_token(RR_INVENTORY_EVENT, inventory_serial, NULL);
    gps_token = event_on_token("serial.gps.position", gps_output, NULL);
    nmea_token = event_on_token("serial.gps.nmea", gps_output, NULL);
@@ -777,6 +787,8 @@ void rrserver_serial_fini(void) {
       sessions = s->next;
       free(s);
    }
+   event_off_token(catalog_token);
+   catalog_token = NULL;
    event_off_token(inventory_token);
    inventory_token = NULL;
    event_off_token(gps_token);

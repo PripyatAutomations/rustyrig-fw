@@ -38,7 +38,7 @@ struct gps_source {
 };
 static struct gps_source sources[GPS_SOURCES_MAX];
 static unsigned count;
-static rr_event_token_t input_token, poll_token, subscribed_token, inventory_token;
+static rr_event_token_t input_token, poll_token, subscribed_token, inventory_token, catalog_token;
 
 static bool coordinate(const char **cursor, int32_t *result, unsigned maximum) {
    const char *p = *cursor;
@@ -441,16 +441,7 @@ static void add_nmea_channel(struct gps_source *source) {
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
 }
 
-static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!client || !client->authenticated) {
-      return;
-   }
-   dict *request = json2dict(data);
-
-   if (!request) {
-      return;
-   }
-   const char *scope = dict_get(request, "inventory.scope", "");
+static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog) {
    struct gps_source *source = find(scope);
 
    if (source) {
@@ -460,7 +451,7 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
          char name[80];
          snprintf(name, sizeof(name), output == 2 ? "%s.nmea-%s" : "%s.gps-%s", scope, output ? "out" : "in");
          struct rr_mediachan *channel = output == 2 ? source->nmea_channel : source->channel;
-         dict *row = rr_inventory_row(dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1), "gps", name, output && channel ?
+         dict *row = rr_inventory_row(request, depth, "gps", name, output && channel ?
             channel->uuid : NULL);
 
          if (!row) {
@@ -484,10 +475,25 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
                lat) % 10000000), lon < 0 ? "-" : "", (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
             dict_add(row, "inventory.coordinates", coordinates);
          }
-         rr_inventory_send(client, row);
+         if (catalog) catalog->emit(row, catalog->context);
+         else rr_inventory_send(client, row);
       }
    }
+}
+
+static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
+   if (!client || !client->authenticated) return;
+   dict *request = json2dict(data);
+   if (!request) return;
+   inventory_gps_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""),
+      dict_get_uint(request, "inventory.depth", 1), NULL);
    dict_free(request);
+}
+
+static void inventory_gps_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
+   if (length != sizeof(rr_inventory_catalog_t)) return;
+   const rr_inventory_catalog_t *catalog = data;
+   inventory_gps_rows(NULL, catalog->scope, "", 0, catalog);
 }
 
 bool rrserver_gps_init(void) {
@@ -513,6 +519,7 @@ bool rrserver_gps_init(void) {
       add_nmea_channel(&sources[i]);
    }
 
+   catalog_token = event_on_binary_token(RR_INVENTORY_CATALOG_EVENT, inventory_gps_catalog, NULL);
    inventory_token = event_on_token(RR_INVENTORY_EVENT, inventory_gps, NULL);
    input_token = event_on_token("gps.nmea.input", gps_input, NULL);
    poll_token = event_on_token("server.poll", poll_gps, NULL);
@@ -522,6 +529,8 @@ bool rrserver_gps_init(void) {
 }
 
 void rrserver_gps_fini(void) {
+   event_off_token(catalog_token);
+   catalog_token = NULL;
    event_off_token(inventory_token);
    inventory_token = NULL;
    event_off_token(input_token);

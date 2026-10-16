@@ -1,5 +1,14 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Restore linked-site GPS, serial, CAT and media discovery in Resource
+    Explorer, preserving hierarchy, coordinates and serial privilege filters.
+    Label serial/CAT resources that require a direct owner-server connection.
+  * Refresh SQLite accounts before authentication and commands when external
+    commits change the database, reconcile idle sessions, and deny requests
+    on refresh errors. Avoid full account reloads for local chat/audit writes.
+  * Repair stale GTK resource/formatting, serial tunnel, PTT accounting and
+    audio media and browser storage test fixtures; verify account updates
+    and service discovery across two server links.
   * Add tools/dump-css.pl to extract compiled client CSS as an editable
     [gtk-css] block, preserving C string escapes and quoting ID selectors.
     Preserve escaped selectors when loading, reloading and saving CSS config,
@@ -271,7 +280,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 09:46:09 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 10:50:36 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

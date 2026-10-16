@@ -175,7 +175,7 @@ bool rr_relay_local_owner(const char *node) {
    return !strcmp(node, rrserver_links_node());
 }
 
-/* Find a borrowed descriptor by object UUID or room key. */
+/* Find a borrowed descriptor by UUID, room key or owner-scoped service key. */
 struct catalog *rr_relay_find_catalog(const char *key) {
    for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
       if (!strcmp(c->key, key) || (!strncmp(key, "room:", 5) && !strcasecmp(c->key, key))) {
@@ -260,7 +260,21 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
       }
    }
 
-   if (uuid && rr_object_uuid_valid(uuid)) {
+   const char *service = dict_get(d, "catalog.service", NULL);
+   if (service) {
+      const char *parent = dict_get(d, "catalog.parent", "");
+      struct catalog *authority = rr_relay_find_catalog(parent);
+      const char *kind = dict_get(d, "inventory.kind", "");
+      if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
+         (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
+          strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo")) ||
+         (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat")) ||
+         strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8) ||
+         strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
+         return;
+      }
+      snprintf(key, sizeof(key), "%s", service);
+   } else if (uuid && rr_object_uuid_valid(uuid)) {
       snprintf(key, sizeof(key), "%s", uuid);
    } else if (room && ws_room_name_valid(room)) {
       snprintf(key, sizeof(key), "room:%s", room);
@@ -361,11 +375,47 @@ static void add_object(const char *uuid, const char *type, const char *owner, co
    dict_free(d);
 }
 
+/* Service rows share local discovery contributors; they are metadata only.
+ * Room/PTT/subscription and serial access remain checked by the serving node. */
+static void collect_service(dict *row, void *context) {
+   const char *parent = context;
+   char key[160];
+   char *hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, dict_get(row, "inventory.name", ""), -1);
+   if (!hash) { dict_free(row); return; }
+   snprintf(key, sizeof(key), "service:%s:%s:%.8s:%.32s", rrserver_links_node(), parent, dict_get(row, "inventory.kind", ""), hash);
+   g_free(hash);
+   dict_add(row, "object.type", "service");
+   dict_add(row, "catalog.service", key);
+   dict_add(row, "catalog.parent", parent);
+   /* Subscription/join state belongs to the requester, never the publisher. */
+   rr_relay_catalog_put(rrserver_links_node(), row);
+   dict_free(row);
+}
+
+static void collect_services(const char *parent, const char *scope) {
+   rr_inventory_catalog_t collect = { .scope = scope, .emit = collect_service, .context = (void *)parent };
+   if (scope) event_emit_binary(RR_INVENTORY_CATALOG_EVENT, NULL, &collect, sizeof(collect));
+   for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+      struct rr_mediachan *ch = &media_channels[i];
+      const char *owner = ch->vfo_uuid[0] ? ch->vfo_uuid : ch->rig_uuid[0] ? ch->rig_uuid : rrserver_links_node();
+      if (!ch->uuid[0] || strcmp(owner, parent)) continue;
+      dict *row = rr_inventory_row("", 0, "media", ch->name, ch->uuid);
+      if (!row) continue;
+      dict_add(row, "inventory.room", ch->room);
+      dict_add(row, "inventory.codec", ch->codec);
+      dict_add(row, "inventory.direction", ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX");
+      dict_add_uint(row, "inventory.subsystem", ch->subsystem);
+      dict_add(row, "inventory.action", "/media subscribe|unsubscribe <uuid>");
+      collect_service(row, (void *)parent);
+   }
+}
+
 /* Add one registered VFO to the local discovery catalog. */
 static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
    rr_server_rig_t *radio = user;
    add_object(rr_server_vfo_id(vfo), "vfo", rr_server_rig_id(radio), rr_server_vfo_alias(vfo), rr_rig_registry_room(rig.rigs, radio));
 
+   collect_services(rr_server_vfo_id(vfo), NULL);
    return false;
 }
 
@@ -379,6 +429,15 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
       dict_add(c->descriptor, "object.backend", rr_server_rig_backend(radio)->type->name);
       dict_add(c->descriptor, "object.name", rr_server_rig_name(radio));
    }
+   collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
+   char cat[80];
+   snprintf(cat, sizeof(cat), "%s.cat", rr_rig_registry_public_alias(rig.rigs, radio));
+   dict *row = rr_inventory_row("", 0, "cat", cat, NULL);
+   if (row) {
+      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
+      dict_add(row, "inventory.action", "/sercom attach <local-name> <rig-alias>.cat");
+      collect_service(row, (void *)rr_server_rig_id(radio));
+   }
    rr_server_vfo_foreach(radio, collect_vfo, radio);
 
    return false;
@@ -390,6 +449,7 @@ void rr_relay_collect_local(void) {
       return;
    }
    add_object(rrserver_links_node(), "node", NULL, cfg_get("station.name"), ws_site_room());
+   collect_services(rrserver_links_node(), "station");
    dict *site = dict_new();
 
    if (site) {
@@ -425,10 +485,10 @@ void rr_relay_collect_local(void) {
 /* Send stored descriptors and user directories to a newly ready branch. */
 void rr_relay_send_catalogs(const char *dest) {
    const char *types[] = {
-      "node", "rig", "vfo", "room"
+      "node", "rig", "vfo", "room", "service"
    };
 
-   for (unsigned i = 0 ; i < 4 ; i++) {
+   for (unsigned i = 0 ; i < 5 ; i++) {
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
          if (strcmp(dict_get(c->descriptor, "object.type", "room"), types[i])) {
             continue;
@@ -607,6 +667,35 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
    }
 }
 
+/* Preserve contributor fields while rebuilding hierarchy and requester state. */
+static void inventory_services(rrconn_t *client, const char *request, const char *owner, const char *parent, unsigned depth) {
+   for (struct catalog *c = rr_relay_catalogs; c; c = c->next) {
+      if (strcmp(c->owner, owner) || strcmp(dict_get(c->descriptor, "catalog.parent", ""), parent)) continue;
+      const char *access = dict_get(c->descriptor, "inventory.access", NULL);
+      if (access && (!client->user || !has_priv(client->user->uid, access))) continue;
+      dict *row = dict_clone(c->descriptor);
+      if (!row) continue;
+      /* Relay catalog keys are private metadata, outside the client wire schema. */
+      dict_del(row, "catalog.service");
+      dict_del(row, "catalog.parent");
+      dict_del(row, "object.type");
+      dict_add(row, "object.cmd", "inventory-entry");
+      dict_add(row, "request.id", request);
+      dict_add_uint(row, "inventory.depth", depth);
+      const char *kind = dict_get(row, "inventory.kind", "");
+      if (!strcmp(kind, "cat") || !strcmp(kind, "serial")) {
+         char state[160];
+         snprintf(state, sizeof(state), "%s (owner-server-only)", dict_get(row, "inventory.state", "available"));
+         dict_add(row, "inventory.state", state);
+         dict_add(row, "inventory.action", "owner-server-only");
+      }
+      if (!strcmp(kind, "media")) {
+         dict_add(row, "inventory.state", ws_client_in_room(client, dict_get(row, "inventory.room", "")) ? "available" : "join-room-first");
+      }
+      rr_inventory_send(client, row);
+   }
+}
+
 /* Send remote inventory entries visible through the relay catalog. */
 void rrserver_relay_inventory(rrconn_t *client, const char *request) {
    // Keep remote site/rig/VFO context explicit in both client discovery trees.
@@ -615,6 +704,7 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
          continue;
       }
       inventory_entry(client, request, site, 0, "site");
+      inventory_services(client, request, site->owner, dict_get(site->descriptor, "object.uuid", ""), 1);
 
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
          if (!strcmp(c->owner, site->owner) && dict_get(c->descriptor, "catalog.room", NULL) && !dict_get(c->descriptor, "catalog.rig", NULL)) {
@@ -628,6 +718,7 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
          }
          inventory_entry(client, request, radio, 1, "rig");
          const char *id = dict_get(radio->descriptor, "object.uuid", "");
+         inventory_services(client, request, site->owner, id, 2);
 
          for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
             if (strcmp(c->owner, site->owner)) {
@@ -636,6 +727,7 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
 
             if (!strcmp(dict_get(c->descriptor, "object.owner", ""), id) && !strcmp(dict_get(c->descriptor, "object.type", ""), "vfo")) {
                inventory_entry(client, request, c, 2, "vfo");
+               inventory_services(client, request, site->owner, dict_get(c->descriptor, "object.uuid", ""), 3);
             } else if (!strcmp(dict_get(c->descriptor, "catalog.rig", ""), id)) {
                inventory_entry(client, request, c, 2, "room");
             }
