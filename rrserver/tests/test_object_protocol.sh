@@ -20,7 +20,7 @@ ${CC:-cc} ${CFLAGS:-} -pthread -ffunction-sections -fdata-sections -Wl,--gc-sect
    rrserver/backend.internal.c rrserver/backend.hamlib.c \
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
    rrserver/cfg.rig.c rrserver/rig.rooms.c rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c rrserver/defconfig.c \
-   rrserver/objects.c rrclient/objects.c \
+   rrserver/objects.c rrserver/gps.c rrclient/objects.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lfwdspmgr \
    $(pkg-config --libs glib-2.0 hamlib sqlite3) ${LDFLAGS:-} \
    -o "$work/multirig-live"

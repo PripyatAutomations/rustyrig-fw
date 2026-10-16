@@ -26,6 +26,7 @@
 #include <rrserver/rig.rooms.h>
 #include <rrserver/database.h>
 #include <rrserver/discovery.h>
+#include <rrserver/gps.h>
 #include <rrserver/relay.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/supervision.h>
@@ -371,6 +372,8 @@ static void add_object(const char *uuid, const char *type, const char *owner, co
    dict_add(d, "object.name", alias);
    dict_add(d, "object.room", room);
    dict_add(d, "object.lifecycle", "persistent");
+   if (!strcmp(type, "node") || !strcmp(type, "rig"))
+      rrserver_gps_inventory_position(d, !strcmp(type, "node") ? "station" : alias);
    rr_relay_catalog_put(rrserver_links_node(), d);
    dict_free(d);
 }
@@ -656,6 +659,8 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
    dict *d = rr_inventory_row(request, depth, kind, name, dict_get(c->descriptor, "object.uuid", NULL));
 
    if (d) {
+      const char *coordinates = dict_get(c->descriptor, "inventory.coordinates", NULL);
+      if (coordinates) dict_add(d, "inventory.coordinates", coordinates);
       dict_add(d, "inventory.room", room);
       dict_add(d, "inventory.state", ws_client_in_room(client, room) ? "joined" : "remote");
       const char *backend = dict_get(c->descriptor, "object.backend", NULL);

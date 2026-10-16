@@ -55,7 +55,7 @@
     "rrserver/hostlog.c:67",
     "rrserver/link.c:711",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:556",
+    "rrserver/objects.c:559",
     "rrserver/relay.media.c:421",
     "rrserver/usage.c:217",
     "rrserver/usage.c:287"
@@ -111,7 +111,7 @@
     "rrclient/userlist.c:156",
     "rrclient/userlist.c:194",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:556",
+    "rrserver/objects.c:559",
     "rrserver/relay.media.c:421",
     "rrserver/supervision.c:143",
     "rrserver/supervision.c:153",
@@ -180,7 +180,7 @@
     "rrserver/hostlog.c:67",
     "rrserver/link.c:711",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:556",
+    "rrserver/objects.c:559",
     "rrserver/relay.media.c:421",
     "rrserver/usage.c:217",
     "rrserver/usage.c:287"
@@ -209,7 +209,7 @@
     "librrprotocol/srv.rigctl.c:563",
     "librrprotocol/ws.mediachan.c:983",
     "rrserver/media.direct.c:225",
-    "rrserver/objects.c:556",
+    "rrserver/objects.c:559",
     "rrserver/relay.media.c:421"
   ],
   "video-src": [

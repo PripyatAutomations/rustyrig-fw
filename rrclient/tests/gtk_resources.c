@@ -39,8 +39,8 @@ bool rr_sercom_disconnect(const char *name) { return false; }
 const char *rrclient_selected_server(void) { return "alpha"; }
 const char *rrclient_connection_iter(unsigned index) { return index == 0 ? "alpha" : index == 1 ? "beta" : NULL; }
 int rrclient_connection_state(const char *profile) { return !strcmp(profile, "alpha") ? 1 : 0; }
+static struct rr_client_media_chan channel = { .uuid = "stream-1", .name = "test.rx", .room = "#station-rig1" };
 const struct rr_client_media_chan *rrclient_media_chan_iter(int idx, int *listno) {
-   static struct rr_client_media_chan channel = { .uuid = "stream-1", .name = "test.rx", .room = "#station-rig1" };
    if (listno) *listno = 1;
    return idx == 0 ? &channel : NULL;
 }
@@ -82,10 +82,23 @@ int main(int argc, char **argv) {
    event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, &alpha, &request, sizeof(request));
    assert(request.handled && browser != NULL);
    resource_browser *view = browser;
+   assert(gtk_tree_view_get_level_indentation(GTK_TREE_VIEW(view->tree)) == 0);
+   assert(gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view->tree)) == 5);
+   assert(!strcmp(gtk_tree_view_column_get_title(gtk_tree_view_get_column(GTK_TREE_VIEW(view->tree), 4)), "Details"));
    resource_branch *branch = g_hash_table_lookup(browser->branches, "alpha");
    row(&beta, 0, "site", "wrong-server");
    assert(!gtk_tree_model_iter_n_children(GTK_TREE_MODEL(view->store), &branch->root));
    row(&alpha, 0, "site", "site-1");
+   GtkTreeIter site;
+   assert(gtk_tree_model_iter_children(GTK_TREE_MODEL(view->store), &site, &branch->root));
+   gtk_tree_store_set(view->store, &site, COORDINATES, "42.0000000,-71.0000000", DETAILS, "source: station", -1);
+   GtkTreeViewColumn *details = gtk_tree_view_get_column(GTK_TREE_VIEW(view->tree), 4);
+   gtk_tree_view_column_cell_set_cell_data(details, GTK_TREE_MODEL(view->store), &site, FALSE, FALSE);
+   GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(details));
+   char *text = NULL;
+   g_object_get(cells->data, "text", &text, NULL);
+   assert(!strcmp(text, "Coordinates: 42.0000000,-71.0000000 · source: station"));
+   g_free(text); g_list_free(cells);
    row(&alpha, 1, "rig", "rig-1");
    row(&alpha, 2, "media", "stream-1");
    GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(view->store), &branch->root);
@@ -97,6 +110,17 @@ int main(int argc, char **argv) {
    resource_clicked(GTK_BUTTON(view->buttons[ROOM_BUTTON]), view);
    resource_clicked(GTK_BUTTON(view->buttons[SUB_BUTTON]), view);
    assert(joins == 1 && subscribes == 1);
+   row(&alpha, 2, "gps", "stream-1");
+   channel.subscribed = true;
+   strlcpy(channel.codec, "gpsp", sizeof(channel.codec));
+   strlcpy(channel.gps_coordinates, "43.0000000,-72.0000000", sizeof(channel.gps_coordinates));
+   resource_update_branch(branch);
+   GtkTreeIter radio;
+   assert(gtk_tree_model_iter_children(GTK_TREE_MODEL(view->store), &radio, &site));
+   char *coordinates = NULL;
+   gtk_tree_model_get(GTK_TREE_MODEL(view->store), &radio, COORDINATES, &coordinates, -1);
+   assert(!strcmp(coordinates, channel.gps_coordinates));
+   g_free(coordinates);
    /* A late linked catalog must get a fresh inventory even though the server
     * stayed connected and the initial listing already completed. */
    branch->loading = false;

@@ -159,7 +159,17 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
       }
       if (kind && (!strcmp(kind, "media") || !strcmp(kind, "gps")) && uuid && *uuid) {
          const struct rr_client_media_chan *channel = resource_media(uuid);
-         if (channel && channel->subscribed && channel->gps_coordinates[0]) set_string(&iter, COORDINATES, channel->gps_coordinates);
+         if (channel && channel->subscribed && channel->gps_coordinates[0]) {
+            set_string(&iter, COORDINATES, channel->gps_coordinates);
+            /* A GPS output describes its site/rig as well as its own stream. */
+            if (!strcmp(kind, "gps") && !strcmp(channel->codec, "gpsp")) {
+               char *parent_kind = NULL;
+               gtk_tree_model_get(model, parent, KIND, &parent_kind, -1);
+               if (!g_strcmp0(parent_kind, "site") || !g_strcmp0(parent_kind, "rig"))
+                  set_string(parent, COORDINATES, channel->gps_coordinates);
+               g_free(parent_kind);
+            }
+         }
          strlcpy(ours, !branch->online ? "Disconnected" : channel && channel->subscribed ? "Subscribed" : "Not subscribed", sizeof(ours));
          if (branch->online && !strcmp(kind, "media")) availability = !room || !*room || joined || (channel && channel->joined) ? "Available" : "Join room first";
          if (branch->online && !channel) strlcpy(ours, "Not discovered yet — refresh", sizeof(ours));
@@ -541,6 +551,19 @@ static void resource_files(GtkButton *button,gpointer data) {
    if(gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)),&model,&iter))gtk_tree_model_get(model,&iter,PROFILE,&profile,-1);
    event_emit("client.files.open",profile?rrclient_connection_find(profile):NULL,NULL);g_free(profile);
 }
+/* Keep coordinates in Details without rewriting the discovery metadata when
+ * subscribed GPS frames update the hidden coordinate value. */
+static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+   GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
+   (void)column; (void)unused;
+   char *details = NULL, *coordinates = NULL;
+   gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, -1);
+   char *text = coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s",
+      coordinates, details && *details ? " · " : "", details ? details : "") : g_strdup(details ? details : "");
+   g_object_set(renderer, "text", text, NULL);
+   g_free(text); g_free(details); g_free(coordinates);
+}
+
 static void resource_create(void) {
    if (browser) return;
    browser = g_new0(resource_browser, 1);
@@ -573,11 +596,11 @@ static void resource_create(void) {
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser->store), NAME, GTK_SORT_ASCENDING);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->store));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
-   gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 18);
+   gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 0);
    gtk_tree_view_set_search_column(GTK_TREE_VIEW(browser->tree), NAME);
-   const char *titles[] = {"Resource", "Type", "Resource status", "Your connection / subscription", "Coordinates", "Details"};
+   const char *titles[] = {"Resource", "Type", "Resource status", "Your connection / subscription", "Details"};
    for (unsigned i = 0; i < G_N_ELEMENTS(titles); i++) {
-      int field = i < 4 ? (int)i : i == 4 ? COORDINATES : DETAILS;
+      int field = (int)i;
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
       g_object_set(renderer, "ypad", 3, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
@@ -585,6 +608,7 @@ static void resource_create(void) {
       if (i == STATE || i == OURS) gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
       if (i == NAME) gtk_tree_view_column_set_min_width(column, 240);
       if (field == DETAILS) {
+         gtk_tree_view_column_set_cell_data_func(column, renderer, resource_details_cell, NULL, NULL);
          g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, 300);
@@ -700,7 +724,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    const char *state = dict_get(row, "inventory.state", "");
    char *service = !strcmp(dict_get(row, "inventory.action", ""), "owner-server-only") ? NULL : !strcmp(kind, "cat") ? g_strdup(name) : !strcmp(kind, "serial") && strcmp(state, "server-local") ? g_strconcat("host:", name, NULL) : NULL;
    GString *details = g_string_new("");
-   const char *fields[] = {"backend", "frequency", "codec", "direction", "coordinates", "source", "service", "access"};
+   const char *fields[] = {"backend", "frequency", "codec", "direction", "source", "service", "access"};
    for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
       char key[64]; snprintf(key, sizeof(key), "inventory.%s", fields[i]);
       const char *value = dict_get(row, key, "");

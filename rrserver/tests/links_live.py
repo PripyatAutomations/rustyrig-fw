@@ -107,6 +107,7 @@ retry-seconds={2 if name == "alpha" and remote == "beta" else 1}
         config = work / f'{name}.cfg'
         settings = f'''[general]
 station.name={name}
+station.gps.position=42,-71
 rig.instances=rig0
 rig.default=rig0
 path.db.master={database}
@@ -402,6 +403,7 @@ acl=media-staff
         origin.until(inventory_done)
         # Check the two-hop branch, not just services belonging to our own node.
         gamma = next(i for i, row in enumerate(resources) if row.get('kind') == 'site' and row.get('name') == 'gamma')
+        assert resources[gamma]['coordinates'] == '42.0000000,-71.0000000'
         remote = []
         for row in resources[gamma + 1:]:
             if row.get('depth') == 0: break

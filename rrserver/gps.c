@@ -441,6 +441,19 @@ static void add_nmea_channel(struct gps_source *source) {
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
 }
 
+void rrserver_gps_inventory_position(dict *row, const char *scope) {
+   const struct gps_source *source = scope ? find(scope) : NULL;
+   if (!row || !source) return;
+   const struct gps_source *position = effective(source);
+   if (!available(position) || (!position->fixed && !position->valid)) return;
+   int64_t lat = position->lat, lon = position->lon;
+   char coordinates[64];
+   snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld,%s%lld.%07lld", lat < 0 ? "-" : "",
+      (long long)(llabs(lat) / 10000000), (long long)(llabs(lat) % 10000000), lon < 0 ? "-" : "",
+      (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
+   dict_add(row, "inventory.coordinates", coordinates);
+}
+
 static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog) {
    struct gps_source *source = find(scope);
 
@@ -468,13 +481,7 @@ static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *
             dict_add(row, "inventory.room", channel->room);
          }
 
-         if (output && available(position) && (position->fixed || position->valid)) {
-            int64_t lat = position->lat, lon = position->lon;
-            char coordinates[64];
-            snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld,%s%lld.%07lld", lat < 0 ? "-" : "", (long long)(llabs(lat) / 10000000), (long long)(llabs(
-               lat) % 10000000), lon < 0 ? "-" : "", (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
-            dict_add(row, "inventory.coordinates", coordinates);
-         }
+         rrserver_gps_inventory_position(row, scope);
          if (catalog) catalog->emit(row, catalog->context);
          else rr_inventory_send(client, row);
       }

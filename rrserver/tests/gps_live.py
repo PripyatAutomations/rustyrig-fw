@@ -218,6 +218,10 @@ path={work}/disabled-fixed-input
             index, data = snapshot(client, metadata['chan-uuid'])
             assert index == 255 and data == (420000000, -710000000, 3)
             static_rows = inventory(client)
+            site = next(r for r in static_rows if r['kind'] == 'site')
+            assert site['coordinates'] == '42.0000000,-71.0000000'
+            inherited = next(r for r in static_rows if r['kind'] == 'rig' and r['name'] == 'rig1')
+            assert inherited['coordinates'] == '42.0000000,-71.0000000'
             station_out = next(r for r in static_rows if r['name'] == 'station.gps-out')
             assert station_out['state'] == 'static' and station_out['coordinates'] == '42.0000000,-71.0000000'
 

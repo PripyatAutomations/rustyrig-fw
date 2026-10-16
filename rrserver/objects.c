@@ -17,6 +17,7 @@
 #include <librrprotocol/server.events.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/discovery.h>
+#include <rrserver/gps.h>
 #include <rrserver/database.h>
 #include <librrprotocol/ws.mediachan.h>
 
@@ -394,6 +395,7 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    dict *row = rr_inventory_row(ctx->request, 1, "rig", alias, rr_server_rig_id(radio));
 
    if (row) {
+      rrserver_gps_inventory_position(row, alias);
       dict_add(row, "inventory.backend", rr_server_rig_backend(radio)->type->name);
       dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
       dict_add(row, "inventory.state", radio == rr_rig_registry_default(rig.rigs) ? "default" : "available");
@@ -424,6 +426,7 @@ static void inventory(rrconn_t *client, const char *id) {
    dict *row = rr_inventory_row(id, 0, "site", cfg_get("station.name"), rr_rig_registry_node(rig.rigs));
 
    if (row) {
+      rrserver_gps_inventory_position(row, "station");
       dict_add(row, "inventory.room", ws_site_room());
    }
    rr_inventory_send(client, row);

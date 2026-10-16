@@ -278,3 +278,8 @@ or the GTK **Files…** button to browse them. See [Exported file shares](file-s
 The GTK explorer refreshes each connected server inventory every 30 seconds
 while open, so catalogs received after the initial listing become visible
 without reopening the window. **Refresh all** requests an immediate update.
+
+Known effective coordinates accompany site and rig inventory rows as well as
+GPS services, including linked sites. GTK uses standard tree indentation and
+shows coordinates in Details. Subscribe on the GPS output row for live updates;
+the corresponding site/rig Details also follows received GPS positions.

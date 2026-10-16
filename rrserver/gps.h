@@ -17,6 +17,8 @@ static inline const char *rrserver_gps_station_position(void) {
 }
 bool rrserver_gps_position_parse(const char *text, int32_t *lat, int32_t *lon);
 bool rrserver_gps_init(void);
+/* Add the effective known location to discovery; absence means unknown/no fix. */
+void rrserver_gps_inventory_position(dict *row, const char *scope);
 const char *rrserver_gps_public_scope(const char *alias);
 /* Own configured location; inherited station data must not disable a rig receiver. */
 bool rrserver_gps_source_fixed(const char *alias);

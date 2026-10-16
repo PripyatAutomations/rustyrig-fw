@@ -1,5 +1,8 @@
 rustyrig-fw (20261016.01) testing; urgency=medium
 
+  * Remove extra Resource Explorer tree indentation and move coordinates into
+    Details. Include known site/rig coordinates in local and linked discovery,
+    and reflect subscribed GPS positions in their parent resource details.
   * Refresh open GTK resource inventories periodically so late linked service
     catalogs become visible. Add GTK/browser Create User dialogs with privilege
     selection, temporary-password results and confirmed account-list refresh.
@@ -293,7 +296,7 @@ rustyrig-fw (20261016.01) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 13:03:32 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 13:20:03 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
