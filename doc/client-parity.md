@@ -759,3 +759,11 @@ viewers share an encoder; other profiles remain independent. Capture and profile
 processes run only while needed. Native GTK uses configured fwdsp H.264/H.265/JPEG
 decoders and bounded local-image delivery; the browser uses JPEG profiles. TUI
 provides media discovery/subscriptions without a graphical video viewer.
+
+## Parser profiling and internal dictionary copies
+
+Native/server builds with `USE_PROFILING` count incoming compact JSON operations,
+bytes, rejects and parser time. These process-local diagnostics change no wire
+messages and require no browser behavior change. Native object-cache copies
+reuse typed `librustyaxe` dictionary cloning; cached values and public behavior
+remain the same. See [WebSocket profiling](websocket-profiling.md).

@@ -29,17 +29,7 @@ struct rr_object_cache {
    size_t allocated;
 };
 
-static dict *copy_message(dict *d) {
-   dict *copy = dict_new();
 
-   if (copy && dict_merge(copy, d)) {
-      dict_free(copy);
-
-      return NULL;
-   }
-
-   return copy;
-}
 
 static void free_properties(cached_object_t *o) {
    while (o->properties) {
@@ -291,7 +281,7 @@ bool rr_object_cache_apply(rr_object_cache_t *c, dict *d) {
 
          return true;
       }
-      dict *copy = copy_message(d);
+      dict *copy = dict_clone(d);
 
       if (!copy) {
          return false;
@@ -360,7 +350,7 @@ bool rr_object_cache_apply(rr_object_cache_t *c, dict *d) {
    if (descriptor ? (p->descriptor && seq < p->descriptor_seq) : (p->state && (version <= p->version || seq < p->state_seq))) {
       return true;
    }
-   dict *copy = copy_message(d);
+   dict *copy = dict_clone(d);
 
    if (!copy) {
       return false;

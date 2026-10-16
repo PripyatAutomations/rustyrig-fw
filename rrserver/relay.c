@@ -75,13 +75,6 @@ static size_t catalog_count, client_count, remote_count, subscription_count, wan
 static bool initialized, applying, catalog_dirty;
 static void rejoin_owned_room(const char *owner, const char *room);
 
-static dict *copy_dict(dict *d) {
-   char *json = dict2json(d);
-   dict *copy = json ? json2dict(json) : NULL;
-   free(json);
-
-   return copy;
-}
 static bool packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload) {
    if (!strcmp(kind, "request")) {
       /* Referral hint supplied by the authenticated origin, never by client JSON. */
@@ -181,7 +174,7 @@ static void directory_put(const char *node, dict *d) {
       directories = entry;
    }
    dict_free(entry->users);
-   entry->users = copy_dict(d);
+   entry->users = dict_clone(d);
 }
 static dict *local_users(void) {
    dict *d = dict_new();
@@ -369,7 +362,7 @@ static void catalog_put(const char *owner, dict *d) {
       owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
       return;                   // Only proven station/rig authority may displace a stale room claim.
    }
-   dict *copy = copy_dict(d);
+   dict *copy = dict_clone(d);
 
    if (!copy) {
       return;
@@ -1259,7 +1252,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
       return;
    }
    struct relay_client *origin = client_for(client, true);
-   dict *request = origin ? copy_dict(io->message) : NULL;
+   dict *request = origin ? dict_clone(io->message) : NULL;
 
    if (request) {
       if (media && media->home) {
@@ -1406,7 +1399,7 @@ static void send_remote(const char *event, const void *data, size_t length, rrco
    dict *forward = io->message;
 
    if (!strcmp(dict_get(forward, "talk.session", ""), r->client.token)) {
-      forward = copy_dict(io->message);
+      forward = dict_clone(io->message);
 
       if (!forward) {
          return;
@@ -1434,7 +1427,7 @@ static void publish(const char *event, const void *data, size_t length, rrconn_t
       // Legacy cat.state is emitted only by the default-rig adapter. Give
       // its link copy an explicit scope; keep the local wire path intact.
       room = ws_authoritative_room();
-      message = copy_dict(p->message);
+      message = dict_clone(p->message);
 
       if (!message) {
          return;
@@ -1798,7 +1791,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          catalog_put(origin, d);
 
          if (dict_get(d, "object.uuid", NULL)) {
-            dict *added = copy_dict(d);
+            dict *added = dict_clone(d);
 
             if (added) {
                dict_add(added, "object.cmd", "added");
@@ -2458,7 +2451,7 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
          if (local_owner(c->owner) || strcmp(dict_get(c->descriptor, "object.type", ""), types[i])) {
             continue;
          }
-         dict *d = copy_dict(c->descriptor);
+         dict *d = dict_clone(c->descriptor);
 
          if (d) {
             dict_add(d, "request.id", request);

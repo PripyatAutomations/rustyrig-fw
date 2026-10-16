@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.05) testing; urgency=medium
 
+  * Profile incoming WebSocket JSON operations, bytes, rejects and parser time
+    with bounded counters and five-minute dumps. Add typed dict_clone in the
+    shared library and replace relay JSON round trips/object-cache helpers;
+    preserve independent strings and explicitly borrowed pointer semantics.
   * Repair webcam capture startup, video framing and off-process native decoding.
     Use configured H.264 capture and decoder/profile pipelines; offer per-viewer
     codec/frame-rate selectors, share matching encoders and stop idle camera
@@ -151,7 +155,7 @@ rustyrig-fw (20261015.05) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 20:01:38 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 20:36:03 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

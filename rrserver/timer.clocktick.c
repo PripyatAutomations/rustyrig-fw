@@ -20,6 +20,7 @@
 #include <libfwdspmgr/fwdsp-mgr.h>
 
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/wire.h>
 #include <rrserver/faults.h>
 #include <rrserver/ptt.h>
 #include <rrserver/thermal.h>
@@ -43,6 +44,7 @@ static rr_vfo_data_t last_vfo_state[MAX_VFOS];
 void timer_profile_dump_fn(void *arg) {
    (void)arg;
    event_profile_dump();
+   rr_wire_profile_dump();
 }
 #endif
 
