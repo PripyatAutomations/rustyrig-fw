@@ -845,3 +845,13 @@ room messages mirror that convention. Regular users have no privilege marker.
 All TUI prompts use the active conversation's server profile, while shared
 system tabs use the globally selected server. Terminal font sizes stay under
 terminal control.
+
+
+RustyRig WHOIS includes `talk.rooms`, a space-separated, case-insensitively
+deduplicated union of joined rooms across the account's authenticated sessions.
+`librrprotocol/srv.chat.whois.c` reads actual session membership, independently
+of optional room/VFO metadata. Native `rrclient/events.c` and browser
+`js/webui.chat.js` display a Rooms line, with `(none)` for an empty list; older
+servers that omit the field retain their previous output. Connection time,
+last-heard time and client identity still describe the first matching session.
+IRC WHOIS remains independent and unchanged.

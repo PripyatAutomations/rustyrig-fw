@@ -1397,6 +1397,9 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    }
 
    ui_print(output, "\00310***\017 Sessions:   %d", sessions);
+   /* PARITY: rustyrig-www/js/webui.chat.js WHOIS Rooms. */
+   const char *rooms = dict_get(d, "talk.rooms", NULL);
+   if (rooms) ui_print(output, "\00310***\017 Rooms:      %s", *rooms ? rooms : s_none);
 
    if (connected > 0) {
       char buf[64];

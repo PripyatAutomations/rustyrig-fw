@@ -35,7 +35,7 @@ presence alone does not authorize CAT or account management.
 | `/room … VFO LIST` | Authenticated only | Reads active room bindings; no membership requirement |
 | `/topic` read | Authenticated only | Must belong to room |
 | `/topic` write | C | Not muted; must belong to room; empty text is a query, not topic clearing |
-| `/whois` | Authenticated only | Any online user; includes email, privileges, user agent and session metadata |
+| `/whois` | Authenticated only | Any online user; includes email, privileges, user agent, session metadata and joined rooms across authenticated sessions |
 
 ### Radio and discovery
 

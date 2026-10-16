@@ -1,5 +1,8 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Include deduplicated joined rooms across authenticated account sessions
+    in RustyRig WHOIS replies. Show Rooms in native GTK/TUI and browser
+    output, using the existing talk.rooms wire field.
   * Keep GTK roster usernames undecorated; privileges remain in the Privs
     column while chat messages retain their nickname prefixes.
   * Show topic setters in common GTK/TUI notices and IRC topic metadata.
@@ -193,7 +196,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 05:27:20 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 05:34:36 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 
