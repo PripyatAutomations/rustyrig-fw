@@ -101,6 +101,13 @@ static void webcam_frame_handler(const char *event, const void *data, size_t len
    if (!fwdsp_write_channel_samples(codec, false, "webcam-viewer", frame.data, frame.len)) webcam_decoder[0] = '\0';
 }
 
+/* PARITY: rustyrig-www/js/webui.media.js webcam profile FPS ordering. */
+static gint webcam_rate_compare(gconstpointer left, gconstpointer right) {
+   guint64 a = g_ascii_strtoull((const char *)left + 5, NULL, 10);
+   guint64 b = g_ascii_strtoull((const char *)right + 5, NULL, 10);
+   return a < b ? -1 : a > b ? 1 : strcmp(left, right);
+}
+
 static void webcam_codec_changed(GtkComboBox *combo, gpointer user) {
    const char *codec = gtk_combo_box_get_active_id(combo);
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(webcam_rates));
@@ -110,9 +117,16 @@ static void webcam_codec_changed(GtkComboBox *combo, gpointer user) {
       char copy[sizeof(webcam_profiles)];
       snprintf(copy, sizeof(copy), "%s", webcam_profiles);
       char *save = NULL;
+      GList *rates = NULL;
       for (char *name = strtok_r(copy, " ", &save); name; name = strtok_r(NULL, " ", &save)) {
-         if (!strncmp(name, codec, 4) && name[4] == '.') gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_rates), name, name + 5);
+         if (!strncmp(name, codec, 4) && name[4] == '.') rates = g_list_prepend(rates, name);
       }
+      rates = g_list_sort(rates, webcam_rate_compare);
+      for (GList *item = rates; item; item = item->next) {
+         const char *name = item->data;
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_rates), name, name + 5);
+      }
+      g_list_free(rates);
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(webcam_rates), 0);
 }
