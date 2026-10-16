@@ -4,7 +4,7 @@ cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags glib-2.0) \
-   rrserver/tests/database.c rrserver/database.c rrserver/bridge.hints.c \
+   rrserver/tests/database.c rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c rrserver/bridge.hints.c \
    -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe -lsqlite3 \
    $(pkg-config --libs glib-2.0) \
    -o "$work/database"

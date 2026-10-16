@@ -1,6 +1,7 @@
 /* Remote media loss must retry backend key-up even after the grant is gone. */
 #include <assert.h>
 #include <rrserver/relay.c>
+#include <rrserver/relay.media.c>
 
 bool rrserver_supervision_allowed(rrconn_t *client) {
    return true;
@@ -69,7 +70,7 @@ int main(void) {
    strcpy(media_channels[0].room, "#test-rig0");
    media_channels[0].subsystem = RR_BINFRAME_SUBSYS_AUDIO;
    media_channels[0].direction = RR_BINFRAME_DIR_TX;
-   remotes = &session;
+   rr_relay_remotes = &session;
    cfg = dict_new();
    dict_add(cfg, "station.name", "rig-site");
    assert(!strcmp(rrserver_relay_client_server(NULL), "rig-site"));
@@ -82,9 +83,9 @@ int main(void) {
    home.descriptor = dict_new();
    dict_add(home.descriptor, "object.type", "node");
    dict_add(home.descriptor, "object.alias", "home-site");
-   catalogs = &home;
+   rr_relay_catalogs = &home;
    assert(!strcmp(rrserver_relay_client_server(&session.client), "home-site"));
-   catalogs = NULL;
+   rr_relay_catalogs = NULL;
    dict_free(home.descriptor);
    dict_free(cfg);
    cfg = NULL;
@@ -92,8 +93,8 @@ int main(void) {
    session.proxy_tx[0] = true;
    session.proxy_started = 4000000;
    session.client.is_ptt = true;
-   assert(proxy_tx_subscribed(&session, "#test-rig0"));
-   assert(!proxy_tx_subscribed(&session, "#other-rig0"));
+   assert(rr_relay_proxy_tx_subscribed(&session, "#test-rig0"));
+   assert(!rr_relay_proxy_tx_subscribed(&session, "#other-rig0"));
    retry_remote_ptt(&session, 6999999);
    assert(releases == 4 && session.client.is_ptt);
    retry_remote_ptt(&session, 7000000);
@@ -124,7 +125,7 @@ int main(void) {
    reject_release = false;
    retry_remote_ptt(&session, 13000000);
    assert(releases == 7 && !session.client.is_ptt);
-   remotes = NULL;
+   rr_relay_remotes = NULL;
    memset(media_channels, 0, sizeof(media_channels));
    puts("PASS: proxy TX startup grace, accepted-audio liveness, subscription/room/mute revocation and backend retry");
    puts("PASS: remote PTT release survives grant removal, retries backend failure and stops after success");

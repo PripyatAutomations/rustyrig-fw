@@ -1,6 +1,6 @@
 // Exercise the server policy with its real clock, database and handlers.
 #include <assert.h>
-#include <rrserver/events.c>
+#include <rrserver/events.rooms.c>
 
 time_t now;
 bool dying, restarting;

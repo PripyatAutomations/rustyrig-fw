@@ -150,8 +150,10 @@ routing are available; station-name prefixes do not establish ownership.
 
 ### Application relay
 
-`rrserver/relay.c` owns catalogs, owner-side virtual sessions, routing and
-subscription aggregation. Protocol libraries expose synchronous events for
+`rrserver/relay.c` owns routing and lifecycle; `relay.catalog.c` owns discovery,
+`relay.sessions.c` owns virtual sessions and subscription aggregation, and
+`relay.media.c` owns stream translation/reassembly. Shared state is declared
+only in `relay.internal.h` and has one definition in its owning domain. Protocol libraries expose synchronous events for
 routing, sending, publication and roster augmentation; they do not implement
 federation policy or UI behavior.
 

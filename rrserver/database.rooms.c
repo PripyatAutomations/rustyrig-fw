@@ -1,0 +1,441 @@
+//
+// rrserver/database.rooms.c: Room persistence and VFO bindings.
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <glib.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <rrserver/database.h>
+#include <rrserver/usage.h>
+
+#ifdef USE_SQLITE
+/* Commit a successful room change or roll back its transaction. */
+static bool db_room_change_end(sqlite3 *db, bool ok) {
+   if (ok && sqlite3_exec(db, "RELEASE room_change;", NULL, NULL, NULL) == SQLITE_OK) {
+      return true;
+   }
+   sqlite3_exec(db, "ROLLBACK TO room_change;", NULL, NULL, NULL);
+   sqlite3_exec(db, "RELEASE room_change;", NULL, NULL, NULL);
+
+   return false;
+}
+
+/* Persist missing room metadata without replacing an existing active room. */
+bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_mask, const char *username) {
+   if (!db || !name || !*name) {
+      return false;
+   }
+   bool exists, deleted;
+
+   if (!db_room_status(db, name, &exists, &deleted) || deleted || sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   const char *sql = exists
+      ? "UPDATE rooms SET has_vfos=?2,vfo_mask=?3 WHERE name=?1 COLLATE NOCASE AND deleted=0;" : "INSERT INTO rooms(name,has_vfos,vfo_mask) VALUES(?,?,?);";
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      return db_room_change_end(db, false);
+   }
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(st, 2, has_vfos ? 1 : 0);
+   sqlite3_bind_int64(st, 3, (sqlite3_int64) vfo_mask);
+   bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(st);
+
+   if (ok && !exists) {
+      ok = db_add_audit_event(db, username ? username : "server", "room.created", name);
+   }
+
+   return db_room_change_end(db, ok);
+}
+
+/* Persist a room topic using bound parameters. */
+bool db_room_set_topic(sqlite3 *db, const char *name, const char *topic) {
+   if (!db || !name || !*name || !topic) {
+      return false;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "UPDATE rooms SET topic=? WHERE name=? COLLATE NOCASE AND deleted=0;", -1, &st, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(st, 1, topic, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(st, 2, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+
+   return ok;
+}
+
+/* Return an owned topic string for the requested room. */
+char *db_room_get_topic(sqlite3 *db, const char *name) {
+   if (!db || !name || !*name) {
+      return NULL;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "SELECT topic FROM rooms WHERE name=? COLLATE NOCASE;", -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   char *topic = NULL;
+
+   if (sqlite3_step(st) == SQLITE_ROW) {
+      const char *value = (const char *)sqlite3_column_text(st, 0);
+      topic = strdup(value ? value : "");
+   }
+   sqlite3_finalize(st);
+
+   return topic;
+}
+
+// Distinguish missing rows from tombstones; room identity is case-insensitive.
+bool db_room_status(sqlite3 *db, const char *name, bool *exists, bool *deleted) {
+   if (!db || !name || !exists || !deleted) {
+      return false;
+   }
+   *exists = *deleted = false;
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "SELECT deleted FROM rooms WHERE name=? COLLATE NOCASE;", -1, &st, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   int status = sqlite3_step(st);
+
+   if (status == SQLITE_ROW) {
+      *exists = true;
+      *deleted = sqlite3_column_int(st, 0) != 0;
+   }
+   sqlite3_finalize(st);
+
+   return status == SQLITE_ROW || status == SQLITE_DONE;
+}
+
+/* Restore a deleted room and audit the actor within one transaction. */
+bool db_room_restore(sqlite3 *db, const char *name, const char *username) {
+   bool exists, deleted;
+
+   if (!db || !name || !*name || !db_room_status(db, name, &exists, &deleted)) {
+      return false;
+   }
+
+   if (!deleted) {
+      return true;
+   }
+
+   if (sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "UPDATE rooms SET deleted=0 WHERE name=? COLLATE NOCASE AND deleted=1;", -1, &st, NULL) != SQLITE_OK) {
+      return db_room_change_end(db, false);
+   }
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(st);
+
+   if (ok) {
+      ok = db_add_audit_event(db, username ? username : "server", "room.restored", name);
+   }
+
+   return db_room_change_end(db, ok);
+}
+
+// Keep metadata, VFO bindings and history. Runtime ownership is detached by the server.
+bool db_room_delete(sqlite3 *db, const char *name, const char *username, bool force, bool history) {
+   if (!db || !name || !*name || (history && !force) || sqlite3_exec(db, "SAVEPOINT room_change;", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, force ? "UPDATE rooms SET deleted=1 WHERE name=? COLLATE NOCASE;" :
+      "UPDATE rooms SET deleted=1 WHERE name=? COLLATE NOCASE AND deleted=0;", -1, &st, NULL) != SQLITE_OK) {
+      return db_room_change_end(db, false);
+   }
+   sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(st);
+
+   if (ok && force) {
+      const char *queries[] = {
+         "DELETE FROM room_vfos WHERE room=? COLLATE NOCASE;", "DELETE FROM rooms WHERE name=? COLLATE NOCASE;",
+         "DELETE FROM chat_log WHERE msg_dest=? COLLATE NOCASE;"
+      };
+
+      for (size_t i = 0 ; ok && i < (history ? 3 : 2) ; i++) {
+         st = NULL;
+         ok = sqlite3_prepare_v2(db, queries[i], -1, &st, NULL) == SQLITE_OK;
+
+         if (ok) {
+            sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+            ok = sqlite3_step(st) == SQLITE_DONE;
+         }
+         sqlite3_finalize(st);
+      }
+   }
+   char *details = force ? g_strdup_printf("%s --force%s", name, history ? " --history" : "") : NULL;
+
+   if (ok) {
+      ok = db_add_audit_event(db, username ? username : "server", "room.removed", details ? details : name);
+   }
+   g_free(details);
+
+   return db_room_change_end(db, ok);
+}
+
+/* Return an owned text listing of active persisted rooms. */
+char *db_room_list(sqlite3 *db) {
+   if (!db) {
+      return NULL;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "SELECT name FROM rooms WHERE deleted=0 ORDER BY name;", -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+   size_t cap = 256, len = 0;
+   char *out = calloc(1, cap);
+
+   if (!out) {
+      sqlite3_finalize(st);
+
+      return NULL;
+   }
+   while (sqlite3_step(st) == SQLITE_ROW) {
+      const char *name = (const char *)sqlite3_column_text(st, 0);
+
+      if (!name) {
+         continue;
+      }
+      size_t need = strlen(name) + (len ? 1 : 0);
+
+      if (len + need + 1 > cap) {
+         while (len + need + 1 > cap) {
+            cap *= 2;
+         }
+         char *tmp = realloc(out, cap);
+
+         if (!tmp) {
+            free(out);
+            sqlite3_finalize(st);
+
+            return NULL;
+         }
+         out = tmp;
+      }
+
+      if (len) {
+         out[len++] = ' ';
+      }
+      memcpy(out + len, name, strlen(name));
+      len += strlen(name);
+      out[len] = 0;
+   }
+   sqlite3_finalize(st);
+
+   return out;
+}
+
+
+/* Return an owned joined text listing for room/VFO query rows. */
+static char *db_join_rows(sqlite3 *db, const char *sql, const char *room, bool include_room) {
+   sqlite3_stmt *st = NULL;
+
+   if (!db || sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+
+   if (room) {
+      sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   }
+   size_t cap = 256, len = 0;
+   char *out = calloc(1, cap);
+
+   if (!out) {
+      sqlite3_finalize(st);
+
+      return NULL;
+   }
+   while (sqlite3_step(st) == SQLITE_ROW) {
+      const char *a = (const char *)sqlite3_column_text(st, 0);
+      const char *b = include_room ? (const char *)sqlite3_column_text(st, 1) : NULL;
+
+      if (!a) {
+         continue;
+      }
+      size_t need = strlen(a) + (b ? strlen(b) + 1 : 0) + (len ? 1 : 0);
+
+      if (len + need + 1 > cap) {
+         while (len + need + 1 > cap) {
+            cap *= 2;
+         }
+         char *tmp = realloc(out, cap);
+
+         if (!tmp) {
+            free(out);
+            sqlite3_finalize(st);
+
+            return NULL;
+         }
+         out = tmp;
+      }
+
+      if (len) {
+         out[len++] = ' ';
+      }
+
+      if (b) {
+         memcpy(out + len, a, strlen(a));
+         len += strlen(a);
+         out[len++] = '=';
+         memcpy(out + len, b, strlen(b));
+         len += strlen(b);
+      } else {
+         memcpy(out + len, a, strlen(a));
+         len += strlen(a);
+      }
+      out[len] = 0;
+   }
+   sqlite3_finalize(st);
+
+   return out;
+}
+
+/* Remove all VFO bindings for one room. */
+bool db_room_vfos_clear(sqlite3 *db, const char *room) {
+   if (!db || !room || !*room) {
+      return false;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=?;", -1, &st, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+
+   return ok;
+}
+
+/* Persist a room/VFO binding without duplicating an existing pair. */
+bool db_room_vfo_add(sqlite3 *db, const char *room, const char *binding) {
+   if (!db || !room || !binding) {
+      return false;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO room_vfos(room,binding) VALUES(?,?);", -1, &st, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+
+   return ok;
+}
+
+/* Remove a single room/VFO binding. */
+bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding) {
+   if (!db || !room || !binding) {
+      return false;
+   }
+   sqlite3_stmt *st = NULL;
+
+   if (sqlite3_prepare_v2(db, "DELETE FROM room_vfos WHERE room=? AND binding=?;", -1, &st, NULL) != SQLITE_OK) {
+      return false;
+   }
+   sqlite3_bind_text(st, 1, room, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(st, 2, binding, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(st) == SQLITE_DONE;
+   sqlite3_finalize(st);
+
+   return ok;
+}
+
+/* Return an owned listing of one room's VFO bindings. */
+char *db_room_vfo_list(sqlite3 *db, const char *room) {
+   return db_join_rows(db,
+      "SELECT binding FROM room_vfos JOIN rooms ON rooms.name=room_vfos.room WHERE room=? COLLATE NOCASE AND rooms.deleted=0 ORDER BY binding;", room, false);
+}
+
+/* Return an owned grouped listing of all room/VFO bindings. */
+char *db_room_vfo_map_list(sqlite3 *db) {
+   sqlite3_stmt *st = NULL;
+
+   if (!db || sqlite3_prepare_v2(db, "SELECT room,binding FROM room_vfos JOIN rooms ON rooms.name=room_vfos.room WHERE rooms.deleted=0 ORDER BY room,binding;",
+      -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+   size_t cap = 256, len = 0;
+   char *out = calloc(1, cap);
+   char current_room[256] = "";
+
+   if (!out) {
+      sqlite3_finalize(st);
+
+      return NULL;
+   }
+   while (sqlite3_step(st) == SQLITE_ROW) {
+      const char *room = (const char *)sqlite3_column_text(st, 0);
+      const char *binding = (const char *)sqlite3_column_text(st, 1);
+
+      if (!room || !binding) {
+         continue;
+      }
+      bool new_room = strcmp(current_room, room) != 0;
+      size_t need = strlen(binding) + (new_room ? strlen(room) + 2 + (len ? 1 : 0) : 2);
+
+      if (len + need + 1 > cap) {
+         while (len + need + 1 > cap) {
+            cap *= 2;
+         }
+         char *tmp = realloc(out, cap);
+
+         if (!tmp) {
+            free(out);
+            sqlite3_finalize(st);
+
+            return NULL;
+         }
+         out = tmp;
+      }
+
+      if (new_room) {
+         if (len) {
+            out[len++] = '\n';
+         }
+         len += (size_t)snprintf(out + len, cap - len, "%s: %s", room, binding);
+         snprintf(current_room, sizeof(current_room), "%s", room);
+      } else {
+         len += (size_t)snprintf(out + len, cap - len, ", %s", binding);
+      }
+   }
+   sqlite3_finalize(st);
+
+   return out;
+}
+
+#endif /* USE_SQLITE */

@@ -17,7 +17,21 @@
 #include <rrserver/rig.properties.h>
 #include <rrserver/rig.registry.h>
 
-// This control-only fixture has no DSP/media graph.
+/* This CAT/identity fixture deliberately has no audio listener or media graph. */
+bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
+   (void)radio;
+
+   return false;
+}
+
+/* Dynamic receiver provisioning is outside this control-only fixture. */
+bool rrserver_media_add_rig(rr_server_rig_t *radio) {
+   (void)radio;
+   assert(!"unexpected dynamic receiver in control-only fixture");
+
+   return false;
+}
+
 void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t len) {
    (void)radio;
    (void)samples;

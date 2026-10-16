@@ -1,0 +1,273 @@
+//
+// rrserver/events.rig.c: rig event listeners from
+// librrprotocol
+//    This is part of rustyrig-fw.
+// https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+#include <stddef.h>
+#include <math.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <stdarg.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <errno.h>
+
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/ws.mediachan.h>
+#include <librrprotocol/auth.h>
+#include <librrprotocol/objects.h>
+#include <librrprotocol/ws.mediachan.h>
+#include <rrserver/database.h>
+#include <rrserver/backend.h>
+#include <rrserver/rig.properties.h>
+#include <rrserver/rig.rooms.h>
+#include <rrserver/rig.vfo.h>
+#include <rrserver/rig.registry.h>
+#include <rrserver/globalstate.h>
+#include <rrserver/ptt.h>
+#include <rrserver/supervision.h>
+#include <rrserver/acl.h>
+#include <rrserver/bridge.access.h>
+#include <rrserver/bridge.manager.h>
+#include <rrserver/media.direct.h>
+#include <rrserver/relay.h>
+#include <rrserver/usage.h>
+#include <libfwdspmgr/fwdsp-mgr.h>
+#include <libfwdspmgr/fwdsp-ctl.h>
+
+extern struct GlobalState rig;
+
+#include <rrserver/events.internal.h>
+
+/* Apply rig control through backend, permission and supervision checks. */
+static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   if (!data) {
+      return;
+   }
+
+   dict *d = json2dict(data);
+
+   if (!d) {
+      return;
+   }
+
+   dict_dump(d, NULL);
+
+   const char *rc_cmd = dict_get(d, "rigctl.cmd", NULL);
+   const char *rc_vfo = dict_get(d, "rigctl.vfo", NULL);
+   const char *rc_from = dict_get(d, "rigctl.from", NULL);
+   bool rc_ptt = dict_get_bool(d, "rigctl.ptt", false);
+   int rc_freq = dict_get_int(d, "rigctl.freq", 0);
+   const char *rc_mode = dict_get(d, "rigctl.mode", NULL);
+   const char *rc_width = dict_get(d, "rigctl.width", NULL);
+   float rc_power = dict_get_float(d, "rigctl.power", 0);
+
+   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s, width: %s", rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)",
+      rc_width ? rc_width : "(none)");
+
+   if (!rc_cmd || !rc_vfo || !rc_from) {
+      dict_free(d);
+
+      return;
+   }
+
+   rr_vfo_t vfo = vfo_lookup(rc_vfo[0]);
+
+   const char *room = dict_get(d, "rigctl.room", ws_authoritative_room());
+   rr_server_rig_t *radio = rrserver_rig_for_room(room);
+
+   if (!radio) {
+      dict_free(d);
+
+      return;
+   }
+
+   if (strcasecmp(rc_cmd, "ptt") == 0) {
+      if (rc_ptt) {
+         rig.ptt_rig = radio;
+      }
+      // Key/dekey the rig (from the PTT button in the client)
+      Log(LOG_AUDIT, "rigctl", "User %s set PTT to %s on vfo %s", rc_from, (rc_ptt ? "true" : "false"), rc_vfo);
+
+      if (rr_ptt_request(vfo, rc_ptt, rc_ptt ? "key-down" : "released") && cptr) {
+         // The wire handler announced the request optimistically. Restore
+         // session ownership when key-up fails; clear it when key-down fails.
+         cptr->is_ptt = !rc_ptt;
+         cptr->ptt_vfo = rc_ptt ? 0 : rc_vfo[0];
+         snprintf(cptr->ptt_room, sizeof(cptr->ptt_room), "%s", rc_ptt ? "" : room);
+         ws_send_userinfo(cptr, NULL);
+         dict *state = dict_new();
+
+         if (state) {
+            dict_add(state, "msg.type", "cat");
+            dict_add(state, "cat.cmd", "ptt");
+            dict_add(state, "cat.room", room);
+            dict_add(state, "cat.vfo", rc_vfo);
+            dict_add(state, "cat.user", cptr->chatname);
+            dict_add_bool(state, "cat.ptt", !rc_ptt);
+            ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
+            dict_free(state);
+         }
+         ws_send_error(cptr, "PTT request rejected (%s) for VFO %s in room %s by station safety controls or radio backend; check the server log for the cause",
+            rc_ptt ? "start" : "stop", rc_vfo, room);
+      }
+      dict_free(d);
+
+      return;
+   }
+
+   if (!strcasecmp(rc_cmd, "power")) {
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+
+      if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
+         if (cptr) {
+            ws_send_error(cptr, "Unable to set power to %g watts on VFO %s in room %s", (double)rc_power, rc_vfo, room);
+         }
+      } else {
+         Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
+         rr_backend_poll_rig(radio, object);
+         rr_backend_t *backend = rr_server_rig_backend(radio);
+
+         if (backend && rr_backend_api(backend)->power_get) {
+            float observed = rr_backend_api(backend)->power_get(backend, object);
+
+            if (isfinite(observed) && observed >= 0) {
+               dict *state = dict_new();
+
+               if (state) {
+                  dict_add(state, "msg.type", "cat");
+                  dict_add(state, "cat.cmd", "power");
+                  dict_add(state, "cat.room", room);
+                  dict_add(state, "cat.vfo", rc_vfo);
+                  dict_add_float(state, "cat.power", observed);
+                  dict_add(state, "cat.user", rc_from);
+                  ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
+                  dict_free(state);
+               }
+            }
+         }
+      }
+      dict_free(d);
+
+      return;
+   }
+
+   if (radio != rr_rig_registry_default(rig.rigs)) {
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+      rr_control_request_t request = {
+         .rig = radio, .vfo = object, .source = "rigctl", .context = cptr
+      };
+
+      if (!strcmp(rc_cmd, "freq")) {
+         request.property = RR_PROP_VFO_FREQUENCY;
+         request.value_type = VAL_LONG;
+         request.value.l = rc_freq;
+      } else if (!strcmp(rc_cmd, "mode")) {
+         request.property = RR_PROP_VFO_MODE;
+         request.value_type = VAL_STR;
+         request.value.s = rc_mode;
+      } else if (!strcmp(rc_cmd, "width")) {
+         request.property = RR_PROP_VFO_WIDTH;
+         request.value_type = VAL_LONG;
+         request.value.l = rc_width ? strtol(rc_width, NULL, 10) : 0;
+      }
+
+      rr_control_result_t result = object && request.property ? rr_rig_control(&request) : RR_CONTROL_INVALID;
+
+      if (result != RR_CONTROL_OK && result != RR_CONTROL_PENDING) {
+         Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s", rc_cmd, room);
+      } else if (result == RR_CONTROL_OK) {
+         rr_backend_poll_rig(radio, object);
+      }
+      dict_free(d);
+
+      return;
+   }
+
+   if (strcasecmp(rc_cmd, "mode") == 0) {
+      // Set the rig mode (from !mode chat command or ws cat.cmd mode)
+      if (!rc_mode) {
+         Log(LOG_WARN, "ws.rigctl", "MODE set without a mode");
+         dict_free(d);
+
+         return;
+      }
+
+      rr_mode_t new_mode = vfo_parse_mode(rc_mode);
+
+      if (new_mode == MODE_NONE) {
+         Log(LOG_WARN, "ws.rigctl", "Couldn't parse mode %s", rc_mode);
+         dict_free(d);
+
+         return;
+      }
+      // Audit trail: who changed which VFO to what mode
+      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
+
+      // Confirm the new values for UUID-backed clients immediately, including width changes caused by mode.
+      if (!rr_set_mode(vfo, new_mode)) {
+         rr_be_poll(vfo);
+      }
+      dict_free(d);
+
+      return;
+   }
+
+   if (strcasecmp(rc_cmd, "width") == 0) {
+      // Set the rig passband width (from !width chat command or ws cat.cmd width)
+      if (!rc_width) {
+         Log(LOG_WARN, "ws.rigctl", "WIDTH set without a width");
+         dict_free(d);
+
+         return;
+      }
+      // Audit trail: who changed which VFO to what passband width
+      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
+
+      if (!rr_set_width(vfo, rc_width)) {
+         rr_be_poll(vfo);
+      }
+      dict_free(d);
+
+      return;
+   }
+
+   fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo, rc_freq);
+
+   // Audit trail: who changed which VFO to what frequency
+   Log(LOG_AUDIT, "rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
+
+   if (!rr_freq_set(vfo, rc_freq)) {
+      rr_be_poll(vfo);
+   }
+   dict_free(d);
+}
+
+/* The generic property event is currently an internal observation stream. Register it explicitly so it does not fall through the NOMATCH warning handler while
+ * the future generic client protocol adapter is still pending. */
+static void rrserver_handle_rig_property_changed(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)cptr;
+   (void)user;
+   Log(LOG_CRAZY, "rig.property", "%s: %s", event, data ? data : "(null)");
+}
+
+// Ask the backend to poll the active VFO, e.g. after the active VFO changes
+// (!vfo), so the new VFO's cat.state gets broadcast promptly.
+static void rrserver_handle_be_poll(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   rr_be_poll(active_vfo);
+}
+
+/* Register this domain's server-owned protocol listeners. */
+void rrserver_events_rig_register(void) {
+   event_on("be.poll", rrserver_handle_be_poll, NULL);
+   event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
+   event_on(RR_PROPERTY_CHANGED_EVENT, rrserver_handle_rig_property_changed, NULL);
+}

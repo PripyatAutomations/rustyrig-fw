@@ -2,7 +2,9 @@ This directory contains various random scripts. Here's some descriptions.
 If not listed, look at the top of the script for more info. Names should be clear...
 
     archive-config.sh		Backup the configure to config/archive/
-    count-lines.sh		Show lines of source in the project
+    count-lines.sh		Show raw lines of source in the project
+    source-size.py		Count owned C/header code excluding comments/blanks;
+                                list large files/functions and optionally enforce a cap
     dummy-rigctld.sh		Start rigctld with dummy backend, if not running
     find-all.sh			Find all instances of a string in the tree,
                                 except third party (ext/) sources.

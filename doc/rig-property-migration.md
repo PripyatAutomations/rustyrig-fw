@@ -159,7 +159,7 @@ The current control path is:
     client command
       -> librrprotocol/srv.rigctl.c validation
       -> `rigctl` event
-      -> rrserver/events.c
+      -> rrserver/events.rig.c
       -> backend.c policy wrapper
       -> selected backend
       -> backend-specific `cat.state` publication
@@ -181,9 +181,9 @@ the first milestone.
 
 ### Room/VFO mappings
 
-- `rrserver/database.c` persists room mappings as opaque binding strings such
+- `rrserver/database.rooms.c` persists room mappings as opaque binding strings such
   as `rig0.vfo_a` in the `room_vfos` table.
-- `rrserver/events.c` adds, removes, and lists those strings but does not
+- `rrserver/events.rooms.c` adds, removes, and lists those strings but does not
   resolve them against a rig registry.
 - `rrserver/main.c` initializes default `rig0.vfo_a` and `rig0.vfo_b`
   bindings.

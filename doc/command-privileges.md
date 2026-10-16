@@ -204,7 +204,7 @@ Live production database/configuration were not changed.
 - Browser command parser: `www/js/webui.chat.js:ChatBox`.
 - Authentication dispatcher: `librrprotocol/srv.http.c:ws_txtframe_process`.
 - Account matching: `librrprotocol/srv.auth.c:has_priv` and `match_priv`.
-- Chat/admin/room policy: `librrprotocol/srv.chat.c` and `rrserver/events.c`.
+- Chat/admin/room policy: `librrprotocol/srv.chat.c` and `rrserver/events.{users,admin,rooms,quota}.c`.
 - CAT policy: `librrprotocol/srv.rigctl.c:ws_handle_rigctl_msg`.
 - UUID SET policy: `rrserver/objects.c`.
 - Channel/codec/source policy: `librrprotocol/ws.mediachan.c`.

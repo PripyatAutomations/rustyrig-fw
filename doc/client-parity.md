@@ -247,9 +247,9 @@ command-chain example alongside the current discovery command names.
 
 ## Room management
 
-Native `rrclient/cmd.chat.c:cmd_room` and browser `js/webui.chat.js` forward
+Native `rrclient/cmd.chat.c:cmd_room` and browser `js/webui.chat.commands.js` forward
 `/room` arguments to the authoritative `librrprotocol/srv.chat.c` parser and
-`rrserver/events.c` policy handlers. Both clients support action-first add/remove,
+`rrserver/events.rooms.c` policy handlers. Both clients support action-first add/remove,
 legacy room-first commands, confirmation tokens and `--force/-f --history/-h`.
 Help and completion describe the same commands. Server policy reserves dashed station room creation, restoration and removal
 for admin/owner; undashed room creation is available to any authenticated account.
@@ -599,7 +599,7 @@ and descriptions; `=text` matches only keys and `^text` matches key prefixes,
 case-insensitively. See [Config field search](config-search.md).
 
 GTK and browser Admin quota tables display separate server TX and RX bandwidth
-usage totals from `rrserver/events.c`, with a shared remaining allowance. Both
+usage totals from `rrserver/events.admin.c`, with a shared remaining allowance. Both
 label pages Users, Rooms, Quotas, Audit Log and PTT Log, and show the zero-to-
 exhaust hint only for SET actions.
 
@@ -767,3 +767,11 @@ bytes, rejects and parser time. These process-local diagnostics change no wire
 messages and require no browser behavior change. Native object-cache copies
 reuse typed `librustyaxe` dictionary cloning; cached values and public behavior
 remain the same. See [WebSocket profiling](websocket-profiling.md).
+
+## Source organization
+
+Server relay, event and database domains use separate translation units with
+private server headers. Browser chat help, users and commands load after
+`webui.chat.js` through the existing ordered asset loader. These are internal
+organization changes; commands, protocol messages and client behavior remain
+equivalent. See [source organization audit](source-organization.md).

@@ -49,6 +49,21 @@ Keep common behavior out of frontend-specific code when possible.
 
 The project uses 3-space indentation for C.
 
+## Source organization
+
+- Aim for 500–800 code lines per file, with a hard cap of 1500. Exclude
+  blank lines and comments/license boilerplate from that count.
+- Keep functions under a few hundred code lines; extract cohesive static
+  helpers when a function mixes responsibilities.
+- Split by domain responsibility, retain appropriate headers/license text,
+  and briefly document functions and ownership-sensitive interfaces.
+- Keep shared internal declarations in component-private headers; do not
+  expose implementation details through public library headers just to split files.
+- Use `python3 tools/source-size.py` for the owned C/header inventory. Function
+  spans are lexical estimates; review conditional-compilation cases manually.
+- Record conspicuous performance/security concerns with source evidence for
+  review; keep unrelated behavior fixes separate from organization changes.
+
 ## C / JavaScript parity
 
 The WebUI is a separate implementation of the client. It is not merely a
