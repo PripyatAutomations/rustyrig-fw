@@ -150,6 +150,13 @@ static void on_edit_clicked(GtkButton *button, gpointer data) {
    }
 }
 
+/* Render pending attempts distinctly while keeping the checkbox cancellable. */
+static void picker_set_state(GtkListStore *store, GtkTreeIter *iter, const char *profile) {
+   int state = rrclient_connection_state(profile);
+   gtk_list_store_set(store, iter, 4, state == 1, 5, state < 0,
+      6, state < 0 ? "Connecting / retrying" : state == 1 ? "Connected" : "Offline", -1);
+}
+
 void gtk_server_picker_refresh_profile(const char *profile) {
    gui_window_t *picker = gui_find_window(NULL, "serverpick");
    GtkWidget *tree = picker && picker->gtk_win ? g_object_get_data(G_OBJECT(picker->gtk_win), "rr-server-tree") : NULL;
@@ -170,7 +177,8 @@ void gtk_server_picker_refresh_profile(const char *profile) {
          const char *user = get_server_property(profile, "server.user");
          const char *url = get_server_property(profile, "server.url");
          const char *proxy = get_server_property(profile, "server.proxy");
-         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 1, user ? user : "", 2, url ? url : "", 3, proxy ? proxy : "", 4, rrclient_connection_state(profile) == 1, -1);
+         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 1, user ? user : "", 2, url ? url : "", 3, proxy ? proxy : "", -1);
+         picker_set_state(GTK_LIST_STORE(model), &iter, profile);
 
          return;
       }
@@ -185,7 +193,7 @@ static gboolean picker_refresh(gpointer data) {
    for (gboolean valid = gtk_tree_model_get_iter_first(model, &iter); valid; valid = gtk_tree_model_iter_next(model, &iter)) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, 0, &name, -1);
-      gtk_list_store_set(GTK_LIST_STORE(model), &iter, 4, rrclient_connection_state(name) == 1, -1);
+      picker_set_state(GTK_LIST_STORE(model), &iter, name);
       g_free(name);
    }
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
@@ -193,7 +201,8 @@ static gboolean picker_refresh(gpointer data) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, 0, &name, -1);
       GtkWidget *button = g_object_get_data(G_OBJECT(tree), "rr-connect-button");
-      gtk_button_set_label(GTK_BUTTON(button), rrclient_connection_state(name) ? "Disconnect" : "Connect");
+      int state = rrclient_connection_state(name);
+      gtk_button_set_label(GTK_BUTTON(button), state < 0 ? "Cancel connection" : state == 1 ? "Disconnect" : "Connect");
       g_free(name);
    }
    return G_SOURCE_CONTINUE;
@@ -263,7 +272,7 @@ void gtk_show_server_chooser(void) {
    ui_new_window(window, "serverpick");
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_add(GTK_CONTAINER(window), box);
-   GtkListStore *store = gtk_list_store_new(5, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
+   GtkListStore *store = gtk_list_store_new(7, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING);
    int rank = 0;
    const char *key;
    char *value;
@@ -281,7 +290,8 @@ void gtk_show_server_chooser(void) {
       }
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
-      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", 4, rrclient_connection_state(name) == 1, -1);
+      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", -1);
+      picker_set_state(store, &iter, name);
    }
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
@@ -297,7 +307,10 @@ void gtk_show_server_chooser(void) {
 
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, NULL));
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL));
+   GtkCellRenderer *status = gtk_cell_renderer_text_new();
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes("Status", status, "text", 6, NULL));
+   gtk_widget_set_tooltip_text(tree, "Click Connected to connect, disconnect, or cancel a pending connection and its retries.");
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
