@@ -118,13 +118,18 @@ These behaviors were observed while reading the affected code. They are
 intentionally unchanged in this refactor. Priority describes what to examine
 next, not an assertion of an exploitable vulnerability.
 
-1. **CPU, high:** `rrserver_relay_poll()` calls `rr_relay_local_users()` on each
+1. **CPU, high — addressed in follow-up:** `rrserver_relay_poll()` formerly called `rr_relay_local_users()` on each
    main-loop pass whenever the link node is available. That allocates/builds a
    dictionary, walks active connections and all user slots, then compares the
    result with the prior directory even when no membership changed. Candidate:
    dirty-generation tracking on connect/auth/disconnect/account changes, with
    a bounded periodic reconciliation. Check multi-session counts and linked
    user-list propagation before replacing the current behavior.
+   **Implemented:** `relay.users.c` now coalesces lifecycle/account dirty events,
+   forces refresh for `/users`/new peers, and reconciles every five seconds.
+   Its regression fixture verifies 10,000 quiet polls cause only one build,
+   immediate changed-session/source-role/reload propagation, unchanged snapshot
+   suppression, fallback reconciliation and bounded allocation-failure retries.
 2. **Memory/CPU, high:** `WebUiChat.Append()` appends directly to the stored HTML
    for an inactive room and returns before applying scrollback limits. A busy
    background room can therefore grow without the active-room cap. Enforce a

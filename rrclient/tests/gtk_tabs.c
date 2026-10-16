@@ -6,6 +6,7 @@
 #include <X11/extensions/XTest.h>
 #endif
 #include <rrclient/gtk/gtk.tabs.c>
+#include <rrclient/gtk/gtk.tabs.menu.c>
 
 static void settle(void) {
    for (int i = 0 ; i < 30 ; i++) {

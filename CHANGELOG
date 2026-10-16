@@ -1,5 +1,14 @@
 rustyrig-fw (20261015.05) testing; urgency=medium
 
+  * Keep incoming GTK chat on its background conversation without switching
+    tabs or stealing draft focus. Mark unread messages and nickname mentions
+    in tab titles and clear markers on viewing; retain explicit navigation.
+  * Rebuild relay user directories on lifecycle/account changes instead of
+    every poll, with bounded reconciliation and allocation retries. Keep PTT
+    and media expiry responsive; test quiet polling and immediate updates.
+  * Share the main GTK icon with auxiliary windows/dialogs. Add tab Close and
+    confirmed Force close menus bound to the clicked conversation, including
+    reordered/removed tabs; protect Admin, Config, Status and both log tabs.
   * Split oversized server relay, event and database implementations into
     documented domain files with private interfaces; separate browser chat
     help/users/commands and extract media command handling. Add comment-aware
@@ -160,7 +169,7 @@ rustyrig-fw (20261015.05) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 20:51:12 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 21:11:11 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

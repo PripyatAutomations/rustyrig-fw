@@ -9,6 +9,7 @@
 #define RRSERVER_RELAY_INTERNAL_H
 #include <rrserver/relay.h>
 #ifdef USE_MONGOOSE
+#include <librrprotocol/ws.mediachan.h>
 
 /* Relay-private state: owned and accessed on the server event-loop thread. */
 #define MAX_CATALOG 2048
@@ -77,6 +78,11 @@ extern size_t rr_relay_wanted_count;
 extern bool rr_relay_applying;
 extern bool rr_relay_catalog_dirty;
 extern struct relay_media *rr_relay_media_maps;
+
+/* User snapshots are invalidated by events, with a five-second safety sweep. */
+void rr_relay_users_poll(bool force);
+void rr_relay_users_reset(void);
+void rr_relay_users_register(void);
 
 /* Private cross-domain operations; public callers use relay.h. */
 void rr_relay_directory_put(const char *node, dict *d);

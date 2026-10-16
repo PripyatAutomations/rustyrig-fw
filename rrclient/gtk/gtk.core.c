@@ -1112,6 +1112,7 @@ const rr_frontend_ops_t gtk_frontend_ops = {
    .mode_set = frontend_gtk_mode_set,
    .connection_state = frontend_gtk_conn_button,
    .conn_button_update = frontend_gtk_conn_button,
+   .chat_incoming = gtk_chat_incoming,
    .chat_room_add = frontend_gtk_chat_room_add,
    .chat_room_remove = frontend_gtk_chat_room_remove,
    .chat_room_topic = frontend_gtk_chat_room_topic,

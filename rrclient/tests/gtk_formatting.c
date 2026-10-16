@@ -22,6 +22,8 @@ gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
 }
 
 static rrconn_t origin_connection;
+rrconn_t *ws_conn;
+void userlist_remove_room_view(const char *room) { (void)room; }
 rrconn_t *rrclient_connection_find(const char *name) {
    return name && !strcmp(name, "server") ? &origin_connection : NULL;
 }
@@ -346,6 +348,8 @@ static void test_incoming_chat_preserves_draft(void) {
    g_object_set_data(G_OBJECT(page), "rr-room-tab", &tab);
    room_tabs = g_hash_table_new(g_str_hash, g_str_equal);
    g_hash_table_insert(room_tabs, "origin-key", &tab);
+   g_hash_table_insert(room_tabs, "server:#origin", &tab);
+   gtk_notebook_set_tab_label(GTK_NOTEBOOK(main_notebook), page, gtk_label_new("#origin"));
    assert(!gtk_chat_execute_command("origin-key", "/whois BOB"));
    assert(!strcmp(parsed_menu_command, "/whois BOB"));
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
@@ -370,6 +374,30 @@ static void test_incoming_chat_preserves_draft(void) {
    assert(!parse_chat_input_gtk(NULL, entry));
    assert(dispatched == 2 && !strcmp(parsed_menu_command, "send to origin"));
    assert(!strcmp(gtk_chat_current_room(), "#scratchmonkey"));
+   gtk_entry_set_text(GTK_ENTRY(entry), "draft retained during incoming messages");
+   gtk_chat_incoming("#origin", false, "preadminpost", "admin");
+   assert(!strcmp(gtk_chat_current_room(), "#scratchmonkey"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "draft retained during incoming messages"));
+   assert(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(page), "rr-tab-unread")) == 1);
+   gtk_chat_incoming("#origin", false, "Hi ADMIN: are you there?", "admin");
+   assert(!strcmp(gtk_chat_current_room(), "#scratchmonkey"));
+   assert(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(page), "rr-tab-unread")) == 2);
+   gtk_chat_incoming("#origin", false, "ordinary follow-up", "admin");
+   assert(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(page), "rr-tab-unread")) == 2);
+   GtkWidget *visible_entry = chat_entry, *visible_view = chat_textview;
+   gtk_chat_incoming("unseen-private", true, "hello", "admin");
+   assert(!strcmp(gtk_chat_current_room(), "#scratchmonkey"));
+   assert(chat_entry == visible_entry && chat_textview == visible_view);
+   gpointer new_key, new_tab;
+   assert(g_hash_table_lookup_extended(room_tabs, rrclient_window_name("unseen-private"), &new_key, &new_tab));
+   GtkRoomTab *incoming_tab = new_tab;
+   assert(incoming_tab->is_query && GPOINTER_TO_INT(g_object_get_data(G_OBJECT(incoming_tab->page), "rr-tab-unread")) == 1);
+   gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), incoming_tab->page));
+   g_hash_table_remove(room_tabs, new_key);
+   g_free(new_key);
+   g_free(new_tab);
+
+
    g_object_set_data(G_OBJECT(entry), "rr-room-name", NULL);
    g_object_set_data(G_OBJECT(entry), "rr-server-name", NULL);
    gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), 0);
@@ -377,6 +405,13 @@ static void test_incoming_chat_preserves_draft(void) {
    gtk_editable_set_position(GTK_EDITABLE(entry), 4);
    gtk_editable_select_region(GTK_EDITABLE(entry), 4, 4);
 
+   /* Context-menu closing must target the page's server/room, retaining drafts. */
+   g_hash_table_insert(room_tabs, "server:#origin", &tab);
+   gtk_chat_tab_close(page, FALSE);
+   assert(!strcmp(parsed_menu_command, "/win close"));
+   gtk_chat_tab_close(page, TRUE);
+   assert(!strcmp(parsed_menu_command, "/win close -force"));
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(entry)), "unfinished draft"));
    g_hash_table_destroy(room_tabs);
    room_tabs = NULL;
    puts("PASS: roster commands reach the normal parser with room/server context and preserve the draft");

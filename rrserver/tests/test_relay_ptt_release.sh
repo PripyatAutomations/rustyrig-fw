@@ -8,7 +8,7 @@ if ! grep -q '^#define USE_MONGOOSE' "build/${PROFILE:-radio}/build_config.h"; t
    exit 0
 fi
 ${CC:-cc} -I. -Iinc -Ibuild/${PROFILE:-radio} $(pkg-config --cflags glib-2.0) \
-   -ffunction-sections -fdata-sections rrserver/tests/relay_ptt_release.c rrserver/relay.catalog.c rrserver/relay.sessions.c \
+   -ffunction-sections -fdata-sections rrserver/tests/relay_ptt_release.c rrserver/relay.catalog.c rrserver/relay.sessions.c rrserver/relay.users.c \
    -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrrprotocol -lrustyaxe $(pkg-config --libs glib-2.0) \
    -o "$work/relay_ptt_release"
 "$work/relay_ptt_release"

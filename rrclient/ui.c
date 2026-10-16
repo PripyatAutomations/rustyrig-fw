@@ -256,7 +256,7 @@ bool ui_status_active(void) {
 }
 
 bool ui_close_window(const char *room) {
-   if (!room || !*room || !strcasecmp(room, "status")) {
+   if (!room || !*room || rrclient_window_is_shared(room)) {
       return true;
    }
 

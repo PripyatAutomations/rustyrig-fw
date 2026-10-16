@@ -258,3 +258,18 @@ or recording it in history. Slash commands remain available, including `/part`
 and window closing. Pending relay subscriptions are restored when the owner
 returns; the resulting self JOIN clears the offline state and refreshes the
 roster and controls. Preserved drafts are not sent automatically.
+
+### Quiet relay roster polling
+
+Local user-directory snapshots rebuild after authenticated room joins, session
+closes, source-role hellos and account/config reload/edit events. Notifications
+coalesce until the next normal server poll. A five-second monotonic safety
+reconciliation covers missed/future state changes; an explicit `/users` query
+or a newly ready peer requests a fresh snapshot immediately. Only changed user
+names/session counts are published to peers. Allocation failure preserves the
+previous snapshot and bounds retries to one second unless another change arrives.
+
+This throttle covers roster reconstruction only. Media fragment expiry, request
+retries, authentication revocation and failed PTT key-up retries retain their
+existing polling cadence. High counts of per-frame media events can therefore
+remain even though quiet polls no longer allocate/rebuild user dictionaries.

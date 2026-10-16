@@ -459,12 +459,14 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
-   if (frontend_ops() && output_room && strcasecmp(output_room, ws_authoritative_room()) != 0) {
-      /* talk.target is also used for private messages.  Treat an unseen target as a conversation tab so private replies are not dumped into the rig room. */
-      if (private_msg) {
-         frontend_ops()->chat_query_add(output_room);
-      } else {
-         frontend_ops()->chat_room_add(output_room);
+   if (frontend_ops() && output_room) {
+      if (frontend_ops()->chat_incoming) {
+         const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) &&
+            (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
+         frontend_ops()->chat_incoming(output_room, private_msg, unread, login_user);
+      } else if (strcasecmp(output_room, ws_authoritative_room()) != 0) {
+         if (private_msg) frontend_ops()->chat_query_add(output_room);
+         else frontend_ops()->chat_room_add(output_room);
       }
    }
 

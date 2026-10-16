@@ -118,6 +118,7 @@ dict *rr_relay_local_users(void) {
 /* Send merged local/remote user notices to the requesting client. */
 void rr_relay_send_users(rrconn_t *client, const char *room) {
    // No credentials, addresses or peer-side privileges are imported here.
+   rr_relay_users_poll(true);
    rrserver_relay_poll();
    unsigned count = 0;
 

@@ -485,6 +485,7 @@ done:
 /* Send current discovery and users when a direct server link becomes ready. */
 static void ready(const char *event, const char *node, rrconn_t *client, void *user) {
    rr_relay_collect_local();
+   rr_relay_users_poll(true);
    rr_relay_send_catalogs(node);
    rrserver_relay_poll();
 
@@ -728,37 +729,12 @@ void rrserver_relay_poll(void) {
       }
    }
 
-   dict *local = rr_relay_local_users();
-   struct directory *entry = rr_relay_directories;
-   while (entry && !rr_relay_local_owner(entry->node)) {
-      entry = entry->next;
-   }
-   bool changed = !entry || dict_get_uint(entry->users, "count", 0) != dict_get_uint(local, "count", 0);
-
-   for (unsigned i = 0 ; !changed && i < dict_get_uint(local, "count", 0) ; i++) {
-      char key[64];
-      snprintf(key, sizeof(key), "user.%u.name", i);
-      changed = strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
-      snprintf(key, sizeof(key), "user.%u.sessions", i);
-      changed |= dict_get_uint(entry->users, key, 0) != dict_get_uint(local, key, 0);
-   }
-
-   if (changed) {
-      rr_relay_directory_put(rrserver_links_node(), local);
-
-      for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-         const char *next = rrserver_links_route(c->owner);
-
-         if (next && !strcmp(next, c->owner) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
-            rr_relay_send_owned(next, rrserver_links_node(), "users", local);
-         }
-      }
-   }
-   dict_free(local);
+   rr_relay_users_poll(false);
 }
 
 /* Register relay listeners once on the server event loop. */
 void rrserver_relay_register_events(void) {
+   rr_relay_users_register();
    event_on("room.add", rr_relay_dirty, NULL);
    event_on("room.delete", rr_relay_dirty, NULL);
    event_on("room.vfo", rr_relay_dirty, NULL);
@@ -813,6 +789,7 @@ void rrserver_relay_fini(void) {
    }
    rr_relay_catalog_count = rr_relay_client_count = rr_relay_remote_count = rr_relay_subscription_count = rr_relay_wanted_count = 0;
    rr_relay_initialized = false;
+   rr_relay_users_reset();
 }
 
 #else

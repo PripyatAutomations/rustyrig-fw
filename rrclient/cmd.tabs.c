@@ -100,13 +100,13 @@ bool cmd_win(int argc, char **args) {
       }
 
       if (ui_status_active()) {
-         ui_print(NULL, "The status window cannot be closed");
+         ui_print(NULL, "Shared status and log windows cannot be closed");
 
          return true;
       }
       const char *active = ui_active_window_name();
 
-      if (!active || !*active || !strcasecmp(active, "status")) {
+      if (!active || !*active || rrclient_window_is_shared(active)) {
          ui_print(NULL, "Select a conversation window to close");
 
          return true;

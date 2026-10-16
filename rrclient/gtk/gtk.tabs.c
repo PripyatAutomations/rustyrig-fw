@@ -1,6 +1,44 @@
 /* GTK-only tab presentation; the notebook remains the page/shortcut owner. */
 #include <rrclient/gtk/gtk.tabs.h>
 
+/* Native side tabs wrap their label in an event box; wrapped tabs keep it directly. */
+static GtkWidget *tab_source_label(GtkNotebook *notebook, GtkWidget *page) {
+   GtkWidget *label = gtk_notebook_get_tab_label(notebook, page);
+   if (GTK_IS_EVENT_BOX(label)) label = gtk_bin_get_child(GTK_BIN(label));
+   return GTK_IS_LABEL(label) ? label : NULL;
+}
+
+/* Reading a tab clears both ordinary unread and nickname-mention markers. */
+static void tab_activity_read(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
+   (void)number;
+   (void)data;
+   const char *title = g_object_get_data(G_OBJECT(page), "rr-tab-base-title");
+   GtkWidget *label = tab_source_label(notebook, page);
+   if (title && label) gtk_label_set_text(GTK_LABEL(label), title);
+   g_object_set_data(G_OBJECT(page), "rr-tab-unread", NULL);
+}
+
+/* Mark background messages without selecting pages or overriding server colors. */
+void gtk_tabs_page_activity(GtkNotebook *notebook, GtkWidget *page, gboolean mention) {
+   if (gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)) == page) return;
+   GtkWidget *label = tab_source_label(notebook, page);
+   if (!label) return;
+   const char *title = g_object_get_data(G_OBJECT(page), "rr-tab-base-title");
+   if (!title) {
+      title = g_strdup(gtk_label_get_text(GTK_LABEL(label)));
+      g_object_set_data_full(G_OBJECT(page), "rr-tab-base-title", (gpointer)title, g_free);
+   }
+   int unread = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(page), "rr-tab-unread"));
+   int next = mention || unread == 2 ? 2 : 1;
+   if (unread == next) return;
+   g_object_set_data(G_OBJECT(page), "rr-tab-unread", GINT_TO_POINTER(next));
+   char *escaped = g_markup_escape_text(title, -1);
+   char *marked = g_strdup_printf(next == 2 ? "<b>! %s</b>" : "• %s", escaped);
+   gtk_label_set_markup(GTK_LABEL(label), marked);
+   g_free(marked);
+   g_free(escaped);
+}
+
 typedef struct tab_color {
    unsigned r, g, b;
    gboolean light;
@@ -153,6 +191,16 @@ static void tab_native_color(GtkNotebook *notebook, GtkWidget *page, guint numbe
    GtkWidget *label = gtk_notebook_get_tab_label(notebook, page);
 
    if (label) {
+      if (!GTK_IS_EVENT_BOX(label)) {
+         GtkWidget *events = gtk_event_box_new();
+         g_object_ref(label);
+         gtk_notebook_set_tab_label(notebook, page, events);
+         gtk_container_add(GTK_CONTAINER(events), label);
+         g_object_unref(label);
+         gtk_tabs_bind_menu(events, notebook, page);
+         gtk_widget_show_all(events);
+         label = events;
+      }
       tab_apply_color(notebook, page, label);
    }
 }
@@ -349,6 +397,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_box_pack_start(GTK_BOX(content), label, FALSE, FALSE, 0);
       gtk_container_add(GTK_CONTAINER(button), content);
       tab_apply_color(notebook, child, button);
+      gtk_tabs_bind_menu(button, notebook, child);
       gtk_widget_set_focus_on_click(button, FALSE);
       gtk_style_context_add_class(gtk_widget_get_style_context(button), "tab");
       g_object_set_data(G_OBJECT(button), "rr-tab-page", child);
@@ -369,6 +418,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
 }
 
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position) {
+   g_signal_connect(notebook, "switch-page", G_CALLBACK(tab_activity_read), NULL);
    gtk_notebook_set_tab_pos(notebook, position);
 
    if (position == GTK_POS_LEFT || position == GTK_POS_RIGHT) {

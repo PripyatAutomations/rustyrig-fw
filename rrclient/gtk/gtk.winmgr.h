@@ -13,7 +13,7 @@
 #include <librustyaxe/config.h>
 
 extern gui_window_t *ui_new_window(GtkWidget *window, const char *name);
-extern bool set_window_icon(GtkWidget *window, const char *icon_name);
+#include <rrclient/gtk/gtk.icons.h>
 extern gboolean on_window_state(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data);
 extern gui_window_t *gui_store_window(GtkWidget *gtk_win, const char *name);
 extern gui_window_t *gui_find_window(GtkWidget *gtk_win, const char *name);

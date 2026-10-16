@@ -775,3 +775,29 @@ private server headers. Browser chat help, users and commands load after
 `webui.chat.js` through the existing ordered asset loader. These are internal
 organization changes; commands, protocol messages and client behavior remain
 equivalent. See [source organization audit](source-organization.md).
+
+## GTK tab closing and application icons
+
+GTK conversation tabs offer right-click Close and Force close; Force close
+requires confirmation with Cancel as the default. Menus retain page identity
+across reordering/removal, and the conversation callback resolves that page's
+server and room before invoking the existing common `/win close [-force]` path.
+Normal online room closing waits for self-PART confirmation; forced closing
+forgets local room/media state immediately. Admin, Config, Status, Client log
+and Host log pages never opt into these actions. Common close entry points
+also reject shared status/log windows in GTK/TUI. The browser's separate room
+view already excludes its builtin panels from room removal; this GTK menu adds
+no wire messages or browser frontend requirements.
+
+The GTK main window establishes application icon defaults, including its
+source-tree file fallback. Ordinary windows and GTK dialogs inherit that same
+icon even when they do not register with the window-manager helper.
+
+GTK incoming chat uses an ensure-without-select frontend hook rather than the
+explicit join/query selection path. Background room/query messages preserve the
+selected page, server and draft; `•` marks unread traffic and bold `!` marks a
+case-insensitive nickname mention with nickname boundaries. Viewing the tab
+clears both. Self echoes and replay history do not set unread markers. Explicit
+`/join`, `/query`, room links and numbered/relative navigation still select tabs.
+The browser already creates incoming rooms with `ensure_room(room, false)` and
+retains its existing chat highlight behavior; IRC remains native-only.

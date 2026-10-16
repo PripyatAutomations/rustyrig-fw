@@ -135,6 +135,8 @@ typedef struct rr_frontend_ops {
 
    /* True only for the shared status chat tab, not other frontend pages. */
    bool (*chat_status_active)(void);
+   /* Ensure incoming conversations without selecting them; text excludes self/replay. */
+   void (*chat_incoming)(const char *room, bool query, const char *text, const char *nickname);
 } rr_frontend_ops_t;
 
 /* Register the frontend ops. Returns false if a frontend is already registered. Takes no ownership of ops; the pointed-to table must outlive the registration

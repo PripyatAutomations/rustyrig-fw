@@ -112,7 +112,7 @@ extern GtkWidget *width_combo;
 
 // Call this *after* the GtkWindow is realized (has a GdkWindow)
 extern void enable_windows_dark_mode_for_gtk_window(GtkWidget *window);
-extern bool set_window_icon(GtkWidget *window, const char *icon_name);
+#include <rrclient/gtk/gtk.icons.h>
 extern void disable_console_quick_edit(void);
 #endif // _WIN32
 

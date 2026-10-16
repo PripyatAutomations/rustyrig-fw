@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include <rrclient/gtk/gtk.tabs.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -1327,7 +1328,21 @@ static void gtk_chat_link_event(GtkWidget *view, GdkEvent *event, gpointer user)
    g_free(room);
 }
 
-static void gtk_chat_tab_add(const char *room, bool is_query) {
+/* Resolve this page's current server/room, then reuse common close semantics. */
+static void gtk_chat_tab_close(GtkWidget *page, gboolean force) {
+   GtkRoomTab *tab = g_object_get_data(G_OBJECT(page), "rr-room-tab");
+
+   if (!tab || tab == status_room_tab || !rrclient_connection_select(tab->server)) {
+      return;
+   }
+   char *window = g_strdup(rrclient_window_name(tab->room));
+   if (window) {
+      gtk_chat_execute_command(window, force ? "/win close -force" : "/win close");
+   }
+   g_free(window);
+}
+
+static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    if (!room || !*room || !main_notebook) {
       return;
    }
@@ -1343,13 +1358,15 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
          userlist_remove_room_view(existing->room);
       }
 
-      if (!rrclient_present_context()) {
+      if (!select || !rrclient_present_context()) {
          return;
       }
       gtk_chat_select_existing_tab(existing);
 
       return;
    }
+   GtkWidget *active_view = chat_textview, *active_entry = chat_entry;
+   GtkTextBuffer *active_buffer = text_buffer;
    GtkRoomTab *tab = g_new0(GtkRoomTab, 1);
    tab->is_query = is_query;
    snprintf(tab->room, sizeof(tab->room), "%s", room);
@@ -1363,12 +1380,20 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
    gtk_box_pack_start(GTK_BOX(tab->page), box, TRUE, TRUE, 0);
    g_object_set_data(G_OBJECT(tab->page), "rr-room-tab", tab);
    g_object_set_data_full(G_OBJECT(tab->page), "rr-server-name", g_strdup(tab->server), g_free);
+   gtk_tabs_page_set_close_func(tab->page, gtk_chat_tab_close);
    GtkWidget *label = gtk_label_new(room);
    gtk_widget_show_all(label);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), tab->page, label);
    g_hash_table_insert(room_tabs, g_strdup(rrclient_window_name(room)), tab);
    gtk_widget_show_all(tab->page);
 
+   if (!select) {
+      chat_textview = active_view;
+      chat_entry = active_entry;
+      text_buffer = active_buffer;
+
+      return;
+   }
    // Background servers create tabs without stealing the active conversation.
    if (server_name && rrclient_selected_server() && strcmp(server_name, rrclient_selected_server())) {
       return;
@@ -1386,14 +1411,40 @@ static void gtk_chat_tab_add(const char *room, bool is_query) {
    }
 }
 
+/* Nickname boundaries avoid highlighting a name embedded in a longer nickname. */
+static bool gtk_chat_nick_character(unsigned char c) {
+   return g_ascii_isalnum(c) || (c && strchr("_-[]\\`^{}|", c));
+}
+
+/* Incoming traffic ensures a tab exists while preserving selection and draft focus. */
+void gtk_chat_incoming(const char *room, bool query, const char *text, const char *nickname) {
+   bool irc_query = ws_conn && !ws_conn->is_ws && room && room[0] != '#' && room[0] != '&';
+   gtk_chat_tab_add(room, query || irc_query, false);
+   GtkRoomTab *tab = room && room_tabs ? g_hash_table_lookup(room_tabs, rrclient_window_name(room)) : NULL;
+   bool mention = false;
+   size_t length = nickname ? strlen(nickname) : 0;
+
+   for (const char *p = text; p && *p && length; p++) {
+      if ((p == text || !gtk_chat_nick_character((unsigned char)p[-1])) &&
+         !g_ascii_strncasecmp(p, nickname, length) && !gtk_chat_nick_character((unsigned char)p[length])) {
+         mention = true;
+         break;
+      }
+   }
+
+   if (tab && text) {
+      gtk_tabs_page_activity(GTK_NOTEBOOK(main_notebook), tab->page, mention);
+   }
+}
+
 void gtk_chat_room_add(const char *room) {
    /* IRC NOTICE/ACTION and diagnostic paths can ensure a nick tab through room_add. Only actual channels own rosters on an IRC connection. */
    bool query = ws_conn && !ws_conn->is_ws && room && room[0] != '#' && room[0] != '&';
-   gtk_chat_tab_add(room, query);
+   gtk_chat_tab_add(room, query, true);
 }
 
 void gtk_chat_query_add(const char *user) {
-   gtk_chat_tab_add(user, true);
+   gtk_chat_tab_add(user, true, true);
 }
 
 void gtk_chat_show_status(void) {
@@ -1452,7 +1503,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
       return;
    }
    /* Keep status independent of server rooms, including across reconnects. */
-   gtk_chat_tab_add(room, false);
+   gtk_chat_tab_add(room, false, true);
 }
 
 bool chat_init(void) {

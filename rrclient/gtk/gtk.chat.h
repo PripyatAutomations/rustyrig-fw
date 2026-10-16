@@ -16,6 +16,7 @@ extern GtkWidget *chat_textview;
 extern GtkWidget *chat_entry;
 extern GtkTextBuffer *text_buffer;
 extern GtkWidget *create_chat_box(void);
+extern void gtk_chat_incoming(const char *room, bool query, const char *text, const char *nickname);
 extern void gtk_chat_room_add(const char *room);
 extern void gtk_chat_query_add(const char *user);
 extern void gtk_chat_room_remove(const char *room);
