@@ -19,13 +19,15 @@ if [ -f "${DEBVER}" ]; then
     # Configuration values live under .features and .components.  Older
     # versions of this script looked under .use.* and silently returned null.
     USE_GTK=$(jq -r '.features.gtk // "false"' "$CONFIG")
+    USE_HAMLIB=$(jq -r '.features.hamlib // "false"' "$CONFIG")
     USE_LIBMBEDTLS=$(jq -r '.features.libmbedtls // "false"' "$CONFIG")
     USE_LIBNOTIFY=$(jq -r '.features.libnotify // "false"' "$CONFIG")
+    USE_LIBRTP=$(jq -r '.features.rtp // "false"' "$CONFIG")
     USE_SQLITE=$(jq -r '.features.sqlite // "false"' "$CONFIG")
     BUILD_FWDSP=$(jq -r '.components.fwdsp // "false"' "$CONFIG")
     BUILD_CALLSIGN_LOOKUP=$(jq -r '.components."callsign-lookup" // "false"' "$CONFIG")
 
-    PKG="build-essential jq pkg-config make libbsd-dev libncurses-dev"
+    PKG="build-essential jq pkg-config make libbsd-dev libncurses-dev dehelper"
     PKG="${PKG} ${PERL_DEPS}"
 
     # These sources are currently compiled and linked unconditionally.  They
@@ -36,6 +38,7 @@ if [ -f "${DEBVER}" ]; then
     [ "$USE_SQLITE" = "true" ] && PKG="${PKG} sqlite3 libsqlite3-dev"
     [ "$USE_LIBNOTIFY" = "true" ] && PKG="${PKG} libnotify-dev"
     [ "$USE_LIBMBEDTLS" = "true" ] && PKG="${PKG} libmbedtls-dev"
+    [ "$USE_LIBRTP" = "true" ] && PKG="${PKG} libsrtp2-dev"
 
     # fwdsp is a separate component, but its C sources always use GStreamer.
     if [ "$BUILD_FWDSP" = "true" ]; then
@@ -48,5 +51,5 @@ if [ -f "${DEBVER}" ]; then
     [ "$BUILD_CALLSIGN_LOOKUP" = "true" ] && PKG="${PKG} libcurl4-openssl-dev"
 
     echo "Please use the following command to install needed build-deps:"
-    echo ${SUDO} apt install ${PKG} libsrtp2-dev
+    echo ${SUDO} apt install ${PKG}
 fi

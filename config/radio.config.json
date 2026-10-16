@@ -15,20 +15,22 @@
       "coredumps-server": "false",
       "debug-build": "true",
       "eeprom": "false",
+      "flac": "true",
       "gpio": "false",
       "gstreamer": "true",
       "gtk": "true",
+      "hamlib": "true",
       "http": "true",
-      "libmbedtls": "false",
+      "libmbedtls": "true",
       "libnotify": "false",
       "libunwind": "false",
       "max_bands": 14,
       "mongoose": "true",
       "mqtt": "true",
-      "sqlite": "true",
       "opus": "true",
-      "flac": "true",
-      "profiling": "true"
+      "profiling": "true",
+      "rtp": "true",
+      "sqlite": "true"
    },
    "modules": {
       "atu": {
