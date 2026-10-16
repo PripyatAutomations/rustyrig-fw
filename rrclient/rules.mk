@@ -32,6 +32,7 @@ rrclient_objs += defconfig.o		# default config values
 rrclient_objs += supervision.o
 rrclient_objs += events.o		# event handlers
 rrclient_objs += rrclient.o		# client connection state & core connect/disconnect
+rrclient_objs += irc.stats.o
 rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
 rrclient_objs += dcc.o

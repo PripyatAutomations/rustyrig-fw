@@ -933,3 +933,12 @@ Apply inside Edit User stages the permissions field until Save; the Users tab
 sends only a permissions patch. Server validation and owner-only grant rules
 remain authoritative. Custom grants can still be entered in the raw account
 permissions field. Both frontend catalogs are generated from authoritative C.
+
+## Native IRC Resource Explorer
+
+The GTK resource manager is titled Resource Explorer. Native common IRC code
+caches LIST, joins/parts/kicks and chat traffic in `rrclient/irc.stats.c` through
+`event_on()` listeners. GTK renders the cache with per-channel roster privilege
+counts and records actual highlight detections. No IRC behavior is mirrored to
+the browser, which remains RustyRig-only. Existing RustyRig resource actions and
+Alt-O window toggling retain their behavior.

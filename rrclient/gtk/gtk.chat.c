@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include <rrclient/irc.stats.h>
 #include <rrclient/gtk/gtk.tabs.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -1128,7 +1129,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
    if (!room || !*room) {
       GtkWidget *tools = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      GtkWidget *resources = gtk_button_new_with_label("Resources");
+      GtkWidget *resources = gtk_button_new_with_label("Resource Explorer");
       gtk_widget_set_tooltip_text(resources, "Browse and manage all server resources (Alt-O)");
       g_signal_connect(resources, "clicked", G_CALLBACK(gtk_chat_resources_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
@@ -1339,6 +1340,7 @@ void gtk_chat_incoming(const char *room, bool query, const char *text, const cha
    }
 
    if (tab && text) {
+      if (mention) rrclient_irc_stats_highlight(ws_conn, room);
       gtk_tabs_page_activity(GTK_NOTEBOOK(main_notebook), tab->page, mention);
    }
 }

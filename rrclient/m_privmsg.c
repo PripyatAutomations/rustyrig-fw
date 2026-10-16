@@ -5,6 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Native IRC event adapter, shared by GTK and TUI.
+#include <rrclient/irc.stats.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -555,6 +556,7 @@ static void rrclient_irc_sasl(const char *event, const char *data, rrconn_t *cli
 }
 
 void rrclient_irc_register_events(void) {
+   rrclient_irc_stats_register();
    event_on("irc.sasl", rrclient_irc_sasl, NULL);
    event_on("irc.channel.redirect", rrclient_irc_redirect, NULL);
    event_on("irc.capabilities", rrclient_irc_capabilities, NULL);

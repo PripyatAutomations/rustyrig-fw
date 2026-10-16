@@ -162,9 +162,9 @@ Explicit `/object <symbol|uuid>` selections and named/UUID subscriptions can
 still address resources outside the current listing. Media `#numbers` retain
 their global positions, so filtering does not retarget an existing reference.
 
-## Native Resources manager
+## Native Resource Explorer
 
-Open **Resources** from the GTK Status tab or press **Alt-O** from any main
+Open **Resource Explorer** from the GTK Status tab or press **Alt-O** from any main
 window tab. `/object`, `/rig` and `/gps` also open the same manager. All known
 server connections appear in one window, with the full resource inventory:
 
@@ -234,3 +234,22 @@ that identity for settings and UUID persistence. Its public object alias is
 `rigN.cat`, `rigN.gps.rx` and `#site-rigN`; snapshots, inventories and linked
 catalogs all publish those same names. Descriptive object names may still appear
 as explanatory labels. Do not use configuration identities as command symbols.
+
+### IRC channel state
+
+IRC server branches show passively cached LIST channels, joined channels and
+previously observed channels. LIST user counts/topics are snapshots, not live
+membership guarantees. The explorer never automatically sends LIST. Joined
+rows show join wall time and duration, cached roster users, IRC operators known
+from WHOIS/WHO, channel operators, voiced users and ordinary users. Channel
+op/voice/ordinary categories are exclusive; IRC operator knowledge overlaps.
+
+Lines seen count incoming channel PRIVMSG/NOTICE messages from other nicks;
+lines sent count successful IRC message sends. Highlights count actual GTK
+nickname highlight detections. Counters last for this client process, per server
+profile/channel, and survive part/rejoin; join duration restarts on each join.
+Disconnect clears current membership and LIST availability while retaining
+historical counters. IRC rows support Join channel and Leave channel actions.
+
+Resource Explorer sorts siblings naturally and without case distinctions, so
+`rig2` precedes `rig10` at each hierarchy level.

@@ -1,5 +1,10 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Rename the GTK resource manager Resource Explorer. Add native IRC server
+    branches with cached LIST and joined/observed channels, join time/duration,
+    roster users and oper/op/voice breakdowns, incoming/sent lines and actual
+    GTK highlights. Allow channel join/part without RustyRig object requests.
+    Sort sibling resources naturally, ignoring case and ordering numeric runs.
   * Generate privilege catalogs from C access checks with source provenance
     via tools/generate-privileges.py and make privileges; provide a stale-file
     check and synchronized native/browser outputs, including serial.* grants.
@@ -249,7 +254,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:22:22 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 08:28:09 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

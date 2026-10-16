@@ -6,6 +6,8 @@
 #include <rrclient/cmd.h>
 #include <rrclient/media.h>
 #include <rrclient/rooms.h>
+#include <rrclient/irc.stats.h>
+#include <rrclient/userlist.h>
 #include <rrclient/sercom.h>
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.resources.h"
@@ -15,8 +17,9 @@ enum { ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, BUTTONS };
 typedef struct {
    char *profile, *request, *selection;
    GtkTreeIter root, parents[5];
+   GHashTable *irc_rows;
    bool valid[5], loading, online, loaded;
-   uint64_t requested_at;
+   uint64_t requested_at, irc_updated_at;
 } resource_branch;
 typedef struct {
    GtkWidget *window, *tree, *status, *details, *buttons[BUTTONS];
@@ -34,6 +37,7 @@ static void resource_refresh(resource_branch *branch);
 
 static void branch_free(gpointer data) {
    resource_branch *branch = data;
+   g_hash_table_destroy(branch->irc_rows);
    g_free(branch->profile);
    g_free(branch->request);
    g_free(branch->selection);
@@ -50,6 +54,7 @@ static resource_branch *resource_branch_get(const char *profile) {
    if (branch) return branch;
    branch = g_new0(resource_branch, 1);
    branch->profile = g_strdup(profile);
+   branch->irc_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)gtk_tree_row_reference_free);
    gtk_tree_store_insert_before(browser->store, &branch->root, NULL, &browser->local_root);
    gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, -1);
    g_hash_table_insert(browser->branches, branch->profile, branch);
@@ -193,10 +198,79 @@ static void resource_update_rows(resource_branch *branch, GtkTreeIter *parent) {
       resource_update_rows(branch, &iter);
    }
 }
+/* IRC inventory is passive: LIST snapshots and current joined-room rosters. */
+static void resource_irc_update(resource_branch *branch, rrconn_t *connection) {
+   uint64_t updated_at = mono_us();
+   if (branch->irc_updated_at && updated_at - branch->irc_updated_at < 1000000) return;
+   branch->irc_updated_at = updated_at;
+   unsigned total = 0, joined_count = 0, listed_count = 0;
+   const struct rrclient_irc_channel_stats *stats = NULL;
+   while ((stats = rrclient_irc_stats_next(branch->profile, stats))) {
+      total++;
+      GtkTreeIter iter;
+      GtkTreeRowReference *reference = g_hash_table_lookup(branch->irc_rows, stats->name);
+      if (reference) {
+         GtkTreePath *path = gtk_tree_row_reference_get_path(reference);
+         if (!path) continue;
+         gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
+         gtk_tree_path_free(path);
+      } else {
+         gtk_tree_store_append(browser->store, &iter, &branch->root);
+         GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
+         reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), path);
+         gtk_tree_path_free(path);
+         g_hash_table_insert(branch->irc_rows, g_strdup(stats->name), reference);
+         gtk_tree_store_set(browser->store, &iter, NAME, stats->name, KIND, "irc-channel", ROOM, stats->name, PROFILE, branch->profile, -1);
+      }
+      bool joined = connection->authenticated && stats->joined;
+      unsigned users = 0, opers = 0, ops = 0, voices = 0, regular = 0;
+      if (joined) {
+         for (struct rr_user *user = global_userlist; user; user = user->next) {
+            if (strcasecmp(user->room, stats->name)) continue;
+            users++;
+            if (user->irc_oper) opers++;
+            const char *modes = !strncmp(user->privs, "irc:", 4) ? user->privs + 4 : "";
+            if (strpbrk(modes, "qaoh")) ops++;
+            else if (strchr(modes, 'v')) voices++;
+            else regular++;
+         }
+      }
+      joined_count += joined; listed_count += stats->listed;
+      char joined_at[64] = "Not joined";
+      struct tm local;
+      if (joined && localtime_r(&stats->joined_at, &local)) strftime(joined_at, sizeof(joined_at), "%Y-%m-%d %H:%M:%S", &local);
+      uint64_t current = mono_us();
+      unsigned long long seconds = joined && current >= stats->joined_us ? (current - stats->joined_us) / 1000000 : 0;
+      char *details = joined ? g_strdup_printf(
+         "Joined: %s (%lluh %llum %llus)\nUsers: %u%s; IRC opers: %u; channel ops: %u; voices: %u; regular: %u\nLines seen: %llu; sent: %llu; highlights: %llu",
+         joined_at, seconds / 3600, seconds / 60 % 60, seconds % 60, users, userlist_names_pending(stats->name) ? " (NAMES pending)" : "",
+         opers, ops, voices, regular, (unsigned long long)stats->seen, (unsigned long long)stats->sent, (unsigned long long)stats->highlights) :
+         g_strdup_printf("LIST users: %s%u\nTopic: %s\nSession lines seen: %llu; sent: %llu; highlights: %llu", stats->listed ? "" : "unknown; last count ",
+            stats->listed_users, stats->topic, (unsigned long long)stats->seen, (unsigned long long)stats->sent, (unsigned long long)stats->highlights);
+      set_string(&iter, DETAILS, details);
+      set_string(&iter, STATE, !connection->authenticated ? "Server offline" : joined ? "Joined" : stats->listed ? "Available (cached LIST)" : "Previously observed");
+      set_string(&iter, OURS, joined ? "Joined" : "Not joined");
+      gboolean was_joined = FALSE;
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &iter, JOINED, &was_joined, -1);
+      if (was_joined != joined) gtk_tree_store_set(browser->store, &iter, JOINED, joined, -1);
+      g_free(details);
+   }
+   char *details = g_strdup_printf("IRC channels: %u known; %u joined; %u in cached LIST. Counts cover this client session; IRC oper knowledge may be incomplete.",
+      total, joined_count, listed_count);
+   set_string(&branch->root, DETAILS, details);
+   g_free(details);
+}
+
 static void resource_update_branch(void *data) {
    resource_branch *branch = data;
    rrconn_t *connection = rrclient_connection_find(branch->profile);
    branch->online = connection && connection->authenticated && connection->is_ws;
+   if (connection && !connection->is_ws) {
+      set_string(&branch->root, STATE, connection->authenticated ? "Connected (IRC)" : rrclient_connection_state(branch->profile) < 0 ? "Connecting (IRC)" : "Disconnected (IRC)");
+      set_string(&branch->root, OURS, connection->authenticated ? "Connected" : "Disconnected");
+      resource_irc_update(branch, connection);
+      return;
+   }
    set_string(&branch->root, STATE, branch->online ? "Connected" : connection && connection->authenticated && !connection->is_ws ? "IRC — no resource inventory" :
       rrclient_connection_state(branch->profile) < 0 ? "Connecting" : "Disconnected");
    set_string(&branch->root, OURS, branch->online ? rrclient_objects_subscription() : "");
@@ -227,8 +301,8 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    bool online = connection && connection->is_ws && connection->authenticated;
    gboolean joined = FALSE;
    gtk_tree_model_get(model, &iter, JOINED, &joined, -1);
-   gtk_button_set_label(GTK_BUTTON(browser->buttons[ROOM_BUTTON]), joined ? "Leave room" : "Join room");
-   gtk_widget_set_sensitive(browser->buttons[ROOM_BUTTON], online && room && *room);
+   gtk_button_set_label(GTK_BUTTON(browser->buttons[ROOM_BUTTON]), !strcmp(kind, "irc-channel") ? joined ? "Leave channel" : "Join channel" : joined ? "Leave room" : "Join room");
+   gtk_widget_set_sensitive(browser->buttons[ROOM_BUTTON], connection && connection->authenticated && room && *room);
    bool media = uuid && *uuid && (!strcmp(kind, "media") || !strcmp(kind, "gps"));
    bool objects = !strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") || !strcmp(kind, "server");
    bool subscribed = ours && (strstr(ours, "Subscribed") || !strcmp(ours, "Subscribed"));
@@ -334,7 +408,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       bool ok = rr_sercom_disconnect(binding);
       refresh_after = ok;
       gtk_label_set_text(GTK_LABEL(browser->status), ok ? "Serial endpoint disconnected." : "The serial endpoint is already disconnected.");
-   } else if (!connection || !connection->authenticated || !connection->is_ws) {
+   } else if (!connection || !connection->authenticated || (!connection->is_ws && which != ROOM_BUTTON)) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing its resources.");
    } else if (which == SERIAL_BUTTON && service && *service) refresh_after = resource_attach(profile, service);
    else {
@@ -434,13 +508,32 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    g_free(text);
 }
 
+/* Sort siblings naturally: case-insensitive text with numeric runs (rig2 before rig10). */
+static gint resource_name_compare(GtkTreeModel *model, GtkTreeIter *left, GtkTreeIter *right, gpointer unused) {
+   (void)unused;
+   char *a = NULL, *b = NULL;
+   gtk_tree_model_get(model, left, NAME, &a, -1);
+   gtk_tree_model_get(model, right, NAME, &b, -1);
+   if (!g_utf8_validate(a ? a : "", -1, NULL) || !g_utf8_validate(b ? b : "", -1, NULL)) {
+      int order = g_ascii_strcasecmp(a ? a : "", b ? b : "");
+      g_free(a); g_free(b);
+      return order;
+   }
+   char *fold_a = g_utf8_casefold(a ? a : "", -1), *fold_b = g_utf8_casefold(b ? b : "", -1);
+   char *key_a = g_utf8_collate_key_for_filename(fold_a, -1), *key_b = g_utf8_collate_key_for_filename(fold_b, -1);
+   int order = strcmp(key_a, key_b);
+   if (!order) order = g_strcmp0(a, b);
+   g_free(key_a); g_free(key_b); g_free(fold_a); g_free(fold_b); g_free(a); g_free(b);
+   return order;
+}
+
 static void resource_create(void) {
    if (browser) return;
    browser = g_new0(resource_browser, 1);
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)gtk_tree_row_reference_free);
    browser->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(browser->window), "Resources");
+   gtk_window_set_title(GTK_WINDOW(browser->window), "Resource Explorer");
    gtk_window_set_default_size(GTK_WINDOW(browser->window), 1120, 720);
    gui_window_t *main = gui_find_window(NULL, "main");
    if (main && main->gtk_win) gtk_window_set_transient_for(GTK_WINDOW(browser->window), GTK_WINDOW(main->gtk_win));
@@ -461,6 +554,8 @@ static void resource_create(void) {
    gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
+   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser->store), NAME, resource_name_compare, NULL, NULL);
+   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser->store), NAME, GTK_SORT_ASCENDING);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->store));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
    gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 18);
@@ -474,7 +569,7 @@ static void resource_create(void) {
       if (i == STATE || i == OURS) gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
       if (i == NAME) gtk_tree_view_column_set_min_width(column, 240);
       if (i == DETAILS) {
-         g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+         g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, 300);
       }
