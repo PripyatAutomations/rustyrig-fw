@@ -1,5 +1,7 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Ask for GTK roster kick/mute reasons with server, channel/room and user
+    context. Use "No reason given" for blank reasons; Cancel sends nothing.
   * Replace separate GTK resource lists with one Resources manager, opened
     from Status or Alt-O. Show all server/site/rig/VFO, room, GPS, serial and
     media resources with distinct availability and personal connection state.
@@ -209,7 +211,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:13:49 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 06:18:43 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

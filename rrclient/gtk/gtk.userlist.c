@@ -591,17 +591,65 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
    if (!target || !*target || !command) {
       return;
    }
-   const char *reason = !strcasecmp(command, "kick") || !strcasecmp(command, "mute") ? " Requested from the user list" : "";
-   char *input = g_strdup_printf("/%s %s%s", command, target, reason);
-   gtk_chat_execute_command(window, input);
+   /* Snapshot the originating roster before the dialog runs its nested loop. */
+   char *origin = g_strdup(window ? window : ui_active_window_name());
+   char *input = NULL;
+
+   if (!strcasecmp(command, "kick") || !strcasecmp(command, "mute")) {
+      const char *server = rrclient_connection_name(userlist_view_connection(view));
+      room_userlist_entry_t *roster = g_object_get_data(G_OBJECT(view), "rr-room-roster");
+      const char *room = roster ? roster->room : rrclient_active_room();
+      GtkWidget *parent = gtk_widget_get_toplevel(view);
+      GtkWidget *dialog = gtk_dialog_new_with_buttons(!strcasecmp(command, "kick") ? "Kick user" : "Mute user",
+         GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
+         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+         "_Cancel", GTK_RESPONSE_CANCEL, !strcasecmp(command, "kick") ? "_Kick" : "_Mute", GTK_RESPONSE_ACCEPT, NULL);
+      GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+      char *context = g_strdup_printf("Server: %s\nChannel/room: %s\nUser: %s",
+         server && *server ? server : "(current server)", room && *room ? room : "(none)", target);
+      GtkWidget *label = gtk_label_new(context);
+      GtkWidget *entry = gtk_entry_new();
+      g_free(context);
+      gtk_container_set_border_width(GTK_CONTAINER(box), 12);
+      gtk_box_set_spacing(GTK_BOX(box), 8);
+      gtk_label_set_xalign(GTK_LABEL(label), 0);
+      gtk_box_pack_start(GTK_BOX(box), label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Reason (optional):"), FALSE, FALSE, 0);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "No reason given");
+      gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+      gtk_box_pack_start(GTK_BOX(box), entry, FALSE, FALSE, 0);
+      gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT);
+      /* Menu data can disappear while the modal dialog processes events. */
+      char *action = g_strdup(command);
+      char *nick = g_strdup(target);
+      gtk_widget_show_all(dialog);
+      gtk_widget_grab_focus(entry);
+
+      if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+         char *reason = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
+         g_strstrip(reason);
+         input = g_strdup_printf("/%s %s %s", action, nick, *reason ? reason : "No reason given");
+         g_free(reason);
+      }
+      gtk_widget_destroy(dialog);
+      g_free(action);
+      g_free(nick);
+   } else {
+      input = g_strdup_printf("/%s %s", command, target);
+   }
+
+   if (input) {
+      gtk_chat_execute_command(origin, input);
+   }
    g_free(input);
+   g_free(origin);
 }
 
 static void userlist_context_menu_add(GtkWidget *menu, const char *label, const char *command, const char *target, GtkWidget *view) {
    GtkWidget *item = gtk_menu_item_new_with_label(label);
    g_object_set_data_full(G_OBJECT(item), "rr-user-target", g_strdup(target), g_free);
    g_object_set_data_full(G_OBJECT(item), "rr-user-command", g_strdup(command), g_free);
-   g_signal_connect(item, "activate", G_CALLBACK(userlist_context_action), view);
+   g_signal_connect_object(item, "activate", G_CALLBACK(userlist_context_action), G_OBJECT(view), 0);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
