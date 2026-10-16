@@ -51,10 +51,6 @@ static bool log_tab_visible(void) {
 // the NUL-terminated message. Host log messages can contain IRC formatting
 // controls, so render them through the GTK colorizer too.
 static void host_log_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
-   (void)event;
-   (void)cptr;
-   (void)user;
-
    if (dying || !host_log_buffer || !data || len < RR_LOGFRAME_HDR_LEN) {
       return;
    }
@@ -80,7 +76,6 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
    size_t mlen = strnlen(msg, avail);
 
    GtkTextIter end;
-
    gtk_text_buffer_get_end_iter(host_log_buffer, &end);
 
    char tsbuf[128];
@@ -130,10 +125,6 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
 // Host log stays plain text (color is a client-side thing); it only gets the
 // scroll-on-focus behavior.
 static void log_tab_switched(GtkNotebook *nb, GtkWidget *page, guint page_num, gpointer user) {
-   (void)nb;
-   (void)page_num;
-   (void)user;
-
    if (log_view && page == log_page) {
       g_idle_add(ui_scroll_to_end, log_view);
    }
@@ -145,7 +136,7 @@ static void log_tab_switched(GtkNotebook *nb, GtkWidget *page, guint page_num, g
 
 // backend
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
-   if (!fmt || !ap) {
+   if (!fmt) {
       return true;
    }
 
@@ -230,13 +221,11 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
    va_start(ap, fmt);
    bool rv = log_print_va(priority, subsys, fmt, ap);
    va_end(ap);
-
    return rv;
 }
 
 bool syslog_clear(void) {
    gtk_text_buffer_set_text(log_buffer, "", -1);
-
    return false;
 }
 
@@ -260,7 +249,6 @@ GtkWidget *init_log_tab(void) {
 
    // Scroll to the end when the user switches to this tab (see log_tab_switched)
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(log_tab_switched), NULL);
-
    return nw;
 }
 
@@ -289,6 +277,5 @@ GtkWidget *init_host_log_tab(void) {
    // librrprotocol/ws.binframe.h struct rr_logframe.
    // PARITY: rrserver/hostlog.c hostlog_cb()
    event_on_binary("media.frame.log", host_log_frame_handler, NULL);
-
    return nw;
 }
