@@ -34,5 +34,7 @@ DEBS="$DEBS ../rustyrig-server_*_${ARCH}.deb"
 DEBS="$DEBS ../rustyrig-server-dbgsym_*_${ARCH}.deb"
 DEBS="$DEBS ../rustyrig-server-gpsd_*_${ARCH}.deb"
 DEBS="$DEBS ../rustyrig-server-gpsd-dbgsym_*_${ARCH}.deb"
+DEBS="$DEBS ../rustyrig-server-hamlib_*_${ARCH}.deb"
+DEBS="$DEBS ../rustyrig-server-hamlib-dbgsym_*_${ARCH}.deb"
 
 dpkg -i ${DEBS}
