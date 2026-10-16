@@ -29,7 +29,9 @@ CREATE TABLE ptt_log (
    duration INTEGER,
    record_file TEXT,
    recording_id TEXT,
-   stop_reason TEXT
+   stop_reason TEXT,
+   supervision_ticket TEXT,
+   supervising_elmers TEXT
 );
 
 -- TX credit accounting: remaining TX seconds per user. One row is consumed

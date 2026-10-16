@@ -1,4 +1,4 @@
-# WebSocket JSON parser profiling
+# WebSocket JSON parser and binary frame profiling
 
 Build with `USE_PROFILING` enabled to log incoming compact JSON operations at
 INFO level under `profile`, alongside Event dispatch counts. Profiling is
@@ -48,3 +48,18 @@ Relay messages and native object-cache copies use this shared API. JSON remains
 appropriate for actual transport and persisted bridge metadata. The manual
 `librustyaxe/tests/bench_dict.c` benchmark compares cloning against a complete
 JSON round trip without imposing hardware-dependent timing assertions.
+
+## Incoming server binary frames
+
+Server binary frames share the JSON profiler's cumulative counters, lock and
+five-minute dump schedule. Fixed `binary/audio`, `binary/video`,
+`binary/waterfall`, `binary/modem`, `binary/file`, `binary/control`, `binary/log`,
+`binary/keepalive` and `binary/unknown` rows count messages, complete frame bytes,
+rejected frames and processing microseconds. Binary rows remain visible alongside
+the top 32 JSON operations. No payload data or untrusted labels are logged.
+
+The dump calls the timing column `processing us`: JSON rows retain parser-only
+time; binary rows measure the complete inbound dispatcher, including handlers
+and relay routing. Rejections include malformed frames and admission failures.
+Outgoing frames and non-WebSocket transports are excluded. Binary instrumentation
+also compiles out without `USE_PROFILING`.

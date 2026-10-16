@@ -481,7 +481,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       gtk_list_store_clear(store);
       GtkTreeIter offline;
       gtk_list_store_append(store, &offline);
-      gtk_list_store_set(store, &offline, COL_USERNAME, "OFFLINE", -1);
+      gtk_list_store_set(store, &offline, COL_USERNAME, "OFFLINE", COL_DISPLAY_NAME, "OFFLINE", -1);
 
       return;
    }
@@ -546,14 +546,16 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
          gtk_list_store_insert_before(store, &row, valid ? &cursor : NULL);
          changed = true;
       }
+      char decorated[HTTP_USER_LEN + 8];
+      userlist_display_name(c, decorated, sizeof(decorated));
       const char *values[NUM_COLS] = {
-         select_user_icon(c), c->name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c)
+         select_user_icon(c), c->name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), decorated
       };
       char *previous[NUM_COLS] = {
          0
       };
       gtk_tree_model_get(model, &row, COL_PRIV_ICON, &previous[COL_PRIV_ICON], COL_USERNAME, &previous[COL_USERNAME], COL_TALK_ICON, &previous[COL_TALK_ICON],
-         COL_MUTE_ICON, &previous[COL_MUTE_ICON], COL_ELMERNOOB_ICON, &previous[COL_ELMERNOOB_ICON], -1);
+         COL_MUTE_ICON, &previous[COL_MUTE_ICON], COL_ELMERNOOB_ICON, &previous[COL_ELMERNOOB_ICON], COL_DISPLAY_NAME, &previous[COL_DISPLAY_NAME], -1);
       bool update = false;
 
       for (int i = 0 ; i < NUM_COLS ; i++) {
@@ -563,7 +565,7 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
 
       if (update) {
          gtk_list_store_set(store, &row, COL_PRIV_ICON, values[COL_PRIV_ICON], COL_USERNAME, values[COL_USERNAME], COL_TALK_ICON, values[COL_TALK_ICON],
-            COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], -1);
+            COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], COL_DISPLAY_NAME, values[COL_DISPLAY_NAME], -1);
          changed = true;
       }
       cursor = row;
@@ -1018,7 +1020,7 @@ void userlist_redraw_gtk(void) {
 // Build the tree view once; it can be packed into the chat paned widget or
 // reparented into a detachable window.
 static GtkWidget *userlist_view_create(void) {
-   GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+   GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    userlist_view_set_server(view, server_name);
    gtk_widget_set_name(view, "userlist-tree");
@@ -1034,7 +1036,7 @@ static GtkWidget *userlist_view_create(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), priv_col);
 
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_USERNAME, NULL);
+   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_DISPLAY_NAME, NULL);
    g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);

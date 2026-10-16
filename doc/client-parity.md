@@ -801,3 +801,28 @@ clears both. Self echoes and replay history do not set unread markers. Explicit
 `/join`, `/query`, room links and numbered/relative navigation still select tabs.
 The browser already creates incoming rooms with `ensure_room(room, false)` and
 retains its existing chat highlight behavior; IRC remains native-only.
+
+
+## Chat presentation and supervision attribution
+
+GTK batches room/HTTP(S) link scanning after formatted text insertion, and opens
+HTTP(S) links with the desktop URI handler. The browser already renders HTTP(S)
+links. GTK input undo/redo retains formatting tokens (Ctrl-Z, Ctrl-Shift-Z or
+Ctrl-Y); this is frontend presentation. GTK and browser append only follow the
+chat tail if the reader was at the end. TUI preserves its physical-row offset
+while new output arrives. Explicit navigation can still select/scroll a room.
+
+IRC remains native-only. Common roster ordering is channel operators, voiced
+users and regular users, alphabetically within each group; operator membership
+wins when a user is also voiced. Room nick display uses @/+ and learned IRC
+operator status adds ! independently. WHOIS, WHO and user MODE observations
+update operator status in the connection context; raw nicknames remain command
+identities. Newly created GTK/TUI queries request WHOIS with replies routed into
+the query. Existing query selection does not repeat the automatic request.
+
+Supervision's existing random request ID is the grant ticket. Server lifecycle
+and associated TX logs retain that ID; PTT records snapshot `supervision_ticket`
+and `supervising_elmers` at key-down so later consent expiry/disconnect does not
+rewrite history. Existing databases receive nullable columns, leaving historical
+rows unattributed. Admin PTT row dictionaries include these fields through the
+existing operation. No client permission or wire operation is added.

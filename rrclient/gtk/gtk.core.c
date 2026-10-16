@@ -337,6 +337,8 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       return;
    }
 
+   GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(view));
+   bool follow = gtk_adjustment_get_value(adjustment) + gtk_adjustment_get_page_size(adjustment) >= gtk_adjustment_get_upper(adjustment) - 1;
    char *line;
 
    while ((line = g_queue_pop_head(chat_backlog))) {
@@ -356,7 +358,7 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       g_free(line);
    }
    gtk_trim_scrollback(buffer, "ui.gtk.scrollback.chat", 200);
-   g_idle_add(ui_scroll_to_end, view);
+   if (follow) g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(view), g_object_unref);
 }
 
 void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
@@ -427,6 +429,9 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
       chat_backlog_flush(target_buffer, target_view);
    }
 
+   /* PARITY: rustyrig-www/js/webui.chat.js Append, preserve a reader's viewport. */
+   GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(target_view));
+   bool follow = gtk_adjustment_get_value(adjustment) + gtk_adjustment_get_page_size(adjustment) >= gtk_adjustment_get_upper(adjustment) - 1;
    bool colorize_failed = false;
    char *colorized = gtk_colorize_string(msgbuf);
 
@@ -447,7 +452,7 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
       g_free(colorized);
    }
 
-   g_idle_add(ui_scroll_to_end, target_view);
+   if (follow) g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(target_view), g_object_unref);
 
    return false;
 }

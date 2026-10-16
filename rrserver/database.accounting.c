@@ -90,12 +90,17 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 /* Create a PTT log row with user origin, RF scope and recording identity. */
 int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const char *record_file,
    const char *recording_id, const char *server) {
+   return db_ptt_start_supervised(db, username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server, "", "");
+}
+
+int db_ptt_start_supervised(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const char *record_file,
+   const char *recording_id, const char *server, const char *ticket, const char *elmers) {
    if (!db || !username || !mode || !recording_id) {
       return -1;
    }
    // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
    const char *sql =
-      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server) " "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server, supervision_ticket, supervising_elmers) " "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
@@ -118,6 +123,8 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    }
    sqlite3_bind_text(stmt, 8, recording_id, -1, SQLITE_STATIC);
    sqlite3_bind_text(stmt, 9, server, -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 10, ticket ? ticket : "", -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 11, elmers ? elmers : "", -1, SQLITE_STATIC);
 
    if (accounting_step(stmt, "db_ptt_start") != SQLITE_DONE) {
       sqlite3_finalize(stmt);

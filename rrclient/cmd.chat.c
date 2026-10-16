@@ -32,6 +32,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
+#include <rrclient/irc.whois.h>
 
 extern bool dying;
 extern time_t now;
@@ -199,6 +200,7 @@ bool cmd_query(int argc, char **args) {
 
       if (!window) {
          window = tui_window_create(window_name);
+         if (window) rrclient_irc_query_opened(connection, args[1]);
       }
 
       if (window) {
@@ -233,6 +235,7 @@ bool cmd_join(int argc, char **args) {
 
          if (!window) {
             window = tui_window_create(window_name);
+         if (window) rrclient_irc_query_opened(connection, args[1]);
          }
 
          if (window) {
@@ -339,6 +342,7 @@ bool cmd_msg(int argc, char **args) {
 
          if (!window) {
             window = tui_window_create(window_name);
+         if (window) rrclient_irc_query_opened(connection, args[1]);
          }
 
          if (window) {
@@ -368,6 +372,7 @@ bool cmd_msg(int argc, char **args) {
 
       if (!window) {
          window = tui_window_create(window_name);
+         if (window) rrclient_irc_query_opened(connection, args[1]);
       }
 
       if (window) {
@@ -430,6 +435,7 @@ bool cmd_notice(int argc, char **args) {
 
       if (!window) {
          window = tui_window_create(window_name);
+         if (window) rrclient_irc_query_opened(connection, args[1]);
       }
 
       if (window) {
@@ -587,7 +593,10 @@ bool cmd_names(int argc, char **args) {
          strlcpy(suffix, " 🎤", sizeof(suffix));
       }
 
-      ui_print(ui_active_window_name(), "  \00300%s%s%s\017", prefix, c->name, suffix);
+      char decorated[HTTP_USER_LEN + 8];
+      userlist_display_name(c, decorated, sizeof(decorated));
+      bool irc = !strncmp(c->privs, "irc:", 4);
+      ui_print(ui_active_window_name(), "  \00300%s%s%s\017", irc ? "" : prefix, irc ? decorated : c->name, suffix);
    }
 
    ui_print(ui_active_window_name(), "\00308%d user%s online\017", count, (count == 1) ? "" : "s");

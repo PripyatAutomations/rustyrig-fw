@@ -137,7 +137,11 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
          frontend_ops()->chat_room_add(nick);
       }
       ui_print(nick, "%s Cannot join %s: %s", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "313") && argc >= 4) {
+      userlist_mark_oper(nick, true);
+      ui_print(output, "%s WHOIS %s: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "311") && argc >= 7) {
+      userlist_mark_oper(nick, false);
       ui_print(output, "%s WHOIS %s: %s@%s (%s)", get_chat_ts(now), nick, arg3, arg4, dict_get(message, "msg.arg6", ""));
    } else if (!strcmp(cmd, "312") && argc >= 5) {
       ui_print(output, "%s WHOIS %s: server %s (%s)", get_chat_ts(now), nick, arg3, arg4);
@@ -325,6 +329,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       event_emit_dict("part", cptr, d);
       ui_print(arg1, "%s * %s kicked %s: %s", get_chat_ts(now), from, arg2, dict_get(message, "msg.arg3", ""));
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
+      userlist_mark_oper(from, false);
       if (cptr != ws_conn) {
          goto done;
       }
@@ -343,6 +348,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       }
       ui_print(NULL, "%s * %s quit: %s", get_chat_ts(now), from, arg1);
    } else if (!strcasecmp(cmd, "NICK") && argc >= 2 && *from) {
+      bool oper = userlist_is_oper(from);
       if (!strcasecmp(from, cptr->nick)) {
          snprintf(cptr->nick, sizeof(cptr->nick), "%s", arg1);
          char *name = strdup(arg1);
@@ -359,6 +365,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
 
          if (member) {
             dict_add(d, "talk.privs", member->privs);
+            dict_add_bool(d, "talk.irc-oper", member->irc_oper);
             userlist_remove_by_name_room(from, room);
             dict_add(d, "talk.room", room);
             dict_add(d, "talk.user", arg1);
@@ -366,6 +373,8 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          }
       }
 
+      userlist_mark_oper(from, false);
+      userlist_mark_oper(arg1, oper);
       ui_print(NULL, "%s * %s is now %s", get_chat_ts(now), from, arg1);
    } else if ((!strcasecmp(cmd, "TOPIC") && argc >= 3) || (!strcmp(cmd, "332") && argc >= 4)) {
       dict_add(d, "talk.room", !strcmp(cmd, "332") ? arg2 : arg1);
@@ -397,6 +406,16 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
          }
 
          free(names);
+      }
+   } else if (!strcmp(cmd, "352") && argc >= 8) {
+      userlist_mark_oper(dict_get(message, "msg.arg6", ""), strchr(dict_get(message, "msg.arg7", ""), '*') != NULL);
+      rrclient_irc_numeric(message, cmd, argc, cptr);
+   } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && arg1[0] != '#' && arg1[0] != '&') {
+      bool adding = true;
+      for (const char *mode = arg2; *mode; mode++) {
+         if (*mode == '+') adding = true;
+         else if (*mode == '-') adding = false;
+         else if (*mode == 'o') userlist_mark_oper(arg1, adding);
       }
    } else if (!strcmp(cmd, "366") && argc >= 3) {
       userlist_names_end(arg2);

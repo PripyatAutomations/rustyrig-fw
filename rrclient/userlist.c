@@ -35,6 +35,7 @@ typedef struct userlist_batch {
    struct userlist_batch *next;
 } userlist_batch;
 static userlist_batch *names_batches;
+static dict *irc_opers;
 
 bool userlist_names_pending(const char *room) {
    for (userlist_batch *batch = names_batches ; batch ; batch = batch->next) {
@@ -117,15 +118,11 @@ static unsigned userlist_group(const struct rr_user *user) {
    if (!strncmp(user->privs, "irc:", 4)) {
       const char *modes = user->privs + 4;
 
-      if (strchr(modes, 'v')) {
-         return 1;
-      }
-
       if (strchr(modes, 'o') || strchr(modes, 'q') || strchr(modes, 'a') || strchr(modes, 'h')) {
          return 0;
       }
 
-      return 2;
+      return strchr(modes, 'v') ? 1 : 2;
    }
 
    if (userlist_priv(user, "owner") || userlist_priv(user, "admin")) {
@@ -151,6 +148,37 @@ int userlist_compare(const struct rr_user *left, const struct rr_user *right) {
    }
 
    return strcasecmp(left->name, right->name);
+}
+
+void userlist_display_name(const struct rr_user *user, char *out, size_t capacity) {
+   const char *prefix = "";
+   if (user && !strncmp(user->privs, "irc:", 4)) {
+      const char *modes = user->privs + 4;
+      prefix = strpbrk(modes, "qaoh") ? "@" : strchr(modes, 'v') ? "+" : "";
+   }
+   snprintf(out, capacity, "%s%s%s", user && user->irc_oper ? "!" : "", prefix, user ? user->name : "?");
+}
+
+bool userlist_is_oper(const char *nick) {
+   if (!nick || !irc_opers) return false;
+   char folded[HTTP_USER_LEN + 1];
+   strlcpy(folded, nick, sizeof(folded));
+   for (char *p = folded; *p; p++) *p = tolower((unsigned char)*p);
+   return dict_get_bool(irc_opers, folded, false);
+}
+
+void userlist_mark_oper(const char *nick, bool oper) {
+   if (!nick || !*nick) return;
+   char folded[HTTP_USER_LEN + 1];
+   strlcpy(folded, nick, sizeof(folded));
+   for (char *p = folded; *p; p++) *p = tolower((unsigned char)*p);
+   if (!irc_opers) irc_opers = dict_new();
+   if (irc_opers && oper) dict_add_bool(irc_opers, folded, true);
+   else if (irc_opers) dict_del(irc_opers, folded);
+   for (struct rr_user *user = global_userlist; user; user = user->next) {
+      if (!strcasecmp(user->name, nick)) user->irc_oper = oper;
+   }
+   if (frontend_ops() && rrclient_present_context()) frontend_ops()->userlist_redraw();
 }
 
 void userlist_sort(void) {
@@ -281,6 +309,8 @@ bool userlist_add_or_update(dict *d) {
       strlcpy(n->privs, t_privs, sizeof(n->privs));
    }
 
+   struct rr_user *known = userlist_find_in_room(t_user, NULL);
+   n->irc_oper = dict_get_bool(d, "talk.irc-oper", userlist_is_oper(t_user) || (known && known->irc_oper));
    n->sessions = t_sessions;
    n->is_muted = t_muted;
    n->is_ptt = t_ptt;
@@ -388,6 +418,8 @@ bool userlist_remove_by_name(const char *name) {
 
 // Clearing the userlist
 void userlist_clear_all(void) {
+   dict_free(irc_opers);
+   irc_opers = NULL;
    while (names_batches) {
       userlist_batch *batch = names_batches;
       names_batches = batch->next;
@@ -446,6 +478,7 @@ struct rr_user *userlist_find(const char *name) {
 typedef struct {
    struct rr_user *global_userlist;
    userlist_batch *names_batches;
+   dict *irc_opers;
 } rrclient_userlist_context;
 void rrclient_userlist_context_swap(void **saved) {
    if (!*saved) {
@@ -456,6 +489,9 @@ void rrclient_userlist_context_swap(void **saved) {
       }
    }
    rrclient_userlist_context *state = *saved;
+   dict *temporary_opers = irc_opers;
+   irc_opers = state->irc_opers;
+   state->irc_opers = temporary_opers;
    userlist_batch *temporary_batches = names_batches;
    names_batches = state->names_batches;
    state->names_batches = temporary_batches;

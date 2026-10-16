@@ -93,6 +93,13 @@ void rrclient_irc_whois_forget(rrconn_t *connection) {
    }
 }
 
+/* Frontends report window creation; IRC policy and reply routing stay common. */
+void rrclient_irc_query_opened(rrconn_t *connection, const char *nick) {
+   if (connection && !connection->is_ws && nick && *nick && nick[0] != '#' && nick[0] != '&') {
+      rrclient_whois_send(connection, nick, nick);
+   }
+}
+
 bool cmd_whois(int argc, char **args) {
    if (argc < 2 || !args || !args[1]) {
       ui_print(NULL, "Usage: /whois <user>");

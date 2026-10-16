@@ -1,5 +1,20 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Add cumulative WebSocket binary subsystem counts, bytes, rejects and
+    dispatch time alongside compact JSON parser profiling.
+  * Speed up formatted GTK chat with batched link scans and cheaper input
+    token handling. Make HTTP(S) links clickable; add Ctrl-Z undo and
+    Ctrl-Shift-Z/Ctrl-Y redo with formatting retained.
+  * Sort IRC rosters by channel operators, voices and ordinary users, then
+    nickname. Decorate room nicks with @/+ and learned IRC operators with !;
+    request WHOIS into newly opened query windows in GTK and TUI.
+  * Preserve chat reading position on append in GTK, TUI and browser views;
+    continue following traffic when already at the end.
+  * Show live connection checkboxes and Connect/Disconnect actions in the GTK
+    server picker, including right-click Edit and connection controls.
+  * Correlate supervision lifecycle logs with the grant ticket. Persist the
+    active elmers and ticket at TX start alongside each PTT record and expose
+    attribution through the existing admin PTT listing.
   * Fix callsign-lookup linking by removing accidentally duplicated GNIS
     implementation/globals from the QRZ header; retain their single owner
     in gnis-lookup.c and the declarations in gnis-lookup.h.
@@ -172,7 +187,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Thu, 15 Oct 2026 21:26:15 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 00:21:19 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

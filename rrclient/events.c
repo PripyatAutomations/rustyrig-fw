@@ -20,6 +20,7 @@
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
+#include <rrclient/irc.whois.h>
 #include <rrclient/rooms.h>
 #include <rrclient/media.h>
 #include <rrclient/ui.h>
@@ -470,6 +471,19 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
+   const char *raw_from = from;
+   char decorated_from[HTTP_USER_LEN + 8];
+   if (cptr && !cptr->is_ws && private_msg && userlist_is_oper(from)) {
+      snprintf(decorated_from, sizeof(decorated_from), "!%s", from);
+      from = decorated_from;
+   } else if (cptr && !cptr->is_ws && !private_msg) {
+      struct rr_user *member = userlist_find_in_room(from, output_room);
+      if (member) {
+         userlist_display_name(member, decorated_from, sizeof(decorated_from));
+         from = decorated_from;
+      }
+   }
+
    if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
       ui_print(output_room, "\00304>>>\017 Start of chat chat replay. \00304<<<\017");
    } else if (msg_cmd && strcasecmp(msg_cmd, "replay-complete") == 0) {
@@ -478,7 +492,7 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       if (strcasecmp(msg_type, "action") == 0) {
          ui_print(output_room, "%s \00308*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "pub") == 0) {
-         if (login_user != NULL && strcmp(from, login_user) == 0) {
+         if (login_user != NULL && strcmp(raw_from, login_user) == 0) {
             ui_print(output_room, "%s \00308=>\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
             ui_print(output_room, "%s \00308<\017%s\00308>\017 %s", get_chat_ts(msg_ts), from, msg_data);
@@ -641,6 +655,7 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
 
    if (!window && create) {
       window = tui_window_create(rrclient_window_name(room));
+      if (window) rrclient_irc_query_opened(ws_conn, room);
    }
 
    if (window) {

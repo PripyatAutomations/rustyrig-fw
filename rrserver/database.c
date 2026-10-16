@@ -431,6 +431,27 @@ ensure_stop_reason:
    }
 }
 
+/* Backfill supervision attribution without rewriting historical PTT rows. */
+static void db_ensure_supervision_columns(sqlite3 *db) {
+   static const char *columns[] = {"supervision_ticket", "supervising_elmers"};
+   for (size_t i = 0; i < sizeof(columns) / sizeof(columns[0]); i++) {
+      sqlite3_stmt *statement = NULL;
+      bool present = false;
+      if (sqlite3_prepare_v2(db, "PRAGMA table_info(ptt_log)", -1, &statement, NULL) != SQLITE_OK) return;
+      while (sqlite3_step(statement) == SQLITE_ROW) {
+         const char *name = (const char *)sqlite3_column_text(statement, 1);
+         if (name && !strcmp(name, columns[i])) present = true;
+      }
+      sqlite3_finalize(statement);
+      if (present) continue;
+      char sql[128];
+      snprintf(sql, sizeof(sql), "ALTER TABLE ptt_log ADD COLUMN %s TEXT", columns[i]);
+      char *error = NULL;
+      if (sqlite3_exec(db, sql, NULL, NULL, &error) != SQLITE_OK) Log(LOG_WARN, "db", "Cannot add PTT %s: %s", columns[i], error ? error : "unknown error");
+      sqlite3_free(error);
+   }
+}
+
 /* Open and initialize the database, preserving existing account credentials. */
 sqlite3 *db_open(const char *path) {
    if (!path) {
@@ -463,6 +484,7 @@ sqlite3 *db_open(const char *path) {
       }
       db_ensure_user_columns(db);
       db_ensure_ptt_columns(db);
+      db_ensure_supervision_columns(db);
       db_ensure_rooms(db);
       db_ensure_rig_identities(db);
       db_ensure_bridge_hints(db);

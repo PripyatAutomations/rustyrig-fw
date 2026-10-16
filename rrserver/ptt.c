@@ -33,6 +33,7 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/relay.h>
 #include <rrserver/ptt.h>
+#include <rrserver/supervision.h>
 #include <rrserver/media.h>
 #include <rrserver/recording.h>
 #include <rrserver/rig.properties.h>
@@ -50,6 +51,7 @@ int vfos_enabled = 2;           // A + B by default
 // VFO currently keyed by PTT logging (row id in ptt_log, -1 none)
 static int ptt_log_session[MAX_VFOS];
 static rrconn_t *ptt_log_owner[MAX_VFOS];
+static char ptt_grant_ticket[MAX_VFOS][33];
 static char ptt_recording_id[MAX_VFOS][RECORDING_ID_BUFSIZE];
 static char ptt_recording_file[MAX_VFOS][FWDSP_RECORD_FILE_LEN];
 
@@ -234,18 +236,23 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
    const char *site = cfg_get("station.name");
    char scope[256];
    snprintf(scope, sizeof(scope), "%s.%s.vfo-%c", site && *site ? site : "unknown", alias ? alias : "unknown-rig", 'a' + vfo);
-   int session = db_ptt_start(masterdb, talker->chatname, scope, (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
-      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "", rrserver_relay_client_server(talker));
+   struct rr_supervision_attribution consent;
+   rrserver_supervision_snapshot(talker, talker->ptt_room, &consent);
+   strlcpy(ptt_grant_ticket[vfo], consent.ticket, sizeof(ptt_grant_ticket[vfo]));
+   int session = db_ptt_start_supervised(masterdb, talker->chatname, scope, (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
+      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "", rrserver_relay_client_server(talker), consent.ticket, consent.elmers);
 
    if (session < 0) {
-      Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s", talker->chatname);
+      Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s ticket=%s", talker->chatname, consent.ticket);
 
       return;
    }
+   if (consent.ticket[0]) Log(LOG_AUDIT, "ptt", "ticket=%s elmers=%s user=%s TX started session=%d scope=%s", consent.ticket, consent.elmers,
+      talker->chatname, session, scope);
    ptt_log_session[vfo] = session;
    ptt_log_owner[vfo] = talker;
    talker->ptt_session = session;
-   Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz", session, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq);
+   Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz ticket=%s", session, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, consent.ticket);
 #else
    (void)talker;
    (void)vfo;
@@ -278,6 +285,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
       return;
    }
    ptt_log_session[vfo] = -1;
+   if (ptt_grant_ticket[vfo][0]) Log(LOG_AUDIT, "ptt", "ticket=%s TX stopped session=%d reason=%s", ptt_grant_ticket[vfo], session, reason ? reason : "released");
 
    if (talker) {
       talker->ptt_session = 0;
@@ -286,7 +294,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    int secs = -1;
 
    if (!db_ptt_stop(masterdb, session, &secs, reason)) {
-      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s", session, (talker ? talker->chatname : "unknown"));
+      Log(LOG_WARN, "ptt", "PTT log: failed to close session %d for %s ticket=%s", session, (talker ? talker->chatname : "unknown"), ptt_grant_ticket[vfo]);
 
       return;
    }
@@ -304,17 +312,17 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
          looked_up = ptt_log_username(session);
          who = looked_up;
       }
-      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)", (who ? who : "unknown"), secs, session);
+      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d) ticket=%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo]);
 
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
       if (cfg_get_bool("quota.enforce", true) && who && secs > 0) {
          if (!db_quota_spend(masterdb, who, secs)) {
-            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s", secs, who);
+            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s ticket=%s", secs, who, ptt_grant_ticket[vfo]);
          } else {
             int left = db_quota_get(masterdb, who);
 
-            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining", who, secs, left);
+            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining ticket=%s", who, secs, left, ptt_grant_ticket[vfo]);
 
             if (talker) {
                quota_maybe_warn(talker, left);

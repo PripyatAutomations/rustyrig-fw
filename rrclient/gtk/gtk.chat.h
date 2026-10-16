@@ -12,6 +12,7 @@
 #define __gtk_chat_h
 
 extern bool parse_chat_input(GtkButton *button, gpointer entry);  // chat.cmd.c
+extern void gtk_chat_links_attach(GtkWidget *view);
 extern GtkWidget *chat_textview;
 extern GtkWidget *chat_entry;
 extern GtkTextBuffer *text_buffer;

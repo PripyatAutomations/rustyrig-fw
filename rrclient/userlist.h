@@ -24,6 +24,7 @@ enum {
    COL_TALK_ICON,
    COL_MUTE_ICON,
    COL_ELMERNOOB_ICON,
+   COL_DISPLAY_NAME,
    NUM_COLS
 };
 
@@ -71,6 +72,10 @@ extern void userlist_clear_all(void);  // destroys the list
 extern struct rr_user *userlist_find(const char *name);
 extern int userlist_compare(const struct rr_user *left, const struct rr_user *right);
 extern void userlist_sort(void);
+/* Display decoration only; raw names remain command/roster identities. */
+extern void userlist_display_name(const struct rr_user *user, char *out, size_t capacity);
+extern void userlist_mark_oper(const char *nick, bool oper);
+extern bool userlist_is_oper(const char *nick);
 extern void userlist_names_begin(const char *room);
 extern void userlist_names_end(const char *room);
 extern bool userlist_names_pending(const char *room);

@@ -59,7 +59,8 @@ static void do_connect_from_tree(GtkTreeView *view) {
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
 
       if (entry && *entry) {
-         connect_server(entry);
+         if (rrclient_connection_state(entry)) disconnect_server(entry);
+         else connect_server(entry);
       }
       g_free(entry);
    }
@@ -169,12 +170,78 @@ void gtk_server_picker_refresh_profile(const char *profile) {
          const char *user = get_server_property(profile, "server.user");
          const char *url = get_server_property(profile, "server.url");
          const char *proxy = get_server_property(profile, "server.proxy");
-         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 1, user ? user : "", 2, url ? url : "", 3, proxy ? proxy : "", -1);
+         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 1, user ? user : "", 2, url ? url : "", 3, proxy ? proxy : "", 4, rrclient_connection_state(profile) == 1, -1);
 
          return;
       }
       valid = gtk_tree_model_iter_next(model, &iter);
    }
+}
+
+static gboolean picker_refresh(gpointer data) {
+   GtkWidget *tree = data;
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+   GtkTreeIter iter;
+   for (gboolean valid = gtk_tree_model_get_iter_first(model, &iter); valid; valid = gtk_tree_model_iter_next(model, &iter)) {
+      char *name = NULL;
+      gtk_tree_model_get(model, &iter, 0, &name, -1);
+      gtk_list_store_set(GTK_LIST_STORE(model), &iter, 4, rrclient_connection_state(name) == 1, -1);
+      g_free(name);
+   }
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+   if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
+      char *name = NULL;
+      gtk_tree_model_get(model, &iter, 0, &name, -1);
+      GtkWidget *button = g_object_get_data(G_OBJECT(tree), "rr-connect-button");
+      gtk_button_set_label(GTK_BUTTON(button), rrclient_connection_state(name) ? "Disconnect" : "Connect");
+      g_free(name);
+   }
+   return G_SOURCE_CONTINUE;
+}
+
+static void picker_destroy(GtkWidget *tree, gpointer data) {
+   (void)data;
+   guint source = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(tree), "rr-refresh-source"));
+   if (source) g_source_remove(source);
+}
+
+static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
+   (void)selection;
+   picker_refresh(tree);
+}
+
+static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer data) {
+   (void)renderer;
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(data));
+   GtkTreeIter iter;
+   if (!gtk_tree_model_get_iter_from_string(model, &iter, path)) return;
+   char *name = NULL;
+   gtk_tree_model_get(model, &iter, 0, &name, -1);
+   if (rrclient_connection_state(name)) disconnect_server(name);
+   else connect_server(name);
+   g_free(name);
+   picker_refresh(data);
+}
+
+static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer data) {
+   (void)data;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   GtkTreePath *path = NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree), event->x, event->y, &path, NULL, NULL, NULL)) return FALSE;
+   gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), path);
+   gtk_tree_path_free(path);
+   GtkWidget *menu = gtk_menu_new();
+   GtkWidget *edit = gtk_menu_item_new_with_label("Edit");
+   GtkWidget *button = g_object_get_data(G_OBJECT(tree), "rr-connect-button");
+   GtkWidget *toggle = gtk_menu_item_new_with_label(gtk_button_get_label(GTK_BUTTON(button)));
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), edit);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), toggle);
+   g_signal_connect_object(edit, "activate", G_CALLBACK(on_edit_clicked), tree, 0);
+   g_signal_connect_object(toggle, "activate", G_CALLBACK(on_connect_clicked), tree, 0);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
 }
 
 void gtk_show_server_chooser(void) {
@@ -196,7 +263,7 @@ void gtk_show_server_chooser(void) {
    ui_new_window(window, "serverpick");
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_add(GTK_CONTAINER(window), box);
-   GtkListStore *store = gtk_list_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+   GtkListStore *store = gtk_list_store_new(5, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
    int rank = 0;
    const char *key;
    char *value;
@@ -214,7 +281,7 @@ void gtk_show_server_chooser(void) {
       }
       GtkTreeIter iter;
       gtk_list_store_append(store, &iter);
-      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", -1);
+      gtk_list_store_set(store, &iter, 0, name, 1, nick ? nick : "", 2, value ? value : "", 3, proxy ? proxy : "", 4, rrclient_connection_state(name) == 1, -1);
    }
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
@@ -228,6 +295,9 @@ void gtk_show_server_chooser(void) {
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL));
    }
 
+   GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
+   g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, NULL));
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
@@ -239,6 +309,11 @@ void gtk_show_server_chooser(void) {
    g_signal_connect(button, "clicked", G_CALLBACK(on_connect_clicked), tree);
    g_signal_connect(tree, "row-activated", G_CALLBACK(on_row_activated), NULL);
    g_signal_connect(window, "key-press-event", G_CALLBACK(on_key), NULL);
+   g_object_set_data(G_OBJECT(tree), "rr-connect-button", button);
+   g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), "changed", G_CALLBACK(picker_selection), tree);
+   g_signal_connect(tree, "button-press-event", G_CALLBACK(picker_menu), NULL);
+   g_signal_connect(tree, "destroy", G_CALLBACK(picker_destroy), NULL);
+   g_object_set_data(G_OBJECT(tree), "rr-refresh-source", GUINT_TO_POINTER(g_timeout_add(500, picker_refresh, tree)));
    GtkTreeIter first;
 
    if (gtk_tree_model_get_iter_first(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)), &first)) {
