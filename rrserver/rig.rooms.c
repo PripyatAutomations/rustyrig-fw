@@ -26,6 +26,11 @@ struct room_context {
    rr_server_rig_t *radio;
 };
 
+struct lookup_room_context {
+   const char *room;
+   rr_server_rig_t *radio;
+};
+
 static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
    struct room_context *ctx = user;
    rr_vfo_t index;
@@ -49,9 +54,9 @@ static bool room_duplicate(rr_server_rig_t *radio, void *user) {
    if (radio == ctx->radio) {
       return false;
    }
-   const char *room = rr_rig_registry_room(rig.rigs, radio);
-   char generated[128];
 
+   char generated[128];
+   const char *room = rr_rig_registry_room(rig.rigs, radio);
    if (!room) {
       snprintf(generated, sizeof(generated), "%s-%s", ws_site_room(), rr_rig_registry_public_alias(rig.rigs, radio));
       room = generated;
@@ -61,7 +66,6 @@ static bool room_duplicate(rr_server_rig_t *radio, void *user) {
 }
 
 static bool configure_room(rr_server_rig_t *radio, void *user) {
-   (void)user;
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
    char *configured = rr_rig_config_get_exp(alias, "room");
    char generated[128];
@@ -76,12 +80,11 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
       strcasecmp(room, generated) || !strcasecmp(room, ws_site_room()) || rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx)) {
       Log(LOG_CRIT, "cfg.rig", "Invalid or duplicate room %s for rig %s", room, alias);
       free(configured);
-
       return true;
    }
    bool failed = rr_rig_registry_set_room(rig.rigs, radio, room);
-#ifdef USE_SQLITE
 
+#ifdef USE_SQLITE
    if (!failed) {
       failed = !db_room_restore(masterdb, room, "server") || !db_room_ensure(masterdb, room, true, 0, "server") || !db_room_vfos_clear(masterdb, room);
    }
@@ -238,10 +241,6 @@ bool rrserver_rig_room_configured(const char *room) {
    return room && rig.rigs && rr_rig_registry_foreach(rig.rigs, matches_room, (void *)room);
 }
 
-struct lookup_room_context {
-   const char *room;
-   rr_server_rig_t *radio;
-};
 static bool find_room_rig(rr_server_rig_t *radio, void *data) {
    struct lookup_room_context *ctx = data;
    const char *base = rr_rig_registry_room(rig.rigs, radio);
@@ -254,6 +253,7 @@ static bool find_room_rig(rr_server_rig_t *radio, void *data) {
 
    return false;
 }
+
 rr_server_rig_t *rrserver_rig_for_room(const char *room) {
    struct lookup_room_context ctx = {
       .room = room
