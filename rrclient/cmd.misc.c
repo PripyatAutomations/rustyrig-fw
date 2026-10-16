@@ -542,52 +542,27 @@ bool cmd_save(int argc, char **args) {
 
 
 bool cmd_quit(int argc, char **args) {
-   const char *quitmsg = "no reason given";
-
-   // -y/-yes/y/yes anywhere in the args quits without confirmation
-   bool confirmed = false;
-   int first_arg = 1;
-
-   while (first_arg < argc && args[first_arg] &&
-      (strcasecmp(args[first_arg], "-y") == 0 || strcasecmp(args[first_arg], "-yes") == 0 ||
-      strcasecmp(args[first_arg], "y") == 0 || strcasecmp(args[first_arg], "yes") == 0)) {
-      confirmed = true;
-      first_arg++;
-   }
-
-   if (args && first_arg < argc && args[first_arg] && args[first_arg][0] != '\0') {
-      quitmsg = args[first_arg];
-   }
-
-   // Confirm before quitting; the active frontend handles its own dialog via
-   // the client.quit.request event.
-   if (!confirmed && !ui_confirm_quit()) {
-      return false;
-   }
-
-   ui_print(ui_active_window_name(), "\00311Seeya soon, have a great day!\017");
-
    char reason[IRC_MSGLEN - 8] = "";
-
-   for (int i = first_arg ; i < argc && args[i] ; i++) {
-      if (*reason) {
-         strlcat(reason, " ", sizeof(reason));
-      }
+   for (int i = 1; args && i < argc && args[i]; i++) {
+      if (*reason) strlcat(reason, " ", sizeof(reason));
       strlcat(reason, args[i], sizeof(reason));
    }
-
-   quitmsg = *reason ? reason : quitmsg;
-   rrclient_quit_servers(quitmsg);
-   dict *d = dict_new();
-   dict_add(d, "msg.type", "auth");
-   dict_add(d, "auth.cmd", "quit");
-   dict_add(d, "auth.msg", quitmsg);
-
-   if (d && ws_conn && ws_conn->is_ws) {
-      ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   /* The parser preserves the whole tail. Only its first word is a force flag. */
+   char *message = reason;
+   size_t token = strcspn(message, " \t");
+   bool confirmed = (token == 1 && !strncasecmp(message, "y", token)) ||
+      (token == 3 && !strncasecmp(message, "yes", token)) ||
+      (token == 2 && !strncasecmp(message, "-y", token)) ||
+      (token == 4 && !strncasecmp(message, "-yes", token));
+   if (confirmed) {
+      message += token;
+      while (*message == ' ' || *message == '\t') message++;
    }
-   dict_free(d);
+   if (!confirmed && !ui_confirm_quit()) return false;
+   const char *quitmsg = *message ? message : "no reason given";
+   ui_print(ui_active_window_name(), "\00311Seeya soon, have a great day!\017");
 
+   rrclient_quit_servers(quitmsg);
    // Set the dying flag so main loop with cleanly exit
    dying = true;
 

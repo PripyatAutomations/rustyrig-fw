@@ -1,5 +1,9 @@
 rustyrig-fw (20261015.06) testing; urgency=medium
 
+  * Preserve /quit message text after stripping one leading y/yes/-y/-yes
+    force token. Send it to connected IRC/RustyRig sessions, flush queued
+    writes on shutdown, and honor auth.msg in RustyRig quit announcements.
+    Mirror quit-message parsing in the browser without changing /logout.
   * Color highlighted chat sender prefixes yellow using configurable GTK CSS
     rr_chat_highlight_nick and a browser chat-mention CSS rule. Apply matching
     nickname boundaries and update existing GTK highlights on CSS reload.
@@ -263,7 +267,7 @@ rustyrig-fw (20261015.06) testing; urgency=medium
     passbands from kiwiclient. Add component-owned ABI, IPC, supervisor and live
     discovery/control/crash-recovery tests and document the remaining media work.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 09:30:58 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Fri, 16 Oct 2026 09:40:40 -0400
 
 rustyrig-fw (20261014.04) testing; urgency=medium
 

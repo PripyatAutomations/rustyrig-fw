@@ -89,7 +89,7 @@ client_cmd_t client_cmds[] = {
       .cmd = "help", .help_section = "Connection", .cb = cmd_help, .desc = "Show help message"
    },
    {
-      .cmd = "quit", .help_section = "Connection", .cb = cmd_quit, .desc = "Exit (/quit [-yes|-y|y|yes] skips confirm)"
+      .cmd = "quit", .help_section = "Connection", .cb = cmd_quit, .desc = "Exit: /quit [-yes|-y|y|yes] [message] (leading flag skips confirm)"
    },
    {
       .cmd = "server", .help_section = "Connection", .cb = cmd_server, .max_args = 3, .desc =

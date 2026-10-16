@@ -1154,6 +1154,16 @@ void rrclient_quit_servers(const char *reason) {
       rrconn_t *c = s->connection;
       cancel_reconnect(s);
 
+      if (c && c->is_ws && c->authenticated && c->conn && !c->conn->is_closing && !c->conn->is_draining) {
+         dict *request = dict_new();
+         if (request) {
+            dict_add(request, "msg.type", "auth");
+            dict_add(request, "auth.cmd", "quit");
+            dict_add(request, "auth.msg", reason ? reason : "Client exiting");
+            ws_send_dict(NULL, c, request, WEBSOCKET_OP_TEXT);
+            dict_free(request);
+         }
+      }
       if (c && !c->is_ws && c->sent_login && c->conn && !c->conn->is_closing && !c->conn->is_draining) {
          if (!irc_send(c, "QUIT :%s", reason ? reason : "Client exiting")) {
             irc_send(c, "QUIT :Client exiting");
@@ -1176,7 +1186,7 @@ void rrclient_flush_quit(void) {
       for (client_server_t *s = servers ; s ; s = s->next) {
          rrconn_t *c = s->connection;
 
-         if (c && !c->is_ws && c->conn && c->conn->is_draining) {
+         if (c && c->conn && ((!c->is_ws && c->conn->is_draining) || (c->is_ws && c->conn->send.len))) {
             pending = true;
          }
       }

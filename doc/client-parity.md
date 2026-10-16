@@ -967,3 +967,13 @@ in `[gtk-css]`. CSS reload updates existing highlighted prefixes. Normal chat,
 actions and private prefixes retain message-body formatting and timestamps.
 The browser uses `.chat-msg-prefix.chat-mention { color: yellow; }` in
 `www/css/chat.css`, with the same nickname boundary rules for live messages.
+
+## Quit messages
+
+Native `/quit [-y|-yes|y|yes] [message]` strips exactly one leading force token
+and keeps the remaining text as the quit message. The flag skips native quit
+confirmation; tokens later in the message remain literal text. Native sends
+IRC QUIT and RustyRig auth.quit/auth.msg to all connected sessions, draining
+queued writes before shutdown. The existing protocol auth.msg field is honored
+by the server when announcing the quit. Browser `/quit` applies the same leading
+token handling and supplies auth.msg; `/logout` retains its default reason.
