@@ -176,8 +176,13 @@ static bool rr_configure_vfos(rr_server_rig_t *radio, const char *alias) {
          break;
       }
       tokens[i][0] = (char)toupper((unsigned char)tokens[i][0]);
-      char *uuid = rr_runtime_vfo_uuid(rr_server_rig_id(radio), tokens[i]);
-      rr_server_vfo_t *vfo = uuid ? rr_server_vfo_add(radio, uuid, tokens[i], tokens[i], RR_VFO_PERSISTENT) : NULL;
+      char key[80];
+      snprintf(key, sizeof(key), "vfo.%s.config-id", tokens[i]);
+      const char *config_id = rr_rig_config_get(alias, key);
+      snprintf(key, sizeof(key), "vfo.%s.title", tokens[i]);
+      const char *title = rr_rig_config_get(alias, key);
+      char *uuid = rr_runtime_vfo_uuid(rr_server_rig_id(radio), config_id ? config_id : tokens[i]);
+      rr_server_vfo_t *vfo = uuid ? rr_server_vfo_add(radio, uuid, tokens[i], title ? title : tokens[i], RR_VFO_PERSISTENT) : NULL;
       free(uuid);
 
       if (!vfo || !rr_backend_vfo_supported(radio, vfo) || rr_rig_define_vfo_properties(radio, tokens[i][0])) {

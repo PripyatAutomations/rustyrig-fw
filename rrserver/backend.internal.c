@@ -10,6 +10,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.internal-parts.h>
 #include <rrserver/backend.worker.h>
 #include <rrserver/rig.properties.h>
 
@@ -23,6 +24,7 @@ typedef struct internal_vfo_state {
 
 typedef struct internal_backend {
    internal_vfo_state_t vfos[MAX_VFOS];
+   rr_internal_parts_t *parts;
 } internal_backend_t;
 
 static internal_backend_t *be_data(rr_backend_t *backend) {
@@ -82,12 +84,16 @@ static bool be_internal_create(rr_backend_t *backend) {
 
    for (int i = VFO_A ; i < MAX_VFOS ; i++) {
       int narr = 0, norm = 0, wide = 0;
-      data->vfos[i].freq = 14074000;
+      char key[64];
+      snprintf(key, sizeof(key), "vfo.%c.frequency-hz", 'A' + i);
+      data->vfos[i].freq = rr_backend_config_get_int(backend, key, 14074000);
       data->vfos[i].mode = MODE_USB;
       be_widths_for_mode(MODE_USB, &narr, &norm, &wide);
       data->vfos[i].width = norm;
    }
 
+   data->parts = rr_internal_parts_open(backend);
+   if (!data->parts) { free(data); return true; }
    rr_backend_instance_set_data(backend, data);
    Log(LOG_INFO, "backend.internal", "Internal backend instance %s initialized", rr_backend_instance_alias(backend));
 
@@ -95,6 +101,7 @@ static bool be_internal_create(rr_backend_t *backend) {
 }
 
 static void be_internal_destroy(rr_backend_t *backend) {
+   if (be_data(backend)) rr_internal_parts_close(be_data(backend)->parts);
    free(be_data(backend));
    rr_backend_instance_set_data(backend, NULL);
 }
@@ -113,6 +120,7 @@ static bool be_internal_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, boo
    if (!data || !be_index(vfo, &index)) {
       return true;
    }
+   if (!rr_internal_parts_ptt(data->parts, state)) return true;
    data->vfos[index].ptt = state;
 
    return false;
@@ -132,6 +140,7 @@ static bool be_internal_freq_set(rr_backend_t *backend, rr_server_vfo_t *vfo, in
    if (!data || !be_index(vfo, &index) || freq <= 0) {
       return true;
    }
+   if (!rr_internal_parts_tune(data->parts, index, freq)) return true;
    data->vfos[index].freq = freq;
 
    return false;

@@ -37,6 +37,7 @@
 #include <rrserver/gps.h>
 #include <librustyaxe/cfg.modules.h>
 #include <rrserver/gpio.h>
+#include <rrserver/cfg.radio.h>
 #include <rrserver/si5351.h>
 #include <rrserver/network.h>
 #include <rrserver/amp.h>
@@ -187,7 +188,7 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rr_si5351_config_init() || !rr_gpio_config_init() || !rrserver_files_config_init() || !rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
+   if (!rr_radio_config_init() || !rr_si5351_config_init() || !rr_gpio_config_init() || !rrserver_files_config_init() || !rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
@@ -253,7 +254,7 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-   if (!rrserver_acl_validate()) {
+   if (!rr_radio_config_prepare() || !rrserver_acl_validate()) {
       return EXIT_FAILURE;
    }
    printf("Loading config %s\n", config_file);
@@ -319,7 +320,7 @@ int main(int argc, char **argv) {
    rrserver_config_refresh(NULL);
    timer_init();
    rig.hardware = rr_hardware_new();
-   if (!rr_gpio_discover(rig.hardware) || !rr_gpio_configure(rig.hardware) || !rr_si5351_configure(rig.hardware)) {
+   if (!rr_gpio_discover(rig.hardware) || !rr_gpio_configure(rig.hardware) || !rr_si5351_configure(rig.hardware) || !rr_radio_hardware_register(rig.hardware)) {
       Log(LOG_CRIT, "hardware", "Unable to initialize attached hardware mappings");
       rr_hardware_free(rig.hardware);
       rig.hardware = NULL;

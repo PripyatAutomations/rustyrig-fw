@@ -17,6 +17,7 @@ ${CC:-cc} ${CFLAGS:-} -pthread -ffunction-sections -fdata-sections -Wl,--gc-sect
    rrserver/tests/multirig_live.c rrserver/backend.c \
    rrserver/backend.instance.c rrserver/backend.worker.c rrserver/backend.register.c rrserver/bridge.manager.c \
    rrserver/bridge.hints.c rrserver/bridge.access.c \
+   rrserver/backend.internal-parts.c rrserver/hardware.c rrserver/hardware.dummy.c rrserver/si5351.c rrserver/hardware.si5351.c \
    rrserver/backend.internal.c rrserver/backend.hamlib.c \
    rrserver/rig.properties.c rrserver/rig.compat.c rrserver/rig.registry.c \
    rrserver/cfg.rig.c rrserver/rig.rooms.c rrserver/database.c rrserver/database.rooms.c rrserver/database.users.c rrserver/database.accounting.c rrserver/defconfig.c \
