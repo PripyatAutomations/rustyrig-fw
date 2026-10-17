@@ -72,6 +72,18 @@ struct serial_export {
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
 
+/* A persistent decoder is a real RX consumer. Keep bridge hardware awake
+ * only while a local bound worker is alive; no terminal must be connected. */
+bool rrserver_serial_rx_demand(const struct rr_server_rig *radio) {
+   if (!radio || !rig.rigs) return false;
+   const char *alias = rr_rig_registry_alias(rig.rigs, radio);
+   if (!alias) return false;
+   for (unsigned i = 0; i < count; i++)
+      if (exports[i].virtual_modem && exports[i].fd >= 0 &&
+          !strcmp(exports[i].modem_rig, alias)) return true;
+   return false;
+}
+
 /* RX fanout is nonblocking: no worker can hold up the capture callback. */
 void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len) {
    if (!radio || !samples || !len || !rig.rigs) return;
