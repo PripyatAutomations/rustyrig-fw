@@ -343,7 +343,7 @@ static void poll_gps(const char *event, const char *data, rrconn_t *client, void
       uint8_t flags = (position->valid || position->fixed ? RR_GPS_POSITION_VALID : 0) | (position->manual || position->fixed ? RR_GPS_POSITION_MANUAL : 0);
 
       if (!source->published || source->sent_lat != position->lat ||
-         source->sent_lon != position->lon || source->sent_flags != flags || time - source->sent_at >= UINT64_C(300000000)) {
+         source->sent_lon != position->lon || source->sent_flags != flags || time - source->sent_at >= UINT64_C(1000000)) {
          publish(source, NULL);
       }
    }
