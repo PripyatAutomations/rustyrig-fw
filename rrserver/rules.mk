@@ -64,6 +64,7 @@ rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += main.o			# main loop
 rrserver_objs += media.direct.o cfg.rtp.o
 rrserver_objs += media.o		# media channel provisioning
+rrserver_objs += rx.slice.o		# shared canonical RX slice identities
 rrserver_objs += mqtt.o			# MQTT client/server support
 rrserver_objs += network.o		# Network management/config for embedded hosts
 rrserver_objs += protection.o		# Protection features

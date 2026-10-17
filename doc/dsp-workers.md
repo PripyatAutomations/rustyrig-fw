@@ -186,3 +186,22 @@ produce simultaneous slices on unrelated bands.
 The name format is a **proposal**, not a shipped wire protocol. Normalize
 and validate names before making them public; document a stable versioned
 syntax and an escaping strategy for future device IDs.
+
+## Implemented slice-identity foundation (October 2026)
+
+`rrserver/rx.slice.{h,c}` now provides `rr_rx_slice_name()`,
+`rr_rx_slice_parse()` and a reference-counted registry with
+`rr_rx_slice_acquire()` / `rr_rx_slice_release()`. Identical requested
+source, absolute center Hz, bandwidth Hz, rate, sample encoding and channel
+layout return the **same slice object**. Changing a field creates a different
+identity, not an implicit reconfiguration. The standalone
+`rrserver/tests/test_rx_slice.sh` exercises name roundtrip, strict spelling,
+resource sharing, and release. The stable external URI syntax should remain
+versioned/documented as new IQ processing/filter parameters arrive.
+
+**Not implemented by this registry:** DSP channelizer creation, VFO alias
+resolution, PCM producer/consumer registration, bounded multi-consumer fanout,
+GPU/CPU budgeting, cross-band SDR reception, timestamps or discovery APIs.
+The registry currently provides identity and subscriber counts only. Those
+features must be explicitly integrated with the rig PCM hub and future SDR
+backend; merely acquiring a slice does not start decoding.
