@@ -138,6 +138,9 @@ state-interval=15
 ;hamlib.timeout-ms=250
 hamlib.model=2
 hamlib.baud=38400
+; Hamlib messages route to Log() as hamlib.<rig-name> (process-global callback).
+; 0=off, 1=bug, 2=errors (default), 3=warnings, 4=verbose, 5=trace, 6=cache
+;hamlib.debug=2
 hamlib.device=127.0.0.1:4532
 ; Seconds before reconnecting; 0 leaves non-default rigs offline, or exits
 ; for the default rig so a supervisor can restart it.
