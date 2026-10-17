@@ -34,7 +34,8 @@ typedef struct serial_binding {
    size_t buffer_limit;
    uint8_t stream;
    uint32_t tx_seq, rx_seq;
-   bool opening, tx_pending, rx_pending, failed, settings_override;
+   bool opening, tx_pending, rx_pending, failed, settings_override, configure_pending;
+   rr_serial_settings_t confirmed;
    GByteArray *host_pending;
    rr_serial_settings_t requested, local;
    char buffer[512];
@@ -55,6 +56,11 @@ struct rr_sercom_observer {
 };
 static rr_sercom_observer_t *console_observers;
 
+static void console_configuration_status(serial_binding_t *b, const char *status) {
+   char message[128];
+   snprintf(message, sizeof(message), "%s:%s", b->name, status);
+   event_emit("serial.console.configuration", NULL, message);
+}
 static void console_notify(const char *name, const char *bytes, size_t len, bool incoming) {
    for (rr_sercom_observer_t *o = console_observers; o; o = o->next)
       if (!strcmp(o->name, name)) o->callback(name, bytes, len, incoming, o->user);
@@ -435,10 +441,18 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          host_sync(b);
       }
    } else if (!strcmp(cmd, "configured")) {
+      if (!b->configure_pending) goto done;
+      b->configure_pending = false;
       rr_serial_settings_t actual = b->requested;
       actual.baud = dict_get_uint(d, "serial.baud", actual.baud);
-      if (rr_serial_mode_parse(dict_get(d, "serial.mode", "8n1"), &actual))
-         b->requested = actual;
+      if (rr_serial_mode_parse(dict_get(d, "serial.mode", "8n1"), &actual)) {
+         b->confirmed = actual;
+         if (line_changed(&actual, &b->requested)) {
+            b->configure_pending = true;
+            host_command(b, "configure");
+            console_configuration_status(b, "pending");
+         } else console_configuration_status(b, "confirmed");
+      }
    } else if (!strcmp(cmd, "written")) {
       if (dict_get_uint(d, "serial.stream", 0) != b->stream) {
          goto done;
@@ -456,6 +470,10 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
       }
       Log(LOG_WARN, "serial", "%s: %s", b->name, dict_get(d, "serial.error", cmd));
 
+      if (!strcmp(dict_get(d, "serial.error", ""), "settings-failed")) {
+         b->configure_pending = false;
+         console_configuration_status(b, "rejected");
+      }
       if (strcmp(dict_get(d, "serial.error", ""), "settings-failed")) {
          b->failed = true;
          b->stream = 0;
@@ -676,7 +694,9 @@ bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *s
        * Do not change the local PTY speed to simulate network baud. */
       b->requested = *settings;
       b->settings_override = true;
+      b->configure_pending = true;
       host_command(b, "configure");
+      console_configuration_status(b, "pending");
       return true; /* queued; server responds configured or settings-failed */
    }
    if (strcmp(b->service, "local.raw")) return false;
