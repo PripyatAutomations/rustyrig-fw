@@ -34,7 +34,7 @@ if [ -f "${DEBVER}" ]; then
     # can become conditional when GPIO and Hamlib move into addon packages.
     PKG="${PKG} libgpiod-dev libhamlib-dev libev-dev"
 
-    [ "$USE_GTK" = "true" ] && PKG="${PKG} libgtk-3-dev"
+    [ "$USE_GTK" = "true" ] && PKG="${PKG} libgtk-3-dev libvte-2.91-dev"
     [ "$USE_SQLITE" = "true" ] && PKG="${PKG} sqlite3 libsqlite3-dev libspatialite-dev"
     [ "$USE_LIBNOTIFY" = "true" ] && PKG="${PKG} libnotify-dev"
     [ "$USE_LIBMBEDTLS" = "true" ] && PKG="${PKG} libmbedtls-dev"
