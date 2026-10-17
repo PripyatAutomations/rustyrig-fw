@@ -71,6 +71,11 @@ struct rr_backend_worker {
 };
 
 static _Thread_local backend_job_t *running_job;
+static _Thread_local rr_backend_t *current_worker_backend;
+
+rr_backend_t *rr_backend_worker_current(void) {
+   return current_worker_backend;
+}
 
 static bool vfo_index(rr_server_vfo_t *vfo, rr_vfo_t *index) {
    return rr_server_vfo_native_index(vfo, index) && *index >= VFO_A && *index < MAX_VFOS;
@@ -260,6 +265,7 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
 
 static void *worker_main(void *arg) {
    struct rr_backend_worker *worker = arg;
+   current_worker_backend = &worker->io;
 
    for ( ;; ) {
       pthread_mutex_lock(&worker->mutex);
@@ -322,6 +328,7 @@ static void *worker_main(void *arg) {
    if (api->destroy) {
       api->destroy(&worker->io);
    }
+   current_worker_backend = NULL;
 
    return NULL;
 }
