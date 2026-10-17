@@ -65,7 +65,7 @@
       "hamlib-port": "localhost:4532"
    },
    "build": {
-      "cflags": "-fPIC -g -ggdb -O1 -std=gnu11",
+      "cflags": "-fPIC -g -ggdb -O1 -std=gnu23",
       "cflags_warn": "-Wall -pedantic -Wno-unused -Wno-format-truncation",
       "ldflags": "-g",
       "platform": "posix",
