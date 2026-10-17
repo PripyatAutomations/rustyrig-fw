@@ -216,7 +216,7 @@ defconfig_t defcfg[] = {
    },
    FWDSP_VIDEO_PIPELINE_DEFAULTS
    FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE) {
-      "atu.max", "4", "Maximum number of ATUs", DEFCONFIG_UINT, NULL
+      "atu.max", "0", "Maximum number of ATUs", DEFCONFIG_UINT, NULL
    },
    {
       "backend.announce-interval", "30", "How often to send a forced update of VFO state?", DEFCONFIG_UINT, NULL
@@ -231,7 +231,7 @@ defconfig_t defcfg[] = {
       "rig.instances", "rig0", "Configured rig aliases (space or comma separated)"
    },
    {
-      "rig.default", NULL, "Default rig alias for CAT/media clients; required with multiple rigs"
+      "rig.default", "rig0", "Default rig alias for CAT/media clients; required with multiple rigs"
    },
    {
       "rig:rig0.backend", "internal", "Backend for the default rig", DEFCONFIG_ENUM, "internal|hamlib"
@@ -410,7 +410,7 @@ defconfig_t defcfg[] = {
       "log.show-ts", "true", "Show timestamps in log?", DEFCONFIG_BOOL, NULL
    },
    {
-      "net.http.404-path", "./www/404.shtml", "Path to 404 file", DEFCONFIG_PATH, NULL
+      "net.http.404-path", "/var/lib/rustyrig/www/404.shtml", "Path to 404 file", DEFCONFIG_PATH, NULL
    },
    {
       "net.http.enabled", "true", "Enable http?", DEFCONFIG_BOOL, NULL
@@ -422,7 +422,7 @@ defconfig_t defcfg[] = {
       "net.http.port", "8420", "Port to listen for http on", DEFCONFIG_UINT, NULL
    },
    {
-      "net.http.authdb", "./config/http.users", "Path to user database", DEFCONFIG_PATH, NULL
+      "net.http.authdb", "/etc/rustyrig/http.users", "Path to user database", DEFCONFIG_PATH, NULL
    },
    {
       "net.http.authdb-dynamic", "true", "Load users from sqlite db instead of authdb file", DEFCONFIG_BOOL, NULL
