@@ -502,12 +502,20 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
    }
 
    if (event->type == GDK_2BUTTON_PRESS && event->button == 1) {
-      poll_block_expire = now + 1;
+      GtkFreqEntry *fe = GTK_FREQ_ENTRY(user_data);
+      if (!fe) return FALSE;
+
+      /* Match +/- responsiveness: commit the zeroed digit immediately.
+       * Preserve full selection so the next typed digit replaces zero. */
+      fe->updating_digits = true;
       gtk_entry_set_text(GTK_ENTRY(entry), "0");
+      fe->updating_digits = false;
+      fe->editing = true;
+      poll_block_expire = now + 1;
+      freqentry_finalize(fe);
 
-      // Delay selection slightly to override GTK internals
-      g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc) select_all_idle, g_object_ref(entry), g_object_unref);
-
+      g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc) select_all_idle,
+         g_object_ref(entry), g_object_unref);
       return TRUE;
    }
 
