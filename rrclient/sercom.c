@@ -83,6 +83,44 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    return true;
 }
 
+/* The default PTYs follow the rig room selected by the frontend.
+ * Dedicated numbered ports retain their configured server and rig. */
+void rr_sercom_focus_room(const char *profile, const char *room) {
+   if (!profile || !*profile || !room) return;
+
+   const char *rig = NULL;
+   for (const char *p = room; (p = strstr(p, "-rig")) != NULL; p += 4) {
+      const char *n = p + 4;
+      if (!isdigit((unsigned char)*n)) continue;
+      while (isdigit((unsigned char)*n)) n++;
+      if (!*n || *n == '.') rig = p + 1;
+   }
+   if (!rig) return;
+
+   size_t length = 3;
+   while (isdigit((unsigned char)rig[length])) length++;
+   if (length >= 64) return;
+   char alias[64];
+   memcpy(alias, rig, length);
+   alias[length] = 0;
+
+   for (serial_binding_t *b = bindings; b; b = b->next) {
+      bool cat = !strcmp(b->name, "ttyCAT0") && b->radio[0];
+      bool gps = !strcmp(b->name, "ttyGPS0") &&
+         (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out"));
+      if (!cat && !gps) continue;
+      if (!strcmp(b->profile, profile) && (!cat || !strcmp(b->radio, alias))) continue;
+
+      /* Never deliver a partial CAT frame to a different rig. */
+      b->used = 0;
+      b->dropping = false;
+      strlcpy(b->profile, profile, sizeof(b->profile));
+      if (cat) strlcpy(b->radio, alias, sizeof(b->radio));
+      Log(LOG_INFO, "serial", "%s now follows %s on %s",
+         b->name, alias, profile);
+   }
+}
+
 static const dict *cat_radio(void) {
    return cat_context ? rrclient_object_find_alias("rig", NULL, cat_context->radio) : NULL;
 }
@@ -860,6 +898,12 @@ bool rr_sercom_init(void) {
       if (*service && strcmp(service, "none") && !rr_sercom_attach("ttyCAT0", service, NULL)) {
          ok = false;
       }
+   }
+
+   /* Matching default GPS PTY, using existing active-position NMEA output. */
+   if (!cfg_get("serial.ttyGPS0") && !binding("ttyGPS0") &&
+       cfg_get_bool("gps.pty.enable", true)) {
+      if (!rr_sercom_attach("ttyGPS0", "rig.gps-out@4800", NULL)) ok = false;
    }
 
    return ok;
