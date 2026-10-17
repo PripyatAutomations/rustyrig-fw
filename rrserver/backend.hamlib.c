@@ -66,7 +66,7 @@ static int hamlib_log_callback(enum rig_debug_level_e level, rig_ptr_t arg,
    char msg[2048];
    vsnprintf(msg, sizeof(msg), format, ap);
    size_t n = strlen(msg);
-   while (n && (msg[n-1] == '\\n' || msg[n-1] == '\\r')) msg[--n] = 0;
+   while (n && (msg[n-1] == '\n' || msg[n-1] == '\r')) msg[--n] = 0;
    if (!n) return RIG_OK;
 
    char subsystem[128];
