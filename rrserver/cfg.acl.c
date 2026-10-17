@@ -80,7 +80,7 @@ static bool save_sections(FILE *fp, const char *path) {
    dict *seen = dict_new();
 
    if (!seen) {
-      return true;
+      return false;
    }
    int rank = 0;
    const char *key;
@@ -129,7 +129,7 @@ static bool save_sections(FILE *fp, const char *path) {
    }
    dict_free(seen);
 
-   return ferror(fp) != 0;
+   return ferror(fp) == 0;
 }
 
 bool rrserver_acl_config_init(void) {
