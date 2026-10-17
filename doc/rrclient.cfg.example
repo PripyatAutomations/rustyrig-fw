@@ -413,10 +413,12 @@ rrclient-gtk.so=
 
 ; Local serial name -> service bindings; set none to disable an endpoint.
 [serial]
-ttyCAT0=rig0.cat@38400
+ttyCAT=rig.cat@38400
+;ttyCAT0=rig0.cat@38400
 ;ttyCAT1=rig1.cat@38400
 ;ttyHOST0=host:ttyHOST0
 ; Follow the selected rig, delivering its coordinates to a logger:
+ttyGPS=rig.gps-out@4800
 ;ttyGPS0=rig0.gps-out@4800
 ; Or pin a logger to one rig or the station fallback:
 ;ttyGPS1=rig1.gps-out@4800
