@@ -446,6 +446,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    int which = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "resource-action"));
    bool refresh_after = false;
    rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
+   bool online = connection && connection->is_ws && connection->authenticated;
    if (which == TERMINAL_BUTTON) {
       char *endpoint = NULL;
       if (binding && *binding && rr_serial_find(binding))
