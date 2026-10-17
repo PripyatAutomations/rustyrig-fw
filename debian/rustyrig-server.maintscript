@@ -1,0 +1,3 @@
+# Conffile removed when the server configuration was split into rrserver.*.cfg.
+# dpkg-maintscript-helper preserves administrator-modified copies as .dpkg-bak.
+rm_conffile /etc/rustyrig/callsign-lookup.srv.cfg 20261017.01~ rustyrig-server
