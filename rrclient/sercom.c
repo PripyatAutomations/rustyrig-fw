@@ -146,6 +146,9 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    return true;
 }
 
+static void host_command(serial_binding_t *b, const char *command);
+static void host_sync(serial_binding_t *b);
+
 /* The default PTYs follow the rig room selected by the frontend.
  * Dedicated numbered ports retain their configured server and rig. */
 void rr_sercom_focus_room(const char *profile, const char *room) {
