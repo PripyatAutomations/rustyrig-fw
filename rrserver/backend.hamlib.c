@@ -36,6 +36,7 @@ typedef struct hamlib_backend {
    bool vfo_probed[MAX_VFOS];
    bool vfo_mode_ok[MAX_VFOS];
    bool strength_untargetable[MAX_VFOS];
+   bool ptt_read_unavailable[MAX_VFOS];
    bool vfo_selection_unavailable; // rig_set_vfo unsupported by this Hamlib backend
    bool vfo_exchanged; // logical VFO A/B mapped to opposite physical banks
    bool vfo_exchange_fallback;
@@ -384,6 +385,7 @@ static bool hl_connect(rr_backend_t *backend) {
    memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
    memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok));
    memset(data->strength_untargetable, 0, sizeof(data->strength_untargetable));
+   memset(data->ptt_read_unavailable, 0, sizeof(data->ptt_read_unavailable));
    data->vfo_selection_unavailable = false;
    data->vfo_exchanged = false;
    data->last_active_vfo = backend->active_vfo;
@@ -811,14 +813,22 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (rr_backend_worker_yield(backend)) {
       return NULL;
    }
-   result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
-
-   if (result != RIG_OK) {
-      /* Do not append rigerror() here: Hamlib may return accumulated
-       * multi-line diagnostics instead of a short error description. */
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: GET VFO %s PTT failed (Hamlib error %d)",
-         rr_backend_instance_alias(backend), vfo_name(index), result);
+   /* Some radios cannot read PTT for the inactive bank. Read failure
+    * must never be mistaken for a confirmed PTT OFF state. Keep the last
+    * known state and only suppress repeated unsupported read attempts. */
+   if (!data->ptt_read_unavailable[index]) {
+      result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
+      if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL ||
+          result == -RIG_ENTARGET) {
+         data->ptt_read_unavailable[index] = true;
+         rr_backend_log(backend, LOG_DEBUG, "backend.hamlib",
+            "%s: VFO %s PTT read unsupported (Hamlib error %d); skipping future reads",
+            rr_backend_instance_alias(backend), vfo_name(index), result);
+      } else if (result != RIG_OK) {
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+            "%s: GET VFO %s PTT failed (Hamlib error %d)",
+            rr_backend_instance_alias(backend), vfo_name(index), result);
+      }
    }
 
    if (rr_backend_worker_yield(backend)) {
