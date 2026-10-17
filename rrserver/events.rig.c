@@ -285,7 +285,7 @@ static void rrserver_handle_vfo_select(const char *event, const char *data, rrco
       rr_backend_t *backend = rr_server_rig_backend(radio);
       if (backend && backend->active_vfo != index) {
          backend->active_vfo = index;
-         if (radio == rr_default_radio()) active_vfo = index;
+         if (radio == rr_rig_registry_default(rig.rigs)) active_vfo = index;
          Log(LOG_INFO, "rig.vfo", "%s: operating VFO selected %s in %s",
             rr_backend_instance_alias(backend), name, room);
       }
