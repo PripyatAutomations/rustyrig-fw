@@ -31,6 +31,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cat.h>
 #include <rrclient/vfo.h>
+#include <rrclient/rooms.h>
 #include <rrclient/sercom.h>
 
 #if     defined(CAT_YAESU)
@@ -509,6 +510,29 @@ void rr_cat_yaesu_split(const char *args) {
 }                               // Split
 
 void rr_cat_yaesu_swap_vfo(const char *args) {
+   /* FT-891 SV; is an A/B exchange. In RustyRig the server's
+    * active-VFO transition handles it through Hamlib's XCHG fallback,
+    * preserving the logical VFO bank mapping. */
+   const char *room = rr_cat_room();
+   if (!room || !*room) {
+      Log(LOG_WARN, "cat.yaesu", "SV requires a rig-room CAT binding");
+      return;
+   }
+   char current = rrclient_room_active_vfo(room);
+   char target = current == 'B' ? 'A' : 'B';
+   char command[16];
+   snprintf(command, sizeof(command), "!vfo %c", target);
+
+   dict *d = dict_new();
+   if (!d) return;
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "msg");
+   dict_add(d, "talk.msg_type", "pub");
+   dict_add(d, "talk.target", room);
+   dict_add(d, "talk.data", command);
+   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT))
+      Log(LOG_WARN, "cat.yaesu", "SV unable to request VFO %c in %s", target, room);
+   dict_free(d);
 }                               // Swap VFOs
 
 void rr_cat_yaesu_txw(const char *args) {
