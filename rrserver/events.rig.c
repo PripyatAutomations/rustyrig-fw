@@ -125,6 +125,22 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       return;
    }
 
+   if (!strcasecmp(rc_cmd, "swap")) {
+      rr_backend_t *backend = rr_server_rig_backend(radio);
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+      if (!backend || !object || !backend->worker || !rr_backend_api(backend)->vfo_swap ||
+          rr_backend_worker_submit(backend, object, RR_BACKEND_SWAP,
+             (dict_value_t){0}, NULL, NULL)) {
+         Log(LOG_WARN, "rigctl", "%s: VFO swap request rejected in room %s", rc_from, room);
+         if (cptr) ws_send_error(cptr, "Unable to exchange VFO settings in %s", room);
+      } else {
+         Log(LOG_AUDIT, "rigctl", "%s requested VFO A/B settings exchange in room %s",
+            rc_from, room);
+      }
+      dict_free(d);
+      return;
+   }
+
    if (!strcasecmp(rc_cmd, "split")) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       rr_backend_t *backend = rr_server_rig_backend(radio);

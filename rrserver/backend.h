@@ -30,6 +30,7 @@ typedef struct rr_backend_funcs {
    bool (*ptt_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state);
    bool (*ptt_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
    bool (*split_mode)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args);
+   bool (*vfo_swap)(rr_backend_t *backend, rr_server_vfo_t *vfo);
    bool (*tuner_control)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args);
    bool (*power_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, float power);
    float (*power_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);

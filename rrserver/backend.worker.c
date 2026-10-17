@@ -231,6 +231,10 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
          job->failed = !api->power_set || api->power_set(backend, job->vfo, job->value.f);
          break;
       }
+      case RR_BACKEND_SWAP: {
+         job->failed = !api->vfo_swap || api->vfo_swap(backend, job->vfo);
+         break;
+      }
       case RR_BACKEND_SPLIT: {
          job->failed = !api->split_mode ||
             api->split_mode(backend, job->vfo, job->value.i ? "1" : "0");

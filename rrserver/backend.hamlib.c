@@ -882,6 +882,32 @@ static bool hl_split_mode(rr_backend_t *backend, rr_server_vfo_t *vfo, const cha
    return false;
 }
 
+/* Exchange the contents of both banks without changing the selected
+ * logical VFO or our logical-to-physical bank mapping. */
+static bool hl_vfo_swap(rr_backend_t *backend, rr_server_vfo_t *vfo) {
+   (void)vfo;
+   hamlib_backend_t *data = hl_data(backend);
+   if (!data || !data->rig || data->transmitting) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+         "%s: refusing VFO swap (unavailable or transmitting)",
+         rr_backend_instance_alias(backend));
+      return true;
+   }
+   int result = rig_vfo_op(data->rig, RIG_VFO_A, RIG_OP_XCHG);
+   if (result != RIG_OK) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+         "%s: VFO A/B exchange failed (Hamlib error %d)",
+         rr_backend_instance_alias(backend), result);
+      return true;
+   }
+   memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
+   memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok));
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
+      "%s: exchanged VFO A/B settings; active logical VFO unchanged",
+      rr_backend_instance_alias(backend));
+   return false;
+}
+
 static const rr_backend_funcs_t rr_backend_hamlib_api = {
    .create = hl_create,
    .destroy = hl_destroy,
@@ -890,6 +916,7 @@ static const rr_backend_funcs_t rr_backend_hamlib_api = {
    .ptt_set = hl_ptt_set,
    .ptt_get = hl_ptt_get,
    .split_mode = hl_split_mode,
+   .vfo_swap = hl_vfo_swap,
    .mode_get = hl_mode_get,
    .mode_get_str = hl_mode_get_str,
    .freq_set = hl_freq_set,
