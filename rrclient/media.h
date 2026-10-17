@@ -14,6 +14,8 @@ void rrclient_media_refresh(void);
 /* Current connection: local confirmed TX feeding this RX resource. */
 bool rrclient_media_local_tx(const char *uuid);
 extern void rrclient_media_room_selected(const char *room);
+/* Emit cached transmitter-site NMEA for the newly focused rig. */
+void rrclient_media_emit_gps_for_room(const char *room);
 extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);
 extern bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec);
