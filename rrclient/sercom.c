@@ -146,6 +146,9 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    return true;
 }
 
+static void host_command(serial_binding_t *b, const char *command);
+static void host_sync(serial_binding_t *b);
+
 /* The default PTYs follow the rig room selected by the frontend.
  * Dedicated numbered ports retain their configured server and rig. */
 void rr_sercom_focus_room(const char *profile, const char *room) {
@@ -169,16 +172,31 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
 
    for (serial_binding_t *b = bindings; b; b = b->next) {
       bool cat = !strcmp(b->service, "rig.cat");
+      bool modem = !strcmp(b->service, "rig.modem");
       bool gps = !strcmp(b->service, "rig.gps-out") ||
          !strcmp(b->service, "rig.nmea-out");
-      if (!cat && !gps) continue;
-      if (!strcmp(b->profile, profile) && (!cat || !strcmp(b->radio, alias))) continue;
+      if (!cat && !gps && !modem) continue;
+      if (!strcmp(b->profile, profile) &&
+          (!cat && !modem || !strcmp(b->radio, alias))) continue;
 
+      if (modem) {
+         /* Discard commands for the previous rig before changing streams. */
+         if (b->stream) host_command(b, "close");
+         b->stream = 0;
+         b->opening = b->tx_pending = b->rx_pending = b->failed = false;
+         b->retry_seconds = 0;
+         b->next_retry_us = b->open_started_us = 0;
+         if (b->host_pending) g_byte_array_set_size(b->host_pending, 0);
+         b->tx_seq = b->rx_seq = 0;
+         snprintf(b->host_port, sizeof(b->host_port), "ttyMODEM%s", alias + 3);
+         console_connection_status(b, "CONNECTING");
+      }
       /* Never deliver a partial CAT frame to a different rig. */
       b->used = 0;
       b->dropping = false;
       strlcpy(b->profile, profile, sizeof(b->profile));
-      if (cat) strlcpy(b->radio, alias, sizeof(b->radio));
+      if (cat || modem) strlcpy(b->radio, alias, sizeof(b->radio));
+      if (modem) host_sync(b);
       Log(LOG_INFO, "serial", "%s now follows %s on %s",
          b->name, alias, profile);
    }
@@ -317,7 +335,8 @@ static void host_sync(serial_binding_t *b) {
    }
    rr_serial_settings_t observed;
 
-   if (rr_serial_get_settings(b->port, &observed) && line_changed(&observed, &b->local)) {
+   if (!b->virtual_modem && strcmp(b->service, "rig.modem") &&
+       rr_serial_get_settings(b->port, &observed) && line_changed(&observed, &b->local)) {
       b->local = observed;
       b->requested = observed;
       b->settings_override = true;
@@ -828,10 +847,14 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    baud = b->requested.baud;
 
    if (!service_radio(b->service, b->radio, sizeof(b->radio)) && strcmp(gps_service(b), "gps-in") &&
-      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) && strcmp(b->service, "local.raw")) {
+      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) && strcmp(b->service, "local.raw") &&
+      strcmp(b->service, "rig.modem")) {
       goto failed;
    }
 
+   if (!strcmp(b->service, "rig.modem")) {
+      snprintf(b->host_port, sizeof(b->host_port), "ttyMODEM0");
+   }
    if (!strncmp(b->service, "host:", 5)) {
       if (!name_valid(b->service + 5)) {
          goto failed;
@@ -1020,7 +1043,6 @@ bool rr_sercom_init(void) {
    }
    bool ok = true;
    // [serial] is an extensible name -> service map. Defaults are read separately.
-   bool have_default = false;
    const char *key;
    char *value;
    int rank = 0;
@@ -1029,10 +1051,6 @@ bool rr_sercom_init(void) {
          continue;
       }
       const char *name = key + 7;
-
-      if (!strcmp(name, "ttyCAT")) {
-         have_default = true;
-      }
 
       if (!strcmp(name, "ttyCAT0") && !cfg_get_bool("cat.pty.enable", true)) {
          continue;
@@ -1046,23 +1064,18 @@ bool rr_sercom_init(void) {
       }
    }
 
-   if (!have_default && !binding("ttyCAT") && cfg_get_bool("cat.pty.enable", true) && !cfg_get("serial.ttyCAT")) {
-      const char *service = cfg_get("serial.ttyCAT0");
-
-      if (!service) {
-         service = "rig.cat";
-      }
-
-      if (*service && strcmp(service, "none") && !rr_sercom_attach("ttyCAT", service, NULL)) {
-         ok = false;
-      }
+   /* Built-in floating PTYs are permanent. Explicit service mappings win,
+    * but "none" must not remove one of these reserved endpoints. */
+   if (!binding("ttyCAT")) {
+      const char *legacy = cfg_get("serial.ttyCAT0");
+      const char *service = legacy && *legacy && strcmp(legacy, "none") ?
+         legacy : "rig.cat";
+      if (!rr_sercom_attach("ttyCAT", service, NULL)) ok = false;
    }
-
-   /* Matching default GPS PTY, using existing active-position NMEA output. */
-   if (!cfg_get("serial.ttyGPS") && !binding("ttyGPS") &&
-       cfg_get_bool("gps.pty.enable", true)) {
+   if (!binding("ttyGPS"))
       if (!rr_sercom_attach("ttyGPS", "rig.gps-out@4800", NULL)) ok = false;
-   }
+   if (!binding("ttyMODEM"))
+      if (!rr_sercom_attach("ttyMODEM", "rig.modem", NULL)) ok = false;
 
    /* GTK can select the initial rig tab before the serial bindings exist.
     * Synchronize the floating port with that tab on initialization, not
