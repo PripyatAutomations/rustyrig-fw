@@ -527,6 +527,32 @@ void rr_cat_yaesu_squelch(const char *args) {
 }                               // Read/Set squelch
 
 void rr_cat_yaesu_split(const char *args) {
+   const char *room = rr_cat_room();
+   if (!room || !*room) return;
+   if (!args || !args[0]) {
+      /* Do not invent split state. Real readback requires a confirmed
+       * server-side Hamlib observation. */
+      long state = rr_cat_property_long(cat_vfo_str(0), "split", -1);
+      if (state == 0 || state == 1) {
+         rr_cat_printf("ST%ld;", state);
+      } else {
+         Log(LOG_DEBUG, "cat.yaesu", "ST readback unavailable for %s", room);
+      }
+      return;
+   }
+   if ((args[0] != '0' && args[0] != '1') || args[1]) {
+      Log(LOG_WARN, "cat.yaesu", "Unsupported FT-891 ST value %s", args);
+      return;
+   }
+   dict *d = dict_new();
+   if (!d) return;
+   dict_add(d, "msg.type", "cat");
+   dict_add(d, "cat.cmd", "split");
+   dict_add(d, "cat.room", room);
+   dict_add(d, "cat.vfo", cat_vfo_str(0));
+   dict_add_bool(d, "cat.split", args[0] == '1');
+   ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+   dict_free(d);
 }                               // Split
 
 void rr_cat_yaesu_swap_vfo(const char *args) {
@@ -796,7 +822,7 @@ CATcmdTable rr_cat_yaesu_commands[] = {
       "SQ", 1, 1, rr_cat_yaesu_squelch
    },                                     // Squelch
    {
-      "ST", 1, 1, rr_cat_yaesu_split
+      "ST", 0, 1, rr_cat_yaesu_split
    },                                     // Split
    {
       "SV", 0, 0, rr_cat_yaesu_swap_vfo

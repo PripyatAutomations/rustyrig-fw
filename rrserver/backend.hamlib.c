@@ -715,6 +715,16 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (backend->active_vfo != data->last_active_vfo && !hl_select_active(backend, data)) {
       return NULL;
    }
+   /* A split query is independent from tuning and must be read from
+    * the actual rig, not an optimistic client-side toggle. */
+   if (index == backend->active_vfo && !data->transmitting) {
+      split_t split = RIG_SPLIT_OFF;
+      vfo_t tx_vfo = RIG_VFO_NONE;
+      if (rig_get_split_vfo(data->rig, hl_target(data, index), &split, &tx_vfo) == RIG_OK) {
+         dict_value_t observed = {.i = split == RIG_SPLIT_ON ? 1 : 0};
+         rr_backend_property_observe(backend, vfo, "split", VAL_INT, &observed);
+      }
+   }
    hamlib_vfo_state_t *state = &data->state[index];
    vfo_t hamlib_vfo = hl_target(data, index);
 
@@ -843,6 +853,35 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    return reply;
 }
 
+/* split_mode returns true on failure, matching the backend API. */
+static bool hl_split_mode(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args) {
+   hamlib_backend_t *data = hl_data(backend);
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !args || !hl_index(vfo, &index) ||
+       (strcmp(args, "0") && strcmp(args, "1"))) return true;
+   if (data->transmitting) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+         "%s: refusing split change during transmission", rr_backend_instance_alias(backend));
+      return true;
+   }
+   bool enabled = args[0] == '1';
+   vfo_t rx = hl_target(data, index);
+   vfo_t tx = hl_target(data, index == VFO_A ? VFO_B : VFO_A);
+   int result = rig_set_split_vfo(data->rig, rx, enabled ? RIG_SPLIT_ON : RIG_SPLIT_OFF, tx);
+   if (result != RIG_OK) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+         "%s: split %s failed (Hamlib error %d)",
+         rr_backend_instance_alias(backend), enabled ? "ON" : "OFF", result);
+      return true;
+   }
+   dict_value_t observed = {.i = enabled ? 1 : 0};
+   rr_backend_property_observe(backend, vfo, "split", VAL_INT, &observed);
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
+      "%s: split %s (RX %s)", rr_backend_instance_alias(backend),
+      enabled ? "ON" : "OFF", vfo_name(index));
+   return false;
+}
+
 static const rr_backend_funcs_t rr_backend_hamlib_api = {
    .create = hl_create,
    .destroy = hl_destroy,
@@ -850,6 +889,7 @@ static const rr_backend_funcs_t rr_backend_hamlib_api = {
    .vfo_supported = hl_vfo_supported,
    .ptt_set = hl_ptt_set,
    .ptt_get = hl_ptt_get,
+   .split_mode = hl_split_mode,
    .mode_get = hl_mode_get,
    .mode_get_str = hl_mode_get_str,
    .freq_set = hl_freq_set,
