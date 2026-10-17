@@ -16,6 +16,7 @@ typedef struct {
    rr_sercom_observer_t *observer;
 } terminal_session_t;
 static GtkWidget *terminal_notebook;
+static GtkWidget *terminal_root;
 static GtkWidget *terminal_ports;
 
 static void console_bytes(const char *name, const char *bytes, size_t length,
@@ -60,8 +61,12 @@ static void terminal_close(GtkButton *button, gpointer data) {
    int n = gtk_notebook_page_num(GTK_NOTEBOOK(terminal_notebook), page);
    if (n >= 0) gtk_notebook_remove_page(GTK_NOTEBOOK(terminal_notebook), n);
 }
-static void terminal_add(const char *name) {
-   if (!name || !*name || !rr_serial_find(name)) return;
+void gtk_terminal_open_endpoint(const char *name) {
+   if (!terminal_notebook || !name || !*name || !rr_serial_find(name)) return;
+   if (main_notebook && terminal_root) {
+      int page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), terminal_root);
+      if (page >= 0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
+   }
    for (int i = 0; i < gtk_notebook_get_n_pages(GTK_NOTEBOOK(terminal_notebook)); i++) {
       GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(terminal_notebook), i);
       if (!g_strcmp0(g_object_get_data(G_OBJECT(page), "serial-name"), name)) {
@@ -122,10 +127,11 @@ static void terminal_configure(GtkButton *button, gpointer user) {
 static void terminal_open(GtkButton *button, gpointer user) {
    (void)button; (void)user;
    gchar *name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(terminal_ports));
-   if (name) { terminal_add(name); g_free(name); }
+   if (name) { gtk_terminal_open_endpoint(name); g_free(name); }
 }
 GtkWidget *init_terminal_tab(void) {
    GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+   terminal_root = root;
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    terminal_ports = gtk_combo_box_text_new();
    gtk_box_pack_start(GTK_BOX(toolbar), gtk_label_new("Endpoint:"), FALSE, FALSE, 0);
