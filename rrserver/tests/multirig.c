@@ -286,7 +286,7 @@ int main(void) {
    dict_add(cfg, "rig:rig0.state-interval", "15");
    event_init();
    event_on(RR_PROPERTY_CHANGED_EVENT, ignore_property_event, NULL);
-   assert(!rr_backend_type_register(&rr_backend_internal));
+   assert(rr_backend_type_register(&rr_backend_internal));
    assert(rr_backend_type_find("fake") == &rr_backend_internal);
 
    rig.rigs = rr_rig_registry_new();

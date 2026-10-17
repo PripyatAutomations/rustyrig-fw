@@ -25,33 +25,33 @@ static const rr_backend_type_t *registered_types[RR_BACKEND_TYPE_MAX];
 
 bool rr_backend_type_register(const rr_backend_type_t *type) {
    if (!type || !type->name || !*type->name || !type->api) {
-      return true;
+      return false;
    }
 
    for (int i = 0 ; i < RR_BACKEND_TYPE_MAX ; i++) {
       if (registered_types[i] && !strcasecmp(registered_types[i]->name, type->name)) {
-         return registered_types[i] != type;
+         return registered_types[i] == type;
       }
 
       if (!registered_types[i]) {
          registered_types[i] = type;
 
-         return false;
+         return true;
       }
    }
 
-   return true;
+   return false;
 }
 
 bool rr_backend_type_unregister(const rr_backend_type_t *type) {
-   if (!type) return true;
+   if (!type) return false;
    for (unsigned i = 0; i < RR_BACKEND_TYPE_MAX; i++) {
       if (registered_types[i] != type) continue;
       for (unsigned j = i; j + 1 < RR_BACKEND_TYPE_MAX; j++) registered_types[j] = registered_types[j + 1];
       registered_types[RR_BACKEND_TYPE_MAX - 1] = NULL;
-      return false;
+      return true;
    }
-   return true;
+   return false;
 }
 
 const rr_backend_type_t *rr_backend_type_find(const char *name) {

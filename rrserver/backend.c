@@ -272,7 +272,7 @@ bool rr_backend_init(void) {
       const char *backend_name = rr_rig_config_get(alias, "backend");
       const rr_backend_type_t *type = rr_backend_type_find(backend_name);
       if (!type && backend_name && !strcasecmp(backend_name, "hamlib")) {
-         if (rr_load_module("rrserver-hamlib")) {
+         if (!rr_load_module("rrserver-hamlib")) {
             Log(LOG_CRIT, "backend", "Rig %s requires rustyrig-server-hamlib; install the package and check path.modules", alias);
          }
          type = rr_backend_type_find(backend_name);

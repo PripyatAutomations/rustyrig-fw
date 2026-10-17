@@ -19,18 +19,18 @@ bool frontend_ops_register(const rr_frontend_ops_t *ops) {
    if (!ops || !ops->name || !ops->init || !ops->run || !ops->quit) {
       Log(LOG_CRIT, "frontend", "frontend_ops_register: incomplete ops table");
 
-      return true;
+      return false;
    }
 
    if (registered_ops) {
       Log(LOG_CRIT, "frontend", "frontend_ops_register: %s already registered", registered_ops->name);
 
-      return true;
+      return false;
    }
    registered_ops = ops;
    Log(LOG_INFO, "frontend", "Frontend module registered: %s", ops->name);
 
-   return false;
+   return true;
 }
 
 void frontend_ops_unregister(void) {

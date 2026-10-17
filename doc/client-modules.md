@@ -107,7 +107,7 @@ Link against nothing from rrclient: the core executable is built with
 -rdynamic and the module resolves client API (event bus, cfg, frontend ops
 host) at dlopen time. Export:
 
-    bool rr_module_init(void);      // return false on success
+    bool rr_module_init(void);      // return true on success
     void rr_module_shutdown(void);  // full teardown, see above
 
 Register your rr_frontend_ops_t via frontend_ops_register() in init (only

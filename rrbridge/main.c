@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
    char module[128];
    snprintf(module, sizeof(module), "rrbridge-%s", driver_name);
 
-   if (rr_load_module(module)) {
+   if (!rr_load_module(module)) {
       return EXIT_FAILURE;
    }
    struct bridge_host host = {
