@@ -4,3 +4,56 @@ apt install libfftw3-dev csdr libcw-dev
 # voice stuff
 apt install libspecbleach-dev
 https://github.com/arancormonk/mbelib-neo.git
+
+# Modem and digital-voice roadmap — October 2026
+#
+# Persistent document: see doc/dsp-workers.md for architecture and progress.
+#
+# Goal: enable hardware developers to bring up new RF waveforms without
+# writing new rrserver, rrclient or GUI code. DSP implementations are
+# isolated external executables, never loaded into rrserver.
+#
+# Priorities BEFORE SDR work (tentatively January 2027):
+# [ ] Build/test existing rig RX PCM -> modem FD 4 path, including partial writes,
+#     frame boundaries, sample rate and queue overflow diagnostics.
+# [ ] Replace raw PCM assumptions with source-declared format negotiation,
+#     bounded nonblocking frame queues and timestamps/discontinuity flags.
+# [ ] Implement worker control socket: hello, config, heartbeat, PTT leases,
+#     frequency/mode/VFO queries and updates via the existing rig backend.
+# [ ] Ensure PTT-off on crash, EOF, watchdog, lost authorization and restart.
+# [ ] Restrict TX PCM injection to explicitly admitted/authorized workers.
+# [ ] Bind worker lifecycle/configuration to a rig, not to a terminal.
+# [ ] Expose resources, worker health, codec settings and permissions in
+#     Resource Explorer and serial clients. Keep ttyCAT/GPS/MODEM floating PTYs.
+# [ ] Add RX-only sample decoder worker and tests that operate unattended,
+#     without a connected terminal or client subscriber.
+# [ ] Add modem log rotation/replay tests, session correlation (non-secret ID),
+#     and loss/discontinuity events. See per-modem log example in rrserver.cfg.
+# [ ] Make shipped examples and actual default configs agree on documented
+#     supported keys. Unimplemented examples MUST stay commented.
+#
+# Long-term WISHLIST (not implementation claims):
+# [ ] Persistent decoder-only workers per VFO and named RX audio source; multiple
+#     independent decoders can subscribe to the same stream.
+# [ ] Source abstraction: rig RX, VFO RX, saved recording, SDR channelizer
+#     slice / virtual receiver, or generated test signal.
+# [ ] Source metadata: parent rig, RF center frequency, offset, bandwidth,
+#     sample rate/format, VFO, timestamps and discontinuity indications.
+# [ ] Auto-start configured receivers when a compatible source becomes
+#     available, and reattach safely when it disappears/reappears.
+# [ ] SDR support (target January 2027): channelize wideband IQ into
+#     narrowband per-frequency PCM slices and run independent decoders.
+# [ ] Potential FT8 monitors across multiple frequencies/bands IF front-end
+#     instantaneous bandwidth and RF hardware support simultaneous coverage.
+#     Multi-band coverage may require multiple receivers or scheduled tuning.
+# [ ] Worker scheduler/cost controls (CPU, memory, decoder count, prioritization),
+#     stream observability, and remote results without shipping raw IQ.
+# [ ] Standalone third-party codecs: PSK31, RTTY, packet, ARDOP-like,
+#     JS8-compatible adapters, FreeDV/digital voice (PCM speech <-> RF PCM).
+# [ ] Operator sets starting VFO/frequency; individual workers may optionally
+#     receive temporary, independently revocable tuning/PTT privileges.
+# [ ] Generic parameter schema -> settings UI; development-friendly worker SDK
+#     and sample programs, independent of GStreamer/GTK and language choice.
+#
+# Always preserve: readable C, three-space indentation, fault isolation,
+# bounded queues, clear compatibility guarantees, and server-side auth.
