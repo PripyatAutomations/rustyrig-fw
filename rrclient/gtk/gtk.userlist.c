@@ -80,6 +80,7 @@ typedef struct room_vfo_control {
    GtkWidget *ptt;
    GtkWidget *row;
    guint select_source;
+   bool skip_release;
    room_userlist_entry_t *entry;
 } room_vfo_control_t;
 
@@ -930,6 +931,7 @@ static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, 
       g_source_remove(control->select_source);
       control->select_source = 0;
    }
+   control->skip_release = true;
    dict *request = dict_new();
    if (!request) return TRUE;
    char vfo[2] = {control->vfo, 0};
@@ -971,6 +973,10 @@ static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event
    room_vfo_control_t *control = data;
    if (!control || !event || event->type != GDK_BUTTON_RELEASE || event->button != 1)
       return FALSE;
+   if (control->skip_release) {
+      control->skip_release = false;
+      return TRUE;
+   }
    bool docked = control->entry == &rig_userlist_entry ? userlist_is_docked : control->entry->docked;
    if (!docked) return FALSE;
    for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event); hit;
