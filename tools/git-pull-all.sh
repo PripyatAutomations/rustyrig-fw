@@ -5,6 +5,7 @@ subdirs_ext="libmongoose mbedtls sqlite wslay"
 git pull
 git submodule init
 
+#git submodule update --init --recursive
 git submodule update --remote --recursive
 
 for i in ${subdirs}; do
