@@ -29,6 +29,7 @@
 typedef struct serial_binding {
    char name[64], service[96], radio[64];
    char profile[512];
+   char focus_room[256];
    char vfo;
    char host_port[64];
    size_t buffer_limit;
@@ -196,6 +197,7 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
       b->dropping = false;
       strlcpy(b->profile, profile, sizeof(b->profile));
       if (cat || modem) strlcpy(b->radio, alias, sizeof(b->radio));
+      if (cat) strlcpy(b->focus_room, room, sizeof(b->focus_room));
       if (modem) host_sync(b);
       Log(LOG_INFO, "serial", "%s now follows %s on %s",
          b->name, alias, profile);
@@ -212,6 +214,11 @@ const char *rr_cat_room(void) {
       return NULL;
    }                            // Older non-serial parser callers retain
    // default-rig routing.
+   /* Floating CAT must target the room selected in the UI, not a lobby
+    * inferred from the globally authoritative server room. */
+   if (!strcmp(cat_context->service, "rig.cat") && cat_context->focus_room[0]) {
+      return cat_context->focus_room;
+   }
    const char *lobby = ws_authoritative_room();
 
    if (!lobby || snprintf(room, sizeof(room), "%s-%s", lobby, cat_context->radio) >= (int)sizeof(room)) {
