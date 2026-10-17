@@ -63,6 +63,7 @@ static bool media_always_record(const struct rr_mediachan *channel) {
 // Receiver demand requires a user: joined rig rooms or local/relayed RX
 // subscribers. Neither discovery nor always-recording may claim idle hardware.
 bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
+   if (rrserver_serial_rx_demand(radio)) return true;
    uint8_t index = rr_rig_registry_media_index(rig.rigs, radio);
 
    if (index == RR_BINFRAME_RIG_NA) {
