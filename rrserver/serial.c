@@ -750,7 +750,8 @@ static void inventory_serial_rows(rrconn_t *client, const char *scope, const cha
          continue;
       }
       dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : p->virtual_modem ? "modem" : "serial");
-      dict_add(row, "inventory.state", p->service ? "server-local" : p->owner ? "busy" : "available");
+      dict_add(row, "inventory.state", p->service ? "server-local" :
+         p->virtual_modem && p->fd < 0 ? "unavailable" : p->owner ? "busy" : "available");
       char privileges[sizeof(p->name) + 14];
       snprintf(privileges, sizeof(privileges), "serial|serial.%s", p->name);
       dict_add(row, "inventory.access", privileges);
