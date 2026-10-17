@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RRSERVER_ACL_H
 #define RRSERVER_ACL_H
+#define MAX_ACL_RULES 256
 #include <librustyaxe/core.h>
 bool rrserver_acl_config_init(void);
 bool rrserver_acl_validate(void);
