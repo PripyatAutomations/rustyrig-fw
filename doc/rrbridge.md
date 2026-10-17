@@ -297,3 +297,12 @@ A `websdr-result` reply echoes `request` and supplies `room` or `error`. The cli
 joins only after a successful connect result; saving never joins. Server routing
 claims only these actions and enforces their own privileges before creating or
 saving anything. Other admin actions retain their existing station-admin gate.
+
+## Decoder-backed remote receiver demand
+
+A configured, running rig-local modem is now counted as receive demand for
+its bridge-backed rig, independently of room members or subscribed listeners.
+Bridge PCM feeds the rig receive hub and therefore the modem's FD 4 path.
+This does not create a new receiver per modem; the bridge feeds one hub.
+Configured decoders may keep remote receivers active indefinitely, so
+operators should enable them deliberately, especially on shared WebSDRs.
