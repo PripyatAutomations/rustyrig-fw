@@ -30,6 +30,9 @@ rr_sercom_observer_t *rr_sercom_observe(const char *name,
 void rr_sercom_unobserve(rr_sercom_observer_t *observer);
 /* Inject serial input without requiring an external PTY opener. */
 bool rr_sercom_console_send(const char *name, const char *bytes, size_t len);
+/* Physical device line settings; host: sends a configure request to the server. */
+bool rr_sercom_line_settings(const char *name, rr_serial_settings_t *settings);
+bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *settings);
 
 // Synchronous CAT context: no effect on UI selection or global VFO state.
 const char *rr_cat_room(void);

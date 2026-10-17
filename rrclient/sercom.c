@@ -434,6 +434,11 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          }
          host_sync(b);
       }
+   } else if (!strcmp(cmd, "configured")) {
+      rr_serial_settings_t actual = b->requested;
+      actual.baud = dict_get_uint(d, "serial.baud", actual.baud);
+      if (rr_serial_mode_parse(dict_get(d, "serial.mode", "8n1"), &actual))
+         b->requested = actual;
    } else if (!strcmp(cmd, "written")) {
       if (dict_get_uint(d, "serial.stream", 0) != b->stream) {
          goto done;
@@ -648,6 +653,34 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
          }
       }
    }
+}
+
+bool rr_sercom_line_settings(const char *name, rr_serial_settings_t *settings) {
+   serial_binding_t *b = binding(name);
+   if (!b || !settings) return false;
+   if (host_binding(b)) {
+      *settings = b->requested;
+      return true;
+   }
+   if (strcmp(b->service, "local.raw")) return false;
+   return rr_serial_get_settings(b->port, settings);
+}
+bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *settings) {
+   serial_binding_t *b = binding(name);
+   if (!b || !settings) return false;
+   if (host_binding(b)) {
+      rrconn_t *connection = binding_connection(b);
+      if (!connection || !connection->authenticated || !b->stream || b->failed)
+         return false;
+      /* These settings belong to the server's physical serial port.
+       * Do not change the local PTY speed to simulate network baud. */
+      b->requested = *settings;
+      b->settings_override = true;
+      host_command(b, "configure");
+      return true; /* queued; server responds configured or settings-failed */
+   }
+   if (strcmp(b->service, "local.raw")) return false;
+   return rr_serial_set_settings(b->port, settings);
 }
 
 /* Feed the same protocol path as a local serial device. No PTY is required

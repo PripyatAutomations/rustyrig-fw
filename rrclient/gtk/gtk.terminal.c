@@ -50,9 +50,8 @@ static void terminal_commit(VteTerminal *terminal, gchar *text, guint size, gpoi
 static void terminal_settings_apply(GtkButton *button, gpointer user) {
    (void)button;
    terminal_session_t *session = user;
-   rr_serial_t *port = rr_serial_find(session->name);
    rr_serial_settings_t settings;
-   if (!port || !rr_serial_get_settings(port, &settings)) return;
+   if (!rr_sercom_line_settings(session->name, &settings)) return;
    const char *baud = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->baud));
    const char *bits = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->bits));
    const char *parity = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->parity));
@@ -62,7 +61,7 @@ static void terminal_settings_apply(GtkButton *button, gpointer user) {
    settings.bits = (unsigned)g_ascii_strtoull(bits, NULL, 10);
    settings.parity = parity[0];
    settings.stops = (unsigned)g_ascii_strtoull(stops, NULL, 10);
-   if (!rr_serial_set_settings(port, &settings))
+   if (!rr_sercom_set_line_settings(session->name, &settings))
       gdk_display_beep(gdk_display_get_default());
 }
 static void terminal_rx_toggle(GtkToggleButton *button, gpointer user) {
@@ -86,10 +85,9 @@ static GtkWidget *terminal_setting_combo(const char *const *values, guint n,
 static void terminal_toolbar(terminal_session_t *session) {
    GtkWidget *bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(session->page), bar, FALSE, FALSE, 3);
-   rr_serial_t *port = rr_serial_find(session->name);
    rr_serial_settings_t settings;
    const char *service = rr_sercom_binding(session->name);
-   bool configured = port && rr_serial_get_settings(port, &settings);
+   bool configured = rr_sercom_line_settings(session->name, &settings);
    /* CAT/GPS PTYs aren't physical line settings; avoid misleading controls. */
    bool physical = service && (!strcmp(service, "local.raw") ||
       g_str_has_prefix(service, "host:"));
