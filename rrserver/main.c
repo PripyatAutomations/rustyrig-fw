@@ -494,7 +494,7 @@ int main(int argc, char **argv) {
          break;
       }
 
-      if (!rr_load_module(module)) {
+      if (rr_load_module(module)) {
          modules_loaded = true;
       }
    }
