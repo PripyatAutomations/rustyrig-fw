@@ -13,8 +13,8 @@
 extern GtkWidget *main_notebook;
 typedef struct {
    char *name;
-   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status;
-   rr_event_token_t config_token;
+   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status, *connection_status, *apply_button;
+   rr_event_token_t config_token, connection_token;
    rr_sercom_observer_t *observer;
 } terminal_session_t;
 static GtkWidget *terminal_notebook;
@@ -115,6 +115,7 @@ static void terminal_toolbar(terminal_session_t *session) {
          gtk_box_pack_start(GTK_BOX(bar), entries[i], FALSE, FALSE, 0);
       }
       GtkWidget *apply = gtk_button_new_with_label("Apply");
+      session->apply_button = apply;
       g_signal_connect(apply, "clicked", G_CALLBACK(terminal_settings_apply), session);
       gtk_box_pack_start(GTK_BOX(bar), apply, FALSE, FALSE, 0);
       session->config_status = gtk_label_new("Ready");
@@ -128,6 +129,14 @@ static void terminal_toolbar(terminal_session_t *session) {
    } else {
       GtkWidget *label = gtk_label_new(service ? service : "Serial endpoint");
       gtk_box_pack_start(GTK_BOX(bar), label, FALSE, FALSE, 0);
+   }
+   session->connection_status = gtk_label_new("CONNECTED");
+   gtk_box_pack_end(GTK_BOX(bar), session->connection_status, FALSE, FALSE, 8);
+   rr_sercom_info_t info;
+   if (!rr_sercom_info(session->name, &info) ||
+       (service && g_str_has_prefix(service, "host:") && g_strcmp0(info.state, "Connected"))) {
+      gtk_label_set_text(GTK_LABEL(session->connection_status), "UNAVAILABLE");
+      if (session->apply_button) gtk_widget_set_sensitive(session->apply_button, FALSE);
    }
 }
 static void terminal_configuration(const char *event, const char *data,
@@ -143,10 +152,24 @@ static void terminal_configuration(const char *event, const char *data,
       !strcmp(status, "pending") ? "Awaiting server…" :
       !strcmp(status, "rejected") ? "Server rejected settings" : status);
 }
+static void terminal_connection(const char *event, const char *data,
+   rrconn_t *connection, void *user) {
+   (void)event; (void)connection;
+   terminal_session_t *session = user;
+   if (!data || !session->connection_status) return;
+   size_t n = strlen(session->name);
+   if (strncmp(data, session->name, n) || data[n] != ':') return;
+   const char *state = data + n + 1;
+   gtk_label_set_text(GTK_LABEL(session->connection_status), state);
+   bool ready = !strcmp(state, "CONNECTED");
+   if (session->view) gtk_widget_set_sensitive(session->view, ready);
+   if (session->apply_button) gtk_widget_set_sensitive(session->apply_button, ready);
+}
 static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    terminal_session_t *session = data;
    if (session->config_token) event_off_token(session->config_token);
+   if (session->connection_token) event_off_token(session->connection_token);
    rr_sercom_unobserve(session->observer);
    session->observer = NULL;
    g_free(session->name);
@@ -190,6 +213,7 @@ void gtk_terminal_open_endpoint(const char *name) {
    gtk_box_pack_start(GTK_BOX(session->page), scroll, TRUE, TRUE, 0);
    session->observer = rr_sercom_observe(name, console_bytes, session);
    session->config_token = event_on_token("serial.console.configuration", terminal_configuration, session);
+   session->connection_token = event_on_token("serial.console.connection", terminal_connection, session);
    if (!session->observer) { gtk_widget_destroy(session->page); g_free(session->name); g_free(session); return; }
    g_signal_connect(session->page, "destroy", G_CALLBACK(terminal_session_destroy), session);
    GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
