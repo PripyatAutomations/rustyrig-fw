@@ -10,6 +10,28 @@
 #include <unistd.h>
 #include <libfwdspmgr/dsp-worker.h>
 
+/* Describe ports independently of any particular codec or modem.
+ * Only the declared PCM formats are checked here; scheduling and conversion
+ * belong to the server's audio hub, not the subprocess launcher. */
+static bool pcm_valid(rr_dsp_audio_format_t pcm) {
+   return (pcm.format == RR_DSP_PCM_S16LE || pcm.format == RR_DSP_PCM_F32LE) &&
+      pcm.sample_rate >= 8000 && pcm.sample_rate <= 192000 &&
+      pcm.channels >= 1 && pcm.channels <= 2;
+}
+bool rr_dsp_worker_ports_valid(const rr_dsp_worker_ports_t *ports) {
+   if (!ports || ports->application < RR_DSP_PORT_BYTES ||
+       ports->application > RR_DSP_PORT_PCM || ports->radio != RR_DSP_PORT_PCM)
+      return false;
+   return pcm_valid(ports->radio_pcm) &&
+      (ports->application != RR_DSP_PORT_PCM || pcm_valid(ports->application_pcm));
+}
+rr_dsp_worker_ports_t rr_dsp_worker_modem_ports(void) {
+   return (rr_dsp_worker_ports_t) {
+      .application = RR_DSP_PORT_BYTES,
+      .radio = RR_DSP_PORT_PCM,
+      .radio_pcm = {.format=RR_DSP_PCM_S16LE,.sample_rate=16000,.channels=1}
+   };
+}
 static void child_reap(GPid pid, gint status, gpointer user) {
    (void)status; (void)user;
    g_spawn_close_pid(pid);
@@ -30,7 +52,9 @@ static void nonblock(int fd) {
    int flags = fcntl(fd, F_GETFL);
    if (flags>=0) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
-bool rr_dsp_worker_spawn(rr_dsp_worker_t *w, const char *command) {
+bool rr_dsp_worker_spawn_ports(rr_dsp_worker_t *w, const char *command,
+   const rr_dsp_worker_ports_t *ports) {
+   if (!rr_dsp_worker_ports_valid(ports)) return false;
    if (!w || !command || !*command || w->pid > 0) return false;
    int serial[2]={-1,-1}, control[2]={-1,-1}, rx[2]={-1,-1}, tx[2]={-1,-1};
    gchar **argv=NULL;
@@ -61,6 +85,7 @@ bool rr_dsp_worker_spawn(rr_dsp_worker_t *w, const char *command) {
    }
    close(serial[1]);close(control[1]);close(rx[1]);close(tx[1]);
    w->pid=pid;
+   w->ports=*ports;
    w->serial_fd=serial[0];w->control_fd=control[0];
    w->rx_pcm_fd=rx[0];w->tx_pcm_fd=tx[0];
    nonblock(w->serial_fd);nonblock(w->control_fd);
@@ -81,4 +106,9 @@ void rr_dsp_worker_stop(rr_dsp_worker_t *w) {
    if (w->tx_pcm_fd>=0) close(w->tx_pcm_fd);
    if (w->pid>0) kill(w->pid,SIGTERM);
    rr_dsp_worker_init(w);
+}
+
+bool rr_dsp_worker_spawn(rr_dsp_worker_t *w, const char *command) {
+   rr_dsp_worker_ports_t ports = rr_dsp_worker_modem_ports();
+   return rr_dsp_worker_spawn_ports(w, command, &ports);
 }
