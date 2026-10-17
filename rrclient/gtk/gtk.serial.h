@@ -6,5 +6,7 @@
 /* Owned sorted strings; release with g_list_free_full(names, g_free). */
 GList *gtk_serial_configured_names(void);
 bool gtk_serial_attach(GtkWindow *parent, const char *profile, const char *service);
+/* Return the attached endpoint name when the caller wants to open a console. */
+char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char *service);
 void gtk_serial_configure(GtkWindow *parent, const char *name);
 #endif

@@ -14,7 +14,8 @@
 #include "gtk.serial.h"
 
 enum { NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, COLUMNS };
-enum { ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, BUTTONS };
+enum { ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, TERMINAL_BUTTON, BUTTONS };
+extern void gtk_terminal_open_endpoint(const char *name);
 typedef struct {
    char *profile, *request, *selection;
    GtkTreeIter root, parents[5];
@@ -340,6 +341,11 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    bool local_port = !strcmp(kind, "local") || !strcmp(kind, "local-port");
    gtk_button_set_label(GTK_BUTTON(browser->buttons[SERIAL_BUTTON]), local_port ? "Configure local port…" : binding && *binding ? "Disconnect serial" : "Connect serial…");
    gtk_widget_set_sensitive(browser->buttons[SERIAL_BUTTON], local_port || (binding && *binding) || (online && service && *service && g_ascii_strcasecmp(state ? state : "", "busy")));
+   gtk_button_set_label(GTK_BUTTON(browser->buttons[TERMINAL_BUTTON]), "Open Terminal…");
+   gtk_widget_set_sensitive(browser->buttons[TERMINAL_BUTTON],
+      (!strcmp(kind, "local-port") && rr_serial_find(binding && *binding ? binding : "")) ||
+      (binding && *binding && rr_serial_find(binding)) ||
+      (online && service && *service));
    gtk_button_set_label(GTK_BUTTON(browser->buttons[SERVER_BUTTON]), profile && rrclient_connection_state(profile) ? "Disconnect server" : "Connect server");
    gtk_widget_set_sensitive(browser->buttons[SERVER_BUTTON], profile && *profile);
    GString *text = g_string_new(details ? details : "");
@@ -389,7 +395,25 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    int which = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "resource-action"));
    bool refresh_after = false;
    rrconn_t *connection = profile && *profile ? rrclient_connection_find(profile) : NULL;
-   if (which == SERVER_BUTTON) {
+   if (which == TERMINAL_BUTTON) {
+      char *endpoint = NULL;
+      if (binding && *binding && rr_serial_find(binding))
+         endpoint = g_strdup(binding);
+      else if (!strcmp(kind, "local-port")) {
+         char *name = NULL;
+         gtk_tree_model_get(model, &iter, NAME, &name, -1);
+         if (name && rr_serial_find(name)) endpoint = g_strdup(name);
+         g_free(name);
+      } else if (online && service && *service)
+         endpoint = gtk_serial_attach_named(GTK_WINDOW(browser->window), profile, service);
+      if (endpoint) {
+         gtk_terminal_open_endpoint(endpoint);
+         refresh_after = true;
+         g_free(endpoint);
+      } else
+         gtk_label_set_text(GTK_LABEL(browser->status),
+            "Attach a local endpoint to this resource before opening its terminal.");
+   } else if (which == SERVER_BUTTON) {
       if (rrclient_connection_state(profile)) disconnect_server(profile);
       else connect_server(profile);
    } else if (which == SERIAL_BUTTON && (!strcmp(kind, "local") || !strcmp(kind, "local-port"))) {
@@ -622,7 +646,7 @@ static void resource_create(void) {
    gtk_paned_set_position(GTK_PANED(paned), 430);
    gtk_box_pack_start(GTK_BOX(box), paned, TRUE, TRUE, 0);
    GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   const char *labels[] = {"Join room", "Subscribe", "Connect serial…", "Connect server"};
+   const char *labels[] = {"Join room", "Subscribe", "Connect serial…", "Connect server", "Open Terminal…"};
    for (unsigned i = 0; i < BUTTONS; i++) {
       browser->buttons[i] = gtk_button_new_with_label(labels[i]);
       gtk_widget_set_sensitive(browser->buttons[i], FALSE);

@@ -633,6 +633,10 @@ bool gui_init(void) {
    //// CHAT stuff (alt-5+)...
    chat_init();
 
+   // Shared serial console page, with top-aligned endpoint subtabs.
+   extern GtkWidget *init_terminal_tab(void);
+   init_terminal_tab();
+
    // GTK Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);

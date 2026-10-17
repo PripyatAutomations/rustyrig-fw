@@ -62,6 +62,7 @@ gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
 gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
 gtk_module_objs += gtk/gtk.icons.o gtk/gtk.tabs.menu.o
 gtk_module_objs += gtk/gtk.tabs.o
+gtk_module_objs += gtk/gtk.terminal.o
 gtk_module_objs += gtk/gtk.help.o
 gtk_module_objs += gtk/gtk.files.o gtk/gtk.resources.o gtk/gtk.serial.o
 gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browser
@@ -107,8 +108,13 @@ extra_clean += ${gtk_module_real_objs} ${gtk_module}
 
 # GTK module objects need GTK cflags: compile with USE_GTK defined only for
 # these files.
-GTK_CFLAGS := ${GTK_MODULE_CFLAGS}
-GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0)
+vte_gtk3_available := $(shell pkg-config --exists vte-2.91 && echo true)
+ifeq ($(vte_gtk3_available),true)
+VTE_CFLAGS := $(shell pkg-config --cflags vte-2.91) -DRR_HAVE_VTE=1
+VTE_LIBS := $(shell pkg-config --libs vte-2.91)
+endif
+GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS}
+GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS}
 
 ${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@

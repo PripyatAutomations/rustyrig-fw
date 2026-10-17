@@ -47,6 +47,40 @@ static serial_binding_t *bindings, *cat_context;
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
 static guint host_timer;
+struct rr_sercom_observer {
+   char name[64];
+   rr_sercom_console_fn callback;
+   void *user;
+   struct rr_sercom_observer *next;
+};
+static rr_sercom_observer_t *console_observers;
+
+static void console_notify(const char *name, const char *bytes, size_t len, bool incoming) {
+   for (rr_sercom_observer_t *o = console_observers; o; o = o->next)
+      if (!strcmp(o->name, name)) o->callback(name, bytes, len, incoming, o->user);
+}
+rr_sercom_observer_t *rr_sercom_observe(const char *name,
+   rr_sercom_console_fn callback, void *user) {
+   if (!name || !*name || !callback) return NULL;
+   rr_sercom_observer_t *o = calloc(1, sizeof(*o));
+   if (!o) return NULL;
+   snprintf(o->name, sizeof(o->name), "%s", name);
+   o->callback = callback;
+   o->user = user;
+   o->next = console_observers;
+   console_observers = o;
+   return o;
+}
+void rr_sercom_unobserve(rr_sercom_observer_t *observer) {
+   rr_sercom_observer_t **p = &console_observers;
+   while (*p && *p != observer) p = &(*p)->next;
+   if (*p) {
+      *p = observer->next;
+      free(observer);
+   }
+}
+
+
 extern rrconn_t *ws_conn;
 
 static bool host_binding(const serial_binding_t *b) {
@@ -210,7 +244,9 @@ char rr_cat_active_vfo(void) {
 }
 int rr_cat_serial_reply(const char *data, size_t len) {
    // Replies only go to the requesting endpoint, never every attached port.
-   return cat_context && rr_serial_write(cat_context->port, data, len) ? (int)len : -1;
+   if (!cat_context || !rr_serial_write(cat_context->port, data, len)) return -1;
+   console_notify(cat_context->name, data, len, true);
+   return (int)len;
 }
 
 static void host_command(serial_binding_t *b, const char *command) {
@@ -446,6 +482,7 @@ static void host_frame(const char *event, const void *data, size_t len, rrconn_t
 
             return;
          }
+         console_notify(b->name, (const char *)f.data, f.len, true);
          b->rx_seq = f.hdr.seq;
          b->rx_pending = true;
 
@@ -544,6 +581,7 @@ static void serial_cat_parse(void *data) {
 static void receive(rr_serial_t *port, const char *data, size_t len, void *user) {
    serial_binding_t *b = user;
    (void)port;
+   console_notify(b->name, data, len, false);
 
    if (host_binding(b)) {
       if (b->failed) {
@@ -609,6 +647,23 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
          }
       }
    }
+}
+
+/* Feed the same protocol path as a local serial device. No PTY is required
+ * for the GUI/TUI console to send commands to a backend service. */
+bool rr_sercom_console_send(const char *name, const char *bytes, size_t len) {
+   serial_binding_t *b = binding(name);
+   if (!b || !bytes || !len || len > 65536) return false;
+   const char *kind = gps_service(b);
+   if (!strcmp(kind, "gps-out") || !strcmp(kind, "nmea-out"))
+      return false; /* receive-only service; independent of frontend */
+
+   if (host_binding(b) && (!b->host_pending || b->failed ||
+       b->host_pending->len + len >= b->buffer_limit - 512)) return false;
+   /* CAT and GPS input use the normal framing/parser, host tunnels use
+    * host_pending with existing acknowledgement-based flow control. */
+   receive(b->port, bytes, len, b);
+   return true;
 }
 
 static bool name_valid(const char *name) {
@@ -811,6 +866,7 @@ bool rr_sercom_disconnect(const char *name) {
    return true;
 }
 void rr_sercom_shutdown(void) {
+   while (console_observers) rr_sercom_unobserve(console_observers);
    while (bindings) {
       rr_sercom_disconnect(bindings->name);
    }

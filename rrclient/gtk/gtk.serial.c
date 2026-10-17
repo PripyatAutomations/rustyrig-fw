@@ -192,7 +192,7 @@ static void attach_port(void *data) {
    struct attach_request *request = data;
    request->ok = rr_sercom_attach(request->name, request->service, NULL);
 }
-bool gtk_serial_attach(GtkWindow *parent, const char *profile, const char *service) {
+char *gtk_serial_attach_named(GtkWindow *parent, const char *profile, const char *service) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Connect serial resource", parent,
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
       "Configure local ports…", 1001, "Connect", GTK_RESPONSE_ACCEPT, NULL);
@@ -212,7 +212,7 @@ bool gtk_serial_attach(GtkWindow *parent, const char *profile, const char *servi
    gtk_entry_set_text(GTK_ENTRY(entry), next_name);
    gtk_box_pack_start(GTK_BOX(box), combo, FALSE, FALSE, 8);
    gtk_widget_show_all(dialog);
-   bool attached = false;
+   char *attached_name = NULL;
    int response;
    while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_ACCEPT || response == 1001) {
       if (response == 1001) {
@@ -234,9 +234,15 @@ bool gtk_serial_attach(GtkWindow *parent, const char *profile, const char *servi
          message(GTK_WINDOW(dialog), "Unable to attach. Check whether this endpoint is already connected, its settings, path and server permissions.");
          continue;
       }
-      attached = true;
+      attached_name = g_strdup(request.name);
       break;
    }
    gtk_widget_destroy(dialog);
+   return attached_name;
+}
+bool gtk_serial_attach(GtkWindow *parent, const char *profile, const char *service) {
+   char *name = gtk_serial_attach_named(parent, profile, service);
+   bool attached = name != NULL;
+   g_free(name);
    return attached;
 }
