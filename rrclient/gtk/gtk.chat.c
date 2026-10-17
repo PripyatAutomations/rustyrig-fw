@@ -24,6 +24,7 @@
 #include <rrclient/cmd.help.h>
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
+#include <rrclient/sercom.h>
 #include <rrclient/media.h>
 #include <rrclient/rooms.h>
 #include <rrclient/vfo.h>
@@ -149,6 +150,11 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
       /* The shared user list follows the selected room, including when it is detached in its own window. */
       userlist_redraw_gtk();
       rrclient_media_room_selected(tab->room);
+      /* IRC and ordinary chat tabs must not steal the last rig's CAT/GPS focus. */
+      rrconn_t *rig_connection = rrclient_connection_find(tab->server);
+      if (rig_connection && rig_connection->is_ws) {
+         rr_sercom_focus_room(tab->server, tab->room);
+      }
       gtk_chat_update_vfo_controls(tab);
       // Retained streams send no new subscription reply when revisiting a tab.
       // Refresh after moving/creating the shared VFO widget, including its list.
