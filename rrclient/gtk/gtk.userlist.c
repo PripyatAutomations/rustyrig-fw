@@ -63,6 +63,8 @@ typedef struct room_userlist_entry {
 static room_userlist_entry_t rig_userlist_entry;
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data);
 static void room_userlist_fit(room_userlist_entry_t *entry, int width);
+/* COL_DISPLAY_NAME is a model-only field, not a GtkTreeViewColumn. */
+#define USERLIST_VIEW_COLS COL_DISPLAY_NAME
 static GtkTreeViewColumn *userlist_column(GtkWidget *view, int id);
 
 static room_userlist_entry_t *current_room_userlist(void) {
@@ -157,7 +159,7 @@ static gboolean userlist_fit_width_idle(gpointer data) {
    }
    g_object_set_data(G_OBJECT(view), "rr-roster-fit-pending", NULL);
 
-   if (gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) != NUM_COLS) {
+   if (gtk_tree_view_get_n_columns(GTK_TREE_VIEW(view)) != USERLIST_VIEW_COLS) {
       return G_SOURCE_REMOVE;
    }
    gint width = userlist_content_width(view);
@@ -373,7 +375,7 @@ static void userlist_columns_changed(GtkTreeView *tree, gpointer data) {
    }
    GList *columns = gtk_tree_view_get_columns(tree);
 
-   if (g_list_length(columns) != NUM_COLS) {
+   if (g_list_length(columns) != USERLIST_VIEW_COLS) {
       g_list_free(columns);
 
       return;                   /* GTK also emits this signal while destroying columns. */
@@ -405,14 +407,14 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
    }
    g_object_set_data_full(G_OBJECT(view), "rr-roster-type", g_strdup(type), g_free);
    g_object_set_data_full(G_OBJECT(view), "rr-roster-order", g_strdup(order), g_free);
-   int ids[NUM_COLS], used = 0;
+   int ids[USERLIST_VIEW_COLS], used = 0;
 
-   if (!order || sscanf(order, "%d,%d,%d,%d,%d", &ids[0], &ids[1], &ids[2], &ids[3], &ids[4]) != NUM_COLS) {
+   if (!order || sscanf(order, "%d,%d,%d,%d,%d", &ids[0], &ids[1], &ids[2], &ids[3], &ids[4]) != USERLIST_VIEW_COLS) {
       return;
    }
 
-   for (int i = 0 ; i < NUM_COLS ; i++) {
-      if (ids[i] < 0 || ids[i] >= NUM_COLS || (used & (1 << ids[i]))) {
+   for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
+      if (ids[i] < 0 || ids[i] >= USERLIST_VIEW_COLS || (used & (1 << ids[i]))) {
          return;
       }
       used |= 1 << ids[i];
@@ -421,7 +423,7 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
    g_object_set_data(G_OBJECT(view), "rr-layout-loading", GINT_TO_POINTER(1));
    GtkTreeViewColumn *previous = NULL;
 
-   for (int i = 0 ; i < NUM_COLS ; i++) {
+   for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
       GtkTreeViewColumn *column = userlist_column(view, ids[i]);
       gtk_tree_view_move_column_after(GTK_TREE_VIEW(view), column, previous);
       previous = column;
@@ -1147,7 +1149,7 @@ static GtkWidget *userlist_view_create(void) {
    g_object_set(elmernoob_icon, "xalign", 0.5, "scale", 1.25, NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), elmernoob_col);
 
-   for (int i = 0 ; i < NUM_COLS ; i++) {
+   for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
       GtkTreeViewColumn *column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
       char key[32];
       snprintf(key, sizeof(key), "rr-column-%d", i);
