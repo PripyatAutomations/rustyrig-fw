@@ -11,7 +11,7 @@
 #include <rrserver/rig.properties.h>
 
 typedef enum {
-   RR_BACKEND_POLL, RR_BACKEND_FREQ, RR_BACKEND_MODE, RR_BACKEND_WIDTH,
+   RR_BACKEND_POLL, RR_BACKEND_SELECT, RR_BACKEND_FREQ, RR_BACKEND_MODE, RR_BACKEND_WIDTH,
    RR_BACKEND_POWER, RR_BACKEND_PTT
 } rr_backend_operation_t;
 typedef void (*rr_backend_completion_fn)(rr_backend_t *, rr_server_vfo_t *, bool failed, void *);
