@@ -538,11 +538,9 @@ static void gps_outputs_changed(const char *event, const char *data, rrconn_t *c
 
       if (gps_wanted(kp)) {
          media_try_autosubscribe(ws_conn, kp);
-      } else if (kp->subscribed && kp->subsystem == RR_BINFRAME_SUBSYS_MODEM &&
-         (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC))) {
-         media_send_unsubscribe(ws_conn, kp->uuid);
-         kp->subscribed = false;
       }
+      /* GPS/NMEA subscriptions are site metadata. Changing which local PTY
+       * consumes them must never tear down an existing remote subscription. */
    }
 }
 
@@ -759,7 +757,12 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_client_media_chan *kp = &known_chans[i];
-      bool active = gps_wanted(kp) || (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
+      bool gps_metadata = kp->subsystem == RR_BINFRAME_SUBSYS_MODEM &&
+         (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC));
+      /* Retain subscribed site position feeds across room/tab changes;
+       * automatic acquisition still requires a joined rig room. */
+      bool active = (gps_metadata && kp->subscribed) || gps_wanted(kp) ||
+         (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
          (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t) (vfo_state_get_active() - 'A')) &&
          (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
 
