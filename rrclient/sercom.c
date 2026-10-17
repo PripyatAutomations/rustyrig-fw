@@ -35,6 +35,8 @@ typedef struct serial_binding {
    uint8_t stream;
    uint32_t tx_seq, rx_seq;
    bool opening, tx_pending, rx_pending, failed, settings_override, configure_pending;
+   gint64 next_retry_us, open_started_us;
+   unsigned retry_seconds;
    rr_serial_settings_t confirmed;
    GByteArray *host_pending;
    rr_serial_settings_t requested, local;
@@ -56,6 +58,26 @@ struct rr_sercom_observer {
 };
 static rr_sercom_observer_t *console_observers;
 
+static void console_connection_status(serial_binding_t *b, const char *status) {
+   char message[128];
+   snprintf(message, sizeof(message), "%s:%s", b->name, status);
+   event_emit("serial.console.connection", NULL, message);
+}
+static void host_retry(serial_binding_t *b, const char *reason) {
+   b->stream = 0;
+   b->opening = b->tx_pending = b->rx_pending = false;
+   b->open_started_us = 0;
+   b->failed = true;
+   /* Drop unacknowledged bytes; replaying AT/CAT commands after reconnect
+    * could execute them twice on the physical device. */
+   if (b->host_pending) g_byte_array_set_size(b->host_pending, 0);
+   b->tx_seq = b->rx_seq = 0;
+   b->configure_pending = false;
+   b->retry_seconds = b->retry_seconds ? MIN(b->retry_seconds * 2, 30u) : 2;
+   b->next_retry_us = g_get_monotonic_time() + (gint64)b->retry_seconds * G_USEC_PER_SEC;
+   rr_serial_read_enabled(b->port, false);
+   console_connection_status(b, reason);
+}
 static void console_configuration_status(serial_binding_t *b, const char *status) {
    char message[128];
    snprintf(message, sizeof(message), "%s:%s", b->name, status);
@@ -117,7 +139,7 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    if (!b || !info) return false;
    rrconn_t *connection = binding_connection(b);
    const char *state = "Attached";
-   if (host_binding(b)) state = b->failed ? "Failed" : !connection || !connection->authenticated ? "Server offline" :
+   if (host_binding(b)) state = b->failed ? "Unavailable — retrying" : !connection || !connection->authenticated ? "Server offline" :
       b->stream ? "Connected" : b->opening ? "Connecting" : "Waiting";
    else if ((b->radio[0] || b->profile[0]) && (!connection || !connection->authenticated)) state = "Server offline";
    *info = (rr_sercom_info_t){b->name, b->service, b->profile, rr_serial_path(b->port), state};
@@ -306,11 +328,21 @@ static void host_sync(serial_binding_t *b) {
    }
 
    rrconn_t *connection = binding_connection(b);
-   if (b->failed || !connection || !connection->authenticated || !connection->conn) return;
+   if (!connection || !connection->authenticated || !connection->conn) return;
+   if (b->failed) {
+      if (g_get_monotonic_time() < b->next_retry_us) return;
+      b->failed = false;
+   }
+   if (b->opening && g_get_monotonic_time() - b->open_started_us > 10 * G_USEC_PER_SEC) {
+      host_retry(b, "UNAVAILABLE");
+      return;
+   }
 
    if (!b->stream) {
       if (!b->opening) {
          b->opening = true;
+         b->open_started_us = g_get_monotonic_time();
+         console_connection_status(b, "CONNECTING");
          host_command(b, "open");
       }
 
@@ -374,6 +406,9 @@ static void host_connection(const char *event, const char *data, rrconn_t *clien
          }
          b->stream = 0;
          b->opening = b->tx_pending = b->rx_pending = b->failed = false;
+         b->next_retry_us = b->open_started_us = 0;
+         b->retry_seconds = 0;
+         console_connection_status(b, authorized ? "CONNECTING" : "UNAVAILABLE");
          b->tx_seq = b->rx_seq = 0;
 
          if (!authorized) {
@@ -417,6 +452,11 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
       if (b->opening && stream && stream < 256) {
          b->stream = stream;
          b->opening = false;
+         b->failed = false;
+         b->retry_seconds = 0;
+         b->next_retry_us = b->open_started_us = 0;
+         rr_serial_read_enabled(b->port, true);
+         console_connection_status(b, "CONNECTED");
          rr_serial_settings_t actual = b->requested;
          actual.baud = dict_get_uint(d, "serial.baud", actual.baud);
          const char *mode = dict_get(d, "serial.mode", "8n1");
@@ -475,10 +515,7 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          console_configuration_status(b, "rejected");
       }
       if (strcmp(dict_get(d, "serial.error", ""), "settings-failed")) {
-         b->failed = true;
-         b->stream = 0;
-         b->opening = false;
-         rr_serial_read_enabled(b->port, false);
+         host_retry(b, "UNAVAILABLE");
       }
    }
 done:
@@ -499,9 +536,7 @@ static void host_frame(const char *event, const void *data, size_t len, rrconn_t
          if (b->rx_pending || f.hdr.seq != b->rx_seq + 1 || !rr_serial_write(b->port, (const char *)f.data, f.len)) {
             Log(LOG_WARN, "serial", "%s: invalid serial stream sequence or blocked output", b->name);
             host_command(b, "close");
-            b->failed = true;
-            b->stream = 0;
-            rr_serial_read_enabled(b->port, false);
+            host_retry(b, "UNAVAILABLE");
 
             return;
          }
