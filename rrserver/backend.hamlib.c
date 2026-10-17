@@ -35,6 +35,7 @@ typedef struct hamlib_backend {
    hamlib_vfo_state_t state[MAX_VFOS];
    bool vfo_probed[MAX_VFOS];
    bool vfo_mode_ok[MAX_VFOS];
+   bool strength_untargetable[MAX_VFOS];
    bool vfo_selection_unavailable; // rig_set_vfo unsupported by this Hamlib backend
    bool vfo_exchanged; // logical VFO A/B mapped to opposite physical banks
    bool vfo_exchange_fallback;
@@ -382,6 +383,7 @@ static bool hl_connect(rr_backend_t *backend) {
    data->retry_at = 0;
    memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
    memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok));
+   memset(data->strength_untargetable, 0, sizeof(data->strength_untargetable));
    data->vfo_selection_unavailable = false;
    data->vfo_exchanged = false;
    data->last_active_vfo = backend->active_vfo;
@@ -822,12 +824,17 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (rr_backend_worker_yield(backend)) {
       return NULL;
    }
-   result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
-
-   if (result != RIG_OK) {
-      /* rigerror() may include Hamlib's multiline diagnostic trace.
-       * Strength is optional; report the return code without the dump. */
-      if (result != -RIG_ENAVAIL && result != -RIG_ENIMPL) {
+   /* Strength is optional, and Hamlib may not permit querying the
+    * inactive VFO (RIG_ENTARGET = 12). Don't retry that unsupported
+    * operation on every poll. Reprobe after reconnect. */
+   if (!data->strength_untargetable[index]) {
+      result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
+      if (result == -RIG_ENTARGET) {
+         data->strength_untargetable[index] = true;
+         rr_backend_log(backend, LOG_DEBUG, "backend.hamlib",
+            "%s: VFO %s strength is not targetable; skipping future queries",
+            rr_backend_instance_alias(backend), vfo_name(index));
+      } else if (result != RIG_OK && result != -RIG_ENAVAIL && result != -RIG_ENIMPL) {
          rr_backend_log(backend, LOG_WARN, "backend.hamlib",
             "%s: GET VFO %s strength failed (Hamlib error %d)",
             rr_backend_instance_alias(backend), vfo_name(index), result);
