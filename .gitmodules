@@ -37,3 +37,7 @@
 [submodule "ext/mbelib-neo"]
 	path = ext/mbelib-neo
 	url = https://github.com/arancormonk/mbelib-neo
+
+[submodule "ext/ft8_lib"]
+	path = ext/ft8_lib
+	url = https://github.com/kgoba/ft8_lib.git

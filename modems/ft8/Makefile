@@ -1,5 +1,5 @@
 # Optional receive-only FT8 worker; no ft8_lib dependency for normal builds.
-# Use a separate MIT-licensed ft8_lib checkout (not bundled into rrserver).
+# ft8_lib is pinned as a git submodule in ext/ft8_lib. No CMake needed.
 FT8_LIB ?= ../../ext/ft8_lib
 CC ?= cc
 CFLAGS ?= -O2 -g
@@ -10,6 +10,7 @@ LIBS = $(FT8_LIB)/libft8.a $(FT8_LIB)/.build/fft/kiss_fft.o $(FT8_LIB)/.build/ff
 all: rrmodem-ft8
 
 $(FT8_LIB)/libft8.a:
+	@test -f $(FT8_LIB)/Makefile || { echo "Missing ft8_lib; run git submodule update --init ext/ft8_lib"; exit 1; }
 	$(MAKE) -C $(FT8_LIB) libft8.a
 
 $(FT8_LIB)/.build/fft/kiss_fft.o $(FT8_LIB)/.build/fft/kiss_fftr.o:

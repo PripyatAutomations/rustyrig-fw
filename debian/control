@@ -119,3 +119,12 @@ Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depend
 Description: Hamlib backend module for RustyRig server
  Optional Hamlib radio backend, installed in
  /usr/lib/rustyrig/modules/rrserver. Loaded when a rig selects backend=hamlib.
+
+Package: rustyrig-modem-ft8
+Architecture: any
+Depends: rustyrig-server (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Optional receive-only FT8 modem worker for RustyRig
+ Runs as an isolated rig-local subprocess. Uses ft8_lib to decode received
+ audio and emit line-oriented JSON or text through the serial modem stream.
+ Installs the executable into /var/lib/rustyrig/modems.
+ Built only when WITH_FT8=yes and an ft8_lib source tree is available.
