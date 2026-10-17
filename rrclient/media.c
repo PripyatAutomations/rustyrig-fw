@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <time.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <rrclient/media.direct.h>
