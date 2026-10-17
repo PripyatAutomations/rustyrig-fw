@@ -5,6 +5,10 @@ export DH_VERBOSE = 1
 PROFILE ?= radio
 include mk/optional-modules.mk
 
+# FT8 is optional: external ft8_lib is only needed for this binary package.
+WITH_FT8 ?= no
+FT8_DH_EXCLUDE := $(if $(filter yes true 1,$(WITH_FT8)),,-Nrustyrig-modem-ft8)
+
 # Optional packages are omitted consistently at every debhelper stage.
 define optional_install_rule
 .PHONY: install-optional-$(1)
@@ -25,7 +29,7 @@ endif
 endif
 
 %:
-	dh $@ $(OPTIONAL_DH_EXCLUDES)
+	dh $@ $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)
 
 # Keep package builds independent of the optional hardware/integration test suite.
 override_dh_auto_test:
@@ -39,12 +43,18 @@ override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(OPTIONAL_MAKE_FLAGS)
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
+ifneq ($(filter yes true 1,$(WITH_FT8)),)
+	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
+endif
 
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/librustyaxe/usr/lib/rustyrig/admin-permissions
 	install -Dm755 bin/rrbridge debian/rustyrig-server/usr/bin/rrbridge
 	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
 	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
+ifneq ($(filter yes true 1,$(WITH_FT8)),)
+	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modem-ft8/var/lib/rustyrig/modems/rrmodem-ft8
+endif
 	install -Dm755 bin/rr-si5351 debian/rustyrig-server/usr/bin/rr-si5351
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
