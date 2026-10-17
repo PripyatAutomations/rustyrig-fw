@@ -4,6 +4,8 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <stdio.h>
+#include <stdarg.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -48,6 +50,41 @@ typedef struct hamlib_backend {
    int reconnect_interval;
    int timeout_ms;
 } hamlib_backend_t;
+
+/* Hamlib's callback and enable threshold are process-global. Attribute
+ * messages to the originating backend worker thread and filter per rig. */
+static pthread_once_t hamlib_log_once = PTHREAD_ONCE_INIT;
+
+static int hamlib_log_callback(enum rig_debug_level_e level, rig_ptr_t arg,
+   const char *format, va_list ap) {
+   (void)arg;
+   rr_backend_t *backend = rr_backend_worker_current();
+   int threshold = backend ? rr_backend_config_get_int(backend, "hamlib.debug", RIG_DEBUG_ERR) : RIG_DEBUG_ERR;
+   if (threshold < RIG_DEBUG_NONE || threshold > RIG_DEBUG_CACHE) threshold = RIG_DEBUG_ERR;
+   if (level > threshold || level == RIG_DEBUG_NONE) return RIG_OK;
+
+   char msg[2048];
+   vsnprintf(msg, sizeof(msg), format, ap);
+   size_t n = strlen(msg);
+   while (n && (msg[n-1] == '\\n' || msg[n-1] == '\\r')) msg[--n] = 0;
+   if (!n) return RIG_OK;
+
+   char subsystem[128];
+   snprintf(subsystem, sizeof(subsystem), "hamlib.%s",
+      backend ? rr_backend_instance_alias(backend) : "global");
+   logpriority_t priority = level <= RIG_DEBUG_ERR ? LOG_ERR :
+      level == RIG_DEBUG_WARN ? LOG_WARN : LOG_DEBUG;
+   if (backend) rr_backend_log(backend, priority, subsystem, "%s", msg);
+   else Log(priority, subsystem, "%s", msg);
+   return RIG_OK;
+}
+
+static void hamlib_log_install(void) {
+   rig_set_debug_callback(hamlib_log_callback, NULL);
+   /* Allow callback to enforce per-rig verbosity; Hamlib's own global
+    * threshold otherwise drops messages before they reach our callback. */
+   rig_set_debug(RIG_DEBUG_CACHE);
+}
 
 static hamlib_backend_t *hl_data(rr_backend_t *backend) {
    return rr_backend_instance_data(backend);
@@ -383,11 +420,7 @@ static bool hl_create(rr_backend_t *backend) {
       return true;
    }
    rr_backend_instance_set_data(backend, data);
-#ifdef BACKEND_HAMLIB_DEBUG
-   rig_set_debug(BACKEND_HAMLIB_DEBUG);
-#else
-   rig_set_debug(RIG_DEBUG_ERR);
-#endif
+   pthread_once(&hamlib_log_once, hamlib_log_install);
 
    if (hl_connect(backend)) {
       free(data->device);
