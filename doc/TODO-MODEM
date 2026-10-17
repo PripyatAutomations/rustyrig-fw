@@ -57,3 +57,8 @@ https://github.com/arancormonk/mbelib-neo.git
 #
 # Always preserve: readable C, three-space indentation, fault isolation,
 # bounded queues, clear compatibility guarantees, and server-side auth.
+
+# [x] Initial ft8_lib RX-only worker with JSONL default, RAW/JSON serial commands.
+# [x] Persistent modem worker counts as RX demand for rrbridge-backed rigs.
+# [ ] Validate live FT8 decode from bridge audio; fix PCM frame loss and slot timing.
+# [ ] Future FT8 TX uses new PTT/TX lease model; RX-only until separately reviewed.
