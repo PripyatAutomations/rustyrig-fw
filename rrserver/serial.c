@@ -79,7 +79,8 @@ void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, si
    if (!alias) return;
    for (unsigned i = 0; i < count; i++) {
       struct serial_export *p = &exports[i];
-      if (!p->virtual_modem || strcmp(p->modem_rig, alias) || p->worker.rx_pcm_fd < 0) continue;
+      if (!p->virtual_modem || strcmp(p->modem_rig, alias) ||
+          p->fd < 0 || p->worker.rx_pcm_fd < 0) continue;
       ssize_t n = write(p->worker.rx_pcm_fd, samples, len);
       if (n != (ssize_t)len) p->pcm_dropped++;
    }
@@ -90,9 +91,13 @@ static void modem_log(struct serial_export *p, const char *direction,
    const void *bytes, size_t length) {
    if (!p->traffic_log || !bytes || !length) return;
    const unsigned char *data = bytes;
+   char *session_id = p->owner ?
+      g_compute_checksum_for_string(G_CHECKSUM_SHA256, p->owner->token, -1) : NULL;
+   if (session_id) session_id[20] = '\0';
    fprintf(p->traffic_log, "%lld\t%s\t%s\t%s\t",
       (long long)time(NULL), p->owner ? p->owner->chatname : "-",
-      p->owner ? p->owner->token : "-", direction);
+      session_id ? session_id : "-", direction);
+   g_free(session_id);
    for (size_t j = 0; j < length; j++) fprintf(p->traffic_log, "%02x", data[j]);
    fputc('\n', p->traffic_log);
 }
@@ -827,6 +832,7 @@ void rrserver_serial_init(void) {
       struct serial_export *p = &exports[count];
       memset(p, 0, sizeof(*p));
       p->fd = p->keeper = -1;
+      rr_dsp_worker_init(&p->worker);
       snprintf(p->name, sizeof(p->name), "%s", key + 7);
       p->settings = (rr_serial_settings_t) {
          .baud = strstr(value, "gps-") ? 4800 : 9600, .bits = 8, .parity = 'n', .stops = 1
