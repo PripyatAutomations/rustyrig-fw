@@ -72,15 +72,15 @@ static void frontend_gtk_config_refresh(const char *key) {
    }
 }
 
-static bool frontend_gtk_config_refresh_cb(void) {
-   frontend_gtk_config_refresh(NULL);
+static bool frontend_gtk_config_refresh_cb(const char *key) {
+   frontend_gtk_config_refresh(key);
 
    if (main_window) {
       gtk_css_apply_cfg();
       gtk_ui_zoom_recheck();
    }
 
-   return false;
+   return true;
 }
 
 extern GtkWidget *init_admin_tab(void);
