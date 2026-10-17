@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <glib.h>
@@ -38,7 +41,9 @@ struct serial_session {
 struct serial_export {
    char name[64], path[PATH_MAX], client_name[64], slave[128], gps_scope[64];
    unsigned service;            // 0 raw export, 1 GPS input, 2 GPS output
-   bool pty, dropping, nmea_output, autodiscovered;
+   bool pty, dropping, nmea_output, autodiscovered, virtual_modem;
+   pid_t child_pid;
+   char command[PATH_MAX];
    int keeper;
    unsigned char *buffer;
    size_t buffer_limit, buffered;
@@ -146,6 +151,7 @@ static void reply(rrconn_t *client, const char *cmd, const char *name, const str
       char mode[4];
       rr_serial_mode_format(&port->settings, mode);
       dict_add(d, "serial.port", port->name);
+      dict_add(d, "serial.kind", port->virtual_modem ? "modem" : "physical");
       dict_add_int(d, "serial.stream", port->stream);
       dict_add_uint(d, "serial.baud", port->settings.baud);
       dict_add(d, "serial.mode", mode);
@@ -154,8 +160,56 @@ static void reply(rrconn_t *client, const char *cmd, const char *name, const str
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
+/* A software modem exposes a full-duplex byte stream over stdin/stdout.
+ * Its separate RF/audio/PTT control plane is managed by the modem worker. */
+static void modem_child_exited(GPid pid, gint status, gpointer data) {
+   (void)status; (void)data;
+   g_spawn_close_pid(pid);
+}
+static int open_modem_worker(struct serial_export *p) {
+   int sockets[2];
+   gchar **argv = NULL;
+   gint argc = 0;
+   GError *error = NULL;
+   if (!g_shell_parse_argv(p->command, &argc, &argv, &error) || !argc) {
+      Log(LOG_WARN, "serial.modem", "Invalid command for %s: %s", p->name,
+          error ? error->message : "empty command");
+      g_clear_error(&error);
+      g_strfreev(argv);
+      return -1;
+   }
+   if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets)) {
+      g_strfreev(argv);
+      return -1;
+   }
+   pid_t pid = fork();
+   if (pid == 0) {
+      close(sockets[0]);
+      if (dup2(sockets[1], STDIN_FILENO) < 0 ||
+          dup2(sockets[1], STDOUT_FILENO) < 0) _exit(127);
+      if (sockets[1] > STDERR_FILENO) close(sockets[1]);
+      /* execvp supports argument lists; do not invoke a shell. */
+      execvp(argv[0], argv);
+      _exit(127);
+   }
+   close(sockets[1]);
+   g_strfreev(argv);
+   if (pid < 0) { close(sockets[0]); return -1; }
+   p->child_pid = pid;
+   g_child_watch_add(pid, modem_child_exited, NULL);
+   int flags = fcntl(sockets[0], F_GETFL, 0);
+   if (flags >= 0) fcntl(sockets[0], F_SETFL, flags | O_NONBLOCK);
+   return sockets[0];
+}
 static void close_port(struct serial_export *p) {
-   if (p->pty) {
+   if (p->virtual_modem) {
+      if (p->fd >= 0) close(p->fd);
+      if (p->child_pid > 0) {
+         kill(p->child_pid, SIGTERM);
+         /* The child watch reaps the worker on GLib main context. */
+         p->child_pid = 0;
+      }
+   } else if (p->pty) {
       rr_serial_pty_close(p->fd, p->keeper, p->path, p->slave);
    } else {
       rr_serial_device_close(p->fd, &p->original);
@@ -320,7 +374,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       }
       struct stat candidate, existing;
 
-      if (!stat(p->path, &candidate)) {
+      if (!p->virtual_modem && !stat(p->path, &candidate)) {
          for (unsigned i = 0 ; i < count ; i++) {
             if (exports[i].owner && !fstat(exports[i].fd, &existing) && candidate.st_rdev == existing.st_rdev) {
                reply(client, "error", name, NULL, "device-busy");
@@ -340,7 +394,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          reply(client, "error", name, NULL, "no-buffer-memory");
          goto done;
       }
-      p->fd = rr_serial_device_open(p->path, &proposed, &p->original);
+      p->fd = p->virtual_modem ? open_modem_worker(p) : rr_serial_device_open(p->path, &proposed, &p->original);
 
       if (p->fd < 0) {
          free(p->buffer);
@@ -383,6 +437,10 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          p->close_pending = true;   // close after the in-flight block is written
       }
    } else if (!strcmp(cmd, "configure")) {
+      if (p->virtual_modem) {
+         reply(client, "error", name, p, "unsupported-settings");
+         goto done;
+      }
       rr_serial_settings_t proposed = p->settings;
 
       if (!settings_from(d, &proposed) || !rr_serial_settings_apply(p->fd, &proposed)) {
@@ -671,7 +729,7 @@ static void inventory_serial_rows(rrconn_t *client, const char *scope, const cha
       if (!row) {
          continue;
       }
-      dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : "serial");
+      dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : p->virtual_modem ? "modem" : "serial");
       dict_add(row, "inventory.state", p->service ? "server-local" : p->owner ? "busy" : "available");
       char privileges[sizeof(p->name) + 14];
       snprintf(privileges, sizeof(privileges), "serial|serial.%s", p->name);
@@ -733,6 +791,9 @@ void rrserver_serial_init(void) {
 
       if (!strncmp(target, "serial:", 7) && target[7] == '/') {
          snprintf(p->path, sizeof(p->path), "%s", target + 7);
+      } else if (g_str_has_prefix(target, "modem:") && target[6]) {
+         p->virtual_modem = true;
+         snprintf(p->command, sizeof(p->command), "%s", target + 6);
       } else if (target[0] == '/') {
          snprintf(p->path, sizeof(p->path), "%s", target);
       } else if (!strcmp(target, "gps-in") || !strcmp(target, "gps-out") || (strlen(target) > 7 && (!strcmp(target + strlen(target) - 7, ".gps-in") ||
