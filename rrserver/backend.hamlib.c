@@ -65,9 +65,10 @@ static int hamlib_log_callback(enum rig_debug_level_e level, rig_ptr_t arg,
 
    char msg[2048];
    vsnprintf(msg, sizeof(msg), format, ap);
-   size_t n = strlen(msg);
-   while (n && (msg[n-1] == '\n' || msg[n-1] == '\r')) msg[--n] = 0;
-   if (!n) return RIG_OK;
+   /* Hamlib sometimes embeds an entire trace in a single callback
+    * message. Never let it become a multiline log entry. */
+   msg[strcspn(msg, "\r\n")] = 0;
+   if (!msg[0]) return RIG_OK;
 
    char subsystem[128];
    snprintf(subsystem, sizeof(subsystem), "hamlib.%s",
@@ -811,8 +812,13 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
 
    if (result != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: GET VFO %s strength failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(
-         result));
+      /* rigerror() may include Hamlib's multiline diagnostic trace.
+       * Strength is optional; report the return code without the dump. */
+      if (result != -RIG_ENAVAIL && result != -RIG_ENIMPL) {
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+            "%s: GET VFO %s strength failed (Hamlib error %d)",
+            rr_backend_instance_alias(backend), vfo_name(index), result);
+      }
    }
 
    // suppress hamlib's stuffing received power level? into POWER...
