@@ -27,10 +27,8 @@ Current examples:
 
 - Load/section callbacks: `true` = handled successfully, `false` = error.
 - Registration calls: `true` = registered, `false` = failure.
-- Until the save callback API is migrated as a coordinated ABI change,
-  `cfg_save_cb_t` implementations follow the historical convention:
-  `false` = success, `true` = error. The *dispatcher*
-  `cfg_run_save_callbacks()` returns `true` on overall success.
+- Save callbacks also return `true` on success and `false` on error.
+  `cfg_run_save_callbacks()` reports overall success in the same way.
 - `dict_add*` returns 0 on success; check the result. Preserve native
   dictionary types when merging configuration, and guard `snprintf()`
   output against truncation.
