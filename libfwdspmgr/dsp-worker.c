@@ -53,9 +53,9 @@ bool rr_dsp_worker_spawn(rr_dsp_worker_t *w, const char *command) {
          if (saved<0) _exit(127);
          src[i]=saved;
       }
+      close_pair(serial);close_pair(control);close_pair(rx);close_pair(tx);
       for (int i=0;i<5;i++) if (dup2(src[i],dest[i])<0) _exit(127);
       for (int i=0;i<5;i++) close(src[i]);
-      close_pair(serial);close_pair(control);close_pair(rx);close_pair(tx);
       execvp(argv[0],argv);
       _exit(127);
    }
