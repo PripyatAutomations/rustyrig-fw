@@ -581,7 +581,8 @@ static void serial_cat_parse(void *data) {
 static void receive(rr_serial_t *port, const char *data, size_t len, void *user) {
    serial_binding_t *b = user;
    (void)port;
-   console_notify(b->name, data, len, false);
+   console_notify(b->name, data, len, !strcmp(b->service, "local.raw"));
+   if (!strcmp(b->service, "local.raw")) return;
 
    if (host_binding(b)) {
       if (b->failed) {
@@ -658,6 +659,11 @@ bool rr_sercom_console_send(const char *name, const char *bytes, size_t len) {
    if (!strcmp(kind, "gps-out") || !strcmp(kind, "nmea-out"))
       return false; /* receive-only service; independent of frontend */
 
+   if (!strcmp(b->service, "local.raw")) {
+      if (!rr_serial_write(b->port, bytes, len)) return false;
+      console_notify(b->name, bytes, len, false);
+      return true;
+   }
    if (host_binding(b) && (!b->host_pending || b->failed ||
        b->host_pending->len + len >= b->buffer_limit - 512)) return false;
    /* CAT and GPS input use the normal framing/parser, host tunnels use
@@ -731,7 +737,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    baud = b->requested.baud;
 
    if (!service_radio(b->service, b->radio, sizeof(b->radio)) && strcmp(gps_service(b), "gps-in") &&
-      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5)) {
+      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) && strcmp(b->service, "local.raw")) {
       goto failed;
    }
 
@@ -756,6 +762,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    snprintf(key, sizeof(key), "serial:%s.type", name);
    const char *type = cfg_get(key);
    bool pty = device ? false : !type || !strcmp(type, "pty");
+   if (!strcmp(b->service, "local.raw") && !device && (!type || strcmp(type, "serial"))) goto failed;
 
    if (type && strcmp(type, "pty") && strcmp(type, "serial") && strcmp(type, "file")) {
       goto failed;
