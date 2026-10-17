@@ -125,6 +125,24 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       return;
    }
 
+   if (!strcasecmp(rc_cmd, "split")) {
+      rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+      rr_backend_t *backend = rr_server_rig_backend(radio);
+      bool enable = dict_get_bool(d, "rigctl.split", false);
+      if (!object || !backend || !backend->worker || !rr_backend_api(backend)->split_mode ||
+          rr_backend_worker_submit(backend, object, RR_BACKEND_SPLIT,
+             (dict_value_t){.i = enable}, NULL, NULL)) {
+         Log(LOG_WARN, "rigctl", "%s: split request rejected in room %s",
+            rc_from, room);
+         if (cptr) ws_send_error(cptr, "Unable to queue split change for %s", room);
+      } else {
+         Log(LOG_AUDIT, "rigctl", "%s requested split %s in room %s",
+            rc_from, enable ? "ON" : "OFF", room);
+      }
+      dict_free(d);
+      return;
+   }
+
    if (!strcasecmp(rc_cmd, "power")) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
 
