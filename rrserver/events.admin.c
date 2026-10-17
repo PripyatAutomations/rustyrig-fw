@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <glib.h>
 #include <errno.h>
 
 #include <librustyaxe/core.h>
@@ -157,6 +158,66 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
 
 #endif
 
+/* Session IDs are non-secret fingerprints; never send bearer login tokens. */
+static char *admin_session_id(const rrconn_t *session) {
+   char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256,
+      session->token, -1);
+   if (digest) digest[20] = '\0';
+   return digest;
+}
+static bool admin_can_kick(const rrconn_t *actor, const rrconn_t *target) {
+   if (!target || !target->authenticated || !target->is_ws || target == actor)
+      return false;
+   if (!target->user) return false;
+   /* Admins cannot remove protected accounts. Even owners cannot kick
+    * another owner through this control. */
+   if (has_priv(target->user->uid, "owner")) return false;
+   return has_priv(actor->user->uid, "owner") ||
+      !has_priv(target->user->uid, "admin");
+}
+static void admin_sessions_list(rrconn_t *client) {
+   rrserver_admin_send(client, "sessions", "begin", NULL);
+   for (rrconn_t *session = http_client_list; session; session = session->next) {
+      if (!session->is_ws || !session->authenticated) continue;
+      char *id = admin_session_id(session);
+      dict *row = dict_new();
+      if (!row || !id) { dict_free(row); g_free(id); continue; }
+      char connected_at[32];
+      snprintf(connected_at, sizeof(connected_at), "%lld",
+         (long long)session->connected);
+      dict_add(row, "id", id);
+      dict_add(row, "username", session->chatname);
+      dict_add(row, "ip", session->user_ip);
+      dict_add(row, "client", session->user_agent ? session->user_agent : "Unknown");
+      dict_add(row, "server", server_name ? server_name : "Local");
+      dict_add(row, "connected", connected_at);
+      dict_add(row, "kickable", admin_can_kick(client, session) ? "yes" : "no");
+      rrserver_admin_send(client, "sessions", "row", row);
+      dict_free(row);
+      g_free(id);
+   }
+   rrserver_admin_send(client, "sessions", "end", NULL);
+}
+static void admin_sessions_kick(rrconn_t *client, const char *target,
+   bool all) {
+   unsigned kicked = 0;
+   /* Save the next link before disconnecting the current client. */
+   for (rrconn_t *session = http_client_list; session;) {
+      rrconn_t *next = session->next;
+      if (admin_can_kick(client, session)) {
+         char *id = admin_session_id(session);
+         bool matches = all || (id && target && !strcmp(id, target));
+         g_free(id);
+         if (matches && ws_kick_client(session, "Session disconnected by administrator"))
+            kicked++;
+      }
+      session = next;
+   }
+   Log(LOG_AUDIT, "admin.sessions", "%s disconnected %u session(s)",
+      client->chatname, kicked);
+   admin_sessions_list(client);
+}
+
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
@@ -172,6 +233,18 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+   if (!strcmp(action, "session-kick") ||
+       !strcmp(action, "session-kick-all")) {
+      admin_sessions_kick(client, dict_get(request, "talk.target", ""),
+         !strcmp(action, "session-kick-all"));
+      dict_free(request);
+      return;
+   }
+   if (!strcmp(dict_get(request, "talk.data", ""), "sessions")) {
+      admin_sessions_list(client);
+      dict_free(request);
+      return;
+   }
 
    if (!strcmp(action, "user-edit")) {
       admin_user_edit(client, request);
