@@ -260,6 +260,17 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
    int settings_fd;
 
    if (pty) {
+      /* A prior unclean exit can leave ./dev/ttyCAT0 (or another PTY
+       * link) pointing at a slave that no longer exists. Remove only a
+       * dangling symbolic link. Never replace a regular file, device,
+       * directory, or a symlink whose target is still accessible. */
+      struct stat st;
+      if (lstat(path, &st) == 0 && S_ISLNK(st.st_mode)) {
+         if (stat(path, &st) != 0 && errno == ENOENT) {
+            if (unlink(path) != 0) goto failed;
+            Log(LOG_INFO, "serial", "%s: removed stale PTY symlink %s", name, path);
+         }
+      }
       char slave[128];
       rr_serial_settings_t line = {
          .baud = baud, .bits = 8, .parity = 'n', .stops = 1
