@@ -100,15 +100,24 @@ static void terminal_add(const char *name) {
    gtk_notebook_set_current_page(GTK_NOTEBOOK(terminal_notebook),
       gtk_notebook_page_num(GTK_NOTEBOOK(terminal_notebook), session->page));
 }
+static void terminal_port_visit(rr_serial_t *port, void *user) {
+   (void)user;
+   const char *name = rr_serial_name(port);
+   if (name && *name)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(terminal_ports), name);
+}
 static void terminal_refresh(GtkButton *button, gpointer user) {
    (void)button; (void)user;
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(terminal_ports));
-   GList *names = gtk_serial_configured_names();
-   for (GList *l = names; l; l = l->next)
-      if (rr_serial_find(l->data))
-         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(terminal_ports), l->data);
-   g_list_free_full(names, g_free);
+   rr_serial_foreach(terminal_port_visit, NULL);
    gtk_combo_box_set_active(GTK_COMBO_BOX(terminal_ports), 0);
+}
+static void terminal_configure(GtkButton *button, gpointer user) {
+   (void)user;
+   gchar *name = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(terminal_ports));
+   gtk_serial_configure(GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(button))), name);
+   g_free(name);
+   terminal_refresh(NULL, NULL);
 }
 static void terminal_open(GtkButton *button, gpointer user) {
    (void)button; (void)user;
@@ -123,8 +132,10 @@ GtkWidget *init_terminal_tab(void) {
    gtk_box_pack_start(GTK_BOX(toolbar), terminal_ports, FALSE, FALSE, 0);
    GtkWidget *refresh = gtk_button_new_with_label("Refresh");
    GtkWidget *open = gtk_button_new_with_label("Open console");
+   GtkWidget *configure = gtk_button_new_with_label("Configure…");
    gtk_box_pack_start(GTK_BOX(toolbar), refresh, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), open, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(toolbar), configure, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 5);
    terminal_notebook = gtk_notebook_new();
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(terminal_notebook), GTK_POS_TOP);
@@ -132,6 +143,7 @@ GtkWidget *init_terminal_tab(void) {
    gtk_box_pack_start(GTK_BOX(root), terminal_notebook, TRUE, TRUE, 0);
    g_signal_connect(refresh, "clicked", G_CALLBACK(terminal_refresh), NULL);
    g_signal_connect(open, "clicked", G_CALLBACK(terminal_open), NULL);
+   g_signal_connect(configure, "clicked", G_CALLBACK(terminal_configure), NULL);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), root, gtk_label_new("Terminal"));
    terminal_refresh(NULL, NULL);
    return root;
