@@ -6,11 +6,15 @@ An external executable using [kgoba/ft8_lib](https://github.com/kgoba/ft8_lib)
 ## Build (optional)
 
 ```sh
-git clone https://github.com/kgoba/ft8_lib ext/ft8_lib
+git submodule update --init ext/ft8_lib
 make -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 ```
 
-The normal RustyRig build does not build or require ft8_lib.\nOptional Debian build: WITH_FT8=yes dpkg-buildpackage -b -us -uc, with\nft8_lib checked out under ext/ft8_lib. It creates rustyrig-modem-ft8.\n The optional
+The normal RustyRig build does not build or require ft8_lib.\nOptional Debian build (after initializing the submodule):
+`WITH_FT8=yes dpkg-buildpackage -b -us -uc`.
+This produces `rustyrig-modem-ft8` and installs the worker to
+`/var/lib/rustyrig/modems/rrmodem-ft8`. Upstream ft8_lib builds with
+its normal Makefile, not CMake. It creates rustyrig-modem-ft8.\n The optional
 worker can be copied to a known absolute path or launched from your build
 tree. Do not launch through an untrusted shell.
 
