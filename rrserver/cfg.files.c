@@ -24,9 +24,9 @@ static bool share_config(const char *path, int line, const char *section, const 
          g_free(copy);
          return false;
       }
-      snprintf(current, sizeof(current), "%s", value);
+      int n = snprintf(current, sizeof(current), "%s", value);
       g_free(copy);
-      return false;
+      return n > 0 && (size_t)n < sizeof(current);
    }
    bool known = !strcmp(key, "path") || !strcmp(key, "read") || !strcmp(key, "write") || !strcmp(key, "enabled");
    bool ok = rrserver_files_valid_name(name) && !strchr(name, '.') && known;
