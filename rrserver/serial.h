@@ -15,5 +15,6 @@ extern void rrserver_serial_init(void);
 extern void rrserver_serial_fini(void);
 extern bool rrserver_serial_poll(void);
 extern void rrserver_serial_client_exports(const struct rrconn *client, char *out, size_t size);
+extern bool rrserver_serial_rx_demand(const struct rr_server_rig *radio);
 extern void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len);
 #endif
