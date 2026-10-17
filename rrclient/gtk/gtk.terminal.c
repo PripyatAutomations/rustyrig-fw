@@ -12,7 +12,8 @@
 extern GtkWidget *main_notebook;
 typedef struct {
    char *name;
-   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running;
+   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status;
+   rr_event_token_t config_token;
    rr_sercom_observer_t *observer;
 } terminal_session_t;
 static GtkWidget *terminal_notebook;
@@ -61,8 +62,11 @@ static void terminal_settings_apply(GtkButton *button, gpointer user) {
    settings.bits = (unsigned)g_ascii_strtoull(bits, NULL, 10);
    settings.parity = parity[0];
    settings.stops = (unsigned)g_ascii_strtoull(stops, NULL, 10);
-   if (!rr_sercom_set_line_settings(session->name, &settings))
+   if (!rr_sercom_set_line_settings(session->name, &settings)) {
+      gtk_label_set_text(GTK_LABEL(session->config_status), "Apply failed / disconnected");
       gdk_display_beep(gdk_display_get_default());
+   } else if (!g_str_has_prefix(rr_sercom_binding(session->name), "host:"))
+      gtk_label_set_text(GTK_LABEL(session->config_status), "Applied locally");
 }
 static void terminal_rx_toggle(GtkToggleButton *button, gpointer user) {
    terminal_session_t *session = user;
@@ -111,6 +115,8 @@ static void terminal_toolbar(terminal_session_t *session) {
       GtkWidget *apply = gtk_button_new_with_label("Apply");
       g_signal_connect(apply, "clicked", G_CALLBACK(terminal_settings_apply), session);
       gtk_box_pack_start(GTK_BOX(bar), apply, FALSE, FALSE, 0);
+      session->config_status = gtk_label_new("Ready");
+      gtk_box_pack_start(GTK_BOX(bar), session->config_status, FALSE, FALSE, 0);
       if (!strcmp(service, "local.raw")) {
          session->running = gtk_toggle_button_new_with_label("Stop RX");
          gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(session->running), TRUE);
@@ -122,9 +128,23 @@ static void terminal_toolbar(terminal_session_t *session) {
       gtk_box_pack_start(GTK_BOX(bar), label, FALSE, FALSE, 0);
    }
 }
+static void terminal_configuration(const char *event, const char *data,
+   rrconn_t *connection, void *user) {
+   (void)event; (void)connection;
+   terminal_session_t *session = user;
+   if (!session->config_status || !data) return;
+   size_t n = strlen(session->name);
+   if (strncmp(data, session->name, n) || data[n] != ':') return;
+   const char *status = data + n + 1;
+   gtk_label_set_text(GTK_LABEL(session->config_status),
+      !strcmp(status, "confirmed") ? "Confirmed by server" :
+      !strcmp(status, "pending") ? "Awaiting server…" :
+      !strcmp(status, "rejected") ? "Server rejected settings" : status);
+}
 static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    terminal_session_t *session = data;
+   if (session->config_token) event_off_token(session->config_token);
    rr_sercom_unobserve(session->observer);
    session->observer = NULL;
    g_free(session->name);
@@ -167,6 +187,7 @@ void gtk_terminal_open_endpoint(const char *name) {
    gtk_container_add(GTK_CONTAINER(scroll), session->view);
    gtk_box_pack_start(GTK_BOX(session->page), scroll, TRUE, TRUE, 0);
    session->observer = rr_sercom_observe(name, console_bytes, session);
+   session->config_token = event_on_token("serial.console.configuration", terminal_configuration, session);
    if (!session->observer) { gtk_widget_destroy(session->page); g_free(session->name); g_free(session); return; }
    g_signal_connect(session->page, "destroy", G_CALLBACK(terminal_session_destroy), session);
    GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
