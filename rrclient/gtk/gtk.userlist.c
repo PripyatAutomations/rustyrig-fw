@@ -79,6 +79,7 @@ typedef struct room_vfo_control {
    GtkWidget *mode;
    GtkWidget *ptt;
    GtkWidget *row;
+   guint select_source;
    room_userlist_entry_t *entry;
 } room_vfo_control_t;
 
@@ -925,6 +926,10 @@ static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, 
         hit = gtk_widget_get_parent(hit)) {
       if (hit == control->ptt) return FALSE;
    }
+   if (control->select_source) {
+      g_source_remove(control->select_source);
+      control->select_source = 0;
+   }
    dict *request = dict_new();
    if (!request) return TRUE;
    char vfo[2] = {control->vfo, 0};
@@ -937,30 +942,14 @@ static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, 
    return TRUE;
 }
 
-static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   (void)widget;
+static gboolean room_vfo_select_delayed(gpointer data) {
    room_vfo_control_t *control = data;
-
-   if (!control || !event || event->type != GDK_BUTTON_RELEASE || event->button != 1) {
-      return FALSE;
-   }
-   bool docked = control->entry == &rig_userlist_entry ? userlist_is_docked : control->entry->docked;
-
-   if (!docked) {
-      return FALSE;
-   }
-
-   // The PTT release button remains a separate action, never a VFO selector.
-   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event) ; hit ; hit = gtk_widget_get_parent(hit)) {
-      if (hit == control->ptt) {
-         return FALSE;
-      }
-   }
-
+   control->select_source = 0;
    rrclient_media_room_selected(control->room);
    char command[16];
    snprintf(command, sizeof(command), "!vfo %c", control->vfo);
    dict *request = dict_new();
+   if (!request) return G_SOURCE_REMOVE;
    dict_add(request, "msg.type", "talk");
    dict_add(request, "talk.cmd", "msg");
    dict_add(request, "talk.msg_type", "pub");
@@ -968,7 +957,32 @@ static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event
    dict_add(request, "talk.data", command);
    ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
    dict_free(request);
+   return G_SOURCE_REMOVE;
+}
 
+static void room_vfo_control_destroy(gpointer data) {
+   room_vfo_control_t *control = data;
+   if (control->select_source) g_source_remove(control->select_source);
+   free(control);
+}
+
+static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
+   room_vfo_control_t *control = data;
+   if (!control || !event || event->type != GDK_BUTTON_RELEASE || event->button != 1)
+      return FALSE;
+   bool docked = control->entry == &rig_userlist_entry ? userlist_is_docked : control->entry->docked;
+   if (!docked) return FALSE;
+   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event); hit;
+        hit = gtk_widget_get_parent(hit)) {
+      if (hit == control->ptt) return FALSE;
+   }
+   /* The first release in a double click must not select a VFO. Wait
+    * for GTK's configured double-click interval before applying selection. */
+   if (control->select_source) return TRUE;
+   gint ms = 250;
+   g_object_get(gtk_settings_get_default(), "gtk-double-click-time", &ms, NULL);
+   control->select_source = g_timeout_add(MAX(ms, 1), room_vfo_select_delayed, control);
    return TRUE;
 }
 
@@ -1033,7 +1047,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       control->ptt = ptt;
       control->row = row;
       control->entry = entry;
-      g_object_set_data_full(G_OBJECT(row), "rr-room-vfo-control", control, free);
+      g_object_set_data_full(G_OBJECT(row), "rr-room-vfo-control", control, room_vfo_control_destroy);
 
       if (ptt) {
          g_signal_connect(ptt, "clicked", G_CALLBACK(room_vfo_stop_clicked), control);
