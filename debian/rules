@@ -38,6 +38,7 @@ override_dh_auto_test:
 override_dh_auto_clean:
 	$(MAKE) distclean || true
 	$(MAKE) -C callsign-lookup clean || true
+	$(MAKE) -C modems/ft8 clean || true
 
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
@@ -125,5 +126,5 @@ override_dh_installinit:
 	dh_installinit --name=rrserver -p rustyrig-server
 
 override_dh_installdeb:
-	dh_installdeb $(OPTIONAL_DH_EXCLUDES)
+	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)
 	for p in rustyrig-server rustyrig-client rustyrig-fwdsp; do install -Dm755 debian/$$p.preinst debian/$$p/DEBIAN/preinst; done
