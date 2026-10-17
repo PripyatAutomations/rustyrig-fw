@@ -957,7 +957,7 @@ void rrserver_serial_init(void) {
          if (bound && *bound)
             snprintf(p->modem_rig, sizeof(p->modem_rig), "%s", bound);
          else if (g_str_has_prefix(p->name, "ttyMODEM"))
-            snprintf(p->modem_rig, sizeof(p->modem_rig), "rig%s", p->name + 8);
+            snprintf(p->modem_rig, sizeof(p->modem_rig), "rig%u",\n               (unsigned)strtoul(p->name + 8, NULL, 10));
          snprintf(option, sizeof(option), "serial:%s.log", p->name);
          const char *log_path = cfg_get(option);
          if (log_path && *log_path) {
