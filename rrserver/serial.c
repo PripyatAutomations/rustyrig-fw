@@ -27,6 +27,9 @@
 #include <rrserver/serial.h>
 #include <rrserver/discovery.h>
 #include <rrserver/gps.h>
+#include <rrserver/rig.registry.h>
+#include <rrserver/globalstate.h>
+extern struct GlobalState rig;
 
 #define SERIAL_PORTS_MAX 32
 #define SERIAL_STREAMS_MAX 256
@@ -47,6 +50,9 @@ struct serial_export {
    gint64 modem_retry_at;
    unsigned modem_failures;
    char command[PATH_MAX];
+   char modem_rig[64];
+   FILE *traffic_log;
+   unsigned long pcm_dropped;
    int keeper;
    unsigned char *buffer;
    size_t buffer_limit, buffered;
@@ -65,6 +71,32 @@ struct serial_export {
 
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
+
+/* RX fanout is nonblocking: no worker can hold up the capture callback. */
+void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len) {
+   if (!radio || !samples || !len || !rig.rigs) return;
+   const char *alias = rr_rig_registry_alias(rig.rigs, radio);
+   if (!alias) return;
+   for (unsigned i = 0; i < count; i++) {
+      struct serial_export *p = &exports[i];
+      if (!p->virtual_modem || strcmp(p->modem_rig, alias) || p->worker.rx_pcm_fd < 0) continue;
+      ssize_t n = write(p->worker.rx_pcm_fd, samples, len);
+      if (n != (ssize_t)len) p->pcm_dropped++;
+   }
+}
+
+/* Reversible hex lines retain NULs and arbitrary modem payloads. */
+static void modem_log(struct serial_export *p, const char *direction,
+   const void *bytes, size_t length) {
+   if (!p->traffic_log || !bytes || !length) return;
+   const unsigned char *data = bytes;
+   fprintf(p->traffic_log, "%lld\t%s\t%s\t%s\t",
+      (long long)time(NULL), p->owner ? p->owner->chatname : "-",
+      p->owner ? p->owner->token : "-", direction);
+   for (size_t j = 0; j < length; j++) fprintf(p->traffic_log, "%02x", data[j]);
+   fputc('\n', p->traffic_log);
+}
+
 /* Stable, bounded copy for privileged session reporting. Never expose FDs. */
 void rrserver_serial_client_exports(const struct rrconn *client, char *out, size_t size) {
    if (!out || !size) return;
@@ -664,6 +696,7 @@ bool rrserver_serial_poll(void) {
          ssize_t n = write(p->fd, p->pending + p->pending_offset, p->pending_len - p->pending_offset);
 
          if (n > 0) {
+            if (p->virtual_modem) modem_log(p, "TX", p->pending + p->pending_offset, n);
             p->pending_offset += n;
 
             if (p->pending_offset == p->pending_len) {
@@ -690,6 +723,7 @@ bool rrserver_serial_poll(void) {
          ssize_t n = read(p->fd, p->buffer + p->buffered, room);
 
          if (n > 0) {
+            if (p->virtual_modem) modem_log(p, "RX", p->buffer + p->buffered, n);
             p->buffered += n;
          } else if (!n || (errno != EAGAIN && errno != EINTR)) {
             goto failed;
@@ -899,6 +933,22 @@ void rrserver_serial_init(void) {
             continue;
          }
       }
+      if (p->virtual_modem) {
+         snprintf(option, sizeof(option), "serial:%s.rig", p->name);
+         const char *bound = cfg_get(option);
+         if (bound && *bound)
+            snprintf(p->modem_rig, sizeof(p->modem_rig), "%s", bound);
+         else if (g_str_has_prefix(p->name, "ttyMODEM"))
+            snprintf(p->modem_rig, sizeof(p->modem_rig), "rig%s", p->name + 8);
+         snprintf(option, sizeof(option), "serial:%s.log", p->name);
+         const char *log_path = cfg_get(option);
+         if (log_path && *log_path) {
+            p->traffic_log = fopen(log_path, "a");
+            if (!p->traffic_log)
+               Log(LOG_WARN, "serial.modem", "Cannot open traffic log for %s: %s", p->name, strerror(errno));
+            else setvbuf(p->traffic_log, NULL, _IOLBF, 0);
+         }
+      }
       p->defaults = p->settings;
       count++;
       if (p->virtual_modem) modem_ensure_running(p);
@@ -917,6 +967,7 @@ void rrserver_serial_fini(void) {
    for (unsigned i = 0 ; i < count ; i++) {
       close_port(&exports[i]);
       if (exports[i].virtual_modem) rr_dsp_worker_stop(&exports[i].worker);
+      if (exports[i].traffic_log) fclose(exports[i].traffic_log);
    }
 
    count = 0;
