@@ -183,37 +183,37 @@ static const char *gtkcss_unescape(const char *p) {
 // Config parser callback for the [gtk-css] section: every line is CSS.
 bool config_gtkcss_cb(const char *path, int line, const char *section, const char *buf) {
    if (!buf) {
-      return true;
+      return false;
    }
    buf = gtkcss_unescape(buf);
 
    // Skip blank lines and comments
    /* The general config parser already filtered comments and decoded escaped ID selectors. */
    if (buf[0] == '\0' || buf[0] == ';') {
-      return false;
+      return true;
    }
 
    if (buf[0] == '/' && buf[1] == '/') {
-      return false;
+      return true;
    }
 
    if (buf[0] == '/' && buf[1] == '*') {
-      return false;             // XXX: block comments NYI
+      return true;             // XXX: block comments NYI
    }
    gtkcss_append(buf);
 
-   return false;
+   return true;
 }
 
 // Save callback: emit the [gtk-css] section
 bool config_gtkcss_save_cb(FILE *fp, const char *path) {
    if (!fp) {
-      return true;
+      return false;
    }
    const char *css = gtk_css_get();
 
    if (!css || !*css) {
-      return false;
+      return true;
    }
    fprintf(fp, "[gtk-css]\n");
    for (const char *line = css; *line; ) {
@@ -225,16 +225,14 @@ bool config_gtkcss_save_cb(FILE *fp, const char *path) {
       line += length;
       if (*line == '\n') line++;
    }
-   return ferror(fp) != 0;
+   return ferror(fp) == 0;
 }
 
 // Called once at startup to register our section + save callbacks
 bool cfg_gtkcss_init(void) {
    gtkcss_reset();
-   cfg_add_callback(NULL, "gtk-css", config_gtkcss_cb);
-   cfg_add_save_callback("cfg.gtkcss", config_gtkcss_save_cb);
-
-   return false;
+   return cfg_add_callback(NULL, "gtk-css", config_gtkcss_cb) &&
+      cfg_add_save_callback("cfg.gtkcss", config_gtkcss_save_cb);
 }
 
 // Reload the [gtk-css] section straight from the config file - no recompile,
