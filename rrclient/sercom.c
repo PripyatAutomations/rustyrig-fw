@@ -654,6 +654,10 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
 bool rr_sercom_console_send(const char *name, const char *bytes, size_t len) {
    serial_binding_t *b = binding(name);
    if (!b || !bytes || !len || len > 65536) return false;
+   const char *kind = gps_service(b);
+   if (!strcmp(kind, "gps-out") || !strcmp(kind, "nmea-out"))
+      return false; /* receive-only service; independent of frontend */
+
    if (host_binding(b) && (!b->host_pending || b->failed ||
        b->host_pending->len + len >= b->buffer_limit - 512)) return false;
    /* CAT and GPS input use the normal framing/parser, host tunnels use
