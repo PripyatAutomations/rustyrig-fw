@@ -3,7 +3,7 @@
 # arrive implicitly through the environment's MAKEFLAGS or a parent make.
 # Its short-option group is the first MAKEFLAGS word (e.g. "i", "ik").
 # Reject it before any build recipes can run and leave stale artifacts behind.
-ifneq ($(findstring i,$(firstword $(filter-out --%,$(MAKEFLAGS)))),)
+ifneq ($(findstring i,$(filter-out --%,$(firstword $(MAKEFLAGS)))),)
 $(error Refusing to build with make -i/--ignore-errors; remove it from MAKEFLAGS or the make command)
 endif
 
