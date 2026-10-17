@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <glib.h>
 #include <errno.h>
 
 #include <librustyaxe/core.h>
@@ -200,22 +201,17 @@ static void admin_sessions_list(rrconn_t *client) {
 static void admin_sessions_kick(rrconn_t *client, const char *target,
    bool all) {
    unsigned kicked = 0;
-   /* Kick first, then restart list traversal because kicks may detach. */
-   for (;;) {
-      rrconn_t *victim = NULL;
-      for (rrconn_t *session = http_client_list; session; session = session->next) {
-         if (!admin_can_kick(client, session)) continue;
-         if (all) { victim = session; break; }
+   /* Save the next link before disconnecting the current client. */
+   for (rrconn_t *session = http_client_list; session;) {
+      rrconn_t *next = session->next;
+      if (admin_can_kick(client, session)) {
          char *id = admin_session_id(session);
-         bool matches = id && !strcmp(id, target);
+         bool matches = all || (id && target && !strcmp(id, target));
          g_free(id);
-         if (matches) { victim = session; break; }
+         if (matches && ws_kick_client(session, "Session disconnected by administrator"))
+            kicked++;
       }
-      if (!victim) break;
-      ws_kick_client(victim, "Session disconnected by administrator");
-      kicked++;
-      /* Avoid looping forever if kick merely marks the socket for close. */
-      if (!all || kicked >= HTTP_MAX_SESSIONS) break;
+      session = next;
    }
    Log(LOG_AUDIT, "admin.sessions", "%s disconnected %u session(s)",
       client->chatname, kicked);
