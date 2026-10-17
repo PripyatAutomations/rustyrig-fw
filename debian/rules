@@ -88,9 +88,13 @@ endif
 	install -d debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
-	install -Dm644 config/rrserver.cfg debian/rustyrig-server/etc/rustyrig/rrserver.cfg
+	# Install the root config and all include fragments as dpkg conffiles.
+	# Keep user edits during upgrades; never replace these in postinst.
+	for cfg in config/rrserver.cfg config/rrserver.*.cfg; do \
+		install -Dm644 "$cfg" "debian/rustyrig-server/etc/rustyrig/${cfg##*/}"; \
+	done
 	install -Dm644 config/$(PROFILE).config.json debian/rustyrig-server/etc/rustyrig/$(PROFILE).config.json
-	install -Dm644 config/callsign-lookup.srv.cfg debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg
+	# Removed: callsign lookup server settings now live in rrserver.callsign-lookup.cfg.
 	install -Dm644 config/ua-bans debian/rustyrig-server/etc/rustyrig/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
 	install -Dm644 config/rrclient.cfg debian/rustyrig-client/etc/rustyrig/rrclient.cfg
@@ -119,7 +123,7 @@ endif
 	cp -a libfwdspmgr/*.h debian/libfwdspmgr-dev/usr/include/libfwdspmgr/
 
 	install -d debian/rustyrig-server/usr/share/doc/rustyrig/config
-	cp -a config/rrserver.cfg config/rrclient.cfg config/callsign-lookup.cfg config/callsign-lookup.srv.cfg config/callsign-lookup.cli.cfg config/ua-bans debian/rustyrig-server/usr/share/doc/rustyrig/config/
+	cp -a config/rrserver.cfg config/rrserver.*.cfg config/rrclient.cfg config/callsign-lookup.cfg config/callsign-lookup.cli.cfg config/ua-bans debian/rustyrig-server/usr/share/doc/rustyrig/config/
 	cp -a doc debian/rustyrig-server/usr/share/doc/rustyrig/
 
 override_dh_installinit:
