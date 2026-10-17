@@ -12,7 +12,7 @@
 extern GtkWidget *main_notebook;
 typedef struct {
    char *name;
-   GtkWidget *page, *view;
+   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running;
    rr_sercom_observer_t *observer;
 } terminal_session_t;
 static GtkWidget *terminal_notebook;
@@ -47,6 +47,81 @@ static void terminal_commit(VteTerminal *terminal, gchar *text, guint size, gpoi
 }
 #endif
 
+static void terminal_settings_apply(GtkButton *button, gpointer user) {
+   (void)button;
+   terminal_session_t *session = user;
+   rr_serial_t *port = rr_serial_find(session->name);
+   rr_serial_settings_t settings;
+   if (!port || !rr_serial_get_settings(port, &settings)) return;
+   const char *baud = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->baud));
+   const char *bits = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->bits));
+   const char *parity = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->parity));
+   const char *stops = gtk_combo_box_get_active_id(GTK_COMBO_BOX(session->stops));
+   if (!baud || !bits || !parity || !stops) return;
+   settings.baud = (unsigned)g_ascii_strtoull(baud, NULL, 10);
+   settings.bits = (unsigned)g_ascii_strtoull(bits, NULL, 10);
+   settings.parity = parity[0];
+   settings.stops = (unsigned)g_ascii_strtoull(stops, NULL, 10);
+   if (!rr_serial_set_settings(port, &settings))
+      gdk_display_beep(gdk_display_get_default());
+}
+static void terminal_rx_toggle(GtkToggleButton *button, gpointer user) {
+   terminal_session_t *session = user;
+   rr_serial_t *port = rr_serial_find(session->name);
+   if (!port) return;
+   gboolean running = gtk_toggle_button_get_active(button);
+   rr_serial_read_enabled(port, running);
+   gtk_button_set_label(GTK_BUTTON(button), running ? "Stop RX" : "Start RX");
+}
+static GtkWidget *terminal_setting_combo(const char *const *values, guint n,
+   unsigned current, bool numeric) {
+   GtkWidget *combo = gtk_combo_box_text_new();
+   for (guint i = 0; i < n; i++)
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), values[i], values[i]);
+   gchar *id = numeric ? g_strdup_printf("%u", current) : NULL;
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), numeric ? id : values[current]);
+   g_free(id);
+   return combo;
+}
+static void terminal_toolbar(terminal_session_t *session) {
+   GtkWidget *bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(session->page), bar, FALSE, FALSE, 3);
+   rr_serial_t *port = rr_serial_find(session->name);
+   rr_serial_settings_t settings;
+   const char *service = rr_sercom_binding(session->name);
+   bool configured = port && rr_serial_get_settings(port, &settings);
+   /* CAT/GPS PTYs aren't physical line settings; avoid misleading controls. */
+   bool physical = service && (!strcmp(service, "local.raw") ||
+      g_str_has_prefix(service, "host:"));
+   if (configured && physical) {
+      static const char *const rates[] = {"300","1200","2400","4800","9600",
+         "19200","38400","57600","115200","230400","460800","921600"};
+      static const char *const bits[] = {"5","6","7","8"};
+      static const char *const parity[] = {"n","e","o"};
+      static const char *const stops[] = {"1","2"};
+      session->baud = terminal_setting_combo(rates, G_N_ELEMENTS(rates), settings.baud, true);
+      session->bits = terminal_setting_combo(bits, G_N_ELEMENTS(bits), settings.bits, true);
+      session->parity = terminal_setting_combo(parity, G_N_ELEMENTS(parity),
+         settings.parity == 'e' ? 1 : settings.parity == 'o' ? 2 : 0, false);
+      session->stops = terminal_setting_combo(stops, G_N_ELEMENTS(stops), settings.stops, true);
+      GtkWidget *entries[] = {session->baud, session->bits, session->parity, session->stops};
+      const char *names[] = {"Baud","Bits","Parity","Stop"};
+      for (guint i = 0; i < G_N_ELEMENTS(entries); i++) {
+         gtk_box_pack_start(GTK_BOX(bar), gtk_label_new(names[i]), FALSE, FALSE, 0);
+         gtk_box_pack_start(GTK_BOX(bar), entries[i], FALSE, FALSE, 0);
+      }
+      GtkWidget *apply = gtk_button_new_with_label("Apply");
+      g_signal_connect(apply, "clicked", G_CALLBACK(terminal_settings_apply), session);
+      gtk_box_pack_start(GTK_BOX(bar), apply, FALSE, FALSE, 0);
+      session->running = gtk_toggle_button_new_with_label("Stop RX");
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(session->running), TRUE);
+      g_signal_connect(session->running, "toggled", G_CALLBACK(terminal_rx_toggle), session);
+      gtk_box_pack_start(GTK_BOX(bar), session->running, FALSE, FALSE, 0);
+   } else {
+      GtkWidget *label = gtk_label_new(service ? service : "Serial endpoint");
+      gtk_box_pack_start(GTK_BOX(bar), label, FALSE, FALSE, 0);
+   }
+}
 static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
    terminal_session_t *session = data;
@@ -87,6 +162,7 @@ void gtk_terminal_open_endpoint(const char *name) {
    gtk_text_view_set_editable(GTK_TEXT_VIEW(session->view), FALSE);
    gtk_text_view_set_monospace(GTK_TEXT_VIEW(session->view), TRUE);
 #endif
+   terminal_toolbar(session);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), session->view);
    gtk_box_pack_start(GTK_BOX(session->page), scroll, TRUE, TRUE, 0);
