@@ -27,7 +27,7 @@ static void status(void *user, const char *msg) {
 int main(void) {
    int calls = 0;
    char cmd[128];
-   assert(!rr_module_init());
+   assert(rr_module_init());
    const rrp_sdr_driver_t *driver = rrp_sdr_find("kiwi");
    assert(driver);
    rrp_sdr_host_t host = {
@@ -95,9 +95,9 @@ int main(void) {
    assert(rrp_sdr_find("kiwi") == NULL);
    rrp_sdr_driver_t incompatible = *driver;
    incompatible.abi_version--;
-   assert(rrp_sdr_register(&incompatible));
+   assert(!rrp_sdr_register(&incompatible));
    incompatible = *driver;
    incompatible.set_receiver = NULL;
-   assert(rrp_sdr_register(&incompatible));
+   assert(!rrp_sdr_register(&incompatible));
    puts("kiwi bridge ABI test: OK");
 }
