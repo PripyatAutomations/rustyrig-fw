@@ -916,6 +916,27 @@ static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
    gtk_widget_destroy(dialog);
 }
 
+static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
+   room_vfo_control_t *control = data;
+   if (!control || !event || event->button != 1 || event->type != GDK_2BUTTON_PRESS ||
+       !ws_conn) return FALSE;
+   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *)event); hit;
+        hit = gtk_widget_get_parent(hit)) {
+      if (hit == control->ptt) return FALSE;
+   }
+   dict *request = dict_new();
+   if (!request) return TRUE;
+   char vfo[2] = {control->vfo, 0};
+   dict_add(request, "msg.type", "cat");
+   dict_add(request, "cat.cmd", "swap");
+   dict_add(request, "cat.room", control->room);
+   dict_add(request, "cat.vfo", vfo);
+   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   dict_free(request);
+   return TRUE;
+}
+
 static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    room_vfo_control_t *control = data;
@@ -982,7 +1003,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       gtk_widget_set_tooltip_text(row,
          "VFOs select tuning and audio routes. On single-receiver radios, A/B usually share receiver audio; independent RX/TX audio depends on the rig and "
          "station setup.");
-      gtk_widget_add_events(row, GDK_BUTTON_RELEASE_MASK);
+      gtk_widget_add_events(row, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
       GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       gtk_container_add(GTK_CONTAINER(row), content);
       GtkWidget *name = gtk_label_new(NULL);
@@ -1017,6 +1038,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       if (ptt) {
          g_signal_connect(ptt, "clicked", G_CALLBACK(room_vfo_stop_clicked), control);
       }
+      g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
       gtk_box_pack_start(GTK_BOX(content), name, FALSE, FALSE, 2);
       gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 2);
