@@ -38,7 +38,7 @@ struct serial_session {
 struct serial_export {
    char name[64], path[PATH_MAX], client_name[64], slave[128], gps_scope[64];
    unsigned service;            // 0 raw export, 1 GPS input, 2 GPS output
-   bool pty, dropping, nmea_output;
+   bool pty, dropping, nmea_output, autodiscovered;
    int keeper;
    unsigned char *buffer;
    size_t buffer_limit, buffered;
@@ -58,6 +58,56 @@ struct serial_export {
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
 static struct serial_session *sessions;
+/* Auto-export present USB serial devices by default; exports remain subject
+ * to the existing per-user serial / serial.<name> authorization checks. */
+static bool serial_auto_name(const char *name) {
+   const char *suffix = NULL;
+   if (g_str_has_prefix(name, "ttyUSB")) suffix = name + 6;
+   else if (g_str_has_prefix(name, "ttyACM")) suffix = name + 6;
+   if (!suffix || !*suffix) return false;
+   for (const char *p = suffix; *p; p++)
+      if (!g_ascii_isdigit(*p)) return false;
+   return true;
+}
+static void serial_discover_usb(void) {
+   if (!cfg_get_bool("serial.auto-export-usb", true)) return;
+   /* Remove disconnected auto-exports only when they aren't owned.
+    * Keep an owned device's state intact until its session is closed. */
+   for (unsigned i = 0; i < count;) {
+      struct serial_export *p = &exports[i];
+      struct stat st;
+      if (p->autodiscovered && !p->owner &&
+          (stat(p->path, &st) || !S_ISCHR(st.st_mode))) {
+         exports[i] = exports[--count];
+         memset(&exports[count], 0, sizeof(exports[count]));
+      } else i++;
+   }
+   GDir *dir = g_dir_open("/dev", 0, NULL);
+   if (!dir) return;
+   const char *name;
+   while (count < SERIAL_PORTS_MAX && (name = g_dir_read_name(dir))) {
+      if (!serial_auto_name(name)) continue;
+      bool exists = false;
+      for (unsigned i = 0; i < count; i++)
+         if (!strcmp(exports[i].name, name)) { exists = true; break; }
+      if (exists) continue;
+      char path[PATH_MAX];
+      snprintf(path, sizeof(path), "/dev/%s", name);
+      struct stat st;
+      if (stat(path, &st) || !S_ISCHR(st.st_mode)) continue;
+      struct serial_export *p = &exports[count++];
+      memset(p, 0, sizeof(*p));
+      snprintf(p->name, sizeof(p->name), "%s", name);
+      snprintf(p->path, sizeof(p->path), "%s", path);
+      p->fd = p->keeper = -1;
+      p->autodiscovered = true;
+      p->buffer_limit = 16384;
+      p->settings = (rr_serial_settings_t){.baud=9600,.bits=8,.parity='n',.stops=1};
+      p->defaults = p->settings;
+   }
+   g_dir_close(dir);
+}
+
 static rr_event_token_t request_token, closed_token, frame_token, gps_token, nmea_token, inventory_token, catalog_token;
 
 static bool allowed(rrconn_t *client, const struct serial_export *port) {
@@ -221,6 +271,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       reply(client, "error", name, NULL, "invalid-request");
       goto done;
    }
+   if (!strcmp(cmd, "list") || !strcmp(cmd, "open")) serial_discover_usb();
    struct serial_export *p = owned(client, name);
 
    if (!strcmp(cmd, "list")) {
@@ -607,6 +658,7 @@ failed:
 }
 
 static void inventory_serial_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog) {
+   serial_discover_usb();
    if (!cfg_get_bool("serial.enable", true)) return;
    for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
@@ -651,7 +703,8 @@ void rrserver_serial_init(void) {
    int rank = 0;
 
    while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (!key || strncmp(key, "serial.", 7) || !value || !*value || !strcmp(value, "none")) {
+      if (!key || strncmp(key, "serial.", 7) || !strcmp(key, "serial.auto-export-usb") ||
+          !value || !*value || !strcmp(value, "none")) {
          continue;
       }
 
@@ -767,6 +820,7 @@ void rrserver_serial_init(void) {
       p->defaults = p->settings;
       count++;
    }
+   serial_discover_usb();
    catalog_token = event_on_binary_token(RR_INVENTORY_CATALOG_EVENT, inventory_serial_catalog, NULL);
    inventory_token = event_on_token(RR_INVENTORY_EVENT, inventory_serial, NULL);
    gps_token = event_on_token("serial.gps.position", gps_output, NULL);
