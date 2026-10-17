@@ -30,7 +30,7 @@ struct upload {
 static struct upload *uploads[FILE_JOBS];
 static GThreadPool *flush_workers;
 static GAsyncQueue *flushed;
-static bool valid_name(const char *s) {
+bool rrserver_files_valid_name(const char *s) {
    if (!s || !*s || strlen(s) > 255 || !strcmp(s, ".") || !strcmp(s, "..") || !strncmp(s, ".rr-upload-", 11))
       return false;
    if (!g_utf8_validate(s, -1, NULL))
@@ -39,39 +39,6 @@ static bool valid_name(const char *s) {
       if ((unsigned char)*s < 32 || *s == '/' || *s == '\\')
          return false;
    return true;
-}
-static bool share_config(const char *path, int line, const char *section, const char *input) {
-   static char current[256];
-   char *copy = g_strdup(input), *equals = strchr(copy, '=');
-   if (!equals) {
-      g_free(copy);
-      return true;
-   }
-   *equals++ = 0;
-   char *key = g_strstrip(copy), *value = g_strstrip(equals);
-   const char *name = !strcmp(section, "share") ? current : section + 6;
-   if (!strcmp(section, "share") && !strcmp(key, "name")) {
-      if (!valid_name(value)) {
-         g_free(copy);
-         return true;
-      }
-      snprintf(current, sizeof(current), "%s", value);
-      g_free(copy);
-      return false;
-   }
-   bool known = !strcmp(key, "path") || !strcmp(key, "read") || !strcmp(key, "write") || !strcmp(key, "enabled");
-   bool ok = valid_name(name) && !strchr(name, '.') && known;
-   if (ok) {
-      char full[320];
-      snprintf(full, sizeof(full), "share:%s.%s", name, key);
-      dict_add(cfg, full, value);
-   } else
-      Log(LOG_CRIT, "share", "Invalid share setting at %s:%d", path, line);
-   g_free(copy);
-   return !ok;
-}
-bool rrserver_files_config_init(void) {
-   return cfg_add_callback(NULL, "share", share_config) && cfg_add_callback(NULL, "share:*", share_config);
 }
 static bool permission(rrconn_t *client, const char *share, bool write) {
    char key[320];
@@ -96,7 +63,7 @@ static int resolve(rrconn_t *client, const char *path, bool write, char name[256
    char *slash = strchr(buffer, '/');
    if (slash)
       *slash++ = 0;
-   if (!valid_name(buffer) || !permission(client, buffer, write)) {
+   if (!rrserver_files_valid_name(buffer) || !permission(client, buffer, write)) {
       errno = EACCES;
       return -1;
    }
@@ -117,7 +84,7 @@ static int resolve(rrconn_t *client, const char *path, bool write, char name[256
    char *part = slash;
    while ((slash = strchr(part, '/'))) {
       *slash++ = 0;
-      if (!valid_name(part) || !*slash) {
+      if (!rrserver_files_valid_name(part) || !*slash) {
          close(fd);
          errno = EINVAL;
          return -1;
@@ -129,7 +96,7 @@ static int resolve(rrconn_t *client, const char *path, bool write, char name[256
       fd = next;
       part = slash;
    }
-   if (!valid_name(part)) {
+   if (!rrserver_files_valid_name(part)) {
       close(fd);
       errno = EINVAL;
       return -1;
@@ -223,7 +190,7 @@ static void list(rrconn_t *client, dict *request) {
       errno = 0;
       while ((de = readdir(dir))) {
          struct stat st;
-         if (!valid_name(de->d_name) || fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) || (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)))
+         if (!rrserver_files_valid_name(de->d_name) || fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) || (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)))
             continue;
          if (++count > 10000) {
             closedir(dir);
