@@ -240,6 +240,8 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
       }
    }
 
+   /* SELECT always polls its targeted VFO to drive the backend's
+    * active-VFO transition; unlike ordinary polls, it is not coalesced. */
    // PTT completion must not wait for an additional full polling sweep.
    if (job->operation != RR_BACKEND_PTT && !job->failed && api->poll_state) {
       rr_vfo_data_t *state = api->poll_state(backend, job->vfo);

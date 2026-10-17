@@ -27,6 +27,7 @@
 #include <librrprotocol/ws.mediachan.h>
 #include <rrserver/database.h>
 #include <rrserver/backend.h>
+#include <rrserver/backend.worker.h>
 #include <rrserver/rig.properties.h>
 #include <rrserver/rig.rooms.h>
 #include <rrserver/rig.vfo.h>
@@ -289,7 +290,14 @@ static void rrserver_handle_vfo_select(const char *event, const char *data, rrco
          Log(LOG_INFO, "rig.vfo", "%s: operating VFO selected %s in %s",
             rr_backend_instance_alias(backend), name, room);
       }
-      rr_backend_poll_rig(radio, vfo);
+      /* A regular POLL can be coalesced with an older outstanding poll.
+       * SELECT must reach the rig worker even if polling is already busy. */
+      bool failed = backend && backend->worker ?
+         rr_backend_worker_submit(backend, vfo, RR_BACKEND_SELECT,
+            (dict_value_t){0}, NULL, NULL) :
+         rr_backend_poll_rig(radio, vfo);
+      if (failed) Log(LOG_WARN, "rig.vfo", "%s: unable to queue physical VFO selection %s",
+         backend ? rr_backend_instance_alias(backend) : "?", name);
    } else {
       Log(LOG_WARN, "rig.vfo", "Ignoring unknown VFO %s in room %s",
          name ? name : "?", room ? room : "?");
