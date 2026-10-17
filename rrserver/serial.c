@@ -44,6 +44,8 @@ struct serial_export {
    unsigned service;            // 0 raw export, 1 GPS input, 2 GPS output
    bool pty, dropping, nmea_output, autodiscovered, virtual_modem;
    rr_dsp_worker_t worker;
+   gint64 modem_retry_at;
+   unsigned modem_failures;
    char command[PATH_MAX];
    int keeper;
    unsigned char *buffer;
@@ -184,9 +186,30 @@ static int open_modem_worker(struct serial_export *p) {
     * PCM/control descriptors are reserved for the rig-bound supervisor. */
    return p->worker.serial_fd;
 }
+/* A modem belongs to its rig, not to an attached WebSocket. Detaching a
+ * client leaves the subprocess alive and able to monitor RF. */
+static void modem_failed(struct serial_export *p) {
+   if (!p->virtual_modem) return;
+   rr_dsp_worker_stop(&p->worker);
+   p->fd = -1;
+   unsigned delay = 1u << (p->modem_failures < 5 ? p->modem_failures : 5);
+   if (p->modem_failures < 5) p->modem_failures++;
+   p->modem_retry_at = g_get_monotonic_time() + (gint64)delay * G_USEC_PER_SEC;
+   Log(LOG_WARN, "serial.modem", "%s worker unavailable; retry in %u s", p->name, delay);
+}
+static void modem_ensure_running(struct serial_export *p) {
+   if (!p->virtual_modem || p->fd >= 0 ||
+       g_get_monotonic_time() < p->modem_retry_at) return;
+   p->fd = open_modem_worker(p);
+   if (p->fd >= 0) {
+      p->modem_retry_at = 0;
+      p->modem_failures = 0;
+      Log(LOG_INFO, "serial.modem", "%s worker started", p->name);
+   } else modem_failed(p);
+}
 static void close_port(struct serial_export *p) {
    if (p->virtual_modem) {
-      rr_dsp_worker_stop(&p->worker);
+      /* Persistent worker: clear only the client's stream state. */
    } else if (p->pty) {
       rr_serial_pty_close(p->fd, p->keeper, p->path, p->slave);
    } else {
@@ -196,7 +219,7 @@ static void close_port(struct serial_export *p) {
    free(p->buffer);
    p->buffer = NULL;
    p->buffered = 0;
-   p->fd = -1;
+   if (!p->virtual_modem) p->fd = -1;
    p->owner = NULL;
    p->stream = 0;
    p->client_name[0] = '\0';
@@ -372,7 +395,8 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          reply(client, "error", name, NULL, "no-buffer-memory");
          goto done;
       }
-      p->fd = p->virtual_modem ? open_modem_worker(p) : rr_serial_device_open(p->path, &proposed, &p->original);
+      if (p->virtual_modem) modem_ensure_running(p);
+      else p->fd = rr_serial_device_open(p->path, &proposed, &p->original);
 
       if (p->fd < 0) {
          free(p->buffer);
@@ -608,9 +632,26 @@ bool rrserver_serial_poll(void) {
          continue;
       }
 
-      if (!p->owner) {
-         continue;
+      if (p->virtual_modem) {
+         modem_ensure_running(p);
+         if (!p->owner) {
+            /* An RX modem keeps running without subscribers. Drain its
+             * serial output so the child never blocks on an idle PTY. */
+            if (p->fd >= 0) {
+               unsigned char discarded[1024];
+               ssize_t n = read(p->fd, discarded, sizeof(discarded));
+               if (!n || (n < 0 && errno != EAGAIN && errno != EINTR))
+                  modem_failed(p);
+            }
+            continue;
+         }
+         if (p->fd < 0) {
+            reply(p->owner, "closed", p->client_name, p, "worker-unavailable");
+            close_port(p);
+            continue;
+         }
       }
+      if (!p->owner) continue;
       active = true;
 
       if (!allowed(p->owner, p)) {
@@ -688,6 +729,7 @@ bool rrserver_serial_poll(void) {
       continue;
 failed:
       reply(p->owner, "closed", p->client_name, p, "device-disconnected");
+      if (p->virtual_modem) modem_failed(p);
       close_port(p);
    }
    return active;
@@ -858,6 +900,7 @@ void rrserver_serial_init(void) {
       }
       p->defaults = p->settings;
       count++;
+      if (p->virtual_modem) modem_ensure_running(p);
    }
    serial_discover_usb();
    catalog_token = event_on_binary_token(RR_INVENTORY_CATALOG_EVENT, inventory_serial_catalog, NULL);
@@ -872,6 +915,7 @@ void rrserver_serial_init(void) {
 void rrserver_serial_fini(void) {
    for (unsigned i = 0 ; i < count ; i++) {
       close_port(&exports[i]);
+      if (exports[i].virtual_modem) rr_dsp_worker_stop(&exports[i].worker);
    }
 
    count = 0;
