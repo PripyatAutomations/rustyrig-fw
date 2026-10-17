@@ -34,7 +34,7 @@ typedef struct serial_binding {
    size_t buffer_limit;
    uint8_t stream;
    uint32_t tx_seq, rx_seq;
-   bool opening, tx_pending, rx_pending, failed, settings_override, configure_pending;
+   bool opening, tx_pending, rx_pending, failed, settings_override, configure_pending, virtual_modem;
    gint64 next_retry_us, open_started_us;
    unsigned retry_seconds;
    rr_serial_settings_t confirmed;
@@ -451,6 +451,7 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
 
       if (b->opening && stream && stream < 256) {
          b->stream = stream;
+         b->virtual_modem = !strcmp(dict_get(d, "serial.kind", ""), "modem");
          b->opening = false;
          b->failed = false;
          b->retry_seconds = 0;
@@ -712,6 +713,7 @@ bool rr_sercom_line_settings(const char *name, rr_serial_settings_t *settings) {
    serial_binding_t *b = binding(name);
    if (!b || !settings) return false;
    if (host_binding(b)) {
+      if (b->virtual_modem) return false;
       *settings = b->requested;
       return true;
    }
@@ -722,6 +724,7 @@ bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *s
    serial_binding_t *b = binding(name);
    if (!b || !settings) return false;
    if (host_binding(b)) {
+      if (b->virtual_modem) return false;
       rrconn_t *connection = binding_connection(b);
       if (!connection || !connection->authenticated || !b->stream || b->failed)
          return false;
