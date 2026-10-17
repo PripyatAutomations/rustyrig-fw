@@ -53,6 +53,34 @@ typedef struct hamlib_backend {
    int timeout_ms;
 } hamlib_backend_t;
 
+/* Driver support is different from independent VFO targeting, and
+ * neither implies that we have a successfully observed value. */
+typedef enum {
+   HL_PROP_FREQ, HL_PROP_MODE, HL_PROP_PTT, HL_PROP_STRENGTH
+} hl_property_kind_t;
+
+static bool hl_property_queryable(const hamlib_backend_t *data,
+   rr_vfo_t index, rr_vfo_t active, hl_property_kind_t kind) {
+   if (!data || !data->rig || !data->rig->caps) return false;
+   const int targeting = data->rig->caps->targetable_vfo;
+   const bool active_bank = index == active;
+   switch (kind) {
+      case HL_PROP_FREQ:
+         return active_bank || (targeting & RIG_TARGETABLE_FREQ);
+      case HL_PROP_MODE:
+         return (active_bank || (targeting & RIG_TARGETABLE_MODE)) &&
+            (active_bank || !data->vfo_probed[index] || data->vfo_mode_ok[index]);
+      case HL_PROP_PTT:
+         return !data->ptt_read_unavailable[index] &&
+            (active_bank || (targeting & RIG_TARGETABLE_PTT));
+      case HL_PROP_STRENGTH:
+         return !data->strength_untargetable[index] &&
+            rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH) &&
+            (active_bank || (targeting & RIG_TARGETABLE_LEVEL));
+   }
+   return false;
+}
+
 /* Hamlib's callback and enable threshold are process-global. Attribute
  * messages to the originating backend worker thread and filter per rig. */
 static pthread_once_t hamlib_log_once = PTHREAD_ONCE_INIT;
@@ -765,6 +793,15 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (rr_backend_worker_yield(backend)) {
       return NULL;
    }
+   /* Unlike a cache hit, a targetable capability does not imply
+    * frequency state is known. Never surface inactive frequency as known
+    * when the driver cannot address that VFO. */
+   if (!hl_property_queryable(data, index, backend->active_vfo, HL_PROP_FREQ)) {
+      hl_property_unavailable(backend, vfo, RR_PROP_VFO_FREQUENCY);
+      hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
+      hl_property_unavailable(backend, vfo, RR_PROP_VFO_WIDTH);
+      return NULL;
+   }
    result = rig_get_freq(data->rig, hamlib_vfo, &state->freq);
 
    if (result != RIG_OK) {
@@ -784,9 +821,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       return NULL;
    }
 
-   if (index == backend->active_vfo ||
-       ((data->rig->caps->targetable_vfo & RIG_TARGETABLE_MODE) &&
-        (!data->vfo_probed[index] || data->vfo_mode_ok[index]))) {
+   if (hl_property_queryable(data, index, backend->active_vfo, HL_PROP_MODE)) {
       data->vfo_probed[index] = true;
       result = rig_get_mode(data->rig, hamlib_vfo, &state->mode, &state->width);
 
@@ -834,9 +869,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    /* Some radios cannot read PTT for the inactive bank. Read failure
     * must never be mistaken for a confirmed PTT OFF state. Keep the last
     * known state and only suppress repeated unsupported read attempts. */
-   if (!data->ptt_read_unavailable[index] &&
-       (index == backend->active_vfo ||
-        (data->rig->caps->targetable_vfo & RIG_TARGETABLE_PTT))) {
+   if (hl_property_queryable(data, index, backend->active_vfo, HL_PROP_PTT)) {
       result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
       if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL ||
           result == -RIG_ENTARGET) {
@@ -857,10 +890,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    /* Strength is optional, and Hamlib may not permit querying the
     * inactive VFO (RIG_ENTARGET = 12). Don't retry that unsupported
     * operation on every poll. Reprobe after reconnect. */
-   if (!data->strength_untargetable[index] &&
-       rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH) &&
-       (index == backend->active_vfo ||
-        (data->rig->caps->targetable_vfo & RIG_TARGETABLE_LEVEL))) {
+   if (hl_property_queryable(data, index, backend->active_vfo, HL_PROP_STRENGTH)) {
       result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
       if (result == -RIG_ENTARGET) {
          data->strength_untargetable[index] = true;
