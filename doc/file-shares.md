@@ -77,8 +77,17 @@ downloads stream to a temporary local file and publish it on completion.
 All registered media subsystems, including webcam/video and file streams,
 appear in discovery. A stream uses its registered VFO or rig as parent, falling
 back to the site if that parent is unavailable. Shares also appear in Resource
-Explorer. Linked peers advertise share metadata with access expressions;
-filesystem operations require a direct connection to the owning server.
+Explorer. Linked peers advertise share metadata with access expressions. The Server Files
+browser shows linked server nodes as folders named `@<node-UUID>` at the
+root. Expand one to browse its exported shares (for example
+`/@<node-UUID>/recordings/`). Read, download, upload, edit, rename and
+delete requests travel over the server link to the owning server. Server
+links use the same WebSocket file protocol; no FTP or RTP connection is
+needed. The owning server must have a matching enabled callsign account
+with the appropriate `files.read` or `files.write` grants. The login
+on the connected server does **not** grant file access on its peers.
+Cross-server moves are intentionally prohibited. A lost link or an owner
+without a matching account prevents further file operations.
 
 ## Protocol ownership
 

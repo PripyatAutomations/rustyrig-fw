@@ -17,6 +17,7 @@ void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *dat
 void rrserver_relay_poll(void);
 void rrserver_relay_fini(void);
 void rrserver_relay_inventory(rrconn_t *client, const char *request);
+void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id);
 void rrserver_relay_objects(rrconn_t *client, const char *request);
 char *rrserver_relay_remote_rooms(void);
 char *rrserver_relay_servers(void);

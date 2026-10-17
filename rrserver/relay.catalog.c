@@ -612,6 +612,31 @@ const char *rrserver_relay_client_server(const rrconn_t *client) {
    return cfg_get("station.name");
 }
 
+/* Expose remote nodes as virtual share roots /@<node-uuid>.
+ * Access to individual shares is checked by the owner when opened. */
+void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id) {
+   if (!client || !client->authenticated || !client->user) return;
+   for (struct catalog *c = rr_relay_catalogs; c; c = c->next) {
+      if (rr_relay_local_owner(c->owner) || !rrserver_links_route(c->owner) ||
+          strcmp(dict_get(c->descriptor, "object.type", ""), "node")) continue;
+      dict *entry = dict_new();
+      if (!entry) continue;
+      char name[40];
+      snprintf(name, sizeof(name), "@%s", c->owner);
+      dict_add(entry, "msg.type", "file");
+      dict_add(entry, "file.cmd", "entry");
+      dict_add(entry, "request.id", request_id);
+      dict_add(entry, "file.path", "/");
+      dict_add(entry, "file.name", name);
+      dict_add(entry, "file.kind", "directory");
+      dict_add_ullong(entry, "file.size", 0);
+      dict_add_bool(entry, "file.readable", true);
+      dict_add_bool(entry, "file.writable", false);
+      ws_send_dict(NULL, client, entry, WEBSOCKET_OP_TEXT);
+      dict_free(entry);
+   }
+}
+
 /* Return an owned listing of discovered server nodes. */
 char *rrserver_relay_servers(void) {
    GString *text = g_string_new(cfg_get("station.name"));

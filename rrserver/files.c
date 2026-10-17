@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 // Exported shares and bounded file operations. Part of RustyRig; MIT/GPL.
 // All paths are relative to directory descriptors; symlinks are never followed.
+#include <rrserver/relay.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -161,6 +162,7 @@ static void list(rrconn_t *client, dict *request) {
          if (read || write)
             entry(client, request, share, &st, read, write);
       }
+      rrserver_relay_file_nodes(client, dict_get(request, "request.id", ""));
    } else {
       char name[256];
       int parent = resolve(client, path, false, name);

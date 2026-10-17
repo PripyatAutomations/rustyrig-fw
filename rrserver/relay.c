@@ -97,9 +97,30 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    free(json);
 }
 
+/* File operations use correlated results, never generic chat errors, so
+ * transfers fail immediately rather than waiting for the client timeout. */
+static void linked_file_error(rrconn_t *client, dict *request, const char *reason) {
+   dict *reply = dict_new();
+   if (!reply) return;
+   dict_add(reply, "msg.type", "file");
+   dict_add(reply, "file.cmd", "result");
+   dict_add(reply, "file.path", dict_get(request, "file.path", "/"));
+   dict_add(reply, "request.id", dict_get(request, "request.id", ""));
+   dict_add(reply, "file.error", reason);
+   ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   dict_free(reply);
+}
+
 /* Allow only supported client operations onto the application relay. */
 bool rr_relay_permitted_message(dict *d) {
    const char *family = dict_get(d, "msg.type", ""), *cmd = dict_get(d, "talk.cmd", "");
+
+   if (!strcmp(family, "file")) {
+      const char *op = dict_get(d, "file.cmd", "");
+      return !strcmp(op, "list") || !strcmp(op, "read") || !strcmp(op, "begin") ||
+         !strcmp(op, "chunk") || !strcmp(op, "commit") || !strcmp(op, "cancel") ||
+         !strcmp(op, "mkdir") || !strcmp(op, "delete") || !strcmp(op, "rename");
+   }
 
    if (!strcmp(family, "cat")) {
       return true;
@@ -137,6 +158,54 @@ static void route_request(const char *event, const void *data, size_t length, rr
          rr_relay_send_users(client, dict_get(io->message, "talk.target", NULL));
       }
 
+      return;
+   }
+   /* /@<owner-node-uuid>/share/path is a virtual file namespace. The
+    * remote filesystem only ever sees /share/path. No room membership is
+    * necessary, but the owner must authenticate the callsign itself. */
+   if (!strcmp(dict_get(io->message, "msg.type", ""), "file")) {
+      const char *path = dict_get(io->message, "file.path", "");
+      if (strncmp(path, "/@", 2)) return; /* Local shares stay local. */
+      const char *end = strchr(path + 2, '/');
+      size_t n = end ? (size_t)(end - path - 2) : strlen(path + 2);
+      char owner[37];
+      if (n != 36) { io->handled = true; linked_file_error(client, io->message, "Invalid linked share owner"); return; }
+      memcpy(owner, path + 2, n);
+      owner[n] = 0;
+      struct catalog *node = rr_relay_find_catalog(owner);
+      io->handled = true;
+      if (!client->authenticated || !client->user || !node ||
+          strcmp(dict_get(node->descriptor, "object.type", ""), "node") ||
+          strcmp(node->owner, owner) || rr_relay_local_owner(owner) ||
+          !rrserver_links_route(owner) || !rr_relay_permitted_message(io->message)) {
+         linked_file_error(client, io->message, "Linked file owner unavailable or operation denied");
+         return;
+      }
+      dict *request = dict_clone(io->message);
+      if (!request) return;
+      dict_add(request, "file.path", end ? end : "/");
+      const char *dest = dict_get(request, "file.dest", NULL);
+      if (dest) {
+         char prefix[40];
+         snprintf(prefix, sizeof(prefix), "/@%s", owner);
+         if (strncmp(dest, prefix, strlen(prefix)) ||
+             (dest[strlen(prefix)] != '/' && dest[strlen(prefix)] != 0)) {
+            dict_free(request);
+            linked_file_error(client, io->message, "Cross-server file moves are not allowed");
+            return;
+         }
+         char *local_dest = strdup(dest[strlen(prefix)] ? dest + strlen(prefix) : "/");
+         if (!local_dest) { dict_free(request); return; }
+         dict_add(request, "file.dest", local_dest);
+         free(local_dest);
+      }
+      struct relay_client *origin = rr_relay_client_for(client, true);
+      if (origin) {
+         dict_add_ulong(request, "relay.deadline", now + 30);
+         io->result = rr_relay_packet(owner, "request", origin->id, client->user->name, request);
+      }
+      if (!io->result) linked_file_error(client, io->message, "Linked file owner unreachable");
+      dict_free(request);
       return;
    }
    struct relay_media *media = rr_relay_media_map(client, dict_get(io->message, "media.chan-uuid", ""), false);
@@ -441,6 +510,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                   }
                   break;
                }
+            }
+            if (!strcmp(dict_get(d, "msg.type", ""), "file")) {
+               const char *original = dict_get(d, "file.path", "/");
+               char virtual_path[1100];
+               snprintf(virtual_path, sizeof(virtual_path), "/@%s%s", origin, original);
+               dict_add(d, "file.path", virtual_path);
             }
             rr_relay_deliver(c->client, d);
             break;
@@ -822,6 +897,10 @@ void rrserver_relay_fini(void) {
 
 /* Send remote inventory entries visible through the relay catalog. */
 void rrserver_relay_inventory(rrconn_t *client, const char *request) {
+}
+void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id) {
+   (void)client;
+   (void)request_id;
 }
 
 /* Send discovered remote objects to an object-list requester. */
