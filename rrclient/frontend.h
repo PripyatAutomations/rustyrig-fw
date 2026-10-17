@@ -141,6 +141,7 @@ typedef struct rr_frontend_ops {
 
 /* Register the frontend ops. Returns false if a frontend is already registered. Takes no ownership of ops; the pointed-to table must outlive the registration
  * (static storage in the module). */
+/* true on successful registration, false on failure. */
 extern bool frontend_ops_register(const rr_frontend_ops_t *ops);
 
 /* Unregister. Safe to call when nothing is registered. After this the core treats every op as a no-op and ui_mode falls back to TUI. */
