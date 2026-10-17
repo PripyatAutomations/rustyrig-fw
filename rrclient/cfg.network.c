@@ -72,7 +72,7 @@ static bool config_network_save_cb(FILE *fp, const char *path) {
       strlcpy(netname, name, dot - name + 1);
       fprintf(fp, "[network:%s]\nautojoin=%s\n\n", netname, val ? val : "");
    }
-   return false;
+   return ferror(fp) == 0;
 }
 
 // Called once at startup to register our save callback
@@ -82,9 +82,10 @@ bool cfg_network_save_init(void) {
 
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
+   if (!section || !buf) return false;
    char *np = strchr(section, ':');
 
-   ui_print(NULL, "np: %s section: %s, path: %s, buf: %s", np + 1, section, path, buf);
+   if (!np) return false;
 
    if (np) {
       np++;
@@ -95,7 +96,7 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          if (!tmpbuf) {
             fprintf(stderr, "OOM in config_network_cb!\n");
 
-            return true;
+            return false;
          }
          char *val = strchr(tmpbuf, '=');
 
@@ -157,10 +158,9 @@ bool config_network_cb(const char *path, int line, const char *section, const ch
          }
       }
 
-      return false;
-   } else {
-      // invalid section for this callback
       return true;
+   } else {
+      return false;
    }
 
    return false;
