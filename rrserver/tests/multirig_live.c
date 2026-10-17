@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
 #ifdef RR_TEST_HAMLIB_MODULE
    assert(!strcmp(hamlib->type->name, "hamlib"));
    assert(rr_find_loaded_module("rrserver-hamlib"));
-   assert(rr_unload_module("rrserver-hamlib")); // Active backend callbacks pin the module.
+   assert(!rr_unload_module("rrserver-hamlib")); // Active backend callbacks pin the module.
 #else
    assert(hamlib->type == &rr_backend_hamlib);
 #endif
@@ -282,11 +282,11 @@ int main(int argc, char **argv) {
 #endif
    rr_backend_fini();
 #ifdef RR_TEST_HAMLIB_MODULE
-   assert(!rr_unload_module("rrserver-hamlib"));
+   assert(rr_unload_module("rrserver-hamlib"));
    assert(!rr_backend_type_find("hamlib"));
-   assert(!rr_load_module("rrserver-hamlib"));
+   assert(rr_load_module("rrserver-hamlib"));
    assert(rr_backend_type_find("hamlib"));
-   assert(!rr_unload_module("rrserver-hamlib"));
+   assert(rr_unload_module("rrserver-hamlib"));
 #endif
    assert(!rig.rigs && !rig.default_cat);
    event_shutdown();
