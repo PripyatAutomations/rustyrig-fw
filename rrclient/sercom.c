@@ -178,7 +178,8 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
          !strcmp(b->service, "rig.nmea-out");
       if (!cat && !gps && !modem) continue;
       if (!strcmp(b->profile, profile) &&
-          ((!cat && !modem) || !strcmp(b->radio, alias))) continue;
+          ((!cat && !modem && !gps) || (!gps && !strcmp(b->radio, alias)) ||
+           (gps && !strcmp(b->focus_room, room)))) continue;
 
       if (modem) {
          /* Discard commands for the previous rig before changing streams. */
@@ -197,11 +198,15 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
       b->dropping = false;
       strlcpy(b->profile, profile, sizeof(b->profile));
       if (cat || modem) strlcpy(b->radio, alias, sizeof(b->radio));
-      if (cat) strlcpy(b->focus_room, room, sizeof(b->focus_room));
+      if (cat || gps) strlcpy(b->focus_room, room, sizeof(b->focus_room));
       if (modem) host_sync(b);
       Log(LOG_INFO, "serial", "%s now follows %s on %s",
          b->name, alias, profile);
    }
+   /* After redirecting ttyGPS, immediately publish the new rig's last
+    * known NMEA so loggers never retain the previous transmitter site. */
+   if (rrclient_connection_find(profile) == ws_conn)
+      rrclient_media_emit_gps_for_room(room);
 }
 
 static const dict *cat_radio(void) {
@@ -637,15 +642,24 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
 
       for (serial_binding_t *b = bindings ; b ; b = b->next) {
          if (!strcmp(gps_service(b), "gps-out") || !strcmp(gps_service(b), "nmea-out")) {
-            if (d && dict_get_bool(d, "gps.raw", false) != !strcmp(gps_service(b), "nmea-out")) {
+            /* A floating GPS port accepts whichever NMEA representation
+             * its rig advertises: original NMEA or synthesized RMC. */
+            if (d && strcmp(b->service, "rig.gps-out") &&
+                dict_get_bool(d, "gps.raw", false) != !strcmp(gps_service(b), "nmea-out")) {
                continue;
             }
             char scope[64];
             gps_scope(b, scope, sizeof(scope));
 
             const char *uuid = d ? dict_get(d, "gps.channel-uuid", "") : "";
+            const char *control_room = d ? dict_get(d, "gps.control-room", "") : "";
             if (*uuid && b->profile[0] && binding_connection(b) != ws_conn) continue;
-            if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) || (!strcmp(scope, "active") && selected)) {
+            bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
+            if (floating && b->focus_room[0] && *control_room) {
+               if (!ws_room_same_rig(b->focus_room, control_room)) continue;
+               rr_serial_write(b->port, frame, len);
+            } else if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) ||
+                       (!strcmp(scope, "active") && selected && !b->focus_room[0])) {
                rr_serial_write(b->port, frame, len);
             }
          }

@@ -93,6 +93,7 @@ typedef struct {
    bool known;
    int32_t lat, lon;
    uint8_t flags;
+   char raw_nmea[512];
 } gps_position_cache_t;
 static gps_position_cache_t gps_position_cache[RR_MEDIA_MAX_CHANS];
 static guint gps_nmea_timer;
@@ -118,6 +119,7 @@ static gboolean gps_nmea_tick(gpointer unused) {
       dict *d = dict_new();
       if (!d) continue;
       dict_add(d, "gps.channel-uuid", channel->uuid);
+      dict_add(d, "gps.control-room", channel->control_room);
       dict_add(d, "gps.source", source);
       dict_add(d, "gps.nmea", sentence);
       dict_add_bool(d, "gps.raw", false);
@@ -128,6 +130,43 @@ static gboolean gps_nmea_tick(gpointer unused) {
       dict_free(d);
    }
    return G_SOURCE_CONTINUE;
+}
+
+/* Re-announce the selected transmitter site's cached position immediately
+ * when ttyGPS changes rig, without waiting for a fresh GPS frame. */
+void rrclient_media_emit_gps_for_room(const char *room) {
+   if (!room || !*room) return;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      const struct rr_client_media_chan *ch = &known_chans[i];
+      const gps_position_cache_t *cached = &gps_position_cache[i];
+      if (!ch->subscribed || !ch->stream_valid ||
+          !ws_room_same_rig(room, ch->control_room)) continue;
+      char sentence[512], source[64];
+      bool raw = !strcmp(ch->codec, RR_NMEA_FRAME_CODEC);
+      if (raw) {
+         if (!cached->raw_nmea[0]) continue;
+         snprintf(sentence, sizeof(sentence), "%s", cached->raw_nmea);
+      } else if (!strcmp(ch->codec, RR_GPS_FRAME_CODEC) && cached->known) {
+         if (!rr_gps_nmea_rmc(cached->lat, cached->lon, cached->flags,
+               time(NULL), sentence, sizeof(sentence))) continue;
+      } else continue;
+      const char *suffix = strstr(ch->name, raw ? ".nmea.rx" : ".gps.rx");
+      if (!suffix || (size_t)(suffix - ch->name) >= sizeof(source)) continue;
+      size_t n = (size_t)(suffix - ch->name);
+      memcpy(source, ch->name, n);
+      source[n] = 0;
+      dict *d = dict_new();
+      if (!d) continue;
+      dict_add(d, "gps.channel-uuid", ch->uuid);
+      dict_add(d, "gps.control-room", ch->control_room);
+      dict_add(d, "gps.source", source);
+      dict_add(d, "gps.nmea", sentence);
+      dict_add_bool(d, "gps.raw", raw);
+      dict_add_bool(d, "gps.selected", true);
+      event_emit_dict("serial.gps.output", NULL, d);
+      dict_free(d);
+      return; /* only one initial location announcement */
+   }
 }
 
 static bool media_ready = false; // have we got the first available batch?
@@ -906,6 +945,11 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
           * its room is no longer the active tab. */
          continue;
       }
+      if (raw) {
+         gps_position_cache[channel - known_chans].known = true;
+         snprintf(gps_position_cache[channel - known_chans].raw_nmea,
+            sizeof(gps_position_cache[0].raw_nmea), "%s", sentence);
+      }
       if (!raw) {
          size_t position_index = (size_t)(channel - known_chans);
          gps_position_cache[position_index].known = true;
@@ -1503,6 +1547,7 @@ const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
 typedef struct {
    char media_my_privs[128];
    struct rr_client_media_chan known_chans[RR_MEDIA_MAX_CHANS];
+   gps_position_cache_t gps_position_cache[RR_MEDIA_MAX_CHANS];
    char media_room[128], gps_scopes[1024];
    bool media_ready, direction_disabled[2];
 } rrclient_media_context;
@@ -1526,6 +1571,12 @@ void rrclient_media_context_swap(void **saved) {
       memcpy(&temporary, &known_chans, sizeof(known_chans));
       memcpy(&known_chans, &state->known_chans, sizeof(known_chans));
       memcpy(&state->known_chans, &temporary, sizeof(known_chans));
+   }
+   {
+      __typeof__(gps_position_cache) temporary;
+      memcpy(&temporary, &gps_position_cache, sizeof(gps_position_cache));
+      memcpy(&gps_position_cache, &state->gps_position_cache, sizeof(gps_position_cache));
+      memcpy(&state->gps_position_cache, &temporary, sizeof(gps_position_cache));
    }
    {
       __typeof__(media_room) temporary;
