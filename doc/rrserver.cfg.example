@@ -467,15 +467,17 @@ jpeg.rx=appsrc name=rx-src is-live=true do-timestamp=true format=time caps=image
 ;ttyGPS1=rig1.gps-in@4800
 ;ttyGPS2=rig0.gps-out@4800
 
+; Modem executable directory (rrserver defconfig: /var/lib/rustyrig/modems)
+;modem.path=/var/lib/rustyrig/modems
 ; -------- Experimental DSP modem workers (optional; disabled by default) --------
 ; External worker processes live on rrserver alongside their owning rig.
 ; See doc/dsp-workers.md and doc/TODO-MODEM for the full design/roadmap.
 ; This is the currently available serial subprocess bridge, NOT an RF TX modem.
 ; Example ONLY: create/install the executable yourself before enabling.
-;ttyMODEM0=modem:/usr/local/libexec/rustyrig/modem-worker --profile packet
+;ttyMODEM0=modem:/var/lib/rustyrig/modems/rrmodem-ft8
 ; First experimental receive-only FT8 worker (optional; see modems/ft8/README.md).
 ; Build it independently using kgoba/ft8_lib, then configure an absolute path:
-;ttyMODEM0=modem:/usr/local/libexec/rustyrig/rrmodem-ft8
+;ttyMODEM0=modem:/var/lib/rustyrig/modems/rrmodem-ft8
 ;[serial:ttyMODEM0]
 ;rig=rig0
 ; Default output: FT8 decode JSON lines; send RAW followed by newline for plain text.
