@@ -1,6 +1,7 @@
 // GTK3 serial terminal: VTE presentation over common sercom byte streams.
 // This module is optional; rrclient/sercom.c has no GTK or VTE dependency.
 #include <gtk/gtk.h>
+#include <librustyaxe/core.h>
 #include <string.h>
 #include <rrclient/sercom.h>
 #include <rrclient/serial.h>
@@ -65,7 +66,8 @@ static void terminal_settings_apply(GtkButton *button, gpointer user) {
    if (!rr_sercom_set_line_settings(session->name, &settings)) {
       gtk_label_set_text(GTK_LABEL(session->config_status), "Apply failed / disconnected");
       gdk_display_beep(gdk_display_get_default());
-   } else if (!g_str_has_prefix(rr_sercom_binding(session->name), "host:"))
+   } else if (!rr_sercom_binding(session->name) ||
+      !g_str_has_prefix(rr_sercom_binding(session->name), "host:"))
       gtk_label_set_text(GTK_LABEL(session->config_status), "Applied locally");
 }
 static void terminal_rx_toggle(GtkToggleButton *button, gpointer user) {
