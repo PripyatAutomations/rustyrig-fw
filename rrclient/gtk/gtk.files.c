@@ -129,7 +129,24 @@ static void refresh(void) {
    gtk_tree_path_free(path);
 }
 static void changed(GtkComboBox *box, gpointer data) {
+   (void)box;
+   (void)data;
    refresh();
+}
+static gboolean browser_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+   (void)widget;
+   (void)data;
+   if (!(event->state & GDK_CONTROL_MASK) ||
+       (event->keyval != GDK_KEY_Tab && event->keyval != GDK_KEY_ISO_Left_Tab))
+      return FALSE;
+   gint count = gtk_tree_model_iter_n_children(
+      gtk_combo_box_get_model(GTK_COMBO_BOX(browser.server)), NULL);
+   if (count < 2) return TRUE;
+   gint current = gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server));
+   gboolean reverse = (event->state & GDK_SHIFT_MASK) || event->keyval == GDK_KEY_ISO_Left_Tab;
+   gint next = current < 0 ? 0 : (current + (reverse ? count - 1 : 1)) % count;
+   gtk_combo_box_set_active(GTK_COMBO_BOX(browser.server), next);
+   return TRUE;
 }
 static char *prompt(const char *title, const char *initial) {
    GtkWidget *dialog =
@@ -367,8 +384,14 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    gtk_window_set_default_size(GTK_WINDOW(browser.window), 850, 600);
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_add(GTK_CONTAINER(browser.window), box);
+   GtkWidget *server_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   GtkWidget *server_label = gtk_label_new("Server:");
+   gtk_box_pack_start(GTK_BOX(box), server_row, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(server_row), server_label, FALSE, FALSE, 0);
    browser.server = gtk_combo_box_text_new();
-   gtk_box_pack_start(GTK_BOX(box), browser.server, FALSE, FALSE, 0);
+   gtk_widget_set_hexpand(browser.server, TRUE);
+   gtk_box_pack_start(GTK_BOX(server_row), browser.server, TRUE, TRUE, 0);
+   gtk_widget_set_tooltip_text(browser.server, "Ctrl+Tab / Ctrl+Shift+Tab switches servers");
    const char *selected = c ? rrclient_connection_name(c) : rrclient_selected_server(), *first = NULL;
    for (unsigned i = 0;; i++) {
       const char *profile = rrclient_connection_iter(i);
@@ -416,6 +439,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    browser.requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, listing_free);
    browser.timer = g_timeout_add_seconds(1, listing_expired, NULL);
    g_signal_connect(browser.window, "destroy", G_CALLBACK(destroyed), NULL);
+   g_signal_connect(browser.window, "key-press-event", G_CALLBACK(browser_key_press), NULL);
    g_signal_connect(browser.tree, "row-expanded", G_CALLBACK(expand), NULL);
    g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
    gtk_widget_show_all(browser.window);
