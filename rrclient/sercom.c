@@ -203,6 +203,10 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
       Log(LOG_INFO, "serial", "%s now follows %s on %s",
          b->name, alias, profile);
    }
+   /* After redirecting ttyGPS, immediately publish the new rig's last
+    * known NMEA so loggers never retain the previous transmitter site. */
+   if (rrclient_connection_find(profile) == ws_conn)
+      rrclient_media_emit_gps_for_room(room);
 }
 
 static const dict *cat_radio(void) {
