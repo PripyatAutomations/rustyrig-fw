@@ -14,6 +14,8 @@ typedef struct {
 /* Borrowed strings, valid until the attachment changes or is disconnected. */
 bool rr_sercom_info(const char *name, rr_sercom_info_t *info);
 bool rr_sercom_init(void);
+/* GTK/TUI may update the default CAT/GPS endpoints when the active rig changes. */
+void rr_sercom_focus_room(const char *profile, const char *room);
 void rr_sercom_shutdown(void);
 bool cmd_sercom(int argc, char **args);
 bool rr_sercom_attach(const char *name, const char *service, const char *device);
