@@ -217,6 +217,7 @@ static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
    }
 
    unsigned long value = freqentry_read_value(fe);
+   unsigned long previous = value;
    if (delta > 0) {
       if (value > limit - 1 - place) return; /* no overflow */
       value += place;
@@ -224,8 +225,19 @@ static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
       if (value < place) return; /* no underflow */
       value -= place;
    }
+   /* Updating individual GtkEntries can invoke focus/changed handlers.
+    * Never allow any such nested callback to finalize a partial carry. */
+   fe->editing = false;
+   gtk_freq_entry_set_value(fe, value);
+   unsigned long displayed = freqentry_read_value(fe);
+   if (displayed != value) {
+      Log(LOG_WARN, "gtk.freqentry", "digit bump display mismatch: %lu -> %lu (idx=%d delta=%d)",
+         value, displayed, idx, delta);
+      return;
+   }
+   Log(LOG_DEBUG, "gtk.freqentry", "digit bump: %lu -> %lu (digit=%d step=%d)",
+      previous, value, idx, delta);
    fe->editing = true;
-   gtk_freq_entry_set_value(fe, value); /* update all digits before sending */
    poll_block_expire = now + 1;
    freqentry_finalize(fe);
 }
