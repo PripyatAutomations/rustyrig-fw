@@ -169,16 +169,31 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
 
    for (serial_binding_t *b = bindings; b; b = b->next) {
       bool cat = !strcmp(b->service, "rig.cat");
+      bool modem = !strcmp(b->service, "rig.modem");
       bool gps = !strcmp(b->service, "rig.gps-out") ||
          !strcmp(b->service, "rig.nmea-out");
-      if (!cat && !gps) continue;
-      if (!strcmp(b->profile, profile) && (!cat || !strcmp(b->radio, alias))) continue;
+      if (!cat && !gps && !modem) continue;
+      if (!strcmp(b->profile, profile) &&
+          (!cat && !modem || !strcmp(b->radio, alias))) continue;
 
+      if (modem) {
+         /* Discard commands for the previous rig before changing streams. */
+         if (b->stream) host_command(b, "close");
+         b->stream = 0;
+         b->opening = b->tx_pending = b->rx_pending = b->failed = false;
+         b->retry_seconds = 0;
+         b->next_retry_us = b->open_started_us = 0;
+         if (b->host_pending) g_byte_array_set_size(b->host_pending, 0);
+         b->tx_seq = b->rx_seq = 0;
+         snprintf(b->host_port, sizeof(b->host_port), "ttyMODEM%s", alias + 3);
+         console_connection_status(b, "CONNECTING");
+      }
       /* Never deliver a partial CAT frame to a different rig. */
       b->used = 0;
       b->dropping = false;
       strlcpy(b->profile, profile, sizeof(b->profile));
-      if (cat) strlcpy(b->radio, alias, sizeof(b->radio));
+      if (cat || modem) strlcpy(b->radio, alias, sizeof(b->radio));
+      if (modem) host_sync(b);
       Log(LOG_INFO, "serial", "%s now follows %s on %s",
          b->name, alias, profile);
    }
@@ -828,10 +843,14 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    baud = b->requested.baud;
 
    if (!service_radio(b->service, b->radio, sizeof(b->radio)) && strcmp(gps_service(b), "gps-in") &&
-      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) && strcmp(b->service, "local.raw")) {
+      strcmp(gps_service(b), "gps-out") && strcmp(gps_service(b), "nmea-out") && strncmp(b->service, "host:", 5) && strcmp(b->service, "local.raw") &&
+      strcmp(b->service, "rig.modem")) {
       goto failed;
    }
 
+   if (!strcmp(b->service, "rig.modem")) {
+      snprintf(b->host_port, sizeof(b->host_port), "ttyMODEM0");
+   }
    if (!strncmp(b->service, "host:", 5)) {
       if (!name_valid(b->service + 5)) {
          goto failed;
@@ -1063,6 +1082,10 @@ bool rr_sercom_init(void) {
        cfg_get_bool("gps.pty.enable", true)) {
       if (!rr_sercom_attach("ttyGPS", "rig.gps-out@4800", NULL)) ok = false;
    }
+
+   /* The floating modem PTY remains present while its export is offline. */
+   if (!cfg_get("serial.ttyMODEM") && !binding("ttyMODEM"))
+      if (!rr_sercom_attach("ttyMODEM", "rig.modem", NULL)) ok = false;
 
    /* GTK can select the initial rig tab before the serial bindings exist.
     * Synchronize the floating port with that tab on initialization, not
