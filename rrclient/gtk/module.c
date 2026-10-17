@@ -84,11 +84,11 @@ bool rr_module_init(void) {
    if (module_running) {
       Log(LOG_CRIT, "module", "rrclient-gtk: init called twice");
 
-      return true;
+      return false;
    }
 
-   if (frontend_ops_register(&gtk_frontend_ops)) {
-      return true;
+   if (!frontend_ops_register(&gtk_frontend_ops)) {
+      return false;
    }
    // gtk_init must see the real argc/argv: the host calls ops->init() right
    // after loading, so registration alone is safe here even if GTK is not
@@ -96,7 +96,7 @@ bool rr_module_init(void) {
    module_running = true;
    Log(LOG_INFO, "module", "rrclient-gtk: frontend registered");
 
-   return false;
+   return true;
 }
 
 void rr_module_shutdown(void) {
