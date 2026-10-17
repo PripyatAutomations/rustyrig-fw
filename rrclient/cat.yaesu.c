@@ -779,7 +779,7 @@ CATcmdTable rr_cat_yaesu_commands[] = {
       "ST", 1, 1, rr_cat_yaesu_split
    },                                     // Split
    {
-      "SV", 1, 1, rr_cat_yaesu_swap_vfo
+      "SV", 0, 0, rr_cat_yaesu_swap_vfo
    },                                        // Swap VFO
    {
       "TS", 1, 1, rr_cat_yaesu_txw
