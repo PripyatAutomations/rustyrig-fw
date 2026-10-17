@@ -8,7 +8,7 @@ extern struct GlobalState rig;
 rr_module_event_t modexports[] = {{0}};
 
 bool rr_module_init(void) {
-   return rr_backend_type_register(&rr_backend_hamlib);
+   return !rr_backend_type_register(&rr_backend_hamlib);
 }
 static bool in_use(rr_server_rig_t *radio, void *unused) {
    (void)unused;
