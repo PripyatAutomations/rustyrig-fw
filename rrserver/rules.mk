@@ -2,7 +2,7 @@ CFLAGS_RRSERVER += -pthread
 LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
-rrserver_objs += files.o objects.o serial.o gps.o hardware.o hardware.dummy.o cfg.radio.o backend.internal-parts.o cfg.gpio.o si5351.o hardware.si5351.o cfg.si5351.o
+rrserver_objs += cfg.files.o files.o objects.o serial.o gps.o hardware.o hardware.dummy.o cfg.radio.o backend.internal-parts.o cfg.gpio.o si5351.o hardware.si5351.o cfg.si5351.o
 ifeq ($(USE_GPIO),true)
 ifneq ($(OPTIONAL_SKIP_PREFLIGHT),true)
 ifeq ($(shell $(PKG_CONFIG) --atleast-version=2.0 libgpiod && echo yes),)
