@@ -1042,7 +1042,6 @@ bool rr_sercom_init(void) {
    }
    bool ok = true;
    // [serial] is an extensible name -> service map. Defaults are read separately.
-   bool have_default = false;
    const char *key;
    char *value;
    int rank = 0;
@@ -1051,10 +1050,6 @@ bool rr_sercom_init(void) {
          continue;
       }
       const char *name = key + 7;
-
-      if (!strcmp(name, "ttyCAT")) {
-         have_default = true;
-      }
 
       if (!strcmp(name, "ttyCAT0") && !cfg_get_bool("cat.pty.enable", true)) {
          continue;
@@ -1068,26 +1063,17 @@ bool rr_sercom_init(void) {
       }
    }
 
-   if (!have_default && !binding("ttyCAT") && cfg_get_bool("cat.pty.enable", true) && !cfg_get("serial.ttyCAT")) {
-      const char *service = cfg_get("serial.ttyCAT0");
-
-      if (!service) {
-         service = "rig.cat";
-      }
-
-      if (*service && strcmp(service, "none") && !rr_sercom_attach("ttyCAT", service, NULL)) {
-         ok = false;
-      }
+   /* Built-in floating PTYs are permanent. Explicit service mappings win,
+    * but "none" must not remove one of these reserved endpoints. */
+   if (!binding("ttyCAT")) {
+      const char *legacy = cfg_get("serial.ttyCAT0");
+      const char *service = legacy && *legacy && strcmp(legacy, "none") ?
+         legacy : "rig.cat";
+      if (!rr_sercom_attach("ttyCAT", service, NULL)) ok = false;
    }
-
-   /* Matching default GPS PTY, using existing active-position NMEA output. */
-   if (!cfg_get("serial.ttyGPS") && !binding("ttyGPS") &&
-       cfg_get_bool("gps.pty.enable", true)) {
+   if (!binding("ttyGPS"))
       if (!rr_sercom_attach("ttyGPS", "rig.gps-out@4800", NULL)) ok = false;
-   }
-
-   /* The floating modem PTY remains present while its export is offline. */
-   if (!cfg_get("serial.ttyMODEM") && !binding("ttyMODEM"))
+   if (!binding("ttyMODEM"))
       if (!rr_sercom_attach("ttyMODEM", "rig.modem", NULL)) ok = false;
 
    /* GTK can select the initial rig tab before the serial bindings exist.
