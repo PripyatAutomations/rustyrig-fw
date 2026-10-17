@@ -63,6 +63,20 @@ struct serial_export {
 
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
+/* Stable, bounded copy for privileged session reporting. Never expose FDs. */
+void rrserver_serial_client_exports(const struct rrconn *client, char *out, size_t size) {
+   if (!out || !size) return;
+   out[0] = 0;
+   if (!client) return;
+   for (unsigned i = 0; i < count; i++) {
+      if (exports[i].owner != client) continue;
+      size_t used = strlen(out);
+      if (used >= size - 1) break;
+      snprintf(out + used, size - used, "%s%s",
+         used ? ", " : "", exports[i].name);
+   }
+}
+
 static struct serial_session *sessions;
 /* Auto-export present USB serial devices by default; exports remain subject
  * to the existing per-user serial / serial.<name> authorization checks. */
