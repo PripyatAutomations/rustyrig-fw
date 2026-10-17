@@ -52,8 +52,13 @@ pipelines are *not* migrated in this first increment.
 It does not currently attach fd 4/5 to the rig's live PCM hub, implement
 a packet frame protocol, perform PCM negotiation, or authorize fd 3
 commands. Those must be implemented before claiming operational RF modes.
-Software modem serial attachment in rrserver is currently session-scoped
-and must be changed to persistent rig ownership.
+Configured modem subprocesses now start during rrserver serial initialization and
+remain alive across WebSocket serial attach/detach. On worker failure they
+restart with bounded (1–32 second) backoff. Idle output is drained so
+unattached terminals do not stall the modem. Serial streams retain exclusive
+ownership when attached; each device is still bound by its configured
+ttyMODEM<N> export name. The complete generic rig-owned DSP manager and
+PCM/PTT binding remain outstanding.
 
 ## Rig authority and control channel (next stage)
 
@@ -101,7 +106,7 @@ declared IPC contract and waveform/protocol DSP.
 ## Compatibility and rollout
 
 1. Define typed ports and keep existing fwdsp interfaces unchanged.
-2. Move session-owned `modem:` workers into a persistent rig-owned manager.
+2. Keep `modem:` workers persistent across client serial sessions (initial implementation complete); migrate to explicit rig ownership and lifecycle supervision.
 3. Bind PCM RX/TX to the selected rig's hub with nonblocking bounded queues.
 4. Implement the control protocol, PTT lease and rig/VFO authorization.
 5. Register worker resources and typed parameters for client discovery.
