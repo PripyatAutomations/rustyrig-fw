@@ -683,7 +683,7 @@ int main(int argc, char *argv[]) {
    if (requested) {
       Log(LOG_INFO, "core", "Requested module %s (path.modules=%s)", requested, cfg_get("path.modules"));
 
-      if (!rr_load_module(requested)) {
+      if (rr_load_module(requested)) {
          frontend_module = rr_find_loaded_module(requested);
          loaded_name = requested;
 
