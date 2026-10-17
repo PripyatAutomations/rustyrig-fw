@@ -58,6 +58,11 @@ static void message(GtkWindow *parent, const char *text) {
    gtk_widget_destroy(dialog);
 }
 
+/* Editable combo preserves custom rates and previously saved values. */
+static const char *baud_text(GtkWidget *combo) {
+   return gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(combo))));
+}
+
 struct port_editor {
    GtkWidget *name, *type, *path, *baud, *mode, *service;
 };
@@ -182,11 +187,19 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    GtkWidget *names = gtk_combo_box_text_new_with_entry();
    port_names(GTK_COMBO_BOX_TEXT(names));
    struct port_editor editor = {.name = gtk_bin_get_child(GTK_BIN(names)),.type = gtk_combo_box_text_new(),
-      .path = gtk_entry_new(),.baud = gtk_entry_new(),.mode = gtk_entry_new(),.service = gtk_entry_new()
+      .path = gtk_entry_new(),.baud = gtk_combo_box_text_new_with_entry(),.mode = gtk_entry_new(),.service = gtk_entry_new()
    };
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor.type), "pty", "Virtual serial port (PTY)");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor.type), "serial", "Physical serial / modem port");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(editor.type), "file", "Capture file (append, output only)");
+   static const char *baud_rates[] = {
+      "300", "600", "1200", "2400", "4800", "9600", "14400", "19200",
+      "28800", "38400", "57600", "115200", "230400", "460800",
+      "500000", "576000", "921600", "1000000", "1152000",
+      "1500000", "2000000", "2500000", "3000000", "3500000", "4000000"
+   };
+   for (unsigned i = 0; i < G_N_ELEMENTS(baud_rates); i++)
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(editor.baud), baud_rates[i]);
    gtk_entry_set_text(GTK_ENTRY(editor.name), initial && *initial ? initial : "ttyLOCAL0");
    load_port(NULL, &editor);
    g_signal_connect(names, "changed", G_CALLBACK(load_port), &editor);
@@ -224,7 +237,7 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
       const char *type = gtk_combo_box_get_active_id(GTK_COMBO_BOX(editor.type));
       const char *path = gtk_entry_get_text(GTK_ENTRY(editor.path));
       rr_serial_settings_t settings = {.baud = 9600,.bits = 8,.parity = 'n',.stops = 1 };
-      char *spec = g_strdup_printf("port@%s,%s", gtk_entry_get_text(GTK_ENTRY(editor.baud)), gtk_entry_get_text(GTK_ENTRY(editor.mode)));
+      char *spec = g_strdup_printf("port@%s,%s", baud_text(editor.baud), gtk_entry_get_text(GTK_ENTRY(editor.mode)));
       char target[16];
       valid = valid && type && rr_serial_spec_parse(spec, target, sizeof(target), &settings) && (!strcmp(type, "pty") || *path);
       g_free(spec);
@@ -238,7 +251,7 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
          continue;
       }
       const char *keys[] = { "type", "path", "baud", "mode" };
-      const char *values[] = { type, path, gtk_entry_get_text(GTK_ENTRY(editor.baud)), gtk_entry_get_text(GTK_ENTRY(editor.mode)) };
+      const char *values[] = { type, path, baud_text(editor.baud), gtk_entry_get_text(GTK_ENTRY(editor.mode)) };
       bool ok = true;
       for (unsigned i = 0; i < G_N_ELEMENTS(keys); i++) {
          char *key = g_strdup_printf("serial:%s.%s", name, keys[i]);
