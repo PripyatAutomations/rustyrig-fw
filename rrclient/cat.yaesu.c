@@ -143,9 +143,28 @@ static void cat_mode_set(const char *digit) {
    ws_send_mode_cmd_in_room(ws_conn, cat_vfo_str(0), mode, rr_cat_room());
 }
 
+/* Copy a complete known VFO state without selecting either bank.
+ * The destination's frequency and mode are applied through the usual
+ * room-scoped CAT control path. Never overwrite with guessed values. */
+static void cat_copy_vfo(const char *source, const char *destination) {
+   const char *room = rr_cat_room();
+   long frequency = rr_cat_property_long(source, "frequency", 0);
+   const char *mode = rr_cat_property(source, "mode", NULL);
+   if (!room || !*room || frequency <= 0 || frequency > INT_MAX || !mode || !*mode) {
+      Log(LOG_WARN, "cat.yaesu", "Cannot copy VFO %s to %s: frequency/mode state unavailable",
+         source, destination);
+      return;
+   }
+   char saved_mode[32];
+   snprintf(saved_mode, sizeof(saved_mode), "%s", mode);
+   ws_send_freq_cmd_in_room(ws_conn, destination, frequency, room);
+   ws_send_mode_cmd_in_room(ws_conn, destination, saved_mode, room);
+   Log(LOG_INFO, "cat.yaesu", "Copied VFO %s to %s in %s", source, destination, room);
+}
+
 // Function stubs for all FT-891 CAT commands
 void rr_cat_yaesu_vfo_a_to_b(const char *args) {
-   Log(LOG_INFO, "cat.yaesu", "VFO A -> VFO B (NYI)");
+   cat_copy_vfo("A", "B");
 }                               // VFO A to VFO B
 
 void rr_cat_yaesu_tuner_control(const char *args) {
@@ -170,6 +189,7 @@ void rr_cat_yaesu_vfo_a_to_mem(const char *args) {
 }                               // Store VFO A to memory channel
 
 void rr_cat_yaesu_vfo_b_to_a(const char *args) {
+   cat_copy_vfo("B", "A");
 }                               // VFO B to VFO A
 
 void rr_cat_yaesu_ant_select(const char *args) {
@@ -591,7 +611,7 @@ void rr_cat_yaesu_zero_in(const char *args) {
 CATcmdTable rr_cat_yaesu_commands[] = {
    // cmd, min, max, callback
    {
-      "AB", 0, 1, rr_cat_yaesu_vfo_a_to_b
+      "AB", 0, 0, rr_cat_yaesu_vfo_a_to_b
    },                                        // VFO A to VFO B
    {
       "AC", 1, 1, rr_cat_yaesu_tuner_control
@@ -610,7 +630,7 @@ CATcmdTable rr_cat_yaesu_commands[] = {
    },                                        // ANtenna selection
    // (not on ft891)
    {
-      "BA", 0, 1, rr_cat_yaesu_vfo_b_to_a
+      "BA", 0, 0, rr_cat_yaesu_vfo_b_to_a
    },                                        // VFO B to VFO A
    {
       "BC", 1, 1, rr_cat_yaesu_auto_notch
