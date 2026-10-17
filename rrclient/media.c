@@ -461,6 +461,14 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
    }
    memcpy(source, channel->name, len);
    source[len] = '\0';
+   /* A joined rig room implicitly requests any advertised GPS/NMEA RX
+    * channels for that rig. Output selection is still handled separately
+    * by serial.gps.output, so ttyGPS follows the active rig. */
+   if (channel->room[0] && rrclient_room_is_joined(channel->room) &&
+       rrclient_room_vfo_mask(channel->room)) {
+      return true;
+   }
+
    char scopes[sizeof(gps_scopes)];
    snprintf(scopes, sizeof(scopes), "%s", gps_scopes);
    char *save = NULL;
