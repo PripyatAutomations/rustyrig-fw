@@ -154,6 +154,15 @@ Only configure trusted executable paths: these commands execute on rrserver
 with its operating-system privileges. The configured command is argument
 parsed, not interpreted by a shell.
 
+The reusable worker launcher now reserves four independent channels:
+FD 0/1 for serial data, FD 3 as a bidirectional sequenced-packet control
+socket, FD 4 for inbound RX PCM and FD 5 for outgoing TX PCM. All parent
+descriptors are nonblocking. Worker management lives in
+`libfwdspmgr/dsp-worker.{h,c}` and can be used by modem or DSP supervisors.
+This first integration keeps the existing modem attachment lifetime; it does
+not yet establish a rig-owned persistent process or wire FD 3/4/5 to audio,
+VFO authorization, or PTT arbitration.
+
 **RF integration is separate.** The worker must also connect to the
 appropriate rrserver audio and PTT services to turn its serial bytes into
 modulated RF and received RF back into bytes. This serial adapter does not

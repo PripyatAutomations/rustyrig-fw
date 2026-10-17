@@ -3,10 +3,14 @@
 
 CFLAGS_LIBFWDSPMGR := ${CFLAGS} -I${BUILD_DIR}
 
-libfwdspmgr_objs := fwdsp-mgr.o fwdsp-ctl.o fwdsp-video.o
+libfwdspmgr_objs := fwdsp-mgr.o fwdsp-ctl.o fwdsp-video.o dsp-worker.o
 
 # Public header consumers (rrserver/rrclient) include <libfwdspmgr/fwdsp-mgr.h>
-BUILD_HEADERS += ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h
+BUILD_HEADERS += ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h
+
+${BUILD_DIR}/libfwdspmgr/dsp-worker.h: libfwdspmgr/dsp-worker.h GNUmakefile
+	@mkdir -p $(dir $@)
+	@cp $< $@
 
 ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h: libfwdspmgr/fwdsp-mgr.h GNUmakefile
 	@mkdir -p $(dir $@)
@@ -18,7 +22,7 @@ libs += ${libfwdspmgr}
 real_libfwdspmgr_objs := $(addprefix ${BUILD_DIR}/libfwdspmgr/,$(libfwdspmgr_objs))
 extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr} libfwdspmgr.so.0
 
-${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${librustyaxe} ${librrprotocol} GNUmakefile
+${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h ${librustyaxe} ${librrprotocol} GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_libfwdspmgr_objs}) objects"
 	@${CC} ${LIB_LDFLAGS} -Wl,-soname,libfwdspmgr.so.0 -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${LDFLAGS}

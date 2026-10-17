@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/socket.h>
+#include <libfwdspmgr/dsp-worker.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <glib.h>
@@ -42,7 +43,7 @@ struct serial_export {
    char name[64], path[PATH_MAX], client_name[64], slave[128], gps_scope[64];
    unsigned service;            // 0 raw export, 1 GPS input, 2 GPS output
    bool pty, dropping, nmea_output, autodiscovered, virtual_modem;
-   pid_t child_pid;
+   rr_dsp_worker_t worker;
    char command[PATH_MAX];
    int keeper;
    unsigned char *buffer;
@@ -162,53 +163,16 @@ static void reply(rrconn_t *client, const char *cmd, const char *name, const str
 }
 /* A software modem exposes a full-duplex byte stream over stdin/stdout.
  * Its separate RF/audio/PTT control plane is managed by the modem worker. */
-static void modem_child_exited(GPid pid, gint status, gpointer data) {
-   (void)status; (void)data;
-   g_spawn_close_pid(pid);
-}
 static int open_modem_worker(struct serial_export *p) {
-   int sockets[2];
-   gchar **argv = NULL;
-   gint argc = 0;
-   GError *error = NULL;
-   if (!g_shell_parse_argv(p->command, &argc, &argv, &error) || !argc) {
-      Log(LOG_WARN, "serial.modem", "Invalid command for %s: %s", p->name,
-          error ? error->message : "empty command");
-      g_clear_error(&error);
-      g_strfreev(argv);
-      return -1;
-   }
-   if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets)) {
-      g_strfreev(argv);
-      return -1;
-   }
-   pid_t pid = fork();
-   if (pid == 0) {
-      close(sockets[0]);
-      if (dup2(sockets[1], STDIN_FILENO) < 0 ||
-          dup2(sockets[1], STDOUT_FILENO) < 0) _exit(127);
-      if (sockets[1] > STDERR_FILENO) close(sockets[1]);
-      /* execvp supports argument lists; do not invoke a shell. */
-      execvp(argv[0], argv);
-      _exit(127);
-   }
-   close(sockets[1]);
-   g_strfreev(argv);
-   if (pid < 0) { close(sockets[0]); return -1; }
-   p->child_pid = pid;
-   g_child_watch_add(pid, modem_child_exited, NULL);
-   int flags = fcntl(sockets[0], F_GETFL, 0);
-   if (flags >= 0) fcntl(sockets[0], F_SETFL, flags | O_NONBLOCK);
-   return sockets[0];
+   rr_dsp_worker_init(&p->worker);
+   if (!rr_dsp_worker_spawn(&p->worker, p->command)) return -1;
+   /* Serial data is routed through the existing MODEM binary transport.
+    * PCM/control descriptors are reserved for the rig-bound supervisor. */
+   return p->worker.serial_fd;
 }
 static void close_port(struct serial_export *p) {
    if (p->virtual_modem) {
-      if (p->fd >= 0) close(p->fd);
-      if (p->child_pid > 0) {
-         kill(p->child_pid, SIGTERM);
-         /* The child watch reaps the worker on GLib main context. */
-         p->child_pid = 0;
-      }
+      rr_dsp_worker_stop(&p->worker);
    } else if (p->pty) {
       rr_serial_pty_close(p->fd, p->keeper, p->path, p->slave);
    } else {
