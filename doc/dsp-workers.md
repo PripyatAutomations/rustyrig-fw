@@ -115,3 +115,31 @@ declared IPC contract and waveform/protocol DSP.
 
 The central rule is **hardware people can bring up radios without rewriting
 the modem, audio, or UI subsystems, and DSP experiments cannot crash rrserver**.
+
+## RX PCM and optional traffic logs (incremental implementation)
+
+`rrserver_media_rx_pcm()` now forwards the existing rig receive PCM to
+configured modem workers bound to that rig, with a nonblocking write to the
+worker's fd 4. Configure an explicit binding with
+`serial:ttyMODEM0.rig=rig0` (or use the `ttyMODEM<N>` naming fallback).
+The PCM feed is currently raw S16LE mono at the server hub's expected 16 kHz;
+this is **not** a negotiated media stream yet. Queue-full frames are dropped
+rather than blocking radio capture. The counter is internal for now.
+
+For replay-friendly serial capture, set
+`serial:ttyMODEM0.log=/var/log/rustyrig/ttyMODEM0.log`.
+The directory must already exist and be writable by rrserver. Each line is
+`unix_seconds<TAB>username<TAB>session_fingerprint<TAB>TX|RX<TAB>hex`.
+The session ID is a truncated SHA-256 fingerprint, **not** the authentication
+token. TX means data entering the worker; RX means bytes emitted by it.
+Logging is optional and is disabled when no path is configured. The format is
+binary-safe but logs currently contain chunks, not parsed modem messages.
+Detached worker output is discarded and is not logged in this increment.
+Treat these files as sensitive: decoded chat content and operator identities
+can appear in them. Ensure rotation and retention policy are configured.
+
+Future work: explicit PCM format negotiation, bounded frame-aligned audio
+queues (instead of best-effort nonblocking byte writes), async worker health,
+frequency-shifted SDR slice sources, packet-granular logs, and PTT-controlled TX
+audio and control socket actions. Modems are RX-only at the audio hub until
+these controls are implemented.
