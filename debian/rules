@@ -91,7 +91,7 @@ endif
 	# Install the root config and all include fragments as dpkg conffiles.
 	# Keep user edits during upgrades; never replace these in postinst.
 	for cfg in config/rrserver.cfg config/rrserver.*.cfg; do \
-		install -Dm644 "$cfg" "debian/rustyrig-server/etc/rustyrig/${cfg##*/}"; \
+		install -Dm644 "$$cfg" "debian/rustyrig-server/etc/rustyrig/$${cfg##*/}"; \
 	done
 	install -Dm644 config/$(PROFILE).config.json debian/rustyrig-server/etc/rustyrig/$(PROFILE).config.json
 	# Removed: callsign lookup server settings now live in rrserver.callsign-lookup.cfg.
