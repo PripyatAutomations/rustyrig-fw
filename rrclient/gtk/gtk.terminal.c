@@ -13,7 +13,7 @@
 extern GtkWidget *main_notebook;
 typedef struct {
    char *name;
-   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status, *connection_status, *apply_button;
+   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status, *connection_status, *apply_button, *endpoint_label, *tab_label;
    rr_event_token_t config_token, connection_token;
    rr_sercom_observer_t *observer;
 } terminal_session_t;
@@ -127,8 +127,8 @@ static void terminal_toolbar(terminal_session_t *session) {
          gtk_box_pack_start(GTK_BOX(bar), session->running, FALSE, FALSE, 0);
       }
    } else {
-      GtkWidget *label = gtk_label_new(service ? service : "Serial endpoint");
-      gtk_box_pack_start(GTK_BOX(bar), label, FALSE, FALSE, 0);
+      session->endpoint_label = gtk_label_new("Serial endpoint");
+      gtk_box_pack_start(GTK_BOX(bar), session->endpoint_label, FALSE, FALSE, 0);
    }
    session->connection_status = gtk_label_new("CONNECTED");
    gtk_box_pack_end(GTK_BOX(bar), session->connection_status, FALSE, FALSE, 8);
@@ -183,7 +183,7 @@ static void terminal_close(GtkButton *button, gpointer data) {
    int n = gtk_notebook_page_num(GTK_NOTEBOOK(terminal_notebook), page);
    if (n >= 0) gtk_notebook_remove_page(GTK_NOTEBOOK(terminal_notebook), n);
 }
-void gtk_terminal_open_endpoint(const char *name) {
+void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name) {
    if (!terminal_notebook || !name || !*name || !rr_serial_find(name)) return;
    if (main_notebook && terminal_root) {
       int page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), terminal_root);
@@ -192,6 +192,13 @@ void gtk_terminal_open_endpoint(const char *name) {
    for (int i = 0; i < gtk_notebook_get_n_pages(GTK_NOTEBOOK(terminal_notebook)); i++) {
       GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(terminal_notebook), i);
       if (!g_strcmp0(g_object_get_data(G_OBJECT(page), "serial-name"), name)) {
+         if (display_name && *display_name) {
+            terminal_session_t *existing = g_object_get_data(G_OBJECT(page), "terminal-session");
+            if (existing) {
+               if (existing->endpoint_label) gtk_label_set_text(GTK_LABEL(existing->endpoint_label), display_name);
+               if (existing->tab_label) gtk_label_set_text(GTK_LABEL(existing->tab_label), display_name);
+            }
+         }
          gtk_notebook_set_current_page(GTK_NOTEBOOK(terminal_notebook), i);
          return;
       }
@@ -199,6 +206,7 @@ void gtk_terminal_open_endpoint(const char *name) {
    terminal_session_t *session = g_new0(terminal_session_t, 1);
    session->name = g_strdup(name);
    session->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   g_object_set_data(G_OBJECT(session->page), "terminal-session", session);
    g_object_set_data_full(G_OBJECT(session->page), "serial-name", g_strdup(name), g_free);
 #ifdef RR_HAVE_VTE
    session->view = vte_terminal_new();
@@ -216,10 +224,13 @@ void gtk_terminal_open_endpoint(const char *name) {
    session->observer = rr_sercom_observe(name, console_bytes, session);
    session->config_token = event_on_token("serial.console.configuration", terminal_configuration, session);
    session->connection_token = event_on_token("serial.console.connection", terminal_connection, session);
+   if (session->endpoint_label) gtk_label_set_text(GTK_LABEL(session->endpoint_label),
+      display_name && *display_name ? display_name : name);
    if (!session->observer) { gtk_widget_destroy(session->page); g_free(session->name); g_free(session); return; }
    g_signal_connect(session->page, "destroy", G_CALLBACK(terminal_session_destroy), session);
    GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   gtk_box_pack_start(GTK_BOX(tab), gtk_label_new(name), FALSE, FALSE, 0);
+   session->tab_label = gtk_label_new(display_name && *display_name ? display_name : name);
+   gtk_box_pack_start(GTK_BOX(tab), session->tab_label, FALSE, FALSE, 0);
    GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
    gtk_box_pack_start(GTK_BOX(tab), close, FALSE, FALSE, 0);
@@ -229,6 +240,9 @@ void gtk_terminal_open_endpoint(const char *name) {
    gtk_widget_show_all(session->page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(terminal_notebook),
       gtk_notebook_page_num(GTK_NOTEBOOK(terminal_notebook), session->page));
+}
+void gtk_terminal_open_endpoint(const char *name) {
+   gtk_terminal_open_endpoint_labeled(name, NULL);
 }
 static void terminal_port_visit(rr_serial_t *port, void *user) {
    (void)user;
