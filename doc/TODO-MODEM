@@ -37,7 +37,7 @@ https://github.com/arancormonk/mbelib-neo.git
 #     independent decoders can subscribe to the same stream.
 # [ ] Source abstraction: rig RX, VFO RX, saved recording, SDR channelizer
 #     slice / virtual receiver, or generated test signal.
-# [ ] Source metadata: parent rig, RF center frequency, offset, bandwidth,
+# [ ] Canonical immutable slice names include source, RF center Hz, bandwidth Hz,\n#     sample rate, sample format/layout and processing versions, so multiple\n#     decoders share a single slice. Keep VFO aliases mutable and distinct.\n# [ ] Source metadata: parent rig, RF center frequency, offset, bandwidth,
 #     sample rate/format, VFO, timestamps and discontinuity indications.
 # [ ] Auto-start configured receivers when a compatible source becomes
 #     available, and reattach safely when it disappears/reappears.
