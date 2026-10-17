@@ -83,85 +83,36 @@ bool cfg_network_save_init(void) {
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
    if (!section || !buf) return false;
-   char *np = strchr(section, ':');
+   const char *np = strchr(section, ':');
+   if (!np || !np[1]) return false;
+   np++;
 
-   if (!np) return false;
-
-   if (np) {
-      np++;
-
-      if (strncasecmp(buf, "autojoin", 8) == 0) {
-         char *tmpbuf = strdup(buf);
-
-         if (!tmpbuf) {
-            fprintf(stderr, "OOM in config_network_cb!\n");
-
-            return false;
-         }
-         char *val = strchr(tmpbuf, '=');
-
-         if (!val || !val[1]) {
-            Log(LOG_CRIT, "cfg.network", "config error: autojoin missing value: %s", buf);
-            free(tmpbuf);
-
-            return false;
-         }
-         *val++ = '\0';         // split at '='
-         while (*val == ' ' || *val == '\t') {
-            val++;
-         }
-         ui_print(NULL, "np: %s buf: %s val: %s", np, buf, val);
-
-         if (strlen(val) < 2) {
-            Log(LOG_CRIT, "cfg.network", "config error: autojoin invalid: %s", buf);
-            free(tmpbuf);
-
-            return false;
-         }
-         char key[256];
-         snprintf(key, sizeof(key), "network.%s.autojoin", np);
-         Log(LOG_DEBUG, "cfg.network", "Adding autojoin for %s: %s", np, val);
-         ui_print(NULL, "[\00309%s\017] Setting autojoin: %s", np, val);
-         const char *x = cfg_get(key);
-
-         if (!x) {
-            ui_print("status", "add key: %s val: %s", key, val);
-            dict_add(cfg, key, val);
-         } else {
-            char buf[1024];
-            memset(buf, 0, 1024);
-            snprintf(buf, sizeof(buf), "%s", x);
-
-            size_t len = strlen(buf);
-
-            if (len + 1 < sizeof(buf)) {
-               // +1 for comma
-               strncat(buf, ",", sizeof(buf) - len - 1);
-               strncat(buf, val, sizeof(buf) - strlen(buf) - 1);
-               ui_print("status", "update: %s => %s", key, buf);
-               dict_add(cfg, key, buf);
-            } else {
-               Log(LOG_CRIT, "cfg", "autojoin buffer full, cannot append %s", val);
-            }
-         }
-         free(tmpbuf);
-      } else {
-         ui_print("status", "[\00303%s\017] adding server: %s", np, buf);
-
-         // Weak symbol: cfg.servers.c may be disabled (old IRC transport)
-         if (add_server) {
-            if (!add_server(np, buf)) {
-               Log(LOG_WARN, "cfg.network", "%s:%d: IRC server needs an irc:// or ircs:// URL with an explicit port", path, line);
-            }
-         } else {
-            Log(LOG_DEBUG, "cfg.network", "add_server not available (cfg.servers disabled), skipping %s", buf);
-         }
-      }
-
-      return true;
-   } else {
+   if (strncasecmp(buf, "autojoin", 8) == 0) {
+      const char *eq = strchr(buf, '=');
+      if (!eq || eq == buf || !eq[1]) return false;
+      const char *val = eq + 1;
+      while (*val == ' ' || *val == '\t') val++;
+      if (strlen(val) < 2) return false;
+      char key[256];
+      int n = snprintf(key, sizeof(key), "network.%s.autojoin", np);
+      if (n <= 0 || (size_t)n >= sizeof(key)) return false;
+      const char *old = cfg_get(key);
+      if (!old || !*old) return dict_add(cfg, key, val) == 0;
+      size_t oldlen = strlen(old), extra = strlen(val);
+      if (oldlen > SIZE_MAX - extra - 2) return false;
+      char *combined = malloc(oldlen + extra + 2);
+      if (!combined) return false;
+      memcpy(combined, old, oldlen);
+      combined[oldlen] = ',';
+      memcpy(combined + oldlen + 1, val, extra + 1);
+      bool ok = dict_add(cfg, key, combined) == 0;
+      free(combined);
+      return ok;
+   }
+   if (!add_server) return false;
+   if (!add_server(np, buf)) {
+      Log(LOG_WARN, "cfg.network", "%s:%d: IRC server needs an irc:// or ircs:// URL with an explicit port", path, line);
       return false;
    }
-
-   return false;
+   return true;
 }
