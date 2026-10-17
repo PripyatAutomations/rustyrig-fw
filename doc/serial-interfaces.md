@@ -38,7 +38,7 @@ Client configuration:
 ttyCAT0=rig0.cat@38400
 ttyCAT1=rig1.cat@38400
 ttyHOST0=host:ttyHOST0
-ttyGPS0=rig.gps-out@4800
+ttyGPS0=rig0.gps-out@4800
 ;ttyGPS1=rig1.gps-out@4800
 ;ttyGPS2=station.gps-out@4800
 
@@ -197,7 +197,7 @@ five minutes as a refresh. Repeated receiver sentences with unchanged position
 do not cause `gpsp` network traffic.
 Switching the native client's active rig replaces its automatic GPS subscription
 and therefore updates its logger immediately without updating other operators.
-`rig.gps-out` follows the active rig (or the station in the lobby).
+`rig0.gps-out` (also `rig.gps-out`) follows the active rig (or the station in the lobby).
 `rigN.gps-out` stays pinned to that rig; `station.gps-out` stays pinned to the site.
 Bare client `gps-out` remains a shorthand for the active rig. A logger opens the
 resulting `./dev/ttyGPS0` just as it would a GPS serial device.

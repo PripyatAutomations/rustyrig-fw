@@ -108,7 +108,8 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
    for (serial_binding_t *b = bindings; b; b = b->next) {
       bool cat = !strcmp(b->name, "ttyCAT0") && b->radio[0];
       bool gps = !strcmp(b->name, "ttyGPS0") &&
-         (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out"));
+         (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out") ||
+          !strcmp(b->service, "rig0.gps-out") || !strcmp(b->service, "rig0.nmea-out"));
       if (!cat && !gps) continue;
       if (!strcmp(b->profile, profile) && (!cat || !strcmp(b->radio, alias))) continue;
 
@@ -475,7 +476,9 @@ static bool gps_scope(const serial_binding_t *b, char *scope, size_t capacity) {
    memcpy(scope, b->service, len);
    scope[len] = '\0';
 
-   if (!strcmp(scope, "rig")) {
+   /* rig0 is the floating active-rig alias, consistent with CAT.
+    * Explicit rigN (N > 0) and station routes remain pinned. */
+   if (!strcmp(scope, "rig") || !strcmp(scope, "rig0")) {
       snprintf(scope, capacity, "active");
    }
 
@@ -904,7 +907,7 @@ bool rr_sercom_init(void) {
    /* Matching default GPS PTY, using existing active-position NMEA output. */
    if (!cfg_get("serial.ttyGPS0") && !binding("ttyGPS0") &&
        cfg_get_bool("gps.pty.enable", true)) {
-      if (!rr_sercom_attach("ttyGPS0", "rig.gps-out@4800", NULL)) ok = false;
+      if (!rr_sercom_attach("ttyGPS0", "rig0.gps-out@4800", NULL)) ok = false;
    }
 
    /* GTK can select the initial rig tab before the serial bindings exist.
