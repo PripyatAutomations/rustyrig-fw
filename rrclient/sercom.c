@@ -335,7 +335,8 @@ static void host_sync(serial_binding_t *b) {
    }
    rr_serial_settings_t observed;
 
-   if (rr_serial_get_settings(b->port, &observed) && line_changed(&observed, &b->local)) {
+   if (!b->virtual_modem && strcmp(b->service, "rig.modem") &&
+       rr_serial_get_settings(b->port, &observed) && line_changed(&observed, &b->local)) {
       b->local = observed;
       b->requested = observed;
       b->settings_override = true;
