@@ -678,6 +678,7 @@ static void rrclient_handle_media_conn(const char *event, const char *data, rrco
    if (strcasecmp(event, "disconnected") == 0) {
       media_room[0] = '\0';
       memset(known_chans, 0, sizeof(known_chans));
+      memset(gps_position_cache, 0, sizeof(gps_position_cache));
       media_ready = false;
       memset(direction_disabled, 0, sizeof(direction_disabled));
       rrclient_media_sync_audio();
