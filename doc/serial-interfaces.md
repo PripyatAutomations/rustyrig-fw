@@ -81,6 +81,25 @@ revocation closes an existing tunnel.
 GPS emulation uses room-scoped read-only media and requires no serial privilege.
 Server GPS inputs are configured receiver services, not client write endpoints.
 
+## Permanent floating local endpoints
+
+The client always provisions three reserved PTYs, even when no explicit
+`[serial]` mapping exists: `ttyCAT` (active rig CAT), `ttyGPS`
+(active rig NMEA position), and `ttyMODEM` (active rig software modem).
+They remain nondeletable in the local serial editor; other configured ports
+may be deleted after disconnecting, with confirmation.
+
+The floating `rig.modem` service maps active `rig0` to server export
+`ttyMODEM0`, `rig1` to `ttyMODEM1`, etc., following the selected
+server and rig room. The local PTY remains present when no such server
+export is available, and the existing host serial retry state machine
+attempts reconnection. Switching rigs discards queued unacknowledged
+modem bytes rather than replaying them to another radio. The server must
+explicitly configure the corresponding `ttyMODEM<N>` export; this
+compatibility route is transitional until modems are persistently managed
+as rig-owned DSP workers. These virtual endpoints do not use serial
+baud/parity changes to configure modulation settings.
+
 ## Runtime management
 
 ```text
