@@ -87,9 +87,12 @@ LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
 endif
 
 # Are we cross compiling?
-ifneq (${TC_PREFIX},"")
-CC := ${TC_PREFIX}-gcc
-LD := ${TC_PREFIX}-ld
+# An empty toolchain prefix must select plain gcc/ld. A quoted
+# empty string comparison chooses the cross-compiler branch and creates
+# CC=-gcc, whose leading hyphen makes GNU Make ignore compiler errors.
+ifneq ($(strip $(TC_PREFIX)),)
+CC := $(TC_PREFIX)-gcc
+LD := $(TC_PREFIX)-ld
 else
 CC := gcc
 LD := ld
