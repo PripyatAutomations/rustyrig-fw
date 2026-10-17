@@ -61,6 +61,7 @@ struct direct_channel {
    unsigned route;              /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
    bool remote;
    uint8_t stream, owner_stream, direction;
+   uint32_t subsystem;
 };
 static struct direct_channel channels[MAX_DIRECT_CHANNELS];
 static rr_rtp_socket_t *media_socket;
@@ -198,9 +199,11 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
    }
 
    if (!strcmp(cmd, "available")) {
+      channel->subsystem = dict_get_ulong(d, "media.subsys", 0);
       snprintf(channel->room, sizeof(channel->room), "%s", dict_get(d, "media.room", ""));
       snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", dict_get(d, "media.direct", ""));
    } else if (!strcmp(cmd, "subscribed")) {
+      channel->subsystem = dict_get_ulong(d, "media.subsys", channel->subsystem);
       channel->requested = true;
       rr_rtp_socket_detach(channel->attachment);
       channel->attachment = NULL;
@@ -217,6 +220,10 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       channel->failed = false;
       channel->reported_active = false;
 
+      if (channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO && channel->subsystem != RR_BINFRAME_SUBSYS_VIDEO) {
+         report_route(channel, "connected", false);
+         return;
+      }
       if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2)) {
          report_route(channel, "connected", false);
 
@@ -396,7 +403,9 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
    if (!strcmp(dict_get(d, "media.cmd", ""), "subscribe")) {
       c->requested = true;
 
-      if (c->mode == RR_MEDIA_DIRECT) {
+      if (c->subsystem != RR_BINFRAME_SUBSYS_AUDIO && c->subsystem != RR_BINFRAME_SUBSYS_VIDEO) {
+         dict_add(d, "media.transport", "ws");
+      } else if (c->mode == RR_MEDIA_DIRECT) {
          dict_add(d, "media.transport", "direct");
       } else if (c->mode == RR_MEDIA_PROXY) {
          dict_add(d, "media.transport", "ws");
