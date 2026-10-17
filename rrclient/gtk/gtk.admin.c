@@ -69,17 +69,36 @@ static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer
    } else {
       time_t stamp = raw ? strtoll(raw, NULL, 10) : 0;
       time_t current = time(NULL);
-      char *duration = stamp > 0 ? time_t2dhms(field == 5 ? (current > stamp ? current - stamp : 0) : (stamp > current ? stamp - current : 0)) : NULL;
-      char *text = duration ? g_strdup_printf(field == 5 ? "%s ago" : "%s", duration) : g_strdup("Never");
-
-      if (field == 6 && stamp > 0 && stamp <= current) {
-         g_free(text);
+      char *text;
+      if (stamp <= 0) {
+         text = g_strdup("Never");
+      } else if (field == 6 && stamp <= current) {
          text = g_strdup("Expired");
+      } else {
+         /* Show whole calendar-independent 24-hour days, rounding up for
+          * expiry so a positive fraction of a day is not shown as zero. */
+         long long seconds = field == 5 ? (current > stamp ? (long long)(current - stamp) : 0)
+            : (long long)(stamp - current);
+         long long days = field == 5 ? seconds / 86400 : (seconds + 86399) / 86400;
+         text = g_strdup_printf(field == 5 ? "%lld days ago" : "%lld days remaining", days);
       }
       g_object_set(renderer, "text", text, NULL);
-      free(duration);
       g_free(text);
    }
+   g_free(raw);
+}
+
+/* Session timestamps are sent as Unix seconds; display elapsed time, not a date. */
+static void admin_session_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+   GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)column; (void)data;
+   char *raw = NULL;
+   gtk_tree_model_get(model, iter, 5, &raw, -1);
+   time_t connected = raw ? (time_t)strtoll(raw, NULL, 10) : 0;
+   time_t current = time(NULL);
+   char *duration = connected > 0 ? time_t2dhms(current > connected ? current - connected : 0) : NULL;
+   g_object_set(renderer, "text", duration ? duration : "Unknown", NULL);
+   free(duration);
    g_free(raw);
 }
 
@@ -732,6 +751,8 @@ GtkWidget *init_admin_tab(void) {
 
          if (users && (flag || field == 5 || field == 6)) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
+         } else if (!strcmp(table->name, "sessions") && field == 5) {
+            gtk_tree_view_column_set_cell_data_func(column, renderer, admin_session_cell, NULL, NULL);
          } else if ((quotas && field > 0) || (ptt && (field == 3 || field == 4 || field == 9))) {
             g_object_set_data(G_OBJECT(column), "rr-admin-table", table);
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_numeric_cell, GINT_TO_POINTER(field), NULL);
