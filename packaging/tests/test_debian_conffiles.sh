@@ -26,7 +26,7 @@ mkdir -p "$work/source/debian" "$work/source/mk" "$work/source/packaging" "$work
 cp mk/optional-modules.mk "$work/source/mk/"
 cp packaging/optional-modules.mk "$work/source/packaging/"
 jq '.backend.hamlib = false' config/radio.config.json > "$work/source/config/radio.config.json"
-cp debian/control debian/rules "$work/source/debian/"
+cp debian/control debian/rules debian/rustyrig-server.maintscript "$work/source/debian/"
 cp -L debian/changelog "$work/source/debian/changelog"
 for package in rustyrig-server rustyrig-client rustyrig-fwdsp; do
    printf '#!/bin/sh\nexit 0\n' > "$work/source/debian/$package.preinst"
@@ -39,14 +39,18 @@ stage_config() {
 stage_config rustyrig-client rrclient.cfg
 stage_config rustyrig-client callsign-lookup.cli.cfg
 stage_config rustyrig-server rrserver.cfg
+# Every required server include is a separate managed conffile.
+for config in config/rrserver.*.cfg; do
+   stage_config rustyrig-server "${config##*/}"
+done
 stage_config rustyrig-server radio.config.json
-stage_config rustyrig-server callsign-lookup.srv.cfg
 stage_config rustyrig-server ua-bans.txt
 stage_config rustyrig-callsign-lookup callsign-lookup.cfg
 (
    cd "$work/source"
    fakeroot make -f debian/rules override_dh_installdeb > "$work/installdeb.log" 2>&1
 )
+test ! -e "$work/source/debian/rustyrig-server/etc/rustyrig/callsign-lookup.srv.cfg"
 for package in rustyrig-client rustyrig-server rustyrig-callsign-lookup; do
    for config in "$work/source/debian/$package/etc/rustyrig/"*; do
       grep -Fxq "/etc/rustyrig/$(basename "$config")" \
@@ -54,6 +58,9 @@ for package in rustyrig-client rustyrig-server rustyrig-callsign-lookup; do
    done
 done
 
+# Verify the removed conffile migration is embedded in debhelper scripts.
+grep -Fq "/etc/rustyrig/callsign-lookup.srv.cfg" "$work/source/debian/rustyrig-server/DEBIAN/preinst"
+grep -Fq "/etc/rustyrig/callsign-lookup.srv.cfg" "$work/source/debian/rustyrig-server/DEBIAN/postinst"
 # No maintainer scripts run here: dpkg only touches temporary install roots.
 # Use dh_installdeb's actual conffile metadata in the fixture package.
 mkdir -p "$work/package/etc/rustyrig" "$work/package/DEBIAN"
