@@ -714,7 +714,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    const char *configured = device ? device : cfg_get(key);
 
    // Honor existing single-PTY configurations without making routing implicit.
-   if (!configured && !strcmp(name, "ttyCAT0")) {
+   if (!configured && !strcmp(name, "ttyCAT")) {
       configured = cfg_get("cat.pty.path");
    }
 
