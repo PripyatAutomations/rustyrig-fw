@@ -131,4 +131,5 @@ override_dh_installinit:
 
 override_dh_installdeb:
 	dh_installdeb $(OPTIONAL_DH_EXCLUDES) $(FT8_DH_EXCLUDE)
-	for p in rustyrig-server rustyrig-client rustyrig-fwdsp; do install -Dm755 debian/$$p.preinst debian/$$p/DEBIAN/preinst; done
+	# dh_installdeb combines package preinst scripts with .maintscript migrations.
+	# Do not overwrite its generated preinst: that would disable rm_conffile.
