@@ -567,7 +567,7 @@ static gboolean resource_tick(gpointer data) {
        * descriptor change (GPS/serial/media are inventory-only services).
        * Refresh availability while the window is open, including late peers. */
       else if (!was_online || !branch->loaded ||
-         (!branch->loading && (uint64_t)mono_us() - branch->requested_at >= UINT64_C(30000000))) resource_refresh(branch);
+         (!branch->loading && (uint64_t)mono_us() - branch->requested_at >= UINT64_C(10000000))) resource_refresh(branch);
    }
    resource_local_update();
    resource_selection(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), NULL);
