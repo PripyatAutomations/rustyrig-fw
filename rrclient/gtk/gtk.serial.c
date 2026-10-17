@@ -151,9 +151,28 @@ static void delete_port(GtkWindow *parent, const char *name, GtkWidget *status) 
    dict_free(copy);
    g_free(service_key);
 }
+static void port_info(GtkWindow *parent, const char *name) {
+   rr_sercom_info_t info;
+   bool attached = name && rr_sercom_info(name, &info);
+   char *text = attached ? g_strdup_printf(
+      "Port: %s\nService: %s\nServer: %s\nPath: %s\nState: %s\n\n"
+      "Local PTY process/user enumeration is not available yet.",
+      name, info.service ? info.service : "",
+      info.profile && *info.profile ? info.profile : "Local",
+      info.path ? info.path : "", info.state ? info.state : "") :
+      g_strdup_printf("Port: %s\nNot currently attached.\n"
+         "No active RustyRig binding is registered for this port.",
+         name ? name : "");
+   GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL |
+      GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
+      "%s", text);
+   gtk_dialog_run(GTK_DIALOG(dialog));
+   gtk_widget_destroy(dialog);
+   g_free(text);
+}
 void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Local serial ports", parent,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL, "Delete…", 1002, "Save", GTK_RESPONSE_OK, NULL);
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL, "Delete…", 1002, "Port info…", 1003, "Save", GTK_RESPONSE_OK, NULL);
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
@@ -186,7 +205,11 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    gtk_grid_attach(GTK_GRID(grid), status, 0, 7, 3, 1);
    gtk_widget_show_all(dialog);
    int response;
-   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1002) {
+   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1002 || response == 1003) {
+      if (response == 1003) {
+         port_info(GTK_WINDOW(dialog), gtk_entry_get_text(GTK_ENTRY(editor.name)));
+         continue;
+      }
       if (response == 1002) {
          delete_port(GTK_WINDOW(dialog), gtk_entry_get_text(GTK_ENTRY(editor.name)), status);
          port_names(GTK_COMBO_BOX_TEXT(names));
