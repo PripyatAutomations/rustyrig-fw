@@ -503,9 +503,13 @@ void rr_cat_yaesu_width(const char *args) {
    if (args[0] == '0' || args[0] == '1') {
       if (!args[1]) {
          // "SH0;" -- query
-         int w = (int)rr_cat_property_long("A", "width", 2400);
-         rr_cat_printf("SH0%04d;", w);
-         Log(LOG_CRAZY, "cat.yaesu", "WIDTH read (band %c) -> %d", args[0], w);
+         /* Hamlib 4.6.2 NewCAT accepts SH replies of length 6 or 7
+          * (including ';'), not a raw four-digit Hz bandwidth. A
+          * zero three-digit filter code means default bandwidth; this
+          * is safer than inventing a model-specific SH code from Hz. */
+         rr_cat_printf("SH000;");
+         Log(LOG_CRAZY, "cat.yaesu",
+            "WIDTH read (band %c) -> default filter code 000", args[0]);
 
          return;
       }
