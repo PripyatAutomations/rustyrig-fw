@@ -289,13 +289,13 @@ bool place_window(GtkWidget *window) {
    // Always applied, so window flags (modal/keep-above, hidden, etc.) are
    // (re)set on every placement, not just the first.
    if (cfg_full) {
-      char *opts = strchr(cfg_full, '|');
+      const char *opts = strchr(cfg_full, '|');
 
       if (opts) {
          opts++;                /* skip the '|' */
 
          while (*opts) {
-            char *end = strchr(opts, '|');
+            const char *end = strchr(opts, '|');
 
             // Is this the last arg?
             if (!end) {
