@@ -52,7 +52,7 @@ static admin_table_t tables[] = {
    },
    {
       .name = "sessions", .fields = {
-         "id", "username", "ip", "client", "server", "connected", "kickable"
+         "id", "username", "ip", "client", "server", "connected", "kickable", "serial_ports"
       }
    }
 };

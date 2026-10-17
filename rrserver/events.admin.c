@@ -27,6 +27,7 @@
 #include <librrprotocol/objects.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <rrserver/database.h>
+#include <rrserver/serial.h>
 #include <rrserver/backend.h>
 #include <rrserver/rig.properties.h>
 #include <rrserver/rig.rooms.h>
@@ -190,6 +191,9 @@ static void admin_sessions_list(rrconn_t *client) {
       dict_add(row, "ip", session->user_ip);
       dict_add(row, "client", session->user_agent ? session->user_agent : "Unknown");
       dict_add(row, "server", server_name ? server_name : "Local");
+      char exports[256];
+      rrserver_serial_client_exports(session, exports, sizeof(exports));
+      dict_add(row, "serial_ports", exports);
       dict_add(row, "connected", connected_at);
       dict_add(row, "kickable", admin_can_kick(client, session) ? "yes" : "no");
       rrserver_admin_send(client, "sessions", "row", row);

@@ -156,6 +156,7 @@ static void port_info(GtkWindow *parent, const char *name) {
    bool attached = name && rr_sercom_info(name, &info);
    char *text = attached ? g_strdup_printf(
       "Port: %s\nService: %s\nServer: %s\nPath: %s\nState: %s\n\n"
+      "For remote serial owners, see Admin > Sessions (Serial Ports).\n"
       "Local PTY process/user enumeration is not available yet.",
       name, info.service ? info.service : "",
       info.profile && *info.profile ? info.profile : "Local",
