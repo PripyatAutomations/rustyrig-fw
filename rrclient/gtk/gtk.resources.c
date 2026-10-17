@@ -1,6 +1,7 @@
 // Resource manager presentation. State and actions belong to the common client.
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
 #include <gtk/gtk.h>
+#include <sys/stat.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
@@ -111,6 +112,54 @@ static void resource_local_named(const char *name, struct local_scan *scan) {
    set_string(&iter, SERVICE, info.service);
    g_free(details);
 }
+/* Physical serial devices are discovered independently of configured PTYs.
+ * Do not open devices just to enumerate them. */
+static void resource_local_device(const char *name, const char *path, struct local_scan *scan) {
+   if (g_hash_table_contains(scan->seen, name)) return;
+   g_hash_table_add(scan->seen, g_strdup(name));
+   GtkTreeRowReference *reference = g_hash_table_lookup(browser->local_rows, name);
+   GtkTreeIter iter;
+   if (reference) {
+      GtkTreePath *tree_path = gtk_tree_row_reference_get_path(reference);
+      if (!tree_path) return;
+      gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, tree_path);
+      gtk_tree_path_free(tree_path);
+   } else {
+      gtk_tree_store_append(browser->store, &iter, &browser->local_root);
+      GtkTreePath *tree_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
+      reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), tree_path);
+      gtk_tree_path_free(tree_path);
+      g_hash_table_insert(browser->local_rows, g_strdup(name), reference);
+   }
+   set_string(&iter, NAME, name);
+   set_string(&iter, KIND, "device");
+   set_string(&iter, STATE, "Available");
+   set_string(&iter, DETAILS, path);
+   set_string(&iter, BINDING, "");
+   set_string(&iter, SERVICE, "local.raw");
+   set_string(&iter, PROFILE, "");
+   set_string(&iter, OURS, "Physical serial device");
+}
+static bool resource_serial_device_name(const char *name) {
+   static const char *prefixes[] = {"ttyS", "ttyUSB", "ttyACM", "ttyAMA", "ttyTHS", "ttyXRUSB", "rfcomm"};
+   for (guint i = 0; i < G_N_ELEMENTS(prefixes); i++)
+      if (g_str_has_prefix(name, prefixes[i])) return true;
+   return false;
+}
+static void resource_discover_devices(struct local_scan *scan) {
+   GDir *dir = g_dir_open("/dev", 0, NULL);
+   if (!dir) return;
+   const char *name;
+   while ((name = g_dir_read_name(dir))) {
+      if (!resource_serial_device_name(name) || g_hash_table_contains(scan->seen, name)) continue;
+      char *path = g_build_filename("/dev", name, NULL);
+      struct stat st;
+      if (stat(path, &st) == 0 && S_ISCHR(st.st_mode))
+         resource_local_device(name, path, scan);
+      g_free(path);
+   }
+   g_dir_close(dir);
+}
 static void resource_local_port(rr_serial_t *port, void *data) {
    resource_local_named(rr_serial_name(port), data);
 }
@@ -122,6 +171,7 @@ static void resource_local_update(void) {
       if (!g_hash_table_contains(scan.seen, item->data)) resource_local_named(item->data, &scan);
    }
    g_list_free_full(configured, g_free);
+   resource_discover_devices(&scan);
    GHashTableIter cursor;
    gpointer name, value;
    g_hash_table_iter_init(&cursor, browser->local_rows);
@@ -338,11 +388,12 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
       subscribed ? "Unsubscribe media" : "Subscribe media");
    gtk_widget_set_tooltip_text(browser->buttons[SUB_BUTTON], objects ? "Object updates cover this whole server; media subscriptions are separate." : "Manage the selected stream.");
    gtk_widget_set_sensitive(browser->buttons[SUB_BUTTON], online && (objects || (media && !(ours && strstr(ours, "Not discovered")))));
-   bool local_port = !strcmp(kind, "local") || !strcmp(kind, "local-port");
+   bool local_port = !strcmp(kind, "local") || !strcmp(kind, "local-port") || !strcmp(kind, "device");
    gtk_button_set_label(GTK_BUTTON(browser->buttons[SERIAL_BUTTON]), local_port ? "Configure local port…" : binding && *binding ? "Disconnect serial" : "Connect serial…");
    gtk_widget_set_sensitive(browser->buttons[SERIAL_BUTTON], local_port || (binding && *binding) || (online && service && *service && g_ascii_strcasecmp(state ? state : "", "busy")));
    gtk_button_set_label(GTK_BUTTON(browser->buttons[TERMINAL_BUTTON]), "Open Terminal…");
    gtk_widget_set_sensitive(browser->buttons[TERMINAL_BUTTON],
+      (!strcmp(kind, "device")) ||
       (!strcmp(kind, "local-port") && rr_serial_find(binding && *binding ? binding : "")) ||
       (binding && *binding && rr_serial_find(binding)) ||
       (online && service && *service));
@@ -404,6 +455,12 @@ static void resource_clicked(GtkButton *button, gpointer data) {
          gtk_tree_model_get(model, &iter, NAME, &name, -1);
          if (name && rr_serial_find(name)) endpoint = g_strdup(name);
          g_free(name);
+      } else if (!strcmp(kind, "device")) {
+         char *name = NULL, *path = NULL;
+         gtk_tree_model_get(model, &iter, NAME, &name, DETAILS, &path, -1);
+         if (name && path && rr_sercom_attach(name, "local.raw", path))
+            endpoint = g_strdup(name);
+         g_free(name); g_free(path);
       } else if (online && service && *service)
          endpoint = gtk_serial_attach_named(GTK_WINDOW(browser->window), profile, service);
       if (endpoint) {
@@ -416,7 +473,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    } else if (which == SERVER_BUTTON) {
       if (rrclient_connection_state(profile)) disconnect_server(profile);
       else connect_server(profile);
-   } else if (which == SERIAL_BUTTON && (!strcmp(kind, "local") || !strcmp(kind, "local-port"))) {
+   } else if (which == SERIAL_BUTTON && (!strcmp(kind, "local") || !strcmp(kind, "local-port") || !strcmp(kind, "device"))) {
       char *name = NULL;
       if (strcmp(kind, "local")) gtk_tree_model_get(model, &iter, NAME, &name, -1);
       gtk_serial_configure(GTK_WINDOW(browser->window), name); g_free(name);
