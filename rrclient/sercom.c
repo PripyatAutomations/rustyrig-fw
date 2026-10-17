@@ -22,6 +22,7 @@
 #include <rrclient/objects.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
+#include <rrclient/media.h>
 #include <rrclient/userlist.h>
 #include <rrclient/connman.h>
 
@@ -904,6 +905,15 @@ bool rr_sercom_init(void) {
    if (!cfg_get("serial.ttyGPS0") && !binding("ttyGPS0") &&
        cfg_get_bool("gps.pty.enable", true)) {
       if (!rr_sercom_attach("ttyGPS0", "rig.gps-out@4800", NULL)) ok = false;
+   }
+
+   /* GTK can select the initial rig tab before the serial bindings exist.
+    * Synchronize the floating port with that tab on initialization, not
+    * only on later notebook switch-page signals. */
+   const char *selected_server = rrclient_selected_server();
+   const char *selected_room = rrclient_media_active_room();
+   if (selected_server && *selected_server && selected_room && *selected_room) {
+      rr_sercom_focus_room(selected_server, selected_room);
    }
 
    return ok;
