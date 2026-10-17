@@ -22,6 +22,7 @@
 #include <libfwdspmgr/fwdsp-ctl.h>
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
+#include <rrserver/serial.h>
 #include <rrserver/recording.h>
 #include <rrserver/bridge.access.h>
 #include <rrserver/rig.registry.h>
@@ -166,6 +167,7 @@ static void media_feed_rx(rr_server_rig_t *radio, const void *samples, size_t le
 
 void rrserver_media_rx_pcm(rr_server_rig_t *radio, const void *samples, size_t len) {
    media_feed_rx(radio, samples, len, false);
+   rrserver_serial_rx_pcm(radio, samples, len);
 }
 
 static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, size_t len, void *user_data) {
