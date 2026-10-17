@@ -87,6 +87,48 @@ bool media_have_priv(const char *priv) {
 static struct rr_client_media_chan known_chans[RR_MEDIA_MAX_CHANS];
 static char media_room[128];
 static char gps_scopes[1024];
+static bool gps_wanted(const struct rr_client_media_chan *channel);
+typedef struct {
+   bool known;
+   int32_t lat, lon;
+   uint8_t flags;
+} gps_position_cache_t;
+static gps_position_cache_t gps_position_cache[RR_MEDIA_MAX_CHANS];
+static guint gps_nmea_timer;
+
+static gboolean gps_nmea_tick(gpointer unused) {
+   (void)unused;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      struct rr_client_media_chan *channel = &known_chans[i];
+      gps_position_cache_t *cached = &gps_position_cache[i];
+      if (!cached->known || !channel->joined || !channel->subscribed ||
+          !channel->stream_valid || strcmp(channel->codec, RR_GPS_FRAME_CODEC) ||
+          !gps_wanted(channel)) continue;
+      char sentence[128];
+      if (!rr_gps_nmea_rmc(cached->lat, cached->lon, cached->flags,
+            time(NULL), sentence, sizeof(sentence))) continue;
+      const char *suffix = strstr(channel->name, ".gps.rx");
+      if (!suffix) continue;
+      char source[64];
+      size_t n = (size_t)(suffix - channel->name);
+      if (n >= sizeof(source)) continue;
+      memcpy(source, channel->name, n);
+      source[n] = 0;
+      dict *d = dict_new();
+      if (!d) continue;
+      dict_add(d, "gps.channel-uuid", channel->uuid);
+      dict_add(d, "gps.source", source);
+      dict_add(d, "gps.nmea", sentence);
+      dict_add_bool(d, "gps.raw", false);
+      dict_add_bool(d, "gps.selected",
+         ws_room_same_rig(media_room, channel->control_room) ||
+         (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room)));
+      event_emit_dict("serial.gps.output", NULL, d);
+      dict_free(d);
+   }
+   return G_SOURCE_CONTINUE;
+}
+
 static bool media_ready = false; // have we got the first available batch?
 static bool direction_disabled[2];
 const struct rr_client_media_chan *rrclient_media_chan_lookup(const char *arg);
@@ -849,7 +891,18 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
          channel->rig != frame.hdr.rig || !channel->joined) {
          continue;
       }
-      if (!raw) strlcpy(channel->gps_coordinates, coordinates, sizeof(channel->gps_coordinates));
+      if (!raw) {
+         size_t position_index = (size_t)(channel - known_chans);
+         gps_position_cache[position_index].known = true;
+         gps_position_cache[position_index].lat =
+            (int32_t)((uint32_t)frame.data[0] << 24 | (uint32_t)frame.data[1] << 16 |
+                      (uint32_t)frame.data[2] << 8 | frame.data[3]);
+         gps_position_cache[position_index].lon =
+            (int32_t)((uint32_t)frame.data[4] << 24 | (uint32_t)frame.data[5] << 16 |
+                      (uint32_t)frame.data[6] << 8 | frame.data[7]);
+         gps_position_cache[position_index].flags = frame.data[8];
+         strlcpy(channel->gps_coordinates, coordinates, sizeof(channel->gps_coordinates));
+      }
       const char *suffix = strstr(channel->name, raw ? ".nmea.rx" : ".gps.rx");
 
       if (!suffix) {
@@ -976,6 +1029,7 @@ static void media_transport_notice(const char *event, const char *data, rrconn_t
 }
 
 void rrclient_media_register_events(void) {
+   if (!gps_nmea_timer) gps_nmea_timer = g_timeout_add_seconds(1, gps_nmea_tick, NULL);
    event_on("client.media.transport", media_transport_notice, NULL);
    event_on("client.server.selected", media_server_selected, NULL);
    event_on("serial.gps.outputs.changed", gps_outputs_changed, NULL);
