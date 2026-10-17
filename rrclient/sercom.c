@@ -177,7 +177,7 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
          !strcmp(b->service, "rig.nmea-out");
       if (!cat && !gps && !modem) continue;
       if (!strcmp(b->profile, profile) &&
-          (!cat && !modem || !strcmp(b->radio, alias))) continue;
+          ((!cat && !modem) || !strcmp(b->radio, alias))) continue;
 
       if (modem) {
          /* Discard commands for the previous rig before changing streams. */
