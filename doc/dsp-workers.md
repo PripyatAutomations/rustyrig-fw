@@ -143,3 +143,46 @@ queues (instead of best-effort nonblocking byte writes), async worker health,
 frequency-shifted SDR slice sources, packet-granular logs, and PTT-controlled TX
 audio and control socket actions. Modems are RX-only at the audio hub until
 these controls are implemented.
+
+
+## Canonical receive-source names (planned, not yet implemented)
+
+A slice is a **shared immutable stream resource**, not a decoder-owned
+configuration. Proposed URI-like name:
+
+```text
+rx://rig0/slice/7074000Hz/bw3000Hz/rate12000/s16le/mono
+rx://rig0/slice/14074000Hz/bw3000Hz/rate12000/s16le/mono
+rx://rig0/vfoA
+```
+
+Fields in the canonical slice key: **source rig / SDR front end, absolute RF
+center frequency in Hz, occupied/passband bandwidth in Hz, output PCM sample
+rate in samples/s, sample encoding and channel layout**. Other processing
+parameters that affect samples (sideband, filter/window/resampler choices,
+frequency offset, etc.) must also be part of the canonical key or separately
+versioned. Avoid silently changing the content of an existing key. A VFO alias
+such as `rx://rig0/vfoA` is deliberately **mutable** and resolves to a
+versioned/canonical source when the operator retunes.
+
+Multiple consumers requesting an *identical normalized slice specification*
+receive the same produced PCM stream; the audio hub keeps one channelizer and
+fans out to any number of independently supervised workers. If a consumer
+needs a different format, sample rate or passband, either expose a separately
+identified conversion node or produce a separate slice; never silently
+reinterpret the original stream. Reference-count idle slices and share
+common upstream filtering where possible. One slow decoder cannot block or
+force audio loss for others.
+
+Each stream also reports runtime metadata: monotonic/UTC timestamps,
+sample count, true RF tuning and calibration, discontinuities, quality, and
+parent RF/IQ source identity. Frequency in the name is the **RF center**,
+not a free-running AF decoder offset. A decoder's AFC/AF offset is a
+*consumer setting* and does not change its shared source identity. Future
+FT8 scans across bands require receivers or tuning schedules capable of
+covering those frequencies; a single limited-bandwidth IQ capture cannot
+produce simultaneous slices on unrelated bands.
+
+The name format is a **proposal**, not a shipped wire protocol. Normalize
+and validate names before making them public; document a stable versioned
+syntax and an escaping strategy for future device IDs.
