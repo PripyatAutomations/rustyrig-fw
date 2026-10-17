@@ -20,7 +20,7 @@ static void input(const char *event, const char *sentence, rrconn_t *client, voi
 
 bool rr_module_init(void) {
    input_token = event_on_token("serial.gps.input", input, NULL);
-   return input_token == NULL;
+   return input_token != NULL;
 }
 
 void rr_module_shutdown(void) {
