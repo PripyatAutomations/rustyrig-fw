@@ -72,8 +72,10 @@ static int hamlib_log_callback(enum rig_debug_level_e level, rig_ptr_t arg,
    char subsystem[128];
    snprintf(subsystem, sizeof(subsystem), "hamlib.%s",
       backend ? rr_backend_instance_alias(backend) : "global");
-   logpriority_t priority = level <= RIG_DEBUG_ERR ? LOG_ERR :
-      level == RIG_DEBUG_WARN ? LOG_WARN : LOG_DEBUG;
+   logpriority_t priority = level <= RIG_DEBUG_ERR ? LOG_CRIT :
+      level == RIG_DEBUG_WARN ? LOG_WARN :
+      level == RIG_DEBUG_VERBOSE ? LOG_DEBUG :
+      level == RIG_DEBUG_TRACE ? LOG_CRAZY : LOG_BLITZKREIG;
    if (backend) rr_backend_log(backend, priority, subsystem, "%s", msg);
    else Log(priority, subsystem, "%s", msg);
    return RIG_OK;
