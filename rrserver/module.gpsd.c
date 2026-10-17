@@ -126,7 +126,7 @@ bool rr_module_init(void) {
 
    if (position && *position) {
       Log(LOG_INFO, "gpsd", "%s uses configured coordinates; GPS daemon adapter disabled", target ? target : "station");
-      return false;
+      return true;
    }
    used = 0;
    dropping = false;
@@ -138,10 +138,10 @@ bool rr_module_init(void) {
    if (!poll_token) {
       mg_mgr_free(&manager);
       initialized = false;
-      return true;
+      return false;
    }
 
-   return false;
+   return true;
 }
 
 void rr_module_shutdown(void) {
