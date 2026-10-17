@@ -768,6 +768,11 @@ bool rr_rig_define_vfo_properties(rr_server_rig_t *rig, char vfo_id) {
    descriptor.type = VAL_INT;
    descriptor.unit = "Hz";
 
+   if (rr_vfo_property_define(vfo, &descriptor)) return true;
+   descriptor.name = "split";
+   descriptor.type = VAL_INT;
+   descriptor.unit = NULL;
+   descriptor.writable = false;
    return rr_vfo_property_define(vfo, &descriptor);
 }
 
