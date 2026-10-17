@@ -26,5 +26,7 @@ bool rr_backend_worker_submit(rr_backend_t *, rr_server_vfo_t *, rr_backend_oper
 rr_property_update_t rr_backend_property_observe(rr_backend_t *, rr_server_vfo_t *, const char *, val_type_t, const dict_value_t *);
 rr_property_update_t rr_backend_property_unavailable(rr_backend_t *, rr_server_vfo_t *, const char *);
 bool rr_backend_worker_shutdown(rr_backend_t *, int code);
+/* Backend associated with the current worker thread, NULL elsewhere. */
+rr_backend_t *rr_backend_worker_current(void);
 void rr_backend_log(rr_backend_t *, logpriority_t, const char *, const char *, ...) __attribute__((format(printf, 4, 5)));
 #endif
