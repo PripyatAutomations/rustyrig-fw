@@ -47,6 +47,7 @@ struct _GtkFreqEntry {
    unsigned long freq;
    unsigned long prev_freq;
    gboolean editing;
+   gboolean updating_digits;
 
    int last_focused_idx;
    double scroll_accum_y;
@@ -217,6 +218,7 @@ static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
    }
 
    unsigned long value = freqentry_read_value(fe);
+   unsigned long previous = value;
    if (delta > 0) {
       if (value > limit - 1 - place) return; /* no overflow */
       value += place;
@@ -224,8 +226,20 @@ static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
       if (value < place) return; /* no underflow */
       value -= place;
    }
+   /* Updating individual GtkEntries can invoke focus/changed handlers.
+    * Never allow any such nested callback to finalize a partial carry. */
+   fe->updating_digits = true;
+   gtk_freq_entry_set_value(fe, value);
+   fe->updating_digits = false;
+   unsigned long displayed = freqentry_read_value(fe);
+   if (displayed != value) {
+      Log(LOG_WARN, "gtk.freqentry", "digit bump display mismatch: %lu -> %lu (idx=%d delta=%d)",
+         value, displayed, idx, delta);
+      return;
+   }
+   Log(LOG_DEBUG, "gtk.freqentry", "digit bump: %lu -> %lu (digit=%d step=%d)",
+      previous, value, idx, delta);
    fe->editing = true;
-   gtk_freq_entry_set_value(fe, value); /* update all digits before sending */
    poll_block_expire = now + 1;
    freqentry_finalize(fe);
 }
@@ -386,7 +400,7 @@ static unsigned long freqentry_read_value(GtkFreqEntry *fe) {
 }
 
 static void freqentry_finalize(GtkFreqEntry *fe) {
-   if (!fe || !fe->editing) {
+   if (!fe || !fe->editing || fe->updating_digits) {
       return;
    }
    unsigned long freq = freqentry_read_value(fe);
@@ -433,7 +447,7 @@ static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointe
    }
    gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
 
-   fe->editing = true;
+   if (!fe->updating_digits) fe->editing = true;
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
       if (fe->digits[i] == entry) {
