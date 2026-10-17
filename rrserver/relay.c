@@ -97,6 +97,20 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    free(json);
 }
 
+/* File operations use correlated results, never generic chat errors, so
+ * transfers fail immediately rather than waiting for the client timeout. */
+static void linked_file_error(rrconn_t *client, dict *request, const char *reason) {
+   dict *reply = dict_new();
+   if (!reply) return;
+   dict_add(reply, "msg.type", "file");
+   dict_add(reply, "file.cmd", "result");
+   dict_add(reply, "file.path", dict_get(request, "file.path", "/"));
+   dict_add(reply, "request.id", dict_get(request, "request.id", ""));
+   dict_add(reply, "file.error", reason);
+   ws_send_dict(NULL, client, reply, WEBSOCKET_OP_TEXT);
+   dict_free(reply);
+}
+
 /* Allow only supported client operations onto the application relay. */
 bool rr_relay_permitted_message(dict *d) {
    const char *family = dict_get(d, "msg.type", ""), *cmd = dict_get(d, "talk.cmd", "");
@@ -155,7 +169,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
       const char *end = strchr(path + 2, '/');
       size_t n = end ? (size_t)(end - path - 2) : strlen(path + 2);
       char owner[37];
-      if (n != 36) { io->handled = true; ws_send_error(client, "Invalid linked share owner"); return; }
+      if (n != 36) { io->handled = true; linked_file_error(client, io->message, "Invalid linked share owner"); return; }
       memcpy(owner, path + 2, n);
       owner[n] = 0;
       struct catalog *node = rr_relay_find_catalog(owner);
@@ -164,7 +178,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
           strcmp(dict_get(node->descriptor, "object.type", ""), "node") ||
           strcmp(node->owner, owner) || rr_relay_local_owner(owner) ||
           !rrserver_links_route(owner) || !rr_relay_permitted_message(io->message)) {
-         ws_send_error(client, "Linked file owner unavailable or operation denied");
+         linked_file_error(client, io->message, "Linked file owner unavailable or operation denied");
          return;
       }
       dict *request = dict_clone(io->message);
@@ -177,17 +191,20 @@ static void route_request(const char *event, const void *data, size_t length, rr
          if (strncmp(dest, prefix, strlen(prefix)) ||
              (dest[strlen(prefix)] != '/' && dest[strlen(prefix)] != 0)) {
             dict_free(request);
-            ws_send_error(client, "Cross-server file moves are not allowed");
+            linked_file_error(client, io->message, "Cross-server file moves are not allowed");
             return;
          }
-         dict_add(request, "file.dest", dest[strlen(prefix)] ? dest + strlen(prefix) : "/");
+         char *local_dest = strdup(dest[strlen(prefix)] ? dest + strlen(prefix) : "/");
+         if (!local_dest) { dict_free(request); return; }
+         dict_add(request, "file.dest", local_dest);
+         free(local_dest);
       }
       struct relay_client *origin = rr_relay_client_for(client, true);
       if (origin) {
          dict_add_ulong(request, "relay.deadline", now + 30);
          io->result = rr_relay_packet(owner, "request", origin->id, client->user->name, request);
       }
-      if (!io->result) ws_send_error(client, "Linked file owner unreachable");
+      if (!io->result) linked_file_error(client, io->message, "Linked file owner unreachable");
       dict_free(request);
       return;
    }
@@ -880,6 +897,10 @@ void rrserver_relay_fini(void) {
 
 /* Send remote inventory entries visible through the relay catalog. */
 void rrserver_relay_inventory(rrconn_t *client, const char *request) {
+}
+void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id) {
+   (void)client;
+   (void)request_id;
 }
 
 /* Send discovered remote objects to an object-list requester. */
