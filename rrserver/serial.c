@@ -703,7 +703,8 @@ void rrserver_serial_init(void) {
    int rank = 0;
 
    while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (!key || strncmp(key, "serial.", 7) || !value || !*value || !strcmp(value, "none")) {
+      if (!key || strncmp(key, "serial.", 7) || !strcmp(key, "serial.auto-export-usb") ||
+          !value || !*value || !strcmp(value, "none")) {
          continue;
       }
 
