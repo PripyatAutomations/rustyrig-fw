@@ -15,7 +15,6 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <glib.h>
@@ -163,6 +162,10 @@ static void reply(rrconn_t *client, const char *cmd, const char *name, const str
 }
 /* A software modem exposes a full-duplex byte stream over stdin/stdout.
  * Its separate RF/audio/PTT control plane is managed by the modem worker. */
+static void modem_child_exited(GPid pid, gint status, gpointer data) {
+   (void)status; (void)data;
+   g_spawn_close_pid(pid);
+}
 static int open_modem_worker(struct serial_export *p) {
    int sockets[2];
    gchar **argv = NULL;
@@ -185,7 +188,6 @@ static int open_modem_worker(struct serial_export *p) {
       if (dup2(sockets[1], STDIN_FILENO) < 0 ||
           dup2(sockets[1], STDOUT_FILENO) < 0) _exit(127);
       if (sockets[1] > STDERR_FILENO) close(sockets[1]);
-      execlp(argv[0], argv[0], (char *)NULL);
       /* execvp supports argument lists; do not invoke a shell. */
       execvp(argv[0], argv);
       _exit(127);
@@ -194,6 +196,7 @@ static int open_modem_worker(struct serial_export *p) {
    g_strfreev(argv);
    if (pid < 0) { close(sockets[0]); return -1; }
    p->child_pid = pid;
+   g_child_watch_add(pid, modem_child_exited, NULL);
    int flags = fcntl(sockets[0], F_GETFL, 0);
    if (flags >= 0) fcntl(sockets[0], F_SETFL, flags | O_NONBLOCK);
    return sockets[0];
@@ -203,8 +206,7 @@ static void close_port(struct serial_export *p) {
       if (p->fd >= 0) close(p->fd);
       if (p->child_pid > 0) {
          kill(p->child_pid, SIGTERM);
-         /* Reap asynchronously so closing a client never blocks the event loop. */
-         waitpid(p->child_pid, NULL, WNOHANG);
+         /* The child watch reaps the worker on GLib main context. */
          p->child_pid = 0;
       }
    } else if (p->pty) {
