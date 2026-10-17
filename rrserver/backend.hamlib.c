@@ -802,8 +802,11 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
 
    if (result != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: GET VFO %s PTT failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(result)
-         );
+      /* Do not append rigerror() here: Hamlib may return accumulated
+       * multi-line diagnostics instead of a short error description. */
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+         "%s: GET VFO %s PTT failed (Hamlib error %d)",
+         rr_backend_instance_alias(backend), vfo_name(index), result);
    }
 
    if (rr_backend_worker_yield(backend)) {
