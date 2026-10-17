@@ -204,6 +204,32 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
    return NULL;
 }
 
+/* Change a decimal place in one transaction. Recursive button/key events
+ * used to finalize intermediate carry states (e.g. 7999 -> 8999). */
+static unsigned long freqentry_read_value(GtkFreqEntry *fe);
+static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
+   if (!fe || idx < 0 || idx >= fe->num_digits || !delta) return;
+
+   unsigned long place = 1, limit = 1;
+   for (int i = 0; i < fe->num_digits; ++i) {
+      limit *= 10;
+      if (i < fe->num_digits - idx - 1) place *= 10;
+   }
+
+   unsigned long value = freqentry_read_value(fe);
+   if (delta > 0) {
+      if (value > limit - 1 - place) return; /* no overflow */
+      value += place;
+   } else {
+      if (value < place) return; /* no underflow */
+      value -= place;
+   }
+   fe->editing = true;
+   gtk_freq_entry_set_value(fe, value); /* update all digits before sending */
+   poll_block_expire = now + 1;
+   freqentry_finalize(fe);
+}
+
 static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
    if (!user_data) {
       return FALSE;
@@ -243,36 +269,8 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
    }
 
    if (delta != 0) {
-      fe->editing = true;
-      const char *text = gtk_entry_get_text(GTK_ENTRY(fe->digits[idx]));
-      int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-
-      val += delta;
-
-      if (val > 9) {
-         val = 0;
-
-         if (idx > 0) {
-            g_signal_emit_by_name(fe->up_buttons[idx - 1], "clicked");
-         }
-      } else if (val < 0) {
-         val = 9;
-
-         if (idx > 0) {
-            g_signal_emit_by_name(fe->down_buttons[idx - 1], "clicked");
-         }
-      }
-      char buf[2] = {
-         '0' + val, 0
-      };
-      gtk_entry_set_text(GTK_ENTRY(fe->digits[idx]), buf);
-      gtk_editable_select_region(GTK_EDITABLE(fe->digits[idx]), 0, -1);
-      gtk_editable_set_position(GTK_EDITABLE(fe->digits[idx]), -1);
-
-      poll_block_expire = now + 1;
-      freqentry_finalize(fe);
-
-      return TRUE;              // handled
+      freqentry_bump_digit(fe, idx, delta);
+      return TRUE;
    }
 
    return FALSE;
@@ -319,55 +317,10 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
 
       return TRUE;
    } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_plus) {
-      const char *text = gtk_entry_get_text(entry);
-      int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-
-      val++;
-
-      if (val > 9) {
-         val = 0;
-
-         if (idx > 0) {
-            // Simulate an Up key press on the digit to the left
-            GdkEventKey carry_event = *event;
-            gtk_widget_event(fe->digits[idx - 1], (GdkEvent *) &carry_event);
-         }
-      }
-      char buf[2] = {
-         '0' + val, '\0'
-      };
-      gtk_entry_set_text(entry, buf);
-      gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-      gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-      poll_block_expire = now + 1;
-      freqentry_finalize(fe);
-
+      freqentry_bump_digit(fe, idx, +1);
       return TRUE;
    } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_minus) {
-      const char *text = gtk_entry_get_text(entry);
-      int val = (text && *text >= '0' && *text <= '9') ? *text - '0' : 0;
-
-      val--;
-
-      if (val < 0) {
-         val = 9;
-
-         if (idx > 0) {
-            // Simulate Down key press on the digit to the left
-            GdkEventKey borrow_event = *event;
-            gtk_widget_event(fe->digits[idx - 1], (GdkEvent *) &borrow_event);
-         }
-      }
-      char buf[2] = {
-         '0' + val, '\0'
-      };
-      gtk_entry_set_text(entry, buf);
-      gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
-      gtk_editable_set_position(GTK_EDITABLE(entry), -1);
-
-      poll_block_expire = now + 1;
-      freqentry_finalize(fe);
-
+      freqentry_bump_digit(fe, idx, -1);
       return TRUE;
    } else if (event->keyval == GDK_KEY_Return) {
       poll_block_expire = 0;
@@ -455,43 +408,11 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
 }
 
 static void on_button_clicked(GtkButton *button, gpointer user_data) {
-   if (!user_data) {
-      return;
-   }
+   if (!user_data) return;
    GtkFreqEntry *fe = GTK_FREQ_ENTRY(user_data);
    int idx = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "digit-index"));
    int delta = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "digit-delta"));
-
-   if (idx < 0 || idx >= fe->num_digits) {
-      return;
-   }
-   fe->editing = true;
-   const char *text = gtk_entry_get_text(GTK_ENTRY(fe->digits[idx]));
-   int val = (strlen(text) == 1 && text[0] >= '0' && text[0] <= '9') ? text[0] - '0' : 0;
-
-   val += delta;
-
-   if (val < 0) {
-      val = 9;
-
-      if (idx > 0) {
-         GtkWidget *prev_entry = fe->digits[idx - 1];
-         g_signal_emit_by_name(fe->down_buttons[idx - 1], "clicked");
-      }
-   } else if (val > 9) {
-      val = 0;
-
-      if (idx > 0) {
-         GtkWidget *prev_entry = fe->digits[idx - 1];
-         g_signal_emit_by_name(fe->up_buttons[idx - 1], "clicked");
-      }
-   }
-   char buf[2] = {
-      '0' + val, 0
-   };
-   gtk_entry_set_text(GTK_ENTRY(fe->digits[idx]), buf);
-   poll_block_expire = now + 1;
-   freqentry_finalize(fe);
+   freqentry_bump_digit(fe, idx, delta);
 }
 
 static void on_freq_digit_activate(GtkWidget *entry, gpointer user_data) {
@@ -577,40 +498,6 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
    }
 
    return FALSE;
-}
-
-static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
-   if (!fe) {
-      return;
-   }
-
-   if (idx < 0 || idx >= fe->num_digits) {
-      return;
-   }
-   fe->editing = true;
-
-   const char *text = gtk_entry_get_text(GTK_ENTRY(fe->digits[idx]));
-   int val = (text && g_ascii_isdigit(text[0])) ? text[0] - '0' : 0;
-
-   val += delta;
-
-   if (val > 9) {
-      val = 0;
-
-      if (idx > 0) {
-         g_signal_emit_by_name(fe->up_buttons[idx - 1], "clicked");
-      }
-   } else if (val < 0) {
-      val = 9;
-
-      if (idx > 0) {
-         g_signal_emit_by_name(fe->down_buttons[idx - 1], "clicked");
-      }
-   }
-   char buf[2] = {
-      (char)('0' + val), 0
-   };
-   gtk_entry_set_text(GTK_ENTRY(fe->digits[idx]), buf);
 }
 
 static gboolean on_toplevel_scroll(GtkWidget *toplevel, GdkEventScroll *event, gpointer user_data) {
