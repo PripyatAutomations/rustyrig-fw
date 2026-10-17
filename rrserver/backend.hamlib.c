@@ -784,13 +784,19 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       return NULL;
    }
 
-   if (!data->vfo_probed[index] || data->vfo_mode_ok[index] || index == backend->active_vfo) {
+   if (index == backend->active_vfo ||
+       ((data->rig->caps->targetable_vfo & RIG_TARGETABLE_MODE) &&
+        (!data->vfo_probed[index] || data->vfo_mode_ok[index]))) {
       data->vfo_probed[index] = true;
       result = rig_get_mode(data->rig, hamlib_vfo, &state->mode, &state->width);
 
       if (result != RIG_OK) {
-         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: GET VFO %s mode failed: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(
-            result));
+         rr_backend_log(backend,
+            index != backend->active_vfo &&
+            (result == -RIG_ENAVAIL || result == -RIG_ENIMPL || result == -RIG_ENTARGET) ?
+               LOG_DEBUG : LOG_WARN,
+            "backend.hamlib", "%s: GET VFO %s mode failed (Hamlib error %d)",
+            rr_backend_instance_alias(backend), vfo_name(index), result);
          state->mode = RIG_MODE_NONE;
          state->width = 0;
 
