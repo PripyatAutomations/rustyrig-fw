@@ -543,7 +543,13 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
        !rr_relay_permitted_message(d)) {
       dict *error = dict_new();
 
-      if (error) {
+      if (error && files) {
+         dict_add(error, "msg.type", "file");
+         dict_add(error, "file.cmd", "result");
+         dict_add(error, "request.id", dict_get(d, "request.id", ""));
+         dict_add(error, "file.path", dict_get(d, "file.path", "/"));
+         dict_add(error, "file.error", "Owner requires an enabled local callsign account and share permission");
+      } else if (error) {
          dict_add(error, "msg.type", "error");
          dict_add(error, "error.msg", "Remote owner requires an enabled local account and an allowed command");
          rr_relay_packet(origin, "reply", id, NULL, error);
