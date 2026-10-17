@@ -17,6 +17,7 @@
 enum { NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, COLUMNS };
 enum { ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, TERMINAL_BUTTON, BUTTONS };
 extern void gtk_terminal_open_endpoint(const char *name);
+extern void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name);
 typedef struct {
    char *profile, *request, *selection;
    GtkTreeIter root, parents[5];
@@ -465,7 +466,27 @@ static void resource_clicked(GtkButton *button, gpointer data) {
       } else if (online && service && *service)
          endpoint = gtk_serial_attach_named(GTK_WINDOW(browser->window), profile, service);
       if (endpoint) {
-         gtk_terminal_open_endpoint(endpoint);
+         char *resource_name = NULL;
+         gtk_tree_model_get(model, &iter, NAME, &resource_name, -1);
+         char *human = NULL;
+         if (resource_name && *resource_name) {
+            /* Media names are human-readable; UUID service remains internal. */
+            if (!strcmp(kind, "media") && g_str_has_suffix(resource_name, ".gps.rx"))
+               human = g_strdup_printf("%.*s.gps-out",
+                  (int)(strlen(resource_name) - strlen(".gps.rx")), resource_name);
+            else if (!strcmp(kind, "media") && g_str_has_suffix(resource_name, ".nmea.rx"))
+               human = g_strdup_printf("%.*s.nmea-out",
+                  (int)(strlen(resource_name) - strlen(".nmea.rx")), resource_name);
+            else human = g_strdup(resource_name);
+         }
+         char *label = g_strdup_printf("%s%s%s%s%s",
+            profile && *profile ? profile : "Local",
+            room && *room ? " / " : "", room && *room ? room : "",
+            human && *human ? " / " : "", human && *human ? human : "");
+         gtk_terminal_open_endpoint_labeled(endpoint, label);
+         g_free(label);
+         g_free(human);
+         g_free(resource_name);
          refresh_after = true;
          g_free(endpoint);
       } else
