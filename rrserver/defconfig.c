@@ -364,6 +364,12 @@ defconfig_t defcfg[] = {
       "serial.enable", "true", "Enable configured WebSocket serial exports"
    },
    {
+      "modem.path", "/var/lib/rustyrig/modems", "Directory for external modem executables", DEFCONFIG_PATH, NULL
+   },
+   {
+      "serial.ttyMODEM0", NULL, "Optional modem export; e.g. modem:/var/lib/rustyrig/modems/rrmodem-ft8"
+   },
+   {
       "serial.ttyHOST0", NULL, "Optional exported real serial device path"
    },
    {
