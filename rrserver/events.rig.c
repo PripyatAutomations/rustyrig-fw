@@ -266,8 +266,40 @@ static void rrserver_handle_be_poll(const char *event, const char *data, rrconn_
 }
 
 /* Register this domain's server-owned protocol listeners. */
+/* Route the operator's VFO selection to the specific rig backend. */
+static void rrserver_handle_vfo_select(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)cptr;
+   (void)user;
+   dict *request = data ? json2dict(data) : NULL;
+   if (!request) return;
+
+   const char *room = dict_get(request, "rig.room", NULL);
+   const char *name = dict_get(request, "rig.vfo", NULL);
+   rr_server_rig_t *radio = room ? rrserver_rig_for_room(room) : NULL;
+   rr_vfo_t index = name && name[0] && !name[1] ? vfo_lookup(name[0]) : VFO_NONE;
+   rr_server_vfo_t *vfo = radio && index >= VFO_A && index < MAX_VFOS ?
+      rr_server_vfo_find_alias(radio, name) : NULL;
+
+   if (vfo) {
+      rr_backend_t *backend = rr_server_rig_backend(radio);
+      if (backend && backend->active_vfo != index) {
+         backend->active_vfo = index;
+         if (radio == rr_default_radio()) active_vfo = index;
+         Log(LOG_INFO, "rig.vfo", "%s: operating VFO selected %s in %s",
+            rr_backend_instance_alias(backend), name, room);
+      }
+      rr_backend_poll_rig(radio, vfo);
+   } else {
+      Log(LOG_WARN, "rig.vfo", "Ignoring unknown VFO %s in room %s",
+         name ? name : "?", room ? room : "?");
+   }
+   dict_free(request);
+}
+
 void rrserver_events_rig_register(void) {
    event_on("be.poll", rrserver_handle_be_poll, NULL);
+   event_on("be.vfo.select", rrserver_handle_vfo_select, NULL);
    event_on("rigctl", rrserver_handle_rigctlmsg, NULL);
    event_on(RR_PROPERTY_CHANGED_EVENT, rrserver_handle_rig_property_changed, NULL);
 }
