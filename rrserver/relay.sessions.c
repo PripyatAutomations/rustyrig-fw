@@ -538,7 +538,9 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    const char *room = rr_relay_message_room(d);
    struct catalog *c = rr_relay_room_catalog(room);
 
-   if (!r || !c || !rr_relay_local_owner(c->owner) || !rr_relay_permitted_message(d)) {
+   bool files = !strcmp(dict_get(d, "msg.type", ""), "file");
+   if (!r || (!files && (!c || !rr_relay_local_owner(c->owner))) ||
+       !rr_relay_permitted_message(d)) {
       dict *error = dict_new();
 
       if (error) {
@@ -604,6 +606,8 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
 
       return;
    }
+   /* File requests are roomless. The owner-side file handler authenticates
+    * this remote session and checks the local account's share privileges. */
    char *wire = rr_wire_encode(d);
 
    if (!wire) {
