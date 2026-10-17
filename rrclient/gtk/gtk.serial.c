@@ -9,6 +9,10 @@
 #include "gtk.serial.h"
 extern const char *config_file;
 
+static bool permanent_port(const char *name) {
+   return name && (!strcmp(name, "ttyCAT") || !strcmp(name, "ttyGPS") ||
+      !strcmp(name, "ttyMODEM"));
+}
 GList *gtk_serial_configured_names(void) {
    GList *names = NULL;
    const char *key;
@@ -28,6 +32,10 @@ GList *gtk_serial_configured_names(void) {
       else
          g_free(name);
    }
+   const char *permanent[] = {"ttyCAT", "ttyGPS", "ttyMODEM"};
+   for (unsigned i = 0; i < G_N_ELEMENTS(permanent); i++)
+      if (!g_list_find_custom(names, permanent[i], (GCompareFunc)g_strcmp0))
+         names = g_list_prepend(names, g_strdup(permanent[i]));
    return g_list_sort(names, (GCompareFunc)g_strcmp0);
 }
 static void port_names(GtkComboBoxText *combo) {
@@ -73,7 +81,8 @@ static void load_port(GtkComboBox *combo, gpointer data) {
    }
    char *key = g_strdup_printf("serial.%s", name);
    const char *service = cfg_get(key);
-   gtk_entry_set_text(GTK_ENTRY(editor->service), service ? service : "none");
+   gtk_entry_set_text(GTK_ENTRY(editor->service), service ? service :
+      !strcmp(name, "ttyCAT") ? "rig.cat" : !strcmp(name, "ttyGPS") ? "rig.gps-out@4800" : "none");
    g_free(key);
 }
 static void browse_path(GtkButton *button, gpointer data) {
@@ -90,9 +99,61 @@ static void browse_path(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(chooser);
 }
+static void delete_port(GtkWindow *parent, const char *name, GtkWidget *status) {
+   if (permanent_port(name)) {
+      gtk_label_set_text(GTK_LABEL(status), "This built-in port cannot be removed.");
+      return;
+   }
+   if (!name || !*name || rr_serial_find(name)) {
+      gtk_label_set_text(GTK_LABEL(status), "Disconnect the port before removing its configuration.");
+      return;
+   }
+   char *service_key = g_strdup_printf("serial.%s", name);
+   const char *fields[] = {"type", "path", "baud", "mode", "buffer-bytes", "vfo"};
+   bool exists = cfg_get(service_key) != NULL;
+   for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
+      char *key = g_strdup_printf("serial:%s.%s", name, fields[i]);
+      if (cfg_get(key)) exists = true;
+      g_free(key);
+   }
+   if (!exists) {
+      gtk_label_set_text(GTK_LABEL(status), "No saved configuration exists for this port.");
+      g_free(service_key);
+      return;
+   }
+   GtkWidget *confirm = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL |
+      GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
+      "Delete configuration for %s?", name);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(confirm),
+      "This removes its startup binding and local endpoint settings.");
+   bool yes = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_OK;
+   gtk_widget_destroy(confirm);
+   if (!yes) { g_free(service_key); return; }
+   dict *copy = dict_clone(cfg);
+   if (!copy) { g_free(service_key); return; }
+   dict_del(copy, service_key);
+   for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
+      char *key = g_strdup_printf("serial:%s.%s", name, fields[i]);
+      dict_del(copy, key);
+      g_free(key);
+   }
+   if (!config_file || !cfg_save_overrides(copy, config_file)) {
+      gtk_label_set_text(GTK_LABEL(status), "Unable to save deletion; nothing changed.");
+   } else {
+      dict_del(cfg, service_key);
+      for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
+         char *key = g_strdup_printf("serial:%s.%s", name, fields[i]);
+         dict_del(cfg, key);
+         g_free(key);
+      }
+      gtk_label_set_text(GTK_LABEL(status), "Port configuration deleted.");
+   }
+   dict_free(copy);
+   g_free(service_key);
+}
 void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Local serial ports", parent,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL, "Save", GTK_RESPONSE_OK, NULL);
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL, "Delete…", 1002, "Save", GTK_RESPONSE_OK, NULL);
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
@@ -124,7 +185,13 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    GtkWidget *status = gtk_label_new("Disconnect an attached endpoint before editing. Files append received bytes only.");
    gtk_grid_attach(GTK_GRID(grid), status, 0, 7, 3, 1);
    gtk_widget_show_all(dialog);
-   while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+   int response;
+   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1002) {
+      if (response == 1002) {
+         delete_port(GTK_WINDOW(dialog), gtk_entry_get_text(GTK_ENTRY(editor.name)), status);
+         port_names(GTK_COMBO_BOX_TEXT(names));
+         continue;
+      }
       const char *name = gtk_entry_get_text(GTK_ENTRY(editor.name));
       bool valid = *name && strlen(name) < 64;
       for (const char *p = name; *p; p++)
