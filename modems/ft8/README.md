@@ -10,7 +10,7 @@ git clone https://github.com/kgoba/ft8_lib ext/ft8_lib
 make -C modems/ft8 FT8_LIB=../../ext/ft8_lib
 ```
 
-The normal RustyRig build does not build or require ft8_lib. The optional
+The normal RustyRig build does not build or require ft8_lib.\nOptional Debian build: WITH_FT8=yes dpkg-buildpackage -b -us -uc, with\nft8_lib checked out under ext/ft8_lib. It creates rustyrig-modem-ft8.\n The optional
 worker can be copied to a known absolute path or launched from your build
 tree. Do not launch through an untrusted shell.
 
@@ -45,7 +45,7 @@ dictionary has not been implemented.
 
 ```ini
 [serial]
-;ttyMODEM0=modem:/absolute/path/to/rrmodem-ft8
+;ttyMODEM0=modem:/var/lib/rustyrig/modems/rrmodem-ft8
 
 [serial:ttyMODEM0]
 rig=rig0
