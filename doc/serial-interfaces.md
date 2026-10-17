@@ -129,6 +129,38 @@ sender must honor any flow control its own device requires; a WebSocket cannot
 prevent overflow inside external hardware. NMEA outputs have bounded queues
 and log a full queue rather than growing indefinitely.
 
+## Software modem serial exports (server subprocess)
+
+A virtual modem export can launch a server-side program with a byte-oriented
+serial interface, without pretending the program is a physical /dev/tty device:
+
+```ini
+[serial]
+ttyMODEM0=modem:/usr/local/libexec/rustyrig/modem-worker --profile packet
+```
+
+When an authorized client attaches to `host:ttyMODEM0`, rrserver starts the
+configured program. Its standard input and standard output form a full-duplex
+**binary** stream; standard error remains available for diagnostics. Received
+bytes go to the client's PTY and terminal observer, while writes from either
+the PTY or terminal flow to the worker over the same authenticated stream.
+The worker is terminated when the owning client disconnects.
+
+These virtual exports use the existing `serial` / `serial.ttyMODEM0`
+permissions, stream sequencing, limits and Resource Explorer inventory.
+No baud rate, parity or stop bits exist on this data stream. The client will
+disable physical line settings once the server identifies it as a modem.
+Only configure trusted executable paths: these commands execute on rrserver
+with its operating-system privileges. The configured command is argument
+parsed, not interpreted by a shell.
+
+**RF integration is separate.** The worker must also connect to the
+appropriate rrserver audio and PTT services to turn its serial bytes into
+modulated RF and received RF back into bytes. This serial adapter does not
+automatically allocate a rig, transmit audio or assert PTT; those operations
+require a modem worker implementation and backend control interface. Do not
+treat this as a complete RF modem without that integration.
+
 ## Rig location and GPS adapters
 
 `gps.position=latitude,longitude` in `[rig:rigN]` is the authoritative fixed
