@@ -389,6 +389,18 @@ static bool hl_connect(rr_backend_t *backend) {
    data->vfo_selection_unavailable = false;
    data->vfo_exchanged = false;
    data->last_active_vfo = backend->active_vfo;
+   /* The capability table describes the driver, not a guarantee that each
+    * operation succeeds. Keep runtime negative-result handling as well. */
+   const struct rig_caps *caps = data->rig->caps;
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
+      "%s: capabilities model=%s, VFO targetable=0x%x (frequency=%d mode=%d PTT=%d level=%d), strength=%d",
+      rr_backend_instance_alias(backend), caps->model_name ? caps->model_name : "?",
+      caps->targetable_vfo,
+      !!(caps->targetable_vfo & RIG_TARGETABLE_FREQ),
+      !!(caps->targetable_vfo & RIG_TARGETABLE_MODE),
+      !!(caps->targetable_vfo & RIG_TARGETABLE_PTT),
+      !!(caps->targetable_vfo & RIG_TARGETABLE_LEVEL),
+      !!rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH));
    /* VFO selection is optional. Polling determines whether the backend supports it. */
    rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: connected to %s", rr_backend_instance_alias(backend), data->device);
 
@@ -816,7 +828,9 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    /* Some radios cannot read PTT for the inactive bank. Read failure
     * must never be mistaken for a confirmed PTT OFF state. Keep the last
     * known state and only suppress repeated unsupported read attempts. */
-   if (!data->ptt_read_unavailable[index]) {
+   if (!data->ptt_read_unavailable[index] &&
+       (index == backend->active_vfo ||
+        (data->rig->caps->targetable_vfo & RIG_TARGETABLE_PTT))) {
       result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
       if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL ||
           result == -RIG_ENTARGET) {
@@ -837,7 +851,10 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    /* Strength is optional, and Hamlib may not permit querying the
     * inactive VFO (RIG_ENTARGET = 12). Don't retry that unsupported
     * operation on every poll. Reprobe after reconnect. */
-   if (!data->strength_untargetable[index]) {
+   if (!data->strength_untargetable[index] &&
+       rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH) &&
+       (index == backend->active_vfo ||
+        (data->rig->caps->targetable_vfo & RIG_TARGETABLE_LEVEL))) {
       result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
       if (result == -RIG_ENTARGET) {
          data->strength_untargetable[index] = true;
