@@ -1,0 +1,8 @@
+#!/bin/bash
+for vfo in VFOA VFOB; do
+    echo "=== $vfo ==="
+    rigctl -m 2 -r 127.0.0.1:4532 -o f "$vfo" 2>/dev/null
+done
+
+echo "=== Active VFO ==="
+rigctl -m 2 -r 127.0.0.1:4532 v 2>/dev/null
