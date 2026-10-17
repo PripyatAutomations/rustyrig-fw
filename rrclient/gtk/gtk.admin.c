@@ -49,6 +49,11 @@ static admin_table_t tables[] = {
       .name = "ptt", .fields = {
          "id", "start_time", "username", "vfo", "frequency", "mode", "duration", "stop_reason", "recording_id", "server"
       }
+   },
+   {
+      .name = "sessions", .fields = {
+         "id", "username", "ip", "client", "server", "connected", "kickable"
+      }
    }
 };
 
@@ -304,6 +309,40 @@ static void admin_refresh(GtkButton *button, gpointer data) {
    admin_command(table, "admin", table->name, NULL);
 }
 
+static void admin_session_kick(GtkButton *button, gpointer data) {
+   admin_table_t *table = data;
+   bool all = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "kick-all"));
+   char *id = NULL, *username = NULL, *kickable = NULL;
+   if (!all) {
+      GtkTreeModel *model = NULL;
+      GtkTreeIter iter;
+      if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(
+          GTK_TREE_VIEW(table->tree)), &model, &iter)) return;
+      gtk_tree_model_get(model, &iter, 0, &id, 1, &username,
+         6, &kickable, -1);
+      if (g_strcmp0(kickable, "yes")) {
+         gtk_label_set_text(GTK_LABEL(table->status),
+            "This session is protected or belongs to your current login.");
+         g_free(id); g_free(username); g_free(kickable);
+         return;
+      }
+   }
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
+      all ? "Disconnect all permitted sessions on %s?" :
+         "Disconnect %s on %s?",
+      all ? table->profile : username ? username : "selected session",
+      all ? "" : table->profile);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
+      "The server will exclude your session and protected accounts. "
+      "Active radio transmissions must be released by normal disconnect handling.");
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+      admin_command(table, all ? "session-kick-all" : "session-kick",
+         "", all ? NULL : id);
+   gtk_widget_destroy(dialog);
+   g_free(id); g_free(username); g_free(kickable);
+}
 static void admin_older(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -622,6 +661,15 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(refresh, "clicked", G_CALLBACK(admin_refresh), table);
       g_signal_connect(table->older, "clicked", G_CALLBACK(admin_older), table);
 
+      if (!strcmp(table->name, "sessions")) {
+         GtkWidget *kick = gtk_button_new_with_label("Disconnect selected…");
+         GtkWidget *kick_all = gtk_button_new_with_label("Disconnect all…");
+         g_object_set_data(G_OBJECT(kick_all), "kick-all", GINT_TO_POINTER(1));
+         g_signal_connect(kick, "clicked", G_CALLBACK(admin_session_kick), table);
+         g_signal_connect(kick_all, "clicked", G_CALLBACK(admin_session_kick), table);
+         gtk_box_pack_start(GTK_BOX(buttons), kick, FALSE, FALSE, 0);
+         gtk_box_pack_start(GTK_BOX(buttons), kick_all, FALSE, FALSE, 0);
+      }
       if (i == 0) {
          GtkWidget *create = gtk_button_new_with_label("Create User");
          g_signal_connect(create, "clicked", G_CALLBACK(admin_create_user), table);
@@ -717,7 +765,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(!strcmp(table->name, "audit") ? "Audit Log" : !strcmp(table->name, "ptt") ?
-         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : !strcmp(table->name, "users") ? "Users" : "Rooms"));
+         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : !strcmp(table->name, "users") ? "Users" : !strcmp(table->name, "sessions") ? "Sessions" : "Rooms"));
    }
 
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
