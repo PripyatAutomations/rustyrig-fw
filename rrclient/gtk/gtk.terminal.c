@@ -137,6 +137,8 @@ static void terminal_toolbar(terminal_session_t *session) {
        (service && g_str_has_prefix(service, "host:") && g_strcmp0(info.state, "Connected"))) {
       gtk_label_set_text(GTK_LABEL(session->connection_status), "UNAVAILABLE");
       if (session->apply_button) gtk_widget_set_sensitive(session->apply_button, FALSE);
+      if (service && g_str_has_prefix(service, "host:"))
+         gtk_widget_set_sensitive(session->view, FALSE);
    }
 }
 static void terminal_configuration(const char *event, const char *data,
