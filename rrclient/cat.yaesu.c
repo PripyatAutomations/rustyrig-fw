@@ -532,9 +532,9 @@ void rr_cat_yaesu_split(const char *args) {
    if (!args || !args[0]) {
       /* Do not invent split state. Real readback requires a confirmed
        * server-side Hamlib observation. */
-      const char *state = rr_cat_property("A", "split", NULL);
-      if (state && (!strcmp(state, "0") || !strcmp(state, "1"))) {
-         rr_cat_printf("ST%s;", state);
+      long state = rr_cat_property_long(cat_vfo_str(0), "split", -1);
+      if (state == 0 || state == 1) {
+         rr_cat_printf("ST%ld;", state);
       } else {
          Log(LOG_DEBUG, "cat.yaesu", "ST readback unavailable for %s", room);
       }
