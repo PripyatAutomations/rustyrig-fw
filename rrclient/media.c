@@ -901,7 +901,9 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
 
       if (!channel->subscribed || !channel->stream_valid || channel->stream != frame.hdr.stream ||
          channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec, raw ? RR_NMEA_FRAME_CODEC : RR_GPS_FRAME_CODEC) ||
-         channel->rig != frame.hdr.rig || !channel->joined) {
+         channel->rig != frame.hdr.rig) {
+         /* Position metadata can update a cached remote site even when
+          * its room is no longer the active tab. */
          continue;
       }
       if (!raw) {
