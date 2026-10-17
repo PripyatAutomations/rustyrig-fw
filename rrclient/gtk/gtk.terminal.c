@@ -113,10 +113,12 @@ static void terminal_toolbar(terminal_session_t *session) {
       GtkWidget *apply = gtk_button_new_with_label("Apply");
       g_signal_connect(apply, "clicked", G_CALLBACK(terminal_settings_apply), session);
       gtk_box_pack_start(GTK_BOX(bar), apply, FALSE, FALSE, 0);
-      session->running = gtk_toggle_button_new_with_label("Stop RX");
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(session->running), TRUE);
-      g_signal_connect(session->running, "toggled", G_CALLBACK(terminal_rx_toggle), session);
-      gtk_box_pack_start(GTK_BOX(bar), session->running, FALSE, FALSE, 0);
+      if (!strcmp(service, "local.raw")) {
+         session->running = gtk_toggle_button_new_with_label("Stop RX");
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(session->running), TRUE);
+         g_signal_connect(session->running, "toggled", G_CALLBACK(terminal_rx_toggle), session);
+         gtk_box_pack_start(GTK_BOX(bar), session->running, FALSE, FALSE, 0);
+      }
    } else {
       GtkWidget *label = gtk_label_new(service ? service : "Serial endpoint");
       gtk_box_pack_start(GTK_BOX(bar), label, FALSE, FALSE, 0);
