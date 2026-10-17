@@ -618,9 +618,6 @@ bool gui_init(void) {
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
-   extern GtkWidget *init_terminal_tab(void);
-   init_terminal_tab();
-
    // ADMIN tab (alt-1)
    admin_tab = init_admin_tab();
 
@@ -635,6 +632,10 @@ bool gui_init(void) {
 
    //// CHAT stuff (alt-5+)...
    chat_init();
+
+   // Shared serial console page, with top-aligned endpoint subtabs.
+   extern GtkWidget *init_terminal_tab(void);
+   init_terminal_tab();
 
    // GTK Signals
    g_signal_connect(main_window, "window-state-event", G_CALLBACK(on_window_state), NULL);
