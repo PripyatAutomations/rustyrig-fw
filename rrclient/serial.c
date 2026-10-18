@@ -283,15 +283,15 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
       }
       /* The symlink's permissions do not control access to the PTY. Group
        * the actual slave device so local loggers can use ttyCAT/ttyGPS. */
-      struct group *access_group = getgrnam("rustyrig");
+      struct group *access_group = getgrnam("rruser");
       if (access_group) {
          if (fchown(p->keeper, (uid_t)-1, access_group->gr_gid) ||
              fchmod(p->keeper, 0660)) {
-            Log(LOG_WARN, "serial", "%s: cannot grant rustyrig group access to %s: %s (join the rustyrig group and log in again)",
+            Log(LOG_WARN, "serial", "%s: cannot grant rruser group access to %s: %s (join the rruser group and log in again)",
                 name, slave, strerror(errno));
          }
       } else {
-         Log(LOG_WARN, "serial", "%s: rustyrig group not found; %s remains owner-only", name, slave);
+         Log(LOG_WARN, "serial", "%s: rruser group not found; %s remains owner-only", name, slave);
       }
       settings_fd = p->keeper;
       p->slave = strdup(slave);
