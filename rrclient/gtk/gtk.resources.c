@@ -980,7 +980,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       g_free(service); service = g_strdup_printf("%s.%s", stream_uuid, raw ? "nmea-out" : "gps-out");
    }
    GString *details = g_string_new("");
-   const char *fields[] = {"backend", "frequency", "codec", "direction", "source", "service", "access"};
+   const char *fields[] = {"description", "location", "backend", "frequency", "codec", "direction", "source", "service", "access"};
    for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
       char key[64]; snprintf(key, sizeof(key), "inventory.%s", fields[i]);
       const char *value = dict_get(row, key, "");

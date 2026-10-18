@@ -273,3 +273,29 @@ This throttle covers roster reconstruction only. Media fragment expiry, request
 retries, authentication revocation and failed PTT key-up retries retain their
 existing polling cadence. High counts of per-frame media events can therefore
 remain even though quiet polls no longer allocate/rebuild user dictionaries.
+
+
+## Public site and rig metadata
+
+Set these in `config/rrserver.site-local.cfg`, which is included by
+`config/rrserver.cfg`:
+
+```ini
+[general]
+station.name=example-site
+station.description=Community amateur radio station
+station.location=Charleston, West Virginia, United States
+```
+
+The default description is `A misconfigured server` and the default
+location is `Unknown City`; replace both on deployed servers. For fixed
+sites use `City, State, Country`. This public identity is included in
+the server's inventory and the site node descriptor distributed via the
+server-link catalog. Clients display it in Explorer; server WHOIS replies
+also carry the responding server's location and description.
+
+Rig descriptors may override the site location with
+`[rig:ALIAS] location=City, State, Country`. Configure
+`mobile=true` under the same rig section for mobile radios: their
+advertised location becomes exactly `MOBILE`. Do not substitute the
+site's fixed coordinates for a moving rig's location.

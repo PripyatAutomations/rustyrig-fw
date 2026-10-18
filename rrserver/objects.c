@@ -428,6 +428,8 @@ static void inventory(rrconn_t *client, const char *id) {
    if (row) {
       rrserver_gps_inventory_position(row, "station");
       dict_add(row, "inventory.room", ws_site_room());
+      dict_add(row, "inventory.description", cfg_get("station.description"));
+      dict_add(row, "inventory.location", cfg_get("station.location"));
    }
    rr_inventory_send(client, row);
    inventory_rooms(&ctx, NULL);
@@ -517,6 +519,8 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          dict_add(node, "object.type", "node");
          dict_add(node, "object.room", ws_site_room());
          dict_add(node, "object.alias", cfg_get("station.name"));
+         dict_add(node, "object.description", cfg_get("station.description"));
+         dict_add(node, "object.location", cfg_get("station.location"));
          dict_add(node, "object.lifecycle", "persistent");
          send_message(client, node);
          dict_free(d);

@@ -240,6 +240,8 @@ static void usage_whois(const char *event, const char *data, rrconn_t *requester
          dict_add(reply, "talk.usage.bandwidth-remaining", allowance);
       }
    }
+   dict_add(reply, "talk.site-description", cfg_get("station.description"));
+   dict_add(reply, "talk.site-location", cfg_get("station.location"));
    ws_send_dict(NULL, requester, reply, WEBSOCKET_OP_TEXT);
    dict_free(reply);
 }

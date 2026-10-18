@@ -1421,6 +1421,10 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    ui_print(output, "\00310***\017 \002Whois for %s\017", username);
    ui_print(output, "\00310***\017 Email:      %s", email);
    ui_print(output, "\00310***\017 Privileges: %s", privs);
+   const char *site_location = dict_get(d, "talk.site-location", NULL);
+   const char *site_description = dict_get(d, "talk.site-description", NULL);
+   if (site_location) ui_print(output, "\00310***\017 Server location: %s", site_location);
+   if (site_description) ui_print(output, "\00310***\017 Server description: %s", site_description);
 
    if (muted) {
       ui_print(output, "\00310***\017 \00304This user is currently MUTEd. Rigctl is temporarily suspended.\017");
