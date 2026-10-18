@@ -83,8 +83,8 @@ static char *country_from_text(const char *text) {
    static const struct { const char *name, *canonical; } names[] = {
       {"United States of America", "United States"}, {"United States", "United States"},
       {"USA", "United States"}, {"United Kingdom", "United Kingdom"},
-      {"Great Britain", "United Kingdom"}, {"England", "United Kingdom"},
-      {"Scotland", "United Kingdom"}, {"Wales", "United Kingdom"},
+      {"Great Britain", "United Kingdom"},
+      {"Scotland", "United Kingdom"},
       {"Northern Ireland", "United Kingdom"}, {"Canada", "Canada"},
       {"Australia", "Australia"}, {"New Zealand", "New Zealand"},
       {"Germany", "Germany"}, {"France", "France"}, {"Italy", "Italy"},
@@ -457,7 +457,7 @@ static void reload_records(void) {
          r->deleted = sqlite3_column_int(statement, 2);
          r->offline = sqlite3_column_int(statement, 3);
          apply_details(r);
-         infer_country(r, r->properties);
+         infer_country(r, NULL);
          g_ptr_array_add(list, r);
       }
 
