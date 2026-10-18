@@ -396,14 +396,14 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
          rr_server_vfo_t *mapped = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
          rr_vfo_t index;
 
-         if (mapped && rr_server_vfo_native_index(mapped, &index) && index >= 0 && index < 32) {
+         if (radio && mapped && rr_server_vfo_owner(mapped) == radio && rr_server_vfo_native_index(mapped, &index) && index >= 0 && index < 32) {
             mask |= UINT32_C(1) << index;
          }
       }
 
       free(copy);
-      ws_room_set_vfo_mask(room, mask);
-      db_room_ensure(masterdb, room, mask != 0, mask, cptr->chatname);
+      if (ws_room_rig_namespace(room)) ws_room_set_vfo_mask(room, mask);
+      db_room_ensure(masterdb, room, vfos && *vfos, mask, cptr->chatname);
       dict_add_bool(d, "room.has-vfos", mask != 0);
       dict_add_ulong(d, "room.vfo-mask", mask);
       dict_add_bool(d, "room.tx-control", false);
