@@ -490,8 +490,10 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
       GtkCellRenderer *cell = col == READABLE || col == WRITABLE ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
       if (col == READABLE || col == WRITABLE)
          g_object_set(cell, "activatable", FALSE, NULL);
-      gtk_tree_view_append_column(GTK_TREE_VIEW(browser.tree), gtk_tree_view_column_new_with_attributes(labels[col], cell, col == READABLE
-            || col == WRITABLE ? "active" : "text", col, NULL));
+      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(labels[col], cell, col == READABLE
+            || col == WRITABLE ? "active" : "text", col, NULL);
+      gtk_tree_view_column_set_sort_column_id(column, col);
+      gtk_tree_view_append_column(GTK_TREE_VIEW(browser.tree), column);
    }
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), browser.tree);
