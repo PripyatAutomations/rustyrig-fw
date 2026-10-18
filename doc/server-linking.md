@@ -357,3 +357,17 @@ peer is blocked from automatic reconnection. An administrator can retry with
 These limits are local admission policy, not permissions delegated to peers.
 Names alone are not authentication credentials; pin direct peer UUIDs with
 `node.uuid`, and use passwords, TLS and ACLs as usual.
+
+
+## Startup connection grace period
+
+`links.startup-delay-seconds=5` (default) delays **automatic outbound** peer
+connections until five seconds after link initialization. The setting accepts
+0–300 seconds; 0 restores immediate automatic connection attempts. Incoming
+connections and manual administrative `/link open` are not delayed by this
+setting. Existing handshake and reconnect timers still apply afterward.
+
+This reduces simultaneous-start races, but does not replace investigating
+repeated topology-admission failures or peers disabled by policy. Check
+`/link list` and the `link` log category to distinguish automatic retry
+from a topology-policy block.
