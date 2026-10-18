@@ -3,6 +3,7 @@
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
 #include <rrclient/rooms.h>
+#include <librrprotocol/rrprotocol.h>
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
 
