@@ -712,10 +712,10 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
             if (floating && b->focus_room[0] && *control_room) {
                if (!ws_room_same_rig(b->focus_room, control_room)) continue;
-               rr_serial_write_latest(b->port, frame, len);
+               rr_serial_write(b->port, frame, len);
             } else if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) ||
                        (!strcmp(scope, "active") && selected && !b->focus_room[0])) {
-               rr_serial_write_latest(b->port, frame, len);
+               rr_serial_write(b->port, frame, len);
             }
          }
       }
@@ -1014,6 +1014,23 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       goto failed;
    }
    rr_serial_set_buffer_limit(b->port, b->buffer_limit);
+   snprintf(key, sizeof(key), "serial:%s.output.policy", name);
+   const char *output_policy = cfg_get(key);
+   if (!output_policy || !*output_policy)
+      output_policy = (!strcmp(gps_service(b), "gps-out") ||
+                       !strcmp(gps_service(b), "nmea-out")) ? "latest" : "ordered";
+   rr_serial_output_policy_t policy;
+   if (!strcmp(output_policy, "latest")) policy = RR_SERIAL_OUTPUT_LATEST;
+   else if (!strcmp(output_policy, "drop")) policy = RR_SERIAL_OUTPUT_DROP;
+   else if (!strcmp(output_policy, "ordered")) policy = RR_SERIAL_OUTPUT_ORDERED;
+   else {
+      Log(LOG_WARN, "serial", "%s: invalid output.policy '%s' (expected ordered, latest, drop)", name, output_policy);
+      rr_serial_close(b->port);
+      b->port = NULL;
+      errno = EINVAL;
+      goto failed;
+   }
+   rr_serial_set_output_policy(b->port, policy);
 
    if (!rr_serial_set_settings(b->port, &b->requested) && !pty) {
       rr_serial_close(b->port);

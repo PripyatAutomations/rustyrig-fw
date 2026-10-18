@@ -22,6 +22,7 @@ struct rr_serial {
    char *name, *path, *slave;
    int fd, keeper;
    bool restore, file;
+   rr_serial_output_policy_t output_policy;
    rr_serial_settings_t file_settings;
    struct termios original;
    GIOChannel *channel;
@@ -91,7 +92,19 @@ failed:
    return G_SOURCE_REMOVE;
 }
 
+bool rr_serial_set_output_policy(rr_serial_t *p, rr_serial_output_policy_t policy) {
+   if (!p || policy < RR_SERIAL_OUTPUT_ORDERED || policy > RR_SERIAL_OUTPUT_DROP)
+      return false;
+   p->output_policy = policy;
+   return true;
+}
+
 bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
+   if (p && p->output_policy == RR_SERIAL_OUTPUT_LATEST)
+      return rr_serial_write_latest(p, data, len);
+   if (p && p->output_policy == RR_SERIAL_OUTPUT_DROP && p->pending &&
+       p->pending->len)
+      return false; /* Drop new update; leave queued bytes untouched. */
    if (!p || !data || len > p->buffer_limit || p->pending->len > p->buffer_limit - len) {
       return false;
    }
@@ -112,7 +125,11 @@ bool rr_serial_write_latest(rr_serial_t *p, const char *data, size_t len) {
    if (p->keeper >= 0 && tcflush(p->fd, TCOFLUSH) < 0)
       return false;
    g_byte_array_set_size(p->pending, 0);
-   return rr_serial_write(p, data, len);
+   rr_serial_output_policy_t old = p->output_policy;
+   p->output_policy = RR_SERIAL_OUTPUT_ORDERED;
+   bool ok = rr_serial_write(p, data, len);
+   p->output_policy = old;
+   return ok;
 }
 
 static gboolean readable(GIOChannel *channel, GIOCondition condition, gpointer user) {

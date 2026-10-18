@@ -11,6 +11,12 @@
 #include <stddef.h>
 #include <librustyaxe/io.serial.h>
 typedef struct rr_serial rr_serial_t;
+typedef enum {
+   RR_SERIAL_OUTPUT_ORDERED,
+   RR_SERIAL_OUTPUT_LATEST,
+   RR_SERIAL_OUTPUT_DROP
+} rr_serial_output_policy_t;
+bool rr_serial_set_output_policy(rr_serial_t *, rr_serial_output_policy_t);
 typedef void (*rr_serial_receive_fn)(rr_serial_t *, const char *, size_t, void *);
 typedef void (*rr_serial_visit_fn)(rr_serial_t *, void *);
 rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsigned baud, rr_serial_receive_fn receive, void *user);
