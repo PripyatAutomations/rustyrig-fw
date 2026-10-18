@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <poll.h>
 #include <signal.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -127,7 +128,7 @@ static void capability_source(struct bridge_child *b, const char *source) {
 }
 
 static const char *metadata_fields[] = {
-   "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at"
+   "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at", "initiated_by", "requested_at", "directory_name", "directory_location", "directory_country", "directory_contact", "directory_antenna", "directory_hardware", "directory_grid", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz", "directory_last_seen"
 };
 static bool publish_metadata(struct bridge_child *b, const char *key, const char *text, bool save) {
    bool known = false;
@@ -1259,6 +1260,27 @@ static void websdr_request(const char *event, const void *data, size_t length, r
       }
    }
 #endif
+   if (b && !save) {
+      /* Initiator and time are authoritative server observations.  Directory
+       * values are client-provided hints, deliberately namespaced. */
+      publish_metadata(b, "initiated_by", client->chatname ? client->chatname : "unknown", false);
+      char timestamp[40];
+      snprintf(timestamp, sizeof(timestamp), "%lld", (long long)time(NULL));
+      publish_metadata(b, "requested_at", timestamp, false);
+      const char *directory_keys[] = {
+         "name", "location", "country", "contact", "antenna", "hardware",
+         "grid", "users", "users_max", "low_hz", "high_hz", "last_seen"
+      };
+      for (unsigned i = 0; i < G_N_ELEMENTS(directory_keys); i++) {
+         char source_key[64], property_key[64];
+         snprintf(source_key, sizeof(source_key), "directory.%s", directory_keys[i]);
+         snprintf(property_key, sizeof(property_key), "directory_%s", directory_keys[i]);
+         const char *value = request ? dict_get(request, source_key, NULL) : NULL;
+         if (value && *value) {
+            publish_metadata(b, property_key, value, false);
+         }
+      }
+   }
    dict *result = dict_new(), *reply = dict_new();
    dict_add(result, "request", request ? dict_get(request, "request", "") : "");
    dict_add(result, "room", b ? target_room : "");
