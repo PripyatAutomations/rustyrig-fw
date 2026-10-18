@@ -142,6 +142,8 @@ node directory as a folder, and remote permissions remain enforced at the
 owning server for each operation. A remote site with no accessible shares
 displays an empty root; unavailable owners may return an error.
 
-Linked-site discovery occurs when the Files window opens; reopen it to discover
-sites linked after the window was opened. The selector's Ctrl+Tab shortcut
+Linked-site discovery occurs when the Files window opens and when **Refresh**
+is clicked. Refresh rebuilds the direct/linked site selector and reloads the
+selected site's accessible shares. Newly linked sites can appear without
+closing the Files window. The selector's Ctrl+Tab shortcut
 cycles across direct and linked site choices.
