@@ -240,6 +240,12 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
          char *base;
          gtk_tree_model_get(GTK_TREE_MODEL(browser.store), &parent, PATH, &base, -1);
          const char *name = dict_get(d, "file.name", "");
+         /* Linked site roots belong in the server selector, not this tree. */
+         if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
+            gtk_tree_path_free(path);
+            dict_free(d);
+            return;
+         }
          char *full = g_strdup_printf("%s%s%s", base, !strcmp(base, "/") ? "" : "/", name);
          g_free(base);
          gboolean directory = !strcmp(dict_get(d, "file.kind", ""), "directory");
