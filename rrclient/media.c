@@ -492,6 +492,55 @@ bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) 
    return media_select_codec(cptr, is_tx, codec, NULL);
 }
 
+/* A source exposing GPSP and NMEA needs only GPSP on the wire.
+ * Compare the shared source prefix and controlling rig, not VFO/tab state. */
+static bool gpsp_counterpart(const struct rr_client_media_chan *nmea) {
+   const char *suffix = strstr(nmea->name, ".nmea.rx");
+   if (!suffix) return false;
+   size_t prefix = (size_t)(suffix - nmea->name);
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      const struct rr_client_media_chan *candidate = &known_chans[i];
+      if (!candidate->uuid[0] || strcmp(candidate->codec, RR_GPS_FRAME_CODEC) ||
+          candidate->direction != RR_BINFRAME_DIR_RX ||
+          strcasecmp(candidate->control_room, nmea->control_room)) continue;
+      const char *end = strstr(candidate->name, ".gps.rx");
+      if (end && (size_t)(end - candidate->name) == prefix &&
+          !strncmp(candidate->name, nmea->name, prefix)) return true;
+   }
+   return false;
+}
+static bool gps_nmea_explicit(const struct rr_client_media_chan *channel) {
+   const char *suffix = strstr(channel->name, ".nmea.rx");
+   if (!suffix) return false;
+   char source[64];
+   size_t len = (size_t)(suffix - channel->name);
+   if (len >= sizeof(source)) return false;
+   memcpy(source, channel->name, len);
+   source[len] = 0;
+   char scopes[sizeof(gps_scopes)];
+   snprintf(scopes, sizeof(scopes), "%s", gps_scopes);
+   char *save = NULL;
+   for (char *token = strtok_r(scopes, " ", &save); token;
+        token = strtok_r(NULL, " ", &save))
+      if (!strncmp(token, "nmea:", 5) &&
+          (!strcmp(token + 5, source) || !strcmp(token + 5, channel->uuid)))
+         return true;
+   return false;
+}
+static void gps_prefer_packed(rrconn_t *connection) {
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+      struct rr_client_media_chan *channel = &known_chans[i];
+      if (strcmp(channel->codec, RR_NMEA_FRAME_CODEC) ||
+          !channel->automatic || !channel->subscribed ||
+          gps_nmea_explicit(channel) || !gpsp_counterpart(channel)) continue;
+      if (connection && media_send_unsubscribe(connection, channel->uuid)) {
+         channel->subscribed = false;
+         channel->automatic = false;
+         channel->stream_valid = false;
+         Log(LOG_DEBUG, "media.gps", "Using GPSP instead of NMEA for %s", channel->name);
+      }
+   }
+}
 // Track pending subscriptions so we only subscribe once per channel
 static bool gps_wanted(const struct rr_client_media_chan *channel) {
    if (channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || channel->direction != RR_BINFRAME_DIR_RX ||
@@ -499,6 +548,8 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
       return false;
    }
    bool raw = !strcmp(channel->codec, RR_NMEA_FRAME_CODEC);
+   if (raw && gpsp_counterpart(channel) && !gps_nmea_explicit(channel))
+      return false;
    const char *suffix = strstr(channel->name, raw ? ".nmea.rx" : ".gps.rx");
 
    if (!suffix) {
@@ -663,6 +714,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
          media_try_autosubscribe(ws_conn, kp);
+         gps_prefer_packed(ws_conn);
          rrclient_media_sync_audio();
 
       }
