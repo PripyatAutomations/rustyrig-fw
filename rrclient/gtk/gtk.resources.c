@@ -41,6 +41,7 @@ static rr_event_token_t show_token, row_token, open_token, changed_tokens[5];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
+static GtkWindow *resource_parent(void);
 
 static void branch_free(gpointer data) {
    resource_branch *branch = data;
