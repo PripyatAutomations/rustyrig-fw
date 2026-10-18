@@ -262,7 +262,9 @@ static void rrserver_handle_room_add(const char *event, const char *data, rrconn
       }
 
       free(bindings);
-      ws_room_set_vfo_mask(room, mask);
+      if (ws_room_rig_namespace(room)) {
+         ws_room_set_vfo_mask(room, mask);
+      }
    }
 #endif
    ws_send_notice(cptr, "Room %s added", room);
@@ -328,13 +330,6 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    const char *binding = dict_get(d, "talk.vfo", NULL);
    const char *action = dict_get(d, "talk.action", NULL);
 
-   if (action && !strcasecmp(action, "add") && !ws_room_rig_namespace(room)) {
-      ws_send_error(cptr, "VFO controls require a room in this site's numbered rig namespace");
-      dict_free(d);
-
-      return;
-   }
-
    if (rrserver_rig_room_configured(room)) {
       ws_send_error(cptr, "Rig room VFO bindings are managed by rig configuration");
       dict_free(d);
@@ -366,8 +361,8 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
       }
    }
 
-   if (!radio || !vfo || rr_server_vfo_owner(vfo) != radio) {
-      ws_send_error(cptr, "VFO binding must belong to the rig named by the room");
+   if (!vfo) {
+      ws_send_error(cptr, "Unknown VFO binding");
       dict_free(d);
 
       return;
@@ -422,7 +417,11 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
          }
       }
 
-      ws_send_notice(cptr, "Room %s VFO %s %s", room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed");
+      char *controller = db_room_vfo_controller(masterdb, binding);
+      ws_send_notice(cptr, "Room %s VFO %s %s (tuning controller: %s)",
+         room, binding, strcasecmp(action, "add") == 0 ? "added" : "removed",
+         controller ? controller : "none");
+      free(controller);
       free(vfos);
    }
 #else
