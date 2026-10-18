@@ -71,7 +71,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    const char *rc_width = dict_get(d, "rigctl.width", NULL);
    float rc_power = dict_get_float(d, "rigctl.power", 0);
 
-   Log(LOG_CRIT, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s, width: %s", rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)",
+   Log(LOG_DEBUG, "ws.rigctl", "cmd: %s, vfo: %s, from: %s, freq: %d, mode: %s, width: %s", rc_cmd, rc_vfo, rc_from, rc_freq, rc_mode ? rc_mode : "(none)",
       rc_width ? rc_width : "(none)");
 
    if (!rc_cmd || !rc_vfo || !rc_from) {
