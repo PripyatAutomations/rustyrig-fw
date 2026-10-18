@@ -40,7 +40,7 @@ extern GtkWidget *freq_entry;
 static gboolean gtk_escape_prefix = FALSE;
 
 static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
-   if (!main_win || digit < 0 || digit > 9) {
+   if (!main_win || digit < 0 || digit > 99) {
       return FALSE;
    }
 
