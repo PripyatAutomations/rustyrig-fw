@@ -148,10 +148,10 @@ static void populate(void) {
    g_free(summary);
    gtk_widget_set_sensitive(refresh_button, !receiver_directory_busy());
    GtkTreeIter iter;
-   gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(directory_filter), &iter);
+   gboolean valid = gtk_tree_model_get_iter_first(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)), &iter);
    while (valid && url) {
       char *candidate;
-      gtk_tree_model_get(GTK_TREE_MODEL(directory_filter), &iter, COL_URL, &candidate, -1);
+      gtk_tree_model_get(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)), &iter, COL_URL, &candidate, -1);
       bool match = !strcmp(url, candidate);
       g_free(candidate);
 
@@ -159,7 +159,7 @@ static void populate(void) {
          gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &iter);
          break;
       }
-      valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(directory_filter), &iter);
+      valid = gtk_tree_model_iter_next(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)), &iter);
    }
    g_free(url);
    selection_changed(NULL, NULL);
