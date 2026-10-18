@@ -37,6 +37,7 @@ rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
 rrclient_objs += dcc.o
 rrclient_objs += media.direct.o
+rrclient_objs += wsjtx.o
 rrclient_objs += media.o		# media channel subscribe handling
 rrclient_objs += userlist.o
 rrclient_objs += rooms.o		# joined room tracking
