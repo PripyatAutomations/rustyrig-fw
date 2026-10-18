@@ -607,7 +607,13 @@ static void close_session(struct link_session *session) {
 
    if (session->peer && session->peer->session == session) {
       session->peer->session = NULL;
-      session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL;
+      /* A deterministic per-peer stagger reduces synchronized reconnect
+       * collisions when several nodes start or lose connectivity together. */
+      unsigned hash = 2166136261u;
+      for (const unsigned char *p = (const unsigned char *)session->peer->site; *p; p++)
+         hash = (hash ^ *p) * 16777619u;
+      unsigned jitter_ms = hash % 5000u;
+      session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL + jitter_ms;
 
 
    }
