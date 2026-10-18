@@ -31,6 +31,7 @@ typedef struct {
    GtkTreeIter local_root;
    GHashTable *branches, *local_rows;
    guint timer;
+   gulong initial_split_handler;
    double scroll_y;
    bool scroll_saved;
 } resource_browser;
@@ -729,7 +730,7 @@ static void resource_dock(void) {
    GtkWidget *window = browser->window;
    g_object_ref(browser->panel);
    gtk_container_remove(GTK_CONTAINER(window), browser->panel);
-   gtk_container_add(GTK_CONTAINER(browser->page), browser->panel);
+   gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
    g_object_unref(browser->panel);
    browser->window = NULL;
    gtk_button_set_label(GTK_BUTTON(browser->dock_button), "Pop out");
@@ -777,7 +778,10 @@ static void resource_present(void) {
 static void resource_initial_split(GtkWidget *widget, GtkAllocation *allocation, gpointer unused) {
    (void)unused;
    if (allocation->height < 300) return;
-   g_signal_handlers_disconnect_by_func(widget, G_CALLBACK(resource_initial_split), NULL);
+   if (browser && browser->initial_split_handler) {
+      g_signal_handler_disconnect(widget, browser->initial_split_handler);
+      browser->initial_split_handler = 0;
+   }
    gtk_paned_set_position(GTK_PANED(widget), allocation->height * 3 / 4);
 }
 
@@ -789,7 +793,9 @@ static void resource_create(void) {
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    browser->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
-   gtk_container_add(GTK_CONTAINER(browser->page), browser->panel);
+   /* GtkBox gtk_container_add() defaults to expand=FALSE; the panel must
+    * consume the full notebook page or most of Explorer stays blank. */
+   gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
    GtkWidget *tab_label = gtk_label_new("Explorer");
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), browser->page, tab_label);
    GtkWidget *box = browser->panel;
@@ -853,7 +859,7 @@ static void resource_create(void) {
     * occupy most of a docked notebook tab. Keep it scrollable and shrinkable. */
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(details_scroll), 60);
    gtk_paned_pack2(GTK_PANED(paned), details_scroll, FALSE, TRUE);
-   g_signal_connect(paned, "size-allocate", G_CALLBACK(resource_initial_split), NULL);
+   browser->initial_split_handler = g_signal_connect(paned, "size-allocate", G_CALLBACK(resource_initial_split), NULL);
    gtk_box_pack_start(GTK_BOX(box), paned, TRUE, TRUE, 0);
    GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    const char *labels[] = {"Join room", "Subscribe", "Connect serial…", "Connect server", "Open Terminal…"};
