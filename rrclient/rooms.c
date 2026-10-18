@@ -104,7 +104,14 @@ bool rrclient_room_join(const char *room) {
    r->active_vfo = 'A';
    r->next = rooms;
    rooms = r;
-
+   /* JOIN acknowledgement arrived: the intent is now an active room. */
+   for (size_t i = 0; i < reconnect_room_count; ) {
+      if (strcasecmp(reconnect_rooms[i], name)) { i++; continue; }
+      free(reconnect_rooms[i]);
+      memmove(reconnect_rooms + i, reconnect_rooms + i + 1,
+         (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+      reconnect_room_count--;
+   }
    return true;
 }
 
@@ -142,10 +149,23 @@ bool rrclient_chat_input_blocked(const char *text) {
    return text && *text && *text != '/' && rrclient_room_offline(room ? room : rrclient_current_room());
 }
 
+/* JOIN intent survives a connection loss, including unacknowledged JOINs. */
+static bool remember_join(const char *name) {
+   if (room_names_contain(reconnect_rooms, reconnect_room_count, name)) return true;
+   char *copy = strdup(name);
+   if (!copy) return false;
+   char **grown = realloc(reconnect_rooms, (reconnect_room_count + 1) * sizeof(*grown));
+   if (!grown) { free(copy); return false; }
+   reconnect_rooms = grown;
+   reconnect_rooms[reconnect_room_count++] = copy;
+   return true;
+}
 bool rrclient_room_request_join(const char *room) {
-   if (!room || !*room || !ws_conn || rrclient_room_is_joined(room)) {
+   if (!room || !*room || rrclient_room_is_joined(room)) {
       return false;
    }
+   if (!remember_join(room)) return false;
+   if (!ws_conn) return false;
    dict *d = dict_new();
 
    if (!d) {
@@ -201,38 +221,23 @@ void rrclient_rooms_clear(void) {
 }
 
 void rrclient_rooms_disconnect(void) {
-   if (rooms) {
-      reconnect_rooms_clear();
-
-      for (client_room_t *room = rooms ; room ; room = room->next) {
-         if (room->name[0] != '#' && room->name[0] != '&') {
-            continue;
-         }
-         char **grown = realloc(reconnect_rooms, (reconnect_room_count + 1) * sizeof(*grown));
-
-         if (!grown) {
-            break;
-         }
-         reconnect_rooms = grown;
-         reconnect_rooms[reconnect_room_count] = strdup(room->name);
-
-         if (reconnect_rooms[reconnect_room_count]) {
-            reconnect_room_count++;
-         }
-      }
+   for (client_room_t *room = rooms ; room ; room = room->next) {
+      if (room->name[0] == '#' || room->name[0] == '&')
+         remember_join(room->name);
    }
    joined_rooms_clear();
    available_rooms_clear();
 }
 
 void rrclient_rooms_rejoin_available(void) {
-   for (size_t i = 0 ; i < reconnect_room_count ; i++) {
-      if ((ws_conn && ws_conn->server && !ws_conn->is_ws) || room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
+   /* An IRC channel may be private/unlisted. Do not make a LIST entry a
+    * prerequisite for restoring a tab or an in-flight JOIN. */
+   for (size_t i = 0 ; i < reconnect_room_count ; i++)
+      if (!rrclient_room_is_joined(reconnect_rooms[i]))
          rrclient_room_request_join(reconnect_rooms[i]);
-      }
-   }
 
-   reconnect_rooms_clear();
+   /* Keep JOIN intents until the server confirms each JOIN. A missing LIST
+    * entry or a failed send must not silently discard the channel. */
 }
 
 const char *rrclient_room_iter(unsigned int index) {
@@ -286,20 +291,10 @@ void rrclient_rooms_set_available(const char *list) {
 }
 
 void rrclient_room_available_remove(const char *room) {
-   if (!room) {
-      return;
-   }
+   if (!room) return;
 
-   for (size_t i = 0 ; i < reconnect_room_count ; ) {
-      if (strcasecmp(reconnect_rooms[i], room)) {
-         i++;
-         continue;
-      }
-      free(reconnect_rooms[i]);
-      memmove(&reconnect_rooms[i], &reconnect_rooms[i + 1], (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
-      reconnect_room_count--;
-   }
-
+   /* An unlisted channel can still be joined; dropping its LIST entry
+    * must not cancel a pending JOIN or reconnect intent. */
    for (size_t i = 0 ; i < available_room_count ; ) {
       if (strcasecmp(available_rooms[i], room)) {
          i++;
