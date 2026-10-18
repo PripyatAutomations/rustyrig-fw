@@ -917,6 +917,22 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    gtk_label_set_text(GTK_LABEL(browser->status), "Refreshing resources…");
    request->handled = true;
 }
+/* Resolve explicit inventory ownership independent of contributor emission order.
+ * This also handles linked sites whose rows share one connection. */
+static gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *found) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, root);
+        ok; ok = gtk_tree_model_iter_next(model, &child)) {
+      char *id = NULL;
+      gtk_tree_model_get(model, &child, UUID, &id, -1);
+      gboolean match = id && !strcmp(id, uuid);
+      g_free(id);
+      if (match) { *found = child; return TRUE; }
+      if (resource_find_uuid(&child, uuid, found)) return TRUE;
+   }
+   return FALSE;
+}
 static void resource_row(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event; (void)unused;
    if (!browser || !connection) return;
@@ -953,8 +969,12 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    for (unsigned i = depth; i < G_N_ELEMENTS(branch->parents); i++) branch->valid[i] = false;
    int parent = (int)depth - 1;
    while (parent >= 0 && !branch->valid[parent]) parent--;
-   GtkTreeIter iter;
-   gtk_tree_store_append(browser->store, &iter, parent >= 0 ? &branch->parents[parent] : &branch->root);
+   GtkTreeIter iter, explicit_parent;
+   GtkTreeIter *parent_iter = parent >= 0 ? &branch->parents[parent] : &branch->root;
+   const char *owner_uuid = dict_get(row, "inventory.parent", "");
+   if (*owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent))
+      parent_iter = &explicit_parent;
+   gtk_tree_store_append(browser->store, &iter, parent_iter);
    const char *kind = dict_get(row, "inventory.kind", "resource"), *name = dict_get(row, "inventory.name", "");
    const char *room = dict_get(row, "inventory.room", "");
    /* Room inventory names are their identity; VFOs/services inherit their rig room. */
