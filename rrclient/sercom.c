@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -97,7 +98,7 @@ static bool serial_pty_startup_cleanup(void) {
 
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
-static guint host_timer;
+static guint host_timer, gps_invalid_timer;
 struct rr_sercom_observer {
    char name[64];
    rr_sercom_console_fn callback;
@@ -192,6 +193,35 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    else if ((b->radio[0] || b->profile[0]) && (!connection || !connection->authenticated)) state = "Server offline";
    *info = (rr_sercom_info_t){b->name, b->service, b->profile, rr_serial_path(b->port), state};
    return true;
+}
+
+/* Emit an invalid RMC fix instead of leaving a GPS consumer believing that
+ * its last valid transmitter position still applies after loss of selection. */
+static void gps_send_invalid(serial_binding_t *b) {
+   time_t now = time(NULL);
+   struct tm utc;
+   if (!gmtime_r(&now, &utc)) return;
+   char clock[16], date[16], body[128], frame[160];
+   strftime(clock, sizeof(clock), "%H%M%S", &utc);
+   strftime(date, sizeof(date), "%d%m%y", &utc);
+   /* Empty coordinates, speed and course; status V and mode N. */
+   snprintf(body, sizeof(body), "GPRMC,%s,V,,,,,,,%s,,,N", clock, date);
+   unsigned char checksum = 0;
+   for (const char *p = body; *p; ++p) checksum ^= (unsigned char)*p;
+   int len = snprintf(frame, sizeof(frame), "$%s*%02X\\r\\n", body, checksum);
+   if (len > 0 && (size_t)len < sizeof(frame)) rr_serial_write(b->port, frame, (size_t)len);
+}
+static gboolean gps_invalid_tick(gpointer unused) {
+   (void)unused;
+   for (serial_binding_t *b = bindings; b; b = b->next) {
+      bool floating = !strcmp(b->service, "rig.gps-out") ||
+                      !strcmp(b->service, "rig.nmea-out");
+      if (!floating) continue;
+      if (!b->focus_room[0] || !b->profile[0] ||
+          rrclient_connection_state(b->profile) != 1)
+         gps_send_invalid(b);
+   }
+   return G_SOURCE_CONTINUE;
 }
 
 static void host_command(serial_binding_t *b, const char *command);
@@ -1089,6 +1119,10 @@ void rr_sercom_shutdown(void) {
       g_source_remove(host_timer);
       host_timer = 0;
    }
+   if (gps_invalid_timer) {
+      g_source_remove(gps_invalid_timer);
+      gps_invalid_timer = 0;
+   }
    event_off_token(serial_message_token);
    event_off_token(serial_binary_token);
    event_off_token(authorized_token);
@@ -1140,6 +1174,7 @@ bool rr_sercom_init(void) {
    if (!host_timer) {
       host_timer = g_timeout_add(20, host_tick, NULL);
    }
+   if (!gps_invalid_timer) gps_invalid_timer = g_timeout_add_seconds(1, gps_invalid_tick, NULL);
    bool ok = true;
    // [serial] is an extensible name -> service map. Defaults are read separately.
    const char *key;
