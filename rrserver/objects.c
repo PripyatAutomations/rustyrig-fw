@@ -361,6 +361,9 @@ static void inventory_services(object_send_t *ctx, const char *scope, unsigned d
    }
    dict_add(d, "request.id", ctx->request);
    dict_add(d, "inventory.scope", scope);
+   rr_server_rig_t *owner = rr_rig_registry_find_alias(rig.rigs, scope);
+   dict_add(d, "inventory.parent", owner ? rr_server_rig_id(owner) :
+      !strcmp(scope, "station") ? rr_rig_registry_node(rig.rigs) : "");
    dict_add_uint(d, "inventory.depth", depth);
    event_emit_dict(RR_INVENTORY_EVENT, ctx->client, d);
    dict_free(d);

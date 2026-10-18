@@ -917,6 +917,22 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    gtk_label_set_text(GTK_LABEL(browser->status), "Refreshing resources…");
    request->handled = true;
 }
+/* Resolve explicit inventory ownership independent of contributor emission order.
+ * This also handles linked sites whose rows share one connection. */
+static gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeIter *found) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, root);
+        ok; ok = gtk_tree_model_iter_next(model, &child)) {
+      char *id = NULL;
+      gtk_tree_model_get(model, &child, UUID, &id, -1);
+      gboolean match = id && !strcmp(id, uuid);
+      g_free(id);
+      if (match) { *found = child; return TRUE; }
+      if (resource_find_uuid(&child, uuid, found)) return TRUE;
+   }
+   return FALSE;
+}
 static void resource_row(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event; (void)unused;
    if (!browser || !connection) return;
@@ -953,8 +969,12 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    for (unsigned i = depth; i < G_N_ELEMENTS(branch->parents); i++) branch->valid[i] = false;
    int parent = (int)depth - 1;
    while (parent >= 0 && !branch->valid[parent]) parent--;
-   GtkTreeIter iter;
-   gtk_tree_store_append(browser->store, &iter, parent >= 0 ? &branch->parents[parent] : &branch->root);
+   GtkTreeIter iter, explicit_parent;
+   GtkTreeIter *parent_iter = parent >= 0 ? &branch->parents[parent] : &branch->root;
+   const char *owner_uuid = dict_get(row, "inventory.parent", "");
+   if (*owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent))
+      parent_iter = &explicit_parent;
+   gtk_tree_store_append(browser->store, &iter, parent_iter);
    const char *kind = dict_get(row, "inventory.kind", "resource"), *name = dict_get(row, "inventory.name", "");
    const char *room = dict_get(row, "inventory.room", "");
    /* Room inventory names are their identity; VFOs/services inherit their rig room. */
@@ -980,11 +1000,18 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       g_free(service); service = g_strdup_printf("%s.%s", stream_uuid, raw ? "nmea-out" : "gps-out");
    }
    GString *details = g_string_new("");
+   /* SITE identity is the operator-provided metadata, not an anonymous
+    * inventory row. Show it prominently in the Details pane as well. */
+   if (!strcmp(kind, "site")) {
+      g_string_append_printf(details, "Description: %s\nLocation: %s",
+         dict_get(row, "inventory.description", "A misconfigured server"),
+         dict_get(row, "inventory.location", "Unknown City"));
+   }
    const char *fields[] = {"description", "location", "backend", "frequency", "codec", "direction", "source", "service", "access"};
    for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
       char key[64]; snprintf(key, sizeof(key), "inventory.%s", fields[i]);
       const char *value = dict_get(row, key, "");
-      if (*value) g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
+      if (*value && (strcmp(kind, "site") || i > 1)) g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
    }
    gtk_tree_store_set(browser->store, &iter, NAME, name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
       COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""),

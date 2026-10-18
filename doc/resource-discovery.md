@@ -283,3 +283,15 @@ Known effective coordinates accompany site and rig inventory rows as well as
 GPS services, including linked sites. GTK uses standard tree indentation and
 shows coordinates in Details. Subscribe on the GPS output row for live updates;
 the corresponding site/rig Details also follows received GPS positions.
+
+
+### Explicit inventory ownership
+
+Inventory rows may carry `inventory.parent`, containing the UUID of their
+owning site, rig, or VFO. Explorer uses it to place independently collected
+shared folders, GPS services, serial ports and relayed resources under the
+correct parent even if inventory contributors emit entries out of order.
+`inventory.depth` remains available for older senders without explicit
+parent UUIDs. SITE detail panels display the advertised
+`inventory.description` and `inventory.location` fields from the server's
+`station.description` and `station.location` configuration.

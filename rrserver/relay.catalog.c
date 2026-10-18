@@ -704,6 +704,9 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
       if (description) dict_add(d, "inventory.description", description);
       if (location) dict_add(d, "inventory.location", location);
       dict_add(d, "inventory.room", room);
+      if (depth > 0) dict_add(d, "inventory.parent",
+         !strcmp(kind, "rig") || !strcmp(kind, "room") ?
+         c->owner : dict_get(c->descriptor, "object.owner", c->owner));
       dict_add(d, "inventory.state", ws_client_in_room(client, room) ? "joined" : "remote");
       const char *backend = dict_get(c->descriptor, "object.backend", NULL);
 
@@ -728,6 +731,7 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       dict_del(row, "object.type");
       dict_add(row, "object.cmd", "inventory-entry");
       dict_add(row, "request.id", request);
+      dict_add(row, "inventory.parent", parent);
       dict_add_uint(row, "inventory.depth", depth);
       const char *kind = dict_get(row, "inventory.kind", "");
       if (!strcmp(kind, "cat") || !strcmp(kind, "serial")) {
