@@ -375,8 +375,8 @@ static void inventory_services(object_send_t *ctx, const char *scope, unsigned d
 static void inventory_room_vfos(object_send_t *ctx, const char *room, const char *room_id) {
 #ifdef USE_SQLITE
    char *list = db_room_vfo_list(masterdb, room), *save = NULL;
-   for (char *id = list ? strtok_r(list, " \\t\\r\\n", &save) : NULL;
-        id; id = strtok_r(NULL, " \\t\\r\\n", &save)) {
+   for (char *id = list ? strtok_r(list, " \t\r\n", &save) : NULL;
+        id; id = strtok_r(NULL, " \t\r\n", &save)) {
       rr_server_vfo_t *vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
       if (!vfo) continue;
       rr_server_rig_t *owner = rr_server_vfo_owner(vfo);
