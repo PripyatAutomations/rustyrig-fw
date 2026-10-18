@@ -653,7 +653,7 @@ static gboolean resource_tick(gpointer data) {
        * descriptor change (GPS/serial/media are inventory-only services).
        * Refresh availability while the window is open, including late peers. */
       else if (!was_online || !branch->loaded ||
-         (!branch->loading && (uint64_t)mono_us() - branch->requested_at >= UINT64_C(10000000))) resource_refresh(branch);
+         (!branch->loading && (uint64_t)mono_us() - branch->requested_at >= UINT64_C(30000000))) resource_refresh(branch);
    }
    resource_local_update();
    resource_selection(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), NULL);
@@ -877,7 +877,7 @@ static void resource_create(void) {
    gtk_box_pack_start(GTK_BOX(box), browser->status, FALSE, FALSE, 0);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), "changed", G_CALLBACK(resource_selection), NULL);
    g_signal_connect(browser->page, "destroy", G_CALLBACK(resource_destroy), browser);
-   browser->timer = g_timeout_add(500, resource_tick, browser);
+   browser->timer = g_timeout_add_seconds(2, resource_tick, browser);
    gtk_widget_show_all(browser->page);
 }
 
