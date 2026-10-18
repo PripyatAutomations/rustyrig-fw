@@ -24,6 +24,8 @@ void rr_serial_read_enabled(rr_serial_t *, bool enabled);
 bool rr_serial_set_buffer_limit(rr_serial_t *, size_t bytes);
 size_t rr_serial_pending_bytes(const rr_serial_t *);
 bool rr_serial_write(rr_serial_t *port, const char *data, size_t len);
+/* GPS telemetry: replace pending PTY output, never replay old positions. */
+bool rr_serial_write_latest(rr_serial_t *port, const char *data, size_t len);
 const char *rr_serial_name(const rr_serial_t *port);
 const char *rr_serial_path(const rr_serial_t *port);
 bool rr_serial_get_settings(const rr_serial_t *, rr_serial_settings_t *);
