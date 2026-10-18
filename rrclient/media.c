@@ -98,7 +98,7 @@ typedef struct {
 static gps_position_cache_t gps_position_cache[RR_MEDIA_MAX_CHANS];
 static guint gps_nmea_timer;
 
-static gboolean gps_nmea_tick(gpointer unused) {
+static void gps_nmea_tick_connection(void *unused) {
    (void)unused;
    for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
       struct rr_client_media_chan *channel = &known_chans[i];
@@ -128,6 +128,18 @@ static gboolean gps_nmea_tick(gpointer unused) {
          (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room)));
       event_emit_dict("serial.gps.output", NULL, d);
       dict_free(d);
+   }
+}
+static gboolean gps_nmea_tick(gpointer unused) {
+   (void)unused;
+   /* The active connection may be IRC while a different server continues
+    * to provide the rig's GPS. Process each server's own cached streams. */
+   for (unsigned i = 0; ; i++) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *conn = rrclient_connection_find(profile);
+      if (conn && conn->is_ws)
+         rrclient_connection_dispatch(conn, gps_nmea_tick_connection, NULL);
    }
    return G_SOURCE_CONTINUE;
 }
