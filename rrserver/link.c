@@ -32,7 +32,7 @@ struct link_session;
 struct link_peer {
    char section[128], site[128], node[37];
    char *url, *password, *allowed_sites;
-   bool autoconnect, leaf_only, policy_blocked;
+   bool autoconnect, leaf_only, policy_blocked, startup_override;
    unsigned max_depth;
    long long retry_at;
    unsigned retry_seconds;
@@ -915,6 +915,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
 
    if (open) {
       peer->policy_blocked = false;
+      peer->startup_override = true;
       peer->autoconnect = true;
       peer->retry_at = 0;
    } else if (peer->session) {
@@ -1079,12 +1080,10 @@ void rrserver_links_poll(void) {
       }
    }
 
-   if (at < links.autoconnect_after) return;
-
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
 
-      if (peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
+      if ((at < links.autoconnect_after && !peer->startup_override) || peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
          continue;
       }
 
