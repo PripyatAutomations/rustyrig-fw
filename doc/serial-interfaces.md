@@ -305,7 +305,7 @@ RX direction, no VFO, and the fixed 9-byte position record described above.
 
 ## Resource manager attachments
 
-GTK Resources lists local serial endpoints alongside server inventory and can
+GTK's **Explorer** tab lists local serial endpoints alongside server inventory and can
 attach/detach CAT services and permitted physical serial exports. Local endpoint
 names remain global so two attachments cannot claim the same PTY/name. Explicit
 host tunnels and CAT endpoints created with a live server retain that profile;
@@ -316,7 +316,7 @@ their existing active-server behavior until a host endpoint binds at login.
 Common `rr_sercom_info()` exposes borrowed attachment status for presentation;
 GTK does not maintain a second serial session registry.
 
-### Local endpoint chooser
+The Explorer tab includes a **Pop out** control to move the same live tree into a\nseparate Resource Explorer window. Use **Dock**, or close that detached window,\nto return it to the main notebook without resetting its state. The Explorer\ntab remains available while detached.\n\n### Local endpoint chooser
 
 Resource Explorer's **Connect serial…** opens a chooser of configured local
 endpoints. **Configure local ports…**, or the explorer's **Local ports…** button,
