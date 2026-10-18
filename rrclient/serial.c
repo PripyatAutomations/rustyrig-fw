@@ -104,7 +104,7 @@ bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
       return rr_serial_write_latest(p, data, len);
    if (p && p->output_policy == RR_SERIAL_OUTPUT_DROP && p->pending &&
        p->pending->len)
-      return false; /* Leave already queued protocol data untouched. */
+      return false; /* Drop new update; leave queued bytes untouched. */
    if (!p || !data || len > p->buffer_limit || p->pending->len > p->buffer_limit - len) {
       return false;
    }
