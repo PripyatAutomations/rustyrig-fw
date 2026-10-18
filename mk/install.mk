@@ -25,15 +25,15 @@ install-bin: ${bins}
 # so source installs are auditable rather than silently copying shared objects.
 install-modules: $(filter %.so,${bins})
 	@set -e; for src in $(filter %.so,${bins}); do \
-		case "$src" in \
+		case "$$src" in \
 		*rrbridge*.so) family=rrbridge ;; \
 		*rrserver*.so) family=rrserver ;; \
 		*rrclient*.so) family=rrclient ;; \
-		*) echo "Unknown runtime module: $src" >&2; exit 1 ;; \
+		*) echo "Unknown runtime module: $$src" >&2; exit 1 ;; \
 		esac; \
-		dst="$(DESTDIR)$(MODULEDIR)/$family/$(basename "$src")"; \
-		install -Dm755 "$src" "$dst"; \
-		echo "[install-module] $src => $dst"; \
+		dst="$(DESTDIR)$(MODULEDIR)/$family/$(basename "$$src")"; \
+		install -Dm755 "$$src" "$$dst"; \
+		echo "[install-module] $$src => $$dst"; \
 	done
 
 # Install real SONAME objects, never copy a symlink over a shared object.
