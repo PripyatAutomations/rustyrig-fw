@@ -34,7 +34,8 @@
 // These belong in headers
 extern void rrclient_objects_register_events(void);
 extern void rrclient_irc_register_events(void);
-extern void rrclient_media_register_events(void);  // media.c
+extern void rrclient_media_register_events(void);
+extern void rrclient_wsjtx_init(void);  // media.c
 extern void rrclient_media_available(dict *d, rrconn_t *cptr);    // media.c
 extern void rrclient_media_subscribed(dict *d, bool unsub);    // media.c
 extern void rrclient_media_chan_removed(dict *d);  // media.c
@@ -1562,6 +1563,7 @@ void rrclient_register_events(void) {
    rrclient_direct_register_events();
    rrclient_dcc_register_events();
    rrclient_media_register_events();
+   rrclient_wsjtx_init();
 
    // XXX: We need to sort this according to profiling results
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
