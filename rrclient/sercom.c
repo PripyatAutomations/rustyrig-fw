@@ -229,7 +229,8 @@ static void gps_send_invalid(serial_binding_t *b) {
    /* GSA mode A, fix type 1 (no fix), empty SV IDs and DOP values. */
    if (!gps_append_nmea(batch, sizeof(batch), &used,
                         "GPGSA,A,1,,,,,,,,,,,,,,,")) return;
-   rr_serial_write(b->port, batch, used);
+   if (rr_serial_write(b->port, batch, used))
+      console_notify(b->name, batch, used, true);
 }
 static gboolean gps_invalid_tick(gpointer unused) {
    (void)unused;
@@ -762,10 +763,12 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
             if (floating && b->focus_room[0] && *control_room) {
                if (!ws_room_same_rig(b->focus_room, control_room)) continue;
-               rr_serial_write(b->port, frame, len);
+               if (rr_serial_write(b->port, frame, len))
+                  console_notify(b->name, frame, (size_t)len, true);
             } else if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) ||
                        (!strcmp(scope, "active") && selected && !b->focus_room[0])) {
-               rr_serial_write(b->port, frame, len);
+               if (rr_serial_write(b->port, frame, len))
+                  console_notify(b->name, frame, (size_t)len, true);
             }
          }
       }
