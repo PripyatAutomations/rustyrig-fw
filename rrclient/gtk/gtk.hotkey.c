@@ -227,13 +227,17 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       switch (event->keyval) {
          case GDK_KEY_Left:
          case GDK_KEY_KP_Left: {
+            gtk_chat_set_navigation_only(true);
             gtk_tabs_step(GTK_NOTEBOOK(main_notebook), -1);
+            gtk_chat_set_navigation_only(false);
 
             return TRUE;
          }
          case GDK_KEY_Right:
          case GDK_KEY_KP_Right: {
+            gtk_chat_set_navigation_only(true);
             gtk_tabs_step(GTK_NOTEBOOK(main_notebook), 1);
+            gtk_chat_set_navigation_only(false);
 
             return TRUE;
          }

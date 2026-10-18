@@ -27,6 +27,7 @@ extern bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event);
 extern bool gtk_chat_execute_command(const char *window, const char *command);
 extern void gtk_chat_set_authoritative_room(const char *room);
 extern void gtk_chat_show_status(void);
+extern void gtk_chat_set_navigation_only(bool value);
 extern const char *gtk_chat_current_room(void);
 extern bool gtk_chat_status_active(void);
 extern void gtk_chat_room_set_topic(const char *room, const char *topic);
