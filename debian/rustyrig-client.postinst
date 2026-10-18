@@ -33,7 +33,7 @@ if command -v db_get >/dev/null 2>&1 && db_get rustyrig/serial-users; then
             echo "Unknown local user: $user" >&2
             exit 1
         fi
-        adduser "$user" rustyrig
+        adduser "$user" rruser
     done
 fi
 exit 0
