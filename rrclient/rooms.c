@@ -142,10 +142,23 @@ bool rrclient_chat_input_blocked(const char *text) {
    return text && *text && *text != '/' && rrclient_room_offline(room ? room : rrclient_current_room());
 }
 
+/* JOIN intent survives a connection loss, including unacknowledged JOINs. */
+static bool remember_join(const char *name) {
+   if (room_names_contain(reconnect_rooms, reconnect_room_count, name)) return true;
+   char *copy = strdup(name);
+   if (!copy) return false;
+   char **grown = realloc(reconnect_rooms, (reconnect_room_count + 1) * sizeof(*grown));
+   if (!grown) { free(copy); return false; }
+   reconnect_rooms = grown;
+   reconnect_rooms[reconnect_room_count++] = copy;
+   return true;
+}
 bool rrclient_room_request_join(const char *room) {
-   if (!room || !*room || !ws_conn || rrclient_room_is_joined(room)) {
+   if (!room || !*room || rrclient_room_is_joined(room)) {
       return false;
    }
+   if (!remember_join(room)) return false;
+   if (!ws_conn || !ws_conn->is_ws) return false;
    dict *d = dict_new();
 
    if (!d) {
@@ -201,25 +214,9 @@ void rrclient_rooms_clear(void) {
 }
 
 void rrclient_rooms_disconnect(void) {
-   if (rooms) {
-      reconnect_rooms_clear();
-
-      for (client_room_t *room = rooms ; room ; room = room->next) {
-         if (room->name[0] != '#' && room->name[0] != '&') {
-            continue;
-         }
-         char **grown = realloc(reconnect_rooms, (reconnect_room_count + 1) * sizeof(*grown));
-
-         if (!grown) {
-            break;
-         }
-         reconnect_rooms = grown;
-         reconnect_rooms[reconnect_room_count] = strdup(room->name);
-
-         if (reconnect_rooms[reconnect_room_count]) {
-            reconnect_room_count++;
-         }
-      }
+   for (client_room_t *room = rooms ; room ; room = room->next) {
+      if (room->name[0] == '#' || room->name[0] == '&')
+         remember_join(room->name);
    }
    joined_rooms_clear();
    available_rooms_clear();
@@ -232,7 +229,8 @@ void rrclient_rooms_rejoin_available(void) {
       }
    }
 
-   reconnect_rooms_clear();
+   /* Keep JOIN intents until the server confirms each JOIN. A missing LIST
+    * entry or a failed send must not silently discard the channel. */
 }
 
 const char *rrclient_room_iter(unsigned int index) {
