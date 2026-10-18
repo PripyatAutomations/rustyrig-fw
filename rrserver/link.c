@@ -58,6 +58,7 @@ static struct {
    size_t peer_count, session_count;
    rr_link_tree_t *tree;
    unsigned generation;
+   long long autoconnect_after;
    char node[37], site[128];
    struct mg_str cert, key, ca;
    bool insecure, stopping;
@@ -926,6 +927,12 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
 bool rrserver_links_init(struct mg_mgr *manager) {
    memset(&links, 0, sizeof(links));
    links.manager = manager;
+   int startup_delay = cfg_get_int("links.startup-delay-seconds", 5);
+   if (startup_delay < 0 || startup_delay > 300) {
+      Log(LOG_CRIT, "link", "links.startup-delay-seconds must be between 0 and 300");
+      return false;
+   }
+   links.autoconnect_after = mono_ms() + (long long)startup_delay * 1000LL;
    const char *node = rr_rig_registry_node(rig.rigs);
 
    if (!node) {
@@ -1071,6 +1078,8 @@ void rrserver_links_poll(void) {
          s->last_ping = at;
       }
    }
+
+   if (at < links.autoconnect_after) return;
 
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
