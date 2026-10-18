@@ -15,6 +15,7 @@ static struct {
    GHashTable *requests;
    GHashTable *site_requests; /* discovery request ID -> home server profile */
    guint timer;
+   char *wanted_site;
 } browser;
 struct listing {
    GtkTreeRowReference *row;
@@ -141,6 +142,32 @@ static void refresh(void) {
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), path);
    gtk_tree_path_free(path);
 }
+static void changed(GtkComboBox *box, gpointer data);
+/* Rebuild both direct and linked site choices. Refresh must discover links
+ * established after the Files window was first opened. */
+static void refresh_sites(void) {
+   g_free(browser.wanted_site);
+   browser.wanted_site = g_strdup(gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server)));
+   const char *selected = browser.wanted_site;
+   g_hash_table_remove_all(browser.site_requests);
+   g_signal_handlers_block_by_func(browser.server, G_CALLBACK(changed), NULL);
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(browser.server));
+   const char *first = NULL;
+   for (unsigned i = 0;; ++i) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *candidate = rrclient_connection_find(profile);
+      if (!candidate || !candidate->is_ws || !candidate->authenticated) continue;
+      if (!first) first = profile;
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), profile, profile);
+      char *id = rrclient_files_request(candidate, "list", "/", NULL);
+      if (id) g_hash_table_insert(browser.site_requests, id, g_strdup(profile));
+   }
+   if (selected) gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
+   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first)
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), first);
+   g_signal_handlers_unblock_by_func(browser.server, G_CALLBACK(changed), NULL);
+}
 static void changed(GtkComboBox *box, gpointer data) {
    (void)box;
    (void)data;
@@ -223,6 +250,10 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
             const char *alias = dict_get(d, "file.site-name", name);
             char *label = g_strdup_printf("%s (%s)", alias, home);
             gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), key, label);
+            if (browser.wanted_site && !strcmp(browser.wanted_site, key)) {
+               gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), key);
+               g_clear_pointer(&browser.wanted_site, g_free);
+            }
             g_free(label); g_free(key);
          }
       } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result"))
@@ -283,6 +314,7 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
 static void action(GtkButton *button, gpointer data) {
    const char *op = data;
    if (!strcmp(op, "refresh")) {
+      refresh_sites();
       refresh();
       return;
    }
@@ -408,6 +440,7 @@ static void destroyed(GtkWidget *window, gpointer data) {
       g_source_remove(browser.timer);
    g_hash_table_destroy(browser.requests);
    g_hash_table_destroy(browser.site_requests);
+   g_free(browser.wanted_site);
    g_object_unref(browser.store);
    memset(&browser, 0, sizeof(browser));
 }
@@ -482,16 +515,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
    gtk_widget_show_all(browser.window);
    refresh();
-   /* Discover remote site aliases from each connected server. Remote shares
-    * are fetched only when that particular site is chosen. */
-   for (unsigned i = 0;; ++i) {
-      const char *profile = rrclient_connection_iter(i);
-      if (!profile) break;
-      rrconn_t *candidate = rrclient_connection_find(profile);
-      if (!candidate || !candidate->is_ws || !candidate->authenticated) continue;
-      char *id = rrclient_files_request(candidate, "list", "/", NULL);
-      if (id) g_hash_table_insert(browser.site_requests, id, g_strdup(profile));
-   }
+   refresh_sites();
 }
 void gtk_files_init(void) {
    open_token = event_on_token("client.files.open", open_browser, NULL);
