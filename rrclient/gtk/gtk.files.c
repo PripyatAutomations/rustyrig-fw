@@ -219,7 +219,7 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
       if (!strcmp(cmd, "entry")) {
          const char *name = dict_get(d, "file.name", "");
          if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
-            char *key = g_strdup_printf("%s|%s", home, name);
+            char *key = g_strdup_printf("%s|/%s", home, name);
             const char *alias = dict_get(d, "file.site-name", name);
             char *label = g_strdup_printf("%s (%s)", alias, home);
             gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), key, label);
