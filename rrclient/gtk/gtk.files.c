@@ -171,6 +171,7 @@ static void refresh_sites(void) {
 static void changed(GtkComboBox *box, gpointer data) {
    (void)box;
    (void)data;
+   g_clear_pointer(&browser.wanted_site, g_free);
    refresh();
 }
 static gboolean browser_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
