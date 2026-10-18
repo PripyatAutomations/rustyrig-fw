@@ -29,7 +29,7 @@ Description: Local users to add to the rradmin group:
 Template: rustyrig/serial-users
 Type: string
 Default:
-Description: Local users to add to the rustyrig device-access group:
+Description: Local users to add to the rruser device-access group:
  Enter existing local usernames separated by spaces. Members can open
  RustyRig virtual serial ports (including CAT and GPS) created by rrclient.
  This is separate from rradmin and does not grant administrative permissions.
