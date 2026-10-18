@@ -490,6 +490,29 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
+   /* Render IRC privilege prefix separately so it does not inherit
+    * the nickname color.  Highlight delimiters only for nick mentions. */
+   char colored_from[HTTP_USER_LEN + 32];
+   const char *nick_color = "";
+   if (from && strchr("~&@%+!", from[0]) && from[1]) {
+      const char *color = from[0] == '+' ? "\00313" :
+         from[0] == '@' ? "\00311" :
+         from[0] == '!' ? "\00305" : "\00310";
+      snprintf(colored_from, sizeof(colored_from), "%s%c\017%s", color, from[0], from+1);
+      nick_color = colored_from;
+   } else nick_color = from ? from : "?";
+   bool mention = false;
+   if (msg_data && login_user && *login_user && raw_from && strcasecmp(raw_from, login_user)) {
+      size_t n = strlen(login_user);
+      for (const char *p = msg_data; *p; p++) {
+         if (!strncasecmp(p, login_user, n) &&
+             (p == msg_data || !g_ascii_isalnum((guchar)p[-1])) &&
+             (!p[n] || !g_ascii_isalnum((guchar)p[n]))) {
+            mention = true; break;
+         }
+      }
+   }
+   const char *angle = mention ? "\00308" : "\00310";
    if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
       ui_print(output_room, "\00304>>>\017 Start of chat chat replay. \00304<<<\017");
    } else if (msg_cmd && strcasecmp(msg_cmd, "replay-complete") == 0) {
@@ -501,10 +524,10 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
          if (login_user != NULL && strcmp(raw_from, login_user) == 0) {
             ui_print(output_room, "%s\00308=>\017 %s", get_chat_ts(msg_ts), msg_data);
          } else {
-            ui_print(output_room, "%s\00308<\017%s\00308>\017 %s", get_chat_ts(msg_ts), from, msg_data);
+            ui_print(output_room, "%s%s<\017%s%s>\017 %s", get_chat_ts(msg_ts), angle, nick_color, angle, msg_data);
          }
       } else if (strcasecmp(msg_type, "replay-pub") == 0) {
-         ui_print(output_room, "%s\00304<\017%s\00304>\017 %s", get_chat_ts(msg_ts), from, msg_data);
+         ui_print(output_room, "%s%s<\017%s%s>\017 %s", get_chat_ts(msg_ts), angle, nick_color, angle, msg_data);
       } else if (strcasecmp(msg_type, "replay-action") == 0) {
          ui_print(output_room, "%s\00304*\017 %s %s", get_chat_ts(msg_ts), from, msg_data);
       } else if (strcasecmp(msg_type, "priv") == 0) {
