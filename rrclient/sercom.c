@@ -712,10 +712,10 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
             if (floating && b->focus_room[0] && *control_room) {
                if (!ws_room_same_rig(b->focus_room, control_room)) continue;
-               rr_serial_write(b->port, frame, len);
+               rr_serial_write_latest(b->port, frame, len);
             } else if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) ||
                        (!strcmp(scope, "active") && selected && !b->focus_room[0])) {
-               rr_serial_write(b->port, frame, len);
+               rr_serial_write_latest(b->port, frame, len);
             }
          }
       }

@@ -104,6 +104,17 @@ bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
    return true;
 }
 
+bool rr_serial_write_latest(rr_serial_t *p, const char *data, size_t len) {
+   if (!p || !data || len > p->buffer_limit) return false;
+   /* PTY masters can have an internal keeper slave open even without a
+    * consumer. Drop bytes sitting in the kernel output queue, along with
+    * our own deferred writes, before publishing the current GPS fix. */
+   if (p->keeper >= 0 && tcflush(p->fd, TCOFLUSH) < 0)
+      return false;
+   g_byte_array_set_size(p->pending, 0);
+   return rr_serial_write(p, data, len);
+}
+
 static gboolean readable(GIOChannel *channel, GIOCondition condition, gpointer user) {
    rr_serial_t *p = user;
    char buffer[512];
