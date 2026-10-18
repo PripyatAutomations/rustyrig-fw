@@ -350,3 +350,25 @@ mode=8n1
 
 The `none` startup mapping leaves the endpoint ready for selection in the
 chooser. Choose a GPS/NMEA output, then Connect serial and select `logger`.
+
+## PTY output buffering policies
+
+Each serial endpoint accepts `output.policy` in its `[serial:NAME]` section:
+
+```ini
+[serial:ttyGPS]
+output.policy=latest
+
+[serial:ttyCAT]
+output.policy=ordered
+
+[serial:ttyMODEM]
+output.policy=ordered
+```
+
+- **ordered** (default for CAT, MODEM and other services): preserve byte order with bounded buffering. Never replace earlier command replies or binary frames.
+- **latest** (default for GPS/NMEA outputs): replace unsent user-space data and flush stale PTY master-to-slave bytes before queuing the newest write. Suitable for one independent, complete telemetry update per write; *not* suitable for multi-sentence NMEA batches or arbitrary protocols.
+- **drop**: decline a new write if user-space output is already queued, leaving that earlier data untouched. This does not detect a missing PTY reader or measure bytes already in the kernel queue.
+
+The default policy is chosen by the service, and may be overridden per endpoint. The PTY slave keeper is still held open by rrclient, so these policies do **not** report external reader presence. Buffering policies cannot replace full protocol-level flow control.
+
