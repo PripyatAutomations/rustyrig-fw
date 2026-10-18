@@ -330,6 +330,9 @@ bool place_window(GtkWidget *window) {
                   win->win_hidden = true;
                   gtk_widget_hide(win->gtk_win);
                }
+            } else if (strcasecmp(opt, "maximized") == 0) {
+               /* Maximize through the window manager, not GTK fullscreen. */
+               gtk_window_maximize(GTK_WINDOW(win->gtk_win));
             } else if (strcasecmp(opt, "minimized") == 0) {
                win->win_minimized = true;
                gtk_window_iconify(GTK_WINDOW(win->gtk_win));
