@@ -454,7 +454,7 @@ void rrserver_gps_inventory_position(dict *row, const char *scope) {
    dict_add(row, "inventory.coordinates", coordinates);
 }
 
-static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog) {
+static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog, const char *parent) {
    struct gps_source *source = find(scope);
 
    if (source) {
@@ -470,6 +470,7 @@ static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *
          if (!row) {
             continue;
          }
+         if (parent && *parent) dict_add(row, "inventory.parent", parent);
          dict_add(row, "inventory.state", output ?
             (position->fixed ? "static" : available(position) && position->valid ? "position-known" : "no-fix") :
             source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
@@ -493,14 +494,14 @@ static void inventory_gps(const char *event, const char *data, rrconn_t *client,
    dict *request = json2dict(data);
    if (!request) return;
    inventory_gps_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""),
-      dict_get_uint(request, "inventory.depth", 1), NULL);
+      dict_get_uint(request, "inventory.depth", 1), NULL, dict_get(request, "inventory.parent", ""));
    dict_free(request);
 }
 
 static void inventory_gps_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (length != sizeof(rr_inventory_catalog_t)) return;
    const rr_inventory_catalog_t *catalog = data;
-   inventory_gps_rows(NULL, catalog->scope, "", 0, catalog);
+   inventory_gps_rows(NULL, catalog->scope, "", 0, catalog, NULL);
 }
 
 bool rrserver_gps_init(void) {
