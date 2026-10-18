@@ -322,6 +322,18 @@ void rr_cat_yaesu_id(const char *args) {
 }                               // IDentification
 
 void rr_cat_yaesu_info(const char *args) {
+   /* FT-891 IF answer: 3-digit channel, 9-digit VFO-A frequency,
+    * clarifier sign/offset, CLAR flag, fixed zero, mode, VFO/memory,
+    * CTCSS, two fixed digits and simplex/shift. 28 bytes in total. */
+   if (args && *args) return; /* IF is read-only. */
+   long freq = rr_cat_property_long("A", "frequency", 0);
+   if (freq < 0 || freq > 999999999L) freq = 0;
+   int mode = cat_mode_digit();
+   rr_cat_printf("IF%03d%09ld+%04d%c%c%c%c%c%02d%c;",
+      0, freq, 0, '0', '0',
+      "0123456789ABCD"[mode >= 0 && mode <= 13 ? mode : 2],
+      '0', '0', 0, '0');
+   Log(LOG_CRAZY, "cat.yaesu", "IF status: VFO A=%ld mode=%d", freq, mode);
 }                               // Get receiver status
 
 void rr_cat_yaesu_if_shift(const char *args) {

@@ -199,6 +199,11 @@ int main(int argc, char **argv) {
    assert(write(fd1, "FA;", 3) == 3);
    expect(fd0, "FA014075000;");
    expect(fd1, "FA145000000;");
+   /* FT-891 IF is a 28-byte channel-first status reply. It must not
+    * silently time out (WSJT-X retries unanswered IF queries). */
+   assert(write(fd0, "IF;", 3) == 3);
+   expect(fd0, "IF000014075000+000000200000;");
+
    struct rr_user talker = {
       .is_ptt = true
    };
