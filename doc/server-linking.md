@@ -110,6 +110,22 @@ with `links.tls-cert` and `links.tls-key`, or `http://0.0.0.0:8421` for explicit
 plaintext operation. Set `links.shared-listener=false` to restrict incoming peers
 to that dedicated listener. Dedicated and shared listeners may coexist.
 
+To **accept incoming links only on a firewall-controlled port**, configure
+these in the included `rrserver.site-local.cfg` under `[general]`:
+
+```ini
+links.shared-listener=false
+links.listen=https://0.0.0.0:4421
+links.tls-cert=/etc/rustyrig/link-cert.pem
+links.tls-key=/etc/rustyrig/link-key.pem
+```
+
+Configure the `listener:link.acl` policy and restrict inbound TCP/4421 to
+your trusted peers at the firewall. Peers use `wss://hostname:4421/link`.
+Ordinary `/ws` and web clients retain their existing listeners. If
+`links.shared-listener=false` is set without `links.listen`, the server
+has no incoming link listener (outgoing links may still work).
+
 `links.allow-insecure=false` is the default. Explicit local tests may use
 `links.allow-insecure=true` with an `http://` listener and `ws://` peer URL.
 Normal deployments use WSS. Defaults are 128 servers (maximum 256), a 60-second
