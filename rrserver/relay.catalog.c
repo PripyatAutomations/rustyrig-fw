@@ -372,6 +372,10 @@ static void add_object(const char *uuid, const char *type, const char *owner, co
    dict_add(d, "object.name", alias);
    dict_add(d, "object.room", room);
    dict_add(d, "object.lifecycle", "persistent");
+   if (!strcmp(type, "node")) {
+      dict_add(d, "object.description", cfg_get("station.description"));
+      dict_add(d, "object.location", cfg_get("station.location"));
+   }
    if (!strcmp(type, "node") || !strcmp(type, "rig"))
       rrserver_gps_inventory_position(d, !strcmp(type, "node") ? "station" : alias);
    rr_relay_catalog_put(rrserver_links_node(), d);
@@ -686,6 +690,10 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
    if (d) {
       const char *coordinates = dict_get(c->descriptor, "inventory.coordinates", NULL);
       if (coordinates) dict_add(d, "inventory.coordinates", coordinates);
+      const char *description = dict_get(c->descriptor, "object.description", NULL);
+      const char *location = dict_get(c->descriptor, "object.location", NULL);
+      if (description) dict_add(d, "inventory.description", description);
+      if (location) dict_add(d, "inventory.location", location);
       dict_add(d, "inventory.room", room);
       dict_add(d, "inventory.state", ws_client_in_room(client, room) ? "joined" : "remote");
       const char *backend = dict_get(c->descriptor, "object.backend", NULL);
