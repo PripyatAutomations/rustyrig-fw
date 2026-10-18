@@ -5,7 +5,7 @@ CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
     config/callsign-lookup.cli.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 
-.PHONY: windows-install posix-install install install-bin install-libs install-config install-assets install-tools install-dev install-check
+.PHONY: windows-install posix-install install install-bin install-modules install-libs install-config install-assets install-tools install-dev install-check
 
 windows-install:
 	@echo "Use the win64-installer target for Windows"
@@ -13,7 +13,7 @@ windows-install:
 posix-install: install
 
 # No configuration is touched by the default install target.
-install: install-bin install-libs install-assets install-tools
+install: install-bin install-modules install-libs install-assets install-tools
 	@echo "Installed runtime files at Debian package paths. Existing /etc/rustyrig config is untouched."
 	@echo "Run ldconfig after installing libraries on Linux."
 
@@ -21,14 +21,19 @@ install-bin: ${bins}
 	@set -e; for src in $(filter-out %.so,${bins}); do \
 		install -Dm755 "$$src" "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
 	done
+# Runtime modules are separate from executable binaries; show their destination
+# so source installs are auditable rather than silently copying shared objects.
+install-modules: $(filter %.so,${bins})
 	@set -e; for src in $(filter %.so,${bins}); do \
-		case "$$src" in \
+		case "$src" in \
 		*rrbridge*.so) family=rrbridge ;; \
 		*rrserver*.so) family=rrserver ;; \
 		*rrclient*.so) family=rrclient ;; \
-		*) echo "Unknown runtime module: $$src" >&2; exit 1 ;; \
+		*) echo "Unknown runtime module: $src" >&2; exit 1 ;; \
 		esac; \
-		install -Dm755 "$$src" "$(DESTDIR)$(MODULEDIR)/$$family/$$(basename "$$src")"; \
+		dst="$(DESTDIR)$(MODULEDIR)/$family/$(basename "$src")"; \
+		install -Dm755 "$src" "$dst"; \
+		echo "[install-module] $src => $dst"; \
 	done
 
 # Install real SONAME objects, never copy a symlink over a shared object.
