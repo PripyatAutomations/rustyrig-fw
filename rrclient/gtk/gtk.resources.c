@@ -21,7 +21,7 @@ extern void gtk_terminal_open_endpoint_labeled(const char *name, const char *dis
 typedef struct {
    char *profile, *request, *selection;
    GtkTreeIter root, parents[5];
-   GHashTable *irc_rows;
+   GHashTable *irc_rows, *expanded;
    bool valid[5], loading, online, loaded;
    uint64_t requested_at, irc_updated_at;
 } resource_branch;
@@ -31,6 +31,8 @@ typedef struct {
    GtkTreeIter local_root;
    GHashTable *branches, *local_rows;
    guint timer;
+   double scroll_y;
+   bool scroll_saved;
 } resource_browser;
 static resource_browser *browser;
 static bool automatic_refresh;
@@ -42,6 +44,7 @@ static void resource_refresh(resource_branch *branch);
 static void branch_free(gpointer data) {
    resource_branch *branch = data;
    g_hash_table_destroy(branch->irc_rows);
+   if (branch->expanded) g_hash_table_destroy(branch->expanded);
    g_free(branch->profile);
    g_free(branch->request);
    g_free(branch->selection);
@@ -63,6 +66,65 @@ static resource_branch *resource_branch_get(const char *profile) {
    gtk_tree_store_set(browser->store, &branch->root, NAME, profile, KIND, "server", PROFILE, profile, -1);
    g_hash_table_insert(browser->branches, branch->profile, branch);
    return branch;
+}
+/* Expansion is keyed by stable resource identity and ancestry, not row
+ * numbers: sorting and a fresh inventory can change every GtkTreePath. */
+static char *resource_row_key(GtkTreeModel *model, GtkTreeIter *iter, const char *parent) {
+   char *kind = NULL, *uuid = NULL, *name = NULL;
+   gtk_tree_model_get(model, iter, KIND, &kind, UUID, &uuid, NAME, &name, -1);
+   const char *identity = uuid && *uuid ? uuid : name ? name : "";
+   char *key = g_strdup_printf("%s/%s:%s", parent, kind ? kind : "", identity);
+   g_free(kind); g_free(uuid); g_free(name);
+   return key;
+}
+static void resource_expansion_walk(GtkTreeIter *parent, const char *prefix,
+                                    GHashTable *expanded, bool restore) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   for (gboolean more = gtk_tree_model_iter_children(model, &child, parent);
+        more; more = gtk_tree_model_iter_next(model, &child)) {
+      char *key = resource_row_key(model, &child, prefix);
+      GtkTreePath *path = gtk_tree_model_get_path(model, &child);
+      if (restore) {
+         if (g_hash_table_contains(expanded, key))
+            gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
+      } else if (gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path)) {
+         g_hash_table_add(expanded, g_strdup(key));
+      }
+      resource_expansion_walk(&child, key, expanded, restore);
+      gtk_tree_path_free(path);
+      g_free(key);
+   }
+}
+static void resource_expansion_save(resource_branch *branch) {
+   if (branch->expanded) g_hash_table_destroy(branch->expanded);
+   branch->expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   /* Include the branch root itself, which can also be manually collapsed. */
+   GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
+   if (gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path))
+      g_hash_table_add(branch->expanded, g_strdup("@root"));
+   gtk_tree_path_free(path);
+   resource_expansion_walk(&branch->root, branch->profile, branch->expanded, false);
+}
+static void resource_expansion_restore(resource_branch *branch) {
+   if (!branch->expanded) return;
+   GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
+   if (g_hash_table_contains(branch->expanded, "@root"))
+      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
+   else
+      gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+   gtk_tree_path_free(path);
+   resource_expansion_walk(&branch->root, branch->profile, branch->expanded, true);
+}
+static gboolean resource_restore_scroll(gpointer unused) {
+   (void)unused;
+   if (!browser || !browser->scroll_saved) return G_SOURCE_REMOVE;
+   GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(browser->tree));
+   double maximum = gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj);
+   gtk_adjustment_set_value(adj, CLAMP(browser->scroll_y,
+                                      gtk_adjustment_get_lower(adj), MAX(gtk_adjustment_get_lower(adj), maximum)));
+   browser->scroll_saved = false;
+   return G_SOURCE_REMOVE;
 }
 static void resource_destroy(GtkWidget *widget, gpointer data) {
    (void)widget;
@@ -767,6 +829,13 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    branch->request = g_strdup(request->request);
    branch->loading = true;
    branch->requested_at = mono_us();
+   /* Snapshot before removing the old rows. */
+   if (!browser->scroll_saved) {
+      GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(browser->tree));
+      browser->scroll_y = gtk_adjustment_get_value(adj);
+      browser->scroll_saved = true;
+   }
+   resource_expansion_save(branch);
    memset(branch->valid, 0, sizeof(branch->valid));
    GtkTreeIter child;
    while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) gtk_tree_store_remove(browser->store, &child);
@@ -794,9 +863,12 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       branch->loading = false;
       branch->loaded = true;
       GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
-      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
+      if (!branch->expanded)
+         gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
       gtk_tree_path_free(path);
+      resource_expansion_restore(branch);
       resource_update_branch(branch);
+      g_idle_add(resource_restore_scroll, NULL);
       gtk_label_set_text(GTK_LABEL(browser->status), "All available resources are shown. Select a resource to manage your connection.");
       dict_free(row);
       return;
