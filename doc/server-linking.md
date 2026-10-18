@@ -299,3 +299,19 @@ Rig descriptors may override the site location with
 `mobile=true` under the same rig section for mobile radios: their
 advertised location becomes exactly `MOBILE`. Do not substitute the
 site's fixed coordinates for a moving rig's location.
+
+### Mobile rig examples
+
+The `mobile` setting belongs in a named rig's section, for example in
+`config/rrserver.rigs.cfg`:
+
+```ini
+[rig:rig1]
+;mobile=true
+;location=Pittsburgh, Pennsylvania, United States
+```
+
+Uncomment `mobile=true` for a moving or portable radio. Its advertised
+location becomes exactly `MOBILE`, even when its hosting server has a
+fixed city/state/country location. Leave it off for a fixed radio; an
+optional `location` overrides the server's `station.location`.
