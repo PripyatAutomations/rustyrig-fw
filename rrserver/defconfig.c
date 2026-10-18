@@ -193,6 +193,9 @@ defconfig_t defcfg[] = {
       "links.max-servers", "128", "Maximum servers in linked tree (1-256)"
    },
    {
+      "links.startup-delay-seconds", "5", "Wait after server-link initialization before automatic outbound connections (0-300 seconds)", DEFCONFIG_UINT, NULL
+   },
+   {
       "links.retry-seconds", "60", "Delay before retrying peer autoconnect"
    },
    {
