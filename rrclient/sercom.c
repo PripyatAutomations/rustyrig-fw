@@ -224,7 +224,7 @@ static void gps_send_invalid(serial_binding_t *b) {
    snprintf(body, sizeof(body), "GPRMC,%s,V,,,,,,,%s,,,N", clock, date);
    if (!gps_append_nmea(batch, sizeof(batch), &used, body)) return;
    /* GGA fix quality 0 and satellites 00; no reported DOP or altitude. */
-   snprintf(body, sizeof(body), "GPGGA,%s,,,,,0,00,,,,,,,,", clock);
+   snprintf(body, sizeof(body), "GPGGA,%s,,,,,0,00,,,,,,,", clock);
    if (!gps_append_nmea(batch, sizeof(batch), &used, body)) return;
    /* GSA mode A, fix type 1 (no fix), empty SV IDs and DOP values. */
    if (!gps_append_nmea(batch, sizeof(batch), &used,
