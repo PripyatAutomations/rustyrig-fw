@@ -73,6 +73,17 @@ static void rrserver_handle_nomatch(const char *event, const char *data, rrconn_
    Log(LOG_WARN, "ws.nomatch", "NOMATCH: %s", data);
 }
 
+/* cat.freq is an intentional notification from librrprotocol after
+ * a successful frequency change. The CAT broadcast and rigctl event already
+ * handle distribution and application; acknowledge this optional event to
+ * avoid treating normal tuning as an unhandled protocol warning. */
+static void rrserver_handle_cat_freq(const char *event, const char *data, rrconn_t *cptr, void *user) {
+   (void)event;
+   (void)data;
+   (void)cptr;
+   (void)user;
+}
+
 /* Resolve a replay request and send stored room history. */
 static void rrserver_handle_send_chat_replay(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data || !cptr) {
@@ -444,6 +455,7 @@ void rrserver_register_events(void) {
    Log(LOG_CRAZY, "events", "Registering rrserver events");
 
    event_on("NOMATCH", rrserver_handle_nomatch, NULL);
+   event_on("cat.freq", rrserver_handle_cat_freq, NULL);
    event_on("rehash", rrserver_handle_rehash, NULL);
    event_on("authdb.load", rrserver_handle_authdb_load, NULL);
    event_on_binary(RR_SERVER_AUTH_REFRESH_EVENT, rrserver_auth_refresh, NULL);
