@@ -112,6 +112,7 @@ bool rrclient_room_join(const char *room) {
          (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
       reconnect_room_count--;
    }
+   event_emit("client.room.joined", ws_conn, name);
    return true;
 }
 
