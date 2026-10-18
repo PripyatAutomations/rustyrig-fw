@@ -195,21 +195,41 @@ bool rr_sercom_info(const char *name, rr_sercom_info_t *info) {
    return true;
 }
 
-/* Emit an invalid RMC fix instead of leaving a GPS consumer believing that
- * its last valid transmitter position still applies after loss of selection. */
+/* A no-fix epoch is an atomic NMEA batch. GPSP has only lat/lon and
+ * validity, so unavailable satellite/altitude/DOP fields remain empty.
+ * 'latest' PTY buffering must replace the whole epoch, never one line
+ * at a time (which would flush earlier sentences from this same epoch). */
+static bool gps_append_nmea(char *dest, size_t capacity, size_t *used,
+                            const char *body) {
+   unsigned char checksum = 0;
+   for (const unsigned char *p = (const unsigned char *)body; *p; p++)
+      checksum ^= *p;
+   if (*used >= capacity) return false;
+   int n = snprintf(dest + *used, capacity - *used,
+                    "$%s*%02X\\r\\n", body, checksum);
+   if (n < 0 || (size_t)n >= capacity - *used) return false;
+   *used += (size_t)n;
+   return true;
+}
+
 static void gps_send_invalid(serial_binding_t *b) {
    time_t now = time(NULL);
    struct tm utc;
    if (!gmtime_r(&now, &utc)) return;
-   char clock[16], date[16], body[128], frame[160];
+   char clock[16], date[16], body[128], batch[512];
+   size_t used = 0;
    strftime(clock, sizeof(clock), "%H%M%S", &utc);
    strftime(date, sizeof(date), "%d%m%y", &utc);
-   /* Empty coordinates, speed and course; status V and mode N. */
+   /* RMC status V and mode N: explicitly invalid with no coordinates. */
    snprintf(body, sizeof(body), "GPRMC,%s,V,,,,,,,%s,,,N", clock, date);
-   unsigned char checksum = 0;
-   for (const char *p = body; *p; ++p) checksum ^= (unsigned char)*p;
-   int len = snprintf(frame, sizeof(frame), "$%s*%02X\r\n", body, checksum);
-   if (len > 0 && (size_t)len < sizeof(frame)) rr_serial_write(b->port, frame, (size_t)len);
+   if (!gps_append_nmea(batch, sizeof(batch), &used, body)) return;
+   /* GGA fix quality 0 and satellites 00; no reported DOP or altitude. */
+   snprintf(body, sizeof(body), "GPGGA,%s,,,,,0,00,,,,,,,,", clock);
+   if (!gps_append_nmea(batch, sizeof(batch), &used, body)) return;
+   /* GSA mode A, fix type 1 (no fix), empty SV IDs and DOP values. */
+   if (!gps_append_nmea(batch, sizeof(batch), &used,
+                        "GPGSA,A,1,,,,,,,,,,,,,,,")) return;
+   rr_serial_write(b->port, batch, used);
 }
 static gboolean gps_invalid_tick(gpointer unused) {
    (void)unused;
