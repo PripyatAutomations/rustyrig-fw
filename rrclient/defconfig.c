@@ -340,6 +340,9 @@ defconfig_t defcfg[] = {
       "ui.theme.completion", "\00310", "mIRC color prefix for tab-completion candidates"
    },
    {
+      "ui.win-digit-wait", "500", "Milliseconds to wait for a second Escape/Alt window number digit", DEFCONFIG_UINT, NULL
+   },
+   {
       "ui.ptt-ack-timeout", "2", "How long to wait for server to ACK ptt button?", DEFCONFIG_UINT, NULL
    },
    {
