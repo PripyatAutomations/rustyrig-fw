@@ -208,7 +208,7 @@ static void gps_send_invalid(serial_binding_t *b) {
    snprintf(body, sizeof(body), "GPRMC,%s,V,,,,,,,%s,,,N", clock, date);
    unsigned char checksum = 0;
    for (const char *p = body; *p; ++p) checksum ^= (unsigned char)*p;
-   int len = snprintf(frame, sizeof(frame), "$%s*%02X\\r\\n", body, checksum);
+   int len = snprintf(frame, sizeof(frame), "$%s*%02X\r\n", body, checksum);
    if (len > 0 && (size_t)len < sizeof(frame)) rr_serial_write(b->port, frame, (size_t)len);
 }
 static gboolean gps_invalid_tick(gpointer unused) {
