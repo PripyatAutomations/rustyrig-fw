@@ -966,6 +966,28 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       return;
    }
    unsigned depth = dict_get_uint(row, "inventory.depth", 0);
+   /* The connection itself is already the root server node. An inventory
+    * site with that same displayed name is its identity, not a child.
+    * Leave other linked sites intact; they belong below the connection. */
+   const char *kind = dict_get(row, "inventory.kind", "resource");
+   const char *name = dict_get(row, "inventory.name", "");
+   if (depth == 0 && !strcmp(kind, "site")) {
+      char *root_name = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->root, NAME, &root_name, -1);
+      gboolean same = root_name && !g_ascii_strcasecmp(root_name, name);
+      g_free(root_name);
+      if (same) {
+         for (unsigned i = 0; i < G_N_ELEMENTS(branch->parents); i++) branch->valid[i] = false;
+         branch->parents[0] = branch->root;
+         branch->valid[0] = true;
+         gtk_tree_store_set(browser->store, &branch->root,
+            KIND, "site", UUID, dict_get(row, "inventory.uuid", ""),
+            ROOM, dict_get(row, "inventory.room", ""),
+            DETAILS, dict_get(row, "inventory.description", ""), -1);
+         dict_free(row);
+         return;
+      }
+   }
    if (depth >= G_N_ELEMENTS(branch->parents)) { dict_free(row); return; }
    for (unsigned i = depth; i < G_N_ELEMENTS(branch->parents); i++) branch->valid[i] = false;
    int parent = (int)depth - 1;
@@ -976,7 +998,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (*owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent))
       parent_iter = &explicit_parent;
    gtk_tree_store_append(browser->store, &iter, parent_iter);
-   const char *kind = dict_get(row, "inventory.kind", "resource"), *name = dict_get(row, "inventory.name", "");
+
    const char *room = dict_get(row, "inventory.room", "");
    /* Room inventory names are their identity; VFOs/services inherit their rig room. */
    if (!strcmp(kind, "room")) room = name;
