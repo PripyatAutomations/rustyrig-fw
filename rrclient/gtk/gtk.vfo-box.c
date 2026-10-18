@@ -36,6 +36,50 @@ GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
 static GtkWidget *vfo_tunable_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
 
+/* Binary VFO drawer: a GTK divider-style grip, never a partly exposed panel.
+ * The grab distance is measured in root coordinates so it works in docked
+ * and detached windows alike.  The grip remains visible when collapsed. */
+typedef struct {
+   GtkWidget *revealer;
+   double press_y;
+   bool pressed;
+} VfoDrawer;
+
+static void vfo_drawer_free(gpointer data) {
+   g_free(data);
+}
+
+static gboolean vfo_drawer_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   VfoDrawer *drawer = data;
+   if (event->button != GDK_BUTTON_PRIMARY) {
+      return FALSE;
+   }
+   drawer->press_y = event->y_root;
+   drawer->pressed = true;
+   return TRUE;
+}
+
+static gboolean vfo_drawer_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   VfoDrawer *drawer = data;
+   if (event->button != GDK_BUTTON_PRIMARY || !drawer->pressed) {
+      return FALSE;
+   }
+   drawer->pressed = false;
+   gboolean open = gtk_revealer_get_reveal_child(GTK_REVEALER(drawer->revealer));
+   double delta = event->y_root - drawer->press_y;
+   if (delta >= 24.0) {
+      open = true;
+   } else if (delta <= -24.0) {
+      open = false;
+   } else if (delta > -6.0 && delta < 6.0) {
+      open = !open; /* click */
+   }
+   gtk_revealer_set_reveal_child(GTK_REVEALER(drawer->revealer), open);
+   gtk_widget_set_tooltip_text(widget, open ? "Drag up or click to close VFO controls" :
+      "Drag down or click to open VFO controls");
+   return TRUE;
+}
+
 // Should we pause the VFO widget being updated until after the server has sent response?
 bool vfo_muted = false;
 struct timeval vfo_muted_since = {
@@ -98,8 +142,30 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
 }
 
 GtkWidget *create_vfo_box(void) {
+   // The grip stays visible; only the controls are revealed or hidden.
+   GtkWidget *drawer_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *revealer = gtk_revealer_new();
+   gtk_revealer_set_transition_type(GTK_REVEALER(revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN);
+   gtk_revealer_set_transition_duration(GTK_REVEALER(revealer), 140);
+   gtk_revealer_set_reveal_child(GTK_REVEALER(revealer), TRUE);
+   gtk_box_pack_start(GTK_BOX(drawer_box), revealer, FALSE, FALSE, 0);
+   GtkWidget *grip = gtk_event_box_new();
+   gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+   gtk_widget_set_tooltip_text(grip, "Drag up to hide or down to reveal VFO controls; click to toggle");
+   GtkWidget *grip_label = gtk_label_new("━━━━   VFO controls   ━━━━");
+   gtk_widget_set_margin_top(grip_label, 3);
+   gtk_widget_set_margin_bottom(grip_label, 3);
+   gtk_container_add(GTK_CONTAINER(grip), grip_label);
+   gtk_box_pack_start(GTK_BOX(drawer_box), grip, FALSE, FALSE, 0);
+   VfoDrawer *drawer = g_new0(VfoDrawer, 1);
+   drawer->revealer = revealer;
+   g_object_set_data_full(G_OBJECT(grip), "vfo-drawer", drawer, vfo_drawer_free);
+   g_signal_connect(grip, "button-press-event", G_CALLBACK(vfo_drawer_press), drawer);
+   g_signal_connect(grip, "button-release-event", G_CALLBACK(vfo_drawer_release), drawer);
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+   gtk_container_add(GTK_CONTAINER(revealer), control_box);
 
    // ONLINE button
    conn_button = gtk_button_new_with_label("_Offline");
@@ -199,7 +265,7 @@ GtkWidget *create_vfo_box(void) {
     * immediately. */
    vfo_update_ui();
 
-   return control_box;
+   return drawer_box;
 }
 
 gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
