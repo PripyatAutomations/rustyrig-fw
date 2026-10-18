@@ -317,8 +317,16 @@ long rr_cat_property_long(const char *vfo, const char *property, long fallback) 
       return vfo_state_get_long(vfo, key, fallback);
    }
    const dict *state = cat_property(vfo, property);
+   if (state) {
+      long value = dict_get_long((dict *) state, "property.value", fallback);
+      if (strcmp(property, "frequency") || value > 0) return value;
+   }
 
-   return state ? dict_get_long((dict *) state, "property.value", fallback) : fallback;
+   /* A linked/just-selected rig may not have a populated object-property
+    * snapshot yet. Prefer its legacy CAT state over reporting 0 Hz. */
+   const char *key = !strcmp(property, "frequency") ? "cat.state.freq" :
+      !strcmp(property, "width") ? "cat.state.width" : "cat.state.key_speed";
+   return vfo_state_get_long(vfo, key, fallback);
 }
 bool rr_cat_property_bool(const char *property, bool fallback) {
    if (!cat_context) {
