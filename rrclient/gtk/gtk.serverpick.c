@@ -302,14 +302,20 @@ void gtk_show_server_chooser(void) {
 
    for (int i = 0 ; i < 4 ; i++) {
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-      gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL));
+      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL);
+      gtk_tree_view_column_set_sort_column_id(column, i);
+      gtk_tree_view_append_column(GTK_TREE_VIEW(tree), column);
    }
 
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
-   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL));
+   GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
+   gtk_tree_view_column_set_sort_column_id(connected_col, 4);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), connected_col);
    GtkCellRenderer *status = gtk_cell_renderer_text_new();
-   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), gtk_tree_view_column_new_with_attributes("Status", status, "text", 6, NULL));
+   GtkTreeViewColumn *status_col = gtk_tree_view_column_new_with_attributes("Status", status, "text", 6, NULL);
+   gtk_tree_view_column_set_sort_column_id(status_col, 6);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(tree), status_col);
    gtk_widget_set_tooltip_text(tree, "Click Connected to connect, disconnect, or cancel a pending connection and its retries.");
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), tree);

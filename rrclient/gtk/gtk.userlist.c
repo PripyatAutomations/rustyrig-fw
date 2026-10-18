@@ -413,7 +413,11 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
       return;
    }
 
+   const int sort_fields[] = {COL_PRIV_ICON, COL_USERNAME, COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON};
    for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
+      GtkTreeViewColumn *sortable_column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
+      if (i < (int)G_N_ELEMENTS(sort_fields))
+         gtk_tree_view_column_set_sort_column_id(sortable_column, sort_fields[i]);
       if (ids[i] < 0 || ids[i] >= USERLIST_VIEW_COLS || (used & (1 << ids[i]))) {
          return;
       }

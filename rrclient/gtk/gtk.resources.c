@@ -840,6 +840,7 @@ static void resource_create(void) {
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, 300);
       }
+      gtk_tree_view_column_set_sort_column_id(column, field);
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser->tree), column);
    }
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
