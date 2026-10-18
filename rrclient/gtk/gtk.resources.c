@@ -840,7 +840,8 @@ static void resource_create(void) {
    gtk_tree_store_set(browser->store, &browser->local_root, NAME, "Local serial ports", KIND, "local", STATE, "This computer", -1);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), browser->tree);
-   gtk_paned_pack1(GTK_PANED(paned), scroll, TRUE, FALSE);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 120);
+   gtk_paned_pack1(GTK_PANED(paned), scroll, TRUE, TRUE);
    browser->details = gtk_text_view_new();
    gtk_text_view_set_editable(GTK_TEXT_VIEW(browser->details), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(browser->details), FALSE);
@@ -848,7 +849,10 @@ static void resource_create(void) {
    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(browser->details), 8);
    GtkWidget *details_scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(details_scroll), browser->details);
-   gtk_paned_pack2(GTK_PANED(paned), details_scroll, FALSE, FALSE);
+   /* The text view's natural size must not force the details pane to
+    * occupy most of a docked notebook tab. Keep it scrollable and shrinkable. */
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(details_scroll), 60);
+   gtk_paned_pack2(GTK_PANED(paned), details_scroll, FALSE, TRUE);
    g_signal_connect(paned, "size-allocate", G_CALLBACK(resource_initial_split), NULL);
    gtk_box_pack_start(GTK_BOX(box), paned, TRUE, TRUE, 0);
    GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
