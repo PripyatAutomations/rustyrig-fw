@@ -79,6 +79,49 @@ static char *chat_link_at(GtkWidget *view, double x, double y) {
    return gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
 }
 
+static void chat_open_external(GtkWidget *view, const char *link, guint32 time) {
+   GError *error = NULL;
+   gtk_show_uri_on_window(GTK_WINDOW(gtk_widget_get_toplevel(view)), link, time, &error);
+   if (error) {
+      Log(LOG_WARN, "ui.gtk", "Cannot open chat link: %s", error->message);
+      g_error_free(error);
+   }
+}
+
+static void chat_link_menu_action(GtkMenuItem *item, gpointer user_data) {
+   const char *link = g_object_get_data(G_OBJECT(item), "rr-external-link");
+   if (!link) return;
+   if (GPOINTER_TO_INT(user_data)) {
+      GtkWidget *view = g_object_get_data(G_OBJECT(item), "rr-link-view");
+      if (view) chat_open_external(view, link, gtk_get_current_event_time());
+   } else {
+      GtkWidget *view = g_object_get_data(G_OBJECT(item), "rr-link-view");
+      GtkClipboard *clipboard = view ? gtk_widget_get_clipboard(view, GDK_SELECTION_CLIPBOARD) : gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+      gtk_clipboard_set_text(clipboard, link, -1);
+   }
+}
+
+static gboolean chat_link_context(GtkWidget *view, GdkEventButton *event) {
+   char *link = chat_link_at(view, event->x, event->y);
+   if (!link) return FALSE;
+   /* Room links remain native navigation, not external browser URLs. */
+   if (link[0] == '#') { g_free(link); return FALSE; }
+   GtkWidget *menu = gtk_menu_new();
+   const char *labels[] = {"Copy Link", "Open Link"};
+   for (unsigned i = 0; i < 2; i++) {
+      GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
+      g_object_set_data_full(G_OBJECT(item), "rr-external-link", g_strdup(link), g_free);
+      g_object_set_data(G_OBJECT(item), "rr-link-view", view);
+      g_signal_connect(item, "activate", G_CALLBACK(chat_link_menu_action), GINT_TO_POINTER(i));
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   g_free(link);
+   return TRUE;
+}
+
 static gboolean chat_link_event(GtkWidget *view, GdkEvent *event, gpointer data) {
    (void)data;
    if (event->type == GDK_MOTION_NOTIFY) {
@@ -90,17 +133,26 @@ static gboolean chat_link_event(GtkWidget *view, GdkEvent *event, gpointer data)
       g_free(link);
       return FALSE;
    }
+   if (event->type == GDK_BUTTON_PRESS && event->button.button == 3)
+      return chat_link_context(view, &event->button);
+   if (event->type == GDK_2BUTTON_PRESS && event->button.button == 1) {
+      char *link = chat_link_at(view, event->button.x, event->button.y);
+      if (!link || link[0] == '#') { g_free(link); return FALSE; }
+      GtkClipboard *clipboard = gtk_widget_get_clipboard(view, GDK_SELECTION_CLIPBOARD);
+      gtk_clipboard_set_text(clipboard, link, -1);
+      g_free(link);
+      return TRUE;
+   }
    if (event->type != GDK_BUTTON_RELEASE || event->button.button != 1) return FALSE;
    if (gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)))) return FALSE;
    char *link = chat_link_at(view, event->button.x, event->button.y);
    if (!link) return FALSE;
    if (link[0] != '#') {
-      GError *error = NULL;
-      gtk_show_uri_on_window(GTK_WINDOW(gtk_widget_get_toplevel(view)), link, event->button.time, &error);
-      if (error) {
-         Log(LOG_WARN, "ui.gtk", "Cannot open chat link: %s", error->message);
-         g_error_free(error);
+      if (!(event->button.state & GDK_CONTROL_MASK)) {
+         g_free(link);
+         return FALSE;
       }
+      chat_open_external(view, link, event->button.time);
    } else {
       const char *server = g_object_get_data(G_OBJECT(view), "rr-server-name");
       if (!server || rrclient_connection_select(server)) {
@@ -120,7 +172,8 @@ void gtk_chat_links_attach(GtkWidget *view) {
    GRegex *pattern = g_regex_new("(?i:https?://)[^\\s<>\"']+|(?<![A-Za-z0-9_/#])#[A-Za-z0-9_][A-Za-z0-9_.+-]*", G_REGEX_OPTIMIZE, 0, NULL);
    g_object_set_data_full(G_OBJECT(buffer), "rr-link-pattern", pattern, (GDestroyNotify)g_regex_unref);
    g_signal_connect(buffer, "insert-text", G_CALLBACK(chat_links_insert), NULL);
-   gtk_widget_add_events(view, GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK);
+   gtk_widget_add_events(view, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
    g_signal_connect(view, "motion-notify-event", G_CALLBACK(chat_link_event), NULL);
    g_signal_connect(view, "button-release-event", G_CALLBACK(chat_link_event), NULL);
+   g_signal_connect(view, "button-press-event", G_CALLBACK(chat_link_event), NULL);
 }
