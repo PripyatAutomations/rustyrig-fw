@@ -118,6 +118,12 @@ bool cmd_win(int argc, char **args) {
       }
       bool error;
 
+      /* Closing a channel tab is an explicit leave, even when forced or
+       * offline. Cancel any pending/reconnect JOIN immediately so an
+       * in-flight or failed PART cannot resurrect the tab on reconnect. */
+      if (room[0] == '#' || room[0] == '&')
+         rrclient_room_part(room);
+
       if ((room[0] == '#' || room[0] == '&') && ws_connected == 1 && ws_conn) {
          char part_command[] = "part";
          char *part_args[] = {
