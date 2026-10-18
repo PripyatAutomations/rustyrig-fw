@@ -351,24 +351,56 @@ mode=8n1
 The `none` startup mapping leaves the endpoint ready for selection in the
 chooser. Choose a GPS/NMEA output, then Connect serial and select `logger`.
 
-## PTY output buffering policies
+## Serial output buffering policies
 
-Each serial endpoint accepts `output.policy` in its `[serial:NAME]` section:
+Each configured local endpoint accepts `output.policy` in its own
+`[serial:NAME]` section (not in the shared `[serial]` startup mapping):
 
 ```ini
+[serial]
+ttyGPS=rig.gps-out@4800
+ttyCAT=rig.cat@38400
+
 [serial:ttyGPS]
 output.policy=latest
 
 [serial:ttyCAT]
 output.policy=ordered
-
-[serial:ttyMODEM]
-output.policy=ordered
 ```
 
-- **ordered** (default for CAT, MODEM and other services): preserve byte order with bounded buffering. Never replace earlier command replies or binary frames.
-- **latest** (default for GPS/NMEA outputs): replace unsent user-space data and flush stale PTY master-to-slave bytes before queuing the newest write. Suitable for one independent, complete telemetry update per write; *not* suitable for multi-sentence NMEA batches or arbitrary protocols.
-- **drop**: decline a new write if user-space output is already queued, leaving that earlier data untouched. This does not detect a missing PTY reader or measure bytes already in the kernel queue.
+Supported policies:
 
-The default policy is chosen by the service, and may be overridden per endpoint. The PTY slave keeper is still held open by rrclient, so these policies do **not** report external reader presence. Buffering policies cannot replace full protocol-level flow control.
+| Policy | Behavior | Appropriate use |
+| --- | --- | --- |
+| `ordered` | Retain writes in order until delivered, with the configured buffer limit. A write can fail if the buffer is full. | CAT commands/replies, modem frames, arbitrary serial data |
+| `latest` | Before each write, clear pending user-space bytes and (on PTYs) flush queued master-to-slave bytes. Then queue the new write. | Standalone GPS location updates, where freshness matters more than delivery of every update |
+| `drop` | Reject a new write if user-space bytes are already pending; preserve the older queued write. | Optional lossy telemetry |
 
+**Defaults:** GPS and NMEA output services use `latest`; CAT, MODEM,
+raw serial and other services use `ordered`. The service-based default is
+applied by rrclient when an endpoint attaches; it is not a static
+`defconfig.c` value. Set `output.policy` explicitly to override it.
+Disconnect and reattach an endpoint after changing its policy.
+
+**Important limitations:**
+
+- The PTY slave is held open internally. None of these policies detects whether
+  an external program has opened the PTY.
+- `latest` uses `tcflush(TCOFLUSH)` on the PTY master. It can discard even
+  partially read or in-flight data while a consumer is active. Use only when
+  each write is a self-contained, replaceable update. Do **not** use it for
+  multi-sentence NMEA groups, CAT, MODEM, or arbitrary binary protocols.
+- `drop` only checks rrclient's user-space pending write buffer. It does not
+  check the kernel output queue; it is not an alternative to reader detection.
+- For physical serial devices `latest` clears rrclient's pending bytes but
+  does not flush the kernel queue; it is not a guarantee of latest-only
+  delivery at the connected hardware.
+- An output-only `type=file` endpoint appends data to disk. Output policies
+  cannot retract records already written to that file.
+- `serial:NAME.buffer-bytes` still bounds the user-space output buffer.
+  These policies do not provide application-level acknowledgements or flow
+  control.
+
+For synthesized, once-per-second RMC on `ttyGPS`, `latest` is an
+appropriate default to avoid a backlog of stale positions. Preserve
+`ordered` for everything whose individual bytes or responses matter.
