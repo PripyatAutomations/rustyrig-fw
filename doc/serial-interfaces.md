@@ -401,6 +401,14 @@ Disconnect and reattach an endpoint after changing its policy.
   These policies do not provide application-level acknowledgements or flow
   control.
 
+Floating `rig.gps-out` and `rig.nmea-out` endpoints emit a once-per-second
+NMEA RMC sentence with status `V`, empty coordinates and mode `N` when
+no rig has been selected or the selected server connection is offline.
+This prevents consumers from treating the previously received valid fix as
+current. Once the selected rig resumes reporting GPS, normal valid RMC output
+takes over. These invalid sentences use the same output policy as other GPS
+writes; dedicated source-specific ports are not affected.
+
 For synthesized, once-per-second RMC on `ttyGPS`, `latest` is an
 appropriate default to avoid a backlog of stale positions. Preserve
 `ordered` for everything whose individual bytes or responses matter.
