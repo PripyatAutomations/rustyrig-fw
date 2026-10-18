@@ -596,7 +596,10 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
           * For frequency changes, the backend's independent-RX permission
           * remains relevant on legacy rig subrooms. */
          if (!base || strcasecmp(base, room)) {
-            allowed = tuning && ws_room_control_allowed(client, room, true);
+            /* A bridge is RX-only.  Its first attached room can tune,
+             * without requiring a rig-numbered room or TX control. */
+            allowed = tuning && rrserver_bridge_rig(ctx.radio) &&
+               rrserver_bridge_can_use(client) && ws_client_in_room(client, room);
          } else {
             allowed = ws_room_control_allowed(client, room, tuning);
          }
