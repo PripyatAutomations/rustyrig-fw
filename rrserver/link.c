@@ -31,8 +31,9 @@ struct link_session;
 
 struct link_peer {
    char section[128], site[128], node[37];
-   char *url, *password;
-   bool autoconnect;
+   char *url, *password, *allowed_sites;
+   bool autoconnect, leaf_only, policy_blocked;
+   unsigned max_depth;
    long long retry_at;
    unsigned retry_seconds;
    bool manually_closed;
@@ -91,6 +92,62 @@ static void fail(struct link_session *session, const char *reason) {
    session->connection->is_closing = 1;
 }
 
+/* Depth is counted in edges beyond the configured direct peer: peer=0. */
+static bool site_permitted(const struct link_peer *peer, const char *site) {
+   if (!peer->allowed_sites || !*peer->allowed_sites) return true;
+   char **names = g_strsplit_set(peer->allowed_sites, ", \t\r\n", -1);
+   bool found = false;
+   for (unsigned i = 0; names && names[i]; i++)
+      if (*names[i] && !strcmp(names[i], site)) { found = true; break; }
+   g_strfreev(names);
+   return found;
+}
+static void topology_reject(struct link_session *session, const char *why) {
+   if (session->peer) {
+      session->peer->policy_blocked = true;
+      Log(LOG_WARN, "link", "Peer %s blocked from automatic reconnect after topology violation; use /link open to retry", session->peer->site);
+   }
+   fail(session, why);
+}
+static bool snapshot_policy(const struct link_peer *peer, const rr_link_node_t *nodes, size_t count, const char *root) {
+   if (peer->leaf_only && count != 1) return false;
+   for (size_t i = 0; i < count; i++) {
+      if (!strcmp(nodes[i].server, root)) continue;
+      if (!site_permitted(peer, nodes[i].site)) return false;
+      const char *parent = nodes[i].parent;
+      unsigned depth = 0;
+      while (parent && depth <= count) {
+         depth++;
+         if (!strcmp(parent, root)) break;
+         const char *next = NULL;
+         for (size_t j = 0; j < count; j++)
+            if (!strcmp(nodes[j].server, parent)) { next = nodes[j].parent; break; }
+         parent = next;
+      }
+      if (!parent || depth > count || (peer->max_depth && depth > peer->max_depth)) return false;
+   }
+   return true;
+}
+static bool introduction_policy(const struct link_session *session, const char *site, const char *parent) {
+   if (session->peer->leaf_only || !site_permitted(session->peer, site)) return false;
+   unsigned depth = 1;
+   const char *current = parent;
+   size_t limit = rr_link_tree_count(links.tree);
+   while (current && strcmp(current, session->node) && depth <= limit) {
+      rr_link_node_t node;
+      bool found = false;
+      for (size_t i = 0; i < limit; i++)
+         if (rr_link_tree_node(links.tree, i, &node) && !strcmp(node.server, current)) {
+            current = node.parent;
+            found = true;
+            break;
+         }
+      if (!found) return false;
+      depth++;
+   }
+   return current && depth <= limit + 1 &&
+      (!session->peer->max_depth || depth <= session->peer->max_depth);
+}
 static bool send_message(struct link_session *session, dict *d) {
    const char *op = dict_get(d, "op", "unknown");
    char *wire = rr_link_wire_encode(d);
@@ -416,6 +473,11 @@ static void handle_snapshot(struct link_session *session, dict *d) {
          break;
       }
    }
+   if (named_peer && !snapshot_policy(session->peer, nodes, count, session->node)) {
+      free(copy);
+      topology_reject(session, "Peer topology violates leaf-only, allowed-sites or max-depth policy");
+      return;
+   }
    if (!named_peer || rr_link_tree_attach(links.tree, session->node, nodes, count) != RR_LINK_OK) {
       free(copy);
       fail(session, "Invalid server list (missing station name, duplicate server, routing loop or network size limit); check link protocol versions and topology");
@@ -469,7 +531,9 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       const char *node = dict_get(d, "node", ""), *parent = dict_get(d, "parent", "");
       const char *site = dict_get(d, "site", "");
 
-      if (rr_link_tree_add(links.tree, session->node, node, parent, site) != RR_LINK_OK) {
+      if (!introduction_policy(session, site, parent)) {
+         topology_reject(session, "Introduced server violates leaf-only, allowed-sites or max-depth policy");
+      } else if (rr_link_tree_add(links.tree, session->node, node, parent, site) != RR_LINK_OK) {
          fail(session, "Invalid server introduction (duplicate UUID, missing station name or incorrect network path)");
       } else {
          links.generation++;
@@ -727,6 +791,18 @@ static bool load_peer(const char *section) {
       return invalid_peer(section, "autoconnect", "must be true or false");
    }
    peer->autoconnect = autoconnect && !strcasecmp(autoconnect, "true");
+   const char *leaf = peer_value(section, "leaf-only");
+   if (leaf && strcasecmp(leaf, "true") && strcasecmp(leaf, "false"))
+      return invalid_peer(section, "leaf-only", "must be true or false");
+   peer->leaf_only = leaf && !strcasecmp(leaf, "true");
+   const char *allowed = peer_value(section, "allowed-sites");
+   peer->allowed_sites = strdup(allowed ? allowed : "");
+   const char *max_text = peer_value(section, "max-depth");
+   char *max_end = NULL;
+   long max_depth = max_text && *max_text ? strtol(max_text, &max_end, 10) : 0;
+   if (max_depth < 0 || max_depth > 255 || (max_end && *max_end))
+      return invalid_peer(section, "max-depth", "must be 0-255 (0 is unlimited)");
+   peer->max_depth = (unsigned)max_depth;
    const char *retry_text = peer_value(section, "retry-seconds");
    char *retry_end = NULL;
    long retry = retry_text && *retry_text ? strtol(retry_text, &retry_end, 10) : cfg_get_int("links.retry-seconds", 60);
@@ -736,7 +812,7 @@ static bool load_peer(const char *section) {
    }
    peer->retry_seconds = (unsigned)retry;
 
-   if (!peer->url || !peer->password) {
+   if (!peer->url || !peer->password || !peer->allowed_sites) {
       return invalid_peer(section, "credentials", "out of memory while loading peer");
    }
    return true;
@@ -799,7 +875,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
       for (size_t i = 0 ; i < links.peer_count ; i++) {
          struct link_peer *peer = &links.peers[i];
          ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session
-            && peer->session->established ? "linked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
+            && peer->session->established ? "linked" : peer->policy_blocked ? "topology blocked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
       }
       return;
    }
@@ -832,6 +908,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    peer->manually_closed = !open;
 
    if (open) {
+      peer->policy_blocked = false;
       peer->autoconnect = true;
       peer->retry_at = 0;
    } else if (peer->session) {
@@ -993,7 +1070,7 @@ void rrserver_links_poll(void) {
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
 
-      if (peer->manually_closed || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
+      if (peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
          continue;
       }
 
