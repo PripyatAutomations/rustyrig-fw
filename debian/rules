@@ -1,4 +1,4 @@
-#!$(BINDIR)/make -f
+#!/usr/bin/make -f
 
 export DH_VERBOSE = 1
 .DEFAULT_GOAL := binary
