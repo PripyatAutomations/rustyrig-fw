@@ -264,7 +264,10 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    directory_filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(directory_store), NULL));
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
-   directory_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(directory_filter));
+   GtkTreeModel *sorted = gtk_tree_model_sort_new_with_model(GTK_TREE_MODEL(directory_filter));
+   directory_tree = gtk_tree_view_new_with_model(sorted);
+   gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_NAME, GTK_SORT_ASCENDING);
+   g_object_unref(sorted);
    const char *titles[] = {
       "Type", "Location", "Receiver", "Users", "API Policy", "Status", "URL"
    };
