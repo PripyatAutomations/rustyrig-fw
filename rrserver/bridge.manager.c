@@ -128,7 +128,7 @@ static void capability_source(struct bridge_child *b, const char *source) {
 }
 
 static const char *metadata_fields[] = {
-   "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at", "initiated_by", "requested_at", "directory_name", "directory_location", "directory_country", "directory_contact", "directory_antenna", "directory_hardware", "directory_grid", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz", "directory_last_seen"
+   "url", "driver", "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api", "connected_at", "initiated_by", "requested_at", "directory_name", "directory_location", "directory_country", "directory_contact", "directory_antenna", "directory_hardware", "directory_grid", "directory_users", "directory_users_max", "directory_low_hz", "directory_high_hz", "directory_last_seen", "attached_room"
 };
 static bool publish_metadata(struct bridge_child *b, const char *key, const char *text, bool save) {
    bool known = false;
@@ -1263,7 +1263,11 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    if (b && !save) {
       /* Initiator and time are authoritative server observations.  Directory
        * values are client-provided hints, deliberately namespaced. */
-      publish_metadata(b, "initiated_by", client->chatname ? client->chatname : "unknown", false);
+      publish_metadata(b, "initiated_by", client->chatname, false);
+      publish_metadata(b, "driver", b->driver, false);
+      const char *endpoint = request ? dict_get(request, "url", NULL) : NULL;
+      if (endpoint && *endpoint) publish_metadata(b, "url", endpoint, false);
+      publish_metadata(b, "attached_room", target_room, false);
       char timestamp[40];
       snprintf(timestamp, sizeof(timestamp), "%lld", (long long)time(NULL));
       publish_metadata(b, "requested_at", timestamp, false);
