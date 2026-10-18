@@ -790,10 +790,14 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
    const char *vfos = dict_get(d, "talk.vfos", "");
 
    if (room) {
-      if (dict_get_type(d, "room.vfo-mask") != VAL_END) {
+      /* UUID-backed SDR bindings are not represented by the old native
+       * VFO bitmask. A zero mask must not erase their VFO controls. */
+      if (*vfos) {
+         rrclient_room_set_vfos(room, vfos);
+      } else if (dict_get_type(d, "room.vfo-mask") != VAL_END) {
          rrclient_room_set_vfo_mask(room, dict_get_ulong(d, "room.vfo-mask", 0));
       } else {
-         rrclient_room_set_vfos(room, vfos);
+         rrclient_room_set_vfos(room, "");
       }
       rrclient_room_set_control_flags(room, dict_get_bool(d, "room.tx-control", false), dict_get_bool(d, "room.rx-tunable", false));
       rrclient_room_set_rx_tuning_mask(room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
