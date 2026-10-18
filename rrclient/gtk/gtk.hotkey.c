@@ -59,6 +59,37 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
    return TRUE;
 }
 
+static int pending_tab_digit = -1;
+static guint pending_tab_timer;
+static GtkWidget *pending_tab_window;
+static gboolean commit_pending_tab(gpointer unused) {
+   (void)unused;
+   pending_tab_timer = 0;
+   if (pending_tab_digit >= 0) {
+      int digit = pending_tab_digit;
+      pending_tab_digit = -1;
+      gtk_switch_tab_digit(digit, pending_tab_window);
+   }
+   return G_SOURCE_REMOVE;
+}
+static gboolean accept_tab_digit(int digit, GtkWidget *main_win) {
+   if (digit < 0 || digit > 9) return FALSE;
+   if (pending_tab_timer) {
+      g_source_remove(pending_tab_timer);
+      pending_tab_timer = 0;
+      int first = pending_tab_digit;
+      pending_tab_digit = -1;
+      return gtk_switch_tab_digit(first * 10 + digit, main_win);
+   }
+   pending_tab_digit = digit;
+   pending_tab_window = main_win;
+   int wait = cfg_get_int("ui.win-digit-wait", 500);
+   if (wait < 0) wait = 0;
+   if (wait > 5000) wait = 5000;
+   if (!wait) return commit_pending_tab(NULL) == G_SOURCE_REMOVE;
+   pending_tab_timer = g_timeout_add(wait, commit_pending_tab, NULL);
+   return TRUE;
+}
 /* Shortcut toggles only: explicit show requests still raise existing windows. */
 static bool gtk_shortcut_close_window(const char *name, GtkWidget *main_win) {
    gui_window_t *window = gui_find_window(NULL, name);
@@ -123,7 +154,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return true;
    }
 
-   if (event->keyval == GDK_KEY_Escape) {
+   if (event->type == GDK_KEY_PRESS && event->keyval == GDK_KEY_Escape) {
       gtk_escape_prefix = TRUE;
 
       /* Let GTK's normal Escape handling close menus and popups. */
@@ -140,9 +171,18 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          digit = (int)(event->keyval - GDK_KEY_KP_0);
       }
 
-      if (digit >= 0 && gtk_switch_tab_digit(digit, main_win)) {
+      if (digit >= 0 && accept_tab_digit(digit, main_win)) {
          return TRUE;
       }
+   }
+
+   if (event->type == GDK_KEY_PRESS && pending_tab_timer) {
+      int digit = -1;
+      if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9)
+         digit = (int)(event->keyval - GDK_KEY_0);
+      else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9)
+         digit = (int)(event->keyval - GDK_KEY_KP_0);
+      if (digit >= 0) return accept_tab_digit(digit, main_win);
    }
 
    // GTK provides key-release events, allowing PTT shortcuts to distinguish a
@@ -219,7 +259,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
       if (digit >= 0) {
          /* Notebook pages are numbered in display order. */
-         if (gtk_switch_tab_digit(digit, main_win)) {
+         if (accept_tab_digit(digit, main_win)) {
             return TRUE;
          }
       }
