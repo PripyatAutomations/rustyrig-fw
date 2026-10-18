@@ -95,7 +95,7 @@ Pre-Depends: adduser
 Depends: libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}),
  gstreamer1.0-tools, gstreamer1.0-plugins-base,
  gstreamer1.0-plugins-good, gstreamer1.0-pulseaudio,
- gstreamer1.0-plugins-bad, gstreamer1.0-plugins-rtp,
+ gstreamer1.0-plugins-bad,
  ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig audio DSP service
  GStreamer-based audio codec and pipeline service.
