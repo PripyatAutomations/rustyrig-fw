@@ -348,8 +348,8 @@ peer*:
 `leaf-only=true` requires the remote peer to advertise no descendants.
 `allowed-sites` is a space- or comma-separated allowlist of site names for
 **descendants** (the direct peer is already identified by `site.name`). An
-empty list accepts any descendant name. `max-depth=0` is unlimited; 1
-permits direct children, 2 permits grandchildren, etc. These controls are
+empty list accepts any descendant name. If `max-depth` is not specified on a peer, it inherits `links.max-depth` (default 5). Explicit `max-depth=0` is unlimited; 1
+permits direct children, 2 permits grandchildren, etc. `leaf-only=true` overrides any depth limit and rejects all descendants. These controls are
 checked before attaching an initial subtree and for subsequent introductions.
 If the incoming topology violates a restriction, the link is closed and the
 peer is blocked from automatic reconnection. An administrator can retry with

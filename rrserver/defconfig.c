@@ -187,6 +187,9 @@ defconfig_t defcfg[] = {
       "links.allow-insecure", "false", "Permit plaintext WS links for explicit local testing"
    },
    {
+      "links.max-depth", "5", "Default maximum descendant depth per peer (0=unlimited; leaf-only overrides)", DEFCONFIG_UINT, NULL
+   },
+   {
       "links.max-servers", "128", "Maximum servers in linked tree (1-256)"
    },
    {
