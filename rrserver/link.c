@@ -95,12 +95,17 @@ static void fail(struct link_session *session, const char *reason) {
 /* Depth is counted in edges beyond the configured direct peer: peer=0. */
 static bool site_permitted(const struct link_peer *peer, const char *site) {
    if (!peer->allowed_sites || !*peer->allowed_sites) return true;
-   char **names = g_strsplit_set(peer->allowed_sites, ", \t\r\n", -1);
-   bool found = false;
-   for (unsigned i = 0; names && names[i]; i++)
-      if (*names[i] && !strcmp(names[i], site)) { found = true; break; }
-   g_strfreev(names);
-   return found;
+   const char *p = peer->allowed_sites;
+   size_t length = strlen(site);
+
+   while (*p) {
+      while (*p && (strchr(", \t\r\n", *p) != NULL)) p++;
+      const char *start = p;
+      while (*p && (strchr(", \t\r\n", *p) == NULL)) p++;
+      if ((size_t)(p - start) == length && !strncmp(start, site, length))
+         return true;
+   }
+   return false;
 }
 static void topology_reject(struct link_session *session, const char *why) {
    if (session->peer) {
