@@ -13,7 +13,7 @@
 #include <librustyaxe/dict.h>
 typedef struct {
    const char *driver;          // First provider: kiwi. Other receiver types use their own policy.
-   char *url, *name, *location, *contact, *antenna, *hardware, *grid, *properties;
+   char *url, *name, *location, *country, *contact, *antenna, *hardware, *grid, *properties;
    int users, users_max, ext_api;
    bool offline, flagged, deleted;
    long long last_seen, learned_at;
