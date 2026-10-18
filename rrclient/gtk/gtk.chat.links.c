@@ -95,7 +95,8 @@ static void chat_link_menu_action(GtkMenuItem *item, gpointer user_data) {
       GtkWidget *view = g_object_get_data(G_OBJECT(item), "rr-link-view");
       if (view) chat_open_external(view, link, gtk_get_current_event_time());
    } else {
-      GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+      GtkWidget *view = g_object_get_data(G_OBJECT(item), "rr-link-view");
+      GtkClipboard *clipboard = view ? gtk_widget_get_clipboard(view, GDK_SELECTION_CLIPBOARD) : gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
       gtk_clipboard_set_text(clipboard, link, -1);
    }
 }
@@ -134,6 +135,14 @@ static gboolean chat_link_event(GtkWidget *view, GdkEvent *event, gpointer data)
    }
    if (event->type == GDK_BUTTON_PRESS && event->button.button == 3)
       return chat_link_context(view, &event->button);
+   if (event->type == GDK_2BUTTON_PRESS && event->button.button == 1) {
+      char *link = chat_link_at(view, event->button.x, event->button.y);
+      if (!link || link[0] == '#') { g_free(link); return FALSE; }
+      GtkClipboard *clipboard = gtk_widget_get_clipboard(view, GDK_SELECTION_CLIPBOARD);
+      gtk_clipboard_set_text(clipboard, link, -1);
+      g_free(link);
+      return TRUE;
+   }
    if (event->type != GDK_BUTTON_RELEASE || event->button.button != 1) return FALSE;
    if (gtk_text_buffer_get_has_selection(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)))) return FALSE;
    char *link = chat_link_at(view, event->button.x, event->button.y);
