@@ -10,10 +10,18 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <rrserver/backend.worker.h>
 #include <rrserver/rig.registry.h>
 
 #define BACKEND_QUEUE_LIMIT 64
+
+static long long worker_ms(void) {
+   struct timespec ts;
+   clock_gettime(CLOCK_MONOTONIC, &ts);
+   return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
 
 typedef struct observation {
    struct observation *next;
@@ -40,6 +48,7 @@ typedef struct backend_job {
    rr_backend_completion_fn complete;
    void *user;
    bool failed, cancelled, observed, ptt;
+   long long queued_ms;
    float power;
    rr_vfo_data_t state;
    int widths[3], width_count, shutdown_code;
@@ -213,6 +222,8 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
    const rr_backend_funcs_t *api = backend->type->api;
    backend->active_vfo = job->active;
    running_job = job;
+   long long started_ms = worker_ms();
+   long long queue_ms = started_ms - job->queued_ms;
 
    switch (job->operation) {
       case RR_BACKEND_FREQ: {
@@ -249,6 +260,16 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
       }
    }
 
+   long long control_ms = worker_ms() - started_ms;
+   if (queue_ms >= 250 || control_ms >= 250) {
+      rr_backend_log(backend, LOG_WARN, "backend.latency",
+         "%s VFO %d: queue=%lldms operation=%lldms",
+         job->operation == RR_BACKEND_FREQ ? "freq" :
+         job->operation == RR_BACKEND_POLL ? "poll" :
+         job->operation == RR_BACKEND_SELECT ? "select" : "control",
+         (int)job->index, queue_ms, control_ms);
+   }
+
    /* SELECT always polls its targeted VFO to drive the backend's
     * active-VFO transition; unlike ordinary polls, it is not coalesced. */
    // PTT completion must not wait for an additional full polling sweep.
@@ -268,6 +289,14 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
             job->width_count = api->widths_get(backend, job->vfo, job->widths, 3);
          }
       }
+   }
+   long long total_ms = worker_ms() - started_ms;
+   if (total_ms - control_ms >= 250) {
+      rr_backend_log(backend, LOG_WARN, "backend.latency",
+         "%s VFO %d: state-refresh=%lldms total=%lldms",
+         job->operation == RR_BACKEND_FREQ ? "freq" :
+         job->operation == RR_BACKEND_POLL ? "poll" : "control",
+         (int)job->index, total_ms - control_ms, total_ms);
    }
    job->ptt = api->ptt_get && api->ptt_get(backend, job->vfo);
    worker->keyed[job->index] = job->ptt;
@@ -393,7 +422,7 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
       return true;
    }
    *job = (backend_job_t) {
-      .vfo = vfo, .index = index, .active = backend->active_vfo, .operation = operation, .value = value, .complete = complete, .user = user
+      .vfo = vfo, .index = index, .active = backend->active_vfo, .operation = operation, .value = value, .complete = complete, .user = user, .queued_ms = worker_ms()
    };
 
    if (operation == RR_BACKEND_WIDTH && !(job->text = strdup(value.s))) {
