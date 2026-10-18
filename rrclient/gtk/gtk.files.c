@@ -13,6 +13,7 @@ static struct {
    GtkWidget *window, *tree, *server, *status;
    GtkTreeStore *store;
    GHashTable *requests;
+   GHashTable *site_requests; /* discovery request ID -> home server profile */
    guint timer;
 } browser;
 struct listing {
@@ -52,9 +53,21 @@ static void edit_free(gpointer data) {
       g_free(e);
    }
 }
+/* Selector IDs are PROFILE (local site) or PROFILE|@NODEUUID (linked site).
+ * All file operations still go through the authenticated home connection. */
 static rrconn_t *connection(void) {
-   const char *profile = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
-   return profile ? rrclient_connection_find(profile) : NULL;
+   const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
+   if (!id) return NULL;
+   const char *sep = strchr(id, '|');
+   char *profile = sep ? g_strndup(id, (gsize)(sep - id)) : g_strdup(id);
+   rrconn_t *c = rrclient_connection_find(profile);
+   g_free(profile);
+   return c;
+}
+static const char *site_root(void) {
+   const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
+   const char *sep = id ? strchr(id, '|') : NULL;
+   return sep ? sep + 1 : "/";
 }
 static void status(const char *text) {
    if (browser.window)
@@ -121,7 +134,7 @@ static void refresh(void) {
    gtk_tree_store_clear(browser.store);
    GtkTreeIter root;
    gtk_tree_store_append(browser.store, &root, NULL);
-   gtk_tree_store_set(browser.store, &root, NAME, "/", PATH, "/", DIRECTORY, TRUE, READABLE, TRUE, WRITABLE, FALSE, -1);
+   gtk_tree_store_set(browser.store, &root, NAME, "/", PATH, site_root(), DIRECTORY, TRUE, READABLE, TRUE, WRITABLE, FALSE, -1);
    load(&root);
    GtkTreePath *path = gtk_tree_path_new_first();
    gtk_tree_view_expand_row(GTK_TREE_VIEW(browser.tree), path, FALSE);
@@ -195,12 +208,29 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    dict_free(d);
 }
 static void row(const char *event, const char *text, rrconn_t *c, void *data) {
-   if (!browser.window || c != connection())
-      return;
+   if (!browser.window) return;
    dict *d = json2dict(text);
-   if (!d)
-      return;
+   if (!d) return;
    const char *id = dict_get(d, "request.id", ""), *cmd = dict_get(d, "file.cmd", "");
+   /* Root listings also discover linked sites. Don't insert /@UUID entries
+    * into the file tree: they are selector choices, not share directories. */
+   const char *home = g_hash_table_lookup(browser.site_requests, id);
+   if (home) {
+      if (!strcmp(cmd, "entry")) {
+         const char *name = dict_get(d, "file.name", "");
+         if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
+            char *key = g_strdup_printf("%s|%s", home, name);
+            const char *alias = dict_get(d, "file.site-name", name);
+            char *label = g_strdup_printf("%s (%s)", alias, home);
+            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), key, label);
+            g_free(label); g_free(key);
+         }
+      } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result"))
+         g_hash_table_remove(browser.site_requests, id);
+      dict_free(d);
+      return;
+   }
+   if (c != connection()) { dict_free(d); return; }
    struct listing *request = g_hash_table_lookup(browser.requests, id);
    GtkTreeRowReference *ref = request ? request->row : NULL;
    if (ref && !strcmp(cmd, "entry")) {
@@ -371,6 +401,7 @@ static void destroyed(GtkWidget *window, gpointer data) {
    if (browser.timer)
       g_source_remove(browser.timer);
    g_hash_table_destroy(browser.requests);
+   g_hash_table_destroy(browser.site_requests);
    g_object_unref(browser.store);
    memset(&browser, 0, sizeof(browser));
 }
@@ -437,6 +468,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    browser.status = gtk_label_new("Ready");
    gtk_box_pack_start(GTK_BOX(box), browser.status, FALSE, FALSE, 0);
    browser.requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, listing_free);
+   browser.site_requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    browser.timer = g_timeout_add_seconds(1, listing_expired, NULL);
    g_signal_connect(browser.window, "destroy", G_CALLBACK(destroyed), NULL);
    g_signal_connect(browser.window, "key-press-event", G_CALLBACK(browser_key_press), NULL);
@@ -444,6 +476,16 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
    gtk_widget_show_all(browser.window);
    refresh();
+   /* Discover remote site aliases from each connected server. Remote shares
+    * are fetched only when that particular site is chosen. */
+   for (unsigned i = 0;; ++i) {
+      const char *profile = rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *candidate = rrclient_connection_find(profile);
+      if (!candidate || !candidate->is_ws || !candidate->authenticated) continue;
+      char *id = rrclient_files_request(candidate, "list", "/", NULL);
+      if (id) g_hash_table_insert(browser.site_requests, id, g_strdup(profile));
+   }
 }
 void gtk_files_init(void) {
    open_token = event_on_token("client.files.open", open_browser, NULL);
