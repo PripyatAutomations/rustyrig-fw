@@ -8,6 +8,10 @@
 // Serial service bindings belong to the common client, independent of GTK/TUI.
 #include <ctype.h>
 #include <errno.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,6 +52,49 @@ typedef struct serial_binding {
    struct serial_binding *next;
 } serial_binding_t;
 static serial_binding_t *bindings, *cat_context;
+static int pty_directory_lock = -1;
+
+/* Protect the default PTY namespace against concurrent rrclient instances.
+ * Clean only symlinks to devpts within our own ./dev directory, and do so
+ * before registering any serial endpoint. A stale link may point at a PTY
+ * number that the kernel has reassigned to another program. */
+static bool serial_pty_startup_cleanup(void) {
+   if (pty_directory_lock >= 0) return true;
+   if (g_mkdir_with_parents("./dev", 0755)) {
+      Log(LOG_WARN, "serial", "Cannot create ./dev for virtual serial ports: %s", strerror(errno));
+      return false;
+   }
+   int fd = open("./dev", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+   if (fd < 0) return false;
+   if (flock(fd, LOCK_EX | LOCK_NB)) {
+      Log(LOG_WARN, "serial", "Another rrclient is using ./dev, refusing to replace its PTY links");
+      close(fd);
+      return false;
+   }
+   DIR *dir = fdopendir(dup(fd));
+   if (!dir) { close(fd); return false; }
+   struct dirent *entry;
+   while ((entry = readdir(dir))) {
+      /* Only RustyRig-named terminal symlinks, never physical devices. */
+      if (strncmp(entry->d_name, "tty", 3)) continue;
+      struct stat st;
+      if (fstatat(fd, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) || !S_ISLNK(st.st_mode)) continue;
+      char target[PATH_MAX];
+      ssize_t n = readlinkat(fd, entry->d_name, target, sizeof(target) - 1);
+      if (n < 0) continue;
+      target[n] = 0;
+      if (strncmp(target, "/dev/pts/", 9)) continue;
+      if (unlinkat(fd, entry->d_name, 0) == 0)
+         Log(LOG_INFO, "serial", "Removed old virtual serial link ./dev/%s -> %s", entry->d_name, target);
+      else
+         Log(LOG_WARN, "serial", "Cannot remove ./dev/%s: %s", entry->d_name, strerror(errno));
+   }
+   closedir(dir);
+   pty_directory_lock = fd; /* Retain lock for the client lifetime. */
+   return true;
+}
+
+
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
 static guint host_timer;
@@ -1029,8 +1076,14 @@ void rr_sercom_shutdown(void) {
       event_off_token(gps_output_token);
       gps_output_token = NULL;
    }
+   if (pty_directory_lock >= 0) {
+      close(pty_directory_lock);
+      pty_directory_lock = -1;
+   }
 }
 bool rr_sercom_init(void) {
+   /* Must precede opening any PTYs, including configured ones. */
+   if (!serial_pty_startup_cleanup()) return false;
    if (!gps_output_token) {
       gps_output_token = event_on_token("serial.gps.output", gps_output, NULL);
    }
