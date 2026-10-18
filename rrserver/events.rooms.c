@@ -330,6 +330,12 @@ static void rrserver_handle_room_vfo(const char *event, const char *data, rrconn
    const char *binding = dict_get(d, "talk.vfo", NULL);
    const char *action = dict_get(d, "talk.action", NULL);
 
+   if (!ws_room_name_valid(room)) {
+      ws_send_error(cptr, "Invalid room name for VFO attachment");
+      dict_free(d);
+      return;
+   }
+
    if (rrserver_rig_room_configured(room)) {
       ws_send_error(cptr, "Rig room VFO bindings are managed by rig configuration");
       dict_free(d);
