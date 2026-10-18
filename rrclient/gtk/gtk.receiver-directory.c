@@ -15,6 +15,53 @@ enum {
    COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_COUNT
 };
 
+/* Sort Country by region then city where region abbreviations are reliable. */
+static bool region_code(const char *country, const char *piece) {
+   static const char *us = " AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR GU VI ";
+   static const char *ca = " AB BC MB NB NL NS NT NU ON PE QC SK YT ";
+   static const char *au = " ACT NSW NT QLD SA TAS VIC WA ";
+   const char *codes = !g_ascii_strcasecmp(country, "United States") ? us :
+      !g_ascii_strcasecmp(country, "Canada") ? ca :
+      !g_ascii_strcasecmp(country, "Australia") ? au : NULL;
+   if (!codes) return false;
+   char *token = g_ascii_strup(piece, -1);
+   char *needle = g_strdup_printf(" %s ", token);
+   bool known = strstr(codes, needle) != NULL;
+   g_free(needle); g_free(token);
+   return known;
+}
+static char *regional_sort_key(const char *country, const char *location) {
+   char **parts = g_strsplit(location ? location : "", ",", -1);
+   guint n = g_strv_length(parts);
+   char *region = NULL;
+   for (guint i = 1; i < n; i++) {
+      char *part = g_strstrip(parts[i]);
+      if (region_code(country, part)) {
+         region = g_ascii_strup(part, -1);
+         break;
+      }
+   }
+   char *city = n ? g_utf8_casefold(g_strstrip(parts[0]), -1) : g_strdup("");
+   char *key = g_strdup_printf("%s|%s", region ? region : "~~", city);
+   g_free(city); g_free(region); g_strfreev(parts);
+   return key;
+}
+static gint country_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer unused) {
+   (void)unused;
+   char *ac = NULL, *bc = NULL, *al = NULL, *bl = NULL, *an = NULL, *bn = NULL;
+   gtk_tree_model_get(model, a, COL_COUNTRY, &ac, COL_LOCATION, &al, COL_NAME, &an, -1);
+   gtk_tree_model_get(model, b, COL_COUNTRY, &bc, COL_LOCATION, &bl, COL_NAME, &bn, -1);
+   gint result = g_utf8_collate(ac ? ac : "", bc ? bc : "");
+   if (!result && ac && (!g_ascii_strcasecmp(ac, "United States") ||
+       !g_ascii_strcasecmp(ac, "Canada") || !g_ascii_strcasecmp(ac, "Australia"))) {
+      char *ak = regional_sort_key(ac, al), *bk = regional_sort_key(bc, bl);
+      result = strcmp(ak, bk);
+      g_free(ak); g_free(bk);
+   }
+   if (!result) result = g_utf8_collate(an ? an : "", bn ? bn : "");
+   g_free(ac); g_free(bc); g_free(al); g_free(bl); g_free(an); g_free(bn);
+   return result;
+}
 static const char *api_policy(const receiver_directory_entry_t *r) {
    return r->ext_api < 0 ? "Unknown policy" : r->ext_api == 0 ? "Web only" : r->users_max > r->ext_api ? "API limited" : "API allowed";
 }
@@ -266,6 +313,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
    GtkTreeModel *sorted = gtk_tree_model_sort_new_with_model(GTK_TREE_MODEL(directory_filter));
    directory_tree = gtk_tree_view_new_with_model(sorted);
+   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(sorted), COL_COUNTRY, country_compare, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_NAME, GTK_SORT_ASCENDING);
    g_object_unref(sorted);
    const char *titles[] = {
