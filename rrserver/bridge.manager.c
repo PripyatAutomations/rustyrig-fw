@@ -23,6 +23,7 @@
 #include <rrserver/media.h>
 #include <rrserver/bridge.access.h>
 #include <rrserver/rig.rooms.h>
+#include <rrserver/database.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <librrprotocol/server.events.h>
@@ -1054,7 +1055,19 @@ static void websdr_remove(rr_server_rig_t *radio) {
    const char *room = rr_rig_registry_room(rig.rigs, radio);
 
    if (room) {
-      ws_room_set_vfo_mask(room, 0);   // Retain room history as ordinary chat.
+      ws_room_set_vfo_mask(room, 0);
+#ifdef USE_SQLITE
+      /* /LIST reads persistent rooms, not the live rig registry. Retire
+       * temporary receiver rooms when their backend is reaped, but keep
+       * the room history and VFO metadata for normal persistence rules. */
+      bool exists = false, deleted = false;
+      if (db_room_status(masterdb, room, &exists, &deleted)) {
+         if (exists && !deleted && !db_room_delete(masterdb, room, "server", false, false))
+            Log(LOG_WARN, "bridge", "Cannot retire temporary WebSDR room %s from /LIST", room);
+      } else {
+         Log(LOG_WARN, "bridge", "Cannot inspect temporary WebSDR room %s for cleanup", room);
+      }
+#endif
    }
    rr_rig_registry_remove(rig.rigs, uuid);
    const char *fields[] = {
