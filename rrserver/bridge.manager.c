@@ -1229,9 +1229,39 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          error = "Unable to save server configuration";
       }
    }
+   const char *selected_room = request ? dict_get(request, "room", "") : "";
+   const char *target_room = b ? rr_rig_registry_room(rig.rigs, b->backend->owner) : "";
+#ifdef USE_SQLITE
+   if (b && !save && selected_room && *selected_room) {
+      bool exists = false, deleted = false;
+      /* Users may select rooms they already joined, or create ordinary
+       * unscoped rooms.  Never create someone else's station namespace. */
+      bool valid = ws_room_name_valid(selected_room) &&
+         db_room_status(masterdb, selected_room, &exists, &deleted) && !deleted &&
+         (exists ? ws_client_in_room(client, selected_room) :
+          (!ws_room_station_scoped(selected_room)));
+      rr_server_vfo_t *vfo = rr_server_vfo_find_alias(b->backend->owner, "A");
+      if (!valid || !vfo) {
+         error = "Room must be joined or be a valid new unscoped room";
+         b = NULL;
+      } else if (!db_room_ensure(masterdb, selected_room, true, 0, client->chatname) ||
+                 !db_room_vfo_add(masterdb, selected_room, rr_server_vfo_id(vfo))) {
+         error = "Unable to attach receiver to selected room";
+         b = NULL;
+      } else {
+         /* Temporary receivers reserve their generated base room only as a
+          * compatibility address. The chosen room is the first live tuning
+          * attachment; secondary rooms can add receive-only references. */
+         if (rrserver_bridge_temporary(b->backend->owner)) {
+            db_room_vfo_remove(masterdb, target_room, rr_server_vfo_id(vfo));
+         }
+         target_room = selected_room;
+      }
+   }
+#endif
    dict *result = dict_new(), *reply = dict_new();
    dict_add(result, "request", request ? dict_get(request, "request", "") : "");
-   dict_add(result, "room", b ? rr_rig_registry_room(rig.rigs, b->backend->owner) : "");
+   dict_add(result, "room", b ? target_room : "");
    dict_add(result, "error", b ? "" : error);
    char *json = dict2json(result);
    dict_add(reply, "msg.type", "talk");
