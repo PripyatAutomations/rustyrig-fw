@@ -1,0 +1,3 @@
+* split librrprotocol to a loadable module
+* move irc to a loadable module that extends librustyaxe
+  - keep it able to link builtin (non-dlmod)
