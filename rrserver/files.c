@@ -579,6 +579,7 @@ static void inventory_rows(dict *request, rrconn_t *client, const rr_inventory_c
          if (!catalog && !read && !write)
             continue;
          dict *row = rr_inventory_row(dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1), "share", name, NULL);
+         dict_add(row, "inventory.parent", dict_get(request, "inventory.parent", ""));
          dict_add(row, "inventory.state", catalog ? "owner-server-only" : write ? "read/write" : "read-only");
          dict_add(row, "inventory.action", "/files");
          char key[320], access[1024];
