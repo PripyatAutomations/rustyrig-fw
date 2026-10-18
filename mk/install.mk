@@ -1,67 +1,89 @@
-###################
-# install targets #
-###################
-CONFIG_FILES=config/rrserver.cfg config/rrclient.cfg \
-	config/callsign-lookup.cfg config/callsign-lookup.srv.cfg \
-	config/callsign-lookup.cli.cfg ${CF}
-LOG_TOOLS=tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
-WEB_ROOT ?= /var/lib/rustyrig/www
+# Source installs deliberately target the files owned by Debian packages,
+# not /usr/local shadow copies. Paths are in mk/install-paths.mk.
+CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
+    config/rrclient.cfg config/callsign-lookup.cfg \
+    config/callsign-lookup.cli.cfg $(CF)
+LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 
-.PHONY: windows-install posix-install install install-libs install-config install-assets install-tools
+.PHONY: windows-install posix-install install install-bin install-libs install-config install-assets install-tools install-dev install-check
 
 windows-install:
-	@echo "Windows builds do not need to install. A NSIS installer can be built using win64-installer target"
+	@echo "Use the win64-installer target for Windows"
 
-posix-install: ${bin} install-libs install-config install-assets install-tools
-	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	install -Dm755 ${bin} ${INSTALL_DIR}/bin/$(shell basename "${bin}")
+posix-install: install
 
-install: ${bins} install-libs install-config install-assets install-tools
-	mkdir -p ${INSTALL_DIR}/bin ${INSTALL_DIR}/lib ${INSTALL_DIR}/etc ${INSTALL_DIR}/share
-	cp -av $(filter-out %.so,${bins}) ${INSTALL_DIR}/bin
-	# Frontend and GPS shared objects also go in the module directory.
-	install -d ${INSTALL_DIR}/lib/rustyrig/modules/rrserver ${INSTALL_DIR}/lib/rustyrig/modules/rrclient ${INSTALL_DIR}/lib/rustyrig/modules/rrbridge
-	for m in ${bins}; do case $$m in *rrbridge*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrbridge/$$(basename $$m);; *rrserver*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrserver/$$(basename $$m);; *rrclient*.so) install -Dm755 $$m ${INSTALL_DIR}/lib/rustyrig/modules/rrclient/$$(basename $$m);; esac; done
-#	cp -av archive-config.sh *-rigctld.sh killall.sh rrgtk.sh test-run.sh ${INSTALL_DIR}/bin
-#	cp -aiv config/${PROFILE}.*.json config/client.config.json ${INSTALL_DIR}/etc
+# No configuration is touched by the default install target.
+install: install-bin install-libs install-assets install-tools
+	@echo "Installed runtime files at Debian package paths. Existing /etc/rustyrig config is untouched."
+	@echo "Run ldconfig after installing libraries on Linux."
 
-# Install the SONAME links too: programs request *.so.0 at runtime.
-install-libs: ${libs}
-	install -d "${INSTALL_DIR}/lib"
-	cp -av ${libs} $(addsuffix .0,${libs}) "${INSTALL_DIR}/lib/"
-
-# Install the native icon, desktop entry, and WebUI bundle (including the
-# browser notification sounds). WEB_ROOT matches the packaged server config;
-# the HTTP server still falls back to ./www for source-tree runs.
-install-assets:
-	install -Dm644 res/rustyrig.png "${INSTALL_DIR}/share/icons/hicolor/48x48/apps/rustyrig.png"
-	install -Dm644 res/rrclient.desktop "${INSTALL_DIR}/share/applications/rustyrig-client.desktop"
-	install -d "${WEB_ROOT}"
-	cp -a www/. "${WEB_ROOT}/"
-
-install-tools:
-	@for src in ${LOG_TOOLS}; do \
-		install -Dm755 "$$src" "${INSTALL_DIR}/bin/$$(basename "$$src")"; \
+install-bin: ${bins}
+	@set -e; for src in $(filter-out %.so,${bins}); do \
+		install -Dm755 "$$src" "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
+	done
+	@set -e; for src in $(filter %.so,${bins}); do \
+		case "$$src" in \
+		*rrbridge*.so) family=rrbridge ;; \
+		*rrserver*.so) family=rrserver ;; \
+		*rrclient*.so) family=rrclient ;; \
+		*) echo "Unknown runtime module: $$src" >&2; exit 1 ;; \
+		esac; \
+		install -Dm755 "$$src" "$(DESTDIR)$(MODULEDIR)/$$family/$$(basename "$$src")"; \
 	done
 
-# Install tracked runtime configurations without silently overwriting a
-# user's existing file. Package managers provide equivalent conffile handling;
-# this prompt provides the same protection for a source-tree `make install`.
+# Install real SONAME objects, never copy a symlink over a shared object.
+install-libs: ${libs}
+	@set -e; for src in ${libs}; do \
+		install -Dm755 "$$src" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src").0"; \
+	done
+
+install-dev: install-libs
+	@set -e; for src in ${libs}; do \
+		ln -sfn "$$(basename "$$src").0" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")"; \
+	done
+	@set -e; for component in librustyaxe librrprotocol libfwdspmgr; do \
+		install -d "$(DESTDIR)$(PREFIX)/include/$$component"; \
+		for header in $$component/*.h; do \
+			[ -f "$$header" ] || continue; \
+			install -m644 "$$header" "$(DESTDIR)$(PREFIX)/include/$$component/"; \
+		done; \
+	done
+
+install-assets:
+	install -Dm644 res/rustyrig.png "$(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps/rustyrig.png"
+	install -Dm644 packaging/rustyrig-client.desktop "$(DESTDIR)$(PREFIX)/share/applications/rustyrig-client.desktop"
+	install -d "$(DESTDIR)$(WEB_ROOT)"
+	cp -a www/. "$(DESTDIR)$(WEB_ROOT)/"
+
+install-tools:
+	@set -e; for src in ${LOG_TOOLS}; do \
+		install -Dm755 "$$src" "$(DESTDIR)$(BINDIR)/$$(basename "$$src")"; \
+	done
+
+# Explicit opt-in: never alter configuration as a side effect of make install.
 install-config:
-	mkdir -p "${CONF_DIR}"
-	@for src in ${CONFIG_FILES}; do \
-		dst="${CONF_DIR}/$$(basename "$$src")"; \
-		if test -e "$$dst"; then \
-			if cmp -s "$$src" "$$dst"; then \
-				echo "unchanged: $$dst"; \
-				continue; \
-			fi; \
+	install -d "$(DESTDIR)$(CONF_DIR)"
+	@set -e; for src in ${CONFIG_FILES}; do \
+		dst="$(DESTDIR)$(CONF_DIR)/$$(basename "$$src")"; \
+		if [ -e "$$dst" ]; then \
+			if cmp -s "$$src" "$$dst"; then echo "unchanged: $$dst"; continue; fi; \
 			printf 'Replace %s? [y/N] ' "$$dst"; \
-			if ! read answer; then answer=n; fi; \
-			case "$$answer" in \
-				y|Y|yes|YES) ;; \
-				*) echo "keeping: $$dst"; continue ;; \
-			esac; \
+			read answer || answer=n; \
+			case "$$answer" in y|Y|yes|YES) ;; *) echo "keeping: $$dst"; continue;; esac; \
 		fi; \
 		install -Dm644 "$$src" "$$dst"; \
 	done
+
+# Report the actual effective paths, and reject common shadow-install traps.
+install-check:
+	@echo "Binaries:    $(BINDIR)"
+	@echo "Libraries:   $(LIBDIR)"
+	@echo "Modules:     $(MODULEDIR)"
+	@echo "Config:      $(CONF_DIR) (install-config only)"
+	@echo "Web UI:      $(WEB_ROOT)"
+	@test "$(BINDIR)" = /usr/bin || { echo "Not Debian binary directory" >&2; exit 1; }
+	@test "$(MODULEDIR)" = /usr/lib/rustyrig/modules || { echo "Not Debian module directory" >&2; exit 1; }
+	@test "$(LIBDIR)" = "/usr/lib/$(MULTIARCH)" || { echo "Not Debian multiarch library directory" >&2; exit 1; }
+	@test "$(CONF_DIR)" = /etc/rustyrig || { echo "Not Debian config directory" >&2; exit 1; }
+	@test "$(WEB_ROOT)" = /var/lib/rustyrig/www || { echo "Not Debian WebUI directory" >&2; exit 1; }
+	@echo "Runtime paths match Debian's installation layout."
