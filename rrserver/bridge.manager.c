@@ -1257,6 +1257,27 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             db_room_vfo_remove(masterdb, target_room, rr_server_vfo_id(vfo));
          }
          target_room = selected_room;
+         /* The room JOIN preceded this attachment. Notify its members of
+          * the newly bound receiver UUID so their VFO panels refresh. */
+         char *vfos = db_room_vfo_list(masterdb, selected_room);
+         dict *update = dict_new();
+         if (update) {
+            dict_add(update, "msg.type", "talk");
+            dict_add(update, "talk.cmd", "room-vfo");
+            dict_add(update, "talk.room", selected_room);
+            dict_add(update, "talk.vfos", vfos ? vfos : "");
+            dict_add_bool(update, "room.has-vfos", vfos && *vfos);
+            dict_add_ulong(update, "room.vfo-mask", 0);
+            dict_add_bool(update, "room.tx-control", false);
+            dict_add_bool(update, "room.rx-tunable", true);
+            ws_broadcast_room_dict(NULL, update, selected_room);
+            dict_free(update);
+         }
+         free(vfos);
+         for (rrconn_t *member = http_client_list; member; member = member->next) {
+            if (member->authenticated && ws_client_in_room(member, selected_room))
+               media_send_available_all(member);
+         }
       }
    }
 #endif
