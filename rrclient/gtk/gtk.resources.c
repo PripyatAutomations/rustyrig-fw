@@ -26,7 +26,7 @@ typedef struct {
    uint64_t requested_at, irc_updated_at;
 } resource_branch;
 typedef struct {
-   GtkWidget *window, *tree, *status, *details, *buttons[BUTTONS];
+   GtkWidget *window, *page, *panel, *dock_button, *tree, *status, *details, *buttons[BUTTONS];
    GtkTreeStore *store;
    GtkTreeIter local_root;
    GHashTable *branches, *local_rows;
@@ -36,6 +36,7 @@ typedef struct {
 } resource_browser;
 static resource_browser *browser;
 static bool automatic_refresh;
+extern GtkWidget *main_notebook;
 static rr_event_token_t show_token, row_token, open_token, changed_tokens[5];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
@@ -526,7 +527,7 @@ static void resource_clicked(GtkButton *button, gpointer data) {
             endpoint = g_strdup(name);
          g_free(name); g_free(path);
       } else if (online && service && *service)
-         endpoint = gtk_serial_attach_named(GTK_WINDOW(browser->window), profile, service);
+         endpoint = gtk_serial_attach_named(resource_parent(), profile, service);
       if (endpoint) {
          char *resource_name = NULL;
          gtk_tree_model_get(model, &iter, NAME, &resource_name, -1);
@@ -560,14 +561,14 @@ static void resource_clicked(GtkButton *button, gpointer data) {
    } else if (which == SERIAL_BUTTON && (!strcmp(kind, "local") || !strcmp(kind, "local-port") || !strcmp(kind, "device"))) {
       char *name = NULL;
       if (strcmp(kind, "local")) gtk_tree_model_get(model, &iter, NAME, &name, -1);
-      gtk_serial_configure(GTK_WINDOW(browser->window), name); g_free(name);
+      gtk_serial_configure(resource_parent(), name); g_free(name);
    } else if (which == SERIAL_BUTTON && binding && *binding) {
       bool ok = rr_sercom_disconnect(binding);
       refresh_after = ok;
       gtk_label_set_text(GTK_LABEL(browser->status), ok ? "Serial endpoint disconnected." : "The serial endpoint is already disconnected.");
    } else if (!connection || !connection->authenticated || (!connection->is_ws && which != ROOM_BUTTON)) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing its resources.");
-   } else if (which == SERIAL_BUTTON && service && *service) refresh_after = gtk_serial_attach(GTK_WINDOW(browser->window), profile, service);
+   } else if (which == SERIAL_BUTTON && service && *service) refresh_after = gtk_serial_attach(resource_parent(), profile, service);
    else {
       struct resource_action action = {0};
       bool objects = !strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") || !strcmp(kind, "server");
@@ -696,7 +697,7 @@ static void resource_local_configure(GtkButton *button, gpointer unused) {
       gtk_tree_model_get(model, &iter, NAME, &name, KIND, &kind, -1);
       if (g_strcmp0(kind, "local-port") && g_strcmp0(kind, "attachment")) g_clear_pointer(&name, g_free);
    }
-   gtk_serial_configure(GTK_WINDOW(browser->window), name);
+   gtk_serial_configure(resource_parent(), name);
    g_free(name); g_free(kind);
 }
 static void resource_files(GtkButton *button,gpointer data) {
@@ -717,20 +718,71 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    g_free(text); g_free(details); g_free(coordinates);
 }
 
+static GtkWindow *resource_parent(void) {
+   if (browser && browser->window) return GTK_WINDOW(browser->window);
+   gui_window_t *main = gui_find_window(NULL, "main");
+   return main && main->gtk_win ? GTK_WINDOW(main->gtk_win) : NULL;
+}
+static void resource_dock(void) {
+   if (!browser || !browser->window || !main_notebook) return;
+   GtkWidget *window = browser->window;
+   g_object_ref(browser->panel);
+   gtk_container_remove(GTK_CONTAINER(window), browser->panel);
+   gtk_container_add(GTK_CONTAINER(browser->page), browser->panel);
+   g_object_unref(browser->panel);
+   browser->window = NULL;
+   gtk_button_set_label(GTK_BUTTON(browser->dock_button), "Pop out");
+   gtk_widget_show_all(browser->page);
+   gtk_widget_destroy(window);
+}
+static gboolean resource_window_delete(GtkWidget *widget, GdkEvent *event, gpointer unused) {
+   (void)widget; (void)event; (void)unused;
+   resource_dock();
+   return TRUE;
+}
+static void resource_toggle_dock(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   if (!browser || !main_notebook) return;
+   if (browser->window) {
+      resource_dock();
+      return;
+   }
+   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   gtk_window_set_title(GTK_WINDOW(window), "Resource Explorer");
+   gtk_window_set_default_size(GTK_WINDOW(window), 1120, 720);
+   gui_window_t *main = gui_find_window(NULL, "main");
+   if (main && main->gtk_win)
+      gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main->gtk_win));
+   browser->window = window;
+   g_object_ref(browser->panel);
+   gtk_container_remove(GTK_CONTAINER(browser->page), browser->panel);
+   gtk_container_add(GTK_CONTAINER(window), browser->panel);
+   g_object_unref(browser->panel);
+   gtk_button_set_label(GTK_BUTTON(browser->dock_button), "Dock");
+   g_signal_connect(window, "delete-event", G_CALLBACK(resource_window_delete), NULL);
+   gtk_widget_show_all(window);
+   gtk_window_present(GTK_WINDOW(window));
+}
+static void resource_present(void) {
+   if (!browser) return;
+   if (browser->window) gtk_window_present(GTK_WINDOW(browser->window));
+   else if (main_notebook && browser->page) {
+      gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), browser->page);
+      if (page >= 0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
+   }
+}
 static void resource_create(void) {
    if (browser) return;
    browser = g_new0(resource_browser, 1);
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)gtk_tree_row_reference_free);
-   browser->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(browser->window), "Resource Explorer");
-   gtk_window_set_default_size(GTK_WINDOW(browser->window), 1120, 720);
-   gui_window_t *main = gui_find_window(NULL, "main");
-   if (main && main->gtk_win) gtk_window_set_transient_for(GTK_WINDOW(browser->window), GTK_WINDOW(main->gtk_win));
-   ui_new_window(browser->window, "resources");
-   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-   gtk_container_set_border_width(GTK_CONTAINER(box), 10);
-   gtk_container_add(GTK_CONTAINER(browser->window), box);
+   browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   browser->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
+   gtk_container_add(GTK_CONTAINER(browser->page), browser->panel);
+   GtkWidget *tab_label = gtk_label_new("Explorer");
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), browser->page, tab_label);
+   GtkWidget *box = browser->panel;
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    const char *tools[] = {"Refresh all", "Expand all", "Collapse all"};
@@ -740,6 +792,9 @@ static void resource_create(void) {
       if (!i) g_signal_connect(button, "clicked", G_CALLBACK(resource_refresh_all), NULL);
       else { g_object_set_data(G_OBJECT(button), "collapse", GINT_TO_POINTER(i == 2)); g_signal_connect(button, "clicked", G_CALLBACK(resource_expand), NULL); }
    }
+   browser->dock_button = gtk_button_new_with_label("Pop out");
+   gtk_box_pack_start(GTK_BOX(toolbar), browser->dock_button, FALSE, FALSE, 0);
+   g_signal_connect(browser->dock_button, "clicked", G_CALLBACK(resource_toggle_dock), NULL);
    GtkWidget *ports = gtk_button_new_with_label("Local ports…");
    gtk_box_pack_start(GTK_BOX(toolbar), ports, FALSE, FALSE, 0);
    g_signal_connect(ports, "clicked", G_CALLBACK(resource_local_configure), NULL);
@@ -801,9 +856,9 @@ static void resource_create(void) {
    gtk_label_set_line_wrap(GTK_LABEL(browser->status), TRUE);
    gtk_box_pack_start(GTK_BOX(box), browser->status, FALSE, FALSE, 0);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), "changed", G_CALLBACK(resource_selection), NULL);
-   g_signal_connect(browser->window, "destroy", G_CALLBACK(resource_destroy), browser);
+   g_signal_connect(browser->page, "destroy", G_CALLBACK(resource_destroy), browser);
    browser->timer = g_timeout_add(500, resource_tick, browser);
-   gtk_widget_show_all(browser->window);
+   gtk_widget_show_all(browser->page);
 }
 
 static void resource_show(const char *event, const void *data, size_t length, rrconn_t *connection, void *unused) {
@@ -813,7 +868,7 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    const char *profile = rrclient_connection_name(connection);
    if (!profile) return;
    resource_create();
-   if (!automatic_refresh) gtk_window_present(GTK_WINDOW(browser->window));
+   if (!automatic_refresh) resource_present();
    resource_branch *branch = resource_branch_get(profile);
    branch->online = connection->authenticated && connection->is_ws;
    g_clear_pointer(&branch->selection, g_free);
@@ -927,7 +982,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
 static void resource_open(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event; (void)text; (void)connection; (void)unused;
    resource_create();
-   gtk_window_present(GTK_WINDOW(browser->window));
+   resource_present();
    resource_refresh_all(NULL, NULL);
    resource_tick(browser);
 }
@@ -957,5 +1012,8 @@ void gtk_resources_shutdown(void) {
       changed_tokens[i] = NULL;
    }
    show_token = row_token = open_token = NULL;
-   if (browser) gtk_widget_destroy(browser->window);
+   if (browser) {
+      if (browser->window) resource_dock();
+      gtk_widget_destroy(browser->page);
+   }
 }
