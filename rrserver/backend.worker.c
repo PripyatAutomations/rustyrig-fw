@@ -262,7 +262,7 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
 
    long long control_ms = worker_ms() - started_ms;
    if (queue_ms >= 250 || control_ms >= 250) {
-      rr_backend_log(backend, LOG_WARN, "backend.latency",
+      rr_backend_log(backend, LOG_CRAZY, "backend.latency",
          "%s VFO %d: queue=%lldms operation=%lldms",
          job->operation == RR_BACKEND_FREQ ? "freq" :
          job->operation == RR_BACKEND_POLL ? "poll" :
@@ -292,7 +292,7 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
    }
    long long total_ms = worker_ms() - started_ms;
    if (total_ms - control_ms >= 250) {
-      rr_backend_log(backend, LOG_WARN, "backend.latency",
+      rr_backend_log(backend, LOG_CRAZY, "backend.latency",
          "%s VFO %d: state-refresh=%lldms total=%lldms",
          job->operation == RR_BACKEND_FREQ ? "freq" :
          job->operation == RR_BACKEND_POLL ? "poll" : "control",
