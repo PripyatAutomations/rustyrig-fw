@@ -16,6 +16,7 @@
 #include <rrserver/relay.h>
 #include <librrprotocol/server.events.h>
 #include <rrserver/rig.rooms.h>
+#include <rrserver/bridge.access.h>
 #include <rrserver/discovery.h>
 #include <rrserver/gps.h>
 #include <rrserver/database.h>
