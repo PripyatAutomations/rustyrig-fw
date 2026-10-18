@@ -1000,11 +1000,18 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       g_free(service); service = g_strdup_printf("%s.%s", stream_uuid, raw ? "nmea-out" : "gps-out");
    }
    GString *details = g_string_new("");
+   /* SITE identity is the operator-provided metadata, not an anonymous
+    * inventory row. Show it prominently in the Details pane as well. */
+   if (!strcmp(kind, "site")) {
+      g_string_append_printf(details, "Description: %s\nLocation: %s",
+         dict_get(row, "inventory.description", "A misconfigured server"),
+         dict_get(row, "inventory.location", "Unknown City"));
+   }
    const char *fields[] = {"description", "location", "backend", "frequency", "codec", "direction", "source", "service", "access"};
    for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
       char key[64]; snprintf(key, sizeof(key), "inventory.%s", fields[i]);
       const char *value = dict_get(row, key, "");
-      if (*value) g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
+      if (*value && (strcmp(kind, "site") || i > 1)) g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
    }
    gtk_tree_store_set(browser->store, &iter, NAME, name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
       COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""),
