@@ -641,6 +641,7 @@ void rrserver_relay_file_nodes(rrconn_t *client, const char *request_id) {
       dict_add(entry, "request.id", request_id);
       dict_add(entry, "file.path", "/");
       dict_add(entry, "file.name", name);
+      dict_add(entry, "file.site-name", dict_get(c->descriptor, "object.alias", c->owner));
       dict_add(entry, "file.kind", "directory");
       dict_add_ullong(entry, "file.size", 0);
       dict_add_bool(entry, "file.readable", true);
