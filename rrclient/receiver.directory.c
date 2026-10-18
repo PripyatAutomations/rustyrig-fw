@@ -76,6 +76,62 @@ static char *field(struct mg_str object, const char *key) {
 
    return valid;
 }
+/* Country is optional in Kiwi's directory. Only infer from distinctive
+ * whole country names or unambiguous comma-delimited country codes.
+ * Don't guess a country from a city, US state or amateur grid square. */
+static char *country_from_text(const char *text) {
+   static const struct { const char *name, *canonical; } names[] = {
+      {"United States of America", "United States"}, {"United States", "United States"},
+      {"USA", "United States"}, {"United Kingdom", "United Kingdom"},
+      {"Great Britain", "United Kingdom"}, {"England", "United Kingdom"},
+      {"Scotland", "United Kingdom"}, {"Wales", "United Kingdom"},
+      {"Northern Ireland", "United Kingdom"}, {"Canada", "Canada"},
+      {"Australia", "Australia"}, {"New Zealand", "New Zealand"},
+      {"Germany", "Germany"}, {"France", "France"}, {"Italy", "Italy"},
+      {"Spain", "Spain"}, {"Portugal", "Portugal"}, {"Netherlands", "Netherlands"},
+      {"Belgium", "Belgium"}, {"Switzerland", "Switzerland"},
+      {"Austria", "Austria"}, {"Denmark", "Denmark"}, {"Sweden", "Sweden"},
+      {"Norway", "Norway"}, {"Finland", "Finland"}, {"Iceland", "Iceland"},
+      {"Ireland", "Ireland"}, {"Poland", "Poland"}, {"Czech Republic", "Czech Republic"},
+      {"Czechia", "Czechia"}, {"Slovakia", "Slovakia"}, {"Hungary", "Hungary"},
+      {"Romania", "Romania"}, {"Bulgaria", "Bulgaria"}, {"Greece", "Greece"},
+      {"Croatia", "Croatia"}, {"Slovenia", "Slovenia"}, {"Serbia", "Serbia"},
+      {"Ukraine", "Ukraine"}, {"Estonia", "Estonia"}, {"Latvia", "Latvia"},
+      {"Lithuania", "Lithuania"}, {"Turkey", "Turkey"}, {"Türkiye", "Turkey"},
+      {"Israel", "Israel"}, {"Japan", "Japan"}, {"China", "China"},
+      {"Taiwan", "Taiwan"}, {"South Korea", "South Korea"}, {"India", "India"},
+      {"Pakistan", "Pakistan"}, {"Thailand", "Thailand"}, {"Malaysia", "Malaysia"},
+      {"Singapore", "Singapore"}, {"Indonesia", "Indonesia"},
+      {"Philippines", "Philippines"}, {"Vietnam", "Vietnam"},
+      {"South Africa", "South Africa"}, {"Egypt", "Egypt"}, {"Morocco", "Morocco"},
+      {"Nigeria", "Nigeria"}, {"Kenya", "Kenya"}, {"Brazil", "Brazil"},
+      {"Argentina", "Argentina"}, {"Chile", "Chile"}, {"Colombia", "Colombia"},
+      {"Peru", "Peru"}, {"Mexico", "Mexico"}, {"Costa Rica", "Costa Rica"}
+   };
+   if (!text || !*text) return NULL;
+   char *folded = g_utf8_casefold(text, -1);
+   char *matched = NULL;
+   for (unsigned i = 0; i < G_N_ELEMENTS(names); i++) {
+      char *word = g_utf8_casefold(names[i].name, -1);
+      size_t length = strlen(word);
+      for (const char *p = folded; p && (p = strstr(p, word)); p += length) {
+         /* Casefolded UTF-8: ASCII delimiters around complete names. */
+         bool left = p == folded || !(g_ascii_isalnum((guchar)p[-1]) || (guchar)p[-1] >= 128);
+         bool right = !p[length] || !(g_ascii_isalnum((guchar)p[length]) || (guchar)p[length] >= 128);
+         if (left && right) { matched = g_strdup(names[i].canonical); break; }
+      }
+      g_free(word);
+      if (matched) break;
+   }
+   g_free(folded);
+   return matched;
+}
+static void infer_country(receiver_directory_entry_t *r, const char *description) {
+   if (!r || (r->country && *r->country)) return;
+   char *country = country_from_text(r->location);
+   if (!country) country = country_from_text(description);
+   if (country) { g_free(r->country); r->country = country; }
+}
 static long long integer(struct mg_str object, const char *key, long long fallback) {
    struct mg_str token = mg_json_get_tok(object, key);
 
@@ -242,6 +298,10 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
          r->high_hz = high;
       }
       r->properties = g_utf8_make_valid(object.buf, object.len);
+      char *description = field(object, "$.description");
+      if (!*description) { g_free(description); description = field(object, "$.desc"); }
+      infer_country(r, description);
+      g_free(description);
       g_ptr_array_add(list, r);
    }
    return list;
@@ -397,6 +457,7 @@ static void reload_records(void) {
          r->deleted = sqlite3_column_int(statement, 2);
          r->offline = sqlite3_column_int(statement, 3);
          apply_details(r);
+         infer_country(r, r->properties);
          g_ptr_array_add(list, r);
       }
 
