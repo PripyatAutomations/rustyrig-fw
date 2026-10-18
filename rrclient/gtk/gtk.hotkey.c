@@ -79,7 +79,8 @@ static gboolean accept_tab_digit(int digit, GtkWidget *main_win) {
       pending_tab_timer = 0;
       int first = pending_tab_digit;
       pending_tab_digit = -1;
-      return gtk_switch_tab_digit(first * 10 + digit, main_win);
+      gtk_switch_tab_digit(first * 10 + digit, main_win);
+      return TRUE;
    }
    pending_tab_digit = digit;
    pending_tab_window = main_win;
