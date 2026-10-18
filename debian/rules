@@ -1,9 +1,10 @@
-#!/usr/bin/make -f
+#!$(BINDIR)/make -f
 
 export DH_VERBOSE = 1
 .DEFAULT_GOAL := binary
 PROFILE ?= radio
 include mk/optional-modules.mk
+include mk/install-paths.mk
 
 # FT8 is optional: external ft8_lib is only needed for this binary package.
 WITH_FT8 ?= no
@@ -50,25 +51,25 @@ endif
 
 override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODULES))
 	install -Dm755 packaging/admin-permissions.sh debian/librustyaxe/usr/lib/rustyrig/admin-permissions
-	install -Dm755 bin/rrbridge debian/rustyrig-server/usr/bin/rrbridge
-	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrbridge/rrbridge-kiwi.so
-	install -Dm755 bin/rrserver debian/rustyrig-server/usr/bin/rrserver
+	install -Dm755 bin/rrbridge debian/rustyrig-server$(BINDIR)/rrbridge
+	install -Dm755 bin/rrbridge-kiwi.so debian/rustyrig-server$(MODULEDIR)/rrbridge/rrbridge-kiwi.so
+	install -Dm755 bin/rrserver debian/rustyrig-server$(BINDIR)/rrserver
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modem-ft8/var/lib/rustyrig/modems/rrmodem-ft8
 endif
-	install -Dm755 bin/rr-si5351 debian/rustyrig-server/usr/bin/rr-si5351
-	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server/usr/lib/rustyrig/modules/rrserver/rrserver-gps-nmea.so
-	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so
-	install -Dm755 bin/rrclient debian/rustyrig-client/usr/bin/rrclient
-	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient/rrclient-gtk.so
+	install -Dm755 bin/rr-si5351 debian/rustyrig-server$(BINDIR)/rr-si5351
+	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server$(MODULEDIR)/rrserver/rrserver-gps-nmea.so
+	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
+	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
+	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk$(MODULEDIR)/rrclient/rrclient-gtk.so
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
-	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp/usr/bin/fwdsp
-	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup/usr/bin/callsign-lookup
-	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup/etc/rustyrig/callsign-lookup.cfg
-	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server/usr/bin/rr-get-audit-log
-	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server/usr/bin/rr-get-chat-log
-	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server/usr/bin/rr-get-ptt-log
+	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp$(BINDIR)/fwdsp
+	install -Dm755 bin/callsign-lookup debian/rustyrig-callsign-lookup$(BINDIR)/callsign-lookup
+	install -Dm644 config/callsign-lookup.cfg debian/rustyrig-callsign-lookup$(CONF_DIR)/callsign-lookup.cfg
+	install -Dm755 tools/rr-get-audit-log debian/rustyrig-server$(BINDIR)/rr-get-audit-log
+	install -Dm755 tools/rr-get-chat-log debian/rustyrig-server$(BINDIR)/rr-get-chat-log
+	install -Dm755 tools/rr-get-ptt-log debian/rustyrig-server$(BINDIR)/rr-get-ptt-log
 	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/db
 	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/recordings
 	install -d -m0775 debian/rustyrig-server/var/lib/rustyrig/modems
@@ -85,35 +86,35 @@ endif
 	install -d -m0775 debian/rustyrig-client/var/lib/rustyrig/recordings/client
 	install -d -m0775 debian/rustyrig-client/var/log/rustyrig
 	install -d debian/rustyrig-client/var/run/rustyrig
-	install -d debian/rustyrig-client-gtk/usr/lib/rustyrig/modules/rrclient
+	install -d debian/rustyrig-client-gtk$(MODULEDIR)/rrclient
 	install -d debian/rustyrig-server/etc/rustyrig
 	install -d debian/rustyrig-client/etc/rustyrig
 	# Install the root config and all include fragments as dpkg conffiles.
 	# Keep user edits during upgrades; never replace these in postinst.
 	for cfg in config/rrserver.cfg config/rrserver.*.cfg; do \
-		install -Dm644 "$$cfg" "debian/rustyrig-server/etc/rustyrig/$${cfg##*/}"; \
+		install -Dm644 "$$cfg" "debian/rustyrig-server$(CONF_DIR)/$${cfg##*/}"; \
 	done
-	install -Dm644 config/$(PROFILE).config.json debian/rustyrig-server/etc/rustyrig/$(PROFILE).config.json
+	install -Dm644 config/$(PROFILE).config.json debian/rustyrig-server$(CONF_DIR)/$(PROFILE).config.json
 	# Removed: callsign lookup server settings now live in rrserver.callsign-lookup.cfg.
-	install -Dm644 config/ua-bans debian/rustyrig-server/etc/rustyrig/ua-bans.txt
+	install -Dm644 config/ua-bans debian/rustyrig-server$(CONF_DIR)/ua-bans.txt
 	install -Dm755 tools/dummy-rigctld.sh debian/rustyrig-server/var/lib/rustyrig/tools/dummy-rigctld.sh
-	install -Dm644 config/rrclient.cfg debian/rustyrig-client/etc/rustyrig/rrclient.cfg
-	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client/etc/rustyrig/callsign-lookup.cli.cfg
+	install -Dm644 config/rrclient.cfg debian/rustyrig-client$(CONF_DIR)/rrclient.cfg
+	install -Dm644 config/callsign-lookup.cli.cfg debian/rustyrig-client$(CONF_DIR)/callsign-lookup.cli.cfg
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
-	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server/var/lib/rustyrig/www/ \;
+	find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-server$(WEB_ROOT)/ \;
 	find help -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} debian/rustyrig-client/var/lib/rustyrig/help/ \;
 	install -Dm644 sql/sqlite.master.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.sql
 	install -Dm644 sql/sqlite.master.preload.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.preload.sql
 
-	install -Dm755 librustyaxe.so debian/librustyaxe/usr/lib/$(DEB_HOST_MULTIARCH)/librustyaxe.so.0
-	install -Dm755 librrprotocol.so debian/librrprotocol/usr/lib/$(DEB_HOST_MULTIARCH)/librrprotocol.so.0
-	install -Dm755 libfwdspmgr.so debian/libfwdspmgr/usr/lib/$(DEB_HOST_MULTIARCH)/libfwdspmgr.so.0
-	install -d debian/librustyaxe-dev/usr/lib/$(DEB_HOST_MULTIARCH)
-	install -d debian/librrprotocol-dev/usr/lib/$(DEB_HOST_MULTIARCH)
-	install -d debian/libfwdspmgr-dev/usr/lib/$(DEB_HOST_MULTIARCH)
-	ln -sf librustyaxe.so.0 debian/librustyaxe-dev/usr/lib/$(DEB_HOST_MULTIARCH)/librustyaxe.so
-	ln -sf librrprotocol.so.0 debian/librrprotocol-dev/usr/lib/$(DEB_HOST_MULTIARCH)/librrprotocol.so
-	ln -sf libfwdspmgr.so.0 debian/libfwdspmgr-dev/usr/lib/$(DEB_HOST_MULTIARCH)/libfwdspmgr.so
+	install -Dm755 librustyaxe.so debian/librustyaxe$(LIBDIR)/librustyaxe.so.0
+	install -Dm755 librrprotocol.so debian/librrprotocol$(LIBDIR)/librrprotocol.so.0
+	install -Dm755 libfwdspmgr.so debian/libfwdspmgr$(LIBDIR)/libfwdspmgr.so.0
+	install -d debian/librustyaxe-dev$(LIBDIR)
+	install -d debian/librrprotocol-dev$(LIBDIR)
+	install -d debian/libfwdspmgr-dev$(LIBDIR)
+	ln -sf librustyaxe.so.0 debian/librustyaxe-dev$(LIBDIR)/librustyaxe.so
+	ln -sf librrprotocol.so.0 debian/librrprotocol-dev$(LIBDIR)/librrprotocol.so
+	ln -sf libfwdspmgr.so.0 debian/libfwdspmgr-dev$(LIBDIR)/libfwdspmgr.so
 
 	install -d debian/librustyaxe-dev/usr/include/librustyaxe
 	cp -a librustyaxe/*.h debian/librustyaxe-dev/usr/include/librustyaxe/

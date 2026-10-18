@@ -90,3 +90,23 @@ feature variable, `WITH_...` switch, package name, artifact and destination.
 The common preflight, Debian staging and debhelper exclusions then apply
 automatically. Give its SDK Build-Depends an opt-in Debian build profile.
 Existing core dependencies remain required until similarly separated.
+
+
+## Fast source-tree installs on Debian
+
+After a normal build, `sudo make install` updates the same /usr/bin,
+multiarch /usr/lib and /usr/lib/rustyrig/modules runtime files that Debian
+packages own. It does not install or overwrite /etc/rustyrig configuration.
+Use `make install-check` to verify effective destination directories and
+`sudo ldconfig` after changing shared libraries. `DESTDIR` is supported
+for staging, e.g. `make DESTDIR=/tmp/rustyrig-stage install`.
+
+`make install-config` is a separate, interactive operation for adding or
+replacing shipped configuration, including rrserver include fragments.
+`make install-dev` installs development headers and unversioned linker
+symlinks. Neither is part of the default runtime install.
+
+Because source installs overwrite package-owned files, the next package
+installation or reinstall restores the packaged versions. Source installs
+do not update dpkg's package database. Stop running processes before
+replacing their executables and shared libraries.

@@ -26,7 +26,7 @@ objs += ${OBJ_DIR}/icon.res
 else
 
 # POSIX compliant hosts
-INSTALL_DIR ?= /usr/local
+INSTALL_DIR ?= /usr
 CFLAGS += -DMG_ARCH=MG_ARCH_UNIX
 
 endif
