@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <librustyaxe/core.h>
@@ -506,8 +507,8 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       size_t n = strlen(login_user);
       for (const char *p = msg_data; *p; p++) {
          if (!strncasecmp(p, login_user, n) &&
-             (p == msg_data || !g_ascii_isalnum((guchar)p[-1])) &&
-             (!p[n] || !g_ascii_isalnum((guchar)p[n]))) {
+             (p == msg_data || !isalnum((unsigned char)p[-1])) &&
+             (!p[n] || !isalnum((unsigned char)p[n]))) {
             mention = true; break;
          }
       }
