@@ -601,6 +601,19 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
             (ws_room_rx_tuning_mask(room) & (UINT32_C(1) << index));
       }
 
+#ifdef USE_SQLITE
+      /* Never allow secondary room attachments to tune a VFO, even
+       * through the legacy request without request.room. */
+      if (allowed && ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY)) {
+         char *controller = db_room_vfo_controller(masterdb, rr_server_vfo_id(ctx.vfo));
+         const char *effective_room = room ? room : rr_rig_registry_room(rig.rigs, ctx.radio);
+         if (!controller || !effective_room || strcasecmp(controller, effective_room)) {
+            allowed = false;
+         }
+         free(controller);
+      }
+#endif
+
       if (!allowed) {
          code = "forbidden-room";
          goto done;
