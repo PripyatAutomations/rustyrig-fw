@@ -104,7 +104,14 @@ bool rrclient_room_join(const char *room) {
    r->active_vfo = 'A';
    r->next = rooms;
    rooms = r;
-
+   /* JOIN acknowledgement arrived: the intent is now an active room. */
+   for (size_t i = 0; i < reconnect_room_count; ) {
+      if (strcasecmp(reconnect_rooms[i], name)) { i++; continue; }
+      free(reconnect_rooms[i]);
+      memmove(reconnect_rooms + i, reconnect_rooms + i + 1,
+         (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
+      reconnect_room_count--;
+   }
    return true;
 }
 
@@ -158,7 +165,7 @@ bool rrclient_room_request_join(const char *room) {
       return false;
    }
    if (!remember_join(room)) return false;
-   if (!ws_conn || !ws_conn->is_ws) return false;
+   if (!ws_conn) return false;
    dict *d = dict_new();
 
    if (!d) {
