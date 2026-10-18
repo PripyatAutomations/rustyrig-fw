@@ -99,6 +99,7 @@ static bool serial_pty_startup_cleanup(void) {
 static rr_event_token_t gps_output_token, serial_message_token, serial_binary_token;
 static rr_event_token_t authorized_token, disconnected_token, auth_error_token, http_error_token;
 static guint host_timer, gps_invalid_timer;
+static void console_notify(const char *name, const char *bytes, size_t len, bool incoming);
 struct rr_sercom_observer {
    char name[64];
    rr_sercom_console_fn callback;
