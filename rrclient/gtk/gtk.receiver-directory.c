@@ -12,7 +12,7 @@ static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token;
 enum {
-   COL_INDEX, COL_NAME, COL_LOCATION, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_COUNT
+   COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_COUNT
 };
 
 static const char *api_policy(const receiver_directory_entry_t *r) {
@@ -66,10 +66,10 @@ static void selection_changed(GtkTreeSelection *selection, gpointer unused) {
    char *coverage = r && r->high_hz ? g_strdup_printf("%" G_GUINT64_FORMAT " – %" G_GUINT64_FORMAT " Hz", r->low_hz, r->high_hz) : g_strdup("Not published");
    char *allowance = r && r->ext_api >= 0 ? g_strdup_printf("%d channels", r->ext_api) : g_strdup("not published");
    char *seen = observation_time(r ? r->last_seen : 0), *learned = observation_time(r ? r->learned_at : 0);
-   char *text = r ? g_strdup_printf("%s\nURL: %s\nLocation: %s  Grid: %s\nContact: %s\n"
+   char *text = r ? g_strdup_printf("%s\nURL: %s\nLocation: %s  Country: %s  Grid: %s\nContact: %s\n"
       "Antenna: %s\nHardware / limits: %s\nUsers (published): %d / %d\nExternal API: %s (%s)\n"
       "Coverage hint: %s\nStatus: %s\nLocal report: %s — %s\nLast seen: %s\nLive metadata learned: %s\n\nPublished properties:\n%s", r->name, r->url, r->
-      location, r->grid, *r->contact ? r->contact : "Not published", r->antenna, r->hardware, r->users, r->users_max, api_policy(r), allowance, coverage,
+      location, *r->country ? r->country : "Not published", r->grid, *r->contact ? r->contact : "Not published", r->antenna, r->hardware, r->users, r->users_max, api_policy(r), allowance, coverage,
       receiver_state(r), r->local_reason ? r->local_reason : "None", stamp, seen, learned, r->properties) : g_strdup(
       "Select a receiver to view its published details.\nBrowsing does not contact receivers.");
 
@@ -103,7 +103,7 @@ static gboolean visible_receiver(GtkTreeModel *model, GtkTreeIter *iter, gpointe
       return TRUE;
    }
    char *needle = g_utf8_casefold(query, -1);
-   char *haystack = g_strdup_printf("%s %s %s %s %s %s", r->name, r->location, r->url, r->grid, r->contact, r->hardware);
+   char *haystack = g_strdup_printf("%s %s %s %s %s %s %s", r->name, r->location, r->country, r->url, r->grid, r->contact, r->hardware);
    char *folded = g_utf8_casefold(haystack, -1);
    bool visible = strstr(folded, needle) != NULL;
    g_free(needle);
@@ -137,7 +137,7 @@ static void populate(void) {
       char users[32];
       g_snprintf(users, sizeof(users), "%d / %d", r->users, r->users_max);
       gtk_list_store_append(directory_store, &iter);
-      gtk_list_store_set(directory_store, &iter, COL_INDEX, (guint) i, COL_NAME, *r->name ? r->name : r->url, COL_LOCATION, r->location, COL_USERS, users,
+      gtk_list_store_set(directory_store, &iter, COL_INDEX, (guint) i, COL_NAME, *r->name ? r->name : r->url, COL_LOCATION, r->location, COL_COUNTRY, r->country, COL_USERS, users,
          COL_API, api_policy(r), COL_STATE, receiver_state(r), COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
    }
 
@@ -261,7 +261,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(accessible_only), TRUE);
    gtk_box_pack_start(GTK_BOX(box), accessible_only, FALSE, FALSE, 0);
    directory_store =
-      gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+      gtk_list_store_new(COL_COUNT, G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    directory_filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(directory_store), NULL));
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
    GtkTreeModel *sorted = gtk_tree_model_sort_new_with_model(GTK_TREE_MODEL(directory_filter));
@@ -269,10 +269,10 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_NAME, GTK_SORT_ASCENDING);
    g_object_unref(sorted);
    const char *titles[] = {
-      "Type", "Location", "Receiver", "Users", "API Policy", "Status", "URL"
+      "Type", "Location", "Country", "Receiver", "Users", "API Policy", "Status", "URL"
    };
-   const int fields[] = {COL_TYPE, COL_LOCATION, COL_NAME, COL_USERS, COL_API, COL_STATE, COL_URL};
-   const int widths[] = {65, 120, 180, 65, 105, 110, 160};
+   const int fields[] = {COL_TYPE, COL_LOCATION, COL_COUNTRY, COL_NAME, COL_USERS, COL_API, COL_STATE, COL_URL};
+   const int widths[] = {65, 120, 110, 180, 65, 105, 110, 160};
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(titles) ; i++) {
       int field = fields[i];
@@ -284,7 +284,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       gtk_tree_view_column_set_fixed_width(column, widths[i]);
       gtk_tree_view_column_set_min_width(column, 55);
       /* Text-heavy columns share surplus width as the directory grows. */
-      gtk_tree_view_column_set_expand(column, field == COL_LOCATION || field == COL_NAME || field == COL_URL);
+      gtk_tree_view_column_set_expand(column, field == COL_LOCATION || field == COL_COUNTRY || field == COL_NAME || field == COL_URL);
       gtk_tree_view_column_set_sort_column_id(column, field);
       gtk_tree_view_append_column(GTK_TREE_VIEW(directory_tree), column);
    }

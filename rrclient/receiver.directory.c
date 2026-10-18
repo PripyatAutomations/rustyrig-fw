@@ -49,6 +49,7 @@ static void receiver_free(gpointer value) {
    g_free(r->url);
    g_free(r->name);
    g_free(r->location);
+   g_free(r->country);
    g_free(r->contact);
    g_free(r->antenna);
    g_free(r->hardware);
@@ -219,6 +220,7 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
       r->url = normalized;
       r->name = field(object, "$.name");
       r->location = field(object, "$.loc");
+      r->country = field(object, "$.country");
       r->contact = field(object, "$.contact");
 
       if (!*r->contact) {
