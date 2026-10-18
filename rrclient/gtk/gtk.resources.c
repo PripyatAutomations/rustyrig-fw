@@ -772,6 +772,15 @@ static void resource_present(void) {
       if (page >= 0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
    }
 }
+/* Initialize against the actual notebook allocation, not a fixed standalone
+ * window height. Only do this once; later splitter dragging is user-owned. */
+static void resource_initial_split(GtkWidget *widget, GtkAllocation *allocation, gpointer unused) {
+   (void)unused;
+   if (allocation->height < 300) return;
+   g_signal_handlers_disconnect_by_func(widget, G_CALLBACK(resource_initial_split), NULL);
+   gtk_paned_set_position(GTK_PANED(widget), allocation->height * 3 / 4);
+}
+
 static void resource_create(void) {
    if (browser) return;
    browser = g_new0(resource_browser, 1);
@@ -840,7 +849,7 @@ static void resource_create(void) {
    GtkWidget *details_scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(details_scroll), browser->details);
    gtk_paned_pack2(GTK_PANED(paned), details_scroll, FALSE, FALSE);
-   gtk_paned_set_position(GTK_PANED(paned), 430);
+   g_signal_connect(paned, "size-allocate", G_CALLBACK(resource_initial_split), NULL);
    gtk_box_pack_start(GTK_BOX(box), paned, TRUE, TRUE, 0);
    GtkWidget *actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    const char *labels[] = {"Join room", "Subscribe", "Connect serial…", "Connect server", "Open Terminal…"};
