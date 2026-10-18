@@ -10,8 +10,6 @@ USE_GTK=true
 OBJ_DIR := $(shell pwd)/build
 
 CHANNELS := config/${PROFILE}.channels.json
-INSTALL_DIR = /usr/local
-CONF_DIR := /etc/rustyrig
 
 CFLAGS_WARN += $(strip $(shell cat ${CF} | jq -r '.build.cflags_warn'))
 CFLAGS += $(strip $(shell cat ${CF} | jq -r '.build.cflags'))
