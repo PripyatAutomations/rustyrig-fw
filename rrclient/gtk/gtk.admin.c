@@ -778,6 +778,7 @@ GtkWidget *init_admin_tab(void) {
             gtk_widget_show(title);
             gtk_tree_view_column_set_widget(column, title);
          }
+         gtk_tree_view_column_set_sort_column_id(column, field);
          gtk_tree_view_append_column(GTK_TREE_VIEW(table->tree), column);
       }
 
