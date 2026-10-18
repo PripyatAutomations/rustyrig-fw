@@ -159,29 +159,35 @@ static bool restore_rx_rooms(void) {
       if (rrserver_rig_room_configured(room)) {
          continue;
       }
-      rr_server_rig_t *radio = ws_room_rig_namespace(room) && !ws_room_rig_base(room)
-         ? rrserver_rig_for_room(room) : NULL;
+      rr_server_rig_t *radio = rrserver_rig_for_room(room);
       uint32_t mask = 0;
+      bool any = false;
       char *bindings = db_room_vfo_list(masterdb, room), *save = NULL;
 
       for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save)) {
-         rr_server_vfo_t *vfo = radio ? rr_server_vfo_find_uuid(radio, id) : NULL;
+         rr_server_vfo_t *vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
+         if (!vfo) {
+            if (!db_room_vfo_remove(masterdb, room, id)) {
+               failed = true;
+            }
+            continue;
+         }
+         any = true;
          rr_vfo_t index;
-
-         if (vfo && rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
+         /* The native mask is legacy, scoped only to the room's native rig.
+          * Foreign VFOs remain UUID bindings, never colliding on A/B bits. */
+         if (radio && rr_server_vfo_owner(vfo) == radio &&
+             rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
             mask |= UINT32_C(1) << index;
-         } else if (!db_room_vfo_remove(masterdb, room, id)) {
-            failed = true;
          }
       }
 
       free(bindings);
 
-      if (!db_room_ensure(masterdb, room, mask != 0, mask, "server")) {
+      if (!db_room_ensure(masterdb, room, any, mask, "server")) {
          failed = true;
       }
-
-      if (radio && !ws_room_set_vfo_mask(room, mask)) {
+      if (ws_room_rig_namespace(room) && !ws_room_set_vfo_mask(room, mask)) {
          failed = true;
       }
    }
