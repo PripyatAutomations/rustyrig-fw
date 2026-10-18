@@ -370,6 +370,46 @@ static void inventory_services(object_send_t *ctx, const char *scope, unsigned d
    dict_free(d);
 }
 
+/* A VFO may appear in several rooms; the room binding is an inventory
+ * appearance, not a second VFO object or a second physical rig. */
+static void inventory_room_vfos(object_send_t *ctx, const char *room, const char *room_id) {
+#ifdef USE_SQLITE
+   char *list = db_room_vfo_list(masterdb, room), *save = NULL;
+   for (char *id = list ? strtok_r(list, " \\t\\r\\n", &save) : NULL;
+        id; id = strtok_r(NULL, " \\t\\r\\n", &save)) {
+      rr_server_vfo_t *vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
+      if (!vfo) continue;
+      rr_server_rig_t *owner = rr_server_vfo_owner(vfo);
+      const char *alias = rr_server_vfo_alias(vfo);
+      dict *row = rr_inventory_row(ctx->request, 2, "vfo",
+         alias ? alias : id, id);
+      if (!row) continue;
+      dict_add(row, "inventory.parent", room_id);
+      dict_add(row, "inventory.room", room);
+      dict_add(row, "inventory.owner", rr_server_rig_id(owner));
+      dict_add(row, "inventory.rig", rr_rig_registry_alias(rig.rigs, owner));
+      dict_add(row, "inventory.site", cfg_get("station.name"));
+      rr_property_snapshot_t value;
+      if (rr_vfo_property_read(vfo, "frequency", &value) && value.known) {
+         char number[48];
+         snprintf(number, sizeof(number), "%ld Hz", value.value.l);
+         dict_add(row, "inventory.frequency", number);
+      }
+      if (rr_vfo_property_read(vfo, "mode", &value) && value.known && value.value.s)
+         dict_add(row, "inventory.mode", value.value.s);
+      if (rr_vfo_property_read(vfo, "width", &value) && value.known) {
+         char number[48];
+         snprintf(number, sizeof(number), "%ld Hz", value.value.l);
+         dict_add(row, "inventory.width", number);
+      }
+      rr_inventory_send(ctx->client, row);
+   }
+   free(list);
+#else
+   (void)ctx; (void)room; (void)room_id;
+#endif
+}
+
 static void inventory_rooms(object_send_t *ctx, const char *base) {
 #ifdef USE_SQLITE
    char *rooms = db_room_list(masterdb), *save = NULL;
@@ -378,7 +418,9 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
       if (base ? !ws_room_same_rig(room, base) : ws_room_rig_namespace(room)) {
          continue;
       }
-      dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, NULL);
+      char room_id[256];
+      snprintf(room_id, sizeof(room_id), "room:%s", room);
+      dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, room_id);
 
       if (!row) {
          continue;
@@ -387,6 +429,7 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
       dict_add(row, "inventory.service", base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
       dict_add(row, "inventory.action", "/join|part <room>");
       rr_inventory_send(ctx->client, row);
+      inventory_room_vfos(ctx, room, room_id);
    }
 
    free(rooms);
