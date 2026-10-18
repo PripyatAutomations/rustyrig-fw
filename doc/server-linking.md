@@ -371,3 +371,8 @@ This reduces simultaneous-start races, but does not replace investigating
 repeated topology-admission failures or peers disabled by policy. Check
 `/link list` and the `link` log category to distinguish automatic retry
 from a topology-policy block.
+
+
+Automatic reconnects now stagger each peer's retry by up to five seconds
+using its configured site name. This reduces repeated simultaneous link
+collisions without introducing random state or disabling reconnects.
