@@ -52,6 +52,32 @@ bool rrclient_receiver_connect_room(const char *url, bool save, const char *room
    dict_add(fields, "url", receiver ? receiver->url : url);
    dict_add(fields, "driver", receiver ? receiver->driver : "kiwi");
    dict_add(fields, "request", id);
+   /* Directory information is descriptive, not an authorization source.
+    * The server records actual initiator and request time itself. */
+   if (receiver) {
+      const char *names[] = {"name", "location", "country", "contact", "antenna", "hardware", "grid"};
+      const char *values[] = {receiver->name, receiver->location, receiver->country,
+         receiver->contact, receiver->antenna, receiver->hardware, receiver->grid};
+      for (unsigned i = 0; i < G_N_ELEMENTS(names); i++) {
+         if (values[i] && *values[i]) {
+            char key[48];
+            snprintf(key, sizeof(key), "directory.%s", names[i]);
+            dict_add(fields, key, values[i]);
+         }
+      }
+      char number[48];
+      snprintf(number, sizeof(number), "%d", receiver->users);
+      dict_add(fields, "directory.users", number);
+      snprintf(number, sizeof(number), "%d", receiver->users_max);
+      dict_add(fields, "directory.users_max", number);
+      snprintf(number, sizeof(number), "%llu", (unsigned long long)receiver->low_hz);
+      dict_add(fields, "directory.low_hz", number);
+      snprintf(number, sizeof(number), "%llu", (unsigned long long)receiver->high_hz);
+      dict_add(fields, "directory.high_hz", number);
+      snprintf(number, sizeof(number), "%lld", receiver->last_seen);
+      dict_add(fields, "directory.last_seen", number);
+   }
+
    if (!save && room && *room) dict_add(fields, "room", room);
    char *json = dict2json(fields);
    dict_add(message, "msg.type", "talk");
