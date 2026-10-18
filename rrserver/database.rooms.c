@@ -375,6 +375,34 @@ bool db_room_vfo_remove(sqlite3 *db, const char *room, const char *binding) {
    return ok;
 }
 
+/* The first surviving room binding owns receiver tuning.  SQLite rowid
+ * records attachment order; no additional persistent schema is required.
+ * Returning NULL means there is no current controlling room. */
+char *db_room_vfo_controller(sqlite3 *db, const char *binding) {
+   if (!db || !binding || !*binding) {
+      return NULL;
+   }
+   sqlite3_stmt *st = NULL;
+   const char *sql =
+      "SELECT room_vfos.room FROM room_vfos "
+      "JOIN rooms ON rooms.name=room_vfos.room "
+      "WHERE room_vfos.binding=?1 AND rooms.deleted=0 "
+      "ORDER BY room_vfos.rowid LIMIT 1;";
+   if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      return NULL;
+   }
+   sqlite3_bind_text(st, 1, binding, -1, SQLITE_TRANSIENT);
+   char *room = NULL;
+   if (sqlite3_step(st) == SQLITE_ROW) {
+      const char *value = (const char *)sqlite3_column_text(st, 0);
+      if (value) {
+         room = strdup(value);
+      }
+   }
+   sqlite3_finalize(st);
+   return room;
+}
+
 /* Return an owned listing of one room's VFO bindings. */
 char *db_room_vfo_list(sqlite3 *db, const char *room) {
    return db_join_rows(db,
