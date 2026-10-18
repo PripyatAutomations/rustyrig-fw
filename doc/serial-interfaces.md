@@ -402,7 +402,7 @@ Disconnect and reattach an endpoint after changing its policy.
   control.
 
 Floating `rig.gps-out` and `rig.nmea-out` endpoints emit a once-per-second
-NMEA RMC sentence with status `V`, empty coordinates and mode `N` when
+checksummed NMEA no-fix epoch (RMC status `V` and mode `N`,\nGGA quality `0`, and GSA fix type `1`) with empty coordinates when
 no rig has been selected or the selected server connection is offline.
 This prevents consumers from treating the previously received valid fix as
 current. Once the selected rig resumes reporting GPS, normal valid RMC output
