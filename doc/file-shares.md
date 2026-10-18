@@ -128,3 +128,20 @@ For an existing installation, run `sudo tools/setup-test-shares.sh` (optionally
 pass your server config path), then restart rrserver. The script keeps a backup
 and preserves other configuration. Grant `files.read,files.write` explicitly to
 your test account and use `/files` or **Files…** to browse and upload.
+
+## GTK Files site selector
+
+The **Server** dropdown shows directly connected servers and the linked sites
+advertised by each authenticated connection. Remote sites display their public
+site alias instead of `@node-uuid`. Choosing a site shows only that site's
+accessible shares and contents in the tree.
+
+Linked file requests still use `/@<node-uuid>/share/path` internally for
+routing through the connected server. The Files UI does not expose the virtual
+node directory as a folder, and remote permissions remain enforced at the
+owning server for each operation. A remote site with no accessible shares
+displays an empty root; unavailable owners may return an error.
+
+Linked-site discovery occurs when the Files window opens; reopen it to discover
+sites linked after the window was opened. The selector's Ctrl+Tab shortcut
+cycles across direct and linked site choices.
