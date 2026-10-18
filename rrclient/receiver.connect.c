@@ -23,7 +23,7 @@ static void report(const char *message, rrconn_t *connection) {
    ui_print(NULL, "%s", message);
    event_emit("client.receiver-directory.connection", connection, message);
 }
-bool rrclient_receiver_connect(const char *url, bool save) {
+bool rrclient_receiver_connect_room(const char *url, bool save, const char *room) {
    const receiver_directory_entry_t *receiver = receiver_directory_find_url(url);
    rrconn_t *connection = rrclient_active_connection();
    const char *profile = connection ? rrclient_connection_name(connection) : NULL;
@@ -52,6 +52,7 @@ bool rrclient_receiver_connect(const char *url, bool save) {
    dict_add(fields, "url", receiver ? receiver->url : url);
    dict_add(fields, "driver", receiver ? receiver->driver : "kiwi");
    dict_add(fields, "request", id);
+   if (!save && room && *room) dict_add(fields, "room", room);
    char *json = dict2json(fields);
    dict_add(message, "msg.type", "talk");
    dict_add(message, "talk.cmd", "admin");
@@ -73,6 +74,9 @@ bool rrclient_receiver_connect(const char *url, bool save) {
    report(sent ? "Receiver request sent to the selected server…" : "Unable to send receiver request.", connection);
 
    return sent;
+}
+bool rrclient_receiver_connect(const char *url, bool save) {
+   return rrclient_receiver_connect_room(url, save, NULL);
 }
 static void join_receiver(void *data) {
    char *args[] = {
