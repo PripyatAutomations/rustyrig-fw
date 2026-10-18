@@ -9,6 +9,7 @@
 #define RRCLIENT_RECEIVER_CONNECT_H
 #include <stdbool.h>
 bool rrclient_receiver_connect(const char *url, bool save);
+bool rrclient_receiver_connect_room(const char *url, bool save, const char *room);
 void rrclient_receiver_connect_init(void);
 void rrclient_receiver_connect_shutdown(void);
 #endif
