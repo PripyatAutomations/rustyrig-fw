@@ -435,6 +435,15 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
    if (c) {
       dict_add(c->descriptor, "object.backend", rr_server_rig_backend(radio)->type->name);
       dict_add(c->descriptor, "object.name", rr_server_rig_name(radio));
+      /* A rig may be mobile independently of its site's fixed location. */
+      const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
+      char key[160];
+      snprintf(key, sizeof(key), "rig:%s.mobile", alias);
+      bool mobile = cfg_get_bool(key, false);
+      snprintf(key, sizeof(key), "rig:%s.location", alias);
+      const char *location = mobile ? "MOBILE" : cfg_get(key);
+      dict_add(c->descriptor, "object.location",
+               location && *location ? location : cfg_get("station.location"));
    }
    collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
    char cat[80];
