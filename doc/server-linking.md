@@ -331,3 +331,29 @@ Uncomment `mobile=true` for a moving or portable radio. Its advertised
 location becomes exactly `MOBILE`, even when its hosting server has a
 fixed city/state/country location. Leave it off for a fixed radio; an
 optional `location` overrides the server's `station.location`.
+
+
+## Per-peer topology restrictions
+
+Each `[peer:name]` may limit which servers are accepted *behind that direct
+peer*:
+
+```ini
+[peer:remote]
+;leaf-only=true
+;allowed-sites=branch-a branch-b branch-c
+;max-depth=2
+```
+
+`leaf-only=true` requires the remote peer to advertise no descendants.
+`allowed-sites` is a space- or comma-separated allowlist of site names for
+**descendants** (the direct peer is already identified by `site.name`). An
+empty list accepts any descendant name. `max-depth=0` is unlimited; 1
+permits direct children, 2 permits grandchildren, etc. These controls are
+checked before attaching an initial subtree and for subsequent introductions.
+If the incoming topology violates a restriction, the link is closed and the
+peer is blocked from automatic reconnection. An administrator can retry with
+`/link open <peer>`, which clears the block; `/link list` shows it.
+These limits are local admission policy, not permissions delegated to peers.
+Names alone are not authentication credentials; pin direct peer UUIDs with
+`node.uuid`, and use passwords, TLS and ACLs as usual.
