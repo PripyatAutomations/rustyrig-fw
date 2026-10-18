@@ -206,7 +206,7 @@ static bool gps_append_nmea(char *dest, size_t capacity, size_t *used,
       checksum ^= *p;
    if (*used >= capacity) return false;
    int n = snprintf(dest + *used, capacity - *used,
-                    "$%s*%02X\\r\\n", body, checksum);
+                    "$%s*%02X\r\n", body, checksum);
    if (n < 0 || (size_t)n >= capacity - *used) return false;
    *used += (size_t)n;
    return true;
