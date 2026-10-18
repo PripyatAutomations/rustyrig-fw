@@ -804,10 +804,10 @@ static bool load_peer(const char *section) {
    peer->allowed_sites = strdup(allowed ? allowed : "");
    const char *max_text = peer_value(section, "max-depth");
    char *max_end = NULL;
-   long max_depth = max_text && *max_text ? strtol(max_text, &max_end, 10) : 0;
+   long max_depth = max_text && *max_text ? strtol(max_text, &max_end, 10) : cfg_get_int("links.max-depth", 5);
    if (max_depth < 0 || max_depth > 255 || (max_end && *max_end))
       return invalid_peer(section, "max-depth", "must be 0-255 (0 is unlimited)");
-   peer->max_depth = (unsigned)max_depth;
+   peer->max_depth = peer->leaf_only ? 0 : (unsigned)max_depth;
    const char *retry_text = peer_value(section, "retry-seconds");
    char *retry_end = NULL;
    long retry = retry_text && *retry_text ? strtol(retry_text, &retry_end, 10) : cfg_get_int("links.retry-seconds", 60);
