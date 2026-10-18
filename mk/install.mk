@@ -31,7 +31,7 @@ install-modules: $(filter %.so,${bins})
 		*rrclient*.so) family=rrclient ;; \
 		*) echo "Unknown runtime module: $$src" >&2; exit 1 ;; \
 		esac; \
-		dst="$(DESTDIR)$(MODULEDIR)/$family/$(basename "$$src")"; \
+		dst="$(DESTDIR)$(MODULEDIR)/$family/$(basename "$src")"; \
 		install -Dm755 "$$src" "$$dst"; \
 		echo "[install-module] $$src => $$dst"; \
 	done
