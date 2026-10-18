@@ -230,11 +230,11 @@ void rrclient_rooms_disconnect(void) {
 }
 
 void rrclient_rooms_rejoin_available(void) {
-   for (size_t i = 0 ; i < reconnect_room_count ; i++) {
-      if ((ws_conn && ws_conn->server && !ws_conn->is_ws) || room_names_contain(available_rooms, available_room_count, reconnect_rooms[i])) {
+   /* An IRC channel may be private/unlisted. Do not make a LIST entry a
+    * prerequisite for restoring a tab or an in-flight JOIN. */
+   for (size_t i = 0 ; i < reconnect_room_count ; i++)
+      if (!rrclient_room_is_joined(reconnect_rooms[i]))
          rrclient_room_request_join(reconnect_rooms[i]);
-      }
-   }
 
    /* Keep JOIN intents until the server confirms each JOIN. A missing LIST
     * entry or a failed send must not silently discard the channel. */
@@ -291,20 +291,10 @@ void rrclient_rooms_set_available(const char *list) {
 }
 
 void rrclient_room_available_remove(const char *room) {
-   if (!room) {
-      return;
-   }
+   if (!room) return;
 
-   for (size_t i = 0 ; i < reconnect_room_count ; ) {
-      if (strcasecmp(reconnect_rooms[i], room)) {
-         i++;
-         continue;
-      }
-      free(reconnect_rooms[i]);
-      memmove(&reconnect_rooms[i], &reconnect_rooms[i + 1], (reconnect_room_count - i - 1) * sizeof(*reconnect_rooms));
-      reconnect_room_count--;
-   }
-
+   /* An unlisted channel can still be joined; dropping its LIST entry
+    * must not cancel a pending JOIN or reconnect intent. */
    for (size_t i = 0 ; i < available_room_count ; ) {
       if (strcasecmp(available_rooms[i], room)) {
          i++;
