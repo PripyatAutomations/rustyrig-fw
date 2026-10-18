@@ -569,50 +569,38 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       }
       const char *room = dict_get(d, "request.room", NULL);
       bool allowed = false;
+      const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
+      const bool tuning = ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY);
 
       if (room) {
-         allowed = rrserver_rig_for_room(room) == ctx.radio && ws_room_control_allowed(client, room, ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY));
+         /* Native rig controls still require the physical rig's TX room.
+          * Only receiver properties may use a controlling user room. */
+         allowed = ctx.vfo ? ws_client_in_room(client, room) :
+            (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
       } else {
-         const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
+         room = base;
          allowed = base && ws_client_in_room(client, base);
-
-         // Requests without a room still require membership and the RX capability.
-         if (!allowed && base && ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY) && ws_room_rx_tunable(base)) {
-            char joined[AUTOJOIN_LEN];
-            snprintf(joined, sizeof(joined), "%s", client->rooms);
-            char *save = NULL;
-
-            for (char *r = strtok_r(joined, ",", &save) ; r ; r = strtok_r(NULL, ",", &save)) {
-               if (ws_room_same_rig(r, base)) {
-                  rr_vfo_t index;
-
-                  if (rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 && (ws_room_rx_tuning_mask(r) & (UINT32_C(1) << index))) {
-                     allowed = true;
-                     break;
-                  }
-               }
-            }
-         }
-      }
-
-      if (allowed && room && !ws_room_tx_control(room)) {
-         rr_vfo_t index;
-         allowed = ctx.vfo && rr_server_vfo_native_index(ctx.vfo, &index) && index >= 0 && index < 32 &&
-            (ws_room_rx_tuning_mask(room) & (UINT32_C(1) << index));
       }
 
 #ifdef USE_SQLITE
-      /* Never allow secondary room attachments to tune a VFO, even
-       * through the legacy request without request.room. */
-      if (allowed && ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY)) {
+      if (allowed && ctx.vfo) {
          char *controller = db_room_vfo_controller(masterdb, rr_server_vfo_id(ctx.vfo));
-         const char *effective_room = room ? room : rr_rig_registry_room(rig.rigs, ctx.radio);
-         if (!controller || !effective_room || strcasecmp(controller, effective_room)) {
+         if (!controller || !room || strcasecmp(controller, room)) {
             allowed = false;
          }
          free(controller);
       }
 #endif
+      if (allowed && ctx.vfo) {
+         /* A user-created room never gains TX authority by hosting a VFO.
+          * For frequency changes, the backend's independent-RX permission
+          * remains relevant on legacy rig subrooms. */
+         if (!base || strcasecmp(base, room)) {
+            allowed = tuning && ws_room_control_allowed(client, room, true);
+         } else {
+            allowed = ws_room_control_allowed(client, room, tuning);
+         }
+      }
 
       if (!allowed) {
          code = "forbidden-room";
