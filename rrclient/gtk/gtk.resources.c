@@ -1030,13 +1030,36 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          dict_get(row, "inventory.description", "A misconfigured server"),
          dict_get(row, "inventory.location", "Unknown City"));
    }
-   const char *fields[] = {"description", "location", "backend", "frequency", "codec", "direction", "source", "service", "access"};
+   const char *fields[] = {"description", "location", "backend", "frequency", "mode", "width", "codec", "direction", "source", "service", "access"};
    for (unsigned i = 0; i < G_N_ELEMENTS(fields); i++) {
       char key[64]; snprintf(key, sizeof(key), "inventory.%s", fields[i]);
       const char *value = dict_get(row, key, "");
       if (*value && (strcmp(kind, "site") || i > 1)) g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
    }
-   gtk_tree_store_set(browser->store, &iter, NAME, name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
+   if (!strcmp(kind, "vfo")) {
+      const char *site = dict_get(row, "inventory.site", "");
+      const char *rig_alias = dict_get(row, "inventory.rig", "");
+      const char *owner = dict_get(row, "inventory.owner", "");
+      const char *id = dict_get(row, "inventory.uuid", "");
+      g_string_append_printf(details, "%sPath: %s / %s / %s%s%s\nVFO UUID: %s",
+         details->len ? "\n" : "", *site ? site : profile,
+         *rig_alias ? rig_alias : "unbound",
+         room && *room ? room : "(no room)",
+         *name ? " / " : "", name, id);
+      if (*owner) g_string_append_printf(details, "\nOwner resource: %s", owner);
+   }
+   char *label = NULL;
+   if (!strcmp(kind, "vfo")) {
+      const char *frequency = dict_get(row, "inventory.frequency", "");
+      const char *mode = dict_get(row, "inventory.mode", "");
+      const char *width = dict_get(row, "inventory.width", "");
+      if (*frequency || *mode || *width)
+         label = g_strdup_printf("%s%s%s%s%s%s%s", name,
+            *frequency ? " · " : "", frequency,
+            *mode ? " · " : "", mode,
+            *width ? " · " : "", width);
+   }
+   gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
       COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""),
       UUID, dict_get(row, "inventory.uuid", ""), ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, dict_get(row, "inventory.action", ""), -1);
    if (branch->selection) {
@@ -1047,7 +1070,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    branch->parents[depth] = iter;
    branch->valid[depth] = true;
-   g_free(inherited); g_free(service); g_string_free(details, TRUE); dict_free(row);
+   g_free(label); g_free(inherited); g_free(service); g_string_free(details, TRUE); dict_free(row);
 }
 static void resource_open(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event; (void)text; (void)connection; (void)unused;
