@@ -387,7 +387,12 @@ static void inventory_room_vfos(object_send_t *ctx, const char *room, const char
       dict_add(row, "inventory.parent", room_id);
       dict_add(row, "inventory.room", room);
       dict_add(row, "inventory.owner", rr_server_rig_id(owner));
-      dict_add(row, "inventory.rig", rr_rig_registry_alias(rig.rigs, owner));
+      if (rrserver_bridge_rig(owner)) {
+         dict_add(row, "inventory.source-type", "SDR");
+         dict_add(row, "inventory.rig", "SDR receiver");
+      } else {
+         dict_add(row, "inventory.rig", rr_rig_registry_alias(rig.rigs, owner));
+      }
       dict_add(row, "inventory.site", cfg_get("station.name"));
       rr_property_snapshot_t value;
       if (rr_vfo_property_read(vfo, "frequency", &value) && value.known) {
