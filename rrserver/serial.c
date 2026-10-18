@@ -786,7 +786,7 @@ failed:
    return active;
 }
 
-static void inventory_serial_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog) {
+static void inventory_serial_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog, const char *parent) {
    serial_discover_usb();
    if (!cfg_get_bool("serial.enable", true)) return;
    for (unsigned i = 0 ; i < count ; i++) {
@@ -800,6 +800,7 @@ static void inventory_serial_rows(rrconn_t *client, const char *scope, const cha
       if (!row) {
          continue;
       }
+      if (parent && *parent) dict_add(row, "inventory.parent", parent);
       dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : p->virtual_modem ? "modem" : "serial");
       dict_add(row, "inventory.state", p->service ? "server-local" :
          p->virtual_modem && p->fd < 0 ? "unavailable" : p->owner ? "busy" : "available");
@@ -817,14 +818,14 @@ static void inventory_serial(const char *event, const char *data, rrconn_t *clie
    dict *request = json2dict(data);
    if (!request) return;
    inventory_serial_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""),
-      dict_get_uint(request, "inventory.depth", 1), NULL);
+      dict_get_uint(request, "inventory.depth", 1), NULL, dict_get(request, "inventory.parent", ""));
    dict_free(request);
 }
 
 static void inventory_serial_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (length != sizeof(rr_inventory_catalog_t)) return;
    const rr_inventory_catalog_t *catalog = data;
-   inventory_serial_rows(NULL, catalog->scope, "", 0, catalog);
+   inventory_serial_rows(NULL, catalog->scope, "", 0, catalog, NULL);
 }
 
 void rrserver_serial_init(void) {
