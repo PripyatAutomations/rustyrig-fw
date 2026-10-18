@@ -37,6 +37,8 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
+   { "station.description", "A misconfigured server", "Public server description for links, WHOIS and Explorer" },
+   { "station.location", "Unknown City", "Public city, state, country; use MOBILE for mobile rigs" },
    { "hardware.si5351", "", "Named Si5351A devices to register; restart required" },
    { "si5351:example.bus", "", "Linux I2C adapter path (required); no automatic bus selection" },
    { "si5351:example.address", "0x60", "Seven-bit I2C address" },
