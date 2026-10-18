@@ -2,6 +2,7 @@
 #include <gtk/gtk.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
+#include <rrclient/rooms.h>
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
 
@@ -240,9 +241,49 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
 
-   if (r) {
-      rrclient_receiver_connect(r->url, GPOINTER_TO_INT(save));
+   if (!r) return;
+   if (GPOINTER_TO_INT(save)) {
+      rrclient_receiver_connect(r->url, true);
+      return;
    }
+
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Choose SDR room",
+      GTK_WINDOW(directory_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Connect", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *hint = gtk_label_new("Create a listening room, or attach the receiver to one you've joined.");
+   gtk_box_pack_start(GTK_BOX(area), hint, FALSE, FALSE, 8);
+   GtkWidget *choose = gtk_combo_box_text_new();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choose), "Create new room");
+   unsigned count = 0;
+   for (unsigned i = 0; ; i++) {
+      const char *room = rrclient_room_iter(i);
+      if (!room) break;
+      if (ws_room_name_valid(room)) {
+         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(choose), room);
+         count++;
+      }
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(choose), 0);
+   gtk_box_pack_start(GTK_BOX(area), choose, FALSE, FALSE, 4);
+   GtkWidget *entry = gtk_entry_new();
+   char generated[24];
+   g_snprintf(generated, sizeof(generated), "#sdr-%08x", g_random_int());
+   gtk_entry_set_text(GTK_ENTRY(entry), generated);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "#sdr-xxxxxxxx");
+   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 4);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      int selected = gtk_combo_box_get_active(GTK_COMBO_BOX(choose));
+      char *existing = selected > 0 ? gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(choose)) : NULL;
+      const char *room = existing ? existing : gtk_entry_get_text(GTK_ENTRY(entry));
+      if (ws_room_name_valid(room))
+         rrclient_receiver_connect_room(r->url, false, room);
+      else
+         gtk_label_set_text(GTK_LABEL(directory_status), "Invalid room name.");
+      g_free(existing);
+   }
+   gtk_widget_destroy(dialog);
 }
 static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
