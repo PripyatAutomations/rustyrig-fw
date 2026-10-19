@@ -486,49 +486,34 @@ void rr_relay_roster(const char *event, const char *room, rrconn_t *client, void
 
 /* Find or authenticate an owner-side virtual session for the originating user. */
 static struct remote_session *owner_session(const char *origin, const char *id, const char *username) {
-   if (!rr_object_uuid_valid(id)) {
-      return NULL;
+   /* The relay envelope is authenticated by the linked server transport.
+    * A remote principal is NOT a local login and must not inherit a local
+    * user's uid, password, system roles, or permissions. */
+   if (!origin || !rr_object_uuid_valid(origin) || !rrserver_links_route(origin) ||
+       !rr_object_uuid_valid(id) || !username || !*username ||
+       strlen(username) > HTTP_USER_LEN) return NULL;
+
+   for (struct remote_session *r = rr_relay_remotes; r; r = r->next) {
+      if (strcmp(r->origin, origin) || strcmp(r->id, id)) continue;
+      if (!r->client.authenticated || strcasecmp(r->client.chatname, username))
+         return NULL;
+      return r;
    }
-   int uid = http_getuid(username);
-
-   if (uid < 0 || uid >= HTTP_MAX_USERS || !http_users[uid].enabled ||
-      http_users[uid].password_change_required || (http_users[uid].password_expires && http_users[uid].password_expires <= now)) {
-      return NULL;
-   }
-
-   for (struct remote_session *r = rr_relay_remotes ; r ; r = r->next) {
-      if (!strcmp(r->origin, origin) && !strcmp(r->id, id)) {
-         if (strcasecmp(r->client.chatname, username)) {
-            return NULL;
-         }
-
-         if (!r->client.authenticated) {
-            return NULL;
-         }
-         r->client.user = &http_users[uid];
-
-         return r;
-      }
-   }
-
-   if (rr_relay_remote_count == MAX_RELAY_SESSIONS) {
-      return NULL;
-   }
+   if (rr_relay_remote_count == MAX_RELAY_SESSIONS) return NULL;
    struct remote_session *r = calloc(1, sizeof(*r));
-
-   if (!r) {
-      return NULL;
-   }
+   if (!r) return NULL;
    strcpy(r->origin, origin);
    strcpy(r->id, id);
+   r->remote_account.uid = -1; /* has_priv() must never match local roles */
+   r->remote_account.enabled = true;
+   snprintf(r->remote_account.name, sizeof(r->remote_account.name), "%s", username);
    r->client.authenticated = r->client.active = r->client.is_ws = true;
-   r->client.user = &http_users[uid];
+   r->client.user = &r->remote_account;
    snprintf(r->client.chatname, sizeof(r->client.chatname), "%s", username);
    snprintf(r->client.token, sizeof(r->client.token), "%s", id);
    r->next = rr_relay_remotes;
    rr_relay_remotes = r;
    rr_relay_remote_count++;
-
    return r;
 }
 
@@ -548,10 +533,10 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
          dict_add(error, "file.cmd", "result");
          dict_add(error, "request.id", dict_get(d, "request.id", ""));
          dict_add(error, "file.path", dict_get(d, "file.path", "/"));
-         dict_add(error, "file.error", "Owner requires an enabled local callsign account and share permission");
+         dict_add(error, "file.error", "Remote share access requires an explicit resource grant");
       } else if (error) {
          dict_add(error, "msg.type", "error");
-         dict_add(error, "error.msg", "Remote owner requires an enabled local account and an allowed command");
+         dict_add(error, "error.msg", "Remote operation requires an authorized resource grant");
          rr_relay_packet(origin, "reply", id, NULL, error);
          dict_free(error);
       }
