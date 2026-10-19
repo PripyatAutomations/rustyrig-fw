@@ -659,13 +659,9 @@ int main(int argc, char *argv[]) {
 
 
    // Setup the tab complete and hotkeys
+   /* Shared completion provider is used by both GTK and TUI. Keep its
+    * registration, but defer all TUI-only callbacks until TUI is selected. */
    tui_register_completion_provider(client_cmd_completions);
-   tui_set_completion_handler(rrclient_tui_chat_completion);
-   tui_set_completion_describer(client_cmd_completion_describe);
-   tui_hotkey_register(TERMKEY_SYM_TAB, TERMKEY_KEYMOD_CTRL, rrclient_server_hotkey, NULL);
-   tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
-   tui_hotkey_register(' ', TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
-   tui_hotkey_register(0, TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
 
    // Reap exited children and expire warm encoders after fwdsp.hangtime.
    // This is independent of the UI and Mongoose polling mechanisms.
@@ -713,6 +709,12 @@ int main(int argc, char *argv[]) {
    (void)loaded_name;
 
    if (ui_mode == UI_MODE_TUI) {
+      tui_set_completion_handler(rrclient_tui_chat_completion);
+      tui_set_completion_describer(client_cmd_completion_describe);
+      tui_hotkey_register(TERMKEY_SYM_TAB, TERMKEY_KEYMOD_CTRL, rrclient_server_hotkey, NULL);
+      tui_hotkey_register(TERMKEY_SYM_ENTER, TERMKEY_KEYMOD_ALT, rrclient_ptt_hotkey, NULL);
+      tui_hotkey_register(' ', TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
+      tui_hotkey_register(0, TERMKEY_KEYMOD_CTRL, rrclient_ptt_hotkey, NULL);
       tui_input_blocked_cb = rrclient_chat_input_blocked;
       tui_readline_cb = parse_chat_input_real;
       tui_set_topline_renderer(rrclient_tui_topline);
