@@ -85,8 +85,8 @@ static void admin_user_error(rrconn_t *client, const char *message) {
 }
 
 /* Built-in host-wide rig preset: one checked assignment, not a system role. */
-static bool admin_full_rig_access(const char *username,bool enabled) {
-   if (!username || !*username) return false;
+static bool admin_full_rig_access(const char *username,const char *host,bool enabled) {
+   if (!username || !*username || !host) return false;
    if (sqlite3_exec(masterdb,"SAVEPOINT full_rig_access",NULL,NULL,NULL)!=SQLITE_OK)
       return false;
    const char *queries[]={
@@ -98,17 +98,19 @@ static bool admin_full_rig_access(const char *username,bool enabled) {
       enabled ?
       "INSERT OR IGNORE INTO privilege_set_assignments "
       "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
-      "SELECT id,?1,'','rig','*','system' FROM privilege_sets WHERE name='full-rig'" :
+      "SELECT id,?1,?2,'rig','*','system' FROM privilege_sets WHERE name='full-rig'" :
       "DELETE FROM privilege_set_assignments WHERE subject_user=?1 COLLATE NOCASE "
-      "AND subject_host='' AND resource_kind='rig' AND resource_uuid='*' "
+      "AND subject_host=?2 AND resource_kind='rig' AND resource_uuid='*' "
       "AND set_id=(SELECT id FROM privilege_sets WHERE name='full-rig')"
    };
    bool ok=true;
    for (unsigned i=0;i<G_N_ELEMENTS(queries);++i) {
       sqlite3_stmt *stmt=NULL;
       int rc=sqlite3_prepare_v2(masterdb,queries[i],-1,&stmt,NULL);
-      if (rc==SQLITE_OK && i==2)
+      if (rc==SQLITE_OK && i==2) {
          rc=sqlite3_bind_text(stmt,1,username,-1,SQLITE_TRANSIENT);
+         if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,2,host,-1,SQLITE_TRANSIENT);
+      }
       if (rc==SQLITE_OK) rc=sqlite3_step(stmt);
       if (rc!=SQLITE_DONE) ok=false;
       sqlite3_finalize(stmt);
@@ -183,7 +185,7 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    dict_del(fields,"full_rig_access");
    bool ok = db_user_edit(masterdb, name, fields);
    if (ok && change_rig) {
-      ok=admin_full_rig_access(name,grant_rig);
+      ok=admin_full_rig_access(name,"",grant_rig);
       if (ok) Log(LOG_AUDIT,"auth.users","%s %s full rig access for %s",
          client->chatname,grant_rig ? "granted" : "revoked",name);
    }
@@ -508,6 +510,35 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
     * The old /admin backlight spelling remains an alias for clients that
     * have not yet switched to /admin control display.brightness. */
    const char *admin_data = dict_get(request, "talk.data", "");
+   if (!strcmp(action,"rig-access")) {
+      const char *subject=dict_get(request,"talk.target","");
+      const char *mode=dict_get(request,"talk.data","");
+      const char *at=strchr(subject,'@');
+      char username[HTTP_USER_LEN+1]={0};
+      const char *host=at ? at+1 : "";
+      bool valid=(at ? (size_t)(at-subject) : strlen(subject)) <= HTTP_USER_LEN &&
+         (at ? at>subject : *subject) && strlen(host)<128 &&
+         (!strcmp(mode,"allow") || !strcmp(mode,"revoke"));
+      if (valid) {
+         size_t n=at ? (size_t)(at-subject) : strlen(subject);
+         memcpy(username,subject,n);
+         for (const char *p=username;*p;p++)
+            if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-') valid=false;
+         for (const char *p=host;*p;p++)
+            if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-') valid=false;
+      }
+      if (!has_priv(client->user->uid,"owner") || !valid) {
+         ws_send_error(client,"Owner privilege and a valid user@site are required");
+      } else if (!admin_full_rig_access(username,host,!strcmp(mode,"allow"))) {
+         ws_send_error(client,"Unable to update Full Rig Access assignment");
+      } else {
+         db_add_audit_event(masterdb,client->chatname,
+            !strcmp(mode,"allow") ? "rig-access-grant" : "rig-access-revoke",subject);
+         rrserver_admin_send(client,"assignments","updated",NULL);
+      }
+      dict_free(request);
+      return;
+   }
    if (!strcmp(admin_data,"subjects")) {
       if (!has_priv(client->user->uid,"owner")) {
          ws_send_error(client,"Only owners may enumerate grant subjects");
