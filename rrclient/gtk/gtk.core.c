@@ -588,6 +588,10 @@ bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
    GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
    /* Keep confirmation prompts in the middle of the display even when the parent is a tab or a partially off-screen window. */
    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
+   /* Quit confirmation must remain accessible even if another utility dialog
+    * has an always-on-top hint. Transient/modal alone cannot guarantee that. */
+   gtk_window_set_keep_above(GTK_WINDOW(dialog), TRUE);
+   gtk_window_set_type_hint(GTK_WINDOW(dialog), GDK_WINDOW_TYPE_HINT_DIALOG);
    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_YES);
    gboolean confirmed = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES;
