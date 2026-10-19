@@ -404,14 +404,12 @@ struct media_setup_context {
    bool rx_per_vfo, tx_per_vfo;
 };
 
-/* A configured rig's audio streams are persistent resources. Use a
- * name-independent v8 UUID derived from its stored rig/VFO identity and
- * direction. Temporary bridge rig UUIDs are ephemeral by design. */
-static bool media_assign_stable_uuid(struct rr_mediachan *channel,
-      const char *rig_uuid, const char *vfo_uuid, bool tx) {
-   if (!channel || !rig_uuid || !*rig_uuid) return false;
-   char *key = g_strdup_printf("rustyrig.audio/%s/%s/%s",
-      rig_uuid, tx ? "tx" : "rx", vfo_uuid ? vfo_uuid : "shared");
+/* UUIDv8-style deterministic ID for persistent media resources. Scope is
+ * the stored node or rig UUID; role identifies its stable logical stream. */
+bool rrserver_media_uuid_assign(struct rr_mediachan *channel,
+      const char *scope_uuid, const char *role) {
+   if (!channel || !scope_uuid || !*scope_uuid || !role || !*role) return false;
+   char *key = g_strdup_printf("rustyrig.media/%s/%s", scope_uuid, role);
    if (!key) return false;
    char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256, key, -1);
    g_free(key);
@@ -421,6 +419,21 @@ static bool media_assign_stable_uuid(struct rr_mediachan *channel,
       digest, digest + 8, digest + 13, digest + 17, digest + 20);
    g_free(digest);
    return true;
+}
+
+bool rrserver_media_uuid_assign_node(struct rr_mediachan *channel, const char *role) {
+   const char *node = rig.rigs ? rr_rig_registry_node(rig.rigs) : NULL;
+   return rrserver_media_uuid_assign(channel, node, role);
+}
+
+static bool media_assign_stable_uuid(struct rr_mediachan *channel,
+      const char *rig_uuid, const char *vfo_uuid, bool tx) {
+   char *role = g_strdup_printf("audio.%s.%s",
+      tx ? "tx" : "rx", vfo_uuid ? vfo_uuid : "shared");
+   if (!role) return false;
+   bool ok = rrserver_media_uuid_assign(channel, rig_uuid, role);
+   g_free(role);
+   return ok;
 }
 
 static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
