@@ -81,6 +81,7 @@ static admin_table_t tables[] = {
  * not individual hardware providers or platform-specific paths. */
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
 static GtkWidget *control_rows_box, *control_filter, *control_scroll, *control_hosts;
+static gulong control_host_handler;
 static GHashTable *control_row_buttons;
 static char *control_pending_name;
 static char *control_server_profile;
@@ -108,6 +109,7 @@ static void admin_control_hosts_refresh(void) {
    if (!control_hosts) return;
    const char *chosen=gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts));
    char *remember=g_strdup(chosen ? chosen : "local");
+   if (control_host_handler) g_signal_handler_block(control_hosts,control_host_handler);
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_hosts));
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),"local","This Client");
    for (unsigned i=0;; ++i) {
@@ -120,6 +122,7 @@ static void admin_control_hosts_refresh(void) {
    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),remember))
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),"local");
    g_free(remember);
+   if (control_host_handler) g_signal_handler_unblock(control_hosts,control_host_handler);
 }
 static void admin_control_host_changed(GtkComboBox *box,gpointer unused) {
    (void)unused;
@@ -176,8 +179,14 @@ void gtk_admin_open_control_on_server(const char *profile, const char *name) {
    g_free(control_server_profile);
    control_server_profile=g_strdup(profile);
    admin_control_hosts_refresh();
-   if (control_hosts && !gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),profile))
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),profile,profile);
+   if (control_hosts) {
+      if (control_host_handler) g_signal_handler_block(control_hosts,control_host_handler);
+      if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),profile)) {
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),profile,profile);
+         gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),profile);
+      }
+      if (control_host_handler) g_signal_handler_unblock(control_hosts,control_host_handler);
+   }
    if (server_changed && control_combo) {
       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
       admin_control_rows_clear();
@@ -1151,7 +1160,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_widget_set_hexpand(control_hosts,TRUE);
       gtk_box_pack_start(GTK_BOX(filter_header),control_hosts,TRUE,TRUE,0);
       admin_control_hosts_refresh();
-      g_signal_connect(control_hosts,"changed",G_CALLBACK(admin_control_host_changed),NULL);
+      control_host_handler=g_signal_connect(control_hosts,"changed",G_CALLBACK(admin_control_host_changed),NULL);
       gtk_box_pack_start(GTK_BOX(box),filter_header,FALSE,FALSE,0);
       g_signal_connect(control_filter,"changed",G_CALLBACK(admin_control_filter_changed),NULL);
       control_status = gtk_label_new("Select a connected server and Refresh.");
