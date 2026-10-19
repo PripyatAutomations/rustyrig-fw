@@ -64,8 +64,10 @@ assignments/grants do not apply, missing grants return `RR_RESOURCE_UNSET`,
 and database errors fail closed. The call must receive a server-authenticated
 subject, never raw subject fields supplied by a client.
 
-**Partially enforced:** the owner-side relay now requires explicit `rig.use`
-or `room.join` grants for remote requests, and configured bridge room/media
+**Partially enforced:** ordinary linked-site room join/part/chat now defaults to
+allowed when no resource grant matches; explicit deny still blocks access.
+Other relayed actions continue requiring explicit `rig.use` or `room.join`
+grants, and configured bridge room/media
 admission checks can use `bridge.use` from a rig grant. Direct grants and
 set assignments are both evaluated, with explicit deny taking precedence.
 Local account system privileges remain as a fallback for bridge admission
