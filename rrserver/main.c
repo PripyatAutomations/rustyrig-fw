@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <getopt.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -49,6 +50,7 @@
 #include <rrserver/acl.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
+#include <rrserver/maintenance.h>
 
 extern void rrserver_register_events(void);  // events.c
 extern void rrserver_media_register_events(void);  // media.c
@@ -206,9 +208,28 @@ int main(int argc, char **argv) {
    event_init();
    rrserver_register_events();
 
+   enum rr_maintenance_action maintenance = RR_MAINT_NONE;
+   static const struct option maintenance_options[] = {
+      { "purge-recordings", no_argument, NULL, 1001 },
+      { "reset-db", no_argument, NULL, 1002 },
+      { "reset-rooms", no_argument, NULL, 1003 },
+      { "reset-logs", no_argument, NULL, 1004 },
+      { "reset-audit", no_argument, NULL, 1005 },
+      { "reset-adminpw", no_argument, NULL, 1006 },
+      { "reset-uuids", no_argument, NULL, 1007 },
+      { NULL, 0, NULL, 0 }
+   };
    int opt;
-   while ((opt = getopt(argc, argv, "f:hr:")) != -1) {
+   while ((opt = getopt_long(argc, argv, "f:hr:", maintenance_options, NULL)) != -1) {
       switch (opt) {
+         case 1001: case 1002: case 1003: case 1004:
+         case 1005: case 1006: case 1007:
+            if (maintenance != RR_MAINT_NONE) {
+               fprintf(stderr, "Specify only one maintenance operation per invocation.\\n");
+               return EXIT_FAILURE;
+            }
+            maintenance = (enum rr_maintenance_action)(opt - 1000);
+            break;
          case 'f': {
             config_file = strdup(optarg);
             break;
@@ -221,7 +242,10 @@ int main(int argc, char **argv) {
          default: {
             fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
-            fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
+            fprintf(stderr, "  -r\\t\\t\\tRig name (for finding config file\\n");
+            fprintf(stderr, "  --purge-recordings, --reset-db, --reset-rooms, --reset-logs,\\n");
+            fprintf(stderr, "  --reset-audit, --reset-adminpw, --reset-uuids\\n");
+            fprintf(stderr, "  Each action requires interactive confirmation and exits without starting.\\n");
             exit(EXIT_FAILURE);
          }
       }
@@ -252,6 +276,10 @@ int main(int argc, char **argv) {
       // Use default settings builtin
       fprintf(stderr, "No config found :(\n");
       exit(1);
+   }
+
+   if (maintenance != RR_MAINT_NONE) {
+      return rrserver_maintenance_run(maintenance);
    }
 
    if (!rr_radio_config_prepare() || !rrserver_acl_validate()) {
