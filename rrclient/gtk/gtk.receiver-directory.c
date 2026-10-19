@@ -279,7 +279,8 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       char *existing = selected > 0 ? gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(choose)) : NULL;
       const char *room = existing ? existing : gtk_entry_get_text(GTK_ENTRY(entry));
       if (ws_room_name_valid(room))
-         rrclient_receiver_connect_room(r->url, false, room);
+         rrclient_receiver_connect_room_ex(r->url, false, room,
+            selected == 0 && !strcmp(room, generated));
       else
          gtk_label_set_text(GTK_LABEL(directory_status), "Invalid room name.");
       g_free(existing);
