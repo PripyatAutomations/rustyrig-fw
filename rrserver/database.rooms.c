@@ -170,26 +170,36 @@ char *db_room_uuid(sqlite3 *db, const char *name) {
  * changing room names, topics, chat history or membership policy. */
 bool db_room_uuids_regenerate(sqlite3 *db) {
    if (!db) return false;
+   GPtrArray *names = g_ptr_array_new_with_free_func(g_free);
    sqlite3_stmt *read = NULL, *write = NULL;
-   bool ok = sqlite3_prepare_v2(db, "SELECT name FROM rooms;", -1, &read, NULL) == SQLITE_OK &&
-      sqlite3_prepare_v2(db, "UPDATE rooms SET uuid=?1 WHERE name=?2;", -1, &write, NULL) == SQLITE_OK;
+   bool ok = names && sqlite3_prepare_v2(db, "SELECT name FROM rooms;", -1, &read, NULL) == SQLITE_OK;
    int step = SQLITE_DONE;
    while (ok && (step = sqlite3_step(read)) == SQLITE_ROW) {
       const char *name = (const char *)sqlite3_column_text(read, 0);
+      if (!name) { ok = false; break; }
+      char *copy = g_strdup(name);
+      if (!copy) { ok = false; break; }
+      g_ptr_array_add(names, copy);
+   }
+   if (ok && step != SQLITE_DONE) ok = false;
+   sqlite3_finalize(read);
+
+   if (ok) ok = sqlite3_prepare_v2(db,
+      "UPDATE rooms SET uuid=?1 WHERE name=?2;", -1, &write, NULL) == SQLITE_OK;
+   for (guint i = 0; ok && i < names->len; ++i) {
       char *fresh = g_uuid_string_random();
-      ok = name && fresh;
+      ok = fresh != NULL;
       if (ok) {
          sqlite3_reset(write);
          sqlite3_clear_bindings(write);
          sqlite3_bind_text(write, 1, fresh, -1, SQLITE_TRANSIENT);
-         sqlite3_bind_text(write, 2, name, -1, SQLITE_TRANSIENT);
+         sqlite3_bind_text(write, 2, g_ptr_array_index(names, i), -1, SQLITE_TRANSIENT);
          ok = sqlite3_step(write) == SQLITE_DONE && sqlite3_changes(db) == 1;
       }
       g_free(fresh);
    }
-   if (step != SQLITE_DONE) ok = false;
-   sqlite3_finalize(read);
    sqlite3_finalize(write);
+   if (names) g_ptr_array_unref(names);
    return ok;
 }
 
