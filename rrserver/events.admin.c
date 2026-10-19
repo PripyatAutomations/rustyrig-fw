@@ -337,6 +337,83 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
    return true;
 }
 
+/* Direct resource grants complement reusable set assignments. Both resolve
+ * the same authoritative subject, and explicit deny takes precedence. */
+static bool admin_resource_action(rrconn_t *client, const char *action, dict *request) {
+   if (strcmp(action, "resource-grant") && strcmp(action, "resource-revoke")) return false;
+   if (!has_priv(client->user->uid, "owner")) {
+      ws_send_error(client, "Only owners may edit scoped resource grants");
+      return true;
+   }
+   const char *subject = dict_get(request, "talk.target", "");
+   const char *data = dict_get(request, "talk.data", "");
+   char username[HTTP_USER_LEN + 1] = "", host[128] = "";
+   char kind[16] = "", uuid[64] = "", privilege[129] = "", effect[16] = "", extra[2] = "";
+   if (!subject || !*subject || strlen(subject) > 256) {
+      ws_send_error(client, "Resource grants require user@host subject");
+      return true;
+   }
+   const char *at = strchr(subject, '@');
+   size_t userlen = at ? (size_t)(at - subject) : strlen(subject);
+   if (!userlen || userlen > HTTP_USER_LEN || (at && (!at[1] ||
+       strchr(at + 1, '@') || strlen(at + 1) >= sizeof(host)))) {
+      ws_send_error(client, "Invalid subject; use user or user@host");
+      return true;
+   }
+   memcpy(username, subject, userlen);
+   if (at) snprintf(host, sizeof(host), "%s", at + 1);
+   int n = sscanf(data, "%15s %63s %128s %15s %1s",
+      kind,uuid,privilege,effect,extra);
+   bool granting = !strcmp(action, "resource-grant");
+   if (n != (granting ? 4 : 3) ||
+       !( !strcmp(kind,"site") || !strcmp(kind,"rig") || !strcmp(kind,"vfo") ||
+          !strcmp(kind,"room") || !strcmp(kind,"media") || !strcmp(kind,"serial") ||
+          !strcmp(kind,"file") || !strcmp(kind,"bridge")) ||
+       !rr_object_uuid_valid(uuid) ||
+       (granting && strcmp(effect,"allow") && strcmp(effect,"deny"))) {
+      ws_send_error(client, "Usage: /admin resource-grant USER@HOST KIND UUID PRIVILEGE allow|deny");
+      return true;
+   }
+   const char *sql = granting
+      ? "INSERT INTO resource_privileges "
+        "(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by) "
+        "VALUES(?1,?2,?3,?4,?5,?6,?7) "
+        "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
+        "DO UPDATE SET effect=excluded.effect,granted_by=excluded.granted_by,"
+        "granted_at=unixepoch(),expires_at=NULL"
+      : "DELETE FROM resource_privileges WHERE subject_user=?1 COLLATE NOCASE "
+        "AND subject_host=?2 COLLATE NOCASE AND resource_kind=?3 "
+        "AND resource_uuid=?4 AND privilege=?5";
+   sqlite3_stmt *st = NULL;
+   int rc = sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL);
+   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,1,username,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,2,host,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,kind,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,4,uuid,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,5,privilege,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK && granting) rc = sqlite3_bind_text(st,6,effect,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK && granting)
+      rc = sqlite3_bind_text(st,7,client->chatname,-1,SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK) rc = sqlite3_step(st);
+   bool ok = rc == SQLITE_DONE && sqlite3_changes(masterdb) == 1;
+   if (st) sqlite3_finalize(st);
+   if (!ok) {
+      Log(LOG_WARN,"privset","%s %s failed: %s",action,subject,sqlite3_errmsg(masterdb));
+      ws_send_error(client, "Unable to update resource grant");
+      return true;
+   }
+   db_add_audit_event(masterdb,client->chatname,action,subject);
+   dict *row = dict_new();
+   if (row) {
+      dict_add(row,"subject",subject);
+      dict_add(row,"resource",uuid);
+      dict_add(row,"privilege",privilege);
+      rrserver_admin_send(client,"grants","updated",row);
+      dict_free(row);
+   }
+   return true;
+}
+
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
@@ -352,6 +429,10 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+   if (admin_resource_action(client, action, request)) {
+      dict_free(request);
+      return;
+   }
    if (admin_privset_action(client, action, request)) {
       dict_free(request);
       return;
