@@ -225,7 +225,7 @@ int main(int argc, char **argv) {
          case 1001: case 1002: case 1003: case 1004:
          case 1005: case 1006: case 1007:
             if (maintenance != RR_MAINT_NONE) {
-               fprintf(stderr, "Specify only one maintenance operation per invocation.\\n");
+               fprintf(stderr, "Specify only one maintenance operation per invocation.\n");
                return EXIT_FAILURE;
             }
             maintenance = (enum rr_maintenance_action)(opt - 1000);
@@ -242,10 +242,10 @@ int main(int argc, char **argv) {
          default: {
             fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
             fprintf(stderr, "  -f\t\t\tFile name of config\n");
-            fprintf(stderr, "  -r\\t\\t\\tRig name (for finding config file\\n");
-            fprintf(stderr, "  --purge-recordings, --reset-db, --reset-rooms, --reset-logs,\\n");
-            fprintf(stderr, "  --reset-audit, --reset-adminpw, --reset-uuids\\n");
-            fprintf(stderr, "  Each action requires interactive confirmation and exits without starting.\\n");
+            fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
+            fprintf(stderr, "  --purge-recordings, --reset-db, --reset-rooms, --reset-logs,\n");
+            fprintf(stderr, "  --reset-audit, --reset-adminpw, --reset-uuids\n");
+            fprintf(stderr, "  Each action requires interactive confirmation and exits without starting.\n");
             exit(EXIT_FAILURE);
          }
       }
