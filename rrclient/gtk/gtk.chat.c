@@ -1220,6 +1220,10 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
    }
    room_vfo_ensure_container();
    if (room_vfo_window && gtk_widget_get_visible(room_vfo_window)) {
+      char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room,
+         vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
+      gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
+      g_free(title);
       vfo_update_ui();
       return;
    }
