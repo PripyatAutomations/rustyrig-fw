@@ -1208,8 +1208,9 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    }
    const char *action = dict_get(io->message, "talk.action", "");
    bool save = !strcmp(action, "websdr-add");
+   bool release = !strcmp(action, "websdr-disconnect");
 
-   if (!save && strcmp(action, "websdr-connect")) {
+   if (!save && !release && strcmp(action, "websdr-connect")) {
       return;
    }
    io->handled = io->result = true;
@@ -1225,7 +1226,17 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    } else if (request && websdr_endpoint(driver, dict_get(request, "url", ""), &host, &port)) {
       b = websdr_find(driver, host, port);
 
-      if (!save && (!b || b->temporary) && !rrserver_websdr_can_connect(client)) {
+      if (release) {
+         if (!b || !b->temporary || !b->attached_room[0] ||
+             strcasecmp(b->initiated_by, client->chatname)) {
+            b = NULL;
+            error = "No temporary SDR connection owned by this operator";
+         } else {
+            websdr_remove(b->backend->owner);
+            b = NULL;
+            error = "";
+         }
+      } else if (!save && (!b || b->temporary) && !rrserver_websdr_can_connect(client)) {
          b = NULL;
          error = "This receiver is not configured; websdr.connect is required";
       } else if (!b && !(b = websdr_create(driver, host, port))) {
@@ -1349,7 +1360,8 @@ static void websdr_request(const char *event, const void *data, size_t length, r
    dict *result = dict_new(), *reply = dict_new();
    dict_add(result, "request", request ? dict_get(request, "request", "") : "");
    dict_add(result, "room", b ? target_room : "");
-   dict_add(result, "error", b ? "" : error);
+   dict_add(result, "error", release && !*error ? "" : b ? "" : error);
+   dict_add_bool(result, "disconnected", release && !*error);
    char *json = dict2json(result);
    dict_add(reply, "msg.type", "talk");
    dict_add(reply, "talk.cmd", "admin");
