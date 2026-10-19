@@ -83,6 +83,7 @@ static GtkWidget *control_combo, *control_scale, *control_status, *control_apply
 static GtkWidget *control_rows_box, *control_filter, *control_scroll;
 static GHashTable *control_row_buttons;
 static char *control_pending_name;
+static char *control_server_profile;
 static bool admin_control_request(const char *name, int value);
 static void admin_control_filter_apply(void) {
    if (!control_filter || !control_rows_box) return;
@@ -136,7 +137,15 @@ static void admin_control_choose(const char *name) {
       control_pending_name=g_strdup(name);
    }
 }
-void gtk_admin_open_control(const char *name) {
+void gtk_admin_open_control_on_server(const char *profile, const char *name) {
+   if (!profile || !*profile) return;
+   gboolean server_changed=g_strcmp0(control_server_profile,profile)!=0;
+   g_free(control_server_profile);
+   control_server_profile=g_strdup(profile);
+   if (server_changed && control_combo) {
+      gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
+      admin_control_rows_clear();
+   }
    if (!admin_view || !main_notebook) return;
    int outer=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),admin_view);
    if (outer>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),outer);
@@ -148,8 +157,11 @@ void gtk_admin_open_control(const char *name) {
    if (name && *name) {
       admin_control_choose(name);
       /* Explicitly refresh, since the owner may have changed servers. */
-      if (control_pending_name) admin_control_request(NULL,-1);
+      if (server_changed || control_pending_name) admin_control_request(NULL,-1);
    }
+}
+void gtk_admin_open_control(const char *name) {
+   gtk_admin_open_control_on_server(rrclient_selected_server(),name);
 }
 static void admin_control_row_clicked(GtkButton *button,gpointer user) {
    (void)user;
@@ -187,7 +199,7 @@ static void admin_control_row_add(dict *data) {
 }
 
 static bool admin_control_request(const char *name, int value) {
-   const char *profile = rrclient_selected_server();
+   const char *profile = control_server_profile ? control_server_profile : rrclient_selected_server();
    rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
    if (!connection || !connection->is_ws || !connection->authenticated) return false;
    dict *d = dict_new();
