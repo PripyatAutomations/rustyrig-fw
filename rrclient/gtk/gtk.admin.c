@@ -690,6 +690,41 @@ static void admin_session_kick(GtkButton *button, gpointer data) {
    gtk_widget_destroy(dialog);
    g_free(id); g_free(username); g_free(kickable);
 }
+/* A grant subject is selected from the linked directory, not typed as a UUID. */
+static GtkWidget *grant_subjects;
+static char *grant_profile;
+static void admin_add_privilege(GtkButton *button,gpointer user) {
+   (void)button;
+   admin_table_t *table=user;
+   rrconn_t *connection=rrclient_connection_find(table->profile);
+   if (!connection || !connection->authenticated) {
+      gtk_label_set_text(GTK_LABEL(table->status),"Connect to the destination server first");
+      return;
+   }
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Add Privilege",GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,"Cancel",GTK_RESPONSE_CANCEL,
+      "Grant",GTK_RESPONSE_OK,NULL);
+   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("User (from connected sites)"),FALSE,FALSE,6);
+   grant_subjects=gtk_combo_box_text_new();
+   gtk_box_pack_start(GTK_BOX(area),grant_subjects,FALSE,FALSE,4);
+   GtkWidget *description=gtk_label_new("Full Rig Access — all rigs on this server, including future rigs");
+   gtk_label_set_line_wrap(GTK_LABEL(description),TRUE);
+   gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,6);
+   g_free(grant_profile); grant_profile=g_strdup(table->profile);
+   admin_command(table,"admin","subjects",NULL);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
+      const char *subject=gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
+      if (subject && *subject) {
+         if (admin_command(table,"rig-access","allow",subject))
+            gtk_label_set_text(GTK_LABEL(table->status),"Full Rig Access grant submitted");
+      } else gtk_label_set_text(GTK_LABEL(table->status),"Select an account before granting access");
+   }
+   grant_subjects=NULL;
+   g_clear_pointer(&grant_profile,g_free);
+   gtk_widget_destroy(dialog);
+}
 static void admin_older(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -929,6 +964,21 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    const char *name = dict_get(reply, "talk.target", "");
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
+   if (row && !strcmp(name,"subjects") && grant_subjects && grant_profile &&
+       !g_strcmp0(grant_profile,rrclient_connection_name(connection))) {
+      if (!strcmp(action,"begin")) gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(grant_subjects));
+      else if (!strcmp(action,"row")) {
+         const char *username=dict_get(row,"user","");
+         const char *host=dict_get(row,"host","");
+         const char *label=dict_get(row,"label",username);
+         if (*username) {
+            char *id=*host ? g_strdup_printf("%s@%s",username,host) : g_strdup(username);
+            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(grant_subjects),id,label);
+            g_free(id);
+         }
+      }
+      dict_free(row); dict_free(reply); return;
+   }
    const char *source_profile=rrclient_connection_name(connection);
    const char *view_host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
    gboolean all_nodes=view_host && !strcmp(view_host,"all");
@@ -1087,6 +1137,11 @@ GtkWidget *init_admin_tab(void) {
          g_signal_connect(kick_all, "clicked", G_CALLBACK(admin_session_kick), table);
          gtk_box_pack_start(GTK_BOX(buttons), kick, FALSE, FALSE, 0);
          gtk_box_pack_start(GTK_BOX(buttons), kick_all, FALSE, FALSE, 0);
+      }
+      if (!strcmp(table->name,"assignments")) {
+         GtkWidget *add=gtk_button_new_with_label("Add Privilege…");
+         g_signal_connect(add,"clicked",G_CALLBACK(admin_add_privilege),table);
+         gtk_box_pack_start(GTK_BOX(buttons),add,FALSE,FALSE,0);
       }
       if (i == 0) {
          GtkWidget *create = gtk_button_new_with_label("Create User");
