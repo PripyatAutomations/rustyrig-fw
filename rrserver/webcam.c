@@ -17,6 +17,7 @@
 #include <time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <rrserver/media.h>
 
 // When webcam.enable is set in the config, we spawn a fwdsp subprocess (which
 // runs the gstreamer v4l2 capture pipeline; gstreamer never links into us) and
@@ -184,6 +185,12 @@ void webcam_init(void) {
    if (!webcam_chan) {
       Log(LOG_CRIT, "webcam", "Failed to provision video media channel");
 
+      return;
+   }
+   if (!rrserver_media_uuid_assign_node(webcam_chan, "station.webcam.rx")) {
+      Log(LOG_CRIT, "webcam", "Unable to assign stable webcam stream UUID");
+      media_chan_remove(webcam_chan->uuid);
+      webcam_chan = NULL;
       return;
    }
    snprintf(webcam_chan->name, sizeof(webcam_chan->name), "station.webcam.rx");
