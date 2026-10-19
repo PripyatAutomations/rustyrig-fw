@@ -1086,6 +1086,10 @@ static gboolean room_vfo_float_closed(GtkWidget *window, GdkEvent *event, gpoint
    room_vfo_dock_to(room_vfo_bottom);
    return TRUE;
 }
+static void room_vfo_redock_clicked(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   room_vfo_dock_to(room_vfo_bottom);
+}
 static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
    if (room_vfo_window && gtk_widget_get_visible(room_vfo_window)) {
@@ -1111,7 +1115,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       GtkWidget *redock = gtk_button_new_with_label("Dock VFO in room");
       gtk_widget_set_tooltip_text(redock, "Return this VFO panel to its room at the preferred edge");
       gtk_widget_set_halign(redock, GTK_ALIGN_END);
-      g_signal_connect_swapped(redock, "clicked", G_CALLBACK(room_vfo_float_closed), room_vfo_window);
+      g_signal_connect(redock, "clicked", G_CALLBACK(room_vfo_redock_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(float_box), redock, FALSE, FALSE, 0);
    }
    room_vfo_move(float_box);
