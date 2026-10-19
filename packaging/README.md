@@ -1,12 +1,6 @@
 # Distribution packaging
 
-`packaging/PKGBUILD` is a starter Arch Linux split package. Build it with
-`makepkg -f`. Run `tools/bump-version.sh --version v0.1.0` for a semantic
-release (or omit `--version` while using the legacy date sequence); the script
-updates `.version`, the root `CHANGELOG`, `packaging/PKGBUILD`, and
-`packaging/rustyrig.spec` together. `debian/changelog` is a symlink to the
-root changelog, so Debian consumes that same release history. Package metadata
-stores the normalized version without the optional leading `v`.
+`.version` is RustyRig's canonical version. Run `tools/bump-version.sh --version v1.0.0-rc1` (or omit `--version` for the legacy date sequence) to update source and package metadata together. RC suffixes are mapped for each packaging format: Debian `~rcN`, Arch `_rcN`, RPM release `0.rcN`. The script prepends a new Debian changelog entry without overwriting historical entries. `debian/changelog` points to the root `CHANGELOG`. Review the generated release note before publishing.\n\n`packaging/PKGBUILD` is a starter Arch Linux split package; build it with `makepkg -f`.
 
 `packaging/rustyrig.spec` is a starter Fedora/RHEL RPM spec. It is intentionally
 not distribution-repo complete and has not been tested on an RPM distribution,

@@ -11,7 +11,7 @@ Usage: tools/bump-version.sh [--version VERSION] [--dry-run]
 
 Advance the RustyRig package version and keep the package metadata in sync.
 VERSION may be a legacy YYYYMMDD.NN value or a semantic version such as
-0.1.0 (an optional leading 'v' is accepted). Without --version, a legacy
+1.0.0 or 1.0.0-rc1 (an optional leading 'v' is accepted). Without --version, a legacy
 date sequence is incremented, or the semantic patch component is incremented.
 EOF
 }
@@ -48,7 +48,7 @@ normalize_version() {
    version=${version#v}
    if [[ "$version" =~ ^[0-9]{8}\.[0-9]+$ ]]; then
       printf '%s' "$version"
-   elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+   elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$ ]]; then
       printf '%s' "$version"
    else
       return 1
@@ -57,7 +57,7 @@ normalize_version() {
 
 if [[ -n "$requested_version" ]]; then
    new_version=$(normalize_version "$requested_version") || {
-      echo "invalid version: $requested_version (expected YYYYMMDD.NN or MAJOR.MINOR.PATCH)" >&2
+      echo "invalid version: $requested_version (expected YYYYMMDD.NN, MAJOR.MINOR.PATCH, or MAJOR.MINOR.PATCH-rcN)" >&2
       exit 2
    }
 else
@@ -71,6 +71,8 @@ else
          next_sequence=1
       fi
       new_version=$(printf '%s.%02d' "$version_date" "$next_sequence")
+   elif [[ "$old_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
+      new_version="${BASH_REMATCH[1]}-rc$((10#${BASH_REMATCH[2]} + 1))"
    elif [[ "$old_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
       major=${BASH_REMATCH[1]}
       minor=${BASH_REMATCH[2]}
@@ -82,6 +84,21 @@ else
    fi
 fi
 
+# .version uses a human-readable canonical version. Convert the RC suffix
+# for each distribution's ordering and naming rules.
+debian_version="$new_version"
+arch_version="$new_version"
+rpm_version="$new_version"
+rpm_release='1%{?dist}'
+if [[ "$new_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
+   base="${BASH_REMATCH[1]}"
+   number="${BASH_REMATCH[2]}"
+   debian_version="${base}~rc${number}"
+   arch_version="${base}_rc${number}"
+   rpm_version="$base"
+   rpm_release="0.rc${number}%{?dist}"
+fi
+
 echo "VERSION: ${old_version:-unset} -> $new_version"
 
 if $dry_run; then
@@ -89,38 +106,40 @@ if $dry_run; then
 fi
 
 if [[ -f CHANGELOG ]]; then
-   # Keep the newest Debian entry complete, including when its trailer is missing.
    changelog_date=$(LC_ALL=C date -R)
-   python3 - "$new_version" "$changelog_date" <<'PY'
+   python3 - "$debian_version" "$changelog_date" <<'PY'
 import pathlib
 import re
 import sys
 
-path = pathlib.Path('CHANGELOG')
-text = path.read_text()
-entries = re.split(r'(?=^rustyrig-fw \()', text, flags=re.MULTILINE)
-entries = [entry for entry in entries if entry]
-if not entries or not entries[0].startswith('rustyrig-fw ('):
-    raise SystemExit('CHANGELOG must start with a Debian package entry')
-trailer_pattern = r'^ -- (.+?)  [^\n]+$'
-author = re.search(trailer_pattern, text, flags=re.MULTILINE)
-identity = author.group(1) if author else 'Pripyat Automations <dangerousdevices@istabpeople.com>'
-header, body = entries[0].split('\n', 1)
-header = re.sub(r'^rustyrig-fw \([^)]*\)', f'rustyrig-fw ({sys.argv[1]})', header)
-body = re.sub(trailer_pattern, '', body, flags=re.MULTILINE).strip('\n')
-entries[0] = f'{header}\n\n{body}\n\n -- {identity}  {sys.argv[2]}\n\n'
-path.write_text(''.join(entries))
+path = pathlib.Path("CHANGELOG")
+history = path.read_text()
+match = re.match(r"^rustyrig-fw \(([^)]+)\)", history)
+if not match:
+    raise SystemExit("CHANGELOG must start with a Debian package entry")
+version = sys.argv[1]
+if match.group(1) != version:
+    # Keep every existing release entry intact, including its timestamp.
+    author = re.search(r"^ -- (.+?)  [^\n]+$", history, flags=re.MULTILINE)
+    identity = author.group(1) if author else "Pripyat Automations <dangerousdevices@istabpeople.com>"
+    entry = (
+        f"rustyrig-fw ({version}) testing; urgency=medium\n\n"
+        f"  * Prepare RustyRig {version} release.\n\n"
+        f" -- {identity}  {sys.argv[2]}\n\n"
+    )
+    path.write_text(entry + history)
 PY
 fi
 
 printf '%s\n' "$new_version" > .version
 
 if [[ -f packaging/PKGBUILD ]]; then
-   sed -i -E "s/^pkgver=.*/pkgver=${new_version}/" packaging/PKGBUILD
+   sed -i -E "s/^pkgver=.*/pkgver=${arch_version}/" packaging/PKGBUILD
 fi
 
 if [[ -f packaging/rustyrig.spec ]]; then
-   sed -i -E "s/^Version:[[:space:]].*/Version: ${new_version}/" packaging/rustyrig.spec
+   sed -i -E "s/^Version:[[:space:]].*/Version: ${rpm_version}/" packaging/rustyrig.spec
+   sed -i -E "s/^Release:[[:space:]].*/Release: ${rpm_release}/" packaging/rustyrig.spec
 fi
 
-echo "Updated .version, CHANGELOG, Arch, and RPM package metadata."
+echo "Updated .version ($new_version), Debian ($debian_version), Arch ($arch_version), RPM ($rpm_version-$rpm_release)."

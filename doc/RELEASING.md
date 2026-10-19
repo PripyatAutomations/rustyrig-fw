@@ -20,11 +20,17 @@ head -n 1 CHANGELOG
 cat .version
 ```
 
-The existing `tools/bump-version.sh` is not yet suitable for preparing RC packages unattended: it rewrites the latest changelog entry, and its semantic prerelease format does not account for Debian package version ordering. Preserve old changelog entries when preparing release metadata.
+Use `tools/bump-version.sh` to update **all formats from `.version`**. For example:
 
-For the desired label **v1.0-rc1**, Debian should use a package version such as `1.0.0~rc1` (assuming a three-component internal version). This sorts before `1.0.0`, allowing `apt` to upgrade correctly. `1.0.0-rc1` sorts after `1.0.0` in Debian, so it is not an interchangeable package label. The visible release title/tag can remain `v1.0-rc1`; record the mapping explicitly.
+```sh
+tools/bump-version.sh --version v1.0.0-rc1 --dry-run
+tools/bump-version.sh --version v1.0.0-rc1
+bash tools/release-preflight.sh
+```
 
-Before publishing any RC, confirm the exact package-version scheme used by the build, all dependent packages, and the eventual stable release. Do not mix libraries and modules built from different RC revisions.
+The script writes the canonical `1.0.0-rc1` into `.version`, prepends a Debian changelog entry with `1.0.0~rc1`, writes `1.0.0_rc1` into Arch `pkgver`, and uses RPM `Version: 1.0.0` with `Release: 0.rc1`. Existing changelog history remains intact. The user-facing Git tag can use `v1.0-rc1` if desired; the canonical package version is three-part.
+
+Do not manually change `debian/changelog`, `packaging/PKGBUILD`, or the RPM spec to a different version. The preflight warns about mismatches. Review the generated changelog text and fill in the actual changes before release.
 
 ## 2. Record the source
 
