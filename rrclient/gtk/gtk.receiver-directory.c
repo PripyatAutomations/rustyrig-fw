@@ -248,7 +248,7 @@ static void directory_download_finished(void) {
    gtk_widget_destroy(download_dialog);
    download_dialog = NULL;
    const char *reason = receiver_directory_last_error();
-   if (!reason || !*reason || !directory_window) return;
+   if (!reason || !*reason || !directory_page) return;
    const char *source = receiver_directory_source_url();
    GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(main_window),
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
