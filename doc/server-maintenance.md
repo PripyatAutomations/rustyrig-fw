@@ -20,7 +20,7 @@ The command performs the requested action and **exits without starting rrserver*
 | `--reset-adminpw` | Prompts twice for the new administrator password with terminal echo disabled, then updates the account directly. Requires an interactive terminal; no random bootstrap credential is generated. |
 | `--reset-uuids` | Generates new room UUIDs and clears stored server, configured-rig, and VFO UUID mappings; does not remove rooms, users, chat history, or room topics. Room-to-VFO bindings are cleared because they reference the old VFO UUIDs. |
 
-The `--reset-db`, `--reset-rooms`, `--reset-logs`, `--reset-audit`, `--reset-adminpw` and `--reset-uuids` actions operate on `path.db.master` from the effective rrserver configuration. Do not guess which database is active when multiple instances are installed.
+Run `rrserver --help` (or `rrserver -h`) to see the full descriptions. `--reset-adminpw` asks for the new password twice **after** the exact maintenance confirmation; both password entries are hidden and must match. Passwords must be 8–256 characters. It re-enables the admin account with that password and does not write a `.bootstrap-password` file. For example:\n\n```sh\nrrserver -f /etc/rustyrig/rrserver.cfg --reset-adminpw\n```\n\n`--reset-db` on a nonexistent database is a no-op and reports success; after removing an existing database, the next normal startup provisions a new one.\n\nThe `--reset-db`, `--reset-rooms`, `--reset-logs`, `--reset-audit`, `--reset-adminpw` and `--reset-uuids` actions operate on `path.db.master` from the effective rrserver configuration. Do not guess which database is active when multiple instances are installed.
 
 ## Identity rules for v1
 
@@ -34,4 +34,4 @@ Transient connections and temporary SDR bridge instances use fresh UUIDs and are
 
 ## Troubleshooting
 
-A maintenance command fails without changes when it cannot open its configured target, another v1 server holds the database lock, no terminal is available for confirmation, or the exact confirmation is not entered. For admin password reset, check whether a previous bootstrap password file already exists. If a reset fails after writing has started, inspect the reported error and restore from backup rather than repeating it blindly.
+A maintenance command fails without changes when it cannot open its configured target, another v1 server holds the database lock, no terminal is available for confirmation, or the exact confirmation is not entered. For admin password reset, make sure `/dev/tty` is available, password and confirmation match, and the admin account exists. An existing bootstrap-password file does not block this reset. If a reset fails after writing has started, inspect the reported error and restore from backup rather than repeating it blindly.
