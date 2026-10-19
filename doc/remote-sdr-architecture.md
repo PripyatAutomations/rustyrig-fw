@@ -1,89 +1,52 @@
-# Remote SDR nodes, resource arbitration, and distributed VFOs
+# Network-connected SDR nodes
 
-Status: architecture proposal; not an implemented protocol contract.
+**Status: design proposal — not yet an implemented feature.**
 
-## Goals
+RustyRig should eventually let an SDR daemon run next to its hardware, connect outward to an rrserver link port, and offer radio resources to operators anywhere on the network. The same model must support RX-only devices and TX-capable SDRs.
 
-An SDR node daemon (working name `rrsdrd`) runs near one or more RF devices and initiates an authenticated outbound connection to an `rrserver` link endpoint. The node offers receive and, where supported, transmit resources. The server coordinates users, VFOs, slices, room attachment, permissions, subscriptions and contention among multiple devices/nodes. This design must support receivers, transceivers and independent transmitters without assuming all hardware or slices are RX-only.
+## The idea
 
-Wideband IQ normally stays on the SDR node. The node performs RF tuning, channelization/DDC, filtering and modulation/demodulation as appropriate. rrserver distributes subscribed narrowband audio or other negotiated payloads to clients without duplicating DSP or encoding for listeners of the same slice. Spectrum subscriptions use separately rate-limited/decimated data. Future server-to-server mesh routing should build on the same resource identities without requiring clients to understand physical topology.
+- **SDR node (`rrsdrd`):** Talks to one or more physical SDRs, advertises hardware capabilities, and handles high-rate IQ and DSP locally.
+- **rrserver:** Assigns slices, coordinates operators and permissions, decides when hardware may retune, and distributes media to subscribers.
+- **rrclient:** Presents VFO controls and subscribes to audio or spectrum streams. Each VFO has a stable UUID; a room does not have to represent a physical radio.
 
-## Identities and relationships
+Several listeners should share one demodulated slice where possible. Clients normally receive narrowband audio, **not** a copy of the full IQ stream. Each node may offer several independent devices or RF frontends.
 
-- **Node:** authenticated daemon instance, with stable ID, software version and heartbeat.
-- **Device:** physical SDR with stable ID, driver, clocks and capabilities. A node can expose several devices.
-- **RF frontend:** independently tuneable hardware channel/LO, antenna path and sample stream; some devices share clocks, tuning, power budgets or RF paths.
-- **RF capture/transport:** center frequency, sample rate, actual usable passband and direction; potentially shared among slices.
-- **Slice:** server-assigned UUID referring to a virtual narrowband stream within the usable RF bandwidth. Each slice declares RX and/or TX capabilities, requested frequency, occupied bandwidth, mode, DSP settings and hardware dependencies.
-- **VFO:** logical user-facing tuning/control identity associated with a slice or rig, with a stable UUID and room bindings. Do not generate a fake `-rigN` room for every slice.
-- **Subscription:** client or downstream server consuming audio, spectrum, telemetry or other permitted flows. Fan-out does not imply control rights.
-- **Lease:** revocable authorization for changes to center frequency, slice tuning or transmission, with owner, expiry, priority, and fencing generation.
+## Sharing spectrum without interrupting users
 
-Separating these objects is essential: several VFOs can share one RF capture; one user can listen to multiple VFOs; multiple listeners can subscribe to one slice; transmitting requires its own exclusive or coordinated grants.
+A physical receiver captures a limited usable RF bandwidth around its center frequency. Several logical slices can coexist inside it. For example, a device with sufficient usable bandwidth might place requests for 5.1 and 5.3 MHz around a 5.2 MHz center.
 
-## Receiver placement and cooperative retuning
+The node reports which placements are physically possible, including sampling limits, filter guard bands, and shared hardware constraints. rrserver decides whether a proposed change is allowed given active users and their permissions.
 
-The coordinator maintains active slice requirements and device constraints. A proposed center-frequency change is permitted only if every protected active slice still fits within the actual usable passband (including filter roll-off/guard bands), the frontend's tuning and sample-rate limits, and any concurrent TX constraints. For example, compatible requests near 5.1 and 5.3 MHz might be covered by a 5.2 MHz capture if the device offers enough *usable* instantaneous bandwidth. This is conditional on measured device capabilities; do not assume 1 MHz nominal sampling offers 1 MHz interference-free coverage.
+A center-frequency move should be evaluated before applying it. Existing protected slices must remain covered. Otherwise rrserver can select another frontend, request permission to preempt, or explain why the request cannot be satisfied. Failed changes must not silently disconnect listeners.
 
-Plan a change first (`evaluate`): node returns feasible center/sample-rate candidates, affected slices, discontinuity and resource cost. Server arbitrates priorities and obtains/renews leases; then issues `prepare`, `commit` and acknowledges new resource generations. On failure roll back or explicitly notify affected subscribers. A new request must not silently retune existing users out of coverage. If no feasible placement exists, offer another frontend/node, a preemption request under policy, or an actionable denial.
+## RX and TX are capabilities, not different architectures
 
-The node is authoritative about *physical feasibility* and actual current hardware state. rrserver is authoritative about *policy, ownership and allocation*. Both sides must reconcile state after reconnect and reject stale generations.
+Devices and slices advertise their actual RX/TX capabilities: receive-only, transmit-only, half-duplex or full-duplex. A TX-capable SDR still needs explicit authorization to transmit.
 
-## Transmit support and safety
+The node must independently enforce hardware limits and interlocks, approved frequencies and power, watchdogs, maximum key time, and **unkey on disconnect or expired authorization**. rrserver manages short-lived, exclusive TX leases and audits transmission. UI controls and room membership alone are not permission to transmit. Shared LO, antenna and duplex constraints must be respected during arbitration.
 
-Direction is a property of each device/frontend/slice/capability, not a global "SDR means RX" assumption. A node may report RX-only, TX-only or full-duplex/half-duplex operation; hardware-specific constraints include LO coupling, duplex isolation, antenna routing, power limits, frequency limits, PA readiness, external interlocks and shared frontend occupancy.
+## Resource and protocol model
 
-Transmit commands require distinct explicit permission and a short-lived exclusive TX lease, bound to an authenticated user/server, device, VFO, center/slice placement and fencing generation. The node **must** independently enforce frequency/range limits, regulatory/operator configuration, maximum power, duty-cycle/time-out limits, device interlocks and an immediate unkey on lease expiry, disconnect, watchdog failure or local fault. Do not trust the UI's hidden PTT control as an authorization check. Reject concurrent incompatible TX and RX placements and protect existing subscriptions according to policy. Support hardware PTT/abort and auditable start/end/rejection events. RF output must never continue merely because an rrserver or network link disappeared.
+Keep distinct identities for the node, physical device, independently tunable RF frontend, shared wideband capture, logical slice, VFO, subscriber and control lease.
 
-Retuning and TX authorization are separate operations; obtaining RX access never implies TX permission. Modulator input, TX stream QoS and underrun handling should be specified separately from receive audio. A device may offer RX and TX slices under the same logical room while each VFO advertises its actual controls and constraints.
+The link protocol will need authenticated node registration, device inventory, capability changes, slice requests, feasibility checks, center-frequency prepare/commit/abort, stream subscriptions, heartbeats, and resource/lease recovery after reconnect. Use versioned messages and generation numbers so stale requests cannot change hardware state.
 
-## Protocol and transport
+Transport remains replaceable through librrprotocol; link control, audio and optional decimated waterfall/spectrum updates have different bandwidth and reliability needs. Do not tie the architecture to one transport.
 
-Use an authenticated outbound node-to-server session on a designated link endpoint (NAT-friendly). Build an extensible versioned control plane, not ad-hoc room messages:
+## Suggested implementation order
 
-- `node.hello` / `node.capabilities` / `device.inventory` / `device.state`
-- `resource.offer` / `slice.evaluate` / `slice.allocate` / `slice.update` / `slice.release`
-- `frontend.prepare` / `frontend.commit` / `frontend.abort`
-- `lease.grant` / `lease.renew` / `lease.revoke`
-- `tx.arm` / `tx.key` / `tx.unkey` / `tx.abort` (requiring node-side enforcement)
-- `stream.subscribe` / `stream.unsubscribe` / `stream.format`
-- `telemetry` / `health` / `fault` / `heartbeat`
+1. Define device, frontend, slice, VFO and lease data types, and document capabilities.
+2. Implement authenticated node registration, inventory, health, and resource discovery.
+3. Add shared RX capture, feasible slice placement, cooperative retuning, and audio fan-out.
+4. Extend multiple-device scheduling, spectrum subscriptions, limits and diagnostics.
+5. Add TX operation with explicit leases, node-side failsafes, interlocks and audit logs.
+6. Extend resource discovery across rrserver links/mesh later, without changing slice identities.
 
-Illustrative names only; settle message schemas, authorization, ordering, replay protections, timeouts, reconnection reconciliation, idempotency and capability negotiation before coding. Reuse librrprotocol transport abstraction. Control-plane ordering and durable identity must not depend on a chosen audio transport. Support constrained targets and fallback to WebSocket/TCP where QUIC is unavailable. Never send raw wideband IQ to each rrclient by default.
+The underlying data model should permit TX from day one even if receive functionality is implemented first.
 
-## Media distribution
+## Acceptance tests
 
-Keep DDC, filtering and channelization near hardware. Prefer shared demodulation and one encoded AF stream per compatible slice/codec, replicated to subscribers via rrserver's media routing. Negotiate audio format/sample rate/codecs, distinguish receiver AF from transmit source AF, and handle per-subscriber routing/mixing/stereo independently of RF allocation. Spectrum/waterfall requires a separate scalable subscription and rate budget. Monitor CPU, bandwidth, DSP resource pools, slice count and latency at node and server.
+Two compatible requests should share one capture; incompatible requests must not disrupt existing listeners. Several subscribers should reuse the same DSP/encoder output. Loss of a daemon, link or authorization must never leave a transmitter keyed. Restart/reconnect must reconcile real hardware state. Temporary slices must attach to their requested rooms without generating ghost `-rigN` rooms.
 
-## Client and room model
-
-- Room is a collaboration/control and media attachment context, not a physical rig address.
-- VFO widgets bind to UUIDs; can follow room selection or pin independently.
-- RX-only VFOs omit PTT/TX-only controls; TX-capable VFOs show them only when supported *and* authorized.
-- Server checks the controlling room/lease for each command. Room membership alone grants neither retune nor transmit rights.
-- Support multiple RX slices per room, multiple simultaneous room listeners, and independent audio routes.
-- For ordinary configured rigs with no explicit room, preserve legacy generated `-rigN` naming. Named rooms are explicit, not a temporary alias to `-rigN`.
-
-## Incremental implementation
-
-1. Define node/device/frontend/slice/lease models and capability records in librrprotocol; add diagnostics and strict version negotiation.
-2. Implement outbound node registration, authentication, inventory, heartbeat, disconnect recovery, and server resource tables without controlling RF yet.
-3. Implement RX-only allocation, shared IQ capture, center-frequency feasibility evaluation and non-disruptive recenter transactions. Attach slice UUIDs directly to selected rooms and enable AF fan-out.
-4. Implement multiple frontends/devices per node, quotas, scheduling, contention feedback, shared audio encoding, and spectrum subscriptions.
-5. Add TX-capable resources with node-enforced interlocks, explicit transmit leases, failsafe unkey, authorization, telemetry and audit tests. The object model and protocol must allow TX from the outset even if RX functionality ships first.
-6. Extend discovery, leases and media routing across rrserver links/mesh without changing VFO UUIDs or violating single-owner hardware arbitration.
-
-## Test cases
-
-- Two compatible RX requests share one centered capture without interrupting existing audio.
-- An incompatible third request is denied or placed on another device without silent retuning.
-- A second subscriber reuses a slice and its encoder rather than duplicating hardware work.
-- Stale lease/request generations, dropped links and daemon crashes cannot retune or sustain TX.
-- One node advertises multiple SDR devices with distinct constraints and permissions.
-- Mixed RX/TX operation obeys duplex, LO, antenna, power and hardware interlock constraints.
-- A user-selected SDR room never causes a duplicate `-rigN` room.
-- Capability downgrade, reconnect and server takeover reconcile or revoke resources safely.
-
-## Non-goals initially
-
-Full inter-server mesh routing, transparent wideband IQ forwarding, automatic permission to transmit, and unrestricted preemption of existing users.
+**Not part of the initial implementation:** transparent wideband IQ forwarding to every client, automatic TX authority, or general inter-server mesh resource routing.
