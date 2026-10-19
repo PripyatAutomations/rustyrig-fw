@@ -1013,6 +1013,14 @@ GtkWidget *init_admin_tab(void) {
    {
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
       GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+      GtkWidget *filter_header=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+      control_filter=gtk_search_entry_new();
+      gtk_entry_set_width_chars(GTK_ENTRY(control_filter),24);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(control_filter),"Filter controls… (=key, ^prefix)");
+      gtk_box_pack_start(GTK_BOX(filter_header),gtk_label_new("Filter:"),FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(filter_header),control_filter,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(box),filter_header,FALSE,FALSE,0);
+      g_signal_connect(control_filter,"changed",G_CALLBACK(admin_control_filter_changed),NULL);
       control_status = gtk_label_new("Select a connected server and Refresh.");
       control_combo = gtk_combo_box_text_new();
       control_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,0,100,1);
@@ -1026,10 +1034,10 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
       control_rows_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
        control_row_buttons=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
-       GtkWidget *list_scroll=gtk_scrolled_window_new(NULL,NULL);
-       gtk_widget_set_vexpand(list_scroll,TRUE);
-       gtk_container_add(GTK_CONTAINER(list_scroll),control_rows_box);
-       gtk_box_pack_start(GTK_BOX(box),list_scroll,TRUE,TRUE,0);
+       control_scroll=gtk_scrolled_window_new(NULL,NULL);
+       gtk_widget_set_vexpand(control_scroll,TRUE);
+       gtk_container_add(GTK_CONTAINER(control_scroll),control_rows_box);
+       gtk_box_pack_start(GTK_BOX(box),control_scroll,TRUE,TRUE,0);
        gtk_box_pack_start(GTK_BOX(box),control_combo,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_scale,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),buttons,FALSE,FALSE,0);
