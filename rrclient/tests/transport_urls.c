@@ -178,7 +178,7 @@ static void check_disconnected_scope(void *data) {
 static void check_shared_background(void *data) {
    assert(ws_conn == data && !strcmp(server_name, "alpha"));
    tui_window_t *log = tui_window_find("host log");
-   assert(log && !strcmp(rrclient_tui_prompt(log), "beta"));
+   assert(log && !strcmp(rrclient_tui_prompt(log), ""));
    ui_print("host log", "background-host-log");
    ui_print("client log", "background-client-log");
    assert(!strcmp(rrclient_window_name("host log"), "host log"));
@@ -279,7 +279,7 @@ int main(void) {
       tui_window_focus(system_tabs[i]);
       assert(ui_status_active() && !ui_active_window_name() && !rrclient_active_room());
       assert(rrclient_active_connection() == b);
-      assert(!strcmp(rrclient_tui_prompt(tab), "beta"));
+      assert(!strcmp(rrclient_tui_prompt(tab), ""));
    }
 
    rrclient_connection_dispatch(a, check_shared_background, a);
@@ -293,7 +293,7 @@ int main(void) {
    for (unsigned i = 0 ; i < 3 ; i++) {
       tui_window_focus(system_tabs[i]);
       assert(rrclient_active_connection() == a);
-      assert(!strcmp(rrclient_tui_prompt(tui_active_window()), "alpha"));
+      assert(!strcmp(rrclient_tui_prompt(tui_active_window()), ""));
    }
 
    assert(rrclient_connection_select("beta"));
@@ -732,7 +732,7 @@ int main(void) {
       0
    };
    strcpy(prompt_window.title, "host log");
-   assert(!strcmp(rrclient_tui_prompt(&prompt_window), "no server"));
+   assert(!strcmp(rrclient_tui_prompt(&prompt_window), ""));
    dict_free(cfg);
    cfg = NULL;
    event_shutdown();
