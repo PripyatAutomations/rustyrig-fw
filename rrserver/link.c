@@ -329,22 +329,27 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
 
-   /* Summarize only adjacent established next hops, including the number
-    * of remote servers reachable through each. Inventory has the full tree. */
+   /* Group the discovered remote nodes by their first hop. Do not enumerate
+    * link sessions here: incoming sessions can have a local-site peer label,
+    * and the local root is not a next hop. Counts include the hop itself. */
    GString *routes = g_string_new(NULL);
-   for (struct link_session *hop = links.sessions; hop; hop = hop->next) {
-      if (!hop->established || !hop->peer) continue;
-      size_t behind = 0;
-      rr_link_node_t node;
-      for (size_t i = 0; rr_link_tree_node(links.tree, i, &node); ++i) {
-         const char *route = rr_link_tree_route(links.tree, node.server);
-         if (route && !strcmp(route, hop->node)) behind++;
+   rr_link_node_t hop;
+   size_t total = rr_link_tree_count(links.tree);
+   for (size_t i = 1; rr_link_tree_node(links.tree, i, &hop); ++i) {
+      const char *hop_route = rr_link_tree_route(links.tree, hop.server);
+      if (!hop_route || strcmp(hop_route, hop.server)) continue;
+      size_t reachable = 0;
+      rr_link_node_t remote;
+      for (size_t j = 1; rr_link_tree_node(links.tree, j, &remote); ++j) {
+         const char *route = rr_link_tree_route(links.tree, remote.server);
+         if (route && !strcmp(route, hop.server)) ++reachable;
       }
       if (routes->len) g_string_append(routes, ", ");
-      g_string_append_printf(routes, "%s (%zu behind)", hop->peer->site, behind);
+      g_string_append_printf(routes, "%s (%zu %s)", hop.site,
+         reachable, reachable == 1 ? "server" : "servers");
    }
-   Log(LOG_INFO, "link", "Linked site %s (%s), %zu servers total; next hops: %s",
-      session->peer->site, session->node, rr_link_tree_count(links.tree),
+   Log(LOG_INFO, "link", "Linked site %s (%s), %zu servers total (%zu remote); next hops: %s",
+      session->peer->site, session->node, total, total ? total - 1 : 0,
       routes->len ? routes->str : "none");
    g_string_free(routes, TRUE);
    /* Publish this component in parent-before-child order. */
