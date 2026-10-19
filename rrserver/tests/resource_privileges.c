@@ -23,20 +23,19 @@ int main(void) {
       "CREATE TABLE privilege_set_entries(set_id INTEGER,privilege TEXT,effect TEXT);"
       "CREATE TABLE privilege_set_assignments(set_id INTEGER,subject_user TEXT,subject_host TEXT,resource_kind TEXT,resource_uuid TEXT,expires_at INTEGER);");
    const char *rig = "12345678-1234-4234-8234-1234567890ab";
-   DENY("alice","camp","rig.use",100);
    assert(db_resource_access(db,"alice","camp","rig",rig,"rig.use",100) == RR_RESOURCE_UNSET);
    run(db,"INSERT INTO privilege_sets VALUES(1,'hf-listen');"
       "INSERT INTO privilege_set_entries VALUES(1,'rig.use','allow');"
       "INSERT INTO privilege_set_assignments VALUES(1,'alice','camp','rig','12345678-1234-4234-8234-1234567890ab',NULL);");
    CHECK("alice","camp","rig.use",100);
-   DENY("alice","wrong-site","rig.use",100);
-   DENY("mallory","camp","rig.use",100);
-   DENY("alice","camp","tx",100);
+   assert(db_resource_access(db,"alice","wrong-site","rig",rig,"rig.use",100)==RR_RESOURCE_UNSET);
+   assert(db_resource_access(db,"mallory","camp","rig",rig,"rig.use",100)==RR_RESOURCE_UNSET);
+   assert(db_resource_access(db,"alice","camp","rig",rig,"tx",100)==RR_RESOURCE_UNSET);
    run(db,"INSERT INTO resource_privileges VALUES('alice','camp','rig','12345678-1234-4234-8234-1234567890ab','rig.use','deny',NULL);");
    DENY("alice","camp","rig.use",100);
    run(db,"DELETE FROM resource_privileges;"
       "UPDATE privilege_set_assignments SET expires_at=100;");
-   DENY("alice","camp","rig.use",100);
+   assert(db_resource_access(db,"alice","camp","rig",rig,"rig.use",100)==RR_RESOURCE_UNSET);
    CHECK("alice","camp","rig.use",99);
    run(db,"UPDATE privilege_set_assignments SET expires_at=NULL;"
       "INSERT INTO privilege_set_entries VALUES(1,'tx','deny');");
