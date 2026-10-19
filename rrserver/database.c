@@ -507,6 +507,12 @@ sqlite3 *db_open(const char *path) {
    if (sqlite3_open(path, &db) == SQLITE_OK) {
       /* Readers must not block final usage/audit writes. Bound contention with other writers so the network loop never waits indefinitely. */
       sqlite3_busy_timeout(db, 50);
+      /* Privilege-set assignments and entries use cascading foreign keys. */
+      if (sqlite3_exec(db, "PRAGMA foreign_keys=ON;", NULL, NULL, NULL) != SQLITE_OK) {
+         Log(LOG_CRIT, "db", "Cannot enable foreign-key integrity: %s", sqlite3_errmsg(db));
+         sqlite3_close(db);
+         return NULL;
+      }
       char *journal_error = NULL;
 
       if (sqlite3_exec(db, "PRAGMA journal_mode=WAL;", NULL, NULL, &journal_error) != SQLITE_OK) {
