@@ -2,6 +2,7 @@
  * executable and ensure the same effective configuration is used. */
 #ifndef RR_SERVER_MAINTENANCE_H
 #define RR_SERVER_MAINTENANCE_H
+#include <glib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
