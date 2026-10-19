@@ -133,6 +133,12 @@ static bool local_backlight_read(int *current,int *maximum) {
    fclose(f);
    return ok;
 }
+static bool local_backlight_writable(void) {
+   char path[192],attribute[240];
+   if (!local_backlight_path(path,sizeof(path))) return false;
+   snprintf(attribute,sizeof(attribute),"%s/brightness",path);
+   return access(attribute,W_OK)==0;
+}
 static bool local_backlight_write(int value) {
    int current=0,maximum=0;
    char path[192],attribute[240];
@@ -163,7 +169,7 @@ static void admin_control_local_discover(void) {
       snprintf(str,sizeof(str),"%d",maximum);dict_add(state,"maximum",str);
       snprintf(str,sizeof(str),"%d",current);dict_add(state,"current",str);
       dict_add(state,"step","1");
-      dict_add_bool(state,"writable",access("/sys/class/backlight",R_OK)==0);
+      dict_add_bool(state,"writable",local_backlight_writable());
       admin_control_row_add(state,"local");
       dict_free(state);
       return;
@@ -357,7 +363,7 @@ static void admin_control_row_add(dict *data,const char *profile) {
    const char *label=dict_get(data,"label",name);
    GtkWidget *row=gtk_box_new(GTK_ORIENTATION_VERTICAL,3);
    GtkWidget *heading=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
-   GtkWidget *choose=gtk_button_new_with_label(identity);
+   GtkWidget *choose=gtk_button_new_with_label(!strcmp(profile,"local") ? "This Client/display.brightness" : identity);
    gtk_box_pack_start(GTK_BOX(heading),choose,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),heading,FALSE,FALSE,0);
    GtkWidget *detail=gtk_label_new("");
