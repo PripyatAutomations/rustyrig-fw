@@ -205,6 +205,33 @@ bool rrserver_rig_room_add(rr_server_rig_t *radio) {
    return configure_room(radio, NULL);
 }
 
+#ifdef USE_SQLITE
+/* Old temporary bridges left station-rigN bootstrap rooms in SQLite.
+ * Keep only rooms claimed by an actual rig on this startup. */
+static bool prune_unclaimed_rig_rooms(void) {
+   char *listing = db_room_list(masterdb), *save = NULL;
+   if (!listing) return true;
+   const char *site = ws_site_room();
+   size_t prefix_len = strlen(site);
+   bool ok = true;
+   for (char *name = strtok_r(listing, " \\t\\r\\n", &save);
+        name; name = strtok_r(NULL, " \\t\\r\\n", &save)) {
+      if (strncasecmp(name, site, prefix_len) || strncmp(name + prefix_len, "-rig", 4))
+         continue;
+      const char *digits = name + prefix_len + 4;
+      if (!*digits) continue;
+      bool numeric = true;
+      for (const char *p = digits; *p; p++)
+         if (*p < '0' || *p > '9') { numeric = false; break; }
+      if (!numeric || rrserver_rig_for_room(name)) continue;
+      Log(LOG_INFO, "rig.rooms", "Retiring orphaned bootstrap room %s", name);
+      if (!db_room_delete(masterdb, name, "server", true, true)) ok = false;
+   }
+   free(listing);
+   return ok;
+}
+#endif
+
 bool rrserver_rig_rooms_init(void) {
    if (!rig.rigs || !ws_room_name_valid(ws_site_room())) {
       return true;
@@ -225,9 +252,8 @@ bool rrserver_rig_rooms_init(void) {
    }
 #ifdef USE_SQLITE
 
-   if (!failed) {
-      failed = restore_rx_rooms();
-   }
+   if (!failed) failed = !prune_unclaimed_rig_rooms();
+   if (!failed) failed = restore_rx_rooms();
 
    if (sqlite3_exec(masterdb, failed ? "ROLLBACK;" : "COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
       failed = true;
