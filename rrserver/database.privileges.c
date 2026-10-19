@@ -39,7 +39,14 @@ rr_resource_access_t db_resource_access_named(sqlite3 *db,
       "JOIN privilege_set_entries AS e ON e.set_id=a.set_id "
       "WHERE a.subject_user=?1 COLLATE NOCASE AND a.subject_host=?2 COLLATE NOCASE "
       "AND a.resource_kind=?3 AND (a.resource_uuid=?4 OR (a.resource_kind IN (\'rig\',\'room\') AND a.resource_uuid=\'*\') OR (length(?7)>0 AND a.resource_uuid=?7 COLLATE NOCASE)) AND (e.privilege=?5 OR (a.resource_kind=\'rig\' AND e.privilege=\'rig.full\')) "
-      "AND (a.expires_at IS NULL OR a.expires_at>?6);";
+      "AND (a.expires_at IS NULL OR a.expires_at>?6) "
+      "UNION ALL "
+      "SELECT gp.effect FROM user_group_members gm "
+      "JOIN user_group_privileges gp ON gp.group_name=gm.group_name "
+      "WHERE gm.subject_user=?1 COLLATE NOCASE AND gm.subject_host=?2 COLLATE NOCASE "
+      "AND gp.resource_kind=?3 "
+      "AND (gp.resource_name='*' OR (length(?7)>0 AND gp.resource_name=?7 COLLATE NOCASE)) "
+      "AND (gp.privilege=?5 OR (gp.resource_kind='rig' AND gp.privilege='rig.full'));";
    sqlite3_stmt *stmt = NULL;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
       return RR_RESOURCE_DENY;
