@@ -41,6 +41,7 @@
 #include <rrserver/bridge.manager.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
+#include <rrserver/relay.internal.h>
 #include <rrserver/platform.controls.h>
 #include <rrserver/objects.h>
 #include <rrserver/usage.h>
@@ -556,6 +557,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          rrserver_admin_send(client,"subjects","row",row);
          dict_free(row);
       }
+#ifdef USE_MONGOOSE
       for (struct directory *entry=rr_relay_directories;entry;entry=entry->next) {
          const char *host=entry->node;
          for (struct catalog *site=rr_relay_catalogs;site;site=site->next) {
@@ -581,6 +583,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
             dict_free(row);
          }
       }
+#endif
       rrserver_admin_send(client,"subjects","end",NULL);
       dict_free(request);
       return;
