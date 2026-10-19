@@ -397,13 +397,13 @@ static void inventory_room_vfos(object_send_t *ctx, const char *room, const char
          snprintf(number, sizeof(number), "%ld Hz", value.value.l);
          dict_add(row, "inventory.frequency", number);
       }
+      GString *details = g_string_new(provenance);
       if (rr_vfo_property_read(vfo, "mode", &value) && value.known && value.value.s)
-         dict_add(row, "inventory.mode", value.value.s);
-      if (rr_vfo_property_read(vfo, "width", &value) && value.known) {
-         char number[48];
-         snprintf(number, sizeof(number), "%ld Hz", value.value.l);
-         dict_add(row, "inventory.width", number);
-      }
+         g_string_append_printf(details, " / Mode: %s", value.value.s);
+      if (rr_vfo_property_read(vfo, "width", &value) && value.known)
+         g_string_append_printf(details, " / Width: %ld Hz", value.value.l);
+      dict_add(row, "inventory.description", details->str);
+      g_string_free(details, TRUE);
       rr_inventory_send(ctx->client, row);
    }
    free(list);
