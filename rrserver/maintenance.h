@@ -48,11 +48,13 @@ static bool rr_maintenance_confirm(enum rr_maintenance_action action, const char
    fflush(terminal);
    char answer[128] = {0}, expected[96];
    snprintf(expected, sizeof(expected), "YES %s", rr_maintenance_name(action));
-   bool confirmed = fgets(answer, sizeof(answer), terminal) != NULL &&
-      answer[strcspn(answer, "\r\n")] == '\n' /* overwritten below */;
-   /* Re-evaluate after trimming newline; extra input never counts as consent. */
-   if (answer[0]) answer[strcspn(answer, "\r\n")] = 0;
-   confirmed = confirmed && !strcmp(answer, expected);
+   bool confirmed = fgets(answer, sizeof(answer), terminal) != NULL;
+   if (confirmed) {
+      size_t len = strlen(answer);
+      confirmed = len > 0 && answer[len - 1] == '\n';
+      answer[strcspn(answer, "\r\n")] = 0;
+      confirmed = confirmed && !strcmp(answer, expected);
+   }
    fclose(terminal);
    if (!confirmed) fprintf(stderr, "Cancelled; no changes made.\n");
    return confirmed;
