@@ -328,7 +328,24 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
 
-   Log(LOG_INFO, "link", "Linked site %s (%s), servers %zu", session->peer->site, session->node, rr_link_tree_count(links.tree));
+   /* Summarize only adjacent established next hops, including the number
+    * of remote servers reachable through each. Inventory has the full tree. */
+   GString *routes = g_string_new(NULL);
+   for (struct link_session *hop = links.sessions; hop; hop = hop->next) {
+      if (!hop->established || !hop->peer) continue;
+      size_t behind = 0;
+      rr_link_node_t node;
+      for (size_t i = 0; rr_link_tree_node(links.tree, i, &node); ++i) {
+         const char *route = rr_link_tree_route(links.tree, node.server);
+         if (route && !strcmp(route, hop->node)) behind++;
+      }
+      if (routes->len) g_string_append(routes, ", ");
+      g_string_append_printf(routes, "%s (%zu behind)", hop->peer->site, behind);
+   }
+   Log(LOG_INFO, "link", "Linked site %s (%s), %zu servers total; next hops: %s",
+      session->peer->site, session->node, rr_link_tree_count(links.tree),
+      routes->len ? routes->str : "none");
+   g_string_free(routes, TRUE);
    /* Publish this component in parent-before-child order. */
    bool sent[256] = { false };
 
