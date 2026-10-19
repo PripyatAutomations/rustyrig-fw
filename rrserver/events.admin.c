@@ -509,7 +509,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          "SELECT u.rowid AS cursor,u.name,COALESCE(t.credits,'unset') AS tx_remaining,COALESCE(g.tx_seconds,0) AS tx_used,COALESCE(g.bandwidth_remaining,'unlimited') AS bandwidth_remaining,COALESCE(g.tx_text_bytes+g.tx_binary_bytes,0) AS bandwidth_tx_used,COALESCE(g.rx_text_bytes+g.rx_binary_bytes,0) AS bandwidth_rx_used FROM users u LEFT JOIN tx_credits t ON t.name=u.name COLLATE NOCASE LEFT JOIN user_usage g ON g.name=u.name COLLATE NOCASE WHERE (?=0 OR u.rowid<?) ORDER BY u.rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "rooms")) {
       strcpy(table, "rooms");
-      sql = "SELECT rowid AS cursor,name,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+      sql = "SELECT rowid AS cursor,name,uuid,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "privsets")) {
       strcpy(table, "privsets");
       sql = "SELECT id AS cursor,name,description,created_by,created_at FROM privilege_sets "
