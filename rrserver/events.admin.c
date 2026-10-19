@@ -463,51 +463,25 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       dict_free(request);
       return;
    }
-   if (!strncmp(admin_data,"control ",8) ||
-       !strcmp(admin_data,"backlight") ||
-       !strncmp(admin_data,"backlight ",10)) {
-      const bool alias = !strncmp(admin_data,"backlight",9);
-      char name[64] = "display.brightness", extra[2];
+   if (!strncmp(admin_data,"control ",8)) {
+      char name[64], extra[2];
       int requested = -1;
-      const char *arguments = alias ? admin_data + 9 : admin_data + 8;
-      if (alias) {
-         if (*arguments && sscanf(arguments," %d %1s",&requested,extra) != 1) {
-            ws_send_error(client,"Usage: /admin backlight [brightness]");
-            dict_free(request);
-            return;
-         }
-      } else {
-         int count = sscanf(arguments,"%63s %d %1s",name,&requested,extra);
-         if (count != 1 && count != 2) {
-            ws_send_error(client,"Usage: /admin control NAME [integer-value]");
-            dict_free(request);
-            return;
-         }
+      int count = sscanf(admin_data + 8,"%63s %d %1s",name,&requested,extra);
+      if ((count != 1 && count != 2) || (count == 2 && requested < 0)) {
+         ws_send_error(client,"Usage: /admin control NAME [nonnegative-integer]");
+         dict_free(request);
+         return;
       }
       rr_platform_control_state_t state;
-      bool ok = requested < 0
+      bool ok = count == 1
          ? rrserver_platform_control_get(name,&state)
          : rrserver_platform_control_set(name,requested,&state);
       if (!ok) {
          ws_send_error(client,"Node control unavailable, read-only, or outside supported range");
       } else {
-         if (requested >= 0) db_add_audit_event(masterdb,client->chatname,
+         if (count == 2) db_add_audit_event(masterdb,client->chatname,
             "platform.control",name);
          admin_control_reply(client,&state,"state");
-         /* The legacy GTK backlight widget listens on a dedicated target.
-          * Retain this reply until the UI adopts generic control discovery. */
-         if (alias) {
-            dict *row = dict_new();
-            if (row) {
-               char value[32];
-               dict_add(row,"device",state.name);
-               snprintf(value,sizeof(value),"%d",state.current); dict_add(row,"current",value);
-               snprintf(value,sizeof(value),"%d",state.minimum); dict_add(row,"minimum",value);
-               snprintf(value,sizeof(value),"%d",state.maximum); dict_add(row,"maximum",value);
-               rrserver_admin_send(client,"backlight","state",row);
-               dict_free(row);
-            }
-         }
       }
       dict_free(request);
       return;
