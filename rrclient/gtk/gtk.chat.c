@@ -136,6 +136,7 @@ static bool navigation_only;
 void gtk_chat_set_navigation_only(bool value) {
    navigation_only = value;
 }
+extern void vfo_controls_set_rx_only(bool rx_only);
 static GtkWidget *room_vfo_box;
 static GtkWidget *room_vfo_window;
 static GtkWidget *room_vfo_container;
@@ -1265,6 +1266,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
          vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
       g_free(title);
+      vfo_controls_set_rx_only(!rrclient_room_tx_control(tab->room));
       vfo_update_ui();
       return;
    }
@@ -1275,6 +1277,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
       gtk_box_reorder_child(GTK_BOX(box), room_vfo_container, room_vfo_bottom ? -1 : 0);
    }
    gtk_widget_show_all(room_vfo_container);
+   vfo_controls_set_rx_only(!rrclient_room_tx_control(tab->room));
    vfo_update_ui();
 }
 
