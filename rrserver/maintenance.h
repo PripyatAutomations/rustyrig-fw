@@ -9,11 +9,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/file.h>
+#ifdef USE_SQLITE
 #include <sqlite3.h>
+#endif
 #include <limits.h>
 #include <strings.h>
 #include <librustyaxe/config.h>
-#include <librrprotocol/auth.h>
 
 /* Cooperating v1 servers and maintenance actions hold this lock for the
  * process lifetime. Do not unlink the lock file: doing so breaks exclusion. */
@@ -124,6 +125,7 @@ static bool rr_purge_recording_tree(int fd, unsigned depth, unsigned *removed) {
    return ok;
 }
 
+#ifdef USE_SQLITE
 static bool rr_maintenance_sql(sqlite3 *db, const char *sql) {
    char *error = NULL;
    int rc = sqlite3_exec(db, sql, NULL, NULL, &error);
@@ -136,6 +138,8 @@ static bool rr_maintenance_sql(sqlite3 *db, const char *sql) {
 /* Initial provisioning helper lives in database.c so normal bootstrap and
  * explicit credential reset share the same generation and hashing code. */
 extern bool db_reset_admin_password(sqlite3 *db);
+
+#endif
 
 static int rrserver_maintenance_run(enum rr_maintenance_action action) {
    const bool recordings = action == RR_MAINT_PURGE_RECORDINGS;
