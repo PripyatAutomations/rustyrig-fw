@@ -536,8 +536,13 @@ void update_connection_button(int connected, GtkWidget *btn) {
 }
 
 static gboolean fullscreen_later(gpointer data) {
-   gui_fullscreen_toggle();
-
+   (void)data;
+   /* cfg_fullscreen is already the requested initial state; toggling here
+    * used to unfullscreen the window and flip the setting to false. */
+   if (main_window && cfg_fullscreen) {
+      gtk_window_fullscreen(GTK_WINDOW(main_window));
+      gtk_ui_zoom_recheck();
+   }
    return G_SOURCE_REMOVE;
 }
 
