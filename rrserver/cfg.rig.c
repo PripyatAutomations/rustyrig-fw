@@ -92,7 +92,7 @@ bool rr_rig_config_section_cb(const char *path, int line, const char *section, c
    }
    free(copy);
 
-   return false;
+   return true;
 }
 
 bool rr_rig_config_init(void) {
