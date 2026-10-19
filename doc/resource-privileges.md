@@ -64,9 +64,45 @@ assignments/grants do not apply, missing grants return `RR_RESOURCE_UNSET`,
 and database errors fail closed. The call must receive a server-authenticated
 subject, never raw subject fields supplied by a client.
 
-**Not yet enforced:** the evaluator is a server-side library function and is
-not wired into commands, media subscriptions, link identity resolution, or
-administrative grant management. Do not assume SQL entries grant access yet.
+**Partially enforced:** the owner-side relay now requires explicit `rig.use`
+or `room.join` grants for remote requests, and configured bridge room/media
+admission checks can use `bridge.use` from a rig grant. Direct grants and
+set assignments are both evaluated, with explicit deny taking precedence.
+Local account system privileges remain as a fallback for bridge admission
+when no resource grant matches. Unconverted features (serial, shares,
+some VFO/TX/property paths) are **not yet resource-grant aware**; a new grant
+does not automatically authorize every subsystem.
+
+### Administration commands
+
+Run these on the **owning server** while authenticated as `owner`:
+
+```text
+/admin privset-create hf-listen Receive-only operations
+/admin privset-entry hf-listen allow rig.use
+/admin privset-entry hf-listen allow bridge.use
+/admin privset-assign hf-listen alice@camp rig 12345678-1234-4234-8234-1234567890ab
+/admin privsets
+/admin setentries
+/admin assignments
+/admin resource-grant alice@camp rig 12345678-1234-4234-8234-1234567890ab rig.use allow
+/admin grants
+/admin resource-revoke alice@camp rig 12345678-1234-4234-8234-1234567890ab rig.use
+/admin privset-unassign hf-listen alice@camp rig 12345678-1234-4234-8234-1234567890ab
+/admin privset-unentry hf-listen bridge.use
+/admin privset-delete hf-listen
+```
+
+Use the actual persistent UUID from Resource Explorer or the Rooms admin tab.
+An unqualified username (e.g. `alice`) identifies a **local** subject; a
+qualified name (e.g. `alice@camp`) identifies a remote site principal.
+Resource permissions do not provision a local user or a login credential.
+
+The originating link is authenticated and checked for a valid node route,
+but **cross-site authoritative user-UUID lookup is not yet implemented**.
+Site names are resolved from authenticated relay/catalog metadata, so the
+linked site is currently trusted to assert the originating username.
+Do not connect untrusted peer servers until that protocol step is complete.
 
 ## Migration work still required
 
