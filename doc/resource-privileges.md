@@ -133,6 +133,21 @@ A minimum usable brightness should be configurable to avoid leaving a
 headless remote operator with a completely dark display. Audit all writes and
 return clear errors for missing driver, read-only sysfs, or unavailable display.
 
-The UI can render a slider if the capability is advertised, otherwise omit
-the control. These are *planned* runtime features, not shipped by the schema
-change.
+The server now implements `/admin backlight` (query) and
+`/admin backlight N` (set brightness, owner/admin only). The GTK Admin →
+Display tab provides Refresh and Apply brightness controls. Linux
+`/sys/class/backlight` must contain one unambiguous device, or the admin
+must configure a device name locally:
+
+```ini
+[general]
+platform.backlight.device=
+platform.backlight.minimum=1
+```
+
+The device setting accepts **only the basename** under
+`/sys/class/backlight/`; remote users cannot specify a path. The minimum
+defaults to 1, preventing remote commands from turning the display fully
+off. A driver-specific permission policy may be required for rrserver to
+write the sysfs brightness file. Missing hardware reports unavailable.
+Other Pi-specific knobs are still pending.
