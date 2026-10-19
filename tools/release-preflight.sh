@@ -27,11 +27,7 @@ if [[ -f .version ]]; then
   if [[ -f CHANGELOG ]]; then
     header=$(head -n 1 CHANGELOG)
     note "$header"
-    changelog_version=$(sed -n '1s/^rustyrig-fw (\\([^)]*\\)).*/\\1/p' CHANGELOG)
-    expected_debian="$version"
-    if [[ "$version" =~ ^([0-9]+\\.[0-9]+\\.[0-9]+)-rc([0-9]+)$ ]]; then
-      expected_debian="${BASH_REMATCH[1]}~rc${BASH_REMATCH[2]}"
-    fi
+    changelog_version=$(head -n 1 CHANGELOG | cut -d '(' -f 2 | cut -d ')' -f 1)
     [[ "$changelog_version" == "$expected_debian" ]] ||
       warn "CHANGELOG says $changelog_version but .version implies $expected_debian"
   else
@@ -45,7 +41,10 @@ if [[ -f .version ]]; then
   if [[ -f packaging/rustyrig.spec ]]; then
     rpm_version=$(sed -n 's/^Version:[[:space:]]*//p' packaging/rustyrig.spec | head -n 1)
     [[ "$rpm_version" == "$expected_rpm" ]] ||
-      warn "RPM Version=$rpm_version differs from .version=$version"
+      warn "RPM Version=$rpm_version differs from expected $expected_rpm"
+    rpm_release=$(sed -n 's/^Release:[[:space:]]*//p' packaging/rustyrig.spec | head -n 1)
+    [[ "$rpm_release" == "$expected_rpm_release" ]] ||
+      warn "RPM Release=$rpm_release differs from expected $expected_rpm_release"
   fi
 fi
 if ! git diff --quiet || ! git diff --cached --quiet; then
