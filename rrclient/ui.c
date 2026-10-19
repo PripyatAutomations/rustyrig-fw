@@ -69,13 +69,11 @@ const char *ui_active_window_name(void) {
    return NULL;
 }
 
-/* Selected server is global across the three shared tabs, including while background traffic temporarily dispatches in another server's context. */
+/* The status line already identifies the active server and room.
+ * The TUI renderer appends "> ", so an empty title produces just "> ". */
 const char *rrclient_tui_prompt(tui_window_t *window) {
-   const char *selected = window && !rrclient_window_is_shared(window->title)
-      ? rrclient_window_server(window->title) : NULL;
-   if (!selected || !*selected) selected = rrclient_selected_server();
-
-   return selected && *selected ? selected : "no server";
+   (void)window;
+   return "";
 }
 
 rrconn_t *rrclient_active_connection(void) {
