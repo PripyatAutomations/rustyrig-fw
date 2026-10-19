@@ -414,6 +414,12 @@ static void inventory_room_vfos(object_send_t *ctx, const char *room, const char
 
 static void inventory_rooms(object_send_t *ctx, const char *base) {
 #ifdef USE_SQLITE
+   /* Resource Explorer must include the local station lobby even when no
+    * client has explicitly listed or joined it yet. */
+   if (!base && !db_room_ensure(masterdb, ws_site_room(), false, 0, "server")) {
+      Log(LOG_WARN, "inventory", "Unable to ensure station lobby %s: %s",
+         ws_site_room(), sqlite3_errmsg(masterdb));
+   }
    char *rooms = db_room_list(masterdb), *save = NULL;
 
    for (char *room = rooms ? strtok_r(rooms, " ", &save) : NULL ; room ; room = strtok_r(NULL, " ", &save)) {
