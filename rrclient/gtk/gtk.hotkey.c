@@ -185,7 +185,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       return FALSE;
    }
 
-   if (gtk_escape_prefix) {
+   if (gtk_escape_prefix && event->type == GDK_KEY_PRESS) {
       gtk_escape_prefix = FALSE;
       int digit = -1;
 
