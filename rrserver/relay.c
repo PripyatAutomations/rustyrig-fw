@@ -281,7 +281,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
       if (media && media->home) {
          dict_add(request, "media.transport", "ws");
       }
-      dict_add_ulong(request, "relay.deadline", now + 10);
+      dict_add_ulong(request, "relay.deadline", time(NULL) + 30);
       dict_add(request, "relay.codecs", client->media_codecs);
 
       if (media && !strcmp(dict_get(request, "media.cmd", ""), "feedback")) {
@@ -317,7 +317,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    if (!strcmp(kind, "request")) {
       time_t deadline = dict_get_time_t(d, "relay.deadline", 0);
 
-      if (!deadline || deadline < now || deadline > now + 30) {
+      /* Compare actual wall clock time, not the event-loop cached 'now'.
+       * Allow a small clock-skew margin between linked hosts. */
+      time_t received_at = time(NULL);
+      if (!deadline || deadline < received_at - 5 || deadline > received_at + 35) {
          dict *error = dict_new();
 
          if (error) {
