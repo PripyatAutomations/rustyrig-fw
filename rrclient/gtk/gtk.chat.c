@@ -1117,8 +1117,24 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    gtk_widget_show_all(room_vfo_window);
    gtk_window_present(GTK_WINDOW(room_vfo_window));
 }
+static void room_vfo_grip_edge(void) {
+   if (!room_vfo_box) return;
+   GtkWidget *drawer = GTK_IS_BIN(room_vfo_box) ?
+      gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
+   if (GTK_IS_VIEWPORT(drawer)) drawer = gtk_bin_get_child(GTK_BIN(drawer));
+   if (!drawer || !GTK_IS_BOX(drawer)) return;
+   GtkWidget *grip = g_object_get_data(G_OBJECT(drawer), "rr-vfo-grip");
+   GtkWidget *revealer = g_object_get_data(G_OBJECT(drawer), "rr-vfo-revealer");
+   if (grip && revealer) {
+      gtk_box_reorder_child(GTK_BOX(drawer), grip, room_vfo_bottom ? -1 : 0);
+      gtk_box_reorder_child(GTK_BOX(drawer), revealer, room_vfo_bottom ? 0 : -1);
+   }
+}
 static void room_vfo_dock_to(gboolean bottom) {
    room_vfo_bottom = bottom;
+   room_vfo_grip_edge();
+   if (!room_vfo_home && room_vfo_container)
+      room_vfo_home = gtk_widget_get_parent(room_vfo_container);
    if (room_vfo_home) room_vfo_move(room_vfo_home);
    if (room_vfo_window) gtk_widget_hide(room_vfo_window);
    if (room_vfo_container && room_vfo_home && GTK_IS_BOX(room_vfo_home))
@@ -1152,7 +1168,11 @@ static void room_vfo_ensure_container(void) {
    room_vfo_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_box_pack_start(GTK_BOX(room_vfo_container), room_vfo_box, FALSE, FALSE, 0);
    g_object_add_weak_pointer(G_OBJECT(room_vfo_container), (gpointer *)&room_vfo_container);
-   room_vfo_grip = g_object_get_data(G_OBJECT(room_vfo_box), "rr-vfo-grip");
+   GtkWidget *drawer = GTK_IS_BIN(room_vfo_box) ?
+      gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
+   if (GTK_IS_VIEWPORT(drawer)) drawer = gtk_bin_get_child(GTK_BIN(drawer));
+   room_vfo_grip = drawer ? g_object_get_data(G_OBJECT(drawer), "rr-vfo-grip") : NULL;
+   room_vfo_grip_edge();
    if (room_vfo_grip)
       g_signal_connect(room_vfo_grip, "button-press-event",
          G_CALLBACK(room_vfo_grip_menu), NULL);
