@@ -77,6 +77,40 @@ static admin_table_t tables[] = {
    },
 };
 
+/* The selected server advertises its own backlight range; never guess a
+ * Raspberry Pi display driver or transmit filesystem paths from GTK. */
+static GtkWidget *backlight_scale, *backlight_status, *backlight_apply;
+static bool admin_backlight_request(int value) {
+   const char *profile = rrclient_selected_server();
+   rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
+   if (!connection || !connection->is_ws || !connection->authenticated) return false;
+   dict *d = dict_new();
+   if (!d) return false;
+   char arg[48] = "backlight";
+   if (value >= 0) snprintf(arg, sizeof(arg), "backlight %d", value);
+   dict_add(d,"msg.type","talk");
+   dict_add(d,"talk.cmd","admin");
+   dict_add(d,"talk.data",arg);
+   bool ok = ws_send_dict(NULL,connection,d,WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return ok;
+}
+static void admin_backlight_refresh(GtkButton *button, gpointer user) {
+   (void)button; (void)user;
+   if (backlight_scale) gtk_widget_set_sensitive(backlight_scale, FALSE);
+   if (backlight_apply) gtk_widget_set_sensitive(backlight_apply, FALSE);
+   if (backlight_status) gtk_label_set_text(GTK_LABEL(backlight_status), "Querying server display…");
+   if (!admin_backlight_request(-1) && backlight_status)
+      gtk_label_set_text(GTK_LABEL(backlight_status), "Select a connected RustyRig server");
+}
+static void admin_backlight_apply(GtkButton *button, gpointer user) {
+   (void)button; (void)user;
+   if (!backlight_scale) return;
+   int requested = (int)gtk_range_get_value(GTK_RANGE(backlight_scale));
+   if (!admin_backlight_request(requested) && backlight_status)
+      gtk_label_set_text(GTK_LABEL(backlight_status), "Unable to send brightness request");
+}
+
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
 static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
@@ -606,6 +640,27 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    const char *name = dict_get(reply, "talk.target", "");
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
+   if (row && !strcmp(name,"backlight") && !strcmp(action,"state") &&
+       backlight_scale && connection == rrclient_connection_find(rrclient_selected_server())) {
+      int minimum = atoi(dict_get(row,"minimum","1"));
+      int maximum = atoi(dict_get(row,"maximum","1"));
+      int current = atoi(dict_get(row,"current","1"));
+      if (minimum >= 1 && maximum >= minimum && current >= 0 && current <= maximum) {
+         gtk_range_set_range(GTK_RANGE(backlight_scale),minimum,maximum);
+         gtk_range_set_value(GTK_RANGE(backlight_scale),current);
+         gtk_widget_set_sensitive(backlight_scale,TRUE);
+         if (backlight_apply) gtk_widget_set_sensitive(backlight_apply,TRUE);
+         if (backlight_status) {
+            char message[256];
+            snprintf(message,sizeof(message),"LCD %s: %d / %d",
+               dict_get(row,"device","backlight"),current,maximum);
+            gtk_label_set_text(GTK_LABEL(backlight_status),message);
+         }
+      }
+      dict_free(row);
+      dict_free(reply);
+      return;
+   }
 
    for (size_t i = 0 ; row && i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
@@ -667,6 +722,7 @@ void gtk_admin_refresh(void) {
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_refresh(NULL, &tables[i]);
    }
+   if (backlight_scale) admin_backlight_refresh(NULL, NULL);
 }
 
 static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
@@ -815,6 +871,25 @@ GtkWidget *init_admin_tab(void) {
          !strcmp(table->name, "grants") ? "Direct Grants" : "Rooms"));
    }
 
+   {
+      GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+      GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+      backlight_status = gtk_label_new("Select a connected server and Refresh.");
+      backlight_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,1,255,1);
+      gtk_scale_set_digits(GTK_SCALE(backlight_scale),0);
+      gtk_widget_set_sensitive(backlight_scale,FALSE);
+      GtkWidget *refresh = gtk_button_new_with_label("Refresh LCD");
+      backlight_apply = gtk_button_new_with_label("Apply brightness");
+      gtk_widget_set_sensitive(backlight_apply,FALSE);
+      gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(buttons),backlight_apply,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(box),backlight_status,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(box),backlight_scale,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(box),buttons,FALSE,FALSE,0);
+      g_signal_connect(refresh,"clicked",G_CALLBACK(admin_backlight_refresh),NULL);
+      g_signal_connect(backlight_apply,"clicked",G_CALLBACK(admin_backlight_apply),NULL);
+      gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),box,gtk_label_new("Display"));
+   }
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
 
    return admin_view;
