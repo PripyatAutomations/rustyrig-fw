@@ -38,7 +38,7 @@ typedef struct {
 static resource_browser *browser;
 static bool automatic_refresh;
 extern GtkWidget *main_notebook;
-extern void gtk_admin_open_control(const char *name);
+extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
 static rr_event_token_t show_token, row_token, open_token, changed_tokens[5];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
@@ -438,11 +438,7 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path,
    char *kind=NULL,*control=NULL,*profile=NULL;
    gtk_tree_model_get(model,&iter,KIND,&kind,ACTION,&control,PROFILE,&profile,-1);
    if (g_strcmp0(kind,"control")==0 && control && *control) {
-      if (g_strcmp0(profile,rrclient_selected_server())==0)
-         gtk_admin_open_control(control);
-      else if (browser && browser->status)
-         gtk_label_set_text(GTK_LABEL(browser->status),
-            "Select this control's server first, then open the control.");
+      gtk_admin_open_control_on_server(profile,control);
    }
    g_free(kind); g_free(control); g_free(profile);
 }
