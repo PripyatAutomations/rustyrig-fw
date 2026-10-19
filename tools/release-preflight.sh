@@ -64,11 +64,10 @@ for file in debian/files debian/.debhelper; do
   fi
 done
 if command -v dpkg >/dev/null 2>&1 && [[ -f .version ]]; then
-  version=$(tr -d '[:space:]' < .version)
-  if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$ ]]; then
-    stable=${version%-rc*}
-    if dpkg --compare-versions "$version" ge "$stable"; then
-      bad "Debian orders $version >= $stable; use a tilde prerelease in Debian metadata"
+  if [[ "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
+    stable="${BASH_REMATCH[1]}"
+    if ! dpkg --compare-versions "$expected_debian" lt "$stable"; then
+      bad "Debian prerelease $expected_debian must sort before stable $stable"
     fi
   fi
 fi
