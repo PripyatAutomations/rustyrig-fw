@@ -11,6 +11,7 @@
 // The server owns media provisioning. Shared rigs expose one RX/TX pair
 // (VFO_NA); audio.per-vfo opts into a pair per supported VFO. Control VFOs
 // remain independent of the audio channel count.
+#include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
