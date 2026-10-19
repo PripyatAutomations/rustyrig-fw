@@ -37,8 +37,15 @@ static bool eligible(rrconn_t *client) {
           !client->user->password_change_required && (!client->user->password_expires || client->user->password_expires > now);
 }
 
+/* Core roles are local account roles. Never import them through a relay:
+ * remote virtual accounts use uid=-1 and require owner-side resource grants. */
+static bool needs_supervision(rrconn_t *client) {
+   return client && client->user && client->user->uid >= 0 &&
+      has_priv(client->user->uid,"noob") &&
+      !has_priv(client->user->uid,"admin|owner");
+}
 static bool is_elmer(rrconn_t *client) {
-   return eligible(client) && has_priv(client->user->uid, "elmer") && !has_priv(client->user->uid, "noob");
+   return eligible(client) && has_priv(client->user->uid, "elmer") && !needs_supervision(client);
 }
 
 static void send_status(rrconn_t *client, struct supervision *request, const char *action, const char *text) {
@@ -140,7 +147,7 @@ bool rrserver_supervision_allowed(rrconn_t *client) {
       return false;
    }
 
-   if (!has_priv(client->user->uid, "noob")) {
+   if (!needs_supervision(client)) {
       return true;
    }
 
@@ -150,7 +157,7 @@ bool rrserver_supervision_allowed(rrconn_t *client) {
 void rrserver_supervision_snapshot(rrconn_t *client, const char *room, struct rr_supervision_attribution *out) {
    memset(out, 0, sizeof(*out));
    struct supervision *request = client ? find(client, room) : NULL;
-   if (!client || !client->user || !has_priv(client->user->uid, "noob") || !allowed(request)) return;
+   if (!client || !client->user || !needs_supervision(client) || !allowed(request)) return;
    strlcpy(out->ticket, request->id, sizeof(out->ticket));
    for (size_t i = 0; i < HTTP_MAX_SESSIONS; i++) {
       if (!active(&request->elmers[i])) continue;
@@ -195,7 +202,7 @@ static void check(const char *event, const void *data, size_t length, rrconn_t *
    }
    rr_server_supervision_t *query = (rr_server_supervision_t *) data;
    rrserver_supervision_tick();
-   query->allowed = eligible(client) && (!has_priv(client->user->uid, "noob") || allowed(find(client, query->room)));
+   query->allowed = eligible(client) && (!needs_supervision(client) || allowed(find(client, query->room)));
 
    if (query->allowed || !query->request || !eligible(client)) {
       return;
