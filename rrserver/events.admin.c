@@ -503,6 +503,87 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    return true;
 }
 
+/* Manage symbolic user groups without trusting caller-provided IDs or SQL. */
+static bool admin_group_action(rrconn_t *client,const char *action,dict *request) {
+   if (strncmp(action,"group-",6)) return false;
+   if (!has_priv(client->user->uid,"owner")) {
+      ws_send_error(client,"Only owners may manage user groups");
+      return true;
+   }
+   const char *group=dict_get(request,"talk.target","");
+   const char *data=dict_get(request,"talk.data","");
+   if (!*group || strlen(group)>64) {
+      ws_send_error(client,"Select a valid group name");
+      return true;
+   }
+   for (const unsigned char *p=(const unsigned char *)group;*p;p++)
+      if (!g_ascii_isalnum(*p) && *p!='-' && *p!='_') {
+         ws_send_error(client,"Group names allow letters, digits, _ and -");
+         return true;
+      }
+   const char *sql=NULL;
+   char user[HTTP_USER_LEN+1]="",host[128]="",kind[16]="",resource[129]="",priv[129]="",effect[16]="",extra[2]="";
+   if (!strcmp(action,"group-create")) {
+      if (strlen(data)>256) { ws_send_error(client,"Group description too long"); return true; }
+      sql="INSERT INTO user_groups(name,description) VALUES(?1,?2)";
+   } else if (!strcmp(action,"group-delete")) {
+      sql="DELETE FROM user_groups WHERE name=?1";
+   } else if (!strcmp(action,"group-add-user") || !strcmp(action,"group-remove-user")) {
+      if (!*data || strlen(data)>HTTP_USER_LEN+128 || strchr(data,' ')) {
+         ws_send_error(client,"Expected username or username@site");
+         return true;
+      }
+      const char *at=strchr(data,'@');
+      size_t n=at ? (size_t)(at-data) : strlen(data);
+      if (!n || n>HTTP_USER_LEN || (at && (!at[1] || strlen(at+1)>=sizeof(host)))) {
+         ws_send_error(client,"Invalid group member");
+         return true;
+      }
+      memcpy(user,data,n);
+      if (at) snprintf(host,sizeof(host),"%s",at+1);
+      sql=!strcmp(action,"group-add-user") ?
+         "INSERT OR IGNORE INTO user_group_members(group_name,subject_user,subject_host) VALUES(?1,?2,?3)" :
+         "DELETE FROM user_group_members WHERE group_name=?1 AND subject_user=?2 COLLATE NOCASE AND subject_host=?3 COLLATE NOCASE";
+   } else if (!strcmp(action,"group-grant") || !strcmp(action,"group-ungrant")) {
+      int count=sscanf(data,"%15s %128s %128s %15s %1s",kind,resource,priv,effect,extra);
+      bool granting=!strcmp(action,"group-grant");
+      if (count != (granting ? 4 : 3) ||
+          (strcmp(kind,"rig") && strcmp(kind,"room")) ||
+          !*resource || strlen(resource)>128 ||
+          (granting && strcmp(effect,"allow") && strcmp(effect,"deny"))) {
+         ws_send_error(client,"Usage: group-grant GROUP rig|room NAME|* PRIVILEGE allow|deny");
+         return true;
+      }
+      sql=granting ?
+         "INSERT INTO user_group_privileges(group_name,resource_kind,resource_name,privilege,effect) VALUES(?1,?2,?3,?4,?5) "
+         "ON CONFLICT(group_name,resource_kind,resource_name,privilege) DO UPDATE SET effect=excluded.effect" :
+         "DELETE FROM user_group_privileges WHERE group_name=?1 AND resource_kind=?2 AND resource_name=?3 AND privilege=?4";
+   } else return false;
+   sqlite3_stmt *stmt=NULL;
+   int rc=sqlite3_prepare_v2(masterdb,sql,-1,&stmt,NULL);
+   if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,1,group,-1,SQLITE_TRANSIENT);
+   if (rc==SQLITE_OK) {
+      if (!strcmp(action,"group-create")) rc=sqlite3_bind_text(stmt,2,data,-1,SQLITE_TRANSIENT);
+      else if (!strcmp(action,"group-add-user") || !strcmp(action,"group-remove-user")) {
+         rc=sqlite3_bind_text(stmt,2,user,-1,SQLITE_TRANSIENT);
+         if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,3,host,-1,SQLITE_TRANSIENT);
+      } else if (!strcmp(action,"group-grant") || !strcmp(action,"group-ungrant")) {
+         const char *params[]={kind,resource,priv,effect};
+         unsigned n=!strcmp(action,"group-grant") ? 4 : 3;
+         for (unsigned j=0;rc==SQLITE_OK && j<n;j++)
+            rc=sqlite3_bind_text(stmt,(int)j+2,params[j],-1,SQLITE_TRANSIENT);
+      }
+   }
+   if (rc==SQLITE_OK) rc=sqlite3_step(stmt);
+   sqlite3_finalize(stmt);
+   if (rc!=SQLITE_DONE) ws_send_error(client,"Unable to save group change: %s",sqlite3_errmsg(masterdb));
+   else {
+      db_add_audit_event(masterdb,client->chatname,action,group);
+      rrserver_admin_send(client,"groups","updated",NULL);
+   }
+   return true;
+}
+
 static void admin_control_reply(rrconn_t *client, const rr_platform_control_state_t *s,
       const char *action) {
    dict *row = dict_new();
@@ -655,6 +736,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       dict_free(request);
       return;
    }
+   if (admin_group_action(client,action,request)) { dict_free(request); return; }
    if (admin_resource_action(client, action, request)) {
       dict_free(request);
       return;
