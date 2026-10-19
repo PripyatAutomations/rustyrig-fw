@@ -799,6 +799,32 @@ static void resource_initial_split(GtkWidget *widget, GtkAllocation *allocation,
    gtk_paned_set_position(GTK_PANED(widget), allocation->height * 3 / 4);
 }
 
+/* Search full resource ancestry as well as displayed name, description,
+ * stable UUID, service and serial bindings. GTK handles navigation/highlight. */
+static gboolean resource_search_equal(GtkTreeModel *model, gint column,
+      const gchar *query, GtkTreeIter *iter, gpointer user) {
+   (void)column; (void)user;
+   if (!query || !*query) return FALSE;
+   GString *text=g_string_new(NULL);
+   GtkTreeIter cursor=*iter;
+   for (;;) {
+      char *name=NULL,*details=NULL,*uuid=NULL,*service=NULL,*binding=NULL;
+      gtk_tree_model_get(model,&cursor,NAME,&name,DETAILS,&details,UUID,&uuid,
+         SERVICE,&service,BINDING,&binding,-1);
+      g_string_append_printf(text,"%s %s %s %s %s ",
+         name ? name : "",details ? details : "",uuid ? uuid : "",
+         service ? service : "",binding ? binding : "");
+      g_free(name); g_free(details); g_free(uuid); g_free(service); g_free(binding);
+      GtkTreeIter parent;
+      if (!gtk_tree_model_iter_parent(model,&parent,&cursor)) break;
+      cursor=parent;
+   }
+   gchar *haystack=g_utf8_casefold(text->str,-1);
+   gchar *needle=g_utf8_casefold(query,-1);
+   gboolean no_match=!strstr(haystack,needle);
+   g_free(haystack); g_free(needle); g_string_free(text,TRUE);
+   return no_match;
+}
 static void resource_create(void) {
    if (browser) return;
    browser = g_new0(resource_browser, 1);
@@ -815,6 +841,11 @@ static void resource_create(void) {
    GtkWidget *box = browser->panel;
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(toolbar),gtk_label_new("Search:"),FALSE,FALSE,0);
+   GtkWidget *search=gtk_search_entry_new();
+   gtk_entry_set_width_chars(GTK_ENTRY(search),24);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(search),"Find path, name, description…");
+   gtk_box_pack_start(GTK_BOX(toolbar),search,FALSE,FALSE,0);
    const char *tools[] = {"Refresh all", "Expand all", "Collapse all"};
    for (unsigned i = 0; i < G_N_ELEMENTS(tools); i++) {
       GtkWidget *button = gtk_button_new_with_label(tools[i]);
@@ -839,6 +870,9 @@ static void resource_create(void) {
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
    gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 0);
    gtk_tree_view_set_search_column(GTK_TREE_VIEW(browser->tree), NAME);
+   gtk_tree_view_set_search_equal_func(GTK_TREE_VIEW(browser->tree),
+      resource_search_equal,NULL,NULL);
+   gtk_tree_view_set_search_entry(GTK_TREE_VIEW(browser->tree),GTK_ENTRY(search));
    const char *titles[] = {"Resource", "Type", "Resource status", "Your connection / subscription", "Details"};
    for (unsigned i = 0; i < G_N_ELEMENTS(titles); i++) {
       int field = (int)i;
@@ -859,6 +893,9 @@ static void resource_create(void) {
    }
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
    gtk_tree_store_set(browser->store, &browser->local_root, NAME, "This Client", KIND, "local", STATE, "Local resources", -1);
+   GtkTreePath *local_path=gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store),&browser->local_root);
+   gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),local_path,FALSE);
+   gtk_tree_path_free(local_path);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), browser->tree);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 120);
