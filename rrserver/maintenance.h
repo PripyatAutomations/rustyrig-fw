@@ -8,11 +8,39 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
 #include <sqlite3.h>
 #include <limits.h>
 #include <strings.h>
 #include <librustyaxe/config.h>
 #include <librrprotocol/auth.h>
+
+/* Cooperating v1 servers and maintenance actions hold this lock for the
+ * process lifetime. Do not unlink the lock file: doing so breaks exclusion. */
+static int rr_maintenance_lock_fd = -1;
+static bool rrserver_maintenance_lock(void) {
+   if (rr_maintenance_lock_fd >= 0) return true;
+   char *dbpath = cfg_get_path("path.db.master");
+   if (!dbpath) dbpath = strdup(MASTERDB_PATH);
+   if (!dbpath) return false;
+   size_t n = strlen(dbpath) + sizeof(".rrlock");
+   char *lockpath = malloc(n);
+   if (!lockpath) { free(dbpath); return false; }
+   snprintf(lockpath, n, "%s.rrlock", dbpath);
+   int fd = open(lockpath, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
+   if (fd < 0 || flock(fd, LOCK_EX | LOCK_NB) != 0) {
+      fprintf(stderr, "Cannot lock database at %s (another rrserver may be active): %s\\n",
+         dbpath, strerror(errno));
+      if (fd >= 0) close(fd);
+      free(lockpath);
+      free(dbpath);
+      return false;
+   }
+   rr_maintenance_lock_fd = fd;
+   free(lockpath);
+   free(dbpath);
+   return true;
+}
 
 enum rr_maintenance_action {
    RR_MAINT_NONE, RR_MAINT_PURGE_RECORDINGS, RR_MAINT_RESET_DB,
@@ -125,7 +153,7 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
       free(resolved);
       return EXIT_FAILURE;
    }
-   if (!rr_maintenance_confirm(action, resolved)) {
+   if (!rrserver_maintenance_lock() || !rr_maintenance_confirm(action, resolved)) {
       free(resolved);
       free(path);
       return EXIT_FAILURE;
