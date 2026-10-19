@@ -41,6 +41,7 @@ rrserver_objs += channels.o		# Channel Memories
 rrserver_objs += console.o		# Console support
 rrserver_objs += usage.o supervision.o
 rrserver_objs += database.rooms.o database.users.o database.accounting.o database.privileges.o
+rrserver_objs += platform.backlight.o
 rrserver_objs += database.o		# sqlite3 database stuff
 rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += acl.o cfg.acl.o
