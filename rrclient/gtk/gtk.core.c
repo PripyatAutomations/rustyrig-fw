@@ -1081,7 +1081,8 @@ static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_files_init();
    // Local client log pane (GTK log tab) mirrors client logs.
    frontend_gtk_log_callback = log_add_callback_token(log_print_va);
-   event_on("client.quit.request", frontend_gtk_quit_request, NULL);
+   extern bool rr_module_token_add(rr_event_token_t token);
+   rr_module_token_add(event_on_token("client.quit.request", frontend_gtk_quit_request, NULL));
    frontend_gtk_update_source = g_timeout_add(1000, frontend_gtk_update_now, NULL);
 
    return false;
