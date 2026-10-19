@@ -172,6 +172,26 @@ CREATE INDEX privilege_set_assignments_subject
    ON privilege_set_assignments(subject_host,subject_user,resource_kind,resource_uuid);
 CREATE INDEX privilege_set_assignments_resource
    ON privilege_set_assignments(resource_kind,resource_uuid);
+-- Symbolic account groups survive remote node and rig UUID replacement.
+CREATE TABLE user_groups (
+   name TEXT PRIMARY KEY COLLATE NOCASE,
+   description TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE user_group_members (
+   group_name TEXT NOT NULL REFERENCES user_groups(name) ON DELETE CASCADE,
+   subject_user TEXT NOT NULL COLLATE NOCASE,
+   subject_host TEXT NOT NULL DEFAULT '' COLLATE NOCASE,
+   PRIMARY KEY(group_name,subject_user,subject_host)
+);
+CREATE TABLE user_group_privileges (
+   group_name TEXT NOT NULL REFERENCES user_groups(name) ON DELETE CASCADE,
+   resource_kind TEXT NOT NULL CHECK(resource_kind IN ('rig','room')),
+   resource_name TEXT NOT NULL,
+   privilege TEXT NOT NULL,
+   effect TEXT NOT NULL CHECK(effect IN ('allow','deny')),
+   PRIMARY KEY(group_name,resource_kind,resource_name,privilege)
+);
+CREATE INDEX user_group_members_identity ON user_group_members(subject_user,subject_host);
 CREATE INDEX privilege_set_entries_privilege
    ON privilege_set_entries(privilege);
 
