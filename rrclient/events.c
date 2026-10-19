@@ -718,7 +718,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
           * line incorrectly retains PTT/VFO state from the rig room. */
          rrclient_room_set_offline(m_room, false);
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
-         const char *room_uuids = dict_get(d, "room.vfos", "");
+         const char *room_uuids = dict_get(d, "talk.vfos", "");
          if (room_uuids && *room_uuids)
             rrclient_room_set_vfos(m_room, room_uuids);
          else
