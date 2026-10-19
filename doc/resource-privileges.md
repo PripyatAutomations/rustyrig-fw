@@ -113,6 +113,19 @@ This is scoped to the owning server; it is **not** a network-wide admin role.
 The remote identity is taken from the authenticated relay session, not from
 client-supplied role assertions.
 
+### Symbolic host-wide grants
+
+The GTK Admin → Assignments → **Add Privilege…** dialog lists connected-site
+identities and offers **Full Rig Access** or **Join All Rooms**. These are saved
+as wildcard resource assignments (`rig *` and `room *`) on the granting server.
+They remain valid after a resource UUID is regenerated.
+
+The remote user identity is the symbolic `username@site`. This first version
+lists remote users currently present in the linked user directory, rather than
+all offline accounts. It does not yet implement stable per-room or per-rig name
+resolution; selecting individual named resources will require a resolver that
+checks identities against the destination's authoritative catalog.
+
 ### Administration commands
 
 Run these on the **owning server** while authenticated as `owner`:
