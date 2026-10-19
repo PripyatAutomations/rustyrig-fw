@@ -255,15 +255,27 @@ int main(int argc, char **argv) {
             break;
          }
          case 'h':
-         default: {
-            fprintf(stderr, "Usage: %s [-f config file] [-r rigname]\n", argv[0]);
-            fprintf(stderr, "  -f\t\t\tFile name of config\n");
-            fprintf(stderr, "  -r\t\t\tRig name (for finding config file\n");
-            fprintf(stderr, "  --purge-recordings, --reset-db, --reset-rooms, --reset-logs,\n");
-            fprintf(stderr, "  --reset-audit, --reset-adminpw, --reset-uuids\n");
-            fprintf(stderr, "  Each action requires interactive confirmation and exits without starting.\n");
-            exit(EXIT_FAILURE);
-         }
+            printf("Usage: %s [-f CONFIG] [-r RIGNAME] [MAINTENANCE OPTION]\n", argv[0]);
+            puts("  -h, --help           Show this help");
+            puts("  -f CONFIG           Use this server configuration file");
+            puts("  -r RIGNAME          Select a rig configuration");
+            puts("\nMaintenance (requires stopped server):");
+            puts("  --purge-recordings  Remove known audio recordings");
+            puts("  --reset-db          DELETE whole DB: users, credentials, rooms, grants, history");
+            puts("  --reset-rooms       Clear rooms and VFO-room bindings; keep chat history");
+            puts("  --reset-logs        Clear chat and PTT logs; keep audit and recordings");
+            puts("  --reset-audit       Clear the audit log only");
+            puts("  --reset-adminpw     Prompt for NEW admin password twice, hidden (8-256 chars)");
+            puts("                      Update account directly; no random password or file");
+            puts("  --reset-uuids       Regenerate room UUIDs and clear rig/VFO UUID mappings");
+            puts("\nRequires an interactive terminal and YES <full-option> confirmation.");
+            puts("Only one full maintenance option per invocation; no --force.");
+            puts("Commands exit without starting rrserver. Back up data first.");
+            puts("Uses configured path.db.master or fwdsp:recording.path.");
+            return EXIT_SUCCESS;
+         default:
+            fprintf(stderr, "Unknown argument. Try %s --help\n", argv[0]);
+            return EXIT_FAILURE;
       }
    }
    // load config (posix hosts)
