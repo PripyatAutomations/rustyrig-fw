@@ -1116,7 +1116,7 @@ static void room_vfo_ensure_container(void) {
    GtkWidget *float_button = gtk_button_new_with_label("↗");
    gtk_widget_set_tooltip_text(float_button, "Float VFO controls in a movable window");
    gtk_widget_set_halign(float_button, GTK_ALIGN_END);
-   gtk_widget_set_relief(GTK_BUTTON(float_button), GTK_RELIEF_NONE);
+   gtk_button_set_relief(GTK_BUTTON(float_button), GTK_RELIEF_NONE);
    g_signal_connect(float_button, "clicked", G_CALLBACK(room_vfo_float_clicked), NULL);
    gtk_box_pack_start(GTK_BOX(room_vfo_container), float_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(room_vfo_container), room_vfo_box, FALSE, FALSE, 0);
