@@ -329,29 +329,23 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
 
-   /* One concise summary: distinguish the new peer from routes via it.
-    * Each next-hop count includes the hop itself, not just downstream sites. */
-   GString *routes = g_string_new(NULL);
-   rr_link_node_t hop;
+   /* List only sites behind the newly linked peer; the peer is named
+    * separately, and is already included in the remote node count. */
+   GString *downstream = g_string_new(NULL);
+   rr_link_node_t remote;
    size_t total = rr_link_tree_count(links.tree);
-   for (size_t i = 1; rr_link_tree_node(links.tree, i, &hop); ++i) {
-      const char *hop_route = rr_link_tree_route(links.tree, hop.server);
-      if (!hop_route || strcmp(hop_route, hop.server)) continue;
-      size_t reachable = 0;
-      rr_link_node_t remote;
-      for (size_t j = 1; rr_link_tree_node(links.tree, j, &remote); ++j) {
-         const char *route = rr_link_tree_route(links.tree, remote.server);
-         if (route && !strcmp(route, hop.server)) ++reachable;
-      }
-      if (routes->len) g_string_append(routes, ", ");
-      g_string_append_printf(routes, "%s (%zu incl. peer, %zu downstream)",
-         hop.site, reachable, reachable ? reachable - 1 : 0);
+   for (size_t i = 1; rr_link_tree_node(links.tree, i, &remote); ++i) {
+      const char *route = rr_link_tree_route(links.tree, remote.server);
+      if (!route || strcmp(route, session->node) ||
+          !strcmp(remote.server, session->node)) continue;
+      if (downstream->len) g_string_append(downstream, ", ");
+      g_string_append(downstream, remote.site);
    }
    Log(LOG_INFO, "link",
-      "Link established with %s (%s); network: %zu sites (%zu remote); routes via: %s",
+      "Linked to %s (%s); now %zu nodes (%zu remote; behind %s: %s)",
       session->peer->site, session->node, total, total ? total - 1 : 0,
-      routes->len ? routes->str : "none");
-   g_string_free(routes, TRUE);
+      session->peer->site, downstream->len ? downstream->str : "none");
+   g_string_free(downstream, TRUE);
    /* Publish this component in parent-before-child order. */
    bool sent[256] = { false };
 
