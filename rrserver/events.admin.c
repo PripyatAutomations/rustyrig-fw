@@ -258,7 +258,7 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       sql = "DELETE FROM privilege_set_entries WHERE set_id="
          "(SELECT id FROM privilege_sets WHERE name=?1) AND privilege=?2";
    } else if (!strcmp(action, "privset-assign") || !strcmp(action, "privset-unassign")) {
-      if (args != 3 || strlen(a) > HTTP_USER_LEN ||
+      if (args != 3 ||
           !( !strcmp(b,"site") || !strcmp(b,"rig") || !strcmp(b,"vfo") ||
              !strcmp(b,"room") || !strcmp(b,"media") || !strcmp(b,"serial") ||
              !strcmp(b,"file") || !strcmp(b,"bridge")) ||
