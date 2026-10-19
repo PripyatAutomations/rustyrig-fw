@@ -57,7 +57,7 @@ normalize_version() {
 
 if [[ -n "$requested_version" ]]; then
    new_version=$(normalize_version "$requested_version") || {
-      echo "invalid version: $requested_version (expected YYYYMMDD.NN or MAJOR.MINOR.PATCH)" >&2
+      echo "invalid version: $requested_version (expected YYYYMMDD.NN, MAJOR.MINOR.PATCH, or MAJOR.MINOR.PATCH-rcN)" >&2
       exit 2
    }
 else
@@ -88,7 +88,7 @@ debian_version="$new_version"
 arch_version="$new_version"
 rpm_version="$new_version"
 rpm_release='1%{?dist}'
-if [[ "$new_version" =~ ^([0-9]+\\.[0-9]+\\.[0-9]+)-rc([0-9]+)$ ]]; then
+if [[ "$new_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
    base="${BASH_REMATCH[1]}"
    number="${BASH_REMATCH[2]}"
    debian_version="${base}~rc${number}"
@@ -112,18 +112,18 @@ import sys
 
 path = pathlib.Path("CHANGELOG")
 history = path.read_text()
-match = re.match(r"^rustyrig-fw \\(([^)]+)\\)", history)
+match = re.match(r"^rustyrig-fw \(([^)]+)\)", history)
 if not match:
     raise SystemExit("CHANGELOG must start with a Debian package entry")
 version = sys.argv[1]
 if match.group(1) != version:
     # Keep every existing release entry intact, including its timestamp.
-    author = re.search(r"^ -- (.+?)  [^\\n]+$", history, flags=re.MULTILINE)
+    author = re.search(r"^ -- (.+?)  [^\n]+$", history, flags=re.MULTILINE)
     identity = author.group(1) if author else "Pripyat Automations <dangerousdevices@istabpeople.com>"
     entry = (
-        f"rustyrig-fw ({version}) testing; urgency=medium\\n\\n"
-        f"  * Prepare RustyRig {version} release.\\n\\n"
-        f" -- {identity}  {sys.argv[2]}\\n\\n"
+        f"rustyrig-fw ({version}) testing; urgency=medium\n\n"
+        f"  * Prepare RustyRig {version} release.\n\n"
+        f" -- {identity}  {sys.argv[2]}\n\n"
     )
     path.write_text(entry + history)
 PY
