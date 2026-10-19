@@ -173,7 +173,8 @@ bool db_room_uuids_regenerate(sqlite3 *db) {
    sqlite3_stmt *read = NULL, *write = NULL;
    bool ok = sqlite3_prepare_v2(db, "SELECT name FROM rooms;", -1, &read, NULL) == SQLITE_OK &&
       sqlite3_prepare_v2(db, "UPDATE rooms SET uuid=?1 WHERE name=?2;", -1, &write, NULL) == SQLITE_OK;
-   while (ok && sqlite3_step(read) == SQLITE_ROW) {
+   int step = SQLITE_DONE;
+   while (ok && (step = sqlite3_step(read)) == SQLITE_ROW) {
       const char *name = (const char *)sqlite3_column_text(read, 0);
       char *fresh = g_uuid_string_random();
       ok = name && fresh;
@@ -186,6 +187,7 @@ bool db_room_uuids_regenerate(sqlite3 *db) {
       }
       g_free(fresh);
    }
+   if (step != SQLITE_DONE) ok = false;
    sqlite3_finalize(read);
    sqlite3_finalize(write);
    return ok;
