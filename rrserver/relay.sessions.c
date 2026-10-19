@@ -540,8 +540,17 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       if (!radio) uuid = owned_uuid;
       const char *local_site = cfg_get("station.name");
       if (host && *host && uuid && *uuid && local_site && strcmp(host, local_site)) {
-         scoped = db_resource_access(masterdb, username, host, kind, uuid,
-            radio ? "rig.use" : "room.join", time(NULL)) == RR_RESOURCE_ALLOW;
+         rr_resource_access_t access = db_resource_access(masterdb, username, host,
+            kind, uuid, radio ? "rig.use" : "room.join", time(NULL));
+         /* Public chat membership is the default for established linked sites:
+          * absence of a grant is not a denial. Explicit DENY always wins.
+          * Do not extend this fallback to CAT, PTT, media or property writes. */
+         const char *family = dict_get(d, "msg.type", "");
+         const char *cmd = dict_get(d, "talk.cmd", "");
+         bool chat = !strcmp(family, "talk") &&
+            (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg"));
+         scoped = access == RR_RESOURCE_ALLOW ||
+            (chat && access == RR_RESOURCE_UNSET);
       }
       free(owned_uuid);
    }
