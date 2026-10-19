@@ -498,6 +498,31 @@ static void db_ensure_supervision_columns(sqlite3 *db) {
    }
 }
 
+/* Non-destructive migration: grant policies are durable symbolic names. */
+static bool db_ensure_user_groups(sqlite3 *db) {
+   const char *ddl =
+      "CREATE TABLE IF NOT EXISTS user_groups("
+      "name TEXT PRIMARY KEY COLLATE NOCASE,description TEXT NOT NULL DEFAULT '');"
+      "CREATE TABLE IF NOT EXISTS user_group_members("
+      "group_name TEXT NOT NULL REFERENCES user_groups(name) ON DELETE CASCADE,"
+      "subject_user TEXT NOT NULL COLLATE NOCASE,"
+      "subject_host TEXT NOT NULL DEFAULT '' COLLATE NOCASE,"
+      "PRIMARY KEY(group_name,subject_user,subject_host));"
+      "CREATE TABLE IF NOT EXISTS user_group_privileges("
+      "group_name TEXT NOT NULL REFERENCES user_groups(name) ON DELETE CASCADE,"
+      "resource_kind TEXT NOT NULL CHECK(resource_kind IN ('rig','room')),"
+      "resource_name TEXT NOT NULL,privilege TEXT NOT NULL,"
+      "effect TEXT NOT NULL CHECK(effect IN ('allow','deny')),"
+      "PRIMARY KEY(group_name,resource_kind,resource_name,privilege));"
+      "CREATE INDEX IF NOT EXISTS user_group_members_identity "
+      "ON user_group_members(subject_user,subject_host);";
+   char *error=NULL;
+   bool ok=sqlite3_exec(db,ddl,NULL,NULL,&error)==SQLITE_OK;
+   if (!ok) Log(LOG_CRIT,"db","Cannot migrate user groups: %s",error ? error : "unknown");
+   sqlite3_free(error);
+   return ok;
+}
+
 /* Open and initialize the database, preserving existing account credentials. */
 sqlite3 *db_open(const char *path) {
    if (!path) {
@@ -538,6 +563,7 @@ sqlite3 *db_open(const char *path) {
       db_ensure_ptt_columns(db);
       db_ensure_supervision_columns(db);
       db_ensure_rooms(db);
+      if (!db_ensure_user_groups(db)) { sqlite3_close(db); return NULL; }
       db_ensure_rig_identities(db);
       db_ensure_bridge_hints(db);
       db_ensure_vfo_identities(db);
