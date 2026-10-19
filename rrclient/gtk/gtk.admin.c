@@ -54,7 +54,27 @@ static admin_table_t tables[] = {
       .name = "sessions", .fields = {
          "id", "username", "ip", "client", "server", "connected", "kickable", "serial_ports"
       }
-   }
+   },
+   {
+      .name = "privsets", .fields = {
+         "name", "description", "created_by", "created_at"
+      }
+   },
+   {
+      .name = "setentries", .fields = {
+         "set_name", "privilege", "effect"
+      }
+   },
+   {
+      .name = "assignments", .fields = {
+         "set_name", "subject_user", "subject_host", "resource_kind", "resource_uuid", "expires_at"
+      }
+   },
+   {
+      .name = "grants", .fields = {
+         "subject_user", "subject_host", "resource_kind", "resource_uuid", "privilege", "effect", "expires_at"
+      }
+   },
 };
 
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
