@@ -98,7 +98,7 @@ done:
    }
    free(copy);
 
-   return !ok;
+   return ok;
 }
 bool rrserver_direct_config_init(void) {
    return cfg_add_callback(NULL, "rtp", rtp_section) && cfg_add_callback(NULL, "rtp:*", rtp_section);
