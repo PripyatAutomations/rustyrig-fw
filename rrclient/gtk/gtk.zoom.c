@@ -767,6 +767,8 @@ gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    switch (event->keyval) {
       case GDK_KEY_0:
       case GDK_KEY_KP_0: {
+         /* Alt+0 belongs to window 10; only Ctrl+0 resets scaling. */
+         if (!control || alt) return FALSE;
          zoom_key_step(100 - (int)zoom_percent, false);
 
          return TRUE;
