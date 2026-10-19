@@ -659,6 +659,25 @@ bool gui_init(void) {
    gtk_widget_show_all(main_window);
    gtk_widget_realize(main_window);
    place_window(main_window);
+   /* Never restore an oversized normal window beyond its monitor workarea.
+    * The zoom layer can then shrink the 100% layout to the available size. */
+   if (!cfg_fullscreen) {
+      GdkWindow *gdk_window = gtk_widget_get_window(main_window);
+      GdkDisplay *display = gtk_widget_get_display(main_window);
+      GdkMonitor *monitor = gdk_window ?
+         gdk_display_get_monitor_at_window(display, gdk_window) :
+         gdk_display_get_primary_monitor(display);
+      if (monitor) {
+         GdkRectangle work;
+         gdk_monitor_get_workarea(monitor, &work);
+         int width = 0, height = 0;
+         gtk_window_get_size(GTK_WINDOW(main_window), &width, &height);
+         if (width > work.width || height > work.height)
+            gtk_window_resize(GTK_WINDOW(main_window),
+               MIN(width, work.width), MIN(height, work.height));
+      }
+      gtk_ui_zoom_recheck();
+   }
 
    // Fonts are handled entirely by the [gtk-css] section (see cfg.gtkcss.c)
    int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
