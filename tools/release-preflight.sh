@@ -15,7 +15,29 @@ if [[ -f .version ]]; then
   if [[ "$version" =~ -rc[0-9]+$ ]]; then
     warn "RC suffix uses a hyphen: ensure Debian package version is ~rcN so stable upgrades correctly"
   fi
-  [[ -f CHANGELOG ]] && head -n 1 CHANGELOG || bad "Missing CHANGELOG"
+  if [[ -f CHANGELOG ]]; then
+    header=$(head -n 1 CHANGELOG)
+    note "$header"
+    changelog_version=$(sed -n '1s/^rustyrig-fw (\\([^)]*\\)).*/\\1/p' CHANGELOG)
+    expected_debian="$version"
+    if [[ "$version" =~ ^([0-9]+\\.[0-9]+\\.[0-9]+)-rc([0-9]+)$ ]]; then
+      expected_debian="${BASH_REMATCH[1]}~rc${BASH_REMATCH[2]}"
+    fi
+    [[ "$changelog_version" == "$expected_debian" ]] ||
+      warn "CHANGELOG says $changelog_version but .version implies $expected_debian"
+  else
+    bad "Missing CHANGELOG"
+  fi
+  if [[ -f packaging/PKGBUILD ]]; then
+    arch_version=$(sed -n 's/^pkgver=//p' packaging/PKGBUILD | head -n 1)
+    [[ "$arch_version" == "$version" ]] ||
+      warn "Arch pkgver=$arch_version differs from .version=$version"
+  fi
+  if [[ -f packaging/rustyrig.spec ]]; then
+    rpm_version=$(sed -n 's/^Version:[[:space:]]*//p' packaging/rustyrig.spec | head -n 1)
+    [[ "$rpm_version" == "$version" ]] ||
+      warn "RPM Version=$rpm_version differs from .version=$version"
+  fi
 fi
 if ! git diff --quiet || ! git diff --cached --quiet; then
   warn "Working tree has uncommitted tracked changes"
