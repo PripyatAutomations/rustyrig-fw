@@ -508,6 +508,52 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
     * The old /admin backlight spelling remains an alias for clients that
     * have not yet switched to /admin control display.brightness. */
    const char *admin_data = dict_get(request, "talk.data", "");
+   if (!strcmp(admin_data,"subjects")) {
+      if (!has_priv(client->user->uid,"owner")) {
+         ws_send_error(client,"Only owners may enumerate grant subjects");
+         dict_free(request);
+         return;
+      }
+      rrserver_admin_send(client,"subjects","begin",NULL);
+      for (int i=0;i<HTTP_MAX_USERS;i++) {
+         if (!http_users[i].name[0] || !http_users[i].enabled) continue;
+         dict *row=dict_new();
+         if (!row) continue;
+         dict_add(row,"user",http_users[i].name);
+         dict_add(row,"host","");
+         dict_add(row,"label",http_users[i].name);
+         rrserver_admin_send(client,"subjects","row",row);
+         dict_free(row);
+      }
+      for (struct directory *entry=rr_relay_directories;entry;entry=entry->next) {
+         const char *host=entry->node;
+         for (struct catalog *site=rr_relay_catalogs;site;site=site->next) {
+            if (!strcmp(site->owner,entry->node) &&
+                !strcmp(dict_get(site->descriptor,"object.type",""),"node")) {
+               host=dict_get(site->descriptor,"object.alias",entry->node);
+               break;
+            }
+         }
+         for (unsigned i=0;i<dict_get_uint(entry->users,"count",0);i++) {
+            char key[64];
+            snprintf(key,sizeof(key),"user.%u.name",i);
+            const char *name=dict_get(entry->users,key,"");
+            if (!*name || !strcmp(host,cfg_get("station.name"))) continue;
+            dict *row=dict_new();
+            if (!row) continue;
+            char label[256];
+            snprintf(label,sizeof(label),"%s@%s",name,host);
+            dict_add(row,"user",name);
+            dict_add(row,"host",host);
+            dict_add(row,"label",label);
+            rrserver_admin_send(client,"subjects","row",row);
+            dict_free(row);
+         }
+      }
+      rrserver_admin_send(client,"subjects","end",NULL);
+      dict_free(request);
+      return;
+   }
    if (!strcmp(admin_data,"controls")) {
       rrserver_admin_send(client,"controls","begin",NULL);
       rrserver_platform_control_foreach(admin_control_visit,client);
