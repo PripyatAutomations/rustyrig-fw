@@ -41,7 +41,7 @@
 #include <rrserver/bridge.manager.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
-#include <rrserver/platform.backlight.h>
+#include <rrserver/platform.controls.h>
 #include <rrserver/usage.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
@@ -415,6 +415,28 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    return true;
 }
 
+static void admin_control_reply(rrconn_t *client, const rr_platform_control_state_t *s,
+      const char *action) {
+   dict *row = dict_new();
+   if (!row) return;
+   char number[32];
+   dict_add(row,"name",s->name);
+   dict_add(row,"label",s->label);
+   dict_add(row,"unit",s->unit);
+   dict_add(row,"privilege",s->privilege);
+   snprintf(number,sizeof(number),"%d",s->current); dict_add(row,"current",number);
+   snprintf(number,sizeof(number),"%d",s->minimum); dict_add(row,"minimum",number);
+   snprintf(number,sizeof(number),"%d",s->maximum); dict_add(row,"maximum",number);
+   snprintf(number,sizeof(number),"%d",s->step); dict_add(row,"step",number);
+   dict_add_bool(row,"writable",s->writable);
+   rrserver_admin_send(client,"controls",action,row);
+   dict_free(row);
+}
+static bool admin_control_visit(const rr_platform_control_state_t *s, void *user) {
+   admin_control_reply((rrconn_t *)user,s,"row");
+   return false;
+}
+
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
@@ -430,39 +452,61 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
-   /* Local hardware capabilities: never accept an arbitrary device path. */
+   /* Node controls are exported through one generic, typed namespace.
+    * The old /admin backlight spelling remains an alias for clients that
+    * have not yet switched to /admin control display.brightness. */
    const char *admin_data = dict_get(request, "talk.data", "");
-   if (!strncmp(admin_data, "backlight", 9) &&
-       (admin_data[9] == 0 || admin_data[9] == ' ')) {
+   if (!strcmp(admin_data,"controls")) {
+      rrserver_admin_send(client,"controls","begin",NULL);
+      rrserver_platform_control_foreach(admin_control_visit,client);
+      rrserver_admin_send(client,"controls","end",NULL);
+      dict_free(request);
+      return;
+   }
+   if (!strncmp(admin_data,"control ",8) ||
+       !strcmp(admin_data,"backlight") ||
+       !strncmp(admin_data,"backlight ",10)) {
+      const bool alias = !strncmp(admin_data,"backlight",9);
+      char name[64] = "display.brightness", extra[2];
       int requested = -1;
-      if (admin_data[9]) {
-         char extra[2];
-         if (sscanf(admin_data + 9, " %d %1s", &requested, extra) != 1 ||
-             requested < 0) {
-            ws_send_error(client, "Usage: /admin backlight [brightness]");
+      const char *arguments = alias ? admin_data + 9 : admin_data + 8;
+      if (alias) {
+         if (*arguments && sscanf(arguments," %d %1s",&requested,extra) != 1) {
+            ws_send_error(client,"Usage: /admin backlight [brightness]");
+            dict_free(request);
+            return;
+         }
+      } else {
+         int count = sscanf(arguments,"%63s %d %1s",name,&requested,extra);
+         if (count != 1 && count != 2) {
+            ws_send_error(client,"Usage: /admin control NAME [integer-value]");
             dict_free(request);
             return;
          }
       }
-      rr_backlight_state_t state;
-      if (!rrserver_backlight_control(requested, &state)) {
-         ws_send_error(client, "LCD backlight unavailable or value outside configured safe range");
+      rr_platform_control_state_t state;
+      bool ok = requested < 0
+         ? rrserver_platform_control_get(name,&state)
+         : rrserver_platform_control_set(name,requested,&state);
+      if (!ok) {
+         ws_send_error(client,"Node control unavailable, read-only, or outside supported range");
       } else {
-         if (requested >= 0)
-            db_add_audit_event(masterdb, client->chatname, "platform.backlight",
-               state.name);
-         dict *row = dict_new();
-         if (row) {
-            char value[32];
-            dict_add(row, "device", state.name);
-            snprintf(value, sizeof(value), "%d", state.current);
-            dict_add(row, "current", value);
-            snprintf(value, sizeof(value), "%d", state.minimum);
-            dict_add(row, "minimum", value);
-            snprintf(value, sizeof(value), "%d", state.maximum);
-            dict_add(row, "maximum", value);
-            rrserver_admin_send(client, "backlight", "state", row);
-            dict_free(row);
+         if (requested >= 0) db_add_audit_event(masterdb,client->chatname,
+            "platform.control",name);
+         admin_control_reply(client,&state,"state");
+         /* The legacy GTK backlight widget listens on a dedicated target.
+          * Retain this reply until the UI adopts generic control discovery. */
+         if (alias) {
+            dict *row = dict_new();
+            if (row) {
+               char value[32];
+               dict_add(row,"device",state.name);
+               snprintf(value,sizeof(value),"%d",state.current); dict_add(row,"current",value);
+               snprintf(value,sizeof(value),"%d",state.minimum); dict_add(row,"minimum",value);
+               snprintf(value,sizeof(value),"%d",state.maximum); dict_add(row,"maximum",value);
+               rrserver_admin_send(client,"backlight","state",row);
+               dict_free(row);
+            }
          }
       }
       dict_free(request);
