@@ -82,10 +82,12 @@ static admin_table_t tables[] = {
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
 static GtkWidget *control_rows_box, *control_filter, *control_scroll, *control_hosts;
 static gulong control_host_handler;
+static guint control_pending_lists;
 static GHashTable *control_row_buttons;
 static char *control_pending_name;
 static char *control_server_profile;
 static bool admin_control_request(const char *name, int value);
+static bool admin_control_request_profile(const char *profile,const char *name,int value);
 static void admin_control_rows_clear(void);
 static void admin_control_refresh(GtkButton *button, gpointer user);
 static void admin_control_filter_apply(void) {
@@ -121,6 +123,7 @@ static void admin_control_hosts_refresh(void) {
    }
    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),remember))
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),"local");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),"all","All Nodes");
    g_free(remember);
    if (control_host_handler) g_signal_handler_unblock(control_hosts,control_host_handler);
 }
@@ -128,15 +131,23 @@ static void admin_control_host_changed(GtkComboBox *box,gpointer unused) {
    (void)unused;
    const char *profile=gtk_combo_box_get_active_id(box);
    g_free(control_server_profile);
-   control_server_profile=(profile && strcmp(profile,"local")) ? g_strdup(profile) : NULL;
+   control_server_profile=(profile && strcmp(profile,"local") && strcmp(profile,"all")) ? g_strdup(profile) : NULL;
    admin_control_rows_clear();
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
    g_clear_pointer(&control_pending_name,g_free);
-   if (!control_server_profile) {
-      gtk_label_set_text(GTK_LABEL(control_status),"No client-local controls exported yet.");
-      return;
-   }
    admin_control_refresh(NULL,NULL);
+}
+static gboolean admin_controls_star(GtkWidget *widget,GdkEventKey *event,gpointer unused) {
+   (void)widget; (void)unused;
+   if (!control_hosts || !admin_view || !main_window) return FALSE;
+   if (event->keyval != GDK_KEY_asterisk && event->keyval != GDK_KEY_KP_Multiply) return FALSE;
+   GtkWidget *focus=gtk_window_get_focus(GTK_WINDOW(main_window));
+   if (focus && GTK_IS_EDITABLE(focus)) return FALSE;
+   GtkWidget *page=control_combo ? g_object_get_data(G_OBJECT(control_combo),"control-page") : NULL;
+   if (!page || gtk_notebook_get_nth_page(GTK_NOTEBOOK(admin_view),
+       gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_view))) != page) return FALSE;
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),"all");
+   return TRUE;
 }
 static void admin_control_filter_changed(GtkEditable *entry,gpointer unused) {
    (void)entry; (void)unused;
@@ -297,8 +308,7 @@ static void admin_control_row_add(dict *data) {
    admin_control_filter_apply();
 }
 
-static bool admin_control_request(const char *name, int value) {
-   const char *profile = control_server_profile;
+static bool admin_control_request_profile(const char *profile,const char *name,int value) {
    rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
    if (!connection || !connection->is_ws || !connection->authenticated) return false;
    dict *d = dict_new();
@@ -314,23 +324,32 @@ static bool admin_control_request(const char *name, int value) {
    dict_free(d);
    return ok;
 }
+static bool admin_control_request(const char *name,int value) {
+   return admin_control_request_profile(control_server_profile,name,value);
+}
 static void admin_control_refresh(GtkButton *button, gpointer user) {
    (void)button; (void)user;
    admin_control_hosts_refresh();
    if (control_scale) gtk_widget_set_sensitive(control_scale,FALSE);
    if (control_apply) gtk_widget_set_sensitive(control_apply,FALSE);
    admin_control_rows_clear();
-   if (!control_server_profile) {
-      const char *host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
-      if (host && strcmp(host,"local")) control_server_profile=g_strdup(host);
+   const char *host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
+   control_pending_lists=0;
+   if (host && !strcmp(host,"all")) {
+      for (unsigned i=0;; ++i) {
+         const char *profile=rrclient_connection_iter(i);
+         if (!profile) break;
+         if (admin_control_request_profile(profile,NULL,-1)) ++control_pending_lists;
+      }
+      gtk_label_set_text(GTK_LABEL(control_status),control_pending_lists ?
+         "Discovering controls across connected nodes…" : "No connected nodes.");
+   } else if (!host || !strcmp(host,"local")) {
+      gtk_label_set_text(GTK_LABEL(control_status),"No client-local controls exported yet.");
+   } else {
+      gtk_label_set_text(GTK_LABEL(control_status),"Discovering server controls…");
+      if (!admin_control_request_profile(host,NULL,-1))
+         gtk_label_set_text(GTK_LABEL(control_status),"Cannot query selected server");
    }
-   if (!control_server_profile) {
-      if (control_status) gtk_label_set_text(GTK_LABEL(control_status),"No client-local controls exported yet.");
-      return;
-   }
-   if (control_status) gtk_label_set_text(GTK_LABEL(control_status),"Discovering server controls…");
-   if (!admin_control_request(NULL,-1) && control_status)
-      gtk_label_set_text(GTK_LABEL(control_status),"Select a connected RustyRig server");
 }
 static void admin_control_selection(GtkComboBox *combo, gpointer user) {
    (void)user;
@@ -1161,6 +1180,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(filter_header),control_hosts,TRUE,TRUE,0);
       admin_control_hosts_refresh();
       control_host_handler=g_signal_connect(control_hosts,"changed",G_CALLBACK(admin_control_host_changed),NULL);
+      g_signal_connect(main_window,"key-press-event",G_CALLBACK(admin_controls_star),NULL);
       gtk_box_pack_start(GTK_BOX(box),filter_header,FALSE,FALSE,0);
       g_signal_connect(control_filter,"changed",G_CALLBACK(admin_control_filter_changed),NULL);
       control_status = gtk_label_new("Select a connected server and Refresh.");
