@@ -46,6 +46,8 @@ static char *epoch;
 static uint64_t sequence;
 
 static dict *message(const char *family, const char *cmd, const char *request) {
+   if (!epoch) epoch = g_uuid_string_random();
+   if (!epoch) return NULL;
    dict *d = dict_new();
 
    if (!d) {
