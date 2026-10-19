@@ -41,6 +41,7 @@
 #include <rrserver/bridge.manager.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
+#include <rrserver/platform.backlight.h>
 #include <rrserver/usage.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
@@ -429,6 +430,44 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+   /* Local hardware capabilities: never accept an arbitrary device path. */
+   const char *admin_data = dict_get(request, "talk.data", "");
+   if (!strncmp(admin_data, "backlight", 9) &&
+       (admin_data[9] == 0 || admin_data[9] == ' ')) {
+      int requested = -1;
+      if (admin_data[9]) {
+         char extra[2];
+         if (sscanf(admin_data + 9, " %d %1s", &requested, extra) != 1 ||
+             requested < 0) {
+            ws_send_error(client, "Usage: /admin backlight [brightness]");
+            dict_free(request);
+            return;
+         }
+      }
+      rr_backlight_state_t state;
+      if (!rrserver_backlight_control(requested, &state)) {
+         ws_send_error(client, "LCD backlight unavailable or value outside configured safe range");
+      } else {
+         if (requested >= 0)
+            db_add_audit_event(masterdb, client->chatname, "platform.backlight",
+               state.name);
+         dict *row = dict_new();
+         if (row) {
+            char value[32];
+            dict_add(row, "device", state.name);
+            snprintf(value, sizeof(value), "%d", state.current);
+            dict_add(row, "current", value);
+            snprintf(value, sizeof(value), "%d", state.minimum);
+            dict_add(row, "minimum", value);
+            snprintf(value, sizeof(value), "%d", state.maximum);
+            dict_add(row, "maximum", value);
+            rrserver_admin_send(client, "backlight", "state", row);
+            dict_free(row);
+         }
+      }
+      dict_free(request);
+      return;
+   }
    if (admin_resource_action(client, action, request)) {
       dict_free(request);
       return;
