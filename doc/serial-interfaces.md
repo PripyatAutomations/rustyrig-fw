@@ -49,10 +49,12 @@ buffer-bytes=65536
 ```
 
 A local endpoint defaults to a PTY at `./dev/<name>`. `type=serial` and `path`
-select a real local serial device instead. Without a mapping, the native client
-creates `ttyCAT0=rig0.cat` at 9600 baud. `none` disables a mapping. Existing
-`cat.pty.enable=false` disables the default CAT endpoint; `cat.pty.path` remains
-the fallback when `serial:ttyCAT0.path` is absent. GPS endpoints default to 4800.
+select a real local serial device instead. The unnumbered `ttyCAT`, `ttyGPS`
+and `ttyMODEM` endpoints follow the active rig. Numbered endpoints (including
+`ttyCAT0` and `ttyGPS0`) are created only when explicitly configured or
+attached, and should be bound to a particular rig or service. `none` disables
+a numbered mapping. `cat.pty.path` remains a compatibility path for a
+configured `ttyCAT0` endpoint. GPS endpoints default to 4800 baud.
 
 Inline `@baud,mode` overrides the endpoint section's `baud` and `mode`; either
 part can be omitted (`@38400`, or the older `@8n1`). Mode is data bits, parity,
