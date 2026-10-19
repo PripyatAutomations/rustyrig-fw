@@ -224,7 +224,7 @@ static void directory_download_wait(void) {
    if (download_dialog) return;
    const char *url = receiver_directory_fetch_url();
    download_dialog = gtk_dialog_new_with_buttons("Receiver Directory", GTK_WINDOW(directory_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, NULL);
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, NULL, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(download_dialog));
    char *message = g_strdup_printf("Please wait downloading directory from %s",
       url && *url ? url : "(unknown source)");
