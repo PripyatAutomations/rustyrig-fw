@@ -19,6 +19,8 @@
 /* Caller owns the returned JSON. Endpoint identities contain no credentials. */
 extern char *db_bridge_hints_get(sqlite3 *db, const char *identity);
 extern bool db_bridge_hints_set(sqlite3 *db, const char *identity, const char *json);
+typedef enum { RR_RESOURCE_DENY = 0, RR_RESOURCE_ALLOW = 1, RR_RESOURCE_UNSET = 2 } rr_resource_access_t;
+extern rr_resource_access_t db_resource_access(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *resource_uuid, const char *privilege, time_t now);
 extern sqlite3 *db_open(const char *path);
 extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email, int maxsessions, const char *permissions)
 ;
