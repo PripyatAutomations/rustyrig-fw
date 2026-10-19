@@ -222,6 +222,121 @@ static void admin_sessions_kick(rrconn_t *client, const char *target,
    admin_sessions_list(client);
 }
 
+/* Owner-only management of reusable scoped policies.
+ * Arguments are individually bound; remote subjects do not require accounts. */
+static bool admin_privset_action(rrconn_t *client, const char *action, dict *request) {
+   if (strncmp(action, "privset-", 8)) return false;
+   if (!has_priv(client->user->uid, "owner")) {
+      ws_send_error(client, "Only owners may manage resource privilege sets");
+      return true;
+   }
+   const char *name = dict_get(request, "talk.target", "");
+   const char *data = dict_get(request, "talk.data", "");
+   if (!*name || strlen(name) > 96 || strlen(data) > 512) {
+      ws_send_error(client, "Invalid privilege set name or arguments");
+      return true;
+   }
+   const char *sql = NULL;
+   char a[130] = "", b[130] = "", d[130] = "", extra[2] = "";
+   int args = sscanf(data, "%129s %129s %129s %1s", a,b,d,extra);
+   if (!strcmp(action, "privset-create")) {
+      sql = "INSERT INTO privilege_sets(name,description,created_by) VALUES(?1,?2,?3)";
+   } else if (!strcmp(action, "privset-delete")) {
+      if (*data) { ws_send_error(client, "privset-delete takes only a set name"); return true; }
+      sql = "DELETE FROM privilege_sets WHERE name=?1";
+   } else if (!strcmp(action, "privset-entry")) {
+      if (args != 2 || (strcmp(a,"allow") && strcmp(a,"deny")) ||
+          strlen(b) > 128) {
+         ws_send_error(client, "Usage: /admin privset-entry SET allow|deny PRIVILEGE");
+         return true;
+      }
+      sql = "INSERT INTO privilege_set_entries(set_id,effect,privilege) "
+         "SELECT id,?2,?3 FROM privilege_sets WHERE name=?1 "
+         "ON CONFLICT(set_id,privilege) DO UPDATE SET effect=excluded.effect";
+   } else if (!strcmp(action, "privset-unentry")) {
+      if (args != 1) { ws_send_error(client, "Usage: /admin privset-unentry SET PRIVILEGE"); return true; }
+      sql = "DELETE FROM privilege_set_entries WHERE set_id="
+         "(SELECT id FROM privilege_sets WHERE name=?1) AND privilege=?2";
+   } else if (!strcmp(action, "privset-assign") || !strcmp(action, "privset-unassign")) {
+      if (args != 3 || strlen(a) > HTTP_USER_LEN ||
+          !( !strcmp(b,"site") || !strcmp(b,"rig") || !strcmp(b,"vfo") ||
+             !strcmp(b,"room") || !strcmp(b,"media") || !strcmp(b,"serial") ||
+             !strcmp(b,"file") || !strcmp(b,"bridge")) ||
+          strlen(d) != 36 || !rr_object_uuid_valid(d)) {
+         ws_send_error(client, "Usage: /admin privset-assign SET user@host KIND RESOURCE-UUID");
+         return true;
+      }
+      sql = !strcmp(action,"privset-assign")
+         ? "INSERT INTO privilege_set_assignments "
+           "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
+           "SELECT id,?2,?3,?4,?5,?6 FROM privilege_sets WHERE name=?1 "
+           "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
+           "DO UPDATE SET assigned_by=excluded.assigned_by,assigned_at=unixepoch(),expires_at=NULL"
+         : "DELETE FROM privilege_set_assignments WHERE set_id="
+           "(SELECT id FROM privilege_sets WHERE name=?1) AND subject_user=?2 "
+           "COLLATE NOCASE AND subject_host=?3 COLLATE NOCASE "
+           "AND resource_kind=?4 AND resource_uuid=?5";
+   } else {
+      ws_send_error(client, "Unknown privilege set operation");
+      return true;
+   }
+   char username[130] = "", host[130] = "";
+   if (strstr(action, "assign")) {
+      char *at = strchr(a, '@');
+      if (at) {
+         *at++ = 0;
+         if (!*at || strlen(at) >= sizeof(host)) {
+            ws_send_error(client, "Invalid remote site");
+            return true;
+         }
+         snprintf(host, sizeof(host), "%s", at);
+      }
+      if (!*a || strlen(a) > HTTP_USER_LEN) {
+         ws_send_error(client, "Invalid subject username");
+         return true;
+      }
+      snprintf(username, sizeof(username), "%s", a);
+   }
+   sqlite3_stmt *st = NULL;
+   int rc = sqlite3_prepare_v2(masterdb, sql, -1, &st, NULL);
+   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   if (rc == SQLITE_OK) {
+      if (!strcmp(action,"privset-create")) {
+         rc = sqlite3_bind_text(st,2,data,-1,SQLITE_TRANSIENT);
+         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,client->chatname,-1,SQLITE_TRANSIENT);
+      } else if (!strcmp(action,"privset-entry")) {
+         rc = sqlite3_bind_text(st,2,a,-1,SQLITE_TRANSIENT);
+         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,b,-1,SQLITE_TRANSIENT);
+      } else if (!strcmp(action,"privset-unentry")) {
+         rc = sqlite3_bind_text(st,2,a,-1,SQLITE_TRANSIENT);
+      } else if (strstr(action,"assign")) {
+         rc = sqlite3_bind_text(st,2,username,-1,SQLITE_TRANSIENT);
+         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,host,-1,SQLITE_TRANSIENT);
+         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,4,b,-1,SQLITE_TRANSIENT);
+         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,5,d,-1,SQLITE_TRANSIENT);
+         if (rc == SQLITE_OK && !strcmp(action,"privset-assign"))
+            rc = sqlite3_bind_text(st,6,client->chatname,-1,SQLITE_TRANSIENT);
+      }
+   }
+   if (rc == SQLITE_OK) rc = sqlite3_step(st);
+   bool ok = rc == SQLITE_DONE && sqlite3_changes(masterdb) > 0;
+   if (st) sqlite3_finalize(st);
+   if (!ok) {
+      Log(LOG_WARN,"privset","%s for %s failed: %s",action,name,sqlite3_errmsg(masterdb));
+      ws_send_error(client, "Privilege set operation failed; check name, subject, or duplicates");
+   } else {
+      db_add_audit_event(masterdb,client->chatname,action,name);
+      dict *row = dict_new();
+      if (row) {
+         dict_add(row,"name",name);
+         dict_add(row,"operation",action);
+         rrserver_admin_send(client,"privsets","updated",row);
+         dict_free(row);
+      }
+   }
+   return true;
+}
+
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
@@ -237,6 +352,10 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+   if (admin_privset_action(client, action, request)) {
+      dict_free(request);
+      return;
+   }
    if (!strcmp(action, "session-kick") ||
        !strcmp(action, "session-kick-all")) {
       admin_sessions_kick(client, dict_get(request, "talk.target", ""),
