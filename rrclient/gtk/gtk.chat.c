@@ -1109,6 +1109,15 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       g_object_set_data(G_OBJECT(room_vfo_window), "rr-vfo-float-box", float_box);
    }
    room_vfo_move(float_box);
+   /* A scrolled VFO has a tiny preferred width; measure its actual contents
+    * so the detached desktop window does not clip frequency/mode/audio. */
+   GtkWidget *inside = GTK_IS_BIN(room_vfo_box) ?
+      gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
+   if (GTK_IS_VIEWPORT(inside)) inside = gtk_bin_get_child(GTK_BIN(inside));
+   int minimum = 0, natural = 0;
+   if (inside) gtk_widget_get_preferred_width(inside, &minimum, &natural);
+   int width = MAX(900, natural + 36);
+   gtk_window_resize(GTK_WINDOW(room_vfo_window), width, 200);
    if (room_vfo_room[0]) {
       char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room,
          vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
