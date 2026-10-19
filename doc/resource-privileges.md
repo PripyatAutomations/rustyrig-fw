@@ -239,3 +239,23 @@ Next up for the authorization project: map a node-control write to a
 `site`-scoped `resource_privileges` grant keyed by the persistent node UUID,
 while retaining the system `owner|admin` override and explicit deny policy.
 This is **not yet implemented**.
+
+## Symbolic user groups
+
+Owners can manage user groups under **Admin → Assignments → Manage Groups…**.
+Group names, linked identities (`username@site`), and resource aliases such as
+`rig0` or `#club-room` are stored symbolically, not as generated UUIDs.
+A group can grant or deny `rig.full`, `rig.use`, or `room.join` for one
+named resource or `*` (all of that type on this server). An explicit denial
+from any group or direct assignment overrides allows.
+
+For example, create `club-members`, add `alice@rplywv00`, and grant
+`rig.full` for `rig0`; create `club-guests` with `room.join` for `*`.
+Only the destination server evaluates these permissions, and a local
+`admin` or `owner` role from another server is not imported.
+
+These group tables are added automatically when an existing SQLite database
+opens. A site may rebuild with new UUIDs while keeping the same symbolic
+site name and rig aliases; its group policies remain applicable on servers
+that retain their privilege database. They do not automatically restore a
+**lost granting server database**; that still requires backup or policy export.
