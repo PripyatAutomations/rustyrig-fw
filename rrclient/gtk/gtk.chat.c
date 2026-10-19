@@ -1109,22 +1109,16 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    gtk_widget_show_all(room_vfo_window);
    gtk_window_present(GTK_WINDOW(room_vfo_window));
 }
-static void room_vfo_dock_clicked(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   if (room_vfo_window) room_vfo_float_closed(room_vfo_window, NULL, NULL);
-}
 static void room_vfo_ensure_container(void) {
    if (room_vfo_container || !room_vfo_box) return;
    room_vfo_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   GtkWidget *float_button = gtk_button_new_with_label("Float VFO");
-   gtk_widget_set_tooltip_text(float_button, "Detach the VFO controls into a movable window");
+   /* Minimal window affordance; the VFO's own top grip handles folding. */
+   GtkWidget *float_button = gtk_button_new_with_label("↗");
+   gtk_widget_set_tooltip_text(float_button, "Float VFO controls in a movable window");
+   gtk_widget_set_halign(float_button, GTK_ALIGN_END);
+   gtk_widget_set_relief(GTK_BUTTON(float_button), GTK_RELIEF_NONE);
    g_signal_connect(float_button, "clicked", G_CALLBACK(room_vfo_float_clicked), NULL);
-   gtk_box_pack_start(GTK_BOX(toolbar), float_button, FALSE, FALSE, 0);
-   GtkWidget *dock_button = gtk_button_new_with_label("Dock VFO");
-   g_signal_connect(dock_button, "clicked", G_CALLBACK(room_vfo_dock_clicked), NULL);
-   gtk_box_pack_start(GTK_BOX(toolbar), dock_button, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(room_vfo_container), toolbar, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(room_vfo_container), float_button, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(room_vfo_container), room_vfo_box, FALSE, FALSE, 0);
    g_object_add_weak_pointer(G_OBJECT(room_vfo_container), (gpointer *)&room_vfo_container);
 }
@@ -1141,7 +1135,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
         rrclient_room_vfos(tab->room)[0]));
 
    if (!has_vfos) {
-      if (room_vfo_container && !room_vfo_window) gtk_widget_hide(room_vfo_container);
+      if (room_vfo_container && (!room_vfo_window || !gtk_widget_get_visible(room_vfo_window))) gtk_widget_hide(room_vfo_container);
 
       return;
    }
