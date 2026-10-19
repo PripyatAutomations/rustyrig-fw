@@ -1257,6 +1257,21 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             db_room_vfo_remove(masterdb, target_room, rr_server_vfo_id(vfo));
          }
          target_room = selected_room;
+         /* Legacy media channels belong to the generated backend room.
+          * Move their RX admission scope to the user's selected room.
+          * Keep TX untouched (bridges never provision TX channels). */
+         const char *rig_uuid = rr_server_rig_id(b->backend->owner);
+         unsigned moved = 0;
+         for (unsigned i = 0; i < MAX_MEDIA_CHANNELS; i++) {
+            struct rr_mediachan *channel = &media_channels[i];
+            if (channel->uuid[0] && !strcmp(channel->rig_uuid, rig_uuid) &&
+                channel->direction == RR_BINFRAME_DIR_RX) {
+               snprintf(channel->room, sizeof(channel->room), "%s", selected_room);
+               moved++;
+            }
+         }
+         Log(LOG_INFO, "bridge", "[%s] attached receiver room %s (%u RX channels)",
+            bridge_public_name(b), selected_room, moved);
          /* The room JOIN preceded this attachment. Notify its members of
           * the newly bound receiver UUID so their VFO panels refresh. */
          char *vfos = db_room_vfo_list(masterdb, selected_room);
