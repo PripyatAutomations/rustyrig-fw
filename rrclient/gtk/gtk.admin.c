@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
+#ifdef __linux__
+#include <dirent.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 #include <librustyaxe/util.time.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -90,6 +96,81 @@ static bool admin_control_request(const char *name, int value);
 static bool admin_control_request_profile(const char *profile,const char *name,int value);
 static void admin_control_rows_clear(void);
 static void admin_control_refresh(GtkButton *button, gpointer user);
+static void admin_control_row_add(dict *data,const char *profile);
+/* The client owns local controls; they need not be exported to a server.
+ * Do not expose sysfs paths or allow names supplied by a remote peer. */
+#ifdef __linux__
+static bool local_backlight_path(char *out,size_t capacity) {
+   DIR *dir=opendir("/sys/class/backlight");
+   if (!dir) return false;
+   struct dirent *item;
+   char device[80]="";
+   unsigned found=0;
+   while ((item=readdir(dir))) {
+      if (item->d_name[0]=='.') continue;
+      if (++found != 1 || strlen(item->d_name)>=sizeof(device)) break;
+      snprintf(device,sizeof(device),"%s",item->d_name);
+   }
+   closedir(dir);
+   if (found!=1) return false;
+   for (const char *p=device;*p;p++)
+      if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-' && *p!='.') return false;
+   return snprintf(out,capacity,"/sys/class/backlight/%s",device)>0;
+}
+static bool local_backlight_read(int *current,int *maximum) {
+   char path[192],attribute[240];
+   if (!local_backlight_path(path,sizeof(path))) return false;
+   snprintf(attribute,sizeof(attribute),"%s/max_brightness",path);
+   FILE *f=fopen(attribute,"r");
+   if (!f) return false;
+   bool ok=fscanf(f,"%d",maximum)==1 && *maximum>0;
+   fclose(f);
+   if (!ok) return false;
+   snprintf(attribute,sizeof(attribute),"%s/brightness",path);
+   f=fopen(attribute,"r");
+   if (!f) return false;
+   ok=fscanf(f,"%d",current)==1 && *current>=0 && *current<=*maximum;
+   fclose(f);
+   return ok;
+}
+static bool local_backlight_write(int value) {
+   int current=0,maximum=0;
+   char path[192],attribute[240];
+   if (!local_backlight_read(&current,&maximum) || value<1 || value>maximum ||
+       !local_backlight_path(path,sizeof(path))) return false;
+   snprintf(attribute,sizeof(attribute),"%s/brightness",path);
+   int fd=open(attribute,O_WRONLY|O_CLOEXEC);
+   if (fd<0) return false;
+   char text[32];
+   int n=snprintf(text,sizeof(text),"%d\n",value);
+   bool ok=n>0 && write(fd,text,(size_t)n)==n;
+   close(fd);
+   return ok;
+}
+#endif
+static void admin_control_local_discover(void) {
+#ifdef __linux__
+   int current=0,maximum=0;
+   if (local_backlight_read(&current,&maximum)) {
+      dict *state=dict_new();
+      if (!state) return;
+      char str[32];
+      dict_add(state,"name","display.brightness");
+      dict_add(state,"label","LCD Brightness");
+      dict_add(state,"unit","level");
+      dict_add(state,"privilege","local");
+      dict_add(state,"minimum","1");
+      snprintf(str,sizeof(str),"%d",maximum);dict_add(state,"maximum",str);
+      snprintf(str,sizeof(str),"%d",current);dict_add(state,"current",str);
+      dict_add(state,"step","1");
+      dict_add_bool(state,"writable",access("/sys/class/backlight",R_OK)==0);
+      admin_control_row_add(state,"local");
+      dict_free(state);
+      return;
+   }
+#endif
+   gtk_label_set_text(GTK_LABEL(control_status),"No local adjustable controls detected");
+}
 static void admin_control_filter_apply(void) {
    if (!control_filter || !control_rows_box) return;
    const char *query = gtk_entry_get_text(GTK_ENTRY(control_filter));
@@ -342,10 +423,11 @@ static void admin_control_refresh(GtkButton *button, gpointer user) {
          if (!profile) break;
          if (admin_control_request_profile(profile,NULL,-1)) ++control_pending_lists;
       }
+      admin_control_local_discover();
       gtk_label_set_text(GTK_LABEL(control_status),control_pending_lists ?
-         "Discovering controls across connected nodes…" : "No connected nodes.");
+         "Discovering controls across connected nodes…" : "Local controls shown; no connected nodes.");
    } else if (!host || !strcmp(host,"local")) {
-      gtk_label_set_text(GTK_LABEL(control_status),"No client-local controls exported yet.");
+      admin_control_local_discover();
    } else {
       gtk_label_set_text(GTK_LABEL(control_status),"Discovering server controls…");
       if (!admin_control_request_profile(host,NULL,-1))
@@ -376,7 +458,13 @@ static void admin_control_apply(GtkButton *button, gpointer user) {
       int original=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-original"));
       if (value==original) continue;
       ++changed;
-      if (!admin_control_request_profile(profile,name,value)) ++failed;
+      bool ok=false;
+      if (!strcmp(profile,"local") && !strcmp(name,"display.brightness")) {
+#ifdef __linux__
+         ok=local_backlight_write(value);
+#endif
+      } else ok=admin_control_request_profile(profile,name,value);
+      if (!ok) ++failed;
    }
    g_list_free(rows);
    char message[160];
