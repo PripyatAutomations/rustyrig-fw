@@ -442,7 +442,9 @@ static void add_nmea_channel(struct gps_source *source) {
    snprintf(source->nmea_channel->name, sizeof(source->nmea_channel->name), "%s.nmea.rx", source->alias);
    snprintf(source->nmea_channel->room, sizeof(source->nmea_channel->room), "%s", position->room);
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
-   if (!rrserver_media_uuid_assign(source->nmea_channel, position->rig_uuid, "gps.nmea"))
+   if (!(position->rig_uuid[0] ?
+         rrserver_media_uuid_assign(source->nmea_channel, position->rig_uuid, "gps.nmea") :
+         rrserver_media_uuid_assign_node(source->nmea_channel, "station.gps.nmea")))
       Log(LOG_CRIT, "gps", "Unable to assign stable NMEA stream UUID");
 }
 
@@ -519,6 +521,7 @@ bool rrserver_gps_init(void) {
    if (sources[0].channel) {
       snprintf(sources[0].channel->name, sizeof(sources[0].channel->name), "station.gps.rx");
       snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
+      if (!rrserver_media_uuid_assign_node(sources[0].channel, "station.gps.position")) return true;
    }
 
    const char *position = rrserver_gps_station_position();
