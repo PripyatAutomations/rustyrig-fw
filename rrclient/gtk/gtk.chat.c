@@ -1138,9 +1138,22 @@ static void room_vfo_grip_edge(void) {
 static void room_vfo_dock_to(gboolean bottom) {
    room_vfo_bottom = bottom;
    room_vfo_grip_edge();
-   if (!room_vfo_home && room_vfo_container)
+   /* Prefer the currently selected room when redocking a floating panel. */
+   GtkWidget *active_page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
+      gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+   GtkWidget *current_box = active_page ?
+      g_object_get_data(G_OBJECT(active_page), "rr-chat-box") : NULL;
+   if (current_box) {
+      if (room_vfo_home)
+         g_object_remove_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
+      room_vfo_home = current_box;
+      g_object_add_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
+   } else if (!room_vfo_home && room_vfo_container &&
+              (!room_vfo_window || !gtk_widget_get_visible(room_vfo_window))) {
       room_vfo_home = gtk_widget_get_parent(room_vfo_container);
-   if (room_vfo_home) room_vfo_move(room_vfo_home);
+   }
+   if (!room_vfo_home) return;
+   room_vfo_move(room_vfo_home);
    if (room_vfo_window) gtk_widget_hide(room_vfo_window);
    if (room_vfo_container && room_vfo_home && GTK_IS_BOX(room_vfo_home))
       gtk_box_reorder_child(GTK_BOX(room_vfo_home), room_vfo_container,
