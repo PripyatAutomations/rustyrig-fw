@@ -1092,7 +1092,9 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       g_signal_connect(room_vfo_window, "delete-event", G_CALLBACK(room_vfo_float_closed), NULL);
    }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
-   if (parent) room_vfo_home = parent;
+   if (room_vfo_home) g_object_remove_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
+   room_vfo_home = parent;
+   if (room_vfo_home) g_object_add_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
    GtkWidget *float_box = g_object_get_data(G_OBJECT(room_vfo_window), "rr-vfo-float-box");
    if (!float_box) {
       float_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
