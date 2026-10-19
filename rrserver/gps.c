@@ -18,6 +18,7 @@
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/ws.serial.h>
 #include <rrserver/gps.h>
+#include <rrserver/media.h>
 #include <rrserver/discovery.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
@@ -418,6 +419,8 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
       snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", public);
       snprintf(source->channel->room, sizeof(source->channel->room), "%s", rr_rig_registry_room(rig.rigs, radio));
       snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s", rr_server_rig_id(radio));
+      if (!rrserver_media_uuid_assign(source->channel, rr_server_rig_id(radio), "gps.position"))
+         return true;
    }
 
    return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
@@ -439,6 +442,8 @@ static void add_nmea_channel(struct gps_source *source) {
    snprintf(source->nmea_channel->name, sizeof(source->nmea_channel->name), "%s.nmea.rx", source->alias);
    snprintf(source->nmea_channel->room, sizeof(source->nmea_channel->room), "%s", position->room);
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
+   if (!rrserver_media_uuid_assign(source->nmea_channel, position->rig_uuid, "gps.nmea"))
+      Log(LOG_CRIT, "gps", "Unable to assign stable NMEA stream UUID");
 }
 
 void rrserver_gps_inventory_position(dict *row, const char *scope) {
