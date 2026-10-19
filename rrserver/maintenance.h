@@ -186,6 +186,8 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
             bool ok = rr_maintenance_sql(db, "BEGIN IMMEDIATE;");
             if (ok) ok = action == RR_MAINT_RESET_ADMINPW ?
                db_reset_admin_password(db) : (sql && rr_maintenance_sql(db, sql));
+            if (ok && action == RR_MAINT_RESET_UUIDS)
+               ok = db_room_uuids_regenerate(db);
             if (ok) ok = rr_maintenance_sql(db, "COMMIT;");
             if (!ok) rr_maintenance_sql(db, "ROLLBACK;");
             if (ok) result = EXIT_SUCCESS;
