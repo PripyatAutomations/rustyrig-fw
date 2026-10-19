@@ -808,7 +808,11 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(!strcmp(table->name, "audit") ? "Audit Log" : !strcmp(table->name, "ptt") ?
-         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : !strcmp(table->name, "users") ? "Users" : !strcmp(table->name, "sessions") ? "Sessions" : "Rooms"));
+         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : !strcmp(table->name, "users") ? "Users" : !strcmp(table->name, "sessions") ? "Sessions" :
+         !strcmp(table->name, "privsets") ? "Privilege Sets" :
+         !strcmp(table->name, "setentries") ? "Set Privileges" :
+         !strcmp(table->name, "assignments") ? "Assignments" :
+         !strcmp(table->name, "grants") ? "Direct Grants" : "Rooms"));
    }
 
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
