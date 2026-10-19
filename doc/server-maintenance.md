@@ -17,7 +17,7 @@ The command performs the requested action and **exits without starting rrserver*
 | `--reset-rooms` | Removes room metadata and VFO-room bindings. Chat history remains in the database, but its old room names may no longer be visible until recreated. |
 | `--reset-logs` | Clears chat and PTT logs; does not clear the audit log or remove audio recording files. |
 | `--reset-audit` | Clears the audit log only. |
-| `--reset-adminpw` | Generates a new random administrator bootstrap credential and writes it beside the database to its restricted `.bootstrap-password` file. It will not overwrite an existing bootstrap-password file; safeguard or remove that file first if appropriate. |
+| `--reset-adminpw` | Prompts twice for the new administrator password with terminal echo disabled, then updates the account directly. Requires an interactive terminal; no random bootstrap credential is generated. |
 | `--reset-uuids` | Generates new room UUIDs and clears stored server, configured-rig, and VFO UUID mappings; does not remove rooms, users, chat history, or room topics. Room-to-VFO bindings are cleared because they reference the old VFO UUIDs. |
 
 The `--reset-db`, `--reset-rooms`, `--reset-logs`, `--reset-audit`, `--reset-adminpw` and `--reset-uuids` actions operate on `path.db.master` from the effective rrserver configuration. Do not guess which database is active when multiple instances are installed.
