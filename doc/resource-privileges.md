@@ -75,6 +75,36 @@ when no resource grant matches. Unconverted features (serial, shares,
 some VFO/TX/property paths) are **not yet resource-grant aware**; a new grant
 does not automatically authorize every subsystem.
 
+### Host-wide rig access preset
+
+A reusable `rig.full` privilege-set entry grants every rig-scoped operation
+on a matching rig, subject to independent room, radio hardware, and PTT safety
+checks. Assign the set to `rig *` to cover **every rig owned by this server**,
+including rigs added later. More specific `deny` grants still win.
+
+On the **rig-owning server**, create the preset once:
+
+```text
+/admin privset-create full-rig Full rig access
+/admin privset-entry full-rig allow rig.full
+```
+
+Then assign it to an authenticated local user or linked-site principal:
+
+```text
+/admin privset-assign full-rig alice@camp rig *
+```
+
+Remove access with:
+
+```text
+/admin privset-unassign full-rig alice@camp rig *
+```
+
+This is scoped to the owning server; it is **not** a network-wide admin role.
+The remote identity is taken from the authenticated relay session, not from
+client-supplied role assertions.
+
 ### Administration commands
 
 Run these on the **owning server** while authenticated as `owner`:
