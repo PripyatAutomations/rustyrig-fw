@@ -25,7 +25,7 @@ typedef struct {
 static admin_table_t tables[] = {
    {
       .name = "users", .fields = {
-         "name", "enabled", "permissions", "email", "maxsessions", "password_set", "password_expires", "password_change_required", "uid"
+         "name", "enabled", "permissions", "email", "maxsessions", "password_set", "password_expires", "password_change_required", "uid", "full_rig_access"
       }
    },
    {
@@ -792,6 +792,7 @@ static void admin_action(GtkButton *button, gpointer data) {
          "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Edit Privs", 1003, "Save", GTK_RESPONSE_OK, NULL);
       admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
+      GtkWidget *full_rig_check=NULL;
       char *original[10] = {0};
       gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
       gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
@@ -800,11 +801,18 @@ static void admin_action(GtkButton *button, gpointer data) {
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
          gchar *text = NULL;
          gtk_tree_model_get(model, &iter, col, &text, -1);
-         entries[col] = gtk_entry_new();
-         gtk_entry_set_text(GTK_ENTRY(entries[col]), text ? text : "");
-         gtk_editable_set_editable(GTK_EDITABLE(entries[col]), col != 0 && col != 5 && col != 8);
-         gtk_grid_attach(GTK_GRID(grid), gtk_label_new(table->fields[col] ? table->fields[col] : ""), 0, col, 1, 1);
-         gtk_grid_attach(GTK_GRID(grid), entries[col], 1, col, 1, 1);
+         if (col == 9) {
+            full_rig_check=gtk_check_button_new_with_label("Full Rig Access — all rigs on this server");
+            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(full_rig_check),text && !strcmp(text,"1"));
+            gtk_grid_attach(GTK_GRID(grid),full_rig_check,0,col,2,1);
+            entries[col]=NULL;
+         } else {
+            entries[col] = gtk_entry_new();
+            gtk_entry_set_text(GTK_ENTRY(entries[col]), text ? text : "");
+            gtk_editable_set_editable(GTK_EDITABLE(entries[col]), col != 0 && col != 5 && col != 8);
+            gtk_grid_attach(GTK_GRID(grid), gtk_label_new(table->fields[col] ? table->fields[col] : ""), 0, col, 1, 1);
+            gtk_grid_attach(GTK_GRID(grid), entries[col], 1, col, 1, 1);
+         }
          original[col] = text;
       }
 
@@ -832,6 +840,14 @@ static void admin_action(GtkButton *button, gpointer data) {
             bool changed = false;
             for (int col = 1 ; col < 10 && table->fields[col] ; col++) {
                if (col == 5 || col == 8) continue;
+               if (col == 9) {
+                  const char *value=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(full_rig_check)) ? "1" : "0";
+                  if (g_strcmp0(value,original[col] ? original[col] : "0")) {
+                     dict_add(fields,"full_rig_access",value);
+                     changed=true;
+                  }
+                  continue;
+               }
                const char *edited = gtk_entry_get_text(GTK_ENTRY(entries[col]));
                if (g_strcmp0(edited, original[col] ? original[col] : "")) {
                   dict_add(fields, table->fields[col], edited);
