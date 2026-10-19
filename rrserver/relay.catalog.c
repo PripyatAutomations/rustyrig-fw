@@ -424,7 +424,9 @@ static bool collect_node_control(const rr_platform_control_state_t *state, void 
    (void)unused;
    dict *row=rr_inventory_row("",0,"control",state->label,NULL);
    if (!row) return false;
-   dict_add(row,"inventory.control",state->name);
+   /* inventory.control is not a declared wire field. Keep the stable key
+    * in an existing serialized field until the wire schema is extended. */
+   dict_add(row,"inventory.service",state->name);
    dict_add(row,"inventory.description",state->name);
    dict_add(row,"inventory.state","available");
    collect_service(row,(void *)rrserver_links_node());
