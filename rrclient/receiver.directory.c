@@ -21,6 +21,7 @@
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
+static char last_fetch_error[512];
 static time_t next_request;
 static char status_text[512] = "No directory loaded. Import a list or configure a permitted mirror.";
 static bool initialized;
@@ -801,6 +802,11 @@ bool receiver_directory_busy(void) {
 const char *receiver_directory_fetch_url(void) {
    return job ? job->url : NULL;
 }
+const char *receiver_directory_last_error(void) { return last_fetch_error; }
+const char *receiver_directory_source_url(void) {
+   const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
+   return url && *url ? url : cfg_get("receiver-directory.url");
+}
 char *receiver_directory_info(void) {
    ensure();
    char *published = payload ? field(mg_str(payload), "$.fetched_at") : g_strdup("");
@@ -971,6 +977,7 @@ static gboolean finish(gpointer unused) {
    bool unchanged = job->result == CURLE_OK && job->status == 304 && payload;
 
    if (list || unchanged) {
+      last_fetch_error[0] = 0;
       if (list) {
          g_ptr_array_free(receivers, TRUE);
          receivers = list;
@@ -987,8 +994,12 @@ static gboolean finish(gpointer unused) {
          published : "at an unknown time");
       g_free(published);
    } else {
-      g_snprintf(status_text, sizeof(status_text), "Directory refresh failed (%s, HTTP %ld). Keeping %u cached receivers; retry later.", job->result == CURLE_OK
-         && job->status == 200 ? "invalid or unsupported JSON" : curl_easy_strerror(job->result), job->status, receivers->len);
+      const char *reason = job->result != CURLE_OK ? curl_easy_strerror(job->result) :
+         job->status == 200 ? "Invalid or unsupported directory JSON" :
+         job->status == 304 ? "Server returned Not Modified, but there is no cached directory" :
+         "Unexpected HTTP response";
+      g_snprintf(last_fetch_error, sizeof(last_fetch_error), "%s (HTTP %ld)", reason, job->status);
+      g_snprintf(status_text, sizeof(status_text), "Directory refresh failed: %s. Keeping %u cached receivers.", last_fetch_error, receivers->len);
    }
    next_request = now + job->delay;
 
@@ -1054,6 +1065,7 @@ bool receiver_directory_refresh(void) {
    if (curl_ready != 1) {
       return false;
    }
+   last_fetch_error[0] = 0;
    job = g_new0(struct directory_job, 1);
    job->started = now;
    job->url = g_strdup(url);
