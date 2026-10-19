@@ -71,6 +71,8 @@ else
          next_sequence=1
       fi
       new_version=$(printf '%s.%02d' "$version_date" "$next_sequence")
+   elif [[ "$old_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
+      new_version="${BASH_REMATCH[1]}-rc$((10#${BASH_REMATCH[2]} + 1))"
    elif [[ "$old_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
       major=${BASH_REMATCH[1]}
       minor=${BASH_REMATCH[2]}
