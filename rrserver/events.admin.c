@@ -810,7 +810,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    if (!strcasecmp(table, "users")) {
       strcpy(table, "users");
       sql =
-         "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions,password_set,password_expires,password_change_required,CASE WHEN EXISTS (SELECT 1 FROM privilege_set_assignments a JOIN privilege_sets p ON p.id=a.set_id JOIN privilege_set_entries e ON e.set_id=p.id WHERE a.subject_user=users.name COLLATE NOCASE AND a.subject_host='' AND a.resource_kind='rig' AND a.resource_uuid='*' AND p.name='full-rig' AND e.privilege='rig.full' AND e.effect='allow') THEN '1' ELSE '0' END AS full_rig_access FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+         "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions,password_set,password_expires,password_change_required FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "quotas")) {
       strcpy(table, "quotas");
       sql =
