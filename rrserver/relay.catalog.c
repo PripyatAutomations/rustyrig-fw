@@ -749,6 +749,8 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       dict_add(row, "inventory.parent", parent);
       dict_add_uint(row, "inventory.depth", depth);
       const char *kind = dict_get(row, "inventory.kind", "");
+      if (!strcmp(kind, "control"))
+         dict_add(row, "inventory.state", "owner-server-only");
       if (!strcmp(kind, "cat") || !strcmp(kind, "serial")) {
          char state[160];
          snprintf(state, sizeof(state), "%s (owner-server-only)", dict_get(row, "inventory.state", "available"));
