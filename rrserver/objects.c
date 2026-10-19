@@ -522,6 +522,18 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    return false;
 }
 
+/* Advertise platform controls as children of their owning node in Explorer. */
+static bool inventory_node_control(const rr_platform_control_state_t *state, void *user) {
+   object_send_t *ctx = user;
+   dict *row = rr_inventory_row(ctx->request, 1, "control", state->label, NULL);
+   if (!row) return false;
+   dict_add(row, "inventory.control", state->name);
+   dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
+   dict_add(row, "inventory.description", state->name);
+   dict_add(row, "inventory.access", state->writable ? "read/write" : "read-only");
+   rr_inventory_send(ctx->client, row);
+   return false;
+}
 static void inventory(rrconn_t *client, const char *id) {
    object_send_t ctx = {
       .client = client, .request = id
@@ -535,6 +547,7 @@ static void inventory(rrconn_t *client, const char *id) {
       dict_add(row, "inventory.location", cfg_get("station.location"));
    }
    rr_inventory_send(client, row);
+   rrserver_platform_control_foreach(inventory_node_control, &ctx);
    inventory_rooms(&ctx, NULL);
    inventory_services(&ctx, "station", 1);
    inventory_media(&ctx, "", 1);
