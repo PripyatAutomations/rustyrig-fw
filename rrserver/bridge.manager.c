@@ -1296,7 +1296,8 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          /* Temporary receivers reserve their generated base room only as a
           * compatibility address. The chosen room is the first live tuning
           * attachment; secondary rooms can add receive-only references. */
-         if (rrserver_bridge_temporary(b->backend->owner)) {
+         if (rrserver_bridge_temporary(b->backend->owner) &&
+             target_room && strcasecmp(target_room, selected_room)) {
             db_room_vfo_remove(masterdb, target_room, rr_server_vfo_id(vfo));
          }
          /* The generated -rigN room exists only to bootstrap the legacy
