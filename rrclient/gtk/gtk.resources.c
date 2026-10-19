@@ -906,16 +906,19 @@ static void resource_create(void) {
    for (unsigned i = 0; i < G_N_ELEMENTS(titles); i++) {
       int field = (int)i;
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-      g_object_set(renderer, "ypad", 3, NULL);
+      g_object_set(renderer, "ypad", 3, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
       gtk_tree_view_column_set_resizable(column, TRUE);
       if (i == STATE || i == OURS) gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
-      if (i == NAME) gtk_tree_view_column_set_min_width(column, 240);
+      gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+      gtk_tree_view_column_set_fixed_width(column, i == NAME ? 240 : i == KIND ? 95 : i == STATE ? 130 : i == OURS ? 175 : 220);
+      if (i == NAME || i == DETAILS) gtk_tree_view_column_set_expand(column, TRUE);
+      gtk_tree_view_column_set_min_width(column, 45);
       if (field == DETAILS) {
          gtk_tree_view_column_set_cell_data_func(column, renderer, resource_details_cell, NULL, NULL);
          g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
-         gtk_tree_view_column_set_fixed_width(column, 300);
+         gtk_tree_view_column_set_fixed_width(column, 220);
       }
       gtk_tree_view_column_set_sort_column_id(column, field);
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser->tree), column);
@@ -926,6 +929,7 @@ static void resource_create(void) {
    gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),local_path,FALSE);
    gtk_tree_path_free(local_path);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), browser->tree);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 120);
    gtk_paned_pack1(GTK_PANED(paned), scroll, TRUE, TRUE);
