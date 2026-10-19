@@ -1225,10 +1225,7 @@ bool rr_sercom_init(void) {
    /* Built-in floating PTYs are permanent. Explicit service mappings win,
     * but "none" must not remove one of these reserved endpoints. */
    if (!binding("ttyCAT")) {
-      const char *legacy = cfg_get("serial.ttyCAT0");
-      const char *service = legacy && *legacy && strcmp(legacy, "none") ?
-         legacy : "rig.cat";
-      if (!rr_sercom_attach("ttyCAT", service, NULL)) ok = false;
+      if (!rr_sercom_attach("ttyCAT", "rig.cat", NULL)) ok = false;
    }
    if (!binding("ttyGPS"))
       if (!rr_sercom_attach("ttyGPS", "rig.gps-out@4800", NULL)) ok = false;
