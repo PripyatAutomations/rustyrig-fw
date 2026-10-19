@@ -237,6 +237,7 @@ static void admin_control_row_add(dict *data) {
    gtk_box_pack_start(GTK_BOX(row),editor,FALSE,FALSE,0);
    g_object_set_data_full(G_OBJECT(row),"control-name",g_strdup(name),g_free);
    g_object_set_data_full(G_OBJECT(row),"control-label",g_strdup(label),g_free);
+   g_object_set_data(G_OBJECT(row),"control-choose",choose);
    g_object_set_data(G_OBJECT(row),"control-scale",scale);
    g_object_set_data(G_OBJECT(row),"control-apply",apply);
    g_object_set_data(G_OBJECT(row),"control-detail",detail);
@@ -1096,6 +1097,7 @@ GtkWidget *init_admin_tab(void) {
       control_apply = gtk_button_new_with_label("Apply control");
       gtk_widget_set_sensitive(control_apply,FALSE);
       gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
+      gtk_widget_set_no_show_all(control_apply,TRUE);
       gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
       control_rows_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
@@ -1104,7 +1106,11 @@ GtkWidget *init_admin_tab(void) {
        gtk_widget_set_vexpand(control_scroll,TRUE);
        gtk_container_add(GTK_CONTAINER(control_scroll),control_rows_box);
        gtk_box_pack_start(GTK_BOX(box),control_scroll,TRUE,TRUE,0);
-       /* Selection is retained for protocol compatibility; each row has its own editor. */
+       /* Keep old selection machinery hidden for protocol response correlation. */
+       gtk_widget_set_no_show_all(control_combo,TRUE);
+       gtk_widget_set_no_show_all(control_scale,TRUE);
+       gtk_box_pack_start(GTK_BOX(box),control_combo,FALSE,FALSE,0);
+       gtk_box_pack_start(GTK_BOX(box),control_scale,FALSE,FALSE,0);
 
       gtk_box_pack_start(GTK_BOX(box),buttons,FALSE,FALSE,0);
       g_signal_connect(refresh,"clicked",G_CALLBACK(admin_control_refresh),NULL);
