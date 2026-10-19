@@ -558,7 +558,23 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
          dict_add(error, "file.error", "Remote share access requires an explicit resource grant");
       } else if (error) {
          dict_add(error, "msg.type", "error");
-         dict_add(error, "error.msg", "Remote operation requires an authorized resource grant");
+         if (r && room && *room && c && rr_relay_local_owner(c->owner) &&
+             rr_relay_permitted_message(d) && !scoped) {
+            const char *host=rrserver_relay_client_server(&r->client);
+            rr_server_rig_t *radio=rrserver_rig_for_room(room);
+            char *room_uuid=radio ? NULL : db_room_uuid(masterdb,room);
+            const char *uuid=radio ? rr_server_rig_id(radio) : room_uuid;
+            char reason[512];
+            snprintf(reason,sizeof(reason),
+               "Remote room %s requires %s grant for %s@%s on owning server (resource %s %s)",
+               room,radio ? "rig.use" : "room.join",username,
+               host ? host : "unknown",radio ? "rig" : "room",
+               uuid ? uuid : "unknown");
+            dict_add(error,"error.msg",reason);
+            free(room_uuid);
+         } else {
+            dict_add(error,"error.msg","Remote operation denied by resource authorization or routing");
+         }
          rr_relay_packet(origin, "reply", id, NULL, error);
          dict_free(error);
       }
