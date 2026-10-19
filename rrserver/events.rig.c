@@ -85,6 +85,29 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    const char *room = dict_get(d, "rigctl.room", ws_authoritative_room());
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
 
+#ifdef USE_SQLITE
+   /* Unscoped SDR rooms have no rig-numbered room identity. Resolve their
+    * attached UUID, and only grant control in the first attached room. */
+   if (!radio && cptr && ws_client_in_room(cptr, room)) {
+      char *bindings = db_room_vfo_list(masterdb, room), *save = NULL;
+      for (char *id = bindings ? strtok_r(bindings, " \\t\\r\\n", &save) : NULL;
+           id; id = strtok_r(NULL, " \\t\\r\\n", &save)) {
+         rr_server_vfo_t *attached = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
+         if (!attached || strcasecmp(rr_server_vfo_alias(attached), rc_vfo)) continue;
+         rr_server_rig_t *owner = rr_server_vfo_owner(attached);
+         if (!rrserver_bridge_rig(owner) || !rrserver_bridge_can_use(cptr)) continue;
+         char *controller = db_room_vfo_controller(masterdb, id);
+         bool controls = controller && !strcasecmp(controller, room);
+         free(controller);
+         if (controls) {
+            radio = owner;
+            break;
+         }
+      }
+      free(bindings);
+   }
+#endif
+
    if (!radio) {
       dict_free(d);
 
