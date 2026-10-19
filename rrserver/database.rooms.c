@@ -125,23 +125,70 @@ bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_m
       return false;
    }
    const char *sql = exists
-      ? "UPDATE rooms SET has_vfos=?2,vfo_mask=?3 WHERE name=?1 COLLATE NOCASE AND deleted=0;" : "INSERT INTO rooms(name,has_vfos,vfo_mask) VALUES(?,?,?);";
+      ? "UPDATE rooms SET has_vfos=?2,vfo_mask=?3 WHERE name=?1 COLLATE NOCASE AND deleted=0;"
+      : "INSERT INTO rooms(name,has_vfos,vfo_mask,uuid) VALUES(?1,?2,?3,?4);";
+   char *fresh_uuid = exists ? NULL : g_uuid_string_random();
+   if (!exists && !fresh_uuid) return db_room_change_end(db, false);
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      g_free(fresh_uuid);
       return db_room_change_end(db, false);
    }
+   if (fresh_uuid) sqlite3_bind_text(st, 4, fresh_uuid, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(st, 2, has_vfos ? 1 : 0);
    sqlite3_bind_int64(st, 3, (sqlite3_int64) vfo_mask);
    bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(st);
+   g_free(fresh_uuid);
 
    if (ok && !exists) {
       ok = db_add_audit_event(db, username ? username : "server", "room.created", name);
    }
 
    return db_room_change_end(db, ok);
+}
+
+/* Stable room identity, independent of its display name. Caller owns result. */
+char *db_room_uuid(sqlite3 *db, const char *name) {
+   if (!db || !name || !*name) return NULL;
+   sqlite3_stmt *st = NULL;
+   char *uuid = NULL;
+   if (sqlite3_prepare_v2(db,
+      "SELECT uuid FROM rooms WHERE name=?1 COLLATE NOCASE AND deleted=0;",
+      -1, &st, NULL) == SQLITE_OK) {
+      sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+      if (sqlite3_step(st) == SQLITE_ROW && sqlite3_column_text(st, 0))
+         uuid = strdup((const char *)sqlite3_column_text(st, 0));
+   }
+   sqlite3_finalize(st);
+   return uuid;
+}
+
+/* Explicit maintenance only: regenerate permanent room identities without
+ * changing room names, topics, chat history or membership policy. */
+bool db_room_uuids_regenerate(sqlite3 *db) {
+   if (!db) return false;
+   sqlite3_stmt *read = NULL, *write = NULL;
+   bool ok = sqlite3_prepare_v2(db, "SELECT name FROM rooms;", -1, &read, NULL) == SQLITE_OK &&
+      sqlite3_prepare_v2(db, "UPDATE rooms SET uuid=?1 WHERE name=?2;", -1, &write, NULL) == SQLITE_OK;
+   while (ok && sqlite3_step(read) == SQLITE_ROW) {
+      const char *name = (const char *)sqlite3_column_text(read, 0);
+      char *fresh = g_uuid_string_random();
+      ok = name && fresh;
+      if (ok) {
+         sqlite3_reset(write);
+         sqlite3_clear_bindings(write);
+         sqlite3_bind_text(write, 1, fresh, -1, SQLITE_TRANSIENT);
+         sqlite3_bind_text(write, 2, name, -1, SQLITE_TRANSIENT);
+         ok = sqlite3_step(write) == SQLITE_DONE && sqlite3_changes(db) == 1;
+      }
+      g_free(fresh);
+   }
+   sqlite3_finalize(read);
+   sqlite3_finalize(write);
+   return ok;
 }
 
 /* Persist a room topic using bound parameters. */
