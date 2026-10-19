@@ -7,7 +7,8 @@
 #include <librustyaxe/core.h>
 #include "gtk.receiver-directory.h"
 
-static GtkWidget *directory_window, *search_entry, *accessible_only, *directory_tree;
+extern GtkWidget *main_window, *main_notebook;
+static GtkWidget *directory_page, *search_entry, *accessible_only, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
 static GtkWidget *connect_button, *add_button;
 static GtkWidget *download_dialog;
@@ -170,7 +171,7 @@ static void filter_changed(GtkWidget *widget, gpointer unused) {
    gtk_tree_model_filter_refilter(directory_filter);
 }
 static void populate(void) {
-   if (!directory_window) {
+   if (!directory_page) {
       return;
    }
    GtkTreeModel *old_model;
@@ -220,12 +221,12 @@ static void populate(void) {
 /* The network fetch is asynchronous; this modal indicator never runs a
  * nested GTK loop and therefore cannot block its completion callback. */
 static void directory_download_wait(void) {
-   if (!directory_window || !receiver_directory_busy()) return;
+   if (!directory_page || !receiver_directory_busy()) return;
    if (download_dialog) return;
    const char *url = receiver_directory_fetch_url();
    download_dialog = gtk_dialog_new();
    gtk_window_set_title(GTK_WINDOW(download_dialog), "Receiver Directory");
-   gtk_window_set_transient_for(GTK_WINDOW(download_dialog), GTK_WINDOW(directory_window));
+   gtk_window_set_transient_for(GTK_WINDOW(download_dialog), GTK_WINDOW(main_window));
    gtk_window_set_modal(GTK_WINDOW(download_dialog), TRUE);
    gtk_window_set_destroy_with_parent(GTK_WINDOW(download_dialog), TRUE);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(download_dialog));
@@ -249,7 +250,7 @@ static void directory_download_finished(void) {
    const char *reason = receiver_directory_last_error();
    if (!reason || !*reason || !directory_window) return;
    const char *source = receiver_directory_source_url();
-   GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(directory_window),
+   GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(main_window),
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
       GTK_BUTTONS_CLOSE, "Unable to download Receiver Directory");
    char *details = g_strdup_printf(
@@ -285,7 +286,7 @@ static void refresh_clicked(GtkButton *button, gpointer unused) {
 static void import_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
-   GtkWidget *chooser = gtk_file_chooser_dialog_new("Import receiver directory JSON", GTK_WINDOW(directory_window), GTK_FILE_CHOOSER_ACTION_OPEN, "Cancel",
+   GtkWidget *chooser = gtk_file_chooser_dialog_new("Import receiver directory JSON", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_OPEN, "Cancel",
       GTK_RESPONSE_CANCEL, "Import", GTK_RESPONSE_ACCEPT, NULL);
 
    if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
@@ -310,7 +311,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    }
 
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Choose SDR room",
-      GTK_WINDOW(directory_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Connect", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *hint = gtk_label_new("Create a listening room, or attach the receiver to one you've joined.");
@@ -353,7 +354,7 @@ static void connection_status(const char *event, const char *data, rrconn_t *con
    (void)connection;
    (void)unused;
 
-   if (directory_window && data) {
+   if (directory_page && data) {
       gtk_label_set_text(GTK_LABEL(directory_status), data);
       selection_changed(NULL, NULL);
       if (directory_store) {
@@ -393,32 +394,25 @@ static void state_clicked(GtkButton *button, gpointer state) {
       receiver_directory_set_state(r->url, state, "User report; receiver was not probed");
    }
 }
-static gboolean hide_directory(GtkWidget *widget, GdkEvent *event, gpointer unused) {
-   (void)event;
-   (void)unused;
-   gtk_widget_hide(widget);
-
-   return TRUE;
-}
 static void show_directory(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
    (void)connection;
    (void)unused;
 
-   if (directory_window) {
-      gtk_window_present(GTK_WINDOW(directory_window));
+   if (!main_notebook) return;
+   if (directory_page) {
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page);
+      if (index >= 0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       directory_refresh_with_wait();
-
       return;
    }
-   directory_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(directory_window), "Receiver Directory");
-   gtk_window_set_default_size(GTK_WINDOW(directory_window), 950, 680);
-   g_signal_connect(directory_window, "delete-event", G_CALLBACK(hide_directory), NULL);
+   directory_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page,
+      gtk_label_new("Receiver Directory"));
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
-   gtk_container_add(GTK_CONTAINER(directory_window), box);
+   gtk_box_pack_start(GTK_BOX(directory_page), box, TRUE, TRUE, 0);
    search_entry = gtk_search_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(search_entry), "Filter name, location, host, grid, contact or hardware…");
    gtk_box_pack_start(GTK_BOX(box), search_entry, FALSE, FALSE, 0);
@@ -518,7 +512,9 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    g_signal_connect(accessible_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    populate();
-   gtk_widget_show_all(directory_window);
+   gtk_widget_show_all(directory_page);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),
+      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
    directory_refresh_with_wait(); // Cached data remains immediately available.
    /* Keep the parent mapped: hiding a transient parent can also hide
     * its modal dialog. The spinner owns focus until the request finishes. */
@@ -545,10 +541,8 @@ void gtk_receiver_directory_shutdown(void) {
 
    if (download_dialog) gtk_widget_destroy(download_dialog);
    download_dialog = NULL;
-   if (directory_window) {
-      gtk_widget_destroy(directory_window);
-   }
-   directory_window = NULL;
+   if (directory_page) gtk_widget_destroy(directory_page);
+   directory_page = NULL;
    g_clear_object(&directory_filter);
    g_clear_object(&directory_store);
 }
