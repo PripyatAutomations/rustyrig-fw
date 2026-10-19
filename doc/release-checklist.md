@@ -14,6 +14,7 @@ This is a **human-run checklist**, not an automated claim that a release has pas
 ## Package the release
 
 ```sh
+bash tools/release-preflight.sh
 git status --short
 git submodule status --recursive
 make -j"$(nproc)" PROFILE=radio world
