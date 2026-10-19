@@ -236,8 +236,9 @@ bool rr_backend_init(void) {
    if (!identity_namespace || !*identity_namespace) {
       identity_namespace = "default";
    }
-   // @node cannot be a configured rig alias; it reserves a namespace identity.
-   char *node_uuid = rr_runtime_uuid(identity_namespace, "@node");
+   /* Node UUID belongs to this database, not the station display name.
+    * Renaming a station must not create a new server identity on the wire. */
+   char *node_uuid = rr_runtime_uuid("@server", "@node");
 
    if (!node_uuid || rr_rig_registry_set_node(rig.rigs, node_uuid)) {
       free(node_uuid);
