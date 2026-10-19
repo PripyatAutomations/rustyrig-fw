@@ -132,6 +132,7 @@ bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_m
    sqlite3_stmt *st = NULL;
 
    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "db.rooms", "Cannot prepare room %s persistence: %s", name, sqlite3_errmsg(db));
       g_free(fresh_uuid);
       return db_room_change_end(db, false);
    }
@@ -139,12 +140,17 @@ bool db_room_ensure(sqlite3 *db, const char *name, bool has_vfos, uint32_t vfo_m
    sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(st, 2, has_vfos ? 1 : 0);
    sqlite3_bind_int64(st, 3, (sqlite3_int64) vfo_mask);
-   bool ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   int step = sqlite3_step(st);
+   bool ok = step == SQLITE_DONE && sqlite3_changes(db) == 1;
+   if (!ok) Log(LOG_WARN, "db.rooms", "Cannot persist room %s (SQLite %d): %s",
+      name, step, sqlite3_errmsg(db));
    sqlite3_finalize(st);
    g_free(fresh_uuid);
 
    if (ok && !exists) {
       ok = db_add_audit_event(db, username ? username : "server", "room.created", name);
+      if (!ok) Log(LOG_WARN, "db.rooms", "Unable to audit creation of room %s: %s",
+         name, sqlite3_errmsg(db));
    }
 
    return db_room_change_end(db, ok);
