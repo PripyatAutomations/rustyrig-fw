@@ -15,6 +15,9 @@ static gulong resize_handler, state_handler, focus_handler;
 static guint resize_source;
 static int resize_width, resize_height;
 static bool coupled_resize_keys, coupled_resize_pending;
+/* Reference dimensions for the GTK layout at 100% (logical pixels). */
+#define RR_ZOOM_REFERENCE_WIDTH 1280
+#define RR_ZOOM_REFERENCE_HEIGHT 800
 typedef struct zoom_touch {
    GtkGesture *gesture;
    GtkWidget *target;
@@ -307,10 +310,6 @@ static gboolean zoom_after_resize(gpointer data) {
       return G_SOURCE_REMOVE;
    }
 
-   if (!coupled_resize_keys) {
-      return G_SOURCE_REMOVE;
-   }
-
    if (coupled_resize_pending) {
       coupled_resize_pending = false;
    }
@@ -327,8 +326,8 @@ static gboolean zoom_after_resize(gpointer data) {
    GdkRectangle area;
    gdk_monitor_get_workarea(monitor, &area);
    GdkWindowState state = gdk_window_get_state(window);
-   unsigned next = (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN)) ? 100 :
-      zoom_for_size(resize_width, resize_height, area.width, area.height);
+   unsigned next = zoom_for_size(resize_width, resize_height,
+      RR_ZOOM_REFERENCE_WIDTH, RR_ZOOM_REFERENCE_HEIGHT);
 
    if (next != zoom_percent) {
       dict_add_int(cfg, "ui.gtk.zoom", next);
@@ -361,10 +360,7 @@ static gboolean zoom_configured(GtkWidget *widget, GdkEventConfigure *event, gpo
    resize_width = event->width;
    resize_height = event->height;
 
-   if (coupled_resize_keys) {
-      zoom_queue_resize(false);
-   }
-
+   zoom_queue_resize(false);
    return FALSE;
 }
 
@@ -373,9 +369,6 @@ static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event,
    (void)event;
    (void)data;
 
-   if (!coupled_resize_keys) {
-      return FALSE;
-   }
    zoom_queue_resize(false);
 
    return FALSE;
