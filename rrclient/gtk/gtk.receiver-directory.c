@@ -250,10 +250,10 @@ static void directory_download_finished(void) {
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
       GTK_BUTTONS_CLOSE, "Unable to download Receiver Directory");
    char *details = g_strdup_printf(
-      "Reason: %s\\n\\nDirectory URL: %s\\n\\n"
+      "Reason: %s\n\nDirectory URL: %s\n\n"
       "Check receiver-directory.url in your rrclient configuration "
       "(or RRCLIENT_RECEIVER_DIRECTORY_URL if set), your network connection, "
-      "and whether the HTTPS mirror is reachable.\\n\\n"
+      "and whether the HTTPS mirror is reachable.\n\n"
       "Any previously cached receivers remain available.",
       reason, source && *source ? source : "(not configured)");
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(error), "%s", details);
