@@ -315,10 +315,6 @@ static void admin_control_rows_clear(void) {
    g_list_free(children);
    if (control_row_buttons) g_hash_table_remove_all(control_row_buttons);
 }
-static void admin_control_row_clicked(GtkButton *button, gpointer unused) {
-   (void)unused;
-   admin_control_choose(g_object_get_data(G_OBJECT(button),"control-name"));
-}
 static void admin_control_row_state(dict *data,const char *profile) {
    const char *name=dict_get(data,"name","");
    char *identity=g_strdup_printf("%s/%s",profile,name);
@@ -345,9 +341,13 @@ static void admin_control_row_state(dict *data,const char *profile) {
    snprintf(str,sizeof(str),"%d",maximum); gtk_label_set_text(GTK_LABEL(maximum_label),str);
    g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(current));
    g_object_set_data(G_OBJECT(row),"control-writable",GINT_TO_POINTER(writable));
-   char *summary=g_strdup_printf("%s  |  %d–%d %s  |  current: %d  |  %s",
-      dict_get(data,"privilege","owner|admin"),minimum,maximum,
-      dict_get(data,"unit",""),current,writable ? "Writable" : "Read only");
+   char *summary=g_strdup_printf("%s — %s%s%s (%s)",
+      g_object_get_data(G_OBJECT(row),"control-label") ?
+         (const char *)g_object_get_data(G_OBJECT(row),"control-label") : "Control",
+      writable ? "Writable" : "Read-only",
+      *dict_get(data,"unit","") ? "; unit: " : "",
+      dict_get(data,"unit",""),
+      dict_get(data,"privilege","owner|admin"));
    gtk_label_set_text(GTK_LABEL(detail),summary);
    g_free(summary);
 }
@@ -361,15 +361,14 @@ static void admin_control_row_add(dict *data,const char *profile) {
       return;
    }
    const char *label=dict_get(data,"label",name);
-   GtkWidget *row=gtk_box_new(GTK_ORIENTATION_VERTICAL,3);
-   GtkWidget *heading=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
-   GtkWidget *choose=gtk_button_new_with_label(!strcmp(profile,"local") ? "This Client/display.brightness" : identity);
-   gtk_box_pack_start(GTK_BOX(heading),choose,FALSE,FALSE,0);
-   gtk_box_pack_start(GTK_BOX(row),heading,FALSE,FALSE,0);
-   GtkWidget *detail=gtk_label_new("");
-   gtk_label_set_xalign(GTK_LABEL(detail),0);
-   gtk_box_pack_start(GTK_BOX(row),detail,FALSE,FALSE,0);
-   GtkWidget *editor=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+   GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
+   GtkWidget *title=gtk_label_new(!strcmp(profile,"local") ?
+      "This Client/display.brightness" : identity);
+   gtk_label_set_xalign(GTK_LABEL(title),0);
+   gtk_widget_set_size_request(title,235,-1);
+   gtk_box_pack_start(GTK_BOX(row),title,FALSE,FALSE,0);
+   GtkWidget *editor=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+   gtk_widget_set_size_request(editor,315,-1);
    GtkWidget *scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,0,100,1);
    gtk_scale_set_digits(GTK_SCALE(scale),0);
    gtk_widget_set_hexpand(scale,TRUE);
@@ -378,17 +377,18 @@ static void admin_control_row_add(dict *data,const char *profile) {
    gtk_box_pack_start(GTK_BOX(editor),scale,TRUE,TRUE,0);
    gtk_box_pack_start(GTK_BOX(editor),maximum_label,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),editor,FALSE,FALSE,0);
+   GtkWidget *detail=gtk_label_new("");
+   gtk_label_set_xalign(GTK_LABEL(detail),0);
+   gtk_label_set_line_wrap(GTK_LABEL(detail),TRUE);
+   gtk_box_pack_start(GTK_BOX(row),detail,TRUE,TRUE,0);
    g_object_set_data_full(G_OBJECT(row),"control-name",g_strdup(name),g_free);
    g_object_set_data_full(G_OBJECT(row),"control-profile",g_strdup(profile),g_free);
    g_object_set_data_full(G_OBJECT(row),"control-path",g_strdup(identity),g_free);
    g_object_set_data(G_OBJECT(row),"control-min-label",minimum_label);
    g_object_set_data(G_OBJECT(row),"control-max-label",maximum_label);
    g_object_set_data_full(G_OBJECT(row),"control-label",g_strdup(label),g_free);
-   g_object_set_data(G_OBJECT(row),"control-choose",choose);
    g_object_set_data(G_OBJECT(row),"control-scale",scale);
    g_object_set_data(G_OBJECT(row),"control-detail",detail);
-   g_object_set_data_full(G_OBJECT(choose),"control-name",g_strdup(name),g_free);
-   g_signal_connect(choose,"clicked",G_CALLBACK(admin_control_row_clicked),NULL);
    gtk_box_pack_start(GTK_BOX(control_rows_box),row,FALSE,FALSE,3);
    if (control_row_buttons) g_hash_table_insert(control_row_buttons,g_strdup(identity),row);
    admin_control_row_state(data,profile);
