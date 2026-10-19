@@ -247,7 +247,14 @@ static void disconnect(struct bridge_child *b) {
    }
 }
 static bool send_setting(struct bridge_child *b, uint64_t hz, const char *mode, void (*callback) (rr_control_result_t, void *), void *user) {
-   if (!b->ready || !b->online || b->pending || hz < b->caps.rx_min_hz || hz > b->caps.rx_max_hz || !rrp_bridge_mode_valid(b->caps.rx_modes, mode)) {
+   const char *reason = !b->ready ? "bridge not ready" :
+      !b->online ? "receiver offline" :
+      b->pending ? "previous tune pending" :
+      hz < b->caps.rx_min_hz || hz > b->caps.rx_max_hz ? "frequency outside receiver range" :
+      !rrp_bridge_mode_valid(b->caps.rx_modes, mode) ? "mode unsupported by receiver" : NULL;
+   if (reason) {
+      Log(LOG_WARN, "bridge", "SDR %s cannot tune to %llu Hz (%s): %s",
+         b->name, (unsigned long long)hz, mode ? mode : "(unset)", reason);
       return false;
    }
    rrp_bridge_ipc_message_t m;
