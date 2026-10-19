@@ -557,7 +557,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          size_t n=at ? (size_t)(at-subject) : strlen(subject);
          memcpy(username,subject,n);
          for (const char *p=username;*p;p++)
-            if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-') valid=false;
+            if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-' && *p!='.') valid=false;
          for (const char *p=host;*p;p++)
             if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-') valid=false;
       }
