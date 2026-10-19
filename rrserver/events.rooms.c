@@ -469,11 +469,18 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
       return;
    }
    rr_room_join_check_t *check = (rr_room_join_check_t *) data;
+   /* The client joins its temporary SDR room before sending websdr-connect.
+    * Do not classify this narrowly bounded namespace as a foreign station. */
+   bool sdr_room = strlen(check->room) == 13 &&
+      !strncasecmp(check->room, "#sdr-", 5);
+   for (const char *p = sdr_room ? check->room + 5 : ""; *p; p++)
+      if (!isxdigit((unsigned char)*p)) { sdr_room = false; break; }
    bool exists, deleted;
 
    if (!db_room_status(masterdb, check->room, &exists, &deleted) || deleted ||
       (!exists && (!client || !client->authenticated || !client->user ||
-      (ws_room_station_scoped(check->room) && !has_priv(client->user->uid, "admin|owner"))))) {
+      (ws_room_station_scoped(check->room) && !sdr_room &&
+        !has_priv(client->user->uid, "admin|owner"))))) {
       check->allowed = false;
    } else if (!exists && !db_room_ensure(masterdb, check->room, false, 0, client->chatname)) {
       check->allowed = false;
