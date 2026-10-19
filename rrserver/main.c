@@ -282,6 +282,8 @@ int main(int argc, char **argv) {
       return rrserver_maintenance_run(maintenance);
    }
 
+   if (!rrserver_maintenance_lock()) return EXIT_FAILURE;
+
    if (!rr_radio_config_prepare() || !rrserver_acl_validate()) {
       return EXIT_FAILURE;
    }
