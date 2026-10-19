@@ -264,8 +264,9 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
           !( !strcmp(b,"site") || !strcmp(b,"rig") || !strcmp(b,"vfo") ||
              !strcmp(b,"room") || !strcmp(b,"media") || !strcmp(b,"serial") ||
              !strcmp(b,"file") || !strcmp(b,"bridge")) ||
-          strlen(d) != 36 || !rr_object_uuid_valid(d)) {
-         ws_send_error(client, "Usage: /admin privset-assign SET user@host KIND RESOURCE-UUID");
+          !( !strcmp(b,"rig") && !strcmp(d,"*")) &&
+          (strlen(d) != 36 || !rr_object_uuid_valid(d))) {
+         ws_send_error(client, "Usage: /admin privset-assign SET user@host KIND RESOURCE-UUID (or rig *)");
          return true;
       }
       sql = !strcmp(action,"privset-assign")
