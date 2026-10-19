@@ -1,38 +1,35 @@
 # RustyRig
 
-**Open-source multiplayer remote radio control and network audio for amateur radio.**
+**Share radios, audio, and station resources over a network.**
 
-RustyRig connects **operators, radios, and stations** over a network. Control multiple rigs, listen to and transmit audio remotely, share serial and GPS resources with other hams, and link servers across sites — all from a Linux desktop, terminal, or web browser.
+RustyRig is an open-source, multi-user amateur-radio platform. Operate radios from another computer, listen with friends, or bring multiple stations together. Operators get live radio controls, audio, chat, and access to the resources they are allowed to use.
 
-Whether you operate a radio from another room, share a station with friends, or connect several remote sites, RustyRig is designed for **collaborative, multi-rig operation** rather than one operator controlling one radio.
+RustyRig is under active development. The current releases are for testing; features and configuration can change.
 
-## Features
+## What you can do
 
-- **Multiple operators, multiple radios:** Share rig/VFO resources in radio rooms, with live operator rosters, text chat, coordinated PTT, permissions, and transmit safeguards.
-- **Multi-rig CAT control:** Run independent radios on one server, including hardware supported by [Hamlib](https://hamlib.github.io/) and networked `rigctld` endpoints. Control frequency, mode, bandwidth, and other supported properties.
-- **Linked stations:** Connect RustyRig servers across sites to discover remote rigs, join rooms, operate authorized radios, and relay audio and controls over the network.
-- **Low-latency network audio:** Independent RX/TX streams, negotiated codecs including Opus, direct RTP where permitted, and WebSocket-based fallback. Mix multiple receive streams with stereo routing and per-stream controls.
-- **Three client interfaces:** Native GTK graphical client, text-mode terminal client, and browser-based WebUI.
-- **Serial and GPS passthrough:** Access station serial ports and GPS data remotely through the client, alongside radio control and audio.
-- **Yaesu-style CAT emulation:** The client can emulate a Yaesu-style CAT interface, allowing compatible ham applications to exchange CAT commands through RustyRig.
-- **SDR receivers:** Discover and connect to KiwiSDR receivers for remote **receive-only** listening, with an extensible bridge/driver architecture.
-- **Operator and station tools:** IRC integration, station resource discovery, optional recording, server file sharing, account administration, audit and PTT logs, and configurable access controls.
+- **Operate together.** Join radio rooms, see who's online, chat, and coordinate transmitter access.
+- **Control more than one radio.** Work with supported Hamlib radios and networked rig-control backends.
+- **Listen and transmit remotely.** Route receive and transmit audio over the network, with codec selection and per-stream controls.
+- **Choose your interface.** Use the Linux GTK desktop client, terminal client, or browser interface.
+- **Connect stations.** Link servers to access authorized remote rooms and station resources.
+- **Explore SDR receivers.** Browse and connect to supported remote receivers through the SDR Directory.
 
-RustyRig is actively developed and currently uses **testing** releases. Features and configuration may change; check the [CHANGELOG](CHANGELOG) for recent work and limitations.
+Additional tools include remote serial/GPS access, audio recording, administration, and station resource discovery.
 
-## Screenshots
+## See it in action
 
-| GTK client | Terminal client |
+| Desktop client | Terminal client |
 | --- | --- |
-| ![RustyRig GTK client](doc/screenshot-gtk.png) | ![RustyRig TUI](doc/screenshot-tui.png) |
+| ![GTK client](doc/screenshot-gtk.png) | ![Terminal client](doc/screenshot-tui.png) |
 
-| GTK configuration | Browser WebUI |
+| Settings | Browser client |
 | --- | --- |
-| ![GTK configuration](doc/screenshot-gtk-cfgtab.png) | ![RustyRig WebUI](doc/screenshot-webui.png) |
+| ![GTK settings](doc/screenshot-gtk-cfgtab.png) | ![Browser client](doc/screenshot-webui.png) |
 
-## Getting started
+## Get started
 
-The current installation tooling primarily targets Debian-based Linux systems:
+RustyRig currently targets Debian-family Linux distributions for building and packaging.
 
 ```sh
 git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
@@ -40,26 +37,26 @@ cd rustyrig-fw
 ./install-deps.sh
 ```
 
-See [QUICKSTART.txt](QUICKSTART.txt) for build, configuration, and startup instructions. Server and client configuration examples are in [`config/`](config/). Consult the in-client `/help` for commands.
+The dependency helper prints the installation command for your selected build profile. Follow the instructions it produces, then continue with the **[quickstart](QUICKSTART.txt)** to build, configure a station, and connect your first client.
 
-## Project components
+**New to RustyRig?** Start with a single server and one radio—or Hamlib's dummy backend—before enabling additional stations or transmit functions.
 
-| Component | Purpose |
+## Documentation
+
+| Guide | When to read it |
 | --- | --- |
-| `rrserver/` | Multi-user radio, media, and station server |
-| `rrclient/` | Native GTK and terminal clients (`-T` for TUI) |
-| `www/` | Browser client ([rustyrig-www](https://github.com/PripyatAutomations/rustyrig-www)) |
-| `rrbridge/` | External SDR receiver bridge and drivers |
-| `fwdsp/`, `libfwdspmgr/` | Audio processing, codecs, and recording |
-| `librrprotocol/` | Shared protocol library for building compatible clients |
-| `librustyaxe/` | Shared application infrastructure |
+| [Quickstart](QUICKSTART.txt) | First installation, login, and connection |
+| [Installation and packaging](doc/INSTALLING) | Package and service installation |
+| [Radio rooms](doc/rig-rooms.md) | Multiple rigs, room access, and VFO/audio behavior |
+| [Audio codecs](doc/media-codecs.md) | Selecting codecs and setting up audio pipelines |
+| [IRC client settings](doc/irc-client.md) | Multiple connections and proxies |
+| [Changelog](CHANGELOG) | Recent changes and known transitions |
+| [Remote SDR architecture](doc/remote-sdr-architecture.md) | Design proposal, **not implemented functionality** |
 
-## Architecture notes
+Configuration examples live in [`config/`](config/). Use `/help` in the client for commands.
 
-- [Remote SDR nodes, resource arbitration, and distributed RX/TX VFOs](doc/remote-sdr-architecture.md) — design proposal for network-connected SDR hardware, cooperative slicing, media distribution, and transmit safety.
+## For developers
 
-## Contributing
+The main pieces are `rrserver` (server), `rrclient` (GTK/TUI), `rrbridge` (SDR bridges), `librrprotocol` (shared protocol), `librustyaxe` (application support), and `fwdsp` / `libfwdspmgr` (audio). The browser UI is developed in [rustyrig-www](https://github.com/PripyatAutomations/rustyrig-www).
 
-Hams, testers, developers, and packagers are welcome. Feedback from real station setups, hardware compatibility testing, bug reports, documentation improvements, and patches are especially valuable.
-
-Browse the [issue tracker](https://github.com/PripyatAutomations/rustyrig-fw/issues) or review the [CHANGELOG](CHANGELOG) to see what is changing.
+Contributions, hardware compatibility reports, documentation improvements, and reproducible bug reports are welcome. See the [issue tracker](https://github.com/PripyatAutomations/rustyrig-fw/issues).
