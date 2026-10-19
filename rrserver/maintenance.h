@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/file.h>
+#include <termios.h>
 #ifdef USE_SQLITE
 #include <sqlite3.h>
 #endif
@@ -88,6 +89,42 @@ static bool rr_maintenance_confirm(enum rr_maintenance_action action, const char
    fclose(terminal);
    if (!confirmed) fprintf(stderr, "Cancelled; no changes made.\n");
    return confirmed;
+}
+
+/* Read and confirm a secret from the controlling terminal, without echo. */
+static bool rr_maintenance_admin_password(char *password,size_t capacity) {
+   FILE *tty=fopen("/dev/tty","r+");
+   if (!tty) return false;
+   struct termios saved,hidden;
+   int fd=fileno(tty);
+   if (tcgetattr(fd,&saved)!=0) { fclose(tty); return false; }
+   hidden=saved;
+   hidden.c_lflag &= ~ECHO;
+   if (tcsetattr(fd,TCSAFLUSH,&hidden)!=0) { fclose(tty); return false; }
+   char confirmation[258]={0};
+   fprintf(tty,"New admin password (8-256 characters): "); fflush(tty);
+   bool ok=fgets(password,(int)capacity,tty)!=NULL;
+   fprintf(tty,"\nConfirm new password: "); fflush(tty);
+   if (ok) ok=fgets(confirmation,sizeof(confirmation),tty)!=NULL;
+   fprintf(tty,"\n"); fflush(tty);
+   bool restored=tcsetattr(fd,TCSAFLUSH,&saved)==0;
+   fclose(tty);
+   if (ok) {
+      size_t first=strlen(password),second=strlen(confirmation);
+      ok=first>0 && first<capacity && password[first-1]=='\n' &&
+         second>0 && second<sizeof(confirmation) && confirmation[second-1]=='\n';
+      if (ok) {
+         password[first-1]=0; confirmation[second-1]=0;
+         ok=strlen(password)>=8 && !strcmp(password,confirmation);
+      }
+   }
+   memset(confirmation,0,sizeof(confirmation));
+   if (!ok || !restored) {
+      memset(password,0,capacity);
+      fprintf(stderr,"Password confirmation failed or terminal error; no changes made.\n");
+      return false;
+   }
+   return true;
 }
 
 /* Purge known audio recording formats, not arbitrary files in the configured
@@ -222,13 +259,17 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
                   sql = "DELETE FROM room_vfos; DELETE FROM vfo_identities; DELETE FROM rig_identities;"; break;
                default: break;
             }
-            bool ok = rr_maintenance_sql(db, "BEGIN IMMEDIATE;");
+            char admin_password[258]={0};
+            bool password_ok=action != RR_MAINT_RESET_ADMINPW ||
+               rr_maintenance_admin_password(admin_password,sizeof(admin_password));
+            bool ok = password_ok && rr_maintenance_sql(db, "BEGIN IMMEDIATE;");
             if (ok) ok = action == RR_MAINT_RESET_ADMINPW ?
-               db_reset_admin_password(db) : (sql && rr_maintenance_sql(db, sql));
+               db_reset_admin_password(db,admin_password) : (sql && rr_maintenance_sql(db, sql));
             if (ok && action == RR_MAINT_RESET_UUIDS)
                ok = db_room_uuids_regenerate(db);
             if (ok) ok = rr_maintenance_sql(db, "COMMIT;");
             if (!ok) rr_maintenance_sql(db, "ROLLBACK;");
+            memset(admin_password,0,sizeof(admin_password));
             if (ok) result = EXIT_SUCCESS;
             sqlite3_close(db);
          }
