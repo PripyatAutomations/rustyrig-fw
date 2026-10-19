@@ -114,6 +114,29 @@ CREATE TABLE users (
    permissions TEXT                 -- comma-separated or JSON if complex
 );
 
+-- v1 scoped authorization. System-wide roles (admin, owner, etc.) remain
+-- in users.permissions until core roles have a dedicated typed representation.
+-- Resource grants are separate and keyed by stable resource UUID, not names.
+-- Cross-site subjects are written as user@host and resolved using the linked
+-- site's advertised identity, never by trusting client-supplied UUIDs.
+CREATE TABLE resource_privileges (
+   id INTEGER PRIMARY KEY,
+   subject_user TEXT NOT NULL,
+   subject_host TEXT NOT NULL DEFAULT '',
+   resource_kind TEXT NOT NULL CHECK(resource_kind IN ('site','rig','vfo','room','media','serial','file','bridge')),
+   resource_uuid TEXT NOT NULL,
+   privilege TEXT NOT NULL,
+   effect TEXT NOT NULL DEFAULT 'allow' CHECK(effect IN ('allow','deny')),
+   granted_by TEXT NOT NULL,
+   granted_at INTEGER NOT NULL DEFAULT (unixepoch()),
+   expires_at INTEGER DEFAULT NULL,
+   UNIQUE(subject_user,subject_host,resource_kind,resource_uuid,privilege)
+);
+CREATE INDEX resource_privileges_subject
+   ON resource_privileges(subject_host,subject_user,resource_kind,resource_uuid);
+CREATE INDEX resource_privileges_resource
+   ON resource_privileges(resource_kind,resource_uuid,privilege);
+
 -- Payload-byte and frame accounting; NULL allowance means unlimited.
 CREATE TABLE IF NOT EXISTS user_usage (name TEXT PRIMARY KEY COLLATE NOCASE, reset_at INTEGER NOT NULL DEFAULT (unixepoch()), tx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_bytes >= 0), tx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_text_frames >= 0), tx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_bytes >= 0), tx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(tx_binary_frames >= 0), rx_text_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_bytes >= 0), rx_text_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_text_frames >= 0), rx_binary_bytes INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_bytes >= 0), rx_binary_frames INTEGER NOT NULL DEFAULT 0 CHECK(rx_binary_frames >= 0), session_seconds INTEGER NOT NULL DEFAULT 0 CHECK(session_seconds >= 0), tx_seconds INTEGER NOT NULL DEFAULT 0 CHECK(tx_seconds >= 0), bandwidth_remaining INTEGER, tx_reset_at INTEGER NOT NULL DEFAULT 0);
 
