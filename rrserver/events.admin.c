@@ -42,6 +42,7 @@
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 #include <rrserver/platform.controls.h>
+#include <rrserver/objects.h>
 #include <rrserver/usage.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>
@@ -479,8 +480,10 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       if (!ok) {
          ws_send_error(client,"Node control unavailable, read-only, or outside supported range");
       } else {
-         if (count == 2) db_add_audit_event(masterdb,client->chatname,
-            "platform.control",name);
+         if (count == 2) {
+            db_add_audit_event(masterdb,client->chatname,"platform.control",name);
+            rrserver_objects_platform_changed(&state);
+         }
          admin_control_reply(client,&state,"state");
       }
       dict_free(request);
