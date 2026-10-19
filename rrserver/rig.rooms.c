@@ -204,7 +204,7 @@ static bool restore_rx_rooms(void) {
 /* Caller-selected room for temporary RX-only receivers. This intentionally
  * does not impose the legacy site-rigN namespace on foreign SDR VFOs. */
 bool rrserver_rig_room_add_named(rr_server_rig_t *radio, const char *room) {
-   if (!room || !*room) return rrserver_rig_room_add(radio);
+   if (!room || !*room) return configure_room(radio, NULL);
    if (!radio || !ws_room_name_valid(room) || ws_room_station_scoped(room))
       return true;
    struct room_context ctx = { .room = room, .radio = radio };
