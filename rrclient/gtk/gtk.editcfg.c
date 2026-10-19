@@ -733,7 +733,28 @@ static void on_edit_config_button(GtkButton *button, gpointer user_data) {
    if (user_data != NULL) {
       gui_edit_config(user_data);
    } else {
-      gui_edit_config(config_file);
+      const char *home = g_get_home_dir();
+      char *dir = g_build_filename(home, ".config", NULL);
+      char *path = g_build_filename(dir, "rrclient.cfg", NULL);
+      if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+         if (g_mkdir_with_parents(dir, 0700) != 0 || !cfg_save(cfg, path)) {
+            Log(LOG_ERR, "gtk.config", "Cannot initialize %s from active configuration: %s",
+               path, strerror(errno));
+            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
+               GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+               GTK_BUTTONS_CLOSE, "Unable to create %s from the active configuration.", path);
+            gtk_dialog_run(GTK_DIALOG(dialog));
+            gtk_widget_destroy(dialog);
+            g_free(path);
+            g_free(dir);
+            return;
+         }
+         chmod(path, 0600);
+         Log(LOG_INFO, "gtk.config", "Created %s from active configuration", path);
+      }
+      gui_edit_config(path);
+      g_free(path);
+      g_free(dir);
    }
 }
 
