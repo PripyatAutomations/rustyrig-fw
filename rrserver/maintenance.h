@@ -29,7 +29,7 @@ static bool rrserver_maintenance_lock(void) {
    snprintf(lockpath, n, "%s.rrlock", dbpath);
    int fd = open(lockpath, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
    if (fd < 0 || flock(fd, LOCK_EX | LOCK_NB) != 0) {
-      fprintf(stderr, "Cannot lock database at %s (another rrserver may be active): %s\\n",
+      fprintf(stderr, "Cannot lock database at %s (another rrserver may be active): %s\n",
          dbpath, strerror(errno));
       if (fd >= 0) close(fd);
       free(lockpath);
@@ -187,16 +187,22 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
             if (sqlite3_close(db) != SQLITE_OK) ok = false;
             db = NULL;
             if (ok) {
-               char wal[PATH_MAX], shm[PATH_MAX], bootstrap[PATH_MAX];
-               snprintf(wal, sizeof(wal), "%s-wal", resolved);
-               snprintf(shm, sizeof(shm), "%s-shm", resolved);
-               snprintf(bootstrap, sizeof(bootstrap), "%s.bootstrap-password", resolved);
-               if (unlink(resolved) == 0) {
-                  unlink(wal);
-                  unlink(shm);
-                  unlink(bootstrap);
+               char *wal = g_strdup_printf("%s-wal", resolved);
+               char *shm = g_strdup_printf("%s-shm", resolved);
+               char *bootstrap = g_strdup_printf("%s.bootstrap-password", resolved);
+               bool cleaned = wal && shm && bootstrap;
+               if (cleaned && unlink(wal) != 0 && errno != ENOENT) cleaned = false;
+               if (cleaned && unlink(shm) != 0 && errno != ENOENT) cleaned = false;
+               if (cleaned && unlink(resolved) == 0) {
+                  if (unlink(bootstrap) != 0 && errno != ENOENT)
+                     fprintf(stderr, "Warning: could not remove old bootstrap credential %s\\n", bootstrap);
                   result = EXIT_SUCCESS;
-               } else perror("unlink database");
+               } else {
+                  perror("reset database");
+               }
+               g_free(wal);
+               g_free(shm);
+               g_free(bootstrap);
             }
          } else {
             const char *sql = NULL;
