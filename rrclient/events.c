@@ -718,7 +718,11 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
           * line incorrectly retains PTT/VFO state from the rig room. */
          rrclient_room_set_offline(m_room, false);
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
-         rrclient_room_set_vfo_mask(m_room, has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
+         const char *room_uuids = dict_get(d, "room.vfos", "");
+         if (room_uuids && *room_uuids)
+            rrclient_room_set_vfos(m_room, room_uuids);
+         else
+            rrclient_room_set_vfo_mask(m_room, has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
          rrclient_room_set_control_flags(m_room, dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room)), dict_get_bool(d, "room.rx-tunable",
             false));
          rrclient_room_set_rx_tuning_mask(m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
