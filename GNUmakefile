@@ -53,6 +53,16 @@ ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
 include librrprotocol/rules.mk
+
+# callsign-lookup maintains its own object dependency graph. Run its make
+# each world build so changed submodule sources rebuild automatically.
+# Its ../librustyaxe.so prerequisite must be ready even under -j.
+ifeq ($(BUILD_CALLSIGN_LOOKUP),true)
+.PHONY: callsign-lookup-world
+callsign-lookup-world: librustyaxe.so
+	$(MAKE) -C callsign-lookup RUSTYRIG_FW_BUILD=true world
+extra_build += callsign-lookup-world
+endif
 include rrbridge/rules.mk
 include libfwdspmgr/rules.mk
 
