@@ -357,7 +357,7 @@ static void admin_control_selection(GtkComboBox *combo, gpointer user) {
    const char *name = gtk_combo_box_get_active_id(combo);
    if (!name) return;
    if (control_scale) gtk_widget_set_sensitive(control_scale,FALSE);
-   if (control_apply) gtk_widget_set_sensitive(control_apply,FALSE);
+
    if (!admin_control_request(name,-1) && control_status)
       gtk_label_set_text(GTK_LABEL(control_status),"Unable to read selected control");
 }
@@ -938,7 +938,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
             if (control_pending_lists) --control_pending_lists;
             if (!control_pending_lists) gtk_label_set_text(GTK_LABEL(control_status),"Controls loaded from connected nodes");
          } else if (control_pending_name) { char *requested=g_strdup(control_pending_name); admin_control_choose(requested); g_free(requested); } else gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo),0);
-         if (!gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo)))
+         if (!all_nodes && !gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo)))
             gtk_label_set_text(GTK_LABEL(control_status),"No hardware controls available");
       } else if (!strcmp(action,"state")) {
          admin_control_row_state(row,source_profile);
@@ -1208,7 +1208,6 @@ GtkWidget *init_admin_tab(void) {
       admin_control_hosts_refresh();
       control_host_handler=g_signal_connect(control_hosts,"changed",G_CALLBACK(admin_control_host_changed),NULL);
       g_signal_connect(main_window,"key-press-event",G_CALLBACK(admin_controls_star),NULL);
-      g_signal_connect(main_window,"key-press-event",G_CALLBACK(admin_controls_star),NULL);
       gtk_box_pack_start(GTK_BOX(box),filter_header,FALSE,FALSE,0);
       g_signal_connect(control_filter,"changed",G_CALLBACK(admin_control_filter_changed),NULL);
       control_status = gtk_label_new("Select a connected server and Refresh.");
@@ -1218,7 +1217,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_widget_set_sensitive(control_scale,FALSE);
       GtkWidget *refresh = gtk_button_new_with_label("Refresh controls");
       control_apply = gtk_button_new_with_label("Apply Changes");
-      gtk_widget_set_sensitive(control_apply,FALSE);
+      gtk_widget_set_sensitive(control_apply,TRUE);
       gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
