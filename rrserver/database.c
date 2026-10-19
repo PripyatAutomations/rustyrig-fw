@@ -154,6 +154,17 @@ static bool db_provision_admin(sqlite3 *db) {
    return ok;
 }
 
+/* Explicit administrator credential reset, used only by the confirmed
+ * one-shot maintenance path. The caller owns the SQLite transaction. */
+bool db_reset_admin_password(sqlite3 *db) {
+   if (!db) return false;
+   const char *sql = "UPDATE users SET enabled=0,password='',"
+      "password_change_required=1,password_set=unixepoch() WHERE name='admin';";
+   if (sqlite3_exec(db, sql, NULL, NULL, NULL) != SQLITE_OK ||
+       sqlite3_changes(db) != 1) return false;
+   return db_provision_admin(db);
+}
+
 /* Initialize a new database from shipped SQL and provision its bootstrap account. */
 static bool db_initialize_new(sqlite3 *db) {
    char *template_path = cfg_get_path("path.db.master.template");
