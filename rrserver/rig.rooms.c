@@ -216,7 +216,7 @@ static bool prune_unclaimed_rig_rooms(void) {
    bool ok = true;
    for (char *name = strtok_r(listing, " \\t\\r\\n", &save);
         name; name = strtok_r(NULL, " \\t\\r\\n", &save)) {
-      if (strncasecmp(name, site, prefix_len) || strncmp(name + prefix_len, "-rig", 4))
+      if (strlen(name) <= prefix_len + 4 || strncasecmp(name, site, prefix_len) || strncmp(name + prefix_len, "-rig", 4))
          continue;
       const char *digits = name + prefix_len + 4;
       if (!*digits) continue;
