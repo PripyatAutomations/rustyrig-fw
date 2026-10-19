@@ -435,12 +435,17 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path,
    GtkTreeIter iter;
    GtkTreeModel *model=gtk_tree_view_get_model(view);
    if (!gtk_tree_model_get_iter(model,&iter,path)) return;
-   char *kind=NULL,*control=NULL,*profile=NULL;
-   gtk_tree_model_get(model,&iter,KIND,&kind,ACTION,&control,PROFILE,&profile,-1);
+   char *kind=NULL,*control=NULL,*profile=NULL,*state=NULL;
+   gtk_tree_model_get(model,&iter,KIND,&kind,ACTION,&control,PROFILE,&profile,SERVER_STATE,&state,-1);
    if (g_strcmp0(kind,"control")==0 && control && *control) {
-      gtk_admin_open_control_on_server(profile,control);
+      if (g_strcmp0(state,"owner-server-only")==0) {
+         gtk_label_set_text(GTK_LABEL(browser->status),
+            "Linked-node control discovered. Routed control requests are not implemented yet.");
+      } else {
+         gtk_admin_open_control_on_server(profile,control);
+      }
    }
-   g_free(kind); g_free(control); g_free(profile);
+   g_free(kind); g_free(control); g_free(profile); g_free(state);
 }
 static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    (void)data;
