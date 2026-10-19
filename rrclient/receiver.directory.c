@@ -30,6 +30,7 @@ static guint completion_source, learn_source;
 static GHashTable *pending_learn;
 struct directory_job {
    char *url, *etag, *modified;
+   char *proxy;
    GString *body;
    GPtrArray *parsed;
    char *response_etag, *response_modified;
@@ -918,6 +919,15 @@ static gpointer fetch(gpointer user) {
          headers = curl_slist_append(headers, h);
          g_free(h);
       }
+      if (j->proxy && *j->proxy) {
+         /* Explicit outbound HTTP proxy, not a server-link or media proxy. */
+         curl_easy_setopt(curl, CURLOPT_PROXY, j->proxy);
+         curl_easy_setopt(curl, CURLOPT_PROXYTYPE,
+            g_str_has_prefix(j->proxy, "socks5h://") ? CURLPROXY_SOCKS5_HOSTNAME : CURLPROXY_SOCKS5);
+      } else {
+         /* Do not silently inherit environment proxy settings. */
+         curl_easy_setopt(curl, CURLOPT_PROXY, "");
+      }
       curl_easy_setopt(curl, CURLOPT_URL, j->url);
       curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
       curl_easy_setopt(curl, CURLOPT_USERAGENT, "RustyRig/" VERSION " ReceiverDirectory");
@@ -956,6 +966,7 @@ static void job_free(void) {
    g_free(job->url);
    g_free(job->etag);
    g_free(job->modified);
+   g_free(job->proxy);
    g_free(job->response_etag);
    g_free(job->response_modified);
 
@@ -1069,6 +1080,27 @@ bool receiver_directory_refresh(void) {
    job = g_new0(struct directory_job, 1);
    job->started = now;
    job->url = g_strdup(url);
+   /* Host-scoped HTTP download proxy. No effect on WebSocket server links,
+    * RTP/media, or a different HTTP origin. */
+   GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
+   const char *host = uri ? g_uri_get_host(uri) : NULL;
+   char *key = host ? g_strdup_printf("http.proxy.%s", host) : NULL;
+   const char *proxy = key ? cfg_get(key) : NULL;
+   if (proxy && *proxy) {
+      if ((!g_str_has_prefix(proxy, "socks5://") &&
+           !g_str_has_prefix(proxy, "socks5h://")) || strlen(proxy) > 512) {
+         g_strlcpy(last_fetch_error, "Invalid http.proxy.<host>: expected socks5:// or socks5h:// URL.", sizeof(last_fetch_error));
+         g_strlcpy(status_text, last_fetch_error, sizeof(status_text));
+         g_free(key);
+         if (uri) g_uri_unref(uri);
+         g_free(job->url); g_free(job); job = NULL;
+         changed();
+         return false;
+      }
+      job->proxy = g_strdup(proxy);
+   }
+   g_free(key);
+   if (uri) g_uri_unref(uri);
    job->body = g_string_new(NULL);
    job->delay = DIRECTORY_INTERVAL;
 
