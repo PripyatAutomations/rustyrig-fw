@@ -149,6 +149,8 @@ GtkWidget *create_vfo_box(void) {
    gtk_revealer_set_transition_duration(GTK_REVEALER(revealer), 140);
    gtk_revealer_set_reveal_child(GTK_REVEALER(revealer), TRUE);
    GtkWidget *grip = gtk_event_box_new();
+   g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-grip", grip);
+   g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-revealer", revealer);
    gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_TOUCH_MASK);
    gtk_widget_set_tooltip_text(grip, "Click to toggle VFO controls; swipe up to collapse or down to expand");
    GtkWidget *grip_label = gtk_label_new("  ▰▰▰  ");
