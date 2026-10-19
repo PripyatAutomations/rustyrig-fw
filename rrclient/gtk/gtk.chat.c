@@ -1084,6 +1084,10 @@ static gboolean room_vfo_float_closed(GtkWidget *window, GdkEvent *event, gpoint
 }
 static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
+   if (room_vfo_window && gtk_widget_get_visible(room_vfo_window)) {
+      gtk_window_present(GTK_WINDOW(room_vfo_window));
+      return;
+   }
    if (!room_vfo_window) {
       room_vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), "RustyRig VFO controls");
