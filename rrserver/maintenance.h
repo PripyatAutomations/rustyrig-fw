@@ -175,7 +175,7 @@ static bool rr_maintenance_sql(sqlite3 *db, const char *sql) {
 
 /* Initial provisioning helper lives in database.c so normal bootstrap and
  * explicit credential reset share the same generation and hashing code. */
-extern bool db_reset_admin_password(sqlite3 *db);
+extern bool db_reset_admin_password(sqlite3 *db, const char *password);
 
 #endif
 
