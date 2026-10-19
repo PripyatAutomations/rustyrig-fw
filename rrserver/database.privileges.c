@@ -32,13 +32,13 @@ rr_resource_access_t db_resource_access(sqlite3 *db,
    static const char sql[] =
       "SELECT effect FROM resource_privileges "
       "WHERE subject_user=?1 COLLATE NOCASE AND subject_host=?2 COLLATE NOCASE "
-      "AND resource_kind=?3 AND (resource_uuid=?4 OR (resource_kind=\'rig\' AND resource_uuid=\'*\')) AND privilege=?5 "
+      "AND resource_kind=?3 AND (resource_uuid=?4 OR (resource_kind=\'rig\' AND resource_uuid=\'*\')) AND (privilege=?5 OR (resource_kind=\'rig\' AND privilege=\'rig.full\')) "
       "AND (expires_at IS NULL OR expires_at>?6) "
       "UNION ALL "
       "SELECT e.effect FROM privilege_set_assignments AS a "
       "JOIN privilege_set_entries AS e ON e.set_id=a.set_id "
       "WHERE a.subject_user=?1 COLLATE NOCASE AND a.subject_host=?2 COLLATE NOCASE "
-      "AND a.resource_kind=?3 AND (a.resource_uuid=?4 OR (a.resource_kind=\'rig\' AND a.resource_uuid=\'*\')) AND e.privilege=?5 "
+      "AND a.resource_kind=?3 AND (a.resource_uuid=?4 OR (a.resource_kind=\'rig\' AND a.resource_uuid=\'*\')) AND (e.privilege=?5 OR (a.resource_kind=\'rig\' AND e.privilege=\'rig.full\')) "
       "AND (a.expires_at IS NULL OR a.expires_at>?6);";
    sqlite3_stmt *stmt = NULL;
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
