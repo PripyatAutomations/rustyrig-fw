@@ -1288,6 +1288,16 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          if (rrserver_bridge_temporary(b->backend->owner)) {
             db_room_vfo_remove(masterdb, target_room, rr_server_vfo_id(vfo));
          }
+         /* The generated -rigN room exists only to bootstrap the legacy
+          * bridge/media backend. Once the SDR VFO and RX channel are attached
+          * elsewhere, it must not remain a visible, misleading radio room. */
+         if (b->temporary && target_room && strcasecmp(target_room, selected_room)) {
+            bool exists = false, deleted = false;
+            if (db_room_status(masterdb, target_room, &exists, &deleted) &&
+                exists && !deleted &&
+                !db_room_delete(masterdb, target_room, "server", true, false))
+               Log(LOG_WARN, "bridge", "Could not retire SDR bootstrap room %s", target_room);
+         }
          target_room = selected_room;
          if (b->temporary) {
             snprintf(b->attached_room, sizeof(b->attached_room), "%s", selected_room);
