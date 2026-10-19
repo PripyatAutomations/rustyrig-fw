@@ -1053,6 +1053,11 @@ static void websdr_remove(rr_server_rig_t *radio) {
       }
    }
 
+#ifdef USE_SQLITE
+   rr_server_vfo_t *vfo = rr_server_vfo_find_alias(radio, "A");
+   if (vfo && !db_room_detach_vfo_and_prune(masterdb, rr_server_vfo_id(vfo)))
+      Log(LOG_WARN, "bridge", "Unable to detach stale SDR VFO bindings for %s", alias);
+#endif
    const char *room = rr_rig_registry_room(rig.rigs, radio);
 
    if (room) {
@@ -1063,7 +1068,7 @@ static void websdr_remove(rr_server_rig_t *radio) {
        * the room history and VFO metadata for normal persistence rules. */
       bool exists = false, deleted = false;
       if (db_room_status(masterdb, room, &exists, &deleted)) {
-         if (exists && !deleted && !db_room_delete(masterdb, room, "server", false, false))
+         if (exists && !deleted && !db_room_delete(masterdb, room, "server", true, false))
             Log(LOG_WARN, "bridge", "Cannot retire temporary WebSDR room %s from /LIST", room);
       } else {
          Log(LOG_WARN, "bridge", "Cannot inspect temporary WebSDR room %s for cleanup", room);
