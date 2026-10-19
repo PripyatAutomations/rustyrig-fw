@@ -15,6 +15,7 @@ static struct {
    GHashTable *requests;
    GHashTable *site_requests; /* discovery request ID -> home server profile */
    guint timer;
+   gulong server_changed_handler;
    char *wanted_site;
 } browser;
 struct listing {
@@ -150,7 +151,8 @@ static void refresh_sites(void) {
    browser.wanted_site = g_strdup(gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server)));
    const char *selected = browser.wanted_site;
    g_hash_table_remove_all(browser.site_requests);
-   g_signal_handlers_block_by_func(browser.server, G_CALLBACK(changed), NULL);
+   if (browser.server_changed_handler)
+      g_signal_handler_block(browser.server, browser.server_changed_handler);
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(browser.server));
    const char *first = NULL;
    for (unsigned i = 0;; ++i) {
@@ -166,7 +168,8 @@ static void refresh_sites(void) {
    if (selected) gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
    if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first)
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), first);
-   g_signal_handlers_unblock_by_func(browser.server, G_CALLBACK(changed), NULL);
+   if (browser.server_changed_handler)
+      g_signal_handler_unblock(browser.server, browser.server_changed_handler);
 }
 static void changed(GtkComboBox *box, gpointer data) {
    (void)box;
@@ -515,7 +518,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    g_signal_connect(browser.window, "destroy", G_CALLBACK(destroyed), NULL);
    g_signal_connect(browser.window, "key-press-event", G_CALLBACK(browser_key_press), NULL);
    g_signal_connect(browser.tree, "row-expanded", G_CALLBACK(expand), NULL);
-   g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
+   browser.server_changed_handler = g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
    gtk_widget_show_all(browser.window);
    refresh();
    refresh_sites();
