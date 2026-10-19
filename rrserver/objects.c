@@ -204,6 +204,12 @@ static void send_node_control_state(rrconn_t *client, const char *request,
    rr_object_seq_put(d,"property.version",sequence);
    send_message(client,d);
 }
+/* Publish updates from every command surface, not only property.set. */
+void rrserver_objects_platform_changed(const rr_platform_control_state_t *state) {
+   if (!state || !rr_rig_registry_node(rig.rigs)) return;
+   sequence++;
+   send_node_control_state(NULL,NULL,state,"changed");
+}
 static bool send_node_control(const rr_platform_control_state_t *state, void *user) {
    node_control_context_t *ctx=user;
    dict *d = message("property","descriptor",ctx->request);
@@ -638,7 +644,8 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       /* A node property may be writable without corresponding to any rig.
        * Keep system controls owner/admin-only until scoped site privileges
        * are included in the unified authorization layer. */
-      if (!strcmp(uuid,rr_rig_registry_node(rig.rigs))) {
+      if (rr_rig_registry_node(rig.rigs) &&
+          !strcmp(uuid,rr_rig_registry_node(rig.rigs))) {
          if (!client->user || !has_priv(client->user->uid,"admin|owner")) {
             code="forbidden";
             goto done;
@@ -662,8 +669,7 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
             code="invalid-value";
             goto done;
          }
-         sequence++;
-         send_node_control_state(NULL,NULL,&updated,"changed");
+         rrserver_objects_platform_changed(&updated);
 #ifdef USE_SQLITE
          db_add_audit_event(masterdb,client->chatname,"platform.control",name);
 #endif
