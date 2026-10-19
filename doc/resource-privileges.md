@@ -77,6 +77,13 @@ does not automatically authorize every subsystem.
 
 ### Host-wide rig access preset
 
+In the native GTK client, **Admin → Users → Edit → Full Rig Access** is the
+recommended way to give a local user access to every rig on that server. The
+checkbox creates or removes the built-in `full-rig` set assignment; an owner
+must save the change. It does not require the operator to enter UUIDs or
+privilege commands.
+
+
 A reusable `rig.full` privilege-set entry grants every rig-scoped operation
 on a matching rig, subject to independent room, radio hardware, and PTT safety
 checks. Assign the set to `rig *` to cover **every rig owned by this server**,
