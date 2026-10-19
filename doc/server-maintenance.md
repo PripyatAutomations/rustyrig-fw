@@ -24,7 +24,7 @@ The `--reset-db`, `--reset-rooms`, `--reset-logs`, `--reset-audit`, `--reset-adm
 
 ## Identity rules for v1
 
-The clean v1 database assigns a durable UUID to every persistent room; this UUID is sent in resource inventory and is independent of the readable room name. The local server/node UUID is bound to the database, not `station.name`. Configured rig and VFO UUIDs are persisted using stable configuration identities.
+The clean v1 database assigns a durable UUID to every persistent room; this UUID is sent in resource inventory and is independent of the readable room name. The local server/node UUID is bound to the database, not `station.name`. Configured rig and VFO UUIDs are persisted using stable configuration identities. Persistent audio, GPS/NMEA and station webcam stream UUIDs are deterministically derived from their owning rig or server UUID, so reconnecting subscribers see the same logical resource after restart.
 
 Transient connections and temporary SDR bridge instances use fresh UUIDs and are **not** expected to retain identity across reconnects. An SDR room that persists as a room is distinct from a temporary bridge's session identity.
 
