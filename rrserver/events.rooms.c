@@ -71,6 +71,9 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
       dict_add(reply, "msg.type", "talk");
       dict_add(reply, "talk.cmd", "topic");
       dict_add(reply, "talk.room", room);
+      char *room_uuid = db_room_uuid(masterdb, room);
+      if (room_uuid) dict_add(reply, "room.uuid", room_uuid);
+      free(room_uuid);
       dict_add(reply, "talk.topic", topic ? topic : "");
       dict_add_bool(reply, "talk.query", true);
       ws_send_dict(NULL, cptr, reply, WEBSOCKET_OP_TEXT);
