@@ -142,6 +142,8 @@ static GtkWidget *room_vfo_container;
 static GtkWidget *room_vfo_home;
 static GtkWidget *room_vfo_grip;
 static gboolean room_vfo_bottom;
+static gboolean room_vfo_placement_initialized;
+static void room_vfo_dock_to(gboolean bottom);
 static char room_vfo_room[256];
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
 
@@ -1081,8 +1083,7 @@ static void room_vfo_move(GtkWidget *destination) {
 }
 static gboolean room_vfo_float_closed(GtkWidget *window, GdkEvent *event, gpointer user) {
    (void)window; (void)event; (void)user;
-   if (room_vfo_home) room_vfo_move(room_vfo_home);
-   if (room_vfo_window) gtk_widget_hide(room_vfo_window);
+   room_vfo_dock_to(room_vfo_bottom);
    return TRUE;
 }
 static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
@@ -1107,8 +1108,14 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       float_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
       gtk_container_add(GTK_CONTAINER(room_vfo_window), float_box);
       g_object_set_data(G_OBJECT(room_vfo_window), "rr-vfo-float-box", float_box);
+      GtkWidget *redock = gtk_button_new_with_label("Dock VFO in room");
+      gtk_widget_set_tooltip_text(redock, "Return this VFO panel to its room at the preferred edge");
+      gtk_widget_set_halign(redock, GTK_ALIGN_END);
+      g_signal_connect_swapped(redock, "clicked", G_CALLBACK(room_vfo_float_closed), room_vfo_window);
+      gtk_box_pack_start(GTK_BOX(float_box), redock, FALSE, FALSE, 0);
    }
    room_vfo_move(float_box);
+   if (room_vfo_grip) gtk_widget_hide(room_vfo_grip);
    /* A scrolled VFO has a tiny preferred width; measure its actual contents
     * so the detached desktop window does not clip frequency/mode/audio. */
    GtkWidget *inside = GTK_IS_BIN(room_vfo_box) ?
@@ -1125,6 +1132,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       g_free(title);
    }
    gtk_widget_show_all(room_vfo_window);
+   if (room_vfo_grip) gtk_widget_hide(room_vfo_grip);
    gtk_window_present(GTK_WINDOW(room_vfo_window));
 }
 /* Horizontal drag of the handle detaches the live control instance. */
@@ -1140,8 +1148,10 @@ static void room_vfo_grip_edge(void) {
    GtkWidget *grip = g_object_get_data(G_OBJECT(drawer), "rr-vfo-grip");
    GtkWidget *revealer = g_object_get_data(G_OBJECT(drawer), "rr-vfo-revealer");
    if (grip && revealer) {
-      gtk_box_reorder_child(GTK_BOX(drawer), grip, room_vfo_bottom ? -1 : 0);
-      gtk_box_reorder_child(GTK_BOX(drawer), revealer, room_vfo_bottom ? 0 : -1);
+      /* Top dock folds upward: grip faces chat below. Bottom dock folds
+       * downward: grip faces chat above. */
+      gtk_box_reorder_child(GTK_BOX(drawer), grip, room_vfo_bottom ? 0 : -1);
+      gtk_box_reorder_child(GTK_BOX(drawer), revealer, room_vfo_bottom ? -1 : 0);
    }
 }
 static void room_vfo_dock_to(gboolean bottom) {
@@ -1164,6 +1174,7 @@ static void room_vfo_dock_to(gboolean bottom) {
    if (!room_vfo_home) return;
    room_vfo_move(room_vfo_home);
    if (room_vfo_window) gtk_widget_hide(room_vfo_window);
+   if (room_vfo_grip) gtk_widget_show(room_vfo_grip);
    if (room_vfo_container && room_vfo_home && GTK_IS_BOX(room_vfo_home))
       gtk_box_reorder_child(GTK_BOX(room_vfo_home), room_vfo_container,
          bottom ? -1 : 0);
@@ -1192,6 +1203,10 @@ static gboolean room_vfo_grip_menu(GtkWidget *grip, GdkEventButton *event, gpoin
 }
 static void room_vfo_ensure_container(void) {
    if (room_vfo_container || !room_vfo_box) return;
+   if (!room_vfo_placement_initialized) {
+      room_vfo_bottom = !cfg_ui_gtk_vfo_on_top;
+      room_vfo_placement_initialized = TRUE;
+   }
    room_vfo_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_box_pack_start(GTK_BOX(room_vfo_container), room_vfo_box, FALSE, FALSE, 0);
    g_object_add_weak_pointer(G_OBJECT(room_vfo_container), (gpointer *)&room_vfo_container);
@@ -1250,11 +1265,6 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
       return;
    }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
-   if (room_vfo_window && gtk_widget_get_visible(room_vfo_window) && room_vfo_room[0]) {
-      char *title = g_strdup_printf("RustyRig VFO A — %s", room_vfo_room);
-      gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
-      g_free(title);
-   }
 
    if (parent != box) {
       room_vfo_move(box);
