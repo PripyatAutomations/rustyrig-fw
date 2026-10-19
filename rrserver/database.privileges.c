@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <sqlite3.h>
+#include <librustyaxe/core.h>
 #include <rrserver/database.h>
 
 #ifdef USE_SQLITE
