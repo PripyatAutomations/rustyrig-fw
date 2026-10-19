@@ -120,24 +120,36 @@ Do not connect untrusted peer servers until that protocol step is complete.
 5. Remove resource tokens from `users.permissions` after the enforcement
    migration is verified. No pre-1.0 wire or database compatibility is required.
 
-## sBitx / Pi LCD control
+## Generic exported node controls
 
-Expose a backlight capability only when the server detects an administrator-
-configured and validated Linux backlight device under
-`/sys/class/backlight/`. Do not assume every Pi or sBitx uses the same
-controller or supports writes. The server should expose current and maximum
-brightness and an owner/admin-only set operation with a bounded numeric value.
-Do not accept arbitrary filesystem paths, shell fragments, or sudo commands
-from rrclient; the path must be configured locally and verified at startup.
-A minimum usable brightness should be configurable to avoid leaving a
-headless remote operator with a completely dark display. Audit all writes and
-return clear errors for missing driver, read-only sysfs, or unavailable display.
+The persistent **server node** now owns a generic typed control namespace.
+This reuses `object.snapshot`, `property.descriptor`, `property.state`,
+`property.changed`, and `property.set` rather than inventing an LCD-specific
+wire message. Resource Explorer can discover the node's controls.
 
-The server now implements `/admin backlight` (query) and
-`/admin backlight N` (set brightness, owner/admin only). The GTK Admin →
-Display tab provides Refresh and Apply brightness controls. Linux
-`/sys/class/backlight` must contain one unambiguous device, or the admin
-must configure a device name locally:
+`rrserver/platform.controls.h` registers trusted local providers with a
+stable name, display label, unit, numeric bounds, step, read/write functions,
+and declared privilege. The current implementation handles **integer controls**;
+it is deliberately bounded (maximum 64 controls). Invalid names, unavailable
+devices, out-of-range or off-step values, and writes to read-only controls
+are rejected server-side. No remote request can supply a sysfs path or callback.
+
+The first provider is `display.brightness`, backed by Linux's
+`/sys/class/backlight` when exactly one device exists, or a configured
+local device. The client Admin → Controls tab discovers providers and uses a
+generic selector and slider. Equivalent admin commands are:
+
+```text
+/admin controls
+/admin control display.brightness
+/admin control display.brightness 90
+```
+
+Controls also appear as properties on the server node UUID. Owner/admin
+authorization is currently required for writes; advertised per-control
+privilege metadata is reserved for the unified resource privilege enforcement
+pass. Writes are audited, and both the property API and admin UI publish
+changes to subscribers. Ordinary operators cannot write the backlight.
 
 ```ini
 [general]
@@ -145,9 +157,32 @@ platform.backlight.device=
 platform.backlight.minimum=1
 ```
 
-The device setting accepts **only the basename** under
-`/sys/class/backlight/`; remote users cannot specify a path. The minimum
-defaults to 1, preventing remote commands from turning the display fully
-off. A driver-specific permission policy may be required for rrserver to
-write the sysfs brightness file. Missing hardware reports unavailable.
-Other Pi-specific knobs are still pending.
+The device setting accepts a basename only. Minimum brightness defaults to
+1 to prevent remote operators blacking out a display. The process still
+requires OS write access to the backlight sysfs file.
+
+### Other candidates evaluated
+
+- **Speaker output volume / mute:** strong candidates for another *node*
+  control on sBitx; the driver should read and write the actual ALSA or
+  hardware mixer state. The existing `audio.volume.rx` is a *client-local*
+  fwdsp volume preference and must not be confused with server hardware
+  speaker volume.
+- **Fan speed, display power, battery/generator switches:** potentially node
+  controls, but only with appropriate hardware-specific bounds and safety
+  interlocks. Remote power-off actions must not be exported as ordinary
+  unrestricted sliders.
+- **GPIO exports:** reuse the mechanism for deliberately configured
+  non-critical outputs. Do not export arbitrary GPIO devices or pins; the
+  existing GPIO mappings and rig-owned outputs must preserve ownership.
+- **Si5351, VFO frequency/mode, amplifier/tuner settings:** these remain
+  **rig/VFO properties** with their existing hardware/control semantics,
+  rather than moving to the node simply because they are adjustable.
+- **Media sinks and per-user audio routing:** remain session/room scoped.
+  They should eventually use typed descriptors on their own resource
+  identities rather than a global node volume knob.
+
+Next up for the authorization project: map a node-control write to a
+`site`-scoped `resource_privileges` grant keyed by the persistent node UUID,
+while retaining the system `owner|admin` override and explicit deny policy.
+This is **not yet implemented**.
