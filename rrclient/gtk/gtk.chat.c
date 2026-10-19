@@ -1133,7 +1133,12 @@ static void room_vfo_ensure_container(void) {
 // query tabs never own radio widgets; creating one per rig would overwrite
 // the GTK module's shared frequency/PTT widget pointers.
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
-   bool has_vfos = tab && tab->room[0] && rrclient_room_tx_control(tab->room);
+   /* SDR receivers are RX-only: their VFO UUID bindings are independent
+    * of the native rig room's TX-control bit. */
+   bool has_vfos = tab && tab->room[0] &&
+      (rrclient_room_tx_control(tab->room) ||
+       (rrclient_room_rx_tunable(tab->room) &&
+        rrclient_room_vfos(tab->room)[0]));
 
    if (!has_vfos) {
       if (room_vfo_container && !room_vfo_window) gtk_widget_hide(room_vfo_container);
