@@ -39,6 +39,8 @@
 struct bridge_child {
    char *name, *driver, *runtime_config;
    bool temporary;
+   char attached_room[128];
+   char initiated_by[HTTP_USER_LEN + 1];
    uint64_t idle_since;
    /* Event-loop-owned hardware demand, never an authorization decision. */
    uint64_t demand_epoch, demand_check_at;
@@ -1276,6 +1278,10 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             db_room_vfo_remove(masterdb, target_room, rr_server_vfo_id(vfo));
          }
          target_room = selected_room;
+         if (b->temporary) {
+            snprintf(b->attached_room, sizeof(b->attached_room), "%s", selected_room);
+            snprintf(b->initiated_by, sizeof(b->initiated_by), "%s", client->chatname);
+         }
          /* Legacy media channels belong to the generated backend room.
           * Move their RX admission scope to the user's selected room.
           * Keep TX untouched (bridges never provision TX channels). */
