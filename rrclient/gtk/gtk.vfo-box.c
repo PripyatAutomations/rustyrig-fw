@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <math.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -67,7 +66,8 @@ static gboolean vfo_drawer_motion(GtkWidget *widget, GdkEventMotion *event, gpoi
    (void)widget;
    VfoDrawer *drawer = data;
    if (!drawer->pressed) return FALSE;
-   if (fabs(event->x_root - drawer->press_x) > 48.0) {
+   double dx = event->x_root - drawer->press_x;
+   if (dx > 48.0 || dx < -48.0) {
       drawer->pressed = false;
       gtk_chat_vfo_handle_drag();
       return TRUE;
@@ -167,7 +167,7 @@ GtkWidget *create_vfo_box(void) {
    g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-grip", grip);
    g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-revealer", revealer);
    gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK);
-   gtk_widget_set_tooltip_text(grip, "Click to toggle VFO controls; swipe up to collapse or down to expand");
+   gtk_widget_set_tooltip_text(grip, "Click to toggle; swipe up/down to fold; drag sideways to float; right-click to dock top/bottom");
    GtkWidget *grip_label = gtk_label_new("  ▰▰▰  ");
    gtk_widget_set_margin_top(grip_label, 3);
    gtk_widget_set_margin_bottom(grip_label, 3);
