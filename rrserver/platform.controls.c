@@ -18,7 +18,10 @@ static bool valid_name(const char *name) {
 }
 bool rrserver_platform_control_register(const rr_platform_control_t *definition) {
    if (!definition || !valid_name(definition->name) || !definition->label ||
-       !definition->read || controls_count >= MAX_PLATFORM_CONTROLS) return false;
+       !definition->read || controls_count >= MAX_PLATFORM_CONTROLS ||
+       (definition->step < 0) ||
+       (definition->minimum > definition->maximum && definition->maximum != 0))
+      return false;
    for (size_t i=0; i<controls_count; ++i)
       if (!strcmp(controls[i].name,definition->name)) return false;
    /* Definitions must have static or server-lifetime storage. */
