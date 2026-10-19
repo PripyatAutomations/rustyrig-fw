@@ -46,11 +46,13 @@ The dependency helper prints the installation command for your selected build pr
 | Guide | When to read it |
 | --- | --- |
 | [Quickstart](QUICKSTART.txt) | First installation, login, and connection |
+| [Operator guide](doc/operator-guide.md) | Tuning, audio, rooms, SDRs and troubleshooting |
 | [Installation and packaging](doc/INSTALLING) | Package and service installation |
 | [Radio rooms](doc/rig-rooms.md) | Multiple rigs, room access, and VFO/audio behavior |
 | [Audio codecs](doc/media-codecs.md) | Selecting codecs and setting up audio pipelines |
 | [IRC client settings](doc/irc-client.md) | Multiple connections and proxies |
 | [Changelog](CHANGELOG) | Recent changes and known transitions |
+| [RC release checklist](doc/release-checklist.md) | Build, package, smoke-test and tag a release |
 | [Remote SDR architecture](doc/remote-sdr-architecture.md) | Design proposal, **not implemented functionality** |
 
 Configuration examples live in [`config/`](config/). Use `/help` in the client for commands.
