@@ -201,6 +201,26 @@ static bool restore_rx_rooms(void) {
 }
 #endif
 
+/* Caller-selected room for temporary RX-only receivers. This intentionally
+ * does not impose the legacy site-rigN namespace on foreign SDR VFOs. */
+bool rrserver_rig_room_add_named(rr_server_rig_t *radio, const char *room) {
+   if (!room || !*room) return rrserver_rig_room_add(radio);
+   if (!radio || !ws_room_name_valid(room) || ws_room_station_scoped(room))
+      return true;
+   struct room_context ctx = { .room = room, .radio = radio };
+   if (rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx))
+      return true;
+   if (rr_rig_registry_set_room(rig.rigs, radio, room))
+      return true;
+#ifdef USE_SQLITE
+   if (!db_room_ensure(masterdb, room, true, 0, "server"))
+      return true;
+#endif
+   if (rr_server_vfo_foreach(radio, collect_vfo, &ctx))
+      return true;
+   return false;
+}
+
 bool rrserver_rig_room_add(rr_server_rig_t *radio) {
    return configure_room(radio, NULL);
 }
