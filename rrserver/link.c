@@ -6,6 +6,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Authenticated server-to-server WS/WSS links form an undirected tree.
 // Either endpoint may initiate a socket; overlapping components are rejected.
+#include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
