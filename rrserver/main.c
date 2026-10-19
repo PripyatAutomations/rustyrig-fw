@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
          }
       }
       if (!exact) {
-         fprintf(stderr, "Unrecognized long option %s (full names only; no --force).\\n", argv[i]);
+         fprintf(stderr, "Unrecognized long option %s (full names only; no --force).\n", argv[i]);
          return EXIT_FAILURE;
       }
    }
