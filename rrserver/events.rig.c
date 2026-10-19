@@ -241,7 +241,10 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       rr_control_result_t result = object && request.property ? rr_rig_control(&request) : RR_CONTROL_INVALID;
 
       if (result != RR_CONTROL_OK && result != RR_CONTROL_PENDING) {
-         Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s", rc_cmd, room);
+         Log(LOG_WARN, "rigctl",
+            "Unable to apply %s in room %s (VFO %s, owner %s, result %d%s)",
+            rc_cmd, room, rc_vfo, rr_rig_registry_alias(rig.rigs, radio),
+            (int)result, object ? "" : ", VFO alias not found");
       } else if (result == RR_CONTROL_OK) {
          rr_backend_poll_rig(radio, object);
       }
