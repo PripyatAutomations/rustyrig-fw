@@ -539,7 +539,7 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
    }
    dict_add(request, "msg.type", "talk");
 
-   if (!strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
+   if (!strcmp(command, "rig-access") || !strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
        !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all")) {
       dict_add(request, "talk.action", command);
       command = "admin";
