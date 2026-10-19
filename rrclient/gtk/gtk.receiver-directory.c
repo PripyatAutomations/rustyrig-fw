@@ -11,7 +11,6 @@ static GtkWidget *directory_window, *search_entry, *accessible_only, *directory_
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
 static GtkWidget *connect_button, *add_button;
 static GtkWidget *download_dialog;
-static bool directory_waiting_to_show;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token;
@@ -245,11 +244,6 @@ static void directory_download_finished(void) {
    if (download_dialog) {
       gtk_widget_destroy(download_dialog);
       download_dialog = NULL;
-   }
-   if (directory_waiting_to_show && directory_window) {
-      directory_waiting_to_show = false;
-      gtk_widget_show(directory_window);
-      gtk_window_present(GTK_WINDOW(directory_window));
    }
 }
 static void directory_refresh_with_wait(void) {
@@ -508,11 +502,8 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    populate();
    gtk_widget_show_all(directory_window);
    directory_refresh_with_wait(); // Cached data remains immediately available.
-   if (receiver_directory_busy()) {
-      directory_waiting_to_show = true;
-      gtk_widget_hide(directory_window);
-      if (download_dialog) gtk_widget_show(download_dialog);
-   }
+   /* Keep the parent mapped: hiding a transient parent can also hide
+    * its modal dialog. The spinner owns focus until the request finishes. */
 }
 void gtk_receiver_directory_init(void) {
    connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
@@ -536,7 +527,6 @@ void gtk_receiver_directory_shutdown(void) {
 
    if (download_dialog) gtk_widget_destroy(download_dialog);
    download_dialog = NULL;
-   directory_waiting_to_show = false;
    if (directory_window) {
       gtk_widget_destroy(directory_window);
    }
