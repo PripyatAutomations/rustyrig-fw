@@ -4,7 +4,7 @@ This is a **human-run checklist**, not an automated claim that a release has pas
 
 ## Before tagging
 
-- [ ] Choose a version and ensure `.version`, `CHANGELOG` / `debian/changelog`, Arch/RPM metadata and package version all agree. Use `tools/bump-version.sh --version v1.0-rc1` after reviewing its changes; do not edit just one version file.
+- [ ] Choose a version and ensure `.version`, `CHANGELOG` / `debian/changelog`, Arch/RPM metadata and package version all agree. **Do not run the existing bump script for an RC without reviewing it first**: it rewrites the newest changelog entry instead of appending release history. It also currently accepts a three-part semantic version (for example `v1.0.0-rc1`), not `v1.0-rc1`. Debian RC package versions should use a tilde (`1.0.0~rc1`) so the final `1.0.0` sorts newer; ensure any cross-format version conversion preserves this ordering.
 - [ ] Record the Git commit and submodule revisions. Check `git status --short` and `git submodule status --recursive`; avoid testing against moving submodule branches.
 - [ ] Confirm the build profile and optional SDK flags, including which optional binary packages should be produced.
 - [ ] Build from a clean checkout on a supported Debian-family system, including GTK client, server, audio worker and needed modules.
