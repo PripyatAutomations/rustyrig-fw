@@ -480,12 +480,21 @@ static void rrserver_room_join_check(const char *event, const void *data, size_t
       if (!isxdigit((unsigned char)*p)) { sdr_room = false; break; }
    bool exists, deleted;
 
-   if (!db_room_status(masterdb, check->room, &exists, &deleted) || deleted ||
-      (!exists && (!client || !client->authenticated || !client->user ||
+   if (!db_room_status(masterdb, check->room, &exists, &deleted)) {
+      Log(LOG_WARN, "room", "JOIN %s denied: unable to read room status: %s",
+         check->room, sqlite3_errmsg(masterdb));
+      check->allowed = false;
+   } else if (deleted) {
+      Log(LOG_WARN, "room", "JOIN %s denied: room is deleted", check->room);
+      check->allowed = false;
+   } else if (!exists && (!client || !client->authenticated || !client->user ||
       (ws_room_station_scoped(check->room) && !sdr_room &&
-        !has_priv(client->user->uid, "admin|owner"))))) {
+       !has_priv(client->user->uid, "admin|owner")))) {
+      Log(LOG_WARN, "room", "JOIN %s denied: unauthorized station-scoped room", check->room);
       check->allowed = false;
    } else if (!exists && !db_room_ensure(masterdb, check->room, false, 0, client->chatname)) {
+      Log(LOG_WARN, "room", "JOIN %s denied: failed to persist new room: %s",
+         check->room, sqlite3_errmsg(masterdb));
       check->allowed = false;
    }
 }
