@@ -692,22 +692,44 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
 }
 
 /* Sort siblings naturally: case-insensitive text with numeric runs (rig2 before rig10). */
-static gint resource_name_compare(GtkTreeModel *model, GtkTreeIter *left, GtkTreeIter *right, gpointer unused) {
-   (void)unused;
-   char *a = NULL, *b = NULL;
-   gtk_tree_model_get(model, left, NAME, &a, -1);
-   gtk_tree_model_get(model, right, NAME, &b, -1);
-   if (!g_utf8_validate(a ? a : "", -1, NULL) || !g_utf8_validate(b ? b : "", -1, NULL)) {
-      int order = g_ascii_strcasecmp(a ? a : "", b ? b : "");
-      g_free(a); g_free(b);
-      return order;
+/* GtkTreeStore sorting is sibling-local, so sorting never reparents resources.
+ * Keep locally owned entries above linked site branches at every depth,
+ * independently of the chosen column or ascending/descending direction. */
+static gint resource_tree_compare(GtkTreeModel *model, GtkTreeIter *left,
+                                  GtkTreeIter *right, gpointer user) {
+   gint column=GPOINTER_TO_INT(user);
+   char *kind_a=NULL,*kind_b=NULL,*a=NULL,*b=NULL;
+   gtk_tree_model_get(model,left,KIND,&kind_a,column,&a,-1);
+   gtk_tree_model_get(model,right,KIND,&kind_b,column,&b,-1);
+   /* Root 'This Client' is first; linked sites are last among siblings.
+    * The connected-server root is the owner, not an extra linked-site row. */
+   int rank_a=!g_strcmp0(kind_a,"local") ? 0 :
+      (!g_strcmp0(kind_a,"site") || !g_strcmp0(kind_a,"server")) ? 2 : 1;
+   int rank_b=!g_strcmp0(kind_b,"local") ? 0 :
+      (!g_strcmp0(kind_b,"site") || !g_strcmp0(kind_b,"server")) ? 2 : 1;
+   gint result=0;
+   if (rank_a!=rank_b) {
+      result=rank_a<rank_b ? -1 : 1;
+      /* GTK reverses the comparator for descending sorts. Undo that only
+       * for the topology rank, not for user-selected column ordering. */
+      gint active=-1;
+      GtkSortType order=GTK_SORT_ASCENDING;
+      if (gtk_tree_sortable_get_sort_column_id(GTK_TREE_SORTABLE(model),&active,&order)
+          && order==GTK_SORT_DESCENDING) result=-result;
+   } else if (column==NAME && g_utf8_validate(a ? a : "",-1,NULL) &&
+              g_utf8_validate(b ? b : "",-1,NULL)) {
+      char *fa=g_utf8_casefold(a ? a : "",-1);
+      char *fb=g_utf8_casefold(b ? b : "",-1);
+      char *ka=g_utf8_collate_key_for_filename(fa,-1);
+      char *kb=g_utf8_collate_key_for_filename(fb,-1);
+      result=g_strcmp0(ka,kb);
+      g_free(ka);g_free(kb);g_free(fa);g_free(fb);
+   } else {
+      result=g_ascii_strcasecmp(a ? a : "",b ? b : "");
    }
-   char *fold_a = g_utf8_casefold(a ? a : "", -1), *fold_b = g_utf8_casefold(b ? b : "", -1);
-   char *key_a = g_utf8_collate_key_for_filename(fold_a, -1), *key_b = g_utf8_collate_key_for_filename(fold_b, -1);
-   int order = strcmp(key_a, key_b);
-   if (!order) order = g_strcmp0(a, b);
-   g_free(key_a); g_free(key_b); g_free(fold_a); g_free(fold_b); g_free(a); g_free(b);
-   return order;
+   if (!result) result=g_strcmp0(a,b);
+   g_free(kind_a);g_free(kind_b);g_free(a);g_free(b);
+   return result;
 }
 
 static void resource_local_configure(GtkButton *button, gpointer unused) {
@@ -869,7 +891,9 @@ static void resource_create(void) {
    gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
       G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING);
-   gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser->store), NAME, resource_name_compare, NULL, NULL);
+   for (int field=NAME;field<=DETAILS;field++)
+      gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser->store),field,
+         resource_tree_compare,GINT_TO_POINTER(field),NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser->store), NAME, GTK_SORT_ASCENDING);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->store));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
