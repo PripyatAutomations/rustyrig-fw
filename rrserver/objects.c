@@ -420,18 +420,18 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
       if (base ? !ws_room_same_rig(room, base) : ws_room_rig_namespace(room)) {
          continue;
       }
-      char room_id[256];
-      snprintf(room_id, sizeof(room_id), "room:%s", room);
+      char *room_id = db_room_uuid(masterdb, room);
+      if (!room_id) continue;
       dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, room_id);
 
-      if (!row) {
-         continue;
+      if (row) {
+         dict_add(row, "inventory.state", ws_client_in_room(ctx->client, room) ? "joined" : "available");
+         dict_add(row, "inventory.service", base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
+         dict_add(row, "inventory.action", "/join|part <room>");
+         rr_inventory_send(ctx->client, row);
+         inventory_room_vfos(ctx, room, room_id);
       }
-      dict_add(row, "inventory.state", ws_client_in_room(ctx->client, room) ? "joined" : "available");
-      dict_add(row, "inventory.service", base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
-      dict_add(row, "inventory.action", "/join|part <room>");
-      rr_inventory_send(ctx->client, row);
-      inventory_room_vfos(ctx, room, room_id);
+      free(room_id);
    }
 
    free(rooms);
