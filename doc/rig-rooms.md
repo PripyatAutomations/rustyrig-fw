@@ -1,13 +1,17 @@
-# Site lobby and rig rooms
+# Radio rooms and VFOs
 
-Authenticated sessions join `#<station.name>` as a chat-only site lobby.
-A rig room is opt-in: `/join #rplywv00-rig0` attaches to that radio's room.
-`/part` releases that room's media subscriptions. The site lobby remains joined.
+RustyRig uses rooms to organize operators, chat, radio controls and audio.
 
-Each configured rig owns one authoritative TX room: `#<station.name>-rigN`.
-Only server initialization creates these base rooms. The per-rig `room` setting
-must match that canonical name; other rooms are chat-only unless they are
-mapped RX subrooms beneath a configured rig's namespace.
+- **Station lobby:** Everyone joining a station enters `#<station.name>`. This is a place to meet; it does not automatically take control of a radio.
+- **Radio room:** Join an available rig room (such as `#rplywv00-rig0`) to access its authorized controls and audio. Leave with `/part`.
+- **Receive-only room:** An additional room can expose selected VFOs for listening without granting transmit access.
+- **SDR room:** Temporary SDR VFOs can be attached to a chosen room without requiring a second `-rigN` room.
+
+For a simple single-rig station, you usually only need the station lobby and one radio room. The rest of this guide explains advanced configurations.
+
+## Configure multiple radios
+
+Configured rigs normally use station-scoped names such as `#rplywv00-rig0`. Explicitly configured rig rooms are currently validated against that generated name; temporary SDR rooms use a separate creation path.
 
 ```ini
 [general]
@@ -29,34 +33,22 @@ vfos=A B
 room=#rplywv00-rig1
 ```
 
-An administrator can create `#rplywv00-rig0.monitor` and bind its VFOs with
-`/room #rplywv00-rig0.monitor vfo add rig0.vfo_b`. Bindings must belong to that
-room's rig. These rooms receive RX audio and VFO status but cannot transmit or
-change mode or width. Frequency changes are permitted only for mapped VFOs
-explicitly declared safe to tune without moving the shared LO.
+## Independent receive controls
 
-`rx-independent-vfos` lists native VFO letters separated by whitespace or
-commas. It overrides `rx-independent-tuning`, which allows all configured VFOs
-when true. Both default to no permission. Set these capabilities according to
-the backend and hardware: the server does not infer LO independence from a
-backend name. An invalid VFO list aborts initialization.
+A receive-only room may expose a rig's VFO without permitting PTT. Whether a listener can independently tune it depends on the radio hardware and configuration:
 
-The server persists actual VFO UUID bindings and restores valid RX subrooms at
-startup. Invalid or cross-rig bindings are removed; ordinary rooms retain chat
-history but receive no VFO controls. Configured base bindings are rebuilt from
-rig configuration and cannot be edited or removed with `/room`.
+- `rx-independent-vfos` names VFOs known to tune independently (for example `B`).
+- `rx-independent-tuning=true` permits all configured VFOs, but only if the hardware really supports it.
+- The default is conservative: no independent receive tuning.
 
-CAT requests carry their room and target its rig. Both CAT and UUID property
-writes require appropriate room membership and permissions. Leaving the TX
-room releases that session's transmission. Existing station-wide PTT arbitration
-and interlocks remain in force; this does not enable simultaneous independent TX.
+Administrators may create additional rooms and associate VFO bindings. For example:
 
-GTK's main controls follow the selected base rig room. Clicking a VFO row in a
-docked userlist selects that room and VFO; detached rows do not change selection.
-RX subrooms offer a frequency Tune button only for permitted VFOs. The active
-row stays highlighted, including in detached panels. Its default dark red
-background is configurable with `#room-vfo-row.room-vfo-active` in GTK CSS
-(escape the initial `#` as `\#` in the configuration file).
+```text
+/room add #monitor
+/room #monitor vfo add rig0.vfo_b
+```
+
+The server tracks each VFO by UUID, enforces room permissions and retains valid bindings across restarts. A room binding does **not** grant transmit permission, and sharing a receiver does not make its tuning independent.
 
 ## Audio
 
