@@ -404,6 +404,25 @@ struct media_setup_context {
    bool rx_per_vfo, tx_per_vfo;
 };
 
+/* A configured rig's audio streams are persistent resources. Use a
+ * name-independent v8 UUID derived from its stored rig/VFO identity and
+ * direction. Temporary bridge rig UUIDs are ephemeral by design. */
+static bool media_assign_stable_uuid(struct rr_mediachan *channel,
+      const char *rig_uuid, const char *vfo_uuid, bool tx) {
+   if (!channel || !rig_uuid || !*rig_uuid) return false;
+   char *key = g_strdup_printf("rustyrig.audio/%s/%s/%s",
+      rig_uuid, tx ? "tx" : "rx", vfo_uuid ? vfo_uuid : "shared");
+   if (!key) return false;
+   char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256, key, -1);
+   g_free(key);
+   if (!digest) return false;
+   g_snprintf(channel->uuid, sizeof(channel->uuid),
+      "%.8s-%.4s-8%.3s-8%.3s-%.12s",
+      digest, digest + 8, digest + 13, digest + 17, digest + 20);
+   g_free(digest);
+   return true;
+}
+
 static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
    struct media_setup_context *ctx = user;
 
@@ -442,7 +461,8 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
       struct rr_mediachan *cp = media_chan_add(RR_BINFRAME_SUBSYS_AUDIO, tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX, per_vfo ? index : RR_BINFRAME_VFO_NA,
          rig_index, NULL, descr);
 
-      if (!cp) {
+      if (!cp || !media_assign_stable_uuid(cp, rr_server_rig_id(ctx->radio),
+             per_vfo ? rr_server_vfo_id(vfo) : NULL, tx != 0)) {
          return true;
       }
       snprintf(cp->room, sizeof(cp->room), "%s", room);
