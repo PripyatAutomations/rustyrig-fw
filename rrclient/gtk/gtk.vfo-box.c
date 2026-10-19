@@ -35,6 +35,7 @@ typedef struct {
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
 static GtkWidget *vfo_tunable_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
+static GtkWidget *vfo_ptt_box = NULL, *vfo_tx_power_box = NULL;
 
 /* Binary VFO drawer: a GTK divider-style grip, never a partly exposed panel.
  * The grab distance is measured in root coordinates so it works in docked
@@ -93,6 +94,14 @@ static gboolean vfo_drawer_release(GtkWidget *widget, GdkEventButton *event, gpo
    gtk_widget_set_tooltip_text(widget, open ? "Drag up or click to close VFO controls" :
       "Drag down or click to open VFO controls");
    return TRUE;
+}
+
+/* Preserve RX frequency, mode and audio while removing TX affordances
+ * from receive-only rooms and remotely sliced SDR VFOs. */
+void vfo_controls_set_rx_only(bool rx_only) {
+   if (vfo_ptt_box) gtk_widget_set_visible(vfo_ptt_box, !rx_only);
+   if (vfo_tx_power_box) gtk_widget_set_visible(vfo_tx_power_box, !rx_only);
+   if (tx_codec_combo) gtk_widget_set_visible(tx_codec_combo, !rx_only);
 }
 
 // Should we pause the VFO widget being updated until after the server has sent response?
@@ -227,6 +236,8 @@ GtkWidget *create_vfo_box(void) {
 
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
+   vfo_tx_power_box = tx_power_vbox;
+   g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *)&vfo_tx_power_box);
    gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, TRUE, TRUE, 6);
 
    // These globals are borrowed widget references used by protocol/event
@@ -274,6 +285,8 @@ GtkWidget *create_vfo_box(void) {
    // packed FALSE/FALSE - with expand=TRUE the box stretches but the button
    // inside sits at its left, leaving it shy of the window edge.
    GtkWidget *ptt_box = ptt_button_create();
+   vfo_ptt_box = ptt_box;
+   g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *)&vfo_ptt_box);
    gtk_box_pack_end(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 2);
 
    // This will sort out tab order between previous/next widget
