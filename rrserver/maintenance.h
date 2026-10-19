@@ -189,6 +189,13 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
       return EXIT_FAILURE;
    }
    char *resolved = realpath(path, NULL);
+   /* Resetting an already-absent DB is an idempotent no-op, not an error.
+    * Do not create a database just to delete it. */
+   if (!resolved && action == RR_MAINT_RESET_DB && errno == ENOENT) {
+      fprintf(stderr,"Database already absent: %s; nothing to reset.\\n",path);
+      free(path);
+      return EXIT_SUCCESS;
+   }
    if (!resolved || !strcmp(resolved, "/")) {
       fprintf(stderr, "Maintenance target must exist and must not be filesystem root: %s\n", path);
       free(path);
