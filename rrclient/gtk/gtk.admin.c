@@ -333,7 +333,6 @@ static void admin_control_refresh(GtkButton *button, gpointer user) {
    (void)button; (void)user;
    admin_control_hosts_refresh();
    if (control_scale) gtk_widget_set_sensitive(control_scale,FALSE);
-   if (control_apply) gtk_widget_set_sensitive(control_apply,FALSE);
    admin_control_rows_clear();
    const char *host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
    control_pending_lists=0;
@@ -364,12 +363,25 @@ static void admin_control_selection(GtkComboBox *combo, gpointer user) {
 }
 static void admin_control_apply(GtkButton *button, gpointer user) {
    (void)button; (void)user;
-   if (!control_combo || !control_scale) return;
-   const char *name = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo));
-   if (!name) return;
-   int requested = (int)gtk_range_get_value(GTK_RANGE(control_scale));
-   if (!admin_control_request(name,requested) && control_status)
-      gtk_label_set_text(GTK_LABEL(control_status),"Unable to send control request");
+   if (!control_rows_box) return;
+   GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   unsigned changed=0, failed=0;
+   for (GList *l=rows;l;l=l->next) {
+      GtkWidget *row=l->data;
+      if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-writable"))) continue;
+      const char *name=g_object_get_data(G_OBJECT(row),"control-name");
+      const char *profile=g_object_get_data(G_OBJECT(row),"control-profile");
+      GtkWidget *scale=g_object_get_data(G_OBJECT(row),"control-scale");
+      int value=(int)gtk_range_get_value(GTK_RANGE(scale));
+      int original=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-original"));
+      if (value==original) continue;
+      ++changed;
+      if (!admin_control_request_profile(profile,name,value)) ++failed;
+   }
+   g_list_free(rows);
+   char message[160];
+   snprintf(message,sizeof(message),"%u changes submitted across owning nodes; %u send failures",changed,failed);
+   gtk_label_set_text(GTK_LABEL(control_status),message);
 }
 
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
@@ -901,22 +913,35 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    const char *name = dict_get(reply, "talk.target", "");
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
-   if (row && !strcmp(name,"controls") && control_combo &&
-       connection == rrclient_connection_find(rrclient_selected_server())) {
+   const char *source_profile=rrclient_connection_name(connection);
+   const char *view_host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
+   gboolean all_nodes=view_host && !strcmp(view_host,"all");
+   if (row && !strcmp(name,"controls") && control_combo && source_profile &&
+       (all_nodes || (view_host && !strcmp(view_host,source_profile)))) {
       if (!strcmp(action,"begin")) {
-         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo)); admin_control_rows_clear();
+         if (!all_nodes) {
+            gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
+            admin_control_rows_clear();
+         }
          gtk_widget_set_sensitive(control_scale,FALSE);
-         gtk_widget_set_sensitive(control_apply,FALSE);
+         gtk_widget_set_sensitive(control_apply,TRUE);
          gtk_label_set_text(GTK_LABEL(control_status),"Discovering available controls…");
       } else if (!strcmp(action,"row")) {
          const char *id = dict_get(row,"name","");
          const char *label = dict_get(row,"label",id);
-         if (*id) { gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_combo),id,label); admin_control_row_add(row); }
+         if (*id) {
+            if (!all_nodes) gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_combo),id,label);
+            admin_control_row_add(row,source_profile);
+         }
       } else if (!strcmp(action,"end")) {
-         if (control_pending_name) { char *requested=g_strdup(control_pending_name); admin_control_choose(requested); g_free(requested); } else gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo),0);
+         if (all_nodes) {
+            if (control_pending_lists) --control_pending_lists;
+            if (!control_pending_lists) gtk_label_set_text(GTK_LABEL(control_status),"Controls loaded from connected nodes");
+         } else if (control_pending_name) { char *requested=g_strdup(control_pending_name); admin_control_choose(requested); g_free(requested); } else gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo),0);
          if (!gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo)))
             gtk_label_set_text(GTK_LABEL(control_status),"No hardware controls available");
       } else if (!strcmp(action,"state")) {
+         admin_control_row_state(row,source_profile);
          const char *active = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo));
          if (active && !strcmp(active,dict_get(row,"name",""))) {
             int minimum = atoi(dict_get(row,"minimum","0"));
@@ -1183,6 +1208,7 @@ GtkWidget *init_admin_tab(void) {
       admin_control_hosts_refresh();
       control_host_handler=g_signal_connect(control_hosts,"changed",G_CALLBACK(admin_control_host_changed),NULL);
       g_signal_connect(main_window,"key-press-event",G_CALLBACK(admin_controls_star),NULL);
+      g_signal_connect(main_window,"key-press-event",G_CALLBACK(admin_controls_star),NULL);
       gtk_box_pack_start(GTK_BOX(box),filter_header,FALSE,FALSE,0);
       g_signal_connect(control_filter,"changed",G_CALLBACK(admin_control_filter_changed),NULL);
       control_status = gtk_label_new("Select a connected server and Refresh.");
@@ -1191,10 +1217,9 @@ GtkWidget *init_admin_tab(void) {
       gtk_scale_set_digits(GTK_SCALE(control_scale),0);
       gtk_widget_set_sensitive(control_scale,FALSE);
       GtkWidget *refresh = gtk_button_new_with_label("Refresh controls");
-      control_apply = gtk_button_new_with_label("Apply control");
+      control_apply = gtk_button_new_with_label("Apply Changes");
       gtk_widget_set_sensitive(control_apply,FALSE);
       gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
-      gtk_widget_set_no_show_all(control_apply,TRUE);
       gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
       control_rows_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
