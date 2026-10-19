@@ -97,7 +97,7 @@ static void admin_control_filter_apply(void) {
    GList *rows = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
    for (GList *l=rows; l; l=l->next) {
       GtkWidget *row = l->data;
-      const char *name=g_object_get_data(G_OBJECT(row),"control-name");
+      const char *name=g_object_get_data(G_OBJECT(row),"control-path");
       const char *label=g_object_get_data(G_OBJECT(row),"control-label");
       gboolean visible = !*query ||
          (mode == '^' ? (name && !g_ascii_strncasecmp(name,query,strlen(query))) :
@@ -158,7 +158,9 @@ static gboolean admin_control_scroll_to_selected(gpointer unused) {
    if (!control_rows_box || !control_scroll || !control_combo || !control_row_buttons)
       return G_SOURCE_REMOVE;
    const char *id=gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo));
-   GtkWidget *button=id ? g_hash_table_lookup(control_row_buttons,id) : NULL;
+   char *identity=g_strdup_printf("%s/%s",control_server_profile ? control_server_profile : "",id ? id : "");
+   GtkWidget *button=control_row_buttons ? g_hash_table_lookup(control_row_buttons,identity) : NULL;
+   g_free(identity);
    if (!button || !gtk_widget_get_visible(button)) return G_SOURCE_REMOVE;
    GtkAllocation area;
    gtk_widget_get_allocation(button,&area);
@@ -226,24 +228,19 @@ static void admin_control_rows_clear(void) {
    g_list_free(children);
    if (control_row_buttons) g_hash_table_remove_all(control_row_buttons);
 }
-static void admin_control_row_apply(GtkButton *button, gpointer unused) {
-   (void)unused;
-   const char *name=g_object_get_data(G_OBJECT(button),"control-name");
-   GtkWidget *scale=g_object_get_data(G_OBJECT(button),"control-scale");
-   if (!name || !scale) return;
-   if (!admin_control_request(name,(int)gtk_range_get_value(GTK_RANGE(scale))) && control_status)
-      gtk_label_set_text(GTK_LABEL(control_status),"Unable to send control request");
-}
 static void admin_control_row_clicked(GtkButton *button, gpointer unused) {
    (void)unused;
    admin_control_choose(g_object_get_data(G_OBJECT(button),"control-name"));
 }
-static void admin_control_row_state(dict *data) {
+static void admin_control_row_state(dict *data,const char *profile) {
    const char *name=dict_get(data,"name","");
-   GtkWidget *row=control_row_buttons ? g_hash_table_lookup(control_row_buttons,name) : NULL;
+   char *identity=g_strdup_printf("%s/%s",profile,name);
+   GtkWidget *row=control_row_buttons ? g_hash_table_lookup(control_row_buttons,identity) : NULL;
+   g_free(identity);
    if (!row) return;
    GtkWidget *scale=g_object_get_data(G_OBJECT(row),"control-scale");
-   GtkWidget *apply=g_object_get_data(G_OBJECT(row),"control-apply");
+   GtkWidget *minimum_label=g_object_get_data(G_OBJECT(row),"control-min-label");
+   GtkWidget *maximum_label=g_object_get_data(G_OBJECT(row),"control-max-label");
    GtkWidget *detail=g_object_get_data(G_OBJECT(row),"control-detail");
    int minimum=atoi(dict_get(data,"minimum","0"));
    int maximum=atoi(dict_get(data,"maximum","0"));
@@ -256,28 +253,31 @@ static void admin_control_row_state(dict *data) {
       gtk_range_set_value(GTK_RANGE(scale),current);
    }
    gtk_widget_set_sensitive(scale,writable);
-   gtk_widget_set_sensitive(apply,writable);
+   char str[40];
+   snprintf(str,sizeof(str),"%d",minimum); gtk_label_set_text(GTK_LABEL(minimum_label),str);
+   snprintf(str,sizeof(str),"%d",maximum); gtk_label_set_text(GTK_LABEL(maximum_label),str);
+   g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(current));
+   g_object_set_data(G_OBJECT(row),"control-writable",GINT_TO_POINTER(writable));
    char *summary=g_strdup_printf("%s  |  %d–%d %s  |  current: %d  |  %s",
       dict_get(data,"privilege","owner|admin"),minimum,maximum,
       dict_get(data,"unit",""),current,writable ? "Writable" : "Read only");
    gtk_label_set_text(GTK_LABEL(detail),summary);
    g_free(summary);
 }
-static void admin_control_row_add(dict *data) {
+static void admin_control_row_add(dict *data,const char *profile) {
    const char *name=dict_get(data,"name","");
-   if (!*name || !control_rows_box) return;
-   if (control_row_buttons && g_hash_table_contains(control_row_buttons,name)) {
-      admin_control_row_state(data);
+   char *identity=g_strdup_printf("%s/%s",profile,name);
+   if (!*name || !control_rows_box) { g_free(identity); return; }
+   if (control_row_buttons && g_hash_table_contains(control_row_buttons,identity)) {
+      admin_control_row_state(data,profile);
+      g_free(identity);
       return;
    }
    const char *label=dict_get(data,"label",name);
    GtkWidget *row=gtk_box_new(GTK_ORIENTATION_VERTICAL,3);
    GtkWidget *heading=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
-   GtkWidget *choose=gtk_button_new_with_label(label);
-   GtkWidget *key=gtk_label_new(name);
-   gtk_widget_set_halign(key,GTK_ALIGN_START);
+   GtkWidget *choose=gtk_button_new_with_label(identity);
    gtk_box_pack_start(GTK_BOX(heading),choose,FALSE,FALSE,0);
-   gtk_box_pack_start(GTK_BOX(heading),key,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),heading,FALSE,FALSE,0);
    GtkWidget *detail=gtk_label_new("");
    gtk_label_set_xalign(GTK_LABEL(detail),0);
@@ -286,24 +286,26 @@ static void admin_control_row_add(dict *data) {
    GtkWidget *scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,0,100,1);
    gtk_scale_set_digits(GTK_SCALE(scale),0);
    gtk_widget_set_hexpand(scale,TRUE);
-   GtkWidget *apply=gtk_button_new_with_label("Apply");
+   GtkWidget *minimum_label=gtk_label_new("0"), *maximum_label=gtk_label_new("100");
+   gtk_box_pack_start(GTK_BOX(editor),minimum_label,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(editor),scale,TRUE,TRUE,0);
-   gtk_box_pack_start(GTK_BOX(editor),apply,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(editor),maximum_label,FALSE,FALSE,0);
    gtk_box_pack_start(GTK_BOX(row),editor,FALSE,FALSE,0);
    g_object_set_data_full(G_OBJECT(row),"control-name",g_strdup(name),g_free);
+   g_object_set_data_full(G_OBJECT(row),"control-profile",g_strdup(profile),g_free);
+   g_object_set_data_full(G_OBJECT(row),"control-path",g_strdup(identity),g_free);
+   g_object_set_data(G_OBJECT(row),"control-min-label",minimum_label);
+   g_object_set_data(G_OBJECT(row),"control-max-label",maximum_label);
    g_object_set_data_full(G_OBJECT(row),"control-label",g_strdup(label),g_free);
    g_object_set_data(G_OBJECT(row),"control-choose",choose);
    g_object_set_data(G_OBJECT(row),"control-scale",scale);
-   g_object_set_data(G_OBJECT(row),"control-apply",apply);
    g_object_set_data(G_OBJECT(row),"control-detail",detail);
    g_object_set_data_full(G_OBJECT(choose),"control-name",g_strdup(name),g_free);
-   g_object_set_data_full(G_OBJECT(apply),"control-name",g_strdup(name),g_free);
-   g_object_set_data(G_OBJECT(apply),"control-scale",scale);
    g_signal_connect(choose,"clicked",G_CALLBACK(admin_control_row_clicked),NULL);
-   g_signal_connect(apply,"clicked",G_CALLBACK(admin_control_row_apply),NULL);
    gtk_box_pack_start(GTK_BOX(control_rows_box),row,FALSE,FALSE,3);
-   if (control_row_buttons) g_hash_table_insert(control_row_buttons,g_strdup(name),row);
-   admin_control_row_state(data);
+   if (control_row_buttons) g_hash_table_insert(control_row_buttons,g_strdup(identity),row);
+   admin_control_row_state(data,profile);
+   g_free(identity);
    gtk_widget_show_all(row);
    admin_control_filter_apply();
 }
