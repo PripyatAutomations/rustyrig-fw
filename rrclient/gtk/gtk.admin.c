@@ -85,6 +85,7 @@ static GHashTable *control_row_buttons;
 static char *control_pending_name;
 static char *control_server_profile;
 static bool admin_control_request(const char *name, int value);
+static void admin_control_rows_clear(void);
 static void admin_control_filter_apply(void) {
    if (!control_filter || !control_rows_box) return;
    const char *query = gtk_entry_get_text(GTK_ENTRY(control_filter));
@@ -156,9 +157,8 @@ void gtk_admin_open_control_on_server(const char *profile, const char *name) {
    }
    if (name && *name) {
       admin_control_choose(name);
-      /* Explicitly refresh, since the owner may have changed servers. */
       if (server_changed || control_pending_name) admin_control_request(NULL,-1);
-   }
+   } else if (server_changed) admin_control_request(NULL,-1);
 }
 void gtk_admin_open_control(const char *name) {
    gtk_admin_open_control_on_server(rrclient_selected_server(),name);
