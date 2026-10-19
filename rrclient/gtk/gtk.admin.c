@@ -633,7 +633,7 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
    }
    dict_add(request, "msg.type", "talk");
 
-   if (!strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
+   if (!strncmp(command,"group-",6) || !strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
        !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all")) {
       dict_add(request, "talk.action", command);
       command = "admin";
@@ -821,6 +821,82 @@ static void admin_add_privilege(GtkButton *button,gpointer user) {
          if (admin_command(table,!g_strcmp0(kind,"room") ? "room-access" : "rig-access","allow",subject))
             gtk_label_set_text(GTK_LABEL(table->status),"Resource privilege grant submitted");
       } else gtk_label_set_text(GTK_LABEL(table->status),"Select an account before granting access");
+   }
+   grant_subjects=NULL;
+   g_clear_pointer(&grant_profile,g_free);
+   gtk_widget_destroy(dialog);
+}
+static void admin_manage_groups(GtkButton *button,gpointer user) {
+   (void)button;
+   admin_table_t *table=user;
+   rrconn_t *connection=rrclient_connection_find(table->profile);
+   if (!connection || !connection->authenticated) {
+      gtk_label_set_text(GTK_LABEL(table->status),"Connect to the destination server first");
+      return;
+   }
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Manage User Groups",GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,"Cancel",GTK_RESPONSE_CANCEL,
+      "Save Change",GTK_RESPONSE_OK,NULL);
+   GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *group=gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(group),"e.g. club-members");
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Group name (stable symbolic name)"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),group,FALSE,FALSE,3);
+   GtkWidget *action=gtk_combo_box_text_new();
+   const char *commands[]={"group-create","group-delete","group-add-user","group-remove-user","group-grant","group-ungrant"};
+   const char *labels[]={"Create group","Delete group","Add user","Remove user","Grant resource privilege","Remove resource privilege"};
+   for (unsigned i=0;i<G_N_ELEMENTS(commands);i++)
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(action),commands[i],labels[i]);
+   gtk_combo_box_set_active(GTK_COMBO_BOX(action),0);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Action"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),action,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("User (for Add/Remove user)"),FALSE,FALSE,3);
+   grant_subjects=gtk_combo_box_text_new();
+   gtk_box_pack_start(GTK_BOX(box),grant_subjects,FALSE,FALSE,3);
+   g_free(grant_profile);grant_profile=g_strdup(table->profile);
+   admin_command(table,"admin","subjects",NULL);
+   GtkWidget *kind=gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(kind),"rig","Rig");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(kind),"room","Room");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(kind),0);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Resource type (for privilege actions)"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),kind,FALSE,FALSE,3);
+   GtkWidget *resource=gtk_entry_new();
+   gtk_entry_set_text(GTK_ENTRY(resource),"*");
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Resource name: * means all, or use rig0 / #room"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),resource,FALSE,FALSE,3);
+   GtkWidget *privilege=gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege),"rig.full","Full rig access");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege),"rig.use","Use rig");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege),"room.join","Join room");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(privilege),0);
+   gtk_box_pack_start(GTK_BOX(box),privilege,FALSE,FALSE,3);
+   GtkWidget *effect=gtk_check_button_new_with_label("Deny instead of allow");
+   gtk_box_pack_start(GTK_BOX(box),effect,FALSE,FALSE,3);
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
+      const char *group_name=gtk_entry_get_text(GTK_ENTRY(group));
+      const char *op=gtk_combo_box_get_active_id(GTK_COMBO_BOX(action));
+      const char *subject=gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
+      char *args=NULL;
+      if (!strcmp(op,"group-create")) args=g_strdup("User-defined group");
+      else if (!strcmp(op,"group-delete")) args=g_strdup("");
+      else if (!strcmp(op,"group-add-user") || !strcmp(op,"group-remove-user"))
+         args=subject ? g_strdup(subject) : NULL;
+      else {
+         const char *scope=gtk_combo_box_get_active_id(GTK_COMBO_BOX(kind));
+         const char *token=gtk_combo_box_get_active_id(GTK_COMBO_BOX(privilege));
+         const char *name=gtk_entry_get_text(GTK_ENTRY(resource));
+         if (name && *name && !strpbrk(name," \t\r\n"))
+            args=g_strdup_printf("%s %s %s%s",scope,name,token,
+               !strcmp(op,"group-grant") ?
+               (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(effect)) ? " deny" : " allow") : "");
+      }
+      if (group_name && *group_name && op && args) {
+         if (admin_command(table,op,args,group_name))
+            gtk_label_set_text(GTK_LABEL(table->status),"Group change submitted; refresh to see results");
+      } else gtk_label_set_text(GTK_LABEL(table->status),"Group name, user, or resource is missing");
+      g_free(args);
    }
    grant_subjects=NULL;
    g_clear_pointer(&grant_profile,g_free);
@@ -1243,6 +1319,9 @@ GtkWidget *init_admin_tab(void) {
          GtkWidget *add=gtk_button_new_with_label("Add Privilege…");
          g_signal_connect(add,"clicked",G_CALLBACK(admin_add_privilege),table);
          gtk_box_pack_start(GTK_BOX(buttons),add,FALSE,FALSE,0);
+         GtkWidget *groups=gtk_button_new_with_label("Manage Groups…");
+         g_signal_connect(groups,"clicked",G_CALLBACK(admin_manage_groups),table);
+         gtk_box_pack_start(GTK_BOX(buttons),groups,FALSE,FALSE,0);
       }
       if (i == 0) {
          GtkWidget *create = gtk_button_new_with_label("Create User");
