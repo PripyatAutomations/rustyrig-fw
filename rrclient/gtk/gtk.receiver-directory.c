@@ -11,7 +11,7 @@ extern GtkWidget *main_window, *main_notebook;
 static GtkWidget *directory_page, *search_entry, *accessible_only, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
 static GtkWidget *connect_button, *add_button;
-static GtkWidget *download_dialog;
+static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token;
@@ -218,57 +218,42 @@ static void populate(void) {
    g_free(url);
    selection_changed(NULL, NULL);
 }
-/* The network fetch is asynchronous; this modal indicator never runs a
- * nested GTK loop and therefore cannot block its completion callback. */
+/* Inline, nonmodal loading state: users can see the tab immediately. */
 static void directory_download_wait(void) {
-   if (!directory_page || !receiver_directory_busy()) return;
-   if (download_dialog) return;
+   if (!directory_page || !download_status) return;
+   bool busy = receiver_directory_busy();
+   gtk_widget_set_visible(download_status, busy);
+   if (!busy) return;
    const char *url = receiver_directory_fetch_url();
-   download_dialog = gtk_dialog_new();
-   gtk_window_set_title(GTK_WINDOW(download_dialog), "Receiver Directory");
-   gtk_window_set_transient_for(GTK_WINDOW(download_dialog), GTK_WINDOW(main_window));
-   gtk_window_set_modal(GTK_WINDOW(download_dialog), TRUE);
-   gtk_window_set_destroy_with_parent(GTK_WINDOW(download_dialog), TRUE);
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(download_dialog));
    char *message = g_strdup_printf("Please wait downloading directory from %s",
       url && *url ? url : "(unknown source)");
-   GtkWidget *label = gtk_label_new(message);
-   gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
-   gtk_label_set_max_width_chars(GTK_LABEL(label), 65);
-   gtk_container_set_border_width(GTK_CONTAINER(area), 16);
-   gtk_box_pack_start(GTK_BOX(area), label, TRUE, TRUE, 0);
-   GtkWidget *spinner = gtk_spinner_new();
-   gtk_spinner_start(GTK_SPINNER(spinner));
-   gtk_box_pack_start(GTK_BOX(area), spinner, FALSE, FALSE, 6);
-   gtk_widget_show_all(download_dialog);
+   GtkWidget *label = g_object_get_data(G_OBJECT(download_status), "download-label");
+   gtk_label_set_text(GTK_LABEL(label), message);
+   gtk_spinner_start(GTK_SPINNER(download_spinner));
    g_free(message);
 }
 static void directory_download_finished(void) {
-   if (receiver_directory_busy() || !download_dialog) return;
-   gtk_widget_destroy(download_dialog);
-   download_dialog = NULL;
+   if (!directory_page || receiver_directory_busy()) return;
+   if (download_status) {
+      gtk_spinner_stop(GTK_SPINNER(download_spinner));
+      gtk_widget_hide(download_status);
+   }
    const char *reason = receiver_directory_last_error();
-   if (!reason || !*reason || !directory_page) return;
-   const char *source = receiver_directory_source_url();
-   GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
-      GTK_BUTTONS_CLOSE, "Unable to download Receiver Directory");
-   char *details = g_strdup_printf(
-      "Reason: %s\n\nDirectory URL: %s\n\n"
-      "Check receiver-directory.url in your rrclient configuration "
-      "(or RRCLIENT_RECEIVER_DIRECTORY_URL if set), your network connection, "
-      "and whether the HTTPS mirror is reachable.\n\n"
-      "Any previously cached receivers remain available.",
-      reason, source && *source ? source : "(not configured)");
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(error), "%s", details);
-   g_free(details);
-   g_signal_connect_swapped(error, "response", G_CALLBACK(gtk_widget_destroy), error);
-   gtk_widget_show(error);
+   if (reason && *reason) {
+      const char *source = receiver_directory_source_url();
+      char *message = g_strdup_printf(
+         "Unable to download SDR Directory: %s\\nSource: %s\\n"
+         "Check receiver-directory.url in rrclient.cfg (or RRCLIENT_RECEIVER_DIRECTORY_URL), "
+         "the network and proxy settings. Cached receivers, if any, remain available.",
+         reason, source && *source ? source : "(not configured)");
+      gtk_label_set_text(GTK_LABEL(directory_status), message);
+      g_free(message);
+   }
 }
 static void directory_refresh_with_wait(void) {
    receiver_directory_refresh();
-   if (receiver_directory_busy()) directory_download_wait();
-   else directory_download_finished();
+   directory_download_wait();
+   if (!receiver_directory_busy()) directory_download_finished();
 }
 static void directory_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
@@ -409,10 +394,19 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    }
    directory_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page,
-      gtk_label_new("Receiver Directory"));
+      gtk_label_new("SDR Directory"));
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
    gtk_box_pack_start(GTK_BOX(directory_page), box, TRUE, TRUE, 0);
+   download_status = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+   download_spinner = gtk_spinner_new();
+   GtkWidget *download_label = gtk_label_new("");
+   gtk_label_set_xalign(GTK_LABEL(download_label), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(download_label), TRUE);
+   gtk_box_pack_start(GTK_BOX(download_status), download_spinner, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(download_status), download_label, TRUE, TRUE, 0);
+   g_object_set_data(G_OBJECT(download_status), "download-label", download_label);
+   gtk_box_pack_start(GTK_BOX(box), download_status, FALSE, FALSE, 4);
    search_entry = gtk_search_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(search_entry), "Filter name, location, host, grid, contact or hardware…");
    gtk_box_pack_start(GTK_BOX(box), search_entry, FALSE, FALSE, 0);
@@ -539,8 +533,7 @@ void gtk_receiver_directory_shutdown(void) {
    }
    directory_token = show_token = 0;
 
-   if (download_dialog) gtk_widget_destroy(download_dialog);
-   download_dialog = NULL;
+   download_status = download_spinner = NULL;
    if (directory_page) gtk_widget_destroy(directory_page);
    directory_page = NULL;
    g_clear_object(&directory_filter);
