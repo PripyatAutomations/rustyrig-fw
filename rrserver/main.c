@@ -219,6 +219,22 @@ int main(int argc, char **argv) {
       { "reset-uuids", no_argument, NULL, 1007 },
       { NULL, 0, NULL, 0 }
    };
+   /* getopt_long accepts unique prefixes by default; destructive commands
+    * deliberately require their entire long option spelling. */
+   for (int i = 1; i < argc; ++i) {
+      if (strncmp(argv[i], "--", 2) || !strcmp(argv[i], "--")) continue;
+      bool exact = false;
+      for (size_t j = 0; maintenance_options[j].name; ++j) {
+         if (!strcmp(argv[i] + 2, maintenance_options[j].name)) {
+            exact = true;
+            break;
+         }
+      }
+      if (!exact) {
+         fprintf(stderr, "Unrecognized long option %s (full names only; no --force).\\n", argv[i]);
+         return EXIT_FAILURE;
+      }
+   }
    int opt;
    while ((opt = getopt_long(argc, argv, "f:hr:", maintenance_options, NULL)) != -1) {
       switch (opt) {
