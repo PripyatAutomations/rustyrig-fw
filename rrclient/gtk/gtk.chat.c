@@ -1137,6 +1137,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       g_free(title);
    }
    gtk_widget_show_all(room_vfo_window);
+   vfo_controls_set_rx_only(!rrclient_room_tx_control(room_vfo_room));
    if (room_vfo_grip) gtk_widget_hide(room_vfo_grip);
    gtk_window_present(GTK_WINDOW(room_vfo_window));
 }
