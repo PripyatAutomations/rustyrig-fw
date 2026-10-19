@@ -949,6 +949,7 @@ GtkWidget *init_admin_tab(void) {
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
+   GtkWidget *privileges_page = NULL;
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
@@ -1069,12 +1070,27 @@ GtkWidget *init_admin_tab(void) {
       gtk_container_add(GTK_CONTAINER(scroll), table->tree);
       gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
-      gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(!strcmp(table->name, "audit") ? "Audit Log" : !strcmp(table->name, "ptt") ?
-         "PTT Log" : !strcmp(table->name, "quotas") ? "Quotas" : !strcmp(table->name, "users") ? "Users" : !strcmp(table->name, "sessions") ? "Sessions" :
-         !strcmp(table->name, "privsets") ? "Privilege Sets" :
-         !strcmp(table->name, "setentries") ? "Set Privileges" :
-         !strcmp(table->name, "assignments") ? "Assignments" :
-         !strcmp(table->name, "grants") ? "Direct Grants" : "Rooms"));
+      if (!strcmp(table->name, "privsets") || !strcmp(table->name, "setentries")) {
+         if (!privileges_page) {
+            privileges_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+            gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), privileges_page,
+               gtk_label_new("Privilege Sets"));
+         }
+         GtkWidget *section = gtk_label_new(!strcmp(table->name, "privsets") ?
+            "Sets — reusable privilege definitions" : "Entries — privileges in each set");
+         gtk_label_set_xalign(GTK_LABEL(section), 0);
+         gtk_box_pack_start(GTK_BOX(privileges_page), section, FALSE, FALSE, 0);
+         gtk_box_pack_start(GTK_BOX(privileges_page), box, TRUE, TRUE, 0);
+      } else {
+         gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(
+            !strcmp(table->name,"audit") ? "Audit Log" :
+            !strcmp(table->name,"ptt") ? "PTT Log" :
+            !strcmp(table->name,"quotas") ? "Quotas" :
+            !strcmp(table->name,"users") ? "Users" :
+            !strcmp(table->name,"sessions") ? "Sessions" :
+            !strcmp(table->name,"assignments") ? "Assignments" :
+            !strcmp(table->name,"grants") ? "Direct Grants" : "Rooms"));
+      }
    }
 
    {
@@ -1118,6 +1134,20 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(control_apply,"clicked",G_CALLBACK(admin_control_apply),NULL);
       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),box,gtk_label_new("Controls"));
        g_object_set_data(G_OBJECT(control_combo),"control-page",box);
+   }
+   /* Operator workflow first; diagnostics and history last. */
+   const char *order[] = {"Controls","Sessions","Users","Rooms","Assignments",
+      "Direct Grants","Privilege Sets","Quotas","Audit Log","PTT Log"};
+   for (guint position=0; position<G_N_ELEMENTS(order); ++position) {
+      gint count=gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_view));
+      for (gint j=position; j<count; ++j) {
+         GtkWidget *page=gtk_notebook_get_nth_page(GTK_NOTEBOOK(admin_view),j);
+         GtkWidget *tab=gtk_notebook_get_tab_label(GTK_NOTEBOOK(admin_view),page);
+         if (GTK_IS_LABEL(tab) && !strcmp(gtk_label_get_text(GTK_LABEL(tab)),order[position])) {
+            gtk_notebook_reorder_child(GTK_NOTEBOOK(admin_view),page,position);
+            break;
+         }
+      }
    }
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
 
