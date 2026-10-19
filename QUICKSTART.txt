@@ -1,1 +1,127 @@
-doc/QUICKSTART.txt
+RustyRig quickstart
+===================
+
+This guide gets one server and one client talking. Start on a trusted LAN or
+VPN, and use matching builds while the protocol is evolving.
+
+1. Build
+--------
+
+On Debian-family Linux:
+
+    git clone --recurse-submodules https://github.com/PripyatAutomations/rustyrig-fw.git
+    cd rustyrig-fw
+    ./install-deps.sh
+
+Run the dependency-install command printed by the helper. Then build:
+
+    make -j4 PROFILE=radio world
+
+The default profile is radio. Build options are in config/radio.config.json.
+For package installation and services, see doc/INSTALLING.
+
+2. Configure the server
+-----------------------
+
+For a source checkout, copy config/rrserver.cfg to
+config/rrserver.local.cfg and edit the copy. For an installed server, use
+/etc/rustyrig/rrserver.cfg.
+
+A first station can use one rig:
+
+    [general]
+    station.name=beta
+    rig.instances=rig0
+    rig.default=rig0
+    audio.test-mode=false
+
+    [rig:rig0]
+    backend=hamlib
+    vfos=A B
+    room=#beta-rig0
+    hamlib.model=2
+    hamlib.device=127.0.0.1:4532
+
+For a hardware-free test, use a Hamlib dummy rig instead of real equipment:
+
+    rigctld -o -m 1
+
+Choose real hardware settings only after basic connections work. See
+doc/rig-rooms.md for multi-rig and room configuration. Configure station
+audio in the [fwdsp] and pipeline settings before attempting transmission.
+
+For source-tree runs, set these paths in config/rrserver.local.cfg:
+
+    [general]
+    log.file=-
+    path.modules=./bin
+    path.db.master=./db/master.db
+    path.db.master.template=./sql/sqlite.master.sql
+    path.db.master.preload=./sql/sqlite.master.preload.sql
+    path.sock-dir=./run
+    net.http.www-root=./www
+    net.mqtt.enabled=false
+
+    [fwdsp]
+    path=./bin/fwdsp
+
+Start from the checkout directory:
+
+    mkdir -p db run
+    ./bin/rrserver -f config/rrserver.local.cfg
+
+3. Sign in
+----------
+
+New source installations generate a random admin password. Find it beside
+the database in db/master.db.bootstrap-password (readable by the server
+account). New Debian package installations prompt for an admin password.
+
+Use the admin account, then change its temporary password:
+
+    /user pass admin <new-password>
+
+Protect your credentials and remove the bootstrap-password file after a
+successful change. There is no default admin/admin password. Guest access
+is disabled by default for source builds. Existing installations retain
+their database and accounts: do not delete a database to reset a password.
+
+4. Start a client
+-----------------
+
+For a source build, copy config/rrclient.cfg to config/rrclient.local.cfg.
+Edit its existing [server:localhost] section:
+
+    [server:localhost]
+    server.enabled=true
+    server.url=ws://localhost:8420/ws/
+    server.user=admin
+    server.pass=<your-admin-password>
+
+For source runs also set [general] path.modules=./bin,
+path.help-dir=./help and [fwdsp] path=./bin/fwdsp. Keep passwords private:
+
+    chmod 600 config/rrclient.local.cfg
+    ./bin/rrclient -f config/rrclient.local.cfg
+
+Use ./bin/rrclient -T -f config/rrclient.local.cfg for the terminal client.
+Installed clients generally use /etc/rustyrig/rrclient.cfg.
+
+You can also try the browser UI at http://localhost:8420/ on the server
+machine. Remote browser login requires HTTPS and a valid secure context;
+configure TLS before accessing the WebUI from another machine.
+
+5. Join a radio room
+--------------------
+
+In the client, join your configured radio room:
+
+    /join #beta-rig0
+
+Confirm frequency/mode updates and receive audio first. Choose a codec
+supported by the client and server; Opus is a reasonable starting point.
+Use /help for client commands and doc/media-codecs.md for audio setup.
+Do not enable PTT until the radio, audio and permissions are verified.
+
+Need help? Report your version, platform, frontend, codec, relevant logs,
+and a short reproduction. Remove passwords and other secrets from logs.
