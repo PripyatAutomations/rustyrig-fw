@@ -1,0 +1,10 @@
+#ifndef RRSERVER_PLATFORM_BACKLIGHT_H
+#define RRSERVER_PLATFORM_BACKLIGHT_H
+#include <stdbool.h>
+typedef struct {
+   char name[64];
+   int current, minimum, maximum;
+} rr_backlight_state_t;
+/* requested < 0 queries. Returns false when unsupported or write refused. */
+bool rrserver_backlight_control(int requested, rr_backlight_state_t *state);
+#endif
