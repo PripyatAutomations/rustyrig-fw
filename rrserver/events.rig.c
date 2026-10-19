@@ -90,8 +90,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
     * attached UUID, and only grant control in the first attached room. */
    if (!radio && cptr && ws_client_in_room(cptr, room)) {
       char *bindings = db_room_vfo_list(masterdb, room), *save = NULL;
-      for (char *id = bindings ? strtok_r(bindings, " \\t\\r\\n", &save) : NULL;
-           id; id = strtok_r(NULL, " \\t\\r\\n", &save)) {
+      for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL;
+           id; id = strtok_r(NULL, " \t\r\n", &save)) {
          rr_server_vfo_t *attached = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
          if (!attached || strcasecmp(rr_server_vfo_alias(attached), rc_vfo)) continue;
          rr_server_rig_t *owner = rr_server_vfo_owner(attached);
