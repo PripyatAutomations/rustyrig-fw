@@ -28,6 +28,8 @@ const char *receiver_directory_status(void);
 char *receiver_directory_info(void);   // Caller frees.
 bool receiver_directory_busy(void);
 const char *receiver_directory_fetch_url(void);
+const char *receiver_directory_last_error(void);
+const char *receiver_directory_source_url(void);
 bool receiver_directory_refresh(void);
 bool receiver_directory_import(const char *path);
 void receiver_directory_queue_learn(const char *url, dict *fields);
