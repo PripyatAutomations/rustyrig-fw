@@ -1,14 +1,12 @@
 Immediate needs
 ---------------
-*: Make Server Files dialog support linked server's files too
+librrprotocol: Split IRC stuff off into librustyirc which depends on librustyaxe
 
-rrclient: Sort out GPS device mapping to be simpler
+librustyaxe: Ensure full separation from rrclient/rrserver/*
 
 rrclient: Make audit/ptt logs available for all connected servers (dropdown instead of relying on status tab selection)
 
 rrclient: Make hotkeys configurable
-
-rrclient: Maybe we should add recent-talker sorting to tab completion?
 
 rrserver: Add support for SCRAM gpio
 
@@ -16,11 +14,6 @@ rrserver: Add support for SCRAM gpio
   - It needs to go into client and server code
     - client glib/wslay/$webtransport or libmongoose (embedded)
     - server glib/wslay/$webtransport OR libmongoose (embedded)
-
-* Anywhere with a bool return type needs to ensure
-  that it returns true on success, false on failure
-  - currently some places, we still use 0 for success, which is incorrect
-    - these should be *mostly* gone but need fixed immediately if found!
 
 *: Rotator/amp/ATU support
    - backend.internal, backend.hamlib, and backend.network based
@@ -34,3 +27,5 @@ librustyaxe: logger - extend log.level so its allows throttling like log.level=*
 
 * Deferred WWV/WWVH time-source worker: see doc/wwv-time-decoder-plan.md.
   Not required for monotonic protocol RTT; implement after beta transport/state work.
+
+rrbridge: More connectors!

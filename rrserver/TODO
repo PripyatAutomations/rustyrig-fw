@@ -1,10 +1,6 @@
 ============
 = rrserver =
 ============
-
-[sbitx]
-* Implement support for running this thing
-
 * Need to clean up a few things related to hamlib (model, host, etc) in
   pack-eeprom vs rrserver/backend.hamlib.c so they can be stored in eeprom!
 
@@ -14,15 +10,6 @@
 
 *: authdb on non-posix hosts should be compacted and stored in eeprom fields
 
-[protocol]
-
-[privileges]
-* Implement user groups that contain privilege sets, then users can be assigned into groups
-
-[audio]
-
-[audit]
-
 [buildconf]
 - Support for loading older (input) eeprom layouts, according to version saved in the EEPROM, for upgrading
   - see res/archive/*
@@ -30,7 +17,6 @@
 * Remove need for offset & key properties
   - Offset should be calculated based on a running offset, then jump to absolute (@1234 style offsets)
 
-[core]
 
 [eeprom/config]
 * remove need for the key field (why not use the name of the entry itself?) in eeprom_layout
@@ -81,6 +67,9 @@
     net.ignore_icmp_echo
     net.ignore_mcast
     net.ignore_bcast
+
+[sbitx]
+* Implement support for running this thing
 
 [radioberry]
 * Implement support for this thing
