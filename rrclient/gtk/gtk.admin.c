@@ -633,7 +633,7 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
    }
    dict_add(request, "msg.type", "talk");
 
-   if (!strcmp(command, "rig-access") || !strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
+   if (!strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
        !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all")) {
       dict_add(request, "talk.action", command);
       command = "admin";
@@ -802,7 +802,13 @@ static void admin_add_privilege(GtkButton *button,gpointer user) {
    gtk_box_pack_start(GTK_BOX(area),gtk_label_new("User (from connected sites)"),FALSE,FALSE,6);
    grant_subjects=gtk_combo_box_text_new();
    gtk_box_pack_start(GTK_BOX(area),grant_subjects,FALSE,FALSE,4);
-   GtkWidget *description=gtk_label_new("Full Rig Access — all rigs on this server, including future rigs");
+   GtkWidget *permission=gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission),"rig","Full Rig Access — all rigs");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission),"room","Join All Rooms — all ordinary rooms");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(permission),0);
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Privilege"),FALSE,FALSE,4);
+   gtk_box_pack_start(GTK_BOX(area),permission,FALSE,FALSE,4);
+   GtkWidget *description=gtk_label_new("Applies on this server to current and future resources. Other sites do not inherit privileges.");
    gtk_label_set_line_wrap(GTK_LABEL(description),TRUE);
    gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,6);
    g_free(grant_profile); grant_profile=g_strdup(table->profile);
@@ -811,8 +817,9 @@ static void admin_add_privilege(GtkButton *button,gpointer user) {
    if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
       const char *subject=gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
       if (subject && *subject) {
-         if (admin_command(table,"rig-access","allow",subject))
-            gtk_label_set_text(GTK_LABEL(table->status),"Full Rig Access grant submitted");
+         const char *kind=gtk_combo_box_get_active_id(GTK_COMBO_BOX(permission));
+         if (admin_command(table,!g_strcmp0(kind,"room") ? "room-access" : "rig-access","allow",subject))
+            gtk_label_set_text(GTK_LABEL(table->status),"Resource privilege grant submitted");
       } else gtk_label_set_text(GTK_LABEL(table->status),"Select an account before granting access");
    }
    grant_subjects=NULL;
