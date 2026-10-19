@@ -558,6 +558,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
          dict_add(error, "file.error", "Remote share access requires an explicit resource grant");
       } else if (error) {
          dict_add(error, "msg.type", "error");
+#ifdef USE_SQLITE
          if (r && room && *room && c && rr_relay_local_owner(c->owner) &&
              rr_relay_permitted_message(d) && !scoped) {
             const char *host=rrserver_relay_client_server(&r->client);
@@ -575,6 +576,9 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
          } else {
             dict_add(error,"error.msg","Remote operation denied by resource authorization or routing");
          }
+#else
+         dict_add(error,"error.msg","Remote operation denied by resource authorization or routing");
+#endif
          rr_relay_packet(origin, "reply", id, NULL, error);
          dict_free(error);
       }
