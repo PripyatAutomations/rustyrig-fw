@@ -250,7 +250,7 @@ static void resource_local_update(void) {
       if (path) gtk_tree_path_free(path);
       g_hash_table_iter_remove(&cursor);
    }
-   char *count = g_strdup_printf("%u local endpoints", g_hash_table_size(scan.seen));
+   char *count = g_strdup_printf("%u serial endpoints", g_hash_table_size(scan.seen));
    set_string(&browser->local_root, OURS, count);
    g_free(count);
    g_hash_table_destroy(scan.seen);
@@ -862,7 +862,7 @@ static void resource_create(void) {
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser->tree), column);
    }
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
-   gtk_tree_store_set(browser->store, &browser->local_root, NAME, "Local serial ports", KIND, "local", STATE, "This computer", -1);
+   gtk_tree_store_set(browser->store, &browser->local_root, NAME, "This Client", KIND, "local", STATE, "Local resources", -1);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), browser->tree);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 120);
