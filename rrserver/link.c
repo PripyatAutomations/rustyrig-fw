@@ -329,9 +329,8 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
 
-   /* Group the discovered remote nodes by their first hop. Do not enumerate
-    * link sessions here: incoming sessions can have a local-site peer label,
-    * and the local root is not a next hop. Counts include the hop itself. */
+   /* One concise summary: distinguish the new peer from routes via it.
+    * Each next-hop count includes the hop itself, not just downstream sites. */
    GString *routes = g_string_new(NULL);
    rr_link_node_t hop;
    size_t total = rr_link_tree_count(links.tree);
@@ -345,10 +344,11 @@ static void establish(struct link_session *session) {
          if (route && !strcmp(route, hop.server)) ++reachable;
       }
       if (routes->len) g_string_append(routes, ", ");
-      g_string_append_printf(routes, "%s (%zu %s)", hop.site,
-         reachable, reachable == 1 ? "server" : "servers");
+      g_string_append_printf(routes, "%s (%zu incl. peer, %zu downstream)",
+         hop.site, reachable, reachable ? reachable - 1 : 0);
    }
-   Log(LOG_INFO, "link", "Linked site %s (%s), %zu servers total (%zu remote); next hops: %s",
+   Log(LOG_INFO, "link",
+      "Link established with %s (%s); network: %zu sites (%zu remote); routes via: %s",
       session->peer->site, session->node, total, total ? total - 1 : 0,
       routes->len ? routes->str : "none");
    g_string_free(routes, TRUE);
