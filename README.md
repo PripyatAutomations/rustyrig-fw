@@ -54,6 +54,10 @@ See [QUICKSTART.txt](QUICKSTART.txt) for build, configuration, and startup instr
 | `librrprotocol/` | Shared protocol library for building compatible clients |
 | `librustyaxe/` | Shared application infrastructure |
 
+## Architecture notes
+
+- [Remote SDR nodes, resource arbitration, and distributed RX/TX VFOs](doc/remote-sdr-architecture.md) — design proposal for network-connected SDR hardware, cooperative slicing, media distribution, and transmit safety.
+
 ## Contributing
 
 Hams, testers, developers, and packagers are welcome. Feedback from real station setups, hardware compatibility testing, bug reports, documentation improvements, and patches are especially valuable.
