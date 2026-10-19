@@ -35,6 +35,39 @@ to a rig, VFO, room, media stream, serial port, file share, or bridge belong in
 the new table. Existing `has_priv(uid, ...) ` checks must not infer resource
 permission from an unrelated global permission string after migration.
 
+## Reusable privilege sets
+
+The v1 schema includes `privilege_sets`, `privilege_set_entries` and
+`privilege_set_assignments` so a reusable policy such as `hf-listen` can
+hold `rx`, `spectrum.read` and `frequency.read`. Assign it to
+`alice@camp` for one rig UUID, and to `bob` for another, without copying
+individual grants. A set is a flat collection of operation names, **not**
+an inheritable system role. No recursive set inclusion means evaluation is
+bounded and predictable.
+
+```sql
+INSERT INTO privilege_sets(name, description, created_by)
+VALUES('hf-listen', 'Receive-only HF access', 'admin');
+
+INSERT INTO privilege_set_entries(set_id,privilege)
+SELECT id, 'rx' FROM privilege_sets WHERE name='hf-listen';
+
+INSERT INTO privilege_set_assignments
+   (set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by)
+SELECT id,'alice','camp','rig','REPLACE-WITH-AUTHORITATIVE-RIG-UUID','admin'
+FROM privilege_sets WHERE name='hf-listen';
+```
+
+The new `db_resource_access()` evaluator reads both direct and set-derived
+grants. Direct or set-derived `deny` wins over every `allow`. Expired
+assignments/grants do not apply, missing grants return `RR_RESOURCE_UNSET`,
+and database errors fail closed. The call must receive a server-authenticated
+subject, never raw subject fields supplied by a client.
+
+**Not yet enforced:** the evaluator is a server-side library function and is
+not wired into commands, media subscriptions, link identity resolution, or
+administrative grant management. Do not assume SQL entries grant access yet.
+
 ## Migration work still required
 
 1. Implement a server-owned resolver that validates `user@host` using the
