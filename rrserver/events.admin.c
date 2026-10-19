@@ -84,6 +84,41 @@ static void admin_user_error(rrconn_t *client, const char *message) {
    ws_send_error(client, "%s", message);
 }
 
+/* Built-in host-wide rig preset: one checked assignment, not a system role. */
+static bool admin_full_rig_access(const char *username,bool enabled) {
+   if (!username || !*username) return false;
+   if (sqlite3_exec(masterdb,"SAVEPOINT full_rig_access",NULL,NULL,NULL)!=SQLITE_OK)
+      return false;
+   const char *queries[]={
+      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) "
+      "VALUES('full-rig','Full access to all rigs on this server','system')",
+      "INSERT INTO privilege_set_entries(set_id,privilege,effect) "
+      "SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full-rig' "
+      "ON CONFLICT(set_id,privilege) DO UPDATE SET effect='allow'",
+      enabled ?
+      "INSERT OR IGNORE INTO privilege_set_assignments "
+      "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
+      "SELECT id,?1,'','rig','*','system' FROM privilege_sets WHERE name='full-rig'" :
+      "DELETE FROM privilege_set_assignments WHERE subject_user=?1 COLLATE NOCASE "
+      "AND subject_host='' AND resource_kind='rig' AND resource_uuid='*' "
+      "AND set_id=(SELECT id FROM privilege_sets WHERE name='full-rig')"
+   };
+   bool ok=true;
+   for (unsigned i=0;i<G_N_ELEMENTS(queries);++i) {
+      sqlite3_stmt *stmt=NULL;
+      int rc=sqlite3_prepare_v2(masterdb,queries[i],-1,&stmt,NULL);
+      if (rc==SQLITE_OK && i==2)
+         rc=sqlite3_bind_text(stmt,1,username,-1,SQLITE_TRANSIENT);
+      if (rc==SQLITE_OK) rc=sqlite3_step(stmt);
+      if (rc!=SQLITE_DONE) ok=false;
+      sqlite3_finalize(stmt);
+      if (!ok) break;
+   }
+   if (ok) ok=sqlite3_exec(masterdb,"RELEASE SAVEPOINT full_rig_access",NULL,NULL,NULL)==SQLITE_OK;
+   if (!ok) sqlite3_exec(masterdb,"ROLLBACK TO SAVEPOINT full_rig_access; RELEASE SAVEPOINT full_rig_access",NULL,NULL,NULL);
+   return ok;
+}
+
 /* Partial account edits are atomic. Account identity and credential hashes are never editable here. */
 static void admin_user_edit(rrconn_t *client, dict *request) {
    const char *name = dict_get(request, "talk.target", "");
@@ -136,7 +171,22 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
 
       return;
    }
+   const char *rig_option=dict_get(fields,"full_rig_access",NULL);
+   bool change_rig=rig_option!=NULL;
+   bool grant_rig=rig_option && !strcmp(rig_option,"1");
+   if (change_rig && ((strcmp(rig_option,"0") && strcmp(rig_option,"1")) ||
+       !has_priv(client->user->uid,"owner"))) {
+      admin_user_error(client,"Only owners may change Full Rig Access (0 or 1)");
+      dict_free(fields);
+      return;
+   }
+   dict_del(fields,"full_rig_access");
    bool ok = db_user_edit(masterdb, name, fields);
+   if (ok && change_rig) {
+      ok=admin_full_rig_access(name,grant_rig);
+      if (ok) Log(LOG_AUDIT,"auth.users","%s %s full rig access for %s",
+         client->chatname,grant_rig ? "granted" : "revoked",name);
+   }
 
    if (ok) {
       const char *editable[] = {"email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"};
@@ -563,7 +613,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    if (!strcasecmp(table, "users")) {
       strcpy(table, "users");
       sql =
-         "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions,password_set,password_expires,password_change_required FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+         "SELECT rowid AS cursor,uid,name,enabled,permissions,email,maxsessions,password_set,password_expires,password_change_required,CASE WHEN EXISTS (SELECT 1 FROM privilege_set_assignments a JOIN privilege_sets p ON p.id=a.set_id JOIN privilege_set_entries e ON e.set_id=p.id WHERE a.subject_user=users.name COLLATE NOCASE AND a.subject_host='' AND a.resource_kind='rig' AND a.resource_uuid='*' AND p.name='full-rig' AND e.privilege='rig.full' AND e.effect='allow') THEN '1' ELSE '0' END AS full_rig_access FROM users WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "quotas")) {
       strcpy(table, "quotas");
       sql =
