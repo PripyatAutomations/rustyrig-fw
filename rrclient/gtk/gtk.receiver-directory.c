@@ -10,6 +10,8 @@
 static GtkWidget *directory_window, *search_entry, *accessible_only, *directory_tree;
 static GtkWidget *directory_status, *directory_details, *refresh_button, *config_button, *url_button;
 static GtkWidget *connect_button, *add_button;
+static GtkWidget *download_dialog;
+static bool directory_waiting_to_show;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
 static rr_event_token_t directory_token, show_token, connection_token;
@@ -216,17 +218,57 @@ static void populate(void) {
    g_free(url);
    selection_changed(NULL, NULL);
 }
+/* The network fetch is asynchronous; this modal indicator never runs a
+ * nested GTK loop and therefore cannot block its completion callback. */
+static void directory_download_wait(void) {
+   if (!directory_window || !receiver_directory_busy()) return;
+   if (download_dialog) return;
+   const char *url = receiver_directory_fetch_url();
+   download_dialog = gtk_dialog_new_with_buttons("Receiver Directory", GTK_WINDOW(directory_window),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(download_dialog));
+   char *message = g_strdup_printf("Please wait downloading directory from %s",
+      url && *url ? url : "(unknown source)");
+   GtkWidget *label = gtk_label_new(message);
+   gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+   gtk_label_set_max_width_chars(GTK_LABEL(label), 65);
+   gtk_container_set_border_width(GTK_CONTAINER(area), 16);
+   gtk_box_pack_start(GTK_BOX(area), label, TRUE, TRUE, 0);
+   GtkWidget *spinner = gtk_spinner_new();
+   gtk_spinner_start(GTK_SPINNER(spinner));
+   gtk_box_pack_start(GTK_BOX(area), spinner, FALSE, FALSE, 6);
+   gtk_widget_show_all(download_dialog);
+   g_free(message);
+}
+static void directory_download_finished(void) {
+   if (receiver_directory_busy()) return;
+   if (download_dialog) {
+      gtk_widget_destroy(download_dialog);
+      download_dialog = NULL;
+   }
+   if (directory_waiting_to_show && directory_window) {
+      directory_waiting_to_show = false;
+      gtk_widget_show(directory_window);
+      gtk_window_present(GTK_WINDOW(directory_window));
+   }
+}
+static void directory_refresh_with_wait(void) {
+   receiver_directory_refresh();
+   if (receiver_directory_busy()) directory_download_wait();
+   else directory_download_finished();
+}
 static void directory_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
    (void)connection;
    (void)unused;
    populate();
+   directory_download_finished();
 }
 static void refresh_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
-   receiver_directory_refresh();
+   directory_refresh_with_wait();
 }
 static void import_clicked(GtkButton *button, gpointer unused) {
    (void)button;
@@ -354,7 +396,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
 
    if (directory_window) {
       gtk_window_present(GTK_WINDOW(directory_window));
-      receiver_directory_refresh();
+      directory_refresh_with_wait();
 
       return;
    }
@@ -465,7 +507,12 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    populate();
    gtk_widget_show_all(directory_window);
-   receiver_directory_refresh(); // The common service enforces its cache/cooldown.
+   directory_refresh_with_wait(); // Cached data remains immediately available.
+   if (receiver_directory_busy()) {
+      directory_waiting_to_show = true;
+      gtk_widget_hide(directory_window);
+      if (download_dialog) gtk_widget_show(download_dialog);
+   }
 }
 void gtk_receiver_directory_init(void) {
    connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
@@ -487,6 +534,9 @@ void gtk_receiver_directory_shutdown(void) {
    }
    directory_token = show_token = 0;
 
+   if (download_dialog) gtk_widget_destroy(download_dialog);
+   download_dialog = NULL;
+   directory_waiting_to_show = false;
    if (directory_window) {
       gtk_widget_destroy(directory_window);
    }
