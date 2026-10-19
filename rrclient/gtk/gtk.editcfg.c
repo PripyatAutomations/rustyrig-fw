@@ -738,7 +738,7 @@ static void on_edit_config_button(GtkButton *button, gpointer user_data) {
       char *path = g_build_filename(dir, "rrclient.cfg", NULL);
       if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
          if (g_mkdir_with_parents(dir, 0700) != 0 || !cfg_save(cfg, path)) {
-            Log(LOG_ERR, "gtk.config", "Cannot initialize %s from active configuration: %s",
+            Log(LOG_WARN, "gtk.config", "Cannot initialize %s from active configuration: %s",
                path, strerror(errno));
             GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
                GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,

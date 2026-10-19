@@ -1,17 +1,1 @@
-rrclient: Config editor should check if ~/.config/rrclient.cfg exists
-  - if not, save in-memory config to there before opening
-
-rrclient/gtk: Confirm Quit dialog can get trapped under other always-on-top (modal) dialogs - it should be on very top always
-
-rrclient/tui: Need to make the prompt simply > since we have a status line directly above it...
-
-rrclient:
-  - SDR Directory tab should open with a Loading details, it waits til loaded currently
-  - Connecting to kiwi SDR still ends up with useless #sdr-* room and a working #rplywv00-rig1 room
-    - this is very problematic as the rig isnt owned by rplywv00, just connected via...
-      - It screws up topology and human readable names
-  - Should show CONNECTED in red in status tab if connected; show Users in red too.
-  - We need a button in the SDR Directory that switches to a (new) Connections subtab of the Admin tab.
-    - that tab should show remote SDRs, links, etc - non-user connections basically
-      - Give as much detail as possible on selected item in list
-      - buttons to disconnect / etc
+Rajesh has cleared the known bugs for now! Woohoo!
