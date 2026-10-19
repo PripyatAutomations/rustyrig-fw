@@ -429,6 +429,26 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    } else if (!strcasecmp(table, "rooms")) {
       strcpy(table, "rooms");
       sql = "SELECT rowid AS cursor,name,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
+   } else if (!strcasecmp(table, "privsets")) {
+      strcpy(table, "privsets");
+      sql = "SELECT id AS cursor,name,description,created_by,created_at FROM privilege_sets "
+         "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+   } else if (!strcasecmp(table, "setentries")) {
+      strcpy(table, "setentries");
+      sql = "SELECT e.rowid AS cursor,s.name AS set_name,e.privilege,e.effect "
+         "FROM privilege_set_entries e JOIN privilege_sets s ON s.id=e.set_id "
+         "WHERE (?=0 OR e.rowid<?) ORDER BY e.rowid DESC LIMIT 100";
+   } else if (!strcasecmp(table, "assignments")) {
+      strcpy(table, "assignments");
+      sql = "SELECT a.id AS cursor,s.name AS set_name,a.subject_user,a.subject_host,"
+         "a.resource_kind,a.resource_uuid,a.expires_at FROM privilege_set_assignments a "
+         "JOIN privilege_sets s ON s.id=a.set_id "
+         "WHERE (?=0 OR a.id<?) ORDER BY a.id DESC LIMIT 100";
+   } else if (!strcasecmp(table, "grants")) {
+      strcpy(table, "grants");
+      sql = "SELECT id AS cursor,subject_user,subject_host,resource_kind,"
+         "resource_uuid,privilege,effect,expires_at FROM resource_privileges "
+         "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    } else if (!strcasecmp(table, "audit")) {
       strcpy(table, "audit");
       sql = "SELECT id AS cursor,id,timestamp,username,event_type,details FROM audit_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
@@ -439,7 +459,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    }
 
    if (argc > 2 || !sql || errno == ERANGE || before < 0 || (end && (*end || end == cursor_text))) {
-      ws_send_error(client, "Usage: /admin users|rooms|quotas|audit|ptt [before-id]");
+      ws_send_error(client, "Usage: /admin users|rooms|quotas|audit|ptt|privsets|setentries|assignments|grants [before-id]");
 
       return;
    }
