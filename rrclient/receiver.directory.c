@@ -798,6 +798,9 @@ const char *receiver_directory_status(void) {
 bool receiver_directory_busy(void) {
    return job != NULL;
 }
+const char *receiver_directory_fetch_url(void) {
+   return job ? job->url : NULL;
+}
 char *receiver_directory_info(void) {
    ensure();
    char *published = payload ? field(mg_str(payload), "$.fetched_at") : g_strdup("");
