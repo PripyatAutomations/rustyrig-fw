@@ -1,9 +1,10 @@
-RustyRig installation for the LAN/VPN beta
-========================================
+RustyRig installation
+======================
 
-Use doc/QUICKSTART.txt for station configuration, first login and receive-audio
-checks. The following describes the current install paths; clean-machine
-package installation and physical-radio acceptance still need release testing.
+For a first station and client connection, follow QUICKSTART.txt in the
+repository root. This page covers source builds and Debian packages.
+Package installation and physical-radio combinations may need additional
+testing on your distribution.
 
 Debian packages
 ---------------
