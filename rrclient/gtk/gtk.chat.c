@@ -1110,12 +1110,17 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    }
    room_vfo_move(float_box);
    if (room_vfo_room[0]) {
-      char *title = g_strdup_printf("RustyRig VFO A — %s", room_vfo_room);
+      char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room,
+         vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
       g_free(title);
    }
    gtk_widget_show_all(room_vfo_window);
    gtk_window_present(GTK_WINDOW(room_vfo_window));
+}
+/* Horizontal drag of the handle detaches the live control instance. */
+void gtk_chat_vfo_handle_drag(void) {
+   room_vfo_float_clicked(NULL, NULL);
 }
 static void room_vfo_grip_edge(void) {
    if (!room_vfo_box) return;
