@@ -498,6 +498,53 @@ static void db_ensure_supervision_columns(sqlite3 *db) {
    }
 }
 
+/* Privilege schema must exist on upgraded and freshly bootstrapped DBs.
+ * Earlier installations can have user tables without these additions. */
+static bool db_ensure_resource_privileges(sqlite3 *db) {
+   const char *ddl=
+      "CREATE TABLE IF NOT EXISTS resource_privileges("
+      "id INTEGER PRIMARY KEY,subject_user TEXT NOT NULL,"
+      "subject_host TEXT NOT NULL DEFAULT '',resource_kind TEXT NOT NULL,"
+      "resource_uuid TEXT NOT NULL,privilege TEXT NOT NULL,"
+      "effect TEXT NOT NULL DEFAULT 'allow' CHECK(effect IN ('allow','deny')),"
+      "granted_by TEXT NOT NULL,granted_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "expires_at INTEGER DEFAULT NULL,"
+      "UNIQUE(subject_user,subject_host,resource_kind,resource_uuid,privilege));"
+      "CREATE INDEX IF NOT EXISTS resource_privileges_subject "
+      "ON resource_privileges(subject_host,subject_user,resource_kind,resource_uuid);"
+      "CREATE INDEX IF NOT EXISTS resource_privileges_resource "
+      "ON resource_privileges(resource_kind,resource_uuid,privilege);"
+      "CREATE TABLE IF NOT EXISTS privilege_sets("
+      "id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE COLLATE NOCASE,"
+      "description TEXT NOT NULL DEFAULT '',created_by TEXT NOT NULL,"
+      "created_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "CHECK(length(name) BETWEEN 1 AND 96));"
+      "CREATE TABLE IF NOT EXISTS privilege_set_entries("
+      "set_id INTEGER NOT NULL REFERENCES privilege_sets(id) ON DELETE CASCADE,"
+      "privilege TEXT NOT NULL,effect TEXT NOT NULL DEFAULT 'allow' "
+      "CHECK(effect IN ('allow','deny')),PRIMARY KEY(set_id,privilege),"
+      "CHECK(length(privilege) BETWEEN 1 AND 128));"
+      "CREATE TABLE IF NOT EXISTS privilege_set_assignments("
+      "id INTEGER PRIMARY KEY,set_id INTEGER NOT NULL REFERENCES privilege_sets(id) ON DELETE CASCADE,"
+      "subject_user TEXT NOT NULL COLLATE NOCASE,"
+      "subject_host TEXT NOT NULL DEFAULT '' COLLATE NOCASE,"
+      "resource_kind TEXT NOT NULL,resource_uuid TEXT NOT NULL,"
+      "assigned_by TEXT NOT NULL,assigned_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "expires_at INTEGER DEFAULT NULL,"
+      "UNIQUE(set_id,subject_user,subject_host,resource_kind,resource_uuid));"
+      "CREATE INDEX IF NOT EXISTS privilege_set_assignments_subject "
+      "ON privilege_set_assignments(subject_host,subject_user,resource_kind,resource_uuid);"
+      "CREATE INDEX IF NOT EXISTS privilege_set_assignments_resource "
+      "ON privilege_set_assignments(resource_kind,resource_uuid);"
+      "CREATE INDEX IF NOT EXISTS privilege_set_entries_privilege "
+      "ON privilege_set_entries(privilege);";
+   char *error=NULL;
+   bool ok=sqlite3_exec(db,ddl,NULL,NULL,&error)==SQLITE_OK;
+   if (!ok) Log(LOG_CRIT,"db","Cannot migrate privilege schema: %s",error ? error : "unknown");
+   sqlite3_free(error);
+   return ok;
+}
+
 /* Non-destructive migration: grant policies are durable symbolic names. */
 static bool db_ensure_user_groups(sqlite3 *db) {
    const char *ddl =
@@ -563,6 +610,7 @@ sqlite3 *db_open(const char *path) {
       db_ensure_ptt_columns(db);
       db_ensure_supervision_columns(db);
       db_ensure_rooms(db);
+      if (!db_ensure_resource_privileges(db)) { sqlite3_close(db); return NULL; }
       if (!db_ensure_user_groups(db)) { sqlite3_close(db); return NULL; }
       db_ensure_rig_identities(db);
       db_ensure_bridge_hints(db);
