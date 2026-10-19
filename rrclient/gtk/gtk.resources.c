@@ -38,6 +38,7 @@ typedef struct {
 static resource_browser *browser;
 static bool automatic_refresh;
 extern GtkWidget *main_notebook;
+extern void gtk_admin_open_control(const char *name);
 static rr_event_token_t show_token, row_token, open_token, changed_tokens[5];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
@@ -427,6 +428,23 @@ struct resource_details { const char *uuid; GString *text; };
 static void resource_details_dump(void *data) {
    struct resource_details *details = data;
    rrclient_object_dump_selected(details->uuid, details_line, details->text);
+}
+static void resource_row_activated(GtkTreeView *view, GtkTreePath *path,
+                                   GtkTreeViewColumn *column, gpointer unused) {
+   (void)column; (void)unused;
+   GtkTreeIter iter;
+   GtkTreeModel *model=gtk_tree_view_get_model(view);
+   if (!gtk_tree_model_get_iter(model,&iter,path)) return;
+   char *kind=NULL,*control=NULL,*profile=NULL;
+   gtk_tree_model_get(model,&iter,KIND,&kind,ACTION,&control,PROFILE,&profile,-1);
+   if (g_strcmp0(kind,"control")==0 && control && *control) {
+      if (g_strcmp0(profile,rrclient_selected_server())==0)
+         gtk_admin_open_control(control);
+      else if (browser && browser->status)
+         gtk_label_set_text(GTK_LABEL(browser->status),
+            "Select this control's server first, then open the control.");
+   }
+   g_free(kind); g_free(control); g_free(profile);
 }
 static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    (void)data;
@@ -877,6 +895,7 @@ static void resource_create(void) {
    gtk_label_set_line_wrap(GTK_LABEL(browser->status), TRUE);
    gtk_box_pack_start(GTK_BOX(box), browser->status, FALSE, FALSE, 0);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), "changed", G_CALLBACK(resource_selection), NULL);
+    g_signal_connect(browser->tree,"row-activated",G_CALLBACK(resource_row_activated),NULL);
    g_signal_connect(browser->page, "destroy", G_CALLBACK(resource_destroy), browser);
    browser->timer = g_timeout_add_seconds(2, resource_tick, browser);
    gtk_widget_show_all(browser->page);
@@ -1061,7 +1080,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
       COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""),
-      UUID, dict_get(row, "inventory.uuid", ""), ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, dict_get(row, "inventory.action", ""), -1);
+      UUID, dict_get(row, "inventory.uuid", ""), ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, !strcmp(kind,"control") ? dict_get(row,"inventory.control","") : dict_get(row, "inventory.action", ""), -1);
    if (branch->selection) {
       const char *uuid = dict_get(row, "inventory.uuid", "");
       char *key = g_strdup_printf("%s:%s", kind, *uuid ? uuid : name);
