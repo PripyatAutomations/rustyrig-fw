@@ -27,6 +27,7 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/rig.rooms.h>
+#include <rrserver/rig.properties.h>
 #include <rrserver/database.h>
 #include <rrserver/discovery.h>
 #include <rrserver/relay.internal.h>
@@ -524,7 +525,26 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    struct catalog *c = rr_relay_room_catalog(room);
 
    bool files = !strcmp(dict_get(d, "msg.type", ""), "file");
-   if (!r || (!files && (!c || !rr_relay_local_owner(c->owner))) ||
+   /* Authentication of the originating link is not an authorization grant.
+    * Remote subjects need explicit resource grants on the owning server;
+    * they must never be mapped to a local login merely to get a UID. */
+   bool scoped = false;
+#ifdef USE_SQLITE
+   if (r && !files && room && *room) {
+      const char *host = rrserver_relay_client_server(&r->client);
+      rr_server_rig_t *radio = rrserver_rig_for_room(room);
+      const char *kind = radio ? "rig" : "room";
+      const char *uuid = radio ? rr_server_rig_id(radio) : NULL;
+      char *owned_uuid = radio ? NULL : db_room_uuid(masterdb, room);
+      if (!radio) uuid = owned_uuid;
+      if (host && *host && uuid && *uuid && strcmp(host, cfg_get("station.name"))) {
+         scoped = db_resource_access(masterdb, username, host, kind, uuid,
+            radio ? "rig.use" : "room.join", time(NULL)) == RR_RESOURCE_ALLOW;
+      }
+      free(owned_uuid);
+   }
+#endif
+   if (!r || !scoped || (!files && (!c || !rr_relay_local_owner(c->owner))) ||
        !rr_relay_permitted_message(d)) {
       dict *error = dict_new();
 
