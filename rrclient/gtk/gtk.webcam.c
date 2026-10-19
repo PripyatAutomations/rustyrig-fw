@@ -262,6 +262,9 @@ static void webcam_disconnected(const char *event, const char *data, rrconn_t *c
 
 // Register the video frame listener (called from gtk init)
 void rrclient_webcam_register(void) {
-   event_on_binary(RR_VIDEO_FRAME_EVENT, webcam_frame_handler, NULL);
-   event_on("disconnected", webcam_disconnected, NULL);
+   /* The frontend is dlclosed before socket teardown; these callbacks must
+    * be removed by rr_module_shutdown() to avoid jumping into unmapped code. */
+   extern bool rr_module_token_add(rr_event_token_t token);
+   rr_module_token_add(event_on_binary_token(RR_VIDEO_FRAME_EVENT, webcam_frame_handler, NULL));
+   rr_module_token_add(event_on_token("disconnected", webcam_disconnected, NULL));
 }
