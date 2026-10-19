@@ -540,8 +540,9 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       if (!radio) uuid = owned_uuid;
       const char *local_site = cfg_get("station.name");
       if (host && *host && uuid && *uuid && local_site && strcmp(host, local_site)) {
-         rr_resource_access_t access = db_resource_access(masterdb, username, host,
-            kind, uuid, radio ? "rig.use" : "room.join", time(NULL));
+         const char *symbol=radio ? rr_rig_registry_public_alias(rig.rigs,radio) : room;
+         rr_resource_access_t access = db_resource_access_named(masterdb,username,host,
+            kind,uuid,radio ? "rig.use" : "room.join",time(NULL),symbol);
          /* Link authentication never imports source-site owner/admin rights.
           * Resolve the remote user@site against the destination's grants. */
          scoped = access == RR_RESOURCE_ALLOW;
