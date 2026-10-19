@@ -20,6 +20,8 @@
 #include <rrserver/discovery.h>
 #include <rrserver/gps.h>
 #include <rrserver/database.h>
+#include <rrserver/platform.controls.h>
+#include <librrprotocol/auth.h>
 #include <librrprotocol/ws.mediachan.h>
 
 extern struct GlobalState rig;
@@ -179,6 +181,44 @@ static bool send_property(const rr_property_descriptor_t *p, void *user) {
       send_state(ctx, p->name, "state");
    }
 
+   return false;
+}
+
+typedef struct {
+   rrconn_t *client;
+   const char *request;
+} node_control_context_t;
+
+/* Platform knobs belong to the persistent node, not an invented rig. */
+static void send_node_control_state(rrconn_t *client, const char *request,
+      const rr_platform_control_state_t *state, const char *command) {
+   dict *d = message("property",command,request);
+   if (!d) return;
+   dict_add(d,"target",rr_rig_registry_node(rig.rigs));
+   dict_add(d,"property.name",state->name);
+   dict_add(d,"property.type","integer");
+   dict_add_int(d,"property.value",state->current);
+   dict_add_bool(d,"property.observed",true);
+   dict_add_bool(d,"property.known",true);
+   dict_add_bool(d,"property.available",true);
+   rr_object_seq_put(d,"property.version",sequence);
+   send_message(client,d);
+}
+static bool send_node_control(const rr_platform_control_state_t *state, void *user) {
+   node_control_context_t *ctx=user;
+   dict *d = message("property","descriptor",ctx->request);
+   if (!d) return false;
+   dict_add(d,"target",rr_rig_registry_node(rig.rigs));
+   dict_add(d,"property.name",state->name);
+   dict_add(d,"property.type","integer");
+   dict_add_bool(d,"property.readable",true);
+   dict_add_bool(d,"property.writable",state->writable);
+   dict_add(d,"property.unit",state->unit);
+   dict_add_int(d,"property.minimum",state->minimum);
+   dict_add_int(d,"property.maximum",state->maximum);
+   dict_add_int(d,"property.step",state->step);
+   send_message(ctx->client,d);
+   send_node_control_state(ctx->client,ctx->request,state,"state");
    return false;
 }
 
@@ -578,6 +618,8 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          dict_add(node, "object.location", cfg_get("station.location"));
          dict_add(node, "object.lifecycle", "persistent");
          send_message(client, node);
+         node_control_context_t controls = {.client=client,.request=id};
+         rrserver_platform_control_foreach(send_node_control,&controls);
          dict_free(d);
 
          return;
@@ -592,6 +634,42 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       object_send_t ctx = {
          0
       };
+
+      /* A node property may be writable without corresponding to any rig.
+       * Keep system controls owner/admin-only until scoped site privileges
+       * are included in the unified authorization layer. */
+      if (!strcmp(uuid,rr_rig_registry_node(rig.rigs))) {
+         if (!client->user || !has_priv(client->user->uid,"admin|owner")) {
+            code="forbidden";
+            goto done;
+         }
+         rr_platform_control_state_t current;
+         if (!rrserver_platform_control_get(name,&current)) {
+            code="unknown-property";
+            goto done;
+         }
+         if (!current.writable) {
+            code="read-only";
+            goto done;
+         }
+         dict_value_t value;
+         if (!rr_object_value_get(d,"property.value",VAL_INT,&value)) {
+            code="invalid-value";
+            goto done;
+         }
+         rr_platform_control_state_t updated;
+         if (!rrserver_platform_control_set(name,value.i,&updated)) {
+            code="invalid-value";
+            goto done;
+         }
+         sequence++;
+         send_node_control_state(NULL,NULL,&updated,"changed");
+#ifdef USE_SQLITE
+         db_add_audit_event(masterdb,client->chatname,"platform.control",name);
+#endif
+         code="ok";
+         goto done;
+      }
 
       if (!resolve(uuid, &ctx)) {
          code = "unknown-object";
