@@ -8,6 +8,9 @@
 #include <rrserver/backend.h>
 #include <rrserver/bridge.manager.h>
 #include <rrserver/rig.rooms.h>
+#include <rrserver/database.h>
+#include <rrserver/relay.h>
+#include <time.h>
 #include <librrprotocol/auth.h>
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/ws.mediachan.h>
@@ -29,7 +32,27 @@ bool rrserver_websdr_can_admin(const rrconn_t *client) {
    return privilege(client, "owner|admin|websdr.admin");
 }
 static bool rig_access(const rrconn_t *client, const rr_server_rig_t *radio) {
-   return rrserver_bridge_temporary(radio) ? rrserver_websdr_can_connect(client) : rrserver_bridge_can_use(client);
+   if (!client || !client->authenticated || !client->user || !radio) return false;
+   bool temporary = rrserver_bridge_temporary(radio);
+#ifdef USE_SQLITE
+   const char *site = rrserver_relay_client_server(client);
+   const char *local = cfg_get("station.name");
+   bool remote = client->user->uid < 0;
+   if (remote && (!site || !*site || (local && !strcasecmp(site, local))))
+      return false;
+   const char *uuid = rr_server_rig_id(radio);
+   if (uuid && *uuid) {
+      rr_resource_access_t result = db_resource_access(masterdb, client->chatname,
+         remote ? site : "", "rig", uuid,
+         temporary ? "websdr.connect" : "bridge.use", time(NULL));
+      if (result == RR_RESOURCE_DENY) return false;
+      if (result == RR_RESOURCE_ALLOW) return true;
+   }
+   if (remote) return false;
+#else
+   if (client->user->uid < 0) return false;
+#endif
+   return temporary ? rrserver_websdr_can_connect(client) : rrserver_bridge_can_use(client);
 }
 bool rrserver_bridge_rig(const rr_server_rig_t *radio) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
