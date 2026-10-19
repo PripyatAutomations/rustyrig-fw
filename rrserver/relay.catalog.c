@@ -26,6 +26,7 @@
 #include <rrserver/rig.rooms.h>
 #include <rrserver/database.h>
 #include <rrserver/discovery.h>
+#include <rrserver/platform.controls.h>
 #include <rrserver/gps.h>
 #include <rrserver/relay.h>
 #include <rrserver/media.direct.h>
@@ -417,6 +418,18 @@ static void collect_services(const char *parent, const char *scope) {
    }
 }
 
+/* Publish controls as node-owned service metadata, including on sBitx.
+ * Control writes remain at their owning server; relay inventory is read-only. */
+static bool collect_node_control(const rr_platform_control_state_t *state, void *unused) {
+   (void)unused;
+   dict *row=rr_inventory_row("",0,"control",state->label,NULL);
+   if (!row) return false;
+   dict_add(row,"inventory.control",state->name);
+   dict_add(row,"inventory.description",state->name);
+   dict_add(row,"inventory.state","available");
+   collect_service(row,(void *)rrserver_links_node());
+   return false;
+}
 /* Add one registered VFO to the local discovery catalog. */
 static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
    rr_server_rig_t *radio = user;
@@ -466,6 +479,7 @@ void rr_relay_collect_local(void) {
    }
    add_object(rrserver_links_node(), "node", NULL, cfg_get("station.name"), ws_site_room());
    collect_services(rrserver_links_node(), "station");
+   rrserver_platform_control_foreach(collect_node_control,NULL);
    dict *site = dict_new();
 
    if (site) {
