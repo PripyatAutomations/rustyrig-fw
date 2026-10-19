@@ -80,6 +80,71 @@ static admin_table_t tables[] = {
 /* Server-exported node controls. The UI knows only typed descriptors,
  * not individual hardware providers or platform-specific paths. */
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
+static GtkWidget *control_rows_box;
+static GHashTable *control_row_buttons;
+static char *control_pending_name;
+static bool admin_control_request(const char *name, int value);
+static void admin_control_choose(const char *name) {
+   if (!name || !*name || !control_combo) return;
+   if (gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_combo),name)) {
+      g_clear_pointer(&control_pending_name,g_free);
+      if (admin_view && main_notebook) {
+         int outer=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),admin_view);
+         if (outer>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),outer);
+      }
+   } else {
+      g_free(control_pending_name);
+      control_pending_name=g_strdup(name);
+   }
+}
+void gtk_admin_open_control(const char *name) {
+   if (!admin_view || !main_notebook) return;
+   int outer=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),admin_view);
+   if (outer>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),outer);
+   GtkWidget *page=control_combo ? g_object_get_data(G_OBJECT(control_combo),"control-page") : NULL;
+   if (page) {
+      int inner=gtk_notebook_page_num(GTK_NOTEBOOK(admin_view),page);
+      if (inner>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view),inner);
+   }
+   if (name && *name) {
+      admin_control_choose(name);
+      /* Explicitly refresh, since the owner may have changed servers. */
+      if (control_pending_name) admin_control_request(NULL,-1);
+   }
+}
+static void admin_control_row_clicked(GtkButton *button,gpointer user) {
+   (void)user;
+   admin_control_choose(g_object_get_data(G_OBJECT(button),"control-name"));
+}
+static void admin_control_rows_clear(void) {
+   if (!control_rows_box) return;
+   GList *children=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   for (GList *item=children;item;item=item->next) gtk_widget_destroy(GTK_WIDGET(item->data));
+   g_list_free(children);
+   if (control_row_buttons) g_hash_table_remove_all(control_row_buttons);
+}
+static void admin_control_row_add(dict *data) {
+   const char *name=dict_get(data,"name","");
+   if (!*name || !control_rows_box) return;
+   if (control_row_buttons && g_hash_table_contains(control_row_buttons,name)) return;
+   const char *label=dict_get(data,"label",name);
+   GtkWidget *button=gtk_button_new();
+   GtkWidget *line=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
+   GtkWidget *title=gtk_label_new(label);
+   GtkWidget *key=gtk_label_new(name);
+   gtk_label_set_xalign(GTK_LABEL(title),0);
+   gtk_label_set_xalign(GTK_LABEL(key),0);
+   gtk_widget_set_hexpand(title,TRUE);
+   gtk_box_pack_start(GTK_BOX(line),title,TRUE,TRUE,0);
+   gtk_box_pack_start(GTK_BOX(line),key,FALSE,FALSE,0);
+   gtk_container_add(GTK_CONTAINER(button),line);
+   g_object_set_data_full(G_OBJECT(button),"control-name",g_strdup(name),g_free);
+   g_signal_connect(button,"clicked",G_CALLBACK(admin_control_row_clicked),NULL);
+   gtk_box_pack_start(GTK_BOX(control_rows_box),button,FALSE,FALSE,0);
+   if (control_row_buttons) g_hash_table_insert(control_row_buttons,g_strdup(name),button);
+   gtk_widget_show_all(button);
+}
+
 static bool admin_control_request(const char *name, int value) {
    const char *profile = rrclient_selected_server();
    rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
@@ -101,6 +166,7 @@ static void admin_control_refresh(GtkButton *button, gpointer user) {
    (void)button; (void)user;
    if (control_scale) gtk_widget_set_sensitive(control_scale,FALSE);
    if (control_apply) gtk_widget_set_sensitive(control_apply,FALSE);
+   admin_control_rows_clear();
    if (control_status) gtk_label_set_text(GTK_LABEL(control_status),"Discovering server controls…");
    if (!admin_control_request(NULL,-1) && control_status)
       gtk_label_set_text(GTK_LABEL(control_status),"Select a connected RustyRig server");
@@ -656,16 +722,16 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    if (row && !strcmp(name,"controls") && control_combo &&
        connection == rrclient_connection_find(rrclient_selected_server())) {
       if (!strcmp(action,"begin")) {
-         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
+         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo)); admin_control_rows_clear();
          gtk_widget_set_sensitive(control_scale,FALSE);
          gtk_widget_set_sensitive(control_apply,FALSE);
          gtk_label_set_text(GTK_LABEL(control_status),"Discovering available controls…");
       } else if (!strcmp(action,"row")) {
          const char *id = dict_get(row,"name","");
          const char *label = dict_get(row,"label",id);
-         if (*id) gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_combo),id,label);
+         if (*id) { gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_combo),id,label); admin_control_row_add(row); }
       } else if (!strcmp(action,"end")) {
-         gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo),0);
+         if (control_pending_name) { char *requested=g_strdup(control_pending_name); admin_control_choose(requested); g_free(requested); } else gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo),0);
          if (!gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo)))
             gtk_label_set_text(GTK_LABEL(control_status),"No hardware controls available");
       } else if (!strcmp(action,"state")) {
@@ -917,13 +983,20 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(box),control_combo,FALSE,FALSE,0);
+      control_rows_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
+       control_row_buttons=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+       GtkWidget *list_scroll=gtk_scrolled_window_new(NULL,NULL);
+       gtk_widget_set_vexpand(list_scroll,TRUE);
+       gtk_container_add(GTK_CONTAINER(list_scroll),control_rows_box);
+       gtk_box_pack_start(GTK_BOX(box),list_scroll,TRUE,TRUE,0);
+       gtk_box_pack_start(GTK_BOX(box),control_combo,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_scale,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),buttons,FALSE,FALSE,0);
       g_signal_connect(refresh,"clicked",G_CALLBACK(admin_control_refresh),NULL);
       g_signal_connect(control_combo,"changed",G_CALLBACK(admin_control_selection),NULL);
       g_signal_connect(control_apply,"clicked",G_CALLBACK(admin_control_apply),NULL);
       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),box,gtk_label_new("Controls"));
+       g_object_set_data(G_OBJECT(control_combo),"control-page",box);
    }
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
 
