@@ -1359,7 +1359,7 @@ GtkWidget *init_admin_tab(void) {
          8, 1, 0, 3, 4, 5, 6, 2, 7
       };
       const char *user_titles[] = {
-         "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req"
+         "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
       };
       const int ptt_order[] = {
          0, 9, 1, 2, 3, 4, 5, 6, 7, 8
