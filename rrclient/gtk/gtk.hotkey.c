@@ -59,6 +59,29 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
    return TRUE;
 }
 
+/* Lettered window shortcuts use physical positions on the active XKB
+ * layout. This keeps the QWERTY pattern when switching to AZERTY, etc. */
+static int gtk_letter_window(const GdkEventKey *event) {
+   if (!event) return -1;
+   static const guint qwerty[] = {
+      GDK_KEY_q,GDK_KEY_w,GDK_KEY_e,GDK_KEY_r,GDK_KEY_t,GDK_KEY_y,GDK_KEY_u,GDK_KEY_i,GDK_KEY_o,GDK_KEY_p,
+      GDK_KEY_a,GDK_KEY_s,GDK_KEY_d,GDK_KEY_f,GDK_KEY_g,GDK_KEY_h,GDK_KEY_j,GDK_KEY_k,GDK_KEY_l,
+      GDK_KEY_z,GDK_KEY_x,GDK_KEY_c,GDK_KEY_v,GDK_KEY_b,GDK_KEY_n,GDK_KEY_m
+   };
+   /* X11/XKB keycodes for the three alphabetic rows. GDK keycodes in
+    * Wayland's XKB backend use the same canonical evdev+8 positions. */
+   static const guint hardware[]={
+      24,25,26,27,28,29,30,31,32,33,
+      38,39,40,41,42,43,44,45,46,
+      52,53,54,55,56,57,58
+   };
+   for (unsigned i=0;i<G_N_ELEMENTS(hardware);++i)
+      if (event->hardware_keycode==hardware[i]) return (int)i+11;
+   guint key=gdk_keyval_to_lower(event->keyval);
+   for (unsigned i=0;i<G_N_ELEMENTS(qwerty);++i)
+      if (key==qwerty[i]) return (int)i+11;
+   return -1;
+}
 static int pending_tab_digit = -1;
 static guint pending_tab_timer;
 static GtkWidget *pending_tab_window;
@@ -172,6 +195,11 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
          digit = (int)(event->keyval - GDK_KEY_KP_0);
       }
 
+      if (digit < 0 && event->type == GDK_KEY_PRESS) {
+         int letter_window=gtk_letter_window(event);
+         if (letter_window>=11 && gtk_switch_tab_digit(letter_window,main_win))
+            return TRUE;
+      }
       if (digit >= 0 && accept_tab_digit(digit, main_win)) {
          return TRUE;
       }
