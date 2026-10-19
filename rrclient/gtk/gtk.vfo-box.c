@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -41,7 +42,7 @@ static GtkWidget *vfo_codec_box = NULL;
  * and detached windows alike.  The grip remains visible when collapsed. */
 typedef struct {
    GtkWidget *revealer;
-   double press_y;
+   double press_y, press_x;
    bool pressed;
 } VfoDrawer;
 
@@ -55,10 +56,24 @@ static gboolean vfo_drawer_press(GtkWidget *widget, GdkEventButton *event, gpoin
       return FALSE;
    }
    drawer->press_y = event->y_root;
+   drawer->press_x = event->x_root;
    drawer->pressed = true;
    return TRUE;
 }
 
+/* A horizontal drag tears off the panel; vertical swipes remain collapse gestures. */
+extern void gtk_chat_vfo_handle_drag(void);
+static gboolean vfo_drawer_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+   (void)widget;
+   VfoDrawer *drawer = data;
+   if (!drawer->pressed) return FALSE;
+   if (fabs(event->x_root - drawer->press_x) > 48.0) {
+      drawer->pressed = false;
+      gtk_chat_vfo_handle_drag();
+      return TRUE;
+   }
+   return FALSE;
+}
 static gboolean vfo_drawer_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    VfoDrawer *drawer = data;
    if (event->button != GDK_BUTTON_PRIMARY || !drawer->pressed) {
@@ -151,7 +166,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *grip = gtk_event_box_new();
    g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-grip", grip);
    g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-revealer", revealer);
-   gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_TOUCH_MASK);
+   gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK);
    gtk_widget_set_tooltip_text(grip, "Click to toggle VFO controls; swipe up to collapse or down to expand");
    GtkWidget *grip_label = gtk_label_new("  ▰▰▰  ");
    gtk_widget_set_margin_top(grip_label, 3);
@@ -165,6 +180,7 @@ GtkWidget *create_vfo_box(void) {
    g_object_set_data_full(G_OBJECT(grip), "vfo-drawer", drawer, vfo_drawer_free);
    g_signal_connect(grip, "button-press-event", G_CALLBACK(vfo_drawer_press), drawer);
    g_signal_connect(grip, "button-release-event", G_CALLBACK(vfo_drawer_release), drawer);
+   g_signal_connect(grip, "motion-notify-event", G_CALLBACK(vfo_drawer_motion), drawer);
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
