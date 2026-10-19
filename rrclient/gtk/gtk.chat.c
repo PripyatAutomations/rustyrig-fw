@@ -1166,7 +1166,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
 
    if (parent != box) {
       room_vfo_move(box);
-      if (cfg_ui_gtk_vfo_on_top) gtk_box_reorder_child(GTK_BOX(box), room_vfo_container, 0);
+      gtk_box_reorder_child(GTK_BOX(box), room_vfo_container, 0);
    }
    gtk_widget_show_all(room_vfo_container);
    vfo_update_ui();
