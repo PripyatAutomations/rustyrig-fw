@@ -1,5 +1,6 @@
 // Explicit receiver actions use the selected server; directory browsing is passive.
 #include <glib.h>
+#include <strings.h>
 #include <librustyaxe/core.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
