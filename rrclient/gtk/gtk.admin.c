@@ -30,7 +30,7 @@ static admin_table_t tables[] = {
    },
    {
       .name = "rooms", .fields = {
-         "name", "deleted", "topic", "has_vfos", "vfo_mask"
+         "name", "uuid", "deleted", "topic", "has_vfos", "vfo_mask"
       }
    },
    /* PARITY: rustyrig-www/js/webui.admin.js adminTables. Fields come from rrserver/events.c. */
