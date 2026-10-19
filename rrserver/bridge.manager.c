@@ -1242,6 +1242,9 @@ static void websdr_request(const char *event, const void *data, size_t length, r
 
    if (!client->authenticated || !client->user || (save ? !rrserver_websdr_can_admin(client) : !rrserver_bridge_can_use(client))) {
       error = save ? "Adding receivers requires websdr.admin" : "WebSDR access requires websdr.listen or websdr.connect";
+   } else if (!save && !release && (!request || !*dict_get(request, "room", ""))) {
+      /* A live SDR must have a listening room, never an implicit site -rigN. */
+      error = "Choose a listening room before connecting to this SDR";
    } else if (request && websdr_endpoint(driver, dict_get(request, "url", ""), &host, &port)) {
       b = websdr_find(driver, host, port);
 
