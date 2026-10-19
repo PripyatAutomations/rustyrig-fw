@@ -547,6 +547,33 @@ bool cmd_link(int argc, char **args) {
 }
 
 bool cmd_admin_query(int argc, char **args) {
+   /* Scoped direct grants use a principal instead of a local account UID. */
+   if (argc >= 2 && args[1] &&
+       (!strcmp(args[1], "resource-grant") ||
+        !strcmp(args[1], "resource-revoke"))) {
+      if (argc < 6) {
+         ui_print(ui_active_window_name(),
+            "Usage: /admin resource-grant USER@HOST KIND UUID PRIVILEGE allow|deny");
+         return true;
+      }
+      rrconn_t *connection = rrclient_active_connection();
+      if (!connection || !connection->is_ws) return true;
+      char tail[512] = "";
+      for (int i = 3; i < argc; ++i) {
+         if ((i > 3 && strlcat(tail," ",sizeof(tail)) >= sizeof(tail)) ||
+             strlcat(tail,args[i],sizeof(tail)) >= sizeof(tail)) return true;
+      }
+      dict *d = dict_new();
+      if (!d) return true;
+      dict_add(d,"msg.type","talk");
+      dict_add(d,"talk.cmd","admin");
+      dict_add(d,"talk.action",args[1]);
+      dict_add(d,"talk.target",args[2]);
+      dict_add(d,"talk.data",tail);
+      bool sent = ws_send_dict(NULL,connection,d,WEBSOCKET_OP_TEXT);
+      dict_free(d);
+      return !sent;
+   }
    /* Privilege sets are managed through the same server-side admin channel.
     * Keep the command human-readable and separate the set name from args. */
    if (argc >= 2 && args[1] && !strncmp(args[1], "privset-", 8)) {
