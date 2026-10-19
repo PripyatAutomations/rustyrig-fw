@@ -8,6 +8,7 @@
 #include <rrserver/backend.h>
 #include <rrserver/bridge.manager.h>
 #include <rrserver/rig.rooms.h>
+#include <rrserver/rig.properties.h>
 #include <rrserver/database.h>
 #include <rrserver/relay.h>
 #include <time.h>
