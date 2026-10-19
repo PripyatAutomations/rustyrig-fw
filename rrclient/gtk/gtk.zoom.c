@@ -313,19 +313,6 @@ static gboolean zoom_after_resize(gpointer data) {
    if (coupled_resize_pending) {
       coupled_resize_pending = false;
    }
-   GdkWindow *window = gtk_widget_get_window(zoom_window);
-
-   if (!window) {
-      return G_SOURCE_REMOVE;
-   }
-   GdkMonitor *monitor = zoom_monitor(zoom_window);
-
-   if (!monitor) {
-      return G_SOURCE_REMOVE;
-   }
-   GdkRectangle area;
-   gdk_monitor_get_workarea(monitor, &area);
-   GdkWindowState state = gdk_window_get_state(window);
    unsigned next = zoom_for_size(resize_width, resize_height,
       RR_ZOOM_REFERENCE_WIDTH, RR_ZOOM_REFERENCE_HEIGHT);
 
