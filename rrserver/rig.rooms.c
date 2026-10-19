@@ -205,7 +205,14 @@ static bool restore_rx_rooms(void) {
  * does not impose the legacy site-rigN namespace on foreign SDR VFOs. */
 bool rrserver_rig_room_add_named(rr_server_rig_t *radio, const char *room) {
    if (!room || !*room) return configure_room(radio, NULL);
-   if (!radio || !ws_room_name_valid(room) || ws_room_station_scoped(room))
+   /* #sdr-XXXXXXXX rooms are external receiver identities, not station
+    * namespaces. The restricted form is intentionally not a general escape
+    * hatch for arbitrary dashed room names. */
+   bool sdr_room = room && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5);
+   for (const char *p = sdr_room ? room + 5 : ""; *p; p++)
+      if (!isxdigit((unsigned char)*p)) { sdr_room = false; break; }
+   if (!radio || !ws_room_name_valid(room) ||
+       (ws_room_station_scoped(room) && !sdr_room))
       return true;
    struct room_context ctx = { .room = room, .radio = radio };
    if (rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx))
