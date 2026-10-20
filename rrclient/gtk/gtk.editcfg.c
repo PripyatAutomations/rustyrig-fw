@@ -241,6 +241,24 @@ typedef struct {
    char mode;
    guint pending;
 } cfg_list_state_t;
+/* The Config editor uses GtkListBoxRow, not cell renderers. Style the
+ * visible rows after each filter or sort so the stripes stay alternating. */
+static void cfg_list_stripe(GtkListBox *list) {
+   GList *rows=gtk_container_get_children(GTK_CONTAINER(list));
+   guint index=0;
+   for (GList *l=rows;l;l=l->next) {
+      GtkWidget *row=l->data;
+      GtkStyleContext *style=gtk_widget_get_style_context(row);
+      gtk_style_context_remove_class(style,"rr-zebra-odd");
+      if (gtk_widget_get_child_visible(row) && (index++ & 1))
+         gtk_style_context_add_class(style,"rr-zebra-odd");
+   }
+   g_list_free(rows);
+}
+static void cfg_list_apply_stripe(GtkListBox *list) {
+   gtk_widget_queue_draw(GTK_WIDGET(list));
+   cfg_list_stripe(list);
+}
 static int cfg_sort_column = 0;
 static gboolean cfg_sort_descending = FALSE;
 static gboolean cfg_list_filter(GtkListBoxRow *row, gpointer data) {
@@ -286,11 +304,13 @@ static void cfg_list_sort_clicked(GtkButton *button, gpointer list) {
       cfg_sort_descending = FALSE;
    }
    gtk_list_box_invalidate_sort(GTK_LIST_BOX(list));
+   cfg_list_apply_stripe(GTK_LIST_BOX(list));
 }
 static gboolean cfg_list_filter_deferred(gpointer data) {
    cfg_list_state_t *state = data;
    state->pending = 0;
    gtk_list_box_invalidate_filter(GTK_LIST_BOX(state->list));
+   cfg_list_apply_stripe(GTK_LIST_BOX(state->list));
 
    return G_SOURCE_REMOVE;
 }
@@ -325,6 +345,12 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
    GtkWidget *list = gtk_list_box_new();
    *list_out = list;
    gtk_list_box_set_selection_mode(GTK_LIST_BOX(list), GTK_SELECTION_NONE);
+   GtkCssProvider *stripe=gtk_css_provider_new();
+   gtk_css_provider_load_from_data(stripe,
+      "listbox row.rr-zebra-odd { background-color: alpha(currentColor, 0.085); }",-1,NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(list),
+      GTK_STYLE_PROVIDER(stripe),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(stripe);
    gtk_list_box_set_sort_func(GTK_LIST_BOX(list), cfg_list_compare, NULL, NULL);
    cfg_list_state_t *state = g_new0(cfg_list_state_t, 1);
    state->list = list;
@@ -389,6 +415,7 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
       gtk_container_add(GTK_CONTAINER(list), row);
    }
 
+   cfg_list_apply_stripe(GTK_LIST_BOX(list));
    return container;
 }
 
