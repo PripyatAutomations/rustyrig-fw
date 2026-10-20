@@ -690,6 +690,26 @@ sqlite3 *db_open(const char *path) {
 
          return NULL;
       }
+      /* Requests are durable, distinct from grants and their authority. */
+      char *request_error=NULL;
+      const char *request_schema=
+         "CREATE TABLE IF NOT EXISTS access_requests("
+         "id INTEGER PRIMARY KEY,subject_user TEXT NOT NULL,"
+         "subject_host TEXT NOT NULL DEFAULT '',resource_kind TEXT NOT NULL,"
+         "resource_uuid TEXT NOT NULL,reason TEXT NOT NULL,"
+         "status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','granted','denied')),"
+         "created_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+         "reviewed_at INTEGER,reviewed_by TEXT,review_note TEXT);"
+         "CREATE INDEX IF NOT EXISTS access_requests_pending "
+         "ON access_requests(status,created_at);";
+      if (sqlite3_exec(db,request_schema,NULL,NULL,&request_error)!=SQLITE_OK) {
+         Log(LOG_CRIT,"db","Cannot create access request schema: %s",
+             request_error ? request_error : sqlite3_errmsg(db));
+         sqlite3_free(request_error);
+         sqlite3_close(db);
+         return NULL;
+      }
+      sqlite3_free(request_error);
       db_ensure_rig_identities(db);
       db_ensure_bridge_hints(db);
       db_ensure_vfo_identities(db);
