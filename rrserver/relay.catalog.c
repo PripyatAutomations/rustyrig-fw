@@ -123,7 +123,7 @@ dict *rr_relay_local_users(void) {
             const char *roles=(const char *)sqlite3_column_text(stmt,2);
             dict_add(d,key,roles ? roles : "");
             const char *email=(const char *)sqlite3_column_text(stmt,3);
-            if (email && *email && strlen(email)<=254 && !strpbrk(email,"\\r\\n")) {
+            if (email && *email && strlen(email)<=254 && !strpbrk(email,"\r\n")) {
                snprintf(key,sizeof(key),"user.%u.email",n-1);
                dict_add(d,key,email);
             }
@@ -889,7 +889,7 @@ static void inventory_directory_users(rrconn_t *client,const char *request,
       snprintf(key,sizeof(key),"user.%u.email",i);
       const char *email=dict_get(directory->users,key,"");
       if (*email) {
-         char *with_contact=g_strdup_printf("%s\\nEmail: %s",description,email);
+         char *with_contact=g_strdup_printf("%s\nEmail: %s",description,email);
          g_free(description);
          description=with_contact;
       }
