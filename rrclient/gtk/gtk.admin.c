@@ -1184,7 +1184,7 @@ static void admin_session_kick(GtkButton *button, gpointer data) {
 }
 
 /* A grant subject is selected from the linked directory, not typed as a UUID. */
-static GtkWidget *grant_subjects;
+static GtkWidget *grant_subjects, *grant_privilege_choices;
 static char *grant_profile;
 static void admin_add_privilege(GtkButton *button, gpointer user) {
    (void)button;
@@ -1205,6 +1205,7 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    /* Editable combo offers discovered privilege groups as well as a
     * free-form individual privilege token, e.g. rig.use. */
    GtkWidget *permission=gtk_combo_box_text_new_with_entry();
+   grant_privilege_choices=permission;
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"rig.use");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"rig.full");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"room.join");
@@ -1281,6 +1282,7 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
       }
    }
    grant_subjects = NULL;
+   grant_privilege_choices = NULL;
    g_clear_pointer(&grant_profile, g_free);
    gtk_widget_destroy(dialog);
 }
@@ -1776,6 +1778,17 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       if (!strcmp(action, "begin")) {
          gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(grant_subjects));
       } else if (!strcmp(action, "row")) {
+         if (!strcmp(dict_get(row,"kind",""),"privilege-group")) {
+            const char *name=dict_get(row,"name","");
+            if (grant_privilege_choices && *name) {
+               char *token=g_strdup_printf("@%s",name);
+               gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(grant_privilege_choices),token);
+               g_free(token);
+            }
+            dict_free(row);
+            dict_free(reply);
+            return;
+         }
          const char *username = dict_get(row, "user", "");
          const char *host = dict_get(row, "host", "");
          const char *label = dict_get(row, "label", username);
