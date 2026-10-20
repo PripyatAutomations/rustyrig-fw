@@ -272,6 +272,10 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
       return;
    }
+   char profile_email[255],profile_real[129],profile_phone[65];
+   g_strlcpy(profile_email,dict_get(request,"user.email",""),sizeof(profile_email));
+   g_strlcpy(profile_real,dict_get(request,"user.real_name",""),sizeof(profile_real));
+   g_strlcpy(profile_phone,dict_get(request,"user.phone",""),sizeof(profile_phone));
    const char *command_data = dict_get(request, "user.data", NULL);
 
    if (!command_data) {
@@ -403,7 +407,27 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       if (ok) {
          password_hash = hash_passwd(password);
       }
-      ok = ok && password_hash && db_user_create(masterdb, uid, argv[1], true, password_hash, "no@example.com", 1, privileges, true, now + 7 * 86400);
+      bool profile_ok=strlen(profile_email)<254 && !strpbrk(profile_email,"\\r\\n") &&
+         !strpbrk(profile_real,"\\r\\n") && !strpbrk(profile_phone,"\\r\\n");
+      if (profile_ok && password_hash && ok) {
+         ok=sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
+         if (ok) {
+            ok=db_user_create(masterdb,uid,argv[1],true,password_hash,
+               *profile_email ? profile_email : "",1,privileges,true,now + 7 * 86400);
+            if (ok) {
+               dict *fields=dict_new();
+               if (!fields) ok=false;
+               else {
+                  dict_add(fields,"real_name",profile_real);
+                  dict_add(fields,"phone",profile_phone);
+                  ok=db_user_edit(masterdb,argv[1],fields);
+                  dict_free(fields);
+               }
+            }
+            if (ok) ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+            if (!ok) sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
+         }
+      } else ok=false;
       free(password_hash);
 
       if (!ok) {
