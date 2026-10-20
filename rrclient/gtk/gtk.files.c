@@ -1,5 +1,15 @@
 // FTP-style share browser presentation. Part of RustyRig; MIT/GPL.
 
+// Transfer state and wire requests belong to rrclient/files.c.
+#include <gtk/gtk.h>
+#include <unistd.h>
+#include <string.h>
+#include <rrclient/files.h>
+#include <rrclient/connman.h>
+#include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.editcfg.h>
+#include "gtk.files.h"
+
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
                                GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
@@ -23,15 +33,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
    } else g_object_set(cell,"cell-background-set",FALSE,NULL);
    if (path) gtk_tree_path_free(path);
 }
-// Transfer state and wire requests belong to rrclient/files.c.
-#include <gtk/gtk.h>
-#include <unistd.h>
-#include <string.h>
-#include <rrclient/files.h>
-#include <rrclient/connman.h>
-#include <rrclient/gtk/gtk.core.h>
-#include <rrclient/gtk/gtk.editcfg.h>
-#include "gtk.files.h"
+
 enum {
    NAME, PATH, DIRECTORY, SIZE, READABLE, WRITABLE, LOADED, COLS
 };
