@@ -2055,7 +2055,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
          gtk_dialog_run(GTK_DIALOG(dialog));
          gtk_widget_destroy(dialog);
       } else if (!strcmp(action, "changed")) {
-         gtk_label_set_text(GTK_LABEL(table->status), "Account saved");
+         gtk_label_set_text(GTK_LABEL(table->status), !strcmp(table->name,"rooms") ? "Room updated" : "Account saved");
          admin_command(table, "admin", table->name, NULL);
       } else if (!strcmp(action, "begin")) {
          if (!dict_get_bool(row, "append", false)) {
@@ -2323,6 +2323,7 @@ GtkWidget *init_admin_tab(void) {
             gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
          }
       }
+      gtk_widget_set_halign(buttons,GTK_ALIGN_END);
       gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
@@ -2336,6 +2337,8 @@ GtkWidget *init_admin_tab(void) {
       const char *user_titles[] = {
          "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
       };
+      const int room_order[] = {0,3,2,4,5,1};
+      const char *room_titles[] = {"Name","Topic","Deleted","Has VFOs","VFO mask","UUID"};
       const int ptt_order[] = {
          0, 9, 1, 2, 3, 4, 5, 6, 7, 8
       };
@@ -2347,14 +2350,15 @@ GtkWidget *init_admin_tab(void) {
       };
       bool users = !strcmp(table->name, "users");
       bool quotas = !strcmp(table->name, "quotas"), ptt = !strcmp(table->name, "ptt");
+      bool rooms = !strcmp(table->name,"rooms");
 
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
-         int field = users ? user_order[col] : ptt ? ptt_order[col] : col;
+         int field = users ? user_order[col] : ptt ? ptt_order[col] : rooms ? room_order[col] : col;
          bool flag = users && (field == 1 || field == 7);
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
-         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : table->fields[col]);
+         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
          if (users && (flag || field == 5 || field == 6)) {
@@ -2385,13 +2389,13 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, (users && field == 2) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
-            !strcmp(table->name, "rooms") ? 145 :
+            rooms ? (field == 0 ? 115 : field == 3 ? 275 : field == 1 ? 250 : 95) :
             (!strcmp(table->name,"audit") && field==4) ? 420 :
              (!strcmp(table->name,"sessions") && field==0) ? 280 : 125);
          gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_column_set_expand(column, (users && field == 2) ||
-            ((!strcmp(table->name, "rooms") || quotas) && field == 0) ||
+            ((rooms && field == 3) || (quotas && field == 0)) ||
             (!strcmp(table->name,"audit") && field == 4));
          if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
             g_signal_connect(column,"notify::width",G_CALLBACK(admin_column_wrap_width),renderer);
