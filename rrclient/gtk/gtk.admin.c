@@ -1989,24 +1989,105 @@ static void admin_access_age_cell(GtkTreeViewColumn *column,GtkCellRenderer *ren
    g_free(status);g_free(age);
 }
 static void admin_access_review(GtkButton *button,gpointer user) {
+   (void)button;
    const char *decision=user;
    GtkTreeIter iter;GtkTreeModel *model=NULL;
    if (!access_request_tree ||
        !gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(access_request_tree)),&model,&iter))
       return;
-   char *id=NULL,*name=NULL;
-   gtk_tree_model_get(model,&iter,AR_ID,&id,AR_USER,&name,-1);
-   GtkWidget *confirm=gtk_message_dialog_new(GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,GTK_MESSAGE_QUESTION,
-      GTK_BUTTONS_OK_CANCEL,
-      "%s request #%s from %s?\n\nGranting here records review only. Assign permissions in Privileges → Grants.",
-      !strcmp(decision,"granted") ? "Approve" : "Deny",id ? id : "",name ? name : "");
-   if (gtk_dialog_run(GTK_DIALOG(confirm))==GTK_RESPONSE_OK)
-      admin_access_send("access-request-review",id,decision);
-   gtk_widget_destroy(confirm);
-   g_free(id);g_free(name);
-   (void)button;
+   char *id=NULL,*username=NULL,*resource=NULL,*reason=NULL,*status=NULL;
+   gtk_tree_model_get(model,&iter,AR_ID,&id,AR_USER,&username,
+                      AR_RESOURCE,&resource,AR_REASON,&reason,AR_STATUS,&status,-1);
+   if (g_strcmp0(status,"pending")) goto done;
+   gboolean approving=!strcmp(decision,"granted");
+   GtkWidget *dialog=gtk_dialog_new_with_buttons(approving ?
+      "Approve Access Request — Grant Privileges" : "Deny Access Request",
+      GTK_WINDOW(main_window),GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "Cancel",GTK_RESPONSE_CANCEL,approving ? "Grant & Approve" : "Deny",
+      GTK_RESPONSE_OK,NULL);
+   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   char *summary=g_strdup_printf("Request #%s from %s\nResource: %s\nReason: %s",
+      id ? id : "",username ? username : "",resource ? resource : "",reason ? reason : "");
+   GtkWidget *label=gtk_label_new(summary);
+   gtk_label_set_xalign(GTK_LABEL(label),0);
+   gtk_label_set_line_wrap(GTK_LABEL(label),TRUE);
+   gtk_box_pack_start(GTK_BOX(area),label,FALSE,FALSE,6);
+   g_free(summary);
+   GPtrArray *checks=g_ptr_array_new();
+   GtkWidget *remote=NULL;
+   if (approving) {
+      GtkWidget *intro=gtk_label_new("Choose privileges and/or @groups:");
+      gtk_label_set_xalign(GTK_LABEL(intro),0);
+      gtk_box_pack_start(GTK_BOX(area),intro,FALSE,FALSE,4);
+      GtkWidget *list=gtk_box_new(GTK_ORIENTATION_VERTICAL,3);
+      GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+      gtk_widget_set_size_request(scroll,440,250);
+      gtk_container_add(GTK_CONTAINER(scroll),list);
+      gtk_box_pack_start(GTK_BOX(area),scroll,TRUE,TRUE,4);
+      const char *tokens[]={"rig.use","rig.tune","rig.full","frequency.read",
+                            "room.join","bridge.use"};
+      for (unsigned n=0;n<G_N_ELEMENTS(tokens);n++) {
+         GtkWidget *check=gtk_check_button_new_with_label(tokens[n]);
+         gtk_box_pack_start(GTK_BOX(list),check,FALSE,FALSE,1);
+         g_ptr_array_add(checks,check);
+      }
+      admin_table_t *groups=&tables[6];
+      if (groups->store) {
+         GtkTreeIter entry;
+         gboolean valid=gtk_tree_model_get_iter_first(GTK_TREE_MODEL(groups->store),&entry);
+         while (valid) {
+            char *name=NULL;
+            gtk_tree_model_get(GTK_TREE_MODEL(groups->store),&entry,0,&name,-1);
+            if (name && *name) {
+               char *token=g_strdup_printf("@%s",name);
+               GtkWidget *check=gtk_check_button_new_with_label(token);
+               gtk_box_pack_start(GTK_BOX(list),check,FALSE,FALSE,1);
+               g_ptr_array_add(checks,check);
+               g_free(token);
+            }
+            g_free(name);
+            valid=gtk_tree_model_iter_next(GTK_TREE_MODEL(groups->store),&entry);
+         }
+      }
+      remote=gtk_check_button_new_with_label("Remote allowed");
+      gtk_box_pack_start(GTK_BOX(area),remote,FALSE,FALSE,4);
+   }
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
+      GString *selection=g_string_new("");
+      for (guint n=0;n<checks->len;n++) {
+         GtkWidget *check=g_ptr_array_index(checks,n);
+         if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(check))) continue;
+         if (selection->len) g_string_append_c(selection,',');
+         g_string_append(selection,gtk_button_get_label(GTK_BUTTON(check)));
+      }
+      if (!approving || selection->len) {
+         rrconn_t *connection=rrclient_connection_find(access_request_profile);
+         if (connection && connection->authenticated) {
+            dict *message=dict_new();
+            if (message) {
+               dict_add(message,"msg.type","talk");
+               dict_add(message,"talk.cmd","admin");
+               dict_add(message,"talk.action","access-request-review");
+               dict_add(message,"talk.data","");
+               dict_add(message,"request.id",id);
+               dict_add(message,"request.decision",decision);
+               dict_add(message,"request.grants",selection->str);
+               dict_add_bool(message,"request.remote",remote &&
+                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)));
+               ws_send_dict(NULL,connection,message,WEBSOCKET_OP_TEXT);
+               dict_free(message);
+            }
+         }
+      }
+      g_string_free(selection,TRUE);
+   }
+   g_ptr_array_free(checks,TRUE);
+   gtk_widget_destroy(dialog);
+done:
+   g_free(id);g_free(username);g_free(resource);g_free(reason);g_free(status);
 }
+
 void gtk_admin_refresh(void) {
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_refresh(NULL, &tables[i]);
