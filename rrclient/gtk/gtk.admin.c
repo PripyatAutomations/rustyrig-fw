@@ -1792,6 +1792,42 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
 
+   if (row && !strcmp(name,"subjects") && copy_user_store &&
+       !g_strcmp0(copy_user_profile,rrclient_connection_name(connection))) {
+      if (!strcmp(action,"begin")) gtk_tree_store_clear(copy_user_store);
+      else if (!strcmp(action,"row") && strcmp(dict_get(row,"kind",""),"privilege-group")) {
+         const char *host=dict_get(row,"host","");
+         const char *username=dict_get(row,"user","");
+         if (*username) {
+            GtkTreeIter parent,child;
+            GtkTreeModel *model=GTK_TREE_MODEL(copy_user_store);
+            gboolean found=FALSE;
+            for (gboolean more=gtk_tree_model_get_iter_first(model,&parent);
+                 more;more=gtk_tree_model_iter_next(model,&parent)) {
+               char *label=NULL;
+               gtk_tree_model_get(model,&parent,COPY_LABEL,&label,-1);
+               if (!g_strcmp0(label,*host ? host : "This Server")) found=TRUE;
+               g_free(label);
+               if (found) break;
+            }
+            if (!found) {
+               gtk_tree_store_append(copy_user_store,&parent,NULL);
+               gtk_tree_store_set(copy_user_store,&parent,COPY_LABEL,
+                  *host ? host : "This Server",COPY_IS_USER,FALSE,-1);
+            }
+            gtk_tree_store_append(copy_user_store,&child,&parent);
+            char *label=g_strdup_printf("%s  •  %s  •  %s",username,
+               dict_get(row,"email",""),dict_get(row,"privileges",""));
+            gtk_tree_store_set(copy_user_store,&child,
+               COPY_LABEL,label,COPY_EMAIL,dict_get(row,"email",""),
+               COPY_REAL,dict_get(row,"real_name",""),
+               COPY_PHONE,dict_get(row,"phone",""),
+               COPY_PRIVS,dict_get(row,"privileges",""),COPY_IS_USER,TRUE,-1);
+            g_free(label);
+            if (copy_user_tree) gtk_tree_view_expand_all(GTK_TREE_VIEW(copy_user_tree));
+         }
+      }
+   }
    if (row && !strcmp(name, "subjects") && grant_subjects && grant_profile && !g_strcmp0(grant_profile, rrclient_connection_name(connection))) {
       if (!strcmp(action, "begin")) {
          gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(grant_subjects));
