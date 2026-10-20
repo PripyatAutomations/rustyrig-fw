@@ -1033,8 +1033,11 @@ void rrserver_serial_init(void) {
          snprintf(p->path, sizeof(p->path), "%s", path ? path : "");
 
          if (!p->path[0]) {
-            memcpy(p->path, "./dev/", 6);
-            memcpy(p->path + 6, p->name, strlen(p->name) + 1);
+            const char *home=g_get_home_dir();
+            if (!home || !*home || snprintf(p->path,sizeof(p->path),"%s/dev/%s",home,p->name)>=(int)sizeof(p->path)) {
+               Log(LOG_WARN,"serial","Cannot resolve home device path for %s",p->name);
+               continue;
+            }
          }
       } else {
          continue;
