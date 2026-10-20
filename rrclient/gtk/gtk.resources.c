@@ -134,6 +134,7 @@ static void resource_expansion_save(resource_branch *branch) {
 }
 static void resource_expansion_restore(resource_branch *branch) {
    if (!branch->expanded) {
+      gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
       return;
    }
    GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
@@ -1511,7 +1512,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
 
       if (!branch->expanded) {
-         gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
+         gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
       }
       gtk_tree_path_free(path);
       resource_expansion_restore(branch);
