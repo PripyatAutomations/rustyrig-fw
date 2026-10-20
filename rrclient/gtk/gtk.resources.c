@@ -1158,6 +1158,24 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    g_free(coordinates);
 }
 
+/* Count rows in visible depth-first order, rather than sibling indices.
+ * Otherwise striping restarts whenever an expanded rig/room adds children. */
+static gboolean resource_visible_row_index(GtkTreeModel *model,GtkTreeIter *iter,
+                                            GtkTreePath *target,guint *position) {
+   do {
+      GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+      gboolean found=gtk_tree_path_compare(path,target)==0;
+      gboolean expanded=gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path);
+      gtk_tree_path_free(path);
+      if (found) return TRUE;
+      ++*position;
+      GtkTreeIter child;
+      if (expanded && gtk_tree_model_iter_children(model,&child,iter) &&
+          resource_visible_row_index(model,&child,target,position))
+         return TRUE;
+   } while (gtk_tree_model_iter_next(model,iter));
+   return FALSE;
+}
 static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
                                 GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
    int field=GPOINTER_TO_INT(data);
@@ -1165,8 +1183,11 @@ static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *rende
    else if (field==STATE || field==OURS) resource_status_cell(column,renderer,model,iter,data);
    else if (field==DETAILS) resource_details_cell(column,renderer,model,iter,NULL);
    GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
-   gboolean odd=index && (index[gtk_tree_path_get_depth(path)-1] & 1);
+   guint position=0;
+   GtkTreeIter first;
+   gboolean found=path && gtk_tree_model_get_iter_first(model,&first) &&
+      resource_visible_row_index(model,&first,path,&position);
+   gboolean odd=found && (position & 1);
    gboolean selected=browser && path && gtk_tree_selection_path_is_selected(
       gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)),path);
    if (odd && !selected && browser) {
