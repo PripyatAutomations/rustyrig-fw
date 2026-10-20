@@ -32,19 +32,19 @@ rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *subject_u
 
    static const char sql[] =
       "SELECT effect FROM resource_privileges "
-      "WHERE subject_user=?1 COLLATE NOCASE AND subject_host=?2 COLLATE NOCASE "
+      "WHERE subject_user=?1 COLLATE NOCASE AND (subject_host=?2 COLLATE NOCASE OR (?2!='' AND subject_host='*')) "
       "AND resource_kind=?3 AND (resource_uuid=?4 OR (resource_kind IN (\'rig\',\'room\') AND resource_uuid=\'*\') OR (length(?7)>0 AND resource_uuid=?7 COLLATE NOCASE)) AND (privilege=?5 OR (resource_kind=\'rig\' AND privilege=\'rig.full\')) "
       "AND (expires_at IS NULL OR expires_at>?6) AND (?2='' OR remote_allowed=1) "
       "UNION ALL "
       "SELECT e.effect FROM privilege_set_assignments AS a "
       "JOIN privilege_set_entries AS e ON e.set_id=a.set_id "
-      "WHERE a.subject_user=?1 COLLATE NOCASE AND a.subject_host=?2 COLLATE NOCASE "
+      "WHERE a.subject_user=?1 COLLATE NOCASE AND (a.subject_host=?2 COLLATE NOCASE OR (?2!='' AND a.subject_host='*')) "
       "AND a.resource_kind=?3 AND (a.resource_uuid=?4 OR (a.resource_kind IN (\'rig\',\'room\') AND a.resource_uuid=\'*\') OR (length(?7)>0 AND a.resource_uuid=?7 COLLATE NOCASE)) AND (e.privilege=?5 OR (a.resource_kind=\'rig\' AND e.privilege=\'rig.full\')) "
       "AND (a.expires_at IS NULL OR a.expires_at>?6) AND (?2='' OR a.remote_allowed=1) "
       "UNION ALL "
       "SELECT gp.effect FROM user_group_members gm "
       "JOIN user_group_privileges gp ON gp.group_name=gm.group_name "
-      "WHERE gm.subject_user=?1 COLLATE NOCASE AND gm.subject_host=?2 COLLATE NOCASE "
+      "WHERE gm.subject_user=?1 COLLATE NOCASE AND (gm.subject_host=?2 COLLATE NOCASE OR (?2!='' AND gm.subject_host='*')) "
       "AND gp.resource_kind=?3 "
       "AND (gp.resource_name='*' OR (length(?7)>0 AND gp.resource_name=?7 COLLATE NOCASE)) "
       "AND (gp.privilege=?5 OR (gp.resource_kind='rig' AND gp.privilege='rig.full'));";
