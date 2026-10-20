@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <errno.h>
+#include <glib.h>
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
