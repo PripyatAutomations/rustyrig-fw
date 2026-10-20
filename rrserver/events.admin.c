@@ -101,7 +101,7 @@ static bool admin_full_rig_access(const char *username, const char *host, bool e
       "SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full-rig' " "ON CONFLICT(set_id,privilege) DO UPDATE SET effect='allow'",
       enabled ?
       "INSERT OR IGNORE INTO privilege_set_assignments "
-      "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
+      "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by,remote_allowed) "
       "SELECT id,?1,?2,'rig','*','system' FROM privilege_sets WHERE name='full-rig'" :
       "DELETE FROM privilege_set_assignments WHERE subject_user=?1 COLLATE NOCASE "
       "AND subject_host=?2 AND resource_kind='rig' AND resource_uuid='*' " "AND set_id=(SELECT id FROM privilege_sets WHERE name='full-rig')"
@@ -408,8 +408,8 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       return true;
    }
    const char *sql = NULL;
-   char a[130] = "", b[130] = "", d[130] = "", extra[2] = "";
-   int args = sscanf(data, "%129s %129s %129s %1s", a, b, d, extra);
+   char a[130] = "", b[130] = "", d[130] = "", extra[16] = "";
+   int args = sscanf(data, "%129s %129s %129s %15s", a, b, d, extra);
 
    if (!strcmp(action, "privset-create")) {
       sql = "INSERT INTO privilege_sets(name,description,created_by) VALUES(?1,?2,?3)";
@@ -447,9 +447,9 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       sql = !strcmp(action, "privset-assign")
          ? "INSERT INTO privilege_set_assignments "
          "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
-         "SELECT id,?2,?3,?4,?5,?6 FROM privilege_sets WHERE name=?1 "
+         "SELECT id,?2,?3,?4,?5,?6,?7 FROM privilege_sets WHERE name=?1 "
          "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
-         "DO UPDATE SET assigned_by=excluded.assigned_by,assigned_at=unixepoch(),expires_at=NULL"
+         "DO UPDATE SET assigned_by=excluded.assigned_by,remote_allowed=excluded.remote_allowed,assigned_at=unixepoch(),expires_at=NULL"
          : "DELETE FROM privilege_set_assignments WHERE set_id="
          "(SELECT id FROM privilege_sets WHERE name=?1) AND subject_user=?2 "
          "COLLATE NOCASE AND subject_host=?3 COLLATE NOCASE " "AND resource_kind=?4 AND resource_uuid=?5";
@@ -520,6 +520,7 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
 
          if (rc == SQLITE_OK && !strcmp(action, "privset-assign")) {
             rc = sqlite3_bind_text(st, 6, client->chatname, -1, SQLITE_TRANSIENT);
+            if (rc == SQLITE_OK) rc=sqlite3_bind_int(st,7,args==4 ? 1 : 0);
          }
       }
    }
@@ -565,7 +566,7 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    const char *subject = dict_get(request, "talk.target", "");
    const char *data = dict_get(request, "talk.data", "");
    char username[HTTP_USER_LEN + 1] = "", host[128] = "";
-   char kind[16] = "", uuid[64] = "", privilege[129] = "", effect[16] = "", extra[2] = "";
+   char kind[16] = "", uuid[64] = "", privilege[129] = "", effect[16] = "", extra[16] = "";
 
    if (!subject || !*subject || strlen(subject) > 256) {
       ws_send_error(client, "Resource grants require user@host subject");
@@ -585,10 +586,10 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    if (at) {
       snprintf(host, sizeof(host), "%s", at + 1);
    }
-   int n = sscanf(data, "%15s %63s %128s %15s %1s", kind, uuid, privilege, effect, extra);
+   int n = sscanf(data, "%15s %63s %128s %15s %15s", kind, uuid, privilege, effect, extra);
    bool granting = !strcmp(action, "resource-grant");
 
-   if (n != (granting ? 4 : 3) ||
+   if ((granting ? (n != 4 && n != 5) || (n==5 && strcmp(extra,"remote")) : n != 3) ||
       !(!strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") ||
       !strcmp(kind, "room") || !strcmp(kind, "media") || !strcmp(kind, "serial") ||
       !strcmp(kind, "file") || !strcmp(kind, "bridge")) || !( (!strcmp(kind, "rig") && !strcmp(uuid, "*")) || rr_object_uuid_valid(uuid)) || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
@@ -598,10 +599,10 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    }
    const char *sql = granting
       ? "INSERT INTO resource_privileges "
-      "(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by) "
-      "VALUES(?1,?2,?3,?4,?5,?6,?7) "
+      "(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by,remote_allowed) "
+      "VALUES(?1,?2,?3,?4,?5,?6,?7,?8) "
       "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
-      "DO UPDATE SET effect=excluded.effect,granted_by=excluded.granted_by,"
+      "DO UPDATE SET effect=excluded.effect,remote_allowed=excluded.remote_allowed,granted_by=excluded.granted_by,"
       "granted_at=unixepoch(),expires_at=NULL"
       : "DELETE FROM resource_privileges WHERE subject_user=?1 COLLATE NOCASE "
       "AND subject_host=?2 COLLATE NOCASE AND resource_kind=?3 " "AND resource_uuid=?4 AND privilege=?5";
@@ -634,6 +635,7 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
 
    if (rc == SQLITE_OK && granting) {
       rc = sqlite3_bind_text(st, 7, client->chatname, -1, SQLITE_TRANSIENT);
+      if (rc == SQLITE_OK) rc=sqlite3_bind_int(st,8,n==5 ? 1 : 0);
    }
 
    if (rc == SQLITE_OK) {
@@ -1085,12 +1087,12 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    } else if (!strcasecmp(table, "assignments")) {
       strcpy(table, "assignments");
       sql = "SELECT a.id AS cursor,s.name AS set_name,a.subject_user,a.subject_host,"
-         "a.resource_kind,a.resource_uuid,a.expires_at FROM privilege_set_assignments a "
+          "a.resource_kind,a.resource_uuid,a.expires_at,a.remote_allowed FROM privilege_set_assignments a "
          "JOIN privilege_sets s ON s.id=a.set_id " "WHERE (?=0 OR a.id<?) ORDER BY a.id DESC LIMIT 100";
    } else if (!strcasecmp(table, "grants")) {
       strcpy(table, "grants");
       sql = "SELECT id AS cursor,subject_user,subject_host,resource_kind,"
-         "resource_uuid,privilege,effect,expires_at FROM resource_privileges " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+          "resource_uuid,privilege,effect,expires_at,remote_allowed FROM resource_privileges " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    } else if (!strcasecmp(table, "groups")) {
       strcpy(table, "groups");
       /* Group rows followed by their privilege and membership children.
