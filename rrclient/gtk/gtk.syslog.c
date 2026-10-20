@@ -233,7 +233,7 @@ bool syslog_clear(void) {
 
 GtkWidget *init_log_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 
    log_view = gtk_text_view_new();
    gtk_widget_set_name(log_view, "log-view");
@@ -257,7 +257,7 @@ GtkWidget *init_log_tab(void) {
 
 GtkWidget *init_host_log_tab(void) {
    GtkWidget *nw = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nw), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 
    host_log_view = gtk_text_view_new();
    gtk_widget_set_name(host_log_view, "host-log-view");
