@@ -819,12 +819,89 @@ static bool admin_control_visit(const rr_platform_control_state_t *s, void *user
    return false;
 }
 
+/* Bound SQL parameters only: free-form request messages never become SQL. */
+static void admin_access_requests(rrconn_t *client,dict *request) {
+   const char *action=dict_get(request,"talk.action","");
+   if (!masterdb) {ws_send_error(client,"Access request database unavailable");return;}
+   if (!strcmp(action,"access-request-submit")) {
+      const char *kind=dict_get(request,"request.kind","");
+      const char *uuid=dict_get(request,"request.uuid","");
+      const char *reason=dict_get(request,"request.reason","");
+      if ((!strcmp(kind,"rig") || !strcmp(kind,"room")) &&
+          rr_object_uuid_valid(uuid) && strlen(reason)>0 && strlen(reason)<=2048) {
+         sqlite3_stmt *st=NULL;
+         const char *sql="INSERT INTO access_requests(subject_user,subject_host,resource_kind,resource_uuid,reason) VALUES(?1,'',?2,?3,?4)";
+         if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
+            sqlite3_bind_text(st,1,client->chatname,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_text(st,2,kind,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_text(st,3,uuid,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_text(st,4,reason,-1,SQLITE_TRANSIENT);
+            if (sqlite3_step(st)==SQLITE_DONE) {
+               rrserver_admin_send(client,"access-requests","submitted",NULL);
+               db_add_audit_event(masterdb,client->chatname,"access.request",kind);
+            } else ws_send_error(client,"Unable to save access request");
+         } else ws_send_error(client,"Unable to prepare access request");
+         sqlite3_finalize(st);
+      } else ws_send_error(client,"Request requires rig/room UUID and 1-2048 characters");
+      return;
+   }
+   if (!has_priv(client->user->uid,"admin|owner")) {
+      ws_send_error(client,"Admin or owner required to review access requests");
+      return;
+   }
+   if (!strcmp(action,"access-request-list")) {
+      rrserver_admin_send(client,"access-requests","begin",NULL);
+      sqlite3_stmt *st=NULL;
+      const char *sql="SELECT id,subject_user,subject_host,resource_kind,resource_uuid,reason,status,created_at,COALESCE(reviewed_by,'') FROM access_requests ORDER BY (status='pending') DESC,created_at DESC LIMIT 500";
+      if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
+         while (sqlite3_step(st)==SQLITE_ROW) {
+            dict *row=dict_new();
+            if (!row) break;
+            const char *keys[]={"id","subject_user","subject_host","resource_kind","resource_uuid","reason","status","created_at","reviewed_by"};
+            for (int i=0;i<9;i++) {
+               const char *v=(const char *)sqlite3_column_text(st,i);
+               dict_add(row,keys[i],v ? v : "");
+            }
+            rrserver_admin_send(client,"access-requests","row",row);
+            dict_free(row);
+         }
+      }
+      sqlite3_finalize(st);
+      rrserver_admin_send(client,"access-requests","end",NULL);
+      return;
+   }
+   if (!strcmp(action,"access-request-review")) {
+      const char *id=dict_get(request,"request.id","");
+      const char *decision=dict_get(request,"request.decision","");
+      if (!has_priv(client->user->uid,"owner") ||
+          (strcmp(decision,"denied") && strcmp(decision,"granted"))) {
+         ws_send_error(client,"Owner privilege and valid decision required");return;
+      }
+      char *end=NULL;errno=0;
+      long long number=strtoll(id,&end,10);
+      if (errno || !id[0] || *end || number<=0) {
+         ws_send_error(client,"Invalid request identifier");return;
+      }
+      sqlite3_stmt *st=NULL;
+      const char *sql="UPDATE access_requests SET status=?1,reviewed_at=unixepoch(),reviewed_by=?2 WHERE id=?3 AND status='pending'";
+      if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
+         sqlite3_bind_text(st,1,decision,-1,SQLITE_TRANSIENT);
+         sqlite3_bind_text(st,2,client->chatname,-1,SQLITE_TRANSIENT);
+         sqlite3_bind_int64(st,3,number);
+         if (sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)==1) {
+            db_add_audit_event(masterdb,client->chatname,"access.review",id);
+            rrserver_admin_send(client,"access-requests","updated",NULL);
+         } else ws_send_error(client,"Request is missing or no longer pending");
+      } else ws_send_error(client,"Unable to prepare access request review");
+      sqlite3_finalize(st);
+   }
+}
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
 
-   if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) {
+   if (!client || !client->authenticated || !client->user) {
       return;
    }
 #ifdef USE_SQLITE
@@ -834,6 +911,16 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
+   if (!strncmp(action,"access-request-",15)) {
+      admin_access_requests(client,request);
+      dict_free(request);
+      return;
+   }
+   if (!has_priv(client->user->uid,"admin|owner")) {
+      ws_send_error(client,"Admin privileges required");
+      dict_free(request);
+      return;
+   }
    /* Node controls are exported through one generic, typed namespace. The old /admin backlight spelling remains an alias for clients that have not yet switched
     * to /admin control display.brightness. */
    const char *admin_data = dict_get(request, "talk.data", "");
