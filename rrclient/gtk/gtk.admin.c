@@ -1522,7 +1522,7 @@ static void admin_privgroup_open(admin_table_t *table) {
    char *group=NULL,*current=NULL;
    gtk_tree_model_get(model,&iter,0,&group,4,&current,-1);
    if (!group || !*group) { g_free(group); g_free(current); return; }
-   char *updated=gtk_edit_privileges(GTK_WINDOW(main_window),table->profile,group,current);
+   char *updated=gtk_edit_group_privileges(GTK_WINDOW(main_window),table->profile,group,current);
    if (updated) {
       char **before=g_strsplit(current ? current : "",",",-1);
       char **after=g_strsplit(updated,",",-1);
