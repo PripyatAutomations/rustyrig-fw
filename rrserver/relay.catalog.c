@@ -102,16 +102,51 @@ dict *rr_relay_local_users(void) {
       }
    }
 
-   for (unsigned i = 0 ; i < HTTP_MAX_USERS ; i++) {
-      if (counts[i]) {
-         char key[64];
-         snprintf(key, sizeof(key), "user.%u.name", n);
-         dict_add(d, key, http_users[i].name);
-         snprintf(key, sizeof(key), "user.%u.sessions", n++);
-         dict_add_uint(d, key, counts[i]);
+#ifdef USE_SQLITE
+   /* Discovery is a transient directory, not an account replica. Export
+    * enabled names and session counts, never hashes, email, or privileges. */
+   if (masterdb) {
+      sqlite3_stmt *stmt=NULL;
+      if (sqlite3_prepare_v2(masterdb,
+         "SELECT uid,name FROM users WHERE enabled=1 ORDER BY name COLLATE NOCASE",
+         -1,&stmt,NULL)==SQLITE_OK) {
+         while (n<HTTP_MAX_USERS && sqlite3_step(stmt)==SQLITE_ROW) {
+            int uid=sqlite3_column_int(stmt,0);
+            const char *name=(const char *)sqlite3_column_text(stmt,1);
+            if (!name || !*name || strlen(name)>HTTP_USER_LEN) continue;
+            char key[64];
+            snprintf(key,sizeof(key),"user.%u.name",n);
+            dict_add(d,key,name);
+            snprintf(key,sizeof(key),"user.%u.sessions",n++);
+            dict_add_uint(d,key,uid>=0 && uid<HTTP_MAX_USERS ? counts[uid] : 0);
+         }
       }
+      sqlite3_finalize(stmt);
+      unsigned p=0;
+      if (sqlite3_prepare_v2(masterdb,
+         "SELECT name FROM privilege_sets ORDER BY name COLLATE NOCASE",
+         -1,&stmt,NULL)==SQLITE_OK) {
+         while (p<256 && sqlite3_step(stmt)==SQLITE_ROW) {
+            const char *name=(const char *)sqlite3_column_text(stmt,0);
+            if (!name || !*name || strlen(name)>96) continue;
+            char key[64];
+            snprintf(key,sizeof(key),"privilege.%u.name",p++);
+            dict_add(d,key,name);
+         }
+      }
+      sqlite3_finalize(stmt);
+      dict_add_uint(d,"privilege.count",p);
    }
-
+#else
+   for (unsigned i=0;i<HTTP_MAX_USERS;i++) {
+      if (!counts[i]) continue;
+      char key[64];
+      snprintf(key,sizeof(key),"user.%u.name",n);
+      dict_add(d,key,http_users[i].name);
+      snprintf(key,sizeof(key),"user.%u.sessions",n++);
+      dict_add_uint(d,key,counts[i]);
+   }
+#endif
    dict_add_uint(d, "count", n);
 
    return d;
