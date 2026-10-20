@@ -274,10 +274,6 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       return;
    }
    char profile_email[255],profile_real[129],profile_phone[65];
-   char create_maxsessions[16],create_expiry[16],create_change[8];
-   g_strlcpy(create_maxsessions,dict_get(request,"user.maxsessions","1"),sizeof(create_maxsessions));
-   g_strlcpy(create_expiry,dict_get(request,"user.password_expiry_days","7"),sizeof(create_expiry));
-   g_strlcpy(create_change,dict_get(request,"user.password_change_required","1"),sizeof(create_change));
    g_strlcpy(profile_email,dict_get(request,"user.email",""),sizeof(profile_email));
    g_strlcpy(profile_real,dict_get(request,"user.real_name",""),sizeof(profile_real));
    g_strlcpy(profile_phone,dict_get(request,"user.phone",""),sizeof(profile_phone));
@@ -398,21 +394,6 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
 
          return;
       }
-      char *max_end=NULL,*expiry_end=NULL;
-      errno=0;
-      long maxsessions=strtol(create_maxsessions,&max_end,10);
-      bool options_valid=errno==0 && max_end && !*max_end && maxsessions>=1 && maxsessions<=64;
-      errno=0;
-      long expiry_days=strtol(create_expiry,&expiry_end,10);
-      options_valid=options_valid && errno==0 && expiry_end && !*expiry_end &&
-         (expiry_days==0 || expiry_days==7 || expiry_days==30 || expiry_days==90 ||
-          expiry_days==180 || expiry_days==365) &&
-         (!strcmp(create_change,"0") || !strcmp(create_change,"1"));
-      if (!options_valid) {
-         ws_send_notice(cptr,"USER: invalid account options (max sessions, password expiry or change required)");
-         return;
-      }
-      time_t password_expiry=expiry_days ? now+(time_t)expiry_days*86400 : 0;
       int uid = db_user_next_uid(masterdb);
 
       if (uid < 1 || uid >= HTTP_MAX_USERS) {
@@ -433,7 +414,7 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
          ok=sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
          if (ok) {
             ok=db_user_create(masterdb,uid,argv[1],true,password_hash,
-               *profile_email ? profile_email : "",(int)maxsessions,privileges,create_change[0]=='1',password_expiry);
+               *profile_email ? profile_email : "",1,privileges,true,now + 7 * 86400);
             if (ok) {
                dict *fields=dict_new();
                if (!fields) ok=false;
