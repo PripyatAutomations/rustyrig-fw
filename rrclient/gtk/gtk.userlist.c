@@ -86,6 +86,18 @@ typedef struct room_vfo_control {
    room_userlist_entry_t *entry;
 } room_vfo_control_t;
 
+/* Roster identities can originate with remote peers. GTK/Pango must only
+ * receive valid UTF-8, but keep raw names in the model for identity matching. */
+static char *userlist_safe_display(const char *text) {
+   if (!text) return g_strdup("");
+   if (g_utf8_validate(text,-1,NULL)) return g_strdup(text);
+   static bool warned = false;
+   if (!warned) {
+      Log(LOG_WARN,"gtk.userlist","Invalid UTF-8 in userlist display text");
+      warned = true;
+   }
+   return g_utf8_make_valid(text,-1);
+}
 static int userlist_default_width(void) {
    int width = cfg_get_int("ui.userlist-width", 220);
 
@@ -562,8 +574,10 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       }
       char decorated[HTTP_USER_LEN + 8];
       userlist_display_name(c, decorated, sizeof(decorated));
+      char *safe_name=userlist_safe_display(c->name);
+      char *safe_decorated=userlist_safe_display(decorated);
       const char *values[NUM_COLS] = {
-         select_user_icon(c), c->name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), decorated
+         select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), safe_decorated
       };
       char *previous[NUM_COLS] = {
          0
@@ -582,6 +596,8 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
             COL_MUTE_ICON, values[COL_MUTE_ICON], COL_ELMERNOOB_ICON, values[COL_ELMERNOOB_ICON], COL_DISPLAY_NAME, values[COL_DISPLAY_NAME], -1);
          changed = true;
       }
+      g_free(safe_name);
+      g_free(safe_decorated);
       cursor = row;
       valid = gtk_tree_model_iter_next(model, &cursor);
    }
