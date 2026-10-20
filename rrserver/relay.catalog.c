@@ -857,14 +857,49 @@ static void inventory_services(rrconn_t *client, const char *request, const char
    }
 }
 
+/* Directory snapshots are in-memory discovery data, never authorization.
+ * Reveal permission names only to local administrators/owners. */
+static void inventory_directory_users(rrconn_t *client,const char *request,
+                                      const char *owner,unsigned depth) {
+   struct directory *directory=rr_relay_directories;
+   while (directory && strcmp(directory->node,owner)) directory=directory->next;
+   if (!directory || !directory->users) return;
+   dict *folder=rr_inventory_row(request,depth,"user-directory","Users",NULL);
+   dict_add(folder,"inventory.description","Public account directory");
+   rr_inventory_send(client,folder);
+   unsigned count=dict_get_uint(directory->users,"count",0);
+   if (count>HTTP_MAX_USERS) count=HTTP_MAX_USERS;
+   for (unsigned i=0;i<count;i++) {
+      char key[64];
+      snprintf(key,sizeof(key),"user.%u.name",i);
+      const char *name=dict_get(directory->users,key,"");
+      if (!*name) continue;
+      dict *row=rr_inventory_row(request,depth+1,"user",name,NULL);
+      snprintf(key,sizeof(key),"user.%u.sessions",i);
+      unsigned sessions=dict_get_uint(directory->users,key,0);
+      char *description=g_strdup_printf("Account: %s\\nPresence: %s (%u active session%s)",
+        name,sessions ? "online" : "offline",sessions,sessions==1 ? "" : "s");
+      dict_add(row,"inventory.description",description);
+      dict_add(row,"inventory.state",sessions ? "Online" : "Offline");
+      g_free(description);
+      if (client->user && has_priv(client->user->uid,"admin|owner")) {
+         snprintf(key,sizeof(key),"user.%u.privileges",i);
+         dict_add(row,"inventory.access",dict_get(directory->users,key,""));
+      }
+      rr_inventory_send(client,row);
+   }
+}
 /* Send remote inventory entries visible through the relay catalog. */
 void rrserver_relay_inventory(rrconn_t *client, const char *request) {
    // Keep remote site/rig/VFO context explicit in both client discovery trees.
+   rr_relay_users_poll(true);
+   inventory_directory_users(client,request,rrserver_links_node(),1);
    for (struct catalog *site = rr_relay_catalogs ; site ; site = site->next) {
       if (rr_relay_local_owner(site->owner) || strcmp(dict_get(site->descriptor, "object.type", ""), "node")) {
          continue;
       }
       inventory_entry(client, request, site, 0, "site");
+      inventory_directory_users(client,request,site->owner,1);
       inventory_services(client, request, site->owner, dict_get(site->descriptor, "object.uuid", ""), 1);
 
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
