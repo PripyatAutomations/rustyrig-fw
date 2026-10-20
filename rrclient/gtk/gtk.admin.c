@@ -1564,7 +1564,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
       admin_refresh(NULL, table);
    }
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Create User", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
-      GTK_RESPONSE_CANCEL, "Edit Privs", 1003, "Create User", GTK_RESPONSE_OK, NULL);
+      GTK_RESPONSE_CANCEL, "Copy From…", 1004, "Edit Privs", 1003, "Create User", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    char *context = g_strdup_printf("Server: %s\nA temporary password will be shown after creation.", table->profile);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
@@ -1590,7 +1590,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
    int response;
-   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003) {
+   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003 || response == 1004) {\n      if (response == 1004) {\n         admin_copy_user(dialog,table,email,real,phone,privileges);\n         continue;\n      }
       if (response == 1003) {
          char *edited = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile, gtk_entry_get_text(GTK_ENTRY(name)), gtk_entry_get_text(GTK_ENTRY(privileges)));
 
