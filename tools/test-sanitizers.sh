@@ -16,7 +16,13 @@ rr_test_prepare_build() {
     if [[ "$previous" != "$mode" || ! -x "$rr_test_root/bin/rrclient" || ! -x "$rr_test_root/bin/rrserver" ]]; then
         echo "QC build: $mode (rebuilding all objects and libraries in the active tree)"
         rm -f -- "$stamp"
-        ( cd "$rr_test_root" && make -B -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)" SANITIZE="$flags" world )
+        # Invalidate compiled objects, not Make's configuration/submodule targets.
+        # -B would force config/*.config.json's intentional error recipe to run.
+        find "$rr_test_root/build" -type f -name '*.o' -delete
+        if [[ -d "$rr_test_root/callsign-lookup" ]]; then
+            find "$rr_test_root/callsign-lookup" -type f -name '*.o' -delete
+        fi
+        ( cd "$rr_test_root" && make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)" SANITIZE="$flags" world )
         printf '%s\n' "$mode" > "$stamp"
     fi
     if [[ -n "$flags" ]]; then
