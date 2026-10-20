@@ -52,7 +52,7 @@ extern const int num_configs;
 extern defconfig_t defcfg[];
 extern bool log_stdout;
 
-const char *config_file = NULL;
+extern const char *config_file; /* Owned by librustyaxe/config.c. */
 const char *config_codec = "pc16";
 static int control_fd = -1;
 const char *logfile = "./fwdsp.log";
