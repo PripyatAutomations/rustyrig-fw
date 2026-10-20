@@ -789,6 +789,61 @@ static void admin_control_apply(GtkButton *button, gpointer user) {
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
 /* Wrapping must follow the actual allocated column width. A permanent 112px
  * wrap width made Audit Log details consume many lines in a wide window. */
+/* UUIDs remain complete in the model. Only their on-screen rendering is
+ * abbreviated; commands, sorting and clipboard operations use the raw ID. */
+static char *admin_short_uuid(const char *uuid) {
+   if (!uuid) return g_strdup("");
+   size_t length=strlen(uuid);
+   if (length<=18) return g_strdup(uuid);
+   return g_strdup_printf("%.8s..%s",uuid,uuid+length-8);
+}
+static void admin_uuid_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
+                            GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
+   (void)column;
+   int field=GPOINTER_TO_INT(data);
+   char *raw=NULL;
+   gtk_tree_model_get(model,iter,field,&raw,-1);
+   char *shortened=admin_short_uuid(raw);
+   g_object_set(renderer,"text",shortened,NULL);
+   g_free(shortened);
+   g_free(raw);
+}
+static void admin_copy_uuid_clicked(GtkMenuItem *item,gpointer data) {
+   (void)data;
+   const char *uuid=g_object_get_data(G_OBJECT(item),"full-uuid");
+   if (!uuid) return;
+   GtkClipboard *clipboard=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+   gtk_clipboard_set_text(clipboard,uuid,-1);
+}
+static gboolean admin_uuid_menu(GtkWidget *widget,GdkEventButton *event,gpointer data) {
+   admin_table_t *table=data;
+   if (event->type!=GDK_BUTTON_PRESS || event->button!=3) return FALSE;
+   GtkTreePath *path=NULL;
+   GtkTreeViewColumn *column=NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget),
+         (int)event->x,(int)event->y,&path,&column,NULL,NULL)) return FALSE;
+   int field=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(column),"rr-uuid-field"));
+   if (!g_object_get_data(G_OBJECT(column),"rr-is-uuid")) {
+      gtk_tree_path_free(path);
+      return FALSE;
+   }
+   GtkTreeIter iter;
+   GtkTreeModel *model=gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
+   char *raw=NULL;
+   if (gtk_tree_model_get_iter(model,&iter,path))
+      gtk_tree_model_get(model,&iter,field,&raw,-1);
+   gtk_tree_path_free(path);
+   if (!raw || !*raw) {g_free(raw);return FALSE;}
+   GtkWidget *menu=gtk_menu_new();
+   GtkWidget *copy=gtk_menu_item_new_with_label("Copy UUID");
+   g_object_set_data_full(G_OBJECT(copy),"full-uuid",raw,g_free);
+   g_signal_connect(copy,"activate",G_CALLBACK(admin_copy_uuid_clicked),NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),copy);
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
+}
 static void admin_column_wrap_width(GObject *object,GParamSpec *pspec,gpointer data) {
    (void)pspec;
    GtkTreeViewColumn *column=GTK_TREE_VIEW_COLUMN(object);
@@ -1778,6 +1833,7 @@ GtkWidget *init_admin_tab(void) {
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       table->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(table->store));
+      g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_uuid_menu),table);
 
       const int user_order[] = {
          8, 1, 0, 3, 4, 5, 6, 2, 7
@@ -1813,6 +1869,12 @@ GtkWidget *init_admin_tab(void) {
          } else if ((quotas && field > 0) || (ptt && (field == 3 || field == 4 || field == 9))) {
             g_object_set_data(G_OBJECT(column), "rr-admin-table", table);
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_numeric_cell, GINT_TO_POINTER(field), NULL);
+         } else if (!strcmp(table->fields[field],"uuid") ||
+                    !strcmp(table->fields[field],"resource_uuid")) {
+            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_uuid_cell,
+               GINT_TO_POINTER(field),NULL);
+            g_object_set_data(G_OBJECT(column),"rr-is-uuid",GINT_TO_POINTER(1));
+            g_object_set_data(G_OBJECT(column),"rr-uuid-field",GINT_TO_POINTER(field));
          } else {
             gtk_tree_view_column_add_attribute(column, renderer, "text", field);
          }
