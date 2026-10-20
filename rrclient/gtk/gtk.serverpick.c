@@ -325,7 +325,12 @@ void gtk_show_server_chooser(void) {
 
    for (int i = 0 ; i < 4 ; i++) {
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+      g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", i, NULL);
+      gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+      gtk_tree_view_column_set_fixed_width(column, i == 0 ? 85 : i == 1 ? 65 : i == 2 ? 120 : 70);
+      gtk_tree_view_column_set_min_width(column, 32);
+      gtk_tree_view_column_set_expand(column, i == 2);
       gtk_tree_view_column_set_sort_column_id(column, i);
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), column);
    }
@@ -337,10 +342,15 @@ void gtk_show_server_chooser(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), connected_col);
    GtkCellRenderer *status = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *status_col = gtk_tree_view_column_new_with_attributes("Status", status, "text", 6, NULL);
+   g_object_set(status, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+   gtk_tree_view_column_set_sizing(status_col, GTK_TREE_VIEW_COLUMN_FIXED);
+   gtk_tree_view_column_set_fixed_width(status_col, 90);
+   gtk_tree_view_column_set_min_width(status_col, 32);
    gtk_tree_view_column_set_sort_column_id(status_col, 6);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), status_col);
    gtk_widget_set_tooltip_text(tree, "Click Connected to connect, disconnect, or cancel a pending connection and its retries.");
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
    GtkWidget *edit = gtk_button_new_with_label("Edit");
