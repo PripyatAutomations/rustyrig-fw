@@ -35,7 +35,7 @@ rr_test_prepare_build "$sanitizer" "$media_san"
 rr_test_config=$(python3 tools/test-config.py "$rr_test_root" rrserver)
 server_args=(-f "$rr_test_config")
 case "$debugger" in
-    gdb) exec gdb --ex run --args "$rr_test_root/bin/rrserver" "${server_args[@]}" ;;
+    gdb) exec gdb --ex "handle SIGPIPE nostop noprint pass" --ex run --args "$rr_test_root/bin/rrserver" "${server_args[@]}" ;;
     valgrind)
         exec valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all \
             --log-file="$rr_test_root/audit-logs/valgrind.rrserver.%p.log" \
