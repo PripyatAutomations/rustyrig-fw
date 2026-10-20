@@ -44,6 +44,15 @@ char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *nam
 
    for (GList *item = names ; item ; item = item->next) {
       GtkWidget *button = gtk_check_button_new_with_label(item->data);
+      for (unsigned j = 0; j < G_N_ELEMENTS(rrclient_privilege_registry); ++j) {
+         const rr_privilege_info_t *info = &rrclient_privilege_registry[j];
+         if (!strcmp(info->name, item->data)) {
+            char *tip = g_strdup_printf("%s — %s (%s)", info->label, info->description, info->scope);
+            gtk_widget_set_tooltip_text(button, tip);
+            g_free(tip);
+            break;
+         }
+      }
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), g_hash_table_contains(selected, item->data));
       gtk_box_pack_start(GTK_BOX(rows), button, FALSE, FALSE, 0);
       g_ptr_array_add(buttons, button);
