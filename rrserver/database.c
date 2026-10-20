@@ -374,7 +374,9 @@ static void db_ensure_user_columns(sqlite3 *db) {
    const char *columns[] = {
       "ALTER TABLE users ADD COLUMN password_set INTEGER NOT NULL DEFAULT 0;",
       "ALTER TABLE users ADD COLUMN password_expires INTEGER DEFAULT NULL;",
-      "ALTER TABLE users ADD COLUMN password_change_required INTEGER NOT NULL DEFAULT 0;"
+      "ALTER TABLE users ADD COLUMN password_change_required INTEGER NOT NULL DEFAULT 0;",
+      "ALTER TABLE users ADD COLUMN real_name TEXT NOT NULL DEFAULT '';",
+      "ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT '';"
    };
    const char *updates[] = {
       "UPDATE users SET password_set=unixepoch() WHERE password_set IS NULL OR password_set=0;",
