@@ -42,6 +42,8 @@ typedef struct hamlib_backend {
    bool vfo_exchange_fallback;
    rr_vfo_t last_active_vfo;
    bool connected;
+   bool backlight_readable;
+   bool backlight_writable;
    bool default_instance;
    bool transmitting;
    rr_vfo_t tx_vfo;
@@ -437,6 +439,13 @@ static bool hl_connect(rr_backend_t *backend) {
    }
 
    data->connected = true;
+   data->backlight_readable = !!rig_has_get_parm(data->rig, RIG_PARM_BACKLIGHT);
+   data->backlight_writable = !!rig_has_set_parm(data->rig, RIG_PARM_BACKLIGHT);
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
+      "%s: display backlight read=%s write=%s",
+      rr_backend_instance_alias(backend),
+      data->backlight_readable ? "yes" : "no",
+      data->backlight_writable ? "yes" : "no");
    data->retry_at = 0;
    memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
    memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok));
