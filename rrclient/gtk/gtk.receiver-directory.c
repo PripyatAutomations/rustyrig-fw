@@ -1,5 +1,13 @@
 // GTK presentation only; directory fetching, validation and persistence are common.
 
+#include <gtk/gtk.h>
+#include <rrclient/receiver.directory.h>
+#include <rrclient/receiver.connect.h>
+#include <rrclient/rooms.h>
+#include <librrprotocol/rrprotocol.h>
+#include <librustyaxe/core.h>
+#include "gtk.receiver-directory.h"
+
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
                                GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
@@ -23,13 +31,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
    } else g_object_set(cell,"cell-background-set",FALSE,NULL);
    if (path) gtk_tree_path_free(path);
 }
-#include <gtk/gtk.h>
-#include <rrclient/receiver.directory.h>
-#include <rrclient/receiver.connect.h>
-#include <rrclient/rooms.h>
-#include <librrprotocol/rrprotocol.h>
-#include <librustyaxe/core.h>
-#include "gtk.receiver-directory.h"
+
 
 extern GtkWidget *main_window, *main_notebook;
 static GtkWidget *directory_page, *search_entry, *accessible_only, *directory_tree;
