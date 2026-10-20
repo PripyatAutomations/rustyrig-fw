@@ -1032,11 +1032,11 @@ void rrserver_serial_init(void) {
          const char *path = cfg_get(option);
          snprintf(p->path, sizeof(p->path), "%s", path ? path : "");
 
-         if (g_str_has_prefix(p->path,"$HOME/")) {
+         if (g_str_has_prefix(p->path,"$HOME/") || !strcmp(p->path,"$HOME")) {
             const char *home=getenv("HOME");
             char expanded[PATH_MAX];
             if (!home || !*home ||
-                snprintf(expanded,sizeof(expanded),"%s/%s",home,p->path+6)>=(int)sizeof(expanded))
+                snprintf(expanded,sizeof(expanded),"%s%s",home,p->path+5)>=(int)sizeof(expanded))
                continue;
             snprintf(p->path,sizeof(p->path),"%s",expanded);
          }
