@@ -100,75 +100,110 @@ static guint gps_nmea_timer;
 
 static void gps_nmea_tick_connection(void *unused) {
    (void)unused;
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_client_media_chan *channel = &known_chans[i];
       gps_position_cache_t *cached = &gps_position_cache[i];
+
       if (!cached->known || !channel->joined || !channel->subscribed ||
-          !channel->stream_valid || strcmp(channel->codec, RR_GPS_FRAME_CODEC) ||
-          !gps_wanted(channel)) continue;
+         !channel->stream_valid || strcmp(channel->codec, RR_GPS_FRAME_CODEC) || !gps_wanted(channel)) {
+         continue;
+      }
       char sentence[128];
-      if (!rr_gps_nmea_rmc(cached->lat, cached->lon, cached->flags,
-            time(NULL), sentence, sizeof(sentence))) continue;
+
+      if (!rr_gps_nmea_rmc(cached->lat, cached->lon, cached->flags, time(NULL), sentence, sizeof(sentence))) {
+         continue;
+      }
       const char *suffix = strstr(channel->name, ".gps.rx");
-      if (!suffix) continue;
+
+      if (!suffix) {
+         continue;
+      }
       char source[64];
       size_t n = (size_t)(suffix - channel->name);
-      if (n >= sizeof(source)) continue;
+
+      if (n >= sizeof(source)) {
+         continue;
+      }
       memcpy(source, channel->name, n);
       source[n] = 0;
       dict *d = dict_new();
-      if (!d) continue;
+
+      if (!d) {
+         continue;
+      }
       dict_add(d, "gps.channel-uuid", channel->uuid);
       dict_add(d, "gps.control-room", channel->control_room);
       dict_add(d, "gps.source", source);
       dict_add(d, "gps.nmea", sentence);
       dict_add_bool(d, "gps.raw", false);
-      dict_add_bool(d, "gps.selected",
-         ws_room_same_rig(media_room, channel->control_room) ||
-         (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room)));
+      dict_add_bool(d, "gps.selected", ws_room_same_rig(media_room, channel->control_room) || (!strcmp(source, "station") && !rrclient_room_vfo_mask(media_room)
+         ));
       event_emit_dict("serial.gps.output", NULL, d);
       dict_free(d);
    }
 }
 static gboolean gps_nmea_tick(gpointer unused) {
    (void)unused;
-   /* The active connection may be IRC while a different server continues
-    * to provide the rig's GPS. Process each server's own cached streams. */
-   for (unsigned i = 0; ; i++) {
+
+   /* The active connection may be IRC while a different server continues to provide the rig's GPS. Process each server's own cached streams. */
+   for (unsigned i = 0 ;; i++) {
       const char *profile = rrclient_connection_iter(i);
-      if (!profile) break;
+
+      if (!profile) {
+         break;
+      }
       rrconn_t *conn = rrclient_connection_find(profile);
-      if (conn && conn->is_ws)
+
+      if (conn && conn->is_ws) {
          rrclient_connection_dispatch(conn, gps_nmea_tick_connection, NULL);
+      }
    }
+
    return G_SOURCE_CONTINUE;
 }
 
-/* Re-announce the selected transmitter site's cached position immediately
- * when ttyGPS changes rig, without waiting for a fresh GPS frame. */
+/* Re-announce the selected transmitter site's cached position immediately when ttyGPS changes rig, without waiting for a fresh GPS frame. */
 void rrclient_media_emit_gps_for_room(const char *room) {
-   if (!room || !*room) return;
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+   if (!room || !*room) {
+      return;
+   }
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       const struct rr_client_media_chan *ch = &known_chans[i];
       const gps_position_cache_t *cached = &gps_position_cache[i];
-      if (!ch->subscribed || !ch->stream_valid ||
-          !ws_room_same_rig(room, ch->control_room)) continue;
+
+      if (!ch->subscribed || !ch->stream_valid || !ws_room_same_rig(room, ch->control_room)) {
+         continue;
+      }
       char sentence[512], source[64];
       bool raw = !strcmp(ch->codec, RR_NMEA_FRAME_CODEC);
+
       if (raw) {
-         if (!cached->raw_nmea[0]) continue;
+         if (!cached->raw_nmea[0]) {
+            continue;
+         }
          snprintf(sentence, sizeof(sentence), "%s", cached->raw_nmea);
       } else if (!strcmp(ch->codec, RR_GPS_FRAME_CODEC) && cached->known) {
-         if (!rr_gps_nmea_rmc(cached->lat, cached->lon, cached->flags,
-               time(NULL), sentence, sizeof(sentence))) continue;
-      } else continue;
+         if (!rr_gps_nmea_rmc(cached->lat, cached->lon, cached->flags, time(NULL), sentence, sizeof(sentence))) {
+            continue;
+         }
+      } else {
+         continue;
+      }
       const char *suffix = strstr(ch->name, raw ? ".nmea.rx" : ".gps.rx");
-      if (!suffix || (size_t)(suffix - ch->name) >= sizeof(source)) continue;
+
+      if (!suffix || (size_t)(suffix - ch->name) >= sizeof(source)) {
+         continue;
+      }
       size_t n = (size_t)(suffix - ch->name);
       memcpy(source, ch->name, n);
       source[n] = 0;
       dict *d = dict_new();
-      if (!d) continue;
+
+      if (!d) {
+         continue;
+      }
       dict_add(d, "gps.channel-uuid", ch->uuid);
       dict_add(d, "gps.control-room", ch->control_room);
       dict_add(d, "gps.source", source);
@@ -177,7 +212,8 @@ void rrclient_media_emit_gps_for_room(const char *room) {
       dict_add_bool(d, "gps.selected", true);
       event_emit_dict("serial.gps.output", NULL, d);
       dict_free(d);
-      return; /* only one initial location announcement */
+
+      return;                   /* only one initial location announcement */
    }
 }
 
@@ -321,6 +357,7 @@ const char *rrclient_media_rx_uuid_for_stream(uint8_t stream, const char codec[4
 
    return channel ? channel->uuid : NULL;
 }
+
 /* PARITY: rustyrig-www/js/webui.audio.js webui_mute_talkback. */
 bool rrclient_media_local_tx(const char *uuid) {
    extern const char *login_user;
@@ -342,7 +379,7 @@ bool rrclient_media_local_tx(const char *uuid) {
          const char *control = channel->control_room[0] ? channel->control_room : channel->room;
 
          if (user->is_ptt && !strcasecmp(user->name, login_user) && room[0] &&
-             (!strcasecmp(room, control) || ws_room_same_rig(room, control)) && (channel->vfo == RR_BINFRAME_VFO_NA || user->ptt_vfo == 'A' + channel->vfo)) {
+            (!strcasecmp(room, control) || ws_room_same_rig(room, control)) && (channel->vfo == RR_BINFRAME_VFO_NA || user->ptt_vfo == 'A' + channel->vfo)) {
             return true;
          }
       }
@@ -492,47 +529,66 @@ bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) 
    return media_select_codec(cptr, is_tx, codec, NULL);
 }
 
-/* A source exposing GPSP and NMEA needs only GPSP on the wire.
- * Compare the shared source prefix and controlling rig, not VFO/tab state. */
+/* A source exposing GPSP and NMEA needs only GPSP on the wire. Compare the shared source prefix and controlling rig, not VFO/tab state. */
 static bool gpsp_counterpart(const struct rr_client_media_chan *nmea) {
    const char *suffix = strstr(nmea->name, ".nmea.rx");
-   if (!suffix) return false;
-   size_t prefix = (size_t)(suffix - nmea->name);
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
-      const struct rr_client_media_chan *candidate = &known_chans[i];
-      if (!candidate->uuid[0] || strcmp(candidate->codec, RR_GPS_FRAME_CODEC) ||
-          candidate->direction != RR_BINFRAME_DIR_RX ||
-          strcasecmp(candidate->control_room, nmea->control_room)) continue;
-      const char *end = strstr(candidate->name, ".gps.rx");
-      if (end && (size_t)(end - candidate->name) == prefix &&
-          !strncmp(candidate->name, nmea->name, prefix)) return true;
+
+   if (!suffix) {
+      return false;
    }
+   size_t prefix = (size_t)(suffix - nmea->name);
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
+      const struct rr_client_media_chan *candidate = &known_chans[i];
+
+      if (!candidate->uuid[0] || strcmp(candidate->codec, RR_GPS_FRAME_CODEC) ||
+         candidate->direction != RR_BINFRAME_DIR_RX || strcasecmp(candidate->control_room, nmea->control_room)) {
+         continue;
+      }
+      const char *end = strstr(candidate->name, ".gps.rx");
+
+      if (end && (size_t)(end - candidate->name) == prefix && !strncmp(candidate->name, nmea->name, prefix)) {
+         return true;
+      }
+   }
+
    return false;
 }
 static bool gps_nmea_explicit(const struct rr_client_media_chan *channel) {
    const char *suffix = strstr(channel->name, ".nmea.rx");
-   if (!suffix) return false;
+
+   if (!suffix) {
+      return false;
+   }
    char source[64];
    size_t len = (size_t)(suffix - channel->name);
-   if (len >= sizeof(source)) return false;
+
+   if (len >= sizeof(source)) {
+      return false;
+   }
    memcpy(source, channel->name, len);
    source[len] = 0;
    char scopes[sizeof(gps_scopes)];
    snprintf(scopes, sizeof(scopes), "%s", gps_scopes);
    char *save = NULL;
-   for (char *token = strtok_r(scopes, " ", &save); token;
-        token = strtok_r(NULL, " ", &save))
-      if (!strncmp(token, "nmea:", 5) &&
-          (!strcmp(token + 5, source) || !strcmp(token + 5, channel->uuid)))
+
+   for (char *token = strtok_r(scopes, " ", &save) ; token ; token = strtok_r(NULL, " ", &save)) {
+      if (!strncmp(token, "nmea:", 5) && (!strcmp(token + 5, source) || !strcmp(token + 5, channel->uuid))) {
          return true;
+      }
+   }
+
    return false;
 }
 static void gps_prefer_packed(rrconn_t *connection) {
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_client_media_chan *channel = &known_chans[i];
+
       if (strcmp(channel->codec, RR_NMEA_FRAME_CODEC) ||
-          !channel->automatic || !channel->subscribed ||
-          gps_nmea_explicit(channel) || !gpsp_counterpart(channel)) continue;
+         !channel->automatic || !channel->subscribed || gps_nmea_explicit(channel) || !gpsp_counterpart(channel)) {
+         continue;
+      }
+
       if (connection && media_send_unsubscribe(connection, channel->uuid)) {
          channel->subscribed = false;
          channel->automatic = false;
@@ -541,6 +597,7 @@ static void gps_prefer_packed(rrconn_t *connection) {
       }
    }
 }
+
 // Track pending subscriptions so we only subscribe once per channel
 static bool gps_wanted(const struct rr_client_media_chan *channel) {
    if (channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || channel->direction != RR_BINFRAME_DIR_RX ||
@@ -548,8 +605,10 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
       return false;
    }
    bool raw = !strcmp(channel->codec, RR_NMEA_FRAME_CODEC);
-   if (raw && gpsp_counterpart(channel) && !gps_nmea_explicit(channel))
+
+   if (raw && gpsp_counterpart(channel) && !gps_nmea_explicit(channel)) {
       return false;
+   }
    const char *suffix = strstr(channel->name, raw ? ".nmea.rx" : ".gps.rx");
 
    if (!suffix) {
@@ -563,11 +622,10 @@ static bool gps_wanted(const struct rr_client_media_chan *channel) {
    }
    memcpy(source, channel->name, len);
    source[len] = '\0';
-   /* A joined rig room implicitly requests any advertised GPS/NMEA RX
-    * channels for that rig. Output selection is still handled separately
-    * by serial.gps.output, so ttyGPS follows the active rig. */
-   if (channel->room[0] && rrclient_room_is_joined(channel->room) &&
-       rrclient_room_vfo_mask(channel->room)) {
+
+   /* A joined rig room implicitly requests any advertised GPS/NMEA RX channels for that rig. Output selection is still handled separately by serial.gps.output,
+    * so ttyGPS follows the active rig. */
+   if (channel->room[0] && rrclient_room_is_joined(channel->room) && rrclient_room_vfo_mask(channel->room)) {
       return true;
    }
 
@@ -641,8 +699,7 @@ static void gps_outputs_changed(const char *event, const char *data, rrconn_t *c
       if (gps_wanted(kp)) {
          media_try_autosubscribe(ws_conn, kp);
       }
-      /* GPS/NMEA subscriptions are site metadata. Changing which local PTY
-       * consumes them must never tear down an existing remote subscription. */
+      /* GPS/NMEA subscriptions are site metadata. Changing which local PTY consumes them must never tear down an existing remote subscription. */
    }
 }
 
@@ -860,14 +917,13 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_client_media_chan *kp = &known_chans[i];
-      bool gps_metadata = kp->subsystem == RR_BINFRAME_SUBSYS_MODEM &&
-         (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC));
+      bool gps_metadata = kp->subsystem == RR_BINFRAME_SUBSYS_MODEM && (!strcmp(kp->codec, RR_GPS_FRAME_CODEC) || !strcmp(kp->codec, RR_NMEA_FRAME_CODEC));
       /* Retain subscribed site position feeds across room/tab changes;
        * automatic acquisition still requires a joined rig room. */
       bool active = (gps_metadata && kp->subscribed) || gps_wanted(kp) ||
          (kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO &&
-         (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t) (vfo_state_get_active() - 'A')) &&
-         (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
+            (kp->vfo == RR_BINFRAME_VFO_NA || kp->vfo == (uint8_t) (vfo_state_get_active() - 'A')) &&
+            (!kp->room[0] || (kp->joined && !strcasecmp(kp->room, media_room))));
 
       // PARITY: rustyrig-www/js/webui.media.js mediaSyncActiveVfo.
       // Tab/VFO selection controls TX routing; room output choices control RX playback.
@@ -986,9 +1042,11 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
 
       if (frame.data[8] & RR_GPS_POSITION_VALID) {
          long long latitude = lat, longitude = lon;
-         snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld, %s%lld.%07lld", latitude < 0 ? "-" : "", llabs(latitude) / 10000000,
-            llabs(latitude) % 10000000, longitude < 0 ? "-" : "", llabs(longitude) / 10000000, llabs(longitude) % 10000000);
-      } else strlcpy(coordinates, "No fix", sizeof(coordinates));
+         snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld, %s%lld.%07lld", latitude < 0 ? "-" : "", llabs(latitude) / 10000000, llabs(latitude) %
+            10000000, longitude < 0 ? "-" : "", llabs(longitude) / 10000000, llabs(longitude) % 10000000);
+      } else {
+         strlcpy(coordinates, "No fix", sizeof(coordinates));
+      }
 
       if (!gps_sentence(lat, lon, frame.data[8], sentence, sizeof(sentence))) {
          return;
@@ -1005,24 +1063,22 @@ static void gps_frame(const char *event, const void *data, size_t len, rrconn_t 
       if (!channel->subscribed || !channel->stream_valid || channel->stream != frame.hdr.stream ||
          channel->subsystem != RR_BINFRAME_SUBSYS_MODEM || strcmp(channel->codec, raw ? RR_NMEA_FRAME_CODEC : RR_GPS_FRAME_CODEC) ||
          channel->rig != frame.hdr.rig) {
-         /* Position metadata can update a cached remote site even when
-          * its room is no longer the active tab. */
+         /* Position metadata can update a cached remote site even when its room is no longer the active tab. */
          continue;
       }
+
       if (raw) {
          gps_position_cache[channel - known_chans].known = true;
-         snprintf(gps_position_cache[channel - known_chans].raw_nmea,
-            sizeof(gps_position_cache[0].raw_nmea), "%s", sentence);
+         snprintf(gps_position_cache[channel - known_chans].raw_nmea, sizeof(gps_position_cache[0].raw_nmea), "%s", sentence);
       }
+
       if (!raw) {
          size_t position_index = (size_t)(channel - known_chans);
          gps_position_cache[position_index].known = true;
          gps_position_cache[position_index].lat =
-            (int32_t)((uint32_t)frame.data[0] << 24 | (uint32_t)frame.data[1] << 16 |
-                      (uint32_t)frame.data[2] << 8 | frame.data[3]);
+            (int32_t) ((uint32_t) frame.data[0] << 24 | (uint32_t) frame.data[1] << 16 | (uint32_t) frame.data[2] << 8 | frame.data[3]);
          gps_position_cache[position_index].lon =
-            (int32_t)((uint32_t)frame.data[4] << 24 | (uint32_t)frame.data[5] << 16 |
-                      (uint32_t)frame.data[6] << 8 | frame.data[7]);
+            (int32_t) ((uint32_t) frame.data[4] << 24 | (uint32_t) frame.data[5] << 16 | (uint32_t) frame.data[6] << 8 | frame.data[7]);
          gps_position_cache[position_index].flags = frame.data[8];
          strlcpy(channel->gps_coordinates, coordinates, sizeof(channel->gps_coordinates));
       }
@@ -1152,7 +1208,9 @@ static void media_transport_notice(const char *event, const char *data, rrconn_t
 }
 
 void rrclient_media_register_events(void) {
-   if (!gps_nmea_timer) gps_nmea_timer = g_timeout_add_seconds(1, gps_nmea_tick, NULL);
+   if (!gps_nmea_timer) {
+      gps_nmea_timer = g_timeout_add_seconds(1, gps_nmea_tick, NULL);
+   }
    event_on("client.media.transport", media_transport_notice, NULL);
    event_on("client.server.selected", media_server_selected, NULL);
    event_on("serial.gps.outputs.changed", gps_outputs_changed, NULL);
@@ -1291,15 +1349,22 @@ bool rrclient_media_subscribe(const char *uuid) {
 
 bool rrclient_media_video_info(char *uuid, size_t uuid_size, char *profiles, size_t profiles_size) {
    const struct rr_client_media_chan *video = NULL;
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       if (known_chans[i].uuid[0] && known_chans[i].subsystem == RR_BINFRAME_SUBSYS_VIDEO && known_chans[i].direction == RR_BINFRAME_DIR_RX) {
-         if (video) return false;
+         if (video) {
+            return false;
+         }
          video = &known_chans[i];
       }
    }
-   if (!video) return false;
+
+   if (!video) {
+      return false;
+   }
    snprintf(uuid, uuid_size, "%s", video->uuid);
    snprintf(profiles, profiles_size, "%s", video->profiles);
+
    return true;
 }
 

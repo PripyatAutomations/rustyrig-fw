@@ -5,8 +5,8 @@
 
 int main(void) {
    rr_rx_slice_spec_t spec = {
-      .source="rig0", .center_hz=14074000, .bandwidth_hz=3000,
-      .rate=12000, .format=RR_RX_S16LE, .channels=1
+      .source = "rig0", .center_hz = 14074000, .bandwidth_hz = 3000,
+      .rate = 12000, .format = RR_RX_S16LE, .channels = 1
    };
    char name[RR_RX_SLICE_NAME_MAX];
    assert(rr_rx_slice_name(&spec, name, sizeof(name)));
@@ -32,5 +32,6 @@ int main(void) {
    rr_rx_slice_release(registry, c);
    assert(rr_rx_slices_count(registry) == 0);
    rr_rx_slices_free(registry);
+
    return 0;
 }

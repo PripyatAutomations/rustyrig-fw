@@ -20,11 +20,22 @@ time_t now;
 bool dying, restarting;
 rrconn_t *ws_conn;
 struct rr_user *global_userlist;
-const char *rrserver_gps_public_scope(const char *alias) { return alias; }
-bool rrserver_gps_source_fixed(const char *alias) { return false; }
-rrconn_t *rrclient_connection_find(const char *profile) { return ws_conn; }
-const char *rrclient_connection_name(const rrconn_t *connection) { return "test"; }
-void rrclient_connection_dispatch(rrconn_t *connection, void (*callback)(void *), void *data) { callback(data); }
+const char *rrserver_gps_public_scope(const char *alias) {
+   return alias;
+}
+bool rrserver_gps_source_fixed(const char *alias) {
+   return false;
+}
+rrconn_t *rrclient_connection_find(const char *profile) {
+   return ws_conn;
+}
+const char *rrclient_connection_name(const rrconn_t *connection) {
+   return "test";
+}
+void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data) {
+   callback(data);
+}
+
 static char last_error[64];
 static unsigned tx_frames, rx_frames, configured;
 static bool send_request(rrconn_t *client, dict *d) {
@@ -290,7 +301,8 @@ int main(int argc, char **argv) {
    control(&other, "close", "other", NULL);
    // Export tunnels can bridge into a physical local TTY, not only a PTY we create.
    assert(rr_sercom_disconnect("ttyHOST0"));
-   int local_master, local_slave; char local_device[128];
+   int local_master, local_slave;
+   char local_device[128];
    assert(!openpty(&local_master, &local_slave, local_device, NULL, NULL));
    fcntl(local_master, F_SETFL, O_NONBLOCK);
    dict_add(cfg, "serial:ttyHOST0.type", "serial");
@@ -299,17 +311,27 @@ int main(int argc, char **argv) {
    transfer(local_master, master, data, 4096);
    transfer(master, local_master, data, 4096);
    assert(rr_sercom_disconnect("ttyHOST0"));
-   close(local_master); close(local_slave);
+   close(local_master);
+   close(local_slave);
    // Output-only host capture receives binary bytes without truncation or TX input.
-   char capture[512]; snprintf(capture, sizeof(capture), "%s/serial.capture", argv[1]);
-   dict_add(cfg, "serial:ttyHOST0.type", "file"); dict_add(cfg, "serial:ttyHOST0.path", capture);
+   char capture[512];
+   snprintf(capture, sizeof(capture), "%s/serial.capture", argv[1]);
+   dict_add(cfg, "serial:ttyHOST0.type", "file");
+   dict_add(cfg, "serial:ttyHOST0.path", capture);
    assert(rr_sercom_attach("ttyHOST0", "host:ttyHOST0", NULL));
    assert(write(master, data, 1024) == 1024);
-   for (unsigned i = 0; i < 100; i++) pump();
+
+   for (unsigned i = 0 ; i < 100 ; i++) {
+      pump();
+   }
+
    assert(rr_sercom_disconnect("ttyHOST0"));
-   int captured = open(capture, O_RDONLY); unsigned char bytes[1024];
+   int captured = open(capture, O_RDONLY);
+   unsigned char bytes[1024];
    assert(captured >= 0 && read(captured, bytes, sizeof(bytes)) == sizeof(bytes));
-   assert(!memcmp(bytes, data, sizeof(bytes))); close(captured); unlink(capture);
+   assert(!memcmp(bytes, data, sizeof(bytes)));
+   close(captured);
+   unlink(capture);
    event_emit("disconnected", NULL, NULL);
    rr_sercom_shutdown();
    rrserver_serial_fini();

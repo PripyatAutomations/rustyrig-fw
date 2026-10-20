@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
 #ifdef RR_TEST_HAMLIB_MODULE
    assert(!strcmp(hamlib->type->name, "hamlib"));
    assert(rr_find_loaded_module("rrserver-hamlib"));
-   assert(!rr_unload_module("rrserver-hamlib")); // Active backend callbacks pin the module.
+   assert(!rr_unload_module("rrserver-hamlib"));   // Active backend callbacks pin the module.
 #else
    assert(hamlib->type == &rr_backend_hamlib);
 #endif

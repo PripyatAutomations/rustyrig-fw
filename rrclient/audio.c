@@ -272,7 +272,9 @@ static void audio_mix_block(void) {
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
       size_t take = r->pending_count < 320 ? r->pending_count : 320;
 
-      struct talkback_check check = { .uuid = r->uuid };
+      struct talkback_check check = {
+         .uuid = r->uuid
+      };
 
       if (cfg_get_bool("audio.mute-talkback", true)) {
          rrclient_connection_dispatch(r->connection, audio_check_talkback, &check);

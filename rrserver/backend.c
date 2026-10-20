@@ -236,8 +236,7 @@ bool rr_backend_init(void) {
    if (!identity_namespace || !*identity_namespace) {
       identity_namespace = "default";
    }
-   /* Node UUID belongs to this database, not the station display name.
-    * Renaming a station must not create a new server identity on the wire. */
+   /* Node UUID belongs to this database, not the station display name. Renaming a station must not create a new server identity on the wire. */
    char *node_uuid = rr_runtime_uuid("@server", "@node");
 
    if (!node_uuid || rr_rig_registry_set_node(rig.rigs, node_uuid)) {
@@ -272,6 +271,7 @@ bool rr_backend_init(void) {
       }
       const char *backend_name = rr_rig_config_get(alias, "backend");
       const rr_backend_type_t *type = rr_backend_type_find(backend_name);
+
       if (!type && backend_name && !strcasecmp(backend_name, "hamlib")) {
          if (!rr_load_module("rrserver-hamlib")) {
             Log(LOG_CRIT, "backend", "Rig %s requires rustyrig-server-hamlib; install the package and check path.modules", alias);

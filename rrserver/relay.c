@@ -97,11 +97,13 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    free(json);
 }
 
-/* File operations use correlated results, never generic chat errors, so
- * transfers fail immediately rather than waiting for the client timeout. */
+/* File operations use correlated results, never generic chat errors, so transfers fail immediately rather than waiting for the client timeout. */
 static void linked_file_error(rrconn_t *client, dict *request, const char *reason) {
    dict *reply = dict_new();
-   if (!reply) return;
+
+   if (!reply) {
+      return;
+   }
    dict_add(reply, "msg.type", "file");
    dict_add(reply, "file.cmd", "result");
    dict_add(reply, "file.path", dict_get(request, "file.path", "/"));
@@ -117,9 +119,9 @@ bool rr_relay_permitted_message(dict *d) {
 
    if (!strcmp(family, "file")) {
       const char *op = dict_get(d, "file.cmd", "");
+
       return !strcmp(op, "list") || !strcmp(op, "read") || !strcmp(op, "begin") ||
-         !strcmp(op, "chunk") || !strcmp(op, "commit") || !strcmp(op, "cancel") ||
-         !strcmp(op, "mkdir") || !strcmp(op, "delete") || !strcmp(op, "rename");
+             !strcmp(op, "chunk") || !strcmp(op, "commit") || !strcmp(op, "cancel") || !strcmp(op, "mkdir") || !strcmp(op, "delete") || !strcmp(op, "rename");
    }
 
    if (!strcmp(family, "cat")) {
@@ -160,52 +162,77 @@ static void route_request(const char *event, const void *data, size_t length, rr
 
       return;
    }
-   /* /@<owner-node-uuid>/share/path is a virtual file namespace. The
-    * remote filesystem only ever sees /share/path. No room membership is
-    * necessary, but the owner must authenticate the callsign itself. */
+
+   /* /@<owner-node-uuid>/share/path is a virtual file namespace. The remote filesystem only ever sees /share/path. No room membership is necessary, but the
+    * owner must authenticate the callsign itself. */
    if (!strcmp(dict_get(io->message, "msg.type", ""), "file")) {
       const char *path = dict_get(io->message, "file.path", "");
-      if (strncmp(path, "/@", 2)) return; /* Local shares stay local. */
+
+      if (strncmp(path, "/@", 2)) {
+         return;                /* Local shares stay local. */
+      }
       const char *end = strchr(path + 2, '/');
       size_t n = end ? (size_t)(end - path - 2) : strlen(path + 2);
       char owner[37];
-      if (n != 36) { io->handled = true; linked_file_error(client, io->message, "Invalid linked share owner"); return; }
+
+      if (n != 36) {
+         io->handled = true;
+         linked_file_error(client, io->message, "Invalid linked share owner");
+
+         return;
+      }
       memcpy(owner, path + 2, n);
       owner[n] = 0;
       struct catalog *node = rr_relay_find_catalog(owner);
       io->handled = true;
+
       if (!client->authenticated || !client->user || !node ||
-          strcmp(dict_get(node->descriptor, "object.type", ""), "node") ||
-          strcmp(node->owner, owner) || rr_relay_local_owner(owner) ||
-          !rrserver_links_route(owner) || !rr_relay_permitted_message(io->message)) {
+         strcmp(dict_get(node->descriptor, "object.type", ""), "node") ||
+         strcmp(node->owner, owner) || rr_relay_local_owner(owner) || !rrserver_links_route(owner) || !rr_relay_permitted_message(io->message)) {
          linked_file_error(client, io->message, "Linked file owner unavailable or operation denied");
+
          return;
       }
       dict *request = dict_clone(io->message);
-      if (!request) return;
+
+      if (!request) {
+         return;
+      }
       dict_add(request, "file.path", end ? end : "/");
       const char *dest = dict_get(request, "file.dest", NULL);
+
       if (dest) {
          char prefix[40];
          snprintf(prefix, sizeof(prefix), "/@%s", owner);
-         if (strncmp(dest, prefix, strlen(prefix)) ||
-             (dest[strlen(prefix)] != '/' && dest[strlen(prefix)] != 0)) {
+
+         if (strncmp(dest, prefix, strlen(prefix)) || (dest[strlen(prefix)] != '/' && dest[strlen(prefix)] != 0)) {
             dict_free(request);
             linked_file_error(client, io->message, "Cross-server file moves are not allowed");
+
             return;
          }
          char *local_dest = strdup(dest[strlen(prefix)] ? dest + strlen(prefix) : "/");
-         if (!local_dest) { dict_free(request); return; }
+
+         if (!local_dest) {
+            dict_free(request);
+
+            return;
+         }
          dict_add(request, "file.dest", local_dest);
          free(local_dest);
       }
       struct relay_client *origin = rr_relay_client_for(client, true);
+
       if (origin) {
          dict_add_ulong(request, "relay.deadline", now + 30);
          io->result = rr_relay_packet(owner, "request", origin->id, client->user->name, request);
       }
-      if (!io->result) linked_file_error(client, io->message, "Linked file owner unreachable");
+
+      if (!io->result) {
+         linked_file_error(client, io->message, "Linked file owner unreachable");
+      }
       dict_free(request);
+
       return;
    }
    struct relay_media *media = rr_relay_media_map(client, dict_get(io->message, "media.chan-uuid", ""), false);
@@ -317,9 +344,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    if (!strcmp(kind, "request")) {
       time_t deadline = dict_get_time_t(d, "relay.deadline", 0);
 
-      /* Compare actual wall clock time, not the event-loop cached 'now'.
-       * Allow a small clock-skew margin between linked hosts. */
+      /* Compare actual wall clock time, not the event-loop cached 'now'. Allow a small clock-skew margin between linked hosts. */
       time_t received_at = time(NULL);
+
       if (!deadline || deadline < received_at - 5 || deadline > received_at + 35) {
          dict *error = dict_new();
 
@@ -514,6 +541,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                   break;
                }
             }
+
             if (!strcmp(dict_get(d, "msg.type", ""), "file")) {
                const char *original = dict_get(d, "file.path", "/");
                char virtual_path[1100];
@@ -776,6 +804,7 @@ void rrserver_relay_poll(void) {
    }
 
    static long long catalog_at;
+
    if (rr_relay_catalog_dirty || mono_ms() - catalog_at >= 30000) {
       catalog_at = mono_ms();
       rr_relay_refresh_catalog();
@@ -936,9 +965,11 @@ char *rrserver_relay_rooms(const char *local) {
 /* Visit borrowed remote sessions synchronously on the server thread. */
 void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data) {
 #ifdef USE_MONGOOSE
+
    for (struct remote_session *r = rr_relay_remotes ; r ; r = r->next) {
       visit(&r->client, data);
    }
+
 #else
    (void)visit;
    (void)data;

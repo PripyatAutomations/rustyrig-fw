@@ -82,37 +82,69 @@ bool cfg_network_save_init(void) {
 
 // Callback for the config parser for 'network:*' section
 bool config_network_cb(const char *path, int line, const char *section, const char *buf) {
-   if (!section || !buf) return false;
+   if (!section || !buf) {
+      return false;
+   }
    const char *np = strchr(section, ':');
-   if (!np || !np[1]) return false;
+
+   if (!np || !np[1]) {
+      return false;
+   }
    np++;
 
    if (strncasecmp(buf, "autojoin", 8) == 0) {
       const char *eq = strchr(buf, '=');
-      if (!eq || eq == buf || !eq[1]) return false;
+
+      if (!eq || eq == buf || !eq[1]) {
+         return false;
+      }
       const char *val = eq + 1;
-      while (*val == ' ' || *val == '\t') val++;
-      if (strlen(val) < 2) return false;
+      while (*val == ' ' || *val == '\t') {
+         val++;
+      }
+
+      if (strlen(val) < 2) {
+         return false;
+      }
       char key[256];
       int n = snprintf(key, sizeof(key), "network.%s.autojoin", np);
-      if (n <= 0 || (size_t)n >= sizeof(key)) return false;
+
+      if (n <= 0 || (size_t)n >= sizeof(key)) {
+         return false;
+      }
       const char *old = cfg_get(key);
-      if (!old || !*old) return dict_add(cfg, key, val) == 0;
+
+      if (!old || !*old) {
+         return dict_add(cfg, key, val) == 0;
+      }
       size_t oldlen = strlen(old), extra = strlen(val);
-      if (oldlen > SIZE_MAX - extra - 2) return false;
+
+      if (oldlen > SIZE_MAX - extra - 2) {
+         return false;
+      }
       char *combined = malloc(oldlen + extra + 2);
-      if (!combined) return false;
+
+      if (!combined) {
+         return false;
+      }
       memcpy(combined, old, oldlen);
       combined[oldlen] = ',';
       memcpy(combined + oldlen + 1, val, extra + 1);
       bool ok = dict_add(cfg, key, combined) == 0;
       free(combined);
+
       return ok;
    }
-   if (!add_server) return false;
-   if (!add_server(np, buf)) {
-      Log(LOG_WARN, "cfg.network", "%s:%d: IRC server needs an irc:// or ircs:// URL with an explicit port", path, line);
+
+   if (!add_server) {
       return false;
    }
+
+   if (!add_server(np, buf)) {
+      Log(LOG_WARN, "cfg.network", "%s:%d: IRC server needs an irc:// or ircs:// URL with an explicit port", path, line);
+
+      return false;
+   }
+
    return true;
 }

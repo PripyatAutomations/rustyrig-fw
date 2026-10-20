@@ -59,8 +59,11 @@ static void do_connect_from_tree(GtkTreeView *view) {
       gtk_tree_model_get(model, &iter, 0, &entry, -1);
 
       if (entry && *entry) {
-         if (rrclient_connection_state(entry)) disconnect_server(entry);
-         else connect_server(entry);
+         if (rrclient_connection_state(entry)) {
+            disconnect_server(entry);
+         } else {
+            connect_server(entry);
+         }
       }
       g_free(entry);
    }
@@ -153,8 +156,7 @@ static void on_edit_clicked(GtkButton *button, gpointer data) {
 /* Render pending attempts distinctly while keeping the checkbox cancellable. */
 static void picker_set_state(GtkListStore *store, GtkTreeIter *iter, const char *profile) {
    int state = rrclient_connection_state(profile);
-   gtk_list_store_set(store, iter, 4, state == 1, 5, state < 0,
-      6, state < 0 ? "Connecting / retrying" : state == 1 ? "Connected" : "Offline", -1);
+   gtk_list_store_set(store, iter, 4, state == 1, 5, state < 0, 6, state < 0 ? "Connecting / retrying" : state == 1 ? "Connected" : "Offline", -1);
 }
 
 void gtk_server_picker_refresh_profile(const char *profile) {
@@ -190,13 +192,16 @@ static gboolean picker_refresh(gpointer data) {
    GtkWidget *tree = data;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
    GtkTreeIter iter;
-   for (gboolean valid = gtk_tree_model_get_iter_first(model, &iter); valid; valid = gtk_tree_model_iter_next(model, &iter)) {
+
+   for (gboolean valid = gtk_tree_model_get_iter_first(model, &iter) ; valid ; valid = gtk_tree_model_iter_next(model, &iter)) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, 0, &name, -1);
       picker_set_state(GTK_LIST_STORE(model), &iter, name);
       g_free(name);
    }
+
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
+
    if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, 0, &name, -1);
@@ -205,13 +210,17 @@ static gboolean picker_refresh(gpointer data) {
       gtk_button_set_label(GTK_BUTTON(button), state < 0 ? "Cancel connection" : state == 1 ? "Disconnect" : "Connect");
       g_free(name);
    }
+
    return G_SOURCE_CONTINUE;
 }
 
 static void picker_destroy(GtkWidget *tree, gpointer data) {
    (void)data;
    guint source = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(tree), "rr-refresh-source"));
-   if (source) g_source_remove(source);
+
+   if (source) {
+      g_source_remove(source);
+   }
 }
 
 static void picker_selection(GtkTreeSelection *selection, gpointer tree) {
@@ -223,20 +232,33 @@ static void picker_toggle(GtkCellRendererToggle *renderer, gchar *path, gpointer
    (void)renderer;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(data));
    GtkTreeIter iter;
-   if (!gtk_tree_model_get_iter_from_string(model, &iter, path)) return;
+
+   if (!gtk_tree_model_get_iter_from_string(model, &iter, path)) {
+      return;
+   }
    char *name = NULL;
    gtk_tree_model_get(model, &iter, 0, &name, -1);
-   if (rrclient_connection_state(name)) disconnect_server(name);
-   else connect_server(name);
+
+   if (rrclient_connection_state(name)) {
+      disconnect_server(name);
+   } else {
+      connect_server(name);
+   }
    g_free(name);
    picker_refresh(data);
 }
 
 static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer data) {
    (void)data;
-   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
    GtkTreePath *path = NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree), event->x, event->y, &path, NULL, NULL, NULL)) return FALSE;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree), event->x, event->y, &path, NULL, NULL, NULL)) {
+      return FALSE;
+   }
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), path);
    gtk_tree_path_free(path);
    GtkWidget *menu = gtk_menu_new();
@@ -249,7 +271,8 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
    g_signal_connect_object(toggle, "activate", G_CALLBACK(on_connect_clicked), tree, 0);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 

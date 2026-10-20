@@ -413,11 +413,17 @@ static void userlist_apply_layout(GtkWidget *view, const char *type) {
       return;
    }
 
-   const int sort_fields[] = {COL_PRIV_ICON, COL_USERNAME, COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON};
+   const int sort_fields[] = {
+      COL_PRIV_ICON, COL_USERNAME, COL_TALK_ICON, COL_MUTE_ICON, COL_ELMERNOOB_ICON
+   };
+
    for (int i = 0 ; i < USERLIST_VIEW_COLS ; i++) {
       GtkTreeViewColumn *sortable_column = gtk_tree_view_get_column(GTK_TREE_VIEW(view), i);
-      if (i < (int)G_N_ELEMENTS(sort_fields))
+
+      if (i < (int)G_N_ELEMENTS(sort_fields)) {
          gtk_tree_view_column_set_sort_column_id(sortable_column, sort_fields[i]);
+      }
+
       if (ids[i] < 0 || ids[i] >= USERLIST_VIEW_COLS || (used & (1 << ids[i]))) {
          return;
       }
@@ -608,13 +614,12 @@ static void userlist_context_action(GtkMenuItem *item, gpointer user_data) {
       room_userlist_entry_t *roster = g_object_get_data(G_OBJECT(view), "rr-room-roster");
       const char *room = roster ? roster->room : rrclient_active_room();
       GtkWidget *parent = gtk_widget_get_toplevel(view);
-      GtkWidget *dialog = gtk_dialog_new_with_buttons(!strcasecmp(command, "kick") ? "Kick user" : "Mute user",
-         GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-         "_Cancel", GTK_RESPONSE_CANCEL, !strcasecmp(command, "kick") ? "_Kick" : "_Mute", GTK_RESPONSE_ACCEPT, NULL);
+      GtkWidget *dialog = gtk_dialog_new_with_buttons(!strcasecmp(command, "kick") ? "Kick user" : "Mute user", GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) :
+         NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL, !strcasecmp(command, "kick") ? "_Kick" : "_Mute",
+         GTK_RESPONSE_ACCEPT, NULL);
       GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-      char *context = g_strdup_printf("Server: %s\nChannel/room: %s\nUser: %s",
-         server && *server ? server : "(current server)", room && *room ? room : "(none)", target);
+      char *context = g_strdup_printf("Server: %s\nChannel/room: %s\nUser: %s", server && *server ? server : "(current server)", room && *room ? room :
+         "(none)", target);
       GtkWidget *label = gtk_label_new(context);
       GtkWidget *entry = gtk_entry_new();
       g_free(context);
@@ -927,26 +932,37 @@ static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
 static gboolean room_vfo_swap_pressed(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    room_vfo_control_t *control = data;
-   if (!control || !event || event->button != 1 || event->type != GDK_2BUTTON_PRESS ||
-       !ws_conn) return FALSE;
-   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *)event); hit;
-        hit = gtk_widget_get_parent(hit)) {
-      if (hit == control->ptt) return FALSE;
+
+   if (!control || !event || event->button != 1 || event->type != GDK_2BUTTON_PRESS || !ws_conn) {
+      return FALSE;
    }
+
+   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event) ; hit ; hit = gtk_widget_get_parent(hit)) {
+      if (hit == control->ptt) {
+         return FALSE;
+      }
+   }
+
    if (control->select_source) {
       g_source_remove(control->select_source);
       control->select_source = 0;
    }
    control->skip_release = true;
    dict *request = dict_new();
-   if (!request) return TRUE;
-   char vfo[2] = {control->vfo, 0};
+
+   if (!request) {
+      return TRUE;
+   }
+   char vfo[2] = {
+      control->vfo, 0
+   };
    dict_add(request, "msg.type", "cat");
    dict_add(request, "cat.cmd", "swap");
    dict_add(request, "cat.room", control->room);
    dict_add(request, "cat.vfo", vfo);
    ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
    dict_free(request);
+
    return TRUE;
 }
 
@@ -957,7 +973,10 @@ static gboolean room_vfo_select_delayed(gpointer data) {
    char command[16];
    snprintf(command, sizeof(command), "!vfo %c", control->vfo);
    dict *request = dict_new();
-   if (!request) return G_SOURCE_REMOVE;
+
+   if (!request) {
+      return G_SOURCE_REMOVE;
+   }
    dict_add(request, "msg.type", "talk");
    dict_add(request, "talk.cmd", "msg");
    dict_add(request, "talk.msg_type", "pub");
@@ -965,36 +984,52 @@ static gboolean room_vfo_select_delayed(gpointer data) {
    dict_add(request, "talk.data", command);
    ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
    dict_free(request);
+
    return G_SOURCE_REMOVE;
 }
 
 static void room_vfo_control_destroy(gpointer data) {
    room_vfo_control_t *control = data;
-   if (control->select_source) g_source_remove(control->select_source);
+
+   if (control->select_source) {
+      g_source_remove(control->select_source);
+   }
    free(control);
 }
 
 static gboolean room_vfo_select_clicked(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    room_vfo_control_t *control = data;
-   if (!control || !event || event->type != GDK_BUTTON_RELEASE || event->button != 1)
+
+   if (!control || !event || event->type != GDK_BUTTON_RELEASE || event->button != 1) {
       return FALSE;
+   }
+
    if (control->skip_release) {
       control->skip_release = false;
+
       return TRUE;
    }
    bool docked = control->entry == &rig_userlist_entry ? userlist_is_docked : control->entry->docked;
-   if (!docked) return FALSE;
-   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event); hit;
-        hit = gtk_widget_get_parent(hit)) {
-      if (hit == control->ptt) return FALSE;
+
+   if (!docked) {
+      return FALSE;
    }
-   /* The first release in a double click must not select a VFO. Wait
-    * for GTK's configured double-click interval before applying selection. */
-   if (control->select_source) return TRUE;
+
+   for (GtkWidget *hit = gtk_get_event_widget((GdkEvent *) event) ; hit ; hit = gtk_widget_get_parent(hit)) {
+      if (hit == control->ptt) {
+         return FALSE;
+      }
+   }
+
+   /* The first release in a double click must not select a VFO. Wait for GTK's configured double-click interval before applying selection. */
+   if (control->select_source) {
+      return TRUE;
+   }
    gint ms = 250;
    g_object_get(gtk_settings_get_default(), "gtk-double-click-time", &ms, NULL);
    control->select_source = g_timeout_add(MAX(ms, 1), room_vfo_select_delayed, control);
+
    return TRUE;
 }
 

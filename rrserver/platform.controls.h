@@ -1,11 +1,16 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef RRSERVER_PLATFORM_CONTROLS_H
 #define RRSERVER_PLATFORM_CONTROLS_H
 #include <stdbool.h>
 #include <stddef.h>
 
-/* Exported, typed node controls. Names are stable protocol addresses.
- * Values are integers for now; descriptor types allow future extensions
- * without attaching server-wide settings to an imaginary rig. */
+/* Exported, typed node controls. Names are stable protocol addresses. Values are integers for now; descriptor types allow future extensions without attaching
+ * server-wide settings to an imaginary rig. */
 typedef struct rr_platform_control {
    const char *name;
    const char *label;
@@ -24,8 +29,7 @@ typedef struct rr_platform_control_state {
 } rr_platform_control_state_t;
 typedef bool (*rr_platform_control_visit_fn)(const rr_platform_control_state_t *, void *);
 
-/* Register only trusted, local implementations at startup. Never paths or
- * callbacks received from a remote request. Names cannot be replaced. */
+/* Register only trusted, local implementations at startup. Never paths or callbacks received from a remote request. Names cannot be replaced. */
 bool rrserver_platform_control_register(const rr_platform_control_t *definition);
 bool rrserver_platform_control_get(const char *name, rr_platform_control_state_t *state);
 bool rrserver_platform_control_set(const char *name, int value, rr_platform_control_state_t *state);

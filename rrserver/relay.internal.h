@@ -37,7 +37,7 @@ struct remote_session {
    struct remote_session *next;
    char origin[37], id[37];
    rrconn_t client;
-   http_user_t remote_account; /* authenticated relay identity, never a local login */
+   http_user_t remote_account;  /* authenticated relay identity, never a local login */
    uint64_t release_retry, proxy_started, proxy_frame;
    bool proxy_tx[MAX_MEDIA_CHANNELS];
 };

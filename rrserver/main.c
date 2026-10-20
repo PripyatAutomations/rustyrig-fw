@@ -158,7 +158,8 @@ static void timer_check_faults_fn(void *arg) {
 // This is called by our timer at 1000ms (1hz) rate by default
 // cfg:backend.poll-interval is where this is set
 static void timer_backend_poll_fn(void *arg) {
-   /* One scheduler services every registered rig. A failed rig is recorded by the aggregate result but never prevents later registry entries from being polled. */
+   /* One scheduler services every registered rig. A failed rig is recorded by the aggregate result but never prevents later registry entries from being polled.
+    */
    rr_backend_poll_all();
 
    if (timespec_diff_ms(&mono_now, &last_vfo_announce) >= cfg_backend_announce_interval) {
@@ -190,7 +191,8 @@ int main(int argc, char **argv) {
 
    // Register config section callbacks. Sections other than [general]/[server:*]
    // are dropped by cfg_load unless a callback claims them.
-   if (!rr_radio_config_init() || !rr_si5351_config_init() || !rr_gpio_config_init() || !rrserver_files_config_init() || !rrserver_acl_config_init() || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
+   if (!rr_radio_config_init() || !rr_si5351_config_init() || !rr_gpio_config_init() || !rrserver_files_config_init() || !rrserver_acl_config_init()
+      || !rrserver_peer_config_init() || !rrserver_direct_config_init() || !rr_rig_config_init() || !rrp_bridge_config_init()) {
       Log(LOG_CRIT, "config", "Unable to register server configuration sections");
 
       return EXIT_FAILURE;
@@ -210,42 +212,71 @@ int main(int argc, char **argv) {
 
    enum rr_maintenance_action maintenance = RR_MAINT_NONE;
    static const struct option maintenance_options[] = {
-      { "purge-recordings", no_argument, NULL, 1001 },
-      { "reset-db", no_argument, NULL, 1002 },
-      { "reset-rooms", no_argument, NULL, 1003 },
-      { "reset-logs", no_argument, NULL, 1004 },
-      { "reset-audit", no_argument, NULL, 1005 },
-      { "reset-adminpw", no_argument, NULL, 1006 },
-      { "reset-uuids", no_argument, NULL, 1007 },
-      { NULL, 0, NULL, 0 }
+      {
+         "purge-recordings", no_argument, NULL, 1001
+      },
+      {
+         "reset-db", no_argument, NULL, 1002
+      },
+      {
+         "reset-rooms", no_argument, NULL, 1003
+      },
+      {
+         "reset-logs", no_argument, NULL, 1004
+      },
+      {
+         "reset-audit", no_argument, NULL, 1005
+      },
+      {
+         "reset-adminpw", no_argument, NULL, 1006
+      },
+      {
+         "reset-uuids", no_argument, NULL, 1007
+      },
+      {
+         NULL, 0, NULL, 0
+      }
    };
-   /* getopt_long accepts unique prefixes by default; destructive commands
-    * deliberately require their entire long option spelling. */
-   for (int i = 1; i < argc; ++i) {
-      if (strncmp(argv[i], "--", 2) || !strcmp(argv[i], "--")) continue;
+
+   /* getopt_long accepts unique prefixes by default; destructive commands deliberately require their entire long option spelling. */
+   for (int i = 1 ; i < argc ; ++i) {
+      if (strncmp(argv[i], "--", 2) || !strcmp(argv[i], "--")) {
+         continue;
+      }
       bool exact = false;
-      for (size_t j = 0; maintenance_options[j].name; ++j) {
+
+      for (size_t j = 0 ; maintenance_options[j].name ; ++j) {
          if (!strcmp(argv[i] + 2, maintenance_options[j].name)) {
             exact = true;
             break;
          }
       }
+
       if (!exact) {
          fprintf(stderr, "Unrecognized long option %s (full names only; no --force).\n", argv[i]);
+
          return EXIT_FAILURE;
       }
    }
+
    int opt;
    while ((opt = getopt_long(argc, argv, "f:hr:", maintenance_options, NULL)) != -1) {
       switch (opt) {
-         case 1001: case 1002: case 1003: case 1004:
-         case 1005: case 1006: case 1007:
+         case 1001:
+         case 1002:
+         case 1003:
+         case 1004:
+         case 1005:
+         case 1006:
+         case 1007: {
             if (maintenance != RR_MAINT_NONE) {
                fprintf(stderr, "Specify only one maintenance operation per invocation.\n");
+
                return EXIT_FAILURE;
             }
             maintenance = (enum rr_maintenance_action)(opt - 1000);
             break;
+         }
          case 'f': {
             config_file = strdup(optarg);
             break;
@@ -254,7 +285,7 @@ int main(int argc, char **argv) {
             rig_name = strdup(optarg);
             break;
          }
-         case 'h':
+         case 'h': {
             printf("Usage: %s [-f CONFIG] [-r RIGNAME] [MAINTENANCE OPTION]\n", argv[0]);
             puts("  -h, --help           Show this help");
             puts("  -f CONFIG           Use this server configuration file");
@@ -272,10 +303,14 @@ int main(int argc, char **argv) {
             puts("Only one full maintenance option per invocation; no --force.");
             puts("Commands exit without starting rrserver. Back up data first.");
             puts("Uses configured path.db.master or fwdsp:recording.path.");
+
             return EXIT_SUCCESS;
-         default:
+         }
+         default: {
             fprintf(stderr, "Unknown argument. Try %s --help\n", argv[0]);
+
             return EXIT_FAILURE;
+         }
       }
    }
    // load config (posix hosts)
@@ -310,7 +345,9 @@ int main(int argc, char **argv) {
       return rrserver_maintenance_run(maintenance);
    }
 
-   if (!rrserver_maintenance_lock()) return EXIT_FAILURE;
+   if (!rrserver_maintenance_lock()) {
+      return EXIT_FAILURE;
+   }
 
    if (!rr_radio_config_prepare() || !rrserver_acl_validate()) {
       return EXIT_FAILURE;
@@ -378,10 +415,12 @@ int main(int argc, char **argv) {
    rrserver_config_refresh(NULL);
    timer_init();
    rig.hardware = rr_hardware_new();
+
    if (!rr_gpio_discover(rig.hardware) || !rr_gpio_configure(rig.hardware) || !rr_si5351_configure(rig.hardware) || !rr_radio_hardware_register(rig.hardware)) {
       Log(LOG_CRIT, "hardware", "Unable to initialize attached hardware mappings");
       rr_hardware_free(rig.hardware);
       rig.hardware = NULL;
+
       return EXIT_FAILURE;
    }
    Log(LOG_INFO, "hardware", "Registered %zu attached hardware resources", rr_hardware_count(rig.hardware));
@@ -409,6 +448,7 @@ int main(int argc, char **argv) {
    }
 
 #ifdef  USE_EEPROM
+
    if (!s || serial_tmp == 0) {
       rig.serial = get_serial_number();
    }
@@ -456,6 +496,7 @@ int main(int argc, char **argv) {
 
 
 #ifdef  USE_CAT
+
    if (rr_cat_init()) {
       Log(LOG_CRIT, "core", "*** Fatal error CAT ***");
       set_fault(FAULT_CAT_ERROR);
@@ -499,6 +540,7 @@ int main(int argc, char **argv) {
       mg_mgr_free(&mg_mgr);
       rrserver_links_fini();
       rrserver_relay_fini();
+
       return 1;
    }
 
@@ -562,6 +604,7 @@ int main(int argc, char **argv) {
 
    if (!rrserver_bridges_start(config_file)) {
       Log(LOG_CRIT, "bridge", "Bridge configuration invalid");
+
       return EXIT_FAILURE;
    }
 
@@ -600,7 +643,10 @@ int main(int argc, char **argv) {
       }
 
       // Backend code remains mapped until its workers and instances are gone.
-      if (!strcmp(module, "rrserver-hamlib") || !strcmp(module, "rrserver-hamlib.so")) continue;
+      if (!strcmp(module, "rrserver-hamlib") || !strcmp(module, "rrserver-hamlib.so")) {
+         continue;
+      }
+
       if (rr_find_loaded_module(module)) {
          rr_unload_module(module);
       }
@@ -618,13 +664,23 @@ int main(int argc, char **argv) {
    rr_backend_fini();
    rr_hardware_free(rig.hardware);
    rig.hardware = NULL;
+
    // Retry deferred module unloads after the backend callback owners are gone.
-   for (int i = 0; ; i++) {
+   for (int i = 0 ;; i++) {
       const char *module = cfg_modules_get(i, NULL);
-      if (!module) break;
-      if (rr_find_loaded_module(module)) rr_unload_module(module);
+
+      if (!module) {
+         break;
+      }
+
+      if (rr_find_loaded_module(module)) {
+         rr_unload_module(module);
+      }
    }
-   if (rr_find_loaded_module("rrserver-hamlib")) rr_unload_module("rrserver-hamlib");
+
+   if (rr_find_loaded_module("rrserver-hamlib")) {
+      rr_unload_module("rrserver-hamlib");
+   }
    host_cleanup();
 
 #ifdef  USE_MONGOOSE

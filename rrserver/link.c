@@ -69,12 +69,14 @@ static void link_callback(struct mg_connection *c, int event, void *data);
 
 static const char *config_value(const char *key, const char *fallback) {
    const char *value = cfg_get(key);
+
    return value ? value : fallback;
 }
 
 static const char *peer_value(const char *section, const char *key) {
    static char name[256];
    snprintf(name, sizeof(name), "%s.%s", section, key);
+
    return cfg_get(name);
 }
 
@@ -85,27 +87,35 @@ static bool equal_secret(const char *a, const char *b) {
    for (size_t i = 0 ; i < 256 ; i++) {
       different |= (i < an ? (unsigned char)a[i] : 0) ^ (i < bn ? (unsigned char)b[i] : 0);
    }
+
    return !different;
 }
 
 static void fail(struct link_session *session, const char *reason) {
-   Log(LOG_WARN, "link", "Connection to %s: %s",
-      session->peer ? session->peer->site : "unknown station", reason);
+   Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", reason);
    session->connection->is_closing = 1;
 }
 
 /* Depth is counted in edges beyond the configured direct peer: peer=0. */
 static bool site_permitted(const struct link_peer *peer, const char *site) {
-   if (!peer->allowed_sites || !*peer->allowed_sites) return true;
+   if (!peer->allowed_sites || !*peer->allowed_sites) {
+      return true;
+   }
    const char *p = peer->allowed_sites;
    size_t length = strlen(site);
 
    while (*p) {
-      while (*p && (strchr(", \t\r\n", *p) != NULL)) p++;
+      while (*p && (strchr(", \t\r\n", *p) != NULL)) {
+         p++;
+      }
       const char *start = p;
-      while (*p && (strchr(", \t\r\n", *p) == NULL)) p++;
-      if ((size_t)(p - start) == length && !strncmp(start, site, length))
+      while (*p && (strchr(", \t\r\n", *p) == NULL)) {
+         p++;
+      }
+
+      if ((size_t)(p - start) == length && !strncmp(start, site, length)) {
          return true;
+      }
    }
    return false;
 }
@@ -117,43 +127,70 @@ static void topology_reject(struct link_session *session, const char *why) {
    fail(session, why);
 }
 static bool snapshot_policy(const struct link_peer *peer, const rr_link_node_t *nodes, size_t count, const char *root) {
-   if (peer->leaf_only && count != 1) return false;
-   for (size_t i = 0; i < count; i++) {
-      if (!strcmp(nodes[i].server, root)) continue;
-      if (!site_permitted(peer, nodes[i].site)) return false;
+   if (peer->leaf_only && count != 1) {
+      return false;
+   }
+
+   for (size_t i = 0 ; i < count ; i++) {
+      if (!strcmp(nodes[i].server, root)) {
+         continue;
+      }
+
+      if (!site_permitted(peer, nodes[i].site)) {
+         return false;
+      }
       const char *parent = nodes[i].parent;
       unsigned depth = 0;
       while (parent && depth <= count) {
          depth++;
-         if (!strcmp(parent, root)) break;
+
+         if (!strcmp(parent, root)) {
+            break;
+         }
          const char *next = NULL;
-         for (size_t j = 0; j < count; j++)
-            if (!strcmp(nodes[j].server, parent)) { next = nodes[j].parent; break; }
+
+         for (size_t j = 0 ; j < count ; j++) {
+            if (!strcmp(nodes[j].server, parent)) {
+               next = nodes[j].parent;
+               break;
+            }
+         }
+
          parent = next;
       }
-      if (!parent || depth > count || (peer->max_depth && depth > peer->max_depth)) return false;
+
+      if (!parent || depth > count || (peer->max_depth && depth > peer->max_depth)) {
+         return false;
+      }
    }
+
    return true;
 }
 static bool introduction_policy(const struct link_session *session, const char *site, const char *parent) {
-   if (session->peer->leaf_only || !site_permitted(session->peer, site)) return false;
+   if (session->peer->leaf_only || !site_permitted(session->peer, site)) {
+      return false;
+   }
    unsigned depth = 1;
    const char *current = parent;
    size_t limit = rr_link_tree_count(links.tree);
    while (current && strcmp(current, session->node) && depth <= limit) {
       rr_link_node_t node;
       bool found = false;
-      for (size_t i = 0; i < limit; i++)
+
+      for (size_t i = 0 ; i < limit ; i++) {
          if (rr_link_tree_node(links.tree, i, &node) && !strcmp(node.server, current)) {
             current = node.parent;
             found = true;
             break;
          }
-      if (!found) return false;
+      }
+
+      if (!found) {
+         return false;
+      }
       depth++;
    }
-   return current && depth <= limit + 1 &&
-      (!session->peer->max_depth || depth <= session->peer->max_depth);
+   return current && depth <= limit + 1 && (!session->peer->max_depth || depth <= session->peer->max_depth);
 }
 static bool send_message(struct link_session *session, dict *d) {
    const char *op = dict_get(d, "op", "unknown");
@@ -163,6 +200,7 @@ static bool send_message(struct link_session *session, dict *d) {
       char reason[256];
       snprintf(reason, sizeof(reason), "Cannot encode %.96s message (invalid fields or wire size limit); check link protocol compatibility", op);
       fail(session, reason);
+
       return false;
    }
 
@@ -171,21 +209,23 @@ static bool send_message(struct link_session *session, dict *d) {
 
    if (session->connection->is_closing) {
       free(wire);
+
       return false;
    }
 
-   if (queued > MAX_QUEUE || length > MAX_QUEUE - queued ||
-       MAX_QUEUE - queued - length < 16) {
+   if (queued > MAX_QUEUE || length > MAX_QUEUE - queued || MAX_QUEUE - queued - length < 16) {
       char reason[256];
-      snprintf(reason, sizeof(reason), "Cannot send %.96s: output queue full (%zu bytes queued, %zu-byte message, %d-byte limit)",
-         op, queued, length, MAX_QUEUE);
+      snprintf(reason, sizeof(reason), "Cannot send %.96s: output queue full (%zu bytes queued, %zu-byte message, %d-byte limit)", op, queued, length, MAX_QUEUE
+         );
       free(wire);
       fail(session, reason);
+
       return false;
    }
 
    mg_ws_send(session->connection, wire, length, WEBSOCKET_OP_TEXT);
    free(wire);
+
    return true;
 }
 
@@ -195,6 +235,7 @@ static dict *message(const char *op) {
    if (d) {
       dict_add(d, "op", op);
    }
+
    return d;
 }
 
@@ -216,6 +257,7 @@ bool rrserver_links_send(const char *node, dict *d) {
          return send_message(s, d);
       }
    }
+
    return false;
 }
 void rrserver_links_broadcast(dict *d) {
@@ -231,6 +273,7 @@ static void send_hello(struct link_session *session) {
 
    if (!d) {
       fail(session, "Out of memory");
+
       return;
    }
    dict_add(d, "node", links.node);
@@ -261,15 +304,24 @@ static void encode_site(const char *site, char *out) {
 
 static bool decode_site(const char *hex, char *out, size_t capacity) {
    size_t n = strlen(hex);
-   if (!n || (n & 1) || n / 2 >= capacity) return false;
+
+   if (!n || (n & 1) || n / 2 >= capacity) {
+      return false;
+   }
+
    for (size_t i = 0 ; i < n ; i += 2) {
       unsigned char a = (unsigned char)hex[i], b = (unsigned char)hex[i + 1];
       int hi = a >= '0' && a <= '9' ? a - '0' : a >= 'a' && a <= 'f' ? a - 'a' + 10 : -1;
       int lo = b >= '0' && b <= '9' ? b - '0' : b >= 'a' && b <= 'f' ? b - 'a' + 10 : -1;
-      if (hi < 0 || lo < 0 || !((hi << 4) | lo)) return false;
+
+      if (hi < 0 || lo < 0 || !((hi << 4) | lo)) {
+         return false;
+      }
       out[i / 2] = (char)((hi << 4) | lo);
    }
+
    out[n / 2] = 0;
+
    return true;
 }
 
@@ -279,6 +331,7 @@ static void send_snapshot(struct link_session *session) {
 
    if (!nodes) {
       fail(session, "Out of memory");
+
       return;
    }
    rr_link_node_t node;
@@ -286,12 +339,13 @@ static void send_snapshot(struct link_session *session) {
    for (size_t i = 0 ; rr_link_tree_node(links.tree, i, &node) ; i++) {
       size_t n = strlen(nodes);
       char encoded[256];
-       encode_site(node.site, encoded);
-       int added = snprintf(nodes + n, capacity - n, "%s%s,%s,%s", i ? " " : "", node.server, node.parent ? node.parent : "-", encoded);
+      encode_site(node.site, encoded);
+      int added = snprintf(nodes + n, capacity - n, "%s%s,%s,%s", i ? " " : "", node.server, node.parent ? node.parent : "-", encoded);
 
       if (added < 0 || (size_t)added >= capacity - n) {
          free(nodes);
          fail(session, "Topology snapshot too large");
+
          return;
       }
    }
@@ -301,6 +355,7 @@ static void send_snapshot(struct link_session *session) {
    if (!d) {
       free(nodes);
       fail(session, "Out of memory");
+
       return;
    }
    dict_add(d, "nodes", nodes);
@@ -329,25 +384,31 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
 
-   /* List only sites behind the newly linked peer; the peer is named
-    * separately, and is already included in the remote node count. */
+   /* List only sites behind the newly linked peer; the peer is named separately, and is already included in the remote node count. */
    GString *downstream = g_string_new(NULL);
    rr_link_node_t remote;
    size_t total = rr_link_tree_count(links.tree);
-   for (size_t i = 1; rr_link_tree_node(links.tree, i, &remote); ++i) {
+
+   for (size_t i = 1 ; rr_link_tree_node(links.tree, i, &remote) ; ++i) {
       const char *route = rr_link_tree_route(links.tree, remote.server);
-      if (!route || strcmp(route, session->node) ||
-          !strcmp(remote.server, session->node)) continue;
-      if (downstream->len) g_string_append(downstream, ", ");
+
+      if (!route || strcmp(route, session->node) || !strcmp(remote.server, session->node)) {
+         continue;
+      }
+
+      if (downstream->len) {
+         g_string_append(downstream, ", ");
+      }
       g_string_append(downstream, remote.site);
    }
-   Log(LOG_INFO, "link",
-      "Linked to %s (%s); now %zu nodes (%zu remote; behind %s: %s)",
-      session->peer->site, session->node, total, total ? total - 1 : 0,
+
+   Log(LOG_INFO, "link", "Linked to %s (%s); now %zu nodes (%zu remote; behind %s: %s)", session->peer->site, session->node, total, total ? total - 1 : 0,
       session->peer->site, downstream->len ? downstream->str : "none");
    g_string_free(downstream, TRUE);
    /* Publish this component in parent-before-child order. */
-   bool sent[256] = { false };
+   bool sent[256] = {
+      false
+   };
 
    for (size_t pass = 0 ; pass < rr_link_tree_count(links.tree) ; pass++) {
       rr_link_node_t node;
@@ -377,6 +438,7 @@ static void establish(struct link_session *session) {
          }
       }
    }
+
    event_emit("server.link.ready", NULL, session->node);
 }
 
@@ -385,6 +447,7 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    if (session->hello || !rr_object_uuid_valid(node) || !strcmp(node, links.node) || strlen(site) >= 128 || !strcmp(site, links.site)) {
       fail(session, "Invalid station name or UUID in link hello");
+
       return;
    }
    struct link_peer *peer = session->peer;
@@ -400,6 +463,7 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) || !equal_secret(peer->password, dict_get(d, "password", ""))) {
       fail(session, "Station name, UUID or shared password does not match the configured peer; check both servers' [peer] settings");
+
       return;
    }
 
@@ -410,11 +474,13 @@ static void handle_hello(struct link_session *session, dict *d) {
    if (rrserver_acl_check(peer->section, peer_ip, NULL, peer->site) != ACL_ALLOW ||
       (!session->outbound && rrserver_acl_check(session->dedicated ? "listener:link" : listener, peer_ip, NULL, peer->site) != ACL_ALLOW)) {
       fail(session, "Connection blocked by the access-control rules (ACL); check the peer and link-listener permissions");
+
       return;
    }
 
    if (peer->manually_closed) {
       fail(session, "Peer is administratively closed");
+
       return;
    }
    struct link_session *old = peer->session;
@@ -422,6 +488,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    if (old && old != session && !old->connection->is_closing) {
       if (old->established) {
          fail(session, "Peer already linked");
+
          return;
       }
       /* Only simultaneous attempts need a tie-break. Prefer the socket whose initiating server UUID is smaller, consistently at both endpoints. */
@@ -429,6 +496,7 @@ static void handle_hello(struct link_session *session, dict *d) {
 
       if (old->outbound == prefer_outbound || session->outbound != prefer_outbound) {
          fail(session, "Duplicate pending link");
+
          return;
       }
       fail(old, "Superseded simultaneous link");
@@ -439,6 +507,7 @@ static void handle_hello(struct link_session *session, dict *d) {
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s != session && !s->established && (s->admitted || (s->hello && !s->connection->is_closing))) {
          fail(session, "Another server is joining the network; this link will retry after the current join completes");
+
          return;
       }
    }
@@ -457,6 +526,7 @@ static void handle_hello(struct link_session *session, dict *d) {
 static void handle_snapshot(struct link_session *session, dict *d) {
    if (!session->hello || session->snapshot || session->generation != links.generation) {
       fail(session, "Server list changed during connection setup; reconnect to obtain an updated list");
+
       return;
    }
    char *copy = strdup(dict_get(d, "nodes", "")), *save = NULL;
@@ -466,6 +536,7 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 
    if (!copy) {
       fail(session, "Out of memory");
+
       return;
    }
 
@@ -479,6 +550,7 @@ static void handle_snapshot(struct link_session *session, dict *d) {
       }
       *comma++ = 0;
       *site++ = 0;
+
       if (!decode_site(site, sites[count], sizeof(sites[count]))) {
          count = 0;
          break;
@@ -490,20 +562,26 @@ static void handle_snapshot(struct link_session *session, dict *d) {
    }
 
    bool named_peer = false;
+
    for (size_t i = 0 ; i < count ; i++) {
       if (!strcmp(nodes[i].server, session->node)) {
          named_peer = !strcmp(nodes[i].site, session->peer->site);
          break;
       }
    }
+
    if (named_peer && !snapshot_policy(session->peer, nodes, count, session->node)) {
       free(copy);
       topology_reject(session, "Peer topology violates leaf-only, allowed-sites or max-depth policy");
+
       return;
    }
+
    if (!named_peer || rr_link_tree_attach(links.tree, session->node, nodes, count) != RR_LINK_OK) {
       free(copy);
-      fail(session, "Invalid server list (missing station name, duplicate server, routing loop or network size limit); check link protocol versions and topology");
+      fail(session,
+         "Invalid server list (missing station name, duplicate server, routing loop or network size limit); check link protocol versions and topology");
+
       return;
    }
    free(copy);
@@ -513,6 +591,7 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 
    if (!ready) {
       fail(session, "Out of memory");
+
       return;
    }
    send_message(session, ready);
@@ -523,18 +602,17 @@ static void handle_snapshot(struct link_session *session, dict *d) {
 static void handle_frame(struct link_session *session, struct mg_ws_message *frame) {
    if ((frame->flags & 15) != WEBSOCKET_OP_TEXT) {
       fail(session, "Only link control text is supported");
+
       return;
    }
    dict *d = rr_link_wire_decode(frame->data.buf, frame->data.len);
 
    if (!d) {
-      Log(LOG_WARN, "link",
-         "Rejected link protocol message from %s (%zu bytes); "
-         "invalid format or incompatible protocol version",
-         session->peer ? session->peer->site : "unknown server",
-         frame->data.len);
+      Log(LOG_WARN, "link", "Rejected link protocol message from %s (%zu bytes); "
+         "invalid format or incompatible protocol version", session->peer ? session->peer->site : "unknown server", frame->data.len);
 
       fail(session, "Invalid link protocol message");
+
       return;
    }
    const char *op = dict_get(d, "op", "");
@@ -624,11 +702,13 @@ static void close_session(struct link_session *session) {
 
    if (session->peer && session->peer->session == session) {
       session->peer->session = NULL;
-      /* A deterministic per-peer stagger reduces synchronized reconnect
-       * collisions when several nodes start or lose connectivity together. */
+      /* A deterministic per-peer stagger reduces synchronized reconnect collisions when several nodes start or lose connectivity together. */
       unsigned hash = 2166136261u;
-      for (const unsigned char *p = (const unsigned char *)session->peer->site; *p; p++)
+
+      for (const unsigned char *p = (const unsigned char *)session->peer->site ; *p ; p++) {
          hash = (hash ^ *p) * 16777619u;
+      }
+
       unsigned jitter_ms = hash % 5000u;
       session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL + jitter_ms;
 
@@ -658,6 +738,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
       if (!session) {
          c->is_closing = 1;
+
          return;
       }
       c->fn_data = session;
@@ -668,6 +749,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
       if (rrserver_acl_check("listener:link", peer_ip, NULL, NULL) == ACL_DENY) {
          fail(session, "Listener ACL access denied");
+
          return;
       }
 
@@ -686,6 +768,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
    if (event == MG_EV_READ && c->recv.len > RR_LINK_MAX_FRAME + 4096) {
       fail(session, "Link receive buffer exceeded");
+
       return;
    }
 
@@ -695,6 +778,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
       if (rrserver_acl_check(session->peer->section, peer_ip, NULL, session->peer->site) != ACL_ALLOW) {
          fail(session, "Outbound connection blocked by this server's peer ACL");
+
          return;
       }
    }
@@ -722,6 +806,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
          if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
             fail(session, "Server did not negotiate link protocol");
+
             return;
          }
          send_hello(session);
@@ -744,9 +829,8 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
          fail(session, reason);
       } else {
          char detail[384];
-         snprintf(detail, sizeof(detail), "Network connection to %s failed (%s); check URL, DNS, TLS certificate and remote server availability",
-            session->peer && session->peer->url[0] ? session->peer->url : "incoming peer",
-            data ? (const char *)data : "transport error");
+         snprintf(detail, sizeof(detail), "Network connection to %s failed (%s); check URL, DNS, TLS certificate and remote server availability", session->peer
+            && session->peer->url[0] ? session->peer->url : "incoming peer", data ? (const char *)data : "transport error");
          fail(session, detail);
       }
    } else if (event == MG_EV_CLOSE) {
@@ -757,6 +841,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
 static bool invalid_peer(const char *section, const char *key, const char *reason) {
    Log(LOG_CRIT, "link", "Invalid [%s] %s: %s", section, key, reason);
+
    return false;
 }
 
@@ -821,16 +906,20 @@ static bool load_peer(const char *section) {
    }
    peer->autoconnect = autoconnect && !strcasecmp(autoconnect, "true");
    const char *leaf = peer_value(section, "leaf-only");
-   if (leaf && strcasecmp(leaf, "true") && strcasecmp(leaf, "false"))
+
+   if (leaf && strcasecmp(leaf, "true") && strcasecmp(leaf, "false")) {
       return invalid_peer(section, "leaf-only", "must be true or false");
+   }
    peer->leaf_only = leaf && !strcasecmp(leaf, "true");
    const char *allowed = peer_value(section, "allowed-sites");
    peer->allowed_sites = strdup(allowed ? allowed : "");
    const char *max_text = peer_value(section, "max-depth");
    char *max_end = NULL;
    long max_depth = max_text && *max_text ? strtol(max_text, &max_end, 10) : cfg_get_int("links.max-depth", 5);
-   if (max_depth < 0 || max_depth > 255 || (max_end && *max_end))
+
+   if (max_depth < 0 || max_depth > 255 || (max_end && *max_end)) {
       return invalid_peer(section, "max-depth", "must be 0-255 (0 is unlimited)");
+   }
    peer->max_depth = peer->leaf_only ? 0 : (unsigned)max_depth;
    const char *retry_text = peer_value(section, "retry-seconds");
    char *retry_end = NULL;
@@ -844,6 +933,7 @@ static bool load_peer(const char *section) {
    if (!peer->url || !peer->password || !peer->allowed_sites) {
       return invalid_peer(section, "credentials", "out of memory while loading peer");
    }
+
    return true;
 }
 
@@ -863,6 +953,7 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    if (!connection->is_tls && !links.insecure) {
       mg_http_reply(connection, 403, "", "Plaintext server links are disabled\n");
       connection->is_draining = 1;
+
       return;
    }
    struct mg_str *protocol = mg_http_get_header(request->request, "Sec-WebSocket-Protocol");
@@ -870,6 +961,7 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    if (!protocol || mg_strcmp(*protocol, mg_str(RR_LINK_SUBPROTOCOL))) {
       mg_http_reply(connection, 400, "", "Server-link protocol required\n");
       connection->is_draining = 1;
+
       return;
    }
    struct link_session *session = new_session();
@@ -877,6 +969,7 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    if (!session) {
       mg_http_reply(connection, 503, "", "Server-link session limit reached\n");
       connection->is_draining = 1;
+
       return;
    }
    session->connection = connection;
@@ -904,13 +997,16 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
       for (size_t i = 0 ; i < links.peer_count ; i++) {
          struct link_peer *peer = &links.peers[i];
          ws_send_notice(client, "%s (%s): %s, retry=%us", peer->section, peer->site, peer->session
-            && peer->session->established ? "linked" : peer->policy_blocked ? "topology blocked" : peer->manually_closed ? "closed" : "offline", peer->retry_seconds);
+            && peer->session->established ? "linked" : peer->policy_blocked ? "topology blocked" : peer->manually_closed ? "closed" : "offline", peer->
+            retry_seconds);
       }
+
       return;
    }
 
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
       ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer>");
+
       return;
    }
    struct link_peer *peer = NULL;
@@ -926,12 +1022,14 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
 
    if (!peer) {
       ws_send_error(client, "Unknown stored peer");
+
       return;
    }
    bool open = !strcasecmp(action, "open");
 
    if (open && !peer->url[0]) {
       ws_send_error(client, "Peer has no outgoing URL");
+
       return;
    }
    peer->manually_closed = !open;
@@ -952,8 +1050,10 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    memset(&links, 0, sizeof(links));
    links.manager = manager;
    int startup_delay = cfg_get_int("links.startup-delay-seconds", 5);
+
    if (startup_delay < 0 || startup_delay > 300) {
       Log(LOG_CRIT, "link", "links.startup-delay-seconds must be between 0 and 300");
+
       return false;
    }
    links.autoconnect_after = mono_ms() + (long long)startup_delay * 1000LL;
@@ -1006,6 +1106,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    for (size_t i = 0 ; i < count ; i++) {
       if (!load_peer(sections[i])) {
          Log(LOG_CRIT, "link", "Invalid peer configuration in [%s]", sections[i]);
+
          return false;
       }
    }
@@ -1014,6 +1115,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
 
    if (!links.peer_count && (!listen || !*listen)) {
       event_on("link.cmd", link_command, NULL);
+
       return true;
    }
    int retry = cfg_get_int("links.retry-seconds", 60), timeout = cfg_get_int("links.handshake-seconds", 10);
@@ -1079,6 +1181,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
 
    event_on("link.cmd", link_command, NULL);
+
    return true;
 }
 
@@ -1106,7 +1209,8 @@ void rrserver_links_poll(void) {
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
 
-      if ((at < links.autoconnect_after && !peer->startup_override) || peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0] || peer->session || at < peer->retry_at) {
+      if ((at < links.autoconnect_after && !peer->startup_override) || peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0]
+         || peer->session || at < peer->retry_at) {
          continue;
       }
 

@@ -69,10 +69,10 @@ const char *ui_active_window_name(void) {
    return NULL;
 }
 
-/* The status line already identifies the active server and room.
- * The TUI renderer appends "> ", so an empty title produces just "> ". */
+/* The status line already identifies the active server and room. The TUI renderer appends "> ", so an empty title produces just "> ". */
 const char *rrclient_tui_prompt(tui_window_t *window) {
    (void)window;
+
    return "";
 }
 

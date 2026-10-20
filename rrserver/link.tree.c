@@ -32,16 +32,25 @@ static bool valid_id(const char *id) {
    return true;
 }
 static bool valid_site(const char *site) {
-   if (!site || !*site || strlen(site) >= 128) return false;
-   for (const unsigned char *p = (const unsigned char *)site ; *p ; p++) {
-      if (*p < 32 || *p == 127) return false;
+   if (!site || !*site || strlen(site) >= 128) {
+      return false;
    }
+
+   for (const unsigned char *p = (const unsigned char *)site ; *p ; p++) {
+      if (*p < 32 || *p == 127) {
+         return false;
+      }
+   }
+
    return true;
 }
 
 bool rr_link_tree_set_local_site(rr_link_tree_t *tree, const char *site) {
-   if (!tree || !valid_site(site)) return false;
+   if (!tree || !valid_site(site)) {
+      return false;
+   }
    strcpy(tree->nodes[0].site, site);
+
    return true;
 }
 static struct link_node *find(const rr_link_tree_t *tree, const char *id) {
@@ -61,6 +70,7 @@ rr_link_tree_t *rr_link_tree_new(const char *local, size_t limit) {
       return NULL;
    }
    rr_link_tree_t *tree = calloc(1, sizeof(*tree));
+
    if (!tree) {
       return NULL;
    }
@@ -103,6 +113,7 @@ rr_link_result_t rr_link_tree_attach(rr_link_tree_t *tree, const char *peer, con
    if (!tree || !valid_id(peer) || !nodes || !count) {
       return RR_LINK_INVALID;
    }
+
    if (count > tree->limit - tree->count) {
       return RR_LINK_LIMIT;
    }
@@ -122,6 +133,7 @@ rr_link_result_t rr_link_tree_attach(rr_link_tree_t *tree, const char *peer, con
             return RR_LINK_OVERLAP;
          }
       }
+
       if (!strcmp(nodes[i].server, peer)) {
          if (nodes[i].parent) {
             return RR_LINK_INVALID;
@@ -135,6 +147,7 @@ rr_link_result_t rr_link_tree_attach(rr_link_tree_t *tree, const char *peer, con
    if (roots != 1) {
       return RR_LINK_INVALID;
    }
+
    /* Every parent chain must reach the peer within count steps. This accepts unordered snapshots and rejects cycles, missing parents and extra roots. */
    for (size_t i = 0 ; i < count ; i++) {
       const char *id = nodes[i].server;
@@ -144,6 +157,7 @@ rr_link_result_t rr_link_tree_attach(rr_link_tree_t *tree, const char *peer, con
             return RR_LINK_INVALID;
          }
          size_t j;
+
          for (j = 0 ; j < count ; j++) {
             if (!strcmp(id, nodes[j].server)) {
                break;
@@ -156,6 +170,7 @@ rr_link_result_t rr_link_tree_attach(rr_link_tree_t *tree, const char *peer, con
          id = nodes[j].parent;
       }
    }
+
    for (size_t i = 0 ; i < count ; i++) {
       struct link_node *node = &tree->nodes[tree->count++];
       strcpy(node->server, nodes[i].server);
@@ -175,6 +190,7 @@ rr_link_result_t rr_link_tree_add(rr_link_tree_t *tree, const char *peer, const 
    if (!source || strcmp(source->peer, peer) || strcmp(source->server, source->peer) || !owner || strcmp(owner->peer, peer)) {
       return RR_LINK_INVALID;
    }
+
    if (find(tree, server)) {
       return RR_LINK_OVERLAP;
    }
@@ -210,6 +226,7 @@ bool rr_link_tree_remove(rr_link_tree_t *tree, const char *peer, const char *ser
    bool changed;
    do {
       changed = false;
+
       for (size_t i = 1 ; i < tree->count ; i++) {
          if (removed[i]) {
             continue;
@@ -230,5 +247,6 @@ bool rr_link_tree_remove(rr_link_tree_t *tree, const char *peer, const char *ser
    }
 
    tree->count = kept;
+
    return true;
 }

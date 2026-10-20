@@ -13,6 +13,6 @@
 #include <librustyaxe/config.h>
 #include <glib.h>
 void gtk_editcfg_shutdown(void);
-bool gui_edit_remote_config(const char *, const char *, bool (*)(const char *,void *), void *, GDestroyNotify);
+bool gui_edit_remote_config(const char *, const char *, bool (*) (const char *, void *), void *, GDestroyNotify);
 
 #endif // !defined(__rrclient_gtk_editcfg_h)

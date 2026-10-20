@@ -234,122 +234,157 @@ static int cfg_editor_defconfig_compare(const void *left, const void *right) {
    return strcmp(a->key, b->key);
 }
 
-/* Native GtkListBox filtering/sorting keeps editor widgets in their rows.
- * Cached casefolded text avoids repeatedly converting hundreds of keys. */
+/* Native GtkListBox filtering/sorting keeps editor widgets in their rows. Cached casefolded text avoids repeatedly converting hundreds of keys. */
 typedef struct {
    GtkWidget *list;
    char *query;
    char mode;
    guint pending;
 } cfg_list_state_t;
-static int cfg_sort_column=0;
-static gboolean cfg_sort_descending=FALSE;
-static gboolean cfg_list_filter(GtkListBoxRow *row,gpointer data) {
-   cfg_list_state_t *state=data;
-   if (!state->query || !*state->query) return TRUE;
-   const char *key=g_object_get_data(G_OBJECT(row),"cfg-key-fold");
-   const char *help=g_object_get_data(G_OBJECT(row),"cfg-help-fold");
-   if (state->mode=='^') return key && g_str_has_prefix(key,state->query);
-   return (key && strstr(key,state->query)) ||
-      (state->mode!='=' && help && strstr(help,state->query));
+static int cfg_sort_column = 0;
+static gboolean cfg_sort_descending = FALSE;
+static gboolean cfg_list_filter(GtkListBoxRow *row, gpointer data) {
+   cfg_list_state_t *state = data;
+
+   if (!state->query || !*state->query) {
+      return TRUE;
+   }
+   const char *key = g_object_get_data(G_OBJECT(row), "cfg-key-fold");
+   const char *help = g_object_get_data(G_OBJECT(row), "cfg-help-fold");
+
+   if (state->mode == '^') {
+      return key && g_str_has_prefix(key, state->query);
+   }
+
+   return (key && strstr(key, state->query)) || (state->mode != '=' && help && strstr(help, state->query));
 }
-static gint cfg_list_compare(GtkListBoxRow *left,GtkListBoxRow *right,gpointer unused) {
+static gint cfg_list_compare(GtkListBoxRow *left, GtkListBoxRow *right, gpointer unused) {
    (void)unused;
-   const defconfig_t *a=g_object_get_data(G_OBJECT(left),"rr-cfg-definition");
-   const defconfig_t *b=g_object_get_data(G_OBJECT(right),"rr-cfg-definition");
-   if (!a || !b) return 0;
-   const char *av=cfg_sort_column==2 ? (a->help ? a->help : "") :
-      cfg_sort_column==1 ? cfg_get(a->key) : a->key;
-   const char *bv=cfg_sort_column==2 ? (b->help ? b->help : "") :
-      cfg_sort_column==1 ? cfg_get(b->key) : b->key;
-   gint cmp=g_utf8_collate(av ? av : "",bv ? bv : "");
-   if (!cmp) cmp=g_strcmp0(a->key,b->key);
+   const defconfig_t *a = g_object_get_data(G_OBJECT(left), "rr-cfg-definition");
+   const defconfig_t *b = g_object_get_data(G_OBJECT(right), "rr-cfg-definition");
+
+   if (!a || !b) {
+      return 0;
+   }
+   const char *av = cfg_sort_column == 2 ? (a->help ? a->help : "") : cfg_sort_column == 1 ? cfg_get(a->key) : a->key;
+   const char *bv = cfg_sort_column == 2 ? (b->help ? b->help : "") : cfg_sort_column == 1 ? cfg_get(b->key) : b->key;
+   gint cmp = g_utf8_collate(av ? av : "", bv ? bv : "");
+
+   if (!cmp) {
+      cmp = g_strcmp0(a->key, b->key);
+   }
+
    return cfg_sort_descending ? -cmp : cmp;
 }
-static void cfg_list_sort_clicked(GtkButton *button,gpointer list) {
-   int column=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button),"cfg-sort-column"));
-   if (column==cfg_sort_column) cfg_sort_descending=!cfg_sort_descending;
-   else {cfg_sort_column=column;cfg_sort_descending=FALSE;}
+static void cfg_list_sort_clicked(GtkButton *button, gpointer list) {
+   int column = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "cfg-sort-column"));
+
+   if (column == cfg_sort_column) {
+      cfg_sort_descending = !cfg_sort_descending;
+   } else {
+      cfg_sort_column = column;
+      cfg_sort_descending = FALSE;
+   }
    gtk_list_box_invalidate_sort(GTK_LIST_BOX(list));
 }
 static gboolean cfg_list_filter_deferred(gpointer data) {
-   cfg_list_state_t *state=data;
-   state->pending=0;
+   cfg_list_state_t *state = data;
+   state->pending = 0;
    gtk_list_box_invalidate_filter(GTK_LIST_BOX(state->list));
+
    return G_SOURCE_REMOVE;
 }
 static void cfg_list_state_free(gpointer data) {
-   cfg_list_state_t *state=data;
-   if (state->pending) g_source_remove(state->pending);
+   cfg_list_state_t *state = data;
+
+   if (state->pending) {
+      g_source_remove(state->pending);
+   }
    g_free(state->query);
    g_free(state);
 }
-static void cfg_editor_filter_changed(GtkEditable *search,gpointer user_data) {
-   cfg_list_state_t *state=user_data;
-   const char *query=gtk_entry_get_text(GTK_ENTRY(search));
-   state->mode=(*query=='=' || *query=='^') ? *query++ : '\0';
+static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
+   cfg_list_state_t *state = user_data;
+   const char *query = gtk_entry_get_text(GTK_ENTRY(search));
+   state->mode = (*query == '=' || *query == '^') ? *query++ : '\0';
    g_free(state->query);
-   state->query=g_utf8_casefold(query,-1);
-   if (state->pending) g_source_remove(state->pending);
-   state->pending=g_timeout_add(100,cfg_list_filter_deferred,state);
+   state->query = g_utf8_casefold(query, -1);
+
+   if (state->pending) {
+      g_source_remove(state->pending);
+   }
+   state->pending = g_timeout_add(100, cfg_list_filter_deferred, state);
 }
 static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
-   GtkWidget *container=gtk_box_new(GTK_ORIENTATION_VERTICAL,0);
-   GtkWidget *header=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
-   const char *headings[]={"Setting","Value","Description"};
-   GtkWidget *list=gtk_list_box_new();
-   *list_out=list;
-   gtk_list_box_set_selection_mode(GTK_LIST_BOX(list),GTK_SELECTION_NONE);
-   gtk_list_box_set_sort_func(GTK_LIST_BOX(list),cfg_list_compare,NULL,NULL);
-   cfg_list_state_t *state=g_new0(cfg_list_state_t,1);
-   state->list=list;
-   g_object_set_data_full(G_OBJECT(container),"cfg-list-state",state,cfg_list_state_free);
-   gtk_list_box_set_filter_func(GTK_LIST_BOX(list),cfg_list_filter,state,NULL);
-   for (int col=0;col<3;col++) {
-      GtkWidget *button=gtk_button_new_with_label(headings[col]);
-      g_object_set_data(G_OBJECT(button),"cfg-sort-column",GINT_TO_POINTER(col));
-      if (col==0) gtk_widget_set_size_request(button,110,-1);
-      else if (col==1) gtk_widget_set_size_request(button,125,-1);
-      else gtk_widget_set_hexpand(button,TRUE);
-      g_signal_connect(button,"clicked",G_CALLBACK(cfg_list_sort_clicked),list);
-      gtk_box_pack_start(GTK_BOX(header),button,col==2,col==2,0);
-   }
-   gtk_box_pack_start(GTK_BOX(container),header,FALSE,FALSE,0);
-   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
-   gtk_widget_set_vexpand(scroll,TRUE);
-   gtk_container_add(GTK_CONTAINER(scroll),list);
-   gtk_box_pack_start(GTK_BOX(container),scroll,TRUE,TRUE,0);
+   GtkWidget *container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   const char *headings[] = {
+      "Setting", "Value", "Description"
+   };
+   GtkWidget *list = gtk_list_box_new();
+   *list_out = list;
+   gtk_list_box_set_selection_mode(GTK_LIST_BOX(list), GTK_SELECTION_NONE);
+   gtk_list_box_set_sort_func(GTK_LIST_BOX(list), cfg_list_compare, NULL, NULL);
+   cfg_list_state_t *state = g_new0(cfg_list_state_t, 1);
+   state->list = list;
+   g_object_set_data_full(G_OBJECT(container), "cfg-list-state", state, cfg_list_state_free);
+   gtk_list_box_set_filter_func(GTK_LIST_BOX(list), cfg_list_filter, state, NULL);
 
-   for (size_t i=0;defcfg[i].key;i++) {
-      const defconfig_t *def=&defcfg[i];
-      const char *value=cfg_get(def->key);
-      cfg_editor_binding_t *binding=NULL;
-      GtkWidget *editor=cfg_editor_widget(def,value ? value : def->val,&binding);
-      if (!editor) continue;
-      GtkWidget *row=gtk_list_box_row_new();
-      GtkWidget *cells=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
-      gtk_container_set_border_width(GTK_CONTAINER(cells),3);
-      GtkWidget *label=gtk_label_new(def->key);
-      gtk_label_set_xalign(GTK_LABEL(label),0);
-      gtk_label_set_ellipsize(GTK_LABEL(label),PANGO_ELLIPSIZE_END);
-      gtk_widget_set_size_request(label,110,-1);
-      gtk_widget_set_tooltip_text(label,def->key);
-      gtk_widget_set_tooltip_text(label,def->help ? def->help : "");
-      gtk_box_pack_start(GTK_BOX(cells),label,TRUE,TRUE,0);
-      gtk_widget_set_size_request(editor,125,-1);
-      gtk_box_pack_start(GTK_BOX(cells),editor,TRUE,TRUE,0);
-      GtkWidget *help=gtk_label_new(def->help ? def->help : "");
-      gtk_label_set_xalign(GTK_LABEL(help),0);
-      gtk_label_set_ellipsize(GTK_LABEL(help),PANGO_ELLIPSIZE_END);
-      gtk_widget_set_tooltip_text(help,def->help ? def->help : "");
-      gtk_box_pack_start(GTK_BOX(cells),help,TRUE,TRUE,0);
-      gtk_container_add(GTK_CONTAINER(row),cells);
-      g_object_set_data(G_OBJECT(row),"rr-cfg-definition",(gpointer)def);
-      g_object_set_data_full(G_OBJECT(row),"cfg-key-fold",g_utf8_casefold(def->key,-1),g_free);
-      g_object_set_data_full(G_OBJECT(row),"cfg-help-fold",g_utf8_casefold(def->help ? def->help : "",-1),g_free);
-      gtk_container_add(GTK_CONTAINER(list),row);
+   for (int col = 0 ; col < 3 ; col++) {
+      GtkWidget *button = gtk_button_new_with_label(headings[col]);
+      g_object_set_data(G_OBJECT(button), "cfg-sort-column", GINT_TO_POINTER(col));
+
+      if (col == 0) {
+         gtk_widget_set_size_request(button, 110, -1);
+      } else if (col == 1) {
+         gtk_widget_set_size_request(button, 125, -1);
+      } else {
+         gtk_widget_set_hexpand(button, TRUE);
+      }
+      g_signal_connect(button, "clicked", G_CALLBACK(cfg_list_sort_clicked), list);
+      gtk_box_pack_start(GTK_BOX(header), button, col == 2, col == 2, 0);
    }
+
+   gtk_box_pack_start(GTK_BOX(container), header, FALSE, FALSE, 0);
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_vexpand(scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(scroll), list);
+   gtk_box_pack_start(GTK_BOX(container), scroll, TRUE, TRUE, 0);
+
+   for (size_t i = 0 ; defcfg[i].key ; i++) {
+      const defconfig_t *def = &defcfg[i];
+      const char *value = cfg_get(def->key);
+      cfg_editor_binding_t *binding = NULL;
+      GtkWidget *editor = cfg_editor_widget(def, value ? value : def->val, &binding);
+
+      if (!editor) {
+         continue;
+      }
+      GtkWidget *row = gtk_list_box_row_new();
+      GtkWidget *cells = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+      gtk_container_set_border_width(GTK_CONTAINER(cells), 3);
+      GtkWidget *label = gtk_label_new(def->key);
+      gtk_label_set_xalign(GTK_LABEL(label), 0);
+      gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
+      gtk_widget_set_size_request(label, 110, -1);
+      gtk_widget_set_tooltip_text(label, def->key);
+      gtk_widget_set_tooltip_text(label, def->help ? def->help : "");
+      gtk_box_pack_start(GTK_BOX(cells), label, TRUE, TRUE, 0);
+      gtk_widget_set_size_request(editor, 125, -1);
+      gtk_box_pack_start(GTK_BOX(cells), editor, TRUE, TRUE, 0);
+      GtkWidget *help = gtk_label_new(def->help ? def->help : "");
+      gtk_label_set_xalign(GTK_LABEL(help), 0);
+      gtk_label_set_ellipsize(GTK_LABEL(help), PANGO_ELLIPSIZE_END);
+      gtk_widget_set_tooltip_text(help, def->help ? def->help : "");
+      gtk_box_pack_start(GTK_BOX(cells), help, TRUE, TRUE, 0);
+      gtk_container_add(GTK_CONTAINER(row), cells);
+      g_object_set_data(G_OBJECT(row), "rr-cfg-definition", (gpointer) def);
+      g_object_set_data_full(G_OBJECT(row), "cfg-key-fold", g_utf8_casefold(def->key, -1), g_free);
+      g_object_set_data_full(G_OBJECT(row), "cfg-help-fold", g_utf8_casefold(def->help ? def->help : "", -1), g_free);
+      gtk_container_add(GTK_CONTAINER(list), row);
+   }
+
    return container;
 }
 
@@ -389,8 +424,11 @@ static void destroy_editor(EditorContext *ctx) {
       return;
    }
 
-   ctx->destroying=true;
-   if(active_editor==ctx)active_editor=NULL;
+   ctx->destroying = true;
+
+   if (active_editor == ctx) {
+      active_editor = NULL;
+   }
 
    /*
     * Remove the window from the GUI window registry before destroying the actual GTK window.
@@ -405,21 +443,41 @@ static void destroy_editor(EditorContext *ctx) {
       ctx->window = NULL;
    }
 
-   if(ctx->buffer){g_signal_handlers_disconnect_by_data(ctx->buffer,ctx);g_object_unref(ctx->buffer);ctx->buffer=NULL;}
-   if (ctx->remote_token) event_off_token(ctx->remote_token);
-   if (ctx->remote_save) unlink(ctx->filepath);
-   if (ctx->remote_destroy) ctx->remote_destroy(ctx->remote_data);
+   if (ctx->buffer) {
+      g_signal_handlers_disconnect_by_data(ctx->buffer, ctx);
+      g_object_unref(ctx->buffer);
+      ctx->buffer = NULL;
+   }
+
+   if (ctx->remote_token) {
+      event_off_token(ctx->remote_token);
+   }
+
+   if (ctx->remote_save) {
+      unlink(ctx->filepath);
+   }
+
+   if (ctx->remote_destroy) {
+      ctx->remote_destroy(ctx->remote_data);
+   }
    g_free(ctx->filepath);
    g_free(ctx);
 }
 
 /* External window destruction must also release the remote event listener. */
-static void editor_destroyed(GtkWidget *window,gpointer data) {
-   EditorContext *ctx=data;ctx->window=NULL;ctx->window_t=NULL;
-   if(!ctx->destroying)destroy_editor(ctx);
+static void editor_destroyed(GtkWidget *window, gpointer data) {
+   EditorContext *ctx = data;
+   ctx->window = NULL;
+   ctx->window_t = NULL;
+
+   if (!ctx->destroying) {
+      destroy_editor(ctx);
+   }
 }
 void gtk_editcfg_shutdown(void) {
-   if(active_editor)destroy_editor(active_editor);
+   if (active_editor) {
+      destroy_editor(active_editor);
+   }
 }
 
 static bool save_editor(EditorContext *ctx, const char *filename) {
@@ -481,7 +539,10 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
    }
 
    EditorContext *ctx = user_data;
-   if (ctx->remote_pending) return;
+
+   if (ctx->remote_pending) {
+      return;
+   }
 
    if (!save_editor(ctx, ctx->filepath)) {
       return;
@@ -490,7 +551,8 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
    if (ctx->remote_save) {
       ctx->remote_pending = ctx->remote_save(ctx->filepath, ctx->remote_data);
       ctx->modified = !ctx->remote_pending;
-      gtk_widget_set_sensitive(ctx->save_button,!ctx->remote_pending);
+      gtk_widget_set_sensitive(ctx->save_button, !ctx->remote_pending);
+
       return;
    }
 
@@ -641,7 +703,7 @@ void gui_edit_config(const char *filepath) {
    Log(LOG_DEBUG, "gtk.editcfg", "Opening %s for editing", filepath);
 
    EditorContext *ctx = g_malloc0(sizeof(EditorContext));
-   active_editor=ctx;
+   active_editor = ctx;
    ctx->filepath = g_strdup(filepath);
    ctx->modified = FALSE;
 
@@ -649,7 +711,7 @@ void gui_edit_config(const char *filepath) {
    ctx->window = window;
    g_object_set_data(G_OBJECT(window), "rr-editor-context", ctx);
    ctx->window_t = ui_new_window(window, "editcfg");
-   g_signal_connect(window,"destroy",G_CALLBACK(editor_destroyed),ctx);
+   g_signal_connect(window, "destroy", G_CALLBACK(editor_destroyed), ctx);
 
    gtk_window_set_title(GTK_WINDOW(window), filepath);
    gtk_window_set_default_size(GTK_WINDOW(window), 640, 480);
@@ -743,7 +805,7 @@ void gui_edit_config(const char *filepath) {
    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 3);
 
    GtkWidget *btn_save = gtk_button_new_with_label("Save");
-   ctx->save_button=btn_save;
+   ctx->save_button = btn_save;
    GtkWidget *btn_save_as = gtk_button_new_with_label("Save As");
    ctx->save_as = btn_save_as;
    GtkWidget *btn_discard = gtk_button_new_with_label("Discard");
@@ -775,17 +837,17 @@ static void on_edit_config_button(GtkButton *button, gpointer user_data) {
       const char *home = g_get_home_dir();
       char *dir = g_build_filename(home, ".config", NULL);
       char *path = g_build_filename(dir, "rrclient.cfg", NULL);
+
       if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
          if (g_mkdir_with_parents(dir, 0700) != 0 || !cfg_save(cfg, path)) {
-            Log(LOG_WARN, "gtk.config", "Cannot initialize %s from active configuration: %s",
-               path, strerror(errno));
-            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
-               GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+            Log(LOG_WARN, "gtk.config", "Cannot initialize %s from active configuration: %s", path, strerror(errno));
+            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
                GTK_BUTTONS_CLOSE, "Unable to create %s from the active configuration.", path);
             gtk_dialog_run(GTK_DIALOG(dialog));
             gtk_widget_destroy(dialog);
             g_free(path);
             g_free(dir);
+
             return;
          }
          chmod(path, 0600);
@@ -848,8 +910,8 @@ GtkWidget *init_config_tab(void) {
 
    GtkWidget *cfg_list;
    GtkWidget *cfg_panel = cfg_editor_panel(&cfg_list);
-   cfg_list_state_t *filter_state=g_object_get_data(G_OBJECT(cfg_panel),"cfg-list-state");
-   g_signal_connect(search,"changed",G_CALLBACK(cfg_editor_filter_changed),filter_state);
+   cfg_list_state_t *filter_state = g_object_get_data(G_OBJECT(cfg_panel), "cfg-list-state");
+   g_signal_connect(search, "changed", G_CALLBACK(cfg_editor_filter_changed), filter_state);
    gtk_widget_set_vexpand(cfg_panel, TRUE);
    gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
 
@@ -885,12 +947,16 @@ GtkWidget *init_config_tab(void) {
 static void remote_edit_complete(const char *event, const char *text, rrconn_t *client, void *data) {
    EditorContext *ctx = data;
    dict *d = json2dict(text);
-   if (!d)
+
+   if (!d) {
       return;
+   }
+
    if (!strcmp(dict_get(d, "file.local", ""), ctx->filepath)) {
       ctx->remote_pending = false;
       gtk_widget_set_sensitive(ctx->save_button, TRUE);
       const char *error = dict_get(d, "file.error", "");
+
       if (*error) {
          ctx->modified = TRUE;
          GtkWidget *dialog =
@@ -903,34 +969,45 @@ static void remote_edit_complete(const char *event, const char *text, rrconn_t *
    dict_free(d);
 }
 
-/* Reuse the text editor, but saving publishes to the remote share and never
- * applies that configuration to the local client. Caller owns data on failure. */
-bool gui_edit_remote_config(const char *local, const char *title, bool (*save)(const char *, void *), void *data, GDestroyNotify destroy) {
-   if(gui_find_window(NULL, "editcfg"))
+/* Reuse the text editor, but saving publishes to the remote share and never applies that configuration to the local client. Caller owns data on failure. */
+bool gui_edit_remote_config(const char *local, const char *title, bool (*save) (const char *, void *), void *data, GDestroyNotify destroy) {
+   if (gui_find_window(NULL, "editcfg")) {
       return false;
+   }
    struct stat st;
-   if (stat(local, &st) || !S_ISREG(st.st_mode) || st.st_size > 1048576)
+
+   if (stat(local, &st) || !S_ISREG(st.st_mode) || st.st_size > 1048576) {
       return false;
+   }
    gchar *text = NULL;
    gsize size;
-   if (!g_file_get_contents(local, &text, &size, NULL))
+
+   if (!g_file_get_contents(local, &text, &size, NULL)) {
       return false;
+   }
    bool valid = g_utf8_validate(text, size, NULL) && !memchr(text, 0, size);
    g_free(text);
-   if (!valid)
+
+   if (!valid) {
       return false;
+   }
    gui_edit_config(local);
    gui_window_t *win = gui_find_window(NULL, "editcfg");
-   if (!win || !win->gtk_win)
+
+   if (!win || !win->gtk_win) {
       return false;
+   }
    EditorContext *ctx = g_object_get_data(G_OBJECT(win->gtk_win), "rr-editor-context");
-   if (!ctx)
+
+   if (!ctx) {
       return false;
+   }
    ctx->remote_save = save;
    ctx->remote_data = data;
    ctx->remote_destroy = destroy;
    ctx->remote_token = event_on_token("client.files.complete", remote_edit_complete, ctx);
    gtk_widget_hide(ctx->save_as);
    gtk_window_set_title(GTK_WINDOW(ctx->window), title);
+
    return true;
 }

@@ -22,11 +22,9 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
 bool rr_sercom_disconnect(const char *name);
 const char *rr_sercom_binding(const char *name);
 /* Common serial-console interface, independent of GTK/VTE and usable by TUI. */
-typedef void (*rr_sercom_console_fn)(const char *name, const char *bytes,
-   size_t len, bool incoming, void *user);
+typedef void (*rr_sercom_console_fn)(const char *name, const char *bytes, size_t len, bool incoming, void *user);
 typedef struct rr_sercom_observer rr_sercom_observer_t;
-rr_sercom_observer_t *rr_sercom_observe(const char *name,
-   rr_sercom_console_fn callback, void *user);
+rr_sercom_observer_t *rr_sercom_observe(const char *name, rr_sercom_console_fn callback, void *user);
 void rr_sercom_unobserve(rr_sercom_observer_t *observer);
 /* Inject serial input without requiring an external PTY opener. */
 bool rr_sercom_console_send(const char *name, const char *bytes, size_t len);

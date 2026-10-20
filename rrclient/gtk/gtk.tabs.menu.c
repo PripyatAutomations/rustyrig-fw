@@ -47,7 +47,7 @@ static void tab_close_request_apply(TabCloseRequest *request, gboolean force) {
    GtkTabCloseFunc *function = g_object_get_data(G_OBJECT(request->page), "rr-tab-close-func");
 
    if (function) {
-      (*function)(request->page, force);
+      (*function) (request->page, force);
    }
 }
 
@@ -63,9 +63,8 @@ static void tab_force_response(GtkDialog *dialog, gint response, TabCloseRequest
 static void tab_force_activate(GtkMenuItem *item, TabCloseRequest *request) {
    (void)item;
    GtkWidget *parent = gtk_widget_get_toplevel(GTK_WIDGET(request->notebook));
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL,
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE,
-      "Force close this tab?");
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_IS_WINDOW(parent) ? GTK_WINDOW(parent) : NULL, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "Force close this tab?");
    gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
       "Close without waiting for the server to confirm? Any unsent text in this tab will be lost.");
    gtk_dialog_add_buttons(GTK_DIALOG(dialog), "Cancel", GTK_RESPONSE_CANCEL, "Force close", GTK_RESPONSE_ACCEPT, NULL);
@@ -114,7 +113,7 @@ static gboolean tab_menu_button_press(GtkWidget *widget, GdkEventButton *event, 
       return FALSE;
    }
    GtkWidget *menu = tab_close_menu_new(notebook, page);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
 
    return TRUE;
 }

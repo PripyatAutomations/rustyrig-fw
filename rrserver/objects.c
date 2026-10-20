@@ -46,8 +46,13 @@ static char *epoch;
 static uint64_t sequence;
 
 static dict *message(const char *family, const char *cmd, const char *request) {
-   if (!epoch) epoch = g_uuid_string_random();
-   if (!epoch) return NULL;
+   if (!epoch) {
+      epoch = g_uuid_string_random();
+   }
+
+   if (!epoch) {
+      return NULL;
+   }
    dict *d = dict_new();
 
    if (!d) {
@@ -192,41 +197,50 @@ typedef struct {
 } node_control_context_t;
 
 /* Platform knobs belong to the persistent node, not an invented rig. */
-static void send_node_control_state(rrconn_t *client, const char *request,
-      const rr_platform_control_state_t *state, const char *command) {
-   dict *d = message("property",command,request);
-   if (!d) return;
-   dict_add(d,"target",rr_rig_registry_node(rig.rigs));
-   dict_add(d,"property.name",state->name);
-   dict_add(d,"property.type","integer");
-   dict_add_int(d,"property.value",state->current);
-   dict_add_bool(d,"property.observed",true);
-   dict_add_bool(d,"property.known",true);
-   dict_add_bool(d,"property.available",true);
-   rr_object_seq_put(d,"property.version",sequence);
-   send_message(client,d);
+static void send_node_control_state(rrconn_t *client, const char *request, const rr_platform_control_state_t *state, const char *command) {
+   dict *d = message("property", command, request);
+
+   if (!d) {
+      return;
+   }
+   dict_add(d, "target", rr_rig_registry_node(rig.rigs));
+   dict_add(d, "property.name", state->name);
+   dict_add(d, "property.type", "integer");
+   dict_add_int(d, "property.value", state->current);
+   dict_add_bool(d, "property.observed", true);
+   dict_add_bool(d, "property.known", true);
+   dict_add_bool(d, "property.available", true);
+   rr_object_seq_put(d, "property.version", sequence);
+   send_message(client, d);
 }
+
 /* Publish updates from every command surface, not only property.set. */
 void rrserver_objects_platform_changed(const rr_platform_control_state_t *state) {
-   if (!state || !rr_rig_registry_node(rig.rigs)) return;
+   if (!state || !rr_rig_registry_node(rig.rigs)) {
+      return;
+   }
    sequence++;
-   send_node_control_state(NULL,NULL,state,"changed");
+   send_node_control_state(NULL, NULL, state, "changed");
 }
 static bool send_node_control(const rr_platform_control_state_t *state, void *user) {
-   node_control_context_t *ctx=user;
-   dict *d = message("property","descriptor",ctx->request);
-   if (!d) return false;
-   dict_add(d,"target",rr_rig_registry_node(rig.rigs));
-   dict_add(d,"property.name",state->name);
-   dict_add(d,"property.type","integer");
-   dict_add_bool(d,"property.readable",true);
-   dict_add_bool(d,"property.writable",state->writable);
-   dict_add(d,"property.unit",state->unit);
-   dict_add_int(d,"property.minimum",state->minimum);
-   dict_add_int(d,"property.maximum",state->maximum);
-   dict_add_int(d,"property.step",state->step);
-   send_message(ctx->client,d);
-   send_node_control_state(ctx->client,ctx->request,state,"state");
+   node_control_context_t *ctx = user;
+   dict *d = message("property", "descriptor", ctx->request);
+
+   if (!d) {
+      return false;
+   }
+   dict_add(d, "target", rr_rig_registry_node(rig.rigs));
+   dict_add(d, "property.name", state->name);
+   dict_add(d, "property.type", "integer");
+   dict_add_bool(d, "property.readable", true);
+   dict_add_bool(d, "property.writable", state->writable);
+   dict_add(d, "property.unit", state->unit);
+   dict_add_int(d, "property.minimum", state->minimum);
+   dict_add_int(d, "property.maximum", state->maximum);
+   dict_add_int(d, "property.step", state->step);
+   send_message(ctx->client, d);
+   send_node_control_state(ctx->client, ctx->request, state, "state");
+
    return false;
 }
 
@@ -364,7 +378,8 @@ static void inventory_media(object_send_t *ctx, const char *owner, unsigned dept
       if (!ch->uuid[0]) {
          continue;
       }
-      const char *parent = rr_inventory_media_parent(ch,rig.rigs,"");
+      const char *parent = rr_inventory_media_parent(ch, rig.rigs, "");
+
       if (strcmp(parent, owner ? owner : "")) {
          continue;
       }
@@ -411,62 +426,71 @@ static void inventory_services(object_send_t *ctx, const char *scope, unsigned d
    dict_add(d, "request.id", ctx->request);
    dict_add(d, "inventory.scope", scope);
    rr_server_rig_t *owner = rr_rig_registry_find_alias(rig.rigs, scope);
-   dict_add(d, "inventory.parent", owner ? rr_server_rig_id(owner) :
-      !strcmp(scope, "station") ? rr_rig_registry_node(rig.rigs) : "");
+   dict_add(d, "inventory.parent", owner ? rr_server_rig_id(owner) : !strcmp(scope, "station") ? rr_rig_registry_node(rig.rigs) : "");
    dict_add_uint(d, "inventory.depth", depth);
    event_emit_dict(RR_INVENTORY_EVENT, ctx->client, d);
    dict_free(d);
 }
 
-/* A VFO may appear in several rooms; the room binding is an inventory
- * appearance, not a second VFO object or a second physical rig. */
+/* A VFO may appear in several rooms; the room binding is an inventory appearance, not a second VFO object or a second physical rig. */
 static void inventory_room_vfos(object_send_t *ctx, const char *room, const char *room_id) {
 #ifdef USE_SQLITE
    char *list = db_room_vfo_list(masterdb, room), *save = NULL;
-   for (char *id = list ? strtok_r(list, " \t\r\n", &save) : NULL;
-        id; id = strtok_r(NULL, " \t\r\n", &save)) {
+
+   for (char *id = list ? strtok_r(list, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save)) {
       rr_server_vfo_t *vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
-      if (!vfo) continue;
+
+      if (!vfo) {
+         continue;
+      }
       rr_server_rig_t *owner = rr_server_vfo_owner(vfo);
       const char *alias = rr_server_vfo_alias(vfo);
-      dict *row = rr_inventory_row(ctx->request, 2, "vfo",
-         alias ? alias : id, id);
-      if (!row) continue;
+      dict *row = rr_inventory_row(ctx->request, 2, "vfo", alias ? alias : id, id);
+
+      if (!row) {
+         continue;
+      }
       dict_add(row, "inventory.parent", room_id);
       dict_add(row, "inventory.room", room);
       char provenance[256];
-      snprintf(provenance, sizeof(provenance), "Site: %s / %s: %s / Room: %s / VFO: %s / UUID: %s",
-         cfg_get("station.name"), rrserver_bridge_rig(owner) ? "SDR" : "Rig",
-         rr_rig_registry_alias(rig.rigs, owner), room, alias ? alias : "A", id);
+      snprintf(provenance, sizeof(provenance), "Site: %s / %s: %s / Room: %s / VFO: %s / UUID: %s", cfg_get("station.name"), rrserver_bridge_rig(owner) ?
+         "SDR" : "Rig", rr_rig_registry_alias(rig.rigs, owner), room, alias ? alias : "A", id);
       dict_add(row, "inventory.description", provenance);
       rr_property_snapshot_t value;
+
       if (rr_vfo_property_read(vfo, "frequency", &value) && value.known) {
          char number[48];
          snprintf(number, sizeof(number), "%ld Hz", value.value.l);
          dict_add(row, "inventory.frequency", number);
       }
       GString *details = g_string_new(provenance);
-      if (rr_vfo_property_read(vfo, "mode", &value) && value.known && value.value.s)
+
+      if (rr_vfo_property_read(vfo, "mode", &value) && value.known && value.value.s) {
          g_string_append_printf(details, " / Mode: %s", value.value.s);
-      if (rr_vfo_property_read(vfo, "width", &value) && value.known)
+      }
+
+      if (rr_vfo_property_read(vfo, "width", &value) && value.known) {
          g_string_append_printf(details, " / Width: %ld Hz", value.value.l);
+      }
       dict_add(row, "inventory.description", details->str);
       g_string_free(details, TRUE);
       rr_inventory_send(ctx->client, row);
    }
+
    free(list);
 #else
-   (void)ctx; (void)room; (void)room_id;
+   (void)ctx;
+   (void)room;
+   (void)room_id;
 #endif
 }
 
 static void inventory_rooms(object_send_t *ctx, const char *base) {
 #ifdef USE_SQLITE
-   /* Resource Explorer must include the local station lobby even when no
-    * client has explicitly listed or joined it yet. */
+
+   /* Resource Explorer must include the local station lobby even when no client has explicitly listed or joined it yet. */
    if (!base && !db_room_ensure(masterdb, ws_site_room(), false, 0, "server")) {
-      Log(LOG_WARN, "inventory", "Unable to ensure station lobby %s: %s",
-         ws_site_room(), sqlite3_errmsg(masterdb));
+      Log(LOG_WARN, "inventory", "Unable to ensure station lobby %s: %s", ws_site_room(), sqlite3_errmsg(masterdb));
    }
    char *rooms = db_room_list(masterdb), *save = NULL;
 
@@ -475,7 +499,10 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
          continue;
       }
       char *room_id = db_room_uuid(masterdb, room);
-      if (!room_id) continue;
+
+      if (!room_id) {
+         continue;
+      }
       dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, room_id);
 
       if (row) {
@@ -526,12 +553,16 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
 static bool inventory_node_control(const rr_platform_control_state_t *state, void *user) {
    object_send_t *ctx = user;
    dict *row = rr_inventory_row(ctx->request, 1, "control", state->label, NULL);
-   if (!row) return false;
+
+   if (!row) {
+      return false;
+   }
    dict_add(row, "inventory.service", state->name);
    dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
    dict_add(row, "inventory.description", state->name);
    dict_add(row, "inventory.access", state->writable ? "read/write" : "read-only");
    rr_inventory_send(ctx->client, row);
+
    return false;
 }
 static void inventory(rrconn_t *client, const char *id) {
@@ -639,8 +670,10 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          dict_add(node, "object.location", cfg_get("station.location"));
          dict_add(node, "object.lifecycle", "persistent");
          send_message(client, node);
-         node_control_context_t controls = {.client=client,.request=id};
-         rrserver_platform_control_foreach(send_node_control,&controls);
+         node_control_context_t controls = {
+            .client = client, .request = id
+         };
+         rrserver_platform_control_foreach(send_node_control, &controls);
          dict_free(d);
 
          return;
@@ -656,39 +689,41 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
          0
       };
 
-      /* A node property may be writable without corresponding to any rig.
-       * Keep system controls owner/admin-only until scoped site privileges
-       * are included in the unified authorization layer. */
-      if (rr_rig_registry_node(rig.rigs) &&
-          !strcmp(uuid,rr_rig_registry_node(rig.rigs))) {
-         if (!client->user || !has_priv(client->user->uid,"admin|owner")) {
-            code="forbidden";
+      /* A node property may be writable without corresponding to any rig. Keep system controls owner/admin-only until scoped site privileges are included in
+       * the unified authorization layer. */
+      if (rr_rig_registry_node(rig.rigs) && !strcmp(uuid, rr_rig_registry_node(rig.rigs))) {
+         if (!client->user || !has_priv(client->user->uid, "admin|owner")) {
+            code = "forbidden";
             goto done;
          }
          rr_platform_control_state_t current;
-         if (!rrserver_platform_control_get(name,&current)) {
-            code="unknown-property";
+
+         if (!rrserver_platform_control_get(name, &current)) {
+            code = "unknown-property";
             goto done;
          }
+
          if (!current.writable) {
-            code="read-only";
+            code = "read-only";
             goto done;
          }
          dict_value_t value;
-         if (!rr_object_value_get(d,"property.value",VAL_INT,&value)) {
-            code="invalid-value";
+
+         if (!rr_object_value_get(d, "property.value", VAL_INT, &value)) {
+            code = "invalid-value";
             goto done;
          }
          rr_platform_control_state_t updated;
-         if (!rrserver_platform_control_set(name,value.i,&updated)) {
-            code="invalid-value";
+
+         if (!rrserver_platform_control_set(name, value.i, &updated)) {
+            code = "invalid-value";
             goto done;
          }
          rrserver_objects_platform_changed(&updated);
 #ifdef USE_SQLITE
-         db_add_audit_event(masterdb,client->chatname,"platform.control",name);
+         db_add_audit_event(masterdb, client->chatname, "platform.control", name);
 #endif
-         code="ok";
+         code = "ok";
          goto done;
       }
 
@@ -724,33 +759,31 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       const bool tuning = ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY);
 
       if (room) {
-         /* Native rig controls still require the physical rig's TX room.
-          * Only receiver properties may use a controlling user room. */
-         allowed = ctx.vfo ? ws_client_in_room(client, room) :
-            (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
+         /* Native rig controls still require the physical rig's TX room. Only receiver properties may use a controlling user room. */
+         allowed = ctx.vfo ? ws_client_in_room(client, room) : (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
       } else {
          room = base;
          allowed = base && ws_client_in_room(client, base);
       }
 
 #ifdef USE_SQLITE
+
       if (allowed && ctx.vfo) {
          char *controller = db_room_vfo_controller(masterdb, rr_server_vfo_id(ctx.vfo));
+
          if (!controller || !room || strcasecmp(controller, room)) {
             allowed = false;
          }
          free(controller);
       }
 #endif
+
       if (allowed && ctx.vfo) {
-         /* A user-created room never gains TX authority by hosting a VFO.
-          * For frequency changes, the backend's independent-RX permission
-          * remains relevant on legacy rig subrooms. */
+         /* A user-created room never gains TX authority by hosting a VFO. For frequency changes, the backend's independent-RX permission remains relevant on
+          * legacy rig subrooms. */
          if (!base || strcasecmp(base, room)) {
-            /* A bridge is RX-only.  Its first attached room can tune,
-             * without requiring a rig-numbered room or TX control. */
-            allowed = tuning && rrserver_bridge_rig(ctx.radio) &&
-               rrserver_bridge_can_use(client) && ws_client_in_room(client, room);
+            /* A bridge is RX-only.  Its first attached room can tune, without requiring a rig-numbered room or TX control. */
+            allowed = tuning && rrserver_bridge_rig(ctx.radio) && rrserver_bridge_can_use(client) && ws_client_in_room(client, room);
          } else {
             allowed = ws_room_control_allowed(client, room, tuning);
          }

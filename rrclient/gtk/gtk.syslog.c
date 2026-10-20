@@ -221,11 +221,13 @@ bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...)
    va_start(ap, fmt);
    bool rv = log_print_va(priority, subsys, fmt, ap);
    va_end(ap);
+
    return rv;
 }
 
 bool syslog_clear(void) {
    gtk_text_buffer_set_text(log_buffer, "", -1);
+
    return false;
 }
 
@@ -249,6 +251,7 @@ GtkWidget *init_log_tab(void) {
 
    // Scroll to the end when the user switches to this tab (see log_tab_switched)
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(log_tab_switched), NULL);
+
    return nw;
 }
 
@@ -277,5 +280,6 @@ GtkWidget *init_host_log_tab(void) {
    // librrprotocol/ws.binframe.h struct rr_logframe.
    // PARITY: rrserver/hostlog.c hostlog_cb()
    event_on_binary("media.frame.log", host_log_frame_handler, NULL);
+
    return nw;
 }

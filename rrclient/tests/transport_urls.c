@@ -581,12 +581,16 @@ int main(void) {
    assert(cmd_win(1, win_missing));
 
    /* Diagnostic tabs cannot be removed through either common close entry point. */
-   const char *protected_windows[] = {"status", "client log", "host log"};
-   for (unsigned i = 0; i < sizeof(protected_windows) / sizeof(protected_windows[0]); i++) {
+   const char *protected_windows[] = {
+      "status", "client log", "host log"
+   };
+
+   for (unsigned i = 0 ; i < sizeof(protected_windows) / sizeof(protected_windows[0]) ; i++) {
       active_room = protected_windows[i];
       status_active = false;
       assert(cmd_win(2, win_close) && ui_close_window(active_room));
    }
+
    active_room = NULL;
    status_active = true;
 

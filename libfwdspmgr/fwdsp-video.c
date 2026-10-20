@@ -40,7 +40,10 @@ int fwdsp_video_start(const char codec_id[5], bool is_tx) {
    }
 
    struct fwdsp_subproc *sp = fwdsp_find_instance(codec_id, is_tx);
-   if (sp && !sp->is_video) return -1;
+
+   if (sp && !sp->is_video) {
+      return -1;
+   }
 
    if (!sp) {
       // create + spawn, marking the instance as video before exec

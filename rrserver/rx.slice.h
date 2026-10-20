@@ -32,8 +32,7 @@ bool rr_rx_slice_parse(const char *name, rr_rx_slice_spec_t *out);
 rr_rx_slices_t *rr_rx_slices_new(void);
 void rr_rx_slices_free(rr_rx_slices_t *registry);
 /* Identical normalized specifications return the same object. */
-rr_rx_slice_t *rr_rx_slice_acquire(rr_rx_slices_t *registry,
-   const rr_rx_slice_spec_t *spec);
+rr_rx_slice_t *rr_rx_slice_acquire(rr_rx_slices_t *registry, const rr_rx_slice_spec_t *spec);
 void rr_rx_slice_release(rr_rx_slices_t *registry, rr_rx_slice_t *slice);
 const char *rr_rx_slice_id(const rr_rx_slice_t *slice);
 unsigned rr_rx_slice_subscribers(const rr_rx_slice_t *slice);

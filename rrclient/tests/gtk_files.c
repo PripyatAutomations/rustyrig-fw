@@ -13,15 +13,16 @@ static unsigned completions, pending_commits, failures;
 static GMutex flush_lock;
 static GCond flush_condition;
 static bool flush_blocked, flush_entered;
-/* Deterministically hold the worker while the main thread cancels or revokes
- * access. The separate live-server test exercises actual filesystem fsync. */
+/* Deterministically hold the worker while the main thread cancels or revokes access. The separate live-server test exercises actual filesystem fsync. */
 int fsync(int fd) {
    g_mutex_lock(&flush_lock);
    flush_entered = true;
    g_cond_broadcast(&flush_condition);
-   while (flush_blocked)
+   while (flush_blocked) {
       g_cond_wait(&flush_condition, &flush_lock);
+   }
    g_mutex_unlock(&flush_lock);
+
    return 0;
 }
 static void block_flush(void) {
@@ -56,12 +57,13 @@ const char *rrclient_selected_server(void) {
 bool ui_print(const char *room, const char *format, ...) {
    return false;
 }
-bool gui_edit_remote_config(const char *file, const char *title, bool (*save)(const char *, void *), void *data, GDestroyNotify destroy) {
+bool gui_edit_remote_config(const char *file, const char *title, bool (*save) (const char *, void *), void *data, GDestroyNotify destroy) {
    assert(!editor_file);
    editor_file = g_strdup(file);
    editor_save = save;
    editor_data = data;
    editor_destroy = destroy;
+
    return true;
 }
 
@@ -76,67 +78,86 @@ static gboolean deliver(gpointer data) {
    event_emit_dict(reply ? "ws.msg.file" : "file.request", d->client, d->message);
    dict_free(d->message);
    g_free(d);
+
    return G_SOURCE_REMOVE;
 }
 bool ws_send_dict(rrconn_t *sender, rrconn_t *dest, dict *message, int type) {
    assert(dest == &client);
    const char *command = dict_get(message, "file.cmd", "");
-   if (!strcmp(command, "commit"))
+
+   if (!strcmp(command, "commit")) {
       pending_commits++;
-   else if (!strcmp(command, "result") && pending_commits)
+   } else if (!strcmp(command, "result") && pending_commits) {
       pending_commits--;
+   }
    struct delivery *d = g_new0(struct delivery, 1);
    d->client = dest;
    d->message = dict_clone(message);
    g_idle_add(deliver, d);
+
    return true;
 }
 static void completed(const char *event, const char *data, rrconn_t *c, void *context) {
    dict *d = json2dict(data);
-   if (*dict_get(d, "file.error", ""))
+
+   if (*dict_get(d, "file.error", "")) {
       failures++;
+   }
    completions++;
    dict_free(d);
 }
 static void drain(void) {
-   for (unsigned i = 0; i < 5000; i++) {
-      while (g_main_context_pending(NULL))
+   for (unsigned i = 0 ; i < 5000 ; i++) {
+      while (g_main_context_pending(NULL)) {
          g_main_context_iteration(NULL, FALSE);
+      }
       event_emit("server.poll", NULL, NULL);
       g_usleep(1000);
-      if (!pending_commits && i >= 30)
+
+      if (!pending_commits && i >= 30) {
          break;
+      }
    }
 }
 static void wait_flush(void) {
-   for (unsigned i = 0; i < 5000; i++) {
-      while (g_main_context_pending(NULL))
+   for (unsigned i = 0 ; i < 5000 ; i++) {
+      while (g_main_context_pending(NULL)) {
          g_main_context_iteration(NULL, FALSE);
+      }
       event_emit("server.poll", NULL, NULL);
       g_mutex_lock(&flush_lock);
       bool entered = flush_entered;
       g_mutex_unlock(&flush_lock);
-      if (entered)
+
+      if (entered) {
          return;
+      }
       g_usleep(1000);
    }
+
    assert(!"Upload flush worker did not start");
 }
 static bool find(GtkTreeIter *parent, const char *path, GtkTreeIter *out) {
    GtkTreeIter iter;
-   for (gboolean valid = gtk_tree_model_iter_children(GTK_TREE_MODEL(browser.store), &iter, parent); valid;
+
+   for (gboolean valid = gtk_tree_model_iter_children(GTK_TREE_MODEL(browser.store), &iter, parent) ; valid ;
       valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(browser.store), &iter)) {
       char *value;
       gtk_tree_model_get(GTK_TREE_MODEL(browser.store), &iter, PATH, &value, -1);
       bool match = value && !strcmp(value, path);
       g_free(value);
+
       if (match) {
          *out = iter;
+
          return true;
       }
-      if (find(&iter, path, out))
+
+      if (find(&iter, path, out)) {
          return true;
+      }
    }
+
    return false;
 }
 int main(int argc, char **argv) {
@@ -158,8 +179,11 @@ int main(int argc, char **argv) {
    char *source = g_build_filename(work, "source.bin", NULL), *download = g_build_filename(work, "download.bin", NULL), *destination =
       g_build_filename(work, "remote.bin", NULL);
    unsigned char bytes[200000];
-   for (unsigned i = 0; i < sizeof(bytes); i++)
+
+   for (unsigned i = 0 ; i < sizeof(bytes) ; i++) {
       bytes[i] = i % 251;
+   }
+
    assert(g_file_set_contents(source, (const char *)bytes, sizeof(bytes), NULL));
    assert(rrclient_files_transfer(&client, "/test/remote.bin", source, true, false));
    drain();
@@ -189,6 +213,7 @@ int main(int argc, char **argv) {
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), path);
    gtk_tree_path_free(path);
    const char *screenshot = g_getenv("RR_FILES_SCREENSHOT");
+
    if (screenshot) {
       drain();
       GdkPixbuf *image = gdk_pixbuf_get_from_window(gtk_widget_get_window(browser.window), 0, 0, gtk_widget_get_allocated_width(browser.window),

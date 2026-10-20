@@ -78,61 +78,221 @@ static char *field(struct mg_str object, const char *key) {
 
    return valid;
 }
-/* Country is optional in Kiwi's directory. Only infer from distinctive
- * whole country names or unambiguous comma-delimited country codes.
- * Don't guess a country from a city, US state or amateur grid square. */
+
+/* Country is optional in Kiwi's directory. Only infer from distinctive whole country names or unambiguous comma-delimited country codes. Don't guess a country
+ * from a city, US state or amateur grid square. */
 static char *country_from_text(const char *text) {
-   static const struct { const char *name, *canonical; } names[] = {
-      {"United States of America", "United States"}, {"United States", "United States"},
-      {"USA", "United States"}, {"United Kingdom", "United Kingdom"},
-      {"Great Britain", "United Kingdom"},
-      {"Scotland", "United Kingdom"},
-      {"Northern Ireland", "United Kingdom"}, {"Canada", "Canada"},
-      {"Australia", "Australia"}, {"New Zealand", "New Zealand"},
-      {"Germany", "Germany"}, {"France", "France"}, {"Italy", "Italy"},
-      {"Spain", "Spain"}, {"Portugal", "Portugal"}, {"Netherlands", "Netherlands"},
-      {"Belgium", "Belgium"}, {"Switzerland", "Switzerland"},
-      {"Austria", "Austria"}, {"Denmark", "Denmark"}, {"Sweden", "Sweden"},
-      {"Norway", "Norway"}, {"Finland", "Finland"}, {"Iceland", "Iceland"},
-      {"Ireland", "Ireland"}, {"Poland", "Poland"}, {"Czech Republic", "Czech Republic"},
-      {"Czechia", "Czechia"}, {"Slovakia", "Slovakia"}, {"Hungary", "Hungary"},
-      {"Romania", "Romania"}, {"Bulgaria", "Bulgaria"}, {"Greece", "Greece"},
-      {"Croatia", "Croatia"}, {"Slovenia", "Slovenia"}, {"Serbia", "Serbia"},
-      {"Ukraine", "Ukraine"}, {"Estonia", "Estonia"}, {"Latvia", "Latvia"},
-      {"Lithuania", "Lithuania"}, {"Turkey", "Turkey"}, {"Türkiye", "Turkey"},
-      {"Israel", "Israel"}, {"Japan", "Japan"}, {"China", "China"},
-      {"Taiwan", "Taiwan"}, {"South Korea", "South Korea"}, {"India", "India"},
-      {"Pakistan", "Pakistan"}, {"Thailand", "Thailand"}, {"Malaysia", "Malaysia"},
-      {"Singapore", "Singapore"}, {"Indonesia", "Indonesia"},
-      {"Philippines", "Philippines"}, {"Vietnam", "Vietnam"},
-      {"South Africa", "South Africa"}, {"Egypt", "Egypt"}, {"Morocco", "Morocco"},
-      {"Nigeria", "Nigeria"}, {"Kenya", "Kenya"}, {"Brazil", "Brazil"},
-      {"Argentina", "Argentina"}, {"Chile", "Chile"}, {"Colombia", "Colombia"},
-      {"Peru", "Peru"}, {"Mexico", "Mexico"}, {"Costa Rica", "Costa Rica"}
+   static const struct {
+      const char *name, *canonical;
+   } names[] = {
+      {
+         "United States of America", "United States"
+      }, {
+         "United States", "United States"
+      },
+      {
+         "USA", "United States"
+      }, {
+         "United Kingdom", "United Kingdom"
+      },
+      {
+         "Great Britain", "United Kingdom"
+      },
+      {
+         "Scotland", "United Kingdom"
+      },
+      {
+         "Northern Ireland", "United Kingdom"
+      }, {
+         "Canada", "Canada"
+      },
+      {
+         "Australia", "Australia"
+      }, {
+         "New Zealand", "New Zealand"
+      },
+      {
+         "Germany", "Germany"
+      }, {
+         "France", "France"
+      }, {
+         "Italy", "Italy"
+      },
+      {
+         "Spain", "Spain"
+      }, {
+         "Portugal", "Portugal"
+      }, {
+         "Netherlands", "Netherlands"
+      },
+      {
+         "Belgium", "Belgium"
+      }, {
+         "Switzerland", "Switzerland"
+      },
+      {
+         "Austria", "Austria"
+      }, {
+         "Denmark", "Denmark"
+      }, {
+         "Sweden", "Sweden"
+      },
+      {
+         "Norway", "Norway"
+      }, {
+         "Finland", "Finland"
+      }, {
+         "Iceland", "Iceland"
+      },
+      {
+         "Ireland", "Ireland"
+      }, {
+         "Poland", "Poland"
+      }, {
+         "Czech Republic", "Czech Republic"
+      },
+      {
+         "Czechia", "Czechia"
+      }, {
+         "Slovakia", "Slovakia"
+      }, {
+         "Hungary", "Hungary"
+      },
+      {
+         "Romania", "Romania"
+      }, {
+         "Bulgaria", "Bulgaria"
+      }, {
+         "Greece", "Greece"
+      },
+      {
+         "Croatia", "Croatia"
+      }, {
+         "Slovenia", "Slovenia"
+      }, {
+         "Serbia", "Serbia"
+      },
+      {
+         "Ukraine", "Ukraine"
+      }, {
+         "Estonia", "Estonia"
+      }, {
+         "Latvia", "Latvia"
+      },
+      {
+         "Lithuania", "Lithuania"
+      }, {
+         "Turkey", "Turkey"
+      }, {
+         "Türkiye", "Turkey"
+      },
+      {
+         "Israel", "Israel"
+      }, {
+         "Japan", "Japan"
+      }, {
+         "China", "China"
+      },
+      {
+         "Taiwan", "Taiwan"
+      }, {
+         "South Korea", "South Korea"
+      }, {
+         "India", "India"
+      },
+      {
+         "Pakistan", "Pakistan"
+      }, {
+         "Thailand", "Thailand"
+      }, {
+         "Malaysia", "Malaysia"
+      },
+      {
+         "Singapore", "Singapore"
+      }, {
+         "Indonesia", "Indonesia"
+      },
+      {
+         "Philippines", "Philippines"
+      }, {
+         "Vietnam", "Vietnam"
+      },
+      {
+         "South Africa", "South Africa"
+      }, {
+         "Egypt", "Egypt"
+      }, {
+         "Morocco", "Morocco"
+      },
+      {
+         "Nigeria", "Nigeria"
+      }, {
+         "Kenya", "Kenya"
+      }, {
+         "Brazil", "Brazil"
+      },
+      {
+         "Argentina", "Argentina"
+      }, {
+         "Chile", "Chile"
+      }, {
+         "Colombia", "Colombia"
+      },
+      {
+         "Peru", "Peru"
+      }, {
+         "Mexico", "Mexico"
+      }, {
+         "Costa Rica", "Costa Rica"
+      }
    };
-   if (!text || !*text) return NULL;
+
+   if (!text || !*text) {
+      return NULL;
+   }
    char *folded = g_utf8_casefold(text, -1);
    char *matched = NULL;
-   for (unsigned i = 0; i < G_N_ELEMENTS(names); i++) {
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; i++) {
       char *word = g_utf8_casefold(names[i].name, -1);
       size_t length = strlen(word);
-      for (const char *p = folded; p && (p = strstr(p, word)); p += length) {
+
+      for (const char *p = folded ; p && (p = strstr(p, word)) ; p += length) {
          /* Casefolded UTF-8: ASCII delimiters around complete names. */
-         bool left = p == folded || !(g_ascii_isalnum((guchar)p[-1]) || (guchar)p[-1] >= 128);
-         bool right = !p[length] || !(g_ascii_isalnum((guchar)p[length]) || (guchar)p[length] >= 128);
-         if (left && right) { matched = g_strdup(names[i].canonical); break; }
+         bool left = p == folded || !(g_ascii_isalnum((guchar) p[-1]) || (guchar) p[-1] >= 128);
+         bool right = !p[length] || !(g_ascii_isalnum((guchar) p[length]) || (guchar) p[length] >= 128);
+
+         if (left && right) {
+            matched = g_strdup(names[i].canonical);
+            break;
+         }
       }
+
       g_free(word);
-      if (matched) break;
+
+      if (matched) {
+         break;
+      }
    }
+
    g_free(folded);
+
    return matched;
 }
 static void infer_country(receiver_directory_entry_t *r, const char *description) {
-   if (!r || (r->country && *r->country)) return;
+   if (!r || (r->country && *r->country)) {
+      return;
+   }
    char *country = country_from_text(r->location);
-   if (!country) country = country_from_text(description);
-   if (country) { g_free(r->country); r->country = country; }
+
+   if (!country) {
+      country = country_from_text(description);
+   }
+
+   if (country) {
+      g_free(r->country);
+      r->country = country;
+   }
 }
 static long long integer(struct mg_str object, const char *key, long long fallback) {
    struct mg_str token = mg_json_get_tok(object, key);
@@ -301,7 +461,11 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
       }
       r->properties = g_utf8_make_valid(object.buf, object.len);
       char *description = field(object, "$.description");
-      if (!*description) { g_free(description); description = field(object, "$.desc"); }
+
+      if (!*description) {
+         g_free(description);
+         description = field(object, "$.desc");
+      }
       infer_country(r, description);
       g_free(description);
       g_ptr_array_add(list, r);
@@ -803,9 +967,12 @@ bool receiver_directory_busy(void) {
 const char *receiver_directory_fetch_url(void) {
    return job ? job->url : NULL;
 }
-const char *receiver_directory_last_error(void) { return last_fetch_error; }
+const char *receiver_directory_last_error(void) {
+   return last_fetch_error;
+}
 const char *receiver_directory_source_url(void) {
    const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
+
    return url && *url ? url : cfg_get("receiver-directory.url");
 }
 char *receiver_directory_info(void) {
@@ -919,11 +1086,11 @@ static gpointer fetch(gpointer user) {
          headers = curl_slist_append(headers, h);
          g_free(h);
       }
+
       if (j->proxy && *j->proxy) {
          /* Explicit outbound HTTP proxy, not a server-link or media proxy. */
          curl_easy_setopt(curl, CURLOPT_PROXY, j->proxy);
-         curl_easy_setopt(curl, CURLOPT_PROXYTYPE,
-            g_str_has_prefix(j->proxy, "socks5h://") ? CURLPROXY_SOCKS5_HOSTNAME : CURLPROXY_SOCKS5);
+         curl_easy_setopt(curl, CURLOPT_PROXYTYPE, g_str_has_prefix(j->proxy, "socks5h://") ? CURLPROXY_SOCKS5_HOSTNAME : CURLPROXY_SOCKS5);
       } else {
          /* Do not silently inherit environment proxy settings. */
          curl_easy_setopt(curl, CURLOPT_PROXY, "");
@@ -989,6 +1156,7 @@ static gboolean finish(gpointer unused) {
 
    if (list || unchanged) {
       last_fetch_error[0] = 0;
+
       if (list) {
          g_ptr_array_free(receivers, TRUE);
          receivers = list;
@@ -1007,8 +1175,7 @@ static gboolean finish(gpointer unused) {
    } else {
       const char *reason = job->result != CURLE_OK ? curl_easy_strerror(job->result) :
          job->status == 200 ? "Invalid or unsupported directory JSON" :
-         job->status == 304 ? "Server returned Not Modified, but there is no cached directory" :
-         "Unexpected HTTP response";
+         job->status == 304 ? "Server returned Not Modified, but there is no cached directory" : "Unexpected HTTP response";
       g_snprintf(last_fetch_error, sizeof(last_fetch_error), "%s (HTTP %ld)", reason, job->status);
       g_snprintf(status_text, sizeof(status_text), "Directory refresh failed: %s. Keeping %u cached receivers.", last_fetch_error, receivers->len);
    }
@@ -1080,27 +1247,35 @@ bool receiver_directory_refresh(void) {
    job = g_new0(struct directory_job, 1);
    job->started = now;
    job->url = g_strdup(url);
-   /* Host-scoped HTTP download proxy. No effect on WebSocket server links,
-    * RTP/media, or a different HTTP origin. */
+   /* Host-scoped HTTP download proxy. No effect on WebSocket server links, RTP/media, or a different HTTP origin. */
    GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
    const char *host = uri ? g_uri_get_host(uri) : NULL;
    char *key = host ? g_strdup_printf("http.proxy.%s", host) : NULL;
    const char *proxy = key ? cfg_get(key) : NULL;
+
    if (proxy && *proxy) {
-      if ((!g_str_has_prefix(proxy, "socks5://") &&
-           !g_str_has_prefix(proxy, "socks5h://")) || strlen(proxy) > 512) {
+      if ((!g_str_has_prefix(proxy, "socks5://") && !g_str_has_prefix(proxy, "socks5h://")) || strlen(proxy) > 512) {
          g_strlcpy(last_fetch_error, "Invalid http.proxy.<host>: expected socks5:// or socks5h:// URL.", sizeof(last_fetch_error));
          g_strlcpy(status_text, last_fetch_error, sizeof(status_text));
          g_free(key);
-         if (uri) g_uri_unref(uri);
-         g_free(job->url); g_free(job); job = NULL;
+
+         if (uri) {
+            g_uri_unref(uri);
+         }
+         g_free(job->url);
+         g_free(job);
+         job = NULL;
          changed();
+
          return false;
       }
       job->proxy = g_strdup(proxy);
    }
    g_free(key);
-   if (uri) g_uri_unref(uri);
+
+   if (uri) {
+      g_uri_unref(uri);
+   }
    job->body = g_string_new(NULL);
    job->delay = DIRECTORY_INTERVAL;
 

@@ -108,6 +108,7 @@ bool load_http_ua_bans(const char *path) {
 
       if (!new_ban) {
          fclose(fp);
+
          return true;
       }
       new_ban->useragent = strdup(line);
@@ -115,6 +116,7 @@ bool load_http_ua_bans(const char *path) {
       if (!new_ban->useragent) {
          free(new_ban);
          fclose(fp);
+
          return true;
       }
       int regex_rc = regcomp(&new_ban->regex, new_ban->useragent, REG_EXTENDED | REG_NOSUB);
@@ -141,6 +143,7 @@ bool load_http_ua_bans(const char *path) {
       }
    }
    fclose(fp);
+
    return false;
 }
 #endif // USE_HTTP

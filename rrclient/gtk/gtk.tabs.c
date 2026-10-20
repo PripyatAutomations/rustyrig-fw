@@ -4,7 +4,11 @@
 /* Native side tabs wrap their label in an event box; wrapped tabs keep it directly. */
 static GtkWidget *tab_source_label(GtkNotebook *notebook, GtkWidget *page) {
    GtkWidget *label = gtk_notebook_get_tab_label(notebook, page);
-   if (GTK_IS_EVENT_BOX(label)) label = gtk_bin_get_child(GTK_BIN(label));
+
+   if (GTK_IS_EVENT_BOX(label)) {
+      label = gtk_bin_get_child(GTK_BIN(label));
+   }
+
    return GTK_IS_LABEL(label) ? label : NULL;
 }
 
@@ -14,23 +18,35 @@ static void tab_activity_read(GtkNotebook *notebook, GtkWidget *page, guint numb
    (void)data;
    const char *title = g_object_get_data(G_OBJECT(page), "rr-tab-base-title");
    GtkWidget *label = tab_source_label(notebook, page);
-   if (title && label) gtk_label_set_text(GTK_LABEL(label), title);
+
+   if (title && label) {
+      gtk_label_set_text(GTK_LABEL(label), title);
+   }
    g_object_set_data(G_OBJECT(page), "rr-tab-unread", NULL);
 }
 
 /* Mark background messages without selecting pages or overriding server colors. */
 void gtk_tabs_page_activity(GtkNotebook *notebook, GtkWidget *page, gboolean mention) {
-   if (gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)) == page) return;
+   if (gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)) == page) {
+      return;
+   }
    GtkWidget *label = tab_source_label(notebook, page);
-   if (!label) return;
+
+   if (!label) {
+      return;
+   }
    const char *title = g_object_get_data(G_OBJECT(page), "rr-tab-base-title");
+
    if (!title) {
       title = g_strdup(gtk_label_get_text(GTK_LABEL(label)));
-      g_object_set_data_full(G_OBJECT(page), "rr-tab-base-title", (gpointer)title, g_free);
+      g_object_set_data_full(G_OBJECT(page), "rr-tab-base-title", (gpointer) title, g_free);
    }
    int unread = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(page), "rr-tab-unread"));
    int next = mention || unread == 2 ? 2 : 1;
-   if (unread == next) return;
+
+   if (unread == next) {
+      return;
+   }
    g_object_set_data(G_OBJECT(page), "rr-tab-unread", GINT_TO_POINTER(next));
    char *escaped = g_markup_escape_text(title, -1);
    char *marked = g_strdup_printf(next == 2 ? "<b>! %s</b>" : "• %s", escaped);

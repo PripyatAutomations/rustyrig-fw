@@ -31,7 +31,8 @@ typedef struct {
 static admin_table_t tables[] = {
    {
       .name = "users", .fields = {
-         "name", "enabled", "permissions", "email", "maxsessions", "password_set", "password_expires", "password_change_required", "uid", "full_rig_access"
+         "name", "enabled", "permissions", "email", "maxsessions", "password_set", "password_expires", "password_change_required", "uid",
+         "full_rig_access"
       }
    },
    {
@@ -83,8 +84,7 @@ static admin_table_t tables[] = {
    },
 };
 
-/* Server-exported node controls. The UI knows only typed descriptors,
- * not individual hardware providers or platform-specific paths. */
+/* Server-exported node controls. The UI knows only typed descriptors, not individual hardware providers or platform-specific paths. */
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
 static GtkWidget *control_rows_box, *control_filter, *control_scroll, *control_hosts;
 static gulong control_host_handler;
@@ -93,468 +93,696 @@ static GHashTable *control_row_buttons;
 static char *control_pending_name;
 static char *control_server_profile;
 static bool admin_control_request(const char *name, int value);
-static bool admin_control_request_profile(const char *profile,const char *name,int value);
+static bool admin_control_request_profile(const char *profile, const char *name, int value);
 static void admin_control_rows_clear(void);
 static void admin_control_refresh(GtkButton *button, gpointer user);
-static void admin_control_row_add(dict *data,const char *profile);
-/* The client owns local controls; they need not be exported to a server.
- * Do not expose sysfs paths or allow names supplied by a remote peer. */
+static void admin_control_row_add(dict *data, const char *profile);
+/* The client owns local controls; they need not be exported to a server. Do not expose sysfs paths or allow names supplied by a remote peer. */
 #ifdef __linux__
-static bool local_backlight_path(char *out,size_t capacity) {
-   DIR *dir=opendir("/sys/class/backlight");
-   if (!dir) return false;
+static bool local_backlight_path(char *out, size_t capacity) {
+   DIR *dir = opendir("/sys/class/backlight");
+
+   if (!dir) {
+      return false;
+   }
    struct dirent *item;
-   char device[80]="";
-   unsigned found=0;
-   while ((item=readdir(dir))) {
-      if (item->d_name[0]=='.') continue;
-      if (++found != 1 || strlen(item->d_name)>=sizeof(device)) break;
-      snprintf(device,sizeof(device),"%s",item->d_name);
+   char device[80] = "";
+   unsigned found = 0;
+   while ((item = readdir(dir))) {
+      if (item->d_name[0] == '.') {
+         continue;
+      }
+
+      if (++found != 1 || strlen(item->d_name) >= sizeof(device)) {
+         break;
+      }
+      snprintf(device, sizeof(device), "%s", item->d_name);
    }
    closedir(dir);
-   if (found!=1) return false;
-   for (const char *p=device;*p;p++)
-      if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-' && *p!='.') return false;
-   return snprintf(out,capacity,"/sys/class/backlight/%s",device)>0;
+
+   if (found != 1) {
+      return false;
+   }
+
+   for (const char *p = device ; *p ; p++) {
+      if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-' && *p != '.') {
+         return false;
+      }
+   }
+
+   return snprintf(out, capacity, "/sys/class/backlight/%s", device) > 0;
 }
-static bool local_backlight_read(int *current,int *maximum) {
-   char path[192],attribute[240];
-   if (!local_backlight_path(path,sizeof(path))) return false;
-   snprintf(attribute,sizeof(attribute),"%s/max_brightness",path);
-   FILE *f=fopen(attribute,"r");
-   if (!f) return false;
-   bool ok=fscanf(f,"%d",maximum)==1 && *maximum>0;
+static bool local_backlight_read(int *current, int *maximum) {
+   char path[192], attribute[240];
+
+   if (!local_backlight_path(path, sizeof(path))) {
+      return false;
+   }
+   snprintf(attribute, sizeof(attribute), "%s/max_brightness", path);
+   FILE *f = fopen(attribute, "r");
+
+   if (!f) {
+      return false;
+   }
+   bool ok = fscanf(f, "%d", maximum) == 1 && *maximum > 0;
    fclose(f);
-   if (!ok) return false;
-   snprintf(attribute,sizeof(attribute),"%s/brightness",path);
-   f=fopen(attribute,"r");
-   if (!f) return false;
-   ok=fscanf(f,"%d",current)==1 && *current>=0 && *current<=*maximum;
+
+   if (!ok) {
+      return false;
+   }
+   snprintf(attribute, sizeof(attribute), "%s/brightness", path);
+   f = fopen(attribute, "r");
+
+   if (!f) {
+      return false;
+   }
+   ok = fscanf(f, "%d", current) == 1 && *current >= 0 && *current <= *maximum;
    fclose(f);
+
    return ok;
 }
 static bool local_backlight_writable(void) {
-   char path[192],attribute[240];
-   if (!local_backlight_path(path,sizeof(path))) return false;
-   snprintf(attribute,sizeof(attribute),"%s/brightness",path);
-   return access(attribute,W_OK)==0;
+   char path[192], attribute[240];
+
+   if (!local_backlight_path(path, sizeof(path))) {
+      return false;
+   }
+   snprintf(attribute, sizeof(attribute), "%s/brightness", path);
+
+   return access(attribute, W_OK) == 0;
 }
 static bool local_backlight_write(int value) {
-   int current=0,maximum=0;
-   char path[192],attribute[240];
-   if (!local_backlight_read(&current,&maximum) || value<1 || value>maximum ||
-       !local_backlight_path(path,sizeof(path))) return false;
-   snprintf(attribute,sizeof(attribute),"%s/brightness",path);
-   int fd=open(attribute,O_WRONLY|O_CLOEXEC);
-   if (fd<0) return false;
+   int current = 0, maximum = 0;
+   char path[192], attribute[240];
+
+   if (!local_backlight_read(&current, &maximum) || value < 1 || value > maximum || !local_backlight_path(path, sizeof(path))) {
+      return false;
+   }
+   snprintf(attribute, sizeof(attribute), "%s/brightness", path);
+   int fd = open(attribute, O_WRONLY | O_CLOEXEC);
+
+   if (fd < 0) {
+      return false;
+   }
    char text[32];
-   int n=snprintf(text,sizeof(text),"%d\n",value);
-   bool ok=n>0 && write(fd,text,(size_t)n)==n;
+   int n = snprintf(text, sizeof(text), "%d\n", value);
+   bool ok = n > 0 && write(fd, text, (size_t)n) == n;
    close(fd);
+
    return ok;
 }
 #endif
 static void admin_control_local_discover(void) {
 #ifdef __linux__
-   int current=0,maximum=0;
-   if (local_backlight_read(&current,&maximum)) {
-      dict *state=dict_new();
-      if (!state) return;
+   int current = 0, maximum = 0;
+
+   if (local_backlight_read(&current, &maximum)) {
+      dict *state = dict_new();
+
+      if (!state) {
+         return;
+      }
       char str[32];
-      dict_add(state,"name","display.brightness");
-      dict_add(state,"label","LCD Brightness");
-      dict_add(state,"unit","level");
-      dict_add(state,"privilege","local");
-      dict_add(state,"minimum","1");
-      snprintf(str,sizeof(str),"%d",maximum);dict_add(state,"maximum",str);
-      snprintf(str,sizeof(str),"%d",current);dict_add(state,"current",str);
-      dict_add(state,"step","1");
-      dict_add_bool(state,"writable",local_backlight_writable());
-      admin_control_row_add(state,"local");
+      dict_add(state, "name", "display.brightness");
+      dict_add(state, "label", "LCD Brightness");
+      dict_add(state, "unit", "level");
+      dict_add(state, "privilege", "local");
+      dict_add(state, "minimum", "1");
+      snprintf(str, sizeof(str), "%d", maximum);
+      dict_add(state, "maximum", str);
+      snprintf(str, sizeof(str), "%d", current);
+      dict_add(state, "current", str);
+      dict_add(state, "step", "1");
+      dict_add_bool(state, "writable", local_backlight_writable());
+      admin_control_row_add(state, "local");
       dict_free(state);
+
       return;
    }
 #endif
-   gtk_label_set_text(GTK_LABEL(control_status),"No local adjustable controls detected");
+   gtk_label_set_text(GTK_LABEL(control_status), "No local adjustable controls detected");
 }
 static void admin_control_filter_apply(void) {
-   if (!control_filter || !control_rows_box) return;
+   if (!control_filter || !control_rows_box) {
+      return;
+   }
    const char *query = gtk_entry_get_text(GTK_ENTRY(control_filter));
    char mode = (*query == '=' || *query == '^') ? *query++ : 0;
    GList *rows = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-   for (GList *l=rows; l; l=l->next) {
+
+   for (GList *l = rows ; l ; l = l->next) {
       GtkWidget *row = l->data;
-      const char *name=g_object_get_data(G_OBJECT(row),"control-path");
-      const char *label=g_object_get_data(G_OBJECT(row),"control-label");
+      const char *name = g_object_get_data(G_OBJECT(row), "control-path");
+      const char *label = g_object_get_data(G_OBJECT(row), "control-label");
       gboolean visible = !*query ||
-         (mode == '^' ? (name && !g_ascii_strncasecmp(name,query,strlen(query))) :
-         ((name && strcasestr(name,query)) || (!mode && label && strcasestr(label,query))));
-      gtk_widget_set_no_show_all(row,!visible);
-      gtk_widget_set_visible(row,visible);
+         (mode == '^' ? (name && !g_ascii_strncasecmp(name, query, strlen(query))) :
+            ((name && strcasestr(name, query)) || (!mode && label && strcasestr(label, query))));
+      gtk_widget_set_no_show_all(row, !visible);
+      gtk_widget_set_visible(row, visible);
    }
+
    g_list_free(rows);
 }
 static void admin_control_hosts_refresh(void) {
-   if (!control_hosts) return;
-   const char *chosen=gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts));
-   char *remember=g_strdup(chosen ? chosen : "local");
-   if (control_host_handler) g_signal_handler_block(control_hosts,control_host_handler);
-   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_hosts));
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),"local","This Client");
-   for (unsigned i=0;; ++i) {
-      const char *profile=rrclient_connection_iter(i);
-      if (!profile) break;
-      rrconn_t *connection=rrclient_connection_find(profile);
-      if (!connection || !connection->is_ws || !connection->authenticated) continue;
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),profile,profile);
+   if (!control_hosts) {
+      return;
    }
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),"all","All Nodes");
-   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),remember))
-      gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),"local");
+   const char *chosen = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts));
+   char *remember = g_strdup(chosen ? chosen : "local");
+
+   if (control_host_handler) {
+      g_signal_handler_block(control_hosts, control_host_handler);
+   }
+   gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_hosts));
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "local", "This Client");
+
+   for (unsigned i = 0 ;; ++i) {
+      const char *profile = rrclient_connection_iter(i);
+
+      if (!profile) {
+         break;
+      }
+      rrconn_t *connection = rrclient_connection_find(profile);
+
+      if (!connection || !connection->is_ws || !connection->authenticated) {
+         continue;
+      }
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), profile, profile);
+   }
+
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), "all", "All Nodes");
+
+   if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), remember)) {
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), "local");
+   }
    g_free(remember);
-   if (control_host_handler) g_signal_handler_unblock(control_hosts,control_host_handler);
+
+   if (control_host_handler) {
+      g_signal_handler_unblock(control_hosts, control_host_handler);
+   }
 }
-static void admin_control_host_changed(GtkComboBox *box,gpointer unused) {
+static void admin_control_host_changed(GtkComboBox *box, gpointer unused) {
    (void)unused;
-   const char *profile=gtk_combo_box_get_active_id(box);
+   const char *profile = gtk_combo_box_get_active_id(box);
    g_free(control_server_profile);
-   control_server_profile=(profile && strcmp(profile,"local") && strcmp(profile,"all")) ? g_strdup(profile) : NULL;
+   control_server_profile = (profile && strcmp(profile, "local") && strcmp(profile, "all")) ? g_strdup(profile) : NULL;
    admin_control_rows_clear();
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
-   g_clear_pointer(&control_pending_name,g_free);
-   admin_control_refresh(NULL,NULL);
+   g_clear_pointer(&control_pending_name, g_free);
+   admin_control_refresh(NULL, NULL);
 }
-static gboolean admin_controls_star(GtkWidget *widget,GdkEventKey *event,gpointer unused) {
-   (void)widget; (void)unused;
-   if (!control_hosts || !admin_view || !main_window) return FALSE;
-   if (event->keyval != GDK_KEY_asterisk && event->keyval != GDK_KEY_KP_Multiply) return FALSE;
-   GtkWidget *focus=gtk_window_get_focus(GTK_WINDOW(main_window));
-   if (focus && GTK_IS_EDITABLE(focus)) return FALSE;
-   GtkWidget *page=control_combo ? g_object_get_data(G_OBJECT(control_combo),"control-page") : NULL;
-   if (!page || gtk_notebook_get_nth_page(GTK_NOTEBOOK(admin_view),
-       gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_view))) != page) return FALSE;
-   gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),"all");
+static gboolean admin_controls_star(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+
+   if (!control_hosts || !admin_view || !main_window) {
+      return FALSE;
+   }
+
+   if (event->keyval != GDK_KEY_asterisk && event->keyval != GDK_KEY_KP_Multiply) {
+      return FALSE;
+   }
+   GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(main_window));
+
+   if (focus && GTK_IS_EDITABLE(focus)) {
+      return FALSE;
+   }
+   GtkWidget *page = control_combo ? g_object_get_data(G_OBJECT(control_combo), "control-page") : NULL;
+
+   if (!page || gtk_notebook_get_nth_page(GTK_NOTEBOOK(admin_view), gtk_notebook_get_current_page(GTK_NOTEBOOK(admin_view))) != page) {
+      return FALSE;
+   }
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), "all");
+
    return TRUE;
 }
-static void admin_control_filter_changed(GtkEditable *entry,gpointer unused) {
-   (void)entry; (void)unused;
+static void admin_control_filter_changed(GtkEditable *entry, gpointer unused) {
+   (void)entry;
+   (void)unused;
    admin_control_filter_apply();
 }
 static gboolean admin_control_scroll_to_selected(gpointer unused) {
    (void)unused;
-   if (!control_rows_box || !control_scroll || !control_combo || !control_row_buttons)
+
+   if (!control_rows_box || !control_scroll || !control_combo || !control_row_buttons) {
       return G_SOURCE_REMOVE;
-   const char *id=gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo));
-   char *identity=g_strdup_printf("%s/%s",control_server_profile ? control_server_profile : "",id ? id : "");
-   GtkWidget *button=control_row_buttons ? g_hash_table_lookup(control_row_buttons,identity) : NULL;
+   }
+   const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo));
+   char *identity = g_strdup_printf("%s/%s", control_server_profile ? control_server_profile : "", id ? id : "");
+   GtkWidget *button = control_row_buttons ? g_hash_table_lookup(control_row_buttons, identity) : NULL;
    g_free(identity);
-   if (!button || !gtk_widget_get_visible(button)) return G_SOURCE_REMOVE;
+
+   if (!button || !gtk_widget_get_visible(button)) {
+      return G_SOURCE_REMOVE;
+   }
    GtkAllocation area;
-   gtk_widget_get_allocation(button,&area);
-   GtkAdjustment *adj=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(control_scroll));
-   double bottom=MAX(gtk_adjustment_get_lower(adj),
-      gtk_adjustment_get_upper(adj)-gtk_adjustment_get_page_size(adj));
-   gtk_adjustment_set_value(adj,CLAMP((double)area.y-24,gtk_adjustment_get_lower(adj),bottom));
+   gtk_widget_get_allocation(button, &area);
+   GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(control_scroll));
+   double bottom = MAX(gtk_adjustment_get_lower(adj), gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+   gtk_adjustment_set_value(adj, CLAMP((double)area.y - 24, gtk_adjustment_get_lower(adj), bottom));
 
    return G_SOURCE_REMOVE;
 }
 static void admin_control_choose(const char *name) {
-   if (!name || !*name || !control_combo) return;
-   if (gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_combo),name)) {
-      g_clear_pointer(&control_pending_name,g_free);
-      if (control_filter) gtk_entry_set_text(GTK_ENTRY(control_filter),"");
-      g_idle_add(admin_control_scroll_to_selected,NULL);
+   if (!name || !*name || !control_combo) {
+      return;
+   }
+
+   if (gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_combo), name)) {
+      g_clear_pointer(&control_pending_name, g_free);
+
+      if (control_filter) {
+         gtk_entry_set_text(GTK_ENTRY(control_filter), "");
+      }
+      g_idle_add(admin_control_scroll_to_selected, NULL);
+
       if (admin_view && main_notebook) {
-         int outer=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),admin_view);
-         if (outer>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),outer);
+         int outer = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view);
+
+         if (outer >= 0) {
+            gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), outer);
+         }
       }
    } else {
       g_free(control_pending_name);
-      control_pending_name=g_strdup(name);
+      control_pending_name = g_strdup(name);
    }
 }
 void gtk_admin_open_control_on_server(const char *profile, const char *name) {
-   if (!profile || !*profile) return;
-   gboolean server_changed=g_strcmp0(control_server_profile,profile)!=0;
-   g_free(control_server_profile);
-   control_server_profile=g_strdup(profile);
-   admin_control_hosts_refresh();
-   if (control_hosts) {
-      if (control_host_handler) g_signal_handler_block(control_hosts,control_host_handler);
-      if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),profile)) {
-         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),profile,profile);
-         gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),profile);
-      }
-      if (control_host_handler) g_signal_handler_unblock(control_hosts,control_host_handler);
+   if (!profile || !*profile) {
+      return;
    }
+   gboolean server_changed = g_strcmp0(control_server_profile, profile) != 0;
+   g_free(control_server_profile);
+   control_server_profile = g_strdup(profile);
+   admin_control_hosts_refresh();
+
+   if (control_hosts) {
+      if (control_host_handler) {
+         g_signal_handler_block(control_hosts, control_host_handler);
+      }
+
+      if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), profile)) {
+         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts), profile, profile);
+         gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts), profile);
+      }
+
+      if (control_host_handler) {
+         g_signal_handler_unblock(control_hosts, control_host_handler);
+      }
+   }
+
    if (server_changed && control_combo) {
       gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
       admin_control_rows_clear();
    }
-   if (!admin_view || !main_notebook) return;
-   int outer=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),admin_view);
-   if (outer>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),outer);
-   GtkWidget *page=control_combo ? g_object_get_data(G_OBJECT(control_combo),"control-page") : NULL;
-   if (page) {
-      int inner=gtk_notebook_page_num(GTK_NOTEBOOK(admin_view),page);
-      if (inner>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view),inner);
+
+   if (!admin_view || !main_notebook) {
+      return;
    }
+   int outer = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view);
+
+   if (outer >= 0) {
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), outer);
+   }
+   GtkWidget *page = control_combo ? g_object_get_data(G_OBJECT(control_combo), "control-page") : NULL;
+
+   if (page) {
+      int inner = gtk_notebook_page_num(GTK_NOTEBOOK(admin_view), page);
+
+      if (inner >= 0) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view), inner);
+      }
+   }
+
    if (name && *name) {
       admin_control_choose(name);
-      if (server_changed || control_pending_name) admin_control_request(NULL,-1);
-   } else if (server_changed) admin_control_request(NULL,-1);
+
+      if (server_changed || control_pending_name) {
+         admin_control_request(NULL, -1);
+      }
+   } else if (server_changed) {
+      admin_control_request(NULL, -1);
+   }
 }
 void gtk_admin_open_control(const char *name) {
-   gtk_admin_open_control_on_server(rrclient_selected_server(),name);
+   gtk_admin_open_control_on_server(rrclient_selected_server(), name);
 }
+
 /* Sort current row widgets in place; preserves each live slider and owner. */
-static int control_sort_field=0;
-static gboolean control_sort_descending=FALSE;
-static gint admin_control_row_compare(gconstpointer left,gconstpointer right) {
-   GtkWidget *a=(GtkWidget *)left,*b=(GtkWidget *)right;
-   const char *key=control_sort_field==0 ? "control-path" :
-      control_sort_field==1 ? "control-label" : "control-description";
-   const char *av=g_object_get_data(G_OBJECT(a),key);
-   const char *bv=g_object_get_data(G_OBJECT(b),key);
-   gint cmp=g_utf8_collate(av ? av : "",bv ? bv : "");
-   if (!cmp) cmp=g_strcmp0(g_object_get_data(G_OBJECT(a),"control-path"),
-                             g_object_get_data(G_OBJECT(b),"control-path"));
+static int control_sort_field = 0;
+static gboolean control_sort_descending = FALSE;
+static gint admin_control_row_compare(gconstpointer left, gconstpointer right) {
+   GtkWidget *a = (GtkWidget *) left, *b = (GtkWidget *) right;
+   const char *key = control_sort_field == 0 ? "control-path" : control_sort_field == 1 ? "control-label" : "control-description";
+   const char *av = g_object_get_data(G_OBJECT(a), key);
+   const char *bv = g_object_get_data(G_OBJECT(b), key);
+   gint cmp = g_utf8_collate(av ? av : "", bv ? bv : "");
+
+   if (!cmp) {
+      cmp = g_strcmp0(g_object_get_data(G_OBJECT(a), "control-path"), g_object_get_data(G_OBJECT(b), "control-path"));
+   }
+
    return control_sort_descending ? -cmp : cmp;
 }
 static void admin_control_sort_rows(void) {
-   if (!control_rows_box) return;
-   GList *children=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-   children=g_list_sort(children,admin_control_row_compare);
-   int position=0;
-   for (GList *l=children;l;l=l->next)
-      gtk_box_reorder_child(GTK_BOX(control_rows_box),GTK_WIDGET(l->data),position++);
+   if (!control_rows_box) {
+      return;
+   }
+   GList *children = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   children = g_list_sort(children, admin_control_row_compare);
+   int position = 0;
+
+   for (GList *l = children ; l ; l = l->next) {
+      gtk_box_reorder_child(GTK_BOX(control_rows_box), GTK_WIDGET(l->data), position++);
+   }
+
    g_list_free(children);
 }
-static void admin_control_sort_clicked(GtkButton *button,gpointer user) {
+static void admin_control_sort_clicked(GtkButton *button, gpointer user) {
    (void)user;
-   int field=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button),"sort-field"));
-   if (field==control_sort_field) control_sort_descending=!control_sort_descending;
-   else {control_sort_field=field;control_sort_descending=FALSE;}
+   int field = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "sort-field"));
+
+   if (field == control_sort_field) {
+      control_sort_descending = !control_sort_descending;
+   } else {
+      control_sort_field = field;
+      control_sort_descending = FALSE;
+   }
    admin_control_sort_rows();
 }
 static void admin_control_rows_clear(void) {
-   if (!control_rows_box) return;
-   GList *children=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-   for (GList *item=children; item; item=item->next)
-      gtk_widget_destroy(GTK_WIDGET(item->data));
-   g_list_free(children);
-   if (control_row_buttons) g_hash_table_remove_all(control_row_buttons);
-   admin_control_update_revert();
-}
-/* A control is committed once the operator releases its slider. Keep the
- * pre-edit value for Revert; never issue network writes during drag. */
-static bool admin_control_write(GtkWidget *row,int value) {
-   const char *name=g_object_get_data(G_OBJECT(row),"control-name");
-   const char *profile=g_object_get_data(G_OBJECT(row),"control-profile");
-   if (!name || !profile) return false;
-   if (!strcmp(profile,"local")) {
-#ifdef __linux__
-      if (!strcmp(name,"display.brightness")) return local_backlight_write(value);
-#endif
-      return false;
-   }
-   return admin_control_request_profile(profile,name,value);
-}
-static void admin_control_update_revert(void) {
-   gboolean can_revert=FALSE;
-   if (control_rows_box) {
-      GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-      for (GList *l=rows;l;l=l->next)
-         if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(l->data),"control-dirty"))) {
-            can_revert=TRUE;break;
-         }
-      g_list_free(rows);
-   }
-   if (control_apply) gtk_widget_set_sensitive(control_apply,can_revert);
-}
-static gboolean admin_control_slider_released(GtkWidget *scale,GdkEventButton *event,gpointer data) {
-   if (event->button!=1) return FALSE;
-   GtkWidget *row=GTK_WIDGET(data);
-   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-writable"))) return FALSE;
-   int value=(int)gtk_range_get_value(GTK_RANGE(scale));
-   int current=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-original"));
-   if (value==current) return FALSE;
-   if (!admin_control_write(row,value)) {
-      gtk_range_set_value(GTK_RANGE(scale),current);
-      gtk_label_set_text(GTK_LABEL(control_status),"Unable to submit control change");
-      return FALSE;
-   }
-   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-dirty"))) {
-      g_object_set_data(G_OBJECT(row),"control-previous",GINT_TO_POINTER(current));
-      g_object_set_data(G_OBJECT(row),"control-dirty",GINT_TO_POINTER(TRUE));
-   }
-   /* Server acknowledgement may update the authoritative value later. */
-   g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(value));
-   admin_control_update_revert();
-   gtk_label_set_text(GTK_LABEL(control_status),"Control change submitted");
-   return FALSE;
-}
-static void admin_control_row_state(dict *data,const char *profile) {
-   const char *name=dict_get(data,"name","");
-   char *identity=g_strdup_printf("%s/%s",profile,name);
-   GtkWidget *row=control_row_buttons ? g_hash_table_lookup(control_row_buttons,identity) : NULL;
-   g_free(identity);
-   if (!row) return;
-   GtkWidget *scale=g_object_get_data(G_OBJECT(row),"control-scale");
-   GtkWidget *minimum_label=g_object_get_data(G_OBJECT(row),"control-min-label");
-   GtkWidget *maximum_label=g_object_get_data(G_OBJECT(row),"control-max-label");
-   GtkWidget *detail=g_object_get_data(G_OBJECT(row),"control-detail");
-   int minimum=atoi(dict_get(data,"minimum","0"));
-   int maximum=atoi(dict_get(data,"maximum","0"));
-   int current=atoi(dict_get(data,"current","0"));
-   int step=atoi(dict_get(data,"step","1"));
-   gboolean writable=dict_get_bool(data,"writable",false);
-   if (maximum>=minimum && step>0 && current>=minimum && current<=maximum) {
-      gtk_range_set_range(GTK_RANGE(scale),minimum,maximum);
-      gtk_range_set_increments(GTK_RANGE(scale),step,step);
-      gtk_range_set_value(GTK_RANGE(scale),current);
-   }
-   gtk_widget_set_sensitive(scale,writable);
-   char str[40];
-   snprintf(str,sizeof(str),"%d",minimum); gtk_label_set_text(GTK_LABEL(minimum_label),str);
-   snprintf(str,sizeof(str),"%d",maximum); gtk_label_set_text(GTK_LABEL(maximum_label),str);
-   g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(current));
-   g_object_set_data(G_OBJECT(row),"control-writable",GINT_TO_POINTER(writable));
-   char *summary=g_strdup_printf("%s — %s%s%s (%s)",
-      g_object_get_data(G_OBJECT(row),"control-label") ?
-         (const char *)g_object_get_data(G_OBJECT(row),"control-label") : "Control",
-      writable ? "Writable" : "Read-only",
-      *dict_get(data,"unit","") ? "; unit: " : "",
-      dict_get(data,"unit",""),
-      dict_get(data,"privilege","owner|admin"));
-   gtk_label_set_text(GTK_LABEL(detail),summary);
-   g_free(summary);
-}
-static void admin_control_row_add(dict *data,const char *profile) {
-   const char *name=dict_get(data,"name","");
-   char *identity=g_strdup_printf("%s/%s",profile,name);
-   if (!*name || !control_rows_box) { g_free(identity); return; }
-   if (control_row_buttons && g_hash_table_contains(control_row_buttons,identity)) {
-      admin_control_row_state(data,profile);
-      g_free(identity);
+   if (!control_rows_box) {
       return;
    }
-   const char *label=dict_get(data,"label",name);
-   GtkWidget *row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
-   GtkWidget *title=gtk_label_new(!strcmp(profile,"local") ?
-      "This Client/display.brightness" : identity);
-   gtk_label_set_xalign(GTK_LABEL(title),0);
-   gtk_label_set_ellipsize(GTK_LABEL(title),PANGO_ELLIPSIZE_END);
-   gtk_widget_set_size_request(title,110,-1);
-   gtk_widget_set_hexpand(title,TRUE);
-   gtk_box_pack_start(GTK_BOX(row),title,TRUE,TRUE,0);
-   GtkWidget *editor=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
-   gtk_widget_set_size_request(editor,125,-1);
-   gtk_widget_set_hexpand(editor,TRUE);
-   GtkWidget *scale=gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,0,100,1);
-   gtk_scale_set_digits(GTK_SCALE(scale),0);
-   gtk_widget_set_hexpand(scale,TRUE);
-   GtkWidget *minimum_label=gtk_label_new("0"), *maximum_label=gtk_label_new("100");
-   gtk_box_pack_start(GTK_BOX(editor),minimum_label,FALSE,FALSE,0);
-   gtk_box_pack_start(GTK_BOX(editor),scale,TRUE,TRUE,0);
-   gtk_box_pack_start(GTK_BOX(editor),maximum_label,FALSE,FALSE,0);
-   gtk_box_pack_start(GTK_BOX(row),editor,TRUE,TRUE,0);
-   GtkWidget *detail=gtk_label_new("");
-   gtk_label_set_xalign(GTK_LABEL(detail),0);
-   gtk_label_set_line_wrap(GTK_LABEL(detail),TRUE);
-   gtk_box_pack_start(GTK_BOX(row),detail,TRUE,TRUE,0);
-   g_object_set_data_full(G_OBJECT(row),"control-name",g_strdup(name),g_free);
-   g_object_set_data_full(G_OBJECT(row),"control-profile",g_strdup(profile),g_free);
-   g_object_set_data_full(G_OBJECT(row),"control-path",g_strdup(identity),g_free);
-   g_object_set_data(G_OBJECT(row),"control-min-label",minimum_label);
-   g_object_set_data(G_OBJECT(row),"control-max-label",maximum_label);
-   g_object_set_data_full(G_OBJECT(row),"control-label",g_strdup(label),g_free);
-   g_object_set_data_full(G_OBJECT(row),"control-description",g_strdup(dict_get(data,"description",label)),g_free);
-   g_object_set_data(G_OBJECT(row),"control-scale",scale);
-   g_object_set_data(G_OBJECT(row),"control-detail",detail);
-   g_signal_connect(scale,"button-release-event",G_CALLBACK(admin_control_slider_released),row);
-   gtk_box_pack_start(GTK_BOX(control_rows_box),row,FALSE,FALSE,3);
-   if (control_row_buttons) g_hash_table_insert(control_row_buttons,g_strdup(identity),row);
-   admin_control_row_state(data,profile);
+   GList *children = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+
+   for (GList *item = children ; item ; item = item->next) {
+      gtk_widget_destroy(GTK_WIDGET(item->data));
+   }
+
+   g_list_free(children);
+
+   if (control_row_buttons) {
+      g_hash_table_remove_all(control_row_buttons);
+   }
+   admin_control_update_revert();
+}
+
+/* A control is committed once the operator releases its slider. Keep the pre-edit value for Revert; never issue network writes during drag. */
+static bool admin_control_write(GtkWidget *row, int value) {
+   const char *name = g_object_get_data(G_OBJECT(row), "control-name");
+   const char *profile = g_object_get_data(G_OBJECT(row), "control-profile");
+
+   if (!name || !profile) {
+      return false;
+   }
+
+   if (!strcmp(profile, "local")) {
+#ifdef __linux__
+
+      if (!strcmp(name, "display.brightness")) {
+         return local_backlight_write(value);
+      }
+#endif
+
+      return false;
+   }
+
+   return admin_control_request_profile(profile, name, value);
+}
+static void admin_control_update_revert(void) {
+   gboolean can_revert = FALSE;
+
+   if (control_rows_box) {
+      GList *rows = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+
+      for (GList *l = rows ; l ; l = l->next) {
+         if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(l->data), "control-dirty"))) {
+            can_revert = TRUE;
+            break;
+         }
+      }
+
+      g_list_free(rows);
+   }
+
+   if (control_apply) {
+      gtk_widget_set_sensitive(control_apply, can_revert);
+   }
+}
+static gboolean admin_control_slider_released(GtkWidget *scale, GdkEventButton *event, gpointer data) {
+   if (event->button != 1) {
+      return FALSE;
+   }
+   GtkWidget *row = GTK_WIDGET(data);
+
+   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "control-writable"))) {
+      return FALSE;
+   }
+   int value = (int)gtk_range_get_value(GTK_RANGE(scale));
+   int current = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "control-original"));
+
+   if (value == current) {
+      return FALSE;
+   }
+
+   if (!admin_control_write(row, value)) {
+      gtk_range_set_value(GTK_RANGE(scale), current);
+      gtk_label_set_text(GTK_LABEL(control_status), "Unable to submit control change");
+
+      return FALSE;
+   }
+
+   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "control-dirty"))) {
+      g_object_set_data(G_OBJECT(row), "control-previous", GINT_TO_POINTER(current));
+      g_object_set_data(G_OBJECT(row), "control-dirty", GINT_TO_POINTER(TRUE));
+   }
+   /* Server acknowledgement may update the authoritative value later. */
+   g_object_set_data(G_OBJECT(row), "control-original", GINT_TO_POINTER(value));
+   admin_control_update_revert();
+   gtk_label_set_text(GTK_LABEL(control_status), "Control change submitted");
+
+   return FALSE;
+}
+static void admin_control_row_state(dict *data, const char *profile) {
+   const char *name = dict_get(data, "name", "");
+   char *identity = g_strdup_printf("%s/%s", profile, name);
+   GtkWidget *row = control_row_buttons ? g_hash_table_lookup(control_row_buttons, identity) : NULL;
+   g_free(identity);
+
+   if (!row) {
+      return;
+   }
+   GtkWidget *scale = g_object_get_data(G_OBJECT(row), "control-scale");
+   GtkWidget *minimum_label = g_object_get_data(G_OBJECT(row), "control-min-label");
+   GtkWidget *maximum_label = g_object_get_data(G_OBJECT(row), "control-max-label");
+   GtkWidget *detail = g_object_get_data(G_OBJECT(row), "control-detail");
+   int minimum = atoi(dict_get(data, "minimum", "0"));
+   int maximum = atoi(dict_get(data, "maximum", "0"));
+   int current = atoi(dict_get(data, "current", "0"));
+   int step = atoi(dict_get(data, "step", "1"));
+   gboolean writable = dict_get_bool(data, "writable", false);
+
+   if (maximum >= minimum && step > 0 && current >= minimum && current <= maximum) {
+      gtk_range_set_range(GTK_RANGE(scale), minimum, maximum);
+      gtk_range_set_increments(GTK_RANGE(scale), step, step);
+      gtk_range_set_value(GTK_RANGE(scale), current);
+   }
+   gtk_widget_set_sensitive(scale, writable);
+   char str[40];
+   snprintf(str, sizeof(str), "%d", minimum);
+   gtk_label_set_text(GTK_LABEL(minimum_label), str);
+   snprintf(str, sizeof(str), "%d", maximum);
+   gtk_label_set_text(GTK_LABEL(maximum_label), str);
+   g_object_set_data(G_OBJECT(row), "control-original", GINT_TO_POINTER(current));
+   g_object_set_data(G_OBJECT(row), "control-writable", GINT_TO_POINTER(writable));
+   char *summary = g_strdup_printf("%s — %s%s%s (%s)", g_object_get_data(G_OBJECT(row), "control-label") ? (const char *)g_object_get_data(G_OBJECT(row),
+      "control-label") : "Control", writable ? "Writable" : "Read-only", *dict_get(data, "unit", "") ? "; unit: " : "", dict_get(data, "unit", ""), dict_get(
+      data, "privilege", "owner|admin"));
+   gtk_label_set_text(GTK_LABEL(detail), summary);
+   g_free(summary);
+}
+static void admin_control_row_add(dict *data, const char *profile) {
+   const char *name = dict_get(data, "name", "");
+   char *identity = g_strdup_printf("%s/%s", profile, name);
+
+   if (!*name || !control_rows_box) {
+      g_free(identity);
+
+      return;
+   }
+
+   if (control_row_buttons && g_hash_table_contains(control_row_buttons, identity)) {
+      admin_control_row_state(data, profile);
+      g_free(identity);
+
+      return;
+   }
+   const char *label = dict_get(data, "label", name);
+   GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+   GtkWidget *title = gtk_label_new(!strcmp(profile, "local") ? "This Client/display.brightness" : identity);
+   gtk_label_set_xalign(GTK_LABEL(title), 0);
+   gtk_label_set_ellipsize(GTK_LABEL(title), PANGO_ELLIPSIZE_END);
+   gtk_widget_set_size_request(title, 110, -1);
+   gtk_widget_set_hexpand(title, TRUE);
+   gtk_box_pack_start(GTK_BOX(row), title, TRUE, TRUE, 0);
+   GtkWidget *editor = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_widget_set_size_request(editor, 125, -1);
+   gtk_widget_set_hexpand(editor, TRUE);
+   GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_scale_set_digits(GTK_SCALE(scale), 0);
+   gtk_widget_set_hexpand(scale, TRUE);
+   GtkWidget *minimum_label = gtk_label_new("0"), *maximum_label = gtk_label_new("100");
+   gtk_box_pack_start(GTK_BOX(editor), minimum_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(editor), scale, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(editor), maximum_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(row), editor, TRUE, TRUE, 0);
+   GtkWidget *detail = gtk_label_new("");
+   gtk_label_set_xalign(GTK_LABEL(detail), 0);
+   gtk_label_set_line_wrap(GTK_LABEL(detail), TRUE);
+   gtk_box_pack_start(GTK_BOX(row), detail, TRUE, TRUE, 0);
+   g_object_set_data_full(G_OBJECT(row), "control-name", g_strdup(name), g_free);
+   g_object_set_data_full(G_OBJECT(row), "control-profile", g_strdup(profile), g_free);
+   g_object_set_data_full(G_OBJECT(row), "control-path", g_strdup(identity), g_free);
+   g_object_set_data(G_OBJECT(row), "control-min-label", minimum_label);
+   g_object_set_data(G_OBJECT(row), "control-max-label", maximum_label);
+   g_object_set_data_full(G_OBJECT(row), "control-label", g_strdup(label), g_free);
+   g_object_set_data_full(G_OBJECT(row), "control-description", g_strdup(dict_get(data, "description", label)), g_free);
+   g_object_set_data(G_OBJECT(row), "control-scale", scale);
+   g_object_set_data(G_OBJECT(row), "control-detail", detail);
+   g_signal_connect(scale, "button-release-event", G_CALLBACK(admin_control_slider_released), row);
+   gtk_box_pack_start(GTK_BOX(control_rows_box), row, FALSE, FALSE, 3);
+
+   if (control_row_buttons) {
+      g_hash_table_insert(control_row_buttons, g_strdup(identity), row);
+   }
+   admin_control_row_state(data, profile);
    g_free(identity);
    gtk_widget_show_all(row);
    admin_control_sort_rows();
    admin_control_filter_apply();
 }
 
-static bool admin_control_request_profile(const char *profile,const char *name,int value) {
+static bool admin_control_request_profile(const char *profile, const char *name, int value) {
    rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
-   if (!connection || !connection->is_ws || !connection->authenticated) return false;
+
+   if (!connection || !connection->is_ws || !connection->authenticated) {
+      return false;
+   }
    dict *d = dict_new();
-   if (!d) return false;
+
+   if (!d) {
+      return false;
+   }
    char data[160];
-   if (!name) snprintf(data,sizeof(data),"controls");
-   else if (value < 0) snprintf(data,sizeof(data),"control %s",name);
-   else snprintf(data,sizeof(data),"control %s %d",name,value);
-   dict_add(d,"msg.type","talk");
-   dict_add(d,"talk.cmd","admin");
-   dict_add(d,"talk.data",data);
-   bool ok = ws_send_dict(NULL,connection,d,WEBSOCKET_OP_TEXT);
+
+   if (!name) {
+      snprintf(data, sizeof(data), "controls");
+   } else if (value < 0) {
+      snprintf(data, sizeof(data), "control %s", name);
+   } else {
+      snprintf(data, sizeof(data), "control %s %d", name, value);
+   }
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "admin");
+   dict_add(d, "talk.data", data);
+   bool ok = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+
    return ok;
 }
-static bool admin_control_request(const char *name,int value) {
-   return admin_control_request_profile(control_server_profile,name,value);
+static bool admin_control_request(const char *name, int value) {
+   return admin_control_request_profile(control_server_profile, name, value);
 }
 static void admin_control_refresh(GtkButton *button, gpointer user) {
-   (void)button; (void)user;
+   (void)button;
+   (void)user;
    admin_control_hosts_refresh();
-   if (control_scale) gtk_widget_set_sensitive(control_scale,FALSE);
+
+   if (control_scale) {
+      gtk_widget_set_sensitive(control_scale, FALSE);
+   }
    admin_control_rows_clear();
-   const char *host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
-   control_pending_lists=0;
-   if (host && !strcmp(host,"all")) {
-      for (unsigned i=0;; ++i) {
-         const char *profile=rrclient_connection_iter(i);
-         if (!profile) break;
-         if (admin_control_request_profile(profile,NULL,-1)) ++control_pending_lists;
+   const char *host = control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
+   control_pending_lists = 0;
+
+   if (host && !strcmp(host, "all")) {
+      for (unsigned i = 0 ;; ++i) {
+         const char *profile = rrclient_connection_iter(i);
+
+         if (!profile) {
+            break;
+         }
+
+         if (admin_control_request_profile(profile, NULL, -1)) {
+            ++control_pending_lists;
+         }
       }
+
       admin_control_local_discover();
-      gtk_label_set_text(GTK_LABEL(control_status),control_pending_lists ?
+      gtk_label_set_text(GTK_LABEL(control_status), control_pending_lists ?
          "Discovering controls across connected nodes…" : "Local controls shown; no connected nodes.");
-   } else if (!host || !strcmp(host,"local")) {
+   } else if (!host || !strcmp(host, "local")) {
       admin_control_local_discover();
    } else {
-      gtk_label_set_text(GTK_LABEL(control_status),"Discovering server controls…");
-      if (!admin_control_request_profile(host,NULL,-1))
-         gtk_label_set_text(GTK_LABEL(control_status),"Cannot query selected server");
+      gtk_label_set_text(GTK_LABEL(control_status), "Discovering server controls…");
+
+      if (!admin_control_request_profile(host, NULL, -1)) {
+         gtk_label_set_text(GTK_LABEL(control_status), "Cannot query selected server");
+      }
    }
 }
 static void admin_control_selection(GtkComboBox *combo, gpointer user) {
    (void)user;
    const char *name = gtk_combo_box_get_active_id(combo);
-   if (!name) return;
-   if (control_scale) gtk_widget_set_sensitive(control_scale,FALSE);
 
-   if (!admin_control_request(name,-1) && control_status)
-      gtk_label_set_text(GTK_LABEL(control_status),"Unable to read selected control");
+   if (!name) {
+      return;
+   }
+
+   if (control_scale) {
+      gtk_widget_set_sensitive(control_scale, FALSE);
+   }
+
+   if (!admin_control_request(name, -1) && control_status) {
+      gtk_label_set_text(GTK_LABEL(control_status), "Unable to read selected control");
+   }
 }
-static void admin_control_apply(GtkButton *button,gpointer user) {
-   (void)button;(void)user;
-   if (!control_rows_box) return;
-   GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-   unsigned reverted=0,failed=0;
-   for (GList *l=rows;l;l=l->next) {
-      GtkWidget *row=GTK_WIDGET(l->data);
-      if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-dirty"))) continue;
-      int previous=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-previous"));
-      if (!admin_control_write(row,previous)) {failed++;continue;}
-      GtkWidget *scale=g_object_get_data(G_OBJECT(row),"control-scale");
-      gtk_range_set_value(GTK_RANGE(scale),previous);
-      g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(previous));
-      g_object_set_data(G_OBJECT(row),"control-dirty",NULL);
+static void admin_control_apply(GtkButton *button, gpointer user) {
+   (void)button;
+   (void)user;
+
+   if (!control_rows_box) {
+      return;
+   }
+   GList *rows = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   unsigned reverted = 0, failed = 0;
+
+   for (GList *l = rows ; l ; l = l->next) {
+      GtkWidget *row = GTK_WIDGET(l->data);
+
+      if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "control-dirty"))) {
+         continue;
+      }
+      int previous = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row), "control-previous"));
+
+      if (!admin_control_write(row, previous)) {
+         failed++;
+         continue;
+      }
+      GtkWidget *scale = g_object_get_data(G_OBJECT(row), "control-scale");
+      gtk_range_set_value(GTK_RANGE(scale), previous);
+      g_object_set_data(G_OBJECT(row), "control-original", GINT_TO_POINTER(previous));
+      g_object_set_data(G_OBJECT(row), "control-dirty", NULL);
       reverted++;
    }
+
    g_list_free(rows);
    admin_control_update_revert();
    char message[160];
-   snprintf(message,sizeof(message),"%u controls reverted; %u submission failures",reverted,failed);
-   gtk_label_set_text(GTK_LABEL(control_status),message);
+   snprintf(message, sizeof(message), "%u controls reverted; %u submission failures", reverted, failed);
+   gtk_label_set_text(GTK_LABEL(control_status), message);
 }
 
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
@@ -570,13 +798,13 @@ static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer
       time_t stamp = raw ? strtoll(raw, NULL, 10) : 0;
       time_t current = time(NULL);
       char *text;
+
       if (stamp <= 0) {
          text = g_strdup("Never");
       } else if (field == 6 && stamp <= current) {
          text = g_strdup("Expired");
       } else {
-         /* Show whole calendar-independent 24-hour days, rounding up for
-          * expiry so a positive fraction of a day is not shown as zero. */
+         /* Show whole calendar-independent 24-hour days, rounding up for expiry so a positive fraction of a day is not shown as zero. */
          long long seconds = field == 5 ? (current > stamp ? (long long)(current - stamp) : 0)
             : (long long)(stamp - current);
          long long days = field == 5 ? seconds / 86400 : (seconds + 86399) / 86400;
@@ -589,12 +817,12 @@ static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer
 }
 
 /* Session timestamps are sent as Unix seconds; display elapsed time, not a date. */
-static void admin_session_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
-   GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
-   (void)column; (void)data;
+static void admin_session_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)column;
+   (void)data;
    char *raw = NULL;
    gtk_tree_model_get(model, iter, 5, &raw, -1);
-   time_t connected = raw ? (time_t)strtoll(raw, NULL, 10) : 0;
+   time_t connected = raw ? (time_t) strtoll(raw, NULL, 10) : 0;
    time_t current = time(NULL);
    char *duration = connected > 0 ? time_t2dhms(current > connected ? current - connected : 0) : NULL;
    g_object_set(renderer, "text", duration ? duration : "Unknown", NULL);
@@ -712,8 +940,8 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
    }
    dict_add(request, "msg.type", "talk");
 
-   if (!strncmp(command,"group-",6) || !strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit") || !strcmp(command, "room-remove") ||
-       !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all")) {
+   if (!strncmp(command, "group-", 6) || !strcmp(command, "rig-access") || !strcmp(command, "room-access") || !strcmp(command, "user-edit")
+      || !strcmp(command, "room-remove") || !strcmp(command, "session-kick") || !strcmp(command, "session-kick-all")) {
       dict_add(request, "talk.action", command);
       command = "admin";
    }
@@ -724,7 +952,10 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
       dict_add(request, "talk.target", target);
    }
    bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
-   if (!sent) gtk_label_set_text(GTK_LABEL(table->status), "Unable to send administration request");
+
+   if (!sent) {
+      gtk_label_set_text(GTK_LABEL(table->status), "Unable to send administration request");
+   }
    dict_free(request);
 
    return sent;
@@ -732,8 +963,8 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
 
 /* Reuse the server's password command; credentials never enter chat input/history. */
 static void admin_set_password(admin_table_t *table, GtkWindow *parent, const char *name) {
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Set Password", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "Cancel", GTK_RESPONSE_CANCEL, "Set Password", GTK_RESPONSE_OK, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Set Password", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
+      "Set Password", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    char *context = g_strdup_printf("Server: %s\nUser: %s\nPassword: 8–128 bytes, no whitespace", table->profile, name);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
@@ -755,10 +986,12 @@ static void admin_set_password(admin_table_t *table, GtkWindow *parent, const ch
 
    while (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
       const char *value = gtk_entry_get_text(GTK_ENTRY(password));
+
       if (strcmp(value, gtk_entry_get_text(GTK_ENTRY(confirmation)))) {
          gtk_label_set_text(GTK_LABEL(error), "Passwords do not match");
          continue;
       }
+
       if (strlen(value) < 8 || strlen(value) > 128 || strpbrk(value, " \t\r\n\v\f")) {
          gtk_label_set_text(GTK_LABEL(error), "Use 8–128 bytes without whitespace");
          continue;
@@ -777,22 +1010,23 @@ static GtkWidget *admin_account_dialog;
 
 /* Temporary credentials are returned only to the requester, never through audit. */
 static void admin_password_notice(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event; (void)unused;
+   (void)event;
+   (void)unused;
    dict *notice = data ? json2dict(data) : NULL;
    const char *text = notice ? dict_get(notice, "notice.msg", "") : "";
+
    if (g_str_has_prefix(text, "USER: temporary password for ") ||
-       g_str_has_prefix(text, "USER: failed to add ") ||
-       g_str_has_prefix(text, "USER: account already exists: ") ||
-       g_str_has_prefix(text, "USER: no user slots are available") ||
-       g_str_has_prefix(text, "USER: administrators cannot create ") ||
-       (g_str_has_prefix(text, "USER: added ") && strstr(text, " with temporary password ")) ||
-       g_str_has_prefix(text, "USER: password changed for ") ||
-       g_str_has_prefix(text, "USER: failed to reset password for ") ||
-       g_str_has_prefix(text, "USER: failed to change password for ") ||
-       g_str_has_prefix(text, "USER: insufficient privilege to modify ")) {
+      g_str_has_prefix(text, "USER: failed to add ") ||
+      g_str_has_prefix(text, "USER: account already exists: ") ||
+      g_str_has_prefix(text, "USER: no user slots are available") ||
+      g_str_has_prefix(text, "USER: administrators cannot create ") ||
+      (g_str_has_prefix(text, "USER: added ") && strstr(text, " with temporary password ")) ||
+      g_str_has_prefix(text, "USER: password changed for ") ||
+      g_str_has_prefix(text, "USER: failed to reset password for ") ||
+      g_str_has_prefix(text, "USER: failed to change password for ") || g_str_has_prefix(text, "USER: insufficient privilege to modify ")) {
       const char *server = rrclient_connection_name(connection);
-      if (g_str_has_prefix(text, "USER: added ") && tables[0].store &&
-          connection == rrclient_connection_find(tables[0].profile)) {
+
+      if (g_str_has_prefix(text, "USER: added ") && tables[0].store && connection == rrclient_connection_find(tables[0].profile)) {
          gtk_label_set_text(GTK_LABEL(tables[0].status), "Account created");
          admin_command(&tables[0], "admin", "users", NULL);
       }
@@ -800,9 +1034,13 @@ static void admin_password_notice(const char *event, const char *data, rrconn_t 
          GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Account result — %s", server ? server : "server");
       gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", text);
       GList *labels = gtk_container_get_children(GTK_CONTAINER(gtk_message_dialog_get_message_area(GTK_MESSAGE_DIALOG(dialog))));
-      for (GList *item = labels; item; item = item->next) {
-         if (GTK_IS_LABEL(item->data)) gtk_label_set_selectable(GTK_LABEL(item->data), TRUE);
+
+      for (GList *item = labels ; item ; item = item->next) {
+         if (GTK_IS_LABEL(item->data)) {
+            gtk_label_set_selectable(GTK_LABEL(item->data), TRUE);
+         }
       }
+
       g_list_free(labels);
       g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
       gtk_widget_show(dialog);
@@ -812,8 +1050,12 @@ static void admin_password_notice(const char *event, const char *data, rrconn_t 
 }
 
 static void admin_password_notice_destroy(GtkWidget *widget, gpointer unused) {
-   (void)widget; (void)unused;
-   if (admin_password_notice_token) event_off_token(admin_password_notice_token);
+   (void)widget;
+   (void)unused;
+
+   if (admin_password_notice_token) {
+      event_off_token(admin_password_notice_token);
+   }
    admin_password_notice_token = NULL;
 }
 
@@ -833,152 +1075,182 @@ static void admin_session_kick(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
    bool all = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "kick-all"));
    char *id = NULL, *username = NULL, *kickable = NULL;
+
    if (!all) {
       GtkTreeModel *model = NULL;
       GtkTreeIter iter;
-      if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(
-          GTK_TREE_VIEW(table->tree)), &model, &iter)) return;
-      gtk_tree_model_get(model, &iter, 0, &id, 1, &username,
-         6, &kickable, -1);
+
+      if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), &model, &iter)) {
+         return;
+      }
+      gtk_tree_model_get(model, &iter, 0, &id, 1, &username, 6, &kickable, -1);
+
       if (g_strcmp0(kickable, "yes")) {
-         gtk_label_set_text(GTK_LABEL(table->status),
-            "This session is protected or belongs to your current login.");
-         g_free(id); g_free(username); g_free(kickable);
+         gtk_label_set_text(GTK_LABEL(table->status), "This session is protected or belongs to your current login.");
+         g_free(id);
+         g_free(username);
+         g_free(kickable);
+
          return;
       }
    }
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
-      all ? "Disconnect all permitted sessions on %s?" :
-         "Disconnect %s on %s?",
-      all ? table->profile : username ? username : "selected session",
-      all ? "" : table->profile);
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog),
-      "The server will exclude your session and protected accounts. "
+   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_WARNING,
+      GTK_BUTTONS_OK_CANCEL, all ? "Disconnect all permitted sessions on %s?" : "Disconnect %s on %s?", all ? table->profile : username ? username :
+      "selected session", all ? "" : table->profile);
+   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "The server will exclude your session and protected accounts. "
       "Active radio transmissions must be released by normal disconnect handling.");
-   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
-      admin_command(table, all ? "session-kick-all" : "session-kick",
-         "", all ? NULL : id);
+
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+      admin_command(table, all ? "session-kick-all" : "session-kick", "", all ? NULL : id);
+   }
    gtk_widget_destroy(dialog);
-   g_free(id); g_free(username); g_free(kickable);
+   g_free(id);
+   g_free(username);
+   g_free(kickable);
 }
+
 /* A grant subject is selected from the linked directory, not typed as a UUID. */
 static GtkWidget *grant_subjects;
 static char *grant_profile;
-static void admin_add_privilege(GtkButton *button,gpointer user) {
+static void admin_add_privilege(GtkButton *button, gpointer user) {
    (void)button;
-   admin_table_t *table=user;
-   rrconn_t *connection=rrclient_connection_find(table->profile);
+   admin_table_t *table = user;
+   rrconn_t *connection = rrclient_connection_find(table->profile);
+
    if (!connection || !connection->authenticated) {
-      gtk_label_set_text(GTK_LABEL(table->status),"Connect to the destination server first");
+      gtk_label_set_text(GTK_LABEL(table->status), "Connect to the destination server first");
+
       return;
    }
-   GtkWidget *dialog=gtk_dialog_new_with_buttons("Add Privilege",GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,"Cancel",GTK_RESPONSE_CANCEL,
-      "Grant",GTK_RESPONSE_OK,NULL);
-   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("User (from connected sites)"),FALSE,FALSE,6);
-   grant_subjects=gtk_combo_box_text_new();
-   gtk_box_pack_start(GTK_BOX(area),grant_subjects,FALSE,FALSE,4);
-   GtkWidget *permission=gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission),"rig","Full Rig Access — all rigs");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission),"room","Join All Rooms — all ordinary rooms");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(permission),0);
-   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Privilege"),FALSE,FALSE,4);
-   gtk_box_pack_start(GTK_BOX(area),permission,FALSE,FALSE,4);
-   GtkWidget *description=gtk_label_new("Applies on this server to current and future resources. Other sites do not inherit privileges.");
-   gtk_label_set_line_wrap(GTK_LABEL(description),TRUE);
-   gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,6);
-   g_free(grant_profile); grant_profile=g_strdup(table->profile);
-   admin_command(table,"admin","subjects",NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Add Privilege", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
+      GTK_RESPONSE_CANCEL, "Grant", GTK_RESPONSE_OK, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   gtk_box_pack_start(GTK_BOX(area), gtk_label_new("User (from connected sites)"), FALSE, FALSE, 6);
+   grant_subjects = gtk_combo_box_text_new();
+   gtk_box_pack_start(GTK_BOX(area), grant_subjects, FALSE, FALSE, 4);
+   GtkWidget *permission = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission), "rig", "Full Rig Access — all rigs");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission), "room", "Join All Rooms — all ordinary rooms");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(permission), 0);
+   gtk_box_pack_start(GTK_BOX(area), gtk_label_new("Privilege"), FALSE, FALSE, 4);
+   gtk_box_pack_start(GTK_BOX(area), permission, FALSE, FALSE, 4);
+   GtkWidget *description = gtk_label_new("Applies on this server to current and future resources. Other sites do not inherit privileges.");
+   gtk_label_set_line_wrap(GTK_LABEL(description), TRUE);
+   gtk_box_pack_start(GTK_BOX(area), description, FALSE, FALSE, 6);
+   g_free(grant_profile);
+   grant_profile = g_strdup(table->profile);
+   admin_command(table, "admin", "subjects", NULL);
    gtk_widget_show_all(dialog);
-   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
-      const char *subject=gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
+
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+      const char *subject = gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
+
       if (subject && *subject) {
-         const char *kind=gtk_combo_box_get_active_id(GTK_COMBO_BOX(permission));
-         if (admin_command(table,!g_strcmp0(kind,"room") ? "room-access" : "rig-access","allow",subject))
-            gtk_label_set_text(GTK_LABEL(table->status),"Resource privilege grant submitted");
-      } else gtk_label_set_text(GTK_LABEL(table->status),"Select an account before granting access");
+         const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(permission));
+
+         if (admin_command(table, !g_strcmp0(kind, "room") ? "room-access" : "rig-access", "allow", subject)) {
+            gtk_label_set_text(GTK_LABEL(table->status), "Resource privilege grant submitted");
+         }
+      } else {
+         gtk_label_set_text(GTK_LABEL(table->status), "Select an account before granting access");
+      }
    }
-   grant_subjects=NULL;
-   g_clear_pointer(&grant_profile,g_free);
+   grant_subjects = NULL;
+   g_clear_pointer(&grant_profile, g_free);
    gtk_widget_destroy(dialog);
 }
-static void admin_manage_groups(GtkButton *button,gpointer user) {
+static void admin_manage_groups(GtkButton *button, gpointer user) {
    (void)button;
-   admin_table_t *table=user;
-   rrconn_t *connection=rrclient_connection_find(table->profile);
+   admin_table_t *table = user;
+   rrconn_t *connection = rrclient_connection_find(table->profile);
+
    if (!connection || !connection->authenticated) {
-      gtk_label_set_text(GTK_LABEL(table->status),"Connect to the destination server first");
+      gtk_label_set_text(GTK_LABEL(table->status), "Connect to the destination server first");
+
       return;
    }
-   GtkWidget *dialog=gtk_dialog_new_with_buttons("Manage User Groups",GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,"Cancel",GTK_RESPONSE_CANCEL,
-      "Save Change",GTK_RESPONSE_OK,NULL);
-   GtkWidget *box=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *group=gtk_entry_new();
-   gtk_entry_set_placeholder_text(GTK_ENTRY(group),"e.g. club-members");
-   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Group name (stable symbolic name)"),FALSE,FALSE,3);
-   gtk_box_pack_start(GTK_BOX(box),group,FALSE,FALSE,3);
-   GtkWidget *action=gtk_combo_box_text_new();
-   const char *commands[]={"group-create","group-delete","group-add-user","group-remove-user","group-grant","group-ungrant"};
-   const char *labels[]={"Create group","Delete group","Add user","Remove user","Grant resource privilege","Remove resource privilege"};
-   for (unsigned i=0;i<G_N_ELEMENTS(commands);i++)
-      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(action),commands[i],labels[i]);
-   gtk_combo_box_set_active(GTK_COMBO_BOX(action),0);
-   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Action"),FALSE,FALSE,3);
-   gtk_box_pack_start(GTK_BOX(box),action,FALSE,FALSE,3);
-   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("User (for Add/Remove user)"),FALSE,FALSE,3);
-   grant_subjects=gtk_combo_box_text_new();
-   gtk_box_pack_start(GTK_BOX(box),grant_subjects,FALSE,FALSE,3);
-   g_free(grant_profile);grant_profile=g_strdup(table->profile);
-   admin_command(table,"admin","subjects",NULL);
-   GtkWidget *kind=gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(kind),"rig","Rig");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(kind),"room","Room");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(kind),0);
-   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Resource type (for privilege actions)"),FALSE,FALSE,3);
-   gtk_box_pack_start(GTK_BOX(box),kind,FALSE,FALSE,3);
-   GtkWidget *resource=gtk_entry_new();
-   gtk_entry_set_text(GTK_ENTRY(resource),"*");
-   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Resource name: * means all, or use rig0 / #room"),FALSE,FALSE,3);
-   gtk_box_pack_start(GTK_BOX(box),resource,FALSE,FALSE,3);
-   GtkWidget *privilege=gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege),"rig.full","Full rig access");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege),"rig.use","Use rig");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege),"room.join","Join room");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(privilege),0);
-   gtk_box_pack_start(GTK_BOX(box),privilege,FALSE,FALSE,3);
-   GtkWidget *effect=gtk_check_button_new_with_label("Deny instead of allow");
-   gtk_box_pack_start(GTK_BOX(box),effect,FALSE,FALSE,3);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Manage User Groups", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
+      GTK_RESPONSE_CANCEL, "Save Change", GTK_RESPONSE_OK, NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *group = gtk_entry_new();
+   gtk_entry_set_placeholder_text(GTK_ENTRY(group), "e.g. club-members");
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Group name (stable symbolic name)"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), group, FALSE, FALSE, 3);
+   GtkWidget *action = gtk_combo_box_text_new();
+   const char *commands[] = {
+      "group-create", "group-delete", "group-add-user", "group-remove-user", "group-grant", "group-ungrant"
+   };
+   const char *labels[] = {
+      "Create group", "Delete group", "Add user", "Remove user", "Grant resource privilege", "Remove resource privilege"
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(commands) ; i++) {
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(action), commands[i], labels[i]);
+   }
+
+   gtk_combo_box_set_active(GTK_COMBO_BOX(action), 0);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Action"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), action, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("User (for Add/Remove user)"), FALSE, FALSE, 3);
+   grant_subjects = gtk_combo_box_text_new();
+   gtk_box_pack_start(GTK_BOX(box), grant_subjects, FALSE, FALSE, 3);
+   g_free(grant_profile);
+   grant_profile = g_strdup(table->profile);
+   admin_command(table, "admin", "subjects", NULL);
+   GtkWidget *kind = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(kind), "rig", "Rig");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(kind), "room", "Room");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(kind), 0);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Resource type (for privilege actions)"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), kind, FALSE, FALSE, 3);
+   GtkWidget *resource = gtk_entry_new();
+   gtk_entry_set_text(GTK_ENTRY(resource), "*");
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Resource name: * means all, or use rig0 / #room"), FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box), resource, FALSE, FALSE, 3);
+   GtkWidget *privilege = gtk_combo_box_text_new();
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege), "rig.full", "Full rig access");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege), "rig.use", "Use rig");
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege), "room.join", "Join room");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(privilege), 0);
+   gtk_box_pack_start(GTK_BOX(box), privilege, FALSE, FALSE, 3);
+   GtkWidget *effect = gtk_check_button_new_with_label("Deny instead of allow");
+   gtk_box_pack_start(GTK_BOX(box), effect, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
-   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
-      const char *group_name=gtk_entry_get_text(GTK_ENTRY(group));
-      const char *op=gtk_combo_box_get_active_id(GTK_COMBO_BOX(action));
-      const char *subject=gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
-      char *args=NULL;
-      if (!strcmp(op,"group-create")) args=g_strdup("User-defined group");
-      else if (!strcmp(op,"group-delete")) args=g_strdup("");
-      else if (!strcmp(op,"group-add-user") || !strcmp(op,"group-remove-user"))
-         args=subject ? g_strdup(subject) : NULL;
-      else {
-         const char *scope=gtk_combo_box_get_active_id(GTK_COMBO_BOX(kind));
-         const char *token=gtk_combo_box_get_active_id(GTK_COMBO_BOX(privilege));
-         const char *name=gtk_entry_get_text(GTK_ENTRY(resource));
-         if (name && *name && !strpbrk(name," \t\r\n"))
-            args=g_strdup_printf("%s %s %s%s",scope,name,token,
-               !strcmp(op,"group-grant") ?
-               (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(effect)) ? " deny" : " allow") : "");
+
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+      const char *group_name = gtk_entry_get_text(GTK_ENTRY(group));
+      const char *op = gtk_combo_box_get_active_id(GTK_COMBO_BOX(action));
+      const char *subject = gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
+      char *args = NULL;
+
+      if (!strcmp(op, "group-create")) {
+         args = g_strdup("User-defined group");
+      } else if (!strcmp(op, "group-delete")) {
+         args = g_strdup("");
+      } else if (!strcmp(op, "group-add-user") || !strcmp(op, "group-remove-user")) {
+         args = subject ? g_strdup(subject) : NULL;
+      } else {
+         const char *scope = gtk_combo_box_get_active_id(GTK_COMBO_BOX(kind));
+         const char *token = gtk_combo_box_get_active_id(GTK_COMBO_BOX(privilege));
+         const char *name = gtk_entry_get_text(GTK_ENTRY(resource));
+
+         if (name && *name && !strpbrk(name, " \t\r\n")) {
+            args = g_strdup_printf("%s %s %s%s", scope, name, token, !strcmp(op, "group-grant") ? (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(effect)) ?
+               " deny" : " allow") : "");
+         }
       }
+
       if (group_name && *group_name && op && args) {
-         if (admin_command(table,op,args,group_name))
-            gtk_label_set_text(GTK_LABEL(table->status),"Group change submitted; refresh to see results");
-      } else gtk_label_set_text(GTK_LABEL(table->status),"Group name, user, or resource is missing");
+         if (admin_command(table, op, args, group_name)) {
+            gtk_label_set_text(GTK_LABEL(table->status), "Group change submitted; refresh to see results");
+         }
+      } else {
+         gtk_label_set_text(GTK_LABEL(table->status), "Group name, user, or resource is missing");
+      }
       g_free(args);
    }
-   grant_subjects=NULL;
-   g_clear_pointer(&grant_profile,g_free);
+   grant_subjects = NULL;
+   g_clear_pointer(&grant_profile, g_free);
    gtk_widget_destroy(dialog);
 }
 static void admin_older(GtkButton *button, gpointer data) {
@@ -990,16 +1262,16 @@ static void admin_older(GtkButton *button, gpointer data) {
    admin_command(table, "admin", tail, NULL);
 }
 
-/* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns
- * validation, privilege checks, auditing and temporary password generation. */
+/* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns validation, privilege checks, auditing and temporary password generation. */
 static void admin_create_user(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
-   if (!table->profile[0])
+
+   if (!table->profile[0]) {
       admin_refresh(NULL, table);
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Create User", GTK_WINDOW(main_window),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
-      "Edit Privs", 1003, "Create User", GTK_RESPONSE_OK, NULL);
+   }
+   GtkWidget *dialog = gtk_dialog_new_with_buttons("Create User", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
+      GTK_RESPONSE_CANCEL, "Edit Privs", 1003, "Create User", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    char *context = g_strdup_printf("Server: %s\nA temporary password will be shown after creation.", table->profile);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
@@ -1017,20 +1289,24 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    int response;
    while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003) {
       if (response == 1003) {
-         char *edited = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile,
-            gtk_entry_get_text(GTK_ENTRY(name)), gtk_entry_get_text(GTK_ENTRY(privileges)));
-         if (edited)
+         char *edited = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile, gtk_entry_get_text(GTK_ENTRY(name)), gtk_entry_get_text(GTK_ENTRY(privileges)));
+
+         if (edited) {
             gtk_entry_set_text(GTK_ENTRY(privileges), edited);
+         }
          g_free(edited);
          continue;
       }
       const char *username = gtk_entry_get_text(GTK_ENTRY(name));
       const char *permissions = gtk_entry_get_text(GTK_ENTRY(privileges));
       bool valid = *username != 0;
-      for (const unsigned char *p = (const unsigned char *)username; *p; p++) {
-         if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-')
+
+      for (const unsigned char *p = (const unsigned char *)username ; *p ; p++) {
+         if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-') {
             valid = false;
+         }
       }
+
       if (!valid || !*permissions || strpbrk(permissions, " \t\r\n\v\f")) {
          gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and a comma-separated privilege list without spaces.");
          continue;
@@ -1038,8 +1314,10 @@ static void admin_create_user(GtkButton *button, gpointer data) {
       char *request = g_strdup_printf("add %s %s", username, permissions);
       bool sent = admin_command(table, "user", request, NULL);
       g_free(request);
-      if (!sent)
+
+      if (!sent) {
          continue;
+      }
       gtk_label_set_text(GTK_LABEL(table->status), "Creating account; awaiting server confirmation");
       break;
    }
@@ -1061,11 +1339,14 @@ static void admin_action(GtkButton *button, gpointer data) {
 
    if (!strcmp(table->name, "users") && !strcmp(action, "privileges")) {
       char *privileges = gtk_edit_privileges(GTK_WINDOW(main_window), table->profile, name, value);
+
       if (privileges && g_strcmp0(privileges, value)) {
          dict *fields = dict_new();
+
          if (fields) {
             dict_add(fields, "permissions", privileges);
             char *json = dict2json(fields);
+
             if (json && admin_command(table, "user-edit", json, name)) {
                gtk_label_set_text(GTK_LABEL(table->status), "Saving privileges; awaiting server confirmation");
             }
@@ -1076,15 +1357,19 @@ static void admin_action(GtkButton *button, gpointer data) {
       g_free(privileges);
       g_free(name);
       g_free(value);
+
       return;
    }
+
    if (!strcmp(table->name, "users") && !strcmp(action, "edit")) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
          "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Edit Privs", 1003, "Save", GTK_RESPONSE_OK, NULL);
       admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
-      GtkWidget *full_rig_check=NULL;
-      char *original[10] = {0};
+      GtkWidget *full_rig_check = NULL;
+      char *original[10] = {
+         0
+      };
       gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
       gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
       gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
@@ -1092,11 +1377,12 @@ static void admin_action(GtkButton *button, gpointer data) {
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
          gchar *text = NULL;
          gtk_tree_model_get(model, &iter, col, &text, -1);
+
          if (col == 9) {
-            full_rig_check=gtk_check_button_new_with_label("Full Rig Access — all rigs on this server");
-            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(full_rig_check),text && !strcmp(text,"1"));
-            gtk_grid_attach(GTK_GRID(grid),full_rig_check,0,col,2,1);
-            entries[col]=NULL;
+            full_rig_check = gtk_check_button_new_with_label("Full Rig Access — all rigs on this server");
+            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(full_rig_check), text && !strcmp(text, "1"));
+            gtk_grid_attach(GTK_GRID(grid), full_rig_check, 0, col, 2, 1);
+            entries[col] = NULL;
          } else {
             entries[col] = gtk_entry_new();
             gtk_entry_set_text(GTK_ENTRY(entries[col]), text ? text : "");
@@ -1115,31 +1401,42 @@ static void admin_action(GtkButton *button, gpointer data) {
       while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == 1001 || response == 1002 || response == 1003) {
          if (response == 1003) {
             char *privileges = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile, name, gtk_entry_get_text(GTK_ENTRY(entries[2])));
-            if (privileges) gtk_entry_set_text(GTK_ENTRY(entries[2]), privileges);
+
+            if (privileges) {
+               gtk_entry_set_text(GTK_ENTRY(entries[2]), privileges);
+            }
             g_free(privileges);
-         } else if (response == 1001) admin_set_password(table, GTK_WINDOW(dialog), name);
-         else {
+         } else if (response == 1001) {
+            admin_set_password(table, GTK_WINDOW(dialog), name);
+         } else {
             char *request = g_strdup_printf("resetpw %s", name);
             admin_command(table, "user", request, NULL);
             g_free(request);
          }
       }
+
       if (response == GTK_RESPONSE_OK) {
          dict *fields = dict_new();
 
          if (fields) {
             bool changed = false;
+
             for (int col = 1 ; col < 10 && table->fields[col] ; col++) {
-               if (col == 5 || col == 8) continue;
+               if (col == 5 || col == 8) {
+                  continue;
+               }
+
                if (col == 9) {
-                  const char *value=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(full_rig_check)) ? "1" : "0";
-                  if (g_strcmp0(value,original[col] ? original[col] : "0")) {
-                     dict_add(fields,"full_rig_access",value);
-                     changed=true;
+                  const char *value = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(full_rig_check)) ? "1" : "0";
+
+                  if (g_strcmp0(value, original[col] ? original[col] : "0")) {
+                     dict_add(fields, "full_rig_access", value);
+                     changed = true;
                   }
                   continue;
                }
                const char *edited = gtk_entry_get_text(GTK_ENTRY(entries[col]));
+
                if (g_strcmp0(edited, original[col] ? original[col] : "")) {
                   dict_add(fields, table->fields[col], edited);
                   changed = true;
@@ -1165,9 +1462,14 @@ static void admin_action(GtkButton *button, gpointer data) {
       }
       admin_account_dialog = NULL;
       gtk_widget_destroy(dialog);
-      for (int col = 0; col < 10; col++) g_free(original[col]);
+
+      for (int col = 0 ; col < 10 ; col++) {
+         g_free(original[col]);
+      }
+
       g_free(name);
       g_free(value);
+
       return;
    } else if (!strcmp(table->name, "rooms") && !strcmp(action, "remove")) {
       admin_command(table, "room-remove", "", name);
@@ -1220,72 +1522,95 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    const char *name = dict_get(reply, "talk.target", "");
    const char *action = dict_get(reply, "talk.action", "");
    dict *row = json2dict(dict_get(reply, "talk.data", "{}"));
-   if (row && !strcmp(name,"subjects") && grant_subjects && grant_profile &&
-       !g_strcmp0(grant_profile,rrclient_connection_name(connection))) {
-      if (!strcmp(action,"begin")) gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(grant_subjects));
-      else if (!strcmp(action,"row")) {
-         const char *username=dict_get(row,"user","");
-         const char *host=dict_get(row,"host","");
-         const char *label=dict_get(row,"label",username);
+
+   if (row && !strcmp(name, "subjects") && grant_subjects && grant_profile && !g_strcmp0(grant_profile, rrclient_connection_name(connection))) {
+      if (!strcmp(action, "begin")) {
+         gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(grant_subjects));
+      } else if (!strcmp(action, "row")) {
+         const char *username = dict_get(row, "user", "");
+         const char *host = dict_get(row, "host", "");
+         const char *label = dict_get(row, "label", username);
+
          if (*username) {
-            char *id=*host ? g_strdup_printf("%s@%s",username,host) : g_strdup(username);
-            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(grant_subjects),id,label);
+            char *id = *host ? g_strdup_printf("%s@%s", username, host) : g_strdup(username);
+            gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(grant_subjects), id, label);
             g_free(id);
          }
       }
-      dict_free(row); dict_free(reply); return;
+      dict_free(row);
+      dict_free(reply);
+
+      return;
    }
-   const char *source_profile=rrclient_connection_name(connection);
-   const char *view_host=control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
-   gboolean all_nodes=view_host && !strcmp(view_host,"all");
-   if (row && !strcmp(name,"controls") && control_combo && source_profile &&
-       (all_nodes || (view_host && !strcmp(view_host,source_profile)))) {
-      if (!strcmp(action,"begin")) {
+   const char *source_profile = rrclient_connection_name(connection);
+   const char *view_host = control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
+   gboolean all_nodes = view_host && !strcmp(view_host, "all");
+
+   if (row && !strcmp(name, "controls") && control_combo && source_profile && (all_nodes || (view_host && !strcmp(view_host, source_profile)))) {
+      if (!strcmp(action, "begin")) {
          if (!all_nodes) {
             gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(control_combo));
             admin_control_rows_clear();
          }
-         gtk_widget_set_sensitive(control_scale,FALSE);
-         gtk_widget_set_sensitive(control_apply,TRUE);
-         gtk_label_set_text(GTK_LABEL(control_status),"Discovering available controls…");
-      } else if (!strcmp(action,"row")) {
-         const char *id = dict_get(row,"name","");
-         const char *label = dict_get(row,"label",id);
+         gtk_widget_set_sensitive(control_scale, FALSE);
+         gtk_widget_set_sensitive(control_apply, TRUE);
+         gtk_label_set_text(GTK_LABEL(control_status), "Discovering available controls…");
+      } else if (!strcmp(action, "row")) {
+         const char *id = dict_get(row, "name", "");
+         const char *label = dict_get(row, "label", id);
+
          if (*id) {
-            if (!all_nodes) gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_combo),id,label);
-            admin_control_row_add(row,source_profile);
+            if (!all_nodes) {
+               gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_combo), id, label);
+            }
+            admin_control_row_add(row, source_profile);
          }
-      } else if (!strcmp(action,"end")) {
+      } else if (!strcmp(action, "end")) {
          if (all_nodes) {
-            if (control_pending_lists) --control_pending_lists;
-            if (!control_pending_lists) gtk_label_set_text(GTK_LABEL(control_status),"Controls loaded from connected nodes");
-         } else if (control_pending_name) { char *requested=g_strdup(control_pending_name); admin_control_choose(requested); g_free(requested); } else gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo),0);
-         if (!all_nodes && !gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo)))
-            gtk_label_set_text(GTK_LABEL(control_status),"No hardware controls available");
-      } else if (!strcmp(action,"state")) {
-         admin_control_row_state(row,source_profile);
+            if (control_pending_lists) {
+               --control_pending_lists;
+            }
+
+            if (!control_pending_lists) {
+               gtk_label_set_text(GTK_LABEL(control_status), "Controls loaded from connected nodes");
+            }
+         } else if (control_pending_name) {
+            char *requested = g_strdup(control_pending_name);
+            admin_control_choose(requested);
+            g_free(requested);
+         } else {
+            gtk_combo_box_set_active(GTK_COMBO_BOX(control_combo), 0);
+         }
+
+         if (!all_nodes && !gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo))) {
+            gtk_label_set_text(GTK_LABEL(control_status), "No hardware controls available");
+         }
+      } else if (!strcmp(action, "state")) {
+         admin_control_row_state(row, source_profile);
          const char *active = gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_combo));
-         if (active && !strcmp(active,dict_get(row,"name",""))) {
-            int minimum = atoi(dict_get(row,"minimum","0"));
-            int maximum = atoi(dict_get(row,"maximum","0"));
-            int current = atoi(dict_get(row,"current","0"));
-            int step = atoi(dict_get(row,"step","1"));
+
+         if (active && !strcmp(active, dict_get(row, "name", ""))) {
+            int minimum = atoi(dict_get(row, "minimum", "0"));
+            int maximum = atoi(dict_get(row, "maximum", "0"));
+            int current = atoi(dict_get(row, "current", "0"));
+            int step = atoi(dict_get(row, "step", "1"));
+
             if (maximum >= minimum && current >= minimum && current <= maximum && step > 0) {
-               gtk_range_set_range(GTK_RANGE(control_scale),minimum,maximum);
-               gtk_range_set_increments(GTK_RANGE(control_scale),step,step);
-               gtk_range_set_value(GTK_RANGE(control_scale),current);
-               bool writable = dict_get_bool(row,"writable",false);
-               gtk_widget_set_sensitive(control_scale,writable);
+               gtk_range_set_range(GTK_RANGE(control_scale), minimum, maximum);
+               gtk_range_set_increments(GTK_RANGE(control_scale), step, step);
+               gtk_range_set_value(GTK_RANGE(control_scale), current);
+               bool writable = dict_get_bool(row, "writable", false);
+               gtk_widget_set_sensitive(control_scale, writable);
                admin_control_update_revert();
                char message[256];
-               snprintf(message,sizeof(message),"%s: %d / %d %s",
-                  dict_get(row,"label",active),current,maximum,dict_get(row,"unit",""));
-               gtk_label_set_text(GTK_LABEL(control_status),message);
+               snprintf(message, sizeof(message), "%s: %d / %d %s", dict_get(row, "label", active), current, maximum, dict_get(row, "unit", ""));
+               gtk_label_set_text(GTK_LABEL(control_status), message);
             }
          }
       }
       dict_free(row);
       dict_free(reply);
+
       return;
    }
 
@@ -1309,8 +1634,8 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       } else if (!strcmp(action, "error")) {
          const char *message = dict_get(row, "message", "Account operation failed");
          gtk_label_set_text(GTK_LABEL(table->status), message);
-         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-            GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "%s", message);
+         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_CLOSE, "%s", message);
          gtk_dialog_run(GTK_DIALOG(dialog));
          gtk_widget_destroy(dialog);
       } else if (!strcmp(action, "changed")) {
@@ -1349,7 +1674,10 @@ void gtk_admin_refresh(void) {
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_refresh(NULL, &tables[i]);
    }
-   if (control_combo) admin_control_refresh(NULL, NULL);
+
+   if (control_combo) {
+      admin_control_refresh(NULL, NULL);
+   }
 }
 
 static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
@@ -1371,6 +1699,7 @@ GtkWidget *init_admin_tab(void) {
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
    GtkWidget *privileges_page = NULL;
+
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
@@ -1394,19 +1723,22 @@ GtkWidget *init_admin_tab(void) {
          gtk_box_pack_start(GTK_BOX(buttons), kick, FALSE, FALSE, 0);
          gtk_box_pack_start(GTK_BOX(buttons), kick_all, FALSE, FALSE, 0);
       }
-      if (!strcmp(table->name,"assignments")) {
-         GtkWidget *add=gtk_button_new_with_label("Add Privilege…");
-         g_signal_connect(add,"clicked",G_CALLBACK(admin_add_privilege),table);
-         gtk_box_pack_start(GTK_BOX(buttons),add,FALSE,FALSE,0);
-         GtkWidget *groups=gtk_button_new_with_label("Manage Groups…");
-         g_signal_connect(groups,"clicked",G_CALLBACK(admin_manage_groups),table);
-         gtk_box_pack_start(GTK_BOX(buttons),groups,FALSE,FALSE,0);
+
+      if (!strcmp(table->name, "assignments")) {
+         GtkWidget *add = gtk_button_new_with_label("Add Privilege…");
+         g_signal_connect(add, "clicked", G_CALLBACK(admin_add_privilege), table);
+         gtk_box_pack_start(GTK_BOX(buttons), add, FALSE, FALSE, 0);
+         GtkWidget *groups = gtk_button_new_with_label("Manage Groups…");
+         g_signal_connect(groups, "clicked", G_CALLBACK(admin_manage_groups), table);
+         gtk_box_pack_start(GTK_BOX(buttons), groups, FALSE, FALSE, 0);
       }
+
       if (i == 0) {
          GtkWidget *create = gtk_button_new_with_label("Create User");
          g_signal_connect(create, "clicked", G_CALLBACK(admin_create_user), table);
          gtk_box_pack_start(GTK_BOX(buttons), create, FALSE, FALSE, 0);
       }
+
       if (i < 3) {
          const char *labels[] = {
             "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW", "Edit Privs"
@@ -1499,11 +1831,11 @@ GtkWidget *init_admin_tab(void) {
       gtk_container_add(GTK_CONTAINER(scroll), table->tree);
       gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
+
       if (!strcmp(table->name, "privsets") || !strcmp(table->name, "setentries")) {
          if (!privileges_page) {
             privileges_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-            gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), privileges_page,
-               gtk_label_new("Privilege Sets"));
+            gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), privileges_page, gtk_label_new("Privilege Sets"));
          }
          GtkWidget *section = gtk_label_new(!strcmp(table->name, "privsets") ?
             "Sets — reusable privilege definitions" : "Entries — privileges in each set");
@@ -1511,90 +1843,102 @@ GtkWidget *init_admin_tab(void) {
          gtk_box_pack_start(GTK_BOX(privileges_page), section, FALSE, FALSE, 0);
          gtk_box_pack_start(GTK_BOX(privileges_page), box, TRUE, TRUE, 0);
       } else {
-         gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(
-            !strcmp(table->name,"audit") ? "Audit Log" :
-            !strcmp(table->name,"ptt") ? "PTT Log" :
-            !strcmp(table->name,"quotas") ? "Quotas" :
-            !strcmp(table->name,"users") ? "Users" :
-            !strcmp(table->name,"sessions") ? "Sessions" :
-            !strcmp(table->name,"assignments") ? "Assignments" :
-            !strcmp(table->name,"grants") ? "Direct Grants" : "Rooms"));
+         gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(!strcmp(table->name, "audit") ? "Audit Log" :
+            !strcmp(table->name, "ptt") ? "PTT Log" :
+            !strcmp(table->name, "quotas") ? "Quotas" :
+            !strcmp(table->name, "users") ? "Users" :
+            !strcmp(table->name, "sessions") ? "Sessions" :
+            !strcmp(table->name, "assignments") ? "Assignments" : !strcmp(table->name, "grants") ? "Direct Grants" : "Rooms"));
       }
    }
 
    {
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
       GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      GtkWidget *filter_header=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
-      control_filter=gtk_search_entry_new();
-      gtk_entry_set_width_chars(GTK_ENTRY(control_filter),24);
-      gtk_entry_set_placeholder_text(GTK_ENTRY(control_filter),"Filter controls… (=key, ^prefix)");
-      gtk_box_pack_start(GTK_BOX(filter_header),gtk_label_new("Filter:"),FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(filter_header),control_filter,FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(filter_header),gtk_label_new("Host / Node:"),FALSE,FALSE,0);
-      control_hosts=gtk_combo_box_text_new();
-      gtk_widget_set_hexpand(control_hosts,TRUE);
-      gtk_box_pack_start(GTK_BOX(filter_header),control_hosts,TRUE,TRUE,0);
+      GtkWidget *filter_header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+      control_filter = gtk_search_entry_new();
+      gtk_entry_set_width_chars(GTK_ENTRY(control_filter), 24);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(control_filter), "Filter controls… (=key, ^prefix)");
+      gtk_box_pack_start(GTK_BOX(filter_header), gtk_label_new("Filter:"), FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(filter_header), control_filter, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(filter_header), gtk_label_new("Host / Node:"), FALSE, FALSE, 0);
+      control_hosts = gtk_combo_box_text_new();
+      gtk_widget_set_hexpand(control_hosts, TRUE);
+      gtk_box_pack_start(GTK_BOX(filter_header), control_hosts, TRUE, TRUE, 0);
       admin_control_hosts_refresh();
-      control_host_handler=g_signal_connect(control_hosts,"changed",G_CALLBACK(admin_control_host_changed),NULL);
-      g_signal_connect(main_window,"key-press-event",G_CALLBACK(admin_controls_star),NULL);
-      gtk_box_pack_start(GTK_BOX(box),filter_header,FALSE,FALSE,0);
-      g_signal_connect(control_filter,"changed",G_CALLBACK(admin_control_filter_changed),NULL);
+      control_host_handler = g_signal_connect(control_hosts, "changed", G_CALLBACK(admin_control_host_changed), NULL);
+      g_signal_connect(main_window, "key-press-event", G_CALLBACK(admin_controls_star), NULL);
+      gtk_box_pack_start(GTK_BOX(box), filter_header, FALSE, FALSE, 0);
+      g_signal_connect(control_filter, "changed", G_CALLBACK(admin_control_filter_changed), NULL);
       control_status = gtk_label_new("Select a connected server and Refresh.");
       control_combo = gtk_combo_box_text_new();
-      control_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,0,100,1);
-      gtk_scale_set_digits(GTK_SCALE(control_scale),0);
-      gtk_widget_set_sensitive(control_scale,FALSE);
+      control_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+      gtk_scale_set_digits(GTK_SCALE(control_scale), 0);
+      gtk_widget_set_sensitive(control_scale, FALSE);
       GtkWidget *refresh = gtk_button_new_with_label("Refresh controls");
       control_apply = gtk_button_new_with_label("Revert");
-      gtk_widget_set_sensitive(control_apply,FALSE);
-      gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
-      GtkWidget *control_headers=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
-      const char *headings[]={"Node / Control","Value","Description / Access"};
-      for (int i=0;i<3;i++) {
-         GtkWidget *header=gtk_button_new_with_label(headings[i]);
-         g_object_set_data(G_OBJECT(header),"sort-field",GINT_TO_POINTER(i));
-         if (i<2) gtk_widget_set_size_request(header,i==0 ? 110 : 125,-1);
-         else gtk_widget_set_hexpand(header,TRUE);
-         g_signal_connect(header,"clicked",G_CALLBACK(admin_control_sort_clicked),NULL);
-         gtk_box_pack_start(GTK_BOX(control_headers),header,i==2,i==2,0);
-      }
-      gtk_box_pack_start(GTK_BOX(box),control_headers,FALSE,FALSE,0);
-      control_rows_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
-       control_row_buttons=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
-       control_scroll=gtk_scrolled_window_new(NULL,NULL);
-       gtk_widget_set_vexpand(control_scroll,TRUE);
-       gtk_container_add(GTK_CONTAINER(control_scroll),control_rows_box);
-       gtk_box_pack_start(GTK_BOX(box),control_scroll,TRUE,TRUE,0);
-       /* Keep old selection machinery hidden for protocol response correlation. */
-       gtk_widget_set_no_show_all(control_combo,TRUE);
-       gtk_widget_set_no_show_all(control_scale,TRUE);
-       gtk_box_pack_start(GTK_BOX(box),control_combo,FALSE,FALSE,0);
-       gtk_box_pack_start(GTK_BOX(box),control_scale,FALSE,FALSE,0);
+      gtk_widget_set_sensitive(control_apply, FALSE);
+      gtk_box_pack_start(GTK_BOX(buttons), refresh, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(buttons), control_apply, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), control_status, FALSE, FALSE, 0);
+      GtkWidget *control_headers = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+      const char *headings[] = {
+         "Node / Control", "Value", "Description / Access"
+      };
 
-      gtk_box_pack_start(GTK_BOX(box),buttons,FALSE,FALSE,0);
-      g_signal_connect(refresh,"clicked",G_CALLBACK(admin_control_refresh),NULL);
-      g_signal_connect(control_combo,"changed",G_CALLBACK(admin_control_selection),NULL);
-      g_signal_connect(control_apply,"clicked",G_CALLBACK(admin_control_apply),NULL);
-      gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),box,gtk_label_new("Controls"));
-       g_object_set_data(G_OBJECT(control_combo),"control-page",box);
+      for (int i = 0 ; i < 3 ; i++) {
+         GtkWidget *header = gtk_button_new_with_label(headings[i]);
+         g_object_set_data(G_OBJECT(header), "sort-field", GINT_TO_POINTER(i));
+
+         if (i < 2) {
+            gtk_widget_set_size_request(header, i == 0 ? 110 : 125, -1);
+         } else {
+            gtk_widget_set_hexpand(header, TRUE);
+         }
+         g_signal_connect(header, "clicked", G_CALLBACK(admin_control_sort_clicked), NULL);
+         gtk_box_pack_start(GTK_BOX(control_headers), header, i == 2, i == 2, 0);
+      }
+
+      gtk_box_pack_start(GTK_BOX(box), control_headers, FALSE, FALSE, 0);
+      control_rows_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      control_row_buttons = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+      control_scroll = gtk_scrolled_window_new(NULL, NULL);
+      gtk_widget_set_vexpand(control_scroll, TRUE);
+      gtk_container_add(GTK_CONTAINER(control_scroll), control_rows_box);
+      gtk_box_pack_start(GTK_BOX(box), control_scroll, TRUE, TRUE, 0);
+      /* Keep old selection machinery hidden for protocol response correlation. */
+      gtk_widget_set_no_show_all(control_combo, TRUE);
+      gtk_widget_set_no_show_all(control_scale, TRUE);
+      gtk_box_pack_start(GTK_BOX(box), control_combo, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), control_scale, FALSE, FALSE, 0);
+
+      gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
+      g_signal_connect(refresh, "clicked", G_CALLBACK(admin_control_refresh), NULL);
+      g_signal_connect(control_combo, "changed", G_CALLBACK(admin_control_selection), NULL);
+      g_signal_connect(control_apply, "clicked", G_CALLBACK(admin_control_apply), NULL);
+      gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new("Controls"));
+      g_object_set_data(G_OBJECT(control_combo), "control-page", box);
    }
    /* Operator workflow first; diagnostics and history last. */
-   const char *order[] = {"Controls","Sessions","Users","Rooms","Assignments",
-      "Direct Grants","Privilege Sets","Quotas","Audit Log","PTT Log"};
-   for (guint position=0; position<G_N_ELEMENTS(order); ++position) {
-      gint count=gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_view));
-      for (gint j=position; j<count; ++j) {
-         GtkWidget *page=gtk_notebook_get_nth_page(GTK_NOTEBOOK(admin_view),j);
-         GtkWidget *tab=gtk_notebook_get_tab_label(GTK_NOTEBOOK(admin_view),page);
-         if (GTK_IS_LABEL(tab) && !strcmp(gtk_label_get_text(GTK_LABEL(tab)),order[position])) {
-            gtk_notebook_reorder_child(GTK_NOTEBOOK(admin_view),page,position);
+   const char *order[] = {
+      "Controls", "Sessions", "Users", "Rooms", "Assignments",
+      "Direct Grants", "Privilege Sets", "Quotas", "Audit Log", "PTT Log"
+   };
+
+   for (guint position = 0 ; position < G_N_ELEMENTS(order) ; ++position) {
+      gint count = gtk_notebook_get_n_pages(GTK_NOTEBOOK(admin_view));
+
+      for (gint j = position ; j < count ; ++j) {
+         GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(admin_view), j);
+         GtkWidget *tab = gtk_notebook_get_tab_label(GTK_NOTEBOOK(admin_view), page);
+
+         if (GTK_IS_LABEL(tab) && !strcmp(gtk_label_get_text(GTK_LABEL(tab)), order[position])) {
+            gtk_notebook_reorder_child(GTK_NOTEBOOK(admin_view), page, position);
             break;
          }
       }
    }
+
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), admin_view, gtk_label_new("(1) Admin"));
 
    return admin_view;

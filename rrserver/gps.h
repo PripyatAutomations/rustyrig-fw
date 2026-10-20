@@ -13,8 +13,10 @@
 
 static inline const char *rrserver_gps_station_position(void) {
    const char *position = cfg_get("station.gps.position");
+
    return position && *position ? position : cfg_get("site:coordinates");
 }
+
 bool rrserver_gps_position_parse(const char *text, int32_t *lat, int32_t *lon);
 bool rrserver_gps_init(void);
 /* Add the effective known location to discovery; absence means unknown/no fix. */

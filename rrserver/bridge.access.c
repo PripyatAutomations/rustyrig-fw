@@ -33,26 +33,43 @@ bool rrserver_websdr_can_admin(const rrconn_t *client) {
    return privilege(client, "owner|admin|websdr.admin");
 }
 static bool rig_access(const rrconn_t *client, const rr_server_rig_t *radio) {
-   if (!client || !client->authenticated || !client->user || !radio) return false;
+   if (!client || !client->authenticated || !client->user || !radio) {
+      return false;
+   }
    bool temporary = rrserver_bridge_temporary(radio);
 #ifdef USE_SQLITE
    const char *site = rrserver_relay_client_server(client);
    const char *local = cfg_get("station.name");
    bool remote = client->user->uid < 0;
-   if (remote && (!site || !*site || (local && !strcasecmp(site, local))))
+
+   if (remote && (!site || !*site || (local && !strcasecmp(site, local)))) {
       return false;
-   const char *uuid = rr_server_rig_id(radio);
-   if (uuid && *uuid) {
-      rr_resource_access_t result = db_resource_access(masterdb, client->chatname,
-         remote ? site : "", "rig", uuid,
-         temporary ? "websdr.connect" : "bridge.use", time(NULL));
-      if (result == RR_RESOURCE_DENY) return false;
-      if (result == RR_RESOURCE_ALLOW) return true;
    }
-   if (remote) return false;
+   const char *uuid = rr_server_rig_id(radio);
+
+   if (uuid && *uuid) {
+      rr_resource_access_t result = db_resource_access(masterdb, client->chatname, remote ? site : "", "rig", uuid, temporary ? "websdr.connect" : "bridge.use",
+         time(NULL));
+
+      if (result == RR_RESOURCE_DENY) {
+         return false;
+      }
+
+      if (result == RR_RESOURCE_ALLOW) {
+         return true;
+      }
+   }
+
+   if (remote) {
+      return false;
+   }
 #else
-   if (client->user->uid < 0) return false;
+
+   if (client->user->uid < 0) {
+      return false;
+   }
 #endif
+
    return temporary ? rrserver_websdr_can_connect(client) : rrserver_bridge_can_use(client);
 }
 bool rrserver_bridge_rig(const rr_server_rig_t *radio) {

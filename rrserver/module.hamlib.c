@@ -5,7 +5,9 @@
 #include <rrserver/rig.registry.h>
 #include <rrserver/globalstate.h>
 extern struct GlobalState rig;
-rr_module_event_t modexports[] = {{0}};
+rr_module_event_t modexports[] = { {
+                                      0
+                                   } };
 
 bool rr_module_init(void) {
    return rr_backend_type_register(&rr_backend_hamlib);
@@ -13,6 +15,7 @@ bool rr_module_init(void) {
 static bool in_use(rr_server_rig_t *radio, void *unused) {
    (void)unused;
    rr_backend_t *backend = rr_server_rig_backend(radio);
+
    return backend && backend->type == &rr_backend_hamlib;
 }
 bool rr_module_can_unload(void) {

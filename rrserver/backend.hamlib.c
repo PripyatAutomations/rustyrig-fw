@@ -37,8 +37,8 @@ typedef struct hamlib_backend {
    bool vfo_mode_ok[MAX_VFOS];
    bool strength_untargetable[MAX_VFOS];
    bool ptt_read_unavailable[MAX_VFOS];
-   bool vfo_selection_unavailable; // rig_set_vfo unsupported by this Hamlib backend
-   bool vfo_exchanged; // logical VFO A/B mapped to opposite physical banks
+   bool vfo_selection_unavailable;  // rig_set_vfo unsupported by this Hamlib backend
+   bool vfo_exchanged;          // logical VFO A/B mapped to opposite physical banks
    bool vfo_exchange_fallback;
    rr_vfo_t last_active_vfo;
    bool connected;
@@ -53,69 +53,79 @@ typedef struct hamlib_backend {
    int timeout_ms;
 } hamlib_backend_t;
 
-/* Driver support is different from independent VFO targeting, and
- * neither implies that we have a successfully observed value. */
+/* Driver support is different from independent VFO targeting, and neither implies that we have a successfully observed value. */
 typedef enum {
    HL_PROP_FREQ, HL_PROP_MODE, HL_PROP_PTT, HL_PROP_STRENGTH
 } hl_property_kind_t;
 
-static bool hl_property_queryable(const hamlib_backend_t *data,
-   rr_vfo_t index, rr_vfo_t active, hl_property_kind_t kind) {
-   if (!data || !data->rig || !data->rig->caps) return false;
+static bool hl_property_queryable(const hamlib_backend_t *data, rr_vfo_t index, rr_vfo_t active, hl_property_kind_t kind) {
+   if (!data || !data->rig || !data->rig->caps) {
+      return false;
+   }
    const int targeting = data->rig->caps->targetable_vfo;
    const bool active_bank = index == active;
+
    switch (kind) {
-      case HL_PROP_FREQ:
+      case HL_PROP_FREQ: {
          return active_bank || (targeting & RIG_TARGETABLE_FREQ);
-      case HL_PROP_MODE:
-         return (active_bank || (targeting & RIG_TARGETABLE_MODE)) &&
-            (active_bank || !data->vfo_probed[index] || data->vfo_mode_ok[index]);
-      case HL_PROP_PTT:
-         return !data->ptt_read_unavailable[index] &&
-            (active_bank || (targeting & RIG_TARGETABLE_PTT));
-      case HL_PROP_STRENGTH:
-         return !data->strength_untargetable[index] &&
-            rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH) &&
-            (active_bank || (targeting & RIG_TARGETABLE_LEVEL));
+      }
+      case HL_PROP_MODE: {
+         return (active_bank || (targeting & RIG_TARGETABLE_MODE)) && (active_bank || !data->vfo_probed[index] || data->vfo_mode_ok[index]);
+      }
+      case HL_PROP_PTT: {
+         return !data->ptt_read_unavailable[index] && (active_bank || (targeting & RIG_TARGETABLE_PTT));
+      }
+      case HL_PROP_STRENGTH: {
+         return !data->strength_untargetable[index] && rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH) && (active_bank
+            || (targeting & RIG_TARGETABLE_LEVEL));
+      }
    }
+
    return false;
 }
 
-/* Hamlib's callback and enable threshold are process-global. Attribute
- * messages to the originating backend worker thread and filter per rig. */
+/* Hamlib's callback and enable threshold are process-global. Attribute messages to the originating backend worker thread and filter per rig. */
 static pthread_once_t hamlib_log_once = PTHREAD_ONCE_INIT;
 
-static int hamlib_log_callback(enum rig_debug_level_e level, rig_ptr_t arg,
-   const char *format, va_list ap) {
+static int hamlib_log_callback(enum rig_debug_level_e level, rig_ptr_t arg, const char *format, va_list ap) {
    (void)arg;
    rr_backend_t *backend = rr_backend_worker_current();
    int threshold = backend ? rr_backend_config_get_int(backend, "hamlib.debug", RIG_DEBUG_ERR) : RIG_DEBUG_ERR;
-   if (threshold < RIG_DEBUG_NONE || threshold > RIG_DEBUG_CACHE) threshold = RIG_DEBUG_ERR;
-   if (level > threshold || level == RIG_DEBUG_NONE) return RIG_OK;
+
+   if (threshold < RIG_DEBUG_NONE || threshold > RIG_DEBUG_CACHE) {
+      threshold = RIG_DEBUG_ERR;
+   }
+
+   if (level > threshold || level == RIG_DEBUG_NONE) {
+      return RIG_OK;
+   }
 
    char msg[2048];
    vsnprintf(msg, sizeof(msg), format, ap);
-   /* Hamlib sometimes embeds an entire trace in a single callback
-    * message. Never let it become a multiline log entry. */
+   /* Hamlib sometimes embeds an entire trace in a single callback message. Never let it become a multiline log entry. */
    msg[strcspn(msg, "\r\n")] = 0;
-   if (!msg[0]) return RIG_OK;
+
+   if (!msg[0]) {
+      return RIG_OK;
+   }
 
    char subsystem[128];
-   snprintf(subsystem, sizeof(subsystem), "hamlib.%s",
-      backend ? rr_backend_instance_alias(backend) : "global");
+   snprintf(subsystem, sizeof(subsystem), "hamlib.%s", backend ? rr_backend_instance_alias(backend) : "global");
    logpriority_t priority = level <= RIG_DEBUG_ERR ? LOG_CRIT :
-      level == RIG_DEBUG_WARN ? LOG_WARN :
-      level == RIG_DEBUG_VERBOSE ? LOG_DEBUG :
-      level == RIG_DEBUG_TRACE ? LOG_CRAZY : LOG_BLITZKREIG;
-   if (backend) rr_backend_log(backend, priority, subsystem, "%s", msg);
-   else Log(priority, subsystem, "%s", msg);
+      level == RIG_DEBUG_WARN ? LOG_WARN : level == RIG_DEBUG_VERBOSE ? LOG_DEBUG : level == RIG_DEBUG_TRACE ? LOG_CRAZY : LOG_BLITZKREIG;
+
+   if (backend) {
+      rr_backend_log(backend, priority, subsystem, "%s", msg);
+   } else {
+      Log(priority, subsystem, "%s", msg);
+   }
+
    return RIG_OK;
 }
 
 static void hamlib_log_install(void) {
    rig_set_debug_callback(hamlib_log_callback, NULL);
-   /* Allow callback to enforce per-rig verbosity; Hamlib's own global
-    * threshold otherwise drops messages before they reach our callback. */
+   /* Allow callback to enforce per-rig verbosity; Hamlib's own global threshold otherwise drops messages before they reach our callback. */
    rig_set_debug(RIG_DEBUG_CACHE);
 }
 
@@ -140,57 +150,75 @@ static vfo_t hl_get_vfo(rr_vfo_t vfo) {
    }
 }
 
-/* XCHG exchanges the physical A/B contents; it does not select VFO B.
- * Maintain a logical-to-physical mapping after a successful exchange. */
+/* XCHG exchanges the physical A/B contents; it does not select VFO B. Maintain a logical-to-physical mapping after a successful exchange. */
 static vfo_t hl_target(const hamlib_backend_t *data, rr_vfo_t index) {
    if (data && data->vfo_exchanged) {
-      if (index == VFO_A) return RIG_VFO_B;
-      if (index == VFO_B) return RIG_VFO_A;
+      if (index == VFO_A) {
+         return RIG_VFO_B;
+      }
+
+      if (index == VFO_B) {
+         return RIG_VFO_A;
+      }
    }
+
    return hl_get_vfo(index);
 }
 
-/* Only call on an explicit active-VFO transition, never for ordinary polling.
- * Return false if the transition failed or would be unsafe. */
+/* Only call on an explicit active-VFO transition, never for ordinary polling. Return false if the transition failed or would be unsafe. */
 static bool hl_select_active(rr_backend_t *backend, hamlib_backend_t *data) {
    rr_vfo_t desired = backend->active_vfo;
-   if (desired == data->last_active_vfo) return true;
-   if (data->transmitting) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: cannot change active VFO while transmitting",
-         rr_backend_instance_alias(backend));
-      return false;
-   }
-   if (desired != VFO_A && desired != VFO_B) return false;
 
-   /* First try real selection. Never use an exchange for transient CAT errors. */
-   int result = data->vfo_selection_unavailable ? -RIG_ENAVAIL :
-      rig_set_vfo(data->rig, hl_target(data, desired));
-   if (result == RIG_OK) {
-      data->last_active_vfo = desired;
+   if (desired == data->last_active_vfo) {
       return true;
    }
+
+   if (data->transmitting) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: cannot change active VFO while transmitting", rr_backend_instance_alias(backend));
+
+      return false;
+   }
+
+   if (desired != VFO_A && desired != VFO_B) {
+      return false;
+   }
+
+   /* First try real selection. Never use an exchange for transient CAT errors. */
+   int result = data->vfo_selection_unavailable ? -RIG_ENAVAIL : rig_set_vfo(data->rig, hl_target(data, desired));
+
+   if (result == RIG_OK) {
+      data->last_active_vfo = desired;
+
+      return true;
+   }
+
    if (result != -RIG_ENAVAIL && result != -RIG_ENIMPL) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: cannot select VFO %s: %s",
-         rr_backend_instance_alias(backend), vfo_name(desired), rigerror(result));
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: cannot select VFO %s: %s", rr_backend_instance_alias(backend), vfo_name(desired), rigerror(result
+         ));
+
       return false;
    }
    data->vfo_selection_unavailable = true;
-   if (!data->vfo_exchange_fallback) return false;
+
+   if (!data->vfo_exchange_fallback) {
+      return false;
+   }
 
    /* Exchange is safe only for the two-bank A/B case. */
    result = rig_vfo_op(data->rig, RIG_VFO_A, RIG_OP_XCHG);
+
    if (result != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: cannot exchange VFO A/B to activate %s: %s",
-         rr_backend_instance_alias(backend), vfo_name(desired), rigerror(result));
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: cannot exchange VFO A/B to activate %s: %s", rr_backend_instance_alias(backend), vfo_name(desired
+         ), rigerror(result));
+
       return false;
    }
    data->vfo_exchanged = !data->vfo_exchanged;
    data->last_active_vfo = desired;
    memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
-   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
-      "%s: activated logical VFO %s using A/B exchange (physical VFO A remains selected)",
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: activated logical VFO %s using A/B exchange (physical VFO A remains selected)",
       rr_backend_instance_alias(backend), vfo_name(desired));
+
    return true;
 }
 
@@ -417,18 +445,12 @@ static bool hl_connect(rr_backend_t *backend) {
    data->vfo_selection_unavailable = false;
    data->vfo_exchanged = false;
    data->last_active_vfo = backend->active_vfo;
-   /* The capability table describes the driver, not a guarantee that each
-    * operation succeeds. Keep runtime negative-result handling as well. */
+   /* The capability table describes the driver, not a guarantee that each operation succeeds. Keep runtime negative-result handling as well. */
    const struct rig_caps *caps = data->rig->caps;
-   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
-      "%s: capabilities model=%s, VFO targetable=0x%x (frequency=%d mode=%d PTT=%d level=%d), strength=%d",
-      rr_backend_instance_alias(backend), caps->model_name ? caps->model_name : "?",
-      caps->targetable_vfo,
-      !!(caps->targetable_vfo & RIG_TARGETABLE_FREQ),
-      !!(caps->targetable_vfo & RIG_TARGETABLE_MODE),
-      !!(caps->targetable_vfo & RIG_TARGETABLE_PTT),
-      !!(caps->targetable_vfo & RIG_TARGETABLE_LEVEL),
-      !!rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH));
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: capabilities model=%s, VFO targetable=0x%x (frequency=%d mode=%d PTT=%d level=%d), strength=%d",
+      rr_backend_instance_alias(backend), caps->model_name ? caps->model_name : "?", caps->targetable_vfo, !!(caps->targetable_vfo & RIG_TARGETABLE_FREQ), !!(
+         caps->targetable_vfo & RIG_TARGETABLE_MODE), !!(caps->targetable_vfo & RIG_TARGETABLE_PTT), !!(caps->targetable_vfo & RIG_TARGETABLE_LEVEL), !!
+      rig_has_get_level(data->rig, RIG_LEVEL_STRENGTH));
    /* VFO selection is optional. Polling determines whether the backend supports it. */
    rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: connected to %s", rr_backend_instance_alias(backend), data->device);
 
@@ -553,11 +575,11 @@ static bool hl_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) 
    }
 
    if (state && backend->active_vfo != data->last_active_vfo) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: active VFO change is not yet confirmed; refusing PTT",
-         rr_backend_instance_alias(backend));
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: active VFO change is not yet confirmed; refusing PTT", rr_backend_instance_alias(backend));
+
       return true;
    }
+
    // Never key a different VFO unless Hamlib confirms it is selected.
    // A failed selection must not silently transmit on whichever VFO is active.
    if (state) {
@@ -569,14 +591,15 @@ static bool hl_ptt_set(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state) 
          int query = rig_get_vfo(data->rig, &current);
 
          if (query != RIG_OK || current != hl_target(data, index)) {
-            rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-               "%s: Cannot safely transmit on VFO %s: Hamlib cannot select it or confirm it is active",
+            rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot safely transmit on VFO %s: Hamlib cannot select it or confirm it is active",
                rr_backend_instance_alias(backend), vfo_name(index));
+
             return true;
          }
       } else if (selected != RIG_OK) {
-         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select TX VFO %s: %s",
-            rr_backend_instance_alias(backend), vfo_name(index), rigerror(selected));
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select TX VFO %s: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(
+            selected));
+
          return true;
       }
    }
@@ -637,7 +660,8 @@ static bool hl_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t m
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return !data || !data->rig || !hl_index(vfo, &index) || rig_set_mode(data->rig, hl_target(data, index), hl_mode_from_rr(mode), RIG_PASSBAND_NORMAL) != RIG_OK;
+   return !data || !data->rig || !hl_index(vfo, &index)
+          || rig_set_mode(data->rig, hl_target(data, index), hl_mode_from_rr(mode), RIG_PASSBAND_NORMAL) != RIG_OK;
 }
 
 static bool hl_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, float power) {
@@ -759,13 +783,16 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (backend->active_vfo != data->last_active_vfo && !hl_select_active(backend, data)) {
       return NULL;
    }
-   /* A split query is independent from tuning and must be read from
-    * the actual rig, not an optimistic client-side toggle. */
+
+   /* A split query is independent from tuning and must be read from the actual rig, not an optimistic client-side toggle. */
    if (index == backend->active_vfo && !data->transmitting) {
       split_t split = RIG_SPLIT_OFF;
       vfo_t tx_vfo = RIG_VFO_NONE;
+
       if (rig_get_split_vfo(data->rig, hl_target(data, index), &split, &tx_vfo) == RIG_OK) {
-         dict_value_t observed = {.i = split == RIG_SPLIT_ON ? 1 : 0};
+         dict_value_t observed = {
+            .i = split == RIG_SPLIT_ON ? 1 : 0
+         };
          rr_backend_property_observe(backend, vfo, "split", VAL_INT, &observed);
       }
    }
@@ -779,12 +806,12 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
 
       if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL) {
          data->vfo_selection_unavailable = true;
-         rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-            "%s: Hamlib cannot explicitly select VFOs; using VFO-targeted CAT operations where supported",
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Hamlib cannot explicitly select VFOs; using VFO-targeted CAT operations where supported",
             rr_backend_instance_alias(backend));
       } else if (result != RIG_OK) {
-         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select VFO %s: %s",
-            rr_backend_instance_alias(backend), vfo_name(index), rigerror(result));
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: Cannot select VFO %s: %s", rr_backend_instance_alias(backend), vfo_name(index), rigerror(
+            result));
+
          // Selecting a VFO failing does not prove the CAT connection is lost.
          return NULL;
       }
@@ -793,13 +820,14 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (rr_backend_worker_yield(backend)) {
       return NULL;
    }
-   /* Unlike a cache hit, a targetable capability does not imply
-    * frequency state is known. Never surface inactive frequency as known
-    * when the driver cannot address that VFO. */
+
+   /* Unlike a cache hit, a targetable capability does not imply frequency state is known. Never surface inactive frequency as known when the driver cannot
+    * address that VFO. */
    if (!hl_property_queryable(data, index, backend->active_vfo, HL_PROP_FREQ)) {
       hl_property_unavailable(backend, vfo, RR_PROP_VFO_FREQUENCY);
       hl_property_unavailable(backend, vfo, RR_PROP_VFO_MODE);
       hl_property_unavailable(backend, vfo, RR_PROP_VFO_WIDTH);
+
       return NULL;
    }
    result = rig_get_freq(data->rig, hamlib_vfo, &state->freq);
@@ -826,12 +854,10 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       result = rig_get_mode(data->rig, hamlib_vfo, &state->mode, &state->width);
 
       if (result != RIG_OK) {
-         rr_backend_log(backend,
-            index != backend->active_vfo &&
+         rr_backend_log(backend, index != backend->active_vfo &&
             (result == -RIG_ENAVAIL || result == -RIG_ENIMPL || result == -RIG_ENTARGET) ?
-               LOG_DEBUG : LOG_WARN,
-            "backend.hamlib", "%s: GET VFO %s mode failed (Hamlib error %d)",
-            rr_backend_instance_alias(backend), vfo_name(index), result);
+            LOG_DEBUG : LOG_WARN, "backend.hamlib", "%s: GET VFO %s mode failed (Hamlib error %d)", rr_backend_instance_alias(backend), vfo_name(index), result)
+         ;
          state->mode = RIG_MODE_NONE;
          state->width = 0;
 
@@ -866,41 +892,38 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    if (rr_backend_worker_yield(backend)) {
       return NULL;
    }
-   /* Some radios cannot read PTT for the inactive bank. Read failure
-    * must never be mistaken for a confirmed PTT OFF state. Keep the last
-    * known state and only suppress repeated unsupported read attempts. */
+
+   /* Some radios cannot read PTT for the inactive bank. Read failure must never be mistaken for a confirmed PTT OFF state. Keep the last known state and only
+    * suppress repeated unsupported read attempts. */
    if (hl_property_queryable(data, index, backend->active_vfo, HL_PROP_PTT)) {
       result = rig_get_ptt(data->rig, hamlib_vfo, &state->ptt);
-      if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL ||
-          result == -RIG_ENTARGET) {
+
+      if (result == -RIG_ENAVAIL || result == -RIG_ENIMPL || result == -RIG_ENTARGET) {
          data->ptt_read_unavailable[index] = true;
-         rr_backend_log(backend, LOG_DEBUG, "backend.hamlib",
-            "%s: VFO %s PTT read unsupported (Hamlib error %d); skipping future reads",
+         rr_backend_log(backend, LOG_DEBUG, "backend.hamlib", "%s: VFO %s PTT read unsupported (Hamlib error %d); skipping future reads",
             rr_backend_instance_alias(backend), vfo_name(index), result);
       } else if (result != RIG_OK) {
-         rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-            "%s: GET VFO %s PTT failed (Hamlib error %d)",
-            rr_backend_instance_alias(backend), vfo_name(index), result);
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: GET VFO %s PTT failed (Hamlib error %d)", rr_backend_instance_alias(backend), vfo_name(index),
+            result);
       }
    }
 
    if (rr_backend_worker_yield(backend)) {
       return NULL;
    }
-   /* Strength is optional, and Hamlib may not permit querying the
-    * inactive VFO (RIG_ENTARGET = 12). Don't retry that unsupported
-    * operation on every poll. Reprobe after reconnect. */
+
+   /* Strength is optional, and Hamlib may not permit querying the inactive VFO (RIG_ENTARGET = 12). Don't retry that unsupported operation on every poll.
+    * Reprobe after reconnect. */
    if (hl_property_queryable(data, index, backend->active_vfo, HL_PROP_STRENGTH)) {
       result = rig_get_strength(data->rig, hamlib_vfo, &state->power);
+
       if (result == -RIG_ENTARGET) {
          data->strength_untargetable[index] = true;
-         rr_backend_log(backend, LOG_DEBUG, "backend.hamlib",
-            "%s: VFO %s strength is not targetable; skipping future queries",
-            rr_backend_instance_alias(backend), vfo_name(index));
+         rr_backend_log(backend, LOG_DEBUG, "backend.hamlib", "%s: VFO %s strength is not targetable; skipping future queries", rr_backend_instance_alias(
+            backend), vfo_name(index));
       } else if (result != RIG_OK && result != -RIG_ENAVAIL && result != -RIG_ENIMPL) {
-         rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-            "%s: GET VFO %s strength failed (Hamlib error %d)",
-            rr_backend_instance_alias(backend), vfo_name(index), result);
+         rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: GET VFO %s strength failed (Hamlib error %d)", rr_backend_instance_alias(backend), vfo_name(
+            index), result);
       }
    }
 
@@ -927,54 +950,57 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
 static bool hl_split_mode(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
-   if (!data || !data->rig || !args || !hl_index(vfo, &index) ||
-       (strcmp(args, "0") && strcmp(args, "1"))) return true;
+
+   if (!data || !data->rig || !args || !hl_index(vfo, &index) || (strcmp(args, "0") && strcmp(args, "1"))) {
+      return true;
+   }
+
    if (data->transmitting) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: refusing split change during transmission", rr_backend_instance_alias(backend));
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: refusing split change during transmission", rr_backend_instance_alias(backend));
+
       return true;
    }
    bool enabled = args[0] == '1';
    vfo_t rx = hl_target(data, index);
    vfo_t tx = hl_target(data, index == VFO_A ? VFO_B : VFO_A);
    int result = rig_set_split_vfo(data->rig, rx, enabled ? RIG_SPLIT_ON : RIG_SPLIT_OFF, tx);
+
    if (result != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: split %s failed (Hamlib error %d)",
-         rr_backend_instance_alias(backend), enabled ? "ON" : "OFF", result);
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: split %s failed (Hamlib error %d)", rr_backend_instance_alias(backend), enabled ? "ON" : "OFF",
+         result);
+
       return true;
    }
-   dict_value_t observed = {.i = enabled ? 1 : 0};
+   dict_value_t observed = {
+      .i = enabled ? 1 : 0
+   };
    rr_backend_property_observe(backend, vfo, "split", VAL_INT, &observed);
-   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
-      "%s: split %s (RX %s)", rr_backend_instance_alias(backend),
-      enabled ? "ON" : "OFF", vfo_name(index));
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: split %s (RX %s)", rr_backend_instance_alias(backend), enabled ? "ON" : "OFF", vfo_name(index));
+
    return false;
 }
 
-/* Exchange the contents of both banks without changing the selected
- * logical VFO or our logical-to-physical bank mapping. */
+/* Exchange the contents of both banks without changing the selected logical VFO or our logical-to-physical bank mapping. */
 static bool hl_vfo_swap(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    (void)vfo;
    hamlib_backend_t *data = hl_data(backend);
+
    if (!data || !data->rig || data->transmitting) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: refusing VFO swap (unavailable or transmitting)",
-         rr_backend_instance_alias(backend));
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: refusing VFO swap (unavailable or transmitting)", rr_backend_instance_alias(backend));
+
       return true;
    }
    int result = rig_vfo_op(data->rig, RIG_VFO_A, RIG_OP_XCHG);
+
    if (result != RIG_OK) {
-      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
-         "%s: VFO A/B exchange failed (Hamlib error %d)",
-         rr_backend_instance_alias(backend), result);
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: VFO A/B exchange failed (Hamlib error %d)", rr_backend_instance_alias(backend), result);
+
       return true;
    }
    memset(data->vfo_probed, 0, sizeof(data->vfo_probed));
    memset(data->vfo_mode_ok, 0, sizeof(data->vfo_mode_ok));
-   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
-      "%s: exchanged VFO A/B settings; active logical VFO unchanged",
-      rr_backend_instance_alias(backend));
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib", "%s: exchanged VFO A/B settings; active logical VFO unchanged", rr_backend_instance_alias(backend));
+
    return false;
 }
 

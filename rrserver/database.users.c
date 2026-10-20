@@ -27,48 +27,67 @@
 #include <rrserver/usage.h>
 
 #ifdef USE_SQLITE
-/* data_version detects commits from other SQLite connections, including tools.
- * Server account editors already reload after writes; unrelated local audit/chat
- * writes must not rebuild accounts. Never acknowledge a version until its
- * account table was loaded successfully. */
+/* data_version detects commits from other SQLite connections, including tools. Server account editors already reload after writes; unrelated local audit/chat
+ * writes must not rebuild accounts. Never acknowledge a version until its account table was loaded successfully. */
 bool db_refresh_users(sqlite3 *db) {
    static sqlite3 *loaded;
    static int version;
    static bool refreshing;
    sqlite3_stmt *stmt = NULL;
-   if (!db) return false;
-   if (refreshing) return true; /* Session reconciliation can emit protocol events. */
-   int rc = sqlite3_prepare_v2(db, "PRAGMA data_version", -1, &stmt, NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_step(stmt);
-   int current = rc == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
-   int finished = sqlite3_finalize(stmt);
-   if (rc != SQLITE_ROW || finished != SQLITE_OK) {
-      Log(LOG_CRIT, "db", "Cannot check live account database: %s", sqlite3_errmsg(db));
+
+   if (!db) {
       return false;
    }
-   if (loaded == db && version == current) return true;
+
+   if (refreshing) {
+      return true;              /* Session reconciliation can emit protocol events. */
+   }
+   int rc = sqlite3_prepare_v2(db, "PRAGMA data_version", -1, &stmt, NULL);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_step(stmt);
+   }
+   int current = rc == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
+   int finished = sqlite3_finalize(stmt);
+
+   if (rc != SQLITE_ROW || finished != SQLITE_OK) {
+      Log(LOG_CRIT, "db", "Cannot check live account database: %s", sqlite3_errmsg(db));
+
+      return false;
+   }
+
+   if (loaded == db && version == current) {
+      return true;
+   }
    refreshing = true;
    bool ok = db_get_users(db) >= 0;
    refreshing = false;
+
    if (ok) {
       loaded = db;
       version = current;
    }
+
    return ok;
 }
 
 /* Check bindings, execution and finalization without logging bound credentials. */
 static bool user_statement_finish(sqlite3 *db, sqlite3_stmt *stmt, int rc, const char *operation, const char *name, bool require_row) {
-   if (rc == SQLITE_OK) rc = sqlite3_step(stmt);
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_step(stmt);
+   }
    bool ok = rc == SQLITE_DONE && (!require_row || sqlite3_changes(db) == 1);
+
    if (!ok) {
       Log(LOG_CRIT, "db", "%s for %s failed (SQLite %d, changed %d): %s", operation, name, rc, sqlite3_changes(db), sqlite3_errmsg(db));
    }
    int finalized = sqlite3_finalize(stmt);
+
    if (finalized != SQLITE_OK) {
       Log(LOG_CRIT, "db", "%s for %s finalize failed (SQLite %d): %s", operation, name, finalized, sqlite3_errmsg(db));
       ok = false;
    }
+
    return ok;
 }
 
@@ -83,13 +102,34 @@ bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const cha
    sqlite3_stmt *stmt = NULL;
 
    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 1, uid);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 2, name, -1, SQLITE_STATIC);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 4, password, -1, SQLITE_STATIC);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 5, email ? email : "", -1, SQLITE_STATIC);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 6, maxsessions);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 7, permissions, -1, SQLITE_STATIC);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 1, uid);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 2, name, -1, SQLITE_STATIC);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 4, password, -1, SQLITE_STATIC);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 5, email ? email : "", -1, SQLITE_STATIC);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 6, maxsessions);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 7, permissions, -1, SQLITE_STATIC);
+   }
 
    return user_statement_finish(db, stmt, rc, "db_add_user", name, true);
 }
@@ -106,96 +146,160 @@ bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const 
       "VALUES (?,?,?,?,unixepoch(),?,?,?, ?,?);";
 
    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 1, uid);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 4, password, -1, SQLITE_TRANSIENT);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 1, uid);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 3, enabled ? 1 : 0);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 4, password, -1, SQLITE_TRANSIENT);
+   }
 
    if (password_expires > 0) {
-      if (rc == SQLITE_OK) rc = sqlite3_bind_int64(stmt, 5, (sqlite3_int64) password_expires);
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_bind_int64(stmt, 5, (sqlite3_int64) password_expires);
+      }
    } else {
-      if (rc == SQLITE_OK) rc = sqlite3_bind_null(stmt, 5);
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_bind_null(stmt, 5);
+      }
    }
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 6, password_change_required ? 1 : 0);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 7, email ? email : "", -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 8, maxsessions);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 9, permissions, -1, SQLITE_TRANSIENT);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 6, password_change_required ? 1 : 0);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 7, email ? email : "", -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 8, maxsessions);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 9, permissions, -1, SQLITE_TRANSIENT);
+   }
+
    return user_statement_finish(db, stmt, rc, "db_user_create", name, true);
 }
 
 /* Keep SQL and binding failures visible without logging account credentials. */
 bool db_user_edit(sqlite3 *db, const char *name, dict *fields) {
-   const char *columns[] = {"email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"};
+   const char *columns[] = {
+      "email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"
+   };
    char sql[512] = "UPDATE users SET ";
    int count = 0;
 
    if (!db || !name || !*name || !fields) {
       Log(LOG_CRIT, "db", "Account edit unavailable: missing database, target or fields");
+
       return false;
    }
 
-   for (unsigned i = 0; i < sizeof(columns) / sizeof(columns[0]); i++) {
+   for (unsigned i = 0 ; i < sizeof(columns) / sizeof(columns[0]) ; i++) {
       if (dict_get_type(fields, columns[i]) != VAL_END) {
          snprintf(sql + strlen(sql), sizeof(sql) - strlen(sql), "%s%s=?", count++ ? "," : "", columns[i]);
       }
    }
-   if (!count) return true;
+
+   if (!count) {
+      return true;
+   }
    strlcat(sql, " WHERE name=? COLLATE NOCASE", sizeof(sql));
    sqlite3_stmt *stmt = NULL;
    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
    int parameter = 1;
 
-   for (unsigned i = 0; rc == SQLITE_OK && i < sizeof(columns) / sizeof(columns[0]); i++) {
-      if (dict_get_type(fields, columns[i]) == VAL_END) continue;
+   for (unsigned i = 0 ; rc == SQLITE_OK && i < sizeof(columns) / sizeof(columns[0]) ; i++) {
+      if (dict_get_type(fields, columns[i]) == VAL_END) {
+         continue;
+      }
       const char *value = dict_get(fields, columns[i], "");
-      if (!strcmp(columns[i], "permissions") && !strcasecmp(value, "none")) value = "";
+
+      if (!strcmp(columns[i], "permissions") && !strcasecmp(value, "none")) {
+         value = "";
+      }
+
       if (!strcmp(columns[i], "password_expires") && (!*value || !strcmp(value, "0"))) {
          rc = sqlite3_bind_null(stmt, parameter++);
       } else {
          rc = sqlite3_bind_text(stmt, parameter++, value, -1, SQLITE_TRANSIENT);
       }
    }
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, parameter, name, -1, SQLITE_TRANSIENT);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, parameter, name, -1, SQLITE_TRANSIENT);
+   }
+
    return user_statement_finish(db, stmt, rc, "Account edit", name, true);
 }
 
 /* Reuse the checked editor persistence path for individual account commands. */
 bool db_user_set_enabled(sqlite3 *db, const char *name, bool enabled) {
    dict *fields = dict_new();
-   if (!fields) return false;
+
+   if (!fields) {
+      return false;
+   }
    dict_add(fields, "enabled", enabled ? "1" : "0");
    bool ok = db_user_edit(db, name, fields);
    dict_free(fields);
+
    return ok;
 }
 
 bool db_user_set_privileges(sqlite3 *db, const char *name, const char *privileges) {
-   if (!privileges || strlen(privileges) > USER_PRIV_LEN) return false;
+   if (!privileges || strlen(privileges) > USER_PRIV_LEN) {
+      return false;
+   }
    dict *fields = dict_new();
-   if (!fields) return false;
+
+   if (!fields) {
+      return false;
+   }
    dict_add(fields, "permissions", privileges);
    bool ok = db_user_edit(db, name, fields);
    dict_free(fields);
+
    return ok;
 }
 
 /* Delete an account and its legacy TX credits transactionally. */
 bool db_user_remove(sqlite3 *db, const char *name) {
-   if (!db || !name || !*name) return false;
+   if (!db || !name || !*name) {
+      return false;
+   }
 
    if (sqlite3_exec(db, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) {
       Log(LOG_CRIT, "db", "Account removal BEGIN failed: %s", sqlite3_errmsg(db));
+
       return false;
    }
    sqlite3_stmt *stmt = NULL;
    int rc = sqlite3_prepare_v2(db, "DELETE FROM users WHERE name=? COLLATE NOCASE;", -1, &stmt, NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+   }
    bool ok = user_statement_finish(db, stmt, rc, "Account removal", name, true);
 
    if (ok) {
       stmt = NULL;
       rc = sqlite3_prepare_v2(db, "DELETE FROM tx_credits WHERE name=? COLLATE NOCASE;", -1, &stmt, NULL);
-      if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+      }
       ok = user_statement_finish(db, stmt, rc, "Account credit removal", name, false);
    }
 
@@ -203,9 +307,11 @@ bool db_user_remove(sqlite3 *db, const char *name) {
       Log(LOG_CRIT, "db", "Account removal COMMIT failed: %s", sqlite3_errmsg(db));
       ok = false;
    }
+
    if (!ok && sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL) != SQLITE_OK) {
       Log(LOG_CRIT, "db", "Account removal ROLLBACK failed: %s", sqlite3_errmsg(db));
    }
+
    return ok;
 }
 
@@ -218,15 +324,29 @@ bool db_user_update_password(sqlite3 *db, const char *name, const char *password
    const char *sql = "UPDATE users SET password=?, password_set=unixepoch(), password_expires=?, " "password_change_required=? WHERE name=?;";
 
    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 1, password_hash, -1, SQLITE_TRANSIENT);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 1, password_hash, -1, SQLITE_TRANSIENT);
+   }
 
    if (password_expires > 0) {
-      if (rc == SQLITE_OK) rc = sqlite3_bind_int64(stmt, 2, (sqlite3_int64) password_expires);
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_bind_int64(stmt, 2, (sqlite3_int64) password_expires);
+      }
    } else {
-      if (rc == SQLITE_OK) rc = sqlite3_bind_null(stmt, 2);
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_bind_null(stmt, 2);
+      }
    }
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int(stmt, 3, password_change_required ? 1 : 0);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 4, name, -1, SQLITE_TRANSIENT);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int(stmt, 3, password_change_required ? 1 : 0);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 4, name, -1, SQLITE_TRANSIENT);
+   }
+
    return user_statement_finish(db, stmt, rc, "db_user_update_password", name, true);
 }
 
@@ -239,10 +359,15 @@ int db_user_next_uid(sqlite3 *db) {
 
    if (sqlite3_prepare_v2(db, "SELECT COALESCE(MAX(uid)+1,1) FROM users;", -1, &stmt, NULL) != SQLITE_OK) {
       Log(LOG_CRIT, "db", "Account UID lookup prepare failed: %s", sqlite3_errmsg(db));
+
       return -1;
    }
    int uid = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
-   if (uid < 0) Log(LOG_CRIT, "db", "Account UID lookup step failed: %s", sqlite3_errmsg(db));
+
+   if (uid < 0) {
+      Log(LOG_CRIT, "db", "Account UID lookup step failed: %s", sqlite3_errmsg(db));
+   }
+
    if (sqlite3_finalize(stmt) != SQLITE_OK) {
       Log(LOG_CRIT, "db", "Account UID lookup finalize failed: %s", sqlite3_errmsg(db));
       uid = -1;

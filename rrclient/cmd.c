@@ -167,7 +167,9 @@ client_cmd_t client_cmds[] = {
       .cmd = "webcam", .help_section = "Media", .max_args = 1, .cb = cmd_webcam,
       .desc = "Show or hide the webcam viewer"
    },
-   { .cmd = "files", .help_section = "Radio and discovery", .cb = cmd_files, .desc = "Browse server shares and transfer files" },
+   {
+      .cmd = "files", .help_section = "Radio and discovery", .cb = cmd_files, .desc = "Browse server shares and transfer files"
+   },
    {
       .cmd = "object", .help_section = "Radio and discovery", .cb = cmd_object, .desc = "Resource tree; /object <rig0|rig0.A|uuid> inspects cached properties"
    },

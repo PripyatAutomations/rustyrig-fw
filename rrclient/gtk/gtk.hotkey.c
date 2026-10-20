@@ -59,61 +59,89 @@ static gboolean gtk_switch_tab_digit(int digit, GtkWidget *main_win) {
    return TRUE;
 }
 
-/* Lettered window shortcuts use physical positions on the active XKB
- * layout. This keeps the QWERTY pattern when switching to AZERTY, etc. */
+/* Lettered window shortcuts use physical positions on the active XKB layout. This keeps the QWERTY pattern when switching to AZERTY, etc. */
 static int gtk_letter_window(const GdkEventKey *event) {
-   if (!event) return -1;
+   if (!event) {
+      return -1;
+   }
    static const guint qwerty[] = {
-      GDK_KEY_q,GDK_KEY_w,GDK_KEY_e,GDK_KEY_r,GDK_KEY_t,GDK_KEY_y,GDK_KEY_u,GDK_KEY_i,GDK_KEY_o,GDK_KEY_p,
-      GDK_KEY_a,GDK_KEY_s,GDK_KEY_d,GDK_KEY_f,GDK_KEY_g,GDK_KEY_h,GDK_KEY_j,GDK_KEY_k,GDK_KEY_l,
-      GDK_KEY_z,GDK_KEY_x,GDK_KEY_c,GDK_KEY_v,GDK_KEY_b,GDK_KEY_n,GDK_KEY_m
+      GDK_KEY_q, GDK_KEY_w, GDK_KEY_e, GDK_KEY_r, GDK_KEY_t, GDK_KEY_y, GDK_KEY_u, GDK_KEY_i, GDK_KEY_o, GDK_KEY_p,
+      GDK_KEY_a, GDK_KEY_s, GDK_KEY_d, GDK_KEY_f, GDK_KEY_g, GDK_KEY_h, GDK_KEY_j, GDK_KEY_k, GDK_KEY_l,
+      GDK_KEY_z, GDK_KEY_x, GDK_KEY_c, GDK_KEY_v, GDK_KEY_b, GDK_KEY_n, GDK_KEY_m
    };
-   /* X11/XKB keycodes for the three alphabetic rows. GDK keycodes in
-    * Wayland's XKB backend use the same canonical evdev+8 positions. */
-   static const guint hardware[]={
-      24,25,26,27,28,29,30,31,32,33,
-      38,39,40,41,42,43,44,45,46,
-      52,53,54,55,56,57,58
+   /* X11/XKB keycodes for the three alphabetic rows. GDK keycodes in Wayland's XKB backend use the same canonical evdev+8 positions. */
+   static const guint hardware[] = {
+      24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+      38, 39, 40, 41, 42, 43, 44, 45, 46,
+      52, 53, 54, 55, 56, 57, 58
    };
-   for (unsigned i=0;i<G_N_ELEMENTS(hardware);++i)
-      if (event->hardware_keycode==hardware[i]) return (int)i+11;
-   guint key=gdk_keyval_to_lower(event->keyval);
-   for (unsigned i=0;i<G_N_ELEMENTS(qwerty);++i)
-      if (key==qwerty[i]) return (int)i+11;
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(hardware) ; ++i) {
+      if (event->hardware_keycode == hardware[i]) {
+         return (int)i + 11;
+      }
+   }
+
+   guint key = gdk_keyval_to_lower(event->keyval);
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(qwerty) ; ++i) {
+      if (key == qwerty[i]) {
+         return (int)i + 11;
+      }
+   }
+
    return -1;
 }
+
 static int pending_tab_digit = -1;
 static guint pending_tab_timer;
 static GtkWidget *pending_tab_window;
 static gboolean commit_pending_tab(gpointer unused) {
    (void)unused;
    pending_tab_timer = 0;
+
    if (pending_tab_digit >= 0) {
       int digit = pending_tab_digit;
       pending_tab_digit = -1;
       gtk_switch_tab_digit(digit, pending_tab_window);
    }
+
    return G_SOURCE_REMOVE;
 }
 static gboolean accept_tab_digit(int digit, GtkWidget *main_win) {
-   if (digit < 0 || digit > 9) return FALSE;
+   if (digit < 0 || digit > 9) {
+      return FALSE;
+   }
+
    if (pending_tab_timer) {
       g_source_remove(pending_tab_timer);
       pending_tab_timer = 0;
       int first = pending_tab_digit;
       pending_tab_digit = -1;
       gtk_switch_tab_digit(first * 10 + digit, main_win);
+
       return TRUE;
    }
    pending_tab_digit = digit;
    pending_tab_window = main_win;
    int wait = cfg_get_int("ui.win-digit-wait", 500);
-   if (wait < 0) wait = 0;
-   if (wait > 5000) wait = 5000;
-   if (!wait) return commit_pending_tab(NULL) == G_SOURCE_REMOVE;
+
+   if (wait < 0) {
+      wait = 0;
+   }
+
+   if (wait > 5000) {
+      wait = 5000;
+   }
+
+   if (!wait) {
+      return commit_pending_tab(NULL) == G_SOURCE_REMOVE;
+   }
    pending_tab_timer = g_timeout_add(wait, commit_pending_tab, NULL);
+
    return TRUE;
 }
+
 /* Shortcut toggles only: explicit show requests still raise existing windows. */
 static bool gtk_shortcut_close_window(const char *name, GtkWidget *main_win) {
    gui_window_t *window = gui_find_window(NULL, name);
@@ -125,7 +153,10 @@ static bool gtk_shortcut_close_window(const char *name, GtkWidget *main_win) {
 
    if (main_win) {
       gtk_window_present(GTK_WINDOW(main_win));
-      if (chat_entry) gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+
+      if (chat_entry) {
+         gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
+      }
    }
 
    return true;
@@ -196,10 +227,13 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       if (digit < 0 && event->type == GDK_KEY_PRESS) {
-         int letter_window=gtk_letter_window(event);
-         if (letter_window>=11 && gtk_switch_tab_digit(letter_window,main_win))
+         int letter_window = gtk_letter_window(event);
+
+         if (letter_window >= 11 && gtk_switch_tab_digit(letter_window, main_win)) {
             return TRUE;
+         }
       }
+
       if (digit >= 0 && accept_tab_digit(digit, main_win)) {
          return TRUE;
       }
@@ -207,11 +241,16 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
 
    if (event->type == GDK_KEY_PRESS && pending_tab_timer) {
       int digit = -1;
-      if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9)
+
+      if (event->keyval >= GDK_KEY_0 && event->keyval <= GDK_KEY_9) {
          digit = (int)(event->keyval - GDK_KEY_0);
-      else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9)
+      } else if (event->keyval >= GDK_KEY_KP_0 && event->keyval <= GDK_KEY_KP_9) {
          digit = (int)(event->keyval - GDK_KEY_KP_0);
-      if (digit >= 0) return accept_tab_digit(digit, main_win);
+      }
+
+      if (digit >= 0) {
+         return accept_tab_digit(digit, main_win);
+      }
    }
 
    // GTK provides key-release events, allowing PTT shortcuts to distinguish a
@@ -326,6 +365,7 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
             if (!gtk_shortcut_close_window("resources", main_win)) {
                event_emit("client.resources.open", NULL, NULL);
             }
+
             return TRUE;
          }
          case GDK_KEY_Z:

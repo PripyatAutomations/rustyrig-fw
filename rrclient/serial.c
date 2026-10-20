@@ -93,18 +93,23 @@ failed:
 }
 
 bool rr_serial_set_output_policy(rr_serial_t *p, rr_serial_output_policy_t policy) {
-   if (!p || policy < RR_SERIAL_OUTPUT_ORDERED || policy > RR_SERIAL_OUTPUT_DROP)
+   if (!p || policy < RR_SERIAL_OUTPUT_ORDERED || policy > RR_SERIAL_OUTPUT_DROP) {
       return false;
+   }
    p->output_policy = policy;
+
    return true;
 }
 
 bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
-   if (p && p->output_policy == RR_SERIAL_OUTPUT_LATEST)
+   if (p && p->output_policy == RR_SERIAL_OUTPUT_LATEST) {
       return rr_serial_write_latest(p, data, len);
-   if (p && p->output_policy == RR_SERIAL_OUTPUT_DROP && p->pending &&
-       p->pending->len)
-      return false; /* Drop new update; leave queued bytes untouched. */
+   }
+
+   if (p && p->output_policy == RR_SERIAL_OUTPUT_DROP && p->pending && p->pending->len) {
+      return false;             /* Drop new update; leave queued bytes untouched. */
+   }
+
    if (!p || !data || len > p->buffer_limit || p->pending->len > p->buffer_limit - len) {
       return false;
    }
@@ -118,17 +123,21 @@ bool rr_serial_write(rr_serial_t *p, const char *data, size_t len) {
 }
 
 bool rr_serial_write_latest(rr_serial_t *p, const char *data, size_t len) {
-   if (!p || !data || len > p->buffer_limit) return false;
-   /* PTY masters can have an internal keeper slave open even without a
-    * consumer. Drop bytes sitting in the kernel output queue, along with
-    * our own deferred writes, before publishing the current GPS fix. */
-   if (p->keeper >= 0 && tcflush(p->fd, TCOFLUSH) < 0)
+   if (!p || !data || len > p->buffer_limit) {
       return false;
+   }
+
+   /* PTY masters can have an internal keeper slave open even without a consumer. Drop bytes sitting in the kernel output queue, along with our own deferred
+    * writes, before publishing the current GPS fix. */
+   if (p->keeper >= 0 && tcflush(p->fd, TCOFLUSH) < 0) {
+      return false;
+   }
    g_byte_array_set_size(p->pending, 0);
    rr_serial_output_policy_t old = p->output_policy;
    p->output_policy = RR_SERIAL_OUTPUT_ORDERED;
    bool ok = rr_serial_write(p, data, len);
    p->output_policy = old;
+
    return ok;
 }
 
@@ -191,15 +200,19 @@ size_t rr_serial_pending_bytes(const rr_serial_t *p) {
 bool rr_serial_get_settings(const rr_serial_t *p, rr_serial_settings_t *settings) {
    if (p && p->file && settings) {
       *settings = p->file_settings;
+
       return true;
    }
+
    return p && rr_serial_settings_read(p->keeper >= 0 ? p->keeper : p->fd, settings);
 }
 bool rr_serial_set_settings(rr_serial_t *p, const rr_serial_settings_t *settings) {
    if (p && p->file && settings) {
       p->file_settings = *settings;
+
       return true;
    }
+
    return p && rr_serial_settings_apply(p->keeper >= 0 ? p->keeper : p->fd, settings);
 }
 
@@ -289,14 +302,15 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
    int settings_fd;
 
    if (pty) {
-      /* A prior unclean exit can leave ./dev/ttyCAT0 (or another PTY
-       * link) pointing at a slave that no longer exists. Remove only a
-       * dangling symbolic link. Never replace a regular file, device,
-       * directory, or a symlink whose target is still accessible. */
+      /* A prior unclean exit can leave ./dev/ttyCAT0 (or another PTY link) pointing at a slave that no longer exists. Remove only a dangling symbolic link.
+       * Never replace a regular file, device, directory, or a symlink whose target is still accessible. */
       struct stat st;
+
       if (lstat(path, &st) == 0 && S_ISLNK(st.st_mode)) {
          if (stat(path, &st) != 0 && errno == ENOENT) {
-            if (unlink(path) != 0) goto failed;
+            if (unlink(path) != 0) {
+               goto failed;
+            }
             Log(LOG_INFO, "serial", "%s: removed stale PTY symlink %s", name, path);
          }
       }
@@ -309,14 +323,12 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
       if (p->fd < 0) {
          goto failed;
       }
-      /* The symlink's permissions do not control access to the PTY. Group
-       * the actual slave device so local loggers can use ttyCAT/ttyGPS. */
+      /* The symlink's permissions do not control access to the PTY. Group the actual slave device so local loggers can use ttyCAT/ttyGPS. */
       struct group *access_group = getgrnam("rruser");
+
       if (access_group) {
-         if (fchown(p->keeper, (uid_t)-1, access_group->gr_gid) ||
-             fchmod(p->keeper, 0660)) {
-            Log(LOG_WARN, "serial", "%s: cannot grant rruser group access to %s: %s (join the rruser group and log in again)",
-                name, slave, strerror(errno));
+         if (fchown(p->keeper, (uid_t) -1, access_group->gr_gid) || fchmod(p->keeper, 0660)) {
+            Log(LOG_WARN, "serial", "%s: cannot grant rruser group access to %s: %s (join the rruser group and log in again)", name, slave, strerror(errno));
          }
       } else {
          Log(LOG_WARN, "serial", "%s: rruser group not found; %s remains owner-only", name, slave);
@@ -375,20 +387,27 @@ failed: {
 rr_serial_t *rr_serial_open_file(const char *name, const char *path) {
    if (!name || !*name || !path || !*path || rr_serial_find(name)) {
       errno = EINVAL;
+
       return NULL;
    }
    int fd = open(path, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_NOCTTY, 0600);
-   if (fd < 0)
+
+   if (fd < 0) {
       return NULL;
+   }
    struct stat status;
+
    if (fstat(fd, &status) || !S_ISREG(status.st_mode)) {
       close(fd);
       errno = EINVAL;
+
       return NULL;
    }
    rr_serial_t *p = calloc(1, sizeof(*p));
+
    if (!p) {
       close(fd);
+
       return NULL;
    }
    p->fd = fd;
@@ -396,16 +415,20 @@ rr_serial_t *rr_serial_open_file(const char *name, const char *path) {
    p->file = true;
    p->name = strdup(name);
    p->path = strdup(path);
+
    if (!p->name || !p->path) {
       rr_serial_close(p);
+
       return NULL;
    }
    p->pending = g_byte_array_new();
    p->buffer_limit = 8192;
    p->file_settings = (rr_serial_settings_t) {
-   .baud = 9600,.bits = 8,.parity = 'n',.stops = 1};
+      .baud = 9600, .bits = 8, .parity = 'n', .stops = 1
+   };
    p->channel = g_io_channel_unix_new(fd);
    p->next = ports;
    ports = p;
+
    return p;
 }

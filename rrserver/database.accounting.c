@@ -37,6 +37,7 @@ static int accounting_prepare(sqlite3 *db, const char *sql, int bytes, sqlite3_s
 
    return result;
 }
+
 /* Step an accounting statement and signal safety listeners on write failure. */
 static int accounting_step(sqlite3_stmt *stmt, const char *operation) {
    int result = sqlite3_step(stmt);
@@ -47,6 +48,7 @@ static int accounting_step(sqlite3_stmt *stmt, const char *operation) {
 
    return result;
 }
+
 /* Execute accounting SQL and signal safety listeners on write failure. */
 static int accounting_exec(sqlite3 *db, const char *sql, int (*callback) (void *, int, char **, char **), void *user, char **error, const char *operation) {
    int result = sqlite3_exec(db, sql, callback, user, error);
@@ -93,14 +95,15 @@ int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double freq
    return db_ptt_start_supervised(db, username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server, "", "");
 }
 
-int db_ptt_start_supervised(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const char *record_file,
-   const char *recording_id, const char *server, const char *ticket, const char *elmers) {
+int db_ptt_start_supervised(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const char *
+   record_file, const char *recording_id, const char *server, const char *ticket, const char *elmers) {
    if (!db || !username || !mode || !recording_id) {
       return -1;
    }
    // XXX: Add a random session key so we don't have to trust user supplied rowids! ;)
    const char *sql =
-      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server, supervision_ticket, supervising_elmers) " "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+      "INSERT INTO ptt_log (username, vfo, frequency, mode, bandwidth, power, record_file, recording_id, server, supervision_ticket, supervising_elmers) "
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 

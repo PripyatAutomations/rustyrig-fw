@@ -205,40 +205,49 @@ static GtkWidget *get_next_widget(GtkWidget *widget) {
    return NULL;
 }
 
-/* Change a decimal place in one transaction. Recursive button/key events
- * used to finalize intermediate carry states (e.g. 7999 -> 8999). */
+/* Change a decimal place in one transaction. Recursive button/key events used to finalize intermediate carry states (e.g. 7999 -> 8999). */
 static unsigned long freqentry_read_value(GtkFreqEntry *fe);
 static void freqentry_bump_digit(GtkFreqEntry *fe, int idx, int delta) {
-   if (!fe || idx < 0 || idx >= fe->num_digits || !delta) return;
+   if (!fe || idx < 0 || idx >= fe->num_digits || !delta) {
+      return;
+   }
 
    unsigned long place = 1, limit = 1;
-   for (int i = 0; i < fe->num_digits; ++i) {
+
+   for (int i = 0 ; i < fe->num_digits ; ++i) {
       limit *= 10;
-      if (i < fe->num_digits - idx - 1) place *= 10;
+
+      if (i < fe->num_digits - idx - 1) {
+         place *= 10;
+      }
    }
 
    unsigned long value = freqentry_read_value(fe);
    unsigned long previous = value;
+
    if (delta > 0) {
-      if (value > limit - 1 - place) return; /* no overflow */
+      if (value > limit - 1 - place) {
+         return;                /* no overflow */
+      }
       value += place;
    } else {
-      if (value < place) return; /* no underflow */
+      if (value < place) {
+         return;                /* no underflow */
+      }
       value -= place;
    }
-   /* Updating individual GtkEntries can invoke focus/changed handlers.
-    * Never allow any such nested callback to finalize a partial carry. */
+   /* Updating individual GtkEntries can invoke focus/changed handlers. Never allow any such nested callback to finalize a partial carry. */
    fe->updating_digits = true;
    gtk_freq_entry_set_value(fe, value);
    fe->updating_digits = false;
    unsigned long displayed = freqentry_read_value(fe);
+
    if (displayed != value) {
-      Log(LOG_WARN, "gtk.freqentry", "digit bump display mismatch: %lu -> %lu (idx=%d delta=%d)",
-         value, displayed, idx, delta);
+      Log(LOG_WARN, "gtk.freqentry", "digit bump display mismatch: %lu -> %lu (idx=%d delta=%d)", value, displayed, idx, delta);
+
       return;
    }
-   Log(LOG_DEBUG, "gtk.freqentry", "digit bump: %lu -> %lu (digit=%d step=%d)",
-      previous, value, idx, delta);
+   Log(LOG_DEBUG, "gtk.freqentry", "digit bump: %lu -> %lu (digit=%d step=%d)", previous, value, idx, delta);
    fe->editing = true;
    poll_block_expire = now + 1;
    freqentry_finalize(fe);
@@ -284,6 +293,7 @@ static gboolean on_freqentry_scroll(GtkWidget *widget, GdkEventScroll *event, gp
 
    if (delta != 0) {
       freqentry_bump_digit(fe, idx, delta);
+
       return TRUE;
    }
 
@@ -332,9 +342,11 @@ static gboolean on_digit_key_press(GtkWidget *widget, GdkEventKey *event, gpoint
       return TRUE;
    } else if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_plus) {
       freqentry_bump_digit(fe, idx, +1);
+
       return TRUE;
    } else if (event->keyval == GDK_KEY_Down || event->keyval == GDK_KEY_minus) {
       freqentry_bump_digit(fe, idx, -1);
+
       return TRUE;
    } else if (event->keyval == GDK_KEY_Return) {
       poll_block_expire = 0;
@@ -422,7 +434,9 @@ static void freqentry_finalize(GtkFreqEntry *fe) {
 }
 
 static void on_button_clicked(GtkButton *button, gpointer user_data) {
-   if (!user_data) return;
+   if (!user_data) {
+      return;
+   }
    GtkFreqEntry *fe = GTK_FREQ_ENTRY(user_data);
    int idx = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "digit-index"));
    int delta = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "digit-delta"));
@@ -447,7 +461,9 @@ static gboolean on_freq_focus_in(GtkWidget *entry, GdkEventFocus *event, gpointe
    }
    gtk_editable_select_region(GTK_EDITABLE(entry), 0, -1);
 
-   if (!fe->updating_digits) fe->editing = true;
+   if (!fe->updating_digits) {
+      fe->editing = true;
+   }
 
    for (int i = 0 ; i < fe->num_digits ; i++) {
       if (fe->digits[i] == entry) {
@@ -503,10 +519,12 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
 
    if (event->type == GDK_2BUTTON_PRESS && event->button == 1) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(user_data);
-      if (!fe) return FALSE;
 
-      /* Match +/- responsiveness: commit the zeroed digit immediately.
-       * Preserve full selection so the next typed digit replaces zero. */
+      if (!fe) {
+         return FALSE;
+      }
+
+      /* Match +/- responsiveness: commit the zeroed digit immediately. Preserve full selection so the next typed digit replaces zero. */
       fe->updating_digits = true;
       gtk_entry_set_text(GTK_ENTRY(entry), "0");
       fe->updating_digits = false;
@@ -514,8 +532,8 @@ static gboolean on_freq_digit_button(GtkWidget *entry, GdkEventButton *event, gp
       poll_block_expire = now + 1;
       freqentry_finalize(fe);
 
-      g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc) select_all_idle,
-         g_object_ref(entry), g_object_unref);
+      g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc) select_all_idle, g_object_ref(entry), g_object_unref);
+
       return TRUE;
    }
 

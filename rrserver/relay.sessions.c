@@ -488,25 +488,36 @@ void rr_relay_roster(const char *event, const char *room, rrconn_t *client, void
 
 /* Find or authenticate an owner-side virtual session for the originating user. */
 static struct remote_session *owner_session(const char *origin, const char *id, const char *username) {
-   /* The relay envelope is authenticated by the linked server transport.
-    * A remote principal is NOT a local login and must not inherit a local
-    * user's uid, password, system roles, or permissions. */
+   /* The relay envelope is authenticated by the linked server transport. A remote principal is NOT a local login and must not inherit a local user's uid,
+    * password, system roles, or permissions. */
    if (!origin || !rr_object_uuid_valid(origin) || !rrserver_links_route(origin) ||
-       !rr_object_uuid_valid(id) || !username || !*username ||
-       strlen(username) > HTTP_USER_LEN) return NULL;
+      !rr_object_uuid_valid(id) || !username || !*username || strlen(username) > HTTP_USER_LEN) {
+      return NULL;
+   }
 
-   for (struct remote_session *r = rr_relay_remotes; r; r = r->next) {
-      if (strcmp(r->origin, origin) || strcmp(r->id, id)) continue;
-      if (!r->client.authenticated || strcasecmp(r->client.chatname, username))
+   for (struct remote_session *r = rr_relay_remotes ; r ; r = r->next) {
+      if (strcmp(r->origin, origin) || strcmp(r->id, id)) {
+         continue;
+      }
+
+      if (!r->client.authenticated || strcasecmp(r->client.chatname, username)) {
          return NULL;
+      }
+
       return r;
    }
-   if (rr_relay_remote_count == MAX_RELAY_SESSIONS) return NULL;
+
+   if (rr_relay_remote_count == MAX_RELAY_SESSIONS) {
+      return NULL;
+   }
    struct remote_session *r = calloc(1, sizeof(*r));
-   if (!r) return NULL;
+
+   if (!r) {
+      return NULL;
+   }
    strcpy(r->origin, origin);
    strcpy(r->id, id);
-   r->remote_account.uid = -1; /* has_priv() must never match local roles */
+   r->remote_account.uid = -1;  /* has_priv() must never match local roles */
    r->remote_account.enabled = true;
    snprintf(r->remote_account.name, sizeof(r->remote_account.name), "%s", username);
    r->client.authenticated = r->client.active = r->client.is_ws = true;
@@ -516,6 +527,7 @@ static struct remote_session *owner_session(const char *origin, const char *id, 
    r->next = rr_relay_remotes;
    rr_relay_remotes = r;
    rr_relay_remote_count++;
+
    return r;
 }
 
@@ -526,32 +538,34 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    struct catalog *c = rr_relay_room_catalog(room);
 
    bool files = !strcmp(dict_get(d, "msg.type", ""), "file");
-   /* Authentication of the originating link is not an authorization grant.
-    * Remote subjects need explicit resource grants on the owning server;
+   /* Authentication of the originating link is not an authorization grant. Remote subjects need explicit resource grants on the owning server;
     * they must never be mapped to a local login merely to get a UID. */
    bool scoped = false;
 #ifdef USE_SQLITE
+
    if (r && !files && room && *room) {
       const char *host = rrserver_relay_client_server(&r->client);
       rr_server_rig_t *radio = rrserver_rig_for_room(room);
       const char *kind = radio ? "rig" : "room";
       const char *uuid = radio ? rr_server_rig_id(radio) : NULL;
       char *owned_uuid = radio ? NULL : db_room_uuid(masterdb, room);
-      if (!radio) uuid = owned_uuid;
+
+      if (!radio) {
+         uuid = owned_uuid;
+      }
       const char *local_site = cfg_get("station.name");
+
       if (host && *host && uuid && *uuid && local_site && strcmp(host, local_site)) {
-         const char *symbol=radio ? rr_rig_registry_public_alias(rig.rigs,radio) : room;
-         rr_resource_access_t access = db_resource_access_named(masterdb,username,host,
-            kind,uuid,radio ? "rig.use" : "room.join",time(NULL),symbol);
-         /* Link authentication never imports source-site owner/admin rights.
-          * Resolve the remote user@site against the destination's grants. */
+         const char *symbol = radio ? rr_rig_registry_public_alias(rig.rigs, radio) : room;
+         rr_resource_access_t access = db_resource_access_named(masterdb, username, host, kind, uuid, radio ? "rig.use" : "room.join", time(NULL), symbol);
+         /* Link authentication never imports source-site owner/admin rights. Resolve the remote user@site against the destination's grants. */
          scoped = access == RR_RESOURCE_ALLOW;
       }
       free(owned_uuid);
    }
 #endif
-   if (!r || !scoped || (!files && (!c || !rr_relay_local_owner(c->owner))) ||
-       !rr_relay_permitted_message(d)) {
+
+   if (!r || !scoped || (!files && (!c || !rr_relay_local_owner(c->owner))) || !rr_relay_permitted_message(d)) {
       dict *error = dict_new();
 
       if (error && files) {
@@ -563,25 +577,22 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       } else if (error) {
          dict_add(error, "msg.type", "error");
 #ifdef USE_SQLITE
-         if (r && room && *room && c && rr_relay_local_owner(c->owner) &&
-             rr_relay_permitted_message(d) && !scoped) {
-            const char *host=rrserver_relay_client_server(&r->client);
-            rr_server_rig_t *radio=rrserver_rig_for_room(room);
-            char *room_uuid=radio ? NULL : db_room_uuid(masterdb,room);
-            const char *uuid=radio ? rr_server_rig_id(radio) : room_uuid;
+
+         if (r && room && *room && c && rr_relay_local_owner(c->owner) && rr_relay_permitted_message(d) && !scoped) {
+            const char *host = rrserver_relay_client_server(&r->client);
+            rr_server_rig_t *radio = rrserver_rig_for_room(room);
+            char *room_uuid = radio ? NULL : db_room_uuid(masterdb, room);
+            const char *uuid = radio ? rr_server_rig_id(radio) : room_uuid;
             char reason[512];
-            snprintf(reason,sizeof(reason),
-               "Remote room %s requires %s grant for %s@%s on owning server (resource %s %s)",
-               room,radio ? "rig.use" : "room.join",username,
-               host ? host : "unknown",radio ? "rig" : "room",
-               uuid ? uuid : "unknown");
-            dict_add(error,"error.msg",reason);
+            snprintf(reason, sizeof(reason), "Remote room %s requires %s grant for %s@%s on owning server (resource %s %s)", room, radio ? "rig.use" :
+               "room.join", username, host ? host : "unknown", radio ? "rig" : "room", uuid ? uuid : "unknown");
+            dict_add(error, "error.msg", reason);
             free(room_uuid);
          } else {
-            dict_add(error,"error.msg","Remote operation denied by resource authorization or routing");
+            dict_add(error, "error.msg", "Remote operation denied by resource authorization or routing");
          }
 #else
-         dict_add(error,"error.msg","Remote operation denied by resource authorization or routing");
+         dict_add(error, "error.msg", "Remote operation denied by resource authorization or routing");
 #endif
          rr_relay_packet(origin, "reply", id, NULL, error);
          dict_free(error);
@@ -643,8 +654,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
 
       return;
    }
-   /* File requests are roomless. The owner-side file handler authenticates
-    * this remote session and checks the local account's share privileges. */
+   /* File requests are roomless. The owner-side file handler authenticates this remote session and checks the local account's share privileges. */
    char *wire = rr_wire_encode(d);
 
    if (!wire) {

@@ -41,12 +41,23 @@ static dict *recent_speakers;
 static uint64_t speaker_sequence;
 static void speaker_key(char *key, size_t capacity, const char *room, const char *name) {
    snprintf(key, capacity, "%s\n%s", room ? room : "", name ? name : "");
-   for (char *p = key; *p; p++) *p = tolower((unsigned char)*p);
+
+   for (char *p = key ; *p ; p++) {
+      *p = tolower((unsigned char)*p);
+   }
 }
 void userlist_note_spoke(const char *room, const char *name) {
-   if (!room || !*room || !name || !*name) return;
-   if (!recent_speakers) recent_speakers = dict_new();
-   if (!recent_speakers) return;
+   if (!room || !*room || !name || !*name) {
+      return;
+   }
+
+   if (!recent_speakers) {
+      recent_speakers = dict_new();
+   }
+
+   if (!recent_speakers) {
+      return;
+   }
    char key[HTTP_USER_LEN + 132];
    speaker_key(key, sizeof(key), room, name);
    dict_add_ullong(recent_speakers, key, ++speaker_sequence);
@@ -54,6 +65,7 @@ void userlist_note_spoke(const char *room, const char *name) {
 uint64_t userlist_spoke_order(const char *room, const char *name) {
    char key[HTTP_USER_LEN + 132];
    speaker_key(key, sizeof(key), room, name);
+
    return recent_speakers ? dict_get_ullong(recent_speakers, key, 0) : 0;
 }
 
@@ -184,38 +196,67 @@ const char *userlist_irc_prefix(const struct rr_user *user) {
 
 void userlist_display_name(const struct rr_user *user, char *out, size_t capacity) {
    const char *prefix = "";
+
    if (user && !strncmp(user->privs, "irc:", 4)) {
       snprintf(out, capacity, "%s%s", userlist_irc_prefix(user), user->name);
+
       return;
    } else if (user) {
       /* PARITY: rustyrig-www/js/webui.chat.js room sender prefixes;
        * native /users already uses @ for staff and + for noob accounts. */
-      if (userlist_priv(user, "owner") || userlist_priv(user, "admin")) prefix = "@";
-      else if (userlist_priv(user, "noob")) prefix = "+";
+      if (userlist_priv(user, "owner") || userlist_priv(user, "admin")) {
+         prefix = "@";
+      } else if (userlist_priv(user, "noob")) {
+         prefix = "+";
+      }
    }
    snprintf(out, capacity, "%s%s%s", user && user->irc_oper ? "!" : "", prefix, user ? user->name : "?");
 }
 
 bool userlist_is_oper(const char *nick) {
-   if (!nick || !irc_opers) return false;
+   if (!nick || !irc_opers) {
+      return false;
+   }
    char folded[HTTP_USER_LEN + 1];
    strlcpy(folded, nick, sizeof(folded));
-   for (char *p = folded; *p; p++) *p = tolower((unsigned char)*p);
+
+   for (char *p = folded ; *p ; p++) {
+      *p = tolower((unsigned char)*p);
+   }
+
    return dict_get_bool(irc_opers, folded, false);
 }
 
 void userlist_mark_oper(const char *nick, bool oper) {
-   if (!nick || !*nick) return;
+   if (!nick || !*nick) {
+      return;
+   }
    char folded[HTTP_USER_LEN + 1];
    strlcpy(folded, nick, sizeof(folded));
-   for (char *p = folded; *p; p++) *p = tolower((unsigned char)*p);
-   if (!irc_opers) irc_opers = dict_new();
-   if (irc_opers && oper) dict_add_bool(irc_opers, folded, true);
-   else if (irc_opers) dict_del(irc_opers, folded);
-   for (struct rr_user *user = global_userlist; user; user = user->next) {
-      if (!strcasecmp(user->name, nick)) user->irc_oper = oper;
+
+   for (char *p = folded ; *p ; p++) {
+      *p = tolower((unsigned char)*p);
    }
-   if (frontend_ops() && rrclient_present_context()) frontend_ops()->userlist_redraw();
+
+   if (!irc_opers) {
+      irc_opers = dict_new();
+   }
+
+   if (irc_opers && oper) {
+      dict_add_bool(irc_opers, folded, true);
+   } else if (irc_opers) {
+      dict_del(irc_opers, folded);
+   }
+
+   for (struct rr_user *user = global_userlist ; user ; user = user->next) {
+      if (!strcasecmp(user->name, nick)) {
+         user->irc_oper = oper;
+      }
+   }
+
+   if (frontend_ops() && rrclient_present_context()) {
+      frontend_ops()->userlist_redraw();
+   }
 }
 
 void userlist_sort(void) {

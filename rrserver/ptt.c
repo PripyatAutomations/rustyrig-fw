@@ -239,20 +239,25 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
    struct rr_supervision_attribution consent;
    rrserver_supervision_snapshot(talker, talker->ptt_room, &consent);
    strlcpy(ptt_grant_ticket[vfo], consent.ticket, sizeof(ptt_grant_ticket[vfo]));
-   int session = db_ptt_start_supervised(masterdb, talker->chatname, scope, (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
-      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "", rrserver_relay_client_server(talker), consent.ticket, consent.elmers);
+   int session =
+      db_ptt_start_supervised(masterdb, talker->chatname, scope, (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), power,
+      ptt_recording_file[vfo][0] ? ptt_recording_file[vfo] : NULL, recording_id ? recording_id : "", rrserver_relay_client_server(talker), consent.ticket,
+      consent.elmers);
 
    if (session < 0) {
       Log(LOG_WARN, "ptt", "PTT log: failed to start session for %s ticket=%s", talker->chatname, consent.ticket);
 
       return;
    }
-   if (consent.ticket[0]) Log(LOG_AUDIT, "ptt", "ticket=%s elmers=%s user=%s TX started session=%d scope=%s", consent.ticket, consent.elmers,
-      talker->chatname, session, scope);
+
+   if (consent.ticket[0]) {
+      Log(LOG_AUDIT, "ptt", "ticket=%s elmers=%s user=%s TX started session=%d scope=%s", consent.ticket, consent.elmers, talker->chatname, session, scope);
+   }
    ptt_log_session[vfo] = session;
    ptt_log_owner[vfo] = talker;
    talker->ptt_session = session;
-   Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz ticket=%s", session, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq, consent.ticket);
+   Log(LOG_DEBUG, "ptt", "PTT log: session %d opened for %s on VFO %s @ %.0f Hz ticket=%s", session, talker->chatname, vfo_name(vfo), (double)vfos[vfo].freq,
+      consent.ticket);
 #else
    (void)talker;
    (void)vfo;
@@ -285,7 +290,10 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
       return;
    }
    ptt_log_session[vfo] = -1;
-   if (ptt_grant_ticket[vfo][0]) Log(LOG_AUDIT, "ptt", "ticket=%s TX stopped session=%d reason=%s", ptt_grant_ticket[vfo], session, reason ? reason : "released");
+
+   if (ptt_grant_ticket[vfo][0]) {
+      Log(LOG_AUDIT, "ptt", "ticket=%s TX stopped session=%d reason=%s", ptt_grant_ticket[vfo], session, reason ? reason : "released");
+   }
 
    if (talker) {
       talker->ptt_session = 0;

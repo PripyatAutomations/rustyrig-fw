@@ -86,24 +86,32 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
 
 #ifdef USE_SQLITE
-   /* Unscoped SDR rooms have no rig-numbered room identity. Resolve their
-    * attached UUID, and only grant control in the first attached room. */
+
+   /* Unscoped SDR rooms have no rig-numbered room identity. Resolve their attached UUID, and only grant control in the first attached room. */
    if (!radio && cptr && ws_client_in_room(cptr, room)) {
       char *bindings = db_room_vfo_list(masterdb, room), *save = NULL;
-      for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL;
-           id; id = strtok_r(NULL, " \t\r\n", &save)) {
+
+      for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save)) {
          rr_server_vfo_t *attached = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
-         if (!attached || strcasecmp(rr_server_vfo_alias(attached), rc_vfo)) continue;
+
+         if (!attached || strcasecmp(rr_server_vfo_alias(attached), rc_vfo)) {
+            continue;
+         }
          rr_server_rig_t *owner = rr_server_vfo_owner(attached);
-         if (!rrserver_bridge_rig(owner) || !rrserver_bridge_can_use(cptr)) continue;
+
+         if (!rrserver_bridge_rig(owner) || !rrserver_bridge_can_use(cptr)) {
+            continue;
+         }
          char *controller = db_room_vfo_controller(masterdb, id);
          bool controls = controller && !strcasecmp(controller, room);
          free(controller);
+
          if (controls) {
             radio = owner;
             break;
          }
       }
+
       free(bindings);
    }
 #endif
@@ -151,16 +159,22 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    if (!strcasecmp(rc_cmd, "swap")) {
       rr_backend_t *backend = rr_server_rig_backend(radio);
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
+
       if (!backend || !object || !backend->worker || !rr_backend_api(backend)->vfo_swap ||
-          rr_backend_worker_submit(backend, object, RR_BACKEND_SWAP,
-             (dict_value_t){0}, NULL, NULL)) {
+         rr_backend_worker_submit(backend, object, RR_BACKEND_SWAP, (dict_value_t) {
+         0
+      }
+         , NULL, NULL)) {
          Log(LOG_WARN, "rigctl", "%s: VFO swap request rejected in room %s", rc_from, room);
-         if (cptr) ws_send_error(cptr, "Unable to exchange VFO settings in %s", room);
+
+         if (cptr) {
+            ws_send_error(cptr, "Unable to exchange VFO settings in %s", room);
+         }
       } else {
-         Log(LOG_AUDIT, "rigctl", "%s requested VFO A/B settings exchange in room %s",
-            rc_from, room);
+         Log(LOG_AUDIT, "rigctl", "%s requested VFO A/B settings exchange in room %s", rc_from, room);
       }
       dict_free(d);
+
       return;
    }
 
@@ -168,17 +182,22 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       rr_backend_t *backend = rr_server_rig_backend(radio);
       bool enable = dict_get_bool(d, "rigctl.split", false);
+
       if (!object || !backend || !backend->worker || !rr_backend_api(backend)->split_mode ||
-          rr_backend_worker_submit(backend, object, RR_BACKEND_SPLIT,
-             (dict_value_t){.i = enable}, NULL, NULL)) {
-         Log(LOG_WARN, "rigctl", "%s: split request rejected in room %s",
-            rc_from, room);
-         if (cptr) ws_send_error(cptr, "Unable to queue split change for %s", room);
+         rr_backend_worker_submit(backend, object, RR_BACKEND_SPLIT, (dict_value_t) {
+         .i = enable
+      }
+         , NULL, NULL)) {
+         Log(LOG_WARN, "rigctl", "%s: split request rejected in room %s", rc_from, room);
+
+         if (cptr) {
+            ws_send_error(cptr, "Unable to queue split change for %s", room);
+         }
       } else {
-         Log(LOG_AUDIT, "rigctl", "%s requested split %s in room %s",
-            rc_from, enable ? "ON" : "OFF", room);
+         Log(LOG_AUDIT, "rigctl", "%s requested split %s in room %s", rc_from, enable ? "ON" : "OFF", room);
       }
       dict_free(d);
+
       return;
    }
 
@@ -241,9 +260,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       rr_control_result_t result = object && request.property ? rr_rig_control(&request) : RR_CONTROL_INVALID;
 
       if (result != RR_CONTROL_OK && result != RR_CONTROL_PENDING) {
-         Log(LOG_WARN, "rigctl",
-            "Unable to apply %s in room %s (VFO %s, owner %s, result %d%s)",
-            rc_cmd, room, rc_vfo, rr_rig_registry_alias(rig.rigs, radio),
+         Log(LOG_WARN, "rigctl", "Unable to apply %s in room %s (VFO %s, owner %s, result %d%s)", rc_cmd, room, rc_vfo, rr_rig_registry_alias(rig.rigs, radio),
             (int)result, object ? "" : ", VFO alias not found");
       } else if (result == RR_CONTROL_OK) {
          rr_backend_poll_rig(radio, object);
@@ -333,34 +350,37 @@ static void rrserver_handle_vfo_select(const char *event, const char *data, rrco
    (void)cptr;
    (void)user;
    dict *request = data ? json2dict(data) : NULL;
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
 
    const char *room = dict_get(request, "rig.room", NULL);
    const char *name = dict_get(request, "rig.vfo", NULL);
    rr_server_rig_t *radio = room ? rrserver_rig_for_room(room) : NULL;
    rr_vfo_t index = name && name[0] && !name[1] ? vfo_lookup(name[0]) : VFO_NONE;
-   rr_server_vfo_t *vfo = radio && index >= VFO_A && index < MAX_VFOS ?
-      rr_server_vfo_find_alias(radio, name) : NULL;
+   rr_server_vfo_t *vfo = radio && index >= VFO_A && index < MAX_VFOS ? rr_server_vfo_find_alias(radio, name) : NULL;
 
    if (vfo) {
       rr_backend_t *backend = rr_server_rig_backend(radio);
+
       if (backend && backend->active_vfo != index) {
          backend->active_vfo = index;
-         if (radio == rr_rig_registry_default(rig.rigs)) active_vfo = index;
-         Log(LOG_INFO, "rig.vfo", "%s: operating VFO selected %s in %s",
-            rr_backend_instance_alias(backend), name, room);
+
+         if (radio == rr_rig_registry_default(rig.rigs)) {
+            active_vfo = index;
+         }
+         Log(LOG_INFO, "rig.vfo", "%s: operating VFO selected %s in %s", rr_backend_instance_alias(backend), name, room);
       }
-      /* A regular POLL can be coalesced with an older outstanding poll.
-       * SELECT must reach the rig worker even if polling is already busy. */
-      bool failed = backend && backend->worker ?
-         rr_backend_worker_submit(backend, vfo, RR_BACKEND_SELECT,
-            (dict_value_t){0}, NULL, NULL) :
+      /* A regular POLL can be coalesced with an older outstanding poll. SELECT must reach the rig worker even if polling is already busy. */
+      bool failed = backend && backend->worker ? rr_backend_worker_submit(backend, vfo, RR_BACKEND_SELECT, (dict_value_t) { 0 }, NULL, NULL) :
          rr_backend_poll_rig(radio, vfo);
-      if (failed) Log(LOG_WARN, "rig.vfo", "%s: unable to queue physical VFO selection %s",
-         backend ? rr_backend_instance_alias(backend) : "?", name);
+
+      if (failed) {
+         Log(LOG_WARN, "rig.vfo", "%s: unable to queue physical VFO selection %s", backend ? rr_backend_instance_alias(backend) : "?", name);
+      }
    } else {
-      Log(LOG_WARN, "rig.vfo", "Ignoring unknown VFO %s in room %s",
-         name ? name : "?", room ? room : "?");
+      Log(LOG_WARN, "rig.vfo", "Ignoring unknown VFO %s in room %s", name ? name : "?", room ? room : "?");
    }
    dict_free(request);
 }

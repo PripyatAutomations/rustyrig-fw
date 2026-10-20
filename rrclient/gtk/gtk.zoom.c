@@ -313,8 +313,7 @@ static gboolean zoom_after_resize(gpointer data) {
    if (coupled_resize_pending) {
       coupled_resize_pending = false;
    }
-   unsigned next = zoom_for_size(resize_width, resize_height,
-      RR_ZOOM_REFERENCE_WIDTH, RR_ZOOM_REFERENCE_HEIGHT);
+   unsigned next = zoom_for_size(resize_width, resize_height, RR_ZOOM_REFERENCE_WIDTH, RR_ZOOM_REFERENCE_HEIGHT);
 
    if (next != zoom_percent) {
       dict_add_int(cfg, "ui.gtk.zoom", next);
@@ -348,6 +347,7 @@ static gboolean zoom_configured(GtkWidget *widget, GdkEventConfigure *event, gpo
    resize_height = event->height;
 
    zoom_queue_resize(false);
+
    return FALSE;
 }
 
@@ -768,7 +768,9 @@ gboolean gtk_ui_zoom_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
       case GDK_KEY_0:
       case GDK_KEY_KP_0: {
          /* Alt+0 belongs to window 10; only Ctrl+0 resets scaling. */
-         if (!control || alt) return FALSE;
+         if (!control || alt) {
+            return FALSE;
+         }
          zoom_key_step(100 - (int)zoom_percent, false);
 
          return TRUE;

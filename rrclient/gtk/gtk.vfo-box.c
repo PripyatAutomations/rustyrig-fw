@@ -37,9 +37,8 @@ static GtkWidget *vfo_tunable_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
 static GtkWidget *vfo_ptt_box = NULL, *vfo_tx_power_box = NULL;
 
-/* Binary VFO drawer: a GTK divider-style grip, never a partly exposed panel.
- * The grab distance is measured in root coordinates so it works in docked
- * and detached windows alike.  The grip remains visible when collapsed. */
+/* Binary VFO drawer: a GTK divider-style grip, never a partly exposed panel. The grab distance is measured in root coordinates so it works in docked and
+ * detached windows alike.  The grip remains visible when collapsed. */
 typedef struct {
    GtkWidget *revealer;
    double press_y, press_x;
@@ -52,12 +51,14 @@ static void vfo_drawer_free(gpointer data) {
 
 static gboolean vfo_drawer_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    VfoDrawer *drawer = data;
+
    if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
    }
    drawer->press_y = event->y_root;
    drawer->press_x = event->x_root;
    drawer->pressed = true;
+
    return TRUE;
 }
 
@@ -66,42 +67,57 @@ extern void gtk_chat_vfo_handle_drag(void);
 static gboolean vfo_drawer_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    (void)widget;
    VfoDrawer *drawer = data;
-   if (!drawer->pressed) return FALSE;
+
+   if (!drawer->pressed) {
+      return FALSE;
+   }
    double dx = event->x_root - drawer->press_x;
+
    if (dx > 48.0 || dx < -48.0) {
       drawer->pressed = false;
       gtk_chat_vfo_handle_drag();
+
       return TRUE;
    }
+
    return FALSE;
 }
 static gboolean vfo_drawer_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    VfoDrawer *drawer = data;
+
    if (event->button != GDK_BUTTON_PRIMARY || !drawer->pressed) {
       return FALSE;
    }
    drawer->pressed = false;
    gboolean open = gtk_revealer_get_reveal_child(GTK_REVEALER(drawer->revealer));
    double delta = event->y_root - drawer->press_y;
+
    if (delta >= 24.0) {
       open = true;
    } else if (delta <= -24.0) {
       open = false;
    } else if (delta > -6.0 && delta < 6.0) {
-      open = !open; /* click */
+      open = !open;             /* click */
    }
    gtk_revealer_set_reveal_child(GTK_REVEALER(drawer->revealer), open);
-   gtk_widget_set_tooltip_text(widget, open ? "Drag up or click to close VFO controls" :
-      "Drag down or click to open VFO controls");
+   gtk_widget_set_tooltip_text(widget, open ? "Drag up or click to close VFO controls" : "Drag down or click to open VFO controls");
+
    return TRUE;
 }
 
-/* Preserve RX frequency, mode and audio while removing TX affordances
- * from receive-only rooms and remotely sliced SDR VFOs. */
+/* Preserve RX frequency, mode and audio while removing TX affordances from receive-only rooms and remotely sliced SDR VFOs. */
 void vfo_controls_set_rx_only(bool rx_only) {
-   if (vfo_ptt_box) gtk_widget_set_visible(vfo_ptt_box, !rx_only);
-   if (vfo_tx_power_box) gtk_widget_set_visible(vfo_tx_power_box, !rx_only);
-   if (tx_codec_combo) gtk_widget_set_visible(tx_codec_combo, !rx_only);
+   if (vfo_ptt_box) {
+      gtk_widget_set_visible(vfo_ptt_box, !rx_only);
+   }
+
+   if (vfo_tx_power_box) {
+      gtk_widget_set_visible(vfo_tx_power_box, !rx_only);
+   }
+
+   if (tx_codec_combo) {
+      gtk_widget_set_visible(tx_codec_combo, !rx_only);
+   }
 }
 
 // Should we pause the VFO widget being updated until after the server has sent response?
@@ -237,7 +253,7 @@ GtkWidget *create_vfo_box(void) {
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
-   g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *)&vfo_tx_power_box);
+   g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
    gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, TRUE, TRUE, 6);
 
    // These globals are borrowed widget references used by protocol/event
@@ -286,7 +302,7 @@ GtkWidget *create_vfo_box(void) {
    // inside sits at its left, leaving it shy of the window edge.
    GtkWidget *ptt_box = ptt_button_create();
    vfo_ptt_box = ptt_box;
-   g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *)&vfo_ptt_box);
+   g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
    gtk_box_pack_end(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 2);
 
    // This will sort out tab order between previous/next widget

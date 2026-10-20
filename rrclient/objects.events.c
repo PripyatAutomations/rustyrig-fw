@@ -45,10 +45,17 @@ static bool inventory_message(dict *d) {
    if (!request) {
       return strcmp(cmd, "result") != 0;
    }
+
    if (!strcmp(cmd, "result")) {
-      if (request->graphical) event_emit_dict("client.resources.row", ws_conn, d);
-      if (!request->graphical || request->gps_listing) ui_print(request->window[0] ? request->window : NULL, "Resource listing failed: %s", dict_get(d, "result.code", "unknown error"));
+      if (request->graphical) {
+         event_emit_dict("client.resources.row", ws_conn, d);
+      }
+
+      if (!request->graphical || request->gps_listing) {
+         ui_print(request->window[0] ? request->window : NULL, "Resource listing failed: %s", dict_get(d, "result.code", "unknown error"));
+      }
       memset(request, 0, sizeof(*request));
+
       return true;
    }
    const char *window = request->window[0] ? request->window : NULL;
@@ -81,7 +88,9 @@ static bool inventory_message(dict *d) {
    if (request->graphical) {
       event_emit_dict("client.resources.row", ws_conn, d);
 
-      if (!request->gps_listing || strcmp(kind, "gps")) return true;
+      if (!request->gps_listing || strcmp(kind, "gps")) {
+         return true;
+      }
    }
 
    char details[1536] = "";
@@ -164,9 +173,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          Log(LOG_WARN, "objects", "Rejected malformed/stale-stream object message");
       } else {
          const char *cmd = dict_get(d, "object.cmd", "");
-         if (!strcmp(cmd, "begin")) object_subscription = "Synchronizing";
-         else if (!strcmp(cmd, "end")) object_subscription = "Subscribed";
-         else if (!strcmp(cmd, "result") && subscription_request[0] && !strcmp(dict_get(d, "request.id", ""), subscription_request)) {
+
+         if (!strcmp(cmd, "begin")) {
+            object_subscription = "Synchronizing";
+         } else if (!strcmp(cmd, "end")) {
+            object_subscription = "Subscribed";
+         } else if (!strcmp(cmd, "result") && subscription_request[0] && !strcmp(dict_get(d, "request.id", ""), subscription_request)) {
             object_subscription = !strcmp(dict_get(d, "result.code", ""), "ok")
                ? subscription_stopping ? "Not subscribed" : "Subscribed" : "Request failed";
             subscription_request[0] = 0;
@@ -194,7 +206,10 @@ static void connection(const char *event, const char *data, rrconn_t *client, vo
    dict_add(d, "msg.type", "object");
    dict_add(d, "object.cmd", "snapshot");
    dict_add(d, "request.id", "initial-objects");
-   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) object_subscription = "Request failed";
+
+   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
+      object_subscription = "Request failed";
+   }
    dict_free(d);
 }
 
@@ -279,10 +294,14 @@ bool cmd_rig(int argc, char **args) {
       };
       event_emit_binary(RRCLIENT_RESOURCE_VIEW_EVENT, ws_conn, &view, sizeof(view));
       pending->graphical = view.handled;
-      if (view.handled) pending->kind = "object"; // GTK's unified browser always receives the complete tree.
+
+      if (view.handled) {
+         pending->kind = "object";  // GTK's unified browser always receives the complete tree.
+      }
    }
    dict_add(d, "msg.type", "object");
    dict_add(d, "object.cmd", cmd);
+
    if (strcmp(cmd, "inventory")) {
       strlcpy(subscription_request, id, sizeof(subscription_request));
       subscription_stopping = !strcmp(cmd, "unsubscribe");
@@ -296,7 +315,10 @@ bool cmd_rig(int argc, char **args) {
       memset(pending, 0, sizeof(*pending));
    }
 
-   if (!sent && strcmp(cmd, "inventory")) object_subscription = "Request failed";
+   if (!sent && strcmp(cmd, "inventory")) {
+      object_subscription = "Request failed";
+   }
+
    return !sent;
 }
 

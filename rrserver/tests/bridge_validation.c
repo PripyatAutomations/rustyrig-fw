@@ -4,7 +4,10 @@
 #include <rrserver/bridge.manager.c>
 struct GlobalState rig;
 const char *rr_rig_registry_public_alias(const rr_rig_registry_t *registry, const rr_server_rig_t *radio) {
-   (void)registry; (void)radio; return "bridge-test";
+   (void)registry;
+   (void)radio;
+
+   return "bridge-test";
 }
 int rrserver_bridge_hints_load(const char *name, const char *driver, rrp_bridge_ipc_message_t *out) {
    return 0;

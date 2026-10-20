@@ -57,6 +57,7 @@ static bool room_duplicate(rr_server_rig_t *radio, void *user) {
 
    char generated[128];
    const char *room = rr_rig_registry_room(rig.rigs, radio);
+
    if (!room) {
       snprintf(generated, sizeof(generated), "%s-%s", ws_site_room(), rr_rig_registry_public_alias(rig.rigs, radio));
       room = generated;
@@ -80,11 +81,13 @@ static bool configure_room(rr_server_rig_t *radio, void *user) {
       strcasecmp(room, generated) || !strcasecmp(room, ws_site_room()) || rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx)) {
       Log(LOG_CRIT, "cfg.rig", "Invalid or duplicate room %s for rig %s", room, alias);
       free(configured);
+
       return true;
    }
    bool failed = rr_rig_registry_set_room(rig.rigs, radio, room);
 
 #ifdef USE_SQLITE
+
    if (!failed) {
       failed = !db_room_restore(masterdb, room, "server") || !db_room_ensure(masterdb, room, true, 0, "server") || !db_room_vfos_clear(masterdb, room);
    }
@@ -166,6 +169,7 @@ static bool restore_rx_rooms(void) {
 
       for (char *id = bindings ? strtok_r(bindings, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save)) {
          rr_server_vfo_t *vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
+
          if (!vfo) {
             if (!db_room_vfo_remove(masterdb, room, id)) {
                failed = true;
@@ -174,10 +178,9 @@ static bool restore_rx_rooms(void) {
          }
          any = true;
          rr_vfo_t index;
-         /* The native mask is legacy, scoped only to the room's native rig.
-          * Foreign VFOs remain UUID bindings, never colliding on A/B bits. */
-         if (radio && rr_server_vfo_owner(vfo) == radio &&
-             rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
+
+         /* The native mask is legacy, scoped only to the room's native rig. Foreign VFOs remain UUID bindings, never colliding on A/B bits. */
+         if (radio && rr_server_vfo_owner(vfo) == radio && rr_server_vfo_native_index(vfo, &index) && index >= 0 && index < 32) {
             mask |= UINT32_C(1) << index;
          }
       }
@@ -187,6 +190,7 @@ static bool restore_rx_rooms(void) {
       if (!db_room_ensure(masterdb, room, any, mask, "server")) {
          failed = true;
       }
+
       if (ws_room_rig_namespace(room) && !ws_room_set_vfo_mask(room, mask)) {
          failed = true;
       }
@@ -201,30 +205,47 @@ static bool restore_rx_rooms(void) {
 }
 #endif
 
-/* Caller-selected room for temporary RX-only receivers. This intentionally
- * does not impose the legacy site-rigN namespace on foreign SDR VFOs. */
+/* Caller-selected room for temporary RX-only receivers. This intentionally does not impose the legacy site-rigN namespace on foreign SDR VFOs. */
 bool rrserver_rig_room_add_named(rr_server_rig_t *radio, const char *room) {
-   if (!room || !*room) return configure_room(radio, NULL);
-   /* #sdr-XXXXXXXX rooms are external receiver identities, not station
-    * namespaces. The restricted form is intentionally not a general escape
-    * hatch for arbitrary dashed room names. */
+   if (!room || !*room) {
+      return configure_room(radio, NULL);
+   }
+   /* #sdr-XXXXXXXX rooms are external receiver identities, not station namespaces. The restricted form is intentionally not a general escape hatch for
+    * arbitrary dashed room names. */
    bool sdr_room = room && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5);
-   for (const char *p = sdr_room ? room + 5 : ""; *p; p++)
-      if (!isxdigit((unsigned char)*p)) { sdr_room = false; break; }
-   if (!radio || !ws_room_name_valid(room) ||
-       (ws_room_station_scoped(room) && !sdr_room))
+
+   for (const char *p = sdr_room ? room + 5 : "" ; *p ; p++) {
+      if (!isxdigit((unsigned char)*p)) {
+         sdr_room = false;
+         break;
+      }
+   }
+
+   if (!radio || !ws_room_name_valid(room) || (ws_room_station_scoped(room) && !sdr_room)) {
       return true;
-   struct room_context ctx = { .room = room, .radio = radio };
-   if (rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx))
+   }
+   struct room_context ctx = {
+      .room = room, .radio = radio
+   };
+
+   if (rr_rig_registry_foreach(rig.rigs, room_duplicate, &ctx)) {
       return true;
-   if (rr_rig_registry_set_room(rig.rigs, radio, room))
+   }
+
+   if (rr_rig_registry_set_room(rig.rigs, radio, room)) {
       return true;
+   }
 #ifdef USE_SQLITE
-   if (!db_room_ensure(masterdb, room, true, 0, "server"))
+
+   if (!db_room_ensure(masterdb, room, true, 0, "server")) {
       return true;
+   }
 #endif
-   if (rr_server_vfo_foreach(radio, collect_vfo, &ctx))
+
+   if (rr_server_vfo_foreach(radio, collect_vfo, &ctx)) {
       return true;
+   }
+
    return false;
 }
 
@@ -233,28 +254,47 @@ bool rrserver_rig_room_add(rr_server_rig_t *radio) {
 }
 
 #ifdef USE_SQLITE
-/* Old temporary bridges left station-rigN bootstrap rooms in SQLite.
- * Keep only rooms claimed by an actual rig on this startup. */
+/* Old temporary bridges left station-rigN bootstrap rooms in SQLite. Keep only rooms claimed by an actual rig on this startup. */
 static bool prune_unclaimed_rig_rooms(void) {
    char *listing = db_room_list(masterdb), *save = NULL;
-   if (!listing) return true;
+
+   if (!listing) {
+      return true;
+   }
    const char *site = ws_site_room();
    size_t prefix_len = strlen(site);
    bool ok = true;
-   for (char *name = strtok_r(listing, " \t\r\n", &save);
-        name; name = strtok_r(NULL, " \t\r\n", &save)) {
-      if (strlen(name) <= prefix_len + 4 || strncasecmp(name, site, prefix_len) || strncmp(name + prefix_len, "-rig", 4))
+
+   for (char *name = strtok_r(listing, " \t\r\n", &save) ; name ; name = strtok_r(NULL, " \t\r\n", &save)) {
+      if (strlen(name) <= prefix_len + 4 || strncasecmp(name, site, prefix_len) || strncmp(name + prefix_len, "-rig", 4)) {
          continue;
+      }
       const char *digits = name + prefix_len + 4;
-      if (!*digits) continue;
+
+      if (!*digits) {
+         continue;
+      }
       bool numeric = true;
-      for (const char *p = digits; *p; p++)
-         if (*p < '0' || *p > '9') { numeric = false; break; }
-      if (!numeric || rrserver_rig_for_room(name)) continue;
+
+      for (const char *p = digits ; *p ; p++) {
+         if (*p < '0' || *p > '9') {
+            numeric = false;
+            break;
+         }
+      }
+
+      if (!numeric || rrserver_rig_for_room(name)) {
+         continue;
+      }
       Log(LOG_INFO, "rig.rooms", "Retiring orphaned bootstrap room %s", name);
-      if (!db_room_delete(masterdb, name, "server", true, true)) ok = false;
+
+      if (!db_room_delete(masterdb, name, "server", true, true)) {
+         ok = false;
+      }
    }
+
    free(listing);
+
    return ok;
 }
 #endif
@@ -268,8 +308,8 @@ bool rrserver_rig_rooms_init(void) {
    if (sqlite3_exec(masterdb, "BEGIN;", NULL, NULL, NULL) != SQLITE_OK) {
       return true;
    }
-   bool failed = !db_room_prune_autogenerated(masterdb) || !db_room_restore(masterdb, ws_site_room(), "server") || !db_room_ensure(masterdb, ws_site_room(), false, 0, "server") ||
-      !db_room_vfos_clear(masterdb, ws_site_room());
+   bool failed = !db_room_prune_autogenerated(masterdb) || !db_room_restore(masterdb, ws_site_room(), "server")
+      || !db_room_ensure(masterdb, ws_site_room(), false, 0, "server") || !db_room_vfos_clear(masterdb, ws_site_room());
 #else
    bool failed = false;
 #endif
@@ -279,8 +319,13 @@ bool rrserver_rig_rooms_init(void) {
    }
 #ifdef USE_SQLITE
 
-   if (!failed) failed = !prune_unclaimed_rig_rooms();
-   if (!failed) failed = restore_rx_rooms();
+   if (!failed) {
+      failed = !prune_unclaimed_rig_rooms();
+   }
+
+   if (!failed) {
+      failed = restore_rx_rooms();
+   }
 
    if (sqlite3_exec(masterdb, failed ? "ROLLBACK;" : "COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
       failed = true;

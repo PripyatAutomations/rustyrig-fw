@@ -25,7 +25,9 @@ gui_window_t *create_vfo_window(GtkWidget *controls, char vfo) {
 
 static rrconn_t origin_connection;
 rrconn_t *ws_conn;
-void userlist_remove_room_view(const char *room) { (void)room; }
+void userlist_remove_room_view(const char *room) {
+   (void)room;
+}
 rrconn_t *rrclient_connection_find(const char *name) {
    return name && !strcmp(name, "server") ? &origin_connection : NULL;
 }
@@ -66,7 +68,10 @@ bool parse_chat_input_real(const char *message) {
 static char joined_room[128], joined_server[128];
 bool cmd_join(int argc, char **args) {
    assert(argc == 2);
-   if (room_tabs && g_hash_table_lookup(room_tabs, rrclient_window_name(args[1]))) return false;
+
+   if (room_tabs && g_hash_table_lookup(room_tabs, rrclient_window_name(args[1]))) {
+      return false;
+   }
    snprintf(joined_room, sizeof(joined_room), "%s", args[1]);
    snprintf(joined_server, sizeof(joined_server), "%s", selected_server);
 

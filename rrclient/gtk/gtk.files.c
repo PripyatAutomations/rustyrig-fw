@@ -8,12 +8,14 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.editcfg.h>
 #include "gtk.files.h"
-enum { NAME, PATH, DIRECTORY, SIZE, READABLE, WRITABLE, LOADED, COLS };
+enum {
+   NAME, PATH, DIRECTORY, SIZE, READABLE, WRITABLE, LOADED, COLS
+};
 static struct {
    GtkWidget *window, *tree, *server, *status;
    GtkTreeStore *store;
    GHashTable *requests;
-   GHashTable *site_requests; /* discovery request ID -> home server profile */
+   GHashTable *site_requests;   /* discovery request ID -> home server profile */
    guint timer;
    gulong server_changed_handler;
    char *wanted_site;
@@ -33,6 +35,7 @@ static gboolean listing_expired(gpointer unused) {
    g_hash_table_iter_init(&iterator, browser.requests);
    while (g_hash_table_iter_next(&iterator, &key, &value)) {
       struct listing *r = value;
+
       if ((uint64_t) mono_us() - r->started > 30000000) {
          gtk_label_set_text(GTK_LABEL(browser.status), "File listing timed out. Check the connection and server support, then Refresh.");
          g_hash_table_iter_remove(&iterator);
@@ -48,6 +51,7 @@ struct remote_edit {
 static struct remote_edit *pending_edit;
 static void edit_free(gpointer data) {
    struct remote_edit *e = data;
+
    if (e) {
       g_free(e->profile);
       g_free(e->path);
@@ -55,32 +59,41 @@ static void edit_free(gpointer data) {
       g_free(e);
    }
 }
-/* Selector IDs are PROFILE (local site) or PROFILE|@NODEUUID (linked site).
- * All file operations still go through the authenticated home connection. */
+
+/* Selector IDs are PROFILE (local site) or PROFILE|@NODEUUID (linked site). All file operations still go through the authenticated home connection. */
 static rrconn_t *connection(void) {
    const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
-   if (!id) return NULL;
+
+   if (!id) {
+      return NULL;
+   }
    const char *sep = strchr(id, '|');
-   char *profile = sep ? g_strndup(id, (gsize)(sep - id)) : g_strdup(id);
+   char *profile = sep ? g_strndup(id, (gsize) (sep - id)) : g_strdup(id);
    rrconn_t *c = rrclient_connection_find(profile);
    g_free(profile);
+
    return c;
 }
 static const char *site_root(void) {
    const char *id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server));
    const char *sep = id ? strchr(id, '|') : NULL;
+
    return sep ? sep + 1 : "/";
 }
 static void status(const char *text) {
-   if (browser.window)
+   if (browser.window) {
       gtk_label_set_text(GTK_LABEL(browser.status), text);
+   }
 }
 static char *selection(gboolean *directory, gboolean *readable, gboolean *writable, guint64 *size) {
    GtkTreeIter iter;
    GtkTreeModel *model;
    char *path = NULL;
-   if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), &model, &iter))
+
+   if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), &model, &iter)) {
       gtk_tree_model_get(model, &iter, PATH, &path, DIRECTORY, directory, READABLE, readable, WRITABLE, writable, SIZE, size, -1);
+   }
+
    return path;
 }
 static void placeholder(GtkTreeIter *parent) {
@@ -89,18 +102,19 @@ static void placeholder(GtkTreeIter *parent) {
    gtk_tree_store_set(browser.store, &child, NAME, "Expand to load…", PATH, "", -1);
 }
 
-/* Retain the placeholder until a real child exists, so loading never collapses
- * the expanded directory merely because its last temporary row was removed. */
+/* Retain the placeholder until a real child exists, so loading never collapses the expanded directory merely because its last temporary row was removed. */
 static void remove_placeholders(GtkTreeIter *parent) {
    GtkTreeIter child;
    gboolean valid = gtk_tree_model_iter_children(GTK_TREE_MODEL(browser.store), &child, parent);
    while (valid) {
       char *path = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser.store), &child, PATH, &path, -1);
-      if (!path || !*path)
+
+      if (!path || !*path) {
          valid = gtk_tree_store_remove(browser.store, &child);
-      else
+      } else {
          valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(browser.store), &child);
+      }
       g_free(path);
    }
 }
@@ -109,13 +123,17 @@ static void load(GtkTreeIter *parent) {
    gtk_tree_model_get(GTK_TREE_MODEL(browser.store), parent, PATH, &path, -1);
    char *id = rrclient_files_request(connection(), "list", path, NULL);
    g_free(path);
+
    if (!id) {
       status("Connect to a RustyRig server first.");
+
       return;
    }
    GtkTreeIter child;
-   if (!gtk_tree_model_iter_children(GTK_TREE_MODEL(browser.store), &child, parent))
+
+   if (!gtk_tree_model_iter_children(GTK_TREE_MODEL(browser.store), &child, parent)) {
       placeholder(parent);
+   }
    GtkTreePath *treepath = gtk_tree_model_get_path(GTK_TREE_MODEL(browser.store), parent);
    struct listing *request = g_new0(struct listing, 1);
    request->row = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser.store), treepath);
@@ -128,8 +146,10 @@ static void load(GtkTreeIter *parent) {
 static void expand(GtkTreeView *tree, GtkTreeIter *iter, GtkTreePath *path, gpointer data) {
    gboolean loaded;
    gtk_tree_model_get(GTK_TREE_MODEL(browser.store), iter, LOADED, &loaded, -1);
-   if (!loaded)
+
+   if (!loaded) {
       load(iter);
+   }
 }
 static void refresh(void) {
    g_hash_table_remove_all(browser.requests);
@@ -143,33 +163,55 @@ static void refresh(void) {
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), path);
    gtk_tree_path_free(path);
 }
+
 static void changed(GtkComboBox *box, gpointer data);
-/* Rebuild both direct and linked site choices. Refresh must discover links
- * established after the Files window was first opened. */
+/* Rebuild both direct and linked site choices. Refresh must discover links established after the Files window was first opened. */
 static void refresh_sites(void) {
    g_free(browser.wanted_site);
    browser.wanted_site = g_strdup(gtk_combo_box_get_active_id(GTK_COMBO_BOX(browser.server)));
    const char *selected = browser.wanted_site;
    g_hash_table_remove_all(browser.site_requests);
-   if (browser.server_changed_handler)
+
+   if (browser.server_changed_handler) {
       g_signal_handler_block(browser.server, browser.server_changed_handler);
+   }
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(browser.server));
    const char *first = NULL;
-   for (unsigned i = 0;; ++i) {
+
+   for (unsigned i = 0 ;; ++i) {
       const char *profile = rrclient_connection_iter(i);
-      if (!profile) break;
+
+      if (!profile) {
+         break;
+      }
       rrconn_t *candidate = rrclient_connection_find(profile);
-      if (!candidate || !candidate->is_ws || !candidate->authenticated) continue;
-      if (!first) first = profile;
+
+      if (!candidate || !candidate->is_ws || !candidate->authenticated) {
+         continue;
+      }
+
+      if (!first) {
+         first = profile;
+      }
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), profile, profile);
       char *id = rrclient_files_request(candidate, "list", "/", NULL);
-      if (id) g_hash_table_insert(browser.site_requests, id, g_strdup(profile));
+
+      if (id) {
+         g_hash_table_insert(browser.site_requests, id, g_strdup(profile));
+      }
    }
-   if (selected) gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
-   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first)
+
+   if (selected) {
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
+   }
+
+   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first) {
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), first);
-   if (browser.server_changed_handler)
+   }
+
+   if (browser.server_changed_handler) {
       g_signal_handler_unblock(browser.server, browser.server_changed_handler);
+   }
 }
 static void changed(GtkComboBox *box, gpointer data) {
    (void)box;
@@ -180,16 +222,20 @@ static void changed(GtkComboBox *box, gpointer data) {
 static gboolean browser_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget;
    (void)data;
-   if (!(event->state & GDK_CONTROL_MASK) ||
-       (event->keyval != GDK_KEY_Tab && event->keyval != GDK_KEY_ISO_Left_Tab))
+
+   if (!(event->state & GDK_CONTROL_MASK) || (event->keyval != GDK_KEY_Tab && event->keyval != GDK_KEY_ISO_Left_Tab)) {
       return FALSE;
-   gint count = gtk_tree_model_iter_n_children(
-      gtk_combo_box_get_model(GTK_COMBO_BOX(browser.server)), NULL);
-   if (count < 2) return TRUE;
+   }
+   gint count = gtk_tree_model_iter_n_children(gtk_combo_box_get_model(GTK_COMBO_BOX(browser.server)), NULL);
+
+   if (count < 2) {
+      return TRUE;
+   }
    gint current = gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server));
    gboolean reverse = (event->state & GDK_SHIFT_MASK) || event->keyval == GDK_KEY_ISO_Left_Tab;
    gint next = current < 0 ? 0 : (current + (reverse ? count - 1 : 1)) % count;
    gtk_combo_box_set_active(GTK_COMBO_BOX(browser.server), next);
+
    return TRUE;
 }
 static char *prompt(const char *title, const char *initial) {
@@ -201,34 +247,44 @@ static char *prompt(const char *title, const char *initial) {
    gtk_widget_show_all(dialog);
    char *text = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK ? g_strdup(gtk_entry_get_text(GTK_ENTRY(entry))) : NULL;
    gtk_widget_destroy(dialog);
+
    return text;
 }
 static bool confirm(const char *message) {
    GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(browser.window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
    bool yes = gtk_dialog_run(GTK_DIALOG(d)) == GTK_RESPONSE_YES;
    gtk_widget_destroy(d);
+
    return yes;
 }
 static bool edit_save(const char *local, void *data) {
    struct remote_edit *e = data;
    bool ok = rrclient_files_transfer(rrclient_connection_find(e->profile), e->path, local, true, true);
    status(ok ? "Saving remote file…" : "Could not start upload; reconnect or wait for the current transfer.");
+
    return ok;
 }
 static void complete(const char *event, const char *text, rrconn_t *c, void *data) {
    dict *d = json2dict(text);
-   if (!d)
+
+   if (!d) {
       return;
+   }
    const char *error = dict_get(d, "file.error", "");
+
    if (browser.window && c == connection()) {
       status(*error ? error : "Transfer complete");
-      if (!*error)
+
+      if (!*error) {
          refresh();
+      }
    }
+
    if (pending_edit && !strcmp(pending_edit->local, dict_get(d, "file.local", ""))) {
       struct remote_edit *e = pending_edit;
       pending_edit = NULL;
       char *title = g_strdup_printf("%s:%s", e->profile, e->path);
+
       if (*error || !gui_edit_remote_config(e->local, title, edit_save, e, edit_free)) {
          status(*error ? error : "Close the existing configuration editor before editing another file.");
          unlink(e->local);
@@ -239,46 +295,65 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    dict_free(d);
 }
 static void row(const char *event, const char *text, rrconn_t *c, void *data) {
-   if (!browser.window) return;
+   if (!browser.window) {
+      return;
+   }
    dict *d = json2dict(text);
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    const char *id = dict_get(d, "request.id", ""), *cmd = dict_get(d, "file.cmd", "");
-   /* Root listings also discover linked sites. Don't insert /@UUID entries
-    * into the file tree: they are selector choices, not share directories. */
+   /* Root listings also discover linked sites. Don't insert /@UUID entries into the file tree: they are selector choices, not share directories. */
    const char *home = g_hash_table_lookup(browser.site_requests, id);
+
    if (home) {
       if (!strcmp(cmd, "entry")) {
          const char *name = dict_get(d, "file.name", "");
+
          if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
             char *key = g_strdup_printf("%s|/%s", home, name);
             const char *alias = dict_get(d, "file.site-name", name);
             char *label = g_strdup_printf("%s (%s)", alias, home);
             gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), key, label);
+
             if (browser.wanted_site && !strcmp(browser.wanted_site, key)) {
                gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), key);
                g_clear_pointer(&browser.wanted_site, g_free);
             }
-            g_free(label); g_free(key);
+            g_free(label);
+            g_free(key);
          }
-      } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result"))
+      } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result")) {
          g_hash_table_remove(browser.site_requests, id);
+      }
       dict_free(d);
+
       return;
    }
-   if (c != connection()) { dict_free(d); return; }
+
+   if (c != connection()) {
+      dict_free(d);
+
+      return;
+   }
    struct listing *request = g_hash_table_lookup(browser.requests, id);
    GtkTreeRowReference *ref = request ? request->row : NULL;
+
    if (ref && !strcmp(cmd, "entry")) {
       GtkTreePath *path = gtk_tree_row_reference_get_path(ref);
       GtkTreeIter parent, child;
+
       if (path && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &parent, path)) {
          char *base;
          gtk_tree_model_get(GTK_TREE_MODEL(browser.store), &parent, PATH, &base, -1);
          const char *name = dict_get(d, "file.name", "");
+
          /* Linked site roots belong in the server selector, not this tree. */
          if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
             gtk_tree_path_free(path);
             dict_free(d);
+
             return;
          }
          char *full = g_strdup_printf("%s%s%s", base, !strcmp(base, "/") ? "" : "/", name);
@@ -288,61 +363,83 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
          gtk_tree_store_set(browser.store, &child, NAME, name, PATH, full, DIRECTORY, directory, SIZE, dict_get_ullong(d, "file.size", 0), READABLE,
             dict_get_bool(d, "file.readable", false), WRITABLE, dict_get_bool(d, "file.writable", false), -1);
          remove_placeholders(&parent);
-         if (directory)
+
+         if (directory) {
             placeholder(&child);
+         }
          g_free(full);
       }
-      if (path)
+
+      if (path) {
          gtk_tree_path_free(path);
+      }
    } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result")) {
       const char *error = dict_get(d, "file.error", "");
       status(*error ? error : "Ready");
+
       if (ref && !strcmp(cmd, "end")) {
          GtkTreePath *root = gtk_tree_row_reference_get_path(ref);
+
          if (root) {
             GtkTreeIter parent;
-            if (gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &parent, root))
+
+            if (gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &parent, root)) {
                remove_placeholders(&parent);
+            }
          }
-         if (root && gtk_tree_path_get_depth(root) == 1)
+
+         if (root && gtk_tree_path_get_depth(root) == 1) {
             gtk_tree_view_expand_row(GTK_TREE_VIEW(browser.tree), root, FALSE);
-         if (root)
+         }
+
+         if (root) {
             gtk_tree_path_free(root);
+         }
       }
       g_hash_table_remove(browser.requests, id);
-      if (!ref && !*error && !strcmp(cmd, "result"))
+
+      if (!ref && !*error && !strcmp(cmd, "result")) {
          refresh();
+      }
    }
    dict_free(d);
 }
 static void action(GtkButton *button, gpointer data) {
    const char *op = data;
+
    if (!strcmp(op, "refresh")) {
       refresh_sites();
       refresh();
+
       return;
    }
    gboolean directory = FALSE, readable = FALSE, writable = FALSE;
    guint64 size = 0;
    char *path = selection(&directory, &readable, &writable, &size);
+
    if (!path || !*path) {
       g_free(path);
+
       return;
    }
+
    if (!strcmp(op, "download") || !strcmp(op, "edit")) {
       if (directory || !readable) {
          status("Select a readable file.");
          goto done;
       }
       char *local = NULL;
+
       if (!strcmp(op, "edit")) {
          if (!writable || size > 1024 * 1024 || pending_edit) {
             status("Edit requires a writable text file up to 1 MiB and an idle editor.");
             goto done;
          }
          int fd = g_file_open_tmp("rr-edit-XXXXXX", &local, NULL);
-         if (fd < 0)
+
+         if (fd < 0) {
             goto done;
+         }
          close(fd);
          pending_edit = g_new0(struct remote_edit, 1);
          pending_edit->local = g_strdup(local);
@@ -356,20 +453,25 @@ static void action(GtkButton *button, gpointer data) {
          char *base = g_path_get_basename(path);
          gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), base);
          g_free(base);
-         if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
+
+         if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
             local = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+         }
          gtk_widget_destroy(dialog);
       }
+
       if (local) {
          if (!rrclient_files_transfer(connection(), path, local, false, false)) {
             status("Cannot start download; check the connection and current transfer.");
+
             if (pending_edit) {
                unlink(pending_edit->local);
                edit_free(pending_edit);
                pending_edit = NULL;
             }
-         } else
+         } else {
             status("Downloading…");
+         }
          g_free(local);
       }
    } else if (!strcmp(op, "upload")) {
@@ -379,17 +481,21 @@ static void action(GtkButton *button, gpointer data) {
       }
       GtkWidget *dialog = gtk_file_chooser_dialog_new("Upload", GTK_WINDOW(browser.window), GTK_FILE_CHOOSER_ACTION_OPEN, "Cancel", GTK_RESPONSE_CANCEL, "Open",
          GTK_RESPONSE_ACCEPT, NULL);
+
       if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
          char *local = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+
          if (!local) {
             gtk_widget_destroy(dialog);
             goto done;
          }
          char *base = g_path_get_basename(local), *remote = g_strdup_printf("%s/%s", path, base);
-         if (rrclient_files_transfer(connection(), remote, local, true, false))
+
+         if (rrclient_files_transfer(connection(), remote, local, true, false)) {
             status("Uploading…");
-         else
+         } else {
             status("Cannot start upload.");
+         }
          g_free(local);
          g_free(base);
          g_free(remote);
@@ -401,9 +507,11 @@ static void action(GtkButton *button, gpointer data) {
          g_free(id);
       }
    } else if (!strcmp(op, "rename") || !strcmp(op, "move")) {
-      if (!writable)
+      if (!writable) {
          goto done;
+      }
       char *value = prompt(!strcmp(op, "rename") ? "New name" : "Destination virtual path", !strcmp(op, "move") ? path : "");
+
       if (value && *value) {
          char *parent = g_path_get_dirname(path), *dest = !strcmp(op, "rename") ? g_strdup_printf("%s/%s", parent, value) : g_strdup(value);
          char *id = rrclient_files_request(connection(), "rename", path, dest);
@@ -414,6 +522,7 @@ static void action(GtkButton *button, gpointer data) {
       g_free(value);
    } else if (!strcmp(op, "mkdir") && directory && writable) {
       char *name = prompt("New directory", "");
+
       if (name && *name) {
          char *dest = g_strdup_printf("%s/%s", path, name), *id = rrclient_files_request(connection(), "mkdir", dest, NULL);
          g_free(dest);
@@ -421,7 +530,7 @@ static void action(GtkButton *button, gpointer data) {
       }
       g_free(name);
    }
- done:g_free(path);
+done: g_free(path);
 }
 static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer data) {
    char *an, *bn;
@@ -437,11 +546,13 @@ static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer d
    g_free(bn);
    g_free(ak);
    g_free(bk);
+
    return order;
 }
 static void destroyed(GtkWidget *window, gpointer data) {
-   if (browser.timer)
+   if (browser.timer) {
       g_source_remove(browser.timer);
+   }
    g_hash_table_destroy(browser.requests);
    g_hash_table_destroy(browser.site_requests);
    g_free(browser.wanted_site);
@@ -451,6 +562,7 @@ static void destroyed(GtkWidget *window, gpointer data) {
 static void open_browser(const char *event, const char *text, rrconn_t *c, void *data) {
    if (browser.window) {
       gtk_window_present(GTK_WINDOW(browser.window));
+
       return;
    }
    browser.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -467,49 +579,70 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    gtk_box_pack_start(GTK_BOX(server_row), browser.server, TRUE, TRUE, 0);
    gtk_widget_set_tooltip_text(browser.server, "Ctrl+Tab / Ctrl+Shift+Tab switches servers");
    const char *selected = c ? rrclient_connection_name(c) : rrclient_selected_server(), *first = NULL;
-   for (unsigned i = 0;; i++) {
+
+   for (unsigned i = 0 ;; i++) {
       const char *profile = rrclient_connection_iter(i);
-      if (!profile)
+
+      if (!profile) {
          break;
+      }
       rrconn_t *candidate = rrclient_connection_find(profile);
+
       if (candidate && candidate->is_ws && candidate->authenticated) {
-         if (!first)
+         if (!first) {
             first = profile;
+         }
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), profile, profile);
       }
    }
-   if (selected)
+
+   if (selected) {
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), selected);
-   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first)
+   }
+
+   if (gtk_combo_box_get_active(GTK_COMBO_BOX(browser.server)) < 0 && first) {
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(browser.server), first);
+   }
    browser.store = gtk_tree_store_new(COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_UINT64, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN);
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser.store), NAME, sort, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser.store), NAME, GTK_SORT_ASCENDING);
    browser.tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser.store));
-   const char *labels[] = { "Name", "Path", "Directory", "Bytes", "Read", "Write" };
-   for (int col = 0; col < 6; col++) {
-      if (col == PATH || col == DIRECTORY)
+   const char *labels[] = {
+      "Name", "Path", "Directory", "Bytes", "Read", "Write"
+   };
+
+   for (int col = 0 ; col < 6 ; col++) {
+      if (col == PATH || col == DIRECTORY) {
          continue;
+      }
       GtkCellRenderer *cell = col == READABLE || col == WRITABLE ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
-      if (col == READABLE || col == WRITABLE)
+
+      if (col == READABLE || col == WRITABLE) {
          g_object_set(cell, "activatable", FALSE, NULL);
+      }
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(labels[col], cell, col == READABLE
-            || col == WRITABLE ? "active" : "text", col, NULL);
+         || col == WRITABLE ? "active" : "text", col, NULL);
       gtk_tree_view_column_set_sort_column_id(column, col);
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser.tree), column);
    }
+
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), browser.tree);
    gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
-   const char *names[] = { "Upload", "Download", "Rename", "Edit", "Move", "Delete", "New directory", "Refresh" }, *ops[] =
-      { "upload", "download", "rename", "edit", "move", "delete", "mkdir", "refresh" };
-   for (unsigned i = 0; i < G_N_ELEMENTS(names); i++) {
+   const char *names[] = {
+      "Upload", "Download", "Rename", "Edit", "Move", "Delete", "New directory", "Refresh"
+   }, *ops[] = {
+      "upload", "download", "rename", "edit", "move", "delete", "mkdir", "refresh"
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; i++) {
       GtkWidget *button = gtk_button_new_with_label(names[i]);
       gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
       g_signal_connect(button, "clicked", G_CALLBACK(action), (gpointer) ops[i]);
    }
+
    browser.status = gtk_label_new("Ready");
    gtk_box_pack_start(GTK_BOX(box), browser.status, FALSE, FALSE, 0);
    browser.requests = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, listing_free);
@@ -532,8 +665,11 @@ void gtk_files_shutdown(void) {
    event_off_token(open_token);
    event_off_token(row_token);
    event_off_token(done_token);
-   if (browser.window)
+
+   if (browser.window) {
       gtk_widget_destroy(browser.window);
+   }
+
    if (pending_edit) {
       unlink(pending_edit->local);
       edit_free(pending_edit);

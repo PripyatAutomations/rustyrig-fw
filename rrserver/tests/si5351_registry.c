@@ -10,7 +10,9 @@
 #include <rrserver/si5351.h>
 int main(int argc, char **argv) {
    assert(argc == 3);
-   rr_si5351_config_t c = {25000000, 0, 10, 2};
+   rr_si5351_config_t c = {
+      25000000, 0, 10, 2
+   };
    rr_hardware_t *r = rr_hardware_new();
    assert(rr_si5351_register(r, "si5351:lo", argv[1], 0x60, &c));
    assert(rr_hardware_count(r) == 2);
@@ -47,5 +49,6 @@ int main(int argc, char **argv) {
    dict_free(cfg);
    cfg = NULL;
    puts("Si5351 configuration, duplicate-device and unavailable-adapter checks passed");
+
    return 0;
 }

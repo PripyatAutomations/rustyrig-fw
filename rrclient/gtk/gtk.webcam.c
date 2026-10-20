@@ -50,12 +50,17 @@ static gboolean webcam_blit_cb(gpointer user) {
    webcam_pending = NULL;
    webcam_idle = 0;
    g_mutex_unlock(&webcam_lock);
-   if (!frame) return G_SOURCE_REMOVE;
+
+   if (!frame) {
+      return G_SOURCE_REMOVE;
+   }
+
    if (webcam_image) {
       GError *error = NULL;
       GInputStream *stream = g_memory_input_stream_new_from_bytes(frame);
       GdkPixbuf *image = gdk_pixbuf_new_from_stream(stream, NULL, &error);
       g_object_unref(stream);
+
       if (image) {
          gtk_image_set_from_pixbuf(GTK_IMAGE(webcam_image), image);
          g_object_unref(image);
@@ -65,18 +70,28 @@ static gboolean webcam_blit_cb(gpointer user) {
       }
    }
    g_bytes_unref(frame);
+
    return G_SOURCE_REMOVE;
 }
 
 static void webcam_display_frame(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    (void)event;
    (void)user;
-   if (dying || !data || len < 3 || len > 16 * 1024 * 1024) return;
+
+   if (dying || !data || len < 3 || len > 16 * 1024 * 1024) {
+      return;
+   }
    g_mutex_lock(&webcam_lock);
+
    if (webcam_visible && cptr == webcam_connection) {
-      if (webcam_pending) g_bytes_unref(webcam_pending);
+      if (webcam_pending) {
+         g_bytes_unref(webcam_pending);
+      }
       webcam_pending = g_bytes_new(data, len);
-      if (!webcam_idle) webcam_idle = g_idle_add(webcam_blit_cb, NULL);
+
+      if (!webcam_idle) {
+         webcam_idle = g_idle_add(webcam_blit_cb, NULL);
+      }
    }
    g_mutex_unlock(&webcam_lock);
 }
@@ -87,30 +102,46 @@ static void webcam_decoded(const char *name, const void *data, size_t len, void 
 
 static void webcam_frame_handler(const char *event, const void *data, size_t len, rrconn_t *cptr, void *user) {
    struct rr_binframe frame;
+
    if (!webcam_visible || cptr != webcam_connection || !data ||
       rr_binframe_parse(data, len, &frame) || len != RR_BINFRAME_HDR_LEN + frame.len ||
-      frame.hdr.subsystem != RR_BINFRAME_SUBSYS_VIDEO || frame.hdr.direction != RR_BINFRAME_DIR_RX) return;
-   char codec[5] = {0};
+      frame.hdr.subsystem != RR_BINFRAME_SUBSYS_VIDEO || frame.hdr.direction != RR_BINFRAME_DIR_RX) {
+      return;
+   }
+   char codec[5] = {
+      0
+   };
    memcpy(codec, frame.hdr.codec, 4);
+
    if (strcmp(codec, webcam_decoder)) {
-      if (*webcam_decoder) fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
+      if (*webcam_decoder) {
+         fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
+      }
       webcam_decoder[0] = '\0';
-      if (fwdsp_video_pipeline_start(codec, "webcam-viewer", false, webcam_decoded, NULL) < 0) return;
+
+      if (fwdsp_video_pipeline_start(codec, "webcam-viewer", false, webcam_decoded, NULL) < 0) {
+         return;
+      }
       snprintf(webcam_decoder, sizeof(webcam_decoder), "%s", codec);
    }
-   if (!fwdsp_write_channel_samples(codec, false, "webcam-viewer", frame.data, frame.len)) webcam_decoder[0] = '\0';
+
+   if (!fwdsp_write_channel_samples(codec, false, "webcam-viewer", frame.data, frame.len)) {
+      webcam_decoder[0] = '\0';
+   }
 }
 
 /* PARITY: rustyrig-www/js/webui.media.js webcam profile FPS ordering. */
 static gint webcam_rate_compare(gconstpointer left, gconstpointer right) {
    guint64 a = g_ascii_strtoull((const char *)left + 5, NULL, 10);
    guint64 b = g_ascii_strtoull((const char *)right + 5, NULL, 10);
+
    return a < b ? -1 : a > b ? 1 : strcmp(left, right);
 }
 
 static void webcam_codec_changed(GtkComboBox *combo, gpointer user) {
    const char *codec = gtk_combo_box_get_active_id(combo);
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(webcam_rates));
+
    if (!codec || !*codec) {
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_rates), "", "Source rate");
    } else {
@@ -118,21 +149,30 @@ static void webcam_codec_changed(GtkComboBox *combo, gpointer user) {
       snprintf(copy, sizeof(copy), "%s", webcam_profiles);
       char *save = NULL;
       GList *rates = NULL;
-      for (char *name = strtok_r(copy, " ", &save); name; name = strtok_r(NULL, " ", &save)) {
-         if (!strncmp(name, codec, 4) && name[4] == '.') rates = g_list_prepend(rates, name);
+
+      for (char *name = strtok_r(copy, " ", &save) ; name ; name = strtok_r(NULL, " ", &save)) {
+         if (!strncmp(name, codec, 4) && name[4] == '.') {
+            rates = g_list_prepend(rates, name);
+         }
       }
+
       rates = g_list_sort(rates, webcam_rate_compare);
-      for (GList *item = rates; item; item = item->next) {
+
+      for (GList *item = rates ; item ; item = item->next) {
          const char *name = item->data;
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_rates), name, name + 5);
       }
+
       g_list_free(rates);
    }
    gtk_combo_box_set_active(GTK_COMBO_BOX(webcam_rates), 0);
 }
 static void webcam_apply(GtkButton *button, gpointer user) {
    const char *profile = gtk_combo_box_get_active_id(GTK_COMBO_BOX(webcam_rates));
-   if (!profile || !webcam_connection || !*webcam_uuid) return;
+
+   if (!profile || !webcam_connection || !*webcam_uuid) {
+      return;
+   }
    dict *message = dict_new();
    dict_add(message, "msg.type", "media");
    dict_add(message, "media.cmd", "profile");
@@ -149,15 +189,22 @@ static void webcam_controls_refresh(void) {
    char copy[sizeof(webcam_profiles)], seen[256] = " ";
    snprintf(copy, sizeof(copy), "%s", webcam_profiles);
    char *save = NULL;
-   for (char *name = strtok_r(copy, " ", &save); name; name = strtok_r(NULL, " ", &save)) {
-      if (strlen(name) < 6 || name[4] != '.') continue;
+
+   for (char *name = strtok_r(copy, " ", &save) ; name ; name = strtok_r(NULL, " ", &save)) {
+      if (strlen(name) < 6 || name[4] != '.') {
+         continue;
+      }
       name[4] = '\0';
-      char token[8]; snprintf(token, sizeof(token), " %s ", name);
+      char token[8];
+      snprintf(token, sizeof(token), " %s ", name);
+
       if (!strstr(seen, token)) {
          gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(webcam_codecs), name, name);
-         strlcat(seen, name, sizeof(seen)); strlcat(seen, " ", sizeof(seen));
+         strlcat(seen, name, sizeof(seen));
+         strlcat(seen, " ", sizeof(seen));
       }
    }
+
    gtk_combo_box_set_active(GTK_COMBO_BOX(webcam_codecs), 0);
 }
 
@@ -166,8 +213,13 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
    (void)widget;
    (void)user;
 
-   if (webcam_connection && *webcam_uuid) media_send_unsubscribe(webcam_connection, webcam_uuid);
-   if (*webcam_decoder) fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
+   if (webcam_connection && *webcam_uuid) {
+      media_send_unsubscribe(webcam_connection, webcam_uuid);
+   }
+
+   if (*webcam_decoder) {
+      fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
+   }
    webcam_decoder[0] = '\0';
    webcam_win = NULL;
    webcam_image = NULL;
@@ -175,10 +227,12 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
    g_mutex_lock(&webcam_lock);
    webcam_visible = false;
    webcam_connection = NULL;
+
    if (webcam_idle) {
       g_source_remove(webcam_idle);
       webcam_idle = 0;
    }
+
    if (webcam_pending) {
       g_bytes_unref(webcam_pending);
       webcam_pending = NULL;
@@ -197,7 +251,10 @@ void gtk_webcam_show(bool show) {
    }
 
    if (webcam_win) {
-      if (webcam_connection && webcam_connection != ws_conn && *webcam_uuid) media_send_unsubscribe(webcam_connection, webcam_uuid);
+      if (webcam_connection && webcam_connection != ws_conn && *webcam_uuid) {
+         media_send_unsubscribe(webcam_connection, webcam_uuid);
+      }
+
       if (webcam_connection != ws_conn && *webcam_decoder) {
          fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
          webcam_decoder[0] = '\0';
@@ -209,6 +266,7 @@ void gtk_webcam_show(bool show) {
       webcam_controls_refresh();
       rrclient_media_subscribe_single_video();
       gtk_window_present(GTK_WINDOW(webcam_win));
+
       return;
    }
    g_mutex_lock(&webcam_lock);
@@ -247,11 +305,15 @@ void gtk_webcam_show(bool show) {
 }
 
 static gboolean webcam_close_disconnected(gpointer user) {
-   if (!webcam_connection) gtk_webcam_show(false);
+   if (!webcam_connection) {
+      gtk_webcam_show(false);
+   }
+
    return G_SOURCE_REMOVE;
 }
 static void webcam_disconnected(const char *event, const char *data, rrconn_t *client, void *user) {
    g_mutex_lock(&webcam_lock);
+
    if (client && client == webcam_connection) {
       webcam_connection = NULL;
       webcam_visible = false;
@@ -262,8 +324,7 @@ static void webcam_disconnected(const char *event, const char *data, rrconn_t *c
 
 // Register the video frame listener (called from gtk init)
 void rrclient_webcam_register(void) {
-   /* The frontend is dlclosed before socket teardown; these callbacks must
-    * be removed by rr_module_shutdown() to avoid jumping into unmapped code. */
+   /* The frontend is dlclosed before socket teardown; these callbacks must be removed by rr_module_shutdown() to avoid jumping into unmapped code. */
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_binary_token(RR_VIDEO_FRAME_EVENT, webcam_frame_handler, NULL));
    rr_module_token_add(event_on_token("disconnected", webcam_disconnected, NULL));

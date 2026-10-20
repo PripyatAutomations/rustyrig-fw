@@ -823,7 +823,9 @@ static void run_loop(struct audio_config *cfg) {
          continue;
       }
 
-      if (!config_video) configure_pipeline_buffers(pipeline);
+      if (!config_video) {
+         configure_pipeline_buffers(pipeline);
+      }
       fwdsp_quality_t quality;
       fwdsp_quality_init(pipeline, &quality);
 

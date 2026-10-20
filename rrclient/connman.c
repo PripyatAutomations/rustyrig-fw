@@ -1156,6 +1156,7 @@ void rrclient_quit_servers(const char *reason) {
 
       if (c && c->is_ws && c->authenticated && c->conn && !c->conn->is_closing && !c->conn->is_draining) {
          dict *request = dict_new();
+
          if (request) {
             dict_add(request, "msg.type", "auth");
             dict_add(request, "auth.cmd", "quit");
@@ -1164,6 +1165,7 @@ void rrclient_quit_servers(const char *reason) {
             dict_free(request);
          }
       }
+
       if (c && !c->is_ws && c->sent_login && c->conn && !c->conn->is_closing && !c->conn->is_draining) {
          if (!irc_send(c, "QUIT :%s", reason ? reason : "Client exiting")) {
             irc_send(c, "QUIT :Client exiting");

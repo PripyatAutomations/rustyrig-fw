@@ -249,30 +249,39 @@
         " queue max-size-buffers=4 leaky=downstream ! " \
         " appsink name=record-sink emit-signals=false sync=false max-buffers=4 drop=true"
 
-/* Video pipelines exchange complete access units on the network and PNM
- * frames locally for display. All codec/rate/device choices live here/config. */
+/* Video pipelines exchange complete access units on the network and PNM frames locally for display. All codec/rate/device choices live here/config. */
 #define FWDSP_VIDEO_DECODE "appsrc name=rx-src is-live=true format=time do-timestamp=true "
 #define FWDSP_H264_INPUT FWDSP_VIDEO_DECODE "caps=\"video/x-h264,stream-format=byte-stream,alignment=au\" ! h264parse ! avdec_h264 ! videoconvert ! "
-#define FWDSP_H264_ENCODE "x264enc tune=zerolatency speed-preset=ultrafast bitrate=256 key-int-max=24 byte-stream=true ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! "
+#define FWDSP_H264_ENCODE \
+        "x264enc tune=zerolatency speed-preset=ultrafast bitrate=256 key-int-max=24 byte-stream=true ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! "
 #define FWDSP_VIDEO_SINK "appsink name=tx-sink sync=false max-buffers=1 drop=true"
 #define FWDSP_VIDEO_PROFILE(codec, fps, encoder) \
-   { "pipeline:video." codec "." #fps, FWDSP_H264_INPUT "videorate ! video/x-raw,framerate=" #fps "/1 ! " encoder FWDSP_VIDEO_SINK, "Camera delivery profile" },
+        { "pipeline:video." codec "." #fps, FWDSP_H264_INPUT "videorate ! video/x-raw,framerate=" #fps "/1 ! " encoder FWDSP_VIDEO_SINK, \
+          "Camera delivery profile" },
 #define FWDSP_VIDEO_PIPELINE_DEFAULTS \
-   { "pipeline:h264.tx", "v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=24/1 ! " FWDSP_H264_ENCODE FWDSP_VIDEO_SINK, "Default H.264 camera capture" }, \
-   { "pipeline:h264.rx", FWDSP_H264_INPUT "video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true", "H.264 to local display frames" }, \
-   { "pipeline:h265.rx", FWDSP_VIDEO_DECODE "caps=\"video/x-h265,stream-format=byte-stream,alignment=au\" ! h265parse ! avdec_h265 ! videoconvert ! video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true", "H.265 to local display frames" }, \
-   { "pipeline:jpeg.tx", "v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=15/1 ! jpegenc quality=70 ! " FWDSP_VIDEO_SINK, "Default JPEG camera capture" }, \
-   { "pipeline:jpeg.rx", FWDSP_VIDEO_DECODE "caps=image/jpeg ! jpegparse ! jpegdec ! videoconvert ! video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true", "JPEG to local display frames" }, \
-   FWDSP_VIDEO_PROFILE("h264", 1, FWDSP_H264_ENCODE) \
-   FWDSP_VIDEO_PROFILE("h264", 5, FWDSP_H264_ENCODE) \
-   FWDSP_VIDEO_PROFILE("h264", 10, FWDSP_H264_ENCODE) \
-   FWDSP_VIDEO_PROFILE("h264", 15, FWDSP_H264_ENCODE) \
-   FWDSP_VIDEO_PROFILE("h264", 24, FWDSP_H264_ENCODE) \
-   FWDSP_VIDEO_PROFILE("jpeg", 1, "jpegenc quality=70 ! ") \
-   FWDSP_VIDEO_PROFILE("jpeg", 5, "jpegenc quality=70 ! ") \
-   FWDSP_VIDEO_PROFILE("jpeg", 10, "jpegenc quality=70 ! ") \
-   FWDSP_VIDEO_PROFILE("jpeg", 15, "jpegenc quality=70 ! ") \
-   FWDSP_VIDEO_PROFILE("jpeg", 24, "jpegenc quality=70 ! ")
+        { "pipeline:h264.tx", "v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=24/1 ! " FWDSP_H264_ENCODE \
+          FWDSP_VIDEO_SINK, "Default H.264 camera capture" }, \
+        { "pipeline:h264.rx", FWDSP_H264_INPUT "video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true", \
+          "H.264 to local display frames" }, \
+        { "pipeline:h265.rx", FWDSP_VIDEO_DECODE \
+          "caps=\"video/x-h265,stream-format=byte-stream,alignment=au\" ! h265parse ! avdec_h265 ! videoconvert ! video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true", \
+          "H.265 to local display frames" }, \
+        { "pipeline:jpeg.tx", \
+          "v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,width=640,height=480,framerate=15/1 ! jpegenc quality=70 ! " FWDSP_VIDEO_SINK, \
+          "Default JPEG camera capture" }, \
+        { "pipeline:jpeg.rx", FWDSP_VIDEO_DECODE \
+          "caps=image/jpeg ! jpegparse ! jpegdec ! videoconvert ! video/x-raw,format=RGB ! pnmenc ! appsink name=rx-sink sync=false max-buffers=1 drop=true", \
+          "JPEG to local display frames" }, \
+        FWDSP_VIDEO_PROFILE("h264", 1, FWDSP_H264_ENCODE) \
+        FWDSP_VIDEO_PROFILE("h264", 5, FWDSP_H264_ENCODE) \
+        FWDSP_VIDEO_PROFILE("h264", 10, FWDSP_H264_ENCODE) \
+        FWDSP_VIDEO_PROFILE("h264", 15, FWDSP_H264_ENCODE) \
+        FWDSP_VIDEO_PROFILE("h264", 24, FWDSP_H264_ENCODE) \
+        FWDSP_VIDEO_PROFILE("jpeg", 1, "jpegenc quality=70 ! ") \
+        FWDSP_VIDEO_PROFILE("jpeg", 5, "jpegenc quality=70 ! ") \
+        FWDSP_VIDEO_PROFILE("jpeg", 10, "jpegenc quality=70 ! ") \
+        FWDSP_VIDEO_PROFILE("jpeg", 15, "jpegenc quality=70 ! ") \
+        FWDSP_VIDEO_PROFILE("jpeg", 24, "jpegenc quality=70 ! ")
 
 #define FWDSP_AUDIO_PIPELINE_DEFAULTS(source) \
         { "pipeline:pc16.rx", FWDSP_PC16_RX, "Default pc16.rx audio pipeline" }, \

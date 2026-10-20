@@ -128,6 +128,7 @@ const char *rrserver_gps_public_scope(const char *alias) {
 }
 bool rrserver_gps_source_fixed(const char *alias) {
    const struct gps_source *source = find(alias ? alias : "station");
+
    return source && source->fixed;
 }
 
@@ -419,8 +420,10 @@ static bool add_rig(rr_server_rig_t *radio, void *user) {
       snprintf(source->channel->name, sizeof(source->channel->name), "%s.gps.rx", public);
       snprintf(source->channel->room, sizeof(source->channel->room), "%s", rr_rig_registry_room(rig.rigs, radio));
       snprintf(source->channel->rig_uuid, sizeof(source->channel->rig_uuid), "%s", rr_server_rig_id(radio));
-      if (!rrserver_media_uuid_assign(source->channel, rr_server_rig_id(radio), "gps.position"))
+
+      if (!rrserver_media_uuid_assign(source->channel, rr_server_rig_id(radio), "gps.position")) {
          return true;
+      }
    }
 
    return !configure_source(source, rr_rig_config_get(alias, "gps.position"));
@@ -442,26 +445,34 @@ static void add_nmea_channel(struct gps_source *source) {
    snprintf(source->nmea_channel->name, sizeof(source->nmea_channel->name), "%s.nmea.rx", source->alias);
    snprintf(source->nmea_channel->room, sizeof(source->nmea_channel->room), "%s", position->room);
    snprintf(source->nmea_channel->rig_uuid, sizeof(source->nmea_channel->rig_uuid), "%s", position->rig_uuid);
+
    if (!(position->rig_uuid[0] ?
-         rrserver_media_uuid_assign(source->nmea_channel, position->rig_uuid, "gps.nmea") :
-         rrserver_media_uuid_assign_node(source->nmea_channel, "station.gps.nmea")))
+      rrserver_media_uuid_assign(source->nmea_channel, position->rig_uuid, "gps.nmea") :
+      rrserver_media_uuid_assign_node(source->nmea_channel, "station.gps.nmea"))) {
       Log(LOG_CRIT, "gps", "Unable to assign stable NMEA stream UUID");
+   }
 }
 
 void rrserver_gps_inventory_position(dict *row, const char *scope) {
    const struct gps_source *source = scope ? find(scope) : NULL;
-   if (!row || !source) return;
+
+   if (!row || !source) {
+      return;
+   }
    const struct gps_source *position = effective(source);
-   if (!available(position) || (!position->fixed && !position->valid)) return;
+
+   if (!available(position) || (!position->fixed && !position->valid)) {
+      return;
+   }
    int64_t lat = position->lat, lon = position->lon;
    char coordinates[64];
-   snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld,%s%lld.%07lld", lat < 0 ? "-" : "",
-      (long long)(llabs(lat) / 10000000), (long long)(llabs(lat) % 10000000), lon < 0 ? "-" : "",
-      (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
+   snprintf(coordinates, sizeof(coordinates), "%s%lld.%07lld,%s%lld.%07lld", lat < 0 ? "-" : "", (long long)(llabs(lat) / 10000000), (long long)(llabs(lat) %
+      10000000), lon < 0 ? "-" : "", (long long)(llabs(lon) / 10000000), (long long)(llabs(lon) % 10000000));
    dict_add(row, "inventory.coordinates", coordinates);
 }
 
-static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog, const char *parent) {
+static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog, const char *
+   parent) {
    struct gps_source *source = find(scope);
 
    if (source) {
@@ -471,13 +482,15 @@ static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *
          char name[80];
          snprintf(name, sizeof(name), output == 2 ? "%s.nmea-%s" : "%s.gps-%s", scope, output ? "out" : "in");
          struct rr_mediachan *channel = output == 2 ? source->nmea_channel : source->channel;
-         dict *row = rr_inventory_row(request, depth, "gps", name, output && channel ?
-            channel->uuid : NULL);
+         dict *row = rr_inventory_row(request, depth, "gps", name, output && channel ? channel->uuid : NULL);
 
          if (!row) {
             continue;
          }
-         if (parent && *parent) dict_add(row, "inventory.parent", parent);
+
+         if (parent && *parent) {
+            dict_add(row, "inventory.parent", parent);
+         }
          dict_add(row, "inventory.state", output ?
             (position->fixed ? "static" : available(position) && position->valid ? "position-known" : "no-fix") :
             source->fixed ? "disabled-by-fixed-position" : source->own_input ? "receiver" : source == sources ? "unconfigured" : "station-fallback");
@@ -490,23 +503,34 @@ static void inventory_gps_rows(rrconn_t *client, const char *scope, const char *
          }
 
          rrserver_gps_inventory_position(row, scope);
-         if (catalog) catalog->emit(row, catalog->context);
-         else rr_inventory_send(client, row);
+
+         if (catalog) {
+            catalog->emit(row, catalog->context);
+         } else {
+            rr_inventory_send(client, row);
+         }
       }
    }
 }
 
 static void inventory_gps(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!client || !client->authenticated) return;
+   if (!client || !client->authenticated) {
+      return;
+   }
    dict *request = json2dict(data);
-   if (!request) return;
-   inventory_gps_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""),
-      dict_get_uint(request, "inventory.depth", 1), NULL, dict_get(request, "inventory.parent", ""));
+
+   if (!request) {
+      return;
+   }
+   inventory_gps_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1), NULL,
+      dict_get(request, "inventory.parent", ""));
    dict_free(request);
 }
 
 static void inventory_gps_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   if (length != sizeof(rr_inventory_catalog_t)) return;
+   if (length != sizeof(rr_inventory_catalog_t)) {
+      return;
+   }
    const rr_inventory_catalog_t *catalog = data;
    inventory_gps_rows(NULL, catalog->scope, "", 0, catalog, NULL);
 }
@@ -521,10 +545,14 @@ bool rrserver_gps_init(void) {
    if (sources[0].channel) {
       snprintf(sources[0].channel->name, sizeof(sources[0].channel->name), "station.gps.rx");
       snprintf(sources[0].channel->room, sizeof(sources[0].channel->room), "%s", ws_site_room());
-      if (!rrserver_media_uuid_assign_node(sources[0].channel, "station.gps.position")) return true;
+
+      if (!rrserver_media_uuid_assign_node(sources[0].channel, "station.gps.position")) {
+         return true;
+      }
    }
 
    const char *position = rrserver_gps_station_position();
+
    if (!configure_source(&sources[0], position) || rr_rig_registry_foreach(rig.rigs, add_rig, NULL)) {
       rrserver_gps_fini();
 

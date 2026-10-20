@@ -40,9 +40,7 @@ static bool eligible(rrconn_t *client) {
 /* Core roles are local account roles. Never import them through a relay:
  * remote virtual accounts use uid=-1 and require owner-side resource grants. */
 static bool needs_supervision(rrconn_t *client) {
-   return client && client->user && client->user->uid >= 0 &&
-      has_priv(client->user->uid,"noob") &&
-      !has_priv(client->user->uid,"admin|owner");
+   return client && client->user && client->user->uid >= 0 && has_priv(client->user->uid, "noob") && !has_priv(client->user->uid, "admin|owner");
 }
 static bool is_elmer(rrconn_t *client) {
    return eligible(client) && has_priv(client->user->uid, "elmer") && !needs_supervision(client);
@@ -157,11 +155,20 @@ bool rrserver_supervision_allowed(rrconn_t *client) {
 void rrserver_supervision_snapshot(rrconn_t *client, const char *room, struct rr_supervision_attribution *out) {
    memset(out, 0, sizeof(*out));
    struct supervision *request = client ? find(client, room) : NULL;
-   if (!client || !client->user || !needs_supervision(client) || !allowed(request)) return;
+
+   if (!client || !client->user || !needs_supervision(client) || !allowed(request)) {
+      return;
+   }
    strlcpy(out->ticket, request->id, sizeof(out->ticket));
-   for (size_t i = 0; i < HTTP_MAX_SESSIONS; i++) {
-      if (!active(&request->elmers[i])) continue;
-      if (out->elmers[0]) strlcat(out->elmers, ",", sizeof(out->elmers));
+
+   for (size_t i = 0 ; i < HTTP_MAX_SESSIONS ; i++) {
+      if (!active(&request->elmers[i])) {
+         continue;
+      }
+
+      if (out->elmers[0]) {
+         strlcat(out->elmers, ",", sizeof(out->elmers));
+      }
       strlcat(out->elmers, request->elmers[i].client->user->name, sizeof(out->elmers));
    }
 }
@@ -266,7 +273,8 @@ static void command(const char *event, const char *data, rrconn_t *client, void 
          }
       }
 
-      Log(LOG_AUDIT, "supervision", "ticket=%s elmer=%s declined/withdrew for %s room=%s", request->id, client->chatname, request->client->chatname, request->room);
+      Log(LOG_AUDIT, "supervision", "ticket=%s elmer=%s declined/withdrew for %s room=%s", request->id, client->chatname, request->client->chatname, request->
+         room);
       send_status(client, request, "closed", "You are not supervising this session");
       rrserver_supervision_tick();
    } else if (!strcasecmp(action, "accept")) {
@@ -290,8 +298,8 @@ static void command(const char *event, const char *data, rrconn_t *client, void 
          request->granted = true;
          send_status(client, request, "accepted", responsibility);
          send_status(request->client, request, "granted", "An elmer accepted supervision. You may now press PTT.");
-         Log(LOG_AUDIT, "supervision", "ticket=%s elmer=%s accepted control-operator responsibility for %s room=%s", request->id, client->chatname,
-            request->client->chatname, request->room);
+         Log(LOG_AUDIT, "supervision", "ticket=%s elmer=%s accepted control-operator responsibility for %s room=%s", request->id, client->chatname, request->
+            client->chatname, request->room);
       } else {
          ws_send_error(client, "Too many supervising sessions");
       }
@@ -308,7 +316,9 @@ static void closed(const char *event, const char *data, rrconn_t *client, void *
       struct supervision *request = &requests[i];
 
       if (request->client == client) {
-         if (request->id[0]) Log(LOG_AUDIT, "supervision", "ticket=%s closed: %s disconnected room=%s", request->id, client->chatname, request->room);
+         if (request->id[0]) {
+            Log(LOG_AUDIT, "supervision", "ticket=%s closed: %s disconnected room=%s", request->id, client->chatname, request->room);
+         }
          visit(close_offer, request);
          memset(request, 0, sizeof(*request));
       }

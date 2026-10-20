@@ -10,30 +10,41 @@ static int claimed, released, destroyed;
 static bool fail_claim, fail_release;
 static bool claim(void *data, const char *owner) {
    assert(data == &claimed && !strcmp(owner, "rig0"));
+
    if (fail_claim) {
       errno = EACCES;
+
       return false;
    }
    claimed++;
+
    return true;
 }
 static bool release(void *data) {
    assert(data == &claimed);
+
    if (fail_release) {
       errno = EIO;
+
       return false;
    }
    released++;
+
    return true;
 }
 static void destroy(void *data) {
    assert(data == &claimed);
    destroyed++;
 }
-static const rr_hardware_driver_t api = { claim, release, destroy };
+
+static const rr_hardware_driver_t api = {
+   claim, release, destroy
+};
 int main(void) {
    rr_hardware_t *r = rr_hardware_new();
-   rr_hardware_spec_t spec = {.id = "osc0",.kind = "oscillator",.driver = "mock",.api = &api,.data = &claimed };
+   rr_hardware_spec_t spec = {
+      .id = "osc0", .kind = "oscillator", .driver = "mock", .api = &api, .data = &claimed
+   };
    rr_hardware_device_t *d = rr_hardware_add(r, &spec);
    assert(d && rr_hardware_count(r) == 1 && rr_hardware_find(r, "osc0") == d);
    assert(!rr_hardware_add(r, &spec));
@@ -75,5 +86,6 @@ int main(void) {
    cfg = NULL;
    rr_hardware_free(r);
    assert(claimed == 2 && released == 2 && destroyed == 1);
+
    return 0;
 }

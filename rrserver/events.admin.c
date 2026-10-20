@@ -77,6 +77,7 @@ bool rrserver_admin_send(rrconn_t *client, const char *table, const char *action
 /* Route editor failures back to its table, rather than only the chat error stream. */
 static void admin_user_error(rrconn_t *client, const char *message) {
    dict *row = dict_new();
+
    if (row) {
       dict_add(row, "message", message);
       rrserver_admin_send(client, "users", "error", row);
@@ -86,72 +87,111 @@ static void admin_user_error(rrconn_t *client, const char *message) {
 }
 
 /* Built-in host-wide rig preset: one checked assignment, not a system role. */
-static bool admin_full_rig_access(const char *username,const char *host,bool enabled) {
-   if (!username || !*username || !host) return false;
-   if (sqlite3_exec(masterdb,"SAVEPOINT full_rig_access",NULL,NULL,NULL)!=SQLITE_OK)
+static bool admin_full_rig_access(const char *username, const char *host, bool enabled) {
+   if (!username || !*username || !host) {
       return false;
-   const char *queries[]={
-      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) "
-      "VALUES('full-rig','Full access to all rigs on this server','system')",
+   }
+
+   if (sqlite3_exec(masterdb, "SAVEPOINT full_rig_access", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   const char *queries[] = {
+      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) " "VALUES('full-rig','Full access to all rigs on this server','system')",
       "INSERT INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full-rig' "
-      "ON CONFLICT(set_id,privilege) DO UPDATE SET effect='allow'",
+      "SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full-rig' " "ON CONFLICT(set_id,privilege) DO UPDATE SET effect='allow'",
       enabled ?
       "INSERT OR IGNORE INTO privilege_set_assignments "
       "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
       "SELECT id,?1,?2,'rig','*','system' FROM privilege_sets WHERE name='full-rig'" :
       "DELETE FROM privilege_set_assignments WHERE subject_user=?1 COLLATE NOCASE "
-      "AND subject_host=?2 AND resource_kind='rig' AND resource_uuid='*' "
-      "AND set_id=(SELECT id FROM privilege_sets WHERE name='full-rig')"
+      "AND subject_host=?2 AND resource_kind='rig' AND resource_uuid='*' " "AND set_id=(SELECT id FROM privilege_sets WHERE name='full-rig')"
    };
-   bool ok=true;
-   for (unsigned i=0;i<G_N_ELEMENTS(queries);++i) {
-      sqlite3_stmt *stmt=NULL;
-      int rc=sqlite3_prepare_v2(masterdb,queries[i],-1,&stmt,NULL);
-      if (rc==SQLITE_OK && i==2) {
-         rc=sqlite3_bind_text(stmt,1,username,-1,SQLITE_TRANSIENT);
-         if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,2,host,-1,SQLITE_TRANSIENT);
+   bool ok = true;
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(queries) ; ++i) {
+      sqlite3_stmt *stmt = NULL;
+      int rc = sqlite3_prepare_v2(masterdb, queries[i], -1, &stmt, NULL);
+
+      if (rc == SQLITE_OK && i == 2) {
+         rc = sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(stmt, 2, host, -1, SQLITE_TRANSIENT);
+         }
       }
-      if (rc==SQLITE_OK) rc=sqlite3_step(stmt);
-      if (rc!=SQLITE_DONE) ok=false;
+
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_step(stmt);
+      }
+
+      if (rc != SQLITE_DONE) {
+         ok = false;
+      }
       sqlite3_finalize(stmt);
-      if (!ok) break;
+
+      if (!ok) {
+         break;
+      }
    }
-   if (ok) ok=sqlite3_exec(masterdb,"RELEASE SAVEPOINT full_rig_access",NULL,NULL,NULL)==SQLITE_OK;
-   if (!ok) sqlite3_exec(masterdb,"ROLLBACK TO SAVEPOINT full_rig_access; RELEASE SAVEPOINT full_rig_access",NULL,NULL,NULL);
+
+   if (ok) {
+      ok = sqlite3_exec(masterdb, "RELEASE SAVEPOINT full_rig_access", NULL, NULL, NULL) == SQLITE_OK;
+   }
+
+   if (!ok) {
+      sqlite3_exec(masterdb, "ROLLBACK TO SAVEPOINT full_rig_access; RELEASE SAVEPOINT full_rig_access", NULL, NULL, NULL);
+   }
+
    return ok;
 }
 
 /* Symbolic host-wide room access, independent of rebuilt room UUIDs. */
-static bool admin_all_rooms_access(const char *username,const char *host,bool enabled) {
-   if (!username || !*username || !host) return false;
-   static const char *ensure_set=
-      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) "
-      "VALUES('all-rooms','Join all rooms on this server','system')";
-   static const char *ensure_entry=
+static bool admin_all_rooms_access(const char *username, const char *host, bool enabled) {
+   if (!username || !*username || !host) {
+      return false;
+   }
+   static const char *ensure_set =
+      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) " "VALUES('all-rooms','Join all rooms on this server','system')";
+   static const char *ensure_entry =
       "INSERT INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'room.join','allow' FROM privilege_sets WHERE name='all-rooms' "
-      "ON CONFLICT(set_id,privilege) DO UPDATE SET effect='allow'";
-   static const char *assign=
+      "SELECT id,'room.join','allow' FROM privilege_sets WHERE name='all-rooms' " "ON CONFLICT(set_id,privilege) DO UPDATE SET effect='allow'";
+   static const char *assign =
       "INSERT OR IGNORE INTO privilege_set_assignments "
       "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
       "SELECT id,?1,?2,'room','*','system' FROM privilege_sets WHERE name='all-rooms'";
-   static const char *revoke=
+   static const char *revoke =
       "DELETE FROM privilege_set_assignments WHERE subject_user=?1 COLLATE NOCASE "
-      "AND subject_host=?2 AND resource_kind='room' AND resource_uuid='*' "
-      "AND set_id=(SELECT id FROM privilege_sets WHERE name='all-rooms')";
-   if (sqlite3_exec(masterdb,"SAVEPOINT all_rooms_access",NULL,NULL,NULL)!=SQLITE_OK) return false;
-   bool ok=sqlite3_exec(masterdb,ensure_set,NULL,NULL,NULL)==SQLITE_OK &&
-      sqlite3_exec(masterdb,ensure_entry,NULL,NULL,NULL)==SQLITE_OK;
-   sqlite3_stmt *stmt=NULL;
-   int rc=ok ? sqlite3_prepare_v2(masterdb,enabled ? assign : revoke,-1,&stmt,NULL) : SQLITE_ERROR;
-   if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,1,username,-1,SQLITE_TRANSIENT);
-   if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,2,host,-1,SQLITE_TRANSIENT);
-   if (rc==SQLITE_OK) rc=sqlite3_step(stmt);
+      "AND subject_host=?2 AND resource_kind='room' AND resource_uuid='*' " "AND set_id=(SELECT id FROM privilege_sets WHERE name='all-rooms')";
+
+   if (sqlite3_exec(masterdb, "SAVEPOINT all_rooms_access", NULL, NULL, NULL) != SQLITE_OK) {
+      return false;
+   }
+   bool ok = sqlite3_exec(masterdb, ensure_set, NULL, NULL, NULL) == SQLITE_OK && sqlite3_exec(masterdb, ensure_entry, NULL, NULL, NULL) == SQLITE_OK;
+   sqlite3_stmt *stmt = NULL;
+   int rc = ok ? sqlite3_prepare_v2(masterdb, enabled ? assign : revoke, -1, &stmt, NULL) : SQLITE_ERROR;
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 2, host, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_step(stmt);
+   }
    sqlite3_finalize(stmt);
-   ok=rc==SQLITE_DONE;
-   if (ok) ok=sqlite3_exec(masterdb,"RELEASE SAVEPOINT all_rooms_access",NULL,NULL,NULL)==SQLITE_OK;
-   if (!ok) sqlite3_exec(masterdb,"ROLLBACK TO SAVEPOINT all_rooms_access; RELEASE SAVEPOINT all_rooms_access",NULL,NULL,NULL);
+   ok = rc == SQLITE_DONE;
+
+   if (ok) {
+      ok = sqlite3_exec(masterdb, "RELEASE SAVEPOINT all_rooms_access", NULL, NULL, NULL) == SQLITE_OK;
+   }
+
+   if (!ok) {
+      sqlite3_exec(masterdb, "ROLLBACK TO SAVEPOINT all_rooms_access; RELEASE SAVEPOINT all_rooms_access", NULL, NULL, NULL);
+   }
+
    return ok;
 }
 
@@ -164,11 +204,14 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    if (!fields || uid < 0) {
       admin_user_error(client, "Account unavailable or invalid editor request");
       dict_free(fields);
+
       return;
    }
+
    if (!rrserver_user_target_allowed(client->user, &http_users[uid], false)) {
       admin_user_error(client, "Only owners may edit protected accounts (including admin accounts)");
       dict_free(fields);
+
       return;
    }
    const char *email = dict_get(fields, "email", http_users[uid].email);
@@ -180,10 +223,11 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    snprintf(previous_expiry, sizeof(previous_expiry), "%lld", (long long)http_users[uid].password_expires);
    const char *sessions = dict_get(fields, "maxsessions", previous_sessions);
    const char *expiry = dict_get(fields, "password_expires", previous_expiry);
-   if (dict_get_type(fields, "permissions") != VAL_END &&
-       !has_priv(client->user->uid, "owner") && rrserver_user_privilege_has_elevated(privs)) {
+
+   if (dict_get_type(fields, "permissions") != VAL_END && !has_priv(client->user->uid, "owner") && rrserver_user_privilege_has_elevated(privs)) {
       admin_user_error(client, "Only owners may grant protected privileges: owner, admin, bridge.admin, websdr.connect, websdr.admin");
       dict_free(fields);
+
       return;
    }
    char *end;
@@ -194,8 +238,7 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    long long expires = *expiry ? strtoll(expiry, &end, 10) : 0;
    valid = valid && (!*expiry || (!*end && !errno && expires >= 0));
    valid = valid && strlen(email) <= USER_EMAIL_LEN && !strchr(email, '\n') && !strchr(email, '\r') &&
-      (!strcmp(enabled, "0") || !strcmp(enabled, "1")) && (!strcmp(required, "0") || !strcmp(required, "1")) &&
-      rrserver_user_privilege_list_valid(privs, true);
+      (!strcmp(enabled, "0") || !strcmp(enabled, "1")) && (!strcmp(required, "0") || !strcmp(required, "1")) && rrserver_user_privilege_list_valid(privs, true);
 
    if (uid == client->user->uid && !strcmp(enabled, "0")) {
       valid = false;
@@ -207,32 +250,47 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
 
       return;
    }
-   const char *rig_option=dict_get(fields,"full_rig_access",NULL);
-   bool change_rig=rig_option!=NULL;
-   bool grant_rig=rig_option && !strcmp(rig_option,"1");
-   if (change_rig && ((strcmp(rig_option,"0") && strcmp(rig_option,"1")) ||
-       !has_priv(client->user->uid,"owner"))) {
-      admin_user_error(client,"Only owners may change Full Rig Access (0 or 1)");
+   const char *rig_option = dict_get(fields, "full_rig_access", NULL);
+   bool change_rig = rig_option != NULL;
+   bool grant_rig = rig_option && !strcmp(rig_option, "1");
+
+   if (change_rig && ((strcmp(rig_option, "0") && strcmp(rig_option, "1")) || !has_priv(client->user->uid, "owner"))) {
+      admin_user_error(client, "Only owners may change Full Rig Access (0 or 1)");
       dict_free(fields);
+
       return;
    }
-   dict_del(fields,"full_rig_access");
+   dict_del(fields, "full_rig_access");
    bool ok = db_user_edit(masterdb, name, fields);
+
    if (ok && change_rig) {
-      ok=admin_full_rig_access(name,"",grant_rig);
-      if (ok) Log(LOG_AUDIT,"auth.users","%s %s full rig access for %s",
-         client->chatname,grant_rig ? "granted" : "revoked",name);
+      ok = admin_full_rig_access(name, "", grant_rig);
+
+      if (ok) {
+         Log(LOG_AUDIT, "auth.users", "%s %s full rig access for %s", client->chatname, grant_rig ? "granted" : "revoked", name);
+      }
    }
 
    if (ok) {
-      const char *editable[] = {"email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"};
+      const char *editable[] = {
+         "email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"
+      };
       char changed[256] = "";
-      for (unsigned i = 0; i < sizeof(editable) / sizeof(editable[0]); i++) {
-         if (dict_get_type(fields, editable[i]) == VAL_END) continue;
-         if (*changed) strlcat(changed, ",", sizeof(changed));
+
+      for (unsigned i = 0 ; i < sizeof(editable) / sizeof(editable[0]) ; i++) {
+         if (dict_get_type(fields, editable[i]) == VAL_END) {
+            continue;
+         }
+
+         if (*changed) {
+            strlcat(changed, ",", sizeof(changed));
+         }
          strlcat(changed, editable[i], sizeof(changed));
       }
-      if (*changed) Log(LOG_AUDIT, "auth.users", "%s edited account %s fields %s", client->chatname, name, changed);
+
+      if (*changed) {
+         Log(LOG_AUDIT, "auth.users", "%s edited account %s fields %s", client->chatname, name, changed);
+      }
 
       if (rrserver_user_reload_database(client)) {
          rrserver_admin_send(client, "users", "changed", NULL);
@@ -249,31 +307,47 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
 
 /* Session IDs are non-secret fingerprints; never send bearer login tokens. */
 static char *admin_session_id(const rrconn_t *session) {
-   char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256,
-      session->token, -1);
-   if (digest) digest[20] = '\0';
+   char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256, session->token, -1);
+
+   if (digest) {
+      digest[20] = '\0';
+   }
+
    return digest;
 }
 static bool admin_can_kick(const rrconn_t *actor, const rrconn_t *target) {
-   if (!target || !target->authenticated || !target->is_ws || target == actor)
+   if (!target || !target->authenticated || !target->is_ws || target == actor) {
       return false;
-   if (!target->user) return false;
-   /* Admins cannot remove protected accounts. Even owners cannot kick
-    * another owner through this control. */
-   if (has_priv(target->user->uid, "owner")) return false;
-   return has_priv(actor->user->uid, "owner") ||
-      !has_priv(target->user->uid, "admin");
+   }
+
+   if (!target->user) {
+      return false;
+   }
+
+   /* Admins cannot remove protected accounts. Even owners cannot kick another owner through this control. */
+   if (has_priv(target->user->uid, "owner")) {
+      return false;
+   }
+
+   return has_priv(actor->user->uid, "owner") || !has_priv(target->user->uid, "admin");
 }
 static void admin_sessions_list(rrconn_t *client) {
    rrserver_admin_send(client, "sessions", "begin", NULL);
-   for (rrconn_t *session = http_client_list; session; session = session->next) {
-      if (!session->is_ws || !session->authenticated) continue;
+
+   for (rrconn_t *session = http_client_list ; session ; session = session->next) {
+      if (!session->is_ws || !session->authenticated) {
+         continue;
+      }
       char *id = admin_session_id(session);
       dict *row = dict_new();
-      if (!row || !id) { dict_free(row); g_free(id); continue; }
+
+      if (!row || !id) {
+         dict_free(row);
+         g_free(id);
+         continue;
+      }
       char connected_at[32];
-      snprintf(connected_at, sizeof(connected_at), "%lld",
-         (long long)session->connected);
+      snprintf(connected_at, sizeof(connected_at), "%lld", (long long)session->connected);
       dict_add(row, "id", id);
       dict_add(row, "username", session->chatname);
       dict_add(row, "ip", session->user_ip);
@@ -288,321 +362,458 @@ static void admin_sessions_list(rrconn_t *client) {
       dict_free(row);
       g_free(id);
    }
+
    rrserver_admin_send(client, "sessions", "end", NULL);
 }
-static void admin_sessions_kick(rrconn_t *client, const char *target,
-   bool all) {
+static void admin_sessions_kick(rrconn_t *client, const char *target, bool all) {
    unsigned kicked = 0;
+
    /* Save the next link before disconnecting the current client. */
-   for (rrconn_t *session = http_client_list; session;) {
+   for (rrconn_t *session = http_client_list ; session ; ) {
       rrconn_t *next = session->next;
+
       if (admin_can_kick(client, session)) {
          char *id = admin_session_id(session);
          bool matches = all || (id && target && !strcmp(id, target));
          g_free(id);
-         if (matches && ws_kick_client(session, "Session disconnected by administrator"))
+
+         if (matches && ws_kick_client(session, "Session disconnected by administrator")) {
             kicked++;
+         }
       }
       session = next;
    }
-   Log(LOG_AUDIT, "admin.sessions", "%s disconnected %u session(s)",
-      client->chatname, kicked);
+
+   Log(LOG_AUDIT, "admin.sessions", "%s disconnected %u session(s)", client->chatname, kicked);
    admin_sessions_list(client);
 }
 
-/* Owner-only management of reusable scoped policies.
- * Arguments are individually bound; remote subjects do not require accounts. */
+/* Owner-only management of reusable scoped policies. Arguments are individually bound; remote subjects do not require accounts. */
 static bool admin_privset_action(rrconn_t *client, const char *action, dict *request) {
-   if (strncmp(action, "privset-", 8)) return false;
+   if (strncmp(action, "privset-", 8)) {
+      return false;
+   }
+
    if (!has_priv(client->user->uid, "owner")) {
       ws_send_error(client, "Only owners may manage resource privilege sets");
+
       return true;
    }
    const char *name = dict_get(request, "talk.target", "");
    const char *data = dict_get(request, "talk.data", "");
+
    if (!*name || strlen(name) > 96 || strlen(data) > 512) {
       ws_send_error(client, "Invalid privilege set name or arguments");
+
       return true;
    }
    const char *sql = NULL;
    char a[130] = "", b[130] = "", d[130] = "", extra[2] = "";
-   int args = sscanf(data, "%129s %129s %129s %1s", a,b,d,extra);
+   int args = sscanf(data, "%129s %129s %129s %1s", a, b, d, extra);
+
    if (!strcmp(action, "privset-create")) {
       sql = "INSERT INTO privilege_sets(name,description,created_by) VALUES(?1,?2,?3)";
    } else if (!strcmp(action, "privset-delete")) {
-      if (*data) { ws_send_error(client, "privset-delete takes only a set name"); return true; }
+      if (*data) {
+         ws_send_error(client, "privset-delete takes only a set name");
+
+         return true;
+      }
       sql = "DELETE FROM privilege_sets WHERE name=?1";
    } else if (!strcmp(action, "privset-entry")) {
-      if (args != 2 || (strcmp(a,"allow") && strcmp(a,"deny")) ||
-          strlen(b) > 128) {
+      if (args != 2 || (strcmp(a, "allow") && strcmp(a, "deny")) || strlen(b) > 128) {
          ws_send_error(client, "Usage: /admin privset-entry SET allow|deny PRIVILEGE");
+
          return true;
       }
       sql = "INSERT INTO privilege_set_entries(set_id,effect,privilege) "
-         "SELECT id,?2,?3 FROM privilege_sets WHERE name=?1 "
-         "ON CONFLICT(set_id,privilege) DO UPDATE SET effect=excluded.effect";
+         "SELECT id,?2,?3 FROM privilege_sets WHERE name=?1 " "ON CONFLICT(set_id,privilege) DO UPDATE SET effect=excluded.effect";
    } else if (!strcmp(action, "privset-unentry")) {
-      if (args != 1) { ws_send_error(client, "Usage: /admin privset-unentry SET PRIVILEGE"); return true; }
-      sql = "DELETE FROM privilege_set_entries WHERE set_id="
-         "(SELECT id FROM privilege_sets WHERE name=?1) AND privilege=?2";
-   } else if (!strcmp(action, "privset-assign") || !strcmp(action, "privset-unassign")) {
-      if (args != 3 ||
-          !( !strcmp(b,"site") || !strcmp(b,"rig") || !strcmp(b,"vfo") ||
-             !strcmp(b,"room") || !strcmp(b,"media") || !strcmp(b,"serial") ||
-             !strcmp(b,"file") || !strcmp(b,"bridge")) ||
-          (!(!strcmp(b,"rig") && !strcmp(d,"*")) &&
-           (strlen(d) != 36 || !rr_object_uuid_valid(d)))) {
-         ws_send_error(client, "Usage: /admin privset-assign SET user@host KIND RESOURCE-UUID (or rig *)");
+      if (args != 1) {
+         ws_send_error(client, "Usage: /admin privset-unentry SET PRIVILEGE");
+
          return true;
       }
-      sql = !strcmp(action,"privset-assign")
+      sql = "DELETE FROM privilege_set_entries WHERE set_id=" "(SELECT id FROM privilege_sets WHERE name=?1) AND privilege=?2";
+   } else if (!strcmp(action, "privset-assign") || !strcmp(action, "privset-unassign")) {
+      if (args != 3 ||
+         !(!strcmp(b, "site") || !strcmp(b, "rig") || !strcmp(b, "vfo") ||
+         !strcmp(b, "room") || !strcmp(b, "media") || !strcmp(b, "serial") ||
+         !strcmp(b, "file") || !strcmp(b, "bridge")) || (!(!strcmp(b, "rig") && !strcmp(d, "*")) && (strlen(d) != 36 || !rr_object_uuid_valid(d)))) {
+         ws_send_error(client, "Usage: /admin privset-assign SET user@host KIND RESOURCE-UUID (or rig *)");
+
+         return true;
+      }
+      sql = !strcmp(action, "privset-assign")
          ? "INSERT INTO privilege_set_assignments "
-           "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
-           "SELECT id,?2,?3,?4,?5,?6 FROM privilege_sets WHERE name=?1 "
-           "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
-           "DO UPDATE SET assigned_by=excluded.assigned_by,assigned_at=unixepoch(),expires_at=NULL"
+         "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
+         "SELECT id,?2,?3,?4,?5,?6 FROM privilege_sets WHERE name=?1 "
+         "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
+         "DO UPDATE SET assigned_by=excluded.assigned_by,assigned_at=unixepoch(),expires_at=NULL"
          : "DELETE FROM privilege_set_assignments WHERE set_id="
-           "(SELECT id FROM privilege_sets WHERE name=?1) AND subject_user=?2 "
-           "COLLATE NOCASE AND subject_host=?3 COLLATE NOCASE "
-           "AND resource_kind=?4 AND resource_uuid=?5";
+         "(SELECT id FROM privilege_sets WHERE name=?1) AND subject_user=?2 "
+         "COLLATE NOCASE AND subject_host=?3 COLLATE NOCASE " "AND resource_kind=?4 AND resource_uuid=?5";
    } else {
       ws_send_error(client, "Unknown privilege set operation");
+
       return true;
    }
    char username[130] = "", host[130] = "";
+
    if (strstr(action, "assign")) {
       char *at = strchr(a, '@');
+
       if (at) {
          *at++ = 0;
+
          if (!*at || strlen(at) >= sizeof(host)) {
             ws_send_error(client, "Invalid remote site");
+
             return true;
          }
          snprintf(host, sizeof(host), "%s", at);
       }
+
       if (!*a || strlen(a) > HTTP_USER_LEN) {
          ws_send_error(client, "Invalid subject username");
+
          return true;
       }
       snprintf(username, sizeof(username), "%s", a);
    }
    sqlite3_stmt *st = NULL;
    int rc = sqlite3_prepare_v2(masterdb, sql, -1, &st, NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+
    if (rc == SQLITE_OK) {
-      if (!strcmp(action,"privset-create")) {
-         rc = sqlite3_bind_text(st,2,data,-1,SQLITE_TRANSIENT);
-         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,client->chatname,-1,SQLITE_TRANSIENT);
-      } else if (!strcmp(action,"privset-entry")) {
-         rc = sqlite3_bind_text(st,2,a,-1,SQLITE_TRANSIENT);
-         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,b,-1,SQLITE_TRANSIENT);
-      } else if (!strcmp(action,"privset-unentry")) {
-         rc = sqlite3_bind_text(st,2,a,-1,SQLITE_TRANSIENT);
-      } else if (strstr(action,"assign")) {
-         rc = sqlite3_bind_text(st,2,username,-1,SQLITE_TRANSIENT);
-         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,host,-1,SQLITE_TRANSIENT);
-         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,4,b,-1,SQLITE_TRANSIENT);
-         if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,5,d,-1,SQLITE_TRANSIENT);
-         if (rc == SQLITE_OK && !strcmp(action,"privset-assign"))
-            rc = sqlite3_bind_text(st,6,client->chatname,-1,SQLITE_TRANSIENT);
+      rc = sqlite3_bind_text(st, 1, name, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      if (!strcmp(action, "privset-create")) {
+         rc = sqlite3_bind_text(st, 2, data, -1, SQLITE_TRANSIENT);
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(st, 3, client->chatname, -1, SQLITE_TRANSIENT);
+         }
+      } else if (!strcmp(action, "privset-entry")) {
+         rc = sqlite3_bind_text(st, 2, a, -1, SQLITE_TRANSIENT);
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(st, 3, b, -1, SQLITE_TRANSIENT);
+         }
+      } else if (!strcmp(action, "privset-unentry")) {
+         rc = sqlite3_bind_text(st, 2, a, -1, SQLITE_TRANSIENT);
+      } else if (strstr(action, "assign")) {
+         rc = sqlite3_bind_text(st, 2, username, -1, SQLITE_TRANSIENT);
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(st, 3, host, -1, SQLITE_TRANSIENT);
+         }
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(st, 4, b, -1, SQLITE_TRANSIENT);
+         }
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(st, 5, d, -1, SQLITE_TRANSIENT);
+         }
+
+         if (rc == SQLITE_OK && !strcmp(action, "privset-assign")) {
+            rc = sqlite3_bind_text(st, 6, client->chatname, -1, SQLITE_TRANSIENT);
+         }
       }
    }
-   if (rc == SQLITE_OK) rc = sqlite3_step(st);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_step(st);
+   }
    bool ok = rc == SQLITE_DONE && sqlite3_changes(masterdb) > 0;
-   if (st) sqlite3_finalize(st);
+
+   if (st) {
+      sqlite3_finalize(st);
+   }
+
    if (!ok) {
-      Log(LOG_WARN,"privset","%s for %s failed: %s",action,name,sqlite3_errmsg(masterdb));
+      Log(LOG_WARN, "privset", "%s for %s failed: %s", action, name, sqlite3_errmsg(masterdb));
       ws_send_error(client, "Privilege set operation failed; check name, subject, or duplicates");
    } else {
-      db_add_audit_event(masterdb,client->chatname,action,name);
+      db_add_audit_event(masterdb, client->chatname, action, name);
       dict *row = dict_new();
+
       if (row) {
-         dict_add(row,"name",name);
-         dict_add(row,"operation",action);
-         rrserver_admin_send(client,"privsets","updated",row);
+         dict_add(row, "name", name);
+         dict_add(row, "operation", action);
+         rrserver_admin_send(client, "privsets", "updated", row);
          dict_free(row);
       }
    }
+
    return true;
 }
 
-/* Direct resource grants complement reusable set assignments. Both resolve
- * the same authoritative subject, and explicit deny takes precedence. */
+/* Direct resource grants complement reusable set assignments. Both resolve the same authoritative subject, and explicit deny takes precedence. */
 static bool admin_resource_action(rrconn_t *client, const char *action, dict *request) {
-   if (strcmp(action, "resource-grant") && strcmp(action, "resource-revoke")) return false;
+   if (strcmp(action, "resource-grant") && strcmp(action, "resource-revoke")) {
+      return false;
+   }
+
    if (!has_priv(client->user->uid, "owner")) {
       ws_send_error(client, "Only owners may edit scoped resource grants");
+
       return true;
    }
    const char *subject = dict_get(request, "talk.target", "");
    const char *data = dict_get(request, "talk.data", "");
    char username[HTTP_USER_LEN + 1] = "", host[128] = "";
    char kind[16] = "", uuid[64] = "", privilege[129] = "", effect[16] = "", extra[2] = "";
+
    if (!subject || !*subject || strlen(subject) > 256) {
       ws_send_error(client, "Resource grants require user@host subject");
+
       return true;
    }
    const char *at = strchr(subject, '@');
    size_t userlen = at ? (size_t)(at - subject) : strlen(subject);
-   if (!userlen || userlen > HTTP_USER_LEN || (at && (!at[1] ||
-       strchr(at + 1, '@') || strlen(at + 1) >= sizeof(host)))) {
+
+   if (!userlen || userlen > HTTP_USER_LEN || (at && (!at[1] || strchr(at + 1, '@') || strlen(at + 1) >= sizeof(host)))) {
       ws_send_error(client, "Invalid subject; use user or user@host");
+
       return true;
    }
    memcpy(username, subject, userlen);
-   if (at) snprintf(host, sizeof(host), "%s", at + 1);
-   int n = sscanf(data, "%15s %63s %128s %15s %1s",
-      kind,uuid,privilege,effect,extra);
+
+   if (at) {
+      snprintf(host, sizeof(host), "%s", at + 1);
+   }
+   int n = sscanf(data, "%15s %63s %128s %15s %1s", kind, uuid, privilege, effect, extra);
    bool granting = !strcmp(action, "resource-grant");
+
    if (n != (granting ? 4 : 3) ||
-       !( !strcmp(kind,"site") || !strcmp(kind,"rig") || !strcmp(kind,"vfo") ||
-          !strcmp(kind,"room") || !strcmp(kind,"media") || !strcmp(kind,"serial") ||
-          !strcmp(kind,"file") || !strcmp(kind,"bridge")) ||
-       !rr_object_uuid_valid(uuid) ||
-       (granting && strcmp(effect,"allow") && strcmp(effect,"deny"))) {
+      !(!strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") ||
+      !strcmp(kind, "room") || !strcmp(kind, "media") || !strcmp(kind, "serial") ||
+      !strcmp(kind, "file") || !strcmp(kind, "bridge")) || !rr_object_uuid_valid(uuid) || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
       ws_send_error(client, "Usage: /admin resource-grant USER@HOST KIND UUID PRIVILEGE allow|deny");
+
       return true;
    }
    const char *sql = granting
       ? "INSERT INTO resource_privileges "
-        "(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by) "
-        "VALUES(?1,?2,?3,?4,?5,?6,?7) "
-        "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
-        "DO UPDATE SET effect=excluded.effect,granted_by=excluded.granted_by,"
-        "granted_at=unixepoch(),expires_at=NULL"
+      "(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by) "
+      "VALUES(?1,?2,?3,?4,?5,?6,?7) "
+      "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
+      "DO UPDATE SET effect=excluded.effect,granted_by=excluded.granted_by,"
+      "granted_at=unixepoch(),expires_at=NULL"
       : "DELETE FROM resource_privileges WHERE subject_user=?1 COLLATE NOCASE "
-        "AND subject_host=?2 COLLATE NOCASE AND resource_kind=?3 "
-        "AND resource_uuid=?4 AND privilege=?5";
+      "AND subject_host=?2 COLLATE NOCASE AND resource_kind=?3 " "AND resource_uuid=?4 AND privilege=?5";
    sqlite3_stmt *st = NULL;
-   int rc = sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,1,username,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,2,host,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,3,kind,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,4,uuid,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(st,5,privilege,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK && granting) rc = sqlite3_bind_text(st,6,effect,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK && granting)
-      rc = sqlite3_bind_text(st,7,client->chatname,-1,SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_step(st);
+   int rc = sqlite3_prepare_v2(masterdb, sql, -1, &st, NULL);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(st, 1, username, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(st, 2, host, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(st, 3, kind, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(st, 4, uuid, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(st, 5, privilege, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK && granting) {
+      rc = sqlite3_bind_text(st, 6, effect, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK && granting) {
+      rc = sqlite3_bind_text(st, 7, client->chatname, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_step(st);
+   }
    bool ok = rc == SQLITE_DONE && sqlite3_changes(masterdb) == 1;
-   if (st) sqlite3_finalize(st);
+
+   if (st) {
+      sqlite3_finalize(st);
+   }
+
    if (!ok) {
-      Log(LOG_WARN,"privset","%s %s failed: %s",action,subject,sqlite3_errmsg(masterdb));
+      Log(LOG_WARN, "privset", "%s %s failed: %s", action, subject, sqlite3_errmsg(masterdb));
       ws_send_error(client, "Unable to update resource grant");
+
       return true;
    }
-   db_add_audit_event(masterdb,client->chatname,action,subject);
+   db_add_audit_event(masterdb, client->chatname, action, subject);
    dict *row = dict_new();
+
    if (row) {
-      dict_add(row,"subject",subject);
-      dict_add(row,"resource",uuid);
-      dict_add(row,"privilege",privilege);
-      rrserver_admin_send(client,"grants","updated",row);
+      dict_add(row, "subject", subject);
+      dict_add(row, "resource", uuid);
+      dict_add(row, "privilege", privilege);
+      rrserver_admin_send(client, "grants", "updated", row);
       dict_free(row);
    }
+
    return true;
 }
 
 /* Manage symbolic user groups without trusting caller-provided IDs or SQL. */
-static bool admin_group_action(rrconn_t *client,const char *action,dict *request) {
-   if (strncmp(action,"group-",6)) return false;
-   if (!has_priv(client->user->uid,"owner")) {
-      ws_send_error(client,"Only owners may manage user groups");
+static bool admin_group_action(rrconn_t *client, const char *action, dict *request) {
+   if (strncmp(action, "group-", 6)) {
+      return false;
+   }
+
+   if (!has_priv(client->user->uid, "owner")) {
+      ws_send_error(client, "Only owners may manage user groups");
+
       return true;
    }
-   const char *group=dict_get(request,"talk.target","");
-   const char *data=dict_get(request,"talk.data","");
-   if (!*group || strlen(group)>64) {
-      ws_send_error(client,"Select a valid group name");
+   const char *group = dict_get(request, "talk.target", "");
+   const char *data = dict_get(request, "talk.data", "");
+
+   if (!*group || strlen(group) > 64) {
+      ws_send_error(client, "Select a valid group name");
+
       return true;
    }
-   for (const unsigned char *p=(const unsigned char *)group;*p;p++)
-      if (!g_ascii_isalnum(*p) && *p!='-' && *p!='_') {
-         ws_send_error(client,"Group names allow letters, digits, _ and -");
+
+   for (const unsigned char *p = (const unsigned char *)group ; *p ; p++) {
+      if (!g_ascii_isalnum(*p) && *p != '-' && *p != '_') {
+         ws_send_error(client, "Group names allow letters, digits, _ and -");
+
          return true;
       }
-   const char *sql=NULL;
-   char user[HTTP_USER_LEN+1]="",host[128]="",kind[16]="",resource[129]="",priv[129]="",effect[16]="",extra[2]="";
-   if (!strcmp(action,"group-create")) {
-      if (strlen(data)>256) { ws_send_error(client,"Group description too long"); return true; }
-      sql="INSERT INTO user_groups(name,description) VALUES(?1,?2)";
-   } else if (!strcmp(action,"group-delete")) {
-      sql="DELETE FROM user_groups WHERE name=?1";
-   } else if (!strcmp(action,"group-add-user") || !strcmp(action,"group-remove-user")) {
-      if (!*data || strlen(data)>HTTP_USER_LEN+128 || strchr(data,' ')) {
-         ws_send_error(client,"Expected username or username@site");
+   }
+
+   const char *sql = NULL;
+   char user[HTTP_USER_LEN + 1] = "", host[128] = "", kind[16] = "", resource[129] = "", priv[129] = "", effect[16] = "", extra[2] = "";
+
+   if (!strcmp(action, "group-create")) {
+      if (strlen(data) > 256) {
+         ws_send_error(client, "Group description too long");
+
          return true;
       }
-      const char *at=strchr(data,'@');
-      size_t n=at ? (size_t)(at-data) : strlen(data);
-      if (!n || n>HTTP_USER_LEN || (at && (!at[1] || strlen(at+1)>=sizeof(host)))) {
-         ws_send_error(client,"Invalid group member");
+      sql = "INSERT INTO user_groups(name,description) VALUES(?1,?2)";
+   } else if (!strcmp(action, "group-delete")) {
+      sql = "DELETE FROM user_groups WHERE name=?1";
+   } else if (!strcmp(action, "group-add-user") || !strcmp(action, "group-remove-user")) {
+      if (!*data || strlen(data) > HTTP_USER_LEN + 128 || strchr(data, ' ')) {
+         ws_send_error(client, "Expected username or username@site");
+
          return true;
       }
-      memcpy(user,data,n);
-      if (at) snprintf(host,sizeof(host),"%s",at+1);
-      sql=!strcmp(action,"group-add-user") ?
+      const char *at = strchr(data, '@');
+      size_t n = at ? (size_t)(at - data) : strlen(data);
+
+      if (!n || n > HTTP_USER_LEN || (at && (!at[1] || strlen(at + 1) >= sizeof(host)))) {
+         ws_send_error(client, "Invalid group member");
+
+         return true;
+      }
+      memcpy(user, data, n);
+
+      if (at) {
+         snprintf(host, sizeof(host), "%s", at + 1);
+      }
+      sql = !strcmp(action, "group-add-user") ?
          "INSERT OR IGNORE INTO user_group_members(group_name,subject_user,subject_host) VALUES(?1,?2,?3)" :
          "DELETE FROM user_group_members WHERE group_name=?1 AND subject_user=?2 COLLATE NOCASE AND subject_host=?3 COLLATE NOCASE";
-   } else if (!strcmp(action,"group-grant") || !strcmp(action,"group-ungrant")) {
-      int count=sscanf(data,"%15s %128s %128s %15s %1s",kind,resource,priv,effect,extra);
-      bool granting=!strcmp(action,"group-grant");
+   } else if (!strcmp(action, "group-grant") || !strcmp(action, "group-ungrant")) {
+      int count = sscanf(data, "%15s %128s %128s %15s %1s", kind, resource, priv, effect, extra);
+      bool granting = !strcmp(action, "group-grant");
+
       if (count != (granting ? 4 : 3) ||
-          (strcmp(kind,"rig") && strcmp(kind,"room")) ||
-          !*resource || strlen(resource)>128 ||
-          (granting && strcmp(effect,"allow") && strcmp(effect,"deny"))) {
-         ws_send_error(client,"Usage: group-grant GROUP rig|room NAME|* PRIVILEGE allow|deny");
+         (strcmp(kind, "rig") && strcmp(kind, "room")) ||
+         !*resource || strlen(resource) > 128 || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
+         ws_send_error(client, "Usage: group-grant GROUP rig|room NAME|* PRIVILEGE allow|deny");
+
          return true;
       }
-      sql=granting ?
+      sql = granting ?
          "INSERT INTO user_group_privileges(group_name,resource_kind,resource_name,privilege,effect) VALUES(?1,?2,?3,?4,?5) "
          "ON CONFLICT(group_name,resource_kind,resource_name,privilege) DO UPDATE SET effect=excluded.effect" :
          "DELETE FROM user_group_privileges WHERE group_name=?1 AND resource_kind=?2 AND resource_name=?3 AND privilege=?4";
-   } else return false;
-   sqlite3_stmt *stmt=NULL;
-   int rc=sqlite3_prepare_v2(masterdb,sql,-1,&stmt,NULL);
-   if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,1,group,-1,SQLITE_TRANSIENT);
-   if (rc==SQLITE_OK) {
-      if (!strcmp(action,"group-create")) rc=sqlite3_bind_text(stmt,2,data,-1,SQLITE_TRANSIENT);
-      else if (!strcmp(action,"group-add-user") || !strcmp(action,"group-remove-user")) {
-         rc=sqlite3_bind_text(stmt,2,user,-1,SQLITE_TRANSIENT);
-         if (rc==SQLITE_OK) rc=sqlite3_bind_text(stmt,3,host,-1,SQLITE_TRANSIENT);
-      } else if (!strcmp(action,"group-grant") || !strcmp(action,"group-ungrant")) {
-         const char *params[]={kind,resource,priv,effect};
-         unsigned n=!strcmp(action,"group-grant") ? 4 : 3;
-         for (unsigned j=0;rc==SQLITE_OK && j<n;j++)
-            rc=sqlite3_bind_text(stmt,(int)j+2,params[j],-1,SQLITE_TRANSIENT);
+   } else {
+      return false;
+   }
+   sqlite3_stmt *stmt = NULL;
+   int rc = sqlite3_prepare_v2(masterdb, sql, -1, &stmt, NULL);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 1, group, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      if (!strcmp(action, "group-create")) {
+         rc = sqlite3_bind_text(stmt, 2, data, -1, SQLITE_TRANSIENT);
+      } else if (!strcmp(action, "group-add-user") || !strcmp(action, "group-remove-user")) {
+         rc = sqlite3_bind_text(stmt, 2, user, -1, SQLITE_TRANSIENT);
+
+         if (rc == SQLITE_OK) {
+            rc = sqlite3_bind_text(stmt, 3, host, -1, SQLITE_TRANSIENT);
+         }
+      } else if (!strcmp(action, "group-grant") || !strcmp(action, "group-ungrant")) {
+         const char *params[] = {
+            kind, resource, priv, effect
+         };
+         unsigned n = !strcmp(action, "group-grant") ? 4 : 3;
+
+         for (unsigned j = 0 ; rc == SQLITE_OK && j < n ; j++) {
+            rc = sqlite3_bind_text(stmt, (int)j + 2, params[j], -1, SQLITE_TRANSIENT);
+         }
       }
    }
-   if (rc==SQLITE_OK) rc=sqlite3_step(stmt);
-   sqlite3_finalize(stmt);
-   if (rc!=SQLITE_DONE) ws_send_error(client,"Unable to save group change: %s",sqlite3_errmsg(masterdb));
-   else {
-      db_add_audit_event(masterdb,client->chatname,action,group);
-      rrserver_admin_send(client,"groups","updated",NULL);
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_step(stmt);
    }
+   sqlite3_finalize(stmt);
+
+   if (rc != SQLITE_DONE) {
+      ws_send_error(client, "Unable to save group change: %s", sqlite3_errmsg(masterdb));
+   } else {
+      db_add_audit_event(masterdb, client->chatname, action, group);
+      rrserver_admin_send(client, "groups", "updated", NULL);
+   }
+
    return true;
 }
 
-static void admin_control_reply(rrconn_t *client, const rr_platform_control_state_t *s,
-      const char *action) {
+static void admin_control_reply(rrconn_t *client, const rr_platform_control_state_t *s, const char *action) {
    dict *row = dict_new();
-   if (!row) return;
+
+   if (!row) {
+      return;
+   }
    char number[32];
-   dict_add(row,"name",s->name);
-   dict_add(row,"label",s->label);
-   dict_add(row,"unit",s->unit);
-   dict_add(row,"privilege",s->privilege);
-   snprintf(number,sizeof(number),"%d",s->current); dict_add(row,"current",number);
-   snprintf(number,sizeof(number),"%d",s->minimum); dict_add(row,"minimum",number);
-   snprintf(number,sizeof(number),"%d",s->maximum); dict_add(row,"maximum",number);
-   snprintf(number,sizeof(number),"%d",s->step); dict_add(row,"step",number);
-   dict_add_bool(row,"writable",s->writable);
-   rrserver_admin_send(client,"controls",action,row);
+   dict_add(row, "name", s->name);
+   dict_add(row, "label", s->label);
+   dict_add(row, "unit", s->unit);
+   dict_add(row, "privilege", s->privilege);
+   snprintf(number, sizeof(number), "%d", s->current);
+   dict_add(row, "current", number);
+   snprintf(number, sizeof(number), "%d", s->minimum);
+   dict_add(row, "minimum", number);
+   snprintf(number, sizeof(number), "%d", s->maximum);
+   dict_add(row, "maximum", number);
+   snprintf(number, sizeof(number), "%d", s->step);
+   dict_add(row, "step", number);
+   dict_add_bool(row, "writable", s->writable);
+   rrserver_admin_send(client, "controls", action, row);
    dict_free(row);
 }
 static bool admin_control_visit(const rr_platform_control_state_t *s, void *user) {
-   admin_control_reply((rrconn_t *)user,s,"row");
+   admin_control_reply((rrconn_t *) user, s, "row");
+
    return false;
 }
 
@@ -621,140 +832,186 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
-   /* Node controls are exported through one generic, typed namespace.
-    * The old /admin backlight spelling remains an alias for clients that
-    * have not yet switched to /admin control display.brightness. */
+   /* Node controls are exported through one generic, typed namespace. The old /admin backlight spelling remains an alias for clients that have not yet switched
+    * to /admin control display.brightness. */
    const char *admin_data = dict_get(request, "talk.data", "");
-   if (!strcmp(action,"rig-access") || !strcmp(action,"room-access")) {
-      const char *subject=dict_get(request,"talk.target","");
-      const char *mode=dict_get(request,"talk.data","");
-      const char *at=strchr(subject,'@');
-      char username[HTTP_USER_LEN+1]={0};
-      const char *host=at ? at+1 : "";
-      bool valid=(at ? (size_t)(at-subject) : strlen(subject)) <= HTTP_USER_LEN &&
-         (at ? at>subject : *subject) && strlen(host)<128 &&
-         (!strcmp(mode,"allow") || !strcmp(mode,"revoke"));
+
+   if (!strcmp(action, "rig-access") || !strcmp(action, "room-access")) {
+      const char *subject = dict_get(request, "talk.target", "");
+      const char *mode = dict_get(request, "talk.data", "");
+      const char *at = strchr(subject, '@');
+      char username[HTTP_USER_LEN + 1] = {
+         0
+      };
+      const char *host = at ? at + 1 : "";
+      bool valid = (at ? (size_t)(at - subject) : strlen(subject)) <= HTTP_USER_LEN &&
+         (at ? at > subject : *subject) && strlen(host) < 128 && (!strcmp(mode, "allow") || !strcmp(mode, "revoke"));
+
       if (valid) {
-         size_t n=at ? (size_t)(at-subject) : strlen(subject);
-         memcpy(username,subject,n);
-         for (const char *p=username;*p;p++)
-            if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-' && *p!='.') valid=false;
-         for (const char *p=host;*p;p++)
-            if (!g_ascii_isalnum(*p) && *p!='_' && *p!='-') valid=false;
+         size_t n = at ? (size_t)(at - subject) : strlen(subject);
+         memcpy(username, subject, n);
+
+         for (const char *p = username ; *p ; p++) {
+            if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-' && *p != '.') {
+               valid = false;
+            }
+         }
+
+         for (const char *p = host ; *p ; p++) {
+            if (!g_ascii_isalnum(*p) && *p != '_' && *p != '-') {
+               valid = false;
+            }
+         }
       }
-      if (!has_priv(client->user->uid,"owner") || !valid) {
-         ws_send_error(client,"Owner privilege and a valid user@site are required");
-      } else if (!( !strcmp(action,"rig-access") ?
-          admin_full_rig_access(username,host,!strcmp(mode,"allow")) :
-          admin_all_rooms_access(username,host,!strcmp(mode,"allow")) )) {
-         ws_send_error(client,"Unable to update resource access assignment");
+
+      if (!has_priv(client->user->uid, "owner") || !valid) {
+         ws_send_error(client, "Owner privilege and a valid user@site are required");
+      } else if (!(!strcmp(action, "rig-access") ?
+         admin_full_rig_access(username, host, !strcmp(mode, "allow")) : admin_all_rooms_access(username, host, !strcmp(mode, "allow")))) {
+         ws_send_error(client, "Unable to update resource access assignment");
       } else {
-         db_add_audit_event(masterdb,client->chatname,
-            !strcmp(mode,"allow") ? "rig-access-grant" : "rig-access-revoke",subject);
-         rrserver_admin_send(client,"assignments","updated",NULL);
+         db_add_audit_event(masterdb, client->chatname, !strcmp(mode, "allow") ? "rig-access-grant" : "rig-access-revoke", subject);
+         rrserver_admin_send(client, "assignments", "updated", NULL);
       }
       dict_free(request);
+
       return;
    }
-   if (!strcmp(admin_data,"subjects")) {
-      if (!has_priv(client->user->uid,"owner")) {
-         ws_send_error(client,"Only owners may enumerate grant subjects");
+
+   if (!strcmp(admin_data, "subjects")) {
+      if (!has_priv(client->user->uid, "owner")) {
+         ws_send_error(client, "Only owners may enumerate grant subjects");
          dict_free(request);
+
          return;
       }
-      rrserver_admin_send(client,"subjects","begin",NULL);
-      for (int i=0;i<HTTP_MAX_USERS;i++) {
-         if (!http_users[i].name[0] || !http_users[i].enabled) continue;
-         dict *row=dict_new();
-         if (!row) continue;
-         dict_add(row,"user",http_users[i].name);
-         dict_add(row,"host","");
-         dict_add(row,"label",http_users[i].name);
-         rrserver_admin_send(client,"subjects","row",row);
+      rrserver_admin_send(client, "subjects", "begin", NULL);
+
+      for (int i = 0 ; i < HTTP_MAX_USERS ; i++) {
+         if (!http_users[i].name[0] || !http_users[i].enabled) {
+            continue;
+         }
+         dict *row = dict_new();
+
+         if (!row) {
+            continue;
+         }
+         dict_add(row, "user", http_users[i].name);
+         dict_add(row, "host", "");
+         dict_add(row, "label", http_users[i].name);
+         rrserver_admin_send(client, "subjects", "row", row);
          dict_free(row);
       }
+
 #ifdef USE_MONGOOSE
-      for (struct directory *entry=rr_relay_directories;entry;entry=entry->next) {
-         const char *host=entry->node;
-         for (struct catalog *site=rr_relay_catalogs;site;site=site->next) {
-            if (!strcmp(site->owner,entry->node) &&
-                !strcmp(dict_get(site->descriptor,"object.type",""),"node")) {
-               host=dict_get(site->descriptor,"object.alias",entry->node);
+
+      for (struct directory *entry = rr_relay_directories ; entry ; entry = entry->next) {
+         const char *host = entry->node;
+
+         for (struct catalog *site = rr_relay_catalogs ; site ; site = site->next) {
+            if (!strcmp(site->owner, entry->node) && !strcmp(dict_get(site->descriptor, "object.type", ""), "node")) {
+               host = dict_get(site->descriptor, "object.alias", entry->node);
                break;
             }
          }
-         for (unsigned i=0;i<dict_get_uint(entry->users,"count",0);i++) {
+
+         for (unsigned i = 0 ; i < dict_get_uint(entry->users, "count", 0) ; i++) {
             char key[64];
-            snprintf(key,sizeof(key),"user.%u.name",i);
-            const char *name=dict_get(entry->users,key,"");
-            if (!*name || !strcmp(host,cfg_get("station.name"))) continue;
-            dict *row=dict_new();
-            if (!row) continue;
+            snprintf(key, sizeof(key), "user.%u.name", i);
+            const char *name = dict_get(entry->users, key, "");
+
+            if (!*name || !strcmp(host, cfg_get("station.name"))) {
+               continue;
+            }
+            dict *row = dict_new();
+
+            if (!row) {
+               continue;
+            }
             char label[256];
-            snprintf(label,sizeof(label),"%s@%s",name,host);
-            dict_add(row,"user",name);
-            dict_add(row,"host",host);
-            dict_add(row,"label",label);
-            rrserver_admin_send(client,"subjects","row",row);
+            snprintf(label, sizeof(label), "%s@%s", name, host);
+            dict_add(row, "user", name);
+            dict_add(row, "host", host);
+            dict_add(row, "label", label);
+            rrserver_admin_send(client, "subjects", "row", row);
             dict_free(row);
          }
       }
+
 #endif
-      rrserver_admin_send(client,"subjects","end",NULL);
+      rrserver_admin_send(client, "subjects", "end", NULL);
       dict_free(request);
+
       return;
    }
-   if (!strcmp(admin_data,"controls")) {
-      rrserver_admin_send(client,"controls","begin",NULL);
-      rrserver_platform_control_foreach(admin_control_visit,client);
-      rrserver_admin_send(client,"controls","end",NULL);
+
+   if (!strcmp(admin_data, "controls")) {
+      rrserver_admin_send(client, "controls", "begin", NULL);
+      rrserver_platform_control_foreach(admin_control_visit, client);
+      rrserver_admin_send(client, "controls", "end", NULL);
       dict_free(request);
+
       return;
    }
-   if (!strncmp(admin_data,"control ",8)) {
+
+   if (!strncmp(admin_data, "control ", 8)) {
       char name[64], extra[2];
       int requested = -1;
-      int count = sscanf(admin_data + 8,"%63s %d %1s",name,&requested,extra);
+      int count = sscanf(admin_data + 8, "%63s %d %1s", name, &requested, extra);
+
       if ((count != 1 && count != 2) || (count == 2 && requested < 0)) {
-         ws_send_error(client,"Usage: /admin control NAME [nonnegative-integer]");
+         ws_send_error(client, "Usage: /admin control NAME [nonnegative-integer]");
          dict_free(request);
+
          return;
       }
       rr_platform_control_state_t state;
-      bool ok = count == 1
-         ? rrserver_platform_control_get(name,&state)
-         : rrserver_platform_control_set(name,requested,&state);
+      bool ok = count == 1 ? rrserver_platform_control_get(name, &state)
+         : rrserver_platform_control_set(name, requested, &state);
+
       if (!ok) {
-         ws_send_error(client,"Node control unavailable, read-only, or outside supported range");
+         ws_send_error(client, "Node control unavailable, read-only, or outside supported range");
       } else {
          if (count == 2) {
-            db_add_audit_event(masterdb,client->chatname,"platform.control",name);
+            db_add_audit_event(masterdb, client->chatname, "platform.control", name);
             rrserver_objects_platform_changed(&state);
          }
-         admin_control_reply(client,&state,"state");
+         admin_control_reply(client, &state, "state");
       }
       dict_free(request);
+
       return;
    }
-   if (admin_group_action(client,action,request)) { dict_free(request); return; }
+
+   if (admin_group_action(client, action, request)) {
+      dict_free(request);
+
+      return;
+   }
+
    if (admin_resource_action(client, action, request)) {
       dict_free(request);
+
       return;
    }
+
    if (admin_privset_action(client, action, request)) {
       dict_free(request);
+
       return;
    }
-   if (!strcmp(action, "session-kick") ||
-       !strcmp(action, "session-kick-all")) {
-      admin_sessions_kick(client, dict_get(request, "talk.target", ""),
-         !strcmp(action, "session-kick-all"));
+
+   if (!strcmp(action, "session-kick") || !strcmp(action, "session-kick-all")) {
+      admin_sessions_kick(client, dict_get(request, "talk.target", ""), !strcmp(action, "session-kick-all"));
       dict_free(request);
+
       return;
    }
+
    if (!strcmp(dict_get(request, "talk.data", ""), "sessions")) {
       admin_sessions_list(client);
       dict_free(request);
+
       return;
    }
 
@@ -820,24 +1077,20 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       sql = "SELECT rowid AS cursor,name,uuid,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "privsets")) {
       strcpy(table, "privsets");
-      sql = "SELECT id AS cursor,name,description,created_by,created_at FROM privilege_sets "
-         "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+      sql = "SELECT id AS cursor,name,description,created_by,created_at FROM privilege_sets " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    } else if (!strcasecmp(table, "setentries")) {
       strcpy(table, "setentries");
       sql = "SELECT e.rowid AS cursor,s.name AS set_name,e.privilege,e.effect "
-         "FROM privilege_set_entries e JOIN privilege_sets s ON s.id=e.set_id "
-         "WHERE (?=0 OR e.rowid<?) ORDER BY e.rowid DESC LIMIT 100";
+         "FROM privilege_set_entries e JOIN privilege_sets s ON s.id=e.set_id " "WHERE (?=0 OR e.rowid<?) ORDER BY e.rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "assignments")) {
       strcpy(table, "assignments");
       sql = "SELECT a.id AS cursor,s.name AS set_name,a.subject_user,a.subject_host,"
          "a.resource_kind,a.resource_uuid,a.expires_at FROM privilege_set_assignments a "
-         "JOIN privilege_sets s ON s.id=a.set_id "
-         "WHERE (?=0 OR a.id<?) ORDER BY a.id DESC LIMIT 100";
+         "JOIN privilege_sets s ON s.id=a.set_id " "WHERE (?=0 OR a.id<?) ORDER BY a.id DESC LIMIT 100";
    } else if (!strcasecmp(table, "grants")) {
       strcpy(table, "grants");
       sql = "SELECT id AS cursor,subject_user,subject_host,resource_kind,"
-         "resource_uuid,privilege,effect,expires_at FROM resource_privileges "
-         "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+         "resource_uuid,privilege,effect,expires_at FROM resource_privileges " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    } else if (!strcasecmp(table, "audit")) {
       strcpy(table, "audit");
       sql = "SELECT id AS cursor,id,timestamp,username,event_type,details FROM audit_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
@@ -860,10 +1113,12 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
 
       return;
    }
+
    if (sqlite3_bind_int64(statement, 1, before) != SQLITE_OK || sqlite3_bind_int64(statement, 2, before) != SQLITE_OK) {
       Log(LOG_CRIT, "db", "Admin %s listing bind failed: %s", table, sqlite3_errmsg(masterdb));
       sqlite3_finalize(statement);
       ws_send_error(client, "Unable to prepare database listing");
+
       return;
    }
    dict *metadata = dict_new();
@@ -904,10 +1159,12 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       }
       count++;
    }
+
    if (result != SQLITE_DONE && result != SQLITE_ROW) {
       Log(LOG_CRIT, "db", "Admin %s listing step failed (SQLite %d): %s", table, result, sqlite3_errmsg(masterdb));
       ws_send_error(client, "Unable to finish database listing");
    }
+
    if (sqlite3_finalize(statement) != SQLITE_OK) {
       Log(LOG_CRIT, "db", "Admin %s listing finalize failed: %s", table, sqlite3_errmsg(masterdb));
    }

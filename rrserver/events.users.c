@@ -492,9 +492,11 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       }
 
       bool ok = db_user_set_privileges(masterdb, target->name, updated);
+
       if (ok) {
          Log(LOG_AUDIT, "auth.users", "%s changed privileges for %s to %s", cptr->chatname, target->name, updated[0] ? updated : "none");
       }
+
       if (!ok || !rrserver_user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to update privileges for %s", target->name);
 
@@ -526,9 +528,11 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       bool enabled = strcasecmp(argv[0], "unlock") == 0;
 
       bool ok = db_user_set_enabled(masterdb, target->name, enabled);
+
       if (ok) {
          Log(LOG_AUDIT, "auth.users", "%s %s user %s", cptr->chatname, enabled ? "unlocked" : "locked", target->name);
       }
+
       if (!ok || !rrserver_user_reload_database(cptr)) {
          ws_send_notice(cptr, "USER: failed to %s %s", enabled ? "unlock" : "lock", target->name);
 

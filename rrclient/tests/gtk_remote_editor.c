@@ -14,10 +14,12 @@ gui_window_t *gui_find_window(GtkWidget *widget, const char *name) {
 gui_window_t *ui_new_window(GtkWidget *widget, const char *name) {
    window_record.gtk_win = widget;
    g_signal_connect(widget, "destroy", G_CALLBACK(registry_destroyed), NULL);
+
    return &window_record;
 }
 bool gui_forget_window(gui_window_t *window, const char *name) {
    window_record.gtk_win = NULL;
+
    return true;
 }
 bool place_window(GtkWidget *window) {
@@ -25,11 +27,13 @@ bool place_window(GtkWidget *window) {
 }
 bool rrclient_config_reload(const char *path) {
    reloads++;
+
    return true;
 }
 static bool remote_save(const char *local, void *data) {
    assert(data == (void *)1);
    saves++;
+
    return true;
 }
 static void remote_destroy(void *data) {

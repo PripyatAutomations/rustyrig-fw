@@ -36,7 +36,7 @@
 extern void rrclient_objects_register_events(void);
 extern void rrclient_irc_register_events(void);
 extern void rrclient_media_register_events(void);
-extern void rrclient_wsjtx_init(void);  // media.c
+extern void rrclient_wsjtx_init(void); // media.c
 extern void rrclient_media_available(dict *d, rrconn_t *cptr);    // media.c
 extern void rrclient_media_subscribed(dict *d, bool unsub);    // media.c
 extern void rrclient_media_chan_removed(dict *d);  // media.c
@@ -469,51 +469,57 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
 
    if (frontend_ops() && output_room) {
       if (frontend_ops()->chat_incoming) {
-         const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) &&
-            (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
+         const char *unread = msg_data && msg_type && strncasecmp(msg_type, "replay-", 7) && (!login_user || strcasecmp(from, login_user)) ? msg_data : NULL;
          frontend_ops()->chat_incoming(output_room, private_msg, unread, login_user);
       } else if (strcasecmp(output_room, ws_authoritative_room()) != 0) {
-         if (private_msg) frontend_ops()->chat_query_add(output_room);
-         else frontend_ops()->chat_room_add(output_room);
+         if (private_msg) {
+            frontend_ops()->chat_query_add(output_room);
+         } else {
+            frontend_ops()->chat_room_add(output_room);
+         }
       }
    }
 
    const char *raw_from = from;
    char decorated_from[HTTP_USER_LEN + 8];
+
    if (cptr && !cptr->is_ws && private_msg && userlist_is_oper(from)) {
       snprintf(decorated_from, sizeof(decorated_from), "!%s", from);
       from = decorated_from;
    } else if (!private_msg) {
       struct rr_user *member = userlist_find_in_room(from, output_room);
+
       if (member) {
          userlist_display_name(member, decorated_from, sizeof(decorated_from));
          from = decorated_from;
       }
    }
 
-   /* Render IRC privilege prefix separately so it does not inherit
-    * the nickname color.  Highlight delimiters only for nick mentions. */
+   /* Render IRC privilege prefix separately so it does not inherit the nickname color.  Highlight delimiters only for nick mentions. */
    char colored_from[HTTP_USER_LEN + 32];
    const char *nick_color = "";
+
    if (from && strchr("~&@%+!", from[0]) && from[1]) {
-      const char *color = from[0] == '+' ? "\00313" :
-         from[0] == '@' ? "\00311" :
-         from[0] == '!' ? "\00305" : "\00310";
-      snprintf(colored_from, sizeof(colored_from), "%s%c\017%s", color, from[0], from+1);
+      const char *color = from[0] == '+' ? "\00313" : from[0] == '@' ? "\00311" : from[0] == '!' ? "\00305" : "\00310";
+      snprintf(colored_from, sizeof(colored_from), "%s%c\017%s", color, from[0], from + 1);
       nick_color = colored_from;
-   } else nick_color = from ? from : "?";
+   } else {
+      nick_color = from ? from : "?";
+   }
    bool mention = false;
+
    if (msg_data && login_user && *login_user && raw_from && strcasecmp(raw_from, login_user)) {
       size_t n = strlen(login_user);
-      for (const char *p = msg_data; *p; p++) {
-         if (!strncasecmp(p, login_user, n) &&
-             (p == msg_data || !isalnum((unsigned char)p[-1])) &&
-             (!p[n] || !isalnum((unsigned char)p[n]))) {
-            mention = true; break;
+
+      for (const char *p = msg_data ; *p ; p++) {
+         if (!strncasecmp(p, login_user, n) && (p == msg_data || !isalnum((unsigned char)p[-1])) && (!p[n] || !isalnum((unsigned char)p[n]))) {
+            mention = true;
+            break;
          }
       }
    }
    const char *angle = mention ? "\00308" : "\00310";
+
    if (msg_cmd && strcasecmp(msg_cmd, "replay-start") == 0) {
       ui_print(output_room, "\00304>>>\017 Start of chat chat replay. \00304<<<\017");
    } else if (msg_cmd && strcasecmp(msg_cmd, "replay-complete") == 0) {
@@ -685,7 +691,10 @@ static tui_window_t *rrclient_tui_room_window(const char *room, bool create) {
 
    if (!window && create) {
       window = tui_window_create(rrclient_window_name(room));
-      if (window) rrclient_irc_query_opened(ws_conn, room);
+
+      if (window) {
+         rrclient_irc_query_opened(ws_conn, room);
+      }
    }
 
    if (window) {
@@ -719,10 +728,12 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          rrclient_room_set_offline(m_room, false);
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          const char *room_uuids = dict_get(d, "talk.vfos", "");
-         if (room_uuids && *room_uuids)
+
+         if (room_uuids && *room_uuids) {
             rrclient_room_set_vfos(m_room, room_uuids);
-         else
+         } else {
             rrclient_room_set_vfo_mask(m_room, has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
+         }
          rrclient_room_set_control_flags(m_room, dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room)), dict_get_bool(d, "room.rx-tunable",
             false));
          rrclient_room_set_rx_tuning_mask(m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
@@ -794,8 +805,7 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
    const char *vfos = dict_get(d, "talk.vfos", "");
 
    if (room) {
-      /* UUID-backed SDR bindings are not represented by the old native
-       * VFO bitmask. A zero mask must not erase their VFO controls. */
+      /* UUID-backed SDR bindings are not represented by the old native VFO bitmask. A zero mask must not erase their VFO controls. */
       if (*vfos) {
          rrclient_room_set_vfos(room, vfos);
       } else if (dict_get_type(d, "room.vfo-mask") != VAL_END) {
@@ -876,8 +886,8 @@ static void rrclient_handle_room_topic(const char *event, const char *data, rrco
       if (frontend_ops()) {
          frontend_ops()->chat_room_topic(room, topic);
       }
-      /* PARITY: rustyrig-www/js/webui.chat.js topic notices. A query's user
-       * identifies the requester, not necessarily the original topic setter. */
+
+      /* PARITY: rustyrig-www/js/webui.chat.js topic notices. A query's user identifies the requester, not necessarily the original topic setter. */
       if (!query && from && *from) {
          ui_print(room, "%s\00308Topic set by %s:\017 %s", get_chat_ts(dict_get_time_t(d, "msg.ts", now)), from, *topic ? topic : "(none)");
       } else {
@@ -1431,8 +1441,14 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    ui_print(output, "\00310***\017 Privileges: %s", privs);
    const char *site_location = dict_get(d, "talk.site-location", NULL);
    const char *site_description = dict_get(d, "talk.site-description", NULL);
-   if (site_location) ui_print(output, "\00310***\017 Server location: %s", site_location);
-   if (site_description) ui_print(output, "\00310***\017 Server description: %s", site_description);
+
+   if (site_location) {
+      ui_print(output, "\00310***\017 Server location: %s", site_location);
+   }
+
+   if (site_description) {
+      ui_print(output, "\00310***\017 Server description: %s", site_description);
+   }
 
    if (muted) {
       ui_print(output, "\00310***\017 \00304This user is currently MUTEd. Rigctl is temporarily suspended.\017");
@@ -1441,7 +1457,10 @@ static void rrclient_handle_whois(const char *event, const char *data, rrconn_t 
    ui_print(output, "\00310***\017 Sessions:   %d", sessions);
    /* PARITY: rustyrig-www/js/webui.chat.js WHOIS Rooms. */
    const char *rooms = dict_get(d, "talk.rooms", NULL);
-   if (rooms) ui_print(output, "\00310***\017 Rooms:      %s", *rooms ? rooms : s_none);
+
+   if (rooms) {
+      ui_print(output, "\00310***\017 Rooms:      %s", *rooms ? rooms : s_none);
+   }
 
    if (connected > 0) {
       char buf[64];

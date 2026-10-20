@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 // rrserver/database.privileges.c: scoped resource grant evaluation
 // This is part of rustyrig-fw, licensed under MIT without Mongoose.
@@ -11,23 +17,18 @@
 
 #ifdef USE_SQLITE
 /*
- * A subject is an already authenticated, authoritative user@host name.
- * This function MUST NOT perform remote identity resolution or accept
- * client-supplied identity fields. Caller resolves the authenticated user.
+ * A subject is an already authenticated, authoritative user@host name. This function MUST NOT perform remote identity resolution or accept client-supplied
+ * identity fields. Caller resolves the authenticated user.
  *
- * Evaluate direct grants and privilege-set membership together.
- * Explicit deny beats allow, across both sources. No matching rule denies.
- * This deliberately does NOT fall back to users.permissions; core privileges
- * and resource authorization are separate security domains.
+ * Evaluate direct grants and privilege-set membership together. Explicit deny beats allow, across both sources. No matching rule denies. This deliberately does
+ * NOT fall back to users.permissions; core privileges and resource authorization are separate security domains.
  */
-rr_resource_access_t db_resource_access_named(sqlite3 *db,
-      const char *subject_user, const char *subject_host,
-      const char *resource_kind, const char *resource_uuid,
-      const char *privilege, time_t now, const char *symbolic_name) {
-   if (!db || !subject_user || !*subject_user || !subject_host ||
-       !resource_kind || !*resource_kind || !resource_uuid ||
-       !*resource_uuid || !privilege || !*privilege)
+rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *
+   resource_uuid, const char *privilege, time_t now, const char *symbolic_name) {
+   if (!db || !subject_user || !*subject_user || !subject_host || !resource_kind || !*resource_kind || !resource_uuid || !*resource_uuid || !privilege
+      || !*privilege) {
       return RR_RESOURCE_DENY;
+   }
 
    static const char sql[] =
       "SELECT effect FROM resource_privileges "
@@ -48,34 +49,66 @@ rr_resource_access_t db_resource_access_named(sqlite3 *db,
       "AND (gp.resource_name='*' OR (length(?7)>0 AND gp.resource_name=?7 COLLATE NOCASE)) "
       "AND (gp.privilege=?5 OR (gp.resource_kind='rig' AND gp.privilege='rig.full'));";
    sqlite3_stmt *stmt = NULL;
-   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
       return RR_RESOURCE_DENY;
+   }
    int rc = sqlite3_bind_text(stmt, 1, subject_user, -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 2, subject_host, -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 3, resource_kind, -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 4, resource_uuid, -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_text(stmt, 5, privilege, -1, SQLITE_TRANSIENT);
-   if (rc == SQLITE_OK) rc = sqlite3_bind_int64(stmt, 6, (sqlite3_int64)now);
-   if (rc == SQLITE_OK) rc=sqlite3_bind_text(stmt,7,symbolic_name ? symbolic_name : "",-1,SQLITE_TRANSIENT);
-   if (rc != SQLITE_OK) { sqlite3_finalize(stmt); return RR_RESOURCE_DENY; }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 2, subject_host, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 3, resource_kind, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 4, resource_uuid, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 5, privilege, -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_int64(stmt, 6, (sqlite3_int64) now);
+   }
+
+   if (rc == SQLITE_OK) {
+      rc = sqlite3_bind_text(stmt, 7, symbolic_name ? symbolic_name : "", -1, SQLITE_TRANSIENT);
+   }
+
+   if (rc != SQLITE_OK) {
+      sqlite3_finalize(stmt);
+
+      return RR_RESOURCE_DENY;
+   }
 
    bool allow = false;
    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
       const unsigned char *effect = sqlite3_column_text(stmt, 0);
+
       if (effect && strcmp((const char *)effect, "deny") == 0) {
          sqlite3_finalize(stmt);
+
          return RR_RESOURCE_DENY;
       }
-      if (effect && strcmp((const char *)effect, "allow") == 0) allow = true;
+
+      if (effect && strcmp((const char *)effect, "allow") == 0) {
+         allow = true;
+      }
    }
    sqlite3_finalize(stmt);
-   if (rc != SQLITE_DONE) return RR_RESOURCE_DENY;
+
+   if (rc != SQLITE_DONE) {
+      return RR_RESOURCE_DENY;
+   }
+
    return allow ? RR_RESOURCE_ALLOW : RR_RESOURCE_UNSET;
 }
-rr_resource_access_t db_resource_access(sqlite3 *db,const char *subject_user,
-   const char *subject_host,const char *resource_kind,const char *resource_uuid,
-   const char *privilege,time_t now) {
-   return db_resource_access_named(db,subject_user,subject_host,resource_kind,
-      resource_uuid,privilege,now,NULL);
+rr_resource_access_t db_resource_access(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *resource_uuid,
+   const char *privilege, time_t now) {
+   return db_resource_access_named(db, subject_user, subject_host, resource_kind, resource_uuid, privilege, now, NULL);
 }
 #endif

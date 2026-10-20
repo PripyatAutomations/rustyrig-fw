@@ -333,6 +333,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       ui_print(arg1, "%s* %s kicked %s: %s", get_chat_ts(now), from, arg2, dict_get(message, "msg.arg3", ""));
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
       userlist_mark_oper(from, false);
+
       if (cptr != ws_conn) {
          goto done;
       }
@@ -351,6 +352,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       }
    } else if (!strcasecmp(cmd, "NICK") && argc >= 2 && *from) {
       bool oper = userlist_is_oper(from);
+
       if (!strcasecmp(from, cptr->nick)) {
          snprintf(cptr->nick, sizeof(cptr->nick), "%s", arg1);
          char *name = strdup(arg1);
@@ -418,10 +420,15 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       rrclient_irc_numeric(message, cmd, argc, cptr);
    } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && arg1[0] != '#' && arg1[0] != '&') {
       bool adding = true;
-      for (const char *mode = arg2; *mode; mode++) {
-         if (*mode == '+') adding = true;
-         else if (*mode == '-') adding = false;
-         else if (*mode == 'o') userlist_mark_oper(arg1, adding);
+
+      for (const char *mode = arg2 ; *mode ; mode++) {
+         if (*mode == '+') {
+            adding = true;
+         } else if (*mode == '-') {
+            adding = false;
+         } else if (*mode == 'o') {
+            userlist_mark_oper(arg1, adding);
+         }
       }
    } else if (!strcmp(cmd, "366") && argc >= 3) {
       userlist_names_end(arg2);

@@ -73,10 +73,8 @@ static void rrserver_handle_nomatch(const char *event, const char *data, rrconn_
    Log(LOG_WARN, "ws.nomatch", "NOMATCH: %s", data);
 }
 
-/* cat.freq is an intentional notification from librrprotocol after
- * a successful frequency change. The CAT broadcast and rigctl event already
- * handle distribution and application; acknowledge this optional event to
- * avoid treating normal tuning as an unhandled protocol warning. */
+/* cat.freq is an intentional notification from librrprotocol after a successful frequency change. The CAT broadcast and rigctl event already handle
+ * distribution and application; acknowledge this optional event to avoid treating normal tuning as an unhandled protocol warning. */
 static void rrserver_handle_cat_freq(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
@@ -399,9 +397,13 @@ static void rrserver_handle_authdb_load(const char *event, const char *data, rrc
 /* Refresh synchronously before login and command authorization. */
 static void rrserver_auth_refresh(const char *event, const void *data, size_t length, rrconn_t *client, void *context) {
 #ifdef USE_SQLITE
+
    if (length == sizeof(rr_server_auth_refresh_t) && cfg_get_bool("net.http.authdb-dynamic", false)) {
-      rr_server_auth_refresh_t *refresh = (rr_server_auth_refresh_t *)data;
-      if (!db_refresh_users(masterdb)) refresh->allowed = false;
+      rr_server_auth_refresh_t *refresh = (rr_server_auth_refresh_t *) data;
+
+      if (!db_refresh_users(masterdb)) {
+         refresh->allowed = false;
+      }
    }
 #endif
 }
@@ -411,6 +413,7 @@ static void rrserver_auth_poll(const char *event, const char *data, rrconn_t *cl
 #ifdef USE_SQLITE
    static time_t checked;
    extern time_t now;
+
    if (checked != now && cfg_get_bool("net.http.authdb-dynamic", false)) {
       checked = now;
       db_refresh_users(masterdb);

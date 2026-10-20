@@ -200,7 +200,10 @@ bool cmd_query(int argc, char **args) {
 
       if (!window) {
          window = tui_window_create(window_name);
-         if (window) rrclient_irc_query_opened(connection, args[1]);
+
+         if (window) {
+            rrclient_irc_query_opened(connection, args[1]);
+         }
       }
 
       if (window) {
@@ -235,7 +238,10 @@ bool cmd_join(int argc, char **args) {
 
          if (!window) {
             window = tui_window_create(window_name);
-         if (window) rrclient_irc_query_opened(connection, args[1]);
+
+            if (window) {
+               rrclient_irc_query_opened(connection, args[1]);
+            }
          }
 
          if (window) {
@@ -342,7 +348,10 @@ bool cmd_msg(int argc, char **args) {
 
          if (!window) {
             window = tui_window_create(window_name);
-         if (window) rrclient_irc_query_opened(connection, args[1]);
+
+            if (window) {
+               rrclient_irc_query_opened(connection, args[1]);
+            }
          }
 
          if (window) {
@@ -372,7 +381,10 @@ bool cmd_msg(int argc, char **args) {
 
       if (!window) {
          window = tui_window_create(window_name);
-         if (window) rrclient_irc_query_opened(connection, args[1]);
+
+         if (window) {
+            rrclient_irc_query_opened(connection, args[1]);
+         }
       }
 
       if (window) {
@@ -435,7 +447,10 @@ bool cmd_notice(int argc, char **args) {
 
       if (!window) {
          window = tui_window_create(window_name);
-         if (window) rrclient_irc_query_opened(connection, args[1]);
+
+         if (window) {
+            rrclient_irc_query_opened(connection, args[1]);
+         }
       }
 
       if (window) {

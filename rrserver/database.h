@@ -19,9 +19,13 @@
 /* Caller owns the returned JSON. Endpoint identities contain no credentials. */
 extern char *db_bridge_hints_get(sqlite3 *db, const char *identity);
 extern bool db_bridge_hints_set(sqlite3 *db, const char *identity, const char *json);
-typedef enum { RR_RESOURCE_DENY = 0, RR_RESOURCE_ALLOW = 1, RR_RESOURCE_UNSET = 2 } rr_resource_access_t;
-extern rr_resource_access_t db_resource_access(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *resource_uuid, const char *privilege, time_t now);
-extern rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *resource_uuid, const char *privilege, time_t now, const char *symbolic_name);
+typedef enum {
+   RR_RESOURCE_DENY = 0, RR_RESOURCE_ALLOW = 1, RR_RESOURCE_UNSET = 2
+} rr_resource_access_t;
+extern rr_resource_access_t db_resource_access(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *
+   resource_uuid, const char *privilege, time_t now);
+extern rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *subject_user, const char *subject_host, const char *resource_kind, const char *
+   resource_uuid, const char *privilege, time_t now, const char *symbolic_name);
 extern sqlite3 *db_open(const char *path);
 extern bool db_add_user(sqlite3 *db, int uid, const char *name, bool enabled, const char *password, const char *email, int maxsessions, const char *permissions)
 ;
@@ -40,8 +44,8 @@ extern bool db_refresh_users(sqlite3 *db);
 extern bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details);
 extern int db_ptt_start(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const char *
    record_file, const char *recording_id, const char *server);
-extern int db_ptt_start_supervised(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power,
-   const char *record_file, const char *recording_id, const char *server, const char *ticket, const char *elmers);
+extern int db_ptt_start_supervised(sqlite3 *db, const char *username, const char *vfo, double frequency, const char *mode, int bandwidth, float power, const
+   char *record_file, const char *recording_id, const char *server, const char *ticket, const char *elmers);
 extern bool db_ptt_stop(sqlite3 *db, int session_id, int *duration_secs, const char *stop_reason);
 extern int db_quota_get(sqlite3 *db, const char *username);
 extern bool db_quota_spend(sqlite3 *db, const char *username, int secs);

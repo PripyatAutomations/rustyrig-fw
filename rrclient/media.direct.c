@@ -222,8 +222,10 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
 
       if (channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO && channel->subsystem != RR_BINFRAME_SUBSYS_VIDEO) {
          report_route(channel, "connected", false);
+
          return;
       }
+
       if (channel->mode == RR_MEDIA_PROXY || (channel->mode == RR_MEDIA_AUTO && channel->route == 2)) {
          report_route(channel, "connected", false);
 

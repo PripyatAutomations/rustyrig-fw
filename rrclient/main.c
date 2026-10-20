@@ -659,8 +659,7 @@ int main(int argc, char *argv[]) {
 
 
    // Setup the tab complete and hotkeys
-   /* Shared completion provider is used by both GTK and TUI. Keep its
-    * registration, but defer all TUI-only callbacks until TUI is selected. */
+   /* Shared completion provider is used by both GTK and TUI. Keep its registration, but defer all TUI-only callbacks until TUI is selected. */
    tui_register_completion_provider(client_cmd_completions);
 
    // Reap exited children and expire warm encoders after fwdsp.hangtime.

@@ -72,100 +72,166 @@ struct serial_export {
 static struct serial_export exports[SERIAL_PORTS_MAX];
 static unsigned count;
 
-/* A persistent decoder is a real RX consumer. Keep bridge hardware awake
- * only while a local bound worker is alive; no terminal must be connected. */
+/* A persistent decoder is a real RX consumer. Keep bridge hardware awake only while a local bound worker is alive; no terminal must be connected. */
 bool rrserver_serial_rx_demand(const struct rr_server_rig *radio) {
-   if (!radio || !rig.rigs) return false;
+   if (!radio || !rig.rigs) {
+      return false;
+   }
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
-   if (!alias) return false;
-   for (unsigned i = 0; i < count; i++)
-      if (exports[i].virtual_modem && exports[i].fd >= 0 &&
-          !strcmp(exports[i].modem_rig, alias)) return true;
+
+   if (!alias) {
+      return false;
+   }
+
+   for (unsigned i = 0 ; i < count ; i++) {
+      if (exports[i].virtual_modem && exports[i].fd >= 0 && !strcmp(exports[i].modem_rig, alias)) {
+         return true;
+      }
+   }
+
    return false;
 }
 
 /* RX fanout is nonblocking: no worker can hold up the capture callback. */
 void rrserver_serial_rx_pcm(struct rr_server_rig *radio, const void *samples, size_t len) {
-   if (!radio || !samples || !len || !rig.rigs) return;
+   if (!radio || !samples || !len || !rig.rigs) {
+      return;
+   }
    const char *alias = rr_rig_registry_alias(rig.rigs, radio);
-   if (!alias) return;
-   for (unsigned i = 0; i < count; i++) {
+
+   if (!alias) {
+      return;
+   }
+
+   for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
-      if (!p->virtual_modem || strcmp(p->modem_rig, alias) ||
-          p->fd < 0 || p->worker.rx_pcm_fd < 0) continue;
+
+      if (!p->virtual_modem || strcmp(p->modem_rig, alias) || p->fd < 0 || p->worker.rx_pcm_fd < 0) {
+         continue;
+      }
       ssize_t n = write(p->worker.rx_pcm_fd, samples, len);
-      if (n != (ssize_t)len) p->pcm_dropped++;
+
+      if (n != (ssize_t) len) {
+         p->pcm_dropped++;
+      }
    }
 }
 
 /* Reversible hex lines retain NULs and arbitrary modem payloads. */
-static void modem_log(struct serial_export *p, const char *direction,
-   const void *bytes, size_t length) {
-   if (!p->traffic_log || !bytes || !length) return;
+static void modem_log(struct serial_export *p, const char *direction, const void *bytes, size_t length) {
+   if (!p->traffic_log || !bytes || !length) {
+      return;
+   }
    const unsigned char *data = bytes;
-   char *session_id = p->owner ?
-      g_compute_checksum_for_string(G_CHECKSUM_SHA256, p->owner->token, -1) : NULL;
-   if (session_id) session_id[20] = '\0';
-   fprintf(p->traffic_log, "%lld\t%s\t%s\t%s\t",
-      (long long)time(NULL), p->owner ? p->owner->chatname : "-",
-      session_id ? session_id : "-", direction);
+   char *session_id = p->owner ? g_compute_checksum_for_string(G_CHECKSUM_SHA256, p->owner->token, -1) : NULL;
+
+   if (session_id) {
+      session_id[20] = '\0';
+   }
+   fprintf(p->traffic_log, "%lld\t%s\t%s\t%s\t", (long long)time(NULL), p->owner ? p->owner->chatname : "-", session_id ? session_id : "-", direction);
    g_free(session_id);
-   for (size_t j = 0; j < length; j++) fprintf(p->traffic_log, "%02x", data[j]);
+
+   for (size_t j = 0 ; j < length ; j++) {
+      fprintf(p->traffic_log, "%02x", data[j]);
+   }
+
    fputc('\n', p->traffic_log);
 }
 
 /* Stable, bounded copy for privileged session reporting. Never expose FDs. */
 void rrserver_serial_client_exports(const struct rrconn *client, char *out, size_t size) {
-   if (!out || !size) return;
+   if (!out || !size) {
+      return;
+   }
    out[0] = 0;
-   if (!client) return;
-   for (unsigned i = 0; i < count; i++) {
-      if (exports[i].owner != client) continue;
+
+   if (!client) {
+      return;
+   }
+
+   for (unsigned i = 0 ; i < count ; i++) {
+      if (exports[i].owner != client) {
+         continue;
+      }
       size_t used = strlen(out);
-      if (used >= size - 1) break;
-      snprintf(out + used, size - used, "%s%s",
-         used ? ", " : "", exports[i].name);
+
+      if (used >= size - 1) {
+         break;
+      }
+      snprintf(out + used, size - used, "%s%s", used ? ", " : "", exports[i].name);
    }
 }
 
 static struct serial_session *sessions;
-/* Auto-export present USB serial devices by default; exports remain subject
- * to the existing per-user serial / serial.<name> authorization checks. */
+/* Auto-export present USB serial devices by default; exports remain subject to the existing per-user serial / serial.<name> authorization checks. */
 static bool serial_auto_name(const char *name) {
    const char *suffix = NULL;
-   if (g_str_has_prefix(name, "ttyUSB")) suffix = name + 6;
-   else if (g_str_has_prefix(name, "ttyACM")) suffix = name + 6;
-   if (!suffix || !*suffix) return false;
-   for (const char *p = suffix; *p; p++)
-      if (!g_ascii_isdigit(*p)) return false;
+
+   if (g_str_has_prefix(name, "ttyUSB")) {
+      suffix = name + 6;
+   } else if (g_str_has_prefix(name, "ttyACM")) {
+      suffix = name + 6;
+   }
+
+   if (!suffix || !*suffix) {
+      return false;
+   }
+
+   for (const char *p = suffix ; *p ; p++) {
+      if (!g_ascii_isdigit(*p)) {
+         return false;
+      }
+   }
+
    return true;
 }
 static void serial_discover_usb(void) {
-   if (!cfg_get_bool("serial.auto-export-usb", true)) return;
-   /* Remove disconnected auto-exports only when they aren't owned.
-    * Keep an owned device's state intact until its session is closed. */
-   for (unsigned i = 0; i < count;) {
+   if (!cfg_get_bool("serial.auto-export-usb", true)) {
+      return;
+   }
+
+   /* Remove disconnected auto-exports only when they aren't owned. Keep an owned device's state intact until its session is closed. */
+   for (unsigned i = 0 ; i < count ; ) {
       struct serial_export *p = &exports[i];
       struct stat st;
-      if (p->autodiscovered && !p->owner &&
-          (stat(p->path, &st) || !S_ISCHR(st.st_mode))) {
+
+      if (p->autodiscovered && !p->owner && (stat(p->path, &st) || !S_ISCHR(st.st_mode))) {
          exports[i] = exports[--count];
          memset(&exports[count], 0, sizeof(exports[count]));
-      } else i++;
+      } else {
+         i++;
+      }
    }
+
    GDir *dir = g_dir_open("/dev", 0, NULL);
-   if (!dir) return;
+
+   if (!dir) {
+      return;
+   }
    const char *name;
    while (count < SERIAL_PORTS_MAX && (name = g_dir_read_name(dir))) {
-      if (!serial_auto_name(name)) continue;
+      if (!serial_auto_name(name)) {
+         continue;
+      }
       bool exists = false;
-      for (unsigned i = 0; i < count; i++)
-         if (!strcmp(exports[i].name, name)) { exists = true; break; }
-      if (exists) continue;
+
+      for (unsigned i = 0 ; i < count ; i++) {
+         if (!strcmp(exports[i].name, name)) {
+            exists = true;
+            break;
+         }
+      }
+
+      if (exists) {
+         continue;
+      }
       char path[PATH_MAX];
       snprintf(path, sizeof(path), "/dev/%s", name);
       struct stat st;
-      if (stat(path, &st) || !S_ISCHR(st.st_mode)) continue;
+
+      if (stat(path, &st) || !S_ISCHR(st.st_mode)) {
+         continue;
+      }
       struct serial_export *p = &exports[count++];
       memset(p, 0, sizeof(*p));
       snprintf(p->name, sizeof(p->name), "%s", name);
@@ -173,7 +239,9 @@ static void serial_discover_usb(void) {
       p->fd = p->keeper = -1;
       p->autodiscovered = true;
       p->buffer_limit = 16384;
-      p->settings = (rr_serial_settings_t){.baud=9600,.bits=8,.parity='n',.stops=1};
+      p->settings = (rr_serial_settings_t) {
+         .baud = 9600, .bits = 8, .parity = 'n', .stops = 1
+      };
       p->defaults = p->settings;
    }
    g_dir_close(dir);
@@ -226,35 +294,47 @@ static void reply(rrconn_t *client, const char *cmd, const char *name, const str
    ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
 }
-/* A software modem exposes a full-duplex byte stream over stdin/stdout.
- * Its separate RF/audio/PTT control plane is managed by the modem worker. */
+
+/* A software modem exposes a full-duplex byte stream over stdin/stdout. Its separate RF/audio/PTT control plane is managed by the modem worker. */
 static int open_modem_worker(struct serial_export *p) {
    rr_dsp_worker_init(&p->worker);
-   if (!rr_dsp_worker_spawn(&p->worker, p->command)) return -1;
-   /* Serial data is routed through the existing MODEM binary transport.
-    * PCM/control descriptors are reserved for the rig-bound supervisor. */
+
+   if (!rr_dsp_worker_spawn(&p->worker, p->command)) {
+      return -1;
+   }
+
+   /* Serial data is routed through the existing MODEM binary transport. PCM/control descriptors are reserved for the rig-bound supervisor. */
    return p->worker.serial_fd;
 }
-/* A modem belongs to its rig, not to an attached WebSocket. Detaching a
- * client leaves the subprocess alive and able to monitor RF. */
+
+/* A modem belongs to its rig, not to an attached WebSocket. Detaching a client leaves the subprocess alive and able to monitor RF. */
 static void modem_failed(struct serial_export *p) {
-   if (!p->virtual_modem) return;
+   if (!p->virtual_modem) {
+      return;
+   }
    rr_dsp_worker_stop(&p->worker);
    p->fd = -1;
    unsigned delay = 1u << (p->modem_failures < 5 ? p->modem_failures : 5);
-   if (p->modem_failures < 5) p->modem_failures++;
-   p->modem_retry_at = g_get_monotonic_time() + (gint64)delay * G_USEC_PER_SEC;
+
+   if (p->modem_failures < 5) {
+      p->modem_failures++;
+   }
+   p->modem_retry_at = g_get_monotonic_time() + (gint64) delay * G_USEC_PER_SEC;
    Log(LOG_WARN, "serial.modem", "%s worker unavailable; retry in %u s", p->name, delay);
 }
 static void modem_ensure_running(struct serial_export *p) {
-   if (!p->virtual_modem || p->fd >= 0 ||
-       g_get_monotonic_time() < p->modem_retry_at) return;
+   if (!p->virtual_modem || p->fd >= 0 || g_get_monotonic_time() < p->modem_retry_at) {
+      return;
+   }
    p->fd = open_modem_worker(p);
+
    if (p->fd >= 0) {
       p->modem_retry_at = 0;
       p->modem_failures = 0;
       Log(LOG_INFO, "serial.modem", "%s worker started", p->name);
-   } else modem_failed(p);
+   } else {
+      modem_failed(p);
+   }
 }
 static void close_port(struct serial_export *p) {
    if (p->virtual_modem) {
@@ -268,7 +348,10 @@ static void close_port(struct serial_export *p) {
    free(p->buffer);
    p->buffer = NULL;
    p->buffered = 0;
-   if (!p->virtual_modem) p->fd = -1;
+
+   if (!p->virtual_modem) {
+      p->fd = -1;
+   }
    p->owner = NULL;
    p->stream = 0;
    p->client_name[0] = '\0';
@@ -375,7 +458,10 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
       reply(client, "error", name, NULL, "invalid-request");
       goto done;
    }
-   if (!strcmp(cmd, "list") || !strcmp(cmd, "open")) serial_discover_usb();
+
+   if (!strcmp(cmd, "list") || !strcmp(cmd, "open")) {
+      serial_discover_usb();
+   }
    struct serial_export *p = owned(client, name);
 
    if (!strcmp(cmd, "list")) {
@@ -444,8 +530,12 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          reply(client, "error", name, NULL, "no-buffer-memory");
          goto done;
       }
-      if (p->virtual_modem) modem_ensure_running(p);
-      else p->fd = rr_serial_device_open(p->path, &proposed, &p->original);
+
+      if (p->virtual_modem) {
+         modem_ensure_running(p);
+      } else {
+         p->fd = rr_serial_device_open(p->path, &proposed, &p->original);
+      }
 
       if (p->fd < 0) {
          free(p->buffer);
@@ -683,24 +773,30 @@ bool rrserver_serial_poll(void) {
 
       if (p->virtual_modem) {
          modem_ensure_running(p);
+
          if (!p->owner) {
-            /* An RX modem keeps running without subscribers. Drain its
-             * serial output so the child never blocks on an idle PTY. */
+            /* An RX modem keeps running without subscribers. Drain its serial output so the child never blocks on an idle PTY. */
             if (p->fd >= 0) {
                unsigned char discarded[1024];
                ssize_t n = read(p->fd, discarded, sizeof(discarded));
-               if (!n || (n < 0 && errno != EAGAIN && errno != EINTR))
+
+               if (!n || (n < 0 && errno != EAGAIN && errno != EINTR)) {
                   modem_failed(p);
+               }
             }
             continue;
          }
+
          if (p->fd < 0) {
             reply(p->owner, "closed", p->client_name, p, "worker-unavailable");
             close_port(p);
             continue;
          }
       }
-      if (!p->owner) continue;
+
+      if (!p->owner) {
+         continue;
+      }
       active = true;
 
       if (!allowed(p->owner, p)) {
@@ -713,7 +809,9 @@ bool rrserver_serial_poll(void) {
          ssize_t n = write(p->fd, p->pending + p->pending_offset, p->pending_len - p->pending_offset);
 
          if (n > 0) {
-            if (p->virtual_modem) modem_log(p, "TX", p->pending + p->pending_offset, n);
+            if (p->virtual_modem) {
+               modem_log(p, "TX", p->pending + p->pending_offset, n);
+            }
             p->pending_offset += n;
 
             if (p->pending_offset == p->pending_len) {
@@ -740,7 +838,9 @@ bool rrserver_serial_poll(void) {
          ssize_t n = read(p->fd, p->buffer + p->buffered, room);
 
          if (n > 0) {
-            if (p->virtual_modem) modem_log(p, "RX", p->buffer + p->buffered, n);
+            if (p->virtual_modem) {
+               modem_log(p, "RX", p->buffer + p->buffered, n);
+            }
             p->buffered += n;
          } else if (!n || (errno != EAGAIN && errno != EINTR)) {
             goto failed;
@@ -780,15 +880,24 @@ bool rrserver_serial_poll(void) {
       continue;
 failed:
       reply(p->owner, "closed", p->client_name, p, "device-disconnected");
-      if (p->virtual_modem) modem_failed(p);
+
+      if (p->virtual_modem) {
+         modem_failed(p);
+      }
       close_port(p);
    }
+
    return active;
 }
 
-static void inventory_serial_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog, const char *parent) {
+static void inventory_serial_rows(rrconn_t *client, const char *scope, const char *request, unsigned depth, const rr_inventory_catalog_t *catalog, const char *
+   parent) {
    serial_discover_usb();
-   if (!cfg_get_bool("serial.enable", true)) return;
+
+   if (!cfg_get_bool("serial.enable", true)) {
+      return;
+   }
+
    for (unsigned i = 0 ; i < count ; i++) {
       struct serial_export *p = &exports[i];
 
@@ -800,30 +909,43 @@ static void inventory_serial_rows(rrconn_t *client, const char *scope, const cha
       if (!row) {
          continue;
       }
-      if (parent && *parent) dict_add(row, "inventory.parent", parent);
+
+      if (parent && *parent) {
+         dict_add(row, "inventory.parent", parent);
+      }
       dict_add(row, "inventory.service", p->service == 1 ? "gps-in" : p->service == 2 ? "gps-out" : p->virtual_modem ? "modem" : "serial");
-      dict_add(row, "inventory.state", p->service ? "server-local" :
-         p->virtual_modem && p->fd < 0 ? "unavailable" : p->owner ? "busy" : "available");
+      dict_add(row, "inventory.state", p->service ? "server-local" : p->virtual_modem && p->fd < 0 ? "unavailable" : p->owner ? "busy" : "available");
       char privileges[sizeof(p->name) + 14];
       snprintf(privileges, sizeof(privileges), "serial|serial.%s", p->name);
       dict_add(row, "inventory.access", privileges);
       dict_add(row, "inventory.action", p->service ? "server-config-only" : "/sercom attach <local-name> host:<name>");
-      if (catalog) catalog->emit(row, catalog->context);
-      else rr_inventory_send(client, row);
+
+      if (catalog) {
+         catalog->emit(row, catalog->context);
+      } else {
+         rr_inventory_send(client, row);
+      }
    }
 }
 
 static void inventory_serial(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!client || !client->authenticated) return;
+   if (!client || !client->authenticated) {
+      return;
+   }
    dict *request = json2dict(data);
-   if (!request) return;
-   inventory_serial_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""),
-      dict_get_uint(request, "inventory.depth", 1), NULL, dict_get(request, "inventory.parent", ""));
+
+   if (!request) {
+      return;
+   }
+   inventory_serial_rows(client, dict_get(request, "inventory.scope", ""), dict_get(request, "request.id", ""), dict_get_uint(request, "inventory.depth", 1),
+      NULL, dict_get(request, "inventory.parent", ""));
    dict_free(request);
 }
 
 static void inventory_serial_catalog(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
-   if (length != sizeof(rr_inventory_catalog_t)) return;
+   if (length != sizeof(rr_inventory_catalog_t)) {
+      return;
+   }
    const rr_inventory_catalog_t *catalog = data;
    inventory_serial_rows(NULL, catalog->scope, "", 0, catalog, NULL);
 }
@@ -834,8 +956,7 @@ void rrserver_serial_init(void) {
    int rank = 0;
 
    while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-      if (!key || strncmp(key, "serial.", 7) || !strcmp(key, "serial.auto-export-usb") ||
-          !value || !*value || !strcmp(value, "none")) {
+      if (!key || strncmp(key, "serial.", 7) || !strcmp(key, "serial.auto-export-usb") || !value || !*value || !strcmp(value, "none")) {
          continue;
       }
 
@@ -952,28 +1073,37 @@ void rrserver_serial_init(void) {
             continue;
          }
       }
+
       if (p->virtual_modem) {
          snprintf(option, sizeof(option), "serial:%s.rig", p->name);
          const char *bound = cfg_get(option);
-         if (bound && *bound)
+
+         if (bound && *bound) {
             snprintf(p->modem_rig, sizeof(p->modem_rig), "%s", bound);
-         else if (g_str_has_prefix(p->name, "ttyMODEM")) {
+         } else if (g_str_has_prefix(p->name, "ttyMODEM")) {
             char suffix[sizeof(p->name)];
             snprintf(suffix, sizeof(suffix), "%s", p->name + strlen("ttyMODEM"));
             snprintf(p->modem_rig, sizeof(p->modem_rig), "rig%s", suffix);
          }
          snprintf(option, sizeof(option), "serial:%s.log", p->name);
          const char *log_path = cfg_get(option);
+
          if (log_path && *log_path) {
             p->traffic_log = fopen(log_path, "a");
-            if (!p->traffic_log)
+
+            if (!p->traffic_log) {
                Log(LOG_WARN, "serial.modem", "Cannot open traffic log for %s: %s", p->name, strerror(errno));
-            else setvbuf(p->traffic_log, NULL, _IOLBF, 0);
+            } else {
+               setvbuf(p->traffic_log, NULL, _IOLBF, 0);
+            }
          }
       }
       p->defaults = p->settings;
       count++;
-      if (p->virtual_modem) modem_ensure_running(p);
+
+      if (p->virtual_modem) {
+         modem_ensure_running(p);
+      }
    }
    serial_discover_usb();
    catalog_token = event_on_binary_token(RR_INVENTORY_CATALOG_EVENT, inventory_serial_catalog, NULL);
@@ -988,8 +1118,14 @@ void rrserver_serial_init(void) {
 void rrserver_serial_fini(void) {
    for (unsigned i = 0 ; i < count ; i++) {
       close_port(&exports[i]);
-      if (exports[i].virtual_modem) rr_dsp_worker_stop(&exports[i].worker);
-      if (exports[i].traffic_log) fclose(exports[i].traffic_log);
+
+      if (exports[i].virtual_modem) {
+         rr_dsp_worker_stop(&exports[i].worker);
+      }
+
+      if (exports[i].traffic_log) {
+         fclose(exports[i].traffic_log);
+      }
    }
 
    count = 0;

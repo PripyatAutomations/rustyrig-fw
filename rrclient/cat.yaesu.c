@@ -143,16 +143,16 @@ static void cat_mode_set(const char *digit) {
    ws_send_mode_cmd_in_room(ws_conn, cat_vfo_str(0), mode, rr_cat_room());
 }
 
-/* Copy a complete known VFO state without selecting either bank.
- * The destination's frequency and mode are applied through the usual
- * room-scoped CAT control path. Never overwrite with guessed values. */
+/* Copy a complete known VFO state without selecting either bank. The destination's frequency and mode are applied through the usual room-scoped CAT control
+ * path. Never overwrite with guessed values. */
 static void cat_copy_vfo(const char *source, const char *destination) {
    const char *room = rr_cat_room();
    long frequency = rr_cat_property_long(source, "frequency", 0);
    const char *mode = rr_cat_property(source, "mode", NULL);
+
    if (!room || !*room || frequency <= 0 || frequency > INT_MAX || !mode || !*mode) {
-      Log(LOG_WARN, "cat.yaesu", "Cannot copy VFO %s to %s: frequency/mode state unavailable",
-         source, destination);
+      Log(LOG_WARN, "cat.yaesu", "Cannot copy VFO %s to %s: frequency/mode state unavailable", source, destination);
+
       return;
    }
    char saved_mode[32];
@@ -322,17 +322,18 @@ void rr_cat_yaesu_id(const char *args) {
 }                               // IDentification
 
 void rr_cat_yaesu_info(const char *args) {
-   /* FT-891 IF answer: 3-digit channel, 9-digit VFO-A frequency,
-    * clarifier sign/offset, CLAR flag, fixed zero, mode, VFO/memory,
-    * CTCSS, two fixed digits and simplex/shift. 28 bytes in total. */
-   if (args && *args) return; /* IF is read-only. */
+   /* FT-891 IF answer: 3-digit channel, 9-digit VFO-A frequency, clarifier sign/offset, CLAR flag, fixed zero, mode, VFO/memory, CTCSS, two fixed digits and
+    * simplex/shift. 28 bytes in total. */
+   if (args && *args) {
+      return;                   /* IF is read-only. */
+   }
    long freq = rr_cat_property_long("A", "frequency", 0);
-   if (freq < 0 || freq > 999999999L) freq = 0;
+
+   if (freq < 0 || freq > 999999999L) {
+      freq = 0;
+   }
    int mode = cat_mode_digit();
-   rr_cat_printf("IF%03d%09ld+%04d%c%c%c%c%c%02d%c;",
-      0, freq, 0, '0', '0',
-      "0123456789ABCD"[mode >= 0 && mode <= 13 ? mode : 2],
-      '0', '0', 0, '0');
+   rr_cat_printf("IF%03d%09ld+%04d%c%c%c%c%c%02d%c;", 0, freq, 0, '0', '0', "0123456789ABCD"[mode >= 0 && mode <= 13 ? mode : 2], '0', '0', 0, '0');
    Log(LOG_CRAZY, "cat.yaesu", "IF status: VFO A=%ld mode=%d", freq, mode);
 }                               // Get receiver status
 
@@ -515,13 +516,10 @@ void rr_cat_yaesu_width(const char *args) {
    if (args[0] == '0' || args[0] == '1') {
       if (!args[1]) {
          // "SH0;" -- query
-         /* Hamlib 4.6.2 NewCAT accepts SH replies of length 6 or 7
-          * (including ';'), not a raw four-digit Hz bandwidth. A
-          * zero three-digit filter code means default bandwidth; this
-          * is safer than inventing a model-specific SH code from Hz. */
+         /* Hamlib 4.6.2 NewCAT accepts SH replies of length 6 or 7 (including ';'), not a raw four-digit Hz bandwidth. A zero three-digit filter code means
+          * default bandwidth; this is safer than inventing a model-specific SH code from Hz. */
          rr_cat_printf("SH000;");
-         Log(LOG_CRAZY, "cat.yaesu",
-            "WIDTH read (band %c) -> default filter code 000", args[0]);
+         Log(LOG_CRAZY, "cat.yaesu", "WIDTH read (band %c) -> default filter code 000", args[0]);
 
          return;
       }
@@ -544,24 +542,34 @@ void rr_cat_yaesu_squelch(const char *args) {
 
 void rr_cat_yaesu_split(const char *args) {
    const char *room = rr_cat_room();
-   if (!room || !*room) return;
+
+   if (!room || !*room) {
+      return;
+   }
+
    if (!args || !args[0]) {
-      /* Do not invent split state. Real readback requires a confirmed
-       * server-side Hamlib observation. */
+      /* Do not invent split state. Real readback requires a confirmed server-side Hamlib observation. */
       long state = rr_cat_property_long(cat_vfo_str(0), "split", -1);
+
       if (state == 0 || state == 1) {
          rr_cat_printf("ST%ld;", state);
       } else {
          Log(LOG_DEBUG, "cat.yaesu", "ST readback unavailable for %s", room);
       }
+
       return;
    }
+
    if ((args[0] != '0' && args[0] != '1') || args[1]) {
       Log(LOG_WARN, "cat.yaesu", "Unsupported FT-891 ST value %s", args);
+
       return;
    }
    dict *d = dict_new();
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.cmd", "split");
    dict_add(d, "cat.room", room);
@@ -572,12 +580,13 @@ void rr_cat_yaesu_split(const char *args) {
 }                               // Split
 
 void rr_cat_yaesu_swap_vfo(const char *args) {
-   /* FT-891 SV; is an A/B exchange. In RustyRig the server's
-    * active-VFO transition handles it through Hamlib's XCHG fallback,
-    * preserving the logical VFO bank mapping. */
+   /* FT-891 SV; is an A/B exchange. In RustyRig the server's active-VFO transition handles it through Hamlib's XCHG fallback, preserving the logical VFO bank
+    * mapping. */
    const char *room = rr_cat_room();
+
    if (!room || !*room) {
       Log(LOG_WARN, "cat.yaesu", "SV requires a rig-room CAT binding");
+
       return;
    }
    char current = rrclient_room_active_vfo(room);
@@ -586,14 +595,19 @@ void rr_cat_yaesu_swap_vfo(const char *args) {
    snprintf(command, sizeof(command), "!vfo %c", target);
 
    dict *d = dict_new();
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "msg");
    dict_add(d, "talk.msg_type", "pub");
    dict_add(d, "talk.target", room);
    dict_add(d, "talk.data", command);
-   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT))
+
+   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
       Log(LOG_WARN, "cat.yaesu", "SV unable to request VFO %c in %s", target, room);
+   }
    dict_free(d);
 }                               // Swap VFOs
 

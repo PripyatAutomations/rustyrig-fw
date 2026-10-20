@@ -543,22 +543,31 @@ bool cmd_save(int argc, char **args) {
 
 bool cmd_quit(int argc, char **args) {
    char reason[IRC_MSGLEN - 8] = "";
-   for (int i = 1; args && i < argc && args[i]; i++) {
-      if (*reason) strlcat(reason, " ", sizeof(reason));
+
+   for (int i = 1 ; args && i < argc && args[i] ; i++) {
+      if (*reason) {
+         strlcat(reason, " ", sizeof(reason));
+      }
       strlcat(reason, args[i], sizeof(reason));
    }
+
    /* The parser preserves the whole tail. Only its first word is a force flag. */
    char *message = reason;
    size_t token = strcspn(message, " \t");
    bool confirmed = (token == 1 && !strncasecmp(message, "y", token)) ||
       (token == 3 && !strncasecmp(message, "yes", token)) ||
-      (token == 2 && !strncasecmp(message, "-y", token)) ||
-      (token == 4 && !strncasecmp(message, "-yes", token));
+      (token == 2 && !strncasecmp(message, "-y", token)) || (token == 4 && !strncasecmp(message, "-yes", token));
+
    if (confirmed) {
       message += token;
-      while (*message == ' ' || *message == '\t') message++;
+      while (*message == ' ' || *message == '\t') {
+         message++;
+      }
    }
-   if (!confirmed && !ui_confirm_quit()) return false;
+
+   if (!confirmed && !ui_confirm_quit()) {
+      return false;
+   }
    const char *quitmsg = *message ? message : "no reason given";
    ui_print(ui_active_window_name(), "\00311Seeya soon, have a great day!\017");
 

@@ -136,6 +136,7 @@ static bool navigation_only;
 void gtk_chat_set_navigation_only(bool value) {
    navigation_only = value;
 }
+
 extern void vfo_controls_set_rx_only(bool rx_only);
 static GtkWidget *room_vfo_box;
 static GtkWidget *room_vfo_window;
@@ -166,6 +167,7 @@ static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint pa
       rrclient_media_room_selected(tab->room);
       /* IRC and ordinary chat tabs must not steal the last rig's CAT/GPS focus. */
       rrconn_t *rig_connection = rrclient_connection_find(tab->server);
+
       if (!navigation_only && rig_connection && rig_connection->is_ws) {
          rr_sercom_focus_room(tab->server, tab->room);
       }
@@ -520,8 +522,12 @@ static gboolean gtk_chat_position_is_token(GtkFormatState *state, guint position
    while (low < high) {
       guint mid = low + (high - low) / 2;
       guint value = g_array_index(state->positions, guint, mid);
-      if (value < position) low = mid + 1;
-      else high = mid;
+
+      if (value < position) {
+         low = mid + 1;
+      } else {
+         high = mid;
+      }
    }
    return low < state->positions->len && g_array_index(state->positions, guint, low) == position;
 }
@@ -531,6 +537,7 @@ static void gtk_chat_apply_format_attributes(GtkWidget *entry, GtkFormatState *s
 
    const char *p = state->snapshot;
    guint previous = 0;
+
    for (guint i = 0 ; i < state->positions->len ; i++) {
       guint position = g_array_index(state->positions, guint, i);
       p = g_utf8_offset_to_pointer(p, position - previous);
@@ -743,14 +750,25 @@ static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
       /* Serialize the previous snapshot, whose token positions still match. */
       GString *prior = g_string_new(NULL);
       guint token = 0, offset = 0;
-      for (const char *p = state->snapshot; *p; p = g_utf8_next_char(p), offset++) {
+
+      for (const char *p = state->snapshot ; *p ; p = g_utf8_next_char(p), offset++) {
          bool formatted = token < state->positions->len && g_array_index(state->positions, guint, token) == offset;
          guint8 control = formatted ? gtk_formatting_control(g_utf8_get_char(p)) : 0;
-         if (formatted) token++;
-         if (control) g_string_append_c(prior, control);
-         else g_string_append_len(prior, p, g_utf8_next_char(p) - p);
+
+         if (formatted) {
+            token++;
+         }
+
+         if (control) {
+            g_string_append_c(prior, control);
+         } else {
+            g_string_append_len(prior, p, g_utf8_next_char(p) - p);
+         }
       }
-      if (state->undo->len >= 100) g_ptr_array_remove_index(state->undo, 0);
+
+      if (state->undo->len >= 100) {
+         g_ptr_array_remove_index(state->undo, 0);
+      }
       g_ptr_array_add(state->undo, g_string_free(prior, FALSE));
       g_ptr_array_set_size(state->redo, 0);
       const char *old = state->snapshot;
@@ -782,12 +800,18 @@ static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
       gint delta = (gint) new_count - (gint) old_count;
 
       guint kept = 0;
-      for (guint i = 0; i < state->positions->len; i++) {
+
+      for (guint i = 0 ; i < state->positions->len ; i++) {
          guint position = g_array_index(state->positions, guint, i);
-         if (position >= old_after) position = (guint)((gint)position + delta);
-         else if (position >= prefix) continue;
+
+         if (position >= old_after) {
+            position = (guint) ((gint) position + delta);
+         } else if (position >= prefix) {
+            continue;
+         }
          g_array_index(state->positions, guint, kept++) = position;
       }
+
       g_array_set_size(state->positions, kept);
 
       if (state->pending_position >= 0) {
@@ -874,17 +898,19 @@ static gboolean on_chat_entry_keypress(GtkWidget *entry, GdkEventKey *event, gpo
    GdkModifierType modifiers = event->state & gtk_accelerator_get_default_mod_mask();
 
    if ((modifiers & GDK_CONTROL_MASK) && !(modifiers & GDK_MOD1_MASK) &&
-       (event->keyval == GDK_KEY_z || event->keyval == GDK_KEY_Z || event->keyval == GDK_KEY_y || event->keyval == GDK_KEY_Y)) {
+      (event->keyval == GDK_KEY_z || event->keyval == GDK_KEY_Z || event->keyval == GDK_KEY_y || event->keyval == GDK_KEY_Y)) {
       GtkFormatState *state = gtk_chat_format_state(entry);
       bool redo = (modifiers & GDK_SHIFT_MASK) || event->keyval == GDK_KEY_y || event->keyval == GDK_KEY_Y;
       GPtrArray *from = redo ? state->redo : state->undo;
       GPtrArray *to = redo ? state->undo : state->redo;
+
       if (from->len) {
          g_ptr_array_add(to, gtk_chat_serialize_entry(entry));
          char *text = g_ptr_array_steal_index(from, from->len - 1);
          gtk_chat_set_serialized_entry(entry, text);
          g_free(text);
       }
+
       return TRUE;
    }
 
@@ -1073,30 +1099,42 @@ static GtkWidget *chatbox_vfo_init(void) {
 
 /* Move the existing control instance, never clone its shared GTK state. */
 static void room_vfo_move(GtkWidget *destination) {
-   if (!room_vfo_container || !destination ||
-       gtk_widget_get_parent(room_vfo_container) == destination) return;
+   if (!room_vfo_container || !destination || gtk_widget_get_parent(room_vfo_container) == destination) {
+      return;
+   }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
    g_object_ref(room_vfo_container);
-   if (parent) gtk_container_remove(GTK_CONTAINER(parent), room_vfo_container);
+
+   if (parent) {
+      gtk_container_remove(GTK_CONTAINER(parent), room_vfo_container);
+   }
    gtk_box_pack_start(GTK_BOX(destination), room_vfo_container, FALSE, FALSE, 0);
    g_object_unref(room_vfo_container);
    gtk_widget_show_all(room_vfo_container);
 }
 static gboolean room_vfo_float_closed(GtkWidget *window, GdkEvent *event, gpointer user) {
-   (void)window; (void)event; (void)user;
+   (void)window;
+   (void)event;
+   (void)user;
    room_vfo_dock_to(room_vfo_bottom);
+
    return TRUE;
 }
 static void room_vfo_redock_clicked(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)button;
+   (void)unused;
    room_vfo_dock_to(room_vfo_bottom);
 }
 static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
+   (void)button;
+   (void)unused;
+
    if (room_vfo_window && gtk_widget_get_visible(room_vfo_window)) {
       gtk_window_present(GTK_WINDOW(room_vfo_window));
+
       return;
    }
+
    if (!room_vfo_window) {
       room_vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), "RustyRig VFO");
@@ -1105,10 +1143,17 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       g_signal_connect(room_vfo_window, "delete-event", G_CALLBACK(room_vfo_float_closed), NULL);
    }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
-   if (room_vfo_home) g_object_remove_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
+
+   if (room_vfo_home) {
+      g_object_remove_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *) &room_vfo_home);
+   }
    room_vfo_home = parent;
-   if (room_vfo_home) g_object_add_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
+
+   if (room_vfo_home) {
+      g_object_add_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *) &room_vfo_home);
+   }
    GtkWidget *float_box = g_object_get_data(G_OBJECT(room_vfo_window), "rr-vfo-float-box");
+
    if (!float_box) {
       float_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
       gtk_container_add(GTK_CONTAINER(room_vfo_window), float_box);
@@ -1120,42 +1165,60 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       gtk_box_pack_start(GTK_BOX(float_box), redock, FALSE, FALSE, 0);
    }
    room_vfo_move(float_box);
-   if (room_vfo_grip) gtk_widget_hide(room_vfo_grip);
-   /* A scrolled VFO has a tiny preferred width; measure its actual contents
-    * so the detached desktop window does not clip frequency/mode/audio. */
-   GtkWidget *inside = GTK_IS_BIN(room_vfo_box) ?
-      gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
-   if (GTK_IS_VIEWPORT(inside)) inside = gtk_bin_get_child(GTK_BIN(inside));
+
+   if (room_vfo_grip) {
+      gtk_widget_hide(room_vfo_grip);
+   }
+   /* A scrolled VFO has a tiny preferred width; measure its actual contents so the detached desktop window does not clip frequency/mode/audio. */
+   GtkWidget *inside = GTK_IS_BIN(room_vfo_box) ? gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
+
+   if (GTK_IS_VIEWPORT(inside)) {
+      inside = gtk_bin_get_child(GTK_BIN(inside));
+   }
    int minimum = 0, natural = 0;
-   if (inside) gtk_widget_get_preferred_width(inside, &minimum, &natural);
+
+   if (inside) {
+      gtk_widget_get_preferred_width(inside, &minimum, &natural);
+   }
    int width = MAX(900, natural + 36);
    gtk_window_resize(GTK_WINDOW(room_vfo_window), width, 200);
+
    if (room_vfo_room[0]) {
-      char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room,
-         vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
+      char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room, vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
       g_free(title);
    }
    gtk_widget_show_all(room_vfo_window);
    vfo_controls_set_rx_only(!rrclient_room_tx_control(room_vfo_room));
-   if (room_vfo_grip) gtk_widget_hide(room_vfo_grip);
+
+   if (room_vfo_grip) {
+      gtk_widget_hide(room_vfo_grip);
+   }
    gtk_window_present(GTK_WINDOW(room_vfo_window));
 }
+
 /* Horizontal drag of the handle detaches the live control instance. */
 void gtk_chat_vfo_handle_drag(void) {
    room_vfo_float_clicked(NULL, NULL);
 }
 static void room_vfo_grip_edge(void) {
-   if (!room_vfo_box) return;
-   GtkWidget *drawer = GTK_IS_BIN(room_vfo_box) ?
-      gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
-   if (GTK_IS_VIEWPORT(drawer)) drawer = gtk_bin_get_child(GTK_BIN(drawer));
-   if (!drawer || !GTK_IS_BOX(drawer)) return;
+   if (!room_vfo_box) {
+      return;
+   }
+   GtkWidget *drawer = GTK_IS_BIN(room_vfo_box) ? gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
+
+   if (GTK_IS_VIEWPORT(drawer)) {
+      drawer = gtk_bin_get_child(GTK_BIN(drawer));
+   }
+
+   if (!drawer || !GTK_IS_BOX(drawer)) {
+      return;
+   }
    GtkWidget *grip = g_object_get_data(G_OBJECT(drawer), "rr-vfo-grip");
    GtkWidget *revealer = g_object_get_data(G_OBJECT(drawer), "rr-vfo-revealer");
+
    if (grip && revealer) {
-      /* Top dock folds upward: grip faces chat below. Bottom dock folds
-       * downward: grip faces chat above. */
+      /* Top dock folds upward: grip faces chat below. Bottom dock folds downward: grip faces chat above. */
       gtk_box_reorder_child(GTK_BOX(drawer), grip, room_vfo_bottom ? 0 : -1);
       gtk_box_reorder_child(GTK_BOX(drawer), revealer, room_vfo_bottom ? -1 : 0);
    }
@@ -1164,81 +1227,109 @@ static void room_vfo_dock_to(gboolean bottom) {
    room_vfo_bottom = bottom;
    room_vfo_grip_edge();
    /* Prefer the currently selected room when redocking a floating panel. */
-   GtkWidget *active_page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook),
-      gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
-   GtkWidget *current_box = active_page ?
-      g_object_get_data(G_OBJECT(active_page), "rr-chat-box") : NULL;
+   GtkWidget *active_page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_get_current_page(GTK_NOTEBOOK(main_notebook)));
+   GtkWidget *current_box = active_page ? g_object_get_data(G_OBJECT(active_page), "rr-chat-box") : NULL;
+
    if (current_box) {
-      if (room_vfo_home)
-         g_object_remove_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
+      if (room_vfo_home) {
+         g_object_remove_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *) &room_vfo_home);
+      }
       room_vfo_home = current_box;
-      g_object_add_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *)&room_vfo_home);
-   } else if (!room_vfo_home && room_vfo_container &&
-              (!room_vfo_window || !gtk_widget_get_visible(room_vfo_window))) {
+      g_object_add_weak_pointer(G_OBJECT(room_vfo_home), (gpointer *) &room_vfo_home);
+   } else if (!room_vfo_home && room_vfo_container && (!room_vfo_window || !gtk_widget_get_visible(room_vfo_window))) {
       room_vfo_home = gtk_widget_get_parent(room_vfo_container);
    }
-   if (!room_vfo_home) return;
+
+   if (!room_vfo_home) {
+      return;
+   }
    room_vfo_move(room_vfo_home);
-   if (room_vfo_window) gtk_widget_hide(room_vfo_window);
-   if (room_vfo_grip) gtk_widget_show(room_vfo_grip);
-   if (room_vfo_container && room_vfo_home && GTK_IS_BOX(room_vfo_home))
-      gtk_box_reorder_child(GTK_BOX(room_vfo_home), room_vfo_container,
-         bottom ? -1 : 0);
+
+   if (room_vfo_window) {
+      gtk_widget_hide(room_vfo_window);
+   }
+
+   if (room_vfo_grip) {
+      gtk_widget_show(room_vfo_grip);
+   }
+
+   if (room_vfo_container && room_vfo_home && GTK_IS_BOX(room_vfo_home)) {
+      gtk_box_reorder_child(GTK_BOX(room_vfo_home), room_vfo_container, bottom ? -1 : 0);
+   }
 }
 static void room_vfo_menu_choice(GtkMenuItem *item, gpointer data) {
    const char *action = data;
-   if (!strcmp(action, "top")) room_vfo_dock_to(FALSE);
-   else if (!strcmp(action, "bottom")) room_vfo_dock_to(TRUE);
-   else room_vfo_float_clicked(NULL, NULL);
+
+   if (!strcmp(action, "top")) {
+      room_vfo_dock_to(FALSE);
+   } else if (!strcmp(action, "bottom")) {
+      room_vfo_dock_to(TRUE);
+   } else {
+      room_vfo_float_clicked(NULL, NULL);
+   }
 }
 static gboolean room_vfo_grip_menu(GtkWidget *grip, GdkEventButton *event, gpointer unused) {
    (void)unused;
-   if (event->button != GDK_BUTTON_SECONDARY) return FALSE;
+
+   if (event->button != GDK_BUTTON_SECONDARY) {
+      return FALSE;
+   }
    GtkWidget *menu = gtk_menu_new();
-   const char *names[] = { "Dock at top", "Dock at bottom", "Float in desktop window" };
-   const char *actions[] = { "top", "bottom", "float" };
-   for (unsigned i = 0; i < G_N_ELEMENTS(names); ++i) {
+   const char *names[] = {
+      "Dock at top", "Dock at bottom", "Float in desktop window"
+   };
+   const char *actions[] = {
+      "top", "bottom", "float"
+   };
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; ++i) {
       GtkWidget *item = gtk_menu_item_new_with_label(names[i]);
-      g_signal_connect(item, "activate", G_CALLBACK(room_vfo_menu_choice), (gpointer)actions[i]);
+      g_signal_connect(item, "activate", G_CALLBACK(room_vfo_menu_choice), (gpointer) actions[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
    }
+
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
 static void room_vfo_ensure_container(void) {
-   if (room_vfo_container || !room_vfo_box) return;
+   if (room_vfo_container || !room_vfo_box) {
+      return;
+   }
+
    if (!room_vfo_placement_initialized) {
       room_vfo_bottom = !cfg_ui_gtk_vfo_on_top;
       room_vfo_placement_initialized = TRUE;
    }
    room_vfo_container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_box_pack_start(GTK_BOX(room_vfo_container), room_vfo_box, FALSE, FALSE, 0);
-   g_object_add_weak_pointer(G_OBJECT(room_vfo_container), (gpointer *)&room_vfo_container);
-   GtkWidget *drawer = GTK_IS_BIN(room_vfo_box) ?
-      gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
-   if (GTK_IS_VIEWPORT(drawer)) drawer = gtk_bin_get_child(GTK_BIN(drawer));
+   g_object_add_weak_pointer(G_OBJECT(room_vfo_container), (gpointer *) &room_vfo_container);
+   GtkWidget *drawer = GTK_IS_BIN(room_vfo_box) ? gtk_bin_get_child(GTK_BIN(room_vfo_box)) : room_vfo_box;
+
+   if (GTK_IS_VIEWPORT(drawer)) {
+      drawer = gtk_bin_get_child(GTK_BIN(drawer));
+   }
    room_vfo_grip = drawer ? g_object_get_data(G_OBJECT(drawer), "rr-vfo-grip") : NULL;
    room_vfo_grip_edge();
-   if (room_vfo_grip)
-      g_signal_connect(room_vfo_grip, "button-press-event",
-         G_CALLBACK(room_vfo_grip_menu), NULL);
+
+   if (room_vfo_grip) {
+      g_signal_connect(room_vfo_grip, "button-press-event", G_CALLBACK(room_vfo_grip_menu), NULL);
+   }
 }
 
 // A single control box follows the selected rig room.  The site lobby and
 // query tabs never own radio widgets; creating one per rig would overwrite
 // the GTK module's shared frequency/PTT widget pointers.
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
-   /* SDR receivers are RX-only: their VFO UUID bindings are independent
-    * of the native rig room's TX-control bit. */
-   bool has_vfos = tab && tab->room[0] &&
-      (rrclient_room_tx_control(tab->room) ||
-       (rrclient_room_rx_tunable(tab->room) &&
-        rrclient_room_vfos(tab->room)[0]));
+   /* SDR receivers are RX-only: their VFO UUID bindings are independent of the native rig room's TX-control bit. */
+   bool has_vfos = tab && tab->room[0] && (rrclient_room_tx_control(tab->room) || (rrclient_room_rx_tunable(tab->room) && rrclient_room_vfos(tab->room)[0]));
 
    if (!has_vfos) {
-      if (room_vfo_container && (!room_vfo_window || !gtk_widget_get_visible(room_vfo_window))) gtk_widget_hide(room_vfo_container);
+      if (room_vfo_container && (!room_vfo_window || !gtk_widget_get_visible(room_vfo_window))) {
+         gtk_widget_hide(room_vfo_container);
+      }
 
       return;
    }
@@ -1262,13 +1353,14 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
       return;
    }
    room_vfo_ensure_container();
+
    if (room_vfo_window && gtk_widget_get_visible(room_vfo_window)) {
-      char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room,
-         vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
+      char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room, vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
       g_free(title);
       vfo_controls_set_rx_only(!rrclient_room_tx_control(tab->room));
       vfo_update_ui();
+
       return;
    }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
@@ -1423,6 +1515,7 @@ static void gtk_chat_tab_close(GtkWidget *page, gboolean force) {
       return;
    }
    char *window = g_strdup(rrclient_window_name(tab->room));
+
    if (window) {
       gtk_chat_execute_command(window, force ? "/win close -force" : "/win close");
    }
@@ -1473,7 +1566,10 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
    gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), tab->page, label);
    g_hash_table_insert(room_tabs, g_strdup(rrclient_window_name(room)), tab);
    gtk_widget_show_all(tab->page);
-   if (is_query) rrclient_irc_query_opened(ws_conn, room);
+
+   if (is_query) {
+      rrclient_irc_query_opened(ws_conn, room);
+   }
 
    if (!select) {
       chat_textview = active_view;
@@ -1482,6 +1578,7 @@ static void gtk_chat_tab_add(const char *room, bool is_query, bool select) {
 
       return;
    }
+
    // Background servers create tabs without stealing the active conversation.
    if (server_name && rrclient_selected_server() && strcmp(server_name, rrclient_selected_server())) {
       return;
@@ -1512,7 +1609,7 @@ void gtk_chat_incoming(const char *room, bool query, const char *text, const cha
    bool mention = false;
    size_t length = nickname ? strlen(nickname) : 0;
 
-   for (const char *p = text; p && *p && length; p++) {
+   for (const char *p = text ; p && *p && length ; p++) {
       if ((p == text || !gtk_chat_nick_character((unsigned char)p[-1])) &&
          !g_ascii_strncasecmp(p, nickname, length) && !gtk_chat_nick_character((unsigned char)p[length])) {
          mention = true;
@@ -1522,12 +1619,16 @@ void gtk_chat_incoming(const char *room, bool query, const char *text, const cha
 
    if (tab) {
       GtkTextBuffer *buffer = NULL;
+
       if (gtk_chat_room_widgets(room, &buffer, NULL) && buffer) {
          g_object_set_data(G_OBJECT(buffer), "rr-highlight-prefix", GINT_TO_POINTER(mention));
       }
    }
+
    if (tab && text) {
-      if (mention) rrclient_irc_stats_highlight(ws_conn, room);
+      if (mention) {
+         rrclient_irc_stats_highlight(ws_conn, room);
+      }
       gtk_tabs_page_activity(GTK_NOTEBOOK(main_notebook), tab->page, mention);
    }
 }
@@ -1585,8 +1686,11 @@ void gtk_chat_room_set_topic(const char *room, const char *topic) {
    if (!gtk_chat_room_widgets(room, &buffer, &view) || !buffer) {
       return;
    }
+
    /* Common events.c renders the notice, including setter and timestamp. */
-   if (view) gtk_widget_set_tooltip_text(view, topic && *topic ? topic : NULL);
+   if (view) {
+      gtk_widget_set_tooltip_text(view, topic && *topic ? topic : NULL);
+   }
 }
 
 void gtk_chat_set_authoritative_room(const char *room) {

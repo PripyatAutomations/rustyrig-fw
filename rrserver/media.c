@@ -64,7 +64,9 @@ static bool media_always_record(const struct rr_mediachan *channel) {
 // Receiver demand requires a user: joined rig rooms or local/relayed RX
 // subscribers. Neither discovery nor always-recording may claim idle hardware.
 bool rrserver_media_rx_requested(rr_server_rig_t *radio) {
-   if (rrserver_serial_rx_demand(radio)) return true;
+   if (rrserver_serial_rx_demand(radio)) {
+      return true;
+   }
    uint8_t index = rr_rig_registry_media_index(rig.rigs, radio);
 
    if (index == RR_BINFRAME_RIG_NA) {
@@ -114,8 +116,7 @@ static void rrserver_rig_rx_pcm(const char *name, const void *samples, size_t le
 static bool media_rx_has_talker(rr_server_rig_t *radio, const struct rr_mediachan *channel) {
    rrconn_t *talker = whos_talking();
 
-   return radio && rig.ptt_rig == radio && talker &&
-      (channel->vfo == RR_BINFRAME_VFO_NA || talker->ptt_vfo == 'A' + channel->vfo);
+   return radio && rig.ptt_rig == radio && talker && (channel->vfo == RR_BINFRAME_VFO_NA || talker->ptt_vfo == 'A' + channel->vfo);
 }
 
 static void media_feed_rx(rr_server_rig_t *radio, const void *samples, size_t len, bool talkback) {
@@ -161,8 +162,8 @@ static void media_feed_rx(rr_server_rig_t *radio, const void *samples, size_t le
          (rig_rx_write_warned[i] == 0 || now < rig_rx_write_warned[i] || now - rig_rx_write_warned[i] >= 5)) {
          rig_rx_write_warned[i] = now;
          char description[512];
-         Log(LOG_WARN, "pcm.hub", "Unable to feed %s PCM to %s.tx for channel %s", talkback ? "talkback" : "rig RX", channel->codec, media_chan_description(channel, cfg_get("station.name"),
-            description, sizeof(description)));
+         Log(LOG_WARN, "pcm.hub", "Unable to feed %s PCM to %s.tx for channel %s", talkback ? "talkback" : "rig RX", channel->codec, media_chan_description(
+            channel, cfg_get("station.name"), description, sizeof(description)));
       }
    }
 }
@@ -192,8 +193,7 @@ static void rrserver_talker_pcm(const char *channel_uuid, const void *samples, s
       Log(LOG_WARN, "pcm.hub", "Unable to feed decoded talker PCM to %s (%s)", sink, media_chan_description(channel, cfg_get("station.name"), description,
          sizeof(description)));
    }
-   /* Decode TX once, then encode using each RX channel's negotiated codec. This
-    * also works when TX and RX codecs differ; subscribed encoders stay prewarmed. */
+   /* Decode TX once, then encode using each RX channel's negotiated codec. This also works when TX and RX codecs differ; subscribed encoders stay prewarmed. */
    media_feed_rx(radio, samples, len, true);
 }
 
@@ -405,35 +405,43 @@ struct media_setup_context {
    bool rx_per_vfo, tx_per_vfo;
 };
 
-/* UUIDv8-style deterministic ID for persistent media resources. Scope is
- * the stored node or rig UUID; role identifies its stable logical stream. */
-bool rrserver_media_uuid_assign(struct rr_mediachan *channel,
-      const char *scope_uuid, const char *role) {
-   if (!channel || !scope_uuid || !*scope_uuid || !role || !*role) return false;
+/* UUIDv8-style deterministic ID for persistent media resources. Scope is the stored node or rig UUID; role identifies its stable logical stream. */
+bool rrserver_media_uuid_assign(struct rr_mediachan *channel, const char *scope_uuid, const char *role) {
+   if (!channel || !scope_uuid || !*scope_uuid || !role || !*role) {
+      return false;
+   }
    char *key = g_strdup_printf("rustyrig.media/%s/%s", scope_uuid, role);
-   if (!key) return false;
+
+   if (!key) {
+      return false;
+   }
    char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256, key, -1);
    g_free(key);
-   if (!digest) return false;
-   g_snprintf(channel->uuid, sizeof(channel->uuid),
-      "%.8s-%.4s-8%.3s-8%.3s-%.12s",
-      digest, digest + 8, digest + 13, digest + 17, digest + 20);
+
+   if (!digest) {
+      return false;
+   }
+   g_snprintf(channel->uuid, sizeof(channel->uuid), "%.8s-%.4s-8%.3s-8%.3s-%.12s", digest, digest + 8, digest + 13, digest + 17, digest + 20);
    g_free(digest);
+
    return true;
 }
 
 bool rrserver_media_uuid_assign_node(struct rr_mediachan *channel, const char *role) {
    const char *node = rig.rigs ? rr_rig_registry_node(rig.rigs) : NULL;
+
    return rrserver_media_uuid_assign(channel, node, role);
 }
 
-static bool media_assign_stable_uuid(struct rr_mediachan *channel,
-      const char *rig_uuid, const char *vfo_uuid, bool tx) {
-   char *role = g_strdup_printf("audio.%s.%s",
-      tx ? "tx" : "rx", vfo_uuid ? vfo_uuid : "shared");
-   if (!role) return false;
+static bool media_assign_stable_uuid(struct rr_mediachan *channel, const char *rig_uuid, const char *vfo_uuid, bool tx) {
+   char *role = g_strdup_printf("audio.%s.%s", tx ? "tx" : "rx", vfo_uuid ? vfo_uuid : "shared");
+
+   if (!role) {
+      return false;
+   }
    bool ok = rrserver_media_uuid_assign(channel, rig_uuid, role);
    g_free(role);
+
    return ok;
 }
 
@@ -475,8 +483,7 @@ static bool media_setup_vfo(rr_server_vfo_t *vfo, void *user) {
       struct rr_mediachan *cp = media_chan_add(RR_BINFRAME_SUBSYS_AUDIO, tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX, per_vfo ? index : RR_BINFRAME_VFO_NA,
          rig_index, NULL, descr);
 
-      if (!cp || !media_assign_stable_uuid(cp, rr_server_rig_id(ctx->radio),
-             per_vfo ? rr_server_vfo_id(vfo) : NULL, tx != 0)) {
+      if (!cp || !media_assign_stable_uuid(cp, rr_server_rig_id(ctx->radio), per_vfo ? rr_server_vfo_id(vfo) : NULL, tx != 0)) {
          return true;
       }
       snprintf(cp->room, sizeof(cp->room), "%s", room);
@@ -580,8 +587,10 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
 
       return;
    }
+
    if (channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO) {
       dict_free(d);
+
       return;
    }
    // Media direction is from the client's point of view. Server RX-channel

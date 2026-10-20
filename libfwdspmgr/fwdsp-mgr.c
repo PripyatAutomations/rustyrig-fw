@@ -381,10 +381,10 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             if (ctx->sp->is_video) {
                struct fwdsp_subproc *sp = ctx->sp;
+
                if (sp->refcount > 0) {
                   if (sp->processor_output) {
-                     sp->processor_output(sp->channel_uuid, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE,
-                        frame_len, sp->processor_output_data);
+                     sp->processor_output(sp->channel_uuid, (const uint8_t *)c->recv.buf + FWDSP_FRAME_HEADER_SIZE, frame_len, sp->processor_output_data);
                   } else if (frame_len <= RR_BINFRAME_MAX_PAYLOAD) {
                      char event[32];
                      snprintf(event, sizeof(event), "fwdsp.frame.%.4s", sp->pl_id);
@@ -674,12 +674,15 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
          sp->is_tx = is_tx;
          sp->is_video = is_video;
          sp->video_capture = capture;
+
          if (is_video && channel_uuid && !strncmp(channel_uuid, "video.", 6)) {
             char key[128];
             snprintf(key, sizeof(key), "pipeline:%s", channel_uuid);
             const char *pipeline = cfg_get(key);
+
             if (!pipeline || strlen(pipeline) >= sizeof(sp->pipeline)) {
                memset(sp, 0, sizeof(*sp));
+
                return NULL;
             }
             snprintf(sp->pipeline, sizeof(sp->pipeline), "%s", pipeline);
@@ -739,22 +742,35 @@ struct fwdsp_subproc *fwdsp_find_or_create(const char *id, enum fwdsp_io_type io
 /* Mark video before create launches the child: camera capture must use -v -t. */
 struct fwdsp_subproc *fwdsp_find_or_create_video(const char *id, bool is_tx) {
    struct fwdsp_subproc *sp = fwdsp_find_instance(id, is_tx);
+
    return sp ? (sp->is_video ? sp : NULL) : fwdsp_create(id, FW_IO_STDIO, is_tx, NULL, true, true);
 }
 
 int fwdsp_video_pipeline_start(const char codec[5], const char *identity, bool capture, fwdsp_processor_output_cb output, void *user) {
-   if (!codec || strlen(codec) != 4 || !identity || !*identity || !output || fwdsp_init()) return -1;
+   if (!codec || strlen(codec) != 4 || !identity || !*identity || !output || fwdsp_init()) {
+      return -1;
+   }
    char key[128];
-   snprintf(key, sizeof(key), "pipeline:%s%s", !strncmp(identity, "video.", 6) ? identity : codec,
-      !strncmp(identity, "video.", 6) ? "" : capture ? ".tx" : ".rx");
+   snprintf(key, sizeof(key), "pipeline:%s%s", !strncmp(identity, "video.", 6) ? identity : codec, !strncmp(identity, "video.", 6) ? "" : capture ? ".tx" :
+      ".rx");
    const char *pipeline = cfg_get(key);
-   if (!pipeline || !*pipeline || strlen(identity) >= sizeof(((struct fwdsp_subproc *)0)->channel_uuid)) return -1;
+
+   if (!pipeline || !*pipeline || strlen(identity) >= sizeof(((struct fwdsp_subproc *) 0)->channel_uuid)) {
+      return -1;
+   }
    struct fwdsp_subproc *sp = fwdsp_find_channel_instance(codec, capture, identity);
-   if (!sp) sp = fwdsp_create(codec, FW_IO_STDIO, capture, identity, true, capture);
-   if (!sp || !sp->is_video) return -1;
+
+   if (!sp) {
+      sp = fwdsp_create(codec, FW_IO_STDIO, capture, identity, true, capture);
+   }
+
+   if (!sp || !sp->is_video) {
+      return -1;
+   }
    sp->processor_output = output;
    sp->processor_output_data = user;
    sp->refcount = 1;
+
    return sp->chan_id;
 }
 
@@ -1112,7 +1128,10 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (sp->role != FWDSP_ROLE_PROCESSOR) {
       if (sp->is_video) {
          args[n++] = "-v";
-         if (sp->video_capture) args[n++] = "-t";
+
+         if (sp->video_capture) {
+            args[n++] = "-t";
+         }
       } else if (sp->is_tx) {
          args[n++] = "-t";
       } else if (emit_pcm_tap) {

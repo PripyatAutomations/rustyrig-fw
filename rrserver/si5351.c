@@ -8,14 +8,15 @@
 
 static bool valid(const rr_si5351_config_t *c) {
    return c && (c->crystal_hz == 25000000 || c->crystal_hz == 27000000) &&
-      c->correction_ppb >= -100000 && c->correction_ppb <= 100000 &&
-      (c->load_pf == 6 || c->load_pf == 8 || c->load_pf == 10) && c->drive_ma >= 2 && c->drive_ma <= 8 && !(c->drive_ma & 1);
+          c->correction_ppb >= -100000 && c->correction_ppb <= 100000 &&
+          (c->load_pf == 6 || c->load_pf == 8 || c->load_pf == 10) && c->drive_ma >= 2 && c->drive_ma <= 8 && !(c->drive_ma & 1);
 }
 
 /* Encode a + b/c. Numerators are bounded so all intermediates fit uint64_t. */
 static void parameters(uint64_t numerator, uint64_t denominator, uint8_t bytes[8], bool *integer) {
    uint64_t a = numerator / denominator;
    uint64_t b = ((numerator % denominator) * DENOM + denominator / 2) / denominator;
+
    if (b == DENOM) {
       a++;
       b = 0;
@@ -39,6 +40,7 @@ static void parameters(uint64_t numerator, uint64_t denominator, uint8_t bytes[8
 bool rr_si5351_plan(const rr_si5351_config_t *c, uint32_t hz, rr_si5351_plan_t *p) {
    if (!valid(c) || !p || hz < 8000 || hz > 100000000) {
       errno = EINVAL;
+
       return false;
    }
    memset(p, 0, sizeof(*p));
@@ -56,6 +58,7 @@ bool rr_si5351_plan(const rr_si5351_config_t *c, uint32_t hz, rr_si5351_plan_t *
    p->r_divider = 1U << shift;
    // Own MultiSynth source, PLLA, not inverted; integer mode only for even ratios.
    p->control = 0x0c | (integer ? 0x40 : 0) | (c->drive_ma / 2 - 1);
+
    return true;
 }
 
@@ -69,74 +72,104 @@ static bool fault(rr_si5351_t *s) {
    s->disabled = 0xff;
    byte(s, 3, 0xff);
    errno = saved;
+
    return false;
 }
 
 static bool wait_status(rr_si5351_t *s, uint8_t mask) {
-   for (unsigned i = 0; i < 200; i++) {
+   for (unsigned i = 0 ; i < 200 ; i++) {
       uint8_t status;
-      if (!s->io.read(s->io.context, 0, &status))
+
+      if (!s->io.read(s->io.context, 0, &status)) {
          return false;
-      if (!(status & mask))
+      }
+
+      if (!(status & mask)) {
          return true;
-      if (s->io.wait)
+      }
+
+      if (s->io.wait) {
          s->io.wait(s->io.context);
+      }
    }
+
    errno = ETIMEDOUT;
+
    return false;
 }
 
 bool rr_si5351_start(rr_si5351_t *s, const rr_si5351_config_t *c, const rr_si5351_io_t *io) {
    rr_si5351_plan_t plan;
+
    if (!s || !io || !io->read || !io->write || !rr_si5351_plan(c, 10000000, &plan)) {
       errno = EINVAL;
+
       return false;
    }
    *s = (rr_si5351_t) {
-   .config = *c,.io = *io,.disabled = 0xff};
+      .config = *c, .io = *io, .disabled = 0xff
+   };
    uint8_t off[8];
    memset(off, 0x80, sizeof(off));
    uint8_t spread;
+
    if (!wait_status(s, 0x80) || !byte(s, 3, 0xff) ||
       !s->io.write(s->io.context, 16, off, sizeof(off)) ||
       !byte(s, 15, 0) || !byte(s, 183, ((c->load_pf - 4) / 2 << 6) | 0x12) ||
       !s->io.read(s->io.context, 149, &spread) || !byte(s, 149, spread & 0x7f) ||
       !s->io.write(s->io.context, 26, plan.pll, 8) || !byte(s, 165, 0) || !byte(s, 166, 0) || !byte(s, 167, 0) || !byte(s, 177, 0x20) || !wait_status(s, 0xa8))
+   {
       return fault(s);
+   }
    s->ready = true;
+
    return true;
 }
 
 bool rr_si5351_set(rr_si5351_t *s, unsigned output, uint32_t hz) {
    rr_si5351_plan_t plan;
+
    if (!s || !s->ready || output > 2 || (hz && !rr_si5351_plan(&s->config, hz, &plan))) {
       errno = EINVAL;
+
       return false;
    }
    uint8_t mask = s->disabled | (1U << output);
-   if (!byte(s, 3, mask))
+
+   if (!byte(s, 3, mask)) {
       return fault(s);
+   }
    s->disabled = mask;
+
    if (!hz) {
-      if (!byte(s, 16 + output, 0x80))
+      if (!byte(s, 16 + output, 0x80)) {
          return fault(s);
+      }
+
       return true;
    }
+
    if (!s->io.write(s->io.context, 42 + 8 * output, plan.multisynth, 8) ||
-      !byte(s, 16 + output, plan.control) || !wait_status(s, 0xa8) || !byte(s, 3, mask & ~(1U << output)))
+      !byte(s, 16 + output, plan.control) || !wait_status(s, 0xa8) || !byte(s, 3, mask & ~(1U << output))) {
       return fault(s);
+   }
    s->disabled = mask & ~(1U << output);
+
    return true;
 }
 
 bool rr_si5351_stop(rr_si5351_t *s) {
    if (!s || !s->io.write) {
       errno = EINVAL;
+
       return false;
    }
-   if (!byte(s, 3, 0xff))
+
+   if (!byte(s, 3, 0xff)) {
       return fault(s);
+   }
    s->disabled = 0xff;
    s->ready = false;
+
    return true;
 }

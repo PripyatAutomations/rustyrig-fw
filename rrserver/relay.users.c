@@ -42,6 +42,7 @@ void rr_relay_users_poll(bool force) {
    if (!local) {
       /* Keep the prior directory and bound allocation retries under pressure. */
       users_check_at = at + 1000;
+
       return;
    }
    struct directory *entry = rr_relay_directories;
@@ -79,7 +80,7 @@ void rr_relay_users_register(void) {
       "authdb.load", "user.cmd", "admin.cmd", "rehash"
    };
 
-   for (size_t i = 0; i < sizeof(events) / sizeof(events[0]); i++) {
+   for (size_t i = 0 ; i < sizeof(events) / sizeof(events[0]) ; i++) {
       event_on(events[i], users_changed, NULL);
    }
 }

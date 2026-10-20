@@ -92,9 +92,11 @@ bool media_chan_remove(const char *uuid) {
 
    return false;
 }
+
 static dict *inventory_rows[3];
 bool ws_send_dict(rrconn_t *sender, rrconn_t *client, dict *row, int type) {
    const char *name = dict_get(row, "inventory.name", "");
+
    if (strstr(name, ".gps-out")) {
       unsigned index = !strncmp(name, "station.", 8) ? 0 : !strncmp(name, "rig0.", 5) ? 1 : 2;
       dict_free(inventory_rows[index]);
@@ -102,10 +104,13 @@ bool ws_send_dict(rrconn_t *sender, rrconn_t *client, dict *row, int type) {
       inventory_rows[index] = json2dict(text);
       free(text);
    }
+
    return true;
 }
 static void inventory_check(const char *scope, unsigned index, const char *state, const char *coordinates) {
-   rrconn_t client = {.authenticated = true};
+   rrconn_t client = {
+      .authenticated = true
+   };
    dict *request = dict_new();
    dict_add(request, "inventory.scope", scope);
    event_emit_dict(RR_INVENTORY_EVENT, &client, request);
@@ -223,7 +228,11 @@ int main(void) {
    assert(!rrserver_gps_init());
    inventory_check("station", 0, "static", "41.0000000,-72.0000000");
    rrserver_gps_fini();
-   for (unsigned i = 0 ; i < 3 ; i++) dict_free(inventory_rows[i]);
+
+   for (unsigned i = 0 ; i < 3 ; i++) {
+      dict_free(inventory_rows[i]);
+   }
+
    event_shutdown();
    dict_free(cfg);
    cfg = NULL;

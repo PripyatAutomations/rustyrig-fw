@@ -167,8 +167,7 @@ const char *gtk_formatting_token(guint8 control) {
    }
 }
 
-/* Keep independent IRC styles in a fixed nesting order for valid Pango markup,
- * including when a color changes while bold/italic/reverse are active. */
+/* Keep independent IRC styles in a fixed nesting order for valid Pango markup, including when a color changes while bold/italic/reverse are active. */
 typedef struct {
    bool bold, italic, underline, strike, mono, reverse;
    char fg[8], bg[8];
@@ -177,30 +176,70 @@ typedef struct {
 static void gtk_irc_style_tags(GString *out, const GtkIrcStyle *style, bool open) {
    const char *fg = style->fg[0] ? style->fg : NULL;
    const char *bg = style->bg[0] ? style->bg : NULL;
+
    if (style->reverse) {
       const char *swap = fg;
       fg = bg ? bg : "black";
       bg = swap ? swap : "white";
    }
+
    if (open) {
-      if (style->bold) g_string_append(out, "<b>");
-      if (style->italic) g_string_append(out, "<i>");
-      if (style->underline) g_string_append(out, "<u>");
-      if (style->strike) g_string_append(out, "<s>");
-      if (style->mono) g_string_append(out, "<tt>");
+      if (style->bold) {
+         g_string_append(out, "<b>");
+      }
+
+      if (style->italic) {
+         g_string_append(out, "<i>");
+      }
+
+      if (style->underline) {
+         g_string_append(out, "<u>");
+      }
+
+      if (style->strike) {
+         g_string_append(out, "<s>");
+      }
+
+      if (style->mono) {
+         g_string_append(out, "<tt>");
+      }
+
       if (fg || bg) {
          g_string_append(out, "<span");
-         if (fg) g_string_append_printf(out, " foreground=\"%s\"", fg);
-         if (bg) g_string_append_printf(out, " background=\"%s\"", bg);
+
+         if (fg) {
+            g_string_append_printf(out, " foreground=\"%s\"", fg);
+         }
+
+         if (bg) {
+            g_string_append_printf(out, " background=\"%s\"", bg);
+         }
          g_string_append_c(out, '>');
       }
    } else {
-      if (fg || bg) g_string_append(out, "</span>");
-      if (style->mono) g_string_append(out, "</tt>");
-      if (style->strike) g_string_append(out, "</s>");
-      if (style->underline) g_string_append(out, "</u>");
-      if (style->italic) g_string_append(out, "</i>");
-      if (style->bold) g_string_append(out, "</b>");
+      if (fg || bg) {
+         g_string_append(out, "</span>");
+      }
+
+      if (style->mono) {
+         g_string_append(out, "</tt>");
+      }
+
+      if (style->strike) {
+         g_string_append(out, "</s>");
+      }
+
+      if (style->underline) {
+         g_string_append(out, "</u>");
+      }
+
+      if (style->italic) {
+         g_string_append(out, "</i>");
+      }
+
+      if (style->bold) {
+         g_string_append(out, "</b>");
+      }
    }
 }
 
@@ -209,23 +248,45 @@ static char *gtk_colorize_text(const char *in) {
       return NULL;
    }
    GString *out = g_string_new(NULL);
-   GtkIrcStyle style = {0};
+   GtkIrcStyle style = {
+      0
+   };
    bool open = false;
    const char *p = in;
    while (*p) {
       unsigned char control = (unsigned char)*p;
       size_t used = 1;
       /* Legacy application style tags share the same style state as IRC. */
-      static const struct { const char *tag; unsigned char control; int enabled; } tags[] = {
-         {"{bold}", 0x02, 1}, {"{bold-off}", 0x02, 0},
-         {"{italic}", 0x1d, 1}, {"{italic-off}", 0x1d, 0},
-         {"{underline}", 0x1f, 1}, {"{underline-off}", 0x1f, 0},
-         {"{reset}", 0x0f, 0}
+      static const struct {
+         const char *tag;
+         unsigned char control;
+         int enabled;
+      } tags[] = {
+         {
+            "{bold}", 0x02, 1
+         }, {
+            "{bold-off}", 0x02, 0
+         },
+         {
+            "{italic}", 0x1d, 1
+         }, {
+            "{italic-off}", 0x1d, 0
+         },
+         {
+            "{underline}", 0x1f, 1
+         }, {
+            "{underline-off}", 0x1f, 0
+         },
+         {
+            "{reset}", 0x0f, 0
+         }
       };
       int enabled = -1;
+
       if (*p == '{') {
-         for (size_t i = 0; i < G_N_ELEMENTS(tags); i++) {
+         for (size_t i = 0 ; i < G_N_ELEMENTS(tags) ; i++) {
             size_t length = strlen(tags[i].tag);
+
             if (!strncmp(p, tags[i].tag, length)) {
                control = tags[i].control;
                enabled = tags[i].enabled;
@@ -234,29 +295,40 @@ static char *gtk_colorize_text(const char *in) {
             }
          }
       }
+
       if (control == 0x1b) {
          p++;
+
          if (*p == '[') {
             p++;
-            while (*p && !isalpha((unsigned char)*p)) p++;
-            if (*p) p++;
+            while (*p && !isalpha((unsigned char)*p)) {
+               p++;
+            }
+
+            if (*p) {
+               p++;
+            }
          }
          continue;
       }
+
       if (strchr("\002\003\004\017\021\026\035\036\037", control)) {
          if (open) {
             gtk_irc_style_tags(out, &style, false);
             open = false;
          }
+
          if (control == 0x03 || control == 0x04) {
             irc_color_t color;
             used = irc_color_parse(p, &color);
+
             if (color.reset) {
                style.fg[0] = style.bg[0] = '\0';
             } else {
-               for (unsigned component = 0; component < (color.background ? 2u : 1u); component++) {
+               for (unsigned component = 0 ; component < (color.background ? 2u : 1u) ; component++) {
                   char *dest = component ? style.bg : style.fg;
                   unsigned value = component ? color.bg : color.foreground;
+
                   if (color.hex) {
                      snprintf(dest, 8, "#%06x", value);
                   } else {
@@ -266,16 +338,18 @@ static char *gtk_colorize_text(const char *in) {
                }
             }
          } else if (control == 0x0f) {
-            style = (GtkIrcStyle){0};
+            style = (GtkIrcStyle) {
+               0
+            };
          } else {
             bool *attribute = control == 0x02 ? &style.bold : control == 0x1d ? &style.italic :
-               control == 0x1f ? &style.underline : control == 0x1e ? &style.strike :
-               control == 0x11 ? &style.mono : &style.reverse;
+               control == 0x1f ? &style.underline : control == 0x1e ? &style.strike : control == 0x11 ? &style.mono : &style.reverse;
             *attribute = enabled < 0 ? !*attribute : enabled != 0;
          }
          p += used;
          continue;
       }
+
       if (!open) {
          gtk_irc_style_tags(out, &style, true);
          open = true;
@@ -287,30 +361,39 @@ static char *gtk_colorize_text(const char *in) {
       g_free(escaped);
       p += length;
    }
-   if (open) gtk_irc_style_tags(out, &style, false);
+
+   if (open) {
+      gtk_irc_style_tags(out, &style, false);
+   }
    char *result = strdup(out->str);
    g_string_free(out, TRUE);
+
    return result;
 }
 
-/* PARITY: rustyrig-www/js/webui.js msg_timestamp; only presentation shrinks.
- * Time formatting and its single separator remain owned by get_chat_ts(). */
+/* PARITY: rustyrig-www/js/webui.js msg_timestamp; only presentation shrinks. Time formatting and its single separator remain owned by get_chat_ts(). */
 char *gtk_colorize_string(const char *in) {
    const char *end = in && !strncmp(in, "\00314[", 4) ? strstr(in, "]\017") : NULL;
-   if (!end) return gtk_colorize_text(in);
+
+   if (!end) {
+      return gtk_colorize_text(in);
+   }
    end += 2;
    char *stamp = g_strndup(in, end - in);
    char *prefix = gtk_colorize_text(stamp);
    g_free(stamp);
    char *suffix = gtk_colorize_text(end);
+
    if (!prefix || !suffix) {
       g_free(prefix);
       g_free(suffix);
+
       return NULL;
    }
    char *result = g_strdup_printf("<span size=\"smaller\">%s</span>%s", prefix, suffix);
    g_free(prefix);
    g_free(suffix);
+
    return result;
 }
 
@@ -381,7 +464,10 @@ static void chat_backlog_flush(GtkTextBuffer *buffer, GtkWidget *view) {
       g_free(line);
    }
    gtk_trim_scrollback(buffer, "ui.gtk.scrollback.chat", 200);
-   if (follow) g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(view), g_object_unref);
+
+   if (follow) {
+      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(view), g_object_unref);
+   }
 }
 
 void gtk_trim_scrollback(GtkTextBuffer *buf, const char *cfg_key, int def) {
@@ -477,7 +563,9 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
       g_free(colorized);
    }
 
-   if (follow) g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(target_view), g_object_unref);
+   if (follow) {
+      g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, ui_scroll_to_end, g_object_ref(target_view), g_object_unref);
+   }
 
    return false;
 }
@@ -537,12 +625,13 @@ void update_connection_button(int connected, GtkWidget *btn) {
 
 static gboolean fullscreen_later(gpointer data) {
    (void)data;
-   /* cfg_fullscreen is already the requested initial state; toggling here
-    * used to unfullscreen the window and flip the setting to false. */
+
+   /* cfg_fullscreen is already the requested initial state; toggling here used to unfullscreen the window and flip the setting to false. */
    if (main_window && cfg_fullscreen) {
       gtk_window_fullscreen(GTK_WINDOW(main_window));
       gtk_ui_zoom_recheck();
    }
+
    return G_SOURCE_REMOVE;
 }
 
@@ -588,8 +677,7 @@ bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
    GtkWidget *dialog = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
    /* Keep confirmation prompts in the middle of the display even when the parent is a tab or a partially off-screen window. */
    gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
-   /* Quit confirmation must remain accessible even if another utility dialog
-    * has an always-on-top hint. Transient/modal alone cannot guarantee that. */
+   /* Quit confirmation must remain accessible even if another utility dialog has an always-on-top hint. Transient/modal alone cannot guarantee that. */
    gtk_window_set_keep_above(GTK_WINDOW(dialog), TRUE);
    gtk_window_set_type_hint(GTK_WINDOW(dialog), GDK_WINDOW_TYPE_HINT_DIALOG);
    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
@@ -663,26 +751,25 @@ bool gui_init(void) {
    gtk_widget_show_all(main_window);
    gtk_widget_realize(main_window);
    place_window(main_window);
-   /* Never restore an oversized normal window beyond its monitor workarea.
-    * The zoom layer can then shrink the 100% layout to the available size. */
+
+   /* Never restore an oversized normal window beyond its monitor workarea. The zoom layer can then shrink the 100% layout to the available size. */
    if (!cfg_fullscreen) {
       GdkWindow *gdk_window = gtk_widget_get_window(main_window);
       GdkDisplay *display = gtk_widget_get_display(main_window);
-      GdkMonitor *monitor = gdk_window ?
-         gdk_display_get_monitor_at_window(display, gdk_window) :
-         gdk_display_get_primary_monitor(display);
+      GdkMonitor *monitor = gdk_window ? gdk_display_get_monitor_at_window(display, gdk_window) : gdk_display_get_primary_monitor(display);
+
       if (monitor) {
          GdkRectangle work;
          gdk_monitor_get_workarea(monitor, &work);
          int width = 0, height = 0;
          gtk_window_get_size(GTK_WINDOW(main_window), &width, &height);
-         if (width > work.width || height > work.height)
-            gtk_window_resize(GTK_WINDOW(main_window),
-               MIN(width, work.width), MIN(height, work.height));
+
+         if (width > work.width || height > work.height) {
+            gtk_window_resize(GTK_WINDOW(main_window), MIN(width, work.width), MIN(height, work.height));
+         }
       }
       gtk_ui_zoom_recheck();
    }
-
    // Fonts are handled entirely by the [gtk-css] section (see cfg.gtkcss.c)
    int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), status_tab);
 

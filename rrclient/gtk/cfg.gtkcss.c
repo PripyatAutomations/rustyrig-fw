@@ -198,7 +198,7 @@ bool config_gtkcss_cb(const char *path, int line, const char *section, const cha
    }
 
    if (buf[0] == '/' && buf[1] == '*') {
-      return true;             // XXX: block comments NYI
+      return true;              // XXX: block comments NYI
    }
    gtkcss_append(buf);
 
@@ -216,23 +216,31 @@ bool config_gtkcss_save_cb(FILE *fp, const char *path) {
       return true;
    }
    fprintf(fp, "[gtk-css]\n");
-   for (const char *line = css; *line; ) {
+
+   for (const char *line = css ; *line ; ) {
       size_t length = strcspn(line, "\n"), indent = strspn(line, " \t");
-      if (indent > length) indent = length;
+
+      if (indent > length) {
+         indent = length;
+      }
       const char *content = line + indent;
       bool escape = *content == '#' || *content == ';' || *content == '\\' || (content[0] == '/' && content[1] == '/');
       fprintf(fp, "%.*s%s%.*s\n", (int)indent, line, escape ? "\\" : "", (int)(length - indent), content);
       line += length;
-      if (*line == '\n') line++;
+
+      if (*line == '\n') {
+         line++;
+      }
    }
+
    return ferror(fp) == 0;
 }
 
 // Called once at startup to register our section + save callbacks
 bool cfg_gtkcss_init(void) {
    gtkcss_reset();
-   return cfg_add_callback(NULL, "gtk-css", config_gtkcss_cb) &&
-      cfg_add_save_callback("cfg.gtkcss", config_gtkcss_save_cb);
+
+   return cfg_add_callback(NULL, "gtk-css", config_gtkcss_cb) && cfg_add_save_callback("cfg.gtkcss", config_gtkcss_save_cb);
 }
 
 // Reload the [gtk-css] section straight from the config file - no recompile,
@@ -280,6 +288,7 @@ bool cmd_css_reload(int argc, char **args) {
       if (!in_section) {
          continue;
       }
+
       // Filter comments before decoding an escaped selector such as \#chat-view.
       if (*p == '\0' || *p == '#' || *p == ';' || (p[0] == '/' && p[1] == '/')) {
          continue;

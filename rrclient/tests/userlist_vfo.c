@@ -65,10 +65,15 @@ bool ws_send_dict(rrconn_t *source, rrconn_t *client, dict *d, int opcode) {
 static gboolean accept_reason(gpointer unused) {
    (void)unused;
    GList *windows = gtk_window_list_toplevels();
-   for (GList *item = windows; item; item = item->next) {
-      if (GTK_IS_DIALOG(item->data)) gtk_dialog_response(GTK_DIALOG(item->data), GTK_RESPONSE_ACCEPT);
+
+   for (GList *item = windows ; item ; item = item->next) {
+      if (GTK_IS_DIALOG(item->data)) {
+         gtk_dialog_response(GTK_DIALOG(item->data), GTK_RESPONSE_ACCEPT);
+      }
    }
+
    g_list_free(windows);
+
    return G_SOURCE_REMOVE;
 }
 int main(void) {
@@ -211,7 +216,10 @@ int main(void) {
          if (!commands[i]) {
             continue;
          }
-         if (i == 3 || i == 5) g_idle_add(accept_reason, NULL);
+
+         if (i == 3 || i == 5) {
+            g_idle_add(accept_reason, NULL);
+         }
          gtk_menu_item_activate(GTK_MENU_ITEM(g_list_nth_data(items, i)));
          assert(!strcmp(menu_command, commands[i]));
          assert(!strcmp(menu_window, "#origin|server|1"));

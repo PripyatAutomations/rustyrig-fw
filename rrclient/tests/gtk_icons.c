@@ -8,9 +8,10 @@ static guchar *window_icon(GtkWidget *window, gint *length) {
    GdkAtom type;
    gint format;
    guchar *bytes = NULL;
-   assert(gdk_property_get(gtk_widget_get_window(window), gdk_atom_intern_static_string("_NET_WM_ICON"),
-      GDK_NONE, 0, 1024 * 1024, FALSE, &type, &format, length, &bytes));
+   assert(gdk_property_get(gtk_widget_get_window(window), gdk_atom_intern_static_string("_NET_WM_ICON"), GDK_NONE, 0, 1024 * 1024, FALSE, &type, &format, length
+      , &bytes));
    assert(format == 32 && *length > 0);
+
    return bytes;
 }
 int main(int argc, char **argv) {
@@ -23,13 +24,15 @@ int main(int argc, char **argv) {
    assert(gdk_pixbuf_save(icon, "rr-icon-fixture.png", "png", NULL, NULL));
    g_object_unref(icon);
    GtkWidget *main = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   assert(set_window_icon(main, "rr-icon-fixture")); /* Exercise the file fallback. */
+   assert(set_window_icon(main, "rr-icon-fixture"));  /* Exercise the file fallback. */
    GtkWidget *extra = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main), 0, GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE, "Additional dialog");
    gtk_widget_show_all(main);
    gtk_widget_show_all(extra);
    gtk_widget_show_all(dialog);
-   while (gtk_events_pending()) gtk_main_iteration();
+   while (gtk_events_pending()) {
+      gtk_main_iteration();
+   }
    gdk_display_sync(gtk_widget_get_display(main));
    gint main_size, extra_size, dialog_size;
    guchar *main_icon = window_icon(main, &main_size);
@@ -47,5 +50,6 @@ int main(int argc, char **argv) {
    g_free(old_directory);
    g_free(directory);
    puts("PASS: application file-fallback icon is identical on main, extra window and dialog");
+
    return 0;
 }

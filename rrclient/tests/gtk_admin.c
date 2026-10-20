@@ -91,26 +91,37 @@ static char *cell_text(admin_table_t *table, int col, GtkTreeIter *iter) {
 static gboolean create_account_dialog(gpointer unused) {
    (void)unused;
    GList *windows = gtk_window_list_toplevels();
-   for (GList *item = windows; item; item = item->next) {
-      if (!GTK_IS_DIALOG(item->data) || g_strcmp0(gtk_window_get_title(item->data), "Create User")) continue;
+
+   for (GList *item = windows ; item ; item = item->next) {
+      if (!GTK_IS_DIALOG(item->data) || g_strcmp0(gtk_window_get_title(item->data), "Create User")) {
+         continue;
+      }
       GtkDialog *dialog = item->data;
       GList *children = gtk_container_get_children(GTK_CONTAINER(gtk_dialog_get_content_area(dialog)));
       unsigned entries = 0;
-      for (GList *child = children; child; child = child->next) {
+
+      for (GList *child = children ; child ; child = child->next) {
          if (GTK_IS_ENTRY(child->data)) {
-            if (!entries) gtk_entry_set_text(child->data, "new-user");
-            else assert(!strcmp(gtk_entry_get_text(child->data), "view,chat"));
+            if (!entries) {
+               gtk_entry_set_text(child->data, "new-user");
+            } else {
+               assert(!strcmp(gtk_entry_get_text(child->data), "view,chat"));
+            }
             entries++;
          }
       }
+
       assert(entries == 2);
       g_list_free(children);
       gtk_dialog_response(dialog, GTK_RESPONSE_OK);
       g_list_free(windows);
+
       return G_SOURCE_REMOVE;
    }
+
    g_list_free(windows);
    assert(false);
+
    return G_SOURCE_REMOVE;
 }
 

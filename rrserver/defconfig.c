@@ -37,24 +37,60 @@ const char *configs[] = {
 
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
-   { "station.description", "A misconfigured server", "Public server description for links, WHOIS and Explorer" },
-   { "station.location", "Unknown City", "Public city, state, country; use MOBILE for mobile rigs" },
-   { "platform.backlight.device", "", "Linux /sys/class/backlight device name; empty auto-detects only if unique" },
-   { "platform.backlight.minimum", "1", "Lowest LCD brightness permitted remotely (1 prevents a black screen)", DEFCONFIG_UINT, NULL },
-   { "hardware.si5351", "", "Named Si5351A devices to register; restart required" },
-   { "si5351:example.bus", "", "Linux I2C adapter path (required); no automatic bus selection" },
-   { "si5351:example.address", "0x60", "Seven-bit I2C address" },
-   { "si5351:example.crystal-hz", "25000000", "Crystal frequency: 25000000 or 27000000 Hz" },
-   { "si5351:example.correction-ppb", "0", "Crystal calibration in ppb; positive means fast (-100000..100000)" },
-   { "si5351:example.load-pf", "10", "Crystal load capacitance: 6, 8 or 10 pF" },
-   { "si5351:example.drive-ma", "2", "Clock output drive: 2, 4, 6 or 8 mA" },
-   { "hardware.gpio-lines", "", "Named GPIO mappings to load (space or comma separated); restart required" },
-   { "gpio:example.chip", "", "GPIO chip device path; mappings use [gpio:name]" },
-   { "gpio:example.offset", "", "GPIO line offset within the chip, not header or WiringPi pin number" },
-   { "gpio:example.direction", "input", "GPIO direction", DEFCONFIG_ENUM, "input|output" },
-   { "gpio:example.active-low", "false", "Invert logical GPIO values", DEFCONFIG_BOOL, NULL },
-   { "gpio:example.safe-value", "0", "Logical output value on claim and release", DEFCONFIG_ENUM, "0|1" },
-   { "files.max-size", "1073741824", "Maximum uploaded file size in bytes", DEFCONFIG_UINT, NULL },
+   {
+      "station.description", "A misconfigured server", "Public server description for links, WHOIS and Explorer"
+   },
+   {
+      "station.location", "Unknown City", "Public city, state, country; use MOBILE for mobile rigs"
+   },
+   {
+      "platform.backlight.device", "", "Linux /sys/class/backlight device name; empty auto-detects only if unique"
+   },
+   {
+      "platform.backlight.minimum", "1", "Lowest LCD brightness permitted remotely (1 prevents a black screen)", DEFCONFIG_UINT, NULL
+   },
+   {
+      "hardware.si5351", "", "Named Si5351A devices to register; restart required"
+   },
+   {
+      "si5351:example.bus", "", "Linux I2C adapter path (required); no automatic bus selection"
+   },
+   {
+      "si5351:example.address", "0x60", "Seven-bit I2C address"
+   },
+   {
+      "si5351:example.crystal-hz", "25000000", "Crystal frequency: 25000000 or 27000000 Hz"
+   },
+   {
+      "si5351:example.correction-ppb", "0", "Crystal calibration in ppb; positive means fast (-100000..100000)"
+   },
+   {
+      "si5351:example.load-pf", "10", "Crystal load capacitance: 6, 8 or 10 pF"
+   },
+   {
+      "si5351:example.drive-ma", "2", "Clock output drive: 2, 4, 6 or 8 mA"
+   },
+   {
+      "hardware.gpio-lines", "", "Named GPIO mappings to load (space or comma separated); restart required"
+   },
+   {
+      "gpio:example.chip", "", "GPIO chip device path; mappings use [gpio:name]"
+   },
+   {
+      "gpio:example.offset", "", "GPIO line offset within the chip, not header or WiringPi pin number"
+   },
+   {
+      "gpio:example.direction", "input", "GPIO direction", DEFCONFIG_ENUM, "input|output"
+   },
+   {
+      "gpio:example.active-low", "false", "Invert logical GPIO values", DEFCONFIG_BOOL, NULL
+   },
+   {
+      "gpio:example.safe-value", "0", "Logical output value on claim and release", DEFCONFIG_ENUM, "0|1"
+   },
+   {
+      "files.max-size", "1073741824", "Maximum uploaded file size in bytes", DEFCONFIG_UINT, NULL
+   },
    {
       "websdr.max-temporary", "8", "Maximum concurrent temporary WebSDR rigs"
    },
@@ -224,8 +260,7 @@ defconfig_t defcfg[] = {
    {
       "peer.node.uuid", "", "Optional expected remote server UUID"
    },
-   FWDSP_VIDEO_PIPELINE_DEFAULTS
-   FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE) {
+   FWDSP_VIDEO_PIPELINE_DEFAULTS FWDSP_AUDIO_PIPELINE_DEFAULTS(FWDSP_RIG_PCM_SOURCE) {
       "atu.max", "0", "Maximum number of ATUs", DEFCONFIG_UINT, NULL
    },
    {
