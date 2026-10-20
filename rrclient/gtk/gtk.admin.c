@@ -86,6 +86,8 @@ static admin_table_t tables[] = {
 
 /* Server-exported node controls. The UI knows only typed descriptors, not individual hardware providers or platform-specific paths. */
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
+static GtkWidget *group_tree;
+static GtkTreeStore *group_store;
 static GtkWidget *control_rows_box, *control_filter, *control_scroll, *control_hosts;
 static gulong control_host_handler;
 static guint control_pending_lists;
@@ -1137,6 +1139,10 @@ static void admin_refresh(GtkButton *button, gpointer data) {
    gtk_list_store_clear(table->store);
    gtk_label_set_text(GTK_LABEL(table->status), table->profile);
    admin_command(table, "admin", table->name, NULL);
+   if (!strcmp(table->name,"assignments") && group_store) {
+      gtk_tree_store_clear(group_store);
+      admin_command(table,"admin","groups",NULL);
+   }
 }
 
 static void admin_session_kick(GtkButton *button, gpointer data) {
@@ -1227,6 +1233,44 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    g_clear_pointer(&grant_profile, g_free);
    gtk_widget_destroy(dialog);
 }
+enum { GROUP_TEXT, GROUP_DETAIL, GROUP_NAME, GROUP_KIND, GROUP_COUNT };
+static gboolean admin_group_selected(char **group,char **kind,char **name,char **detail) {
+   if (!group_tree) return FALSE;
+   GtkTreeIter iter;
+   GtkTreeModel *model=NULL;
+   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(group_tree)),
+                                        &model,&iter)) return FALSE;
+   gtk_tree_model_get(model,&iter,GROUP_NAME,group,GROUP_KIND,kind,
+                      GROUP_TEXT,name,GROUP_DETAIL,detail,-1);
+   return TRUE;
+}
+static void admin_group_tree_row(const char *group,const char *kind,
+                                 const char *name,const char *detail) {
+   if (!group_store || !group || !*group) return;
+   GtkTreeIter parent,child;
+   GtkTreeModel *model=GTK_TREE_MODEL(group_store);
+   gboolean found=FALSE,valid=gtk_tree_model_get_iter_first(model,&parent);
+   while (valid) {
+      char *key=NULL;
+      gtk_tree_model_get(model,&parent,GROUP_NAME,&key,-1);
+      found=!g_strcmp0(key,group);
+      g_free(key);
+      if (found) break;
+      valid=gtk_tree_model_iter_next(model,&parent);
+   }
+   if (!found) {
+      gtk_tree_store_append(group_store,&parent,NULL);
+      gtk_tree_store_set(group_store,&parent,GROUP_TEXT,group,GROUP_DETAIL,"",
+                         GROUP_NAME,group,GROUP_KIND,"group",-1);
+   }
+   if (!strcmp(kind,"group")) {
+      gtk_tree_store_set(group_store,&parent,GROUP_DETAIL,detail,-1);
+      return;
+   }
+   gtk_tree_store_append(group_store,&child,&parent);
+   gtk_tree_store_set(group_store,&child,GROUP_TEXT,name,GROUP_DETAIL,detail,
+                      GROUP_NAME,group,GROUP_KIND,kind,-1);
+}
 static void admin_manage_groups(GtkButton *button, gpointer user) {
    (void)button;
    admin_table_t *table = user;
@@ -1242,6 +1286,9 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    GtkWidget *group = gtk_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(group), "e.g. club-members");
+   char *selected_group=NULL,*selected_kind=NULL,*selected_name=NULL,*selected_detail=NULL;
+   if (admin_group_selected(&selected_group,&selected_kind,&selected_name,&selected_detail))
+      gtk_entry_set_text(GTK_ENTRY(group),selected_group);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Group name (stable symbolic name)"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), group, FALSE, FALSE, 3);
    GtkWidget *action = gtk_combo_box_text_new();
@@ -1257,6 +1304,10 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
    }
 
    gtk_combo_box_set_active(GTK_COMBO_BOX(action), 0);
+   if (selected_kind && !strcmp(selected_kind,"member"))
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(action),"group-remove-user");
+   else if (selected_kind && !strcmp(selected_kind,"privilege"))
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(action),"group-ungrant");
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Action"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), action, FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("User (for Add/Remove user)"), FALSE, FALSE, 3);
@@ -1310,7 +1361,7 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
 
       if (group_name && *group_name && op && args) {
          if (admin_command(table, op, args, group_name)) {
-            gtk_label_set_text(GTK_LABEL(table->status), "Group change submitted; refresh to see results");
+            gtk_label_set_text(GTK_LABEL(table->status), "Group change submitted; refreshing group list");
          }
       } else {
          gtk_label_set_text(GTK_LABEL(table->status), "Group name, user, or resource is missing");
@@ -1320,6 +1371,10 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
    grant_subjects = NULL;
    g_clear_pointer(&grant_profile, g_free);
    gtk_widget_destroy(dialog);
+   g_free(selected_group);
+   g_free(selected_kind);
+   g_free(selected_name);
+   g_free(selected_detail);
 }
 static void admin_older(GtkButton *button, gpointer data) {
    (void)button;
@@ -1610,6 +1665,19 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
 
       return;
    }
+   if (row && !strcmp(name,"groups") && group_store &&
+       !g_strcmp0(rrclient_connection_name(connection),tables[4].profile)) {
+      if (!strcmp(action,"begin")) gtk_tree_store_clear(group_store);
+      else if (!strcmp(action,"row"))
+         admin_group_tree_row(dict_get(row,"group_name",""),
+            dict_get(row,"entry_type",""),dict_get(row,"entry_name",""),
+            dict_get(row,"entry_detail",""));
+      else if (!strcmp(action,"end") && group_tree)
+         gtk_tree_view_expand_all(GTK_TREE_VIEW(group_tree));
+      else if (!strcmp(action,"updated"))
+         admin_command(&tables[4],"admin","groups",NULL);
+      dict_free(row);dict_free(reply);return;
+   }
    const char *source_profile = rrclient_connection_name(connection);
    const char *view_host = control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
    gboolean all_nodes = view_host && !strcmp(view_host, "all");
@@ -1796,9 +1864,7 @@ GtkWidget *init_admin_tab(void) {
          GtkWidget *add = gtk_button_new_with_label("Add Privilege…");
          g_signal_connect(add, "clicked", G_CALLBACK(admin_add_privilege), table);
          gtk_box_pack_start(GTK_BOX(buttons), add, FALSE, FALSE, 0);
-         GtkWidget *groups = gtk_button_new_with_label("Manage Groups…");
-         g_signal_connect(groups, "clicked", G_CALLBACK(admin_manage_groups), table);
-         gtk_box_pack_start(GTK_BOX(buttons), groups, FALSE, FALSE, 0);
+
       }
 
       if (i == 0) {
@@ -1925,7 +1991,40 @@ GtkWidget *init_admin_tab(void) {
       GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
       gtk_container_add(GTK_CONTAINER(scroll), table->tree);
-      gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
+      if (!strcmp(table->name,"assignments")) {
+         GtkWidget *split=gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+         gtk_widget_set_vexpand(split,TRUE);
+         gtk_paned_pack1(GTK_PANED(split),scroll,TRUE,FALSE);
+         GtkWidget *bottom=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
+         GtkWidget *group_label=gtk_label_new("Groups — privileges and member users");
+         gtk_label_set_xalign(GTK_LABEL(group_label),0);
+         gtk_box_pack_start(GTK_BOX(bottom),group_label,FALSE,FALSE,0);
+         group_store=gtk_tree_store_new(GROUP_COUNT,G_TYPE_STRING,G_TYPE_STRING,
+                                         G_TYPE_STRING,G_TYPE_STRING);
+         group_tree=gtk_tree_view_new_with_model(GTK_TREE_MODEL(group_store));
+         const char *headings[]={"Group / Privilege / Member","Details"};
+         for (int col=0;col<2;col++) {
+            GtkCellRenderer *cell=gtk_cell_renderer_text_new();
+            g_object_set(cell,"wrap-mode",PANGO_WRAP_WORD_CHAR,"wrap-width",250,NULL);
+            GtkTreeViewColumn *heading=gtk_tree_view_column_new_with_attributes(
+               headings[col],cell,"text",col,NULL);
+            gtk_tree_view_column_set_resizable(heading,TRUE);
+            gtk_tree_view_column_set_expand(heading,TRUE);
+            gtk_tree_view_append_column(GTK_TREE_VIEW(group_tree),heading);
+         }
+         GtkWidget *group_scroll=gtk_scrolled_window_new(NULL,NULL);
+         gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(group_scroll),
+                                         GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
+         gtk_container_add(GTK_CONTAINER(group_scroll),group_tree);
+         gtk_box_pack_start(GTK_BOX(bottom),group_scroll,TRUE,TRUE,0);
+         GtkWidget *group_actions=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+         GtkWidget *manage=gtk_button_new_with_label("Add / Edit / Remove Group Entry…");
+         g_signal_connect(manage,"clicked",G_CALLBACK(admin_manage_groups),table);
+         gtk_box_pack_start(GTK_BOX(group_actions),manage,FALSE,FALSE,0);
+         gtk_box_pack_start(GTK_BOX(bottom),group_actions,FALSE,FALSE,0);
+         gtk_paned_pack2(GTK_PANED(split),bottom,TRUE,FALSE);
+         gtk_box_pack_start(GTK_BOX(box),split,TRUE,TRUE,0);
+      } else gtk_box_pack_start(GTK_BOX(box),scroll,TRUE,TRUE,0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
 
       if (!strcmp(table->name, "privsets") || !strcmp(table->name, "setentries")) {
