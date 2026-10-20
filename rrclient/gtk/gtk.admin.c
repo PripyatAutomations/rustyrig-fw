@@ -1852,6 +1852,7 @@ GtkWidget *init_admin_tab(void) {
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
    GtkWidget *privileges_page = NULL;
+   GtkWidget *privileges_sections = NULL;
 
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
@@ -2044,23 +2045,26 @@ GtkWidget *init_admin_tab(void) {
       } else gtk_box_pack_start(GTK_BOX(box),scroll,TRUE,TRUE,0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
 
-      if (!strcmp(table->name, "privsets") || !strcmp(table->name, "setentries")) {
+      const char *priv_section = NULL;
+      if (!strcmp(table->name,"assignments")) priv_section="Assignments & Groups";
+      else if (!strcmp(table->name,"grants")) priv_section="Individual Grants";
+      else if (!strcmp(table->name,"privsets")) priv_section="Privilege Groups";
+      else if (!strcmp(table->name,"setentries")) priv_section="Group Privileges";
+      if (priv_section) {
          if (!privileges_page) {
-            privileges_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-            gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), privileges_page, gtk_label_new("Privilege Sets"));
+            privileges_page=gtk_box_new(GTK_ORIENTATION_VERTICAL,0);
+            privileges_sections=gtk_notebook_new();
+            gtk_notebook_set_scrollable(GTK_NOTEBOOK(privileges_sections),TRUE);
+            gtk_box_pack_start(GTK_BOX(privileges_page),privileges_sections,TRUE,TRUE,0);
+            gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),privileges_page,gtk_label_new("Privileges"));
          }
-         GtkWidget *section = gtk_label_new(!strcmp(table->name, "privsets") ?
-            "Sets — reusable privilege definitions" : "Entries — privileges in each set");
-         gtk_label_set_xalign(GTK_LABEL(section), 0);
-         gtk_box_pack_start(GTK_BOX(privileges_page), section, FALSE, FALSE, 0);
-         gtk_box_pack_start(GTK_BOX(privileges_page), box, TRUE, TRUE, 0);
+         gtk_notebook_append_page(GTK_NOTEBOOK(privileges_sections),box,gtk_label_new(priv_section));
       } else {
          gtk_notebook_append_page(GTK_NOTEBOOK(admin_view), box, gtk_label_new(!strcmp(table->name, "audit") ? "Audit Log" :
             !strcmp(table->name, "ptt") ? "PTT Log" :
             !strcmp(table->name, "quotas") ? "Quotas" :
             !strcmp(table->name, "users") ? "Users" :
-            !strcmp(table->name, "sessions") ? "Sessions" :
-            !strcmp(table->name, "assignments") ? "Assignments" : !strcmp(table->name, "grants") ? "Direct Grants" : "Rooms"));
+            !strcmp(table->name, "sessions") ? "Sessions" : "Rooms"));
       }
    }
 
