@@ -318,6 +318,7 @@ static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
 static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
    GtkWidget *container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(header), 3);
    const char *headings[] = {
       "Setting", "Value", "Description"
    };
