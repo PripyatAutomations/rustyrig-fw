@@ -88,6 +88,10 @@ static admin_table_t tables[] = {
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
 enum { AR_ID,AR_USER,AR_RESOURCE,AR_REASON,AR_STATUS,AR_AGE,AR_COUNT };
 static gboolean admin_access_send(const char *action,const char *id,const char *decision);
+enum { COPY_LABEL,COPY_EMAIL,COPY_REAL,COPY_PHONE,COPY_PRIVS,COPY_IS_USER,COPY_NCOL };
+static GtkTreeStore *copy_user_store;
+static char copy_user_profile[128];
+static GtkWidget *copy_user_tree;
 static GtkWidget *access_request_tree;
 static GtkListStore *access_request_store;
 static char access_request_profile[128];
