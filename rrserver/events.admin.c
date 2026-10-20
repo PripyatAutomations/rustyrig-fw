@@ -874,27 +874,96 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
    if (!strcmp(action,"access-request-review")) {
       const char *id=dict_get(request,"request.id","");
       const char *decision=dict_get(request,"request.decision","");
+      const char *selected=dict_get(request,"request.grants","");
+      gboolean remote=dict_get_bool(request,"request.remote",false);
       if (!has_priv(client->user->uid,"owner") ||
           (strcmp(decision,"denied") && strcmp(decision,"granted"))) {
          ws_send_error(client,"Owner privilege and valid decision required");return;
       }
       char *end=NULL;errno=0;
-      long long number=strtoll(id,&end,10);
-      if (errno || !id[0] || *end || number<=0) {
-         ws_send_error(client,"Invalid request identifier");return;
+      sqlite3_int64 number=strtoll(id,&end,10);
+      if (errno || !*id || *end || number<=0 || strlen(selected)>2048) {
+         ws_send_error(client,"Invalid access review");return;
       }
+      if (!strcmp(decision,"granted") && !*selected) {
+         ws_send_error(client,"Select at least one privilege or group");return;
+      }
+      /* Lock the request before loading it; all inserts and status changes
+       * commit together, never leaving a partially approved request. */
+      if (sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)!=SQLITE_OK) {
+         ws_send_error(client,"Unable to begin access review");return;
+      }
+      gboolean ok=FALSE;
       sqlite3_stmt *st=NULL;
-      const char *sql="UPDATE access_requests SET status=?1,reviewed_at=unixepoch(),reviewed_by=?2 WHERE id=?3 AND status='pending'";
-      if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
-         sqlite3_bind_text(st,1,decision,-1,SQLITE_TRANSIENT);
-         sqlite3_bind_text(st,2,client->chatname,-1,SQLITE_TRANSIENT);
-         sqlite3_bind_int64(st,3,number);
-         if (sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)==1) {
-            db_add_audit_event(masterdb,client->chatname,"access.review",id);
-            rrserver_admin_send(client,"access-requests","updated",NULL);
-         } else ws_send_error(client,"Request is missing or no longer pending");
-      } else ws_send_error(client,"Unable to prepare access request review");
+      char *subject=NULL,*host=NULL,*kind=NULL,*uuid=NULL;
+      if (sqlite3_prepare_v2(masterdb,
+         "SELECT subject_user,subject_host,resource_kind,resource_uuid FROM access_requests WHERE id=?1 AND status='pending'",
+         -1,&st,NULL)==SQLITE_OK) {
+         sqlite3_bind_int64(st,1,number);
+         if (sqlite3_step(st)==SQLITE_ROW) {
+            subject=g_strdup((const char *)sqlite3_column_text(st,0));
+            host=g_strdup((const char *)sqlite3_column_text(st,1));
+            kind=g_strdup((const char *)sqlite3_column_text(st,2));
+            uuid=g_strdup((const char *)sqlite3_column_text(st,3));
+            ok=subject && *subject && host && kind && uuid;
+         }
+      }
       sqlite3_finalize(st);
+      if (ok && !strcmp(decision,"granted")) {
+         gchar **tokens=g_strsplit(selected,",",-1);
+         unsigned count=0;
+         for (unsigned i=0;tokens[i] && ok;i++) {
+            const char *token=tokens[i];
+            if (!*token || strlen(token)>128 || strspn(token,
+                  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-@")!=strlen(token) ||
+                (token[0]=='@' && !token[1]) || ++count>32) {ok=FALSE;break;}
+            const gboolean group=token[0]=='@';
+            const char *sql=group ?
+               "INSERT INTO privilege_set_assignments(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by,remote_allowed) "
+               "SELECT id,?2,?3,?4,?5,?6,?7 FROM privilege_sets WHERE name=?1 "
+               "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
+               "DO UPDATE SET remote_allowed=excluded.remote_allowed,assigned_by=excluded.assigned_by" :
+               "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by,remote_allowed) "
+               "VALUES(?1,?2,?3,?4,?5,'allow',?6,?7) "
+               "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
+               "DO UPDATE SET effect='allow',remote_allowed=excluded.remote_allowed,granted_by=excluded.granted_by";
+            st=NULL;
+            ok=sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK;
+            if (ok) {
+               sqlite3_bind_text(st,1,group ? token+1 : subject,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,2,group ? subject : host,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,3,group ? host : kind,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,4,group ? kind : uuid,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,5,group ? uuid : token,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,6,client->chatname,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_int(st,7,remote ? 1 : 0);
+               ok=sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)>0;
+            }
+            sqlite3_finalize(st);
+         }
+         g_strfreev(tokens);
+         if (!count) ok=FALSE;
+      }
+      if (ok) {
+         st=NULL;
+         ok=sqlite3_prepare_v2(masterdb,
+            "UPDATE access_requests SET status=?1,reviewed_at=unixepoch(),reviewed_by=?2 WHERE id=?3 AND status='pending'",
+            -1,&st,NULL)==SQLITE_OK;
+         if (ok) {
+            sqlite3_bind_text(st,1,decision,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_text(st,2,client->chatname,-1,SQLITE_TRANSIENT);
+            sqlite3_bind_int64(st,3,number);
+            ok=sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)==1;
+         }
+         sqlite3_finalize(st);
+      }
+      if (ok) ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+      if (!ok) sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
+      g_free(subject);g_free(host);g_free(kind);g_free(uuid);
+      if (ok) {
+         db_add_audit_event(masterdb,client->chatname,"access.review",id);
+         rrserver_admin_send(client,"access-requests","updated",NULL);
+      } else ws_send_error(client,"Access review failed; no grants or status changes saved");
    }
 }
 #endif
