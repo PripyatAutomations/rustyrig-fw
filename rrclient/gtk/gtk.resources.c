@@ -1146,7 +1146,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details->str,
       COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""),
-      UUID, dict_get(row, "inventory.uuid", ""), ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, !strcmp(kind,"control") ? dict_get(row,"inventory.control","") : dict_get(row, "inventory.action", ""), -1);
+      UUID, dict_get(row, "inventory.uuid", ""), ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, !strcmp(kind,"control") ? dict_get(row,"inventory.service","") : dict_get(row, "inventory.action", ""), -1);
    if (branch->selection) {
       const char *uuid = dict_get(row, "inventory.uuid", "");
       char *key = g_strdup_printf("%s:%s", kind, *uuid ? uuid : name);
