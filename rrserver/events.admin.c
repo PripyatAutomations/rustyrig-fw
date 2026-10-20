@@ -58,7 +58,7 @@ extern struct GlobalState rig;
 static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
    if (!client || !client->user || !privilege) return false;
    if (!rr_relay_remote_for(client))
-      return admin_actor_has_priv(client, privilege);
+      return has_priv(client->user->uid, privilege);
 #ifdef USE_SQLITE
    const char *host = rrserver_relay_client_server(client);
    const char *local = cfg_get("station.name");
