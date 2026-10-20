@@ -33,6 +33,9 @@ typedef struct {
    GtkWidget *page, *panel, *tree, *status, *details, *buttons[BUTTONS];
    GtkTreeModelFilter *filter;
    GHashTable *enabled_kinds;
+   GPtrArray *type_checks;
+   GtkWidget *type_toggle_all;
+   gboolean type_bulk_update;
    GHashTable *zebra_positions;
    gboolean zebra_dirty, zebra_rebuilding;
    GtkTreeStore *store;
@@ -194,6 +197,7 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
    g_hash_table_destroy(view->enabled_kinds);
+   g_ptr_array_free(view->type_checks,TRUE);
    g_hash_table_destroy(view->zebra_positions);
    g_object_unref(view->filter);
    g_object_unref(view->store);
@@ -1323,12 +1327,43 @@ static gboolean resource_type_visible(GtkTreeModel *model,GtkTreeIter *iter,gpoi
    (void)unused;
    return resource_type_match(model,iter);
 }
+static void resource_type_sync_all(void) {
+   if (!browser || !browser->type_toggle_all || !browser->type_checks) return;
+   guint selected=0;
+   for (guint i=0;i<browser->type_checks->len;i++)
+      if (gtk_toggle_button_get_active(g_ptr_array_index(browser->type_checks,i)))
+         selected++;
+   gboolean all=selected==browser->type_checks->len;
+   browser->type_bulk_update=TRUE;
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all),all);
+   gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all),
+                                      selected>0 && !all);
+   browser->type_bulk_update=FALSE;
+}
+static void resource_type_toggle_all(GtkToggleButton *item,gpointer unused) {
+   (void)item;
+   (void)unused;
+   if (!browser || browser->type_bulk_update) return;
+   /* Any nonempty selection clears; an empty selection enables all. */
+   gboolean select_all=g_hash_table_size(browser->enabled_kinds)==0;
+   browser->type_bulk_update=TRUE;
+   for (guint i=0;i<browser->type_checks->len;i++)
+      gtk_toggle_button_set_active(g_ptr_array_index(browser->type_checks,i),select_all);
+   browser->type_bulk_update=FALSE;
+   gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all),FALSE);
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all),select_all);
+   gtk_tree_model_filter_refilter(browser->filter);
+   resource_zebra_invalidate();
+   gtk_widget_queue_draw(browser->tree);
+}
 static void resource_type_changed(GtkToggleButton *item,gpointer data) {
    if (!browser || !browser->filter) return;
    const char *type=data;
    if (gtk_toggle_button_get_active(item))
       g_hash_table_add(browser->enabled_kinds,g_strdup(type));
    else g_hash_table_remove(browser->enabled_kinds,type);
+   if (browser->type_bulk_update) return;
+   resource_type_sync_all();
    gtk_tree_model_filter_refilter(browser->filter);
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
@@ -1339,6 +1374,7 @@ static void resource_create(void) {
    }
    browser = g_new0(resource_browser, 1);
    browser->enabled_kinds=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   browser->type_checks=g_ptr_array_new();
    browser->zebra_positions=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
    browser->zebra_dirty=TRUE;
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
@@ -1404,7 +1440,16 @@ static void resource_create(void) {
       g_signal_connect(check,"toggled",G_CALLBACK(resource_type_changed),
                        (gpointer)choices[i].type);
       gtk_grid_attach(GTK_GRID(type_grid),check,i/9,i%9,1,1);
+      g_ptr_array_add(browser->type_checks,check);
    }
+   browser->type_toggle_all=gtk_check_button_new_with_label("All / Clear");
+   gtk_widget_set_tooltip_text(browser->type_toggle_all,
+      "When any types are selected, clear all; when none are selected, select all.");
+   gtk_grid_attach(GTK_GRID(type_grid),browser->type_toggle_all,
+                   0,(G_N_ELEMENTS(choices)+8)/9,2,1);
+   g_signal_connect(browser->type_toggle_all,"toggled",
+                    G_CALLBACK(resource_type_toggle_all),NULL);
+   resource_type_sync_all();
    /* Show the checklist children, but never map the popover at startup.
     * gtk_widget_show_all(type_popover) would make it visible immediately. */
    gtk_widget_show_all(type_grid);
