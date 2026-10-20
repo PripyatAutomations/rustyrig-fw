@@ -84,7 +84,7 @@ Description: RustyRig client
 
 Package: rustyrig-client-gtk
 Architecture: any
-Depends: rustyrig-client (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: rustyrig-client (= ${binary:Version}), extra-xdg-menus, ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig GTK client module
  GTK frontend for the RustyRig client, loaded from
  /usr/lib/rustyrig/modules/rrclient by the core client's [modules] configuration.
