@@ -1,7 +1,7 @@
 # libfwdspmgr: the fwdsp manager library used by rrserver and rrclient.
 # It has no gstreamer dependency; that lives in the fwdsp binary itself.
 
-CFLAGS_LIBFWDSPMGR := ${CFLAGS} -I${BUILD_DIR}
+CFLAGS_LIBFWDSPMGR = ${MEDIA_CFLAGS} -I${BUILD_DIR}
 
 libfwdspmgr_objs := fwdsp-mgr.o fwdsp-ctl.o fwdsp-video.o dsp-worker.o
 
@@ -25,7 +25,7 @@ extra_clean += ${real_libfwdspmgr_objs} ${libfwdspmgr} libfwdspmgr.so.0
 ${libfwdspmgr}: ${real_libfwdspmgr_objs} ${BUILD_DIR}/libfwdspmgr/fwdsp-mgr.h ${BUILD_DIR}/libfwdspmgr/dsp-worker.h ${librustyaxe} ${librrprotocol} GNUmakefile
 	@${RM} -f $@
 	@echo "[link] $@ from $(words ${real_libfwdspmgr_objs}) objects"
-	@${CC} ${LIB_LDFLAGS} -Wl,-soname,libfwdspmgr.so.0 -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${LDFLAGS}
+	@${CC} ${LIB_LDFLAGS} -Wl,-soname,libfwdspmgr.so.0 -o $@ ${real_libfwdspmgr_objs} -lrustyaxe -lrrprotocol ${MEDIA_LDFLAGS}
 	@ln -sf libfwdspmgr.so libfwdspmgr.so.0
 	@ls -a1ls $@
 
