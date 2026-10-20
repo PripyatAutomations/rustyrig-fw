@@ -76,7 +76,6 @@ rr_au_backend_interface_t au_backend_pipe = {
 // Audio Sockets //
 ///////////////////
 static char *rx_socket_path;
-static char *tx_socket_path;
 
 int rx_server_fd = -1;
 int rx_client_fd = -1;
@@ -156,7 +155,6 @@ void au_unix_socket_init(void) {
       return;
    }
    if (!rx_socket_path) rx_socket_path=g_build_filename(dir,"fwdsp.rx.sock",NULL);
-   if (!tx_socket_path) tx_socket_path=g_build_filename(dir,"fwdsp.tx.sock",NULL);
    g_free(dir);
    rx_server_fd = au_start_listener(rx_socket_path);
 
