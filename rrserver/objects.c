@@ -527,7 +527,7 @@ static bool inventory_node_control(const rr_platform_control_state_t *state, voi
    object_send_t *ctx = user;
    dict *row = rr_inventory_row(ctx->request, 1, "control", state->label, NULL);
    if (!row) return false;
-   dict_add(row, "inventory.control", state->name);
+   dict_add(row, "inventory.service", state->name);
    dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
    dict_add(row, "inventory.description", state->name);
    dict_add(row, "inventory.access", state->writable ? "read/write" : "read-only");
