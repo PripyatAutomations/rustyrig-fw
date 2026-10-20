@@ -100,6 +100,7 @@ static gboolean access_request_has_pending;
 static char access_request_profile[128];
 static GtkWidget *group_tree;
 static GtkTreeStore *group_store;
+static GtkWidget *privileges_notebook;
 static GtkWidget *control_rows_box, *control_filter, *control_scroll, *control_hosts;
 static gulong control_host_handler;
 static guint control_pending_lists;
@@ -1460,6 +1461,8 @@ static void admin_privgroup_edit(GtkButton *button,gpointer user) {
    GtkWidget *privilege=gtk_entry_new();
    GtkWidget *description=gtk_entry_new();
    GtkWidget *deny=gtk_check_button_new_with_label("Invert Rule (Deny access)");
+   const char *editing_group=!strcmp(table->name,"setentries") ?
+      g_object_get_data(G_OBJECT(table->tree),"rr-editing-group") : NULL;
    GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
    GtkTreeModel *model=NULL;GtkTreeIter iter;
    if (gtk_tree_selection_get_selected(selection,&model,&iter)) {
@@ -1471,6 +1474,10 @@ static void admin_privgroup_edit(GtkButton *button,gpointer user) {
          if (token) gtk_entry_set_text(GTK_ENTRY(privilege),token);
       }
       g_free(name);g_free(token);
+   }
+   if (editing_group && *editing_group) {
+      gtk_entry_set_text(GTK_ENTRY(group),editing_group);
+      gtk_editable_set_editable(GTK_EDITABLE(group),FALSE);
    }
    gtk_entry_set_placeholder_text(GTK_ENTRY(group),"e.g. operators");
    gtk_entry_set_placeholder_text(GTK_ENTRY(privilege),"e.g. rig.use");
@@ -1504,6 +1511,55 @@ static void admin_privgroup_edit(GtkButton *button,gpointer user) {
       g_free(tail);
    }
    gtk_widget_destroy(dialog);
+}
+/* Open the existing Group Privileges page for the selected group. */
+static void admin_privgroup_open(admin_table_t *table) {
+   if (!table || !table->tree || !privileges_notebook || !tables[7].tree) return;
+   GtkTreeModel *model=NULL;
+   GtkTreeIter iter;
+   GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
+   if (!gtk_tree_selection_get_selected(selection,&model,&iter)) return;
+   char *group=NULL;
+   gtk_tree_model_get(model,&iter,0,&group,-1);
+   if (!group || !*group) { g_free(group); return; }
+   admin_table_t *entries=&tables[7];
+   GtkWidget *filter=g_object_get_data(G_OBJECT(entries->tree),"rr-admin-filter");
+   g_object_set_data_full(G_OBJECT(entries->tree),"rr-editing-group",g_strdup(group),g_free);
+   if (filter) gtk_entry_set_text(GTK_ENTRY(filter),group);
+   gtk_tree_selection_unselect_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(entries->tree)));
+   snprintf(entries->profile,sizeof(entries->profile),"%s",table->profile);
+   entries->next[0]=0;
+   gtk_list_store_clear(entries->store);
+   gtk_widget_set_sensitive(entries->older,FALSE);
+   admin_command(entries,"admin",entries->name,NULL);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(privileges_notebook),3);
+   g_free(group);
+}
+static void admin_privgroup_open_clicked(GtkButton *button,gpointer user) {
+   (void)button;
+   admin_privgroup_open(user);
+}
+static void admin_privgroup_row_activated(GtkTreeView *view,GtkTreePath *path,
+                                          GtkTreeViewColumn *column,gpointer user) {
+   (void)column;
+   gtk_tree_selection_select_path(gtk_tree_view_get_selection(view),path);
+   admin_privgroup_open(user);
+}
+static gboolean admin_privgroup_context_menu(GtkWidget *tree,GdkEventButton *event,gpointer user) {
+   if (event->type!=GDK_BUTTON_PRESS || event->button!=3) return FALSE;
+   GtkTreePath *path=NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree),
+       (int)event->x,(int)event->y,&path,NULL,NULL,NULL)) return FALSE;
+   gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)),path);
+   gtk_tree_path_free(path);
+   GtkWidget *menu=gtk_menu_new();
+   GtkWidget *edit=gtk_menu_item_new_with_label("Edit Privs");
+   g_signal_connect(edit,"activate",G_CALLBACK(admin_privgroup_open_clicked),user);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),edit);
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
 }
 static void admin_older(GtkButton *button, gpointer data) {
    (void)button;
@@ -1721,9 +1777,12 @@ static void admin_filter_changed(GtkEditable *editable,gpointer data) {
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
 }
 static void admin_privilege_selection(GtkTreeSelection *selection,gpointer user) {
-   GtkWidget *button=GTK_WIDGET(user);
-   gtk_widget_set_sensitive(button,
-      gtk_tree_selection_count_selected_rows(selection)>0);
+   GtkWidget *box=GTK_WIDGET(user);
+   gboolean selected=gtk_tree_selection_count_selected_rows(selection)>0;
+   GtkWidget *remove=g_object_get_data(G_OBJECT(box),"rr-privilege-selection-button");
+   GtkWidget *edit=g_object_get_data(G_OBJECT(box),"rr-privilege-edit-button");
+   if (remove) gtk_widget_set_sensitive(remove,selected);
+   if (edit) gtk_widget_set_sensitive(edit,selected);
 }
 static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
    admin_table_t *table = user;
@@ -2449,6 +2508,13 @@ GtkWidget *init_admin_tab(void) {
             }
             gtk_box_pack_start(GTK_BOX(buttons),control,FALSE,FALSE,0);
          }
+         if (!strcmp(table->name,"privsets")) {
+            GtkWidget *edit=gtk_button_new_with_label("Edit Privs");
+            gtk_widget_set_sensitive(edit,FALSE);
+            g_object_set_data(G_OBJECT(box),"rr-privilege-edit-button",edit);
+            g_signal_connect(edit,"clicked",G_CALLBACK(admin_privgroup_open_clicked),table);
+            gtk_box_pack_start(GTK_BOX(buttons),edit,FALSE,FALSE,0);
+         }
       }
 
       if (i == 0) {
@@ -2498,10 +2564,15 @@ GtkWidget *init_admin_tab(void) {
          admin_filter_visible,filter,NULL);
       g_signal_connect(filter,"changed",G_CALLBACK(admin_filter_changed),filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
+      g_object_set_data(G_OBJECT(table->tree),"rr-admin-filter",filter);
+      if (!strcmp(table->name,"privsets")) {
+         g_signal_connect(table->tree,"row-activated",G_CALLBACK(admin_privgroup_row_activated),table);
+         g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_privgroup_context_menu),table);
+      }
       GtkWidget *privilege_selection=g_object_get_data(G_OBJECT(box),"rr-privilege-selection-button");
       if (privilege_selection)
          g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
-                          "changed",G_CALLBACK(admin_privilege_selection),privilege_selection);
+                          "changed",G_CALLBACK(admin_privilege_selection),box);
       GtkWidget *disconnect=g_object_get_data(G_OBJECT(box),"rr-session-disconnect");
       if (disconnect) g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
          "changed",G_CALLBACK(admin_session_selection),disconnect);
@@ -2582,7 +2653,12 @@ GtkWidget *init_admin_tab(void) {
                "single-paragraph-mode", FALSE, NULL);
          }
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
-         gtk_tree_view_column_set_fixed_width(column, (users && field == 2) ? 165 :
+         gtk_tree_view_column_set_fixed_width(column,
+            (!strcmp(table->name,"privsets") && field == 0) ? 175 :
+            (!strcmp(table->name,"privsets") && field == 1) ? 440 :
+            (!strcmp(table->name,"privsets") && field == 2) ? 135 :
+            (!strcmp(table->name,"privsets") && field == 3) ? 165 :
+            (users && field == 2) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
             rooms ? (field == 0 ? 115 : field == 3 ? 275 : field == 1 ? 250 : 95) :
             (!strcmp(table->name,"audit") && field==4) ? 420 :
@@ -2591,7 +2667,8 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_column_set_expand(column, (users && field == 2) ||
             ((rooms && field == 3) || (quotas && field == 0)) ||
-            (!strcmp(table->name,"audit") && field == 4));
+            (!strcmp(table->name,"audit") && field == 4) ||
+            (!strcmp(table->name,"privsets") && field == 1));
          if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
             g_signal_connect(column,"notify::width",G_CALLBACK(admin_column_wrap_width),renderer);
             admin_column_wrap_width(G_OBJECT(column),NULL,renderer);
@@ -2629,6 +2706,7 @@ GtkWidget *init_admin_tab(void) {
       if (privilege_table) {
          if (!privileges_page) {
             privileges_page=gtk_notebook_new();
+            privileges_notebook=privileges_page;
             gtk_notebook_set_scrollable(GTK_NOTEBOOK(privileges_page),TRUE);
             gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),privileges_page,gtk_label_new("Privileges"));
          }
