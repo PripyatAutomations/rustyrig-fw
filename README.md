@@ -29,7 +29,7 @@ Additional tools include remote serial/GPS access, audio recording, administrati
 
 ### Resource Explorer
 
-![Resource Explorer](docs/screenshot-explorer.png)
+![Resource Explorer](doc/screenshot-explorer.png)
 
 ## Get started
 
