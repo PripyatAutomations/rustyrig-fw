@@ -1103,6 +1103,21 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          dict_add(row, "user", http_users[i].name);
          dict_add(row, "host", "");
          dict_add(row, "label", http_users[i].name);
+         sqlite3_stmt *profile=NULL;
+         if (sqlite3_prepare_v2(masterdb,
+            "SELECT COALESCE(email,''),COALESCE(real_name,''),COALESCE(phone,''),"
+            "COALESCE(permissions,'') FROM users WHERE name=?1 COLLATE NOCASE",
+            -1,&profile,NULL)==SQLITE_OK) {
+            sqlite3_bind_text(profile,1,http_users[i].name,-1,SQLITE_TRANSIENT);
+            if (sqlite3_step(profile)==SQLITE_ROW) {
+               const char *fields[]={"email","real_name","phone","privileges"};
+               for (int field=0;field<4;field++) {
+                  const char *value=(const char *)sqlite3_column_text(profile,field);
+                  if (value) dict_add(row,fields[field],value);
+               }
+            }
+         }
+         sqlite3_finalize(profile);
          rrserver_admin_send(client, "subjects", "row", row);
          dict_free(row);
       }
@@ -1137,6 +1152,14 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
             dict_add(row, "user", name);
             dict_add(row, "host", host);
             dict_add(row, "label", label);
+            snprintf(key,sizeof(key),"user.%u.email",i);
+            dict_add(row,"email",dict_get(entry->users,key,""));
+            snprintf(key,sizeof(key),"user.%u.real_name",i);
+            dict_add(row,"real_name",dict_get(entry->users,key,""));
+            snprintf(key,sizeof(key),"user.%u.phone",i);
+            dict_add(row,"phone",dict_get(entry->users,key,""));
+            snprintf(key,sizeof(key),"user.%u.privileges",i);
+            dict_add(row,"privileges",dict_get(entry->users,key,""));
             rrserver_admin_send(client, "subjects", "row", row);
             dict_free(row);
          }
