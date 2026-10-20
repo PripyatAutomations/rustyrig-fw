@@ -1447,6 +1447,7 @@ static void resource_create(void) {
       "When any types are selected, clear all; when none are selected, select all.");
    /* GtkGrid coordinates are (column, row). Put the bulk toggle on
     * its own row below both columns, never over the final choices. */
+   gtk_widget_set_halign(browser->type_toggle_all,GTK_ALIGN_CENTER);
    gtk_grid_attach(GTK_GRID(type_grid),browser->type_toggle_all,
                    0,9,2,1);
    g_signal_connect(browser->type_toggle_all,"toggled",
