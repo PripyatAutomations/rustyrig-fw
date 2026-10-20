@@ -1507,6 +1507,54 @@ static void admin_older(GtkButton *button, gpointer data) {
    admin_command(table, "admin", tail, NULL);
 }
 
+/* Stages public profile fields and system roles only. Never clones a
+ * password, login identity, or source-server resource grant. */
+static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
+                            GtkWidget *email,GtkWidget *real,GtkWidget *phone,
+                            GtkWidget *privileges) {
+   GtkWidget *picker=gtk_dialog_new_with_buttons("Copy From Network User",
+      GTK_WINDOW(dialog),GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "Cancel",GTK_RESPONSE_CANCEL,"Use Selected",GTK_RESPONSE_OK,NULL);
+   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(picker));
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new(
+      "Copy public contact fields and system privileges into this form. Review before creating."),
+      FALSE,FALSE,5);
+   copy_user_store=gtk_tree_store_new(COPY_NCOL,G_TYPE_STRING,G_TYPE_STRING,
+      G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_BOOLEAN);
+   copy_user_tree=gtk_tree_view_new_with_model(GTK_TREE_MODEL(copy_user_store));
+   GtkCellRenderer *renderer=gtk_cell_renderer_text_new();
+   GtkTreeViewColumn *column=gtk_tree_view_column_new_with_attributes(
+      "Host / Username • Email • Privileges",renderer,"text",COPY_LABEL,NULL);
+   gtk_tree_view_append_column(GTK_TREE_VIEW(copy_user_tree),column);
+   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+   gtk_widget_set_size_request(scroll,640,360);
+   gtk_container_add(GTK_CONTAINER(scroll),copy_user_tree);
+   gtk_box_pack_start(GTK_BOX(area),scroll,TRUE,TRUE,4);
+   g_strlcpy(copy_user_profile,table->profile,sizeof(copy_user_profile));
+   admin_command(table,"admin","subjects",NULL);
+   gtk_widget_show_all(picker);
+   while (gtk_dialog_run(GTK_DIALOG(picker))==GTK_RESPONSE_OK) {
+      GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(copy_user_tree));
+      GtkTreeIter iter;GtkTreeModel *model=NULL;
+      if (!gtk_tree_selection_get_selected(selection,&model,&iter)) continue;
+      gboolean is_user=FALSE;
+      gtk_tree_model_get(model,&iter,COPY_IS_USER,&is_user,-1);
+      if (!is_user) continue;
+      char *mail=NULL,*fullname=NULL,*number=NULL,*roles=NULL;
+      gtk_tree_model_get(model,&iter,COPY_EMAIL,&mail,COPY_REAL,&fullname,
+         COPY_PHONE,&number,COPY_PRIVS,&roles,-1);
+      gtk_entry_set_text(GTK_ENTRY(email),mail ? mail : "");
+      gtk_entry_set_text(GTK_ENTRY(real),fullname ? fullname : "");
+      gtk_entry_set_text(GTK_ENTRY(phone),number ? number : "");
+      if (roles && *roles) gtk_entry_set_text(GTK_ENTRY(privileges),roles);
+      g_free(mail);g_free(fullname);g_free(number);g_free(roles);
+      break;
+   }
+   copy_user_store=NULL;
+   copy_user_tree=NULL;
+   copy_user_profile[0]=0;
+   gtk_widget_destroy(picker);
+}
 /* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns validation, privilege checks, auditing and temporary password generation. */
 static void admin_create_user(GtkButton *button, gpointer data) {
    (void)button;
