@@ -4,4 +4,6 @@
 #include <gtk/gtk.h>
 /* Returns a newly allocated list on Apply, NULL on Cancel. Preserves unknown grants. */
 char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *name, const char *current);
+/* Same checklist, with group-specific header and no nested group selection. */
+char *gtk_edit_group_privileges(GtkWindow *parent, const char *server, const char *group, const char *current);
 #endif
