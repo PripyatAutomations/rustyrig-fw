@@ -1930,6 +1930,19 @@ static void admin_action(GtkButton *button, gpointer data) {
    admin_command(table, "admin", table->name, NULL);
 }
 
+/* Never pass untrusted network text directly to Pango. Keep the wire value
+ * unchanged elsewhere, and warn once per malformed field for diagnostics. */
+static char *admin_display_utf8(const char *value, const char *field) {
+   if (!value) return g_strdup("");
+   if (g_utf8_validate(value,-1,NULL)) return g_strdup(value);
+   static GHashTable *reported;
+   if (!reported) reported=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   if (!g_hash_table_contains(reported,field)) {
+      g_warning("Admin display received invalid UTF-8 in %s",field);
+      g_hash_table_add(reported,g_strdup(field));
+   }
+   return g_utf8_make_valid(value,-1);
+}
 void gtk_admin_result(const char *data, rrconn_t *connection) {
    dict *reply = data ? json2dict(data) : NULL;
 
@@ -2155,7 +2168,9 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
          gtk_list_store_append(table->store, &iter);
 
          for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
-            gtk_list_store_set(table->store, &iter, col, dict_get(row, table->fields[col], ""), -1);
+            char *display=admin_display_utf8(dict_get(row,table->fields[col],""),table->fields[col]);
+            gtk_list_store_set(table->store,&iter,col,display,-1);
+            g_free(display);
          }
       } else if (!strcmp(action, "end")) {
          snprintf(table->next, sizeof(table->next), "%s", dict_get(row, "next", "0"));
