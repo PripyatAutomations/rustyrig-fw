@@ -235,67 +235,36 @@ static void route_request(const char *event, const void *data, size_t length, rr
 
       return;
    }
-   /* Admin requests are server-scoped, not room-scoped. @* fans out to
-    * reachable linked nodes, and the original command executes locally
-    * through the normal protocol authorization path as well. */
+   /* Admin commands target exactly one node; '*' belongs to grant
+    * subject_host matching, never to command routing. */
    if (!strcmp(dict_get(io->message, "msg.type", ""), "talk") &&
        !strcmp(dict_get(io->message, "talk.cmd", ""), "admin") &&
        *dict_get(io->message, "talk.server", "")) {
       const char *dest = dict_get(io->message, "talk.server", "");
-      bool all = !strcmp(dest, "*");
-      bool direct_only = cfg_get_bool("remote-admin.next-hop-only", true);
-      if (!all) io->handled = true;
+      io->handled = true;
       if (!client->authenticated || !client->user ||
-          !has_priv(client->user->uid, "admin|owner")) {
-         io->handled = true;
-         ws_send_error(client, "Local admin permission required to route administration");
+          !has_priv(client->user->uid, "admin|owner") ||
+          !rr_object_uuid_valid(dest) || rr_relay_local_owner(dest) ||
+          !rrserver_links_route(dest)) {
+         ws_send_error(client, "Remote administration destination unavailable or denied");
          return;
       }
-      if (!all && (!rr_object_uuid_valid(dest) ||
-          !rrserver_links_route(dest) || rr_relay_local_owner(dest))) {
-         ws_send_error(client, "Remote administration server unavailable");
+      const char *next = rrserver_links_route(dest);
+      if (cfg_get_bool("remote-admin.next-hop-only", true) &&
+          (!next || strcmp(next, dest))) {
+         ws_send_error(client, "Remote administration limited to directly linked peers");
          return;
       }
       struct relay_client *origin = rr_relay_client_for(client, true);
-      if (!origin) {
-         io->handled = true;
-         ws_send_error(client, "Unable to establish remote administration session");
-         return;
+      dict *request = origin ? dict_clone(io->message) : NULL;
+      if (request) {
+         dict_del(request, "talk.server");
+         dict_add_ulong(request, "relay.deadline", time(NULL) + 30);
       }
-      dict *request = dict_clone(io->message);
-      if (!request) {
-         io->handled = true;
-         ws_send_error(client, "Unable to prepare remote administration request");
-         return;
-      }
-      dict_del(request, "talk.server");
-      dict_add_ulong(request, "relay.deadline", time(NULL) + 30);
-      if (!all) {
-         const char *next = rrserver_links_route(dest);
-         if (direct_only && (!next || strcmp(next, dest))) {
-            ws_send_error(client, "Remote administration limited to directly linked peers");
-         } else {
-            io->result = rr_relay_packet(dest, "request", origin->id,
-                                         client->user->name, request);
-            if (!io->result)
-               ws_send_error(client, "Unable to forward remote administration request");
-         }
-      } else {
-         unsigned sent = 0;
-         for (struct catalog *node = rr_relay_catalogs ; node ; node = node->next) {
-            if (strcmp(dict_get(node->descriptor, "object.type", ""), "node") ||
-                rr_relay_local_owner(node->owner) ||
-                !rr_object_uuid_valid(node->owner)) continue;
-            const char *next = rrserver_links_route(node->owner);
-            if (!next || (direct_only && strcmp(next, node->owner))) continue;
-            if (rr_relay_packet(node->owner, "request", origin->id,
-                                client->user->name, request)) sent++;
-         }
-         /* Do not mark @* handled: the same request also runs on this
-          * local server under its existing admin/owner checks. */
-         if (!sent) Log(LOG_DEBUG, "relay", "Remote admin @*: no eligible linked nodes");
-      }
+      io->result = request && rr_relay_packet(dest, "request", origin->id,
+                                               client->user->name, request);
       dict_free(request);
+      if (!io->result) ws_send_error(client, "Unable to forward remote administration request");
       return;
    }
    struct relay_media *media = rr_relay_media_map(client, dict_get(io->message, "media.chan-uuid", ""), false);
