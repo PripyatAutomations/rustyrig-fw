@@ -1440,7 +1440,8 @@ static void resource_show(const char *event, const void *data, size_t length, rr
       browser->scroll_y = gtk_adjustment_get_value(adj);
       browser->scroll_saved = true;
    }
-   resource_expansion_save(branch);
+   /* Do not snapshot an empty first-load tree as a collapsed preference. */
+   if (branch->loaded) resource_expansion_save(branch);
    memset(branch->valid, 0, sizeof(branch->valid));
    GtkTreeIter child;
    while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
