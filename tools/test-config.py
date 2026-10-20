@@ -26,14 +26,18 @@ replacements = {
     "/etc/rustyrig/": str(root / "config") + "/",
 }
 os.umask(0o077)
-for name in ("callsign-lookup.cli.cfg", "callsign-lookup.srv.cfg", program + ".cfg"):
-    content = (root / "config" / name).read_text()
+# Mirror current config fragments so relative !include directives resolve
+# from run/ without requiring retired callsign-lookup.*.cfg files.
+source = root / "config" / (program + ".cfg")
+if not source.is_file():
+    sys.exit(f"Missing {source}")
+for path in sorted((root / "config").glob("*.cfg")):
+    content = path.read_text()
     for original, local in replacements.items():
         content = content.replace(original, local)
-    if name == program + ".cfg":
-        content = content.replace("!include callsign-lookup.", "!include " + str(root / "run/callsign-lookup."))
+    if path == source:
         content += f"\n[general]\nfwdsp:path={root}/bin/fwdsp\n"
         if program == "rrclient":
             content += f"log.file={root}/audit-logs/rrclient.log\ncat.pty.path={root}/dev/ttyCAT0\n"
-    (root / "run" / name).write_text(content)
+    (root / "run" / path.name).write_text(content)
 print(root / "run" / (program + ".cfg"))
