@@ -59,7 +59,7 @@ fi
 
 case "$debugger" in
     gdb)
-        exec gdb --ex run --args "$rr_test_root/bin/rrclient" "${client_args[@]}"
+        exec gdb --ex "handle SIGPIPE nostop noprint pass" --ex run --args "$rr_test_root/bin/rrclient" "${client_args[@]}"
         ;;
     valgrind)
         exec valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all \
