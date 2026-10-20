@@ -1879,7 +1879,10 @@ static void admin_action(GtkButton *button, gpointer data) {
          gchar *text = NULL;
          gtk_tree_model_get(model, &iter, col, &text, -1);
 
-         if (col == 9) {
+         if (col == 8) {
+            /* SQLite UID is internal: retain the model field, hide it in UI. */
+            entries[col] = NULL;
+         } else if (col == 9) {
             full_rig_check = gtk_check_button_new_with_label("Full Rig Access — all rigs on this server");
             gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(full_rig_check), text && !strcmp(text, "1"));
             gtk_grid_attach(GTK_GRID(grid), full_rig_check, 0, col, 2, 1);
@@ -2608,13 +2611,13 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_uuid_menu),table);
 
       const int user_order[] = {
-         8, 1, 0, 3, 4, 5, 6, 2, 7, 9
+         1, 0, 3, 4, 5, 6, 2, 7, 9
       };
       const char *user_titles[] = {
-         "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
+         "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
       };
       const int room_order[] = {0,3,2,4,5,1};
-      const char *room_titles[] = {"Name","Topic","Deleted","Has VFOs","VFO mask","UUID"};
+      const char *room_titles[] = {"Name","Topic","Deleted","HasVFO","VFOs","UUID"};
       const int ptt_order[] = {
          0, 9, 1, 2, 3, 4, 5, 6, 7, 8
       };
@@ -2637,7 +2640,7 @@ GtkWidget *init_admin_tab(void) {
       else if (!strcmp(table->name,"privsets")) priv_titles=group_titles;
       else if (!strcmp(table->name,"setentries")) priv_titles=group_entry_titles;
 
-      for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
+      for (int col = 0 ; col < 10 && table->fields[col] && (!users || col < 9) ; col++) {
          int field = users ? user_order[col] : ptt ? ptt_order[col] : rooms ? room_order[col] : col;
          bool flag = (users && (field == 1 || field == 7)) || (rooms && (field == 2 || field == 4));
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
@@ -2681,9 +2684,14 @@ GtkWidget *init_admin_tab(void) {
             (!strcmp(table->name,"privsets") && field == 2) ? 135 :
             (!strcmp(table->name,"privsets") && field == 3) ? 165 :
             (!strcmp(table->name,"privsets") && field == 4) ? 260 :
-            (users && field == 2) ? 165 :
+            (users && field == 1) ? 76 :
+            (users && field == 4) ? 100 :
+            (users && field == 7) ? 88 :
+            (users && field == 9) ? 112 :
+            (users && field == 0) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
-            rooms ? (field == 0 ? 115 : field == 3 ? 275 : field == 1 ? 250 : 95) :
+            rooms ? (field == 0 ? 115 : field == 3 ? 290 : field == 1 ? 108 :
+                     field == 2 ? 82 : field == 4 ? 85 : 78) :
             (!strcmp(table->name,"audit") && field==4) ? 420 :
              (!strcmp(table->name,"sessions") && field==0) ? 280 : 125);
          gtk_tree_view_column_set_min_width(column, 48);
@@ -2697,13 +2705,13 @@ GtkWidget *init_admin_tab(void) {
             admin_column_wrap_width(G_OBJECT(column),NULL,renderer);
          }
 
-         if (users && field == 7) {
-            PangoLayout *layout = gtk_widget_create_pango_layout(table->tree, "Chg Req");
+         if (users && (field == 1 || field == 4 || field == 7 || field == 9)) {
+            PangoLayout *layout = gtk_widget_create_pango_layout(table->tree, user_titles[col]);
             int width;
             pango_layout_get_pixel_size(layout, &width, NULL);
             g_object_unref(layout);
             gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
-            gtk_tree_view_column_set_fixed_width(column, width + 20);
+            gtk_tree_view_column_set_fixed_width(column, width + 16);
             gtk_tree_view_column_set_resizable(column, FALSE);
          }
 
