@@ -1091,6 +1091,21 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       strcpy(table, "grants");
       sql = "SELECT id AS cursor,subject_user,subject_host,resource_kind,"
          "resource_uuid,privilege,effect,expires_at FROM resource_privileges " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+   } else if (!strcasecmp(table, "groups")) {
+      strcpy(table, "groups");
+      /* Group rows followed by their privilege and membership children.
+       * All entries carry a group_name for stable client-side grouping. */
+      sql = "SELECT cursor,group_name,entry_type,entry_name,entry_detail FROM ("
+         "SELECT 1 AS cursor,name AS group_name,'group' AS entry_type,"
+         "name AS entry_name,description AS entry_detail FROM user_groups "
+         "UNION ALL "
+         "SELECT 2 AS cursor,group_name,'privilege' AS entry_type,"
+         "resource_kind || ':' || resource_name AS entry_name,"
+         "privilege || ' (' || effect || ')' AS entry_detail FROM user_group_privileges "
+         "UNION ALL "
+         "SELECT 3 AS cursor,group_name,'member' AS entry_type,"
+         "subject_user AS entry_name,subject_host AS entry_detail FROM user_group_members"
+         ") WHERE (?=0 OR cursor<?) ORDER BY group_name COLLATE NOCASE,cursor,entry_name LIMIT 10000";
    } else if (!strcasecmp(table, "audit")) {
       strcpy(table, "audit");
       sql = "SELECT id AS cursor,id,timestamp,username,event_type,details FROM audit_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
