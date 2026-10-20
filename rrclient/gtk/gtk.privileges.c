@@ -5,12 +5,14 @@
 #include <rrclient/gtk/gtk.privileges.h>
 
 /* PARITY: rustyrig-www/js/webui.admin.js adminEditPrivileges. */
-char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *name, const char *current) {
-   GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit Privileges", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
+static char *edit_privileges(GtkWindow *parent, const char *server, const char *name, const char *current, gboolean group_mode) {
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(group_mode ? "Edit Group Privileges" : "Edit User Privileges", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
       "Apply", GTK_RESPONSE_OK, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dialog), 440, 520);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   char *context = g_strdup_printf("Server: %s\nUser: %s\nProtected accounts and grants require owner privileges.", server ? server : "", name);
+   char *context = group_mode ?
+      g_strdup_printf("Server: %s\nPrivilege group: %s\nChoose the privileges included in this group (nested groups are not permitted).",server ? server : "",name) :
+      g_strdup_printf("Server: %s\nUser: %s\nProtected accounts and grants require owner privileges.", server ? server : "", name);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 8);
    g_free(context);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL), *rows = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -43,6 +45,9 @@ char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *nam
    GPtrArray *buttons = g_ptr_array_new();
 
    for (GList *item = names ; item ; item = item->next) {
+      /* Group references (@name) are valid user assignments, but group
+       * definitions must not recursively contain other groups. */
+      if (group_mode && ((const char *)item->data)[0] == '@') continue;
       GtkWidget *button = gtk_check_button_new_with_label(item->data);
       for (unsigned j = 0; j < G_N_ELEMENTS(rrclient_privilege_registry); ++j) {
          const rr_privilege_info_t *info = &rrclient_privilege_registry[j];
@@ -85,4 +90,12 @@ char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *nam
    gtk_widget_destroy(dialog);
 
    return result;
+}
+
+char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *name, const char *current) {
+   return edit_privileges(parent,server,name,current,FALSE);
+}
+
+char *gtk_edit_group_privileges(GtkWindow *parent, const char *server, const char *group, const char *current) {
+   return edit_privileges(parent,server,group,current,TRUE);
 }
