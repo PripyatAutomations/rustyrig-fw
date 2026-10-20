@@ -378,29 +378,29 @@ using its configured site name. This reduces repeated simultaneous link
 collisions without introducing random state or disabling reconnects.
 
 
-## Remote administration reach
+## Remote administration grants and hop policy
 
-Set `remote-admin.next-hop-only=true` under `[general]` in
-`config/rrserver.peers.cfg` (the default). This restricts remote
-administrative requests to **directly linked peers**. Set it to `false`
-on both the originating server and any destination beyond one hop to permit
-tree-wide remote administration. A destination's restriction takes precedence:
-a distant server cannot be administered if it still requires direct neighbors.
-
-The native command `/admin @NODE_UUID ...` addresses one reachable remote
-server. Use `/admin @* ...` to apply the same Admin request to the local server
-and every eligible linked server. Examples:
+A grant subject `user@*` means **that username authenticated through any
+linked origin site**, rather than a command sent to all servers. For example,
+on the destination server, as an owner:
 
 ```text
-/admin @* users
-/admin @* groups
-/admin @* resource-grant alice@pripyat site * remote-admin allow remote
+/admin resource-grant joe@* site * remote-admin allow remote
+/admin resource-grant joe@* site * admin allow remote
 ```
 
-Caution: `@*` also broadcasts **mutating** operations to each eligible
-destination. Verify the target command before issuing changes. Each destination
-must independently authorize the originating `user@site` with a
-`site * remote-admin` grant and the appropriate `admin` or `owner` grant;
-the config toggle does not confer privileges. Replies from multiple servers
-may interleave; the current CLI is intended for testing before the GTK
-multi-server admin UX is polished.
+This applies only on the server storing the grant. It matches `joe` arriving
+from a linked station, not arbitrary users and not unauthenticated claims.
+Individual `joe@site-name` grants still work. Explicit denies take precedence
+over wildcard allows in the resource resolver.
+
+The `[general]` setting `remote-admin.next-hop-only=true` in
+`config/rrserver.peers.cfg` is the default. It allows remote administration
+only for a client whose **origin server is a directly linked peer** of the
+destination. Set it to `false` at both originating and destination servers
+to permit administration across multiple tree hops, still subject to
+destination-side `remote-admin` and operation grants.
+
+Use `/admin @NODE_UUID users` to target one linked server. `@*` is
+**not** an administration-command broadcast target; it belongs only in
+privilege subjects such as `joe@*`.
