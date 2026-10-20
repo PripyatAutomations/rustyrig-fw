@@ -819,6 +819,7 @@ static bool admin_control_visit(const rr_platform_control_state_t *s, void *user
    return false;
 }
 
+#ifdef USE_SQLITE
 /* Bound SQL parameters only: free-form request messages never become SQL. */
 static void admin_access_requests(rrconn_t *client,dict *request) {
    const char *action=dict_get(request,"talk.action","");
@@ -896,6 +897,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
       sqlite3_finalize(st);
    }
 }
+#endif
 /* Handle account/room actions or paginate an allowlisted database view. */
 static void rrserver_handle_admin_cmd(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
