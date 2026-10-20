@@ -1,4 +1,28 @@
 // GTK presentation only; directory fetching, validation and persistence are common.
+
+/* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
+static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
+                               GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+   (void)unused;
+   GtkWidget *view=g_object_get_data(G_OBJECT(column),"rr-zebra-view");
+   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd=index && (index[0] & 1);
+   gboolean selected=view && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(view)),path);
+   if (odd && !selected && view) {
+      GtkStyleContext *style=gtk_widget_get_style_context(view);
+      GdkRGBA base,ink,shade;
+      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
+      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
+      shade.red=base.red*0.915+ink.red*0.085;
+      shade.green=base.green*0.915+ink.green*0.085;
+      shade.blue=base.blue*0.915+ink.blue*0.085;
+      shade.alpha=1.0;
+      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
+   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
+   if (path) gtk_tree_path_free(path);
+}
 #include <gtk/gtk.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.connect.h>
@@ -500,7 +524,9 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       gtk_tree_view_column_set_min_width(column, 55);
       /* Text-heavy columns share surplus width as the directory grows. */
       gtk_tree_view_column_set_expand(column, field == COL_LOCATION || field == COL_COUNTRY || field == COL_NAME || field == COL_URL);
-      gtk_tree_view_column_set_sort_column_id(column, field);
+      g_object_set_data(G_OBJECT(column),"rr-zebra-view",directory_tree);
+       gtk_tree_view_column_set_cell_data_func(column,renderer,rr_list_zebra_cell,NULL,NULL);
+       gtk_tree_view_column_set_sort_column_id(column, field);
       gtk_tree_view_append_column(GTK_TREE_VIEW(directory_tree), column);
    }
 
