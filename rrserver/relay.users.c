@@ -60,6 +60,8 @@ void rr_relay_users_poll(bool force) {
       changed |= dict_get_uint(entry->users, key, 0) != dict_get_uint(local, key, 0);
       snprintf(key, sizeof(key), "user.%u.privileges", i);
       changed |= strcmp(dict_get(entry->users,key,""),dict_get(local,key,"")) != 0;
+      snprintf(key,sizeof(key),"user.%u.email",i);
+      changed |= strcmp(dict_get(entry->users,key,""),dict_get(local,key,"")) != 0;
    }
 
    if (!changed && dict_get_uint(entry->users,"privilege.count",0) !=
