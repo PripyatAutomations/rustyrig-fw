@@ -1,6 +1,6 @@
 Name: rustyrig
 Version: 1.0.0
-Release: 0.rc3%{?dist}
+Release: 0.rc4%{?dist}
 Summary: RustyRig remote radio software
 License: MIT
 URL: https://github.com/PripyatAutomations/rustyrig-fw
