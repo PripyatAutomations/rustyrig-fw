@@ -308,8 +308,8 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
    for (int col=0;col<3;col++) {
       GtkWidget *button=gtk_button_new_with_label(headings[col]);
       g_object_set_data(G_OBJECT(button),"cfg-sort-column",GINT_TO_POINTER(col));
-      if (col==0) gtk_widget_set_size_request(button,230,-1);
-      else if (col==1) gtk_widget_set_size_request(button,300,-1);
+      if (col==0) gtk_widget_set_size_request(button,110,-1);
+      else if (col==1) gtk_widget_set_size_request(button,125,-1);
       else gtk_widget_set_hexpand(button,TRUE);
       g_signal_connect(button,"clicked",G_CALLBACK(cfg_list_sort_clicked),list);
       gtk_box_pack_start(GTK_BOX(header),button,col==2,col==2,0);
@@ -332,11 +332,13 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
       gtk_container_set_border_width(GTK_CONTAINER(cells),3);
       GtkWidget *label=gtk_label_new(def->key);
       gtk_label_set_xalign(GTK_LABEL(label),0);
-      gtk_widget_set_size_request(label,230,-1);
+      gtk_label_set_ellipsize(GTK_LABEL(label),PANGO_ELLIPSIZE_END);
+      gtk_widget_set_size_request(label,110,-1);
+      gtk_widget_set_tooltip_text(label,def->key);
       gtk_widget_set_tooltip_text(label,def->help ? def->help : "");
-      gtk_box_pack_start(GTK_BOX(cells),label,FALSE,FALSE,0);
-      gtk_widget_set_size_request(editor,300,-1);
-      gtk_box_pack_start(GTK_BOX(cells),editor,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(cells),label,TRUE,TRUE,0);
+      gtk_widget_set_size_request(editor,125,-1);
+      gtk_box_pack_start(GTK_BOX(cells),editor,TRUE,TRUE,0);
       GtkWidget *help=gtk_label_new(def->help ? def->help : "");
       gtk_label_set_xalign(GTK_LABEL(help),0);
       gtk_label_set_ellipsize(GTK_LABEL(help),PANGO_ELLIPSIZE_END);
