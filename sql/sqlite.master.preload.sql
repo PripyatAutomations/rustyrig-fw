@@ -8,7 +8,7 @@
 
 -- Users (mirror of config/http.users)
 INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions) VALUES
-   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,bridge.admin,bridge.use,chat,elmer,files.read,files.write,media.source,noob,owner,rx,serial,serial.*,tx,video-src,websdr.admin,websdr.connect,websdr.listen'),
+   (1, 'admin', 0, '', 'no@example.com',   3, 'admin,bridge.admin,bridge.use,chat,elmer,files.read,files.write,media.source,owner,rx,serial,serial.*,tx,video-src,websdr.admin,websdr.connect,websdr.listen'),
    (2, 'guest', 0, '-', 'no@example.com', 3, 'rx,chat');
 
 -- TX credits for testing (seconds of TX; with quota.enforce=true users

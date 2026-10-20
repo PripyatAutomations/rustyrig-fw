@@ -1,5 +1,8 @@
 Immediate needs
 ---------------
+librrprotocol: Protocol versions and capabilities
+  - we should support talking to older stuff now by degrading to their capabilities
+
 librrprotocol: Split IRC stuff off into librustyirc which depends on librustyaxe
 
 librustyaxe: Ensure full separation from rrclient/rrserver/*
