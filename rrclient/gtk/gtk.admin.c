@@ -1590,7 +1590,11 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
    int response;
-   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003 || response == 1004) {\n      if (response == 1004) {\n         admin_copy_user(dialog,table,email,real,phone,privileges);\n         continue;\n      }
+   while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003 || response == 1004) {
+      if (response == 1004) {
+         admin_copy_user(dialog,table,email,real,phone,privileges);
+         continue;
+      }
       if (response == 1003) {
          char *edited = gtk_edit_privileges(GTK_WINDOW(dialog), table->profile, gtk_entry_get_text(GTK_ENTRY(name)), gtk_entry_get_text(GTK_ENTRY(privileges)));
 
