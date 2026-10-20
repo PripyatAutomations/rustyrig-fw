@@ -4,8 +4,6 @@
 typedef struct { const char *name, *label, *description, *scope; } rr_privilege_info_t;
 static const rr_privilege_info_t rrclient_privilege_registry[] = {
    {"admin", "Administrator", "Manage users and server configuration", "system"},
-   {"bbs.read", "Read BBS", "Read BBS content when supported", "resource"},
-   {"bbs.write", "Write BBS", "Post BBS content when supported", "resource"},
    {"bridge.admin", "Manage bridges", "Configure and administer bridge connections", "resource"},
    {"bridge.use", "Use bridges", "Access a configured bridge", "resource"},
    {"chat", "Chat", "Send chat messages", "system"},
@@ -32,8 +30,6 @@ static const rr_privilege_info_t rrclient_privilege_registry[] = {
 };
 static const char *const rrclient_known_privileges[] = {
    "admin",
-   "bbs.read",
-   "bbs.write",
    "bridge.admin",
    "bridge.use",
    "chat",
