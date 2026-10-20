@@ -56,30 +56,12 @@ static dict *read_source_config(const char *path) {
    if (result && !strcmp(path, "./config/rrclient.cfg")) {
       mkdir_p("./db");
       mkdir_p("./audit-logs");
-      const char *home=getenv("HOME");
-      if (home && *home) {
-         size_t n=strlen(home)+sizeof("/dev");
-         char *dev=malloc(n);
-         if (dev) {
-            snprintf(dev,n,"%s/dev",home);
-            mkdir_p(dev);
-            free(dev);
-         }
-      }
       dict_add(result, "path.help-dir", "./help");
       dict_add(result, "path.modules", "./bin");
       dict_add(result, "fwdsp:path", "./bin/fwdsp");
       dict_add(result, "fwdsp:log.file", "./audit-logs/fwdsp-cli.log");
       dict_add(result, "log.file", "./audit-logs/rrclient.log");
-      if (home && *home) {
-         size_t n=strlen(home)+sizeof("/dev/ttyCAT0");
-         char *cat=malloc(n);
-         if (cat) {
-            snprintf(cat,n,"%s/dev/ttyCAT0",home);
-            dict_add(result,"cat.pty.path",cat);
-            free(cat);
-         }
-      }
+      dict_add(result, "cat.pty.path", "$HOME/dev/ttyCAT0");
       dict_add(result, "callsign-lookup:cache-db", "./db/rrclient-callsigns.db");
       dict_add(result, "callsign-lookup:path", "./bin/callsign-lookup");
    }
