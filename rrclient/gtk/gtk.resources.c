@@ -597,6 +597,41 @@ static void resource_details_dump(void *data) {
    struct resource_details *details = data;
    rrclient_object_dump_selected(details->uuid, details_line, details->text);
 }
+/* Keep full inventory UUIDs in the model, but present compact IDs. */
+static char *resource_uuid_display(const char *uuid) {
+   if (!uuid) return g_strdup("");
+   size_t len=strlen(uuid);
+   if (len<=18) return g_strdup(uuid);
+   return g_strdup_printf("%.8s..%s",uuid,uuid+len-8);
+}
+static void resource_uuid_copy(GtkMenuItem *item,gpointer unused) {
+   (void)unused;
+   const char *uuid=g_object_get_data(G_OBJECT(item),"resource-full-uuid");
+   if (uuid) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),uuid,-1);
+}
+static gboolean resource_uuid_context(GtkWidget *tree,GdkEventButton *event,gpointer unused) {
+   (void)unused;
+   if (event->type!=GDK_BUTTON_PRESS || event->button!=3) return FALSE;
+   GtkTreePath *path=NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree),(int)event->x,(int)event->y,
+                                      &path,NULL,NULL,NULL)) return FALSE;
+   GtkTreeIter iter;
+   char *uuid=NULL;
+   GtkTreeModel *model=gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+   if (gtk_tree_model_get_iter(model,&iter,path))
+      gtk_tree_model_get(model,&iter,UUID,&uuid,-1);
+   gtk_tree_path_free(path);
+   if (!uuid || !*uuid) {g_free(uuid);return FALSE;}
+   GtkWidget *menu=gtk_menu_new();
+   GtkWidget *copy=gtk_menu_item_new_with_label("Copy UUID");
+   g_object_set_data_full(G_OBJECT(copy),"resource-full-uuid",uuid,g_free);
+   g_signal_connect(copy,"activate",G_CALLBACK(resource_uuid_copy),NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu),copy);
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   return TRUE;
+}
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
    (void)unused;
@@ -1349,6 +1384,7 @@ static void resource_create(void) {
    gtk_box_pack_start(GTK_BOX(box), browser->status, FALSE, FALSE, 0);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), "changed", G_CALLBACK(resource_selection), NULL);
    g_signal_connect(browser->tree, "row-activated", G_CALLBACK(resource_row_activated), NULL);
+   g_signal_connect(browser->tree, "button-press-event", G_CALLBACK(resource_uuid_context), NULL);
    g_signal_connect(browser->page, "destroy", G_CALLBACK(resource_destroy), browser);
    browser->timer = g_timeout_add_seconds(2, resource_tick, browser);
    gtk_widget_show_all(browser->page);
