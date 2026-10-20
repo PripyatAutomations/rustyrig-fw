@@ -1828,7 +1828,7 @@ GtkWidget *init_admin_tab(void) {
       }
 
       GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
       gtk_container_add(GTK_CONTAINER(scroll), table->tree);
       gtk_box_pack_start(GTK_BOX(box), scroll, TRUE, TRUE, 0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
