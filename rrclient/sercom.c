@@ -62,28 +62,32 @@ static bool serial_pty_startup_cleanup(void) {
       return true;
    }
 
-   if (g_mkdir_with_parents("./dev", 0755)) {
-      Log(LOG_WARN, "serial", "Cannot create ./dev for virtual serial ports: %s", strerror(errno));
+   char *dev_dir=g_build_filename(g_get_home_dir(),"dev",NULL);
+   if (!dev_dir) return false;
+   if (g_mkdir_with_parents(dev_dir, 0755)) {
+      Log(LOG_WARN, "serial", "Cannot create %s for virtual serial ports: %s", dev_dir, strerror(errno));
 
+      g_free(dev_dir);
       return false;
    }
-   int fd = open("./dev", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+   int fd = open(dev_dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
 
    if (fd < 0) {
+      g_free(dev_dir);
       return false;
    }
 
    if (flock(fd, LOCK_EX | LOCK_NB)) {
-      Log(LOG_WARN, "serial", "Another rrclient is using ./dev, refusing to replace its PTY links");
+      Log(LOG_WARN, "serial", "Another rrclient is using %s, refusing to replace its PTY links", dev_dir);
       close(fd);
-
+      g_free(dev_dir);
       return false;
    }
    DIR *dir = fdopendir(dup(fd));
 
    if (!dir) {
       close(fd);
-
+      g_free(dev_dir);
       return false;
    }
    struct dirent *entry;
@@ -110,12 +114,13 @@ static bool serial_pty_startup_cleanup(void) {
       }
 
       if (unlinkat(fd, entry->d_name, 0) == 0) {
-         Log(LOG_INFO, "serial", "Removed old virtual serial link ./dev/%s -> %s", entry->d_name, target);
+         Log(LOG_INFO, "serial", "Removed old virtual serial link %s/%s -> %s", dev_dir, entry->d_name, target);
       } else {
-         Log(LOG_WARN, "serial", "Cannot remove ./dev/%s: %s", entry->d_name, strerror(errno));
+         Log(LOG_WARN, "serial", "Cannot remove %s/%s: %s", dev_dir, entry->d_name, strerror(errno));
       }
    }
    closedir(dir);
+   g_free(dev_dir);
    pty_directory_lock = fd;     /* Retain lock for the client lifetime. */
 
    return true;
@@ -1210,7 +1215,7 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    }
 
    if (!configured) {
-      snprintf(path, sizeof(path), "./dev/%s", name);
+      snprintf(path, sizeof(path), "%s/dev/%s", g_get_home_dir(), name);
    } else {
       char *expanded = expand_path(configured);
 
