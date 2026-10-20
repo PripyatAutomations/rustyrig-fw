@@ -29,6 +29,16 @@ rr_test_prepare_build() {
     if [[ -n "$flags" ]]; then
         mkdir -p "$rr_test_root/audit-logs"
         if [[ "$flags" == *address* ]]; then
+            # A sanitized module can be loaded by an otherwise unsanitized host
+            # (or a stale mixed-mode executable). Ensure libasan precedes plugins.
+            # Use the compiler's runtime path, never an unqualified soname.
+            local asan_runtime
+            asan_runtime=$(gcc -print-file-name=libasan.so 2>/dev/null || true)
+            if [[ -n "$asan_runtime" && "$asan_runtime" != libasan.so && -f "$asan_runtime" ]]; then
+                export LD_PRELOAD="$asan_runtime${LD_PRELOAD:+:$LD_PRELOAD}"
+            else
+                echo "Unable to find libasan.so; ASan startup may fail" >&2
+            fi
             export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=1:halt_on_error=1:abort_on_error=1:log_path=$rr_test_root/audit-logs/asan}"
         fi
         if [[ "$flags" == *undefined* ]]; then
