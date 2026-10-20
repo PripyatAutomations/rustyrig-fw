@@ -701,7 +701,13 @@ sqlite3 *db_open(const char *path) {
          "created_at INTEGER NOT NULL DEFAULT (unixepoch()),"
          "reviewed_at INTEGER,reviewed_by TEXT,review_note TEXT);"
          "CREATE INDEX IF NOT EXISTS access_requests_pending "
-         "ON access_requests(status,created_at);";
+         "ON access_requests(status,created_at);"
+         "CREATE TABLE IF NOT EXISTS access_request_targets("
+         "request_id INTEGER NOT NULL REFERENCES access_requests(id) ON DELETE CASCADE,"
+         "resource_kind TEXT NOT NULL, resource_uuid TEXT NOT NULL,"
+         "PRIMARY KEY(request_id,resource_kind,resource_uuid));"
+         "INSERT OR IGNORE INTO access_request_targets(request_id,resource_kind,resource_uuid) "
+         "SELECT id,resource_kind,resource_uuid FROM access_requests;";
       if (sqlite3_exec(db,request_schema,NULL,NULL,&request_error)!=SQLITE_OK) {
          Log(LOG_CRIT,"db","Cannot create access request schema: %s",
              request_error ? request_error : sqlite3_errmsg(db));
