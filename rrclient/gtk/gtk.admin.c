@@ -2240,6 +2240,9 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
             GTK_BUTTONS_CLOSE, "%s", message);
          gtk_dialog_run(GTK_DIALOG(dialog));
          gtk_widget_destroy(dialog);
+      } else if (!strcmp(action, "updated") && !strcmp(table->name,"privsets")) {
+         /* A set-entry mutation changes this group's displayed privilege list. */
+         admin_command(table,"admin","privsets",NULL);
       } else if (!strcmp(action, "changed")) {
          gtk_label_set_text(GTK_LABEL(table->status), !strcmp(table->name,"rooms") ? "Room updated" : "Account saved");
          admin_command(table, "admin", table->name, NULL);
