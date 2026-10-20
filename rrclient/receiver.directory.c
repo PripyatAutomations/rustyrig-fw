@@ -848,31 +848,34 @@ bool receiver_directory_learn(const char *endpoint, dict *fields) {
    if (stamp <= 0 || stamp > now) {
       stamp = now;
    }
-   sqlite3_exec(cache_db, "BEGIN IMMEDIATE", NULL, NULL, NULL);
+   bool ok = sqlite3_exec(cache_db, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK;
    sqlite3_stmt *statement = NULL;
-   char *escaped = json_escape(url), *record = g_strdup_printf("{\"url\":\"%s\"}", escaped);
+   char *escaped = json_escape(url);
+   char *record = escaped ? g_strdup_printf("{\"url\":\"%s\"}", escaped) : NULL;
    free(escaped);
-
-   if (sqlite3_prepare_v2(cache_db,
-      "INSERT INTO receiver_records(url,record,last_seen,deleted,offline) VALUES(?,?,?,1,0) ON CONFLICT(url) DO UPDATE SET last_seen=MAX(receiver_records.last_seen,excluded.last_seen)",
-      -1, &statement, NULL) == SQLITE_OK) {
-      sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 2, record, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_int64(statement, 3, stamp);
-      sqlite3_step(statement);
-   }
+   if (ok && record) {
+      ok = sqlite3_prepare_v2(cache_db,
+         "INSERT INTO receiver_records(url,record,last_seen,deleted,offline) VALUES(?,?,?,1,0) ON CONFLICT(url) DO UPDATE SET last_seen=MAX(receiver_records.last_seen,excluded.last_seen)",
+         -1, &statement, NULL) == SQLITE_OK;
+      if (ok) ok = sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 2, record, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_int64(statement, 3, stamp) == SQLITE_OK &&
+         sqlite3_step(statement) == SQLITE_DONE;
+   } else ok = false;
    sqlite3_finalize(statement);
    g_free(record);
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(detail_keys) ; i++) {
+   for (unsigned i = 0 ; ok && i < G_N_ELEMENTS(detail_keys) ; i++) {
       const char *value = dict_get(fields, detail_keys[i], NULL);
-
-      if (value && strlen(value) <= 512) {
-         detail_set(url, detail_keys[i], value, true, stamp);
-      }
+      if (value && strlen(value) <= 512)
+         ok = detail_set(url, detail_keys[i], value, true, stamp);
    }
-
-   sqlite3_exec(cache_db, "COMMIT", NULL, NULL, NULL);
+   if (ok) ok = sqlite3_exec(cache_db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+   if (!ok) {
+      Log(LOG_WARN, "receiver.directory", "Cannot persist learned receiver: %s", sqlite3_errmsg(cache_db));
+      sqlite3_exec(cache_db, "ROLLBACK", NULL, NULL, NULL);
+      g_free(url);
+      return false;
+   }
    reload_records();
    restore_states();
    changed();
