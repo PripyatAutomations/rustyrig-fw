@@ -1,19 +1,13 @@
 #!/bin/bash
-subdirs="librrprotocol librustyaxe www callsign-lookup"
-subdirs_ext="libmongoose mbedtls sqlite wslay"
+set -euo pipefail
 
-git pull
-git submodule init
+P=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$P"
 
-#git submodule update --init --recursive
-git submodule update --remote --recursive
+# The parent pins tested component revisions; never advance them with --remote.
+git pull --ff-only
+git submodule sync --recursive
+git submodule update --init --recursive
 
-for i in ${subdirs}; do
-   echo "pull $i"
-   (cd $i; git pull)
-done
-
-for i in ${ext_subdirs}; do
-   echo "ext pull: $i"
-   (cd ext/$i; git pull)
-done
+echo "Checked out revisions pinned by rustyrig-fw:"
+git submodule status
