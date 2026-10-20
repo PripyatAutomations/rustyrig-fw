@@ -237,6 +237,16 @@ static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
    g_free(session->name);
    g_free(session);
 }
+/* Release per-page event listeners before ws_fini() emits disconnects. */
+void gtk_terminal_shutdown(void) {
+   if (terminal_notebook && GTK_IS_NOTEBOOK(terminal_notebook)) {
+      while (gtk_notebook_get_n_pages(GTK_NOTEBOOK(terminal_notebook)) > 0)
+         gtk_notebook_remove_page(GTK_NOTEBOOK(terminal_notebook), 0);
+   }
+   terminal_notebook=NULL;
+   terminal_root=NULL;
+   terminal_ports=NULL;
+}
 static void terminal_close(GtkButton *button, gpointer data) {
    (void)button;
    GtkWidget *page = data;
@@ -309,6 +319,8 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
    }
 
    if (!session->observer) {
+      event_off_token(session->config_token);
+      event_off_token(session->connection_token);
       gtk_widget_destroy(session->page);
       g_free(session->name);
       g_free(session);
