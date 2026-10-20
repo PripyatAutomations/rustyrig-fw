@@ -292,7 +292,7 @@ defconfig_t defcfg[] = {
    },
 #ifdef  USE_GTK
    {
-      "ui.full-screen", "false", "Go full-screen at start?", DEFCONFIG_BOOL, NULL
+      "ui.full-screen", "true", "Go full-screen at start?", DEFCONFIG_BOOL, NULL
    },
    {
       "ui.gtk.scale-on-resize", "true", "Scale GTK controls to window size relative to its monitor", DEFCONFIG_BOOL, NULL
