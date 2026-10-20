@@ -300,3 +300,25 @@ resource-owning server independently authenticates identities and evaluates gran
 This is not yet a full catalog of resource-specific grants or full enforcement
 coverage. Command handlers for tuning, TX, and other rig controls still need a
 separate audit and explicit authorization gates.
+
+## Remote administration authorization contract (planned)
+
+`remote-admin` is a site-scoped gate, **not** a replacement for `owner`
+and not permission to perform every administrative operation. The destination
+server must authorize both `remote-admin` and the exact administrative
+capability required by an operation. Explicit denials take precedence.
+
+The subject is the authenticated origin `user@site` from a trusted server
+link; neither the client nor the forwarded command may select its own subject.
+The granting server's database is authoritative. A source-site `owner` or
+`admin` role is not imported. Checks must be performed per operation
+(including reads) and repeated after revocation without needing reconnect.
+Actions affecting accounts, grants, server controls or station state must be
+audited with actor, source site and target.
+
+**Not yet implemented:** the current relay message allowlist does not forward
+remote admin messages, and the current admin command handler requires local
+`has_priv(uid, "admin|owner")`. Merely adding `remote-admin` to the grant
+table cannot authorize a remote admin operation. Do not remove either
+restriction without the authenticated relay envelope, per-action grants,
+negative tests for forgery/escalation, and destination-side enforcement.
