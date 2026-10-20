@@ -1582,12 +1582,12 @@ int main(int argc, char *argv[]) {
    // Default audio sockets live in the current account's HOME/dev, not cwd.
    const char *home=getenv("HOME");
    if (!home || !*home) {
-      fprintf(stderr,"fwdsp: HOME is unset; cannot determine audio socket directory\\n");
+      fprintf(stderr,"fwdsp: HOME is unset; cannot determine audio socket directory\n");
       return EXIT_FAILURE;
    }
    char *socket_dir=g_strdup_printf("%s/dev",home);
    if (g_mkdir_with_parents(socket_dir,0755)) {
-      fprintf(stderr,"fwdsp: cannot create audio socket directory %s: %s\\n",socket_dir,strerror(errno));
+      fprintf(stderr,"fwdsp: cannot create audio socket directory %s: %s\n",socket_dir,strerror(errno));
       g_free(socket_dir);
       return EXIT_FAILURE;
    }
