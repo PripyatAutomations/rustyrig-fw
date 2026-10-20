@@ -344,6 +344,55 @@ static void admin_control_rows_clear(void) {
       gtk_widget_destroy(GTK_WIDGET(item->data));
    g_list_free(children);
    if (control_row_buttons) g_hash_table_remove_all(control_row_buttons);
+   admin_control_update_revert();
+}
+/* A control is committed once the operator releases its slider. Keep the
+ * pre-edit value for Revert; never issue network writes during drag. */
+static bool admin_control_write(GtkWidget *row,int value) {
+   const char *name=g_object_get_data(G_OBJECT(row),"control-name");
+   const char *profile=g_object_get_data(G_OBJECT(row),"control-profile");
+   if (!name || !profile) return false;
+   if (!strcmp(profile,"local")) {
+#ifdef __linux__
+      if (!strcmp(name,"display.brightness")) return local_backlight_write(value);
+#endif
+      return false;
+   }
+   return admin_control_request_profile(profile,name,value);
+}
+static void admin_control_update_revert(void) {
+   gboolean can_revert=FALSE;
+   if (control_rows_box) {
+      GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+      for (GList *l=rows;l;l=l->next)
+         if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(l->data),"control-dirty"))) {
+            can_revert=TRUE;break;
+         }
+      g_list_free(rows);
+   }
+   if (control_apply) gtk_widget_set_sensitive(control_apply,can_revert);
+}
+static gboolean admin_control_slider_released(GtkWidget *scale,GdkEventButton *event,gpointer data) {
+   if (event->button!=1) return FALSE;
+   GtkWidget *row=GTK_WIDGET(data);
+   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-writable"))) return FALSE;
+   int value=(int)gtk_range_get_value(GTK_RANGE(scale));
+   int current=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-original"));
+   if (value==current) return FALSE;
+   if (!admin_control_write(row,value)) {
+      gtk_range_set_value(GTK_RANGE(scale),current);
+      gtk_label_set_text(GTK_LABEL(control_status),"Unable to submit control change");
+      return FALSE;
+   }
+   if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-dirty"))) {
+      g_object_set_data(G_OBJECT(row),"control-previous",GINT_TO_POINTER(current));
+      g_object_set_data(G_OBJECT(row),"control-dirty",GINT_TO_POINTER(TRUE));
+   }
+   /* Server acknowledgement may update the authoritative value later. */
+   g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(value));
+   admin_control_update_revert();
+   gtk_label_set_text(GTK_LABEL(control_status),"Control change submitted");
+   return FALSE;
 }
 static void admin_control_row_state(dict *data,const char *profile) {
    const char *name=dict_get(data,"name","");
@@ -423,6 +472,7 @@ static void admin_control_row_add(dict *data,const char *profile) {
    g_object_set_data_full(G_OBJECT(row),"control-description",g_strdup(dict_get(data,"description",label)),g_free);
    g_object_set_data(G_OBJECT(row),"control-scale",scale);
    g_object_set_data(G_OBJECT(row),"control-detail",detail);
+   g_signal_connect(scale,"button-release-event",G_CALLBACK(admin_control_slider_released),row);
    gtk_box_pack_start(GTK_BOX(control_rows_box),row,FALSE,FALSE,3);
    if (control_row_buttons) g_hash_table_insert(control_row_buttons,g_strdup(identity),row);
    admin_control_row_state(data,profile);
@@ -484,32 +534,26 @@ static void admin_control_selection(GtkComboBox *combo, gpointer user) {
    if (!admin_control_request(name,-1) && control_status)
       gtk_label_set_text(GTK_LABEL(control_status),"Unable to read selected control");
 }
-static void admin_control_apply(GtkButton *button, gpointer user) {
-   (void)button; (void)user;
+static void admin_control_apply(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
    if (!control_rows_box) return;
    GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-   unsigned changed=0, failed=0;
+   unsigned reverted=0,failed=0;
    for (GList *l=rows;l;l=l->next) {
-      GtkWidget *row=l->data;
-      if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-writable"))) continue;
-      const char *name=g_object_get_data(G_OBJECT(row),"control-name");
-      const char *profile=g_object_get_data(G_OBJECT(row),"control-profile");
+      GtkWidget *row=GTK_WIDGET(l->data);
+      if (!GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-dirty"))) continue;
+      int previous=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-previous"));
+      if (!admin_control_write(row,previous)) {failed++;continue;}
       GtkWidget *scale=g_object_get_data(G_OBJECT(row),"control-scale");
-      int value=(int)gtk_range_get_value(GTK_RANGE(scale));
-      int original=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(row),"control-original"));
-      if (value==original) continue;
-      ++changed;
-      bool ok=false;
-      if (!strcmp(profile,"local") && !strcmp(name,"display.brightness")) {
-#ifdef __linux__
-         ok=local_backlight_write(value);
-#endif
-      } else ok=admin_control_request_profile(profile,name,value);
-      if (!ok) ++failed;
+      gtk_range_set_value(GTK_RANGE(scale),previous);
+      g_object_set_data(G_OBJECT(row),"control-original",GINT_TO_POINTER(previous));
+      g_object_set_data(G_OBJECT(row),"control-dirty",NULL);
+      reverted++;
    }
    g_list_free(rows);
+   admin_control_update_revert();
    char message[160];
-   snprintf(message,sizeof(message),"%u changes submitted across owning nodes; %u send failures",changed,failed);
+   snprintf(message,sizeof(message),"%u controls reverted; %u submission failures",reverted,failed);
    gtk_label_set_text(GTK_LABEL(control_status),message);
 }
 
@@ -1232,7 +1276,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
                gtk_range_set_value(GTK_RANGE(control_scale),current);
                bool writable = dict_get_bool(row,"writable",false);
                gtk_widget_set_sensitive(control_scale,writable);
-               gtk_widget_set_sensitive(control_apply,writable);
+               admin_control_update_revert();
                char message[256];
                snprintf(message,sizeof(message),"%s: %d / %d %s",
                   dict_get(row,"label",active),current,maximum,dict_get(row,"unit",""));
@@ -1502,8 +1546,8 @@ GtkWidget *init_admin_tab(void) {
       gtk_scale_set_digits(GTK_SCALE(control_scale),0);
       gtk_widget_set_sensitive(control_scale,FALSE);
       GtkWidget *refresh = gtk_button_new_with_label("Refresh controls");
-      control_apply = gtk_button_new_with_label("Apply Changes");
-      gtk_widget_set_sensitive(control_apply,TRUE);
+      control_apply = gtk_button_new_with_label("Revert");
+      gtk_widget_set_sensitive(control_apply,FALSE);
       gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
