@@ -35,7 +35,7 @@ rr_test_prepare_build "$sanitizer" "$media_san"
 # LeakSanitizer cannot run its exit check while traced by GDB.
 # Keep ASan/UBSan active; only disable LSan in this combination.
 if [[ "$debugger" == gdb && ("$sanitizer" == asan || "$sanitizer" == san) ]]; then
-    export ASAN_OPTIONS="detect_leaks=0:${ASAN_OPTIONS:-halt_on_error=1:abort_on_error=1}"
+    export ASAN_OPTIONS="${ASAN_OPTIONS:-halt_on_error=1:abort_on_error=1}:detect_leaks=0"
 fi
 
 rr_test_config=$(python3 tools/test-config.py "$rr_test_root" rrserver)
