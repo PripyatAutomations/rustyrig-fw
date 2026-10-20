@@ -941,6 +941,28 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       }
 
 #endif
+      /* The directory snapshot also advertises reusable privilege names,
+       * never permission decisions. The owning server still authorizes. */
+#ifdef USE_SQLITE
+      if (masterdb) {
+         sqlite3_stmt *groups=NULL;
+         if (sqlite3_prepare_v2(masterdb,
+            "SELECT name FROM privilege_sets ORDER BY name COLLATE NOCASE",
+            -1,&groups,NULL)==SQLITE_OK) {
+            while (sqlite3_step(groups)==SQLITE_ROW) {
+               const char *name=(const char *)sqlite3_column_text(groups,0);
+               if (!name || !*name) continue;
+               dict *row=dict_new();
+               if (!row) break;
+               dict_add(row,"kind","privilege-group");
+               dict_add(row,"name",name);
+               rrserver_admin_send(client,"subjects","row",row);
+               dict_free(row);
+            }
+         }
+         sqlite3_finalize(groups);
+      }
+#endif
       rrserver_admin_send(client, "subjects", "end", NULL);
       dict_free(request);
 
