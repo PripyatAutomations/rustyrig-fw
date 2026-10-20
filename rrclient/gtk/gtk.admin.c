@@ -1209,22 +1209,6 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"rig.use");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"rig.full");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"room.join");
-   admin_table_t *sets=&tables[6];
-   if (sets->store) {
-      GtkTreeIter entry;
-      gboolean valid=gtk_tree_model_get_iter_first(GTK_TREE_MODEL(sets->store),&entry);
-      while (valid) {
-         char *name=NULL;
-         gtk_tree_model_get(GTK_TREE_MODEL(sets->store),&entry,0,&name,-1);
-         if (name && *name) {
-            char *label=g_strdup_printf("@%s",name);
-            gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),label);
-            g_free(label);
-         }
-         g_free(name);
-         valid=gtk_tree_model_iter_next(GTK_TREE_MODEL(sets->store),&entry);
-      }
-   }
    gtk_combo_box_set_active(GTK_COMBO_BOX(permission),0);
    gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Privilege or @group (type or select)"),FALSE,FALSE,4);
    gtk_box_pack_start(GTK_BOX(area),permission,FALSE,FALSE,4);
