@@ -1666,7 +1666,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       return;
    }
    if (row && !strcmp(name,"groups") && group_store &&
-       !g_strcmp0(rrclient_connection_name(connection),tables[4].profile)) {
+       !g_strcmp0(rrclient_connection_name(connection),tables[8].profile)) {
       if (!strcmp(action,"begin")) gtk_tree_store_clear(group_store);
       else if (!strcmp(action,"row"))
          admin_group_tree_row(dict_get(row,"group_name",""),
@@ -1675,7 +1675,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
       else if (!strcmp(action,"end") && group_tree)
          gtk_tree_view_expand_all(GTK_TREE_VIEW(group_tree));
       else if (!strcmp(action,"updated"))
-         admin_command(&tables[4],"admin","groups",NULL);
+         admin_command(&tables[8],"admin","groups",NULL);
       dict_free(row);dict_free(reply);return;
    }
    const char *source_profile = rrclient_connection_name(connection);
