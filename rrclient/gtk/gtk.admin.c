@@ -1563,6 +1563,10 @@ static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
    copy_user_store=NULL;
 }
 /* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns validation, privilege checks, auditing and temporary password generation. */
+static void admin_create_privilege_button(GtkButton *button, gpointer dialog) {
+   (void)button;
+   gtk_dialog_response(GTK_DIALOG(dialog),1003);
+}
 static void admin_create_user(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -1578,6 +1582,16 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    g_free(context);
    GtkWidget *name = gtk_entry_new(), *privileges = gtk_entry_new(), *error = gtk_label_new("");
    GtkWidget *email=gtk_entry_new(),*real=gtk_entry_new(),*phone=gtk_entry_new();
+   GtkWidget *max_clones=gtk_spin_button_new_with_range(1,64,1);
+   GtkWidget *password_change=gtk_check_button_new_with_label("Password change required at first login");
+   GtkWidget *priv_summary=gtk_label_new("view, chat");
+   gtk_label_set_xalign(GTK_LABEL(priv_summary),0);
+   gtk_widget_set_sensitive(max_clones,FALSE);
+   gtk_widget_set_tooltip_text(max_clones,"Future option; currently one session");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(password_change),TRUE);
+   gtk_widget_set_sensitive(password_change,FALSE);
+   gtk_widget_set_tooltip_text(password_change,"Temporary passwords always expire and require a change");
+   gtk_widget_set_no_show_all(privileges,TRUE);
    gtk_entry_set_max_length(GTK_ENTRY(email),254);
    gtk_entry_set_max_length(GTK_ENTRY(real),128);
    gtk_entry_set_max_length(GTK_ENTRY(phone),64);
@@ -1586,20 +1600,31 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_entry_set_text(GTK_ENTRY(privileges), "view,chat");
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Username"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), name, FALSE, FALSE, 3);
-   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Privileges"), FALSE, FALSE, 3);
-   gtk_box_pack_start(GTK_BOX(box), privileges, FALSE, FALSE, 3);
+
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Email (public contact)"),FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),email,FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Real name"),FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),real,FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Phone (public contact)"),FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),phone,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Max Clones (coming soon)"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),max_clones,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),password_change,FALSE,FALSE,3);
+   GtkWidget *priv_row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+   GtkWidget *priv_button=gtk_button_new_with_label("Edit");
+   gtk_box_pack_start(GTK_BOX(priv_row),gtk_label_new("Privileges"),FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(priv_row),priv_summary,TRUE,TRUE,0);
+   gtk_box_pack_end(GTK_BOX(priv_row),priv_button,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(box),priv_row,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),privileges,FALSE,FALSE,0);
+   g_signal_connect(priv_button,"clicked",G_CALLBACK(admin_create_privilege_button),dialog);
    gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
    int response;
    while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003 || response == 1004) {
       if (response == 1004) {
          admin_copy_user(dialog,table,email,real,phone,privileges);
+          gtk_label_set_text(GTK_LABEL(priv_summary),gtk_entry_get_text(GTK_ENTRY(privileges)));
          continue;
       }
       if (response == 1003) {
@@ -1607,6 +1632,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
 
          if (edited) {
             gtk_entry_set_text(GTK_ENTRY(privileges), edited);
+             gtk_label_set_text(GTK_LABEL(priv_summary),edited);
          }
          g_free(edited);
          continue;
@@ -1622,7 +1648,7 @@ static void admin_create_user(GtkButton *button, gpointer data) {
       }
 
       if (!valid || !*permissions || strpbrk(permissions, " \t\r\n\v\f")) {
-         gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and a comma-separated privilege list without spaces.");
+         gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and choose privileges using Edit.");
          continue;
       }
       char *request = g_strdup_printf("add %s %s", username, permissions);
