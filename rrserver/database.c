@@ -571,7 +571,40 @@ static bool db_ensure_resource_privileges(sqlite3 *db) {
       Log(LOG_CRIT, "db", "Cannot migrate privilege schema: %s", error ? error : "unknown");
    }
    sqlite3_free(error);
+   if (!ok) return false;
 
+   /* Existing policies retain their behavior until explicitly edited.
+    * New grants default to local-only access. */
+   const char *upgrades[] = {
+      "ALTER TABLE resource_privileges ADD COLUMN remote_allowed INTEGER NOT NULL DEFAULT 1;",
+      "ALTER TABLE privilege_set_assignments ADD COLUMN remote_allowed INTEGER NOT NULL DEFAULT 1;"
+   };
+   for (unsigned i=0;i<sizeof(upgrades)/sizeof(upgrades[0]);i++) {
+      char *migration_error=NULL;
+      int rc=sqlite3_exec(db,upgrades[i],NULL,NULL,&migration_error);
+      if (rc!=SQLITE_OK && (!migration_error || !strstr(migration_error,"duplicate column name"))) {
+         Log(LOG_CRIT,"db","Privilege remote policy migration failed: %s",
+             migration_error ? migration_error : sqlite3_errmsg(db));
+         sqlite3_free(migration_error);
+         return false;
+      }
+      sqlite3_free(migration_error);
+   }
+   const char *presets =
+      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) VALUES"
+      "('rigctl','Rig tuning and control functions; TX requires separate authorization','system'),"
+      "('sysop','Reserved for future BBS system operator operations','system');"
+      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
+      "SELECT id,'rig.use','allow' FROM privilege_sets WHERE name='rigctl';"
+      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
+      "SELECT id,'rig.tune','allow' FROM privilege_sets WHERE name='rigctl';"
+      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
+      "SELECT id,'frequency.read','allow' FROM privilege_sets WHERE name='rigctl';";
+   char *preset_error=NULL;
+   ok=sqlite3_exec(db,presets,NULL,NULL,&preset_error)==SQLITE_OK;
+   if (!ok) Log(LOG_CRIT,"db","Cannot seed privilege groups: %s",
+                preset_error ? preset_error : sqlite3_errmsg(db));
+   sqlite3_free(preset_error);
    return ok;
 }
 
