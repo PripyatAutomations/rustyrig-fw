@@ -546,6 +546,10 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
 #ifdef USE_SQLITE
 
    if (r && administration) {
+      /* The destination also enforces its own direct-peer restriction. */
+      const char *next = rrserver_links_route(origin);
+      bool allowed_hops = !cfg_get_bool("remote-admin.next-hop-only", true) ||
+         (next && !strcmp(next, origin));
       const char *host = rrserver_relay_client_server(&r->client);
       const char *local_site = cfg_get("station.name");
       if (host && *host && local_site && strcmp(host,local_site)) {
