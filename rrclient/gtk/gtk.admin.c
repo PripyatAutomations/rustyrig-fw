@@ -1692,6 +1692,33 @@ static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
       (!strcmp(value,"1") || !g_ascii_strcasecmp(value,"true")),NULL);
    g_free(value);
 }
+static void admin_session_selection(GtkTreeSelection *selection, gpointer user) {
+   GtkWidget *button=GTK_WIDGET(user);
+   gtk_widget_set_sensitive(button,gtk_tree_selection_count_selected_rows(selection)>0);
+}
+static gboolean admin_filter_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   GtkWidget *entry=GTK_WIDGET(data);
+   const char *needle=gtk_entry_get_text(GTK_ENTRY(entry));
+   if (!needle || !*needle) return TRUE;
+   char *search=g_utf8_casefold(needle,-1);
+   gboolean match=FALSE;
+   for (int c=0;c<10 && !match;c++) {
+      char *cell=NULL;
+      gtk_tree_model_get(model,iter,c,&cell,-1);
+      if (cell) {
+         char *folded=g_utf8_casefold(cell,-1);
+         match=folded && strstr(folded,search)!=NULL;
+         g_free(folded);
+         g_free(cell);
+      }
+   }
+   g_free(search);
+   return match;
+}
+static void admin_filter_changed(GtkEditable *editable,gpointer data) {
+   (void)editable;
+   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
+}
 static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
    admin_table_t *table = user;
    GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");
@@ -2321,6 +2348,10 @@ GtkWidget *init_admin_tab(void) {
       GtkWidget *refresh = gtk_button_new_with_label("Refresh");
       table->older = gtk_button_new_with_label("Load older / more");
       table->status = gtk_label_new("Select a server and Refresh");
+      GtkWidget *filter=gtk_search_entry_new();
+      gtk_entry_set_placeholder_text(GTK_ENTRY(filter),"Filter rows");
+      gtk_entry_set_width_chars(GTK_ENTRY(filter),22);
+      gtk_box_pack_start(GTK_BOX(buttons),filter,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(buttons), refresh, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(buttons), table->older, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(buttons), table->status, FALSE, FALSE, 0);
@@ -2329,9 +2360,11 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(table->older, "clicked", G_CALLBACK(admin_older), table);
 
       if (!strcmp(table->name, "sessions")) {
-         GtkWidget *kick = gtk_button_new_with_label("Disconnect selected…");
-         GtkWidget *kick_all = gtk_button_new_with_label("Disconnect all…");
+         GtkWidget *kick = gtk_button_new_with_label("Disconnect selected");
+         GtkWidget *kick_all = gtk_button_new_with_label("Disconnect all");
          g_object_set_data(G_OBJECT(kick_all), "kick-all", GINT_TO_POINTER(1));
+         gtk_widget_set_sensitive(kick,FALSE);
+         g_object_set_data(G_OBJECT(box),"rr-session-disconnect",kick);
          g_signal_connect(kick, "clicked", G_CALLBACK(admin_session_kick), table);
          g_signal_connect(kick_all, "clicked", G_CALLBACK(admin_session_kick), table);
          gtk_box_pack_start(GTK_BOX(buttons), kick, FALSE, FALSE, 0);
@@ -2391,11 +2424,23 @@ GtkWidget *init_admin_tab(void) {
             gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
          }
       }
-      gtk_widget_set_halign(buttons,GTK_ALIGN_END);
+      /* Filter and Refresh stay on the left; other actions are right-aligned. */
+      GtkWidget *space=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);
+      gtk_widget_set_hexpand(space,TRUE);
+      gtk_box_reorder_child(GTK_BOX(buttons),space,4);
+      gtk_box_pack_start(GTK_BOX(buttons),space,TRUE,TRUE,0);
       gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
-      table->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(table->store));
+      GtkTreeModel *filtered=gtk_tree_model_filter_new(GTK_TREE_MODEL(table->store),NULL);
+      gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered),
+         admin_filter_visible,filter,NULL);
+      g_signal_connect(filter,"changed",G_CALLBACK(admin_filter_changed),filtered);
+      table->tree = gtk_tree_view_new_with_model(filtered);
+      GtkWidget *disconnect=g_object_get_data(G_OBJECT(box),"rr-session-disconnect");
+      if (disconnect) g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
+         "changed",G_CALLBACK(admin_session_selection),disconnect);
+      g_object_unref(filtered);
       if (selection_buttons) {
          g_object_set_data_full(G_OBJECT(table->tree),"selection-buttons",selection_buttons,(GDestroyNotify)g_ptr_array_unref);
          g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
