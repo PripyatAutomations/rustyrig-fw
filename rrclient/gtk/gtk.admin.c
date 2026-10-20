@@ -1589,6 +1589,8 @@ static void admin_older(GtkButton *button, gpointer data) {
    admin_command(table, "admin", tail, NULL);
 }
 
+static void admin_other_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
+                                   GtkTreeModel *model,GtkTreeIter *iter,gpointer data);
 /* Stages public profile fields and system roles only. Never clones a
  * password, login identity, or source-server resource grant. */
 static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
