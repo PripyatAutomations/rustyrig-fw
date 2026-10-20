@@ -1032,6 +1032,14 @@ void rrserver_serial_init(void) {
          const char *path = cfg_get(option);
          snprintf(p->path, sizeof(p->path), "%s", path ? path : "");
 
+         /* Keep existing configurations from creating a cwd-local dev directory. */
+         if (g_str_has_prefix(p->path,"./dev/")) {
+            const char *home=g_get_home_dir();
+            char legacy[PATH_MAX];
+            int written=snprintf(legacy,sizeof(legacy),"%s/dev/%s",home,p->path+6);
+            if (written<0 || (size_t)written>=sizeof(legacy)) continue;
+            snprintf(p->path,sizeof(p->path),"%s",legacy);
+         }
          if (!p->path[0]) {
             const char *home=g_get_home_dir();
             if (!home || !*home || snprintf(p->path,sizeof(p->path),"%s/dev/%s",home,p->name)>=(int)sizeof(p->path)) {
