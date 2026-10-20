@@ -22,12 +22,12 @@ done
 
 cd "$P"
 # A gitlink records a particular component commit, not its branch name.
-git add -- librustyaxe librrprotocol www callsign-lookup
-if ! git diff --quiet HEAD --; then
+git add -u -- . ':(exclude)ext'
+if ! git diff --cached --quiet; then
    if [[ -n "$commit_message" ]]; then
-      git commit -a -m "$commit_message"
+      git commit -m "$commit_message"
    else
-      git commit -a
+      git commit
    fi
 fi
 git push
