@@ -302,11 +302,21 @@ static GdkMonitor *zoom_monitor(GtkWidget *widget) {
    return monitor ? monitor : gdk_display_get_monitor(display, 0);
 }
 
+/* Both fullscreen and maximized windows are controlled by the window
+ * manager. Zoom must never alter their geometry or window state. */
+static bool zoom_window_fills_monitor(void) {
+   if (!zoom_window || !gtk_widget_get_realized(zoom_window)) return false;
+   GdkWindow *gdk=gtk_widget_get_window(zoom_window);
+   return gdk && (gdk_window_get_state(gdk) &
+      (GDK_WINDOW_STATE_FULLSCREEN | GDK_WINDOW_STATE_MAXIMIZED));
+}
+
 static gboolean zoom_after_resize(gpointer data) {
    (void)data;
    resize_source = 0;
 
-   if (!zoom_window || active_touches || !cfg_get_bool("ui.gtk.scale-on-resize", true)) {
+   if (!zoom_window || active_touches || zoom_window_fills_monitor() ||
+       !cfg_get_bool("ui.gtk.scale-on-resize", true)) {
       return G_SOURCE_REMOVE;
    }
 
@@ -666,6 +676,8 @@ static void zoom_touch_bind(GtkWidget *window) {
 static gboolean zoom_focus_out(GtkWidget *widget, GdkEventFocus *event, gpointer data);
 
 static void zoom_key_step(int direction, bool resize_window) {
+   /* In fullscreen/maximized mode Ctrl and Alt only change content scaling. */
+   if (zoom_window_fills_monitor()) resize_window=false;
    unsigned maximum = resize_window && zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
    int delta = direction > 0 ? 10 : direction < 0 ? -10 : 0;
    int next = CLAMP(direction == 0 ? 100 : (int)zoom_percent + delta, 25, (int)maximum);
