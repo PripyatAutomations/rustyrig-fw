@@ -1638,7 +1638,10 @@ static void admin_create_user(GtkButton *button, gpointer data) {
          continue;
       }
       const char *username = gtk_entry_get_text(GTK_ENTRY(name));
-      const char *permissions = gtk_entry_get_text(GTK_ENTRY(privileges));
+      char *permissions = g_strdup(gtk_entry_get_text(GTK_ENTRY(privileges)));
+      char *dst=permissions;
+      for (const char *src=permissions;*src;src++) if (!g_ascii_isspace(*src)) *dst++=*src;
+      *dst=0;
       bool valid = *username != 0;
 
       for (const unsigned char *p = (const unsigned char *)username ; *p ; p++) {
@@ -1647,11 +1650,13 @@ static void admin_create_user(GtkButton *button, gpointer data) {
          }
       }
 
-      if (!valid || !*permissions || strpbrk(permissions, " \t\r\n\v\f")) {
+      if (!valid || !*permissions) {
          gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and choose privileges using Edit.");
+         g_free(permissions);
          continue;
       }
       char *request = g_strdup_printf("add %s %s", username, permissions);
+      g_free(permissions);
       rrconn_t *connection=rrclient_connection_find(table->profile);
       bool sent=false;
       if (connection && connection->authenticated) {
