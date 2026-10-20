@@ -1,0 +1,132 @@
+{
+  "admin": {
+    "label": "Administrator",
+    "description": "Manage users and server configuration",
+    "scope": "system"
+  },
+  "bridge.admin": {
+    "label": "Manage bridges",
+    "description": "Configure and administer bridge connections",
+    "scope": "resource"
+  },
+  "bridge.use": {
+    "label": "Use bridges",
+    "description": "Access a configured bridge",
+    "scope": "resource"
+  },
+  "chat": {
+    "label": "Chat",
+    "description": "Send chat messages",
+    "scope": "system"
+  },
+  "elmer": {
+    "label": "Mentor",
+    "description": "Help and supervise new operators",
+    "scope": "system"
+  },
+  "files.read": {
+    "label": "Read files",
+    "description": "Download files from permitted shares",
+    "scope": "resource"
+  },
+  "files.write": {
+    "label": "Write files",
+    "description": "Upload or modify files in permitted shares",
+    "scope": "resource"
+  },
+  "media.source": {
+    "label": "Publish media",
+    "description": "Provide audio or other media sources",
+    "scope": "resource"
+  },
+  "noob": {
+    "label": "New operator",
+    "description": "New operator with restricted access",
+    "scope": "system"
+  },
+  "owner": {
+    "label": "Owner",
+    "description": "Full local server ownership role",
+    "scope": "system"
+  },
+  "rx": {
+    "label": "Receive",
+    "description": "Listen to radio audio",
+    "scope": "resource"
+  },
+  "serial": {
+    "label": "Serial access",
+    "description": "Use permitted serial devices",
+    "scope": "system"
+  },
+  "serial.*": {
+    "label": "All serial devices",
+    "description": "Use any configured serial device",
+    "scope": "resource"
+  },
+  "tx": {
+    "label": "Transmit",
+    "description": "Request permission to transmit, subject to safety checks",
+    "scope": "system"
+  },
+  "video-src": {
+    "label": "Video source",
+    "description": "Publish video media",
+    "scope": "system"
+  },
+  "websdr.admin": {
+    "label": "Manage WebSDR",
+    "description": "Configure WebSDR receivers",
+    "scope": "resource"
+  },
+  "websdr.connect": {
+    "label": "Connect WebSDR",
+    "description": "Connect to WebSDR receivers",
+    "scope": "resource"
+  },
+  "websdr.listen": {
+    "label": "Listen WebSDR",
+    "description": "Listen to WebSDR audio",
+    "scope": "resource"
+  },
+  "rig.use": {
+    "label": "Use rig",
+    "description": "Access and operate a rig",
+    "scope": "resource"
+  },
+  "rig.tune": {
+    "label": "Tune rig",
+    "description": "Change a rig's frequency or tuning",
+    "scope": "resource"
+  },
+  "rig.full": {
+    "label": "Full rig access",
+    "description": "Grant all supported rig operations; safety limits still apply",
+    "scope": "resource"
+  },
+  "room.join": {
+    "label": "Join rooms",
+    "description": "Join a room and participate where permitted",
+    "scope": "resource"
+  },
+  "frequency.read": {
+    "label": "Read frequency",
+    "description": "Read the tuned frequency",
+    "scope": "resource"
+  },
+  "spectrum.read": {
+    "label": "View spectrum",
+    "description": "Read receiver spectrum data",
+    "scope": "resource"
+  },
+  "bbs.read": {
+    "label": "Read BBS",
+    "description": "Read BBS content when supported",
+    "scope": "resource"
+  },
+  "bbs.write": {
+    "label": "Write BBS",
+    "description": "Post BBS content when supported",
+    "scope": "resource"
+  }
+}
