@@ -32,6 +32,12 @@ if [[ "$sanitizer" != plain && "$debugger" == valgrind ]]; then
     echo "Valgrind and sanitizer instrumentation cannot be combined." >&2; exit 2
 fi
 rr_test_prepare_build "$sanitizer" "$media_san"
+# LeakSanitizer cannot run its exit check while traced by GDB.
+# Keep ASan/UBSan active; only disable LSan in this combination.
+if [[ "$debugger" == gdb && ("$sanitizer" == asan || "$sanitizer" == san) ]]; then
+    export ASAN_OPTIONS="detect_leaks=0:${ASAN_OPTIONS:-halt_on_error=1:abort_on_error=1}"
+fi
+
 rr_test_config=$(python3 tools/test-config.py "$rr_test_root" rrserver)
 server_args=(-f "$rr_test_config")
 case "$debugger" in
