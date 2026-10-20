@@ -447,7 +447,7 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       sql = !strcmp(action, "privset-assign")
          ? "INSERT INTO privilege_set_assignments "
          "(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by) "
-         "SELECT id,?2,?3,?4,?5,?6,?7 FROM privilege_sets WHERE name=?1 "
+         "SELECT id,?2,?3,t.resource_kind,t.resource_uuid,?6,?7 FROM privilege_sets JOIN access_request_targets t ON t.request_id=?8 WHERE name=?1 "
          "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
          "DO UPDATE SET assigned_by=excluded.assigned_by,remote_allowed=excluded.remote_allowed,assigned_at=unixepoch(),expires_at=NULL"
          : "DELETE FROM privilege_set_assignments WHERE set_id="
@@ -959,7 +959,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
                "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
                "DO UPDATE SET remote_allowed=excluded.remote_allowed,assigned_by=excluded.assigned_by" :
                "INSERT INTO resource_privileges(subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by,remote_allowed) "
-               "VALUES(?1,?2,?3,?4,?5,'allow',?6,?7) "
+               "SELECT ?1,?2,t.resource_kind,t.resource_uuid,?5,'allow',?6,?7 FROM access_request_targets t WHERE t.request_id=?8 "
                "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
                "DO UPDATE SET effect='allow',remote_allowed=excluded.remote_allowed,granted_by=excluded.granted_by";
             st=NULL;
@@ -972,6 +972,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
                sqlite3_bind_text(st,5,group ? uuid : token,-1,SQLITE_TRANSIENT);
                sqlite3_bind_text(st,6,client->chatname,-1,SQLITE_TRANSIENT);
                sqlite3_bind_int(st,7,remote ? 1 : 0);
+               sqlite3_bind_int64(st,8,number);
                ok=sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)>0;
             }
             sqlite3_finalize(st);
