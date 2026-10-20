@@ -307,6 +307,36 @@ void gtk_admin_open_control_on_server(const char *profile, const char *name) {
 void gtk_admin_open_control(const char *name) {
    gtk_admin_open_control_on_server(rrclient_selected_server(),name);
 }
+/* Sort current row widgets in place; preserves each live slider and owner. */
+static int control_sort_field=0;
+static gboolean control_sort_descending=FALSE;
+static gint admin_control_row_compare(gconstpointer left,gconstpointer right) {
+   GtkWidget *a=(GtkWidget *)left,*b=(GtkWidget *)right;
+   const char *key=control_sort_field==0 ? "control-path" :
+      control_sort_field==1 ? "control-label" : "control-description";
+   const char *av=g_object_get_data(G_OBJECT(a),key);
+   const char *bv=g_object_get_data(G_OBJECT(b),key);
+   gint cmp=g_utf8_collate(av ? av : "",bv ? bv : "");
+   if (!cmp) cmp=g_strcmp0(g_object_get_data(G_OBJECT(a),"control-path"),
+                             g_object_get_data(G_OBJECT(b),"control-path"));
+   return control_sort_descending ? -cmp : cmp;
+}
+static void admin_control_sort_rows(void) {
+   if (!control_rows_box) return;
+   GList *children=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   children=g_list_sort(children,admin_control_row_compare);
+   int position=0;
+   for (GList *l=children;l;l=l->next)
+      gtk_box_reorder_child(GTK_BOX(control_rows_box),GTK_WIDGET(l->data),position++);
+   g_list_free(children);
+}
+static void admin_control_sort_clicked(GtkButton *button,gpointer user) {
+   (void)user;
+   int field=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button),"sort-field"));
+   if (field==control_sort_field) control_sort_descending=!control_sort_descending;
+   else {control_sort_field=field;control_sort_descending=FALSE;}
+   admin_control_sort_rows();
+}
 static void admin_control_rows_clear(void) {
    if (!control_rows_box) return;
    GList *children=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
@@ -387,6 +417,7 @@ static void admin_control_row_add(dict *data,const char *profile) {
    g_object_set_data(G_OBJECT(row),"control-min-label",minimum_label);
    g_object_set_data(G_OBJECT(row),"control-max-label",maximum_label);
    g_object_set_data_full(G_OBJECT(row),"control-label",g_strdup(label),g_free);
+   g_object_set_data_full(G_OBJECT(row),"control-description",g_strdup(dict_get(data,"description",label)),g_free);
    g_object_set_data(G_OBJECT(row),"control-scale",scale);
    g_object_set_data(G_OBJECT(row),"control-detail",detail);
    gtk_box_pack_start(GTK_BOX(control_rows_box),row,FALSE,FALSE,3);
@@ -394,6 +425,7 @@ static void admin_control_row_add(dict *data,const char *profile) {
    admin_control_row_state(data,profile);
    g_free(identity);
    gtk_widget_show_all(row);
+   admin_control_sort_rows();
    admin_control_filter_apply();
 }
 
@@ -1472,6 +1504,17 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(buttons),refresh,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(buttons),control_apply,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(box),control_status,FALSE,FALSE,0);
+      GtkWidget *control_headers=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
+      const char *headings[]={"Node / Control","Value","Description / Access"};
+      for (int i=0;i<3;i++) {
+         GtkWidget *header=gtk_button_new_with_label(headings[i]);
+         g_object_set_data(G_OBJECT(header),"sort-field",GINT_TO_POINTER(i));
+         if (i<2) gtk_widget_set_size_request(header,i==0 ? 235 : 315,-1);
+         else gtk_widget_set_hexpand(header,TRUE);
+         g_signal_connect(header,"clicked",G_CALLBACK(admin_control_sort_clicked),NULL);
+         gtk_box_pack_start(GTK_BOX(control_headers),header,i==2,i==2,0);
+      }
+      gtk_box_pack_start(GTK_BOX(box),control_headers,FALSE,FALSE,0);
       control_rows_box=gtk_box_new(GTK_ORIENTATION_VERTICAL,4);
        control_row_buttons=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
        control_scroll=gtk_scrolled_window_new(NULL,NULL);
