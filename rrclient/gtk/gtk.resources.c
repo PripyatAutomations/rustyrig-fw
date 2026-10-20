@@ -1049,6 +1049,30 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    g_free(text);
 }
 
+static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
+                                GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
+   int field=GPOINTER_TO_INT(data);
+   if (field==NAME || field==KIND) resource_text_cell(column,renderer,model,iter,data);
+   else if (field==STATE || field==OURS) resource_status_cell(column,renderer,model,iter,data);
+   else if (field==DETAILS) resource_details_cell(column,renderer,model,iter,NULL);
+   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd=index && (index[gtk_tree_path_get_depth(path)-1] & 1);
+   gboolean selected=browser && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)),path);
+   if (odd && !selected && browser) {
+      GtkStyleContext *style=gtk_widget_get_style_context(browser->tree);
+      GdkRGBA base,ink,shade;
+      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
+      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
+      shade.red=base.red*0.915+ink.red*0.085;
+      shade.green=base.green*0.915+ink.green*0.085;
+      shade.blue=base.blue*0.915+ink.blue*0.085;
+      shade.alpha=1.0;
+      g_object_set(renderer,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
+   } else g_object_set(renderer,"cell-background-set",FALSE,NULL);
+   if (path) gtk_tree_path_free(path);
+}
 /* Sort siblings naturally: case-insensitive text with numeric runs (rig2 before rig10). */
 /* GtkTreeStore sorting is sibling-local, so sorting never reparents resources. Keep locally owned entries above linked site branches at every depth,
  * independently of the chosen column or ascending/descending direction. */
@@ -1351,11 +1375,8 @@ static void resource_create(void) {
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
       gtk_tree_view_column_set_resizable(column, TRUE);
 
-      if (i == STATE || i == OURS) {
-         gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
-      }
-      if (i == NAME || i == KIND)
-         gtk_tree_view_column_set_cell_data_func(column,renderer,resource_text_cell,GINT_TO_POINTER(i),NULL);
+      gtk_tree_view_column_set_cell_data_func(column,renderer,resource_zebra_cell,
+                                              GINT_TO_POINTER(i),NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, i == NAME ? 240 : i == KIND ? 95 : i == STATE ? 130 : i == OURS ? 175 : 220);
 
@@ -1365,7 +1386,7 @@ static void resource_create(void) {
       gtk_tree_view_column_set_min_width(column, 45);
 
       if (field == DETAILS) {
-         gtk_tree_view_column_set_cell_data_func(column, renderer, resource_details_cell, NULL, NULL);
+         gtk_tree_view_column_set_cell_data_func(column, renderer, resource_zebra_cell, GINT_TO_POINTER(DETAILS), NULL);
          g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, 220);
