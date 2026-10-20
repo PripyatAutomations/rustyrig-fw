@@ -1976,6 +1976,18 @@ static void admin_access_refresh(GtkButton *button,gpointer user) {
    if (access_request_store) gtk_list_store_clear(access_request_store);
    admin_access_send("access-request-list",NULL,NULL);
 }
+static void admin_access_age_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
+                                    GtkTreeModel *model,GtkTreeIter *iter,gpointer user) {
+   (void)column;(void)user;
+   char *status=NULL,*age=NULL;
+   gtk_tree_model_get(model,iter,AR_STATUS,&status,AR_AGE,&age,-1);
+   long days=age ? strtol(age,NULL,10) : 0;
+   const char *color=(!g_strcmp0(status,"pending") && days>=28) ? "#d64545" :
+                     (!g_strcmp0(status,"pending") && days>=7) ? "#b08b00" : NULL;
+   g_object_set(renderer,"text",age ? age : "",
+                "foreground-set",color!=NULL,"foreground",color ? color : "",NULL);
+   g_free(status);g_free(age);
+}
 static void admin_access_review(GtkButton *button,gpointer user) {
    const char *decision=user;
    GtkTreeIter iter;GtkTreeModel *model=NULL;
@@ -2251,6 +2263,7 @@ GtkWidget *init_admin_tab(void) {
          GtkCellRenderer *cell=gtk_cell_renderer_text_new();
          g_object_set(cell,"wrap-mode",PANGO_WRAP_WORD_CHAR,"wrap-width",col==AR_REASON ? 340 : 120,NULL);
          GtkTreeViewColumn *column=gtk_tree_view_column_new_with_attributes(headings[col],cell,"text",col,NULL);
+         if (col==AR_AGE) gtk_tree_view_column_set_cell_data_func(column,cell,admin_access_age_cell,NULL,NULL);
          gtk_tree_view_column_set_resizable(column,TRUE);
          gtk_tree_view_column_set_expand(column,col==AR_REASON);
          gtk_tree_view_append_column(GTK_TREE_VIEW(access_request_tree),column);
