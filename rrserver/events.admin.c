@@ -457,7 +457,10 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       }
       sql = "DELETE FROM privilege_sets WHERE name=?1";
    } else if (!strcmp(action, "privset-entry")) {
-      if (args != 2 || (strcmp(a, "allow") && strcmp(a, "deny")) || strlen(b) > 128) {
+      /* Set entries are leaf privileges. A group reference would create
+       * recursive policy evaluation; reject it even for non-GTK clients. */
+      if (args != 2 || (strcmp(a, "allow") && strcmp(a, "deny")) ||
+          !*b || b[0] == '@' || strlen(b) > 128) {
          ws_send_error(client, "Usage: /admin privset-entry SET allow|deny PRIVILEGE");
 
          return true;
