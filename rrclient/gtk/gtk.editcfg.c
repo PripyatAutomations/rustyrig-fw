@@ -318,6 +318,7 @@ static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
 static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
    GtkWidget *container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(header), 3);
    const char *headings[] = {
       "Setting", "Value", "Description"
    };
@@ -335,9 +336,9 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
       g_object_set_data(G_OBJECT(button), "cfg-sort-column", GINT_TO_POINTER(col));
 
       if (col == 0) {
-         gtk_widget_set_size_request(button, 110, -1);
+         gtk_widget_set_size_request(button, 220, -1);
       } else if (col == 1) {
-         gtk_widget_set_size_request(button, 125, -1);
+         gtk_widget_set_size_request(button, 250, -1);
       } else {
          gtk_widget_set_hexpand(button, TRUE);
       }
@@ -367,16 +368,19 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
       GtkWidget *label = gtk_label_new(def->key);
       gtk_label_set_xalign(GTK_LABEL(label), 0);
       gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
-      gtk_widget_set_size_request(label, 110, -1);
+      gtk_widget_set_size_request(label, 220, -1);
+      gtk_widget_set_hexpand(label, FALSE);
       gtk_widget_set_tooltip_text(label, def->key);
       gtk_widget_set_tooltip_text(label, def->help ? def->help : "");
-      gtk_box_pack_start(GTK_BOX(cells), label, TRUE, TRUE, 0);
-      gtk_widget_set_size_request(editor, 125, -1);
-      gtk_box_pack_start(GTK_BOX(cells), editor, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(cells), label, FALSE, FALSE, 0);
+      gtk_widget_set_size_request(editor, 250, -1);
+      gtk_widget_set_hexpand(editor, FALSE);
+      gtk_box_pack_start(GTK_BOX(cells), editor, FALSE, FALSE, 0);
       GtkWidget *help = gtk_label_new(def->help ? def->help : "");
       gtk_label_set_xalign(GTK_LABEL(help), 0);
       gtk_label_set_ellipsize(GTK_LABEL(help), PANGO_ELLIPSIZE_END);
       gtk_widget_set_tooltip_text(help, def->help ? def->help : "");
+      gtk_widget_set_hexpand(help, TRUE);
       gtk_box_pack_start(GTK_BOX(cells), help, TRUE, TRUE, 0);
       gtk_container_add(GTK_CONTAINER(row), cells);
       g_object_set_data(G_OBJECT(row), "rr-cfg-definition", (gpointer) def);
