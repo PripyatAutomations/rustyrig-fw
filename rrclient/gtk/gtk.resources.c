@@ -33,6 +33,8 @@ typedef struct {
    GtkWidget *page, *panel, *tree, *status, *details, *buttons[BUTTONS];
    GtkTreeModelFilter *filter;
    GHashTable *enabled_kinds;
+   GHashTable *zebra_positions;
+   gboolean zebra_dirty, zebra_rebuilding;
    GtkTreeStore *store;
    GtkTreeIter local_root;
    GHashTable *branches, *local_rows;
@@ -192,6 +194,7 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
    g_hash_table_destroy(view->enabled_kinds);
+   g_hash_table_destroy(view->zebra_positions);
    g_object_unref(view->filter);
    g_object_unref(view->store);
    g_free(view);
@@ -1160,21 +1163,37 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
 
 /* Count rows in visible depth-first order, rather than sibling indices.
  * Otherwise striping restarts whenever an expanded rig/room adds children. */
-static gboolean resource_visible_row_index(GtkTreeModel *model,GtkTreeIter *iter,
-                                            GtkTreePath *target,guint *position) {
+/* Rebuild only after structural/visibility changes, never per cell. */
+static void resource_zebra_invalidate(void) {
+   if (browser) browser->zebra_dirty=TRUE;
+}
+static void resource_zebra_walk(GtkTreeModel *model,GtkTreeIter *iter,guint *position) {
    do {
       GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-      gboolean found=gtk_tree_path_compare(path,target)==0;
+      char *key=gtk_tree_path_to_string(path);
+      g_hash_table_insert(browser->zebra_positions,key,
+                          GUINT_TO_POINTER((++*position) & 1 ? 1 : 2));
       gboolean expanded=gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path);
       gtk_tree_path_free(path);
-      if (found) return TRUE;
-      ++*position;
       GtkTreeIter child;
-      if (expanded && gtk_tree_model_iter_children(model,&child,iter) &&
-          resource_visible_row_index(model,&child,target,position))
-         return TRUE;
+      if (expanded && gtk_tree_model_iter_children(model,&child,iter))
+         resource_zebra_walk(model,&child,position);
    } while (gtk_tree_model_iter_next(model,iter));
-   return FALSE;
+}
+static void resource_zebra_rebuild(GtkTreeModel *model) {
+   if (!browser || !browser->zebra_dirty || browser->zebra_rebuilding) return;
+   browser->zebra_rebuilding=TRUE;
+   g_hash_table_remove_all(browser->zebra_positions);
+   guint position=0;
+   GtkTreeIter first;
+   if (gtk_tree_model_get_iter_first(model,&first))
+      resource_zebra_walk(model,&first,&position);
+   browser->zebra_dirty=FALSE;
+   browser->zebra_rebuilding=FALSE;
+}
+static void resource_zebra_structure_changed(gpointer unused) {
+   (void)unused;
+   resource_zebra_invalidate();
 }
 static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
                                 GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
@@ -1183,11 +1202,11 @@ static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *rende
    else if (field==STATE || field==OURS) resource_status_cell(column,renderer,model,iter,data);
    else if (field==DETAILS) resource_details_cell(column,renderer,model,iter,NULL);
    GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   guint position=0;
-   GtkTreeIter first;
-   gboolean found=path && gtk_tree_model_get_iter_first(model,&first) &&
-      resource_visible_row_index(model,&first,path,&position);
-   gboolean odd=found && (position & 1);
+   resource_zebra_rebuild(model);
+   char *key=path ? gtk_tree_path_to_string(path) : NULL;
+   gpointer parity=key ? g_hash_table_lookup(browser->zebra_positions,key) : NULL;
+   gboolean odd=GPOINTER_TO_UINT(parity)==1;
+   g_free(key);
    gboolean selected=browser && path && gtk_tree_selection_path_is_selected(
       gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)),path);
    if (odd && !selected && browser) {
@@ -1311,6 +1330,8 @@ static void resource_type_changed(GtkToggleButton *item,gpointer data) {
       g_hash_table_add(browser->enabled_kinds,g_strdup(type));
    else g_hash_table_remove(browser->enabled_kinds,type);
    gtk_tree_model_filter_refilter(browser->filter);
+   resource_zebra_invalidate();
+   gtk_widget_queue_draw(browser->tree);
 }
 static void resource_create(void) {
    if (browser) {
@@ -1318,6 +1339,8 @@ static void resource_create(void) {
    }
    browser = g_new0(resource_browser, 1);
    browser->enabled_kinds=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   browser->zebra_positions=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   browser->zebra_dirty=TRUE;
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -1399,6 +1422,16 @@ static void resource_create(void) {
    gtk_tree_model_filter_set_visible_func(browser->filter,resource_type_visible,NULL,NULL);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->filter));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
+   g_signal_connect_swapped(browser->tree,"row-expanded",
+                            G_CALLBACK(resource_zebra_structure_changed),NULL);
+   g_signal_connect_swapped(browser->tree,"row-collapsed",
+                            G_CALLBACK(resource_zebra_structure_changed),NULL);
+   g_signal_connect_swapped(browser->filter,"row-inserted",
+                            G_CALLBACK(resource_zebra_structure_changed),NULL);
+   g_signal_connect_swapped(browser->filter,"row-deleted",
+                            G_CALLBACK(resource_zebra_structure_changed),NULL);
+   g_signal_connect_swapped(browser->filter,"rows-reordered",
+                            G_CALLBACK(resource_zebra_structure_changed),NULL);
    gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 0);
    gtk_tree_view_set_search_column(GTK_TREE_VIEW(browser->tree), NAME);
    gtk_tree_view_set_search_equal_func(GTK_TREE_VIEW(browser->tree), resource_search_equal, NULL, NULL);
