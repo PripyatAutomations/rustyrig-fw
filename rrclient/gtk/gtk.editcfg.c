@@ -234,84 +234,121 @@ static int cfg_editor_defconfig_compare(const void *left, const void *right) {
    return strcmp(a->key, b->key);
 }
 
-static void cfg_editor_filter_changed(GtkEditable *search, gpointer user_data) {
-   const char *query = gtk_entry_get_text(GTK_ENTRY(search));
-   char mode = (*query == '=' || *query == '^') ? *query++ : '\0';
-   GList *children = gtk_container_get_children(GTK_CONTAINER(user_data));
-
-   for (GList *it = children ; it ; it = it->next) {
-      GtkWidget *widget = it->data;
-      const defconfig_t *def = g_object_get_data(G_OBJECT(widget), "rr-cfg-definition");
-
-      if (!def) {
-         continue;
-      }
-      bool visible = !*query || (mode == '^' ? !strncasecmp(def->key, query, strlen(query)) :
-         strcasestr(def->key, query) != NULL || (!mode && def->help && strcasestr(def->help, query)));
-      gtk_widget_set_no_show_all(widget, !visible);
-      gtk_widget_set_visible(widget, visible);
-   }
-
-   g_list_free(children);
+/* Native GtkListBox filtering/sorting keeps editor widgets in their rows.
+ * Cached casefolded text avoids repeatedly converting hundreds of keys. */
+typedef struct {
+   GtkWidget *list;
+   char *query;
+   char mode;
+   guint pending;
+} cfg_list_state_t;
+static int cfg_sort_column=0;
+static gboolean cfg_sort_descending=FALSE;
+static gboolean cfg_list_filter(GtkListBoxRow *row,gpointer data) {
+   cfg_list_state_t *state=data;
+   if (!state->query || !*state->query) return TRUE;
+   const char *key=g_object_get_data(G_OBJECT(row),"cfg-key-fold");
+   const char *help=g_object_get_data(G_OBJECT(row),"cfg-help-fold");
+   if (state->mode=='^') return key && g_str_has_prefix(key,state->query);
+   return (key && strstr(key,state->query)) ||
+      (state->mode!='=' && help && strstr(help,state->query));
 }
-
-static GtkWidget *cfg_editor_panel(GtkWidget **grid_out) {
-   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-   GtkWidget *grid = gtk_grid_new();
-   *grid_out = grid;
-   gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 6);
-   int row = 0;
-   size_t def_count = 0;
-   while (defcfg[def_count].key) {
-      def_count++;
+static gint cfg_list_compare(GtkListBoxRow *left,GtkListBoxRow *right,gpointer unused) {
+   (void)unused;
+   const defconfig_t *a=g_object_get_data(G_OBJECT(left),"rr-cfg-definition");
+   const defconfig_t *b=g_object_get_data(G_OBJECT(right),"rr-cfg-definition");
+   if (!a || !b) return 0;
+   const char *av=cfg_sort_column==2 ? (a->help ? a->help : "") :
+      cfg_sort_column==1 ? cfg_get(a->key) : a->key;
+   const char *bv=cfg_sort_column==2 ? (b->help ? b->help : "") :
+      cfg_sort_column==1 ? cfg_get(b->key) : b->key;
+   gint cmp=g_utf8_collate(av ? av : "",bv ? bv : "");
+   if (!cmp) cmp=g_strcmp0(a->key,b->key);
+   return cfg_sort_descending ? -cmp : cmp;
+}
+static void cfg_list_sort_clicked(GtkButton *button,gpointer list) {
+   int column=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button),"cfg-sort-column"));
+   if (column==cfg_sort_column) cfg_sort_descending=!cfg_sort_descending;
+   else {cfg_sort_column=column;cfg_sort_descending=FALSE;}
+   gtk_list_box_invalidate_sort(GTK_LIST_BOX(list));
+}
+static gboolean cfg_list_filter_deferred(gpointer data) {
+   cfg_list_state_t *state=data;
+   state->pending=0;
+   gtk_list_box_invalidate_filter(GTK_LIST_BOX(state->list));
+   return G_SOURCE_REMOVE;
+}
+static void cfg_list_state_free(gpointer data) {
+   cfg_list_state_t *state=data;
+   if (state->pending) g_source_remove(state->pending);
+   g_free(state->query);
+   g_free(state);
+}
+static void cfg_editor_filter_changed(GtkEditable *search,gpointer user_data) {
+   cfg_list_state_t *state=user_data;
+   const char *query=gtk_entry_get_text(GTK_ENTRY(search));
+   state->mode=(*query=='=' || *query=='^') ? *query++ : '\0';
+   g_free(state->query);
+   state->query=g_utf8_casefold(query,-1);
+   if (state->pending) g_source_remove(state->pending);
+   state->pending=g_timeout_add(100,cfg_list_filter_deferred,state);
+}
+static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
+   GtkWidget *container=gtk_box_new(GTK_ORIENTATION_VERTICAL,0);
+   GtkWidget *header=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+   const char *headings[]={"Setting","Value","Description"};
+   GtkWidget *list=gtk_list_box_new();
+   *list_out=list;
+   gtk_list_box_set_selection_mode(GTK_LIST_BOX(list),GTK_SELECTION_NONE);
+   gtk_list_box_set_sort_func(GTK_LIST_BOX(list),cfg_list_compare,NULL,NULL);
+   cfg_list_state_t *state=g_new0(cfg_list_state_t,1);
+   state->list=list;
+   g_object_set_data_full(G_OBJECT(container),"cfg-list-state",state,cfg_list_state_free);
+   gtk_list_box_set_filter_func(GTK_LIST_BOX(list),cfg_list_filter,state,NULL);
+   for (int col=0;col<3;col++) {
+      GtkWidget *button=gtk_button_new_with_label(headings[col]);
+      g_object_set_data(G_OBJECT(button),"cfg-sort-column",GINT_TO_POINTER(col));
+      if (col==0) gtk_widget_set_size_request(button,230,-1);
+      else if (col==1) gtk_widget_set_size_request(button,300,-1);
+      else gtk_widget_set_hexpand(button,TRUE);
+      g_signal_connect(button,"clicked",G_CALLBACK(cfg_list_sort_clicked),list);
+      gtk_box_pack_start(GTK_BOX(header),button,col==2,col==2,0);
    }
-   const defconfig_t **defs = calloc(def_count, sizeof(*defs));
+   gtk_box_pack_start(GTK_BOX(container),header,FALSE,FALSE,0);
+   GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
+   gtk_widget_set_vexpand(scroll,TRUE);
+   gtk_container_add(GTK_CONTAINER(scroll),list);
+   gtk_box_pack_start(GTK_BOX(container),scroll,TRUE,TRUE,0);
 
-   if (!defs) {
-      gtk_container_add(GTK_CONTAINER(scroll), grid);
-
-      return scroll;
+   for (size_t i=0;defcfg[i].key;i++) {
+      const defconfig_t *def=&defcfg[i];
+      const char *value=cfg_get(def->key);
+      cfg_editor_binding_t *binding=NULL;
+      GtkWidget *editor=cfg_editor_widget(def,value ? value : def->val,&binding);
+      if (!editor) continue;
+      GtkWidget *row=gtk_list_box_row_new();
+      GtkWidget *cells=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+      gtk_container_set_border_width(GTK_CONTAINER(cells),3);
+      GtkWidget *label=gtk_label_new(def->key);
+      gtk_label_set_xalign(GTK_LABEL(label),0);
+      gtk_widget_set_size_request(label,230,-1);
+      gtk_widget_set_tooltip_text(label,def->help ? def->help : "");
+      gtk_box_pack_start(GTK_BOX(cells),label,FALSE,FALSE,0);
+      gtk_widget_set_size_request(editor,300,-1);
+      gtk_box_pack_start(GTK_BOX(cells),editor,FALSE,FALSE,0);
+      GtkWidget *help=gtk_label_new(def->help ? def->help : "");
+      gtk_label_set_xalign(GTK_LABEL(help),0);
+      gtk_label_set_ellipsize(GTK_LABEL(help),PANGO_ELLIPSIZE_END);
+      gtk_widget_set_tooltip_text(help,def->help ? def->help : "");
+      gtk_box_pack_start(GTK_BOX(cells),help,TRUE,TRUE,0);
+      gtk_container_add(GTK_CONTAINER(row),cells);
+      g_object_set_data(G_OBJECT(row),"rr-cfg-definition",(gpointer)def);
+      g_object_set_data_full(G_OBJECT(row),"cfg-key-fold",g_utf8_casefold(def->key,-1),g_free);
+      g_object_set_data_full(G_OBJECT(row),"cfg-help-fold",g_utf8_casefold(def->help ? def->help : "",-1),g_free);
+      gtk_container_add(GTK_CONTAINER(list),row);
    }
-
-   for (size_t i = 0 ; i < def_count ; i++) {
-      defs[i] = &defcfg[i];
-   }
-
-   qsort(defs, def_count, sizeof(*defs), cfg_editor_defconfig_compare);
-
-   for (size_t i = 0 ; i < def_count ; i++) {
-      const defconfig_t *def = defs[i];
-      const char *value = cfg_get(def->key);
-      GtkWidget *label = gtk_label_new(def->key);
-      gtk_widget_set_halign(label, GTK_ALIGN_START);
-      gtk_widget_set_tooltip_text(label, def->help ? def->help : "");
-      GtkWidget *help = gtk_label_new(def->help ? def->help : "");
-      gtk_widget_set_halign(help, GTK_ALIGN_START);
-      gtk_widget_set_hexpand(help, TRUE);
-      gtk_widget_set_tooltip_text(help, def->help ? def->help : "");
-      cfg_editor_binding_t *binding = NULL;
-      GtkWidget *editor = cfg_editor_widget(def, value ? value : def->val, &binding);
-
-      if (!editor) {
-         continue;
-      }
-      gtk_widget_set_hexpand(editor, TRUE);
-      g_object_set_data(G_OBJECT(label), "rr-cfg-definition", (gpointer) def);
-      g_object_set_data(G_OBJECT(editor), "rr-cfg-definition", (gpointer) def);
-      g_object_set_data(G_OBJECT(help), "rr-cfg-definition", (gpointer) def);
-      gtk_grid_attach(GTK_GRID(grid), label, 0, row, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), editor, 1, row, 1, 1);
-      gtk_grid_attach(GTK_GRID(grid), help, 2, row, 1, 1);
-      row++;
-   }
-
-   free(defs);
-   gtk_container_add(GTK_CONTAINER(scroll), grid);
-
-   return scroll;
+   return container;
 }
 
 typedef struct {
@@ -807,9 +844,10 @@ GtkWidget *init_config_tab(void) {
    GtkWidget *config_label = gtk_label_new("Please be sure to click SAVE CONFIG when done...");
    gtk_box_pack_start(GTK_BOX(header), config_label, FALSE, FALSE, 0);
 
-   GtkWidget *cfg_grid;
-   GtkWidget *cfg_panel = cfg_editor_panel(&cfg_grid);
-   g_signal_connect_object(search, "changed", G_CALLBACK(cfg_editor_filter_changed), cfg_grid, 0);
+   GtkWidget *cfg_list;
+   GtkWidget *cfg_panel = cfg_editor_panel(&cfg_list);
+   cfg_list_state_t *filter_state=g_object_get_data(G_OBJECT(cfg_panel),"cfg-list-state");
+   g_signal_connect(search,"changed",G_CALLBACK(cfg_editor_filter_changed),filter_state);
    gtk_widget_set_vexpand(cfg_panel, TRUE);
    gtk_box_pack_start(GTK_BOX(nw), cfg_panel, TRUE, TRUE, 0);
 
