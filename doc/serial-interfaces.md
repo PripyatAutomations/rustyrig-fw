@@ -48,7 +48,7 @@ ttyGPS=rig.gps-out@4800
 buffer-bytes=65536
 ```
 
-A local endpoint defaults to a PTY at `./dev/<name>`. `type=serial` and `path`
+A local endpoint defaults to a PTY at `~/dev/<name>`. `type=serial` and `path`
 select a real local serial device instead. The unnumbered `ttyCAT`, `ttyGPS`
 and `ttyMODEM` endpoints follow the active rig. Numbered endpoints (including
 `ttyCAT0` and `ttyGPS0`) are created only when explicitly configured or
