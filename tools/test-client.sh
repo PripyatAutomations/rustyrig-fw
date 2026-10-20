@@ -28,12 +28,13 @@ for option in "$@"; do
         -h|--help|help)
             echo "Usage: $0 [gtk|tui] [gdb|valgrind] [asan|ubsan|san]"
             echo "Options may be supplied in any order. GTK is the default frontend;"
-            echo "explicit gtk makes GTK/GLib warnings fatal; gdb alone does not.\n            echo "san runs both sanitizers; sanitizer mode changes trigger a full rebuild.""
+            echo "explicit gtk makes GTK/GLib warnings fatal; gdb alone does not."
+            echo "san runs both sanitizers; sanitizer mode changes trigger a full rebuild."
             exit 0
             ;;
         *)
             echo "Unknown test-client option: $option" >&2
-            echo "Usage: $0 [gtk|tui] [gdb|valgrind]" >&2
+            echo "Usage: $0 [gtk|tui] [gdb|valgrind] [asan|ubsan|san]" >&2
             exit 2
             ;;
     esac
