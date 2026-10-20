@@ -347,6 +347,20 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    }
    dict_free(d);
 }
+/* Prefer an authenticated direct connection over a redundant relayed
+ * route when the remote node advertises the same site name/profile. */
+static gboolean directly_connected_site(const char *alias) {
+   if (!alias || !*alias) return FALSE;
+   for (unsigned i=0;;i++) {
+      const char *profile=rrclient_connection_iter(i);
+      if (!profile) break;
+      rrconn_t *direct=rrclient_connection_find(profile);
+      if (direct && direct->is_ws && direct->authenticated &&
+          !g_ascii_strcasecmp(profile,alias))
+         return TRUE;
+   }
+   return FALSE;
+}
 static void row(const char *event, const char *text, rrconn_t *c, void *data) {
    if (!browser.window) {
       return;
@@ -367,6 +381,13 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
          if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
             char *key = g_strdup_printf("%s|/%s", home, name);
             const char *alias = dict_get(d, "file.site-name", name);
+            /* Don't show a relayed route if that site already has a direct
+             * authenticated connection in the selector. */
+            if (directly_connected_site(alias)) {
+               g_free(key);
+               dict_free(d);
+               return;
+            }
             char *label = g_strdup_printf("%s (%s)", alias, home);
             gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(browser.server), key, label);
 
