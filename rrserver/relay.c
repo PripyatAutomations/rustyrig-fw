@@ -235,6 +235,30 @@ static void route_request(const char *event, const void *data, size_t length, rr
 
       return;
    }
+   /* Administration targets a server node, not a room. Destination checks the
+    * authenticated remote identity against its own grant database. */
+   if (!strcmp(dict_get(io->message, "msg.type", ""), "talk") &&
+       !strcmp(dict_get(io->message, "talk.cmd", ""), "admin") &&
+       *dict_get(io->message, "talk.server", "")) {
+      const char *dest = dict_get(io->message, "talk.server", "");
+      io->handled = true;
+      if (!client->authenticated || !client->user || !rr_object_uuid_valid(dest) ||
+          !rrserver_links_route(dest) || rr_relay_local_owner(dest)) {
+         ws_send_error(client, "Remote administration server unavailable");
+         return;
+      }
+      struct relay_client *origin = rr_relay_client_for(client, true);
+      dict *request = origin ? dict_clone(io->message) : NULL;
+      if (request) {
+         dict_del(request, "talk.server");
+         dict_add_ulong(request, "relay.deadline", time(NULL) + 30);
+      }
+      io->result = request && rr_relay_packet(dest, "request", origin->id,
+                                               client->user->name, request);
+      dict_free(request);
+      if (!io->result) ws_send_error(client, "Unable to forward remote administration request");
+      return;
+   }
    struct relay_media *media = rr_relay_media_map(client, dict_get(io->message, "media.chan-uuid", ""), false);
 
    if (!media && !strcmp(dict_get(io->message, "media.cmd", ""), "feedback")) {
