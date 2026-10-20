@@ -1015,6 +1015,16 @@ static gboolean resource_tick(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+                               GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)column;
+   char *value=NULL;
+   gtk_tree_model_get(model,iter,GPOINTER_TO_INT(data),&value,-1);
+   char *safe=resource_display_utf8(value);
+   g_object_set(renderer,"text",safe,NULL);
+   g_free(safe);
+   g_free(value);
+}
 static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    char *text = NULL;
@@ -1033,6 +1043,9 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    if (color) {
       g_object_set(renderer, "foreground", color, NULL);
    }
+   char *safe=resource_display_utf8(text);
+   g_object_set(renderer,"text",safe,NULL);
+   g_free(safe);
    g_free(text);
 }
 
@@ -1341,6 +1354,8 @@ static void resource_create(void) {
       if (i == STATE || i == OURS) {
          gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
       }
+      if (i == NAME || i == KIND)
+         gtk_tree_view_column_set_cell_data_func(column,renderer,resource_text_cell,GINT_TO_POINTER(i),NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, i == NAME ? 240 : i == KIND ? 95 : i == STATE ? 130 : i == OURS ? 175 : 220);
 
