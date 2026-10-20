@@ -64,7 +64,7 @@ static admin_table_t tables[] = {
    },
    {
       .name = "privsets", .fields = {
-         "name", "description", "created_by", "created_at"
+         "name", "description", "created_by", "created_at", "privileges"
       }
    },
    {
@@ -1512,27 +1512,46 @@ static void admin_privgroup_edit(GtkButton *button,gpointer user) {
    }
    gtk_widget_destroy(dialog);
 }
-/* Open the existing Group Privileges page for the selected group. */
+/* Same privilege checklist as Admin / Users; persist individual set entries. */
 static void admin_privgroup_open(admin_table_t *table) {
-   if (!table || !table->tree || !privileges_notebook || !tables[7].tree) return;
+   if (!table || !table->tree) return;
    GtkTreeModel *model=NULL;
    GtkTreeIter iter;
-   GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
-   if (!gtk_tree_selection_get_selected(selection,&model,&iter)) return;
-   char *group=NULL;
-   gtk_tree_model_get(model,&iter,0,&group,-1);
-   if (!group || !*group) { g_free(group); return; }
-   admin_table_t *entries=&tables[7];
-   GtkWidget *filter=g_object_get_data(G_OBJECT(entries->tree),"rr-admin-filter");
-   g_object_set_data_full(G_OBJECT(entries->tree),"rr-editing-group",g_strdup(group),g_free);
-   if (filter) gtk_entry_set_text(GTK_ENTRY(filter),group);
-   gtk_tree_selection_unselect_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(entries->tree)));
-   snprintf(entries->profile,sizeof(entries->profile),"%s",table->profile);
-   entries->next[0]=0;
-   gtk_list_store_clear(entries->store);
-   gtk_widget_set_sensitive(entries->older,FALSE);
-   admin_command(entries,"admin",entries->name,NULL);
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(privileges_notebook),3);
+   if (!gtk_tree_selection_get_selected(
+       gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),&model,&iter)) return;
+   char *group=NULL,*current=NULL;
+   gtk_tree_model_get(model,&iter,0,&group,4,&current,-1);
+   if (!group || !*group) { g_free(group); g_free(current); return; }
+   char *updated=gtk_edit_privileges(GTK_WINDOW(main_window),table->profile,group,current);
+   if (updated) {
+      char **before=g_strsplit(current ? current : "",",",-1);
+      char **after=g_strsplit(updated,",",-1);
+      GHashTable *wanted=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+      GHashTable *existing=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+      for (char **p=after;*p;p++) if (**p) g_hash_table_add(wanted,g_strdup(*p));
+      for (char **p=before;*p;p++) if (**p) g_hash_table_add(existing,g_strdup(*p));
+      for (char **p=before;*p;p++) {
+         if (!**p || g_hash_table_contains(wanted,*p)) continue;
+         const char *token=**p=='!' ? *p+1 : *p;
+         if (*token) admin_command(table,"privset-unentry",token,group);
+      }
+      for (char **p=after;*p;p++) {
+         if (!**p || g_hash_table_contains(existing,*p)) continue;
+         const char *token=**p=='!' ? *p+1 : *p;
+         if (*token) {
+            char *tail=g_strdup_printf("%s %s",**p=='!' ? "deny":"allow",token);
+            admin_command(table,"privset-entry",tail,group);
+            g_free(tail);
+         }
+      }
+      g_hash_table_destroy(wanted);
+      g_hash_table_destroy(existing);
+      g_strfreev(before);
+      g_strfreev(after);
+      gtk_label_set_text(GTK_LABEL(table->status),"Group privileges submitted; refresh to confirm");
+      g_free(updated);
+   }
+   g_free(current);
    g_free(group);
 }
 static void admin_privgroup_open_clicked(GtkButton *button,gpointer user) {
@@ -2607,7 +2626,7 @@ GtkWidget *init_admin_tab(void) {
       bool rooms = !strcmp(table->name,"rooms");
       const char *assignment_titles[]={"Group","User","Host","Resource Type","Resource","Expires","Remote"};
       const char *grant_titles[]={"User","Host","Resource Type","Resource","Privilege","Effect","Expires","Remote"};
-      const char *group_titles[]={"Name","Description","Created By","Created"};
+      const char *group_titles[]={"Name","Description","Created By","Created","Privileges"};
       const char *group_entry_titles[]={"Group","Privilege","Effect"};
       const char **priv_titles=NULL;
       if (!strcmp(table->name,"assignments")) priv_titles=assignment_titles;
@@ -2658,6 +2677,7 @@ GtkWidget *init_admin_tab(void) {
             (!strcmp(table->name,"privsets") && field == 1) ? 440 :
             (!strcmp(table->name,"privsets") && field == 2) ? 135 :
             (!strcmp(table->name,"privsets") && field == 3) ? 165 :
+            (!strcmp(table->name,"privsets") && field == 4) ? 260 :
             (users && field == 2) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
             rooms ? (field == 0 ? 115 : field == 3 ? 275 : field == 1 ? 250 : 95) :
@@ -2713,7 +2733,8 @@ GtkWidget *init_admin_tab(void) {
          const char *section=!strcmp(table->name,"assignments") ? "User Groups" :
             !strcmp(table->name,"grants") ? "Direct Grants" :
             !strcmp(table->name,"privsets") ? "Groups" : "Group Privileges";
-         gtk_notebook_append_page(GTK_NOTEBOOK(privileges_page),box,gtk_label_new(section));
+         if (strcmp(table->name,"setentries"))
+               gtk_notebook_append_page(GTK_NOTEBOOK(privileges_page),box,gtk_label_new(section));
       } else {
          gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),box,gtk_label_new(!strcmp(table->name,"audit") ? "Audit Log" :
             !strcmp(table->name,"ptt") ? "PTT Log" :
