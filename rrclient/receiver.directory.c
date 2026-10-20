@@ -552,24 +552,22 @@ static void cache_write(void) {
 static const char *detail_keys[] = {
    "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api"
 };
-static void detail_set(const char *url, const char *key, const char *value, bool live, time_t stamp) {
-   if (!cache_db || !value || !*value) {
-      return;
-   }
+static bool detail_set(const char *url, const char *key, const char *value, bool live, time_t stamp) {
+   if (!cache_db || !url || !key) return false;
+   if (!value || !*value) return true;
    sqlite3_stmt *statement = NULL;
    const char *sql = "INSERT INTO receiver_details VALUES(?,?,?,?,?) ON CONFLICT(url,key) DO UPDATE SET "
       "value=excluded.value,origin=excluded.origin,updated_at=excluded.updated_at "
       "WHERE (excluded.origin='live' AND (receiver_details.origin!='live' OR excluded.updated_at>=receiver_details.updated_at)) OR (excluded.origin='directory' AND receiver_details.origin!='live')";
-
-   if (sqlite3_prepare_v2(cache_db, sql, -1, &statement, NULL) == SQLITE_OK) {
-      sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 2, key, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 3, value, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 4, live ? "live" : "directory", -1, SQLITE_STATIC);
-      sqlite3_bind_int64(statement, 5, stamp);
-      sqlite3_step(statement);
-   }
+   bool ok = sqlite3_prepare_v2(cache_db, sql, -1, &statement, NULL) == SQLITE_OK;
+   if (ok) ok = sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+      sqlite3_bind_text(statement, 2, key, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+      sqlite3_bind_text(statement, 3, value, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+      sqlite3_bind_text(statement, 4, live ? "live" : "directory", -1, SQLITE_STATIC) == SQLITE_OK &&
+      sqlite3_bind_int64(statement, 5, stamp) == SQLITE_OK &&
+      sqlite3_step(statement) == SQLITE_DONE;
    sqlite3_finalize(statement);
+   return ok;
 }
 static void apply_details(receiver_directory_entry_t *r) {
    sqlite3_stmt *statement = NULL;
@@ -679,15 +677,15 @@ static void merge_records(void) {
       };
 
       for (unsigned key = 0 ; key < G_N_ELEMENTS(values) ; key++) {
-         detail_set(r->url, detail_keys[key], values[key], false, now);
+         if (!detail_set(r->url, detail_keys[key], values[key], false, now)) ok = false;
       }
 
       if (r->high_hz) {
          char low[32], high[32];
          g_snprintf(low, sizeof(low), "%" G_GUINT64_FORMAT, r->low_hz);
          g_snprintf(high, sizeof(high), "%" G_GUINT64_FORMAT, r->high_hz);
-         detail_set(r->url, "low_hz", low, false, now);
-         detail_set(r->url, "high_hz", high, false, now);
+         if (!detail_set(r->url, "low_hz", low, false, now)) ok = false;
+         if (!detail_set(r->url, "high_hz", high, false, now)) ok = false;
       }
    }
 
