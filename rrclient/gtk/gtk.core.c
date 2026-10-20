@@ -1299,6 +1299,8 @@ const rr_frontend_ops_t gtk_frontend_ops = {
 };
 
 void gtk_frontend_stop(void) {
+   extern void gtk_terminal_shutdown(void);
+   gtk_terminal_shutdown();
    gtk_help_shutdown();
    gtk_resources_shutdown();
    gtk_files_shutdown();
