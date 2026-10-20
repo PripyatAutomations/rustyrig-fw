@@ -381,6 +381,8 @@ static void db_ensure_user_columns(sqlite3 *db) {
    const char *updates[] = {
       "UPDATE users SET password_set=unixepoch() WHERE password_set IS NULL OR password_set=0;",
       NULL,
+      NULL,
+      NULL,
       NULL
    };
 
