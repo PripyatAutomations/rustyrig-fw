@@ -2017,6 +2017,35 @@ static void admin_action(GtkButton *button, gpointer data) {
    admin_command(table, "admin", table->name, NULL);
 }
 
+/* Shade odd visible rows using cell renderers; keep native selection colors. */
+static void admin_log_stripe_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
+                                  GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
+   int field=GPOINTER_TO_INT(data);
+   admin_table_t *table=g_object_get_data(G_OBJECT(column),"rr-admin-table");
+   if (table && !strcmp(table->name,"ptt") &&
+       (field==3 || field==4 || field==9))
+      admin_numeric_cell(column,renderer,model,iter,data);
+   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+   int *indices=path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd=indices && (indices[0] & 1);
+   gboolean selected=table && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),path);
+   if (odd && !selected && table) {
+      GtkStyleContext *style=gtk_widget_get_style_context(table->tree);
+      GdkRGBA base,ink,shade;
+      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
+      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
+      const double mix=0.085;
+      shade.red=base.red*(1.0-mix)+ink.red*mix;
+      shade.green=base.green*(1.0-mix)+ink.green*mix;
+      shade.blue=base.blue*(1.0-mix)+ink.blue*mix;
+      shade.alpha=1.0;
+      g_object_set(renderer,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
+   } else {
+      g_object_set(renderer,"cell-background-set",FALSE,NULL);
+   }
+   if (path) gtk_tree_path_free(path);
+}
 /* Never pass untrusted network text directly to Pango. Keep the wire value
  * unchanged elsewhere, and warn once per malformed field for diagnostics. */
 static char *admin_display_utf8(const char *value, const char *field) {
@@ -2258,7 +2287,20 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
          gtk_list_store_append(table->store, &iter);
 
          for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
-            char *display=admin_display_utf8(dict_get(row,table->fields[col],""),table->fields[col]);
+            const char *raw=dict_get(row,table->fields[col],"");
+            char *formatted=NULL;
+            if (!strcmp(table->name,"privsets") && !strcmp(table->fields[col],"created_at") && *raw) {
+               gint64 timestamp=g_ascii_strtoll(raw,NULL,10);
+               if (timestamp > 0) {
+                  GDateTime *dt=g_date_time_new_from_unix_local(timestamp);
+                  if (dt) {
+                     formatted=g_date_time_format(dt,"%Y-%m-%d %H:%M:%S");
+                     g_date_time_unref(dt);
+                  }
+               }
+            }
+            char *display=admin_display_utf8(formatted ? formatted : raw,table->fields[col]);
+            g_free(formatted);
             gtk_list_store_set(table->store,&iter,col,display,-1);
             g_free(display);
          }
@@ -2589,21 +2631,6 @@ GtkWidget *init_admin_tab(void) {
          admin_filter_visible,filter,NULL);
       g_signal_connect(filter,"changed",G_CALLBACK(admin_filter_changed),filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
-      if (!strcmp(table->name,"audit") || !strcmp(table->name,"ptt")) {
-         /* Theme-relative zebra striping for log rows only. */
-         static const char stripe_css[] =
-            "treeview.rr-admin-striped row:nth-child(even) {"
-            " background-color: alpha(currentColor, 0.055);"
-            "}";
-         GtkCssProvider *provider=gtk_css_provider_new();
-         gtk_css_provider_load_from_data(provider,stripe_css,-1,NULL);
-         GtkStyleContext *style=gtk_widget_get_style_context(table->tree);
-         gtk_style_context_add_class(style,"rr-admin-striped");
-         gtk_style_context_add_provider(style,GTK_STYLE_PROVIDER(provider),
-                                        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-         g_object_unref(provider);
-      }
-
       g_object_set_data(G_OBJECT(table->tree),"rr-admin-filter",filter);
       if (!strcmp(table->name,"privsets")) {
          g_signal_connect(table->tree,"row-activated",G_CALLBACK(admin_privgroup_row_activated),table);
@@ -2671,6 +2698,12 @@ GtkWidget *init_admin_tab(void) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
          } else if (!strcmp(table->name, "sessions") && field == 5) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_session_cell, NULL, NULL);
+         } else if (!strcmp(table->name,"audit") || ptt) {
+            g_object_set_data(G_OBJECT(column),"rr-admin-table",table);
+            if (!(ptt && (field==3 || field==4 || field==9)))
+               gtk_tree_view_column_add_attribute(column,renderer,"text",field);
+            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_log_stripe_cell,
+                                                    GINT_TO_POINTER(field),NULL);
          } else if ((quotas && field > 0) || (ptt && (field == 3 || field == 4 || field == 9))) {
             g_object_set_data(G_OBJECT(column), "rr-admin-table", table);
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_numeric_cell, GINT_TO_POINTER(field), NULL);
