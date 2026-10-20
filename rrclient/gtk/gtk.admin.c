@@ -95,6 +95,7 @@ static char *control_server_profile;
 static bool admin_control_request(const char *name, int value);
 static bool admin_control_request_profile(const char *profile, const char *name, int value);
 static void admin_control_rows_clear(void);
+static void admin_control_update_revert(void);
 static void admin_control_refresh(GtkButton *button, gpointer user);
 static void admin_control_row_add(dict *data, const char *profile);
 /* The client owns local controls; they need not be exported to a server. Do not expose sysfs paths or allow names supplied by a remote peer. */
