@@ -551,8 +551,10 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       if (host && *host && local_site && strcmp(host,local_site)) {
          scoped = db_resource_access_named(masterdb, username, host, "site", "*",
                   "remote-admin", time(NULL), NULL) == RR_RESOURCE_ALLOW &&
-                  db_resource_access_named(masterdb, username, host, "site", "*",
-                  "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW;
+                  (db_resource_access_named(masterdb, username, host, "site", "*",
+                  "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
+                   db_resource_access_named(masterdb, username, host, "site", "*",
+                  "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW);
       }
    } else if (r && !files && room && *room) {
       const char *host = rrserver_relay_client_server(&r->client);
