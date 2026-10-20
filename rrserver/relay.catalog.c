@@ -919,7 +919,6 @@ static void inventory_directory_users(rrconn_t *client,const char *request,
       }
       dict_add(row,"inventory.description",description);
       dict_add(row,"inventory.state",sessions ? "Online" : "Offline");
-      g_free(description);
       if (client->user && has_priv(client->user->uid,"admin|owner")) {
          snprintf(key,sizeof(key),"user.%u.privileges",i);
          const char *roles=dict_get(directory->users,key,"");
@@ -929,6 +928,7 @@ static void inventory_directory_users(rrconn_t *client,const char *request,
             g_free(private_details);
          }
       }
+      g_free(description);
       rr_inventory_send(client,row);
    }
 }
