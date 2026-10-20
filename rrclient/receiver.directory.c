@@ -655,26 +655,23 @@ static void merge_records(void) {
       provider = g_strdup("kiwi");
    }
 
-   if (sqlite3_prepare_v2(cache_db, "UPDATE receiver_records SET deleted=1 WHERE provider=?", -1, &statement, NULL) == SQLITE_OK) {
-      sqlite3_bind_text(statement, 1, provider, -1, SQLITE_TRANSIENT);
-      sqlite3_step(statement);
-   }
+   bool ok = sqlite3_prepare_v2(cache_db, "UPDATE receiver_records SET deleted=1 WHERE provider=?", -1, &statement, NULL) == SQLITE_OK;
+   if (ok) ok = sqlite3_bind_text(statement, 1, provider, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(statement) == SQLITE_DONE;
    sqlite3_finalize(statement);
    statement = NULL;
    g_free(provider);
-   sqlite3_prepare_v2(cache_db,
-      "INSERT INTO receiver_records(url,record,last_seen,deleted,offline,provider) VALUES(?,?,?,0,?,?) ON CONFLICT(url) DO UPDATE SET record=excluded.record,last_seen=MAX(receiver_records.last_seen,excluded.last_seen),deleted=0,offline=excluded.offline,provider=excluded.provider",
-      -1, &statement, NULL);
-   bool ok = statement != NULL;
+   if (ok) ok = sqlite3_prepare_v2(cache_db,
+       "INSERT INTO receiver_records(url,record,last_seen,deleted,offline,provider) VALUES(?,?,?,0,?,?) ON CONFLICT(url) DO UPDATE SET record=excluded.record,last_seen=MAX(receiver_records.last_seen,excluded.last_seen),deleted=0,offline=excluded.offline,provider=excluded.provider",
+       -1, &statement, NULL) == SQLITE_OK;
 
    for (guint i = 0 ; ok && i < receivers->len ; i++) {
       receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
-      sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(statement, 2, r->properties, -1, SQLITE_TRANSIENT);
-      sqlite3_bind_int64(statement, 3, now);
-      sqlite3_bind_int(statement, 4, r->offline);
-      sqlite3_bind_text(statement, 5, r->driver, -1, SQLITE_TRANSIENT);
-      ok = sqlite3_step(statement) == SQLITE_DONE;
+      ok = sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 2, r->properties, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_int64(statement, 3, now) == SQLITE_OK &&
+         sqlite3_bind_int(statement, 4, r->offline) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 5, r->driver, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_step(statement) == SQLITE_DONE;
       sqlite3_reset(statement);
       sqlite3_clear_bindings(statement);
       const char *values[] = {
@@ -707,7 +704,12 @@ static void merge_records(void) {
       "DELETE FROM receiver_state WHERE url IN(SELECT url FROM receiver_records WHERE deleted=1 AND last_seen<%lld);"
       "DELETE FROM receiver_records WHERE deleted=1 AND last_seen<%lld;COMMIT;", (long long)now - 90 * 86400, (long long)now - 90 * 86400, (long long)now - 90 *
       86400);
-   sqlite3_exec(cache_db, purge, NULL, NULL, NULL);
+   if (!purge || sqlite3_exec(cache_db, purge, NULL, NULL, NULL) != SQLITE_OK) {
+      Log(LOG_WARN, "receiver.directory", "Directory cache purge/commit failed: %s", sqlite3_errmsg(cache_db));
+      sqlite3_exec(cache_db, "ROLLBACK", NULL, NULL, NULL);
+      sqlite3_free(purge);
+      return;
+   }
    sqlite3_free(purge);
    reload_records();
 }
