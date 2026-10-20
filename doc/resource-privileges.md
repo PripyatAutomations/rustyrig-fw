@@ -259,3 +259,25 @@ opens. A site may rebuild with new UUIDs while keeping the same symbolic
 site name and rig aliases; its group policies remain applicable on servers
 that retain their privilege database. They do not automatically restore a
 **lost granting server database**; that still requires backup or policy export.
+
+## Built-in privilege groups and remote grants
+
+The server ensures two reusable privilege groups on startup: `@rigctl` (currently
+`rig.use`, `rig.tune`, and `frequency.read`) and `@sysop` (empty until BBS
+operations have defined authorization checks). Neither group is assigned to
+any user automatically. A group is a flat collection of privileges, not an
+independent user group or inheritable administrator role.
+
+The Admin privilege editor accepts a privilege token or `@group` and an
+optional **Remote allowed** checkbox. Unchecked grants are local-only; checked
+grants are also considered for authenticated `user@site` subjects from linked
+servers. This is decided by the resource-owning server, not asserted by the
+client. Existing grants are migrated with remote access preserved to avoid
+silently revoking deployed permissions. A remote grant does not grant access
+on other resource-owning servers.
+
+The resource evaluator applies this policy for direct grants and privilege-set
+assignments. Only operations that call the resource evaluator enforce these
+privilege tokens; defining `rig.tune` or future `bbs.*` names does not by
+itself retrofit a missing authorization check into a handler. Explicit deny
+remains higher priority than allow.
