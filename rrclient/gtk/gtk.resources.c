@@ -61,12 +61,24 @@ static void branch_free(gpointer data) {
    g_free(branch->selection);
    g_free(branch);
 }
+static char *resource_display_utf8(const char *value) {
+   if (!value) return g_strdup("");
+   if (g_utf8_validate(value, -1, NULL)) return g_strdup(value);
+   static gboolean warned=FALSE;
+   if (!warned) {
+      g_printerr("Resource Explorer: invalid UTF-8 display metadata (substituting replacement characters)\n");
+      warned=TRUE;
+   }
+   return g_utf8_make_valid(value,-1);
+}
 static void set_string(GtkTreeIter *iter, int column, const char *value) {
    char *old = NULL;
    gtk_tree_model_get(GTK_TREE_MODEL(browser->store), iter, column, &old, -1);
 
    if (g_strcmp0(old, value)) {
-      gtk_tree_store_set(browser->store, iter, column, value ? value : "", -1);
+      char *safe=resource_display_utf8(value);
+      gtk_tree_store_set(browser->store, iter, column, safe, -1);
+      g_free(safe);
    }
    g_free(old);
 }
@@ -1003,6 +1015,16 @@ static gboolean resource_tick(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
+static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+                               GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)column;
+   char *value=NULL;
+   gtk_tree_model_get(model,iter,GPOINTER_TO_INT(data),&value,-1);
+   char *safe=resource_display_utf8(value);
+   g_object_set(renderer,"text",safe,NULL);
+   g_free(safe);
+   g_free(value);
+}
 static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    char *text = NULL;
@@ -1021,6 +1043,9 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    if (color) {
       g_object_set(renderer, "foreground", color, NULL);
    }
+   char *safe=resource_display_utf8(text);
+   g_object_set(renderer,"text",safe,NULL);
+   g_free(safe);
    g_free(text);
 }
 
@@ -1114,7 +1139,9 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, -1);
    char *text = coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
       g_strdup(details ? details : "");
-   g_object_set(renderer, "text", text, NULL);
+   char *safe=resource_display_utf8(text);
+   g_object_set(renderer, "text", safe, NULL);
+   g_free(safe);
    g_free(text);
    g_free(details);
    g_free(coordinates);
@@ -1327,6 +1354,8 @@ static void resource_create(void) {
       if (i == STATE || i == OURS) {
          gtk_tree_view_column_set_cell_data_func(column, renderer, resource_status_cell, GINT_TO_POINTER(i), NULL);
       }
+      if (i == NAME || i == KIND)
+         gtk_tree_view_column_set_cell_data_func(column,renderer,resource_text_cell,GINT_TO_POINTER(i),NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, i == NAME ? 240 : i == KIND ? 95 : i == STATE ? 130 : i == OURS ? 175 : 220);
 
