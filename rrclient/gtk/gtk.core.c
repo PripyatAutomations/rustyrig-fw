@@ -52,7 +52,7 @@ bool cfg_use_gtk = true;        // Default to using GTK3
 extern GtkWidget *init_log_tab(void);
 extern GtkWidget *init_host_log_tab(void);
 static int cfg_ui_gtk_main_tabstrip = GTK_POS_BOTTOM; // module-local
-bool cfg_ui_gtk_vfo_on_top = true;
+extern bool cfg_ui_gtk_vfo_on_top;  // Defined by the rrclient host.
 extern bool cfg_fullscreen;
 
 static void frontend_gtk_config_refresh(const char *key) {
