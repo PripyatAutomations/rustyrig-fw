@@ -104,11 +104,11 @@ dict *rr_relay_local_users(void) {
 
 #ifdef USE_SQLITE
    /* Discovery is a transient directory, not an account replica. Export
-    * enabled names and session counts, never hashes, email, or privileges. */
+    * enabled names, public contact email, session counts and role labels; never hashes. */
    if (masterdb) {
       sqlite3_stmt *stmt=NULL;
       if (sqlite3_prepare_v2(masterdb,
-         "SELECT uid,name,COALESCE(permissions,'') FROM users WHERE enabled=1 ORDER BY name COLLATE NOCASE",
+         "SELECT uid,name,COALESCE(permissions,''),COALESCE(email,'') FROM users WHERE enabled=1 ORDER BY name COLLATE NOCASE",
          -1,&stmt,NULL)==SQLITE_OK) {
          while (n<HTTP_MAX_USERS && sqlite3_step(stmt)==SQLITE_ROW) {
             int uid=sqlite3_column_int(stmt,0);
@@ -122,6 +122,11 @@ dict *rr_relay_local_users(void) {
             snprintf(key,sizeof(key),"user.%u.privileges",n++);
             const char *roles=(const char *)sqlite3_column_text(stmt,2);
             dict_add(d,key,roles ? roles : "");
+            const char *email=(const char *)sqlite3_column_text(stmt,3);
+            if (email && *email && strlen(email)<=254 && !strpbrk(email,"\\r\\n")) {
+               snprintf(key,sizeof(key),"user.%u.email",n-1);
+               dict_add(d,key,email);
+            }
          }
       }
       sqlite3_finalize(stmt);
@@ -881,13 +886,24 @@ static void inventory_directory_users(rrconn_t *client,const char *request,
        * Privileges are deliberately withheld from ordinary users. */
       char *description=g_strdup_printf("Account: %s\nPresence: %s (%u active session%s)",
         name,sessions ? "online" : "offline",sessions,sessions==1 ? "" : "s");
+      snprintf(key,sizeof(key),"user.%u.email",i);
+      const char *email=dict_get(directory->users,key,"");
+      if (*email) {
+         char *with_contact=g_strdup_printf("%s\\nEmail: %s",description,email);
+         g_free(description);
+         description=with_contact;
+      }
       dict_add(row,"inventory.description",description);
       dict_add(row,"inventory.state",sessions ? "Online" : "Offline");
       g_free(description);
       if (client->user && has_priv(client->user->uid,"admin|owner")) {
          snprintf(key,sizeof(key),"user.%u.privileges",i);
          const char *roles=dict_get(directory->users,key,"");
-         if (*roles) dict_add(row,"inventory.access",roles);
+         if (*roles) {
+            char *private_details=g_strdup_printf("%s\\nServer roles: %s",description,roles);
+            dict_add(row,"inventory.description",private_details);
+            g_free(private_details);
+         }
       }
       rr_inventory_send(client,row);
    }
