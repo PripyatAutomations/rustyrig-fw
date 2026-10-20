@@ -192,11 +192,11 @@ static void refresh(void) {
     * manual expansion. The placeholder only keeps the root expandable while
     * its initial response is pending. */
    placeholder(&root);
+   load(&root);
    GtkTreePath *path = gtk_tree_path_new_first();
    gtk_tree_view_expand_row(GTK_TREE_VIEW(browser.tree), path, FALSE);
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), path);
    gtk_tree_path_free(path);
-   load(&root);
 }
 
 static void changed(GtkComboBox *box, gpointer data);
