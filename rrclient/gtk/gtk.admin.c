@@ -2589,6 +2589,21 @@ GtkWidget *init_admin_tab(void) {
          admin_filter_visible,filter,NULL);
       g_signal_connect(filter,"changed",G_CALLBACK(admin_filter_changed),filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
+      if (!strcmp(table->name,"audit") || !strcmp(table->name,"ptt")) {
+         /* Theme-relative zebra striping for log rows only. */
+         static const char stripe_css[] =
+            "treeview.rr-admin-striped row:nth-child(even) {"
+            " background-color: alpha(currentColor, 0.055);"
+            "}";
+         GtkCssProvider *provider=gtk_css_provider_new();
+         gtk_css_provider_load_from_data(provider,stripe_css,-1,NULL);
+         GtkStyleContext *style=gtk_widget_get_style_context(table->tree);
+         gtk_style_context_add_class(style,"rr-admin-striped");
+         gtk_style_context_add_provider(style,GTK_STYLE_PROVIDER(provider),
+                                        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+         g_object_unref(provider);
+      }
+
       g_object_set_data(G_OBJECT(table->tree),"rr-admin-filter",filter);
       if (!strcmp(table->name,"privsets")) {
          g_signal_connect(table->tree,"row-activated",G_CALLBACK(admin_privgroup_row_activated),table);
