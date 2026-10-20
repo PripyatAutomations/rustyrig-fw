@@ -787,6 +787,18 @@ static void admin_control_apply(GtkButton *button, gpointer user) {
 }
 
 /* Keep raw server fields in the model for account editing. Formatting and display order belong only to the GTK view. */
+/* Wrapping must follow the actual allocated column width. A permanent 112px
+ * wrap width made Audit Log details consume many lines in a wide window. */
+static void admin_column_wrap_width(GObject *object,GParamSpec *pspec,gpointer data) {
+   (void)pspec;
+   GtkTreeViewColumn *column=GTK_TREE_VIEW_COLUMN(object);
+   GtkCellRenderer *renderer=GTK_CELL_RENDERER(data);
+   int width=gtk_tree_view_column_get_width(column)-12;
+   if (width<48) width=48;
+   int previous=0;
+   g_object_get(renderer,"wrap-width",&previous,NULL);
+   if (previous!=width) g_object_set(renderer,"wrap-width",width,NULL);
+}
 static void admin_user_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    int field = GPOINTER_TO_INT(data);
@@ -1816,10 +1828,17 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, (users && field == 2) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
-            !strcmp(table->name, "rooms") ? 145 : 125);
+            !strcmp(table->name, "rooms") ? 145 :
+            (!strcmp(table->name,"audit") && field==4) ? 420 : 125);
          gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
-         gtk_tree_view_column_set_expand(column, (users && field == 2) || ((!strcmp(table->name, "rooms") || quotas) && field == 0));
+         gtk_tree_view_column_set_expand(column, (users && field == 2) ||
+            ((!strcmp(table->name, "rooms") || quotas) && field == 0) ||
+            (!strcmp(table->name,"audit") && field == 4));
+         if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
+            g_signal_connect(column,"notify::width",G_CALLBACK(admin_column_wrap_width),renderer);
+            admin_column_wrap_width(G_OBJECT(column),NULL,renderer);
+         }
 
          if (users && field == 7) {
             PangoLayout *layout = gtk_widget_create_pango_layout(table->tree, "Chg Req");
