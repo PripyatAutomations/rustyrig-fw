@@ -203,7 +203,7 @@ defconfig_t defcfg[] = {
       DEFCONFIG_BOOL, NULL
    },
    {
-      "cat.pty.path", "./dev/ttyCAT0", "Path to symlink the CAT PTY slave to"
+      "cat.pty.path", "$HOME/dev/ttyCAT0", "Path to symlink the CAT PTY slave to"
    },
    {
       "default.tx.power", "30", "Default TX power in watts (float)", DEFCONFIG_FLOAT, NULL

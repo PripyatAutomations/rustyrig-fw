@@ -56,13 +56,12 @@ static dict *read_source_config(const char *path) {
    if (result && !strcmp(path, "./config/rrclient.cfg")) {
       mkdir_p("./db");
       mkdir_p("./audit-logs");
-      mkdir_p("./dev");
       dict_add(result, "path.help-dir", "./help");
       dict_add(result, "path.modules", "./bin");
       dict_add(result, "fwdsp:path", "./bin/fwdsp");
       dict_add(result, "fwdsp:log.file", "./audit-logs/fwdsp-cli.log");
       dict_add(result, "log.file", "./audit-logs/rrclient.log");
-      dict_add(result, "cat.pty.path", "./dev/ttyCAT0");
+      dict_add(result, "cat.pty.path", "$HOME/dev/ttyCAT0");
       dict_add(result, "callsign-lookup:cache-db", "./db/rrclient-callsigns.db");
       dict_add(result, "callsign-lookup:path", "./bin/callsign-lookup");
    }
