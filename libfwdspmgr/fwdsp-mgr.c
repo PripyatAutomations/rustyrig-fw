@@ -660,7 +660,7 @@ static struct fwdsp_subproc *fwdsp_create(const char *id, enum fwdsp_io_type io_
       struct fwdsp_subproc *sp = &fwdsp_subprocs[i];
 
       if (sp && sp->role == FWDSP_ROLE_NONE) {
-         Log(LOG_CRIT, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id, (is_tx ? "tx" : "rx"));
+         Log(LOG_DEBUG, "fwdsp", "Assigning fwdsp slot %d to new codec %s.%s", i, id, (is_tx ? "tx" : "rx"));
          // Clear the memory for reuse
          memset(sp, 0, sizeof(struct fwdsp_subproc));
          // Fill the struct
