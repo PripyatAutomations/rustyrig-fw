@@ -48,7 +48,9 @@ CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
 # SANITIZE may be supplied on the make command line for interactive QC.
 # Keep build.use_asan compatible with existing config profiles.
-SANITIZE ?= $(if $(filter true,$(USE_ASAN)),address,undefined,)
+ifeq ($(USE_ASAN),true)
+SANITIZE ?= address,undefined
+endif
 ifneq ($(strip $(SANITIZE)),)
 CFLAGS += -fsanitize=$(SANITIZE) -fno-omit-frame-pointer -g -fno-common -fno-sanitize-recover=all
 LDFLAGS += -fsanitize=$(SANITIZE)
