@@ -1363,7 +1363,10 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       sql = "SELECT rowid AS cursor,name,uuid,deleted,topic,has_vfos,vfo_mask FROM rooms WHERE (?=0 OR rowid<?) ORDER BY rowid DESC LIMIT 100";
    } else if (!strcasecmp(table, "privsets")) {
       strcpy(table, "privsets");
-      sql = "SELECT id AS cursor,name,description,created_by,created_at FROM privilege_sets " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+      sql = "SELECT s.id AS cursor,s.name,s.description,s.created_by,s.created_at,"
+         "COALESCE((SELECT group_concat(CASE WHEN e.effect='deny' THEN '!' || e.privilege ELSE e.privilege END, ',') "
+         "FROM privilege_set_entries e WHERE e.set_id=s.id),'') AS privileges "
+         "FROM privilege_sets s WHERE (?=0 OR s.id<?) ORDER BY s.id DESC LIMIT 100";
    } else if (!strcasecmp(table, "setentries")) {
       strcpy(table, "setentries");
       sql = "SELECT e.rowid AS cursor,s.name AS set_name,e.privilege,e.effect "
