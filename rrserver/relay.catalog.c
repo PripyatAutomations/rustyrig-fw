@@ -877,14 +877,17 @@ static void inventory_directory_users(rrconn_t *client,const char *request,
       dict *row=rr_inventory_row(request,depth+1,"user",name,NULL);
       snprintf(key,sizeof(key),"user.%u.sessions",i);
       unsigned sessions=dict_get_uint(directory->users,key,0);
-      char *description=g_strdup_printf("Account: %s\\nPresence: %s (%u active session%s)",
+      /* Public profile: presence and the name already visible in /whois.
+       * Privileges are deliberately withheld from ordinary users. */
+      char *description=g_strdup_printf("Account: %s\nPresence: %s (%u active session%s)",
         name,sessions ? "online" : "offline",sessions,sessions==1 ? "" : "s");
       dict_add(row,"inventory.description",description);
       dict_add(row,"inventory.state",sessions ? "Online" : "Offline");
       g_free(description);
       if (client->user && has_priv(client->user->uid,"admin|owner")) {
          snprintf(key,sizeof(key),"user.%u.privileges",i);
-         dict_add(row,"inventory.access",dict_get(directory->users,key,""));
+         const char *roles=dict_get(directory->users,key,"");
+         if (*roles) dict_add(row,"inventory.access",roles);
       }
       rr_inventory_send(client,row);
    }
