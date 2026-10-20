@@ -118,15 +118,5 @@
     "label": "View spectrum",
     "description": "Read receiver spectrum data",
     "scope": "resource"
-  },
-  "bbs.read": {
-    "label": "Read BBS",
-    "description": "Read BBS content when supported",
-    "scope": "resource"
-  },
-  "bbs.write": {
-    "label": "Write BBS",
-    "description": "Post BBS content when supported",
-    "scope": "resource"
   }
 }
