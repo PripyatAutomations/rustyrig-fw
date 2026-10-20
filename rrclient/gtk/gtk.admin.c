@@ -1651,6 +1651,27 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(dialog);
 }
+static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
+   admin_table_t *table = user;
+   GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");
+   GtkTreeIter iter;
+   GtkTreeModel *model = NULL;
+   gboolean selected = gtk_tree_selection_get_selected(selection, &model, &iter);
+   gboolean deleted = FALSE;
+   if (selected && !strcmp(table->name, "rooms")) {
+      char *state = NULL;
+      gtk_tree_model_get(model, &iter, 2, &state, -1);
+      deleted = state && (!strcmp(state,"1") || !g_ascii_strcasecmp(state,"true"));
+      g_free(state);
+   }
+   if (!buttons) return;
+   for (guint i = 0; i < buttons->len; ++i) {
+      GtkWidget *button = g_ptr_array_index(buttons, i);
+      const char *action = g_object_get_data(G_OBJECT(button), "action");
+      gtk_widget_set_sensitive(button, selected &&
+         !(deleted && action && !strcmp(action,"edit")));
+   }
+}
 static void admin_action(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
@@ -2301,6 +2322,8 @@ GtkWidget *init_admin_tab(void) {
          gtk_box_pack_start(GTK_BOX(buttons), create, FALSE, FALSE, 0);
       }
 
+      GPtrArray *selection_buttons = NULL;
+      if (i < 2) selection_buttons = g_ptr_array_new();
       if (i < 3) {
          const char *labels[] = {
             "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW", "Edit Privs"
@@ -2320,6 +2343,10 @@ GtkWidget *init_admin_tab(void) {
             GtkWidget *button = gtk_button_new_with_label(labels[n]);
             g_object_set_data(G_OBJECT(button), "action", (gpointer) actions[n]);
             g_signal_connect(button, "clicked", G_CALLBACK(admin_action), table);
+            if (selection_buttons) {
+               gtk_widget_set_sensitive(button,FALSE);
+               g_ptr_array_add(selection_buttons,button);
+            }
             gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
          }
       }
@@ -2328,6 +2355,11 @@ GtkWidget *init_admin_tab(void) {
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       table->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(table->store));
+      if (selection_buttons) {
+         g_object_set_data_full(G_OBJECT(table->tree),"selection-buttons",selection_buttons,(GDestroyNotify)g_ptr_array_unref);
+         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
+            "changed",G_CALLBACK(admin_action_selection),table);
+      }
        gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(table->tree), TRUE);
       g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_uuid_menu),table);
 
