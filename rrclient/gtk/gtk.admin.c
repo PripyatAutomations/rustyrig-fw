@@ -2392,7 +2392,6 @@ GtkWidget *init_admin_tab(void) {
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
 
    GtkWidget *privileges_page = NULL;
-   GtkWidget *grants_panel = NULL, *groups_panel = NULL;
 
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_table_t *table = &tables[i];
@@ -2522,6 +2521,15 @@ GtkWidget *init_admin_tab(void) {
       bool users = !strcmp(table->name, "users");
       bool quotas = !strcmp(table->name, "quotas"), ptt = !strcmp(table->name, "ptt");
       bool rooms = !strcmp(table->name,"rooms");
+      const char *assignment_titles[]={"Group","User","Host","Resource Type","Resource","Expires","Remote"};
+      const char *grant_titles[]={"User","Host","Resource Type","Resource","Privilege","Effect","Expires","Remote"};
+      const char *group_titles[]={"Name","Description","Created By","Created"};
+      const char *group_entry_titles[]={"Group","Privilege","Effect"};
+      const char **priv_titles=NULL;
+      if (!strcmp(table->name,"assignments")) priv_titles=assignment_titles;
+      else if (!strcmp(table->name,"grants")) priv_titles=grant_titles;
+      else if (!strcmp(table->name,"privsets")) priv_titles=group_titles;
+      else if (!strcmp(table->name,"setentries")) priv_titles=group_entry_titles;
 
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
          int field = users ? user_order[col] : ptt ? ptt_order[col] : rooms ? room_order[col] : col;
@@ -2529,7 +2537,7 @@ GtkWidget *init_admin_tab(void) {
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
-         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] : table->fields[col]);
+         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] : priv_titles ? priv_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
          if (rooms && flag) {
@@ -2602,33 +2610,19 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(box),scroll,TRUE,TRUE,0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
 
-      gboolean grant_table=!strcmp(table->name,"assignments") || !strcmp(table->name,"grants");
-      gboolean group_table=!strcmp(table->name,"privsets") || !strcmp(table->name,"setentries");
-      if (grant_table || group_table) {
+      gboolean privilege_table=!strcmp(table->name,"assignments") ||
+         !strcmp(table->name,"grants") || !strcmp(table->name,"privsets") ||
+         !strcmp(table->name,"setentries");
+      if (privilege_table) {
          if (!privileges_page) {
-            privileges_page=gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-            grants_panel=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
-            groups_panel=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
-            GtkWidget *grants_title=gtk_label_new(NULL);
-            gtk_label_set_markup(GTK_LABEL(grants_title),"<b>Grants — individual privileges or @groups assigned to users</b>");
-            gtk_label_set_xalign(GTK_LABEL(grants_title),0);
-            gtk_box_pack_start(GTK_BOX(grants_panel),grants_title,FALSE,FALSE,0);
-            GtkWidget *groups_title=gtk_label_new(NULL);
-            gtk_label_set_markup(GTK_LABEL(groups_title),"<b>Privilege Groups — reusable collections of privileges</b>");
-            gtk_label_set_xalign(GTK_LABEL(groups_title),0);
-            gtk_box_pack_start(GTK_BOX(groups_panel),groups_title,FALSE,FALSE,0);
-            gtk_paned_pack1(GTK_PANED(privileges_page),grants_panel,TRUE,FALSE);
-            gtk_paned_pack2(GTK_PANED(privileges_page),groups_panel,TRUE,FALSE);
+            privileges_page=gtk_notebook_new();
+            gtk_notebook_set_scrollable(GTK_NOTEBOOK(privileges_page),TRUE);
             gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),privileges_page,gtk_label_new("Privileges"));
          }
-         GtkWidget *panel=grant_table ? grants_panel : groups_panel;
-         const char *section=!strcmp(table->name,"assignments") ? "Group grants" :
-            !strcmp(table->name,"grants") ? "Direct grants" :
-            !strcmp(table->name,"privsets") ? "Groups" : "Privileges in groups";
-         GtkWidget *label=gtk_label_new(section);
-         gtk_label_set_xalign(GTK_LABEL(label),0);
-         gtk_box_pack_start(GTK_BOX(panel),label,FALSE,FALSE,0);
-         gtk_box_pack_start(GTK_BOX(panel),box,TRUE,TRUE,0);
+         const char *section=!strcmp(table->name,"assignments") ? "User Groups" :
+            !strcmp(table->name,"grants") ? "Direct Grants" :
+            !strcmp(table->name,"privsets") ? "Groups" : "Group Privileges";
+         gtk_notebook_append_page(GTK_NOTEBOOK(privileges_page),box,gtk_label_new(section));
       } else {
          gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),box,gtk_label_new(!strcmp(table->name,"audit") ? "Audit Log" :
             !strcmp(table->name,"ptt") ? "PTT Log" :
