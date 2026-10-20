@@ -628,7 +628,7 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    if ((granting ? (n != 4 && n != 5) || (n==5 && strcmp(extra,"remote")) : n != 3) ||
       !(!strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") ||
       !strcmp(kind, "room") || !strcmp(kind, "media") || !strcmp(kind, "serial") ||
-      !strcmp(kind, "file") || !strcmp(kind, "bridge")) || !( (!strcmp(kind, "rig") && !strcmp(uuid, "*")) || rr_object_uuid_valid(uuid)) || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
+      !strcmp(kind, "file") || !strcmp(kind, "bridge")) || !( ((!strcmp(kind, "rig") || !strcmp(kind, "site")) && !strcmp(uuid, "*")) || rr_object_uuid_valid(uuid)) || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
       ws_send_error(client, "Usage: /admin resource-grant USER@HOST KIND UUID PRIVILEGE allow|deny");
 
       return true;
