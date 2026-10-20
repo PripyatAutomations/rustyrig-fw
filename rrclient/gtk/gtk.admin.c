@@ -2022,9 +2022,20 @@ static void admin_log_stripe_cell(GtkTreeViewColumn *column,GtkCellRenderer *ren
                                   GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
    int field=GPOINTER_TO_INT(data);
    admin_table_t *table=g_object_get_data(G_OBJECT(column),"rr-admin-table");
-   if (table && !strcmp(table->name,"ptt") &&
-       (field==3 || field==4 || field==9))
-      admin_numeric_cell(column,renderer,model,iter,data);
+   if (table) {
+      if (!strcmp(table->name,"ptt") && (field==3 || field==4 || field==9))
+         admin_numeric_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->name,"rooms") && (field==2 || field==4))
+         admin_room_flag_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->name,"users") && (field==1 || field==7 || field==5 || field==6))
+         admin_user_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->name,"sessions") && field==5)
+         admin_session_cell(column,renderer,model,iter,NULL);
+      else if (!strcmp(table->name,"quotas") && field>0)
+         admin_numeric_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->fields[field],"uuid") || !strcmp(table->fields[field],"resource_uuid"))
+         admin_uuid_cell(column,renderer,model,iter,data);
+   }
    GtkTreePath *path=gtk_tree_model_get_path(model,iter);
    int *indices=path ? gtk_tree_path_get_indices(path) : NULL;
    gboolean odd=indices && (indices[0] & 1);
@@ -2691,31 +2702,23 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] : priv_titles ? priv_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
-         if (rooms && flag) {
+         /* Preserve existing field renderers, then shade every other row. */
+         if (rooms && flag)
             g_object_set(renderer,"activatable",FALSE,NULL);
-            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_room_flag_cell,GINT_TO_POINTER(field),NULL);
-         } else if (users && (flag || field == 5 || field == 6)) {
-            gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
-         } else if (!strcmp(table->name, "sessions") && field == 5) {
-            gtk_tree_view_column_set_cell_data_func(column, renderer, admin_session_cell, NULL, NULL);
-         } else if (!strcmp(table->name,"audit") || ptt) {
-            g_object_set_data(G_OBJECT(column),"rr-admin-table",table);
-            if (!(ptt && (field==3 || field==4 || field==9)))
-               gtk_tree_view_column_add_attribute(column,renderer,"text",field);
-            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_log_stripe_cell,
-                                                    GINT_TO_POINTER(field),NULL);
-         } else if ((quotas && field > 0) || (ptt && (field == 3 || field == 4 || field == 9))) {
-            g_object_set_data(G_OBJECT(column), "rr-admin-table", table);
-            gtk_tree_view_column_set_cell_data_func(column, renderer, admin_numeric_cell, GINT_TO_POINTER(field), NULL);
-         } else if (!strcmp(table->fields[field],"uuid") ||
-                    !strcmp(table->fields[field],"resource_uuid")) {
-            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_uuid_cell,
-               GINT_TO_POINTER(field),NULL);
+         if ((!strcmp(table->name,"uuid") || !strcmp(table->name,"resource_uuid")) ||
+             !strcmp(table->fields[field],"uuid") || !strcmp(table->fields[field],"resource_uuid")) {
             g_object_set_data(G_OBJECT(column),"rr-is-uuid",GINT_TO_POINTER(1));
             g_object_set_data(G_OBJECT(column),"rr-uuid-field",GINT_TO_POINTER(field));
-         } else {
-            gtk_tree_view_column_add_attribute(column, renderer, "text", field);
          }
+         g_object_set_data(G_OBJECT(column),"rr-admin-table",table);
+         /* A cell data function can coexist with regular model attributes. */
+         if (!((rooms && flag) || (users && (flag || field==5 || field==6)) ||
+               (!strcmp(table->name,"sessions") && field==5) ||
+               (quotas && field>0) || (ptt && (field==3 || field==4 || field==9)) ||
+               !strcmp(table->fields[field],"uuid") || !strcmp(table->fields[field],"resource_uuid")))
+            gtk_tree_view_column_add_attribute(column,renderer,"text",field);
+         gtk_tree_view_column_set_cell_data_func(column,renderer,admin_log_stripe_cell,
+                                                  GINT_TO_POINTER(field),NULL);
          /* Fixed column requisitions prevent long database values from
           * widening the notebook. Text wraps and GTK sizes rows naturally. */
          if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
