@@ -66,7 +66,7 @@ static char *resource_display_utf8(const char *value) {
    if (g_utf8_validate(value, -1, NULL)) return g_strdup(value);
    static gboolean warned=FALSE;
    if (!warned) {
-      g_warning("Resource Explorer received invalid UTF-8 in display metadata");
+      g_printerr("Resource Explorer: invalid UTF-8 display metadata (substituting replacement characters)\n");
       warned=TRUE;
    }
    return g_utf8_make_valid(value,-1);
