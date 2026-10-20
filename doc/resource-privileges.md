@@ -301,7 +301,7 @@ This is not yet a full catalog of resource-specific grants or full enforcement
 coverage. Command handlers for tuning, TX, and other rig controls still need a
 separate audit and explicit authorization gates.
 
-## Remote administration authorization contract (planned)
+## Remote administration (initial linked-server implementation)
 
 `remote-admin` is a site-scoped gate, **not** a replacement for `owner`
 and not permission to perform every administrative operation. The destination
@@ -316,9 +316,43 @@ The granting server's database is authoritative. A source-site `owner` or
 Actions affecting accounts, grants, server controls or station state must be
 audited with actor, source site and target.
 
-**Not yet implemented:** the current relay message allowlist does not forward
-remote admin messages, and the current admin command handler requires local
-`has_priv(uid, "admin|owner")`. Merely adding `remote-admin` to the grant
-table cannot authorize a remote admin operation. Do not remove either
-restriction without the authenticated relay envelope, per-action grants,
-negative tests for forgery/escalation, and destination-side enforcement.
+The initial implementation routes a native client command with
+`talk.server=NODE_UUID` through an authenticated link. A virtual remote session
+has no local UID. The destination checks `site *` grants for `remote-admin`
+plus `admin` or `owner` before dispatch, and administrative actions use a
+destination-scoped privilege helper rather than importing system roles.
+
+For a **development-only** two-server smoke test, on the *destination* server,
+log in locally as owner and grant the originating account the required roles:
+
+```text
+/admin resource-grant admin@SOURCE_ALIAS site * remote-admin allow remote
+/admin resource-grant admin@SOURCE_ALIAS site * admin allow remote
+/admin resource-grant admin@SOURCE_ALIAS site * owner allow remote
+```
+
+Replace `SOURCE_ALIAS` with the source node's advertised site alias (not its
+IP address). `owner` is only needed to test owner-only actions such as editing
+privilege assignments; it is not granted implicitly by `remote-admin`.
+
+From the originating client connected to its own server, use the **destination
+node UUID** as the target:
+
+```text
+/admin @DEST_NODE_UUID users
+/admin @DEST_NODE_UUID resource-grant alice@SOURCE_ALIAS site * admin allow remote
+```
+
+Revoke one grant at a time on the destination and confirm that the matching
+remote operation fails immediately:
+
+```text
+/admin resource-revoke admin@SOURCE_ALIAS site * remote-admin
+```
+
+The response relay and backend must be exercised with two real servers before
+considering the feature verified. In particular, confirm no data leaks from
+unsolicited remote admin requests. GTK's per-node administration selector and
+fine-grained privilege-operation taxonomy still need UX work; this initial
+routing path is explicitly via `/admin @NODE_UUID`. The temporary bootstrap
+`remote-admin` role must be removed for v1.0 as specified in the release checklist.
