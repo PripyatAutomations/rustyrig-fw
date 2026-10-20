@@ -1202,15 +1202,50 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    gtk_box_pack_start(GTK_BOX(area), gtk_label_new("User (from connected sites)"), FALSE, FALSE, 6);
    grant_subjects = gtk_combo_box_text_new();
    gtk_box_pack_start(GTK_BOX(area), grant_subjects, FALSE, FALSE, 4);
-   GtkWidget *permission = gtk_combo_box_text_new();
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission), "rig", "Full Rig Access — all rigs");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(permission), "room", "Join All Rooms — all ordinary rooms");
-   gtk_combo_box_set_active(GTK_COMBO_BOX(permission), 0);
-   gtk_box_pack_start(GTK_BOX(area), gtk_label_new("Privilege"), FALSE, FALSE, 4);
-   gtk_box_pack_start(GTK_BOX(area), permission, FALSE, FALSE, 4);
-   GtkWidget *description = gtk_label_new("Applies on this server to current and future resources. Other sites do not inherit privileges.");
-   gtk_label_set_line_wrap(GTK_LABEL(description), TRUE);
-   gtk_box_pack_start(GTK_BOX(area), description, FALSE, FALSE, 6);
+   /* Editable combo offers discovered privilege groups as well as a
+    * free-form individual privilege token, e.g. rig.use. */
+   GtkWidget *permission=gtk_combo_box_text_new_with_entry();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"rig.use");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"rig.full");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),"room.join");
+   admin_table_t *sets=&tables[6];
+   if (sets->store) {
+      GtkTreeIter entry;
+      gboolean valid=gtk_tree_model_get_iter_first(GTK_TREE_MODEL(sets->store),&entry);
+      while (valid) {
+         char *name=NULL;
+         gtk_tree_model_get(GTK_TREE_MODEL(sets->store),&entry,0,&name,-1);
+         if (name && *name) {
+            char *label=g_strdup_printf("@%s",name);
+            gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(permission),label);
+            g_free(label);
+         }
+         g_free(name);
+         valid=gtk_tree_model_iter_next(GTK_TREE_MODEL(sets->store),&entry);
+      }
+   }
+   gtk_combo_box_set_active(GTK_COMBO_BOX(permission),0);
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Privilege or @group (type or select)"),FALSE,FALSE,4);
+   gtk_box_pack_start(GTK_BOX(area),permission,FALSE,FALSE,4);
+   GtkWidget *scope=gtk_combo_box_text_new();
+   const char *scopes[]={"site","rig","room","vfo","media","serial","file","bridge"};
+   for (unsigned i=0;i<G_N_ELEMENTS(scopes);i++)
+      gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(scope),scopes[i],scopes[i]);
+   gtk_combo_box_set_active_id(GTK_COMBO_BOX(scope),"rig");
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Resource type"),FALSE,FALSE,2);
+   gtk_box_pack_start(GTK_BOX(area),scope,FALSE,FALSE,2);
+   GtkWidget *resource=gtk_entry_new();
+   gtk_entry_set_text(GTK_ENTRY(resource),"*");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(resource),"Resource UUID (* for all rigs)");
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Resource UUID"),FALSE,FALSE,2);
+   gtk_box_pack_start(GTK_BOX(area),resource,FALSE,FALSE,2);
+   GtkWidget *deny=gtk_check_button_new_with_label("Deny instead of allow");
+   gtk_box_pack_start(GTK_BOX(area),deny,FALSE,FALSE,2);
+   GtkWidget *description=gtk_label_new(
+      "Grants apply on the selected server. @name assigns an entire privilege group; "
+      "a plain name grants one privilege. Remote access policy will be configured separately.");
+   gtk_label_set_line_wrap(GTK_LABEL(description),TRUE);
+   gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,6);
    g_free(grant_profile);
    grant_profile = g_strdup(table->profile);
    admin_command(table, "admin", "subjects", NULL);
@@ -1220,10 +1255,22 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
       const char *subject = gtk_combo_box_get_active_id(GTK_COMBO_BOX(grant_subjects));
 
       if (subject && *subject) {
-         const char *kind = gtk_combo_box_get_active_id(GTK_COMBO_BOX(permission));
-
-         if (admin_command(table, !g_strcmp0(kind, "room") ? "room-access" : "rig-access", "allow", subject)) {
-            gtk_label_set_text(GTK_LABEL(table->status), "Resource privilege grant submitted");
+         GtkWidget *editable=gtk_bin_get_child(GTK_BIN(permission));
+         const char *token=gtk_entry_get_text(GTK_ENTRY(editable));
+         const char *kind=gtk_combo_box_get_active_id(GTK_COMBO_BOX(scope));
+         const char *uuid=gtk_entry_get_text(GTK_ENTRY(resource));
+         if (!token || !*token || !kind || !*uuid || strpbrk(token," \\t\\r\\n") ||
+             strpbrk(uuid," \\t\\r\\n")) {
+            gtk_label_set_text(GTK_LABEL(table->status),"Enter a privilege or @group and resource UUID");
+         } else {
+            gboolean is_group=token[0]=='@';
+            char *args=is_group ? g_strdup_printf("%s %s %s",subject,kind,uuid) :
+               g_strdup_printf("%s %s %s %s",kind,uuid,token,
+                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) ? "deny" : "allow");
+            gboolean ok=admin_command(table,is_group ? "privset-assign" : "resource-grant",
+                                      args,is_group ? token+1 : subject);
+            gtk_label_set_text(GTK_LABEL(table->status),ok ? "Grant submitted" : "Unable to submit grant");
+            g_free(args);
          }
       } else {
          gtk_label_set_text(GTK_LABEL(table->status), "Select an account before granting access");
