@@ -538,12 +538,23 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    struct catalog *c = rr_relay_room_catalog(room);
 
    bool files = !strcmp(dict_get(d, "msg.type", ""), "file");
+   bool administration = !strcmp(dict_get(d, "msg.type", ""), "talk") &&
+      !strcmp(dict_get(d, "talk.cmd", ""), "admin");
    /* Authentication of the originating link is not an authorization grant. Remote subjects need explicit resource grants on the owning server;
     * they must never be mapped to a local login merely to get a UID. */
    bool scoped = false;
 #ifdef USE_SQLITE
 
-   if (r && !files && room && *room) {
+   if (r && administration) {
+      const char *host = rrserver_relay_client_server(&r->client);
+      const char *local_site = cfg_get("station.name");
+      if (host && *host && local_site && strcmp(host,local_site)) {
+         scoped = db_resource_access_named(masterdb, username, host, "site", "*",
+                  "remote-admin", time(NULL), NULL) == RR_RESOURCE_ALLOW &&
+                  db_resource_access_named(masterdb, username, host, "site", "*",
+                  "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW;
+      }
+   } else if (r && !files && room && *room) {
       const char *host = rrserver_relay_client_server(&r->client);
       rr_server_rig_t *radio = rrserver_rig_for_room(room);
       const char *kind = radio ? "rig" : "room";
@@ -565,7 +576,8 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    }
 #endif
 
-   if (!r || !scoped || (!files && (!c || !rr_relay_local_owner(c->owner))) || !rr_relay_permitted_message(d)) {
+   if (!r || !scoped || (!administration && !files && (!c || !rr_relay_local_owner(c->owner))) ||
+       (!administration && !rr_relay_permitted_message(d))) {
       dict *error = dict_new();
 
       if (error && files) {
