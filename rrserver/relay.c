@@ -249,12 +249,8 @@ static void route_request(const char *event, const void *data, size_t length, rr
          ws_send_error(client, "Remote administration destination unavailable or denied");
          return;
       }
-      const char *next = rrserver_links_route(dest);
-      if (cfg_get_bool("remote-admin.next-hop-only", true) &&
-          (!next || strcmp(next, dest))) {
-         ws_send_error(client, "Remote administration limited to directly linked peers");
-         return;
-      }
+      /* Route toward any reachable target. Only the destination may apply
+       * remote-admin.next-hop-only to the authenticated origin. */
       struct relay_client *origin = rr_relay_client_for(client, true);
       dict *request = origin ? dict_clone(io->message) : NULL;
       if (request) {
