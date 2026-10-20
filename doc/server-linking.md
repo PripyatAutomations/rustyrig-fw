@@ -376,3 +376,31 @@ from a topology-policy block.
 Automatic reconnects now stagger each peer's retry by up to five seconds
 using its configured site name. This reduces repeated simultaneous link
 collisions without introducing random state or disabling reconnects.
+
+
+## Remote administration reach
+
+Set `remote-admin.next-hop-only=true` under `[general]` in
+`config/rrserver.peers.cfg` (the default). This restricts remote
+administrative requests to **directly linked peers**. Set it to `false`
+on both the originating server and any destination beyond one hop to permit
+tree-wide remote administration. A destination's restriction takes precedence:
+a distant server cannot be administered if it still requires direct neighbors.
+
+The native command `/admin @NODE_UUID ...` addresses one reachable remote
+server. Use `/admin @* ...` to apply the same Admin request to the local server
+and every eligible linked server. Examples:
+
+```text
+/admin @* users
+/admin @* groups
+/admin @* resource-grant alice@pripyat site * remote-admin allow remote
+```
+
+Caution: `@*` also broadcasts **mutating** operations to each eligible
+destination. Verify the target command before issuing changes. Each destination
+must independently authorize the originating `user@site` with a
+`site * remote-admin` grant and the appropriate `admin` or `owner` grant;
+the config toggle does not confer privileges. Replies from multiple servers
+may interleave; the current CLI is intended for testing before the GTK
+multi-server admin UX is polished.
