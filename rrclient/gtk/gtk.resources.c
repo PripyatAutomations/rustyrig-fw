@@ -1405,7 +1405,9 @@ static void resource_create(void) {
                        (gpointer)choices[i].type);
       gtk_grid_attach(GTK_GRID(type_grid),check,i/9,i%9,1,1);
    }
-   gtk_widget_show_all(type_popover);
+   /* Show the checklist children, but never map the popover at startup.
+    * gtk_widget_show_all(type_popover) would make it visible immediately. */
+   gtk_widget_show_all(type_grid);
    gtk_menu_button_set_popover(GTK_MENU_BUTTON(types),type_popover);
    gtk_box_pack_start(GTK_BOX(toolbar),types,FALSE,FALSE,0);
    /* Search, then the multi-select type dropdown, before toolbar actions. */
