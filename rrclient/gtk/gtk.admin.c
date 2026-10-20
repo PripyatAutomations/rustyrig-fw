@@ -74,12 +74,12 @@ static admin_table_t tables[] = {
    },
    {
       .name = "assignments", .fields = {
-         "set_name", "subject_user", "subject_host", "resource_kind", "resource_uuid", "expires_at"
+         "set_name", "subject_user", "subject_host", "resource_kind", "resource_uuid", "expires_at", "remote_allowed"
       }
    },
    {
       .name = "grants", .fields = {
-         "subject_user", "subject_host", "resource_kind", "resource_uuid", "privilege", "effect", "expires_at"
+         "subject_user", "subject_host", "resource_kind", "resource_uuid", "privilege", "effect", "expires_at", "remote_allowed"
       }
    },
 };
@@ -1241,9 +1241,11 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    gtk_box_pack_start(GTK_BOX(area),resource,FALSE,FALSE,2);
    GtkWidget *deny=gtk_check_button_new_with_label("Deny instead of allow");
    gtk_box_pack_start(GTK_BOX(area),deny,FALSE,FALSE,2);
+   GtkWidget *remote=gtk_check_button_new_with_label("Remote allowed — permit this grant to users accessing from linked sites");
+   gtk_box_pack_start(GTK_BOX(area),remote,FALSE,FALSE,2);
    GtkWidget *description=gtk_label_new(
       "Grants apply on the selected server. @name assigns an entire privilege group; "
-      "a plain name grants one privilege. Remote access policy will be configured separately.");
+      "a plain name grants one privilege. Check Remote allowed to permit cross-site access.");
    gtk_label_set_line_wrap(GTK_LABEL(description),TRUE);
    gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,6);
    g_free(grant_profile);
@@ -1264,9 +1266,11 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
             gtk_label_set_text(GTK_LABEL(table->status),"Enter a privilege or @group and resource UUID");
          } else {
             gboolean is_group=token[0]=='@';
-            char *args=is_group ? g_strdup_printf("%s %s %s",subject,kind,uuid) :
-               g_strdup_printf("%s %s %s %s",kind,uuid,token,
-                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) ? "deny" : "allow");
+            char *args=is_group ? g_strdup_printf("%s %s %s%s",subject,kind,uuid,
+                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)) ? " remote" : "") :
+               g_strdup_printf("%s %s %s %s%s",kind,uuid,token,
+                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) ? "deny" : "allow",
+                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)) ? " remote" : "");
             gboolean ok=admin_command(table,is_group ? "privset-assign" : "resource-grant",
                                       args,is_group ? token+1 : subject);
             gtk_label_set_text(GTK_LABEL(table->status),ok ? "Grant submitted" : "Unable to submit grant");
