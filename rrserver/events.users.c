@@ -408,8 +408,8 @@ static void rrserver_handle_user_cmd(const char *event, const char *data, rrconn
       if (ok) {
          password_hash = hash_passwd(password);
       }
-      bool profile_ok=strlen(profile_email)<254 && !strpbrk(profile_email,"\\r\\n") &&
-         !strpbrk(profile_real,"\\r\\n") && !strpbrk(profile_phone,"\\r\\n");
+      bool profile_ok=strlen(profile_email)<254 && !strpbrk(profile_email,"\r\n") &&
+         !strpbrk(profile_real,"\r\n") && !strpbrk(profile_phone,"\r\n");
       if (profile_ok && password_hash && ok) {
          ok=sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
          if (ok) {
