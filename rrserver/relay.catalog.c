@@ -903,6 +903,20 @@ static void inventory_directory_users(rrconn_t *client,const char *request,
          g_free(description);
          description=with_contact;
       }
+      snprintf(key,sizeof(key),"user.%u.real_name",i);
+      const char *real=dict_get(directory->users,key,"");
+      if (*real) {
+         char *extended=g_strdup_printf("%s\nReal name: %s",description,real);
+         g_free(description);
+         description=extended;
+      }
+      snprintf(key,sizeof(key),"user.%u.phone",i);
+      const char *phone=dict_get(directory->users,key,"");
+      if (*phone) {
+         char *extended=g_strdup_printf("%s\nPhone: %s",description,phone);
+         g_free(description);
+         description=extended;
+      }
       dict_add(row,"inventory.description",description);
       dict_add(row,"inventory.state",sessions ? "Online" : "Offline");
       g_free(description);
