@@ -2442,8 +2442,8 @@ GtkWidget *init_admin_tab(void) {
       /* Filter and Refresh stay on the left; other actions are right-aligned. */
       GtkWidget *space=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);
       gtk_widget_set_hexpand(space,TRUE);
-      gtk_box_reorder_child(GTK_BOX(buttons),space,4);
       gtk_box_pack_start(GTK_BOX(buttons),space,TRUE,TRUE,0);
+      gtk_box_reorder_child(GTK_BOX(buttons),space,4);
       gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
