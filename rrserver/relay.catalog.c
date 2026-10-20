@@ -108,7 +108,7 @@ dict *rr_relay_local_users(void) {
    if (masterdb) {
       sqlite3_stmt *stmt=NULL;
       if (sqlite3_prepare_v2(masterdb,
-         "SELECT uid,name,COALESCE(permissions,''),COALESCE(email,'') FROM users WHERE enabled=1 ORDER BY name COLLATE NOCASE",
+         "SELECT uid,name,COALESCE(permissions,''),COALESCE(email,''),COALESCE(real_name,''),COALESCE(phone,'') FROM users WHERE enabled=1 ORDER BY name COLLATE NOCASE",
          -1,&stmt,NULL)==SQLITE_OK) {
          while (n<HTTP_MAX_USERS && sqlite3_step(stmt)==SQLITE_ROW) {
             int uid=sqlite3_column_int(stmt,0);
@@ -122,6 +122,16 @@ dict *rr_relay_local_users(void) {
             snprintf(key,sizeof(key),"user.%u.privileges",n++);
             const char *roles=(const char *)sqlite3_column_text(stmt,2);
             dict_add(d,key,roles ? roles : "");
+            const char *real=(const char *)sqlite3_column_text(stmt,4);
+            const char *phone=(const char *)sqlite3_column_text(stmt,5);
+            if (real && *real && strlen(real)<=128) {
+               snprintf(key,sizeof(key),"user.%u.real_name",n-1);
+               dict_add(d,key,real);
+            }
+            if (phone && *phone && strlen(phone)<=64) {
+               snprintf(key,sizeof(key),"user.%u.phone",n-1);
+               dict_add(d,key,phone);
+            }
             const char *email=(const char *)sqlite3_column_text(stmt,3);
             if (email && *email && strlen(email)<=254 && !strpbrk(email,"\r\n")) {
                snprintf(key,sizeof(key),"user.%u.email",n-1);
