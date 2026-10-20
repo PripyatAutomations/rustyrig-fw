@@ -55,7 +55,7 @@ typedef struct serial_binding {
 static serial_binding_t *bindings, *cat_context;
 static int pty_directory_lock = -1;
 
-/* Protect the default PTY namespace against concurrent rrclient instances. Clean only symlinks to devpts within our own ./dev directory, and do so before
+/* Protect the default PTY namespace against concurrent rrclient instances. Clean only symlinks to devpts within HOME/dev, and do so before
  * registering any serial endpoint. A stale link may point at a PTY number that the kernel has reassigned to another program. */
 static bool serial_pty_startup_cleanup(void) {
    if (pty_directory_lock >= 0) {
@@ -1214,8 +1214,10 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       configured = cfg_get("cat.pty.path");
    }
 
-   if (!configured) {
-      snprintf(path, sizeof(path), "%s/dev/%s", g_get_home_dir(), name);
+   if (!configured || g_str_has_prefix(configured,"./dev/")) {
+      const char *leaf=configured ? configured+6 : name;
+      int written=snprintf(path,sizeof(path),"%s/dev/%s",g_get_home_dir(),leaf);
+      if (written<0 || (size_t)written>=sizeof(path)) goto failed;
    } else {
       char *expanded = expand_path(configured);
 
