@@ -238,6 +238,19 @@ static void admin_control_local_discover(void) {
 #endif
    gtk_label_set_text(GTK_LABEL(control_status), "No local adjustable controls detected");
 }
+static void admin_control_stripe_rows(void) {
+   if (!control_rows_box) return;
+   GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   guint index=0;
+   for (GList *l=rows;l;l=l->next) {
+      GtkWidget *row=l->data;
+      GtkStyleContext *style=gtk_widget_get_style_context(row);
+      gtk_style_context_remove_class(style,"rr-control-odd");
+      if (gtk_widget_get_visible(row) && (index++ & 1))
+         gtk_style_context_add_class(style,"rr-control-odd");
+   }
+   g_list_free(rows);
+}
 static void admin_control_filter_apply(void) {
    if (!control_filter || !control_rows_box) {
       return;
@@ -258,6 +271,7 @@ static void admin_control_filter_apply(void) {
    }
 
    g_list_free(rows);
+   admin_control_stripe_rows();
 }
 static void admin_control_hosts_refresh(void) {
    if (!control_hosts) {
@@ -474,6 +488,7 @@ static void admin_control_sort_rows(void) {
    }
 
    g_list_free(children);
+   admin_control_stripe_rows();
 }
 static void admin_control_sort_clicked(GtkButton *button, gpointer user) {
    (void)user;
@@ -2939,6 +2954,13 @@ GtkWidget *init_admin_tab(void) {
 
       gtk_box_pack_start(GTK_BOX(box), control_headers, FALSE, FALSE, 0);
       control_rows_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      GtkCssProvider *stripe=gtk_css_provider_new();
+      gtk_css_provider_load_from_data(stripe,
+         "box.rr-control-odd { background-color: alpha(currentColor, 0.085); }",-1,NULL);
+      gtk_style_context_add_provider_for_screen(
+         gtk_widget_get_screen(control_rows_box),GTK_STYLE_PROVIDER(stripe),
+         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      g_object_unref(stripe);
       control_row_buttons = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
       control_scroll = gtk_scrolled_window_new(NULL, NULL);
       gtk_widget_set_vexpand(control_scroll, TRUE);
