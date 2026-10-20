@@ -722,7 +722,9 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    }
 
    if (uuid && *uuid) {
-      g_string_append_printf(text, "\nUUID: %s\n\n", uuid);
+      char *short_uuid=resource_uuid_display(uuid);
+      g_string_append_printf(text, "\nUUID: %s\n\n", short_uuid);
+      g_free(short_uuid);
 
       if (online) {
          struct resource_details request = {
