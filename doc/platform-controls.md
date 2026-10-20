@@ -58,3 +58,22 @@ limits are enforced by the backend even for an owner.
 
 Run `rrserver/tests/test_platform_controls.sh` for the hardware-free registry
 contract; the real Linux driver needs a Pi/sBitx runtime test.
+
+## Hamlib transceiver backlight (planned)
+
+A Hamlib transceiver display backlight is a **rig property**, not the server
+node's `display.brightness` (Linux sysfs backlight). Probe
+`rig_has_set_parm(rig, RIG_PARM_BACKLIGHT)` and only advertise a writable
+`display.brightness` property on rigs where Hamlib reports support.
+Readability must be probed separately with `rig_has_get_parm()`.
+Hamlib represents the backlight as a float in [0,1]; present as 0–100%
+in the UI and convert at the backend boundary using `rig_set_parm()`.
+Never claim a control exists for unsupported rigs, or report a value as
+readable when Hamlib cannot read it.
+
+Execute rig I/O in the existing serialized backend worker, not on the GTK
+thread. Export through the rig property descriptor/state protocol, which
+Resource Explorer already consumes; the Controls tab may filter the same
+object-owned descriptors, but must not create a second command namespace.
+Apply destination-side scoped write permissions before sending a command.
+This integration has not yet been implemented.
