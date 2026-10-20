@@ -957,11 +957,19 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
          }
          sqlite3_finalize(st);
       }
+      if (ok) {
+         char *who=host && *host ? g_strdup_printf("%s@%s",subject,host) : g_strdup(subject);
+         char *detail=g_strdup_printf("request=%s decision=%s subject=%s resource=%s:%s remote=%s grants=%s",
+            id,decision,who ? who : "",kind ? kind : "",uuid ? uuid : "",
+            remote ? "yes" : "no",!strcmp(decision,"granted") ? selected : "(none)");
+         ok=detail && db_add_audit_event(masterdb,client->chatname,
+            !strcmp(decision,"granted") ? "access.request.granted" : "access.request.denied",detail);
+         g_free(detail);g_free(who);
+      }
       if (ok) ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
       if (!ok) sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
       g_free(subject);g_free(host);g_free(kind);g_free(uuid);
       if (ok) {
-         db_add_audit_event(masterdb,client->chatname,"access.review",id);
          rrserver_admin_send(client,"access-requests","updated",NULL);
       } else ws_send_error(client,"Access review failed; no grants or status changes saved");
    }
