@@ -1259,8 +1259,8 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
          const char *token=gtk_entry_get_text(GTK_ENTRY(editable));
          const char *kind=gtk_combo_box_get_active_id(GTK_COMBO_BOX(scope));
          const char *uuid=gtk_entry_get_text(GTK_ENTRY(resource));
-         if (!token || !*token || !kind || !*uuid || strpbrk(token," \\t\\r\\n") ||
-             strpbrk(uuid," \\t\\r\\n")) {
+         if (!token || !*token || !kind || !*uuid || strpbrk(token," \t\r\n") ||
+             strpbrk(uuid," \t\r\n")) {
             gtk_label_set_text(GTK_LABEL(table->status),"Enter a privilege or @group and resource UUID");
          } else {
             gboolean is_group=token[0]=='@';
@@ -1486,11 +1486,11 @@ static void admin_privgroup_edit(GtkButton *button,gpointer user) {
       char *tail=NULL;
       if (!strcmp(operation,"privset-create")) tail=g_strdup(desc);
       else if (!strcmp(operation,"privset-delete")) tail=g_strdup("");
-      else if (*token && !strpbrk(token," \\t\\r\\n"))
+      else if (*token && !strpbrk(token," \t\r\n"))
          tail=!strcmp(operation,"privset-entry") ?
             g_strdup_printf("%s %s",gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) ?
                "deny" : "allow",token) : g_strdup(token);
-      if (*name && !strpbrk(name," \\t\\r\\n") && tail) {
+      if (*name && !strpbrk(name," \t\r\n") && tail) {
          if (admin_command(table,operation,tail,name))
             gtk_label_set_text(GTK_LABEL(table->status),"Privilege group change submitted; refresh to view");
       } else gtk_label_set_text(GTK_LABEL(table->status),"Valid group and privilege names are required");
