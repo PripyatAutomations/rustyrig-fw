@@ -86,6 +86,8 @@ static admin_table_t tables[] = {
 
 /* Server-exported node controls. The UI knows only typed descriptors, not individual hardware providers or platform-specific paths. */
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
+enum { AR_ID,AR_USER,AR_RESOURCE,AR_REASON,AR_STATUS,AR_AGE,AR_COUNT };
+static gboolean admin_access_send(const char *action,const char *id,const char *decision);
 static GtkWidget *access_request_tree;
 static GtkListStore *access_request_store;
 static char access_request_profile[128];
@@ -1953,7 +1955,6 @@ static void admin_table_destroy(GtkWidget *widget, gpointer data) {
    table->profile[0] = 0;
 }
 
-enum { AR_ID,AR_USER,AR_RESOURCE,AR_REASON,AR_STATUS,AR_AGE,AR_COUNT };
 static gboolean admin_access_send(const char *action,const char *id,const char *decision) {
    rrconn_t *connection=rrclient_connection_find(access_request_profile);
    if (!connection || !connection->authenticated) return FALSE;
@@ -2354,8 +2355,8 @@ GtkWidget *init_admin_tab(void) {
       gtk_container_add(GTK_CONTAINER(scroll),access_request_tree);
       gtk_box_pack_start(GTK_BOX(page),scroll,TRUE,TRUE,0);
       g_signal_connect(refresh,"clicked",G_CALLBACK(admin_access_refresh),NULL);
-      g_signal_connect(approve,"clicked",G_CALLBACK(admin_access_review),"granted");
-      g_signal_connect(deny,"clicked",G_CALLBACK(admin_access_review),"denied");
+      g_signal_connect(approve,"clicked",G_CALLBACK(admin_access_review),(gpointer)"granted");
+      g_signal_connect(deny,"clicked",G_CALLBACK(admin_access_review),(gpointer)"denied");
       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),page,gtk_label_new("Auth Requests"));
    }
 
