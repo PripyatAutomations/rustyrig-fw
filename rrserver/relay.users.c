@@ -9,6 +9,7 @@
 #include <rrserver/relay.internal.h>
 #ifdef USE_MONGOOSE
 #include <string.h>
+#include <glib.h>
 #include <stdio.h>
 #include <rrserver/link.h>
 #include <librrprotocol/auth.h>
