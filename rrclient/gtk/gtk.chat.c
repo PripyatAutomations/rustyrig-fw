@@ -1318,7 +1318,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    }
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 
 
    // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
