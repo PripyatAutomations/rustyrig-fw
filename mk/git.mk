@@ -1,7 +1,7 @@
 update:
-	git pull
-	git submodule init
-	git submodule update --remote --recursive
+	git pull --ff-only
+	git submodule sync --recursive
+	git submodule update --init --recursive
 
 recent-diff:
 	git diff '@{6 hours ago}'
