@@ -86,6 +86,9 @@ static admin_table_t tables[] = {
 
 /* Server-exported node controls. The UI knows only typed descriptors, not individual hardware providers or platform-specific paths. */
 static GtkWidget *control_combo, *control_scale, *control_status, *control_apply;
+static GtkWidget *access_request_tree;
+static GtkListStore *access_request_store;
+static char access_request_profile[128];
 static GtkWidget *group_tree;
 static GtkTreeStore *group_store;
 static GtkWidget *control_rows_box, *control_filter, *control_scroll, *control_hosts;
@@ -1801,6 +1804,27 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
          admin_command(&tables[8],"admin","groups",NULL);
       dict_free(row);dict_free(reply);return;
    }
+   if (row && !strcmp(name,"access-requests") && access_request_store &&
+       !g_strcmp0(access_request_profile,rrclient_connection_name(connection))) {
+      if (!strcmp(action,"begin")) gtk_list_store_clear(access_request_store);
+      else if (!strcmp(action,"row")) {
+         const char *status=dict_get(row,"status","pending");
+         long long created=g_ascii_strtoll(dict_get(row,"created_at","0"),NULL,10);
+         long days=created>0 ? (long)MAX(0,((long long)time(NULL)-created)/86400) : 0;
+         char *age=g_strdup_printf("%ld days",days);
+         char *resource=g_strdup_printf("%s: %s",dict_get(row,"resource_kind",""),
+                                       dict_get(row,"resource_uuid",""));
+         GtkTreeIter iter;
+         gtk_list_store_append(access_request_store,&iter);
+         gtk_list_store_set(access_request_store,&iter,
+            AR_ID,dict_get(row,"id",""),AR_USER,dict_get(row,"subject_user",""),
+            AR_RESOURCE,resource,AR_REASON,dict_get(row,"reason",""),
+            AR_STATUS,status,AR_AGE,age,-1);
+         g_free(resource);g_free(age);
+      } else if (!strcmp(action,"updated"))
+         admin_access_send("access-request-list",NULL,NULL);
+      dict_free(row);dict_free(reply);return;
+   }
    const char *source_profile = rrclient_connection_name(connection);
    const char *view_host = control_hosts ? gtk_combo_box_get_active_id(GTK_COMBO_BOX(control_hosts)) : NULL;
    gboolean all_nodes = view_host && !strcmp(view_host, "all");
@@ -1929,6 +1953,48 @@ static void admin_table_destroy(GtkWidget *widget, gpointer data) {
    table->profile[0] = 0;
 }
 
+enum { AR_ID,AR_USER,AR_RESOURCE,AR_REASON,AR_STATUS,AR_AGE,AR_COUNT };
+static gboolean admin_access_send(const char *action,const char *id,const char *decision) {
+   rrconn_t *connection=rrclient_connection_find(access_request_profile);
+   if (!connection || !connection->authenticated) return FALSE;
+   dict *d=dict_new();
+   if (!d) return FALSE;
+   dict_add(d,"msg.type","talk");
+   dict_add(d,"talk.cmd","admin");
+   dict_add(d,"talk.action",action);
+   dict_add(d,"talk.data","");
+   if (id) dict_add(d,"request.id",id);
+   if (decision) dict_add(d,"request.decision",decision);
+   gboolean ok=ws_send_dict(NULL,connection,d,WEBSOCKET_OP_TEXT);
+   dict_free(d);
+   return ok;
+}
+static void admin_access_refresh(GtkButton *button,gpointer user) {
+   (void)button;(void)user;
+   const char *profile=rrclient_selected_server();
+   g_strlcpy(access_request_profile,profile ? profile : "",sizeof(access_request_profile));
+   if (access_request_store) gtk_list_store_clear(access_request_store);
+   admin_access_send("access-request-list",NULL,NULL);
+}
+static void admin_access_review(GtkButton *button,gpointer user) {
+   const char *decision=user;
+   GtkTreeIter iter;GtkTreeModel *model=NULL;
+   if (!access_request_tree ||
+       !gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(access_request_tree)),&model,&iter))
+      return;
+   char *id=NULL,*name=NULL;
+   gtk_tree_model_get(model,&iter,AR_ID,&id,AR_USER,&name,-1);
+   GtkWidget *confirm=gtk_message_dialog_new(GTK_WINDOW(main_window),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,GTK_MESSAGE_QUESTION,
+      GTK_BUTTONS_OK_CANCEL,
+      "%s request #%s from %s?\n\nGranting here records review only. Assign permissions in Privileges → Grants.",
+      !strcmp(decision,"granted") ? "Approve" : "Deny",id ? id : "",name ? name : "");
+   if (gtk_dialog_run(GTK_DIALOG(confirm))==GTK_RESPONSE_OK)
+      admin_access_send("access-request-review",id,decision);
+   gtk_widget_destroy(confirm);
+   g_free(id);g_free(name);
+   (void)button;
+}
 void gtk_admin_refresh(void) {
    for (size_t i = 0 ; i < sizeof(tables) / sizeof(tables[0]) ; i++) {
       admin_refresh(NULL, &tables[i]);
@@ -1937,6 +2003,7 @@ void gtk_admin_refresh(void) {
    if (control_combo) {
       admin_control_refresh(NULL, NULL);
    }
+   if (access_request_store) admin_access_refresh(NULL,NULL);
 }
 
 static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
@@ -2164,6 +2231,38 @@ GtkWidget *init_admin_tab(void) {
             !strcmp(table->name,"users") ? "Users" :
             !strcmp(table->name,"sessions") ? "Sessions" : "Rooms"));
       }
+   }
+
+   {
+      GtkWidget *page=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
+      GtkWidget *actions=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
+      GtkWidget *refresh=gtk_button_new_with_label("Refresh requests");
+      GtkWidget *approve=gtk_button_new_with_label("Approve review…");
+      GtkWidget *deny=gtk_button_new_with_label("Deny…");
+      gtk_box_pack_start(GTK_BOX(actions),refresh,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(actions),approve,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(actions),deny,FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(page),actions,FALSE,FALSE,0);
+      access_request_store=gtk_list_store_new(AR_COUNT,G_TYPE_STRING,G_TYPE_STRING,
+         G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING);
+      access_request_tree=gtk_tree_view_new_with_model(GTK_TREE_MODEL(access_request_store));
+      const char *headings[]={"ID","Requester","Rig / Room","Reason","Status","Age"};
+      for (int col=0;col<AR_COUNT;col++) {
+         GtkCellRenderer *cell=gtk_cell_renderer_text_new();
+         g_object_set(cell,"wrap-mode",PANGO_WRAP_WORD_CHAR,"wrap-width",col==AR_REASON ? 340 : 120,NULL);
+         GtkTreeViewColumn *column=gtk_tree_view_column_new_with_attributes(headings[col],cell,"text",col,NULL);
+         gtk_tree_view_column_set_resizable(column,TRUE);
+         gtk_tree_view_column_set_expand(column,col==AR_REASON);
+         gtk_tree_view_append_column(GTK_TREE_VIEW(access_request_tree),column);
+      }
+      GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
+      gtk_container_add(GTK_CONTAINER(scroll),access_request_tree);
+      gtk_box_pack_start(GTK_BOX(page),scroll,TRUE,TRUE,0);
+      g_signal_connect(refresh,"clicked",G_CALLBACK(admin_access_refresh),NULL);
+      g_signal_connect(approve,"clicked",G_CALLBACK(admin_access_review),"granted");
+      g_signal_connect(deny,"clicked",G_CALLBACK(admin_access_review),"denied");
+      gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),page,gtk_label_new("Auth Requests"));
    }
 
    {
