@@ -123,17 +123,17 @@ static void resource_expansion_walk(GtkTreeIter *parent, const char *prefix, GHa
 
    for (gboolean more = gtk_tree_model_iter_children(model, &child, parent) ; more ; more = gtk_tree_model_iter_next(model, &child)) {
       char *key = resource_row_key(model, &child, prefix);
-      GtkTreePath *path = gtk_tree_model_get_path(model, &child);
-
+      GtkTreePath *child_path=gtk_tree_model_get_path(model,&child);
+      GtkTreePath *path=resource_view_path(child_path);
       if (restore) {
-         if (g_hash_table_contains(expanded, key)) {
-            gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
-         }
-      } else if (gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path)) {
-         g_hash_table_add(expanded, g_strdup(key));
+         if (path && g_hash_table_contains(expanded,key))
+            gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),path,FALSE);
+      } else if (path && gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path)) {
+         g_hash_table_add(expanded,g_strdup(key));
       }
       resource_expansion_walk(&child, key, expanded, restore);
-      gtk_tree_path_free(path);
+      if (path) gtk_tree_path_free(path);
+      gtk_tree_path_free(child_path);
       g_free(key);
    }
 }
@@ -143,12 +143,13 @@ static void resource_expansion_save(resource_branch *branch) {
    }
    branch->expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    /* Include the branch root itself, which can also be manually collapsed. */
-   GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
-
-   if (gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path)) {
+   GtkTreePath *child_path=gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store),&branch->root);
+   GtkTreePath *path=resource_view_path(child_path);
+   gtk_tree_path_free(child_path);
+   if (path && gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path)) {
       g_hash_table_add(branch->expanded, g_strdup("@root"));
    }
-   gtk_tree_path_free(path);
+   if (path) gtk_tree_path_free(path);
    resource_expansion_walk(&branch->root, branch->profile, branch->expanded, false);
 }
 static void resource_expansion_restore(resource_branch *branch) {
@@ -156,14 +157,15 @@ static void resource_expansion_restore(resource_branch *branch) {
       gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
       return;
    }
-   GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
-
-   if (g_hash_table_contains(branch->expanded, "@root")) {
-      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
-   } else {
-      gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+   GtkTreePath *child_path=gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store),&branch->root);
+   GtkTreePath *path=resource_view_path(child_path);
+   gtk_tree_path_free(child_path);
+   if (path) {
+      if (g_hash_table_contains(branch->expanded,"@root"))
+         gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),path,FALSE);
+      else gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree),path);
+      gtk_tree_path_free(path);
    }
-   gtk_tree_path_free(path);
    resource_expansion_walk(&branch->root, branch->profile, branch->expanded, true);
 }
 static gboolean resource_restore_scroll(gpointer unused) {
@@ -189,6 +191,8 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    browser = NULL;
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
+   g_hash_table_destroy(view->enabled_kinds);
+   g_object_unref(view->filter);
    g_object_unref(view->store);
    g_free(view);
 }
@@ -1279,10 +1283,10 @@ static gboolean resource_type_visible(GtkTreeModel *model,GtkTreeIter *iter,gpoi
    (void)unused;
    return resource_type_match(model,iter);
 }
-static void resource_type_changed(GtkCheckMenuItem *item,gpointer data) {
+static void resource_type_changed(GtkToggleButton *item,gpointer data) {
    if (!browser || !browser->filter) return;
    const char *type=data;
-   if (gtk_check_menu_item_get_active(item))
+   if (gtk_toggle_button_get_active(item))
       g_hash_table_add(browser->enabled_kinds,g_strdup(type));
    else g_hash_table_remove(browser->enabled_kinds,type);
    gtk_tree_model_filter_refilter(browser->filter);
@@ -1329,7 +1333,12 @@ static void resource_create(void) {
 
    GtkWidget *types=gtk_menu_button_new();
    gtk_button_set_label(GTK_BUTTON(types),"Object types");
-   GtkWidget *type_menu=gtk_menu_new();
+   GtkWidget *type_popover=gtk_popover_new(types);
+   GtkWidget *type_grid=gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(type_grid),3);
+   gtk_grid_set_column_spacing(GTK_GRID(type_grid),12);
+   gtk_container_set_border_width(GTK_CONTAINER(type_grid),10);
+   gtk_container_add(GTK_CONTAINER(type_popover),type_grid);
    static const struct {const char *type,*label;} choices[]={
       {"site","Sites"},{"server","Servers"},{"rig","Rigs"},{"vfo","VFOs"},
       {"room","Rooms"},{"irc-channel","IRC channels"},{"media","Media"},
@@ -1340,14 +1349,14 @@ static void resource_create(void) {
    };
    for (unsigned i=0;i<G_N_ELEMENTS(choices);i++) {
       g_hash_table_add(browser->enabled_kinds,g_strdup(choices[i].type));
-      GtkWidget *check=gtk_check_menu_item_new_with_label(choices[i].label);
-      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(check),TRUE);
+      GtkWidget *check=gtk_check_button_new_with_label(choices[i].label);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
       g_signal_connect(check,"toggled",G_CALLBACK(resource_type_changed),
                        (gpointer)choices[i].type);
-      gtk_menu_shell_append(GTK_MENU_SHELL(type_menu),check);
+      gtk_grid_attach(GTK_GRID(type_grid),check,i/9,i%9,1,1);
    }
-   gtk_widget_show_all(type_menu);
-   gtk_menu_button_set_popup(GTK_MENU_BUTTON(types),type_menu);
+   gtk_widget_show_all(type_popover);
+   gtk_menu_button_set_popover(GTK_MENU_BUTTON(types),type_popover);
    gtk_box_pack_start(GTK_BOX(toolbar),types,FALSE,FALSE,0);
    GtkWidget *ports = gtk_button_new_with_label("Local ports…");
    gtk_box_pack_start(GTK_BOX(toolbar), ports, FALSE, FALSE, 0);
