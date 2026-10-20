@@ -4,6 +4,11 @@
     "description": "Manage users and server configuration",
     "scope": "system"
   },
+  "remote-admin": {
+    "label": "Remote administration gate",
+    "description": "Allow exercising separately granted admin operations from an authenticated linked site; does not grant those operations",
+    "scope": "system"
+  },
   "bridge.admin": {
     "label": "Manage bridges",
     "description": "Configure and administer bridge connections",
