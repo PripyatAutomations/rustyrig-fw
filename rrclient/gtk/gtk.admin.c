@@ -1211,9 +1211,6 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Add Privilege", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel",
       GTK_RESPONSE_CANCEL, "Grant", GTK_RESPONSE_OK, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   gtk_box_pack_start(GTK_BOX(area), gtk_label_new("User (from connected sites)"), FALSE, FALSE, 6);
-   grant_subjects = gtk_combo_box_text_new();
-   gtk_box_pack_start(GTK_BOX(area), grant_subjects, FALSE, FALSE, 4);
    /* Editable combo offers discovered privilege groups as well as a
     * free-form individual privilege token, e.g. rig.use. */
    GtkWidget *permission=gtk_combo_box_text_new_with_entry();
@@ -1231,10 +1228,14 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    gtk_combo_box_set_active_id(GTK_COMBO_BOX(scope),"rig");
    gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Resource type"),FALSE,FALSE,2);
    gtk_box_pack_start(GTK_BOX(area),scope,FALSE,FALSE,2);
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("User / Group"),FALSE,FALSE,6);
+   grant_subjects = gtk_combo_box_text_new();
+   gtk_widget_set_tooltip_text(grant_subjects,"Choose an account on this server or a linked site");
+   gtk_box_pack_start(GTK_BOX(area),grant_subjects,FALSE,FALSE,4);
    GtkWidget *resource=gtk_entry_new();
    gtk_entry_set_text(GTK_ENTRY(resource),"*");
-   gtk_entry_set_placeholder_text(GTK_ENTRY(resource),"Resource UUID (* for all rigs)");
-   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Resource UUID"),FALSE,FALSE,2);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(resource),"* = all resources of this type");
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Resource (* means all)"),FALSE,FALSE,2);
    gtk_box_pack_start(GTK_BOX(area),resource,FALSE,FALSE,2);
    GtkWidget *deny=gtk_check_button_new_with_label("Invert Rule (Deny access)");
    gtk_box_pack_start(GTK_BOX(area),deny,FALSE,FALSE,2);
@@ -1246,6 +1247,7 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
       "a plain name grants one privilege. Check Remote allowed to permit cross-site access.");
    gtk_label_set_line_wrap(GTK_LABEL(description),TRUE);
    gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,6);
+   gtk_widget_set_tooltip_text(deny,"Block this permission even if another rule allows it");
    g_free(grant_profile);
    grant_profile = g_strdup(table->profile);
    admin_command(table, "admin", "subjects", NULL);
@@ -1265,7 +1267,8 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
          } else {
             gboolean is_group=token[0]=='@';
             char *args=is_group ? g_strdup_printf("%s %s %s%s",subject,kind,uuid,
-                  gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)) ? " remote" : "") :
+                  (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) &&
+                    gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote))) ? " remote" : "") :
                g_strdup_printf("%s %s %s %s%s",kind,uuid,token,
                   gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) ? "deny" : "allow",
                   gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remote)) ? " remote" : "");
