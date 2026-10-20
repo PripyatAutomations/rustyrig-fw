@@ -348,7 +348,7 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
    GtkCssProvider *stripe=gtk_css_provider_new();
    gtk_css_provider_load_from_data(stripe,
       "listbox row.rr-zebra-odd { background-color: alpha(currentColor, 0.085); }",-1,NULL);
-   gtk_style_context_add_provider(gtk_widget_get_style_context(list),
+   gtk_style_context_add_provider_for_screen(gtk_widget_get_screen(list),
       GTK_STYLE_PROVIDER(stripe),GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(stripe);
    gtk_list_box_set_sort_func(GTK_LIST_BOX(list), cfg_list_compare, NULL, NULL);
