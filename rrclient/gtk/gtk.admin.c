@@ -1550,10 +1550,11 @@ static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
       g_free(mail);g_free(fullname);g_free(number);g_free(roles);
       break;
    }
-   copy_user_store=NULL;
    copy_user_tree=NULL;
    copy_user_profile[0]=0;
    gtk_widget_destroy(picker);
+   g_object_unref(copy_user_store);
+   copy_user_store=NULL;
 }
 /* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns validation, privilege checks, auditing and temporary password generation. */
 static void admin_create_user(GtkButton *button, gpointer data) {
