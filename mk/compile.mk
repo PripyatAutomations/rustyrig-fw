@@ -56,6 +56,17 @@ CFLAGS += -fsanitize=$(SANITIZE) -fno-omit-frame-pointer -g -fno-common -fno-san
 LDFLAGS += -fsanitize=$(SANITIZE)
 endif
 
+# Media targets remain unsanitized during client/server QC unless explicitly
+# opted in. Shared core libraries may still be sanitizer-instrumented.
+SANITIZE_MEDIA ?= false
+ifeq ($(SANITIZE_MEDIA),true)
+MEDIA_CFLAGS = $(CFLAGS)
+MEDIA_LDFLAGS = $(LDFLAGS)
+else
+MEDIA_CFLAGS = $(filter-out -fsanitize=% -fno-sanitize-recover=all,$(CFLAGS))
+MEDIA_LDFLAGS = $(filter-out -fsanitize=%,$(LDFLAGS))
+endif
+
 # Resolve shared libraries beside the executable/library or in its prefix,
 # including bin/ programs running directly from the source tree.
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$$ORIGIN:$$ORIGIN/../lib:$$ORIGIN/..'
