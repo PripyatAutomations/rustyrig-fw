@@ -845,7 +845,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
          }
          if (ok) {
             const char *sql=request_id ?
-               "UPDATE access_requests SET reason=?1,created_at=unixepoch(),resource_kind=?2,resource_uuid=?3 WHERE id=?4" :
+               "UPDATE access_requests SET reason=substr(reason || char(10) || ?1,1,8192),created_at=unixepoch(),resource_kind=?2,resource_uuid=?3 WHERE id=?4" :
                "INSERT INTO access_requests(reason,resource_kind,resource_uuid,subject_user,subject_host) VALUES(?1,?2,?3,?4,'')";
             ok=sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK;
             if (ok) {
