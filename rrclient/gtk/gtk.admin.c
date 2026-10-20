@@ -1607,6 +1607,8 @@ static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
    GtkCellRenderer *renderer=gtk_cell_renderer_text_new();
    GtkTreeViewColumn *column=gtk_tree_view_column_new_with_attributes(
       "Host / Username • Email • Privileges",renderer,"text",COPY_LABEL,NULL);
+   g_object_set_data(G_OBJECT(column),"rr-admin-zebra-tree",copy_user_tree);
+   gtk_tree_view_column_set_cell_data_func(column,renderer,admin_other_zebra_cell,NULL,NULL);
    gtk_tree_view_append_column(GTK_TREE_VIEW(copy_user_tree),column);
    GtkWidget *scroll=gtk_scrolled_window_new(NULL,NULL);
    gtk_widget_set_size_request(scroll,640,360);
@@ -2404,6 +2406,31 @@ static void admin_access_age_cell(GtkTreeViewColumn *column,GtkCellRenderer *ren
                 "foreground-set",color!=NULL,"foreground",color ? color : "",NULL);
    g_free(status);g_free(age);
 }
+
+/* Zebra shading for standalone admin trees (pickers and access requests). */
+static void admin_other_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
+                                   GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
+   GtkWidget *tree=g_object_get_data(G_OBJECT(column),"rr-admin-zebra-tree");
+   if (GPOINTER_TO_INT(data)==AR_AGE+1)
+      admin_access_age_cell(column,cell,model,iter,NULL);
+   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+   int *indices=path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd=indices && (indices[gtk_tree_path_get_depth(path)-1] & 1);
+   gboolean selected=tree && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)),path);
+   if (odd && !selected && tree) {
+      GtkStyleContext *style=gtk_widget_get_style_context(tree);
+      GdkRGBA base,ink,shade;
+      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
+      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
+      shade.red=base.red*0.915+ink.red*0.085;
+      shade.green=base.green*0.915+ink.green*0.085;
+      shade.blue=base.blue*0.915+ink.blue*0.085;
+      shade.alpha=1.0;
+      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
+   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
+   if (path) gtk_tree_path_free(path);
+}
 static void admin_access_review(GtkButton *button,gpointer user) {
    (void)button;
    const char *decision=user;
@@ -2843,7 +2870,9 @@ GtkWidget *init_admin_tab(void) {
          GtkCellRenderer *cell=gtk_cell_renderer_text_new();
          g_object_set(cell,"wrap-mode",PANGO_WRAP_WORD_CHAR,"wrap-width",col==AR_REASON ? 340 : 120,NULL);
          GtkTreeViewColumn *column=gtk_tree_view_column_new_with_attributes(headings[col],cell,"text",col,NULL);
-         if (col==AR_AGE) gtk_tree_view_column_set_cell_data_func(column,cell,admin_access_age_cell,NULL,NULL);
+         g_object_set_data(G_OBJECT(column),"rr-admin-zebra-tree",access_request_tree);
+         gtk_tree_view_column_set_cell_data_func(column,cell,admin_other_zebra_cell,
+                                                 GINT_TO_POINTER(col==AR_AGE ? AR_AGE+1 : 0),NULL);
          gtk_tree_view_column_set_resizable(column,TRUE);
          gtk_tree_view_column_set_expand(column,col==AR_REASON);
          gtk_tree_view_append_column(GTK_TREE_VIEW(access_request_tree),column);
