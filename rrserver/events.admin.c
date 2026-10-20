@@ -853,7 +853,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
    if (!strcmp(action,"access-request-list")) {
       rrserver_admin_send(client,"access-requests","begin",NULL);
       sqlite3_stmt *st=NULL;
-      const char *sql="SELECT id,subject_user,subject_host,resource_kind,resource_uuid,reason,status,created_at,COALESCE(reviewed_by,'') FROM access_requests ORDER BY (status='pending') DESC,created_at DESC LIMIT 500";
+      const char *sql="SELECT id,subject_user,subject_host,resource_kind,resource_uuid,reason,status,created_at,COALESCE(reviewed_by,'') FROM access_requests ORDER BY (status='pending') DESC,created_at ASC,id ASC LIMIT 500";
       if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
          while (sqlite3_step(st)==SQLITE_ROW) {
             dict *row=dict_new();
