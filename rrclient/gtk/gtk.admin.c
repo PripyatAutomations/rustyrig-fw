@@ -95,6 +95,7 @@ static GtkWidget *copy_user_tree;
 static GtkWidget *access_request_tree;
 static GtkListStore *access_request_store;
 static GtkWidget *access_request_tab_label;
+static GtkWidget *access_request_filter, *access_request_approve, *access_request_deny;
 static gboolean access_request_has_pending;
 static char access_request_profile[128];
 static GtkWidget *group_tree;
@@ -2212,6 +2213,43 @@ static void admin_access_refresh(GtkButton *button,gpointer user) {
    if (access_request_store) gtk_list_store_clear(access_request_store);
    admin_access_send("access-request-list",NULL,NULL);
 }
+static gboolean admin_access_visible(GtkTreeModel *model,GtkTreeIter *iter,gpointer user) {
+   (void)user;
+   const char *query=access_request_filter ? gtk_entry_get_text(GTK_ENTRY(access_request_filter)) : "";
+   if (!*query) return TRUE;
+   char *needle=g_utf8_casefold(query,-1);
+   gboolean match=FALSE;
+   for (int col=AR_ID;col<AR_COUNT && !match;col++) {
+      char *value=NULL;
+      gtk_tree_model_get(model,iter,col,&value,-1);
+      if (value) {
+         char *folded=g_utf8_casefold(value,-1);
+         match=strstr(folded,needle)!=NULL;
+         g_free(folded);
+      }
+      g_free(value);
+   }
+   g_free(needle);
+   return match;
+}
+static void admin_access_filter_changed(GtkEditable *editable,gpointer user) {
+   (void)editable;
+   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(user));
+}
+static void admin_access_selection_changed(GtkTreeSelection *selection,gpointer user) {
+   (void)user;
+   GtkTreeModel *model=NULL;
+   GtkTreeIter iter;
+   gboolean enabled=FALSE;
+   if (gtk_tree_selection_get_selected(selection,&model,&iter)) {
+      char *status=NULL;
+      gtk_tree_model_get(model,&iter,AR_STATUS,&status,-1);
+      enabled=!g_strcmp0(status,"pending");
+      g_free(status);
+   }
+   if (access_request_approve) gtk_widget_set_sensitive(access_request_approve,enabled);
+   if (access_request_deny) gtk_widget_set_sensitive(access_request_deny,enabled);
+}
 static void admin_access_age_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
                                     GtkTreeModel *model,GtkTreeIter *iter,gpointer user) {
    (void)column;(void)user;
@@ -2606,13 +2644,31 @@ GtkWidget *init_admin_tab(void) {
       GtkWidget *refresh=gtk_button_new_with_label("Refresh");
       GtkWidget *approve=gtk_button_new_with_label("Approve");
       GtkWidget *deny=gtk_button_new_with_label("Deny");
+      access_request_filter=gtk_search_entry_new();
+      gtk_entry_set_width_chars(GTK_ENTRY(access_request_filter),24);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(access_request_filter),"Filter requests…");
+      gtk_box_pack_start(GTK_BOX(actions),gtk_label_new("Filter:"),FALSE,FALSE,0);
+      gtk_box_pack_start(GTK_BOX(actions),access_request_filter,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(actions),refresh,FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(actions),approve,FALSE,FALSE,0);
-      gtk_box_pack_start(GTK_BOX(actions),deny,FALSE,FALSE,0);
+      GtkWidget *spacer=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);
+      gtk_box_pack_start(GTK_BOX(actions),spacer,TRUE,TRUE,0);
+      gtk_box_pack_end(GTK_BOX(actions),deny,FALSE,FALSE,0);
+      gtk_box_pack_end(GTK_BOX(actions),approve,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(page),actions,FALSE,FALSE,0);
+      access_request_approve=approve;
+      access_request_deny=deny;
+      gtk_widget_set_sensitive(approve,FALSE);
+      gtk_widget_set_sensitive(deny,FALSE);
       access_request_store=gtk_list_store_new(AR_COUNT,G_TYPE_STRING,G_TYPE_STRING,
          G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING);
-      access_request_tree=gtk_tree_view_new_with_model(GTK_TREE_MODEL(access_request_store));
+      GtkTreeModel *filtered=gtk_tree_model_filter_new(GTK_TREE_MODEL(access_request_store),NULL);
+      gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered),admin_access_visible,NULL,NULL);
+      g_signal_connect(access_request_filter,"changed",G_CALLBACK(admin_access_filter_changed),filtered);
+      access_request_tree=gtk_tree_view_new_with_model(filtered);
+      g_object_unref(filtered);
+      gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(access_request_tree)),GTK_SELECTION_SINGLE);
+      g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(access_request_tree)),
+                       "changed",G_CALLBACK(admin_access_selection_changed),NULL);
        gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(access_request_tree), TRUE);
       const char *headings[]={"ID","Requester","Rig / Room","Reason","Status","Age"};
       for (int col=0;col<AR_COUNT;col++) {
