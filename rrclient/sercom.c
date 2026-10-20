@@ -1219,7 +1219,8 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       int written=snprintf(path,sizeof(path),"%s/dev/%s",g_get_home_dir(),leaf);
       if (written<0 || (size_t)written>=sizeof(path)) goto failed;
    } else {
-      char *expanded = expand_path(configured);
+      char *expanded = g_str_has_prefix(configured,"~/") ?
+         g_build_filename(g_get_home_dir(),configured+2,NULL) : expand_path(configured);
 
       if (!expanded || strlen(expanded) >= sizeof(path)) {
          free(expanded);
