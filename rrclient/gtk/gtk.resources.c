@@ -1376,7 +1376,13 @@ static void resource_create(void) {
 
 
    GtkWidget *types=gtk_menu_button_new();
-   gtk_button_set_label(GTK_BUTTON(types),"Object types");
+   gtk_button_set_label(GTK_BUTTON(types),"Types");
+   gtk_menu_button_set_direction(GTK_MENU_BUTTON(types),GTK_ARROW_DOWN);
+   GtkWidget *arrow=gtk_image_new_from_icon_name("pan-down-symbolic",GTK_ICON_SIZE_BUTTON);
+   gtk_button_set_image(GTK_BUTTON(types),arrow);
+   gtk_button_set_image_position(GTK_BUTTON(types),GTK_POS_RIGHT);
+   gtk_button_set_always_show_image(GTK_BUTTON(types),TRUE);
+   gtk_widget_set_tooltip_text(types,"Filter Resource Explorer by object type (select multiple)");
    GtkWidget *type_popover=gtk_popover_new(types);
    GtkWidget *type_grid=gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(type_grid),3);
@@ -1402,6 +1408,8 @@ static void resource_create(void) {
    gtk_widget_show_all(type_popover);
    gtk_menu_button_set_popover(GTK_MENU_BUTTON(types),type_popover);
    gtk_box_pack_start(GTK_BOX(toolbar),types,FALSE,FALSE,0);
+   /* Search, then the multi-select type dropdown, before toolbar actions. */
+   gtk_box_reorder_child(GTK_BOX(toolbar),types,2);
    GtkWidget *ports = gtk_button_new_with_label("Local ports…");
    gtk_box_pack_start(GTK_BOX(toolbar), ports, FALSE, FALSE, 0);
    g_signal_connect(ports, "clicked", G_CALLBACK(resource_local_configure), NULL);
