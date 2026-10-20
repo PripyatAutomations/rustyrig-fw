@@ -1324,6 +1324,15 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
    gtk_box_pack_start(GTK_BOX(box), kind, FALSE, FALSE, 3);
    GtkWidget *resource = gtk_entry_new();
    gtk_entry_set_text(GTK_ENTRY(resource), "*");
+   if (selected_kind && !strcmp(selected_kind,"privilege") && selected_name) {
+      const char *separator=strchr(selected_name,':');
+      if (separator) {
+         char *scope=g_strndup(selected_name,separator-selected_name);
+         gtk_combo_box_set_active_id(GTK_COMBO_BOX(kind),scope);
+         gtk_entry_set_text(GTK_ENTRY(resource),separator+1);
+         g_free(scope);
+      }
+   }
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Resource name: * means all, or use rig0 / #room"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), resource, FALSE, FALSE, 3);
    GtkWidget *privilege = gtk_combo_box_text_new();
@@ -1331,8 +1340,16 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege), "rig.use", "Use rig");
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(privilege), "room.join", "Join room");
    gtk_combo_box_set_active(GTK_COMBO_BOX(privilege), 0);
+   if (selected_kind && !strcmp(selected_kind,"privilege") && selected_detail) {
+      const char *end=strchr(selected_detail,' ');
+      char *token=end ? g_strndup(selected_detail,end-selected_detail) : g_strdup(selected_detail);
+      gtk_combo_box_set_active_id(GTK_COMBO_BOX(privilege),token);
+      g_free(token);
+   }
    gtk_box_pack_start(GTK_BOX(box), privilege, FALSE, FALSE, 3);
    GtkWidget *effect = gtk_check_button_new_with_label("Deny instead of allow");
+   if (selected_detail && strstr(selected_detail,"(deny)"))
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(effect),TRUE);
    gtk_box_pack_start(GTK_BOX(box), effect, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
 
