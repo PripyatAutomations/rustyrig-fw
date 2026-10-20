@@ -1720,6 +1720,11 @@ static void admin_filter_changed(GtkEditable *editable,gpointer data) {
    (void)editable;
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
 }
+static void admin_privilege_selection(GtkTreeSelection *selection,gpointer user) {
+   GtkWidget *button=GTK_WIDGET(user);
+   gtk_widget_set_sensitive(button,
+      gtk_tree_selection_count_selected_rows(selection)>0);
+}
 static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
    admin_table_t *table = user;
    GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");
@@ -2424,7 +2429,7 @@ GtkWidget *init_admin_tab(void) {
       }
 
       if (!strcmp(table->name, "assignments")) {
-         GtkWidget *add = gtk_button_new_with_label("Add Privilege");
+         GtkWidget *add = gtk_button_new_with_label("Assign Privilege / Group…");
          g_signal_connect(add, "clicked", G_CALLBACK(admin_add_privilege), table);
          gtk_box_pack_start(GTK_BOX(buttons), add, FALSE, FALSE, 0);
 
@@ -2438,6 +2443,10 @@ GtkWidget *init_admin_tab(void) {
             GtkWidget *control=gtk_button_new_with_label(labels[n]);
             g_object_set_data(G_OBJECT(control),"privgroup-operation",(gpointer)ops[n]);
             g_signal_connect(control,"clicked",G_CALLBACK(admin_privgroup_edit),table);
+            if (!strcmp(ops[n],"privset-delete") || !strcmp(ops[n],"privset-unentry")) {
+               gtk_widget_set_sensitive(control,FALSE);
+               g_object_set_data(G_OBJECT(box),"rr-privilege-selection-button",control);
+            }
             gtk_box_pack_start(GTK_BOX(buttons),control,FALSE,FALSE,0);
          }
       }
@@ -2489,6 +2498,10 @@ GtkWidget *init_admin_tab(void) {
          admin_filter_visible,filter,NULL);
       g_signal_connect(filter,"changed",G_CALLBACK(admin_filter_changed),filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
+      GtkWidget *privilege_selection=g_object_get_data(G_OBJECT(box),"rr-privilege-selection-button");
+      if (privilege_selection)
+         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
+                          "changed",G_CALLBACK(admin_privilege_selection),privilege_selection);
       GtkWidget *disconnect=g_object_get_data(G_OBJECT(box),"rr-session-disconnect");
       if (disconnect) g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
          "changed",G_CALLBACK(admin_session_selection),disconnect);
