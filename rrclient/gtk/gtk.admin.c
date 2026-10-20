@@ -1804,6 +1804,20 @@ GtkWidget *init_admin_tab(void) {
          } else {
             gtk_tree_view_column_add_attribute(column, renderer, "text", field);
          }
+         /* Fixed column requisitions prevent long database values from
+          * widening the notebook. Text wraps and GTK sizes rows naturally. */
+         if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
+            g_object_set(renderer,
+               "wrap-mode", PANGO_WRAP_WORD_CHAR,
+               "wrap-width", 112,
+               "ellipsize", PANGO_ELLIPSIZE_NONE,
+               "single-paragraph-mode", FALSE, NULL);
+         }
+         gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+         gtk_tree_view_column_set_fixed_width(column, (users && field == 2) ? 165 :
+            (users && field == 3) ? 180 : quotas ? 110 :
+            !strcmp(table->name, "rooms") ? 145 : 125);
+         gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_column_set_expand(column, (users && field == 2) || ((!strcmp(table->name, "rooms") || quotas) && field == 0));
 
