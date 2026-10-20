@@ -28,6 +28,27 @@ static char *edit_privileges(GtkWindow *parent, const char *server, const char *
 
    char **existing = g_strsplit(current ? current : "", ",", -1);
 
+   /* Old databases may contain unsupported nested references. Do not hide
+    * them and silently erase them when the operator clicks Apply. */
+   if (group_mode) {
+      for (char **item = existing ; *item ; item++) {
+         if (**item == '@') {
+            GtkWidget *warning = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
+               GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE,
+               "Group %s contains the nested group reference %s",name,*item);
+            gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(warning),
+               "Nested groups are not supported. Remove the legacy entry before editing this group.");
+            gtk_dialog_run(GTK_DIALOG(warning));
+            gtk_widget_destroy(warning);
+            g_strfreev(existing);
+            g_list_free_full(names,g_free);
+            g_hash_table_destroy(selected);
+            gtk_widget_destroy(dialog);
+            return NULL;
+         }
+      }
+   }
+
    for (char **item = existing ; *item ; item++) {
       if (!**item || !g_ascii_strcasecmp(*item, "none")) {
          continue;
