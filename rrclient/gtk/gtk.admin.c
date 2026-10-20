@@ -2056,40 +2056,7 @@ GtkWidget *init_admin_tab(void) {
       GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
       gtk_container_add(GTK_CONTAINER(scroll), table->tree);
-      if (!strcmp(table->name,"assignments")) {
-         GtkWidget *split=gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-         gtk_widget_set_vexpand(split,TRUE);
-         gtk_paned_pack1(GTK_PANED(split),scroll,TRUE,FALSE);
-         GtkWidget *bottom=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
-         GtkWidget *group_label=gtk_label_new("Groups — privileges and member users");
-         gtk_label_set_xalign(GTK_LABEL(group_label),0);
-         gtk_box_pack_start(GTK_BOX(bottom),group_label,FALSE,FALSE,0);
-         group_store=gtk_tree_store_new(GROUP_COUNT,G_TYPE_STRING,G_TYPE_STRING,
-                                         G_TYPE_STRING,G_TYPE_STRING);
-         group_tree=gtk_tree_view_new_with_model(GTK_TREE_MODEL(group_store));
-         const char *headings[]={"Group / Privilege / Member","Details"};
-         for (int col=0;col<2;col++) {
-            GtkCellRenderer *cell=gtk_cell_renderer_text_new();
-            g_object_set(cell,"wrap-mode",PANGO_WRAP_WORD_CHAR,"wrap-width",250,NULL);
-            GtkTreeViewColumn *heading=gtk_tree_view_column_new_with_attributes(
-               headings[col],cell,"text",col,NULL);
-            gtk_tree_view_column_set_resizable(heading,TRUE);
-            gtk_tree_view_column_set_expand(heading,TRUE);
-            gtk_tree_view_append_column(GTK_TREE_VIEW(group_tree),heading);
-         }
-         GtkWidget *group_scroll=gtk_scrolled_window_new(NULL,NULL);
-         gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(group_scroll),
-                                         GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
-         gtk_container_add(GTK_CONTAINER(group_scroll),group_tree);
-         gtk_box_pack_start(GTK_BOX(bottom),group_scroll,TRUE,TRUE,0);
-         GtkWidget *group_actions=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
-         GtkWidget *manage=gtk_button_new_with_label("Add / Edit / Remove Group Entry…");
-         g_signal_connect(manage,"clicked",G_CALLBACK(admin_manage_groups),table);
-         gtk_box_pack_start(GTK_BOX(group_actions),manage,FALSE,FALSE,0);
-         gtk_box_pack_start(GTK_BOX(bottom),group_actions,FALSE,FALSE,0);
-         gtk_paned_pack2(GTK_PANED(split),bottom,TRUE,FALSE);
-         gtk_box_pack_start(GTK_BOX(box),split,TRUE,TRUE,0);
-      } else gtk_box_pack_start(GTK_BOX(box),scroll,TRUE,TRUE,0);
+      gtk_box_pack_start(GTK_BOX(box),scroll,TRUE,TRUE,0);
       g_signal_connect(box, "destroy", G_CALLBACK(admin_table_destroy), table);
 
       gboolean grant_table=!strcmp(table->name,"assignments") || !strcmp(table->name,"grants");
