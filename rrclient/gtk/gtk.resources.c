@@ -30,7 +30,9 @@ typedef struct {
    uint64_t requested_at, irc_updated_at;
 } resource_branch;
 typedef struct {
-   GtkWidget *window, *page, *panel, *dock_button, *tree, *status, *details, *buttons[BUTTONS];
+   GtkWidget *page, *panel, *tree, *status, *details, *buttons[BUTTONS];
+   GtkTreeModelFilter *filter;
+   GHashTable *enabled_kinds;
    GtkTreeStore *store;
    GtkTreeIter local_root;
    GHashTable *branches, *local_rows;
@@ -48,6 +50,11 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
 static GtkWindow *resource_parent(void);
+static GtkTreePath *resource_view_path(GtkTreePath *child_path) {
+   if (!child_path || !browser) return NULL;
+   if (!browser->filter) return gtk_tree_path_copy(child_path);
+   return gtk_tree_model_filter_convert_child_path_to_path(browser->filter,child_path);
+}
 
 static void branch_free(gpointer data) {
    resource_branch *branch = data;
@@ -1173,82 +1180,16 @@ static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *rende
 }
 
 static GtkWindow *resource_parent(void) {
-   if (browser && browser->window) {
-      return GTK_WINDOW(browser->window);
-   }
    gui_window_t *main = gui_find_window(NULL, "main");
 
    return main && main->gtk_win ? GTK_WINDOW(main->gtk_win) : NULL;
 }
-static void resource_dock(void) {
-   if (!browser || !browser->window || !main_notebook) {
-      return;
-   }
-   GtkWidget *window = browser->window;
-   g_object_ref(browser->panel);
-   gtk_container_remove(GTK_CONTAINER(window), browser->panel);
-   gtk_box_pack_start(GTK_BOX(browser->page), browser->panel, TRUE, TRUE, 0);
-   g_object_unref(browser->panel);
-   browser->window = NULL;
-   gtk_button_set_label(GTK_BUTTON(browser->dock_button), "Pop out");
-   gtk_widget_show_all(browser->page);
-   gtk_widget_destroy(window);
-}
-static gboolean resource_window_delete(GtkWidget *widget, GdkEvent *event, gpointer unused) {
-   (void)widget;
-   (void)event;
-   (void)unused;
-   resource_dock();
-
-   return TRUE;
-}
-static void resource_toggle_dock(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
-
-   if (!browser || !main_notebook) {
-      return;
-   }
-
-   if (browser->window) {
-      resource_dock();
-
-      return;
-   }
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(window), "Resource Explorer");
-   gtk_window_set_default_size(GTK_WINDOW(window), 1120, 720);
-   gui_window_t *main = gui_find_window(NULL, "main");
-
-   if (main && main->gtk_win) {
-      gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main->gtk_win));
-   }
-   browser->window = window;
-   g_object_ref(browser->panel);
-   gtk_container_remove(GTK_CONTAINER(browser->page), browser->panel);
-   gtk_container_add(GTK_CONTAINER(window), browser->panel);
-   g_object_unref(browser->panel);
-   gtk_button_set_label(GTK_BUTTON(browser->dock_button), "Dock");
-   g_signal_connect(window, "delete-event", G_CALLBACK(resource_window_delete), NULL);
-   gtk_widget_show_all(window);
-   gtk_window_present(GTK_WINDOW(window));
-}
 static void resource_present(void) {
-   if (!browser) {
-      return;
-   }
-
-   if (browser->window) {
-      gtk_window_present(GTK_WINDOW(browser->window));
-   } else if (main_notebook && browser->page) {
-      gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), browser->page);
-
-      if (page >= 0) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
-      }
+   if (browser && main_notebook && browser->page) {
+      gint page=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),browser->page);
+      if (page>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),page);
    }
 }
-
 /* Initialize against the actual notebook allocation, not a fixed standalone window height. Only do this once; later splitter dragging is user-owned. */
 static void resource_initial_split(GtkWidget *widget, GtkAllocation *allocation, gpointer unused) {
    (void)unused;
@@ -1302,11 +1243,56 @@ static gboolean resource_search_equal(GtkTreeModel *model, gint column, const gc
 
    return no_match;
 }
+/* Filter underlying inventory locally. Ancestors remain visible when a
+ * descendant matches, preserving the server/room/resource hierarchy. */
+static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
+   char *kind=NULL;
+   gtk_tree_model_get(model,iter,KIND,&kind,-1);
+   gboolean match=g_hash_table_contains(browser->enabled_kinds,kind ? kind : "");
+   if (!match && !g_hash_table_contains(browser->enabled_kinds,"other")) {
+      /* Unknown types belong to the optional Other bucket. */
+      static const char *known[]={"local","local-port","device","attachment","server",
+         "site","rig","vfo","room","irc-channel","media","gps","control",
+         "serial","file","bridge"};
+      gboolean known_kind=FALSE;
+      for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
+         if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
+      if (!known_kind) match=FALSE;
+   } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
+      static const char *known[]={"local","local-port","device","attachment","server",
+         "site","rig","vfo","room","irc-channel","media","gps","control",
+         "serial","file","bridge"};
+      gboolean known_kind=FALSE;
+      for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
+         if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
+      match=!known_kind;
+   }
+   g_free(kind);
+   if (match) return TRUE;
+   GtkTreeIter child;
+   for (gboolean more=gtk_tree_model_iter_children(model,&child,iter);
+        more;more=gtk_tree_model_iter_next(model,&child))
+      if (resource_type_match(model,&child)) return TRUE;
+   return FALSE;
+}
+static gboolean resource_type_visible(GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+   (void)unused;
+   return resource_type_match(model,iter);
+}
+static void resource_type_changed(GtkCheckMenuItem *item,gpointer data) {
+   if (!browser || !browser->filter) return;
+   const char *type=data;
+   if (gtk_check_menu_item_get_active(item))
+      g_hash_table_add(browser->enabled_kinds,g_strdup(type));
+   else g_hash_table_remove(browser->enabled_kinds,type);
+   gtk_tree_model_filter_refilter(browser->filter);
+}
 static void resource_create(void) {
    if (browser) {
       return;
    }
    browser = g_new0(resource_browser, 1);
+   browser->enabled_kinds=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -1340,9 +1326,29 @@ static void resource_create(void) {
       }
    }
 
-   browser->dock_button = gtk_button_new_with_label("Pop out");
-   gtk_box_pack_start(GTK_BOX(toolbar), browser->dock_button, FALSE, FALSE, 0);
-   g_signal_connect(browser->dock_button, "clicked", G_CALLBACK(resource_toggle_dock), NULL);
+
+   GtkWidget *types=gtk_menu_button_new();
+   gtk_button_set_label(GTK_BUTTON(types),"Object types");
+   GtkWidget *type_menu=gtk_menu_new();
+   static const struct {const char *type,*label;} choices[]={
+      {"site","Sites"},{"server","Servers"},{"rig","Rigs"},{"vfo","VFOs"},
+      {"room","Rooms"},{"irc-channel","IRC channels"},{"media","Media"},
+      {"gps","GPS"},{"control","Controls"},{"serial","Serial"},
+      {"file","Files"},{"bridge","Bridges"},{"local","Local resources"},
+      {"local-port","Local ports"},{"device","Devices"},{"attachment","Attachments"},
+      {"other","Other types"}
+   };
+   for (unsigned i=0;i<G_N_ELEMENTS(choices);i++) {
+      g_hash_table_add(browser->enabled_kinds,g_strdup(choices[i].type));
+      GtkWidget *check=gtk_check_menu_item_new_with_label(choices[i].label);
+      gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(check),TRUE);
+      g_signal_connect(check,"toggled",G_CALLBACK(resource_type_changed),
+                       (gpointer)choices[i].type);
+      gtk_menu_shell_append(GTK_MENU_SHELL(type_menu),check);
+   }
+   gtk_widget_show_all(type_menu);
+   gtk_menu_button_set_popup(GTK_MENU_BUTTON(types),type_menu);
+   gtk_box_pack_start(GTK_BOX(toolbar),types,FALSE,FALSE,0);
    GtkWidget *ports = gtk_button_new_with_label("Local ports…");
    gtk_box_pack_start(GTK_BOX(toolbar), ports, FALSE, FALSE, 0);
    g_signal_connect(ports, "clicked", G_CALLBACK(resource_local_configure), NULL);
@@ -1359,7 +1365,9 @@ static void resource_create(void) {
    }
 
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser->store), NAME, GTK_SORT_ASCENDING);
-   browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->store));
+   browser->filter=GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(browser->store),NULL));
+   gtk_tree_model_filter_set_visible_func(browser->filter,resource_type_visible,NULL,NULL);
+   browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->filter));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
    gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 0);
    gtk_tree_view_set_search_column(GTK_TREE_VIEW(browser->tree), NAME);
@@ -1399,7 +1407,9 @@ static void resource_create(void) {
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
    gtk_tree_store_set(browser->store, &browser->local_root, NAME, "This Client", KIND, "local", STATE, "Local resources", -1);
    GtkTreePath *local_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &browser->local_root);
-   gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), local_path, FALSE);
+   GtkTreePath *local_visible=resource_view_path(local_path);
+   if (local_visible) gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),local_visible,FALSE);
+   if (local_visible) gtk_tree_path_free(local_visible);
    gtk_tree_path_free(local_path);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1789,9 +1799,6 @@ void gtk_resources_shutdown(void) {
    show_token = row_token = open_token = NULL;
 
    if (browser) {
-      if (browser->window) {
-         resource_dock();
-      }
       gtk_widget_destroy(browser->page);
    }
 }
