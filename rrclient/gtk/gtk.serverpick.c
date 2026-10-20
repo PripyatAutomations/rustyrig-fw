@@ -1,28 +1,5 @@
 //
 
-/* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
-static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
-                               GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
-   (void)unused;
-   GtkWidget *view=g_object_get_data(G_OBJECT(column),"rr-zebra-view");
-   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
-   gboolean odd=index && (index[0] & 1);
-   gboolean selected=view && path && gtk_tree_selection_path_is_selected(
-      gtk_tree_view_get_selection(GTK_TREE_VIEW(view)),path);
-   if (odd && !selected && view) {
-      GtkStyleContext *style=gtk_widget_get_style_context(view);
-      GdkRGBA base,ink,shade;
-      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
-      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
-      shade.red=base.red*0.915+ink.red*0.085;
-      shade.green=base.green*0.915+ink.green*0.085;
-      shade.blue=base.blue*0.915+ink.blue*0.085;
-      shade.alpha=1.0;
-      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
-   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
-   if (path) gtk_tree_path_free(path);
-}
 // rrclient/gtk/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c
 // dialog
 //    This is part of rustyrig-fw.
@@ -47,6 +24,31 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.serverpick.h>
+
+/* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
+static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
+                               GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+   (void)unused;
+   GtkWidget *view=g_object_get_data(G_OBJECT(column),"rr-zebra-view");
+   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd=index && (index[0] & 1);
+   gboolean selected=view && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(view)),path);
+   if (odd && !selected && view) {
+      GtkStyleContext *style=gtk_widget_get_style_context(view);
+      GdkRGBA base,ink,shade;
+      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
+      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
+      shade.red=base.red*0.915+ink.red*0.085;
+      shade.green=base.green*0.915+ink.green*0.085;
+      shade.blue=base.blue*0.915+ink.blue*0.085;
+      shade.alpha=1.0;
+      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
+   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
+   if (path) gtk_tree_path_free(path);
+}
+
 
 extern void on_toggle_userlist_clicked(GtkButton *button, gpointer user_data);
 extern dict *cfg;
