@@ -1448,7 +1448,7 @@ static GtkWidget *userlist_panel_create(void) {
 
    cul_view = userlist_view_create();
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), cul_view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
    g_signal_connect(userlist_dock_button, "clicked", G_CALLBACK(on_userlist_dock_clicked), NULL);
@@ -1508,7 +1508,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    userlist_view_set_server(view, entry->server);
    userlist_set_columns(view, room);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
    entry->panel = panel;
@@ -1528,7 +1528,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
       entry->refresh_id = g_timeout_add(500, room_vfo_refresh, entry);
    }
    g_signal_connect(entry->dock_button, "clicked", G_CALLBACK(on_room_userlist_dock_clicked), entry);
-   gtk_paned_pack2(paned, panel, FALSE, TRUE);
+   gtk_paned_pack2(paned, panel, TRUE, TRUE);
    g_signal_connect(paned, "button-press-event", G_CALLBACK(room_userlist_resize_started), entry);
    g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), entry);
    g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), entry);
