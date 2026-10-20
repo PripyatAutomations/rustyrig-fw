@@ -1563,6 +1563,10 @@ static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
    copy_user_store=NULL;
 }
 /* PARITY: rustyrig-www/js/webui.admin.js adminCreateUser. The server owns validation, privilege checks, auditing and temporary password generation. */
+static void admin_create_privilege_button(GtkButton *button, gpointer dialog) {
+   (void)button;
+   gtk_dialog_response(GTK_DIALOG(dialog),1003);
+}
 static void admin_create_user(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -1578,6 +1582,16 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    g_free(context);
    GtkWidget *name = gtk_entry_new(), *privileges = gtk_entry_new(), *error = gtk_label_new("");
    GtkWidget *email=gtk_entry_new(),*real=gtk_entry_new(),*phone=gtk_entry_new();
+   GtkWidget *max_clones=gtk_spin_button_new_with_range(1,64,1);
+   GtkWidget *password_change=gtk_check_button_new_with_label("Password change required at first login");
+   GtkWidget *priv_summary=gtk_label_new("view, chat");
+   gtk_label_set_xalign(GTK_LABEL(priv_summary),0);
+   gtk_widget_set_sensitive(max_clones,FALSE);
+   gtk_widget_set_tooltip_text(max_clones,"Future option; currently one session");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(password_change),TRUE);
+   gtk_widget_set_sensitive(password_change,FALSE);
+   gtk_widget_set_tooltip_text(password_change,"Temporary passwords always expire and require a change");
+   gtk_widget_set_no_show_all(privileges,TRUE);
    gtk_entry_set_max_length(GTK_ENTRY(email),254);
    gtk_entry_set_max_length(GTK_ENTRY(real),128);
    gtk_entry_set_max_length(GTK_ENTRY(phone),64);
@@ -1586,20 +1600,31 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_entry_set_text(GTK_ENTRY(privileges), "view,chat");
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Username"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), name, FALSE, FALSE, 3);
-   gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Privileges"), FALSE, FALSE, 3);
-   gtk_box_pack_start(GTK_BOX(box), privileges, FALSE, FALSE, 3);
+
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Email (public contact)"),FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),email,FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Real name"),FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),real,FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Phone (public contact)"),FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box),phone,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Max Clones (coming soon)"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),max_clones,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),password_change,FALSE,FALSE,3);
+   GtkWidget *priv_row=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,8);
+   GtkWidget *priv_button=gtk_button_new_with_label("Edit");
+   gtk_box_pack_start(GTK_BOX(priv_row),gtk_label_new("Privileges"),FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(priv_row),priv_summary,TRUE,TRUE,0);
+   gtk_box_pack_end(GTK_BOX(priv_row),priv_button,FALSE,FALSE,0);
+   gtk_box_pack_start(GTK_BOX(box),priv_row,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),privileges,FALSE,FALSE,0);
+   g_signal_connect(priv_button,"clicked",G_CALLBACK(admin_create_privilege_button),dialog);
    gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
    int response;
    while ((response = gtk_dialog_run(GTK_DIALOG(dialog))) == GTK_RESPONSE_OK || response == 1003 || response == 1004) {
       if (response == 1004) {
          admin_copy_user(dialog,table,email,real,phone,privileges);
+          gtk_label_set_text(GTK_LABEL(priv_summary),gtk_entry_get_text(GTK_ENTRY(privileges)));
          continue;
       }
       if (response == 1003) {
@@ -1607,12 +1632,16 @@ static void admin_create_user(GtkButton *button, gpointer data) {
 
          if (edited) {
             gtk_entry_set_text(GTK_ENTRY(privileges), edited);
+             gtk_label_set_text(GTK_LABEL(priv_summary),edited);
          }
          g_free(edited);
          continue;
       }
       const char *username = gtk_entry_get_text(GTK_ENTRY(name));
-      const char *permissions = gtk_entry_get_text(GTK_ENTRY(privileges));
+      char *permissions = g_strdup(gtk_entry_get_text(GTK_ENTRY(privileges)));
+      char *dst=permissions;
+      for (const char *src=permissions;*src;src++) if (!g_ascii_isspace(*src)) *dst++=*src;
+      *dst=0;
       bool valid = *username != 0;
 
       for (const unsigned char *p = (const unsigned char *)username ; *p ; p++) {
@@ -1621,11 +1650,13 @@ static void admin_create_user(GtkButton *button, gpointer data) {
          }
       }
 
-      if (!valid || !*permissions || strpbrk(permissions, " \t\r\n\v\f")) {
-         gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and a comma-separated privilege list without spaces.");
+      if (!valid || !*permissions) {
+         gtk_label_set_text(GTK_LABEL(error), "Enter a valid username and choose privileges using Edit.");
+         g_free(permissions);
          continue;
       }
       char *request = g_strdup_printf("add %s %s", username, permissions);
+      g_free(permissions);
       rrconn_t *connection=rrclient_connection_find(table->profile);
       bool sent=false;
       if (connection && connection->authenticated) {
@@ -1650,6 +1681,37 @@ static void admin_create_user(GtkButton *button, gpointer data) {
       break;
    }
    gtk_widget_destroy(dialog);
+}
+static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+                                 GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   (void)column;
+   int field = GPOINTER_TO_INT(user);
+   char *value = NULL;
+   gtk_tree_model_get(model,iter,field,&value,-1);
+   g_object_set(renderer,"active",value &&
+      (!strcmp(value,"1") || !g_ascii_strcasecmp(value,"true")),NULL);
+   g_free(value);
+}
+static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
+   admin_table_t *table = user;
+   GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");
+   GtkTreeIter iter;
+   GtkTreeModel *model = NULL;
+   gboolean selected = gtk_tree_selection_get_selected(selection, &model, &iter);
+   gboolean deleted = FALSE;
+   if (selected && !strcmp(table->name, "rooms")) {
+      char *state = NULL;
+      gtk_tree_model_get(model, &iter, 2, &state, -1);
+      deleted = state && (!strcmp(state,"1") || !g_ascii_strcasecmp(state,"true"));
+      g_free(state);
+   }
+   if (!buttons) return;
+   for (guint i = 0; i < buttons->len; ++i) {
+      GtkWidget *button = g_ptr_array_index(buttons, i);
+      const char *action = g_object_get_data(G_OBJECT(button), "action");
+      gtk_widget_set_sensitive(button, selected &&
+         !(deleted && action && !strcmp(action,"edit")));
+   }
 }
 static void admin_action(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
@@ -2055,7 +2117,7 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
          gtk_dialog_run(GTK_DIALOG(dialog));
          gtk_widget_destroy(dialog);
       } else if (!strcmp(action, "changed")) {
-         gtk_label_set_text(GTK_LABEL(table->status), "Account saved");
+         gtk_label_set_text(GTK_LABEL(table->status), !strcmp(table->name,"rooms") ? "Room updated" : "Account saved");
          admin_command(table, "admin", table->name, NULL);
       } else if (!strcmp(action, "begin")) {
          if (!dict_get_bool(row, "append", false)) {
@@ -2301,6 +2363,8 @@ GtkWidget *init_admin_tab(void) {
          gtk_box_pack_start(GTK_BOX(buttons), create, FALSE, FALSE, 0);
       }
 
+      GPtrArray *selection_buttons = NULL;
+      if (i < 2) selection_buttons = g_ptr_array_new();
       if (i < 3) {
          const char *labels[] = {
             "Edit", i == 0 ? "Lock" : "Remove", i == 0 ? "Unlock" : "Restore", "Remove", "Reset PW", "Edit Privs"
@@ -2320,13 +2384,23 @@ GtkWidget *init_admin_tab(void) {
             GtkWidget *button = gtk_button_new_with_label(labels[n]);
             g_object_set_data(G_OBJECT(button), "action", (gpointer) actions[n]);
             g_signal_connect(button, "clicked", G_CALLBACK(admin_action), table);
+            if (selection_buttons) {
+               gtk_widget_set_sensitive(button,FALSE);
+               g_ptr_array_add(selection_buttons,button);
+            }
             gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
          }
       }
+      gtk_widget_set_halign(buttons,GTK_ALIGN_END);
       gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       table->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(table->store));
+      if (selection_buttons) {
+         g_object_set_data_full(G_OBJECT(table->tree),"selection-buttons",selection_buttons,(GDestroyNotify)g_ptr_array_unref);
+         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
+            "changed",G_CALLBACK(admin_action_selection),table);
+      }
        gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(table->tree), TRUE);
       g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_uuid_menu),table);
 
@@ -2336,6 +2410,8 @@ GtkWidget *init_admin_tab(void) {
       const char *user_titles[] = {
          "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
       };
+      const int room_order[] = {0,3,2,4,5,1};
+      const char *room_titles[] = {"Name","Topic","Deleted","Has VFOs","VFO mask","UUID"};
       const int ptt_order[] = {
          0, 9, 1, 2, 3, 4, 5, 6, 7, 8
       };
@@ -2347,17 +2423,21 @@ GtkWidget *init_admin_tab(void) {
       };
       bool users = !strcmp(table->name, "users");
       bool quotas = !strcmp(table->name, "quotas"), ptt = !strcmp(table->name, "ptt");
+      bool rooms = !strcmp(table->name,"rooms");
 
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
-         int field = users ? user_order[col] : ptt ? ptt_order[col] : col;
-         bool flag = users && (field == 1 || field == 7);
+         int field = users ? user_order[col] : ptt ? ptt_order[col] : rooms ? room_order[col] : col;
+         bool flag = (users && (field == 1 || field == 7)) || (rooms && (field == 2 || field == 4));
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
-         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : table->fields[col]);
+         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
-         if (users && (flag || field == 5 || field == 6)) {
+         if (rooms && flag) {
+            g_object_set(renderer,"activatable",FALSE,NULL);
+            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_room_flag_cell,GINT_TO_POINTER(field),NULL);
+         } else if (users && (flag || field == 5 || field == 6)) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
          } else if (!strcmp(table->name, "sessions") && field == 5) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_session_cell, NULL, NULL);
@@ -2385,13 +2465,13 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
          gtk_tree_view_column_set_fixed_width(column, (users && field == 2) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
-            !strcmp(table->name, "rooms") ? 145 :
+            rooms ? (field == 0 ? 115 : field == 3 ? 275 : field == 1 ? 250 : 95) :
             (!strcmp(table->name,"audit") && field==4) ? 420 :
              (!strcmp(table->name,"sessions") && field==0) ? 280 : 125);
          gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_column_set_expand(column, (users && field == 2) ||
-            ((!strcmp(table->name, "rooms") || quotas) && field == 0) ||
+            ((rooms && field == 3) || (quotas && field == 0)) ||
             (!strcmp(table->name,"audit") && field == 4));
          if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
             g_signal_connect(column,"notify::width",G_CALLBACK(admin_column_wrap_width),renderer);
