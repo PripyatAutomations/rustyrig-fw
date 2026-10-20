@@ -240,8 +240,10 @@ static void terminal_session_destroy(GtkWidget *widget, gpointer data) {
 /* Release per-page event listeners before ws_fini() emits disconnects. */
 void gtk_terminal_shutdown(void) {
    if (terminal_notebook && GTK_IS_NOTEBOOK(terminal_notebook)) {
-      while (gtk_notebook_get_n_pages(GTK_NOTEBOOK(terminal_notebook)) > 0)
-         gtk_notebook_remove_page(GTK_NOTEBOOK(terminal_notebook), 0);
+      while (gtk_notebook_get_n_pages(GTK_NOTEBOOK(terminal_notebook)) > 0) {
+         GtkWidget *page=gtk_notebook_get_nth_page(GTK_NOTEBOOK(terminal_notebook),0);
+         gtk_widget_destroy(page);  /* Runs terminal_session_destroy synchronously. */
+      }
    }
    terminal_notebook=NULL;
    terminal_root=NULL;
