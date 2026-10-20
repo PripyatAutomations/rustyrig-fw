@@ -2405,7 +2405,7 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_uuid_menu),table);
 
       const int user_order[] = {
-         8, 1, 0, 3, 4, 5, 6, 2, 7
+         8, 1, 0, 3, 4, 5, 6, 2, 7, 9
       };
       const char *user_titles[] = {
          "UID", "Enabled", "Name", "Email", "MaxClones", "Pass Set", "Pass Exp", "Privileges", "Chg Req", "Full Rig Access"
