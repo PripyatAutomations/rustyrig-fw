@@ -6,8 +6,8 @@
 # fwdsp uses the shared [fwdsp]/[pipelines] config callbacks from
 # librrprotocol, but does not use libfwdspmgr itself at runtime.
 
-CFLAGS_FWDSP := ${CFLAGS} -I${BUILD_DIR} ${gst_cflags}
-LDFLAGS_FWDSP := ${LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lpthread -lrrprotocol
+CFLAGS_FWDSP = ${MEDIA_CFLAGS} -I${BUILD_DIR} ${gst_cflags}
+LDFLAGS_FWDSP = ${MEDIA_LDFLAGS} -L. -lrustyaxe ${gst_ldflags} -lpthread -lrrprotocol
 fwdsp := bin/fwdsp
 bins += ${fwdsp}
 
@@ -20,7 +20,7 @@ ${BUILD_DIR}/fwdsp/%.o: fwdsp/%.c ${BUILD_HEADERS} GNUmakefile fwdsp/rules.mk ${
 	@${RM} -f $@
 	@mkdir -p $(dir $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_FWDSP} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+	@${CC} ${CFLAGS_FWDSP} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
 
 bin/fwdsp: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${fwdsp_real_objs}
 	@mkdir -p $(dir $@)
@@ -34,4 +34,4 @@ ${BUILD_DIR}/fwdsp/cfg.fwdsp.o: librrprotocol/cfg.fwdsp.c GNUmakefile fwdsp/rule
 	@${RM} -f $@
 	@mkdir -p $(dir $@)
 	@echo "[compile] $< => $@"
-	@${CC} ${CFLAGS_FWDSP} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
+	@${CC} ${CFLAGS_FWDSP} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $<
