@@ -4,9 +4,11 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/test-env.sh"
 source "$rr_test_root/tools/test-sanitizers.sh"
 
 sanitizer=plain
+media_san=false
 debugger=
 for option in "$@"; do
     case "$option" in
+        media-san) media_san=true ;;
         asan|ubsan|san)
             if [[ "$sanitizer" != plain && "$sanitizer" != "$option" ]]; then
                 echo "Choose one of asan, ubsan or san (combined)." >&2; exit 2
@@ -18,7 +20,7 @@ for option in "$@"; do
             fi
             debugger=$option ;;
         -h|--help|help)
-            echo "Usage: $0 [gdb|valgrind] [asan|ubsan|san]"
+            echo "Usage: $0 [gdb|valgrind] [asan|ubsan|san] [media-san]"
             echo "san runs both sanitizers; switching modes rebuilds the active source tree."
             exit 0 ;;
         *)
@@ -29,7 +31,7 @@ done
 if [[ "$sanitizer" != plain && "$debugger" == valgrind ]]; then
     echo "Valgrind and sanitizer instrumentation cannot be combined." >&2; exit 2
 fi
-rr_test_prepare_build "$sanitizer"
+rr_test_prepare_build "$sanitizer" "$media_san"
 rr_test_config=$(python3 tools/test-config.py "$rr_test_root" rrserver)
 server_args=(-f "$rr_test_config")
 case "$debugger" in
