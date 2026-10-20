@@ -1214,13 +1214,18 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       configured = cfg_get("cat.pty.path");
    }
 
-   if (!configured || g_str_has_prefix(configured,"./dev/")) {
-      const char *leaf=configured ? configured+6 : name;
-      int written=snprintf(path,sizeof(path),"%s/dev/%s",g_get_home_dir(),leaf);
+   if (!configured) {
+      int written=snprintf(path,sizeof(path),"%s/dev/%s",g_get_home_dir(),name);
       if (written<0 || (size_t)written>=sizeof(path)) goto failed;
    } else {
-      char *expanded = g_str_has_prefix(configured,"~/") ?
-         g_build_filename(g_get_home_dir(),configured+2,NULL) : expand_path(configured);
+      const char *home=g_get_home_dir();
+      char *expanded=NULL;
+      if (g_str_has_prefix(configured,"$HOME/"))
+         expanded=g_build_filename(home,configured+6,NULL);
+      else if (!strcmp(configured,"$HOME"))
+         expanded=g_strdup(home);
+      else
+         expanded=expand_path(configured);
 
       if (!expanded || strlen(expanded) >= sizeof(path)) {
          free(expanded);
