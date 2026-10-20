@@ -830,19 +830,54 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
       const char *reason=dict_get(request,"request.reason","");
       if ((!strcmp(kind,"rig") || !strcmp(kind,"room")) &&
           rr_object_uuid_valid(uuid) && strlen(reason)>0 && strlen(reason)<=2048) {
+         gboolean ok=sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
          sqlite3_stmt *st=NULL;
-         const char *sql="INSERT INTO access_requests(subject_user,subject_host,resource_kind,resource_uuid,reason) VALUES(?1,'',?2,?3,?4)";
-         if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
-            sqlite3_bind_text(st,1,client->chatname,-1,SQLITE_TRANSIENT);
-            sqlite3_bind_text(st,2,kind,-1,SQLITE_TRANSIENT);
-            sqlite3_bind_text(st,3,uuid,-1,SQLITE_TRANSIENT);
-            sqlite3_bind_text(st,4,reason,-1,SQLITE_TRANSIENT);
-            if (sqlite3_step(st)==SQLITE_DONE) {
-               rrserver_admin_send(client,"access-requests","submitted",NULL);
-               db_add_audit_event(masterdb,client->chatname,"access.request",kind);
-            } else ws_send_error(client,"Unable to save access request");
-         } else ws_send_error(client,"Unable to prepare access request");
-         sqlite3_finalize(st);
+         sqlite3_int64 request_id=0;
+         if (ok) {
+            ok=sqlite3_prepare_v2(masterdb,"SELECT id FROM access_requests WHERE subject_user=?1 COLLATE NOCASE AND subject_host='' AND status='pending' LIMIT 1",-1,&st,NULL)==SQLITE_OK;
+            if (ok) {
+               sqlite3_bind_text(st,1,client->chatname,-1,SQLITE_TRANSIENT);
+               int rc=sqlite3_step(st);
+               if (rc==SQLITE_ROW) request_id=sqlite3_column_int64(st,0);
+               else if (rc!=SQLITE_DONE) ok=FALSE;
+            }
+            sqlite3_finalize(st); st=NULL;
+         }
+         if (ok) {
+            const char *sql=request_id ?
+               "UPDATE access_requests SET reason=?1,created_at=unixepoch(),resource_kind=?2,resource_uuid=?3 WHERE id=?4" :
+               "INSERT INTO access_requests(reason,resource_kind,resource_uuid,subject_user,subject_host) VALUES(?1,?2,?3,?4,'')";
+            ok=sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK;
+            if (ok) {
+               sqlite3_bind_text(st,1,reason,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,2,kind,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,3,uuid,-1,SQLITE_TRANSIENT);
+               if (request_id) sqlite3_bind_int64(st,4,request_id);
+               else sqlite3_bind_text(st,4,client->chatname,-1,SQLITE_TRANSIENT);
+               ok=sqlite3_step(st)==SQLITE_DONE;
+               if (ok && !request_id) request_id=sqlite3_last_insert_rowid(masterdb);
+            }
+            sqlite3_finalize(st); st=NULL;
+         }
+         if (ok) {
+            ok=sqlite3_prepare_v2(masterdb,"INSERT OR IGNORE INTO access_request_targets(request_id,resource_kind,resource_uuid) VALUES(?1,?2,?3)",-1,&st,NULL)==SQLITE_OK;
+            if (ok) {
+               sqlite3_bind_int64(st,1,request_id);
+               sqlite3_bind_text(st,2,kind,-1,SQLITE_TRANSIENT);
+               sqlite3_bind_text(st,3,uuid,-1,SQLITE_TRANSIENT);
+               ok=sqlite3_step(st)==SQLITE_DONE;
+            }
+            sqlite3_finalize(st);
+         }
+         if (ok) {
+            char *detail=g_strdup_printf("request=%lld target=%s:%s requeued", (long long)request_id,kind,uuid);
+            ok=detail && db_add_audit_event(masterdb,client->chatname,"access.request",detail);
+            g_free(detail);
+         }
+         if (ok) ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
+         if (!ok) sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
+         if (ok) rrserver_admin_send(client,"access-requests","submitted",NULL);
+         else ws_send_error(client,"Unable to save request");
       } else ws_send_error(client,"Request requires rig/room UUID and 1-2048 characters");
       return;
    }
