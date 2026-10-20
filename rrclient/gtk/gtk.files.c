@@ -63,7 +63,12 @@ static gboolean listing_expired(gpointer unused) {
       struct listing *r = value;
 
       if ((uint64_t) mono_us() - r->started > 30000000) {
-         gtk_label_set_text(GTK_LABEL(browser.status), "File listing timed out. Check the connection and server support, then Refresh.");
+         GtkTreePath *path=gtk_tree_row_reference_get_path(r->row);
+         GtkTreeIter iter;
+         if (path && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store),&iter,path))
+            gtk_tree_store_set(browser.store,&iter,LOADED,FALSE,-1);
+         if (path) gtk_tree_path_free(path);
+         gtk_label_set_text(GTK_LABEL(browser.status), "File listing timed out. Expand the folder again or Refresh to retry.");
          g_hash_table_iter_remove(&iterator);
       }
    }
@@ -151,8 +156,8 @@ static void load(GtkTreeIter *parent) {
    g_free(path);
 
    if (!id) {
+      gtk_tree_store_set(browser.store,parent,LOADED,FALSE,-1);
       status("Connect to a RustyRig server first.");
-
       return;
    }
    GtkTreeIter child;
@@ -183,11 +188,15 @@ static void refresh(void) {
    GtkTreeIter root;
    gtk_tree_store_append(browser.store, &root, NULL);
    gtk_tree_store_set(browser.store, &root, NAME, "/", PATH, site_root(), DIRECTORY, TRUE, READABLE, TRUE, WRITABLE, FALSE, -1);
-   load(&root);
+   /* A newly selected server must display its shares without requiring a
+    * manual expansion. The placeholder only keeps the root expandable while
+    * its initial response is pending. */
+   placeholder(&root);
    GtkTreePath *path = gtk_tree_path_new_first();
    gtk_tree_view_expand_row(GTK_TREE_VIEW(browser.tree), path, FALSE);
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser.tree)), path);
    gtk_tree_path_free(path);
+   load(&root);
 }
 
 static void changed(GtkComboBox *box, gpointer data);
@@ -402,6 +411,13 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
    } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result")) {
       const char *error = dict_get(d, "file.error", "");
       status(*error ? error : "Ready");
+      if (ref && (!strcmp(cmd,"result") || *error)) {
+         GtkTreePath *failed=gtk_tree_row_reference_get_path(ref);
+         GtkTreeIter parent;
+         if (failed && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store),&parent,failed))
+            gtk_tree_store_set(browser.store,&parent,LOADED,FALSE,-1);
+         if (failed) gtk_tree_path_free(failed);
+      }
 
       if (ref && !strcmp(cmd, "end")) {
          GtkTreePath *root = gtk_tree_row_reference_get_path(ref);
