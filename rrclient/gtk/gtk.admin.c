@@ -94,6 +94,8 @@ static char copy_user_profile[128];
 static GtkWidget *copy_user_tree;
 static GtkWidget *access_request_tree;
 static GtkListStore *access_request_store;
+static GtkWidget *access_request_tab_label;
+static gboolean access_request_has_pending;
 static char access_request_profile[128];
 static GtkWidget *group_tree;
 static GtkTreeStore *group_store;
@@ -1234,10 +1236,11 @@ static void admin_add_privilege(GtkButton *button, gpointer user) {
    gtk_entry_set_placeholder_text(GTK_ENTRY(resource),"Resource UUID (* for all rigs)");
    gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Resource UUID"),FALSE,FALSE,2);
    gtk_box_pack_start(GTK_BOX(area),resource,FALSE,FALSE,2);
-   GtkWidget *deny=gtk_check_button_new_with_label("Deny instead of allow");
+   GtkWidget *deny=gtk_check_button_new_with_label("Invert Rule (Deny access)");
    gtk_box_pack_start(GTK_BOX(area),deny,FALSE,FALSE,2);
    GtkWidget *remote=gtk_check_button_new_with_label("Remote allowed — permit this grant to users accessing from linked sites");
    gtk_box_pack_start(GTK_BOX(area),remote,FALSE,FALSE,2);
+    g_object_bind_property(deny,"active",remote,"sensitive",G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
    GtkWidget *description=gtk_label_new(
       "Grants apply on the selected server. @name assigns an entire privilege group; "
       "a plain name grants one privilege. Check Remote allowed to permit cross-site access.");
@@ -1394,7 +1397,7 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
       g_free(token);
    }
    gtk_box_pack_start(GTK_BOX(box), privilege, FALSE, FALSE, 3);
-   GtkWidget *effect = gtk_check_button_new_with_label("Deny instead of allow");
+   GtkWidget *effect = gtk_check_button_new_with_label("Invert Rule (Deny access)");
    if (selected_detail && strstr(selected_detail,"(deny)"))
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(effect),TRUE);
    gtk_box_pack_start(GTK_BOX(box), effect, FALSE, FALSE, 3);
@@ -1452,7 +1455,7 @@ static void admin_privgroup_edit(GtkButton *button,gpointer user) {
    GtkWidget *group=gtk_entry_new();
    GtkWidget *privilege=gtk_entry_new();
    GtkWidget *description=gtk_entry_new();
-   GtkWidget *deny=gtk_check_button_new_with_label("Deny instead of allow");
+   GtkWidget *deny=gtk_check_button_new_with_label("Invert Rule (Deny access)");
    GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
    GtkTreeModel *model=NULL;GtkTreeIter iter;
    if (gtk_tree_selection_get_selected(selection,&model,&iter)) {
@@ -1926,9 +1929,13 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
    }
    if (row && !strcmp(name,"access-requests") && access_request_store &&
        !g_strcmp0(access_request_profile,rrclient_connection_name(connection))) {
-      if (!strcmp(action,"begin")) gtk_list_store_clear(access_request_store);
+      if (!strcmp(action,"begin")) {
+          gtk_list_store_clear(access_request_store);
+          access_request_has_pending=FALSE;
+       }
       else if (!strcmp(action,"row")) {
          const char *status=dict_get(row,"status","pending");
+          if (!g_strcmp0(status,"pending")) access_request_has_pending=TRUE;
          long long created=g_ascii_strtoll(dict_get(row,"created_at","0"),NULL,10);
          long days=created>0 ? (long)MAX(0,((long long)time(NULL)-created)/86400) : 0;
          char *age=g_strdup_printf("%ld days",days);
@@ -1941,6 +1948,9 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
             AR_RESOURCE,resource,AR_REASON,dict_get(row,"reason",""),
             AR_STATUS,status,AR_AGE,age,-1);
          g_free(resource);g_free(age);
+      } else if (!strcmp(action,"end") && access_request_tab_label) {
+         gtk_widget_override_color(access_request_tab_label,GTK_STATE_FLAG_NORMAL,
+            access_request_has_pending ? &(GdkRGBA){.red=0.88,.green=0.16,.blue=0.16,.alpha=1.0} : NULL);
       } else if (!strcmp(action,"updated"))
          admin_access_send("access-request-list",NULL,NULL);
       dict_free(row);dict_free(reply);return;
@@ -2264,7 +2274,7 @@ GtkWidget *init_admin_tab(void) {
       }
 
       if (!strcmp(table->name, "assignments")) {
-         GtkWidget *add = gtk_button_new_with_label("Add Privilege…");
+         GtkWidget *add = gtk_button_new_with_label("Add Privilege");
          g_signal_connect(add, "clicked", G_CALLBACK(admin_add_privilege), table);
          gtk_box_pack_start(GTK_BOX(buttons), add, FALSE, FALSE, 0);
 
@@ -2272,7 +2282,7 @@ GtkWidget *init_admin_tab(void) {
 
       if (!strcmp(table->name,"privsets") || !strcmp(table->name,"setentries")) {
          const char *ops[]={ "privset-create","privset-delete","privset-entry","privset-unentry" };
-         const char *labels[]={ "New Group…","Delete Group…","Add Privilege…","Remove Privilege…" };
+         const char *labels[]={ "New Group…","Delete Group","Add Privilege","Remove Privilege" };
          int offset=!strcmp(table->name,"privsets") ? 0 : 2;
          for (int n=offset;n<offset+2;n++) {
             GtkWidget *control=gtk_button_new_with_label(labels[n]);
@@ -2314,6 +2324,7 @@ GtkWidget *init_admin_tab(void) {
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       table->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(table->store));
+       gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(table->tree), TRUE);
       g_signal_connect(table->tree,"button-press-event",G_CALLBACK(admin_uuid_menu),table);
 
       const int user_order[] = {
@@ -2372,7 +2383,8 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_set_fixed_width(column, (users && field == 2) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
             !strcmp(table->name, "rooms") ? 145 :
-            (!strcmp(table->name,"audit") && field==4) ? 420 : 125);
+            (!strcmp(table->name,"audit") && field==4) ? 420 :
+             (!strcmp(table->name,"sessions") && field==0) ? 280 : 125);
          gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_column_set_expand(column, (users && field == 2) ||
@@ -2430,7 +2442,7 @@ GtkWidget *init_admin_tab(void) {
          }
          GtkWidget *panel=grant_table ? grants_panel : groups_panel;
          const char *section=!strcmp(table->name,"assignments") ? "Group grants" :
-            !strcmp(table->name,"grants") ? "Individual grants" :
+            !strcmp(table->name,"grants") ? "Direct grants" :
             !strcmp(table->name,"privsets") ? "Groups" : "Privileges in groups";
          GtkWidget *label=gtk_label_new(section);
          gtk_label_set_xalign(GTK_LABEL(label),0);
@@ -2448,9 +2460,9 @@ GtkWidget *init_admin_tab(void) {
    {
       GtkWidget *page=gtk_box_new(GTK_ORIENTATION_VERTICAL,6);
       GtkWidget *actions=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,6);
-      GtkWidget *refresh=gtk_button_new_with_label("Refresh requests");
-      GtkWidget *approve=gtk_button_new_with_label("Approve review…");
-      GtkWidget *deny=gtk_button_new_with_label("Deny…");
+      GtkWidget *refresh=gtk_button_new_with_label("Refresh");
+      GtkWidget *approve=gtk_button_new_with_label("Approve");
+      GtkWidget *deny=gtk_button_new_with_label("Deny");
       gtk_box_pack_start(GTK_BOX(actions),refresh,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(actions),approve,FALSE,FALSE,0);
       gtk_box_pack_start(GTK_BOX(actions),deny,FALSE,FALSE,0);
@@ -2458,6 +2470,7 @@ GtkWidget *init_admin_tab(void) {
       access_request_store=gtk_list_store_new(AR_COUNT,G_TYPE_STRING,G_TYPE_STRING,
          G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING,G_TYPE_STRING);
       access_request_tree=gtk_tree_view_new_with_model(GTK_TREE_MODEL(access_request_store));
+       gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(access_request_tree), TRUE);
       const char *headings[]={"ID","Requester","Rig / Room","Reason","Status","Age"};
       for (int col=0;col<AR_COUNT;col++) {
          GtkCellRenderer *cell=gtk_cell_renderer_text_new();
@@ -2475,7 +2488,8 @@ GtkWidget *init_admin_tab(void) {
       g_signal_connect(refresh,"clicked",G_CALLBACK(admin_access_refresh),NULL);
       g_signal_connect(approve,"clicked",G_CALLBACK(admin_access_review),(gpointer)"granted");
       g_signal_connect(deny,"clicked",G_CALLBACK(admin_access_review),(gpointer)"denied");
-      gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),page,gtk_label_new("Auth Requests"));
+      access_request_tab_label=gtk_label_new("Access Requests");
+       gtk_notebook_append_page(GTK_NOTEBOOK(admin_view),page,access_request_tab_label);
    }
 
    {
