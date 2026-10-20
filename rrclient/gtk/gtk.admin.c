@@ -632,12 +632,12 @@ static void admin_control_row_add(dict *data, const char *profile) {
    GtkWidget *title = gtk_label_new(!strcmp(profile, "local") ? "This Client/display.brightness" : identity);
    gtk_label_set_xalign(GTK_LABEL(title), 0);
    gtk_label_set_ellipsize(GTK_LABEL(title), PANGO_ELLIPSIZE_END);
-   gtk_widget_set_size_request(title, 110, -1);
-   gtk_widget_set_hexpand(title, TRUE);
-   gtk_box_pack_start(GTK_BOX(row), title, TRUE, TRUE, 0);
+   gtk_widget_set_size_request(title, 240, -1);
+   gtk_widget_set_hexpand(title, FALSE);
+   gtk_box_pack_start(GTK_BOX(row), title, FALSE, FALSE, 0);
    GtkWidget *editor = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   gtk_widget_set_size_request(editor, 125, -1);
-   gtk_widget_set_hexpand(editor, TRUE);
+   gtk_widget_set_size_request(editor, 300, -1);
+   gtk_widget_set_hexpand(editor, FALSE);
    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_scale_set_digits(GTK_SCALE(scale), 0);
    gtk_widget_set_hexpand(scale, TRUE);
@@ -645,10 +645,11 @@ static void admin_control_row_add(dict *data, const char *profile) {
    gtk_box_pack_start(GTK_BOX(editor), minimum_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(editor), scale, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(editor), maximum_label, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(row), editor, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(row), editor, FALSE, FALSE, 0);
    GtkWidget *detail = gtk_label_new("");
    gtk_label_set_xalign(GTK_LABEL(detail), 0);
    gtk_label_set_line_wrap(GTK_LABEL(detail), TRUE);
+   gtk_widget_set_hexpand(detail, TRUE);
    gtk_box_pack_start(GTK_BOX(row), detail, TRUE, TRUE, 0);
    g_object_set_data_full(G_OBJECT(row), "control-name", g_strdup(name), g_free);
    g_object_set_data_full(G_OBJECT(row), "control-profile", g_strdup(profile), g_free);
@@ -2399,7 +2400,7 @@ GtkWidget *init_admin_tab(void) {
          g_object_set_data(G_OBJECT(header), "sort-field", GINT_TO_POINTER(i));
 
          if (i < 2) {
-            gtk_widget_set_size_request(header, i == 0 ? 110 : 125, -1);
+            gtk_widget_set_size_request(header, i == 0 ? 240 : 300, -1);
          } else {
             gtk_widget_set_hexpand(header, TRUE);
          }
