@@ -1440,6 +1440,64 @@ static void admin_manage_groups(GtkButton *button, gpointer user) {
    g_free(selected_name);
    g_free(selected_detail);
 }
+/* Privilege groups are simply reusable collections of privilege tokens. */
+static void admin_privgroup_edit(GtkButton *button,gpointer user) {
+   admin_table_t *table=user;
+   const char *operation=g_object_get_data(G_OBJECT(button),"privgroup-operation");
+   if (!operation) return;
+   GtkWidget *dialog=gtk_dialog_new_with_buttons("Privilege Group",
+      GTK_WINDOW(main_window),GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "Cancel",GTK_RESPONSE_CANCEL,"Save",GTK_RESPONSE_OK,NULL);
+   GtkWidget *area=gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *group=gtk_entry_new();
+   GtkWidget *privilege=gtk_entry_new();
+   GtkWidget *description=gtk_entry_new();
+   GtkWidget *deny=gtk_check_button_new_with_label("Deny instead of allow");
+   GtkTreeSelection *selection=gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
+   GtkTreeModel *model=NULL;GtkTreeIter iter;
+   if (gtk_tree_selection_get_selected(selection,&model,&iter)) {
+      char *name=NULL,*token=NULL;
+      gtk_tree_model_get(model,&iter,0,&name,-1);
+      if (name) gtk_entry_set_text(GTK_ENTRY(group),name);
+      if (!strcmp(table->name,"setentries")) {
+         gtk_tree_model_get(model,&iter,1,&token,-1);
+         if (token) gtk_entry_set_text(GTK_ENTRY(privilege),token);
+      }
+      g_free(name);g_free(token);
+   }
+   gtk_entry_set_placeholder_text(GTK_ENTRY(group),"e.g. operators");
+   gtk_entry_set_placeholder_text(GTK_ENTRY(privilege),"e.g. rig.use");
+   gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Group name"),FALSE,FALSE,2);
+   gtk_box_pack_start(GTK_BOX(area),group,FALSE,FALSE,2);
+   if (!strcmp(operation,"privset-create")) {
+      gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Description"),FALSE,FALSE,2);
+      gtk_box_pack_start(GTK_BOX(area),description,FALSE,FALSE,2);
+   } else if (!strcmp(operation,"privset-entry") || !strcmp(operation,"privset-unentry")) {
+      gtk_box_pack_start(GTK_BOX(area),gtk_label_new("Privilege"),FALSE,FALSE,2);
+      gtk_box_pack_start(GTK_BOX(area),privilege,FALSE,FALSE,2);
+      if (!strcmp(operation,"privset-entry"))
+         gtk_box_pack_start(GTK_BOX(area),deny,FALSE,FALSE,2);
+   }
+   gtk_widget_show_all(dialog);
+   if (gtk_dialog_run(GTK_DIALOG(dialog))==GTK_RESPONSE_OK) {
+      const char *name=gtk_entry_get_text(GTK_ENTRY(group));
+      const char *token=gtk_entry_get_text(GTK_ENTRY(privilege));
+      const char *desc=gtk_entry_get_text(GTK_ENTRY(description));
+      char *tail=NULL;
+      if (!strcmp(operation,"privset-create")) tail=g_strdup(desc);
+      else if (!strcmp(operation,"privset-delete")) tail=g_strdup("");
+      else if (*token && !strpbrk(token," \\t\\r\\n"))
+         tail=!strcmp(operation,"privset-entry") ?
+            g_strdup_printf("%s %s",gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(deny)) ?
+               "deny" : "allow",token) : g_strdup(token);
+      if (*name && !strpbrk(name," \\t\\r\\n") && tail) {
+         if (admin_command(table,operation,tail,name))
+            gtk_label_set_text(GTK_LABEL(table->status),"Privilege group change submitted; refresh to view");
+      } else gtk_label_set_text(GTK_LABEL(table->status),"Valid group and privilege names are required");
+      g_free(tail);
+   }
+   gtk_widget_destroy(dialog);
+}
 static void admin_older(GtkButton *button, gpointer data) {
    (void)button;
    admin_table_t *table = data;
@@ -1930,6 +1988,18 @@ GtkWidget *init_admin_tab(void) {
          g_signal_connect(add, "clicked", G_CALLBACK(admin_add_privilege), table);
          gtk_box_pack_start(GTK_BOX(buttons), add, FALSE, FALSE, 0);
 
+      }
+
+      if (!strcmp(table->name,"privsets") || !strcmp(table->name,"setentries")) {
+         const char *ops[]={ "privset-create","privset-delete","privset-entry","privset-unentry" };
+         const char *labels[]={ "New Group…","Delete Group…","Add Privilege…","Remove Privilege…" };
+         int offset=!strcmp(table->name,"privsets") ? 0 : 2;
+         for (int n=offset;n<offset+2;n++) {
+            GtkWidget *control=gtk_button_new_with_label(labels[n]);
+            g_object_set_data(G_OBJECT(control),"privgroup-operation",(gpointer)ops[n]);
+            g_signal_connect(control,"clicked",G_CALLBACK(admin_privgroup_edit),table);
+            gtk_box_pack_start(GTK_BOX(buttons),control,FALSE,FALSE,0);
+         }
       }
 
       if (i == 0) {
