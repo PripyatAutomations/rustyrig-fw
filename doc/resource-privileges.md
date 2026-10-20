@@ -281,3 +281,22 @@ assignments. Only operations that call the resource evaluator enforce these
 privilege tokens; defining `rig.tune` or future `bbs.*` names does not by
 itself retrofit a missing authorization check into a handler. Explicit deny
 remains higher priority than allow.
+
+## Transient linked-node directory
+
+Server discovery advertises enabled account names (including offline accounts),
+active session counts, the account's core privilege names, and reusable privilege
+group names. These fields are held in the relay directory in memory and replaced
+when account/privilege definitions change. They do not write remote account or
+privilege records to local SQLite databases. No password hashes, password status,
+email addresses, or credential material are advertised.
+
+Owner-authorized Admin subject discovery uses the linked directory to populate
+user choices. The same response includes available privilege-group names for the
+grant editor's editable @group selector. Directory fields are informational only:
+receiving a user name, role, or group name never authorizes that user. The
+resource-owning server independently authenticates identities and evaluates grants.
+
+This is not yet a full catalog of resource-specific grants or full enforcement
+coverage. Command handlers for tuning, TX, and other rig controls still need a
+separate audit and explicit authorization gates.
