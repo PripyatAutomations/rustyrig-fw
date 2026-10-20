@@ -195,7 +195,7 @@ bool db_user_create(sqlite3 *db, int uid, const char *name, bool enabled, const 
 /* Keep SQL and binding failures visible without logging account credentials. */
 bool db_user_edit(sqlite3 *db, const char *name, dict *fields) {
    const char *columns[] = {
-      "email", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"
+      "email", "real_name", "phone", "permissions", "enabled", "maxsessions", "password_change_required", "password_expires"
    };
    char sql[512] = "UPDATE users SET ";
    int count = 0;
