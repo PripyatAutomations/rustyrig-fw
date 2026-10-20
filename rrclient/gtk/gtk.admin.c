@@ -1518,6 +1518,10 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
    g_free(context);
    GtkWidget *name = gtk_entry_new(), *privileges = gtk_entry_new(), *error = gtk_label_new("");
+   GtkWidget *email=gtk_entry_new(),*real=gtk_entry_new(),*phone=gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(email),254);
+   gtk_entry_set_max_length(GTK_ENTRY(real),128);
+   gtk_entry_set_max_length(GTK_ENTRY(phone),64);
    gtk_entry_set_placeholder_text(GTK_ENTRY(name), "Username (letters, numbers, _ or -)");
    gtk_entry_set_max_length(GTK_ENTRY(name), HTTP_USER_LEN);
    gtk_entry_set_text(GTK_ENTRY(privileges), "view,chat");
@@ -1525,6 +1529,12 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    gtk_box_pack_start(GTK_BOX(box), name, FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new("Privileges"), FALSE, FALSE, 3);
    gtk_box_pack_start(GTK_BOX(box), privileges, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Email (public contact)"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),email,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Real name"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),real,FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),gtk_label_new("Phone (public contact)"),FALSE,FALSE,3);
+   gtk_box_pack_start(GTK_BOX(box),phone,FALSE,FALSE,3);
    gtk_box_pack_start(GTK_BOX(box), error, FALSE, FALSE, 3);
    gtk_widget_show_all(dialog);
    int response;
@@ -1553,7 +1563,21 @@ static void admin_create_user(GtkButton *button, gpointer data) {
          continue;
       }
       char *request = g_strdup_printf("add %s %s", username, permissions);
-      bool sent = admin_command(table, "user", request, NULL);
+      rrconn_t *connection=rrclient_connection_find(table->profile);
+      bool sent=false;
+      if (connection && connection->authenticated) {
+         dict *d=dict_new();
+         if (d) {
+            dict_add(d,"msg.type","talk");
+            dict_add(d,"talk.cmd","user");
+            dict_add(d,"talk.data",request);
+            dict_add(d,"user.email",gtk_entry_get_text(GTK_ENTRY(email)));
+            dict_add(d,"user.real_name",gtk_entry_get_text(GTK_ENTRY(real)));
+            dict_add(d,"user.phone",gtk_entry_get_text(GTK_ENTRY(phone)));
+            sent=ws_send_dict(NULL,connection,d,WEBSOCKET_OP_TEXT);
+            dict_free(d);
+         }
+      }
       g_free(request);
 
       if (!sent) {
