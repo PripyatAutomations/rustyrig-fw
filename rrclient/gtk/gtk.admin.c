@@ -208,9 +208,9 @@ static void admin_control_hosts_refresh(void) {
       if (!connection || !connection->is_ws || !connection->authenticated) continue;
       gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),profile,profile);
    }
+   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),"all","All Nodes");
    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),remember))
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(control_hosts),"local");
-   gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(control_hosts),"all","All Nodes");
    g_free(remember);
    if (control_host_handler) g_signal_handler_unblock(control_hosts,control_host_handler);
 }
