@@ -397,9 +397,11 @@ over wildcard allows in the resource resolver.
 The `[general]` setting `remote-admin.next-hop-only=true` in
 `config/rrserver.peers.cfg` is the default. It allows remote administration
 only for a client whose **origin server is a directly linked peer** of the
-destination. Set it to `false` at both originating and destination servers
-to permit administration across multiple tree hops, still subject to
-destination-side `remote-admin` and operation grants.
+destination. Set it to `false` on the **destination** to permit administrative
+requests from identities authenticated farther away in the tree. Intermediate
+servers forward normally and do not evaluate their own administration policy
+for transit requests. Destination-side `remote-admin` and operation grants
+are always required.
 
 Use `/admin @NODE_UUID users` to target one linked server. `@*` is
 **not** an administration-command broadcast target; it belongs only in
