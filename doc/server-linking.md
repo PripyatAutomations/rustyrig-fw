@@ -406,3 +406,34 @@ are always required.
 Use `/admin @NODE_UUID users` to target one linked server. `@*` is
 **not** an administration-command broadcast target; it belongs only in
 privilege subjects such as `joe@*`.
+
+## Origin provenance and future mesh routing
+
+A linked application envelope carries the claimed originating **node UUID**.
+At every incoming authenticated link, `rrserver/link.c` requires the
+link peer to be the current tree route toward that node:
+`rrserver_links_route(origin) == authenticated_peer_node`. A mismatch
+closes the link before the application or remote-admin handler receives it.
+Transit nodes route toward the destination; they do **not** use their own
+`remote-admin.next-hop-only` setting to block a packet addressed elsewhere.
+
+This is **topology-bound origin validation**, not end-to-end cryptographic
+proof that a particular human logged in. Each trusted originating server
+vouches for the username included in the envelope. A peer that controls an
+entire branch could impersonate users *within that branch*, but must not be
+able to claim identities from an unrelated branch. The destination evaluates
+the authenticated origin UUID, its advertised site alias, grants, and its
+own hop policy.
+
+Mesh design requirement: separate (a) origin node identity, (b) authenticated
+immediate ingress neighbor, and (c) routing path. Multipath routing means
+the tree's single-next-hop assertion will no longer be sufficient; replace it
+with verified path/adjacency or end-to-end authenticated provenance, including
+loop/replay controls, rather than trusting forwarded origin strings. Preserve
+the origin identity through transit independently of route changes.
+
+Regression tests needed before v1.0: a sibling peer forging another branch's
+origin must be rejected; a valid two-hop request must succeed when authorized;
+a revoked `user@*` grant must stop further admin actions; the destination
+must deny a distant origin when `next-hop-only=true` even if transit servers
+are permissive. These require live linked-server fixtures.
