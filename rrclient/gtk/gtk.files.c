@@ -182,6 +182,24 @@ static void expand(GtkTreeView *tree, GtkTreeIter *iter, GtkTreePath *path, gpoi
       load(iter);
    }
 }
+/* Double-click a folder to open it, or click its disclosure triangle.
+ * A stale or failed listing can be retried by activating the folder again. */
+static void folder_activated(GtkTreeView *tree,GtkTreePath *path,
+                             GtkTreeViewColumn *column,gpointer unused) {
+   (void)column;
+   (void)unused;
+   GtkTreeIter iter;
+   if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store),&iter,path)) return;
+   gboolean directory=FALSE,loaded=FALSE;
+   gtk_tree_model_get(GTK_TREE_MODEL(browser.store),&iter,
+                      DIRECTORY,&directory,LOADED,&loaded,-1);
+   if (!directory) return;
+   if (!loaded) load(&iter);
+   if (!gtk_tree_view_row_expanded(tree,path))
+      gtk_tree_view_expand_row(tree,path,FALSE);
+   else if (loaded)
+      gtk_tree_view_collapse_row(tree,path);
+}
 static void refresh(void) {
    g_hash_table_remove_all(browser.requests);
    gtk_tree_store_clear(browser.store);
@@ -697,6 +715,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    g_signal_connect(browser.window, "destroy", G_CALLBACK(destroyed), NULL);
    g_signal_connect(browser.window, "key-press-event", G_CALLBACK(browser_key_press), NULL);
    g_signal_connect(browser.tree, "row-expanded", G_CALLBACK(expand), NULL);
+   g_signal_connect(browser.tree, "row-activated", G_CALLBACK(folder_activated), NULL);
    browser.server_changed_handler = g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
    gtk_widget_show_all(browser.window);
    refresh();
