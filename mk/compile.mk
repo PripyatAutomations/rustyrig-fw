@@ -46,10 +46,12 @@ CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
 CFLAGS += -DHOST_EEPROM_FILE="\"build/${PROFILE}/eeprom.bin\""
-ifeq (${USE_ASAN},true)
-CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g -fstack-check \
-	-fno-common -fsanitize=undefined -fno-sanitize-recover=all
-LDFLAGS += -fsanitize=address,undefined -fstack-check
+# SANITIZE may be supplied on the make command line for interactive QC.
+# Keep build.use_asan compatible with existing config profiles.
+SANITIZE ?= $(if $(filter true,$(USE_ASAN)),address,undefined,)
+ifneq ($(strip $(SANITIZE)),)
+CFLAGS += -fsanitize=$(SANITIZE) -fno-omit-frame-pointer -g -fno-common -fno-sanitize-recover=all
+LDFLAGS += -fsanitize=$(SANITIZE)
 endif
 
 # Resolve shared libraries beside the executable/library or in its prefix,
