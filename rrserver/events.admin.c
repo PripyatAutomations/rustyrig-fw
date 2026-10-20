@@ -53,6 +53,38 @@ extern struct GlobalState rig;
 #include <rrserver/events.internal.h>
 
 /* PARITY: rrclient/gtk/gtk.admin.c and www/js/webui.admin.js admin results. SQLite and access control stay in the server; no credential fields leave it. */
+/* A relayed operator has no local UID. All remote administrative authority is
+ * granted by this server to its authenticated user@site identity. */
+static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
+   if (!client || !client->user || !privilege) return false;
+   if (!rr_relay_remote_for(client))
+      return admin_actor_has_priv(client, privilege);
+#ifdef USE_SQLITE
+   const char *host = rrserver_relay_client_server(client);
+   const char *local = cfg_get("station.name");
+   if (!host || !*host || !local || !strcmp(host, local)) return false;
+   if (db_resource_access_named(masterdb, client->user->name, host, "site", "*",
+        "remote-admin", time(NULL), NULL) != RR_RESOURCE_ALLOW) return false;
+   /* Existing permission expressions are alternatives separated by '|'. */
+   char *copy = g_strdup(privilege);
+   if (!copy) return false;
+   bool granted = false;
+   char *save = NULL;
+   for (char *token = strtok_r(copy, "|", &save); token;
+        token = strtok_r(NULL, "|", &save)) {
+      if (db_resource_access_named(masterdb, client->user->name, host, "site",
+           "*", token, time(NULL), NULL) == RR_RESOURCE_ALLOW) {
+         granted = true;
+         break;
+      }
+   }
+   g_free(copy);
+   return granted;
+#else
+   return false;
+#endif
+}
+
 #ifdef USE_SQLITE
 /* Send one structured administration result without credential fields. */
 bool rrserver_admin_send(rrconn_t *client, const char *table, const char *action, dict *row) {
@@ -224,7 +256,7 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    const char *sessions = dict_get(fields, "maxsessions", previous_sessions);
    const char *expiry = dict_get(fields, "password_expires", previous_expiry);
 
-   if (dict_get_type(fields, "permissions") != VAL_END && !has_priv(client->user->uid, "owner") && rrserver_user_privilege_has_elevated(privs)) {
+   if (dict_get_type(fields, "permissions") != VAL_END && !admin_actor_has_priv(client, "owner") && rrserver_user_privilege_has_elevated(privs)) {
       admin_user_error(client, "Only owners may grant protected privileges: owner, admin, bridge.admin, websdr.connect, websdr.admin");
       dict_free(fields);
 
@@ -254,7 +286,7 @@ static void admin_user_edit(rrconn_t *client, dict *request) {
    bool change_rig = rig_option != NULL;
    bool grant_rig = rig_option && !strcmp(rig_option, "1");
 
-   if (change_rig && ((strcmp(rig_option, "0") && strcmp(rig_option, "1")) || !has_priv(client->user->uid, "owner"))) {
+   if (change_rig && ((strcmp(rig_option, "0") && strcmp(rig_option, "1")) || !admin_actor_has_priv(client, "owner"))) {
       admin_user_error(client, "Only owners may change Full Rig Access (0 or 1)");
       dict_free(fields);
 
@@ -394,7 +426,7 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       return false;
    }
 
-   if (!has_priv(client->user->uid, "owner")) {
+   if (!admin_actor_has_priv(client, "owner")) {
       ws_send_error(client, "Only owners may manage resource privilege sets");
 
       return true;
@@ -558,7 +590,7 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
       return false;
    }
 
-   if (!has_priv(client->user->uid, "owner")) {
+   if (!admin_actor_has_priv(client, "owner")) {
       ws_send_error(client, "Only owners may edit scoped resource grants");
 
       return true;
@@ -673,7 +705,7 @@ static bool admin_group_action(rrconn_t *client, const char *action, dict *reque
       return false;
    }
 
-   if (!has_priv(client->user->uid, "owner")) {
+   if (!admin_actor_has_priv(client, "owner")) {
       ws_send_error(client, "Only owners may manage user groups");
 
       return true;
@@ -881,7 +913,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
       } else ws_send_error(client,"Request requires rig/room UUID and 1-2048 characters");
       return;
    }
-   if (!has_priv(client->user->uid,"admin|owner")) {
+   if (!admin_actor_has_priv(client,"admin|owner")) {
       ws_send_error(client,"Admin or owner required to review access requests");
       return;
    }
@@ -911,7 +943,7 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
       const char *decision=dict_get(request,"request.decision","");
       const char *selected=dict_get(request,"request.grants","");
       gboolean remote=dict_get_bool(request,"request.remote",false);
-      if (!has_priv(client->user->uid,"owner") ||
+      if (!admin_actor_has_priv(client,"owner") ||
           (strcmp(decision,"denied") && strcmp(decision,"granted"))) {
          ws_send_error(client,"Owner privilege and valid decision required");return;
       }
@@ -1035,7 +1067,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
     * administration command must pass destination-side site grants. The relay
     * also checks these before dispatch, but check here at the enforcement point. */
    bool remote_admin = rr_relay_remote_for(client) != NULL;
-   bool authorized = has_priv(client->user->uid,"admin|owner");
+   bool authorized = admin_actor_has_priv(client,"admin|owner");
    if (remote_admin) {
       authorized = false;
       const char *host = rrserver_relay_client_server(client);
@@ -1084,7 +1116,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          }
       }
 
-      if (!has_priv(client->user->uid, "owner") || !valid) {
+      if (!admin_actor_has_priv(client, "owner") || !valid) {
          ws_send_error(client, "Owner privilege and a valid user@site are required");
       } else if (!(!strcmp(action, "rig-access") ?
          admin_full_rig_access(username, host, !strcmp(mode, "allow")) : admin_all_rooms_access(username, host, !strcmp(mode, "allow")))) {
@@ -1099,7 +1131,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    }
 
    if (!strcmp(admin_data, "subjects")) {
-      if (!has_priv(client->user->uid, "owner")) {
+      if (!admin_actor_has_priv(client, "owner")) {
          ws_send_error(client, "Only owners may enumerate grant subjects");
          dict_free(request);
 
