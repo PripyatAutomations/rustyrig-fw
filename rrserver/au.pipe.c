@@ -75,8 +75,8 @@ rr_au_backend_interface_t au_backend_pipe = {
 ///////////////////
 // Audio Sockets //
 ///////////////////
-static const char *rx_socket_path = DEFAULT_SOCKET_PATH_RX;
-static const char *tx_socket_path = DEFAULT_SOCKET_PATH_TX;
+static char *rx_socket_path;
+static char *tx_socket_path;
 
 int rx_server_fd = -1;
 int rx_client_fd = -1;
@@ -144,7 +144,21 @@ void close_server(void) {
 }
 
 void au_unix_socket_init(void) {
-   rx_server_fd = au_start_listener(DEFAULT_SOCKET_PATH_RX);
+   const char *home=getenv("HOME");
+   if (!home || !*home) {
+      Log(LOG_WARN,"au","HOME is not set; cannot create audio socket in HOME/dev");
+      return;
+   }
+   char *dir=g_strdup_printf("%s/dev",home);
+   if (g_mkdir_with_parents(dir,0755)) {
+      Log(LOG_WARN,"au","Cannot create audio socket directory %s: %s",dir,strerror(errno));
+      g_free(dir);
+      return;
+   }
+   if (!rx_socket_path) rx_socket_path=g_build_filename(dir,"fwdsp.rx.sock",NULL);
+   if (!tx_socket_path) tx_socket_path=g_build_filename(dir,"fwdsp.tx.sock",NULL);
+   g_free(dir);
+   rx_server_fd = au_start_listener(rx_socket_path);
 
    if (rx_server_fd < 0) {
       Log(LOG_DEBUG, "au", "Failed to create UNIX server socket");
