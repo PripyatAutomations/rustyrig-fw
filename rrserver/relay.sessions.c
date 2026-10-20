@@ -678,7 +678,17 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    }
    free(wire);
    bool was_ptt = r->client.is_ptt;
-   bool ok = ws_process_dict(&r->client, d);
+   /* The protocol library intentionally rejects admin for synthetic remote
+    * users with uid=-1. Here the authenticated link identity has already
+    * passed destination-side site grants; the application handler checks
+    * each administrative capability again. */
+   bool ok;
+   if (administration) {
+      event_emit_dict("admin.cmd", &r->client, d);
+      ok = true;
+   } else {
+      ok = ws_process_dict(&r->client, d);
+   }
 
    if (!was_ptt && r->client.is_ptt) {
       /* A bounded startup window lets the client start audio after PTT acknowledgement. */
