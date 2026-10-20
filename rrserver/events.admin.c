@@ -57,6 +57,9 @@ extern struct GlobalState rig;
  * granted by this server to its authenticated user@site identity. */
 static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
    if (!client || !client->user || !privilege) return false;
+#ifndef USE_MONGOOSE
+   return has_priv(client->user->uid, privilege);
+#else
    if (!rr_relay_remote_for(client))
       return has_priv(client->user->uid, privilege);
 #ifdef USE_SQLITE
@@ -83,6 +86,7 @@ static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
 #else
    return false;
 #endif
+#endif /* USE_MONGOOSE */
 }
 
 #ifdef USE_SQLITE
@@ -1063,24 +1067,9 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       dict_free(request);
       return;
    }
-   /* Remote principals never inherit a local UID or system role. A relayed
-    * administration command must pass destination-side site grants. The relay
-    * also checks these before dispatch, but check here at the enforcement point. */
-   bool remote_admin = rr_relay_remote_for(client) != NULL;
-   bool authorized = admin_actor_has_priv(client,"admin|owner");
-   if (remote_admin) {
-      authorized = false;
-      const char *host = rrserver_relay_client_server(client);
-      const char *site = cfg_get("station.name");
-      if (host && *host && site && strcmp(host, site)) {
-         authorized = db_resource_access_named(masterdb, client->user->name, host,
-            "site", "*", "remote-admin", time(NULL), NULL) == RR_RESOURCE_ALLOW &&
-            db_resource_access_named(masterdb, client->user->name, host,
-            "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW;
-      }
-   }
+   bool authorized = admin_actor_has_priv(client, "admin|owner");
    if (!authorized) {
-      ws_send_error(client,"Admin privileges required (remote: remote-admin + admin site grants)");
+      ws_send_error(client,"Admin privileges required (remote: remote-admin plus admin or owner grant)");
       dict_free(request);
       return;
    }
