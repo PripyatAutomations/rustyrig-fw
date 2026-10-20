@@ -1651,6 +1651,16 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(dialog);
 }
+static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+                                 GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   (void)column;
+   int field = GPOINTER_TO_INT(user);
+   char *value = NULL;
+   gtk_tree_model_get(model,iter,field,&value,-1);
+   g_object_set(renderer,"active",value &&
+      (!strcmp(value,"1") || !g_ascii_strcasecmp(value,"true")),NULL);
+   g_free(value);
+}
 static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
    admin_table_t *table = user;
    GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");
@@ -2386,14 +2396,17 @@ GtkWidget *init_admin_tab(void) {
 
       for (int col = 0 ; col < 10 && table->fields[col] ; col++) {
          int field = users ? user_order[col] : ptt ? ptt_order[col] : rooms ? room_order[col] : col;
-         bool flag = users && (field == 1 || field == 7);
+         bool flag = (users && (field == 1 || field == 7)) || (rooms && (field == 2 || field == 4));
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
          gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
-         if (users && (flag || field == 5 || field == 6)) {
+         if (rooms && flag) {
+            g_object_set(renderer,"activatable",FALSE,NULL);
+            gtk_tree_view_column_set_cell_data_func(column,renderer,admin_room_flag_cell,GINT_TO_POINTER(field),NULL);
+         } else if (users && (flag || field == 5 || field == 6)) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_user_cell, GINT_TO_POINTER(field), NULL);
          } else if (!strcmp(table->name, "sessions") && field == 5) {
             gtk_tree_view_column_set_cell_data_func(column, renderer, admin_session_cell, NULL, NULL);
