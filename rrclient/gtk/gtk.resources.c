@@ -208,24 +208,23 @@ static void resource_collapse_settings(GtkTreeIter *parent) {
    }
 }
 static void resource_expansion_restore(resource_branch *branch) {
-   if (!branch->expanded) {
-      gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
-      resource_collapse_settings(&branch->root);
-      return;
-   }
    GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
    GtkTreePath *path = resource_view_path(child_path);
    gtk_tree_path_free(child_path);
+   if (!path) return;
 
-   if (path) {
-      if (g_hash_table_contains(branch->expanded, "@root")) {
-         gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
-      } else {
-         gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
-      }
-      gtk_tree_path_free(path);
+   /* Reset this branch before replaying saved state. Expanding only the saved
+    * paths is not enough: GTK can retain expanded paths as tree rows are
+    * replaced during an inventory refresh. */
+   gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+   if (!branch->expanded) {
+      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
+      resource_collapse_settings(&branch->root);
+   } else if (g_hash_table_contains(branch->expanded, "@root")) {
+      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
+      resource_expansion_walk(&branch->root, branch->profile, branch->expanded, true);
    }
-   resource_expansion_walk(&branch->root, branch->profile, branch->expanded, true);
+   gtk_tree_path_free(path);
 }
 static gboolean resource_restore_scroll(gpointer unused) {
    (void)unused;
@@ -1637,7 +1636,7 @@ static void resource_search_changed(GtkEditable *entry, gpointer unused) {
       return;
    }
    gtk_tree_model_filter_refilter(browser->filter);
-   gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
+   /* Search must not permanently open every settings branch. */
    resource_zebra_invalidate();
 }
 static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
