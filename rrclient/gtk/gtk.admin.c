@@ -758,6 +758,25 @@ static void admin_action(GtkButton *button, gpointer data) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
          "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Edit Privs", 1003, "Save", GTK_RESPONSE_OK, NULL);
       gtk_dialog_add_button(GTK_DIALOG(dialog), "View Sessions…", 1004);
+      /* Snapshot the destination before entering the modal dialog: changing
+       * the globally selected server must not redirect this edit. */
+      char destination[sizeof(table->profile)];
+      g_strlcpy(destination, table->profile, sizeof(destination));
+      char *heading = g_strdup_printf("Editing account: %s", name);
+      gtk_window_set_title(GTK_WINDOW(dialog), heading);
+      g_free(heading);
+      GtkWidget *identity = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      char *account_line = g_strdup_printf("Account: %s", name);
+      char *server_line = g_strdup_printf("Destination server: %s", destination);
+      GtkWidget *account_label = gtk_label_new(account_line);
+      GtkWidget *server_label = gtk_label_new(server_line);
+      gtk_label_set_xalign(GTK_LABEL(account_label), 0);
+      gtk_label_set_xalign(GTK_LABEL(server_label), 0);
+      gtk_box_pack_start(GTK_BOX(identity), account_label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(identity), server_label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), identity, FALSE, FALSE, 8);
+      g_free(account_line);
+      g_free(server_line);
       admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
       GtkWidget *full_rig_check = NULL;
@@ -826,6 +845,21 @@ static void admin_action(GtkButton *button, gpointer data) {
          return;
       }
       if (response == GTK_RESPONSE_OK) {
+         /* Never silently send an account edit to a different server after
+          * a context switch or connection change while the dialog is open. */
+         if (g_strcmp0(table->profile, destination) ||
+             !rrclient_connection_find(destination) ||
+             !rrclient_connection_find(destination)->authenticated) {
+            GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog),
+               GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+               "Cannot save %s on %s: destination connection changed or disconnected.",
+               name, destination);
+            gtk_dialog_run(GTK_DIALOG(error));
+            gtk_widget_destroy(error);
+            response = GTK_RESPONSE_CANCEL;
+         }
+      }
+      if (response == GTK_RESPONSE_OK) {
          dict *fields = dict_new();
 
          if (fields) {
@@ -858,7 +892,14 @@ static void admin_action(GtkButton *button, gpointer data) {
             if (!changed) {
                gtk_label_set_text(GTK_LABEL(table->status), "No account fields changed");
             } else if (json) {
-               if (admin_command(table, "user-edit", json, name)) {
+               GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(dialog),
+                  GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
+                  "Save changes to account %s on server %s?", name, destination);
+               gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(confirm),
+                  "This modifies the account on the named server, not other accounts with the same username.");
+               gboolean approved = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_OK;
+               gtk_widget_destroy(confirm);
+               if (approved && admin_command(table, "user-edit", json, name)) {
                   gtk_label_set_text(GTK_LABEL(table->status), "Saving account; awaiting server confirmation");
                }
             } else {
