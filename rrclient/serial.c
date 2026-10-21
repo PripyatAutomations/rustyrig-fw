@@ -302,7 +302,7 @@ rr_serial_t *rr_serial_open(const char *name, bool pty, const char *path, unsign
    int settings_fd;
 
    if (pty) {
-      /* A prior unclean exit can leave ./dev/ttyCAT0 (or another PTY link) pointing at a slave that no longer exists. Remove only a dangling symbolic link.
+      /* A prior unclean exit can leave $HOME/dev/ttyCAT0 (or another PTY link) pointing at a slave that no longer exists. Remove only a dangling symbolic link.
        * Never replace a regular file, device, directory, or a symlink whose target is still accessible. */
       struct stat st;
 
