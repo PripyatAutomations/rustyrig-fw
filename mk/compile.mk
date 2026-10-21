@@ -41,7 +41,8 @@ SHELL = bash
 CFLAGS += -Wno-duplicated-branches
 CFLAGS += $(strip $(shell cat ${CF} | jq -r ".build.cflags"))
 CFLAGS += -Wno-deprecated-declarations
-CFLAGS += -I./ -I../ -I./inc -I${BUILD_DIR}
+# Prefer the checked-out dependency headers over system-installed copies.
+CFLAGS += -I./ -I./librrprotocol -I./librustyaxe -I../ -I./inc -I${BUILD_DIR}
 CFLAGS += -DMG_ENABLE_IPV6=1
 CFLAGS += -DHTTP_DEBUG_CRAZY=1 -DDEBUG_WS_BINFRAMES=1
 CFLAGS += -DCONFDIR="\"${CONF_DIR}\""
