@@ -119,9 +119,14 @@ typedef struct {
    uint64_t updated, shunned_until, warned;
 } rr_chat_flood_t;
 static GHashTable *chat_flood_users;
-static bool rr_chat_flood_blocked(rrconn_t *client) {
+static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
    if (!client || !client->user) return true;
    if (has_priv(client->user->uid, "chat-flood")) return false;
+#ifdef USE_SQLITE
+   if (room && *room && db_resource_access_named(masterdb, client->user->name, "",
+           "room", room, "chat-flood", time(NULL), room) == RR_RESOURCE_ALLOW)
+      return false;
+#endif
    if (!chat_flood_users)
       chat_flood_users = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
    gpointer key = GINT_TO_POINTER(client->user->uid + 1);
@@ -184,7 +189,7 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
     */
    if ((!strcasecmp(msg_type, "pub") || !strcasecmp(msg_type, "action") ||
         !strcasecmp(msg_type, "priv") || !strcasecmp(msg_type, "privmsg")) &&
-       rr_chat_flood_blocked(cptr)) {
+       rr_chat_flood_blocked(cptr, channel)) {
       dict_free(d);
       return;
    }
