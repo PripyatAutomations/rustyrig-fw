@@ -21,6 +21,17 @@
 #include <rrserver/backend.worker.h>
 #include <rrserver/rig.properties.h>
 
+typedef struct yaesu_menu_entry {
+   const char *id, *label;
+} yaesu_menu_entry_t;
+typedef struct yaesu_model_profile {
+   int cat_id;
+   const char *model;
+   const yaesu_menu_entry_t *menu;
+   size_t menu_count;
+   bool ft891_controls; /* Until other models' control mappings are verified. */
+} yaesu_model_profile_t;
+
 typedef struct yaesu_state {
    int fd, baud;
    char *device;
@@ -513,16 +524,6 @@ static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
 }
 /* Adding another Yaesu model requires one profile and its validated catalog.
  * Keep model identification separate from protocol mechanics. */
-typedef struct yaesu_menu_entry {
-   const char *id, *label;
-} yaesu_menu_entry_t;
-typedef struct yaesu_model_profile {
-   int cat_id;
-   const char *model;
-   const yaesu_menu_entry_t *menu;
-   size_t menu_count;
-   bool ft891_controls; /* Until other models' control mappings are verified. */
-} yaesu_model_profile_t;
 #define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
 static const yaesu_menu_entry_t ft891_menu[] = {
    /* 01 AGC */
