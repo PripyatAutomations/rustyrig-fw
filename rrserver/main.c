@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <getopt.h>
@@ -269,7 +270,18 @@ int main(int argc, char **argv) {
          case 1005:
          case 1006:
          case 1007: {
-            if (maintenance != RR_MAINT_NONE) {
+            const char *module_dir = cfg_get("path.modules");
+   struct stat module_stat;
+
+   if (!module_dir || module_dir[0] != '/' ||
+       stat(module_dir, &module_stat) != 0 || !S_ISDIR(module_stat.st_mode)) {
+      Log(LOG_CRIT, "modules",
+          "Invalid installed module directory '%s'. Install rrserver modules and set path.modules to an existing absolute directory.",
+          module_dir ? module_dir : "(unset)");
+      return EXIT_FAILURE;
+   }
+
+   if (maintenance != RR_MAINT_NONE) {
                fprintf(stderr, "Specify only one maintenance operation per invocation.\n");
 
                return EXIT_FAILURE;
