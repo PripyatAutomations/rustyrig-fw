@@ -4,6 +4,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -117,8 +118,11 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
       return RR_CONTROL_INVALID;
    }
 
-   if (!request->vfo && (!strcmp(request->property, RR_PROP_DISPLAY_BRIGHTNESS) || !strcmp(request->property, RR_PROP_SPEAKER_VOLUME))) {
-      if (request->value_type != VAL_INT || request->value.i < 0 || request->value.i > 100 || !backend->type->api->rig_control_set) {
+   if (!request->vfo && backend->type->api->rig_control_set) {
+      rr_property_descriptor_t descriptor;
+      if (!rr_rig_property_describe(request->rig, request->property, &descriptor) ||
+         !descriptor.writable || descriptor.type != VAL_INT) return RR_CONTROL_UNSUPPORTED;
+      if (request->value_type != VAL_INT || request->value.i < 0 || request->value.i > 100) {
          return RR_CONTROL_INVALID;
       }
 
@@ -131,9 +135,10 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
          rr_control_request_t queued = *request;
          queued.vfo = vfo;      /* queue indexing only; the control is rig-owned */
 
-         return backend_queue_control(backend, &queued, !strcmp(request->property, RR_PROP_DISPLAY_BRIGHTNESS) ? RR_BACKEND_BRIGHTNESS :
-            RR_BACKEND_SPEAKER_VOLUME, (dict_value_t) {
-            .i = request->value.i
+         char encoded[RR_PROPERTY_NAME_MAX + 16];
+         snprintf(encoded, sizeof(encoded), "%s:%d", request->property, request->value.i);
+         return backend_queue_control(backend, &queued, RR_BACKEND_RIG_CONTROL, (dict_value_t) {
+            .s = encoded
          });
       }
 
