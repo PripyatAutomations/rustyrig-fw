@@ -18,18 +18,36 @@ INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions
 INSERT INTO tx_credits (name, credits) VALUES
    ('admin', 14400);
 
--- DEVELOPMENT ONLY: grant the @full privilege set on every rig owned by
--- this server to authenticated admin accounts from ANY linked site (admin@*).
--- The preload runs before database.c creates its standard privilege presets,
--- so establish @full and its rig.full entry here first. INSERT OR IGNORE in
--- database.c will reuse the same set. The migration adds remote_allowed=1 to
--- these rows on first startup, making linked-site access explicit in the DB.
--- This does NOT bypass independent PTT, TX, or radio hardware safety checks.
--- REMOVE these test grants and revoke previously seeded grants before release.
-INSERT OR IGNORE INTO privilege_sets (name,description,created_by)
-VALUES ('full','Full rig operation, subject to independent TX and safety checks','system');
-INSERT OR IGNORE INTO privilege_set_entries (set_id,privilege,effect)
-SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full';
+-- Standard reusable privilege sets. These belong to initial seed data, not
+-- migrations; a fresh database (including resetdb) loads this once.
+-- Existing databases retain their administrator-edited group definitions.
+INSERT INTO privilege_sets (name,description,created_by) VALUES
+   ('rigctl','Rig tuning and control functions; TX requires separate authorization','system'),
+   ('sysop','Reserved for future BBS system operator operations','system'),
+   ('listener','Receive only: rig access, frequency and spectrum readback','system'),
+   ('full','Full rig operation, subject to independent TX and safety checks','system'),
+   ('transmit','Transmit privilege; safety and supervision remain mandatory','system'),
+   ('supervised','New operator; Elmer checks remain mandatory','system');
+
+INSERT INTO privilege_set_entries (set_id,privilege,effect)
+SELECT s.id, e.privilege, 'allow'
+FROM privilege_sets AS s
+JOIN (
+   SELECT 'rigctl' AS name, 'rig.use' AS privilege UNION ALL
+   SELECT 'rigctl','rig.tune' UNION ALL
+   SELECT 'rigctl','frequency.read' UNION ALL
+   SELECT 'listener','rig.use' UNION ALL
+   SELECT 'listener','rx' UNION ALL
+   SELECT 'listener','frequency.read' UNION ALL
+   SELECT 'listener','spectrum.read' UNION ALL
+   SELECT 'full','rig.full' UNION ALL
+   SELECT 'transmit','tx' UNION ALL
+   SELECT 'supervised','noob'
+) AS e ON e.name=s.name;
+
+-- DEVELOPMENT ONLY: permit authenticated admin@* to control all rigs on
+-- this server using @full. Delete this assignment and revoke existing
+-- test grants before a production release. RF/PTT safety remains enforced.
 INSERT OR IGNORE INTO privilege_set_assignments
    (set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by)
 SELECT id,'admin','*','rig','*','seed'

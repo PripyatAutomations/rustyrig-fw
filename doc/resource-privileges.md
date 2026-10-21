@@ -357,6 +357,16 @@ fine-grained privilege-operation taxonomy still need UX work; this initial
 routing path is explicitly via `/admin @NODE_UUID`. The temporary bootstrap
 `remote-admin` role must be removed for v1.0 as specified in the release checklist.
 
+## Standard privilege-set bootstrap
+
+The six shipped sets (`rigctl`, `sysop`, `listener`, `full`,
+`transmit`, and `supervised`) and their initial entries live in
+`sql/sqlite.master.preload.sql`. The server runs the schema SQL followed
+by this preload **only when creating a new master database**, including after
+a reset that removes/recreates the master DB. Normal startups with an existing
+database use non-destructive schema migrations, without re-seeding or
+overwriting operator-maintained privilege sets.
+
 ## Development-only cross-site admin bootstrap grant
 
 For multi-node integration testing, `sql/sqlite.master.preload.sql` temporarily seeds
