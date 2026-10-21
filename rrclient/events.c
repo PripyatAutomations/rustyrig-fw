@@ -1017,9 +1017,9 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
       }
       const char *actor = dict_get(d, "talk.user", "");
       if (actor && *actor) {
-         ui_print(NULL, "\\00308Room %s was removed by %s\\017", room, actor);
+         ui_print(NULL, "\00308Room %s was removed by %s\017", room, actor);
       } else {
-         ui_print(NULL, "\\00308Room %s was removed by an administrator\\017", room);
+         ui_print(NULL, "\00308Room %s was removed by an administrator\017", room);
       }
    }
    dict_free(d);
