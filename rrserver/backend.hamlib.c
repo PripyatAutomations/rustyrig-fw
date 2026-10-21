@@ -503,6 +503,18 @@ static bool hl_connect(rr_backend_t *backend) {
    data->backlight_writable = !!rig_has_set_parm(data->rig, RIG_PARM_BACKLIGHT);
    data->speaker_readable = !!rig_has_get_level(data->rig, RIG_LEVEL_AF);
    data->speaker_writable = !!rig_has_set_level(data->rig, RIG_LEVEL_AF);
+   /* Hamlib's net rigctl proxy (model 2) cannot reliably advertise the
+    * attached radio's capabilities. Probe operations instead of hiding them. */
+   if (data->model == 2) {
+      data->backlight_readable = data->backlight_writable = true;
+      data->speaker_readable = data->speaker_writable = true;
+   }
+   rr_backend_log(backend, LOG_INFO, "backend.hamlib",
+      "%s: rig controls brightness=%s/%s AF=%s/%s%s",
+      rr_backend_instance_alias(backend),
+      data->backlight_readable ? "read" : "-", data->backlight_writable ? "write" : "-",
+      data->speaker_readable ? "read" : "-", data->speaker_writable ? "write" : "-",
+      data->model == 2 ? " (rigctld proxy; verify against radio)" : "");
    hl_define_percentage(backend, RR_PROP_DISPLAY_BRIGHTNESS,
       data->backlight_readable, data->backlight_writable);
    hl_define_percentage(backend, RR_PROP_SPEAKER_VOLUME,
