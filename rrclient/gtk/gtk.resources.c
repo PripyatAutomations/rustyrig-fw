@@ -667,7 +667,9 @@ static gboolean resource_uuid_context(GtkWidget *tree,GdkEventButton *event,gpoi
 static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
                                        const char *profile, const char *name) {
    GtkTreeIter iter = *item, parent;
-   char *uuid = NULL, *room = NULL;
+   char *uuid = NULL, *room = NULL, *details = NULL;
+   gtk_tree_model_get(model, item, DETAILS, &details, -1);
+   gboolean read_only = details && strstr(details, "read-only");
    while (gtk_tree_model_iter_parent(model, &parent, &iter)) {
       char *kind = NULL;
       gtk_tree_model_get(model, &parent, KIND, &kind, -1);
@@ -681,7 +683,7 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
    }
    if (!uuid || !*uuid) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Rig control has no owner UUID.");
-      g_free(uuid); g_free(room);
+      g_free(uuid); g_free(room); g_free(details);
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
@@ -694,7 +696,9 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
       "_Cancel", GTK_RESPONSE_CANCEL, "_Apply", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *label = gtk_label_new("Set the rig control (0–100%).");
+   GtkWidget *label = gtk_label_new(read_only ?
+      "This rig reports the control as read-only." :
+      "Set the rig control (0–100%).");
    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_widget_set_size_request(scale, 320, -1);
@@ -706,6 +710,10 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
       gtk_range_set_value(GTK_RANGE(scale), dict_get_int((dict *)state, "property.value", 50));
    else
       gtk_range_set_value(GTK_RANGE(scale), 50);
+   if (read_only) {
+      gtk_widget_set_sensitive(scale, FALSE);
+      gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT, FALSE);
+   }
    gtk_widget_show_all(area);
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       dict *message = dict_new();
@@ -726,7 +734,7 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
       dict_free(message);
    }
    gtk_widget_destroy(dialog);
-   g_free(uuid); g_free(room);
+   g_free(uuid); g_free(room); g_free(details);
 }
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
@@ -1366,7 +1374,8 @@ static gboolean resource_search_equal(GtkTreeModel *model, gint column, const gc
 static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    char *kind=NULL;
    gtk_tree_model_get(model,iter,KIND,&kind,-1);
-   gboolean match=g_hash_table_contains(browser->enabled_kinds,kind ? kind : "");
+   gboolean match=g_hash_table_contains(browser->enabled_kinds,
+      !g_strcmp0(kind, "rig-control") ? "control" : kind ? kind : "");
    if (!match && !g_hash_table_contains(browser->enabled_kinds,"other")) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
