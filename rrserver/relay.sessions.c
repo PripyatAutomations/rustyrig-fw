@@ -12,6 +12,7 @@
 #include <time.h>
 #include <string.h>
 #include <glib.h>
+#include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/ws.mediachan.h>
 #include <librrprotocol/media.health.h>
 #ifdef USE_MONGOOSE
