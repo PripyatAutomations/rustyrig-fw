@@ -5,7 +5,7 @@ CONFIG_FILES = config/rrserver.cfg $(wildcard config/rrserver.*.cfg) \
     config/callsign-lookup.cli.cfg $(CF)
 LOG_TOOLS = tools/rr-get-audit-log tools/rr-get-chat-log tools/rr-get-ptt-log
 
-.PHONY: windows-install posix-install install install-bin install-modules install-libs install-config install-assets install-tools install-dev install-check
+.PHONY: windows-install posix-install install install-bin install-modules install-libs install-config install-assets install-tools install-sql install-dev install-check
 
 windows-install:
 	@echo "Use the win64-installer target for Windows"
@@ -13,7 +13,7 @@ windows-install:
 posix-install: install
 
 # No configuration is touched by the default install target.
-install: install-bin install-modules install-libs install-assets install-tools
+install: install-bin install-modules install-libs install-assets install-tools install-sql
 	@echo "Installed runtime files at Debian package paths. Existing /etc/rustyrig config is untouched."
 	@echo "Run ldconfig after installing libraries on Linux."
 
@@ -59,6 +59,13 @@ install-assets:
 	install -Dm644 packaging/rustyrig-client.desktop "$(DESTDIR)$(PREFIX)/share/applications/rustyrig-client.desktop"
 	install -d "$(DESTDIR)$(WEB_ROOT)"
 	cp -a www/. "$(DESTDIR)$(WEB_ROOT)/"
+
+# SQL templates are shipped runtime data, unlike operator-maintained config.
+# Update them on every source install; never overwrite the live master.db.
+install-sql:
+	install -Dm644 sql/sqlite.master.sql "$(DESTDIR)$(DATADIR)/sql/sqlite.master.sql"
+	install -Dm644 sql/sqlite.master.preload.sql "$(DESTDIR)$(DATADIR)/sql/sqlite.master.preload.sql"
+	@echo "[install-sql] schema and preload => $(DESTDIR)$(DATADIR)/sql/"
 
 install-tools:
 	@set -e; for src in ${LOG_TOOLS}; do \
