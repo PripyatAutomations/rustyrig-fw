@@ -181,10 +181,36 @@ static void resource_expansion_save(resource_branch *branch) {
    }
    resource_expansion_walk(&branch->root, branch->profile, branch->expanded, false);
 }
+/* Expand the useful topology on first load, leaving extensive configuration
+ * branches closed until explicitly requested. */
+static void resource_collapse_settings(GtkTreeIter *parent) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   for (gboolean more = gtk_tree_model_iter_children(model, &child, parent);
+        more; more = gtk_tree_model_iter_next(model, &child)) {
+      resource_collapse_settings(&child);
+      char *kind = NULL, *name = NULL;
+      gtk_tree_model_get(model, &child, KIND, &kind, NAME, &name, -1);
+      gboolean settings = !g_strcmp0(kind, "rig-menu") ||
+         !g_strcmp0(kind, "rig-menu-group") ||
+         (!g_strcmp0(kind, "group") && !g_strcmp0(name, "Controls"));
+      if (settings) {
+         GtkTreePath *child_path = gtk_tree_model_get_path(model, &child);
+         GtkTreePath *path = resource_view_path(child_path);
+         if (path) {
+            gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+            gtk_tree_path_free(path);
+         }
+         gtk_tree_path_free(child_path);
+      }
+      g_free(kind);
+      g_free(name);
+   }
+}
 static void resource_expansion_restore(resource_branch *branch) {
    if (!branch->expanded) {
       gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
-
+      resource_collapse_settings(&branch->root);
       return;
    }
    GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
@@ -1782,6 +1808,9 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       } else {
          icon = "audio-headphones-symbolic";
       }
+   } else if (!g_strcmp0(kind, "rig-menu") || !g_strcmp0(kind, "rig-menu-group") ||
+              !g_strcmp0(kind, "rig-menu-item")) {
+      icon = "emblem-system-symbolic";
    } else if (!g_strcmp0(kind, "rig-control")) {
       if ((action && strstr(action, "brightness")) || (name && strstr(name, "Brightness")))
          icon = "display-brightness-symbolic";
@@ -2237,12 +2266,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       branch->loaded = true;
       GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
 
-      if (!branch->expanded) {
-         gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
-      }
       gtk_tree_path_free(path);
       resource_expansion_restore(branch);
-      gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
       resource_update_branch(branch);
       g_idle_add(resource_restore_scroll, NULL);
       gtk_label_set_text(GTK_LABEL(browser->status), "All available resources are shown. Select a resource to manage your connection.");
