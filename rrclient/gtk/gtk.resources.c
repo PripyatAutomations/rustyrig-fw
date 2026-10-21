@@ -989,7 +989,10 @@ static void resource_menu_read_free(gpointer data) {
 }
 static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
                                const char *profile, const char *title, const char *id) {
-   if (!profile || !id || strlen(id) != 4) return;
+   if (!profile || !id || strlen(id) != 4) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Cannot open menu: missing server profile or menu ID.");
+      return;
+   }
    GtkTreeIter current = *item, parent;
    char *uuid = NULL;
    while (gtk_tree_model_iter_parent(model, &parent, &current)) {
@@ -1005,6 +1008,7 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    }
    rrconn_t *conn = rrclient_connection_find(profile);
    if (!uuid || !*uuid || !conn || !conn->authenticated || !conn->is_ws) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Cannot read menu: owning rig or server connection unavailable.");
       g_free(uuid);
       return;
    }
@@ -2622,7 +2626,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
-      ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, (!strcmp(kind, "control")
+      ROOM, room, PROFILE, profile, SERVICE, !strcmp(kind, "rig-menu-item") ? dict_get(row, "inventory.service", "") : service ? service : "", ACTION, (!strcmp(kind, "control")
          || !strcmp(kind, "rig-control")) ? dict_get(row, "inventory.service", "") : dict_get(row, "inventory.action", ""), -1);
 
    if (branch->selection) {
