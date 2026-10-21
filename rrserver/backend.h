@@ -89,6 +89,7 @@ extern char *rr_backend_config_get_exp(const rr_backend_t *backend, const char *
 extern int rr_backend_config_get_int(const rr_backend_t *backend, const char *key, int default_value);
 extern bool rr_backend_config_get_bool(const rr_backend_t *backend, const char *key, bool default_value);
 extern void rr_backend_register_builtin_types(void);
+extern void rr_backend_yaesu_register(void);
 
 extern bool rr_backend_init(void);
 extern bool rr_backend_fini(void);
