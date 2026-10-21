@@ -1385,12 +1385,6 @@ void gtk_chat_room_vfos_changed(const char *room) {
 
 
 
-static void gtk_chat_resources_clicked(GtkButton *button, gpointer data) {
-   (void)button;
-   (void)data;
-   event_emit("client.resources.open", NULL, NULL);
-}
-
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
@@ -1400,14 +1394,6 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       return NULL;
    }
 
-   if (!room || !*room) {
-      GtkWidget *tools = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      GtkWidget *resources = gtk_button_new_with_label("Resource Explorer");
-      gtk_widget_set_tooltip_text(resources, "Browse and manage all server resources (Alt-O)");
-      g_signal_connect(resources, "clicked", G_CALLBACK(gtk_chat_resources_clicked), NULL);
-      gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(chat_box), tools, FALSE, FALSE, 4);
-   }
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
