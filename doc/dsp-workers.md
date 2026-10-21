@@ -205,3 +205,36 @@ GPU/CPU budgeting, cross-band SDR reception, timestamps or discovery APIs.
 The registry currently provides identity and subscriber counts only. Those
 features must be explicitly integrated with the rig PCM hub and future SDR
 backend; merely acquiring a slice does not start decoding.
+
+## Client-digital versus server-modem operating modes (October 2026)
+
+The operator-facing mode and the actual RF modulation are separate concepts.
+
+| Logical mode | Hardware RF mode | Digital audio owner |
+| --- | --- | --- |
+| D-U | PKTUSB / digital USB when directly supported | Client |
+| D-L | PKTLSB / digital LSB when directly supported | Client |
+| DFM | FM | Client (APRS or other FM digital waveform) |
+| M-U | USB | rrserver modem subprocess |
+| M-L | LSB | rrserver modem subprocess |
+| MFM | FM | rrserver modem subprocess |
+
+A rig capable of FM can accept DFM, since the radio is asked for FM; DFM
+is a software processing selection, not a distinct radio CAT FM command.
+Likewise, M-U/M-L/MFM should preserve their *logical* value across CAT polls
+while the physical rig reports USB/LSB/FM. External mode changes on the rig
+must clear an incompatible software-mode selection.
+
+The unnumbered client-side ttyMODEM auto-connection is only appropriate for
+D-U/D-L client digital operation. It must not take over the server-side M*
+modem subprocess; numbered PTYs remain explicit/manual.
+
+**Mode mapping is not yet audio integration.** M* requires selecting a
+rig-bound server worker, tapping receive PCM to fd 4 *without interrupting
+ordinary listener RX audio*, and admitting only that worker's fd 5 TX PCM
+to the rig transmitter. Client speech/microphone TX must be isolated in
+M*; modem TX must require a server-owned PTT lease and be cut on crash,
+EOF, mode switch and disconnect. The existing fd 4 receive feed is
+best-effort RX-only; fd 5 to RF audio and its safety controls are still
+unimplemented. Do not key the transmitter or claim on-air modem TX based
+only on the M* mode mapping.
