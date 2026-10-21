@@ -26,7 +26,7 @@ typedef struct {
    char *profile, *request, *selection;
    GtkTreeIter root, parents[5];
    GHashTable *irc_rows, *expanded;
-   bool valid[5], loading, online, loaded;
+   bool valid[5], loading, online, loaded, local_site_seen;
    uint64_t requested_at, irc_updated_at;
 } resource_branch;
 typedef struct {
@@ -1744,6 +1744,7 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    /* Do not snapshot an empty first-load tree as a collapsed preference. */
    if (branch->loaded) resource_expansion_save(branch);
    memset(branch->valid, 0, sizeof(branch->valid));
+   branch->local_site_seen = false;
    GtkTreeIter child;
    while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
       gtk_tree_store_remove(browser->store, &child);
@@ -1836,11 +1837,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
     * station.name may differ from the connection profile; never compare names
     * to decide topology. Subsequent depth-zero sites are linked peers. */
    if (depth == 0 && !strcmp(kind, "site")) {
-      char *root_uuid = NULL;
-      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->root, UUID, &root_uuid, -1);
-      gboolean local = !root_uuid || !*root_uuid;
-      g_free(root_uuid);
-      if (local) {
+      if (!branch->local_site_seen) {
+         branch->local_site_seen = true;
          memset(branch->valid, 0, sizeof(branch->valid));
          branch->parents[0] = branch->root;
          branch->valid[0] = true;
@@ -1871,8 +1869,16 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    GtkTreeIter *parent_iter = parent >= 0 ? &branch->parents[parent] : &branch->root;
    const char *owner_uuid = dict_get(row, "inventory.parent", "");
 
-   if (*owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent)) {
-      parent_iter = &explicit_parent;
+   gboolean owner_found = *owner_uuid &&
+      resource_find_uuid(&branch->root, owner_uuid, &explicit_parent);
+   if (owner_found) parent_iter = &explicit_parent;
+   /* Never silently attach a rig-specific control to a different rig or
+    * global Controls group if its owner is missing from this snapshot. */
+   if (!strcmp(kind, "rig-control") && !owner_found) {
+      g_warning("Explorer: ignoring %s without owning rig %s on %s",
+         name, owner_uuid, profile);
+      dict_free(row);
+      return;
    }
    /* Group direct children without changing their resource identity or wire
     * parent. Existing explicit UUID ancestry always wins for nested objects. */
