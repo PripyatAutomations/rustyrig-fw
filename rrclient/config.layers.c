@@ -12,7 +12,7 @@
 #ifndef RRCLIENT_SYSTEM_CONFIG_PATH
 #define RRCLIENT_SYSTEM_CONFIG_PATH "/etc/rustyrig/rrclient.cfg"
 #endif
-static bool layered, source_tree;
+static bool layered;
 
 char *rrclient_user_config_path(void) {
    const char *home_dir = getenv("HOME");
@@ -50,27 +50,8 @@ static dict *read_layers(const char *system_path, const char *user_path) {
    return combined;
 }
 
-static dict *read_source_config(const char *path) {
-   dict *result = cfg_load(path);
-
-   if (result && !strcmp(path, "./config/rrclient.cfg")) {
-      mkdir_p("./db");
-      mkdir_p("./audit-logs");
-      dict_add(result, "path.help-dir", "./help");
-      dict_add(result, "path.modules", "./bin");
-      dict_add(result, "fwdsp:path", "./bin/fwdsp");
-      dict_add(result, "fwdsp:log.file", "./audit-logs/fwdsp-cli.log");
-      dict_add(result, "log.file", "./audit-logs/rrclient.log");
-      dict_add(result, "cat.pty.path", "$HOME/dev/ttyCAT0");
-      dict_add(result, "callsign-lookup:cache-db", "./db/rrclient-callsigns.db");
-      dict_add(result, "callsign-lookup:path", "./bin/callsign-lookup");
-   }
-
-   return result;
-}
-
 bool rrclient_config_load(void) {
-   layered = source_tree = false;
+   layered = false;
 
    if (config_file) {
       cfg = cfg_load(config_file);
@@ -78,16 +59,6 @@ bool rrclient_config_load(void) {
       return cfg != NULL;
    }
 #ifndef _WIN32
-   struct stat running, local;
-
-   if (!stat("/proc/self/exe", &running) && !stat("./bin/rrclient", &local) &&
-      running.st_dev == local.st_dev && running.st_ino == local.st_ino && file_exists("./config/rrclient.cfg")) {
-      config_file = strdup(file_exists("./run/rrclient.cfg") ? "./run/rrclient.cfg" : "./config/rrclient.cfg");
-      source_tree = true;
-      cfg = read_source_config(config_file);
-
-      return cfg != NULL;
-   }
 #else
    extern const char *configs[];
    extern const int num_configs;
@@ -113,12 +84,6 @@ bool rrclient_config_load(void) {
 }
 
 bool rrclient_config_reload(const char *path) {
-   if (source_tree && (!path || !strcmp(path, config_file))) {
-      dict *replacement = read_source_config(config_file);
-
-      return replacement && cfg_apply_new(cfg, replacement);
-   }
-
    if (!layered || (path && strcmp(path, config_file))) {
       return cfg_reload(path);
    }
