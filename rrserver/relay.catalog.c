@@ -329,6 +329,14 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
    }
 
    const char *service = dict_get(d, "catalog.service", NULL);
+   const char *service_kind = dict_get(d, "inventory.kind", "");
+   bool diagnostic = !strcmp(service_kind, "rig-control") ||
+      !strcmp(service_kind, "rig-menu") || !strcmp(service_kind, "rig-menu-item");
+   if (diagnostic) {
+      Log(LOG_INFO, "relay.catalog", "Catalog %s: owner=%s kind=%s parent=%s service=%s",
+         rr_relay_local_owner(owner) ? "collect" : "receive", owner,
+         service_kind, dict_get(d, "catalog.parent", "-"), service ? service : "-");
+   }
 
    if (service) {
       const char *parent = dict_get(d, "catalog.parent", "");
@@ -337,6 +345,10 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
       bool menu_child = !strcmp(kind, "rig-menu-item") && authority &&
          !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
 
+      if (diagnostic && (!authority || strcmp(authority->owner, owner))) {
+         Log(LOG_WARN, "relay.catalog", "Rejected %s: missing/mismatched parent %s from %s",
+            service_kind, parent, owner);
+      }
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
          strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo") && !menu_child) ||
@@ -700,6 +712,13 @@ void rr_relay_send_catalogs(const char *dest) {
          dict_add(d, "session", "");
          dict_add(d, "username", "");
          dict_add(d, "payload", json);
+         if (!strcmp(dict_get(c->descriptor, "inventory.kind", ""), "rig-control") ||
+             !strcmp(dict_get(c->descriptor, "inventory.kind", ""), "rig-menu") ||
+             !strcmp(dict_get(c->descriptor, "inventory.kind", ""), "rig-menu-item")) {
+            Log(LOG_INFO, "relay.catalog", "Send %s to %s: owner=%s parent=%s",
+               dict_get(c->descriptor, "inventory.kind", ""), dest, c->owner,
+               dict_get(c->descriptor, "catalog.parent", "-"));
+         }
          rrserver_links_send(dest, d);
          dict_free(d);
          free(json);
