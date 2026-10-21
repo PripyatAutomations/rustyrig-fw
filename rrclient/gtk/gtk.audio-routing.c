@@ -240,7 +240,12 @@ static gboolean routing_drag_release(GtkWidget *widget, GdkEventButton *event, g
    (void)widget;
    (void)unused;
    if (event->button != GDK_BUTTON_PRIMARY || !routing_dragging) return FALSE;
-   routing_drag_motion(widget, (GdkEventMotion *)event, NULL);
+   /* Button and motion events are distinct GDK types; use the release
+    * coordinates directly rather than casting between event structures. */
+   int max_x = MAX(0, gtk_widget_get_allocated_width(routing_overlay) - gtk_widget_get_allocated_width(routing_window));
+   int max_y = MAX(0, gtk_widget_get_allocated_height(routing_overlay) - gtk_widget_get_allocated_height(routing_window));
+   gtk_widget_set_margin_start(routing_window, CLAMP(routing_start_x + (int)(event->x_root - routing_drag_x), 0, max_x));
+   gtk_widget_set_margin_top(routing_window, CLAMP(routing_start_y + (int)(event->y_root - routing_drag_y), 0, max_y));
    routing_dragging = false;
    return TRUE;
 }
