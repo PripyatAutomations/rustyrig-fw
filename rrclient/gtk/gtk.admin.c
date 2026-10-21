@@ -27,6 +27,12 @@ extern GtkWidget *main_notebook;
 GtkWidget *admin_view;
 GtkWidget *admin_tab;
 
+/* Explorer navigation pending until the requested server's admin rows arrive. */
+static char explorer_target_name[256];
+static char explorer_target_table[20];
+static char explorer_target_profile[128];
+static gboolean explorer_open_edit_idle(gpointer unused);
+static void admin_action(GtkButton *button, gpointer data);
 static admin_table_t tables[] = {
    {
       .name = "users", .fields = {
@@ -1079,6 +1085,12 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
             gtk_list_store_set(table->store, &iter, col, display, -1);
             g_free(display);
          }
+         if (*explorer_target_name && !strcmp(explorer_target_table, table->name) &&
+             !strcmp(explorer_target_profile, table->profile) &&
+             !strcmp(dict_get(row, table->fields[0], ""), explorer_target_name)) {
+            g_idle_add(explorer_open_edit_idle, NULL);
+            explorer_target_name[0] = 0;
+         }
       } else if (!strcmp(action, "end")) {
          snprintf(table->next, sizeof(table->next), "%s", dict_get(row, "next", "0"));
          gtk_widget_set_sensitive(table->older, strcmp(table->next, "0") != 0);
@@ -1095,6 +1107,69 @@ static void admin_table_destroy(GtkWidget *widget, gpointer data) {
    g_clear_object(&table->store);
    table->tree = table->older = table->status = NULL;
    table->profile[0] = 0;
+}
+
+/* Select the matching row in the filtered admin model and invoke its
+ * existing editor. Run outside the network result callback's call stack. */
+static int explorer_edit_table = -1;
+static char explorer_edit_name[256];
+static gboolean explorer_open_edit_idle(gpointer unused) {
+   (void)unused;
+   if (explorer_edit_table < 0 || explorer_edit_table >= (int)G_N_ELEMENTS(tables)) return G_SOURCE_REMOVE;
+   admin_table_t *table = &tables[explorer_edit_table];
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(table->tree));
+   GtkTreeIter iter;
+   for (gboolean ok = gtk_tree_model_get_iter_first(model, &iter); ok;
+        ok = gtk_tree_model_iter_next(model, &iter)) {
+      gchar *name = NULL;
+      gtk_tree_model_get(model, &iter, 0, &name, -1);
+      gboolean match = !g_strcmp0(name, explorer_edit_name);
+      g_free(name);
+      if (!match) continue;
+      GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
+      gtk_tree_selection_select_iter(selection, &iter);
+      GtkTreePath *path = gtk_tree_model_get_path(model, &iter);
+      gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(table->tree), path, NULL, FALSE, 0, 0);
+      gtk_tree_path_free(path);
+      GtkWidget *button = gtk_button_new();
+      g_object_set_data(G_OBJECT(button), "action", "edit");
+      admin_action(GTK_BUTTON(button), table);
+      gtk_widget_destroy(button);
+      break;
+   }
+   explorer_edit_table = -1;
+   explorer_edit_name[0] = 0;
+   return G_SOURCE_REMOVE;
+}
+
+void gtk_admin_open_resource(const char *profile, const char *kind, const char *name) {
+   if (!admin_view || !main_notebook || !kind || !name || !*name) return;
+   int index = !strcmp(kind, "user") ? 0 : !strcmp(kind, "room") ? 1 :
+      !strcmp(kind, "sessions") ? 5 : -1;
+   if (index < 0) return;
+   if (profile && *profile && g_strcmp0(rrclient_selected_server(), profile))
+      rrclient_connection_select(profile);
+   admin_table_t *table = &tables[index];
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),
+      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view));
+   GtkWidget *page = gtk_widget_get_parent(table->tree);
+   while (page && gtk_widget_get_parent(page) != admin_view)
+      page = gtk_widget_get_parent(page);
+   if (page)
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view),
+         gtk_notebook_page_num(GTK_NOTEBOOK(admin_view), page));
+   GtkWidget *filter = g_object_get_data(G_OBJECT(table->tree), "rr-admin-filter");
+   if (GTK_IS_ENTRY(filter))
+      gtk_entry_set_text(GTK_ENTRY(filter), name);
+   if (index != 5) {
+      g_strlcpy(explorer_target_name, name, sizeof(explorer_target_name));
+      g_strlcpy(explorer_target_table, table->name, sizeof(explorer_target_table));
+      g_strlcpy(explorer_target_profile, profile ? profile : rrclient_selected_server(),
+                sizeof(explorer_target_profile));
+      explorer_edit_table = index;
+      g_strlcpy(explorer_edit_name, name, sizeof(explorer_edit_name));
+   }
+   admin_refresh(NULL, table);
 }
 
 void gtk_admin_refresh(void) {
