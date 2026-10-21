@@ -392,9 +392,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
              * no request body, passwords or authentication tokens. */
             char reason[512];
             snprintf(reason, sizeof(reason),
-               "Remote %s.%s%s%s%s to node %.40s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)",
-               family, operation, *target ? " for " : "", *target ? target : "",
-               *target ? "" : "", dest,
+               "Remote %.24s.%.24s%s%.160s to node %.40s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)",
+               family, operation, *target ? " for " : "", *target ? target : "", dest,
                !deadline ? "missing request deadline" :
                deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future",
                (long long) deadline, (long long) received_at);
