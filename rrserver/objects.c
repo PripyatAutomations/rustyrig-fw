@@ -537,6 +537,14 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    else if (!strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS)) label = "Display Brightness";
    else if (!strcmp(d->name, "display.tx-indicator")) label = "TX/BUSY Indicator";
    else if (!strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) label = "Speaker Volume";
+   else if (!strcmp(d->name, "receiver.rf-gain")) label = "RF Gain";
+   else if (!strcmp(d->name, "receiver.attenuator")) label = "RF Attenuator";
+   else if (!strcmp(d->name, "receiver.noise-blanker")) label = "Noise Blanker";
+   else if (!strcmp(d->name, "receiver.noise-blanker-level")) label = "Noise Blanker Level";
+   else if (!strcmp(d->name, "receiver.noise-reduction")) label = "Noise Reduction";
+   else if (!strcmp(d->name, "receiver.noise-reduction-level")) label = "Noise Reduction Level";
+   else if (!strcmp(d->name, "transmit.mic-gain")) label = "Mic Gain";
+   else if (!strcmp(d->name, "transmit.power")) label = "RF Output Power";
    if (!label) return false;
    dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
 
