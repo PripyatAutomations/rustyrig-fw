@@ -500,7 +500,7 @@ jpeg.rx=appsrc name=rx-src is-live=true do-timestamp=true format=time caps=image
 ; SDR slices and independent FT8/other-band decoding (January 2027 target).
 
 
-; GPS endpoints default to PTYs at ./dev/<name>. Real receiver example:
+; GPS endpoints default to PTYs under $HOME/dev/<name>. Real receiver example:
 ;[serial:ttyGPS0]
 ;type=serial
 ;path=/dev/ttyUSB1
