@@ -576,9 +576,14 @@ static bool width_set(rr_backend_t *b, rr_server_vfo_t *v, const char *width) {
        !sh_table(s->mode[index], false, &values, &count)) return true;
    int current = sh_read(b, v);
    int target = 0;
-   if (!strcasecmp(width, "NARR") || !strcasecmp(width, "NARROW")) target = 200;
-   else if (!strcasecmp(width, "NORM") || !strcasecmp(width, "NORMAL")) target = current > 0 ? current : 2400;
-   else if (!strcasecmp(width, "WIDE")) target = 3200;
+   if (!strcasecmp(width, "NARR") || !strcasecmp(width, "NARROW")) {
+      target = (s->mode[index] == MODE_CW || s->mode[index] == MODE_DL || s->mode[index] == MODE_DU) ? 100 : 400;
+   } else if (!strcasecmp(width, "NORM") || !strcasecmp(width, "NORMAL")) {
+      target = (s->mode[index] == MODE_CW) ? 500 :
+         (s->mode[index] == MODE_DL || s->mode[index] == MODE_DU) ? 500 : 2400;
+   } else if (!strcasecmp(width, "WIDE")) {
+      target = (s->mode[index] == MODE_CW || s->mode[index] == MODE_DL || s->mode[index] == MODE_DU) ? 2400 : 3200;
+   }
    else {
       char *end;
       long hz = strtol(width, &end, 10);
