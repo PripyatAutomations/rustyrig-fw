@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <rrserver/backend.worker.h>
@@ -233,6 +234,20 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
          job->failed = !api->rig_control_set || api->rig_control_set(backend, name, job->value.i);
          break;
       }
+      case RR_BACKEND_MENU_READ: {
+         char value[128] = "";
+         char property[32];
+         snprintf(property, sizeof(property), "menu.%s", job->text ? job->text : "");
+         job->failed = !api->menu_read || !job->text ||
+            !api->menu_read(backend, job->text, value, sizeof(value));
+         if (!job->failed) {
+            dict_value_t observed = { .s = value };
+            rr_backend_property_observe(backend, NULL, property, VAL_STR, &observed);
+         } else {
+            rr_backend_property_unavailable(backend, NULL, property);
+         }
+         break;
+      }
       case RR_BACKEND_RIG_CONTROL: {
          char *separator = job->text ? strrchr(job->text, ':') : NULL;
          if (!separator) { job->failed = true; break; }
@@ -433,7 +448,7 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
          worker_ms()
    };
 
-   if ((operation == RR_BACKEND_WIDTH || operation == RR_BACKEND_RIG_CONTROL) && !(job->text = strdup(value.s))) {
+   if ((operation == RR_BACKEND_WIDTH || operation == RR_BACKEND_RIG_CONTROL || operation == RR_BACKEND_MENU_READ) && !(job->text = strdup(value.s))) {
       free(job);
       pthread_mutex_unlock(&worker->mutex);
 

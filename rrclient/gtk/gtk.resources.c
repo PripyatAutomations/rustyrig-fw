@@ -949,6 +949,91 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    gtk_widget_show_all(panel);
    g_free(details);
 }
+typedef struct {
+   char *uuid, *property;
+   GtkWidget *label;
+   guint timer;
+   unsigned attempts;
+} resource_menu_read_t;
+static gboolean resource_menu_value_poll(gpointer data) {
+   resource_menu_read_t *read = data;
+   if (++read->attempts > 50) {
+      gtk_label_set_text(GTK_LABEL(read->label), "No CAT value received. Check the server and rig CAT logs.");
+      read->timer = 0;
+      return G_SOURCE_REMOVE;
+   }
+   const dict *state = rrclient_object_property(read->uuid, read->property);
+   if (state && dict_get_bool((dict *)state, "property.known", false) &&
+       dict_get_bool((dict *)state, "property.available", true)) {
+      const char *value = dict_get((dict *)state, "property.value", NULL);
+      if (value) {
+         char *summary = g_strdup_printf("CAT value: %s (raw parameter; read-only)", value);
+         gtk_label_set_text(GTK_LABEL(read->label), summary);
+         g_free(summary);
+         read->timer = 0;
+         return G_SOURCE_REMOVE;
+      }
+   }
+   return G_SOURCE_CONTINUE;
+}
+static void resource_menu_read_free(gpointer data) {
+   resource_menu_read_t *read = data;
+   if (read->timer) g_source_remove(read->timer);
+   g_free(read->uuid);
+   g_free(read->property);
+   g_free(read);
+}
+static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
+                               const char *profile, const char *title, const char *id) {
+   if (!profile || !id || strlen(id) != 4) return;
+   GtkTreeIter current = *item, parent;
+   char *uuid = NULL;
+   while (gtk_tree_model_iter_parent(model, &parent, &current)) {
+      char *kind = NULL;
+      gtk_tree_model_get(model, &parent, KIND, &kind, -1);
+      if (!g_strcmp0(kind, "rig")) {
+         gtk_tree_model_get(model, &parent, UUID, &uuid, -1);
+         g_free(kind);
+         break;
+      }
+      g_free(kind);
+      current = parent;
+   }
+   rrconn_t *conn = rrclient_connection_find(profile);
+   if (!uuid || !*uuid || !conn || !conn->authenticated || !conn->is_ws) {
+      g_free(uuid);
+      return;
+   }
+   GtkWidget *panel = NULL, *area = gtk_control_panel_open(title, &panel);
+   if (!area) { g_free(uuid); return; }
+   GtkWidget *label = gtk_label_new("Reading one menu value from the rig…");
+   gtk_label_set_xalign(GTK_LABEL(label), 0);
+   gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
+   GtkWidget *close = gtk_button_new_with_label("Close");
+   gtk_box_pack_start(GTK_BOX(area), close, FALSE, FALSE, 0);
+   g_signal_connect_swapped(close, "clicked", G_CALLBACK(gtk_widget_destroy), panel);
+   resource_menu_read_t *read = g_new0(resource_menu_read_t, 1);
+   read->uuid = uuid;
+   read->property = g_strdup_printf("menu.%s", id);
+   read->label = label;
+   g_object_set_data_full(G_OBJECT(panel), "rr-menu-read", read, resource_menu_read_free);
+   dict *request = dict_new();
+   if (request) {
+      dict_add(request, "msg.type", "property");
+      dict_add(request, "property.cmd", "read");
+      dict_add(request, "target", uuid);
+      dict_add(request, "property.name", read->property);
+      char request_id[64];
+      snprintf(request_id, sizeof(request_id), "menu-read-%lld", (long long)g_get_monotonic_time());
+      dict_add(request, "request.id", request_id);
+      if (!ws_send_dict(NULL, conn, request, WEBSOCKET_OP_TEXT))
+         gtk_label_set_text(GTK_LABEL(label), "Unable to send menu read request.");
+      else
+         read->timer = g_timeout_add(200, resource_menu_value_poll, read);
+      dict_free(request);
+   }
+   gtk_widget_show_all(panel);
+}
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
    (void)unused;
@@ -961,7 +1046,13 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTree
    char *kind = NULL, *control = NULL, *profile = NULL, *state = NULL;
    gtk_tree_model_get(model, &iter, KIND, &kind, ACTION, &control, PROFILE, &profile, SERVER_STATE, &state, -1);
 
-   if (g_strcmp0(kind, "rig-control") == 0 && control && *control) {
+   if (!g_strcmp0(kind, "rig-menu-item")) {
+      char *name = NULL, *service = NULL;
+      gtk_tree_model_get(model, &iter, NAME, &name, SERVICE, &service, -1);
+      resource_menu_open(model, &iter, profile, name, service);
+      g_free(name);
+      g_free(service);
+   } else if (g_strcmp0(kind, "rig-control") == 0 && control && *control) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, NAME, &name, -1);
       resource_rig_control_dialog(model, &iter, profile, name, control);
