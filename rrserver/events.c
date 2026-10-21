@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <glib.h>
 #include <errno.h>
 
 #include <librustyaxe/core.h>
@@ -112,6 +113,42 @@ static void rrserver_handle_send_chat_replay(const char *event, const char *data
    dict_free(d);
 }
 
+/* Per-account token bucket. Excessive chat is temporarily shunned. */
+typedef struct {
+   double tokens;
+   uint64_t updated, shunned_until, warned;
+} rr_chat_flood_t;
+static GHashTable *chat_flood_users;
+static bool rr_chat_flood_blocked(rrconn_t *client) {
+   if (!client || !client->user) return true;
+   if (has_priv(client->user->uid, "chat-flood")) return false;
+   if (!chat_flood_users)
+      chat_flood_users = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
+   gpointer key = GINT_TO_POINTER(client->user->uid + 1);
+   rr_chat_flood_t *state = g_hash_table_lookup(chat_flood_users, key);
+   uint64_t stamp = mono_us();
+   if (!state) {
+      state = g_new0(rr_chat_flood_t, 1);
+      state->tokens = 5.0;
+      state->updated = stamp;
+      g_hash_table_insert(chat_flood_users, key, state);
+   }
+   double elapsed = stamp >= state->updated ? (double)(stamp - state->updated) / 1000000.0 : 0;
+   state->updated = stamp;
+   state->tokens = MIN(5.0, state->tokens + elapsed * 0.5);
+   if (stamp < state->shunned_until) return true;
+   if (state->tokens >= 1.0) {
+      state->tokens -= 1.0;
+      return false;
+   }
+   state->shunned_until = stamp + 10000000;
+   if (stamp - state->warned > 1000000) {
+      ws_send_notice(client, "Chat flood: messages blocked for 10 seconds; slow down.");
+      Log(LOG_WARN, "ws.chat", "Chat flood shun for %s (10s)", client->chatname);
+      state->warned = stamp;
+   }
+   return true;
+}
 /* Persist and broadcast accepted room chat messages. */
 static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
    Log(LOG_CRAZY, "events.ws", "ENTER talk.msg: event=<%s> data=<%p> cptr=<%p>", event ? event : "(null)", data, cptr);
@@ -145,6 +182,13 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
    /*
     * File chunks aren't normal chat messages and should not be written to chat_log. They still need to be broadcast.
     */
+   if ((!strcasecmp(msg_type, "pub") || !strcasecmp(msg_type, "action") ||
+        !strcasecmp(msg_type, "priv") || !strcasecmp(msg_type, "privmsg")) &&
+       rr_chat_flood_blocked(cptr)) {
+      dict_free(d);
+      return;
+   }
+
    if (strcasecmp(msg_type, "file_chunk") == 0) {
       Log(LOG_DEBUG, "ws.chat", "broadcasting file chunk from %s", cptr->chatname);
       ws_broadcast_room_dict(cptr, d, channel);
