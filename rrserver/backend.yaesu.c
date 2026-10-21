@@ -218,6 +218,37 @@ static bool get_af(yaesu_state_t *s) {
 
    return true;
 }
+/* FT-891 documented CAT controls. UI values are normalized percentages. */
+typedef struct yaesu_control_spec {
+   const char *name, *command;
+   int minimum, maximum, digits;
+} yaesu_control_spec_t;
+static const yaesu_control_spec_t yaesu_controls[] = {
+   { "receiver.rf-gain", "RG0", 0, 30, 3 },
+   { "receiver.attenuator", "RA0", 0, 1, 1 },
+   { "receiver.noise-blanker", "NB0", 0, 1, 1 },
+   { "receiver.noise-blanker-level", "NL0", 0, 10, 3 },
+   { "receiver.noise-reduction", "NR0", 0, 1, 1 },
+   { "receiver.noise-reduction-level", "RL0", 1, 15, 2 },
+   { "transmit.mic-gain", "MG", 0, 100, 3 },
+   { "transmit.power", "PC", 5, 100, 3 },
+};
+static const yaesu_control_spec_t *yaesu_control_find(const char *name) {
+   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i)
+      if (!strcmp(name, yaesu_controls[i].name)) return &yaesu_controls[i];
+   return NULL;
+}
+static bool yaesu_control_read(yaesu_state_t *s, const yaesu_control_spec_t *spec, int *percent) {
+   char cmd[16], reply[32];
+   snprintf(cmd, sizeof(cmd), "%s;", spec->command);
+   if (!cat(s, cmd, spec->command, reply, sizeof(reply))) return false;
+   size_t prefix = strlen(spec->command);
+   if (strlen(reply) != prefix + (size_t)spec->digits) return false;
+   int value;
+   if (!decimal(reply + prefix, spec->digits, &value) || value < spec->minimum || value > spec->maximum) return false;
+   *percent = (value - spec->minimum) * 100 / (spec->maximum - spec->minimum);
+   return true;
+}
 static void observe(rr_backend_t *b, const char *name, int percent) {
    dict_value_t value = {
       .i = percent
@@ -260,6 +291,16 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
       return false;
    }
 
+   const yaesu_control_spec_t *spec = yaesu_control_find(name);
+   if (spec) {
+      int value = spec->minimum + (percent * (spec->maximum - spec->minimum) + 50) / 100;
+      snprintf(command, sizeof(command), "%s%0*d;", spec->command, spec->digits, value);
+      if (!cat(s, command, NULL, NULL, 0)) return true;
+      int actual;
+      if (!yaesu_control_read(s, spec, &actual)) return true;
+      observe(b, name, actual);
+      return false;
+   }
    return true;
 }
 static bool index_of(rr_server_vfo_t *vfo, rr_vfo_t *i) {
@@ -400,6 +441,13 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
          rr_backend_property_unavailable(b, NULL, "display.tx-indicator");
       }
 
+      for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
+         int percent;
+         if (yaesu_control_read(s, &yaesu_controls[i], &percent))
+            observe(b, yaesu_controls[i].name, percent);
+         else
+            rr_backend_property_unavailable(b, NULL, yaesu_controls[i].name);
+      }
       if (get_af(s)) {
          observe(b, RR_PROP_SPEAKER_VOLUME, (s->af * 100 + 127) / 255);
       } else {
@@ -508,6 +556,14 @@ static bool create(rr_backend_t *b) {
       rr_rig_property_define(b->owner, &d);
    }
 
+   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
+      rr_property_descriptor_t d = {
+         .name = yaesu_controls[i].name, .type = VAL_INT, .readable = true,
+         .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
+         .minimum.i = 0, .maximum.i = 100, .step.i = 1
+      };
+      rr_rig_property_define(b->owner, &d);
+   }
    return false;
 }
 static void destroy(rr_backend_t *b) {
