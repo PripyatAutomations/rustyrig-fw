@@ -1374,8 +1374,12 @@ static gboolean resource_search_equal(GtkTreeModel *model, gint column, const gc
 static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    char *kind=NULL;
    gtk_tree_model_get(model,iter,KIND,&kind,-1);
-   gboolean match=g_hash_table_contains(browser->enabled_kinds,
-      !g_strcmp0(kind, "rig-control") ? "control" : kind ? kind : "");
+   /* Virtual folders follow their children; never classify them as Other. */
+   gboolean match=!g_strcmp0(kind,"local") || !g_strcmp0(kind,"site") ||
+      !g_strcmp0(kind,"server") ? TRUE :
+      !g_strcmp0(kind,"group") ? FALSE :
+      g_hash_table_contains(browser->enabled_kinds,
+         !g_strcmp0(kind,"rig-control") ? "control" : kind ? kind : "");
    if (!match && !g_hash_table_contains(browser->enabled_kinds,"other")) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
@@ -1388,7 +1392,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge","group"};
+         "serial","file","bridge","group","rig-control"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1429,8 +1433,13 @@ static void resource_type_toggle_all(GtkToggleButton *item,gpointer unused) {
    for (guint i=0;i<browser->type_checks->len;i++)
       gtk_toggle_button_set_active(g_ptr_array_index(browser->type_checks,i),select_all);
    browser->type_bulk_update=FALSE;
+   /* Updating the tri-state widget can emit toggled; never re-enter filtering
+    * while the model is processing a row deletion. */
+   browser->type_bulk_update=TRUE;
    gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all),FALSE);
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all),select_all);
+   browser->type_bulk_update=FALSE;
+   gtk_tree_selection_unselect_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)));
    gtk_tree_model_filter_refilter(browser->filter);
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
