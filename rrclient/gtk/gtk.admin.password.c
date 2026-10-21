@@ -7,9 +7,9 @@ void gtk_admin_password_dialog(GtkWindow *parent, const char *profile, const cha
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Set Password", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
       "Set Password", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   char *context = g_strdup_printf("Server: %s\nUser: %s\nPassword: 8–128 bytes, no whitespace", profile, name);
-   gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 6);
-   g_free(context);
+   char *description = g_strdup_printf("Server: %s\nUser: %s\nPassword: 8–128 bytes, no whitespace", profile, name);
+   gtk_box_pack_start(GTK_BOX(box), gtk_label_new(description), FALSE, FALSE, 6);
+   g_free(description);
    GtkWidget *password = gtk_entry_new(), *confirmation = gtk_entry_new();
    gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
    gtk_entry_set_visibility(GTK_ENTRY(confirmation), FALSE);
