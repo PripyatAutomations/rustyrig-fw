@@ -19,10 +19,6 @@ for component in "${components[@]}"; do
       echo "ERROR: $component is not initialized; initialize it before dev sync." >&2
       exit 1
    fi
-   if [[ -z "$(git -C "$component" symbolic-ref -q --short HEAD)" ]]; then
-      echo "ERROR: $component has a detached HEAD. Switch to its development branch first." >&2
-      exit 1
-   fi
    if [[ -n "$(git -C "$component" status --porcelain)" ]]; then
       echo "ERROR: $component has local changes. Commit or resolve them before syncing." >&2
       exit 1
@@ -34,7 +30,42 @@ git pull --ff-only
 git submodule sync --recursive
 
 for component in "${components[@]}"; do
-   echo "SYNC: $component (preserving $(git -C "$component" symbolic-ref --short HEAD))"
+   branch=$(git -C "$component" symbolic-ref -q --short HEAD || true)
+   if [[ -z "$branch" ]]; then
+      # Git submodule update --init checks out the parent gitlink as a
+      # detached HEAD. Recover the upstream default development branch, but
+      # never discard a detached commit that is not already on that branch.
+      git -C "$component" fetch origin
+      upstream=$(git -C "$component" ls-remote --symref origin HEAD |
+         sed -n 's@^ref: refs/heads/\\([^[:space:]]*\\)[[:space:]]*HEAD$@\\1@p')
+      if [[ -z "$upstream" ]]; then
+         echo "ERROR: cannot find upstream default branch for $component." >&2
+         exit 1
+      fi
+      git -C "$component" fetch origin "$upstream"
+      detached=$(git -C "$component" rev-parse HEAD)
+      target=$(git -C "$component" rev-parse FETCH_HEAD)
+      if ! git -C "$component" merge-base --is-ancestor "$detached" "$target"; then
+         echo "ERROR: $component detached HEAD $detached is not contained in origin/$upstream." >&2
+         echo "Preserving detached commit; inspect it before switching branches." >&2
+         exit 1
+      fi
+      if git -C "$component" show-ref --verify -q "refs/heads/$upstream"; then
+         # If an existing local branch contains commits not on origin,
+         # refuse rather than silently replacing it.
+         local_head=$(git -C "$component" rev-parse "refs/heads/$upstream")
+         if ! git -C "$component" merge-base --is-ancestor "$local_head" "$target"; then
+            echo "ERROR: local $component/$upstream has divergent commits. Resolve manually." >&2
+            exit 1
+         fi
+         git -C "$component" switch "$upstream"
+      else
+         git -C "$component" switch --track -c "$upstream" "origin/$upstream"
+      fi
+      branch=$upstream
+      echo "SYNC: $component recovered detached HEAD onto $branch"
+   fi
+   echo "SYNC: $component (preserving $branch)"
    git -C "$component" pull --ff-only
 done
 
