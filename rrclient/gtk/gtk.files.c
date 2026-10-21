@@ -748,7 +748,9 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    };
 
    for (int col = 0 ; col < 6 ; col++) {
-      if (col == PATH || col == DIRECTORY) {
+      /* Readability remains in the model for authorization and actions, but
+       * displaying a Read checkbox adds no useful information. */
+      if (col == PATH || col == DIRECTORY || col == READABLE) {
          continue;
       }
       GtkCellRenderer *cell = col == READABLE || col == WRITABLE ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
