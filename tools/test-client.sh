@@ -46,6 +46,14 @@ if [[ "$sanitizer" != plain && "$debugger" == valgrind ]]; then
     echo "Valgrind and sanitizer instrumentation cannot be combined." >&2; exit 2
 fi
 rr_test_prepare_build "$sanitizer" "$media_san"
+# rrclient itself is linked with the requested sanitizer runtime. Preloading
+# libasan into *every* descendant is unnecessary and can break GTK's glycin
+# bwrap image-loader helper (which executes in a restricted sandbox). Keep
+# sanitizer instrumentation active in rrclient, but do not inject its runtime
+# into external child processes.
+if [[ "$sanitizer" == asan || "$sanitizer" == san ]]; then
+    unset LD_PRELOAD
+fi
 # LeakSanitizer cannot run its exit check while traced by GDB.
 # Keep ASan/UBSan active; only disable LSan in this combination.
 if [[ "$debugger" == gdb && ("$sanitizer" == asan || "$sanitizer" == san) ]]; then
