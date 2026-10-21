@@ -762,20 +762,30 @@ static void admin_action(GtkButton *button, gpointer data) {
        * the globally selected server must not redirect this edit. */
       char destination[sizeof(table->profile)];
       g_strlcpy(destination, table->profile, sizeof(destination));
+      gchar *account_uid = NULL;
+      gtk_tree_model_get(model, &iter, 8, &account_uid, -1);
+      /* The UID is displayed for disambiguation, never edited or used as a
+       * replacement for the server-authoritative account selector. */
+      g_object_set_data_full(G_OBJECT(dialog), "rr-account-uid", account_uid, g_free);
       char *heading = g_strdup_printf("Editing account: %s", name);
       gtk_window_set_title(GTK_WINDOW(dialog), heading);
       g_free(heading);
       GtkWidget *identity = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
       char *account_line = g_strdup_printf("Account: %s", name);
+      char *uid_line = g_strdup_printf("Account UID: %s", account_uid && *account_uid ? account_uid : "Unavailable");
       char *server_line = g_strdup_printf("Destination server: %s", destination);
       GtkWidget *account_label = gtk_label_new(account_line);
       GtkWidget *server_label = gtk_label_new(server_line);
+      GtkWidget *uid_label = gtk_label_new(uid_line);
+      gtk_label_set_xalign(GTK_LABEL(uid_label), 0);
       gtk_label_set_xalign(GTK_LABEL(account_label), 0);
       gtk_label_set_xalign(GTK_LABEL(server_label), 0);
       gtk_box_pack_start(GTK_BOX(identity), account_label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(identity), uid_label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(identity), server_label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), identity, FALSE, FALSE, 8);
       g_free(account_line);
+      g_free(uid_line);
       g_free(server_line);
       admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
@@ -894,7 +904,8 @@ static void admin_action(GtkButton *button, gpointer data) {
             } else if (json) {
                GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(dialog),
                   GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
-                  "Save changes to account %s on server %s?", name, destination);
+                  "Save changes to %s (UID %s) on server %s?", name,
+                  account_uid && *account_uid ? account_uid : "unavailable", destination);
                gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(confirm),
                   "This modifies the account on the named server, not other accounts with the same username.");
                gboolean approved = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_OK;
