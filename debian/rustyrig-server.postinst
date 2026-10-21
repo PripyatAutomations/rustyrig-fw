@@ -63,6 +63,26 @@ if command -v db_set >/dev/null 2>&1 && [ "$new_database" = true ]; then
     db_set rustyrig-server/admin-password "" || true
 fi
 
+# Opt-in local hardware group memberships for the rrserver service account.
+# Missing host-specific groups are not created; never reset existing membership
+# during upgrades. Restart rrserver after a membership change.
+if command -v db_get >/dev/null 2>&1; then
+    if db_get rustyrig-server/backlight-video-group && [ "${RET:-false}" = true ]; then
+        if getent group video >/dev/null 2>&1; then
+            adduser rustyrig video
+        else
+            echo "rustyrig-server: video group missing; backlight access not granted" >&2
+        fi
+    fi
+    if db_get rustyrig-server/serial-dialout-group && [ "${RET:-false}" = true ]; then
+        if getent group dialout >/dev/null 2>&1; then
+            adduser rustyrig dialout
+        else
+            echo "rustyrig-server: dialout group missing; serial access not granted" >&2
+        fi
+    fi
+fi
+
 # Grant administrative access without changing service ownership.
 /usr/lib/rustyrig/admin-permissions
 if [ -r /usr/share/debconf/confmodule ]; then
