@@ -249,10 +249,6 @@ GtkWidget *create_vfo_box(void) {
    vfo_codec_box = codec_selectors;
    gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, TRUE, TRUE, 6);
 
-   // VOLUME selector
-   GtkWidget *rx_vol_vbox = create_volbox();
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), rx_vol_vbox, TRUE, TRUE, 0);
-
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
