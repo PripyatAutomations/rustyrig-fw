@@ -1494,7 +1494,16 @@ static gboolean resource_tick(gpointer data) {
       rrclient_connection_dispatch(connection, resource_update_branch, branch);
 
       if (!branch->online) {
+         /* A disconnected profile cannot own live inventory. Invalidate the
+          * request token too, so late replies cannot resurrect stale rows. */
          branch->loading = false;
+         branch->loaded = false;
+         g_clear_pointer(&branch->request, g_free);
+         GtkTreeIter child;
+         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root))
+            gtk_tree_store_remove(browser->store, &child);
+         set_string(&branch->root, STATE, "Disconnected");
+         set_string(&branch->root, OURS, "Disconnected");
       }
       /* Linked catalogs can arrive after the first inventory, without an object descriptor change (GPS/serial/media are inventory-only services). Refresh
        * availability while the window is open, including late peers. */
