@@ -403,6 +403,10 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       GtkWidget *source = gtk_notebook_get_tab_label(notebook, child);
       GtkWidget *button = gtk_toggle_button_new();
       GtkWidget *label = gtk_label_new(NULL);
+      /* Long room/server names must not force the entire notebook wider.
+       * The full source title remains intact for tooltips and selection. */
+      gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
+      gtk_label_set_max_width_chars(GTK_LABEL(label), 28);
       GtkWidget *number_label = gtk_label_new(NULL);
       GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       g_object_set_data(G_OBJECT(button), "rr-tab-title", label);
@@ -451,7 +455,10 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
       return GTK_WIDGET(notebook);
    }
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   gtk_widget_set_hexpand(box, TRUE);
    GtkWidget *flow = gtk_flow_box_new();
+   gtk_widget_set_hexpand(flow, TRUE);
+   gtk_widget_set_halign(flow, GTK_ALIGN_FILL);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
    gtk_drag_dest_set(flow, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
    g_signal_connect_object(flow, "drag-data-received", G_CALLBACK(tab_drag_received), notebook, 0);
