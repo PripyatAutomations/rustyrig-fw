@@ -663,6 +663,71 @@ static gboolean resource_uuid_context(GtkWidget *tree,GdkEventButton *event,gpoi
    gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
    return TRUE;
 }
+/* Rig controls are opened on demand, not rendered as live tree sliders. */
+static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
+                                       const char *profile, const char *name) {
+   GtkTreeIter iter = *item, parent;
+   char *uuid = NULL, *room = NULL;
+   while (gtk_tree_model_iter_parent(model, &parent, &iter)) {
+      char *kind = NULL;
+      gtk_tree_model_get(model, &parent, KIND, &kind, -1);
+      if (!g_strcmp0(kind, "rig")) {
+         gtk_tree_model_get(model, &parent, UUID, &uuid, ROOM, &room, -1);
+         g_free(kind);
+         break;
+      }
+      g_free(kind);
+      iter = parent;
+   }
+   if (!uuid || !*uuid) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Rig control has no owner UUID.");
+      g_free(uuid); g_free(room);
+      return;
+   }
+   rrconn_t *connection = rrclient_connection_find(profile);
+   if (!connection || !connection->authenticated || !connection->is_ws) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing rig controls.");
+      g_free(uuid); g_free(room);
+      return;
+   }
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(name, resource_parent(),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Cancel", GTK_RESPONSE_CANCEL, "_Apply", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *label = gtk_label_new("Set the rig control (0–100%).");
+   GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
+   gtk_widget_set_size_request(scale, 320, -1);
+   gtk_container_add(GTK_CONTAINER(area), label);
+   gtk_container_add(GTK_CONTAINER(area), scale);
+   const dict *state = rrclient_object_property(uuid,
+      !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
+   if (state && dict_get_bool((dict *)state, "property.known", false))
+      gtk_range_set_value(GTK_RANGE(scale), dict_get_int((dict *)state, "property.value", 50));
+   else
+      gtk_range_set_value(GTK_RANGE(scale), 50);
+   gtk_widget_show_all(area);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+      dict *message = dict_new();
+      dict_add(message, "msg.type", "property");
+      dict_add(message, "property.cmd", "set");
+      dict_add(message, "target", uuid);
+      dict_add(message, "property.name",
+         !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
+      dict_add_int(message, "property.value", (int)gtk_range_get_value(GTK_RANGE(scale)));
+      if (room && *room) dict_add(message, "request.room", room);
+      char request[64];
+      snprintf(request, sizeof(request), "explorer-control-%lld", (long long)g_get_monotonic_time());
+      dict_add(message, "request.id", request);
+      if (!ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT))
+         gtk_label_set_text(GTK_LABEL(browser->status), "Unable to send rig control request.");
+      else
+         gtk_label_set_text(GTK_LABEL(browser->status), "Rig control request sent; the server will validate permissions and capabilities.");
+      dict_free(message);
+   }
+   gtk_widget_destroy(dialog);
+   g_free(uuid); g_free(room);
+}
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
    (void)unused;
@@ -675,7 +740,12 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTree
    char *kind = NULL, *control = NULL, *profile = NULL, *state = NULL;
    gtk_tree_model_get(model, &iter, KIND, &kind, ACTION, &control, PROFILE, &profile, SERVER_STATE, &state, -1);
 
-   if (g_strcmp0(kind, "control") == 0 && control && *control) {
+   if (g_strcmp0(kind, "rig-control") == 0 && control && *control) {
+      char *name = NULL;
+      gtk_tree_model_get(model, &iter, NAME, &name, -1);
+      resource_rig_control_dialog(model, &iter, profile, name);
+      g_free(name);
+   } else if (g_strcmp0(kind, "control") == 0 && control && *control) {
       if (g_strcmp0(state, "owner-server-only") == 0) {
          gtk_label_set_text(GTK_LABEL(browser->status), "Linked-node control discovered. Routed control requests are not implemented yet.");
       } else {
@@ -1301,7 +1371,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge","group"};
+         "serial","file","bridge","group","rig-control"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1756,10 +1826,10 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    /* Group direct children without changing their resource identity or wire
     * parent. Existing explicit UUID ancestry always wins for nested objects. */
-   if (!strcmp(kind, "control") || !strcmp(kind, "file")) {
+   if (!strcmp(kind, "control") || !strcmp(kind, "rig-control") || !strcmp(kind, "file")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
-      const char *folder = !strcmp(kind, "control") ? "Controls" :
+      const char *folder = (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
          (!strcmp(parent_kind ? parent_kind : "", "site") ||
           !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
       if (folder) {
@@ -1877,7 +1947,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
-      ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, !strcmp(kind, "control") ? dict_get(row, "inventory.service", "") : dict_get(row,
+      ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? dict_get(row, "inventory.service", "") : dict_get(row,
       "inventory.action", ""), -1);
 
    if (branch->selection) {
