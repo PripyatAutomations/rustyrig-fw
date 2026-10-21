@@ -954,6 +954,7 @@ typedef struct {
    GtkWidget *label;
    guint timer;
    unsigned attempts;
+   char *initial_version;
 } resource_menu_read_t;
 static gboolean resource_menu_value_poll(gpointer data) {
    resource_menu_read_t *read = data;
@@ -963,7 +964,9 @@ static gboolean resource_menu_value_poll(gpointer data) {
       return G_SOURCE_REMOVE;
    }
    const dict *state = rrclient_object_property(read->uuid, read->property);
-   if (state && dict_get_bool((dict *)state, "property.known", false) &&
+   const char *version = state ? dict_get((dict *)state, "property.version", NULL) : NULL;
+   if (state && version && (!read->initial_version || strcmp(version, read->initial_version)) &&
+       dict_get_bool((dict *)state, "property.known", false) &&
        dict_get_bool((dict *)state, "property.available", true)) {
       const char *value = dict_get((dict *)state, "property.value", NULL);
       if (value) {
@@ -981,6 +984,7 @@ static void resource_menu_read_free(gpointer data) {
    if (read->timer) g_source_remove(read->timer);
    g_free(read->uuid);
    g_free(read->property);
+   g_free(read->initial_version);
    g_free(read);
 }
 static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
@@ -1016,6 +1020,11 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    read->uuid = uuid;
    read->property = g_strdup_printf("menu.%s", id);
    read->label = label;
+   const dict *cached = rrclient_object_property(uuid, read->property);
+   if (cached) {
+      const char *version = dict_get((dict *)cached, "property.version", NULL);
+      read->initial_version = version ? g_strdup(version) : NULL;
+   }
    g_object_set_data_full(G_OBJECT(panel), "rr-menu-read", read, resource_menu_read_free);
    dict *request = dict_new();
    if (request) {
