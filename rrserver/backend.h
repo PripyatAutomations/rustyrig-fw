@@ -42,6 +42,9 @@ typedef struct rr_backend_funcs {
    uint16_t (*width_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
    bool (*width_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *width);
    int (*widths_get)(rr_backend_t *backend, rr_server_vfo_t *vfo, int *widths, int max);
+   /* Optional hardware identity supplied by the active backend. */
+   const char *(*manufacturer)(rr_backend_t *backend);
+   const char *(*model_name)(rr_backend_t *backend);
 } rr_backend_funcs_t;
 
 /* Immutable implementation metadata. */
