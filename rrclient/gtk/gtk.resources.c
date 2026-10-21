@@ -1447,7 +1447,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","serial-folder","file","share","bridge","group","rig-control"};
+         "serial","serial-folder","file","share","bridge","group","rig-control","network-service"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1455,7 +1455,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","serial-folder","file","share","bridge","group"};
+         "serial","serial-folder","file","share","bridge","group","network-service"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1579,7 +1579,7 @@ static void resource_create(void) {
    gtk_container_set_border_width(GTK_CONTAINER(type_grid),10);
    gtk_container_add(GTK_CONTAINER(type_popover),type_grid);
    static const struct {const char *type,*label;} choices[]={
-      {"site","Sites"},{"server","Servers"},{"rig","Rigs"},{"vfo","VFOs"},
+      {"site","Sites"},{"server","Servers"},{"network-service","Network services"},{"rig","Rigs"},{"vfo","VFOs"},
       {"room","Rooms"},{"irc-channel","IRC channels"},{"media","Media"},
       {"gps","GPS"},{"control","Controls"},{"serial","Serial"},
       {"file","Files"},{"bridge","Bridges"},{"local","Local resources"},
@@ -1593,7 +1593,7 @@ static void resource_create(void) {
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
       g_signal_connect(check,"toggled",G_CALLBACK(resource_type_changed),
                        (gpointer)choices[i].type);
-      gtk_grid_attach(GTK_GRID(type_grid),check,i/9,i%9,1,1);
+      gtk_grid_attach(GTK_GRID(type_grid),check,i/10,i%10,1,1);
       g_ptr_array_add(browser->type_checks,check);
    }
    browser->type_toggle_all=gtk_check_button_new_with_label("All / Clear");
@@ -1603,7 +1603,7 @@ static void resource_create(void) {
     * its own row below both columns, never over the final choices. */
    gtk_widget_set_halign(browser->type_toggle_all,GTK_ALIGN_CENTER);
    gtk_grid_attach(GTK_GRID(type_grid),browser->type_toggle_all,
-                   0,9,2,1);
+                   0,10,2,1);
    g_signal_connect(browser->type_toggle_all,"toggled",
                     G_CALLBACK(resource_type_toggle_all),NULL);
    resource_type_sync_all();
