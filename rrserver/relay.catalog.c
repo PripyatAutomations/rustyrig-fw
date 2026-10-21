@@ -744,6 +744,15 @@ void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void 
 
 /* Reconcile dirty discovery and announce additions/removals to peers. */
 void rr_relay_refresh_catalog(void) {
+   /* Snapshot old descriptors so ordinary dirty refreshes transmit deltas,
+    * not hundreds of unchanged services on every poll. */
+   GHashTable *previous = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   if (!previous) return;
+   for (struct catalog *entry = rr_relay_catalogs ; entry ; entry = entry->next) {
+      if (!rr_relay_local_owner(entry->owner)) continue;
+      char *json = dict2json(entry->descriptor);
+      if (json) g_hash_table_replace(previous, g_strdup(entry->key), json);
+   }
    for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
       if (rr_relay_local_owner(c->owner)) {
          c->seen = false;
@@ -773,14 +782,30 @@ void rr_relay_refresh_catalog(void) {
       }
    }
 
-   for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
-      const char *next = rrserver_links_route(c->owner);
-
-      if (next && !strcmp(next, c->owner) && !strcmp(dict_get(c->descriptor, "object.type", ""), "node")) {
-         rr_relay_send_catalogs(next);
+   /* New or modified local descriptors only; initial link readiness still
+    * uses rr_relay_send_catalogs() for a complete parent-first snapshot. */
+   for (unsigned pass = 0 ; pass < 5 ; pass++) {
+      for (struct catalog *entry = rr_relay_catalogs ; entry ; entry = entry->next) {
+         if (!rr_relay_local_owner(entry->owner)) continue;
+         const char *type = dict_get(entry->descriptor, "object.type", "room");
+         unsigned stage = !strcmp(type, "node") ? 0 : !strcmp(type, "rig") ? 1 :
+            !strcmp(type, "vfo") ? 2 : !strcmp(type, "room") ? 3 : 4;
+         if (stage != pass) continue;
+         char *json = dict2json(entry->descriptor);
+         if (!json) continue;
+         const char *old = g_hash_table_lookup(previous, entry->key);
+         if (!old || strcmp(old, json)) {
+            for (struct catalog *peer = rr_relay_catalogs ; peer ; peer = peer->next) {
+               const char *next = rrserver_links_route(peer->owner);
+               if (next && !strcmp(next, peer->owner) &&
+                   !strcmp(dict_get(peer->descriptor, "object.type", ""), "node"))
+                  rr_relay_send_owned(next, entry->owner, "catalog", entry->descriptor);
+            }
+         }
+         free(json);
       }
    }
-
+   g_hash_table_destroy(previous);
    rr_relay_catalog_dirty = false;
 }
 
