@@ -1705,14 +1705,19 @@ static void resource_create(void) {
       int field = (int)i;
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
       g_object_set(renderer, "ypad", 3, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
-      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
-      gtk_tree_view_column_set_resizable(column, TRUE);
+      GtkTreeViewColumn *column;
       if (i == NAME) {
+         column = gtk_tree_view_column_new();
+         gtk_tree_view_column_set_title(column, titles[i]);
          GtkCellRenderer *icon = gtk_cell_renderer_pixbuf_new();
          gtk_tree_view_column_pack_start(column, icon, FALSE);
-         gtk_tree_view_column_reorder(column, icon, 0);
          gtk_tree_view_column_set_cell_data_func(column, icon, resource_icon_cell, NULL, NULL);
+         gtk_tree_view_column_pack_start(column, renderer, TRUE);
+         gtk_tree_view_column_add_attribute(column, renderer, "text", field);
+      } else {
+         column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
       }
+      gtk_tree_view_column_set_resizable(column, TRUE);
 
       gtk_tree_view_column_set_cell_data_func(column,renderer,resource_zebra_cell,
                                               GINT_TO_POINTER(i),NULL);
