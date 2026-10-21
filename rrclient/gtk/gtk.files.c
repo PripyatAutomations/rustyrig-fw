@@ -54,6 +54,28 @@ struct listing {
    GtkTreeRowReference *row;
    uint64_t started;
 };
+/* Only the displayed size is abbreviated; the model retains exact bytes. */
+static void size_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                      GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
+   guint64 bytes = 0;
+   gboolean directory = FALSE;
+   char *path = NULL;
+   gtk_tree_model_get(model, iter, SIZE, &bytes, DIRECTORY, &directory, PATH, &path, -1);
+   char size[48] = "";
+   if (path && *path && !directory) {
+      if (bytes >= 1000000000ULL)
+         g_snprintf(size, sizeof(size), "%.2f GB", bytes / 1000000000.0);
+      else if (bytes >= 1000000ULL)
+         g_snprintf(size, sizeof(size), "%.2f MB", bytes / 1000000.0);
+      else if (bytes >= 1000ULL)
+         g_snprintf(size, sizeof(size), "%.2f kB", bytes / 1000.0);
+      else
+         g_snprintf(size, sizeof(size), "%" G_GUINT64_FORMAT " B", bytes);
+   }
+   g_object_set(cell, "text", size, NULL);
+   rr_list_zebra_cell(column, cell, model, iter, unused);
+   g_free(path);
+}
 static void listing_free(gpointer data) {
    struct listing *r = data;
    gtk_tree_row_reference_free(r->row);
@@ -139,7 +161,7 @@ static char *selection(gboolean *directory, gboolean *readable, gboolean *writab
 static void placeholder(GtkTreeIter *parent) {
    GtkTreeIter child;
    gtk_tree_store_append(browser.store, &child, parent);
-   gtk_tree_store_set(browser.store, &child, NAME, "Expand to load…", PATH, "", -1);
+   gtk_tree_store_set(browser.store, &child, NAME, "", PATH, "", -1);
 }
 
 /* Retain the placeholder until a real child exists, so loading never collapses the expanded directory merely because its last temporary row was removed. */
@@ -680,7 +702,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
       return;
    }
    browser.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(browser.window), "Server Files");
+   gtk_window_set_title(GTK_WINDOW(browser.window), "Remote Files");
    gtk_window_set_default_size(GTK_WINDOW(browser.window), 850, 600);
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
    gtk_container_add(GTK_CONTAINER(browser.window), box);
@@ -738,7 +760,21 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
          || col == WRITABLE ? "active" : "text", col, NULL);
       g_object_set_data(G_OBJECT(column), "rr-zebra-view", browser.tree);
 
-      gtk_tree_view_column_set_cell_data_func(column, cell, rr_list_zebra_cell, NULL, NULL);
+      gtk_tree_view_column_set_cell_data_func(column, cell,
+         col == SIZE ? size_cell : rr_list_zebra_cell, NULL, NULL);
+      gtk_tree_view_column_set_resizable(column, TRUE);
+      if (col == NAME) {
+         gtk_tree_view_column_set_expand(column, TRUE);
+         gtk_tree_view_column_set_min_width(column, 260);
+      } else if (col == SIZE) {
+         gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+         gtk_tree_view_column_set_fixed_width(column, 95);
+         g_object_set(cell, "xalign", 1.0f, NULL);
+      } else {
+         gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+         gtk_tree_view_column_set_fixed_width(column, 54);
+         gtk_tree_view_column_set_min_width(column, 48);
+      }
 
       gtk_tree_view_column_set_sort_column_id(column, col);
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser.tree), column);
