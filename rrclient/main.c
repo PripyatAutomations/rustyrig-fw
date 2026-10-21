@@ -17,6 +17,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 #include <fnmatch.h>
@@ -616,6 +617,19 @@ int main(int argc, char *argv[]) {
       Log(LOG_CRIT, "config", "Unable to load client configuration");
       exit(1);
    }
+#ifndef _WIN32
+   const char *module_dir = cfg_get("path.modules");
+   struct stat module_stat;
+
+   if (!module_dir || module_dir[0] != '/' ||
+       stat(module_dir, &module_stat) != 0 || !S_ISDIR(module_stat.st_mode)) {
+      Log(LOG_CRIT, "modules",
+          "Invalid installed module directory '%s'. Install rrclient modules and set path.modules to an existing absolute directory.",
+          module_dir ? module_dir : "(unset)");
+      return EXIT_FAILURE;
+   }
+#endif
+
    printf("Loading config %s\n", config_file);
 
    // -s overrides server.auto-connect so we connect to the given profile on start
