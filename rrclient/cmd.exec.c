@@ -245,9 +245,53 @@ static void exec_closed(const char *event, const char *data, rrconn_t *connectio
       }
    }
 }
+/* Display a local text file in the originating client window. Never invoke a
+ * shell or route these lines through the chat command parser. */
+static bool exec_cat_file(const char *path) {
+   const char *window = ui_active_window_name();
+   FILE *file = fopen(path, "rb");
+
+   if (!file) {
+      ui_print(window, "Exec -c: cannot open %s: %s", path, g_strerror(errno));
+      return true;
+   }
+   char *line = NULL;
+   size_t capacity = 0;
+   ssize_t length;
+   unsigned long lines = 0;
+
+   while ((length = getline(&line, &capacity, file)) >= 0) {
+      if (length && line[length - 1] == '\n') {
+         length--;
+      }
+      if (length && line[length - 1] == '\r') {
+         length--;
+      }
+      if ((size_t)length > EXEC_LINE_MAX) {
+         ui_print(window, "Exec -c: skipped a line exceeding 16 KiB.");
+         continue;
+      }
+      if (memchr(line, 0, (size_t)length)) {
+         ui_print(window, "Exec -c: skipped a binary line.");
+         continue;
+      }
+      char *text = g_utf8_make_valid(line, length);
+      ui_print(window, "%s", text);
+      g_free(text);
+      lines++;
+   }
+   bool failed = ferror(file) != 0;
+
+   if (failed) {
+      ui_print(window, "Exec -c: error reading %s: %s", path, g_strerror(errno));
+   }
+   free(line);
+   fclose(file);
+   return failed;
+}
 bool cmd_exec(int argc, char **args) {
    if (argc < 2 || !*args[1]) {
-      ui_print(ui_active_window_name(), "Usage: /exec [-o|-e] <shell command>; /exec -stop [id|all]");
+      ui_print(ui_active_window_name(), "Usage: /exec [-o|-e] <shell command>; /exec -c <local file>; /exec -stop [id|all]");
 
       for (GList *p = exec_jobs ; p ; p = p->next) {
          ui_print(ui_active_window_name(), "Exec %u running", ((exec_job_t *) p->data)->id);
@@ -257,6 +301,18 @@ bool cmd_exec(int argc, char **args) {
    }
    const char *command = args[1];
    unsigned mode = 0;
+
+   if (!strncmp(command, "-c", 2) && (!command[2] || isspace((unsigned char)command[2]))) {
+      const char *path = command + 2;
+      while (isspace((unsigned char)*path)) {
+         path++;
+      }
+      if (!*path) {
+         ui_print(ui_active_window_name(), "Usage: /exec -c <local file>");
+         return true;
+      }
+      return exec_cat_file(path);
+   }
 
    if (!strncmp(command, "-stop", 5) && (!command[5] || isspace((unsigned char)command[5]))) {
       const char *target = command + 5;
