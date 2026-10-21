@@ -22,6 +22,8 @@
 #define RR_PROP_TX_VFO "tx.vfo"
 #define RR_PROP_PTT "ptt"
 #define RR_PROP_SIGNAL "signal"
+#define RR_PROP_DISPLAY_BRIGHTNESS "display.brightness"
+#define RR_PROP_SPEAKER_VOLUME "audio.speaker.volume"
 
 /* Canonical suffixes used with rr_property_vfo_name(). */
 #define RR_PROP_VFO_FREQUENCY "frequency"
