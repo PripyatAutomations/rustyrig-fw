@@ -1,1143 +1,892 @@
-// rrserver/objects.c: Server authority for UUID discovery, subscriptions, and property
-// controls.
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
+// Native Yaesu CAT backend. Part of RustyRig; MIT/GPL per build profile.
+// The serial transaction API is deliberately small so it can be exercised
+// against rrclient's CAT emulator as well as a physical FT-891.
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <glib.h>
-#include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/objects.h>
+#include <termios.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <librustyaxe/core.h>
+#include <rrserver/backend.h>
 #include <rrserver/backend.worker.h>
-#include <rrserver/globalstate.h>
-#include <rrserver/rig.registry.h>
-#include <rrserver/objects.h>
-#include <rrserver/relay.h>
-#include <librrprotocol/server.events.h>
-#include <rrserver/rig.rooms.h>
-#include <rrserver/bridge.access.h>
-#include <rrserver/discovery.h>
-#include <rrserver/gps.h>
-#include <rrserver/database.h>
-#include <rrserver/platform.controls.h>
-#include <librrprotocol/auth.h>
-#include <librrprotocol/ws.mediachan.h>
+#include <rrserver/rig.properties.h>
 
-extern struct GlobalState rig;
+typedef struct yaesu_menu_entry {
+   const char *id, *label;
+} yaesu_menu_entry_t;
+typedef struct yaesu_model_profile {
+   int cat_id;
+   const char *model;
+   const yaesu_menu_entry_t *menu;
+   size_t menu_count;
+   bool ft891_controls; /* Until other models' control mappings are verified. */
+} yaesu_model_profile_t;
 
-typedef struct subscriber {
-   rrconn_t *client;
-   GPtrArray *pending;
-   unsigned cursor;
-   char *request;
-   struct subscriber *next;
-} subscriber_t;
+typedef struct yaesu_state {
+   int fd, baud;
+   char *device;
+   long frequency[2];
+   rr_mode_t mode[2];
+   bool ptt;
+   int dimmer[4], af;
+   bool dimmer_known, af_known;
+   int model_id;
+   const struct yaesu_model_profile *profile;
+} yaesu_state_t;
 
-typedef struct object_send {
-   rrconn_t *client;
-   const char *request;
-   rr_server_rig_t *radio;
-   rr_server_vfo_t *vfo;
-} object_send_t;
-
-static subscriber_t *subscribers;
-static char *epoch;
-static uint64_t sequence;
-
-static dict *message(const char *family, const char *cmd, const char *request) {
-   if (!epoch) {
-      epoch = g_uuid_string_random();
-   }
-
-   if (!epoch) {
-      return NULL;
-   }
-   dict *d = dict_new();
-
-   if (!d) {
-      return NULL;
-   }
-
-   dict_add(d, "msg.type", family);
-   dict_add(d, !strcmp(family, "object") ? "object.cmd" : "property.cmd", cmd);
-   dict_add(d, "stream.epoch", epoch);
-   rr_object_seq_put(d, "stream.seq", sequence);
-
-   if (request) {
-      dict_add(d, "request.id", request);
-   }
-
-   return d;
+static yaesu_state_t *ys(rr_backend_t *b) {
+   return rr_backend_instance_data(b);
 }
-
-static void send_message(rrconn_t *client, dict *d) {
-   if (!d) {
-      return;
-   }
-
-   if (client) {
-      ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
-   } else {
-      rr_server_publish_t publish = {
-         .message = d
-      };
-      event_emit_binary(RR_SERVER_PUBLISH_EVENT, NULL, &publish, sizeof(publish));
-
-      for (subscriber_t *s = subscribers ; s ; s = s->next) {
-         if (s->client->authenticated) {
-            ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT);
-         }
+static speed_t speed_for(int baud) {
+   switch (baud) {
+      case 4800: {
+         return B4800;
+      }
+      case 9600: {
+         return B9600;
+      }
+      case 19200: {
+         return B19200;
+      }
+      case 38400: {
+         return B38400;
+      }
+      case 57600: {
+         return B57600;
+      }
+      case 115200: {
+         return B115200;
+      }
+      default: {
+         return 0;
       }
    }
-   dict_free(d);
 }
+static bool serial_open(yaesu_state_t *s) {
+   speed_t speed = speed_for(s->baud);
 
-static bool resolve(const char *uuid, object_send_t *ctx) {
-   ctx->radio = rr_rig_registry_find_uuid(rig.rigs, uuid);
-   ctx->vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, uuid);
-
-   if (ctx->vfo) {
-      ctx->radio = rr_server_vfo_owner(ctx->vfo);
-   }
-
-   return ctx->radio != NULL;
-}
-
-static const char *target(object_send_t *ctx) {
-   return ctx->vfo ? rr_server_vfo_id(ctx->vfo) : rr_server_rig_id(ctx->radio);
-}
-
-static bool property_read(object_send_t *ctx, const char *name, rr_property_snapshot_t *s) {
-   return ctx->vfo ? rr_vfo_property_read(ctx->vfo, name, s) : rr_rig_property_read(ctx->radio, name, s);
-}
-
-static void send_state(object_send_t *ctx, const char *name, const char *cmd) {
-   rr_property_snapshot_t s;
-   rr_property_descriptor_t p;
-   bool described = ctx->vfo ? rr_vfo_property_describe(ctx->vfo, name, &p) : rr_rig_property_describe(ctx->radio, name, &p);
-
-   if (!described || !p.readable) {
-      return;
-   }
-
-   if (!property_read(ctx, name, &s)) {
-      return;
-   }
-   dict *d = message("property", cmd, ctx->request);
-
-   if (!d) {
-      return;
-   }
-   dict_add(d, "target", target(ctx));
-   dict_add(d, "property.name", name);
-   dict_add(d, "property.type", rr_object_type_name(s.value_type));
-   dict_add_bool(d, "property.observed", s.observed);
-   dict_add_bool(d, "property.known", s.known);
-   dict_add_bool(d, "property.available", s.available);
-   rr_object_seq_put(d, "property.version", s.version);
-
-   if (s.known && !rr_object_value_put(d, "property.value", s.value_type, &s.value)) {
-      dict_free(d);
-
-      return;
-   }
-   send_message(ctx->client, d);
-}
-
-static bool send_property(const rr_property_descriptor_t *p, void *user) {
-   object_send_t *ctx = user;
-   const char *type = rr_object_type_name(p->type);
-
-   if (!type) {
+   if (!speed) {
       return false;
    }
-   dict *d = message("property", "descriptor", ctx->request);
+   int fd = open(s->device, O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
 
-   if (!d) {
+   if (fd < 0) {
+      return false;
+   }
+   struct termios tty;
+
+   if (tcgetattr(fd, &tty) < 0) {
+      close(fd);
+
+      return false;
+   }
+   cfmakeraw(&tty);
+   cfsetispeed(&tty, speed);
+   cfsetospeed(&tty, speed);
+   tty.c_cflag |= CLOCAL | CREAD;
+
+   if (tcsetattr(fd, TCSANOW, &tty) < 0) {
+      close(fd);
+
+      return false;
+   }
+   tcflush(fd, TCIFLUSH);
+   s->fd = fd;
+
+   return true;
+}
+
+/* All calls run on the per-backend serialized I/O worker. */
+static bool cat(yaesu_state_t *s, const char *command, const char *prefix, char *reply, size_t capacity) {
+   if (s->fd < 0 && !serial_open(s)) {
+      return false;
+   }
+   size_t remaining = strlen(command);
+   const char *p = command;
+   while (remaining) {
+      struct pollfd fd = {
+         .fd = s->fd, .events = POLLOUT
+      };
+
+      if (poll(&fd, 1, 350) <= 0) {
+         goto fail;
+      }
+      ssize_t n = write(s->fd, p, remaining);
+
+      if (n < 0 && (errno == EINTR || errno == EAGAIN)) {
+         continue;
+      }
+
+      if (n <= 0) {
+         goto fail;
+      }
+      p += n;
+      remaining -= n;
+   }
+
+   if (!prefix) {
       return true;
    }
-   dict_add(d, "target", target(ctx));
-   dict_add(d, "property.name", p->name);
-   dict_add(d, "property.type", type);
-   dict_add_bool(d, "property.readable", p->readable);
-   dict_add_bool(d, "property.writable", p->writable);
+   size_t used = 0;
 
-   if (p->unit) {
-      dict_add(d, "property.unit", p->unit);
-   }
+   /* Discard unsolicited frames, accept only the requested command prefix. */
+   for (int attempts = 0 ; attempts < 120 ; attempts++) {
+      struct pollfd fd = {
+         .fd = s->fd, .events = POLLIN
+      };
 
-   if (p->has_min) {
-      rr_object_value_put(d, "property.minimum", p->type, &p->minimum);
-   }
+      if (poll(&fd, 1, 25) <= 0) {
+         continue;
+      }
+      char c;
+      ssize_t n = read(s->fd, &c, 1);
 
-   if (p->has_max) {
-      rr_object_value_put(d, "property.maximum", p->type, &p->maximum);
-   }
-
-   if (p->has_step) {
-      rr_object_value_put(d, "property.step", p->type, &p->step);
-   }
-
-   if (p->enum_values) {
-      dict_add(d, "property.enum", p->enum_values);
-   }
-   send_message(ctx->client, d);
-
-   if (p->readable) {
-      send_state(ctx, p->name, "state");
-   }
-
-   return false;
-}
-
-typedef struct {
-   rrconn_t *client;
-   const char *request;
-} node_control_context_t;
-
-/* Platform knobs belong to the persistent node, not an invented rig. */
-static void send_node_control_state(rrconn_t *client, const char *request, const rr_platform_control_state_t *state, const char *command) {
-   dict *d = message("property", command, request);
-
-   if (!d) {
-      return;
-   }
-   dict_add(d, "target", rr_rig_registry_node(rig.rigs));
-   dict_add(d, "property.name", state->name);
-   dict_add(d, "property.type", "integer");
-   dict_add_int(d, "property.value", state->current);
-   dict_add_bool(d, "property.observed", true);
-   dict_add_bool(d, "property.known", true);
-   dict_add_bool(d, "property.available", true);
-   rr_object_seq_put(d, "property.version", sequence);
-   send_message(client, d);
-}
-
-/* Publish updates from every command surface, not only property.set. */
-void rrserver_objects_platform_changed(const rr_platform_control_state_t *state) {
-   if (!state || !rr_rig_registry_node(rig.rigs)) {
-      return;
-   }
-   sequence++;
-   send_node_control_state(NULL, NULL, state, "changed");
-}
-static bool send_node_control(const rr_platform_control_state_t *state, void *user) {
-   node_control_context_t *ctx = user;
-   dict *d = message("property", "descriptor", ctx->request);
-
-   if (!d) {
-      return false;
-   }
-   dict_add(d, "target", rr_rig_registry_node(rig.rigs));
-   dict_add(d, "property.name", state->name);
-   dict_add(d, "property.type", "integer");
-   dict_add_bool(d, "property.readable", true);
-   dict_add_bool(d, "property.writable", state->writable);
-   dict_add(d, "property.unit", state->unit);
-   dict_add_int(d, "property.minimum", state->minimum);
-   dict_add_int(d, "property.maximum", state->maximum);
-   dict_add_int(d, "property.step", state->step);
-   send_message(ctx->client, d);
-   send_node_control_state(ctx->client, ctx->request, state, "state");
-
-   return false;
-}
-
-static void send_object(object_send_t *ctx, const char *cmd) {
-   dict *d = message("object", cmd, ctx->request);
-
-   if (!d) {
-      return;
-   }
-   dict_add(d, "object.uuid", target(ctx));
-   dict_add(d, "object.type", ctx->vfo ? "vfo" : "rig");
-   dict_add(d, "object.owner", ctx->vfo ? rr_server_rig_id(ctx->radio) : rr_rig_registry_node(rig.rigs));
-   dict_add(d, "object.alias", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_rig_registry_public_alias(rig.rigs, ctx->radio));
-   dict_add(d, "object.room", rr_rig_registry_room(rig.rigs, ctx->radio));
-   dict_add(d, "object.name", ctx->vfo ? rr_server_vfo_alias(ctx->vfo) : rr_server_rig_name(ctx->radio));
-   dict_add(d, "object.lifecycle", ctx->vfo && rr_server_vfo_lifecycle(ctx->vfo) == RR_VFO_EPHEMERAL ? "ephemeral" : "persistent");
-
-   if (!ctx->vfo) {
-      dict_add(d, "object.backend", rr_server_rig_backend(ctx->radio)->type->name);
-   }
-   send_message(ctx->client, d);
-
-   if (ctx->vfo) {
-      rr_vfo_property_foreach(ctx->vfo, send_property, ctx);
-   } else {
-      rr_rig_property_foreach(ctx->radio, send_property, ctx);
-   }
-}
-
-static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
-   g_ptr_array_add(user, g_strdup(rr_server_vfo_id(vfo)));
-
-   return false;
-}
-
-static bool collect_rig(rr_server_rig_t *radio, void *user) {
-   g_ptr_array_add(user, g_strdup(rr_server_rig_id(radio)));
-
-   return rr_server_vfo_foreach(radio, collect_vfo, user);
-}
-
-void rrserver_objects_poll(void) {
-   // Bounded serialization batches on the existing server event loop.
-   for (subscriber_t *s = subscribers ; s ; s = s->next) {
-      if (!s->pending || !s->client->authenticated) {
+      if (n < 0 && (errno == EINTR || errno == EAGAIN)) {
          continue;
       }
 
-      for (unsigned sent = 0 ; sent < 4 && s->cursor < s->pending->len ; sent++) {
-         const char *uuid = g_ptr_array_index(s->pending, s->cursor++);
-         object_send_t ctx = {
-            .client = s->client, .request = s->request
+      if (n <= 0) {
+         goto fail;
+      }
+
+      if (c == ';') {
+         reply[used] = 0;
+
+         if (!strncmp(reply, prefix, strlen(prefix))) {
+            return true;
+         }
+         used = 0;
+      } else if (c >= 32 && c <= 126 && used + 1 < capacity) {
+         reply[used++] = c;
+      } else if (used + 1 >= capacity) {
+         used = 0;
+      }
+   }
+
+fail:
+   close(s->fd);
+   s->fd = -1;
+
+   return false;
+}
+static bool decimal(const char *str, int n, int *value) {
+   int x = 0;
+
+   for (int i = 0 ; i < n ; i++) {
+      if (!isdigit((unsigned char)str[i])) {
+         return false;
+      }
+      x = x * 10 + str[i] - '0';
+   }
+
+   *value = x;
+
+   return true;
+}
+static bool get_dimmer(yaesu_state_t *s) {
+   char reply[64];
+
+   if (!cat(s, "DA;", "DA", reply, sizeof(reply)) || strlen(reply) != 10) {
+      return false;
+   }
+   int values[4];
+
+   for (int i = 0 ; i < 4 ; i++) {
+      if (!decimal(reply + 2 + i * 2, 2, &values[i])) {
+         return false;
+      }
+   }
+
+   if (values[0] < 1 || values[0] > 15 || values[1] < 1 || values[1] > 15 || values[2] > 15 || values[3] > 15) {
+      return false;
+   }
+   memcpy(s->dimmer, values, sizeof(values));
+   s->dimmer_known = true;
+
+   return true;
+}
+static bool get_af(yaesu_state_t *s) {
+   char reply[64];
+
+   if (!cat(s, "AG0;", "AG0", reply, sizeof(reply)) || strlen(reply) != 6) {
+      return false;
+   }
+   int value;
+
+   if (!decimal(reply + 3, 3, &value) || value > 255) {
+      return false;
+   }
+   s->af = value;
+   s->af_known = true;
+
+   return true;
+}
+/* FT-891 documented CAT controls. UI values are normalized percentages. */
+typedef struct yaesu_control_spec {
+   const char *name, *command;
+   int minimum, maximum, digits;
+} yaesu_control_spec_t;
+static const yaesu_control_spec_t yaesu_controls[] = {
+   { "receiver.rf-gain", "RG0", 0, 30, 3 },
+   { "receiver.attenuator", "RA0", 0, 1, 1 },
+   { "receiver.noise-blanker", "NB0", 0, 1, 1 },
+   { "receiver.noise-blanker-level", "NL0", 0, 10, 3 },
+   { "receiver.noise-reduction", "NR0", 0, 1, 1 },
+   { "receiver.noise-reduction-level", "RL0", 1, 15, 2 },
+   { "transmit.mic-gain", "MG", 0, 100, 3 },
+   { "transmit.power", "PC", 5, 100, 3 },
+   { "receiver.squelch", "SQ0", 0, 100, 3 },
+   { "receiver.ipo", "PA0", 0, 1, 1 },
+   { "receiver.auto-notch", "BC0", 0, 1, 1 },
+   { "receiver.narrow", "NA0", 0, 1, 1 },
+   { "receiver.agc", "GT0", 0, 4, 1 },
+   { "cw.keyer", "KR", 0, 1, 1 },
+   { "cw.speed", "KS", 4, 60, 3 },
+   { "cw.pitch", "KP", 0, 75, 2 },
+   { "cw.break-in", "BI", 0, 1, 1 },
+   { "transmit.monitor-level", "ML", 0, 100, 3 },
+   { "transmit.processor-level", "PL", 0, 100, 3 },
+   { "transmit.vox", "VX", 0, 1, 1 },
+   { "transmit.vox-gain", "VG", 0, 100, 3 },
+   { "panel.dial-lock", "LK", 0, 1, 1 },
+};
+static const yaesu_control_spec_t *yaesu_control_find(const char *name) {
+   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i)
+      if (!strcmp(name, yaesu_controls[i].name)) return &yaesu_controls[i];
+   return NULL;
+}
+static bool yaesu_control_read(yaesu_state_t *s, const yaesu_control_spec_t *spec, int *percent) {
+   char cmd[16], reply[32];
+   snprintf(cmd, sizeof(cmd), "%s;", spec->command);
+   if (!cat(s, cmd, spec->command, reply, sizeof(reply))) return false;
+   size_t prefix = strlen(spec->command);
+   if (strlen(reply) != prefix + (size_t)spec->digits) return false;
+   int value;
+   if (!decimal(reply + prefix, spec->digits, &value) || value < spec->minimum || value > spec->maximum) return false;
+   *percent = (value - spec->minimum) * 100 / (spec->maximum - spec->minimum);
+   return true;
+}
+static void observe(rr_backend_t *b, const char *name, int percent) {
+   dict_value_t value = {
+      .i = percent
+   };
+   rr_backend_property_observe(b, NULL, name, VAL_INT, &value);
+}
+static bool control(rr_backend_t *b, const char *name, int percent) {
+   yaesu_state_t *s = ys(b);
+
+   if (!s || percent < 0 || percent > 100) {
+      return true;
+   }
+   char command[40];
+
+   /* DA fields: P1 contrast (1..15), P2 key backlight, P3 LCD,
+    * P4 TX/BUSY indicator. Read-modify-write retains untouched fields. */
+   int field = !strcmp(name, "display.contrast") ? 0 :
+      !strcmp(name, "display.key-backlight") ? 1 :
+      !strcmp(name, RR_PROP_DISPLAY_BRIGHTNESS) ? 2 :
+      !strcmp(name, "display.tx-indicator") ? 3 : -1;
+   if (field >= 0) {
+      if (!get_dimmer(s)) return true;
+      int minimum = field <= 1 ? 1 : 0;
+      s->dimmer[field] = minimum + (percent * (15 - minimum) + 50) / 100;
+      snprintf(command, sizeof(command), "DA%02d%02d%02d%02d;",
+         s->dimmer[0], s->dimmer[1], s->dimmer[2], s->dimmer[3]);
+      if (!cat(s, command, NULL, NULL, 0) || !get_dimmer(s)) return true;
+      observe(b, name, (s->dimmer[field] - minimum) * 100 / (15 - minimum));
+      return false;
+   }
+
+   if (!strcmp(name, RR_PROP_SPEAKER_VOLUME)) {
+      snprintf(command, sizeof(command), "AG0%03d;", (percent * 255 + 50) / 100);
+
+      if (!cat(s, command, NULL, NULL, 0) || !get_af(s)) {
+         return true;
+      }
+      observe(b, name, (s->af * 100 + 127) / 255);
+
+      return false;
+   }
+
+   const yaesu_control_spec_t *spec = s->profile && s->profile->ft891_controls ? yaesu_control_find(name) : NULL;
+   if (spec) {
+      int value = spec->minimum + (percent * (spec->maximum - spec->minimum) + 50) / 100;
+      snprintf(command, sizeof(command), "%s%0*d;", spec->command, spec->digits, value);
+      if (!cat(s, command, NULL, NULL, 0)) return true;
+      int actual;
+      if (!yaesu_control_read(s, spec, &actual)) return true;
+      observe(b, name, actual);
+      return false;
+   }
+   return true;
+}
+static bool index_of(rr_server_vfo_t *vfo, rr_vfo_t *i) {
+   return vfo && rr_server_vfo_native_index(vfo, i) && (*i == VFO_A || *i == VFO_B);
+}
+static bool supported(rr_backend_t *b, rr_server_vfo_t *v) {
+   rr_vfo_t i;
+
+   return ys(b) && index_of(v, &i);
+}
+static rr_mode_t mode_decode(char value) {
+   switch (value) {
+      case '1': {
+         return MODE_LSB;
+      }
+      case '2': {
+         return MODE_USB;
+      }
+      case '3':
+      case '7': {
+         return MODE_CW;
+      }
+      case '4':
+      case 'B': {
+         return MODE_FM;
+      }
+      case '5':
+      case 'D': {
+         return MODE_AM;
+      }
+      case '8': {
+         return MODE_DL;
+      }
+      case 'C': {
+         return MODE_DU;
+      }
+      default: {
+         return MODE_NONE;
+      }
+   }
+}
+static char mode_encode(rr_mode_t mode) {
+   switch (mode) {
+      case MODE_LSB: {
+         return '1';
+      }
+      case MODE_USB: {
+         return '2';
+      }
+      case MODE_CW: {
+         return '3';
+      }
+      case MODE_FM: {
+         return '4';
+      }
+      case MODE_AM: {
+         return '5';
+      }
+      case MODE_DL: {
+         return '8';
+      }
+      case MODE_DU: {
+         return 'C';
+      }
+      default: {
+         return 0;
+      }
+   }
+}
+static bool mode_set(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t mode) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t index;
+   char digit = mode_encode(mode), command[8];
+
+   /* FT-891 MD0 addresses main RX only. Do not silently set a different bank. */
+   if (!s || !index_of(v, &index) || index != b->active_vfo || !digit) {
+      return true;
+   }
+   snprintf(command, sizeof(command), "MD0%c;", digit);
+
+   if (!cat(s, command, NULL, NULL, 0)) {
+      return true;
+   }
+   s->mode[index] = mode;
+
+   return false;
+}
+static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t index;
+
+   if (!s || !index_of(v, &index)) {
+      return NULL;
+   }
+   char reply[64], cmd[8];
+   snprintf(cmd, sizeof(cmd), "F%c;", index == VFO_A ? 'A' : 'B');
+
+   if (!cat(s, cmd, index == VFO_A ? "FA" : "FB", reply, sizeof(reply)) || strlen(reply) != 11) {
+      return NULL;
+   }
+   int frequency = 0;
+
+   if (!decimal(reply + 2, 9, &frequency) || frequency <= 0) {
+      return NULL;
+   }
+   s->frequency[index] = frequency;
+
+   if (index == b->active_vfo) {
+      char md[24];
+
+      if (cat(s, "MD0;", "MD0", md, sizeof(md)) && strlen(md) == 4) {
+         rr_mode_t parsed = mode_decode(md[3]);
+
+         if (parsed != MODE_NONE) {
+            s->mode[index] = parsed;
+            dict_value_t m = {
+               .s = vfo_mode_name(parsed)
+            };
+            rr_backend_property_observe(b, v, RR_PROP_VFO_MODE, VAL_STR, &m);
+         }
+      }
+   }
+   dict_value_t observed = {
+      .l = frequency
+   };
+   rr_backend_property_observe(b, v, RR_PROP_VFO_FREQUENCY, VAL_LONG, &observed);
+
+   /* Control properties are advertised during create(), not queried during
+    * frequency/mode polling. A future per-property read subscription can
+    * refresh only open Resource Explorer controls and summoned room widgets.
+    * Successful writes already perform readback and publish observations. */
+   rr_vfo_data_t *result = calloc(1, sizeof(*result));
+
+   if (!result) {
+      return NULL;
+   }
+   result->id = index;
+   result->freq = frequency;
+   result->mode = s->mode[index];
+
+   return result;
+}
+static bool frequency_set(rr_backend_t *b, rr_server_vfo_t *v, int hz) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+   char cmd[32];
+
+   if (!s || !index_of(v, &i) || hz <= 0 || hz > 999999999) {
+      return true;
+   }
+   snprintf(cmd, sizeof(cmd), "F%c%09d;", i == VFO_A ? 'A' : 'B', hz);
+
+   if (!cat(s, cmd, NULL, NULL, 0)) {
+      return true;
+   }
+   s->frequency[i] = hz;
+
+   return false;
+}
+static float frequency_get(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+
+   return s && index_of(v, &i) ? s->frequency[i] : 0;
+}
+static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+
+   if (!s || !index_of(v, &i) || i != b->active_vfo) {
+      return true;
+   }
+
+   if (!cat(s, on ? "TX1;" : "TX0;", NULL, NULL, 0)) {
+      return true;
+   }
+   s->ptt = on;
+
+   return false;
+}
+static bool ptt_get(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+
+   return s && s->ptt;
+}
+static rr_mode_t mode_get(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+
+   return s && index_of(v, &i) ? s->mode[i] : MODE_NONE;
+}
+static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
+   return vfo_mode_name(mode_get(b, v));
+}
+/* Adding another Yaesu model requires one profile and its validated catalog.
+ * Keep model identification separate from protocol mechanics. */
+#define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
+static const yaesu_menu_entry_t ft891_menu[] = {
+   /* 01 AGC */
+   { "0101", "AGC FAST DELAY" },
+   { "0102", "AGC MID DELAY" },
+   { "0103", "AGC SLOW DELAY" },
+   /* 02 DISPLAY */
+   { "0201", "LCD CONTRAST" },
+   { "0202", "DIMMER BACKLIT" },
+   { "0203", "DIMMER LCD" },
+   { "0204", "DIMMER TX/BUSY" },
+   { "0205", "PEAK HOLD" },
+   { "0206", "ZIN LED" },
+   { "0207", "POP-UP MENU" },
+   /* 03 DVS */
+   { "0301", "DVS RX OUT LVL" },
+   { "0302", "DVS TX OUT LVL" },
+   /* 04 KEYER */
+   { "0401", "KEYER TYPE" },
+   { "0402", "KEYER DOT/DASH" },
+   { "0403", "CW WEIGHT" },
+   { "0404", "BEACON INTERVAL" },
+   { "0405", "NUMBER STYLE" },
+   { "0406", "CONTEST NUMBER" },
+   { "0407", "CW MEMORY 1" },
+   { "0408", "CW MEMORY 2" },
+   { "0409", "CW MEMORY 3" },
+   { "0410", "CW MEMORY 4" },
+   { "0411", "CW MEMORY 5" },
+   /* 05 GENERAL */
+   { "0501", "NB WIDTH" },
+   { "0502", "NB REJECTION" },
+   { "0503", "NB LEVEL" },
+   { "0504", "BEEP LEVEL" },
+   { "0505", "RF/SQL VR" },
+   { "0506", "CAT RATE" },
+   { "0507", "CAT TOT" },
+   { "0508", "CAT RTS" },
+   { "0509", "MEM GROUP" },
+   { "0510", "FM SETTING" },
+   { "0511", "REC SETTING" },
+   { "0512", "ATAS SETTING" },
+   { "0513", "QUICK SPL FREQ" },
+   { "0514", "TX TOT" },
+   { "0515", "MIC SCAN" },
+   { "0516", "MIC SCAN RESUME" },
+   { "0517", "REF FREQ ADJ" },
+   { "0518", "CLAR SELECT" },
+   { "0519", "APO" },
+   { "0520", "FAN CONTROL" },
+   /* 06 MODE AM */
+   { "0601", "AM LCUT FREQ" },
+   { "0602", "AM LCUT SLOPE" },
+   { "0603", "AM HCUT FREQ" },
+   { "0604", "AM HCUT SLOPE" },
+   { "0605", "AM MIC SELECT" },
+   { "0606", "AM OUT LEVEL" },
+   { "0607", "AM PTT SELECT" },
+   /* 07 MODE CW */
+   { "0701", "CW LCUT FREQ" },
+   { "0702", "CW LCUT SLOPE" },
+   { "0703", "CW HCUT FREQ" },
+   { "0704", "CW HCUT SLOPE" },
+   { "0705", "CW OUT LEVEL" },
+   { "0706", "CW AUTO MODE" },
+   { "0707", "CW BFO" },
+   { "0708", "CW BK-IN TYPE" },
+   { "0709", "CW BK-IN DELAY" },
+   { "0710", "CW WAVE SHAPE" },
+   { "0711", "CW FREQ DISPLAY" },
+   { "0712", "PC KEYING" },
+   { "0713", "QSK DELAY TIME" },
+   /* 08 MODE DAT */
+   { "0801", "DATA MODE" },
+   { "0802", "PSK TONE" },
+   { "0803", "OTHER DISP" },
+   { "0804", "OTHER SHIFT" },
+   { "0805", "DATA LCUT FREQ" },
+   { "0806", "DATA LCUT SLOPE" },
+   { "0807", "DATA HCUT FREQ" },
+   { "0808", "DATA HCUT SLOPE" },
+   { "0809", "DATA IN SELECT" },
+   { "0810", "DATA PTT SELECT" },
+   { "0811", "DATA OUT LEVEL" },
+   { "0812", "DATA BFO" },
+   /* 09 MODE FM */
+   { "0901", "FM MIC SELECT" },
+   { "0902", "FM OUT LEVEL" },
+   { "0903", "PKT PTT SELECT" },
+   { "0904", "RPT SHIFT 28MHz" },
+   { "0905", "RPT SHIFT 50MHz" },
+   { "0906", "DCS POLARITY" },
+   /* 10 MODE RTY */
+   { "1001", "RTTY LCUT FREQ" },
+   { "1002", "RTTY LCUT SLOPE" },
+   { "1003", "RTTY HCUT FREQ" },
+   { "1004", "RTTY HCUT SLOPE" },
+   { "1005", "RTTY SHIFT PORT" },
+   { "1006", "RTTY POLARITY-R" },
+   { "1007", "RTTY POLARITY-T" },
+   { "1008", "RTTY OUT LEVEL" },
+   { "1009", "RTTY SHIFT FREQ" },
+   { "1010", "RTTY MARK FREQ" },
+   { "1011", "RTTY BFO" },
+   /* 11 MODE SSB */
+   { "1101", "SSB LCUT FREQ" },
+   { "1102", "SSB LCUT SLOPE" },
+   { "1103", "SSB HCUT FREQ" },
+   { "1104", "SSB HCUT SLOPE" },
+   { "1105", "SSB MIC SELECT" },
+   { "1106", "SSB OUT LEVEL" },
+   { "1107", "SSB BFO" },
+   { "1108", "SSB PTT SELECT" },
+   { "1109", "SSB TX BPF" },
+   /* 12 RX DSP */
+   { "1201", "APF WIDTH" },
+   { "1202", "CONTOUR LEVEL" },
+   { "1203", "CONTOUR WIDTH" },
+   { "1204", "IF NOTCH WIDTH" },
+   /* 13 SCOPE */
+   { "1301", "SCP START CYCLE" },
+   { "1302", "SCP SPAN FREQ" },
+   /* 14 TUNING */
+   { "1401", "QUICK DIAL" },
+   { "1402", "SSB DIAL STEP" },
+   { "1403", "AM DIAL STEP" },
+   { "1404", "FM DIAL STEP" },
+   { "1405", "DIAL STEP" },
+   { "1406", "AM CH STEP" },
+   { "1407", "FM CH STEP" },
+   /* 15 TX AUDIO */
+   { "1501", "EQ1 FREQ" },
+   { "1502", "EQ1 LEVEL" },
+   { "1503", "EQ1 BWTH" },
+   { "1504", "EQ2 FREQ" },
+   { "1505", "EQ2 LEVEL" },
+   { "1506", "EQ2 BWTH" },
+   { "1507", "EQ3 FREQ" },
+   { "1508", "EQ3 LEVEL" },
+   { "1509", "EQ3 BWTH" },
+   { "1510", "P-EQ1 FREQ" },
+   { "1511", "P-EQ1 LEVEL" },
+   { "1512", "P-EQ1 BWTH" },
+   { "1513", "P-EQ2 FREQ" },
+   { "1514", "P-EQ2 LEVEL" },
+   { "1515", "P-EQ2 BWTH" },
+   { "1516", "P-EQ3 FREQ" },
+   { "1517", "P-EQ3 LEVEL" },
+   { "1518", "P-EQ3 BWTH" },
+   /* 16 TX GNRL */
+   { "1601", "HF SSB PWR" },
+   { "1602", "HF AM PWR" },
+   { "1603", "HF PWR" },
+   { "1604", "50M SSB PWR" },
+   { "1605", "50M AM PWR" },
+   { "1606", "50M PWR" },
+   { "1607", "SSB MIC GAIN" },
+   { "1608", "AM MIC GAIN" },
+   { "1609", "FM MIC GAIN" },
+   { "1610", "DATA MIC GAIN" },
+   { "1611", "SSB DATA GAIN" },
+   { "1612", "AM DATA GAIN" },
+   { "1613", "FM DATA GAIN" },
+   { "1614", "DATA DATA GAIN" },
+   { "1615", "TUNER SELECT" },
+   { "1616", "VOX SELECT" },
+   { "1617", "VOX GAIN" },
+   { "1618", "VOX DELAY" },
+   { "1619", "ANTI VOX GAIN" },
+   { "1620", "DATA VOX GAIN" },
+   { "1621", "DATA VOX DELAY" },
+   { "1622", "ANTI DVOX GAIN" },
+   { "1623", "EMERGENCY FREQ" },
+   /* 17 RESET */
+   { "1701", "RESET" },
+   /* 18 VERSION */
+   { "1801", "MAIN VERSION" },
+   { "1802", "DSP VERSION" },
+   { "1803", "LCD VERSION" },
+};
+static const yaesu_menu_entry_t ft991a_menu[] = {
+   { "001", "AGC Fast Delay" }, { "002", "AGC Mid Delay" },
+   { "003", "AGC Slow Delay" }, { "006", "Display Color" },
+   { "007", "LED Dimmer" }, { "008", "TFT Dimmer" },
+   { "009", "Meter Peak Hold" }, { "012", "Keyer Type" },
+   { "023", "Noise Blanker Width" }, { "024", "Noise Blanker Rejection" },
+   { "025", "Noise Blanker Level" }
+};
+static const yaesu_model_profile_t yaesu_models[] = {
+   { 650, "FT-891", ft891_menu, ARRAY_COUNT(ft891_menu), true },
+   { 670, "FT-991A", ft991a_menu, ARRAY_COUNT(ft991a_menu), false }
+};
+static const yaesu_model_profile_t *yaesu_model_by_id(int id) {
+   for (size_t i = 0; i < ARRAY_COUNT(yaesu_models); i++)
+      if (yaesu_models[i].cat_id == id) return &yaesu_models[i];
+   return NULL;
+}
+static void yaesu_menu_foreach(rr_backend_t *b,
+   void (*emit)(const char *id, const char *label, void *user), void *user) {
+   yaesu_state_t *s = ys(b);
+   if (!s || !s->profile || !emit) return;
+   for (size_t i = 0; i < s->profile->menu_count; i++)
+      emit(s->profile->menu[i].id, s->profile->menu[i].label, user);
+}
+/* Read exactly one advertised menu entry. EXnnnn; is the FT-891 CAT
+ * read form; its answer is EXnnnn<parameter>;. Never issue EX setters here. */
+static bool yaesu_menu_read(rr_backend_t *b, const char *id, char *value, size_t capacity) {
+   yaesu_state_t *s = ys(b);
+   if (!s || !s->profile || s->model_id != 650 || !id || strlen(id) != 4 ||
+       !capacity || !value) return false;
+   bool advertised = false;
+   for (size_t i = 0; i < s->profile->menu_count; ++i)
+      if (!strcmp(id, s->profile->menu[i].id)) { advertised = true; break; }
+   if (!advertised) return false;
+   char command[16], prefix[16], reply[128];
+   snprintf(prefix, sizeof(prefix), "EX%s", id);
+   snprintf(command, sizeof(command), "%s;", prefix);
+   if (!cat(s, command, prefix, reply, sizeof(reply))) return false;
+   size_t n = strlen(prefix);
+   if (strlen(reply) <= n || strlen(reply + n) >= capacity) return false;
+   snprintf(value, capacity, "%s", reply + n);
+   return true;
+}
+/* Conservative initial writable whitelist; ranges and widths from Yaesu CAT
+ * reference. Expand with per-menu typed descriptors, not raw arbitrary EX. */
+static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value) {
+   yaesu_state_t *s = ys(b);
+   if (!s || s->model_id != 650 || !id || !value) return false;
+   int minimum = 0, maximum = 0, width = 0;
+   if (!strcmp(id, "0201") || !strcmp(id, "0202") ||
+       !strcmp(id, "0203") || !strcmp(id, "0204")) {
+      minimum = 1; maximum = 15; width = 2;
+   } else if (!strcmp(id, "0504")) {
+      minimum = 0; maximum = 100; width = 3;
+   } else {
+      return false;
+   }
+   if (strlen(value) != (size_t)width) return false;
+   int number = 0;
+   if (!decimal(value, width, &number) || number < minimum || number > maximum)
+      return false;
+   char command[24];
+   snprintf(command, sizeof(command), "EX%s%s;", id, value);
+   return cat(s, command, NULL, NULL, 0);
+}
+static bool create(rr_backend_t *b) {
+   yaesu_state_t *s = calloc(1, sizeof(*s));
+
+   if (!s) {
+      return true;
+   }
+   s->fd = -1;
+   s->device = rr_backend_config_get_exp(b, "yaesu.device");
+
+   if (!s->device) {
+      s->device = rr_backend_config_get_exp(b, "hamlib.device");
+   }
+   s->baud = rr_backend_config_get_int(b, "yaesu.baud", rr_backend_config_get_int(b, "hamlib.baud", 38400));
+
+   if (!s->device || !speed_for(s->baud)) {
+      free(s->device);
+      free(s);
+
+      return true;
+   }
+   rr_backend_instance_set_data(b, s);
+
+   if (!serial_open(s)) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s: CAT device %s unavailable; retry on next poll", rr_backend_instance_alias(b), s->device);
+   }
+   /* ID0650=FT-891, ID0670=FT-991A. Unknown models are not guessed. */
+   char id_reply[24];
+   if (cat(s, "ID;", "ID", id_reply, sizeof(id_reply)) && strlen(id_reply) == 6) {
+      int id;
+      if (decimal(id_reply + 2, 4, &id)) {
+         s->profile = yaesu_model_by_id(id);
+         if (s->profile) s->model_id = id;
+      }
+   }
+   if (!s->model_id)
+      rr_backend_log(b, LOG_WARN, "backend.yaesu",
+         "Unrecognized or unavailable Yaesu CAT ID; model-specific MENU disabled");
+   const char *props[] = {
+      "display.contrast", "display.key-backlight", RR_PROP_DISPLAY_BRIGHTNESS,
+      "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
+   };
+
+   for (unsigned i = 0 ; s->profile && s->profile->ft891_controls && i < sizeof(props) / sizeof(props[0]) ; i++) {
+      rr_property_descriptor_t d = {
+         .name = props[i], .type = VAL_INT, .readable = true,
+         .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
+         .minimum.i = 0, .maximum.i = 100, .step.i = 1
+      };
+      rr_rig_property_define(b->owner, &d);
+   }
+
+   for (size_t i = 0; s->profile && s->profile->ft891_controls && i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
+      rr_property_descriptor_t d = {
+         .name = yaesu_controls[i].name, .type = VAL_INT, .readable = true,
+         .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
+         .minimum.i = 0, .maximum.i = 100, .step.i = 1
+      };
+      rr_rig_property_define(b->owner, &d);
+   }
+   if (s->profile && s->model_id == 650) {
+      for (size_t i = 0; i < s->profile->menu_count; ++i) {
+         char property[32];
+         snprintf(property, sizeof(property), "menu.%s", s->profile->menu[i].id);
+         rr_property_descriptor_t d = {
+            .name = property, .type = VAL_STR, .readable = true,
+            .writable = false
          };
-
-         if (resolve(uuid, &ctx)) {
-            send_object(&ctx, "descriptor");
-         }
-      }
-
-      if (s->cursor == s->pending->len) {
-         rrserver_relay_objects(s->client, s->request);
-         send_message(s->client, message("object", "end", s->request));
-         g_ptr_array_free(s->pending, true);
-         s->pending = NULL;
-         free(s->request);
-         s->request = NULL;
+         rr_rig_property_define(b->owner, &d);
       }
    }
-}
-
-static void result(rrconn_t *client, const char *family, const char *id, const char *code) {
-   dict *d = message(family, "result", id);
-
-   if (!d) {
-      return;
-   }
-   dict_add(d, "result.code", code);
-   send_message(client, d);
-}
-
-typedef struct pending_control {
-   struct pending_control *next;
-   rrconn_t *client;
-   char *id;
-} pending_control_t;
-static pending_control_t *pending_controls;
-static void object_control_completed(rr_control_result_t status, void *user) {
-   pending_control_t *pending = user;
-   pending_control_t **link = &pending_controls;
-   while (*link && *link != pending) {
-      link = &(*link)->next;
-   }
-
-   if (*link) {
-      *link = pending->next;
-   }
-
-   if (pending->client && !dying) {
-      result(pending->client, "property", pending->id, status == RR_CONTROL_OK ? "ok" : "backend-failure");
-   }
-   free(pending->id);
-   free(pending);
-}
-
-static void rr_object_close_client(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (event && !strcmp(event, RR_OBJECT_CLOSE_EVENT)) {
-      for (pending_control_t *pending = pending_controls ; pending ; pending = pending->next) {
-         if (pending->client == client) {
-            pending->client = NULL;
-         }
-      }
-   }
-   subscriber_t **link = &subscribers;
-   while (*link) {
-      subscriber_t *s = *link;
-
-      if (s->client == client) {
-         *link = s->next;
-
-         if (s->pending) {
-            g_ptr_array_free(s->pending, true);
-         }
-         free(s->request);
-         free(s);
-      } else {
-         link = &s->next;
-      }
-   }
-}
-
-static void inventory_media(object_send_t *ctx, const char *owner, unsigned depth) {
-   for (unsigned i = 0 ; i < MAX_MEDIA_CHANNELS ; i++) {
-      struct rr_mediachan *ch = &media_channels[i];
-
-      if (!ch->uuid[0]) {
-         continue;
-      }
-      const char *parent = rr_inventory_media_parent(ch, rig.rigs, "");
-
-      if (strcmp(parent, owner ? owner : "")) {
-         continue;
-      }
-      dict *row = rr_inventory_row(ctx->request, depth, "media", ch->name, ch->uuid);
-
-      if (!row) {
-         continue;
-      }
-      dict_add(row, "inventory.room", ch->room);
-      dict_add(row, "inventory.codec", ch->codec);
-      dict_add(row, "inventory.direction", ch->direction == RR_BINFRAME_DIR_TX ? "TX" : "RX");
-      dict_add_uint(row, "inventory.subsystem", ch->subsystem);
-      bool joined = media_client_in_channel_room(ctx->client, ch);
-      bool subscribed = chan_id_in_array(ch->direction == RR_BINFRAME_DIR_TX ?
-         ctx->client->tx_channels : ctx->client->rx_channels, ch->direction == RR_BINFRAME_DIR_TX ? MAX_TX_CHANNELS : MAX_RX_CHANNELS, i + 1);
-      dict_add(row, "inventory.state", subscribed ? "subscribed" : joined ? "available" : "join-room-first");
-      dict_add(row, "inventory.action", "/media subscribe|unsubscribe <uuid>");
-      rr_inventory_send(ctx->client, row);
-   }
-}
-
-static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
-   object_send_t *ctx = user;
-   dict *row = rr_inventory_row(ctx->request, 2, "vfo", rr_server_vfo_alias(vfo), rr_server_vfo_id(vfo));
-   rr_property_snapshot_t state;
-
-   if (row && rr_vfo_property_read(vfo, "frequency", &state) && state.known) {
-      char frequency[48];
-      snprintf(frequency, sizeof(frequency), "%ld Hz", state.value.l);
-      dict_add(row, "inventory.frequency", frequency);
-   }
-
-   if (row) {
-      dict_add(row, "inventory.parent", rr_server_rig_id(rr_server_vfo_owner(vfo)));
-   }
-   rr_inventory_send(ctx->client, row);
-   inventory_media(ctx, rr_server_vfo_id(vfo), 3);
-
+   rr_property_descriptor_t meter = {
+      .name = "meter.signal", .type = VAL_INT, .readable = true,
+      .writable = false, .unit = "%", .has_min = true, .has_max = true,
+      .minimum.i = 0, .maximum.i = 100
+   };
+   if (s->profile && s->profile->ft891_controls)
+      rr_rig_property_define(b->owner, &meter);
    return false;
 }
+static void destroy(rr_backend_t *b) {
+   yaesu_state_t *s = ys(b);
 
-static void inventory_services(object_send_t *ctx, const char *scope, unsigned depth) {
-   dict *d = dict_new();
-
-   if (!d) {
-      return;
-   }
-   dict_add(d, "request.id", ctx->request);
-   dict_add(d, "inventory.scope", scope);
-   rr_server_rig_t *owner = rr_rig_registry_find_alias(rig.rigs, scope);
-   dict_add(d, "inventory.parent", owner ? rr_server_rig_id(owner) : !strcmp(scope, "station") ? rr_rig_registry_node(rig.rigs) : "");
-   dict_add_uint(d, "inventory.depth", depth);
-   event_emit_dict(RR_INVENTORY_EVENT, ctx->client, d);
-   dict_free(d);
-}
-
-/* A VFO may appear in several rooms; the room binding is an inventory appearance, not a second VFO object or a second physical rig. */
-static void inventory_room_vfos(object_send_t *ctx, const char *room, const char *room_id) {
-#ifdef USE_SQLITE
-   char *list = db_room_vfo_list(masterdb, room), *save = NULL;
-
-   for (char *id = list ? strtok_r(list, " \t\r\n", &save) : NULL ; id ; id = strtok_r(NULL, " \t\r\n", &save)) {
-      rr_server_vfo_t *vfo = rr_rig_registry_find_vfo_uuid(rig.rigs, id);
-
-      if (!vfo) {
-         continue;
-      }
-      rr_server_rig_t *owner = rr_server_vfo_owner(vfo);
-      const char *alias = rr_server_vfo_alias(vfo);
-      dict *row = rr_inventory_row(ctx->request, 2, "vfo", alias ? alias : id, id);
-
-      if (!row) {
-         continue;
-      }
-      dict_add(row, "inventory.parent", room_id);
-      dict_add(row, "inventory.room", room);
-      char provenance[256];
-      snprintf(provenance, sizeof(provenance), "Site: %s / %s: %s / Room: %s / VFO: %s / UUID: %s", cfg_get("station.name"), rrserver_bridge_rig(owner) ?
-         "SDR" : "Rig", rr_rig_registry_alias(rig.rigs, owner), room, alias ? alias : "A", id);
-      dict_add(row, "inventory.description", provenance);
-      rr_property_snapshot_t value;
-
-      if (rr_vfo_property_read(vfo, "frequency", &value) && value.known) {
-         char number[48];
-         snprintf(number, sizeof(number), "%ld Hz", value.value.l);
-         dict_add(row, "inventory.frequency", number);
-      }
-      GString *details = g_string_new(provenance);
-
-      if (rr_vfo_property_read(vfo, "mode", &value) && value.known && value.value.s) {
-         g_string_append_printf(details, " / Mode: %s", value.value.s);
-      }
-
-      if (rr_vfo_property_read(vfo, "width", &value) && value.known) {
-         g_string_append_printf(details, " / Width: %ld Hz", value.value.l);
-      }
-      dict_add(row, "inventory.description", details->str);
-      g_string_free(details, TRUE);
-      rr_inventory_send(ctx->client, row);
-   }
-
-   free(list);
-#else
-   (void)ctx;
-   (void)room;
-   (void)room_id;
-#endif
-}
-
-static void inventory_rooms(object_send_t *ctx, const char *base) {
-#ifdef USE_SQLITE
-
-   /* Resource Explorer must include the local station lobby even when no client has explicitly listed or joined it yet. */
-   if (!base && !db_room_ensure(masterdb, ws_site_room(), false, 0, "server")) {
-      Log(LOG_WARN, "inventory", "Unable to ensure station lobby %s: %s", ws_site_room(), sqlite3_errmsg(masterdb));
-   }
-   char *rooms = db_room_list(masterdb), *save = NULL;
-
-   for (char *room = rooms ? strtok_r(rooms, " ", &save) : NULL ; room ; room = strtok_r(NULL, " ", &save)) {
-      if (base ? !ws_room_same_rig(room, base) : ws_room_rig_namespace(room)) {
-         continue;
-      }
-      char *room_id = db_room_uuid(masterdb, room);
-
-      if (!room_id) {
-         continue;
-      }
-      dict *row = rr_inventory_row(ctx->request, base ? 2 : 1, "room", room, room_id);
-
-      if (row) {
-         dict_add(row, "inventory.state", ws_client_in_room(ctx->client, room) ? "joined" : "available");
-         dict_add(row, "inventory.service", base ? (!strcasecmp(room, base) ? "TX-control" : "RX-only") : "chat");
-         dict_add(row, "inventory.action", "/join|part <room>");
-         rr_inventory_send(ctx->client, row);
-         inventory_room_vfos(ctx, room, room_id);
-      }
-      free(room_id);
-   }
-
-   free(rooms);
-#endif
-}
-
-typedef struct rig_control_inventory {
-   object_send_t *ctx;
-   rr_server_rig_t *radio;
-} rig_control_inventory_t;
-
-static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user) {
-   rig_control_inventory_t *r = user;
-
-   const char *label = NULL;
-   if (!strcmp(d->name, "display.contrast")) label = "LCD Contrast";
-   else if (!strcmp(d->name, "display.key-backlight")) label = "Key Backlight";
-   else if (!strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS)) label = "Display Brightness";
-   else if (!strcmp(d->name, "display.tx-indicator")) label = "TX/BUSY Indicator";
-   else if (!strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) label = "Speaker Volume";
-   else if (!strcmp(d->name, "receiver.rf-gain")) label = "RF Gain";
-   else if (!strcmp(d->name, "receiver.attenuator")) label = "RF Attenuator";
-   else if (!strcmp(d->name, "receiver.noise-blanker")) label = "Noise Blanker";
-   else if (!strcmp(d->name, "receiver.noise-blanker-level")) label = "Noise Blanker Level";
-   else if (!strcmp(d->name, "receiver.noise-reduction")) label = "Noise Reduction";
-   else if (!strcmp(d->name, "receiver.noise-reduction-level")) label = "Noise Reduction Level";
-   else if (!strcmp(d->name, "transmit.mic-gain")) label = "Mic Gain";
-   else if (!strcmp(d->name, "transmit.power")) label = "RF Output Power";
-   else if (!strcmp(d->name, "receiver.squelch")) label = "Squelch";
-   else if (!strcmp(d->name, "meter.signal")) label = "Signal Strength";
-   else if (!strcmp(d->name, "receiver.ipo")) label = "IPO / Preamp";
-   else if (!strcmp(d->name, "receiver.auto-notch")) label = "Auto Notch";
-   else if (!strcmp(d->name, "receiver.narrow")) label = "Narrow Filter";
-   else if (!strcmp(d->name, "receiver.agc")) label = "AGC";
-   else if (!strcmp(d->name, "cw.keyer")) label = "CW Keyer";
-   else if (!strcmp(d->name, "cw.speed")) label = "CW Speed";
-   else if (!strcmp(d->name, "cw.pitch")) label = "CW Pitch";
-   else if (!strcmp(d->name, "cw.break-in")) label = "CW Break-in";
-   else if (!strcmp(d->name, "transmit.monitor-level")) label = "TX Monitor Level";
-   else if (!strcmp(d->name, "transmit.processor-level")) label = "Speech Processor Level";
-   else if (!strcmp(d->name, "transmit.vox")) label = "VOX";
-   else if (!strcmp(d->name, "transmit.vox-gain")) label = "VOX Gain";
-   else if (!strcmp(d->name, "panel.dial-lock")) label = "Dial Lock";
-   if (!label) return false;
-   dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
-
-   if (!row) {
-      return false;
-   }
-   dict_add(row, "inventory.parent", rr_server_rig_id(r->radio));
-   dict_add(row, "inventory.service", d->name);
-   dict_add(row, "inventory.access", d->writable ? "read/write" : "read-only");
-   dict_add(row, "inventory.description", "Rig property");
-   rr_inventory_send(r->ctx->client, row);
-
-   return false;
-}
-
-typedef struct rig_menu_inventory {
-   object_send_t *ctx;
-   const char *parent;
-   const char *model;
-} rig_menu_inventory_t;
-static void inventory_rig_menu_item(const char *id, const char *label, void *user) {
-   rig_menu_inventory_t *menu = user;
-   char name[128], group_id[200];
-   if (strlen(id) != 4 || id[0] < '0' || id[0] > '9' ||
-       id[1] < '0' || id[1] > '9' || id[2] < '0' || id[2] > '9' ||
-       id[3] < '0' || id[3] > '9') return;
-   unsigned group = (unsigned)(id[0] - '0') * 10 + (unsigned)(id[1] - '0');
-   static const char *ft891_groups[] = { "AGC", "DISPLAY", "DVS", "KEYER", "GENERAL", "MODE AM", "MODE CW", "MODE DAT", "MODE FM", "MODE RTY", "MODE SSB", "RX DSP", "SCOPE", "TUNING", "TX AUDIO", "TX GNRL", "RESET", "VERSION" };
-   if (!strcmp(menu->model, "FT-891") && group >= 1 && group <= sizeof(ft891_groups) / sizeof(ft891_groups[0])) {
-      snprintf(group_id, sizeof(group_id), "%s.%02u", menu->parent, group);
-      /* Inventory entries arrive in menu order, so only publish a section once. */
-      if (!strcmp(id + 2, "01")) {
-         char heading[128];
-         snprintf(heading, sizeof(heading), "%02u %s", group, ft891_groups[group - 1]);
-         dict *section = rr_inventory_row(menu->ctx->request, 3, "rig-menu-group", heading, group_id);
-         if (section) {
-            dict_add(section, "inventory.parent", menu->parent);
-            rr_inventory_send(menu->ctx->client, section);
-         }
-      }
-   } else {
-      snprintf(group_id, sizeof(group_id), "%s", menu->parent);
-   }
-   snprintf(name, sizeof(name), "%c%c-%c%c %s", id[0], id[1], id[2], id[3], label);
-   dict *row = rr_inventory_row(menu->ctx->request, !strcmp(group_id, menu->parent) ? 3 : 4, "rig-menu-item", name, NULL);
-   if (!row) return;
-   dict_add(row, "inventory.parent", group_id);
-   dict_add(row, "inventory.service", id);
-   dict_add(row, "inventory.access", "read-only");
-   dict_add(row, "inventory.description", "CAT menu; double-click to read its current value");
-   rr_inventory_send(menu->ctx->client, row);
-}
-static bool inventory_rig(rr_server_rig_t *radio, void *user) {
-   object_send_t *ctx = user;
-   const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
-   dict *row = rr_inventory_row(ctx->request, 1, "rig", alias, rr_server_rig_id(radio));
-
-   if (row) {
-      rrserver_gps_inventory_position(row, alias);
-      rr_backend_t *backend = rr_server_rig_backend(radio);
-      dict_add(row, "inventory.backend", backend->type->name);
-      dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
-
-      if (backend->type->api->manufacturer) {
-         const char *manufacturer = backend->type->api->manufacturer(backend);
-
-         if (manufacturer && *manufacturer) {
-            dict_add(row, "inventory.manufacturer", manufacturer);
-         }
-      }
-
-      if (backend->type->api->model_name) {
-         const char *model = backend->type->api->model_name(backend);
-
-         if (model && *model) {
-            dict_add(row, "inventory.model", model);
-         }
-      }
-      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
-      dict_add(row, "inventory.state", radio == rr_rig_registry_default(rig.rigs) ? "default" : "available");
-      dict_add(row, "inventory.action", "/join <room>");
-   }
-   rr_inventory_send(ctx->client, row);
-   rig_control_inventory_t controls = {
-      .ctx = ctx, .radio = radio
-   };
-   rr_rig_property_foreach(radio, inventory_rig_control, &controls);
-   /* Generic backend-supplied menu catalog: does not touch the hardware. */
-   rr_backend_t *menu_backend = rr_server_rig_backend(radio);
-   if (menu_backend && menu_backend->type->api->menu_foreach) {
-      const char *model = menu_backend->type->api->model_name ?
-         menu_backend->type->api->model_name(menu_backend) : NULL;
-      if (model && strcmp(model, "Unknown Yaesu")) {
-         char menu_id[160];
-         snprintf(menu_id, sizeof(menu_id), "%s.menu", rr_server_rig_id(radio));
-         dict *menu_row = rr_inventory_row(ctx->request, 2, "rig-menu", "MENU", menu_id);
-         if (menu_row) {
-            dict_add(menu_row, "inventory.parent", rr_server_rig_id(radio));
-            dict_add(menu_row, "inventory.description", model);
-            rr_inventory_send(ctx->client, menu_row);
-         }
-         rig_menu_inventory_t menu_ctx = { .ctx = ctx, .parent = menu_id, .model = model };
-         menu_backend->type->api->menu_foreach(menu_backend, inventory_rig_menu_item, &menu_ctx);
-      }
-   }
-   inventory_rooms(ctx, rr_rig_registry_room(rig.rigs, radio));
-   char cat[80];
-   snprintf(cat, sizeof(cat), "%s.cat", alias);
-   row = rr_inventory_row(ctx->request, 2, "cat", cat, NULL);
-
-   if (row) {
-      dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
-      dict_add(row, "inventory.action", "/sercom attach <local-name> <rig-alias>.cat");
-   }
-   rr_inventory_send(ctx->client, row);
-   rr_server_vfo_foreach(radio, inventory_vfo, ctx);
-   inventory_media(ctx, rr_server_rig_id(radio), 2);
-   inventory_services(ctx, alias, 2);
-
-   return false;
-}
-
-/* Advertise platform controls as children of their owning node in Explorer. */
-static bool inventory_node_control(const rr_platform_control_state_t *state, void *user) {
-   object_send_t *ctx = user;
-   dict *row = rr_inventory_row(ctx->request, 1, "control", state->label, NULL);
-
-   if (!row) {
-      return false;
-   }
-   dict_add(row, "inventory.service", state->name);
-   dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
-   dict_add(row, "inventory.description", state->name);
-   dict_add(row, "inventory.access", state->writable ? "read/write" : "read-only");
-   rr_inventory_send(ctx->client, row);
-
-   return false;
-}
-static void inventory(rrconn_t *client, const char *id) {
-   object_send_t ctx = {
-      .client = client, .request = id
-   };
-   dict *row = rr_inventory_row(id, 0, "site", cfg_get("station.name"), rr_rig_registry_node(rig.rigs));
-
-   if (row) {
-      rrserver_gps_inventory_position(row, "station");
-      dict_add(row, "inventory.room", ws_site_room());
-      dict_add(row, "inventory.description", cfg_get("station.description"));
-      dict_add(row, "inventory.location", cfg_get("station.location"));
-   }
-   rr_inventory_send(client, row);
-   rrserver_platform_control_foreach(inventory_node_control, &ctx);
-   inventory_rooms(&ctx, NULL);
-   inventory_services(&ctx, "station", 1);
-   inventory_media(&ctx, "", 1);
-   rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
-   rrserver_relay_inventory(client, id);
-   send_message(client, message("object", "inventory-end", id));
-}
-
-static void rr_object_request(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!client || !client->authenticated || !data) {
+   if (!s) {
       return;
    }
 
-   if (!epoch) {
-      epoch = g_uuid_string_random();
+   if (s->fd >= 0) {
+      close(s->fd);
    }
-   dict *d = json2dict(data);
+   free(s->device);
+   free(s);
+   rr_backend_instance_set_data(b, NULL);
+}
+static const char *manufacturer(rr_backend_t *b) {
+   (void)b;
 
-   if (!d) {
-      return;
-   }
-   const char *family = dict_get(d, "msg.type", "");
-   const char *id = dict_get(d, "request.id", NULL);
-   const char *code = "invalid-request";
+   return "Yaesu";
+}
+static const char *model_name(rr_backend_t *b) {
+   (void)b;
 
-   if (dict_get_type(d, "request.id") != VAL_STR || !id || !*id || strlen(id) > 64) {
-      goto done;
-   }
-
-   if (!strcmp(family, "object")) {
-      const char *cmd = dict_get(d, "object.cmd", "");
-
-      if (!strcmp(cmd, "inventory")) {
-         inventory(client, id);
-         dict_free(d);
-
-         return;
-      } else if (!strcmp(cmd, "unsubscribe")) {
-         rr_object_close_client(NULL, NULL, client, NULL);
-         code = "ok";
-      } else if (!strcmp(cmd, "snapshot")) {
-         if (!rr_rig_registry_node(rig.rigs)) {
-            code = "unavailable";
-            goto done;
-         }
-
-         if (rr_rig_registry_count(rig.rigs) > 128) {
-            code = "too-large";
-            goto done;
-         }
-         rr_object_close_client(NULL, NULL, client, NULL);
-         subscriber_t *s = calloc(1, sizeof(*s));
-
-         if (!s) {
-            code = "unavailable";
-            goto done;
-         }
-         s->client = client;
-         s->next = subscribers;
-         subscribers = s;
-         s->request = strdup(id);
-         s->pending = g_ptr_array_new_with_free_func(g_free);
-
-         if (!s->request || !s->pending) {
-            rr_object_close_client(NULL, NULL, client, NULL);
-            code = "unavailable";
-            goto done;
-         }
-         rr_rig_registry_foreach(rig.rigs, collect_rig, s->pending);
-
-         if (s->pending->len >= 4096) {
-            rr_object_close_client(NULL, NULL, client, NULL);
-            code = "too-large";
-            goto done;
-         }
-         send_message(client, message("object", "begin", id));
-         dict *node = message("object", "descriptor", id);
-
-         if (!node) {
-            rr_object_close_client(NULL, NULL, client, NULL);
-            code = "unavailable";
-            goto done;
-         }
-         dict_add(node, "object.uuid", rr_rig_registry_node(rig.rigs));
-         dict_add(node, "object.type", "node");
-         dict_add(node, "object.room", ws_site_room());
-         dict_add(node, "object.alias", cfg_get("station.name"));
-         dict_add(node, "object.description", cfg_get("station.description"));
-         dict_add(node, "object.location", cfg_get("station.location"));
-         dict_add(node, "object.lifecycle", "persistent");
-         send_message(client, node);
-         node_control_context_t controls = {
-            .client = client, .request = id
-         };
-         rrserver_platform_control_foreach(send_node_control, &controls);
-         dict_free(d);
-
-         return;
-      }
-   } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "read")) {
-      const char *uuid = dict_get(d, "target", NULL);
-      const char *name = dict_get(d, "property.name", NULL);
-      if (!uuid || !name || strncmp(name, "menu.", 5) || strlen(name) != 9 ||
-          !rr_object_uuid_valid(uuid)) goto done;
-      object_send_t ctx = { 0 };
-      if (!resolve(uuid, &ctx) || ctx.vfo) { code = "unknown-object"; goto done; }
-      rr_backend_t *backend = rr_server_rig_backend(ctx.radio);
-      rr_property_descriptor_t descriptor;
-      if (!rr_rig_property_describe(ctx.radio, name, &descriptor) ||
-          !descriptor.readable || descriptor.type != VAL_STR ||
-          !backend->type->api->menu_read) { code = "unsupported"; goto done; }
-      if (!backend->worker) { code = "unavailable"; goto done; }
-      rr_server_vfo_t *vfo = rr_server_vfo_find_alias(ctx.radio, "A");
-      if (!vfo) { code = "unavailable"; goto done; }
-      dict_value_t value = { .s = (char *)(name + 5) };
-      code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_READ,
-                   value, NULL, NULL) ? "busy" : "ok";
-   } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "set")) {
-      const char *uuid = dict_get(d, "target", NULL);
-      const char *name = dict_get(d, "property.name", NULL);
-
-      if (!rr_object_uuid_valid(uuid) || !rr_object_name_valid(name)) {
-         goto done;
-      }
-      object_send_t ctx = {
-         0
-      };
-
-      /* A node property may be writable without corresponding to any rig. Keep system controls owner/admin-only until scoped site privileges are included in
-       * the unified authorization layer. */
-      if (rr_rig_registry_node(rig.rigs) && !strcmp(uuid, rr_rig_registry_node(rig.rigs))) {
-         if (!client->user || !has_priv(client->user->uid, "admin|owner")) {
-            code = "forbidden";
-            goto done;
-         }
-         rr_platform_control_state_t current;
-
-         if (!rrserver_platform_control_get(name, &current)) {
-            code = "unknown-property";
-            goto done;
-         }
-
-         if (!current.writable) {
-            code = "read-only";
-            goto done;
-         }
-         dict_value_t value;
-
-         if (!rr_object_value_get(d, "property.value", VAL_INT, &value)) {
-            code = "invalid-value";
-            goto done;
-         }
-         rr_platform_control_state_t updated;
-
-         if (!rrserver_platform_control_set(name, value.i, &updated)) {
-            code = "invalid-value";
-            goto done;
-         }
-         rrserver_objects_platform_changed(&updated);
-#ifdef USE_SQLITE
-         db_add_audit_event(masterdb, client->chatname, "platform.control", name);
-#endif
-         code = "ok";
-         goto done;
-      }
-
-      if (!resolve(uuid, &ctx)) {
-         code = "unknown-object";
-         goto done;
-      }
-
-      if (!ctx.vfo && !strncmp(name, "vfo.", 4)) {
-         code = "unknown-property";
-         goto done;
-      }
-      rr_property_descriptor_t schema;
-      bool found = ctx.vfo ? rr_vfo_property_describe(ctx.vfo, name, &schema) : rr_rig_property_describe(ctx.radio, name, &schema);
-
-      if (!found) {
-         code = "unknown-property";
-         goto done;
-      }
-
-      if (!schema.writable) {
-         code = "read-only";
-         goto done;
-      }
-
-      if (!client->user || client->user->is_muted || !has_priv(client->user->uid, "admin|owner|tx|noob")) {
-         code = "forbidden";
-         goto done;
-      }
-      const char *room = dict_get(d, "request.room", NULL);
-      bool allowed = false;
-      const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
-      const bool tuning = ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY);
-
-      if (room) {
-         /* Native rig controls still require the physical rig's TX room. Only receiver properties may use a controlling user room. */
-         allowed = ctx.vfo ? ws_client_in_room(client, room) : (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
-      } else {
-         room = base;
-         allowed = base && ws_client_in_room(client, base);
-      }
-
-#ifdef USE_SQLITE
-
-      if (allowed && ctx.vfo) {
-         char *controller = db_room_vfo_controller(masterdb, rr_server_vfo_id(ctx.vfo));
-
-         if (!controller || !room || strcasecmp(controller, room)) {
-            allowed = false;
-         }
-         free(controller);
-      }
-#endif
-
-      if (allowed && ctx.vfo) {
-         /* A user-created room never gains TX authority by hosting a VFO. For frequency changes, the backend's independent-RX permission remains relevant on
-          * legacy rig subrooms. */
-         if (!base || strcasecmp(base, room)) {
-            /* A bridge is RX-only.  Its first attached room can tune, without requiring a rig-numbered room or TX control. */
-            allowed = tuning && rrserver_bridge_rig(ctx.radio) && rrserver_bridge_can_use(client) && ws_client_in_room(client, room);
-         } else {
-            allowed = ws_room_control_allowed(client, room, tuning);
-         }
-      }
-
-      if (!allowed) {
-         code = "forbidden-room";
-         goto done;
-      }
-      rr_control_request_t control = {
-         .rig = ctx.radio, .vfo = ctx.vfo,
-         .property = name, .value_type = schema.type, .source = "property.set", .context = client
-      };
-
-      if (!rr_object_value_get(d, "property.value", schema.type, &control.value)) {
-         code = "invalid-value";
-         goto done;
-      }
-      bool releasing = !strcmp(name, RR_PROP_PTT) && !control.value.i && client->is_ptt;
-
-      if (!releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio), !strcmp(name, RR_PROP_PTT) && control.value.i))
-      {
-         code = "supervision-required";
-         goto done;
-      }
-      rr_property_snapshot_t state;
-
-      if (property_read(&ctx, name, &state) && state.observed && !state.available) {
-         code = "unavailable";
-         goto done;
-      }
-
-      pending_control_t *pending = calloc(1, sizeof(*pending));
-
-      if (!pending || !(pending->id = strdup(id ? id : ""))) {
-         free(pending);
-         code = "backend-failure";
-         goto done;
-      }
-      pending->client = client;
-      pending->next = pending_controls;
-      pending_controls = pending;
-      control.complete = object_control_completed;
-      control.complete_user = pending;
-      rr_control_result_t status = rr_rig_control(&control);
-
-      if (status == RR_CONTROL_PENDING) {
-         dict_free(d);
-
-         return;
-      }
-      pending_controls = pending->next;
-      free(pending->id);
-      free(pending);
-
-      switch (status) {
-         case RR_CONTROL_OK: {
-            code = "ok";
-            break;
-         }
-         case RR_CONTROL_NOT_FOUND: {
-            code = "unknown-property";
-            break;
-         }
-         case RR_CONTROL_READ_ONLY: {
-            code = "read-only";
-            break;
-         }
-         case RR_CONTROL_INVALID:
-         case RR_CONTROL_TYPE_MISMATCH: {
-            code = "invalid-value";
-            break;
-         }
-         case RR_CONTROL_UNSUPPORTED: {
-            code = "unsupported";
-            break;
-         }
-         default: {
-            code = "backend-failure";
-            break;
-         }
-      }
-   }
-done:
-   result(client, !strcmp(family, "property") ? "property" : "object", id, code);
-   dict_free(d);
+   yaesu_state_t *s = ys(b);
+   return s && s->profile ? s->profile->model : "Unknown Yaesu";
 }
 
-static void rr_object_changed(const char *event, const char *data, rrconn_t *client, void *user) {
-   if (!data) {
-      return;
-   }
-   sequence++;
+static const rr_backend_funcs_t api = {
+   .create = create, .destroy = destroy, .poll_state = state, .vfo_supported = supported,
+   .freq_set = frequency_set, .freq_get = frequency_get,
+   .ptt_set = ptt_set, .ptt_get = ptt_get,
+   .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
+   .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
+   .menu_foreach = yaesu_menu_foreach, .menu_read = yaesu_menu_read, .menu_write = yaesu_menu_write
+};
 
-   dict *d = json2dict(data);
-
-   if (!d) {
-      return;
-   }
-   object_send_t ctx = {
-      0
-   };
-   const char *name = dict_get(d, "property.name", NULL);
-
-   if (name && resolve(dict_get(d, "target.id", NULL), &ctx)) {
-      send_state(&ctx, name, "changed");
-   }
-   dict_free(d);
-}
-
-static void rr_object_lifecycle(const char *event, const char *uuid, rrconn_t *client, void *user) {
-   sequence++;
-
-   if (!subscribers || !uuid) {
-      return;
-   }
-
-   if (!strcmp(event, "object.model.removed")) {
-      dict *d = message("object", "removed", NULL);
-
-      if (d) {
-         dict_add(d, "object.uuid", uuid);
-      }
-      send_message(NULL, d);
-   } else {
-      object_send_t ctx = {
-         0
-      };
-
-      if (resolve(uuid, &ctx)) {
-         send_object(&ctx, !strcmp(event, "object.model.added") ? "added" : "descriptor");
-      }
-   }
-}
-
-void rrserver_objects_register_events(void) {
-   event_on(RR_OBJECT_REQUEST_EVENT, rr_object_request, NULL);
-   event_on(RR_OBJECT_CLOSE_EVENT, rr_object_close_client, NULL);
-   event_on(RR_PROPERTY_CHANGED_EVENT, rr_object_changed, NULL);
-   event_on("object.model.added", rr_object_lifecycle, NULL);
-   event_on("object.model.removed", rr_object_lifecycle, NULL);
-   event_on("object.model.schema", rr_object_lifecycle, NULL);
-}
-
-void rrserver_objects_fini(void) {
-   for (pending_control_t *pending = pending_controls ; pending ; pending = pending->next) {
-      pending->client = NULL;
-   }
-
-   while (subscribers) {
-      rr_object_close_client(NULL, NULL, subscribers->client, NULL);
-   }
-   g_free(epoch);
-   epoch = NULL;
-   sequence = 0;
-}
-
-// PARITY: rrclient/objects.c and rustyrig-www/js/webui.objects.js consume one
-// connection-local stream. Owner property versions remain per target/property.
-void rrserver_objects_remote(rrconn_t *client, dict *d) {
-   if (!epoch) {
-      epoch = g_uuid_string_random();
-   }
-   dict_add(d, "stream.epoch", epoch);
-   rr_object_seq_put(d, "stream.seq", ++sequence);
-
-   if (client) {
-      ws_send_dict(NULL, client, d, WEBSOCKET_OP_TEXT);
-   } else {
-      for (subscriber_t *s = subscribers ; s ; s = s->next) {
-         if (s->client->authenticated) {
-            ws_send_dict(NULL, s->client, d, WEBSOCKET_OP_TEXT);
-         }
-      }
-   }
-}
-
-void rrserver_objects_room_state(rrconn_t *client, const char *room) {
-   object_send_t ctx = {
-      .client = client
-   };
-   ctx.radio = rrserver_rig_for_room(room);
-
-   if (!ctx.radio || !ws_room_vfo_mask(room)) {
-      return;
-   }
-   rr_rig_property_foreach(ctx.radio, send_property, &ctx);
-   GPtrArray *ids = g_ptr_array_new_with_free_func(g_free);
-
-   if (!ids) {
-      return;
-   }
-   rr_server_vfo_foreach(ctx.radio, collect_vfo, ids);
-
-   for (unsigned i = 0 ; i < ids->len ; i++) {
-      rr_vfo_t index;
-
-      if (resolve(g_ptr_array_index(ids, i), &ctx) && rr_server_vfo_native_index(ctx.vfo, &index) &&
-         index >= 0 && index < 32 && (ws_room_vfo_mask(room) & (UINT32_C(1) << index))) {
-         rr_vfo_property_foreach(ctx.vfo, send_property, &ctx);
-      }
-   }
-
-   g_ptr_array_free(ids, true);
+const rr_backend_type_t rr_backend_yaesu = {
+   .name = "yaesu", .description = "Native Yaesu FT-891 CAT",
+   .uses_property_state = true, .api = &api
+};
+void rr_backend_yaesu_register(void) {
+   rr_backend_type_register(&rr_backend_yaesu);
 }
