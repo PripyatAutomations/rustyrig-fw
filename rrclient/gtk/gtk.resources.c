@@ -1413,7 +1413,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","serial-folder","file","bridge","group","rig-control"};
+         "serial","serial-folder","file","share","bridge","group","rig-control"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1421,7 +1421,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","serial-folder","file","bridge","group"};
+         "serial","serial-folder","file","share","bridge","group"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1886,7 +1886,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    /* Group direct children without changing their resource identity or wire
     * parent. Existing explicit UUID ancestry always wins for nested objects. */
-   if (!strcmp(kind, "control") || !strcmp(kind, "rig-control") || !strcmp(kind, "file") || !strcmp(kind, "serial")) {
+   if (!strcmp(kind, "control") || !strcmp(kind, "rig-control") || (!strcmp(kind, "file") || !strcmp(kind, "share")) || !strcmp(kind, "serial")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
       const char *folder = (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
