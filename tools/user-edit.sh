@@ -1,11 +1,16 @@
 #!/bin/bash
 #
 # An ugly little script for editing the users. We should replace this with a section of the webui/GTK client
+#
+# XXX: This needs updated to v1.x - dont use it
 set -e
 
 # XXX: We need to find the rrserver.cfg and use it to locate the password file instead of hardcoding it
 AUTHFILE="${AUTHFILE:-config/http.users}"
 LOCKFILE="$AUTHFILE.lock"
+
+echo "*** file based auth is disabled. use sql! ***"
+exit 1
 
 # Lock and unlock functions
 lock_file() {

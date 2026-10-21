@@ -33,3 +33,14 @@ because the admin left the room
 * split librrprotocol to a loadable module
 * move irc to a loadable module that extends librustyaxe
   - keep it able to link builtin (non-dlmod)
+
+
+* Simple 'scripts' -- more like batch files for stuff that would have been typed into chat box --
+  - see /exec -e which runs a command and interprets as a batch / chat input (parse / and ! commands); 
+    - maybe /exec -e !file | !"file" syntax? or maybe -c for cat?
+  - This would let us setup our quick tasks like:
+    ON CONNECT rplywv00 EXEC -c scripts/rplywv00.connect
+    ON CONNECT rplywv00.rig0 EXEC -c scripts/rplywv00.rig0.connect
+ 
+  Those scripts can contain anything the user could input at the chat input prompt presently
+  The functionality already exists mostly in /exec -e to run another process, we would make -c just read a file

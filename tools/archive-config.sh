@@ -1,18 +1,20 @@
 #!/bin/bash
+CF_DIR=/etc/rustyrig
+
 [ -z "$PROFILE" ] && [ ! -z "$1" ] && PROFILE=$1
 [ -z "$PROFILE" ] && PROFILE=radio
 ts=$(date +%Y-%m-%d.%H%M)
 
-old_chans=config/${PROFILE}.channels.json
-old_config=config/${PROFILE}.config.json
-old_rrclient=config/rrclient.cfg
-old_rrserver=config/rrserver.cfg
-new_chans=config/archive/${PROFILE}.channels.$ts.json
-new_config=config/archive/${PROFILE}.config.$ts.json
-new_rrclient=config/archive/rrclient.$ts.cfg
-new_rrserver=config/archive/rrserver.$ts.cfg
+old_chans=${CF_DIR}/${PROFILE}.channels.json
+old_config=${CF_DIR}/${PROFILE}.config.json
+old_rrclient=${CF_DIR}/rrclient.cfg
+old_rrserver=${CF_DIR}/rrserver.cfg
+new_chans=${CF_DIR}/archive/${PROFILE}.channels.$ts.json
+new_config=${CF_DIR}/archive/${PROFILE}.config.$ts.json
+new_rrclient=${CF_DIR}/archive/rrclient.$ts.cfg
+new_rrserver=${CF_DIR}/archive/rrserver.$ts.cfg
 
-mkdir -p config/archive
+mkdir -p ${CF_DIR}/archive
 
 #############################################################
 # The radio config is essential to build, so it must exist! #
