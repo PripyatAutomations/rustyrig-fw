@@ -122,7 +122,7 @@ int32_t rr_cat_init(void) {
    Log(LOG_INFO, "cat", "Initializing CAT interfaces");
 
 #if     defined(HOST_POSIX)
-// PTY interface (./dev/ttyCAT0): external software (hamlib, rigctl, etc)
+// PTY interface ($HOME/dev/ttyCAT0): external software (hamlib, rigctl, etc)
 // opens the slave as a serial port and talks to our CAT parsers.
 // No-op unless cat.pty.enable is true in the config.
    cat_pty_init();
