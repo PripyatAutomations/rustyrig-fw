@@ -39,7 +39,7 @@ typedef struct {
    GHashTable *zebra_positions;
    gboolean zebra_dirty, zebra_rebuilding;
    GtkTreeStore *store;
-   GtkTreeIter local_root;
+   GtkTreeIter local_root, serial_root;
    GHashTable *branches, *local_rows;
    guint timer;
    gulong initial_split_handler;
@@ -236,7 +236,7 @@ static void resource_local_named(const char *name, struct local_scan *scan) {
       gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
       gtk_tree_path_free(path);
    } else {
-      gtk_tree_store_append(browser->store, &iter, &browser->local_root);
+      gtk_tree_store_append(browser->store, &iter, &browser->serial_root);
       GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
       reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), path);
       gtk_tree_path_free(path);
@@ -1407,12 +1407,13 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    char *kind=NULL;
    gtk_tree_model_get(model,iter,KIND,&kind,-1);
    gboolean match=g_hash_table_contains(browser->enabled_kinds,
-      !g_strcmp0(kind, "rig-control") ? "control" : kind ? kind : "");
+      !g_strcmp0(kind, "rig-control") ? "control" :
+      !g_strcmp0(kind, "serial-folder") ? "serial" : kind ? kind : "");
    if (!match && !g_hash_table_contains(browser->enabled_kinds,"other")) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge","group","rig-control"};
+         "serial","serial-folder","file","bridge","group","rig-control"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1420,7 +1421,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge","group"};
+         "serial","serial-folder","file","bridge","group"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1646,6 +1647,9 @@ static void resource_create(void) {
 
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
    gtk_tree_store_set(browser->store, &browser->local_root, NAME, "This Client", KIND, "local", STATE, "Local resources", -1);
+   gtk_tree_store_append(browser->store, &browser->serial_root, &browser->local_root);
+   gtk_tree_store_set(browser->store, &browser->serial_root,
+      NAME, "Serial Ports", KIND, "serial-folder", STATE, "Local serial endpoints", -1);
    GtkTreePath *local_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &browser->local_root);
    GtkTreePath *local_visible=resource_view_path(local_path);
    if (local_visible) gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),local_visible,FALSE);
@@ -1882,10 +1886,11 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    /* Group direct children without changing their resource identity or wire
     * parent. Existing explicit UUID ancestry always wins for nested objects. */
-   if (!strcmp(kind, "control") || !strcmp(kind, "rig-control") || !strcmp(kind, "file")) {
+   if (!strcmp(kind, "control") || !strcmp(kind, "rig-control") || !strcmp(kind, "file") || !strcmp(kind, "serial")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
       const char *folder = (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
+         !strcmp(kind, "serial") ? "Serial Ports" :
          (!strcmp(parent_kind ? parent_kind : "", "site") ||
           !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
       if (folder) {
