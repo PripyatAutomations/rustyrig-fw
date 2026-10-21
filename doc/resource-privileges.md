@@ -365,7 +365,9 @@ This matches authenticated `admin` accounts from **every linked server**, not
 just local administrators. It allows broad remote rig control and room access;
 it is **not suitable for production** and does not replace RF/PTT safety checks.
 
-The `@full` assignment lives in `privilege_set_assignments`; the room grant lives in `resource_privileges`. Both acquire `remote_allowed=1` through the database startup migration after a fresh preload. The group itself does not grant room permissions.\n\n**Before any production release:** remove both seed grants (and the early preload group setup if no longer needed), verify fresh installs
+The `@full` assignment lives in `privilege_set_assignments`; the room grant lives in `resource_privileges`. Both acquire `remote_allowed=1` through the database startup migration after a fresh preload. The group itself does not grant room permissions.
+
+**Before any production release:** remove both seed grants (and the early preload group setup if no longer needed), verify fresh installs
 contain no blanket `admin@*` grant, and explicitly revoke both the assignment and direct-grant rows from any
 databases populated while the test seed was installed. Removing the SQL seed
 alone does not revoke already provisioned access. See `doc/release-checklist.md`.
