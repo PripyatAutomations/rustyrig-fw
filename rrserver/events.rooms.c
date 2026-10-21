@@ -620,7 +620,10 @@ void rrserver_handle_room_delete(const char *event, const char *data, rrconn_t *
       if (ws_room_rig_namespace(room)) {
          ws_room_set_vfo_mask(room, 0);
       }
-      ws_send_notice(cptr, "Room %s removed", room);
+      /* Never trust a client-supplied actor name for the removal event. */
+      dict_del(d, "talk.user");
+      dict_add(d, "talk.user", cptr->chatname);
+      ws_send_notice(cptr, "Room %s removed by %s", room, cptr->chatname);
       ws_broadcast_room_dict(NULL, d, room);
 
       for (rrconn_t *cur = http_client_list ; cur ; cur = cur->next) {
