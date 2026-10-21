@@ -42,9 +42,9 @@ static gboolean panel_up(GtkWidget *widget, GdkEventButton *event, gpointer data
    drag->dragging = FALSE;
    return TRUE;
 }
-static void panel_close(GtkButton *button, gpointer panel) {
-   (void)button;
-   gtk_widget_destroy(GTK_WIDGET(panel));
+static void panel_cleared(GtkWidget *frame, gpointer overlay) {
+   if (g_object_get_data(G_OBJECT(overlay), "rr-active-control-panel") == frame)
+      g_object_set_data(G_OBJECT(overlay), "rr-active-control-panel", NULL);
 }
 static void panel_css(GtkWidget *frame) {
    GtkCssProvider *css = gtk_css_provider_new();
@@ -70,7 +70,13 @@ GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
       g_object_set_data(G_OBJECT(main_window), "rr-control-overlay", overlay);
       gtk_widget_show(overlay);
    }
+   /* Shared control popups are mutually exclusive; destroying the previous
+    * frame also releases its slider handlers and original-value state. */
+   GtkWidget *previous = g_object_get_data(G_OBJECT(overlay), "rr-active-control-panel");
+   if (previous) gtk_widget_destroy(previous);
    GtkWidget *frame = gtk_frame_new(NULL);
+   g_object_set_data(G_OBJECT(overlay), "rr-active-control-panel", frame);
+   g_signal_connect(frame, "destroy", G_CALLBACK(panel_cleared), overlay);
    gtk_widget_set_halign(frame, GTK_ALIGN_START);
    gtk_widget_set_valign(frame, GTK_ALIGN_START);
    gtk_widget_set_margin_start(frame, 16);
@@ -85,9 +91,6 @@ GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
    gtk_box_pack_start(GTK_BOX(box), handle, FALSE, FALSE, 0);
    GtkWidget *caption = gtk_label_new(title);
    gtk_box_pack_start(GTK_BOX(header), caption, TRUE, TRUE, 0);
-   GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
-   g_signal_connect(close, "clicked", G_CALLBACK(panel_close), frame);
    PanelDrag *drag = g_new0(PanelDrag, 1);
    drag->overlay = overlay;
    drag->frame = frame;
