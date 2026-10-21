@@ -5,6 +5,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <string.h>
+#include <glib.h>
 #include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
 #include <rrclient/receiver.directory.h>
