@@ -272,6 +272,9 @@ GtkWidget *create_mode_box(void) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "D-U");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "FM");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "DFM");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "M-L");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "M-U");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(mode_combo), "MFM");
    gtk_combo_box_set_active(GTK_COMBO_BOX(mode_combo), 0);
 
    gtk_widget_set_can_focus(mode_combo_wrapper, TRUE);
