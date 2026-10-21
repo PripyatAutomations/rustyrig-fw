@@ -522,6 +522,56 @@ static bool collect_node_control(const rr_platform_control_state_t *state, void 
    return false;
 }
 
+/* Mirror rig property descriptors and CAT menu metadata across relay hops.
+ * These are inventory-only rows; CAT operations remain owner-local. */
+typedef struct relay_rig_menu_ctx {
+   const char *rig_id;
+   const char *model;
+   char menu_id[160];
+} relay_rig_menu_ctx_t;
+
+static bool collect_rig_property(const rr_property_descriptor_t *d, void *user) {
+   const char *rig_id = user;
+   dict *row = rr_inventory_row("", 2, "rig-control", d->name, NULL);
+   if (row) {
+      dict_add(row, "inventory.service", d->name);
+      dict_add(row, "inventory.access", d->writable ? "read/write" : "read-only");
+      dict_add(row, "inventory.description", "Rig property");
+      collect_service(row, (void *)rig_id);
+   }
+   return false;
+}
+static void collect_rig_menu_item(const char *id, const char *label, void *user) {
+   relay_rig_menu_ctx_t *ctx = user;
+   if (!id || strlen(id) != 4) return;
+   char name[128];
+   snprintf(name, sizeof(name), "%c%c-%c%c %s", id[0], id[1], id[2], id[3], label);
+   dict *row = rr_inventory_row("", 4, "rig-menu-item", name, NULL);
+   if (row) {
+      dict_add(row, "inventory.service", id);
+      dict_add(row, "inventory.access", "read-only");
+      dict_add(row, "inventory.description", "CAT menu; read on owning server");
+      collect_service(row, ctx->menu_id);
+   }
+}
+static void collect_rig_catalog(rr_server_rig_t *radio) {
+   const char *id = rr_server_rig_id(radio);
+   rr_rig_property_foreach(radio, collect_rig_property, (void *)id);
+   rr_backend_t *backend = rr_server_rig_backend(radio);
+   if (!backend || !backend->type->api->menu_foreach) return;
+   const char *model = backend->type->api->model_name ?
+      backend->type->api->model_name(backend) : NULL;
+   if (!model || !strcmp(model, "Unknown Yaesu")) return;
+   relay_rig_menu_ctx_t ctx = { .rig_id = id, .model = model };
+   snprintf(ctx.menu_id, sizeof(ctx.menu_id), "%s.menu", id);
+   dict *menu = rr_inventory_row("", 2, "rig-menu", "MENU", ctx.menu_id);
+   if (menu) {
+      dict_add(menu, "inventory.description", model);
+      collect_service(menu, (void *)id);
+   }
+   backend->type->api->menu_foreach(backend, collect_rig_menu_item, &ctx);
+}
+
 /* Add one registered VFO to the local discovery catalog. */
 static bool collect_vfo(rr_server_vfo_t *vfo, void *user) {
    rr_server_rig_t *radio = user;
@@ -551,6 +601,7 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
       dict_add(c->descriptor, "object.location", location && *location ? location : cfg_get("station.location"));
    }
    collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
+   collect_rig_catalog(radio);
    char cat[80];
    snprintf(cat, sizeof(cat), "%s.cat", rr_rig_registry_public_alias(rig.rigs, radio));
    dict *row = rr_inventory_row("", 0, "cat", cat, NULL);
