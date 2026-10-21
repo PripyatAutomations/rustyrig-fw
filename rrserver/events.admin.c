@@ -1388,7 +1388,21 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          : rrserver_platform_control_set(name, requested, &state);
 
       if (!ok) {
-         ws_send_error(client, "Node control unavailable, read-only, or outside supported range");
+         rr_platform_control_state_t available;
+         if (!rrserver_platform_control_get(name, &available)) {
+            ws_send_error(client, "Node control '%s' is unavailable or cannot be read on this server", name);
+         } else if (count == 2 && !available.writable) {
+            ws_send_error(client, "Node control '%s' is read-only (current: %d%s)", name, available.current, available.unit);
+         } else if (count == 2 && (requested < available.minimum || requested > available.maximum)) {
+            ws_send_error(client, "Node control '%s': value %d%s is outside %d to %d%s", name,
+               requested, available.unit, available.minimum, available.maximum, available.unit);
+         } else if (count == 2 && available.step > 0 && (requested - available.minimum) % available.step) {
+            ws_send_error(client, "Node control '%s': value %d%s must increase in steps of %d from %d%s", name,
+               requested, available.unit, available.step, available.minimum, available.unit);
+         } else {
+            ws_send_error(client, "Node control '%s': %s failed; backend rejected it or could not confirm its state",
+               name, count == 2 ? "write" : "read");
+         }
       } else {
          if (count == 2) {
             db_add_audit_event(masterdb, client->chatname, "platform.control", name);
