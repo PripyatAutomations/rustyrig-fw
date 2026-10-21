@@ -80,6 +80,23 @@ int main(void) {
    assert(!run("printf '%s\\n' 'a  b' 'c;d'"));
    finish();
    assert(strstr(local, "a  b") && strstr(local, "c;d") && !parser_lines && !chat_lines);
+   /* -c is a direct file read into the local window, not shell execution
+    * or forwarding of apparent commands to a server. */
+   char filename[] = "/tmp/rustyrig exec cat XXXXXX";
+   int fd = g_mkstemp(filename);
+   assert(fd >= 0);
+   const char contents[] = "local file line\\n/quit\\n";
+   assert(write(fd, contents, sizeof(contents) - 1) == (ssize_t)(sizeof(contents) - 1));
+   assert(close(fd) == 0);
+   local[0] = 0;
+   char cat_command[256];
+   snprintf(cat_command, sizeof(cat_command), "-c %s", filename);
+   assert(!run(cat_command));
+   assert(strstr(local, "local file line") && strstr(local, "/quit"));
+   assert(!parser_lines && !chat_lines && !exec_jobs);
+   assert(unlink(filename) == 0);
+   assert(run(cat_command));
+   assert(strstr(local, "cannot open"));
    local[0] = 0;
    assert(!run("printf partial; sleep .06; printf ' line\\n'"));
    finish();
