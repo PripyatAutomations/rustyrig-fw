@@ -24,7 +24,7 @@ def port():
         return s.getsockname()[1]
 
 class LinkSocket(WebSocket):
-    def __init__(self, port, context, protocol='rustyrig-link.v1'):
+    def __init__(self, port, context, protocol='rustyrig-link.v2'):
         self.socket = socket.create_connection(('127.0.0.1', port), timeout=3)
         if context: self.socket = context.wrap_socket(self.socket, server_hostname='localhost')
         self.buffer = b''
@@ -210,7 +210,7 @@ acl=media-staff
         start('alpha')
         def accepts():
             try:
-                probe = LinkSocket(ports['alpha'], context, 'rustyrig.v1')
+                probe = LinkSocket(ports['alpha'], context, 'rustyrig.v2')
                 assert b'400' in probe.headers
                 probe.socket.close()
                 return True
