@@ -829,7 +829,7 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       if (!vfo) { code = "unavailable"; goto done; }
       dict_value_t value = { .s = (char *)(name + 5) };
       code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_READ,
-                   value, NULL, NULL) ? "busy" : "queued";
+                   value, NULL, NULL) ? "busy" : "ok";
    } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "set")) {
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);
