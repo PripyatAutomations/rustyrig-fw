@@ -2714,7 +2714,15 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       char *key = g_strdup_printf("%s:%s", kind, *uuid ? uuid : name);
 
       if (!strcmp(key, branch->selection)) {
-         gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), &iter);
+         /* iter belongs to browser->store. The tree view uses browser->filter;
+          * selecting a child-model iter directly triggers GTK's stamp assertion. */
+         GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
+         GtkTreePath *view_path = resource_view_path(child_path);
+         if (view_path) {
+            gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), view_path);
+            gtk_tree_path_free(view_path);
+         }
+         if (child_path) gtk_tree_path_free(child_path);
       }
       g_free(key);
    }
