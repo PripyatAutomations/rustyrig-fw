@@ -1,5 +1,6 @@
 // RustyRig GTK RX routing window. Licensed under the project's MIT/GPL terms.
 #include <gtk/gtk.h>
+#include <librustyaxe/config.h>
 #include <rrclient/audio.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.vol-box.h>
