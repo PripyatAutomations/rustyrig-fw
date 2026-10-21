@@ -146,6 +146,39 @@ static bool index_of(rr_server_vfo_t *vfo,rr_vfo_t *i) {
 static bool supported(rr_backend_t *b,rr_server_vfo_t *v) {
    rr_vfo_t i;return ys(b)&&index_of(v,&i);
 }
+static rr_mode_t mode_decode(char value) {
+   switch(value) {
+      case '1': return MODE_LSB;
+      case '2': return MODE_USB;
+      case '3': case '7': return MODE_CW;
+      case '4': case 'B': return MODE_FM;
+      case '5': case 'D': return MODE_AM;
+      case '8': return MODE_DL;
+      case 'C': return MODE_DU;
+      default: return MODE_NONE;
+   }
+}
+static char mode_encode(rr_mode_t mode) {
+   switch(mode) {
+      case MODE_LSB: return '1';
+      case MODE_USB: return '2';
+      case MODE_CW: return '3';
+      case MODE_FM: return '4';
+      case MODE_AM: return '5';
+      case MODE_DL: return '8';
+      case MODE_DU: return 'C';
+      default: return 0;
+   }
+}
+static bool mode_set(rr_backend_t *b,rr_server_vfo_t *v,rr_mode_t mode) {
+   yaesu_state_t *s=ys(b);rr_vfo_t index;
+   char digit=mode_encode(mode), command[8];
+   /* FT-891 MD0 addresses main RX only. Do not silently set a different bank. */
+   if(!s||!index_of(v,&index)||index!=b->active_vfo||!digit) return true;
+   snprintf(command,sizeof(command),"MD0%c;",digit);
+   if(!cat(s,command,NULL,NULL,0)) return true;
+   s->mode[index]=mode;return false;
+}
 static rr_vfo_data_t *state(rr_backend_t *b,rr_server_vfo_t *v) {
    yaesu_state_t *s=ys(b);rr_vfo_t index;
    if(!s||!index_of(v,&index)) return NULL;
@@ -156,6 +189,17 @@ static rr_vfo_data_t *state(rr_backend_t *b,rr_server_vfo_t *v) {
    int frequency=0;
    if(!decimal(reply+2,9,&frequency)||frequency<=0) return NULL;
    s->frequency[index]=frequency;
+   if(index==b->active_vfo) {
+      char md[24];
+      if(cat(s,"MD0;","MD0",md,sizeof(md)) && strlen(md)==4) {
+         rr_mode_t parsed=mode_decode(md[3]);
+         if(parsed!=MODE_NONE) {
+            s->mode[index]=parsed;
+            dict_value_t m={.s=vfo_mode_name(parsed)};
+            rr_backend_property_observe(b,v,RR_PROP_VFO_MODE,VAL_STR,&m);
+         }
+      }
+   }
    dict_value_t observed={.l=frequency};
    rr_backend_property_observe(b,v,RR_PROP_VFO_FREQUENCY,VAL_LONG,&observed);
    if(index==b->active_vfo) {
@@ -230,7 +274,7 @@ static const rr_backend_funcs_t api={
    .create=create,.destroy=destroy,.poll_state=state,.vfo_supported=supported,
    .freq_set=frequency_set,.freq_get=frequency_get,
    .ptt_set=ptt_set,.ptt_get=ptt_get,
-   .mode_get=mode_get,.mode_get_str=mode_get_str,
+   .mode_get=mode_get,.mode_get_str=mode_get_str,.mode_set=mode_set,
    .rig_control_set=control,.manufacturer=manufacturer,.model_name=model_name
 };
 const rr_backend_type_t rr_backend_yaesu={
