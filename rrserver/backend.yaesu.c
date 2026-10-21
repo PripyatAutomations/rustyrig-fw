@@ -371,9 +371,11 @@ static rr_mode_t mode_decode(char value) {
 }
 static char mode_encode(rr_mode_t mode) {
    switch (mode) {
+      case MODE_ML:
       case MODE_LSB: {
          return '1';
       }
+      case MODE_MU:
       case MODE_USB: {
          return '2';
       }
@@ -381,6 +383,7 @@ static char mode_encode(rr_mode_t mode) {
          return '3';
       }
       case MODE_DFM:
+      case MODE_MFM:
       case MODE_FM: {
          return '4';
       }
