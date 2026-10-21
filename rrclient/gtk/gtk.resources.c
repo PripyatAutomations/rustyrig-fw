@@ -12,6 +12,7 @@
 #include <rrclient/sercom.h>
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.resources.h"
+#include "gtk.control-panel.h"
 #include "gtk.serial.h"
 
 enum {
@@ -751,7 +752,8 @@ typedef struct {
    rrconn_t *connection;
    char *profile, *uuid, *room, *property;
    int original;
-   gboolean suppress;
+   gboolean suppress, known, read_only;
+   GtkWidget *scale, *panel;
 } resource_control_edit_t;
 
 static void resource_control_send(resource_control_edit_t *edit, int value) {
@@ -789,6 +791,23 @@ static void resource_control_changed(GtkRange *range, gpointer user) {
    }
 }
 
+static void resource_control_edit_free(gpointer data) {
+   resource_control_edit_t *edit = data;
+   g_free(edit->profile);
+   g_free(edit->uuid);
+   g_free(edit->room);
+   g_free(edit->property);
+   g_free(edit);
+}
+static void resource_control_revert(GtkButton *button, gpointer data) {
+   (void)button;
+   resource_control_edit_t *edit = data;
+   if (!edit->known || edit->read_only) return;
+   edit->suppress = TRUE;
+   gtk_range_set_value(GTK_RANGE(edit->scale), edit->original);
+   edit->suppress = FALSE;
+   resource_control_send(edit, edit->original);
+}
 static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name) {
    GtkTreeIter iter = *item, parent;
    char *uuid = NULL, *room = NULL, *details = NULL;
@@ -826,44 +845,49 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    const dict *state = rrclient_object_property(uuid, property);
    gboolean known = state && dict_get_bool((dict *)state, "property.known", false);
    int original = known ? CLAMP(dict_get_int((dict *)state, "property.value", 50), 0, 100) : 50;
-   resource_control_edit_t edit = {
-      .connection = connection, .profile = g_strdup(profile), .uuid = uuid,
-      .room = room, .property = g_strdup(property), .original = original,
-      .suppress = TRUE
-   };
+   resource_control_edit_t *edit = g_new0(resource_control_edit_t, 1);
+   edit->connection = connection;
+   edit->profile = g_strdup(profile);
+   edit->uuid = uuid;
+   edit->room = room;
+   edit->property = g_strdup(property);
+   edit->original = original;
+   edit->known = known;
+   edit->read_only = read_only;
+   edit->suppress = TRUE;
 
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(name, resource_parent(),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Revert", GTK_RESPONSE_REJECT, "_Close", GTK_RESPONSE_CLOSE, NULL);
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+   GtkWidget *panel = NULL;
+   GtkWidget *area = gtk_control_panel_open(name, &panel);
+   if (!area) {
+      resource_control_edit_free(edit);
+      g_free(details);
+      return;
+   }
+   edit->panel = panel;
+   g_object_set_data_full(G_OBJECT(panel), "rr-rig-control-state", edit, resource_control_edit_free);
    GtkWidget *label = gtk_label_new(read_only ? "This rig reports the control as read-only." :
-      "Changes are sent immediately. Revert restores the value from when this dialog opened.");
+      "Changes apply immediately. Revert restores the original value.");
    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   edit->scale = scale;
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_widget_set_size_request(scale, 320, -1);
-   gtk_container_add(GTK_CONTAINER(area), label);
-   gtk_container_add(GTK_CONTAINER(area), scale);
+   gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(area), scale, FALSE, FALSE, 0);
    gtk_range_set_value(GTK_RANGE(scale), original);
-   g_signal_connect(scale, "value-changed", G_CALLBACK(resource_control_changed), &edit);
-   edit.suppress = FALSE;
-
-   if (read_only) {
-      gtk_widget_set_sensitive(scale, FALSE);
-   }
-   gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_REJECT, known && !read_only);
-   gtk_widget_show_all(area);
-
-   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_REJECT) {
-      /* One restore write; don't emit a second one from setting the scale. */
-      edit.suppress = TRUE;
-      gtk_range_set_value(GTK_RANGE(scale), edit.original);
-      resource_control_send(&edit, edit.original);
-   }
-   gtk_widget_destroy(dialog);
-   g_free(edit.profile);
-   g_free(edit.property);
-   g_free(uuid);
-   g_free(room);
+   g_signal_connect(scale, "value-changed", G_CALLBACK(resource_control_changed), edit);
+   edit->suppress = FALSE;
+   gtk_widget_set_sensitive(scale, !read_only);
+   GtkWidget *actions = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
+   gtk_button_box_set_layout(GTK_BUTTON_BOX(actions), GTK_BUTTONBOX_END);
+   GtkWidget *revert = gtk_button_new_with_mnemonic("_Revert");
+   GtkWidget *close = gtk_button_new_with_mnemonic("_Close");
+   gtk_widget_set_sensitive(revert, known && !read_only);
+   gtk_container_add(GTK_CONTAINER(actions), revert);
+   gtk_container_add(GTK_CONTAINER(actions), close);
+   gtk_box_pack_start(GTK_BOX(area), actions, FALSE, FALSE, 0);
+   g_signal_connect(revert, "clicked", G_CALLBACK(resource_control_revert), edit);
+   g_signal_connect_swapped(close, "clicked", G_CALLBACK(gtk_widget_destroy), panel);
+   gtk_widget_show_all(panel);
    g_free(details);
 }
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
