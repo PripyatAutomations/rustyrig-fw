@@ -371,9 +371,11 @@ static rr_mode_t mode_decode(char value) {
 }
 static char mode_encode(rr_mode_t mode) {
    switch (mode) {
+      case MODE_ML:
       case MODE_LSB: {
          return '1';
       }
+      case MODE_MU:
       case MODE_USB: {
          return '2';
       }
@@ -381,6 +383,7 @@ static char mode_encode(rr_mode_t mode) {
          return '3';
       }
       case MODE_DFM:
+      case MODE_MFM:
       case MODE_FM: {
          return '4';
       }
@@ -443,6 +446,15 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
          rr_mode_t parsed = mode_decode(md[3]);
 
          if (parsed != MODE_NONE) {
+            /* DFM and M* select an audio-processing location while CAT
+             * reports only the underlying RF modulation. Preserve the
+             * software mode until a real RF mode change is observed. */
+            rr_mode_t logical = s->mode[index];
+            bool matches = (parsed == MODE_FM &&
+               (logical == MODE_DFM || logical == MODE_MFM)) ||
+               (parsed == MODE_USB && logical == MODE_MU) ||
+               (parsed == MODE_LSB && logical == MODE_ML);
+            if (matches) parsed = logical;
             s->mode[index] = parsed;
             dict_value_t m = {
                .s = vfo_mode_name(parsed)
