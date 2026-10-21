@@ -18,7 +18,7 @@ static bool privgroup_command(admin_table_t *table, const char *command, const c
    return privgroup_sender(table, command, tail, target);
 }
 
-static void gtk_admin_privgroup_edit(GtkButton *button,gpointer user) {
+void gtk_admin_privgroup_edit(GtkButton *button,gpointer user) {
    admin_table_t *table=user;
    const char *operation=g_object_get_data(G_OBJECT(button),"privgroup-operation");
    if (!operation) return;
@@ -123,17 +123,17 @@ static void gtk_admin_privgroup_open(admin_table_t *table) {
    g_free(current);
    g_free(group);
 }
-static void gtk_admin_privgroup_open_clicked(GtkButton *button,gpointer user) {
+void gtk_admin_privgroup_open_clicked(GtkButton *button,gpointer user) {
    (void)button;
    gtk_admin_privgroup_open(user);
 }
-static void gtk_admin_privgroup_row_activated(GtkTreeView *view,GtkTreePath *path,
+void gtk_admin_privgroup_row_activated(GtkTreeView *view,GtkTreePath *path,
                                           GtkTreeViewColumn *column,gpointer user) {
    (void)column;
    gtk_tree_selection_select_path(gtk_tree_view_get_selection(view),path);
    gtk_admin_privgroup_open(user);
 }
-static gboolean gtk_admin_privgroup_context_menu(GtkWidget *tree,GdkEventButton *event,gpointer user) {
+gboolean gtk_admin_privgroup_context_menu(GtkWidget *tree,GdkEventButton *event,gpointer user) {
    if (event->type!=GDK_BUTTON_PRESS || event->button!=3) return FALSE;
    GtkTreePath *path=NULL;
    if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree),
