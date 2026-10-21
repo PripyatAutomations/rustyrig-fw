@@ -936,9 +936,22 @@ static bool create(rr_backend_t *b) {
          if (s->profile) s->model_id = id;
       }
    }
-   if (!s->model_id)
-      rr_backend_log(b, LOG_WARN, "backend.yaesu",
-         "Unrecognized or unavailable Yaesu CAT ID; model-specific MENU disabled");
+   if (!s->model_id) {
+      /* Keep the configured FT-891 catalog available if the radio was
+       * disconnected or ID timed out during startup.  Do not guess for
+       * other models: an explicit yaesu.model is required there. */
+      const char *configured = rr_backend_config_get(b, "yaesu.model");
+      if (configured && (!strcasecmp(configured, "FT-891") || !strcmp(configured, "650"))) {
+         s->profile = yaesu_model_by_id(650);
+         s->model_id = 650;
+      } else if (configured && (!strcasecmp(configured, "FT-991A") || !strcmp(configured, "670"))) {
+         s->profile = yaesu_model_by_id(670);
+         s->model_id = 670;
+      } else {
+         rr_backend_log(b, LOG_WARN, "backend.yaesu",
+            "Yaesu CAT ID unavailable; set yaesu.model=FT-891 or FT-991A to expose model controls before CAT identification");
+      }
+   }
    const char *props[] = {
       "display.contrast", "display.key-backlight", RR_PROP_DISPLAY_BRIGHTNESS,
       "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
