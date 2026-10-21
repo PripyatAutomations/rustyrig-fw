@@ -530,6 +530,39 @@ static bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const ch
 #endif
 }
 
+/* Chat in a relayed room uses the owning server's grants. A remote
+ * session's uid=-1 is intentional and cannot pass local has_priv(). */
+static bool rr_relay_chat_authorized(rrconn_t *client, const char *room, const char *command) {
+#ifdef USE_SQLITE
+   struct remote_session *r = rr_relay_remote_for(client);
+   if (!r || !room || !*room || !command) {
+      return false;
+   }
+   const char *host = rrserver_relay_client_server(client);
+   rr_server_rig_t *radio = rrserver_rig_for_room(room);
+   char *owned_uuid = radio ? NULL : db_room_uuid(masterdb, room);
+   const char *uuid = radio ? rr_server_rig_id(radio) : owned_uuid;
+   const char *kind = radio ? "rig" : "room";
+   const char *symbol = radio ? rr_rig_registry_public_alias(rig.rigs, radio) : room;
+   bool allowed = false;
+   if (host && *host && uuid && *uuid) {
+      rr_resource_access_t access = db_resource_access_named(masterdb, r->remote_account.name,
+         host, kind, uuid, "chat", time(NULL), symbol);
+      allowed = access == RR_RESOURCE_ALLOW;
+      if (access == RR_RESOURCE_UNSET) {
+         access = db_resource_access_named(masterdb, r->remote_account.name,
+            host, kind, uuid, radio ? "rig.use" : "room.join", time(NULL), symbol);
+         allowed = access == RR_RESOURCE_ALLOW;
+      }
+   }
+   free(owned_uuid);
+   return allowed;
+#else
+   (void)client; (void)room; (void)command;
+   return false;
+#endif
+}
+
 /* Find or authenticate an owner-side virtual session for the originating user. */
 static struct remote_session *owner_session(const char *origin, const char *id, const char *username) {
    /* The relay envelope is authenticated by the linked server transport. A remote principal is NOT a local login and must not inherit a local user's uid,
@@ -730,6 +763,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       ok = true;
    } else {
       ws_rigctl_set_resource_authorizer(rr_relay_cat_authorized);
+      ws_chat_set_resource_authorizer(rr_relay_chat_authorized);
       ok = ws_process_dict(&r->client, d);
    }
 
