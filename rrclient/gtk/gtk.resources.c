@@ -1772,11 +1772,23 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
          icon = "audio-volume-high";
       else icon = "folder";
    }
-   g_object_set(cell, "icon-name", icon, NULL);
+   g_object_set(cell, "icon-name", icon, "visible", g_strcmp0(kind, "cat") != 0, NULL);
    g_free(kind);
    g_free(name);
    g_free(action);
    g_free(details);
+}
+/* CAT gets the side-view cat glyph rather than a theme-dependent cat face.
+ * Keep the regular themed icon renderer for every other resource kind. */
+static void resource_cat_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                              GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   (void)column;
+   (void)user;
+   char *kind = NULL;
+   gtk_tree_model_get(model, iter, KIND, &kind, -1);
+   gboolean is_cat = !g_strcmp0(kind, "cat");
+   g_object_set(cell, "text", is_cat ? "🐈" : "", "visible", is_cat, NULL);
+   g_free(kind);
 }
 static void resource_create(void) {
    if (browser) {
@@ -1953,6 +1965,9 @@ static void resource_create(void) {
          GtkCellRenderer *icon = gtk_cell_renderer_pixbuf_new();
          gtk_tree_view_column_pack_start(column, icon, FALSE);
          gtk_tree_view_column_set_cell_data_func(column, icon, resource_icon_cell, NULL, NULL);
+         GtkCellRenderer *cat = gtk_cell_renderer_text_new();
+         gtk_tree_view_column_pack_start(column, cat, FALSE);
+         gtk_tree_view_column_set_cell_data_func(column, cat, resource_cat_cell, NULL, NULL);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
          gtk_tree_view_column_add_attribute(column, renderer, "text", field);
       } else {
