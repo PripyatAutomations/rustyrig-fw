@@ -1,130 +1,33 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
-// rrserver/backend.h
-//    This is part of rustyrig-fw.
-// https://github.com/pripyatautomations/rustyrig-fw
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-//
-#if !defined(__rrserver_backend_h)
-#define __rrserver_backend_h
+// Per-instance hardware I/O workers; all completion callbacks run on the server thread.
+#ifndef RRSERVER_BACKEND_WORKER_H
+#define RRSERVER_BACKEND_WORKER_H
+#include <rrserver/backend.h>
+#include <rrserver/rig.properties.h>
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <librrprotocol/rrprotocol.h>
-#include <rrserver/rig.vfo.h>
+typedef enum {
+   RR_BACKEND_POLL, RR_BACKEND_SELECT, RR_BACKEND_FREQ, RR_BACKEND_MODE, RR_BACKEND_WIDTH,
+   RR_BACKEND_POWER, RR_BACKEND_PTT, RR_BACKEND_SPLIT, RR_BACKEND_SWAP,
+   RR_BACKEND_BRIGHTNESS, RR_BACKEND_SPEAKER_VOLUME, RR_BACKEND_RIG_CONTROL, RR_BACKEND_MENU_READ, RR_BACKEND_MENU_WRITE
+} rr_backend_operation_t;
+typedef void (*rr_backend_completion_fn)(rr_backend_t *, rr_server_vfo_t *, bool failed, void *);
+typedef void (*rr_backend_observation_fn)(rr_backend_t *, rr_server_vfo_t *, rr_vfo_data_t *);
 
-struct rr_server_rig;
-typedef struct rr_backend rr_backend_t;
-typedef struct rr_backend_type rr_backend_type_t;
-
-/*
- * Every callback receives the allocated backend instance. Immutable callback tables describe a backend TYPE; all radio-specific mutable data belongs in
- * rr_backend_t::data and is allocated by create().
- */
-typedef struct rr_backend_funcs {
-   bool (*create)(rr_backend_t *backend);
-   void (*destroy)(rr_backend_t *backend);
-   rr_vfo_data_t *(*poll_state)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   bool (*vfo_supported)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-
-   bool (*ptt_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, bool state);
-   bool (*ptt_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   bool (*split_mode)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args);
-   bool (*vfo_swap)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   bool (*tuner_control)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args);
-   bool (*power_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, float power);
-   float (*power_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   rr_mode_t (*mode_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   bool (*mode_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t mode);
-   const char *(*mode_get_str)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   bool (*freq_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, int freq);
-   float (*freq_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   uint16_t (*width_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
-   bool (*width_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *width);
-   int (*widths_get)(rr_backend_t *backend, rr_server_vfo_t *vfo, int *widths, int max);
-   /* Optional hardware identity supplied by the active backend. */
-   const char *(*manufacturer)(rr_backend_t *backend);
-   const char *(*model_name)(rr_backend_t *backend);
-   /* Rig-wide hardware controls; percent is normalized to 0..100. */
-   bool (*rig_control_set)(rr_backend_t *backend, const char *name, int percent);
-   /* Optional, static menu metadata. Enumeration does no hardware I/O. */
-   void (*menu_foreach)(rr_backend_t *, void (*emit)(const char *id, const char *label, void *user), void *user);
-   /* Serialized on-demand hardware read. Returned CAT parameter is text. */
-   bool (*menu_read)(rr_backend_t *, const char *id, char *value, size_t capacity);
-   bool (*menu_write)(rr_backend_t *, const char *id, const char *value);
-} rr_backend_funcs_t;
-
-/* Immutable implementation metadata. */
-struct rr_backend_type {
-   const char *name;
-   const char *description;
-   bool uses_property_state;
-   bool event_driven;           // Nonblocking backend callbacks already run on the server loop.
-   const rr_backend_funcs_t *api;
-};
-
-/* One allocated backend attached to one runtime rig. */
-struct rr_backend {
-   const rr_backend_type_t *type;
-   struct rr_server_rig *owner;
-   char *config_alias;
-   void *data;
-   rr_vfo_t active_vfo;
-   struct rr_backend_worker *worker;
-   const rr_backend_funcs_t *dispatch;
-};
-
-/* Before startup and after worker shutdown the original synchronous API remains usable. */
-static inline const rr_backend_funcs_t *rr_backend_api(const rr_backend_t *backend) {
-   return backend->dispatch ? backend->dispatch : backend->type->api;
-}
-
-extern rr_backend_t *rr_backend_instance_new(const rr_backend_type_t *type, struct rr_server_rig *owner, const char *config_alias);
-extern void rr_backend_instance_free(rr_backend_t *backend);
-/* Registration operations return true on success, false on failure. */
-extern bool rr_backend_type_register(const rr_backend_type_t *type);
-/* Caller must stop/free every instance before unregistering its module type. */
-extern bool rr_backend_type_unregister(const rr_backend_type_t *type);
-extern const rr_backend_type_t *rr_backend_type_find(const char *name);
-extern const char *rr_backend_instance_alias(const rr_backend_t *backend);
-extern void *rr_backend_instance_data(const rr_backend_t *backend);
-extern void rr_backend_instance_set_data(rr_backend_t *backend, void *data);
-extern const char *rr_backend_config_get(const rr_backend_t *backend, const char *key);
-extern char *rr_backend_config_get_exp(const rr_backend_t *backend, const char *key);
-extern int rr_backend_config_get_int(const rr_backend_t *backend, const char *key, int default_value);
-extern bool rr_backend_config_get_bool(const rr_backend_t *backend, const char *key, bool default_value);
-extern void rr_backend_register_builtin_types(void);
-extern void rr_backend_yaesu_register(void);
-
-extern bool rr_backend_init(void);
-extern bool rr_backend_fini(void);
-extern bool rr_backend_poll_all(void);
-extern void rr_backend_drain_all(void);
-extern bool rr_backend_poll_rig(struct rr_server_rig *radio, rr_server_vfo_t *vfo);
-extern bool rr_backend_power_set_rig(struct rr_server_rig *radio, rr_server_vfo_t *vfo, float power);
-extern bool rr_backend_vfo_supported(struct rr_server_rig *radio, rr_server_vfo_t *vfo);
-
-/* Default single-rig entry points. They always target the explicit default rig. */
-extern bool rr_be_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
-extern bool rr_ptt_apply(rr_vfo_t vfo, bool state);
-extern rr_backend_t *rr_backend_for_ptt(void);
-extern bool rr_get_ptt(rrconn_t *cptr, rr_vfo_t vfo);
-extern bool rr_set_ptt(rrconn_t *cptr, rr_vfo_t vfo, bool state);
-extern float rr_get_power(rr_vfo_t vfo);
-extern bool rr_set_power(rr_vfo_t vfo, float power);
-extern float rr_freq_get(rr_vfo_t vfo);
-extern bool rr_freq_set(rr_vfo_t vfo, int freq);
-extern bool rr_be_poll(rr_vfo_t vfo);
-extern bool rr_be_vfo_supported(rr_vfo_t vfo);
-extern uint16_t rr_get_width(rr_vfo_t vfo);
-extern bool rr_set_width(rr_vfo_t vfo, const char *width);
-extern int rr_widths_get(rr_vfo_t vfo, int *widths, int max);
-extern bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode);
-extern rr_mode_t rr_get_mode(rr_vfo_t vfo);
-extern const char *rr_get_mode_str(rr_vfo_t vfo);
-extern bool rr_cat_state_send(rrconn_t *cptr);
-
-#include <rrserver/backend.hamlib.h>
-#include <rrserver/backend.internal.h>
-
-#endif // !defined(__rrserver_backend_h)
+bool rr_backend_worker_start(rr_backend_t *, rr_backend_observation_fn);
+void rr_backend_worker_stop(rr_backend_t *);
+void rr_backend_worker_drain(rr_backend_t *);
+bool rr_backend_worker_busy(rr_backend_t *);
+bool rr_backend_worker_yield(rr_backend_t *);
+bool rr_backend_worker_submit(rr_backend_t *, rr_server_vfo_t *, rr_backend_operation_t, dict_value_t, rr_backend_completion_fn, void *);
+rr_property_update_t rr_backend_property_observe(rr_backend_t *, rr_server_vfo_t *, const char *, val_type_t, const dict_value_t *);
+rr_property_update_t rr_backend_property_unavailable(rr_backend_t *, rr_server_vfo_t *, const char *);
+bool rr_backend_worker_shutdown(rr_backend_t *, int code);
+/* Backend associated with the current worker thread, NULL elsewhere. */
+rr_backend_t *rr_backend_worker_current(void);
+void rr_backend_log(rr_backend_t *, logpriority_t, const char *, const char *, ...) __attribute__((format(printf, 4, 5)));
+#endif
