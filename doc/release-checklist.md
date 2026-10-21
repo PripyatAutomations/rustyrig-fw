@@ -4,7 +4,7 @@ This is a **human-run checklist**, not an automated claim that a release has pas
 
 ## Before tagging
 
-- [ ] **v1.0 RELEASE BLOCKER — REMOVE CROSS-SITE ADMIN SEED:** Delete the development-only `admin@*` grants in `sql/sqlite.master.preload.sql` (`rig.full` on every rig and `room.join` on every room). Confirm a fresh production database contains no blanket `admin@*` grant and that existing databases are audited/cleaned; removing the preload alone does not revoke already seeded rows. Preserve explicit, owner-approved per-host/per-resource grants and independent transmit safety checks.
+- [ ] **v1.0 RELEASE BLOCKER — REMOVE CROSS-SITE ADMIN SEED:** Delete the development-only `admin@*` assignment of `@full` on `rig *` and the direct `room.join` grant on `room *` from `sql/sqlite.master.preload.sql` (and the early `@full` preload setup, unless it is needed for another purpose). Confirm a fresh production database contains no blanket `admin@*` grant and that existing databases are audited/cleaned; removing the preload alone does not revoke already seeded rows. Preserve explicit, owner-approved per-host/per-resource grants and independent transmit safety checks.
 
 - [ ] **v1.0 RELEASE BLOCKER — REMOVE TEST ACCESS:** Remove `remote-admin` from the bootstrap `admin` account in `sql/sqlite.master.preload.sql`, and audit any development/test databases or migration seeds for implicit `remote-admin` grants. Verify a fresh production install does **not** grant `remote-admin` automatically; it must require an explicit owner-approved grant. This exception is temporary for development testing only.
 
