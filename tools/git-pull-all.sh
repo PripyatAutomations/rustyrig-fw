@@ -38,7 +38,7 @@ while read -r _ path; do
         *" $path "*) ;;
         *) third_party+=("$path") ;;
     esac
-done < <(git config -f .gitmodules --get-regexp '^submodule\\..*\\.path$')
+done < <(git config -f .gitmodules --get-regexp '^submodule\..*\.path$')
 if (( ${#third_party[@]} )); then
     git submodule update --init --recursive -- "${third_party[@]}"
 fi
