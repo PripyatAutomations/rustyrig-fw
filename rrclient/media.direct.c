@@ -126,11 +126,11 @@ static void report_route(struct direct_channel *channel, const char *status, boo
       char reason[256];
       snprintf(reason, sizeof(reason), "%.*s", (int)(fallback - status), status);
       dict_add(d, "media.status", reason);
-      dict_add(d, "media.fallback", channel->remote && channel->route == 0 ? "proxy RTP" : "proxy WebSocket");
+      dict_add(d, "media.fallback", channel->remote && channel->route == 0 ? "proxy-rtp" : "proxy-media");
    } else {
       dict_add(d, "media.status", status);
    }
-   dict_add(d, "media.transport", rtp && channel->route == 0 ? "direct RTP" : rtp ? "proxy RTP" : "proxy WebSocket");
+   dict_add(d, "media.transport", rtp && channel->route == 0 ? "direct-rtp" : rtp ? "proxy-rtp" : "proxy-media");
    dict_add(d, "media.endpoint", endpoint);
    event_emit_dict("client.media.transport", channel->client, d);
    dict_free(d);
