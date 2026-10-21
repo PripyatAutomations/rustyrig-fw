@@ -1411,6 +1411,10 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   /* Text wraps at the viewport allocation, not at the text view's natural
+    * width. Keep a small usable chat minimum while the roster grows. */
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scrolled), 160);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scrolled), FALSE);
 
 
    // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
@@ -1430,9 +1434,10 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
-      /* Both sides must be shrinkable: otherwise the chat view
-       * locks the handle after reducing the roster width. */
-      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, TRUE);
+      /* Respect the chat viewport's small minimum, rather than letting GTK
+       * shrink the text view below its allocation and clip it off the left.
+       * The roster (pack2) remains shrinkable and can still grow freely. */
+      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
 
       userlist_dock_room_into(GTK_PANED(paned), room);
    } else {
