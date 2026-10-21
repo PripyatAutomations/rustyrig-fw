@@ -44,6 +44,8 @@ typedef struct hamlib_backend {
    bool connected;
    bool backlight_readable;
    bool backlight_writable;
+   bool speaker_readable;
+   bool speaker_writable;
    bool default_instance;
    bool transmitting;
    rr_vfo_t tx_vfo;
@@ -381,6 +383,64 @@ static void hl_schedule_retry(rr_backend_t *backend, const char *why) {
    }
 }
 
+/* Rig-owned controls use percent at the protocol boundary, Hamlib floats internally. */
+static void hl_define_percentage(rr_backend_t *backend, const char *name, bool readable, bool writable) {
+   if (!readable && !writable) return;
+   rr_property_descriptor_t d = {
+      .name = name, .type = VAL_INT, .readable = readable, .writable = writable,
+      .unit = "%", .has_min = true, .has_max = true, .has_step = true,
+      .minimum.i = 0, .maximum.i = 100, .step.i = 1
+   };
+   rr_rig_property_define(backend->owner, &d);
+}
+static void hl_poll_rig_controls(rr_backend_t *backend) {
+   hamlib_backend_t *data = hl_data(backend);
+   if (!data || !data->rig) return;
+   const struct {
+      const char *name;
+      bool readable;
+      bool parm;
+   } controls[] = {
+      {RR_PROP_DISPLAY_BRIGHTNESS, data->backlight_readable, true},
+      {RR_PROP_SPEAKER_VOLUME, data->speaker_readable, false}
+   };
+   for (unsigned i = 0; i < sizeof(controls)/sizeof(controls[0]); i++) {
+      if (!controls[i].readable) continue;
+      value_t value = {0};
+      int rc = controls[i].parm ?
+         rig_get_parm(data->rig, RIG_PARM_BACKLIGHT, &value) :
+         rig_get_level(data->rig, RIG_VFO_CURR, RIG_LEVEL_AF, &value);
+      if (rc == RIG_OK) {
+         int percent = (int)(value.f * 100.0f + 0.5f);
+         if (percent < 0) percent = 0;
+         if (percent > 100) percent = 100;
+         dict_value_t observed = {.i = percent};
+         rr_backend_property_observe(backend, NULL, controls[i].name, VAL_INT, &observed);
+      } else {
+         rr_backend_property_unavailable(backend, NULL, controls[i].name);
+      }
+   }
+}
+static bool hl_rig_control_set(rr_backend_t *backend, const char *name, int percent) {
+   hamlib_backend_t *data = hl_data(backend);
+   if (!data || !data->rig || percent < 0 || percent > 100) return true;
+   const bool brightness = !strcmp(name, RR_PROP_DISPLAY_BRIGHTNESS);
+   if (brightness ? !data->backlight_writable :
+       strcmp(name, RR_PROP_SPEAKER_VOLUME) || !data->speaker_writable)
+      return true;
+   value_t value = {.f = (float)percent / 100.0f};
+   int rc = brightness ?
+      rig_set_parm(data->rig, RIG_PARM_BACKLIGHT, value) :
+      rig_set_level(data->rig, RIG_VFO_CURR, RIG_LEVEL_AF, value);
+   if (rc != RIG_OK) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: cannot set %s: %s",
+         rr_backend_instance_alias(backend), name, rigerror(rc));
+      return true;
+   }
+   hl_poll_rig_controls(backend);
+   return false;
+}
+
 static bool hl_connect(rr_backend_t *backend) {
    hamlib_backend_t *data = hl_data(backend);
 
@@ -441,6 +501,13 @@ static bool hl_connect(rr_backend_t *backend) {
    data->connected = true;
    data->backlight_readable = !!rig_has_get_parm(data->rig, RIG_PARM_BACKLIGHT);
    data->backlight_writable = !!rig_has_set_parm(data->rig, RIG_PARM_BACKLIGHT);
+   data->speaker_readable = !!rig_has_get_level(data->rig, RIG_LEVEL_AF);
+   data->speaker_writable = !!rig_has_set_level(data->rig, RIG_LEVEL_AF);
+   hl_define_percentage(backend, RR_PROP_DISPLAY_BRIGHTNESS,
+      data->backlight_readable, data->backlight_writable);
+   hl_define_percentage(backend, RR_PROP_SPEAKER_VOLUME,
+      data->speaker_readable, data->speaker_writable);
+
    rr_backend_log(backend, LOG_INFO, "backend.hamlib",
       "%s: display backlight read=%s write=%s",
       rr_backend_instance_alias(backend),
@@ -784,6 +851,10 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       return NULL;
    }
 
+   /* One rig-wide CAT read per active-VFO poll, never one per VFO. */
+   if (index == backend->active_vfo && !data->transmitting)
+      hl_poll_rig_controls(backend);
+
    // Polling another VFO can switch a single-receiver radio out from under TX.
    if (data->transmitting && index != data->tx_vfo) {
       return NULL;
@@ -1025,6 +1096,7 @@ static const char *hl_model_name(rr_backend_t *backend) {
 static const rr_backend_funcs_t rr_backend_hamlib_api = {
    .manufacturer = hl_manufacturer,
    .model_name = hl_model_name,
+   .rig_control_set = hl_rig_control_set,
    .create = hl_create,
    .destroy = hl_destroy,
    .poll_state = hl_poll,
