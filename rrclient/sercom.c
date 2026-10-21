@@ -583,7 +583,7 @@ static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
 static bool modem_mode_active(const serial_binding_t *b) {
-   if (strcmp(b->service, "rig.modem")) return true;
+   if (strcmp(b->name, "ttyMODEM") || strcmp(b->service, "rig.modem")) return true;
    const char *mode = rr_cat_property(NULL, "mode", NULL);
    return mode && (!strcmp(mode, "D-U") || !strcmp(mode, "D-L") || !strcmp(mode, "DFM"));
 }
