@@ -233,6 +233,13 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
          job->failed = !api->rig_control_set || api->rig_control_set(backend, name, job->value.i);
          break;
       }
+      case RR_BACKEND_RIG_CONTROL: {
+         char *separator = job->text ? strrchr(job->text, ':') : NULL;
+         if (!separator) { job->failed = true; break; }
+         *separator = 0;
+         job->failed = !api->rig_control_set || api->rig_control_set(backend, job->text, atoi(separator + 1));
+         break;
+      }
       case RR_BACKEND_FREQ: {
          job->failed = !api->freq_set || api->freq_set(backend, job->vfo, job->value.i);
          break;
@@ -426,7 +433,7 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
          worker_ms()
    };
 
-   if (operation == RR_BACKEND_WIDTH && !(job->text = strdup(value.s))) {
+   if ((operation == RR_BACKEND_WIDTH || operation == RR_BACKEND_RIG_CONTROL) && !(job->text = strdup(value.s))) {
       free(job);
       pthread_mutex_unlock(&worker->mutex);
 
