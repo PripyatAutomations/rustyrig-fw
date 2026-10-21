@@ -50,14 +50,14 @@ class WebSocket:
         key = base64.b64encode(os.urandom(16)).decode()
         self.socket.sendall((f"GET /ws HTTP/1.1\r\nHost: localhost:{port}\r\n"
             f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
-            "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: rustyrig.v1\r\n\r\n").encode())
+            "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: rustyrig.v2\r\n\r\n").encode())
         while b"\r\n\r\n" not in self.buffer:
             self.buffer += self.socket.recv(4096)
         headers, self.buffer = self.buffer.split(b"\r\n\r\n", 1)
         assert b"101" in headers.split(b"\r\n", 1)[0], headers
         protocols = [line.split(b":", 1)[1].strip() for line in headers.split(b"\r\n")[1:]
                      if line.split(b":", 1)[0].lower() == b"sec-websocket-protocol"]
-        assert protocols == [b"rustyrig.v1"], ("invalid WebSocket subprotocol response", protocols)
+        assert protocols == [b"rustyrig.v2"], ("invalid WebSocket subprotocol response", protocols)
 
 
     def exact(self, length):
