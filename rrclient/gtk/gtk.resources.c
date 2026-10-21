@@ -50,7 +50,7 @@ static resource_browser *browser;
 static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
-static rr_event_token_t show_token, row_token, open_token, changed_tokens[5];
+static rr_event_token_t show_token, row_token, open_token, changed_tokens[6];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
@@ -2141,6 +2141,12 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
    if (!browser) {
       return;
    }
+   if (!strcmp(event, "client.explorer.control.result")) {
+      char *message = g_strdup_printf("Rig control: %s", text ? text : "unknown result");
+      gtk_label_set_text(GTK_LABEL(browser->status), message);
+      g_free(message);
+      return;
+   }
    const char *profile = rrclient_connection_name(connection);
    resource_branch *branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
 
@@ -2155,7 +2161,8 @@ void gtk_resources_init(void) {
    row_token = event_on_token("client.resources.row", resource_row, NULL);
    open_token = event_on_token("client.resources.open", resource_open, NULL);
    const char *events[] = {
-      "authorized", "disconnected", "http.error", "auth.error", "client.objects.changed"
+      "authorized", "disconnected", "http.error", "auth.error", "client.objects.changed",
+      "client.explorer.control.result"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(events) ; i++) {
