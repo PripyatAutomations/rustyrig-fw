@@ -328,6 +328,9 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
             job->power = api->power_get(backend, job->vfo);
          }
 
+         if (api->width_get) {
+            job->state.width = api->width_get(backend, job->vfo);
+         }
          if (api->widths_get) {
             job->width_count = api->widths_get(backend, job->vfo, job->widths, 3);
          }
