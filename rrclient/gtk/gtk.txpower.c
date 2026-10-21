@@ -28,8 +28,11 @@ GtkWidget *create_txpower_box(void) {
    gtk_label_set_markup(GTK_LABEL(tx_power_label), "TX <u>P</u>ower");
    tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_widget_set_tooltip_text(tx_power_slider, "Transmit Power (0-100%)");
-   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, TRUE, TRUE, 1);
+   gtk_widget_set_size_request(tx_power_slider, 120, -1);
+   gtk_scale_set_draw_value(GTK_SCALE(tx_power_slider), TRUE);
+   gtk_scale_set_value_pos(GTK_SCALE(tx_power_slider), GTK_POS_RIGHT);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_label, FALSE, FALSE, 1);
+   gtk_box_pack_start(GTK_BOX(tx_power_vbox), tx_power_slider, FALSE, FALSE, 1);
    int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);
    gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx);
 
