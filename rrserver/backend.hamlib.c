@@ -1013,7 +1013,18 @@ static bool hl_vfo_swap(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    return false;
 }
 
+static const char *hl_manufacturer(rr_backend_t *backend) {
+   hamlib_backend_t *data = hl_data(backend);
+   return data && data->rig && data->rig->caps ? data->rig->caps->mfg_name : NULL;
+}
+static const char *hl_model_name(rr_backend_t *backend) {
+   hamlib_backend_t *data = hl_data(backend);
+   return data && data->rig && data->rig->caps ? data->rig->caps->model_name : NULL;
+}
+
 static const rr_backend_funcs_t rr_backend_hamlib_api = {
+   .manufacturer = hl_manufacturer,
+   .model_name = hl_model_name,
    .create = hl_create,
    .destroy = hl_destroy,
    .poll_state = hl_poll,
