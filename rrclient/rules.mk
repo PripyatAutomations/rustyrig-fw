@@ -70,6 +70,7 @@ gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browse
 gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
 gtk_module_objs += gtk/gtk.privileges.o
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
+gtk_module_objs += gtk/gtk.supervision.o     # Independent supervision dialogs
 gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
 gtk_module_objs += gtk/gtk.chat.highlight.o
