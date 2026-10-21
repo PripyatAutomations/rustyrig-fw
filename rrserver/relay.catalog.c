@@ -465,7 +465,11 @@ static void collect_service(dict *row, void *context) {
 
       return;
    }
-   snprintf(key, sizeof(key), "service:%s:%s:%.8s:%.32s", rrserver_links_node(), parent, dict_get(row, "inventory.kind", ""), hash);
+   /* Parent may itself be a service key (nested MENU); hash it to keep
+    * catalog keys within the fixed-size wire/key limits. */
+   char *parent_hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, parent, -1);
+   snprintf(key, sizeof(key), "service:%s:%.24s:%.8s:%.32s", rrserver_links_node(), parent_hash ? parent_hash : "", dict_get(row, "inventory.kind", ""), hash);
+   g_free(parent_hash);
    g_free(hash);
    dict_add(row, "object.type", "service");
    dict_add(row, "catalog.service", key);
@@ -564,7 +568,7 @@ static void collect_rig_catalog(rr_server_rig_t *radio) {
    if (!model || !strcmp(model, "Unknown Yaesu")) return;
    relay_rig_menu_ctx_t ctx = { .rig_id = id, .model = model };
    snprintf(ctx.menu_id, sizeof(ctx.menu_id), "%s.menu", id);
-   dict *menu = rr_inventory_row("", 2, "rig-menu", "MENU", ctx.menu_id);
+   dict *menu = rr_inventory_row("", 2, "rig-menu", "MENU", NULL);
    if (menu) {
       dict_add(menu, "inventory.description", model);
       collect_service(menu, (void *)id);
