@@ -232,6 +232,7 @@ static const yaesu_control_spec_t yaesu_controls[] = {
    { "receiver.noise-reduction-level", "RL0", 1, 15, 2 },
    { "transmit.mic-gain", "MG", 0, 100, 3 },
    { "transmit.power", "PC", 5, 100, 3 },
+   { "receiver.squelch", "SQ0", 0, 100, 3 },
    { "receiver.ipo", "PA0", 0, 1, 1 },
    { "receiver.auto-notch", "BC0", 0, 1, 1 },
    { "receiver.narrow", "NA0", 0, 1, 1 },
@@ -461,6 +462,14 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
          else
             rr_backend_property_unavailable(b, NULL, yaesu_controls[i].name);
       }
+      /* Meter readings are observations, never writable properties. */
+      char meter_reply[32];
+      if (cat(s, "SM0;", "SM0", meter_reply, sizeof(meter_reply)) && strlen(meter_reply) == 6) {
+         int meter;
+         if (decimal(meter_reply + 3, 3, &meter) && meter <= 255)
+            observe(b, "meter.signal", (meter * 100 + 127) / 255);
+         else rr_backend_property_unavailable(b, NULL, "meter.signal");
+      } else rr_backend_property_unavailable(b, NULL, "meter.signal");
       if (get_af(s)) {
          observe(b, RR_PROP_SPEAKER_VOLUME, (s->af * 100 + 127) / 255);
       } else {
@@ -577,6 +586,12 @@ static bool create(rr_backend_t *b) {
       };
       rr_rig_property_define(b->owner, &d);
    }
+   rr_property_descriptor_t meter = {
+      .name = "meter.signal", .type = VAL_INT, .readable = true,
+      .writable = false, .unit = "%", .has_min = true, .has_max = true,
+      .minimum.i = 0, .maximum.i = 100
+   };
+   rr_rig_property_define(b->owner, &meter);
    return false;
 }
 static void destroy(rr_backend_t *b) {
