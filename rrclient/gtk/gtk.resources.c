@@ -324,6 +324,48 @@ static void resource_discover_devices(struct local_scan *scan) {
 static void resource_local_port(rr_serial_t *port, void *data) {
    resource_local_named(rr_serial_name(port), data);
 }
+/* Mirror the local backlight provider shown in Admin → Controls.  This is
+ * a local resource, never an exported control on a remote server. */
+static void resource_local_backlight(struct local_scan *scan) {
+#ifdef __linux__
+   GDir *dir = g_dir_open("/sys/class/backlight", 0, NULL);
+   if (!dir) return;
+   const char *entry, *device = NULL;
+   guint count = 0;
+   while ((entry = g_dir_read_name(dir))) {
+      if (entry[0] == '.') continue;
+      device = entry;
+      count++;
+      if (count > 1) break;
+   }
+   if (count == 1 && device) {
+      char *path = g_build_filename("/sys/class/backlight", device, "brightness", NULL);
+      if (g_file_test(path, G_FILE_TEST_EXISTS)) {
+         GtkTreeIter parent, iter;
+         gboolean found = FALSE;
+         GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+         for (gboolean ok = gtk_tree_model_iter_children(model,&parent,&browser->local_root);
+              ok;ok=gtk_tree_model_iter_next(model,&parent)) {
+            char *name = NULL;
+            gtk_tree_model_get(model,&parent,NAME,&name,-1);
+            found = !g_strcmp0(name,"Controls");
+            g_free(name);
+            if (found) break;
+         }
+         if (!found) {
+            gtk_tree_store_append(browser->store,&parent,&browser->local_root);
+            gtk_tree_store_set(browser->store,&parent,NAME,"Controls",KIND,"group",-1);
+         }
+         gtk_tree_store_append(browser->store,&iter,&parent);
+         gtk_tree_store_set(browser->store,&iter,NAME,"LCD Brightness",
+            KIND,"local-control",ACTION,"display.brightness",
+            DETAILS,"This client's Linux display backlight",STATE,"Available",-1);
+      }
+      g_free(path);
+   }
+   g_dir_close(dir);
+#endif
+}
 static void resource_local_update(void) {
    struct local_scan scan = {
       g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL)
@@ -338,6 +380,19 @@ static void resource_local_update(void) {
    }
 
    g_list_free_full(configured, g_free);
+   /* Rebuild the small local controls subtree without touching the serial cache. */
+   GtkTreeIter child;
+   GtkTreeModel *local_model = GTK_TREE_MODEL(browser->store);
+   for (gboolean ok = gtk_tree_model_iter_children(local_model,&child,&browser->local_root);
+        ok;) {
+      char *name = NULL;
+      gtk_tree_model_get(local_model,&child,NAME,&name,-1);
+      gboolean controls = !g_strcmp0(name,"Controls");
+      g_free(name);
+      if (controls) ok = gtk_tree_store_remove(browser->store,&child);
+      else ok = gtk_tree_model_iter_next(local_model,&child);
+   }
+   resource_local_backlight(&scan);
    resource_discover_devices(&scan);
    GHashTableIter cursor;
    gpointer name, value;
@@ -748,7 +803,10 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTree
    char *kind = NULL, *control = NULL, *profile = NULL, *state = NULL;
    gtk_tree_model_get(model, &iter, KIND, &kind, ACTION, &control, PROFILE, &profile, SERVER_STATE, &state, -1);
 
-   if (g_strcmp0(kind, "rig-control") == 0 && control && *control) {
+   if (g_strcmp0(kind, "local-control") == 0 && control && *control) {
+      extern void gtk_admin_open_control_on_server(const char *, const char *);
+      gtk_admin_open_control_on_server("local", control);
+   } else if (g_strcmp0(kind, "rig-control") == 0 && control && *control) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, NAME, &name, -1);
       resource_rig_control_dialog(model, &iter, profile, name);
@@ -1379,12 +1437,12 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
       !g_strcmp0(kind,"server") ? TRUE :
       !g_strcmp0(kind,"group") ? FALSE :
       g_hash_table_contains(browser->enabled_kinds,
-         !g_strcmp0(kind,"rig-control") ? "control" : kind ? kind : "");
+         (!g_strcmp0(kind,"rig-control") || !g_strcmp0(kind,"local-control")) ? "control" : kind ? kind : "");
    if (!match && !g_hash_table_contains(browser->enabled_kinds,"other")) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge","group","rig-control"};
+         "serial","file","bridge","group","rig-control","local-control"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
