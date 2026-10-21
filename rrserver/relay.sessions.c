@@ -551,7 +551,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       const char *host = rrserver_relay_client_server(&r->client);
       const char *local_site = cfg_get("station.name");
 
-      if (host && *host && local_site && strcmp(host, local_site)) {
+      if (allowed_hops && host && *host && local_site && strcmp(host, local_site)) {
          scoped = db_resource_access_named(masterdb, username, host, "site", "*", "remote-admin", time(NULL), NULL) == RR_RESOURCE_ALLOW &&
             (db_resource_access_named(masterdb, username, host, "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
                db_resource_access_named(masterdb, username, host, "site", "*", "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW);
