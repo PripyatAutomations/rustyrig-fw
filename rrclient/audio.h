@@ -30,6 +30,7 @@ extern bool ws_audio_init(void);
 extern void ws_audio_shutdown(void);
 extern bool audio_process_frame(const char *data, size_t len);
 extern bool audio_set_rx_volume(int percent);
+extern bool audio_set_rx_channel_volume(unsigned channel, int percent);
 extern bool audio_set_tx_volume(int percent);
 struct rrclient_rx_audio {
    const char *uuid, *codec;
