@@ -232,7 +232,7 @@ defconfig_t defcfg[] = {
       "networks.auto", NULL, "Which networks to autoconnect to"
    },
    {
-      "path.help-dir", "/usr/share/rustyrig/help", "Path to find help-files"
+      "path.help-dir", "/var/lib/rustyrig/help", "Path to find help-files"
    },
    {
       "fwdsp:path", "/usr/bin/fwdsp", "Path to fwdsp binary"
@@ -350,10 +350,10 @@ defconfig_t defcfg[] = {
       "ui.bell.chat", "false", "Dings in chat for new messages?", DEFCONFIG_BOOL, NULL
    },
    {
-      "ui.bell.chat-other", "/usr/share/rustyrig/sounds/ding.wav", "Sound to play for normal chat messages"
+      "ui.bell.chat-other", "", "Sound to play for normal chat messages"
    },
    {
-      "ui.bell.chat-highlight", "/usr/share/rustyrig/sounds/uh-oh.wav",
+      "ui.bell.chat-highlight", "",
       "Sound to play instead of a ding for msgs with our username in them"
    },
    {
