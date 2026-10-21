@@ -19,6 +19,7 @@
 #include <rrclient/gtk/gtk.admin.access.h>
 #include <rrclient/gtk/gtk.admin.cells.h>
 #include <rrclient/gtk/gtk.admin.password.h>
+#include <rrclient/gtk/gtk.admin.sessions.h>
 
 extern GtkWidget *main_notebook;
 GtkWidget *admin_view;
@@ -129,6 +130,10 @@ static bool admin_command(admin_table_t *table, const char *command, const char 
 }
 
 /* Reuse the server's password command; credentials never enter chat input/history. */
+static bool admin_session_command(admin_table_t *table, const char *command, const char *id) {
+   return admin_command(table, command, "", id);
+}
+
 static void admin_password_submit(void *context, const char *tail) {
    admin_table_t *table = context;
    admin_command(table, "user", tail, NULL);
@@ -202,44 +207,6 @@ static void admin_refresh(GtkButton *button, gpointer data) {
       gtk_tree_store_clear(group_store);
       admin_command(table,"admin","groups",NULL);
    }
-}
-
-static void admin_session_kick(GtkButton *button, gpointer data) {
-   admin_table_t *table = data;
-   bool all = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "kick-all"));
-   char *id = NULL, *username = NULL, *kickable = NULL;
-
-   if (!all) {
-      GtkTreeModel *model = NULL;
-      GtkTreeIter iter;
-
-      if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), &model, &iter)) {
-         return;
-      }
-      gtk_tree_model_get(model, &iter, 0, &id, 1, &username, 6, &kickable, -1);
-
-      if (g_strcmp0(kickable, "yes")) {
-         gtk_label_set_text(GTK_LABEL(table->status), "This session is protected or belongs to your current login.");
-         g_free(id);
-         g_free(username);
-         g_free(kickable);
-
-         return;
-      }
-   }
-   GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_WARNING,
-      GTK_BUTTONS_OK_CANCEL, all ? "Disconnect all permitted sessions on %s?" : "Disconnect %s on %s?", all ? table->profile : username ? username :
-      "selected session", all ? "" : table->profile);
-   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "The server will exclude your session and protected accounts. "
-      "Active radio transmissions must be released by normal disconnect handling.");
-
-   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
-      admin_command(table, all ? "session-kick-all" : "session-kick", "", all ? NULL : id);
-   }
-   gtk_widget_destroy(dialog);
-   g_free(id);
-   g_free(username);
-   g_free(kickable);
 }
 
 /* A grant subject is selected from the linked directory, not typed as a UUID. */
@@ -843,10 +810,6 @@ static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
       (!strcmp(value,"1") || !g_ascii_strcasecmp(value,"true")),NULL);
    g_free(value);
 }
-static void admin_session_selection(GtkTreeSelection *selection, gpointer user) {
-   GtkWidget *button=GTK_WIDGET(user);
-   gtk_widget_set_sensitive(button,gtk_tree_selection_count_selected_rows(selection)>0);
-}
 static gboolean admin_filter_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    GtkWidget *entry=GTK_WIDGET(data);
    const char *needle=gtk_entry_get_text(GTK_ENTRY(entry));
@@ -1341,6 +1304,7 @@ static void admin_page_selected(GtkNotebook *notebook, GtkWidget *page, guint nu
 }
 
 GtkWidget *init_admin_tab(void) {
+   gtk_admin_session_set_sender(admin_session_command);
    admin_view = gtk_notebook_new();
    admin_password_notice_token = event_on_token("notice.msg", admin_password_notice, NULL);
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
@@ -1372,7 +1336,7 @@ GtkWidget *init_admin_tab(void) {
          g_object_set_data(G_OBJECT(kick_all), "kick-all", GINT_TO_POINTER(1));
          gtk_widget_set_sensitive(kick,FALSE);
          g_object_set_data(G_OBJECT(box),"rr-session-disconnect",kick);
-         g_signal_connect(kick, "clicked", G_CALLBACK(admin_session_kick), table);
+         g_signal_connect(kick, "clicked", G_CALLBACK(gtk_admin_session_kick), table);
          g_signal_connect(kick_all, "clicked", G_CALLBACK(admin_session_kick), table);
          gtk_box_pack_start(GTK_BOX(buttons), kick, FALSE, FALSE, 0);
          gtk_box_pack_start(GTK_BOX(buttons), kick_all, FALSE, FALSE, 0);
@@ -1466,7 +1430,7 @@ GtkWidget *init_admin_tab(void) {
                           "changed",G_CALLBACK(admin_privilege_selection),box);
       GtkWidget *disconnect=g_object_get_data(G_OBJECT(box),"rr-session-disconnect");
       if (disconnect) g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),
-         "changed",G_CALLBACK(admin_session_selection),disconnect);
+         "changed",G_CALLBACK(gtk_admin_session_selection),disconnect);
       g_object_unref(filtered);
       if (selection_buttons) {
          g_object_set_data_full(G_OBJECT(table->tree),"selection-buttons",selection_buttons,(GDestroyNotify)g_ptr_array_unref);
