@@ -149,10 +149,10 @@ defconfig_t defcfg[] = {
       "bridge.instances", "", "Bridge aliases, separated by spaces or commas"
    },
    {
-      "bridge.path", "auto", "Bridge executable path, or auto for PATH then ./bin/rrbridge"
+      "bridge.path", "auto", "Bridge executable path, or auto for installed PATH lookup"
    },
    {
-      "bridge.modules", "auto", "Bridge driver directory, or auto for installed modules then ./bin"
+      "bridge.modules", "auto", "Bridge driver directory, or auto for installed modules"
    },
    {
       "listener:http.acl", "", "Named HTTP listener ACL; empty denies all"
@@ -351,14 +351,14 @@ defconfig_t defcfg[] = {
       "chat.replay-lines", "20", "Lines of replay to show on joining chat", DEFCONFIG_UINT, NULL
    },
    {
-      "callsign-lookup:cache-db", "./db/rrserver-callsigns.db", "Server-local callsign lookup cache database",
+      "callsign-lookup:cache-db", "/var/lib/rustyrig/db/rrserver-callsigns.db", "Server-local callsign lookup cache database",
       DEFCONFIG_PATH, NULL
    },
    {
       "callsign-lookup:use-cache", "true", "Cache callsign lookup results on the server", DEFCONFIG_BOOL, NULL
    },
    {
-      "callsign-lookup:path", "./bin/callsign-lookup", "Callsign lookup helper executable", DEFCONFIG_PATH, NULL
+      "callsign-lookup:path", "/usr/bin/callsign-lookup", "Callsign lookup helper executable", DEFCONFIG_PATH, NULL
    },
    {
       "codecs.allowed", FWDSP_DEFAULT_CODECS, "Preferred codec order"
@@ -437,7 +437,7 @@ defconfig_t defcfg[] = {
       NULL
    },
    {
-      "fwdsp:path", "./bin/fwdsp", "Path to fwdsp binary", DEFCONFIG_PATH, NULL
+      "fwdsp:path", "/usr/bin/fwdsp", "Path to fwdsp binary", DEFCONFIG_PATH, NULL
    },
    {
       "fwdsp:subproc.max", "16", "Maximum server fwdsp processes", DEFCONFIG_UINT, NULL
@@ -485,14 +485,14 @@ defconfig_t defcfg[] = {
       "net.http.tls-port", "8443", "Port for TLS listener", DEFCONFIG_UINT, NULL
    },
    {
-      "net.http.www-root", "./www", "Path to static http content", DEFCONFIG_PATH, NULL
+      "net.http.www-root", "/var/lib/rustyrig/www", "Path to static http content", DEFCONFIG_PATH, NULL
    },
    // MQTT client
    {
       "net.mqtt-client.enabled", "false", "Enable the outbound MQTT client", DEFCONFIG_BOOL, NULL
    },
    {
-      "net.mqtt-client.secret-file", "./config/mqtt-client.secrets", "Where are the MQTT client credentials?",
+      "net.mqtt-client.secret-file", "/etc/rustyrig/mqtt-client.secrets", "Where are the MQTT client credentials?",
       DEFCONFIG_PATH, NULL
    },
    {
@@ -533,24 +533,24 @@ defconfig_t defcfg[] = {
       "noob.cool-down", "30", "How long to block noob PTT after elmer overrides it (seconds)", DEFCONFIG_UINT, NULL
    },
    {
-      "path.db.master", "./db/master.db", "Master database path", DEFCONFIG_PATH, NULL
+      "path.db.master", "/var/lib/rustyrig/db/master.db", "Master database path", DEFCONFIG_PATH, NULL
    },
    {
-      "path.db.master.template", "./sql/sqlite.master.sql", "Path to sql file to initialize database", DEFCONFIG_PATH,
+      "path.db.master.template", "/usr/share/rustyrig/sql/sqlite.master.sql", "Path to sql file to initialize database", DEFCONFIG_PATH,
       NULL
    },
    {
-      "path.db.master.preload", "./sql/sqlite.master.preload.sql", "Path to SQL preload data for new databases",
+      "path.db.master.preload", "/usr/share/rustyrig/sql/sqlite.master.preload.sql", "Path to SQL preload data for new databases",
       DEFCONFIG_PATH, NULL
    },
    {
-      "path.pid-file", "./rrserver.pid", "Where to store pid file", DEFCONFIG_PATH, NULL
+      "path.pid-file", "/run/rustyrig/rrserver.pid", "Where to store pid file", DEFCONFIG_PATH, NULL
    },
    {
       "path.modules", "/usr/lib/rustyrig/modules/rrserver", "Where to find modules", DEFCONFIG_PATH, NULL
    },
    {
-      "path.record-dir", "./recordings", "TX & RX recordings basedir", DEFCONFIG_PATH, NULL
+      "path.record-dir", "/var/lib/rustyrig/recordings", "TX & RX recordings basedir", DEFCONFIG_PATH, NULL
    },
    {
       "recording.codec", "ogg", "Recording container/codec: flac or ogg", DEFCONFIG_ENUM, "ogg|flac"
