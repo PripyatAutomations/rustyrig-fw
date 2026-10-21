@@ -34,3 +34,29 @@ The numbers are estimates from fetched source contents, not formatter-normalized
 5. Sweep all tracked `.c` and `.h` files across component repositories; review files above the thresholds.
 
 Do **not** treat this list as completed refactoring. Each split should be committed independently and compiled/tested before starting the next.
+
+## Repository layout decisions
+
+Preserve the independently maintained `librustyaxe`, `librrprotocol`, and `rustyrig-fw` repositories and their existing library linking boundaries. Do **not** consolidate subprojects simply to shorten include paths. No recursive move or mass rename is planned before release.
+
+Keep `rrclient/gtk/` exclusively GTK-specific; keep transport, media ownership, network state and resource models in plain `rrclient/` where the TUI can reuse them. Prefer cohesive dotted filenames (`gtk.admin.users.c`, `gtk.admin.controls.c`, `gtk.resources.model.c`, `media.catalog.c`) over new nested folders that would require wholesale include/build-system churn.
+
+Candidate extractions:
+- `gtk.admin.c` → separate supervision (already extracted), controls UI, access requests, user/privilege administration, sessions and a small tab assembly unit. Introduce a private admin header for shared types and explicit state; do not export static widget globals indiscriminately.
+- `gtk.resources.c` → inventory model, filter UI, tree presentation and actions, with shared state owned by one module.
+- `rrclient/media.c` → channel catalog, subscription policy, status/command output. Native network protocol belongs in `librrprotocol` only when both server and client need that exact implementation.
+- `libfwdspmgr/fwdsp-mgr.c` → frame I/O, child lifecycle, recording, codec lifetime. Keep subprocess ownership in libfwdspmgr rather than duplicating server logic.
+- `rrserver/bridge.manager.c` → worker spawning/supervision, IPC protocol handling and media path management. Keep bridge protocol definitions in librrprotocol.
+- `rrserver/serial.c`, `rrserver/objects.c` and `rrserver/relay.c` → separate lifecycle from inventory, protocol/message routing and session/media forwarding respectively.
+
+Splits are behavioral refactors: do not simultaneously rename protocol fields, change visible GTK behavior, or revise serialization. For each extraction, update the owning component's `rules.mk`, compile the relevant build configurations and run focused tests. Maintain the user's C formatting style (braced multiline conditionals and loops).
+
+### Refactor progress
+
+- [x] Move independent GTK supervision prompts from `gtk.admin.c` into `gtk.supervision.c`; add it to `rrclient/rules.mk`.
+- [ ] Compile and run GTK shutdown/supervision regressions for that extraction.
+- [ ] Extract GTK admin controls and permissions via a minimal private header, then users/sessions.
+- [ ] Extract Resource Explorer inventory model from GTK presentation.
+- [ ] Split client media catalog/subscriptions/notices.
+- [ ] Split DSP manager worker lifecycle and codec instances.
+- [ ] Split bridge manager and review server serial/objects/relay.
