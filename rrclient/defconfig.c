@@ -27,7 +27,6 @@ const char *configs[] = {
    "%APPDATA%\\rustyrigs\\rrclient.cfg",
    ".\\config\\rrclient.cfg"
 #else
-   "./config/rrclient.cfg",
    "~/.config/rrclient.cfg",
    "~/.rrclient.cfg",
    "/etc/rustyrig/rrclient.cfg"
@@ -152,13 +151,13 @@ defconfig_t defcfg[] = {
       "client.role", "", "Connection role: set to video-source for webcam feed connections"
    },
    {
-      "callsign-lookup:cache-db", "./db/rrclient-callsigns.db", "Client-local callsign lookup cache database"
+      "callsign-lookup:cache-db", "$HOME/.local/state/rustyrig/rrclient-callsigns.db", "Client-local callsign lookup cache database"
    },
    {
       "callsign-lookup:use-cache", "true", "Cache local callsign lookup results"
    },
    {
-      "callsign-lookup:path", "./bin/callsign-lookup", "Callsign lookup helper executable"
+      "callsign-lookup:path", "/usr/bin/callsign-lookup", "Callsign lookup helper executable"
    },
    {
       "webcam.device", "/dev/video0", "v4l2 device to grab frames from"
@@ -233,10 +232,10 @@ defconfig_t defcfg[] = {
       "networks.auto", NULL, "Which networks to autoconnect to"
    },
    {
-      "path.help-dir", "./help", "Path to find help-files"
+      "path.help-dir", "/usr/share/rustyrig/help", "Path to find help-files"
    },
    {
-      "fwdsp:path", "./bin/fwdsp", "Path to fwdsp binary"
+      "fwdsp:path", "/usr/bin/fwdsp", "Path to fwdsp binary"
    },
    {
       "fwdsp:subproc.max", "24", "Maximum client fwdsp processes", DEFCONFIG_UINT, NULL
@@ -351,10 +350,10 @@ defconfig_t defcfg[] = {
       "ui.bell.chat", "false", "Dings in chat for new messages?", DEFCONFIG_BOOL, NULL
    },
    {
-      "ui.bell.chat-other", "./sounds-ding.wav", "Sound to play for normal chat messages"
+      "ui.bell.chat-other", "/usr/share/rustyrig/sounds/ding.wav", "Sound to play for normal chat messages"
    },
    {
-      "ui.bell.chat-highlight", "./sounds/uh-oh.wav",
+      "ui.bell.chat-highlight", "/usr/share/rustyrig/sounds/uh-oh.wav",
       "Sound to play instead of a ding for msgs with our username in them"
    },
    {
