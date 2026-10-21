@@ -150,7 +150,7 @@ static bool fwdsp_write_all(int fd, const uint8_t *data, size_t len) {
          len -= (size_t)written;
       } else if (written < 0 && (errno == EINTR)) {
          continue;
-      } else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+      } else if (written < 0 && (errno == EAGAIN || (EWOULDBLOCK != EAGAIN && errno == EWOULDBLOCK))) {
 #ifndef _WIN32
          /* Never let a stalled GStreamer child block the server event loop. A media frame may be dropped under backpressure; the caller will retire the
           * unhealthy child and recreate it on the next tick. */
@@ -503,8 +503,12 @@ bool fwdsp_init(void) {
 
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
-      record_dir = "./recordings";
-      record_dir_owned = false;
+      record_dir = strdup("./recordings");
+      if (!record_dir) {
+         Log(LOG_CRIT, "fwdsp-mgr", "Unable to allocate recording directory path");
+         return true;
+      }
+      record_dir_owned = true;
    }
 
    if (!mkdir_p(record_dir)) {
