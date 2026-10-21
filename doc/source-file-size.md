@@ -57,6 +57,7 @@ Splits are behavioral refactors: do not simultaneously rename protocol fields, c
 - [ ] Compile and run GTK shutdown/supervision regressions for that extraction.
 - [x] Extract GTK admin hardware controls into `gtk.admin.controls.c` and `gtk.admin.controls.h`; the admin entry point delegates page assembly, refresh and replies.
 - [x] Extract access requests, filtering, grant review, response handling, and tab creation into `gtk.admin.access.c` with a narrow header.
+- [x] Extract admin table renderers into `gtk.admin.cells.c`, with their shared table descriptor in `gtk.admin.cells.h`.
 - [ ] Extract admin users, permissions and sessions with similarly narrow interfaces.
 - [ ] Extract Resource Explorer inventory model from GTK presentation.
 - [ ] Split client media catalog/subscriptions/notices.
