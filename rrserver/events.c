@@ -131,25 +131,34 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
       chat_flood_users = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
    gpointer key = GINT_TO_POINTER(client->user->uid + 1);
    rr_chat_flood_t *state = g_hash_table_lookup(chat_flood_users, key);
+   int burst = cfg_get_int("chat.flood.burst", 5);
+   int interval = cfg_get_int("chat.flood.interval-ms", 2000);
+   int penalty = cfg_get_int("chat.flood.shun-seconds", 10);
+   if (burst < 1) burst = 1;
+   if (burst > 100) burst = 100;
+   if (interval < 100) interval = 100;
+   if (interval > 60000) interval = 60000;
+   if (penalty < 1) penalty = 1;
+   if (penalty > 3600) penalty = 3600;
    uint64_t stamp = mono_us();
    if (!state) {
       state = g_new0(rr_chat_flood_t, 1);
-      state->tokens = 5.0;
+      state->tokens = burst;
       state->updated = stamp;
       g_hash_table_insert(chat_flood_users, key, state);
    }
    double elapsed = stamp >= state->updated ? (double)(stamp - state->updated) / 1000000.0 : 0;
    state->updated = stamp;
-   state->tokens = MIN(5.0, state->tokens + elapsed * 0.5);
+   state->tokens = MIN((double)burst, state->tokens + elapsed * 1000.0 / interval);
    if (stamp < state->shunned_until) return true;
    if (state->tokens >= 1.0) {
       state->tokens -= 1.0;
       return false;
    }
-   state->shunned_until = stamp + 10000000;
+   state->shunned_until = stamp + (uint64_t)penalty * 1000000;
    if (stamp - state->warned > 1000000) {
-      ws_send_notice(client, "Chat flood: messages blocked for 10 seconds; slow down.");
-      Log(LOG_WARN, "ws.chat", "Chat flood shun for %s (10s)", client->chatname);
+      ws_send_notice(client, "Chat flood: messages blocked for %d seconds; slow down.", penalty);
+      Log(LOG_WARN, "ws.chat", "Chat flood shun for %s (%ds)", client->chatname, penalty);
       state->warned = stamp;
    }
    return true;

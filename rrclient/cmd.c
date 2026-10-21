@@ -286,14 +286,27 @@ typedef struct {
 static GQueue *chat_queue;
 static guint chat_timer;
 static double chat_tokens = 4.0;
+static int chat_burst(void) {
+   int burst = cfg_get_int("chat.send.burst", 4);
+   return burst < 1 ? 1 : burst > 100 ? 100 : burst;
+}
+static int chat_interval(void) {
+   int interval = cfg_get_int("chat.send.interval-ms", 2000);
+   return interval < 100 ? 100 : interval > 60000 ? 60000 : interval;
+}
+static int chat_queue_limit(void) {
+   int limit = cfg_get_int("chat.send.queue-limit", 64);
+   return limit < 1 ? 1 : limit > 1000 ? 1000 : limit;
+}
 static gint64 chat_updated;
 
 static gboolean chat_flush(gpointer unused) {
    (void)unused;
    gint64 stamp = g_get_monotonic_time();
    if (chat_updated && stamp >= chat_updated)
-      chat_tokens = MIN(4.0, chat_tokens + (stamp - chat_updated) / 2000000.0);
+      chat_tokens = MIN((double)chat_burst(), chat_tokens + (stamp - chat_updated) / ((double)chat_interval() * 1000.0));
    chat_updated = stamp;
+   chat_tokens = MIN(chat_tokens, (double)chat_burst());
    while (chat_queue && !g_queue_is_empty(chat_queue) && chat_tokens >= 1.0) {
       chat_pending_t *next = g_queue_pop_head(chat_queue);
       chat_tokens -= 1.0;
@@ -321,8 +334,8 @@ static gboolean chat_flush(gpointer unused) {
 static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc) {
    if (!connection || !message) return false;
    if (!chat_queue) chat_queue = g_queue_new();
-   if (g_queue_get_length(chat_queue) >= 64) {
-      ui_print(ui_active_window_name(), "Chat send queue full (64 lines); message not sent.");
+   if (g_queue_get_length(chat_queue) >= chat_queue_limit()) {
+      ui_print(ui_active_window_name(), "Chat send queue full (%d lines); message not sent.", chat_queue_limit());
       return false;
    }
    chat_pending_t *next = g_new0(chat_pending_t, 1);
