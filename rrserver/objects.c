@@ -537,6 +537,29 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    else if (!strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS)) label = "Display Brightness";
    else if (!strcmp(d->name, "display.tx-indicator")) label = "TX/BUSY Indicator";
    else if (!strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) label = "Speaker Volume";
+   else if (!strcmp(d->name, "receiver.rf-gain")) label = "RF Gain";
+   else if (!strcmp(d->name, "receiver.attenuator")) label = "RF Attenuator";
+   else if (!strcmp(d->name, "receiver.noise-blanker")) label = "Noise Blanker";
+   else if (!strcmp(d->name, "receiver.noise-blanker-level")) label = "Noise Blanker Level";
+   else if (!strcmp(d->name, "receiver.noise-reduction")) label = "Noise Reduction";
+   else if (!strcmp(d->name, "receiver.noise-reduction-level")) label = "Noise Reduction Level";
+   else if (!strcmp(d->name, "transmit.mic-gain")) label = "Mic Gain";
+   else if (!strcmp(d->name, "transmit.power")) label = "RF Output Power";
+   else if (!strcmp(d->name, "receiver.squelch")) label = "Squelch";
+   else if (!strcmp(d->name, "meter.signal")) label = "Signal Strength";
+   else if (!strcmp(d->name, "receiver.ipo")) label = "IPO / Preamp";
+   else if (!strcmp(d->name, "receiver.auto-notch")) label = "Auto Notch";
+   else if (!strcmp(d->name, "receiver.narrow")) label = "Narrow Filter";
+   else if (!strcmp(d->name, "receiver.agc")) label = "AGC";
+   else if (!strcmp(d->name, "cw.keyer")) label = "CW Keyer";
+   else if (!strcmp(d->name, "cw.speed")) label = "CW Speed";
+   else if (!strcmp(d->name, "cw.pitch")) label = "CW Pitch";
+   else if (!strcmp(d->name, "cw.break-in")) label = "CW Break-in";
+   else if (!strcmp(d->name, "transmit.monitor-level")) label = "TX Monitor Level";
+   else if (!strcmp(d->name, "transmit.processor-level")) label = "Speech Processor Level";
+   else if (!strcmp(d->name, "transmit.vox")) label = "VOX";
+   else if (!strcmp(d->name, "transmit.vox-gain")) label = "VOX Gain";
+   else if (!strcmp(d->name, "panel.dial-lock")) label = "Dial Lock";
    if (!label) return false;
    dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
 
@@ -552,6 +575,23 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    return false;
 }
 
+typedef struct rig_menu_inventory {
+   object_send_t *ctx;
+   const char *parent;
+   const char *model;
+} rig_menu_inventory_t;
+static void inventory_rig_menu_item(const char *id, const char *label, void *user) {
+   rig_menu_inventory_t *menu = user;
+   char name[128];
+   snprintf(name, sizeof(name), "%s %s", id, label);
+   dict *row = rr_inventory_row(menu->ctx->request, 3, "rig-menu-item", name, NULL);
+   if (!row) return;
+   dict_add(row, "inventory.parent", menu->parent);
+   dict_add(row, "inventory.service", id);
+   dict_add(row, "inventory.access", "read-only");
+   dict_add(row, "inventory.description", "CAT EX menu entry; editor not yet enabled");
+   rr_inventory_send(menu->ctx->client, row);
+}
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    object_send_t *ctx = user;
    const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
@@ -587,6 +627,24 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
       .ctx = ctx, .radio = radio
    };
    rr_rig_property_foreach(radio, inventory_rig_control, &controls);
+   /* Generic backend-supplied menu catalog: does not touch the hardware. */
+   rr_backend_t *menu_backend = rr_server_rig_backend(radio);
+   if (menu_backend && menu_backend->type->api->menu_foreach) {
+      const char *model = menu_backend->type->api->model_name ?
+         menu_backend->type->api->model_name(menu_backend) : NULL;
+      if (model && strcmp(model, "Unknown Yaesu")) {
+         char menu_id[160];
+         snprintf(menu_id, sizeof(menu_id), "%s.menu", rr_server_rig_id(radio));
+         dict *menu_row = rr_inventory_row(ctx->request, 2, "rig-menu", "MENU", menu_id);
+         if (menu_row) {
+            dict_add(menu_row, "inventory.parent", rr_server_rig_id(radio));
+            dict_add(menu_row, "inventory.description", model);
+            rr_inventory_send(ctx->client, menu_row);
+         }
+         rig_menu_inventory_t menu_ctx = { .ctx = ctx, .parent = menu_id, .model = model };
+         menu_backend->type->api->menu_foreach(menu_backend, inventory_rig_menu_item, &menu_ctx);
+      }
+   }
    inventory_rooms(ctx, rr_rig_registry_room(rig.rigs, radio));
    char cat[80];
    snprintf(cat, sizeof(cat), "%s.cat", alias);

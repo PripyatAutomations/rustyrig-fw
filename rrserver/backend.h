@@ -47,6 +47,8 @@ typedef struct rr_backend_funcs {
    const char *(*model_name)(rr_backend_t *backend);
    /* Rig-wide hardware controls; percent is normalized to 0..100. */
    bool (*rig_control_set)(rr_backend_t *backend, const char *name, int percent);
+   /* Optional, static menu metadata. Enumeration does no hardware I/O. */
+   void (*menu_foreach)(rr_backend_t *, void (*emit)(const char *id, const char *label, void *user), void *user);
 } rr_backend_funcs_t;
 
 /* Immutable implementation metadata. */

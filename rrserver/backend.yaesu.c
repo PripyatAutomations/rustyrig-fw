@@ -29,6 +29,7 @@ typedef struct yaesu_state {
    bool ptt;
    int dimmer[4], af;
    bool dimmer_known, af_known;
+   int model_id;
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -218,6 +219,51 @@ static bool get_af(yaesu_state_t *s) {
 
    return true;
 }
+/* FT-891 documented CAT controls. UI values are normalized percentages. */
+typedef struct yaesu_control_spec {
+   const char *name, *command;
+   int minimum, maximum, digits;
+} yaesu_control_spec_t;
+static const yaesu_control_spec_t yaesu_controls[] = {
+   { "receiver.rf-gain", "RG0", 0, 30, 3 },
+   { "receiver.attenuator", "RA0", 0, 1, 1 },
+   { "receiver.noise-blanker", "NB0", 0, 1, 1 },
+   { "receiver.noise-blanker-level", "NL0", 0, 10, 3 },
+   { "receiver.noise-reduction", "NR0", 0, 1, 1 },
+   { "receiver.noise-reduction-level", "RL0", 1, 15, 2 },
+   { "transmit.mic-gain", "MG", 0, 100, 3 },
+   { "transmit.power", "PC", 5, 100, 3 },
+   { "receiver.squelch", "SQ0", 0, 100, 3 },
+   { "receiver.ipo", "PA0", 0, 1, 1 },
+   { "receiver.auto-notch", "BC0", 0, 1, 1 },
+   { "receiver.narrow", "NA0", 0, 1, 1 },
+   { "receiver.agc", "GT0", 0, 4, 1 },
+   { "cw.keyer", "KR", 0, 1, 1 },
+   { "cw.speed", "KS", 4, 60, 3 },
+   { "cw.pitch", "KP", 0, 75, 2 },
+   { "cw.break-in", "BI", 0, 1, 1 },
+   { "transmit.monitor-level", "ML", 0, 100, 3 },
+   { "transmit.processor-level", "PL", 0, 100, 3 },
+   { "transmit.vox", "VX", 0, 1, 1 },
+   { "transmit.vox-gain", "VG", 0, 100, 3 },
+   { "panel.dial-lock", "LK", 0, 1, 1 },
+};
+static const yaesu_control_spec_t *yaesu_control_find(const char *name) {
+   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i)
+      if (!strcmp(name, yaesu_controls[i].name)) return &yaesu_controls[i];
+   return NULL;
+}
+static bool yaesu_control_read(yaesu_state_t *s, const yaesu_control_spec_t *spec, int *percent) {
+   char cmd[16], reply[32];
+   snprintf(cmd, sizeof(cmd), "%s;", spec->command);
+   if (!cat(s, cmd, spec->command, reply, sizeof(reply))) return false;
+   size_t prefix = strlen(spec->command);
+   if (strlen(reply) != prefix + (size_t)spec->digits) return false;
+   int value;
+   if (!decimal(reply + prefix, spec->digits, &value) || value < spec->minimum || value > spec->maximum) return false;
+   *percent = (value - spec->minimum) * 100 / (spec->maximum - spec->minimum);
+   return true;
+}
 static void observe(rr_backend_t *b, const char *name, int percent) {
    dict_value_t value = {
       .i = percent
@@ -260,6 +306,16 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
       return false;
    }
 
+   const yaesu_control_spec_t *spec = yaesu_control_find(name);
+   if (spec) {
+      int value = spec->minimum + (percent * (spec->maximum - spec->minimum) + 50) / 100;
+      snprintf(command, sizeof(command), "%s%0*d;", spec->command, spec->digits, value);
+      if (!cat(s, command, NULL, NULL, 0)) return true;
+      int actual;
+      if (!yaesu_control_read(s, spec, &actual)) return true;
+      observe(b, name, actual);
+      return false;
+   }
    return true;
 }
 static bool index_of(rr_server_vfo_t *vfo, rr_vfo_t *i) {
@@ -387,25 +443,10 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
    };
    rr_backend_property_observe(b, v, RR_PROP_VFO_FREQUENCY, VAL_LONG, &observed);
 
-   if (index == b->active_vfo) {
-      if (get_dimmer(s)) {
-         observe(b, "display.contrast", (s->dimmer[0] - 1) * 100 / 14);
-         observe(b, "display.key-backlight", (s->dimmer[1] - 1) * 100 / 14);
-         observe(b, RR_PROP_DISPLAY_BRIGHTNESS, s->dimmer[2] * 100 / 15);
-         observe(b, "display.tx-indicator", s->dimmer[3] * 100 / 15);
-      } else {
-         rr_backend_property_unavailable(b, NULL, "display.contrast");
-         rr_backend_property_unavailable(b, NULL, "display.key-backlight");
-         rr_backend_property_unavailable(b, NULL, RR_PROP_DISPLAY_BRIGHTNESS);
-         rr_backend_property_unavailable(b, NULL, "display.tx-indicator");
-      }
-
-      if (get_af(s)) {
-         observe(b, RR_PROP_SPEAKER_VOLUME, (s->af * 100 + 127) / 255);
-      } else {
-         rr_backend_property_unavailable(b, NULL, RR_PROP_SPEAKER_VOLUME);
-      }
-   }
+   /* Control properties are advertised during create(), not queried during
+    * frequency/mode polling. A future per-property read subscription can
+    * refresh only open Resource Explorer controls and summoned room widgets.
+    * Successful writes already perform readback and publish observations. */
    rr_vfo_data_t *result = calloc(1, sizeof(*result));
 
    if (!result) {
@@ -469,6 +510,34 @@ static rr_mode_t mode_get(rr_backend_t *b, rr_server_vfo_t *v) {
 static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
    return vfo_mode_name(mode_get(b, v));
 }
+static void yaesu_menu_foreach(rr_backend_t *b,
+   void (*emit)(const char *id, const char *label, void *user), void *user) {
+   yaesu_state_t *s = ys(b);
+   if (!s || !emit) return;
+   /* These are intentionally descriptive catalog metadata, not polled values.
+    * The numbered EX schemas are model-specific and must be validated before
+    * permitting writes. */
+   if (s->model_id == 650) {
+      emit("0201", "LCD Contrast", user);
+      emit("0202", "Key Backlight", user);
+      emit("0203", "LCD Brightness", user);
+      emit("0204", "TX/BUSY LED Brightness", user);
+      emit("0205", "Meter Peak Hold", user);
+      emit("0206", "Zero-In LED", user);
+   } else if (s->model_id == 670) {
+      emit("001", "AGC Fast Delay", user);
+      emit("002", "AGC Mid Delay", user);
+      emit("003", "AGC Slow Delay", user);
+      emit("006", "Display Color", user);
+      emit("007", "LED Dimmer", user);
+      emit("008", "TFT Dimmer", user);
+      emit("009", "Meter Peak Hold", user);
+      emit("012", "Keyer Type", user);
+      emit("023", "Noise Blanker Width", user);
+      emit("024", "Noise Blanker Rejection", user);
+      emit("025", "Noise Blanker Level", user);
+   }
+}
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
 
@@ -494,6 +563,16 @@ static bool create(rr_backend_t *b) {
    if (!serial_open(s)) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s: CAT device %s unavailable; retry on next poll", rr_backend_instance_alias(b), s->device);
    }
+   /* ID0650=FT-891, ID0670=FT-991A. Unknown models are not guessed. */
+   char id_reply[24];
+   if (cat(s, "ID;", "ID", id_reply, sizeof(id_reply)) && strlen(id_reply) == 6) {
+      int id;
+      if (decimal(id_reply + 2, 4, &id) && (id == 650 || id == 670))
+         s->model_id = id;
+   }
+   if (!s->model_id)
+      rr_backend_log(b, LOG_WARN, "backend.yaesu",
+         "Unrecognized or unavailable Yaesu CAT ID; model-specific MENU disabled");
    const char *props[] = {
       "display.contrast", "display.key-backlight", RR_PROP_DISPLAY_BRIGHTNESS,
       "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
@@ -508,6 +587,20 @@ static bool create(rr_backend_t *b) {
       rr_rig_property_define(b->owner, &d);
    }
 
+   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
+      rr_property_descriptor_t d = {
+         .name = yaesu_controls[i].name, .type = VAL_INT, .readable = true,
+         .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
+         .minimum.i = 0, .maximum.i = 100, .step.i = 1
+      };
+      rr_rig_property_define(b->owner, &d);
+   }
+   rr_property_descriptor_t meter = {
+      .name = "meter.signal", .type = VAL_INT, .readable = true,
+      .writable = false, .unit = "%", .has_min = true, .has_max = true,
+      .minimum.i = 0, .maximum.i = 100
+   };
+   rr_rig_property_define(b->owner, &meter);
    return false;
 }
 static void destroy(rr_backend_t *b) {
@@ -532,7 +625,8 @@ static const char *manufacturer(rr_backend_t *b) {
 static const char *model_name(rr_backend_t *b) {
    (void)b;
 
-   return "FT-891";
+   yaesu_state_t *s = ys(b);
+   return s && s->model_id == 650 ? "FT-891" : s && s->model_id == 670 ? "FT-991A" : "Unknown Yaesu";
 }
 
 static const rr_backend_funcs_t api = {
@@ -540,7 +634,8 @@ static const rr_backend_funcs_t api = {
    .freq_set = frequency_set, .freq_get = frequency_get,
    .ptt_set = ptt_set, .ptt_get = ptt_get,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
-   .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name
+   .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
+   .menu_foreach = yaesu_menu_foreach
 };
 
 const rr_backend_type_t rr_backend_yaesu = {
