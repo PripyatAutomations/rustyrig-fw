@@ -545,6 +545,19 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    else if (!strcmp(d->name, "receiver.noise-reduction-level")) label = "Noise Reduction Level";
    else if (!strcmp(d->name, "transmit.mic-gain")) label = "Mic Gain";
    else if (!strcmp(d->name, "transmit.power")) label = "RF Output Power";
+   else if (!strcmp(d->name, "receiver.ipo")) label = "IPO / Preamp";
+   else if (!strcmp(d->name, "receiver.auto-notch")) label = "Auto Notch";
+   else if (!strcmp(d->name, "receiver.narrow")) label = "Narrow Filter";
+   else if (!strcmp(d->name, "receiver.agc")) label = "AGC";
+   else if (!strcmp(d->name, "cw.keyer")) label = "CW Keyer";
+   else if (!strcmp(d->name, "cw.speed")) label = "CW Speed";
+   else if (!strcmp(d->name, "cw.pitch")) label = "CW Pitch";
+   else if (!strcmp(d->name, "cw.break-in")) label = "CW Break-in";
+   else if (!strcmp(d->name, "transmit.monitor-level")) label = "TX Monitor Level";
+   else if (!strcmp(d->name, "transmit.processor-level")) label = "Speech Processor Level";
+   else if (!strcmp(d->name, "transmit.vox")) label = "VOX";
+   else if (!strcmp(d->name, "transmit.vox-gain")) label = "VOX Gain";
+   else if (!strcmp(d->name, "panel.dial-lock")) label = "Dial Lock";
    if (!label) return false;
    dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
 
