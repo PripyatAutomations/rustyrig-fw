@@ -503,8 +503,26 @@ static bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const ch
    const char *symbol = rr_rig_registry_public_alias(rig.rigs, radio);
    /* Require destination-side tx (or rig.full), not merely rig.use.
     * A room join alone is not authorization to retune or transmit. */
+   rr_resource_access_t tx = db_resource_access_named(masterdb, r->remote_account.name, host,
+      "rig", uuid, "tx", time(NULL), symbol);
+   if (tx == RR_RESOURCE_ALLOW) {
+      return true;
+   }
+   if (tx == RR_RESOURCE_DENY) {
+      return false;
+   }
+   /* remote-admin is a destination-issued exception to origin-only admin,
+    * not an imported role from the originating server. */
+   const char *next = rrserver_links_route(r->origin);
+   bool allowed_hops = !cfg_get_bool("remote-admin.next-hop-only", true) || (next && !strcmp(next, r->origin));
+   if (!allowed_hops || db_resource_access_named(masterdb, r->remote_account.name, host,
+      "site", "*", "remote-admin", time(NULL), NULL) != RR_RESOURCE_ALLOW) {
+      return false;
+   }
    return db_resource_access_named(masterdb, r->remote_account.name, host,
-      "rig", uuid, "tx", time(NULL), symbol) == RR_RESOURCE_ALLOW;
+      "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
+      db_resource_access_named(masterdb, r->remote_account.name, host,
+      "site", "*", "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW;
 #else
    (void)client; (void)room; (void)command;
    return false;
