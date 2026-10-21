@@ -1690,11 +1690,12 @@ static void resource_type_changed(GtkToggleButton *item, gpointer data) {
 }
 
 /* Resource icons are presentation-only; names and IDs remain unchanged. */
+/* Theme-backed presentation icons; resource identifiers stay untouched. */
 static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)column;
    (void)user;
-   char *kind = NULL, *name = NULL;
-   gtk_tree_model_get(model, iter, KIND, &kind, NAME, &name, -1);
+   char *kind = NULL, *name = NULL, *action = NULL, *details = NULL;
+   gtk_tree_model_get(model, iter, KIND, &kind, NAME, &name, ACTION, &action, DETAILS, &details, -1);
    const char *icon = "text-x-generic-symbolic";
 
    if (!g_strcmp0(kind, "local")) {
@@ -1702,27 +1703,65 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    } else if (!g_strcmp0(kind, "site") || !g_strcmp0(kind, "server")) {
       icon = "network-server-symbolic";
    } else if (!g_strcmp0(kind, "rig")) {
-      icon = "audio-input-microphone-symbolic";
+      icon = "audio-radio-symbolic";
    } else if (!g_strcmp0(kind, "vfo")) {
-      icon = "audio-card-symbolic";
+      icon = "multimedia-volume-control-symbolic";
    } else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) {
-      icon = "system-users-symbolic";
+      icon = "user-available-symbolic";
+   } else if (!g_strcmp0(kind, "user")) {
+      icon = "avatar-default-symbolic";
    } else if (!g_strcmp0(kind, "gps")) {
       icon = "find-location-symbolic";
-   } else if (!g_strcmp0(kind, "control") || !g_strcmp0(kind, "rig-control")) {
+   } else if (!g_strcmp0(kind, "media")) {
+      gboolean gps_text = (name && (strstr(name, ".gps.") || strstr(name, ".nmea."))) ||
+                          (details && (strstr(details, "gpsp") || strstr(details, "nmea")));
+      if (gps_text) {
+         icon = name && (g_str_has_suffix(name, ".tx") || g_str_has_suffix(name, ".out")) ?
+            "go-next-symbolic" : "go-previous-symbolic";
+      } else if (name && (g_str_has_suffix(name, ".tx") || strstr(name, ".tx."))) {
+         icon = "audio-input-microphone-symbolic";
+      } else {
+         icon = "audio-headphones-symbolic";
+      }
+   } else if (!g_strcmp0(kind, "rig-control")) {
+      if ((action && strstr(action, "brightness")) || (name && strstr(name, "Brightness")))
+         icon = "display-brightness-symbolic";
+      else if ((action && strstr(action, "volume")) || (name && strstr(name, "Volume")))
+         icon = "audio-volume-high-symbolic";
+      else
+         icon = "emblem-system-symbolic";
+   } else if (!g_strcmp0(kind, "control")) {
       icon = "emblem-system-symbolic";
-   } else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "device") || !g_strcmp0(kind, "local-port") || !g_strcmp0(kind, "attachment")) {
-      icon = "media-removable-symbolic";
+   } else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "serial-folder") ||
+              !g_strcmp0(kind, "local-port")) {
+      icon = "network-wired-symbolic";
+   } else if (!g_strcmp0(kind, "device") || !g_strcmp0(kind, "attachment")) {
+      icon = "drive-harddisk-symbolic";
    } else if (!g_strcmp0(kind, "network-service")) {
       icon = "network-transmit-receive-symbolic";
    } else if (!g_strcmp0(kind, "file") || !g_strcmp0(kind, "share")) {
       icon = "folder-symbolic";
-   } else if (!g_strcmp0(kind, "group") || !g_strcmp0(kind, "serial-folder")) {
-      icon = !g_strcmp0(name, "GPS") ? "find-location-symbolic" : "folder-symbolic";
+   } else if (!g_strcmp0(kind, "group")) {
+      if (!g_strcmp0(name, "GPS"))
+         icon = "find-location-symbolic";
+      else if (!g_strcmp0(name, "Controls"))
+         icon = "emblem-system-symbolic";
+      else if (!g_strcmp0(name, "Serial Ports"))
+         icon = "network-wired-symbolic";
+      else if (!g_strcmp0(name, "Network Services"))
+         icon = "network-transmit-receive-symbolic";
+      else if (!g_strcmp0(name, "Rooms"))
+         icon = "user-available-symbolic";
+      else if (!g_strcmp0(name, "Users"))
+         icon = "avatar-default-symbolic";
+      else
+         icon = "folder-symbolic";
    }
    g_object_set(cell, "icon-name", icon, NULL);
    g_free(kind);
    g_free(name);
+   g_free(action);
+   g_free(details);
 }
 static void resource_create(void) {
    if (browser) {
