@@ -352,7 +352,7 @@ static void resource_local_update(void) {
            more; more = gtk_tree_model_iter_next(model, &service)) {
          char *name = NULL;
          gtk_tree_model_get(model, &service, NAME, &name, -1);
-         found = !g_strcmp0(name, "WSJT-X");
+         found = !g_strcmp0(name, "WSJTX Reporting");
          g_free(name);
 
          if (found) {
@@ -363,7 +363,7 @@ static void resource_local_update(void) {
       if (!found) {
          gtk_tree_store_append(browser->store, &service, &browser->network_root);
          gtk_tree_store_set(browser->store, &service,
-            NAME, "WSJT-X", KIND, "network-service", -1);
+            NAME, "WSJTX Reporting", KIND, "network-service", -1);
       }
       bool enabled = cfg_get_bool("wsjtx.enabled", false);
       const char *port = cfg_get("wsjtx.udp.port");
@@ -1929,11 +1929,11 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
           !strcmp(dict_get(row, "inventory.codec", ""), "nmea") ||
           g_str_has_suffix(name, ".gps.rx") ||
           g_str_has_suffix(name, ".nmea.rx")));
-   if (gps_stream || !strcmp(kind, "control") || !strcmp(kind, "rig-control") ||
+   if (gps_stream || !strcmp(kind, "room") || !strcmp(kind, "control") || !strcmp(kind, "rig-control") ||
        !strcmp(kind, "file") || !strcmp(kind, "share") || !strcmp(kind, "serial")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
-      const char *folder = gps_stream ? "GPS" :
+      const char *folder = gps_stream ? "GPS" : !strcmp(kind, "room") ? "Rooms" :
           (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
          !strcmp(kind, "serial") ? "Serial Ports" :
          (!strcmp(parent_kind ? parent_kind : "", "site") ||
@@ -2063,8 +2063,11 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       const char *width = dict_get(row, "inventory.width", "");
 
       if (*frequency || *mode || *width) {
-         label = g_strdup_printf("%s%s%s%s%s%s%s", name, *frequency ? " · " : "", frequency, *mode ? " · " : "", mode, *width ? " · " : "", width);
+         label = g_strdup_printf("VFO %s%s%s%s%s%s%s", name, *frequency ? " · " : "", frequency, *mode ? " · " : "", mode, *width ? " · " : "", width);
       }
+   }
+   if (!strcmp(kind, "vfo") && !label) {
+      label = g_strdup_printf("VFO %s", name);
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
