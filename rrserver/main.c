@@ -606,9 +606,14 @@ int main(int argc, char **argv) {
          break;
       }
 
-      if (rr_load_module(module)) {
-         modules_loaded = true;
+      if (!rr_load_module(module)) {
+         Log(LOG_CRIT, "modules",
+             "Required server module '%s' could not be loaded from %s",
+             module, module_dir);
+         return EXIT_FAILURE;
       }
+
+      modules_loaded = true;
    }
 
    rrserver_serial_init();
