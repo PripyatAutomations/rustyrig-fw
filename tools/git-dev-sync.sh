@@ -16,8 +16,7 @@ fi
 # a detached HEAD. Never reset, stash, rebase or move someone's active work.
 for component in "${components[@]}"; do
    if ! git -C "$component" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      echo "ERROR: $component is not initialized; initialize it before dev sync." >&2
-      exit 1
+      git submodule update --init -- "$component"
    fi
    if [[ -n "$(git -C "$component" status --porcelain)" ]]; then
       echo "ERROR: $component has local changes. Commit or resolve them before syncing." >&2
