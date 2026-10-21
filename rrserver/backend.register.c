@@ -8,5 +8,6 @@
 
 void rr_backend_register_builtin_types(void) {
    rr_backend_internal_register();
+   rr_backend_yaesu_register();
    rr_backend_type_register(rrserver_bridge_backend_type());
 }
