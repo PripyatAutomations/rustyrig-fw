@@ -642,15 +642,22 @@ static void action(GtkButton *button, gpointer data) {
          char *id = rrclient_files_request(connection(), "delete", path, NULL);
          g_free(id);
       }
-   } else if (!strcmp(op, "rename") || !strcmp(op, "move")) {
+   } else if (!strcmp(op, "move")) {
       if (!writable) {
+         status("Select a writable file or directory.");
          goto done;
       }
-      char *value = prompt(!strcmp(op, "rename") ? "New name" : "Destination virtual path", !strcmp(op, "move") ? path : "");
+      /* Rename is a move to another basename in the same virtual directory.
+       * Accept either a plain basename or a full virtual destination path. */
+      char *value = prompt("Move / Rename — new name or destination path", path);
 
-      if (value && *value) {
-         char *parent = g_path_get_dirname(path), *dest = !strcmp(op, "rename") ? g_strdup_printf("%s/%s", parent, value) : g_strdup(value);
+      if (value && *value && strcmp(value, path)) {
+         char *parent = g_path_get_dirname(path);
+         char *dest = value[0] == '/' ? g_strdup(value) : g_build_filename(parent, value, NULL);
          char *id = rrclient_files_request(connection(), "rename", path, dest);
+         if (!id) {
+            status("Unable to request move / rename.");
+         }
          g_free(id);
          g_free(dest);
          g_free(parent);
@@ -788,15 +795,15 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
    const char *names[] = {
-      "Refresh", "Upload", "Download", "Rename", "Edit", "Move", "New Dir", "Delete"
+      "Refresh", "Upload", "Download", "Move / Rename", "Edit", "New Dir", "Delete"
    }, *ops[] = {
-      "refresh", "upload", "download", "rename", "edit", "move", "mkdir", "delete"
+      "refresh", "upload", "download", "move", "edit", "mkdir", "delete"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; i++) {
       /* Four visual groups: refresh/transfers | editing | moving/creation |
        * destructive action. Keep the gaps stretch-free. */
-      if (i == 3 || i == 5 || i == 7) {
+      if (i == 3 || i == 5 || i == 6) {
          GtkWidget *gap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
          gtk_widget_set_size_request(gap, 18, -1);
          gtk_box_pack_start(GTK_BOX(buttons), gap, FALSE, FALSE, 0);
