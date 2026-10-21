@@ -29,6 +29,7 @@ typedef struct yaesu_state {
    bool ptt;
    int dimmer[4], af;
    bool dimmer_known, af_known;
+   int model_id;
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -509,6 +510,34 @@ static rr_mode_t mode_get(rr_backend_t *b, rr_server_vfo_t *v) {
 static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
    return vfo_mode_name(mode_get(b, v));
 }
+static void yaesu_menu_foreach(rr_backend_t *b,
+   void (*emit)(const char *id, const char *label, void *user), void *user) {
+   yaesu_state_t *s = ys(b);
+   if (!s || !emit) return;
+   /* These are intentionally descriptive catalog metadata, not polled values.
+    * The numbered EX schemas are model-specific and must be validated before
+    * permitting writes. */
+   if (s->model_id == 650) {
+      emit("0201", "LCD Contrast", user);
+      emit("0202", "Key Backlight", user);
+      emit("0203", "LCD Brightness", user);
+      emit("0204", "TX/BUSY LED Brightness", user);
+      emit("0205", "Meter Peak Hold", user);
+      emit("0206", "Zero-In LED", user);
+   } else if (s->model_id == 670) {
+      emit("001", "AGC Fast Delay", user);
+      emit("002", "AGC Mid Delay", user);
+      emit("003", "AGC Slow Delay", user);
+      emit("006", "Display Color", user);
+      emit("007", "LED Dimmer", user);
+      emit("008", "TFT Dimmer", user);
+      emit("009", "Meter Peak Hold", user);
+      emit("012", "Keyer Type", user);
+      emit("023", "Noise Blanker Width", user);
+      emit("024", "Noise Blanker Rejection", user);
+      emit("025", "Noise Blanker Level", user);
+   }
+}
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
 
@@ -534,6 +563,16 @@ static bool create(rr_backend_t *b) {
    if (!serial_open(s)) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s: CAT device %s unavailable; retry on next poll", rr_backend_instance_alias(b), s->device);
    }
+   /* ID0650=FT-891, ID0670=FT-991A. Unknown models are not guessed. */
+   char id_reply[24];
+   if (cat(s, "ID;", "ID", id_reply, sizeof(id_reply)) && strlen(id_reply) == 6) {
+      int id;
+      if (decimal(id_reply + 2, 4, &id) && (id == 650 || id == 670))
+         s->model_id = id;
+   }
+   if (!s->model_id)
+      rr_backend_log(b, LOG_WARN, "backend.yaesu",
+         "Unrecognized or unavailable Yaesu CAT ID; model-specific MENU disabled");
    const char *props[] = {
       "display.contrast", "display.key-backlight", RR_PROP_DISPLAY_BRIGHTNESS,
       "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
@@ -586,7 +625,8 @@ static const char *manufacturer(rr_backend_t *b) {
 static const char *model_name(rr_backend_t *b) {
    (void)b;
 
-   return "FT-891";
+   yaesu_state_t *s = ys(b);
+   return s && s->model_id == 650 ? "FT-891" : s && s->model_id == 670 ? "FT-991A" : "Unknown Yaesu";
 }
 
 static const rr_backend_funcs_t api = {
@@ -594,7 +634,8 @@ static const rr_backend_funcs_t api = {
    .freq_set = frequency_set, .freq_get = frequency_get,
    .ptt_set = ptt_set, .ptt_get = ptt_get,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
-   .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name
+   .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
+   .menu_foreach = yaesu_menu_foreach
 };
 
 const rr_backend_type_t rr_backend_yaesu = {
