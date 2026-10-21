@@ -285,7 +285,9 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
                }
 
                if (existing->tab_label) {
-                  gtk_label_set_text(GTK_LABEL(existing->tab_label), display_name);
+                  char *lower = g_utf8_strdown(display_name, -1);
+                   gtk_label_set_text(GTK_LABEL(existing->tab_label), lower);
+                   g_free(lower);
                }
             }
          }
@@ -332,7 +334,9 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
    }
    g_signal_connect(session->page, "destroy", G_CALLBACK(terminal_session_destroy), session);
    GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   session->tab_label = gtk_label_new(display_name && *display_name ? display_name : name);
+   char *lower_title = g_utf8_strdown(display_name && *display_name ? display_name : name, -1);
+   session->tab_label = gtk_label_new(lower_title);
+   g_free(lower_title);
    gtk_box_pack_start(GTK_BOX(tab), session->tab_label, FALSE, FALSE, 0);
    GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
@@ -437,7 +441,7 @@ GtkWidget *init_terminal_tab(void) {
    g_signal_connect(refresh, "clicked", G_CALLBACK(terminal_refresh), NULL);
    g_signal_connect(open, "clicked", G_CALLBACK(terminal_open), NULL);
    g_signal_connect(configure, "clicked", G_CALLBACK(terminal_configure), NULL);
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), root, gtk_label_new("Terminal"));
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), root, gtk_label_new("terminal"));
    terminal_refresh(NULL, NULL);
 
    return root;
