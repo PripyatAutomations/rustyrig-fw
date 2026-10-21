@@ -931,18 +931,20 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             }
             bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
 
-            if (floating && b->focus_room[0] && *control_room) {
-               if (!ws_room_same_rig(b->focus_room, control_room)) {
-                  continue;
-               }
-
-               if (rr_serial_write(b->port, frame, len)) {
-                  console_notify(b->name, frame, (size_t)len, true);
-               }
-            } else if (!strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) || (!strcmp(scope, "active") && selected && !b->focus_room[0])) {
-               if (rr_serial_write(b->port, frame, len)) {
-                  console_notify(b->name, frame, (size_t)len, true);
-               }
+            bool deliver = false;
+            if (floating) {
+               /* The unnumbered ttyGPS follows the frontend's selected rig.
+                * Room names are advisory: media already marks the active
+                * stream, and some GPS channels advertise a different room
+                * alias than the focused VFO. */
+               deliver = b->focus_room[0] && *control_room ?
+                  ws_room_same_rig(b->focus_room, control_room) || selected : selected;
+            } else {
+               deliver = !strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) ||
+                  (!strcmp(scope, "active") && selected);
+            }
+            if (deliver && rr_serial_write(b->port, frame, len)) {
+               console_notify(b->name, frame, (size_t)len, true);
             }
          }
       }
