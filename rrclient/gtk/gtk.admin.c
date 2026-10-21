@@ -21,6 +21,7 @@
 #include <rrclient/gtk/gtk.admin.password.h>
 #include <rrclient/gtk/gtk.admin.sessions.h>
 #include <rrclient/gtk/gtk.admin.privgroup.h>
+#include <rrclient/gtk/gtk.admin.selection.h>
 
 extern GtkWidget *main_notebook;
 GtkWidget *admin_view;
@@ -708,75 +709,6 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(dialog);
 }
-static gboolean admin_filter_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
-   GtkWidget *entry = GTK_WIDGET(data);
-   const char *needle = gtk_entry_get_text(GTK_ENTRY(entry));
-
-   if (!needle || !*needle) {
-      return TRUE;
-   }
-   char *search = g_utf8_casefold(needle, -1);
-   gboolean match = FALSE;
-
-   for (int c = 0 ; c < 10 && !match ; c++) {
-      char *cell = NULL;
-      gtk_tree_model_get(model, iter, c, &cell, -1);
-
-      if (cell) {
-         char *folded = g_utf8_casefold(cell, -1);
-         match = folded && strstr(folded, search) != NULL;
-         g_free(folded);
-         g_free(cell);
-      }
-   }
-
-   g_free(search);
-
-   return match;
-}
-static void admin_filter_changed(GtkEditable *editable, gpointer data) {
-   (void)editable;
-   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(data));
-}
-static void admin_privilege_selection(GtkTreeSelection *selection, gpointer user) {
-   GtkWidget *box = GTK_WIDGET(user);
-   gboolean selected = gtk_tree_selection_count_selected_rows(selection) > 0;
-   GtkWidget *remove = g_object_get_data(G_OBJECT(box), "rr-privilege-selection-button");
-   GtkWidget *edit = g_object_get_data(G_OBJECT(box), "rr-privilege-edit-button");
-
-   if (remove) {
-      gtk_widget_set_sensitive(remove, selected);
-   }
-
-   if (edit) {
-      gtk_widget_set_sensitive(edit, selected);
-   }
-}
-static void admin_action_selection(GtkTreeSelection *selection, gpointer user) {
-   admin_table_t *table = user;
-   GPtrArray *buttons = g_object_get_data(G_OBJECT(table->tree), "selection-buttons");
-   GtkTreeIter iter;
-   GtkTreeModel *model = NULL;
-   gboolean selected = gtk_tree_selection_get_selected(selection, &model, &iter);
-   gboolean deleted = FALSE;
-
-   if (selected && !strcmp(table->name, "rooms")) {
-      char *state = NULL;
-      gtk_tree_model_get(model, &iter, 2, &state, -1);
-      deleted = state && (!strcmp(state, "1") || !g_ascii_strcasecmp(state, "true"));
-      g_free(state);
-   }
-
-   if (!buttons) {
-      return;
-   }
-
-   for (guint i = 0 ; i < buttons->len ; ++i) {
-      GtkWidget *button = g_ptr_array_index(buttons, i);
-      const char *action = g_object_get_data(G_OBJECT(button), "action");
-      gtk_widget_set_sensitive(button, selected && !(deleted && action && !strcmp(action, "edit")));
-   }
-}
 static void admin_action(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
@@ -1312,7 +1244,7 @@ GtkWidget *init_admin_tab(void) {
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       GtkTreeModel *filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(table->store), NULL);
       gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered), admin_filter_visible, filter, NULL);
-      g_signal_connect(filter, "changed", G_CALLBACK(admin_filter_changed), filtered);
+      g_signal_connect(filter, "changed", G_CALLBACK(gtk_admin_filter_changed), filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
       g_object_set_data(G_OBJECT(table->tree), "rr-admin-filter", filter);
 
@@ -1323,7 +1255,7 @@ GtkWidget *init_admin_tab(void) {
       GtkWidget *privilege_selection = g_object_get_data(G_OBJECT(box), "rr-privilege-selection-button");
 
       if (privilege_selection) {
-         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), "changed", G_CALLBACK(admin_privilege_selection), box);
+         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), "changed", G_CALLBACK(gtk_admin_privilege_selection), box);
       }
       GtkWidget *disconnect = g_object_get_data(G_OBJECT(box), "rr-session-disconnect");
 
@@ -1334,7 +1266,7 @@ GtkWidget *init_admin_tab(void) {
 
       if (selection_buttons) {
          g_object_set_data_full(G_OBJECT(table->tree), "selection-buttons", selection_buttons, (GDestroyNotify) g_ptr_array_unref);
-         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), "changed", G_CALLBACK(admin_action_selection), table);
+         g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), "changed", G_CALLBACK(gtk_admin_action_selection), table);
       }
       gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(table->tree), TRUE);
       g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_uuid_menu), table);
