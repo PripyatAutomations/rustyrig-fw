@@ -13,4 +13,6 @@ typedef struct {
 } rr_backlight_state_t;
 /* requested < 0 queries. Returns false when unsupported or write refused. */
 bool rrserver_backlight_control(int requested, rr_backlight_state_t *state);
+/* Real access check under rrserver's effective credentials. */
+bool rrserver_backlight_writable(void);
 #endif
