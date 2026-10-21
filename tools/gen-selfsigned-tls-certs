@@ -1,1 +1,12 @@
-openssl req -x509 -newkey rsa:4096 -keyout ./config/key.pem -out ./config/cert.pem -days 365 -nodes
+#!/bin/sh
+# Generate a development/self-managed certificate at an explicit installed path.
+set -eu
+cert_dir="${1:-/etc/rustyrig}"
+case "$cert_dir" in
+  /*) ;;
+  *) echo "Certificate destination must be an absolute directory: $cert_dir" >&2; exit 2 ;;
+esac
+install -d -m 0700 "$cert_dir"
+openssl req -x509 -newkey rsa:4096 -keyout "$cert_dir/key.pem" \
+  -out "$cert_dir/cert.pem" -days 365 -nodes
+chmod 0600 "$cert_dir/key.pem"
