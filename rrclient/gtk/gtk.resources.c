@@ -1757,6 +1757,17 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       else
          icon = "folder-symbolic";
    }
+   GtkIconTheme *theme = gtk_icon_theme_get_default();
+   if (theme && !gtk_icon_theme_has_icon(theme, icon)) {
+      /* Some themes omit specialty symbolic names. Keep the resource visible. */
+      if (!g_strcmp0(kind, "rig")) icon = "audio-x-generic";
+      else if (!g_strcmp0(kind, "vfo")) icon = "preferences-system";
+      else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Brightness"))
+         icon = "display-brightness";
+      else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Volume"))
+         icon = "audio-volume-high";
+      else icon = "folder";
+   }
    g_object_set(cell, "icon-name", icon, NULL);
    g_free(kind);
    g_free(name);
