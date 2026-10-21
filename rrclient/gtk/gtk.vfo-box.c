@@ -250,7 +250,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, TRUE, TRUE, 6);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, FALSE, FALSE, 3);
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
