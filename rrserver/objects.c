@@ -411,6 +411,8 @@ static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
       snprintf(frequency, sizeof(frequency), "%ld Hz", state.value.l);
       dict_add(row, "inventory.frequency", frequency);
    }
+   if (row) dict_add(row, "inventory.parent",
+      rr_server_rig_id(rr_server_vfo_owner(vfo)));
    rr_inventory_send(ctx->client, row);
    inventory_media(ctx, rr_server_vfo_id(vfo), 3);
 
@@ -549,6 +551,7 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
       rrserver_gps_inventory_position(row, alias);
       rr_backend_t *backend = rr_server_rig_backend(radio);
       dict_add(row, "inventory.backend", backend->type->name);
+      dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
       if (backend->type->api->manufacturer) {
          const char *manufacturer = backend->type->api->manufacturer(backend);
          if (manufacturer && *manufacturer) dict_add(row, "inventory.manufacturer", manufacturer);
