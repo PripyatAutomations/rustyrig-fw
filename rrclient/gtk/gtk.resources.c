@@ -747,6 +747,48 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
 }
 
 /* Rig controls are opened on demand, not rendered as live tree sliders. */
+typedef struct {
+   rrconn_t *connection;
+   char *profile, *uuid, *room, *property;
+   int original;
+   gboolean suppress;
+} resource_control_edit_t;
+
+static void resource_control_send(resource_control_edit_t *edit, int value) {
+   /* A reconnect must not send a control to a different server session. */
+   if (!edit->connection || rrclient_connection_find(edit->profile) != edit->connection ||
+       !edit->connection->authenticated || !edit->connection->is_ws) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Control not sent: server connection changed.");
+      return;
+   }
+   dict *message = dict_new();
+   if (!message) {
+      return;
+   }
+   dict_add(message, "msg.type", "property");
+   dict_add(message, "property.cmd", "set");
+   dict_add(message, "target", edit->uuid);
+   dict_add(message, "property.name", edit->property);
+   dict_add_int(message, "property.value", value);
+   if (edit->room && *edit->room) {
+      dict_add(message, "request.room", edit->room);
+   }
+   char request[64];
+   snprintf(request, sizeof(request), "explorer-control-%lld", (long long)g_get_monotonic_time());
+   dict_add(message, "request.id", request);
+   if (!ws_send_dict(NULL, edit->connection, message, WEBSOCKET_OP_TEXT)) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Unable to send rig control request.");
+   }
+   dict_free(message);
+}
+
+static void resource_control_changed(GtkRange *range, gpointer user) {
+   resource_control_edit_t *edit = user;
+   if (!edit->suppress) {
+      resource_control_send(edit, (int)gtk_range_get_value(range));
+   }
+}
+
 static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name) {
    GtkTreeIter iter = *item, parent;
    char *uuid = NULL, *room = NULL, *details = NULL;
@@ -755,7 +797,6 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    while (gtk_tree_model_iter_parent(model, &parent, &iter)) {
       char *kind = NULL;
       gtk_tree_model_get(model, &parent, KIND, &kind, -1);
-
       if (!g_strcmp0(kind, "rig")) {
          gtk_tree_model_get(model, &parent, UUID, &uuid, ROOM, &room, -1);
          g_free(kind);
@@ -770,64 +811,57 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
       g_free(uuid);
       g_free(room);
       g_free(details);
-
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
-
    if (!connection || !connection->authenticated || !connection->is_ws) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing rig controls.");
       g_free(uuid);
       g_free(room);
-
+      g_free(details);
       return;
    }
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(name, resource_parent(), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL,
-      "_Apply", GTK_RESPONSE_ACCEPT, NULL);
+
+   const char *property = !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume";
+   const dict *state = rrclient_object_property(uuid, property);
+   gboolean known = state && dict_get_bool((dict *)state, "property.known", false);
+   int original = known ? CLAMP(dict_get_int((dict *)state, "property.value", 50), 0, 100) : 50;
+   resource_control_edit_t edit = {
+      .connection = connection, .profile = g_strdup(profile), .uuid = uuid,
+      .room = room, .property = g_strdup(property), .original = original,
+      .suppress = TRUE
+   };
+
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(name, resource_parent(),
+      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "_Revert", GTK_RESPONSE_REJECT, "_Close", GTK_RESPONSE_CLOSE, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *label = gtk_label_new(read_only ? "This rig reports the control as read-only." : "Set the rig control (0–100%).");
+   GtkWidget *label = gtk_label_new(read_only ? "This rig reports the control as read-only." :
+      "Changes are sent immediately. Revert restores the value from when this dialog opened.");
    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_widget_set_size_request(scale, 320, -1);
    gtk_container_add(GTK_CONTAINER(area), label);
    gtk_container_add(GTK_CONTAINER(area), scale);
-   const dict *state = rrclient_object_property(uuid, !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
-
-   if (state && dict_get_bool((dict *) state, "property.known", false)) {
-      gtk_range_set_value(GTK_RANGE(scale), dict_get_int((dict *) state, "property.value", 50));
-   } else {
-      gtk_range_set_value(GTK_RANGE(scale), 50);
-   }
+   gtk_range_set_value(GTK_RANGE(scale), original);
+   g_signal_connect(scale, "value-changed", G_CALLBACK(resource_control_changed), &edit);
+   edit.suppress = FALSE;
 
    if (read_only) {
       gtk_widget_set_sensitive(scale, FALSE);
-      gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT, FALSE);
    }
+   gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_REJECT, known && !read_only);
    gtk_widget_show_all(area);
 
-   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-      dict *message = dict_new();
-      dict_add(message, "msg.type", "property");
-      dict_add(message, "property.cmd", "set");
-      dict_add(message, "target", uuid);
-      dict_add(message, "property.name", !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
-      dict_add_int(message, "property.value", (int)gtk_range_get_value(GTK_RANGE(scale)));
-
-      if (room && *room) {
-         dict_add(message, "request.room", room);
-      }
-      char request[64];
-      snprintf(request, sizeof(request), "explorer-control-%lld", (long long)g_get_monotonic_time());
-      dict_add(message, "request.id", request);
-
-      if (!ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT)) {
-         gtk_label_set_text(GTK_LABEL(browser->status), "Unable to send rig control request.");
-      } else {
-         gtk_label_set_text(GTK_LABEL(browser->status), "Rig control request sent; the server will validate permissions and capabilities.");
-      }
-      dict_free(message);
+   if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_REJECT) {
+      /* One restore write; don't emit a second one from setting the scale. */
+      edit.suppress = TRUE;
+      gtk_range_set_value(GTK_RANGE(scale), edit.original);
+      resource_control_send(&edit, edit.original);
    }
    gtk_widget_destroy(dialog);
+   g_free(edit.profile);
+   g_free(edit.property);
    g_free(uuid);
    g_free(room);
    g_free(details);
