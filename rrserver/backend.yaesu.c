@@ -442,40 +442,10 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
    };
    rr_backend_property_observe(b, v, RR_PROP_VFO_FREQUENCY, VAL_LONG, &observed);
 
-   if (index == b->active_vfo) {
-      if (get_dimmer(s)) {
-         observe(b, "display.contrast", (s->dimmer[0] - 1) * 100 / 14);
-         observe(b, "display.key-backlight", (s->dimmer[1] - 1) * 100 / 14);
-         observe(b, RR_PROP_DISPLAY_BRIGHTNESS, s->dimmer[2] * 100 / 15);
-         observe(b, "display.tx-indicator", s->dimmer[3] * 100 / 15);
-      } else {
-         rr_backend_property_unavailable(b, NULL, "display.contrast");
-         rr_backend_property_unavailable(b, NULL, "display.key-backlight");
-         rr_backend_property_unavailable(b, NULL, RR_PROP_DISPLAY_BRIGHTNESS);
-         rr_backend_property_unavailable(b, NULL, "display.tx-indicator");
-      }
-
-      for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
-         int percent;
-         if (yaesu_control_read(s, &yaesu_controls[i], &percent))
-            observe(b, yaesu_controls[i].name, percent);
-         else
-            rr_backend_property_unavailable(b, NULL, yaesu_controls[i].name);
-      }
-      /* Meter readings are observations, never writable properties. */
-      char meter_reply[32];
-      if (cat(s, "SM0;", "SM0", meter_reply, sizeof(meter_reply)) && strlen(meter_reply) == 6) {
-         int meter;
-         if (decimal(meter_reply + 3, 3, &meter) && meter <= 255)
-            observe(b, "meter.signal", (meter * 100 + 127) / 255);
-         else rr_backend_property_unavailable(b, NULL, "meter.signal");
-      } else rr_backend_property_unavailable(b, NULL, "meter.signal");
-      if (get_af(s)) {
-         observe(b, RR_PROP_SPEAKER_VOLUME, (s->af * 100 + 127) / 255);
-      } else {
-         rr_backend_property_unavailable(b, NULL, RR_PROP_SPEAKER_VOLUME);
-      }
-   }
+   /* Control properties are advertised during create(), not queried during
+    * frequency/mode polling. A future per-property read subscription can
+    * refresh only open Resource Explorer controls and summoned room widgets.
+    * Successful writes already perform readback and publish observations. */
    rr_vfo_data_t *result = calloc(1, sizeof(*result));
 
    if (!result) {
