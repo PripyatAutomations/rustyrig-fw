@@ -6,3 +6,6 @@ decide which of these repos is actually compiled and linked in.
 
 We try to use host versions of these libraries wherever possible and
 place them here mostly for reference.
+
+chu/wwv simulators will feed towards the client, giving additional test signals
+
