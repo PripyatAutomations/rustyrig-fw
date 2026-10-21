@@ -1301,7 +1301,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
       /* Unknown types belong to the optional Other bucket. */
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge"};
+         "serial","file","bridge","group"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1309,7 +1309,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
       static const char *known[]={"local","local-port","device","attachment","server",
          "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","file","bridge"};
+         "serial","file","bridge","group"};
       gboolean known_kind=FALSE;
       for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
          if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
@@ -1753,6 +1753,37 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
 
    if (*owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent)) {
       parent_iter = &explicit_parent;
+   }
+   /* Group direct children without changing their resource identity or wire
+    * parent. Existing explicit UUID ancestry always wins for nested objects. */
+   if (!strcmp(kind, "control") || !strcmp(kind, "file")) {
+      char *parent_kind = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
+      const char *folder = !strcmp(kind, "control") ? "Controls" :
+         (!strcmp(parent_kind ? parent_kind : "", "site") ||
+          !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
+      if (folder) {
+         GtkTreeIter sibling, group;
+         gboolean found = FALSE;
+         GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+         for (gboolean ok = gtk_tree_model_iter_children(model, &sibling, parent_iter);
+              ok; ok = gtk_tree_model_iter_next(model, &sibling)) {
+            char *sibling_kind = NULL, *sibling_name = NULL;
+            gtk_tree_model_get(model, &sibling, KIND, &sibling_kind, NAME, &sibling_name, -1);
+            found = !g_strcmp0(sibling_kind, "group") && !g_strcmp0(sibling_name, folder);
+            g_free(sibling_kind);
+            g_free(sibling_name);
+            if (found) { group = sibling; break; }
+         }
+         if (!found) {
+            gtk_tree_store_append(browser->store, &group, parent_iter);
+            gtk_tree_store_set(browser->store, &group,
+               NAME, folder, KIND, "group", PROFILE, profile, -1);
+         }
+         explicit_parent = group;
+         parent_iter = &explicit_parent;
+      }
+      g_free(parent_kind);
    }
    gtk_tree_store_append(browser->store, &iter, parent_iter);
 
