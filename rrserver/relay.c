@@ -381,8 +381,25 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          dict *error = dict_new();
 
          if (error) {
+            const char *family = dict_get(d, "msg.type", "unknown");
+            const char *operation = !strcmp(family, "talk") ? dict_get(d, "talk.cmd", "unknown") :
+               !strcmp(family, "file") ? dict_get(d, "file.cmd", "unknown") :
+               !strcmp(family, "object") ? dict_get(d, "object.cmd", "unknown") :
+               !strcmp(family, "media") ? dict_get(d, "media.cmd", "unknown") : "request";
+            const char *target = !strcmp(family, "talk") ? dict_get(d, "talk.target", "") :
+               !strcmp(family, "file") ? dict_get(d, "file.path", "") : "";
+            /* Client-facing failure identifies the action and destination;
+             * no request body, passwords or authentication tokens. */
+            char reason[512];
+            snprintf(reason, sizeof(reason),
+               "Remote %.24s.%.24s%s%.160s to node %.40s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)",
+               family, operation, *target ? " for " : "", *target ? target : "", dest,
+               !deadline ? "missing request deadline" :
+               deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future",
+               (long long) deadline, (long long) received_at);
+            Log(LOG_WARN, "relay", "%s; origin %.40s", reason, origin);
             dict_add(error, "msg.type", "error");
-            dict_add(error, "error.msg", "Remote control request expired");
+            dict_add(error, "error.msg", reason);
             rr_relay_packet(origin, "reply", id, NULL, error);
             dict_free(error);
          }
