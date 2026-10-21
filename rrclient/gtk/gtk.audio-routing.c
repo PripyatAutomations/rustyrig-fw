@@ -121,7 +121,13 @@ static gboolean routing_refresh(gpointer unused) {
       }
 
       for (size_t i = 0 ; i < count ; i++) {
-         char *label = g_strdup_printf("%s / %s / %s (%s)", streams[i].server, streams[i].room, streams[i].uuid, streams[i].codec);
+         /* Show the room/path users recognize, not the internal stream UUID
+          * or another copy of the site name. IDs remain opaque combo keys. */
+         const char *path = streams[i].room;
+         if (*path == '#' || *path == '&') {
+            path++;
+         }
+         char *label = g_strdup(*path ? path : streams[i].server);
          gtk_combo_box_text_append(combo, streams[i].id, label);
          g_free(label);
       }
