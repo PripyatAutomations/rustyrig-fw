@@ -77,6 +77,7 @@ gtk_module_objs += gtk/gtk.admin.cells.o    # Administrative table renderers
 gtk_module_objs += gtk/gtk.admin.password.o # Password dialog
 gtk_module_objs += gtk/gtk.admin.sessions.o # Session actions
 gtk_module_objs += gtk/gtk.admin.privgroup.o # Privilege set editing
+gtk_module_objs += gtk/gtk.admin.selection.o # Administrative table selection and filtering
 gtk_module_objs += gtk/gtk.supervision.o     # Independent supervision dialogs
 gtk_module_objs += gtk/gtk.alertdialog.o	# alert/error/warning dialogs
 gtk_module_objs += gtk/gtk.chat.o	# Chat related stuff
