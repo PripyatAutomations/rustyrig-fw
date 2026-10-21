@@ -30,3 +30,6 @@ else connected up, but part them from it when the last person with the
 privileged needed to create it leaves. We should tell them they were removed
 because the admin left the room
 --
+* split librrprotocol to a loadable module
+* move irc to a loadable module that extends librustyaxe
+  - keep it able to link builtin (non-dlmod)
