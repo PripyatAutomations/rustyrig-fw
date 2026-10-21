@@ -232,18 +232,20 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
    }
    char command[40];
 
-   if (!strcmp(name, RR_PROP_DISPLAY_BRIGHTNESS)) {
-      if (!get_dimmer(s)) {
-         return true;           // never overwrite other 3 values blindly
-      }
-      int backlight = 1 + (percent * 14 + 50) / 100;
-      snprintf(command, sizeof(command), "DA%02d%02d%02d%02d;", s->dimmer[0], backlight, s->dimmer[2], s->dimmer[3]);
-
-      if (!cat(s, command, NULL, NULL, 0) || !get_dimmer(s)) {
-         return true;
-      }
-      observe(b, name, (s->dimmer[2] * 100 + 7) / 15);
-
+   /* DA fields: P1 contrast (1..15), P2 key backlight, P3 LCD,
+    * P4 TX/BUSY indicator. Read-modify-write retains untouched fields. */
+   int field = !strcmp(name, "display.contrast") ? 0 :
+      !strcmp(name, "display.key-backlight") ? 1 :
+      !strcmp(name, RR_PROP_DISPLAY_BRIGHTNESS) ? 2 :
+      !strcmp(name, "display.tx-indicator") ? 3 : -1;
+   if (field >= 0) {
+      if (!get_dimmer(s)) return true;
+      int minimum = field == 0 ? 1 : 0;
+      s->dimmer[field] = minimum + (percent * (15 - minimum) + 50) / 100;
+      snprintf(command, sizeof(command), "DA%02d%02d%02d%02d;",
+         s->dimmer[0], s->dimmer[1], s->dimmer[2], s->dimmer[3]);
+      if (!cat(s, command, NULL, NULL, 0) || !get_dimmer(s)) return true;
+      observe(b, name, (s->dimmer[field] - minimum) * 100 / (15 - minimum));
       return false;
    }
 
@@ -387,9 +389,15 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
 
    if (index == b->active_vfo) {
       if (get_dimmer(s)) {
-         observe(b, RR_PROP_DISPLAY_BRIGHTNESS, (s->dimmer[2] * 100 + 7) / 15);
+         observe(b, "display.contrast", (s->dimmer[0] - 1) * 100 / 14);
+         observe(b, "display.key-backlight", s->dimmer[1] * 100 / 15);
+         observe(b, RR_PROP_DISPLAY_BRIGHTNESS, s->dimmer[2] * 100 / 15);
+         observe(b, "display.tx-indicator", s->dimmer[3] * 100 / 15);
       } else {
+         rr_backend_property_unavailable(b, NULL, "display.contrast");
+         rr_backend_property_unavailable(b, NULL, "display.key-backlight");
          rr_backend_property_unavailable(b, NULL, RR_PROP_DISPLAY_BRIGHTNESS);
+         rr_backend_property_unavailable(b, NULL, "display.tx-indicator");
       }
 
       if (get_af(s)) {
@@ -487,10 +495,11 @@ static bool create(rr_backend_t *b) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s: CAT device %s unavailable; retry on next poll", rr_backend_instance_alias(b), s->device);
    }
    const char *props[] = {
-      RR_PROP_DISPLAY_BRIGHTNESS, RR_PROP_SPEAKER_VOLUME
+      "display.contrast", "display.key-backlight", RR_PROP_DISPLAY_BRIGHTNESS,
+      "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
    };
 
-   for (unsigned i = 0 ; i < 2 ; i++) {
+   for (unsigned i = 0 ; i < sizeof(props) / sizeof(props[0]) ; i++) {
       rr_property_descriptor_t d = {
          .name = props[i], .type = VAL_INT, .readable = true,
          .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
