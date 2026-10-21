@@ -1337,7 +1337,7 @@ GtkWidget *init_admin_tab(void) {
          gtk_widget_set_sensitive(kick,FALSE);
          g_object_set_data(G_OBJECT(box),"rr-session-disconnect",kick);
          g_signal_connect(kick, "clicked", G_CALLBACK(gtk_admin_session_kick), table);
-         g_signal_connect(kick_all, "clicked", G_CALLBACK(admin_session_kick), table);
+         g_signal_connect(kick_all, "clicked", G_CALLBACK(gtk_admin_session_kick), table);
          gtk_box_pack_start(GTK_BOX(buttons), kick, FALSE, FALSE, 0);
          gtk_box_pack_start(GTK_BOX(buttons), kick_all, FALSE, FALSE, 0);
       }
