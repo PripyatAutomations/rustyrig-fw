@@ -30,6 +30,7 @@ typedef struct yaesu_state {
    int dimmer[4], af;
    bool dimmer_known, af_known;
    int model_id;
+   const struct yaesu_model_profile *profile;
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -306,7 +307,7 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
       return false;
    }
 
-   const yaesu_control_spec_t *spec = yaesu_control_find(name);
+   const yaesu_control_spec_t *spec = s->profile && s->profile->ft891_controls ? yaesu_control_find(name) : NULL;
    if (spec) {
       int value = spec->minimum + (percent * (spec->maximum - spec->minimum) + 50) / 100;
       snprintf(command, sizeof(command), "%s%0*d;", spec->command, spec->digits, value);
@@ -510,33 +511,221 @@ static rr_mode_t mode_get(rr_backend_t *b, rr_server_vfo_t *v) {
 static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
    return vfo_mode_name(mode_get(b, v));
 }
+/* Adding another Yaesu model requires one profile and its validated catalog.
+ * Keep model identification separate from protocol mechanics. */
+typedef struct yaesu_menu_entry {
+   const char *id, *label;
+} yaesu_menu_entry_t;
+typedef struct yaesu_model_profile {
+   int cat_id;
+   const char *model;
+   const yaesu_menu_entry_t *menu;
+   size_t menu_count;
+   bool ft891_controls; /* Until other models' control mappings are verified. */
+} yaesu_model_profile_t;
+#define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
+static const yaesu_menu_entry_t ft891_menu[] = {
+   /* 01 AGC */
+   { "0101", "AGC FAST DELAY" },
+   { "0102", "AGC MID DELAY" },
+   { "0103", "AGC SLOW DELAY" },
+   /* 02 DISPLAY */
+   { "0201", "LCD CONTRAST" },
+   { "0202", "DIMMER BACKLIT" },
+   { "0203", "DIMMER LCD" },
+   { "0204", "DIMMER TX/BUSY" },
+   { "0205", "PEAK HOLD" },
+   { "0206", "ZIN LED" },
+   { "0207", "POP-UP MENU" },
+   /* 03 DVS */
+   { "0301", "DVS RX OUT LVL" },
+   { "0302", "DVS TX OUT LVL" },
+   /* 04 KEYER */
+   { "0401", "KEYER TYPE" },
+   { "0402", "KEYER DOT/DASH" },
+   { "0403", "CW WEIGHT" },
+   { "0404", "BEACON INTERVAL" },
+   { "0405", "NUMBER STYLE" },
+   { "0406", "CONTEST NUMBER" },
+   { "0407", "CW MEMORY 1" },
+   { "0408", "CW MEMORY 2" },
+   { "0409", "CW MEMORY 3" },
+   { "0410", "CW MEMORY 4" },
+   { "0411", "CW MEMORY 5" },
+   /* 05 GENERAL */
+   { "0501", "NB WIDTH" },
+   { "0502", "NB REJECTION" },
+   { "0503", "NB LEVEL" },
+   { "0504", "BEEP LEVEL" },
+   { "0505", "RF/SQL VR" },
+   { "0506", "CAT RATE" },
+   { "0507", "CAT TOT" },
+   { "0508", "CAT RTS" },
+   { "0509", "MEM GROUP" },
+   { "0510", "FM SETTING" },
+   { "0511", "REC SETTING" },
+   { "0512", "ATAS SETTING" },
+   { "0513", "QUICK SPL FREQ" },
+   { "0514", "TX TOT" },
+   { "0515", "MIC SCAN" },
+   { "0516", "MIC SCAN RESUME" },
+   { "0517", "REF FREQ ADJ" },
+   { "0518", "CLAR SELECT" },
+   { "0519", "APO" },
+   { "0520", "FAN CONTROL" },
+   /* 06 MODE AM */
+   { "0601", "AM LCUT FREQ" },
+   { "0602", "AM LCUT SLOPE" },
+   { "0603", "AM HCUT FREQ" },
+   { "0604", "AM HCUT SLOPE" },
+   { "0605", "AM MIC SELECT" },
+   { "0606", "AM OUT LEVEL" },
+   { "0607", "AM PTT SELECT" },
+   /* 07 MODE CW */
+   { "0701", "CW LCUT FREQ" },
+   { "0702", "CW LCUT SLOPE" },
+   { "0703", "CW HCUT FREQ" },
+   { "0704", "CW HCUT SLOPE" },
+   { "0705", "CW OUT LEVEL" },
+   { "0706", "CW AUTO MODE" },
+   { "0707", "CW BFO" },
+   { "0708", "CW BK-IN TYPE" },
+   { "0709", "CW BK-IN DELAY" },
+   { "0710", "CW WAVE SHAPE" },
+   { "0711", "CW FREQ DISPLAY" },
+   { "0712", "PC KEYING" },
+   { "0713", "QSK DELAY TIME" },
+   /* 08 MODE DAT */
+   { "0801", "DATA MODE" },
+   { "0802", "PSK TONE" },
+   { "0803", "OTHER DISP" },
+   { "0804", "OTHER SHIFT" },
+   { "0805", "DATA LCUT FREQ" },
+   { "0806", "DATA LCUT SLOPE" },
+   { "0807", "DATA HCUT FREQ" },
+   { "0808", "DATA HCUT SLOPE" },
+   { "0809", "DATA IN SELECT" },
+   { "0810", "DATA PTT SELECT" },
+   { "0811", "DATA OUT LEVEL" },
+   { "0812", "DATA BFO" },
+   /* 09 MODE FM */
+   { "0901", "FM MIC SELECT" },
+   { "0902", "FM OUT LEVEL" },
+   { "0903", "PKT PTT SELECT" },
+   { "0904", "RPT SHIFT 28MHz" },
+   { "0905", "RPT SHIFT 50MHz" },
+   { "0906", "DCS POLARITY" },
+   /* 10 MODE RTY */
+   { "1001", "RTTY LCUT FREQ" },
+   { "1002", "RTTY LCUT SLOPE" },
+   { "1003", "RTTY HCUT FREQ" },
+   { "1004", "RTTY HCUT SLOPE" },
+   { "1005", "RTTY SHIFT PORT" },
+   { "1006", "RTTY POLARITY-R" },
+   { "1007", "RTTY POLARITY-T" },
+   { "1008", "RTTY OUT LEVEL" },
+   { "1009", "RTTY SHIFT FREQ" },
+   { "1010", "RTTY MARK FREQ" },
+   { "1011", "RTTY BFO" },
+   /* 11 MODE SSB */
+   { "1101", "SSB LCUT FREQ" },
+   { "1102", "SSB LCUT SLOPE" },
+   { "1103", "SSB HCUT FREQ" },
+   { "1104", "SSB HCUT SLOPE" },
+   { "1105", "SSB MIC SELECT" },
+   { "1106", "SSB OUT LEVEL" },
+   { "1107", "SSB BFO" },
+   { "1108", "SSB PTT SELECT" },
+   { "1109", "SSB TX BPF" },
+   /* 12 RX DSP */
+   { "1201", "APF WIDTH" },
+   { "1202", "CONTOUR LEVEL" },
+   { "1203", "CONTOUR WIDTH" },
+   { "1204", "IF NOTCH WIDTH" },
+   /* 13 SCOPE */
+   { "1301", "SCP START CYCLE" },
+   { "1302", "SCP SPAN FREQ" },
+   /* 14 TUNING */
+   { "1401", "QUICK DIAL" },
+   { "1402", "SSB DIAL STEP" },
+   { "1403", "AM DIAL STEP" },
+   { "1404", "FM DIAL STEP" },
+   { "1405", "DIAL STEP" },
+   { "1406", "AM CH STEP" },
+   { "1407", "FM CH STEP" },
+   /* 15 TX AUDIO */
+   { "1501", "EQ1 FREQ" },
+   { "1502", "EQ1 LEVEL" },
+   { "1503", "EQ1 BWTH" },
+   { "1504", "EQ2 FREQ" },
+   { "1505", "EQ2 LEVEL" },
+   { "1506", "EQ2 BWTH" },
+   { "1507", "EQ3 FREQ" },
+   { "1508", "EQ3 LEVEL" },
+   { "1509", "EQ3 BWTH" },
+   { "1510", "P-EQ1 FREQ" },
+   { "1511", "P-EQ1 LEVEL" },
+   { "1512", "P-EQ1 BWTH" },
+   { "1513", "P-EQ2 FREQ" },
+   { "1514", "P-EQ2 LEVEL" },
+   { "1515", "P-EQ2 BWTH" },
+   { "1516", "P-EQ3 FREQ" },
+   { "1517", "P-EQ3 LEVEL" },
+   { "1518", "P-EQ3 BWTH" },
+   /* 16 TX GNRL */
+   { "1601", "HF SSB PWR" },
+   { "1602", "HF AM PWR" },
+   { "1603", "HF PWR" },
+   { "1604", "50M SSB PWR" },
+   { "1605", "50M AM PWR" },
+   { "1606", "50M PWR" },
+   { "1607", "SSB MIC GAIN" },
+   { "1608", "AM MIC GAIN" },
+   { "1609", "FM MIC GAIN" },
+   { "1610", "DATA MIC GAIN" },
+   { "1611", "SSB DATA GAIN" },
+   { "1612", "AM DATA GAIN" },
+   { "1613", "FM DATA GAIN" },
+   { "1614", "DATA DATA GAIN" },
+   { "1615", "TUNER SELECT" },
+   { "1616", "VOX SELECT" },
+   { "1617", "VOX GAIN" },
+   { "1618", "VOX DELAY" },
+   { "1619", "ANTI VOX GAIN" },
+   { "1620", "DATA VOX GAIN" },
+   { "1621", "DATA VOX DELAY" },
+   { "1622", "ANTI DVOX GAIN" },
+   { "1623", "EMERGENCY FREQ" },
+   /* 17 RESET */
+   { "1701", "RESET" },
+   /* 18 VERSION */
+   { "1801", "MAIN VERSION" },
+   { "1802", "DSP VERSION" },
+   { "1803", "LCD VERSION" },
+};
+static const yaesu_menu_entry_t ft991a_menu[] = {
+   { "001", "AGC Fast Delay" }, { "002", "AGC Mid Delay" },
+   { "003", "AGC Slow Delay" }, { "006", "Display Color" },
+   { "007", "LED Dimmer" }, { "008", "TFT Dimmer" },
+   { "009", "Meter Peak Hold" }, { "012", "Keyer Type" },
+   { "023", "Noise Blanker Width" }, { "024", "Noise Blanker Rejection" },
+   { "025", "Noise Blanker Level" }
+};
+static const yaesu_model_profile_t yaesu_models[] = {
+   { 650, "FT-891", ft891_menu, ARRAY_COUNT(ft891_menu), true },
+   { 670, "FT-991A", ft991a_menu, ARRAY_COUNT(ft991a_menu), false }
+};
+static const yaesu_model_profile_t *yaesu_model_by_id(int id) {
+   for (size_t i = 0; i < ARRAY_COUNT(yaesu_models); i++)
+      if (yaesu_models[i].cat_id == id) return &yaesu_models[i];
+   return NULL;
+}
 static void yaesu_menu_foreach(rr_backend_t *b,
    void (*emit)(const char *id, const char *label, void *user), void *user) {
    yaesu_state_t *s = ys(b);
-   if (!s || !emit) return;
-   /* These are intentionally descriptive catalog metadata, not polled values.
-    * The numbered EX schemas are model-specific and must be validated before
-    * permitting writes. */
-   if (s->model_id == 650) {
-      emit("0201", "LCD Contrast", user);
-      emit("0202", "Key Backlight", user);
-      emit("0203", "LCD Brightness", user);
-      emit("0204", "TX/BUSY LED Brightness", user);
-      emit("0205", "Meter Peak Hold", user);
-      emit("0206", "Zero-In LED", user);
-   } else if (s->model_id == 670) {
-      emit("001", "AGC Fast Delay", user);
-      emit("002", "AGC Mid Delay", user);
-      emit("003", "AGC Slow Delay", user);
-      emit("006", "Display Color", user);
-      emit("007", "LED Dimmer", user);
-      emit("008", "TFT Dimmer", user);
-      emit("009", "Meter Peak Hold", user);
-      emit("012", "Keyer Type", user);
-      emit("023", "Noise Blanker Width", user);
-      emit("024", "Noise Blanker Rejection", user);
-      emit("025", "Noise Blanker Level", user);
-   }
+   if (!s || !s->profile || !emit) return;
+   for (size_t i = 0; i < s->profile->menu_count; i++)
+      emit(s->profile->menu[i].id, s->profile->menu[i].label, user);
 }
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
@@ -567,8 +756,10 @@ static bool create(rr_backend_t *b) {
    char id_reply[24];
    if (cat(s, "ID;", "ID", id_reply, sizeof(id_reply)) && strlen(id_reply) == 6) {
       int id;
-      if (decimal(id_reply + 2, 4, &id) && (id == 650 || id == 670))
-         s->model_id = id;
+      if (decimal(id_reply + 2, 4, &id)) {
+         s->profile = yaesu_model_by_id(id);
+         if (s->profile) s->model_id = id;
+      }
    }
    if (!s->model_id)
       rr_backend_log(b, LOG_WARN, "backend.yaesu",
@@ -578,7 +769,7 @@ static bool create(rr_backend_t *b) {
       "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
    };
 
-   for (unsigned i = 0 ; i < sizeof(props) / sizeof(props[0]) ; i++) {
+   for (unsigned i = 0 ; s->profile && s->profile->ft891_controls && i < sizeof(props) / sizeof(props[0]) ; i++) {
       rr_property_descriptor_t d = {
          .name = props[i], .type = VAL_INT, .readable = true,
          .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
@@ -587,7 +778,7 @@ static bool create(rr_backend_t *b) {
       rr_rig_property_define(b->owner, &d);
    }
 
-   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
+   for (size_t i = 0; s->profile && s->profile->ft891_controls && i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
       rr_property_descriptor_t d = {
          .name = yaesu_controls[i].name, .type = VAL_INT, .readable = true,
          .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
@@ -600,7 +791,8 @@ static bool create(rr_backend_t *b) {
       .writable = false, .unit = "%", .has_min = true, .has_max = true,
       .minimum.i = 0, .maximum.i = 100
    };
-   rr_rig_property_define(b->owner, &meter);
+   if (s->profile && s->profile->ft891_controls)
+      rr_rig_property_define(b->owner, &meter);
    return false;
 }
 static void destroy(rr_backend_t *b) {
@@ -626,7 +818,7 @@ static const char *model_name(rr_backend_t *b) {
    (void)b;
 
    yaesu_state_t *s = ys(b);
-   return s && s->model_id == 650 ? "FT-891" : s && s->model_id == 670 ? "FT-991A" : "Unknown Yaesu";
+   return s && s->profile ? s->profile->model : "Unknown Yaesu";
 }
 
 static const rr_backend_funcs_t api = {

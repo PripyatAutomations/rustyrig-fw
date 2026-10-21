@@ -582,14 +582,34 @@ typedef struct rig_menu_inventory {
 } rig_menu_inventory_t;
 static void inventory_rig_menu_item(const char *id, const char *label, void *user) {
    rig_menu_inventory_t *menu = user;
-   char name[128];
-   snprintf(name, sizeof(name), "%s %s", id, label);
-   dict *row = rr_inventory_row(menu->ctx->request, 3, "rig-menu-item", name, NULL);
+   char name[128], group_id[200];
+   if (strlen(id) != 4 || id[0] < '0' || id[0] > '9' ||
+       id[1] < '0' || id[1] > '9' || id[2] < '0' || id[2] > '9' ||
+       id[3] < '0' || id[3] > '9') return;
+   unsigned group = (unsigned)(id[0] - '0') * 10 + (unsigned)(id[1] - '0');
+   static const char *ft891_groups[] = { "AGC", "DISPLAY", "DVS", "KEYER", "GENERAL", "MODE AM", "MODE CW", "MODE DAT", "MODE FM", "MODE RTY", "MODE SSB", "RX DSP", "SCOPE", "TUNING", "TX AUDIO", "TX GNRL", "RESET", "VERSION" };
+   if (!strcmp(menu->model, "FT-891") && group >= 1 && group <= sizeof(ft891_groups) / sizeof(ft891_groups[0])) {
+      snprintf(group_id, sizeof(group_id), "%s.%02u", menu->parent, group);
+      /* Inventory entries arrive in menu order, so only publish a section once. */
+      if (!strcmp(id + 2, "01")) {
+         char heading[128];
+         snprintf(heading, sizeof(heading), "%02u %s", group, ft891_groups[group - 1]);
+         dict *section = rr_inventory_row(menu->ctx->request, 3, "rig-menu-group", heading, group_id);
+         if (section) {
+            dict_add(section, "inventory.parent", menu->parent);
+            rr_inventory_send(menu->ctx->client, section);
+         }
+      }
+   } else {
+      snprintf(group_id, sizeof(group_id), "%s", menu->parent);
+   }
+   snprintf(name, sizeof(name), "%c%c-%c%c %s", id[0], id[1], id[2], id[3], label);
+   dict *row = rr_inventory_row(menu->ctx->request, !strcmp(group_id, menu->parent) ? 3 : 4, "rig-menu-item", name, NULL);
    if (!row) return;
-   dict_add(row, "inventory.parent", menu->parent);
+   dict_add(row, "inventory.parent", group_id);
    dict_add(row, "inventory.service", id);
    dict_add(row, "inventory.access", "read-only");
-   dict_add(row, "inventory.description", "CAT EX menu entry; editor not yet enabled");
+   dict_add(row, "inventory.description", "CAT menu catalog; on-demand EX reader not yet enabled");
    rr_inventory_send(menu->ctx->client, row);
 }
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
