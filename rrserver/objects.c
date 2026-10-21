@@ -927,10 +927,19 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       bool allowed = false;
       const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
       const bool tuning = ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY);
+      /* Non-operating rig controls belong to the hardware, not a TX room.
+       * Keep VFO tuning, PTT, TX routing and transmitter settings scoped.
+       * The existing authenticated privilege check above still applies. */
+      const bool room_independent = !ctx.vfo &&
+         (!strcmp(name, RR_PROP_SPEAKER_VOLUME) ||
+          !strncmp(name, "display.", 8) ||
+          !strncmp(name, "receiver.", 9));
 
-      if (room) {
-         /* Native rig controls still require the physical rig's TX room. Only receiver properties may use a controlling user room. */
-         allowed = ctx.vfo ? ws_client_in_room(client, room) : (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
+      if (room_independent) {
+         allowed = true;
+      } else if (room) {
+         allowed = ctx.vfo ? ws_client_in_room(client, room) :
+            (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
       } else {
          room = base;
          allowed = base && ws_client_in_room(client, base);
@@ -974,7 +983,7 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       }
       bool releasing = !strcmp(name, RR_PROP_PTT) && !control.value.i && client->is_ptt;
 
-      if (!releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio), !strcmp(name, RR_PROP_PTT) && control.value.i))
+      if (!room_independent && !releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio), !strcmp(name, RR_PROP_PTT) && control.value.i))
       {
          code = "supervision-required";
          goto done;
