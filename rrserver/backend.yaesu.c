@@ -728,6 +728,25 @@ static void yaesu_menu_foreach(rr_backend_t *b,
    for (size_t i = 0; i < s->profile->menu_count; i++)
       emit(s->profile->menu[i].id, s->profile->menu[i].label, user);
 }
+/* Read exactly one advertised menu entry. EXnnnn; is the FT-891 CAT
+ * read form; its answer is EXnnnn<parameter>;. Never issue EX setters here. */
+static bool yaesu_menu_read(rr_backend_t *b, const char *id, char *value, size_t capacity) {
+   yaesu_state_t *s = ys(b);
+   if (!s || !s->profile || s->model_id != 650 || !id || strlen(id) != 4 ||
+       !capacity || !value) return false;
+   bool advertised = false;
+   for (size_t i = 0; i < s->profile->menu_count; ++i)
+      if (!strcmp(id, s->profile->menu[i].id)) { advertised = true; break; }
+   if (!advertised) return false;
+   char command[16], prefix[16], reply[128];
+   snprintf(prefix, sizeof(prefix), "EX%s", id);
+   snprintf(command, sizeof(command), "%s;", prefix);
+   if (!cat(s, command, prefix, reply, sizeof(reply))) return false;
+   size_t n = strlen(prefix);
+   if (strlen(reply) <= n || strlen(reply + n) >= capacity) return false;
+   snprintf(value, capacity, "%s", reply + n);
+   return true;
+}
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
 
@@ -787,6 +806,17 @@ static bool create(rr_backend_t *b) {
       };
       rr_rig_property_define(b->owner, &d);
    }
+   if (s->profile && s->model_id == 650) {
+      for (size_t i = 0; i < s->profile->menu_count; ++i) {
+         char property[32];
+         snprintf(property, sizeof(property), "menu.%s", s->profile->menu[i].id);
+         rr_property_descriptor_t d = {
+            .name = property, .type = VAL_STR, .readable = true,
+            .writable = false
+         };
+         rr_rig_property_define(b->owner, &d);
+      }
+   }
    rr_property_descriptor_t meter = {
       .name = "meter.signal", .type = VAL_INT, .readable = true,
       .writable = false, .unit = "%", .has_min = true, .has_max = true,
@@ -828,7 +858,7 @@ static const rr_backend_funcs_t api = {
    .ptt_set = ptt_set, .ptt_get = ptt_get,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
    .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
-   .menu_foreach = yaesu_menu_foreach
+   .menu_foreach = yaesu_menu_foreach, .menu_read = yaesu_menu_read
 };
 
 const rr_backend_type_t rr_backend_yaesu = {
