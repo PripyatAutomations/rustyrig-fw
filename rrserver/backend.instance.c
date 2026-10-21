@@ -113,9 +113,30 @@ static rr_control_result_t rr_backend_property_control(const rr_control_request_
 
    if (!request || !backend || request->rig != backend->owner ||
       rr_server_rig_backend(request->rig) != backend || !backend->type ||
-      !backend->type->api || !request->vfo || rr_server_vfo_owner(request->vfo) != request->rig) {
+      !backend->type->api || (request->vfo && rr_server_vfo_owner(request->vfo) != request->rig)) {
       return RR_CONTROL_INVALID;
    }
+
+   if (!request->vfo &&
+       (!strcmp(request->property, RR_PROP_DISPLAY_BRIGHTNESS) ||
+        !strcmp(request->property, RR_PROP_SPEAKER_VOLUME))) {
+      if (request->value_type != VAL_INT || request->value.i < 0 ||
+          request->value.i > 100 || !backend->type->api->rig_control_set)
+         return RR_CONTROL_INVALID;
+      if (backend->worker) {
+         rr_server_vfo_t *vfo = rr_server_vfo_find_alias(backend->owner, "A");
+         if (!vfo) return RR_CONTROL_UNSUPPORTED;
+         rr_control_request_t queued = *request;
+         queued.vfo = vfo; /* queue indexing only; the control is rig-owned */
+         return backend_queue_control(backend, &queued,
+            !strcmp(request->property, RR_PROP_DISPLAY_BRIGHTNESS) ?
+               RR_BACKEND_BRIGHTNESS : RR_BACKEND_SPEAKER_VOLUME,
+            (dict_value_t){ .i = request->value.i });
+      }
+      return backend->type->api->rig_control_set(backend, request->property,
+          request->value.i) ? RR_CONTROL_BACKEND_FAILED : RR_CONTROL_OK;
+   }
+   if (!request->vfo) return RR_CONTROL_UNSUPPORTED;
 
    if (strcmp(request->property, RR_PROP_VFO_FREQUENCY) == 0) {
       if (request->value_type != VAL_LONG || request->value.l < 0 || request->value.l > INT32_MAX || !rr_backend_api(backend)->freq_set) {
