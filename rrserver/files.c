@@ -647,14 +647,28 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          audited = true;
       }
    } else if (!strcmp(cmd, "delete")) {
-      if (fstatat(parent, name, &st, AT_SYMLINK_NOFOLLOW)) {
+      /* Never delete an exported share root, even if a future caller changes
+       * the generic write-operation guard above. */
+      if (!strcmp(name, ".")) {
+         error = EPERM;
+      } else if (fstatat(parent, name, &st, AT_SYMLINK_NOFOLLOW)) {
          error = errno;
-      } else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
-         error = EINVAL;
-      } else if (unlinkat(parent, name, S_ISDIR(st.st_mode) ? AT_REMOVEDIR : 0)) {
-         error = errno;
+      } else if (S_ISREG(st.st_mode)) {
+         if (unlinkat(parent, name, 0)) {
+            error = errno;
+         } else {
+            audited = true;
+         }
+      } else if (S_ISDIR(st.st_mode)) {
+         /* AT_REMOVEDIR is intentionally nonrecursive. The kernel rejects
+          * a nonempty directory with ENOTEMPTY/EEXIST. Do not traverse it. */
+         if (unlinkat(parent, name, AT_REMOVEDIR)) {
+            error = errno;
+         } else {
+            audited = true;
+         }
       } else {
-         audited = true;
+         error = EINVAL;
       }
    } else if (!strcmp(cmd, "rename")) {
       char ignored[256];
