@@ -86,21 +86,7 @@ static gboolean rig_volume_refresh(gpointer widget) {
 }
 // Returns a GtkWidget with the volume box
 GtkWidget *create_volbox(void) {
-   // RX VOLUME Box
-   GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkWidget *rx_vol_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(rx_vol_label), "RX <u>V</u>ol");
-
-   rx_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   gtk_scale_set_draw_value(GTK_SCALE(rx_vol_slider), FALSE);
-   gtk_widget_set_tooltip_text(rx_vol_slider, "Receive Volume");
-   gtk_scale_set_digits(GTK_SCALE(rx_vol_slider), 0);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_label, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_vol_slider, TRUE, TRUE, 0);
-
-   /// Put a spacer in here
-   GtkWidget *vol_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), vol_spacer, TRUE, TRUE, 0);
+   GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
 
    GtkWidget *rx_rig_vol_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(rx_rig_vol_label), "Ri<u>G</u> Vol");
@@ -117,14 +103,6 @@ GtkWidget *create_volbox(void) {
    rig_volume_refresh(rx_rig_vol_slider);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_slider, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_label, TRUE, TRUE, 0);
-
-   int cfg_def_vol_rx = cfg_get_int("audio.volume.rx", 0);
-
-   if (rx_vol_slider && GTK_IS_RANGE(rx_vol_slider)) {
-      gtk_range_set_value(GTK_RANGE(rx_vol_slider), cfg_def_vol_rx);
-   }
-
-   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), NULL);
 
    return rx_vol_vbox;
 }
