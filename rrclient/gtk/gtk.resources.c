@@ -1708,8 +1708,10 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       icon = "view-refresh-symbolic";
    } else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) {
       icon = "user-available-symbolic";
-   } else if (!g_strcmp0(kind, "user")) {
-      icon = "avatar-default-symbolic";
+   } else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users")) {
+      icon = "system-users-symbolic";
+   } else if (!g_strcmp0(kind, "cat")) {
+      icon = "face-cat-symbolic";
    } else if (!g_strcmp0(kind, "gps")) {
       icon = "find-location-symbolic";
    } else if (!g_strcmp0(kind, "media")) {
@@ -1753,7 +1755,7 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       else if (!g_strcmp0(name, "Rooms"))
          icon = "user-available-symbolic";
       else if (!g_strcmp0(name, "Users"))
-         icon = "avatar-default-symbolic";
+         icon = "system-users-symbolic";
       else
          icon = "folder-symbolic";
    }
@@ -1762,6 +1764,8 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       /* Some themes omit specialty symbolic names. Keep the resource visible. */
       if (!g_strcmp0(kind, "rig")) icon = "network-wireless";
       else if (!g_strcmp0(kind, "vfo")) icon = "view-refresh";
+      else if (!g_strcmp0(kind, "cat")) icon = gtk_icon_theme_has_icon(theme, "face-cat") ? "face-cat" : "face-smile-symbolic";
+      else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") || !g_strcmp0(name, "Users")) icon = "system-users";
       else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Brightness"))
          icon = "display-brightness";
       else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Volume"))
