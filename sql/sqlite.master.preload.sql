@@ -18,14 +18,25 @@ INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions
 INSERT INTO tx_credits (name, credits) VALUES
    ('admin', 14400);
 
--- DEVELOPMENT-ONLY: Permit the authenticated admin account from any linked
--- station to operate every rig and join every room owned by this server.
--- subject_host='*' matches remote hosts; resource_uuid='*' matches all rigs
--- and rooms, including resources created after bootstrap. The startup schema
--- migration adds remote_allowed=1 to these fresh-database rows.
--- REMOVE before release: this grants broad cross-site control to admin@*.
+-- DEVELOPMENT ONLY: grant the @full privilege set on every rig owned by
+-- this server to authenticated admin accounts from ANY linked site (admin@*).
+-- The preload runs before database.c creates its standard privilege presets,
+-- so establish @full and its rig.full entry here first. INSERT OR IGNORE in
+-- database.c will reuse the same set. The migration adds remote_allowed=1 to
+-- these rows on first startup, making linked-site access explicit in the DB.
+-- This does NOT bypass independent PTT, TX, or radio hardware safety checks.
+-- REMOVE these test grants and revoke previously seeded grants before release.
+INSERT OR IGNORE INTO privilege_sets (name,description,created_by)
+VALUES ('full','Full rig operation, subject to independent TX and safety checks','system');
+INSERT OR IGNORE INTO privilege_set_entries (set_id,privilege,effect)
+SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full';
+INSERT OR IGNORE INTO privilege_set_assignments
+   (set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by)
+SELECT id,'admin','*','rig','*','seed'
+FROM privilege_sets WHERE name='full';
+
+-- @full is rig-scoped. A separate room grant is still needed for normal
+-- remote room joins (including site lobby rooms with no rig).
 INSERT INTO resource_privileges
    (subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by)
-VALUES
-   ('admin','*','rig','*','rig.full','allow','seed'),
-   ('admin','*','room','*','room.join','allow','seed');
+VALUES ('admin','*','room','*','room.join','allow','seed');
