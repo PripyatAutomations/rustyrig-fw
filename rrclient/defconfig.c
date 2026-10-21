@@ -82,6 +82,15 @@ const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
    {
+      "chat.send.burst", "4", "Client chat messages allowed in an immediate burst (1-100)", DEFCONFIG_UINT, NULL
+   },
+   {
+      "chat.send.interval-ms", "2000", "Milliseconds between replenished outgoing chat tokens (100-60000)", DEFCONFIG_UINT, NULL
+   },
+   {
+      "chat.send.queue-limit", "64", "Maximum locally queued outgoing chat messages (1-1000)", DEFCONFIG_UINT, NULL
+   },
+   {
       "receiver-directory.url", "https://cdn.aethersdr.com/kiwi.json", "Temporary HTTPS receiver directory mirror; empty disables fetching"
    },
    {
