@@ -747,6 +747,23 @@ static bool yaesu_menu_read(rr_backend_t *b, const char *id, char *value, size_t
    snprintf(value, capacity, "%s", reply + n);
    return true;
 }
+static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value) {
+   yaesu_state_t *s = ys(b);
+   if (!s || s->model_id != 650 || !id || !value) return false;
+   int minimum = 0, maximum = 0, width = 0;
+   if (!strcmp(id, "0201") || !strcmp(id, "0202") ||
+       !strcmp(id, "0203") || !strcmp(id, "0204")) {
+      minimum = 1; maximum = 15; width = 2;
+   } else if (!strcmp(id, "0504")) {
+      minimum = 0; maximum = 100; width = 3;
+   } else return false;
+   if (strlen(value) != (size_t)width) return false;
+   int number = 0;
+   if (!decimal(value, width, &number) || number < minimum || number > maximum) return false;
+   char command[24];
+   snprintf(command, sizeof(command), "EX%s%s;", id, value);
+   return cat(s, command, NULL, NULL, 0);
+}
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
 
@@ -858,7 +875,7 @@ static const rr_backend_funcs_t api = {
    .ptt_set = ptt_set, .ptt_get = ptt_get,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
    .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
-   .menu_foreach = yaesu_menu_foreach, .menu_read = yaesu_menu_read
+   .menu_foreach = yaesu_menu_foreach, .menu_read = yaesu_menu_read, .menu_write = yaesu_menu_write
 };
 
 const rr_backend_type_t rr_backend_yaesu = {

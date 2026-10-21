@@ -51,6 +51,7 @@ typedef struct rr_backend_funcs {
    void (*menu_foreach)(rr_backend_t *, void (*emit)(const char *id, const char *label, void *user), void *user);
    /* Serialized on-demand hardware read. Returned CAT parameter is text. */
    bool (*menu_read)(rr_backend_t *, const char *id, char *value, size_t capacity);
+   bool (*menu_write)(rr_backend_t *, const char *id, const char *value);
 } rr_backend_funcs_t;
 
 /* Immutable implementation metadata. */

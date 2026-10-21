@@ -812,6 +812,24 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
 
          return;
       }
+   } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "menu-set")) {
+      const char *uuid = dict_get(d, "target", NULL);
+      const char *name = dict_get(d, "property.name", NULL);
+      const char *value = dict_get(d, "property.value", NULL);
+      if (!client->user || !has_priv(client->user->uid, "admin|owner")) { code = "forbidden"; goto done; }
+      if (!uuid || !rr_object_uuid_valid(uuid) || !name ||
+          strncmp(name, "menu.", 5) || strlen(name) != 9 ||
+          !value || strlen(value) > 8) goto done;
+      object_send_t ctx = { 0 };
+      if (!resolve(uuid, &ctx) || ctx.vfo) { code = "unknown-object"; goto done; }
+      rr_backend_t *backend = rr_server_rig_backend(ctx.radio);
+      if (!backend || !backend->type->api->menu_write || !backend->worker) { code = "unsupported"; goto done; }
+      rr_server_vfo_t *vfo = rr_server_vfo_find_alias(ctx.radio, "A");
+      if (!vfo) { code = "unavailable"; goto done; }
+      char encoded[32];
+      snprintf(encoded, sizeof(encoded), "%s:%s", name + 5, value);
+      dict_value_t command = { .s = encoded };
+      code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_WRITE, command, NULL, NULL) ? "busy" : "ok";
    } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "read")) {
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);

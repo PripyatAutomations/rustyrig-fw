@@ -2,6 +2,7 @@
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
 #include <gtk/gtk.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
@@ -987,9 +988,55 @@ static void resource_menu_read_free(gpointer data) {
    g_free(read->initial_version);
    g_free(read);
 }
+static void resource_menu_apply(GtkButton *button, gpointer data) {
+   resource_menu_read_t *read = data;
+   GtkWidget *entry = g_object_get_data(G_OBJECT(button), "menu-edit-entry");
+   const char *profile = g_object_get_data(G_OBJECT(button), "menu-profile");
+   const char *id = read->property + 5;
+   int minimum = !strcmp(id, "0504") ? 0 : 1;
+   int maximum = !strcmp(id, "0504") ? 100 : 15;
+   int digits = !strcmp(id, "0504") ? 3 : 2;
+   const char *input = gtk_entry_get_text(GTK_ENTRY(entry));
+   char *end = NULL;
+   long number = strtol(input, &end, 10);
+   if (!input[0] || !end || *end || number < minimum || number > maximum) {
+      gtk_label_set_text(GTK_LABEL(read->label), "Invalid value for this setting.");
+      return;
+   }
+   rrconn_t *connection = rrclient_connection_find(profile);
+   if (!connection || !connection->authenticated || !connection->is_ws) {
+      gtk_label_set_text(GTK_LABEL(read->label), "Server disconnected; change not sent.");
+      return;
+   }
+   dict *request = dict_new();
+   if (!request) return;
+   char encoded[12], request_id[64];
+   snprintf(encoded, sizeof(encoded), "%0*ld", digits, number);
+   snprintf(request_id, sizeof(request_id), "menu-write-%lld", (long long)g_get_monotonic_time());
+   dict_add(request, "msg.type", "property");
+   dict_add(request, "property.cmd", "menu-set");
+   dict_add(request, "target", read->uuid);
+   dict_add(request, "property.name", read->property);
+   dict_add(request, "property.value", encoded);
+   dict_add(request, "request.id", request_id);
+   const dict *cached = rrclient_object_property(read->uuid, read->property);
+   const char *version = cached ? dict_get((dict *)cached, "property.version", NULL) : NULL;
+   g_free(read->initial_version);
+   read->initial_version = version ? g_strdup(version) : NULL;
+   if (read->timer) { g_source_remove(read->timer); read->timer = 0; }
+   if (ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT)) {
+      gtk_label_set_text(GTK_LABEL(read->label), "Change submitted; awaiting CAT readback…");
+      read->attempts = 0;
+      read->timer = g_timeout_add(200, resource_menu_value_poll, read);
+   } else gtk_label_set_text(GTK_LABEL(read->label), "Unable to send menu change.");
+   dict_free(request);
+}
 static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
                                const char *profile, const char *title, const char *id) {
-   if (!profile || !id || strlen(id) != 4) return;
+   if (!profile || !id || strlen(id) != 4) {
+      gtk_label_set_text(GTK_LABEL(browser->status), "Cannot open menu: missing server or menu ID.");
+      return;
+   }
    GtkTreeIter current = *item, parent;
    char *uuid = NULL;
    while (gtk_tree_model_iter_parent(model, &parent, &current)) {
@@ -1013,6 +1060,18 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    GtkWidget *label = gtk_label_new("Reading one menu value from the rig…");
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
+   gboolean editable = !strcmp(id, "0201") || !strcmp(id, "0202") ||
+      !strcmp(id, "0203") || !strcmp(id, "0204") || !strcmp(id, "0504");
+   GtkWidget *entry = NULL, *apply = NULL;
+   if (editable) {
+      GtkWidget *line = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+      entry = gtk_entry_new();
+      gtk_entry_set_placeholder_text(GTK_ENTRY(entry), !strcmp(id, "0504") ? "0–100" : "1–15");
+      apply = gtk_button_new_with_label("Apply");
+      gtk_box_pack_start(GTK_BOX(line), entry, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(line), apply, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(area), line, FALSE, FALSE, 0);
+   }
    GtkWidget *close = gtk_button_new_with_label("Close");
    gtk_box_pack_start(GTK_BOX(area), close, FALSE, FALSE, 0);
    g_signal_connect_swapped(close, "clicked", G_CALLBACK(gtk_widget_destroy), panel);
@@ -1026,6 +1085,11 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
       read->initial_version = version ? g_strdup(version) : NULL;
    }
    g_object_set_data_full(G_OBJECT(panel), "rr-menu-read", read, resource_menu_read_free);
+   if (apply) {
+      g_object_set_data(G_OBJECT(apply), "menu-edit-entry", entry);
+      g_object_set_data_full(G_OBJECT(apply), "menu-profile", g_strdup(profile), g_free);
+      g_signal_connect(apply, "clicked", G_CALLBACK(resource_menu_apply), read);
+   }
    dict *request = dict_new();
    if (request) {
       dict_add(request, "msg.type", "property");
@@ -2622,7 +2686,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
-      ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, (!strcmp(kind, "control")
+      ROOM, room, PROFILE, profile, SERVICE, !strcmp(kind, "rig-menu-item") ? dict_get(row, "inventory.service", "") : service ? service : "", ACTION, (!strcmp(kind, "control")
          || !strcmp(kind, "rig-control")) ? dict_get(row, "inventory.service", "") : dict_get(row, "inventory.action", ""), -1);
 
    if (branch->selection) {
