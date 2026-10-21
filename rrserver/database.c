@@ -599,40 +599,6 @@ static bool db_ensure_resource_privileges(sqlite3 *db) {
       sqlite3_free(migration_error);
    }
 
-   const char *presets =
-      "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) VALUES"
-      "('rigctl','Rig tuning and control functions; TX requires separate authorization','system'),"
-      "('sysop','Reserved for future BBS system operator operations','system'),"
-      "('listener','Receive only: rig access, frequency and spectrum readback','system'),"
-      "('full','Full rig operation, subject to independent TX and safety checks','system'),"
-      "('transmit','Transmit privilege; safety and supervision remain mandatory','system'),"
-      "('supervised','New operator; Elmer checks remain mandatory','system');"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'rig.use','allow' FROM privilege_sets WHERE name='rigctl';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'rig.tune','allow' FROM privilege_sets WHERE name='rigctl';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'frequency.read','allow' FROM privilege_sets WHERE name='rigctl';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'rig.use','allow' FROM privilege_sets WHERE name='listener';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'rx','allow' FROM privilege_sets WHERE name='listener';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'frequency.read','allow' FROM privilege_sets WHERE name='listener';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'spectrum.read','allow' FROM privilege_sets WHERE name='listener';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'tx','allow' FROM privilege_sets WHERE name='transmit';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) " "SELECT id,'noob','allow' FROM privilege_sets WHERE name='supervised';";
-   char *preset_error = NULL;
-   ok = sqlite3_exec(db, presets, NULL, NULL, &preset_error) == SQLITE_OK;
-
-   if (!ok) {
-      Log(LOG_CRIT, "db", "Cannot seed privilege groups: %s", preset_error ? preset_error : sqlite3_errmsg(db));
-   }
-   sqlite3_free(preset_error);
 
    return ok;
 }
