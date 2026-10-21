@@ -240,7 +240,7 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
       !strcmp(name, "display.tx-indicator") ? 3 : -1;
    if (field >= 0) {
       if (!get_dimmer(s)) return true;
-      int minimum = field == 0 ? 1 : 0;
+      int minimum = field <= 1 ? 1 : 0;
       s->dimmer[field] = minimum + (percent * (15 - minimum) + 50) / 100;
       snprintf(command, sizeof(command), "DA%02d%02d%02d%02d;",
          s->dimmer[0], s->dimmer[1], s->dimmer[2], s->dimmer[3]);
@@ -390,7 +390,7 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
    if (index == b->active_vfo) {
       if (get_dimmer(s)) {
          observe(b, "display.contrast", (s->dimmer[0] - 1) * 100 / 14);
-         observe(b, "display.key-backlight", s->dimmer[1] * 100 / 15);
+         observe(b, "display.key-backlight", (s->dimmer[1] - 1) * 100 / 14);
          observe(b, RR_PROP_DISPLAY_BRIGHTNESS, s->dimmer[2] * 100 / 15);
          observe(b, "display.tx-indicator", s->dimmer[3] * 100 / 15);
       } else {
