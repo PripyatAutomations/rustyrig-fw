@@ -953,9 +953,15 @@ typedef struct {
    char *uuid, *property;
    GtkWidget *label;
    guint timer;
+   unsigned attempts;
 } resource_menu_read_t;
 static gboolean resource_menu_value_poll(gpointer data) {
    resource_menu_read_t *read = data;
+   if (++read->attempts > 50) {
+      gtk_label_set_text(GTK_LABEL(read->label), "No CAT value received. Check the server and rig CAT logs.");
+      read->timer = 0;
+      return G_SOURCE_REMOVE;
+   }
    const dict *state = rrclient_object_property(read->uuid, read->property);
    if (state && dict_get_bool((dict *)state, "property.known", false) &&
        dict_get_bool((dict *)state, "property.available", true)) {
