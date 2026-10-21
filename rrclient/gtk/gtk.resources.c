@@ -1832,7 +1832,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          "inventory.location", "Unknown City"));
    }
    const char *fields[] = {
-      "description", "location", "backend", "frequency", "mode", "width", "codec", "direction", "source", "service", "access"
+      "description", "location", "backend", "manufacturer", "model", "frequency", "mode", "width", "codec", "direction", "source", "service", "access"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
@@ -1859,6 +1859,13 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    char *label = NULL;
 
+   if (!strcmp(kind, "rig")) {
+      const char *manufacturer = dict_get(row, "inventory.manufacturer", "");
+      const char *model = dict_get(row, "inventory.model", "");
+      if (*model)
+         label = *manufacturer ? g_strdup_printf("%s — %s %s", name, manufacturer, model)
+                               : g_strdup_printf("%s — %s", name, model);
+   }
    if (!strcmp(kind, "vfo")) {
       const char *frequency = dict_get(row, "inventory.frequency", "");
       const char *mode = dict_get(row, "inventory.mode", "");
