@@ -1430,7 +1430,9 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
-      /* Both sides must be shrinkable: otherwise the chat view\n       * locks the handle after reducing the roster width. */\n      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, TRUE);
+      /* Both sides must be shrinkable: otherwise the chat view
+       * locks the handle after reducing the roster width. */
+      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, TRUE);
 
       userlist_dock_room_into(GTK_PANED(paned), room);
    } else {
