@@ -585,7 +585,7 @@ static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings
 static bool modem_mode_active(const serial_binding_t *b) {
    if (strcmp(b->name, "ttyMODEM") || strcmp(b->service, "rig.modem")) return true;
    const char *mode = rr_cat_property(NULL, "mode", NULL);
-   return mode && (!strcmp(mode, "D-U") || !strcmp(mode, "D-L") || !strcmp(mode, "DFM"));
+   return mode && (!strcmp(mode, "D-U") || !strcmp(mode, "D-L"));
 }
 static void host_sync(serial_binding_t *b) {
    if (!modem_mode_active(b)) {
