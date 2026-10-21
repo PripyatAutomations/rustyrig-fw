@@ -349,6 +349,15 @@ defconfig_t defcfg[] = {
       "chat.replay-lines", "20", "Lines of replay to show on joining chat", DEFCONFIG_UINT, NULL
    },
    {
+      "chat.flood.burst", "5", "Allowed immediate chat messages per account before pacing/shun (1-100)", DEFCONFIG_UINT, NULL
+   },
+   {
+      "chat.flood.interval-ms", "2000", "Milliseconds to replenish one server chat flood token (100-60000)", DEFCONFIG_UINT, NULL
+   },
+   {
+      "chat.flood.shun-seconds", "10", "Temporary chat-only shun after flood limit is exceeded (1-3600)", DEFCONFIG_UINT, NULL
+   },
+   {
       "callsign-lookup:cache-db", "/var/lib/rustyrig/db/rrserver-callsigns.db", "Server-local callsign lookup cache database",
       DEFCONFIG_PATH, NULL
    },
