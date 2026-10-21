@@ -347,19 +347,57 @@ void gtk_terminal_open_endpoint(const char *name) {
    gtk_terminal_open_endpoint_labeled(name, NULL);
 }
 static void terminal_port_visit(rr_serial_t *port, void *user) {
-   (void)user;
+   GHashTable *seen = user;
    const char *name = rr_serial_name(port);
 
-   if (name && *name) {
+   if (name && *name && !g_hash_table_contains(seen, name)) {
       gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(terminal_ports), name);
+      g_hash_table_add(seen, g_strdup(name));
    }
 }
 static void terminal_refresh(GtkButton *button, gpointer user) {
    (void)button;
    (void)user;
+   gchar *previous = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(terminal_ports));
    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(terminal_ports));
-   rr_serial_foreach(terminal_port_visit, NULL);
-   gtk_combo_box_set_active(GTK_COMBO_BOX(terminal_ports), 0);
+   GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   /* Permanent auto-follow endpoints are visible regardless of attach timing. */
+   const char *permanent[] = { "ttyCAT", "ttyGPS", "ttyMODEM" };
+   for (guint i = 0; i < G_N_ELEMENTS(permanent); i++) {
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(terminal_ports), permanent[i]);
+      g_hash_table_add(seen, g_strdup(permanent[i]));
+   }
+   GList *configured = gtk_serial_configured_names();
+   for (GList *item = configured; item; item = item->next) {
+      const char *name = item->data;
+      if (!g_hash_table_contains(seen, name)) {
+         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(terminal_ports), name);
+         g_hash_table_add(seen, g_strdup(name));
+      }
+   }
+   g_list_free_full(configured, g_free);
+   rr_serial_foreach(terminal_port_visit, seen);
+   g_hash_table_destroy(seen);
+   /* Preserve the selected endpoint when refreshing. */
+   GtkTreeModel *model = gtk_combo_box_get_model(GTK_COMBO_BOX(terminal_ports));
+   GtkTreeIter iter;
+   gboolean restored = FALSE;
+   for (gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+        valid; valid = gtk_tree_model_iter_next(model, &iter)) {
+      char *name = NULL;
+      gtk_tree_model_get(model, &iter, 0, &name, -1);
+      if (!g_strcmp0(name, previous)) {
+         gtk_combo_box_set_active_iter(GTK_COMBO_BOX(terminal_ports), &iter);
+         restored = TRUE;
+         g_free(name);
+         break;
+      }
+      g_free(name);
+   }
+   if (!restored) {
+      gtk_combo_box_set_active(GTK_COMBO_BOX(terminal_ports), 0);
+   }
+   g_free(previous);
 }
 static void terminal_configure(GtkButton *button, gpointer user) {
    (void)user;
