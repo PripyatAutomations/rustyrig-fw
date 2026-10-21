@@ -1705,7 +1705,7 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    } else if (!g_strcmp0(kind, "rig")) {
       icon = "network-wireless-symbolic";
    } else if (!g_strcmp0(kind, "vfo")) {
-      icon = "multimedia-volume-control-symbolic";
+      icon = "view-refresh-symbolic";
    } else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) {
       icon = "user-available-symbolic";
    } else if (!g_strcmp0(kind, "user")) {
@@ -1761,7 +1761,7 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    if (theme && !gtk_icon_theme_has_icon(theme, icon)) {
       /* Some themes omit specialty symbolic names. Keep the resource visible. */
       if (!g_strcmp0(kind, "rig")) icon = "network-wireless";
-      else if (!g_strcmp0(kind, "vfo")) icon = "preferences-system";
+      else if (!g_strcmp0(kind, "vfo")) icon = "view-refresh";
       else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Brightness"))
          icon = "display-brightness";
       else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Volume"))
