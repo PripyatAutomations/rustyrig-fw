@@ -1967,6 +1967,8 @@ static void resource_create(void) {
          gtk_tree_view_column_pack_start(column, icon, FALSE);
          gtk_tree_view_column_set_cell_data_func(column, icon, resource_icon_cell, NULL, NULL);
          GtkCellRenderer *cat = gtk_cell_renderer_text_new();
+         /* The side-view emoji is otherwise tiny and indistinct in a tree row. */
+         g_object_set(cat, "scale", 1.65, "scale-set", TRUE, "xpad", 2, NULL);
          gtk_tree_view_column_pack_start(column, cat, FALSE);
          gtk_tree_view_column_set_cell_data_func(column, cat, resource_cat_cell, NULL, NULL);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
