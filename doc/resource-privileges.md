@@ -360,12 +360,12 @@ routing path is explicitly via `/admin @NODE_UUID`. The temporary bootstrap
 ## Development-only cross-site admin bootstrap grant
 
 For multi-node integration testing, `sql/sqlite.master.preload.sql` temporarily seeds
-`admin@*` with `rig.full` for `rig *` and `room.join` for `room *`.
+`admin@*` with the `@full` privilege set on `rig *` (whose entry is `rig.full`), plus a separate `room.join` grant for `room *`.
 This matches authenticated `admin` accounts from **every linked server**, not
 just local administrators. It allows broad remote rig control and room access;
 it is **not suitable for production** and does not replace RF/PTT safety checks.
 
-**Before any production release:** remove both seed inserts, verify fresh installs
-contain no blanket `admin@*` grant, and explicitly revoke those rows from any
+The `@full` assignment lives in `privilege_set_assignments`; the room grant lives in `resource_privileges`. Both acquire `remote_allowed=1` through the database startup migration after a fresh preload. The group itself does not grant room permissions.\n\n**Before any production release:** remove both seed grants (and the early preload group setup if no longer needed), verify fresh installs
+contain no blanket `admin@*` grant, and explicitly revoke both the assignment and direct-grant rows from any
 databases populated while the test seed was installed. Removing the SQL seed
 alone does not revoke already provisioned access. See `doc/release-checklist.md`.
