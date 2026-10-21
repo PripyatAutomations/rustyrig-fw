@@ -526,7 +526,16 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
 
    if (row) {
       rrserver_gps_inventory_position(row, alias);
-      dict_add(row, "inventory.backend", rr_server_rig_backend(radio)->type->name);
+      rr_backend_t *backend = rr_server_rig_backend(radio);
+      dict_add(row, "inventory.backend", backend->type->name);
+      if (backend->type->api->manufacturer) {
+         const char *manufacturer = backend->type->api->manufacturer(backend);
+         if (manufacturer && *manufacturer) dict_add(row, "inventory.manufacturer", manufacturer);
+      }
+      if (backend->type->api->model_name) {
+         const char *model = backend->type->api->model_name(backend);
+         if (model && *model) dict_add(row, "inventory.model", model);
+      }
       dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
       dict_add(row, "inventory.state", radio == rr_rig_registry_default(rig.rigs) ? "default" : "available");
       dict_add(row, "inventory.action", "/join <room>");
