@@ -686,10 +686,20 @@ void rr_relay_send_catalogs(const char *dest) {
       "node", "rig", "vfo", "room", "service"
    };
 
+   /* Service catalogs are stored newest-first.  Emit root services before
+    * children so the receiving node's parent-authority check succeeds. */
    for (unsigned i = 0 ; i < 5 ; i++) {
+      for (unsigned pass = 0 ; pass < (i == 4 ? 3u : 1u) ; pass++) {
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
          if (strcmp(dict_get(c->descriptor, "object.type", "room"), types[i])) {
             continue;
+         }
+         if (i == 4) {
+            const char *parent = dict_get(c->descriptor, "catalog.parent", "");
+            bool nested = !strncmp(parent, "service:", 8);
+            bool item = !strcmp(dict_get(c->descriptor, "inventory.kind", ""), "rig-menu-item");
+            if ((pass == 0 && nested) || (pass == 1 && (!nested || item)) ||
+                (pass == 2 && !item)) continue;
          }
          // Forward the actual owning identity, not our intermediate identity.
          const char *route = rrserver_links_route(c->owner);
@@ -722,6 +732,7 @@ void rr_relay_send_catalogs(const char *dest) {
          rrserver_links_send(dest, d);
          dict_free(d);
          free(json);
+      }
       }
    }
 }
