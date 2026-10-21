@@ -235,19 +235,16 @@ GtkWidget *create_vfo_box(void) {
 
    // FREQ selection
    freq_entry = gtk_freq_entry_new(-1);
-   GtkWidget *freq_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(freq_label), "<u>F</u>req");
    gtk_box_pack_start(GTK_BOX(vfo_tunable_box), freq_entry, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), freq_label, FALSE, FALSE, 0);
 
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), mode_box, TRUE, TRUE, 6);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), mode_box, FALSE, FALSE, 3);
 
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
    vfo_codec_box = codec_selectors;
-   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, TRUE, TRUE, 6);
+   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 3);
 
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
