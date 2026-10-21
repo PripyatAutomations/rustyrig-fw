@@ -55,7 +55,7 @@ extern bool log_stdout;
 extern const char *config_file; /* Owned by librustyaxe/config.c. */
 const char *config_codec = "pc16";
 static int control_fd = -1;
-const char *logfile = "./fwdsp.log";
+const char *logfile = "$HOME/fwdsp.log";
 bool codec_tx_mode = false;
 bool config_video = false;
 static bool pcm_hub_mode = false;   // is this audio or video stream?
@@ -375,7 +375,7 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   const char *record_dir = recording_dir ? recording_dir : "./recordings";
+   const char *record_dir = recording_dir ? recording_dir : "$HOME/recordings";
 
    time_t record_now = time(NULL);
    localtime_r(&record_now, &tm_now);
@@ -1500,7 +1500,7 @@ int main(int argc, char *argv[]) {
 
    if (!recording_dir || !*recording_dir) {
       free(recording_dir);
-      recording_dir = strdup("./recordings");
+      recording_dir = expand_path("$HOME/recordings");
    }
 
    if (!recording_dir) {
