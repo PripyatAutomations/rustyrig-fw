@@ -374,15 +374,20 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
    alias[length] = 0;
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      bool cat = !strcmp(b->service, "rig.cat");
-      bool modem = !strcmp(b->service, "rig.modem");
-      bool gps = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
+      /* Only the three unnumbered default PTYs float with the active rig.
+       * Numbered ports (ttyGPS0, ttyCAT1, ttyMODEM2, etc.) are manually bound. */
+      bool cat = !strcmp(b->name, "ttyCAT") && !strcmp(b->service, "rig.cat");
+      bool modem = !strcmp(b->name, "ttyMODEM") && !strcmp(b->service, "rig.modem");
+      bool gps = !strcmp(b->name, "ttyGPS") &&
+         (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out"));
 
       if (!cat && !gps && !modem) {
          continue;
       }
 
-      if (!strcmp(b->profile, profile) && ((!cat && !modem && !gps) || (!gps && !strcmp(b->radio, alias)) || (gps && !strcmp(b->focus_room, room)))) {
+      if (!strcmp(b->profile, profile) &&
+          (gps ? !strcmp(b->focus_room, room) :
+           !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room)))) {
          continue;
       }
 
