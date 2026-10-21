@@ -232,6 +232,19 @@ static const yaesu_control_spec_t yaesu_controls[] = {
    { "receiver.noise-reduction-level", "RL0", 1, 15, 2 },
    { "transmit.mic-gain", "MG", 0, 100, 3 },
    { "transmit.power", "PC", 5, 100, 3 },
+   { "receiver.ipo", "PA0", 0, 1, 1 },
+   { "receiver.auto-notch", "BC0", 0, 1, 1 },
+   { "receiver.narrow", "NA0", 0, 1, 1 },
+   { "receiver.agc", "GT0", 0, 4, 1 },
+   { "cw.keyer", "KR", 0, 1, 1 },
+   { "cw.speed", "KS", 4, 60, 3 },
+   { "cw.pitch", "KP", 0, 75, 2 },
+   { "cw.break-in", "BI", 0, 1, 1 },
+   { "transmit.monitor-level", "ML", 0, 100, 3 },
+   { "transmit.processor-level", "PL", 0, 100, 3 },
+   { "transmit.vox", "VX", 0, 1, 1 },
+   { "transmit.vox-gain", "VG", 0, 100, 3 },
+   { "panel.dial-lock", "LK", 0, 1, 1 },
 };
 static const yaesu_control_spec_t *yaesu_control_find(const char *name) {
    for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i)
