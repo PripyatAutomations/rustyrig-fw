@@ -26,8 +26,6 @@
 const char *configs[] = {
 #ifndef _WIN32
    "~/.config/rrserver.cfg",
-   "config/rrserver.cfg",
-   "rrserver.cfg",
    "/etc/rustyrig/rrserver.cfg"
 #else
    "%APPDATA%\\rrserver\\rrserver.cfg",
