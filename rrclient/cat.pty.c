@@ -16,10 +16,10 @@ void cat_pty_shutdown(void) {
    rr_sercom_shutdown();
 }
 bool cat_pty_active(void) {
-   return rr_serial_find("ttyCAT0") != NULL;
+   return rr_serial_find("ttyCAT") != NULL;
 }
 int cat_pty_fd(void) {
-   return rr_serial_fd(rr_serial_find("ttyCAT0"));
+   return rr_serial_fd(rr_serial_find("ttyCAT"));
 }
 int cat_pty_printf(const char *fmt, ...) {
    char buffer[512];
