@@ -257,7 +257,7 @@ void modebox_update_state(const char *mode, int width) {
 
 GtkWidget *create_mode_box(void) {
    GtkWidget *mode_combo_wrapper = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *mode_box_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(mode_box_label), "Mo<u>d</u>e/<u>W</u>idth");
 
@@ -279,9 +279,9 @@ GtkWidget *create_mode_box(void) {
 
    gtk_widget_set_can_focus(mode_combo_wrapper, TRUE);
    gtk_widget_add_events(mode_combo_wrapper, GDK_KEY_PRESS_MASK);
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(mode_combo_wrapper), mode_combo, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo_wrapper, TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_box_label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(mode_combo_wrapper), mode_combo, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(mode_box), mode_combo_wrapper, FALSE, FALSE, 0);
 
    ///
    width_combo = gtk_combo_box_text_new();
@@ -297,7 +297,7 @@ GtkWidget *create_mode_box(void) {
    g_signal_connect(width_combo, "key-press-event", G_CALLBACK(on_width_keypress), width_combo);
    g_signal_connect(width_combo, "notify::popup-shown", G_CALLBACK(on_selector_popup), NULL);
    width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_width_changed), NULL);
-   gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 1);
+   gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 0);
 
    // A GTK3 combobox sizes itself to its ACTIVE item, so switching between
    // 2- and 3-letter modes (AM <-> LSB) jiggles the layout. Pin the mode
