@@ -1,9 +1,11 @@
 // RustyRig GTK RX routing window. Licensed under the project's MIT/GPL terms.
 #include <gtk/gtk.h>
 #include <rrclient/audio.h>
+#include <rrclient/gtk/gtk.core.h>
 #include "gtk.audio-routing.h"
 
 static GtkWidget *routing_window, *split_rx, *ear_combo[2];
+static GtkWidget *routing_overlay;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token;
 static bool routing_updating, inventory_dirty, have_choices;
@@ -195,30 +197,50 @@ static void routing_event(const char *event, const char *data, rrconn_t *connect
    routing_queue();
 }
 
-static gboolean routing_minimize(GtkWidget *window, GdkEvent *event, gpointer unused) {
-   (void)event;
+static void routing_close(GtkButton *button, gpointer unused) {
+   (void)button;
    (void)unused;
-   gtk_window_iconify(GTK_WINDOW(window));
-
-   return TRUE;
+   gtk_widget_hide(routing_window);
 }
 
 void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
    }
-   routing_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(routing_window), "RX Audio Routing");
-   gtk_window_set_role(GTK_WINDOW(routing_window), "rx-audio-routing");
-   gtk_window_set_keep_above(GTK_WINDOW(routing_window), TRUE);
-   gtk_window_set_resizable(GTK_WINDOW(routing_window), FALSE);
-   /* A regular, non-transient window retains its own minimize/taskbar controls. */
-   g_signal_connect(routing_window, "delete-event", G_CALLBACK(routing_minimize), NULL);
+   if (!main_window || !GTK_IS_BIN(main_window)) {
+      return;
+   }
+   /* Put a floating panel *inside* the existing main window, preserving
+    * its notebook and all shortcut/focus handling. */
+   GtkWidget *content = gtk_bin_get_child(GTK_BIN(main_window));
+   if (!content) {
+      return;
+   }
+   g_object_ref(content);
+   gtk_container_remove(GTK_CONTAINER(main_window), content);
+   routing_overlay = gtk_overlay_new();
+   gtk_container_add(GTK_CONTAINER(routing_overlay), content);
+   g_object_unref(content);
+   gtk_container_add(GTK_CONTAINER(main_window), routing_overlay);
+   routing_window = gtk_frame_new(NULL);
+   gtk_widget_set_halign(routing_window, GTK_ALIGN_END);
+   gtk_widget_set_valign(routing_window, GTK_ALIGN_START);
+   gtk_widget_set_margin_top(routing_window, 12);
+   gtk_widget_set_margin_end(routing_window, 12);
+   gtk_overlay_add_overlay(GTK_OVERLAY(routing_overlay), routing_window);
+   GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_container_add(GTK_CONTAINER(routing_window), panel);
+   GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   gtk_box_pack_start(GTK_BOX(panel), header, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(header), gtk_label_new("RX Audio Routing"), TRUE, TRUE, 0);
+   GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
+   gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
+   g_signal_connect(close, "clicked", G_CALLBACK(routing_close), NULL);
    GtkWidget *grid = gtk_grid_new();
    gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
-   gtk_container_add(GTK_CONTAINER(routing_window), grid);
+   gtk_box_pack_start(GTK_BOX(panel), grid, TRUE, TRUE, 0);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
    gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
@@ -240,6 +262,8 @@ void gtk_audio_routing_init(void) {
       g_signal_connect(ear_combo[ear], "changed", G_CALLBACK(routing_changed), NULL);
    }
 
+   gtk_widget_show_all(routing_overlay);
+   gtk_widget_hide(routing_window);
    streams_token = event_on_token("client.audio.streams.changed", routing_event, NULL);
    routes_token = event_on_token("client.audio.route.changed", routing_event, NULL);
    inventory_dirty = true;
@@ -265,7 +289,7 @@ void gtk_audio_routing_shutdown(void) {
    if (routing_window) {
       gtk_widget_destroy(routing_window);
    }
-   routing_window = split_rx = ear_combo[0] = ear_combo[1] = NULL;
+   routing_window = routing_overlay = split_rx = ear_combo[0] = ear_combo[1] = NULL;
    routing_updating = inventory_dirty = have_choices = false;
    memset(ear_choice, 0, sizeof(ear_choice));
 }
