@@ -45,6 +45,7 @@ static void be_widths_for_mode(rr_mode_t mode, int *narr, int *norm, int *wide) 
          *wide = 9000;
          break;
       }
+      case MODE_DFM:
       case MODE_FM: {
          *narr = 5000;
          *norm = 12500;

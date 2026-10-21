@@ -244,6 +244,7 @@ static rmode_t hl_mode_from_rr(rr_mode_t mode) {
       case MODE_USB: {
          return RIG_MODE_USB;
       }
+      case MODE_DFM:
       case MODE_FM: {
          return RIG_MODE_FM;
       }

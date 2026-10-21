@@ -380,6 +380,7 @@ static char mode_encode(rr_mode_t mode) {
       case MODE_CW: {
          return '3';
       }
+      case MODE_DFM:
       case MODE_FM: {
          return '4';
       }
