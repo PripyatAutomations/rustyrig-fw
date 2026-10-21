@@ -375,7 +375,9 @@ static bool recorder_start(unsigned sample_rate, unsigned channels, unsigned bit
       return false;
    }
 
-   if (!recording_dir) return false;
+   if (!recording_dir) {
+      return false;
+   }
    const char *record_dir = recording_dir;
 
    time_t record_now = time(NULL);
@@ -1581,21 +1583,25 @@ int main(int argc, char *argv[]) {
    };
 
    // Default audio sockets live in the current account's HOME/dev, not cwd.
-   const char *home=getenv("HOME");
+   const char *home = getenv("HOME");
+
    if (!home || !*home) {
-      fprintf(stderr,"fwdsp: HOME is unset; cannot determine audio socket directory\n");
+      fprintf(stderr, "fwdsp: HOME is unset; cannot determine audio socket directory\n");
+
       return EXIT_FAILURE;
    }
-   char *socket_dir=g_strdup_printf("%s/dev",home);
-   if (g_mkdir_with_parents(socket_dir,0755)) {
-      fprintf(stderr,"fwdsp: cannot create audio socket directory %s: %s\n",socket_dir,strerror(errno));
+   char *socket_dir = g_strdup_printf("%s/dev", home);
+
+   if (g_mkdir_with_parents(socket_dir, 0755)) {
+      fprintf(stderr, "fwdsp: cannot create audio socket directory %s: %s\n", socket_dir, strerror(errno));
       g_free(socket_dir);
+
       return EXIT_FAILURE;
    }
-   char *default_socket=g_build_filename(socket_dir,au_cfg.tx_mode ? "fwdsp.tx.sock" : "fwdsp.rx.sock",NULL);
+   char *default_socket = g_build_filename(socket_dir, au_cfg.tx_mode ? "fwdsp.tx.sock" : "fwdsp.rx.sock", NULL);
    g_free(socket_dir);
-   au_cfg.sock_path=default_socket;
-   au_cfg.media_direction=au_cfg.tx_mode ? FW_DIR_TX : FW_DIR_RX;
+   au_cfg.sock_path = default_socket;
+   au_cfg.media_direction = au_cfg.tx_mode ? FW_DIR_TX : FW_DIR_RX;
 
    if (au_cfg.channel_id < 0) {
       au_cfg.channel_id = 0;

@@ -20,9 +20,8 @@ GList *gtk_serial_configured_names(void) {
    while (cfg && (rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
       char *name = NULL;
 
-      /* Port settings alone are not a mapping. The default configuration
-       * contains ttyCAT0 settings for optional pinned CAT ports, but they
-       * must not appear until serial.ttyCAT0 names a service. */
+      /* Port settings alone are not a mapping. The default configuration contains ttyCAT0 settings for optional pinned CAT ports, but they must not appear
+       * until serial.ttyCAT0 names a service. */
       if (!strncmp(key, "serial.", 7) && key[7] && !strchr(key + 7, '.')) {
          if (value && *value && strcmp(value, "none")) {
             name = g_strdup(key + 7);

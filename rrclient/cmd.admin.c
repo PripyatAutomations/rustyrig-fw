@@ -535,7 +535,10 @@ static bool send_management_command(const char *command, int argc, char **args, 
    }
    dict_add(request, "msg.type", "talk");
    dict_add(request, "talk.cmd", command);
-   if (server) dict_add(request, "talk.server", server);
+
+   if (server) {
+      dict_add(request, "talk.server", server);
+   }
    dict_add(request, "talk.data", tail);
    bool sent = ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
    dict_free(request);
@@ -548,22 +551,29 @@ bool cmd_link(int argc, char **args) {
 }
 
 bool cmd_admin_query(int argc, char **args) {
-   /* /admin @NODE-UUID COMMAND... routes to the owner server. The target
-    * is an advertised node UUID, not an arbitrary host or client identity. */
+   /* /admin @NODE-UUID COMMAND... routes to the owner server. The target is an advertised node UUID, not an arbitrary host or client identity. */
    const char *server = NULL;
    char **argv = args;
    char *shifted[argc > 0 ? argc : 1];
+
    if (argc > 1 && args[1] && args[1][0] == '@') {
       server = args[1] + 1;
+
       if (!*server || argc < 3) {
          ui_print(ui_active_window_name(), "Usage: /admin @NODE-UUID command [arguments]");
+
          return true;
       }
       shifted[0] = args[0];
-      for (int i = 2 ; i < argc ; i++) shifted[i-1] = args[i];
+
+      for (int i = 2 ; i < argc ; i++) {
+         shifted[i - 1] = args[i];
+      }
+
       argv = shifted;
       --argc;
    }
+
    /* Scoped direct grants use a principal instead of a local account UID. */
    if (argc >= 2 && argv[1] && (!strcmp(argv[1], "resource-grant") || !strcmp(argv[1], "resource-revoke"))) {
       if (argc < 6) {
@@ -591,7 +601,10 @@ bool cmd_admin_query(int argc, char **args) {
       }
       dict_add(d, "msg.type", "talk");
       dict_add(d, "talk.cmd", "admin");
-       if (server) dict_add(d, "talk.server", server);
+
+      if (server) {
+         dict_add(d, "talk.server", server);
+      }
       dict_add(d, "talk.action", argv[1]);
       dict_add(d, "talk.target", argv[2]);
       dict_add(d, "talk.data", tail);
@@ -629,7 +642,10 @@ bool cmd_admin_query(int argc, char **args) {
       }
       dict_add(d, "msg.type", "talk");
       dict_add(d, "talk.cmd", "admin");
-       if (server) dict_add(d, "talk.server", server);
+
+      if (server) {
+         dict_add(d, "talk.server", server);
+      }
       dict_add(d, "talk.action", argv[1]);
       dict_add(d, "talk.target", argv[2]);
       dict_add(d, "talk.data", tail);

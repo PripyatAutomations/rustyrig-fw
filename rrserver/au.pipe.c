@@ -143,18 +143,25 @@ void close_server(void) {
 }
 
 void au_unix_socket_init(void) {
-   const char *home=getenv("HOME");
+   const char *home = getenv("HOME");
+
    if (!home || !*home) {
-      Log(LOG_WARN,"au","HOME is not set; cannot create audio socket in HOME/dev");
+      Log(LOG_WARN, "au", "HOME is not set; cannot create audio socket in HOME/dev");
+
       return;
    }
-   char *dir=g_strdup_printf("%s/dev",home);
-   if (g_mkdir_with_parents(dir,0755)) {
-      Log(LOG_WARN,"au","Cannot create audio socket directory %s: %s",dir,strerror(errno));
+   char *dir = g_strdup_printf("%s/dev", home);
+
+   if (g_mkdir_with_parents(dir, 0755)) {
+      Log(LOG_WARN, "au", "Cannot create audio socket directory %s: %s", dir, strerror(errno));
       g_free(dir);
+
       return;
    }
-   if (!rx_socket_path) rx_socket_path=g_build_filename(dir,"fwdsp.rx.sock",NULL);
+
+   if (!rx_socket_path) {
+      rx_socket_path = g_build_filename(dir, "fwdsp.rx.sock", NULL);
+   }
    g_free(dir);
    rx_server_fd = au_start_listener(rx_socket_path);
 

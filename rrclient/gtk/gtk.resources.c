@@ -57,9 +57,15 @@ static gboolean resource_tick(gpointer data);
 static void resource_refresh(resource_branch *branch);
 static GtkWindow *resource_parent(void);
 static GtkTreePath *resource_view_path(GtkTreePath *child_path) {
-   if (!child_path || !browser) return NULL;
-   if (!browser->filter) return gtk_tree_path_copy(child_path);
-   return gtk_tree_model_filter_convert_child_path_to_path(browser->filter,child_path);
+   if (!child_path || !browser) {
+      return NULL;
+   }
+
+   if (!browser->filter) {
+      return gtk_tree_path_copy(child_path);
+   }
+
+   return gtk_tree_model_filter_convert_child_path_to_path(browser->filter, child_path);
 }
 
 static void branch_free(gpointer data) {
@@ -75,21 +81,28 @@ static void branch_free(gpointer data) {
    g_free(branch);
 }
 static char *resource_display_utf8(const char *value) {
-   if (!value) return g_strdup("");
-   if (g_utf8_validate(value, -1, NULL)) return g_strdup(value);
-   static gboolean warned=FALSE;
+   if (!value) {
+      return g_strdup("");
+   }
+
+   if (g_utf8_validate(value, -1, NULL)) {
+      return g_strdup(value);
+   }
+   static gboolean warned = FALSE;
+
    if (!warned) {
       g_printerr("Resource Explorer: invalid UTF-8 display metadata (substituting replacement characters)\n");
-      warned=TRUE;
+      warned = TRUE;
    }
-   return g_utf8_make_valid(value,-1);
+
+   return g_utf8_make_valid(value, -1);
 }
 static void set_string(GtkTreeIter *iter, int column, const char *value) {
    char *old = NULL;
    gtk_tree_model_get(GTK_TREE_MODEL(browser->store), iter, column, &old, -1);
 
    if (g_strcmp0(old, value)) {
-      char *safe=resource_display_utf8(value);
+      char *safe = resource_display_utf8(value);
       gtk_tree_store_set(browser->store, iter, column, safe, -1);
       g_free(safe);
    }
@@ -129,16 +142,21 @@ static void resource_expansion_walk(GtkTreeIter *parent, const char *prefix, GHa
 
    for (gboolean more = gtk_tree_model_iter_children(model, &child, parent) ; more ; more = gtk_tree_model_iter_next(model, &child)) {
       char *key = resource_row_key(model, &child, prefix);
-      GtkTreePath *child_path=gtk_tree_model_get_path(model,&child);
-      GtkTreePath *path=resource_view_path(child_path);
+      GtkTreePath *child_path = gtk_tree_model_get_path(model, &child);
+      GtkTreePath *path = resource_view_path(child_path);
+
       if (restore) {
-         if (path && g_hash_table_contains(expanded,key))
-            gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),path,FALSE);
-      } else if (path && gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path)) {
-         g_hash_table_add(expanded,g_strdup(key));
+         if (path && g_hash_table_contains(expanded, key)) {
+            gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
+         }
+      } else if (path && gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path)) {
+         g_hash_table_add(expanded, g_strdup(key));
       }
       resource_expansion_walk(&child, key, expanded, restore);
-      if (path) gtk_tree_path_free(path);
+
+      if (path) {
+         gtk_tree_path_free(path);
+      }
       gtk_tree_path_free(child_path);
       g_free(key);
    }
@@ -149,27 +167,35 @@ static void resource_expansion_save(resource_branch *branch) {
    }
    branch->expanded = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    /* Include the branch root itself, which can also be manually collapsed. */
-   GtkTreePath *child_path=gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store),&branch->root);
-   GtkTreePath *path=resource_view_path(child_path);
+   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
+   GtkTreePath *path = resource_view_path(child_path);
    gtk_tree_path_free(child_path);
-   if (path && gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path)) {
+
+   if (path && gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path)) {
       g_hash_table_add(branch->expanded, g_strdup("@root"));
    }
-   if (path) gtk_tree_path_free(path);
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
    resource_expansion_walk(&branch->root, branch->profile, branch->expanded, false);
 }
 static void resource_expansion_restore(resource_branch *branch) {
    if (!branch->expanded) {
       gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
+
       return;
    }
-   GtkTreePath *child_path=gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store),&branch->root);
-   GtkTreePath *path=resource_view_path(child_path);
+   GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
+   GtkTreePath *path = resource_view_path(child_path);
    gtk_tree_path_free(child_path);
+
    if (path) {
-      if (g_hash_table_contains(branch->expanded,"@root"))
-         gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),path,FALSE);
-      else gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree),path);
+      if (g_hash_table_contains(branch->expanded, "@root")) {
+         gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, FALSE);
+      } else {
+         gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+      }
       gtk_tree_path_free(path);
    }
    resource_expansion_walk(&branch->root, branch->profile, branch->expanded, true);
@@ -198,7 +224,7 @@ static void resource_destroy(GtkWidget *widget, gpointer data) {
    g_hash_table_destroy(view->local_rows);
    g_hash_table_destroy(view->branches);
    g_hash_table_destroy(view->enabled_kinds);
-   g_ptr_array_free(view->type_checks,TRUE);
+   g_ptr_array_free(view->type_checks, TRUE);
    g_hash_table_destroy(view->zebra_positions);
    g_object_unref(view->filter);
    g_object_unref(view->store);
@@ -349,8 +375,7 @@ static void resource_local_update(void) {
       GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
       gboolean found = FALSE;
 
-      for (gboolean more = gtk_tree_model_iter_children(model, &service, &browser->network_root);
-           more; more = gtk_tree_model_iter_next(model, &service)) {
+      for (gboolean more = gtk_tree_model_iter_children(model, &service, &browser->network_root) ; more ; more = gtk_tree_model_iter_next(model, &service)) {
          char *name = NULL;
          gtk_tree_model_get(model, &service, NAME, &name, -1);
          found = !g_strcmp0(name, "WSJTX Reporting");
@@ -363,8 +388,7 @@ static void resource_local_update(void) {
 
       if (!found) {
          gtk_tree_store_append(browser->store, &service, &browser->network_root);
-         gtk_tree_store_set(browser->store, &service,
-            NAME, "WSJTX Reporting", KIND, "network-service", -1);
+         gtk_tree_store_set(browser->store, &service, NAME, "WSJTX Reporting", KIND, "network-service", -1);
       }
       bool enabled = cfg_get_bool("wsjtx.enabled", false);
       const char *port = cfg_get("wsjtx.udp.port");
@@ -663,44 +687,67 @@ static void resource_details_dump(void *data) {
    struct resource_details *details = data;
    rrclient_object_dump_selected(details->uuid, details_line, details->text);
 }
+
 /* Keep full inventory UUIDs in the model, but present compact IDs. */
 static char *resource_uuid_display(const char *uuid) {
-   if (!uuid) return g_strdup("");
-   size_t len=strlen(uuid);
-   if (len<=18) return g_strdup(uuid);
-   return g_strdup_printf("%.8s..%s",uuid,uuid+len-8);
+   if (!uuid) {
+      return g_strdup("");
+   }
+   size_t len = strlen(uuid);
+
+   if (len <= 18) {
+      return g_strdup(uuid);
+   }
+
+   return g_strdup_printf("%.8s..%s", uuid, uuid + len - 8);
 }
-static void resource_uuid_copy(GtkMenuItem *item,gpointer unused) {
+static void resource_uuid_copy(GtkMenuItem *item, gpointer unused) {
    (void)unused;
-   const char *uuid=g_object_get_data(G_OBJECT(item),"resource-full-uuid");
-   if (uuid) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),uuid,-1);
+   const char *uuid = g_object_get_data(G_OBJECT(item), "resource-full-uuid");
+
+   if (uuid) {
+      gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), uuid, -1);
+   }
 }
-static gboolean resource_uuid_context(GtkWidget *tree,GdkEventButton *event,gpointer unused) {
+static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gpointer unused) {
    (void)unused;
-   if (event->type!=GDK_BUTTON_PRESS || event->button!=3) return FALSE;
-   GtkTreePath *path=NULL;
-   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree),(int)event->x,(int)event->y,
-                                      &path,NULL,NULL,NULL)) return FALSE;
+
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
+      return FALSE;
+   }
+   GtkTreePath *path = NULL;
+
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(tree), (int)event->x, (int)event->y, &path, NULL, NULL, NULL)) {
+      return FALSE;
+   }
    GtkTreeIter iter;
-   char *uuid=NULL;
-   GtkTreeModel *model=gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
-   if (gtk_tree_model_get_iter(model,&iter,path))
-      gtk_tree_model_get(model,&iter,UUID,&uuid,-1);
+   char *uuid = NULL;
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+
+   if (gtk_tree_model_get_iter(model, &iter, path)) {
+      gtk_tree_model_get(model, &iter, UUID, &uuid, -1);
+   }
    gtk_tree_path_free(path);
-   if (!uuid || !*uuid) {g_free(uuid);return FALSE;}
-   GtkWidget *menu=gtk_menu_new();
-   GtkWidget *copy=gtk_menu_item_new_with_label("Copy UUID");
-   g_object_set_data_full(G_OBJECT(copy),"resource-full-uuid",uuid,g_free);
-   g_signal_connect(copy,"activate",G_CALLBACK(resource_uuid_copy),NULL);
-   gtk_menu_shell_append(GTK_MENU_SHELL(menu),copy);
+
+   if (!uuid || !*uuid) {
+      g_free(uuid);
+
+      return FALSE;
+   }
+   GtkWidget *menu = gtk_menu_new();
+   GtkWidget *copy = gtk_menu_item_new_with_label("Copy UUID");
+   g_object_set_data_full(G_OBJECT(copy), "resource-full-uuid", uuid, g_free);
+   g_signal_connect(copy, "activate", G_CALLBACK(resource_uuid_copy), NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
    gtk_widget_show_all(menu);
-   g_signal_connect_swapped(menu,"selection-done",G_CALLBACK(gtk_widget_destroy),menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu),(GdkEvent *)event);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
+
    return TRUE;
 }
+
 /* Rig controls are opened on demand, not rendered as live tree sliders. */
-static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
-                                       const char *profile, const char *name) {
+static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name) {
    GtkTreeIter iter = *item, parent;
    char *uuid = NULL, *room = NULL, *details = NULL;
    gtk_tree_model_get(model, item, DETAILS, &details, -1);
@@ -708,6 +755,7 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
    while (gtk_tree_model_iter_parent(model, &parent, &iter)) {
       char *kind = NULL;
       gtk_tree_model_get(model, &parent, KIND, &kind, -1);
+
       if (!g_strcmp0(kind, "rig")) {
          gtk_tree_model_get(model, &parent, UUID, &uuid, ROOM, &room, -1);
          g_free(kind);
@@ -716,60 +764,73 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item,
       g_free(kind);
       iter = parent;
    }
+
    if (!uuid || !*uuid) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Rig control has no owner UUID.");
-      g_free(uuid); g_free(room); g_free(details);
+      g_free(uuid);
+      g_free(room);
+      g_free(details);
+
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
+
    if (!connection || !connection->authenticated || !connection->is_ws) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing rig controls.");
-      g_free(uuid); g_free(room);
+      g_free(uuid);
+      g_free(room);
+
       return;
    }
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(name, resource_parent(),
-      GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-      "_Cancel", GTK_RESPONSE_CANCEL, "_Apply", GTK_RESPONSE_ACCEPT, NULL);
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(name, resource_parent(), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_Cancel", GTK_RESPONSE_CANCEL,
+      "_Apply", GTK_RESPONSE_ACCEPT, NULL);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-   GtkWidget *label = gtk_label_new(read_only ?
-      "This rig reports the control as read-only." :
-      "Set the rig control (0–100%).");
+   GtkWidget *label = gtk_label_new(read_only ? "This rig reports the control as read-only." : "Set the rig control (0–100%).");
    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
    gtk_scale_set_draw_value(GTK_SCALE(scale), TRUE);
    gtk_widget_set_size_request(scale, 320, -1);
    gtk_container_add(GTK_CONTAINER(area), label);
    gtk_container_add(GTK_CONTAINER(area), scale);
-   const dict *state = rrclient_object_property(uuid,
-      !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
-   if (state && dict_get_bool((dict *)state, "property.known", false))
-      gtk_range_set_value(GTK_RANGE(scale), dict_get_int((dict *)state, "property.value", 50));
-   else
+   const dict *state = rrclient_object_property(uuid, !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
+
+   if (state && dict_get_bool((dict *) state, "property.known", false)) {
+      gtk_range_set_value(GTK_RANGE(scale), dict_get_int((dict *) state, "property.value", 50));
+   } else {
       gtk_range_set_value(GTK_RANGE(scale), 50);
+   }
+
    if (read_only) {
       gtk_widget_set_sensitive(scale, FALSE);
       gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_ACCEPT, FALSE);
    }
    gtk_widget_show_all(area);
+
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       dict *message = dict_new();
       dict_add(message, "msg.type", "property");
       dict_add(message, "property.cmd", "set");
       dict_add(message, "target", uuid);
-      dict_add(message, "property.name",
-         !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
+      dict_add(message, "property.name", !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume");
       dict_add_int(message, "property.value", (int)gtk_range_get_value(GTK_RANGE(scale)));
-      if (room && *room) dict_add(message, "request.room", room);
+
+      if (room && *room) {
+         dict_add(message, "request.room", room);
+      }
       char request[64];
       snprintf(request, sizeof(request), "explorer-control-%lld", (long long)g_get_monotonic_time());
       dict_add(message, "request.id", request);
-      if (!ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT))
+
+      if (!ws_send_dict(NULL, connection, message, WEBSOCKET_OP_TEXT)) {
          gtk_label_set_text(GTK_LABEL(browser->status), "Unable to send rig control request.");
-      else
+      } else {
          gtk_label_set_text(GTK_LABEL(browser->status), "Rig control request sent; the server will validate permissions and capabilities.");
+      }
       dict_free(message);
    }
    gtk_widget_destroy(dialog);
-   g_free(uuid); g_free(room); g_free(details);
+   g_free(uuid);
+   g_free(room);
+   g_free(details);
 }
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
@@ -866,7 +927,7 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    }
 
    if (uuid && *uuid) {
-      char *short_uuid=resource_uuid_display(uuid);
+      char *short_uuid = resource_uuid_display(uuid);
       g_string_append_printf(text, "\nUUID: %s\n\n", short_uuid);
       g_free(short_uuid);
 
@@ -1146,13 +1207,12 @@ static gboolean resource_tick(gpointer data) {
 
    return G_SOURCE_CONTINUE;
 }
-static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
-                               GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
-   char *value=NULL;
-   gtk_tree_model_get(model,iter,GPOINTER_TO_INT(data),&value,-1);
-   char *safe=resource_display_utf8(value);
-   g_object_set(renderer,"text",safe,NULL);
+   char *value = NULL;
+   gtk_tree_model_get(model, iter, GPOINTER_TO_INT(data), &value, -1);
+   char *safe = resource_display_utf8(value);
+   g_object_set(renderer, "text", safe, NULL);
    g_free(safe);
    g_free(value);
 }
@@ -1174,8 +1234,8 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    if (color) {
       g_object_set(renderer, "foreground", color, NULL);
    }
-   char *safe=resource_display_utf8(text);
-   g_object_set(renderer,"text",safe,NULL);
+   char *safe = resource_display_utf8(text);
+   g_object_set(renderer, "text", safe, NULL);
    g_free(safe);
    g_free(text);
 }
@@ -1270,7 +1330,7 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, -1);
    char *text = coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
       g_strdup(details ? details : "");
-   char *safe=resource_display_utf8(text);
+   char *safe = resource_display_utf8(text);
    g_object_set(renderer, "text", safe, NULL);
    g_free(safe);
    g_free(text);
@@ -1278,8 +1338,7 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    g_free(coordinates);
 }
 
-/* Count rows in visible depth-first order, rather than sibling indices.
- * Otherwise striping restarts whenever an expanded rig/room adds children. */
+/* Count rows in visible depth-first order, rather than sibling indices. Otherwise striping restarts whenever an expanded rig/room adds children. */
 /* Rebuild only after structural/visibility changes, never per cell. */
 static gboolean resource_zebra_rebuild_idle(gpointer unused);
 static void resource_zebra_invalidate(void) {
@@ -1287,78 +1346,97 @@ static void resource_zebra_invalidate(void) {
       return;
    }
    browser->zebra_dirty = TRUE;
+
    if (!browser->zebra_idle) {
       browser->zebra_idle = g_idle_add(resource_zebra_rebuild_idle, NULL);
    }
 }
-static void resource_zebra_walk(GtkTreeModel *model,GtkTreeIter *iter,guint *position) {
+static void resource_zebra_walk(GtkTreeModel *model, GtkTreeIter *iter, guint *position) {
    do {
-      GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-      char *key=gtk_tree_path_to_string(path);
-      g_hash_table_insert(browser->zebra_positions,key,
-                          GUINT_TO_POINTER((++*position) & 1 ? 1 : 2));
-      gboolean expanded=gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree),path);
+      GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+      char *key = gtk_tree_path_to_string(path);
+      g_hash_table_insert(browser->zebra_positions, key, GUINT_TO_POINTER((++*position) & 1 ? 1 : 2));
+      gboolean expanded = gtk_tree_view_row_expanded(GTK_TREE_VIEW(browser->tree), path);
       gtk_tree_path_free(path);
       GtkTreeIter child;
-      if (expanded && gtk_tree_model_iter_children(model,&child,iter))
-         resource_zebra_walk(model,&child,position);
-   } while (gtk_tree_model_iter_next(model,iter));
+
+      if (expanded && gtk_tree_model_iter_children(model, &child, iter)) {
+         resource_zebra_walk(model, &child, position);
+      }
+   } while (gtk_tree_model_iter_next(model, iter));
 }
 static void resource_zebra_rebuild(GtkTreeModel *model) {
-   if (!browser || !browser->zebra_dirty || browser->zebra_rebuilding) return;
-   browser->zebra_rebuilding=TRUE;
+   if (!browser || !browser->zebra_dirty || browser->zebra_rebuilding) {
+      return;
+   }
+   browser->zebra_rebuilding = TRUE;
    g_hash_table_remove_all(browser->zebra_positions);
-   guint position=0;
+   guint position = 0;
    GtkTreeIter first;
-   if (gtk_tree_model_get_iter_first(model,&first))
-      resource_zebra_walk(model,&first,&position);
-   browser->zebra_dirty=FALSE;
-   browser->zebra_rebuilding=FALSE;
+
+   if (gtk_tree_model_get_iter_first(model, &first)) {
+      resource_zebra_walk(model, &first, &position);
+   }
+   browser->zebra_dirty = FALSE;
+   browser->zebra_rebuilding = FALSE;
 }
+
 /* Never traverse or refilter the tree during a GtkCellRenderer callback:
  * the GtkTreeModelFilter iterator passed by GTK can be invalidated. */
 static gboolean resource_zebra_rebuild_idle(gpointer unused) {
    (void)unused;
+
    if (!browser) {
       return G_SOURCE_REMOVE;
    }
    browser->zebra_idle = 0;
+
    if (browser->filter && browser->tree) {
       resource_zebra_rebuild(GTK_TREE_MODEL(browser->filter));
       gtk_widget_queue_draw(browser->tree);
    }
+
    return G_SOURCE_REMOVE;
 }
 static void resource_zebra_structure_changed(gpointer unused) {
    (void)unused;
    resource_zebra_invalidate();
 }
-static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
-                                GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
-   int field=GPOINTER_TO_INT(data);
-   if (field==NAME || field==KIND) resource_text_cell(column,renderer,model,iter,data);
-   else if (field==STATE || field==OURS) resource_status_cell(column,renderer,model,iter,data);
-   else if (field==DETAILS) resource_details_cell(column,renderer,model,iter,NULL);
+static void resource_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   int field = GPOINTER_TO_INT(data);
+
+   if (field == NAME || field == KIND) {
+      resource_text_cell(column, renderer, model, iter, data);
+   } else if (field == STATE || field == OURS) {
+      resource_status_cell(column, renderer, model, iter, data);
+   } else if (field == DETAILS) {
+      resource_details_cell(column, renderer, model, iter, NULL);
+   }
    /* Rebuilds run in the idle callback, never inside cell rendering. */
-   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   char *key=path ? gtk_tree_path_to_string(path) : NULL;
-   gpointer parity=key ? g_hash_table_lookup(browser->zebra_positions,key) : NULL;
-   gboolean odd=GPOINTER_TO_UINT(parity)==1;
+   GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+   char *key = path ? gtk_tree_path_to_string(path) : NULL;
+   gpointer parity = key ? g_hash_table_lookup(browser->zebra_positions, key) : NULL;
+   gboolean odd = GPOINTER_TO_UINT(parity) == 1;
    g_free(key);
-   gboolean selected=browser && path && gtk_tree_selection_path_is_selected(
-      gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)),path);
+   gboolean selected = browser && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), path);
+
    if (odd && !selected && browser) {
-      GtkStyleContext *style=gtk_widget_get_style_context(browser->tree);
-      GdkRGBA base,ink,shade;
-      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
-      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
-      shade.red=base.red*0.915+ink.red*0.085;
-      shade.green=base.green*0.915+ink.green*0.085;
-      shade.blue=base.blue*0.915+ink.blue*0.085;
-      shade.alpha=1.0;
-      g_object_set(renderer,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
-   } else g_object_set(renderer,"cell-background-set",FALSE,NULL);
-   if (path) gtk_tree_path_free(path);
+      GtkStyleContext *style = gtk_widget_get_style_context(browser->tree);
+      GdkRGBA base, ink, shade;
+      gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
+      gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
+      shade.red = base.red * 0.915 + ink.red * 0.085;
+      shade.green = base.green * 0.915 + ink.green * 0.085;
+      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.alpha = 1.0;
+      g_object_set(renderer, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
+   } else {
+      g_object_set(renderer, "cell-background-set", FALSE, NULL);
+   }
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
 }
 
 static GtkWindow *resource_parent(void) {
@@ -1368,10 +1446,14 @@ static GtkWindow *resource_parent(void) {
 }
 static void resource_present(void) {
    if (browser && main_notebook && browser->page) {
-      gint page=gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook),browser->page);
-      if (page>=0) gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),page);
+      gint page = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), browser->page);
+
+      if (page >= 0) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), page);
+      }
    }
 }
+
 /* Initialize against the actual notebook allocation, not a fixed standalone window height. Only do this once; later splitter dragging is user-owned. */
 static void resource_initial_split(GtkWidget *widget, GtkAllocation *allocation, gpointer unused) {
    (void)unused;
@@ -1425,143 +1507,217 @@ static gboolean resource_search_equal(GtkTreeModel *model, gint column, const gc
 
    return no_match;
 }
-/* Filter underlying inventory locally. Ancestors remain visible when a
- * descendant matches, preserving the server/room/resource hierarchy. */
+
+/* Filter underlying inventory locally. Ancestors remain visible when a descendant matches, preserving the server/room/resource hierarchy. */
 /* Search prunes nonmatches, retaining only their required ancestors. */
 static gboolean resource_self_matches(GtkTreeModel *model, GtkTreeIter *iter) {
-   const char *query=browser && browser->search ?
-      gtk_entry_get_text(GTK_ENTRY(browser->search)) : "";
-   if (!query || !*query) return TRUE;
-   char *name=NULL,*details=NULL,*uuid=NULL,*service=NULL;
-   gtk_tree_model_get(model,iter,NAME,&name,DETAILS,&details,UUID,&uuid,SERVICE,&service,-1);
-   gchar *combined=g_strdup_printf("%s %s %s %s",
-      name ? name : "",details ? details : "",uuid ? uuid : "",service ? service : "");
-   gchar *haystack=g_utf8_casefold(combined,-1);
+   const char *query = browser && browser->search ? gtk_entry_get_text(GTK_ENTRY(browser->search)) : "";
+
+   if (!query || !*query) {
+      return TRUE;
+   }
+   char *name = NULL, *details = NULL, *uuid = NULL, *service = NULL;
+   gtk_tree_model_get(model, iter, NAME, &name, DETAILS, &details, UUID, &uuid, SERVICE, &service, -1);
+   gchar *combined = g_strdup_printf("%s %s %s %s", name ? name : "", details ? details : "", uuid ? uuid : "", service ? service : "");
+   gchar *haystack = g_utf8_casefold(combined, -1);
    g_free(combined);
-   gchar *needle=g_utf8_casefold(query,-1);
-   gboolean match=strstr(haystack,needle)!=NULL;
-   g_free(name);g_free(details);g_free(uuid);g_free(service);
-   g_free(haystack);g_free(needle);
+   gchar *needle = g_utf8_casefold(query, -1);
+   gboolean match = strstr(haystack, needle) != NULL;
+   g_free(name);
+   g_free(details);
+   g_free(uuid);
+   g_free(service);
+   g_free(haystack);
+   g_free(needle);
+
    return match;
 }
-static gboolean resource_search_subtree(GtkTreeModel *model,GtkTreeIter *iter) {
-   if (resource_self_matches(model,iter)) return TRUE;
+static gboolean resource_search_subtree(GtkTreeModel *model, GtkTreeIter *iter) {
+   if (resource_self_matches(model, iter)) {
+      return TRUE;
+   }
    GtkTreeIter child;
-   for (gboolean more=gtk_tree_model_iter_children(model,&child,iter);
-        more;more=gtk_tree_model_iter_next(model,&child))
-      if (resource_search_subtree(model,&child)) return TRUE;
+
+   for (gboolean more = gtk_tree_model_iter_children(model, &child, iter) ; more ; more = gtk_tree_model_iter_next(model, &child)) {
+      if (resource_search_subtree(model, &child)) {
+         return TRUE;
+      }
+   }
+
    return FALSE;
 }
-static void resource_search_changed(GtkEditable *entry,gpointer unused) {
-   (void)entry;(void)unused;
-   if (!browser || !browser->filter) return;
+static void resource_search_changed(GtkEditable *entry, gpointer unused) {
+   (void)entry;
+   (void)unused;
+
+   if (!browser || !browser->filter) {
+      return;
+   }
    gtk_tree_model_filter_refilter(browser->filter);
    gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
    resource_zebra_invalidate();
 }
-static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
-   char *kind=NULL;
-   gtk_tree_model_get(model,iter,KIND,&kind,-1);
-   gboolean match=g_hash_table_contains(browser->enabled_kinds,
-      !g_strcmp0(kind, "rig-control") ? "control" :
-      !g_strcmp0(kind, "serial-folder") ? "serial" : kind ? kind : "");
-   if (!match && !g_hash_table_contains(browser->enabled_kinds,"other")) {
+static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
+   char *kind = NULL;
+   gtk_tree_model_get(model, iter, KIND, &kind, -1);
+   gboolean match = g_hash_table_contains(browser->enabled_kinds, !g_strcmp0(kind, "rig-control") ? "control" : !g_strcmp0(kind, "serial-folder") ? "serial" :
+      kind ? kind : "");
+
+   if (!match && !g_hash_table_contains(browser->enabled_kinds, "other")) {
       /* Unknown types belong to the optional Other bucket. */
-      static const char *known[]={"local","local-port","device","attachment","server",
-         "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","serial-folder","file","share","bridge","group","rig-control","network-service"};
-      gboolean known_kind=FALSE;
-      for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
-         if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
-      if (!known_kind) match=FALSE;
-   } else if (!match && g_hash_table_contains(browser->enabled_kinds,"other")) {
-      static const char *known[]={"local","local-port","device","attachment","server",
-         "site","rig","vfo","room","irc-channel","media","gps","control",
-         "serial","serial-folder","file","share","bridge","group","network-service"};
-      gboolean known_kind=FALSE;
-      for (unsigned i=0;i<G_N_ELEMENTS(known);i++)
-         if (!g_strcmp0(kind,known[i])) {known_kind=TRUE;break;}
-      match=!known_kind;
+      static const char *known[] = {
+         "local", "local-port", "device", "attachment", "server",
+         "site", "rig", "vfo", "room", "irc-channel", "media", "gps", "control",
+         "serial", "serial-folder", "file", "share", "bridge", "group", "rig-control", "network-service"
+      };
+      gboolean known_kind = FALSE;
+
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(known) ; i++) {
+         if (!g_strcmp0(kind, known[i])) {
+            known_kind = TRUE;
+            break;
+         }
+      }
+
+      if (!known_kind) {
+         match = FALSE;
+      }
+   } else if (!match && g_hash_table_contains(browser->enabled_kinds, "other")) {
+      static const char *known[] = {
+         "local", "local-port", "device", "attachment", "server",
+         "site", "rig", "vfo", "room", "irc-channel", "media", "gps", "control",
+         "serial", "serial-folder", "file", "share", "bridge", "group", "network-service"
+      };
+      gboolean known_kind = FALSE;
+
+      for (unsigned i = 0 ; i < G_N_ELEMENTS(known) ; i++) {
+         if (!g_strcmp0(kind, known[i])) {
+            known_kind = TRUE;
+            break;
+         }
+      }
+
+      match = !known_kind;
    }
    g_free(kind);
-   if (match && resource_search_subtree(model,iter)) return TRUE;
+
+   if (match && resource_search_subtree(model, iter)) {
+      return TRUE;
+   }
    GtkTreeIter child;
-   for (gboolean more=gtk_tree_model_iter_children(model,&child,iter);
-        more;more=gtk_tree_model_iter_next(model,&child))
-      if (resource_type_match(model,&child)) return TRUE;
+
+   for (gboolean more = gtk_tree_model_iter_children(model, &child, iter) ; more ; more = gtk_tree_model_iter_next(model, &child)) {
+      if (resource_type_match(model, &child)) {
+         return TRUE;
+      }
+   }
+
    return FALSE;
 }
-static gboolean resource_type_visible(GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+static gboolean resource_type_visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
-   return resource_type_match(model,iter);
+
+   return resource_type_match(model, iter);
 }
 static void resource_type_sync_all(void) {
-   if (!browser || !browser->type_toggle_all || !browser->type_checks) return;
-   guint selected=0;
-   for (guint i=0;i<browser->type_checks->len;i++)
-      if (gtk_toggle_button_get_active(g_ptr_array_index(browser->type_checks,i)))
-         selected++;
-   gboolean all=selected==browser->type_checks->len;
-   browser->type_bulk_update=TRUE;
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all),all);
-   gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all),
-                                      selected>0 && !all);
-   browser->type_bulk_update=FALSE;
-}
-static void resource_type_toggle_all(GtkToggleButton *item,gpointer unused) {
-   (void)item; (void)unused;
-   if (!browser || browser->type_bulk_update) return;
-   gboolean select_all=g_hash_table_size(browser->enabled_kinds)==0;
-   browser->type_bulk_update=TRUE;
-   g_hash_table_remove_all(browser->enabled_kinds);
-   for (guint i=0;i<browser->type_checks->len;i++) {
-      GtkToggleButton *check=GTK_TOGGLE_BUTTON(g_ptr_array_index(browser->type_checks,i));
-      if (select_all) {
-         const char *kind=g_object_get_data(G_OBJECT(check),"rr-kind");
-         if (kind) g_hash_table_add(browser->enabled_kinds,g_strdup(kind));
-      }
-      gtk_toggle_button_set_active(check,select_all);
+   if (!browser || !browser->type_toggle_all || !browser->type_checks) {
+      return;
    }
-   gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all),FALSE);
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all),select_all);
-   browser->type_bulk_update=FALSE;
+   guint selected = 0;
+
+   for (guint i = 0 ; i < browser->type_checks->len ; i++) {
+      if (gtk_toggle_button_get_active(g_ptr_array_index(browser->type_checks, i))) {
+         selected++;
+      }
+   }
+
+   gboolean all = selected == browser->type_checks->len;
+   browser->type_bulk_update = TRUE;
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all), all);
+   gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all), selected > 0 && !all);
+   browser->type_bulk_update = FALSE;
+}
+static void resource_type_toggle_all(GtkToggleButton *item, gpointer unused) {
+   (void)item;
+   (void)unused;
+
+   if (!browser || browser->type_bulk_update) {
+      return;
+   }
+   gboolean select_all = g_hash_table_size(browser->enabled_kinds) == 0;
+   browser->type_bulk_update = TRUE;
+   g_hash_table_remove_all(browser->enabled_kinds);
+
+   for (guint i = 0 ; i < browser->type_checks->len ; i++) {
+      GtkToggleButton *check = GTK_TOGGLE_BUTTON(g_ptr_array_index(browser->type_checks, i));
+
+      if (select_all) {
+         const char *kind = g_object_get_data(G_OBJECT(check), "rr-kind");
+
+         if (kind) {
+            g_hash_table_add(browser->enabled_kinds, g_strdup(kind));
+         }
+      }
+      gtk_toggle_button_set_active(check, select_all);
+   }
+
+   gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all), FALSE);
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all), select_all);
+   browser->type_bulk_update = FALSE;
    gtk_tree_model_filter_refilter(browser->filter);
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
 }
-static void resource_type_changed(GtkToggleButton *item,gpointer data) {
-   if (!browser || !browser->filter) return;
-   const char *type=data;
-   if (browser->type_bulk_update) return;
-   if (gtk_toggle_button_get_active(item))
-      g_hash_table_add(browser->enabled_kinds,g_strdup(type));
-   else g_hash_table_remove(browser->enabled_kinds,type);
+static void resource_type_changed(GtkToggleButton *item, gpointer data) {
+   if (!browser || !browser->filter) {
+      return;
+   }
+   const char *type = data;
+
+   if (browser->type_bulk_update) {
+      return;
+   }
+
+   if (gtk_toggle_button_get_active(item)) {
+      g_hash_table_add(browser->enabled_kinds, g_strdup(type));
+   } else {
+      g_hash_table_remove(browser->enabled_kinds, type);
+   }
    resource_type_sync_all();
    gtk_tree_model_filter_refilter(browser->filter);
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
 }
+
 /* Resource icons are presentation-only; names and IDs remain unchanged. */
-static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
-                               GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)column;
    (void)user;
    char *kind = NULL, *name = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, NAME, &name, -1);
    const char *icon = "text-x-generic-symbolic";
 
-   if (!g_strcmp0(kind, "local")) icon = "computer-symbolic";
-   else if (!g_strcmp0(kind, "site") || !g_strcmp0(kind, "server")) icon = "network-server-symbolic";
-   else if (!g_strcmp0(kind, "rig")) icon = "audio-input-microphone-symbolic";
-   else if (!g_strcmp0(kind, "vfo")) icon = "audio-card-symbolic";
-   else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) icon = "system-users-symbolic";
-   else if (!g_strcmp0(kind, "gps")) icon = "find-location-symbolic";
-   else if (!g_strcmp0(kind, "control") || !g_strcmp0(kind, "rig-control")) icon = "emblem-system-symbolic";
-   else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "device") ||
-            !g_strcmp0(kind, "local-port") || !g_strcmp0(kind, "attachment")) icon = "media-removable-symbolic";
-   else if (!g_strcmp0(kind, "network-service")) icon = "network-transmit-receive-symbolic";
-   else if (!g_strcmp0(kind, "file") || !g_strcmp0(kind, "share")) icon = "folder-symbolic";
-   else if (!g_strcmp0(kind, "group") || !g_strcmp0(kind, "serial-folder")) {
+   if (!g_strcmp0(kind, "local")) {
+      icon = "computer-symbolic";
+   } else if (!g_strcmp0(kind, "site") || !g_strcmp0(kind, "server")) {
+      icon = "network-server-symbolic";
+   } else if (!g_strcmp0(kind, "rig")) {
+      icon = "audio-input-microphone-symbolic";
+   } else if (!g_strcmp0(kind, "vfo")) {
+      icon = "audio-card-symbolic";
+   } else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) {
+      icon = "system-users-symbolic";
+   } else if (!g_strcmp0(kind, "gps")) {
+      icon = "find-location-symbolic";
+   } else if (!g_strcmp0(kind, "control") || !g_strcmp0(kind, "rig-control")) {
+      icon = "emblem-system-symbolic";
+   } else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "device") || !g_strcmp0(kind, "local-port") || !g_strcmp0(kind, "attachment")) {
+      icon = "media-removable-symbolic";
+   } else if (!g_strcmp0(kind, "network-service")) {
+      icon = "network-transmit-receive-symbolic";
+   } else if (!g_strcmp0(kind, "file") || !g_strcmp0(kind, "share")) {
+      icon = "folder-symbolic";
+   } else if (!g_strcmp0(kind, "group") || !g_strcmp0(kind, "serial-folder")) {
       icon = !g_strcmp0(name, "GPS") ? "find-location-symbolic" : "folder-symbolic";
    }
    g_object_set(cell, "icon-name", icon, NULL);
@@ -1573,10 +1729,10 @@ static void resource_create(void) {
       return;
    }
    browser = g_new0(resource_browser, 1);
-   browser->enabled_kinds=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
-   browser->type_checks=g_ptr_array_new();
-   browser->zebra_positions=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
-   browser->zebra_dirty=TRUE;
+   browser->enabled_kinds = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   browser->type_checks = g_ptr_array_new();
+   browser->zebra_positions = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   browser->zebra_dirty = TRUE;
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -1592,7 +1748,7 @@ static void resource_create(void) {
    gtk_box_pack_start(GTK_BOX(toolbar), gtk_label_new("Search:"), FALSE, FALSE, 0);
    GtkWidget *search = gtk_search_entry_new();
    browser->search = search;
-   g_signal_connect(search,"changed",G_CALLBACK(resource_search_changed),NULL);
+   g_signal_connect(search, "changed", G_CALLBACK(resource_search_changed), NULL);
    gtk_entry_set_width_chars(GTK_ENTRY(search), 24);
    gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Find path, name, description…");
    gtk_box_pack_start(GTK_BOX(toolbar), search, FALSE, FALSE, 0);
@@ -1613,56 +1769,91 @@ static void resource_create(void) {
    }
 
 
-   GtkWidget *types=gtk_menu_button_new();
-   gtk_button_set_label(GTK_BUTTON(types),"Types");
-   gtk_menu_button_set_direction(GTK_MENU_BUTTON(types),GTK_ARROW_DOWN);
-   GtkWidget *arrow=gtk_image_new_from_icon_name("pan-down-symbolic",GTK_ICON_SIZE_BUTTON);
-   gtk_button_set_image(GTK_BUTTON(types),arrow);
-   gtk_button_set_image_position(GTK_BUTTON(types),GTK_POS_RIGHT);
-   gtk_button_set_always_show_image(GTK_BUTTON(types),TRUE);
-   gtk_widget_set_tooltip_text(types,"Filter Resource Explorer by object type (select multiple)");
-   GtkWidget *type_popover=gtk_popover_new(types);
-   GtkWidget *type_grid=gtk_grid_new();
-   gtk_grid_set_row_spacing(GTK_GRID(type_grid),3);
-   gtk_grid_set_column_spacing(GTK_GRID(type_grid),12);
-   gtk_container_set_border_width(GTK_CONTAINER(type_grid),10);
-   gtk_container_add(GTK_CONTAINER(type_popover),type_grid);
-   static const struct {const char *type,*label;} choices[]={
-      {"site","Sites"},{"server","Servers"},{"network-service","Network services"},{"rig","Rigs"},{"vfo","VFOs"},
-      {"room","Rooms"},{"irc-channel","IRC channels"},{"media","Media"},
-      {"gps","GPS"},{"control","Controls"},{"serial","Serial"},
-      {"file","Files"},{"bridge","Bridges"},{"local","Local resources"},
-      {"local-port","Local ports"},{"device","Devices"},{"attachment","Attachments"},
-      {"other","Other types"}
+   GtkWidget *types = gtk_menu_button_new();
+   gtk_button_set_label(GTK_BUTTON(types), "Types");
+   gtk_menu_button_set_direction(GTK_MENU_BUTTON(types), GTK_ARROW_DOWN);
+   GtkWidget *arrow = gtk_image_new_from_icon_name("pan-down-symbolic", GTK_ICON_SIZE_BUTTON);
+   gtk_button_set_image(GTK_BUTTON(types), arrow);
+   gtk_button_set_image_position(GTK_BUTTON(types), GTK_POS_RIGHT);
+   gtk_button_set_always_show_image(GTK_BUTTON(types), TRUE);
+   gtk_widget_set_tooltip_text(types, "Filter Resource Explorer by object type (select multiple)");
+   GtkWidget *type_popover = gtk_popover_new(types);
+   GtkWidget *type_grid = gtk_grid_new();
+   gtk_grid_set_row_spacing(GTK_GRID(type_grid), 3);
+   gtk_grid_set_column_spacing(GTK_GRID(type_grid), 12);
+   gtk_container_set_border_width(GTK_CONTAINER(type_grid), 10);
+   gtk_container_add(GTK_CONTAINER(type_popover), type_grid);
+   static const struct {
+      const char *type, *label;
+   } choices[] = {
+      {
+         "site", "Sites"
+      }, {
+         "server", "Servers"
+      }, {
+         "network-service", "Network services"
+      }, {
+         "rig", "Rigs"
+      }, {
+         "vfo", "VFOs"
+      },
+      {
+         "room", "Rooms"
+      }, {
+         "irc-channel", "IRC channels"
+      }, {
+         "media", "Media"
+      },
+      {
+         "gps", "GPS"
+      }, {
+         "control", "Controls"
+      }, {
+         "serial", "Serial"
+      },
+      {
+         "file", "Files"
+      }, {
+         "bridge", "Bridges"
+      }, {
+         "local", "Local resources"
+      },
+      {
+         "local-port", "Local ports"
+      }, {
+         "device", "Devices"
+      }, {
+         "attachment", "Attachments"
+      },
+      {
+         "other", "Other types"
+      }
    };
-   for (unsigned i=0;i<G_N_ELEMENTS(choices);i++) {
-      g_hash_table_add(browser->enabled_kinds,g_strdup(choices[i].type));
-      GtkWidget *check=gtk_check_button_new_with_label(choices[i].label);
-      g_object_set_data(G_OBJECT(check),"rr-kind",(gpointer)choices[i].type);
-      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
-      g_signal_connect(check,"toggled",G_CALLBACK(resource_type_changed),
-                       (gpointer)choices[i].type);
-      gtk_grid_attach(GTK_GRID(type_grid),check,i/10,i%10,1,1);
-      g_ptr_array_add(browser->type_checks,check);
+
+   for (unsigned i = 0 ; i < G_N_ELEMENTS(choices) ; i++) {
+      g_hash_table_add(browser->enabled_kinds, g_strdup(choices[i].type));
+      GtkWidget *check = gtk_check_button_new_with_label(choices[i].label);
+      g_object_set_data(G_OBJECT(check), "rr-kind", (gpointer) choices[i].type);
+      gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check), TRUE);
+      g_signal_connect(check, "toggled", G_CALLBACK(resource_type_changed), (gpointer) choices[i].type);
+      gtk_grid_attach(GTK_GRID(type_grid), check, i / 10, i % 10, 1, 1);
+      g_ptr_array_add(browser->type_checks, check);
    }
-   browser->type_toggle_all=gtk_check_button_new_with_label("All / Clear");
-   gtk_widget_set_tooltip_text(browser->type_toggle_all,
-      "When any types are selected, clear all; when none are selected, select all.");
-   /* GtkGrid coordinates are (column, row). Put the bulk toggle on
-    * its own row below both columns, never over the final choices. */
-   gtk_widget_set_halign(browser->type_toggle_all,GTK_ALIGN_CENTER);
-   gtk_grid_attach(GTK_GRID(type_grid),browser->type_toggle_all,
-                   0,10,2,1);
-   g_signal_connect(browser->type_toggle_all,"toggled",
-                    G_CALLBACK(resource_type_toggle_all),NULL);
+
+   browser->type_toggle_all = gtk_check_button_new_with_label("All / Clear");
+   gtk_widget_set_tooltip_text(browser->type_toggle_all, "When any types are selected, clear all; when none are selected, select all.");
+   /* GtkGrid coordinates are (column, row). Put the bulk toggle on its own row below both columns, never over the final choices. */
+   gtk_widget_set_halign(browser->type_toggle_all, GTK_ALIGN_CENTER);
+   gtk_grid_attach(GTK_GRID(type_grid), browser->type_toggle_all, 0, 10, 2, 1);
+   g_signal_connect(browser->type_toggle_all, "toggled", G_CALLBACK(resource_type_toggle_all), NULL);
    resource_type_sync_all();
    /* Show the checklist children, but never map the popover at startup.
     * gtk_widget_show_all(type_popover) would make it visible immediately. */
    gtk_widget_show_all(type_grid);
-   gtk_menu_button_set_popover(GTK_MENU_BUTTON(types),type_popover);
-   gtk_box_pack_start(GTK_BOX(toolbar),types,FALSE,FALSE,0);
+   gtk_menu_button_set_popover(GTK_MENU_BUTTON(types), type_popover);
+   gtk_box_pack_start(GTK_BOX(toolbar), types, FALSE, FALSE, 0);
    /* Search, then the multi-select type dropdown, before toolbar actions. */
-   gtk_box_reorder_child(GTK_BOX(toolbar),types,2);
+   gtk_box_reorder_child(GTK_BOX(toolbar), types, 2);
    GtkWidget *ports = gtk_button_new_with_label("Local ports…");
    gtk_box_pack_start(GTK_BOX(toolbar), ports, FALSE, FALSE, 0);
    g_signal_connect(ports, "clicked", G_CALLBACK(resource_local_configure), NULL);
@@ -1679,20 +1870,15 @@ static void resource_create(void) {
    }
 
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser->store), NAME, GTK_SORT_ASCENDING);
-   browser->filter=GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(browser->store),NULL));
-   gtk_tree_model_filter_set_visible_func(browser->filter,resource_type_visible,NULL,NULL);
+   browser->filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(browser->store), NULL));
+   gtk_tree_model_filter_set_visible_func(browser->filter, resource_type_visible, NULL, NULL);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->filter));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
-   g_signal_connect_swapped(browser->tree,"row-expanded",
-                            G_CALLBACK(resource_zebra_structure_changed),NULL);
-   g_signal_connect_swapped(browser->tree,"row-collapsed",
-                            G_CALLBACK(resource_zebra_structure_changed),NULL);
-   g_signal_connect_swapped(browser->filter,"row-inserted",
-                            G_CALLBACK(resource_zebra_structure_changed),NULL);
-   g_signal_connect_swapped(browser->filter,"row-deleted",
-                            G_CALLBACK(resource_zebra_structure_changed),NULL);
-   g_signal_connect_swapped(browser->filter,"rows-reordered",
-                            G_CALLBACK(resource_zebra_structure_changed),NULL);
+   g_signal_connect_swapped(browser->tree, "row-expanded", G_CALLBACK(resource_zebra_structure_changed), NULL);
+   g_signal_connect_swapped(browser->tree, "row-collapsed", G_CALLBACK(resource_zebra_structure_changed), NULL);
+   g_signal_connect_swapped(browser->filter, "row-inserted", G_CALLBACK(resource_zebra_structure_changed), NULL);
+   g_signal_connect_swapped(browser->filter, "row-deleted", G_CALLBACK(resource_zebra_structure_changed), NULL);
+   g_signal_connect_swapped(browser->filter, "rows-reordered", G_CALLBACK(resource_zebra_structure_changed), NULL);
    gtk_tree_view_set_level_indentation(GTK_TREE_VIEW(browser->tree), 0);
    gtk_tree_view_set_search_column(GTK_TREE_VIEW(browser->tree), NAME);
    gtk_tree_view_set_search_equal_func(GTK_TREE_VIEW(browser->tree), resource_search_equal, NULL, NULL);
@@ -1706,6 +1892,7 @@ static void resource_create(void) {
       GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
       g_object_set(renderer, "ypad", 3, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
       GtkTreeViewColumn *column;
+
       if (i == NAME) {
          column = gtk_tree_view_column_new();
          gtk_tree_view_column_set_title(column, titles[i]);
@@ -1719,8 +1906,7 @@ static void resource_create(void) {
       }
       gtk_tree_view_column_set_resizable(column, TRUE);
 
-      gtk_tree_view_column_set_cell_data_func(column,renderer,resource_zebra_cell,
-                                              GINT_TO_POINTER(i),NULL);
+      gtk_tree_view_column_set_cell_data_func(column, renderer, resource_zebra_cell, GINT_TO_POINTER(i), NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, i == NAME ? 240 : i == KIND ? 95 : i == STATE ? 130 : i == OURS ? 175 : 220);
 
@@ -1742,15 +1928,19 @@ static void resource_create(void) {
    gtk_tree_store_append(browser->store, &browser->local_root, NULL);
    gtk_tree_store_set(browser->store, &browser->local_root, NAME, "This Client", KIND, "local", STATE, "Local resources", -1);
    gtk_tree_store_append(browser->store, &browser->serial_root, &browser->local_root);
-   gtk_tree_store_set(browser->store, &browser->serial_root,
-      NAME, "Serial Ports", KIND, "serial-folder", STATE, "Local serial endpoints", -1);
+   gtk_tree_store_set(browser->store, &browser->serial_root, NAME, "Serial Ports", KIND, "serial-folder", STATE, "Local serial endpoints", -1);
    gtk_tree_store_append(browser->store, &browser->network_root, &browser->local_root);
-   gtk_tree_store_set(browser->store, &browser->network_root,
-      NAME, "Network Services", KIND, "group", STATE, "Local network services", -1);
+   gtk_tree_store_set(browser->store, &browser->network_root, NAME, "Network Services", KIND, "group", STATE, "Local network services", -1);
    GtkTreePath *local_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &browser->local_root);
-   GtkTreePath *local_visible=resource_view_path(local_path);
-   if (local_visible) gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),local_visible,FALSE);
-   if (local_visible) gtk_tree_path_free(local_visible);
+   GtkTreePath *local_visible = resource_view_path(local_path);
+
+   if (local_visible) {
+      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), local_visible, FALSE);
+   }
+
+   if (local_visible) {
+      gtk_tree_path_free(local_visible);
+   }
    gtk_tree_path_free(local_path);
    GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL), *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1842,8 +2032,11 @@ static void resource_show(const char *event, const void *data, size_t length, rr
       browser->scroll_y = gtk_adjustment_get_value(adj);
       browser->scroll_saved = true;
    }
+
    /* Do not snapshot an empty first-load tree as a collapsed preference. */
-   if (branch->loaded) resource_expansion_save(branch);
+   if (branch->loaded) {
+      resource_expansion_save(branch);
+   }
    memset(branch->valid, 0, sizeof(branch->valid));
    branch->local_site_seen = false;
    GtkTreeIter child;
@@ -1934,20 +2127,18 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    const char *kind = dict_get(row, "inventory.kind", "resource");
    const char *name = dict_get(row, "inventory.name", "");
 
-   /* The first site record is the server we connected to. Its configured
-    * station.name may differ from the connection profile; never compare names
-    * to decide topology. Subsequent depth-zero sites are linked peers. */
+   /* The first site record is the server we connected to. Its configured station.name may differ from the connection profile; never compare names to decide
+    * topology. Subsequent depth-zero sites are linked peers. */
    if (depth == 0 && !strcmp(kind, "site")) {
       if (!branch->local_site_seen) {
          branch->local_site_seen = true;
          memset(branch->valid, 0, sizeof(branch->valid));
          branch->parents[0] = branch->root;
          branch->valid[0] = true;
-         gtk_tree_store_set(browser->store, &branch->root, KIND, "site",
-            NAME, name, UUID, dict_get(row, "inventory.uuid", ""),
-            ROOM, dict_get(row, "inventory.room", ""),
-            DETAILS, dict_get(row, "inventory.description", ""), -1);
+         gtk_tree_store_set(browser->store, &branch->root, KIND, "site", NAME, name, UUID, dict_get(row, "inventory.uuid", ""), ROOM, dict_get(row,
+            "inventory.room", ""), DETAILS, dict_get(row, "inventory.description", ""), -1);
          dict_free(row);
+
          return;
       }
    }
@@ -1970,51 +2161,55 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    GtkTreeIter *parent_iter = parent >= 0 ? &branch->parents[parent] : &branch->root;
    const char *owner_uuid = dict_get(row, "inventory.parent", "");
 
-   gboolean owner_found = *owner_uuid &&
-      resource_find_uuid(&branch->root, owner_uuid, &explicit_parent);
-   if (owner_found) parent_iter = &explicit_parent;
-   /* Never silently attach a rig-specific control to a different rig or
-    * global Controls group if its owner is missing from this snapshot. */
+   gboolean owner_found = *owner_uuid && resource_find_uuid(&branch->root, owner_uuid, &explicit_parent);
+
+   if (owner_found) {
+      parent_iter = &explicit_parent;
+   }
+
+   /* Never silently attach a rig-specific control to a different rig or global Controls group if its owner is missing from this snapshot. */
    if (!strcmp(kind, "rig-control") && !owner_found) {
-      g_warning("Explorer: ignoring %s without owning rig %s on %s",
-         name, owner_uuid, profile);
+      g_warning("Explorer: ignoring %s without owning rig %s on %s", name, owner_uuid, profile);
       dict_free(row);
+
       return;
    }
-   /* Group direct children without changing their resource identity or wire
-    * parent. Existing explicit UUID ancestry always wins for nested objects. */
+   /* Group direct children without changing their resource identity or wire parent. Existing explicit UUID ancestry always wins for nested objects. */
    bool gps_stream = !strcmp(kind, "gps") ||
       (!strcmp(kind, "media") &&
          (!strcmp(dict_get(row, "inventory.codec", ""), "gpsp") ||
-          !strcmp(dict_get(row, "inventory.codec", ""), "nmea") ||
-          g_str_has_suffix(name, ".gps.rx") ||
-          g_str_has_suffix(name, ".nmea.rx")));
+            !strcmp(dict_get(row, "inventory.codec", ""), "nmea") || g_str_has_suffix(name, ".gps.rx") || g_str_has_suffix(name, ".nmea.rx")));
+
    if (gps_stream || !strcmp(kind, "room") || !strcmp(kind, "control") || !strcmp(kind, "rig-control") ||
-       !strcmp(kind, "file") || !strcmp(kind, "share") || !strcmp(kind, "serial")) {
+      !strcmp(kind, "file") || !strcmp(kind, "share") || !strcmp(kind, "serial")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
       const char *folder = gps_stream ? "GPS" : !strcmp(kind, "room") ? "Rooms" :
-          (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
+         (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
          !strcmp(kind, "serial") ? "Serial Ports" :
-         (!strcmp(parent_kind ? parent_kind : "", "site") ||
-          !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
+         (!strcmp(parent_kind ? parent_kind : "", "site") || !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
+
       if (folder) {
          GtkTreeIter sibling, group;
          gboolean found = FALSE;
          GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
-         for (gboolean ok = gtk_tree_model_iter_children(model, &sibling, parent_iter);
-              ok; ok = gtk_tree_model_iter_next(model, &sibling)) {
+
+         for (gboolean ok = gtk_tree_model_iter_children(model, &sibling, parent_iter) ; ok ; ok = gtk_tree_model_iter_next(model, &sibling)) {
             char *sibling_kind = NULL, *sibling_name = NULL;
             gtk_tree_model_get(model, &sibling, KIND, &sibling_kind, NAME, &sibling_name, -1);
             found = !g_strcmp0(sibling_kind, "group") && !g_strcmp0(sibling_name, folder);
             g_free(sibling_kind);
             g_free(sibling_name);
-            if (found) { group = sibling; break; }
+
+            if (found) {
+               group = sibling;
+               break;
+            }
          }
+
          if (!found) {
             gtk_tree_store_append(browser->store, &group, parent_iter);
-            gtk_tree_store_set(browser->store, &group,
-               NAME, folder, KIND, "group", PROFILE, profile, -1);
+            gtk_tree_store_set(browser->store, &group, NAME, folder, KIND, "group", PROFILE, profile, -1);
          }
          explicit_parent = group;
          parent_iter = &explicit_parent;
@@ -2034,6 +2229,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!*room && owner_found) {
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &explicit_parent, ROOM, &inherited, -1);
    }
+
    if (!*room && !inherited && parent >= 0) {
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->parents[parent], ROOM, &inherited, -1);
    }
@@ -2104,19 +2300,24 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       const char *location = dict_get(row, "inventory.location", "");
       const char *coords = dict_get(row, "inventory.coordinates", "");
       char position[48] = "";
-      double latitude,longitude;
-      if (sscanf(coords,"%lf,%lf",&latitude,&longitude)==2)
-         snprintf(position,sizeof(position)," (%.3f,%.3f)",latitude,longitude);
-      const char *identity = *model && strcmp(model,"NET rigctl") && strcmp(model,"NET rigctl (Hamlib)") ? model : name;
-      label = g_strdup_printf("%s%s%s%s%s%s%s", identity,
-         *location ? " (" : "", location, *location ? ")" : "",
-         *position ? " " : "", position, strcmp(identity,name) ? " " : "");
-      if (strcmp(identity,name)) {
-         char *with_alias=g_strdup_printf("%s[%s]",label,name);
-         g_free(label); label=with_alias;
+      double latitude, longitude;
+
+      if (sscanf(coords, "%lf,%lf", &latitude, &longitude) == 2) {
+         snprintf(position, sizeof(position), " (%.3f,%.3f)", latitude, longitude);
+      }
+      const char *identity = *model && strcmp(model, "NET rigctl") && strcmp(model, "NET rigctl (Hamlib)") ? model : name;
+      label =
+         g_strdup_printf("%s%s%s%s%s%s%s", identity, *location ? " (" : "", location, *location ? ")" : "", *position ? " " : "", position, strcmp(identity,
+         name) ? " " : "");
+
+      if (strcmp(identity, name)) {
+         char *with_alias = g_strdup_printf("%s[%s]", label, name);
+         g_free(label);
+         label = with_alias;
       }
       (void)manufacturer;
    }
+
    if (!strcmp(kind, "vfo")) {
       const char *frequency = dict_get(row, "inventory.frequency", "");
       const char *mode = dict_get(row, "inventory.mode", "");
@@ -2126,13 +2327,14 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          label = g_strdup_printf("VFO %s%s%s%s%s%s%s", name, *frequency ? " · " : "", frequency, *mode ? " · " : "", mode, *width ? " · " : "", width);
       }
    }
+
    if (!strcmp(kind, "vfo") && !label) {
       label = g_strdup_printf("VFO %s", name);
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
-      ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? dict_get(row, "inventory.service", "") : dict_get(row,
-      "inventory.action", ""), -1);
+      ROOM, room, PROFILE, profile, SERVICE, service ? service : "", ACTION, (!strcmp(kind, "control")
+         || !strcmp(kind, "rig-control")) ? dict_get(row, "inventory.service", "") : dict_get(row, "inventory.action", ""), -1);
 
    if (branch->selection) {
       const char *uuid = dict_get(row, "inventory.uuid", "");
@@ -2168,10 +2370,12 @@ static void resource_changed(const char *event, const char *text, rrconn_t *conn
    if (!browser) {
       return;
    }
+
    if (!strcmp(event, "client.explorer.control.result")) {
       char *message = g_strdup_printf("Rig control: %s", text ? text : "unknown result");
       gtk_label_set_text(GTK_LABEL(browser->status), message);
       g_free(message);
+
       return;
    }
    const char *profile = rrclient_connection_name(connection);

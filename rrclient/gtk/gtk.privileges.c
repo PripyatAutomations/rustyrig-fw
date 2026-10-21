@@ -6,13 +6,14 @@
 
 /* PARITY: rustyrig-www/js/webui.admin.js adminEditPrivileges. */
 static char *edit_privileges(GtkWindow *parent, const char *server, const char *name, const char *current, gboolean group_mode) {
-   GtkWidget *dialog = gtk_dialog_new_with_buttons(group_mode ? "Edit Group Privileges" : "Edit User Privileges", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
-      "Apply", GTK_RESPONSE_OK, NULL);
+   GtkWidget *dialog =
+      gtk_dialog_new_with_buttons(group_mode ? "Edit Group Privileges" : "Edit User Privileges", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+      "Cancel", GTK_RESPONSE_CANCEL, "Apply", GTK_RESPONSE_OK, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dialog), 440, 520);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
    char *context = group_mode ?
-      g_strdup_printf("Server: %s\nPrivilege group: %s\nChoose the privileges included in this group (nested groups are not permitted).",server ? server : "",name) :
-      g_strdup_printf("Server: %s\nUser: %s\nProtected accounts and grants require owner privileges.", server ? server : "", name);
+      g_strdup_printf("Server: %s\nPrivilege group: %s\nChoose the privileges included in this group (nested groups are not permitted).", server ? server : "",
+      name) : g_strdup_printf("Server: %s\nUser: %s\nProtected accounts and grants require owner privileges.", server ? server : "", name);
    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(context), FALSE, FALSE, 8);
    g_free(context);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL), *rows = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -28,22 +29,21 @@ static char *edit_privileges(GtkWindow *parent, const char *server, const char *
 
    char **existing = g_strsplit(current ? current : "", ",", -1);
 
-   /* Old databases may contain unsupported nested references. Do not hide
-    * them and silently erase them when the operator clicks Apply. */
+   /* Old databases may contain unsupported nested references. Do not hide them and silently erase them when the operator clicks Apply. */
    if (group_mode) {
       for (char **item = existing ; *item ; item++) {
          if (**item == '@') {
-            GtkWidget *warning = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL,
-               GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE,
-               "Group %s contains the nested group reference %s",name,*item);
+            GtkWidget *warning = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_CLOSE,
+               "Group %s contains the nested group reference %s", name, *item);
             gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(warning),
                "Nested groups are not supported. Remove the legacy entry before editing this group.");
             gtk_dialog_run(GTK_DIALOG(warning));
             gtk_widget_destroy(warning);
             g_strfreev(existing);
-            g_list_free_full(names,g_free);
+            g_list_free_full(names, g_free);
             g_hash_table_destroy(selected);
             gtk_widget_destroy(dialog);
+
             return NULL;
          }
       }
@@ -66,12 +66,15 @@ static char *edit_privileges(GtkWindow *parent, const char *server, const char *
    GPtrArray *buttons = g_ptr_array_new();
 
    for (GList *item = names ; item ; item = item->next) {
-      /* Group references (@name) are valid user assignments, but group
-       * definitions must not recursively contain other groups. */
-      if (group_mode && ((const char *)item->data)[0] == '@') continue;
+      /* Group references (@name) are valid user assignments, but group definitions must not recursively contain other groups. */
+      if (group_mode && ((const char *)item->data)[0] == '@') {
+         continue;
+      }
       GtkWidget *button = gtk_check_button_new_with_label(item->data);
-      for (unsigned j = 0; j < G_N_ELEMENTS(rrclient_privilege_registry); ++j) {
+
+      for (unsigned j = 0 ; j < G_N_ELEMENTS(rrclient_privilege_registry) ; ++j) {
          const rr_privilege_info_t *info = &rrclient_privilege_registry[j];
+
          if (!strcmp(info->name, item->data)) {
             char *tip = g_strdup_printf("%s — %s (%s)", info->label, info->description, info->scope);
             gtk_widget_set_tooltip_text(button, tip);
@@ -79,6 +82,7 @@ static char *edit_privileges(GtkWindow *parent, const char *server, const char *
             break;
          }
       }
+
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), g_hash_table_contains(selected, item->data));
       gtk_box_pack_start(GTK_BOX(rows), button, FALSE, FALSE, 0);
       g_ptr_array_add(buttons, button);
@@ -114,9 +118,9 @@ static char *edit_privileges(GtkWindow *parent, const char *server, const char *
 }
 
 char *gtk_edit_privileges(GtkWindow *parent, const char *server, const char *name, const char *current) {
-   return edit_privileges(parent,server,name,current,FALSE);
+   return edit_privileges(parent, server, name, current, FALSE);
 }
 
 char *gtk_edit_group_privileges(GtkWindow *parent, const char *server, const char *group, const char *current) {
-   return edit_privileges(parent,server,group,current,TRUE);
+   return edit_privileges(parent, server, group, current, TRUE);
 }

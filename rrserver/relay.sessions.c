@@ -538,8 +538,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    struct catalog *c = rr_relay_room_catalog(room);
 
    bool files = !strcmp(dict_get(d, "msg.type", ""), "file");
-   bool administration = !strcmp(dict_get(d, "msg.type", ""), "talk") &&
-      !strcmp(dict_get(d, "talk.cmd", ""), "admin");
+   bool administration = !strcmp(dict_get(d, "msg.type", ""), "talk") && !strcmp(dict_get(d, "talk.cmd", ""), "admin");
    /* Authentication of the originating link is not an authorization grant. Remote subjects need explicit resource grants on the owning server;
     * they must never be mapped to a local login merely to get a UID. */
    bool scoped = false;
@@ -548,17 +547,14 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    if (r && administration) {
       /* The destination also enforces its own direct-peer restriction. */
       const char *next = rrserver_links_route(origin);
-      bool allowed_hops = !cfg_get_bool("remote-admin.next-hop-only", true) ||
-         (next && !strcmp(next, origin));
+      bool allowed_hops = !cfg_get_bool("remote-admin.next-hop-only", true) || (next && !strcmp(next, origin));
       const char *host = rrserver_relay_client_server(&r->client);
       const char *local_site = cfg_get("station.name");
-      if (host && *host && local_site && strcmp(host,local_site)) {
-         scoped = db_resource_access_named(masterdb, username, host, "site", "*",
-                  "remote-admin", time(NULL), NULL) == RR_RESOURCE_ALLOW &&
-                  (db_resource_access_named(masterdb, username, host, "site", "*",
-                  "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
-                   db_resource_access_named(masterdb, username, host, "site", "*",
-                  "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW);
+
+      if (host && *host && local_site && strcmp(host, local_site)) {
+         scoped = db_resource_access_named(masterdb, username, host, "site", "*", "remote-admin", time(NULL), NULL) == RR_RESOURCE_ALLOW &&
+            (db_resource_access_named(masterdb, username, host, "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
+               db_resource_access_named(masterdb, username, host, "site", "*", "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW);
       }
    } else if (r && !files && room && *room) {
       const char *host = rrserver_relay_client_server(&r->client);
@@ -582,8 +578,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    }
 #endif
 
-   if (!r || !scoped || (!administration && !files && (!c || !rr_relay_local_owner(c->owner))) ||
-       (!administration && !rr_relay_permitted_message(d))) {
+   if (!r || !scoped || (!administration && !files && (!c || !rr_relay_local_owner(c->owner))) || (!administration && !rr_relay_permitted_message(d))) {
       dict *error = dict_new();
 
       if (error && files) {
@@ -682,11 +677,10 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
    }
    free(wire);
    bool was_ptt = r->client.is_ptt;
-   /* The protocol library intentionally rejects admin for synthetic remote
-    * users with uid=-1. Here the authenticated link identity has already
-    * passed destination-side site grants; the application handler checks
-    * each administrative capability again. */
+   /* The protocol library intentionally rejects admin for synthetic remote users with uid=-1. Here the authenticated link identity has already passed
+    * destination-side site grants; the application handler checks each administrative capability again. */
    bool ok;
+
    if (administration) {
       event_emit_dict("admin.cmd", &r->client, d);
       ok = true;

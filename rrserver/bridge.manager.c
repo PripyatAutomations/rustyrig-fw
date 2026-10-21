@@ -546,6 +546,7 @@ static char *bridge_program_path(void) {
    if (configured && *configured && strcmp(configured, "auto")) {
       return g_find_program_in_path(configured);
    }
+
    return g_find_program_in_path("rrbridge");
 }
 static bool spawn_child(struct bridge_child *b) {

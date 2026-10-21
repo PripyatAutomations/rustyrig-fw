@@ -53,37 +53,51 @@ extern struct GlobalState rig;
 #include <rrserver/events.internal.h>
 
 /* PARITY: rrclient/gtk/gtk.admin.c and www/js/webui.admin.js admin results. SQLite and access control stay in the server; no credential fields leave it. */
-/* A relayed operator has no local UID. All remote administrative authority is
- * granted by this server to its authenticated user@site identity. */
+/* A relayed operator has no local UID. All remote administrative authority is granted by this server to its authenticated user@site identity. */
 static bool admin_actor_has_priv(rrconn_t *client, const char *privilege) {
-   if (!client || !client->user || !privilege) return false;
+   if (!client || !client->user || !privilege) {
+      return false;
+   }
 #ifndef USE_MONGOOSE
+
    return has_priv(client->user->uid, privilege);
 #else
-   if (!rr_relay_remote_for(client))
+
+   if (!rr_relay_remote_for(client)) {
       return has_priv(client->user->uid, privilege);
+   }
 #ifdef USE_SQLITE
    const char *host = rrserver_relay_client_server(client);
    const char *local = cfg_get("station.name");
-   if (!host || !*host || !local || !strcmp(host, local)) return false;
-   if (db_resource_access_named(masterdb, client->user->name, host, "site", "*",
-        "remote-admin", time(NULL), NULL) != RR_RESOURCE_ALLOW) return false;
+
+   if (!host || !*host || !local || !strcmp(host, local)) {
+      return false;
+   }
+
+   if (db_resource_access_named(masterdb, client->user->name, host, "site", "*", "remote-admin", time(NULL), NULL) != RR_RESOURCE_ALLOW) {
+      return false;
+   }
    /* Existing permission expressions are alternatives separated by '|'. */
    char *copy = g_strdup(privilege);
-   if (!copy) return false;
+
+   if (!copy) {
+      return false;
+   }
    bool granted = false;
    char *save = NULL;
-   for (char *token = strtok_r(copy, "|", &save); token;
-        token = strtok_r(NULL, "|", &save)) {
-      if (db_resource_access_named(masterdb, client->user->name, host, "site",
-           "*", token, time(NULL), NULL) == RR_RESOURCE_ALLOW) {
+
+   for (char *token = strtok_r(copy, "|", &save) ; token ; token = strtok_r(NULL, "|", &save)) {
+      if (db_resource_access_named(masterdb, client->user->name, host, "site", "*", token, time(NULL), NULL) == RR_RESOURCE_ALLOW) {
          granted = true;
          break;
       }
    }
+
    g_free(copy);
+
    return granted;
 #else
+
    return false;
 #endif
 #endif /* USE_MONGOOSE */
@@ -457,10 +471,8 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
       }
       sql = "DELETE FROM privilege_sets WHERE name=?1";
    } else if (!strcmp(action, "privset-entry")) {
-      /* Set entries are leaf privileges. A group reference would create
-       * recursive policy evaluation; reject it even for non-GTK clients. */
-      if (args != 2 || (strcmp(a, "allow") && strcmp(a, "deny")) ||
-          !*b || b[0] == '@' || strlen(b) > 128) {
+      /* Set entries are leaf privileges. A group reference would create recursive policy evaluation; reject it even for non-GTK clients. */
+      if (args != 2 || (strcmp(a, "allow") && strcmp(a, "deny")) || !*b || b[0] == '@' || strlen(b) > 128) {
          ws_send_error(client, "Usage: /admin privset-entry SET allow|deny PRIVILEGE");
 
          return true;
@@ -559,7 +571,10 @@ static bool admin_privset_action(rrconn_t *client, const char *action, dict *req
 
          if (rc == SQLITE_OK && !strcmp(action, "privset-assign")) {
             rc = sqlite3_bind_text(st, 6, client->chatname, -1, SQLITE_TRANSIENT);
-            if (rc == SQLITE_OK) rc=sqlite3_bind_int(st,7,args==4 ? 1 : 0);
+
+            if (rc == SQLITE_OK) {
+               rc = sqlite3_bind_int(st, 7, args == 4 ? 1 : 0);
+            }
          }
       }
    }
@@ -628,10 +643,11 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
    int n = sscanf(data, "%15s %63s %128s %15s %15s", kind, uuid, privilege, effect, extra);
    bool granting = !strcmp(action, "resource-grant");
 
-   if ((granting ? (n != 4 && n != 5) || (n==5 && strcmp(extra,"remote")) : n != 3) ||
+   if ((granting ? (n != 4 && n != 5) || (n == 5 && strcmp(extra, "remote")) : n != 3) ||
       !(!strcmp(kind, "site") || !strcmp(kind, "rig") || !strcmp(kind, "vfo") ||
       !strcmp(kind, "room") || !strcmp(kind, "media") || !strcmp(kind, "serial") ||
-      !strcmp(kind, "file") || !strcmp(kind, "bridge")) || !( ((!strcmp(kind, "rig") || !strcmp(kind, "site")) && !strcmp(uuid, "*")) || rr_object_uuid_valid(uuid)) || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
+      !strcmp(kind, "file") || !strcmp(kind, "bridge")) || !(((!strcmp(kind, "rig") || !strcmp(kind, "site")) && !strcmp(uuid, "*"))
+      || rr_object_uuid_valid(uuid)) || (granting && strcmp(effect, "allow") && strcmp(effect, "deny"))) {
       ws_send_error(client, "Usage: /admin resource-grant USER@HOST KIND UUID PRIVILEGE allow|deny");
 
       return true;
@@ -674,7 +690,10 @@ static bool admin_resource_action(rrconn_t *client, const char *action, dict *re
 
    if (rc == SQLITE_OK && granting) {
       rc = sqlite3_bind_text(st, 7, client->chatname, -1, SQLITE_TRANSIENT);
-      if (rc == SQLITE_OK) rc=sqlite3_bind_int(st,8,n==5 ? 1 : 0);
+
+      if (rc == SQLITE_OK) {
+         rc = sqlite3_bind_int(st, 8, n == 5 ? 1 : 0);
+      }
    }
 
    if (rc == SQLITE_OK) {
@@ -860,139 +879,214 @@ static bool admin_control_visit(const rr_platform_control_state_t *s, void *user
 
 #ifdef USE_SQLITE
 /* Bound SQL parameters only: free-form request messages never become SQL. */
-static void admin_access_requests(rrconn_t *client,dict *request) {
-   const char *action=dict_get(request,"talk.action","");
-   if (!masterdb) {ws_send_error(client,"Access request database unavailable");return;}
-   if (!strcmp(action,"access-request-submit")) {
-      const char *kind=dict_get(request,"request.kind","");
-      const char *uuid=dict_get(request,"request.uuid","");
-      const char *reason=dict_get(request,"request.reason","");
-      if ((!strcmp(kind,"rig") || !strcmp(kind,"room")) &&
-          rr_object_uuid_valid(uuid) && strlen(reason)>0 && strlen(reason)<=2048) {
-         gboolean ok=sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
-         sqlite3_stmt *st=NULL;
-         sqlite3_int64 request_id=0;
+static void admin_access_requests(rrconn_t *client, dict *request) {
+   const char *action = dict_get(request, "talk.action", "");
+
+   if (!masterdb) {
+      ws_send_error(client, "Access request database unavailable");
+
+      return;
+   }
+
+   if (!strcmp(action, "access-request-submit")) {
+      const char *kind = dict_get(request, "request.kind", "");
+      const char *uuid = dict_get(request, "request.uuid", "");
+      const char *reason = dict_get(request, "request.reason", "");
+
+      if ((!strcmp(kind, "rig") || !strcmp(kind, "room")) && rr_object_uuid_valid(uuid) && strlen(reason) > 0 && strlen(reason) <= 2048) {
+         gboolean ok = sqlite3_exec(masterdb, "BEGIN IMMEDIATE", NULL, NULL, NULL) == SQLITE_OK;
+         sqlite3_stmt *st = NULL;
+         sqlite3_int64 request_id = 0;
+
          if (ok) {
-            ok=sqlite3_prepare_v2(masterdb,"SELECT id FROM access_requests WHERE subject_user=?1 COLLATE NOCASE AND subject_host='' AND status='pending' LIMIT 1",-1,&st,NULL)==SQLITE_OK;
+            ok =
+               sqlite3_prepare_v2(masterdb,
+               "SELECT id FROM access_requests WHERE subject_user=?1 COLLATE NOCASE AND subject_host='' AND status='pending' LIMIT 1", -1, &st, NULL) ==
+               SQLITE_OK;
+
             if (ok) {
-               sqlite3_bind_text(st,1,client->chatname,-1,SQLITE_TRANSIENT);
-               int rc=sqlite3_step(st);
-               if (rc==SQLITE_ROW) request_id=sqlite3_column_int64(st,0);
-               else if (rc!=SQLITE_DONE) ok=FALSE;
+               sqlite3_bind_text(st, 1, client->chatname, -1, SQLITE_TRANSIENT);
+               int rc = sqlite3_step(st);
+
+               if (rc == SQLITE_ROW) {
+                  request_id = sqlite3_column_int64(st, 0);
+               } else if (rc != SQLITE_DONE) {
+                  ok = FALSE;
+               }
             }
-            sqlite3_finalize(st); st=NULL;
+            sqlite3_finalize(st);
+            st = NULL;
          }
+
          if (ok) {
-            const char *sql=request_id ?
-               "UPDATE access_requests SET reason=substr(reason || char(10) || ?1,1,8192),created_at=unixepoch(),resource_kind=?2,resource_uuid=?3 WHERE id=?4" :
-               "INSERT INTO access_requests(reason,resource_kind,resource_uuid,subject_user,subject_host) VALUES(?1,?2,?3,?4,'')";
-            ok=sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK;
+            const char *sql = request_id ?
+               "UPDATE access_requests SET reason=substr(reason || char(10) || ?1,1,8192),created_at=unixepoch(),resource_kind=?2,resource_uuid=?3 WHERE id=?4"
+               : "INSERT INTO access_requests(reason,resource_kind,resource_uuid,subject_user,subject_host) VALUES(?1,?2,?3,?4,'')";
+            ok = sqlite3_prepare_v2(masterdb, sql, -1, &st, NULL) == SQLITE_OK;
+
             if (ok) {
-               sqlite3_bind_text(st,1,reason,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,2,kind,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,3,uuid,-1,SQLITE_TRANSIENT);
-               if (request_id) sqlite3_bind_int64(st,4,request_id);
-               else sqlite3_bind_text(st,4,client->chatname,-1,SQLITE_TRANSIENT);
-               ok=sqlite3_step(st)==SQLITE_DONE;
-               if (ok && !request_id) request_id=sqlite3_last_insert_rowid(masterdb);
+               sqlite3_bind_text(st, 1, reason, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 2, kind, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 3, uuid, -1, SQLITE_TRANSIENT);
+
+               if (request_id) {
+                  sqlite3_bind_int64(st, 4, request_id);
+               } else {
+                  sqlite3_bind_text(st, 4, client->chatname, -1, SQLITE_TRANSIENT);
+               }
+               ok = sqlite3_step(st) == SQLITE_DONE;
+
+               if (ok && !request_id) {
+                  request_id = sqlite3_last_insert_rowid(masterdb);
+               }
             }
-            sqlite3_finalize(st); st=NULL;
+            sqlite3_finalize(st);
+            st = NULL;
          }
+
          if (ok) {
-            ok=sqlite3_prepare_v2(masterdb,"INSERT OR IGNORE INTO access_request_targets(request_id,resource_kind,resource_uuid) VALUES(?1,?2,?3)",-1,&st,NULL)==SQLITE_OK;
+            ok =
+               sqlite3_prepare_v2(masterdb, "INSERT OR IGNORE INTO access_request_targets(request_id,resource_kind,resource_uuid) VALUES(?1,?2,?3)", -1, &st,
+               NULL) == SQLITE_OK;
+
             if (ok) {
-               sqlite3_bind_int64(st,1,request_id);
-               sqlite3_bind_text(st,2,kind,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,3,uuid,-1,SQLITE_TRANSIENT);
-               ok=sqlite3_step(st)==SQLITE_DONE;
+               sqlite3_bind_int64(st, 1, request_id);
+               sqlite3_bind_text(st, 2, kind, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 3, uuid, -1, SQLITE_TRANSIENT);
+               ok = sqlite3_step(st) == SQLITE_DONE;
             }
             sqlite3_finalize(st);
          }
+
          if (ok) {
-            char *detail=g_strdup_printf("request=%lld target=%s:%s requeued", (long long)request_id,kind,uuid);
-            ok=detail && db_add_audit_event(masterdb,client->chatname,"access.request",detail);
+            char *detail = g_strdup_printf("request=%lld target=%s:%s requeued", (long long)request_id, kind, uuid);
+            ok = detail && db_add_audit_event(masterdb, client->chatname, "access.request", detail);
             g_free(detail);
          }
-         if (ok) ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
-         if (!ok) sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
-         if (ok) rrserver_admin_send(client,"access-requests","submitted",NULL);
-         else ws_send_error(client,"Unable to save request");
-      } else ws_send_error(client,"Request requires rig/room UUID and 1-2048 characters");
+
+         if (ok) {
+            ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+         }
+
+         if (!ok) {
+            sqlite3_exec(masterdb, "ROLLBACK", NULL, NULL, NULL);
+         }
+
+         if (ok) {
+            rrserver_admin_send(client, "access-requests", "submitted", NULL);
+         } else {
+            ws_send_error(client, "Unable to save request");
+         }
+      } else {
+         ws_send_error(client, "Request requires rig/room UUID and 1-2048 characters");
+      }
+
       return;
    }
-   if (!admin_actor_has_priv(client,"admin|owner")) {
-      ws_send_error(client,"Admin or owner required to review access requests");
+
+   if (!admin_actor_has_priv(client, "admin|owner")) {
+      ws_send_error(client, "Admin or owner required to review access requests");
+
       return;
    }
-   if (!strcmp(action,"access-request-list")) {
-      rrserver_admin_send(client,"access-requests","begin",NULL);
-      sqlite3_stmt *st=NULL;
-      const char *sql="SELECT id,subject_user,subject_host,resource_kind,COALESCE((SELECT group_concat(t.resource_kind || ':' || t.resource_uuid, ', ') FROM access_request_targets t WHERE t.request_id=access_requests.id),resource_kind || ':' || resource_uuid),reason,status,created_at,COALESCE(reviewed_by,'') FROM access_requests ORDER BY (status='pending') DESC,created_at ASC,id ASC LIMIT 500";
-      if (sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK) {
-         while (sqlite3_step(st)==SQLITE_ROW) {
-            dict *row=dict_new();
-            if (!row) break;
-            const char *keys[]={"id","subject_user","subject_host","resource_kind","resource_uuid","reason","status","created_at","reviewed_by"};
-            for (int i=0;i<9;i++) {
-               const char *v=(const char *)sqlite3_column_text(st,i);
-               dict_add(row,keys[i],v ? v : "");
+
+   if (!strcmp(action, "access-request-list")) {
+      rrserver_admin_send(client, "access-requests", "begin", NULL);
+      sqlite3_stmt *st = NULL;
+      const char *sql =
+         "SELECT id,subject_user,subject_host,resource_kind,COALESCE((SELECT group_concat(t.resource_kind || ':' || t.resource_uuid, ', ') FROM access_request_targets t WHERE t.request_id=access_requests.id),resource_kind || ':' || resource_uuid),reason,status,created_at,COALESCE(reviewed_by,'') FROM access_requests ORDER BY (status='pending') DESC,created_at ASC,id ASC LIMIT 500";
+
+      if (sqlite3_prepare_v2(masterdb, sql, -1, &st, NULL) == SQLITE_OK) {
+         while (sqlite3_step(st) == SQLITE_ROW) {
+            dict *row = dict_new();
+
+            if (!row) {
+               break;
             }
-            rrserver_admin_send(client,"access-requests","row",row);
+            const char *keys[] = {
+               "id", "subject_user", "subject_host", "resource_kind", "resource_uuid", "reason", "status", "created_at", "reviewed_by"
+            };
+
+            for (int i = 0 ; i < 9 ; i++) {
+               const char *v = (const char *)sqlite3_column_text(st, i);
+               dict_add(row, keys[i], v ? v : "");
+            }
+
+            rrserver_admin_send(client, "access-requests", "row", row);
             dict_free(row);
          }
       }
       sqlite3_finalize(st);
-      rrserver_admin_send(client,"access-requests","end",NULL);
+      rrserver_admin_send(client, "access-requests", "end", NULL);
+
       return;
    }
-   if (!strcmp(action,"access-request-review")) {
-      const char *id=dict_get(request,"request.id","");
-      const char *decision=dict_get(request,"request.decision","");
-      const char *selected=dict_get(request,"request.grants","");
-      gboolean remote=dict_get_bool(request,"request.remote",false);
-      if (!admin_actor_has_priv(client,"owner") ||
-          (strcmp(decision,"denied") && strcmp(decision,"granted"))) {
-         ws_send_error(client,"Owner privilege and valid decision required");return;
+
+   if (!strcmp(action, "access-request-review")) {
+      const char *id = dict_get(request, "request.id", "");
+      const char *decision = dict_get(request, "request.decision", "");
+      const char *selected = dict_get(request, "request.grants", "");
+      gboolean remote = dict_get_bool(request, "request.remote", false);
+
+      if (!admin_actor_has_priv(client, "owner") || (strcmp(decision, "denied") && strcmp(decision, "granted"))) {
+         ws_send_error(client, "Owner privilege and valid decision required");
+
+         return;
       }
-      char *end=NULL;errno=0;
-      sqlite3_int64 number=strtoll(id,&end,10);
-      if (errno || !*id || *end || number<=0 || strlen(selected)>2048) {
-         ws_send_error(client,"Invalid access review");return;
+      char *end = NULL;
+      errno = 0;
+      sqlite3_int64 number = strtoll(id, &end, 10);
+
+      if (errno || !*id || *end || number <= 0 || strlen(selected) > 2048) {
+         ws_send_error(client, "Invalid access review");
+
+         return;
       }
-      if (!strcmp(decision,"granted") && !*selected) {
-         ws_send_error(client,"Select at least one privilege or group");return;
+
+      if (!strcmp(decision, "granted") && !*selected) {
+         ws_send_error(client, "Select at least one privilege or group");
+
+         return;
       }
-      /* Lock the request before loading it; all inserts and status changes
-       * commit together, never leaving a partially approved request. */
-      if (sqlite3_exec(masterdb,"BEGIN IMMEDIATE",NULL,NULL,NULL)!=SQLITE_OK) {
-         ws_send_error(client,"Unable to begin access review");return;
+
+      /* Lock the request before loading it; all inserts and status changes commit together, never leaving a partially approved request. */
+      if (sqlite3_exec(masterdb, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
+         ws_send_error(client, "Unable to begin access review");
+
+         return;
       }
-      gboolean ok=FALSE;
-      sqlite3_stmt *st=NULL;
-      char *subject=NULL,*host=NULL,*kind=NULL,*uuid=NULL;
-      if (sqlite3_prepare_v2(masterdb,
-         "SELECT subject_user,subject_host,resource_kind,resource_uuid FROM access_requests WHERE id=?1 AND status='pending'",
-         -1,&st,NULL)==SQLITE_OK) {
-         sqlite3_bind_int64(st,1,number);
-         if (sqlite3_step(st)==SQLITE_ROW) {
-            subject=g_strdup((const char *)sqlite3_column_text(st,0));
-            host=g_strdup((const char *)sqlite3_column_text(st,1));
-            kind=g_strdup((const char *)sqlite3_column_text(st,2));
-            uuid=g_strdup((const char *)sqlite3_column_text(st,3));
-            ok=subject && *subject && host && kind && uuid;
+      gboolean ok = FALSE;
+      sqlite3_stmt *st = NULL;
+      char *subject = NULL, *host = NULL, *kind = NULL, *uuid = NULL;
+
+      if (sqlite3_prepare_v2(masterdb, "SELECT subject_user,subject_host,resource_kind,resource_uuid FROM access_requests WHERE id=?1 AND status='pending'", -1,
+         &st, NULL) == SQLITE_OK) {
+         sqlite3_bind_int64(st, 1, number);
+
+         if (sqlite3_step(st) == SQLITE_ROW) {
+            subject = g_strdup((const char *)sqlite3_column_text(st, 0));
+            host = g_strdup((const char *)sqlite3_column_text(st, 1));
+            kind = g_strdup((const char *)sqlite3_column_text(st, 2));
+            uuid = g_strdup((const char *)sqlite3_column_text(st, 3));
+            ok = subject && *subject && host && kind && uuid;
          }
       }
       sqlite3_finalize(st);
-      if (ok && !strcmp(decision,"granted")) {
-         gchar **tokens=g_strsplit(selected,",",-1);
-         unsigned count=0;
-         for (unsigned i=0;tokens[i] && ok;i++) {
-            const char *token=tokens[i];
-            if (!*token || strlen(token)>128 || strspn(token,
-                  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-@")!=strlen(token) ||
-                (token[0]=='@' && !token[1]) || ++count>32) {ok=FALSE;break;}
-            const gboolean group=token[0]=='@';
-            const char *sql=group ?
+
+      if (ok && !strcmp(decision, "granted")) {
+         gchar **tokens = g_strsplit(selected, ",", -1);
+         unsigned count = 0;
+
+         for (unsigned i = 0 ; tokens[i] && ok ; i++) {
+            const char *token = tokens[i];
+
+            if (!*token || strlen(token) > 128 || strspn(token, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-@") != strlen(token) || (token
+               [0] == '@' && !token[1]) || ++count > 32) {
+               ok = FALSE;
+               break;
+            }
+            const gboolean group = token[0] == '@';
+            const char *sql = group ?
                "INSERT INTO privilege_set_assignments(set_id,subject_user,subject_host,resource_kind,resource_uuid,assigned_by,remote_allowed) "
                "SELECT id,?2,?3,?4,?5,?6,?7 FROM privilege_sets WHERE name=?1 "
                "ON CONFLICT(set_id,subject_user,subject_host,resource_kind,resource_uuid) "
@@ -1001,52 +1095,72 @@ static void admin_access_requests(rrconn_t *client,dict *request) {
                "SELECT ?1,?2,t.resource_kind,t.resource_uuid,?5,'allow',?6,?7 FROM access_request_targets t WHERE t.request_id=?8 "
                "ON CONFLICT(subject_user,subject_host,resource_kind,resource_uuid,privilege) "
                "DO UPDATE SET effect='allow',remote_allowed=excluded.remote_allowed,granted_by=excluded.granted_by";
-            st=NULL;
-            ok=sqlite3_prepare_v2(masterdb,sql,-1,&st,NULL)==SQLITE_OK;
+            st = NULL;
+            ok = sqlite3_prepare_v2(masterdb, sql, -1, &st, NULL) == SQLITE_OK;
+
             if (ok) {
-               sqlite3_bind_text(st,1,group ? token+1 : subject,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,2,group ? subject : host,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,3,group ? host : kind,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,4,group ? kind : uuid,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,5,group ? uuid : token,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_text(st,6,client->chatname,-1,SQLITE_TRANSIENT);
-               sqlite3_bind_int(st,7,remote ? 1 : 0);
-               sqlite3_bind_int64(st,8,number);
-               ok=sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)>0;
+               sqlite3_bind_text(st, 1, group ? token + 1 : subject, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 2, group ? subject : host, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 3, group ? host : kind, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 4, group ? kind : uuid, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 5, group ? uuid : token, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_text(st, 6, client->chatname, -1, SQLITE_TRANSIENT);
+               sqlite3_bind_int(st, 7, remote ? 1 : 0);
+               sqlite3_bind_int64(st, 8, number);
+               ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(masterdb) > 0;
             }
             sqlite3_finalize(st);
          }
+
          g_strfreev(tokens);
-         if (!count) ok=FALSE;
+
+         if (!count) {
+            ok = FALSE;
+         }
       }
+
       if (ok) {
-         st=NULL;
-         ok=sqlite3_prepare_v2(masterdb,
-            "UPDATE access_requests SET status=?1,reviewed_at=unixepoch(),reviewed_by=?2 WHERE id=?3 AND status='pending'",
-            -1,&st,NULL)==SQLITE_OK;
+         st = NULL;
+         ok =
+            sqlite3_prepare_v2(masterdb, "UPDATE access_requests SET status=?1,reviewed_at=unixepoch(),reviewed_by=?2 WHERE id=?3 AND status='pending'", -1, &st
+            , NULL) == SQLITE_OK;
+
          if (ok) {
-            sqlite3_bind_text(st,1,decision,-1,SQLITE_TRANSIENT);
-            sqlite3_bind_text(st,2,client->chatname,-1,SQLITE_TRANSIENT);
-            sqlite3_bind_int64(st,3,number);
-            ok=sqlite3_step(st)==SQLITE_DONE && sqlite3_changes(masterdb)==1;
+            sqlite3_bind_text(st, 1, decision, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 2, client->chatname, -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int64(st, 3, number);
+            ok = sqlite3_step(st) == SQLITE_DONE && sqlite3_changes(masterdb) == 1;
          }
          sqlite3_finalize(st);
       }
+
       if (ok) {
-         char *who=host && *host ? g_strdup_printf("%s@%s",subject,host) : g_strdup(subject);
-         char *detail=g_strdup_printf("request=%s decision=%s subject=%s resource=%s:%s remote=%s grants=%s",
-            id,decision,who ? who : "",kind ? kind : "",uuid ? uuid : "",
-            remote ? "yes" : "no",!strcmp(decision,"granted") ? selected : "(none)");
-         ok=detail && db_add_audit_event(masterdb,client->chatname,
-            !strcmp(decision,"granted") ? "access.request.granted" : "access.request.denied",detail);
-         g_free(detail);g_free(who);
+         char *who = host && *host ? g_strdup_printf("%s@%s", subject, host) : g_strdup(subject);
+         char *detail = g_strdup_printf("request=%s decision=%s subject=%s resource=%s:%s remote=%s grants=%s", id, decision, who ? who : "", kind ? kind : "",
+            uuid ? uuid : "", remote ? "yes" : "no", !strcmp(decision, "granted") ? selected : "(none)");
+         ok = detail
+            && db_add_audit_event(masterdb, client->chatname, !strcmp(decision, "granted") ? "access.request.granted" : "access.request.denied", detail);
+         g_free(detail);
+         g_free(who);
       }
-      if (ok) ok=sqlite3_exec(masterdb,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;
-      if (!ok) sqlite3_exec(masterdb,"ROLLBACK",NULL,NULL,NULL);
-      g_free(subject);g_free(host);g_free(kind);g_free(uuid);
+
       if (ok) {
-         rrserver_admin_send(client,"access-requests","updated",NULL);
-      } else ws_send_error(client,"Access review failed; no grants or status changes saved");
+         ok = sqlite3_exec(masterdb, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+      }
+
+      if (!ok) {
+         sqlite3_exec(masterdb, "ROLLBACK", NULL, NULL, NULL);
+      }
+      g_free(subject);
+      g_free(host);
+      g_free(kind);
+      g_free(uuid);
+
+      if (ok) {
+         rrserver_admin_send(client, "access-requests", "updated", NULL);
+      } else {
+         ws_send_error(client, "Access review failed; no grants or status changes saved");
+      }
    }
 }
 #endif
@@ -1065,15 +1179,19 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       return;
    }
    const char *action = dict_get(request, "talk.action", "");
-   if (!strncmp(action,"access-request-",15)) {
-      admin_access_requests(client,request);
+
+   if (!strncmp(action, "access-request-", 15)) {
+      admin_access_requests(client, request);
       dict_free(request);
+
       return;
    }
    bool authorized = admin_actor_has_priv(client, "admin|owner");
+
    if (!authorized) {
-      ws_send_error(client,"Admin privileges required (remote: remote-admin plus admin or owner grant)");
+      ws_send_error(client, "Admin privileges required (remote: remote-admin plus admin or owner grant)");
       dict_free(request);
+
       return;
    }
    /* Node controls are exported through one generic, typed namespace. The old /admin backlight spelling remains an alias for clients that have not yet switched
@@ -1143,17 +1261,23 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          dict_add(row, "user", http_users[i].name);
          dict_add(row, "host", "");
          dict_add(row, "label", http_users[i].name);
-         sqlite3_stmt *profile=NULL;
-         if (sqlite3_prepare_v2(masterdb,
-            "SELECT COALESCE(email,''),COALESCE(real_name,''),COALESCE(phone,''),"
-            "COALESCE(permissions,'') FROM users WHERE name=?1 COLLATE NOCASE",
-            -1,&profile,NULL)==SQLITE_OK) {
-            sqlite3_bind_text(profile,1,http_users[i].name,-1,SQLITE_TRANSIENT);
-            if (sqlite3_step(profile)==SQLITE_ROW) {
-               const char *fields[]={"email","real_name","phone","privileges"};
-               for (int field=0;field<4;field++) {
-                  const char *value=(const char *)sqlite3_column_text(profile,field);
-                  if (value) dict_add(row,fields[field],value);
+         sqlite3_stmt *profile = NULL;
+
+         if (sqlite3_prepare_v2(masterdb, "SELECT COALESCE(email,''),COALESCE(real_name,''),COALESCE(phone,''),"
+            "COALESCE(permissions,'') FROM users WHERE name=?1 COLLATE NOCASE", -1, &profile, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(profile, 1, http_users[i].name, -1, SQLITE_TRANSIENT);
+
+            if (sqlite3_step(profile) == SQLITE_ROW) {
+               const char *fields[] = {
+                  "email", "real_name", "phone", "privileges"
+               };
+
+               for (int field = 0 ; field < 4 ; field++) {
+                  const char *value = (const char *)sqlite3_column_text(profile, field);
+
+                  if (value) {
+                     dict_add(row, fields[field], value);
+                  }
                }
             }
          }
@@ -1192,36 +1316,41 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
             dict_add(row, "user", name);
             dict_add(row, "host", host);
             dict_add(row, "label", label);
-            snprintf(key,sizeof(key),"user.%u.email",i);
-            dict_add(row,"email",dict_get(entry->users,key,""));
-            snprintf(key,sizeof(key),"user.%u.real_name",i);
-            dict_add(row,"real_name",dict_get(entry->users,key,""));
-            snprintf(key,sizeof(key),"user.%u.phone",i);
-            dict_add(row,"phone",dict_get(entry->users,key,""));
-            snprintf(key,sizeof(key),"user.%u.privileges",i);
-            dict_add(row,"privileges",dict_get(entry->users,key,""));
+            snprintf(key, sizeof(key), "user.%u.email", i);
+            dict_add(row, "email", dict_get(entry->users, key, ""));
+            snprintf(key, sizeof(key), "user.%u.real_name", i);
+            dict_add(row, "real_name", dict_get(entry->users, key, ""));
+            snprintf(key, sizeof(key), "user.%u.phone", i);
+            dict_add(row, "phone", dict_get(entry->users, key, ""));
+            snprintf(key, sizeof(key), "user.%u.privileges", i);
+            dict_add(row, "privileges", dict_get(entry->users, key, ""));
             rrserver_admin_send(client, "subjects", "row", row);
             dict_free(row);
          }
       }
 
 #endif
-      /* The directory snapshot also advertises reusable privilege names,
-       * never permission decisions. The owning server still authorizes. */
+      /* The directory snapshot also advertises reusable privilege names, never permission decisions. The owning server still authorizes. */
 #ifdef USE_SQLITE
+
       if (masterdb) {
-         sqlite3_stmt *groups=NULL;
-         if (sqlite3_prepare_v2(masterdb,
-            "SELECT name FROM privilege_sets ORDER BY name COLLATE NOCASE",
-            -1,&groups,NULL)==SQLITE_OK) {
-            while (sqlite3_step(groups)==SQLITE_ROW) {
-               const char *name=(const char *)sqlite3_column_text(groups,0);
-               if (!name || !*name) continue;
-               dict *row=dict_new();
-               if (!row) break;
-               dict_add(row,"kind","privilege-group");
-               dict_add(row,"name",name);
-               rrserver_admin_send(client,"subjects","row",row);
+         sqlite3_stmt *groups = NULL;
+
+         if (sqlite3_prepare_v2(masterdb, "SELECT name FROM privilege_sets ORDER BY name COLLATE NOCASE", -1, &groups, NULL) == SQLITE_OK) {
+            while (sqlite3_step(groups) == SQLITE_ROW) {
+               const char *name = (const char *)sqlite3_column_text(groups, 0);
+
+               if (!name || !*name) {
+                  continue;
+               }
+               dict *row = dict_new();
+
+               if (!row) {
+                  break;
+               }
+               dict_add(row, "kind", "privilege-group");
+               dict_add(row, "name", name);
+               rrserver_admin_send(client, "subjects", "row", row);
                dict_free(row);
             }
          }
@@ -1368,8 +1497,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       strcpy(table, "privsets");
       sql = "SELECT s.id AS cursor,s.name,s.description,s.created_by,s.created_at,"
          "COALESCE((SELECT group_concat(CASE WHEN e.effect='deny' THEN '!' || e.privilege ELSE e.privilege END, ',') "
-         "FROM privilege_set_entries e WHERE e.set_id=s.id),'') AS privileges "
-         "FROM privilege_sets s WHERE (?=0 OR s.id<?) ORDER BY s.id DESC LIMIT 100";
+         "FROM privilege_set_entries e WHERE e.set_id=s.id),'') AS privileges " "FROM privilege_sets s WHERE (?=0 OR s.id<?) ORDER BY s.id DESC LIMIT 100";
    } else if (!strcasecmp(table, "setentries")) {
       strcpy(table, "setentries");
       sql = "SELECT e.rowid AS cursor,s.name AS set_name,e.privilege,e.effect "
@@ -1377,16 +1505,15 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    } else if (!strcasecmp(table, "assignments")) {
       strcpy(table, "assignments");
       sql = "SELECT a.id AS cursor,s.name AS set_name,a.subject_user,a.subject_host,"
-          "a.resource_kind,a.resource_uuid,a.expires_at,a.remote_allowed FROM privilege_set_assignments a "
+         "a.resource_kind,a.resource_uuid,a.expires_at,a.remote_allowed FROM privilege_set_assignments a "
          "JOIN privilege_sets s ON s.id=a.set_id " "WHERE (?=0 OR a.id<?) ORDER BY a.id DESC LIMIT 100";
    } else if (!strcasecmp(table, "grants")) {
       strcpy(table, "grants");
       sql = "SELECT id AS cursor,subject_user,subject_host,resource_kind,"
-          "resource_uuid,privilege,effect,expires_at,remote_allowed FROM resource_privileges " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+         "resource_uuid,privilege,effect,expires_at,remote_allowed FROM resource_privileges " "WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    } else if (!strcasecmp(table, "groups")) {
       strcpy(table, "groups");
-      /* Group rows followed by their privilege and membership children.
-       * All entries carry a group_name for stable client-side grouping. */
+      /* Group rows followed by their privilege and membership children. All entries carry a group_name for stable client-side grouping. */
       sql = "SELECT cursor,group_name,entry_type,entry_name,entry_detail FROM ("
          "SELECT 1 AS cursor,name AS group_name,'group' AS entry_type,"
          "name AS entry_name,description AS entry_detail FROM user_groups "

@@ -33,27 +33,31 @@
 #include <rrclient/gtk/gtk.chat.h>
 
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
-static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
-                               GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
-   GtkWidget *view=g_object_get_data(G_OBJECT(column),"rr-zebra-view");
-   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
-   gboolean odd=index && (index[0] & 1);
-   gboolean selected=view && path && gtk_tree_selection_path_is_selected(
-      gtk_tree_view_get_selection(GTK_TREE_VIEW(view)),path);
+   GtkWidget *view = g_object_get_data(G_OBJECT(column), "rr-zebra-view");
+   GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+   int *index = path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd = index && (index[0] & 1);
+   gboolean selected = view && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
+
    if (odd && !selected && view) {
-      GtkStyleContext *style=gtk_widget_get_style_context(view);
-      GdkRGBA base,ink,shade;
-      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
-      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
-      shade.red=base.red*0.915+ink.red*0.085;
-      shade.green=base.green*0.915+ink.green*0.085;
-      shade.blue=base.blue*0.915+ink.blue*0.085;
-      shade.alpha=1.0;
-      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
-   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
-   if (path) gtk_tree_path_free(path);
+      GtkStyleContext *style = gtk_widget_get_style_context(view);
+      GdkRGBA base, ink, shade;
+      gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
+      gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
+      shade.red = base.red * 0.915 + ink.red * 0.085;
+      shade.green = base.green * 0.915 + ink.green * 0.085;
+      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.alpha = 1.0;
+      g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
+   } else {
+      g_object_set(cell, "cell-background-set", FALSE, NULL);
+   }
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
 }
 
 
@@ -112,17 +116,23 @@ typedef struct room_vfo_control {
    room_userlist_entry_t *entry;
 } room_vfo_control_t;
 
-/* Roster identities can originate with remote peers. GTK/Pango must only
- * receive valid UTF-8, but keep raw names in the model for identity matching. */
+/* Roster identities can originate with remote peers. GTK/Pango must only receive valid UTF-8, but keep raw names in the model for identity matching. */
 static char *userlist_safe_display(const char *text) {
-   if (!text) return g_strdup("");
-   if (g_utf8_validate(text,-1,NULL)) return g_strdup(text);
+   if (!text) {
+      return g_strdup("");
+   }
+
+   if (g_utf8_validate(text, -1, NULL)) {
+      return g_strdup(text);
+   }
    static bool warned = false;
+
    if (!warned) {
-      Log(LOG_WARN,"gtk.userlist","Invalid UTF-8 in userlist display text");
+      Log(LOG_WARN, "gtk.userlist", "Invalid UTF-8 in userlist display text");
       warned = true;
    }
-   return g_utf8_make_valid(text,-1);
+
+   return g_utf8_make_valid(text, -1);
 }
 static int userlist_default_width(void) {
    int width = cfg_get_int("ui.userlist-width", 220);
@@ -600,8 +610,8 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       }
       char decorated[HTTP_USER_LEN + 8];
       userlist_display_name(c, decorated, sizeof(decorated));
-      char *safe_name=userlist_safe_display(c->name);
-      char *safe_decorated=userlist_safe_display(decorated);
+      char *safe_name = userlist_safe_display(c->name);
+      char *safe_decorated = userlist_safe_display(decorated);
       const char *values[NUM_COLS] = {
          select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), safe_decorated
       };
@@ -1236,12 +1246,13 @@ static GtkWidget *userlist_view_create(void) {
       snprintf(key, sizeof(key), "rr-column-%d", i);
       g_object_set_data(G_OBJECT(view), key, column);
       g_object_set_data(G_OBJECT(column), "rr-column-id", GINT_TO_POINTER(i + 1));
-      GList *cells=gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(column));
-      for (GList *item=cells;item;item=item->next) {
-         g_object_set_data(G_OBJECT(column),"rr-zebra-view",view);
-         gtk_tree_view_column_set_cell_data_func(column,GTK_CELL_RENDERER(item->data),
-                                                 rr_list_zebra_cell,NULL,NULL);
+      GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(column));
+
+      for (GList *item = cells ; item ; item = item->next) {
+         g_object_set_data(G_OBJECT(column), "rr-zebra-view", view);
+         gtk_tree_view_column_set_cell_data_func(column, GTK_CELL_RENDERER(item->data), rr_list_zebra_cell, NULL, NULL);
       }
+
       g_list_free(cells);
       gtk_tree_view_column_set_reorderable(column, TRUE);
 

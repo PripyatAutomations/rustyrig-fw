@@ -11,27 +11,31 @@
 #include "gtk.files.h"
 
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
-static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
-                               GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
-   GtkWidget *view=g_object_get_data(G_OBJECT(column),"rr-zebra-view");
-   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
-   gboolean odd=index && (index[0] & 1);
-   gboolean selected=view && path && gtk_tree_selection_path_is_selected(
-      gtk_tree_view_get_selection(GTK_TREE_VIEW(view)),path);
+   GtkWidget *view = g_object_get_data(G_OBJECT(column), "rr-zebra-view");
+   GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+   int *index = path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd = index && (index[0] & 1);
+   gboolean selected = view && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
+
    if (odd && !selected && view) {
-      GtkStyleContext *style=gtk_widget_get_style_context(view);
-      GdkRGBA base,ink,shade;
-      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
-      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
-      shade.red=base.red*0.915+ink.red*0.085;
-      shade.green=base.green*0.915+ink.green*0.085;
-      shade.blue=base.blue*0.915+ink.blue*0.085;
-      shade.alpha=1.0;
-      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
-   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
-   if (path) gtk_tree_path_free(path);
+      GtkStyleContext *style = gtk_widget_get_style_context(view);
+      GdkRGBA base, ink, shade;
+      gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
+      gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
+      shade.red = base.red * 0.915 + ink.red * 0.085;
+      shade.green = base.green * 0.915 + ink.green * 0.085;
+      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.alpha = 1.0;
+      g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
+   } else {
+      g_object_set(cell, "cell-background-set", FALSE, NULL);
+   }
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
 }
 
 enum {
@@ -63,11 +67,16 @@ static gboolean listing_expired(gpointer unused) {
       struct listing *r = value;
 
       if ((uint64_t) mono_us() - r->started > 30000000) {
-         GtkTreePath *path=gtk_tree_row_reference_get_path(r->row);
+         GtkTreePath *path = gtk_tree_row_reference_get_path(r->row);
          GtkTreeIter iter;
-         if (path && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store),&iter,path))
-            gtk_tree_store_set(browser.store,&iter,LOADED,FALSE,-1);
-         if (path) gtk_tree_path_free(path);
+
+         if (path && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &iter, path)) {
+            gtk_tree_store_set(browser.store, &iter, LOADED, FALSE, -1);
+         }
+
+         if (path) {
+            gtk_tree_path_free(path);
+         }
          gtk_label_set_text(GTK_LABEL(browser.status), "File listing timed out. Expand the folder again or Refresh to retry.");
          g_hash_table_iter_remove(&iterator);
       }
@@ -156,8 +165,9 @@ static void load(GtkTreeIter *parent) {
    g_free(path);
 
    if (!id) {
-      gtk_tree_store_set(browser.store,parent,LOADED,FALSE,-1);
+      gtk_tree_store_set(browser.store, parent, LOADED, FALSE, -1);
       status("Connect to a RustyRig server first.");
+
       return;
    }
    GtkTreeIter child;
@@ -182,23 +192,32 @@ static void expand(GtkTreeView *tree, GtkTreeIter *iter, GtkTreePath *path, gpoi
       load(iter);
    }
 }
-/* Double-click a folder to open it, or click its disclosure triangle.
- * A stale or failed listing can be retried by activating the folder again. */
-static void folder_activated(GtkTreeView *tree,GtkTreePath *path,
-                             GtkTreeViewColumn *column,gpointer unused) {
+
+/* Double-click a folder to open it, or click its disclosure triangle. A stale or failed listing can be retried by activating the folder again. */
+static void folder_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
    (void)unused;
    GtkTreeIter iter;
-   if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store),&iter,path)) return;
-   gboolean directory=FALSE,loaded=FALSE;
-   gtk_tree_model_get(GTK_TREE_MODEL(browser.store),&iter,
-                      DIRECTORY,&directory,LOADED,&loaded,-1);
-   if (!directory) return;
-   if (!loaded) load(&iter);
-   if (!gtk_tree_view_row_expanded(tree,path))
-      gtk_tree_view_expand_row(tree,path,FALSE);
-   else if (loaded)
-      gtk_tree_view_collapse_row(tree,path);
+
+   if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &iter, path)) {
+      return;
+   }
+   gboolean directory = FALSE, loaded = FALSE;
+   gtk_tree_model_get(GTK_TREE_MODEL(browser.store), &iter, DIRECTORY, &directory, LOADED, &loaded, -1);
+
+   if (!directory) {
+      return;
+   }
+
+   if (!loaded) {
+      load(&iter);
+   }
+
+   if (!gtk_tree_view_row_expanded(tree, path)) {
+      gtk_tree_view_expand_row(tree, path, FALSE);
+   } else if (loaded) {
+      gtk_tree_view_collapse_row(tree, path);
+   }
 }
 static void refresh(void) {
    g_hash_table_remove_all(browser.requests);
@@ -206,9 +225,8 @@ static void refresh(void) {
    GtkTreeIter root;
    gtk_tree_store_append(browser.store, &root, NULL);
    gtk_tree_store_set(browser.store, &root, NAME, "/", PATH, site_root(), DIRECTORY, TRUE, READABLE, TRUE, WRITABLE, FALSE, -1);
-   /* A newly selected server must display its shares without requiring a
-    * manual expansion. The placeholder only keeps the root expandable while
-    * its initial response is pending. */
+   /* A newly selected server must display its shares without requiring a manual expansion. The placeholder only keeps the root expandable while its initial
+    * response is pending. */
    placeholder(&root);
    load(&root);
    GtkTreePath *path = gtk_tree_path_new_first();
@@ -347,18 +365,26 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
    }
    dict_free(d);
 }
-/* Prefer an authenticated direct connection over a redundant relayed
- * route when the remote node advertises the same site name/profile. */
+
+/* Prefer an authenticated direct connection over a redundant relayed route when the remote node advertises the same site name/profile. */
 static gboolean directly_connected_site(const char *alias) {
-   if (!alias || !*alias) return FALSE;
-   for (unsigned i=0;;i++) {
-      const char *profile=rrclient_connection_iter(i);
-      if (!profile) break;
-      rrconn_t *direct=rrclient_connection_find(profile);
-      if (direct && direct->is_ws && direct->authenticated &&
-          !g_ascii_strcasecmp(profile,alias))
-         return TRUE;
+   if (!alias || !*alias) {
+      return FALSE;
    }
+
+   for (unsigned i = 0 ;; i++) {
+      const char *profile = rrclient_connection_iter(i);
+
+      if (!profile) {
+         break;
+      }
+      rrconn_t *direct = rrclient_connection_find(profile);
+
+      if (direct && direct->is_ws && direct->authenticated && !g_ascii_strcasecmp(profile, alias)) {
+         return TRUE;
+      }
+   }
+
    return FALSE;
 }
 static void row(const char *event, const char *text, rrconn_t *c, void *data) {
@@ -381,11 +407,12 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
          if (g_str_has_prefix(name, "@") && strlen(name) == 37) {
             char *key = g_strdup_printf("%s|/%s", home, name);
             const char *alias = dict_get(d, "file.site-name", name);
-            /* Don't show a relayed route if that site already has a direct
-             * authenticated connection in the selector. */
+
+            /* Don't show a relayed route if that site already has a direct authenticated connection in the selector. */
             if (directly_connected_site(alias)) {
                g_free(key);
                dict_free(d);
+
                return;
             }
             char *label = g_strdup_printf("%s (%s)", alias, home);
@@ -450,12 +477,18 @@ static void row(const char *event, const char *text, rrconn_t *c, void *data) {
    } else if (!strcmp(cmd, "end") || !strcmp(cmd, "result")) {
       const char *error = dict_get(d, "file.error", "");
       status(*error ? error : "Ready");
-      if (ref && (!strcmp(cmd,"result") || *error)) {
-         GtkTreePath *failed=gtk_tree_row_reference_get_path(ref);
+
+      if (ref && (!strcmp(cmd, "result") || *error)) {
+         GtkTreePath *failed = gtk_tree_row_reference_get_path(ref);
          GtkTreeIter parent;
-         if (failed && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store),&parent,failed))
-            gtk_tree_store_set(browser.store,&parent,LOADED,FALSE,-1);
-         if (failed) gtk_tree_path_free(failed);
+
+         if (failed && gtk_tree_model_get_iter(GTK_TREE_MODEL(browser.store), &parent, failed)) {
+            gtk_tree_store_set(browser.store, &parent, LOADED, FALSE, -1);
+         }
+
+         if (failed) {
+            gtk_tree_path_free(failed);
+         }
       }
 
       if (ref && !strcmp(cmd, "end")) {
@@ -703,9 +736,9 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
       }
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(labels[col], cell, col == READABLE
          || col == WRITABLE ? "active" : "text", col, NULL);
-      g_object_set_data(G_OBJECT(column),"rr-zebra-view",browser.tree);
+      g_object_set_data(G_OBJECT(column), "rr-zebra-view", browser.tree);
 
-      gtk_tree_view_column_set_cell_data_func(column,cell,rr_list_zebra_cell,NULL,NULL);
+      gtk_tree_view_column_set_cell_data_func(column, cell, rr_list_zebra_cell, NULL, NULL);
 
       gtk_tree_view_column_set_sort_column_id(column, col);
       gtk_tree_view_append_column(GTK_TREE_VIEW(browser.tree), column);

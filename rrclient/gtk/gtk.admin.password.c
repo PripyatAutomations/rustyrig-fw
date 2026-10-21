@@ -2,8 +2,7 @@
 #include <string.h>
 #include <rrclient/gtk/gtk.admin.password.h>
 
-void gtk_admin_password_dialog(GtkWindow *parent, const char *profile, const char *name,
-                               void (*submit)(void *context, const char *tail), void *context) {
+void gtk_admin_password_dialog(GtkWindow *parent, const char *profile, const char *name, void (*submit) (void *context, const char *tail), void *context) {
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Set Password", parent, GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Cancel", GTK_RESPONSE_CANCEL,
       "Set Password", GTK_RESPONSE_OK, NULL);
    GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
@@ -45,4 +44,3 @@ void gtk_admin_password_dialog(GtkWindow *parent, const char *profile, const cha
    }
    gtk_widget_destroy(dialog);
 }
-

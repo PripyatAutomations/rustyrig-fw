@@ -345,11 +345,10 @@ int main(int argc, char **argv) {
    const char *module_dir = cfg_get("path.modules");
    struct stat module_stat;
 
-   if (!module_dir || module_dir[0] != '/' ||
-       stat(module_dir, &module_stat) != 0 || !S_ISDIR(module_stat.st_mode)) {
-      Log(LOG_CRIT, "modules",
-          "Invalid installed module directory '%s'. Install rrserver modules and set path.modules to an existing absolute directory.",
-          module_dir ? module_dir : "(unset)");
+   if (!module_dir || module_dir[0] != '/' || stat(module_dir, &module_stat) != 0 || !S_ISDIR(module_stat.st_mode)) {
+      Log(LOG_CRIT, "modules", "Invalid installed module directory '%s'. Install rrserver modules and set path.modules to an existing absolute directory.",
+         module_dir ? module_dir : "(unset)");
+
       return EXIT_FAILURE;
    }
 
@@ -607,9 +606,8 @@ int main(int argc, char **argv) {
       }
 
       if (!rr_load_module(module)) {
-         Log(LOG_CRIT, "modules",
-             "Required server module '%s' could not be loaded from %s",
-             module, module_dir);
+         Log(LOG_CRIT, "modules", "Required server module '%s' could not be loaded from %s", module, module_dir);
+
          return EXIT_FAILURE;
       }
 

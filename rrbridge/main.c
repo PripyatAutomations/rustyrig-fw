@@ -200,11 +200,9 @@ int main(int argc, char **argv) {
 
    struct stat module_stat;
 
-   if (directory[0] != '/' || stat(directory, &module_stat) != 0 ||
-       !S_ISDIR(module_stat.st_mode)) {
-      Log(LOG_CRIT, "bridge",
-          "Invalid installed bridge module directory '%s'. Install rrbridge modules before starting.",
-          directory);
+   if (directory[0] != '/' || stat(directory, &module_stat) != 0 || !S_ISDIR(module_stat.st_mode)) {
+      Log(LOG_CRIT, "bridge", "Invalid installed bridge module directory '%s'. Install rrbridge modules before starting.", directory);
+
       return EXIT_FAILURE;
    }
 

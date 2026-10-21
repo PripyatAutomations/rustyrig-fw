@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <rrclient/gtk/gtk.admin.cells.h>
 
-void gtk_admin_session_set_sender(bool (*sender)(admin_table_t *, const char *, const char *));
+void gtk_admin_session_set_sender(bool (*sender) (admin_table_t *, const char *, const char *));
 void gtk_admin_session_kick(GtkButton *button, gpointer data);
 void gtk_admin_session_selection(GtkTreeSelection *selection, gpointer user);
 

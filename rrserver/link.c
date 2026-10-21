@@ -657,17 +657,13 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       const char *origin = dict_get(d, "node", ""), *route = rrserver_links_route(origin);
 
       /* Provenance invariant for the authenticated tree transport:
-       * the ingress peer MUST be the currently known next hop toward the
-       * claimed originating node. This is checked on EVERY transit hop,
-       * before relay/application parsing (including remote-admin).
+       * the ingress peer MUST be the currently known next hop toward the claimed originating node. This is checked on EVERY transit hop, before
+       * relay/application parsing (including remote-admin).
        *
-       * Future mesh routing must replace this tree-path assertion with a
-       * mesh-aware origin/route validation, NOT remove origin validation.
-       * The origin station vouches for its authenticated username; a
-       * transit peer cannot substitute a user from a different branch. */
+       * Future mesh routing must replace this tree-path assertion with a mesh-aware origin/route validation, NOT remove origin validation. The origin station
+       * vouches for its authenticated username; a transit peer cannot substitute a user from a different branch. */
       if (!route || strcmp(route, session->node)) {
-         Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s",
-             session->node, origin, route ? route : "(unreachable)");
+         Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s", session->node, origin, route ? route : "(unreachable)");
          fail(session, "Message claims to originate from a server outside this peer's network branch");
       } else {
          event_emit_dict("server.link.application", NULL, d);

@@ -55,25 +55,31 @@ typedef struct serial_binding {
 static serial_binding_t *bindings, *cat_context;
 static int pty_directory_lock = -1;
 
-/* Protect the default PTY namespace against concurrent rrclient instances. Clean only symlinks to devpts within HOME/dev, and do so before
- * registering any serial endpoint. A stale link may point at a PTY number that the kernel has reassigned to another program. */
+/* Protect the default PTY namespace against concurrent rrclient instances. Clean only symlinks to devpts within HOME/dev, and do so before registering any
+ * serial endpoint. A stale link may point at a PTY number that the kernel has reassigned to another program. */
 static bool serial_pty_startup_cleanup(void) {
    if (pty_directory_lock >= 0) {
       return true;
    }
 
-   char *dev_dir=g_build_filename(g_get_home_dir(),"dev",NULL);
-   if (!dev_dir) return false;
+   char *dev_dir = g_build_filename(g_get_home_dir(), "dev", NULL);
+
+   if (!dev_dir) {
+      return false;
+   }
+
    if (g_mkdir_with_parents(dev_dir, 0755)) {
       Log(LOG_WARN, "serial", "Cannot create %s for virtual serial ports: %s", dev_dir, strerror(errno));
 
       g_free(dev_dir);
+
       return false;
    }
    int fd = open(dev_dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
 
    if (fd < 0) {
       g_free(dev_dir);
+
       return false;
    }
 
@@ -81,6 +87,7 @@ static bool serial_pty_startup_cleanup(void) {
       Log(LOG_WARN, "serial", "Another rrclient is using %s, refusing to replace its PTY links", dev_dir);
       close(fd);
       g_free(dev_dir);
+
       return false;
    }
    DIR *dir = fdopendir(dup(fd));
@@ -88,6 +95,7 @@ static bool serial_pty_startup_cleanup(void) {
    if (!dir) {
       close(fd);
       g_free(dev_dir);
+
       return false;
    }
    struct dirent *entry;
@@ -1215,17 +1223,22 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    }
 
    if (!configured) {
-      int written=snprintf(path,sizeof(path),"%s/dev/%s",g_get_home_dir(),name);
-      if (written<0 || (size_t)written>=sizeof(path)) goto failed;
+      int written = snprintf(path, sizeof(path), "%s/dev/%s", g_get_home_dir(), name);
+
+      if (written < 0 || (size_t)written >= sizeof(path)) {
+         goto failed;
+      }
    } else {
-      const char *home=g_get_home_dir();
-      char *expanded=NULL;
-      if (g_str_has_prefix(configured,"$HOME/"))
-         expanded=g_build_filename(home,configured+6,NULL);
-      else if (!strcmp(configured,"$HOME"))
-         expanded=g_strdup(home);
-      else
-         expanded=expand_path(configured);
+      const char *home = g_get_home_dir();
+      char *expanded = NULL;
+
+      if (g_str_has_prefix(configured, "$HOME/")) {
+         expanded = g_build_filename(home, configured + 6, NULL);
+      } else if (!strcmp(configured, "$HOME")) {
+         expanded = g_strdup(home);
+      } else {
+         expanded = expand_path(configured);
+      }
 
       if (!expanded || strlen(expanded) >= sizeof(path)) {
          free(expanded);

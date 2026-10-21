@@ -103,67 +103,80 @@ dict *rr_relay_local_users(void) {
    }
 
 #ifdef USE_SQLITE
-   /* Discovery is a transient directory, not an account replica. Export
-    * enabled names, public contact email, session counts and role labels; never hashes. */
+
+   /* Discovery is a transient directory, not an account replica. Export enabled names, public contact email, session counts and role labels; never hashes. */
    if (masterdb) {
-      sqlite3_stmt *stmt=NULL;
+      sqlite3_stmt *stmt = NULL;
+
       if (sqlite3_prepare_v2(masterdb,
          "SELECT uid,name,COALESCE(permissions,''),COALESCE(email,''),COALESCE(real_name,''),COALESCE(phone,'') FROM users WHERE enabled=1 ORDER BY name COLLATE NOCASE",
-         -1,&stmt,NULL)==SQLITE_OK) {
-         while (n<HTTP_MAX_USERS && sqlite3_step(stmt)==SQLITE_ROW) {
-            int uid=sqlite3_column_int(stmt,0);
-            const char *name=(const char *)sqlite3_column_text(stmt,1);
-            if (!name || !*name || strlen(name)>HTTP_USER_LEN) continue;
+         -1, &stmt, NULL) == SQLITE_OK) {
+         while (n < HTTP_MAX_USERS && sqlite3_step(stmt) == SQLITE_ROW) {
+            int uid = sqlite3_column_int(stmt, 0);
+            const char *name = (const char *)sqlite3_column_text(stmt, 1);
+
+            if (!name || !*name || strlen(name) > HTTP_USER_LEN) {
+               continue;
+            }
             char key[64];
-            snprintf(key,sizeof(key),"user.%u.name",n);
-            dict_add(d,key,name);
-            snprintf(key,sizeof(key),"user.%u.sessions",n);
-            dict_add_uint(d,key,uid>=0 && uid<HTTP_MAX_USERS ? counts[uid] : 0);
-            snprintf(key,sizeof(key),"user.%u.privileges",n++);
-            const char *roles=(const char *)sqlite3_column_text(stmt,2);
-            dict_add(d,key,roles ? roles : "");
-            const char *real=(const char *)sqlite3_column_text(stmt,4);
-            const char *phone=(const char *)sqlite3_column_text(stmt,5);
-            if (real && *real && strlen(real)<=128) {
-               snprintf(key,sizeof(key),"user.%u.real_name",n-1);
-               dict_add(d,key,real);
+            snprintf(key, sizeof(key), "user.%u.name", n);
+            dict_add(d, key, name);
+            snprintf(key, sizeof(key), "user.%u.sessions", n);
+            dict_add_uint(d, key, uid >= 0 && uid < HTTP_MAX_USERS ? counts[uid] : 0);
+            snprintf(key, sizeof(key), "user.%u.privileges", n++);
+            const char *roles = (const char *)sqlite3_column_text(stmt, 2);
+            dict_add(d, key, roles ? roles : "");
+            const char *real = (const char *)sqlite3_column_text(stmt, 4);
+            const char *phone = (const char *)sqlite3_column_text(stmt, 5);
+
+            if (real && *real && strlen(real) <= 128) {
+               snprintf(key, sizeof(key), "user.%u.real_name", n - 1);
+               dict_add(d, key, real);
             }
-            if (phone && *phone && strlen(phone)<=64) {
-               snprintf(key,sizeof(key),"user.%u.phone",n-1);
-               dict_add(d,key,phone);
+
+            if (phone && *phone && strlen(phone) <= 64) {
+               snprintf(key, sizeof(key), "user.%u.phone", n - 1);
+               dict_add(d, key, phone);
             }
-            const char *email=(const char *)sqlite3_column_text(stmt,3);
-            if (email && *email && strlen(email)<=254 && !strpbrk(email,"\r\n")) {
-               snprintf(key,sizeof(key),"user.%u.email",n-1);
-               dict_add(d,key,email);
+            const char *email = (const char *)sqlite3_column_text(stmt, 3);
+
+            if (email && *email && strlen(email) <= 254 && !strpbrk(email, "\r\n")) {
+               snprintf(key, sizeof(key), "user.%u.email", n - 1);
+               dict_add(d, key, email);
             }
          }
       }
       sqlite3_finalize(stmt);
-      unsigned p=0;
-      if (sqlite3_prepare_v2(masterdb,
-         "SELECT name FROM privilege_sets ORDER BY name COLLATE NOCASE",
-         -1,&stmt,NULL)==SQLITE_OK) {
-         while (p<256 && sqlite3_step(stmt)==SQLITE_ROW) {
-            const char *name=(const char *)sqlite3_column_text(stmt,0);
-            if (!name || !*name || strlen(name)>96) continue;
+      unsigned p = 0;
+
+      if (sqlite3_prepare_v2(masterdb, "SELECT name FROM privilege_sets ORDER BY name COLLATE NOCASE", -1, &stmt, NULL) == SQLITE_OK) {
+         while (p < 256 && sqlite3_step(stmt) == SQLITE_ROW) {
+            const char *name = (const char *)sqlite3_column_text(stmt, 0);
+
+            if (!name || !*name || strlen(name) > 96) {
+               continue;
+            }
             char key[64];
-            snprintf(key,sizeof(key),"privilege.%u.name",p++);
-            dict_add(d,key,name);
+            snprintf(key, sizeof(key), "privilege.%u.name", p++);
+            dict_add(d, key, name);
          }
       }
       sqlite3_finalize(stmt);
-      dict_add_uint(d,"privilege.count",p);
+      dict_add_uint(d, "privilege.count", p);
    }
 #else
-   for (unsigned i=0;i<HTTP_MAX_USERS;i++) {
-      if (!counts[i]) continue;
+
+   for (unsigned i = 0 ; i < HTTP_MAX_USERS ; i++) {
+      if (!counts[i]) {
+         continue;
+      }
       char key[64];
-      snprintf(key,sizeof(key),"user.%u.name",n);
-      dict_add(d,key,http_users[i].name);
-      snprintf(key,sizeof(key),"user.%u.sessions",n++);
-      dict_add_uint(d,key,counts[i]);
+      snprintf(key, sizeof(key), "user.%u.name", n);
+      dict_add(d, key, http_users[i].name);
+      snprintf(key, sizeof(key), "user.%u.sessions", n++);
+      dict_add_uint(d, key, counts[i]);
    }
+
 #endif
    dict_add_uint(d, "count", n);
 
@@ -872,77 +885,93 @@ static void inventory_services(rrconn_t *client, const char *request, const char
    }
 }
 
-/* Directory snapshots are in-memory discovery data, never authorization.
- * Reveal permission names only to local administrators/owners. */
-static void inventory_directory_users(rrconn_t *client,const char *request,
-                                      const char *owner,unsigned depth) {
-   struct directory *directory=rr_relay_directories;
-   while (directory && strcmp(directory->node,owner)) directory=directory->next;
-   if (!directory || !directory->users) return;
-   dict *folder=rr_inventory_row(request,depth,"user-directory","Users",NULL);
-   dict_add(folder,"inventory.description","Public account directory");
-   rr_inventory_send(client,folder);
-   unsigned count=dict_get_uint(directory->users,"count",0);
-   if (count>HTTP_MAX_USERS) count=HTTP_MAX_USERS;
-   for (unsigned i=0;i<count;i++) {
+/* Directory snapshots are in-memory discovery data, never authorization. Reveal permission names only to local administrators/owners. */
+static void inventory_directory_users(rrconn_t *client, const char *request, const char *owner, unsigned depth) {
+   struct directory *directory = rr_relay_directories;
+   while (directory && strcmp(directory->node, owner)) {
+      directory = directory->next;
+   }
+
+   if (!directory || !directory->users) {
+      return;
+   }
+   dict *folder = rr_inventory_row(request, depth, "user-directory", "Users", NULL);
+   dict_add(folder, "inventory.description", "Public account directory");
+   rr_inventory_send(client, folder);
+   unsigned count = dict_get_uint(directory->users, "count", 0);
+
+   if (count > HTTP_MAX_USERS) {
+      count = HTTP_MAX_USERS;
+   }
+
+   for (unsigned i = 0 ; i < count ; i++) {
       char key[64];
-      snprintf(key,sizeof(key),"user.%u.name",i);
-      const char *name=dict_get(directory->users,key,"");
-      if (!*name) continue;
-      dict *row=rr_inventory_row(request,depth+1,"user",name,NULL);
-      snprintf(key,sizeof(key),"user.%u.sessions",i);
-      unsigned sessions=dict_get_uint(directory->users,key,0);
-      /* Public profile: presence and the name already visible in /whois.
-       * Privileges are deliberately withheld from ordinary users. */
-      char *description=g_strdup_printf("Account: %s\nPresence: %s (%u active session%s)",
-        name,sessions ? "online" : "offline",sessions,sessions==1 ? "" : "s");
-      snprintf(key,sizeof(key),"user.%u.email",i);
-      const char *email=dict_get(directory->users,key,"");
+      snprintf(key, sizeof(key), "user.%u.name", i);
+      const char *name = dict_get(directory->users, key, "");
+
+      if (!*name) {
+         continue;
+      }
+      dict *row = rr_inventory_row(request, depth + 1, "user", name, NULL);
+      snprintf(key, sizeof(key), "user.%u.sessions", i);
+      unsigned sessions = dict_get_uint(directory->users, key, 0);
+      /* Public profile: presence and the name already visible in /whois. Privileges are deliberately withheld from ordinary users. */
+      char *description = g_strdup_printf("Account: %s\nPresence: %s (%u active session%s)", name, sessions ? "online" : "offline", sessions, sessions == 1 ?
+         "" : "s");
+      snprintf(key, sizeof(key), "user.%u.email", i);
+      const char *email = dict_get(directory->users, key, "");
+
       if (*email) {
-         char *with_contact=g_strdup_printf("%s\nEmail: %s",description,email);
+         char *with_contact = g_strdup_printf("%s\nEmail: %s", description, email);
          g_free(description);
-         description=with_contact;
+         description = with_contact;
       }
-      snprintf(key,sizeof(key),"user.%u.real_name",i);
-      const char *real=dict_get(directory->users,key,"");
+      snprintf(key, sizeof(key), "user.%u.real_name", i);
+      const char *real = dict_get(directory->users, key, "");
+
       if (*real) {
-         char *extended=g_strdup_printf("%s\nReal name: %s",description,real);
+         char *extended = g_strdup_printf("%s\nReal name: %s", description, real);
          g_free(description);
-         description=extended;
+         description = extended;
       }
-      snprintf(key,sizeof(key),"user.%u.phone",i);
-      const char *phone=dict_get(directory->users,key,"");
+      snprintf(key, sizeof(key), "user.%u.phone", i);
+      const char *phone = dict_get(directory->users, key, "");
+
       if (*phone) {
-         char *extended=g_strdup_printf("%s\nPhone: %s",description,phone);
+         char *extended = g_strdup_printf("%s\nPhone: %s", description, phone);
          g_free(description);
-         description=extended;
+         description = extended;
       }
-      dict_add(row,"inventory.description",description);
-      dict_add(row,"inventory.state",sessions ? "Online" : "Offline");
-      if (client->user && has_priv(client->user->uid,"admin|owner")) {
-         snprintf(key,sizeof(key),"user.%u.privileges",i);
-         const char *roles=dict_get(directory->users,key,"");
+      dict_add(row, "inventory.description", description);
+      dict_add(row, "inventory.state", sessions ? "Online" : "Offline");
+
+      if (client->user && has_priv(client->user->uid, "admin|owner")) {
+         snprintf(key, sizeof(key), "user.%u.privileges", i);
+         const char *roles = dict_get(directory->users, key, "");
+
          if (*roles) {
-            char *private_details=g_strdup_printf("%s\\nServer roles: %s",description,roles);
-            dict_add(row,"inventory.description",private_details);
+            char *private_details = g_strdup_printf("%s\\nServer roles: %s", description, roles);
+            dict_add(row, "inventory.description", private_details);
             g_free(private_details);
          }
       }
       g_free(description);
-      rr_inventory_send(client,row);
+      rr_inventory_send(client, row);
    }
 }
+
 /* Send remote inventory entries visible through the relay catalog. */
 void rrserver_relay_inventory(rrconn_t *client, const char *request) {
    // Keep remote site/rig/VFO context explicit in both client discovery trees.
    rr_relay_users_poll(true);
-   inventory_directory_users(client,request,rrserver_links_node(),1);
+   inventory_directory_users(client, request, rrserver_links_node(), 1);
+
    for (struct catalog *site = rr_relay_catalogs ; site ; site = site->next) {
       if (rr_relay_local_owner(site->owner) || strcmp(dict_get(site->descriptor, "object.type", ""), "node")) {
          continue;
       }
       inventory_entry(client, request, site, 0, "site");
-      inventory_directory_users(client,request,site->owner,1);
+      inventory_directory_users(client, request, site->owner, 1);
       inventory_services(client, request, site->owner, dict_get(site->descriptor, "object.uuid", ""), 1);
 
       for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {

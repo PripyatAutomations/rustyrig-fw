@@ -411,8 +411,10 @@ static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
       snprintf(frequency, sizeof(frequency), "%ld Hz", state.value.l);
       dict_add(row, "inventory.frequency", frequency);
    }
-   if (row) dict_add(row, "inventory.parent",
-      rr_server_rig_id(rr_server_vfo_owner(vfo)));
+
+   if (row) {
+      dict_add(row, "inventory.parent", rr_server_rig_id(rr_server_vfo_owner(vfo)));
+   }
    rr_inventory_send(ctx->client, row);
    inventory_media(ctx, rr_server_vfo_id(vfo), 3);
 
@@ -528,17 +530,22 @@ typedef struct rig_control_inventory {
 
 static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user) {
    rig_control_inventory_t *r = user;
-   if (strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) &&
-       strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) return false;
-   const char *label = !strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) ?
-      "Display Brightness" : "Speaker Volume";
+
+   if (strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) && strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) {
+      return false;
+   }
+   const char *label = !strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) ? "Display Brightness" : "Speaker Volume";
    dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
-   if (!row) return false;
+
+   if (!row) {
+      return false;
+   }
    dict_add(row, "inventory.parent", rr_server_rig_id(r->radio));
    dict_add(row, "inventory.service", d->name);
    dict_add(row, "inventory.access", d->writable ? "read/write" : "read-only");
    dict_add(row, "inventory.description", "Hamlib rig property");
    rr_inventory_send(r->ctx->client, row);
+
    return false;
 }
 
@@ -552,20 +559,30 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
       rr_backend_t *backend = rr_server_rig_backend(radio);
       dict_add(row, "inventory.backend", backend->type->name);
       dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
+
       if (backend->type->api->manufacturer) {
          const char *manufacturer = backend->type->api->manufacturer(backend);
-         if (manufacturer && *manufacturer) dict_add(row, "inventory.manufacturer", manufacturer);
+
+         if (manufacturer && *manufacturer) {
+            dict_add(row, "inventory.manufacturer", manufacturer);
+         }
       }
+
       if (backend->type->api->model_name) {
          const char *model = backend->type->api->model_name(backend);
-         if (model && *model) dict_add(row, "inventory.model", model);
+
+         if (model && *model) {
+            dict_add(row, "inventory.model", model);
+         }
       }
       dict_add(row, "inventory.room", rr_rig_registry_room(rig.rigs, radio));
       dict_add(row, "inventory.state", radio == rr_rig_registry_default(rig.rigs) ? "default" : "available");
       dict_add(row, "inventory.action", "/join <room>");
    }
    rr_inventory_send(ctx->client, row);
-   rig_control_inventory_t controls = { .ctx = ctx, .radio = radio };
+   rig_control_inventory_t controls = {
+      .ctx = ctx, .radio = radio
+   };
    rr_rig_property_foreach(radio, inventory_rig_control, &controls);
    inventory_rooms(ctx, rr_rig_registry_room(rig.rigs, radio));
    char cat[80];

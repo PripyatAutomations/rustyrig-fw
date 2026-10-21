@@ -160,16 +160,22 @@ static void admin_control_local_discover(void) {
    gtk_label_set_text(GTK_LABEL(control_status), "No local adjustable controls detected");
 }
 static void admin_control_stripe_rows(void) {
-   if (!control_rows_box) return;
-   GList *rows=gtk_container_get_children(GTK_CONTAINER(control_rows_box));
-   guint index=0;
-   for (GList *l=rows;l;l=l->next) {
-      GtkWidget *row=l->data;
-      GtkStyleContext *style=gtk_widget_get_style_context(row);
-      gtk_style_context_remove_class(style,"rr-control-odd");
-      if (gtk_widget_get_visible(row) && (index++ & 1))
-         gtk_style_context_add_class(style,"rr-control-odd");
+   if (!control_rows_box) {
+      return;
    }
+   GList *rows = gtk_container_get_children(GTK_CONTAINER(control_rows_box));
+   guint index = 0;
+
+   for (GList *l = rows ; l ; l = l->next) {
+      GtkWidget *row = l->data;
+      GtkStyleContext *style = gtk_widget_get_style_context(row);
+      gtk_style_context_remove_class(style, "rr-control-odd");
+
+      if (gtk_widget_get_visible(row) && (index++ & 1)) {
+         gtk_style_context_add_class(style, "rr-control-odd");
+      }
+   }
+
    g_list_free(rows);
 }
 static void admin_control_filter_apply(void) {
@@ -806,8 +812,10 @@ bool gtk_admin_controls_result(const char *name, const char *action, dict *row, 
             }
          }
       }
+
       return true;
    }
+
    return false;
 }
 
@@ -818,76 +826,74 @@ void gtk_admin_controls_refresh(void) {
 }
 
 GtkWidget *gtk_admin_controls_page(void) {
-      GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-      GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      GtkWidget *filter_header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-      control_filter = gtk_search_entry_new();
-      gtk_entry_set_width_chars(GTK_ENTRY(control_filter), 24);
-      gtk_entry_set_placeholder_text(GTK_ENTRY(control_filter), "Filter controls… (=key, ^prefix)");
-      gtk_box_pack_start(GTK_BOX(filter_header), gtk_label_new("Filter:"), FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(filter_header), control_filter, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(filter_header), gtk_label_new("Host / Node:"), FALSE, FALSE, 0);
-      control_hosts = gtk_combo_box_text_new();
-      gtk_widget_set_hexpand(control_hosts, TRUE);
-      gtk_box_pack_start(GTK_BOX(filter_header), control_hosts, TRUE, TRUE, 0);
-      admin_control_hosts_refresh();
-      control_host_handler = g_signal_connect(control_hosts, "changed", G_CALLBACK(admin_control_host_changed), NULL);
-      g_signal_connect(main_window, "key-press-event", G_CALLBACK(admin_controls_star), NULL);
-      gtk_box_pack_start(GTK_BOX(box), filter_header, FALSE, FALSE, 0);
-      g_signal_connect(control_filter, "changed", G_CALLBACK(admin_control_filter_changed), NULL);
-      control_status = gtk_label_new("Select a connected server and Refresh.");
-      control_combo = gtk_combo_box_text_new();
-      control_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-      gtk_scale_set_digits(GTK_SCALE(control_scale), 0);
-      gtk_widget_set_sensitive(control_scale, FALSE);
-      GtkWidget *refresh = gtk_button_new_with_label("Refresh controls");
-      control_apply = gtk_button_new_with_label("Revert");
-      gtk_widget_set_sensitive(control_apply, FALSE);
-      gtk_box_pack_start(GTK_BOX(buttons), refresh, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(buttons), control_apply, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(box), control_status, FALSE, FALSE, 0);
-      GtkWidget *control_headers = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-      const char *headings[] = {
-         "Node / Control", "Value", "Description / Access"
-      };
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+   GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *filter_header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   control_filter = gtk_search_entry_new();
+   gtk_entry_set_width_chars(GTK_ENTRY(control_filter), 24);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(control_filter), "Filter controls… (=key, ^prefix)");
+   gtk_box_pack_start(GTK_BOX(filter_header), gtk_label_new("Filter:"), FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(filter_header), control_filter, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(filter_header), gtk_label_new("Host / Node:"), FALSE, FALSE, 0);
+   control_hosts = gtk_combo_box_text_new();
+   gtk_widget_set_hexpand(control_hosts, TRUE);
+   gtk_box_pack_start(GTK_BOX(filter_header), control_hosts, TRUE, TRUE, 0);
+   admin_control_hosts_refresh();
+   control_host_handler = g_signal_connect(control_hosts, "changed", G_CALLBACK(admin_control_host_changed), NULL);
+   g_signal_connect(main_window, "key-press-event", G_CALLBACK(admin_controls_star), NULL);
+   gtk_box_pack_start(GTK_BOX(box), filter_header, FALSE, FALSE, 0);
+   g_signal_connect(control_filter, "changed", G_CALLBACK(admin_control_filter_changed), NULL);
+   control_status = gtk_label_new("Select a connected server and Refresh.");
+   control_combo = gtk_combo_box_text_new();
+   control_scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_scale_set_digits(GTK_SCALE(control_scale), 0);
+   gtk_widget_set_sensitive(control_scale, FALSE);
+   GtkWidget *refresh = gtk_button_new_with_label("Refresh controls");
+   control_apply = gtk_button_new_with_label("Revert");
+   gtk_widget_set_sensitive(control_apply, FALSE);
+   gtk_box_pack_start(GTK_BOX(buttons), refresh, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(buttons), control_apply, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), control_status, FALSE, FALSE, 0);
+   GtkWidget *control_headers = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+   const char *headings[] = {
+      "Node / Control", "Value", "Description / Access"
+   };
 
-      for (int i = 0 ; i < 3 ; i++) {
-         GtkWidget *header = gtk_button_new_with_label(headings[i]);
-         g_object_set_data(G_OBJECT(header), "sort-field", GINT_TO_POINTER(i));
+   for (int i = 0 ; i < 3 ; i++) {
+      GtkWidget *header = gtk_button_new_with_label(headings[i]);
+      g_object_set_data(G_OBJECT(header), "sort-field", GINT_TO_POINTER(i));
 
-         if (i < 2) {
-            gtk_widget_set_size_request(header, i == 0 ? 240 : 300, -1);
-         } else {
-            gtk_widget_set_hexpand(header, TRUE);
-         }
-         g_signal_connect(header, "clicked", G_CALLBACK(admin_control_sort_clicked), NULL);
-         gtk_box_pack_start(GTK_BOX(control_headers), header, i == 2, i == 2, 0);
+      if (i < 2) {
+         gtk_widget_set_size_request(header, i == 0 ? 240 : 300, -1);
+      } else {
+         gtk_widget_set_hexpand(header, TRUE);
       }
+      g_signal_connect(header, "clicked", G_CALLBACK(admin_control_sort_clicked), NULL);
+      gtk_box_pack_start(GTK_BOX(control_headers), header, i == 2, i == 2, 0);
+   }
 
-      gtk_box_pack_start(GTK_BOX(box), control_headers, FALSE, FALSE, 0);
-      control_rows_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-      GtkCssProvider *stripe=gtk_css_provider_new();
-      gtk_css_provider_load_from_data(stripe,
-         "box.rr-control-odd { background-color: alpha(currentColor, 0.085); }",-1,NULL);
-      gtk_style_context_add_provider_for_screen(
-         gtk_widget_get_screen(control_rows_box),GTK_STYLE_PROVIDER(stripe),
-         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-      g_object_unref(stripe);
-      control_row_buttons = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-      control_scroll = gtk_scrolled_window_new(NULL, NULL);
-      gtk_widget_set_vexpand(control_scroll, TRUE);
-      gtk_container_add(GTK_CONTAINER(control_scroll), control_rows_box);
-      gtk_box_pack_start(GTK_BOX(box), control_scroll, TRUE, TRUE, 0);
-      /* Keep old selection machinery hidden for protocol response correlation. */
-      gtk_widget_set_no_show_all(control_combo, TRUE);
-      gtk_widget_set_no_show_all(control_scale, TRUE);
-      gtk_box_pack_start(GTK_BOX(box), control_combo, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(box), control_scale, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), control_headers, FALSE, FALSE, 0);
+   control_rows_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   GtkCssProvider *stripe = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(stripe, "box.rr-control-odd { background-color: alpha(currentColor, 0.085); }", -1, NULL);
+   gtk_style_context_add_provider_for_screen(gtk_widget_get_screen(control_rows_box), GTK_STYLE_PROVIDER(stripe), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(stripe);
+   control_row_buttons = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   control_scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_widget_set_vexpand(control_scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(control_scroll), control_rows_box);
+   gtk_box_pack_start(GTK_BOX(box), control_scroll, TRUE, TRUE, 0);
+   /* Keep old selection machinery hidden for protocol response correlation. */
+   gtk_widget_set_no_show_all(control_combo, TRUE);
+   gtk_widget_set_no_show_all(control_scale, TRUE);
+   gtk_box_pack_start(GTK_BOX(box), control_combo, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), control_scale, FALSE, FALSE, 0);
 
-      gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
-      g_signal_connect(refresh, "clicked", G_CALLBACK(admin_control_refresh), NULL);
-      g_signal_connect(control_combo, "changed", G_CALLBACK(admin_control_selection), NULL);
-      g_signal_connect(control_apply, "clicked", G_CALLBACK(admin_control_apply), NULL);
-      g_object_set_data(G_OBJECT(control_combo), "control-page", box);
+   gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
+   g_signal_connect(refresh, "clicked", G_CALLBACK(admin_control_refresh), NULL);
+   g_signal_connect(control_combo, "changed", G_CALLBACK(admin_control_selection), NULL);
+   g_signal_connect(control_apply, "clicked", G_CALLBACK(admin_control_apply), NULL);
+   g_object_set_data(G_OBJECT(control_combo), "control-page", box);
+
    return box;
 }

@@ -553,20 +553,28 @@ static const char *detail_keys[] = {
    "name", "location", "contact", "antenna", "hardware", "grid", "low_hz", "high_hz", "ext_api"
 };
 static bool detail_set(const char *url, const char *key, const char *value, bool live, time_t stamp) {
-   if (!cache_db || !url || !key) return false;
-   if (!value || !*value) return true;
+   if (!cache_db || !url || !key) {
+      return false;
+   }
+
+   if (!value || !*value) {
+      return true;
+   }
    sqlite3_stmt *statement = NULL;
    const char *sql = "INSERT INTO receiver_details VALUES(?,?,?,?,?) ON CONFLICT(url,key) DO UPDATE SET "
       "value=excluded.value,origin=excluded.origin,updated_at=excluded.updated_at "
       "WHERE (excluded.origin='live' AND (receiver_details.origin!='live' OR excluded.updated_at>=receiver_details.updated_at)) OR (excluded.origin='directory' AND receiver_details.origin!='live')";
    bool ok = sqlite3_prepare_v2(cache_db, sql, -1, &statement, NULL) == SQLITE_OK;
-   if (ok) ok = sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-      sqlite3_bind_text(statement, 2, key, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-      sqlite3_bind_text(statement, 3, value, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-      sqlite3_bind_text(statement, 4, live ? "live" : "directory", -1, SQLITE_STATIC) == SQLITE_OK &&
-      sqlite3_bind_int64(statement, 5, stamp) == SQLITE_OK &&
-      sqlite3_step(statement) == SQLITE_DONE;
+
+   if (ok) {
+      ok = sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 2, key, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 3, value, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+         sqlite3_bind_text(statement, 4, live ? "live" : "directory", -1, SQLITE_STATIC) == SQLITE_OK &&
+         sqlite3_bind_int64(statement, 5, stamp) == SQLITE_OK && sqlite3_step(statement) == SQLITE_DONE;
+   }
    sqlite3_finalize(statement);
+
    return ok;
 }
 static void apply_details(receiver_directory_entry_t *r) {
@@ -654,13 +662,19 @@ static void merge_records(void) {
    }
 
    bool ok = sqlite3_prepare_v2(cache_db, "UPDATE receiver_records SET deleted=1 WHERE provider=?", -1, &statement, NULL) == SQLITE_OK;
-   if (ok) ok = sqlite3_bind_text(statement, 1, provider, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(statement) == SQLITE_DONE;
+
+   if (ok) {
+      ok = sqlite3_bind_text(statement, 1, provider, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(statement) == SQLITE_DONE;
+   }
    sqlite3_finalize(statement);
    statement = NULL;
    g_free(provider);
-   if (ok) ok = sqlite3_prepare_v2(cache_db,
-       "INSERT INTO receiver_records(url,record,last_seen,deleted,offline,provider) VALUES(?,?,?,0,?,?) ON CONFLICT(url) DO UPDATE SET record=excluded.record,last_seen=MAX(receiver_records.last_seen,excluded.last_seen),deleted=0,offline=excluded.offline,provider=excluded.provider",
-       -1, &statement, NULL) == SQLITE_OK;
+
+   if (ok) {
+      ok = sqlite3_prepare_v2(cache_db,
+         "INSERT INTO receiver_records(url,record,last_seen,deleted,offline,provider) VALUES(?,?,?,0,?,?) ON CONFLICT(url) DO UPDATE SET record=excluded.record,last_seen=MAX(receiver_records.last_seen,excluded.last_seen),deleted=0,offline=excluded.offline,provider=excluded.provider",
+         -1, &statement, NULL) == SQLITE_OK;
+   }
 
    for (guint i = 0 ; ok && i < receivers->len ; i++) {
       receiver_directory_entry_t *r = g_ptr_array_index(receivers, i);
@@ -668,8 +682,7 @@ static void merge_records(void) {
          sqlite3_bind_text(statement, 2, r->properties, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
          sqlite3_bind_int64(statement, 3, now) == SQLITE_OK &&
          sqlite3_bind_int(statement, 4, r->offline) == SQLITE_OK &&
-         sqlite3_bind_text(statement, 5, r->driver, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_step(statement) == SQLITE_DONE;
+         sqlite3_bind_text(statement, 5, r->driver, -1, SQLITE_TRANSIENT) == SQLITE_OK && sqlite3_step(statement) == SQLITE_DONE;
       sqlite3_reset(statement);
       sqlite3_clear_bindings(statement);
       const char *values[] = {
@@ -677,15 +690,23 @@ static void merge_records(void) {
       };
 
       for (unsigned key = 0 ; key < G_N_ELEMENTS(values) ; key++) {
-         if (!detail_set(r->url, detail_keys[key], values[key], false, now)) ok = false;
+         if (!detail_set(r->url, detail_keys[key], values[key], false, now)) {
+            ok = false;
+         }
       }
 
       if (r->high_hz) {
          char low[32], high[32];
          g_snprintf(low, sizeof(low), "%" G_GUINT64_FORMAT, r->low_hz);
          g_snprintf(high, sizeof(high), "%" G_GUINT64_FORMAT, r->high_hz);
-         if (!detail_set(r->url, "low_hz", low, false, now)) ok = false;
-         if (!detail_set(r->url, "high_hz", high, false, now)) ok = false;
+
+         if (!detail_set(r->url, "low_hz", low, false, now)) {
+            ok = false;
+         }
+
+         if (!detail_set(r->url, "high_hz", high, false, now)) {
+            ok = false;
+         }
       }
    }
 
@@ -702,10 +723,12 @@ static void merge_records(void) {
       "DELETE FROM receiver_state WHERE url IN(SELECT url FROM receiver_records WHERE deleted=1 AND last_seen<%lld);"
       "DELETE FROM receiver_records WHERE deleted=1 AND last_seen<%lld;COMMIT;", (long long)now - 90 * 86400, (long long)now - 90 * 86400, (long long)now - 90 *
       86400);
+
    if (!purge || sqlite3_exec(cache_db, purge, NULL, NULL, NULL) != SQLITE_OK) {
       Log(LOG_WARN, "receiver.directory", "Directory cache purge/commit failed: %s", sqlite3_errmsg(cache_db));
       sqlite3_exec(cache_db, "ROLLBACK", NULL, NULL, NULL);
       sqlite3_free(purge);
+
       return;
    }
    sqlite3_free(purge);
@@ -853,27 +876,40 @@ bool receiver_directory_learn(const char *endpoint, dict *fields) {
    char *escaped = json_escape(url);
    char *record = escaped ? g_strdup_printf("{\"url\":\"%s\"}", escaped) : NULL;
    free(escaped);
+
    if (ok && record) {
       ok = sqlite3_prepare_v2(cache_db,
          "INSERT INTO receiver_records(url,record,last_seen,deleted,offline) VALUES(?,?,?,1,0) ON CONFLICT(url) DO UPDATE SET last_seen=MAX(receiver_records.last_seen,excluded.last_seen)",
          -1, &statement, NULL) == SQLITE_OK;
-      if (ok) ok = sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_bind_text(statement, 2, record, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
-         sqlite3_bind_int64(statement, 3, stamp) == SQLITE_OK &&
-         sqlite3_step(statement) == SQLITE_DONE;
-   } else ok = false;
+
+      if (ok) {
+         ok = sqlite3_bind_text(statement, 1, url, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_text(statement, 2, record, -1, SQLITE_TRANSIENT) == SQLITE_OK &&
+            sqlite3_bind_int64(statement, 3, stamp) == SQLITE_OK && sqlite3_step(statement) == SQLITE_DONE;
+      }
+   } else {
+      ok = false;
+   }
    sqlite3_finalize(statement);
    g_free(record);
+
    for (unsigned i = 0 ; ok && i < G_N_ELEMENTS(detail_keys) ; i++) {
       const char *value = dict_get(fields, detail_keys[i], NULL);
-      if (value && strlen(value) <= 512)
+
+      if (value && strlen(value) <= 512) {
          ok = detail_set(url, detail_keys[i], value, true, stamp);
+      }
    }
-   if (ok) ok = sqlite3_exec(cache_db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+
+   if (ok) {
+      ok = sqlite3_exec(cache_db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+   }
+
    if (!ok) {
       Log(LOG_WARN, "receiver.directory", "Cannot persist learned receiver: %s", sqlite3_errmsg(cache_db));
       sqlite3_exec(cache_db, "ROLLBACK", NULL, NULL, NULL);
       g_free(url);
+
       return false;
    }
    reload_records();

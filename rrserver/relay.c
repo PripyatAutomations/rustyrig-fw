@@ -235,32 +235,34 @@ static void route_request(const char *event, const void *data, size_t length, rr
 
       return;
    }
-   /* Admin commands target exactly one node; '*' belongs to grant
-    * subject_host matching, never to command routing. */
+
+   /* Admin commands target exactly one node; '*' belongs to grant subject_host matching, never to command routing. */
    if (!strcmp(dict_get(io->message, "msg.type", ""), "talk") &&
-       !strcmp(dict_get(io->message, "talk.cmd", ""), "admin") &&
-       *dict_get(io->message, "talk.server", "")) {
+      !strcmp(dict_get(io->message, "talk.cmd", ""), "admin") && *dict_get(io->message, "talk.server", "")) {
       const char *dest = dict_get(io->message, "talk.server", "");
       io->handled = true;
+
       if (!client->authenticated || !client->user ||
-          !has_priv(client->user->uid, "admin|owner") ||
-          !rr_object_uuid_valid(dest) || rr_relay_local_owner(dest) ||
-          !rrserver_links_route(dest)) {
+         !has_priv(client->user->uid, "admin|owner") || !rr_object_uuid_valid(dest) || rr_relay_local_owner(dest) || !rrserver_links_route(dest)) {
          ws_send_error(client, "Remote administration destination unavailable or denied");
+
          return;
       }
-      /* Route toward any reachable target. Only the destination may apply
-       * remote-admin.next-hop-only to the authenticated origin. */
+      /* Route toward any reachable target. Only the destination may apply remote-admin.next-hop-only to the authenticated origin. */
       struct relay_client *origin = rr_relay_client_for(client, true);
       dict *request = origin ? dict_clone(io->message) : NULL;
+
       if (request) {
          dict_del(request, "talk.server");
          dict_add_ulong(request, "relay.deadline", time(NULL) + 30);
       }
-      io->result = request && rr_relay_packet(dest, "request", origin->id,
-                                               client->user->name, request);
+      io->result = request && rr_relay_packet(dest, "request", origin->id, client->user->name, request);
       dict_free(request);
-      if (!io->result) ws_send_error(client, "Unable to forward remote administration request");
+
+      if (!io->result) {
+         ws_send_error(client, "Unable to forward remote administration request");
+      }
+
       return;
    }
    struct relay_media *media = rr_relay_media_map(client, dict_get(io->message, "media.chan-uuid", ""), false);

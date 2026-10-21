@@ -575,25 +575,30 @@ static bool db_ensure_resource_privileges(sqlite3 *db) {
       Log(LOG_CRIT, "db", "Cannot migrate privilege schema: %s", error ? error : "unknown");
    }
    sqlite3_free(error);
-   if (!ok) return false;
 
-   /* Existing policies retain their behavior until explicitly edited.
-    * New grants default to local-only access. */
+   if (!ok) {
+      return false;
+   }
+
+   /* Existing policies retain their behavior until explicitly edited. New grants default to local-only access. */
    const char *upgrades[] = {
       "ALTER TABLE resource_privileges ADD COLUMN remote_allowed INTEGER NOT NULL DEFAULT 1;",
       "ALTER TABLE privilege_set_assignments ADD COLUMN remote_allowed INTEGER NOT NULL DEFAULT 1;"
    };
-   for (unsigned i=0;i<sizeof(upgrades)/sizeof(upgrades[0]);i++) {
-      char *migration_error=NULL;
-      int rc=sqlite3_exec(db,upgrades[i],NULL,NULL,&migration_error);
-      if (rc!=SQLITE_OK && (!migration_error || !strstr(migration_error,"duplicate column name"))) {
-         Log(LOG_CRIT,"db","Privilege remote policy migration failed: %s",
-             migration_error ? migration_error : sqlite3_errmsg(db));
+
+   for (unsigned i = 0 ; i < sizeof(upgrades) / sizeof(upgrades[0]) ; i++) {
+      char *migration_error = NULL;
+      int rc = sqlite3_exec(db, upgrades[i], NULL, NULL, &migration_error);
+
+      if (rc != SQLITE_OK && (!migration_error || !strstr(migration_error, "duplicate column name"))) {
+         Log(LOG_CRIT, "db", "Privilege remote policy migration failed: %s", migration_error ? migration_error : sqlite3_errmsg(db));
          sqlite3_free(migration_error);
+
          return false;
       }
       sqlite3_free(migration_error);
    }
+
    const char *presets =
       "INSERT OR IGNORE INTO privilege_sets(name,description,created_by) VALUES"
       "('rigctl','Rig tuning and control functions; TX requires separate authorization','system'),"
@@ -620,13 +625,15 @@ static bool db_ensure_resource_privileges(sqlite3 *db) {
       "SELECT id,'rig.full','allow' FROM privilege_sets WHERE name='full';"
       "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
       "SELECT id,'tx','allow' FROM privilege_sets WHERE name='transmit';"
-      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) "
-      "SELECT id,'noob','allow' FROM privilege_sets WHERE name='supervised';";
-   char *preset_error=NULL;
-   ok=sqlite3_exec(db,presets,NULL,NULL,&preset_error)==SQLITE_OK;
-   if (!ok) Log(LOG_CRIT,"db","Cannot seed privilege groups: %s",
-                preset_error ? preset_error : sqlite3_errmsg(db));
+      "INSERT OR IGNORE INTO privilege_set_entries(set_id,privilege,effect) " "SELECT id,'noob','allow' FROM privilege_sets WHERE name='supervised';";
+   char *preset_error = NULL;
+   ok = sqlite3_exec(db, presets, NULL, NULL, &preset_error) == SQLITE_OK;
+
+   if (!ok) {
+      Log(LOG_CRIT, "db", "Cannot seed privilege groups: %s", preset_error ? preset_error : sqlite3_errmsg(db));
+   }
    sqlite3_free(preset_error);
+
    return ok;
 }
 
@@ -713,8 +720,8 @@ sqlite3 *db_open(const char *path) {
          return NULL;
       }
       /* Requests are durable, distinct from grants and their authority. */
-      char *request_error=NULL;
-      const char *request_schema=
+      char *request_error = NULL;
+      const char *request_schema =
          "CREATE TABLE IF NOT EXISTS access_requests("
          "id INTEGER PRIMARY KEY,subject_user TEXT NOT NULL,"
          "subject_host TEXT NOT NULL DEFAULT '',resource_kind TEXT NOT NULL,"
@@ -728,13 +735,13 @@ sqlite3 *db_open(const char *path) {
          "request_id INTEGER NOT NULL REFERENCES access_requests(id) ON DELETE CASCADE,"
          "resource_kind TEXT NOT NULL, resource_uuid TEXT NOT NULL,"
          "PRIMARY KEY(request_id,resource_kind,resource_uuid));"
-         "INSERT OR IGNORE INTO access_request_targets(request_id,resource_kind,resource_uuid) "
-         "SELECT id,resource_kind,resource_uuid FROM access_requests;";
-      if (sqlite3_exec(db,request_schema,NULL,NULL,&request_error)!=SQLITE_OK) {
-         Log(LOG_CRIT,"db","Cannot create access request schema: %s",
-             request_error ? request_error : sqlite3_errmsg(db));
+         "INSERT OR IGNORE INTO access_request_targets(request_id,resource_kind,resource_uuid) " "SELECT id,resource_kind,resource_uuid FROM access_requests;";
+
+      if (sqlite3_exec(db, request_schema, NULL, NULL, &request_error) != SQLITE_OK) {
+         Log(LOG_CRIT, "db", "Cannot create access request schema: %s", request_error ? request_error : sqlite3_errmsg(db));
          sqlite3_free(request_error);
          sqlite3_close(db);
+
          return NULL;
       }
       sqlite3_free(request_error);

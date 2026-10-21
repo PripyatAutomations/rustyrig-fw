@@ -504,8 +504,10 @@ bool fwdsp_init(void) {
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
       record_dir = expand_path("$HOME/recordings");
+
       if (!record_dir) {
          Log(LOG_CRIT, "fwdsp-mgr", "Unable to allocate recording directory path");
+
          return true;
       }
       record_dir_owned = true;

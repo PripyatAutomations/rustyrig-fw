@@ -3,7 +3,7 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.admin.sessions.h>
 
-void gtk_admin_session_set_sender(bool (*sender)(admin_table_t *, const char *, const char *));
+void gtk_admin_session_set_sender(bool (*sender) (admin_table_t *, const char *, const char *));
 static bool (*admin_session_sender)(admin_table_t *, const char *, const char *);
 
 static bool admin_session_send(admin_table_t *table, const char *command, const char *id) {
@@ -14,7 +14,7 @@ static bool admin_session_send(admin_table_t *table, const char *command, const 
    return admin_session_sender(table, command, id);
 }
 
-void gtk_admin_session_set_sender(bool (*sender)(admin_table_t *, const char *, const char *)) {
+void gtk_admin_session_set_sender(bool (*sender) (admin_table_t *, const char *, const char *)) {
    admin_session_sender = sender;
 }
 
@@ -57,6 +57,6 @@ void gtk_admin_session_kick(GtkButton *button, gpointer data) {
 }
 
 void gtk_admin_session_selection(GtkTreeSelection *selection, gpointer user) {
-   GtkWidget *button=GTK_WIDGET(user);
-   gtk_widget_set_sensitive(button,gtk_tree_selection_count_selected_rows(selection)>0);
+   GtkWidget *button = GTK_WIDGET(user);
+   gtk_widget_set_sensitive(button, gtk_tree_selection_count_selected_rows(selection) > 0);
 }

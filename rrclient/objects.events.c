@@ -169,14 +169,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       cache = rr_object_cache_new();
    }
 
-   if (d && !strcmp(dict_get(d, "msg.type", ""), "property") &&
-       !strcmp(dict_get(d, "property.cmd", ""), "result")) {
+   if (d && !strcmp(dict_get(d, "msg.type", ""), "property") && !strcmp(dict_get(d, "property.cmd", ""), "result")) {
       const char *id = dict_get(d, "request.id", "");
       const char *code = dict_get(d, "result.code", "unknown");
 
       if (g_str_has_prefix(id, "explorer-control-")) {
-         Log(!strcmp(code, "ok") ? LOG_INFO : LOG_WARN, "objects",
-             "Explorer rig control %s: %s", id, code);
+         Log(!strcmp(code, "ok") ? LOG_INFO : LOG_WARN, "objects", "Explorer rig control %s: %s", id, code);
          ui_print(NULL, "Explorer rig control: %s (%s)", code, id);
          event_emit("client.explorer.control.result", client, code);
       }

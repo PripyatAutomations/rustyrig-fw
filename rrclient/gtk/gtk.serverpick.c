@@ -26,27 +26,31 @@
 #include <rrclient/gtk/gtk.serverpick.h>
 
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
-static void rr_list_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
-                               GtkTreeModel *model,GtkTreeIter *iter,gpointer unused) {
+static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)unused;
-   GtkWidget *view=g_object_get_data(G_OBJECT(column),"rr-zebra-view");
-   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   int *index=path ? gtk_tree_path_get_indices(path) : NULL;
-   gboolean odd=index && (index[0] & 1);
-   gboolean selected=view && path && gtk_tree_selection_path_is_selected(
-      gtk_tree_view_get_selection(GTK_TREE_VIEW(view)),path);
+   GtkWidget *view = g_object_get_data(G_OBJECT(column), "rr-zebra-view");
+   GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+   int *index = path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd = index && (index[0] & 1);
+   gboolean selected = view && path && gtk_tree_selection_path_is_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(view)), path);
+
    if (odd && !selected && view) {
-      GtkStyleContext *style=gtk_widget_get_style_context(view);
-      GdkRGBA base,ink,shade;
-      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
-      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
-      shade.red=base.red*0.915+ink.red*0.085;
-      shade.green=base.green*0.915+ink.green*0.085;
-      shade.blue=base.blue*0.915+ink.blue*0.085;
-      shade.alpha=1.0;
-      g_object_set(cell,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
-   } else g_object_set(cell,"cell-background-set",FALSE,NULL);
-   if (path) gtk_tree_path_free(path);
+      GtkStyleContext *style = gtk_widget_get_style_context(view);
+      GdkRGBA base, ink, shade;
+      gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
+      gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
+      shade.red = base.red * 0.915 + ink.red * 0.085;
+      shade.green = base.green * 0.915 + ink.green * 0.085;
+      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.alpha = 1.0;
+      g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
+   } else {
+      g_object_set(cell, "cell-background-set", FALSE, NULL);
+   }
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
 }
 
 
@@ -357,18 +361,18 @@ void gtk_show_server_chooser(void) {
       gtk_tree_view_column_set_fixed_width(column, i == 0 ? 85 : i == 1 ? 65 : i == 2 ? 120 : 70);
       gtk_tree_view_column_set_min_width(column, 32);
       gtk_tree_view_column_set_expand(column, i == 2);
-      g_object_set_data(G_OBJECT(column),"rr-zebra-view",tree);
-    gtk_tree_view_column_set_cell_data_func(column,renderer,rr_list_zebra_cell,NULL,NULL);
-    gtk_tree_view_column_set_sort_column_id(column, i);
+      g_object_set_data(G_OBJECT(column), "rr-zebra-view", tree);
+      gtk_tree_view_column_set_cell_data_func(column, renderer, rr_list_zebra_cell, NULL, NULL);
+      gtk_tree_view_column_set_sort_column_id(column, i);
       gtk_tree_view_append_column(GTK_TREE_VIEW(tree), column);
    }
 
    GtkCellRenderer *connected = gtk_cell_renderer_toggle_new();
    g_signal_connect(connected, "toggled", G_CALLBACK(picker_toggle), tree);
    GtkTreeViewColumn *connected_col = gtk_tree_view_column_new_with_attributes("Connected", connected, "active", 4, "inconsistent", 5, NULL);
-   g_object_set_data(G_OBJECT(connected_col),"rr-zebra-view",tree);
-    gtk_tree_view_column_set_cell_data_func(connected_col,connected,rr_list_zebra_cell,NULL,NULL);
-    gtk_tree_view_column_set_sort_column_id(connected_col, 4);
+   g_object_set_data(G_OBJECT(connected_col), "rr-zebra-view", tree);
+   gtk_tree_view_column_set_cell_data_func(connected_col, connected, rr_list_zebra_cell, NULL, NULL);
+   gtk_tree_view_column_set_sort_column_id(connected_col, 4);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), connected_col);
    GtkCellRenderer *status = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *status_col = gtk_tree_view_column_new_with_attributes("Status", status, "text", 6, NULL);
@@ -376,9 +380,9 @@ void gtk_show_server_chooser(void) {
    gtk_tree_view_column_set_sizing(status_col, GTK_TREE_VIEW_COLUMN_FIXED);
    gtk_tree_view_column_set_fixed_width(status_col, 90);
    gtk_tree_view_column_set_min_width(status_col, 32);
-   g_object_set_data(G_OBJECT(status_col),"rr-zebra-view",tree);
-    gtk_tree_view_column_set_cell_data_func(status_col,status,rr_list_zebra_cell,NULL,NULL);
-    gtk_tree_view_column_set_sort_column_id(status_col, 6);
+   g_object_set_data(G_OBJECT(status_col), "rr-zebra-view", tree);
+   gtk_tree_view_column_set_cell_data_func(status_col, status, rr_list_zebra_cell, NULL, NULL);
+   gtk_tree_view_column_set_sort_column_id(status_col, 6);
    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), status_col);
    gtk_widget_set_tooltip_text(tree, "Click Connected to connect, disconnect, or cancel a pending connection and its retries.");
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);

@@ -59,22 +59,25 @@ void rr_relay_users_poll(bool force) {
       snprintf(key, sizeof(key), "user.%u.sessions", i);
       changed |= dict_get_uint(entry->users, key, 0) != dict_get_uint(local, key, 0);
       snprintf(key, sizeof(key), "user.%u.privileges", i);
-      changed |= strcmp(dict_get(entry->users,key,""),dict_get(local,key,"")) != 0;
-      snprintf(key,sizeof(key),"user.%u.email",i);
-      changed |= strcmp(dict_get(entry->users,key,""),dict_get(local,key,"")) != 0;
-      snprintf(key,sizeof(key),"user.%u.real_name",i);
-      changed |= strcmp(dict_get(entry->users,key,""),dict_get(local,key,"")) != 0;
-      snprintf(key,sizeof(key),"user.%u.phone",i);
-      changed |= strcmp(dict_get(entry->users,key,""),dict_get(local,key,"")) != 0;
+      changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
+      snprintf(key, sizeof(key), "user.%u.email", i);
+      changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
+      snprintf(key, sizeof(key), "user.%u.real_name", i);
+      changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
+      snprintf(key, sizeof(key), "user.%u.phone", i);
+      changed |= strcmp(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
    }
 
-   if (!changed && dict_get_uint(entry->users,"privilege.count",0) !=
-       dict_get_uint(local,"privilege.count",0)) changed=true;
-   for (unsigned i=0; !changed && i<dict_get_uint(local,"privilege.count",0);i++) {
-      char key[64];
-      snprintf(key,sizeof(key),"privilege.%u.name",i);
-      changed=g_strcmp0(dict_get(entry->users,key,""),dict_get(local,key,""))!=0;
+   if (!changed && dict_get_uint(entry->users, "privilege.count", 0) != dict_get_uint(local, "privilege.count", 0)) {
+      changed = true;
    }
+
+   for (unsigned i = 0 ; !changed && i < dict_get_uint(local, "privilege.count", 0) ; i++) {
+      char key[64];
+      snprintf(key, sizeof(key), "privilege.%u.name", i);
+      changed = g_strcmp0(dict_get(entry->users, key, ""), dict_get(local, key, "")) != 0;
+   }
+
    if (changed) {
       rr_relay_directory_put(rrserver_links_node(), local);
 
