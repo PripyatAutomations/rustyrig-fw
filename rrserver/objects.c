@@ -545,6 +545,8 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    else if (!strcmp(d->name, "receiver.noise-reduction-level")) label = "Noise Reduction Level";
    else if (!strcmp(d->name, "transmit.mic-gain")) label = "Mic Gain";
    else if (!strcmp(d->name, "transmit.power")) label = "RF Output Power";
+   else if (!strcmp(d->name, "receiver.squelch")) label = "Squelch";
+   else if (!strcmp(d->name, "meter.signal")) label = "Signal Strength";
    else if (!strcmp(d->name, "receiver.ipo")) label = "IPO / Preamp";
    else if (!strcmp(d->name, "receiver.auto-notch")) label = "Auto Notch";
    else if (!strcmp(d->name, "receiver.narrow")) label = "Narrow Filter";
