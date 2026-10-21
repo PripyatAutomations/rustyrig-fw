@@ -531,10 +531,13 @@ typedef struct rig_control_inventory {
 static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user) {
    rig_control_inventory_t *r = user;
 
-   if (strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) && strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) {
-      return false;
-   }
-   const char *label = !strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) ? "Display Brightness" : "Speaker Volume";
+   const char *label = NULL;
+   if (!strcmp(d->name, "display.contrast")) label = "LCD Contrast";
+   else if (!strcmp(d->name, "display.key-backlight")) label = "Key Backlight";
+   else if (!strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS)) label = "Display Brightness";
+   else if (!strcmp(d->name, "display.tx-indicator")) label = "TX/BUSY Indicator";
+   else if (!strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) label = "Speaker Volume";
+   if (!label) return false;
    dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
 
    if (!row) {
@@ -543,7 +546,7 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    dict_add(row, "inventory.parent", rr_server_rig_id(r->radio));
    dict_add(row, "inventory.service", d->name);
    dict_add(row, "inventory.access", d->writable ? "read/write" : "read-only");
-   dict_add(row, "inventory.description", "Hamlib rig property");
+   dict_add(row, "inventory.description", "Rig property");
    rr_inventory_send(r->ctx->client, row);
 
    return false;
