@@ -334,11 +334,13 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
       const char *parent = dict_get(d, "catalog.parent", "");
       struct catalog *authority = rr_relay_find_catalog(parent);
       const char *kind = dict_get(d, "inventory.kind", "");
+      bool menu_child = !strcmp(kind, "rig-menu-item") && authority &&
+         !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
 
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
-         strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo")) ||
-         (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share")) ||
+         strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo") && !menu_child) ||
+         (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share") && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item")) ||
          strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8) ||
          strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
          return;
@@ -573,6 +575,12 @@ static void collect_rig_catalog(rr_server_rig_t *radio) {
       dict_add(menu, "inventory.description", model);
       collect_service(menu, (void *)id);
    }
+   char *mh = g_compute_checksum_for_string(G_CHECKSUM_SHA256, "MENU", -1);
+   char *ph = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
+   snprintf(ctx.menu_id, sizeof(ctx.menu_id), "service:%s:%.24s:%.8s:%.32s",
+      rrserver_links_node(), ph ? ph : "", "rig-menu", mh ? mh : "");
+   g_free(mh);
+   g_free(ph);
    backend->type->api->menu_foreach(backend, collect_rig_menu_item, &ctx);
 }
 
@@ -904,7 +912,8 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       }
       const char *access = dict_get(c->descriptor, "inventory.access", NULL);
 
-      if (access && (!client->user || !has_priv(client->user->uid, access))) {
+      if (access && strcmp(access, "read-only") && strcmp(access, "read/write") &&
+          (!client->user || !has_priv(client->user->uid, access))) {
          continue;
       }
       dict *row = dict_clone(c->descriptor);
@@ -1042,6 +1051,14 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
          inventory_entry(client, request, radio, 1, "rig");
          const char *id = dict_get(radio->descriptor, "object.uuid", "");
          inventory_services(client, request, site->owner, id, 2);
+         for (struct catalog *menu = rr_relay_catalogs ; menu ; menu = menu->next) {
+            if (!strcmp(menu->owner, site->owner) &&
+                !strcmp(dict_get(menu->descriptor, "catalog.parent", ""), id) &&
+                !strcmp(dict_get(menu->descriptor, "inventory.kind", ""), "rig-menu")) {
+               inventory_services(client, request, site->owner,
+                  dict_get(menu->descriptor, "catalog.service", ""), 3);
+            }
+         }
 
          for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
             if (strcmp(c->owner, site->owner)) {
