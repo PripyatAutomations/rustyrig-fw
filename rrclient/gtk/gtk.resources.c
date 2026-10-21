@@ -808,7 +808,7 @@ static void resource_control_revert(GtkButton *button, gpointer data) {
    edit->suppress = FALSE;
    resource_control_send(edit, edit->original);
 }
-static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name) {
+static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *name, const char *property) {
    GtkTreeIter iter = *item, parent;
    char *uuid = NULL, *room = NULL, *details = NULL;
    gtk_tree_model_get(model, item, DETAILS, &details, -1);
@@ -841,7 +841,6 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
       return;
    }
 
-   const char *property = !g_strcmp0(name, "Display Brightness") ? "display.brightness" : "audio.speaker.volume";
    const dict *state = rrclient_object_property(uuid, property);
    gboolean known = state && dict_get_bool((dict *)state, "property.known", false);
    int original = known ? CLAMP(dict_get_int((dict *)state, "property.value", 50), 0, 100) : 50;
@@ -905,7 +904,7 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTree
    if (g_strcmp0(kind, "rig-control") == 0 && control && *control) {
       char *name = NULL;
       gtk_tree_model_get(model, &iter, NAME, &name, -1);
-      resource_rig_control_dialog(model, &iter, profile, name);
+      resource_rig_control_dialog(model, &iter, profile, name, control);
       g_free(name);
    } else if (g_strcmp0(kind, "control") == 0 && control && *control) {
       if (g_strcmp0(state, "owner-server-only") == 0) {
@@ -1825,7 +1824,7 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       else if (!g_strcmp0(kind, "vfo")) icon = "view-refresh";
       else if (!g_strcmp0(kind, "cat")) icon = gtk_icon_theme_has_icon(theme, "face-cat") ? "face-cat" : "face-smile-symbolic";
       else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") || !g_strcmp0(name, "Users")) icon = "system-users";
-      else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Brightness"))
+      else if (!g_strcmp0(kind, "rig-control") && name && (strstr(name, "Brightness") || strstr(name, "Backlight") || strstr(name, "Contrast") || strstr(name, "Indicator")))
          icon = "display-brightness";
       else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Volume"))
          icon = "audio-volume-high";
