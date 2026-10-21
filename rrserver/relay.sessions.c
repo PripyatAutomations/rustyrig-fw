@@ -501,10 +501,10 @@ static bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const ch
       return false;
    }
    const char *symbol = rr_rig_registry_public_alias(rig.rigs, radio);
-   /* Explicit destination-side rig grants, including rig.full, are sufficient
-    * for CAT; a room join alone is not a TX authorization. */
+   /* Require destination-side tx (or rig.full), not merely rig.use.
+    * A room join alone is not authorization to retune or transmit. */
    return db_resource_access_named(masterdb, r->remote_account.name, host,
-      "rig", uuid, "rig.use", time(NULL), symbol) == RR_RESOURCE_ALLOW;
+      "rig", uuid, "tx", time(NULL), symbol) == RR_RESOURCE_ALLOW;
 #else
    (void)client; (void)room; (void)command;
    return false;
