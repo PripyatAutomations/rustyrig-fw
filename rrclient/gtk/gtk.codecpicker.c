@@ -172,7 +172,7 @@ static void codec_media_codecs_cb(const char *event, const char *data, rrconn_t 
 }
 
 GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
-   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    GtkWidget *widget_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(widget_label), "<u>T</u>X/<u>R</u>X Codecs");
 
@@ -210,8 +210,8 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    rx_ctx->is_tx = false;
 
    gtk_box_pack_start(GTK_BOX(vbox), widget_label, FALSE, FALSE, 1);
-   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), TRUE, TRUE, 1);
-   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), TRUE, TRUE, 1);
+   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(tx_combo), FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(rx_combo), FALSE, FALSE, 0);
 
    if (out_tx) {
       *out_tx = tx_combo;
