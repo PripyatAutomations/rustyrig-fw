@@ -283,11 +283,15 @@ static void tab_title_changed(GObject *source, GParamSpec *spec, GtkWidget *butt
    }
    GtkWidget *label = g_object_get_data(G_OBJECT(button), "rr-tab-title");
 
+   /* Lowercase is only a visual treatment: source labels, page IDs and
+    * shortcut handling retain their original spelling. */
+   char *lower = g_utf8_strdown(title, -1);
    if (gtk_label_get_use_markup(GTK_LABEL(source))) {
-      gtk_label_set_markup(GTK_LABEL(label), title);
+      gtk_label_set_markup(GTK_LABEL(label), lower);
    } else {
-      gtk_label_set_text(GTK_LABEL(label), title);
+      gtk_label_set_text(GTK_LABEL(label), lower);
    }
+   g_free(lower);
 }
 
 static gint tabs_compare(GtkFlowBoxChild *a, GtkFlowBoxChild *b, gpointer data) {
