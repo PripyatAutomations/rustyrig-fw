@@ -381,3 +381,16 @@ The `@full` assignment lives in `privilege_set_assignments`; the room grant live
 contain no blanket `admin@*` grant, and explicitly revoke both the assignment and direct-grant rows from any
 databases populated while the test seed was installed. Removing the SQL seed
 alone does not revoke already provisioned access. See `doc/release-checklist.md`.
+
+### Development-only server administration
+
+The fresh-database preload also grants `admin@*` the `remote-admin`,
+`admin`, and `owner` operations on `site *` so the same test operator
+can administer every linked server from a remote login. This is **not a
+production default**. Destination-side authorization still requires an
+authenticated linked identity and enforces the configured
+`remote-admin.next-hop-only` constraint (default: enabled), so multi-hop
+administration may require a configuration change for testing.
+
+Before production, remove these three seed rows and revoke them from
+already seeded databases, as recorded in the release checklist.

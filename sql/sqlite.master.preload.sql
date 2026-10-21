@@ -58,3 +58,15 @@ FROM privilege_sets WHERE name='full';
 INSERT INTO resource_privileges
    (subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by)
 VALUES ('admin','*','room','*','room.join','allow','seed');
+
+-- DEVELOPMENT ONLY: remote server administration for admin@*.
+-- The destination independently checks site/* remote-admin plus admin/owner.
+-- Add owner for full administrative parity during single-operator cluster tests.
+-- These do not replace linked-node authentication or other safety controls.
+-- REMOVE before production and revoke the already seeded rows.
+INSERT INTO resource_privileges
+   (subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by)
+VALUES
+   ('admin','*','site','*','remote-admin','allow','seed'),
+   ('admin','*','site','*','admin','allow','seed'),
+   ('admin','*','site','*','owner','allow','seed');
