@@ -634,8 +634,34 @@ static void admin_older(GtkButton *button, gpointer data) {
    admin_command(table, "admin", tail, NULL);
 }
 
-static void admin_other_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *cell,
-                                   GtkTreeModel *model,GtkTreeIter *iter,gpointer data);
+static void admin_other_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                                   GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
+   (void)data;
+   GtkWidget *tree = g_object_get_data(G_OBJECT(column), "rr-admin-zebra-tree");
+   GtkTreePath *path = gtk_tree_model_get_path(model, iter);
+   int *indices = path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd = indices && (indices[gtk_tree_path_get_depth(path) - 1] & 1);
+   gboolean selected = tree && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), path);
+
+   if (odd && !selected && tree) {
+      GtkStyleContext *style = gtk_widget_get_style_context(tree);
+      GdkRGBA base, ink, shade;
+      gtk_style_context_get_background_color(style, GTK_STATE_FLAG_NORMAL, &base);
+      gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &ink);
+      shade.red = base.red * 0.915 + ink.red * 0.085;
+      shade.green = base.green * 0.915 + ink.green * 0.085;
+      shade.blue = base.blue * 0.915 + ink.blue * 0.085;
+      shade.alpha = 1.0;
+      g_object_set(cell, "cell-background-rgba", &shade, "cell-background-set", TRUE, NULL);
+   } else {
+      g_object_set(cell, "cell-background-set", FALSE, NULL);
+   }
+
+   if (path) {
+      gtk_tree_path_free(path);
+   }
+}
 /* Stages public profile fields and system roles only. Never clones a
  * password, login identity, or source-server resource grant. */
 static void admin_copy_user(GtkWidget *dialog,admin_table_t *table,
