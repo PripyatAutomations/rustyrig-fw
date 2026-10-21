@@ -4,8 +4,6 @@ set -euo pipefail
 P=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 commit_message=${1-}
 
-"${P}/tools/bump-version.sh"
-
 # Commit and publish components before the parent gitlinks which reference them.
 for i in librustyaxe librrprotocol www callsign-lookup; do
    echo "PUSH: $i"
