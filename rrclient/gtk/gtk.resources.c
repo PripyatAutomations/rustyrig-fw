@@ -1482,22 +1482,22 @@ static void resource_type_sync_all(void) {
    browser->type_bulk_update=FALSE;
 }
 static void resource_type_toggle_all(GtkToggleButton *item,gpointer unused) {
-   (void)item;
-   (void)unused;
+   (void)item; (void)unused;
    if (!browser || browser->type_bulk_update) return;
-   /* Any nonempty selection clears; an empty selection enables all. */
    gboolean select_all=g_hash_table_size(browser->enabled_kinds)==0;
    browser->type_bulk_update=TRUE;
-   for (guint i=0;i<browser->type_checks->len;i++)
-      gtk_toggle_button_set_active(g_ptr_array_index(browser->type_checks,i),select_all);
-   browser->type_bulk_update=FALSE;
-   /* Updating the tri-state widget can emit toggled; never re-enter filtering
-    * while the model is processing a row deletion. */
-   browser->type_bulk_update=TRUE;
+   g_hash_table_remove_all(browser->enabled_kinds);
+   for (guint i=0;i<browser->type_checks->len;i++) {
+      GtkToggleButton *check=GTK_TOGGLE_BUTTON(g_ptr_array_index(browser->type_checks,i));
+      if (select_all) {
+         const char *kind=g_object_get_data(G_OBJECT(check),"rr-kind");
+         if (kind) g_hash_table_add(browser->enabled_kinds,g_strdup(kind));
+      }
+      gtk_toggle_button_set_active(check,select_all);
+   }
    gtk_toggle_button_set_inconsistent(GTK_TOGGLE_BUTTON(browser->type_toggle_all),FALSE);
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(browser->type_toggle_all),select_all);
    browser->type_bulk_update=FALSE;
-   gtk_tree_selection_unselect_all(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)));
    gtk_tree_model_filter_refilter(browser->filter);
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
@@ -1505,10 +1505,10 @@ static void resource_type_toggle_all(GtkToggleButton *item,gpointer unused) {
 static void resource_type_changed(GtkToggleButton *item,gpointer data) {
    if (!browser || !browser->filter) return;
    const char *type=data;
+   if (browser->type_bulk_update) return;
    if (gtk_toggle_button_get_active(item))
       g_hash_table_add(browser->enabled_kinds,g_strdup(type));
    else g_hash_table_remove(browser->enabled_kinds,type);
-   if (browser->type_bulk_update) return;
    resource_type_sync_all();
    gtk_tree_model_filter_refilter(browser->filter);
    resource_zebra_invalidate();
@@ -1582,6 +1582,7 @@ static void resource_create(void) {
    for (unsigned i=0;i<G_N_ELEMENTS(choices);i++) {
       g_hash_table_add(browser->enabled_kinds,g_strdup(choices[i].type));
       GtkWidget *check=gtk_check_button_new_with_label(choices[i].label);
+      g_object_set_data(G_OBJECT(check),"rr-kind",(gpointer)choices[i].type);
       gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
       g_signal_connect(check,"toggled",G_CALLBACK(resource_type_changed),
                        (gpointer)choices[i].type);
