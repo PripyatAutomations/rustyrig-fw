@@ -577,7 +577,21 @@ static void host_command(serial_binding_t *b, const char *command) {
 static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings_t *b) {
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
+static bool modem_mode_active(const serial_binding_t *b) {
+   if (strcmp(b->service, "rig.modem")) return true;
+   const char *mode = rr_cat_property(NULL, "mode", NULL);
+   return mode && (!strcmp(mode, "D-U") || !strcmp(mode, "D-L") || !strcmp(mode, "DFM"));
+}
 static void host_sync(serial_binding_t *b) {
+   if (!modem_mode_active(b)) {
+      if (b->stream) host_command(b, "close");
+      b->stream = 0;
+      b->opening = b->rx_pending = b->tx_pending = false;
+      b->failed = false;
+      b->retry_seconds = 0;
+      b->next_retry_us = 0;
+      return;
+   }
    if (!host_binding(b)) {
       return;
    }
@@ -792,7 +806,10 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
       if (stream && stream != b->stream) {
          goto done;
       }
-      Log(LOG_WARN, "serial", "%s: %s", b->name, dict_get(d, "serial.error", cmd));
+      const char *reason = dict_get(d, "serial.error", cmd);
+      if (strcmp(b->service, "rig.modem") ||
+          (strcmp(reason, "not-found") && strcmp(reason, "forbidden-device")))
+         Log(LOG_WARN, "serial", "%s: %s", b->name, reason);
 
       if (!strcmp(dict_get(d, "serial.error", ""), "settings-failed")) {
          b->configure_pending = false;
