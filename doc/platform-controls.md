@@ -77,3 +77,22 @@ Resource Explorer already consumes; the Controls tab may filter the same
 object-owned descriptors, but must not create a second command namespace.
 Apply destination-side scoped write permissions before sending a command.
 This integration has not yet been implemented.
+
+## Hamlib rig controls (pre-release implementation)
+
+Hamlib-backed rigs advertise `display.brightness` and `audio.speaker.volume`
+rig-owned integer properties when their driver's backlight or AF-level
+capability probes report support. Both use a normalized 0–100 percent range;
+Hamlib's floating-point 0–1 values are converted at the backend boundary.
+Read and write support are probed independently. Commands use the serialized
+backend worker, never GTK direct CAT calls. The native Resource Explorer
+lists these under the rig's **Controls** folder; double-clicking one opens a
+control dialog with Apply/Cancel. The server continues to enforce authorization.
+A separate server-node `display.brightness` remains the Linux backlight.
+
+The Receiver Directory remains a separate management/list tab (Alt-Z); its
+future Explorer Available/Connected presentation should reuse its data cache.
+
+**Hardware validation required:** verify both capability probes and CAT
+readbacks on an actual Yaesu FT-891, including read-only/unavailable behavior,
+reconnections, and write-permission failures. No hardware test has been run.
