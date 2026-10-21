@@ -1243,7 +1243,7 @@ GtkWidget *init_admin_tab(void) {
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       GtkTreeModel *filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(table->store), NULL);
-      gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered), admin_filter_visible, filter, NULL);
+      gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered), gtk_admin_filter_visible, filter, NULL);
       g_signal_connect(filter, "changed", G_CALLBACK(gtk_admin_filter_changed), filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
       g_object_set_data(G_OBJECT(table->tree), "rr-admin-filter", filter);
