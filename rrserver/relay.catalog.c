@@ -332,11 +332,6 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
    const char *service_kind = dict_get(d, "inventory.kind", "");
    bool diagnostic = !strcmp(service_kind, "rig-control") ||
       !strcmp(service_kind, "rig-menu") || !strcmp(service_kind, "rig-menu-item");
-   if (diagnostic) {
-      Log(LOG_INFO, "relay.catalog", "Catalog %s: owner=%s kind=%s parent=%s service=%s",
-         rr_relay_local_owner(owner) ? "collect" : "receive", owner,
-         service_kind, dict_get(d, "catalog.parent", "-"), service ? service : "-");
-   }
 
    if (service) {
       const char *parent = dict_get(d, "catalog.parent", "");
