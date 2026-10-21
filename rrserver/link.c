@@ -278,6 +278,7 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
+   dict_add_ulong(d, "clock.unix", (unsigned long)time(NULL));
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
    dict_free(d);
@@ -465,6 +466,23 @@ static void handle_hello(struct link_session *session, dict *d) {
       fail(session, "Station name, UUID or shared password does not match the configured peer; check both servers' [peer] settings");
 
       return;
+   }
+
+   /* Optional clock diagnostic: old peers without clock.unix remain compatible.
+    * This is a one-way sample, including unknown network transit delay. */
+   const char *clock_field = dict_get(d, "clock.unix", NULL);
+   if (clock_field && *clock_field) {
+      char *end = NULL;
+      errno = 0;
+      long long peer_time = strtoll(clock_field, &end, 10);
+      if (!errno && end && !*end && peer_time > 0) {
+         long long skew = peer_time - (long long)time(NULL);
+         if (skew > 5 || skew < -5)
+            Log(LOG_WARN, "link", "Clock skew with %s (%s): peer is %lld seconds %s local time; check NTP on both servers",
+               site, node, skew < 0 ? -skew : skew, skew < 0 ? "behind" : "ahead of");
+         else
+            Log(LOG_INFO, "link", "Clock sample from %s: offset %+lld seconds (includes transit delay)", site, skew);
+      }
    }
 
    char peer_ip[64];
