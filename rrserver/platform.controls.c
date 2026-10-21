@@ -110,7 +110,8 @@ static bool snapshot(const rr_platform_control_t *control, rr_platform_control_s
    state->maximum = maximum;
    state->current = current;
    state->step = control->step > 0 ? control->step : 1;
-   state->writable = control->write != NULL;
+   state->writable = control->write != NULL &&
+      (strcmp(control->name, "display.brightness") || rrserver_backlight_writable());
 
    return true;
 }
