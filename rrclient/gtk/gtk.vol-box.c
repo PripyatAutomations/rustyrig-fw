@@ -77,9 +77,10 @@ static gboolean rig_volume_refresh(gpointer widget) {
    if (supported && dict_get_bool((dict *)state, "property.known", false) &&
        !gtk_widget_has_focus(slider)) {
       int volume = dict_get_int((dict *)state, "property.value", 0);
-      g_signal_handlers_block_by_func(slider, G_CALLBACK(on_rig_volume_changed), NULL);
+      gulong handler = (gulong)GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(slider), "rig-volume-handler"));
+      if (handler) g_signal_handler_block(slider, handler);
       gtk_range_set_value(GTK_RANGE(slider), CLAMP(volume, 0, 100));
-      g_signal_handlers_unblock_by_func(slider, G_CALLBACK(on_rig_volume_changed), NULL);
+      if (handler) g_signal_handler_unblock(slider, handler);
    }
    return G_SOURCE_CONTINUE;
 }
@@ -109,7 +110,8 @@ GtkWidget *create_volbox(void) {
    gtk_widget_set_tooltip_text(rx_rig_vol_slider, "Rig speaker Volume");
    gtk_scale_set_digits(GTK_SCALE(rx_rig_vol_slider), 0);
    gtk_widget_set_sensitive(rx_rig_vol_slider, FALSE);
-   g_signal_connect(rx_rig_vol_slider, "value-changed", G_CALLBACK(on_rig_volume_changed), NULL);
+   gulong handler = g_signal_connect(rx_rig_vol_slider, "value-changed", G_CALLBACK(on_rig_volume_changed), NULL);
+   g_object_set_data(G_OBJECT(rx_rig_vol_slider), "rig-volume-handler", GSIZE_TO_POINTER(handler));
    guint volume_refresh_source = g_timeout_add(500, rig_volume_refresh, rx_rig_vol_slider);
    g_signal_connect_swapped(rx_rig_vol_slider, "destroy", G_CALLBACK(g_source_remove), GUINT_TO_POINTER(volume_refresh_source));
    rig_volume_refresh(rx_rig_vol_slider);
