@@ -1378,8 +1378,10 @@ static gboolean resource_self_matches(GtkTreeModel *model, GtkTreeIter *iter) {
    if (!query || !*query) return TRUE;
    char *name=NULL,*details=NULL,*uuid=NULL,*service=NULL;
    gtk_tree_model_get(model,iter,NAME,&name,DETAILS,&details,UUID,&uuid,SERVICE,&service,-1);
-   gchar *haystack=g_utf8_casefold(g_strdup_printf("%s %s %s %s",
-      name ? name : "",details ? details : "",uuid ? uuid : "",service ? service : ""),-1);
+   gchar *combined=g_strdup_printf("%s %s %s %s",
+      name ? name : "",details ? details : "",uuid ? uuid : "",service ? service : "");
+   gchar *haystack=g_utf8_casefold(combined,-1);
+   g_free(combined);
    gchar *needle=g_utf8_casefold(query,-1);
    gboolean match=strstr(haystack,needle)!=NULL;
    g_free(name);g_free(details);g_free(uuid);g_free(service);
@@ -1986,7 +1988,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       double latitude,longitude;
       if (sscanf(coords,"%lf,%lf",&latitude,&longitude)==2)
          snprintf(position,sizeof(position)," (%.3f,%.3f)",latitude,longitude);
-      const char *identity = *model ? model : name;
+      const char *identity = *model && strcmp(model,"NET rigctl") && strcmp(model,"NET rigctl (Hamlib)") ? model : name;
       label = g_strdup_printf("%s%s%s%s%s%s%s", identity,
          *location ? " (" : "", location, *location ? ")" : "",
          *position ? " " : "", position, strcmp(identity,name) ? " " : "");
