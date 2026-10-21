@@ -238,12 +238,15 @@ static rmode_t hl_mode_from_rr(rr_mode_t mode) {
       case MODE_AM: {
          return RIG_MODE_AM;
       }
+      case MODE_ML:
       case MODE_LSB: {
          return RIG_MODE_LSB;
       }
+      case MODE_MU:
       case MODE_USB: {
          return RIG_MODE_USB;
       }
+      case MODE_MFM:
       case MODE_DFM:
       case MODE_FM: {
          return RIG_MODE_FM;
