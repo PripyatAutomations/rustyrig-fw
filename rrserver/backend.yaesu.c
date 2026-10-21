@@ -242,7 +242,7 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
       if (!cat(s, command, NULL, NULL, 0) || !get_dimmer(s)) {
          return true;
       }
-      observe(b, name, (s->dimmer[1] - 1) * 100 / 14);
+      observe(b, name, (s->dimmer[2] * 100 + 7) / 15);
 
       return false;
    }
@@ -387,7 +387,7 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
 
    if (index == b->active_vfo) {
       if (get_dimmer(s)) {
-         observe(b, RR_PROP_DISPLAY_BRIGHTNESS, (s->dimmer[1] - 1) * 100 / 14);
+         observe(b, RR_PROP_DISPLAY_BRIGHTNESS, (s->dimmer[2] * 100 + 7) / 15);
       } else {
          rr_backend_property_unavailable(b, NULL, RR_PROP_DISPLAY_BRIGHTNESS);
       }
