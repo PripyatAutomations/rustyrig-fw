@@ -17,6 +17,7 @@ struct rr_hardware_device {
    const rr_hardware_driver_t *api;
    void *data;
 };
+
 struct rr_hardware {
    GPtrArray *devices;
 };
