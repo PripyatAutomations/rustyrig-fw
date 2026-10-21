@@ -1147,7 +1147,7 @@ static gboolean explorer_open_edit_idle(gpointer unused) {
       gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(table->tree), path, NULL, FALSE, 0, 0);
       gtk_tree_path_free(path);
       GtkWidget *button = gtk_button_new();
-      g_object_set_data(G_OBJECT(button), "action", "edit");
+      g_object_set_data(G_OBJECT(button), "action", (gpointer) "edit");
       admin_action(GTK_BUTTON(button), table);
       gtk_widget_destroy(button);
       break;
