@@ -69,7 +69,7 @@ static void route_notice(const char *event, const char *data, rrconn_t *connecti
    dict *d = json2dict(data);
    assert(d && *dict_get(d, "media.transport", "") && *dict_get(d, "media.chan-uuid", ""));
    const char *transport = dict_get(d, "media.transport", "");
-   assert(!strcmp(transport, "direct RTP") || !strcmp(transport, "proxy RTP") || !strcmp(transport, "proxy WebSocket"));
+   assert(!strcmp(transport, "direct-rtp") || !strcmp(transport, "proxy-rtp") || !strcmp(transport, "proxy-media"));
 
    if (!strcmp(dict_get(d, "media.status", ""), "connecting")) {
       assert(strstr(dict_get(d, "media.endpoint", ""), "127.0.0.1:"));
@@ -331,13 +331,13 @@ int main(void) {
    time_offset += 5000001;
    rrclient_direct_poll();
    assert(!strcmp(transport, "rtp-home"));
-   assert(!strcmp(fallback_from, "direct RTP") && !strcmp(fallback_to, "proxy RTP"));
+   assert(!strcmp(fallback_from, "direct-rtp") && !strcmp(fallback_to, "proxy-rtp"));
    dict_add_ulong(retry, "media.owner-stream", 130);
    rrclient_direct_message(&client, retry);
    time_offset += 5000001;
    rrclient_direct_poll();
    assert(!strcmp(transport, "ws"));
-   assert(!strcmp(fallback_from, "proxy RTP") && !strcmp(fallback_to, "proxy WebSocket"));
+   assert(!strcmp(fallback_from, "proxy-rtp") && !strcmp(fallback_to, "proxy-media"));
    dict_free(retry);
    event_emit("disconnected", &client, NULL);
    assert(rrclient_direct_set_mode(&client, "unavailable", RR_MEDIA_AUTO));
@@ -346,7 +346,7 @@ int main(void) {
    dict_add_ulong(retry, "media.owner-stream", 3);
    rrclient_direct_message(&client, retry);
    assert(!strcmp(transport, "rtp-home"));
-   assert(!strcmp(fallback_from, "direct RTP") && !strcmp(fallback_to, "proxy RTP"));
+   assert(!strcmp(fallback_from, "direct-rtp") && !strcmp(fallback_to, "proxy-rtp"));
    rrclient_direct_message(&client, retry);
    assert(!strcmp(transport, "ws"));
    dict_free(retry);
