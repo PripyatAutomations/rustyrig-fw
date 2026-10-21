@@ -486,6 +486,31 @@ void rr_relay_roster(const char *event, const char *room, rrconn_t *client, void
    }
 }
 
+/* The owning server alone grants remote CAT authority. A remote user's
+ * origin-site admin flag is never consulted. */
+static bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const char *command) {
+#ifdef USE_SQLITE
+   struct remote_session *r = rr_relay_remote_for(client);
+   if (!r || !room || !*room || !command || !*command) {
+      return false;
+   }
+   rr_server_rig_t *radio = rrserver_rig_for_room(room);
+   const char *host = rrserver_relay_client_server(client);
+   const char *uuid = radio ? rr_server_rig_id(radio) : NULL;
+   if (!host || !*host || !uuid || !*uuid) {
+      return false;
+   }
+   const char *symbol = rr_rig_registry_public_alias(rig.rigs, radio);
+   /* Explicit destination-side rig grants, including rig.full, are sufficient
+    * for CAT; a room join alone is not a TX authorization. */
+   return db_resource_access_named(masterdb, r->remote_account.name, host,
+      "rig", uuid, "rig.use", time(NULL), symbol) == RR_RESOURCE_ALLOW;
+#else
+   (void)client; (void)room; (void)command;
+   return false;
+#endif
+}
+
 /* Find or authenticate an owner-side virtual session for the originating user. */
 static struct remote_session *owner_session(const char *origin, const char *id, const char *username) {
    /* The relay envelope is authenticated by the linked server transport. A remote principal is NOT a local login and must not inherit a local user's uid,
@@ -685,6 +710,7 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       event_emit_dict("admin.cmd", &r->client, d);
       ok = true;
    } else {
+      ws_rigctl_set_resource_authorizer(rr_relay_cat_authorized);
       ok = ws_process_dict(&r->client, d);
    }
 
