@@ -483,6 +483,126 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
 
    return result;
 }
+
+/* SH filter codes, from FT-891 and FT-991A CAT references.
+ * SH0ncc (891: narrow flag + code), SH0cc (991A: code).
+ * These modes share the documented SSB/CW/data lookup tables. */
+static const int sh_ssb_narrow[] = {1500,200,400,600,850,1100,1350,1500,1650,1800};
+static const int sh_ssb_wide[] = {2400,0,0,0,0,0,0,0,0,1800,1950,2100,2200,2300,2400,2500,2600,2700,2800,2900,3000,3200};
+static const int sh_cw_narrow[] = {500,50,100,150,200,250,300,350,400,450,500};
+static const int sh_cw_wide[] = {2400,0,0,0,0,0,0,0,0,0,500,800,1200,1400,1700,2000,2400,3000};
+static const int sh_data_narrow[] = {300,50,100,150,200,250,300,350,400,450,500};
+static const int sh_data_wide[] = {500,0,0,0,0,0,0,0,0,0,500,800,1200,1400,1700,2000,2400,3000};
+
+static bool sh_table(rr_mode_t mode, bool narrow, const int **values, size_t *count) {
+   const int *v = NULL;
+   size_t n = 0;
+#define SH_PICK(a) do { v = a; n = sizeof(a)/sizeof((a)[0]); } while (0)
+   switch (mode) {
+      case MODE_LSB: case MODE_USB: case MODE_ML: case MODE_MU:
+         if (narrow) SH_PICK(sh_ssb_narrow); else SH_PICK(sh_ssb_wide);
+         break;
+      case MODE_CW:
+         if (narrow) SH_PICK(sh_cw_narrow); else SH_PICK(sh_cw_wide);
+         break;
+      case MODE_DL: case MODE_DU:
+         if (narrow) SH_PICK(sh_data_narrow); else SH_PICK(sh_data_wide);
+         break;
+      default: return false;
+   }
+#undef SH_PICK
+   *values = v;
+   *count = n;
+   return true;
+}
+static int sh_decode(rr_mode_t mode, bool narrow, int code) {
+   const int *values;
+   size_t count;
+   return sh_table(mode, narrow, &values, &count) && code >= 0 && (size_t)code < count ? values[code] : 0;
+}
+static int sh_read(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t index;
+   char reply[32];
+   if (!s || !s->profile || !index_of(v, &index) || index != b->active_vfo ||
+       !sh_table(s->mode[index], false, &(const int *){NULL}, &(size_t){0}) ||
+       !cat(s, "SH0;", "SH0", reply, sizeof(reply))) return 0;
+   size_t len = strlen(reply);
+   int code = -1, narrow = 0;
+   if (s->model_id == 650 && len == 6) {
+      if (!decimal(reply + 3, 1, &narrow) || !decimal(reply + 4, 2, &code)) return 0;
+   } else if (s->model_id == 670 && len == 5) {
+      if (!decimal(reply + 3, 2, &code)) return 0;
+      /* FT-991A omits the narrow bit; overlapping codes are ambiguous.
+       * Prefer the table that actually defines this code. */
+      if (!sh_decode(s->mode[index], false, code)) narrow = 1;
+   } else return 0;
+   int hz = sh_decode(s->mode[index], narrow != 0, code);
+   if (hz > 0) {
+      dict_value_t value = {.i = hz};
+      rr_backend_property_observe(b, v, RR_PROP_VFO_WIDTH, VAL_INT, &value);
+   }
+   return hz;
+}
+static uint16_t width_get(rr_backend_t *b, rr_server_vfo_t *v) {
+   return (uint16_t)sh_read(b, v);
+}
+static int widths_get(rr_backend_t *b, rr_server_vfo_t *v, int *widths, int max) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t index;
+   const int *values;
+   size_t count;
+   if (!s || !s->profile || !widths || max < 3 || !index_of(v, &index) ||
+       index != b->active_vfo || !sh_table(s->mode[index], false, &values, &count)) return 0;
+   int current = sh_read(b, v);
+   if (!current) return 0;
+   int low = current, high = current;
+   for (int narrow = 0; narrow <= 1; narrow++) {
+      if (!sh_table(s->mode[index], narrow != 0, &values, &count)) continue;
+      for (size_t i = 0; i < count; i++) {
+         if (values[i] > 0 && values[i] < low) low = values[i];
+         if (values[i] > high) high = values[i];
+      }
+   }
+   widths[0] = low; widths[1] = current; widths[2] = high;
+   return 3;
+}
+static bool width_set(rr_backend_t *b, rr_server_vfo_t *v, const char *width) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t index;
+   const int *values;
+   size_t count;
+   if (!s || !s->profile || !width || !index_of(v, &index) || index != b->active_vfo ||
+       !sh_table(s->mode[index], false, &values, &count)) return true;
+   int current = sh_read(b, v);
+   int target = 0;
+   if (!strcasecmp(width, "NARR") || !strcasecmp(width, "NARROW")) target = 200;
+   else if (!strcasecmp(width, "NORM") || !strcasecmp(width, "NORMAL")) target = current > 0 ? current : 2400;
+   else if (!strcasecmp(width, "WIDE")) target = 3200;
+   else {
+      char *end;
+      long hz = strtol(width, &end, 10);
+      if (end == width || (*end && strcmp(end, " Hz")) || hz <= 0 || hz > 10000) return true;
+      target = (int)hz;
+   }
+   int best_diff = 0x7fffffff, best_code = -1, best_narrow = 0;
+   for (int narrow = 0; narrow <= 1; narrow++) {
+      if (!sh_table(s->mode[index], narrow != 0, &values, &count)) continue;
+      for (size_t i = 0; i < count; i++) {
+         if (values[i] <= 0) continue;
+         int diff = abs(values[i] - target);
+         if (diff < best_diff) { best_diff = diff; best_code = (int)i; best_narrow = narrow; }
+      }
+   }
+   if (best_code < 0) return true;
+   char cmd[16];
+   if (s->model_id == 650) snprintf(cmd, sizeof(cmd), "SH0%d%02d;", best_narrow, best_code);
+   else if (s->model_id == 670) snprintf(cmd, sizeof(cmd), "SH0%02d;", best_code);
+   else return true;
+   if (!cat(s, cmd, NULL, NULL, 0)) return true;
+   return sh_read(b, v) <= 0;
+}
+
 static bool frequency_set(rr_backend_t *b, rr_server_vfo_t *v, int hz) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -885,6 +1005,7 @@ static const char *model_name(rr_backend_t *b) {
 static const rr_backend_funcs_t api = {
    .create = create, .destroy = destroy, .poll_state = state, .vfo_supported = supported,
    .freq_set = frequency_set, .freq_get = frequency_get,
+   .width_set = width_set, .width_get = width_get, .widths_get = widths_get,
    .ptt_set = ptt_set, .ptt_get = ptt_get,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
    .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
