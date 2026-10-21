@@ -203,6 +203,48 @@ static void routing_event(const char *event, const char *data, rrconn_t *connect
    routing_queue();
 }
 
+/* Overlay child coordinates are expressed in the main client's content area.
+ * Dragging the title bar never steals events from the routing controls. */
+static gboolean routing_dragging;
+static double routing_drag_x, routing_drag_y;
+static int routing_start_x = 12, routing_start_y = 12;
+
+static gboolean routing_drag_press(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   routing_dragging = true;
+   routing_drag_x = event->x_root;
+   routing_drag_y = event->y_root;
+   routing_start_x = gtk_widget_get_margin_start(routing_window);
+   routing_start_y = gtk_widget_get_margin_top(routing_window);
+   return TRUE;
+}
+
+static gboolean routing_drag_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (!routing_dragging) return FALSE;
+   int width = gtk_widget_get_allocated_width(routing_window);
+   int height = gtk_widget_get_allocated_height(routing_window);
+   int max_x = MAX(0, gtk_widget_get_allocated_width(routing_overlay) - width);
+   int max_y = MAX(0, gtk_widget_get_allocated_height(routing_overlay) - height);
+   int x = CLAMP(routing_start_x + (int)(event->x_root - routing_drag_x), 0, max_x);
+   int y = CLAMP(routing_start_y + (int)(event->y_root - routing_drag_y), 0, max_y);
+   gtk_widget_set_margin_start(routing_window, x);
+   gtk_widget_set_margin_top(routing_window, y);
+   return TRUE;
+}
+
+static gboolean routing_drag_release(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (event->button != GDK_BUTTON_PRIMARY || !routing_dragging) return FALSE;
+   routing_drag_motion(widget, (GdkEventMotion *)event, NULL);
+   routing_dragging = false;
+   return TRUE;
+}
+
 static void routing_close(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -229,15 +271,22 @@ void gtk_audio_routing_init(void) {
    g_object_unref(content);
    gtk_container_add(GTK_CONTAINER(main_window), routing_overlay);
    routing_window = gtk_frame_new(NULL);
-   gtk_widget_set_halign(routing_window, GTK_ALIGN_END);
+   gtk_widget_set_halign(routing_window, GTK_ALIGN_START);
    gtk_widget_set_valign(routing_window, GTK_ALIGN_START);
    gtk_widget_set_margin_top(routing_window, 12);
-   gtk_widget_set_margin_end(routing_window, 12);
+   gtk_widget_set_margin_start(routing_window, 12);
    gtk_overlay_add_overlay(GTK_OVERLAY(routing_overlay), routing_window);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(routing_window), panel);
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   gtk_box_pack_start(GTK_BOX(panel), header, FALSE, FALSE, 0);
+   GtkWidget *drag_handle = gtk_event_box_new();
+   gtk_widget_add_events(drag_handle, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+   gtk_container_add(GTK_CONTAINER(drag_handle), header);
+   gtk_box_pack_start(GTK_BOX(panel), drag_handle, FALSE, FALSE, 0);
+   g_signal_connect(drag_handle, "button-press-event", G_CALLBACK(routing_drag_press), NULL);
+   g_signal_connect(drag_handle, "motion-notify-event", G_CALLBACK(routing_drag_motion), NULL);
+   g_signal_connect(drag_handle, "button-release-event", G_CALLBACK(routing_drag_release), NULL);
+   gtk_widget_set_tooltip_text(drag_handle, "Drag to move RX Audio Routing inside the client");
    gtk_box_pack_start(GTK_BOX(header), gtk_label_new("RX Audio Routing"), TRUE, TRUE, 0);
    GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
    gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
@@ -296,6 +345,6 @@ void gtk_audio_routing_shutdown(void) {
       gtk_widget_destroy(routing_window);
    }
    routing_window = routing_overlay = split_rx = ear_combo[0] = ear_combo[1] = NULL;
-   routing_updating = inventory_dirty = have_choices = false;
+   routing_updating = inventory_dirty = have_choices = routing_dragging = false;
    memset(ear_choice, 0, sizeof(ear_choice));
 }
