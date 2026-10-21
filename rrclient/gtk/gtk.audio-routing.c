@@ -2,6 +2,7 @@
 #include <gtk/gtk.h>
 #include <rrclient/audio.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.vol-box.h>
 #include "gtk.audio-routing.h"
 
 static GtkWidget *routing_window, *split_rx, *ear_combo[2];
@@ -311,6 +312,9 @@ void gtk_audio_routing_init(void) {
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
    gtk_box_pack_start(GTK_BOX(panel), grid, TRUE, TRUE, 0);
+   /* Both client playback gain and hardware AF gain belong with audio routing. */
+   GtkWidget *volume_controls = create_volbox();
+   gtk_box_pack_start(GTK_BOX(panel), volume_controls, FALSE, FALSE, 4);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
    gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
@@ -359,6 +363,8 @@ void gtk_audio_routing_shutdown(void) {
    if (routing_window) {
       gtk_widget_destroy(routing_window);
    }
+   rx_vol_slider = NULL;
+   rx_rig_vol_slider = NULL;
    routing_window = routing_overlay = split_rx = ear_combo[0] = ear_combo[1] = NULL;
    routing_updating = inventory_dirty = have_choices = routing_dragging = false;
    memset(ear_choice, 0, sizeof(ear_choice));
