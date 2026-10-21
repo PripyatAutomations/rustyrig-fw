@@ -212,3 +212,66 @@ void admin_numeric_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, Gt
    g_free(raw);
 }
 
+
+static void admin_room_flag_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer,
+                                 GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   (void)column;
+   int field = GPOINTER_TO_INT(user);
+   char *value = NULL;
+   gtk_tree_model_get(model,iter,field,&value,-1);
+   g_object_set(renderer,"active",value &&
+      (!strcmp(value,"1") || !g_ascii_strcasecmp(value,"true")),NULL);
+   g_free(value);
+}
+void admin_log_stripe_cell(GtkTreeViewColumn *column,GtkCellRenderer *renderer,
+                                  GtkTreeModel *model,GtkTreeIter *iter,gpointer data) {
+   int field=GPOINTER_TO_INT(data);
+   admin_table_t *table=g_object_get_data(G_OBJECT(column),"rr-admin-table");
+   if (table) {
+      if (!strcmp(table->name,"ptt") && (field==3 || field==4 || field==9))
+         admin_numeric_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->name,"rooms") && (field==2 || field==4))
+         admin_room_flag_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->name,"users") && (field==1 || field==7 || field==5 || field==6))
+         admin_user_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->name,"sessions") && field==5)
+         admin_session_cell(column,renderer,model,iter,NULL);
+      else if (!strcmp(table->name,"quotas") && field>0)
+         admin_numeric_cell(column,renderer,model,iter,data);
+      else if (!strcmp(table->fields[field],"uuid") || !strcmp(table->fields[field],"resource_uuid"))
+         admin_uuid_cell(column,renderer,model,iter,data);
+   }
+   GtkTreePath *path=gtk_tree_model_get_path(model,iter);
+   int *indices=path ? gtk_tree_path_get_indices(path) : NULL;
+   gboolean odd=indices && (indices[0] & 1);
+   gboolean selected=table && path && gtk_tree_selection_path_is_selected(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)),path);
+   if (odd && !selected && table) {
+      GtkStyleContext *style=gtk_widget_get_style_context(table->tree);
+      GdkRGBA base,ink,shade;
+      gtk_style_context_get_background_color(style,GTK_STATE_FLAG_NORMAL,&base);
+      gtk_style_context_get_color(style,GTK_STATE_FLAG_NORMAL,&ink);
+      const double mix=0.085;
+      shade.red=base.red*(1.0-mix)+ink.red*mix;
+      shade.green=base.green*(1.0-mix)+ink.green*mix;
+      shade.blue=base.blue*(1.0-mix)+ink.blue*mix;
+      shade.alpha=1.0;
+      g_object_set(renderer,"cell-background-rgba",&shade,"cell-background-set",TRUE,NULL);
+   } else {
+      g_object_set(renderer,"cell-background-set",FALSE,NULL);
+   }
+   if (path) gtk_tree_path_free(path);
+}
+/* Never pass untrusted network text directly to Pango. Keep the wire value
+ * unchanged elsewhere, and warn once per malformed field for diagnostics. */
+char *admin_display_utf8(const char *value, const char *field) {
+   if (!value) return g_strdup("");
+   if (g_utf8_validate(value,-1,NULL)) return g_strdup(value);
+   static GHashTable *reported;
+   if (!reported) reported=g_hash_table_new_full(g_str_hash,g_str_equal,g_free,NULL);
+   if (!g_hash_table_contains(reported,field)) {
+      g_warning("Admin display received invalid UTF-8 in %s",field);
+      g_hash_table_add(reported,g_strdup(field));
+   }
+   return g_utf8_make_valid(value,-1);
+}
