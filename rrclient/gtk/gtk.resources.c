@@ -2214,6 +2214,10 @@ void gtk_resources_shutdown(void) {
    show_token = row_token = open_token = NULL;
 
    if (browser) {
+      if (browser->zebra_idle) {
+         g_source_remove(browser->zebra_idle);
+         browser->zebra_idle = 0;
+      }
       gtk_widget_destroy(browser->page);
    }
 }
