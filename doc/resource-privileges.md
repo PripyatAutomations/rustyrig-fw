@@ -356,3 +356,16 @@ unsolicited remote admin requests. GTK's per-node administration selector and
 fine-grained privilege-operation taxonomy still need UX work; this initial
 routing path is explicitly via `/admin @NODE_UUID`. The temporary bootstrap
 `remote-admin` role must be removed for v1.0 as specified in the release checklist.
+
+## Development-only cross-site admin bootstrap grant
+
+For multi-node integration testing, `sql/sqlite.master.preload.sql` temporarily seeds
+`admin@*` with `rig.full` for `rig *` and `room.join` for `room *`.
+This matches authenticated `admin` accounts from **every linked server**, not
+just local administrators. It allows broad remote rig control and room access;
+it is **not suitable for production** and does not replace RF/PTT safety checks.
+
+**Before any production release:** remove both seed inserts, verify fresh installs
+contain no blanket `admin@*` grant, and explicitly revoke those rows from any
+databases populated while the test seed was installed. Removing the SQL seed
+alone does not revoke already provisioned access. See `doc/release-checklist.md`.

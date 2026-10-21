@@ -17,3 +17,15 @@ INSERT INTO users (uid, name, enabled, password, email, maxsessions, permissions
 -- cannot key up without a row here)
 INSERT INTO tx_credits (name, credits) VALUES
    ('admin', 14400);
+
+-- DEVELOPMENT-ONLY: Permit the authenticated admin account from any linked
+-- station to operate every rig and join every room owned by this server.
+-- subject_host='*' matches remote hosts; resource_uuid='*' matches all rigs
+-- and rooms, including resources created after bootstrap. The startup schema
+-- migration adds remote_allowed=1 to these fresh-database rows.
+-- REMOVE before release: this grants broad cross-site control to admin@*.
+INSERT INTO resource_privileges
+   (subject_user,subject_host,resource_kind,resource_uuid,privilege,effect,granted_by)
+VALUES
+   ('admin','*','rig','*','rig.full','allow','seed'),
+   ('admin','*','room','*','room.join','allow','seed');
