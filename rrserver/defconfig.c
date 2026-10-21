@@ -536,15 +536,15 @@ defconfig_t defcfg[] = {
       "path.db.master", "/var/lib/rustyrig/db/master.db", "Master database path", DEFCONFIG_PATH, NULL
    },
    {
-      "path.db.master.template", "/usr/share/rustyrig/sql/sqlite.master.sql", "Path to sql file to initialize database", DEFCONFIG_PATH,
+      "path.db.master.template", "/var/lib/rustyrig/sql/sqlite.master.sql", "Path to sql file to initialize database", DEFCONFIG_PATH,
       NULL
    },
    {
-      "path.db.master.preload", "/usr/share/rustyrig/sql/sqlite.master.preload.sql", "Path to SQL preload data for new databases",
+      "path.db.master.preload", "/var/lib/rustyrig/sql/sqlite.master.preload.sql", "Path to SQL preload data for new databases",
       DEFCONFIG_PATH, NULL
    },
    {
-      "path.pid-file", "/run/rustyrig/rrserver.pid", "Where to store pid file", DEFCONFIG_PATH, NULL
+      "path.pid-file", "/var/run/rustyrig/rrserver.pid", "Where to store pid file", DEFCONFIG_PATH, NULL
    },
    {
       "path.modules", "/usr/lib/rustyrig/modules/rrserver", "Where to find modules", DEFCONFIG_PATH, NULL
