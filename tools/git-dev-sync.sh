@@ -36,7 +36,7 @@ for component in "${components[@]}"; do
       # never discard a detached commit that is not already on that branch.
       git -C "$component" fetch origin
       upstream=$(git -C "$component" ls-remote --symref origin HEAD |
-         sed -n 's@^ref: refs/heads/\\([^[:space:]]*\\)[[:space:]]*HEAD$@\\1@p')
+         sed -n 's@^ref: refs/heads/\([^[:space:]]*\)[[:space:]]*HEAD$@\1@p')
       if [[ -z "$upstream" ]]; then
          echo "ERROR: cannot find upstream default branch for $component." >&2
          exit 1
