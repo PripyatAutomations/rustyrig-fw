@@ -1519,6 +1519,33 @@ static void resource_type_changed(GtkToggleButton *item,gpointer data) {
    resource_zebra_invalidate();
    gtk_widget_queue_draw(browser->tree);
 }
+/* Resource icons are presentation-only; names and IDs remain unchanged. */
+static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                               GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   (void)column;
+   (void)user;
+   char *kind = NULL, *name = NULL;
+   gtk_tree_model_get(model, iter, KIND, &kind, NAME, &name, -1);
+   const char *icon = "text-x-generic-symbolic";
+
+   if (!g_strcmp0(kind, "local")) icon = "computer-symbolic";
+   else if (!g_strcmp0(kind, "site") || !g_strcmp0(kind, "server")) icon = "network-server-symbolic";
+   else if (!g_strcmp0(kind, "rig")) icon = "audio-input-microphone-symbolic";
+   else if (!g_strcmp0(kind, "vfo")) icon = "audio-card-symbolic";
+   else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) icon = "system-users-symbolic";
+   else if (!g_strcmp0(kind, "gps")) icon = "find-location-symbolic";
+   else if (!g_strcmp0(kind, "control") || !g_strcmp0(kind, "rig-control")) icon = "emblem-system-symbolic";
+   else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "device") ||
+            !g_strcmp0(kind, "local-port") || !g_strcmp0(kind, "attachment")) icon = "media-removable-symbolic";
+   else if (!g_strcmp0(kind, "network-service")) icon = "network-transmit-receive-symbolic";
+   else if (!g_strcmp0(kind, "file") || !g_strcmp0(kind, "share")) icon = "folder-symbolic";
+   else if (!g_strcmp0(kind, "group") || !g_strcmp0(kind, "serial-folder")) {
+      icon = !g_strcmp0(name, "GPS") ? "find-location-symbolic" : "folder-symbolic";
+   }
+   g_object_set(cell, "icon-name", icon, NULL);
+   g_free(kind);
+   g_free(name);
+}
 static void resource_create(void) {
    if (browser) {
       return;
@@ -1658,6 +1685,12 @@ static void resource_create(void) {
       g_object_set(renderer, "ypad", 3, "ellipsize", PANGO_ELLIPSIZE_END, "single-paragraph-mode", TRUE, NULL);
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(titles[i], renderer, "text", field, NULL);
       gtk_tree_view_column_set_resizable(column, TRUE);
+      if (i == NAME) {
+         GtkCellRenderer *icon = gtk_cell_renderer_pixbuf_new();
+         gtk_tree_view_column_pack_start(column, icon, FALSE);
+         gtk_tree_view_column_reorder(column, icon, 0);
+         gtk_tree_view_column_set_cell_data_func(column, icon, resource_icon_cell, NULL, NULL);
+      }
 
       gtk_tree_view_column_set_cell_data_func(column,renderer,resource_zebra_cell,
                                               GINT_TO_POINTER(i),NULL);
