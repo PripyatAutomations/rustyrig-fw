@@ -10,6 +10,7 @@
 #include <glib.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/objects.h>
+#include <rrserver/backend.worker.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/objects.h>
@@ -609,7 +610,7 @@ static void inventory_rig_menu_item(const char *id, const char *label, void *use
    dict_add(row, "inventory.parent", group_id);
    dict_add(row, "inventory.service", id);
    dict_add(row, "inventory.access", "read-only");
-   dict_add(row, "inventory.description", "CAT menu catalog; on-demand EX reader not yet enabled");
+   dict_add(row, "inventory.description", "CAT menu; double-click to read its current value");
    rr_inventory_send(menu->ctx->client, row);
 }
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
@@ -811,6 +812,24 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
 
          return;
       }
+   } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "read")) {
+      const char *uuid = dict_get(d, "target", NULL);
+      const char *name = dict_get(d, "property.name", NULL);
+      if (!uuid || !name || strncmp(name, "menu.", 5) || strlen(name) != 9 ||
+          !rr_object_uuid_valid(uuid)) goto done;
+      object_send_t ctx = { 0 };
+      if (!resolve(uuid, &ctx) || ctx.vfo) { code = "unknown-object"; goto done; }
+      rr_backend_t *backend = rr_server_rig_backend(ctx.radio);
+      rr_property_descriptor_t descriptor;
+      if (!rr_rig_property_describe(ctx.radio, name, &descriptor) ||
+          !descriptor.readable || descriptor.type != VAL_STR ||
+          !backend->type->api->menu_read) { code = "unsupported"; goto done; }
+      if (!backend->worker) { code = "unavailable"; goto done; }
+      rr_server_vfo_t *vfo = rr_server_vfo_find_alias(ctx.radio, "A");
+      if (!vfo) { code = "unavailable"; goto done; }
+      dict_value_t value = { .s = (char *)(name + 5) };
+      code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_READ,
+                   value, NULL, NULL) ? "busy" : "queued";
    } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "set")) {
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);
