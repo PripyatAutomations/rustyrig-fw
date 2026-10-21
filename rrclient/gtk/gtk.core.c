@@ -616,7 +616,7 @@ void update_connection_button(int connected, GtkWidget *btn) {
       gtk_style_context_remove_class(ctx, "conn-active");
       gtk_style_context_remove_class(ctx, "conn-pending");
    } else if (connected == -1) {
-      gtk_button_set_label(GTK_BUTTON(btn), "Trying...");
+      gtk_button_set_label(GTK_BUTTON(btn), "WAIT");
       gtk_style_context_add_class(ctx, "conn-pending");
       gtk_style_context_remove_class(ctx, "conn-active");
       gtk_style_context_remove_class(ctx, "conn-idle");
