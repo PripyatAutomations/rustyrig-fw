@@ -212,10 +212,10 @@ GtkWidget *create_vfo_box(void) {
    gtk_container_add(GTK_CONTAINER(revealer), control_box);
 
    // ONLINE button
-   conn_button = gtk_button_new_with_label("_Offline");
+   conn_button = gtk_button_new_with_label("Offline");
    gtk_widget_set_tooltip_text(conn_button, "Toggle online state");
-   // fixed min width so label changes (Online/Offline/Trying...) don't resize it
-   gtk_widget_set_size_request(conn_button, 110, -1);
+   // Keep the connection button compact on narrow displays (e.g. sBitx).
+   // The short status labels fit without reserving 110 pixels.
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
    GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
    gtk_style_context_add_class(conn_ctx, "conn-idle");
