@@ -990,16 +990,16 @@ static void resource_menu_read_free(gpointer data) {
 }
 static void resource_menu_apply(GtkButton *button, gpointer data) {
    resource_menu_read_t *read = data;
-   GtkWidget *entry = g_object_get_data(G_OBJECT(button), "menu-edit-entry");
+   GtkWidget *selector = g_object_get_data(G_OBJECT(button), "menu-selector");
    const char *profile = g_object_get_data(G_OBJECT(button), "menu-profile");
    const char *id = read->property + 5;
    int minimum = !strcmp(id, "0504") ? 0 : 1;
    int maximum = !strcmp(id, "0504") ? 100 : 15;
    int digits = !strcmp(id, "0504") ? 3 : 2;
-   const char *input = gtk_entry_get_text(GTK_ENTRY(entry));
-   char *end = NULL;
-   long number = strtol(input, &end, 10);
-   if (!input[0] || !end || *end || number < minimum || number > maximum) {
+   long number = GTK_IS_RANGE(selector) ?
+      (long)gtk_range_get_value(GTK_RANGE(selector)) :
+      (long)gtk_combo_box_get_active(GTK_COMBO_BOX(selector)) + minimum;
+   if (number < minimum || number > maximum) {
       gtk_label_set_text(GTK_LABEL(read->label), "Invalid value for this setting.");
       return;
    }
@@ -1062,13 +1062,27 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
    gboolean editable = !strcmp(id, "0201") || !strcmp(id, "0202") ||
       !strcmp(id, "0203") || !strcmp(id, "0204") || !strcmp(id, "0504");
-   GtkWidget *entry = NULL, *apply = NULL;
+   GtkWidget *selector = NULL, *apply = NULL;
    if (editable) {
       GtkWidget *line = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-      entry = gtk_entry_new();
-      gtk_entry_set_placeholder_text(GTK_ENTRY(entry), !strcmp(id, "0504") ? "0–100" : "1–15");
+      if (!strcmp(id, "0504")) {
+         /* Continuous integer range: show the number next to the slider. */
+         selector = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+         gtk_scale_set_digits(GTK_SCALE(selector), 0);
+         gtk_scale_set_draw_value(GTK_SCALE(selector), TRUE);
+         gtk_widget_set_size_request(selector, 190, -1);
+      } else {
+         /* Only 15 discrete values: don't make users type padded CAT digits. */
+         selector = gtk_combo_box_text_new();
+         for (int n = 1; n <= 15; n++) {
+            char text[8];
+            snprintf(text, sizeof(text), "%d", n);
+            gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(selector), text);
+         }
+         gtk_combo_box_set_active(GTK_COMBO_BOX(selector), 0);
+      }
       apply = gtk_button_new_with_label("Apply");
-      gtk_box_pack_start(GTK_BOX(line), entry, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(line), selector, TRUE, TRUE, 0);
       gtk_box_pack_start(GTK_BOX(line), apply, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(area), line, FALSE, FALSE, 0);
    }
@@ -1086,7 +1100,7 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    }
    g_object_set_data_full(G_OBJECT(panel), "rr-menu-read", read, resource_menu_read_free);
    if (apply) {
-      g_object_set_data(G_OBJECT(apply), "menu-edit-entry", entry);
+      g_object_set_data(G_OBJECT(apply), "menu-selector", selector);
       g_object_set_data_full(G_OBJECT(apply), "menu-profile", g_strdup(profile), g_free);
       g_signal_connect(apply, "clicked", G_CALLBACK(resource_menu_apply), read);
    }
