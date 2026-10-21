@@ -50,7 +50,7 @@ defconfig_t defcfg_fwdsp[] = {
    },
 #endif
    {
-      "fwdsp:recording.path", "./recordings", "Path to audio recordings"
+      "fwdsp:recording.path", "$HOME/recordings", "Path to audio recordings"
    },
    {
       "recording.codec", "ogg", "Recording container/codec: flac or ogg"
@@ -503,7 +503,7 @@ bool fwdsp_init(void) {
 
    if (!record_dir || !*record_dir) {
       free((char *)record_dir);
-      record_dir = strdup("./recordings");
+      record_dir = expand_path("$HOME/recordings");
       if (!record_dir) {
          Log(LOG_CRIT, "fwdsp-mgr", "Unable to allocate recording directory path");
          return true;
