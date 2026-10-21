@@ -38,6 +38,7 @@ typedef struct {
    gboolean type_bulk_update;
    GHashTable *zebra_positions;
    gboolean zebra_dirty, zebra_rebuilding;
+   guint zebra_idle;
    GtkTreeStore *store;
    GtkTreeIter local_root, serial_root, network_root;
    GHashTable *branches, *local_rows;
@@ -1280,8 +1281,15 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
 /* Count rows in visible depth-first order, rather than sibling indices.
  * Otherwise striping restarts whenever an expanded rig/room adds children. */
 /* Rebuild only after structural/visibility changes, never per cell. */
+static gboolean resource_zebra_rebuild_idle(gpointer unused);
 static void resource_zebra_invalidate(void) {
-   if (browser) browser->zebra_dirty=TRUE;
+   if (!browser) {
+      return;
+   }
+   browser->zebra_dirty = TRUE;
+   if (!browser->zebra_idle) {
+      browser->zebra_idle = g_idle_add(resource_zebra_rebuild_idle, NULL);
+   }
 }
 static void resource_zebra_walk(GtkTreeModel *model,GtkTreeIter *iter,guint *position) {
    do {
@@ -1307,6 +1315,20 @@ static void resource_zebra_rebuild(GtkTreeModel *model) {
    browser->zebra_dirty=FALSE;
    browser->zebra_rebuilding=FALSE;
 }
+/* Never traverse or refilter the tree during a GtkCellRenderer callback:
+ * the GtkTreeModelFilter iterator passed by GTK can be invalidated. */
+static gboolean resource_zebra_rebuild_idle(gpointer unused) {
+   (void)unused;
+   if (!browser) {
+      return G_SOURCE_REMOVE;
+   }
+   browser->zebra_idle = 0;
+   if (browser->filter && browser->tree) {
+      resource_zebra_rebuild(GTK_TREE_MODEL(browser->filter));
+      gtk_widget_queue_draw(browser->tree);
+   }
+   return G_SOURCE_REMOVE;
+}
 static void resource_zebra_structure_changed(gpointer unused) {
    (void)unused;
    resource_zebra_invalidate();
@@ -1317,8 +1339,8 @@ static void resource_zebra_cell(GtkTreeViewColumn *column,GtkCellRenderer *rende
    if (field==NAME || field==KIND) resource_text_cell(column,renderer,model,iter,data);
    else if (field==STATE || field==OURS) resource_status_cell(column,renderer,model,iter,data);
    else if (field==DETAILS) resource_details_cell(column,renderer,model,iter,NULL);
+   /* Rebuilds run in the idle callback, never inside cell rendering. */
    GtkTreePath *path=gtk_tree_model_get_path(model,iter);
-   resource_zebra_rebuild(model);
    char *key=path ? gtk_tree_path_to_string(path) : NULL;
    gpointer parity=key ? g_hash_table_lookup(browser->zebra_positions,key) : NULL;
    gboolean odd=GPOINTER_TO_UINT(parity)==1;
