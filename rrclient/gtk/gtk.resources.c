@@ -1738,7 +1738,8 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
               !g_strcmp0(kind, "local-port")) {
       icon = "network-wired-symbolic";
    } else if (!g_strcmp0(kind, "device") || !g_strcmp0(kind, "attachment")) {
-      icon = "drive-harddisk-symbolic";
+      /* Local tty endpoints are serial ports whether physical or attached PTYs. */
+      icon = name && g_str_has_prefix(name, "tty") ? "network-wired-symbolic" : "drive-harddisk-symbolic";
    } else if (!g_strcmp0(kind, "network-service")) {
       icon = "network-transmit-receive-symbolic";
    } else if (!g_strcmp0(kind, "file") || !g_strcmp0(kind, "share")) {
