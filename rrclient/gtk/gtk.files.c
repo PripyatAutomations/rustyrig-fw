@@ -786,12 +786,19 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
    const char *names[] = {
-      "Upload", "Download", "Rename", "Edit", "Move", "Delete", "New directory", "Refresh"
+      "Refresh", "Upload", "Download", "Rename", "Edit", "Move", "New Dir", "Delete"
    }, *ops[] = {
-      "upload", "download", "rename", "edit", "move", "delete", "mkdir", "refresh"
+      "refresh", "upload", "download", "rename", "edit", "move", "mkdir", "delete"
    };
 
    for (unsigned i = 0 ; i < G_N_ELEMENTS(names) ; i++) {
+      /* Four visual groups: refresh/transfers | editing | moving/creation |
+       * destructive action. Keep the gaps stretch-free. */
+      if (i == 3 || i == 5 || i == 7) {
+         GtkWidget *gap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+         gtk_widget_set_size_request(gap, 18, -1);
+         gtk_box_pack_start(GTK_BOX(buttons), gap, FALSE, FALSE, 0);
+      }
       GtkWidget *button = gtk_button_new_with_label(names[i]);
       gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
       g_signal_connect(button, "clicked", G_CALLBACK(action), (gpointer) ops[i]);
