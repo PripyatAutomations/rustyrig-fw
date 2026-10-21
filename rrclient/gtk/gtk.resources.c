@@ -39,7 +39,7 @@ typedef struct {
    GHashTable *zebra_positions;
    gboolean zebra_dirty, zebra_rebuilding;
    GtkTreeStore *store;
-   GtkTreeIter local_root, serial_root;
+   GtkTreeIter local_root, serial_root, network_root;
    GHashTable *branches, *local_rows;
    guint timer;
    gulong initial_split_handler;
@@ -209,6 +209,9 @@ struct local_scan {
    GHashTable *seen;
 };
 static void resource_local_named(const char *name, struct local_scan *scan) {
+   if (!strcmp(name, "wsjtx")) {
+      return;
+   }
    rr_sercom_info_t info;
    bool attached = rr_sercom_info(name, &info);
 
@@ -248,7 +251,8 @@ static void resource_local_named(const char *name, struct local_scan *scan) {
    set_string(&iter, STATE, info.state);
    set_string(&iter, KIND, attached ? "attachment" : "local-port");
    set_string(&iter, BINDING, attached ? name : "");
-   set_string(&iter, OURS, attached ? "Attached locally" : "Not connected");
+   set_string(&iter, OURS, !attached ? "Not connected" :
+      !strcmp(info.state, "Attached") || !strcmp(info.state, "Connected") ? "Attached locally" : "Not connected");
    set_string(&iter, PROFILE, info.profile);
    set_string(&iter, SERVICE, info.service);
    g_free(details);
@@ -272,7 +276,7 @@ static void resource_local_device(const char *name, const char *path, struct loc
       gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, tree_path);
       gtk_tree_path_free(tree_path);
    } else {
-      gtk_tree_store_append(browser->store, &iter, &browser->local_root);
+      gtk_tree_store_append(browser->store, &iter, &browser->serial_root);
       GtkTreePath *tree_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
       reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), tree_path);
       gtk_tree_path_free(tree_path);
@@ -339,6 +343,36 @@ static void resource_local_update(void) {
 
    g_list_free_full(configured, g_free);
    resource_discover_devices(&scan);
+   {
+      GtkTreeIter service;
+      GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+      gboolean found = FALSE;
+
+      for (gboolean more = gtk_tree_model_iter_children(model, &service, &browser->network_root);
+           more; more = gtk_tree_model_iter_next(model, &service)) {
+         char *name = NULL;
+         gtk_tree_model_get(model, &service, NAME, &name, -1);
+         found = !g_strcmp0(name, "WSJT-X");
+         g_free(name);
+
+         if (found) {
+            break;
+         }
+      }
+
+      if (!found) {
+         gtk_tree_store_append(browser->store, &service, &browser->network_root);
+         gtk_tree_store_set(browser->store, &service,
+            NAME, "WSJT-X", KIND, "network-service", -1);
+      }
+      bool enabled = cfg_get_bool("wsjtx.enabled", false);
+      const char *port = cfg_get("wsjtx.udp.port");
+      char *details = g_strdup_printf("UDP reporting to localhost:%s", port && *port ? port : "2237");
+      set_string(&service, STATE, enabled ? "Enabled" : "Disabled");
+      set_string(&service, OURS, enabled ? "Configured locally" : "Not enabled");
+      set_string(&service, DETAILS, details);
+      g_free(details);
+   }
    GHashTableIter cursor;
    gpointer name, value;
    g_hash_table_iter_init(&cursor, browser->local_rows);
@@ -1650,6 +1684,9 @@ static void resource_create(void) {
    gtk_tree_store_append(browser->store, &browser->serial_root, &browser->local_root);
    gtk_tree_store_set(browser->store, &browser->serial_root,
       NAME, "Serial Ports", KIND, "serial-folder", STATE, "Local serial endpoints", -1);
+   gtk_tree_store_append(browser->store, &browser->network_root, &browser->local_root);
+   gtk_tree_store_set(browser->store, &browser->network_root,
+      NAME, "Network Services", KIND, "group", STATE, "Local network services", -1);
    GtkTreePath *local_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &browser->local_root);
    GtkTreePath *local_visible=resource_view_path(local_path);
    if (local_visible) gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree),local_visible,FALSE);
@@ -1886,10 +1923,18 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    /* Group direct children without changing their resource identity or wire
     * parent. Existing explicit UUID ancestry always wins for nested objects. */
-   if (!strcmp(kind, "control") || !strcmp(kind, "rig-control") || (!strcmp(kind, "file") || !strcmp(kind, "share")) || !strcmp(kind, "serial")) {
+   bool gps_stream = !strcmp(kind, "gps") ||
+      (!strcmp(kind, "media") &&
+         (!strcmp(dict_get(row, "inventory.codec", ""), "gpsp") ||
+          !strcmp(dict_get(row, "inventory.codec", ""), "nmea") ||
+          g_str_has_suffix(name, ".gps.rx") ||
+          g_str_has_suffix(name, ".nmea.rx")));
+   if (gps_stream || !strcmp(kind, "control") || !strcmp(kind, "rig-control") ||
+       !strcmp(kind, "file") || !strcmp(kind, "share") || !strcmp(kind, "serial")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
-      const char *folder = (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
+      const char *folder = gps_stream ? "GPS" :
+          (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
          !strcmp(kind, "serial") ? "Serial Ports" :
          (!strcmp(parent_kind ? parent_kind : "", "site") ||
           !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
@@ -1926,7 +1971,10 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    char *inherited = NULL;
 
-   if (!*room && parent >= 0) {
+   if (!*room && owner_found) {
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &explicit_parent, ROOM, &inherited, -1);
+   }
+   if (!*room && !inherited && parent >= 0) {
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->parents[parent], ROOM, &inherited, -1);
    }
 
