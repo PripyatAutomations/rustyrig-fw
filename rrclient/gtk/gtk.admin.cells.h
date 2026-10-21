@@ -16,4 +16,6 @@ void admin_column_wrap_width(GObject *, GParamSpec *, gpointer);
 void admin_user_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
 void admin_session_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
 void admin_numeric_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
+void admin_log_stripe_cell(GtkTreeViewColumn *, GtkCellRenderer *, GtkTreeModel *, GtkTreeIter *, gpointer);
+char *admin_display_utf8(const char *value, const char *field);
 #endif
