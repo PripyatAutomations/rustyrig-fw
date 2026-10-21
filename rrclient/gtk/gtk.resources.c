@@ -735,6 +735,29 @@ static void resource_uuid_copy(GtkMenuItem *item, gpointer unused) {
       gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), uuid, -1);
    }
 }
+/* Context actions operate on the clicked subtree only, not other sites. */
+static void resource_subtree_action(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   if (!browser) return;
+   GtkTreeRowReference *ref = g_object_get_data(G_OBJECT(item), "resource-row");
+   GtkTreePath *path = ref ? gtk_tree_row_reference_get_path(ref) : NULL;
+   if (!path) return;
+   if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "collapse")))
+      gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+   else
+      gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
+   gtk_tree_path_free(path);
+}
+static void resource_subtree_menu_item(GtkWidget *menu, GtkTreeModel *model,
+                                       GtkTreePath *path, const char *label, gboolean collapse) {
+   GtkWidget *item = gtk_menu_item_new_with_label(label);
+   GtkTreeRowReference *ref = gtk_tree_row_reference_new(model, path);
+   g_object_set_data_full(G_OBJECT(item), "resource-row", ref,
+                          (GDestroyNotify)gtk_tree_row_reference_free);
+   g_object_set_data(G_OBJECT(item), "collapse", GINT_TO_POINTER(collapse));
+   g_signal_connect(item, "activate", G_CALLBACK(resource_subtree_action), NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+}
 static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gpointer unused) {
    (void)unused;
 
@@ -750,21 +773,33 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
    char *uuid = NULL;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
 
-   if (gtk_tree_model_get_iter(model, &iter, path)) {
-      gtk_tree_model_get(model, &iter, UUID, &uuid, -1);
-   }
-   gtk_tree_path_free(path);
-
-   if (!uuid || !*uuid) {
-      g_free(uuid);
-
+   if (!gtk_tree_model_get_iter(model, &iter, path)) {
+      gtk_tree_path_free(path);
       return FALSE;
    }
+   gtk_tree_model_get(model, &iter, UUID, &uuid, -1);
+   const gboolean has_children = gtk_tree_model_iter_has_child(model, &iter);
    GtkWidget *menu = gtk_menu_new();
-   GtkWidget *copy = gtk_menu_item_new_with_label("Copy UUID");
-   g_object_set_data_full(G_OBJECT(copy), "resource-full-uuid", uuid, g_free);
-   g_signal_connect(copy, "activate", G_CALLBACK(resource_uuid_copy), NULL);
-   gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
+   if (has_children) {
+      resource_subtree_menu_item(menu, model, path, "Expand this subtree", FALSE);
+      resource_subtree_menu_item(menu, model, path, "Collapse this subtree", TRUE);
+   }
+   gtk_tree_path_free(path);
+   if (uuid && *uuid) {
+      if (has_children) {
+         gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+      }
+      GtkWidget *copy = gtk_menu_item_new_with_label("Copy UUID");
+      g_object_set_data_full(G_OBJECT(copy), "resource-full-uuid", uuid, g_free);
+      g_signal_connect(copy, "activate", G_CALLBACK(resource_uuid_copy), NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), copy);
+   } else {
+      g_free(uuid);
+   }
+   if (!has_children && (!uuid || !*uuid)) {
+      gtk_widget_destroy(menu);
+      return FALSE;
+   }
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *) event);
@@ -1790,7 +1825,8 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       icon = "view-refresh-symbolic";
    } else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) {
       icon = "user-available-symbolic";
-   } else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users")) {
+   } else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") ||
+              !g_strcmp0(kind, "user-folder") || !g_strcmp0(kind, "user-group")) {
       icon = "system-users-symbolic";
    } else if (!g_strcmp0(kind, "cat")) {
       icon = "face-cat-symbolic";
