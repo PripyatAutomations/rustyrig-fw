@@ -4,6 +4,9 @@ This is a **human-run checklist**, not an automated claim that a release has pas
 
 ## Before tagging
 
+- [ ] **v1.0 RELEASE BLOCKER — RESTORE ONE-HOP REMOTE ADMIN:** Set `remote-admin.next-hop-only=true` in shipped `config/rrserver.peers.cfg` (or remove its override to inherit the built-in `true` default). Test that an unauthorized multi-hop remote admin request is rejected. The shipped `false` setting is for trusted-cluster development only.
+
+
 - [ ] **v1.0 RELEASE BLOCKER — REMOVE TEST SERVER ADMINISTRATION:** Remove the development-only `admin@*` `site *` grants for `remote-admin`, `admin`, and `owner` from `sql/sqlite.master.preload.sql`. Revoke these privileges from databases provisioned during testing; deletion from preload alone does not revoke active grants. Verify ungranted remote administrators are denied by the destination.
 
 - [ ] **v1.0 RELEASE BLOCKER — REMOVE CROSS-SITE ADMIN SEED:** Delete the development-only `admin@*` assignment of `@full` on `rig *` and the direct `room.join` grant on `room *` from `sql/sqlite.master.preload.sql` (and the early `@full` preload setup, unless it is needed for another purpose). Confirm a fresh production database contains no blanket `admin@*` grant and that existing databases are audited/cleaned; removing the preload alone does not revoke already seeded rows. Preserve explicit, owner-approved per-host/per-resource grants and independent transmit safety checks.
