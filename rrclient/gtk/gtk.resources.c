@@ -53,6 +53,7 @@ static resource_browser *browser;
 static bool automatic_refresh;
 extern GtkWidget *main_notebook;
 extern void gtk_admin_open_control_on_server(const char *profile, const char *name);
+extern void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
 static rr_event_token_t show_token, row_token, open_token, changed_tokens[6];
 static void resource_selection(GtkTreeSelection *selection, gpointer data);
 static gboolean resource_tick(gpointer data);
@@ -1133,7 +1134,12 @@ static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTree
    char *kind = NULL, *control = NULL, *profile = NULL, *state = NULL;
    gtk_tree_model_get(model, &iter, KIND, &kind, ACTION, &control, PROFILE, &profile, SERVER_STATE, &state, -1);
 
-   if (!g_strcmp0(kind, "rig-menu-item")) {
+   if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "room")) {
+      char *name = NULL;
+      gtk_tree_model_get(model, &iter, NAME, &name, -1);
+      gtk_admin_open_resource(profile, kind, name);
+      g_free(name);
+   } else if (!g_strcmp0(kind, "rig-menu-item")) {
       char *name = NULL, *service = NULL;
       gtk_tree_model_get(model, &iter, NAME, &name, SERVICE, &service, -1);
       resource_menu_open(model, &iter, profile, name, service);
