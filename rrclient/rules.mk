@@ -69,6 +69,7 @@ gtk_module_objs += gtk/gtk.help.o
 gtk_module_objs += gtk/gtk.files.o gtk/gtk.resources.o gtk/gtk.serial.o
 gtk_module_objs += gtk/gtk.receiver-directory.o  # Cached public receiver browser
 gtk_module_objs += gtk/gtk.audio-routing.o    # RX ear routing window
+gtk_module_objs += gtk/gtk.control-panel.o    # Draggable in-client control popups
 gtk_module_objs += gtk/gtk.privileges.o
 gtk_module_objs += gtk/gtk.admin.o	# Admin tab
 gtk_module_objs += gtk/gtk.admin.controls.o # Node and platform controls
