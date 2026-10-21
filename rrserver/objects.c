@@ -519,6 +519,27 @@ static void inventory_rooms(object_send_t *ctx, const char *base) {
 #endif
 }
 
+typedef struct rig_control_inventory {
+   object_send_t *ctx;
+   rr_server_rig_t *radio;
+} rig_control_inventory_t;
+
+static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user) {
+   rig_control_inventory_t *r = user;
+   if (strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) &&
+       strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) return false;
+   const char *label = !strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS) ?
+      "Display Brightness" : "Speaker Volume";
+   dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
+   if (!row) return false;
+   dict_add(row, "inventory.parent", rr_server_rig_id(r->radio));
+   dict_add(row, "inventory.service", d->name);
+   dict_add(row, "inventory.access", d->writable ? "read/write" : "read-only");
+   dict_add(row, "inventory.description", "Hamlib rig property");
+   rr_inventory_send(r->ctx->client, row);
+   return false;
+}
+
 static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    object_send_t *ctx = user;
    const char *alias = rr_rig_registry_public_alias(rig.rigs, radio);
@@ -541,6 +562,8 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
       dict_add(row, "inventory.action", "/join <room>");
    }
    rr_inventory_send(ctx->client, row);
+   rig_control_inventory_t controls = { .ctx = ctx, .radio = radio };
+   rr_rig_property_foreach(radio, inventory_rig_control, &controls);
    inventory_rooms(ctx, rr_rig_registry_room(rig.rigs, radio));
    char cat[80];
    snprintf(cat, sizeof(cat), "%s.cat", alias);
