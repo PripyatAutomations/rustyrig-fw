@@ -35,3 +35,24 @@ Description: Local users to add to the rruser device-access group:
  This is separate from rradmin and does not grant administrative permissions.
  Leave empty to add nobody. Existing memberships are preserved.
  Members must log out and back in for new group access.
+
+Template: rustyrig-server/backlight-video-group
+Type: boolean
+Default: false
+Description: Allow the RustyRig server to control local display backlights?
+ Add the rustyrig service account to the system video group, allowing
+ access to backlight devices such as /sys/class/backlight/*/brightness
+ where that group grants write permission.
+ .
+ This may also grant access to other video devices. Choose No if the
+ server does not need local display control.
+
+Template: rustyrig-server/serial-dialout-group
+Type: boolean
+Default: false
+Description: Allow the RustyRig server to access local serial devices?
+ Add the rustyrig service account to the system dialout group, commonly
+ used for USB serial interfaces and radio CAT control ports.
+ .
+ This grants access to other serial devices in the group as well.
+ Choose No if the server does not require local serial hardware.
