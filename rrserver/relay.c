@@ -818,7 +818,9 @@ static void retry_remote_ptt(struct remote_session *r, uint64_t at) {
 }
 
 /* Expire media fragments, retry sessions and reconcile catalogs/user directories. */
+extern void rr_relay_catalog_pump(void);
 void rrserver_relay_poll(void) {
+   rr_relay_catalog_pump();
    for (struct relay_media *m = rr_relay_media_maps ; m ; m = m->next) {
       if (m->frame && (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
          free(m->frame);
