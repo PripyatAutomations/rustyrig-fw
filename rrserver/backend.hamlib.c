@@ -33,6 +33,7 @@ typedef struct hamlib_vfo_state {
 typedef struct hamlib_backend {
    RIG *rig;
    hamlib_vfo_state_t state[MAX_VFOS];
+   rr_mode_t logical_mode[MAX_VFOS];
    bool vfo_probed[MAX_VFOS];
    bool vfo_mode_ok[MAX_VFOS];
    bool strength_untargetable[MAX_VFOS];
@@ -663,7 +664,14 @@ static rr_mode_t hl_mode_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
       data->vfo_mode_ok[index] = true;
    }
 
-   return hl_mode_to_rr(state->mode);
+   rr_mode_t physical = hl_mode_to_rr(state->mode);
+   rr_mode_t logical = data->logical_mode[index];
+   if ((physical == MODE_FM && (logical == MODE_DFM || logical == MODE_MFM)) ||
+       (physical == MODE_USB && logical == MODE_MU) ||
+       (physical == MODE_LSB && logical == MODE_ML))
+      return logical;
+   data->logical_mode[index] = MODE_NONE;
+   return physical;
 }
 
 static const char *hl_mode_get_str(rr_backend_t *backend, rr_server_vfo_t *vfo) {
@@ -771,8 +779,12 @@ static bool hl_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t m
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   return !data || !data->rig || !hl_index(vfo, &index)
-          || rig_set_mode(data->rig, hl_target(data, index), hl_mode_from_rr(mode), RIG_PASSBAND_NORMAL) != RIG_OK;
+   if (!data || !data->rig || !hl_index(vfo, &index)) return true;
+   if (rig_set_mode(data->rig, hl_target(data, index),
+                    hl_mode_from_rr(mode), RIG_PASSBAND_NORMAL) != RIG_OK)
+      return true;
+   data->logical_mode[index] = mode;
+   return false;
 }
 
 static bool hl_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, float power) {
@@ -1055,7 +1067,7 @@ static rr_vfo_data_t *hl_poll(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    }
    reply->id = index;
    reply->freq = state->freq;
-   reply->mode = hl_mode_to_rr(state->mode);
+   reply->mode = hl_mode_get(backend, vfo);
    reply->width = state->width;
    reply->power = state->power;
 
