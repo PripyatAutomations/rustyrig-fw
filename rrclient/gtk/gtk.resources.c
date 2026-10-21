@@ -2,6 +2,7 @@
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
 #include <gtk/gtk.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
