@@ -55,8 +55,18 @@ Splits are behavioral refactors: do not simultaneously rename protocol fields, c
 
 - [x] Move independent GTK supervision prompts from `gtk.admin.c` into `gtk.supervision.c`; add it to `rrclient/rules.mk`.
 - [ ] Compile and run GTK shutdown/supervision regressions for that extraction.
-- [ ] Extract GTK admin controls and permissions via a minimal private header, then users/sessions.
+- [x] Extract GTK admin hardware controls into `gtk.admin.controls.c` and `gtk.admin.controls.h`; the admin entry point delegates page assembly, refresh and replies.
+- [ ] Extract admin users, permissions and sessions with similarly narrow interfaces.
 - [ ] Extract Resource Explorer inventory model from GTK presentation.
 - [ ] Split client media catalog/subscriptions/notices.
 - [ ] Split DSP manager worker lifecycle and codec instances.
 - [ ] Split bridge manager and review server serial/objects/relay.
+
+## Wire v2 efficiency considerations (deferred from structural refactor)
+
+- Do not compress Opus and other encoded media payloads a second time; additional compression is unlikely to offset CPU and latency overhead.
+- Inventory snapshots, history and bulk object metadata may benefit from standard WebSocket `permessage-deflate` *if negotiated*; measure frame byte sizes, CPU and latency first.
+- Prefer eliminating repeated verbose fields and coalescing inventory rows before introducing stateful compression dictionaries. A persistent custom dictionary complicates reconnection, resynchronization, embedded implementations and version compatibility.
+- If compression is introduced, advertise it as a named v2 capability, bound expansion size, and make it opt-in per transport; never assume a compressor on a same-major peer.
+- Keep server-to-server link traffic and binary frame features separately negotiated from client text-frame compression.
+
