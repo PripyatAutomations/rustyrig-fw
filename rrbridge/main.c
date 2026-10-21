@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <string.h>
 
 time_t now;
@@ -193,10 +194,18 @@ int main(int argc, char **argv) {
    }
    const char *directory = cfg_get("bridge.modules");
 
-   if (!directory || !*directory || !strcmp(directory, "auto") || !strcmp(directory, "bin")) {
-      char installed[256];
-      snprintf(installed, sizeof(installed), "/usr/lib/rustyrig/modules/rrbridge/rrbridge-%s.so", driver_name);
-      directory = access(installed, R_OK) == 0 ? "/usr/lib/rustyrig/modules/rrbridge" : "bin";
+   if (!directory || !*directory || !strcmp(directory, "auto")) {
+      directory = "/usr/lib/rustyrig/modules/rrbridge";
+   }
+
+   struct stat module_stat;
+
+   if (directory[0] != '/' || stat(directory, &module_stat) != 0 ||
+       !S_ISDIR(module_stat.st_mode)) {
+      Log(LOG_CRIT, "bridge",
+          "Invalid installed bridge module directory '%s'. Install rrbridge modules before starting.",
+          directory);
+      return EXIT_FAILURE;
    }
 
    if (dict_add(cfg, "path.modules", directory)) {
