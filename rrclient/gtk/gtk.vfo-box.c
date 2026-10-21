@@ -224,8 +224,6 @@ GtkWidget *create_vfo_box(void) {
    update_connection_button(ws_connected, conn_button);
    g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
 
-   GtkWidget *online_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), online_spacer, TRUE, TRUE, 0);
 
    vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, TRUE, TRUE, 0);
