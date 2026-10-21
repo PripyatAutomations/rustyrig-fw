@@ -5,7 +5,8 @@
 #include <rrclient/gtk/gtk.vol-box.h>
 #include "gtk.audio-routing.h"
 
-static GtkWidget *routing_window, *split_rx, *ear_combo[2];
+static GtkWidget *routing_window, *split_rx, *ear_combo[2], *ear_volume[2];
+static bool volume_updating;
 static GtkWidget *routing_overlay;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token;
@@ -140,6 +141,7 @@ static gboolean routing_refresh(gpointer unused) {
    }
 
    gtk_widget_set_sensitive(ear_combo[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
+   gtk_widget_set_sensitive(ear_volume[1], gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx)));
    routing_updating = false;
    have_choices = true;
 
@@ -155,6 +157,19 @@ static gboolean routing_refresh(gpointer unused) {
 static void routing_queue(void) {
    if (!routing_source) {
       routing_source = g_idle_add(routing_refresh, NULL);
+   }
+}
+
+static void routing_volume_changed(GtkRange *range, gpointer user) {
+   if (volume_updating) return;
+   unsigned ear = GPOINTER_TO_UINT(user);
+   int percent = (int)gtk_range_get_value(range);
+   audio_set_rx_channel_volume(ear, percent);
+   if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))) {
+      volume_updating = true;
+      gtk_range_set_value(GTK_RANGE(ear_volume[1 - ear]), percent);
+      audio_set_rx_channel_volume(1 - ear, percent);
+      volume_updating = false;
    }
 }
 
@@ -178,6 +193,14 @@ static void routing_changed(GtkWidget *widget, gpointer unused) {
       gtk_combo_box_set_active_id(GTK_COMBO_BOX(ear_combo[1]), ear_choice[0]);
    }
    gtk_widget_set_sensitive(ear_combo[1], split);
+   gtk_widget_set_sensitive(ear_volume[1], split);
+   if (!split) {
+      volume_updating = true;
+      int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
+      gtk_range_set_value(GTK_RANGE(ear_volume[1]), percent);
+      audio_set_rx_channel_volume(1, percent);
+      volume_updating = false;
+   }
    routing_updating = false;
    size_t count;
    struct rrclient_rx_stream *streams = routing_snapshot(&count);
@@ -308,16 +331,14 @@ void gtk_audio_routing_init(void) {
    gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
    g_signal_connect(close, "clicked", G_CALLBACK(routing_close), NULL);
    GtkWidget *grid = gtk_grid_new();
-   gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
+   gtk_container_set_border_width(GTK_CONTAINER(grid), 4);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
-   gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+   gtk_grid_set_column_spacing(GTK_GRID(grid), 4);
    gtk_box_pack_start(GTK_BOX(panel), grid, TRUE, TRUE, 0);
-   /* Both client playback gain and hardware AF gain belong with audio routing. */
-   GtkWidget *volume_controls = create_volbox();
-   gtk_box_pack_start(GTK_BOX(panel), volume_controls, FALSE, FALSE, 4);
+
+   GtkWidget *rig_volume = create_volbox();
+   gtk_box_pack_start(GTK_BOX(panel), rig_volume, FALSE, FALSE, 2);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
-   gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
-   g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
       GtkWidget *label = gtk_label_new_with_mnemonic(ear ? "_Right:" : "_Left:");
@@ -328,13 +349,28 @@ void gtk_audio_routing_init(void) {
       GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(ear_combo[ear]));
 
       if (cells) {
-         g_object_set(cells->data, "ellipsize", PANGO_ELLIPSIZE_END, "width-chars", 36, "max-width-chars", 36, NULL);
+         g_object_set(cells->data, "ellipsize", PANGO_ELLIPSIZE_END, "width-chars", 16, "max-width-chars", 16, NULL);
       }
       g_list_free(cells);
       gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 1, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), ear_combo[ear], 1, ear + 1, 1, 1);
       g_signal_connect(ear_combo[ear], "changed", G_CALLBACK(routing_changed), NULL);
    }
+
+   for (unsigned ear = 0; ear < 2; ear++) {
+      GtkWidget *label = gtk_label_new(ear ? "Right Vol" : "Left Vol");
+      gtk_widget_set_halign(label, GTK_ALIGN_START);
+      ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+      gtk_scale_set_draw_value(GTK_SCALE(ear_volume[ear]), FALSE);
+      gtk_widget_set_size_request(ear_volume[ear], 110, -1);
+      gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
+      gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 3, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 3, 1, 1);
+      g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
+   }
+   gtk_box_pack_start(GTK_BOX(panel), split_rx, FALSE, FALSE, 2);
+   g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
+   gtk_widget_set_sensitive(ear_volume[1], FALSE);
 
    gtk_widget_show_all(routing_overlay);
    gtk_widget_hide(routing_window);
@@ -365,6 +401,7 @@ void gtk_audio_routing_shutdown(void) {
    }
    rx_vol_slider = NULL;
    rx_rig_vol_slider = NULL;
+   ear_volume[0] = ear_volume[1] = NULL;
    routing_window = routing_overlay = split_rx = ear_combo[0] = ear_combo[1] = NULL;
    routing_updating = inventory_dirty = have_choices = routing_dragging = false;
    memset(ear_choice, 0, sizeof(ear_choice));
