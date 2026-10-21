@@ -439,11 +439,11 @@ ttyGPS=rig.gps-out@4800
 ;ttyGPS2=station.gps-out@4800
 ;ttyGPS3=station.gps-in@4800
 
-; Each endpoint defaults to a PTY at ./dev/<name>.
+; Each endpoint defaults to a PTY under $HOME/dev/<name>.
 ; Use type=serial and a device path for real hardware.
 ;[serial:ttyCAT1]
 ;type=pty
-;path=./dev/ttyCAT1
+;path=$HOME/dev/ttyCAT1
 ;buffer-bytes=8192
 ;[serial:ttyHOST0]
 ;buffer-bytes=65536
