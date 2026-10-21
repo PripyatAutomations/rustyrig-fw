@@ -773,17 +773,20 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
    char *uuid = NULL;
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
 
-   if (gtk_tree_model_get_iter(model, &iter, path)) {
-      gtk_tree_model_get(model, &iter, UUID, &uuid, -1);
+   if (!gtk_tree_model_get_iter(model, &iter, path)) {
+      gtk_tree_path_free(path);
+      return FALSE;
    }
+   gtk_tree_model_get(model, &iter, UUID, &uuid, -1);
+   const gboolean has_children = gtk_tree_model_iter_has_child(model, &iter);
    GtkWidget *menu = gtk_menu_new();
-   if (gtk_tree_model_iter_has_child(model, &iter)) {
+   if (has_children) {
       resource_subtree_menu_item(menu, model, path, "Expand this subtree", FALSE);
       resource_subtree_menu_item(menu, model, path, "Collapse this subtree", TRUE);
    }
    gtk_tree_path_free(path);
    if (uuid && *uuid) {
-      if (gtk_tree_model_iter_has_child(model, &iter)) {
+      if (has_children) {
          gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
       }
       GtkWidget *copy = gtk_menu_item_new_with_label("Copy UUID");
@@ -793,7 +796,7 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
    } else {
       g_free(uuid);
    }
-   if (!gtk_container_get_children(GTK_CONTAINER(menu))) {
+   if (!has_children && (!uuid || !*uuid)) {
       gtk_widget_destroy(menu);
       return FALSE;
    }
