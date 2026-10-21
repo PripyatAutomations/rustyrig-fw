@@ -30,7 +30,7 @@ typedef struct {
    uint64_t requested_at, irc_updated_at;
 } resource_branch;
 typedef struct {
-   GtkWidget *page, *panel, *tree, *status, *details, *buttons[BUTTONS];
+   GtkWidget *page, *panel, *tree, *status, *details, *search, *buttons[BUTTONS];
    GtkTreeModelFilter *filter;
    GHashTable *enabled_kinds;
    GPtrArray *type_checks;
@@ -1371,6 +1371,36 @@ static gboolean resource_search_equal(GtkTreeModel *model, gint column, const gc
 }
 /* Filter underlying inventory locally. Ancestors remain visible when a
  * descendant matches, preserving the server/room/resource hierarchy. */
+/* Search prunes nonmatches, retaining only their required ancestors. */
+static gboolean resource_self_matches(GtkTreeModel *model, GtkTreeIter *iter) {
+   const char *query=browser && browser->search ?
+      gtk_entry_get_text(GTK_ENTRY(browser->search)) : "";
+   if (!query || !*query) return TRUE;
+   char *name=NULL,*details=NULL,*uuid=NULL,*service=NULL;
+   gtk_tree_model_get(model,iter,NAME,&name,DETAILS,&details,UUID,&uuid,SERVICE,&service,-1);
+   gchar *haystack=g_utf8_casefold(g_strdup_printf("%s %s %s %s",
+      name ? name : "",details ? details : "",uuid ? uuid : "",service ? service : ""),-1);
+   gchar *needle=g_utf8_casefold(query,-1);
+   gboolean match=strstr(haystack,needle)!=NULL;
+   g_free(name);g_free(details);g_free(uuid);g_free(service);
+   g_free(haystack);g_free(needle);
+   return match;
+}
+static gboolean resource_search_subtree(GtkTreeModel *model,GtkTreeIter *iter) {
+   if (resource_self_matches(model,iter)) return TRUE;
+   GtkTreeIter child;
+   for (gboolean more=gtk_tree_model_iter_children(model,&child,iter);
+        more;more=gtk_tree_model_iter_next(model,&child))
+      if (resource_search_subtree(model,&child)) return TRUE;
+   return FALSE;
+}
+static void resource_search_changed(GtkEditable *entry,gpointer unused) {
+   (void)entry;(void)unused;
+   if (!browser || !browser->filter) return;
+   gtk_tree_model_filter_refilter(browser->filter);
+   gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
+   resource_zebra_invalidate();
+}
 static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
    char *kind=NULL;
    gtk_tree_model_get(model,iter,KIND,&kind,-1);
@@ -1395,7 +1425,7 @@ static gboolean resource_type_match(GtkTreeModel *model,GtkTreeIter *iter) {
       match=!known_kind;
    }
    g_free(kind);
-   if (match) return TRUE;
+   if (match && resource_search_subtree(model,iter)) return TRUE;
    GtkTreeIter child;
    for (gboolean more=gtk_tree_model_iter_children(model,&child,iter);
         more;more=gtk_tree_model_iter_next(model,&child))
@@ -1475,6 +1505,8 @@ static void resource_create(void) {
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), gtk_label_new("Search:"), FALSE, FALSE, 0);
    GtkWidget *search = gtk_search_entry_new();
+   browser->search = search;
+   g_signal_connect(search,"changed",G_CALLBACK(resource_search_changed),NULL);
    gtk_entry_set_width_chars(GTK_ENTRY(search), 24);
    gtk_entry_set_placeholder_text(GTK_ENTRY(search), "Find path, name, description…");
    gtk_box_pack_start(GTK_BOX(toolbar), search, FALSE, FALSE, 0);
@@ -1784,6 +1816,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       }
       gtk_tree_path_free(path);
       resource_expansion_restore(branch);
+      gtk_tree_view_expand_all(GTK_TREE_VIEW(browser->tree));
       resource_update_branch(branch);
       g_idle_add(resource_restore_scroll, NULL);
       gtk_label_set_text(GTK_LABEL(browser->status), "All available resources are shown. Select a resource to manage your connection.");
@@ -1947,9 +1980,21 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!strcmp(kind, "rig")) {
       const char *manufacturer = dict_get(row, "inventory.manufacturer", "");
       const char *model = dict_get(row, "inventory.model", "");
-      if (*model)
-         label = *manufacturer ? g_strdup_printf("%s — %s %s", name, manufacturer, model)
-                               : g_strdup_printf("%s — %s", name, model);
+      const char *location = dict_get(row, "inventory.location", "");
+      const char *coords = dict_get(row, "inventory.coordinates", "");
+      char position[48] = "";
+      double latitude,longitude;
+      if (sscanf(coords,"%lf,%lf",&latitude,&longitude)==2)
+         snprintf(position,sizeof(position)," (%.3f,%.3f)",latitude,longitude);
+      const char *identity = *model ? model : name;
+      label = g_strdup_printf("%s%s%s%s%s%s%s", identity,
+         *location ? " (" : "", location, *location ? ")" : "",
+         *position ? " " : "", position, strcmp(identity,name) ? " " : "");
+      if (strcmp(identity,name)) {
+         char *with_alias=g_strdup_printf("%s[%s]",label,name);
+         g_free(label); label=with_alias;
+      }
+      (void)manufacturer;
    }
    if (!strcmp(kind, "vfo")) {
       const char *frequency = dict_get(row, "inventory.frequency", "");
