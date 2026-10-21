@@ -33,6 +33,7 @@ static char explorer_target_table[20];
 static char explorer_target_profile[128];
 static gboolean explorer_open_edit_idle(gpointer unused);
 static void admin_action(GtkButton *button, gpointer data);
+void gtk_admin_open_resource(const char *profile, const char *kind, const char *name);
 static admin_table_t tables[] = {
    {
       .name = "users", .fields = {
@@ -756,6 +757,7 @@ static void admin_action(GtkButton *button, gpointer data) {
    if (!strcmp(table->name, "users") && !strcmp(action, "edit")) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
          "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Edit Privs", 1003, "Save", GTK_RESPONSE_OK, NULL);
+      gtk_dialog_add_button(GTK_DIALOG(dialog), "View Sessions…", 1004);
       admin_account_dialog = dialog;
       GtkWidget *grid = gtk_grid_new(), *entries[10];
       GtkWidget *full_rig_check = NULL;
@@ -810,6 +812,19 @@ static void admin_action(GtkButton *button, gpointer data) {
          }
       }
 
+      if (response == 1004) {
+         char *server = g_strdup(table->profile);
+         char *username = g_strdup(name);
+         gtk_widget_destroy(dialog);
+         admin_account_dialog = NULL;
+         gtk_admin_open_resource(server, "sessions", username);
+         g_free(server);
+         g_free(username);
+         g_free(name);
+         g_free(value);
+         for (int col = 0; col < 10; col++) g_free(original[col]);
+         return;
+      }
       if (response == GTK_RESPONSE_OK) {
          dict *fields = dict_new();
 
