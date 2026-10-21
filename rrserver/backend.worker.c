@@ -136,7 +136,8 @@ static void free_job(backend_job_t *job) {
 
 rr_property_update_t rr_backend_property_observe(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *name, val_type_t type, const dict_value_t *value) {
    if (!running_job) {
-      return rr_vfo_property_observe(vfo, name, type, value);
+      return vfo ? rr_vfo_property_observe(vfo, name, type, value) :
+         rr_rig_property_observe(backend->owner, name, type, value);
    }
    observation_t *item = calloc(1, sizeof(*item));
 
@@ -164,7 +165,8 @@ rr_property_update_t rr_backend_property_observe(rr_backend_t *backend, rr_serve
 
 rr_property_update_t rr_backend_property_unavailable(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *name) {
    if (!running_job) {
-      return rr_vfo_property_unavailable(vfo, name);
+      return vfo ? rr_vfo_property_unavailable(vfo, name) :
+         rr_rig_property_unavailable(backend->owner, name);
    }
    dict_value_t empty = {
       0
@@ -227,6 +229,13 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
    long long queue_ms = started_ms - job->queued_ms;
 
    switch (job->operation) {
+      case RR_BACKEND_BRIGHTNESS:
+      case RR_BACKEND_SPEAKER_VOLUME: {
+         const char *name = job->operation == RR_BACKEND_BRIGHTNESS ?
+            RR_PROP_DISPLAY_BRIGHTNESS : RR_PROP_SPEAKER_VOLUME;
+         job->failed = !api->rig_control_set || api->rig_control_set(backend, name, job->value.i);
+         break;
+      }
       case RR_BACKEND_FREQ: {
          job->failed = !api->freq_set || api->freq_set(backend, job->vfo, job->value.i);
          break;
@@ -658,9 +667,11 @@ void rr_backend_worker_drain(rr_backend_t *backend) {
 
          for (observation_t *o = job->observations ; o ; o = o->next) {
             if (o->unavailable) {
-               rr_vfo_property_unavailable(o->vfo, o->name);
+               if (o->vfo) rr_vfo_property_unavailable(o->vfo, o->name);
+               else rr_rig_property_unavailable(backend->owner, o->name);
             } else {
-               rr_vfo_property_observe(o->vfo, o->name, o->type, &o->value);
+               if (o->vfo) rr_vfo_property_observe(o->vfo, o->name, o->type, &o->value);
+               else rr_rig_property_observe(backend->owner, o->name, o->type, &o->value);
             }
          }
 
