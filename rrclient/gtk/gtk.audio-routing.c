@@ -276,6 +276,16 @@ void gtk_audio_routing_init(void) {
    g_object_unref(content);
    gtk_container_add(GTK_CONTAINER(main_window), routing_overlay);
    routing_window = gtk_frame_new(NULL);
+   /* An overlay frame has no window surface of its own: explicitly paint a
+    * theme-matched opaque backdrop so the underlying tab cannot show through. */
+   gtk_style_context_add_class(gtk_widget_get_style_context(routing_window), "rr-rx-routing-panel");
+   GtkCssProvider *panel_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(panel_css,
+      ".rr-rx-routing-panel { background-color: @theme_bg_color; border: 1px solid @borders; border-radius: 6px; padding: 6px; }",
+      -1, NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(routing_window),
+      GTK_STYLE_PROVIDER(panel_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(panel_css);
    gtk_widget_set_halign(routing_window, GTK_ALIGN_START);
    gtk_widget_set_valign(routing_window, GTK_ALIGN_START);
    gtk_widget_set_margin_top(routing_window, 12);
