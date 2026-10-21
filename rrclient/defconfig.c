@@ -198,11 +198,11 @@ defconfig_t defcfg[] = {
       "serial:ttyCAT0.baud", "9600", "Serial baud rate (1200 through 115200 supported rates)", DEFCONFIG_INT, NULL
    },
    {
-      "cat.pty.enable", "true", "Create a PTY (e.g. ~/ttyCAT0) for external CAT software (hamlib/rigctl)",
+      "cat.pty.enable", "true", "Legacy CAT PTY option (floating ttyCAT is always available)",
       DEFCONFIG_BOOL, NULL
    },
    {
-      "cat.pty.path", "$HOME/dev/ttyCAT0", "Path to symlink the CAT PTY slave to"
+      "cat.pty.path", "$HOME/dev/ttyCAT", "Legacy floating ttyCAT PTY symlink path"
    },
    {
       "default.tx.power", "30", "Default TX power in watts (float)", DEFCONFIG_FLOAT, NULL
