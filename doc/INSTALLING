@@ -48,26 +48,18 @@ WebUI: /var/lib/rustyrig/www.
 Grant the service account access to the specific audio/serial devices required
 by your station. Keep code/module directories owned by root.
 
-Source-tree runs and manual installation
----------------------------------------
-You can run ./bin/rrserver and ./bin/rrclient without installing. The quickstart
-lists the local database, module, DSP and WebUI path overrides required when
-using copies of the packaged example configs.
-
-make install copies binaries and libraries under INSTALL_DIR (default
-/usr/local), configuration into CONF_DIR (default /etc/rustyrig), and WebUI
-assets into WEB_ROOT (default /var/lib/rustyrig/www). It prompts before replacing
-changed configuration files. It does not perform Debian's account/database
-provisioning or service setup. For example, after building:
+Manual installation (installed runtime only)
+--------------------------------------------
+Source-checkout execution is unsupported. Build first, then install into the
+standard package paths using:
 
     sudo make PROFILE=radio install
 
-Set path.modules to /usr/local/lib/rustyrig/modules/rrserver or .../rrclient,
-and [fwdsp] path=/usr/local/bin/fwdsp when using that prefix. Ensure SQL template
-and preload paths point to the repository's sql files or your installed copies,
-and create writable database/runtime directories for the account running the
-server. First database creation uses the random bootstrap-password flow described
-in the quickstart.
+The installation does not overwrite /etc/rustyrig configuration or provision a
+service account/database automatically. Install configuration intentionally,
+then provision writable state and runtime directories for the service user.
+Use installed paths for executables, libraries, modules and SQL templates.
+The default installation prefix is /usr, not /usr/local.
 
 Other distributions
 -------------------
