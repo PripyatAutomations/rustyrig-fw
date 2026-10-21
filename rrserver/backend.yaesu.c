@@ -30,6 +30,7 @@ typedef struct yaesu_state {
    int dimmer[4], af;
    bool dimmer_known, af_known;
    int model_id;
+   const struct yaesu_model_profile *profile;
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -306,7 +307,7 @@ static bool control(rr_backend_t *b, const char *name, int percent) {
       return false;
    }
 
-   const yaesu_control_spec_t *spec = yaesu_control_find(name);
+   const yaesu_control_spec_t *spec = s->profile && s->profile->ft891_controls ? yaesu_control_find(name) : NULL;
    if (spec) {
       int value = spec->minimum + (percent * (spec->maximum - spec->minimum) + 50) / 100;
       snprintf(command, sizeof(command), "%s%0*d;", spec->command, spec->digits, value);
@@ -510,33 +511,47 @@ static rr_mode_t mode_get(rr_backend_t *b, rr_server_vfo_t *v) {
 static const char *mode_get_str(rr_backend_t *b, rr_server_vfo_t *v) {
    return vfo_mode_name(mode_get(b, v));
 }
+/* Adding another Yaesu model requires one profile and its validated catalog.
+ * Keep model identification separate from protocol mechanics. */
+typedef struct yaesu_menu_entry {
+   const char *id, *label;
+} yaesu_menu_entry_t;
+typedef struct yaesu_model_profile {
+   int cat_id;
+   const char *model;
+   const yaesu_menu_entry_t *menu;
+   size_t menu_count;
+   bool ft891_controls; /* Until other models' control mappings are verified. */
+} yaesu_model_profile_t;
+#define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
+static const yaesu_menu_entry_t ft891_menu[] = {
+   { "0201", "LCD Contrast" }, { "0202", "Key Backlight" },
+   { "0203", "LCD Brightness" }, { "0204", "TX/BUSY LED Brightness" },
+   { "0205", "Meter Peak Hold" }, { "0206", "Zero-In LED" }
+};
+static const yaesu_menu_entry_t ft991a_menu[] = {
+   { "001", "AGC Fast Delay" }, { "002", "AGC Mid Delay" },
+   { "003", "AGC Slow Delay" }, { "006", "Display Color" },
+   { "007", "LED Dimmer" }, { "008", "TFT Dimmer" },
+   { "009", "Meter Peak Hold" }, { "012", "Keyer Type" },
+   { "023", "Noise Blanker Width" }, { "024", "Noise Blanker Rejection" },
+   { "025", "Noise Blanker Level" }
+};
+static const yaesu_model_profile_t yaesu_models[] = {
+   { 650, "FT-891", ft891_menu, ARRAY_COUNT(ft891_menu), true },
+   { 670, "FT-991A", ft991a_menu, ARRAY_COUNT(ft991a_menu), false }
+};
+static const yaesu_model_profile_t *yaesu_model_by_id(int id) {
+   for (size_t i = 0; i < ARRAY_COUNT(yaesu_models); i++)
+      if (yaesu_models[i].cat_id == id) return &yaesu_models[i];
+   return NULL;
+}
 static void yaesu_menu_foreach(rr_backend_t *b,
    void (*emit)(const char *id, const char *label, void *user), void *user) {
    yaesu_state_t *s = ys(b);
-   if (!s || !emit) return;
-   /* These are intentionally descriptive catalog metadata, not polled values.
-    * The numbered EX schemas are model-specific and must be validated before
-    * permitting writes. */
-   if (s->model_id == 650) {
-      emit("0201", "LCD Contrast", user);
-      emit("0202", "Key Backlight", user);
-      emit("0203", "LCD Brightness", user);
-      emit("0204", "TX/BUSY LED Brightness", user);
-      emit("0205", "Meter Peak Hold", user);
-      emit("0206", "Zero-In LED", user);
-   } else if (s->model_id == 670) {
-      emit("001", "AGC Fast Delay", user);
-      emit("002", "AGC Mid Delay", user);
-      emit("003", "AGC Slow Delay", user);
-      emit("006", "Display Color", user);
-      emit("007", "LED Dimmer", user);
-      emit("008", "TFT Dimmer", user);
-      emit("009", "Meter Peak Hold", user);
-      emit("012", "Keyer Type", user);
-      emit("023", "Noise Blanker Width", user);
-      emit("024", "Noise Blanker Rejection", user);
-      emit("025", "Noise Blanker Level", user);
-   }
+   if (!s || !s->profile || !emit) return;
+   for (size_t i = 0; i < s->profile->menu_count; i++)
+      emit(s->profile->menu[i].id, s->profile->menu[i].label, user);
 }
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
@@ -567,8 +582,10 @@ static bool create(rr_backend_t *b) {
    char id_reply[24];
    if (cat(s, "ID;", "ID", id_reply, sizeof(id_reply)) && strlen(id_reply) == 6) {
       int id;
-      if (decimal(id_reply + 2, 4, &id) && (id == 650 || id == 670))
-         s->model_id = id;
+      if (decimal(id_reply + 2, 4, &id)) {
+         s->profile = yaesu_model_by_id(id);
+         if (s->profile) s->model_id = id;
+      }
    }
    if (!s->model_id)
       rr_backend_log(b, LOG_WARN, "backend.yaesu",
@@ -578,7 +595,7 @@ static bool create(rr_backend_t *b) {
       "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
    };
 
-   for (unsigned i = 0 ; i < sizeof(props) / sizeof(props[0]) ; i++) {
+   for (unsigned i = 0 ; s->profile && s->profile->ft891_controls && i < sizeof(props) / sizeof(props[0]) ; i++) {
       rr_property_descriptor_t d = {
          .name = props[i], .type = VAL_INT, .readable = true,
          .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
@@ -587,7 +604,7 @@ static bool create(rr_backend_t *b) {
       rr_rig_property_define(b->owner, &d);
    }
 
-   for (size_t i = 0; i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
+   for (size_t i = 0; s->profile && s->profile->ft891_controls && i < sizeof(yaesu_controls) / sizeof(yaesu_controls[0]); ++i) {
       rr_property_descriptor_t d = {
          .name = yaesu_controls[i].name, .type = VAL_INT, .readable = true,
          .writable = true, .unit = "%", .has_min = true, .has_max = true, .has_step = true,
@@ -600,7 +617,8 @@ static bool create(rr_backend_t *b) {
       .writable = false, .unit = "%", .has_min = true, .has_max = true,
       .minimum.i = 0, .maximum.i = 100
    };
-   rr_rig_property_define(b->owner, &meter);
+   if (s->profile && s->profile->ft891_controls)
+      rr_rig_property_define(b->owner, &meter);
    return false;
 }
 static void destroy(rr_backend_t *b) {
@@ -626,7 +644,7 @@ static const char *model_name(rr_backend_t *b) {
    (void)b;
 
    yaesu_state_t *s = ys(b);
-   return s && s->model_id == 650 ? "FT-891" : s && s->model_id == 670 ? "FT-991A" : "Unknown Yaesu";
+   return s && s->profile ? s->profile->model : "Unknown Yaesu";
 }
 
 static const rr_backend_funcs_t api = {
