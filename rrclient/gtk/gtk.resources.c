@@ -1832,23 +1832,23 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    const char *kind = dict_get(row, "inventory.kind", "resource");
    const char *name = dict_get(row, "inventory.name", "");
 
+   /* The first site record is the server we connected to. Its configured
+    * station.name may differ from the connection profile; never compare names
+    * to decide topology. Subsequent depth-zero sites are linked peers. */
    if (depth == 0 && !strcmp(kind, "site")) {
-      char *root_name = NULL;
-      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->root, NAME, &root_name, -1);
-      gboolean same = root_name && !g_ascii_strcasecmp(root_name, name);
-      g_free(root_name);
-
-      if (same) {
-         for (unsigned i = 0 ; i < G_N_ELEMENTS(branch->parents) ; i++) {
-            branch->valid[i] = false;
-         }
-
+      char *root_uuid = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), &branch->root, UUID, &root_uuid, -1);
+      gboolean local = !root_uuid || !*root_uuid;
+      g_free(root_uuid);
+      if (local) {
+         memset(branch->valid, 0, sizeof(branch->valid));
          branch->parents[0] = branch->root;
          branch->valid[0] = true;
-         gtk_tree_store_set(browser->store, &branch->root, KIND, "site", UUID, dict_get(row, "inventory.uuid", ""), ROOM, dict_get(row, "inventory.room", ""),
+         gtk_tree_store_set(browser->store, &branch->root, KIND, "site",
+            NAME, name, UUID, dict_get(row, "inventory.uuid", ""),
+            ROOM, dict_get(row, "inventory.room", ""),
             DETAILS, dict_get(row, "inventory.description", ""), -1);
          dict_free(row);
-
          return;
       }
    }
