@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <time.h>
+#include <glib.h>
 #include <termios.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -274,6 +275,68 @@ client_cmd_t client_cmds[] = {
 
 
 
+/* Client-side chat pacing, shared by native and IRC plain-text sends.
+ * A bounded queue preserves the destination chosen when the user hit Enter. */
+typedef struct {
+   rrconn_t *connection;
+   char *profile, *window;
+   dict *message;
+   bool irc;
+} chat_pending_t;
+static GQueue *chat_queue;
+static guint chat_timer;
+static double chat_tokens = 4.0;
+static gint64 chat_updated;
+
+static gboolean chat_flush(gpointer unused) {
+   (void)unused;
+   gint64 stamp = g_get_monotonic_time();
+   if (chat_updated && stamp >= chat_updated)
+      chat_tokens = MIN(4.0, chat_tokens + (stamp - chat_updated) / 2000000.0);
+   chat_updated = stamp;
+   while (chat_queue && !g_queue_is_empty(chat_queue) && chat_tokens >= 1.0) {
+      chat_pending_t *next = g_queue_pop_head(chat_queue);
+      chat_tokens -= 1.0;
+      if (next->connection && next->profile &&
+          rrclient_connection_find(next->profile) == next->connection &&
+          next->connection->authenticated) {
+         if (next->irc)
+            irc_send_dict(next->connection, next->message);
+         else
+            ws_send_dict(NULL, next->connection, next->message, WEBSOCKET_OP_TEXT);
+      } else {
+         ui_print(next->window, "Queued chat discarded: server disconnected.");
+      }
+      dict_free(next->message);
+      g_free(next->profile);
+      g_free(next->window);
+      g_free(next);
+   }
+   if (!chat_queue || g_queue_is_empty(chat_queue)) {
+      chat_timer = 0;
+      return G_SOURCE_REMOVE;
+   }
+   return G_SOURCE_CONTINUE;
+}
+static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc) {
+   if (!connection || !message) return false;
+   if (!chat_queue) chat_queue = g_queue_new();
+   if (g_queue_get_length(chat_queue) >= 64) {
+      ui_print(ui_active_window_name(), "Chat send queue full (64 lines); message not sent.");
+      return false;
+   }
+   chat_pending_t *next = g_new0(chat_pending_t, 1);
+   next->connection = connection;
+   next->profile = g_strdup(rrclient_connection_name(connection));
+   next->window = g_strdup(ui_active_window_name());
+   next->message = message;
+   next->irc = irc;
+   g_queue_push_tail(chat_queue, next);
+   chat_flush(NULL);
+   if (!g_queue_is_empty(chat_queue) && !chat_timer)
+      chat_timer = g_timeout_add(100, chat_flush, NULL);
+   return true;
+}
 static bool parse_chat_input(const char *msg, bool commands) {
    /* Selecting a TUI conversation selects its server before any command. */
    (void)ui_active_window_name();
@@ -438,8 +501,8 @@ static bool parse_chat_input(const char *msg, bool commands) {
          dict_add(request, "talk.target", target);
          dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
          dict_add(request, "talk.data", msg);
-         bool sent = irc_send_dict(active_connection, request);
-         dict_free(request);
+         bool sent = chat_send_paced(active_connection, request, true);
+         if (!sent) dict_free(request);
 
          return !sent;
       }
@@ -473,10 +536,9 @@ static bool parse_chat_input(const char *msg, bool commands) {
          }
       }
 
-      if (ws_conn) {
-         ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT);
+      if (!chat_send_paced(ws_conn, d, false)) {
+         dict_free(d);
       }
-      dict_free(d);
    }
 
    return false;
