@@ -550,9 +550,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 #ifdef USE_PROFILING
          gint64 apply_started = g_get_monotonic_time();
 #endif
-         bool accepted = rr_relay_catalog_put(origin, d);
+         enum rr_catalog_reject reject_reason = RR_CAT_OK;
+         bool accepted = rr_relay_catalog_put_reason(origin, d, &reject_reason);
 #ifdef USE_PROFILING
-         rr_relay_catalog_profile_receive(d, accepted, (long long)(g_get_monotonic_time() - apply_started),
+         rr_relay_catalog_profile_receive(d, accepted, reject_reason, (long long)(g_get_monotonic_time() - apply_started),
             strlen(dict_get(envelope, "payload", "")));
 #endif
 
