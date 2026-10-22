@@ -547,7 +547,13 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          if (sync) {
             sync->received++;
          }
+#ifdef USE_PROFILING
+         gint64 apply_started = g_get_monotonic_time();
+#endif
          bool accepted = rr_relay_catalog_put(origin, d);
+#ifdef USE_PROFILING
+         rr_relay_catalog_profile_receive(accepted, (long long)(g_get_monotonic_time() - apply_started));
+#endif
 
          if (sync) {
             if (accepted) {
@@ -1070,6 +1076,11 @@ void rrserver_relay_fini(void) {
 }
 
 #else
+#ifdef USE_PROFILING
+/* Non-Mongoose builds have no linked-server catalogs to profile. */
+void rr_relay_catalog_profile_dump(void) {
+}
+#endif
 /* Check accepted-audio liveness and remaining proxy TX authority. */
 bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t at) {
    return false;
