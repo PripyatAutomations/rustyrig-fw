@@ -211,6 +211,28 @@ GtkWidget *rr_gtk_matrix_new(void) {
    return root;
 }
 
+static void matrix_controls_clicked(GtkButton *button, gpointer data) {
+   Matrix *m = data;
+   gtk_popover_set_relative_to(GTK_POPOVER(m->popover), GTK_WIDGET(button));
+   gtk_widget_show_all(m->popover);
+}
+
+GtkWidget *rr_gtk_matrix_controls_button(GtkWidget *matrix) {
+   g_return_val_if_fail(GTK_IS_OVERLAY(matrix), NULL);
+   Matrix *m = g_object_get_data(G_OBJECT(matrix), "rr-matrix");
+   g_return_val_if_fail(m != NULL, NULL);
+   GtkWidget *button = gtk_button_new_with_label("π");
+   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
+   gtk_widget_set_name(button, "rr-matrix-controls");
+   gtk_widget_set_tooltip_text(button, "Matrix controls");
+   gtk_widget_set_halign(button, GTK_ALIGN_END);
+   gtk_widget_set_valign(button, GTK_ALIGN_END);
+   gtk_widget_set_margin_end(button, 8);
+   gtk_widget_set_margin_bottom(button, 8);
+   g_signal_connect(button, "clicked", G_CALLBACK(matrix_controls_clicked), m);
+   return button;
+}
+
 void rr_gtk_matrix_set_options(GtkWidget *matrix, guint opacity, guint brightness, guint speed) {
    g_return_if_fail(GTK_IS_OVERLAY(matrix));
    Matrix *m = g_object_get_data(G_OBJECT(matrix), "rr-matrix");
