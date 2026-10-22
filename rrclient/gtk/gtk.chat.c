@@ -1906,20 +1906,7 @@ bool chat_init(void) {
    GtkWidget *status_box = create_chat_box_for_room(false, NULL, false);
 
    if (status_box) {
-      /* A discreet π in the bottom-right of the status output opens the
-       * full-window matrix overlay, without entering the text buffer. */
-      GtkWidget *status_overlay = gtk_overlay_new();
-      gtk_box_pack_start(GTK_BOX(status_tab), status_overlay, TRUE, TRUE, 0);
-      gtk_container_add(GTK_CONTAINER(status_overlay), status_box);
-      GtkWidget *pi = gtk_button_new_with_label("π");
-      gtk_widget_set_tooltip_text(pi, "Toggle Matrix screensaver (Esc to close)");
-      gtk_widget_set_halign(pi, GTK_ALIGN_END);
-      gtk_widget_set_valign(pi, GTK_ALIGN_END);
-      gtk_widget_set_margin_end(pi, 6);
-      gtk_widget_set_margin_bottom(pi, 38);
-      gtk_overlay_add_overlay(GTK_OVERLAY(status_overlay), pi);
-      extern void gtk_matrix_toggle(void);
-      g_signal_connect_swapped(pi, "clicked", G_CALLBACK(gtk_matrix_toggle), NULL);
+      gtk_box_pack_start(GTK_BOX(status_tab), status_box, TRUE, TRUE, 0);
       status_room_tab->view = chat_textview;
       status_room_tab->entry = chat_entry;
    }
