@@ -83,11 +83,15 @@ static char *ua_glob_regex(const char *pattern) {
       if (c == '*') { *p++ = '.'; *p++ = '*'; }
       else if (c == '?') *p++ = '.';
       else {
-         if (strchr(".^$+()[]{}|\\\\", c)) *p++ = '\\\\';
+         if (strchr(".^$+()[]{}|\\", c)) *p++ = '\\';
          *p++ = c;
       }
    }
-   *p++ = '
+   *p++ = '$';
+   *p = '\0';
+   return out;
+}
+bool load_http_ua_bans(const char *path) {
    if (!path || !*path) {
       return true;
    }
