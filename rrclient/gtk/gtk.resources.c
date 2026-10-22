@@ -378,7 +378,7 @@ static gboolean resource_serial_placeholder(const char *name) {
       return FALSE;
    guint number = (guint)g_ascii_strtoull(suffix, NULL, 10);
    gboolean unknown = FALSE;
-   gchar **lines = g_strsplit(contents, "\\n", -1);
+   gchar **lines = g_strsplit(contents, "\n", -1);
    for (guint i = 0; lines[i]; ++i) {
       char *p = lines[i];
       while (g_ascii_isspace(*p)) ++p;
