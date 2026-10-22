@@ -27,6 +27,7 @@
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
 #include <rrserver/supervision.h>
+#include <rrserver/relay.h>
 
 extern struct timespec loop_start;  // main.c
 extern struct timespec mono_now;
@@ -45,6 +46,7 @@ void timer_profile_dump_fn(void *arg) {
    (void)arg;
    event_profile_dump();
    rr_wire_profile_dump();
+   rr_relay_catalog_profile_dump();
 }
 #endif
 
