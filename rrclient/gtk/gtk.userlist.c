@@ -20,6 +20,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
+#include <rrclient/typing.h>
 #include <rrclient/rooms.h>
 #include <rrclient/ui.h>
 #include <rrclient/vfo.h>
@@ -72,6 +73,7 @@ static GtkWidget *userlist_dock_paned = NULL;
 static GtkWidget *userlist_dock_button = NULL;
 static bool userlist_is_docked = false;
 static GHashTable *room_userlist_views = NULL;
+static guint typing_refresh_id;
 static void userlist_update_title(void);
 void userlist_dock_into(GtkPaned *paned);
 
@@ -611,7 +613,14 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       char decorated[HTTP_USER_LEN + 8];
       userlist_display_name(c, decorated, sizeof(decorated));
       char *safe_name = userlist_safe_display(c->name);
-      char *safe_decorated = userlist_safe_display(decorated);
+      rr_typing_state_t typing = room && view_connection && view_connection->is_ws ?
+         rrclient_typing_get(view_connection, room, c->name) : RR_TYPING_IDLE;
+      const char *suffix = typing == RR_TYPING_STARTED ? "  ✎ started typing" :
+                           typing == RR_TYPING_ACTIVE ? "  ✎ typing…" :
+                           typing == RR_TYPING_PAUSED ? "  ⏸ paused" : "";
+      char *display = g_strdup_printf("%s%s", decorated, suffix);
+      char *safe_decorated = userlist_safe_display(display);
+      g_free(display);
       const char *values[NUM_COLS] = {
          select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), safe_decorated
       };
@@ -1202,7 +1211,15 @@ void userlist_redraw_gtk(void) {
 
 // Build the tree view once; it can be packed into the chat paned widget or
 // reparented into a detachable window.
+static gboolean gtk_userlist_expire_typing(gpointer unused) {
+   (void)unused;
+   if (rrclient_typing_prune()) userlist_redraw_gtk();
+   return G_SOURCE_CONTINUE;
+}
+
 static GtkWidget *userlist_view_create(void) {
+   if (!typing_refresh_id)
+      typing_refresh_id = g_timeout_add_seconds(1, gtk_userlist_expire_typing, NULL);
    GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    userlist_view_set_server(view, server_name);
@@ -1219,7 +1236,7 @@ static GtkWidget *userlist_view_create(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), priv_col);
 
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_USERNAME, NULL);
+   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_DISPLAY_NAME, NULL);
    g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
@@ -1761,6 +1778,10 @@ GtkWidget *userlist_create(void) {
 // Called by the module shutdown path: stop the repeating room-VFO refresh
 // timers so no module callback can fire after the main loop unwinds.
 void gtk_userlist_stop_timers(void) {
+   if (typing_refresh_id) {
+      g_source_remove(typing_refresh_id);
+      typing_refresh_id = 0;
+   }
    if (rig_userlist_entry.refresh_id) {
       g_source_remove(rig_userlist_entry.refresh_id);
       rig_userlist_entry.refresh_id = 0;
