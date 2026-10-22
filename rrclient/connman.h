@@ -40,6 +40,9 @@ static inline bool rrclient_server_profile_name(const char *key, char *name, siz
    return true;
 }
 
+/* Approximate control-socket transfer totals (all profiles). Excludes UDP RTP;
+ * includes WS binary traffic if carried on the control socket. */
+extern void rrclient_control_bytes(uint64_t *rx, uint64_t *tx);
 /* Connection selection and iteration use configuration section names. */
 /* Optional when a component is linked alone by a unit test. */
 extern bool rrclient_context_is_selected(void) __attribute__((weak));
