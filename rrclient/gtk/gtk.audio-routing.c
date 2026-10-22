@@ -5,11 +5,14 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 #include "gtk.audio-routing.h"
+#include "gtk.tabs.h"
+extern GtkWidget *main_notebook;
 
 static GtkWidget *routing_window, *split_rx, *ear_combo[2], *ear_volume[2];
 static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body, *routing_title, *routing_roll_button, *routing_min_button;
 static bool routing_rolled, routing_minimized;
+static GtkWidget *routing_restore_tab;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token;
 static bool routing_updating, inventory_dirty, have_choices;
@@ -284,7 +287,7 @@ static void routing_update_chrome(void) {
    if (!routing_window) return;
    if (routing_rolled || routing_minimized) gtk_widget_hide(routing_body);
    else gtk_widget_show(routing_body);
-   if (routing_minimized) gtk_widget_hide(routing_title);
+   if (routing_minimized) gtk_widget_hide(routing_window);
    else gtk_widget_show(routing_title);
    gtk_widget_set_tooltip_text(routing_roll_button, routing_rolled ? "Unroll panel" : "Roll up panel");
    gtk_widget_set_tooltip_text(routing_min_button, routing_minimized ? "Restore panel" : "Minimize panel");
@@ -297,15 +300,35 @@ static void routing_roll(GtkButton *button, gpointer unused) {
    routing_update_chrome();
 }
 
+static void routing_restore(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   routing_minimized = false;
+   if (routing_restore_tab) {
+      gtk_tabs_panel_restore_remove(routing_restore_tab);
+      routing_restore_tab = NULL;
+   }
+   gtk_widget_show(routing_window);
+   routing_update_chrome();
+}
+
 static void routing_minimize(GtkButton *button, gpointer unused) {
    (void)button; (void)unused;
-   routing_minimized = !routing_minimized;
+   if (routing_minimized || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   routing_restore_tab = gtk_tabs_panel_restore_add(GTK_NOTEBOOK(main_notebook),
+      "RX Audio Routing", G_CALLBACK(routing_restore), NULL);
+   if (!routing_restore_tab) return;
+   routing_minimized = true;
    routing_update_chrome();
 }
 
 static void routing_close(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
+   if (routing_restore_tab) {
+      gtk_tabs_panel_restore_remove(routing_restore_tab);
+      routing_restore_tab = NULL;
+      routing_minimized = false;
+   }
    gtk_widget_hide(routing_window);
 }
 
@@ -435,6 +458,10 @@ void gtk_audio_routing_shutdown(void) {
       routing_source = 0;
    }
 
+   if (routing_restore_tab) {
+      gtk_tabs_panel_restore_remove(routing_restore_tab);
+      routing_restore_tab = NULL;
+   }
    if (routing_window) {
       gtk_widget_destroy(routing_window);
    }
