@@ -484,10 +484,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                !strcmp(family, "file") ? dict_get(d, "file.path", "") : "";
             /* Client-facing failure identifies the action and destination;
              * no request body, passwords or authentication tokens. */
-            char reason[512];
+            char reason[512], dest_label[192];
             snprintf(reason, sizeof(reason),
-               "Remote %.24s.%.24s%s%.160s to node %.40s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)",
-               family, operation, *target ? " for " : "", *target ? target : "", dest,
+               "Remote %.24s.%.24s%s%.160s to node %s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)",
+               family, operation, *target ? " for " : "", *target ? target : "",
+               rrserver_links_format_node(dest, dest_label, sizeof(dest_label)),
                !deadline ? "missing request deadline" :
                deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future",
                (long long) deadline, (long long) received_at);
