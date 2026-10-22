@@ -719,19 +719,24 @@ void gtk_matrix_toggle(void) {
       gtk_widget_show(rr_matrix_widget);
    }
 }
+/* Deliberately obscure easter egg: Escape followed by tilde/backtick within
+ * 1.5 seconds. Do not reserve Escape while the screensaver is hidden. */
 static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget; (void)data;
+   static gint64 escape_at;
+   gint64 now = g_get_monotonic_time();
    bool visible = rr_matrix_widget && gtk_widget_get_visible(rr_matrix_widget);
-   if (visible && event->keyval == GDK_KEY_Escape) {
-      gtk_widget_hide(rr_matrix_widget);
-      return TRUE;
+
+   if (event->keyval == GDK_KEY_Escape) {
+      escape_at = now;
+      /* With Matrix visible, Escape arms the sequence rather than closing it. */
+      return visible;
    }
-   if ((event->keyval == GDK_KEY_asciitilde || event->keyval == GDK_KEY_grave) &&
+
+   bool armed = escape_at && now - escape_at <= 1500000;
+   escape_at = 0;
+   if (armed && (event->keyval == GDK_KEY_asciitilde || event->keyval == GDK_KEY_grave) &&
        !(event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) {
-      /* Don't steal the tilde/backtick when composing a chat command. */
-      GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(widget));
-      if (!visible && focus && (GTK_IS_EDITABLE(focus) || GTK_IS_TEXT_VIEW(focus)))
-         return FALSE;
       gtk_matrix_toggle();
       return TRUE;
    }
