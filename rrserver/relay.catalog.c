@@ -1237,6 +1237,10 @@ void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void 
 
 /* Reconcile dirty discovery and announce additions/removals to peers. */
 void rr_relay_refresh_catalog(void) {
+#ifdef USE_PROFILING
+   const gint64 refresh_started = g_get_monotonic_time();
+   CP_INC(refreshes);
+#endif
    /* Snapshot old descriptors so ordinary dirty refreshes transmit deltas, not hundreds of unchanged services on every poll. */
    GHashTable *previous = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
@@ -1272,6 +1276,7 @@ void rr_relay_refresh_catalog(void) {
 
             if (next && !strcmp(next, peer->owner) && !strcmp(dict_get(peer->descriptor, "object.type", ""), "node")) {
                rr_relay_send_owned(next, c->owner, "catalog-remove", c->descriptor);
+               CP_INC(delta_removes);
             }
          }
 
@@ -1309,6 +1314,7 @@ void rr_relay_refresh_catalog(void) {
 
                if (next && !strcmp(next, peer->owner) && !strcmp(dict_get(peer->descriptor, "object.type", ""), "node")) {
                   rr_relay_send_owned(next, entry->owner, "catalog", entry->descriptor);
+                  CP_INC(delta_updates);
                }
             }
          }
@@ -1317,6 +1323,9 @@ void rr_relay_refresh_catalog(void) {
    }
 
    g_hash_table_destroy(previous);
+#ifdef USE_PROFILING
+   catalog_profile_duration((guint64)MAX(0, g_get_monotonic_time() - refresh_started), "refresh");
+#endif
    rr_relay_catalog_dirty = false;
 }
 
