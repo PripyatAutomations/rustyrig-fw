@@ -2735,14 +2735,16 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          snprintf(position, sizeof(position), " (%.3f,%.3f)", latitude, longitude);
       }
       const char *identity = *model && strcmp(model, "NET rigctl") && strcmp(model, "NET rigctl (Hamlib)") ? model : name;
-      label =
-         g_strdup_printf("%s%s%s%s%s%s%s", identity, *location ? " (" : "", location, *location ? ")" : "", *position ? " " : "", position, strcmp(identity,
-         name) ? " " : "");
-
-      if (strcmp(identity, name)) {
-         char *with_alias = g_strdup_printf("%s[%s]", label, name);
+      /* Put the rig alias first, consistently with local rig labels. */
+      label = g_strdup_printf("%s%s%s%s%s%s%s", name,
+         strcmp(identity, name) ? " [" : "",
+         strcmp(identity, name) ? identity : "",
+         strcmp(identity, name) ? "]" : "",
+         *location ? " (" : "", *location ? location : "", *location ? ")" : "");
+      if (*position) {
+         char *with_position = g_strconcat(label, " ", position, NULL);
          g_free(label);
-         label = with_alias;
+         label = with_position;
       }
       (void)manufacturer;
    }
