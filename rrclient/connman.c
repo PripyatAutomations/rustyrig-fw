@@ -295,6 +295,17 @@ const char *rrclient_window_name(const char *room) {
    return w->key;
 }
 
+/* Lookup only: never create a window for a rejected JOIN or a numeric.
+ * Match the originating connection, not the currently selected server. */
+const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room) {
+   if (!connection || !room || !*room) return NULL;
+   for (client_window_t *w = windows; w; w = w->next) {
+      if (w->server && w->server->connection == connection && window_room_equal(w, room))
+         return w->key;
+   }
+   return NULL;
+}
+
 /* IRC server notices can have their own tab, separate from shared status. */
 void rrclient_server_status_window(const char *room) {
    const char *key = rrclient_window_name(room);
