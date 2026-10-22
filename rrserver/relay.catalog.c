@@ -54,7 +54,7 @@ typedef struct {
 } catalog_profile_counts_t;
 
 typedef struct {
-   char node[37];
+   char node[37], label[192];
    guint64 snapshots, queued, ack_ok, ack_partial, timeouts, aborted;
    guint64 sent, accepted, rejected, last_ack_us, max_ack_us;
 } catalog_profile_peer_t;
@@ -107,6 +107,7 @@ static catalog_profile_peer_t *catalog_profile_peer(const char *node) {
       return NULL;
    catalog_profile_peer_t *peer = &catalog_profile_peers[catalog_profile_peer_count++];
    g_strlcpy(peer->node, node, sizeof(peer->node));
+   rrserver_links_format_node(node, peer->label, sizeof(peer->label));
    return peer;
 }
 
@@ -165,6 +166,10 @@ void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long
 
 static int catalog_profile_peer_compare(const void *left, const void *right) {
    const catalog_profile_peer_t *a = left, *b = right;
+   const guint64 a_errors = a->ack_partial + a->timeouts + a->aborted;
+   const guint64 b_errors = b->ack_partial + b->timeouts + b->aborted;
+   if (a_errors != b_errors) return a_errors > b_errors ? -1 : 1;
+   if (a->max_ack_us != b->max_ack_us) return a->max_ack_us > b->max_ack_us ? -1 : 1;
    if (a->sent != b->sent) return a->sent > b->sent ? -1 : 1;
    return strcmp(a->node, b->node);
 }
@@ -947,7 +952,7 @@ void rr_relay_catalog_profile_dump(void) {
        t.drain_max_us / 1000.0,
        w.queued ? (double)w.drain_us / w.queued / 1000.0 : 0.0,
        w.drain_max_us / 1000.0);
-   Log(LOG_INFO, "profile", "  end-to-end ACK latency: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); refreshes=%llu (+%llu), delta sends=%llu (+%llu), removes=%llu (+%llu), refresh avg=%.2f ms, max=%.2f ms",
+   Log(LOG_INFO, "profile", "  end-to-end ACK latency: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); refreshes=%llu (+%llu), delta send attempts=%llu (+%llu), remove attempts=%llu (+%llu), refresh avg=%.2f ms, max=%.2f ms",
        t.ack_ok + t.ack_partial ? (double)t.ack_us / (t.ack_ok + t.ack_partial) / 1000.0 : 0.0,
        t.ack_max_us / 1000.0,
        w.ack_ok + w.ack_partial ? (double)w.ack_us / (w.ack_ok + w.ack_partial) / 1000.0 : 0.0,
@@ -967,7 +972,9 @@ void rr_relay_catalog_profile_dump(void) {
       const catalog_profile_peer_t *p = &peers[i];
       char label[192];
       Log(LOG_INFO, "profile", "  neighbor %s: snapshots=%llu queued=%llu acked=%llu partial=%llu timeout=%llu aborted=%llu, sent=%llu accepted=%llu rejected=%llu, last-ack=%.2f ms max-ack=%.2f ms",
-          rrserver_links_format_node(p->node, label, sizeof(label)),
+          /* Retain known names after a neighbor disconnects. */
+          strcmp(rrserver_links_format_node(p->node, label, sizeof(label)), p->node) ?
+             label : (p->label[0] ? p->label : p->node),
           (unsigned long long)p->snapshots, (unsigned long long)p->queued,
           (unsigned long long)p->ack_ok, (unsigned long long)p->ack_partial,
           (unsigned long long)p->timeouts, (unsigned long long)p->aborted,
@@ -975,7 +982,7 @@ void rr_relay_catalog_profile_dump(void) {
           (unsigned long long)p->rejected, p->last_ack_us / 1000.0, p->max_ack_us / 1000.0);
    }
    if (catalog_profile_peer_count > limit)
-      Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u by descriptors sent)",
+      Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)",
           catalog_profile_peer_count - limit, limit);
 }
 #endif
