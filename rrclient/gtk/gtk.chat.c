@@ -777,7 +777,7 @@ static gboolean gtk_typing_emit(GtkWidget *entry, const char *status) {
    dict_add(d, "talk.cmd", "typing");
    dict_add(d, "talk.target", room);
    dict_add(d, "talk.typing", status);
-   gboolean sent = ws_send_dict(connection, d);
+   gboolean sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
    return sent;
 }
