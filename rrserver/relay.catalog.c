@@ -696,6 +696,19 @@ typedef struct relay_catalog_snapshot {
    char *sync_id;
 } relay_catalog_snapshot_t;
 static GHashTable *relay_catalog_snapshots;
+static GHashTable *relay_catalog_awaiting_ack;
+typedef struct { char *dest; gint64 started; guint count; } catalog_ack_wait_t;
+static void ack_wait_free(gpointer ptr) { catalog_ack_wait_t *w = ptr; g_free(w->dest); g_free(w); }
+
+void rr_relay_catalog_ack(const char *origin, const char *sync_id) {
+   if (!relay_catalog_awaiting_ack || !sync_id || !*sync_id) return;
+   catalog_ack_wait_t *w = g_hash_table_lookup(relay_catalog_awaiting_ack, sync_id);
+   if (!w || strcmp(w->dest, origin)) return;
+   Log(LOG_INFO, "relay.catalog", "Peer %s acknowledged catalog sync %s (%u descriptors) in %.3f s end-to-end",
+       origin, sync_id, w->count, (g_get_monotonic_time() - w->started) / 1000000.0);
+   g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
+}
+
 
 static void snapshot_free(gpointer ptr) {
    relay_catalog_snapshot_t *s = ptr;
@@ -735,6 +748,13 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
             Log(LOG_WARN, "relay.catalog", "Failed to send catalog-end to %s for sync %s", s->dest, s->sync_id);
          dict_free(end);
       }
+      if (!relay_catalog_awaiting_ack)
+         relay_catalog_awaiting_ack = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, ack_wait_free);
+      catalog_ack_wait_t *wait = g_new0(catalog_ack_wait_t, 1);
+      wait->dest = g_strdup(s->dest);
+      wait->started = s->started_at;
+      wait->count = s->offset;
+      g_hash_table_replace(relay_catalog_awaiting_ack, g_strdup(s->sync_id), wait);
       double elapsed = (g_get_monotonic_time() - s->started_at) / 1000000.0;
       Log(LOG_INFO, "relay.catalog",
           "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed",
@@ -765,7 +785,16 @@ void rr_relay_send_catalogs(const char *dest) {
    if (!dest || !*dest) return;
    if (!relay_catalog_snapshots)
       relay_catalog_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, snapshot_free);
-   /* A reconnect invalidates the previous pending snapshot. */
+   /* A reconnect invalidates the previous pending snapshot and acknowledgments. */
+   if (relay_catalog_awaiting_ack) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, relay_catalog_awaiting_ack);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         catalog_ack_wait_t *w = value;
+         if (!strcmp(w->dest, dest)) g_hash_table_iter_remove(&iter);
+      }
+   }
    g_hash_table_remove(relay_catalog_snapshots, dest);
    relay_catalog_snapshot_t *s = g_new0(relay_catalog_snapshot_t, 1);
    s->dest = g_strdup(dest);
