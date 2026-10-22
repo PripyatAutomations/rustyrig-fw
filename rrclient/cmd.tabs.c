@@ -85,12 +85,12 @@ bool cmd_log(int argc, char **args) {
 
 bool cmd_win(int argc, char **args) {
    if (argc < 2 || !args || !args[1]) {
-      ui_print(ui_active_window_name(), "Usage: /win <number|close [-force]>");
+      ui_print(ui_active_window_name(), "Usage: /win <number|close|k [-force]>");
 
       return true;
    }
 
-   if (!strcasecmp(args[1], "close")) {
+   if (!strcasecmp(args[1], "close") || !strcasecmp(args[1], "k")) {
       bool force = argc == 3 && (!strcasecmp(args[2], "-force") || !strcasecmp(args[2], "-f"));
 
       if (argc != 2 && !force) {
