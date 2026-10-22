@@ -496,8 +496,6 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    }
 
    const char *service = dict_get(d, "catalog.service", NULL);
-   const char *service_kind = dict_get(d, "inventory.kind", "");
-   bool diagnostic = !strcmp(service_kind, "rig-control") || !strcmp(service_kind, "rig-menu") || !strcmp(service_kind, "rig-menu-item");
 
    if (service) {
       const char *parent = dict_get(d, "catalog.parent", "");
@@ -505,11 +503,10 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       const char *kind = dict_get(d, "inventory.kind", "");
       bool menu_child = !strcmp(kind, "rig-menu-item") && authority && !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
 
-      if (diagnostic && (!authority || strcmp(authority->owner, owner))) {
-         char owner_label[192];
-         Log(LOG_WARN, "relay.catalog", "Rejected %s: missing/mismatched parent %s from %s", service_kind, parent, rrserver_links_format_node(owner, owner_label
-            , sizeof(owner_label)));
-      }
+      /* Missing/foreign parents are a distinct, high-value mesh diagnostic.
+       * Count them in the five-minute report, never log each descriptor. */
+      if (!authority || strcmp(authority->owner, owner))
+         return catalog_reject(reason, RR_CAT_PARENT);
 
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
