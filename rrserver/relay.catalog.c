@@ -312,20 +312,20 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
       if (!strcmp(type, "node")) {
          if (strcmp(uuid, owner)) {
             return false;
-}
+         }
       } else if (!strcmp(type, "rig")) {
          if (strcmp(parent, owner)) {
             return false;
-}
+         }
       } else if (!strcmp(type, "vfo")) {
          struct catalog *rig = rr_relay_find_catalog(parent);
 
          if (!rig || strcmp(rig->owner, owner) || strcmp(dict_get(rig->descriptor, "object.type", ""), "rig")) {
             return false;
-}
+         }
       } else {
          return false;
-}
+      }
    }
 
    const char *service = dict_get(d, "catalog.service", NULL);
@@ -351,7 +351,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8) ||
          strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
          return false;
-}
+      }
       snprintf(key, sizeof(key), "%s", service);
    } else if (uuid && rr_object_uuid_valid(uuid)) {
       snprintf(key, sizeof(key), "%s", uuid);
@@ -359,20 +359,19 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
       snprintf(key, sizeof(key), "room:%s", room);
    } else {
       return false;
-}
+   }
    struct catalog *c = rr_relay_find_catalog(key);
    bool replace = c && strcmp(c->owner, owner);
 
    if (replace && (uuid || !room || rr_relay_local_owner(owner) || !owns_station_room(owner, room) ||
       owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
-      return false;
-// Only proven station/rig authority may displace a stale room claim.
+      return false; // Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = dict_clone(d);
 
    if (!copy) {
       return false;
-}
+   }
 
    if (replace && rr_relay_local_owner(c->owner)) {
 #ifdef USE_SQLITE
@@ -383,7 +382,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          dict_free(copy);
 
          return false;
-}
+      }
 #endif
 
       /* Withdraw our old claim before advertising its authoritative owner. */
@@ -404,14 +403,14 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          dict_free(copy);
 
          return false;
-}
+      }
       c = calloc(1, sizeof(*c));
 
       if (!c) {
          dict_free(copy);
 
          return false;
-}
+      }
       snprintf(c->key, sizeof(c->key), "%s", key);
       snprintf(c->owner, sizeof(c->owner), "%s", owner);
       c->next = rr_relay_catalogs;
