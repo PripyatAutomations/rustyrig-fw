@@ -711,6 +711,7 @@ void gtk_matrix_toggle(void) {
       gtk_widget_set_halign(rr_matrix_widget, GTK_ALIGN_FILL);
       gtk_widget_set_valign(rr_matrix_widget, GTK_ALIGN_FILL);
       g_object_add_weak_pointer(G_OBJECT(rr_matrix_widget), (gpointer *)&rr_matrix_widget);
+      rr_gtk_matrix_set_options(rr_matrix_widget, 50, 100, 300);
       gtk_widget_show(rr_matrix_widget);
    } else if (gtk_widget_get_visible(rr_matrix_widget)) {
       gtk_widget_hide(rr_matrix_widget);
@@ -720,8 +721,18 @@ void gtk_matrix_toggle(void) {
 }
 static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget; (void)data;
-   if (rr_matrix_widget && gtk_widget_get_visible(rr_matrix_widget) && event->keyval == GDK_KEY_Escape) {
+   bool visible = rr_matrix_widget && gtk_widget_get_visible(rr_matrix_widget);
+   if (visible && event->keyval == GDK_KEY_Escape) {
       gtk_widget_hide(rr_matrix_widget);
+      return TRUE;
+   }
+   if ((event->keyval == GDK_KEY_asciitilde || event->keyval == GDK_KEY_grave) &&
+       !(event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) {
+      /* Don't steal the tilde/backtick when composing a chat command. */
+      GtkWidget *focus = gtk_window_get_focus(GTK_WINDOW(widget));
+      if (!visible && focus && (GTK_IS_EDITABLE(focus) || GTK_IS_TEXT_VIEW(focus)))
+         return FALSE;
+      gtk_matrix_toggle();
       return TRUE;
    }
    return FALSE;
