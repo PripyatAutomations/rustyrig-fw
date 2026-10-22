@@ -16,6 +16,7 @@
 #include <rrserver/performance.h>
 #include <rrserver/discovery.h>
 #include <rrserver/relay.h>
+#include <rrserver/link.h>
 #include <librrprotocol/wire.h>
 
 typedef struct {
@@ -132,6 +133,30 @@ static void emit_performance(rr_performance_emit_fn emit, void *ctx,
    emit(row, ctx); /* Takes ownership and frees the row. */
 }
 
+typedef struct {
+   rr_performance_emit_fn emit;
+   void *context;
+} neighbor_health_emit_t;
+static void emit_neighbor_health(const char *subject, const char *site, bool online,
+                                 unsigned flaps, unsigned auth_errors, long long rtt_ms, void *context) {
+   neighbor_health_emit_t *target = context;
+   unsigned severity = !online ? 1 : 0;
+   if (flaps >= 3 || auth_errors >= 5 || rtt_ms >= 1000) severity = 2;
+   else if (flaps || auth_errors || rtt_ms >= 250) severity = 1;
+   char name[160], description[512];
+   snprintf(name, sizeof(name), "Neighbor %s", site);
+   snprintf(description, sizeof(description),
+      "Subject: %s\\nDirect link: %s\\nRTT: %lld ms\\nUnexpected disconnects (5m): %u\\nLink auth failures (5m): %u\\nAssessment: %s",
+      subject, online ? "connected" : "offline", rtt_ms, flaps, auth_errors,
+      severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Healthy");
+   dict *row = rr_inventory_row("", 1, "performance", name, NULL);
+   if (!row) return;
+   dict_add(row, "inventory.description", description);
+   dict_add(row, "inventory.state", severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Healthy");
+   dict_add(row, "inventory.access", "read-only");
+   target->emit(row, target->context);
+}
+
 void rrserver_performance_collect(rr_performance_emit_fn emit, void *context) {
    if (!emit) return;
    if (!performance_sampled) rrserver_performance_sample();
@@ -204,4 +229,6 @@ void rrserver_performance_collect(rr_performance_emit_fn emit, void *context) {
           "Catalog profiling is disabled. Enable features.profiling to collect synchronized catalog timings.");
    }
    emit_performance(emit, context, "Catalog synchronization", description, s->catalog_enabled);
+   neighbor_health_emit_t neighbor = { emit, context };
+   rrserver_links_health_foreach(emit_neighbor_health, &neighbor);
 }
