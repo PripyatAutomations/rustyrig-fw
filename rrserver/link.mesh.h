@@ -29,6 +29,7 @@ bool rr_mesh_set_router(rr_mesh_t *mesh, const rr_mesh_router_t *router, void *c
 size_t rr_mesh_node_count(const rr_mesh_t *mesh);
 const char *rr_mesh_node_id(const rr_mesh_t *mesh, size_t index);
 uint32_t rr_mesh_edge_cost(const rr_mesh_t *mesh, const char *a, const char *b);
+
 rr_mesh_t *rr_mesh_new(const char *local);
 void rr_mesh_free(rr_mesh_t *mesh);
 /* Undirected verified links; cost must be nonzero. No route is advertised by
