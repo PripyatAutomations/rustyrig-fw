@@ -14,6 +14,7 @@ typedef struct {
 typedef struct {
    GtkWidget *canvas, *popover, *scales[3];
    PangoLayout *glyphs[GLYPHS];
+   cairo_surface_t *glyph_masks[GLYPHS];
    MatrixColumn *columns;
    guint count, brightness, speed;
    gint64 last_frame;
@@ -22,6 +23,7 @@ typedef struct {
 static void matrix_free(gpointer data) {
    Matrix *m = data;
    for (guint i = 0; i < GLYPHS; i++) {
+      if (m->glyph_masks[i]) cairo_surface_destroy(m->glyph_masks[i]);
       g_clear_object(&m->glyphs[i]);
    }
    g_free(m->columns);
@@ -70,7 +72,7 @@ static gboolean matrix_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
          cairo_set_source_rgb(cr, tail ? 0.02 * light : 0.75 * light,
                               light * fade, tail ? 0.15 * light * fade : light);
          cairo_move_to(cr, x * CELL_W, y);
-         pango_cairo_show_layout(cr, m->glyphs[hash % GLYPHS]);
+         cairo_mask_surface(cr, m->glyph_masks[hash % GLYPHS], x * CELL_W, y);
       }
    }
    return FALSE;
@@ -163,6 +165,14 @@ GtkWidget *rr_gtk_matrix_new(void) {
       g_unichar_to_utf8(i < 54 ? 0xff66 + i : '0' + i - 54, text);
       m->glyphs[i] = gtk_widget_create_pango_layout(m->canvas, text);
       pango_layout_set_font_description(m->glyphs[i], font);
+      /* Rasterize each character once into an alpha mask. Cairo can tint
+       * these cheaply without Pango shaping/drawing hundreds of glyphs
+       * on every frame. */
+      m->glyph_masks[i] = cairo_image_surface_create(CAIRO_FORMAT_A8, CELL_W, CELL_H);
+      cairo_t *mask_cr = cairo_create(m->glyph_masks[i]);
+      cairo_set_source_rgba(mask_cr, 1, 1, 1, 1);
+      pango_cairo_show_layout(mask_cr, m->glyphs[i]);
+      cairo_destroy(mask_cr);
    }
    pango_font_description_free(font);
 
