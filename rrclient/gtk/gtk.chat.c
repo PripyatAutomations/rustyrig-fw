@@ -1858,6 +1858,32 @@ void gtk_chat_set_authoritative_room(const char *room) {
    gtk_chat_tab_add(room, false, true);
 }
 
+/* Five-second display average. TEXT is decoded WS control payload; total
+ * transport TX/RX may include binary media and framing. */
+static GtkWidget *status_network_label;
+static gboolean status_network_tick(gpointer unused) {
+   (void)unused;
+   if (!status_network_label) return G_SOURCE_REMOVE;
+   static uint64_t old_rx, old_tx, old_text;
+   static gint64 old_time;
+   uint64_t rx = 0, tx = 0, text = 0;
+   rrclient_ws_bytes(&rx, &tx, &text);
+   gint64 now_us = g_get_monotonic_time();
+   if (old_time && now_us > old_time) {
+      double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - old_time));
+      char label[180];
+      g_snprintf(label, sizeof(label), "WS text RX %.1f kb/s  |  WS total RX %.1f / TX %.1f kb/s",
+                 text >= old_text ? (text - old_text) * scale : 0.0,
+                 rx >= old_rx ? (rx - old_rx) * scale : 0.0,
+                 tx >= old_tx ? (tx - old_tx) * scale : 0.0);
+      gtk_label_set_text(GTK_LABEL(status_network_label), label);
+   }
+   old_time = now_us;
+   old_rx = rx;
+   old_tx = tx;
+   old_text = text;
+   return G_SOURCE_CONTINUE;
+}
 bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
@@ -1897,6 +1923,15 @@ bool chat_init(void) {
       status_room_tab->view = chat_textview;
       status_room_tab->entry = chat_entry;
    }
+   GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+   status_network_label = gtk_label_new("WS traffic: sampling…");
+   gtk_widget_set_tooltip_text(status_network_label,
+      "Five-second average: decoded WebSocket TEXT receive payload versus all WebSocket transport bytes. Total RX/TX includes binary media; UDP RTP is excluded.");
+   gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
+   gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
+   gtk_box_pack_end(GTK_BOX(status_tab), network_row, FALSE, FALSE, 0);
+   g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *)&status_network_label);
+   g_timeout_add_seconds(5, status_network_tick, NULL);
    g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();
 
