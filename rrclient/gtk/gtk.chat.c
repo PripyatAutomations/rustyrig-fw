@@ -105,6 +105,7 @@ typedef struct {
 static GHashTable *room_tabs = NULL;
 static GtkRoomTab *status_room_tab = NULL;
 static GtkWidget *status_send_button;
+static gboolean typing_shutting_down;
 
 bool gtk_chat_status_active(void) {
    if (!main_notebook || !status_tab) {
@@ -795,7 +796,31 @@ static gboolean gtk_typing_paused(gpointer user) {
    return G_SOURCE_REMOVE;
 }
 
+static void gtk_typing_cancel(GtkWidget *entry) {
+   if (!entry || !GTK_IS_WIDGET(entry)) return;
+   GtkTypingComposer *state = g_object_get_data(G_OBJECT(entry), "rr-typing-composer");
+   if (state && state->pause_source) {
+      g_source_remove(state->pause_source);
+      state->pause_source = 0;
+   }
+}
+
+void gtk_chat_typing_stop_timers(void) {
+   typing_shutting_down = TRUE;
+   if (status_room_tab) gtk_typing_cancel(status_room_tab->entry);
+   if (room_tabs) {
+      GHashTableIter iter;
+      gpointer value;
+      g_hash_table_iter_init(&iter, room_tabs);
+      while (g_hash_table_iter_next(&iter, NULL, &value)) {
+         GtkRoomTab *tab = value;
+         if (tab) gtk_typing_cancel(tab->entry);
+      }
+   }
+}
+
 static void gtk_typing_entry_changed(GtkWidget *entry) {
+   if (typing_shutting_down) return;
    GtkTypingComposer *state = gtk_typing_state(entry);
    const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
    gboolean composing = text && *text && *text != '/';
@@ -1796,6 +1821,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
 }
 
 bool chat_init(void) {
+   typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_token("client.server.selected", gtk_chat_server_selected, NULL));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
