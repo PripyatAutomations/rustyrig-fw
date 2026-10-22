@@ -7,6 +7,8 @@ struct rr_mesh {
    char id[RR_MESH_MAX_NODES][37];
    uint32_t edge[RR_MESH_MAX_NODES][RR_MESH_MAX_NODES];
    size_t count;
+   const rr_mesh_router_t *router;
+   void *router_context;
 };
 static int index_of(const rr_mesh_t *m, const char *id) {
    if (!id || !*id) return -1;
@@ -45,7 +47,8 @@ bool rr_mesh_remove_edge(rr_mesh_t *m, const char *a, const char *b) {
    m->edge[x][y] = m->edge[y][x] = 0;
    return true;
 }
-bool rr_mesh_route(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out) {
+static bool route_dijkstra(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out, void *context) {
+   (void)context;
    if (!m || !out) return false;
    int target = index_of(m,destination);
    if (target <= 0) return false;
@@ -80,5 +83,40 @@ bool rr_mesh_route(const rr_mesh_t *m, const char *destination, rr_mesh_route_t 
    strcpy(out->next_hop,m->id[first[target]]);
    out->cost=dist[target];
    out->hops=hops[target];
+   return true;
+}
+
+const rr_mesh_router_t rr_mesh_router_dijkstra = {
+   .abi_version = RR_MESH_ROUTER_ABI,
+   .name = "dijkstra",
+   .route = route_dijkstra
+};
+bool rr_mesh_set_router(rr_mesh_t *m, const rr_mesh_router_t *router, void *context) {
+   if (!m) return false;
+   if (router && (router->abi_version != RR_MESH_ROUTER_ABI ||
+                  !router->name || !router->route)) return false;
+   m->router = router;
+   m->router_context = router ? context : NULL;
+   return true;
+}
+size_t rr_mesh_node_count(const rr_mesh_t *m) { return m ? m->count : 0; }
+const char *rr_mesh_node_id(const rr_mesh_t *m, size_t index) {
+   return m && index < m->count ? m->id[index] : NULL;
+}
+uint32_t rr_mesh_edge_cost(const rr_mesh_t *m, const char *a, const char *b) {
+   int x = m ? index_of(m, a) : -1, y = m ? index_of(m, b) : -1;
+   return x < 0 || y < 0 ? 0 : m->edge[x][y];
+}
+bool rr_mesh_route(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out) {
+   if (!m || !out || !destination) return false;
+   const rr_mesh_router_t *router = m->router ? m->router : &rr_mesh_router_dijkstra;
+   rr_mesh_route_t proposed = {0};
+   if (!router->route(m, destination, &proposed, m->router_context)) return false;
+   /* A plugin can only select an existing direct neighbor; it cannot create
+    * transport adjacency or authorize an unverified peer. */
+   if (!rr_mesh_edge_cost(m, m->id[0], proposed.next_hop) ||
+       !proposed.hops || !proposed.cost || !strcmp(destination, m->id[0]))
+      return false;
+   *out = proposed;
    return true;
 }
