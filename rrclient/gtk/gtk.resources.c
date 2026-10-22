@@ -711,7 +711,23 @@ static void resource_update_branch(void *data) {
 
 /* Cluster Health is a local index over already received inventory, not a second
  * subscription or a claim that linked-node metrics were measured locally. */
-static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, unsigned *total, unsigned *bad) {
+/* Thresholds are deliberately conservative and only use interval measurements.
+ * Missing/disabled counters are unknown, never treated as a healthy sample. */
+static double resource_health_number(const char *description, const char *label) {
+   const char *p = description ? strstr(description, label) : NULL;
+   if (!p) return -1;
+   p += strlen(label);
+   char *tail = NULL;
+   double value = g_ascii_strtod(p, &tail);
+   return tail == p || !g_ascii_isdigit(*p) && *p != '.' ? -1 : value;
+}
+static void resource_health_raise(unsigned *severity, GString *reasons, unsigned level, const char *reason) {
+   if (level > *severity) *severity = level;
+   if (reasons->len) g_string_append(reasons, "; ");
+   g_string_append(reasons, reason);
+}
+static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, unsigned *total,
+                                     unsigned *bad, unsigned *severity, GString *reasons) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
    for (gboolean ok = gtk_tree_model_iter_children(model, &child, node); ok; ok = gtk_tree_model_iter_next(model, &child)) {
@@ -724,14 +740,52 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
       *found = child;
       GtkTreeIter stat;
       for (gboolean have = gtk_tree_model_iter_children(model, &stat, &child); have; have = gtk_tree_model_iter_next(model, &stat)) {
-         char *state = NULL, *stat_kind = NULL;
-         gtk_tree_model_get(model, &stat, KIND, &stat_kind, STATE, &state, -1);
+         char *state = NULL, *stat_kind = NULL, *stat_name = NULL, *details = NULL;
+         gtk_tree_model_get(model, &stat, KIND, &stat_kind, STATE, &state,
+                            NAME, &stat_name, DETAILS, &details, -1);
          if (!g_strcmp0(stat_kind, "performance-stat")) {
             ++*total;
-            if (state && (strstr(state, "Unavailable") || strstr(state, "Failed") || strstr(state, "offline"))) ++*bad;
+            if (state && (strstr(state, "Unavailable") || strstr(state, "Failed") || strstr(state, "offline"))) {
+               ++*bad;
+               resource_health_raise(severity, reasons, 1, stat_name ? stat_name : "Unavailable counter");
+            } else if (details && stat_name && strstr(details, "Last interval:")) {
+               double value = -1;
+               if (!strcmp(stat_name, "Event handlers")) {
+                  const char *deferred = strstr(details, "deferred completions (");
+                  const char *wait = strstr(details, "queue wait ");
+                  if (deferred) {
+                     value = resource_health_number(deferred, "deferred completions (");
+                     if (value >= 50000) resource_health_raise(severity, reasons, 2, "Event callbacks critically slow");
+                     else if (value >= 10000) resource_health_raise(severity, reasons, 1, "Event callbacks slow");
+                  }
+                  if (wait) {
+                     value = resource_health_number(wait, "queue wait ");
+                     if (value >= 100000) resource_health_raise(severity, reasons, 2, "Event queue wait critical");
+                     else if (value >= 20000) resource_health_raise(severity, reasons, 1, "Event queue wait elevated");
+                  }
+               } else if (!strcmp(stat_name, "WebSocket processing")) {
+                  value = resource_health_number(details, " rejected, ");
+                  /* This statistic is informational; rejected messages alone can be
+                   * untrusted network input and must not declare a node unhealthy. */
+                  value = resource_health_number(details, " bytes, ");
+                  (void)value;
+               } else if (!strcmp(stat_name, "Catalog synchronization")) {
+                  const char *timeouts = strstr(details, " timeouts ");
+                  if (timeouts) {
+                     value = -1;
+                     const char *p = timeouts;
+                     while (p > details && g_ascii_isdigit(p[-1])) --p;
+                     value = resource_health_number(p, "");
+                     if (value >= 5) resource_health_raise(severity, reasons, 2, "Catalog ACK timeouts critical");
+                     else if (value >= 1) resource_health_raise(severity, reasons, 1, "Catalog ACK timeouts");
+                  }
+               }
+            }
          }
          g_free(state);
          g_free(stat_kind);
+         g_free(stat_name);
+         g_free(details);
       }
       return TRUE;
    }
@@ -743,8 +797,9 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    char *name = NULL, *uuid = NULL;
    gtk_tree_model_get(model, node, NAME, &name, UUID, &uuid, -1);
    GtkTreeIter group;
-   unsigned total = 0, bad = 0;
-   gboolean available = resource_health_group(node, &group, &total, &bad);
+   unsigned total = 0, bad = 0, severity = 0;
+   GString *reasons = g_string_new("");
+   gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
    if (direct || available) {
       char *key = g_strdup_printf("%s|%s|%s", branch->profile, direct ? "root" : "site", direct ? "" : uuid && *uuid ? uuid : name);
       g_hash_table_add(seen, g_strdup(key));
@@ -763,17 +818,19 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
                             BINDING, key, ACTION, direct ? "root" : "site", UUID, uuid ? uuid : "", -1);
       }
       const char *status = !branch->online ? "Offline" : branch->loading ? "Refreshing" :
-                           !available || !total ? "No telemetry" : bad ? "Warning" : "Reporting";
-      if (branch->online && total && !bad) ++*reporting;
-      if (!branch->online || bad) ++*warnings;
-      char *details = g_strdup_printf("%s via %s. %u performance entries, %u unavailable. Double-click to open Statistics / Performance.",
-                                       direct ? "Direct connection" : "Linked node", branch->profile, total, bad);
+                           !available || !total ? "No telemetry" : severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Reporting";
+      if (branch->online && total && !severity) ++*reporting;
+      if (!branch->online || severity) ++*warnings;
+      char *details = g_strdup_printf("%s via %s. %u performance entries, %u unavailable. %s%sDouble-click to open Statistics / Performance.",
+                                       direct ? "Direct connection" : "Linked node", branch->profile, total, bad,
+                                       reasons->len ? reasons->str : "No threshold violations reported. ", reasons->len ? ". " : "");
       set_string(&item, NAME, name ? name : branch->profile);
       set_string(&item, STATE, status);
       set_string(&item, DETAILS, details);
       g_free(details);
       g_free(key);
    }
+   g_string_free(reasons, TRUE);
    /* Include linked sites, but not rigs, VFOs or unrelated inventory groups. */
    GtkTreeIter child;
    for (gboolean ok = gtk_tree_model_iter_children(model, &child, node); ok; ok = gtk_tree_model_iter_next(model, &child)) {
@@ -822,8 +879,11 @@ static void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
       if (g_strcmp0(action, "root") && (!uuid || !*uuid || !resource_find_uuid(&branch->root, uuid, &node))) {
          gtk_label_set_text(GTK_LABEL(browser->status), "Cannot locate this linked node in the current inventory.");
       } else {
-         unsigned total = 0, bad = 0;
-         if (resource_health_group(&node, &group, &total, &bad)) {
+         unsigned total = 0, bad = 0, severity = 0;
+         GString *reasons = g_string_new("");
+         gboolean found = resource_health_group(&node, &group, &total, &bad, &severity, reasons);
+         g_string_free(reasons, TRUE);
+         if (found) {
             GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &group);
             GtkTreePath *path = resource_view_path(child_path);
             if (path) {
