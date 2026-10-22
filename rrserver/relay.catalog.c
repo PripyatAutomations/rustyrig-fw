@@ -619,6 +619,12 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
       const char *location = mobile ? "MOBILE" : cfg_get(key);
       dict_add(c->descriptor, "object.location", location && *location ? location : cfg_get("station.location"));
    }
+   rr_backend_t *backend = rr_server_rig_backend(radio);
+   if (c && backend && backend->type && backend->type->api && backend->type->api->model_name) {
+      const char *model = backend->type->api->model_name(backend);
+      if (model && *model && strcmp(model, "Unknown Yaesu"))
+         dict_add(c->descriptor, "object.model", model);
+   }
    collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
    collect_rig_catalog(radio);
    char cat[80];
@@ -991,6 +997,8 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
       if (backend) {
          dict_add(d, "inventory.backend", backend);
       }
+      const char *model = dict_get(c->descriptor, "object.model", NULL);
+      if (model) dict_add(d, "inventory.model", model);
       rr_inventory_send(client, d);
    }
 }
@@ -1021,6 +1029,10 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       dict_add(row, "inventory.parent", parent);
       dict_add_uint(row, "inventory.depth", depth);
       const char *kind = dict_get(row, "inventory.kind", "");
+      /* Nested MENU items refer to the MENU service key as their parent.
+       * Expose that key as the MENU row's stable inventory identity. */
+      if (!strcmp(kind, "rig-menu"))
+         dict_add(row, "inventory.uuid", c->key);
 
       if (!strcmp(kind, "control")) {
          dict_add(row, "inventory.state", "owner-server-only");
