@@ -110,11 +110,57 @@ static catalog_profile_peer_t *catalog_profile_peer(const char *node) {
    return peer;
 }
 
-void rr_relay_catalog_profile_receive(bool accepted, long long apply_us) {
+/* Fixed classifications allow us to spot pathological service descriptors
+ * without allocating or storing untrusted inventory labels. */
+enum catalog_profile_kind {
+   CP_KIND_NODE, CP_KIND_RIG, CP_KIND_VFO, CP_KIND_ROOM,
+   CP_KIND_SERVICE, CP_KIND_MENU, CP_KIND_MENU_ITEM, CP_KIND_OTHER, CP_KIND_COUNT
+};
+static const char *catalog_profile_kind_names[] = {
+   "node", "rig", "vfo", "room", "service", "rig-menu", "rig-menu-item", "other"
+};
+typedef struct {
+   guint64 count, accepted, rejected, apply_us, max_apply_us;
+} catalog_kind_counts_t;
+static catalog_kind_counts_t catalog_kind_total[CP_KIND_COUNT], catalog_kind_interval[CP_KIND_COUNT];
+
+static unsigned catalog_profile_classify(dict *d) {
+   if (!d) return CP_KIND_OTHER;
+   if (dict_get(d, "catalog.service", NULL)) {
+      const char *kind = dict_get(d, "inventory.kind", "");
+      if (!strcmp(kind, "rig-menu-item")) return CP_KIND_MENU_ITEM;
+      if (!strcmp(kind, "rig-menu")) return CP_KIND_MENU;
+      return CP_KIND_SERVICE;
+   }
+   const char *type = dict_get(d, "object.type", "");
+   if (!strcmp(type, "node")) return CP_KIND_NODE;
+   if (!strcmp(type, "rig")) return CP_KIND_RIG;
+   if (!strcmp(type, "vfo")) return CP_KIND_VFO;
+   if (dict_get(d, "catalog.room", NULL)) return CP_KIND_ROOM;
+   return CP_KIND_OTHER;
+}
+
+void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long apply_us) {
    CP_INC(received);
    if (accepted) CP_INC(accepted);
    else CP_INC(rejected);
-   catalog_profile_duration(apply_us > 0 ? (guint64)apply_us : 0, "apply");
+   const guint64 elapsed = apply_us > 0 ? (guint64)apply_us : 0;
+   catalog_profile_duration(elapsed, "apply");
+   const unsigned kind = catalog_profile_classify(descriptor);
+   catalog_kind_counts_t *t = &catalog_kind_total[kind], *w = &catalog_kind_interval[kind];
+   t->count++;
+   w->count++;
+   if (accepted) {
+      t->accepted++;
+      w->accepted++;
+   } else {
+      t->rejected++;
+      w->rejected++;
+   }
+   t->apply_us += elapsed;
+   w->apply_us += elapsed;
+   if (elapsed > t->max_apply_us) t->max_apply_us = elapsed;
+   if (elapsed > w->max_apply_us) w->max_apply_us = elapsed;
 }
 
 static int catalog_profile_peer_compare(const void *left, const void *right) {
@@ -877,6 +923,21 @@ void rr_relay_catalog_profile_dump(void) {
        (unsigned long long)t.apply_max_us,
        w.received ? (double)w.apply_us / w.received : 0.0,
        (unsigned long long)w.apply_max_us);
+   for (unsigned i = 0; i < CP_KIND_COUNT; i++) {
+      const catalog_kind_counts_t *total = &catalog_kind_total[i];
+      const catalog_kind_counts_t *sample = &catalog_kind_interval[i];
+      if (!total->count) continue;
+      Log(LOG_INFO, "profile",
+          "    apply/%s: count=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
+          catalog_profile_kind_names[i],
+          (unsigned long long)total->count, (unsigned long long)sample->count,
+          (unsigned long long)total->accepted, (unsigned long long)sample->accepted,
+          (unsigned long long)total->rejected, (unsigned long long)sample->rejected,
+          (double)total->apply_us / total->count, (unsigned long long)total->max_apply_us,
+          sample->count ? (double)sample->apply_us / sample->count : 0.0,
+          (unsigned long long)sample->max_apply_us);
+   }
+   memset(catalog_kind_interval, 0, sizeof(catalog_kind_interval));
    Log(LOG_INFO, "profile", "  snapshot build: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); queue drain: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms)",
        t.snapshots ? (double)t.build_us / t.snapshots / 1000.0 : 0.0,
        t.build_max_us / 1000.0,
