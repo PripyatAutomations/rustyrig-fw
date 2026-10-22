@@ -408,8 +408,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          while (g_hash_table_iter_next(&iter, &key, &value)) {
             catalog_receive_t *old = value;
             if (now - old->started > 60 * G_USEC_PER_SEC) {
+               char origin_label[192];
                Log(LOG_WARN, "relay.catalog", "Discarding incomplete incoming sync %s from %s (%u/%u received)",
-                   (char *)key, old->origin, old->received, old->expected);
+                   (char *)key, rrserver_links_format_node(old->origin, origin_label, sizeof(origin_label)),
+                   old->received, old->expected);
                g_hash_table_iter_remove(&iter);
             }
          }
@@ -439,8 +441,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict_add_ulong(stats, "catalog.rejected", r->rejected);
             dict_add_ulong(stats, "catalog.expected", r->expected);
             if (r->received != r->expected)
-               Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u",
-                   id, origin, r->expected, r->received);
+               { char origin_label[192];
+                 Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u",
+                     id, rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
+                     r->expected, r->received); }
             char *json = dict2json(stats);
             dict_free(stats);
             dict_add(ack, "payload", json ? json : "{}");
@@ -487,7 +491,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                !deadline ? "missing request deadline" :
                deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future",
                (long long) deadline, (long long) received_at);
-            Log(LOG_WARN, "relay", "%s; origin %.40s", reason, origin);
+            char origin_label[192];
+            Log(LOG_WARN, "relay", "%s; origin %s", reason,
+                rrserver_links_format_node(origin, origin_label, sizeof(origin_label)));
             dict_add(error, "msg.type", "error");
             dict_add(error, "error.msg", reason);
             rr_relay_packet(origin, "reply", id, NULL, error);
@@ -527,7 +533,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          *p = s->next;
          free(s);
          rr_relay_subscription_count--;
-         Log(LOG_DEBUG, "relay", "Subscription removed owner %s room %s branch %s", dest, room, origin);
+         char owner_label[192], branch_label[192];
+         Log(LOG_DEBUG, "relay", "Subscription removed owner %s room %s branch %s",
+             rrserver_links_format_node(dest, owner_label, sizeof(owner_label)), room,
+             rrserver_links_format_node(origin, branch_label, sizeof(branch_label)));
       }
       bool after = rr_relay_demand(dest, room);
 
@@ -547,11 +556,13 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                sync->accepted++;
             } else {
                sync->rejected++;
+               char origin_label[192];
                Log(LOG_DEBUG, "relay.catalog",
                    "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, parent=%s, room=%s)",
-                   origin, id, dict_get(d, "object.type", ""),
-                   dict_get(d, "object.uuid", ""), dict_get(d, "catalog.service", ""),
-                   dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
+                   rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id,
+                   dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
+                   dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""),
+                   dict_get(d, "catalog.room", ""));
             }
          }
          if (!accepted) goto done;
