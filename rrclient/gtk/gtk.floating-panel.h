@@ -9,6 +9,8 @@ GtkWidget *rr_floating_panel_body(RRFloatPanel *panel);
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel);
 void rr_floating_panel_show(RRFloatPanel *panel);
 void rr_floating_panel_hide(RRFloatPanel *panel);
+void rr_floating_panel_restore(RRFloatPanel *panel);
+void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);
 void rr_floating_panel_destroy(RRFloatPanel *panel);
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
 #endif
