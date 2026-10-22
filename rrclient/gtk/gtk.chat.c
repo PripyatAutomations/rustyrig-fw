@@ -30,6 +30,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.floating-panel.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
 
@@ -1294,6 +1295,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       gtk_window_set_resizable(GTK_WINDOW(room_vfo_window), TRUE);
       gtk_window_set_destroy_with_parent(GTK_WINDOW(room_vfo_window), TRUE);
       g_signal_connect(room_vfo_window, "delete-event", G_CALLBACK(room_vfo_float_closed), NULL);
+      rr_floating_window_controls(GTK_WINDOW(room_vfo_window), GTK_NOTEBOOK(main_notebook), "VFO");
    }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
 
