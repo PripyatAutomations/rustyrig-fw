@@ -2632,11 +2632,12 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          (!strcmp(dict_get(row, "inventory.codec", ""), "gpsp") ||
             !strcmp(dict_get(row, "inventory.codec", ""), "nmea") || g_str_has_suffix(name, ".gps.rx") || g_str_has_suffix(name, ".nmea.rx")));
 
-   if (gps_stream || !strcmp(kind, "room") || !strcmp(kind, "control") || !strcmp(kind, "rig-control") ||
+   if (gps_stream || !strcmp(kind, "performance-stat") || !strcmp(kind, "room") || !strcmp(kind, "control") || !strcmp(kind, "rig-control") ||
       !strcmp(kind, "file") || !strcmp(kind, "share") || !strcmp(kind, "serial")) {
       char *parent_kind = NULL;
       gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, -1);
-      const char *folder = gps_stream ? "GPS" : !strcmp(kind, "room") ? "Rooms" :
+      const char *folder = !strcmp(kind, "performance-stat") ? "Statistics / Performance" :
+         gps_stream ? "GPS" : !strcmp(kind, "room") ? "Rooms" :
          (!strcmp(kind, "control") || !strcmp(kind, "rig-control")) ? "Controls" :
          !strcmp(kind, "serial") ? "Serial Ports" :
          (!strcmp(parent_kind ? parent_kind : "", "site") || !strcmp(parent_kind ? parent_kind : "", "server")) ? "Shares" : NULL;
