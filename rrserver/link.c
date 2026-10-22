@@ -283,6 +283,15 @@ static void send_hello(struct link_session *session) {
    snprintf(clock_text, sizeof(clock_text), "%lld", (long long)time(NULL));
    dict_add(d, "clock.unix", clock_text);
    dict_add(d, "password", session->peer->password);
+   /* An older installed librrprotocol may reject this optional extension.
+    * Never let a diagnostic field prevent the link from establishing. */
+   char *probe = rr_link_wire_encode(d);
+   if (!probe) {
+      Log(LOG_WARN, "link", "Installed link wire encoder rejects clock.unix; sending legacy hello (rebuild/install librrprotocol)");
+      dict_del(d, "clock.unix");
+   } else {
+      free(probe);
+   }
    send_message(session, d);
    dict_free(d);
 }
