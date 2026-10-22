@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <glib.h>
 #ifdef USE_MONGOOSE
 #include <librrprotocol/ws.mediachan.h>
@@ -499,7 +500,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
          strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo")
          && !menu_child) || (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share")
-         && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item"))
+         && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item") && strcmp(kind, "performance-stat"))
          || strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8)
          || strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
          return false;
@@ -617,6 +618,111 @@ static void add_object(const char *uuid, const char *type, const char *owner, co
    }
    rr_relay_catalog_put(rrserver_links_node(), d);
    dict_free(d);
+}
+
+static void collect_service(dict *row, void *context);
+
+/* Process-local performance inventory, replicated as ordinary node-owned
+ * read-only discovery services. These are cached observations, not a remote
+ * process-control API. Sampling follows the normal five-minute profile dump. */
+static void collect_performance_service(const char *name, const char *description,
+                                        const char *state) {
+   dict *row = rr_inventory_row("", 0, "performance-stat", name, NULL);
+   if (!row) return;
+   dict_add(row, "inventory.description", description ? description : "Unavailable");
+   dict_add(row, "inventory.state", state ? state : "observed");
+   dict_add(row, "inventory.access", "read-only");
+   collect_service(row, (void *)rrserver_links_node());
+}
+
+static void collect_process_metrics(void) {
+#ifdef __linux__
+   FILE *status = fopen("/proc/self/status", "r");
+   if (status) {
+      char line[256], rss[80] = "", peak[80] = "", threads[80] = "";
+      while (fgets(line, sizeof(line), status)) {
+         if (!strncmp(line, "VmRSS:", 6)) g_strlcpy(rss, line + 6, sizeof(rss));
+         else if (!strncmp(line, "VmHWM:", 6)) g_strlcpy(peak, line + 6, sizeof(peak));
+         else if (!strncmp(line, "Threads:", 8)) g_strlcpy(threads, line + 8, sizeof(threads));
+      }
+      fclose(status);
+      g_strstrip(rss); g_strstrip(peak); g_strstrip(threads);
+      if (*rss) {
+         char description[256];
+         snprintf(description, sizeof(description),
+                  "Resident physical memory (VmRSS): %s; peak resident (VmHWM): %s", rss, *peak ? peak : "unknown");
+         collect_performance_service("Process memory", description, rss);
+      }
+      if (*threads) collect_performance_service("Threads", "Active OS threads in this server process", threads);
+   }
+   /* Only the server process's open file descriptors are counted. PTY
+    * master endpoints are classified conservatively; no device paths are
+    * disclosed through the inventory. */
+   GDir *fd_dir = g_dir_open("/proc/self/fd", 0, NULL);
+   if (fd_dir) {
+      guint count = 0, ptys = 0;
+      const char *entry;
+      while ((entry = g_dir_read_name(fd_dir))) {
+         if (!g_ascii_isdigit(entry[0])) continue;
+         char path[128], target[256];
+         snprintf(path, sizeof(path), "/proc/self/fd/%s", entry);
+         ssize_t n = readlink(path, target, sizeof(target) - 1);
+         if (n < 0) continue;
+         target[n] = 0;
+         count++;
+         if (!strcmp(target, "/dev/ptmx") || g_str_has_prefix(target, "/dev/pts/")) ptys++;
+      }
+      g_dir_close(fd_dir);
+      char summary[128], detail[160];
+      snprintf(summary, sizeof(summary), "%u open", count);
+      snprintf(detail, sizeof(detail), "%u file descriptors open in rrserver (includes sockets, files and event descriptors)", count);
+      collect_performance_service("Open file descriptors", detail, summary);
+      snprintf(summary, sizeof(summary), "%u open", ptys);
+      snprintf(detail, sizeof(detail), "%u open PTY-associated descriptors (masters/slaves, not necessarily distinct terminals)", ptys);
+      collect_performance_service("PTY descriptors", detail, summary);
+   }
+#endif
+}
+
+static void collect_catalog_performance(void) {
+   rr_catalog_profile_info_t stats;
+   if (!rr_relay_catalog_profile_summary(&stats)) {
+      collect_performance_service("Catalog profiling", "Enable features.profiling and rebuild to collect five-minute performance samples", "disabled");
+      return;
+   }
+   char details[360], status[120];
+   snprintf(status, sizeof(status), "%llu s sample", (unsigned long long)stats.sample_seconds);
+   snprintf(details, sizeof(details),
+            "Sample Unix time: %llu; catalog entries: %zu; outgoing snapshots: %llu; queue completed: %llu; pending snapshots: %u; awaiting acknowledgments: %u",
+            (unsigned long long)stats.sample_time, stats.catalog_entries,
+            (unsigned long long)stats.snapshots, (unsigned long long)stats.queue_complete,
+            stats.pending_snapshots, stats.pending_acks);
+   collect_performance_service("Catalog synchronization", details, status);
+   snprintf(status, sizeof(status), "%llu complete / %llu partial", (unsigned long long)stats.ack_complete,
+            (unsigned long long)stats.ack_partial);
+   snprintf(details, sizeof(details),
+            "Last completed sample: %llu complete acknowledgments, %llu incomplete/rejected, %llu timeouts. End-to-end ACK average %.2f ms; maximum %.2f ms",
+            (unsigned long long)stats.ack_complete, (unsigned long long)stats.ack_partial,
+            (unsigned long long)stats.ack_timeouts,
+            stats.ack_complete + stats.ack_partial ?
+                (double)stats.ack_us / (stats.ack_complete + stats.ack_partial) / 1000.0 : 0.0,
+            stats.max_ack_us / 1000.0);
+   collect_performance_service("Catalog acknowledgments", details, status);
+   snprintf(status, sizeof(status), "%llu accepted / %llu rejected",
+            (unsigned long long)stats.descriptors_accepted, (unsigned long long)stats.descriptors_rejected);
+   snprintf(details, sizeof(details),
+            "Received %llu catalog descriptors, accepted %llu, rejected %llu. Average validation %.1f us, maximum %llu us; received %llu JSON bytes",
+            (unsigned long long)stats.descriptors_received,
+            (unsigned long long)stats.descriptors_accepted,
+            (unsigned long long)stats.descriptors_rejected,
+            stats.descriptors_received ? (double)stats.apply_us / stats.descriptors_received : 0.0,
+            (unsigned long long)stats.max_apply_us, (unsigned long long)stats.payload_bytes);
+   collect_performance_service("Catalog descriptor processing", details, status);
+   snprintf(status, sizeof(status), "%.2f ms avg", stats.snapshots ?
+            (double)stats.snapshot_build_us / stats.snapshots / 1000.0 : 0.0);
+   snprintf(details, sizeof(details), "Snapshot build time: average %s, maximum %.2f ms",
+            status, stats.max_build_us / 1000.0);
+   collect_performance_service("Catalog snapshot preparation", details, status);
 }
 
 /* Service rows share local discovery contributors; they are metadata only. Room/PTT/subscription and serial access remain checked by the serving node. */
@@ -822,6 +928,8 @@ void rr_relay_collect_local(void) {
    }
    add_object(rrserver_links_node(), "node", NULL, cfg_get("station.name"), ws_site_room());
    collect_services(rrserver_links_node(), "station");
+   collect_process_metrics();
+   collect_catalog_performance();
    rrserver_platform_control_foreach(collect_node_control, NULL);
    dict *site = dict_new();
 
