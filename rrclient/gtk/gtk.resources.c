@@ -364,6 +364,35 @@ static bool resource_serial_device_name(const char *name) {
 
    return false;
 }
+/* Legacy serial8250 registers placeholder ttyS ports on many PCs.
+ * /proc/tty/driver/serial identifies these as uart:unknown; don't hide
+ * configured endpoints, only raw auto-discovered device nodes. */
+static gboolean resource_serial_placeholder(const char *name) {
+   if (!g_str_has_prefix(name, "ttyS")) return FALSE;
+   const char *suffix = name + 4;
+   if (!g_ascii_isdigit(*suffix)) return FALSE;
+   for (const char *p = suffix; *p; ++p)
+      if (!g_ascii_isdigit(*p)) return FALSE;
+   gchar *contents = NULL;
+   if (!g_file_get_contents("/proc/tty/driver/serial", &contents, NULL, NULL))
+      return FALSE;
+   guint number = (guint)g_ascii_strtoull(suffix, NULL, 10);
+   gboolean unknown = FALSE;
+   gchar **lines = g_strsplit(contents, "\\n", -1);
+   for (guint i = 0; lines[i]; ++i) {
+      char *p = lines[i];
+      while (g_ascii_isspace(*p)) ++p;
+      char *end = NULL;
+      guint64 index = g_ascii_strtoull(p, &end, 10);
+      if (end != p && *end == ':' && index == number) {
+         unknown = strstr(end, "uart:unknown") != NULL;
+         break;
+      }
+   }
+   g_strfreev(lines);
+   g_free(contents);
+   return unknown;
+}
 static void resource_discover_devices(struct local_scan *scan) {
    GDir *dir = g_dir_open("/dev", 0, NULL);
 
@@ -372,7 +401,7 @@ static void resource_discover_devices(struct local_scan *scan) {
    }
    const char *name;
    while ((name = g_dir_read_name(dir))) {
-      if (!resource_serial_device_name(name) || g_hash_table_contains(scan->seen, name)) {
+      if (!resource_serial_device_name(name) || g_hash_table_contains(scan->seen, name) || resource_serial_placeholder(name)) {
          continue;
       }
       char *path = g_build_filename("/dev", name, NULL);
