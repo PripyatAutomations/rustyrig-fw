@@ -211,9 +211,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->minimize = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
    p->roll = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
    gtk_box_pack_start(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    g_signal_connect(p->minimize, "clicked", G_CALLBACK(panel_minimize), p);
    g_signal_connect(p->roll, "clicked", G_CALLBACK(panel_roll), p);
+   gtk_widget_set_tooltip_text(p->roll, "Roll up panel");
    p->zoom = 100;
    p->scale_css = gtk_css_provider_new();
    GtkStyleContext *panel_style = gtk_widget_get_style_context(p->frame);
@@ -255,7 +255,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->title = gtk_label_new(title ? title : id);
    gtk_box_pack_start(GTK_BOX(header), p->title, TRUE, TRUE, 0);
    p->close_button = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_end(GTK_BOX(header), p->close_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(header), p->close_button, FALSE, FALSE, 0);
+   gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    g_signal_connect(p->close_button, "clicked", G_CALLBACK(panel_close), p);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
@@ -354,7 +355,8 @@ static void window_chrome_action(GtkButton *button, gpointer data) {
       if (w->restore) gtk_widget_hide(GTK_WIDGET(w->window));
    } else if (!g_strcmp0(action, "roll")) {
       w->rolled = !w->rolled;
-      if (w->content) gtk_widget_set_visible(w->content, !w->rolled);
+      GtkWidget *content = gtk_bin_get_child(GTK_BIN(w->window));
+      if (content) gtk_widget_set_visible(content, !w->rolled);
    } else if (!g_strcmp0(action, "close")) {
       gtk_window_close(w->window);
    }
@@ -379,7 +381,19 @@ void rr_floating_window_controls(GtkWindow *window, GtkNotebook *tabs, const cha
    gtk_header_bar_set_title(GTK_HEADER_BAR(header), w->title);
    GtkWidget *menu = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(menu), GTK_RELIEF_NONE);
+   GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(minimize, "Minimize to tab strip");
+   gtk_header_bar_pack_start(GTK_HEADER_BAR(header), minimize);
    gtk_header_bar_pack_start(GTK_HEADER_BAR(header), menu);
+   GtkWidget *roll = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(roll), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(roll, "Roll up / expand window");
+   gtk_header_bar_pack_end(GTK_HEADER_BAR(header), roll);
+   g_object_set_data(G_OBJECT(minimize), "rr-window-action", "minimize");
+   g_signal_connect(minimize, "clicked", G_CALLBACK(window_chrome_action), w);
+   g_object_set_data(G_OBJECT(roll), "rr-window-action", "roll");
+   g_signal_connect(roll, "clicked", G_CALLBACK(window_chrome_action), w);
    w->popover = gtk_popover_new(menu);
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
