@@ -377,31 +377,32 @@ static int rrserver_maintenance_run(enum rr_maintenance_action action) {
                   if (unlink(bootstrap) != 0 && errno != ENOENT) {
                      fprintf(stderr, "Warning: could not remove old bootstrap credential %s\n", bootstrap);
                   }
-                  /* Reinitialize immediately using the same configured schema,
-                   * preload and bootstrap credentials as a clean first start.
-                   * Never report a successful reset with an unseeded database. */
+                  /* Reinitialize immediately using the same configured schema, preload and bootstrap credentials as a clean first start. Never report a
+                   * successful reset with an unseeded database. */
                   char *schema = cfg_get_path("path.db.master.template");
                   char *preload = cfg_get_path("path.db.master.preload");
+
                   if (!schema || !preload || access(schema, R_OK) != 0 || access(preload, R_OK) != 0) {
-                     fprintf(stderr, "Cannot initialize reset database: schema=%s preload=%s (both must be readable)\n",
-                        schema ? schema : "(unset)", preload ? preload : "(unset)");
+                     fprintf(stderr, "Cannot initialize reset database: schema=%s preload=%s (both must be readable)\n", schema ? schema : "(unset)", preload ?
+                        preload : "(unset)");
                   } else {
                      fprintf(stderr, "Rebuilding %s using schema %s and preload %s\n", resolved, schema, preload);
                      sqlite3 *fresh = db_open(resolved);
+
                      if (fresh) {
                         sqlite3_stmt *check = NULL;
-                        bool seeded = sqlite3_prepare_v2(fresh,
-                           "SELECT (SELECT count(*) FROM privilege_sets),"
-                           "(SELECT count(*) FROM privilege_set_assignments),"
-                           "(SELECT count(*) FROM resource_privileges)", -1, &check, NULL) == SQLITE_OK;
+                        bool seeded = sqlite3_prepare_v2(fresh, "SELECT (SELECT count(*) FROM privilege_sets),"
+                           "(SELECT count(*) FROM privilege_set_assignments)," "(SELECT count(*) FROM resource_privileges)", -1, &check, NULL) == SQLITE_OK;
+
                         if (seeded && sqlite3_step(check) == SQLITE_ROW) {
-                           fprintf(stderr, "Reset database seeded: privilege sets=%d, set assignments=%d, direct grants=%d\n",
-                              sqlite3_column_int(check, 0), sqlite3_column_int(check, 1), sqlite3_column_int(check, 2));
+                           fprintf(stderr, "Reset database seeded: privilege sets=%d, set assignments=%d, direct grants=%d\n", sqlite3_column_int(check, 0),
+                              sqlite3_column_int(check, 1), sqlite3_column_int(check, 2));
                            result = EXIT_SUCCESS;
                         } else {
                            fprintf(stderr, "Reset database initialization verification failed: %s\n", sqlite3_errmsg(fresh));
                         }
                         sqlite3_finalize(check);
+
                         if (sqlite3_close(fresh) != SQLITE_OK) {
                            fprintf(stderr, "Cannot close freshly initialized database\\n");
                            result = EXIT_FAILURE;

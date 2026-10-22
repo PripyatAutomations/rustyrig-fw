@@ -136,8 +136,7 @@ bool rr_relay_permitted_message(dict *d) {
 
    if (!strcmp(family, "property")) {
       return !strcmp(dict_get(d, "property.cmd", ""), "set") ||
-             !strcmp(dict_get(d, "property.cmd", ""), "read") ||
-             !strcmp(dict_get(d, "property.cmd", ""), "menu-set");
+             !strcmp(dict_get(d, "property.cmd", ""), "read") || !strcmp(dict_get(d, "property.cmd", ""), "menu-set");
    }
 
    return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") ||
@@ -335,10 +334,8 @@ static void route_request(const char *event, const void *data, size_t length, rr
          !strcmp(family, "media") ? dict_get(io->message, "media.cmd", "unknown") :
          !strcmp(family, "talk") ? dict_get(io->message, "talk.cmd", "unknown") :
          !strcmp(family, "file") ? dict_get(io->message, "file.cmd", "unknown") : "unknown";
-      ws_send_error(client, "Cannot relay %.32s.%.32s to %.64s: %s",
-         family, command, c->owner,
-         !client->authenticated || !client->user ? "authentication required" :
-         "operation is not supported by the relay");
+      ws_send_error(client, "Cannot relay %.32s.%.32s to %.64s: %s", family, command, c->owner, !client->authenticated || !client->user ?
+         "authentication required" : "operation is not supported by the relay");
 
 
       return;
@@ -368,8 +365,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
    io->result = true;
 }
 
-/* Direct-neighbor catalog synchronization accounting; bounded by the active
- * snapshot IDs and cleared when its end marker is processed. */
+/* Direct-neighbor catalog synchronization accounting; bounded by the active snapshot IDs and cleared when its end marker is processed. */
 typedef struct {
    char *origin;
    guint expected, received, accepted, rejected;
@@ -399,35 +395,38 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
    if (!strcmp(kind, "catalog-begin") && rr_relay_local_owner(dest)) {
       if (*id && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
-         if (!catalog_receives)
+         if (!catalog_receives) {
             catalog_receives = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, catalog_receive_free);
+         }
          GHashTableIter iter;
          gpointer key, value;
          gint64 now = g_get_monotonic_time();
          g_hash_table_iter_init(&iter, catalog_receives);
          while (g_hash_table_iter_next(&iter, &key, &value)) {
             catalog_receive_t *old = value;
+
             if (now - old->started > 60 * G_USEC_PER_SEC) {
                char origin_label[192];
-               Log(LOG_WARN, "relay.catalog", "Discarding incomplete incoming sync %s from %s (%u/%u received)",
-                   (char *)key, rrserver_links_format_node(old->origin, origin_label, sizeof(origin_label)),
-                   old->received, old->expected);
+               Log(LOG_WARN, "relay.catalog", "Discarding incomplete incoming sync %s from %s (%u/%u received)", (char *)key, rrserver_links_format_node(old->
+                  origin, origin_label, sizeof(origin_label)), old->received, old->expected);
                g_hash_table_iter_remove(&iter);
             }
          }
          catalog_receive_t *r = g_new0(catalog_receive_t, 1);
          r->started = now;
          r->origin = g_strdup(origin);
-         r->expected = (guint)dict_get_ulong(d, "catalog.expected", 0);
+         r->expected = (guint) dict_get_ulong(d, "catalog.expected", 0);
          g_hash_table_replace(catalog_receives, g_strdup(id), r);
       }
       goto done;
    }
+
    if (!strcmp(kind, "catalog-end") && rr_relay_local_owner(dest)) {
       catalog_receive_t *r = catalog_receives ? g_hash_table_lookup(catalog_receives, id) : NULL;
-      if (r && !strcmp(r->origin, origin) && rrserver_links_route(origin) &&
-          !strcmp(rrserver_links_route(origin), origin)) {
+
+      if (r && !strcmp(r->origin, origin) && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
          dict *ack = dict_new();
+
          if (ack) {
             dict_add(ack, "op", "link.application");
             dict_add(ack, "node", rrserver_links_node());
@@ -440,11 +439,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict_add_ulong(stats, "catalog.accepted", r->accepted);
             dict_add_ulong(stats, "catalog.rejected", r->rejected);
             dict_add_ulong(stats, "catalog.expected", r->expected);
+
             if (r->received != r->expected) {
                char origin_label[192];
-               Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u",
-                   id, rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
-                   r->expected, r->received);
+               Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u", id, rrserver_links_format_node(origin,
+                  origin_label, sizeof(origin_label)), r->expected, r->received);
             }
             char *json = dict2json(stats);
             dict_free(stats);
@@ -457,12 +456,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       }
       goto done;
    }
+
    if (!strcmp(kind, "catalog-ack") && rr_relay_local_owner(dest)) {
-      if (rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin))
-         rr_relay_catalog_ack(origin, id,
-             (guint)dict_get_ulong(d, "catalog.received", 0),
-             (guint)dict_get_ulong(d, "catalog.accepted", 0),
-             (guint)dict_get_ulong(d, "catalog.rejected", 0));
+      if (rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
+         rr_relay_catalog_ack(origin, id, (guint) dict_get_ulong(d, "catalog.received", 0), (guint) dict_get_ulong(d, "catalog.accepted", 0), (guint)
+            dict_get_ulong(d, "catalog.rejected", 0));
+      }
       goto done;
    }
 
@@ -479,23 +478,18 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             const char *family = dict_get(d, "msg.type", "unknown");
             const char *operation = !strcmp(family, "talk") ? dict_get(d, "talk.cmd", "unknown") :
                !strcmp(family, "file") ? dict_get(d, "file.cmd", "unknown") :
-               !strcmp(family, "object") ? dict_get(d, "object.cmd", "unknown") :
-               !strcmp(family, "media") ? dict_get(d, "media.cmd", "unknown") : "request";
-            const char *target = !strcmp(family, "talk") ? dict_get(d, "talk.target", "") :
-               !strcmp(family, "file") ? dict_get(d, "file.path", "") : "";
+               !strcmp(family, "object") ? dict_get(d, "object.cmd", "unknown") : !strcmp(family, "media") ? dict_get(d, "media.cmd", "unknown") : "request";
+            const char *target = !strcmp(family, "talk") ? dict_get(d, "talk.target", "") : !strcmp(family, "file") ? dict_get(d, "file.path", "") : "";
             /* Client-facing failure identifies the action and destination;
              * no request body, passwords or authentication tokens. */
             char reason[512], dest_label[192];
             snprintf(reason, sizeof(reason),
-               "Remote %.24s.%.24s%s%.160s to node %s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)",
-               family, operation, *target ? " for " : "", *target ? target : "",
-               rrserver_links_format_node(dest, dest_label, sizeof(dest_label)),
-               !deadline ? "missing request deadline" :
-               deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future",
-               (long long) deadline, (long long) received_at);
+               "Remote %.24s.%.24s%s%.160s to node %s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)", family,
+               operation, *target ? " for " : "", *target ? target : "", rrserver_links_format_node(dest, dest_label, sizeof(dest_label)), !deadline ?
+               "missing request deadline" :
+               deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future", (long long)deadline, (long long)received_at);
             char origin_label[192];
-            Log(LOG_WARN, "relay", "%s; origin %s", reason,
-                rrserver_links_format_node(origin, origin_label, sizeof(origin_label)));
+            Log(LOG_WARN, "relay", "%s; origin %s", reason, rrserver_links_format_node(origin, origin_label, sizeof(origin_label)));
             dict_add(error, "msg.type", "error");
             dict_add(error, "error.msg", reason);
             rr_relay_packet(origin, "reply", id, NULL, error);
@@ -536,9 +530,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          free(s);
          rr_relay_subscription_count--;
          char owner_label[192], branch_label[192];
-         Log(LOG_DEBUG, "relay", "Subscription removed owner %s room %s branch %s",
-             rrserver_links_format_node(dest, owner_label, sizeof(owner_label)), room,
-             rrserver_links_format_node(origin, branch_label, sizeof(branch_label)));
+         Log(LOG_DEBUG, "relay", "Subscription removed owner %s room %s branch %s", rrserver_links_format_node(dest, owner_label, sizeof(owner_label)), room,
+            rrserver_links_format_node(origin, branch_label, sizeof(branch_label)));
       }
       bool after = rr_relay_demand(dest, room);
 
@@ -549,25 +542,28 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       rrserver_links_send(dest, envelope);
    } else if (!strcmp(kind, "catalog") || !strcmp(kind, "catalog-remove") || !strcmp(kind, "users")) {
       if (!strcmp(kind, "catalog")) {
-         catalog_receive_t *sync = (*id && catalog_receives) ?
-            g_hash_table_lookup(catalog_receives, id) : NULL;
-         if (sync) sync->received++;
+         catalog_receive_t *sync = (*id && catalog_receives) ? g_hash_table_lookup(catalog_receives, id) : NULL;
+
+         if (sync) {
+            sync->received++;
+         }
          bool accepted = rr_relay_catalog_put(origin, d);
+
          if (sync) {
             if (accepted) {
                sync->accepted++;
             } else {
                sync->rejected++;
                char origin_label[192];
-               Log(LOG_DEBUG, "relay.catalog",
-                   "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, parent=%s, room=%s)",
-                   rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id,
-                   dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
-                   dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""),
-                   dict_get(d, "catalog.room", ""));
+               Log(LOG_DEBUG, "relay.catalog", "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, parent=%s, room=%s)",
+                  rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
+                  dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
             }
          }
-         if (!accepted) goto done;
+
+         if (!accepted) {
+            goto done;
+         }
 
          if (dict_get(d, "object.uuid", NULL)) {
             dict *added = dict_clone(d);
@@ -940,6 +936,7 @@ static void retry_remote_ptt(struct remote_session *r, uint64_t at) {
 extern void rr_relay_catalog_pump(void);
 void rrserver_relay_poll(void) {
    rr_relay_catalog_pump();
+
    for (struct relay_media *m = rr_relay_media_maps ; m ; m = m->next) {
       if (m->frame && (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
          free(m->frame);

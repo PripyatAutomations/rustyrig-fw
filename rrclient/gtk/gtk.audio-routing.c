@@ -127,9 +127,9 @@ static gboolean routing_refresh(gpointer unused) {
       }
 
       for (size_t i = 0 ; i < count ; i++) {
-         /* Show the room/path users recognize, not the internal stream UUID
-          * or another copy of the site name. IDs remain opaque combo keys. */
+         /* Show the room/path users recognize, not the internal stream UUID or another copy of the site name. IDs remain opaque combo keys. */
          const char *path = streams[i].room;
+
          if (*path == '#' || *path == '&') {
             path++;
          }
@@ -163,10 +163,13 @@ static void routing_queue(void) {
 }
 
 static void routing_volume_changed(GtkRange *range, gpointer user) {
-   if (volume_updating) return;
+   if (volume_updating) {
+      return;
+   }
    unsigned ear = GPOINTER_TO_UINT(user);
    int percent = (int)gtk_range_get_value(range);
    audio_set_rx_channel_volume(ear, percent);
+
    if (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(split_rx))) {
       volume_updating = true;
       gtk_range_set_value(GTK_RANGE(ear_volume[1 - ear]), percent);
@@ -196,6 +199,7 @@ static void routing_changed(GtkWidget *widget, gpointer unused) {
    }
    gtk_widget_set_sensitive(ear_combo[1], split);
    gtk_widget_set_sensitive(ear_volume[1], split);
+
    if (!split) {
       volume_updating = true;
       int percent = (int)gtk_range_get_value(GTK_RANGE(ear_volume[0]));
@@ -233,12 +237,13 @@ void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
    }
+
    if (!main_window || !GTK_IS_BIN(main_window)) {
       return;
    }
-   /* Put a floating panel *inside* the existing main window, preserving
-    * its notebook and all shortcut/focus handling. */
+   /* Put a floating panel *inside* the existing main window, preserving its notebook and all shortcut/focus handling. */
    GtkWidget *content = gtk_bin_get_child(GTK_BIN(main_window));
+
    if (!content) {
       return;
    }
@@ -248,9 +253,11 @@ void gtk_audio_routing_init(void) {
    gtk_container_add(GTK_CONTAINER(routing_overlay), content);
    g_object_unref(content);
    gtk_container_add(GTK_CONTAINER(main_window), routing_overlay);
-   routing_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
-      GTK_NOTEBOOK(main_notebook), "RX Audio Routing", "RX Audio Routing");
-   if (!routing_panel) return;
+   routing_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay), GTK_NOTEBOOK(main_notebook), "RX Audio Routing", "RX Audio Routing");
+
+   if (!routing_panel) {
+      return;
+   }
    routing_window = rr_floating_panel_widget(routing_panel);
    routing_body = rr_floating_panel_body(routing_panel);
    GtkWidget *grid = gtk_grid_new();
@@ -280,7 +287,7 @@ void gtk_audio_routing_init(void) {
       g_signal_connect(ear_combo[ear], "changed", G_CALLBACK(routing_changed), NULL);
    }
 
-   for (unsigned ear = 0; ear < 2; ear++) {
+   for (unsigned ear = 0 ; ear < 2 ; ear++) {
       GtkWidget *label = gtk_label_new(ear ? "Right Vol" : "Left Vol");
       gtk_widget_set_halign(label, GTK_ALIGN_START);
       ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
@@ -291,6 +298,7 @@ void gtk_audio_routing_init(void) {
       gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 3, 1, 1);
       g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
    }
+
    gtk_box_pack_start(GTK_BOX(routing_body), split_rx, FALSE, FALSE, 2);
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
    gtk_widget_set_sensitive(ear_volume[1], FALSE);

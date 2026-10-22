@@ -613,11 +613,9 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       char decorated[HTTP_USER_LEN + 8];
       userlist_display_name(c, decorated, sizeof(decorated));
       char *safe_name = userlist_safe_display(c->name);
-      rr_typing_state_t typing = room && view_connection && view_connection->is_ws ?
-         rrclient_typing_get(view_connection, room, c->name) : RR_TYPING_IDLE;
+      rr_typing_state_t typing = room && view_connection && view_connection->is_ws ? rrclient_typing_get(view_connection, room, c->name) : RR_TYPING_IDLE;
       const char *suffix = typing == RR_TYPING_STARTED ? "  ✎ started typing" :
-                           typing == RR_TYPING_ACTIVE ? "  ✎ typing…" :
-                           typing == RR_TYPING_PAUSED ? "  ⏸ paused" : "";
+         typing == RR_TYPING_ACTIVE ? "  ✎ typing…" : typing == RR_TYPING_PAUSED ? "  ⏸ paused" : "";
       char *display = g_strdup_printf("%s%s", decorated, suffix);
       char *safe_decorated = userlist_safe_display(display);
       g_free(display);
@@ -1213,13 +1211,18 @@ void userlist_redraw_gtk(void) {
 // reparented into a detachable window.
 static gboolean gtk_userlist_expire_typing(gpointer unused) {
    (void)unused;
-   if (rrclient_typing_prune()) userlist_redraw_gtk();
+
+   if (rrclient_typing_prune()) {
+      userlist_redraw_gtk();
+   }
+
    return G_SOURCE_CONTINUE;
 }
 
 static GtkWidget *userlist_view_create(void) {
-   if (!typing_refresh_id)
+   if (!typing_refresh_id) {
       typing_refresh_id = g_timeout_add_seconds(1, gtk_userlist_expire_typing, NULL);
+   }
    GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    userlist_view_set_server(view, server_name);
@@ -1782,6 +1785,7 @@ void gtk_userlist_stop_timers(void) {
       g_source_remove(typing_refresh_id);
       typing_refresh_id = 0;
    }
+
    if (rig_userlist_entry.refresh_id) {
       g_source_remove(rig_userlist_entry.refresh_id);
       rig_userlist_entry.refresh_id = 0;

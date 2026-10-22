@@ -330,27 +330,27 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
 
    const char *service = dict_get(d, "catalog.service", NULL);
    const char *service_kind = dict_get(d, "inventory.kind", "");
-   bool diagnostic = !strcmp(service_kind, "rig-control") ||
-      !strcmp(service_kind, "rig-menu") || !strcmp(service_kind, "rig-menu-item");
+   bool diagnostic = !strcmp(service_kind, "rig-control") || !strcmp(service_kind, "rig-menu") || !strcmp(service_kind, "rig-menu-item");
 
    if (service) {
       const char *parent = dict_get(d, "catalog.parent", "");
       struct catalog *authority = rr_relay_find_catalog(parent);
       const char *kind = dict_get(d, "inventory.kind", "");
-      bool menu_child = !strcmp(kind, "rig-menu-item") && authority &&
-         !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
+      bool menu_child = !strcmp(kind, "rig-menu-item") && authority && !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
 
       if (diagnostic && (!authority || strcmp(authority->owner, owner))) {
          char owner_label[192];
-         Log(LOG_WARN, "relay.catalog", "Rejected %s: missing/mismatched parent %s from %s",
-            service_kind, parent, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
+         Log(LOG_WARN, "relay.catalog", "Rejected %s: missing/mismatched parent %s from %s", service_kind, parent, rrserver_links_format_node(owner, owner_label
+            , sizeof(owner_label)));
       }
+
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
-         strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo") && !menu_child) ||
-         (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share") && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item")) ||
-         strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8) ||
-         strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
+         strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo")
+         && !menu_child) || (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share")
+         && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item"))
+         || strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8)
+         || strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
          return false;
       }
       snprintf(key, sizeof(key), "%s", service);
@@ -366,7 +366,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
 
    if (replace && (uuid || !room || rr_relay_local_owner(owner) || !owns_station_room(owner, room) ||
       owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
-      return false; // Only proven station/rig authority may displace a stale room claim.
+      return false;             // Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = dict_clone(d);
 
@@ -397,8 +397,8 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
 
       ws_room_set_vfo_mask(room, 0);
       char owner_label[192];
-      Log(LOG_INFO, "link", "Removed stale local room %s; authoritative owner is %s (chat history retained)",
-          room, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
+      Log(LOG_INFO, "link", "Removed stale local room %s; authoritative owner is %s (chat history retained)", room, rrserver_links_format_node(owner,
+         owner_label, sizeof(owner_label)));
    }
 
    if (!c) {
@@ -432,6 +432,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
    if (!uuid && room && !rr_relay_local_owner(owner)) {
       rr_relay_rejoin_owned_room(owner, room);
    }
+
    return true;
 }
 
@@ -478,8 +479,7 @@ static void collect_service(dict *row, void *context) {
 
       return;
    }
-   /* Parent may itself be a service key (nested MENU); hash it to keep
-    * catalog keys within the fixed-size wire/key limits. */
+   /* Parent may itself be a service key (nested MENU); hash it to keep catalog keys within the fixed-size wire/key limits. */
    char *parent_hash = g_compute_checksum_for_string(G_CHECKSUM_SHA256, parent, -1);
    snprintf(key, sizeof(key), "service:%s:%.24s:%.8s:%.32s", rrserver_links_node(), parent_hash ? parent_hash : "", dict_get(row, "inventory.kind", ""), hash);
    g_free(parent_hash);
@@ -539,8 +539,7 @@ static bool collect_node_control(const rr_platform_control_state_t *state, void 
    return false;
 }
 
-/* Mirror rig property descriptors and CAT menu metadata across relay hops.
- * These are inventory-only rows; CAT operations remain owner-local. */
+/* Mirror rig property descriptors and CAT menu metadata across relay hops. These are inventory-only rows; CAT operations remain owner-local. */
 typedef struct relay_rig_menu_ctx {
    const char *rig_id;
    const char *model;
@@ -548,26 +547,32 @@ typedef struct relay_rig_menu_ctx {
 } relay_rig_menu_ctx_t;
 
 static bool collect_rig_property(const rr_property_descriptor_t *d, void *user) {
-   /* Yaesu EX menu properties already appear under MENU with their
-    * descriptive labels. Do not duplicate them in the Controls folder. */
-   if (d->name && !strncmp(d->name, "menu.", 5))
+   /* Yaesu EX menu properties already appear under MENU with their descriptive labels. Do not duplicate them in the Controls folder. */
+   if (d->name && !strncmp(d->name, "menu.", 5)) {
       return false;
+   }
    const char *rig_id = user;
    dict *row = rr_inventory_row("", 2, "rig-control", d->name, NULL);
+
    if (row) {
       dict_add(row, "inventory.service", d->name);
       dict_add(row, "inventory.access", d->writable ? "read/write" : "read-only");
       dict_add(row, "inventory.description", "Rig property");
       collect_service(row, (void *)rig_id);
    }
+
    return false;
 }
 static void collect_rig_menu_item(const char *id, const char *label, void *user) {
    relay_rig_menu_ctx_t *ctx = user;
-   if (!id || strlen(id) != 4) return;
+
+   if (!id || strlen(id) != 4) {
+      return;
+   }
    char name[128];
    snprintf(name, sizeof(name), "%c%c-%c%c %s", id[0], id[1], id[2], id[3], label);
    dict *row = rr_inventory_row("", 4, "rig-menu-item", name, NULL);
+
    if (row) {
       dict_add(row, "inventory.service", id);
       dict_add(row, "inventory.access", "read-only");
@@ -579,21 +584,28 @@ static void collect_rig_catalog(rr_server_rig_t *radio) {
    const char *id = rr_server_rig_id(radio);
    rr_rig_property_foreach(radio, collect_rig_property, (void *)id);
    rr_backend_t *backend = rr_server_rig_backend(radio);
-   if (!backend || !backend->type->api->menu_foreach) return;
-   const char *model = backend->type->api->model_name ?
-      backend->type->api->model_name(backend) : NULL;
-   if (!model || !strcmp(model, "Unknown Yaesu")) return;
-   relay_rig_menu_ctx_t ctx = { .rig_id = id, .model = model };
+
+   if (!backend || !backend->type->api->menu_foreach) {
+      return;
+   }
+   const char *model = backend->type->api->model_name ? backend->type->api->model_name(backend) : NULL;
+
+   if (!model || !strcmp(model, "Unknown Yaesu")) {
+      return;
+   }
+   relay_rig_menu_ctx_t ctx = {
+      .rig_id = id, .model = model
+   };
    snprintf(ctx.menu_id, sizeof(ctx.menu_id), "%s.menu", id);
    dict *menu = rr_inventory_row("", 2, "rig-menu", "MENU", NULL);
+
    if (menu) {
       dict_add(menu, "inventory.description", model);
       collect_service(menu, (void *)id);
    }
    char *mh = g_compute_checksum_for_string(G_CHECKSUM_SHA256, "MENU", -1);
    char *ph = g_compute_checksum_for_string(G_CHECKSUM_SHA256, id, -1);
-   snprintf(ctx.menu_id, sizeof(ctx.menu_id), "service:%s:%.24s:%.8s:%.32s",
-      rrserver_links_node(), ph ? ph : "", "rig-menu", mh ? mh : "");
+   snprintf(ctx.menu_id, sizeof(ctx.menu_id), "service:%s:%.24s:%.8s:%.32s", rrserver_links_node(), ph ? ph : "", "rig-menu", mh ? mh : "");
    g_free(mh);
    g_free(ph);
    backend->type->api->menu_foreach(backend, collect_rig_menu_item, &ctx);
@@ -628,10 +640,13 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
       dict_add(c->descriptor, "object.location", location && *location ? location : cfg_get("station.location"));
    }
    rr_backend_t *backend = rr_server_rig_backend(radio);
+
    if (c && backend && backend->type && backend->type->api && backend->type->api->model_name) {
       const char *model = backend->type->api->model_name(backend);
-      if (model && *model && strcmp(model, "Unknown Yaesu"))
+
+      if (model && *model && strcmp(model, "Unknown Yaesu")) {
          dict_add(c->descriptor, "object.model", model);
+      }
    }
    collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
    collect_rig_catalog(radio);
@@ -701,57 +716,77 @@ typedef struct relay_catalog_snapshot {
 } relay_catalog_snapshot_t;
 static GHashTable *relay_catalog_snapshots;
 static GHashTable *relay_catalog_awaiting_ack;
-typedef struct { char *dest; gint64 started; guint count; } catalog_ack_wait_t;
-static void ack_wait_free(gpointer ptr) { catalog_ack_wait_t *w = ptr; g_free(w->dest); g_free(w); }
+typedef struct {
+   char *dest;
+   gint64 started;
+   guint count;
+} catalog_ack_wait_t;
+static void ack_wait_free(gpointer ptr) {
+   catalog_ack_wait_t *w = ptr;
+   g_free(w->dest);
+   g_free(w);
+}
 
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint received, guint accepted, guint rejected) {
    char origin_label[192];
    rrserver_links_format_node(origin, origin_label, sizeof(origin_label));
-   if (!relay_catalog_awaiting_ack || !sync_id || !*sync_id) return;
+
+   if (!relay_catalog_awaiting_ack || !sync_id || !*sync_id) {
+      return;
+   }
    catalog_ack_wait_t *w = g_hash_table_lookup(relay_catalog_awaiting_ack, sync_id);
-   if (!w || strcmp(w->dest, origin)) return;
-   Log(rejected || received != w->count ? LOG_WARN : LOG_INFO, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
-       origin_label, sync_id, (g_get_monotonic_time() - w->started) / 1000000.0, w->count, received, accepted, rejected);
+
+   if (!w || strcmp(w->dest, origin)) {
+      return;
+   }
+   Log(rejected
+      || received != w->count ? LOG_WARN : LOG_INFO, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
+      origin_label, sync_id, (g_get_monotonic_time() - w->started) / 1000000.0, w->count, received, accepted, rejected);
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
 
 static void snapshot_free(gpointer ptr) {
    relay_catalog_snapshot_t *s = ptr;
-   if (!s) return;
+
+   if (!s) {
+      return;
+   }
    g_ptr_array_free(s->messages, TRUE);
    g_free(s->dest);
    g_free(s->sync_id);
    g_free(s);
 }
 
-/* Return FALSE when the snapshot is complete or the neighbor is lost.
- * The pump owns removal: never mutate its hash table during iteration. */
+/* Return FALSE when the snapshot is complete or the neighbor is lost. The pump owns removal: never mutate its hash table during iteration. */
 static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
    char dest_label[192];
    rrserver_links_format_node(s->dest, dest_label, sizeof(dest_label));
    const char *route = rrserver_links_route(s->dest);
+
    if (!route || strcmp(route, s->dest)) {
-      Log(LOG_WARN, "relay.catalog",
-          "Aborted catalog delivery to %s after %u/%u descriptors (%.3f s): neighbor unreachable",
-          dest_label, s->offset, s->messages->len,
-          (g_get_monotonic_time() - s->started_at) / 1000000.0);
+      Log(LOG_WARN, "relay.catalog", "Aborted catalog delivery to %s after %u/%u descriptors (%.3f s): neighbor unreachable", dest_label, s->offset, s->messages
+         ->len, (g_get_monotonic_time() - s->started_at) / 1000000.0);
+
       return FALSE;
    }
-   for (unsigned n = 0; n < 8 && s->offset < s->messages->len; n++) {
+
+   for (unsigned n = 0 ; n < 8 && s->offset < s->messages->len ; n++) {
       dict *d = g_ptr_array_index(s->messages, s->offset);
+
       if (!rrserver_links_send(s->dest, d)) {
-         Log(LOG_WARN, "relay.catalog",
-             "Catalog sync %s to %s failed sending item %u/%u (%.3f s); no acknowledgment expected",
-             s->sync_id, dest_label, s->offset + 1, s->messages->len,
-             (g_get_monotonic_time() - s->started_at) / 1000000.0);
+         Log(LOG_WARN, "relay.catalog", "Catalog sync %s to %s failed sending item %u/%u (%.3f s); no acknowledgment expected", s->sync_id, dest_label, s->
+            offset + 1, s->messages->len, (g_get_monotonic_time() - s->started_at) / 1000000.0);
+
          return FALSE;
       }
       s->offset++;
    }
+
    if (s->offset == s->messages->len) {
       gboolean end_sent = FALSE;
       dict *end = dict_new();
+
       if (end) {
          dict_add(end, "op", "link.application");
          dict_add(end, "node", rrserver_links_node());
@@ -761,13 +796,20 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
          dict_add(end, "username", "");
          dict_add(end, "payload", "{}");
          end_sent = rrserver_links_send(s->dest, end);
-         if (!end_sent)
+
+         if (!end_sent) {
             Log(LOG_WARN, "relay.catalog", "Failed to send catalog-end to %s for sync %s", dest_label, s->sync_id);
+         }
          dict_free(end);
       }
-      if (!end_sent) return FALSE;
-      if (!relay_catalog_awaiting_ack)
+
+      if (!end_sent) {
+         return FALSE;
+      }
+
+      if (!relay_catalog_awaiting_ack) {
          relay_catalog_awaiting_ack = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, ack_wait_free);
+      }
       catalog_ack_wait_t *wait = g_new0(catalog_ack_wait_t, 1);
       wait->dest = g_strdup(s->dest);
       wait->started = s->started_at;
@@ -775,10 +817,12 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       g_hash_table_replace(relay_catalog_awaiting_ack, g_strdup(s->sync_id), wait);
       double elapsed = (g_get_monotonic_time() - s->started_at) / 1000000.0;
       Log(LOG_INFO, "relay.catalog",
-          "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed",
-          s->offset - 1, dest_label, elapsed, elapsed > 0 ? (s->offset - 1) / elapsed : 0.0);
+         "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed", s->offset
+         - 1, dest_label, elapsed, elapsed > 0 ? (s->offset - 1) / elapsed : 0.0);
+
       return FALSE;
    }
+
    return TRUE;
 }
 
@@ -786,40 +830,56 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
 void rr_relay_catalog_pump(void) {
    char dest_label[192];
    gint64 now = g_get_monotonic_time();
+
    if (relay_catalog_awaiting_ack) {
       GHashTableIter pending;
       gpointer key, value;
       g_hash_table_iter_init(&pending, relay_catalog_awaiting_ack);
       while (g_hash_table_iter_next(&pending, &key, &value)) {
          catalog_ack_wait_t *w = value;
+
          if (now - w->started >= 30 * G_USEC_PER_SEC) {
-            Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)",
-                (char *)key, rrserver_links_format_node(w->dest, dest_label, sizeof(dest_label)),
-                (now - w->started) / 1000000.0, w->count);
+            Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)", (char *)key, rrserver_links_format_node(w->dest
+               , dest_label, sizeof(dest_label)), (now - w->started) / 1000000.0, w->count);
             g_hash_table_iter_remove(&pending);
          }
       }
    }
-   if (!relay_catalog_snapshots) return;
+
+   if (!relay_catalog_snapshots) {
+      return;
+   }
    GHashTableIter iter;
    gpointer key, value;
    g_hash_table_iter_init(&iter, relay_catalog_snapshots);
    while (g_hash_table_iter_next(&iter, &key, &value)) {
       relay_catalog_snapshot_t *s = value;
-      if (now < s->next_send) continue;
+
+      if (now < s->next_send) {
+         continue;
+      }
       s->next_send = now + 50000;
+
       /* Remove through the active iterator to avoid invalidating it. */
-      if (!snapshot_tick(s)) g_hash_table_iter_remove(&iter);
+      if (!snapshot_tick(s)) {
+         g_hash_table_iter_remove(&iter);
+      }
+
       return;
    }
 }
 
 void rr_relay_send_catalogs(const char *dest) {
-   if (!dest || !*dest) return;
+   if (!dest || !*dest) {
+      return;
+   }
    char dest_label[192];
    rrserver_links_format_node(dest, dest_label, sizeof(dest_label));
-   if (!relay_catalog_snapshots)
+
+   if (!relay_catalog_snapshots) {
       relay_catalog_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, snapshot_free);
+   }
+
    /* A reconnect invalidates the previous pending snapshot and acknowledgments. */
    if (relay_catalog_awaiting_ack) {
       GHashTableIter iter;
@@ -827,29 +887,48 @@ void rr_relay_send_catalogs(const char *dest) {
       g_hash_table_iter_init(&iter, relay_catalog_awaiting_ack);
       while (g_hash_table_iter_next(&iter, &key, &value)) {
          catalog_ack_wait_t *w = value;
-         if (!strcmp(w->dest, dest)) g_hash_table_iter_remove(&iter);
+
+         if (!strcmp(w->dest, dest)) {
+            g_hash_table_iter_remove(&iter);
+         }
       }
    }
    g_hash_table_remove(relay_catalog_snapshots, dest);
    relay_catalog_snapshot_t *s = g_new0(relay_catalog_snapshot_t, 1);
    s->dest = g_strdup(dest);
    s->sync_id = g_uuid_string_random();
-   s->messages = g_ptr_array_new_with_free_func((GDestroyNotify)dict_free);
-   const char *types[] = { "node", "rig", "vfo", "room", "service" };
+   s->messages = g_ptr_array_new_with_free_func((GDestroyNotify) dict_free);
+   const char *types[] = {
+      "node", "rig", "vfo", "room", "service"
+   };
+
    /* Root objects, then root services, then nested MENU services. */
    for (unsigned i = 0 ; i < 5 ; i++) {
       for (unsigned pass = 0 ; pass < (i == 4 ? 2u : 1u) ; pass++) {
          for (struct catalog *entry = rr_relay_catalogs ; entry ; entry = entry->next) {
-            if (strcmp(dict_get(entry->descriptor, "object.type", "room"), types[i])) continue;
+            if (strcmp(dict_get(entry->descriptor, "object.type", "room"), types[i])) {
+               continue;
+            }
+
             if (i == 4) {
                bool nested = !strncmp(dict_get(entry->descriptor, "catalog.parent", ""), "service:", 8);
-               if (nested != (pass == 1)) continue;
+
+               if (nested != (pass == 1)) {
+                  continue;
+               }
             }
             const char *route = rrserver_links_route(entry->owner);
-            if (route && !strcmp(route, dest)) continue;
+
+            if (route && !strcmp(route, dest)) {
+               continue;
+            }
             char *json = dict2json(entry->descriptor);
-            if (!json) continue;
+
+            if (!json) {
+               continue;
+            }
             dict *d = dict_new();
+
             if (d) {
                dict_add(d, "op", "link.application");
                dict_add(d, "node", entry->owner);
@@ -864,8 +943,10 @@ void rr_relay_send_catalogs(const char *dest) {
          }
       }
    }
+
    /* Start marker allows the receiver to count accepted and rejected items. */
    dict *begin = dict_new();
+
    if (begin) {
       dict *meta = dict_new();
       dict_add_ulong(meta, "catalog.expected", s->messages->len);
@@ -881,8 +962,8 @@ void rr_relay_send_catalogs(const char *dest) {
       free(payload);
       g_ptr_array_insert(s->messages, 0, begin);
    }
-   Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)",
-       s->messages->len - (begin != NULL), dest_label, s->sync_id);
+   Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)", s->messages->len - (begin != NULL), dest_label, s->sync_id
+      );
    g_hash_table_insert(relay_catalog_snapshots, s->dest, s);
    s->started_at = g_get_monotonic_time();
    s->next_send = s->started_at;
@@ -895,15 +976,24 @@ void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void 
 
 /* Reconcile dirty discovery and announce additions/removals to peers. */
 void rr_relay_refresh_catalog(void) {
-   /* Snapshot old descriptors so ordinary dirty refreshes transmit deltas,
-    * not hundreds of unchanged services on every poll. */
+   /* Snapshot old descriptors so ordinary dirty refreshes transmit deltas, not hundreds of unchanged services on every poll. */
    GHashTable *previous = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-   if (!previous) return;
-   for (struct catalog *entry = rr_relay_catalogs ; entry ; entry = entry->next) {
-      if (!rr_relay_local_owner(entry->owner)) continue;
-      char *json = dict2json(entry->descriptor);
-      if (json) g_hash_table_replace(previous, g_strdup(entry->key), json);
+
+   if (!previous) {
+      return;
    }
+
+   for (struct catalog *entry = rr_relay_catalogs ; entry ; entry = entry->next) {
+      if (!rr_relay_local_owner(entry->owner)) {
+         continue;
+      }
+      char *json = dict2json(entry->descriptor);
+
+      if (json) {
+         g_hash_table_replace(previous, g_strdup(entry->key), json);
+      }
+   }
+
    for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
       if (rr_relay_local_owner(c->owner)) {
          c->seen = false;
@@ -933,29 +1023,38 @@ void rr_relay_refresh_catalog(void) {
       }
    }
 
-   /* New or modified local descriptors only; initial link readiness still
-    * uses rr_relay_send_catalogs() for a complete parent-first snapshot. */
+   /* New or modified local descriptors only; initial link readiness still uses rr_relay_send_catalogs() for a complete parent-first snapshot. */
    for (unsigned pass = 0 ; pass < 5 ; pass++) {
       for (struct catalog *entry = rr_relay_catalogs ; entry ; entry = entry->next) {
-         if (!rr_relay_local_owner(entry->owner)) continue;
+         if (!rr_relay_local_owner(entry->owner)) {
+            continue;
+         }
          const char *type = dict_get(entry->descriptor, "object.type", "room");
-         unsigned stage = !strcmp(type, "node") ? 0 : !strcmp(type, "rig") ? 1 :
-            !strcmp(type, "vfo") ? 2 : !strcmp(type, "room") ? 3 : 4;
-         if (stage != pass) continue;
+         unsigned stage = !strcmp(type, "node") ? 0 : !strcmp(type, "rig") ? 1 : !strcmp(type, "vfo") ? 2 : !strcmp(type, "room") ? 3 : 4;
+
+         if (stage != pass) {
+            continue;
+         }
          char *json = dict2json(entry->descriptor);
-         if (!json) continue;
+
+         if (!json) {
+            continue;
+         }
          const char *old = g_hash_table_lookup(previous, entry->key);
+
          if (!old || strcmp(old, json)) {
             for (struct catalog *peer = rr_relay_catalogs ; peer ; peer = peer->next) {
                const char *next = rrserver_links_route(peer->owner);
-               if (next && !strcmp(next, peer->owner) &&
-                   !strcmp(dict_get(peer->descriptor, "object.type", ""), "node"))
+
+               if (next && !strcmp(next, peer->owner) && !strcmp(dict_get(peer->descriptor, "object.type", ""), "node")) {
                   rr_relay_send_owned(next, entry->owner, "catalog", entry->descriptor);
+               }
             }
          }
          free(json);
       }
    }
+
    g_hash_table_destroy(previous);
    rr_relay_catalog_dirty = false;
 }
@@ -1107,7 +1206,10 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
          dict_add(d, "inventory.backend", backend);
       }
       const char *model = dict_get(c->descriptor, "object.model", NULL);
-      if (model) dict_add(d, "inventory.model", model);
+
+      if (model) {
+         dict_add(d, "inventory.model", model);
+      }
       rr_inventory_send(client, d);
    }
 }
@@ -1120,8 +1222,7 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       }
       const char *access = dict_get(c->descriptor, "inventory.access", NULL);
 
-      if (access && strcmp(access, "read-only") && strcmp(access, "read/write") &&
-          (!client->user || !has_priv(client->user->uid, access))) {
+      if (access && strcmp(access, "read-only") && strcmp(access, "read/write") && (!client->user || !has_priv(client->user->uid, access))) {
          continue;
       }
       dict *row = dict_clone(c->descriptor);
@@ -1138,10 +1239,11 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       dict_add(row, "inventory.parent", parent);
       dict_add_uint(row, "inventory.depth", depth);
       const char *kind = dict_get(row, "inventory.kind", "");
-      /* Nested MENU items refer to the MENU service key as their parent.
-       * Expose that key as the MENU row's stable inventory identity. */
-      if (!strcmp(kind, "rig-menu"))
+
+      /* Nested MENU items refer to the MENU service key as their parent. Expose that key as the MENU row's stable inventory identity. */
+      if (!strcmp(kind, "rig-menu")) {
          dict_add(row, "inventory.uuid", c->key);
+      }
 
       if (!strcmp(kind, "control")) {
          dict_add(row, "inventory.state", "owner-server-only");
@@ -1263,12 +1365,11 @@ void rrserver_relay_inventory(rrconn_t *client, const char *request) {
          inventory_entry(client, request, radio, 1, "rig");
          const char *id = dict_get(radio->descriptor, "object.uuid", "");
          inventory_services(client, request, site->owner, id, 2);
+
          for (struct catalog *menu = rr_relay_catalogs ; menu ; menu = menu->next) {
             if (!strcmp(menu->owner, site->owner) &&
-                !strcmp(dict_get(menu->descriptor, "catalog.parent", ""), id) &&
-                !strcmp(dict_get(menu->descriptor, "inventory.kind", ""), "rig-menu")) {
-               inventory_services(client, request, site->owner,
-                  dict_get(menu->descriptor, "catalog.service", ""), 3);
+               !strcmp(dict_get(menu->descriptor, "catalog.parent", ""), id) && !strcmp(dict_get(menu->descriptor, "inventory.kind", ""), "rig-menu")) {
+               inventory_services(client, request, site->owner, dict_get(menu->descriptor, "catalog.service", ""), 3);
             }
          }
 

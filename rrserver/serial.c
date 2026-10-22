@@ -503,6 +503,7 @@ static void request(const char *event, const char *data, rrconn_t *client, void 
          reply(client, "error", name, NULL, "not-found");
          goto done;
       }
+
       if (!allowed(client, p)) {
          reply(client, "error", name, NULL, "forbidden-device");
          goto done;

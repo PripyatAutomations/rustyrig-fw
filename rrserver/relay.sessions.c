@@ -295,10 +295,8 @@ void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
       }
       rr_relay_packet(s->node, "state", NULL, owner, d);
       char branch_label[192];
-      Log(LOG_DEBUG, "relay", "State %s %s room %s to branch %s",
-          dict_get(d, "msg.type", ""),
-          dict_get(d, "cat.cmd", dict_get(d, "property.cmd", dict_get(d, "talk.cmd", ""))),
-          room, rrserver_links_format_node(s->node, branch_label, sizeof(branch_label)));
+      Log(LOG_DEBUG, "relay", "State %s %s room %s to branch %s", dict_get(d, "msg.type", ""), dict_get(d, "cat.cmd", dict_get(d, "property.cmd", dict_get(d,
+         "talk.cmd", ""))), room, rrserver_links_format_node(s->node, branch_label, sizeof(branch_label)));
    }
 }
 
@@ -490,54 +488,56 @@ void rr_relay_roster(const char *event, const char *room, rrconn_t *client, void
    }
 }
 
-/* The owning server alone grants remote CAT authority. A remote user's
- * origin-site admin flag is never consulted. */
+/* The owning server alone grants remote CAT authority. A remote user's origin-site admin flag is never consulted. */
 static bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const char *command) {
 #ifdef USE_SQLITE
    struct remote_session *r = rr_relay_remote_for(client);
+
    if (!r || !room || !*room || !command || !*command) {
       return false;
    }
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
    const char *host = rrserver_relay_client_server(client);
    const char *uuid = radio ? rr_server_rig_id(radio) : NULL;
+
    if (!host || !*host || !uuid || !*uuid) {
       return false;
    }
    const char *symbol = rr_rig_registry_public_alias(rig.rigs, radio);
-   /* Require destination-side tx (or rig.full), not merely rig.use.
-    * A room join alone is not authorization to retune or transmit. */
-   rr_resource_access_t tx = db_resource_access_named(masterdb, r->remote_account.name, host,
-      "rig", uuid, "tx", time(NULL), symbol);
+   /* Require destination-side tx (or rig.full), not merely rig.use. A room join alone is not authorization to retune or transmit. */
+   rr_resource_access_t tx = db_resource_access_named(masterdb, r->remote_account.name, host, "rig", uuid, "tx", time(NULL), symbol);
+
    if (tx == RR_RESOURCE_ALLOW) {
       return true;
    }
+
    if (tx == RR_RESOURCE_DENY) {
       return false;
    }
-   /* remote-admin is a destination-issued exception to origin-only admin,
-    * not an imported role from the originating server. */
+   /* remote-admin is a destination-issued exception to origin-only admin, not an imported role from the originating server. */
    const char *next = rrserver_links_route(r->origin);
    bool allowed_hops = !cfg_get_bool("remote-admin.next-hop-only", true) || (next && !strcmp(next, r->origin));
-   if (!allowed_hops || db_resource_access_named(masterdb, r->remote_account.name, host,
-      "site", "*", "remote-admin", time(NULL), NULL) != RR_RESOURCE_ALLOW) {
+
+   if (!allowed_hops || db_resource_access_named(masterdb, r->remote_account.name, host, "site", "*", "remote-admin", time(NULL), NULL) != RR_RESOURCE_ALLOW) {
       return false;
    }
-   return db_resource_access_named(masterdb, r->remote_account.name, host,
-      "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
-      db_resource_access_named(masterdb, r->remote_account.name, host,
-      "site", "*", "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW;
+
+   return db_resource_access_named(masterdb, r->remote_account.name, host, "site", "*", "admin", time(NULL), NULL) == RR_RESOURCE_ALLOW ||
+          db_resource_access_named(masterdb, r->remote_account.name, host, "site", "*", "owner", time(NULL), NULL) == RR_RESOURCE_ALLOW;
 #else
-   (void)client; (void)room; (void)command;
+   (void)client;
+   (void)room;
+   (void)command;
+
    return false;
 #endif
 }
 
-/* Chat in a relayed room uses the owning server's grants. A remote
- * session's uid=-1 is intentional and cannot pass local has_priv(). */
+/* Chat in a relayed room uses the owning server's grants. A remote session's uid=-1 is intentional and cannot pass local has_priv(). */
 static bool rr_relay_chat_authorized(rrconn_t *client, const char *room, const char *command) {
 #ifdef USE_SQLITE
    struct remote_session *r = rr_relay_remote_for(client);
+
    if (!r || !room || !*room || !command) {
       return false;
    }
@@ -548,20 +548,24 @@ static bool rr_relay_chat_authorized(rrconn_t *client, const char *room, const c
    const char *kind = radio ? "rig" : "room";
    const char *symbol = radio ? rr_rig_registry_public_alias(rig.rigs, radio) : room;
    bool allowed = false;
+
    if (host && *host && uuid && *uuid) {
-      rr_resource_access_t access = db_resource_access_named(masterdb, r->remote_account.name,
-         host, kind, uuid, "chat", time(NULL), symbol);
+      rr_resource_access_t access = db_resource_access_named(masterdb, r->remote_account.name, host, kind, uuid, "chat", time(NULL), symbol);
       allowed = access == RR_RESOURCE_ALLOW;
+
       if (access == RR_RESOURCE_UNSET) {
-         access = db_resource_access_named(masterdb, r->remote_account.name,
-            host, kind, uuid, radio ? "rig.use" : "room.join", time(NULL), symbol);
+         access = db_resource_access_named(masterdb, r->remote_account.name, host, kind, uuid, radio ? "rig.use" : "room.join", time(NULL), symbol);
          allowed = access == RR_RESOURCE_ALLOW;
       }
    }
    free(owned_uuid);
+
    return allowed;
 #else
-   (void)client; (void)room; (void)command;
+   (void)client;
+   (void)room;
+   (void)command;
+
    return false;
 #endif
 }

@@ -326,13 +326,13 @@ static gboolean gui_global_hotkey_cb(GtkWidget *widget, GdkEventKey *event, gpoi
       }
 
       if (digit >= 0) {
-         /* Alt+number switches immediately; only Esc+number waits for
-          * the optional second digit. */
+         /* Alt+number switches immediately; only Esc+number waits for the optional second digit. */
          if (pending_tab_timer) {
             g_source_remove(pending_tab_timer);
             pending_tab_timer = 0;
             pending_tab_digit = -1;
          }
+
          return gtk_switch_tab_digit(digit, main_win);
       }
 

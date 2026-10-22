@@ -4,12 +4,18 @@
 #include <rrclient/typing.c>
 
 static unsigned redraws;
-static void redraw(void) { redraws++; }
-static const rr_frontend_ops_t frontend = { .userlist_redraw = redraw };
-const rr_frontend_ops_t *frontend_ops(void) { return &frontend; }
+static void redraw(void) {
+   redraws++;
+}
 
-static void deliver(rrconn_t *connection, const char *room, const char *name,
-                    const char *epoch, unsigned long long seq, const char *state) {
+static const rr_frontend_ops_t frontend = {
+   .userlist_redraw = redraw
+};
+const rr_frontend_ops_t *frontend_ops(void) {
+   return &frontend;
+}
+
+static void deliver(rrconn_t *connection, const char *room, const char *name, const char *epoch, unsigned long long seq, const char *state) {
    dict *d = dict_new();
    assert(d);
    dict_add(d, "talk.room", room);
@@ -26,7 +32,11 @@ static void deliver(rrconn_t *connection, const char *room, const char *name,
 }
 
 int main(void) {
-   rrconn_t first = {0}, second = {0};
+   rrconn_t first = {
+      0
+   }, second = {
+      0
+   };
    first.is_ws = second.is_ws = true;
    const char *old = "00000000-0000-4000-8000-000000000001";
    const char *fresh = "00000000-0000-4000-8000-000000000002";
@@ -60,5 +70,6 @@ int main(void) {
    assert(rrclient_typing_get(&second, "#rig0", "W8ABC") == RR_TYPING_IDLE);
    assert(redraws > 0);
    puts("PASS: scoped ephemeral typing, ordering, idle tombstones, epoch fencing, expiry and disconnect");
+
    return 0;
 }

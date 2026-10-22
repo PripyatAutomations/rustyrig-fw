@@ -120,27 +120,54 @@ typedef struct {
 } rr_chat_flood_t;
 static GHashTable *chat_flood_users;
 static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
-   if (!client || !client->user) return true;
-   if (has_priv(client->user->uid, "chat-flood")) return false;
-#ifdef USE_SQLITE
-   if (room && *room && db_resource_access_named(masterdb, client->user->name, "",
-           "room", room, "chat-flood", time(NULL), room) == RR_RESOURCE_ALLOW)
+   if (!client || !client->user) {
+      return true;
+   }
+
+   if (has_priv(client->user->uid, "chat-flood")) {
       return false;
+   }
+#ifdef USE_SQLITE
+
+   if (room && *room && db_resource_access_named(masterdb, client->user->name, "", "room", room, "chat-flood", time(NULL), room) == RR_RESOURCE_ALLOW) {
+      return false;
+   }
 #endif
-   if (!chat_flood_users)
+
+   if (!chat_flood_users) {
       chat_flood_users = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
+   }
    gpointer key = GINT_TO_POINTER(client->user->uid + 1);
    rr_chat_flood_t *state = g_hash_table_lookup(chat_flood_users, key);
    int burst = cfg_get_int("chat.flood.burst", 5);
    int interval = cfg_get_int("chat.flood.interval-ms", 2000);
    int penalty = cfg_get_int("chat.flood.shun-seconds", 10);
-   if (burst < 1) burst = 1;
-   if (burst > 100) burst = 100;
-   if (interval < 100) interval = 100;
-   if (interval > 60000) interval = 60000;
-   if (penalty < 1) penalty = 1;
-   if (penalty > 3600) penalty = 3600;
+
+   if (burst < 1) {
+      burst = 1;
+   }
+
+   if (burst > 100) {
+      burst = 100;
+   }
+
+   if (interval < 100) {
+      interval = 100;
+   }
+
+   if (interval > 60000) {
+      interval = 60000;
+   }
+
+   if (penalty < 1) {
+      penalty = 1;
+   }
+
+   if (penalty > 3600) {
+      penalty = 3600;
+   }
    uint64_t stamp = mono_us();
+
    if (!state) {
       state = g_new0(rr_chat_flood_t, 1);
       state->tokens = burst;
@@ -150,27 +177,33 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
    double elapsed = stamp >= state->updated ? (double)(stamp - state->updated) / 1000000.0 : 0;
    state->updated = stamp;
    state->tokens = MIN((double)burst, state->tokens + elapsed * 1000.0 / interval);
-   if (stamp < state->shunned_until) return true;
+
+   if (stamp < state->shunned_until) {
+      return true;
+   }
+
    if (state->tokens >= 1.0) {
       state->tokens -= 1.0;
+
       return false;
    }
-   state->shunned_until = stamp + (uint64_t)penalty * 1000000;
+   state->shunned_until = stamp + (uint64_t) penalty * 1000000;
+
    if (stamp - state->warned > 1000000) {
       ws_send_notice(client, "Chat flood: messages blocked for %d seconds; slow down.", penalty);
       Log(LOG_WARN, "ws.chat", "Chat flood shun for %s (%ds)", client->chatname, penalty);
       state->warned = stamp;
    }
+
    return true;
 }
-/* Owner-authoritative, short-lived cluster presence. The incarnation changes on
- * server restart, while the sequence increases within that incarnation.
- * Neither metadata field is supplied by the client. */
+
+/* Owner-authoritative, short-lived cluster presence. The incarnation changes on server restart, while the sequence increases within that incarnation. Neither
+ * metadata field is supplied by the client. */
 static char typing_incarnation[37];
 static unsigned long long typing_sequence;
 
-/* Bound refresh traffic even from modified or malicious clients.
- * Only the final 'idle' transition bypasses the 500 ms throttle. */
+/* Bound refresh traffic even from modified or malicious clients. Only the final 'idle' transition bypasses the 500 ms throttle. */
 typedef struct {
    rrconn_t *client;
    char room[128], state[16];
@@ -181,60 +214,87 @@ static typing_throttle_t typing_throttle[512];
 static bool typing_can_publish(rrconn_t *client, const char *room, const char *state) {
    gint64 at = g_get_monotonic_time();
    size_t slot = 0;
-   for (size_t i = 0; i < G_N_ELEMENTS(typing_throttle); i++) {
+
+   for (size_t i = 0 ; i < G_N_ELEMENTS(typing_throttle) ; i++) {
       typing_throttle_t *t = &typing_throttle[i];
+
       if (t->client == client && !strcmp(t->room, room)) {
-         if (at - t->last_us < 500000 && !strcmp(t->state, state)) return false;
-         if (at - t->last_us < 100000 && strcmp(state, "idle")) return false;
+         if (at - t->last_us < 500000 && !strcmp(t->state, state)) {
+            return false;
+         }
+
+         if (at - t->last_us < 100000 && strcmp(state, "idle")) {
+            return false;
+         }
          slot = i;
          goto record;
       }
-      if (!t->client || at - t->last_us > 30000000)
+
+      if (!t->client || at - t->last_us > 30000000) {
          slot = i;
+      }
    }
+
 record:
    typing_throttle[slot].client = client;
    g_strlcpy(typing_throttle[slot].room, room, sizeof(typing_throttle[slot].room));
    g_strlcpy(typing_throttle[slot].state, state, sizeof(typing_throttle[slot].state));
    typing_throttle[slot].last_us = at;
+
    return true;
 }
 
-static void rrserver_typing_session_closed(const char *event, const char *data,
-                                           rrconn_t *client, void *user) {
+static void rrserver_typing_session_closed(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)data;
    (void)user;
-   if (!client) return;
-   for (size_t i = 0; i < G_N_ELEMENTS(typing_throttle); i++) {
-      if (typing_throttle[i].client == client)
+
+   if (!client) {
+      return;
+   }
+
+   for (size_t i = 0 ; i < G_N_ELEMENTS(typing_throttle) ; i++) {
+      if (typing_throttle[i].client == client) {
          memset(&typing_throttle[i], 0, sizeof(typing_throttle[i]));
+      }
    }
 }
 
 static void rrserver_handle_typing(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
-   if (!data || !client || !client->authenticated) return;
+
+   if (!data || !client || !client->authenticated) {
+      return;
+   }
    dict *d = json2dict(data);
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", "");
    const char *state = dict_get(d, "talk.typing", "");
-   if (!*room || !ws_client_in_room(client, room) ||
-       (strcmp(state, "started") && strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle"))) {
+
+   if (!*room || !ws_client_in_room(client, room) || (strcmp(state, "started") && strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle")))
+   {
       dict_free(d);
+
       return;
    }
+
    if (!typing_can_publish(client, room, state)) {
       dict_free(d);
+
       return;
    }
+
    if (!*typing_incarnation) {
       char *epoch = g_uuid_string_random();
+
       if (!epoch) {
-         Log(LOG_WARN, "cluster.presence",
-             "Cannot publish typing state in %s: unable to generate a server incarnation UUID", room);
+         Log(LOG_WARN, "cluster.presence", "Cannot publish typing state in %s: unable to generate a server incarnation UUID", room);
          dict_free(d);
+
          return;
       }
       g_strlcpy(typing_incarnation, epoch, sizeof(typing_incarnation));
@@ -244,8 +304,7 @@ static void rrserver_handle_typing(const char *event, const char *data, rrconn_t
    dict_add(d, "talk.epoch", typing_incarnation);
    dict_add_ullong(d, "talk.seq", ++typing_sequence);
    dict_add_uint(d, "talk.ttl", strcmp(state, "idle") ? 10 : 0);
-   /* No persistence or replay. Existing publish hook handles subscribed
-    * branches; the room owner remains the only authority for this update. */
+   /* No persistence or replay. Existing publish hook handles subscribed branches; the room owner remains the only authority for this update. */
    ws_broadcast_room_dict(client, d, room);
    dict_free(d);
 }
@@ -284,9 +343,9 @@ static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_
     * File chunks aren't normal chat messages and should not be written to chat_log. They still need to be broadcast.
     */
    if ((!strcasecmp(msg_type, "pub") || !strcasecmp(msg_type, "action") ||
-        !strcasecmp(msg_type, "priv") || !strcasecmp(msg_type, "privmsg")) &&
-       rr_chat_flood_blocked(cptr, channel)) {
+      !strcasecmp(msg_type, "priv") || !strcasecmp(msg_type, "privmsg")) && rr_chat_flood_blocked(cptr, channel)) {
       dict_free(d);
+
       return;
    }
 

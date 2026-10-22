@@ -666,11 +666,13 @@ static rr_mode_t hl_mode_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
 
    rr_mode_t physical = hl_mode_to_rr(state->mode);
    rr_mode_t logical = data->logical_mode[index];
+
    if ((physical == MODE_FM && (logical == MODE_DFM || logical == MODE_MFM)) ||
-       (physical == MODE_USB && logical == MODE_MU) ||
-       (physical == MODE_LSB && logical == MODE_ML))
+      (physical == MODE_USB && logical == MODE_MU) || (physical == MODE_LSB && logical == MODE_ML)) {
       return logical;
+   }
    data->logical_mode[index] = MODE_NONE;
+
    return physical;
 }
 
@@ -779,11 +781,15 @@ static bool hl_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t m
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
 
-   if (!data || !data->rig || !hl_index(vfo, &index)) return true;
-   if (rig_set_mode(data->rig, hl_target(data, index),
-                    hl_mode_from_rr(mode), RIG_PASSBAND_NORMAL) != RIG_OK)
+   if (!data || !data->rig || !hl_index(vfo, &index)) {
       return true;
+   }
+
+   if (rig_set_mode(data->rig, hl_target(data, index), hl_mode_from_rr(mode), RIG_PASSBAND_NORMAL) != RIG_OK) {
+      return true;
+   }
    data->logical_mode[index] = mode;
+
    return false;
 }
 

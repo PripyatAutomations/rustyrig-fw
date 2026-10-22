@@ -53,7 +53,10 @@ static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
-static int rx_channel_volume[2] = {100, 100};
+static int rx_channel_volume[2] = {
+   100, 100
+};
+
 static uint64_t mixer_next_us;
 static uint64_t speaker_retry;
 static bool speaker_failed;
@@ -307,8 +310,8 @@ static void audio_mix_block(void) {
       int16_t stereo[640];
 
       for (size_t i = 0 ; i < frames * 2 ; i++) {
-         int64_t scaled = (int64_t)mixed[i] * rx_channel_volume[i & 1] / 100;
-         stereo[i] = scaled > INT16_MAX ? INT16_MAX : scaled < INT16_MIN ? INT16_MIN : (int16_t)scaled;
+         int64_t scaled = (int64_t) mixed[i] * rx_channel_volume[i & 1] / 100;
+         stereo[i] = scaled > INT16_MAX ? INT16_MAX : scaled < INT16_MIN ? INT16_MIN : (int16_t) scaled;
       }
 
       client_speaker_pcm(stereo, frames * 2 * sizeof(int16_t));
@@ -672,10 +675,13 @@ bool audio_switch_codec(const char *codec, bool is_tx) {
 }
 
 bool audio_set_rx_channel_volume(unsigned channel, int percent) {
-   if (channel > 1) return true;
+   if (channel > 1) {
+      return true;
+   }
    percent = CLAMP(percent, 0, 100);
    rx_channel_volume[channel] = percent;
    dict_add_int(cfg, channel ? "audio.volume.rx.right" : "audio.volume.rx.left", percent);
+
    return false;
 }
 

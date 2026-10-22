@@ -275,8 +275,7 @@ client_cmd_t client_cmds[] = {
 
 
 
-/* Client-side chat pacing, shared by native and IRC plain-text sends.
- * A bounded queue preserves the destination chosen when the user hit Enter. */
+/* Client-side chat pacing, shared by native and IRC plain-text sends. A bounded queue preserves the destination chosen when the user hit Enter. */
 typedef struct {
    rrconn_t *connection;
    char *profile, *window;
@@ -288,35 +287,41 @@ static guint chat_timer;
 static double chat_tokens = 4.0;
 static int chat_burst(void) {
    int burst = cfg_get_int("chat.send.burst", 4);
+
    return burst < 1 ? 1 : burst > 100 ? 100 : burst;
 }
 static int chat_interval(void) {
    int interval = cfg_get_int("chat.send.interval-ms", 2000);
+
    return interval < 100 ? 100 : interval > 60000 ? 60000 : interval;
 }
 static int chat_queue_limit(void) {
    int limit = cfg_get_int("chat.send.queue-limit", 64);
+
    return limit < 1 ? 1 : limit > 1000 ? 1000 : limit;
 }
+
 static gint64 chat_updated;
 
 static gboolean chat_flush(gpointer unused) {
    (void)unused;
    gint64 stamp = g_get_monotonic_time();
-   if (chat_updated && stamp >= chat_updated)
+
+   if (chat_updated && stamp >= chat_updated) {
       chat_tokens = MIN((double)chat_burst(), chat_tokens + (stamp - chat_updated) / ((double)chat_interval() * 1000.0));
+   }
    chat_updated = stamp;
    chat_tokens = MIN(chat_tokens, (double)chat_burst());
    while (chat_queue && !g_queue_is_empty(chat_queue) && chat_tokens >= 1.0) {
       chat_pending_t *next = g_queue_pop_head(chat_queue);
       chat_tokens -= 1.0;
-      if (next->connection && next->profile &&
-          rrclient_connection_find(next->profile) == next->connection &&
-          next->connection->authenticated) {
-         if (next->irc)
+
+      if (next->connection && next->profile && rrclient_connection_find(next->profile) == next->connection && next->connection->authenticated) {
+         if (next->irc) {
             irc_send_dict(next->connection, next->message);
-         else
+         } else {
             ws_send_dict(NULL, next->connection, next->message, WEBSOCKET_OP_TEXT);
+         }
       } else {
          ui_print(next->window, "Queued chat discarded: server disconnected.");
       }
@@ -325,17 +330,27 @@ static gboolean chat_flush(gpointer unused) {
       g_free(next->window);
       g_free(next);
    }
+
    if (!chat_queue || g_queue_is_empty(chat_queue)) {
       chat_timer = 0;
+
       return G_SOURCE_REMOVE;
    }
+
    return G_SOURCE_CONTINUE;
 }
 static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc) {
-   if (!connection || !message) return false;
-   if (!chat_queue) chat_queue = g_queue_new();
+   if (!connection || !message) {
+      return false;
+   }
+
+   if (!chat_queue) {
+      chat_queue = g_queue_new();
+   }
+
    if (g_queue_get_length(chat_queue) >= chat_queue_limit()) {
       ui_print(ui_active_window_name(), "Chat send queue full (%d lines); message not sent.", chat_queue_limit());
+
       return false;
    }
    chat_pending_t *next = g_new0(chat_pending_t, 1);
@@ -346,8 +361,11 @@ static bool chat_send_paced(rrconn_t *connection, dict *message, bool irc) {
    next->irc = irc;
    g_queue_push_tail(chat_queue, next);
    chat_flush(NULL);
-   if (!g_queue_is_empty(chat_queue) && !chat_timer)
+
+   if (!g_queue_is_empty(chat_queue) && !chat_timer) {
       chat_timer = g_timeout_add(100, chat_flush, NULL);
+   }
+
    return true;
 }
 static bool parse_chat_input(const char *msg, bool commands) {
@@ -515,7 +533,10 @@ static bool parse_chat_input(const char *msg, bool commands) {
          dict_add(request, "talk.msg_type", target[0] == '#' || target[0] == '&' ? "pub" : "priv");
          dict_add(request, "talk.data", msg);
          bool sent = chat_send_paced(active_connection, request, true);
-         if (!sent) dict_free(request);
+
+         if (!sent) {
+            dict_free(request);
+         }
 
          return !sent;
       }

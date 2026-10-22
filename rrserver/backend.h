@@ -48,7 +48,7 @@ typedef struct rr_backend_funcs {
    /* Rig-wide hardware controls; percent is normalized to 0..100. */
    bool (*rig_control_set)(rr_backend_t *backend, const char *name, int percent);
    /* Optional, static menu metadata. Enumeration does no hardware I/O. */
-   void (*menu_foreach)(rr_backend_t *, void (*emit)(const char *id, const char *label, void *user), void *user);
+   void (*menu_foreach)(rr_backend_t *, void (*emit) (const char *id, const char *label, void *user), void *user);
    /* Serialized on-demand hardware read. Returned CAT parameter is text. */
    bool (*menu_read)(rr_backend_t *, const char *id, char *value, size_t capacity);
    bool (*menu_write)(rr_backend_t *, const char *id, const char *value);

@@ -55,22 +55,23 @@ struct listing {
    uint64_t started;
 };
 /* Only the displayed size is abbreviated; the model retains exact bytes. */
-static void size_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
-                      GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
+static void size_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    guint64 bytes = 0;
    gboolean directory = FALSE;
    char *path = NULL;
    gtk_tree_model_get(model, iter, SIZE, &bytes, DIRECTORY, &directory, PATH, &path, -1);
    char size[48] = "";
+
    if (path && *path && !directory) {
-      if (bytes >= 1000000000ULL)
+      if (bytes >= 1000000000ULL) {
          g_snprintf(size, sizeof(size), "%.2f GB", bytes / 1000000000.0);
-      else if (bytes >= 1000000ULL)
+      } else if (bytes >= 1000000ULL) {
          g_snprintf(size, sizeof(size), "%.2f MB", bytes / 1000000.0);
-      else if (bytes >= 1000ULL)
+      } else if (bytes >= 1000ULL) {
          g_snprintf(size, sizeof(size), "%.2f kB", bytes / 1000.0);
-      else
+      } else {
          g_snprintf(size, sizeof(size), "%" G_GUINT64_FORMAT " B", bytes);
+      }
    }
    g_object_set(cell, "text", size, NULL);
    rr_list_zebra_cell(column, cell, model, iter, unused);
@@ -647,14 +648,14 @@ static void action(GtkButton *button, gpointer data) {
          status("Select a writable file or directory.");
          goto done;
       }
-      /* Rename is a move to another basename in the same virtual directory.
-       * Accept either a plain basename or a full virtual destination path. */
+      /* Rename is a move to another basename in the same virtual directory. Accept either a plain basename or a full virtual destination path. */
       char *value = prompt("Move / Rename — new name or destination path", path);
 
       if (value && *value && strcmp(value, path)) {
          char *parent = g_path_get_dirname(path);
          char *dest = value[0] == '/' ? g_strdup(value) : g_build_filename(parent, value, NULL);
          char *id = rrclient_files_request(connection(), "rename", path, dest);
+
          if (!id) {
             status("Unable to request move / rename.");
          }
@@ -755,8 +756,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    };
 
    for (int col = 0 ; col < 6 ; col++) {
-      /* Readability remains in the model for authorization and actions, but
-       * displaying a Read checkbox adds no useful information. */
+      /* Readability remains in the model for authorization and actions, but displaying a Read checkbox adds no useful information. */
       if (col == PATH || col == DIRECTORY || col == READABLE) {
          continue;
       }
@@ -769,9 +769,9 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
          || col == WRITABLE ? "active" : "text", col, NULL);
       g_object_set_data(G_OBJECT(column), "rr-zebra-view", browser.tree);
 
-      gtk_tree_view_column_set_cell_data_func(column, cell,
-         col == SIZE ? size_cell : rr_list_zebra_cell, NULL, NULL);
+      gtk_tree_view_column_set_cell_data_func(column, cell, col == SIZE ? size_cell : rr_list_zebra_cell, NULL, NULL);
       gtk_tree_view_column_set_resizable(column, TRUE);
+
       if (col == NAME) {
          gtk_tree_view_column_set_expand(column, TRUE);
          gtk_tree_view_column_set_min_width(column, 260);

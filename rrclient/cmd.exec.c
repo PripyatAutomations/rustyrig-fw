@@ -245,14 +245,15 @@ static void exec_closed(const char *event, const char *data, rrconn_t *connectio
       }
    }
 }
-/* Display a local text file in the originating client window. Never invoke a
- * shell or route these lines through the chat command parser. */
+
+/* Display a local text file in the originating client window. Never invoke a shell or route these lines through the chat command parser. */
 static bool exec_cat_file(const char *path) {
    const char *window = ui_active_window_name();
    FILE *file = fopen(path, "rb");
 
    if (!file) {
       ui_print(window, "Exec -c: cannot open %s: %s", path, g_strerror(errno));
+
       return true;
    }
    char *line = NULL;
@@ -264,13 +265,16 @@ static bool exec_cat_file(const char *path) {
       if (length && line[length - 1] == '\n') {
          length--;
       }
+
       if (length && line[length - 1] == '\r') {
          length--;
       }
+
       if ((size_t)length > EXEC_LINE_MAX) {
          ui_print(window, "Exec -c: skipped a line exceeding 16 KiB.");
          continue;
       }
+
       if (memchr(line, 0, (size_t)length)) {
          ui_print(window, "Exec -c: skipped a binary line.");
          continue;
@@ -287,6 +291,7 @@ static bool exec_cat_file(const char *path) {
    }
    free(line);
    fclose(file);
+
    return failed;
 }
 bool cmd_exec(int argc, char **args) {
@@ -307,10 +312,13 @@ bool cmd_exec(int argc, char **args) {
       while (isspace((unsigned char)*path)) {
          path++;
       }
+
       if (!*path) {
          ui_print(ui_active_window_name(), "Usage: /exec -c <local file>");
+
          return true;
       }
+
       return exec_cat_file(path);
    }
 

@@ -374,20 +374,16 @@ void rr_sercom_focus_room(const char *profile, const char *room) {
    alias[length] = 0;
 
    for (serial_binding_t *b = bindings ; b ; b = b->next) {
-      /* Only the three unnumbered default PTYs float with the active rig.
-       * Numbered ports (ttyGPS0, ttyCAT1, ttyMODEM2, etc.) are manually bound. */
+      /* Only the three unnumbered default PTYs float with the active rig. Numbered ports (ttyGPS0, ttyCAT1, ttyMODEM2, etc.) are manually bound. */
       bool cat = !strcmp(b->name, "ttyCAT") && !strcmp(b->service, "rig.cat");
       bool modem = !strcmp(b->name, "ttyMODEM") && !strcmp(b->service, "rig.modem");
-      bool gps = !strcmp(b->name, "ttyGPS") &&
-         (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out"));
+      bool gps = !strcmp(b->name, "ttyGPS") && (!strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out"));
 
       if (!cat && !gps && !modem) {
          continue;
       }
 
-      if (!strcmp(b->profile, profile) &&
-          (gps ? !strcmp(b->focus_room, room) :
-           !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room)))) {
+      if (!strcmp(b->profile, profile) && (gps ? !strcmp(b->focus_room, room) : !strcmp(b->radio, alias) && (!cat || !strcmp(b->focus_room, room)))) {
          continue;
       }
 
@@ -583,20 +579,27 @@ static bool line_changed(const rr_serial_settings_t *a, const rr_serial_settings
    return a->baud != b->baud || a->bits != b->bits || a->parity != b->parity || a->stops != b->stops;
 }
 static bool modem_mode_active(const serial_binding_t *b) {
-   if (strcmp(b->name, "ttyMODEM") || strcmp(b->service, "rig.modem")) return true;
+   if (strcmp(b->name, "ttyMODEM") || strcmp(b->service, "rig.modem")) {
+      return true;
+   }
    const char *mode = rr_cat_property(NULL, "mode", NULL);
+
    return mode && (!strcmp(mode, "D-U") || !strcmp(mode, "D-L"));
 }
 static void host_sync(serial_binding_t *b) {
    if (!modem_mode_active(b)) {
-      if (b->stream) host_command(b, "close");
+      if (b->stream) {
+         host_command(b, "close");
+      }
       b->stream = 0;
       b->opening = b->rx_pending = b->tx_pending = false;
       b->failed = false;
       b->retry_seconds = 0;
       b->next_retry_us = 0;
+
       return;
    }
+
    if (!host_binding(b)) {
       return;
    }
@@ -812,9 +815,10 @@ static void host_message(const char *event, const char *data, rrconn_t *client, 
          goto done;
       }
       const char *reason = dict_get(d, "serial.error", cmd);
-      if (strcmp(b->service, "rig.modem") ||
-          (strcmp(reason, "not-found") && strcmp(reason, "forbidden-device")))
+
+      if (strcmp(b->service, "rig.modem") || (strcmp(reason, "not-found") && strcmp(reason, "forbidden-device"))) {
          Log(LOG_WARN, "serial", "%s: %s", b->name, reason);
+      }
 
       if (!strcmp(dict_get(d, "serial.error", ""), "settings-failed")) {
          b->configure_pending = false;
@@ -932,17 +936,15 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
             bool floating = !strcmp(b->service, "rig.gps-out") || !strcmp(b->service, "rig.nmea-out");
 
             bool deliver = false;
+
             if (floating) {
-               /* The unnumbered ttyGPS follows the frontend's selected rig.
-                * Room names are advisory: media already marks the active
-                * stream, and some GPS channels advertise a different room
-                * alias than the focused VFO. */
-               deliver = b->focus_room[0] && *control_room ?
-                  ws_room_same_rig(b->focus_room, control_room) || selected : selected;
+               /* The unnumbered ttyGPS follows the frontend's selected rig. Room names are advisory: media already marks the active stream, and some GPS
+                * channels advertise a different room alias than the focused VFO. */
+               deliver = b->focus_room[0] && *control_room ? ws_room_same_rig(b->focus_room, control_room) || selected : selected;
             } else {
-               deliver = !strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) ||
-                  (!strcmp(scope, "active") && selected);
+               deliver = !strcmp(scope, source) || (*uuid && !strcmp(scope, uuid)) || (!strcmp(scope, "active") && selected);
             }
+
             if (deliver && rr_serial_write(b->port, frame, len)) {
                console_notify(b->name, frame, (size_t)len, true);
             }

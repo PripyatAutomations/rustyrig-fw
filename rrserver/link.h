@@ -16,8 +16,7 @@ void rrserver_links_poll(void);
 void rrserver_links_fini(void);
 const char *rrserver_links_node(void);
 const char *rrserver_links_route(const char *node);
-/* Human-facing label: site [uuid] when known, UUID otherwise.
- * Never use this string in protocol fields, keys or identity comparisons. */
+/* Human-facing label: site [uuid] when known, UUID otherwise. Never use this string in protocol fields, keys or identity comparisons. */
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity);
 bool rrserver_links_send(const char *node, dict *message);
 void rrserver_links_broadcast(dict *message);

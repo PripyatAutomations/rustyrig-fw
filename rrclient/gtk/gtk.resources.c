@@ -183,22 +183,22 @@ static void resource_expansion_save(resource_branch *branch) {
    }
    resource_expansion_walk(&branch->root, branch->profile, branch->expanded, false);
 }
-/* Expand the useful topology on first load, leaving extensive configuration
- * branches closed until explicitly requested. */
+
+/* Expand the useful topology on first load, leaving extensive configuration branches closed until explicitly requested. */
 static void resource_collapse_settings(GtkTreeIter *parent) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
-   for (gboolean more = gtk_tree_model_iter_children(model, &child, parent);
-        more; more = gtk_tree_model_iter_next(model, &child)) {
+
+   for (gboolean more = gtk_tree_model_iter_children(model, &child, parent) ; more ; more = gtk_tree_model_iter_next(model, &child)) {
       resource_collapse_settings(&child);
       char *kind = NULL, *name = NULL;
       gtk_tree_model_get(model, &child, KIND, &kind, NAME, &name, -1);
-      gboolean settings = !g_strcmp0(kind, "rig-menu") ||
-         !g_strcmp0(kind, "rig-menu-group") ||
-         (!g_strcmp0(kind, "group") && !g_strcmp0(name, "Controls"));
+      gboolean settings = !g_strcmp0(kind, "rig-menu") || !g_strcmp0(kind, "rig-menu-group") || (!g_strcmp0(kind, "group") && !g_strcmp0(name, "Controls"));
+
       if (settings) {
          GtkTreePath *child_path = gtk_tree_model_get_path(model, &child);
          GtkTreePath *path = resource_view_path(child_path);
+
          if (path) {
             gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
             gtk_tree_path_free(path);
@@ -213,12 +213,15 @@ static void resource_expansion_restore(resource_branch *branch) {
    GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
    GtkTreePath *path = resource_view_path(child_path);
    gtk_tree_path_free(child_path);
-   if (!path) return;
 
-   /* Reset this branch before replaying saved state. Expanding only the saved
-    * paths is not enough: GTK can retain expanded paths as tree rows are
-    * replaced during an inventory refresh. */
+   if (!path) {
+      return;
+   }
+
+   /* Reset this branch before replaying saved state. Expanding only the saved paths is not enough: GTK can retain expanded paths as tree rows are replaced
+    * during an inventory refresh. */
    gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
+
    if (!branch->expanded) {
       gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
       resource_collapse_settings(&branch->root);
@@ -737,25 +740,32 @@ static void resource_uuid_copy(GtkMenuItem *item, gpointer unused) {
       gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), uuid, -1);
    }
 }
+
 /* Context actions operate on the clicked subtree only, not other sites. */
 static void resource_subtree_action(GtkMenuItem *item, gpointer unused) {
    (void)unused;
-   if (!browser) return;
+
+   if (!browser) {
+      return;
+   }
    GtkTreeRowReference *ref = g_object_get_data(G_OBJECT(item), "resource-row");
    GtkTreePath *path = ref ? gtk_tree_row_reference_get_path(ref) : NULL;
-   if (!path) return;
-   if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "collapse")))
+
+   if (!path) {
+      return;
+   }
+
+   if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "collapse"))) {
       gtk_tree_view_collapse_row(GTK_TREE_VIEW(browser->tree), path);
-   else
+   } else {
       gtk_tree_view_expand_row(GTK_TREE_VIEW(browser->tree), path, TRUE);
+   }
    gtk_tree_path_free(path);
 }
-static void resource_subtree_menu_item(GtkWidget *menu, GtkTreeModel *model,
-                                       GtkTreePath *path, const char *label, gboolean collapse) {
+static void resource_subtree_menu_item(GtkWidget *menu, GtkTreeModel *model, GtkTreePath *path, const char *label, gboolean collapse) {
    GtkWidget *item = gtk_menu_item_new_with_label(label);
    GtkTreeRowReference *ref = gtk_tree_row_reference_new(model, path);
-   g_object_set_data_full(G_OBJECT(item), "resource-row", ref,
-                          (GDestroyNotify)gtk_tree_row_reference_free);
+   g_object_set_data_full(G_OBJECT(item), "resource-row", ref, (GDestroyNotify) gtk_tree_row_reference_free);
    g_object_set_data(G_OBJECT(item), "collapse", GINT_TO_POINTER(collapse));
    g_signal_connect(item, "activate", G_CALLBACK(resource_subtree_action), NULL);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
@@ -777,16 +787,19 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
 
    if (!gtk_tree_model_get_iter(model, &iter, path)) {
       gtk_tree_path_free(path);
+
       return FALSE;
    }
    gtk_tree_model_get(model, &iter, UUID, &uuid, -1);
    const gboolean has_children = gtk_tree_model_iter_has_child(model, &iter);
    GtkWidget *menu = gtk_menu_new();
+
    if (has_children) {
       resource_subtree_menu_item(menu, model, path, "Expand this subtree", FALSE);
       resource_subtree_menu_item(menu, model, path, "Collapse this subtree", TRUE);
    }
    gtk_tree_path_free(path);
+
    if (uuid && *uuid) {
       if (has_children) {
          gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
@@ -798,8 +811,10 @@ static gboolean resource_uuid_context(GtkWidget *tree, GdkEventButton *event, gp
    } else {
       g_free(uuid);
    }
+
    if (!has_children && (!uuid || !*uuid)) {
       gtk_widget_destroy(menu);
+
       return FALSE;
    }
    gtk_widget_show_all(menu);
@@ -820,12 +835,13 @@ typedef struct {
 
 static void resource_control_send(resource_control_edit_t *edit, int value) {
    /* A reconnect must not send a control to a different server session. */
-   if (!edit->connection || rrclient_connection_find(edit->profile) != edit->connection ||
-       !edit->connection->authenticated || !edit->connection->is_ws) {
+   if (!edit->connection || rrclient_connection_find(edit->profile) != edit->connection || !edit->connection->authenticated || !edit->connection->is_ws) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Control not sent: server connection changed.");
+
       return;
    }
    dict *message = dict_new();
+
    if (!message) {
       return;
    }
@@ -834,12 +850,14 @@ static void resource_control_send(resource_control_edit_t *edit, int value) {
    dict_add(message, "target", edit->uuid);
    dict_add(message, "property.name", edit->property);
    dict_add_int(message, "property.value", value);
+
    if (edit->room && *edit->room) {
       dict_add(message, "request.room", edit->room);
    }
    char request[64];
    snprintf(request, sizeof(request), "explorer-control-%lld", (long long)g_get_monotonic_time());
    dict_add(message, "request.id", request);
+
    if (!ws_send_dict(NULL, edit->connection, message, WEBSOCKET_OP_TEXT)) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Unable to send rig control request.");
    }
@@ -848,6 +866,7 @@ static void resource_control_send(resource_control_edit_t *edit, int value) {
 
 static void resource_control_changed(GtkRange *range, gpointer user) {
    resource_control_edit_t *edit = user;
+
    if (!edit->suppress) {
       resource_control_send(edit, (int)gtk_range_get_value(range));
    }
@@ -864,7 +883,10 @@ static void resource_control_edit_free(gpointer data) {
 static void resource_control_revert(GtkButton *button, gpointer data) {
    (void)button;
    resource_control_edit_t *edit = data;
-   if (!edit->known || edit->read_only) return;
+
+   if (!edit->known || edit->read_only) {
+      return;
+   }
    edit->suppress = TRUE;
    gtk_range_set_value(GTK_RANGE(edit->scale), edit->original);
    edit->suppress = FALSE;
@@ -878,6 +900,7 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    while (gtk_tree_model_iter_parent(model, &parent, &iter)) {
       char *kind = NULL;
       gtk_tree_model_get(model, &parent, KIND, &kind, -1);
+
       if (!g_strcmp0(kind, "rig")) {
          gtk_tree_model_get(model, &parent, UUID, &uuid, ROOM, &room, -1);
          g_free(kind);
@@ -892,20 +915,23 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
       g_free(uuid);
       g_free(room);
       g_free(details);
+
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
+
    if (!connection || !connection->authenticated || !connection->is_ws) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Connect to this server before changing rig controls.");
       g_free(uuid);
       g_free(room);
       g_free(details);
+
       return;
    }
 
    const dict *state = rrclient_object_property(uuid, property);
-   gboolean known = state && dict_get_bool((dict *)state, "property.known", false);
-   int original = known ? CLAMP(dict_get_int((dict *)state, "property.value", 50), 0, 100) : 50;
+   gboolean known = state && dict_get_bool((dict *) state, "property.known", false);
+   int original = known ? CLAMP(dict_get_int((dict *) state, "property.value", 50), 0, 100) : 50;
    resource_control_edit_t *edit = g_new0(resource_control_edit_t, 1);
    edit->connection = connection;
    edit->profile = g_strdup(profile);
@@ -919,9 +945,11 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
 
    GtkWidget *panel = NULL;
    GtkWidget *area = gtk_control_panel_open(name, &panel);
+
    if (!area) {
       resource_control_edit_free(edit);
       g_free(details);
+
       return;
    }
    edit->panel = panel;
@@ -951,6 +979,7 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
    gtk_widget_show_all(panel);
    g_free(details);
 }
+
 typedef struct {
    char *uuid, *property;
    GtkWidget *label;
@@ -960,30 +989,38 @@ typedef struct {
 } resource_menu_read_t;
 static gboolean resource_menu_value_poll(gpointer data) {
    resource_menu_read_t *read = data;
+
    if (++read->attempts > 50) {
       gtk_label_set_text(GTK_LABEL(read->label), "No CAT value received. Check the server and rig CAT logs.");
       read->timer = 0;
+
       return G_SOURCE_REMOVE;
    }
    const dict *state = rrclient_object_property(read->uuid, read->property);
-   const char *version = state ? dict_get((dict *)state, "property.version", NULL) : NULL;
+   const char *version = state ? dict_get((dict *) state, "property.version", NULL) : NULL;
+
    if (state && version && (!read->initial_version || strcmp(version, read->initial_version)) &&
-       dict_get_bool((dict *)state, "property.known", false) &&
-       dict_get_bool((dict *)state, "property.available", true)) {
-      const char *value = dict_get((dict *)state, "property.value", NULL);
+      dict_get_bool((dict *) state, "property.known", false) && dict_get_bool((dict *) state, "property.available", true)) {
+      const char *value = dict_get((dict *) state, "property.value", NULL);
+
       if (value) {
          char *summary = g_strdup_printf("CAT value: %s (raw parameter; read-only)", value);
          gtk_label_set_text(GTK_LABEL(read->label), summary);
          g_free(summary);
          read->timer = 0;
+
          return G_SOURCE_REMOVE;
       }
    }
+
    return G_SOURCE_CONTINUE;
 }
 static void resource_menu_read_free(gpointer data) {
    resource_menu_read_t *read = data;
-   if (read->timer) g_source_remove(read->timer);
+
+   if (read->timer) {
+      g_source_remove(read->timer);
+   }
    g_free(read->uuid);
    g_free(read->property);
    g_free(read->initial_version);
@@ -997,20 +1034,25 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
    int minimum = !strcmp(id, "0504") ? 0 : 1;
    int maximum = !strcmp(id, "0504") ? 100 : 15;
    int digits = !strcmp(id, "0504") ? 3 : 2;
-   long number = GTK_IS_RANGE(selector) ?
-      (long)gtk_range_get_value(GTK_RANGE(selector)) :
-      (long)gtk_combo_box_get_active(GTK_COMBO_BOX(selector)) + minimum;
+   long number = GTK_IS_RANGE(selector) ? (long)gtk_range_get_value(GTK_RANGE(selector)) : (long)gtk_combo_box_get_active(GTK_COMBO_BOX(selector)) + minimum;
+
    if (number < minimum || number > maximum) {
       gtk_label_set_text(GTK_LABEL(read->label), "Invalid value for this setting.");
+
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
+
    if (!connection || !connection->authenticated || !connection->is_ws) {
       gtk_label_set_text(GTK_LABEL(read->label), "Server disconnected; change not sent.");
+
       return;
    }
    dict *request = dict_new();
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    char encoded[12], request_id[64];
    snprintf(encoded, sizeof(encoded), "%0*ld", digits, number);
    snprintf(request_id, sizeof(request_id), "menu-write-%lld", (long long)g_get_monotonic_time());
@@ -1021,21 +1063,28 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
    dict_add(request, "property.value", encoded);
    dict_add(request, "request.id", request_id);
    const dict *cached = rrclient_object_property(read->uuid, read->property);
-   const char *version = cached ? dict_get((dict *)cached, "property.version", NULL) : NULL;
+   const char *version = cached ? dict_get((dict *) cached, "property.version", NULL) : NULL;
    g_free(read->initial_version);
    read->initial_version = version ? g_strdup(version) : NULL;
-   if (read->timer) { g_source_remove(read->timer); read->timer = 0; }
+
+   if (read->timer) {
+      g_source_remove(read->timer);
+      read->timer = 0;
+   }
+
    if (ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT)) {
       gtk_label_set_text(GTK_LABEL(read->label), "Change submitted; awaiting CAT readback…");
       read->attempts = 0;
       read->timer = g_timeout_add(200, resource_menu_value_poll, read);
-   } else gtk_label_set_text(GTK_LABEL(read->label), "Unable to send menu change.");
+   } else {
+      gtk_label_set_text(GTK_LABEL(read->label), "Unable to send menu change.");
+   }
    dict_free(request);
 }
-static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
-                               const char *profile, const char *title, const char *id) {
+static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const char *profile, const char *title, const char *id) {
    if (!profile || !id || strlen(id) != 4) {
       gtk_label_set_text(GTK_LABEL(browser->status), "Cannot open menu: missing server or menu ID.");
+
       return;
    }
    GtkTreeIter current = *item, parent;
@@ -1043,6 +1092,7 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    while (gtk_tree_model_iter_parent(model, &parent, &current)) {
       char *kind = NULL;
       gtk_tree_model_get(model, &parent, KIND, &kind, -1);
+
       if (!g_strcmp0(kind, "rig")) {
          gtk_tree_model_get(model, &parent, UUID, &uuid, -1);
          g_free(kind);
@@ -1052,20 +1102,28 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
       current = parent;
    }
    rrconn_t *conn = rrclient_connection_find(profile);
+
    if (!uuid || !*uuid || !conn || !conn->authenticated || !conn->is_ws) {
       g_free(uuid);
+
       return;
    }
    GtkWidget *panel = NULL, *area = gtk_control_panel_open(title, &panel);
-   if (!area) { g_free(uuid); return; }
+
+   if (!area) {
+      g_free(uuid);
+
+      return;
+   }
    GtkWidget *label = gtk_label_new("Reading one menu value from the rig…");
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
-   gboolean editable = !strcmp(id, "0201") || !strcmp(id, "0202") ||
-      !strcmp(id, "0203") || !strcmp(id, "0204") || !strcmp(id, "0504");
+   gboolean editable = !strcmp(id, "0201") || !strcmp(id, "0202") || !strcmp(id, "0203") || !strcmp(id, "0204") || !strcmp(id, "0504");
    GtkWidget *selector = NULL, *apply = NULL;
+
    if (editable) {
       GtkWidget *line = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
       if (!strcmp(id, "0504")) {
          /* Continuous integer range: show the number next to the slider. */
          selector = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
@@ -1075,11 +1133,13 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
       } else {
          /* Only 15 discrete values: don't make users type padded CAT digits. */
          selector = gtk_combo_box_text_new();
-         for (int n = 1; n <= 15; n++) {
+
+         for (int n = 1 ; n <= 15 ; n++) {
             char text[8];
             snprintf(text, sizeof(text), "%d", n);
             gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(selector), text);
          }
+
          gtk_combo_box_set_active(GTK_COMBO_BOX(selector), 0);
       }
       apply = gtk_button_new_with_label("Apply");
@@ -1095,17 +1155,20 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
    read->property = g_strdup_printf("menu.%s", id);
    read->label = label;
    const dict *cached = rrclient_object_property(uuid, read->property);
+
    if (cached) {
-      const char *version = dict_get((dict *)cached, "property.version", NULL);
+      const char *version = dict_get((dict *) cached, "property.version", NULL);
       read->initial_version = version ? g_strdup(version) : NULL;
    }
    g_object_set_data_full(G_OBJECT(panel), "rr-menu-read", read, resource_menu_read_free);
+
    if (apply) {
       g_object_set_data(G_OBJECT(apply), "menu-selector", selector);
       g_object_set_data_full(G_OBJECT(apply), "menu-profile", g_strdup(profile), g_free);
       g_signal_connect(apply, "clicked", G_CALLBACK(resource_menu_apply), read);
    }
    dict *request = dict_new();
+
    if (request) {
       dict_add(request, "msg.type", "property");
       dict_add(request, "property.cmd", "read");
@@ -1114,10 +1177,12 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item,
       char request_id[64];
       snprintf(request_id, sizeof(request_id), "menu-read-%lld", (long long)g_get_monotonic_time());
       dict_add(request, "request.id", request_id);
-      if (!ws_send_dict(NULL, conn, request, WEBSOCKET_OP_TEXT))
+
+      if (!ws_send_dict(NULL, conn, request, WEBSOCKET_OP_TEXT)) {
          gtk_label_set_text(GTK_LABEL(label), "Unable to send menu read request.");
-      else
+      } else {
          read->timer = g_timeout_add(200, resource_menu_value_poll, read);
+      }
       dict_free(request);
    }
    gtk_widget_show_all(panel);
@@ -1494,14 +1559,14 @@ static gboolean resource_tick(gpointer data) {
       rrclient_connection_dispatch(connection, resource_update_branch, branch);
 
       if (!branch->online) {
-         /* A disconnected profile cannot own live inventory. Invalidate the
-          * request token too, so late replies cannot resurrect stale rows. */
+         /* A disconnected profile cannot own live inventory. Invalidate the request token too, so late replies cannot resurrect stale rows. */
          branch->loading = false;
          branch->loaded = false;
          g_clear_pointer(&branch->request, g_free);
          GtkTreeIter child;
-         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root))
+         while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
             gtk_tree_store_remove(browser->store, &child);
+         }
          set_string(&branch->root, STATE, "Disconnected");
          set_string(&branch->root, OURS, "Disconnected");
       }
@@ -2018,38 +2083,35 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
       icon = "view-refresh-symbolic";
    } else if (!g_strcmp0(kind, "room") || !g_strcmp0(kind, "irc-channel")) {
       icon = "user-available-symbolic";
-   } else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") ||
-              !g_strcmp0(kind, "user-folder") || !g_strcmp0(kind, "user-group")) {
+   } else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") || !g_strcmp0(kind, "user-folder") || !g_strcmp0(kind, "user-group")) {
       icon = "system-users-symbolic";
    } else if (!g_strcmp0(kind, "cat")) {
       icon = "face-cat-symbolic";
    } else if (!g_strcmp0(kind, "gps")) {
       icon = "find-location-symbolic";
    } else if (!g_strcmp0(kind, "media")) {
-      gboolean gps_text = (name && (strstr(name, ".gps.") || strstr(name, ".nmea."))) ||
-                          (details && (strstr(details, "gpsp") || strstr(details, "nmea")));
+      gboolean gps_text = (name && (strstr(name, ".gps.") || strstr(name, ".nmea."))) || (details && (strstr(details, "gpsp") || strstr(details, "nmea")));
+
       if (gps_text) {
-         icon = name && (g_str_has_suffix(name, ".tx") || g_str_has_suffix(name, ".out")) ?
-            "go-next-symbolic" : "go-previous-symbolic";
+         icon = name && (g_str_has_suffix(name, ".tx") || g_str_has_suffix(name, ".out")) ? "go-next-symbolic" : "go-previous-symbolic";
       } else if (name && (g_str_has_suffix(name, ".tx") || strstr(name, ".tx."))) {
          icon = "audio-input-microphone-symbolic";
       } else {
          icon = "audio-headphones-symbolic";
       }
-   } else if (!g_strcmp0(kind, "rig-menu") || !g_strcmp0(kind, "rig-menu-group") ||
-              !g_strcmp0(kind, "rig-menu-item")) {
+   } else if (!g_strcmp0(kind, "rig-menu") || !g_strcmp0(kind, "rig-menu-group") || !g_strcmp0(kind, "rig-menu-item")) {
       icon = "emblem-system-symbolic";
    } else if (!g_strcmp0(kind, "rig-control")) {
-      if ((action && strstr(action, "brightness")) || (name && strstr(name, "Brightness")))
+      if ((action && strstr(action, "brightness")) || (name && strstr(name, "Brightness"))) {
          icon = "display-brightness-symbolic";
-      else if ((action && strstr(action, "volume")) || (name && strstr(name, "Volume")))
+      } else if ((action && strstr(action, "volume")) || (name && strstr(name, "Volume"))) {
          icon = "audio-volume-high-symbolic";
-      else
+      } else {
          icon = "emblem-system-symbolic";
+      }
    } else if (!g_strcmp0(kind, "control")) {
       icon = "emblem-system-symbolic";
-   } else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "serial-folder") ||
-              !g_strcmp0(kind, "local-port")) {
+   } else if (!g_strcmp0(kind, "serial") || !g_strcmp0(kind, "serial-folder") || !g_strcmp0(kind, "local-port")) {
       icon = "network-wired-symbolic";
    } else if (!g_strcmp0(kind, "device") || !g_strcmp0(kind, "attachment")) {
       /* Local tty endpoints are serial ports whether physical or attached PTYs. */
@@ -2059,33 +2121,42 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    } else if (!g_strcmp0(kind, "file") || !g_strcmp0(kind, "share")) {
       icon = "folder-symbolic";
    } else if (!g_strcmp0(kind, "group")) {
-      if (!g_strcmp0(name, "GPS"))
+      if (!g_strcmp0(name, "GPS")) {
          icon = "find-location-symbolic";
-      else if (!g_strcmp0(name, "Controls"))
+      } else if (!g_strcmp0(name, "Controls")) {
          icon = "emblem-system-symbolic";
-      else if (!g_strcmp0(name, "Serial Ports"))
+      } else if (!g_strcmp0(name, "Serial Ports")) {
          icon = "network-wired-symbolic";
-      else if (!g_strcmp0(name, "Network Services"))
+      } else if (!g_strcmp0(name, "Network Services")) {
          icon = "network-transmit-receive-symbolic";
-      else if (!g_strcmp0(name, "Rooms"))
+      } else if (!g_strcmp0(name, "Rooms")) {
          icon = "user-available-symbolic";
-      else if (!g_strcmp0(name, "Users"))
+      } else if (!g_strcmp0(name, "Users")) {
          icon = "system-users-symbolic";
-      else
+      } else {
          icon = "folder-symbolic";
+      }
    }
    GtkIconTheme *theme = gtk_icon_theme_get_default();
+
    if (theme && !gtk_icon_theme_has_icon(theme, icon)) {
       /* Some themes omit specialty symbolic names. Keep the resource visible. */
-      if (!g_strcmp0(kind, "rig")) icon = "network-wireless";
-      else if (!g_strcmp0(kind, "vfo")) icon = "view-refresh";
-      else if (!g_strcmp0(kind, "cat")) icon = gtk_icon_theme_has_icon(theme, "face-cat") ? "face-cat" : "face-smile-symbolic";
-      else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") || !g_strcmp0(name, "Users")) icon = "system-users";
-      else if (!g_strcmp0(kind, "rig-control") && name && (strstr(name, "Brightness") || strstr(name, "Backlight") || strstr(name, "Contrast") || strstr(name, "Indicator")))
+      if (!g_strcmp0(kind, "rig")) {
+         icon = "network-wireless";
+      } else if (!g_strcmp0(kind, "vfo")) {
+         icon = "view-refresh";
+      } else if (!g_strcmp0(kind, "cat")) {
+         icon = gtk_icon_theme_has_icon(theme, "face-cat") ? "face-cat" : "face-smile-symbolic";
+      } else if (!g_strcmp0(kind, "user") || !g_strcmp0(kind, "users") || !g_strcmp0(name, "Users")) {
+         icon = "system-users";
+      } else if (!g_strcmp0(kind, "rig-control") && name && (strstr(name, "Brightness") || strstr(name, "Backlight") || strstr(name, "Contrast")
+         || strstr(name, "Indicator"))) {
          icon = "display-brightness";
-      else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Volume"))
+      } else if (!g_strcmp0(kind, "rig-control") && name && strstr(name, "Volume")) {
          icon = "audio-volume-high";
-      else icon = "folder";
+      } else {
+         icon = "folder";
+      }
    }
    g_object_set(cell, "icon-name", icon, "visible", g_strcmp0(kind, "cat") != 0, NULL);
    g_free(kind);
@@ -2093,10 +2164,9 @@ static void resource_icon_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
    g_free(action);
    g_free(details);
 }
-/* CAT gets the side-view cat glyph rather than a theme-dependent cat face.
- * Keep the regular themed icon renderer for every other resource kind. */
-static void resource_cat_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
-                              GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+
+/* CAT gets the side-view cat glyph rather than a theme-dependent cat face. Keep the regular themed icon renderer for every other resource kind. */
+static void resource_cat_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
    (void)column;
    (void)user;
    char *kind = NULL;
@@ -2598,14 +2668,11 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       }
       g_free(parent_kind);
    }
-   /* Yaesu FT-891 exposes four-digit EX menu IDs. The first two digits
-    * select the same 18 menu sections shown on the physical radio.
-    * Grouping is client-only: the CAT ID, service and wire ancestry remain
-    * unchanged, so selection/read/write still address the original item. */
+
+   /* Yaesu FT-891 exposes four-digit EX menu IDs. The first two digits select the same 18 menu sections shown on the physical radio. Grouping is client-only:
+    * the CAT ID, service and wire ancestry remain unchanged, so selection/read/write still address the original item. */
    if (!strcmp(kind, "rig-menu-item") && owner_found &&
-       g_ascii_isdigit(name[0]) && g_ascii_isdigit(name[1]) &&
-       name[2] == '-' && g_ascii_isdigit(name[3]) &&
-       g_ascii_isdigit(name[4]) && name[5] == ' ') {
+      g_ascii_isdigit(name[0]) && g_ascii_isdigit(name[1]) && name[2] == '-' && g_ascii_isdigit(name[3]) && g_ascii_isdigit(name[4]) && name[5] == ' ') {
       static const char *ft891_sections[] = {
          "AGC", "DISPLAY", "DVS", "KEYER", "GENERAL", "MODE AM",
          "MODE CW", "MODE DAT", "MODE FM", "MODE RTY", "MODE SSB",
@@ -2613,31 +2680,33 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
          "RESET", "VERSION"
       };
       char *parent_kind = NULL, *parent_details = NULL;
-      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter,
-         KIND, &parent_kind, DETAILS, &parent_details, -1);
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter, KIND, &parent_kind, DETAILS, &parent_details, -1);
       unsigned section = (unsigned)(name[0] - '0') * 10u + (unsigned)(name[1] - '0');
-      if (!g_strcmp0(parent_kind, "rig-menu") &&
-          parent_details && strstr(parent_details, "FT-891") &&
-          section >= 1 && section <= G_N_ELEMENTS(ft891_sections)) {
+
+      if (!g_strcmp0(parent_kind, "rig-menu") && parent_details && strstr(parent_details, "FT-891") && section >= 1 && section <= G_N_ELEMENTS(ft891_sections))
+      {
          char title[64];
          snprintf(title, sizeof(title), "%02u %s", section, ft891_sections[section - 1]);
          GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
          GtkTreeIter sibling, group;
          gboolean found = FALSE;
-         for (gboolean ok = gtk_tree_model_iter_children(model, &sibling, parent_iter);
-              ok; ok = gtk_tree_model_iter_next(model, &sibling)) {
+
+         for (gboolean ok = gtk_tree_model_iter_children(model, &sibling, parent_iter) ; ok ; ok = gtk_tree_model_iter_next(model, &sibling)) {
             char *sibling_kind = NULL, *sibling_name = NULL;
             gtk_tree_model_get(model, &sibling, KIND, &sibling_kind, NAME, &sibling_name, -1);
-            found = !g_strcmp0(sibling_kind, "rig-menu-group") &&
-               !g_strcmp0(sibling_name, title);
+            found = !g_strcmp0(sibling_kind, "rig-menu-group") && !g_strcmp0(sibling_name, title);
             g_free(sibling_kind);
             g_free(sibling_name);
-            if (found) { group = sibling; break; }
+
+            if (found) {
+               group = sibling;
+               break;
+            }
          }
+
          if (!found) {
             gtk_tree_store_append(browser->store, &group, parent_iter);
-            gtk_tree_store_set(browser->store, &group, NAME, title,
-               KIND, "rig-menu-group", PROFILE, profile, -1);
+            gtk_tree_store_set(browser->store, &group, NAME, title, KIND, "rig-menu-group", PROFILE, profile, -1);
          }
          explicit_parent = group;
          parent_iter = &explicit_parent;
@@ -2736,11 +2805,9 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       }
       const char *identity = *model && strcmp(model, "NET rigctl") && strcmp(model, "NET rigctl (Hamlib)") ? model : name;
       /* Put the rig alias first, consistently with local rig labels. */
-      label = g_strdup_printf("%s%s%s%s%s%s%s", name,
-         strcmp(identity, name) ? " [" : "",
-         strcmp(identity, name) ? identity : "",
-         strcmp(identity, name) ? "]" : "",
-         *location ? " (" : "", *location ? location : "", *location ? ")" : "");
+      label = g_strdup_printf("%s%s%s%s%s%s%s", name, strcmp(identity, name) ? " [" : "", strcmp(identity, name) ? identity : "", strcmp(identity, name) ? "]" :
+         "", *location ? " (" : "", *location ? location : "", *location ? ")" : "");
+
       if (*position) {
          char *with_position = g_strconcat(label, " ", position, NULL);
          g_free(label);
@@ -2764,7 +2831,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    }
    gtk_tree_store_set(browser->store, &iter, NAME, label ? label : name, KIND, kind, STATE, *state ? state : "Discovered", SERVER_STATE, state, DETAILS, details
       ->str, COORDINATES, dict_get(row, "inventory.coordinates", !strcmp(kind, "gps") ? "Unknown / no fix" : ""), UUID, dict_get(row, "inventory.uuid", ""),
-      ROOM, room, PROFILE, profile, SERVICE, !strcmp(kind, "rig-menu-item") ? dict_get(row, "inventory.service", "") : service ? service : "", ACTION, (!strcmp(kind, "control")
+      ROOM, room, PROFILE, profile, SERVICE, !strcmp(kind, "rig-menu-item") ? dict_get(row, "inventory.service", "") : service ? service : "", ACTION, (!strcmp(
+         kind, "control")
          || !strcmp(kind, "rig-control")) ? dict_get(row, "inventory.service", "") : dict_get(row, "inventory.action", ""), -1);
 
    if (branch->selection) {
@@ -2776,11 +2844,15 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
           * selecting a child-model iter directly triggers GTK's stamp assertion. */
          GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
          GtkTreePath *view_path = resource_view_path(child_path);
+
          if (view_path) {
             gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(browser->tree)), view_path);
             gtk_tree_path_free(view_path);
          }
-         if (child_path) gtk_tree_path_free(child_path);
+
+         if (child_path) {
+            gtk_tree_path_free(child_path);
+         }
       }
       g_free(key);
    }

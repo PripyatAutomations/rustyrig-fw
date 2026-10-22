@@ -1017,6 +1017,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
          tui_window_focus("status");
       }
       const char *actor = dict_get(d, "talk.user", "");
+
       if (actor && *actor) {
          ui_print(NULL, "\00308Room %s was removed by %s\017", room, actor);
       } else {

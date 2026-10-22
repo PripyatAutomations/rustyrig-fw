@@ -295,14 +295,18 @@ const char *rrclient_window_name(const char *room) {
    return w->key;
 }
 
-/* Lookup only: never create a window for a rejected JOIN or a numeric.
- * Match the originating connection, not the currently selected server. */
+/* Lookup only: never create a window for a rejected JOIN or a numeric. Match the originating connection, not the currently selected server. */
 const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room) {
-   if (!connection || !room || !*room) return NULL;
-   for (client_window_t *w = windows; w; w = w->next) {
-      if (w->server && w->server->connection == connection && window_room_equal(w, room))
-         return w->key;
+   if (!connection || !room || !*room) {
+      return NULL;
    }
+
+   for (client_window_t *w = windows ; w ; w = w->next) {
+      if (w->server && w->server->connection == connection && window_room_equal(w, room)) {
+         return w->key;
+      }
+   }
+
    return NULL;
 }
 

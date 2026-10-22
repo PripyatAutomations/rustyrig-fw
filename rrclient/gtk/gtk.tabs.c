@@ -247,7 +247,10 @@ static void tabs_selected(GtkNotebook *notebook, GtkWidget *page, guint number, 
 
    for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
-      if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) continue;
+
+      if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) {
+         continue;
+      }
       tab_set_selected(button, g_object_get_data(G_OBJECT(button), "rr-tab-page") == page);
    }
 
@@ -284,9 +287,9 @@ static void tab_title_changed(GObject *source, GParamSpec *spec, GtkWidget *butt
    }
    GtkWidget *label = g_object_get_data(G_OBJECT(button), "rr-tab-title");
 
-   /* Lowercase is only a visual treatment: source labels, page IDs and
-    * shortcut handling retain their original spelling. */
+   /* Lowercase is only a visual treatment: source labels, page IDs and shortcut handling retain their original spelling. */
    char *lower = g_utf8_strdown(title, -1);
+
    if (gtk_label_get_use_markup(GTK_LABEL(source))) {
       gtk_label_set_markup(GTK_LABEL(label), lower);
    } else {
@@ -300,8 +303,14 @@ static gint tabs_compare(GtkFlowBoxChild *a, GtkFlowBoxChild *b, gpointer data) 
    GtkWidget *left = gtk_bin_get_child(GTK_BIN(a));
    GtkWidget *right = gtk_bin_get_child(GTK_BIN(b));
 
-   if (g_object_get_data(G_OBJECT(left), "rr-panel-restore")) return 1;
-   if (g_object_get_data(G_OBJECT(right), "rr-panel-restore")) return -1;
+   if (g_object_get_data(G_OBJECT(left), "rr-panel-restore")) {
+      return 1;
+   }
+
+   if (g_object_get_data(G_OBJECT(right), "rr-panel-restore")) {
+      return -1;
+   }
+
    return gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(left), "rr-tab-page")) -
           gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(right), "rr-tab-page"));
 }
@@ -315,7 +324,10 @@ static void tabs_reordered(GtkNotebook *notebook, GtkWidget *page, guint number,
 
    for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
-      if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) continue;
+
+      if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) {
+         continue;
+      }
       int index = gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(button), "rr-tab-page")) + 1;
       GtkLabel *label = g_object_get_data(G_OBJECT(button), "rr-tab-number");
       char markup[48];
@@ -398,7 +410,10 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
 
    for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
-      if (!g_object_get_data(G_OBJECT(button), "rr-panel-restore")) gtk_widget_destroy(item->data);
+
+      if (!g_object_get_data(G_OBJECT(button), "rr-panel-restore")) {
+         gtk_widget_destroy(item->data);
+      }
    }
 
    g_list_free(children);
@@ -408,8 +423,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       GtkWidget *source = gtk_notebook_get_tab_label(notebook, child);
       GtkWidget *button = gtk_toggle_button_new();
       GtkWidget *label = gtk_label_new(NULL);
-      /* Long room/server names must not force the entire notebook wider.
-       * The full source title remains intact for tooltips and selection. */
+      /* Long room/server names must not force the entire notebook wider. The full source title remains intact for tooltips and selection. */
       gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
       gtk_label_set_max_width_chars(GTK_LABEL(label), 28);
       GtkWidget *number_label = gtk_label_new(NULL);
@@ -518,12 +532,13 @@ gboolean gtk_tabs_step(GtkNotebook *notebook, int direction) {
    return gtk_tabs_select(notebook, (current + (direction < 0 ? count - 1 : 1)) % count + 1);
 }
 
-/* A minimized floating panel is a restore action at the end of the tab
- * strip, not a notebook page (so it never steals a chat tab/shortcut). */
-GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title,
-                                      GCallback callback, gpointer user_data) {
+/* A minimized floating panel is a restore action at the end of the tab strip, not a notebook page (so it never steals a chat tab/shortcut). */
+GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer user_data) {
    GtkWidget *flow = g_object_get_data(G_OBJECT(notebook), "rr-floating-tab-strip");
-   if (!GTK_IS_FLOW_BOX(flow)) return NULL;
+
+   if (!GTK_IS_FLOW_BOX(flow)) {
+      return NULL;
+   }
    /* A tab-shaped container with its own dedicated restore control:
     * the title is not itself an oversized restore button. */
    GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
@@ -539,9 +554,12 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title,
    g_signal_connect(restore, "clicked", callback, user_data);
    gtk_widget_show_all(tab);
    gtk_flow_box_invalidate_sort(GTK_FLOW_BOX(flow));
+
    return gtk_widget_get_parent(tab);
 }
 
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
-   if (GTK_IS_WIDGET(tab)) gtk_widget_destroy(tab);
+   if (GTK_IS_WIDGET(tab)) {
+      gtk_widget_destroy(tab);
+   }
 }

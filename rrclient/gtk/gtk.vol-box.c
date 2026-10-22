@@ -38,52 +38,74 @@ void on_rx_volume_changed(GtkRange *range, gpointer user_data) {
    audio_set_rx_volume((int)gtk_range_get_value(range));
 }
 
-/* Rig Vol is a property of the VFO's owning rig, not a client audio gain.
- * Keep the target transient: every update resolves the active room and VFO. */
+/* Rig Vol is a property of the VFO's owning rig, not a client audio gain. Keep the target transient: every update resolves the active room and VFO. */
 static const char *rig_volume_owner(void) {
    const char *room = rrclient_active_room();
-   if (!room || !*room) return NULL;
+
+   if (!room || !*room) {
+      return NULL;
+   }
    const char *vfo = rrclient_media_vfo_uuid(room, vfo_state_get_active());
    const dict *descriptor = rrclient_object_descriptor(vfo);
-   const char *owner = descriptor ? dict_get((dict *)descriptor, "object.owner", NULL) : NULL;
+   const char *owner = descriptor ? dict_get((dict *) descriptor, "object.owner", NULL) : NULL;
    const dict *rig = rrclient_object_descriptor(owner);
-   return rig && !strcmp(dict_get((dict *)rig, "object.type", ""), "rig") ? owner : NULL;
+
+   return rig && !strcmp(dict_get((dict *) rig, "object.type", ""), "rig") ? owner : NULL;
 }
 static void on_rig_volume_changed(GtkRange *range, gpointer unused) {
    (void)unused;
    const char *owner = rig_volume_owner();
    rrconn_t *connection = rrclient_active_connection();
-   if (!owner || !connection || !connection->authenticated || !connection->is_ws)
+
+   if (!owner || !connection || !connection->authenticated || !connection->is_ws) {
       return;
+   }
    dict *request = dict_new();
-   if (!request) return;
+
+   if (!request) {
+      return;
+   }
    dict_add(request, "msg.type", "property");
    dict_add(request, "property.cmd", "set");
    dict_add(request, "target", owner);
    dict_add(request, "property.name", "audio.speaker.volume");
    dict_add_int(request, "property.value", (int)gtk_range_get_value(range));
    const char *room = rrclient_active_room();
-   if (room && *room) dict_add(request, "request.room", room);
+
+   if (room && *room) {
+      dict_add(request, "request.room", room);
+   }
    ws_send_dict(NULL, connection, request, WEBSOCKET_OP_TEXT);
    dict_free(request);
 }
 static gboolean rig_volume_refresh(gpointer widget) {
    GtkWidget *slider = widget;
-   if (!GTK_IS_RANGE(slider)) return G_SOURCE_REMOVE;
+
+   if (!GTK_IS_RANGE(slider)) {
+      return G_SOURCE_REMOVE;
+   }
    const char *owner = rig_volume_owner();
    const dict *state = owner ? rrclient_object_property(owner, "audio.speaker.volume") : NULL;
    gboolean supported = state != NULL;
    gtk_widget_set_sensitive(slider, supported);
-   if (supported && dict_get_bool((dict *)state, "property.known", false) &&
-       !gtk_widget_has_focus(slider)) {
-      int volume = dict_get_int((dict *)state, "property.value", 0);
-      gulong handler = (gulong)GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(slider), "rig-volume-handler"));
-      if (handler) g_signal_handler_block(slider, handler);
+
+   if (supported && dict_get_bool((dict *) state, "property.known", false) && !gtk_widget_has_focus(slider)) {
+      int volume = dict_get_int((dict *) state, "property.value", 0);
+      gulong handler = (gulong) GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(slider), "rig-volume-handler"));
+
+      if (handler) {
+         g_signal_handler_block(slider, handler);
+      }
       gtk_range_set_value(GTK_RANGE(slider), CLAMP(volume, 0, 100));
-      if (handler) g_signal_handler_unblock(slider, handler);
+
+      if (handler) {
+         g_signal_handler_unblock(slider, handler);
+      }
    }
+
    return G_SOURCE_CONTINUE;
 }
+
 // Returns a GtkWidget with the volume box
 GtkWidget *create_volbox(void) {
    GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);

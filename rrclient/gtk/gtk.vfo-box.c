@@ -214,11 +214,11 @@ GtkWidget *create_vfo_box(void) {
    // ONLINE button
    conn_button = gtk_button_new_with_label("Offline");
    gtk_widget_set_tooltip_text(conn_button, "Toggle online state");
-   /* Size for the longest status and center shorter labels, so transitions
-    * do not shift neighboring controls on narrow screens. */
+   /* Size for the longest status and center shorter labels, so transitions do not shift neighboring controls on narrow screens. */
    GtkWidget *conn_label = gtk_bin_get_child(GTK_BIN(conn_button));
+
    if (GTK_IS_LABEL(conn_label)) {
-      gtk_label_set_width_chars(GTK_LABEL(conn_label), (int) strlen("Offline"));
+      gtk_label_set_width_chars(GTK_LABEL(conn_label), (int)strlen("Offline"));
       gtk_label_set_xalign(GTK_LABEL(conn_label), 0.5f);
    }
    gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);

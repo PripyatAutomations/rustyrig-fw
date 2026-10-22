@@ -758,14 +758,12 @@ static void admin_action(GtkButton *button, gpointer data) {
       GtkWidget *dialog = gtk_dialog_new_with_buttons("Edit database account", GTK_WINDOW(main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
          "Cancel", GTK_RESPONSE_CANCEL, "Set Password", 1001, "Reset PW", 1002, "Edit Privs", 1003, "Save", GTK_RESPONSE_OK, NULL);
       gtk_dialog_add_button(GTK_DIALOG(dialog), "View Sessions…", 1004);
-      /* Snapshot the destination before entering the modal dialog: changing
-       * the globally selected server must not redirect this edit. */
+      /* Snapshot the destination before entering the modal dialog: changing the globally selected server must not redirect this edit. */
       char destination[sizeof(table->profile)];
       g_strlcpy(destination, table->profile, sizeof(destination));
       gchar *account_uid = NULL;
       gtk_tree_model_get(model, &iter, 8, &account_uid, -1);
-      /* The UID is displayed for disambiguation, never edited or used as a
-       * replacement for the server-authoritative account selector. */
+      /* The UID is displayed for disambiguation, never edited or used as a replacement for the server-authoritative account selector. */
       g_object_set_data_full(G_OBJECT(dialog), "rr-account-uid", account_uid, g_free);
       char *heading = g_strdup_printf("Editing account: %s", name);
       gtk_window_set_title(GTK_WINDOW(dialog), heading);
@@ -851,24 +849,25 @@ static void admin_action(GtkButton *button, gpointer data) {
          g_free(username);
          g_free(name);
          g_free(value);
-         for (int col = 0; col < 10; col++) g_free(original[col]);
+
+         for (int col = 0 ; col < 10 ; col++) {
+            g_free(original[col]);
+         }
+
          return;
       }
+
       if (response == GTK_RESPONSE_OK) {
-         /* Never silently send an account edit to a different server after
-          * a context switch or connection change while the dialog is open. */
-         if (g_strcmp0(table->profile, destination) ||
-             !rrclient_connection_find(destination) ||
-             !rrclient_connection_find(destination)->authenticated) {
-            GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog),
-               GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-               "Cannot save %s on %s: destination connection changed or disconnected.",
-               name, destination);
+         /* Never silently send an account edit to a different server after a context switch or connection change while the dialog is open. */
+         if (g_strcmp0(table->profile, destination) || !rrclient_connection_find(destination) || !rrclient_connection_find(destination)->authenticated) {
+            GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+               "Cannot save %s on %s: destination connection changed or disconnected.", name, destination);
             gtk_dialog_run(GTK_DIALOG(error));
             gtk_widget_destroy(error);
             response = GTK_RESPONSE_CANCEL;
          }
       }
+
       if (response == GTK_RESPONSE_OK) {
          dict *fields = dict_new();
 
@@ -902,14 +901,13 @@ static void admin_action(GtkButton *button, gpointer data) {
             if (!changed) {
                gtk_label_set_text(GTK_LABEL(table->status), "No account fields changed");
             } else if (json) {
-               GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(dialog),
-                  GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
-                  "Save changes to %s (UID %s) on server %s?", name,
-                  account_uid && *account_uid ? account_uid : "unavailable", destination);
+               GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK_CANCEL,
+                  "Save changes to %s (UID %s) on server %s?", name, account_uid && *account_uid ? account_uid : "unavailable", destination);
                gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(confirm),
                   "This modifies the account on the named server, not other accounts with the same username.");
                gboolean approved = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_OK;
                gtk_widget_destroy(confirm);
+
                if (approved && admin_command(table, "user-edit", json, name)) {
                   gtk_label_set_text(GTK_LABEL(table->status), "Saving account; awaiting server confirmation");
                }
@@ -1152,9 +1150,9 @@ void gtk_admin_result(const char *data, rrconn_t *connection) {
             gtk_list_store_set(table->store, &iter, col, display, -1);
             g_free(display);
          }
+
          if (*explorer_target_name && !strcmp(explorer_target_table, table->name) &&
-             !strcmp(explorer_target_profile, table->profile) &&
-             !strcmp(dict_get(row, table->fields[0], ""), explorer_target_name)) {
+            !strcmp(explorer_target_profile, table->profile) && !strcmp(dict_get(row, table->fields[0], ""), explorer_target_name)) {
             g_idle_add(explorer_open_edit_idle, NULL);
             explorer_target_name[0] = 0;
          }
@@ -1176,23 +1174,28 @@ static void admin_table_destroy(GtkWidget *widget, gpointer data) {
    table->profile[0] = 0;
 }
 
-/* Select the matching row in the filtered admin model and invoke its
- * existing editor. Run outside the network result callback's call stack. */
+/* Select the matching row in the filtered admin model and invoke its existing editor. Run outside the network result callback's call stack. */
 static int explorer_edit_table = -1;
 static char explorer_edit_name[256];
 static gboolean explorer_open_edit_idle(gpointer unused) {
    (void)unused;
-   if (explorer_edit_table < 0 || explorer_edit_table >= (int)G_N_ELEMENTS(tables)) return G_SOURCE_REMOVE;
+
+   if (explorer_edit_table < 0 || explorer_edit_table >= (int)G_N_ELEMENTS(tables)) {
+      return G_SOURCE_REMOVE;
+   }
    admin_table_t *table = &tables[explorer_edit_table];
    GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(table->tree));
    GtkTreeIter iter;
-   for (gboolean ok = gtk_tree_model_get_iter_first(model, &iter); ok;
-        ok = gtk_tree_model_iter_next(model, &iter)) {
+
+   for (gboolean ok = gtk_tree_model_get_iter_first(model, &iter) ; ok ; ok = gtk_tree_model_iter_next(model, &iter)) {
       gchar *name = NULL;
       gtk_tree_model_get(model, &iter, 0, &name, -1);
       gboolean match = !g_strcmp0(name, explorer_edit_name);
       g_free(name);
-      if (!match) continue;
+
+      if (!match) {
+         continue;
+      }
       GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
       gtk_tree_selection_select_iter(selection, &iter);
       GtkTreePath *path = gtk_tree_model_get_path(model, &iter);
@@ -1204,35 +1207,46 @@ static gboolean explorer_open_edit_idle(gpointer unused) {
       gtk_widget_destroy(button);
       break;
    }
+
    explorer_edit_table = -1;
    explorer_edit_name[0] = 0;
+
    return G_SOURCE_REMOVE;
 }
 
 void gtk_admin_open_resource(const char *profile, const char *kind, const char *name) {
-   if (!admin_view || !main_notebook || !kind || !name || !*name) return;
-   int index = !strcmp(kind, "user") ? 0 : !strcmp(kind, "room") ? 1 :
-      !strcmp(kind, "sessions") ? 5 : -1;
-   if (index < 0) return;
-   if (profile && *profile && g_strcmp0(rrclient_selected_server(), profile))
+   if (!admin_view || !main_notebook || !kind || !name || !*name) {
+      return;
+   }
+   int index = !strcmp(kind, "user") ? 0 : !strcmp(kind, "room") ? 1 : !strcmp(kind, "sessions") ? 5 : -1;
+
+   if (index < 0) {
+      return;
+   }
+
+   if (profile && *profile && g_strcmp0(rrclient_selected_server(), profile)) {
       rrclient_connection_select(profile);
+   }
    admin_table_t *table = &tables[index];
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),
-      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view));
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), admin_view));
    GtkWidget *page = gtk_widget_get_parent(table->tree);
-   while (page && gtk_widget_get_parent(page) != admin_view)
+   while (page && gtk_widget_get_parent(page) != admin_view) {
       page = gtk_widget_get_parent(page);
-   if (page)
-      gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view),
-         gtk_notebook_page_num(GTK_NOTEBOOK(admin_view), page));
+   }
+
+   if (page) {
+      gtk_notebook_set_current_page(GTK_NOTEBOOK(admin_view), gtk_notebook_page_num(GTK_NOTEBOOK(admin_view), page));
+   }
    GtkWidget *filter = g_object_get_data(G_OBJECT(table->tree), "rr-admin-filter");
-   if (GTK_IS_ENTRY(filter))
+
+   if (GTK_IS_ENTRY(filter)) {
       gtk_entry_set_text(GTK_ENTRY(filter), name);
+   }
+
    if (index != 5) {
       g_strlcpy(explorer_target_name, name, sizeof(explorer_target_name));
       g_strlcpy(explorer_target_table, table->name, sizeof(explorer_target_table));
-      g_strlcpy(explorer_target_profile, profile ? profile : rrclient_selected_server(),
-                sizeof(explorer_target_profile));
+      g_strlcpy(explorer_target_profile, profile ? profile : rrclient_selected_server(), sizeof(explorer_target_profile));
       explorer_edit_table = index;
       g_strlcpy(explorer_edit_name, name, sizeof(explorer_edit_name));
    }

@@ -246,39 +246,51 @@ const char *rrserver_links_node(void) {
 const char *rrserver_links_route(const char *node) {
    return rr_link_tree_route(links.tree, node);
 }
-/* Format node identity using the authenticated topology, including nodes
- * learned through introductions. Fall back to configured peer names before
+
+/* Format node identity using the authenticated topology, including nodes learned through introductions. Fall back to configured peer names before
  * establishment; unknown UUIDs remain legible and unambiguous. */
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
-   if (!buffer || !capacity) return "";
+   if (!buffer || !capacity) {
+      return "";
+   }
+
    if (!node || !*node) {
       snprintf(buffer, capacity, "unknown");
+
       return buffer;
    }
    const char *site = NULL;
+
    if (links.tree) {
       rr_link_node_t peer;
-      for (size_t i = 0; rr_link_tree_node(links.tree, i, &peer); i++) {
+
+      for (size_t i = 0 ; rr_link_tree_node(links.tree, i, &peer) ; i++) {
          if (!strcmp(peer.server, node)) {
             site = peer.site;
             break;
          }
       }
    }
-   if ((!site || !*site) && !strcmp(node, links.node))
+
+   if ((!site || !*site) && !strcmp(node, links.node)) {
       site = links.site;
+   }
+
    if (!site || !*site) {
-      for (size_t i = 0; i < links.peer_count; i++) {
+      for (size_t i = 0 ; i < links.peer_count ; i++) {
          if (!strcmp(node, links.peers[i].node)) {
             site = links.peers[i].site;
             break;
          }
       }
    }
-   if (site && *site)
+
+   if (site && *site) {
       snprintf(buffer, capacity, "%s [%s]", site, node);
-   else
+   } else {
       snprintf(buffer, capacity, "%s", node);
+   }
+
    return buffer;
 }
 
@@ -480,6 +492,7 @@ static void establish(struct link_session *session) {
    /* All linked servers must support the post-handshake capability exchange. */
    {
       dict *caps = message("link.capabilities");
+
       if (caps) {
          dict_add(caps, "version", "2.1");
          dict_add(caps, "features", "rig.menu,object.model,relay.files,hostlog.stream");
@@ -517,14 +530,17 @@ static void handle_hello(struct link_session *session, dict *d) {
 
    /* Diagnostic only: handshake sample includes network transit delay. */
    const char *clock_text = dict_get(d, "clock.unix", NULL);
+
    if (clock_text && *clock_text) {
       long long peer_time = atoll(clock_text);
       long long offset = peer_time - (long long)time(NULL);
-      if (offset > 5 || offset < -5)
-         Log(LOG_WARN, "link", "Clock skew with %s [%s]: peer appears %lld seconds %s; verify NTP on both servers",
-            site, node, offset < 0 ? -offset : offset, offset < 0 ? "behind" : "ahead");
-      else
+
+      if (offset > 5 || offset < -5) {
+         Log(LOG_WARN, "link", "Clock skew with %s [%s]: peer appears %lld seconds %s; verify NTP on both servers", site, node, offset < 0 ? -offset : offset,
+            offset < 0 ? "behind" : "ahead");
+      } else {
          Log(LOG_INFO, "link", "Clock sample from %s [%s]: apparent offset %+lld seconds", site, node, offset);
+      }
    }
    char peer_ip[64];
    mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &session->connection->rem);
@@ -690,12 +706,12 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
    } else if (session->established && !strcmp(op, "link.capabilities")) {
       const char *version = dict_get(d, "version", "");
       const char *features = dict_get(d, "features", "");
+
       if (version[0] != '2' || version[1] != '.') {
-         Log(LOG_WARN, "link", "Peer %s [%s] advertises incompatible link protocol version %s; upgrade may be required",
-            session->peer->site, session->node, version);
+         Log(LOG_WARN, "link", "Peer %s [%s] advertises incompatible link protocol version %s; upgrade may be required", session->peer->site, session->node,
+            version);
       } else {
-         Log(LOG_INFO, "link", "Peer %s [%s] protocol %s capabilities: %s",
-            session->peer->site, session->node, version, features);
+         Log(LOG_INFO, "link", "Peer %s [%s] protocol %s capabilities: %s", session->peer->site, session->node, version, features);
       }
    } else if (session->established && !strcmp(op, "link.introduce")) {
       const char *node = dict_get(d, "node", ""), *parent = dict_get(d, "parent", "");
@@ -708,7 +724,8 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       } else {
          links.generation++;
          broadcast(session, d);
-         Log(LOG_INFO, "link", "Introduced server %s [%s] via %s [%s], servers %zu", site, node, session->peer->site, session->node, rr_link_tree_count(links.tree));
+         Log(LOG_INFO, "link", "Introduced server %s [%s] via %s [%s], servers %zu", site, node, session->peer->site, session->node, rr_link_tree_count(links.
+            tree));
       }
    } else if (session->established && !strcmp(op, "link.withdraw")) {
       const char *node = dict_get(d, "node", "");
@@ -733,10 +750,9 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
        * vouches for its authenticated username; a transit peer cannot substitute a user from a different branch. */
       if (!route || strcmp(route, session->node)) {
          char peer_label[192], origin_label[192], route_label[192];
-         Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s",
-             rrserver_links_format_node(session->node, peer_label, sizeof(peer_label)),
-             rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
-             route ? rrserver_links_format_node(route, route_label, sizeof(route_label)) : "(unreachable)");
+         Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s", rrserver_links_format_node(session->node, peer_label, sizeof(
+            peer_label)), rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), route ? rrserver_links_format_node(route, route_label, sizeof(
+               route_label)) : "(unreachable)");
          fail(session, "Message claims to originate from a server outside this peer's network branch");
       } else {
          event_emit_dict("server.link.application", NULL, d);
@@ -1339,8 +1355,11 @@ const char *rrserver_links_route(const char *node) {
 }
 
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
-   if (!buffer || !capacity) return "";
+   if (!buffer || !capacity) {
+      return "";
+   }
    snprintf(buffer, capacity, "%s", node && *node ? node : "unknown");
+
    return buffer;
 }
 

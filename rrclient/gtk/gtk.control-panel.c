@@ -13,12 +13,16 @@ typedef struct {
 static gboolean panel_down(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    PanelDrag *drag = data;
-   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
+
+   if (event->button != GDK_BUTTON_PRIMARY) {
+      return FALSE;
+   }
    drag->dragging = TRUE;
    drag->pointer_x = event->x_root;
    drag->pointer_y = event->y_root;
    drag->origin_x = gtk_widget_get_margin_start(drag->frame);
    drag->origin_y = gtk_widget_get_margin_top(drag->frame);
+
    return TRUE;
 }
 static void panel_position(PanelDrag *drag, double x, double y) {
@@ -30,37 +34,51 @@ static void panel_position(PanelDrag *drag, double x, double y) {
 static gboolean panel_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    (void)widget;
    PanelDrag *drag = data;
-   if (!drag->dragging) return FALSE;
+
+   if (!drag->dragging) {
+      return FALSE;
+   }
    panel_position(drag, event->x_root, event->y_root);
+
    return TRUE;
 }
 static gboolean panel_up(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)widget;
    PanelDrag *drag = data;
-   if (event->button != GDK_BUTTON_PRIMARY || !drag->dragging) return FALSE;
+
+   if (event->button != GDK_BUTTON_PRIMARY || !drag->dragging) {
+      return FALSE;
+   }
    panel_position(drag, event->x_root, event->y_root);
    drag->dragging = FALSE;
+
    return TRUE;
 }
 static void panel_cleared(GtkWidget *frame, gpointer overlay) {
-   if (g_object_get_data(G_OBJECT(overlay), "rr-active-control-panel") == frame)
+   if (g_object_get_data(G_OBJECT(overlay), "rr-active-control-panel") == frame) {
       g_object_set_data(G_OBJECT(overlay), "rr-active-control-panel", NULL);
+   }
 }
 static void panel_css(GtkWidget *frame) {
    GtkCssProvider *css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(css,
       ".rr-control-panel { background-color: @theme_bg_color; border: 1px solid @borders; border-radius: 6px; padding: 8px; }", -1, NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(frame), "rr-control-panel");
-   gtk_style_context_add_provider(gtk_widget_get_style_context(frame),
-      GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(frame), GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(css);
 }
 GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
-   if (!main_window || !GTK_IS_BIN(main_window)) return NULL;
+   if (!main_window || !GTK_IS_BIN(main_window)) {
+      return NULL;
+   }
    GtkWidget *overlay = g_object_get_data(G_OBJECT(main_window), "rr-control-overlay");
+
    if (!overlay) {
       GtkWidget *content = gtk_bin_get_child(GTK_BIN(main_window));
-      if (!content) return NULL;
+
+      if (!content) {
+         return NULL;
+      }
       g_object_ref(content);
       gtk_container_remove(GTK_CONTAINER(main_window), content);
       overlay = gtk_overlay_new();
@@ -70,10 +88,12 @@ GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
       g_object_set_data(G_OBJECT(main_window), "rr-control-overlay", overlay);
       gtk_widget_show(overlay);
    }
-   /* Shared control popups are mutually exclusive; destroying the previous
-    * frame also releases its slider handlers and original-value state. */
+   /* Shared control popups are mutually exclusive; destroying the previous frame also releases its slider handlers and original-value state. */
    GtkWidget *previous = g_object_get_data(G_OBJECT(overlay), "rr-active-control-panel");
-   if (previous) gtk_widget_destroy(previous);
+
+   if (previous) {
+      gtk_widget_destroy(previous);
+   }
    GtkWidget *frame = gtk_frame_new(NULL);
    g_object_set_data(G_OBJECT(overlay), "rr-active-control-panel", frame);
    g_signal_connect(frame, "destroy", G_CALLBACK(panel_cleared), overlay);
@@ -101,7 +121,11 @@ GtkWidget *gtk_control_panel_open(const char *title, GtkWidget **panel_out) {
    g_signal_connect(handle, "button-release-event", G_CALLBACK(panel_up), drag);
    GtkWidget *body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_box_pack_start(GTK_BOX(box), body, TRUE, TRUE, 0);
-   if (panel_out) *panel_out = frame;
+
+   if (panel_out) {
+      *panel_out = frame;
+   }
    gtk_widget_show_all(frame);
+
    return body;
 }

@@ -741,8 +741,7 @@ hide_color_popup:
    return G_SOURCE_REMOVE;
 }
 
-/* Per-composer ephemeral presence. Draft text never leaves the client.
- * Changes are throttled; the room owner will assign sequence and expiry. */
+/* Per-composer ephemeral presence. Draft text never leaves the client. Changes are throttled; the room owner will assign sequence and expiry. */
 typedef struct {
    guint pause_source;
    gint64 last_sent;
@@ -751,54 +750,76 @@ typedef struct {
 
 static void gtk_typing_composer_free(gpointer data) {
    GtkTypingComposer *state = data;
-   if (state->pause_source) g_source_remove(state->pause_source);
+
+   if (state->pause_source) {
+      g_source_remove(state->pause_source);
+   }
    g_free(state);
 }
 
 static GtkTypingComposer *gtk_typing_state(GtkWidget *entry) {
    GtkTypingComposer *state = g_object_get_data(G_OBJECT(entry), "rr-typing-composer");
+
    if (!state) {
       state = g_new0(GtkTypingComposer, 1);
       g_object_set_data_full(G_OBJECT(entry), "rr-typing-composer", state, gtk_typing_composer_free);
    }
+
    return state;
 }
 
 static gboolean gtk_typing_emit(GtkWidget *entry, const char *status) {
    const char *room = g_object_get_data(G_OBJECT(entry), "rr-room-name");
    const char *profile = g_object_get_data(G_OBJECT(entry), "rr-server-name");
-   if (!room || (*room != '#' && *room != '&') || !profile || !*profile ||
-       rrclient_connection_state(profile) != 1) return FALSE;
+
+   if (!room || (*room != '#' && *room != '&') || !profile || !*profile || rrclient_connection_state(profile) != 1) {
+      return FALSE;
+   }
    rrconn_t *connection = rrclient_connection_find(profile);
-   if (!connection || !connection->is_ws) return FALSE;
+
+   if (!connection || !connection->is_ws) {
+      return FALSE;
+   }
    dict *d = dict_new();
-   if (!d) return FALSE;
+
+   if (!d) {
+      return FALSE;
+   }
    dict_add(d, "msg.type", "talk");
    dict_add(d, "talk.cmd", "typing");
    dict_add(d, "talk.target", room);
    dict_add(d, "talk.typing", status);
    gboolean sent = ws_send_dict(NULL, connection, d, WEBSOCKET_OP_TEXT);
    dict_free(d);
+
    return sent;
 }
 
 static gboolean gtk_typing_paused(gpointer user) {
    GtkWidget *entry = user;
    GtkTypingComposer *state = g_object_get_data(G_OBJECT(entry), "rr-typing-composer");
-   if (!state) return G_SOURCE_REMOVE;
+
+   if (!state) {
+      return G_SOURCE_REMOVE;
+   }
    state->pause_source = 0;
+
    if (state->visible && !state->paused) {
       if (gtk_typing_emit(entry, "paused")) {
          state->paused = TRUE;
          state->last_sent = g_get_monotonic_time();
       }
    }
+
    return G_SOURCE_REMOVE;
 }
 
 static void gtk_typing_cancel(GtkWidget *entry) {
-   if (!entry || !GTK_IS_WIDGET(entry)) return;
+   if (!entry || !GTK_IS_WIDGET(entry)) {
+      return;
+   }
    GtkTypingComposer *state = g_object_get_data(G_OBJECT(entry), "rr-typing-composer");
+
    if (state && state->pause_source) {
       g_source_remove(state->pause_source);
       state->pause_source = 0;
@@ -807,34 +828,49 @@ static void gtk_typing_cancel(GtkWidget *entry) {
 
 void gtk_chat_typing_stop_timers(void) {
    typing_shutting_down = TRUE;
-   if (status_room_tab) gtk_typing_cancel(status_room_tab->entry);
+
+   if (status_room_tab) {
+      gtk_typing_cancel(status_room_tab->entry);
+   }
+
    if (room_tabs) {
       GHashTableIter iter;
       gpointer value;
       g_hash_table_iter_init(&iter, room_tabs);
       while (g_hash_table_iter_next(&iter, NULL, &value)) {
          GtkRoomTab *tab = value;
-         if (tab) gtk_typing_cancel(tab->entry);
+
+         if (tab) {
+            gtk_typing_cancel(tab->entry);
+         }
       }
    }
 }
 
 static void gtk_typing_entry_changed(GtkWidget *entry) {
-   if (typing_shutting_down) return;
+   if (typing_shutting_down) {
+      return;
+   }
    GtkTypingComposer *state = gtk_typing_state(entry);
    const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
    gboolean composing = cfg_get_bool("ui.chat.typing", true) && text && *text && *text != '/';
+
    if (state->pause_source) {
       g_source_remove(state->pause_source);
       state->pause_source = 0;
    }
+
    if (!composing) {
-      if (state->visible) gtk_typing_emit(entry, "idle");
+      if (state->visible) {
+         gtk_typing_emit(entry, "idle");
+      }
       state->visible = state->paused = FALSE;
       state->last_sent = 0;
+
       return;
    }
    const gint64 at = g_get_monotonic_time();
+
    if (!state->visible) {
       if (gtk_typing_emit(entry, "started")) {
          state->visible = TRUE;
@@ -846,8 +882,10 @@ static void gtk_typing_entry_changed(GtkWidget *entry) {
          state->last_sent = at;
       }
    }
-   if (state->visible)
+
+   if (state->visible) {
       state->pause_source = g_timeout_add(3000, gtk_typing_paused, entry);
+   }
 }
 
 static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
@@ -938,8 +976,10 @@ static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
    if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active"))) {
       g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, gtk_chat_update_color_popup, g_object_ref(entry), g_object_unref);
    }
-   if (!state->loading)
+
+   if (!state->loading) {
       gtk_typing_entry_changed(entry);
+   }
 }
 
 static void gtk_chat_color_choice(GtkButton *button, gpointer data) {
@@ -1523,8 +1563,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-   /* Text wraps at the viewport allocation, not at the text view's natural
-    * width. Keep a small usable chat minimum while the roster grows. */
+   /* Text wraps at the viewport allocation, not at the text view's natural width. Keep a small usable chat minimum while the roster grows. */
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scrolled), 160);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scrolled), FALSE);
 
@@ -1546,9 +1585,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
-      /* Respect the chat viewport's small minimum, rather than letting GTK
-       * shrink the text view below its allocation and clip it off the left.
-       * The roster (pack2) remains shrinkable and can still grow freely. */
+      /* Respect the chat viewport's small minimum, rather than letting GTK shrink the text view below its allocation and clip it off the left. The roster
+       * (pack2) remains shrinkable and can still grow freely. */
       gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
 
       userlist_dock_room_into(GTK_PANED(paned), room);

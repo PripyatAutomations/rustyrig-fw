@@ -89,10 +89,15 @@ static bool read_number(const char *name, const char *attr, int *out) {
 bool rrserver_backlight_writable(void) {
 #ifdef __linux__
    char device[64], path[256];
-   if (!backlight_device(device, sizeof(device))) return false;
+
+   if (!backlight_device(device, sizeof(device))) {
+      return false;
+   }
    snprintf(path, sizeof(path), "/sys/class/backlight/%s/brightness", device);
+
    return access(path, W_OK) == 0;
 #else
+
    return false;
 #endif
 }
@@ -130,6 +135,7 @@ bool rrserver_backlight_control(int requested, rr_backlight_state_t *state) {
 
       if (fd < 0) {
          Log(LOG_WARN, "platform.backlight", "Cannot open %s for writing: %s (rrserver needs write permission)", path, strerror(errno));
+
          return false;
       }
       char value[32];
@@ -141,6 +147,7 @@ bool rrserver_backlight_control(int requested, rr_backlight_state_t *state) {
       if (!written) {
          errno = saved_errno;
          Log(LOG_WARN, "platform.backlight", "Cannot write %s: %s", path, strerror(saved_errno));
+
          return false;
       }
    }

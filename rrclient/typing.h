@@ -10,8 +10,7 @@
 #include <stdbool.h>
 #include <librrprotocol/rrprotocol.h>
 
-/* Ephemeral room presence, scoped to the receiving connection.
- * The raw nickname and server identity never change for presentation. */
+/* Ephemeral room presence, scoped to the receiving connection. The raw nickname and server identity never change for presentation. */
 typedef enum {
    RR_TYPING_IDLE = 0,
    RR_TYPING_STARTED,

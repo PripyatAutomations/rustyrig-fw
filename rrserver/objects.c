@@ -533,35 +533,68 @@ static bool inventory_rig_control(const rr_property_descriptor_t *d, void *user)
    rig_control_inventory_t *r = user;
 
    const char *label = NULL;
-   if (!strcmp(d->name, "display.contrast")) label = "LCD Contrast";
-   else if (!strcmp(d->name, "display.key-backlight")) label = "Key Backlight";
-   else if (!strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS)) label = "Display Brightness";
-   else if (!strcmp(d->name, "display.tx-indicator")) label = "TX/BUSY Indicator";
-   else if (!strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) label = "Speaker Volume";
-   else if (!strcmp(d->name, "receiver.rf-gain")) label = "RF Gain";
-   else if (!strcmp(d->name, "receiver.attenuator")) label = "RF Attenuator";
-   else if (!strcmp(d->name, "receiver.noise-blanker")) label = "Noise Blanker";
-   else if (!strcmp(d->name, "receiver.noise-blanker-level")) label = "Noise Blanker Level";
-   else if (!strcmp(d->name, "receiver.noise-reduction")) label = "Noise Reduction";
-   else if (!strcmp(d->name, "receiver.noise-reduction-level")) label = "Noise Reduction Level";
-   else if (!strcmp(d->name, "transmit.mic-gain")) label = "Mic Gain";
-   else if (!strcmp(d->name, "transmit.power")) label = "RF Output Power";
-   else if (!strcmp(d->name, "receiver.squelch")) label = "Squelch";
-   else if (!strcmp(d->name, "meter.signal")) label = "Signal Strength";
-   else if (!strcmp(d->name, "receiver.ipo")) label = "IPO / Preamp";
-   else if (!strcmp(d->name, "receiver.auto-notch")) label = "Auto Notch";
-   else if (!strcmp(d->name, "receiver.narrow")) label = "Narrow Filter";
-   else if (!strcmp(d->name, "receiver.agc")) label = "AGC";
-   else if (!strcmp(d->name, "cw.keyer")) label = "CW Keyer";
-   else if (!strcmp(d->name, "cw.speed")) label = "CW Speed";
-   else if (!strcmp(d->name, "cw.pitch")) label = "CW Pitch";
-   else if (!strcmp(d->name, "cw.break-in")) label = "CW Break-in";
-   else if (!strcmp(d->name, "transmit.monitor-level")) label = "TX Monitor Level";
-   else if (!strcmp(d->name, "transmit.processor-level")) label = "Speech Processor Level";
-   else if (!strcmp(d->name, "transmit.vox")) label = "VOX";
-   else if (!strcmp(d->name, "transmit.vox-gain")) label = "VOX Gain";
-   else if (!strcmp(d->name, "panel.dial-lock")) label = "Dial Lock";
-   if (!label) return false;
+
+   if (!strcmp(d->name, "display.contrast")) {
+      label = "LCD Contrast";
+   } else if (!strcmp(d->name, "display.key-backlight")) {
+      label = "Key Backlight";
+   } else if (!strcmp(d->name, RR_PROP_DISPLAY_BRIGHTNESS)) {
+      label = "Display Brightness";
+   } else if (!strcmp(d->name, "display.tx-indicator")) {
+      label = "TX/BUSY Indicator";
+   } else if (!strcmp(d->name, RR_PROP_SPEAKER_VOLUME)) {
+      label = "Speaker Volume";
+   } else if (!strcmp(d->name, "receiver.rf-gain")) {
+      label = "RF Gain";
+   } else if (!strcmp(d->name, "receiver.attenuator")) {
+      label = "RF Attenuator";
+   } else if (!strcmp(d->name, "receiver.noise-blanker")) {
+      label = "Noise Blanker";
+   } else if (!strcmp(d->name, "receiver.noise-blanker-level")) {
+      label = "Noise Blanker Level";
+   } else if (!strcmp(d->name, "receiver.noise-reduction")) {
+      label = "Noise Reduction";
+   } else if (!strcmp(d->name, "receiver.noise-reduction-level")) {
+      label = "Noise Reduction Level";
+   } else if (!strcmp(d->name, "transmit.mic-gain")) {
+      label = "Mic Gain";
+   } else if (!strcmp(d->name, "transmit.power")) {
+      label = "RF Output Power";
+   } else if (!strcmp(d->name, "receiver.squelch")) {
+      label = "Squelch";
+   } else if (!strcmp(d->name, "meter.signal")) {
+      label = "Signal Strength";
+   } else if (!strcmp(d->name, "receiver.ipo")) {
+      label = "IPO / Preamp";
+   } else if (!strcmp(d->name, "receiver.auto-notch")) {
+      label = "Auto Notch";
+   } else if (!strcmp(d->name, "receiver.narrow")) {
+      label = "Narrow Filter";
+   } else if (!strcmp(d->name, "receiver.agc")) {
+      label = "AGC";
+   } else if (!strcmp(d->name, "cw.keyer")) {
+      label = "CW Keyer";
+   } else if (!strcmp(d->name, "cw.speed")) {
+      label = "CW Speed";
+   } else if (!strcmp(d->name, "cw.pitch")) {
+      label = "CW Pitch";
+   } else if (!strcmp(d->name, "cw.break-in")) {
+      label = "CW Break-in";
+   } else if (!strcmp(d->name, "transmit.monitor-level")) {
+      label = "TX Monitor Level";
+   } else if (!strcmp(d->name, "transmit.processor-level")) {
+      label = "Speech Processor Level";
+   } else if (!strcmp(d->name, "transmit.vox")) {
+      label = "VOX";
+   } else if (!strcmp(d->name, "transmit.vox-gain")) {
+      label = "VOX Gain";
+   } else if (!strcmp(d->name, "panel.dial-lock")) {
+      label = "Dial Lock";
+   }
+
+   if (!label) {
+      return false;
+   }
    dict *row = rr_inventory_row(r->ctx->request, 2, "rig-control", label, NULL);
 
    if (!row) {
@@ -584,18 +617,25 @@ typedef struct rig_menu_inventory {
 static void inventory_rig_menu_item(const char *id, const char *label, void *user) {
    rig_menu_inventory_t *menu = user;
    char name[128], group_id[200];
-   if (strlen(id) != 4 || id[0] < '0' || id[0] > '9' ||
-       id[1] < '0' || id[1] > '9' || id[2] < '0' || id[2] > '9' ||
-       id[3] < '0' || id[3] > '9') return;
+
+   if (strlen(id) != 4 || id[0] < '0' || id[0] > '9' || id[1] < '0' || id[1] > '9' || id[2] < '0' || id[2] > '9' || id[3] < '0' || id[3] > '9') {
+      return;
+   }
    unsigned group = (unsigned)(id[0] - '0') * 10 + (unsigned)(id[1] - '0');
-   static const char *ft891_groups[] = { "AGC", "DISPLAY", "DVS", "KEYER", "GENERAL", "MODE AM", "MODE CW", "MODE DAT", "MODE FM", "MODE RTY", "MODE SSB", "RX DSP", "SCOPE", "TUNING", "TX AUDIO", "TX GNRL", "RESET", "VERSION" };
+   static const char *ft891_groups[] = {
+      "AGC", "DISPLAY", "DVS", "KEYER", "GENERAL", "MODE AM", "MODE CW", "MODE DAT", "MODE FM", "MODE RTY", "MODE SSB", "RX DSP", "SCOPE", "TUNING",
+      "TX AUDIO", "TX GNRL", "RESET", "VERSION"
+   };
+
    if (!strcmp(menu->model, "FT-891") && group >= 1 && group <= sizeof(ft891_groups) / sizeof(ft891_groups[0])) {
       snprintf(group_id, sizeof(group_id), "%s.%02u", menu->parent, group);
+
       /* Inventory entries arrive in menu order, so only publish a section once. */
       if (!strcmp(id + 2, "01")) {
          char heading[128];
          snprintf(heading, sizeof(heading), "%02u %s", group, ft891_groups[group - 1]);
          dict *section = rr_inventory_row(menu->ctx->request, 3, "rig-menu-group", heading, group_id);
+
          if (section) {
             dict_add(section, "inventory.parent", menu->parent);
             rr_inventory_send(menu->ctx->client, section);
@@ -606,7 +646,10 @@ static void inventory_rig_menu_item(const char *id, const char *label, void *use
    }
    snprintf(name, sizeof(name), "%c%c-%c%c %s", id[0], id[1], id[2], id[3], label);
    dict *row = rr_inventory_row(menu->ctx->request, !strcmp(group_id, menu->parent) ? 3 : 4, "rig-menu-item", name, NULL);
-   if (!row) return;
+
+   if (!row) {
+      return;
+   }
    dict_add(row, "inventory.parent", group_id);
    dict_add(row, "inventory.service", id);
    dict_add(row, "inventory.access", "read-only");
@@ -650,19 +693,23 @@ static bool inventory_rig(rr_server_rig_t *radio, void *user) {
    rr_rig_property_foreach(radio, inventory_rig_control, &controls);
    /* Generic backend-supplied menu catalog: does not touch the hardware. */
    rr_backend_t *menu_backend = rr_server_rig_backend(radio);
+
    if (menu_backend && menu_backend->type->api->menu_foreach) {
-      const char *model = menu_backend->type->api->model_name ?
-         menu_backend->type->api->model_name(menu_backend) : NULL;
+      const char *model = menu_backend->type->api->model_name ? menu_backend->type->api->model_name(menu_backend) : NULL;
+
       if (model && strcmp(model, "Unknown Yaesu")) {
          char menu_id[160];
          snprintf(menu_id, sizeof(menu_id), "%s.menu", rr_server_rig_id(radio));
          dict *menu_row = rr_inventory_row(ctx->request, 2, "rig-menu", "MENU", menu_id);
+
          if (menu_row) {
             dict_add(menu_row, "inventory.parent", rr_server_rig_id(radio));
             dict_add(menu_row, "inventory.description", model);
             rr_inventory_send(ctx->client, menu_row);
          }
-         rig_menu_inventory_t menu_ctx = { .ctx = ctx, .parent = menu_id, .model = model };
+         rig_menu_inventory_t menu_ctx = {
+            .ctx = ctx, .parent = menu_id, .model = model
+         };
          menu_backend->type->api->menu_foreach(menu_backend, inventory_rig_menu_item, &menu_ctx);
       }
    }
@@ -816,38 +863,78 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);
       const char *value = dict_get(d, "property.value", NULL);
-      if (!client->user || !has_priv(client->user->uid, "admin|owner")) { code = "forbidden"; goto done; }
-      if (!uuid || !rr_object_uuid_valid(uuid) || !name ||
-          strncmp(name, "menu.", 5) || strlen(name) != 9 ||
-          !value || strlen(value) > 8) goto done;
-      object_send_t ctx = { 0 };
-      if (!resolve(uuid, &ctx) || ctx.vfo) { code = "unknown-object"; goto done; }
+
+      if (!client->user || !has_priv(client->user->uid, "admin|owner")) {
+         code = "forbidden";
+         goto done;
+      }
+
+      if (!uuid || !rr_object_uuid_valid(uuid) || !name || strncmp(name, "menu.", 5) || strlen(name) != 9 || !value || strlen(value) > 8) {
+         goto done;
+      }
+      object_send_t ctx = {
+         0
+      };
+
+      if (!resolve(uuid, &ctx) || ctx.vfo) {
+         code = "unknown-object";
+         goto done;
+      }
       rr_backend_t *backend = rr_server_rig_backend(ctx.radio);
-      if (!backend || !backend->type->api->menu_write || !backend->worker) { code = "unsupported"; goto done; }
+
+      if (!backend || !backend->type->api->menu_write || !backend->worker) {
+         code = "unsupported";
+         goto done;
+      }
       rr_server_vfo_t *vfo = rr_server_vfo_find_alias(ctx.radio, "A");
-      if (!vfo) { code = "unavailable"; goto done; }
+
+      if (!vfo) {
+         code = "unavailable";
+         goto done;
+      }
       char encoded[32];
       snprintf(encoded, sizeof(encoded), "%s:%s", name + 5, value);
-      dict_value_t command = { .s = encoded };
+      dict_value_t command = {
+         .s = encoded
+      };
       code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_WRITE, command, NULL, NULL) ? "busy" : "ok";
    } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "read")) {
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);
-      if (!uuid || !name || strncmp(name, "menu.", 5) || strlen(name) != 9 ||
-          !rr_object_uuid_valid(uuid)) goto done;
-      object_send_t ctx = { 0 };
-      if (!resolve(uuid, &ctx) || ctx.vfo) { code = "unknown-object"; goto done; }
+
+      if (!uuid || !name || strncmp(name, "menu.", 5) || strlen(name) != 9 || !rr_object_uuid_valid(uuid)) {
+         goto done;
+      }
+      object_send_t ctx = {
+         0
+      };
+
+      if (!resolve(uuid, &ctx) || ctx.vfo) {
+         code = "unknown-object";
+         goto done;
+      }
       rr_backend_t *backend = rr_server_rig_backend(ctx.radio);
       rr_property_descriptor_t descriptor;
-      if (!rr_rig_property_describe(ctx.radio, name, &descriptor) ||
-          !descriptor.readable || descriptor.type != VAL_STR ||
-          !backend->type->api->menu_read) { code = "unsupported"; goto done; }
-      if (!backend->worker) { code = "unavailable"; goto done; }
+
+      if (!rr_rig_property_describe(ctx.radio, name, &descriptor) || !descriptor.readable || descriptor.type != VAL_STR || !backend->type->api->menu_read) {
+         code = "unsupported";
+         goto done;
+      }
+
+      if (!backend->worker) {
+         code = "unavailable";
+         goto done;
+      }
       rr_server_vfo_t *vfo = rr_server_vfo_find_alias(ctx.radio, "A");
-      if (!vfo) { code = "unavailable"; goto done; }
-      dict_value_t value = { .s = (char *)(name + 5) };
-      code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_READ,
-                   value, NULL, NULL) ? "busy" : "ok";
+
+      if (!vfo) {
+         code = "unavailable";
+         goto done;
+      }
+      dict_value_t value = {
+         .s = (char *)(name + 5)
+      };
+      code = rr_backend_worker_submit(backend, vfo, RR_BACKEND_MENU_READ, value, NULL, NULL) ? "busy" : "ok";
    } else if (!strcmp(family, "property") && !strcmp(dict_get(d, "property.cmd", ""), "set")) {
       const char *uuid = dict_get(d, "target", NULL);
       const char *name = dict_get(d, "property.name", NULL);
@@ -927,19 +1014,14 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       bool allowed = false;
       const char *base = rr_rig_registry_room(rig.rigs, ctx.radio);
       const bool tuning = ctx.vfo && !strcmp(name, RR_PROP_VFO_FREQUENCY);
-      /* Non-operating rig controls belong to the hardware, not a TX room.
-       * Keep VFO tuning, PTT, TX routing and transmitter settings scoped.
-       * The existing authenticated privilege check above still applies. */
-      const bool room_independent = !ctx.vfo &&
-         (!strcmp(name, RR_PROP_SPEAKER_VOLUME) ||
-          !strncmp(name, "display.", 8) ||
-          !strncmp(name, "receiver.", 9));
+      /* Non-operating rig controls belong to the hardware, not a TX room. Keep VFO tuning, PTT, TX routing and transmitter settings scoped. The existing
+       * authenticated privilege check above still applies. */
+      const bool room_independent = !ctx.vfo && (!strcmp(name, RR_PROP_SPEAKER_VOLUME) || !strncmp(name, "display.", 8) || !strncmp(name, "receiver.", 9));
 
       if (room_independent) {
          allowed = true;
       } else if (room) {
-         allowed = ctx.vfo ? ws_client_in_room(client, room) :
-            (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
+         allowed = ctx.vfo ? ws_client_in_room(client, room) : (base && !strcasecmp(base, room) && ws_room_control_allowed(client, room, false));
       } else {
          room = base;
          allowed = base && ws_client_in_room(client, base);
@@ -983,8 +1065,8 @@ static void rr_object_request(const char *event, const char *data, rrconn_t *cli
       }
       bool releasing = !strcmp(name, RR_PROP_PTT) && !control.value.i && client->is_ptt;
 
-      if (!room_independent && !releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio), !strcmp(name, RR_PROP_PTT) && control.value.i))
-      {
+      if (!room_independent && !releasing && !ws_supervision_allowed(client, room ? room : rr_rig_registry_room(rig.rigs, ctx.radio), !strcmp(name, RR_PROP_PTT)
+         && control.value.i)) {
          code = "supervision-required";
          goto done;
       }

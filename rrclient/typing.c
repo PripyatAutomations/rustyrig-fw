@@ -4,8 +4,7 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-/* Ephemeral user presence for native RustyRig rooms. No persistence,
- * history playback, GTK dependency, or global nickname-only lookups. */
+/* Ephemeral user presence for native RustyRig rooms. No persistence, history playback, GTK dependency, or global nickname-only lookups. */
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,16 +32,18 @@ static typing_lease_t *typing_leases;
 static unsigned typing_lease_count;
 
 static void typing_notify(void) {
-   if (frontend_ops() && rrclient_present_context())
+   if (frontend_ops() && rrclient_present_context()) {
       frontend_ops()->userlist_redraw();
+   }
 }
 
 bool rrclient_typing_prune(void) {
-   const uint64_t now_ms = (uint64_t)mono_ms();
+   const uint64_t now_ms = (uint64_t) mono_ms();
    bool changed = false;
    typing_lease_t **p = &typing_leases;
    while (*p) {
       typing_lease_t *lease = *p;
+
       if (now_ms >= lease->expires_ms) {
          *p = lease->next;
          changed |= lease->state != RR_TYPING_IDLE;
@@ -56,36 +57,58 @@ bool rrclient_typing_prune(void) {
 }
 
 rr_typing_state_t rrclient_typing_get(const rrconn_t *connection, const char *room, const char *name) {
-   if (!connection || !room || !name) return RR_TYPING_IDLE;
-   uint64_t at = (uint64_t)mono_ms();
-   for (typing_lease_t *l = typing_leases; l; l = l->next)
-      if (l->connection == connection && !strcasecmp(l->room, room) &&
-          !strcasecmp(l->name, name) && at < l->expires_ms)
+   if (!connection || !room || !name) {
+      return RR_TYPING_IDLE;
+   }
+   uint64_t at = (uint64_t) mono_ms();
+
+   for (typing_lease_t *l = typing_leases ; l ; l = l->next) {
+      if (l->connection == connection && !strcasecmp(l->room, room) && !strcasecmp(l->name, name) && at < l->expires_ms) {
          return l->state;
+      }
+   }
+
    return RR_TYPING_IDLE;
 }
 
 void rrclient_typing_event(const char *event, const char *json, rrconn_t *connection, void *user) {
    (void)user;
-   if (!connection) return;
+
+   if (!connection) {
+      return;
+   }
+
    if (!strcmp(event, "disconnected")) {
       bool changed = false;
       typing_lease_t **p = &typing_leases;
       while (*p) {
          typing_lease_t *l = *p;
+
          if (l->connection == connection) {
             *p = l->next;
             free(l);
             typing_lease_count--;
             changed = true;
-         } else p = &l->next;
+         } else {
+            p = &l->next;
+         }
       }
-      if (changed) typing_notify();
+
+      if (changed) {
+         typing_notify();
+      }
+
       return;
    }
-   if (!connection->is_ws || !json) return;
+
+   if (!connection->is_ws || !json) {
+      return;
+   }
    dict *d = json2dict(json);
-   if (!d) return;
+
+   if (!d) {
+      return;
+   }
    const char *room = dict_get(d, "talk.room", "");
    const char *name = dict_get(d, "talk.from", "");
    const char *state = dict_get(d, "talk.typing", "");
@@ -93,44 +116,58 @@ void rrclient_typing_event(const char *event, const char *json, rrconn_t *connec
    unsigned long long seq = dict_get_ullong(d, "talk.seq", 0);
    unsigned ttl = (unsigned)dict_get_ulong(d, "talk.ttl", 0);
    rr_typing_state_t kind = !strcmp(state, "started") ? RR_TYPING_STARTED :
-                             !strcmp(state, "active") ? RR_TYPING_ACTIVE :
-                             !strcmp(state, "paused") ? RR_TYPING_PAUSED : RR_TYPING_IDLE;
+      !strcmp(state, "active") ? RR_TYPING_ACTIVE : !strcmp(state, "paused") ? RR_TYPING_PAUSED : RR_TYPING_IDLE;
+
    if (!*room || !*name || !*epoch || strlen(room) >= 128 ||
-       strlen(name) > HTTP_USER_LEN || strlen(epoch) >= 64 || !seq ||
-       (strcmp(state, "started") && strcmp(state, "active") &&
-        strcmp(state, "paused") && strcmp(state, "idle"))) {
+      strlen(name) > HTTP_USER_LEN || strlen(epoch) >= 64 || !seq ||
+      (strcmp(state, "started") && strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle"))) {
       dict_free(d);
+
       return;
    }
    bool changed = rrclient_typing_prune();
    typing_lease_t **p = &typing_leases;
-   while (*p && !((*p)->connection == connection && !strcasecmp((*p)->room, room) &&
-                  !strcasecmp((*p)->name, name))) p = &(*p)->next;
+   while (*p && !((*p)->connection == connection && !strcasecmp((*p)->room, room) && !strcasecmp((*p)->name, name))) {
+      p = &(*p)->next;
+   }
    typing_lease_t *lease = *p;
+
    if (lease && !strcmp(lease->epoch, epoch) && seq <= lease->sequence) {
       dict_free(d);
-      if (changed) typing_notify();
+
+      if (changed) {
+         typing_notify();
+      }
+
       return;
    }
-   /* Keep an idle tombstone until the reordering window expires. Without
-    * it an older in-flight 'active' update could resurrect stale presence. */
+
+   /* Keep an idle tombstone until the reordering window expires. Without it an older in-flight 'active' update could resurrect stale presence. */
    if (!lease && typing_lease_count < MAX_TYPING_LEASES) {
       lease = calloc(1, sizeof(*lease));
+
       if (lease) {
          lease->next = typing_leases;
          typing_leases = lease;
          typing_lease_count++;
       }
    }
+
    if (lease) {
       /* A previously replaced incarnation must never take over again. */
       if (*lease->previous_epoch && !strcmp(lease->previous_epoch, epoch)) {
          dict_free(d);
-         if (changed) typing_notify();
+
+         if (changed) {
+            typing_notify();
+         }
+
          return;
       }
-      if (*lease->epoch && strcmp(lease->epoch, epoch))
+
+      if (*lease->epoch && strcmp(lease->epoch, epoch)) {
          snprintf(lease->previous_epoch, sizeof(lease->previous_epoch), "%s", lease->epoch);
+      }
       changed |= lease->state != kind;
       lease->connection = connection;
       snprintf(lease->room, sizeof(lease->room), "%s", room);
@@ -138,10 +175,12 @@ void rrclient_typing_event(const char *event, const char *json, rrconn_t *connec
       snprintf(lease->epoch, sizeof(lease->epoch), "%s", epoch);
       lease->sequence = seq;
       lease->state = kind;
-      const unsigned lease_ms = kind == RR_TYPING_IDLE || !ttl ? MAX_TYPING_TTL_MS :
-         (ttl > MAX_TYPING_TTL_MS / 1000u ? MAX_TYPING_TTL_MS : ttl * 1000u);
-      lease->expires_ms = (uint64_t)mono_ms() + lease_ms;
+      const unsigned lease_ms = kind == RR_TYPING_IDLE || !ttl ? MAX_TYPING_TTL_MS : (ttl > MAX_TYPING_TTL_MS / 1000u ? MAX_TYPING_TTL_MS : ttl * 1000u);
+      lease->expires_ms = (uint64_t) mono_ms() + lease_ms;
    }
    dict_free(d);
-   if (changed) typing_notify();
+
+   if (changed) {
+      typing_notify();
+   }
 }
