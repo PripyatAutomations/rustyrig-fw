@@ -9,4 +9,6 @@ void gtk_tabs_bind_menu(GtkWidget *widget, GtkNotebook *notebook, GtkWidget *pag
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position);
 gboolean gtk_tabs_select(GtkNotebook *notebook, int number);
 gboolean gtk_tabs_step(GtkNotebook *notebook, int direction);
+GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title, GCallback callback, gpointer user_data);
+void gtk_tabs_panel_restore_remove(GtkWidget *tab);
 #endif
