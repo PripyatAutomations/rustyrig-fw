@@ -5,6 +5,25 @@ The v1 database separates durable resource grants from the system roles stored i
 not yet consulted by authorization checks**, so an administrator must not rely on
 it for enforcement until the resolver and all call sites have migrated.
 
+## Serial hardware authorization status
+
+For direct rrprotocol connections, raw serial exports are protected by the
+device-owning server's local account privileges (`serial` or
+`serial.<export-name>`). They are *not* yet resolved through
+`resource_privileges`. Server mapping, Linux device permissions, session
+exclusivity, and the client attachment workflow are documented in
+[Serial endpoints and rig GPS](serial-interfaces.md).
+
+Mesh-routed serial access requires a separate implementation, not merely a
+new privilege name: an authenticated `user@origin-site` identity must be
+carried to the owning server; the owning server must resolve grants for its
+stable node and serial export identities, enforce deny precedence, and verify
+authorization throughout the lifetime of the tunnel, including settings,
+binary frames, disconnect and revocation. No serial permissions from the
+origin server are implicitly trusted by a destination. Until the routing
+and enforcement are implemented together, remote mesh serial access must
+remain unavailable.
+
 ## Subject identity
 
 Input syntax is `user@host` (for example `alice@camp`). Here `host` is an
