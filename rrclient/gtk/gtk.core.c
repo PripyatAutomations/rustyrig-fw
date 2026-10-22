@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include "gtk.matrix.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -697,22 +698,18 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
    return TRUE;                 // core handles shutdown after GTK confirmation
 }
 
-/* Full-window matrix overlay. The optional implementation can be linked from
- * gtk.matrix.c without making the normal client depend on it. */
-extern GtkWidget *rr_gtk_matrix_new(void) __attribute__((weak));
+/* Full-window matrix overlay, above the entire zoom viewport. */
 static GtkWidget *rr_matrix_overlay, *rr_matrix_widget;
 void gtk_matrix_toggle(void) {
    if (!rr_matrix_overlay) return;
    if (!rr_matrix_widget) {
-      if (!rr_gtk_matrix_new) {
-         g_warning("GTK matrix screensaver is not linked into this build");
-         return;
-      }
       rr_matrix_widget = rr_gtk_matrix_new();
       if (!rr_matrix_widget) return;
       gtk_overlay_add_overlay(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_widget);
       gtk_widget_set_hexpand(rr_matrix_widget, TRUE);
       gtk_widget_set_vexpand(rr_matrix_widget, TRUE);
+      gtk_widget_set_halign(rr_matrix_widget, GTK_ALIGN_FILL);
+      gtk_widget_set_valign(rr_matrix_widget, GTK_ALIGN_FILL);
       g_object_add_weak_pointer(G_OBJECT(rr_matrix_widget), (gpointer *)&rr_matrix_widget);
       gtk_widget_show(rr_matrix_widget);
    } else if (gtk_widget_get_visible(rr_matrix_widget)) {
@@ -751,6 +748,8 @@ bool gui_init(void) {
    g_object_ref(viewport);
    gtk_container_remove(GTK_CONTAINER(main_window), viewport);
    rr_matrix_overlay = gtk_overlay_new();
+   gtk_widget_set_hexpand(rr_matrix_overlay, TRUE);
+   gtk_widget_set_vexpand(rr_matrix_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_matrix_overlay);
    gtk_container_add(GTK_CONTAINER(rr_matrix_overlay), viewport);
    g_object_unref(viewport);
