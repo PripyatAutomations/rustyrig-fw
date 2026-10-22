@@ -99,7 +99,7 @@ void rr_relay_send_catalogs(const char *dest);
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, unsigned int received, unsigned int accepted, unsigned int rejected);
 #ifdef USE_PROFILING
 /* Called on the rrserver event-loop thread; no profiling in normal builds. */
-void rr_relay_catalog_profile_receive(bool accepted, long long apply_us);
+void rr_relay_catalog_profile_receive(const dict *descriptor, bool accepted, long long apply_us);
 #endif
 void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void *user);
 void rr_relay_refresh_catalog(void);
