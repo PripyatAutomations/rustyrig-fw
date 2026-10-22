@@ -17,7 +17,7 @@
 typedef struct typing_lease {
    struct typing_lease *next;
    const rrconn_t *connection;
-   char room[128], name[HTTP_USER_LEN + 1], epoch[64];
+   char room[128], name[HTTP_USER_LEN + 1], epoch[64], previous_epoch[64];
    uint64_t sequence, expires_ms;
    rr_typing_state_t state;
 } typing_lease_t;
@@ -38,9 +38,9 @@ bool rrclient_typing_prune(void) {
       typing_lease_t *lease = *p;
       if (now_ms >= lease->expires_ms) {
          *p = lease->next;
+         changed |= lease->state != RR_TYPING_IDLE;
          free(lease);
          typing_lease_count--;
-         changed = true;
       } else {
          p = &lease->next;
       }
@@ -105,32 +105,35 @@ void rrclient_typing_event(const char *event, const char *json, rrconn_t *connec
       if (changed) typing_notify();
       return;
    }
-   if (kind == RR_TYPING_IDLE || !ttl) {
+   /* Keep an idle tombstone until the reordering window expires. Without
+    * it an older in-flight 'active' update could resurrect stale presence. */
+   if (!lease && typing_lease_count < MAX_TYPING_LEASES) {
+      lease = calloc(1, sizeof(*lease));
       if (lease) {
-         *p = lease->next;
-         free(lease);
-         typing_lease_count--;
-         changed = true;
+         lease->next = typing_leases;
+         typing_leases = lease;
+         typing_lease_count++;
       }
-   } else {
-      if (!lease && typing_lease_count < MAX_TYPING_LEASES) {
-         lease = calloc(1, sizeof(*lease));
-         if (lease) {
-            lease->next = typing_leases;
-            typing_leases = lease;
-            typing_lease_count++;
-         }
+   }
+   if (lease) {
+      /* A previously replaced incarnation must never take over again. */
+      if (*lease->previous_epoch && !strcmp(lease->previous_epoch, epoch)) {
+         dict_free(d);
+         if (changed) typing_notify();
+         return;
       }
-      if (lease) {
-         changed |= lease->state != kind;
-         lease->connection = connection;
-         snprintf(lease->room, sizeof(lease->room), "%s", room);
-         snprintf(lease->name, sizeof(lease->name), "%s", name);
-         snprintf(lease->epoch, sizeof(lease->epoch), "%s", epoch);
-         lease->sequence = seq;
-         lease->state = kind;
-         lease->expires_ms = (uint64_t)mono_ms() + (ttl > MAX_TYPING_TTL_MS / 1000u ? MAX_TYPING_TTL_MS : ttl * 1000u);
-      }
+      if (*lease->epoch && strcmp(lease->epoch, epoch))
+         snprintf(lease->previous_epoch, sizeof(lease->previous_epoch), "%s", lease->epoch);
+      changed |= lease->state != kind;
+      lease->connection = connection;
+      snprintf(lease->room, sizeof(lease->room), "%s", room);
+      snprintf(lease->name, sizeof(lease->name), "%s", name);
+      snprintf(lease->epoch, sizeof(lease->epoch), "%s", epoch);
+      lease->sequence = seq;
+      lease->state = kind;
+      const unsigned lease_ms = kind == RR_TYPING_IDLE || !ttl ? MAX_TYPING_TTL_MS :
+         (ttl > MAX_TYPING_TTL_MS / 1000u ? MAX_TYPING_TTL_MS : ttl * 1000u);
+      lease->expires_ms = (uint64_t)mono_ms() + lease_ms;
    }
    dict_free(d);
    if (changed) typing_notify();
