@@ -11,12 +11,15 @@
 #if     !defined(__rrserver_database_h)
 #define __rrserver_database_h
 #include <stdbool.h>
+#include <stddef.h>
 #include <time.h>
 #if     defined(USE_SQLITE)
 #include <sqlite3.h>
 #include <librustyaxe/dict.h>
 
 bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *subject, const char *category, unsigned severity, double value, const char *reason);
+/* Recent observations, newest first. Truncated into caller-owned buffer. */
+void db_cluster_health_recent(sqlite3 *db, const char *reporter, const char *subject, char *out, size_t capacity);
 /* Caller owns the returned JSON. Endpoint identities contain no credentials. */
 extern char *db_bridge_hints_get(sqlite3 *db, const char *identity);
 extern bool db_bridge_hints_set(sqlite3 *db, const char *identity, const char *json);
