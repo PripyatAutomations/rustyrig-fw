@@ -684,6 +684,32 @@ static void collect_process_metrics(void) {
 #endif
 }
 
+static void collect_event_performance(void) {
+   event_profile_summary_t stats;
+   if (!event_profile_summary(&stats)) {
+      collect_performance_service("Event dispatch", "Event callback timing requires features.profiling=true at build time", "disabled");
+      return;
+   }
+   char status[128], details[400];
+   snprintf(status, sizeof(status), "%llu events", (unsigned long long)stats.emits);
+   snprintf(details, sizeof(details),
+            "Cumulative event emissions: %llu; payload bytes: %llu; inline callbacks: %llu; average %.1f us; maximum %llu us; slowest event: %s",
+            (unsigned long long)stats.emits, (unsigned long long)stats.payload_bytes,
+            (unsigned long long)stats.inline_calls,
+            stats.inline_calls ? (double)stats.inline_us / stats.inline_calls : 0.0,
+            (unsigned long long)stats.max_inline_us,
+            *stats.slowest_event ? stats.slowest_event : "not observed");
+   collect_performance_service("Event callback timing", details, status);
+   snprintf(status, sizeof(status), "%llu queued", (unsigned long long)stats.queued);
+   snprintf(details, sizeof(details),
+            "Cumulative deferred callbacks: queued %llu, completed %llu; handler average %.1f us, maximum %llu us; average dispatch queue wait %.1f us",
+            (unsigned long long)stats.queued, (unsigned long long)stats.completed,
+            stats.completed ? (double)stats.deferred_us / stats.completed : 0.0,
+            (unsigned long long)stats.max_deferred_us,
+            stats.completed ? (double)stats.queue_wait_us / stats.completed : 0.0);
+   collect_performance_service("Deferred event dispatch", details, status);
+}
+
 static void collect_catalog_performance(void) {
    rr_catalog_profile_info_t stats;
    if (!rr_relay_catalog_profile_summary(&stats)) {
@@ -929,6 +955,7 @@ void rr_relay_collect_local(void) {
    add_object(rrserver_links_node(), "node", NULL, cfg_get("station.name"), ws_site_room());
    collect_services(rrserver_links_node(), "station");
    collect_process_metrics();
+   collect_event_performance();
    collect_catalog_performance();
    rrserver_platform_control_foreach(collect_node_control, NULL);
    dict *site = dict_new();
