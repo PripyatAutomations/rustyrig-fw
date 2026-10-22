@@ -702,11 +702,13 @@ typedef struct { char *dest; gint64 started; guint count; } catalog_ack_wait_t;
 static void ack_wait_free(gpointer ptr) { catalog_ack_wait_t *w = ptr; g_free(w->dest); g_free(w); }
 
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint received, guint accepted, guint rejected) {
+   char origin_label[192];
+   rrserver_links_format_node(origin, origin_label, sizeof(origin_label));
    if (!relay_catalog_awaiting_ack || !sync_id || !*sync_id) return;
    catalog_ack_wait_t *w = g_hash_table_lookup(relay_catalog_awaiting_ack, sync_id);
    if (!w || strcmp(w->dest, origin)) return;
    Log(rejected || received != w->count ? LOG_WARN : LOG_INFO, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
-       origin, sync_id, (g_get_monotonic_time() - w->started) / 1000000.0, w->count, received, accepted, rejected);
+       origin_label, sync_id, (g_get_monotonic_time() - w->started) / 1000000.0, w->count, received, accepted, rejected);
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
@@ -723,11 +725,13 @@ static void snapshot_free(gpointer ptr) {
 /* Return FALSE when the snapshot is complete or the neighbor is lost.
  * The pump owns removal: never mutate its hash table during iteration. */
 static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
+   char dest_label[192];
+   rrserver_links_format_node(s->dest, dest_label, sizeof(dest_label));
    const char *route = rrserver_links_route(s->dest);
    if (!route || strcmp(route, s->dest)) {
       Log(LOG_WARN, "relay.catalog",
           "Aborted catalog delivery to %s after %u/%u descriptors (%.3f s): neighbor unreachable",
-          s->dest, s->offset, s->messages->len,
+          dest_label, s->offset, s->messages->len,
           (g_get_monotonic_time() - s->started_at) / 1000000.0);
       return FALSE;
    }
@@ -736,7 +740,7 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       if (!rrserver_links_send(s->dest, d)) {
          Log(LOG_WARN, "relay.catalog",
              "Catalog sync %s to %s failed sending item %u/%u (%.3f s); no acknowledgment expected",
-             s->sync_id, s->dest, s->offset + 1, s->messages->len,
+             s->sync_id, dest_label, s->offset + 1, s->messages->len,
              (g_get_monotonic_time() - s->started_at) / 1000000.0);
          return FALSE;
       }
@@ -755,7 +759,7 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
          dict_add(end, "payload", "{}");
          end_sent = rrserver_links_send(s->dest, end);
          if (!end_sent)
-            Log(LOG_WARN, "relay.catalog", "Failed to send catalog-end to %s for sync %s", s->dest, s->sync_id);
+            Log(LOG_WARN, "relay.catalog", "Failed to send catalog-end to %s for sync %s", dest_label, s->sync_id);
          dict_free(end);
       }
       if (!end_sent) return FALSE;
@@ -769,7 +773,7 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       double elapsed = (g_get_monotonic_time() - s->started_at) / 1000000.0;
       Log(LOG_INFO, "relay.catalog",
           "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed",
-          s->offset - 1, s->dest, elapsed, elapsed > 0 ? (s->offset - 1) / elapsed : 0.0);
+          s->offset - 1, dest_label, elapsed, elapsed > 0 ? (s->offset - 1) / elapsed : 0.0);
       return FALSE;
    }
    return TRUE;
@@ -777,6 +781,7 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
 
 /* Called from the Mongoose server loop; GLib timeouts are not dispatched there. */
 void rr_relay_catalog_pump(void) {
+   char dest_label[192];
    gint64 now = g_get_monotonic_time();
    if (relay_catalog_awaiting_ack) {
       GHashTableIter pending;
@@ -786,7 +791,8 @@ void rr_relay_catalog_pump(void) {
          catalog_ack_wait_t *w = value;
          if (now - w->started >= 30 * G_USEC_PER_SEC) {
             Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)",
-                (char *)key, w->dest, (now - w->started) / 1000000.0, w->count);
+                (char *)key, rrserver_links_format_node(w->dest, dest_label, sizeof(dest_label)),
+                (now - w->started) / 1000000.0, w->count);
             g_hash_table_iter_remove(&pending);
          }
       }
@@ -807,6 +813,8 @@ void rr_relay_catalog_pump(void) {
 
 void rr_relay_send_catalogs(const char *dest) {
    if (!dest || !*dest) return;
+   char dest_label[192];
+   rrserver_links_format_node(dest, dest_label, sizeof(dest_label));
    if (!relay_catalog_snapshots)
       relay_catalog_snapshots = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, snapshot_free);
    /* A reconnect invalidates the previous pending snapshot and acknowledgments. */
@@ -871,7 +879,7 @@ void rr_relay_send_catalogs(const char *dest) {
       g_ptr_array_insert(s->messages, 0, begin);
    }
    Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)",
-       s->messages->len - (begin != NULL), dest, s->sync_id);
+       s->messages->len - (begin != NULL), dest_label, s->sync_id);
    g_hash_table_insert(relay_catalog_snapshots, s->dest, s);
    s->started_at = g_get_monotonic_time();
    s->next_send = s->started_at;
