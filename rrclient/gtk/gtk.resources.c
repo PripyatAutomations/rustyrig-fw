@@ -613,20 +613,22 @@ static void resource_irc_update(resource_branch *branch, rrconn_t *connection) {
       GtkTreeIter iter;
       GtkTreeRowReference *reference = g_hash_table_lookup(branch->irc_rows, stats->name);
 
+      gboolean row_exists = FALSE;
       if (reference) {
          GtkTreePath *path = gtk_tree_row_reference_get_path(reference);
-
-         if (!path) {
-            continue;
+         if (path) {
+            row_exists = gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
+            gtk_tree_path_free(path);
          }
-         gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
-         gtk_tree_path_free(path);
-      } else {
+      }
+      if (!row_exists) {
+         /* Older refreshes may have removed an IRC row. Replace invalid row
+          * references rather than permanently losing the channel. */
          gtk_tree_store_append(browser->store, &iter, &branch->root);
          GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
          reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), path);
          gtk_tree_path_free(path);
-         g_hash_table_insert(branch->irc_rows, g_strdup(stats->name), reference);
+         g_hash_table_replace(branch->irc_rows, g_strdup(stats->name), reference);
          gtk_tree_store_set(browser->store, &iter, NAME, stats->name, KIND, "irc-channel", ROOM, stats->name, PROFILE, branch->profile, -1);
       }
       bool joined = connection->authenticated && stats->joined;
