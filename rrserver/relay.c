@@ -135,7 +135,9 @@ bool rr_relay_permitted_message(dict *d) {
    }
 
    if (!strcmp(family, "property")) {
-      return !strcmp(dict_get(d, "property.cmd", ""), "set");
+      return !strcmp(dict_get(d, "property.cmd", ""), "set") ||
+             !strcmp(dict_get(d, "property.cmd", ""), "read") ||
+             !strcmp(dict_get(d, "property.cmd", ""), "menu-set");
    }
 
    return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") || !strcmp(cmd, "topic")
@@ -327,7 +329,17 @@ static void route_request(const char *event, const void *data, size_t length, rr
    io->handled = true;
 
    if (!client->authenticated || !client->user || !rr_relay_permitted_message(io->message)) {
-      ws_send_error(client, "This remote command is not supported");
+      const char *family = dict_get(io->message, "msg.type", "unknown");
+      const char *command = !strcmp(family, "property") ?
+         dict_get(io->message, "property.cmd", "unknown") :
+         !strcmp(family, "media") ? dict_get(io->message, "media.cmd", "unknown") :
+         !strcmp(family, "talk") ? dict_get(io->message, "talk.cmd", "unknown") :
+         !strcmp(family, "file") ? dict_get(io->message, "file.cmd", "unknown") : "unknown";
+      ws_send_error(client, "Cannot relay %.32s.%.32s to %.64s: %s",
+         family, command, c->owner,
+         !client->authenticated || !client->user ? "authentication required" :
+         "operation is not supported by the relay");
+
 
       return;
    }
