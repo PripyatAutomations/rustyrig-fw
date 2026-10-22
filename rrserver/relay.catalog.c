@@ -453,8 +453,13 @@ static bool owns_station_room(const char *owner, const char *room) {
    return false;
 }
 
+static bool catalog_reject(enum rr_catalog_reject *reason, enum rr_catalog_reject why) {
+   if (reason) *reason = why;
+   return false;
+}
 /* Validate room authority and retain an owned descriptor snapshot. */
-bool rr_relay_catalog_put(const char *owner, dict *d) {
+bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_reject *reason) {
+   if (reason) *reason = RR_CAT_OK;
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
    char key[160];
 
@@ -463,20 +468,20 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
 
       if (!strcmp(type, "node")) {
          if (strcmp(uuid, owner)) {
-            return false;
+            return catalog_reject(reason, RR_CAT_OWNER);
          }
       } else if (!strcmp(type, "rig")) {
          if (strcmp(parent, owner)) {
-            return false;
+            return catalog_reject(reason, RR_CAT_OWNER);
          }
       } else if (!strcmp(type, "vfo")) {
          struct catalog *rig = rr_relay_find_catalog(parent);
 
          if (!rig || strcmp(rig->owner, owner) || strcmp(dict_get(rig->descriptor, "object.type", ""), "rig")) {
-            return false;
+            return catalog_reject(reason, RR_CAT_PARENT);
          }
       } else {
-         return false;
+         return catalog_reject(reason, RR_CAT_IDENTITY);
       }
    }
 
@@ -503,7 +508,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item") && strcmp(kind, "performance-stat"))
          || strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8)
          || strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
-         return false;
+         return catalog_reject(reason, RR_CAT_SERVICE);
       }
       snprintf(key, sizeof(key), "%s", service);
    } else if (uuid && rr_object_uuid_valid(uuid)) {
@@ -511,19 +516,19 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
    } else if (room && ws_room_name_valid(room)) {
       snprintf(key, sizeof(key), "room:%s", room);
    } else {
-      return false;
+      return catalog_reject(reason, RR_CAT_IDENTITY);
    }
    struct catalog *c = rr_relay_find_catalog(key);
    bool replace = c && strcmp(c->owner, owner);
 
    if (replace && (uuid || !room || rr_relay_local_owner(owner) || !owns_station_room(owner, room) ||
       owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
-      return false;             // Only proven station/rig authority may displace a stale room claim.
+      return catalog_reject(reason, RR_CAT_ROOM_AUTH);             // Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = dict_clone(d);
 
    if (!copy) {
-      return false;
+      return catalog_reject(reason, RR_CAT_MEMORY);
    }
 
    if (replace && rr_relay_local_owner(c->owner)) {
@@ -534,7 +539,7 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          Log(LOG_WARN, "link", "Unable to remove stale local room metadata for %s", room);
          dict_free(copy);
 
-         return false;
+         return catalog_reject(reason, RR_CAT_ROOM_AUTH);
       }
 #endif
 
@@ -557,14 +562,14 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
       if (rr_relay_catalog_count == MAX_CATALOG) {
          dict_free(copy);
 
-         return false;
+         return catalog_reject(reason, RR_CAT_CAPACITY);
       }
       c = calloc(1, sizeof(*c));
 
       if (!c) {
          dict_free(copy);
 
-         return false;
+         return catalog_reject(reason, RR_CAT_MEMORY);
       }
       snprintf(c->key, sizeof(c->key), "%s", key);
       snprintf(c->owner, sizeof(c->owner), "%s", owner);
@@ -589,6 +594,10 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
 }
 
 /* Build and store one local object descriptor. */
+bool rr_relay_catalog_put(const char *owner, dict *d) {
+   return rr_relay_catalog_put_reason(owner, d, NULL);
+}
+
 static void add_object(const char *uuid, const char *type, const char *owner, const char *alias, const char *room) {
    dict *d = dict_new();
 
