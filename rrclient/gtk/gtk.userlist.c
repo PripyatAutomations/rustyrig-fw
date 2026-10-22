@@ -32,6 +32,7 @@
 
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.chat.h>
+#include <rrclient/gtk/gtk.floating-panel.h>
 
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
@@ -1491,6 +1492,7 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
    if (entry->docked) {
       if (!entry->window || !GTK_IS_WINDOW(entry->window)) {
          entry->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+         rr_floating_window_controls(GTK_WINDOW(entry->window), GTK_NOTEBOOK(main_notebook), "Userlist");
          /* Geometry is shared by room type, never by room/server name. */
          gtk_window_set_default_size(GTK_WINDOW(entry->window), room_userlist_width(entry, "width"), userlist_layout_int(entry->view, "height", 320));
          g_signal_connect(entry->window, "configure-event", G_CALLBACK(room_userlist_configure), entry);
