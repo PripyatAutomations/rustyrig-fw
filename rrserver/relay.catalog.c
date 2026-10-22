@@ -544,6 +544,10 @@ typedef struct relay_rig_menu_ctx {
 } relay_rig_menu_ctx_t;
 
 static bool collect_rig_property(const rr_property_descriptor_t *d, void *user) {
+   /* Yaesu EX menu properties already appear under MENU with their
+    * descriptive labels. Do not duplicate them in the Controls folder. */
+   if (d->name && !strncmp(d->name, "menu.", 5))
+      return false;
    const char *rig_id = user;
    dict *row = rr_inventory_row("", 2, "rig-control", d->name, NULL);
    if (row) {
