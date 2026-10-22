@@ -22,6 +22,7 @@
 #include <rrclient/files.h>
 #include <rrclient/cmd.h>
 #include <rrclient/userlist.h>
+#include <rrclient/typing.h>
 #include <rrclient/irc.whois.h>
 #include <rrclient/rooms.h>
 #include <rrclient/media.h>
@@ -1655,6 +1656,8 @@ void rrclient_register_events(void) {
    event_on("room.deleted", rrclient_handle_room_deleted, NULL);
    event_on("quit", rrclient_handle_quit, NULL);
    event_on("talk.msg", rrclient_handle_talk_msg, NULL);
+   event_on("talk.typing", rrclient_typing_event, NULL);
+   event_on("disconnected", rrclient_typing_event, NULL);
    event_on("userinfo", rrclient_handle_userinfo, NULL);
    event_on("whois", rrclient_handle_whois, NULL);
    event_on("ws.msg.auth", rrclient_handle_auth, NULL);
