@@ -162,6 +162,32 @@ Explicit `/object <symbol|uuid>` selections and named/UUID subscriptions can
 still address resources outside the current listing. Media `#numbers` retain
 their global positions, so filtering does not retarget an existing reference.
 
+## Node Statistics / Performance
+
+The native Resource Explorer groups node-owned, read-only `performance-stat`
+inventory entries beneath **Statistics / Performance** on **each site**, including
+linked sites. Rows use existing authenticated inventory and owner-authoritative
+catalog replication; no separate RPC, filesystem browsing privilege, or
+remote control operation is introduced.
+
+Current entries include process resident/peak memory and thread count (Linux
+`/proc/self/status`), open file descriptors and PTY-associated descriptors
+(Linux `/proc/self/fd`), catalog snapshot/ack statistics, descriptor
+validation time and results, and shared event callback / deferred queue timing.
+PTY-associated descriptors count file descriptors, not unique PTY pairs.
+Device paths and process credentials are never disclosed. Process metrics
+are observations from the publishing server, not measurements of the
+client or an intermediate relay.
+
+With `features.profiling=true`, catalog rows identify the most recently
+completed five-minute sample and its timestamp. Event callback timing rows
+currently show cumulative process counters and say so explicitly. With
+profiling disabled, timing rows explain how to enable collection; basic
+process metrics remain available. As with all replicated catalog data,
+remote statistics may be stale after a partition or reconnection. Refresh
+Explorer to retrieve the last available snapshot; this does not trigger
+a profiling dump or reset counters.
+
 ## Native Resource Explorer
 
 Open **Resource Explorer** from the GTK Status tab or press **Alt-O** from any main
