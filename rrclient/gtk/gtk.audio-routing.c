@@ -8,7 +8,8 @@
 
 static GtkWidget *routing_window, *split_rx, *ear_combo[2], *ear_volume[2];
 static bool volume_updating;
-static GtkWidget *routing_overlay;
+static GtkWidget *routing_overlay, *routing_body, *routing_title, *routing_roll_button, *routing_min_button;
+static bool routing_rolled, routing_minimized;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token;
 static bool routing_updating, inventory_dirty, have_choices;
@@ -150,6 +151,8 @@ static gboolean routing_refresh(gpointer unused) {
    if (!gtk_widget_get_visible(routing_window)) {
       gtk_widget_show_all(routing_window);
    }
+   if (routing_rolled || routing_minimized) gtk_widget_hide(routing_body);
+   if (routing_minimized) gtk_widget_hide(routing_title);
    g_free(streams);
 
    return G_SOURCE_REMOVE;
@@ -275,6 +278,31 @@ static gboolean routing_drag_release(GtkWidget *widget, GdkEventButton *event, g
    return TRUE;
 }
 
+/* Floating panels retain their titlebar when rolled up; minimize leaves
+ * only the small restore controls visible, without losing their position. */
+static void routing_update_chrome(void) {
+   if (!routing_window) return;
+   if (routing_rolled || routing_minimized) gtk_widget_hide(routing_body);
+   else gtk_widget_show(routing_body);
+   if (routing_minimized) gtk_widget_hide(routing_title);
+   else gtk_widget_show(routing_title);
+   gtk_widget_set_tooltip_text(routing_roll_button, routing_rolled ? "Unroll panel" : "Roll up panel");
+   gtk_widget_set_tooltip_text(routing_min_button, routing_minimized ? "Restore panel" : "Minimize panel");
+}
+
+static void routing_roll(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   routing_rolled = !routing_rolled;
+   routing_minimized = false;
+   routing_update_chrome();
+}
+
+static void routing_minimize(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   routing_minimized = !routing_minimized;
+   routing_update_chrome();
+}
+
 static void routing_close(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
@@ -327,18 +355,27 @@ void gtk_audio_routing_init(void) {
    g_signal_connect(drag_handle, "motion-notify-event", G_CALLBACK(routing_drag_motion), NULL);
    g_signal_connect(drag_handle, "button-release-event", G_CALLBACK(routing_drag_release), NULL);
    gtk_widget_set_tooltip_text(drag_handle, "Drag to move RX Audio Routing inside the client");
-   gtk_box_pack_start(GTK_BOX(header), gtk_label_new("RX Audio Routing"), TRUE, TRUE, 0);
+   routing_min_button = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
+   gtk_box_pack_start(GTK_BOX(header), routing_min_button, FALSE, FALSE, 0);
+   g_signal_connect(routing_min_button, "clicked", G_CALLBACK(routing_minimize), NULL);
+   routing_roll_button = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
+   gtk_box_pack_start(GTK_BOX(header), routing_roll_button, FALSE, FALSE, 0);
+   g_signal_connect(routing_roll_button, "clicked", G_CALLBACK(routing_roll), NULL);
+   routing_title = gtk_label_new("RX Audio Routing");
+   gtk_box_pack_start(GTK_BOX(header), routing_title, TRUE, TRUE, 0);
    GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
    gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
    g_signal_connect(close, "clicked", G_CALLBACK(routing_close), NULL);
+   routing_body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_box_pack_start(GTK_BOX(panel), routing_body, TRUE, TRUE, 0);
    GtkWidget *grid = gtk_grid_new();
    gtk_container_set_border_width(GTK_CONTAINER(grid), 4);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 4);
-   gtk_box_pack_start(GTK_BOX(panel), grid, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(routing_body), grid, TRUE, TRUE, 0);
 
    GtkWidget *rig_volume = create_volbox();
-   gtk_box_pack_start(GTK_BOX(panel), rig_volume, FALSE, FALSE, 2);
+   gtk_box_pack_start(GTK_BOX(routing_body), rig_volume, FALSE, FALSE, 2);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
@@ -369,12 +406,13 @@ void gtk_audio_routing_init(void) {
       gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 3, 1, 1);
       g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
    }
-   gtk_box_pack_start(GTK_BOX(panel), split_rx, FALSE, FALSE, 2);
+   gtk_box_pack_start(GTK_BOX(routing_body), split_rx, FALSE, FALSE, 2);
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
    gtk_widget_set_sensitive(ear_volume[1], FALSE);
 
    gtk_widget_show_all(routing_overlay);
    gtk_widget_hide(routing_window);
+   routing_update_chrome();
    streams_token = event_on_token("client.audio.streams.changed", routing_event, NULL);
    routes_token = event_on_token("client.audio.route.changed", routing_event, NULL);
    inventory_dirty = true;
@@ -403,7 +441,8 @@ void gtk_audio_routing_shutdown(void) {
    rx_vol_slider = NULL;
    rx_rig_vol_slider = NULL;
    ear_volume[0] = ear_volume[1] = NULL;
-   routing_window = routing_overlay = split_rx = ear_combo[0] = ear_combo[1] = NULL;
+   routing_window = routing_overlay = routing_body = routing_title = routing_roll_button = routing_min_button = split_rx = ear_combo[0] = ear_combo[1] = NULL;
+   routing_rolled = routing_minimized = false;
    routing_updating = inventory_dirty = have_choices = routing_dragging = false;
    memset(ear_choice, 0, sizeof(ear_choice));
 }
