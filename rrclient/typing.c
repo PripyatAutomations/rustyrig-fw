@@ -9,6 +9,7 @@
 #include <librustyaxe/core.h>
 #include <rrclient/typing.h>
 #include <rrclient/frontend.h>
+#include <rrclient/connman.h>
 #include <rrclient/ui.h>
 
 #define MAX_TYPING_LEASES 512
