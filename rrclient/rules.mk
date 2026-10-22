@@ -63,6 +63,7 @@ bins += ${gtk_module}
 
 gtk_module_objs += gtk/cfg.gtkcss.o	# GTK CSS from config file
 gtk_module_objs += gtk/gtk.core.o             # Support for a GTK user interface
+gtk_module_objs += gtk/gtk.matrix.o           # Full-window Matrix screensaver
 gtk_module_objs += gtk/gtk.icons.o gtk/gtk.tabs.menu.o
 gtk_module_objs += gtk/gtk.tabs.o gtk/gtk.floating-panel.o
 gtk_module_objs += gtk/gtk.terminal.o gtk/gtk.matrix.o
