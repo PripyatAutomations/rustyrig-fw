@@ -164,7 +164,7 @@ their global positions, so filtering does not retarget an existing reference.
 
 ## Node Statistics / Performance
 
-The native Resource Explorer groups node-owned, read-only `performance-stat`
+Cluster Health appears as a root-level GTK Explorer branch beside This Client and the connected servers. It indexes directly connected and linked site nodes from existing inventory and lets you double-click a node to jump to its Statistics / Performance folder. Reporting means metrics are present, not that measured values fall within safe thresholds. Warning indicates an offline node or an explicitly unavailable performance entry; No telemetry and Refreshing are shown separately. This view is client-local and does not initiate any additional network requests.\n\nThe native Resource Explorer groups node-owned, read-only `performance-stat`
 inventory entries beneath **Statistics / Performance** on **each site**, including
 linked sites. Rows use existing authenticated inventory and owner-authoritative
 catalog replication; no separate RPC, filesystem browsing privilege, or
