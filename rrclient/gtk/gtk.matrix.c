@@ -116,9 +116,10 @@ static gboolean matrix_motion(GtkWidget *widget, GdkEventMotion *event, gpointer
       GdkRectangle rect = {0, MAX(0, height - HOT_CORNER), HOT_CORNER, HOT_CORNER};
       gtk_popover_set_pointing_to(GTK_POPOVER(m->popover), &rect);
       gtk_widget_show(m->popover);
-   } else {
-      gtk_widget_hide(m->popover);
    }
+   /* Do not hide on canvas motion outside the hot corner: the pointer must
+    * cross that area to reach the popover positioned above it. The popover's
+    * own leave handler closes it once the user actually leaves the controls. */
    return FALSE;
 }
 
