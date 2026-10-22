@@ -45,6 +45,9 @@ removes a lease; dropped notifications expire automatically (currently
 never transmitted. TUI is deferred to the v1.x roster/dialog work and
 WebUI to the 2.0 redesign.
 
+GTK users can disable outgoing indicators with `ui.chat.typing=false`.
+Incoming indicators remain visible. No draft text is transmitted.
+
 This is currently **per-username presentation**, not a multi-session CRDT.
 The next iteration should aggregate separate authenticated session IDs
 without exposing auth tokens, and should fence old incarnations across
