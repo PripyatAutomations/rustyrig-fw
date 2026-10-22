@@ -3,7 +3,7 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *body, *title, *roll, *minimize, *restore_tab, *menu;
+   GtkWidget *frame, *body, *title, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close;
    GtkCssProvider *scale_css;
    guint zoom;
    GtkOverlay *overlay;
@@ -76,17 +76,17 @@ static void panel_chrome(RRFloatPanel *p) {
    gtk_widget_set_tooltip_text(p->minimize, "Minimize to tab strip");
 }
 
-static void panel_restore(GtkButton *button, gpointer data) {
-   (void)button;
-   RRFloatPanel *p = data;
+void rr_floating_panel_restore(RRFloatPanel *p) {
+   if (!p) return;
    p->minimized = FALSE;
-
-   if (p->restore_tab) {
-      gtk_tabs_panel_restore_remove(p->restore_tab);
-      p->restore_tab = NULL;
-   }
+   if (p->restore_tab) { gtk_tabs_panel_restore_remove(p->restore_tab); p->restore_tab = NULL; }
    gtk_widget_show(p->frame);
    panel_chrome(p);
+}
+
+static void panel_restore(GtkButton *button, gpointer data) {
+   (void)button;
+   rr_floating_panel_restore(data);
 }
 
 static void panel_minimize(GtkButton *button, gpointer data) {
@@ -223,7 +223,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(menu_button, "Panel settings");
-   gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
    p->menu = gtk_popover_new(menu_button);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
@@ -246,13 +246,17 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(opacity, "value-changed", G_CALLBACK(panel_opacity_changed), p);
    panel_menu_add_action(p, settings, "Roll up / expand", "roll");
    panel_menu_add_action(p, settings, "Minimize to tabs", "minimize");
-   panel_menu_add_action(p, settings, "Close panel", "close");
+   p->menu_close = gtk_button_new_with_label("Close panel");
+   gtk_button_set_relief(GTK_BUTTON(p->menu_close), GTK_RELIEF_NONE);
+   g_object_set_data(G_OBJECT(p->menu_close), "rr-action", "close");
+   g_signal_connect(p->menu_close, "clicked", G_CALLBACK(panel_menu_action), p);
+   gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
    gtk_box_pack_start(GTK_BOX(header), p->title, TRUE, TRUE, 0);
-   GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
-   g_signal_connect(close, "clicked", G_CALLBACK(panel_close), p);
+   p->close_button = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
+   gtk_box_pack_end(GTK_BOX(header), p->close_button, FALSE, FALSE, 0);
+   g_signal_connect(p->close_button, "clicked", G_CALLBACK(panel_close), p);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
    gtk_widget_show_all(p->frame);
@@ -294,4 +298,12 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    g_clear_object(&p->scale_css);
    g_free(p->id);
    g_free(p);
+}
+
+void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
+   if (!p) return;
+   if (p->close_button) gtk_widget_set_no_show_all(p->close_button, !closable);
+   if (p->menu_close) gtk_widget_set_no_show_all(p->menu_close, !closable);
+   if (p->close_button) gtk_widget_set_visible(p->close_button, closable);
+   if (p->menu_close) gtk_widget_set_visible(p->menu_close, closable);
 }
