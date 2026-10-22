@@ -151,7 +151,7 @@ static gboolean routing_refresh(gpointer unused) {
    have_choices = true;
 
    /* Showing an already visible window would undo minimization on some WMs. */
-   if (!gtk_widget_get_visible(routing_window)) {
+   if (!routing_minimized && !gtk_widget_get_visible(routing_window)) {
       gtk_widget_show_all(routing_window);
    }
    if (routing_rolled || routing_minimized) gtk_widget_hide(routing_body);
