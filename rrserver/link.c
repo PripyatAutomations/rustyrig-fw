@@ -1409,6 +1409,9 @@ void rrserver_links_fini(void) {
    free((void *)links.ca.buf);
 }
 #else
+void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
+   (void)emit; (void)context;
+}
 const char *rrserver_links_node(void) {
    return "";
 }
