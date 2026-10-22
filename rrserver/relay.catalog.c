@@ -842,8 +842,22 @@ void rr_relay_send_catalogs(const char *dest) {
          }
       }
    }
+   /* Start marker allows the receiver to count accepted and rejected items. */
+   dict *begin = dict_new();
+   if (begin) {
+      char payload[96];
+      g_snprintf(payload, sizeof(payload), "{\\"catalog.expected\\":%u}", s->messages->len);
+      dict_add(begin, "op", "link.application");
+      dict_add(begin, "node", rrserver_links_node());
+      dict_add(begin, "dest", dest);
+      dict_add(begin, "kind", "catalog-begin");
+      dict_add(begin, "session", s->sync_id);
+      dict_add(begin, "username", "");
+      dict_add(begin, "payload", payload);
+      g_ptr_array_insert(s->messages, 0, begin);
+   }
    Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)",
-       s->messages->len, dest, s->sync_id);
+       s->messages->len - (begin != NULL), dest, s->sync_id);
    g_hash_table_insert(relay_catalog_snapshots, s->dest, s);
    s->started_at = g_get_monotonic_time();
    s->next_send = s->started_at;
