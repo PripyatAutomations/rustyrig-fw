@@ -740,6 +740,91 @@ hide_color_popup:
    return G_SOURCE_REMOVE;
 }
 
+/* Per-composer ephemeral presence. Draft text never leaves the client.
+ * Changes are throttled; the room owner will assign sequence and expiry. */
+typedef struct {
+   guint pause_source;
+   gint64 last_sent;
+   gboolean visible, paused;
+} GtkTypingComposer;
+
+static void gtk_typing_composer_free(gpointer data) {
+   GtkTypingComposer *state = data;
+   if (state->pause_source) g_source_remove(state->pause_source);
+   g_free(state);
+}
+
+static GtkTypingComposer *gtk_typing_state(GtkWidget *entry) {
+   GtkTypingComposer *state = g_object_get_data(G_OBJECT(entry), "rr-typing-composer");
+   if (!state) {
+      state = g_new0(GtkTypingComposer, 1);
+      g_object_set_data_full(G_OBJECT(entry), "rr-typing-composer", state, gtk_typing_composer_free);
+   }
+   return state;
+}
+
+static gboolean gtk_typing_emit(GtkWidget *entry, const char *status) {
+   const char *room = g_object_get_data(G_OBJECT(entry), "rr-room-name");
+   const char *profile = g_object_get_data(G_OBJECT(entry), "rr-server-name");
+   if (!room || (*room != '#' && *room != '&') || !profile || !*profile ||
+       rrclient_connection_state(profile) != 1) return FALSE;
+   rrconn_t *connection = rrclient_connection_find(profile);
+   if (!connection || !connection->is_ws) return FALSE;
+   dict *d = dict_new();
+   if (!d) return FALSE;
+   dict_add(d, "msg.type", "talk");
+   dict_add(d, "talk.cmd", "typing");
+   dict_add(d, "talk.target", room);
+   dict_add(d, "talk.typing", status);
+   gboolean sent = ws_send_dict(connection, d);
+   dict_free(d);
+   return sent;
+}
+
+static gboolean gtk_typing_paused(gpointer user) {
+   GtkWidget *entry = user;
+   GtkTypingComposer *state = g_object_get_data(G_OBJECT(entry), "rr-typing-composer");
+   if (!state) return G_SOURCE_REMOVE;
+   state->pause_source = 0;
+   if (state->visible && !state->paused) {
+      if (gtk_typing_emit(entry, "paused")) {
+         state->paused = TRUE;
+         state->last_sent = g_get_monotonic_time();
+      }
+   }
+   return G_SOURCE_REMOVE;
+}
+
+static void gtk_typing_entry_changed(GtkWidget *entry) {
+   GtkTypingComposer *state = gtk_typing_state(entry);
+   const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
+   gboolean composing = text && *text && *text != '/';
+   if (state->pause_source) {
+      g_source_remove(state->pause_source);
+      state->pause_source = 0;
+   }
+   if (!composing) {
+      if (state->visible) gtk_typing_emit(entry, "idle");
+      state->visible = state->paused = FALSE;
+      state->last_sent = 0;
+      return;
+   }
+   const gint64 at = g_get_monotonic_time();
+   if (!state->visible) {
+      if (gtk_typing_emit(entry, "started")) {
+         state->visible = TRUE;
+         state->last_sent = at;
+      }
+   } else if (state->paused || at - state->last_sent >= 2 * G_USEC_PER_SEC) {
+      if (gtk_typing_emit(entry, "active")) {
+         state->paused = FALSE;
+         state->last_sent = at;
+      }
+   }
+   if (state->visible)
+      state->pause_source = g_timeout_add(3000, gtk_typing_paused, entry);
+}
+
 static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
    (void)data;
    GtkWidget *entry = GTK_WIDGET(editable);
@@ -828,6 +913,8 @@ static void gtk_chat_entry_changed(GtkEditable *editable, gpointer data) {
    if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(entry), "rr-color-active"))) {
       g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, gtk_chat_update_color_popup, g_object_ref(entry), g_object_unref);
    }
+   if (!state->loading)
+      gtk_typing_entry_changed(entry);
 }
 
 static void gtk_chat_color_choice(GtkButton *button, gpointer data) {
