@@ -155,6 +155,21 @@ static void emit_neighbor_health(const char *subject, const char *site, bool onl
    dict_add(row, "inventory.state", severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Healthy");
    dict_add(row, "inventory.access", "read-only");
    target->emit(row, target->context);
+   /* A separate diagnostic row keeps the standard five-minute summary short
+    * while exposing durable, timestamped link causes in the catalog. */
+   char history[2048] = {0};
+   rrserver_links_recent_events(subject, history, sizeof(history));
+   if (*history) {
+      char history_name[192];
+      snprintf(history_name, sizeof(history_name), "Neighbor %s recent events", site);
+      dict *events = rr_inventory_row("", 1, "performance", history_name, NULL);
+      if (events) {
+         dict_add(events, "inventory.description", history);
+         dict_add(events, "inventory.state", "History");
+         dict_add(events, "inventory.access", "read-only");
+         target->emit(events, target->context);
+      }
+   }
 }
 
 void rrserver_performance_collect(rr_performance_emit_fn emit, void *context) {
