@@ -547,11 +547,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                sync->accepted++;
             } else {
                sync->rejected++;
-               Log(LOG_WARN, "relay.catalog",
-                   "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, room=%s)",
+               Log(LOG_DEBUG, "relay.catalog",
+                   "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, parent=%s, room=%s)",
                    origin, id, dict_get(d, "object.type", ""),
                    dict_get(d, "object.uuid", ""), dict_get(d, "catalog.service", ""),
-                   dict_get(d, "catalog.room", ""));
+                   dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
             }
          }
          if (!accepted) goto done;
