@@ -3,7 +3,9 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *body, *title, *roll, *minimize, *restore_tab;
+   GtkWidget *frame, *body, *title, *roll, *minimize, *restore_tab, *menu;
+   GtkCssProvider *scale_css;
+   guint zoom;
    GtkOverlay *overlay;
    GtkNotebook *tabs;
    char *id;
@@ -11,6 +13,50 @@ struct rr_floating_panel {
    double drag_x, drag_y;
    int start_x, start_y;
 };
+
+static void panel_minimize(GtkButton *button, gpointer data);
+static void panel_roll(GtkButton *button, gpointer data);
+static void panel_close(GtkButton *button, gpointer data);
+static void panel_zoom_changed(GtkRange *range, gpointer data) {
+   RRFloatPanel *p = data;
+   p->zoom = (guint)gtk_range_get_value(range);
+   /* GTK3 has no subtree-local DPI setting. An inherited font size scales
+    * labels and font-based controls without changing application-wide DPI. */
+   char css[160];
+   g_snprintf(css, sizeof(css), ".rr-panel-local-zoom { font-size: %.2fpx; }",
+              13.0 * p->zoom / 100.0);
+   gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
+   gtk_widget_queue_resize(p->frame);
+}
+
+static void panel_opacity_changed(GtkRange *range, gpointer data) {
+   RRFloatPanel *p = data;
+   gtk_widget_set_opacity(p->frame, gtk_range_get_value(range) / 100.0);
+}
+
+static void panel_menu_action(GtkButton *button, gpointer data) {
+   RRFloatPanel *p = data;
+   const char *action = g_object_get_data(G_OBJECT(button), "rr-action");
+   gtk_popover_popdown(GTK_POPOVER(p->menu));
+   if (!g_strcmp0(action, "minimize")) panel_minimize(NULL, p);
+   else if (!g_strcmp0(action, "roll")) panel_roll(NULL, p);
+   else if (!g_strcmp0(action, "close")) panel_close(NULL, p);
+}
+
+static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *label, const char *action) {
+   GtkWidget *button = gtk_button_new_with_label(label);
+   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
+   g_object_set_data(G_OBJECT(button), "rr-action", (gpointer)action);
+   g_signal_connect(button, "clicked", G_CALLBACK(panel_menu_action), p);
+   gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
+}
+
+static void panel_menu_open(GtkButton *button, gpointer data) {
+   (void)button;
+   RRFloatPanel *p = data;
+   gtk_widget_show_all(p->menu);
+   gtk_popover_popup(GTK_POPOVER(p->menu));
+}
 
 static void panel_chrome(RRFloatPanel *p) {
    if (!p || !p->frame) {
@@ -168,6 +214,40 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
    g_signal_connect(p->minimize, "clicked", G_CALLBACK(panel_minimize), p);
    g_signal_connect(p->roll, "clicked", G_CALLBACK(panel_roll), p);
+   p->zoom = 100;
+   p->scale_css = gtk_css_provider_new();
+   GtkStyleContext *panel_style = gtk_widget_get_style_context(p->frame);
+   gtk_style_context_add_class(panel_style, "rr-panel-local-zoom");
+   gtk_style_context_add_provider(panel_style, GTK_STYLE_PROVIDER(p->scale_css),
+                                  GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(menu_button, "Panel settings");
+   gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
+   p->menu = gtk_popover_new(menu_button);
+   GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
+   gtk_container_add(GTK_CONTAINER(p->menu), settings);
+   GtkWidget *label = gtk_label_new("Text zoom");
+   gtk_widget_set_halign(label, GTK_ALIGN_START);
+   gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
+   GtkWidget *zoom = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 60, 200, 5);
+   gtk_range_set_value(GTK_RANGE(zoom), 100);
+   gtk_scale_set_value_pos(GTK_SCALE(zoom), GTK_POS_RIGHT);
+   gtk_box_pack_start(GTK_BOX(settings), zoom, FALSE, FALSE, 0);
+   g_signal_connect(zoom, "value-changed", G_CALLBACK(panel_zoom_changed), p);
+   label = gtk_label_new("Opacity");
+   gtk_widget_set_halign(label, GTK_ALIGN_START);
+   gtk_box_pack_start(GTK_BOX(settings), label, FALSE, FALSE, 0);
+   GtkWidget *opacity = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 30, 100, 5);
+   gtk_range_set_value(GTK_RANGE(opacity), 100);
+   gtk_scale_set_value_pos(GTK_SCALE(opacity), GTK_POS_RIGHT);
+   gtk_box_pack_start(GTK_BOX(settings), opacity, FALSE, FALSE, 0);
+   g_signal_connect(opacity, "value-changed", G_CALLBACK(panel_opacity_changed), p);
+   panel_menu_add_action(p, settings, "Roll up / expand", "roll");
+   panel_menu_add_action(p, settings, "Minimize to tabs", "minimize");
+   panel_menu_add_action(p, settings, "Close panel", "close");
+   g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
    gtk_box_pack_start(GTK_BOX(header), p->title, TRUE, TRUE, 0);
    GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
@@ -211,6 +291,7 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
    if (p->frame) {
       gtk_widget_destroy(p->frame);
    }
+   g_clear_object(&p->scale_css);
    g_free(p->id);
    g_free(p);
 }
