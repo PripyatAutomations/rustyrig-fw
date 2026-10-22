@@ -692,6 +692,7 @@ typedef struct relay_catalog_snapshot {
    GPtrArray *messages;
    guint offset;
    gint64 next_send;
+   gint64 started_at;
 } relay_catalog_snapshot_t;
 static GHashTable *relay_catalog_snapshots;
 
@@ -703,23 +704,29 @@ static void snapshot_free(gpointer ptr) {
    g_free(s);
 }
 
+/* Return FALSE when the snapshot is complete or the neighbor is lost.
+ * The pump owns removal: never mutate its hash table during iteration. */
 static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
-   /* At most 8 messages per 50 ms, giving the socket time to drain.
-    * Stop immediately if this direct neighbor is no longer reachable. */
-   if (!rrserver_links_route(s->dest) ||
-       strcmp(rrserver_links_route(s->dest), s->dest)) {
-      g_hash_table_remove(relay_catalog_snapshots, s->dest);
-      return G_SOURCE_REMOVE;
+   const char *route = rrserver_links_route(s->dest);
+   if (!route || strcmp(route, s->dest)) {
+      Log(LOG_WARN, "relay.catalog",
+          "Aborted catalog delivery to %s after %u/%u descriptors (%.3f s): neighbor unreachable",
+          s->dest, s->offset, s->messages->len,
+          (g_get_monotonic_time() - s->started_at) / 1000000.0);
+      return FALSE;
    }
-   for (unsigned n = 0 ; n < 8 && s->offset < s->messages->len ; n++) {
+   for (unsigned n = 0; n < 8 && s->offset < s->messages->len; n++) {
       dict *d = g_ptr_array_index(s->messages, s->offset++);
       rrserver_links_send(s->dest, d);
    }
    if (s->offset == s->messages->len) {
-      g_hash_table_remove(relay_catalog_snapshots, s->dest);
-      return G_SOURCE_REMOVE;
+      double elapsed = (g_get_monotonic_time() - s->started_at) / 1000000.0;
+      Log(LOG_INFO, "relay.catalog",
+          "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed",
+          s->offset, s->dest, elapsed, elapsed > 0 ? s->offset / elapsed : 0.0);
+      return FALSE;
    }
-   return G_SOURCE_CONTINUE;
+   return TRUE;
 }
 
 /* Called from the Mongoose server loop; GLib timeouts are not dispatched there. */
@@ -733,8 +740,8 @@ void rr_relay_catalog_pump(void) {
       relay_catalog_snapshot_t *s = value;
       if (now < s->next_send) continue;
       s->next_send = now + 50000;
-      /* snapshot_tick removes completed snapshots; restart on next poll. */
-      snapshot_tick(s);
+      /* Remove through the active iterator to avoid invalidating it. */
+      if (!snapshot_tick(s)) g_hash_table_iter_remove(&iter);
       return;
    }
 }
@@ -780,7 +787,8 @@ void rr_relay_send_catalogs(const char *dest) {
    Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s",
        s->messages->len, dest);
    g_hash_table_insert(relay_catalog_snapshots, s->dest, s);
-   s->next_send = g_get_monotonic_time();
+   s->started_at = g_get_monotonic_time();
+   s->next_send = s->started_at;
 }
 
 /* Defer catalog rebuilding after a local model change. */
