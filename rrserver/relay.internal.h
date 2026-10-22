@@ -96,6 +96,7 @@ const char *rr_relay_message_room(dict *d);
 void rr_relay_catalog_put(const char *owner, dict *d);
 void rr_relay_collect_local(void);
 void rr_relay_send_catalogs(const char *dest);
+void rr_relay_catalog_ack(const char *origin, const char *sync_id);
 void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void *user);
 void rr_relay_refresh_catalog(void);
 struct relay_media *rr_relay_media_map(rrconn_t *client, const char *uuid, bool create);
