@@ -133,6 +133,17 @@ void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
    }
 }
 
+void rrserver_links_recent_events(const char *subject, char *out, size_t capacity) {
+   if (!out || !capacity) return;
+   out[0] = 0;
+#ifdef USE_SQLITE
+   if (masterdb && subject)
+      db_cluster_health_recent(masterdb, links.node, subject, out, capacity);
+#else
+   (void)subject;
+#endif
+}
+
 static bool site_permitted(const struct link_peer *peer, const char *site) {
    if (!peer->allowed_sites || !*peer->allowed_sites) {
       return true;
