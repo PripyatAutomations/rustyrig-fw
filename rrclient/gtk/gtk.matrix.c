@@ -83,12 +83,18 @@ static gboolean matrix_tick(GtkWidget *widget, GdkFrameClock *clock, gpointer da
       return G_SOURCE_CONTINUE;
    }
    gint64 now = gdk_frame_clock_get_frame_time(clock);
-   /* Cap catch-up after stalls; unmap resets the baseline entirely. */
-   gint64 elapsed = m->last_frame ? MIN(now - m->last_frame, 100000) : 0;
-   m->last_frame = now;
-   if (!m->speed) {
+   /* Glyph rendering and a translucent fullscreen composited overlay are
+    * expensive. Limit redraws to ~25 fps, independently of monitor refresh.
+    * Keep the elapsed time so animation speed is unchanged. */
+   if (!m->last_frame) {
+      m->last_frame = now;
       return G_SOURCE_CONTINUE;
    }
+   gint64 since = now - m->last_frame;
+   if (since < 40000 || !m->speed)
+      return G_SOURCE_CONTINUE;
+   gint64 elapsed = MIN(since, 100000);
+   m->last_frame = now;
    gint height = gtk_widget_get_allocated_height(widget);
    matrix_resize(m, gtk_widget_get_allocated_width(widget), height);
    for (guint i = 0; i < m->count; i++) {
