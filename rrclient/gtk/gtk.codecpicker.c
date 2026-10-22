@@ -107,7 +107,7 @@ void populate_codec_combo(GtkComboBoxText *combo, const char *codec_list, const 
 // server answers our capab.
 // PARITY: rustyrig-www/js/webui.media.js (codec picker population)
 void codec_pickers_refresh(void) {
-   if (!tx_combo || !rx_combo || updating_codecs) {
+   if (!GTK_IS_COMBO_BOX_TEXT(tx_combo) || !GTK_IS_COMBO_BOX_TEXT(rx_combo) || updating_codecs) {
       return;
    }
    updating_codecs = true;
@@ -154,7 +154,9 @@ void codec_pickers_refresh(void) {
 void codec_picker_set_active(bool is_tx, const char *codec) {
    GtkWidget *combo = is_tx ? tx_combo : rx_combo;
 
-   if (!combo) {
+   /* The sidebar can be destroyed/recreated while IRC tabs remain active.
+    * A stale global picker pointer must never reach GTK's combo API. */
+   if (!GTK_IS_COMBO_BOX(combo)) {
       return;
    }
    bool was_updating = updating_codecs;
@@ -177,12 +179,14 @@ GtkWidget *create_codec_selector_vbox(GtkWidget **out_tx, GtkWidget **out_rx) {
    gtk_label_set_markup(GTK_LABEL(widget_label), "<u>T</u>X/<u>R</u>X Codecs");
 
    tx_combo = gtk_combo_box_text_new();
+   g_object_add_weak_pointer(G_OBJECT(tx_combo), (gpointer *)&tx_combo);
    ui_speech_set(tx_combo, "TX Codec", // name
       "Transmit Codec",         // description
       UI_ROLE_COMBOBOX,         // role
       true);                    // focusable
    gtk_widget_set_tooltip_text(tx_combo, "Transmit codec");
    rx_combo = gtk_combo_box_text_new();
+   g_object_add_weak_pointer(G_OBJECT(rx_combo), (gpointer *)&rx_combo);
    ui_speech_set(rx_combo, "Receive Codec",  // name
       "Receiver Codec",         // description
       UI_ROLE_COMBOBOX,         // role
