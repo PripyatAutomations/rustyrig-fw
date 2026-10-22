@@ -171,13 +171,13 @@ GtkWidget *rr_gtk_matrix_new(void) {
    const char *names[] = {"Opacity", "Brightness", "Speed"};
    for (guint i = 0; i < 3; i++) {
       GtkWidget *label = gtk_label_new(names[i]);
-      m->scales[i] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, i == 2 ? 300 : 100, 1);
+      m->scales[i] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, i == 2 ? 450 : 100, 1);
       gtk_scale_set_digits(GTK_SCALE(m->scales[i]), 0);
       gtk_widget_set_size_request(m->scales[i], 180, -1);
       atk_object_set_name(gtk_widget_get_accessible(m->scales[i]), names[i]);
       gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), m->scales[i], 1, i, 1, 1);
-      gtk_range_set_value(GTK_RANGE(m->scales[i]), 100);
+      gtk_range_set_value(GTK_RANGE(m->scales[i]), i == 0 ? 50 : i == 2 ? 300 : 100);
    }
    gtk_widget_show_all(grid);
    for (guint i = 0; i < 3; i++) {
@@ -201,7 +201,7 @@ void rr_gtk_matrix_set_options(GtkWidget *matrix, guint opacity, guint brightnes
    g_return_if_fail(m != NULL);
    gtk_range_set_value(GTK_RANGE(m->scales[0]), MIN(opacity, 100));
    gtk_range_set_value(GTK_RANGE(m->scales[1]), MIN(brightness, 100));
-   gtk_range_set_value(GTK_RANGE(m->scales[2]), MIN(speed, 300));
+   gtk_range_set_value(GTK_RANGE(m->scales[2]), MIN(speed, 450));
 }
 
 static gboolean matrix_key(GtkWidget *window, GdkEventKey *event, gpointer data) {
