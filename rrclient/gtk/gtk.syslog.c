@@ -89,9 +89,13 @@ static void host_log_frame_handler(const char *event, const void *data, size_t l
       gtk_text_buffer_insert(host_log_buffer, &end, tsbuf, -1);
    }
 
-   char header[64];
+   char header[192];
+   /* Attribute each log frame to its source connection, not whichever
+    * server happens to be selected when the operator reads the tab. */
+   const char *server = cptr && cptr->server && cptr->server->network[0] ?
+      cptr->server->network : cptr && cptr->hostname[0] ? cptr->hostname : "localhost";
    // get_chat_ts() already includes the separator after the timestamp.
-   snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(prio));
+   snprintf(header, sizeof(header), "|%.80s| <%s.%s> ", server, subsys, log_priority_to_str(prio));
    gtk_text_buffer_insert(host_log_buffer, &end, header, -1);
    char *msg_copy = malloc(mlen + 1);
 
