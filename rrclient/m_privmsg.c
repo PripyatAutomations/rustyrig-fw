@@ -143,7 +143,7 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
       ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "311") && argc >= 7) {
       userlist_mark_oper(nick, false);
-      ui_print(output, "%sWHOIS %s: %s@%s (%s)", get_chat_ts(now), nick, arg3, arg4, dict_get(message, "msg.arg6", ""));
+      ui_print(output, "%sWHOIS %s!%s@%s (%s)", get_chat_ts(now), nick, arg3, arg4, dict_get(message, "msg.arg6", ""));
    } else if (!strcmp(cmd, "312") && argc >= 5) {
       ui_print(output, "%sWHOIS %s: server %s (%s)", get_chat_ts(now), nick, arg3, arg4);
    } else if (!strcmp(cmd, "319") && argc >= 4) {
@@ -157,6 +157,19 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
       } else {
          ui_print(output, "%sWHOIS %s: idle %s seconds", get_chat_ts(now), nick, arg3);
       }
+   } else if (!strcmp(cmd, "301") && argc >= 4) {
+      ui_print(output, "%sWHOIS %s is away: %s", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "307") && argc >= 4) {
+      ui_print(output, "%sWHOIS %s: registered nickname (%s)", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "330") && argc >= 5) {
+      ui_print(output, "%sWHOIS %s: logged in as %s", get_chat_ts(now), nick, arg3);
+   } else if ((!strcmp(cmd, "671") || !strcmp(cmd, "670") || !strcmp(cmd, "275")) && argc >= 4) {
+      ui_print(output, "%sWHOIS %s: secure connection (%s)", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "276") && argc >= 4) {
+      ui_print(output, "%sWHOIS %s: TLS certificate %s", get_chat_ts(now), nick, arg3);
+   } else if ((!strcmp(cmd, "378") || !strcmp(cmd, "379") || !strcmp(cmd, "320") ||
+               !strcmp(cmd, "310") || !strcmp(cmd, "335")) && argc >= 4) {
+      ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "318") && argc >= 3) {
       ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, dict_get(message, "msg.arg3", "End of WHOIS"));
    } else {
