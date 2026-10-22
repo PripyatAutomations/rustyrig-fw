@@ -368,6 +368,19 @@ static void route_request(const char *event, const void *data, size_t length, rr
    io->result = true;
 }
 
+/* Direct-neighbor catalog synchronization accounting; bounded by the active
+ * snapshot IDs and cleared when its end marker is processed. */
+typedef struct {
+   char *origin;
+   guint expected, received, accepted, rejected;
+} catalog_receive_t;
+static GHashTable *catalog_receives;
+static void catalog_receive_free(gpointer ptr) {
+   catalog_receive_t *r = ptr;
+   g_free(r->origin);
+   g_free(r);
+}
+
 /* Validate a received link envelope and dispatch its payload by kind. */
 static void receive(const char *event, const char *data, rrconn_t *client, void *user) {
    dict *envelope = json2dict(data);
@@ -383,11 +396,21 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
-   /* Snapshot boundary is ordered after its descriptors on this link.
-    * Acknowledge only after their handlers have run; do not forward the
-    * control message to other mesh branches. */
+   if (!strcmp(kind, "catalog-begin") && rr_relay_local_owner(dest)) {
+      if (*id && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
+         if (!catalog_receives)
+            catalog_receives = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, catalog_receive_free);
+         catalog_receive_t *r = g_new0(catalog_receive_t, 1);
+         r->origin = g_strdup(origin);
+         r->expected = (guint)dict_get_ulong(d, "catalog.expected", 0);
+         g_hash_table_replace(catalog_receives, g_strdup(id), r);
+      }
+      goto done;
+   }
    if (!strcmp(kind, "catalog-end") && rr_relay_local_owner(dest)) {
-      if (*id && !strcmp(rrserver_links_route(origin) ? rrserver_links_route(origin) : "", origin)) {
+      catalog_receive_t *r = catalog_receives ? g_hash_table_lookup(catalog_receives, id) : NULL;
+      if (r && !strcmp(r->origin, origin) && rrserver_links_route(origin) &&
+          !strcmp(rrserver_links_route(origin), origin)) {
          dict *ack = dict_new();
          if (ack) {
             dict_add(ack, "op", "link.application");
@@ -396,16 +419,28 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict_add(ack, "kind", "catalog-ack");
             dict_add(ack, "session", id);
             dict_add(ack, "username", "");
-            dict_add(ack, "payload", "{}");
+            dict *stats = dict_new();
+            dict_add_ulong(stats, "catalog.received", r->received);
+            dict_add_ulong(stats, "catalog.accepted", r->accepted);
+            dict_add_ulong(stats, "catalog.rejected", r->rejected);
+            dict_add_ulong(stats, "catalog.expected", r->expected);
+            char *json = dict2json(stats);
+            dict_free(stats);
+            dict_add(ack, "payload", json ? json : "{}");
+            free(json);
             rrserver_links_send(origin, ack);
             dict_free(ack);
          }
+         g_hash_table_remove(catalog_receives, id);
       }
       goto done;
    }
    if (!strcmp(kind, "catalog-ack") && rr_relay_local_owner(dest)) {
-      if (!strcmp(rrserver_links_route(origin) ? rrserver_links_route(origin) : "", origin))
-         rr_relay_catalog_ack(origin, id);
+      if (rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin))
+         rr_relay_catalog_ack(origin, id,
+             (guint)dict_get_ulong(d, "catalog.received", 0),
+             (guint)dict_get_ulong(d, "catalog.accepted", 0),
+             (guint)dict_get_ulong(d, "catalog.rejected", 0));
       goto done;
    }
 
@@ -486,7 +521,29 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       rrserver_links_send(dest, envelope);
    } else if (!strcmp(kind, "catalog") || !strcmp(kind, "catalog-remove") || !strcmp(kind, "users")) {
       if (!strcmp(kind, "catalog")) {
+         catalog_receive_t *sync = (*id && catalog_receives) ?
+            g_hash_table_lookup(catalog_receives, id) : NULL;
+         if (sync && strcmp(sync->origin, dict_get(envelope, "node", ""))) sync = NULL;
+         if (sync) sync->received++;
          rr_relay_catalog_put(origin, d);
+         if (sync) {
+            const char *key = dict_get(d, "catalog.service", NULL);
+            if (!key) key = dict_get(d, "object.uuid", NULL);
+            char roomkey[160];
+            if (!key) {
+               snprintf(roomkey, sizeof(roomkey), "room:%s", dict_get(d, "catalog.room", ""));
+               key = roomkey;
+            }
+            struct catalog *stored = rr_relay_find_catalog(key);
+            char *received_json = dict2json(d);
+            char *stored_json = stored && !strcmp(stored->owner, origin) ?
+               dict2json(stored->descriptor) : NULL;
+            gboolean accepted = received_json && stored_json && !strcmp(received_json, stored_json);
+            if (accepted) sync->accepted++;
+            else sync->rejected++;
+            free(received_json);
+            free(stored_json);
+         }
 
          if (dict_get(d, "object.uuid", NULL)) {
             dict *added = dict_clone(d);
