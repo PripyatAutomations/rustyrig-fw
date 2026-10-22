@@ -1,12 +1,12 @@
+// rrserver/backend.yaesu.c: Support modern yaesu rigs
+//    Currently supports: FT-891, FT-991a
+//
 //      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
 //
 // Do not pay money for this, except donations to the project, if you wish to.
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-// Native Yaesu CAT backend. Part of RustyRig; MIT/GPL per build profile.
-// The serial transaction API is deliberately small so it can be exercised
-// against rrclient's CAT emulator as well as a physical FT-891.
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
