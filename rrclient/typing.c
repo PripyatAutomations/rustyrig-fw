@@ -1,6 +1,7 @@
 /* Ephemeral user presence for native RustyRig rooms. No persistence,
  * history playback, GTK dependency, or global nickname-only lookups. */
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -128,7 +129,7 @@ void rrclient_typing_event(const char *event, const char *json, rrconn_t *connec
          snprintf(lease->epoch, sizeof(lease->epoch), "%s", epoch);
          lease->sequence = seq;
          lease->state = kind;
-         lease->expires_ms = (uint64_t)mono_ms() + MIN(ttl * 1000u, MAX_TYPING_TTL_MS);
+         lease->expires_ms = (uint64_t)mono_ms() + (ttl > MAX_TYPING_TTL_MS / 1000u ? MAX_TYPING_TTL_MS : ttl * 1000u);
       }
    }
    dict_free(d);
