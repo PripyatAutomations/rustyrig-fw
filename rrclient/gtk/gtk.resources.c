@@ -745,6 +745,8 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
                             NAME, &stat_name, DETAILS, &details, -1);
          if (!g_strcmp0(stat_kind, "performance-stat")) {
             ++*total;
+            if (!g_strcmp0(state, "Critical")) resource_health_raise(severity, reasons, 2, stat_name ? stat_name : "Critical health report");
+            else if (!g_strcmp0(state, "Warning")) resource_health_raise(severity, reasons, 1, stat_name ? stat_name : "Neighbor warning");
             if (state && (strstr(state, "Unavailable") || strstr(state, "Failed") || strstr(state, "offline"))) {
                ++*bad;
                resource_health_raise(severity, reasons, 1, stat_name ? stat_name : "Unavailable counter");
@@ -1974,6 +1976,18 @@ static void resource_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *rend
       resource_status_cell(column, renderer, model, iter, data);
    } else if (field == DETAILS) {
       resource_details_cell(column, renderer, model, iter, NULL);
+   }
+   if (field == NAME || field == KIND) {
+      char *kind = NULL, *state = NULL;
+      gtk_tree_model_get(model, iter, KIND, &kind, STATE, &state, -1);
+      gboolean node = !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "cluster-health") ||
+                      !g_strcmp0(kind, "site") || !g_strcmp0(kind, "server");
+      const char *color = node && !g_strcmp0(state, "Critical") ? "#b3261e" :
+                          node && !g_strcmp0(state, "Warning") ? "#ad7700" : NULL;
+      g_object_set(renderer, "foreground-set", color != NULL, NULL);
+      if (color) g_object_set(renderer, "foreground", color, NULL);
+      g_free(kind);
+      g_free(state);
    }
    /* Rebuilds run in the idle callback, never inside cell rendering. */
    GtkTreePath *path = gtk_tree_model_get_path(model, iter);
