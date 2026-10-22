@@ -441,6 +441,17 @@ static void establish(struct link_session *session) {
       }
    }
 
+   /* Explicit opt-in until all deployed peers support the new operation.
+    * Sending this unconditionally would disconnect legacy servers. */
+   if (cfg_get_bool("link.capabilities", false)) {
+      dict *caps = message("link.capabilities");
+      if (caps) {
+         dict_add(caps, "version", "2.1");
+         dict_add(caps, "features", "rig.menu,object.model,relay.files,hostlog.stream");
+         send_message(session, caps);
+         dict_free(caps);
+      }
+   }
    event_emit("server.link.ready", NULL, session->node);
 }
 
@@ -640,6 +651,16 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       } else {
          session->ready = true;
          establish(session);
+      }
+   } else if (session->established && !strcmp(op, "link.capabilities")) {
+      const char *version = dict_get(d, "version", "");
+      const char *features = dict_get(d, "features", "");
+      if (version[0] != '2' || version[1] != '.') {
+         Log(LOG_WARN, "link", "Peer %s advertises incompatible link protocol version %s; upgrade may be required",
+            session->peer->site, version);
+      } else {
+         Log(LOG_INFO, "link", "Peer %s protocol %s capabilities: %s",
+            session->peer->site, version, features);
       }
    } else if (session->established && !strcmp(op, "link.introduce")) {
       const char *node = dict_get(d, "node", ""), *parent = dict_get(d, "parent", "");
