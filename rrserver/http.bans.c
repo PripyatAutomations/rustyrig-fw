@@ -69,6 +69,113 @@ bool is_http_banned(const char *ua) {
    return false;
 }
 
+/* Legacy ban files mix EREs and shell-style *foo* patterns. Try ERE
+ * first; on invalid ERE syntax, permit bounded glob fallback. */
+static char *ua_glob_regex(const char *pattern) {
+   size_t n = strlen(pattern);
+   if (n > 1024) return NULL;
+   char *out = malloc(n * 4 + 4);
+   if (!out) return NULL;
+   char *p = out;
+   *p++ = '^';
+   for (size_t i = 0; i < n; ++i) {
+      char c = pattern[i];
+      if (c == '*') { *p++ = '.'; *p++ = '*'; }
+      else if (c == '?') *p++ = '.';
+      else {
+         if (strchr(".^$+()[]{}|\\\\", c)) *p++ = '\\\\';
+         *p++ = c;
+      }
+   }
+   *p++ = '
+   if (!path || !*path) {
+      return true;
+   }
+   FILE *fp = fopen(path, "r");
+   char line[1024];
+
+   if (!fp) {
+      return true;
+   }
+   /* Reloads replace the active list.  Do this only after the file opened so a transient missing file does not silently discard the current policy. */
+   free_http_ua_bans();
+   while (fgets(line, sizeof(line), fp)) {
+      // Skip comments and empty lines
+      if (line[0] == '#' || line[0] == ';' || (strlen(line) > 1 && (line[0] == '/' && line[1] == '/')) || line[0] == '\n') {
+         continue;
+      }
+      // Remove trailing \r or \n characters
+      size_t line_len = strlen(line);
+      char *end = line + (line_len ? line_len - 1 : 0);
+      char *start = NULL;
+      while (end >= line && (*end == '\r' || *end == '\n')) {
+         *end = '\0';
+         end--;
+      }
+      // Trim leading spaces (again)
+      start = line + strspn(line, " \t\r\n");
+
+      if (start != line) {
+         memmove(line, start, strlen(start) + 1);
+      }
+
+      if (line[0] == '\n' || line[0] == '\0') {
+         continue;
+      }
+      http_ua_ban_t *new_ban = calloc(1, sizeof(*new_ban));
+
+      if (!new_ban) {
+         fclose(fp);
+
+         return true;
+      }
+      new_ban->useragent = strdup(line);
+
+      if (!new_ban->useragent) {
+         free(new_ban);
+         fclose(fp);
+
+         return true;
+      }
+      int regex_rc = regcomp(&new_ban->regex, new_ban->useragent, REG_EXTENDED | REG_NOSUB | REG_ICASE);
+      if (regex_rc != 0 && strpbrk(new_ban->useragent, "*?")) {
+         char *expanded = ua_glob_regex(new_ban->useragent);
+         if (expanded) {
+            regex_rc = regcomp(&new_ban->regex, expanded, REG_EXTENDED | REG_NOSUB | REG_ICASE);
+            free(expanded);
+         }
+      }
+
+      if (regex_rc != 0) {
+         char error_text[256];
+         regerror(regex_rc, &new_ban->regex, error_text, sizeof(error_text));
+         Log(LOG_WARN, "http.bans", "Ignoring invalid user-agent pattern '%s': %s", new_ban->useragent, error_text);
+         free(new_ban->useragent);
+         free(new_ban);
+         continue;
+      }
+      new_ban->regex_compiled = true;
+      new_ban->enabled = true;
+
+      if (!http_ua_bans) {
+         http_ua_bans = new_ban;
+      } else {
+         http_ua_ban_t *tail = http_ua_bans;
+         while (tail->next) {
+            tail = tail->next;
+         }
+         tail->next = new_ban;
+      }
+   }
+   fclose(fp);
+
+   return false;
+}
+#endif // USE_HTTP
+;
+   *p = 0;
+   return out;
+}
 bool load_http_ua_bans(const char *path) {
    if (!path || !*path) {
       return true;
