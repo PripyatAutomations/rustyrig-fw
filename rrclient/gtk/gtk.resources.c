@@ -757,15 +757,17 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
          g_free(binding);
          if (found) { item = child; break; }
       }
-      if (!found) gtk_tree_store_append(browser->store, &item, &browser->health_root);
+      if (!found) {
+         gtk_tree_store_append(browser->store, &item, &browser->health_root);
+         gtk_tree_store_set(browser->store, &item, KIND, "cluster-node", PROFILE, branch->profile,
+                            BINDING, key, ACTION, direct ? "root" : "site", UUID, uuid ? uuid : "", -1);
+      }
       const char *status = !branch->online ? "Offline" : branch->loading ? "Refreshing" :
                            !available || !total ? "No telemetry" : bad ? "Warning" : "Reporting";
       if (branch->online && total && !bad) ++*reporting;
       if (!branch->online || bad) ++*warnings;
       char *details = g_strdup_printf("%s via %s. %u performance entries, %u unavailable. Double-click to open Statistics / Performance.",
                                        direct ? "Direct connection" : "Linked node", branch->profile, total, bad);
-      gtk_tree_store_set(browser->store, &item, KIND, "cluster-node", PROFILE, branch->profile,
-                         BINDING, key, ACTION, direct ? "root" : "site", UUID, uuid ? uuid : "", -1);
       set_string(&item, NAME, name ? name : branch->profile);
       set_string(&item, STATE, status);
       set_string(&item, DETAILS, details);
@@ -2073,6 +2075,10 @@ static void resource_search_changed(GtkEditable *entry, gpointer unused) {
 static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
    char *kind = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, -1);
+   if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node")) {
+      g_free(kind);
+      return resource_search_subtree(model, iter);
+   }
    gboolean match = g_hash_table_contains(browser->enabled_kinds, !g_strcmp0(kind, "rig-control") ? "control" : !g_strcmp0(kind, "serial-folder") ? "serial" :
       kind ? kind : "");
 
