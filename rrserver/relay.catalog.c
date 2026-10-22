@@ -731,10 +731,18 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       return FALSE;
    }
    for (unsigned n = 0; n < 8 && s->offset < s->messages->len; n++) {
-      dict *d = g_ptr_array_index(s->messages, s->offset++);
-      rrserver_links_send(s->dest, d);
+      dict *d = g_ptr_array_index(s->messages, s->offset);
+      if (!rrserver_links_send(s->dest, d)) {
+         Log(LOG_WARN, "relay.catalog",
+             "Catalog sync %s to %s failed sending item %u/%u (%.3f s); no acknowledgment expected",
+             s->sync_id, s->dest, s->offset + 1, s->messages->len,
+             (g_get_monotonic_time() - s->started_at) / 1000000.0);
+         return FALSE;
+      }
+      s->offset++;
    }
    if (s->offset == s->messages->len) {
+      gboolean end_sent = FALSE;
       dict *end = dict_new();
       if (end) {
          dict_add(end, "op", "link.application");
@@ -744,10 +752,12 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
          dict_add(end, "session", s->sync_id);
          dict_add(end, "username", "");
          dict_add(end, "payload", "{}");
-         if (!rrserver_links_send(s->dest, end))
+         end_sent = rrserver_links_send(s->dest, end);
+         if (!end_sent)
             Log(LOG_WARN, "relay.catalog", "Failed to send catalog-end to %s for sync %s", s->dest, s->sync_id);
          dict_free(end);
       }
+      if (!end_sent) return FALSE;
       if (!relay_catalog_awaiting_ack)
          relay_catalog_awaiting_ack = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, ack_wait_free);
       catalog_ack_wait_t *wait = g_new0(catalog_ack_wait_t, 1);
