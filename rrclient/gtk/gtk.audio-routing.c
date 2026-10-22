@@ -5,14 +5,13 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 #include "gtk.audio-routing.h"
-#include "gtk.tabs.h"
+#include "gtk.floating-panel.h"
 extern GtkWidget *main_notebook;
 
 static GtkWidget *routing_window, *split_rx, *ear_combo[2], *ear_volume[2];
 static bool volume_updating;
-static GtkWidget *routing_overlay, *routing_body, *routing_title, *routing_roll_button, *routing_min_button;
-static bool routing_rolled, routing_minimized;
-static GtkWidget *routing_restore_tab;
+static GtkWidget *routing_overlay, *routing_body;
+static RRFloatPanel *routing_panel;
 static guint routing_source;
 static rr_event_token_t streams_token, routes_token;
 static bool routing_updating, inventory_dirty, have_choices;
@@ -87,7 +86,7 @@ static gboolean routing_refresh(gpointer unused) {
    struct rrclient_rx_stream *streams = routing_snapshot(&count);
 
    if (!count) {
-      gtk_widget_hide(routing_window);
+      rr_floating_panel_hide(routing_panel);
       have_choices = false;
       inventory_dirty = false;
       g_free(streams);
@@ -151,11 +150,7 @@ static gboolean routing_refresh(gpointer unused) {
    have_choices = true;
 
    /* Showing an already visible window would undo minimization on some WMs. */
-   if (!routing_minimized && !gtk_widget_get_visible(routing_window)) {
-      gtk_widget_show_all(routing_window);
-   }
-   if (routing_rolled || routing_minimized) gtk_widget_hide(routing_body);
-   if (routing_minimized) gtk_widget_hide(routing_title);
+   rr_floating_panel_show(routing_panel);
    g_free(streams);
 
    return G_SOURCE_REMOVE;
@@ -234,104 +229,6 @@ static void routing_event(const char *event, const char *data, rrconn_t *connect
    routing_queue();
 }
 
-/* Overlay child coordinates are expressed in the main client's content area.
- * Dragging the title bar never steals events from the routing controls. */
-static gboolean routing_dragging;
-static double routing_drag_x, routing_drag_y;
-static int routing_start_x = 12, routing_start_y = 12;
-
-static gboolean routing_drag_press(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
-   (void)widget;
-   (void)unused;
-   if (event->button != GDK_BUTTON_PRIMARY) return FALSE;
-   routing_dragging = true;
-   routing_drag_x = event->x_root;
-   routing_drag_y = event->y_root;
-   routing_start_x = gtk_widget_get_margin_start(routing_window);
-   routing_start_y = gtk_widget_get_margin_top(routing_window);
-   return TRUE;
-}
-
-static gboolean routing_drag_motion(GtkWidget *widget, GdkEventMotion *event, gpointer unused) {
-   (void)widget;
-   (void)unused;
-   if (!routing_dragging) return FALSE;
-   int width = gtk_widget_get_allocated_width(routing_window);
-   int height = gtk_widget_get_allocated_height(routing_window);
-   int max_x = MAX(0, gtk_widget_get_allocated_width(routing_overlay) - width);
-   int max_y = MAX(0, gtk_widget_get_allocated_height(routing_overlay) - height);
-   int x = CLAMP(routing_start_x + (int)(event->x_root - routing_drag_x), 0, max_x);
-   int y = CLAMP(routing_start_y + (int)(event->y_root - routing_drag_y), 0, max_y);
-   gtk_widget_set_margin_start(routing_window, x);
-   gtk_widget_set_margin_top(routing_window, y);
-   return TRUE;
-}
-
-static gboolean routing_drag_release(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
-   (void)widget;
-   (void)unused;
-   if (event->button != GDK_BUTTON_PRIMARY || !routing_dragging) return FALSE;
-   /* Button and motion events are distinct GDK types; use the release
-    * coordinates directly rather than casting between event structures. */
-   int max_x = MAX(0, gtk_widget_get_allocated_width(routing_overlay) - gtk_widget_get_allocated_width(routing_window));
-   int max_y = MAX(0, gtk_widget_get_allocated_height(routing_overlay) - gtk_widget_get_allocated_height(routing_window));
-   gtk_widget_set_margin_start(routing_window, CLAMP(routing_start_x + (int)(event->x_root - routing_drag_x), 0, max_x));
-   gtk_widget_set_margin_top(routing_window, CLAMP(routing_start_y + (int)(event->y_root - routing_drag_y), 0, max_y));
-   routing_dragging = false;
-   return TRUE;
-}
-
-/* Floating panels retain their titlebar when rolled up; minimize leaves
- * only the small restore controls visible, without losing their position. */
-static void routing_update_chrome(void) {
-   if (!routing_window) return;
-   if (routing_rolled || routing_minimized) gtk_widget_hide(routing_body);
-   else gtk_widget_show(routing_body);
-   if (routing_minimized) gtk_widget_hide(routing_window);
-   else gtk_widget_show(routing_title);
-   gtk_widget_set_tooltip_text(routing_roll_button, routing_rolled ? "Unroll panel" : "Roll up panel");
-   gtk_widget_set_tooltip_text(routing_min_button, routing_minimized ? "Restore panel" : "Minimize panel");
-}
-
-static void routing_roll(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   routing_rolled = !routing_rolled;
-   routing_minimized = false;
-   routing_update_chrome();
-}
-
-static void routing_restore(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   routing_minimized = false;
-   if (routing_restore_tab) {
-      gtk_tabs_panel_restore_remove(routing_restore_tab);
-      routing_restore_tab = NULL;
-   }
-   gtk_widget_show(routing_window);
-   routing_update_chrome();
-}
-
-static void routing_minimize(GtkButton *button, gpointer unused) {
-   (void)button; (void)unused;
-   if (routing_minimized || !GTK_IS_NOTEBOOK(main_notebook)) return;
-   routing_restore_tab = gtk_tabs_panel_restore_add(GTK_NOTEBOOK(main_notebook),
-      "RX Audio Routing", G_CALLBACK(routing_restore), NULL);
-   if (!routing_restore_tab) return;
-   routing_minimized = true;
-   routing_update_chrome();
-}
-
-static void routing_close(GtkButton *button, gpointer unused) {
-   (void)button;
-   (void)unused;
-   if (routing_restore_tab) {
-      gtk_tabs_panel_restore_remove(routing_restore_tab);
-      routing_restore_tab = NULL;
-      routing_minimized = false;
-   }
-   gtk_widget_hide(routing_window);
-}
-
 void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
@@ -351,46 +248,11 @@ void gtk_audio_routing_init(void) {
    gtk_container_add(GTK_CONTAINER(routing_overlay), content);
    g_object_unref(content);
    gtk_container_add(GTK_CONTAINER(main_window), routing_overlay);
-   routing_window = gtk_frame_new(NULL);
-   /* An overlay frame has no window surface of its own: explicitly paint a
-    * theme-matched opaque backdrop so the underlying tab cannot show through. */
-   gtk_style_context_add_class(gtk_widget_get_style_context(routing_window), "rr-rx-routing-panel");
-   GtkCssProvider *panel_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(panel_css,
-      ".rr-rx-routing-panel { background-color: @theme_bg_color; border: 1px solid @borders; border-radius: 6px; padding: 6px; }",
-      -1, NULL);
-   gtk_style_context_add_provider(gtk_widget_get_style_context(routing_window),
-      GTK_STYLE_PROVIDER(panel_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-   g_object_unref(panel_css);
-   gtk_widget_set_halign(routing_window, GTK_ALIGN_START);
-   gtk_widget_set_valign(routing_window, GTK_ALIGN_START);
-   gtk_widget_set_margin_top(routing_window, 12);
-   gtk_widget_set_margin_start(routing_window, 12);
-   gtk_overlay_add_overlay(GTK_OVERLAY(routing_overlay), routing_window);
-   GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   gtk_container_add(GTK_CONTAINER(routing_window), panel);
-   GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   GtkWidget *drag_handle = gtk_event_box_new();
-   gtk_widget_add_events(drag_handle, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   gtk_container_add(GTK_CONTAINER(drag_handle), header);
-   gtk_box_pack_start(GTK_BOX(panel), drag_handle, FALSE, FALSE, 0);
-   g_signal_connect(drag_handle, "button-press-event", G_CALLBACK(routing_drag_press), NULL);
-   g_signal_connect(drag_handle, "motion-notify-event", G_CALLBACK(routing_drag_motion), NULL);
-   g_signal_connect(drag_handle, "button-release-event", G_CALLBACK(routing_drag_release), NULL);
-   gtk_widget_set_tooltip_text(drag_handle, "Drag to move RX Audio Routing inside the client");
-   routing_min_button = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_start(GTK_BOX(header), routing_min_button, FALSE, FALSE, 0);
-   g_signal_connect(routing_min_button, "clicked", G_CALLBACK(routing_minimize), NULL);
-   routing_roll_button = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_start(GTK_BOX(header), routing_roll_button, FALSE, FALSE, 0);
-   g_signal_connect(routing_roll_button, "clicked", G_CALLBACK(routing_roll), NULL);
-   routing_title = gtk_label_new("RX Audio Routing");
-   gtk_box_pack_start(GTK_BOX(header), routing_title, TRUE, TRUE, 0);
-   GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_end(GTK_BOX(header), close, FALSE, FALSE, 0);
-   g_signal_connect(close, "clicked", G_CALLBACK(routing_close), NULL);
-   routing_body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-   gtk_box_pack_start(GTK_BOX(panel), routing_body, TRUE, TRUE, 0);
+   routing_panel = rr_floating_panel_new(GTK_OVERLAY(routing_overlay),
+      GTK_NOTEBOOK(main_notebook), "RX Audio Routing", "RX Audio Routing");
+   if (!routing_panel) return;
+   routing_window = rr_floating_panel_widget(routing_panel);
+   routing_body = rr_floating_panel_body(routing_panel);
    GtkWidget *grid = gtk_grid_new();
    gtk_container_set_border_width(GTK_CONTAINER(grid), 4);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
@@ -434,8 +296,7 @@ void gtk_audio_routing_init(void) {
    gtk_widget_set_sensitive(ear_volume[1], FALSE);
 
    gtk_widget_show_all(routing_overlay);
-   gtk_widget_hide(routing_window);
-   routing_update_chrome();
+   rr_floating_panel_hide(routing_panel);
    streams_token = event_on_token("client.audio.streams.changed", routing_event, NULL);
    routes_token = event_on_token("client.audio.route.changed", routing_event, NULL);
    inventory_dirty = true;
@@ -458,18 +319,12 @@ void gtk_audio_routing_shutdown(void) {
       routing_source = 0;
    }
 
-   if (routing_restore_tab) {
-      gtk_tabs_panel_restore_remove(routing_restore_tab);
-      routing_restore_tab = NULL;
-   }
-   if (routing_window) {
-      gtk_widget_destroy(routing_window);
-   }
+   rr_floating_panel_destroy(routing_panel);
+   routing_panel = NULL;
    rx_vol_slider = NULL;
    rx_rig_vol_slider = NULL;
    ear_volume[0] = ear_volume[1] = NULL;
-   routing_window = routing_overlay = routing_body = routing_title = routing_roll_button = routing_min_button = split_rx = ear_combo[0] = ear_combo[1] = NULL;
-   routing_rolled = routing_minimized = false;
-   routing_updating = inventory_dirty = have_choices = routing_dragging = false;
+   routing_window = routing_overlay = routing_body = split_rx = ear_combo[0] = ear_combo[1] = NULL;
+   routing_updating = inventory_dirty = have_choices = false;
    memset(ear_choice, 0, sizeof(ear_choice));
 }
