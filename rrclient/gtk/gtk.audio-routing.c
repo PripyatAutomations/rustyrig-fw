@@ -13,7 +13,7 @@ static bool volume_updating;
 static GtkWidget *routing_overlay, *routing_body;
 static RRFloatPanel *routing_panel;
 static guint routing_source;
-static rr_event_token_t streams_token, routes_token;
+static rr_event_token_t streams_token, routes_token, show_token;
 static bool routing_updating, inventory_dirty, have_choices;
 /* Empty = muted, * = all streams, ~ = existing custom mix. Otherwise opaque ID. */
 static char ear_choice[2][64];
@@ -233,6 +233,14 @@ static void routing_event(const char *event, const char *data, rrconn_t *connect
    routing_queue();
 }
 
+static void routing_show_event(const char *event, const char *data, rrconn_t *connection, void *context) {
+   (void)event; (void)data; (void)connection; (void)context;
+   if (routing_panel) {
+      rr_floating_panel_restore(routing_panel);
+      rr_floating_panel_show(routing_panel);
+   }
+}
+
 void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
@@ -258,6 +266,7 @@ void gtk_audio_routing_init(void) {
    if (!routing_panel) {
       return;
    }
+   rr_floating_panel_set_closable(routing_panel, FALSE);
    routing_window = rr_floating_panel_widget(routing_panel);
    routing_body = rr_floating_panel_body(routing_panel);
    GtkWidget *grid = gtk_grid_new();
@@ -305,6 +314,7 @@ void gtk_audio_routing_init(void) {
 
    gtk_widget_show_all(routing_overlay);
    rr_floating_panel_hide(routing_panel);
+   show_token = event_on_token("client.audio.routing.show", routing_show_event, NULL);
    streams_token = event_on_token("client.audio.streams.changed", routing_event, NULL);
    routes_token = event_on_token("client.audio.route.changed", routing_event, NULL);
    inventory_dirty = true;
@@ -312,6 +322,7 @@ void gtk_audio_routing_init(void) {
 }
 
 void gtk_audio_routing_shutdown(void) {
+   if (show_token) { event_off_token(show_token); show_token = 0; }
    if (streams_token) {
       event_off_token(streams_token);
       streams_token = 0;
