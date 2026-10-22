@@ -931,9 +931,30 @@ void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint receive
    if (!w || strcmp(w->dest, origin)) {
       return;
    }
-   Log(rejected
-      || received != w->count ? LOG_WARN : LOG_INFO, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
-      origin_label, sync_id, (g_get_monotonic_time() - w->started) / 1000000.0, w->count, received, accepted, rejected);
+   const gint64 elapsed_us = g_get_monotonic_time() - w->started;
+   const bool complete = received == w->count && accepted == received && rejected == 0;
+#ifdef USE_PROFILING
+   if (complete) CP_INC(ack_ok);
+   else CP_INC(ack_partial);
+   CP_ADD(ack_received, received);
+   CP_ADD(ack_accepted, accepted);
+   CP_ADD(ack_rejected, rejected);
+   catalog_profile_duration(elapsed_us > 0 ? (guint64)elapsed_us : 0, "ack");
+   catalog_profile_peer_t *peer = catalog_profile_peer(origin);
+   if (peer) {
+      if (complete) peer->ack_ok++;
+      else peer->ack_partial++;
+      peer->accepted += accepted;
+      peer->rejected += rejected;
+      peer->last_ack_us = elapsed_us > 0 ? (guint64)elapsed_us : 0;
+      if (peer->last_ack_us > peer->max_ack_us)
+         peer->max_ack_us = peer->last_ack_us;
+   }
+#endif
+   Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog",
+       "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
+       origin_label, sync_id, elapsed_us / 1000000.0,
+       w->count, received, accepted, rejected);
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
@@ -957,6 +978,11 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
    const char *route = rrserver_links_route(s->dest);
 
    if (!route || strcmp(route, s->dest)) {
+#ifdef USE_PROFILING
+      CP_INC(aborted);
+      catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
+      if (peer) peer->aborted++;
+#endif
       Log(LOG_WARN, "relay.catalog", "Aborted catalog delivery to %s after %u/%u descriptors (%.3f s): neighbor unreachable", dest_label, s->offset, s->messages
          ->len, (g_get_monotonic_time() - s->started_at) / 1000000.0);
 
@@ -967,12 +993,25 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       dict *d = g_ptr_array_index(s->messages, s->offset);
 
       if (!rrserver_links_send(s->dest, d)) {
+#ifdef USE_PROFILING
+         CP_INC(aborted);
+         catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
+         if (peer) peer->aborted++;
+#endif
          Log(LOG_WARN, "relay.catalog", "Catalog sync %s to %s failed sending item %u/%u (%.3f s); no acknowledgment expected", s->sync_id, dest_label, s->
             offset + 1, s->messages->len, (g_get_monotonic_time() - s->started_at) / 1000000.0);
 
          return FALSE;
       }
       s->offset++;
+#ifdef USE_PROFILING
+      /* The first queue item is catalog-begin, not a descriptor. */
+      if (s->offset > 1) {
+         CP_INC(sent);
+         catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
+         if (peer) peer->sent++;
+      }
+#endif
    }
 
    if (s->offset == s->messages->len) {
@@ -996,9 +1035,20 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       }
 
       if (!end_sent) {
+#ifdef USE_PROFILING
+         CP_INC(aborted);
+         catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
+         if (peer) peer->aborted++;
+#endif
          return FALSE;
       }
 
+#ifdef USE_PROFILING
+      CP_INC(queued);
+      catalog_profile_duration((guint64)MAX(0, g_get_monotonic_time() - s->started_at), "drain");
+      catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
+      if (peer) peer->queued++;
+#endif
       if (!relay_catalog_awaiting_ack) {
          relay_catalog_awaiting_ack = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, ack_wait_free);
       }
@@ -1031,6 +1081,11 @@ void rr_relay_catalog_pump(void) {
          catalog_ack_wait_t *w = value;
 
          if (now - w->started >= 30 * G_USEC_PER_SEC) {
+#ifdef USE_PROFILING
+            CP_INC(ack_timeout);
+            catalog_profile_peer_t *peer = catalog_profile_peer(w->dest);
+            if (peer) peer->timeouts++;
+#endif
             Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)", (char *)key, rrserver_links_format_node(w->dest
                , dest_label, sizeof(dest_label)), (now - w->started) / 1000000.0, w->count);
             g_hash_table_iter_remove(&pending);
@@ -1081,10 +1136,20 @@ void rr_relay_send_catalogs(const char *dest) {
          catalog_ack_wait_t *w = value;
 
          if (!strcmp(w->dest, dest)) {
+#ifdef USE_PROFILING
+            CP_INC(ack_cancelled);
+#endif
             g_hash_table_iter_remove(&iter);
          }
       }
    }
+#ifdef USE_PROFILING
+   if (g_hash_table_lookup(relay_catalog_snapshots, dest)) CP_INC(superseded);
+   const gint64 build_started = g_get_monotonic_time();
+   CP_INC(snapshots);
+   catalog_profile_peer_t *profile_peer = catalog_profile_peer(dest);
+   if (profile_peer) profile_peer->snapshots++;
+#endif
    g_hash_table_remove(relay_catalog_snapshots, dest);
    relay_catalog_snapshot_t *s = g_new0(relay_catalog_snapshot_t, 1);
    s->dest = g_strdup(dest);
@@ -1154,6 +1219,10 @@ void rr_relay_send_catalogs(const char *dest) {
       free(payload);
       g_ptr_array_insert(s->messages, 0, begin);
    }
+#ifdef USE_PROFILING
+   CP_ADD(prepared, s->messages->len - (begin != NULL));
+   catalog_profile_duration((guint64)MAX(0, g_get_monotonic_time() - build_started), "build");
+#endif
    Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)", s->messages->len - (begin != NULL), dest_label, s->sync_id
       );
    g_hash_table_insert(relay_catalog_snapshots, s->dest, s);
