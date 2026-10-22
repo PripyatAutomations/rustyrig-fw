@@ -55,6 +55,7 @@ The dependency helper prints the installation command for your selected build pr
 | [Radio rooms](doc/rig-rooms.md) | Multiple rigs, room access, and VFO/audio behavior |
 | [Audio codecs](doc/media-codecs.md) | Selecting codecs and setting up audio pipelines |
 | [IRC client settings](doc/irc-client.md) | Multiple connections and proxies |
+| [Serial devices, server exports and privileges](doc/serial-interfaces.md) | Map physical UART/USB devices, grant per-device access, attach from clients, and understand mesh limitations |
 | [Known issues](doc/KNOWN-ISSUES.md) | Open RC problems and requested fixes |
 | [Changelog](CHANGELOG) | Recent changes and known transitions |
 | [RC release checklist](doc/release-checklist.md) | Build, package, smoke-test and tag a release |
