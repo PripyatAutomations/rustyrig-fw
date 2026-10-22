@@ -43,7 +43,7 @@ typedef struct {
    guint zebra_idle;
    GtkTreeStore *store;
    GtkTreeIter local_root, serial_root, network_root, health_root;
-   GHashTable *branches, *local_rows;
+   GHashTable *branches, *local_rows, *health_events, *health_last;
    guint timer;
    gulong initial_split_handler;
    double scroll_y;
@@ -812,6 +812,42 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
    }
    return FALSE;
 }
+/* Bounded in-memory history of state transitions in this client session. */
+static void resource_health_queue_free(gpointer value) {
+   g_queue_free_full(value, g_free);
+}
+static void resource_health_history(const char *key, const char *status, const char *reason, GtkTreeIter *node) {
+   const char *previous = g_hash_table_lookup(browser->health_last, key);
+   GQueue *events = g_hash_table_lookup(browser->health_events, key);
+   if (!events) {
+      events = g_queue_new();
+      g_hash_table_insert(browser->health_events, g_strdup(key), events);
+   }
+   if (g_strcmp0(previous, status)) {
+      GDateTime *now = g_date_time_new_now_local();
+      char *stamp = g_date_time_format(now, "%Y-%m-%d %H:%M:%S");
+      char *entry = g_strdup_printf("%s  %s%s%s", stamp, status,
+                                    reason && *reason ? ": " : "", reason && *reason ? reason : "");
+      g_queue_push_head(events, entry);
+      while (g_queue_get_length(events) > 16) g_free(g_queue_pop_tail(events));
+      g_hash_table_replace(browser->health_last, g_strdup(key), g_strdup(status));
+      g_free(stamp);
+      g_date_time_unref(now);
+   }
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter group;
+   if (!gtk_tree_model_iter_children(model, &group, node))
+      gtk_tree_store_append(browser->store, &group, node);
+   gtk_tree_store_set(browser->store, &group, NAME, "Health History", KIND, "group",
+                      STATE, "Session history", -1);
+   GtkTreeIter row;
+   while (gtk_tree_model_iter_children(model, &row, &group))
+      gtk_tree_store_remove(browser->store, &row);
+   for (GList *it = events->head; it; it = it->next) {
+      gtk_tree_store_append(browser->store, &row, &group);
+      gtk_tree_store_set(browser->store, &row, NAME, it->data, KIND, "health-event", DETAILS, it->data, -1);
+   }
+}
 static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen,
                                  unsigned *reporting, unsigned *warnings) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
@@ -848,6 +884,7 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
       set_string(&item, NAME, name ? name : branch->profile);
       set_string(&item, STATE, status);
       set_string(&item, DETAILS, details);
+      resource_health_history(key, status, reasons->str, &item);
       g_free(details);
       g_free(key);
    }
@@ -2445,6 +2482,8 @@ static void resource_create(void) {
    browser->zebra_dirty = TRUE;
    browser->branches = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, branch_free);
    browser->local_rows = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify) gtk_tree_row_reference_free);
+   browser->health_events = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, resource_health_queue_free);
+   browser->health_last = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    browser->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    browser->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(browser->panel), 10);
