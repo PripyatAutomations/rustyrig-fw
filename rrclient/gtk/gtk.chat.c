@@ -31,6 +31,7 @@
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
+#include <rrclient/gtk/gtk.vfo-box.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
 
@@ -1228,6 +1229,15 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 }
 
 
+static void room_vfo_fit(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
+   (void)widget; (void)data;
+   vfo_controls_fit_width(allocation->width);
+}
+static gboolean room_vfo_float_size(GtkWidget *widget, GdkEventConfigure *event, gpointer data) {
+   (void)widget; (void)data;
+   vfo_controls_fit_width(event->width);
+   return FALSE;
+}
 static GtkWidget *chatbox_vfo_init(void) {
    GtkWidget *vfo = create_vfo_box();
 
@@ -1243,7 +1253,8 @@ static GtkWidget *chatbox_vfo_init(void) {
    /* Keep wide frequency controls from enlarging the whole notebook inside the main zoom viewport. Otherwise the room roster sits off-screen even when every
     * column fits its own pane. Only the radio strip may scroll. */
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   g_signal_connect(scroll, "size-allocate", G_CALLBACK(room_vfo_fit), NULL);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 1);
    gtk_container_add(GTK_CONTAINER(scroll), vfo);
 
@@ -1296,6 +1307,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       gtk_window_set_destroy_with_parent(GTK_WINDOW(room_vfo_window), TRUE);
       g_signal_connect(room_vfo_window, "delete-event", G_CALLBACK(room_vfo_float_closed), NULL);
       rr_floating_window_controls(GTK_WINDOW(room_vfo_window), GTK_NOTEBOOK(main_notebook), "VFO");
+      g_signal_connect(room_vfo_window, "configure-event", G_CALLBACK(room_vfo_float_size), NULL);
    }
    GtkWidget *parent = gtk_widget_get_parent(room_vfo_container);
 
@@ -1335,9 +1347,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    if (inside) {
       gtk_widget_get_preferred_width(inside, &minimum, &natural);
    }
-   /* Initial floating size should be compact and never force the panel to
-    * occupy most of the desktop. The contained VFO scrolls horizontally when
-    * controls need more space than the user gives the detached window. */
+   /* A narrow floating window reflows its live controls instead of scrolling. */
    int width = CLAMP(natural + 36, 480, 800);
    if (!gtk_widget_get_visible(room_vfo_window))
       gtk_window_resize(GTK_WINDOW(room_vfo_window), width, 190);
