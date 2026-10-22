@@ -169,6 +169,36 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
 static char typing_incarnation[37];
 static unsigned long long typing_sequence;
 
+/* Bound refresh traffic even from modified or malicious clients.
+ * Only the final 'idle' transition bypasses the 500 ms throttle. */
+typedef struct {
+   rrconn_t *client;
+   char room[128];
+   gint64 last_us;
+} typing_throttle_t;
+static typing_throttle_t typing_throttle[512];
+
+static bool typing_can_publish(rrconn_t *client, const char *room, const char *state) {
+   if (!strcmp(state, "idle")) return true;
+   gint64 at = g_get_monotonic_time();
+   size_t slot = 0;
+   for (size_t i = 0; i < G_N_ELEMENTS(typing_throttle); i++) {
+      typing_throttle_t *t = &typing_throttle[i];
+      if (t->client == client && !strcmp(t->room, room)) {
+         if (at - t->last_us < 500000) return false;
+         slot = i;
+         goto record;
+      }
+      if (!t->client || at - t->last_us > 30000000)
+         slot = i;
+   }
+record:
+   typing_throttle[slot].client = client;
+   g_strlcpy(typing_throttle[slot].room, room, sizeof(typing_throttle[slot].room));
+   typing_throttle[slot].last_us = at;
+   return true;
+}
+
 static void rrserver_handle_typing(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -179,6 +209,10 @@ static void rrserver_handle_typing(const char *event, const char *data, rrconn_t
    const char *state = dict_get(d, "talk.typing", "");
    if (!*room || !ws_client_in_room(client, room) ||
        (strcmp(state, "started") && strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle"))) {
+      dict_free(d);
+      return;
+   }
+   if (!typing_can_publish(client, room, state)) {
       dict_free(d);
       return;
    }
