@@ -200,6 +200,18 @@ record:
    return true;
 }
 
+static void rrserver_typing_session_closed(const char *event, const char *data,
+                                           rrconn_t *client, void *user) {
+   (void)event;
+   (void)data;
+   (void)user;
+   if (!client) return;
+   for (size_t i = 0; i < G_N_ELEMENTS(typing_throttle); i++) {
+      if (typing_throttle[i].client == client)
+         memset(&typing_throttle[i], 0, sizeof(typing_throttle[i]));
+   }
+}
+
 static void rrserver_handle_typing(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
    (void)user;
@@ -606,6 +618,7 @@ void rrserver_register_events(void) {
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    event_on("talk.typing", rrserver_handle_typing, NULL);
+   event_on("protocol.session.closed", rrserver_typing_session_closed, NULL);
    rrserver_events_rooms_register();
    rrserver_events_rig_register();
    rrserver_events_quota_register();
