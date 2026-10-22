@@ -278,6 +278,9 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
+   char clock_text[32];
+   snprintf(clock_text, sizeof(clock_text), "%lld", (long long)time(NULL));
+   dict_add(d, "clock.unix", clock_text);
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
    dict_free(d);
@@ -467,6 +470,17 @@ static void handle_hello(struct link_session *session, dict *d) {
       return;
    }
 
+   /* Diagnostic only: handshake sample includes network transit delay. */
+   const char *clock_text = dict_get(d, "clock.unix", NULL);
+   if (clock_text && *clock_text) {
+      long long peer_time = atoll(clock_text);
+      long long offset = peer_time - (long long)time(NULL);
+      if (offset > 5 || offset < -5)
+         Log(LOG_WARN, "link", "Clock skew with %s (%s): peer appears %lld seconds %s; verify NTP on both servers",
+            site, node, offset < 0 ? -offset : offset, offset < 0 ? "behind" : "ahead");
+      else
+         Log(LOG_INFO, "link", "Clock sample from %s: apparent offset %+lld seconds", site, offset);
+   }
    char peer_ip[64];
    mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &session->connection->rem);
    const char *listener = session->connection->is_tls ? "listener:https" : "listener:http";
