@@ -63,6 +63,7 @@ static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
 }
 
 
+extern GtkWidget *main_notebook;
 extern dict *cfg;
 extern rrconn_t *ws_conn;
 extern const char *login_user;
