@@ -10,6 +10,8 @@
  * Opacity applies to the canvas, not controls; use GtkOverlay for a backdrop.
  */
 GtkWidget *rr_gtk_matrix_new(void);
+/* Minimal clickable π control, for use as a sibling over a pass-through rain layer. */
+GtkWidget *rr_gtk_matrix_controls_button(GtkWidget *matrix);
 void rr_gtk_matrix_set_options(GtkWidget *matrix, guint opacity,
                                guint brightness, guint speed);
 /* Returns a shown, independently owned window. Escape destroys only this
