@@ -166,7 +166,7 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
 /* Owner-authoritative, short-lived cluster presence. The incarnation changes on
  * server restart, while the sequence increases within that incarnation.
  * Neither metadata field is supplied by the client. */
-static char *typing_incarnation;
+static char typing_incarnation[37];
 static unsigned long long typing_sequence;
 
 static void rrserver_handle_typing(const char *event, const char *data, rrconn_t *client, void *user) {
@@ -182,11 +182,16 @@ static void rrserver_handle_typing(const char *event, const char *data, rrconn_t
       dict_free(d);
       return;
    }
-   if (!typing_incarnation) typing_incarnation = g_uuid_string_random();
-   if (!typing_incarnation) {
-      Log(LOG_WARN, "cluster.presence", "Cannot publish typing state in %s: unable to allocate server incarnation", room);
-      dict_free(d);
-      return;
+   if (!*typing_incarnation) {
+      char *epoch = g_uuid_string_random();
+      if (!epoch) {
+         Log(LOG_WARN, "cluster.presence",
+             "Cannot publish typing state in %s: unable to generate a server incarnation UUID", room);
+         dict_free(d);
+         return;
+      }
+      g_strlcpy(typing_incarnation, epoch, sizeof(typing_incarnation));
+      g_free(epoch);
    }
    dict_add(d, "talk.from", client->chatname);
    dict_add(d, "talk.epoch", typing_incarnation);
