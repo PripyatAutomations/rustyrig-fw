@@ -1751,8 +1751,13 @@ static gboolean resource_tick(gpointer data) {
       }
       rrclient_connection_dispatch(connection, resource_update_branch, branch);
 
-      if (!branch->online) {
-         /* A disconnected profile cannot own live inventory. Invalidate the request token too, so late replies cannot resurrect stale rows. */
+      if (connection && !connection->is_ws) {
+         /* IRC is a valid connected profile, but has no rrprotocol inventory.
+          * Keep its channel rows beneath the IRC server instead of clearing
+          * them as though the server had disconnected on every tick. */
+         branch->loading = false;
+      } else if (!branch->online) {
+         /* A disconnected rrprotocol profile cannot own live inventory. Invalidate the request token too, so late replies cannot resurrect stale rows. */
          branch->loading = false;
          branch->loaded = false;
          g_clear_pointer(&branch->request, g_free);
@@ -1785,19 +1790,31 @@ static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *rende
    g_free(safe);
    g_free(value);
 }
+static const char *resource_state_color(const char *text) {
+   if (!text || !*text) return NULL;
+   if (strstr(text, "Offline") || strstr(text, "offline") ||
+       strstr(text, "Disconnected") || strstr(text, "disconnected") ||
+       strstr(text, "Unavailable") || strstr(text, "unavailable") ||
+       strstr(text, "Failed") || strstr(text, "failed") ||
+       !g_strcmp0(text, "Critical") || !g_strcmp0(text, "No telemetry"))
+      return "#b3261e";
+   if (strstr(text, "Degraded") || strstr(text, "degraded") ||
+       strstr(text, "Warning") || strstr(text, "warning") ||
+       strstr(text, "Connecting") || strstr(text, "connecting") ||
+       strstr(text, "Refreshing"))
+      return "#ad7700";
+   if (strstr(text, "Connected") || strstr(text, "Online") ||
+       strstr(text, "Subscribed") || strstr(text, "Attached") ||
+       !g_strcmp0(text, "Joined") || !g_strcmp0(text, "Reporting"))
+      return "#268044";
+   return NULL;
+}
 static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    (void)column;
    char *text = NULL;
    gtk_tree_model_get(model, iter, GPOINTER_TO_INT(data), &text, -1);
-   const char *color = NULL;
+   const char *color = resource_state_color(text);
 
-   if (text && (strstr(text, "Failed") || strstr(text, "Unavailable") || strstr(text, "Server offline") || !strcmp(text, "Critical") || !strcmp(text, "Warning"))) {
-      color = "#b33a3a";
-   } else if (text && (g_str_has_prefix(text, "Not ") || !strcmp(text, "Disconnected"))) {
-      color = "#777777";
-   } else if (text && (strstr(text, "Subscribed") || strstr(text, "Connected") || strstr(text, "Attached") || !strcmp(text, "Joined"))) {
-      color = "#268044";
-   }
    g_object_set(renderer, "foreground-set", color != NULL, NULL);
 
    if (color) {
@@ -1986,8 +2003,7 @@ static void resource_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *rend
       gtk_tree_model_get(model, iter, KIND, &kind, STATE, &state, -1);
       gboolean node = !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "cluster-health") ||
                       !g_strcmp0(kind, "site") || !g_strcmp0(kind, "server");
-      const char *color = node && !g_strcmp0(state, "Critical") ? "#b3261e" :
-                          node && !g_strcmp0(state, "Warning") ? "#ad7700" : NULL;
+      const char *color = node ? resource_state_color(state) : NULL;
       g_object_set(renderer, "foreground-set", color != NULL, NULL);
       if (color) g_object_set(renderer, "foreground", color, NULL);
       g_free(kind);
