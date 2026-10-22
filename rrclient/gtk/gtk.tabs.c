@@ -299,6 +299,8 @@ static gint tabs_compare(GtkFlowBoxChild *a, GtkFlowBoxChild *b, gpointer data) 
    GtkWidget *left = gtk_bin_get_child(GTK_BIN(a));
    GtkWidget *right = gtk_bin_get_child(GTK_BIN(b));
 
+   if (g_object_get_data(G_OBJECT(left), "rr-panel-restore")) return 1;
+   if (g_object_get_data(G_OBJECT(right), "rr-panel-restore")) return -1;
    return gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(left), "rr-tab-page")) -
           gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(right), "rr-tab-page"));
 }
@@ -312,6 +314,7 @@ static void tabs_reordered(GtkNotebook *notebook, GtkWidget *page, guint number,
 
    for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
+      if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) continue;
       int index = gtk_notebook_page_num(notebook, g_object_get_data(G_OBJECT(button), "rr-tab-page")) + 1;
       GtkLabel *label = g_object_get_data(G_OBJECT(button), "rr-tab-number");
       char markup[48];
@@ -393,7 +396,8 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
    GList *children = gtk_container_get_children(GTK_CONTAINER(flow));
 
    for (GList *item = children ; item ; item = item->next) {
-      gtk_widget_destroy(item->data);
+      GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
+      if (!g_object_get_data(G_OBJECT(button), "rr-panel-restore")) gtk_widget_destroy(item->data);
    }
 
    g_list_free(children);
@@ -436,6 +440,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_widget_set_can_focus(gtk_widget_get_parent(button), FALSE);
    }
 
+   gtk_flow_box_invalidate_sort(GTK_FLOW_BOX(flow));
    tabs_reordered(notebook, NULL, 0, flow);
    tabs_selected(notebook, gtk_notebook_get_nth_page(notebook, gtk_notebook_get_current_page(notebook)), 0, flow);
    gtk_widget_show_all(flow);
@@ -457,6 +462,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    gtk_widget_set_hexpand(box, TRUE);
    GtkWidget *flow = gtk_flow_box_new();
+   g_object_set_data(G_OBJECT(notebook), "rr-floating-tab-strip", flow);
    gtk_widget_set_hexpand(flow, TRUE);
    gtk_widget_set_halign(flow, GTK_ALIGN_FILL);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
@@ -509,4 +515,29 @@ gboolean gtk_tabs_step(GtkNotebook *notebook, int direction) {
    int current = gtk_notebook_get_current_page(notebook);
 
    return gtk_tabs_select(notebook, (current + (direction < 0 ? count - 1 : 1)) % count + 1);
+}
+
+/* A minimized floating panel is a restore action at the end of the tab
+ * strip, not a notebook page (so it never steals a chat tab/shortcut). */
+GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title,
+                                      GCallback callback, gpointer user_data) {
+   GtkWidget *flow = g_object_get_data(G_OBJECT(notebook), "rr-floating-tab-strip");
+   if (!GTK_IS_FLOW_BOX(flow)) return NULL;
+   GtkWidget *button = gtk_button_new();
+   GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *icon = gtk_image_new_from_icon_name("view-fullscreen", GTK_ICON_SIZE_MENU);
+   gtk_box_pack_start(GTK_BOX(row), icon, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(row), gtk_label_new(title), FALSE, FALSE, 0);
+   gtk_container_add(GTK_CONTAINER(button), row);
+   g_object_set_data(G_OBJECT(button), "rr-panel-restore", GINT_TO_POINTER(1));
+   gtk_widget_set_tooltip_text(button, "Restore floating panel");
+   gtk_container_add(GTK_CONTAINER(flow), button);
+   g_signal_connect(button, "clicked", callback, user_data);
+   gtk_widget_show_all(button);
+   gtk_flow_box_invalidate_sort(GTK_FLOW_BOX(flow));
+   return gtk_widget_get_parent(button);
+}
+
+void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
+   if (GTK_IS_WIDGET(tab)) gtk_widget_destroy(tab);
 }
