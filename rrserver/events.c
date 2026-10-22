@@ -163,6 +163,41 @@ static bool rr_chat_flood_blocked(rrconn_t *client, const char *room) {
    }
    return true;
 }
+/* Owner-authoritative, short-lived cluster presence. The incarnation changes on
+ * server restart, while the sequence increases within that incarnation.
+ * Neither metadata field is supplied by the client. */
+static char *typing_incarnation;
+static unsigned long long typing_sequence;
+
+static void rrserver_handle_typing(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event;
+   (void)user;
+   if (!data || !client || !client->authenticated) return;
+   dict *d = json2dict(data);
+   if (!d) return;
+   const char *room = dict_get(d, "talk.room", "");
+   const char *state = dict_get(d, "talk.typing", "");
+   if (!*room || !ws_client_in_room(client, room) ||
+       (strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle"))) {
+      dict_free(d);
+      return;
+   }
+   if (!typing_incarnation) typing_incarnation = g_uuid_string_random();
+   if (!typing_incarnation) {
+      Log(LOG_WARN, "cluster.presence", "Cannot publish typing state in %s: unable to allocate server incarnation", room);
+      dict_free(d);
+      return;
+   }
+   dict_add(d, "talk.from", client->chatname);
+   dict_add(d, "talk.epoch", typing_incarnation);
+   dict_add_ullong(d, "talk.seq", ++typing_sequence);
+   dict_add_uint(d, "talk.ttl", strcmp(state, "idle") ? 10 : 0);
+   /* No persistence or replay. Existing publish hook handles subscribed
+    * branches; the room owner remains the only authority for this update. */
+   ws_broadcast_room_dict(client, d, room);
+   dict_free(d);
+}
+
 /* Persist and broadcast accepted room chat messages. */
 static void rrserver_handle_talkmsg(const char *event, const char *data, rrconn_t *cptr, void *user) {
    Log(LOG_CRAZY, "events.ws", "ENTER talk.msg: event=<%s> data=<%p> cptr=<%p>", event ? event : "(null)", data, cptr);
@@ -530,6 +565,7 @@ void rrserver_register_events(void) {
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
+   event_on("talk.typing", rrserver_handle_typing, NULL);
    rrserver_events_rooms_register();
    rrserver_events_rig_register();
    rrserver_events_quota_register();
