@@ -753,12 +753,12 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       catalog_ack_wait_t *wait = g_new0(catalog_ack_wait_t, 1);
       wait->dest = g_strdup(s->dest);
       wait->started = s->started_at;
-      wait->count = s->offset;
+      wait->count = s->offset - 1;
       g_hash_table_replace(relay_catalog_awaiting_ack, g_strdup(s->sync_id), wait);
       double elapsed = (g_get_monotonic_time() - s->started_at) / 1000000.0;
       Log(LOG_INFO, "relay.catalog",
           "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed",
-          s->offset, s->dest, elapsed, elapsed > 0 ? s->offset / elapsed : 0.0);
+          s->offset - 1, s->dest, elapsed, elapsed > 0 ? (s->offset - 1) / elapsed : 0.0);
       return FALSE;
    }
    return TRUE;
@@ -845,15 +845,18 @@ void rr_relay_send_catalogs(const char *dest) {
    /* Start marker allows the receiver to count accepted and rejected items. */
    dict *begin = dict_new();
    if (begin) {
-      char payload[96];
-      g_snprintf(payload, sizeof(payload), "{\\"catalog.expected\\":%u}", s->messages->len);
+      dict *meta = dict_new();
+      dict_add_ulong(meta, "catalog.expected", s->messages->len);
+      char *payload = dict2json(meta);
+      dict_free(meta);
       dict_add(begin, "op", "link.application");
       dict_add(begin, "node", rrserver_links_node());
       dict_add(begin, "dest", dest);
       dict_add(begin, "kind", "catalog-begin");
       dict_add(begin, "session", s->sync_id);
       dict_add(begin, "username", "");
-      dict_add(begin, "payload", payload);
+      dict_add(begin, "payload", payload ? payload : "{}");
+      free(payload);
       g_ptr_array_insert(s->messages, 0, begin);
    }
    Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)",
