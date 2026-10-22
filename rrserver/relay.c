@@ -140,8 +140,8 @@ bool rr_relay_permitted_message(dict *d) {
              !strcmp(dict_get(d, "property.cmd", ""), "menu-set");
    }
 
-   return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") || !strcmp(cmd, "topic")
-      || !strcmp(cmd, "supervise"));
+   return !strcmp(family, "talk") && (!strcmp(cmd, "join") || !strcmp(cmd, "part") || !strcmp(cmd, "msg") ||
+      !strcmp(cmd, "typing") || !strcmp(cmd, "topic") || !strcmp(cmd, "supervise"));
 }
 
 /* Intercept commands for remote rooms and route through their catalog owner. */
