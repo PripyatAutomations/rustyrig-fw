@@ -1420,6 +1420,10 @@ void rrserver_links_fini(void) {
    free((void *)links.ca.buf);
 }
 #else
+void rrserver_links_recent_events(const char *subject, char *out, size_t capacity) {
+   (void)subject;
+   if (out && capacity) out[0] = 0;
+}
 void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
    (void)emit; (void)context;
 }
