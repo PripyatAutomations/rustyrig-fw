@@ -60,6 +60,7 @@ extern bool rrclient_connection_select(const char *name);
 extern bool rrclient_connection_cycle(void);
 extern bool rrclient_connection_cycle_status(bool status_active);
 extern const char *rrclient_window_name(const char *room);
+extern const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room);
 extern void rrclient_server_status_window(const char *room);
 extern const char *rrclient_window_room(const char *window);
 extern rrconn_t *rrclient_connection_for_window(const char *window);
