@@ -128,7 +128,7 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
 /* A channel numeric belongs to an existing channel tab, not the server
  * status log. Never create a channel window just because JOIN failed. */
 static const char *irc_numeric_channel_window(const char *channel) {
-   if (!channel || !strchr("#&+!", channel[0])) return NULL;
+   if (!channel || !*channel || !strchr("#&+!", channel[0])) return NULL;
    for (unsigned i = 0 ; ; i++) {
       const char *room = rrclient_room_iter(i);
       if (!room) break;
@@ -149,7 +149,7 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
    if ((!strcmp(cmd, "405") || !strcmp(cmd, "403") || !strcmp(cmd, "471") ||
         !strcmp(cmd, "473") || !strcmp(cmd, "474") || !strcmp(cmd, "475") ||
         !strcmp(cmd, "476") || !strcmp(cmd, "477") || !strcmp(cmd, "489")) &&
-       argc >= 4 && strchr("#&+!", nick[0])) {
+       argc >= 4 && *nick && strchr("#&+!", nick[0])) {
       /* Rejected JOINs are reported in their existing tab, or status if
        * no tab exists. Do not manufacture a dead channel tab. */
       ui_print(output, "%sCannot join %s: %s [%s]", get_chat_ts(now), nick, arg3, cmd);
