@@ -341,8 +341,9 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
          !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
 
       if (diagnostic && (!authority || strcmp(authority->owner, owner))) {
+         char owner_label[192];
          Log(LOG_WARN, "relay.catalog", "Rejected %s: missing/mismatched parent %s from %s",
-            service_kind, parent, owner);
+            service_kind, parent, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
       }
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
@@ -395,7 +396,9 @@ bool rr_relay_catalog_put(const char *owner, dict *d) {
       }
 
       ws_room_set_vfo_mask(room, 0);
-      Log(LOG_INFO, "link", "Removed stale local room %s; authoritative owner is %s (chat history retained)", room, owner);
+      char owner_label[192];
+      Log(LOG_INFO, "link", "Removed stale local room %s; authoritative owner is %s (chat history retained)",
+          room, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
    }
 
    if (!c) {
