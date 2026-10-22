@@ -523,19 +523,22 @@ GtkWidget *gtk_tabs_panel_restore_add(GtkNotebook *notebook, const char *title,
                                       GCallback callback, gpointer user_data) {
    GtkWidget *flow = g_object_get_data(G_OBJECT(notebook), "rr-floating-tab-strip");
    if (!GTK_IS_FLOW_BOX(flow)) return NULL;
-   GtkWidget *button = gtk_button_new();
-   GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   GtkWidget *icon = gtk_image_new_from_icon_name("view-fullscreen", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_start(GTK_BOX(row), icon, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(row), gtk_label_new(title), FALSE, FALSE, 0);
-   gtk_container_add(GTK_CONTAINER(button), row);
-   g_object_set_data(G_OBJECT(button), "rr-panel-restore", GINT_TO_POINTER(1));
-   gtk_widget_set_tooltip_text(button, "Restore floating panel");
-   gtk_container_add(GTK_CONTAINER(flow), button);
-   g_signal_connect(button, "clicked", callback, user_data);
-   gtk_widget_show_all(button);
+   /* A tab-shaped container with its own dedicated restore control:
+    * the title is not itself an oversized restore button. */
+   GtkWidget *tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *label = gtk_label_new(title);
+   GtkWidget *restore = gtk_button_new_from_icon_name("view-fullscreen", GTK_ICON_SIZE_MENU);
+   gtk_style_context_add_class(gtk_widget_get_style_context(tab), "tab");
+   gtk_style_context_add_class(gtk_widget_get_style_context(restore), "flat");
+   gtk_widget_set_tooltip_text(restore, "Restore floating panel");
+   gtk_box_pack_start(GTK_BOX(tab), label, FALSE, FALSE, 4);
+   gtk_box_pack_end(GTK_BOX(tab), restore, FALSE, FALSE, 0);
+   g_object_set_data(G_OBJECT(tab), "rr-panel-restore", GINT_TO_POINTER(1));
+   gtk_container_add(GTK_CONTAINER(flow), tab);
+   g_signal_connect(restore, "clicked", callback, user_data);
+   gtk_widget_show_all(tab);
    gtk_flow_box_invalidate_sort(GTK_FLOW_BOX(flow));
-   return gtk_widget_get_parent(button);
+   return gtk_widget_get_parent(tab);
 }
 
 void gtk_tabs_panel_restore_remove(GtkWidget *tab) {
