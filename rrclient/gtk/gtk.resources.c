@@ -781,24 +781,6 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
    }
    return FALSE;
 }
-/* Direct connection roots are profile containers; the server's own site
- * inventory (and its performance subtree) may be one level below the root. */
-static gboolean resource_health_direct_group(GtkTreeIter *root, GtkTreeIter *group,
-                                              unsigned *total, unsigned *bad,
-                                              unsigned *severity, GString *reasons) {
-   if (resource_health_group(root, group, total, bad, severity, reasons)) return TRUE;
-   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
-   GtkTreeIter child;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &child, root); ok;
-        ok = gtk_tree_model_iter_next(model, &child)) {
-      char *kind = NULL;
-      gtk_tree_model_get(model, &child, KIND, &kind, -1);
-      gboolean site = !g_strcmp0(kind, "site");
-      g_free(kind);
-      if (site && resource_health_group(&child, group, total, bad, severity, reasons)) return TRUE;
-   }
-   return FALSE;
-}
 static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen,
                                  unsigned *reporting, unsigned *warnings) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
@@ -807,8 +789,7 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    GtkTreeIter group;
    unsigned total = 0, bad = 0, severity = 0;
    GString *reasons = g_string_new("");
-   gboolean available = direct ? resource_health_direct_group(node, &group, &total, &bad, &severity, reasons) :
-                        resource_health_group(node, &group, &total, &bad, &severity, reasons);
+   gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
    if (direct || available) {
       char *key = g_strdup_printf("%s|%s|%s", branch->profile, direct ? "root" : "site", direct ? "" : uuid && *uuid ? uuid : name);
       g_hash_table_add(seen, g_strdup(key));
@@ -890,9 +871,7 @@ static void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
       } else {
          unsigned total = 0, bad = 0, severity = 0;
          GString *reasons = g_string_new("");
-         gboolean found = !g_strcmp0(action, "root") ?
-                          resource_health_direct_group(&node, &group, &total, &bad, &severity, reasons) :
-                          resource_health_group(&node, &group, &total, &bad, &severity, reasons);
+         gboolean found = resource_health_group(&node, &group, &total, &bad, &severity, reasons);
          g_string_free(reasons, TRUE);
          if (found) {
             GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &group);
