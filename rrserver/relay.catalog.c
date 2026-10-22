@@ -302,7 +302,7 @@ static bool owns_station_room(const char *owner, const char *room) {
 }
 
 /* Validate room authority and retain an owned descriptor snapshot. */
-void rr_relay_catalog_put(const char *owner, dict *d) {
+bool rr_relay_catalog_put(const char *owner, dict *d) {
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
    char key[160];
 
@@ -311,21 +311,21 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
 
       if (!strcmp(type, "node")) {
          if (strcmp(uuid, owner)) {
-            return;
-         }
+            return false;
+}
       } else if (!strcmp(type, "rig")) {
          if (strcmp(parent, owner)) {
-            return;
-         }
+            return false;
+}
       } else if (!strcmp(type, "vfo")) {
          struct catalog *rig = rr_relay_find_catalog(parent);
 
          if (!rig || strcmp(rig->owner, owner) || strcmp(dict_get(rig->descriptor, "object.type", ""), "rig")) {
-            return;
-         }
+            return false;
+}
       } else {
-         return;
-      }
+         return false;
+}
    }
 
    const char *service = dict_get(d, "catalog.service", NULL);
@@ -350,28 +350,29 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
          (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share") && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item")) ||
          strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8) ||
          strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
-         return;
-      }
+         return false;
+}
       snprintf(key, sizeof(key), "%s", service);
    } else if (uuid && rr_object_uuid_valid(uuid)) {
       snprintf(key, sizeof(key), "%s", uuid);
    } else if (room && ws_room_name_valid(room)) {
       snprintf(key, sizeof(key), "room:%s", room);
    } else {
-      return;
-   }
+      return false;
+}
    struct catalog *c = rr_relay_find_catalog(key);
    bool replace = c && strcmp(c->owner, owner);
 
    if (replace && (uuid || !room || rr_relay_local_owner(owner) || !owns_station_room(owner, room) ||
       owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
-      return;                   // Only proven station/rig authority may displace a stale room claim.
+      return false;
+// Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = dict_clone(d);
 
    if (!copy) {
-      return;
-   }
+      return false;
+}
 
    if (replace && rr_relay_local_owner(c->owner)) {
 #ifdef USE_SQLITE
@@ -381,8 +382,8 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
          Log(LOG_WARN, "link", "Unable to remove stale local room metadata for %s", room);
          dict_free(copy);
 
-         return;
-      }
+         return false;
+}
 #endif
 
       /* Withdraw our old claim before advertising its authoritative owner. */
@@ -402,15 +403,15 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
       if (rr_relay_catalog_count == MAX_CATALOG) {
          dict_free(copy);
 
-         return;
-      }
+         return false;
+}
       c = calloc(1, sizeof(*c));
 
       if (!c) {
          dict_free(copy);
 
-         return;
-      }
+         return false;
+}
       snprintf(c->key, sizeof(c->key), "%s", key);
       snprintf(c->owner, sizeof(c->owner), "%s", owner);
       c->next = rr_relay_catalogs;
@@ -429,6 +430,7 @@ void rr_relay_catalog_put(const char *owner, dict *d) {
    if (!uuid && room && !rr_relay_local_owner(owner)) {
       rr_relay_rejoin_owned_room(owner, room);
    }
+   return true;
 }
 
 /* Build and store one local object descriptor. */
