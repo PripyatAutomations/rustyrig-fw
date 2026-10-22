@@ -577,6 +577,11 @@ void connman_register_events(void) {
    event_on("auth.error", connection_event, NULL);
 }
 
+static uint64_t control_rx_bytes, control_tx_bytes;
+void rrclient_control_bytes(uint64_t *rx, uint64_t *tx) {
+   if (rx) *rx = control_rx_bytes;
+   if (tx) *tx = control_tx_bytes;
+}
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mgr;
 extern void http_handler(struct mg_connection *, int, void *);
@@ -598,6 +603,17 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    }
    client_server_t *s = t->owner;
    rrconn_t *cptr = &t->connection;
+   /* Mongoose supplies a pointer to the transferred byte count for READ
+    * and WRITE. Count at the transport edge, before unselected connections
+    * can return early. No per-event logs or profiling allocations. */
+   if (data && (ev == MG_EV_READ || ev == MG_EV_WRITE)) {
+      long bytes = *(long *)data;
+      if (bytes > 0) {
+         if (ev == MG_EV_READ) control_rx_bytes += (uint64_t)bytes;
+         else control_tx_bytes += (uint64_t)bytes;
+      }
+   }
+
 
    if (s->connection != cptr) {
       if (ev == MG_EV_CLOSE) {
