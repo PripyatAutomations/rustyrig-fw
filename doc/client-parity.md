@@ -1018,3 +1018,9 @@ and editor, physical serial/modem bridges and append-only file captures. These
 are native operating-system features; browser GPS/NMEA events and server serial
 wire behavior remain unchanged. Native GPS output scopes may also be stream
 UUIDs to distinguish identically named resources on linked sites.
+
+## Matrix easter egg widget
+
+`rrclient/gtk/gtk.matrix.c` is an optional GTK-only Unicode rain widget with
+local opacity, brightness and speed controls. It has no protocol, shared
+client state or browser counterpart; embedding/activation is chosen by its host.
