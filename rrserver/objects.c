@@ -19,6 +19,7 @@
 #include <rrserver/rig.rooms.h>
 #include <rrserver/bridge.access.h>
 #include <rrserver/discovery.h>
+#include <rrserver/performance.h>
 #include <rrserver/gps.h>
 #include <rrserver/database.h>
 #include <rrserver/platform.controls.h>
@@ -422,6 +423,21 @@ static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
    return false;
 }
 
+/* Local five-minute samples belong to this server, not to any linked peer.
+ * Reuse the server-owned sampler and adapt its rows to native inventory. */
+static void inventory_local_performance(dict *sample, void *user) {
+   object_send_t *ctx = user;
+   const char *name = dict_get(sample, "inventory.name", "");
+   dict *row = rr_inventory_row(ctx->request, 1, "performance-stat", name, NULL);
+   if (row) {
+      dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
+      dict_add(row, "inventory.description", dict_get(sample, "inventory.description", ""));
+      dict_add(row, "inventory.state", dict_get(sample, "inventory.state", "Unavailable"));
+      dict_add(row, "inventory.access", "read-only");
+      rr_inventory_send(ctx->client, row);
+   }
+   dict_free(sample);
+}
 static void inventory_services(object_send_t *ctx, const char *scope, unsigned depth) {
    dict *d = dict_new();
 
@@ -762,6 +778,7 @@ static void inventory(rrconn_t *client, const char *id) {
    rrserver_platform_control_foreach(inventory_node_control, &ctx);
    inventory_rooms(&ctx, NULL);
    inventory_services(&ctx, "station", 1);
+   rrserver_performance_collect(inventory_local_performance, &ctx);
    inventory_media(&ctx, "", 1);
    rr_rig_registry_foreach(rig.rigs, inventory_rig, &ctx);
    rrserver_relay_inventory(client, id);
