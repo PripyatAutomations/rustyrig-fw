@@ -541,25 +541,20 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          catalog_receive_t *sync = (*id && catalog_receives) ?
             g_hash_table_lookup(catalog_receives, id) : NULL;
          if (sync) sync->received++;
-         rr_relay_catalog_put(origin, d);
+         bool accepted = rr_relay_catalog_put(origin, d);
          if (sync) {
-            const char *key = dict_get(d, "catalog.service", NULL);
-            if (!key) key = dict_get(d, "object.uuid", NULL);
-            char roomkey[160];
-            if (!key) {
-               snprintf(roomkey, sizeof(roomkey), "room:%s", dict_get(d, "catalog.room", ""));
-               key = roomkey;
+            if (accepted) {
+               sync->accepted++;
+            } else {
+               sync->rejected++;
+               Log(LOG_WARN, "relay.catalog",
+                   "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, room=%s)",
+                   origin, id, dict_get(d, "object.type", ""),
+                   dict_get(d, "object.uuid", ""), dict_get(d, "catalog.service", ""),
+                   dict_get(d, "catalog.room", ""));
             }
-            struct catalog *stored = rr_relay_find_catalog(key);
-            char *received_json = dict2json(d);
-            char *stored_json = stored && !strcmp(stored->owner, origin) ?
-               dict2json(stored->descriptor) : NULL;
-            gboolean accepted = received_json && stored_json && !strcmp(received_json, stored_json);
-            if (accepted) sync->accepted++;
-            else sync->rejected++;
-            free(received_json);
-            free(stored_json);
          }
+         if (!accepted) goto done;
 
          if (dict_get(d, "object.uuid", NULL)) {
             dict *added = dict_clone(d);
