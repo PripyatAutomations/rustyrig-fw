@@ -125,19 +125,34 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
    dict_free(d);
 }
 
+/* A channel numeric belongs to an existing channel tab, not the server
+ * status log. Never create a channel window just because JOIN failed. */
+static const char *irc_numeric_channel_window(const char *channel) {
+   if (!channel || !strchr("#&+!", channel[0])) return NULL;
+   for (unsigned i = 0 ; ; i++) {
+      const char *room = rrclient_room_iter(i);
+      if (!room) break;
+      if (!strcasecmp(room, channel)) return room;
+   }
+   return NULL;
+}
+
 /* Keep complete numeric parameters for daemon-specific WHOIS extensions and malformed/older replies, whose layouts cannot safely be assumed. */
 static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrconn_t *connection) {
    const char *nick = dict_get(message, "msg.arg2", "");
    const char *output = rrclient_irc_whois_window(connection, nick);
+   const char *channel_window = irc_numeric_channel_window(nick);
+   if (channel_window) output = channel_window;
    const char *arg3 = dict_get(message, "msg.arg3", "");
    const char *arg4 = dict_get(message, "msg.arg4", "");
 
-   if (!strcmp(cmd, "477") && argc >= 4 && (nick[0] == '#' || nick[0] == '&') && !strcasecmp(dict_get(message, "msg.arg1", ""), connection->nick)) {
-      /* A rejected JOIN has no membership event to create the room window. */
-      if (frontend_ops() && frontend_ops()->chat_room_add) {
-         frontend_ops()->chat_room_add(nick);
-      }
-      ui_print(nick, "%sCannot join %s: %s", get_chat_ts(now), nick, arg3);
+   if ((!strcmp(cmd, "405") || !strcmp(cmd, "403") || !strcmp(cmd, "471") ||
+        !strcmp(cmd, "473") || !strcmp(cmd, "474") || !strcmp(cmd, "475") ||
+        !strcmp(cmd, "476") || !strcmp(cmd, "477") || !strcmp(cmd, "489")) &&
+       argc >= 4 && strchr("#&+!", nick[0])) {
+      /* Rejected JOINs are reported in their existing tab, or status if
+       * no tab exists. Do not manufacture a dead channel tab. */
+      ui_print(output, "%sCannot join %s: %s [%s]", get_chat_ts(now), nick, arg3, cmd);
    } else if (!strcmp(cmd, "313") && argc >= 4) {
       userlist_mark_oper(nick, true);
       ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, arg3);
