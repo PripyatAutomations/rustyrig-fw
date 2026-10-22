@@ -823,7 +823,7 @@ static void gtk_typing_entry_changed(GtkWidget *entry) {
    if (typing_shutting_down) return;
    GtkTypingComposer *state = gtk_typing_state(entry);
    const char *text = gtk_entry_get_text(GTK_ENTRY(entry));
-   gboolean composing = text && *text && *text != '/';
+   gboolean composing = cfg_get_bool("ui.chat.typing", true) && text && *text && *text != '/';
    if (state->pause_source) {
       g_source_remove(state->pause_source);
       state->pause_source = 0;
