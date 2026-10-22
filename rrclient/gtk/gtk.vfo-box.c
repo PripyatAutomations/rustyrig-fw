@@ -34,6 +34,7 @@ typedef struct {
 
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
 static GtkWidget *vfo_tunable_box = NULL;
+static GtkWidget *vfo_layout_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
 static GtkWidget *vfo_ptt_box = NULL, *vfo_tx_power_box = NULL;
 
@@ -181,6 +182,16 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    return FALSE;                /* let other keys be handled normally */
 }
 
+void vfo_controls_fit_width(int width) {
+   if (width < 1) return;
+   if (GTK_IS_ORIENTABLE(vfo_layout_box))
+      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_layout_box),
+                                    width < 850 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
+   if (GTK_IS_ORIENTABLE(vfo_tunable_box))
+      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_tunable_box),
+                                    width < 600 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
+}
+
 GtkWidget *create_vfo_box(void) {
    // The grip stays visible; only the controls are revealed or hidden.
    GtkWidget *drawer_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -208,6 +219,7 @@ GtkWidget *create_vfo_box(void) {
    g_signal_connect(grip, "motion-notify-event", G_CALLBACK(vfo_drawer_motion), drawer);
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   vfo_layout_box = control_box;
 
    gtk_container_add(GTK_CONTAINER(revealer), control_box);
 
