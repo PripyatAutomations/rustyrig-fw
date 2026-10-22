@@ -440,7 +440,7 @@ static void establish(struct link_session *session) {
       g_string_append(downstream, remote.site);
    }
 
-   Log(LOG_INFO, "link", "Linked to %s (%s); now %zu nodes (%zu remote; behind %s: %s)", session->peer->site, session->node, total, total ? total - 1 : 0,
+   Log(LOG_INFO, "link", "Linked to %s [%s]; now %zu nodes (%zu remote; behind %s: %s)", session->peer->site, session->node, total, total ? total - 1 : 0,
       session->peer->site, downstream->len ? downstream->str : "none");
    g_string_free(downstream, TRUE);
    /* Publish this component in parent-before-child order. */
@@ -521,7 +521,7 @@ static void handle_hello(struct link_session *session, dict *d) {
       long long peer_time = atoll(clock_text);
       long long offset = peer_time - (long long)time(NULL);
       if (offset > 5 || offset < -5)
-         Log(LOG_WARN, "link", "Clock skew with %s (%s): peer appears %lld seconds %s; verify NTP on both servers",
+         Log(LOG_WARN, "link", "Clock skew with %s [%s]: peer appears %lld seconds %s; verify NTP on both servers",
             site, node, offset < 0 ? -offset : offset, offset < 0 ? "behind" : "ahead");
       else
          Log(LOG_INFO, "link", "Clock sample from %s: apparent offset %+lld seconds", site, offset);
@@ -708,7 +708,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       } else {
          links.generation++;
          broadcast(session, d);
-         Log(LOG_INFO, "link", "Introduced server %s (%s) via %s, servers %zu", site, node, session->peer->site, rr_link_tree_count(links.tree));
+         Log(LOG_INFO, "link", "Introduced server %s [%s] via %s, servers %zu", site, node, session->peer->site, rr_link_tree_count(links.tree));
       }
    } else if (session->established && !strcmp(op, "link.withdraw")) {
       const char *node = dict_get(d, "node", "");
@@ -732,7 +732,11 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
        * Future mesh routing must replace this tree-path assertion with a mesh-aware origin/route validation, NOT remove origin validation. The origin station
        * vouches for its authenticated username; a transit peer cannot substitute a user from a different branch. */
       if (!route || strcmp(route, session->node)) {
-         Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s", session->node, origin, route ? route : "(unreachable)");
+         char peer_label[192], origin_label[192], route_label[192];
+         Log(LOG_WARN, "link", "Origin mismatch: peer=%s claimed-origin=%s expected-ingress=%s",
+             rrserver_links_format_node(session->node, peer_label, sizeof(peer_label)),
+             rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
+             route ? rrserver_links_format_node(route, route_label, sizeof(route_label)) : "(unreachable)");
          fail(session, "Message claims to originate from a server outside this peer's network branch");
       } else {
          event_emit_dict("server.link.application", NULL, d);
@@ -772,7 +776,7 @@ static void close_session(struct link_session *session) {
             broadcast(session, d);
             dict_free(d);
          }
-         Log(LOG_INFO, "link", "Unlinked site %s, servers %zu", session->peer->site, rr_link_tree_count(links.tree));
+         Log(LOG_INFO, "link", "Unlinked site %s [%s], servers %zu", session->peer->site, session->node, rr_link_tree_count(links.tree));
       }
    }
 
@@ -1253,7 +1257,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
 
    if (links.peer_count || links.listener) {
-      Log(LOG_INFO, "link", "Server link node %s (%s), %zu configured peers", links.node, links.site, links.peer_count);
+      Log(LOG_INFO, "link", "Server link node %s [%s], %zu configured peers", links.site, links.node, links.peer_count);
    }
 
    event_on("link.cmd", link_command, NULL);
