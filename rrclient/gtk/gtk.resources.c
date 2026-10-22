@@ -2598,6 +2598,53 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       }
       g_free(parent_kind);
    }
+   /* Yaesu FT-891 exposes four-digit EX menu IDs. The first two digits
+    * select the same 18 menu sections shown on the physical radio.
+    * Grouping is client-only: the CAT ID, service and wire ancestry remain
+    * unchanged, so selection/read/write still address the original item. */
+   if (!strcmp(kind, "rig-menu-item") && owner_found &&
+       g_ascii_isdigit(name[0]) && g_ascii_isdigit(name[1]) &&
+       name[2] == '-' && g_ascii_isdigit(name[3]) &&
+       g_ascii_isdigit(name[4]) && name[5] == ' ') {
+      static const char *ft891_sections[] = {
+         "AGC", "DISPLAY", "DVS", "KEYER", "GENERAL", "MODE AM",
+         "MODE CW", "MODE DAT", "MODE FM", "MODE RTY", "MODE SSB",
+         "RX DSP", "SCOPE", "TUNING", "TX AUDIO", "TX GNRL",
+         "RESET", "VERSION"
+      };
+      char *parent_kind = NULL, *parent_details = NULL;
+      gtk_tree_model_get(GTK_TREE_MODEL(browser->store), parent_iter,
+         KIND, &parent_kind, DETAILS, &parent_details, -1);
+      unsigned section = (unsigned)(name[0] - '0') * 10u + (unsigned)(name[1] - '0');
+      if (!g_strcmp0(parent_kind, "rig-menu") &&
+          parent_details && strstr(parent_details, "FT-891") &&
+          section >= 1 && section <= G_N_ELEMENTS(ft891_sections)) {
+         char title[64];
+         snprintf(title, sizeof(title), "%02u %s", section, ft891_sections[section - 1]);
+         GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+         GtkTreeIter sibling, group;
+         gboolean found = FALSE;
+         for (gboolean ok = gtk_tree_model_iter_children(model, &sibling, parent_iter);
+              ok; ok = gtk_tree_model_iter_next(model, &sibling)) {
+            char *sibling_kind = NULL, *sibling_name = NULL;
+            gtk_tree_model_get(model, &sibling, KIND, &sibling_kind, NAME, &sibling_name, -1);
+            found = !g_strcmp0(sibling_kind, "rig-menu-group") &&
+               !g_strcmp0(sibling_name, title);
+            g_free(sibling_kind);
+            g_free(sibling_name);
+            if (found) { group = sibling; break; }
+         }
+         if (!found) {
+            gtk_tree_store_append(browser->store, &group, parent_iter);
+            gtk_tree_store_set(browser->store, &group, NAME, title,
+               KIND, "rig-menu-group", PROFILE, profile, -1);
+         }
+         explicit_parent = group;
+         parent_iter = &explicit_parent;
+      }
+      g_free(parent_kind);
+      g_free(parent_details);
+   }
    gtk_tree_store_append(browser->store, &iter, parent_iter);
 
    const char *room = dict_get(row, "inventory.room", "");
