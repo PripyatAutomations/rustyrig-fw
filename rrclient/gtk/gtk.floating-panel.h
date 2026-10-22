@@ -1,0 +1,16 @@
+#ifndef RRCLIENT_GTK_FLOATING_PANEL_H
+#define RRCLIENT_GTK_FLOATING_PANEL_H
+#include <gtk/gtk.h>
+
+typedef struct rr_floating_panel RRFloatPanel;
+/* The caller owns the returned panel and must destroy it before the overlay.
+ * Its body is a normal GTK box into which arbitrary controls can be packed. */
+RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs,
+                                    const char *id, const char *title);
+GtkWidget *rr_floating_panel_body(RRFloatPanel *panel);
+GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel);
+void rr_floating_panel_show(RRFloatPanel *panel);
+void rr_floating_panel_hide(RRFloatPanel *panel);
+void rr_floating_panel_destroy(RRFloatPanel *panel);
+gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
+#endif
