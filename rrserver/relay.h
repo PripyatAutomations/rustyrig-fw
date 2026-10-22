@@ -15,6 +15,17 @@ const char *rrserver_relay_client_server(const rrconn_t *client);
 void rrserver_relay_register_events(void);
 void rrserver_relay_visit_sessions(void (*visit) (rrconn_t *, void *), void *data);
 void rrserver_relay_poll(void);
+/* The last five-minute catalog sample is reused by the log and Explorer.
+ * Values are local to this process, never taken from an unauthenticated peer. */
+typedef struct rr_catalog_profile_info {
+   uint64_t sample_time, sample_seconds;
+   uint64_t snapshots, queue_complete, ack_complete, ack_partial, ack_timeouts;
+   uint64_t descriptors_received, descriptors_accepted, descriptors_rejected;
+   uint64_t snapshot_build_us, max_build_us, ack_us, max_ack_us;
+   uint64_t apply_us, max_apply_us, payload_bytes;
+   uint64_t catalog_entries, pending_snapshots, pending_acks;
+} rr_catalog_profile_info_t;
+bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info);
 #ifdef USE_PROFILING
 /* Five-minute cumulative and interval catalog diagnostics; no wire changes. */
 void rr_relay_catalog_profile_dump(void);
