@@ -93,7 +93,7 @@ bool rr_relay_local_owner(const char *node);
 struct catalog *rr_relay_find_catalog(const char *key);
 struct catalog *rr_relay_room_catalog(const char *room);
 const char *rr_relay_message_room(dict *d);
-void rr_relay_catalog_put(const char *owner, dict *d);
+bool rr_relay_catalog_put(const char *owner, dict *d);
 void rr_relay_collect_local(void);
 void rr_relay_send_catalogs(const char *dest);
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, unsigned int received, unsigned int accepted, unsigned int rejected);
