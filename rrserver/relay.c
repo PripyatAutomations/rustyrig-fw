@@ -373,6 +373,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
 typedef struct {
    char *origin;
    guint expected, received, accepted, rejected;
+   gint64 started;
 } catalog_receive_t;
 static GHashTable *catalog_receives;
 static void catalog_receive_free(gpointer ptr) {
@@ -400,7 +401,20 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       if (*id && rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin)) {
          if (!catalog_receives)
             catalog_receives = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, catalog_receive_free);
+         GHashTableIter iter;
+         gpointer key, value;
+         gint64 now = g_get_monotonic_time();
+         g_hash_table_iter_init(&iter, catalog_receives);
+         while (g_hash_table_iter_next(&iter, &key, &value)) {
+            catalog_receive_t *old = value;
+            if (now - old->started > 60 * G_USEC_PER_SEC) {
+               Log(LOG_WARN, "relay.catalog", "Discarding incomplete incoming sync %s from %s (%u/%u received)",
+                   (char *)key, old->origin, old->received, old->expected);
+               g_hash_table_iter_remove(&iter);
+            }
+         }
          catalog_receive_t *r = g_new0(catalog_receive_t, 1);
+         r->started = now;
          r->origin = g_strdup(origin);
          r->expected = (guint)dict_get_ulong(d, "catalog.expected", 0);
          g_hash_table_replace(catalog_receives, g_strdup(id), r);
@@ -424,6 +438,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict_add_ulong(stats, "catalog.accepted", r->accepted);
             dict_add_ulong(stats, "catalog.rejected", r->rejected);
             dict_add_ulong(stats, "catalog.expected", r->expected);
+            if (r->received != r->expected)
+               Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u",
+                   id, origin, r->expected, r->received);
             char *json = dict2json(stats);
             dict_free(stats);
             dict_add(ack, "payload", json ? json : "{}");
