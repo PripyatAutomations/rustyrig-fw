@@ -287,7 +287,7 @@ static unsigned zoom_for_size(int width, int height, int screen_width, int scree
    int horizontal = ((int64_t) width * 100 + screen_width / 2) / screen_width;
    int vertical = ((int64_t) height * 100 + screen_height / 2) / screen_height;
 
-   return CLAMP(MIN(horizontal, vertical), 25, 100);
+   return CLAMP(MIN(horizontal, vertical), 25, 300);
 }
 
 static GdkMonitor *zoom_monitor(GtkWidget *widget) {
@@ -316,7 +316,7 @@ static gboolean zoom_after_resize(gpointer data) {
    (void)data;
    resize_source = 0;
 
-   if (!zoom_window || active_touches || zoom_window_fills_monitor() || !cfg_get_bool("ui.gtk.scale-on-resize", true)) {
+   if (!zoom_window || active_touches || !cfg_get_bool("ui.gtk.scale-on-resize", true)) {
       return G_SOURCE_REMOVE;
    }
 
@@ -474,9 +474,7 @@ static void zoom_manual_set(unsigned next) {
       bool automatic = cfg_get_bool("ui.gtk.scale-on-resize", true);
       bool resize_for_zoom = automatic && coupled_resize_keys;
 
-      if (!coupled_resize_keys && automatic && next == 100) {
-         gtk_window_maximize(GTK_WINDOW(zoom_window));
-      } else if (resize_for_zoom && (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
+      if (resize_for_zoom && (state & (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN))) {
          GdkMonitor *monitor = zoom_monitor(zoom_window);
 
          if (monitor) {
@@ -587,7 +585,7 @@ static void zoom_touch_scale(GtkGestureZoom *gesture, double scale, gpointer dat
    }
    touch->pinching = true;
    touch->tap = false;
-   unsigned maximum = zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
+   unsigned maximum = 300;
    double value = CLAMP(touch->initial * scale, 25, maximum);
    unsigned next = CLAMP(((unsigned)(value + 2.5) / 5) * 5, 25, maximum);
 
@@ -683,7 +681,7 @@ static void zoom_key_step(int direction, bool resize_window) {
    if (zoom_window_fills_monitor()) {
       resize_window = false;
    }
-   unsigned maximum = resize_window && zoom_window && cfg_get_bool("ui.gtk.scale-on-resize", true) ? 100 : 300;
+   unsigned maximum = 300;
    int delta = direction > 0 ? 10 : direction < 0 ? -10 : 0;
    int next = CLAMP(direction == 0 ? 100 : (int)zoom_percent + delta, 25, (int)maximum);
 
