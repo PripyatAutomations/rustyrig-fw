@@ -250,6 +250,30 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
       /* Rejected JOINs are reported in their existing tab, or status if
        * no tab exists. Do not manufacture a dead channel tab. */
       ui_print(output, "%sCannot join %s: %s [%s]", get_chat_ts(now), nick, arg3, cmd);
+   } else if (!strcmp(cmd, "332") && argc >= 4) {
+      ui_print(output, "%sTopic for %s: %s", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "331") && argc >= 4) {
+      ui_print(output, "%sNo topic is set for %s", get_chat_ts(now), nick);
+   } else if (!strcmp(cmd, "333") && argc >= 5) {
+      ui_print(output, "%sTopic for %s set by %s at %s", get_chat_ts(now), nick, arg3, arg4);
+   } else if (!strcmp(cmd, "324") && argc >= 4) {
+      ui_print(output, "%sModes for %s: %s %s", get_chat_ts(now), nick, arg3, arg4);
+   } else if (!strcmp(cmd, "329") && argc >= 4) {
+      ui_print(output, "%sChannel %s created at %s", get_chat_ts(now), nick, arg3);
+   } else if (!strcmp(cmd, "353") && argc >= 5) {
+      ui_print(output, "%sUsers in %s: %s", get_chat_ts(now), arg3, arg4);
+   } else if (!strcmp(cmd, "366") && argc >= 4) {
+      ui_print(output, "%sEnd of names for %s", get_chat_ts(now), nick);
+   } else if (!strcmp(cmd, "367") && argc >= 4) {
+      ui_print(output, "%sBan on %s: %s (set by %s)", get_chat_ts(now), nick, arg3, arg4);
+   } else if (!strcmp(cmd, "368") && argc >= 4) {
+      ui_print(output, "%sEnd of ban list for %s", get_chat_ts(now), nick);
+   } else if (!strcmp(cmd, "305") && argc >= 3) {
+      ui_print(output, "%sYou are no longer marked away", get_chat_ts(now));
+   } else if (!strcmp(cmd, "306") && argc >= 3) {
+      ui_print(output, "%sYou are now marked away", get_chat_ts(now));
+   } else if (!strcmp(cmd, "433") && argc >= 4) {
+      ui_print(output, "%sNickname %s is already in use: %s", get_chat_ts(now), nick, arg3);
    } else if (!strcmp(cmd, "313") && argc >= 4) {
       userlist_mark_oper(nick, true);
       ui_print(output, "%sWHOIS %s: %s", get_chat_ts(now), nick, arg3);
