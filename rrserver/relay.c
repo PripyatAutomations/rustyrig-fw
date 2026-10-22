@@ -552,7 +552,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 #endif
          bool accepted = rr_relay_catalog_put(origin, d);
 #ifdef USE_PROFILING
-         rr_relay_catalog_profile_receive(accepted, (long long)(g_get_monotonic_time() - apply_started));
+         rr_relay_catalog_profile_receive(d, accepted, (long long)(g_get_monotonic_time() - apply_started));
 #endif
 
          if (sync) {
