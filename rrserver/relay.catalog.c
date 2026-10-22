@@ -129,6 +129,11 @@ typedef struct {
    guint64 count, accepted, rejected, bytes, apply_us, max_apply_us;
 } catalog_kind_counts_t;
 static catalog_kind_counts_t catalog_kind_total[CP_KIND_COUNT], catalog_kind_interval[CP_KIND_COUNT];
+static const char *catalog_reject_names[] = {
+   "owner", "parent", "service", "identity", "room-authority", "memory", "capacity"
+};
+static guint64 catalog_reject_total[RR_CAT_REJECT_COUNT], catalog_reject_interval[RR_CAT_REJECT_COUNT];
+
 
 static unsigned catalog_profile_classify(dict *d) {
    if (!d) return CP_KIND_OTHER;
@@ -146,11 +151,16 @@ static unsigned catalog_profile_classify(dict *d) {
    return CP_KIND_OTHER;
 }
 
-void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long apply_us, size_t payload_bytes) {
+void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, enum rr_catalog_reject reason, long long apply_us, size_t payload_bytes) {
    CP_INC(received);
    CP_ADD(received_bytes, payload_bytes);
    if (accepted) CP_INC(accepted);
-   else CP_INC(rejected);
+   else {
+      CP_INC(rejected);
+      if (reason <= RR_CAT_OK || reason >= RR_CAT_REJECT_COUNT) reason = RR_CAT_IDENTITY;
+      catalog_reject_total[reason]++;
+      catalog_reject_interval[reason]++;
+   }
    const guint64 elapsed = apply_us > 0 ? (guint64)apply_us : 0;
    catalog_profile_duration(elapsed, "apply");
    const unsigned kind = catalog_profile_classify(descriptor);
@@ -1036,6 +1046,9 @@ void rr_relay_catalog_profile_dump(void) {
    const catalog_profile_counts_t t = catalog_profile_total;
    const catalog_profile_counts_t w = catalog_profile_interval;
    memset(&catalog_profile_interval, 0, sizeof(catalog_profile_interval));
+   guint64 rejection_delta[RR_CAT_REJECT_COUNT];
+   memcpy(rejection_delta, catalog_reject_interval, sizeof(rejection_delta));
+   memset(catalog_reject_interval, 0, sizeof(catalog_reject_interval));
    catalog_profile_last_sample = w;
    catalog_profile_sample_seconds = (guint64)(sample_s + 0.5);
    catalog_profile_sample_time = (guint64)time(NULL);
@@ -1086,6 +1099,12 @@ void rr_relay_catalog_profile_dump(void) {
        (unsigned long long)t.apply_max_us,
        w.received ? (double)w.apply_us / w.received : 0.0,
        (unsigned long long)w.apply_max_us);
+   for (unsigned i = RR_CAT_OWNER; i < RR_CAT_REJECT_COUNT; ++i) {
+      if (catalog_reject_total[i])
+         Log(LOG_INFO, "profile", "    reject/%s: total=%llu (+%llu)",
+             catalog_reject_names[i-1], (unsigned long long)catalog_reject_total[i],
+             (unsigned long long)rejection_delta[i]);
+   }
    for (unsigned i = 0; i < CP_KIND_COUNT; i++) {
       const catalog_kind_counts_t *total = &catalog_kind_total[i];
       const catalog_kind_counts_t *sample = &catalog_kind_interval[i];
