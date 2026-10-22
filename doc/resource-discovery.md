@@ -321,3 +321,9 @@ correct parent even if inventory contributors emit entries out of order.
 parent UUIDs. SITE detail panels display the advertised
 `inventory.description` and `inventory.location` fields from the server's
 `station.description` and `station.location` configuration.
+
+## Mesh-ready neighbor health (initial implementation)
+
+Each rrserver observes its **directly configured peers** rather than inferring link quality from a relayed topology. Its existing inventory/catalog publishes read-only `Neighbor <site>` performance entries with direct-link state, observed ping/pong RTT and recent unexpected disconnect/auth rejection counts. GTK Cluster Health recognizes server-published Warning and Critical states and highlights affected health entries. These are **observer reports**, not a mesh-wide consensus; a disconnected peer can still be healthy from another neighbor's perspective.
+
+A local SQLite `cluster_health` table stores append-only observations with separate `reporter`, `subject`, `category`, `severity`, `value`, `reason`, and observation time. Current probes cover established WebSocket ping/pong RTT (warning 250 ms, critical 1 s), unexpected disconnects (critical at 3 per five-minute window), and configured-peer handshake authentication failures (critical at 5). Administrative closures and shutdowns are not counted as flaps. Full distributed ingestion, deduplication, retention/pruning, and multi-observer reconciliation remain to be implemented before considering this comprehensive mesh health tracking. No credential contents are persisted in these records.
