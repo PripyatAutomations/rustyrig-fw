@@ -577,10 +577,11 @@ void connman_register_events(void) {
    event_on("auth.error", connection_event, NULL);
 }
 
-static uint64_t control_rx_bytes, control_tx_bytes;
-void rrclient_control_bytes(uint64_t *rx, uint64_t *tx) {
+static uint64_t control_rx_bytes, control_tx_bytes, ws_text_rx_bytes;
+void rrclient_ws_bytes(uint64_t *rx, uint64_t *tx, uint64_t *text_rx) {
    if (rx) *rx = control_rx_bytes;
    if (tx) *tx = control_tx_bytes;
+   if (text_rx) *text_rx = ws_text_rx_bytes;
 }
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mgr;
@@ -626,6 +627,13 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
       return;
    }
 
+   /* Count only decoded TEXT messages as control payload. Binary messages
+    * can carry audio or other media and must never be called control traffic. */
+   if (ev == MG_EV_WS_MSG && data && cptr->is_ws) {
+      const struct mg_ws_message *frame = data;
+      if ((frame->flags & 15) == WEBSOCKET_OP_TEXT)
+         ws_text_rx_bytes += frame->data.len;
+   }
    /* Background audio keeps decoding with muted output. Serial output remains selected-server-only. */
    if (ev == MG_EV_WS_MSG && s != selected && data && ((((struct mg_ws_message *)data)->flags & 15) == WEBSOCKET_OP_BINARY)) {
       struct mg_ws_message *message = data;
