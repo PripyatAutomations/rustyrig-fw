@@ -173,19 +173,19 @@ static unsigned long long typing_sequence;
  * Only the final 'idle' transition bypasses the 500 ms throttle. */
 typedef struct {
    rrconn_t *client;
-   char room[128];
+   char room[128], state[16];
    gint64 last_us;
 } typing_throttle_t;
 static typing_throttle_t typing_throttle[512];
 
 static bool typing_can_publish(rrconn_t *client, const char *room, const char *state) {
-   if (!strcmp(state, "idle")) return true;
    gint64 at = g_get_monotonic_time();
    size_t slot = 0;
    for (size_t i = 0; i < G_N_ELEMENTS(typing_throttle); i++) {
       typing_throttle_t *t = &typing_throttle[i];
       if (t->client == client && !strcmp(t->room, room)) {
-         if (at - t->last_us < 500000) return false;
+         if (at - t->last_us < 500000 && !strcmp(t->state, state)) return false;
+         if (at - t->last_us < 100000 && strcmp(state, "idle")) return false;
          slot = i;
          goto record;
       }
@@ -195,6 +195,7 @@ static bool typing_can_publish(rrconn_t *client, const char *room, const char *s
 record:
    typing_throttle[slot].client = client;
    g_strlcpy(typing_throttle[slot].room, room, sizeof(typing_throttle[slot].room));
+   g_strlcpy(typing_throttle[slot].state, state, sizeof(typing_throttle[slot].state));
    typing_throttle[slot].last_us = at;
    return true;
 }
