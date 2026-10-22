@@ -1310,6 +1310,8 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
       if (!win || !GTK_IS_WINDOW(win)) {
          win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
          ui_new_window(win, "userlist");
+         if (GTK_IS_NOTEBOOK(main_notebook))
+            rr_floating_window_controls(GTK_WINDOW(win), GTK_NOTEBOOK(main_notebook), "Userlist");
          userlist_window = win;
          gtk_window_set_default_size(GTK_WINDOW(win), userlist_default_width(), 320);
          g_signal_connect(win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
@@ -1764,6 +1766,8 @@ GtkWidget *userlist_create(void) {
    gui_window_t *window_t = ui_new_window(new_win, "userlist");
    (void)window_t;
    userlist_window = new_win;
+   if (GTK_IS_NOTEBOOK(main_notebook))
+      rr_floating_window_controls(GTK_WINDOW(new_win), GTK_NOTEBOOK(main_notebook), "Userlist");
    gtk_window_set_default_size(GTK_WINDOW(new_win), userlist_default_width(), 320);
 
    if (!userlist_panel) {
