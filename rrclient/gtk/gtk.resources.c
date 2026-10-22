@@ -823,7 +823,8 @@ static void resource_health_history(const char *key, const char *status, const c
       events = g_queue_new();
       g_hash_table_insert(browser->health_events, g_strdup(key), events);
    }
-   if (g_strcmp0(previous, status)) {
+   gboolean changed = g_strcmp0(previous, status) != 0;
+   if (changed) {
       GDateTime *now = g_date_time_new_now_local();
       char *stamp = g_date_time_format(now, "%Y-%m-%d %H:%M:%S");
       char *entry = g_strdup_printf("%s  %s%s%s", stamp, status,
@@ -836,8 +837,10 @@ static void resource_health_history(const char *key, const char *status, const c
    }
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter group;
-   if (!gtk_tree_model_iter_children(model, &group, node))
+   gboolean exists = gtk_tree_model_iter_children(model, &group, node);
+   if (!exists)
       gtk_tree_store_append(browser->store, &group, node);
+   if (exists && !changed) return;
    gtk_tree_store_set(browser->store, &group, NAME, "Health History", KIND, "group",
                       STATE, "Session history", -1);
    GtkTreeIter row;
@@ -2225,7 +2228,7 @@ static void resource_search_changed(GtkEditable *entry, gpointer unused) {
 static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
    char *kind = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, -1);
-   if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node")) {
+   if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "health-event")) {
       g_free(kind);
       return resource_search_subtree(model, iter);
    }
