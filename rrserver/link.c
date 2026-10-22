@@ -524,7 +524,7 @@ static void handle_hello(struct link_session *session, dict *d) {
          Log(LOG_WARN, "link", "Clock skew with %s [%s]: peer appears %lld seconds %s; verify NTP on both servers",
             site, node, offset < 0 ? -offset : offset, offset < 0 ? "behind" : "ahead");
       else
-         Log(LOG_INFO, "link", "Clock sample from %s: apparent offset %+lld seconds", site, offset);
+         Log(LOG_INFO, "link", "Clock sample from %s [%s]: apparent offset %+lld seconds", site, node, offset);
    }
    char peer_ip[64];
    mg_snprintf(peer_ip, sizeof(peer_ip), "%M", mg_print_ip, &session->connection->rem);
@@ -691,11 +691,11 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       const char *version = dict_get(d, "version", "");
       const char *features = dict_get(d, "features", "");
       if (version[0] != '2' || version[1] != '.') {
-         Log(LOG_WARN, "link", "Peer %s advertises incompatible link protocol version %s; upgrade may be required",
-            session->peer->site, version);
+         Log(LOG_WARN, "link", "Peer %s [%s] advertises incompatible link protocol version %s; upgrade may be required",
+            session->peer->site, session->node, version);
       } else {
-         Log(LOG_INFO, "link", "Peer %s protocol %s capabilities: %s",
-            session->peer->site, version, features);
+         Log(LOG_INFO, "link", "Peer %s [%s] protocol %s capabilities: %s",
+            session->peer->site, session->node, version, features);
       }
    } else if (session->established && !strcmp(op, "link.introduce")) {
       const char *node = dict_get(d, "node", ""), *parent = dict_get(d, "parent", "");
@@ -708,7 +708,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       } else {
          links.generation++;
          broadcast(session, d);
-         Log(LOG_INFO, "link", "Introduced server %s [%s] via %s, servers %zu", site, node, session->peer->site, rr_link_tree_count(links.tree));
+         Log(LOG_INFO, "link", "Introduced server %s [%s] via %s [%s], servers %zu", site, node, session->peer->site, session->node, rr_link_tree_count(links.tree));
       }
    } else if (session->established && !strcmp(op, "link.withdraw")) {
       const char *node = dict_get(d, "node", "");
