@@ -247,6 +247,7 @@ static void tabs_selected(GtkNotebook *notebook, GtkWidget *page, guint number, 
 
    for (GList *item = children ; item ; item = item->next) {
       GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
+      if (g_object_get_data(G_OBJECT(button), "rr-panel-restore")) continue;
       tab_set_selected(button, g_object_get_data(G_OBJECT(button), "rr-tab-page") == page);
    }
 
