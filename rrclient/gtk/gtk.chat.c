@@ -1290,7 +1290,8 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    if (!room_vfo_window) {
       room_vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(room_vfo_window), "RustyRig VFO");
-      gtk_window_set_default_size(GTK_WINDOW(room_vfo_window), 800, 170);
+      gtk_window_set_default_size(GTK_WINDOW(room_vfo_window), 700, 190);
+      gtk_window_set_resizable(GTK_WINDOW(room_vfo_window), TRUE);
       gtk_window_set_destroy_with_parent(GTK_WINDOW(room_vfo_window), TRUE);
       g_signal_connect(room_vfo_window, "delete-event", G_CALLBACK(room_vfo_float_closed), NULL);
    }
@@ -1332,8 +1333,12 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    if (inside) {
       gtk_widget_get_preferred_width(inside, &minimum, &natural);
    }
-   int width = MAX(900, natural + 36);
-   gtk_window_resize(GTK_WINDOW(room_vfo_window), width, 200);
+   /* Initial floating size should be compact and never force the panel to
+    * occupy most of the desktop. The contained VFO scrolls horizontally when
+    * controls need more space than the user gives the detached window. */
+   int width = CLAMP(natural + 36, 480, 800);
+   if (!gtk_widget_get_visible(room_vfo_window))
+      gtk_window_resize(GTK_WINDOW(room_vfo_window), width, 190);
 
    if (room_vfo_room[0]) {
       char *title = g_strdup_printf("RustyRig • %s • VFO %c (%s)", room_vfo_room, vfo_state_get_active(), rrclient_room_vfos(room_vfo_room));
