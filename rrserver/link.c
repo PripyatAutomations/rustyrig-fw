@@ -15,6 +15,9 @@
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
 #include <rrserver/acl.h>
+#ifdef USE_SQLITE
+#include <rrserver/database.h>
+#endif
 
 #ifdef USE_MONGOOSE
 #include <librrprotocol/rrprotocol.h>
@@ -38,6 +41,8 @@ struct link_peer {
    unsigned max_depth;
    long long retry_at;
    unsigned retry_seconds;
+   unsigned health_flaps, health_auth_errors;
+   long long health_window_ms, health_rtt_ms;
    bool manually_closed;
    struct link_session *session;
 };
@@ -46,7 +51,8 @@ struct link_session {
    struct link_session *next;
    struct mg_connection *connection;
    struct link_peer *peer;
-   long long started, last_ping, last_seen;
+   long long started, last_ping, last_seen, ping_sent;
+   bool ping_pending;
    unsigned generation;
    char node[37];
    bool outbound, dedicated, hello, snapshot, admitted, ready, established;
@@ -98,6 +104,35 @@ static void fail(struct link_session *session, const char *reason) {
 }
 
 /* Depth is counted in edges beyond the configured direct peer: peer=0. */
+static void health_window(struct link_peer *peer) {
+   if (!peer) return;
+   long long now = mono_ms();
+   if (!peer->health_window_ms || now - peer->health_window_ms > 300000) {
+      peer->health_window_ms = now;
+      peer->health_flaps = peer->health_auth_errors = 0;
+   }
+}
+static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason) {
+#ifdef USE_SQLITE
+   if (peer && masterdb)
+      db_cluster_health_record(masterdb, links.node, *peer->node ? peer->node : peer->site,
+                               category, severity, value, reason);
+#else
+   (void)peer; (void)category; (void)severity; (void)value; (void)reason;
+#endif
+}
+void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
+   if (!emit) return;
+   for (size_t i = 0; i < links.peer_count; ++i) {
+      struct link_peer *peer = &links.peers[i];
+      health_window(peer);
+      emit(*peer->node ? peer->node : peer->site, peer->site,
+           peer->session && peer->session->established,
+           peer->health_flaps, peer->health_auth_errors,
+           peer->health_rtt_ms, context);
+   }
+}
+
 static bool site_permitted(const struct link_peer *peer, const char *site) {
    if (!peer->allowed_sites || !*peer->allowed_sites) {
       return true;
@@ -433,6 +468,7 @@ static void establish(struct link_session *session) {
       return;
    }
    session->established = true;
+   if (session->peer) health_record(session->peer, "link", 0, 1, "connected");
 
    /* List only sites behind the newly linked peer; the peer is named separately, and is already included in the remote node count. */
    GString *downstream = g_string_new(NULL);
@@ -523,6 +559,12 @@ static void handle_hello(struct link_session *session, dict *d) {
    }
 
    if (!peer || strcmp(peer->site, site) || (peer->node[0] && strcmp(peer->node, node)) || !equal_secret(peer->password, dict_get(d, "password", ""))) {
+      if (peer) {
+         health_window(peer);
+         peer->health_auth_errors++;
+         health_record(peer, "auth", peer->health_auth_errors >= 5 ? 2 : 1,
+                       peer->health_auth_errors, "peer handshake rejected");
+      }
       fail(session, "Station name, UUID or shared password does not match the configured peer; check both servers' [peer] settings");
 
       return;
@@ -780,6 +822,13 @@ static struct link_session *new_session(void) {
 }
 
 static void close_session(struct link_session *session) {
+   if (session->established && session->peer && !links.stopping && !session->peer->manually_closed) {
+      health_window(session->peer);
+      session->peer->health_flaps++;
+      session->peer->health_rtt_ms = 0;
+      health_record(session->peer, "link", session->peer->health_flaps >= 3 ? 2 : 1,
+                    session->peer->health_flaps, "unexpected link disconnect");
+   }
    if (session->admitted) {
       rr_link_tree_remove(links.tree, session->node, session->node);
       links.generation++;
@@ -912,6 +961,16 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
       handle_frame(session, data);
    } else if (event == MG_EV_WS_CTL) {
       session->last_seen = mono_ms();
+      struct mg_ws_message *control = data;
+      if (control && (control->flags & 15) == WEBSOCKET_OP_PONG && session->ping_pending && session->peer) {
+         long long rtt = mono_ms() - session->ping_sent;
+         session->ping_pending = false;
+         if (rtt >= 0 && rtt <= 30000) {
+            session->peer->health_rtt_ms = rtt;
+            if (rtt >= 250)
+               health_record(session->peer, "latency", rtt >= 1000 ? 2 : 1, rtt, "link ping RTT elevated");
+         }
+      }
    } else if (event == MG_EV_ERROR) {
       struct mg_http_message response;
       char reason[256];
@@ -1297,7 +1356,11 @@ void rrserver_links_poll(void) {
       }
 
       if (s->established && at - s->last_ping > 10000) {
-         mg_ws_send(s->connection, "", 0, WEBSOCKET_OP_PING);
+         if (!s->ping_pending) {
+            mg_ws_send(s->connection, "", 0, WEBSOCKET_OP_PING);
+            s->ping_sent = at;
+            s->ping_pending = true;
+         }
          s->last_ping = at;
       }
    }
@@ -1346,6 +1409,9 @@ void rrserver_links_fini(void) {
    free((void *)links.ca.buf);
 }
 #else
+void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
+   (void)emit; (void)context;
+}
 const char *rrserver_links_node(void) {
    return "";
 }

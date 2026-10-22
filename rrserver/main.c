@@ -574,10 +574,9 @@ int main(int argc, char **argv) {
    // Update the clock (now) once a second
    mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick_fn, &mg_mgr);
 
-#ifdef USE_PROFILING
-   // Keep the server's event profile independent of event traffic volume.
+// Refresh statistics every five minutes, including non-profiling builds.
+// Handler/codec timing dumps remain guarded by USE_PROFILING.
    mg_timer_add(&mg_mgr, 300000, MG_TIMER_REPEAT, timer_profile_dump_fn, &mg_mgr);
-#endif
 
    // Update the clock (now) once a second
    // Check for faults/protection every 150ms

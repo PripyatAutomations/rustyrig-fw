@@ -97,6 +97,10 @@ bool rr_relay_catalog_put(const char *owner, dict *d);
 void rr_relay_collect_local(void);
 void rr_relay_send_catalogs(const char *dest);
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, unsigned int received, unsigned int accepted, unsigned int rejected);
+#ifdef USE_PROFILING
+/* Called on the rrserver event-loop thread; no profiling in normal builds. */
+void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long apply_us, size_t payload_bytes);
+#endif
 void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void *user);
 void rr_relay_refresh_catalog(void);
 struct relay_media *rr_relay_media_map(rrconn_t *client, const char *uuid, bool create);

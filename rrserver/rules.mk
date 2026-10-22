@@ -55,6 +55,7 @@ rrserver_objs += database.rooms.o
 rrserver_objs += database.users.o
 rrserver_objs += defconfig.o		# Default configuration
 rrserver_objs += events.o		# Our event hooks
+rrserver_objs += performance.o	# Five-minute process and cluster-state statistics
 rrserver_objs += events.admin.o
 rrserver_objs += events.quota.o
 rrserver_objs += events.rig.o

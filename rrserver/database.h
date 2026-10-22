@@ -16,6 +16,7 @@
 #include <sqlite3.h>
 #include <librustyaxe/dict.h>
 
+bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *subject, const char *category, unsigned severity, double value, const char *reason);
 /* Caller owns the returned JSON. Endpoint identities contain no credentials. */
 extern char *db_bridge_hints_get(sqlite3 *db, const char *identity);
 extern bool db_bridge_hints_set(sqlite3 *db, const char *identity, const char *json);
