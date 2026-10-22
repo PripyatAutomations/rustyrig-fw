@@ -260,7 +260,10 @@ static void terminal_close(GtkButton *button, gpointer data) {
    }
 }
 void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_name) {
-   if (!terminal_notebook || !name || !*name || !rr_serial_find(name)) {
+   /* Console observers can be created before a port is attached. The old
+    * rr_serial_find guard silently discarded Open clicks for configured and
+    * permanent endpoints that have not connected yet. */
+   if (!terminal_notebook || !name || !*name) {
       return;
    }
 
@@ -437,7 +440,7 @@ GtkWidget *init_terminal_tab(void) {
    gtk_box_pack_start(GTK_BOX(toolbar), gtk_label_new("Endpoint:"), FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), terminal_ports, FALSE, FALSE, 0);
    GtkWidget *refresh = gtk_button_new_with_label("Refresh");
-   GtkWidget *open = gtk_button_new_with_label("Open console");
+   GtkWidget *open = gtk_button_new_with_label("Open Terminal");
    GtkWidget *configure = gtk_button_new_with_label("Configure…");
    gtk_box_pack_start(GTK_BOX(toolbar), refresh, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(toolbar), open, FALSE, FALSE, 0);
