@@ -38,6 +38,99 @@ size_t rr_relay_catalog_count;
 struct catalog *rr_relay_catalogs;
 struct directory *rr_relay_directories;
 
+#ifdef USE_PROFILING
+/* Catalog work is owned by the rrserver event-loop thread; the existing
+ * five-minute server profile timer reads these counters on that same thread.
+ * There are no per-message allocations, locks or clocks in normal builds. */
+typedef struct {
+   guint64 snapshots, prepared, queued, sent, aborted, superseded;
+   guint64 ack_ok, ack_partial, ack_timeout, ack_cancelled;
+   guint64 ack_received, ack_accepted, ack_rejected;
+   guint64 received, accepted, rejected;
+   guint64 refreshes, delta_updates, delta_removes;
+   guint64 build_us, build_max_us, drain_us, drain_max_us;
+   guint64 ack_us, ack_max_us, apply_us, apply_max_us;
+   guint64 refresh_us, refresh_max_us;
+} catalog_profile_counts_t;
+
+typedef struct {
+   char node[37];
+   guint64 snapshots, queued, ack_ok, ack_partial, timeouts, aborted;
+   guint64 sent, accepted, rejected, last_ack_us, max_ack_us;
+} catalog_profile_peer_t;
+
+#define CATALOG_PROFILE_MAX_PEERS 256
+static catalog_profile_counts_t catalog_profile_total;
+static catalog_profile_counts_t catalog_profile_interval;
+static catalog_profile_peer_t catalog_profile_peers[CATALOG_PROFILE_MAX_PEERS];
+static guint catalog_profile_peer_count;
+static gint64 catalog_profile_last_dump;
+
+#define CP_INC(field) do { catalog_profile_total.field++; catalog_profile_interval.field++; } while (0)
+#define CP_ADD(field, amount) do { \
+   guint64 _amount = (guint64)(amount); \
+   catalog_profile_total.field += _amount; \
+   catalog_profile_interval.field += _amount; \
+} while (0)
+#define CP_MAX(field, amount) do { \
+   guint64 _amount = (guint64)(amount); \
+   if (_amount > catalog_profile_total.field) catalog_profile_total.field = _amount; \
+   if (_amount > catalog_profile_interval.field) catalog_profile_interval.field = _amount; \
+} while (0)
+
+static void catalog_profile_duration(guint64 us, const char *phase) {
+   if (!strcmp(phase, "build")) {
+      CP_ADD(build_us, us);
+      CP_MAX(build_max_us, us);
+   } else if (!strcmp(phase, "drain")) {
+      CP_ADD(drain_us, us);
+      CP_MAX(drain_max_us, us);
+   } else if (!strcmp(phase, "ack")) {
+      CP_ADD(ack_us, us);
+      CP_MAX(ack_max_us, us);
+   } else if (!strcmp(phase, "apply")) {
+      CP_ADD(apply_us, us);
+      CP_MAX(apply_max_us, us);
+   } else if (!strcmp(phase, "refresh")) {
+      CP_ADD(refresh_us, us);
+      CP_MAX(refresh_max_us, us);
+   }
+}
+
+static catalog_profile_peer_t *catalog_profile_peer(const char *node) {
+   if (!node || !*node || strlen(node) >= sizeof(catalog_profile_peers[0].node))
+      return NULL;
+   for (guint i = 0; i < catalog_profile_peer_count; i++)
+      if (!strcmp(catalog_profile_peers[i].node, node))
+         return &catalog_profile_peers[i];
+   if (catalog_profile_peer_count == CATALOG_PROFILE_MAX_PEERS)
+      return NULL;
+   catalog_profile_peer_t *peer = &catalog_profile_peers[catalog_profile_peer_count++];
+   g_strlcpy(peer->node, node, sizeof(peer->node));
+   return peer;
+}
+
+void rr_relay_catalog_profile_receive(bool accepted, long long apply_us) {
+   CP_INC(received);
+   if (accepted) CP_INC(accepted);
+   else CP_INC(rejected);
+   catalog_profile_duration(apply_us > 0 ? (guint64)apply_us : 0, "apply");
+}
+
+static int catalog_profile_peer_compare(const void *left, const void *right) {
+   const catalog_profile_peer_t *a = left, *b = right;
+   if (a->sent != b->sent) return a->sent > b->sent ? -1 : 1;
+   return strcmp(a->node, b->node);
+}
+
+
+#else
+#define CP_INC(field) ((void)0)
+#define CP_ADD(field, amount) ((void)0)
+#define CP_MAX(field, amount) ((void)0)
+#endif
+
+
 /* Replace a node user-directory snapshot with an independently owned clone. */
 void rr_relay_directory_put(const char *node, dict *d) {
    unsigned count = dict_get_uint(d, "count", HTTP_MAX_USERS + 1);
@@ -726,6 +819,105 @@ static void ack_wait_free(gpointer ptr) {
    g_free(w->dest);
    g_free(w);
 }
+
+#ifdef USE_PROFILING
+void rr_relay_catalog_profile_dump(void) {
+   const gint64 now = g_get_monotonic_time();
+   if (catalog_profile_last_dump && now - catalog_profile_last_dump < 300 * G_USEC_PER_SEC)
+      return;
+   double sample_s = catalog_profile_last_dump ?
+      (now - catalog_profile_last_dump) / 1000000.0 : 300.0;
+   catalog_profile_last_dump = now;
+
+   /* Capture and reset the interval before logging. Logging callbacks can
+    * cause state changes and must not lose their counts. */
+   const catalog_profile_counts_t t = catalog_profile_total;
+   const catalog_profile_counts_t w = catalog_profile_interval;
+   memset(&catalog_profile_interval, 0, sizeof(catalog_profile_interval));
+
+   guint queued_syncs = 0, pending_acks = 0;
+   guint64 queued_descriptors = 0;
+   if (relay_catalog_snapshots) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, relay_catalog_snapshots);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         relay_catalog_snapshot_t *s = value;
+         queued_syncs++;
+         if (s->offset < s->messages->len)
+            queued_descriptors += s->messages->len - s->offset;
+      }
+   }
+   if (relay_catalog_awaiting_ack)
+      pending_acks = g_hash_table_size(relay_catalog_awaiting_ack);
+
+   Log(LOG_INFO, "profile", "Catalog synchronization statistics (cumulative; last sample %.0f s; entries=%zu, queued=%u, pending-acks=%u, remaining-items=%llu):",
+       sample_s, rr_relay_catalog_count, queued_syncs, pending_acks, (unsigned long long)queued_descriptors);
+   Log(LOG_INFO, "profile", "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)",
+       (unsigned long long)t.snapshots, (unsigned long long)w.snapshots,
+       (unsigned long long)t.queued, (unsigned long long)w.queued,
+       (unsigned long long)t.aborted, (unsigned long long)w.aborted,
+       (unsigned long long)t.superseded, (unsigned long long)w.superseded);
+   Log(LOG_INFO, "profile", "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)",
+       (unsigned long long)t.ack_ok, (unsigned long long)w.ack_ok,
+       (unsigned long long)t.ack_partial, (unsigned long long)w.ack_partial,
+       (unsigned long long)t.ack_timeout, (unsigned long long)w.ack_timeout,
+       (unsigned long long)t.ack_cancelled, (unsigned long long)w.ack_cancelled);
+   Log(LOG_INFO, "profile", "  descriptors: prepared=%llu (+%llu), sent=%llu (+%llu), peer-received=%llu (+%llu), peer-accepted=%llu (+%llu), peer-rejected=%llu (+%llu)",
+       (unsigned long long)t.prepared, (unsigned long long)w.prepared,
+       (unsigned long long)t.sent, (unsigned long long)w.sent,
+       (unsigned long long)t.ack_received, (unsigned long long)w.ack_received,
+       (unsigned long long)t.ack_accepted, (unsigned long long)w.ack_accepted,
+       (unsigned long long)t.ack_rejected, (unsigned long long)w.ack_rejected);
+   Log(LOG_INFO, "profile", "  inbound catalog apply: received=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
+       (unsigned long long)t.received, (unsigned long long)w.received,
+       (unsigned long long)t.accepted, (unsigned long long)w.accepted,
+       (unsigned long long)t.rejected, (unsigned long long)w.rejected,
+       t.received ? (double)t.apply_us / t.received : 0.0,
+       (unsigned long long)t.apply_max_us,
+       w.received ? (double)w.apply_us / w.received : 0.0,
+       (unsigned long long)w.apply_max_us);
+   Log(LOG_INFO, "profile", "  snapshot build: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); queue drain: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms)",
+       t.snapshots ? (double)t.build_us / t.snapshots / 1000.0 : 0.0,
+       t.build_max_us / 1000.0,
+       w.snapshots ? (double)w.build_us / w.snapshots / 1000.0 : 0.0,
+       w.build_max_us / 1000.0,
+       t.queued ? (double)t.drain_us / t.queued / 1000.0 : 0.0,
+       t.drain_max_us / 1000.0,
+       w.queued ? (double)w.drain_us / w.queued / 1000.0 : 0.0,
+       w.drain_max_us / 1000.0);
+   Log(LOG_INFO, "profile", "  end-to-end ACK latency: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); refreshes=%llu (+%llu), delta sends=%llu (+%llu), removes=%llu (+%llu), refresh avg=%.2f ms, max=%.2f ms",
+       t.ack_ok + t.ack_partial ? (double)t.ack_us / (t.ack_ok + t.ack_partial) / 1000.0 : 0.0,
+       t.ack_max_us / 1000.0,
+       w.ack_ok + w.ack_partial ? (double)w.ack_us / (w.ack_ok + w.ack_partial) / 1000.0 : 0.0,
+       w.ack_max_us / 1000.0,
+       (unsigned long long)t.refreshes, (unsigned long long)w.refreshes,
+       (unsigned long long)t.delta_updates, (unsigned long long)w.delta_updates,
+       (unsigned long long)t.delta_removes, (unsigned long long)w.delta_removes,
+       t.refreshes ? (double)t.refresh_us / t.refreshes / 1000.0 : 0.0,
+       t.refresh_max_us / 1000.0);
+
+   /* Bound the log even if a future mesh has hundreds of neighbors. */
+   catalog_profile_peer_t peers[CATALOG_PROFILE_MAX_PEERS];
+   memcpy(peers, catalog_profile_peers, catalog_profile_peer_count * sizeof(peers[0]));
+   qsort(peers, catalog_profile_peer_count, sizeof(peers[0]), catalog_profile_peer_compare);
+   const guint limit = MIN(catalog_profile_peer_count, 12u);
+   for (guint i = 0; i < limit; i++) {
+      const catalog_profile_peer_t *p = &peers[i];
+      char label[192];
+      Log(LOG_INFO, "profile", "  neighbor %s: snapshots=%llu queued=%llu acked=%llu partial=%llu timeout=%llu aborted=%llu, sent=%llu accepted=%llu rejected=%llu, last-ack=%.2f ms max-ack=%.2f ms",
+          rrserver_links_format_node(p->node, label, sizeof(label)),
+          (unsigned long long)p->snapshots, (unsigned long long)p->queued,
+          (unsigned long long)p->ack_ok, (unsigned long long)p->ack_partial,
+          (unsigned long long)p->timeouts, (unsigned long long)p->aborted,
+          (unsigned long long)p->sent, (unsigned long long)p->accepted,
+          (unsigned long long)p->rejected, p->last_ack_us / 1000.0, p->max_ack_us / 1000.0);
+   }
+   if (catalog_profile_peer_count > limit)
+      Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u by descriptors sent)",
+          catalog_profile_peer_count - limit, limit);
+}
+#endif
 
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint received, guint accepted, guint rejected) {
    char origin_label[192];
