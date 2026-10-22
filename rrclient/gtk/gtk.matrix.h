@@ -6,7 +6,7 @@
 /* Returns a floating widget; add it to a container as usual. Each instance
  * owns its animation and controls. Hidden widgets do not advance animation.
  * Hover the bottom-left 48 pixels for controls. Values are percentages:
- * opacity/brightness 0..100, speed 0..300 (0 pauses, 100 is normal).
+ * opacity/brightness 0..100, speed 0..450 (0 pauses, 100 is normal).
  * Opacity applies to the canvas, not controls; use GtkOverlay for a backdrop.
  */
 GtkWidget *rr_gtk_matrix_new(void);
