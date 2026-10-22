@@ -251,10 +251,10 @@ int main(void) {
       const char *line, *first, *second;
    } whois_replies[] = {
       {
-         ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice: ident@host.example", "Alice Example"
+         ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice!ident@host.example", "Alice Example"
       },
       {
-         ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob: user@2001:db8::1", "Unknown"
+         ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob!user@2001:db8::1", "Unknown"
       },
       {
          ":server 312 tester alice irc.example :Yet another IRC Server running on Debian GNU/Linux", "server irc.example", "Debian GNU/Linux"
@@ -275,7 +275,7 @@ int main(void) {
          ":server 301 tester alice :Away from keyboard", "alice", "Away from keyboard"
       },
       {
-         ":server 307 tester alice :is a registered nick", "alice", "registered nick"
+         ":server 307 tester alice :is a registered nick", "alice: registered nickname", "registered nick"
       },
       {
          ":server 313 tester alice :is an IRC operator", "alice", "IRC operator"
@@ -284,7 +284,7 @@ int main(void) {
          ":server 320 tester alice :custom network information", "alice", "custom network information"
       },
       {
-         ":server 330 tester alice account-name :is logged in as", "alice account-name", "is logged in as"
+         ":server 330 tester alice account-name :is logged in as", "alice: logged in as account-name", "account-name"
       },
       {
          ":server 338 tester alice ident@real.example 192.0.2.1 :actually using host", "alice ident@real.example 192.0.2.1", "actually using host"
@@ -299,10 +299,10 @@ int main(void) {
          ":server 379 tester alice :is using modes +iw", "alice", "+iw"
       },
       {
-         ":server 671 tester alice :is using a secure connection", "alice", "secure connection"
+         ":server 671 tester alice :is using a secure connection", "alice: secure connection", "secure connection"
       },
       {
-         ":server 276 tester alice :has client certificate fingerprint ABCDEF", "alice", "ABCDEF"
+         ":server 276 tester alice :has client certificate fingerprint ABCDEF", "alice: TLS certificate", "ABCDEF"
       },
       {
          ":server 650 tester alice custom-value :unknown extension", "alice custom-value", "unknown extension"
