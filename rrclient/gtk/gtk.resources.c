@@ -763,22 +763,10 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
                      if (value >= 100000) resource_health_raise(severity, reasons, 2, "Event queue wait critical");
                      else if (value >= 20000) resource_health_raise(severity, reasons, 1, "Event queue wait elevated");
                   }
-               } else if (!strcmp(stat_name, "WebSocket processing")) {
-                  value = resource_health_number(details, " rejected, ");
-                  /* This statistic is informational; rejected messages alone can be
-                   * untrusted network input and must not declare a node unhealthy. */
-                  value = resource_health_number(details, " bytes, ");
-                  (void)value;
                } else if (!strcmp(stat_name, "Catalog synchronization")) {
-                  const char *timeouts = strstr(details, " timeouts ");
-                  if (timeouts) {
-                     value = -1;
-                     const char *p = timeouts;
-                     while (p > details && g_ascii_isdigit(p[-1])) --p;
-                     value = resource_health_number(p, "");
-                     if (value >= 5) resource_health_raise(severity, reasons, 2, "Catalog ACK timeouts critical");
-                     else if (value >= 1) resource_health_raise(severity, reasons, 1, "Catalog ACK timeouts");
-                  }
+                  value = resource_health_number(details, " timeouts ");
+                  if (value >= 5) resource_health_raise(severity, reasons, 2, "Catalog ACK timeouts critical");
+                  else if (value >= 1) resource_health_raise(severity, reasons, 1, "Catalog ACK timeouts");
                }
             }
          }
@@ -1797,7 +1785,7 @@ static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *ren
    gtk_tree_model_get(model, iter, GPOINTER_TO_INT(data), &text, -1);
    const char *color = NULL;
 
-   if (text && (strstr(text, "Failed") || strstr(text, "Unavailable") || strstr(text, "Server offline"))) {
+   if (text && (strstr(text, "Failed") || strstr(text, "Unavailable") || strstr(text, "Server offline") || !strcmp(text, "Critical") || !strcmp(text, "Warning"))) {
       color = "#b33a3a";
    } else if (text && (g_str_has_prefix(text, "Not ") || !strcmp(text, "Disconnected"))) {
       color = "#777777";
