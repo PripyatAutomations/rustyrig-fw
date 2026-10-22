@@ -1333,6 +1333,8 @@ void gtk_frontend_stop(void) {
       g_source_remove(pending_vfo_paint.source);
       pending_vfo_paint.source = 0;
    }
+   extern void gtk_chat_typing_stop_timers(void);
+   gtk_chat_typing_stop_timers();
    gtk_userlist_stop_timers();
    extern void gtk_winmgr_stop_sources(void);   // gtk.winmgr.c
    gtk_winmgr_stop_sources();
