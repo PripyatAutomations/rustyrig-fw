@@ -700,12 +700,12 @@ static GHashTable *relay_catalog_awaiting_ack;
 typedef struct { char *dest; gint64 started; guint count; } catalog_ack_wait_t;
 static void ack_wait_free(gpointer ptr) { catalog_ack_wait_t *w = ptr; g_free(w->dest); g_free(w); }
 
-void rr_relay_catalog_ack(const char *origin, const char *sync_id) {
+void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint received, guint accepted, guint rejected) {
    if (!relay_catalog_awaiting_ack || !sync_id || !*sync_id) return;
    catalog_ack_wait_t *w = g_hash_table_lookup(relay_catalog_awaiting_ack, sync_id);
    if (!w || strcmp(w->dest, origin)) return;
-   Log(LOG_INFO, "relay.catalog", "Peer %s acknowledged catalog sync %s (%u descriptors) in %.3f s end-to-end",
-       origin, sync_id, w->count, (g_get_monotonic_time() - w->started) / 1000000.0);
+   Log(rejected || received != w->count ? LOG_WARN : LOG_INFO, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
+       origin, sync_id, (g_get_monotonic_time() - w->started) / 1000000.0, w->count, received, accepted, rejected);
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
@@ -766,8 +766,21 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
 
 /* Called from the Mongoose server loop; GLib timeouts are not dispatched there. */
 void rr_relay_catalog_pump(void) {
-   if (!relay_catalog_snapshots) return;
    gint64 now = g_get_monotonic_time();
+   if (relay_catalog_awaiting_ack) {
+      GHashTableIter pending;
+      gpointer key, value;
+      g_hash_table_iter_init(&pending, relay_catalog_awaiting_ack);
+      while (g_hash_table_iter_next(&pending, &key, &value)) {
+         catalog_ack_wait_t *w = value;
+         if (now - w->started >= 30 * G_USEC_PER_SEC) {
+            Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)",
+                (char *)key, w->dest, (now - w->started) / 1000000.0, w->count);
+            g_hash_table_iter_remove(&pending);
+         }
+      }
+   }
+   if (!relay_catalog_snapshots) return;
    GHashTableIter iter;
    gpointer key, value;
    g_hash_table_iter_init(&iter, relay_catalog_snapshots);
@@ -820,7 +833,7 @@ void rr_relay_send_catalogs(const char *dest) {
                dict_add(d, "node", entry->owner);
                dict_add(d, "dest", dest);
                dict_add(d, "kind", "catalog");
-               dict_add(d, "session", "");
+               dict_add(d, "session", s->sync_id);
                dict_add(d, "username", "");
                dict_add(d, "payload", json);
                g_ptr_array_add(s->messages, d);
