@@ -383,6 +383,32 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       goto done;
    }
 
+   /* Snapshot boundary is ordered after its descriptors on this link.
+    * Acknowledge only after their handlers have run; do not forward the
+    * control message to other mesh branches. */
+   if (!strcmp(kind, "catalog-end") && rr_relay_local_owner(dest)) {
+      if (*id && !strcmp(rrserver_links_route(origin) ? rrserver_links_route(origin) : "", origin)) {
+         dict *ack = dict_new();
+         if (ack) {
+            dict_add(ack, "op", "link.application");
+            dict_add(ack, "node", rrserver_links_node());
+            dict_add(ack, "dest", origin);
+            dict_add(ack, "kind", "catalog-ack");
+            dict_add(ack, "session", id);
+            dict_add(ack, "username", "");
+            dict_add(ack, "payload", "{}");
+            rrserver_links_send(origin, ack);
+            dict_free(ack);
+         }
+      }
+      goto done;
+   }
+   if (!strcmp(kind, "catalog-ack") && rr_relay_local_owner(dest)) {
+      if (!strcmp(rrserver_links_route(origin) ? rrserver_links_route(origin) : "", origin))
+         rr_relay_catalog_ack(origin, id);
+      goto done;
+   }
+
    if (!strcmp(kind, "request")) {
       time_t deadline = dict_get_time_t(d, "relay.deadline", 0);
 
