@@ -98,8 +98,12 @@ static bool equal_secret(const char *a, const char *b) {
    return !different;
 }
 
+static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason);
 static void fail(struct link_session *session, const char *reason) {
+   if (!session || !session->connection || session->connection->is_closing) return;
    Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", reason);
+   if (session->peer)
+      health_record(session->peer, "transport", 1, 0, reason);
    session->connection->is_closing = 1;
 }
 
