@@ -284,6 +284,38 @@ static void db_ensure_bridge_hints(sqlite3 *db) {
    }
 }
 
+/* Durable neighbor observations. Reporters and subjects are separate so relayed
+ * observations can be stored without misattributing their origin. */
+static void db_ensure_cluster_health(sqlite3 *db) {
+   const char *sql =
+      "CREATE TABLE IF NOT EXISTS cluster_health ("
+      "id INTEGER PRIMARY KEY, observed_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "reporter TEXT NOT NULL, subject TEXT NOT NULL, category TEXT NOT NULL,"
+      "severity INTEGER NOT NULL CHECK(severity BETWEEN 0 AND 2),"
+      "value REAL NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '');"
+      "CREATE INDEX IF NOT EXISTS cluster_health_reporter_time ON cluster_health(reporter,observed_at);";
+   if (sqlite3_exec(db, sql, NULL, NULL, NULL) != SQLITE_OK)
+      Log(LOG_WARN, "db", "Unable to create cluster health history: %s", sqlite3_errmsg(db));
+}
+bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *subject,
+                              const char *category, unsigned severity, double value, const char *reason) {
+   if (!db || !reporter || !*reporter || !subject || !*subject || !category || !*category ||
+       !reason || strlen(reporter) > 128 || strlen(subject) > 128 ||
+       strlen(category) > 64 || strlen(reason) > 256 || severity > 2) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db, "INSERT INTO cluster_health(reporter,subject,category,severity,value,reason) VALUES(?,?,?,?,?,?)",
+                          -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, reporter, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, subject, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, category, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int(stmt, 4, (int)severity);
+   sqlite3_bind_double(stmt, 5, value);
+   sqlite3_bind_text(stmt, 6, reason, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+
 /* Return an owned JSON hint snapshot for an endpoint identity. */
 char *db_bridge_hints_get(sqlite3 *db, const char *identity) {
    if (!db || !identity || !*identity) {
@@ -713,6 +745,7 @@ sqlite3 *db_open(const char *path) {
       sqlite3_free(request_error);
       db_ensure_rig_identities(db);
       db_ensure_bridge_hints(db);
+      db_ensure_cluster_health(db);
       db_ensure_vfo_identities(db);
 
       if (!db_usage_init(db)) {
