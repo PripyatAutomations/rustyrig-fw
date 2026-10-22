@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "build_config.h"
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
