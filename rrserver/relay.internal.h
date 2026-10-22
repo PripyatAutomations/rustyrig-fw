@@ -93,13 +93,19 @@ bool rr_relay_local_owner(const char *node);
 struct catalog *rr_relay_find_catalog(const char *key);
 struct catalog *rr_relay_room_catalog(const char *room);
 const char *rr_relay_message_room(dict *d);
+/* Stable rejection classes for aggregate profiling, never per-item logging. */
+enum rr_catalog_reject {
+   RR_CAT_OK, RR_CAT_OWNER, RR_CAT_PARENT, RR_CAT_SERVICE, RR_CAT_IDENTITY,
+   RR_CAT_ROOM_AUTH, RR_CAT_MEMORY, RR_CAT_CAPACITY, RR_CAT_REJECT_COUNT
+};
+bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_reject *reason);
 bool rr_relay_catalog_put(const char *owner, dict *d);
 void rr_relay_collect_local(void);
 void rr_relay_send_catalogs(const char *dest);
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, unsigned int received, unsigned int accepted, unsigned int rejected);
 #ifdef USE_PROFILING
 /* Called on the rrserver event-loop thread; no profiling in normal builds. */
-void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long apply_us, size_t payload_bytes);
+void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, enum rr_catalog_reject reason, long long apply_us, size_t payload_bytes);
 #endif
 void rr_relay_dirty(const char *event, const char *data, rrconn_t *client, void *user);
 void rr_relay_refresh_catalog(void);
