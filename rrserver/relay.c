@@ -440,11 +440,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict_add_ulong(stats, "catalog.accepted", r->accepted);
             dict_add_ulong(stats, "catalog.rejected", r->rejected);
             dict_add_ulong(stats, "catalog.expected", r->expected);
-            if (r->received != r->expected)
-               { char origin_label[192];
-                 Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u",
-                     id, rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
-                     r->expected, r->received); }
+            if (r->received != r->expected) {
+               char origin_label[192];
+               Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u",
+                   id, rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
+                   r->expected, r->received);
+            }
             char *json = dict2json(stats);
             dict_free(stats);
             dict_add(ack, "payload", json ? json : "{}");
