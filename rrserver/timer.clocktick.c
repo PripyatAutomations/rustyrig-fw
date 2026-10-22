@@ -27,6 +27,7 @@
 #include <rrserver/backend.h>
 #include <rrserver/media.h>
 #include <rrserver/supervision.h>
+#include <rrserver/performance.h>
 #include <rrserver/relay.h>
 
 extern struct timespec loop_start;  // main.c
