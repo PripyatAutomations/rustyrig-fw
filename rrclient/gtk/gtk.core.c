@@ -699,28 +699,37 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
 }
 
 /* Full-window matrix overlay, above the entire zoom viewport. */
-static GtkWidget *rr_matrix_overlay, *rr_matrix_widget;
+static GtkWidget *rr_matrix_overlay, *rr_matrix_widget, *rr_matrix_controls;
 void gtk_matrix_toggle(void) {
    if (!rr_matrix_overlay) return;
    if (!rr_matrix_widget) {
       rr_matrix_widget = rr_gtk_matrix_new();
       if (!rr_matrix_widget) return;
       gtk_overlay_add_overlay(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_widget);
+      gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_widget, TRUE);
       gtk_widget_set_hexpand(rr_matrix_widget, TRUE);
       gtk_widget_set_vexpand(rr_matrix_widget, TRUE);
       gtk_widget_set_halign(rr_matrix_widget, GTK_ALIGN_FILL);
       gtk_widget_set_valign(rr_matrix_widget, GTK_ALIGN_FILL);
       g_object_add_weak_pointer(G_OBJECT(rr_matrix_widget), (gpointer *)&rr_matrix_widget);
       rr_gtk_matrix_set_options(rr_matrix_widget, 50, 100, 300);
+      rr_matrix_controls = rr_gtk_matrix_controls_button(rr_matrix_widget);
+      if (rr_matrix_controls) {
+         gtk_overlay_add_overlay(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_controls);
+         /* The small π is interactive; the rest of Matrix passes events through. */
+         gtk_widget_show(rr_matrix_controls);
+      }
       gtk_widget_show(rr_matrix_widget);
    } else if (gtk_widget_get_visible(rr_matrix_widget)) {
       gtk_widget_hide(rr_matrix_widget);
+      if (rr_matrix_controls) gtk_widget_hide(rr_matrix_controls);
    } else {
       gtk_widget_show(rr_matrix_widget);
+      if (rr_matrix_controls) gtk_widget_show(rr_matrix_controls);
    }
 }
-/* Deliberately obscure easter egg: Escape followed by tilde/backtick within
- * 1.5 seconds. Do not reserve Escape while the screensaver is hidden. */
+/* Escape exits the effect. Escape then grave/tilde within 1.5 seconds
+ * activates it while hidden; no bare tilde interception. */
 static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget; (void)data;
    static gint64 escape_at;
@@ -728,9 +737,13 @@ static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    bool visible = rr_matrix_widget && gtk_widget_get_visible(rr_matrix_widget);
 
    if (event->keyval == GDK_KEY_Escape) {
+      if (visible) {
+         escape_at = 0;
+         gtk_matrix_toggle();
+         return TRUE;
+      }
       escape_at = now;
-      /* With Matrix visible, Escape arms the sequence rather than closing it. */
-      return visible;
+      return FALSE;
    }
 
    bool armed = escape_at && now - escape_at <= 1500000;
