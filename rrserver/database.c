@@ -316,6 +316,37 @@ bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *sub
    return ok;
 }
 
+/* Bounded, read-only diagnostic history. Only a local reporter's own observations
+ * are exported; do not expose identities, credentials or unrelated records. */
+void db_cluster_health_recent(sqlite3 *db, const char *reporter, const char *subject, char *out, size_t capacity) {
+   if (!out || !capacity) return;
+   out[0] = '\0';
+   if (!db || !reporter || !subject) return;
+   sqlite3_stmt *stmt = NULL;
+   const char *sql = "SELECT observed_at,category,severity,value,reason FROM cluster_health "
+                     "WHERE reporter=? AND subject=? ORDER BY observed_at DESC,id DESC LIMIT 12";
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return;
+   sqlite3_bind_text(stmt, 1, reporter, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, subject, -1, SQLITE_TRANSIENT);
+   size_t used = 0;
+   while (sqlite3_step(stmt) == SQLITE_ROW && used + 64 < capacity) {
+      time_t at = (time_t)sqlite3_column_int64(stmt, 0);
+      struct tm utc;
+      char stamp[32] = "unknown";
+      if (gmtime_r(&at, &utc)) strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%SZ", &utc);
+      const char *category = (const char *)sqlite3_column_text(stmt, 1);
+      int severity = sqlite3_column_int(stmt, 2);
+      double value = sqlite3_column_double(stmt, 3);
+      const char *reason = (const char *)sqlite3_column_text(stmt, 4);
+      int n = snprintf(out + used, capacity - used, "%s %s [%s] %.0f: %s\n", stamp,
+                       severity == 2 ? "CRITICAL" : severity == 1 ? "WARNING" : "INFO",
+                       category ? category : "unknown", value, reason ? reason : "");
+      if (n < 0) break;
+      if ((size_t)n >= capacity - used) { used = capacity - 1; break; }
+      used += (size_t)n;
+   }
+   sqlite3_finalize(stmt);
+}
 /* Return an owned JSON hint snapshot for an endpoint identity. */
 char *db_bridge_hints_get(sqlite3 *db, const char *identity) {
    if (!db || !identity || !*identity) {
