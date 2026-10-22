@@ -10,3 +10,6 @@ ext/libmongoose/mongoose.c:
 	@echo "You forgot to git submodule init; git submodule update. Doing it for you!"
 	git submodule init
 	git submodule update
+
+git-pull:
+	git pull; git -C librustyaxe pull; git -C librrprotocol pull
