@@ -851,6 +851,51 @@ static void resource_health_history(const char *key, const char *status, const c
       gtk_tree_store_set(browser->store, &row, NAME, it->data, KIND, "health-event", DETAILS, it->data, -1);
    }
 }
+/* Present persisted observations already received in the server's performance
+ * inventory. Each link report is owned by the reporting (direct) server. */
+static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *node) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GString *report = g_string_new("");
+   GtkTreeIter stat;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &stat, performance);
+        ok; ok = gtk_tree_model_iter_next(model, &stat)) {
+      char *name = NULL, *details = NULL;
+      gtk_tree_model_get(model, &stat, NAME, &name, DETAILS, &details, -1);
+      if (name && g_str_has_prefix(name, "Neighbor ") &&
+          g_str_has_suffix(name, " recent events") && details && *details) {
+         g_string_append_printf(report, "%s\n%s", name, details);
+      }
+      g_free(name);
+      g_free(details);
+   }
+   GtkTreeIter group;
+   gboolean exists = gtk_tree_model_iter_nth_child(model, &group, node, 1);
+   if (!exists && !report->len) {
+      g_string_free(report, TRUE);
+      return;
+   }
+   if (!exists) gtk_tree_store_append(browser->store, &group, node);
+   char *previous = NULL;
+   gtk_tree_model_get(model, &group, DETAILS, &previous, -1);
+   gboolean changed = g_strcmp0(previous, report->str) != 0;
+   g_free(previous);
+   if (changed || !exists) {
+      gtk_tree_store_set(browser->store, &group, NAME, "Server Link Events",
+                         KIND, "group", STATE, "SQLite history", DETAILS, report->str, -1);
+      GtkTreeIter child;
+      while (gtk_tree_model_iter_children(model, &child, &group))
+         gtk_tree_store_remove(browser->store, &child);
+      gchar **lines = g_strsplit(report->str, "\n", -1);
+      for (guint i = 0; lines[i]; ++i) {
+         if (!*lines[i]) continue;
+         gtk_tree_store_append(browser->store, &child, &group);
+         gtk_tree_store_set(browser->store, &child, NAME, lines[i],
+                            KIND, "health-event", DETAILS, lines[i], -1);
+      }
+      g_strfreev(lines);
+   }
+   g_string_free(report, TRUE);
+}
 static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen,
                                  unsigned *reporting, unsigned *warnings) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
@@ -888,6 +933,7 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
       set_string(&item, STATE, status);
       set_string(&item, DETAILS, details);
       resource_health_history(key, status, reasons->str, &item);
+      if (direct && available) resource_health_link_events(&group, &item);
       g_free(details);
       g_free(key);
    }
