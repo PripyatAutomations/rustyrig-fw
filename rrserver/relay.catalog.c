@@ -63,6 +63,9 @@ typedef struct {
 #define CATALOG_PROFILE_MAX_PEERS 256
 static catalog_profile_counts_t catalog_profile_total;
 static catalog_profile_counts_t catalog_profile_interval;
+static catalog_profile_counts_t catalog_profile_last_sample;
+static guint64 catalog_profile_sample_time;
+static guint64 catalog_profile_sample_seconds;
 static catalog_profile_peer_t catalog_profile_peers[CATALOG_PROFILE_MAX_PEERS];
 static guint catalog_profile_peer_count;
 static gint64 catalog_profile_last_dump;
@@ -889,6 +892,9 @@ void rr_relay_catalog_profile_dump(void) {
    const catalog_profile_counts_t t = catalog_profile_total;
    const catalog_profile_counts_t w = catalog_profile_interval;
    memset(&catalog_profile_interval, 0, sizeof(catalog_profile_interval));
+   catalog_profile_last_sample = w;
+   catalog_profile_sample_seconds = (guint64)(sample_s + 0.5);
+   catalog_profile_sample_time = (guint64)time(NULL);
 
    guint queued_syncs = 0, pending_acks = 0;
    guint64 queued_descriptors = 0;
@@ -995,6 +1001,38 @@ void rr_relay_catalog_profile_dump(void) {
           catalog_profile_peer_count - limit, limit);
 }
 #endif
+
+bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info) {
+   if (!info) return false;
+   memset(info, 0, sizeof(*info));
+   info->catalog_entries = rr_relay_catalog_count;
+   info->pending_snapshots = relay_catalog_snapshots ? g_hash_table_size(relay_catalog_snapshots) : 0;
+   info->pending_acks = relay_catalog_awaiting_ack ? g_hash_table_size(relay_catalog_awaiting_ack) : 0;
+#ifdef USE_PROFILING
+   /* Report the last complete sample, not the partly collected next period. */
+   const catalog_profile_counts_t *w = &catalog_profile_last_sample;
+   info->sample_time = catalog_profile_sample_time;
+   info->sample_seconds = catalog_profile_sample_seconds;
+   info->snapshots = w->snapshots;
+   info->queue_complete = w->queued;
+   info->ack_complete = w->ack_ok;
+   info->ack_partial = w->ack_partial;
+   info->ack_timeouts = w->ack_timeout;
+   info->descriptors_received = w->received;
+   info->descriptors_accepted = w->accepted;
+   info->descriptors_rejected = w->rejected;
+   info->snapshot_build_us = w->build_us;
+   info->max_build_us = w->build_max_us;
+   info->ack_us = w->ack_us;
+   info->max_ack_us = w->ack_max_us;
+   info->apply_us = w->apply_us;
+   info->max_apply_us = w->apply_max_us;
+   info->payload_bytes = w->received_bytes;
+   return true;
+#else
+   return false;
+#endif
+}
 
 void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint received, guint accepted, guint rejected) {
    char origin_label[192];
