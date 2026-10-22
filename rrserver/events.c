@@ -178,7 +178,7 @@ static void rrserver_handle_typing(const char *event, const char *data, rrconn_t
    const char *room = dict_get(d, "talk.room", "");
    const char *state = dict_get(d, "talk.typing", "");
    if (!*room || !ws_client_in_room(client, room) ||
-       (strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle"))) {
+       (strcmp(state, "started") && strcmp(state, "active") && strcmp(state, "paused") && strcmp(state, "idle"))) {
       dict_free(d);
       return;
    }
