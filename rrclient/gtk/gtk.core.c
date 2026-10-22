@@ -697,6 +697,39 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
    return TRUE;                 // core handles shutdown after GTK confirmation
 }
 
+/* Full-window matrix overlay. The optional implementation can be linked from
+ * gtk.matrix.c without making the normal client depend on it. */
+extern GtkWidget *rr_gtk_matrix_new(void) __attribute__((weak));
+static GtkWidget *rr_matrix_overlay, *rr_matrix_widget;
+void gtk_matrix_toggle(void) {
+   if (!rr_matrix_overlay) return;
+   if (!rr_matrix_widget) {
+      if (!rr_gtk_matrix_new) {
+         g_warning("GTK matrix screensaver is not linked into this build");
+         return;
+      }
+      rr_matrix_widget = rr_gtk_matrix_new();
+      if (!rr_matrix_widget) return;
+      gtk_overlay_add_overlay(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_widget);
+      gtk_widget_set_hexpand(rr_matrix_widget, TRUE);
+      gtk_widget_set_vexpand(rr_matrix_widget, TRUE);
+      g_object_add_weak_pointer(G_OBJECT(rr_matrix_widget), (gpointer *)&rr_matrix_widget);
+      gtk_widget_show(rr_matrix_widget);
+   } else if (gtk_widget_get_visible(rr_matrix_widget)) {
+      gtk_widget_hide(rr_matrix_widget);
+   } else {
+      gtk_widget_show(rr_matrix_widget);
+   }
+}
+static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+   (void)widget; (void)data;
+   if (rr_matrix_widget && gtk_widget_get_visible(rr_matrix_widget) && event->keyval == GDK_KEY_Escape) {
+      gtk_widget_hide(rr_matrix_widget);
+      return TRUE;
+   }
+   return FALSE;
+}
+
 bool gui_init(void) {
    // Apply user CSS (from [gtk-css] config section) or the default from
    // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
@@ -712,6 +745,16 @@ bool gui_init(void) {
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
    gtk_ui_zoom_attach(main_window, gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip));
+   /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent
+    * it into an overlay so the screensaver covers the whole content area. */
+   GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
+   g_object_ref(viewport);
+   gtk_container_remove(GTK_CONTAINER(main_window), viewport);
+   rr_matrix_overlay = gtk_overlay_new();
+   gtk_container_add(GTK_CONTAINER(main_window), rr_matrix_overlay);
+   gtk_container_add(GTK_CONTAINER(rr_matrix_overlay), viewport);
+   g_object_unref(viewport);
+   g_signal_connect(main_window, "key-press-event", G_CALLBACK(matrix_key_press), NULL);
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
    gtk_notebook_set_tab_pos(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
 
