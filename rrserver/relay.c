@@ -523,7 +523,6 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       if (!strcmp(kind, "catalog")) {
          catalog_receive_t *sync = (*id && catalog_receives) ?
             g_hash_table_lookup(catalog_receives, id) : NULL;
-         if (sync && strcmp(sync->origin, dict_get(envelope, "node", ""))) sync = NULL;
          if (sync) sync->received++;
          rr_relay_catalog_put(origin, d);
          if (sync) {
