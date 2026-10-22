@@ -1107,6 +1107,9 @@ void rr_relay_catalog_profile_dump(void) {
    if (catalog_profile_peer_count > limit)
       Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)",
           catalog_profile_peer_count - limit, limit);
+   /* Update published read-only performance inventory on the next ordinary
+    * catalog refresh. Never perform an immediate recursive refresh here. */
+   rr_relay_catalog_dirty = true;
 }
 #endif
 
