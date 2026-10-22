@@ -246,6 +246,42 @@ const char *rrserver_links_node(void) {
 const char *rrserver_links_route(const char *node) {
    return rr_link_tree_route(links.tree, node);
 }
+/* Format node identity using the authenticated topology, including nodes
+ * learned through introductions. Fall back to configured peer names before
+ * establishment; unknown UUIDs remain legible and unambiguous. */
+const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
+   if (!buffer || !capacity) return "";
+   if (!node || !*node) {
+      snprintf(buffer, capacity, "unknown");
+      return buffer;
+   }
+   const char *site = NULL;
+   if (links.tree) {
+      rr_link_node_t peer;
+      for (size_t i = 0; rr_link_tree_node(links.tree, i, &peer); i++) {
+         if (!strcmp(peer.server, node)) {
+            site = peer.site;
+            break;
+         }
+      }
+   }
+   if ((!site || !*site) && !strcmp(node, links.node))
+      site = links.site;
+   if (!site || !*site) {
+      for (size_t i = 0; i < links.peer_count; i++) {
+         if (!strcmp(node, links.peers[i].node)) {
+            site = links.peers[i].site;
+            break;
+         }
+      }
+   }
+   if (site && *site)
+      snprintf(buffer, capacity, "%s [%s]", site, node);
+   else
+      snprintf(buffer, capacity, "%s", node);
+   return buffer;
+}
+
 bool rrserver_links_send(const char *node, dict *d) {
    const char *next = rrserver_links_route(node);
 
@@ -1296,6 +1332,12 @@ const char *rrserver_links_node(void) {
 
 const char *rrserver_links_route(const char *node) {
    return NULL;
+}
+
+const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
+   if (!buffer || !capacity) return "";
+   snprintf(buffer, capacity, "%s", node && *node ? node : "unknown");
+   return buffer;
 }
 
 bool rrserver_links_send(const char *node, dict *d) {
