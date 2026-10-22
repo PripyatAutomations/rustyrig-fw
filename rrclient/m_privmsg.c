@@ -127,12 +127,21 @@ static void rrclient_irc_send_event(const char *event, const char *data, rrconn_
 
 /* A channel numeric belongs to an existing channel tab, not the server
  * status log. Never create a channel window just because JOIN failed. */
-static const char *irc_numeric_channel_window(const char *channel) {
-   if (!channel || !*channel || !strchr("#&+!", channel[0])) return NULL;
-   for (unsigned i = 0 ; ; i++) {
-      const char *room = rrclient_room_iter(i);
-      if (!room) break;
-      if (!strcasecmp(room, channel)) return room;
+static bool irc_is_channel(const char *name) {
+   return name && *name && strchr("#&+!", name[0]) != NULL;
+}
+
+static const char *irc_numeric_channel_window(dict *message, int argc, rrconn_t *connection) {
+   /* Most channel replies put the channel at arg2; NAMES (353), WHO
+    * (352), and a few extensions use later arguments. Never interpret
+    * free-form trailing text as a channel. */
+   for (int i = 2; i < argc && i <= 5; i++) {
+      char key[20];
+      snprintf(key, sizeof(key), "msg.arg%d", i);
+      const char *value = dict_get(message, key, "");
+      if (!irc_is_channel(value)) continue;
+      const char *window = rrclient_window_find_for_connection(connection, value);
+      if (window) return window;
    }
    return NULL;
 }
@@ -141,7 +150,7 @@ static const char *irc_numeric_channel_window(const char *channel) {
 static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrconn_t *connection) {
    const char *nick = dict_get(message, "msg.arg2", "");
    const char *output = rrclient_irc_whois_window(connection, nick);
-   const char *channel_window = irc_numeric_channel_window(nick);
+   const char *channel_window = irc_numeric_channel_window(message, argc, connection);
    if (channel_window) output = channel_window;
    const char *arg3 = dict_get(message, "msg.arg3", "");
    const char *arg4 = dict_get(message, "msg.arg4", "");
@@ -149,7 +158,7 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
    if ((!strcmp(cmd, "405") || !strcmp(cmd, "403") || !strcmp(cmd, "471") ||
         !strcmp(cmd, "473") || !strcmp(cmd, "474") || !strcmp(cmd, "475") ||
         !strcmp(cmd, "476") || !strcmp(cmd, "477") || !strcmp(cmd, "489")) &&
-       argc >= 4 && *nick && strchr("#&+!", nick[0])) {
+       argc >= 4 && irc_is_channel(nick)) {
       /* Rejected JOINs are reported in their existing tab, or status if
        * no tab exists. Do not manufacture a dead channel tab. */
       ui_print(output, "%sCannot join %s: %s [%s]", get_chat_ts(now), nick, arg3, cmd);
