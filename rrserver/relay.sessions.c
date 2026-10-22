@@ -294,8 +294,11 @@ void rr_relay_publish_state(const char *owner, const char *room, dict *d) {
          continue;
       }
       rr_relay_packet(s->node, "state", NULL, owner, d);
-      Log(LOG_DEBUG, "relay", "State %s %s room %s to branch %s", dict_get(d, "msg.type", ""), dict_get(d, "cat.cmd", dict_get(d, "property.cmd", dict_get(d,
-         "talk.cmd", ""))), room, s->node);
+      char branch_label[192];
+      Log(LOG_DEBUG, "relay", "State %s %s room %s to branch %s",
+          dict_get(d, "msg.type", ""),
+          dict_get(d, "cat.cmd", dict_get(d, "property.cmd", dict_get(d, "talk.cmd", ""))),
+          room, rrserver_links_format_node(s->node, branch_label, sizeof(branch_label)));
    }
 }
 
