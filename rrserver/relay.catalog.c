@@ -693,6 +693,7 @@ typedef struct relay_catalog_snapshot {
    guint offset;
    gint64 next_send;
    gint64 started_at;
+   char *sync_id;
 } relay_catalog_snapshot_t;
 static GHashTable *relay_catalog_snapshots;
 
@@ -701,6 +702,7 @@ static void snapshot_free(gpointer ptr) {
    if (!s) return;
    g_ptr_array_free(s->messages, TRUE);
    g_free(s->dest);
+   g_free(s->sync_id);
    g_free(s);
 }
 
@@ -720,6 +722,19 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       rrserver_links_send(s->dest, d);
    }
    if (s->offset == s->messages->len) {
+      dict *end = dict_new();
+      if (end) {
+         dict_add(end, "op", "link.application");
+         dict_add(end, "node", rrserver_links_node());
+         dict_add(end, "dest", s->dest);
+         dict_add(end, "kind", "catalog-end");
+         dict_add(end, "session", s->sync_id);
+         dict_add(end, "username", "");
+         dict_add(end, "payload", "{}");
+         if (!rrserver_links_send(s->dest, end))
+            Log(LOG_WARN, "relay.catalog", "Failed to send catalog-end to %s for sync %s", s->dest, s->sync_id);
+         dict_free(end);
+      }
       double elapsed = (g_get_monotonic_time() - s->started_at) / 1000000.0;
       Log(LOG_INFO, "relay.catalog",
           "Finished queuing %u catalog descriptors to %s in %.3f s (%.1f descriptors/s); transport delivery and remote application not yet confirmed",
@@ -754,6 +769,7 @@ void rr_relay_send_catalogs(const char *dest) {
    g_hash_table_remove(relay_catalog_snapshots, dest);
    relay_catalog_snapshot_t *s = g_new0(relay_catalog_snapshot_t, 1);
    s->dest = g_strdup(dest);
+   s->sync_id = g_uuid_string_random();
    s->messages = g_ptr_array_new_with_free_func((GDestroyNotify)dict_free);
    const char *types[] = { "node", "rig", "vfo", "room", "service" };
    /* Root objects, then root services, then nested MENU services. */
@@ -784,8 +800,8 @@ void rr_relay_send_catalogs(const char *dest) {
          }
       }
    }
-   Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s",
-       s->messages->len, dest);
+   Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)",
+       s->messages->len, dest, s->sync_id);
    g_hash_table_insert(relay_catalog_snapshots, s->dest, s);
    s->started_at = g_get_monotonic_time();
    s->next_send = s->started_at;
