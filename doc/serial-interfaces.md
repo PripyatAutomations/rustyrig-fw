@@ -83,6 +83,73 @@ revocation closes an existing tunnel.
 GPS emulation uses room-scoped read-only media and requires no serial privilege.
 Server GPS inputs are configured receiver services, not client write endpoints.
 
+## Server-owned physical ports: operator checklist
+
+1. Identify the actual device on the **server**, preferably using a stable
+   `/dev/serial/by-id/...` symlink rather than `ttyUSB0` (which may be
+   renumbered when adapters are reconnected). Confirm that the operating-system
+   account running `rrserver` can open the device.
+2. Put an explicit symbolic mapping in the server's `[serial]` section.
+   `serial.auto-export-usb=false` disables automatic raw USB exports if you
+   want a strictly managed list.
+3. Grant the intended account `serial.<export-name>` in that server's
+   account privileges. The broad `serial` token grants all exports on that
+   server. Being an admin/owner alone does not grant raw serial access.
+4. Restart the server after changing bindings; connect an authenticated client
+   and use `/sercom remote` to list only exports the account may use.
+5. In the client, use `/sercom attach ttyRADIO0 host:ttyRADIO0`, or set
+   `ttyRADIO0=host:ttyRADIO0` in the client's `[serial]` configuration.
+   The default local device is `$HOME/dev/ttyRADIO0`. Disconnect via
+   `/sercom disconnect ttyRADIO0`.
+
+Example server settings:
+
+```ini
+[general]
+serial.enable=true
+
+[serial]
+auto-export-usb=false
+ttyRADIO0=serial:/dev/serial/by-id/YOUR-ADAPTER-ID@115200,8n1
+
+[serial:ttyRADIO0]
+buffer-bytes=16384
+```
+
+**Note:** The server configuration parser uses `serial.auto-export-usb`
+as its internal key; the `[serial]` section's `auto-export-usb=false`
+setting above provides that key. Do not set `access=` in
+`[serial:ttyRADIO0]`: legacy per-export access options do **not**
+authorize users. The server is the enforcement point, and only one
+authenticated session can hold a raw physical port at a time.
+
+### Direct server privileges versus mesh privileges
+
+**Implemented today:** A direct, authenticated rrprotocol session is checked
+against privileges stored on the device-owning server. The server checks
+enumeration, open, settings and data I/O; losing the privilege closes the
+tunnel. `serial.ttyRADIO0` applies to that server's `ttyRADIO0` export,
+not automatically to the same name on another server.
+
+**Not implemented yet:** Routed serial tunnels with a destination-side
+`user@origin-site` grant for an export on a different mesh host. The mesh
+already has destination-side resource grants for some other resources, but
+serial is not currently migrated to that mechanism. Granting
+`serial.remote-host.ttyRADIO0` or a `resource_privileges` entry **does not**
+currently enable a relayed serial tunnel. Don't rely on source-site admin
+permissions to authorize destination hardware.
+
+**Planned model:** Use the destination server's stable node UUID and a stable
+serial export identity for the resource, resolve the requesting user through
+the authenticated source link, and evaluate explicit destination-side
+per-device grants (with deny overriding allow). A global `serial` privilege
+on an unrelated origin must not grant devices across the mesh. The
+device-owning server remains responsible for final authorization, exclusive
+ownership, revocation, and operating-system access. A separate read-only
+privilege can be added when the transport actually enforces read-only writes.
+See [resource privileges](resource-privileges.md) for the resource-grant
+architecture.
+
 ## Permanent floating local endpoints
 
 The client always provisions three reserved PTYs, even when no explicit
