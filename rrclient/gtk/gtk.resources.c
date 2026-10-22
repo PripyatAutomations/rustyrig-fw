@@ -841,7 +841,11 @@ static void resource_health_update(void) {
    g_hash_table_iter_init(&branches, browser->branches);
    while (g_hash_table_iter_next(&branches, NULL, &value)) {
       resource_branch *branch = value;
-      resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
+      rrconn_t *connection = rrclient_connection_find(branch->profile);
+      /* An IRC (or other non-rrprotocol) profile is not a cluster node.
+       * Retain previously discovered rrprotocol sites when disconnected. */
+      if ((connection && connection->is_ws) || branch->local_site_seen)
+         resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
    }
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
