@@ -44,6 +44,7 @@ struct directory *rr_relay_directories;
  * There are no per-message allocations, locks or clocks in normal builds. */
 typedef struct {
    guint64 snapshots, prepared, queued, sent, aborted, superseded;
+   guint64 prepared_bytes, sent_bytes, received_bytes;
    guint64 ack_ok, ack_partial, ack_timeout, ack_cancelled;
    guint64 ack_received, ack_accepted, ack_rejected;
    guint64 received, accepted, rejected;
@@ -121,7 +122,7 @@ static const char *catalog_profile_kind_names[] = {
    "node", "rig", "vfo", "room", "service", "rig-menu", "rig-menu-item", "other"
 };
 typedef struct {
-   guint64 count, accepted, rejected, apply_us, max_apply_us;
+   guint64 count, accepted, rejected, bytes, apply_us, max_apply_us;
 } catalog_kind_counts_t;
 static catalog_kind_counts_t catalog_kind_total[CP_KIND_COUNT], catalog_kind_interval[CP_KIND_COUNT];
 
@@ -141,8 +142,9 @@ static unsigned catalog_profile_classify(dict *d) {
    return CP_KIND_OTHER;
 }
 
-void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long apply_us) {
+void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long apply_us, size_t payload_bytes) {
    CP_INC(received);
+   CP_ADD(received_bytes, payload_bytes);
    if (accepted) CP_INC(accepted);
    else CP_INC(rejected);
    const guint64 elapsed = apply_us > 0 ? (guint64)apply_us : 0;
@@ -151,6 +153,8 @@ void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, long long
    catalog_kind_counts_t *t = &catalog_kind_total[kind], *w = &catalog_kind_interval[kind];
    t->count++;
    w->count++;
+   t->bytes += payload_bytes;
+   w->bytes += payload_bytes;
    if (accepted) {
       t->accepted++;
       w->accepted++;
@@ -920,6 +924,10 @@ void rr_relay_catalog_profile_dump(void) {
        (unsigned long long)t.ack_received, (unsigned long long)w.ack_received,
        (unsigned long long)t.ack_accepted, (unsigned long long)w.ack_accepted,
        (unsigned long long)t.ack_rejected, (unsigned long long)w.ack_rejected);
+   Log(LOG_INFO, "profile", "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)",
+       (unsigned long long)t.prepared_bytes, (unsigned long long)w.prepared_bytes,
+       (unsigned long long)t.sent_bytes, (unsigned long long)w.sent_bytes,
+       (unsigned long long)t.received_bytes, (unsigned long long)w.received_bytes);
    Log(LOG_INFO, "profile", "  inbound catalog apply: received=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
        (unsigned long long)t.received, (unsigned long long)w.received,
        (unsigned long long)t.accepted, (unsigned long long)w.accepted,
@@ -933,11 +941,12 @@ void rr_relay_catalog_profile_dump(void) {
       const catalog_kind_counts_t *sample = &catalog_kind_interval[i];
       if (!total->count) continue;
       Log(LOG_INFO, "profile",
-          "    apply/%s: count=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
+          "    apply/%s: count=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), bytes=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
           catalog_profile_kind_names[i],
           (unsigned long long)total->count, (unsigned long long)sample->count,
           (unsigned long long)total->accepted, (unsigned long long)sample->accepted,
           (unsigned long long)total->rejected, (unsigned long long)sample->rejected,
+          (unsigned long long)total->bytes, (unsigned long long)sample->bytes,
           (double)total->apply_us / total->count, (unsigned long long)total->max_apply_us,
           sample->count ? (double)sample->apply_us / sample->count : 0.0,
           (unsigned long long)sample->max_apply_us);
@@ -1076,6 +1085,7 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       /* The first queue item is catalog-begin, not a descriptor. */
       if (s->offset > 1) {
          CP_INC(sent);
+         CP_ADD(sent_bytes, strlen(dict_get(d, "payload", "")));
          catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
          if (peer) peer->sent++;
       }
@@ -1263,6 +1273,9 @@ void rr_relay_send_catalogs(const char *dest) {
                dict_add(d, "username", "");
                dict_add(d, "payload", json);
                g_ptr_array_add(s->messages, d);
+#ifdef USE_PROFILING
+               CP_ADD(prepared_bytes, strlen(json));
+#endif
             }
             free(json);
          }
