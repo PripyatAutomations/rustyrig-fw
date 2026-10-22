@@ -146,6 +146,94 @@ static const char *irc_numeric_channel_window(dict *message, int argc, rrconn_t 
    return NULL;
 }
 
+/* Presentation belongs to rrclient, not the IRC transport. Keep this
+ * table independent of GLib/GTK so a future librustyirc stays reusable. */
+typedef struct {
+   const char *code;
+   const char *label;
+   bool subject;
+} irc_numeric_label_t;
+
+static const irc_numeric_label_t irc_numeric_labels[] = {
+   {"002","Your host",false}, {"003","Server created",false},
+   {"004","Server software",false}, {"005","Server capabilities",false},
+   {"010","Redirect",false}, {"020","Server notice",false},
+   {"200","Connection trace",false}, {"201","Connection trace",false},
+   {"202","Connection trace",false}, {"203","Connection trace",false},
+   {"204","Connection trace",false}, {"205","Connection trace",false},
+   {"206","Connection trace",false}, {"208","Connection trace",false},
+   {"211","Connection statistics",false}, {"212","Command statistics",false},
+   {"213","Configuration",false}, {"214","Configuration",false},
+   {"215","Configuration",false}, {"216","Configuration",false},
+   {"217","Configuration",false}, {"218","Configuration",false},
+   {"219","End of statistics",false}, {"221","Your user modes",false},
+   {"234","Service listing",false}, {"235","End of services",false},
+   {"241","Server configuration",false}, {"242","Server uptime",false},
+   {"243","Server configuration",false}, {"244","Server configuration",false},
+   {"249","Server statistics",false}, {"250","Connection statistics",false},
+   {"251","Users online",false}, {"252","Operators online",false},
+   {"253","Unknown connections",false}, {"254","Channels formed",false},
+   {"255","Network population",false}, {"256","Administrative information",false},
+   {"257","Administrator",false}, {"258","Administrator",false},
+   {"259","Administrator",false}, {"261","Server log",false},
+   {"262","End of trace",false}, {"263","Server busy",false},
+   {"265","Local users",false}, {"266","Global users",false},
+   {"281","Services",false}, {"282","End of services",false},
+   {"300","Away information",true}, {"302","Userhost",false},
+   {"303","Online users",false}, {"305","You are no longer away",false},
+   {"306","You are now away",false}, {"315","End of WHO",true},
+   {"321","Channel list",false}, {"322","Channel",true},
+   {"323","End of channel list",false}, {"324","Channel modes",true},
+   {"325","Channel modes",true}, {"326","Channel information",true},
+   {"329","Channel created",true}, {"331","No topic set",true},
+   {"332","Topic",true}, {"333","Topic set by",true},
+   {"341","Invitation sent",true}, {"346","Invite exemption",true},
+   {"347","End of invite exemptions",true}, {"348","Ban exemption",true},
+   {"349","End of ban exemptions",true}, {"351","Server version",false},
+   {"352","WHO",true}, {"353","Names",true},
+   {"364","Network links",false}, {"365","End of links",false},
+   {"366","End of names",true}, {"367","Channel ban",true},
+   {"368","End of channel bans",true}, {"369","End of WHOWAS",true},
+   {"371","Information",false}, {"372","MOTD",false},
+   {"374","End of information",false}, {"375","MOTD begins",false},
+   {"376","End of MOTD",false}, {"381","IRC operator privileges granted",false},
+   {"382","Rehash completed",false}, {"383","Service information",false},
+   {"391","Server time",false}, {"392","Users",false},
+   {"393","Users",false}, {"394","End of users",false},
+   {"395","No users",false},
+   {"401","No such nick or channel",true}, {"402","No such server",true},
+   {"404","Cannot send to channel",true}, {"406","No such WHOWAS nick",true},
+   {"407","Too many targets",true}, {"408","No such service",true},
+   {"409","No origin specified",false}, {"411","No recipient",false},
+   {"412","No text to send",false}, {"413","No top-level domain",false},
+   {"414","Wildcard in top-level domain",false}, {"421","Unknown command",true},
+   {"422","MOTD unavailable",false}, {"423","No administrative info",false},
+   {"424","File error",false}, {"431","No nickname given",false},
+   {"432","Invalid nickname",true}, {"433","Nickname in use",true},
+   {"436","Nickname collision",true}, {"437","Nickname unavailable",true},
+   {"441","User not in channel",true}, {"442","Not on channel",true},
+   {"443","User already on channel",true}, {"444","User not logged in",true},
+   {"445","SUMMON disabled",false}, {"446","USERS disabled",false},
+   {"451","Not registered",false}, {"461","Missing parameters",true},
+   {"462","Already registered",false}, {"463","Host not permitted",false},
+   {"465","Banned from server",false}, {"466","Server ban",false},
+   {"467","Channel key already set",true}, {"472","Unknown mode",true},
+   {"478","Channel ban list full",true}, {"481","Permission denied",false},
+   {"482","Not channel operator",true}, {"483","Server operator required",false},
+   {"484","Restricted connection",false}, {"485","Cannot kill server",false},
+   {"491","No operator privileges",false}, {"501","Unknown user mode",false},
+   {"502","Cannot change another user's modes",false},
+   {"524","Help unavailable",false}, {"525","Invalid key",true},
+   {"696","Invalid mode parameter",true}, {"704","Help",false},
+   {"705","Help",false}, {"706","End of help",false}
+};
+
+static const irc_numeric_label_t *irc_numeric_label(const char *code) {
+   for (size_t i = 0; i < sizeof(irc_numeric_labels)/sizeof(irc_numeric_labels[0]); i++)
+      if (!strcmp(irc_numeric_labels[i].code, code)) return &irc_numeric_labels[i];
+   return NULL;
+}
+
 /* Keep complete numeric parameters for daemon-specific WHOIS extensions and malformed/older replies, whose layouts cannot safely be assumed. */
 static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrconn_t *connection) {
    const char *nick = dict_get(message, "msg.arg2", "");
@@ -210,7 +298,14 @@ static void rrclient_irc_numeric(dict *message, const char *cmd, int argc, rrcon
          strlcat(parameters, dict_get(message, key, ""), sizeof(parameters));
       }
 
-      ui_print(output, "%s[%s] %s", get_chat_ts(now), cmd, parameters);
+      const irc_numeric_label_t *label = irc_numeric_label(cmd);
+      if (label) {
+         /* Preserve every server-supplied parameter, even when the
+          * numeric has a daemon-specific layout. */
+         ui_print(output, "%s%s [%s]: %s", get_chat_ts(now), label->label, cmd, parameters);
+      } else {
+         ui_print(output, "%s[%s] %s", get_chat_ts(now), cmd, parameters);
+      }
    }
 }
 
