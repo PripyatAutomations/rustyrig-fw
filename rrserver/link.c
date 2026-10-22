@@ -441,9 +441,8 @@ static void establish(struct link_session *session) {
       }
    }
 
-   /* Explicit opt-in until all deployed peers support the new operation.
-    * Sending this unconditionally would disconnect legacy servers. */
-   if (cfg_get_bool("link.capabilities", false)) {
+   /* All linked servers must support the post-handshake capability exchange. */
+   {
       dict *caps = message("link.capabilities");
       if (caps) {
          dict_add(caps, "version", "2.1");
