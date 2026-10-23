@@ -7,7 +7,7 @@
 #include <rrclient/files.h>
 #include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
-#include <rrclient/gtk/gtk.editcfg.h>
+#include <rrclient/gtk/gtk.file-editor.h>
 #include "gtk.files.h"
 #include "gtk.floating-panel.h"
 extern GtkWidget *main_window, *main_notebook;
@@ -382,7 +382,7 @@ static void complete(const char *event, const char *text, rrconn_t *c, void *dat
       pending_edit = NULL;
       char *title = g_strdup_printf("%s:%s", e->profile, e->path);
 
-      if (*error || !gui_edit_remote_config(e->local, title, edit_save, e, edit_free)) {
+      if (*error || !gui_file_editor_open_remote(e->local, title, edit_save, e, edit_free)) {
          status(*error ? error : "Close the existing configuration editor before editing another file.");
          unlink(e->local);
          edit_free(e);
