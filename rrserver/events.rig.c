@@ -212,8 +212,11 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       if (percent) {
          float maximum = power_backend && object && rr_backend_api(power_backend)->power_max ?
             rr_backend_api(power_backend)->power_max(power_backend, object) : 0;
-         if (maximum <= 0 && power_backend)
-            maximum = (float)rr_backend_config_get_int(power_backend, "power.max-watts", 0);
+         if (maximum <= 0 && power_backend) {
+            int mw = rr_backend_config_get_int(power_backend, "power.max-mw", 0);
+            maximum = mw > 0 ? (float)mw / 1000.0f :
+               (float)rr_backend_config_get_int(power_backend, "power.max-watts", 0);
+         }
          if (rc_power <= 0 || rc_power > 100 || maximum <= 0) {
             if (cptr) ws_send_error(cptr,
                "Cannot set TX power for VFO %s in room %s: invalid percentage or unknown maximum watts (configure power.max-watts in rig section)",
