@@ -13,5 +13,6 @@ void rr_floating_panel_hide(RRFloatPanel *panel);
 void rr_floating_panel_restore(RRFloatPanel *panel);
 void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);
 void rr_floating_panel_destroy(RRFloatPanel *panel);
+void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback)(gpointer), gpointer data);
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
 #endif
