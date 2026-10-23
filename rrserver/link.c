@@ -485,7 +485,9 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
-   dict_add_ulong(d, "clock.unix", (unsigned long)time(NULL));
+   char clock_unix[32];
+   snprintf(clock_unix, sizeof(clock_unix), "%lld", (long long)time(NULL));
+   dict_add(d, "clock.unix", clock_unix);
    /* Keep the initial hello compatible with all deployed wire decoders. */
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
@@ -996,15 +998,14 @@ static void close_session(struct link_session *session) {
       session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL + jitter_ms;
       if (!links.stopping) {
          const struct link_peer *peer = session->peer;
-         if (peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0]) {
+         if (peer->manually_closed || peer->policy_blocked) {
             Log(LOG_WARN, "link",
-               "Autoconnect inactive for peer %s [%s]: manual-close=%s topology-blocked=%s autoconnect=%s url-configured=%s; %s",
+               "Peer %s [%s] reconnect suppressed: manual-close=%s topology-blocked=%s autoconnect=%s url-configured=%s; %s",
                peer->site, peer->section, peer->manually_closed ? "yes" : "no",
                peer->policy_blocked ? "yes" : "no", peer->autoconnect ? "yes" : "no",
                peer->url[0] ? "yes" : "no",
-               peer->policy_blocked || peer->manually_closed ? "use /link open to resume" :
-               "enable autoconnect and configure a peer URL");
-         } else {
+               "use /link open to resume");
+         } else if (peer->autoconnect && peer->url[0]) {
             Log(LOG_INFO, "link",
                "Peer %s [%s] disconnected; autoconnect retry scheduled in %u.%03u s",
                peer->site, peer->section,
