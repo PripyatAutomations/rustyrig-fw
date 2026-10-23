@@ -451,9 +451,9 @@ static GtkTreeIter wsjtx_tree_child(GtkTreeIter *parent, const char *name,
 static void wsjtx_tree_field(const char *id, const char *group, const char *key,
                              const char *value, void *data) {
    wsjtx_tree_context *ctx = data;
-   GtkTreeIter peer = wsjtx_tree_child(&ctx->root, id, "wsjtx-peer");
+   GtkTreeIter peer = wsjtx_tree_child(&ctx->root, id, "network-service");
    GtkTreeIter folder = wsjtx_tree_child(&peer, group, "group");
-   GtkTreeIter field = wsjtx_tree_child(&folder, key, "wsjtx-field");
+   GtkTreeIter field = wsjtx_tree_child(&folder, key, "network-service");
    set_string(&field, STATE, value);
 }
 static void resource_local_update(void) {
