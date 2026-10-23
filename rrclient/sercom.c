@@ -1243,10 +1243,10 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    snprintf(key, sizeof(key), "serial:%s.path", name);
    const char *configured = device ? device : cfg_get(key);
 
-   // Honor existing single-PTY configurations without making routing implicit.
-   if (!configured && !strcmp(name, "ttyCAT")) {
-      configured = cfg_get("cat.pty.path");
-   }
+   /* The floating CAT endpoint has a stable identity: ttyCAT. The old
+    * cat.pty.path setting belongs to the legacy numbered endpoint and must
+    * not silently redirect the floating symlink to ttyCAT0. Operators may
+    * still override the floating path explicitly with serial:ttyCAT.path. */
 
    if (!configured) {
       int written = snprintf(path, sizeof(path), "%s/dev/%s", g_get_home_dir(), name);
