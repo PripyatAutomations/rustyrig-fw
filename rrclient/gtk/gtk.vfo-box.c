@@ -35,6 +35,8 @@ typedef struct {
 GtkWidget *tx_codec_combo = NULL, *rx_codec_combo = NULL;
 static GtkWidget *vfo_tunable_box = NULL;
 static GtkWidget *vfo_layout_box = NULL;
+static GtkWidget *vfo_controls_row = NULL;
+static GtkWidget *vfo_mode_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
 static GtkWidget *vfo_ptt_box = NULL, *vfo_tx_power_box = NULL;
 
@@ -64,6 +66,14 @@ void vfo_controls_set_ptt_state(bool any_tx, bool own_tx) {
 
    if (vfo_tunable_box) {
       gtk_widget_set_sensitive(vfo_tunable_box, !any_tx && !offline);
+   }
+
+   if (vfo_mode_box) {
+      gtk_widget_set_sensitive(vfo_mode_box, !any_tx && !offline);
+   }
+
+   if (vfo_tx_power_box) {
+      gtk_widget_set_sensitive(vfo_tx_power_box, !any_tx && !offline);
    }
 
    if (vfo_codec_box) {
@@ -109,22 +119,22 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
 
 void vfo_controls_fit_width(int width) {
    if (width < 1) return;
-   if (GTK_IS_ORIENTABLE(vfo_layout_box))
-      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_layout_box),
-                                    width < 850 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
-   if (GTK_IS_ORIENTABLE(vfo_tunable_box))
-      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_tunable_box),
+   /* Frequency always has its own row; only the controls below it reflow. */
+   if (GTK_IS_ORIENTABLE(vfo_controls_row))
+      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_controls_row),
                                     width < 600 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
 }
 
 GtkWidget *create_vfo_box(void) {
    // Create the control box
-   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    vfo_layout_box = control_box;
+   g_object_add_weak_pointer(G_OBJECT(control_box), (gpointer *) &vfo_layout_box);
 
-
-   vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-   gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, TRUE, TRUE, 0);
+   vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, FALSE, FALSE, 0);
+   vfo_controls_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+   gtk_box_pack_start(GTK_BOX(control_box), vfo_controls_row, FALSE, FALSE, 0);
 
    // FREQ selection
    freq_entry = gtk_freq_entry_new(-1);
@@ -132,24 +142,28 @@ GtkWidget *create_vfo_box(void) {
 
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), mode_box, FALSE, FALSE, 0);
+   vfo_mode_box = mode_box;
+   gtk_box_pack_start(GTK_BOX(vfo_controls_row), mode_box, FALSE, FALSE, 0);
 
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
    vfo_codec_box = codec_selectors;
-   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vfo_controls_row), codec_selectors, FALSE, FALSE, 0);
 
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(vfo_controls_row), tx_power_vbox, FALSE, FALSE, 0);
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
    if (vfo_tunable_box) {
       g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *) &vfo_tunable_box);
    }
+
+   g_object_add_weak_pointer(G_OBJECT(vfo_controls_row), (gpointer *) &vfo_controls_row);
+   g_object_add_weak_pointer(G_OBJECT(vfo_mode_box), (gpointer *) &vfo_mode_box);
 
    if (vfo_codec_box) {
       g_object_add_weak_pointer(G_OBJECT(vfo_codec_box), (gpointer *) &vfo_codec_box);
@@ -188,7 +202,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *ptt_box = ptt_button_create();
    vfo_ptt_box = ptt_box;
    g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
-   gtk_box_pack_end(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 0);
+   gtk_box_pack_end(GTK_BOX(vfo_controls_row), ptt_box, FALSE, FALSE, 0);
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
