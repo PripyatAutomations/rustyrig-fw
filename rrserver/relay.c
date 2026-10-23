@@ -549,8 +549,16 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
       /* Compare actual wall clock time, not the event-loop cached 'now'. Allow a small clock-skew margin between linked hosts. */
       time_t received_at = time(NULL);
+      long long clock_offset = 0;
+      /* A forwarded request carries its original sender's timestamp.
+       * Never apply the intermediate hub's clock offset to another node. */
+      bool compensated = rrserver_links_route(origin) &&
+         !strcmp(rrserver_links_route(origin), origin) &&
+         rrserver_links_clock_offset(origin, &clock_offset);
+      long long adjusted_deadline = (long long)deadline - (compensated ? clock_offset : 0);
 
-      if (!deadline || deadline < received_at - 5 || deadline > received_at + 35) {
+      if (!deadline || adjusted_deadline < (long long)received_at - 5 ||
+          adjusted_deadline > (long long)received_at + 35) {
          dict *error = dict_new();
 
          if (error) {
@@ -566,9 +574,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                "Remote %.24s.%.24s%s%.160s to node %s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)", family,
                operation, *target ? " for " : "", *target ? target : "", rrserver_links_format_node(dest, dest_label, sizeof(dest_label)), !deadline ?
                "missing request deadline" :
-               deadline < received_at - 5 ? "request deadline passed" : "request deadline too far in the future", (long long)deadline, (long long)received_at);
+               adjusted_deadline < (long long)received_at - 5 ? "request deadline passed" : "request deadline too far in the future", (long long)deadline, (long long)received_at);
             char origin_label[192];
-            Log(LOG_WARN, "relay", "%s; origin %s", reason, rrserver_links_format_node(origin, origin_label, sizeof(origin_label)));
+            Log(LOG_WARN, "relay", "%s; origin %s; clock_compensation=%s offset=%+llds adjusted_deadline=%lld", reason,
+               rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
+               compensated ? "yes" : "no", compensated ? clock_offset : 0, adjusted_deadline);
             dict_add(error, "msg.type", "error");
             dict_add(error, "error.msg", reason);
             rr_relay_packet(origin, "reply", id, NULL, error);
