@@ -298,7 +298,8 @@ defconfig_t defcfg[] = {
    {
       "tui.use-mouse", "true", "Enable mouse in the TUI?", DEFCONFIG_BOOL, NULL
    },
-#ifdef  USE_GTK
+/* GTK is a loadable frontend; the host must retain its defaults even
+ * when rrclient itself is compiled without USE_GTK. */
    {
       "ui.full-screen", "true", "Go full-screen at start?", DEFCONFIG_BOOL, NULL
    },
@@ -330,7 +331,6 @@ defconfig_t defcfg[] = {
    {
       "ui.gtk.scrollback.syslog", "200", "Max syslog tab scrollback lines (0 = unlimited)", DEFCONFIG_UINT, NULL
    },
-#endif // USE_GTK
 #ifdef _WIN32
    // windows hosts usually dont already have a gtk3 theme, so default to the included
    // windows 10 theme
