@@ -207,7 +207,22 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    if (!strcasecmp(rc_cmd, "power")) {
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
-
+      rr_backend_t *power_backend = rr_server_rig_backend(radio);
+      bool percent = !strcmp(dict_get(d, "rigctl.power-unit", ""), "percent");
+      if (percent) {
+         float maximum = power_backend && object && rr_backend_api(power_backend)->power_max ?
+            rr_backend_api(power_backend)->power_max(power_backend, object) : 0;
+         if (maximum <= 0 && power_backend)
+            maximum = (float)rr_backend_config_get_int(power_backend, "power.max-watts", 0);
+         if (rc_power <= 0 || rc_power > 100 || maximum <= 0) {
+            if (cptr) ws_send_error(cptr,
+               "Cannot set TX power for VFO %s in room %s: invalid percentage or unknown maximum watts (configure power.max-watts in rig section)",
+               rc_vfo, room);
+            dict_free(d);
+            return;
+         }
+         rc_power *= maximum / 100.0f;
+      }
       if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
          if (cptr) {
             ws_send_error(cptr, "Power request rejected: %.1f W for VFO %s in room %s (unmapped VFO or backend rejected value); check server rigctl log", (double)rc_power, rc_vfo, room);
