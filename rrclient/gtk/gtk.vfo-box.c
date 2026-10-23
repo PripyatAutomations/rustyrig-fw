@@ -197,9 +197,9 @@ GtkWidget *create_vfo_box(void) {
    g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-revealer", revealer);
    gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK);
    gtk_widget_set_tooltip_text(grip, "Click to toggle; swipe up/down to fold; drag sideways to float; right-click to dock top/bottom");
-   GtkWidget *grip_label = gtk_label_new("  ▰▰▰  ");
-   gtk_widget_set_margin_top(grip_label, 3);
-   gtk_widget_set_margin_bottom(grip_label, 3);
+   GtkWidget *grip_label = gtk_label_new("▰▰▰");
+   gtk_widget_set_margin_top(grip_label, 0);
+   gtk_widget_set_margin_bottom(grip_label, 0);
    gtk_widget_set_halign(grip_label, GTK_ALIGN_CENTER);
    gtk_container_add(GTK_CONTAINER(grip), grip_label);
    gtk_box_pack_start(GTK_BOX(drawer_box), grip, FALSE, FALSE, 0);
