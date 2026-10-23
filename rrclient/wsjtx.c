@@ -21,6 +21,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/media.h>
+#include <rrclient/wsjtx.h>
 
 #define WSJTX_MAGIC 0xadbccbdau
 #define WSJTX_MAX_CLIENTS 16
@@ -30,6 +31,8 @@ typedef struct {
    uint32_t schema;
    char last_grid[7];
    gint64 seen;
+   guint32 last_type;
+   guint64 packets;
 } wsjtx_peer_t;
 static wsjtx_peer_t clients[WSJTX_MAX_CLIENTS];
 static int udp_fd = -1;
@@ -171,6 +174,8 @@ static gboolean udp_ready(gint fd, GIOCondition condition, gpointer unused) {
       peer->schema = MIN(schema, 3u);
       g_strlcpy(peer->id, id, sizeof(peer->id));
       peer->seen = g_get_monotonic_time();
+      peer->last_type = type;
+      ++peer->packets;
 
       if (type == 0) {
          send_packet(peer, 0, NULL);
@@ -328,4 +333,53 @@ void rrclient_wsjtx_init(void) {
    event_on("client.server.selected", on_selection, NULL);
    event_on("client.vfo.changed", on_selection, NULL);
    Log(LOG_INFO, "wsjtx", "Listening on 127.0.0.1:%d for WSJT-X status/heartbeat", port);
+}
+
+/* The receiver is local to rrclient: a bound socket does not prove that a
+ * WSJT-X instance is communicating. Treat peers older than 30s as stale. */
+void rrclient_wsjtx_status(char *state, size_t state_len,
+                           char *connection, size_t connection_len,
+                           char *details, size_t details_len) {
+   if (!state || !state_len || !connection || !connection_len || !details || !details_len) return;
+   const int port = cfg_get_int("wsjtx.udp.port", 2237);
+   if (!cfg_get_bool("wsjtx.enabled", true)) {
+      g_snprintf(state, state_len, "Disabled");
+      g_snprintf(connection, connection_len, "Not enabled");
+      g_snprintf(details, details_len, "WSJT-X UDP reporting disabled in client configuration");
+      return;
+   }
+   if (udp_fd < 0) {
+      g_snprintf(state, state_len, "Not listening");
+      g_snprintf(connection, connection_len, "UDP listener unavailable");
+      g_snprintf(details, details_len, "Cannot receive WSJT-X on 127.0.0.1:%d; check port availability and logs", port);
+      return;
+   }
+   guint active = 0, known = 0;
+   gint64 latest = 0;
+   const wsjtx_peer_t *newest = NULL;
+   gint64 now = g_get_monotonic_time();
+   for (unsigned i = 0; i < WSJTX_MAX_CLIENTS; ++i) {
+      const wsjtx_peer_t *peer = &clients[i];
+      if (!peer->id[0]) continue;
+      ++known;
+      if (peer->seen > latest) { latest = peer->seen; newest = peer; }
+      if (now >= peer->seen && now - peer->seen <= 30 * G_USEC_PER_SEC) ++active;
+   }
+   g_snprintf(state, state_len, active ? "Communicating" : known ? "No recent packets" : "Listening");
+   g_snprintf(connection, connection_len, active ? "%u active WSJT-X instance%s" :
+              known ? "No recent WSJT-X activity" : "Awaiting WSJT-X",
+              active, active == 1 ? "" : "s");
+   if (newest) {
+      const guint age = now >= latest ? (guint)((now - latest) / G_USEC_PER_SEC) : 0;
+      const char *type = newest->last_type == 0 ? "Heartbeat" :
+                         newest->last_type == 1 ? "Status" : "Other UDP message";
+      g_snprintf(details, details_len,
+         "127.0.0.1:%d UDP listener; %u active / %u known instance(s). Latest: %s, %us ago, %s, schema %u, %llu received packet(s). Transmitter grid: %s",
+         port, active, known, newest->id, age, type, newest->schema,
+         (unsigned long long)newest->packets, *current_grid ? current_grid : "unknown");
+   } else {
+      g_snprintf(details, details_len,
+         "Listening on 127.0.0.1:%d/UDP for WSJT-X heartbeat/status. No packets received. Transmitter grid: %s",
+         port, *current_grid ? current_grid : "unknown");
+   }
 }
