@@ -108,8 +108,10 @@ static void fail(struct link_session *session, const char *reason) {
    if (!session || !session->connection || session->connection->is_closing) return;
    snprintf(session->close_reason, sizeof(session->close_reason), "%s", reason ? reason : "unspecified failure");
    Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", session->close_reason);
-   if (session->peer)
-      health_record(session->peer, "transport", 1, 0, reason);
+   /* Established failures are recorded once at close with uptime and cause.
+    * Setup failures have no established-link close event, so record here. */
+   if (session->peer && !session->established)
+      health_record(session->peer, "transport", 1, 0, session->close_reason);
    session->connection->is_closing = 1;
 }
 
@@ -124,13 +126,32 @@ static void health_window(struct link_peer *peer) {
 }
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason) {
 #ifdef USE_SQLITE
-   if (peer && masterdb)
-      db_cluster_health_record(masterdb, links.node, *peer->node ? peer->node : peer->site,
-                               category, severity, value, reason);
+   if (!peer || !masterdb) return;
+   const struct link_session *session = peer->session;
+   long long now = mono_ms();
+   long long uptime = session && session->established_at ? now - session->established_at : 0;
+   long long age = session && session->last_seen ? now - session->last_seen : 0;
+   char context[1024];
+   /* Do not store peer URLs, passwords, SASL credentials or raw wire data in
+    * SQL history. Last RTT of zero denotes unavailable, not zero latency. */
+   snprintf(context, sizeof(context),
+      "peer=%s uuid=%s direction=%s status=%s uptime=%llds last-rx=%llds-ago "
+      "rtt=%s%lldms disconnects-5m=%u auth-errors-5m=%u: %.360s",
+      peer->site[0] ? peer->site : "unknown",
+      peer->node[0] ? peer->node : session && session->node[0] ? session->node : "unknown",
+      session ? (session->outbound ? "outbound" : "inbound") : "unknown",
+      session && session->established ? "connected" : "handshake/offline",
+      uptime > 0 ? uptime / 1000 : 0, age > 0 ? age / 1000 : 0,
+      peer->health_rtt_ms > 0 ? "" : "unknown/",
+      peer->health_rtt_ms > 0 ? peer->health_rtt_ms : 0,
+      peer->health_flaps, peer->health_auth_errors, reason ? reason : "no details");
+   db_cluster_health_record(masterdb, links.node, peer->node[0] ? peer->node : peer->site,
+                            category, severity, value, context);
 #else
    (void)peer; (void)category; (void)severity; (void)value; (void)reason;
 #endif
 }
+
 void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
    if (!emit) return;
    for (size_t i = 0; i < links.peer_count; ++i) {
@@ -1046,8 +1067,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
          fail(session, reason);
       } else {
          char detail[384];
-         snprintf(detail, sizeof(detail), "Network connection to %s failed (%s); check URL, DNS, TLS certificate and remote server availability", session->peer
-            && session->peer->url[0] ? session->peer->url : "incoming peer", data ? (const char *)data : "transport error");
+         snprintf(detail, sizeof(detail), "Network transport failed; check DNS, TLS, routing and remote server availability (details in server log)");
          fail(session, detail);
       }
    } else if (event == MG_EV_CLOSE) {
