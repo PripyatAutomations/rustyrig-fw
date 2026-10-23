@@ -41,6 +41,9 @@ struct link_peer {
    unsigned max_depth;
    long long retry_at;
    unsigned retry_seconds;
+   unsigned clock_tolerance_seconds;
+   long long clock_offset_seconds;
+   bool clock_offset_valid;
    unsigned health_flaps, health_auth_errors;
    long long health_window_ms, health_rtt_ms;
    long long rtt_ring[30];
@@ -482,6 +485,7 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
+   dict_add_ulong(d, "clock.unix", (unsigned long)time(NULL));
    /* Keep the initial hello compatible with all deployed wire decoders. */
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
@@ -693,18 +697,21 @@ static void handle_hello(struct link_session *session, dict *d) {
       return;
    }
 
-   /* Diagnostic only: handshake sample includes network transit delay. */
+   /* Authenticated handshake sample. Approximation includes one-way network
+    * delay and second-level quantization; never adjust the system clock. */
    const char *clock_text = dict_get(d, "clock.unix", NULL);
-
+   peer->clock_offset_valid = false;
    if (clock_text && *clock_text) {
-      long long peer_time = atoll(clock_text);
-      long long offset = peer_time - (long long)time(NULL);
-
-      if (offset > 5 || offset < -5) {
-         Log(LOG_WARN, "link", "Clock skew with %s [%s]: peer appears %lld seconds %s; verify NTP on both servers", site, node, offset < 0 ? -offset : offset,
-            offset < 0 ? "behind" : "ahead");
-      } else {
-         Log(LOG_INFO, "link", "Clock sample from %s [%s]: apparent offset %+lld seconds", site, node, offset);
+      char *endptr = NULL;
+      long long peer_time = strtoll(clock_text, &endptr, 10);
+      if (endptr != clock_text && !*endptr && peer_time > 0) {
+         long long offset = peer_time - (long long)time(NULL);
+         peer->clock_offset_seconds = offset;
+         peer->clock_offset_valid = true;
+         Log((offset > 5 || offset < -5) ? LOG_WARN : LOG_INFO, "link",
+            "Clock sample from %s [%s]: peer offset approximately %+lld s (one-way handshake estimate); deadline compensation %s, limit %u s",
+            site, node, offset, peer->clock_tolerance_seconds ? "enabled" : "disabled",
+            peer->clock_tolerance_seconds);
       }
    }
    char peer_ip[64];
@@ -1261,6 +1268,13 @@ static bool load_peer(const char *section) {
       return invalid_peer(section, "retry-seconds", "must be 1-3600 seconds");
    }
    peer->retry_seconds = (unsigned)retry;
+   /* Opt-in on each configured peer, not a global relaxation. */
+   const char *clock_limit = peer_value(section, "clock-tolerance-seconds");
+   char *clock_end = NULL;
+   long clock_secs = clock_limit && *clock_limit ? strtol(clock_limit, &clock_end, 10) : 0;
+   if (clock_secs < 0 || clock_secs > 300 || (clock_end && *clock_end))
+      return invalid_peer(section, "clock-tolerance-seconds", "must be 0-300 seconds; 0 disables compensation");
+   peer->clock_tolerance_seconds = (unsigned)clock_secs;
 
    if (!peer->url || !peer->password || !peer->allowed_sites) {
       return invalid_peer(section, "credentials", "out of memory while loading peer");
@@ -1515,6 +1529,22 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    event_on("link.cmd", link_command, NULL);
 
    return true;
+}
+
+bool rrserver_links_clock_offset(const char *node, long long *offset_seconds) {
+   if (!node || !*node || !offset_seconds) return false;
+   for (size_t i = 0; i < links.peer_count; ++i) {
+      const struct link_peer *peer = &links.peers[i];
+      if (!peer->session || !peer->session->established ||
+          strcmp(peer->session->node, node) || !peer->clock_offset_valid ||
+          !peer->clock_tolerance_seconds) continue;
+      long long offset = peer->clock_offset_seconds;
+      if (offset > (long long)peer->clock_tolerance_seconds ||
+          offset < -(long long)peer->clock_tolerance_seconds) return false;
+      *offset_seconds = offset;
+      return true;
+   }
+   return false;
 }
 
 void rrserver_links_poll(void) {
