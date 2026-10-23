@@ -142,7 +142,8 @@ static void panel_roll(GtkButton *button, gpointer data) {
    } else {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
-   if (p->modal) return;\n   p->rolled = !p->rolled;
+   if (p->modal) return;
+   p->rolled = !p->rolled;
    panel_chrome(p);
 }
 
@@ -251,7 +252,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_valign(p->frame, GTK_ALIGN_START);
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
-   gtk_overlay_add_overlay(overlay, p->frame);\n   g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
+   gtk_overlay_add_overlay(overlay, p->frame);
+   g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(p->frame), panel);
    GtkWidget *handle = gtk_event_box_new();
