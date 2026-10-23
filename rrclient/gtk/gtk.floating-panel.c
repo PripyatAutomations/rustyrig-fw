@@ -3,19 +3,44 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *body, *title, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close;
+   GtkWidget *frame, *scrim, *body, *title, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close;
    GtkCssProvider *scale_css;
    guint zoom;
    GtkOverlay *overlay;
    GtkNotebook *tabs;
    char *id;
-   gboolean rolled, minimized, dragging, closable;
+   gboolean rolled, minimized, dragging, closable, modal, modal_grabbed;
    gint roll_width;
    void (*on_close)(gpointer);
    gpointer close_data;
+   void (*on_response)(RRFloatPanel *, gint, gpointer);
+   gpointer response_data;
    double drag_x, drag_y;
    int start_x, start_y;
 };
+
+static void panel_modal_release(RRFloatPanel *p) {
+   if (p->modal_grabbed) {
+      gtk_grab_remove(p->frame);
+      p->modal_grabbed = FALSE;
+   }
+   if (p->scrim) gtk_widget_hide(p->scrim);
+}
+
+static gboolean panel_modal_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+   (void)widget;
+   RRFloatPanel *p = data;
+   if (p->modal && event->keyval == GDK_KEY_Escape) {
+      rr_floating_panel_response(p, GTK_RESPONSE_CANCEL);
+      return TRUE;
+   }
+   return FALSE;
+}
+
+static gboolean panel_scrim_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget; (void)event; (void)data;
+   return TRUE;
+}
 
 static void panel_minimize(GtkButton *button, gpointer data);
 static void panel_roll(GtkButton *button, gpointer data);
@@ -117,7 +142,7 @@ static void panel_roll(GtkButton *button, gpointer data) {
    } else {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
-   p->rolled = !p->rolled;
+   if (p->modal) return;\n   p->rolled = !p->rolled;
    panel_chrome(p);
 }
 
@@ -199,6 +224,15 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->tabs = tabs;
    p->id = g_strdup(id);
    p->closable = TRUE;
+   p->scrim = gtk_event_box_new();
+   gtk_widget_set_halign(p->scrim, GTK_ALIGN_FILL);
+   gtk_widget_set_valign(p->scrim, GTK_ALIGN_FILL);
+   gtk_widget_set_hexpand(p->scrim, TRUE);
+   gtk_widget_set_vexpand(p->scrim, TRUE);
+   gtk_widget_add_events(p->scrim, GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(p->scrim, "button-press-event", G_CALLBACK(panel_scrim_press), p);
+   gtk_overlay_add_overlay(overlay, p->scrim);
+   gtk_widget_hide(p->scrim);
    p->frame = gtk_frame_new(NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(p->frame), "rr-floating-panel");
    GtkCssProvider *css = gtk_css_provider_new();
@@ -210,7 +244,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_valign(p->frame, GTK_ALIGN_START);
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
-   gtk_overlay_add_overlay(overlay, p->frame);
+   gtk_overlay_add_overlay(overlay, p->frame);\n   g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(p->frame), panel);
    GtkWidget *handle = gtk_event_box_new();
@@ -334,4 +368,45 @@ void rr_floating_panel_set_close_callback(RRFloatPanel *p, void (*callback)(gpoi
    if (!p) return;
    p->on_close = callback;
    p->close_data = data;
+}
+
+void rr_floating_panel_set_modal(RRFloatPanel *p, gboolean modal) {
+   if (!p || p->modal == modal) return;
+   if (!modal) panel_modal_release(p);
+   p->modal = modal;
+   gtk_widget_set_visible(p->minimize, !modal);
+   gtk_widget_set_visible(p->roll, !modal);
+   if (modal) {
+      p->rolled = FALSE;
+      p->minimized = FALSE;
+      panel_chrome(p);
+   }
+}
+
+void rr_floating_panel_set_response_callback(RRFloatPanel *p,
+      void (*callback)(RRFloatPanel *, gint, gpointer), gpointer data) {
+   if (!p) return;
+   p->on_response = callback;
+   p->response_data = data;
+}
+
+void rr_floating_panel_response(RRFloatPanel *p, gint response) {
+   if (!p) return;
+   if (p->on_response) p->on_response(p, response, p->response_data);
+   else rr_floating_panel_hide(p);
+}
+
+static void panel_response_clicked(GtkButton *button, gpointer data) {
+   RRFloatPanel *p = data;
+   rr_floating_panel_response(p, GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "rr-response")));
+}
+
+GtkWidget *rr_floating_panel_add_response(RRFloatPanel *p, GtkWidget *box,
+                                         const char *label, gint response) {
+   if (!p || !GTK_IS_BOX(box)) return NULL;
+   GtkWidget *button = gtk_button_new_with_label(label);
+   g_object_set_data(G_OBJECT(button), "rr-response", GINT_TO_POINTER(response));
+   g_signal_connect(button, "clicked", G_CALLBACK(panel_response_clicked), p);
+   gtk_box_pack_end(GTK_BOX(box), button, FALSE, FALSE, 0);
+   return button;
 }
