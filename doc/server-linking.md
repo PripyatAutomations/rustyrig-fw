@@ -83,6 +83,7 @@ logs identify the rejected section/key and reason without displaying passwords.
 | `password` | Shared link password; use the same password at both ends |
 | `site.name` | Required expected remote `station.name`, matched exactly |
 | `node.uuid` | Optional expected persistent remote server UUID |
+| `clock-tolerance-seconds` | Per-peer clock compensation bound, 0–300 seconds; default 0 (disabled) |
 
 No user account or username is required for a peer. Authentication is mutual:
 each endpoint verifies the shared password, expected remote site and optional
@@ -188,7 +189,15 @@ privileges. Responses return to the issuing window through ordinary notices.
 
 Remote JOIN/PART, public chat, topics, CAT controls and property writes
 follow the unique route to the owner. Requests carry an issuing-session UUID
-and a short deadline; expired requests are rejected. The owner requires an
+and a short deadline; expired requests are rejected. An authenticated
+`clock.unix` handshake sample estimates clock offset without changing the
+system clock. Setting `clock-tolerance-seconds=120` in the receiver's matching
+`[peer]` section enables compensation for directly connected request origins
+only when the offset is within 120 seconds. The validity window remains
+approximately 40 seconds after correcting the timestamp; this does not extend
+the replay lifetime by 120 seconds. Forwarded requests from downstream nodes
+are not compensated with the intermediate hub's clock estimate, since that
+is not the originator's clock. NTP remains recommended. The owner requires an
 enabled matching local account, checks password-expiry/change requirements,
 and applies that account's privileges through the existing command handlers.
 The originating server authenticates the callsign assertion; peer credentials
