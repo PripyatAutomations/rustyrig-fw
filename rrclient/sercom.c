@@ -974,6 +974,7 @@ static void serial_cat_parse(void *data) {
                     !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") ||
                     !strcmp(cmd, "NA1"));
       if (!query) {
+         Log(LOG_WARN, "cat", "UNSUPPORTED/IGNORED CAT while ttyCAT has no selected rig: '%s' (no reply; setters blocked)", cmd);
          cat_context = previous;
          return;
       }
