@@ -408,8 +408,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
             if (now - old->started > 60 * G_USEC_PER_SEC) {
                char origin_label[192];
-               Log(LOG_WARN, "relay.catalog", "Discarding incomplete incoming sync %s from %s (%u/%u received)", (char *)key, rrserver_links_format_node(old->
-                  origin, origin_label, sizeof(origin_label)), old->received, old->expected);
+               Log(LOG_WARN, "relay.catalog",
+                  "RX timeout: sync=%s source=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f s",
+                  (char *)key, rrserver_links_format_node(old->origin, origin_label, sizeof(origin_label)),
+                  old->received, old->expected, old->accepted, old->rejected,
+                  (unsigned long long)old->bytes, (double)(now - old->started) / G_USEC_PER_SEC);
                g_hash_table_iter_remove(&iter);
             }
          }
