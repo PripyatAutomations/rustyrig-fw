@@ -1604,7 +1604,9 @@ void gtk_chat_set_authoritative_room(const char *room) {
 
 /* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
  * child of the fullscreen client and exists only while a server is online. */
-static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode;
+static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode, *vfo_locator_ptt;
+static char locator_tx_identity[256];
+static gint64 locator_tx_started;
 /* Drag the undecorated top-level using GTK's native window-manager move.
  * The handler runs on the event box covering all three locator rows. */
 static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
@@ -1641,7 +1643,9 @@ static gboolean vfo_locator_tick(gpointer unused) {
       vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
       gtk_window_set_decorated(GTK_WINDOW(vfo_locator_window), FALSE);
-      gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_UTILITY);
+      /* An independent normal top-level avoids window-manager utility/transient
+       * grouping that can iconify it along with the main window. */
+      gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_NORMAL);
       gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
       gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), TRUE);
@@ -1656,12 +1660,15 @@ static gboolean vfo_locator_tick(gpointer unused) {
       vfo_locator_label = gtk_label_new(NULL);
       vfo_locator_frequency = gtk_label_new(NULL);
       vfo_locator_mode = gtk_label_new(NULL);
+      vfo_locator_ptt = gtk_label_new("PTT Off");
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_label), 0);
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_frequency), 0);
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_mode), 0);
+      gtk_label_set_xalign(GTK_LABEL(vfo_locator_ptt), 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_frequency, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_mode, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(lines), vfo_locator_ptt, FALSE, FALSE, 0);
       gtk_container_add(GTK_CONTAINER(vfo_locator_frame), lines);
       gtk_container_add(GTK_CONTAINER(vfo_locator_window), vfo_locator_frame);
       GtkCssProvider *provider = gtk_css_provider_new();
@@ -1728,6 +1735,38 @@ static gboolean vfo_locator_tick(gpointer unused) {
       g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %ld Hz", mode && *mode ? mode : "—", width);
    gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq_line);
    gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode_line);
+   /* This elapsed time begins when this client observes the TX holder;
+    * reconnecting during a transmission does not reconstruct server time. */
+   const struct rr_user *holder = NULL;
+   if (selected_online) {
+      for (const struct rr_user *u = global_userlist; u; u = u->next) {
+         if (!u->is_ptt || u->ptt_vfo != vfo[0]) continue;
+         if (room && *room && u->ptt_room[0] && strcasecmp(u->ptt_room, room)) continue;
+         holder = u;
+         break;
+      }
+   }
+   char holder_id[256] = "";
+   if (holder)
+      g_snprintf(holder_id, sizeof(holder_id), "%s/%s/%c", profile,
+         holder->name, vfo[0]);
+   gint64 current_us = g_get_monotonic_time();
+   if (strcmp(holder_id, locator_tx_identity)) {
+      g_strlcpy(locator_tx_identity, holder_id, sizeof(locator_tx_identity));
+      locator_tx_started = holder ? current_us : 0;
+   }
+   char ptt_line[256];
+   if (holder) {
+      unsigned long elapsed = locator_tx_started && current_us >= locator_tx_started ?
+         (unsigned long)((current_us - locator_tx_started) / G_USEC_PER_SEC) : 0;
+      g_snprintf(ptt_line, sizeof(ptt_line), "TX: %s (%lu s)", holder->name, elapsed);
+   } else if (ptt) {
+      g_snprintf(ptt_line, sizeof(ptt_line), "PTT On (holder unknown)");
+   } else {
+      g_strlcpy(ptt_line, "PTT Off", sizeof(ptt_line));
+   }
+   gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), ptt_line);
+   ptt = ptt || holder != NULL;
    GtkStyleContext *style = gtk_widget_get_style_context(vfo_locator_frame);
    if (ptt) gtk_style_context_add_class(style, "rr-vfo-ptt");
    else gtk_style_context_remove_class(style, "rr-vfo-ptt");
