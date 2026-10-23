@@ -47,6 +47,26 @@ extern struct GlobalState rig;
 
 #include <rrserver/events.internal.h>
 
+/* A room join must not display a startup/default frequency indefinitely.
+ * Re-read the hardware-backed VFOs belonging to this room; backend workers
+ * queue the CAT request and normal state publication updates all clients. */
+typedef struct {
+   const char *room;
+} rr_join_vfo_refresh_t;
+static bool rr_join_refresh_vfo(rr_server_vfo_t *vfo, void *context) {
+   rr_server_rig_t *radio = context;
+   rr_backend_t *backend = rr_server_rig_backend(radio);
+   if (backend && rr_backend_vfo_supported(radio, vfo))
+      rr_backend_poll_rig(radio, vfo);
+   return false;
+}
+static bool rr_join_refresh_rig(rr_server_rig_t *radio, void *context) {
+   rr_join_vfo_refresh_t *refresh = context;
+   const char *room = rr_rig_registry_room(rig.rigs, radio);
+   if (room && !strcasecmp(room, refresh->room))
+      rr_server_vfo_foreach(radio, rr_join_refresh_vfo, radio);
+   return false;
+}
 /* Persist accepted room membership metadata and return the stored topic. */
 static void rrserver_handle_room_join(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
@@ -59,6 +79,10 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
    }
 #ifdef USE_SQLITE
    const char *room = dict_get(d, "talk.room", NULL);
+   if (room && *room && cptr && rig.rigs) {
+      rr_join_vfo_refresh_t refresh = {.room = room};
+      rr_rig_registry_foreach(rig.rigs, rr_join_refresh_rig, &refresh);
+   }
 
    if (room && !db_room_ensure(masterdb, room, dict_get_bool(d, "room.has-vfos", false), (uint32_t) dict_get_ulong(d, "room.vfo-mask", 0), cptr ? cptr->chatname
          : "server")) {
