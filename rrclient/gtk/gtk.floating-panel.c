@@ -226,6 +226,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->id = g_strdup(id);
    p->closable = TRUE;
    p->scrim = gtk_event_box_new();
+   /* The scrim must never be revealed by a parent gtk_widget_show_all().
+    * A non-modal scrim covers the notebook and silently eats tab clicks. */
+   gtk_widget_set_no_show_all(p->scrim, TRUE);
    gtk_widget_set_halign(p->scrim, GTK_ALIGN_FILL);
    gtk_widget_set_valign(p->scrim, GTK_ALIGN_FILL);
    gtk_widget_set_hexpand(p->scrim, TRUE);
