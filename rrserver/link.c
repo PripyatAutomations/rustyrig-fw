@@ -485,9 +485,11 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
-   /* Legacy link wire decoders reject unknown hello fields. Clock sampling
-    * must be negotiated after the base handshake, never sent unconditionally. */
-   /* Keep the initial hello compatible with all deployed wire decoders. */
+   /* Current librrprotocol accepts clock.unix as a 10-digit string in
+    * link.hello; all linked servers must run the updated wire decoder. */
+   char clock_unix[32];
+   snprintf(clock_unix, sizeof(clock_unix), "%lld", (long long)time(NULL));
+   dict_add(d, "clock.unix", clock_unix);
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
    dict_free(d);
