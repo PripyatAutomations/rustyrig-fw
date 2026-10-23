@@ -960,6 +960,20 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
       dict_free(d);
    }
 }
+/* CAT originates from background software, not an interactive user action.
+ * Do not forward writes until the selected rig actually advertises the
+ * addressed VFO. Reads remain available for Hamlib initialization. */
+static bool cat_target_ready(serial_binding_t *b, const char *cmd) {
+   if (strcmp(b->service, "rig.cat")) return true;
+   if (!b->radio[0] || !b->focus_room[0]) return false;
+   const dict *radio = rrclient_object_find_alias("rig", NULL, b->radio);
+   if (!radio) return false;
+   const char *uuid = dict_get((dict *)radio, "object.uuid", NULL);
+   if (!uuid || !*uuid) return false;
+   const char *alias = !strncmp(cmd, "FB", 2) || !strncmp(cmd, "MD1", 3) ? "B" : "A";
+   return rrclient_object_find_alias("vfo", uuid, alias) != NULL;
+}
+
 static void serial_cat_parse(void *data) {
    serial_binding_t *previous = cat_context;
    cat_context = data;
@@ -978,6 +992,18 @@ static void serial_cat_parse(void *data) {
          cat_context = previous;
          return;
       }
+   }
+   /* Writes from WSJT-X can arrive before Explorer/rig VFO mapping does.
+    * Swallow those probes locally instead of provoking user-facing errors. */
+   const char *cmd = cat_context->buffer;
+   bool setter = (!strncmp(cmd, "FA", 2) && strlen(cmd) > 2) ||
+                 (!strncmp(cmd, "FB", 2) && strlen(cmd) > 2) ||
+                 (!strncmp(cmd, "MD", 2) && strlen(cmd) > 3) ||
+                 (!strncmp(cmd, "TX", 2) && strlen(cmd) > 2);
+   if (setter && !cat_target_ready(cat_context, cmd)) {
+      Log(LOG_DEBUG, "cat", "Ignoring CAT setter until VFO is available: %s", cmd);
+      cat_context = previous;
+      return;
    }
    rr_cat_parse_line(cat_context->buffer);
    cat_context = previous;
