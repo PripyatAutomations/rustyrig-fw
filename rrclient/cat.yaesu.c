@@ -271,8 +271,23 @@ void rr_cat_yaesu_encoder_up(const char *args) {
    Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_encoder_up: args='%s' (no reply/action)", args ? args : "");
 }                               // Encoder Up
 
+/* FT-991A EX032 is CAT TOT (CAT input timeout); values 0..3
+ * denote 10, 100, 1000 and 3000 ms. This is a virtual serial port, so
+ * retain the setting solely for CAT readback, not as a backend timeout. */
+static char virtual_cat_timeout = '0';
+
 void rr_cat_yaesu_menu(const char *args) {
-   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_menu: args='%s' (no reply/action)", args ? args : "");
+   if (args && !strcmp(args, "032")) {
+      rr_cat_printf("EX032%c;", virtual_cat_timeout);
+      return;
+   }
+   if (args && strlen(args) == 4 && !strncmp(args, "032", 3) &&
+       args[3] >= '0' && args[3] <= '3') {
+      virtual_cat_timeout = args[3];
+      Log(LOG_DEBUG, "cat.yaesu", "Virtual FT-991A CAT timeout setting: %c", virtual_cat_timeout);
+      return;
+   }
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A EX menu: args='%s' (no reply/action)", args ? args : "");
 }                               // Extended menu commands
 
 void rr_cat_yaesu_set_vfo_a(const char *args) {
