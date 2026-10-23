@@ -637,6 +637,20 @@ static gboolean fullscreen_later(gpointer data) {
    return G_SOURCE_REMOVE;
 }
 
+/* Report the state the window manager actually applied, not just our
+ * fullscreen request. Run once after startup for release diagnostics. */
+static gboolean fullscreen_startup_check(gpointer unused) {
+   (void)unused;
+   if (!main_window || !gtk_widget_get_window(main_window)) return G_SOURCE_REMOVE;
+   GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(main_window));
+   bool actual = (state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
+   Log(cfg_fullscreen && !actual ? LOG_WARN : LOG_INFO, "ui.gtk3",
+      "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
+      cfg_fullscreen ? "yes" : "no", actual ? "yes" : "no",
+      (state & GDK_WINDOW_STATE_MAXIMIZED) ? "yes" : "no");
+   return G_SOURCE_REMOVE;
+}
+
 static gboolean on_focus_in(GtkWidget *widget, GdkEventFocus *event, gpointer user_data) {
    if (!widget) {
       return FALSE;
@@ -949,6 +963,7 @@ bool gui_init(void) {
    /* Window placement runs after mapping; reassert once after it finishes.
     * The helper is idempotent and does not toggle the configured flag. */
    if (cfg_fullscreen) g_idle_add(fullscreen_later, NULL);
+   g_timeout_add(1000, fullscreen_startup_check, NULL);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 
    ui_print(NULL, "%srustyrig client started", get_chat_ts(now));
