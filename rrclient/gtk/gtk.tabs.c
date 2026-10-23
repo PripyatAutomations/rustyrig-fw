@@ -425,7 +425,8 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       GtkWidget *label = gtk_label_new(NULL);
       /* Long room/server names must not force the entire notebook wider. The full source title remains intact for tooltips and selection. */
       gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
-      gtk_label_set_max_width_chars(GTK_LABEL(label), 28);
+      gtk_label_set_width_chars(GTK_LABEL(label), 1);
+      gtk_label_set_max_width_chars(GTK_LABEL(label), 20);
       GtkWidget *number_label = gtk_label_new(NULL);
       GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
       g_object_set_data(G_OBJECT(button), "rr-tab-title", label);
@@ -437,7 +438,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
          g_signal_connect_object(source, "notify::use-markup", G_CALLBACK(tab_title_changed), button, 0);
       }
       gtk_box_pack_start(GTK_BOX(content), number_label, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(content), label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(content), label, TRUE, TRUE, 0);
       gtk_container_add(GTK_CONTAINER(button), content);
       tab_apply_color(notebook, child, button);
       gtk_tabs_bind_menu(button, notebook, child);
@@ -486,6 +487,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(flow), GTK_SELECTION_NONE);
    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(flow), 1);
    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(flow), 1000);
+   gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(flow), FALSE);
    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(flow), 0);
    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(flow), 0);
    gtk_widget_set_valign(flow, GTK_ALIGN_START);
