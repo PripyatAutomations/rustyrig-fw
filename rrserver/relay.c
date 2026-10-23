@@ -1008,7 +1008,7 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
                   dict_free(state);
                }
                rr_relay_update_membership(local->client, room, false);
-               ws_send_error(local->client, "Owner of room %s disconnected; restoring its subscription when it returns", room);
+               ws_send_error(local->client, "Owner of room %s disconnected; remote subscriptions are unavailable until the owner reconnects and synchronization completes", room);
             }
          }
       }
