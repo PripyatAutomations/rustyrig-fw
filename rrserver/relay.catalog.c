@@ -1497,6 +1497,25 @@ void rr_relay_catalog_pump(void) {
    }
 }
 
+/* Link generations must not share in-flight catalog transports. */
+void rr_relay_catalog_peer_lost(const char *node) {
+   if (!node || !*node) return;
+   if (relay_catalog_snapshots && g_hash_table_remove(relay_catalog_snapshots, node))
+      Log(LOG_INFO, "relay.catalog", "Cancelled outgoing catalog snapshot for disconnected peer %s", node);
+   if (relay_catalog_awaiting_ack) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, relay_catalog_awaiting_ack);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         catalog_ack_wait_t *w = value;
+         if (strcmp(w->dest, node)) continue;
+         Log(LOG_INFO, "relay.catalog", "Cancelled pending catalog acknowledgment %s for disconnected peer %s",
+             (char *)key, node);
+         g_hash_table_iter_remove(&iter);
+      }
+   }
+}
+
 void rr_relay_send_catalogs(const char *dest) {
    if (!dest || !*dest) {
       return;
