@@ -38,7 +38,7 @@
 
 extern dict *cfg;               // main.c
 extern time_t now;              // main.c
-extern GtkWidget *main_notebook, *status_tab;
+extern GtkWidget *main_notebook, *status_tab, *rr_main_toolbar;
 extern bool cfg_ui_gtk_vfo_on_top;
 
 ///////////////
@@ -1298,7 +1298,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       g_signal_connect(resources, "clicked", G_CALLBACK(gtk_chat_resources_clicked), NULL);
       gtk_box_pack_start(GTK_BOX(tools), rr_connect_button_new(), FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(chat_box), tools, FALSE, FALSE, 4);
+      gtk_box_pack_start(GTK_BOX(rr_main_toolbar), tools, FALSE, FALSE, 0);
    }
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
@@ -1615,7 +1615,7 @@ static gboolean status_network_tick(gpointer unused) {
    if (old_time && now_us > old_time) {
       double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - old_time));
       char label[180];
-      g_snprintf(label, sizeof(label), "WS text RX %.1f kb/s  |  WS total RX %.1f / TX %.1f kb/s", text >= old_text ? (text - old_text) * scale : 0.0, rx >=
+      g_snprintf(label, sizeof(label), "Text %.1f | RX %.1f / TX %.1f kb/s", text >= old_text ? (text - old_text) * scale : 0.0, rx >=
          old_rx ? (rx - old_rx) * scale : 0.0, tx >= old_tx ? (tx - old_tx) * scale : 0.0);
       gtk_label_set_text(GTK_LABEL(status_network_label), label);
    }
@@ -1658,7 +1658,9 @@ bool chat_init(void) {
       "Five-second average: decoded WebSocket TEXT receive payload versus all WebSocket transport bytes. Total RX/TX includes binary media; UDP RTP is excluded.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
-   gtk_box_pack_end(GTK_BOX(status_tab), network_row, FALSE, FALSE, 0);
+   gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
+   gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_END);
+   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, TRUE, TRUE, 0);
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(5, status_network_tick, NULL);
    g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
