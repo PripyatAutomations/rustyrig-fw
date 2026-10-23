@@ -103,6 +103,7 @@ gtk_module_objs += gtk/gtk.serveredit.o	# Serve editor
 gtk_module_objs += gtk/gtk.serverpick.o	# server picker window
 gtk_module_objs += gtk/gtk.syslog.o	# syslog tab
 gtk_module_objs += gtk/gtk.userlist.o	# GTK part of the userlist
+gtk_module_objs += gtk/gtk.connect-button.o
 gtk_module_objs += gtk/gtk.vfo-box.o	# VFO box element
 gtk_module_objs += gtk/gtk.vol-box.o	# Volume widget
 gtk_module_objs += gtk/gtk.winmgr.o	# window management
