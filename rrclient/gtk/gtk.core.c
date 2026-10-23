@@ -698,6 +698,7 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
    return TRUE;                 // core handles shutdown after GTK confirmation
 }
 
+static GtkWidget *rr_client_overlay;
 /* Spawn the independently packaged screensaver; never run it in the
  * rrclient widget tree. GTK owns the Escape-prefix event handling here. */
 static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
@@ -743,11 +744,11 @@ bool gui_init(void) {
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
    g_object_ref(viewport);
    gtk_container_remove(GTK_CONTAINER(main_window), viewport);
-   rr_matrix_overlay = gtk_overlay_new();
-   gtk_widget_set_hexpand(rr_matrix_overlay, TRUE);
-   gtk_widget_set_vexpand(rr_matrix_overlay, TRUE);
-   gtk_container_add(GTK_CONTAINER(main_window), rr_matrix_overlay);
-   gtk_container_add(GTK_CONTAINER(rr_matrix_overlay), viewport);
+   rr_client_overlay = gtk_overlay_new();
+   gtk_widget_set_hexpand(rr_client_overlay, TRUE);
+   gtk_widget_set_vexpand(rr_client_overlay, TRUE);
+   gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
+   gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport);
    g_object_unref(viewport);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(matrix_key_press), NULL);
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);
