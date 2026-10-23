@@ -63,7 +63,7 @@ endif
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk$(MODULEDIR)/rrclient/rrclient-gtk.so
-	install -Dm755 gmatrix/gmatrix debian/rustyrig-client-gtk-screensaver$(BINDIR)/gmatrix
+	install -Dm755 gmatrix/gmatrix debian/gmatrix$(BINDIR)/gmatrix
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp$(BINDIR)/fwdsp
