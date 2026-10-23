@@ -434,7 +434,7 @@ bool irc_dcc_session_get(unsigned index, irc_dcc_session_t *session) {
    return false;
 }
 static bool again(void) {
-   return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
+   return errno == EAGAIN || errno == EINTR;
 }
 static bool flush(struct dcc_session *s) {
    while (s->tx_offset < s->tx_size) {
