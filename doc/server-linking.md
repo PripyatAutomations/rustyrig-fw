@@ -269,7 +269,7 @@ owner. Connected local members are rejoined through the owner and its account
 checks. The active local station/rig rooms remain protected. Ordinary chat-room
 name collisions do not establish authority and do not trigger automatic deletion.
 
-Peer `retry-seconds` overrides the global reconnect interval. Admins/owners can
+Peer `retry-seconds` overrides the global maximum reconnect holdoff (default 60 seconds). After each disconnect, a fresh random delay between 1 second and that maximum is chosen for the next attempt, reducing simultaneous reconnect storms. `links.startup-delay-seconds` remains the separate initial startup grace period. Admins/owners can
 manage stored peers with `/link list|open|close`; see
 [Connection recovery and administration](connection-admin.md).
 
