@@ -75,8 +75,7 @@ for table in privilege_set_assignments resource_privileges; do
     }
 done
 
-sqlite3 -bail "$db" <<SQL
-PRAGMA busy_timeout=5000;
+sqlite3 -bail -cmd ".timeout 5000" "$db" <<SQL
 BEGIN IMMEDIATE;
 
 INSERT OR IGNORE INTO privilege_sets(name, description, created_by)
