@@ -32,8 +32,8 @@ static void console_bytes(const char *name, const char *bytes, size_t length, bo
    for (size_t i = 0; i < length; ++i) {
       unsigned char c = (unsigned char)bytes[i];
       if (c >= 32 && c <= 126) g_string_append_c(line, (char)c);
-      else if (c == '\\r') g_string_append(line, "\\r");
-      else if (c == '\\n') g_string_append(line, "\\n");
+      else if (c == '\r') g_string_append(line, "\\r");
+      else if (c == '\n') g_string_append(line, "\\n");
       else g_string_append_printf(line, "\\x%02X", (unsigned)c);
    }
    g_string_append_c(line, '\n');
