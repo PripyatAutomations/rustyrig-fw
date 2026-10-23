@@ -369,7 +369,8 @@ static void route_request(const char *event, const void *data, size_t length, rr
 typedef struct {
    char *origin;
    guint expected, received, accepted, rejected;
-   gint64 started;
+   guint64 bytes, apply_us, apply_max_us;
+   gint64 started, last_progress;
 } catalog_receive_t;
 static GHashTable *catalog_receives;
 static void catalog_receive_free(gpointer ptr) {
@@ -416,7 +417,16 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          r->started = now;
          r->origin = g_strdup(origin);
          r->expected = (guint) dict_get_ulong(d, "catalog.expected", 0);
+         r->last_progress = now;
+         catalog_receive_t *previous = g_hash_table_lookup(catalog_receives, id);
+         if (previous)
+            Log(LOG_WARN, "relay.catalog", "RX superseded: sync=%s received=%u/%u elapsed=%.1f s",
+               id, previous->received, previous->expected,
+               (double)(now - previous->started) / G_USEC_PER_SEC);
          g_hash_table_replace(catalog_receives, g_strdup(id), r);
+         char source_label[192];
+         Log(LOG_INFO, "relay.catalog", "RX begin: sync=%s source=%s expected=%u",
+            id, rrserver_links_format_node(origin, source_label, sizeof(source_label)), r->expected);
       }
       goto done;
    }
@@ -440,6 +450,16 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict_add_ulong(stats, "catalog.rejected", r->rejected);
             dict_add_ulong(stats, "catalog.expected", r->expected);
 
+            gint64 finished = g_get_monotonic_time();
+            double elapsed_ms = (double)(finished - r->started) / 1000.0;
+            char finished_source[192];
+            Log(r->received == r->expected && !r->rejected ? LOG_INFO : LOG_WARN, "relay.catalog",
+               "RX finished: sync=%s source=%s status=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f ms rate=%.1f entries/s apply=%.1f ms apply_max=%.1f ms",
+               id, rrserver_links_format_node(origin, finished_source, sizeof(finished_source)),
+               r->received != r->expected ? "incomplete" : r->rejected ? "partial" : "complete",
+               r->received, r->expected, r->accepted, r->rejected, (unsigned long long)r->bytes,
+               elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 / elapsed_ms : 0.0,
+               (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
             if (r->received != r->expected) {
                char origin_label[192];
                Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u", id, rrserver_links_format_node(origin,
@@ -544,20 +564,33 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       if (!strcmp(kind, "catalog")) {
          catalog_receive_t *sync = (*id && catalog_receives) ? g_hash_table_lookup(catalog_receives, id) : NULL;
 
+         if (sync && strcmp(sync->origin, origin)) sync = NULL;
+         size_t payload_bytes = strlen(dict_get(envelope, "payload", ""));
+         gint64 apply_started = g_get_monotonic_time();
          if (sync) {
             sync->received++;
+            sync->bytes += payload_bytes;
          }
-#ifdef USE_PROFILING
-         gint64 apply_started = g_get_monotonic_time();
-#endif
          enum rr_catalog_reject reject_reason = RR_CAT_OK;
          bool accepted = rr_relay_catalog_put_reason(origin, d, &reject_reason);
+         guint64 apply_us = (guint64)(g_get_monotonic_time() - apply_started);
+         if (sync) {
+            sync->apply_us += apply_us;
+            if (apply_us > sync->apply_max_us) sync->apply_max_us = apply_us;
+         }
 #ifdef USE_PROFILING
-         rr_relay_catalog_profile_receive(d, accepted, reject_reason, (long long)(g_get_monotonic_time() - apply_started), strlen(dict_get(envelope, "payload",
-            "")));
+         rr_relay_catalog_profile_receive(d, accepted, reject_reason, (long long)apply_us, payload_bytes);
 #endif
 
          if (sync) {
+            gint64 at = g_get_monotonic_time();
+            if (at - sync->last_progress >= 5 * G_USEC_PER_SEC) {
+               Log(LOG_INFO, "relay.catalog",
+                  "RX progress: sync=%s source=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f s",
+                  id, origin, sync->received, sync->expected, sync->accepted, sync->rejected,
+                  (unsigned long long)sync->bytes, (double)(at - sync->started) / G_USEC_PER_SEC);
+               sync->last_progress = at;
+            }
             if (accepted) {
                sync->accepted++;
             } else {
