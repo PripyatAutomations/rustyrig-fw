@@ -148,13 +148,6 @@ void vfo_controls_set_ptt_state(bool any_tx, bool own_tx) {
    }
 }
 
-static void on_conn_button_clicked(GtkButton *button, gpointer user_data) {
-   if (!button) {
-      return;
-   }
-   connect_or_disconnect(server_name);
-}
-
 static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
    if (!widget || !event || !user_data) {
       return FALSE;
@@ -218,31 +211,12 @@ GtkWidget *create_vfo_box(void) {
    g_signal_connect(grip, "button-release-event", G_CALLBACK(vfo_drawer_release), drawer);
    g_signal_connect(grip, "motion-notify-event", G_CALLBACK(vfo_drawer_motion), drawer);
    // Create the control box
-   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    vfo_layout_box = control_box;
 
    gtk_container_add(GTK_CONTAINER(revealer), control_box);
 
-   // ONLINE button
-   conn_button = gtk_button_new_with_label("Offline");
-   gtk_widget_set_tooltip_text(conn_button, "Toggle online state");
-   /* Size for the longest status and center shorter labels, so transitions do not shift neighboring controls on narrow screens. */
-   GtkWidget *conn_label = gtk_bin_get_child(GTK_BIN(conn_button));
-
-   if (GTK_IS_LABEL(conn_label)) {
-      gtk_label_set_width_chars(GTK_LABEL(conn_label), (int)strlen("Offline"));
-      gtk_label_set_xalign(GTK_LABEL(conn_label), 0.5f);
-   }
-   gtk_box_pack_start(GTK_BOX(control_box), conn_button, FALSE, FALSE, 0);
-   GtkStyleContext *conn_ctx = gtk_widget_get_style_context(conn_button);
-   gtk_style_context_add_class(conn_ctx, "conn-idle");
-   /* The connection may already be established when a VFO widget is built (for example after the authoritative room arrives).  Paint the button from the cached
-    * protocol state immediately instead of leaving the initial _Offline label until the next click. */
-   update_connection_button(ws_connected, conn_button);
-   g_signal_connect(conn_button, "clicked", G_CALLBACK(on_conn_button_clicked), NULL);
-
-
-   vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, TRUE, TRUE, 0);
 
    // FREQ selection
@@ -251,25 +225,21 @@ GtkWidget *create_vfo_box(void) {
 
    // MODE selection
    GtkWidget *mode_box = create_mode_box();
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), mode_box, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), mode_box, FALSE, FALSE, 0);
 
    // CODEC selectors
    GtkWidget *codec_selectors = create_codec_selector_vbox(&tx_codec_combo, &rx_codec_combo);
    vfo_codec_box = codec_selectors;
-   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(control_box), codec_selectors, FALSE, FALSE, 0);
 
    // TX POWER Box
    GtkWidget *tx_power_vbox = create_txpower_box();
    vfo_tx_power_box = tx_power_vbox;
    g_object_add_weak_pointer(G_OBJECT(tx_power_vbox), (gpointer *) &vfo_tx_power_box);
-   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, FALSE, FALSE, 3);
+   gtk_box_pack_start(GTK_BOX(vfo_tunable_box), tx_power_vbox, FALSE, FALSE, 0);
 
    // These globals are borrowed widget references used by protocol/event
    // callbacks.  Clear them automatically if the VFO window is destroyed.
-   if (conn_button) {
-      g_object_add_weak_pointer(G_OBJECT(conn_button), (gpointer *) &conn_button);
-   }
-
    if (vfo_tunable_box) {
       g_object_add_weak_pointer(G_OBJECT(vfo_tunable_box), (gpointer *) &vfo_tunable_box);
    }
@@ -311,7 +281,7 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *ptt_box = ptt_button_create();
    vfo_ptt_box = ptt_box;
    g_object_add_weak_pointer(G_OBJECT(ptt_box), (gpointer *) &vfo_ptt_box);
-   gtk_box_pack_end(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 2);
+   gtk_box_pack_end(GTK_BOX(control_box), ptt_box, FALSE, FALSE, 0);
 
    // This will sort out tab order between previous/next widget
    g_signal_connect(control_box, "key-press-event", G_CALLBACK(on_vfo_key_press), freq_entry);
