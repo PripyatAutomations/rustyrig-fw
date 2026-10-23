@@ -55,7 +55,8 @@ struct link_session {
    struct link_session *next;
    struct mg_connection *connection;
    struct link_peer *peer;
-   long long started, last_ping, last_seen, ping_sent;
+   long long started, established_at, last_ping, last_seen, ping_sent;
+   char close_reason[256];
    bool ping_pending;
    unsigned generation;
    char node[37];
@@ -105,7 +106,8 @@ static bool equal_secret(const char *a, const char *b) {
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason);
 static void fail(struct link_session *session, const char *reason) {
    if (!session || !session->connection || session->connection->is_closing) return;
-   Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", reason);
+   snprintf(session->close_reason, sizeof(session->close_reason), "%s", reason ? reason : "unspecified failure");
+   Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", session->close_reason);
    if (session->peer)
       health_record(session->peer, "transport", 1, 0, reason);
    session->connection->is_closing = 1;
@@ -493,6 +495,7 @@ static void establish(struct link_session *session) {
       return;
    }
    session->established = true;
+   session->established_at = mono_ms();
    if (session->peer) health_record(session->peer, "link", 0, 1, "connected");
 
    /* List only sites behind the newly linked peer; the peer is named separately, and is already included in the remote node count. */
@@ -851,8 +854,20 @@ static void close_session(struct link_session *session) {
       health_window(session->peer);
       session->peer->health_flaps++;
       session->peer->health_rtt_ms = 0;
+      long long now = mono_ms();
+      long long connected_ms = session->established_at ? now - session->established_at : 0;
+      long long silent_ms = session->last_seen ? now - session->last_seen : 0;
+      char reason[512];
+      snprintf(reason, sizeof(reason),
+               "unexpected disconnect: peer=%s node=%s direction=%s connected=%llds "
+               "last-message=%llds ago reason=%s",
+               session->peer->site, *session->node ? session->node : "unknown",
+               session->outbound ? "outbound" : "inbound",
+               connected_ms > 0 ? connected_ms / 1000 : 0,
+               silent_ms > 0 ? silent_ms / 1000 : 0,
+               *session->close_reason ? session->close_reason : "remote close or transport termination (no reason provided)");
       health_record(session->peer, "link", session->peer->health_flaps >= 3 ? 2 : 1,
-                    session->peer->health_flaps, "unexpected link disconnect");
+                    session->peer->health_flaps, reason);
    }
    if (session->admitted) {
       rr_link_tree_remove(links.tree, session->node, session->node);
