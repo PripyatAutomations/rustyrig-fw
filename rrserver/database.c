@@ -362,7 +362,7 @@ void db_cluster_health_recent(sqlite3 *db, const char *reporter, const char *sub
    out[0] = '\0';
    if (!db || !reporter || !subject) return;
    sqlite3_stmt *stmt = NULL;
-   const char *sql = "SELECT observed_at,category,severity,value,reason FROM cluster_health "
+   const char *sql = "SELECT observed_at,category,severity,value,cause,reason FROM cluster_health "
                      "WHERE reporter=? AND subject=? ORDER BY observed_at DESC,id DESC LIMIT 12";
    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return;
    sqlite3_bind_text(stmt, 1, reporter, -1, SQLITE_TRANSIENT);
@@ -376,10 +376,11 @@ void db_cluster_health_recent(sqlite3 *db, const char *reporter, const char *sub
       const char *category = (const char *)sqlite3_column_text(stmt, 1);
       int severity = sqlite3_column_int(stmt, 2);
       double value = sqlite3_column_double(stmt, 3);
-      const char *reason = (const char *)sqlite3_column_text(stmt, 4);
-      int n = snprintf(out + used, capacity - used, "%s %s [%s] %.0f: %s\n", stamp,
+      const char *cause = (const char *)sqlite3_column_text(stmt, 4);
+      const char *reason = (const char *)sqlite3_column_text(stmt, 5);
+      int n = snprintf(out + used, capacity - used, "%s %s [%s] %.0f cause=%s: %s\n", stamp,
                        severity == 2 ? "CRITICAL" : severity == 1 ? "WARNING" : "INFO",
-                       category ? category : "unknown", value, reason ? reason : "");
+                       category ? category : "unknown", value, cause ? cause : "unknown", reason ? reason : "");
       if (n < 0) break;
       if ((size_t)n >= capacity - used) { used = capacity - 1; break; }
       used += (size_t)n;
