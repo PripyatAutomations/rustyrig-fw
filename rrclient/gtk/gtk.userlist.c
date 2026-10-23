@@ -616,9 +616,10 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       userlist_display_name(c, decorated, sizeof(decorated));
       char *safe_name = userlist_safe_display(c->name);
       rr_typing_state_t typing = room && view_connection && view_connection->is_ws ? rrclient_typing_get(view_connection, room, c->name) : RR_TYPING_IDLE;
-      const char *suffix = typing == RR_TYPING_STARTED ? "  ✎ started typing" :
-         typing == RR_TYPING_ACTIVE ? "  ✎ typing…" : typing == RR_TYPING_PAUSED ? "  ⏸ paused" : "";
-      char *display = g_strdup_printf("%s%s", decorated, suffix);
+      /* Compact typing icons before names; no changing status sentences. */
+      const char *prefix = typing == RR_TYPING_STARTED || typing == RR_TYPING_ACTIVE ? "✎ " :
+         typing == RR_TYPING_PAUSED ? "⏸ " : "";
+      char *display = g_strdup_printf("%s%s", prefix, decorated);
       char *safe_decorated = userlist_safe_display(display);
       g_free(display);
       const char *values[NUM_COLS] = {
