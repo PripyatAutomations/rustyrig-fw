@@ -22,6 +22,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/traffic.h>
 #include <rrclient/irc.h>
+#include <rrclient/connman.h>
 #include <poll.h>
 #include <rrclient/irc.dcc.h>
 #include <librrprotocol/server.events.h>
@@ -132,6 +133,7 @@ static void irc_try_send(rrconn_t *cptr) {
       return;
    }
 
+   if (n > 0) rrclient_connection_count_traffic(cptr, 0, (uint64_t)n);
    size_t queued = strlen(cptr->sendq);
    memmove(cptr->sendq, cptr->sendq + n, queued - (size_t)n + 1);
 
@@ -254,6 +256,7 @@ void irc_io_poll(rrconn_t *cptr) {
       return;
    }
 
+   rrclient_connection_count_traffic(cptr, (uint64_t)n, 0);
    irc_receive(cptr, buf, (size_t)n);
 
    // flush any pending sendq data
