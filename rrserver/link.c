@@ -987,15 +987,11 @@ static void close_session(struct link_session *session) {
 
    if (session->peer && session->peer->session == session) {
       session->peer->session = NULL;
-      /* A deterministic per-peer stagger reduces synchronized reconnect collisions when several nodes start or lose connectivity together. */
-      unsigned hash = 2166136261u;
-
-      for (const unsigned char *p = (const unsigned char *)session->peer->site ; *p ; p++) {
-         hash = (hash ^ *p) * 16777619u;
-      }
-
-      unsigned jitter_ms = hash % 5000u;
-      session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL + jitter_ms;
+      /* Independent random holdoff avoids synchronized reconnect storms after
+       * a common network outage. retry-seconds is the maximum, not a fixed
+       * delay; never retry in a tight loop. */
+      unsigned delay_ms = (unsigned)g_random_int_range(1000, (gint)session->peer->retry_seconds * 1000 + 1);
+      session->peer->retry_at = mono_ms() + delay_ms;
       if (!links.stopping) {
          const struct link_peer *peer = session->peer;
          if (peer->manually_closed || peer->policy_blocked) {
@@ -1007,9 +1003,9 @@ static void close_session(struct link_session *session) {
                "use /link open to resume");
          } else if (peer->autoconnect && peer->url[0]) {
             Log(LOG_INFO, "link",
-               "Peer %s [%s] disconnected; autoconnect retry scheduled in %u.%03u s",
+               "Peer %s [%s] disconnected; randomized autoconnect retry in %u.%03u s (maximum %u s)",
                peer->site, peer->section,
-               peer->retry_seconds + jitter_ms / 1000u, jitter_ms % 1000u);
+               delay_ms / 1000u, delay_ms % 1000u, peer->retry_seconds);
          }
       }
 
