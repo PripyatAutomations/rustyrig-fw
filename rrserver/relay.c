@@ -506,17 +506,20 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             double elapsed_ms = (double)(finished - r->started) / 1000.0;
             char finished_source[192];
             Log(r->received == r->expected && !r->rejected ? LOG_INFO : LOG_WARN, "relay.catalog",
-               "RX finished: sync=%s source=%s status=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f ms rate=%.1f entries/s apply=%.1f ms apply_max=%.1f ms",
+               "RX finished: sync=%s via=%s status=%s synchronized=%u/%u (%.1f%%) missing=%u rejected=%u accepted=%u bytes=%llu elapsed=%.1f ms rate=%.1f entries/s apply=%.1f ms apply_max=%.1f ms",
                id, rrserver_links_format_node(origin, finished_source, sizeof(finished_source)),
                r->received != r->expected ? "incomplete" : r->rejected ? "partial" : "complete",
-               r->received, r->expected, r->accepted, r->rejected, (unsigned long long)r->bytes,
-               elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 / elapsed_ms : 0.0,
+               r->received, r->expected, r->expected ? 100.0 * r->received / r->expected : 100.0,
+               r->expected > r->received ? r->expected - r->received : 0, r->rejected, r->accepted,
+               (unsigned long long)r->bytes, elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 / elapsed_ms : 0.0,
                (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
             rr_relay_sync_status(origin, true, r->received == r->expected && r->rejected == 0);
             if (r->received != r->expected) {
                char origin_label[192];
-               Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u", id, rrserver_links_format_node(origin,
-                  origin_label, sizeof(origin_label)), r->expected, r->received);
+               Log(LOG_WARN, "relay.catalog",
+                  "Catalog sync incomplete: peer=%s sync=%s missing=%u descriptors (%u/%u received); check relay routing, dropped/filtered catalog packets and peer logs for this sync ID",
+                  rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id,
+                  r->expected > r->received ? r->expected - r->received : 0, r->received, r->expected);
             }
             char *json = dict2json(stats);
             dict_free(stats);
@@ -617,7 +620,12 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       if (!strcmp(kind, "catalog")) {
          catalog_receive_t *sync = (*id && catalog_receives) ? g_hash_table_lookup(catalog_receives, id) : NULL;
 
-         if (sync && strcmp(sync->origin, origin)) sync = NULL;
+         /* Descriptors retain their owning node as envelope origin. A
+          * direct neighbor can legitimately send many downstream owners in
+          * one snapshot. Count them if their current route is that neighbor,
+          * never only when origin == neighbor. */
+         const char *via = rrserver_links_route(origin);
+         if (sync && (!via || strcmp(via, sync->origin))) sync = NULL;
          size_t payload_bytes = strlen(dict_get(envelope, "payload", ""));
          gint64 apply_started = g_get_monotonic_time();
          if (sync) {
