@@ -1466,6 +1466,7 @@ void rr_relay_catalog_pump(void) {
                peer->timeouts++;
             }
 #endif
+            rr_relay_sync_status(w->dest, false, false);
             Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)", (char *)key, rrserver_links_format_node(w->dest
                , dest_label, sizeof(dest_label)), (now - w->started) / 1000000.0, w->count);
             g_hash_table_iter_remove(&pending);
@@ -1540,6 +1541,8 @@ void rr_relay_send_catalogs(const char *dest) {
    relay_catalog_snapshot_t *s = g_new0(relay_catalog_snapshot_t, 1);
    s->dest = g_strdup(dest);
    s->sync_id = g_uuid_string_random();
+   /* Outbound snapshot replaces the previously acknowledged catalog view. */
+   rr_relay_sync_status(dest, false, false);
    s->messages = g_ptr_array_new_with_free_func((GDestroyNotify) dict_free);
    const char *types[] = {
       "node", "rig", "vfo", "room", "service"
