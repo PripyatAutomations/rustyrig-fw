@@ -54,13 +54,15 @@ static void deliver(rustyirc_connection_t *c) {
       if (strlen(c->nick) == nicklen && !strncasecmp(m->prefix, c->nick, nicklen))
          rustyirc_connection_set_nick(c, m->argv[1]);
    }
-   /* Parse and dispatch DCC AUDIO only; the application owns network and
-    * media session creation, authorization and cryptographic policy. */
-   if (( !strcmp(m->argv[0], "PRIVMSG") || !strcmp(m->argv[0], "NOTICE")) &&
-       m->argc >= 3 && m->prefix && m->argv[1] &&
-       *c->nick && !strcasecmp(m->argv[1], c->nick) &&
-       m->argv[2] && !strncmp(m->argv[2], "\001DCC AUDIO ", 11)) {
-      if (c->callbacks.on_dcc_audio)
+   /* Never deliver DCC AUDIO grants to ordinary chat callbacks, including
+    * malformed or misaddressed offers: payloads can contain credentials. */
+   bool audio = (!strcmp(m->argv[0], "PRIVMSG") ||
+                 !strcmp(m->argv[0], "NOTICE")) &&
+                m->argc >= 3 && m->argv[2] &&
+                !strncmp(m->argv[2], "\001DCC AUDIO", 10);
+   if (audio) {
+      if (m->prefix && m->argv[1] && *c->nick &&
+          !strcasecmp(m->argv[1], c->nick) && c->callbacks.on_dcc_audio)
          c->callbacks.on_dcc_audio(c->callbacks.context, c, m, m->argv[2]);
    } else if (c->callbacks.on_message) {
       c->callbacks.on_message(c->callbacks.context, c, m);
