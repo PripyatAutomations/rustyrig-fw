@@ -1305,6 +1305,7 @@ void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint receive
       }
    }
 #endif
+   rr_relay_sync_status(origin, false, complete);
    Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u", origin_label,
       sync_id, elapsed_us / 1000000.0, w->count, received, accepted, rejected);
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
