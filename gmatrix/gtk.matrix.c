@@ -131,6 +131,16 @@ static gboolean matrix_motion(GtkWidget *widget, GdkEventMotion *event, gpointer
    return FALSE;
 }
 
+/* A click on the rain exits the standalone window. The controls popover
+ * receives its own button events, so sliders remain interactive. */
+static gboolean matrix_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)event;
+   (void)data;
+   GtkWidget *window = gtk_widget_get_toplevel(widget);
+   if (GTK_IS_WINDOW(window)) gtk_widget_destroy(window);
+   return TRUE;
+}
+
 static gboolean matrix_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
    (void)data;
    if (event->detail != GDK_NOTIFY_INFERIOR) {
@@ -200,10 +210,11 @@ GtkWidget *rr_gtk_matrix_new(void) {
       g_signal_connect(m->scales[i], "value-changed", G_CALLBACK(matrix_options_changed), m);
    }
    matrix_options_changed(NULL, m);
-   gtk_widget_add_events(m->canvas, GDK_POINTER_MOTION_MASK);
+   gtk_widget_add_events(m->canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK);
    gtk_widget_add_events(m->popover, GDK_LEAVE_NOTIFY_MASK);
    g_signal_connect(m->canvas, "draw", G_CALLBACK(matrix_draw), m);
    g_signal_connect(m->canvas, "motion-notify-event", G_CALLBACK(matrix_motion), m);
+   g_signal_connect(m->canvas, "button-press-event", G_CALLBACK(matrix_click), NULL);
    g_signal_connect(m->canvas, "unmap", G_CALLBACK(matrix_unmap), m);
    g_signal_connect(m->popover, "leave-notify-event", G_CALLBACK(matrix_leave), m);
    gtk_widget_add_tick_callback(m->canvas, matrix_tick, m, NULL);
