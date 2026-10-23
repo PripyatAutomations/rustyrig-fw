@@ -925,6 +925,22 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
 /* Remove discovery and session state made unreachable by a lost link. */
 static void lost(const char *event, const char *node, rrconn_t *client, void *user) {
    if (node && *node) {
+      /* Do not retain abandoned receive sessions across link generations:
+       * a late timeout must not recreate a disconnected peer's health state. */
+      if (catalog_receives) {
+         GHashTableIter iter;
+         gpointer key, value;
+         g_hash_table_iter_init(&iter, catalog_receives);
+         while (g_hash_table_iter_next(&iter, &key, &value)) {
+            catalog_receive_t *r = value;
+            if (strcmp(r->origin, node)) continue;
+            Log(LOG_WARN, "relay.catalog",
+               "RX interrupted by link loss: sync=%s received=%u/%u missing=%u; discarded partial snapshot",
+               (char *)key, r->received, r->expected,
+               r->expected > r->received ? r->expected - r->received : 0);
+            g_hash_table_iter_remove(&iter);
+         }
+      }
       if (relay_sync_health) g_hash_table_remove(relay_sync_health, node);
       char label[192];
       Log(LOG_WARN, "relay.health", "Link lost: peer=%s; catalog synchronization no longer healthy",
