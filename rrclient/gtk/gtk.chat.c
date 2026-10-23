@@ -1723,16 +1723,22 @@ static gboolean vfo_locator_tick(gpointer unused) {
    long frequency = selected_online ? vfo_state_get_long(vfo, "cat.state.freq", 0) : 0;
    gboolean ptt = selected_online && vfo_state_get_bool(vfo, "cat.state.ptt", false);
    char formatted[64], freq_line[96], mode_line[96];
-   /* Group Hz digits independently of locale, so the format is predictable. */
-   char digits[40];
-   g_snprintf(digits, sizeof(digits), "%ld", frequency);
-   size_t len = strlen(digits), offset = 0;
-   for (size_t i = 0; i < len && offset + 2 < sizeof(formatted); ++i) {
-      if (i && (len - i) % 3 == 0) formatted[offset++] = ',';
-      formatted[offset++] = digits[i];
+   if (frequency > 0) {
+      /* Hz -> kHz with exactly three decimals and fixed comma grouping. */
+      unsigned long khz = (unsigned long)(frequency / 1000);
+      unsigned long hz = (unsigned long)(frequency % 1000);
+      char digits[40];
+      g_snprintf(digits, sizeof(digits), "%lu", khz);
+      size_t len = strlen(digits), offset = 0;
+      for (size_t i = 0; i < len && offset + 2 < sizeof(formatted); ++i) {
+         if (i && (len - i) % 3 == 0) formatted[offset++] = ',';
+         formatted[offset++] = digits[i];
+      }
+      formatted[offset] = '\0';
+      g_snprintf(freq_line, sizeof(freq_line), "Frequency: %s.%03lu kHz", formatted, hz);
+   } else {
+      g_strlcpy(freq_line, "Frequency: —", sizeof(freq_line));
    }
-   formatted[offset] = '\0';
-   g_snprintf(freq_line, sizeof(freq_line), "Frequency: %s Hz", frequency > 0 ? formatted : "—");
    g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %s",
       mode && *mode ? mode : "—", width > 0 ? "" : "—");
    if (width > 0)
