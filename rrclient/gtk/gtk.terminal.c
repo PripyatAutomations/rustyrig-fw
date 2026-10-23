@@ -36,7 +36,7 @@ static void console_bytes(const char *name, const char *bytes, size_t length, bo
       else if (c == '\\n') g_string_append(line, "\\n");
       else g_string_append_printf(line, "\\x%02X", (unsigned)c);
    }
-   g_string_append_c(line, '\\n');
+   g_string_append_c(line, '\n');
 #ifdef RR_HAVE_VTE
    vte_terminal_feed(VTE_TERMINAL(session->view), line->str, (gssize)line->len);
 #else
