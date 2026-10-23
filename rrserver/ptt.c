@@ -440,6 +440,13 @@ static void ptt_worker_completed(rr_backend_t *backend, rr_server_vfo_t *vfo, bo
    }
 
    if (pending->state && (!pending->owner || whos_talking() != pending->owner || rig.ptt_rig != pending->radio)) {
+      Log(LOG_WARN, "ptt", "Cancelling backend PTT-on after worker completion: owner=%s current_talker=%s rig_changed=%s vfo=%s",
+         pending->owner ? pending->owner->chatname : "(none)",
+         whos_talking() ? whos_talking()->chatname : "(none)",
+         rig.ptt_rig != pending->radio ? "yes" : "no", vfo_name(pending->vfo));
+      if (pending->owner)
+         ws_send_error(pending->owner, "PTT on VFO %s cancelled: transmitter ownership or active rig changed while backend request was pending",
+            vfo_name(pending->vfo));
       rr_backend_worker_submit(backend, vfo, RR_BACKEND_PTT, (dict_value_t) {
          .i = false
       }
@@ -676,22 +683,19 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
    // Broadcast immediate cat.state so clients see TX state without waiting
    // for the next backend poll.
-   const char *mode_str = rr_get_mode_str(vfo);
-
-   if (mode_str) {
-      dict *d = dict_new();
+   dict *d = dict_new();
+   if (d) {
       dict_add(d, "msg.type", "cat");
-
-      if (rig.ptt_rig) {
+      if (rig.ptt_rig)
          dict_add(d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig));
-      }
       dict_add(d, "cat.state.vfo", vfo_name(vfo));
       dict_add_bool(d, "cat.state.ptt", ptt);
-      // Read freq/width from the vfos[] table (polled from the active backend);
-      // hl_state is a hamlib-only cache and is zeroed for other backends.
       dict_add_ulong(d, "msg.ts", now);
       ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
+   } else {
+      Log(LOG_WARN, "ptt", "Unable to allocate PTT state broadcast (vfo=%s state=%s)",
+         vfo_name(vfo), ptt ? "on" : "off");
    }
 
    return false;
