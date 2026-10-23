@@ -397,6 +397,21 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
          rrserver_links_format_node(node, label, sizeof(label)),
          (double)(g_get_monotonic_time() - p->linked_at) / G_USEC_PER_SEC);
       p->announced = TRUE;
+      /* This reports local direct-neighbor convergence, not network-wide
+       * reachability or an application-health quorum. */
+      GHashTableIter peers;
+      gpointer key, value;
+      guint total = 0, healthy = 0;
+      g_hash_table_iter_init(&peers, relay_sync_health);
+      while (g_hash_table_iter_next(&peers, &key, &value)) {
+         relay_sync_health_t *peer = value;
+         total++;
+         if (peer->inbound_ok && peer->outbound_ok) healthy++;
+      }
+      if (total && healthy == total)
+         Log(LOG_INFO, "relay.health",
+            "Local cluster catalog sync healthy: %u/%u connected peers bidirectionally synchronized (not an end-to-end quorum)",
+            healthy, total);
    }
 }
 /* Direct-neighbor catalog synchronization accounting; bounded by the active snapshot IDs and cleared when its end marker is processed. */
