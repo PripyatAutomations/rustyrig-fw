@@ -1425,7 +1425,7 @@ void rrclient_media_refresh(void) {
 
    if (cptr) {
       if (!media_send_list(cptr)) {
-         Log(LOG_WARN, "ws.media", "Unable to refresh media channel list: request was not sent");
+         Log(LOG_WARN, "ws.media", "Media list refresh failed: websocket send rejected (connection=%p, active=%p, state=%d); check protocol send-validation logs", (void *)cptr, (void *)ws_conn, ws_connected);
          media_print("Unable to refresh media channels; connection is not writable");
       }
    } else {
