@@ -62,7 +62,7 @@ struct GuiWidget {
 typedef struct GuiWidget gui_widget_t;
 
 #include <rrclient/gtk/gtk.codecpicker.h>
-#include <rrclient/gtk/gtk.editcfg.h>
+#include <rrclient/gtk/gtk.file-editor.h>
 #include <rrclient/gtk/gtk.freqentry.h>
 #include <rrclient/gtk/gtk.fm-mode.h>
 #include <rrclient/gtk/gtk.mode-box.h>
@@ -100,7 +100,7 @@ extern bool cmd_css_reload(int argc, char **args); // cfg.gtkcss.c
 extern GtkWidget *conn_button;
 extern bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...);
 extern bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap);
-extern void gui_edit_config(const char *filepath);
+extern void gui_file_editor_open(const char *filepath);
 extern gboolean ui_scroll_to_end(gpointer data);
 extern GtkWidget *init_config_tab(void);
 extern GtkWidget *mode_combo;   // if mode_combo is a GtkWidget*
