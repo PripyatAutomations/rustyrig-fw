@@ -365,6 +365,40 @@ static void route_request(const char *event, const void *data, size_t length, rr
    io->result = true;
 }
 
+/* A link is catalog-ready only after both snapshot directions complete.
+ * This is a neighbor-sync condition, not an end-to-end cluster quorum. */
+typedef struct {
+   gboolean inbound_ok, outbound_ok, announced;
+   gint64 linked_at;
+} relay_sync_health_t;
+static GHashTable *relay_sync_health;
+static relay_sync_health_t *relay_sync_peer(const char *node) {
+   if (!node || !*node) return NULL;
+   if (!relay_sync_health)
+      relay_sync_health = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   relay_sync_health_t *p = g_hash_table_lookup(relay_sync_health, node);
+   if (!p) {
+      p = g_new0(relay_sync_health_t, 1);
+      p->linked_at = g_get_monotonic_time();
+      g_hash_table_insert(relay_sync_health, g_strdup(node), p);
+   }
+   return p;
+}
+void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
+   relay_sync_health_t *p = relay_sync_peer(node);
+   if (!p) return;
+   if (inbound) p->inbound_ok = complete;
+   else p->outbound_ok = complete;
+   if (!complete) p->announced = FALSE;
+   if (p->inbound_ok && p->outbound_ok && !p->announced) {
+      char label[192];
+      Log(LOG_INFO, "relay.health",
+         "Peer synchronized and healthy: node=%s bidirectional_catalog=complete elapsed=%.3f s",
+         rrserver_links_format_node(node, label, sizeof(label)),
+         (double)(g_get_monotonic_time() - p->linked_at) / G_USEC_PER_SEC);
+      p->announced = TRUE;
+   }
+}
 /* Direct-neighbor catalog synchronization accounting; bounded by the active snapshot IDs and cleared when its end marker is processed. */
 typedef struct {
    char *origin;
@@ -463,6 +497,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                r->received, r->expected, r->accepted, r->rejected, (unsigned long long)r->bytes,
                elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 / elapsed_ms : 0.0,
                (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
+            rr_relay_sync_status(origin, true, r->received == r->expected && r->rejected == 0);
             if (r->received != r->expected) {
                char origin_label[192];
                Log(LOG_WARN, "relay.catalog", "Incoming sync %s from %s incomplete: expected=%u received=%u", id, rrserver_links_format_node(origin,
@@ -798,6 +833,13 @@ done:
 
 /* Send current discovery and users when a direct server link becomes ready. */
 static void ready(const char *event, const char *node, rrconn_t *client, void *user) {
+   if (node && *node) {
+      g_hash_table_remove(relay_sync_health ? relay_sync_health : (relay_sync_health = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free)), node);
+      relay_sync_peer(node);
+      char label[192];
+      Log(LOG_INFO, "relay.health", "Link connected: peer=%s; exchanging catalogs (not yet synchronized)",
+         rrserver_links_format_node(node, label, sizeof(label)));
+   }
    rr_relay_collect_local();
    rr_relay_users_poll(true);
    rr_relay_send_catalogs(node);
@@ -856,6 +898,12 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
 
 /* Remove discovery and session state made unreachable by a lost link. */
 static void lost(const char *event, const char *node, rrconn_t *client, void *user) {
+   if (node && *node) {
+      if (relay_sync_health) g_hash_table_remove(relay_sync_health, node);
+      char label[192];
+      Log(LOG_WARN, "relay.health", "Link lost: peer=%s; catalog synchronization no longer healthy",
+         rrserver_links_format_node(node, label, sizeof(label)));
+   }
    for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {
       for (struct wanted_room *w = local->wanted ; w ; w = w->next) {
          if (!rrserver_links_route(w->owner)) {
