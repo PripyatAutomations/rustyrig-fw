@@ -34,6 +34,8 @@ typedef struct rr_backend_funcs {
    bool (*tuner_control)(rr_backend_t *backend, rr_server_vfo_t *vfo, const char *args);
    bool (*power_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, float power);
    float (*power_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
+   /* Full-scale calibrated TX power in watts; zero if unknown. */
+   float (*power_max)(rr_backend_t *backend, rr_server_vfo_t *vfo);
    rr_mode_t (*mode_get)(rr_backend_t *backend, rr_server_vfo_t *vfo);
    bool (*mode_set)(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t mode);
    const char *(*mode_get_str)(rr_backend_t *backend, rr_server_vfo_t *vfo);
