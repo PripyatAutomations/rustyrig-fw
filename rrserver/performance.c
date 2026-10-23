@@ -159,6 +159,19 @@ static void emit_neighbor_health(const char *subject, const char *site, bool onl
    dict_add(row, "inventory.state", severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Healthy");
    dict_add(row, "inventory.access", "read-only");
    target->emit(row, target->context);
+   char causes[1024] = {0};
+   rrserver_links_cause_counts(subject, causes, sizeof(causes));
+   if (*causes) {
+      char cause_name[192];
+      snprintf(cause_name, sizeof(cause_name), "Neighbor %s failure causes (5m)", site);
+      dict *counts = rr_inventory_row("", 1, "performance", cause_name, NULL);
+      if (counts) {
+         dict_add(counts, "inventory.description", causes);
+         dict_add(counts, "inventory.state", "Statistics");
+         dict_add(counts, "inventory.access", "read-only");
+         target->emit(counts, target->context);
+      }
+   }
    /* A separate diagnostic row keeps the standard five-minute summary short
     * while exposing durable, timestamped link causes in the catalog. */
    char history[2048] = {0};
