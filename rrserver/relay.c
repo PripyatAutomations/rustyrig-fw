@@ -932,9 +932,11 @@ static void close_client(const char *event, const char *data, rrconn_t *client, 
    }
 }
 
+extern void rr_relay_catalog_peer_lost(const char *node);
 /* Remove discovery and session state made unreachable by a lost link. */
 static void lost(const char *event, const char *node, rrconn_t *client, void *user) {
    if (node && *node) {
+      rr_relay_catalog_peer_lost(node);
       /* Do not retain abandoned receive sessions across link generations:
        * a late timeout must not recreate a disconnected peer's health state. */
       if (catalog_receives) {
