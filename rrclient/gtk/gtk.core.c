@@ -907,6 +907,15 @@ bool gui_init(void) {
    extern void rrclient_webcam_register(void);  // gtk.webcam.c
    rrclient_webcam_register();
 
+   /* Ask GTK for fullscreen before the window is mapped. An idle callback
+    * after show_all() can lose the race against the initial WM placement. */
+   if (cfg_fullscreen) {
+      Log(LOG_INFO, "ui.gtk3", "Startup requests fullscreen (ui.full-screen=true)");
+      gtk_window_fullscreen(GTK_WINDOW(main_window));
+   } else {
+      Log(LOG_INFO, "ui.gtk3", "Startup requests normal window (ui.full-screen=false)");
+   }
+
    // Make the main window on screen
    gtk_widget_show_all(main_window);
    gtk_widget_realize(main_window);
@@ -937,12 +946,9 @@ bool gui_init(void) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
    }
 
-   // enforce fullscreen if set
-   if (cfg_fullscreen) {
-      Log(LOG_INFO, "ui.gtk3", "Going fullscreen since cfg:ui.full-screen is set!");
-
-      g_idle_add(fullscreen_later, NULL);
-   }
+   /* Window placement runs after mapping; reassert once after it finishes.
+    * The helper is idempotent and does not toggle the configured flag. */
+   if (cfg_fullscreen) g_idle_add(fullscreen_later, NULL);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 
    ui_print(NULL, "%srustyrig client started", get_chat_ts(now));
