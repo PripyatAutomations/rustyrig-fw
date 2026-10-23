@@ -485,9 +485,8 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
-   char clock_unix[32];
-   snprintf(clock_unix, sizeof(clock_unix), "%lld", (long long)time(NULL));
-   dict_add(d, "clock.unix", clock_unix);
+   /* Legacy link wire decoders reject unknown hello fields. Clock sampling
+    * must be negotiated after the base handshake, never sent unconditionally. */
    /* Keep the initial hello compatible with all deployed wire decoders. */
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
