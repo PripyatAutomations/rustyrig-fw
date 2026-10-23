@@ -107,30 +107,10 @@ static char *resource_display_utf8(const char *value) {
 /* GPS fixes take precedence over Maidenhead grid centers. When only a
  * locator is available, mark the resulting coordinates as approximate. */
 static char *resource_location_details(const char *coords, const char *grid, gboolean compact) {
-   double lat = 0, lon = 0;
-   gboolean measured = coords && sscanf(coords, " %lf , %lf", &lat, &lon) == 2 &&
-                       isfinite(lat) && isfinite(lon) && lat >= -90 && lat <= 90 &&
-                       lon >= -180 && lon <= 180;
-   gboolean valid_grid = FALSE;
-   if (grid && (strlen(grid) == 4 || strlen(grid) == 6 || strlen(grid) == 8 || strlen(grid) == 10)) {
-      Coordinates position = maidenhead2latlon(grid);
-      valid_grid = !position.error;
-      if (valid_grid && !measured) {
-         lat = position.latitude;
-         lon = position.longitude;
-      }
-   }
-   if (!measured && !valid_grid) return g_strdup("");
-   Coordinates position = {.latitude = lat, .longitude = lon, .precision = 3, .error = 0};
-   /* The converter returns a static string, so copy immediately. */
-   const char *six_grid = latlon2maidenhead(&position);
-   char *locator = g_strdup(six_grid ? six_grid : "");
-   char *result = compact ?
-      g_strdup_printf("%s(%.2f, %.2f) [%s]", measured ? "" : "~", lat, lon, locator) :
-      g_strdup_printf("%sCoordinates: %.6f, %.6f · Grid square: %s",
-                      measured ? "" : "Approximate ", lat, lon, locator);
-   g_free(locator);
-   return result;
+   char formatted[192];
+   if (!rr_location_format(coords, grid, compact, formatted, sizeof(formatted)))
+      return g_strdup("");
+   return g_strdup(formatted);
 }
 static void set_string(GtkTreeIter *iter, int column, const char *value) {
    char *old = NULL;
