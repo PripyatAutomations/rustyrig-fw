@@ -29,6 +29,10 @@ include mk/eeprom.mk
 extra_clean += $(wildcard ${BUILD_DIR}/*.h) $(wildcard */compile_commands.json)
 extra_clean += ${EEPROM_FILE} ${librustyaxe} ${librrprotocol}
 extra_clean += firmware.log
+extra_clean_targets += gmatrix-clean
+.PHONY: gmatrix-clean
+gmatrix-clean:
+	$(MAKE) -C gmatrix clean
 
 BUILD_HEADERS += $(wildcard ${BUILD_DIR}/eeprom_layout.h)
 BUILD_HEADERS += $(wildcard ${BUILD_DIR}/*.h)
@@ -77,6 +81,16 @@ endif
 
 ifeq (${BUILD_FWDSP},true)
 include fwdsp/rules.mk
+endif
+
+# Standalone GTK screensaver, shipped by rustyrig-client-gtk-screensaver.
+# The recursive make is tied to its output, rather than being run twice
+# independently by the packaging build.
+ifneq ($(filter true,$(USE_GTK)),)
+.PHONY: gmatrix-build
+gmatrix-build:
+	$(MAKE) -C gmatrix all
+extra_build += gmatrix-build
 endif
 
 include mk/install.mk
