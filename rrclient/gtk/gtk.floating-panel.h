@@ -14,6 +14,4 @@ void rr_floating_panel_restore(RRFloatPanel *panel);
 void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);
 void rr_floating_panel_destroy(RRFloatPanel *panel);
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
-/* Attach shared settings and minimize-to-tab controls to a detached GTK window. */
-void rr_floating_window_controls(GtkWindow *window, GtkNotebook *tabs, const char *title);
 #endif
