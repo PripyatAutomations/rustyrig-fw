@@ -779,6 +779,31 @@ static bool width_set(rr_backend_t *b, rr_server_vfo_t *v, const char *width) {
    return sh_read(b, v) <= 0;
 }
 
+/* FT-891 ST sets the physical split state. Confirm it with a CAT
+ * readback before publishing any property observation. Split uses the
+ * radio's receive/transmit registers, not the client's selection cursor. */
+static bool split_mode(rr_backend_t *b, rr_server_vfo_t *v, const char *value) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t index;
+   char cmd[8], reply[24];
+   if (!s || !index_of(v, &index) || !value ||
+       (strcmp(value, "0") && strcmp(value, "1")) || s->ptt)
+      return true;
+   snprintf(cmd, sizeof(cmd), "ST%c;", value[0]);
+   if (!cat(s, cmd, NULL, NULL, 0) ||
+       !cat(s, "ST;", "ST", reply, sizeof(reply)) ||
+       strlen(reply) != 3 || reply[2] != value[0]) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu",
+                     "Split change not confirmed by FT-891 CAT readback");
+      return true;
+   }
+   dict_value_t observed = {.i = value[0] == '1'};
+   rr_backend_property_observe(b, v, "split", VAL_INT, &observed);
+   rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 split %s confirmed",
+                  value[0] == '1' ? "ON" : "OFF");
+   return false;
+}
+
 static bool frequency_set(rr_backend_t *b, rr_server_vfo_t *v, int hz) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -1601,6 +1626,7 @@ static const char *model_name(rr_backend_t *b) {
 static const rr_backend_funcs_t api = {
    .create = create, .destroy = destroy, .poll_state = state, .vfo_supported = supported,
    .freq_set = frequency_set, .freq_get = frequency_get,
+   .split_mode = split_mode,
    .width_set = width_set, .width_get = width_get, .widths_get = widths_get,
    .ptt_set = ptt_set, .ptt_get = ptt_get,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
