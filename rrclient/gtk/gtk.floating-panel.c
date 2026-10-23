@@ -230,6 +230,13 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_hexpand(p->scrim, TRUE);
    gtk_widget_set_vexpand(p->scrim, TRUE);
    gtk_widget_add_events(p->scrim, GDK_BUTTON_PRESS_MASK);
+   GtkCssProvider *scrim_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(scrim_css,
+      ".rr-modal-scrim { background-color: rgba(0,0,0,0.45); }", -1, NULL);
+   gtk_style_context_add_class(gtk_widget_get_style_context(p->scrim), "rr-modal-scrim");
+   gtk_style_context_add_provider(gtk_widget_get_style_context(p->scrim),
+                                  GTK_STYLE_PROVIDER(scrim_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(scrim_css);
    g_signal_connect(p->scrim, "button-press-event", G_CALLBACK(panel_scrim_press), p);
    gtk_overlay_add_overlay(overlay, p->scrim);
    gtk_widget_hide(p->scrim);
