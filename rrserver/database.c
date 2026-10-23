@@ -349,7 +349,7 @@ void db_cluster_health_cause_counts(sqlite3 *db, const char *reporter, const cha
    size_t used = 0;
    while (sqlite3_step(stmt) == SQLITE_ROW && used < capacity) {
       const char *cause = (const char *)sqlite3_column_text(stmt, 0);
-      int n = snprintf(out + used, capacity - used, "%s: %d\\n", cause ? cause : "unknown", sqlite3_column_int(stmt, 1));
+      int n = snprintf(out + used, capacity - used, "%s: %d\n", cause ? cause : "unknown", sqlite3_column_int(stmt, 1));
       if (n < 0 || (size_t)n >= capacity - used) break;
       used += (size_t)n;
    }
