@@ -13,6 +13,7 @@
 #include <rrclient/irc.stats.h>
 #include <rrclient/userlist.h>
 #include <rrclient/sercom.h>
+#include <rrclient/wsjtx.h>
 #include <rrclient/gtk/gtk.core.h>
 #include "gtk.resources.h"
 #include "gtk.control-panel.h"
@@ -463,13 +464,12 @@ static void resource_local_update(void) {
          gtk_tree_store_append(browser->store, &service, &browser->network_root);
          gtk_tree_store_set(browser->store, &service, NAME, "WSJTX Reporting", KIND, "network-service", -1);
       }
-      bool enabled = cfg_get_bool("wsjtx.enabled", false);
-      const char *port = cfg_get("wsjtx.udp.port");
-      char *details = g_strdup_printf("UDP reporting to localhost:%s", port && *port ? port : "2237");
-      set_string(&service, STATE, enabled ? "Enabled" : "Disabled");
-      set_string(&service, OURS, enabled ? "Configured locally" : "Not enabled");
+      char status[64], connection[128], details[640];
+      rrclient_wsjtx_status(status, sizeof(status), connection, sizeof(connection),
+                            details, sizeof(details));
+      set_string(&service, STATE, status);
+      set_string(&service, OURS, connection);
       set_string(&service, DETAILS, details);
-      g_free(details);
    }
    GHashTableIter cursor;
    gpointer name, value;
