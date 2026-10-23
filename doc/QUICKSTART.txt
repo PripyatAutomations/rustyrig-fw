@@ -156,5 +156,20 @@ Review separately any pre-existing admin@* bootstrap grants from fresh test
 database preloads: removing script-generated rows does not remove those grants.
 See doc/resource-privileges.md and doc/release-checklist.md.
 
+Virtual Yaesu CAT model selection
+---------------------------------
+Each client CAT endpoint can emulate either FT-991A (the default, including
+HF/VHF/UHF software profiles) or FT-891 (the HF/6m compatibility profile).
+Add the setting to the client configuration for the PTY in question:
+
+    [serial:ttyCAT]
+    cat-model=ft991a
+
+Or use cat-model=ft891 for an application configured to use Yaesu FT-891.
+The model changes the ID reply and is kept separately for each CAT endpoint;
+it does NOT change backend frequency ranges, access privileges, or transmit
+safety checks. EX032 and FT virtual state are likewise per endpoint. FT-991A
+compatibility is still evolving, and unsupported CAT commands are logged.
+
 For reports, include the release version, frontend, selected codec, relevant
 status/log messages and steps to reproduce. Redact passwords and proxy secrets.
