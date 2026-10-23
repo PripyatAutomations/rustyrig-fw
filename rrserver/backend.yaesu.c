@@ -809,6 +809,15 @@ static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
    if (!s || !index_of(v, &i) || i != b->active_vfo) {
       return true;
    }
+   /* This backend currently changes active_vfo in software but does not
+    * issue a physical FT-891 VFO swap. Never key an unverified B selection:
+    * TX1 operates the radio's physical TX path, not a named VFO register.
+    * Keep key-up possible to release an already keyed radio. */
+   if (on && i == VFO_B) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu",
+                     "PTT on VFO B rejected: hardware operating VFO not verified; no CAT VFO swap implemented");
+      return true;
+   }
 
    if (!cat(s, on ? "TX1;" : "TX0;", NULL, NULL, 0)) {
       return true;
