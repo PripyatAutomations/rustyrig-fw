@@ -1604,7 +1604,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
 
 /* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
  * child of the fullscreen client and exists only while a server is online. */
-static GtkWidget *vfo_locator_window, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode;
+static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode;
 static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
    if (!main_notebook) return G_SOURCE_REMOVE;
@@ -1629,10 +1629,15 @@ static gboolean vfo_locator_tick(gpointer unused) {
    if (!vfo_locator_window) {
       vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
+      gtk_window_set_decorated(GTK_WINDOW(vfo_locator_window), FALSE);
+      gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_UTILITY);
       gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
       gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), TRUE);
-      gtk_container_set_border_width(GTK_CONTAINER(vfo_locator_window), 6);
+      /* A native undecorated top-level, with the same lightweight border
+       * treatment as in-window floating panels. The frame owns PTT styling. */
+      vfo_locator_frame = gtk_event_box_new();
+      gtk_widget_set_name(vfo_locator_frame, "rr-vfo-locator");
       GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
       vfo_locator_label = gtk_label_new(NULL);
       vfo_locator_frequency = gtk_label_new(NULL);
@@ -1643,11 +1648,14 @@ static gboolean vfo_locator_tick(gpointer unused) {
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_label, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_frequency, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_mode, FALSE, FALSE, 0);
-      gtk_container_add(GTK_CONTAINER(vfo_locator_window), lines);
+      gtk_container_add(GTK_CONTAINER(vfo_locator_frame), lines);
+      gtk_container_add(GTK_CONTAINER(vfo_locator_window), vfo_locator_frame);
       GtkCssProvider *provider = gtk_css_provider_new();
       gtk_css_provider_load_from_data(provider,
-         "window.rr-vfo-ptt { background-color: #b00020; } "
-         "window.rr-vfo-ptt label { color: white; }", -1, NULL);
+         "#rr-vfo-locator { background-color: #20252b; border: 1px solid #687480; border-radius: 7px; padding: 8px 12px; } "
+         "#rr-vfo-locator label { color: #f0f2f4; } "
+         "#rr-vfo-locator.rr-vfo-ptt { background-color: #b00020; border-color: #ff6677; } "
+         "#rr-vfo-locator.rr-vfo-ptt label { color: white; }", -1, NULL);
       gtk_style_context_add_provider_for_screen(
          gtk_widget_get_screen(vfo_locator_window), GTK_STYLE_PROVIDER(provider),
          GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -1706,7 +1714,7 @@ static gboolean vfo_locator_tick(gpointer unused) {
       g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %ld Hz", mode && *mode ? mode : "—", width);
    gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq_line);
    gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode_line);
-   GtkStyleContext *style = gtk_widget_get_style_context(vfo_locator_window);
+   GtkStyleContext *style = gtk_widget_get_style_context(vfo_locator_frame);
    if (ptt) gtk_style_context_add_class(style, "rr-vfo-ptt");
    else gtk_style_context_remove_class(style, "rr-vfo-ptt");
    gtk_widget_show_all(vfo_locator_window);
