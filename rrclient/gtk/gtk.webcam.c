@@ -43,6 +43,7 @@ static rrconn_t *webcam_connection;
 static char webcam_decoder[5], webcam_uuid[64], webcam_profiles[512];
 static GtkWidget *webcam_codecs, *webcam_rates;
 
+void gtk_webcam_show(bool show);
 static void webcam_decoded(const char *name, const void *data, size_t len, void *user);
 static void webcam_panel_close(gpointer data) { (void)data; gtk_webcam_show(false); }
 
