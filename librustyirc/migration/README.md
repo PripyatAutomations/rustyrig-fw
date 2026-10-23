@@ -1,29 +1,42 @@
 # Original librrprotocol IRC source import
 
-These files preserve the original source during the ABI migration. **Do not
-compile this directory**: callbacks still use `rrconn_t` and some files call
-librrprotocol transport, RTP and RustyRig session APIs.
+This directory is the historical source snapshot used for the extraction.
+**Do not compile it.** The active implementation is the refactored original
+code in `librustyirc/`, not an independent replacement parser.
 
-The actively standalone core is in `../irc.c`, `../connection.c` and their
-headers. Its `rustyirc_connection_t` is the `irc_conn_t` opaque type exposed
-conditionally through `librustyaxe/struct.h`.
+## Ownership and call path
 
-Ownership target:
+- `irc.c`: original message allocation/tokenization, including full 311 real names.
+- `irc.dispatch.c`, `irc.commands.c`, `irc.numerics.c`: original single callback
+  registry and wire handlers, now receiving opaque `irc_conn_t` connections.
+- `irc.capab.c`: original ISUPPORT, CAP and SASL negotiation.
+- `irc.channel.c`, `irc.modes.c`: original channel/user helpers and mode tables.
+- `irc.audio.c`, `irc.dcc.c`: original offer codecs; no media or peer sockets.
+- `connection.c`: connection-owned receive framing, registration and transport
+  callbacks. The application owns the borrowed descriptor and all socket I/O.
+- `rrclient/irc.c`, `cli.irc.c`, `irc.compat.c`: RustyRig TCP/TLS and event adapter.
+- `rrclient/irc.dcc.c`, `irc.audio.session.c`: CHAT/SEND and AUDIO sessions.
 
-- librustyirc: wire framing, protocol messages, numerics, CAP/SASL, user
-  and channel state, client registration, callback routing.
-- rrclient: TCP/TLS, reconnection, UI, credentials policy, DCC AUDIO
-  session/media and ordinary DCC file/chat session sockets.
-- librrprotocol: no IRC runtime state or IRC message handler definitions.
+The adapter translates events to librustyaxe's event bus; interested client
+components subscribe with `event_on()`. Shared dictionary sends use the existing
+`protocol.server.send` event instead of linking IRC into librrprotocol.
+`rrserver` does not link librustyirc. USE_RUSTYIRC is generated consistently for
+all RustyRig objects because it changes rrconn_t's layout.
 
-The import is **not yet a completed move**. The originals are retained in
-librrprotocol until all internal signatures and dependencies have been changed
-and the parent git submodule references can be advanced coherently. Do not
-declare USE_RUSTYIRC for only part of a build: the conditional rrconn_t layout
-must be consistent across every object that consumes it.
+## Compatibility and remaining limits
 
-The media-session implementation was relocated to rrclient and removed from
-librrprotocol's latest commit. To test that change, update/pin the
-librrprotocol submodule to a commit including that removal, and likewise pin
-the updated librustyaxe submodule. Avoid compiling duplicate session symbols
-from the old submodule checkout.
+The rrclient adapter retains the original `irc_*` entry points so its GTK/TUI
+and command code can migrate separately. These are application interfaces,
+not exported librrprotocol APIs. Wire callbacks now receive `irc_conn_t *`.
+Historical incomplete features are unchanged: no new IRCv3 tag parser,
+reverse DCC, RESUME or SDCC, and channel/UI bookkeeping still consumes the
+original event stream. The registry and capability state are single-threaded;
+applications must serialize access and must not reset/re-feed a connection inside
+an event/send callback. Releasing a connection during a callback defers destruction
+until the active library call returns. The library never opens, reads, writes or closes an fd.
+
+## Verification
+
+`make -C librustyirc test` links against librustyaxe only. Integrated IRC,
+WHOIS/event, DCC and connection tests live beside rrclient in `rrclient/tests/`.
+The root `tests/run-tests.sh` also discovers the librustyirc suite.

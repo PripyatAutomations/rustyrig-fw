@@ -10,8 +10,9 @@ if ! pkg-config --exists gtk+-3.0; then
 fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+source rrclient/tests/irc-adapter.sh
 ${CC:-cc} -DUSE_GTK=1 -Wno-deprecated-declarations -I. -Iinc -Ibuild/${PROFILE:-radio} -ffunction-sections -fdata-sections \
    $(pkg-config --cflags gtk+-3.0) rrclient/tests/userlist_vfo.c rrclient/tests/client_stubs.c \
-   -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrustyaxe -lrrprotocol \
-   $(pkg-config --libs gtk+-3.0) -o "$work/userlist_vfo"
+   -Wl,--gc-sections -L. -Wl,-rpath,"$PWD" -lrustyaxe -lrrprotocol -lrustyirc \
+   $(pkg-config --libs gtk+-3.0) ${LDFLAGS:-} -o "$work/userlist_vfo"
 "$work/userlist_vfo"

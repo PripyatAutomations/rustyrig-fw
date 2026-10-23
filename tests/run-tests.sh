@@ -49,6 +49,7 @@ run_suite() {
     rrserver)    run_dir "$suite" rrserver/tests ;;
     selftest)    run_dir "$suite" tests/selftest ;;
     packaging)   run_dir "$suite" packaging/tests ;;
+    librustyirc) run_dir "$suite" librustyirc/tests ;;
     librustyaxe) run_dir "$suite" librustyaxe/tests ;;
     www)         node www/tests/files.js && node www/tests/audio_routes.js && node www/tests/chat_rooms.js && node www/tests/auth.js && node www/tests/wire.js && node www/tests/media_health.js && node www/tests/audio_backlog.js && node www/tests/binframe_validation.js && node www/tests/chat_security.js && node www/tests/web_completion.js && node www/tests/media_rooms.js && node www/tests/ptt_pending.js && node www/tests/reconnect.js && node www/tests/gps_nmea.js && node www/tests/resource_discovery.js && node www/tests/resource_navigation.js && node www/tests/webcam.js ;;
     *) echo "Unknown test suite: $suite" >&2; return 1 ;;
@@ -56,7 +57,7 @@ run_suite() {
 }
 
 if [ "$#" -eq 0 ]; then
-  SUITES="selftest packaging librustyaxe librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr www"
+  SUITES="selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient rrbridge fwdsp libfwdspmgr www"
 else
   SUITES="$*"
 fi

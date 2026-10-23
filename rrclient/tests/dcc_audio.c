@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <unistd.h>
-#include <librrprotocol/irc.audio.session.c>
+#include <rrclient/irc.audio.session.c>
 #define offered client_offer_notice
 #include <rrclient/dcc.c>
 #undef offered

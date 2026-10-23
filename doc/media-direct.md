@@ -200,7 +200,7 @@ The two stream IDs retain linked-client versus owner framing. This is an
 RTP referral, not conventional DCC TCP audio, and no listening client socket
 or inbound NAT mapping is required.
 
-`librrprotocol/irc.audio.h` provides `irc_dcc_audio_encode`,
+`rrclient/irc.audio.h` provides `irc_dcc_audio_encode`,
 `irc_dcc_audio_decode`, and `irc_send_dcc_audio`. Private PRIVMSG and NOTICE
 receipts emit `irc.dcc.audio` with normalized `media.subscribed` fields,
 `media.parent-session`, and the IRC sender/target metadata. Public channel
@@ -284,7 +284,7 @@ unencrypted builds. IRC carries the private attachment keys, so use TLS IRC
 when key confidentiality is required. Browser clients retain WebSocket audio.
 
 Peer attachment allocation, RTP transport, expiry, and enumeration live in
-`librrprotocol/irc.audio.session.h`. Applications register event handlers for
+`rrclient/irc.audio.session.h`. Applications register event handlers for
 incoming offer notices, PCM frames, and per-attachment closure, and choose when
 to call `irc_audio_accept()`. The native client owns microphone/speaker devices
 and its configuration. Classic DCC file transfers and chat are documented in [irc-dcc.md](irc-dcc.md).

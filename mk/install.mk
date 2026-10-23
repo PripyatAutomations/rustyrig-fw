@@ -46,10 +46,11 @@ install-dev: install-libs
 	@set -e; for src in ${libs}; do \
 		ln -sfn "$$(basename "$$src").0" "$(DESTDIR)$(LIBDIR)/$$(basename "$$src")"; \
 	done
-	@set -e; for component in librustyaxe librrprotocol libfwdspmgr; do \
+	@set -e; for component in librustyaxe librustyirc librrprotocol libfwdspmgr; do \
 		install -d "$(DESTDIR)$(PREFIX)/include/$$component"; \
 		for header in $$component/*.h; do \
 			[ -f "$$header" ] || continue; \
+			[ "$$header" != librustyirc/internal.h ] || continue; \
 			install -m644 "$$header" "$(DESTDIR)$(PREFIX)/include/$$component/"; \
 		done; \
 	done

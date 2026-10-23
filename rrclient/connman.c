@@ -10,11 +10,11 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
-// Native connection manager. Wire handlers remain in librrprotocol.
+// Native connection manager. IRC wire handlers live in librustyirc.
 #include <librrprotocol/wire.h>
 #include <librustyaxe/socks.h>
 

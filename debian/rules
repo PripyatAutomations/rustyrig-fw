@@ -107,6 +107,10 @@ endif
 	install -Dm644 sql/sqlite.master.preload.sql debian/rustyrig-server/var/lib/rustyrig/sql/sqlite.master.preload.sql
 
 	install -Dm755 librustyaxe.so debian/librustyaxe$(LIBDIR)/librustyaxe.so.0
+	install -Dm755 librustyirc.so debian/librustyirc$(LIBDIR)/librustyirc.so.0
+	install -d debian/librustyirc-dev$(LIBDIR) debian/librustyirc-dev/usr/include/librustyirc
+	ln -sf librustyirc.so.0 debian/librustyirc-dev$(LIBDIR)/librustyirc.so
+	for header in librustyirc/*.h; do [ "$$header" = librustyirc/internal.h ] || install -m644 "$$header" debian/librustyirc-dev/usr/include/librustyirc/; done
 	install -Dm755 librrprotocol.so debian/librrprotocol$(LIBDIR)/librrprotocol.so.0
 	install -Dm755 libfwdspmgr.so debian/libfwdspmgr$(LIBDIR)/libfwdspmgr.so.0
 	install -d debian/librustyaxe-dev$(LIBDIR)

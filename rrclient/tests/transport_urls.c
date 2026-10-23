@@ -5,7 +5,7 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/rooms.h>
@@ -540,7 +540,7 @@ int main(void) {
    failed->fn(failed, MG_EV_CLOSE, NULL);
    assert(!rrclient_connect_url("inherited.test", "ircs://inherited.test"));
    assert(connection_count == before_retry + 1 && !strcmp(last_url, "tcp://localhost:1080"));
-   /* Closing an online room queues PART and waits for server confirmation. */
+   /* Closing cancels reconnect intent immediately; tab teardown awaits self-PART. */
    assert(!rrclient_connect_url("window", "irc://window.test"));
    struct mg_connection *window_connection = ws_conn->conn;
    window_connection->fn(window_connection, MG_EV_CONNECT, NULL);
@@ -555,7 +555,7 @@ int main(void) {
    unsigned before_close = closed_status_tabs;
    assert(!cmd_win(2, win_close));
    assert(window_connection->send.len == strlen("PART #closeme\r\n") && !memcmp(window_connection->send.buf, "PART #closeme\r\n", window_connection->send.len));
-   assert(closed_status_tabs == before_close && rrclient_room_is_joined("#closeme"));
+   assert(closed_status_tabs == before_close && !rrclient_room_is_joined("#closeme"));
    /* Existing self-PART event handling then removes the membership and tab. */
    dict *part_confirmation = dict_new();
    dict_add(part_confirmation, "talk.room", "#closeme");
@@ -568,7 +568,7 @@ int main(void) {
    assert(rrclient_room_join(active_room));
    window_connection->is_closing = 1;
    assert(cmd_win(2, win_close) && closed_status_tabs == before_close + 1);
-   assert(rrclient_room_is_joined("#failed"));
+   assert(!rrclient_room_is_joined("#failed"));
    window_connection->is_closing = 0;
    active_room = "alice";
    mg_iobuf_del(&window_connection->send, 0, window_connection->send.len);

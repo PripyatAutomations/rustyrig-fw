@@ -52,6 +52,7 @@ ${BUILD_DIR}/%.o: | ${EEPROM_GENERATED}
 
 extra_clean += ${librustyaxe} librustyaxe/irc-test
 include librustyaxe/rules.mk
+include librustyirc/rules.mk
 include librrprotocol/rules.mk
 
 # callsign-lookup maintains its own object dependency graph. Run its make
@@ -100,7 +101,7 @@ ${BUILD_DIR}/.stamp:
 world: after-eeprom
 
 # Build configured programs and run the maintained project test suites.
-TEST_SUITES ?= selftest packaging librustyaxe librrprotocol rrserver rrclient fwdsp libfwdspmgr www
+TEST_SUITES ?= selftest packaging librustyaxe librustyirc librrprotocol rrserver rrclient fwdsp libfwdspmgr www
 .PHONY: test
 test tests: ${bins}
 	./tests/run-tests.sh ${TEST_SUITES}

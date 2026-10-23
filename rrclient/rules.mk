@@ -28,6 +28,7 @@ rrclient_objs += cmd.tabs.o		# tab/window switching
 rrclient_objs += config.layers.o
 rrclient_objs += connman.o		# connection manager
 rrclient_objs += dcc.o irc.audio.session.o
+rrclient_objs += irc.o irc.compat.o cli.irc.o irc.dcc.o srv.irc.core.o
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
 rrclient_objs += frontend.o		# Frontend module host interface
@@ -128,7 +129,7 @@ endif
 GTK_CFLAGS := ${GTK_MODULE_CFLAGS} ${VTE_CFLAGS}
 GTK_LDFLAGS := $(shell pkg-config --libs gtk+-3.0) ${VTE_LIBS}
 
-${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrclient/gtk/%.o: rrclient/gtk/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${librustyirc_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${gtk_headers} ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile-gtk] $< => $@"
@@ -156,13 +157,13 @@ ${BUILD_DIR}/rrclient/gtk/ui.speech.o: rrclient/gtk/ui.speech.c ${gtk_headers} $
 # client API it uses) from the rrclient executable itself, which is linked
 # with -rdynamic so the module's undefined symbols bind against the host at
 # dlopen() time. Only GTK libraries are linked directly here.
-${gtk_module}: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${gtk_module_real_objs}
+${gtk_module}: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${gtk_module_real_objs}
 	@echo "[link] $@ from $(words ${gtk_module_real_objs}) objects"
 	@${CC} ${LIB_LDFLAGS} -o $@ ${gtk_module_real_objs} ${GTK_LDFLAGS} ${notify_ldflags} || exit 2
 	@ls -a1ls $@
 	@file $@
 
-${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${OBJECT_ORDER_ONLY}
+${BUILD_DIR}/rrclient/%.o: rrclient/%.c ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${librustyaxe_headers} ${librrprotocol_headers} ${librustyirc_headers} ${BUILD_DIR}/build_config.h $(wildcard rrclient/*.h) ${OBJECT_ORDER_ONLY}
 	@${RM} -f $@
 	@mkdir -p $(shell dirname $@)
 	@echo "[compile] $< => $@"
@@ -174,9 +175,9 @@ ${BUILD_DIR}/rrclient/%.o: ${BUILD_HEADERS} GNUmakefile rrclient/rules.mk ${BUIL
 	@echo "[compile] $< => $@"
 	@${CC} ${CFLAGS_RRCLI} ${CFLAGS} ${CFLAGS_WARN} ${extra_cflags} -o $@ -c $< || exit 2
 
-bin/rrclient: ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
+bin/rrclient: ${librustyirc} ${BUILD_HEADERS} ${librustyaxe} ${librrprotocol} ${libmongoose} ${rrclient_real_objs} ${libfwdspmgr}
 	@echo "[link] $@ from $(words ${rrclient_real_objs}) objects"
-	@${CC} ${LDFLAGS_RRCLI} -rdynamic -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed ${LDFLAGS} || exit 2
+	@${CC} ${LDFLAGS_RRCLI} -rdynamic -o $@ ${rrclient_real_objs} ${rrclient_curl_libs} -lrustyaxe -lrrprotocol -lrustyirc -Wl,--no-as-needed -lfwdspmgr -Wl,--as-needed ${LDFLAGS} || exit 2
 	@ls -a1ls $@
 	@file $@
 	@size $@

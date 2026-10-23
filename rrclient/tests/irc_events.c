@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 #include <rrclient/userlist.h>
@@ -74,6 +74,10 @@ static const rr_frontend_ops_t redirect_frontend = {
 
 static bool use_frontend;
 static char status_text[1024], printed_room[128];
+const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room) {
+   (void)connection;
+   return !strcmp(room, "&local") || !strcmp(room, "#room") ? room : NULL;
+}
 static bool printed_status;
 static bool quit_test;
 static bool quit_members[3];
@@ -246,7 +250,7 @@ int main(void) {
    event_emit("irc.connected", &client, "");
    assert(ws_connected == 1 && !strcmp(login_user, "tester") && rejoins == 1);
    assert(!irc_process_message(&client, ":uranium.libera.chat 002 tester :Your host is uranium.libera.chat, running version solanum"));
-   assert(printed_status && strstr(status_text, "[002] Your host is uranium.libera.chat"));
+   assert(printed_status && strstr(status_text, "Your host [002]: Your host is uranium.libera.chat"));
    const struct {
       const char *line, *first, *second;
    } whois_replies[] = {
@@ -323,6 +327,8 @@ int main(void) {
 
    for (size_t i = 0 ; i < sizeof(whois_replies) / sizeof(whois_replies[0]) ; i++) {
       irc_process_message(&client, whois_replies[i].line);
+      if (!printed_status || !strstr(status_text, whois_replies[i].first))
+         fprintf(stderr, "WHOIS case %zu: expected %s; got %s\n", i, whois_replies[i].first, status_text);
       assert(printed_status && strstr(status_text, whois_replies[i].first));
       assert(strstr(status_text, whois_replies[i].second));
    }
@@ -460,7 +466,8 @@ int main(void) {
    assert(!irc_send_buffer[0]);
    use_frontend = true;
    assert(!irc_process_message(&client, ":server 477 tester #electronics :Cannot join channel (+r) - you need to be logged into your NickServ account"));
-   assert(!strcmp(added_room, "#electronics") && !strcmp(printed_room, "#electronics"));
+   /* A rejected JOIN must not manufacture a new channel tab. */
+   assert(strcmp(added_room, "#electronics") && !strcmp(printed_room, "status"));
    assert(strstr(status_text, "Cannot join #electronics:") && strstr(status_text, "NickServ account"));
    assert(!irc_send_buffer[0]);
    use_frontend = false;

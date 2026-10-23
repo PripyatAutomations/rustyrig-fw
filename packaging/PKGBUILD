@@ -28,6 +28,8 @@ build() {
 _install_libs() {
    cd "$srcdir/rustyrig-fw"
    install -Dm755 librustyaxe.so "$pkgdir/usr/lib/librustyaxe.so.0"
+   install -Dm755 librustyirc.so "$pkgdir/usr/lib/librustyirc.so.0"
+   ln -s librustyirc.so.0 "$pkgdir/usr/lib/librustyirc.so"
    install -Dm755 librrprotocol.so "$pkgdir/usr/lib/librrprotocol.so.0"
    install -Dm755 libfwdspmgr.so "$pkgdir/usr/lib/libfwdspmgr.so.0"
    ln -s librustyaxe.so.0 "$pkgdir/usr/lib/librustyaxe.so"

@@ -26,7 +26,7 @@
 #include <librustyaxe/core.h>
 #include <librustyaxe/tui.h>
 #include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/rooms.h>
 #include <rrclient/dcc.h>

@@ -65,7 +65,7 @@ without GTK, RTP, libSRTP, or GStreamer audio support.
 
 ## Protocol and reusable API
 
-`librrprotocol/irc.dcc.h` owns offer parsing, session IDs, sockets, queues, file
+`librustyirc/irc.dcc.h` owns offer parsing. `rrclient/irc.dcc.h` owns session IDs, sockets, queues, file
 descriptor duplication, acknowledgement tracking, timeouts and events. Programs
 own path selection, acceptance decisions and UI. Library operations duplicate
 caller file descriptors; callers may close their originals after a successful

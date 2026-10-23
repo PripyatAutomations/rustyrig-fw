@@ -74,6 +74,7 @@ install -Dpm0755 bin/rrclient-gtk.so %{buildroot}/usr/lib/rustyrig/modules/rrcli
 install -Dpm0755 bin/fwdsp %{buildroot}%{_bindir}/fwdsp
 install -Dpm0755 bin/callsign-lookup %{buildroot}%{_bindir}/callsign-lookup
 install -Dpm0755 librustyaxe.so %{buildroot}%{_libdir}/librustyaxe.so.0
+install -Dpm0755 librustyirc.so %{buildroot}%{_libdir}/librustyirc.so.0
 install -Dpm0755 librrprotocol.so %{buildroot}%{_libdir}/librrprotocol.so.0
 install -Dpm0755 libfwdspmgr.so %{buildroot}%{_libdir}/libfwdspmgr.so.0
 install -Dpm0644 packaging/rrserver.service %{buildroot}%{_unitdir}/rustyrig-server.service
@@ -109,6 +110,7 @@ getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /va
 %files libs
 %{_libdir}/librustyaxe.so.0
 %{_libdir}/librrprotocol.so.0
+%{_libdir}/librustyirc.so.0
 %{_libdir}/libfwdspmgr.so.0
 %files server
 %dir %attr(0770,rustyrig,rustyrig) %{_sharedstatedir}/rustyrig/db

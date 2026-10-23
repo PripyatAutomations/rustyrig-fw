@@ -24,7 +24,7 @@
 #include <librustyaxe/event-bus.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/codecneg.h>
-#include <librrprotocol/irc.audio.session.h>
+#include <rrclient/irc.audio.session.h>
 #include <librrprotocol/media.health.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #include <libfwdspmgr/fwdsp-ctl.h>

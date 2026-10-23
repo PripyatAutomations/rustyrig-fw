@@ -11,7 +11,7 @@
 #include <string.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>

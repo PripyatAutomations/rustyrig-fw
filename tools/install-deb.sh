@@ -16,6 +16,8 @@ esac
 DEBS="../libfwdspmgr_*_${ARCH}.deb"
 DEBS="$DEBS ../libfwdspmgr-dbgsym_*_${ARCH}.deb"
 DEBS="$DEBS ../libfwdspmgr-dev_*_${ARCH}.deb"
+DEBS="$DEBS ../librustyirc_*_${ARCH}.deb"
+DEBS="$DEBS ../librustyirc-dev_*_${ARCH}.deb"
 DEBS="$DEBS ../librrprotocol_*_${ARCH}.deb"
 DEBS="$DEBS ../librrprotocol-dbgsym_*_${ARCH}.deb"
 DEBS="$DEBS ../librrprotocol-dev_*_${ARCH}.deb"

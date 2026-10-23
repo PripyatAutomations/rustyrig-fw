@@ -18,7 +18,7 @@
 #include <rrclient/resource.context.h>
 #include <rrclient/objects.h>
 #include <librrprotocol/ws.mediachan.h>
-#include <librrprotocol/irc.dcc.h>
+#include <rrclient/irc.dcc.h>
 #include <librustyaxe/tui.h>
 
 /* Complete server names as the argument to /server, from the same cfg keys the server chooser lists. PARITY: rrclient/ui.c show_server_chooser()

@@ -849,6 +849,8 @@ sub generate_config_h {
       }
    }
 
+   # IRC connection layout must agree across every library and application.
+   printf $fh "#define USE_RUSTYIRC 1\n";
    if (defined($config->{features})) {
       if (defined($config->{features}{'alsa'}) && match_boolean($config->{features}{'alsa'})) {
          printf $fh "#define USE_ALSA\n";

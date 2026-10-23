@@ -42,6 +42,18 @@ Depends: librustyaxe (= ${binary:Version}), ${misc:Depends}
 Description: Development files for librustyaxe
  Headers and linker files for the RustyRig core library.
 
+Package: librustyirc
+Architecture: any
+Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: Reusable IRC protocol library
+ IRC parsing, registration, CAP/SASL and DCC offer codecs without socket ownership.
+
+Package: librustyirc-dev
+Architecture: any
+Depends: librustyirc (= ${binary:Version}), librustyaxe-dev, ${misc:Depends}
+Description: Development files for librustyirc
+ Public headers and linker files for the standalone IRC library.
+
 Package: librrprotocol
 Architecture: any
 Depends: librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
@@ -77,7 +89,7 @@ Description: RustyRig server
 Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
-Depends: acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: librustyirc (= ${binary:Version}), acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
  in rustyrig-client-gtk as a loadable module.

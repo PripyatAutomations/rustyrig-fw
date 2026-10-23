@@ -4,10 +4,10 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librrprotocol/irc.dcc.h>
+#include <rrclient/irc.dcc.h>
 /* Application-owned DCC AUDIO media sessions; librustyirc only decodes and emits offers. */
-#include <librrprotocol/irc.audio.session.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.audio.session.h>
+#include <rrclient/irc.h>
 #include <librrprotocol/rtp.socket.h>
 #include <librrprotocol/ws.binframe.h>
 #include <stdio.h>

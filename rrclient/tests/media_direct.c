@@ -10,7 +10,7 @@
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/server.events.h>
 #include <librrprotocol/rtp.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/media.direct.h>
 static uint64_t time_offset;
 long long mono_us(void) {

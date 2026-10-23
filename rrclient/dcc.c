@@ -4,7 +4,8 @@
 // The software is not for sale. It is freely available, always.
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
-#include <librrprotocol/irc.dcc.h>
+#include <rrclient/irc.dcc.h>
+#include <rrclient/irc.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <limits.h>
@@ -14,7 +15,7 @@
 #include <rrclient/cmd.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
-#include <librrprotocol/irc.audio.session.h>
+#include <rrclient/irc.audio.session.h>
 #include <librrprotocol/rtp.h>
 #include <string.h>
 extern rrconn_t *ws_conn;

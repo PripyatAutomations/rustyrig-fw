@@ -1,0 +1,818 @@
+#include "internal.h"
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
+//
+// irc.numerics.c: Default handlers for common IRC numerics.
+//
+#include <stdlib.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+
+bool rustyirc_builtin_num_print(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 2) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 3) {
+      return false;
+   }
+   char buf[1024];
+   memset(buf, 0, 1024);
+   size_t pos = 0;
+
+   for (int i = 2 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] %s *** %s ***", rustyirc_name(cptr), (mp->argc > 0 ? mp->argv[1] : "?"), buf);
+//   ui_print("status", "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0),
+//      rustyirc_name(cptr), buf);
+
+   return false;
+}
+
+bool rustyirc_builtin_num001(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] *** %s ***", rustyirc_name(cptr), mp->argv[2]);
+//   ui_print("status", "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[2]);
+   snprintf(cptr->nick, sizeof(cptr->nick), "%s", mp->argv[1]);
+   cptr->registered = true;
+   // rrclient updates its UI via the irc.connected event
+   rustyirc_emit_message("irc.connected", cptr, mp);
+
+   rustyirc_send(cptr, "MODE %s +ix", cptr->nick);
+
+   // Blorp a WHOIS for ourself
+   rustyirc_send(cptr, "WHOIS %s", cptr->nick);
+
+//   ui_print("status",
+//      "%s {bright-cyan}>>>{reset} Attached to rig {bright-cyan}%s.%s{reset}
+// via {bright-magenta}IRC{reset} transport [{green}%s{reset}]
+// {bright-cyan}<<<{reset}",
+//      get_chat_ts(0), site_id, rig_id, rustyirc_name(cptr));
+
+   return false;
+}
+
+bool rustyirc_builtin_num004(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] *** %s ***", rustyirc_name(cptr), mp->argv[2]);
+//   ui_print("status", "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[2]);
+
+   return false;
+}
+
+bool rustyirc_builtin_num005(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 2) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 3) {
+      return false;
+   }
+   char buf[1024];
+   memset(buf, 0, 1024);
+   size_t pos = 0;
+
+   for (int i = 2 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] %s *** %s ***", rustyirc_name(cptr), (mp->argc > 0 ? mp->argv[1] : "?"), buf);
+//   ui_print("status", "%s [{green}%s{reset}] *** %s ***", get_chat_ts(0),
+//      rustyirc_name(cptr), buf);
+
+   return false;
+}
+
+bool rustyirc_builtin_num251(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 0) {
+      return true;
+   }
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 2 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] 251: %s", rustyirc_name(cptr), buf);
+//   ui_print("status", "%s [{green}%s{reset}] 251 %s", get_chat_ts(0),
+//      rustyirc_name(cptr), buf);
+
+   return false;
+}
+
+bool rustyirc_builtin_num311(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 7) {
+      return true;
+   }
+
+   /* RPL_WHOISUSER: 311 <recipient> <target> <user> <host> * :<realname>
+    * argv[5] is the mandatory literal asterisk, not part of the name. */
+   if (!mp->argv[2] || !mp->argv[3] || !mp->argv[4] ||
+       !mp->argv[5] || strcmp(mp->argv[5], "*") || !mp->argv[6]) {
+      return true;
+   }
+   char *nick = mp->argv[2];
+   char *ident = mp->argv[3];
+   char *host = mp->argv[4];
+   char *realname = mp->argv[6];
+   Log(LOG_DEBUG, "irc", "[%s] whois: %s!%s@%s <%s>", rustyirc_name(cptr), nick, ident, host, realname);
+//   ui_print(tui_active_window(), "%s [{green}%s{reset}] * %s!%s@%s <%s>",
+// get_chat_ts(0),
+//      rustyirc_name(cptr), nick, ident, host, realname);
+
+   return false;
+}
+
+bool rustyirc_builtin_num312(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 5) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 0) {
+      return true;
+   }
+   char *nick = mp->argv[2];
+   char *server = mp->argv[3];
+   char *info = mp->argv[4];
+
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 2 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] whois: %s is on server %s: %s", rustyirc_name(cptr), nick, server, info);
+//   ui_print(tui_active_window(), "%s [{green}%s{reset}] * %s is on server %s:
+// %s",
+//      get_chat_ts(0), rustyirc_name(cptr), nick, server, info);
+
+   return false;
+}
+
+bool rustyirc_builtin_num313(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 1) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 0) {
+      return false;
+   }
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 2 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] whois: {green}%s{reset}", buf, rustyirc_name(cptr));
+//   ui_print( tui_active_window(), "%s [{green}%s{reset}] *** 313 %s ***",
+// get_chat_ts(0), buf,
+//      rustyirc_name(cptr) );
+
+   return false;
+}
+
+bool rustyirc_builtin_num317(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 5) {
+      return true;
+   }
+
+   if (!mp || mp->argc < 4) {
+      return false;
+   }
+   char *nick = mp->argv[2];
+   char *idle = mp->argv[3];
+   char *signon = mp->argv[4];
+   time_t idle_t = strtoul(idle, NULL, 10);
+   time_t signon_t = strtoul(signon, NULL, 10);
+   char *idle_ts = time_t2dhms(idle_t);
+   char signon_date[56];
+   memset(signon_date, 0, sizeof(signon_date));
+   format_timestamp(signon_t, signon_date, sizeof(signon_date));
+
+   Log(LOG_DEBUG, "irc", "[%s] whois: %s connected at %s (idle %s)", rustyirc_name(cptr), nick, signon_date, idle_ts);
+//   ui_print(tui_active_window(),
+//      "%s [{green}%s{reset}] * {bright-cyan}%s{reset} connected at
+// {green}%s{reset} (idle {green}%s{reset})",
+//      get_chat_ts(0), rustyirc_name(cptr), nick, signon_date, idle_ts);
+   free(idle_ts);
+
+   return false;
+}
+
+bool rustyirc_builtin_num318(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 2) {
+      return true;
+   }
+
+   if (!mp || mp->argc < 1) {
+      return false;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] whois: End of whois for %s", rustyirc_name(cptr), mp->argv[1]);
+//   ui_print(tui_active_window(),
+//      "%s [{green}%s{reset}] *** End of WHOIS {bright-cyan}%s{reset} ***",
+// get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[1]);
+
+   return false;
+}
+
+bool rustyirc_builtin_num319(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (!mp || mp->argc < 2) {
+      return false;
+   }
+   char *nick = mp->argv[2];
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 3 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 3 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] whois: %s is in channels: %s", rustyirc_name(cptr), nick, buf);
+//   ui_print(tui_active_window(),
+//      "%s [{green}%s{reset}] * %s is in channels:
+// {bright-black}|{bright-magenta}%s{bright-black}|{reset} ",
+//      get_chat_ts(0), rustyirc_name(cptr), nick, buf);
+
+   return false;
+}
+
+bool rustyirc_builtin_num332(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 4) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 0) {
+      return true;
+   }
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 3 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 3 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+//   ui_print("status", "prefix: %s argc: %d arg0: %s
+// arg1: %s arg2: %s arg3 %s", mp->prefix, mp->argc, mp->argv[0], mp->argv[1],
+// mp->argv[2], mp->argv[3]);
+   // rrclient updates the window status line via the irc.topic event
+   rustyirc_emit_message("irc.topic", cptr, mp);
+
+   return false;
+}
+
+bool rustyirc_builtin_num353(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 4) {
+      return true;
+   }
+
+   if (!mp || mp->argc <= 3) {
+      return false;
+   }
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 2 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 2 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] names: %s", rustyirc_name(cptr), buf);
+//   ui_print(tui_window_find(mp->argv[3]), "%s [{green}%s{reset}] *** %s ***",
+// get_chat_ts(0),
+//      rustyirc_name(cptr), buf);
+
+   return false;
+}
+
+bool rustyirc_builtin_num366(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (mp->argc < 3) {
+      return true;
+   }
+   char *chan = mp->argv[2];
+   irc_channel_t *chptr = NULL;
+
+   if (!chan) {
+      return true;
+   }
+//   chptr = rustyirc_channel_find(chan);
+   Log(LOG_DEBUG, "irc", "[%s] End of names for %s", rustyirc_name(cptr), chan);
+//   ui_print(tui_window_find(mp->argv[2]),
+//      "%s [{green}%s{reset}] *** End of NAMES {bright-magenta}%s{reset} ***",
+// get_chat_ts(0),
+//      rustyirc_name(cptr), chan);
+
+   if (chptr) {
+      chan_end_names(chptr);
+   }
+
+   return false;
+}
+
+bool rustyirc_builtin_num371(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 1) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] Start of MOTD", rustyirc_name(cptr));
+//   ui_print( "status", "%s [{green}%s{reset}] *** Start of MOTD ***",
+//      get_chat_ts(0), rustyirc_name(cptr) );
+
+   return false;
+}
+
+bool rustyirc_builtin_num372(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (mp->argc < 2) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] MOTD: %s", rustyirc_name(cptr), mp->argv[2]);
+//   ui_print("status", "%s [{green}%s{reset}] %s", get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[2]);
+
+   return false;
+}
+
+bool rustyirc_builtin_num376(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 1) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] End of MOTD", rustyirc_name(cptr));
+//   ui_print( "status", "%s [{green}%s{reset}] *** End of MOTD ***",
+//      get_chat_ts(0), rustyirc_name(cptr) );
+
+   return false;
+}
+
+bool rustyirc_builtin_num401(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (mp->argc < 2) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] No such nickname: %s", rustyirc_name(cptr), mp->argv[2]);
+//   ui_print(tui_active_window(),
+//      "%s [{green}%s{reset}] No such nickname: {bright-cyan}%s{reset}.",
+// get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[2]);
+
+   return false;
+}
+
+bool rustyirc_builtin_num403(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (mp->argc < 2) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] No such channel: %s", rustyirc_name(cptr), mp->argv[2]);
+//   ui_print(tui_active_window(),
+//      "%s [{green}%s{reset}] No such channel: {bright-magenta}%s{reset}.",
+// get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[2]);
+
+   return false;
+}
+
+bool rustyirc_builtin_num421(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (!mp || mp->argc < 2) {
+      return false;
+   }
+   char *nick = mp->argv[2];
+   char buf[1024];
+   size_t pos = 0;
+
+   for (int i = 3 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s%s", (i > 3 ? " " : ""), mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s]: %s => %s", rustyirc_name(cptr), nick, buf);
+//   ui_print("status", "%s [{green}%s{reset}] * %s Unknown Command => %s",
+//      get_chat_ts(0), rustyirc_name(cptr), nick, buf);
+
+   return false;
+}
+
+bool rustyirc_builtin_num433(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s] Nickname already in use: %s", rustyirc_name(cptr), mp->argv[2]);
+   rustyirc_emit_message("irc.nick-in-use", cptr, mp);
+
+   return false;
+}
+
+bool rustyirc_builtin_num461(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (mp->argc < 2) {
+      return true;
+   }
+   Log(LOG_DEBUG, "irc", "[%s] Not enough parameters:: %s", rustyirc_name(cptr), mp->argv[2]);
+//   ui_print(tui_active_window(),
+//      "%s [{green}%s{reset}] Not enough parameters: {bright-magenta}%s{reset}
+// ", get_chat_ts(0),
+//      rustyirc_name(cptr), mp->argv[2]);
+
+   return false;
+}
+
+bool rustyirc_builtin_num470(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 4 || !mp->argv ||
+      !mp->argv[1] || !mp->argv[2] || !mp->argv[3] ||
+      strcasecmp(mp->argv[1], cptr->nick) ||
+      (mp->argv[2][0] != '#' && mp->argv[2][0] != '&') || !mp->argv[2][1] || (mp->argv[3][0] != '#' && mp->argv[3][0] != '&') || !mp->argv[3][1]) {
+      return true;
+   }
+
+   if (strcasecmp(mp->argv[2], mp->argv[3])) {
+      rustyirc_emit_message("irc.channel.redirect", cptr, mp);
+   }
+
+   return false;
+}
+
+bool rustyirc_builtin_num482(irc_conn_t *cptr, irc_message_t *mp) {
+   if (!cptr || !mp || mp->argc < 3) {
+      return true;
+   }
+
+   if (!mp || mp->argc < 2) {
+      return false;
+   }
+   char buf[1024];
+   char *target = mp->argv[2];
+   size_t pos = 0;
+
+   for (int i = 3 ; i < mp->argc ; i++) {
+      int n = snprintf(buf + pos, sizeof(buf) - pos, "%s{%d}%s", (i > 3 ? " " : ""), i, mp->argv[i] ? mp->argv[i] : "");
+
+      if (n < 0 || (size_t)n >= sizeof(buf) - pos) {
+         break;
+      }
+      pos += n;
+   }
+
+   Log(LOG_DEBUG, "irc", "[%s]: %s: %s", rustyirc_name(cptr), target, buf);
+//   ui_print(tui_window_find(target),
+//      "%s [{green}%s{reset}] * You're not a channel operator: %s",
+// get_chat_ts(0), rustyirc_name(cptr),
+//      target, buf);
+
+   return false;
+}
+
+const rustyirc_numeric_t irc_numerics[] = {
+   // --- Connection / welcome ---
+   {
+      .code = 1, .name = "RPL_WELCOME", .desc = "Welcome to the Internet Relay Network",
+      .cb = rustyirc_builtin_num001
+   },
+   {
+      .code = 2, .name = "RPL_YOURHOST", .desc = "Your host information",
+      .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 3, .name = "RPL_CREATED", .desc = "Server creation time",
+      .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 4, .name = "RPL_MYINFO", .desc = "Server info and supported modes",
+      .cb = rustyirc_builtin_num004
+   },
+   {
+      .code = 5, .name = "RPL_ISUPPORT", .desc = "Supported features (IRCv3 tokens)",
+      .cb = rustyirc_builtin_num005
+   },
+   {
+      .code = 251, .name = "RPL_LUSERCLIENT", .desc = "Online local users",
+      .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 254, .name = "RPL_LUSERCHANNELS", .desc = "Channels on server",
+      .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 255, .name = "RPL_LUSERME", .desc = "Local users", .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 265, .name = "RPL_LOCALUSERS", .desc = "Local users", .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 266, .name = "RPL_GLOBALUSERS", .desc = "Global users", .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 250, .name = "RPL_UNKNOWN", .desc = "XXX", .cb = rustyirc_builtin_num_print
+   },
+
+   // --- Channel / names ---
+   {
+      .code = 322, .name = "RPL_LIST", .desc = "Channel list entry", .cb = NULL
+   },
+   {
+      .code = 323, .name = "RPL_LISTEND", .desc = "End of channel list", .cb = NULL
+   },
+   {
+      .code = 324, .name = "RPL_CHANNELMODEIS", .desc = "Channel modes", .cb = NULL
+   },
+   {
+      .code = 329, .name = "RPL_CREATIONTIME", .desc = "Channel creation time", .cb = NULL
+   },
+   {
+      .code = 332, .name = "RPL_TOPIC", .desc = "Channel topic", .cb = rustyirc_builtin_num332
+   },
+   {
+      .code = 333, .name = "RPL_TOPICWHOTIME", .desc = "Topic set by/at", .cb = NULL
+   },
+   {
+      .code = 353, .name = "RPL_NAMREPLY", .desc = "Names in a channel", .cb = rustyirc_builtin_num353
+   },
+   {
+      .code = 366, .name = "RPL_ENDOFNAMES", .desc = "End of NAMES list", .cb = rustyirc_builtin_num366
+   },
+
+   /* Common WHOIS extensions across Solanum/Charybdis, InspIRCd, UnrealIRCd and Ergo. Keep callbacks NULL: the client renders them through irc.message and
+   * retains unknown numeric fallback. */
+   {
+      .code = 301, .name = "RPL_AWAY", .desc = "Away message"
+   },
+   {
+      .code = 307, .name = "RPL_WHOISREGNICK", .desc = "Registered nickname"
+   },
+   {
+      .code = 310, .name = "RPL_WHOISHELPOP", .desc = "Network help operator (daemon-specific)"
+   },
+   {
+      .code = 314, .name = "RPL_WHOWASUSER", .desc = "WHOWAS user information"
+   },
+   {
+      .code = 316, .name = "RPL_WHOISCHANOP", .desc = "WHOIS channel operator (daemon-specific)"
+   },
+   {
+      .code = 320, .name = "RPL_WHOISSPECIAL", .desc = "Network-specific WHOIS text"
+   },
+   {
+      .code = 330, .name = "RPL_WHOISACCOUNT", .desc = "Authenticated account"
+   },
+   {
+      .code = 335, .name = "RPL_WHOISBOT", .desc = "Bot status (daemon-specific)"
+   },
+   {
+      .code = 338, .name = "RPL_WHOISACTUALLY", .desc = "Actual host or IP (daemon-specific)"
+   },
+   {
+      .code = 276, .name = "RPL_WHOISCERTFP", .desc = "Client TLS certificate fingerprint"
+   },
+   {
+      .code = 671, .name = "RPL_WHOISSECURE", .desc = "Secure connection"
+   },
+   {
+      .code = 670, .name = "RPL_WHOISSECUREALT", .desc = "Secure connection (daemon-specific)"
+   },
+   {
+      .code = 275, .name = "RPL_WHOISSSL", .desc = "TLS connection (daemon-specific)"
+   },
+   {
+      .code = 406, .name = "ERR_WASNOSUCHNICK", .desc = "No such nickname in WHOWAS"
+   },
+   // --- WHO / WHOIS ---
+   {
+      .code = 311, .name = "RPL_WHOISUSER", .desc = "WHOIS: user info", .cb = rustyirc_builtin_num311
+   },
+   {
+      .code = 312, .name = "RPL_WHOISSERVER", .desc = "WHOIS: server info",
+      .cb = rustyirc_builtin_num312
+   },
+   {
+      .code = 313, .name = "RPL_WHOISOPERATOR", .desc = "WHOIS: operator status",
+      .cb = rustyirc_builtin_num313
+   },
+   {
+      .code = 317, .name = "RPL_WHOISIDLE", .desc = "WHOIS: idle time", .cb = rustyirc_builtin_num317
+   },
+   {
+      .code = 318, .name = "RPL_ENDOFWHOIS", .desc = "End of WHOIS reply",
+      .cb = rustyirc_builtin_num318
+   },
+   {
+      .code = 319, .name = "RPL_WHOISCHANNELS", .desc = "WHOIS: channels",
+      .cb = rustyirc_builtin_num319
+   },
+   {
+      .code = 352, .name = "RPL_WHOREPLY", .desc = "WHO reply", .cb = NULL
+   },
+   {
+      .code = 315, .name = "RPL_ENDOFWHO", .desc = "End of WHO reply", .cb = NULL
+   },
+
+   // --- Server / MOTD ---
+   {
+      .code = 375, .name = "RPL_MOTDSTART", .desc = "MOTD start", .cb = rustyirc_builtin_num371
+   },
+   {
+      .code = 372, .name = "RPL_MOTD", .desc = "MOTD line", .cb = rustyirc_builtin_num372
+   },
+   {
+      .code = 376, .name = "RPL_ENDOFMOTD", .desc = "End of MOTD", .cb = rustyirc_builtin_num376
+   },
+   {
+      .code = 378, .name = "RPL_UNKNOWN2", .desc = "XXX", .cb = rustyirc_builtin_num_print
+   },
+   {
+      .code = 379, .name = "RPL_UNKNOWN3", .desc = "XXX", .cb = rustyirc_builtin_num_print
+   },
+
+   // --- Errors ---
+   {
+      .code = 401, .name = "ERR_NOSUCHNICK", .desc = "No such nick/channel",
+      .cb = rustyirc_builtin_num401
+   },
+   {
+      .code = 402, .name = "ERR_NOSUCHSERVER", .desc = "No such server", .cb = NULL
+   },
+   {
+      .code = 403, .name = "ERR_NOSUCHCHANNEL", .desc = "No such channel",
+      .cb = rustyirc_builtin_num403
+   },
+   {
+      .code = 404, .name = "ERR_CANNOTSENDTOCHAN", .desc = "Cannot send to channel", .cb = NULL
+   },
+   {
+      .code = 405, .name = "ERR_TOOMANYCHANNELS", .desc = "Too many channels", .cb = NULL
+   },
+   {
+      .code = 421, .name = "ERR_UNKNOWNCOMMAND", .desc = "Unknown command",
+      .cb = rustyirc_builtin_num421
+   },
+   {
+      .code = 432, .name = "ERR_ERRONEUSNICKNAME", .desc = "Erroneous nickname", .cb = NULL
+   },
+   {
+      .code = 433, .name = "ERR_NICKNAMEINUSE", .desc = "Nickname already in use",
+      .cb = rustyirc_builtin_num433
+   },
+   {
+      .code = 436, .name = "ERR_NICKCOLLISION", .desc = "Nickname collision", .cb = NULL
+   },
+   {
+      .code = 451, .name = "ERR_NOTREGISTERED", .desc = "You have not registered", .cb = NULL
+   },
+   {
+      .code = 461, .name = "ERR_NEEDMOREPARAMS", .desc = "Not enough parameters",
+      .cb = rustyirc_builtin_num461
+   },
+   {
+      .code = 462, .name = "ERR_ALREADYREGISTRED", .desc = "You may not reregister", .cb = NULL
+   },
+   {
+      .code = 464, .name = "ERR_PASSWDMISMATCH", .desc = "Password incorrect", .cb = NULL
+   },
+   {
+      .code = 465, .name = "ERR_YOUREBANNEDCREEP", .desc = "You are banned from this server",
+      .cb = NULL
+   },
+   {
+      .code = 470, .name = "ERR_LINKCHANNEL", .desc = "Channel join redirected",
+      .cb = rustyirc_builtin_num470
+   },
+   {
+      .code = 471, .name = "ERR_CHANNELISFULL", .desc = "Channel is full", .cb = NULL
+   },
+   {
+      .code = 473, .name = "ERR_INVITEONLYCHAN", .desc = "Invite-only channel", .cb = NULL
+   },
+   {
+      .code = 474, .name = "ERR_BANNEDFROMCHAN", .desc = "Banned from channel", .cb = NULL
+   },
+   {
+      .code = 475, .name = "ERR_BADCHANNELKEY", .desc = "Bad channel key", .cb = NULL
+   },
+   {
+      .code = 482, .name = "ERR_CHANOPRIVSNEEDED", .desc = "Channel operator privileges needed",
+      .cb = rustyirc_builtin_num482
+   },
+   {
+      .code = 491, .name = "ERR_NOOPERHOST", .desc = "No O-lines for your host", .cb = NULL
+   },
+
+   // --- IRCv3 / extensions ---
+   {
+      .code = 900, .name = "RPL_LOGGEDIN", .desc = "SASL authentication successful", .cb = NULL
+   },
+   {
+      .code = 901, .name = "RPL_LOGGEDOUT", .desc = "SASL logged out", .cb = NULL
+   },
+   {
+      .code = 902, .name = "ERR_NICKLOCKED", .desc = "SASL nick is locked", .cb = NULL
+   },
+   {
+      .code = 903, .name = "RPL_SASLSUCCESS", .desc = "SASL auth success (deprecated alias)",
+      .cb = NULL
+   },
+   {
+      .code = 904, .name = "ERR_SASLFAIL", .desc = "SASL authentication failed", .cb = NULL
+   },
+   {
+      .code = 905, .name = "ERR_SASLTOOLONG", .desc = "SASL message too long", .cb = NULL
+   },
+   {
+      .code = 906, .name = "ERR_SASLABORTED", .desc = "SASL authentication aborted", .cb = NULL
+   },
+   {
+      .code = 907, .name = "ERR_SASLALREADY", .desc = "SASL already authenticated", .cb = NULL
+   },
+   {
+      .code = 908, .name = "RPL_SASLMECHS", .desc = "Available SASL mechanisms", .cb = NULL
+   },
+   {
+      .code = 0, .name = NULL, .desc = NULL, .cb = NULL
+   }                                                     // terminator
+};

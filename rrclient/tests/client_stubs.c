@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <librustyaxe/core.h>
+#include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/ui.h>
 #include <rrclient/userlist.h>
@@ -93,4 +94,10 @@ WEAK bool rrclient_media_local_tx(const char *uuid) {
    (void)uuid;
 
    return false;
+}
+
+/* Event probes have no connection-owned channel tabs unless a test overrides this. */
+WEAK const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room) {
+   (void)connection; (void)room;
+   return NULL;
 }

@@ -505,7 +505,7 @@ preferences, and IRC commands have no browser equivalent.
 
 Classic DCC CHAT/SEND are native-only IRC transports. Shared `rrclient/dcc.c`
 commands require explicit incoming acceptance; `/dcc get ID [filename]` defaults
-to the offered basename in `~/Downloads/DCC/`, creating that directory as needed; GTK and TUI both use `librrprotocol/irc.dcc.h`. Session notices
+to the offered basename in `~/Downloads/DCC/`, creating that directory as needed; GTK and TUI both use `rrclient/irc.dcc.h`. Session notices
 and chat replies retain their issuing/accepting window and server context.
 There is no browser DCC counterpart.
 
@@ -582,7 +582,7 @@ a connection-wide site → rig → VFO tree, including linked sites. GPS invento
 retains site and rig parents and also spans the connection. Reply destinations
 remain the issuing window; cached object/media context filters are unchanged.
 
-IRC SASL is native-only. `librrprotocol/irc.capab.c` negotiates PLAIN or EXTERNAL
+IRC SASL is native-only. `librustyirc/irc.capab.c` negotiates PLAIN or EXTERNAL
 before CAP END; `rrclient/connman.c` supplies per-profile `server.sasl.user`,
 `server.sasl.pass` and `server.sasl.mechanism`. See [IRC SASL](irc-sasl.md).
 Native media notices identify direct owner RTP, server-proxy RTP or WebSocket

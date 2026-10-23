@@ -1,22 +1,38 @@
-#include "connection.h"
+#include "internal.h"
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
-struct rustyirc_connection {
-   rustyirc_callbacks_t callbacks;
-   char nick[64];
-   char line[RUSTYIRC_MAX_LINE + 3];
-   size_t buffered;
-   bool registered, dropping;
-};
-rustyirc_connection_t *rustyirc_connection_new(const rustyirc_callbacks_t *callbacks) {
+rustyirc_connection_t *rustyirc_connection_new(int fd, const rustyirc_callbacks_t *callbacks) {
    if (!callbacks) return NULL;
    rustyirc_connection_t *c = calloc(1, sizeof(*c));
-   if (c) c->callbacks = *callbacks;
+   if (c) { c->callbacks = *callbacks; c->fd = fd; c->references = 1; }
+   if (c && (!rustyirc_register_default_callbacks() || !rustyirc_register_default_numeric_callbacks())) {
+      free(c);
+      return NULL;
+   }
    return c;
 }
-void rustyirc_connection_free(rustyirc_connection_t *c) { free(c); }
+/* Transport failures may release the application's ownership synchronously from
+ * send/event callbacks. Keep protocol frames alive until their outer call returns. */
+bool rustyirc_connection_hold(irc_conn_t *c) {
+   if (!c || c->closing) return false;
+   ++c->references;
+   return true;
+}
+void rustyirc_connection_release(irc_conn_t *c) {
+   if (--c->references) return;
+   rustyirc_capabilities_clear(c);
+   volatile unsigned char *secret = (volatile unsigned char *)&c->credentials;
+   for (size_t i = 0; i < sizeof(c->credentials); ++i) secret[i] = 0;
+   free(c);
+}
+void rustyirc_connection_free(irc_conn_t *c) {
+   if (!c || c->closing) return;
+   c->closing = true;
+   rustyirc_connection_release(c);
+}
 bool rustyirc_connection_set_nick(rustyirc_connection_t *c, const char *nick) {
    if (!c || !nick || !*nick || strlen(nick) >= sizeof(c->nick)) return false;
    for (const unsigned char *p = (const unsigned char *)nick; *p; ++p)
@@ -28,66 +44,151 @@ const char *rustyirc_connection_nick(const rustyirc_connection_t *c) { return c 
 bool rustyirc_connection_registered(const rustyirc_connection_t *c) { return c && c->registered; }
 void rustyirc_connection_reset(rustyirc_connection_t *c) {
    if (!c) return;
-   c->buffered = 0;
+   rustyirc_capabilities_clear(c);
+   c->recvq[0] = 0;
    c->registered = false;
-   c->dropping = false;
+   c->sent_login = false;
 }
-bool rustyirc_connection_send(rustyirc_connection_t *c, const char *line) {
+static bool rustyirc_connection_send_impl(rustyirc_connection_t *c, const char *line) {
    if (!c || !c->callbacks.send || !line) return false;
    size_t n = strlen(line);
-   if (!n || n > RUSTYIRC_MAX_LINE || strchr(line, '\r') || strchr(line, '\n')) return false;
+   if (!n || n > rustyirc_line_limit(c) - 2 || strchr(line, '\r') || strchr(line, '\n')) return false;
    char wire[RUSTYIRC_MAX_LINE + 3];
    memcpy(wire, line, n);
    wire[n] = '\r'; wire[n + 1] = '\n';
    return c->callbacks.send(c->callbacks.context, wire, n + 2);
 }
-static void deliver(rustyirc_connection_t *c) {
-   c->line[c->buffered] = 0;
-   if (c->buffered && c->line[c->buffered - 1] == '\r')
-      c->line[--c->buffered] = 0;
-   rustyirc_message_t *m = rustyirc_parse(c->line);
-   c->buffered = 0;
-   if (!m) return;
-   if (!strcmp(m->argv[0], "001")) c->registered = true;
-   if (!strcmp(m->argv[0], "NICK") && m->argc > 1 && m->prefix && *c->nick) {
-      size_t nicklen = strcspn(m->prefix, "!");
-      if (strlen(c->nick) == nicklen && !strncasecmp(m->prefix, c->nick, nicklen))
-         rustyirc_connection_set_nick(c, m->argv[1]);
-   }
-   /* Never deliver DCC AUDIO grants to ordinary chat callbacks, including
-    * malformed or misaddressed offers: payloads can contain credentials. */
-   bool audio = (!strcmp(m->argv[0], "PRIVMSG") ||
-                 !strcmp(m->argv[0], "NOTICE")) &&
-                m->argc >= 3 && m->argv[2] &&
-                !strncmp(m->argv[2], "\001DCC AUDIO", 10);
-   if (audio) {
-      if (m->prefix && m->argv[1] && *c->nick &&
-          !strcasecmp(m->argv[1], c->nick) && c->callbacks.on_dcc_audio)
-         c->callbacks.on_dcc_audio(c->callbacks.context, c, m, m->argv[2]);
-   } else if (c->callbacks.on_message) {
-      c->callbacks.on_message(c->callbacks.context, c, m);
-   }
-   rustyirc_message_free(m);
+void rustyirc_connection_set_fd(irc_conn_t *c, int fd) { if (c) c->fd = fd; }
+int rustyirc_connection_fd(const irc_conn_t *c) { return c ? c->fd : -1; }
+void rustyirc_connection_set_sasl(irc_conn_t *c, const char *user, const char *pass, const char *mechanism) {
+   if (!c) return;
+   snprintf(c->credentials.sasl_user, sizeof(c->credentials.sasl_user), "%s", user ? user : "");
+   snprintf(c->credentials.sasl_pass, sizeof(c->credentials.sasl_pass), "%s", pass ? pass : "");
+   snprintf(c->credentials.sasl_mechanism, sizeof(c->credentials.sasl_mechanism), "%s", mechanism ? mechanism : "");
 }
-bool rustyirc_connection_feed(rustyirc_connection_t *c, const void *bytes, size_t size) {
-   if (!c || (!bytes && size)) return false;
-   const unsigned char *p = bytes;
-   bool valid = true;
-   for (size_t i = 0; i < size; ++i) {
-      if (p[i] == '\n') {
-         if (!c->dropping) deliver(c);
-         c->dropping = false;
-         c->buffered = 0;
-      } else if (c->dropping) {
-         continue;
-      } else if (c->buffered < sizeof(c->line) - 1) {
-         c->line[c->buffered++] = (char)p[i];
-      } else {
-         /* Discard an oversized line until its terminating LF. */
-         c->buffered = 0;
-         c->dropping = true;
-         valid = false;
-      }
+bool rustyirc_send(irc_conn_t *c, const char *fmt, ...) {
+   char line[IRC_MSGLEN];
+   va_list args;
+   va_start(args, fmt);
+   int n = vsnprintf(line, sizeof(line), fmt, args);
+   va_end(args);
+   return n >= 0 && (size_t)n <= rustyirc_line_limit(c) - 2 && rustyirc_connection_send(c, line);
+}
+void rustyirc_event_emit(const char *event, irc_conn_t *c, const char *data) {
+   if (c && !c->closing && c->callbacks.on_event) c->callbacks.on_event(c->callbacks.context, c, event, data);
+}
+void rustyirc_event_emit_dict(const char *event, irc_conn_t *c, dict *d) {
+   char *json = dict2json(d);
+   if (json) rustyirc_event_emit(event, c, json);
+   free(json);
+}
+
+static bool rustyirc_connection_feed_impl(irc_conn_t *cptr, const void *data, size_t n) {
+   if (!cptr || !data || !n) {
+      return false;
    }
-   return valid;
+   // append to recvq safely
+   size_t cur_len = strlen(cptr->recvq);
+
+   if (n >= RECVQLEN - cur_len) {
+      Log(LOG_WARN, "irc", "recvq overflow, closing connection");
+      
+      return false;
+   }
+
+   if (memchr(data, '\0', (size_t)n)) {
+      
+      return false;
+   }
+   memcpy(cptr->recvq + cur_len, data, n);
+   cur_len += n;
+   cptr->recvq[cur_len] = '\0';
+
+   // process complete lines
+   char *start = cptr->recvq;
+   char *end;
+   while ((end = strstr(start, "\r\n"))) {
+      if ((size_t)(end - start) > IRC_MSGLEN - 2) {
+         
+         return false;
+      }
+      *end = '\0';
+
+      if (strcasestr(start, "DCC AUDIO")) {
+         Log(LOG_DEBUG, "net", "processing DCC AUDIO referral (credentials omitted)");
+      } else {
+         Log(LOG_DEBUG, "net", "processing line: [%s]", start);
+      }
+      rustyirc_process_message(cptr, start);
+      if (cptr->closing) return false;
+
+      start = end + 2;
+   }
+   // move leftover partial line to front
+   size_t leftover = strlen(start);
+
+   if (leftover > IRC_MSGLEN - 1) {
+      
+      return false;
+   }
+   memmove(cptr->recvq, start, leftover + 1);
+   return true;
+
+}
+
+static bool rustyirc_connection_register_impl(irc_conn_t *cptr, const char *ident, const char *account, const char *pass) {
+   if (!cptr) {
+      return false;
+   }
+
+   if (!cptr->sent_login) {
+      ident = ident && *ident ? ident : cptr->nick;
+      account = account ? account : "";
+      pass = pass ? pass : "";
+      if (!cptr->nick[0] || strpbrk(cptr->nick, " :\t\r\n") || strpbrk(ident, " :\t\r\n")) {
+
+         return false;
+      }
+      bool sent = true;
+
+      if (pass[0]) {
+         if (account[0]) {
+            sent = rustyirc_send(cptr, "PASS %s:%s", account, pass);
+         } else {
+            sent = rustyirc_send(cptr, "PASS %s", pass);
+         }
+      }
+      rustyirc_capabilities_reset(cptr);
+      sent = sent && rustyirc_send(cptr, "CAP LS 302") && rustyirc_send(cptr, "NICK %s", cptr->nick) && rustyirc_send(cptr, "USER %s 0 * :%s", ident, cptr->nick);
+
+      if (!sent) {
+
+         return false;
+      }
+      cptr->sent_login = true;
+   }
+
+   return true;
+}
+
+
+bool rustyirc_connection_send(irc_conn_t *c, const char *line) {
+   if (!rustyirc_connection_hold(c)) return false;
+   bool result = rustyirc_connection_send_impl(c, line);
+   rustyirc_connection_release(c);
+   return result;
+}
+
+bool rustyirc_connection_feed(irc_conn_t *c, const void *bytes, size_t size) {
+   if (!rustyirc_connection_hold(c)) return false;
+   bool result = rustyirc_connection_feed_impl(c, bytes, size);
+   rustyirc_connection_release(c);
+   return result;
+}
+
+bool rustyirc_connection_register(irc_conn_t *c, const char *ident, const char *account, const char *pass) {
+   if (!rustyirc_connection_hold(c)) return false;
+   bool result = rustyirc_connection_register_impl(c, ident, account, pass);
+   rustyirc_connection_release(c);
+   return result;
 }

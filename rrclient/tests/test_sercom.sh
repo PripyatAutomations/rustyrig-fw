@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+source rrclient/tests/irc-adapter.sh
 ${CC:-cc} ${CFLAGS:-} -I. -Iinc -Ibuild/${PROFILE:-radio} \
    rrclient/tests/sercom.c rrclient/tests/client_stubs.c rrclient/serial.c rrclient/sercom.c \
    rrclient/cat.c rrclient/cat.yaesu.c rrclient/cat.pty.c \

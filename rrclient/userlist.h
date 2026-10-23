@@ -13,7 +13,7 @@
 
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #if     defined(USE_GTK)
 #include <gtk/gtk.h>
 #endif

@@ -9,10 +9,10 @@ import json
 from pathlib import Path
 import re
 
-DEFAULT_ROOTS = ('rrclient', 'rrserver', 'librustyaxe', 'librrprotocol',
+DEFAULT_ROOTS = ('rrclient', 'rrserver', 'librustyaxe', 'librustyirc', 'librrprotocol',
                  'libfwdspmgr', 'fwdsp', 'rrbridge', 'callsign-lookup',
                  'bindings', 'targets', 'inc')
-SKIP = {'.git', 'ext', 'build', 'node_modules'}
+SKIP = {'.git', 'ext', 'build', 'node_modules', 'migration'}
 TOKENS = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//[^\n]*|/\*.*?\*/', re.S)
 DEFINITION = re.compile(r'(?m)^(?:static\s+)?[A-Za-z_][^;{}\n]*?\b(\w+)\s*\(')
 

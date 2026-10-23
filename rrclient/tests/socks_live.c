@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <librustyaxe/core.h>
-#include <librrprotocol/irc.h>
+#include <rrclient/irc.h>
 #include <rrclient/connman.h>
 #include <rrclient/frontend.h>
 const rr_frontend_ops_t *frontend_ops(void) {
