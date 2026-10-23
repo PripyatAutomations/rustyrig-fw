@@ -1214,6 +1214,7 @@ static const rr_backend_funcs_t rr_backend_hamlib_api = {
    .mode_set = hl_mode_set,
    .power_set = hl_power_set,
    .power_get = hl_power_get,
+   .power_max = hl_power_max,
    .widths_get = hl_widths_get,
    .width_get = hl_width_get,
    .width_set = hl_width_set,
