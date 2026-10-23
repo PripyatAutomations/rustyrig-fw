@@ -919,7 +919,7 @@ static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char 
 
    if (entry) {
       GtkFreqEntry *fe = GTK_FREQ_ENTRY(entry);
-      bool available = vfo_state_get_long(vfo, "cat.state.freq", -1) >= 0;
+      bool available = vfo_state_get_long(vfo, "cat.state.freq", -1) > 0;
       gtk_widget_set_tooltip_text(entry, available ? "Observed frequency" : "Frequency unavailable");
 
       if (!available) {
