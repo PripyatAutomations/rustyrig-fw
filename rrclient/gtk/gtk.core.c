@@ -823,6 +823,12 @@ static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
    return TRUE;
 }
 
+static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
+   (void)button;
+   (void)unused;
+   if (main_window) gtk_window_iconify(GTK_WINDOW(main_window));
+}
+
 bool gui_init(void) {
    // Apply user CSS (from [gtk-css] config section) or the default from
    // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
@@ -842,6 +848,11 @@ bool gui_init(void) {
    rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    gtk_widget_set_margin_start(rr_main_toolbar, 4);
    gtk_widget_set_margin_end(rr_main_toolbar, 4);
+   GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize-symbolic", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
+   g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
+   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
    gtk_box_pack_start(GTK_BOX(main_content),
       gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip),
