@@ -429,6 +429,33 @@ static void resource_discover_devices(struct local_scan *scan) {
 static void resource_local_port(rr_serial_t *port, void *data) {
    resource_local_named(rr_serial_name(port), data);
 }
+/* WSJT-X is a client-local UDP service. Reuse existing rows to avoid
+ * disturbing Explorer expansion and selection every two seconds. */
+typedef struct { GtkTreeIter root; } wsjtx_tree_context;
+static GtkTreeIter wsjtx_tree_child(GtkTreeIter *parent, const char *name,
+                                    const char *kind) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent); ok;
+        ok = gtk_tree_model_iter_next(model, &child)) {
+      char *old_name = NULL, *old_kind = NULL;
+      gtk_tree_model_get(model, &child, NAME, &old_name, KIND, &old_kind, -1);
+      gboolean match = !g_strcmp0(old_name, name) && !g_strcmp0(old_kind, kind);
+      g_free(old_name); g_free(old_kind);
+      if (match) return child;
+   }
+   gtk_tree_store_append(browser->store, &child, parent);
+   gtk_tree_store_set(browser->store, &child, NAME, name, KIND, kind, -1);
+   return child;
+}
+static void wsjtx_tree_field(const char *id, const char *group, const char *key,
+                             const char *value, void *data) {
+   wsjtx_tree_context *ctx = data;
+   GtkTreeIter peer = wsjtx_tree_child(&ctx->root, id, "wsjtx-peer");
+   GtkTreeIter folder = wsjtx_tree_child(&peer, group, "group");
+   GtkTreeIter field = wsjtx_tree_child(&folder, key, "wsjtx-field");
+   set_string(&field, STATE, value);
+}
 static void resource_local_update(void) {
    struct local_scan scan = {
       g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL)
@@ -470,6 +497,8 @@ static void resource_local_update(void) {
       set_string(&service, STATE, status);
       set_string(&service, OURS, connection);
       set_string(&service, DETAILS, details);
+      wsjtx_tree_context ctx = { .root = service };
+      rrclient_wsjtx_foreach_field(wsjtx_tree_field, &ctx);
    }
    GHashTableIter cursor;
    gpointer name, value;
