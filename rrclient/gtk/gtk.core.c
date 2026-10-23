@@ -45,6 +45,7 @@ GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
 GtkWidget *main_notebook = NULL;
+GtkWidget *rr_main_toolbar = NULL;
 GtkWidget *status_tab = NULL;
 GtkWidget *log_tab = NULL;
 GtkWidget *host_log_tab = NULL;
@@ -836,7 +837,16 @@ bool gui_init(void) {
    // (labels, buttons, tabs, ...) inherits this one.
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
-   gtk_ui_zoom_attach(main_window, gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip));
+   /* The shared status/command toolbar belongs above every notebook page. */
+   GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   gtk_widget_set_margin_start(rr_main_toolbar, 4);
+   gtk_widget_set_margin_end(rr_main_toolbar, 4);
+   gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
+   gtk_box_pack_start(GTK_BOX(main_content),
+      gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip),
+      TRUE, TRUE, 0);
+   gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
    g_object_ref(viewport);
