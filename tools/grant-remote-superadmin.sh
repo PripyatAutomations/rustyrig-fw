@@ -9,41 +9,17 @@ set -euo pipefail
 
 usage() {
     echo "Usage: $0 [destination-master.db] <username@origin-site>" >&2
-    echo "Default DB: path.db.master (or path.db) from /etc/rustyrig/rrserver.cfg" >&2
+    echo "Default DB: /var/lib/rustyrig/db/master.db" >&2
     exit 2
 }
 [[ $# -eq 1 || $# -eq 2 ]] || usage
 
+db=/var/lib/rustyrig/db/master.db
 if [[ $# -eq 2 ]]; then
     db=$1
     identity=$2
 else
     identity=$1
-    config=/etc/rustyrig/rrserver.cfg
-    [[ -r $config ]] || { echo "Cannot read $config; specify the database explicitly" >&2; exit 1; }
-    # Configuration is dotted-key INI, normally under [general].
-    # Match exactly and do not execute/evaluate configuration text.
-    db=$(awk '
-        /^[[:space:]]*\[/ {
-            in_general = ($0 ~ /^[[:space:]]*\[[[:space:]]*general[[:space:]]*\]/)
-            next
-        }
-        in_general {
-            line=$0
-            sub(/^[[:space:]]*/, "", line)
-            if (line ~ /^(path\.db\.master|path\.db)[[:space:]]*=/) {
-                key=line; sub(/[[:space:]]*=.*/, "", key)
-                value=line; sub(/^[^=]*=/, "", value)
-                sub(/[[:space:]]*[;#].*$/, "", value)
-                sub(/^[[:space:]]*/, "", value)
-                sub(/[[:space:]]*$/, "", value)
-                if (key == "path.db.master") master=value
-                else legacy=value
-            }
-        }
-        END { print master != "" ? master : legacy }
-    ' "$config")
-    [[ -n $db ]] || { echo "No path.db.master or path.db in $config; specify the database explicitly" >&2; exit 1; }
 fi
 
 # Keep wildcard host matching, e.g. admin@*. Quote the shell argument!
