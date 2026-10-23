@@ -998,7 +998,9 @@ bool gui_edit_remote_config(const char *local, const char *title, bool (*save) (
    ctx->remote_destroy = destroy;
    ctx->remote_token = event_on_token("client.files.complete", remote_edit_complete, ctx);
    gtk_widget_hide(ctx->save_as);
-   rr_floating_panel_set_title(ctx->panel, title && *title ? title : "File Editor");
+   char *remote_title = g_strdup_printf("File Editor — %s", title && *title ? title : "Remote file");
+   rr_floating_panel_set_title(ctx->panel, remote_title);
+   g_free(remote_title);
 
    return true;
 }
