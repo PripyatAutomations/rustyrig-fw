@@ -162,7 +162,7 @@ static void cat_copy_vfo(const char *source, const char *destination) {
    Log(LOG_INFO, "cat.yaesu", "Copied VFO %s to %s in %s", source, destination, room);
 }
 
-// Function stubs for all FT-891 CAT commands
+// Function stubs for Yaesu New CAT commands
 void rr_cat_yaesu_vfo_a_to_b(const char *args) {
    cat_copy_vfo("A", "B");
 }                               // VFO A to VFO B
@@ -256,7 +256,7 @@ void rr_cat_yaesu_set_vfo_a(const char *args) {
    // Read ("FA;") replies with the current frequency; set applies via backend
    if (!args || !args[0]) {
       long freq = rr_cat_property_long("A", "frequency", 0);
-      // FT-891/FT-991 (newcat) use 9-digit frequency fields; the 11-digit
+      // FT-991A New CAT uses 9-digit frequency fields; the 11-digit
       // form is the FTDX101/5000 family. Wrong width shifts the parsed value.
       rr_cat_printf("FA%09ld;", freq);
       Log(LOG_CRAZY, "cat.yaesu", "VFO A read -> %ld", freq);
@@ -316,13 +316,13 @@ void rr_cat_yaesu_agc_func(const char *args) {
 }                               // AGC Function
 
 void rr_cat_yaesu_id(const char *args) {
-   // FT-891 replies with its model code; hamlib uses this to identify the rig
-   Log(LOG_CRAZY, "cat.yaesu", "ID query -> 0911");
-   rr_cat_printf("ID0911;");
+   // FT-991A New CAT identification for Hamlib / WSJT-X.
+   Log(LOG_CRAZY, "cat.yaesu", "ID query -> 0670 (FT-991A)");
+   rr_cat_printf("ID0670;");
 }                               // IDentification
 
 void rr_cat_yaesu_info(const char *args) {
-   /* FT-891 IF answer: 3-digit channel, 9-digit VFO-A frequency, clarifier sign/offset, CLAR flag, fixed zero, mode, VFO/memory, CTCSS, two fixed digits and
+   /* FT-991A IF answer: 3-digit channel, 9-digit VFO-A frequency, clarifier sign/offset, CLAR flag, fixed zero, mode, VFO/memory, CTCSS, two fixed digits and
     * simplex/shift. 28 bytes in total. */
    if (args && *args) {
       return;                   /* IF is read-only. */
