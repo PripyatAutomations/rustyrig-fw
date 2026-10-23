@@ -1656,7 +1656,11 @@ static gboolean vfo_locator_tick(gpointer unused) {
       g_signal_connect(vfo_locator_frame, "button-press-event",
          G_CALLBACK(vfo_locator_drag), NULL);
       gtk_widget_set_name(vfo_locator_frame, "rr-vfo-locator");
-      GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+      GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+      gtk_widget_set_margin_top(lines, 11);
+      gtk_widget_set_margin_bottom(lines, 11);
+      gtk_widget_set_margin_start(lines, 14);
+      gtk_widget_set_margin_end(lines, 14);
       vfo_locator_label = gtk_label_new(NULL);
       vfo_locator_frequency = gtk_label_new(NULL);
       vfo_locator_mode = gtk_label_new(NULL);
