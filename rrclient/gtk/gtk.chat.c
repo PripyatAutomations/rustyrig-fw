@@ -1606,7 +1606,19 @@ static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
    if (!main_notebook) return G_SOURCE_REMOVE;
    const char *profile = rrclient_selected_server();
-   gboolean online = profile && rrclient_connection_state(profile) == 1;
+   gboolean selected_online = profile && rrclient_connection_state(profile) == 1;
+   gboolean online = selected_online;
+   if (!online) {
+      for (unsigned i = 0; ; ++i) {
+         const char *candidate = rrclient_connection_iter(i);
+         if (!candidate) break;
+         if (rrclient_connection_state(candidate) == 1) {
+            online = TRUE;
+            profile = candidate;
+            break;
+         }
+      }
+   }
    if (!online) {
       if (vfo_locator_window) gtk_widget_hide(vfo_locator_window);
       return G_SOURCE_CONTINUE;
@@ -1623,7 +1635,7 @@ static gboolean vfo_locator_tick(gpointer unused) {
       g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
    }
    char vfo[2] = { vfo_state_get_active(), 0 };
-   const char *room = rrclient_media_active_room();
+   const char *room = selected_online ? rrclient_media_active_room() : NULL;
    const char *grid = NULL;
    const char *vfo_uuid = rrclient_media_vfo_uuid(room, vfo[0]);
    if (vfo_uuid) {
