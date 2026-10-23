@@ -1758,14 +1758,20 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
          break;
       }
    }
+   /* CAT PTT echoes carry cat.user independently of the user directory.
+    * The userlist can lag behind the PTT state, especially across relays.
+    * Prefer its room-scoped match, but fall back to the CAT holder identity. */
+   const char *holder_name = holder ? holder->name :
+      (ptt ? vfo_state_get(vfo, "cat.user", NULL) : NULL);
+   if (holder_name && !*holder_name) holder_name = NULL;
    char holder_id[256] = "";
-   if (holder)
+   if (ptt && holder_name)
       g_snprintf(holder_id, sizeof(holder_id), "%s/%s/%c", profile,
-         holder->name, vfo[0]);
+         holder_name, vfo[0]);
    gint64 current_us = g_get_monotonic_time();
    if (strcmp(holder_id, locator_tx_identity)) {
       g_strlcpy(locator_tx_identity, holder_id, sizeof(locator_tx_identity));
-      locator_tx_started = holder ? current_us : 0;
+      locator_tx_started = ptt && holder_name ? current_us : 0;
    }
    /* Requested RF output setpoint from the owner, not Hamlib's RX
     * strength or a measured forward-power meter reading. */
@@ -1780,10 +1786,10 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
          g_snprintf(watt_label, sizeof(watt_label), "  %.3g W", watts);
    }
    char ptt_line[256];
-   if (holder) {
+   if (ptt && holder_name) {
       unsigned long elapsed = locator_tx_started && current_us >= locator_tx_started ?
          (unsigned long)((current_us - locator_tx_started) / G_USEC_PER_SEC) : 0;
-      g_snprintf(ptt_line, sizeof(ptt_line), "TX: %s (%lu s)%s", holder->name, elapsed, watt_label);
+      g_snprintf(ptt_line, sizeof(ptt_line), "TX: %s (%lu s)%s", holder_name, elapsed, watt_label);
    } else if (ptt) {
       g_snprintf(ptt_line, sizeof(ptt_line), "PTT On (holder unknown)%s", watt_label);
    } else {
