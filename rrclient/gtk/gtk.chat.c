@@ -1679,32 +1679,45 @@ static void shared_tab_context_changed(GtkNotebook *notebook, GtkWidget *page,
    const char *name = GTK_IS_LABEL(title) ? gtk_label_get_text(GTK_LABEL(title)) : NULL;
    gtk_label_set_text(GTK_LABEL(shared_tab_context), name && *name ? name : "Status");
 }
-/* Five-second display average. TEXT is decoded WS control payload; total transport TX/RX may include binary media and framing. */
-static GtkWidget *status_network_label;
+/* Compact per-selected-server transport rates. Counts wire RX/TX for both
+ * IRC and WebSocket; the selection is not tied to the current chat tab. */
+static GtkWidget *status_network_label, *status_server_label;
 static gboolean status_network_tick(gpointer unused) {
    (void)unused;
-
-   if (!status_network_label) {
-      return G_SOURCE_REMOVE;
-   }
-   static uint64_t old_rx, old_tx, old_text;
-   static gint64 old_time;
-   uint64_t rx = 0, tx = 0, text = 0;
-   rrclient_ws_bytes(&rx, &tx, &text);
+   if (!status_network_label || !status_server_label) return G_SOURCE_REMOVE;
+   static uint64_t previous_rx, previous_tx;
+   static gint64 previous_time;
+   static char previous_server[512];
+   const char *server = rrclient_selected_server();
+   gboolean online = server && rrclient_connection_state(server) == 1;
+   uint64_t rx = 0, tx = 0;
+   gboolean known = server && rrclient_connection_traffic(server, &rx, &tx);
+   gtk_label_set_text(GTK_LABEL(status_server_label), server && *server ? server : "No server");
+   gtk_widget_set_tooltip_text(status_server_label, server && *server ? server : "No server selected");
    gint64 now_us = g_get_monotonic_time();
-
-   if (old_time && now_us > old_time) {
-      double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - old_time));
-      char label[180];
-      g_snprintf(label, sizeof(label), "Text %.1f | RX %.1f / TX %.1f kb/s", text >= old_text ? (text - old_text) * scale : 0.0, rx >=
-         old_rx ? (rx - old_rx) * scale : 0.0, tx >= old_tx ? (tx - old_tx) * scale : 0.0);
-      gtk_label_set_text(GTK_LABEL(status_network_label), label);
+   if (!known || !online) {
+      gtk_label_set_text(GTK_LABEL(status_network_label), "RX —  TX —");
+      previous_time = 0;
+      previous_server[0] = '\0';
+      return G_SOURCE_CONTINUE;
    }
-   old_time = now_us;
-   old_rx = rx;
-   old_tx = tx;
-   old_text = text;
-
+   if (!previous_time || strcmp(previous_server, server) ||
+       now_us <= previous_time || rx < previous_rx || tx < previous_tx) {
+      g_strlcpy(previous_server, server, sizeof(previous_server));
+      previous_rx = rx;
+      previous_tx = tx;
+      previous_time = now_us;
+      gtk_label_set_text(GTK_LABEL(status_network_label), "RX 0.0  TX 0.0 kb/s");
+      return G_SOURCE_CONTINUE;
+   }
+   double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - previous_time));
+   char label[96];
+   g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s",
+      (rx - previous_rx) * scale, (tx - previous_tx) * scale);
+   gtk_label_set_text(GTK_LABEL(status_network_label), label);
+   previous_rx = rx;
+   previous_tx = tx;
+   previous_time = now_us;
    return G_SOURCE_CONTINUE;
 }
 bool chat_init(void) {
@@ -1739,10 +1752,14 @@ bool chat_init(void) {
    gtk_label_set_max_width_chars(GTK_LABEL(shared_tab_context), 24);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), shared_tab_context, FALSE, FALSE, 5);
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(shared_tab_context_changed), NULL);
-   GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-   status_network_label = gtk_label_new("WS traffic: sampling…");
+   GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   status_server_label = gtk_label_new("No server");
+   gtk_label_set_ellipsize(GTK_LABEL(status_server_label), PANGO_ELLIPSIZE_MIDDLE);
+   gtk_label_set_max_width_chars(GTK_LABEL(status_server_label), 22);
+   gtk_box_pack_start(GTK_BOX(network_row), status_server_label, FALSE, FALSE, 2);
+   status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
-      "Five-second average: decoded WebSocket TEXT receive payload versus all WebSocket transport bytes. Total RX/TX includes binary media; UDP RTP is excluded.");
+      "Selected server transport traffic (IRC or WebSocket); five-second average in kilobits/s. UDP RTP is excluded.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
@@ -1750,6 +1767,7 @@ bool chat_init(void) {
    gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, TRUE, TRUE, 0);
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(5, status_network_tick, NULL);
+   status_network_tick(NULL);
    g_timeout_add_seconds(1, vfo_locator_tick, NULL);
    vfo_locator_tick(NULL);
    g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
