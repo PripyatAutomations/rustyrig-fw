@@ -46,6 +46,7 @@ typedef struct client_server {
    rrconn_t *connection;
    const char *user;
    int connected;
+   uint64_t traffic_rx, traffic_tx;
    bool reconnect_enabled, reconnect_pending;
    unsigned reconnect_tries;
    time_t reconnect_at;
@@ -140,6 +141,14 @@ const char *rrclient_connection_name(const rrconn_t *connection) {
    return NULL;
 }
 
+/* Transport byte totals scoped to one configured server, including IRC
+ * and WebSocket frames (not only text payloads). */
+bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
+   client_server_t *s = find_server(name);
+   if (rx) *rx = s ? s->traffic_rx : 0;
+   if (tx) *tx = s ? s->traffic_tx : 0;
+   return s != NULL;
+}
 rrconn_t *rrclient_connection_find(const char *name) {
    client_server_t *s = find_server(name);
 
