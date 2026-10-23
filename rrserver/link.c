@@ -987,6 +987,23 @@ static void close_session(struct link_session *session) {
 
       unsigned jitter_ms = hash % 5000u;
       session->peer->retry_at = mono_ms() + session->peer->retry_seconds * 1000LL + jitter_ms;
+      if (!links.stopping) {
+         const struct link_peer *peer = session->peer;
+         if (peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0]) {
+            Log(LOG_WARN, "link",
+               "Autoconnect inactive for peer %s [%s]: manual-close=%s topology-blocked=%s autoconnect=%s url-configured=%s; %s",
+               peer->site, peer->section, peer->manually_closed ? "yes" : "no",
+               peer->policy_blocked ? "yes" : "no", peer->autoconnect ? "yes" : "no",
+               peer->url[0] ? "yes" : "no",
+               peer->policy_blocked || peer->manually_closed ? "use /link open to resume" :
+               "enable autoconnect and configure a peer URL");
+         } else {
+            Log(LOG_INFO, "link",
+               "Peer %s [%s] disconnected; autoconnect retry scheduled in %u.%03u s",
+               peer->site, peer->section,
+               peer->retry_seconds + jitter_ms / 1000u, jitter_ms % 1000u);
+         }
+      }
 
 
    }
@@ -1541,6 +1558,8 @@ void rrserver_links_poll(void) {
       s->peer = peer;
       s->outbound = true;
       peer->session = s;
+      Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)",
+         peer->site, peer->section, peer->retry_seconds);
       struct mg_connection *c = mg_ws_connect(links.manager, peer->url, link_callback, s, "Sec-WebSocket-Protocol: " RR_LINK_SUBPROTOCOL "\r\n");
 
       if (!c) {
