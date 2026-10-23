@@ -143,7 +143,7 @@ void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
            peer->session && peer->session->established,
            peer->health_flaps, peer->health_auth_errors,
            peer->health_rtt_ms, peer->rtt_count ? sum / peer->rtt_count : 0,
-           maximum, peer->rtt_count, peer->rtt_high_streak, context);
+           maximum, peer->rtt_count, peer->rtt_high_streak, peer->rtt_degraded, context);
    }
 }
 
