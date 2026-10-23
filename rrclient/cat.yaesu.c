@@ -290,17 +290,16 @@ void rr_cat_yaesu_encoder_up(const char *args) {
 /* FT-991A EX032 is CAT TOT (CAT input timeout); values 0..3
  * denote 10, 100, 1000 and 3000 ms. This is a virtual serial port, so
  * retain the setting solely for CAT readback, not as a backend timeout. */
-static char virtual_cat_timeout = '0';
 
 void rr_cat_yaesu_menu(const char *args) {
    if (args && !strcmp(args, "032")) {
-      rr_cat_printf("EX032%c;", virtual_cat_timeout);
+      rr_cat_printf("EX032%c;", rr_cat_timeout_get());
       return;
    }
    if (args && strlen(args) == 4 && !strncmp(args, "032", 3) &&
        args[3] >= '0' && args[3] <= '3') {
-      virtual_cat_timeout = args[3];
-      Log(LOG_DEBUG, "cat.yaesu", "Virtual FT-991A CAT timeout setting: %c", virtual_cat_timeout);
+      rr_cat_timeout_set(args[3]);
+      Log(LOG_DEBUG, "cat.yaesu", "Virtual FT-991A CAT timeout setting: %c", rr_cat_timeout_get());
       return;
    }
    Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A EX menu: args='%s' (no reply/action)", args ? args : "");
@@ -372,9 +371,11 @@ void rr_cat_yaesu_agc_func(const char *args) {
 }                               // AGC Function
 
 void rr_cat_yaesu_id(const char *args) {
-   // FT-991A New CAT identification for Hamlib / WSJT-X.
-   Log(LOG_CRAZY, "cat.yaesu", "ID query -> 0670 (FT-991A)");
-   rr_cat_printf("ID0670;");
+   /* Advertise the model configured for this CAT endpoint. */
+   const char *model = rr_cat_model();
+   if (!strcmp(model, "ft891")) rr_cat_printf("ID0911;");
+   else rr_cat_printf("ID0670;");
+   Log(LOG_CRAZY, "cat.yaesu", "ID query -> %s", model);
 }                               // IDentification
 
 void rr_cat_yaesu_info(const char *args) {
@@ -753,10 +754,9 @@ void rr_cat_yaesu_zero_in(const char *args) {
 
 /* FT reports/selects the transmit VFO. The virtual interface tracks the
  * requested selector for Hamlib readback; this does not key a transmitter. */
-static int virtual_tx_vfo;
 static void rr_cat_yaesu_tx_vfo(const char *args) {
    if (!args || !*args) {
-      rr_cat_printf("FT%d;", virtual_tx_vfo);
+      rr_cat_printf("FT%d;", rr_cat_tx_vfo_get());
       return;
    }
    if (args[1] || (args[0] != '0' && args[0] != '1' &&
@@ -765,8 +765,8 @@ static void rr_cat_yaesu_tx_vfo(const char *args) {
       return;
    }
    /* Hamlib uses FT2/FT3 when setting up split, corresponding to A/B. */
-   virtual_tx_vfo = args[0] == '1' || args[0] == '3' ? 1 : 0;
-   Log(LOG_DEBUG, "cat.yaesu", "Virtual transmit VFO %c selected", virtual_tx_vfo ? 'B' : 'A');
+   rr_cat_tx_vfo_set(args[0] == '1' || args[0] == '3' ? 1 : 0);
+   Log(LOG_DEBUG, "cat.yaesu", "Virtual transmit VFO %c selected", rr_cat_tx_vfo_get() ? 'B' : 'A');
 }
 
 CATcmdTable rr_cat_yaesu_commands[] = {
