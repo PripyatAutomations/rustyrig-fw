@@ -40,21 +40,28 @@ void rr_connect_button_set_state(GtkWidget *button, int connected) {
    unsigned online = 0;
    bool trying = false;
    connection_summary(&online, &trying);
-   GtkStyleContext *ctx = gtk_widget_get_style_context(button);
-   gtk_style_context_remove_class(ctx, "conn-idle");
-   gtk_style_context_remove_class(ctx, "conn-active");
-   gtk_style_context_remove_class(ctx, "conn-pending");
-   if (online) {
-      char label[48];
-      g_snprintf(label, sizeof(label), "Online (%u)", online);
+   /* This is polled twice a second. Re-setting an identical GTK button label
+    * can invalidate its layout and cause a visible text twitch. Only touch
+    * GTK state when the actual summary changes. */
+   char label[48];
+   const char *style = online ? "conn-active" : trying ? "conn-pending" : "conn-idle";
+   if (online) g_snprintf(label, sizeof(label), "Online (%u)", online);
+   else g_strlcpy(label, trying ? "Trying" : "Offline", sizeof(label));
+   const char *current = gtk_button_get_label(GTK_BUTTON(button));
+   if (g_strcmp0(current, label)) {
       gtk_button_set_label(GTK_BUTTON(button), label);
-      gtk_style_context_add_class(ctx, "conn-active");
-   } else if (trying) {
-      gtk_button_set_label(GTK_BUTTON(button), "Trying");
-      gtk_style_context_add_class(ctx, "conn-pending");
-   } else {
-      gtk_button_set_label(GTK_BUTTON(button), "Offline");
-      gtk_style_context_add_class(ctx, "conn-idle");
+      GtkWidget *text = gtk_bin_get_child(GTK_BIN(button));
+      if (GTK_IS_LABEL(text)) {
+         gtk_label_set_width_chars(GTK_LABEL(text), (int)strlen("Online (99)"));
+         gtk_label_set_xalign(GTK_LABEL(text), 0.5f);
+      }
+   }
+   GtkStyleContext *ctx = gtk_widget_get_style_context(button);
+   if (!gtk_style_context_has_class(ctx, style)) {
+      gtk_style_context_remove_class(ctx, "conn-idle");
+      gtk_style_context_remove_class(ctx, "conn-active");
+      gtk_style_context_remove_class(ctx, "conn-pending");
+      gtk_style_context_add_class(ctx, style);
    }
 }
 void rr_connect_button_update_all(int connected) {
