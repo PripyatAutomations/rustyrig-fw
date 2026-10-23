@@ -303,6 +303,12 @@ defconfig_t defcfg[] = {
       "ui.full-screen", "true", "Go full-screen at start?", DEFCONFIG_BOOL, NULL
    },
    {
+      "ui.screensaver", "matrix", "Optional fullscreen idle screensaver (matrix or none)", DEFCONFIG_ENUM, "matrix|none"
+   },
+   {
+      "ui.screensaver.timeout", "3600", "Idle seconds before screensaver; 0 disables automatic launch", DEFCONFIG_UINT, NULL
+   },
+   {
       "ui.gtk.scale-on-resize", "true", "Scale GTK controls to window size relative to its monitor", DEFCONFIG_BOOL, NULL
    },
    {
