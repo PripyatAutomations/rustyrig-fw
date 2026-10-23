@@ -392,6 +392,29 @@ static void zoom_restrict_horizontal(GtkAdjustment *adjustment, gpointer unused)
       gtk_adjustment_set_value(adjustment, lower);
 }
 
+/* Report the page driving excess width. This is diagnostic only, with
+ * deduplication so routine size allocations do not flood the log. */
+static void zoom_width_diagnostic(GtkWidget *widget, GdkRectangle *allocation, gpointer unused) {
+   (void)unused;
+   GtkScrolledWindow *scrolled = GTK_SCROLLED_WINDOW(widget);
+   GtkAdjustment *hadj = gtk_scrolled_window_get_hadjustment(scrolled);
+   double overflow = gtk_adjustment_get_upper(hadj) - gtk_adjustment_get_page_size(hadj);
+   static int last_width = -1, last_overflow = -1;
+   int pixels = (int)(overflow + 0.5);
+   if (pixels <= 8) {
+      last_overflow = -1;
+      return;
+   }
+   if (allocation->width == last_width && pixels == last_overflow) return;
+   last_width = allocation->width;
+   last_overflow = pixels;
+   GtkWidget *child = gtk_bin_get_child(GTK_BIN(scrolled));
+   gint minimum = 0, natural = 0;
+   if (child) gtk_widget_get_preferred_width(child, &minimum, &natural);
+   Log(LOG_DEBUG, "gtk.zoom", "Main content exceeds viewport by %d px (available=%d, child minimum=%d natural=%d); a notebook page may need internal horizontal scrolling",
+       pixels, allocation->width, minimum, natural);
+}
+
 void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    zoom_window = window;
    g_object_add_weak_pointer(G_OBJECT(window), (gpointer *) &zoom_window);
@@ -408,6 +431,7 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(zoom_viewport));
    g_signal_connect(horizontal, "value-changed", G_CALLBACK(zoom_restrict_horizontal), NULL);
    gtk_container_add(GTK_CONTAINER(zoom_viewport), content);
+   g_signal_connect(zoom_viewport, "size-allocate", G_CALLBACK(zoom_width_diagnostic), NULL);
    gtk_container_add(GTK_CONTAINER(window), zoom_viewport);
 
    if (cfg_get_bool("ui.gtk.scale-on-resize", true)) {
