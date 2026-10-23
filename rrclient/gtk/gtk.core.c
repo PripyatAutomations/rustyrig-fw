@@ -27,6 +27,7 @@
 #include <rrclient/vfo.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.freqentry.h>
+#include <rrclient/gtk/gtk.connect-button.h>
 #include <rrclient/gtk/gtk.vol-box.h>
 #include <rrclient/gtk/gtk.audio-routing.h>
 #include <rrclient/gtk/gtk.receiver-directory.h>
@@ -998,7 +999,7 @@ static void frontend_gtk_mode_set(const char *mode) {
 }
 
 static void frontend_gtk_conn_button(int connected) {
-   update_connection_button(connected, conn_button);
+   rr_connect_button_update_all(connected);
 }
 
 static void frontend_gtk_ptt_set_online(bool online) {
