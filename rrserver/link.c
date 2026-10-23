@@ -131,20 +131,20 @@ static void health_record(struct link_peer *peer, const char *category, unsigned
    long long now = mono_ms();
    long long uptime = session && session->established_at ? now - session->established_at : 0;
    long long age = session && session->last_seen ? now - session->last_seen : 0;
-   char context[1024];
+   char context[1024], rtt_text[48];
+   if (peer->health_rtt_ms > 0) snprintf(rtt_text, sizeof(rtt_text), "%lldms", peer->health_rtt_ms);
+   else snprintf(rtt_text, sizeof(rtt_text), "unknown");
    /* Do not store peer URLs, passwords, SASL credentials or raw wire data in
     * SQL history. Last RTT of zero denotes unavailable, not zero latency. */
    snprintf(context, sizeof(context),
       "peer=%s uuid=%s direction=%s status=%s uptime=%llds last-rx=%llds-ago "
-      "rtt=%s%lldms disconnects-5m=%u auth-errors-5m=%u: %.360s",
+      "rtt=%s disconnects-5m=%u auth-errors-5m=%u: %.360s",
       peer->site[0] ? peer->site : "unknown",
       peer->node[0] ? peer->node : session && session->node[0] ? session->node : "unknown",
       session ? (session->outbound ? "outbound" : "inbound") : "unknown",
       session && session->established ? "connected" : "handshake/offline",
       uptime > 0 ? uptime / 1000 : 0, age > 0 ? age / 1000 : 0,
-      peer->health_rtt_ms > 0 ? "" : "unknown/",
-      peer->health_rtt_ms > 0 ? peer->health_rtt_ms : 0,
-      peer->health_flaps, peer->health_auth_errors, reason ? reason : "no details");
+      rtt_text, peer->health_flaps, peer->health_auth_errors, reason ? reason : "no details");
    db_cluster_health_record(masterdb, links.node, peer->node[0] ? peer->node : peer->site,
                             category, severity, value, context);
 #else
