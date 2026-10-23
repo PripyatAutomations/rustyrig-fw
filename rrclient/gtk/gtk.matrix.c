@@ -267,3 +267,22 @@ GtkWidget *rr_gtk_matrix_window_new(GtkWindow *parent, gboolean fullscreen) {
    gtk_widget_show_all(window);
    return window;
 }
+
+#ifdef STANDALONE
+int main(int argc, char **argv) {
+    gtk_init(&argc, &argv);
+
+    GtkWidget *window = rr_gtk_matrix_window_new(NULL, TRUE);
+
+    /* Exit the GTK event loop when the window is destroyed. */
+    g_signal_connect(window, "destroy",
+                     G_CALLBACK(gtk_main_quit), NULL);
+
+    /* Full opacity for the standalone screensaver. */
+    GtkWidget *matrix = gtk_bin_get_child(GTK_BIN(window));
+    rr_gtk_matrix_set_options(matrix, 100, 100, 300);
+
+    gtk_main();
+    return 0;
+}
+#endif
