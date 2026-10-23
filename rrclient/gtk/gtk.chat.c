@@ -109,6 +109,7 @@ typedef struct {
 static GHashTable *room_tabs = NULL;
 static GtkRoomTab *status_room_tab = NULL;
 static GtkWidget *status_send_button;
+static gboolean status_network_tick(gpointer unused);
 static gboolean typing_shutting_down;
 
 bool gtk_chat_status_active(void) {
@@ -131,6 +132,8 @@ static void gtk_chat_server_selected(const char *event, const char *data, rrconn
       snprintf(label, sizeof(label), name ? "Send|%s|" : "Send", name);
       gtk_button_set_label(GTK_BUTTON(status_send_button), label);
    }
+   /* Update selected-server status immediately, not at the next sample. */
+   status_network_tick(NULL);
 }
 
 int next_chat_tab = 5;
