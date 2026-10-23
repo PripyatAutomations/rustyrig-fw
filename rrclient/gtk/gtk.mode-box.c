@@ -299,12 +299,16 @@ GtkWidget *create_mode_box(void) {
    width_changed_handler_id = g_signal_connect(width_combo, "changed", G_CALLBACK(on_width_changed), NULL);
    gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 0);
 
-   // A GTK3 combobox sizes itself to its ACTIVE item, so switching between
-   // 2- and 3-letter modes (AM <-> LSB) jiggles the layout. Pin the mode
-   // combo to the width combo's natural width so both stay the same size.
-   gint min_w = 0, nat_w = 0;
-   gtk_widget_get_preferred_width(width_combo, &min_w, &nat_w);
-   gtk_widget_set_size_request(mode_combo, nat_w > min_w ? nat_w : min_w, -1);
+   /* Seven character columns for both mode and numeric width (e.g. 2400 Hz). */
+   GtkWidget *selectors[] = {mode_combo, width_combo};
+   for (guint i = 0; i < G_N_ELEMENTS(selectors); ++i) {
+      GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(selectors[i]));
+      for (GList *cell = cells; cell; cell = cell->next) {
+         if (GTK_IS_CELL_RENDERER_TEXT(cell->data))
+            g_object_set(cell->data, "width-chars", 7, NULL);
+      }
+      g_list_free(cells);
+   }
 
    ///////
    mode_changed_handler_id = g_signal_connect(mode_combo, "changed", G_CALLBACK(on_mode_changed), NULL);
