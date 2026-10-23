@@ -84,56 +84,38 @@ void rustyirc_event_emit_dict(const char *event, irc_conn_t *c, dict *d) {
 }
 
 static bool rustyirc_connection_feed_impl(irc_conn_t *cptr, const void *data, size_t n) {
-   if (!cptr || !data || !n) {
-      return false;
-   }
-   // append to recvq safely
-   size_t cur_len = strlen(cptr->recvq);
-
-   if (n >= RECVQLEN - cur_len) {
-      Log(LOG_WARN, "irc", "recvq overflow, closing connection");
-      
-      return false;
-   }
-
-   if (memchr(data, '\0', (size_t)n)) {
-      
-      return false;
-   }
-   memcpy(cptr->recvq + cur_len, data, n);
-   cur_len += n;
-   cptr->recvq[cur_len] = '\0';
-
-   // process complete lines
-   char *start = cptr->recvq;
-   char *end;
-   while ((end = strstr(start, "\r\n"))) {
-      if ((size_t)(end - start) > IRC_MSGLEN - 2) {
-         
+   if (!cptr || (!data && n)) return false;
+   const unsigned char *bytes = data;
+   size_t buffered = strlen(cptr->recvq);
+   /* Process complete CRLF-delimited lines as data arrives, rather than
+    * rejecting a large network read containing several valid messages.
+    * Incomplete lines remain in recvq across calls. */
+   for (size_t i = 0; i < n; ++i) {
+      unsigned char ch = bytes[i];
+      if (!ch) return false;
+      if (buffered >= IRC_MSGLEN) {
+         Log(LOG_WARN, "irc", "IRC line exceeds configured limit");
          return false;
       }
-      *end = '\0';
-
-      if (strcasestr(start, "DCC AUDIO")) {
-         Log(LOG_DEBUG, "net", "processing DCC AUDIO referral (credentials omitted)");
-      } else {
-         Log(LOG_DEBUG, "net", "processing line: [%s]", start);
+      cptr->recvq[buffered++] = (char)ch;
+      cptr->recvq[buffered] = '\0';
+      if (ch != '\n') continue;
+      if (buffered < 2 || cptr->recvq[buffered - 2] != '\r') {
+         Log(LOG_WARN, "irc", "IRC line missing CRLF terminator");
+         return false;
       }
-      rustyirc_process_message(cptr, start);
+      if (buffered - 2 > IRC_MSGLEN - 2) return false;
+      cptr->recvq[buffered - 2] = '\0';
+      if (strcasestr(cptr->recvq, "DCC AUDIO"))
+         Log(LOG_DEBUG, "net", "processing DCC AUDIO referral (credentials omitted)");
+      else
+         Log(LOG_DEBUG, "net", "processing line: [%s]", cptr->recvq);
+      rustyirc_process_message(cptr, cptr->recvq);
       if (cptr->closing) return false;
-
-      start = end + 2;
+      buffered = 0;
+      cptr->recvq[0] = '\0';
    }
-   // move leftover partial line to front
-   size_t leftover = strlen(start);
-
-   if (leftover > IRC_MSGLEN - 1) {
-      
-      return false;
-   }
-   memmove(cptr->recvq, start, leftover + 1);
    return true;
-
 }
 
 static bool rustyirc_connection_register_impl(irc_conn_t *cptr, const char *ident, const char *account, const char *pass) {
