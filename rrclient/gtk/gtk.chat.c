@@ -1774,9 +1774,9 @@ static gboolean vfo_locator_tick(gpointer unused) {
    char watt_label[64] = "";
    if (watts > 0 && isfinite(watts)) {
       if (watts < 1.0)
-         g_snprintf(watt_label, sizeof(watt_label), "  %.0f mW", watts * 1000.0);
+         g_snprintf(watt_label, sizeof(watt_label), "  %.3g mW", watts * 1000.0);
       else
-         g_snprintf(watt_label, sizeof(watt_label), "  %.2g W", watts);
+         g_snprintf(watt_label, sizeof(watt_label), "  %.3g W", watts);
    }
    char ptt_line[256];
    if (holder) {
