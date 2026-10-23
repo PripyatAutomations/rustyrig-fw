@@ -366,9 +366,10 @@ void rrclient_wsjtx_status(char *state, size_t state_len,
       if (now >= peer->seen && now - peer->seen <= 30 * G_USEC_PER_SEC) ++active;
    }
    g_snprintf(state, state_len, active ? "Communicating" : known ? "No recent packets" : "Listening");
-   g_snprintf(connection, connection_len, active ? "%u active WSJT-X instance%s" :
-              known ? "No recent WSJT-X activity" : "Awaiting WSJT-X",
-              active, active == 1 ? "" : "s");
+   if (active) g_snprintf(connection, connection_len, "%u active WSJT-X instance%s",
+                          active, active == 1 ? "" : "s");
+   else g_snprintf(connection, connection_len, "%s",
+                   known ? "No recent WSJT-X activity" : "Awaiting WSJT-X");
    if (newest) {
       const guint age = now >= latest ? (guint)((now - latest) / G_USEC_PER_SEC) : 0;
       const char *type = newest->last_type == 0 ? "Heartbeat" :
