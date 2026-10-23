@@ -793,13 +793,57 @@ static bool hl_mode_set(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_mode_t m
    return false;
 }
 
+/* Explicit per-instance cap overrides Hamlib's band/mode power table.
+ * Use rig.<instance>.power.max-watts (through backend config resolution).
+ * Never guess a full-scale wattage for an uncalibrated driver. */
+static float hl_power_max(rr_backend_t *backend, rr_server_vfo_t *vfo) {
+   hamlib_backend_t *data = hl_data(backend);
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index)) return 0;
+   int configured = rr_backend_config_get_int(backend, "power.max-watts", 0);
+   if (configured > 0) return (float)configured;
+   hamlib_vfo_state_t *state = &data->state[index];
+   unsigned int milliwatts = 0;
+   if (state->freq <= 0 || !state->mode ||
+       rig_power2mW(data->rig, &milliwatts, 1.0f, state->freq, state->mode) != RIG_OK)
+      return 0;
+   return (float)milliwatts / 1000.0f;
+}
+
 static bool hl_power_set(rr_backend_t *backend, rr_server_vfo_t *vfo, float power) {
+   hamlib_backend_t *data = hl_data(backend);
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index) ||
+       !rig_has_set_level(data->rig, RIG_LEVEL_RFPOWER) || power <= 0)
+      return true;
+   float maximum = hl_power_max(backend, vfo);
+   if (maximum <= 0 || power > maximum) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib",
+         "%s: cannot set %.3f W: TX power maximum is unknown or exceeded (%.3f W)",
+         rr_backend_instance_alias(backend), (double)power, (double)maximum);
+      return true;
+   }
+   value_t level = { .f = power / maximum };
+   int rc = rig_set_level(data->rig, hl_target(data, index), RIG_LEVEL_RFPOWER, level);
+   if (rc != RIG_OK) {
+      rr_backend_log(backend, LOG_WARN, "backend.hamlib", "%s: RFPOWER set failed: %s",
+         rr_backend_instance_alias(backend), rigerror(rc));
+      return true;
+   }
    return false;
 }
 
 static float hl_power_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
-   // Normalized RF level is not watts; preserve the unavailable legacy result.
-   return 0;
+   hamlib_backend_t *data = hl_data(backend);
+   rr_vfo_t index = VFO_NONE;
+   if (!data || !data->rig || !hl_index(vfo, &index) ||
+       !rig_has_get_level(data->rig, RIG_LEVEL_RFPOWER)) return 0;
+   float maximum = hl_power_max(backend, vfo);
+   if (maximum <= 0) return 0;
+   value_t level = {0};
+   if (rig_get_level(data->rig, hl_target(data, index), RIG_LEVEL_RFPOWER, &level) != RIG_OK)
+      return 0;
+   return level.f >= 0 && level.f <= 1 ? level.f * maximum : 0;
 }
 
 static uint16_t hl_width_get(rr_backend_t *backend, rr_server_vfo_t *vfo) {
