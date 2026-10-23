@@ -997,7 +997,10 @@ static void serial_cat_parse(void *data) {
       bool query = (!strcmp(cmd, "FA") || !strcmp(cmd, "FB") ||
          !strcmp(cmd, "IF") || !strcmp(cmd, "ID") ||
          !strcmp(cmd, "TX") || !strcmp(cmd, "MD") ||
-         !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") || !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") || !strcmp(cmd, "NA1"));
+         !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") ||
+         !strcmp(cmd, "EX032") ||
+         (!strncmp(cmd, "EX032", 5) && strlen(cmd) == 6 &&
+          cmd[5] >= '0' && cmd[5] <= '3') || !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") || !strcmp(cmd, "NA1"));
 
       if (!query) {
          Log(LOG_WARN, "cat", "UNSUPPORTED/IGNORED CAT while ttyCAT has no selected rig: '%s' (no reply; setters blocked)", cmd);
