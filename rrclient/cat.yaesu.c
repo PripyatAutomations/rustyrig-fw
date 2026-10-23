@@ -208,7 +208,23 @@ void rr_cat_yaesu_band_down(const char *args) {
 }                               // Band Down
 
 void rr_cat_yaesu_band_select(const char *args) {
-   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_band_select: args='%s' (no reply/action)", args ? args : "");
+   /* BS selects a band, not an exact dial frequency. Hamlib/WSJT-X
+    * subsequently uses FA to tune; do not invent a frequency here. */
+   static const char *bands[] = {
+      "1.8", "3.5", "5", "7", "10", "14", "18", "21",
+      "24.5", "28", "50", "GEN", "MW", NULL, "AIR", "144", "430"
+   };
+   if (!args || strlen(args) != 2 || args[0] < '0' || args[0] > '1' ||
+       args[1] < '0' || args[1] > '9') {
+      Log(LOG_WARN, "cat.yaesu", "Invalid FT-991A BS band code '%s'", args ? args : "");
+      return;
+   }
+   int index = (args[0] - '0') * 10 + (args[1] - '0');
+   if (index >= (int)(sizeof(bands) / sizeof(bands[0])) || !bands[index]) {
+      Log(LOG_WARN, "cat.yaesu", "Unsupported FT-991A BS band '%s'", args);
+      return;
+   }
+   Log(LOG_DEBUG, "cat.yaesu", "FT-991A band select %s MHz (%s): waiting for explicit FA tune", bands[index], args);
 }                               // Band Select
 
 void rr_cat_yaesu_band_up(const char *args) {
@@ -735,6 +751,24 @@ void rr_cat_yaesu_zero_in(const char *args) {
    Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_zero_in: args='%s' (no reply/action)", args ? args : "");
 }                               // Zero In
 
+/* FT reports/selects the transmit VFO. The virtual interface tracks the
+ * requested selector for Hamlib readback; this does not key a transmitter. */
+static int virtual_tx_vfo;
+static void rr_cat_yaesu_tx_vfo(const char *args) {
+   if (!args || !*args) {
+      rr_cat_printf("FT%d;", virtual_tx_vfo);
+      return;
+   }
+   if (args[1] || (args[0] != '0' && args[0] != '1' &&
+                   args[0] != '2' && args[0] != '3')) {
+      Log(LOG_WARN, "cat.yaesu", "Unsupported FT-991A FT selector '%s'", args);
+      return;
+   }
+   /* Hamlib uses FT2/FT3 when setting up split, corresponding to A/B. */
+   virtual_tx_vfo = args[0] == '1' || args[0] == '3' ? 1 : 0;
+   Log(LOG_DEBUG, "cat.yaesu", "Virtual transmit VFO %c selected", virtual_tx_vfo ? 'B' : 'A');
+}
+
 CATcmdTable rr_cat_yaesu_commands[] = {
    // cmd, min, max, callback
    {
@@ -828,6 +862,9 @@ CATcmdTable rr_cat_yaesu_commands[] = {
    {
       "GT", 0, 1, rr_cat_yaesu_agc_func
    },                                        // AGC Function
+   {
+      "FT", 0, 1, rr_cat_yaesu_tx_vfo
+   },                                  // Transmit VFO
    {
       "ID", 0, 1, rr_cat_yaesu_id
    },                                  // IDentification
