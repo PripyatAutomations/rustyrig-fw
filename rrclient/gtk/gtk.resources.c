@@ -2139,9 +2139,9 @@ static void resource_files(GtkButton *button, gpointer data) {
 static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
    (void)column;
    (void)unused;
-   char *details = NULL, *coordinates = NULL;
-   gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, -1);
-   char *text = coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
+   char *details = NULL, *coordinates = NULL, *kind = NULL;
+   gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, KIND, &kind, -1);
+   char *text = g_strcmp0(kind, "rig") && coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
       g_strdup(details ? details : "");
    char *safe = resource_display_utf8(text);
    g_object_set(renderer, "text", safe, NULL);
@@ -2149,6 +2149,7 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    g_free(text);
    g_free(details);
    g_free(coordinates);
+   g_free(kind);
 }
 
 /* Count rows in visible depth-first order, rather than sibling indices. Otherwise striping restarts whenever an expanded rig/room adds children. */
@@ -2381,7 +2382,28 @@ static void resource_search_changed(GtkEditable *entry, gpointer unused) {
    /* Search must not permanently open every settings branch. */
    resource_zebra_invalidate();
 }
+static gboolean resource_hidden_source_performance(GtkTreeModel *model, GtkTreeIter *iter) {
+   GtkTreeIter current = *iter, parent;
+   while (gtk_tree_model_iter_parent(model, &parent, &current)) {
+      char *name = NULL, *kind = NULL;
+      gtk_tree_model_get(model, &current, NAME, &name, KIND, &kind, -1);
+      gboolean performance = !g_strcmp0(kind, "group") &&
+                             !g_strcmp0(name, "Statistics / Performance");
+      g_free(name);
+      g_free(kind);
+      if (performance) {
+         char *parent_kind = NULL;
+         gtk_tree_model_get(model, &parent, KIND, &parent_kind, -1);
+         gboolean hide = g_strcmp0(parent_kind, "cluster-node") != 0;
+         g_free(parent_kind);
+         if (hide) return TRUE;
+      }
+      current = parent;
+   }
+   return FALSE;
+}
 static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
+   if (resource_hidden_source_performance(model, iter)) return FALSE;
    char *kind = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, -1);
    if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "health-event")) {
@@ -3233,11 +3255,32 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       snprintf(key, sizeof(key), "inventory.%s", fields[i]);
       const char *value = dict_get(row, key, "");
 
-      if (*value && (strcmp(kind, "site") || i > 1)) {
+      if (*value && strcmp(kind, "rig") && (strcmp(kind, "site") || i > 1)) {
          g_string_append_printf(details, "%s%s: %s", details->len ? " · " : "", fields[i], value);
       }
    }
 
+   if (!strcmp(kind, "rig")) {
+      const char *model = dict_get(row, "inventory.model", "");
+      const char *location = dict_get(row, "inventory.location", "");
+      const char *coords = dict_get(row, "inventory.coordinates", "");
+      const char *description = dict_get(row, "inventory.description", "");
+      const char *identity = *model ? model : name;
+      double lat, lon;
+      char position[80] = "";
+      if (sscanf(coords, " %lf , %lf", &lat, &lon) == 2)
+         g_snprintf(position, sizeof(position), " (%.2f, %.2f)", lat, lon);
+      g_string_assign(details, identity);
+      if (*location) g_string_append_printf(details, " @ %s", location);
+      if (*position) g_string_append(details, position);
+      if (*description) g_string_append_printf(details, " | %s", description);
+   }
+   if (!strcmp(kind, "gps") || gps_stream) {
+      const char *coords = dict_get(row, "inventory.coordinates", "");
+      const char *grid = dict_get(row, "inventory.gridsquare", dict_get(row, "inventory.grid", ""));
+      if (*coords) g_string_append_printf(details, "%sCoordinates: %s", details->len ? " · " : "", coords);
+      if (*grid) g_string_append_printf(details, "%sGrid square: %s", details->len ? " · " : "", grid);
+   }
    if (!strcmp(kind, "vfo")) {
       const char *site = dict_get(row, "inventory.site", "");
       const char *rig_alias = dict_get(row, "inventory.rig", "");
