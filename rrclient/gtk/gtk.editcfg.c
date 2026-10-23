@@ -25,6 +25,8 @@
 #include <librustyaxe/config.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
+#include "gtk.floating-panel.h"
+extern GtkWidget *main_window;
 
 extern dict *cfg;
 extern GtkWidget *main_notebook;
@@ -424,7 +426,7 @@ static GtkWidget *cfg_editor_panel(GtkWidget **list_out) {
 
 typedef struct {
    GtkWidget *window;
-   gui_window_t *window_t;
+   RRFloatPanel *panel;
    GtkTextBuffer *buffer;
    gchar *filepath;
    gboolean modified;
@@ -464,17 +466,11 @@ static void destroy_editor(EditorContext *ctx) {
       active_editor = NULL;
    }
 
-   /*
-    * Remove the window from the GUI window registry before destroying the actual GTK window.
-    */
-   if (ctx->window_t) {
-      gui_forget_window(ctx->window_t, "editcfg");
-      ctx->window_t = NULL;
-   }
-
-   if (ctx->window) {
-      gtk_widget_destroy(ctx->window);
+   if (ctx->panel) {
+      RRFloatPanel *panel = ctx->panel;
+      ctx->panel = NULL;
       ctx->window = NULL;
+      rr_floating_panel_destroy(panel);
    }
 
    if (ctx->buffer) {
@@ -502,7 +498,7 @@ static void destroy_editor(EditorContext *ctx) {
 static void editor_destroyed(GtkWidget *window, gpointer data) {
    EditorContext *ctx = data;
    ctx->window = NULL;
-   ctx->window_t = NULL;
+
 
    if (!ctx->destroying) {
       destroy_editor(ctx);
@@ -590,7 +586,7 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
       return;
    }
 
-   GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
+   GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
       "Reload config from \"%s\"?", ctx->filepath);
 
    if (gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_YES) {
@@ -609,7 +605,7 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
       return;
    }
 
-   GtkWidget *dialog = gtk_file_chooser_dialog_new("Save As", GTK_WINDOW(ctx->window), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save",
+   GtkWidget *dialog = gtk_file_chooser_dialog_new("Save As", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save",
       GTK_RESPONSE_ACCEPT, NULL);
 
    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
@@ -626,10 +622,10 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
             g_free(ctx->filepath);
             ctx->filepath = g_strdup(filename);
 
-            gtk_window_set_title(GTK_WINDOW(ctx->window), ctx->filepath);
+            rr_floating_panel_set_title(ctx->panel, ctx->filepath);
 
             GtkWidget *confirm =
-               gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "Apply new config from \"%s\"?",
+               gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "Apply new config from \"%s\"?",
                filename);
 
             if (gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_YES) {
@@ -654,7 +650,7 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    }
 
    if (ctx->modified) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
+      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
          "You have unsaved changes. Discard them?");
 
       gboolean cancel = gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES;
@@ -671,34 +667,8 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
    destroy_editor(ctx);
 }
 
-static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
-   EditorContext *ctx = user_data;
-
-   if (!ctx) {
-      return FALSE;
-   }
-
-   if (ctx->modified) {
-      GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
-         "You have unsaved changes. Close anyway?");
-
-      gboolean cancel = gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_YES;
-
-      gtk_widget_destroy(dialog);
-
-      if (cancel) {
-         return TRUE;
-      }
-   }
-
-   Log(LOG_DEBUG, "config", "Edit config closed for %s", ctx->filepath);
-
-   /*
-    * We handle destruction ourselves so that the window registry and EditorContext are cleaned up together.
-    */
-   destroy_editor(ctx);
-
-   return TRUE;
+static void file_editor_close(gpointer data) {
+   on_discard_clicked(NULL, data);
 }
 
 static void on_reload_config_button(GtkButton *btn, gpointer user_data) {
@@ -714,25 +684,13 @@ void gui_edit_config(const char *filepath) {
       return;
    }
 
-   /*
-    * Don't allow multiple config editors.
-    */
-   gui_window_t *win = gui_find_window(NULL, "editcfg");
-
-   if (win) {
-      GtkWidget *cfgedit_window = win->gtk_win;
-
-      if (cfgedit_window) {
-         gtk_window_present(GTK_WINDOW(cfgedit_window));
-
-         return;
-      }
-
-      /*
-       * Defensive cleanup for a stale registry entry.
-       */
-      gui_forget_window(win, "editcfg");
+   if (active_editor) {
+      rr_floating_panel_restore(active_editor->panel);
+      rr_floating_panel_show(active_editor->panel);
+      return;
    }
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
 
    Log(LOG_DEBUG, "gtk.editcfg", "Opening %s for editing", filepath);
 
@@ -741,17 +699,24 @@ void gui_edit_config(const char *filepath) {
    ctx->filepath = g_strdup(filepath);
    ctx->modified = FALSE;
 
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+   ctx->panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+                                      "file-editor", "File Editor");
+   if (!ctx->panel) {
+      active_editor = NULL;
+      g_free(ctx->filepath);
+      g_free(ctx);
+      return;
+   }
+   GtkWidget *window = rr_floating_panel_widget(ctx->panel);
    ctx->window = window;
    g_object_set_data(G_OBJECT(window), "rr-editor-context", ctx);
-   ctx->window_t = ui_new_window(window, "editcfg");
    g_signal_connect(window, "destroy", G_CALLBACK(editor_destroyed), ctx);
-
-   gtk_window_set_title(GTK_WINDOW(window), filepath);
-   gtk_window_set_default_size(GTK_WINDOW(window), 640, 480);
-
-   GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-   gtk_container_add(GTK_CONTAINER(window), vbox);
+   rr_floating_panel_set_close_callback(ctx->panel, file_editor_close, ctx);
+   char *panel_title = g_strdup_printf("File Editor — %s", filepath);
+   rr_floating_panel_set_title(ctx->panel, panel_title);
+   g_free(panel_title);
+   GtkWidget *vbox = rr_floating_panel_body(ctx->panel);
+   gtk_widget_set_size_request(vbox, 640, 480);
 
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_box_pack_start(GTK_BOX(vbox), scrolled, TRUE, TRUE, 0);
@@ -851,10 +816,7 @@ void gui_edit_config(const char *filepath) {
    g_signal_connect(btn_save, "clicked", G_CALLBACK(on_save_clicked), ctx);
    g_signal_connect(btn_save_as, "clicked", G_CALLBACK(on_save_other_clicked), ctx);
    g_signal_connect(btn_discard, "clicked", G_CALLBACK(on_discard_clicked), ctx);
-   g_signal_connect(window, "delete-event", G_CALLBACK(on_delete_event), ctx);
-   gtk_widget_show_all(window);
-   gtk_widget_realize(window);
-   place_window(window);
+   rr_floating_panel_show(ctx->panel);
 }
 
 /////////////////////////////
@@ -994,7 +956,7 @@ static void remote_edit_complete(const char *event, const char *text, rrconn_t *
       if (*error) {
          ctx->modified = TRUE;
          GtkWidget *dialog =
-            gtk_message_dialog_new(GTK_WINDOW(ctx->window), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Remote save failed: %s",
+            gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE, "Remote save failed: %s",
             error);
          g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
          gtk_widget_show(dialog);
@@ -1005,7 +967,7 @@ static void remote_edit_complete(const char *event, const char *text, rrconn_t *
 
 /* Reuse the text editor, but saving publishes to the remote share and never applies that configuration to the local client. Caller owns data on failure. */
 bool gui_edit_remote_config(const char *local, const char *title, bool (*save) (const char *, void *), void *data, GDestroyNotify destroy) {
-   if (gui_find_window(NULL, "editcfg")) {
+   if (active_editor) {
       return false;
    }
    struct stat st;
@@ -1026,12 +988,7 @@ bool gui_edit_remote_config(const char *local, const char *title, bool (*save) (
       return false;
    }
    gui_edit_config(local);
-   gui_window_t *win = gui_find_window(NULL, "editcfg");
-
-   if (!win || !win->gtk_win) {
-      return false;
-   }
-   EditorContext *ctx = g_object_get_data(G_OBJECT(win->gtk_win), "rr-editor-context");
+   EditorContext *ctx = active_editor;
 
    if (!ctx) {
       return false;
@@ -1041,7 +998,7 @@ bool gui_edit_remote_config(const char *local, const char *title, bool (*save) (
    ctx->remote_destroy = destroy;
    ctx->remote_token = event_on_token("client.files.complete", remote_edit_complete, ctx);
    gtk_widget_hide(ctx->save_as);
-   gtk_window_set_title(GTK_WINDOW(ctx->window), title);
+   rr_floating_panel_set_title(ctx->panel, title && *title ? title : "File Editor");
 
    return true;
 }
