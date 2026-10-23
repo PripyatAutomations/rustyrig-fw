@@ -1619,10 +1619,17 @@ static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpoin
       (gint)event->x_root, (gint)event->y_root, event->time);
    return TRUE;
 }
-static gboolean vfo_locator_tick(gpointer unused) {
+/* The locator tracks a rig in its owning connection context, not whichever
+ * chat/IRC tab happens to be displayed in the main notebook. */
+static char vfo_locator_profile[512];
+static void vfo_locator_probe_room(void *result) {
+   const char *room = rrclient_media_active_room();
+   *(gboolean *)result = room && *room && rrclient_media_vfo_uuid(room, vfo_state_get_active());
+}
+static gboolean vfo_locator_tick_context(gpointer unused) {
    (void)unused;
    if (!main_notebook) return G_SOURCE_REMOVE;
-   const char *profile = rrclient_selected_server();
+   const char *profile = (const char *)unused;
    rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
    /* IRC and disconnected profiles have no rig/VFO state. Never present
     * cached data from another server as though it belonged to this one. */
@@ -1683,7 +1690,7 @@ static gboolean vfo_locator_tick(gpointer unused) {
       g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
    }
    char vfo[2] = { vfo_state_get_active(), 0 };
-   const char *room = selected_online ? rrclient_media_active_room() : NULL;
+   const char *room = rrclient_media_active_room();
    const char *grid = NULL;
    const char *vfo_uuid = rrclient_media_vfo_uuid(room, vfo[0]);
    if (vfo_uuid) {
@@ -1788,6 +1795,46 @@ static gboolean vfo_locator_tick(gpointer unused) {
    if (ptt) gtk_style_context_add_class(style, "rr-vfo-ptt");
    else gtk_style_context_remove_class(style, "rr-vfo-ptt");
    gtk_widget_show_all(vfo_locator_window);
+   return G_SOURCE_CONTINUE;
+}
+
+static void vfo_locator_render_context(void *unused) {
+   vfo_locator_tick_context(vfo_locator_profile);
+}
+static gboolean vfo_locator_tick(gpointer unused) {
+   (void)unused;
+   if (!main_notebook) return G_SOURCE_REMOVE;
+   const char *selected = rrclient_selected_server();
+   const char *candidate = NULL;
+   /* Prefer the currently selected rig, then continue tracking the last
+    * rig while the user visits IRC/status tabs on another connection. */
+   for (unsigned pass = 0; pass < 3 && !candidate; ++pass) {
+      for (unsigned i = 0; ; ++i) {
+         const char *profile = pass == 0 ? selected :
+            pass == 1 ? vfo_locator_profile : rrclient_connection_iter(i);
+         if (!profile || !*profile) break;
+         rrconn_t *connection = rrclient_connection_find(profile);
+         if (connection && connection->is_ws && rrclient_connection_state(profile) == 1) {
+            gboolean rig_active = FALSE;
+            rrclient_connection_dispatch(connection, vfo_locator_probe_room, &rig_active);
+            if (rig_active) {
+               candidate = profile;
+               break;
+            }
+         }
+         if (pass != 2) break;
+      }
+   }
+   if (!candidate) {
+      vfo_locator_profile[0] = '\0';
+      locator_tx_identity[0] = '\0';
+      locator_tx_started = 0;
+      if (vfo_locator_window) gtk_widget_hide(vfo_locator_window);
+      return G_SOURCE_CONTINUE;
+   }
+   g_strlcpy(vfo_locator_profile, candidate, sizeof(vfo_locator_profile));
+   rrclient_connection_dispatch(rrclient_connection_find(candidate),
+      vfo_locator_render_context, NULL);
    return G_SOURCE_CONTINUE;
 }
 
