@@ -60,6 +60,8 @@ extern bool cfg_fullscreen;
 static void frontend_gtk_config_refresh(const char *key) {
    (void)key;
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
+   Log(LOG_INFO, "ui.gtk3", "Effective startup setting ui.full-screen=%s (raw=%s)",
+      cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get("ui.full-screen") : "(absent)");
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
    const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
 
