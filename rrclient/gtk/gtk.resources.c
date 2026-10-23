@@ -776,8 +776,34 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
                             NAME, &stat_name, DETAILS, &details, -1);
          if (!g_strcmp0(stat_kind, "performance-stat")) {
             ++*total;
-            if (!g_strcmp0(state, "Critical")) resource_health_raise(severity, reasons, 2, stat_name ? stat_name : "Critical health report");
-            else if (!g_strcmp0(state, "Warning")) resource_health_raise(severity, reasons, 1, stat_name ? stat_name : "Neighbor warning");
+            if (!g_strcmp0(state, "Critical") || !g_strcmp0(state, "Warning")) {
+               unsigned level = !g_strcmp0(state, "Critical") ? 2 : 1;
+               if (stat_name && g_str_has_prefix(stat_name, "Neighbor ") && details) {
+                  /* Include the actual link diagnosis in the Cluster Health
+                   * reason, rather than only the generic performance row name. */
+                  const char *condition = strstr(details, "Latency condition: ");
+                  const char *flaps = strstr(details, "Unexpected disconnects (5m): ");
+                  const char *rtt = strstr(details, "Last RTT: ");
+                  char diagnosis[256] = "";
+                  long long value = -1;
+                  unsigned count = 0;
+                  if (condition && strstr(condition, "degraded") == condition + strlen("Latency condition: "))
+                     g_strlcat(diagnosis, "latency degraded; ", sizeof(diagnosis));
+                  if (flaps && sscanf(flaps, "Unexpected disconnects (5m): %u", &count) == 1 && count) {
+                     char text[64];
+                     g_snprintf(text, sizeof(text), "%u unexpected disconnects (5m); ", count);
+                     g_strlcat(diagnosis, text, sizeof(diagnosis));
+                  }
+                  if (rtt && sscanf(rtt, "Last RTT: %lld", &value) == 1 && value >= 0) {
+                     char text[64];
+                     g_snprintf(text, sizeof(text), "RTT %lld ms", value);
+                     g_strlcat(diagnosis, text, sizeof(diagnosis));
+                  }
+                  char *reason = g_strdup_printf("%s: %s", stat_name, *diagnosis ? diagnosis : state);
+                  resource_health_raise(severity, reasons, level, reason);
+                  g_free(reason);
+               } else resource_health_raise(severity, reasons, level, stat_name ? stat_name : state);
+            }
             if (state && (strstr(state, "Unavailable") || strstr(state, "Failed") || strstr(state, "offline"))) {
                ++*bad;
                resource_health_raise(severity, reasons, 1, stat_name ? stat_name : "Unavailable counter");
