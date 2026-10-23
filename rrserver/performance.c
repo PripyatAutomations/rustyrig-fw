@@ -138,17 +138,21 @@ typedef struct {
    void *context;
 } neighbor_health_emit_t;
 static void emit_neighbor_health(const char *subject, const char *site, bool online,
-                                 unsigned flaps, unsigned auth_errors, long long rtt_ms, void *context) {
+                                 unsigned flaps, unsigned auth_errors, long long rtt_ms,
+                                 long long avg_rtt_ms, long long max_rtt_ms,
+                                 unsigned samples, unsigned high_streak, bool latency_degraded, void *context) {
    neighbor_health_emit_t *target = context;
    unsigned severity = !online ? 1 : 0;
-   if (flaps >= 3 || auth_errors >= 5 || rtt_ms >= 1000) severity = 2;
-   else if (flaps || auth_errors || rtt_ms >= 250) severity = 1;
+   if (!online) severity = 2;
+   else if (flaps >= 3 || auth_errors >= 5 || (latency_degraded && rtt_ms >= 1000)) severity = 2;
+   else if (flaps || auth_errors || latency_degraded) severity = 1;
    char name[160], description[512];
    snprintf(name, sizeof(name), "Neighbor %s", site);
    snprintf(description, sizeof(description),
-      "Subject: %s\\nDirect link: %s\\nRTT: %lld ms\\nUnexpected disconnects (5m): %u\\nLink auth failures (5m): %u\\nAssessment: %s",
-      subject, online ? "connected" : "offline", rtt_ms, flaps, auth_errors,
-      severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Healthy");
+      "Subject: %s\nDirect link: %s\nLast RTT: %lld ms\nRTT rolling average: %lld ms\nRTT rolling maximum: %lld ms\nSamples: %u (last 30 PONGs, about five minutes)\nConsecutive high RTTs: %u\nLatency condition: %s\nUnexpected disconnects (5m): %u\nLink auth failures (5m): %u\nAssessment: %s\nWarning thresholds: two RTTs >=250 ms; recover after three RTTs <200 ms.",
+      subject, online ? "connected" : "offline", rtt_ms, avg_rtt_ms, max_rtt_ms,
+      samples, high_streak, latency_degraded ? "degraded" : "normal",
+      flaps, auth_errors, severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Healthy");
    dict *row = rr_inventory_row("", 1, "performance", name, NULL);
    if (!row) return;
    dict_add(row, "inventory.description", description);
