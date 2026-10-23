@@ -19,7 +19,7 @@
 #include "gtk.serial.h"
 
 enum {
-   NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, COLUMNS
+   NAME, KIND, STATE, OURS, DETAILS, UUID, ROOM, SERVICE, PROFILE, BINDING, SERVER_STATE, ACTION, JOINED, COORDINATES, GENERATION, COLUMNS
 };
 enum {
    ROOM_BUTTON, SUB_BUTTON, SERIAL_BUTTON, SERVER_BUTTON, TERMINAL_BUTTON, BUTTONS
@@ -32,6 +32,7 @@ typedef struct {
    GHashTable *irc_rows, *expanded;
    bool valid[5], loading, online, loaded, local_site_seen;
    uint64_t requested_at, irc_updated_at;
+   guint generation;
 } resource_branch;
 typedef struct {
    GtkWidget *page, *panel, *tree, *status, *details, *search, *buttons[BUTTONS];
@@ -1040,8 +1041,9 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
          gtk_tree_store_set(browser->store, &item, KIND, "cluster-node", PROFILE, branch->profile,
                             BINDING, key, ACTION, direct ? "root" : "site", UUID, uuid ? uuid : "", -1);
       }
-      const char *status = !branch->online ? "Offline" : branch->loading ? "Refreshing" :
-                           !available || !total ? "No telemetry" : severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Reporting";
+      const char *status = !branch->online ? "Offline" :
+                           !available || !total ? (branch->loading && !branch->loaded ? "Refreshing" : "No telemetry") :
+                           severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Reporting";
       if (branch->online && total && !severity) ++*reporting;
       if (!branch->online || severity) ++*warnings;
       char *details = g_strdup_printf("%s via %s. %u performance entries, %u unavailable. %s%sDouble-click to open Statistics / Performance.",
@@ -2816,7 +2818,7 @@ static void resource_create(void) {
    GtkWidget *hint = gtk_label_new("All resources · select a row to manage your connection");
    gtk_box_pack_end(GTK_BOX(toolbar), hint, FALSE, FALSE, 6);
    browser->store = gtk_tree_store_new(COLUMNS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING);
+      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_UINT);
 
    for (int field = NAME ; field <= DETAILS ; field++) {
       gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser->store), field, resource_tree_compare, GINT_TO_POINTER(field), NULL);
@@ -2985,24 +2987,11 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    branch->request = g_strdup(request->request);
    branch->loading = true;
    branch->requested_at = mono_us();
+   if (!++branch->generation) ++branch->generation;
 
-   /* Snapshot before removing the old rows. */
-   if (!browser->scroll_saved) {
-      GtkAdjustment *adj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(browser->tree));
-      browser->scroll_y = gtk_adjustment_get_value(adj);
-      browser->scroll_saved = true;
-   }
-
-   /* Do not snapshot an empty first-load tree as a collapsed preference. */
-   if (branch->loaded) {
-      resource_expansion_save(branch);
-   }
+   /* Keep the previous snapshot visible until the response completes. */
    memset(branch->valid, 0, sizeof(branch->valid));
    branch->local_site_seen = false;
-   GtkTreeIter child;
-   while (gtk_tree_model_iter_children(GTK_TREE_MODEL(browser->store), &child, &branch->root)) {
-      gtk_tree_store_remove(browser->store, &child);
-   }
    gtk_label_set_text(GTK_LABEL(browser->status), "Refreshing resources…");
    request->handled = true;
 }
@@ -3031,6 +3020,39 @@ static gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeI
 
    return FALSE;
 }
+static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind,
+                                        const char *uuid, const char *name,
+                                        guint generation, GtkTreeIter *found) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent); ok;
+        ok = gtk_tree_model_iter_next(model, &child)) {
+      char *k = NULL, *u = NULL, *n = NULL;
+      guint seen = 0;
+      gtk_tree_model_get(model, &child, KIND, &k, UUID, &u, NAME, &n, GENERATION, &seen, -1);
+      gboolean match = seen != generation && !g_strcmp0(kind, k) &&
+         (uuid && *uuid ? !g_strcmp0(uuid, u) : (!u || !*u) && !g_strcmp0(name, n));
+      g_free(k); g_free(u); g_free(n);
+      if (match) { *found = child; return TRUE; }
+   }
+   return FALSE;
+}
+
+static void resource_prune_snapshot(GtkTreeIter *parent, guint generation) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter child;
+   gboolean ok = gtk_tree_model_iter_children(model, &child, parent);
+   while (ok) {
+      guint seen = 0;
+      gtk_tree_model_get(model, &child, GENERATION, &seen, -1);
+      if (seen != generation) ok = gtk_tree_store_remove(browser->store, &child);
+      else {
+         resource_prune_snapshot(&child, generation);
+         ok = gtk_tree_model_iter_next(model, &child);
+      }
+   }
+}
+
 static void resource_row(const char *event, const char *text, rrconn_t *connection, void *unused) {
    (void)event;
    (void)unused;
@@ -3066,6 +3088,7 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!strcmp(dict_get(row, "object.cmd", ""), "inventory-end")) {
       branch->loading = false;
       branch->loaded = true;
+      resource_prune_snapshot(&branch->root, branch->generation);
       GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &branch->root);
 
       gtk_tree_path_free(path);
@@ -3168,6 +3191,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
             gtk_tree_store_append(browser->store, &group, parent_iter);
             gtk_tree_store_set(browser->store, &group, NAME, folder, KIND, "group", PROFILE, profile, -1);
          }
+         gtk_tree_store_set(browser->store, &group, GENERATION, branch->generation, -1);
+
          explicit_parent = group;
          parent_iter = &explicit_parent;
       }
@@ -3213,13 +3238,19 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
             gtk_tree_store_append(browser->store, &group, parent_iter);
             gtk_tree_store_set(browser->store, &group, NAME, title, KIND, "rig-menu-group", PROFILE, profile, -1);
          }
+         gtk_tree_store_set(browser->store, &group, GENERATION, branch->generation, -1);
+
          explicit_parent = group;
          parent_iter = &explicit_parent;
       }
       g_free(parent_kind);
       g_free(parent_details);
    }
-   gtk_tree_store_append(browser->store, &iter, parent_iter);
+   if (!resource_existing_child(parent_iter, kind, dict_get(row, "inventory.uuid", ""),
+                                name, branch->generation, &iter)) {
+      gtk_tree_store_append(browser->store, &iter, parent_iter);
+   }
+   gtk_tree_store_set(browser->store, &iter, GENERATION, branch->generation, -1);
 
    const char *room = dict_get(row, "inventory.room", "");
 
