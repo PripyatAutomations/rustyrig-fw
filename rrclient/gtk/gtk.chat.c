@@ -31,6 +31,7 @@
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
+#include <rrclient/gtk/gtk.connect-button.h>
 #include <rrclient/gtk/gtk.vfo-box.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
@@ -1322,7 +1323,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
    GtkWidget *float_box = g_object_get_data(G_OBJECT(room_vfo_window), "rr-vfo-float-box");
 
    if (!float_box) {
-      float_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+      float_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
       gtk_container_add(GTK_CONTAINER(room_vfo_window), float_box);
       g_object_set_data(G_OBJECT(room_vfo_window), "rr-vfo-float-box", float_box);
       GtkWidget *redock = gtk_button_new_with_label("Dock VFO in room");
@@ -1348,7 +1349,7 @@ static void room_vfo_float_clicked(GtkButton *button, gpointer unused) {
       gtk_widget_get_preferred_width(inside, &minimum, &natural);
    }
    /* A narrow floating window reflows its live controls instead of scrolling. */
-   int width = CLAMP(natural + 36, 480, 800);
+   int width = CLAMP(natural + 12, 360, 800);
    if (!gtk_widget_get_visible(room_vfo_window))
       gtk_window_resize(GTK_WINDOW(room_vfo_window), width, 190);
 
@@ -1574,6 +1575,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       GtkWidget *resources = gtk_button_new_with_label("Resource Explorer");
       gtk_widget_set_tooltip_text(resources, "Browse and manage all server resources (Alt-O)");
       g_signal_connect(resources, "clicked", G_CALLBACK(gtk_chat_resources_clicked), NULL);
+      gtk_box_pack_start(GTK_BOX(tools), rr_connect_button_new(), FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(chat_box), tools, FALSE, FALSE, 4);
    }
