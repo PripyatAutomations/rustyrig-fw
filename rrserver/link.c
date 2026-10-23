@@ -913,7 +913,6 @@ static void close_session(struct link_session *session) {
    if (session->established && session->peer && !links.stopping && !session->peer->manually_closed) {
       health_window(session->peer);
       session->peer->health_flaps++;
-      session->peer->health_rtt_ms = 0;
       long long now = mono_ms();
       long long connected_ms = session->established_at ? now - session->established_at : 0;
       long long silent_ms = session->last_seen ? now - session->last_seen : 0;
@@ -929,6 +928,7 @@ static void close_session(struct link_session *session) {
                *session->close_reason ? session->close_reason : "remote close or transport termination (no reason provided)");
       health_record(session->peer, "link", session->peer->health_flaps >= 3 ? 2 : 1,
                     session->peer->health_flaps, reason);
+      session->peer->health_rtt_ms = 0;
    }
    if (session->admitted) {
       rr_link_tree_remove(links.tree, session->node, session->node);
