@@ -489,7 +489,7 @@ void rr_relay_roster(const char *event, const char *room, rrconn_t *client, void
 }
 
 /* The owning server alone grants remote CAT authority. A remote user's origin-site admin flag is never consulted. */
-static bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const char *command) {
+bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const char *command) {
 #ifdef USE_SQLITE
    struct remote_session *r = rr_relay_remote_for(client);
 
