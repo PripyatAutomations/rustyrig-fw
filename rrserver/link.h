@@ -16,6 +16,7 @@ typedef void (*rr_link_health_fn)(const char *subject, const char *site, bool on
                                   unsigned samples, unsigned high_streak, bool latency_degraded, void *context);
 void rrserver_links_health_foreach(rr_link_health_fn emit, void *context);
 /* Read-only persisted link diagnostics, empty when unavailable. */
+void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity);
 void rrserver_links_recent_events(const char *subject, char *out, size_t capacity);
 bool rrserver_peer_config_init(void);
 bool rrserver_links_init(struct mg_mgr *manager);
