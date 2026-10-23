@@ -14,6 +14,7 @@
 #include <glib.h>
 void gtk_file_editor_shutdown(void);
 void gui_file_editor_open(const char *filepath);
+void gui_file_editor_open_config(const char *filepath);
 bool gui_file_editor_open_remote(const char *, const char *, bool (*) (const char *, void *), void *, GDestroyNotify);
 
 #endif // !defined(__rrclient_gtk_file_editor_h)
