@@ -1,5 +1,8 @@
 /* Reusable GTK connection toggle, independent of the VFO layout. */
 #include <rrclient/gtk/gtk.connect-button.h>
+#include <librustyaxe/core.h>
+#include <librrprotocol/rrprotocol.h>
+#include <rrclient/connman.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <string.h>
 static GList *instances;
