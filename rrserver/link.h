@@ -19,6 +19,8 @@ void rrserver_links_recent_events(const char *subject, char *out, size_t capacit
 bool rrserver_peer_config_init(void);
 bool rrserver_links_init(struct mg_mgr *manager);
 void rrserver_links_poll(void);
+/* Authenticated direct-neighbor clock estimate; true only when per-peer compensation is enabled and within its bound. */
+bool rrserver_links_clock_offset(const char *node, long long *offset_seconds);
 void rrserver_links_fini(void);
 const char *rrserver_links_node(void);
 const char *rrserver_links_route(const char *node);
