@@ -800,6 +800,8 @@ static float hl_power_max(rr_backend_t *backend, rr_server_vfo_t *vfo) {
    hamlib_backend_t *data = hl_data(backend);
    rr_vfo_t index = VFO_NONE;
    if (!data || !data->rig || !hl_index(vfo, &index)) return 0;
+   int milliwatts_override = rr_backend_config_get_int(backend, "power.max-mw", 0);
+   if (milliwatts_override > 0) return (float)milliwatts_override / 1000.0f;
    int configured = rr_backend_config_get_int(backend, "power.max-watts", 0);
    if (configured > 0) return (float)configured;
    hamlib_vfo_state_t *state = &data->state[index];
