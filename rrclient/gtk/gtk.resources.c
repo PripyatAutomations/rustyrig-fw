@@ -2170,8 +2170,20 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    (void)unused;
    char *details = NULL, *coordinates = NULL, *kind = NULL;
    gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, KIND, &kind, -1);
-   char *text = g_strcmp0(kind, "rig") && g_strcmp0(kind, "gps") && coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
-      g_strdup(details ? details : "");
+   char *text = g_strdup(details ? details : "");
+   if (coordinates && *coordinates && g_strcmp0(kind, "rig") != 0) {
+      char *position = resource_location_details(coordinates, NULL, FALSE);
+      if (*position) {
+         /* GPS telemetry changes independently of catalog snapshots. The
+          * coordinate column is the latest live fix, not the stale text
+          * captured in the inventory description. */
+         char *updated = !g_strcmp0(kind, "gps") ?
+            g_strdup(position) : g_strdup_printf("%s%s%s", position, *text ? " · " : "", text);
+         g_free(text);
+         text = updated;
+      }
+      g_free(position);
+   }
    char *safe = resource_display_utf8(text);
    g_object_set(renderer, "text", safe, NULL);
    g_free(safe);
