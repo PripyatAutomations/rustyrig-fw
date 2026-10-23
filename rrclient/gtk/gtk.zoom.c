@@ -382,6 +382,16 @@ static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event,
    return FALSE;
 }
 
+/* The outer scroll container holds the *entire* client, including tabs.
+ * Horizontal adjustment must never pan that full UI; leaf views that need
+ * horizontal scrolling provide their own scrolled windows. */
+static void zoom_restrict_horizontal(GtkAdjustment *adjustment, gpointer unused) {
+   (void)unused;
+   double lower = gtk_adjustment_get_lower(adjustment);
+   if (gtk_adjustment_get_value(adjustment) != lower)
+      gtk_adjustment_set_value(adjustment, lower);
+}
+
 void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    zoom_window = window;
    g_object_add_weak_pointer(G_OBJECT(window), (gpointer *) &zoom_window);
@@ -391,10 +401,12 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    g_object_add_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *) &zoom_viewport);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(zoom_viewport), 320);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(zoom_viewport), 180);
-   /* The outer viewport must allow the window to shrink below notebook requisitions. GTK_POLICY_EXTERNAL avoids reserving a horizontal scrollbar or enforcing\n
+   /* The outer viewport must allow the window to shrink below notebook requisitions. GTK_POLICY_NEVER prevents horizontal panning of the complete client or enforcing\n
     * the notebook width; wide children must handle their own reflow. */
    GtkPolicyType vertical = cfg_get_bool("ui.gtk.scale-on-resize", true) ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER;
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_EXTERNAL, vertical);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_NEVER, vertical);
+   GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(zoom_viewport));
+   g_signal_connect(horizontal, "value-changed", G_CALLBACK(zoom_restrict_horizontal), NULL);
    gtk_container_add(GTK_CONTAINER(zoom_viewport), content);
    gtk_container_add(GTK_CONTAINER(window), zoom_viewport);
 
@@ -424,7 +436,7 @@ void gtk_ui_zoom_apply(void) {
 
    if (zoom_viewport) {
       GtkPolicyType vertical = cfg_get_bool("ui.gtk.scale-on-resize", true) ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER;
-      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_EXTERNAL, vertical);
+      gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_NEVER, vertical);
    }
    GtkSettings *settings = gtk_settings_get_default();
 
