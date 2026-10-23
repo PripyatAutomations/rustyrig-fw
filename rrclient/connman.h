@@ -53,6 +53,7 @@ static inline bool rrclient_present_context(void) {
 extern const char *rrclient_selected_server(void);
 /* Cumulative transport bytes for one configured profile (IRC or WebSocket). */
 extern bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx);
+extern void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, uint64_t tx);
 extern const char *rrclient_connection_name(const rrconn_t *connection);
 /* Run a synchronous callback in a connection's context without changing the selected server. NULL means no connection. Used by transports polled outside
  * Mongoose callbacks. */
