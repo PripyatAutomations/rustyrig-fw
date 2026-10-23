@@ -11,6 +11,8 @@ struct rr_floating_panel {
    char *id;
    gboolean rolled, minimized, dragging, closable;
    gint roll_width;
+   void (*on_close)(gpointer);
+   gpointer close_data;
    double drag_x, drag_y;
    int start_x, start_y;
 };
@@ -135,7 +137,10 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
 static void panel_close(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
-   if (p && p->closable) rr_floating_panel_hide(p);
+   if (p && p->closable) {
+      if (p->on_close) p->on_close(p->close_data);
+      else rr_floating_panel_hide(p);
+   }
 }
 
 static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -324,3 +329,9 @@ void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
    if (p->menu_close) gtk_widget_set_visible(p->menu_close, closable);
 }
 
+
+void rr_floating_panel_set_close_callback(RRFloatPanel *p, void (*callback)(gpointer), gpointer data) {
+   if (!p) return;
+   p->on_close = callback;
+   p->close_data = data;
+}
