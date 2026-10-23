@@ -1765,13 +1765,25 @@ static gboolean vfo_locator_tick(gpointer unused) {
       g_strlcpy(locator_tx_identity, holder_id, sizeof(locator_tx_identity));
       locator_tx_started = holder ? current_us : 0;
    }
+   /* Requested RF output setpoint from the owner, not Hamlib's RX
+    * strength or a measured forward-power meter reading. */
+   const char *watts_text = selected_online ?
+      vfo_state_get(vfo, "cat.state.tx-power-watts", NULL) : NULL;
+   double watts = watts_text ? g_ascii_strtod(watts_text, NULL) : 0;
+   char watt_label[64] = "";
+   if (watts > 0 && isfinite(watts)) {
+      if (watts < 1.0)
+         g_snprintf(watt_label, sizeof(watt_label), "  %.0f mW", watts * 1000.0);
+      else
+         g_snprintf(watt_label, sizeof(watt_label), "  %.2g W", watts);
+   }
    char ptt_line[256];
    if (holder) {
       unsigned long elapsed = locator_tx_started && current_us >= locator_tx_started ?
          (unsigned long)((current_us - locator_tx_started) / G_USEC_PER_SEC) : 0;
-      g_snprintf(ptt_line, sizeof(ptt_line), "TX: %s (%lu s)", holder->name, elapsed);
+      g_snprintf(ptt_line, sizeof(ptt_line), "TX: %s (%lu s)%s", holder->name, elapsed, watt_label);
    } else if (ptt) {
-      g_snprintf(ptt_line, sizeof(ptt_line), "PTT On (holder unknown)");
+      g_snprintf(ptt_line, sizeof(ptt_line), "PTT On (holder unknown)%s", watt_label);
    } else {
       g_strlcpy(ptt_line, "PTT Off", sizeof(ptt_line));
    }
