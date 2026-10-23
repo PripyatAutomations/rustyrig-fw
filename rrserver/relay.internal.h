@@ -121,6 +121,8 @@ void rr_relay_media_fanout(const char *event, const void *data, size_t length, r
 bool rr_relay_proxy_tx_subscribed(struct remote_session *r, const char *room);
 void rr_relay_proxy_tx_frame(const char *event, const void *data, size_t length, rrconn_t *client, void *user);
 struct remote_session *rr_relay_remote_for(rrconn_t *client);
+/* Destination-side TX grant for authenticated relay sessions (never local UID roles). */
+bool rr_relay_cat_authorized(rrconn_t *client, const char *room, const char *command);
 struct relay_client *rr_relay_client_for(rrconn_t *client, bool create);
 void rr_relay_wanted_set(struct relay_client *client, const char *owner, const char *room, bool joined);
 void rr_relay_wanted_free(struct relay_client *client);
