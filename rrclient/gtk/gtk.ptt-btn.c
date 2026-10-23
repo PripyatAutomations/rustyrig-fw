@@ -363,7 +363,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    }
 
    const char *target_room = ptt_target_room();
-   if (!target_room) {
+   if (!target_room && gtk_toggle_button_get_active(button)) {
       Log(LOG_WARN, "ui.gtk", "PTT rejected locally: no TX-control room for selected rig (tab=%s, media=%s)",
          gtk_chat_current_room() ? gtk_chat_current_room() : "(status)",
          rrclient_media_active_room() ? rrclient_media_active_room() : "(none)");
@@ -371,6 +371,8 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_set_state(false);
       return;
    }
+   if (!target_room) target_room = rrclient_media_active_room();
+   if (!target_room || !*target_room) target_room = rrclient_current_room();
    struct rr_user *talker = tx_user();
 
    if (!ptt_active && !someone_else_transmitting(talker) && ws_conn && ws_conn->is_ws && media_have_priv("noob") &&
