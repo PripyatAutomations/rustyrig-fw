@@ -723,7 +723,8 @@ static gboolean screensaver_activity_event(GtkWidget *widget, GdkEvent *event, g
 }
 static gboolean screensaver_launch(void) {
    if (screensaver_pid) return FALSE;
-   gchar *argv[] = {"gmatrix", NULL};
+   gchar program[] = "gmatrix";
+   gchar *argv[] = {program, NULL};
    GError *error = NULL;
    GPid pid = 0;
    if (!g_spawn_async(NULL, argv, NULL,
