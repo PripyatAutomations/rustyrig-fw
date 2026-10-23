@@ -38,11 +38,9 @@ void frontend_ops_unregister(void) {
       return;
    }
    Log(LOG_INFO, "frontend", "Frontend module unregistered: %s", registered_ops->name);
+   // Unloading GTK during shutdown must not activate the TUI renderer.
+   // Fallback to TUI is selected explicitly by the startup path instead.
    registered_ops = NULL;
-
-   if (ui_mode == UI_MODE_GTK) {
-      ui_mode = UI_MODE_TUI;
-   }
 }
 
 const rr_frontend_ops_t *frontend_ops(void) {
