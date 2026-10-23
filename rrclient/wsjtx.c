@@ -33,6 +33,8 @@ typedef struct {
    gint64 seen;
    guint32 last_type;
    guint64 packets;
+   guint64 decoded, wspr_decoded, qso_logged, adif_logged;
+   gint64 last_decode_at, last_qso_at;
    char mode[48], tx_mode[48], dx_call[64], report[32], de_call[64], de_grid[32], dx_grid[32];
    char sub_mode[48], configuration[128], tx_message[160];
    guint64 dial_hz;
@@ -233,6 +235,10 @@ static gboolean udp_ready(gint fd, GIOCondition condition, gpointer unused) {
       peer->seen = g_get_monotonic_time();
       peer->last_type = type;
       ++peer->packets;
+      if (type == 2) { ++peer->decoded; peer->last_decode_at = peer->seen; }
+      if (type == 10) { ++peer->wspr_decoded; peer->last_decode_at = peer->seen; }
+      if (type == 5) { ++peer->qso_logged; peer->last_qso_at = peer->seen; }
+      if (type == 12) { ++peer->adif_logged; peer->last_qso_at = peer->seen; }
       if (type == 1) wsjtx_parse_status(peer, buf + 16 + idlen, (size_t)n - 16u - idlen);
       if (type == 6) peer->seen = 0; /* orderly WSJT-X shutdown */
 
@@ -462,6 +468,12 @@ void rrclient_wsjtx_foreach_field(rr_wsjtx_field_cb cb, void *data) {
       NUM("Connection", "Received packets", "%llu", (unsigned long long)p->packets);
       NUM("Connection", "Schema", "%u", p->schema);
       NUM("Connection", "UDP source port", "%u", ntohs(p->address.sin_port));
+      NUM("Recent Activity", "Decodes received", "%llu", (unsigned long long)p->decoded);
+      NUM("Recent Activity", "WSPR decodes received", "%llu", (unsigned long long)p->wspr_decoded);
+      NUM("Recent Activity", "QSO logged events", "%llu", (unsigned long long)p->qso_logged);
+      NUM("Recent Activity", "ADIF log events", "%llu", (unsigned long long)p->adif_logged);
+      if (p->last_decode_at) NUM("Recent Activity", "Last decode", "%lld seconds ago", (long long)((now-p->last_decode_at)/G_USEC_PER_SEC));
+      if (p->last_qso_at) NUM("Recent Activity", "Last QSO log", "%lld seconds ago", (long long)((now-p->last_qso_at)/G_USEC_PER_SEC));
       if (p->has_status) {
          NUM("Operating Status", "Dial frequency", "%.6f MHz", p->dial_hz / 1e6);
          FIELD("Operating Status", "Mode", p->mode);
