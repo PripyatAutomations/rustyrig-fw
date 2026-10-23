@@ -631,7 +631,14 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    }
 
    if (completing_ptt ? completing_ptt->failed : rr_ptt_apply(vfo, ptt)) {
-      Log(LOG_WARN, "ptt", "Failed to apply PTT %s (no backend or backend error?)", (ptt ? "ON" : "OFF"));
+      rr_server_rig_t *failed_rig = completing_ptt ? completing_ptt->radio : rig.ptt_rig;
+      const char *failed_alias = failed_rig ? rr_rig_registry_alias(rig.rigs, failed_rig) : "(unresolved)";
+      Log(LOG_WARN, "ptt",
+         "PTT %s failed: rig=%s VFO=%s talker=%s path=%s; see backend log; RF %s",
+         ptt ? "ON" : "OFF", failed_alias, vfo_name(vfo),
+         ptt_talker ? ptt_talker->chatname : "(none)",
+         completing_ptt ? "backend-worker" : "synchronous",
+         ptt ? "key-down not confirmed" : "release not confirmed");
 
       // A failed key-down must not leave an open database session or a
       // recording ID that will be attached to a later transmission.
