@@ -14,6 +14,22 @@
 #endif
 static bool layered;
 
+/* The host builds default_cfg before loading any file. Preserve it as the
+ * lowest-precedence layer without mutating the shared defaults table. */
+static dict *with_defaults(dict *loaded) {
+   if (!loaded) return NULL;
+   dict *merged = dict_new();
+   if (!merged || (default_cfg && dict_merge(merged, default_cfg)) ||
+       dict_merge(merged, loaded)) {
+      dict_free(merged);
+      dict_free(loaded);
+      return NULL;
+   }
+   dict_free(loaded);
+   return merged;
+}
+
+
 char *rrclient_user_config_path(void) {
    const char *home_dir = getenv("HOME");
 
@@ -47,14 +63,14 @@ static dict *read_layers(const char *system_path, const char *user_path) {
       dict_free(override);
    }
 
-   return combined;
+   return with_defaults(combined);
 }
 
 bool rrclient_config_load(void) {
    layered = false;
 
    if (config_file) {
-      cfg = cfg_load(config_file);
+      cfg = with_defaults(cfg_load(config_file));
 
       return cfg != NULL;
    }
@@ -68,7 +84,7 @@ bool rrclient_config_load(void) {
       return false;
    }
    config_file = path;
-   cfg = cfg_load(path);
+   cfg = with_defaults(cfg_load(path));
 
    return cfg != NULL;
 #endif
