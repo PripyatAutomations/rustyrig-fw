@@ -117,5 +117,44 @@ select a codec supported by the client, and verify receive audio before TX.
 Opus is a useful initial choice; native /rxcodec opus selects it. Use /help
 for codec controls and doc/media-codecs.md for decoder/pipeline requirements.
 
+5. Temporary cross-site demo access
+-----------------------------------
+For a multi-server demonstration, run the following on EACH destination server
+to grant authenticated remote admin accounts from any linked site full rig
+access, permission to join all rooms, and remote server administration:
+
+    sudo ./tools/grant-remote-superadmin.sh 'admin@*'
+
+The default database is /var/lib/rustyrig/db/master.db. To grant only an
+account from a specific originating site, replace the wildcard:
+
+    sudo ./tools/grant-remote-superadmin.sh 'admin@rplywv00'
+
+For a custom database path, specify it first:
+
+    sudo ./tools/grant-remote-superadmin.sh /path/to/master.db 'admin@rplywv00'
+
+Quote the identity to keep * from shell expansion. Run the script from the
+repository checkout on the destination host; it needs sqlite3 and database
+write permission. Grants are idempotent, but are intentionally VERY broad:
+they apply to present and future rigs/rooms, and site owner/admin operations.
+They do not bypass RF/PTT hardware safety or replace linked-site authentication.
+Do not use wildcard remote superadmin access in production.
+
+After the demo, remove grants created by this script on EACH destination DB
+(the example below uses the default path). This only removes grants bearing
+the script's marker, not grants configured independently:
+
+    sudo sqlite3 /var/lib/rustyrig/db/master.db "
+      DELETE FROM privilege_set_assignments
+        WHERE assigned_by='grant-remote-superadmin';
+      DELETE FROM resource_privileges
+        WHERE granted_by='grant-remote-superadmin';
+    "
+
+Review separately any pre-existing admin@* bootstrap grants from fresh test
+database preloads: removing script-generated rows does not remove those grants.
+See doc/resource-privileges.md and doc/release-checklist.md.
+
 For reports, include the release version, frontend, selected codec, relevant
 status/log messages and steps to reproduce. Redact passwords and proxy secrets.
