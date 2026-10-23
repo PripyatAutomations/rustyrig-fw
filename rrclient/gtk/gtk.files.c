@@ -9,6 +9,9 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.editcfg.h>
 #include "gtk.files.h"
+#include "gtk.floating-panel.h"
+extern GtkWidget *main_window, *main_notebook;
+static RRFloatPanel *files_panel;
 
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
@@ -334,7 +337,7 @@ static gboolean browser_key_press(GtkWidget *widget, GdkEventKey *event, gpointe
 }
 static char *prompt(const char *title, const char *initial) {
    GtkWidget *dialog =
-      gtk_dialog_new_with_buttons(title, GTK_WINDOW(browser.window), GTK_DIALOG_MODAL, "Cancel", GTK_RESPONSE_CANCEL, "OK", GTK_RESPONSE_OK, NULL);
+      gtk_dialog_new_with_buttons(title, GTK_WINDOW(main_window), GTK_DIALOG_MODAL, "Cancel", GTK_RESPONSE_CANCEL, "OK", GTK_RESPONSE_OK, NULL);
    GtkWidget *entry = gtk_entry_new();
    gtk_entry_set_text(GTK_ENTRY(entry), initial ? initial : "");
    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), entry);
@@ -345,7 +348,7 @@ static char *prompt(const char *title, const char *initial) {
    return text;
 }
 static bool confirm(const char *message) {
-   GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(browser.window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
+   GtkWidget *d = gtk_message_dialog_new(GTK_WINDOW(main_window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
    bool yes = gtk_dialog_run(GTK_DIALOG(d)) == GTK_RESPONSE_YES;
    gtk_widget_destroy(d);
 
@@ -584,7 +587,7 @@ static void action(GtkButton *button, gpointer data) {
          pending_edit->profile = g_strdup(rrclient_connection_name(connection()));
       } else {
          GtkWidget *dialog =
-            gtk_file_chooser_dialog_new("Download", GTK_WINDOW(browser.window), GTK_FILE_CHOOSER_ACTION_SAVE, "Cancel", GTK_RESPONSE_CANCEL, "Save",
+            gtk_file_chooser_dialog_new("Download", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_SAVE, "Cancel", GTK_RESPONSE_CANCEL, "Save",
             GTK_RESPONSE_ACCEPT, NULL);
          gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
          char *base = g_path_get_basename(path);
@@ -616,7 +619,7 @@ static void action(GtkButton *button, gpointer data) {
          status("Select a writable directory.");
          goto done;
       }
-      GtkWidget *dialog = gtk_file_chooser_dialog_new("Upload", GTK_WINDOW(browser.window), GTK_FILE_CHOOSER_ACTION_OPEN, "Cancel", GTK_RESPONSE_CANCEL, "Open",
+      GtkWidget *dialog = gtk_file_chooser_dialog_new("Upload", GTK_WINDOW(main_window), GTK_FILE_CHOOSER_ACTION_OPEN, "Cancel", GTK_RESPONSE_CANCEL, "Open",
          GTK_RESPONSE_ACCEPT, NULL);
 
       if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
@@ -694,6 +697,7 @@ static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer d
    return order;
 }
 static void destroyed(GtkWidget *window, gpointer data) {
+   files_panel = NULL;
    if (browser.timer) {
       g_source_remove(browser.timer);
    }
@@ -703,17 +707,25 @@ static void destroyed(GtkWidget *window, gpointer data) {
    g_object_unref(browser.store);
    memset(&browser, 0, sizeof(browser));
 }
+static void files_close(gpointer data) {
+   (void)data;
+   if (files_panel) rr_floating_panel_destroy(files_panel);
+}
 static void open_browser(const char *event, const char *text, rrconn_t *c, void *data) {
    if (browser.window) {
-      gtk_window_present(GTK_WINDOW(browser.window));
+      rr_floating_panel_restore(files_panel);
+      rr_floating_panel_show(files_panel);
 
       return;
    }
-   browser.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(browser.window), "Remote Files");
-   gtk_window_set_default_size(GTK_WINDOW(browser.window), 850, 600);
-   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_container_add(GTK_CONTAINER(browser.window), box);
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   files_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "remote-files", "Remote Files");
+   if (!files_panel) return;
+   rr_floating_panel_set_close_callback(files_panel, files_close, NULL);
+   browser.window = rr_floating_panel_widget(files_panel);
+   GtkWidget *box = rr_floating_panel_body(files_panel);
+   gtk_widget_set_size_request(box, 850, 600);
    GtkWidget *server_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    GtkWidget *server_label = gtk_label_new("Server:");
    gtk_box_pack_start(GTK_BOX(box), server_row, FALSE, FALSE, 0);
@@ -823,7 +835,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    g_signal_connect(browser.tree, "row-expanded", G_CALLBACK(expand), NULL);
    g_signal_connect(browser.tree, "row-activated", G_CALLBACK(folder_activated), NULL);
    browser.server_changed_handler = g_signal_connect(browser.server, "changed", G_CALLBACK(changed), NULL);
-   gtk_widget_show_all(browser.window);
+   rr_floating_panel_show(files_panel);
    refresh();
    refresh_sites();
 }
@@ -838,7 +850,7 @@ void gtk_files_shutdown(void) {
    event_off_token(done_token);
 
    if (browser.window) {
-      gtk_widget_destroy(browser.window);
+      files_close(NULL);
    }
 
    if (pending_edit) {
