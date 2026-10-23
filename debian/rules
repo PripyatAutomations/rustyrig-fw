@@ -45,7 +45,6 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(OPTIONAL_MAKE_FLAGS)
-	$(MAKE) -j$(DEB_BUILD_JOBS) -C gmatrix
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
@@ -59,7 +58,7 @@ override_dh_auto_install: $(addprefix install-optional-,$(ENABLED_OPTIONAL_MODUL
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	install -Dm755 modems/ft8/rrmodem-ft8 debian/rustyrig-modem-ft8/var/lib/rustyrig/modems/rrmodem-ft8
 endif
-	install -Dm755 bin/rr-si5351 debian/rustyrig-server$(BINDIR)/rr-si5351
+	install -Dm755 bin/rr-dds-si5351 debian/rustyrig-server$(BINDIR)/rr-dds-si5351
 	install -Dm755 bin/rrserver-gps-nmea.so debian/rustyrig-server$(MODULEDIR)/rrserver/rrserver-gps-nmea.so
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
