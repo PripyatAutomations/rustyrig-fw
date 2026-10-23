@@ -9,7 +9,8 @@ struct rr_floating_panel {
    GtkOverlay *overlay;
    GtkNotebook *tabs;
    char *id;
-   gboolean rolled, minimized, dragging;
+   gboolean rolled, minimized, dragging, closable;
+   gint roll_width;
    double drag_x, drag_y;
    int start_x, start_y;
 };
@@ -108,6 +109,12 @@ static void panel_minimize(GtkButton *button, gpointer data) {
 static void panel_roll(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
+   if (!p->rolled) {
+      p->roll_width = gtk_widget_get_allocated_width(p->frame);
+      if (p->roll_width > 1) gtk_widget_set_size_request(p->frame, p->roll_width, -1);
+   } else {
+      gtk_widget_set_size_request(p->frame, -1, -1);
+   }
    p->rolled = !p->rolled;
    panel_chrome(p);
 }
@@ -127,7 +134,8 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
 
 static void panel_close(GtkButton *button, gpointer data) {
    (void)button;
-   rr_floating_panel_hide(data);
+   RRFloatPanel *p = data;
+   if (p && p->closable) rr_floating_panel_hide(p);
 }
 
 static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -185,6 +193,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->overlay = overlay;
    p->tabs = tabs;
    p->id = g_strdup(id);
+   p->closable = TRUE;
    p->frame = gtk_frame_new(NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(p->frame), "rr-floating-panel");
    GtkCssProvider *css = gtk_css_provider_new();
@@ -210,7 +219,10 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_tooltip_text(handle, "Drag to move panel");
    p->minimize = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
    p->roll = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_start(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
+   /* Close stays at the left; the remaining controls belong on the right. */
+   p->close_button = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
+   gtk_box_pack_start(GTK_BOX(header), p->close_button, FALSE, FALSE, 0);
+   g_signal_connect(p->close_button, "clicked", G_CALLBACK(panel_close), p);
    g_signal_connect(p->minimize, "clicked", G_CALLBACK(panel_minimize), p);
    g_signal_connect(p->roll, "clicked", G_CALLBACK(panel_roll), p);
    gtk_widget_set_tooltip_text(p->roll, "Roll up panel");
@@ -223,7 +235,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(menu_button, "Panel settings");
-   gtk_box_pack_start(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
+   gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
+   gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
+   gtk_box_pack_end(GTK_BOX(header), p->minimize, FALSE, FALSE, 0);
    p->menu = gtk_popover_new(menu_button);
    GtkWidget *settings = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_set_border_width(GTK_CONTAINER(settings), 10);
@@ -254,10 +268,6 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
    gtk_box_pack_start(GTK_BOX(header), p->title, TRUE, TRUE, 0);
-   p->close_button = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
-   gtk_box_pack_start(GTK_BOX(header), p->close_button, FALSE, FALSE, 0);
-   gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
-   g_signal_connect(p->close_button, "clicked", G_CALLBACK(panel_close), p);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
    gtk_widget_show_all(p->frame);
@@ -307,6 +317,7 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
 
 void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
    if (!p) return;
+   p->closable = closable;
    if (p->close_button) gtk_widget_set_no_show_all(p->close_button, !closable);
    if (p->menu_close) gtk_widget_set_no_show_all(p->menu_close, !closable);
    if (p->close_button) gtk_widget_set_visible(p->close_button, closable);
