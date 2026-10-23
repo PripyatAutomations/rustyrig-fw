@@ -266,6 +266,10 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    return p;
 }
 
+void rr_floating_panel_set_title(RRFloatPanel *p, const char *title) {
+   if (p && p->title) gtk_label_set_text(GTK_LABEL(p->title), title ? title : p->id);
+}
+
 GtkWidget *rr_floating_panel_body(RRFloatPanel *p) {
    return p ? p->body : NULL;
 }

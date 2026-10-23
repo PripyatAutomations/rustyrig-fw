@@ -8,7 +8,6 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
-#include "gtk.matrix.h"
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -699,62 +698,30 @@ static gboolean on_window_delete(GtkWidget *widget, GdkEvent *event, gpointer da
    return TRUE;                 // core handles shutdown after GTK confirmation
 }
 
-/* Full-window matrix overlay, above the entire zoom viewport. */
-static GtkWidget *rr_matrix_overlay, *rr_matrix_widget, *rr_matrix_controls;
-void gtk_matrix_toggle(void) {
-   if (!rr_matrix_overlay) return;
-   if (!rr_matrix_widget) {
-      rr_matrix_widget = rr_gtk_matrix_new();
-      if (!rr_matrix_widget) return;
-      gtk_overlay_add_overlay(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_widget);
-      gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_widget, TRUE);
-      gtk_widget_set_hexpand(rr_matrix_widget, TRUE);
-      gtk_widget_set_vexpand(rr_matrix_widget, TRUE);
-      gtk_widget_set_halign(rr_matrix_widget, GTK_ALIGN_FILL);
-      gtk_widget_set_valign(rr_matrix_widget, GTK_ALIGN_FILL);
-      g_object_add_weak_pointer(G_OBJECT(rr_matrix_widget), (gpointer *)&rr_matrix_widget);
-      rr_gtk_matrix_set_options(rr_matrix_widget, 50, 100, 300);
-      rr_matrix_controls = rr_gtk_matrix_controls_button(rr_matrix_widget);
-      if (rr_matrix_controls) {
-         gtk_overlay_add_overlay(GTK_OVERLAY(rr_matrix_overlay), rr_matrix_controls);
-         /* The small π is interactive; the rest of Matrix passes events through. */
-         gtk_widget_show(rr_matrix_controls);
-      }
-      gtk_widget_show(rr_matrix_widget);
-   } else if (gtk_widget_get_visible(rr_matrix_widget)) {
-      gtk_widget_hide(rr_matrix_widget);
-      if (rr_matrix_controls) gtk_widget_hide(rr_matrix_controls);
-   } else {
-      gtk_widget_show(rr_matrix_widget);
-      if (rr_matrix_controls) gtk_widget_show(rr_matrix_controls);
-   }
-}
-/* Escape exits the effect. Escape then grave/tilde within 1.5 seconds
- * activates it while hidden; no bare tilde interception. */
+static GtkWidget *rr_client_overlay;
+/* Spawn the independently packaged screensaver; never run it in the
+ * rrclient widget tree. GTK owns the Escape-prefix event handling here. */
 static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget; (void)data;
    static gint64 escape_at;
    gint64 now = g_get_monotonic_time();
-   bool visible = rr_matrix_widget && gtk_widget_get_visible(rr_matrix_widget);
-
    if (event->keyval == GDK_KEY_Escape) {
-      if (visible) {
-         escape_at = 0;
-         gtk_matrix_toggle();
-         return TRUE;
-      }
       escape_at = now;
       return FALSE;
    }
-
-   bool armed = escape_at && now - escape_at <= 1500000;
+   gboolean armed = escape_at && now - escape_at <= 1500000;
    escape_at = 0;
-   if (armed && (event->keyval == GDK_KEY_asciitilde || event->keyval == GDK_KEY_grave) &&
-       !(event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) {
-      gtk_matrix_toggle();
-      return TRUE;
+   if (!armed || (event->keyval != GDK_KEY_grave && event->keyval != GDK_KEY_asciitilde) ||
+       (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK)))
+      return FALSE;
+   gchar *argv[] = {"gmatrix", NULL};
+   GError *error = NULL;
+   if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH,
+                      NULL, NULL, NULL, &error)) {
+      Log(LOG_WARN, "gtk.matrix", "Unable to launch gmatrix: %s", error->message);
+      g_clear_error(&error);
    }
-   return FALSE;
+   return TRUE;
 }
 
 bool gui_init(void) {
@@ -777,11 +744,11 @@ bool gui_init(void) {
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
    g_object_ref(viewport);
    gtk_container_remove(GTK_CONTAINER(main_window), viewport);
-   rr_matrix_overlay = gtk_overlay_new();
-   gtk_widget_set_hexpand(rr_matrix_overlay, TRUE);
-   gtk_widget_set_vexpand(rr_matrix_overlay, TRUE);
-   gtk_container_add(GTK_CONTAINER(main_window), rr_matrix_overlay);
-   gtk_container_add(GTK_CONTAINER(rr_matrix_overlay), viewport);
+   rr_client_overlay = gtk_overlay_new();
+   gtk_widget_set_hexpand(rr_client_overlay, TRUE);
+   gtk_widget_set_vexpand(rr_client_overlay, TRUE);
+   gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
+   gtk_container_add(GTK_CONTAINER(rr_client_overlay), viewport);
    g_object_unref(viewport);
    g_signal_connect(main_window, "key-press-event", G_CALLBACK(matrix_key_press), NULL);
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(main_notebook), FALSE);

@@ -38,12 +38,14 @@ override_dh_auto_test:
 
 override_dh_auto_clean:
 	$(MAKE) distclean || true
+	$(MAKE) -C gmatrix clean || true
 	$(MAKE) -C callsign-lookup clean || true
 	$(MAKE) -C modems/ft8 clean || true
 
 override_dh_auto_build:
 	@echo "Optional modules enabled: $(ENABLED_OPTIONAL_MODULES); skipped: $(DISABLED_OPTIONAL_MODULES)"
 	$(MAKE) -j$(DEB_BUILD_JOBS) PROFILE=$(PROFILE) $(OPTIONAL_MAKE_FLAGS)
+	$(MAKE) -j$(DEB_BUILD_JOBS) -C gmatrix
 	$(MAKE) -j$(DEB_BUILD_JOBS) -C callsign-lookup
 ifneq ($(filter yes true 1,$(WITH_FT8)),)
 	$(MAKE) -C modems/ft8 FT8_LIB=../../ext/ft8_lib
@@ -62,6 +64,7 @@ endif
 	install -Dm755 bin/rrserver-gpsd.so debian/rustyrig-server-gpsd$(MODULEDIR)/rrserver/rrserver-gpsd.so
 	install -Dm755 bin/rrclient debian/rustyrig-client$(BINDIR)/rrclient
 	install -Dm755 bin/rrclient-gtk.so debian/rustyrig-client-gtk$(MODULEDIR)/rrclient/rrclient-gtk.so
+	install -Dm755 gmatrix/gmatrix debian/rustyrig-client-gtk-screensaver$(BINDIR)/gmatrix
 	install -Dm644 packaging/rustyrig-client.desktop debian/rustyrig-client-gtk/usr/share/applications/rustyrig-client.desktop
 	install -Dm644 res/rustyrig.png debian/rustyrig-client-gtk/usr/share/icons/hicolor/48x48/apps/rustyrig.png
 	install -Dm755 bin/fwdsp debian/rustyrig-fwdsp$(BINDIR)/fwdsp

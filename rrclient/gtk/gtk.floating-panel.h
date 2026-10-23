@@ -8,6 +8,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
 GtkWidget *rr_floating_panel_body(RRFloatPanel *panel);
 GtkWidget *rr_floating_panel_widget(RRFloatPanel *panel);
 void rr_floating_panel_show(RRFloatPanel *panel);
+void rr_floating_panel_set_title(RRFloatPanel *panel, const char *title);
 void rr_floating_panel_hide(RRFloatPanel *panel);
 void rr_floating_panel_restore(RRFloatPanel *panel);
 void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);

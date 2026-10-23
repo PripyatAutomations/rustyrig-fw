@@ -143,7 +143,7 @@ void gtk_chat_set_navigation_only(bool value) {
 
 extern void vfo_controls_set_rx_only(bool rx_only);
 static GtkWidget *room_vfo_box;
-static GtkWidget *room_vfo_window;
+static RRFloatPanel *room_vfo_panel;
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab);
 
 static void gtk_chat_select_tab(GtkNotebook *notebook, GtkWidget *page, guint page_num, gpointer user_data) {
@@ -1223,37 +1223,26 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 }
 
 
-/* VFO is a single persistent, placeable floating window. It is never
- * reparented into a room, and no grip, fold or redock state is retained. */
-static gboolean room_vfo_window_closed(GtkWidget *window, GdkEvent *event, gpointer unused) {
-   (void)event;
-   (void)unused;
-   gtk_widget_hide(window);
-   return TRUE;
-}
-static gboolean room_vfo_float_size(GtkWidget *widget, GdkEventConfigure *event, gpointer unused) {
-   (void)widget;
-   (void)unused;
-   vfo_controls_fit_width(event->width);
-   return FALSE;
-}
+/* One in-client overlay panel follows the selected rig; it is not a
+ * toplevel window and cannot be docked into an individual chat tab. */
 static void room_vfo_show(const char *name) {
-   if (!room_vfo_window) {
-      room_vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-      gtk_window_set_default_size(GTK_WINDOW(room_vfo_window), 680, 150);
-      gtk_window_set_resizable(GTK_WINDOW(room_vfo_window), TRUE);
-      gtk_window_set_destroy_with_parent(GTK_WINDOW(room_vfo_window), TRUE);
-      g_signal_connect(room_vfo_window, "delete-event", G_CALLBACK(room_vfo_window_closed), NULL);
-      g_signal_connect(room_vfo_window, "configure-event", G_CALLBACK(room_vfo_float_size), NULL);
-      rr_floating_window_controls(GTK_WINDOW(room_vfo_window), GTK_NOTEBOOK(main_notebook), "VFO");
+   if (!room_vfo_panel) {
+      GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook))
+         return;
+      room_vfo_panel = rr_floating_panel_new(GTK_OVERLAY(root),
+                                           GTK_NOTEBOOK(main_notebook),
+                                           "rig-vfo", "VFO");
+      if (!room_vfo_panel) return;
       room_vfo_box = create_vfo_box();
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *)&room_vfo_box);
-      gtk_container_add(GTK_CONTAINER(room_vfo_window), room_vfo_box);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)),
+                         room_vfo_box, FALSE, FALSE, 0);
    }
    char *title = g_strdup_printf("%s — VFO", name && *name ? name : "Rig");
-   gtk_window_set_title(GTK_WINDOW(room_vfo_window), title);
+   rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
-   gtk_widget_show_all(room_vfo_window);
+   rr_floating_panel_show(room_vfo_panel);
 }
 // A single control box follows the selected rig room.  The site lobby and
 // query tabs never own radio widgets; creating one per rig would overwrite
@@ -1263,7 +1252,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
       (rrclient_room_tx_control(tab->room) ||
        (rrclient_room_rx_tunable(tab->room) && rrclient_room_vfos(tab->room)[0]));
    if (!has_vfos) {
-      if (room_vfo_window) gtk_widget_hide(room_vfo_window);
+      if (room_vfo_panel) rr_floating_panel_hide(room_vfo_panel);
       return;
    }
    room_vfo_show(tab->room);
