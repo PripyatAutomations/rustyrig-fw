@@ -168,9 +168,11 @@ void rr_cat_yaesu_vfo_a_to_b(const char *args) {
 }                               // VFO A to VFO B
 
 void rr_cat_yaesu_tuner_control(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_tuner_control: args='%s' (no reply/action)", args ? args : "");
 }                               // Antenna Tuner Control
 
 void rr_cat_yaesu_af_gain(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_af_gain: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set AF gain
 
 // Auto Information mode: hamlib queries "AI;" during connect and expects a
@@ -186,6 +188,7 @@ void rr_cat_yaesu_auto_info(const char *args) {
 }                               // Enable/Disable Auto Information mode
 
 void rr_cat_yaesu_vfo_a_to_mem(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_vfo_a_to_mem: args='%s' (no reply/action)", args ? args : "");
 }                               // Store VFO A to memory channel
 
 void rr_cat_yaesu_vfo_b_to_a(const char *args) {
@@ -193,63 +196,83 @@ void rr_cat_yaesu_vfo_b_to_a(const char *args) {
 }                               // VFO B to VFO A
 
 void rr_cat_yaesu_ant_select(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_ant_select: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set Antenna selection
 
 void rr_cat_yaesu_auto_notch(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_auto_notch: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set Auto Notch
 
 void rr_cat_yaesu_band_down(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_band_down: args='%s' (no reply/action)", args ? args : "");
 }                               // Band Down
 
 void rr_cat_yaesu_band_select(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_band_select: args='%s' (no reply/action)", args ? args : "");
 }                               // Band Select
 
 void rr_cat_yaesu_band_up(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_band_up: args='%s' (no reply/action)", args ? args : "");
 }                               // band up
 
 void rr_cat_yaesu_break_in(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_break_in: args='%s' (no reply/action)", args ? args : "");
 }                               // Break-in
 
 void rr_cat_yaesu_manual_notch(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_manual_notch: args='%s' (no reply/action)", args ? args : "");
 }                               // Manual Notch
 
 void rr_cat_yaesu_busy(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_busy: args='%s' (no reply/action)", args ? args : "");
 }                               // Busy
 
 void rr_cat_yaesu_clarifier(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_clarifier: args='%s' (no reply/action)", args ? args : "");
 }                               // Clarifier
 
 void rr_cat_yaesu_channel(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_channel: args='%s' (no reply/action)", args ? args : "");
 }                               // Channel
 
 void rr_cat_yaesu_ctcss_number(const char *arg) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_ctcss_number: args='%s' (no reply/action)", arg ? arg : "");
 }                               // CTCSS Number
 
 void rr_cat_yaesu_contour(const char *arg) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_contour: args='%s' (no reply/action)", arg ? arg : "");
 }                               // Contour
 
 void rr_cat_yaesu_cw_spot(const char *arg) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_cw_spot: args='%s' (no reply/action)", arg ? arg : "");
 }                               // CW Spot
 
 void rr_cat_yaesu_ctcss(const char *arg) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_ctcss: args='%s' (no reply/action)", arg ? arg : "");
 }                               // CTCSS
 
 void rr_cat_yaesu_dimmer(const char *arg) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_dimmer: args='%s' (no reply/action)", arg ? arg : "");
 }                               // Dimmer
 
 void rr_cat_yaesu_down(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_down: args='%s' (no reply/action)", args ? args : "");
 }                               // Down
 
 void rr_cat_yaesu_encoder_down(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_encoder_down: args='%s' (no reply/action)", args ? args : "");
 }                               // Encoder Down
 
 void rr_cat_yaesu_enter(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_enter: args='%s' (no reply/action)", args ? args : "");
 }                               // Enter key
 
 void rr_cat_yaesu_encoder_up(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_encoder_up: args='%s' (no reply/action)", args ? args : "");
 }                               // Encoder Up
 
 void rr_cat_yaesu_menu(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_menu: args='%s' (no reply/action)", args ? args : "");
 }                               // Extended menu commands
 
 void rr_cat_yaesu_set_vfo_a(const char *args) {
@@ -310,9 +333,11 @@ void rr_cat_yaesu_set_vfo_b(const char *args) {
 }                               // Read/Set VFO B frequency
 
 void rr_cat_yaesu_fast_step(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_fast_step: args='%s' (no reply/action)", args ? args : "");
 }                               // Fast Step
 
 void rr_cat_yaesu_agc_func(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_agc_func: args='%s' (no reply/action)", args ? args : "");
 }                               // AGC Function
 
 void rr_cat_yaesu_id(const char *args) {
@@ -338,21 +363,27 @@ void rr_cat_yaesu_info(const char *args) {
 }                               // Get receiver status
 
 void rr_cat_yaesu_if_shift(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_if_shift: args='%s' (no reply/action)", args ? args : "");
 }                               // IF shift
 
 void rr_cat_yaesu_cw_key(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_cw_key: args='%s' (no reply/action)", args ? args : "");
 }                               // Send CW Keying
 
 void rr_cat_yaesu_lock(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_lock: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set lock status
 
 void rr_cat_yaesu_mem_to_vfo_a(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_mem_to_vfo_a: args='%s' (no reply/action)", args ? args : "");
 }                               // Memory to VFO A
 
 void rr_cat_yaesu_mem_channel(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_mem_channel: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set Memory Channel data
 
 void rr_cat_yaesu_mic_gain(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_mic_gain: args='%s' (no reply/action)", args ? args : "");
 }                               // Mic Gain
 
 void rr_cat_yaesu_mode(const char *args) {
@@ -400,21 +431,27 @@ void rr_cat_yaesu_mode(const char *args) {
 }                               // Read/Set operating mode
 
 void rr_cat_yaesu_monitor_level(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_monitor_level: args='%s' (no reply/action)", args ? args : "");
 }                               // Monitor Level
 
 void rr_cat_yaesu_memory_read(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_memory_read: args='%s' (no reply/action)", args ? args : "");
 }                               // Memory Read
 
 void rr_cat_yaesu_meter_switch(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_meter_switch: args='%s' (no reply/action)", args ? args : "");
 }                               // Meter Switch
 
 void rr_cat_yaesu_mem_write_tag(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_mem_write_tag: args='%s' (no reply/action)", args ? args : "");
 }                               // Memory write & tag
 
 void rr_cat_yaesu_mem_write(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_mem_write: args='%s' (no reply/action)", args ? args : "");
 }                               // Memory write
 
 void rr_cat_yaesu_mox(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_mox: args='%s' (no reply/action)", args ? args : "");
 }                               // MOX
 
 void rr_cat_yaesu_narrow(const char *args) {
@@ -447,30 +484,39 @@ void rr_cat_yaesu_narrow(const char *args) {
 }                               // Narrow
 
 void rr_cat_yaesu_noise_blanker(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_noise_blanker: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set Noise Blanker
 
 void rr_cat_yaesu_nb_level(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_nb_level: args='%s' (no reply/action)", args ? args : "");
 }                               // NB Level
 
 void rr_cat_yaesu_noise_reduction(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_noise_reduction: args='%s' (no reply/action)", args ? args : "");
 }                               // Noise Reduction
 
 void rr_cat_yaesu_obi(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_obi: args='%s' (no reply/action)", args ? args : "");
 }                               // Opposite Band Info??
 
 void rr_cat_yaesu_offset(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_offset: args='%s' (no reply/action)", args ? args : "");
 }                               // Offset
 
 void rr_cat_yaesu_preamp(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_preamp: args='%s' (no reply/action)", args ? args : "");
 }                               // Preamp
 
 void rr_cat_yaesu_playback(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_playback: args='%s' (no reply/action)", args ? args : "");
 }                               // Playback
 
 void rr_cat_yaesu_preproc(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_preproc: args='%s' (no reply/action)", args ? args : "");
 }                               // Preprocessor
 
 void rr_cat_yaesu_preproc_level(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_preproc_level: args='%s' (no reply/action)", args ? args : "");
 }                               // Preprocessor level
 
 void rr_cat_yaesu_tx_power(const char *args) {
@@ -498,6 +544,7 @@ void rr_cat_yaesu_power(const char *args) {
 }                               // Read/Toggle power
 
 void rr_cat_yaesu_qmb_store(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_qmb_store: args='%s' (no reply/action)", args ? args : "");
 }                               // QMB Store
 
 void rr_cat_yaesu_width(const char *args) {
@@ -535,9 +582,11 @@ void rr_cat_yaesu_width(const char *args) {
 }                               // Width
 
 void rr_cat_yaesu_s_meter(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_s_meter: args='%s' (no reply/action)", args ? args : "");
 }                               // Read S-meter/SWR/ALC/COMP
 
 void rr_cat_yaesu_squelch(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_squelch: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set squelch
 
 void rr_cat_yaesu_split(const char *args) {
@@ -612,6 +661,7 @@ void rr_cat_yaesu_swap_vfo(const char *args) {
 }                               // Swap VFOs
 
 void rr_cat_yaesu_txw(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_txw: args='%s' (no reply/action)", args ? args : "");
 }                               // Read/Set Tuning step
 
 // PTT set/query: "TX;" (no args) is a read -- hamlib polls TX state to sync;
@@ -632,18 +682,23 @@ void rr_cat_yaesu_ptt(const char *args) {
 }
 
 void rr_cat_yaesu_unlock(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_unlock: args='%s' (no reply/action)", args ? args : "");
 }                               // Unlock
 
 void rr_cat_yaesu_up(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_up: args='%s' (no reply/action)", args ? args : "");
 }                               // UP
 
 void rr_cat_yaesu_vfo_mem(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_vfo_mem: args='%s' (no reply/action)", args ? args : "");
 }                               // VFO/Memory button
 
 void rr_cat_yaesu_vox_gain(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_vox_gain: args='%s' (no reply/action)", args ? args : "");
 }                               // VOX Gain
 
 void rr_cat_yaesu_vox(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_vox: args='%s' (no reply/action)", args ? args : "");
 }                               // VOX
 
 // Keying speed (CW WPM): hamlib's FT-891 backend queries "KS;" at connect;
@@ -662,6 +717,7 @@ void rr_cat_yaesu_key_speed(const char *args) {
 }
 
 void rr_cat_yaesu_zero_in(const char *args) {
+   Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_zero_in: args='%s' (no reply/action)", args ? args : "");
 }                               // Zero In
 
 CATcmdTable rr_cat_yaesu_commands[] = {
