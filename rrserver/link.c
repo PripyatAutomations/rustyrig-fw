@@ -1272,8 +1272,8 @@ static bool load_peer(const char *section) {
    const char *clock_limit = peer_value(section, "clock-tolerance-seconds");
    char *clock_end = NULL;
    long clock_secs = clock_limit && *clock_limit ? strtol(clock_limit, &clock_end, 10) : 0;
-   if (clock_secs < 0 || clock_secs > 300 || (clock_end && *clock_end))
-      return invalid_peer(section, "clock-tolerance-seconds", "must be 0-300 seconds; 0 disables compensation");
+   if (clock_secs < 0 || clock_secs > 86400 || (clock_end && *clock_end))
+      return invalid_peer(section, "clock-tolerance-seconds", "must be 0-86400 seconds (24 hours); 0 disables compensation");
    peer->clock_tolerance_seconds = (unsigned)clock_secs;
 
    if (!peer->url || !peer->password || !peer->allowed_sites) {
