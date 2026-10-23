@@ -340,6 +340,16 @@ void update_ptt_button_ui(GtkToggleButton *button, int active) {
    ptt_button_apply();
 }
 
+/* PTT is a rig operation, never a status-tab/chat-room operation.
+ * The media control room follows the selected rig even when a different
+ * notebook page is active. Reject non-TX rooms before sending key-down. */
+static const char *ptt_target_room(void) {
+   const char *room = rrclient_media_active_room();
+   if (room && *room && rrclient_room_tx_control(room)) return room;
+   room = gtk_chat_current_room();
+   if (room && *room && rrclient_room_tx_control(room)) return room;
+   return NULL;
+}
 static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
    if (!button) {
       return;
@@ -352,6 +362,15 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       return;
    }
 
+   const char *target_room = ptt_target_room();
+   if (!target_room) {
+      Log(LOG_WARN, "ui.gtk", "PTT rejected locally: no TX-control room for selected rig (tab=%s, media=%s)",
+         gtk_chat_current_room() ? gtk_chat_current_room() : "(status)",
+         rrclient_media_active_room() ? rrclient_media_active_room() : "(none)");
+      ui_print(NULL, "*** PTT requires an active rig TX-control room; select the rig before transmitting");
+      ptt_button_set_state(false);
+      return;
+   }
    struct rr_user *talker = tx_user();
 
    if (!ptt_active && !someone_else_transmitting(talker) && ws_conn && ws_conn->is_ws && media_have_priv("noob") &&
@@ -359,7 +378,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       char vfo[2] = {
          vfo_state_get_active(), 0
       };
-      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, gtk_chat_current_room());
+      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, target_room);
       ptt_button_set_state(false);
 
       return;
@@ -415,7 +434,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_state = false;
       ptt_button_pending_quiet = true;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
-      ws_send_ptt_cmd_in_room(ws_conn, vfo, false, gtk_chat_current_room());
+      ws_send_ptt_cmd_in_room(ws_conn, vfo, false, target_room);
    } else {
       // Start the local TX encoder before asking the server to key the rig.
       // The server starts its decoder before sending the matching cat.state
@@ -447,7 +466,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_quiet = false;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
       update_ptt_button_ui(button, -1);
-      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, gtk_chat_current_room());
+      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, target_room);
    }
 }
 
