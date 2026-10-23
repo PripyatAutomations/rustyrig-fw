@@ -23,6 +23,26 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
+#include "gtk.floating-panel.h"
+
+extern GtkWidget *main_window, *main_notebook;
+static RRFloatPanel *server_editor_panel;
+static GtkWidget *server_editor_frame;
+
+static void server_editor_frame_destroyed(GtkWidget *widget, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   server_editor_frame = NULL;
+}
+
+static void server_editor_close(gpointer unused) {
+   (void)unused;
+   RRFloatPanel *panel = server_editor_panel;
+   server_editor_panel = NULL;
+   server_editor_frame = NULL;
+   if (panel) rr_floating_panel_destroy(panel);
+}
+
 
 extern dict *cfg;
 
@@ -282,7 +302,7 @@ static void server_editor_save(GtkButton *button, gpointer data) {
          rrclient_direct_apply_preferences();
       }
       gtk_server_picker_refresh_profile(editor->profile);
-      gtk_widget_destroy(window);
+      server_editor_close(NULL);
    } else {
       gtk_label_set_text(GTK_LABEL(editor->error), "Could not save your configuration. Changes remain open.");
    }
@@ -291,21 +311,20 @@ static void server_editor_save(GtkButton *button, gpointer data) {
 }
 
 GtkWidget *gtk_show_server_editor(const char *profile) {
-   gui_window_t *existing = gui_find_window(NULL, "serveredit");
-
-   if (existing && existing->gtk_win) {
-      gtk_window_present(GTK_WINDOW(existing->gtk_win));
-
-      return existing->gtk_win;
+   if (server_editor_panel) {
+      rr_floating_panel_restore(server_editor_panel);
+      rr_floating_panel_show(server_editor_panel);
+      return server_editor_frame;
    }
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(window), "Edit server");
-   gui_window_t *parent = gui_find_window(NULL, "serverpick");
-
-   if (parent && parent->gtk_win) {
-      gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(parent->gtk_win));
-   }
-   ui_new_window(window, "serveredit");
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return NULL;
+   server_editor_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+                                                "serveredit", "Edit server");
+   if (!server_editor_panel) return NULL;
+   rr_floating_panel_set_close_callback(server_editor_panel, server_editor_close, NULL);
+   GtkWidget *window = rr_floating_panel_widget(server_editor_panel);
+   server_editor_frame = window;
+   g_signal_connect(window, "destroy", G_CALLBACK(server_editor_frame_destroyed), NULL);
    GtkServerEditor *editor = g_new0(GtkServerEditor, 1);
    editor->profile = g_strdup(profile);
    g_object_set_data_full(G_OBJECT(window), "rr-server-editor", editor, server_editor_free);
@@ -313,7 +332,7 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    gtk_container_set_border_width(GTK_CONTAINER(grid), 12);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
-   gtk_container_add(GTK_CONTAINER(window), grid);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(server_editor_panel)), grid, TRUE, TRUE, 0);
    const char *labels[] = {
       "URL", "Username", "Password", "Proxy", "Rooms"
    };
@@ -345,9 +364,9 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
    gtk_grid_attach(GTK_GRID(grid), cancel, 0, 7, 1, 1);
    gtk_grid_attach(GTK_GRID(grid), save, 1, 7, 1, 1);
-   g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_widget_destroy), window);
+   g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(server_editor_close), NULL);
    g_signal_connect(save, "clicked", G_CALLBACK(server_editor_save), window);
-   gtk_widget_show_all(window);
+   rr_floating_panel_show(server_editor_panel);
 
    return window;
 }
