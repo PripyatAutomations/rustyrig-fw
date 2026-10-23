@@ -1234,6 +1234,7 @@ static void room_vfo_show(const char *name) {
                                            GTK_NOTEBOOK(main_notebook),
                                            "rig-vfo", "VFO");
       if (!room_vfo_panel) return;
+      rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       room_vfo_box = create_vfo_box();
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *)&room_vfo_box);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)),
