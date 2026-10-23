@@ -57,7 +57,7 @@ const char *rrclient_selected_server(void) {
 bool ui_print(const char *room, const char *format, ...) {
    return false;
 }
-bool gui_edit_remote_config(const char *file, const char *title, bool (*save) (const char *, void *), void *data, GDestroyNotify destroy) {
+bool gui_file_editor_open_remote(const char *file, const char *title, bool (*save) (const char *, void *), void *data, GDestroyNotify destroy) {
    assert(!editor_file);
    editor_file = g_strdup(file);
    editor_save = save;
