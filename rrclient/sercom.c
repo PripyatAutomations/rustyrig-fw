@@ -484,6 +484,10 @@ const char *rr_cat_property(const char *vfo, const char *property, const char *f
    return state ? dict_get((dict *) state, "property.value", fallback) : fallback;
 }
 long rr_cat_property_long(const char *vfo, const char *property, long fallback) {
+   /* Valid HF dial frequency for Hamlib startup while no rig is attached.
+    * This is only a synthetic idle value, never a request to tune a rig. */
+   if (cat_context && !strcmp(cat_context->service, "rig.cat") &&
+       !cat_context->radio[0] && !strcmp(property, "frequency")) return 14074000L;
    if (!cat_context) {
       const char *key = !strcmp(property, "frequency") ? "cat.state.freq" : !strcmp(property, "width") ? "cat.state.width" : "cat.state.key_speed";
 
@@ -959,6 +963,21 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
 static void serial_cat_parse(void *data) {
    serial_binding_t *previous = cat_context;
    cat_context = data;
+   /* A floating PTY without a selected rig offers read-only emulation.
+    * Allow known read queries; never forward CAT setters/PTT unbound. */
+   if (!strcmp(cat_context->service, "rig.cat") && !cat_context->radio[0]) {
+      const char *cmd = cat_context->buffer;
+      bool query = (!strcmp(cmd, "FA") || !strcmp(cmd, "FB") ||
+                    !strcmp(cmd, "IF") || !strcmp(cmd, "ID") ||
+                    !strcmp(cmd, "TX") || !strcmp(cmd, "MD") ||
+                    !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") ||
+                    !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") ||
+                    !strcmp(cmd, "NA1"));
+      if (!query) {
+         cat_context = previous;
+         return;
+      }
+   }
    rr_cat_parse_line(cat_context->buffer);
    cat_context = previous;
 }
@@ -985,7 +1004,9 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
 
       return;
    }
-   bool cat = b->radio[0] != '\0';
+   /* The permanent ttyCAT endpoint must parse CAT even before a rig is
+    * selected; otherwise Hamlib times out during startup. */
+   bool cat = b->radio[0] != '\0' || !strcmp(b->service, "rig.cat");
 
    if (!cat && strcmp(gps_service(b), "gps-in")) {
       return;
