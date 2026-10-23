@@ -43,6 +43,10 @@ struct link_peer {
    unsigned retry_seconds;
    unsigned health_flaps, health_auth_errors;
    long long health_window_ms, health_rtt_ms;
+   long long rtt_ring[30];
+   unsigned rtt_next, rtt_count, rtt_high_streak;
+   bool rtt_degraded;
+   unsigned rtt_recovery_streak;
    bool manually_closed;
    struct link_session *session;
 };
@@ -130,10 +134,16 @@ void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
    for (size_t i = 0; i < links.peer_count; ++i) {
       struct link_peer *peer = &links.peers[i];
       health_window(peer);
+      long long sum = 0, maximum = 0;
+      for (unsigned j = 0; j < peer->rtt_count; ++j) {
+         sum += peer->rtt_ring[j];
+         if (peer->rtt_ring[j] > maximum) maximum = peer->rtt_ring[j];
+      }
       emit(*peer->node ? peer->node : peer->site, peer->site,
            peer->session && peer->session->established,
            peer->health_flaps, peer->health_auth_errors,
-           peer->health_rtt_ms, context);
+           peer->health_rtt_ms, peer->rtt_count ? sum / peer->rtt_count : 0,
+           maximum, peer->rtt_count, peer->rtt_high_streak, context);
    }
 }
 
@@ -981,9 +991,31 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
          long long rtt = mono_ms() - session->ping_sent;
          session->ping_pending = false;
          if (rtt >= 0 && rtt <= 30000) {
-            session->peer->health_rtt_ms = rtt;
-            if (rtt >= 250)
-               health_record(session->peer, "latency", rtt >= 1000 ? 2 : 1, rtt, "link ping RTT elevated");
+            struct link_peer *peer = session->peer;
+            peer->health_rtt_ms = rtt;
+            peer->rtt_ring[peer->rtt_next] = rtt;
+            peer->rtt_next = (peer->rtt_next + 1) % 30;
+            if (peer->rtt_count < 30) peer->rtt_count++;
+            if (rtt >= 250) {
+               if (peer->rtt_high_streak < 30) peer->rtt_high_streak++;
+            } else {
+               peer->rtt_high_streak = 0;
+            }
+            /* Two high samples enter degraded; three clean samples exit.
+             * One-off spikes remain in the trend, not as a lasting warning. */
+            if (!peer->rtt_degraded && peer->rtt_high_streak >= 2) {
+               peer->rtt_degraded = true;
+               health_record(peer, "latency", rtt >= 1000 ? 2 : 1, rtt, "link RTT degraded (two consecutive high pings)");
+            } else if (peer->rtt_degraded && rtt < 200) {
+               /* Recovery after three consecutive healthy responses. */
+               if (++peer->rtt_recovery_streak >= 3) {
+                  peer->rtt_degraded = false;
+                  peer->rtt_recovery_streak = 0;
+                  health_record(peer, "latency", 0, rtt, "link RTT recovered");
+               }
+            } else if (rtt >= 200) {
+               peer->rtt_recovery_streak = 0;
+            }
          }
       }
    } else if (event == MG_EV_ERROR) {
