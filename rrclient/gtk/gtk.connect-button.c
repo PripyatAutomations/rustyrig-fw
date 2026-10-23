@@ -7,6 +7,7 @@
 #include <string.h>
 static GList *instances;
 static int current_state;
+extern int ws_connected;
 
 static void button_destroyed(GtkWidget *button, gpointer unused) {
    (void)unused;
@@ -50,6 +51,7 @@ GtkWidget *rr_connect_button_new(void) {
    instances = g_list_prepend(instances, button);
    g_signal_connect(button, "destroy", G_CALLBACK(button_destroyed), NULL);
    g_signal_connect(button, "clicked", G_CALLBACK(button_clicked), NULL);
-   rr_connect_button_set_state(button, current_state);
+   /* New instances may be created after authentication has completed. */
+   rr_connect_button_set_state(button, ws_connected);
    return button;
 }
