@@ -34,6 +34,11 @@ bool rr_sercom_set_line_settings(const char *name, const rr_serial_settings_t *s
 
 // Synchronous CAT context: no effect on UI selection or global VFO state.
 const char *rr_cat_room(void);
+const char *rr_cat_model(void);
+char rr_cat_timeout_get(void);
+void rr_cat_timeout_set(char value);
+int rr_cat_tx_vfo_get(void);
+void rr_cat_tx_vfo_set(int value);
 const char *rr_cat_property(const char *vfo, const char *property, const char *fallback);
 long rr_cat_property_long(const char *vfo, const char *property, long fallback);
 bool rr_cat_property_bool(const char *property, bool fallback);
