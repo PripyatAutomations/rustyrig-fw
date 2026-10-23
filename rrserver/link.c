@@ -153,8 +153,30 @@ static void health_record(struct link_peer *peer, const char *category, unsigned
       session && session->established ? "connected" : "handshake/offline",
       uptime > 0 ? uptime / 1000 : 0, age > 0 ? age / 1000 : 0,
       rtt_text, peer->health_flaps, peer->health_auth_errors, reason ? reason : "no details");
+   const char *cause = "unknown";
+   if (!strcmp(category, "link")) {
+      if (severity == 0) cause = "connected";
+      else cause = session && session->close_cause ? session->close_cause : "transport-closed-unknown";
+   } else if (!strcmp(category, "transport")) {
+      const char *start = reason ? strstr(reason, "cause=") : NULL;
+      if (start) {
+         start += 6;
+         static const char *const known[] = {
+            "handshake-timeout", "heartbeat-timeout", "http-upgrade-rejected",
+            "transport-error", "administrative-close", "protocol-or-policy", NULL
+         };
+         for (unsigned i = 0; known[i]; ++i)
+            if (!strncmp(start, known[i], strlen(known[i])) &&
+                (start[strlen(known[i])] == ' ' || !start[strlen(known[i])])) {
+               cause = known[i];
+               break;
+            }
+      }
+   } else if (!strcmp(category, "auth")) cause = "authentication-rejected";
+   else if (!strcmp(category, "latency"))
+      cause = severity ? "latency-degraded" : "latency-recovered";
    db_cluster_health_record(masterdb, links.node, peer->node[0] ? peer->node : peer->site,
-                            category, severity, value, context);
+                            category, severity, value, cause, context);
 #else
    (void)peer; (void)category; (void)severity; (void)value; (void)reason;
 #endif
@@ -178,6 +200,15 @@ void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
    }
 }
 
+void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity) {
+   if (!out || !capacity) return;
+   out[0] = 0;
+#ifdef USE_SQLITE
+   if (masterdb) db_cluster_health_cause_counts(masterdb, links.node, subject, out, capacity);
+#else
+   (void)subject;
+#endif
+}
 void rrserver_links_recent_events(const char *subject, char *out, size_t capacity) {
    if (!out || !capacity) return;
    out[0] = 0;
