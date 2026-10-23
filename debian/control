@@ -90,6 +90,7 @@ Package: rustyrig-client
 Architecture: any
 Pre-Depends: adduser
 Depends: librustyirc (= ${binary:Version}), acl, debconf, librrprotocol (= ${binary:Version}), libfwdspmgr (= ${binary:Version}), librustyaxe (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Recommends: rrclient-screensaver
 Description: RustyRig client
  RustyRig client with TUI interface; the GTK interface ships separately
  in rustyrig-client-gtk as a loadable module.
@@ -101,10 +102,10 @@ Description: RustyRig GTK client module
  GTK frontend for the RustyRig client, loaded from
  /usr/lib/rustyrig/modules/rrclient by the core client's [modules] configuration.
 
-Package: rustyrig-client-gtk-screensaver
+Package: gmatrix
 Architecture: any
+Provides: rrclient-screensaver
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: rustyrig-client-gtk
 Description: Optional fullscreen GTK screensaver for RustyRig
  Standalone animated screensaver launched from the GTK client with
  Escape followed by grave or tilde. Runs independently of rrclient.
