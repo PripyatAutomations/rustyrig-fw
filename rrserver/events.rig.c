@@ -243,7 +243,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
                   dict_add(state, "cat.cmd", "power");
                   dict_add(state, "cat.room", room);
                   dict_add(state, "cat.vfo", rc_vfo);
-                  dict_add_float(state, "cat.power", observed);
+                  dict_add_float(state, "cat.power", observed > 0 ? observed : rc_power);
+                  /* RF output setpoint, distinct from received signal strength. */
+                  dict_add_float(state, "cat.state.tx-power-watts", observed > 0 ? observed : rc_power);
                   dict_add(state, "cat.user", rc_from);
                   ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
                   dict_free(state);
