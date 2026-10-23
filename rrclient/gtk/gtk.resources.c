@@ -1728,7 +1728,9 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    gtk_tree_model_get(model, &iter, COORDINATES, &coordinates, -1);
 
    if (coordinates && *coordinates && g_strcmp0(kind, "rig") && g_strcmp0(kind, "gps")) {
-      g_string_append_printf(text, "\nCoordinates: %s", coordinates);
+      char *position = resource_location_details(coordinates, NULL, FALSE);
+      if (*position) g_string_append_printf(text, "\n%s", position);
+      g_free(position);
    }
    g_free(coordinates);
    g_string_append_printf(text, "\nStatus: %s\nYour state: %s", state ? state : "", ours ? ours : "");
