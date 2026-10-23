@@ -2,6 +2,7 @@
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
 #include <gtk/gtk.h>
 #include <sys/stat.h>
+#include <librustyaxe/maidenhead.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <rrclient/objects.h>
@@ -102,6 +103,34 @@ static char *resource_display_utf8(const char *value) {
    }
 
    return g_utf8_make_valid(value, -1);
+}
+/* GPS fixes take precedence over Maidenhead grid centers. When only a
+ * locator is available, mark the resulting coordinates as approximate. */
+static char *resource_location_details(const char *coords, const char *grid, gboolean compact) {
+   double lat = 0, lon = 0;
+   gboolean measured = coords && sscanf(coords, " %lf , %lf", &lat, &lon) == 2 &&
+                       isfinite(lat) && isfinite(lon) && lat >= -90 && lat <= 90 &&
+                       lon >= -180 && lon <= 180;
+   gboolean valid_grid = FALSE;
+   if (grid && (strlen(grid) == 4 || strlen(grid) == 6 || strlen(grid) == 8 || strlen(grid) == 10)) {
+      Coordinates position = maidenhead2latlon(grid);
+      valid_grid = !position.error;
+      if (valid_grid && !measured) {
+         lat = position.latitude;
+         lon = position.longitude;
+      }
+   }
+   if (!measured && !valid_grid) return g_strdup("");
+   Coordinates position = {.latitude = lat, .longitude = lon, .precision = 3, .error = 0};
+   /* The converter returns a static string, so copy immediately. */
+   const char *six_grid = latlon2maidenhead(&position);
+   char *locator = g_strdup(six_grid ? six_grid : "");
+   char *result = compact ?
+      g_strdup_printf("%s(%.2f, %.2f) [%s]", measured ? "" : "~", lat, lon, locator) :
+      g_strdup_printf("%sCoordinates: %.6f, %.6f · Grid square: %s",
+                      measured ? "" : "Approximate ", lat, lon, locator);
+   g_free(locator);
+   return result;
 }
 static void set_string(GtkTreeIter *iter, int column, const char *value) {
    char *old = NULL;
@@ -3263,23 +3292,20 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
    if (!strcmp(kind, "rig")) {
       const char *model = dict_get(row, "inventory.model", "");
       const char *location = dict_get(row, "inventory.location", "");
-      const char *coords = dict_get(row, "inventory.coordinates", "");
       const char *description = dict_get(row, "inventory.description", "");
-      const char *identity = *model ? model : name;
-      double lat, lon;
-      char position[80] = "";
-      if (sscanf(coords, " %lf , %lf", &lat, &lon) == 2)
-         g_snprintf(position, sizeof(position), " (%.2f, %.2f)", lat, lon);
-      g_string_assign(details, identity);
-      if (*location) g_string_append_printf(details, " @ %s", location);
-      if (*position) g_string_append(details, position);
-      if (*description) g_string_append_printf(details, " | %s", description);
-   }
-   if (!strcmp(kind, "gps") || gps_stream) {
-      const char *coords = dict_get(row, "inventory.coordinates", "");
       const char *grid = dict_get(row, "inventory.gridsquare", dict_get(row, "inventory.grid", ""));
-      if (*coords) g_string_append_printf(details, "%sCoordinates: %s", details->len ? " · " : "", coords);
-      if (*grid) g_string_append_printf(details, "%sGrid square: %s", details->len ? " · " : "", grid);
+      char *position = resource_location_details(dict_get(row, "inventory.coordinates", ""), grid, TRUE);
+      g_string_assign(details, *model ? model : name);
+      if (*location) g_string_append_printf(details, " @ %s", location);
+      if (*position) g_string_append_printf(details, " %s", position);
+      if (*description) g_string_append_printf(details, " | %s", description);
+      g_free(position);
+   }
+   if (gps_stream) {
+      const char *grid = dict_get(row, "inventory.gridsquare", dict_get(row, "inventory.grid", ""));
+      char *position = resource_location_details(dict_get(row, "inventory.coordinates", ""), grid, FALSE);
+      if (*position) g_string_append_printf(details, "%s%s", details->len ? " · " : "", position);
+      g_free(position);
    }
    if (!strcmp(kind, "vfo")) {
       const char *site = dict_get(row, "inventory.site", "");
