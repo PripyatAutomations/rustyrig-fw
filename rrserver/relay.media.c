@@ -418,7 +418,7 @@ bool rrserver_relay_proxy_tx_active(rrconn_t *client, const char *room, uint64_t
    struct remote_session *r = rr_relay_remote_for(client);
 
    if (!r || !client->is_ptt || !rr_relay_proxy_tx_subscribed(r, room) || strcmp(client->ptt_room, room) ||
-      !has_priv(client->user->uid, "admin|owner|tx|noob") || !rrserver_supervision_allowed(client)) {
+      !rr_relay_cat_authorized(client, room, "ptt") || !rrserver_supervision_allowed(client)) {
       return false;
    }
    uint64_t heard = r->proxy_frame > r->proxy_started ? r->proxy_frame : r->proxy_started;
