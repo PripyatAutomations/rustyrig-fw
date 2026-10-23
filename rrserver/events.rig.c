@@ -172,7 +172,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          Log(LOG_WARN, "rigctl", "%s: VFO swap request rejected in room %s", rc_from, room);
 
          if (cptr) {
-            ws_send_error(cptr, "Unable to exchange VFO settings in %s", room);
+            ws_send_error(cptr, "VFO swap rejected: room %s, VFO %s (unmapped VFO, unsupported backend operation, or queue failure); check server rigctl log", room, rc_vfo);
          }
       } else {
          Log(LOG_AUDIT, "rigctl", "%s requested VFO A/B settings exchange in room %s", rc_from, room);
@@ -195,7 +195,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          Log(LOG_WARN, "rigctl", "%s: split request rejected in room %s", rc_from, room);
 
          if (cptr) {
-            ws_send_error(cptr, "Unable to queue split change for %s", room);
+            ws_send_error(cptr, "Split %s rejected: room %s, VFO %s (unmapped VFO, unsupported backend operation, or queue failure); check server rigctl log", enable ? "enable" : "disable", room, rc_vfo);
          }
       } else {
          Log(LOG_AUDIT, "rigctl", "%s requested split %s in room %s", rc_from, enable ? "ON" : "OFF", room);
@@ -210,7 +210,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
       if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
          if (cptr) {
-            ws_send_error(cptr, "Unable to set power to %g watts on VFO %s in room %s", (double)rc_power, rc_vfo, room);
+            ws_send_error(cptr, "Power request rejected: %.1f W for VFO %s in room %s (unmapped VFO or backend rejected value); check server rigctl log", (double)rc_power, rc_vfo, room);
          }
       } else {
          Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
