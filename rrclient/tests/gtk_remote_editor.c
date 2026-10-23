@@ -1,6 +1,6 @@
 // Remote editor saves must not apply local config or leave module callbacks alive.
 #include <assert.h>
-#include <rrclient/gtk/gtk.editcfg.c>
+#include <rrclient/gtk/gtk.file-editor.c>
 time_t now;
 bool dying, restarting;
 static gui_window_t window_record;
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
    assert(directory);
    char *path = g_build_filename(directory, "draft.cfg", NULL);
    assert(g_file_set_contents(path, "old=1\n", -1, NULL));
-   assert(gui_edit_remote_config(path, "server:/configs/test.cfg", remote_save, (void *)1, remote_destroy));
+   assert(gui_file_editor_open_remote(path, "server:/configs/test.cfg", remote_save, (void *)1, remote_destroy));
    EditorContext *ctx = active_editor;
    assert(ctx);
    assert(!gtk_widget_get_visible(ctx->save_as));
@@ -71,16 +71,16 @@ int main(int argc, char **argv) {
    assert(saves == 2);
    reply(path, "");
    assert(!ctx->remote_pending && !reloads);
-   gtk_editcfg_shutdown();
+   gtk_file_editor_shutdown();
    assert(!active_editor && !window_record.gtk_win && destroyed == 1);
    assert(!g_file_test(path, G_FILE_TEST_EXISTS));
    reply(path, "");
    assert(g_file_set_contents(path, "again=3\n", -1, NULL));
-   assert(gui_edit_remote_config(path, "server:/configs/test.cfg", remote_save, (void *)1, remote_destroy));
+   assert(gui_file_editor_open_remote(path, "server:/configs/test.cfg", remote_save, (void *)1, remote_destroy));
    gtk_widget_destroy(active_editor->window);
    assert(!active_editor && !window_record.gtk_win && destroyed == 2);
    assert(!g_file_test(path, G_FILE_TEST_EXISTS));
-   gtk_editcfg_shutdown();
+   gtk_file_editor_shutdown();
    event_shutdown();
    rmdir(directory);
    g_free(path);
