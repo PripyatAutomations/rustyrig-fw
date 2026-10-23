@@ -248,7 +248,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    panel_menu_add_action(p, settings, "Minimize to tabs", "minimize");
    p->menu_close = gtk_button_new_with_label("Close panel");
    gtk_button_set_relief(GTK_BUTTON(p->menu_close), GTK_RELIEF_NONE);
-   g_object_set_data(G_OBJECT(p->menu_close), "rr-action", "close");
+   g_object_set_data(G_OBJECT(p->menu_close), "rr-action", (gpointer)"close");
    g_signal_connect(p->menu_close, "clicked", G_CALLBACK(panel_menu_action), p);
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
@@ -390,9 +390,9 @@ void rr_floating_window_controls(GtkWindow *window, GtkNotebook *tabs, const cha
    gtk_button_set_relief(GTK_BUTTON(roll), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(roll, "Roll up / expand window");
    gtk_header_bar_pack_end(GTK_HEADER_BAR(header), roll);
-   g_object_set_data(G_OBJECT(minimize), "rr-window-action", "minimize");
+   g_object_set_data(G_OBJECT(minimize), "rr-window-action", (gpointer)"minimize");
    g_signal_connect(minimize, "clicked", G_CALLBACK(window_chrome_action), w);
-   g_object_set_data(G_OBJECT(roll), "rr-window-action", "roll");
+   g_object_set_data(G_OBJECT(roll), "rr-window-action", (gpointer)"roll");
    g_signal_connect(roll, "clicked", G_CALLBACK(window_chrome_action), w);
    w->popover = gtk_popover_new(menu);
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
