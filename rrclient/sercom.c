@@ -996,7 +996,9 @@ static void serial_cat_parse(void *data) {
       const char *cmd = cat_context->buffer;
       bool query = (!strcmp(cmd, "FA") || !strcmp(cmd, "FB") ||
          !strcmp(cmd, "IF") || !strcmp(cmd, "ID") ||
-         !strcmp(cmd, "TX") || !strcmp(cmd, "MD") ||
+         !strcmp(cmd, "TX") || !strcmp(cmd, "FT") ||
+         (!strncmp(cmd, "FT", 2) && strlen(cmd) == 3 && cmd[2] >= '0' && cmd[2] <= '3') ||
+         (!strncmp(cmd, "BS", 2) && strlen(cmd) == 4) || !strcmp(cmd, "MD") ||
          !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") ||
          !strcmp(cmd, "EX032") ||
          (!strncmp(cmd, "EX032", 5) && strlen(cmd) == 6 &&
