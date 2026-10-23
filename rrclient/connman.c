@@ -149,6 +149,16 @@ bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
    if (tx) *tx = s ? s->traffic_tx : 0;
    return s != NULL;
 }
+void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, uint64_t tx) {
+   if (!connection) return;
+   for (client_server_t *s = servers; s; s = s->next) {
+      if (s->connection == connection) {
+         s->traffic_rx += rx;
+         s->traffic_tx += tx;
+         return;
+      }
+   }
+}
 rrconn_t *rrclient_connection_find(const char *name) {
    client_server_t *s = find_server(name);
 
