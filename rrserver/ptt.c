@@ -710,8 +710,8 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 }
 
 bool rr_ptt_set_all_off_reason(const char *reason) {
-   Log(LOG_AUDIT, "ptt", "PTT forced release requested for all VFOs: reason=%s, active_vfo=%d, talker=%s",
-      reason ? reason : "forced", (int)rig.ptt_vfo, whos_talking() ? whos_talking()->chatname : "(none)");
+   Log(LOG_AUDIT, "ptt", "PTT forced release requested for all VFOs: reason=%s, talker=%s",
+      reason ? reason : "forced", whos_talking() ? whos_talking()->chatname : "(none)");
 
    bool failed = false;
    rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
