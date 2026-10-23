@@ -1,13 +1,14 @@
 #include "connection.h"
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <ctype.h>
 struct rustyirc_connection {
    rustyirc_callbacks_t callbacks;
    char nick[64];
    char line[RUSTYIRC_MAX_LINE + 3];
    size_t buffered;
-   bool registered;
+   bool registered, dropping;
 };
 rustyirc_connection_t *rustyirc_connection_new(const rustyirc_callbacks_t *callbacks) {
    if (!callbacks) return NULL;
@@ -29,6 +30,7 @@ void rustyirc_connection_reset(rustyirc_connection_t *c) {
    if (!c) return;
    c->buffered = 0;
    c->registered = false;
+   c->dropping = false;
 }
 bool rustyirc_connection_send(rustyirc_connection_t *c, const char *line) {
    if (!c || !c->callbacks.send || !line) return false;
@@ -55,7 +57,9 @@ static void deliver(rustyirc_connection_t *c) {
    /* Parse and dispatch DCC AUDIO only; the application owns network and
     * media session creation, authorization and cryptographic policy. */
    if (( !strcmp(m->argv[0], "PRIVMSG") || !strcmp(m->argv[0], "NOTICE")) &&
-       m->argc >= 3 && m->argv[2] && !strncmp(m->argv[2], "\001DCC AUDIO ", 11)) {
+       m->argc >= 3 && m->prefix && m->argv[1] &&
+       *c->nick && !strcasecmp(m->argv[1], c->nick) &&
+       m->argv[2] && !strncmp(m->argv[2], "\001DCC AUDIO ", 11)) {
       if (c->callbacks.on_dcc_audio)
          c->callbacks.on_dcc_audio(c->callbacks.context, c, m, m->argv[2]);
    } else if (c->callbacks.on_message) {
@@ -69,13 +73,17 @@ bool rustyirc_connection_feed(rustyirc_connection_t *c, const void *bytes, size_
    bool valid = true;
    for (size_t i = 0; i < size; ++i) {
       if (p[i] == '\n') {
-         if (c->buffered <= RUSTYIRC_MAX_LINE + 1) deliver(c);
-         else valid = false;
+         if (!c->dropping) deliver(c);
+         c->dropping = false;
+         c->buffered = 0;
+      } else if (c->dropping) {
+         continue;
       } else if (c->buffered < sizeof(c->line) - 1) {
          c->line[c->buffered++] = (char)p[i];
       } else {
          /* Discard an oversized line until its terminating LF. */
-         c->buffered = sizeof(c->line) - 1;
+         c->buffered = 0;
+         c->dropping = true;
          valid = false;
       }
    }
