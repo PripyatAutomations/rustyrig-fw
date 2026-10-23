@@ -651,14 +651,15 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
             g_free(ctx->filepath);
             ctx->filepath = g_strdup(filename);
 
-            rr_floating_panel_set_title(ctx->panel, ctx->filepath);
-
+            char *new_title = g_strdup_printf("File Editor — %s", ctx->filepath);
+            rr_floating_panel_set_title(ctx->panel, new_title);
+            g_free(new_title);
             if (ctx->config_edit) {
-             char *message = g_strdup_printf("Apply configuration from \"%s\"?", filename);
-             file_editor_confirm(ctx, FILE_APPLY, message);
-             g_free(message);
-             }
-             
+               char *message = g_strdup_printf("Apply configuration from \"%s\"?", filename);
+               file_editor_confirm(ctx, FILE_APPLY, message);
+               g_free(message);
+            }
+
          }
 
          g_free(filename);
