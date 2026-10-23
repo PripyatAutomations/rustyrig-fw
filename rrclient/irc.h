@@ -26,7 +26,6 @@
 // core protocol parser
 #include <rrclient/irc.parser.h>
 #include <rrclient/cli.irc.h>
-#include <rrclient/srv.irc.core.h>
 
 // Channel stuff
 #include <rrclient/irc.channel.h>
