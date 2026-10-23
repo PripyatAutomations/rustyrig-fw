@@ -33,6 +33,12 @@ typedef struct {
    gint64 seen;
    guint32 last_type;
    guint64 packets;
+   char mode[48], tx_mode[48], dx_call[64], report[32], de_call[64], de_grid[32], dx_grid[32];
+   char sub_mode[48], configuration[128], tx_message[160];
+   guint64 dial_hz;
+   guint32 rx_df, tx_df, tolerance, tr_period;
+   guint8 tx_enabled, transmitting, decoding, watchdog, fast_mode, special_mode;
+   gboolean has_status;
 } wsjtx_peer_t;
 static wsjtx_peer_t clients[WSJTX_MAX_CLIENTS];
 static int udp_fd = -1;
@@ -59,6 +65,57 @@ static size_t put_string(uint8_t *out, size_t size, const char *s) {
 
    return n + 4;
 }
+/* WSJT-X fields are serialized in Qt QDataStream big-endian order. Guard
+ * each read so malformed/truncated UDP traffic never changes published state. */
+typedef struct { const uint8_t *p; size_t remaining; } wsjtx_reader;
+static bool wsjtx_u32(wsjtx_reader *r, guint32 *v) {
+   if (r->remaining < 4) return false;
+   *v = read32(r->p); r->p += 4; r->remaining -= 4; return true;
+}
+static bool wsjtx_u64(wsjtx_reader *r, guint64 *v) {
+   guint32 hi, lo;
+   if (!wsjtx_u32(r, &hi) || !wsjtx_u32(r, &lo)) return false;
+   *v = ((guint64)hi << 32) | lo; return true;
+}
+static bool wsjtx_u8(wsjtx_reader *r, guint8 *v) {
+   if (!r->remaining) return false;
+   *v = *r->p++; --r->remaining; return true;
+}
+static bool wsjtx_string(wsjtx_reader *r, char *dest, size_t size) {
+   guint32 len;
+   if (!wsjtx_u32(r, &len)) return false;
+   if (len == UINT32_MAX) { dest[0] = 0; return true; }
+   if (len > r->remaining || len >= size || !g_utf8_validate((const char *)r->p, len, NULL)) return false;
+   memcpy(dest, r->p, len); dest[len] = 0;
+   r->p += len; r->remaining -= len; return true;
+}
+static void wsjtx_parse_status(wsjtx_peer_t *peer, const uint8_t *buf, size_t len) {
+   wsjtx_reader r = {buf, len};
+   wsjtx_peer_t status = *peer;
+   if (!wsjtx_u64(&r, &status.dial_hz) ||
+       !wsjtx_string(&r, status.mode, sizeof(status.mode)) ||
+       !wsjtx_string(&r, status.dx_call, sizeof(status.dx_call)) ||
+       !wsjtx_string(&r, status.report, sizeof(status.report)) ||
+       !wsjtx_string(&r, status.tx_mode, sizeof(status.tx_mode)) ||
+       !wsjtx_u8(&r, &status.tx_enabled) || !wsjtx_u8(&r, &status.transmitting) ||
+       !wsjtx_u8(&r, &status.decoding) || !wsjtx_u32(&r, &status.rx_df) ||
+       !wsjtx_u32(&r, &status.tx_df) ||
+       !wsjtx_string(&r, status.de_call, sizeof(status.de_call)) ||
+       !wsjtx_string(&r, status.de_grid, sizeof(status.de_grid)) ||
+       !wsjtx_string(&r, status.dx_grid, sizeof(status.dx_grid)) ||
+       !wsjtx_u8(&r, &status.watchdog)) return;
+   /* Later fields are optional across WSJT-X versions. */
+   if (r.remaining && !wsjtx_string(&r, status.sub_mode, sizeof(status.sub_mode))) return;
+   if (r.remaining && !wsjtx_u8(&r, &status.fast_mode)) return;
+   if (r.remaining && !wsjtx_u8(&r, &status.special_mode)) return;
+   if (r.remaining && !wsjtx_u32(&r, &status.tolerance)) return;
+   if (r.remaining && !wsjtx_u32(&r, &status.tr_period)) return;
+   if (r.remaining && !wsjtx_string(&r, status.configuration, sizeof(status.configuration))) return;
+   if (r.remaining && !wsjtx_string(&r, status.tx_message, sizeof(status.tx_message))) return;
+   status.has_status = TRUE;
+   *peer = status;
+}
+
 static void send_packet(wsjtx_peer_t *peer, uint32_t type, const char *extra) {
    if (udp_fd < 0 || !peer || !peer->id[0]) {
       return;
@@ -176,6 +233,8 @@ static gboolean udp_ready(gint fd, GIOCondition condition, gpointer unused) {
       peer->seen = g_get_monotonic_time();
       peer->last_type = type;
       ++peer->packets;
+      if (type == 1) wsjtx_parse_status(peer, buf + 16 + idlen, (size_t)n - 16u - idlen);
+      if (type == 6) peer->seen = 0; /* orderly WSJT-X shutdown */
 
       if (type == 0) {
          send_packet(peer, 0, NULL);
@@ -382,5 +441,47 @@ void rrclient_wsjtx_status(char *state, size_t state_len,
       g_snprintf(details, details_len,
          "Listening on 127.0.0.1:%d/UDP for WSJT-X heartbeat/status. No packets received. Transmitter grid: %s",
          port, *current_grid ? current_grid : "unknown");
+   }
+}
+
+static void wsjtx_emit(rr_wsjtx_field_cb cb, void *data, const char *id,
+                       const char *group, const char *key, const char *value) {
+   cb(id, group, key, value, data);
+}
+void rrclient_wsjtx_foreach_field(rr_wsjtx_field_cb cb, void *data) {
+   if (!cb) return;
+   gint64 now = g_get_monotonic_time();
+   for (unsigned i = 0; i < WSJTX_MAX_CLIENTS; ++i) {
+      const wsjtx_peer_t *p = &clients[i];
+      if (!p->id[0]) continue;
+      char val[160];
+#define FIELD(g,k,v) wsjtx_emit(cb,data,p->id,g,k,v)
+#define NUM(g,k,fmt,x) do { g_snprintf(val,sizeof(val),fmt,x); FIELD(g,k,val); } while(0)
+      FIELD("Connection", "Activity", p->seen && now - p->seen <= 30 * G_USEC_PER_SEC ? "Communicating" : "Inactive");
+      NUM("Connection", "Last packet age", "%lld seconds", (long long)((now-p->seen)/G_USEC_PER_SEC));
+      NUM("Connection", "Received packets", "%llu", (unsigned long long)p->packets);
+      NUM("Connection", "Schema", "%u", p->schema);
+      NUM("Connection", "UDP source port", "%u", ntohs(p->address.sin_port));
+      if (p->has_status) {
+         NUM("Operating Status", "Dial frequency", "%.6f MHz", p->dial_hz / 1e6);
+         FIELD("Operating Status", "Mode", p->mode);
+         FIELD("Operating Status", "TX mode", p->tx_mode);
+         FIELD("Operating Status", "Submode", p->sub_mode);
+         FIELD("Operating Status", "TX enabled", p->tx_enabled ? "Yes" : "No");
+         FIELD("Operating Status", "Transmitting", p->transmitting ? "Yes" : "No");
+         FIELD("Operating Status", "Decoding", p->decoding ? "Yes" : "No");
+         FIELD("Operating Status", "TX watchdog", p->watchdog ? "Active" : "Inactive");
+         NUM("Operating Status", "RX DF", "%u Hz", p->rx_df);
+         NUM("Operating Status", "TX DF", "%u Hz", p->tx_df);
+         FIELD("Station & DX", "My callsign", p->de_call);
+         FIELD("Station & DX", "My grid", p->de_grid);
+         FIELD("Station & DX", "DX callsign", p->dx_call);
+         FIELD("Station & DX", "DX grid", p->dx_grid);
+         FIELD("Station & DX", "Report", p->report);
+         FIELD("Operating Status", "Configuration", p->configuration);
+         FIELD("Operating Status", "TX message", p->tx_message);
+      }
+#undef FIELD
+#undef NUM
    }
 }
