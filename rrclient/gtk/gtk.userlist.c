@@ -1604,6 +1604,10 @@ void userlist_remove_room_view(const char *room) {
          gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
       }
 
+      if (entry->float_panel) {
+         rr_floating_panel_destroy(entry->float_panel);
+         entry->float_panel = NULL;
+      }
       if (entry->window && GTK_IS_WIDGET(entry->window)) {
          g_signal_handlers_disconnect_by_data(entry->window, entry);
          gtk_widget_destroy(entry->window);
