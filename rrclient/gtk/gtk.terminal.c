@@ -24,18 +24,28 @@ static GtkWidget *terminal_ports;
 static void console_bytes(const char *name, const char *bytes, size_t length, bool incoming, void *user) {
    (void)name;
    terminal_session_t *session = user;
+   if (!session->view || !length) return;
 
-   if (!session->view || !incoming || !length) {
-      return;
+   /* CAT protocols commonly use ';' rather than newline and VTE does not
+    * show them as independent lines. Label both sides of the conversation. */
+   GString *line = g_string_new(incoming ? "CAT → client: " : "client → CAT: ");
+   for (size_t i = 0; i < length; ++i) {
+      unsigned char c = (unsigned char)bytes[i];
+      if (c >= 32 && c <= 126) g_string_append_c(line, (char)c);
+      else if (c == '\\r') g_string_append(line, "\\r");
+      else if (c == '\\n') g_string_append(line, "\\n");
+      else g_string_append_printf(line, "\\x%02X", (unsigned)c);
    }
+   g_string_append_c(line, '\\n');
 #ifdef RR_HAVE_VTE
-   vte_terminal_feed(VTE_TERMINAL(session->view), bytes, (gssize) length);
+   vte_terminal_feed(VTE_TERMINAL(session->view), line->str, (gssize)line->len);
 #else
    GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(session->view));
    GtkTextIter end;
    gtk_text_buffer_get_end_iter(buf, &end);
-   gtk_text_buffer_insert(buf, &end, bytes, (gint) length);
+   gtk_text_buffer_insert(buf, &end, line->str, (gint)line->len);
 #endif
+   g_string_free(line, TRUE);
 }
 
 #ifdef RR_HAVE_VTE
