@@ -13,7 +13,7 @@
 extern GtkWidget *main_notebook;
 typedef struct {
    char *name;
-   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status, *connection_status, *apply_button, *endpoint_label, *tab_label;
+   GtkWidget *page, *view, *baud, *bits, *parity, *stops, *running, *config_status, *connection_status, *apply_button, *endpoint_label, *tab_label, *command_entry;
    rr_event_token_t config_token, connection_token;
    rr_sercom_observer_t *observer;
 } terminal_session_t;
@@ -57,6 +57,20 @@ static void terminal_commit(VteTerminal *terminal, gchar *text, guint size, gpoi
    }
 }
 #endif
+
+/* Optional command input does not modify the monitored stream. For CAT,
+ * send exactly what the operator typed, including its ';' terminator. */
+static void terminal_send_command(GtkEntry *entry, gpointer user) {
+   terminal_session_t *session = user;
+   const char *command = gtk_entry_get_text(entry);
+   size_t length = strlen(command);
+   if (!length) return;
+   if (!rr_sercom_console_send(session->name, command, length)) {
+      gdk_display_beep(gdk_display_get_default());
+      return;
+   }
+   gtk_entry_set_text(entry, "");
+}
 
 static void terminal_settings_apply(GtkButton *button, gpointer user) {
    (void)button;
@@ -321,6 +335,20 @@ void gtk_terminal_open_endpoint_labeled(const char *name, const char *display_na
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_container_add(GTK_CONTAINER(scroll), session->view);
    gtk_box_pack_start(GTK_BOX(session->page), scroll, TRUE, TRUE, 0);
+   /* Send an exact byte sequence on Enter. No automatic CR/LF or CAT ';':
+    * this is useful for both protocol commands and serial line debugging. */
+   const char *service = rr_sercom_binding(name);
+   gboolean writable = !(service && (g_str_has_suffix(service, ".gps-out") ||
+                                      g_str_has_suffix(service, ".nmea-out")));
+   if (writable) {
+      session->command_entry = gtk_entry_new();
+      gtk_entry_set_placeholder_text(GTK_ENTRY(session->command_entry),
+                                     "Send bytes (e.g. FA; or FB;) — Enter to send exactly");
+      gtk_widget_set_tooltip_text(session->command_entry,
+                                  "Sends exactly the entered bytes; append ';' for CAT commands");
+      g_signal_connect(session->command_entry, "activate", G_CALLBACK(terminal_send_command), session);
+      gtk_box_pack_end(GTK_BOX(session->page), session->command_entry, FALSE, FALSE, 0);
+   }
    session->observer = rr_sercom_observe(name, console_bytes, session);
    session->config_token = event_on_token("serial.console.configuration", terminal_configuration, session);
    session->connection_token = event_on_token("serial.console.connection", terminal_connection, session);
