@@ -760,7 +760,7 @@ static double resource_health_number(const char *description, const char *label)
    p += strlen(label);
    char *tail = NULL;
    double value = g_ascii_strtod(p, &tail);
-   return tail == p || !g_ascii_isdigit(*p) && *p != '.' ? -1 : value;
+   return (tail == p || (!g_ascii_isdigit(*p) && *p != '.')) ? -1 : value;
 }
 static void resource_health_raise(unsigned *severity, GString *reasons, unsigned level, const char *reason) {
    if (level > *severity) *severity = level;
