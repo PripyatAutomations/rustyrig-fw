@@ -38,74 +38,6 @@ static GtkWidget *vfo_layout_box = NULL;
 static GtkWidget *vfo_codec_box = NULL;
 static GtkWidget *vfo_ptt_box = NULL, *vfo_tx_power_box = NULL;
 
-/* Binary VFO drawer: a GTK divider-style grip, never a partly exposed panel. The grab distance is measured in root coordinates so it works in docked and
- * detached windows alike.  The grip remains visible when collapsed. */
-typedef struct {
-   GtkWidget *revealer;
-   double press_y, press_x;
-   bool pressed;
-} VfoDrawer;
-
-static void vfo_drawer_free(gpointer data) {
-   g_free(data);
-}
-
-static gboolean vfo_drawer_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   VfoDrawer *drawer = data;
-
-   if (event->button != GDK_BUTTON_PRIMARY) {
-      return FALSE;
-   }
-   drawer->press_y = event->y_root;
-   drawer->press_x = event->x_root;
-   drawer->pressed = true;
-
-   return TRUE;
-}
-
-/* A horizontal drag tears off the panel; vertical swipes remain collapse gestures. */
-extern void gtk_chat_vfo_handle_drag(void);
-static gboolean vfo_drawer_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
-   (void)widget;
-   VfoDrawer *drawer = data;
-
-   if (!drawer->pressed) {
-      return FALSE;
-   }
-   double dx = event->x_root - drawer->press_x;
-
-   if (dx > 48.0 || dx < -48.0) {
-      drawer->pressed = false;
-      gtk_chat_vfo_handle_drag();
-
-      return TRUE;
-   }
-
-   return FALSE;
-}
-static gboolean vfo_drawer_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   VfoDrawer *drawer = data;
-
-   if (event->button != GDK_BUTTON_PRIMARY || !drawer->pressed) {
-      return FALSE;
-   }
-   drawer->pressed = false;
-   gboolean open = gtk_revealer_get_reveal_child(GTK_REVEALER(drawer->revealer));
-   double delta = event->y_root - drawer->press_y;
-
-   if (delta >= 24.0) {
-      open = true;
-   } else if (delta <= -24.0) {
-      open = false;
-   } else if (delta > -6.0 && delta < 6.0) {
-      open = !open;             /* click */
-   }
-   gtk_revealer_set_reveal_child(GTK_REVEALER(drawer->revealer), open);
-   gtk_widget_set_tooltip_text(widget, open ? "Drag up or click to close VFO controls" : "Drag down or click to open VFO controls");
-
-   return TRUE;
-}
-
 /* Preserve RX frequency, mode and audio while removing TX affordances from receive-only rooms and remotely sliced SDR VFOs. */
 void vfo_controls_set_rx_only(bool rx_only) {
    if (vfo_ptt_box) {
@@ -186,30 +118,6 @@ void vfo_controls_fit_width(int width) {
 }
 
 GtkWidget *create_vfo_box(void) {
-   // The grip stays visible; only the controls are revealed or hidden.
-   GtkWidget *drawer_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-   GtkWidget *revealer = gtk_revealer_new();
-   gtk_revealer_set_transition_type(GTK_REVEALER(revealer), GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN);
-   gtk_revealer_set_transition_duration(GTK_REVEALER(revealer), 140);
-   gtk_revealer_set_reveal_child(GTK_REVEALER(revealer), TRUE);
-   GtkWidget *grip = gtk_event_box_new();
-   g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-grip", grip);
-   g_object_set_data(G_OBJECT(drawer_box), "rr-vfo-revealer", revealer);
-   gtk_widget_add_events(grip, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_TOUCH_MASK);
-   gtk_widget_set_tooltip_text(grip, "Click to toggle; swipe up/down to fold; drag sideways to float; right-click to dock top/bottom");
-   GtkWidget *grip_label = gtk_label_new("▰▰▰");
-   gtk_widget_set_margin_top(grip_label, 0);
-   gtk_widget_set_margin_bottom(grip_label, 0);
-   gtk_widget_set_halign(grip_label, GTK_ALIGN_CENTER);
-   gtk_container_add(GTK_CONTAINER(grip), grip_label);
-   gtk_box_pack_start(GTK_BOX(drawer_box), grip, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(drawer_box), revealer, FALSE, FALSE, 0);
-   VfoDrawer *drawer = g_new0(VfoDrawer, 1);
-   drawer->revealer = revealer;
-   g_object_set_data_full(G_OBJECT(grip), "vfo-drawer", drawer, vfo_drawer_free);
-   g_signal_connect(grip, "button-press-event", G_CALLBACK(vfo_drawer_press), drawer);
-   g_signal_connect(grip, "button-release-event", G_CALLBACK(vfo_drawer_release), drawer);
-   g_signal_connect(grip, "motion-notify-event", G_CALLBACK(vfo_drawer_motion), drawer);
    // Create the control box
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    vfo_layout_box = control_box;
@@ -291,7 +199,7 @@ GtkWidget *create_vfo_box(void) {
     * immediately. */
    vfo_update_ui();
 
-   return drawer_box;
+   return control_box;
 }
 
 gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
