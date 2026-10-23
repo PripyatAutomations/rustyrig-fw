@@ -57,6 +57,7 @@ struct link_session {
    struct link_peer *peer;
    long long started, established_at, last_ping, last_seen, ping_sent;
    char close_reason[256];
+   const char *close_cause;
    bool ping_pending;
    unsigned generation;
    char node[37];
@@ -104,15 +105,22 @@ static bool equal_secret(const char *a, const char *b) {
 }
 
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason);
-static void fail(struct link_session *session, const char *reason) {
+static void fail_cause(struct link_session *session, const char *cause, const char *reason) {
    if (!session || !session->connection || session->connection->is_closing) return;
+   session->close_cause = cause;
    snprintf(session->close_reason, sizeof(session->close_reason), "%s", reason ? reason : "unspecified failure");
    Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", session->close_reason);
    /* Established failures are recorded once at close with uptime and cause.
     * Setup failures have no established-link close event, so record here. */
-   if (session->peer && !session->established)
-      health_record(session->peer, "transport", 1, 0, session->close_reason);
+   if (session->peer && !session->established) {
+      char context[320];
+      snprintf(context, sizeof(context), "cause=%s %s", session->close_cause, session->close_reason);
+      health_record(session->peer, "transport", 1, 0, context);
+   }
    session->connection->is_closing = 1;
+}
+static void fail(struct link_session *session, const char *reason) {
+   fail_cause(session, "protocol-or-policy", reason);
 }
 
 /* Depth is counted in edges beyond the configured direct peer: peer=0. */
@@ -880,8 +888,9 @@ static void close_session(struct link_session *session) {
       long long silent_ms = session->last_seen ? now - session->last_seen : 0;
       char reason[512];
       snprintf(reason, sizeof(reason),
-               "unexpected disconnect: peer=%s node=%s direction=%s connected=%llds "
+               "cause=%s unexpected disconnect: peer=%s node=%s direction=%s connected=%llds "
                "last-message=%llds ago reason=%s",
+               session->close_cause ? session->close_cause : "transport-closed-unknown",
                session->peer->site, *session->node ? session->node : "unknown",
                session->outbound ? "outbound" : "inbound",
                connected_ms > 0 ? connected_ms / 1000 : 0,
@@ -1064,11 +1073,11 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
          response.method.len >= 5 && !memcmp(response.method.buf, "HTTP/", 5) && response.uri.len == 3) {
          snprintf(reason, sizeof(reason), "WebSocket upgrade rejected: HTTP %.*s; check /link URL and remote listener policy", (int)response.uri.len, response.
             uri.buf);
-         fail(session, reason);
+         fail_cause(session, "http-upgrade-rejected", reason);
       } else {
          char detail[384];
          snprintf(detail, sizeof(detail), "Network transport failed; check DNS, TLS, routing and remote server availability (details in server log)");
-         fail(session, detail);
+         fail_cause(session, "transport-error", detail);
       }
    } else if (event == MG_EV_CLOSE) {
       c->fn_data = NULL;
@@ -1277,7 +1286,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
       peer->autoconnect = true;
       peer->retry_at = 0;
    } else if (peer->session) {
-      fail(peer->session, "Closed by administrator");
+      fail_cause(peer->session, "administrative-close", "Closed by administrator");
    }
    Log(LOG_AUDIT, "link", "%s requested %s for %s", client->user->name, action, peer->section);
    ws_send_notice(client, "Peer %s: %s requested", peer->section, action);
@@ -1430,11 +1439,11 @@ void rrserver_links_poll(void) {
 
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (!s->established && at - s->started > cfg_get_int("links.handshake-seconds", 10) * 1000LL) {
-         fail(s, "Connection setup timed out; check network reachability, TLS and peer configuration");
+         fail_cause(s, "handshake-timeout", "Connection setup timed out; check network reachability, TLS and peer configuration");
       }
 
       if (s->established && at - s->last_seen > 30000) {
-         fail(s, "No response from linked server for 30 seconds; check network connectivity");
+         fail_cause(s, "heartbeat-timeout", "No response from linked server for 30 seconds; check network connectivity");
       }
 
       if (s->established && at - s->last_ping > 10000) {
