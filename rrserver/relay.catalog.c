@@ -735,10 +735,10 @@ static void collect_catalog_performance(void) {
    char details[360], status[120];
    snprintf(status, sizeof(status), "%llu s sample", (unsigned long long)stats.sample_seconds);
    snprintf(details, sizeof(details),
-            "Sample Unix time: %llu; catalog entries: %zu; outgoing snapshots: %llu; queue completed: %llu; pending snapshots: %u; awaiting acknowledgments: %u",
+            "Sample Unix time: %llu; catalog entries: %zu; outgoing snapshots: %llu; queue completed: %llu; pending snapshots: %llu; awaiting acknowledgments: %llu",
             (unsigned long long)stats.sample_time, stats.catalog_entries,
             (unsigned long long)stats.snapshots, (unsigned long long)stats.queue_complete,
-            stats.pending_snapshots, stats.pending_acks);
+            (unsigned long long)stats.pending_snapshots, (unsigned long long)stats.pending_acks);
    collect_performance_service("Catalog synchronization", details, status);
    snprintf(status, sizeof(status), "%llu complete / %llu partial", (unsigned long long)stats.ack_complete,
             (unsigned long long)stats.ack_partial);
