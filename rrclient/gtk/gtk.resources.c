@@ -1645,6 +1645,39 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
    }
    gtk_widget_show_all(panel);
 }
+/* Arrow keys operate on the selected branch in the filtered tree model.
+ * Leave normal GTK navigation intact for leaf rows. */
+static gboolean resource_tree_arrow(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
+   (void)unused;
+   if (event->keyval != GDK_KEY_Left && event->keyval != GDK_KEY_Right)
+      return FALSE;
+   if (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))
+      return FALSE;
+
+   GtkTreeView *view = GTK_TREE_VIEW(widget);
+   GtkTreePath *path = NULL;
+   gtk_tree_view_get_cursor(view, &path, NULL);
+   if (!path) return FALSE;
+
+   GtkTreeModel *model = gtk_tree_view_get_model(view);
+   GtkTreeIter iter;
+   gboolean branch = gtk_tree_model_get_iter(model, &iter, path) &&
+                     gtk_tree_model_iter_has_child(model, &iter);
+   gboolean handled = FALSE;
+   if (branch) {
+      if (event->keyval == GDK_KEY_Left) {
+         if (gtk_tree_view_row_expanded(view, path))
+            gtk_tree_view_collapse_row(view, path);
+         handled = TRUE;
+      } else {
+         gtk_tree_view_expand_row(view, path, FALSE);
+         handled = TRUE;
+      }
+   }
+   gtk_tree_path_free(path);
+   return handled;
+}
+
 static void resource_row_activated(GtkTreeView *view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer unused) {
    (void)column;
    (void)unused;
@@ -2858,6 +2891,7 @@ static void resource_create(void) {
    gtk_tree_model_filter_set_visible_func(browser->filter, resource_type_visible, NULL, NULL);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->filter));
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
+   g_signal_connect(browser->tree, "key-press-event", G_CALLBACK(resource_tree_arrow), NULL);
    g_signal_connect_swapped(browser->tree, "row-expanded", G_CALLBACK(resource_zebra_structure_changed), NULL);
    g_signal_connect_swapped(browser->tree, "row-collapsed", G_CALLBACK(resource_zebra_structure_changed), NULL);
    g_signal_connect_swapped(browser->filter, "row-inserted", G_CALLBACK(resource_zebra_structure_changed), NULL);
