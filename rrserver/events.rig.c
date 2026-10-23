@@ -231,7 +231,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
             ws_send_error(cptr, "Power request rejected: %.1f W for VFO %s in room %s (unmapped VFO or backend rejected value); check server rigctl log", (double)rc_power, rc_vfo, room);
          }
       } else {
-         Log(LOG_AUDIT, "rigctl", "User %s set room %s VFO %s POWER to %f watts", rc_from, room, rc_vfo, rc_power);
+         Log(LOG_AUDIT, "rigctl", "User %s requested room %s VFO %s RF POWER %.3f W (backend accepted setting; output not measured)", rc_from, room, rc_vfo, (double)rc_power);
          rr_backend_poll_rig(radio, object);
          rr_backend_t *backend = rr_server_rig_backend(radio);
 
@@ -247,8 +247,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
                   dict_add(state, "cat.room", room);
                   dict_add(state, "cat.vfo", rc_vfo);
                   dict_add_float(state, "cat.power", observed > 0 ? observed : rc_power);
-                  /* RF output setpoint, distinct from received signal strength. */
+                  /* This is a commanded setpoint when readback is unavailable, not measured RF output. */
                   dict_add_float(state, "cat.state.tx-power-watts", observed > 0 ? observed : rc_power);
+                  dict_add_bool(state, "cat.state.tx-power-readback", observed > 0);
                   dict_add(state, "cat.user", rc_from);
                   ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
                   dict_free(state);
