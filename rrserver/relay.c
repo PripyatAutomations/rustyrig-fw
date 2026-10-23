@@ -470,6 +470,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          r->origin = g_strdup(origin);
          r->expected = (guint) dict_get_ulong(d, "catalog.expected", 0);
          r->last_progress = now;
+         /* A new inbound snapshot invalidates previous convergence until its
+          * end marker confirms all descriptors. */
+         rr_relay_sync_status(origin, true, false);
          catalog_receive_t *previous = g_hash_table_lookup(catalog_receives, id);
          if (previous)
             Log(LOG_WARN, "relay.catalog", "RX superseded: sync=%s received=%u/%u elapsed=%.1f s",
@@ -1058,6 +1061,27 @@ extern void rr_relay_catalog_pump(void);
 void rrserver_relay_poll(void) {
    rr_relay_catalog_pump();
 
+   /* Expire incomplete snapshots even if no new catalog-begin arrives.
+    * This also bounds memory retained after interrupted transfers. */
+   if (catalog_receives) {
+      gint64 at = g_get_monotonic_time();
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, catalog_receives);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         catalog_receive_t *r = value;
+         if (at - r->started < 60 * G_USEC_PER_SEC) continue;
+         char label[192];
+         Log(LOG_WARN, "relay.catalog",
+            "RX expired: sync=%s source=%s synchronized=%u/%u missing=%u accepted=%u rejected=%u elapsed=%.1f s; no end marker received",
+            (char *)key, rrserver_links_format_node(r->origin, label, sizeof(label)),
+            r->received, r->expected, r->expected > r->received ? r->expected - r->received : 0,
+            r->accepted, r->rejected, (double)(at - r->started) / G_USEC_PER_SEC);
+         rr_relay_sync_status(r->origin, true, false);
+         g_hash_table_iter_remove(&iter);
+      }
+   }
+
    for (struct relay_media *m = rr_relay_media_maps ; m ; m = m->next) {
       if (m->frame && (uint64_t) mono_us() - m->started > (m->setup ? 1000000 : 100000)) {
          free(m->frame);
@@ -1184,6 +1208,14 @@ void rrserver_relay_fini(void) {
       struct subscription *s = rr_relay_subscriptions;
       rr_relay_subscriptions = s->next;
       free(s);
+   }
+   if (catalog_receives) {
+      g_hash_table_destroy(catalog_receives);
+      catalog_receives = NULL;
+   }
+   if (relay_sync_health) {
+      g_hash_table_destroy(relay_sync_health);
+      relay_sync_health = NULL;
    }
    rr_relay_catalog_count = rr_relay_client_count = rr_relay_remote_count = rr_relay_subscription_count = rr_relay_wanted_count = 0;
    rr_relay_initialized = false;
