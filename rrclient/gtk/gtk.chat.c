@@ -1598,6 +1598,55 @@ void gtk_chat_set_authoritative_room(const char *room) {
    gtk_chat_tab_add(room, false, true);
 }
 
+/* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
+ * child of the fullscreen client and exists only while a server is online. */
+static GtkWidget *vfo_locator_window, *vfo_locator_label;
+static gboolean vfo_locator_tick(gpointer unused) {
+   (void)unused;
+   if (!main_notebook) return G_SOURCE_REMOVE;
+   const char *profile = rrclient_selected_server();
+   gboolean online = profile && rrclient_connection_state(profile) == 1;
+   if (!online) {
+      if (vfo_locator_window) gtk_widget_hide(vfo_locator_window);
+      return G_SOURCE_CONTINUE;
+   }
+   if (!vfo_locator_window) {
+      vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
+      gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
+      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
+      gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), TRUE);
+      gtk_container_set_border_width(GTK_CONTAINER(vfo_locator_window), 6);
+      vfo_locator_label = gtk_label_new(NULL);
+      gtk_container_add(GTK_CONTAINER(vfo_locator_window), vfo_locator_label);
+      g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+   }
+   char vfo[2] = { vfo_state_get_active(), 0 };
+   const char *room = rrclient_media_active_room();
+   const char *grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
+   if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.grid", NULL);
+   char path[256];
+   if (room && *room) {
+      /* Rig rooms are named #site-rigN. Do not invent a rig when the
+       * active room is an ordinary chat or unscoped receiver room. */
+      const char *rig = strstr(room, "-rig");
+      if (rig && rig[4] >= '0' && rig[4] <= '9') {
+         g_snprintf(path, sizeof(path), "%.*s.%s.%c",
+            (int)(rig - room - (room[0] == '#')), room + (room[0] == '#'),
+            rig + 1, vfo[0]);
+      } else {
+         g_snprintf(path, sizeof(path), "%s.%c", room, vfo[0]);
+      }
+   } else {
+      g_snprintf(path, sizeof(path), "%s.%c", profile, vfo[0]);
+   }
+   char label[360];
+   g_snprintf(label, sizeof(label), "%s  /  %s", path, grid && *grid ? grid : "—");
+   gtk_label_set_text(GTK_LABEL(vfo_locator_label), label);
+   gtk_widget_show_all(vfo_locator_window);
+   return G_SOURCE_CONTINUE;
+}
+
 /* Five-second display average. TEXT is decoded WS control payload; total transport TX/RX may include binary media and framing. */
 static GtkWidget *status_network_label;
 static gboolean status_network_tick(gpointer unused) {
@@ -1663,6 +1712,8 @@ bool chat_init(void) {
    gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, TRUE, TRUE, 0);
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(5, status_network_tick, NULL);
+   g_timeout_add_seconds(1, vfo_locator_tick, NULL);
+   vfo_locator_tick(NULL);
    g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();
 
