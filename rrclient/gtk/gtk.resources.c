@@ -3,6 +3,7 @@
 #include <gtk/gtk.h>
 #include <sys/stat.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <rrclient/objects.h>
 #include <rrclient/connman.h>
 #include <rrclient/cmd.h>
