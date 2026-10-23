@@ -1,6 +1,6 @@
 # Drop-in GTK3 Matrix widget
 
-Copy `rrclient/gtk/gtk.matrix.c` and `gtk.matrix.h` into your project.
+Copy `gmatrix/gmatrix.c` and `gmatrix.h` into your project.
 Only GTK3 (3.8+) and its normal GLib/Pango/Cairo dependencies are needed;
 there are no RustyRig headers, libraries, config keys, or initialization hooks.
 Call the API on the GTK main thread after `gtk_init()`.
@@ -25,7 +25,7 @@ not the desktop. No compositor transparency is required.
 A standalone program:
 
 ```c
-#include "gtk.matrix.h"
+#include "gmatrix.h"
 
 int main(int argc, char **argv) {
    gtk_init(&argc, &argv);
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
 Build with:
 
 ```sh
-cc demo.c gtk.matrix.c $(pkg-config --cflags --libs gtk+-3.0) -o matrix-demo
+cc demo.c gmatrix.c $(pkg-config --cflags --libs gtk+-3.0) -o matrix-demo
 ```
 
 Pass `FALSE` for an ordinary resizable window; pass your existing GtkWindow
