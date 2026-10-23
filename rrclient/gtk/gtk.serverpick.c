@@ -24,6 +24,7 @@
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/ui.h>
 #include <rrclient/gtk/gtk.serverpick.h>
+#include "gtk.floating-panel.h"
 
 /* Theme-relative alternating row backgrounds, including sorted/filtered lists. */
 static void rr_list_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, gpointer unused) {
@@ -59,6 +60,17 @@ extern dict *cfg;
 extern time_t now;
 extern const char *server_name;
 extern GtkWidget *main_notebook; // defined in gtk.core.c
+extern GtkWidget *main_window;
+static RRFloatPanel *picker_panel;
+static GtkWidget *picker_tree;
+
+static void picker_close(gpointer unused) {
+   (void)unused;
+   RRFloatPanel *panel = picker_panel;
+   picker_panel = NULL;
+   picker_tree = NULL;
+   if (panel) rr_floating_panel_destroy(panel);
+}
 
 static gboolean focus_chat_entry_idle(gpointer user_data);
 
@@ -77,8 +89,6 @@ static void do_connect_from_tree(GtkTreeView *view) {
    if (!view) {
       return;
    }
-   gui_window_t *win = gui_find_window(NULL, "serverpick");
-   GtkWidget *server_window = win ? win->gtk_win : NULL;
 
    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
    GtkTreeModel *model;
@@ -98,11 +108,7 @@ static void do_connect_from_tree(GtkTreeView *view) {
       g_free(entry);
    }
 
-   if (server_window) {
-      // This will cause the removal in the destroyed callback added by
-      // gui_new_window() in gtk.winmgr.c
-      gtk_widget_destroy(server_window);
-   }
+   picker_close(NULL);
    // Give the main window focus before scheduling the chat input grab.
    focus_main_window();
 
@@ -142,11 +148,7 @@ gboolean on_key(GtkWidget *w, GdkEventKey *ev, gpointer data) {
    }
 
    if (ev->keyval == GDK_KEY_Escape) {
-      gui_window_t *win = gui_find_window(NULL, "serverpick");
-
-      if (win && win->gtk_win) {
-         gtk_widget_destroy(win->gtk_win);
-      }
+      picker_close(NULL);
       // Give the main window focus before scheduling the chat input grab.
       focus_main_window();
 
@@ -190,8 +192,7 @@ static void picker_set_state(GtkListStore *store, GtkTreeIter *iter, const char 
 }
 
 void gtk_server_picker_refresh_profile(const char *profile) {
-   gui_window_t *picker = gui_find_window(NULL, "serverpick");
-   GtkWidget *tree = picker && picker->gtk_win ? g_object_get_data(G_OBJECT(picker->gtk_win), "rr-server-tree") : NULL;
+   GtkWidget *tree = picker_tree;
 
    if (!tree) {
       return;
@@ -307,24 +308,21 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
 }
 
 void gtk_show_server_chooser(void) {
-   gui_window_t *existing = gui_find_window(NULL, "serverpick");
-
-   if (existing && existing->gtk_win) {
-      gtk_window_present(GTK_WINDOW(existing->gtk_win));
-
+   if (picker_panel) {
+      rr_floating_panel_restore(picker_panel);
+      rr_floating_panel_show(picker_panel);
+      if (picker_tree) gtk_widget_grab_focus(picker_tree);
       return;
    }
-   GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(window), "Server picker");
-   gtk_window_set_default_size(GTK_WINDOW(window), 600, 300);
-   gui_window_t *main = gui_find_window(NULL, "main");
-
-   if (main && main->gtk_win) {
-      gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(main->gtk_win));
-   }
-   ui_new_window(window, "serverpick");
-   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_container_add(GTK_CONTAINER(window), box);
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+   picker_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
+                                         "serverpick", "Server picker");
+   if (!picker_panel) return;
+   rr_floating_panel_set_close_callback(picker_panel, picker_close, NULL);
+   GtkWidget *window = rr_floating_panel_widget(picker_panel);
+   GtkWidget *box = rr_floating_panel_body(picker_panel);
+   gtk_widget_set_size_request(box, 600, 300);
    GtkListStore *store = gtk_list_store_new(7, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN, G_TYPE_BOOLEAN, G_TYPE_STRING);
    int rank = 0;
    const char *key;
@@ -348,7 +346,7 @@ void gtk_show_server_chooser(void) {
    }
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    g_object_unref(store);
-   g_object_set_data(G_OBJECT(window), "rr-server-tree", tree);
+   picker_tree = tree;
    const char *titles[] = {
       "Server", "User", "URL", "Proxy"
    };
@@ -407,6 +405,6 @@ void gtk_show_server_chooser(void) {
    if (gtk_tree_model_get_iter_first(gtk_tree_view_get_model(GTK_TREE_VIEW(tree)), &first)) {
       gtk_tree_selection_select_iter(gtk_tree_view_get_selection(GTK_TREE_VIEW(tree)), &first);
    }
-   gtk_widget_show_all(window);
+   rr_floating_panel_show(picker_panel);
    gtk_widget_grab_focus(tree);
 }
