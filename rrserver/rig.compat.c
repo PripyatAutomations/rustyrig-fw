@@ -219,11 +219,10 @@ void rr_cat_compat_prepare_poll(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
    }
    adapter->probed[vfo] = true;
 
-   if (vfo != active_vfo && vfos[vfo].freq == 0 && active_vfo >= VFO_A && active_vfo < MAX_VFOS && vfos[active_vfo].freq > 0) {
-      vfos[vfo] = vfos[active_vfo];
-      vfos[vfo].id = vfo;
-      Log(LOG_DEBUG, "backend", "Default-rig VFO %s seeded from active VFO %s", vfo_name(vfo), vfo_name(active_vfo));
-   }
+   /* Do not seed an unobserved secondary VFO from VFO A. On radios such
+    * as the FT-891, FB; reads a separate hardware register, and until that
+    * read succeeds VFO B must remain unavailable, not show A's frequency. */
+
 }
 
 bool rr_cat_compat_publish(rr_cat_compat_t *adapter, rr_vfo_t vfo, int unchanged_interval) {
