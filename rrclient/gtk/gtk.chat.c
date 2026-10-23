@@ -28,6 +28,7 @@
 #include <rrclient/media.h>
 #include <rrclient/rooms.h>
 #include <rrclient/vfo.h>
+#include <rrclient/objects.h>
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
@@ -1623,7 +1624,16 @@ static gboolean vfo_locator_tick(gpointer unused) {
    }
    char vfo[2] = { vfo_state_get_active(), 0 };
    const char *room = rrclient_media_active_room();
-   const char *grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
+   const char *grid = NULL;
+   const char *vfo_uuid = rrclient_media_vfo_uuid(room, vfo[0]);
+   if (vfo_uuid) {
+      const dict *location = rrclient_object_property(vfo_uuid, "gridsquare");
+      if (!location) location = rrclient_object_property(vfo_uuid, "grid");
+      if (location && dict_get_bool((dict *)location, "property.known", false) &&
+          dict_get_bool((dict *)location, "property.available", false))
+         grid = dict_get((dict *)location, "property.value", NULL);
+   }
+   if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
    if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.grid", NULL);
    char path[256];
    if (room && *room) {
