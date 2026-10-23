@@ -36,6 +36,9 @@ typedef struct serial_binding {
    char profile[512];
    char focus_room[256];
    char vfo;
+   char cat_model[16];
+   char cat_timeout;
+   int cat_tx_vfo;
    char host_port[64];
    size_t buffer_limit;
    uint8_t stream;
@@ -528,6 +531,23 @@ bool rr_cat_property_bool(const char *property, bool fallback) {
    const dict *state = cat_property(NULL, property);
 
    return state ? dict_get_bool((dict *) state, "property.value", fallback) : fallback;
+}
+/* CAT identity and virtual menu state belong to the PTY binding, not the
+ * whole client. Legacy non-PTY callers use a default compatible profile. */
+const char *rr_cat_model(void) {
+   return cat_context ? cat_context->cat_model : "ft991a";
+}
+char rr_cat_timeout_get(void) {
+   return cat_context ? cat_context->cat_timeout : '0';
+}
+void rr_cat_timeout_set(char value) {
+   if (cat_context) cat_context->cat_timeout = value;
+}
+int rr_cat_tx_vfo_get(void) {
+   return cat_context ? cat_context->cat_tx_vfo : 0;
+}
+void rr_cat_tx_vfo_set(int value) {
+   if (cat_context) cat_context->cat_tx_vfo = value;
 }
 char rr_cat_active_vfo(void) {
    if (!cat_context) {
@@ -1237,6 +1257,16 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
       return false;
    }
    snprintf(b->name, sizeof(b->name), "%s", name);
+   b->cat_timeout = '0';
+   char model_key[128];
+   snprintf(model_key, sizeof(model_key), "serial:%s.cat-model", name);
+   const char *cat_model = cfg_get(model_key);
+   if (!cat_model || !*cat_model) cat_model = "ft991a";
+   if (strcmp(cat_model, "ft891") && strcmp(cat_model, "ft991a")) {
+      Log(LOG_WARN, "serial", "%s: unknown CAT model '%s'; using ft991a", name, cat_model);
+      cat_model = "ft991a";
+   }
+   strlcpy(b->cat_model, cat_model, sizeof(b->cat_model));
    char key[128];
    snprintf(key, sizeof(key), "serial:%s.baud", name);
    int baud = cfg_get_int(key, (strstr(service, "gps-") || strstr(service, "nmea-")) ? 4800 : 9600);
