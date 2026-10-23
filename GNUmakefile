@@ -83,14 +83,12 @@ ifeq (${BUILD_FWDSP},true)
 include fwdsp/rules.mk
 endif
 
-# Standalone GTK screensaver, shipped by rustyrig-client-gtk-screensaver.
-# The recursive make is tied to its output, rather than being run twice
-# independently by the packaging build.
+# Optional standalone GTK screensaver. Part of the ordinary build and
+# install-bin artifact list, so 'make install' and Debian packaging agree.
 ifneq ($(filter true,$(USE_GTK)),)
-.PHONY: gmatrix-build
-gmatrix-build:
+bins += gmatrix/gmatrix
+gmatrix/gmatrix: gmatrix/gmatrix.c gmatrix/gmatrix.h gmatrix/Makefile
 	$(MAKE) -C gmatrix all
-extra_build += gmatrix-build
 endif
 
 include mk/install.mk
