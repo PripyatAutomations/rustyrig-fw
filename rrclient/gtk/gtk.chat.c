@@ -1604,7 +1604,7 @@ void gtk_chat_set_authoritative_room(const char *room) {
 
 /* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
  * child of the fullscreen client and exists only while a server is online. */
-static GtkWidget *vfo_locator_window, *vfo_locator_label;
+static GtkWidget *vfo_locator_window, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode;
 static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
    if (!main_notebook) return G_SOURCE_REMOVE;
@@ -1633,8 +1633,25 @@ static gboolean vfo_locator_tick(gpointer unused) {
       gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), TRUE);
       gtk_container_set_border_width(GTK_CONTAINER(vfo_locator_window), 6);
+      GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
       vfo_locator_label = gtk_label_new(NULL);
-      gtk_container_add(GTK_CONTAINER(vfo_locator_window), vfo_locator_label);
+      vfo_locator_frequency = gtk_label_new(NULL);
+      vfo_locator_mode = gtk_label_new(NULL);
+      gtk_label_set_xalign(GTK_LABEL(vfo_locator_label), 0);
+      gtk_label_set_xalign(GTK_LABEL(vfo_locator_frequency), 0);
+      gtk_label_set_xalign(GTK_LABEL(vfo_locator_mode), 0);
+      gtk_box_pack_start(GTK_BOX(lines), vfo_locator_label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(lines), vfo_locator_frequency, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(lines), vfo_locator_mode, FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(vfo_locator_window), lines);
+      GtkCssProvider *provider = gtk_css_provider_new();
+      gtk_css_provider_load_from_data(provider,
+         "window.rr-vfo-ptt { background-color: #b00020; } "
+         "window.rr-vfo-ptt label { color: white; }", -1, NULL);
+      gtk_style_context_add_provider_for_screen(
+         gtk_widget_get_screen(vfo_locator_window), GTK_STYLE_PROVIDER(provider),
+         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      g_object_unref(provider);
       g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
    }
    char vfo[2] = { vfo_state_get_active(), 0 };
@@ -1668,6 +1685,30 @@ static gboolean vfo_locator_tick(gpointer unused) {
    char label[360];
    g_snprintf(label, sizeof(label), "%s  /  %s", path, grid && *grid ? grid : "—");
    gtk_label_set_text(GTK_LABEL(vfo_locator_label), label);
+   const char *mode = selected_online ? vfo_state_get(vfo, "cat.state.mode", NULL) : NULL;
+   long width = selected_online ? vfo_state_get_long(vfo, "cat.state.width", 0) : 0;
+   long frequency = selected_online ? vfo_state_get_long(vfo, "cat.state.freq", 0) : 0;
+   gboolean ptt = selected_online && vfo_state_get_bool(vfo, "cat.state.ptt", false);
+   char formatted[64], freq_line[96], mode_line[96];
+   /* Group Hz digits independently of locale, so the format is predictable. */
+   char digits[40];
+   g_snprintf(digits, sizeof(digits), "%ld", frequency);
+   size_t len = strlen(digits), offset = 0;
+   for (size_t i = 0; i < len && offset + 2 < sizeof(formatted); ++i) {
+      if (i && (len - i) % 3 == 0) formatted[offset++] = ',';
+      formatted[offset++] = digits[i];
+   }
+   formatted[offset] = '\0';
+   g_snprintf(freq_line, sizeof(freq_line), "Frequency: %s Hz", frequency > 0 ? formatted : "—");
+   g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %s",
+      mode && *mode ? mode : "—", width > 0 ? "" : "—");
+   if (width > 0)
+      g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %ld Hz", mode && *mode ? mode : "—", width);
+   gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq_line);
+   gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode_line);
+   GtkStyleContext *style = gtk_widget_get_style_context(vfo_locator_window);
+   if (ptt) gtk_style_context_add_class(style, "rr-vfo-ptt");
+   else gtk_style_context_remove_class(style, "rr-vfo-ptt");
    gtk_widget_show_all(vfo_locator_window);
    return G_SOURCE_CONTINUE;
 }
