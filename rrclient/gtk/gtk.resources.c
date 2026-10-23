@@ -880,25 +880,54 @@ static void resource_health_history(const char *key, const char *status, const c
 }
 /* Present persisted observations already received in the server's performance
  * inventory. Each link report is owned by the reporting (direct) server. */
+/* Only timestamped history records belong in this subtree. Inventory
+ * descriptions can carry serialized metadata (:access, :description, etc.);
+ * don't turn those into fake health events. ISO-8601 UTC timestamps sort
+ * lexically, so sorting descending also merges multiple neighbors correctly. */
+static gint resource_health_event_desc(gconstpointer a, gconstpointer b) {
+   const char *left = *(char *const *)a;
+   const char *right = *(char *const *)b;
+   return g_strcmp0(right, left);
+}
 static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *node) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
-   GString *report = g_string_new("");
+   GPtrArray *events = g_ptr_array_new_with_free_func(g_free);
    GtkTreeIter stat;
    for (gboolean ok = gtk_tree_model_iter_children(model, &stat, performance);
         ok; ok = gtk_tree_model_iter_next(model, &stat)) {
       char *name = NULL, *details = NULL;
       gtk_tree_model_get(model, &stat, NAME, &name, DETAILS, &details, -1);
       if (name && g_str_has_prefix(name, "Neighbor ") &&
-          g_str_has_suffix(name, " recent events") && details && *details) {
-         g_string_append_printf(report, "%s\n%s", name, details);
+          g_str_has_suffix(name, " recent events") && details) {
+         gchar **lines = g_strsplit(details, "\n", -1);
+         for (guint i = 0; lines[i]; ++i) {
+            const char *line = lines[i];
+            /* SQLite exporter emits YYYY-MM-DD HH:MM:SSZ; accept T too. */
+            if (strlen(line) < 20 ||
+                !g_ascii_isdigit(line[0]) || !g_ascii_isdigit(line[1]) ||
+                !g_ascii_isdigit(line[2]) || !g_ascii_isdigit(line[3]) ||
+                line[4] != '-' || line[7] != '-' ||
+                (line[10] != ' ' && line[10] != 'T') ||
+                line[13] != ':' || line[16] != ':')
+               continue;
+            g_ptr_array_add(events, g_strdup(line));
+         }
+         g_strfreev(lines);
       }
       g_free(name);
       g_free(details);
    }
+   g_ptr_array_sort(events, resource_health_event_desc);
+   GString *report = g_string_new("");
+   for (guint i = 0; i < events->len; ++i) {
+      const char *line = g_ptr_array_index(events, i);
+      g_string_append_printf(report, "%s\n", line);
+   }
    GtkTreeIter group;
    gboolean exists = gtk_tree_model_iter_nth_child(model, &group, node, 1);
-   if (!exists && !report->len) {
+   if (!exists && !events->len) {
       g_string_free(report, TRUE);
+      g_ptr_array_free(events, TRUE);
       return;
    }
    if (!exists) gtk_tree_store_append(browser->store, &group, node);
@@ -912,16 +941,15 @@ static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *n
       GtkTreeIter child;
       while (gtk_tree_model_iter_children(model, &child, &group))
          gtk_tree_store_remove(browser->store, &child);
-      gchar **lines = g_strsplit(report->str, "\n", -1);
-      for (guint i = 0; lines[i]; ++i) {
-         if (!*lines[i]) continue;
+      for (guint i = 0; i < events->len; ++i) {
+         const char *line = g_ptr_array_index(events, i);
          gtk_tree_store_append(browser->store, &child, &group);
-         gtk_tree_store_set(browser->store, &child, NAME, lines[i],
-                            KIND, "health-event", DETAILS, lines[i], -1);
+         gtk_tree_store_set(browser->store, &child, NAME, line,
+                            KIND, "health-event", DETAILS, line, -1);
       }
-      g_strfreev(lines);
    }
    g_string_free(report, TRUE);
+   g_ptr_array_free(events, TRUE);
 }
 static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen,
                                  unsigned *reporting, unsigned *warnings) {
