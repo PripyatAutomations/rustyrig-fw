@@ -333,6 +333,7 @@ typedef struct {
    GtkCssProvider *css;
    char *title;
    gboolean rolled;
+   gint roll_width;
 } RRWindowChrome;
 static void window_chrome_free(gpointer data) {
    RRWindowChrome *w = data;
@@ -371,7 +372,15 @@ static void window_chrome_action(GtkButton *button, gpointer data) {
    } else if (!g_strcmp0(action, "roll")) {
       w->rolled = !w->rolled;
       GtkWidget *content = gtk_bin_get_child(GTK_BIN(w->window));
-      if (content) gtk_widget_set_visible(content, !w->rolled);
+      if (content) {
+         if (w->rolled) {
+            w->roll_width = gtk_widget_get_allocated_width(GTK_WIDGET(w->window));
+            if (w->roll_width > 1) gtk_widget_set_size_request(GTK_WIDGET(w->window), w->roll_width, -1);
+         } else {
+            gtk_widget_set_size_request(GTK_WIDGET(w->window), -1, -1);
+         }
+         gtk_widget_set_visible(content, !w->rolled);
+      }
    } else if (!g_strcmp0(action, "close")) {
       gtk_window_close(w->window);
    }
@@ -399,12 +408,18 @@ void rr_floating_window_controls(GtkWindow *window, GtkNotebook *tabs, const cha
    GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(minimize, "Minimize to tab strip");
-   gtk_header_bar_pack_start(GTK_HEADER_BAR(header), minimize);
-   gtk_header_bar_pack_start(GTK_HEADER_BAR(header), menu);
+   GtkWidget *close = gtk_button_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(close), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(close, "Close window");
+   gtk_header_bar_pack_start(GTK_HEADER_BAR(header), close);
+   gtk_header_bar_pack_end(GTK_HEADER_BAR(header), menu);
    GtkWidget *roll = gtk_button_new_from_icon_name("go-up", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(roll), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(roll, "Roll up / expand window");
    gtk_header_bar_pack_end(GTK_HEADER_BAR(header), roll);
+   gtk_header_bar_pack_end(GTK_HEADER_BAR(header), minimize);
+   g_object_set_data(G_OBJECT(close), "rr-window-action", (gpointer)"close");
+   g_signal_connect(close, "clicked", G_CALLBACK(window_chrome_action), w);
    g_object_set_data(G_OBJECT(minimize), "rr-window-action", (gpointer)"minimize");
    g_signal_connect(minimize, "clicked", G_CALLBACK(window_chrome_action), w);
    g_object_set_data(G_OBJECT(roll), "rr-window-action", (gpointer)"roll");
