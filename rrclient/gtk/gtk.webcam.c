@@ -23,12 +23,15 @@
 #include <gtk/gtk.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.winmgr.h>
+#include "gtk.floating-panel.h"
 #include <rrclient/media.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 
 extern rrconn_t *ws_conn;
 extern bool ui_print(const char *window, const char *fmt, ...);
 
+extern GtkWidget *main_window, *main_notebook;
+static RRFloatPanel *webcam_panel;
 static GtkWidget *webcam_win = NULL;
 static GtkWidget *webcam_image = NULL;
 /* Keep only the newest compressed frame; GTK owns all decoding and widgets. */
@@ -41,6 +44,7 @@ static char webcam_decoder[5], webcam_uuid[64], webcam_profiles[512];
 static GtkWidget *webcam_codecs, *webcam_rates;
 
 static void webcam_decoded(const char *name, const void *data, size_t len, void *user);
+static void webcam_panel_close(gpointer data) { (void)data; gtk_webcam_show(false); }
 
 
 static gboolean webcam_blit_cb(gpointer user) {
@@ -221,8 +225,14 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
       fwdsp_codec_stop_channel_immediate(webcam_decoder, false, "webcam-viewer");
    }
    webcam_decoder[0] = '\0';
-   webcam_win = NULL;
    webcam_image = NULL;
+   webcam_win = NULL;
+   if (webcam_panel) {
+      GtkWidget *body = rr_floating_panel_body(webcam_panel);
+      GList *children = gtk_container_get_children(GTK_CONTAINER(body));
+      for (GList *it = children; it; it = it->next) gtk_widget_destroy(GTK_WIDGET(it->data));
+      g_list_free(children);
+   }
 
    g_mutex_lock(&webcam_lock);
    webcam_visible = false;
@@ -243,10 +253,8 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
 // Show or hide the viewer window; frames are only decoded when it exists.
 void gtk_webcam_show(bool show) {
    if (!show) {
-      if (webcam_win) {
-         gtk_widget_destroy(webcam_win);  // destroy cb clears the state
-      }
-
+      if (webcam_panel) rr_floating_panel_hide(webcam_panel);
+      webcam_destroy_cb(NULL, NULL);
       return;
    }
 
@@ -265,7 +273,8 @@ void gtk_webcam_show(bool show) {
       g_mutex_unlock(&webcam_lock);
       webcam_controls_refresh();
       rrclient_media_subscribe_single_video();
-      gtk_window_present(GTK_WINDOW(webcam_win));
+      rr_floating_panel_restore(webcam_panel);
+      rr_floating_panel_show(webcam_panel);
 
       return;
    }
@@ -273,10 +282,17 @@ void gtk_webcam_show(bool show) {
    webcam_visible = true;
    webcam_connection = ws_conn;
    g_mutex_unlock(&webcam_lock);
-   webcam_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(webcam_win), "Webcam");
-   gtk_window_set_default_size(GTK_WINDOW(webcam_win), 640, 480);
-   g_signal_connect(webcam_win, "destroy", G_CALLBACK(webcam_destroy_cb), NULL);
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      webcam_destroy_cb(NULL, NULL);
+      return;
+   }
+   if (!webcam_panel) {
+      webcam_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "webcam", "Webcam");
+      rr_floating_panel_set_close_callback(webcam_panel, webcam_panel_close, NULL);
+   }
+   webcam_win = rr_floating_panel_widget(webcam_panel);
+   gtk_widget_set_size_request(rr_floating_panel_body(webcam_panel), 640, 480);
 
    webcam_image = gtk_image_new();
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
@@ -294,8 +310,8 @@ void gtk_webcam_show(bool show) {
    webcam_controls_refresh();
    gtk_box_pack_start(GTK_BOX(box), controls, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(box), webcam_image, TRUE, TRUE, 0);
-   gtk_container_add(GTK_CONTAINER(webcam_win), box);
-   gtk_widget_show_all(webcam_win);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(webcam_panel)), box, TRUE, TRUE, 0);
+   rr_floating_panel_show(webcam_panel);
 
    if (rrclient_media_subscribe_single_video()) {
       ui_print(NULL, "\00311Webcam viewer open; subscribed to the only video stream\017");
