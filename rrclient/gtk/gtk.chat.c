@@ -1623,20 +1623,14 @@ static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
    if (!main_notebook) return G_SOURCE_REMOVE;
    const char *profile = rrclient_selected_server();
-   gboolean selected_online = profile && rrclient_connection_state(profile) == 1;
-   gboolean online = selected_online;
-   if (!online) {
-      for (unsigned i = 0; ; ++i) {
-         const char *candidate = rrclient_connection_iter(i);
-         if (!candidate) break;
-         if (rrclient_connection_state(candidate) == 1) {
-            online = TRUE;
-            profile = candidate;
-            break;
-         }
-      }
-   }
-   if (!online) {
+   rrconn_t *connection = profile ? rrclient_connection_find(profile) : NULL;
+   /* IRC and disconnected profiles have no rig/VFO state. Never present
+    * cached data from another server as though it belonged to this one. */
+   gboolean selected_online = connection && connection->is_ws &&
+      rrclient_connection_state(profile) == 1;
+   if (!selected_online) {
+      locator_tx_identity[0] = '\0';
+      locator_tx_started = 0;
       if (vfo_locator_window) gtk_widget_hide(vfo_locator_window);
       return G_SOURCE_CONTINUE;
    }
