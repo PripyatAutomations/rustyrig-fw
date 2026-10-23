@@ -75,8 +75,11 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       rc_width ? rc_width : "(none)");
 
    if (!rc_cmd || !rc_vfo || !rc_from) {
+      Log(LOG_WARN, "ws.rigctl", "Rejecting malformed rig control event: missing %s%s%s (cmd=%s, vfo=%s, from=%s, room=%s)",
+          rc_cmd ? "" : "rigctl.cmd ", rc_vfo ? "" : "rigctl.vfo ", rc_from ? "" : "rigctl.from",
+          rc_cmd ? rc_cmd : "(missing)", rc_vfo ? rc_vfo : "(missing)",
+          rc_from ? rc_from : "(missing)", dict_get(d, "rigctl.room", "(unspecified)"));
       dict_free(d);
-
       return;
    }
 
@@ -117,8 +120,9 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 #endif
 
    if (!radio) {
+      Log(LOG_WARN, "ws.rigctl", "Rig control ignored: room has no mapped rig (cmd=%s, vfo=%s, room=%s, source=%s)",
+          rc_cmd, rc_vfo, room ? room : "(null)", rc_from);
       dict_free(d);
-
       return;
    }
 
