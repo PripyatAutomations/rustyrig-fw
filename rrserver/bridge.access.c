@@ -120,7 +120,7 @@ static void codec_privilege(const char *event, const void *data, size_t length,
    rr_media_access_t *access = (rr_media_access_t *)data;
    if (!access->channel || access->allowed)
       return;
-#ifdef USE_SQLITE
+#if defined(USE_SQLITE) && defined(USE_MONGOOSE)
    if (!rr_relay_remote_for(client))
       return;
    const char *origin = rrserver_relay_client_server(client);
