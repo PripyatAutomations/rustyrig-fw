@@ -1605,6 +1605,17 @@ void gtk_chat_set_authoritative_room(const char *room) {
 /* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
  * child of the fullscreen client and exists only while a server is online. */
 static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode;
+/* Drag the undecorated top-level using GTK's native window-manager move.
+ * The handler runs on the event box covering all three locator rows. */
+static gboolean vfo_locator_drag(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY ||
+       !vfo_locator_window) return FALSE;
+   gtk_window_begin_move_drag(GTK_WINDOW(vfo_locator_window), event->button,
+      (gint)event->x_root, (gint)event->y_root, event->time);
+   return TRUE;
+}
 static gboolean vfo_locator_tick(gpointer unused) {
    (void)unused;
    if (!main_notebook) return G_SOURCE_REMOVE;
@@ -1637,6 +1648,9 @@ static gboolean vfo_locator_tick(gpointer unused) {
       /* A native undecorated top-level, with the same lightweight border
        * treatment as in-window floating panels. The frame owns PTT styling. */
       vfo_locator_frame = gtk_event_box_new();
+      gtk_widget_add_events(vfo_locator_frame, GDK_BUTTON_PRESS_MASK);
+      g_signal_connect(vfo_locator_frame, "button-press-event",
+         G_CALLBACK(vfo_locator_drag), NULL);
       gtk_widget_set_name(vfo_locator_frame, "rr-vfo-locator");
       GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
       vfo_locator_label = gtk_label_new(NULL);
