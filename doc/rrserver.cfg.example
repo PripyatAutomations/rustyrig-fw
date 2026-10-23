@@ -136,6 +136,13 @@ state-interval=15
 ; For a Hamlib rig, set backend=hamlib and configure its own endpoint:
 ; Optional per-rig override of backend.hamlib-timeout-ms:
 ;hamlib.timeout-ms=250
+; TX power slider is 1–100% of the backend's maximum RF output.
+; Hamlib uses band/mode watt calibration (rig_power2mW) when available.
+; Override missing/incorrect calibration PER RIG using either:
+;power.max-watts=100
+;power.max-mw=500
+; power.max-mw takes precedence and permits sub-watt rigs. Do not set
+; both unless you intentionally want the milliwatt value to win.
 hamlib.model=2
 hamlib.baud=38400
 ; Hamlib messages route to Log() as hamlib.<rig-name> (process-global callback).
