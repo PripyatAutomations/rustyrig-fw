@@ -12,6 +12,8 @@
 #include <librrprotocol/ws.mediachan.h>
 
 /* Relay-private state: owned and accessed on the server event-loop thread. */
+/* Report incoming catalog completion or outgoing peer acknowledgment. */
+void rr_relay_sync_status(const char *node, bool inbound, bool complete);
 #define MAX_CATALOG 2048
 #define MAX_RELAY_SESSIONS 128
 #define MAX_SUBSCRIPTIONS 512
