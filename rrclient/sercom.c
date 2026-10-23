@@ -535,7 +535,7 @@ bool rr_cat_property_bool(const char *property, bool fallback) {
 /* CAT identity and virtual menu state belong to the PTY binding, not the
  * whole client. Legacy non-PTY callers use a default compatible profile. */
 const char *rr_cat_model(void) {
-   return cat_context ? cat_context->cat_model : "ft991a";
+   return cat_context ? cat_context->cat_model : "ft891";
 }
 char rr_cat_timeout_get(void) {
    return cat_context ? cat_context->cat_timeout : '0';
@@ -1261,10 +1261,10 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    char model_key[128];
    snprintf(model_key, sizeof(model_key), "serial:%s.cat-model", name);
    const char *cat_model = cfg_get(model_key);
-   if (!cat_model || !*cat_model) cat_model = "ft991a";
+   if (!cat_model || !*cat_model) cat_model = "ft891";
    if (strcmp(cat_model, "ft891") && strcmp(cat_model, "ft991a")) {
-      Log(LOG_WARN, "serial", "%s: unknown CAT model '%s'; using ft991a", name, cat_model);
-      cat_model = "ft991a";
+      Log(LOG_WARN, "serial", "%s: unknown CAT model '%s'; using ft891", name, cat_model);
+      cat_model = "ft891";
    }
    strlcpy(b->cat_model, cat_model, sizeof(b->cat_model));
    char key[128];
