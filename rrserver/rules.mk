@@ -152,4 +152,4 @@ extra_clean += ${BUILD_DIR}/rrserver/backend.hamlib.o ${BUILD_DIR}/rrserver/modu
 bins += bin/rr-dds-si5351
 bin/rr-dds-si5351: ${BUILD_DIR}/rrserver/si5351-tool.o ${BUILD_DIR}/rrserver/si5351.o ${BUILD_DIR}/rrserver/hardware.si5351.o ${BUILD_DIR}/rrserver/hardware.o ${librustyaxe}
 	@${CC} -o $@ $(filter %.o,$^) -lrustyaxe ${LDFLAGS} || exit 1
-extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-dds-si5351
+extra_clean += ${BUILD_DIR}/rrserver/si5351-tool.o bin/rr-dds-si5351 bin/rr-si5351
