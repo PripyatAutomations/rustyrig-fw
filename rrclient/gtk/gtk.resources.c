@@ -1698,7 +1698,7 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
    char *coordinates = NULL;
    gtk_tree_model_get(model, &iter, COORDINATES, &coordinates, -1);
 
-   if (coordinates && *coordinates) {
+   if (coordinates && *coordinates && g_strcmp0(kind, "rig") && g_strcmp0(kind, "gps")) {
       g_string_append_printf(text, "\nCoordinates: %s", coordinates);
    }
    g_free(coordinates);
@@ -2141,7 +2141,7 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    (void)unused;
    char *details = NULL, *coordinates = NULL, *kind = NULL;
    gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, KIND, &kind, -1);
-   char *text = g_strcmp0(kind, "rig") && coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
+   char *text = g_strcmp0(kind, "rig") && g_strcmp0(kind, "gps") && coordinates && *coordinates ? g_strdup_printf("Coordinates: %s%s%s", coordinates, details && *details ? " · " : "", details ? details : "") :
       g_strdup(details ? details : "");
    char *safe = resource_display_utf8(text);
    g_object_set(renderer, "text", safe, NULL);
