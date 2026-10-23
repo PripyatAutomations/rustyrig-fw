@@ -936,6 +936,12 @@ static void retry_remote_ptt(struct remote_session *r, uint64_t at) {
    if (at < r->release_retry) {
       return;
    }
+   Log(LOG_WARN, "relay.ptt",
+      "Releasing remote PTT: user=%s room=%s direct_tx=unavailable proxy_subscribed=%s proxy_audio_age_ms=%lld proxy_started_age_ms=%lld (3s audio liveness limit)",
+      r->client.chatname, r->client.ptt_room,
+      rr_relay_proxy_tx_subscribed(r, r->client.ptt_room) ? "yes" : "no",
+      r->proxy_frame && at >= r->proxy_frame ? (long long)((at - r->proxy_frame) / 1000) : -1LL,
+      r->proxy_started && at >= r->proxy_started ? (long long)((at - r->proxy_started) / 1000) : -1LL);
    ws_release_ptt_on_disconnect(&r->client);
    r->release_retry = r->client.is_ptt ? at + UINT64_C(1000000) : 0;
 }
