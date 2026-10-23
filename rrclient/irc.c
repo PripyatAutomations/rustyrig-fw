@@ -118,7 +118,7 @@ static void irc_try_send(rrconn_t *cptr) {
    ssize_t n = send(cptr->fd, cptr->sendq, len, MSG_DONTWAIT | MSG_NOSIGNAL);
 
    if (n < 0) {
-      if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+      if (errno != EAGAIN && errno != EINTR) {
          Log(LOG_CRIT, "irc", "send failed: %s", strerror(errno));
          irc_close_connection(cptr);
       }
@@ -238,7 +238,7 @@ void irc_io_poll(rrconn_t *cptr) {
    }
 
    if (n < 0) {
-      if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+      if (errno != EAGAIN && errno != EINTR) {
          Log(LOG_CRIT, "irc", "recv failed: %s", strerror(errno));
          irc_close_connection(cptr);
       }
