@@ -323,9 +323,8 @@ void userlist_set_visible(bool visible) {
    if (entry) {
       gtk_widget_show_all(entry->panel);
 
-      if (!entry->docked && entry->window) {
-         gtk_window_present(GTK_WINDOW(entry->window));
-      }
+      if (!entry->docked && entry->float_panel)
+         rr_floating_panel_restore(entry->float_panel);
 
       return;
    }
@@ -344,29 +343,13 @@ void userlist_set_visible(bool visible) {
 
       return;
    }
-   gui_window_t *wp = gui_find_window(NULL, "userlist");
-
-   if (!wp) {
-      if (!visible) {
-         return;
-      }
-      userlist_create();
-      wp = gui_find_window(NULL, "userlist");
-   }
-
-   if (!wp || !wp->gtk_win) {
-      return;
-   }
-   userlist_window = wp->gtk_win;
-
+   if (!userlist_float_panel && !visible) return;
+   if (!userlist_float_panel && !userlist_create()) return;
    if (visible) {
-      // Record focus state BEFORE showing, so we know if main had focus
-      refocus_main();
       userlist_redraw_gtk();
-      gtk_widget_show_all(userlist_window);
-      place_window(userlist_window);
+      rr_floating_panel_show(userlist_float_panel);
    } else {
-      gtk_widget_hide(userlist_window);
+      rr_floating_panel_hide(userlist_float_panel);
    }
 }
 
@@ -1374,7 +1357,7 @@ static void room_userlist_fit(room_userlist_entry_t *entry, int width) {
       width = MAX(width, userlist_layout_int(entry->view, "dock-width", 0));
       userlist_layout_save(entry->view, "dock-width", width);
       room_userlist_set_width(entry, width);
-   } else if (!entry->docked && entry->auto_window_width && entry->window) {
+   } else if (!entry->docked && entry->auto_window_width && entry->window && GTK_IS_WINDOW(entry->window)) {
       width = MAX(width, userlist_layout_int(entry->view, "width", 0));
       userlist_layout_save(entry->view, "width", width);
       gtk_window_resize(GTK_WINDOW(entry->window), width, userlist_layout_int(entry->view, "height", 320));
@@ -1729,9 +1712,7 @@ void userlist_dock_into(GtkPaned *paned) {
 
    /* Authentication can make the auto-show path create the detachable window before the authoritative room has built its dock. Hide that provisional window as
     * soon as the real dock is available. */
-   if (userlist_window && GTK_IS_WINDOW(userlist_window)) {
-      gtk_widget_hide(userlist_window);
-   }
+   if (userlist_float_panel) rr_floating_panel_hide(userlist_float_panel);
    userlist_dock_paned = GTK_WIDGET(paned);
    userlist_is_docked = true;
    gtk_button_set_label(GTK_BUTTON(userlist_dock_button), "Undock");
@@ -1742,30 +1723,28 @@ void userlist_dock_into(GtkPaned *paned) {
 
 // Assemble a userlist object and return its detached window.
 GtkWidget *userlist_create(void) {
-   if (userlist_window && GTK_IS_WINDOW(userlist_window)) {
-      return userlist_window;
-   }
-   GtkWidget *new_win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gui_window_t *window_t = ui_new_window(new_win, "userlist");
-   (void)window_t;
-   userlist_window = new_win;
-   if (GTK_IS_NOTEBOOK(main_notebook))
-      rr_floating_window_controls(GTK_WINDOW(new_win), GTK_NOTEBOOK(main_notebook), "Userlist");
-   gtk_window_set_default_size(GTK_WINDOW(new_win), userlist_default_width(), 320);
-
-   if (!userlist_panel) {
+   GtkOverlay *overlay = userlist_overlay();
+   if (!overlay || !GTK_IS_NOTEBOOK(main_notebook)) return NULL;
+   if (!userlist_float_panel)
+      userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook),
+                                                   "userlist-main", "Userlist");
+   if (!userlist_float_panel) return NULL;
+   userlist_window = rr_floating_panel_widget(userlist_float_panel);
+   if (!userlist_panel)
       userlist_panel = userlist_panel_create();
+   if (gtk_widget_get_parent(userlist_panel) != rr_floating_panel_body(userlist_float_panel)) {
+      g_object_ref(userlist_panel);
+      userlist_remove_from_parent();
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(userlist_float_panel)),
+                         userlist_panel, TRUE, TRUE, 0);
+      g_object_unref(userlist_panel);
    }
-   gtk_container_add(GTK_CONTAINER(new_win), userlist_panel);
    userlist_is_docked = false;
    gtk_button_set_label(GTK_BUTTON(userlist_dock_button), "Dock");
-   g_signal_connect(new_win, "delete-event", G_CALLBACK(on_userlist_delete), NULL);
-   gui_hotkey_register(new_win);
-   place_window(new_win);
    userlist_update_title();
    userlist_redraw_gtk();
-
-   return new_win;
+   rr_floating_panel_show(userlist_float_panel);
+   return userlist_window;
 }
 
 // Called by the module shutdown path: stop the repeating room-VFO refresh
