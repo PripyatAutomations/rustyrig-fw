@@ -1123,7 +1123,7 @@ static void frontend_gtk_quit_request(const char *event, const char *data, rrcon
 }
 
 static void frontend_gtk_edit_config(const char *path) {
-   gui_file_editor_open(path);
+   gui_file_editor_open_config(path);
 }
 
 static void frontend_gtk_bell(void) {
