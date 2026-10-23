@@ -122,7 +122,6 @@ GtkWidget *create_vfo_box(void) {
    GtkWidget *control_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    vfo_layout_box = control_box;
 
-   gtk_container_add(GTK_CONTAINER(revealer), control_box);
 
    vfo_tunable_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
    gtk_box_pack_start(GTK_BOX(control_box), vfo_tunable_box, TRUE, TRUE, 0);
