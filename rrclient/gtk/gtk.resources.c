@@ -889,6 +889,7 @@ static gint resource_health_event_desc(gconstpointer a, gconstpointer b) {
    const char *right = *(char *const *)b;
    return g_strcmp0(right, left);
 }
+static gboolean resource_health_named_child(GtkTreeIter *parent, const char *name, GtkTreeIter *out);
 static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *node) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GPtrArray *events = g_ptr_array_new_with_free_func(g_free);
@@ -924,13 +925,13 @@ static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *n
       g_string_append_printf(report, "%s\n", line);
    }
    GtkTreeIter group;
-   gboolean exists = gtk_tree_model_iter_nth_child(model, &group, node, 1);
+   gboolean exists = resource_health_named_child(node, "Server Link Events", &group);
    if (!exists && !events->len) {
       g_string_free(report, TRUE);
       g_ptr_array_free(events, TRUE);
       return;
    }
-   if (!exists) gtk_tree_store_append(browser->store, &group, node);
+   if (!exists) gtk_tree_store_insert(browser->store, &group, node, 1);
    char *previous = NULL;
    gtk_tree_model_get(model, &group, DETAILS, &previous, -1);
    gboolean changed = g_strcmp0(previous, report->str) != 0;
@@ -950,6 +951,59 @@ static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *n
    }
    g_string_free(report, TRUE);
    g_ptr_array_free(events, TRUE);
+}
+/* Mirror inventory performance rows rather than moving them: the ordinary
+ * explorer and Cluster Health remain independent views of the same data.
+ * Reuse existing child rows to retain their expansion and selection state. */
+static gboolean resource_health_named_child(GtkTreeIter *parent, const char *name, GtkTreeIter *out) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   for (gboolean ok = gtk_tree_model_iter_children(model, out, parent);
+        ok; ok = gtk_tree_model_iter_next(model, out)) {
+      char *current = NULL;
+      gtk_tree_model_get(model, out, NAME, &current, -1);
+      gboolean match = !g_strcmp0(current, name);
+      g_free(current);
+      if (match) return TRUE;
+   }
+   return FALSE;
+}
+static void resource_health_performance(GtkTreeIter *source, gboolean available, GtkTreeIter *node) {
+   GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
+   GtkTreeIter mirror;
+   gboolean exists = resource_health_named_child(node, "Statistics / Performance", &mirror);
+   if (!available) {
+      if (exists) gtk_tree_store_remove(browser->store, &mirror);
+      return;
+   }
+   if (!exists) {
+      gtk_tree_store_append(browser->store, &mirror, node);
+      gtk_tree_store_set(browser->store, &mirror, NAME, "Statistics / Performance", KIND, "group", -1);
+   }
+   GtkTreeIter src;
+   unsigned index = 0;
+   for (gboolean ok = gtk_tree_model_iter_children(model, &src, source);
+        ok; ok = gtk_tree_model_iter_next(model, &src)) {
+      char *name = NULL, *kind = NULL, *state = NULL, *details = NULL;
+      gtk_tree_model_get(model, &src, NAME, &name, KIND, &kind,
+                         STATE, &state, DETAILS, &details, -1);
+      GtkTreeIter dst;
+      if (!gtk_tree_model_iter_nth_child(model, &dst, &mirror, index))
+         gtk_tree_store_append(browser->store, &dst, &mirror);
+      set_string(&dst, NAME, name);
+      set_string(&dst, KIND, kind);
+      set_string(&dst, STATE, state);
+      set_string(&dst, DETAILS, details);
+      /* Mirrored diagnostics are read-only: no commands or stale remote
+       * resource bindings should be inherited from source rows. */
+      ++index;
+      g_free(name);
+      g_free(kind);
+      g_free(state);
+      g_free(details);
+   }
+   GtkTreeIter stale;
+   while (gtk_tree_model_iter_nth_child(model, &stale, &mirror, index))
+      gtk_tree_store_remove(browser->store, &stale);
 }
 static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen,
                                  unsigned *reporting, unsigned *warnings) {
@@ -989,6 +1043,7 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
       set_string(&item, DETAILS, details);
       resource_health_history(key, status, reasons->str, &item);
       if (direct && available) resource_health_link_events(&group, &item);
+      resource_health_performance(&group, available, &item);
       g_free(details);
       g_free(key);
    }
