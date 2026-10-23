@@ -538,7 +538,7 @@ static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrc
    const char *vfo = (d ? dict_get(d, "cat.vfo", NULL) : NULL);
 
    if (vfo && vfo[0]) {
-      Log(LOG_AUDIT, "rigctl", "Departing user %s had PTT on vfo %s: keying down", (who ? who : "(unknown)"), vfo);
+      Log(LOG_AUDIT, "rigctl", "Departing user %s had PTT on vfo %s: releasing TX", (who ? who : "(unknown)"), vfo);
 
       if (rr_ptt_request(vfo_lookup(vfo[0]), false, "disconnect") && cptr) {
          // A takeover must stop if the backend cannot release the old holder.
