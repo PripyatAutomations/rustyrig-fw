@@ -430,6 +430,7 @@ typedef struct {
    GtkTextBuffer *buffer;
    gchar *filepath;
    gboolean modified;
+   gboolean config_edit;
    bool (*remote_save)(const char *, void *);
    void *remote_data;
    GDestroyNotify remote_destroy;
@@ -620,6 +621,7 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
       return;
    }
 
+   if (!ctx->config_edit) { destroy_editor(ctx); return; }
    char *message = g_strdup_printf("Reload configuration from \"%s\"?", ctx->filepath);
    file_editor_confirm(ctx, FILE_RELOAD, message);
    g_free(message);
@@ -651,9 +653,11 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
 
             rr_floating_panel_set_title(ctx->panel, ctx->filepath);
 
-            char *message = g_strdup_printf("Apply configuration from \"%s\"?", filename);
+            if (ctx->config_edit) {
+             char *message = g_strdup_printf("Apply configuration from \"%s\"?", filename);
              file_editor_confirm(ctx, FILE_APPLY, message);
              g_free(message);
+             }
              
          }
 
@@ -833,6 +837,12 @@ void gui_file_editor_open(const char *filepath) {
    rr_floating_panel_show(ctx->panel);
 }
 
+void gui_file_editor_open_config(const char *filepath) {
+   if (active_editor) { gui_file_editor_open(filepath); return; }
+   gui_file_editor_open(filepath);
+   if (active_editor) active_editor->config_edit = TRUE;
+}
+
 /////////////////////////////
 // Config tab in tab strip //
 /////////////////////////////
@@ -842,7 +852,7 @@ static void on_edit_config_button(GtkButton *button, gpointer user_data) {
    (void)button;
 
    if (user_data != NULL) {
-      gui_file_editor_open(user_data);
+      gui_file_editor_open_config(user_data);
    } else {
       const char *home = g_get_home_dir();
       char *dir = g_build_filename(home, ".config", NULL);
@@ -863,7 +873,7 @@ static void on_edit_config_button(GtkButton *button, gpointer user_data) {
          chmod(path, 0600);
          Log(LOG_INFO, "gtk.config", "Created %s from active configuration", path);
       }
-      gui_file_editor_open(path);
+      gui_file_editor_open_config(path);
       g_free(path);
       g_free(dir);
    }
