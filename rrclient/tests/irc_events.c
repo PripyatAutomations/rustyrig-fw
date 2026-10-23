@@ -251,7 +251,10 @@ int main(void) {
       const char *line, *first, *second;
    } whois_replies[] = {
       {
-         ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice!ident@host.example", "Alice Example"
+         ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice!ident@host.example", "Alice Example",
+      },
+      {
+          ":irc.example.com 311 dan mike ~mi localhost * :Mike\'s such a cool person!", "WHOIS mike!~mi@localhost", "Mike\'s such a cool person!"
       },
       {
          ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob!user@2001:db8::1", "Unknown"
