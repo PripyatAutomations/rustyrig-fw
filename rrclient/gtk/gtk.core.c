@@ -32,7 +32,7 @@
 #include <rrclient/gtk/gtk.receiver-directory.h>
 #include <rrclient/gtk/gtk.resources.h>
 #include <rrclient/gtk/gtk.files.h>
-#include <rrclient/gtk/gtk.editcfg.h>
+#include <rrclient/gtk/gtk.file-editor.h>
 #include <rrclient/gtk/gtk.tabs.h>
 #include <rrclient/gtk/gtk.help.h>
 
@@ -1123,7 +1123,7 @@ static void frontend_gtk_quit_request(const char *event, const char *data, rrcon
 }
 
 static void frontend_gtk_edit_config(const char *path) {
-   gui_edit_config(path);
+   gui_file_editor_open(path);
 }
 
 static void frontend_gtk_bell(void) {
@@ -1417,7 +1417,7 @@ void gtk_frontend_stop(void) {
    gtk_help_shutdown();
    gtk_resources_shutdown();
    gtk_files_shutdown();
-   gtk_editcfg_shutdown();
+   gtk_file_editor_shutdown();
    gtk_receiver_directory_shutdown();
    gtk_audio_routing_shutdown();
    gtk_ui_zoom_shutdown();
