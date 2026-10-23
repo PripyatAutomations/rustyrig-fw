@@ -511,6 +511,15 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
    s->frequency[index] = frequency;
 
    if (index == b->active_vfo) {
+      /* WSJT-X queries ST before enabling Rig split. Keep the property
+       * synchronized with the hardware, including front-panel changes. */
+      char split_reply[24];
+      if (cat(s, "ST;", "ST", split_reply, sizeof(split_reply)) &&
+          strlen(split_reply) == 3 &&
+          (split_reply[2] == '0' || split_reply[2] == '1')) {
+         dict_value_t split = {.i = split_reply[2] == '1'};
+         rr_backend_property_observe(b, v, "split", VAL_INT, &split);
+      }
       char md[24];
 
       if (cat(s, "MD0;", "MD0", md, sizeof(md)) && strlen(md) == 4) {
