@@ -24,21 +24,30 @@ static void panel_modal_release(RRFloatPanel *p) {
       gtk_grab_remove(p->frame);
       p->modal_grabbed = FALSE;
    }
-   if (p->scrim) gtk_widget_hide(p->scrim);
+
+   if (p->scrim) {
+      gtk_widget_hide(p->scrim);
+   }
 }
 
 static gboolean panel_modal_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget;
    RRFloatPanel *p = data;
+
    if (p->modal && event->keyval == GDK_KEY_Escape) {
       rr_floating_panel_response(p, GTK_RESPONSE_CANCEL);
+
       return TRUE;
    }
+
    return FALSE;
 }
 
 static gboolean panel_scrim_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   (void)widget; (void)event; (void)data;
+   (void)widget;
+   (void)event;
+   (void)data;
+
    return TRUE;
 }
 
@@ -47,12 +56,10 @@ static void panel_roll(GtkButton *button, gpointer data);
 static void panel_close(GtkButton *button, gpointer data);
 static void panel_zoom_changed(GtkRange *range, gpointer data) {
    RRFloatPanel *p = data;
-   p->zoom = (guint)gtk_range_get_value(range);
-   /* GTK3 has no subtree-local DPI setting. An inherited font size scales
-    * labels and font-based controls without changing application-wide DPI. */
+   p->zoom = (guint) gtk_range_get_value(range);
+   /* GTK3 has no subtree-local DPI setting. An inherited font size scales labels and font-based controls without changing application-wide DPI. */
    char css[160];
-   g_snprintf(css, sizeof(css), ".rr-panel-local-zoom { font-size: %.2fpx; }",
-              13.0 * p->zoom / 100.0);
+   g_snprintf(css, sizeof(css), ".rr-panel-local-zoom { font-size: %.2fpx; }", 13.0 * p->zoom / 100.0);
    gtk_css_provider_load_from_data(p->scale_css, css, -1, NULL);
    gtk_widget_queue_resize(p->frame);
 }
@@ -66,15 +73,20 @@ static void panel_menu_action(GtkButton *button, gpointer data) {
    RRFloatPanel *p = data;
    const char *action = g_object_get_data(G_OBJECT(button), "rr-action");
    gtk_popover_popdown(GTK_POPOVER(p->menu));
-   if (!g_strcmp0(action, "minimize")) panel_minimize(NULL, p);
-   else if (!g_strcmp0(action, "roll")) panel_roll(NULL, p);
-   else if (!g_strcmp0(action, "close")) panel_close(NULL, p);
+
+   if (!g_strcmp0(action, "minimize")) {
+      panel_minimize(NULL, p);
+   } else if (!g_strcmp0(action, "roll")) {
+      panel_roll(NULL, p);
+   } else if (!g_strcmp0(action, "close")) {
+      panel_close(NULL, p);
+   }
 }
 
 static void panel_menu_add_action(RRFloatPanel *p, GtkWidget *box, const char *label, const char *action) {
    GtkWidget *button = gtk_button_new_with_label(label);
    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-   g_object_set_data(G_OBJECT(button), "rr-action", (gpointer)action);
+   g_object_set_data(G_OBJECT(button), "rr-action", (gpointer) action);
    g_signal_connect(button, "clicked", G_CALLBACK(panel_menu_action), p);
    gtk_box_pack_start(GTK_BOX(box), button, FALSE, FALSE, 0);
 }
@@ -105,9 +117,15 @@ static void panel_chrome(RRFloatPanel *p) {
 }
 
 void rr_floating_panel_restore(RRFloatPanel *p) {
-   if (!p) return;
+   if (!p) {
+      return;
+   }
    p->minimized = FALSE;
-   if (p->restore_tab) { gtk_tabs_panel_restore_remove(p->restore_tab); p->restore_tab = NULL; }
+
+   if (p->restore_tab) {
+      gtk_tabs_panel_restore_remove(p->restore_tab);
+      p->restore_tab = NULL;
+   }
    gtk_widget_show(p->frame);
    panel_chrome(p);
 }
@@ -136,13 +154,20 @@ static void panel_minimize(GtkButton *button, gpointer data) {
 static void panel_roll(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
+
    if (!p->rolled) {
       p->roll_width = gtk_widget_get_allocated_width(p->frame);
-      if (p->roll_width > 1) gtk_widget_set_size_request(p->frame, p->roll_width, -1);
+
+      if (p->roll_width > 1) {
+         gtk_widget_set_size_request(p->frame, p->roll_width, -1);
+      }
    } else {
       gtk_widget_set_size_request(p->frame, -1, -1);
    }
-   if (p->modal) return;
+
+   if (p->modal) {
+      return;
+   }
    p->rolled = !p->rolled;
    panel_chrome(p);
 }
@@ -163,9 +188,13 @@ void rr_floating_panel_hide(RRFloatPanel *p) {
 static void panel_close(GtkButton *button, gpointer data) {
    (void)button;
    RRFloatPanel *p = data;
+
    if (p && p->closable) {
-      if (p->on_close) p->on_close(p->close_data);
-      else rr_floating_panel_hide(p);
+      if (p->on_close) {
+         p->on_close(p->close_data);
+      } else {
+         rr_floating_panel_hide(p);
+      }
    }
 }
 
@@ -226,8 +255,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->id = g_strdup(id);
    p->closable = TRUE;
    p->scrim = gtk_event_box_new();
-   /* The scrim must never be revealed by a parent gtk_widget_show_all().
-    * A non-modal scrim covers the notebook and silently eats tab clicks. */
+   /* The scrim must never be revealed by a parent gtk_widget_show_all(). A non-modal scrim covers the notebook and silently eats tab clicks. */
    gtk_widget_set_no_show_all(p->scrim, TRUE);
    gtk_widget_set_halign(p->scrim, GTK_ALIGN_FILL);
    gtk_widget_set_valign(p->scrim, GTK_ALIGN_FILL);
@@ -235,11 +263,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_vexpand(p->scrim, TRUE);
    gtk_widget_add_events(p->scrim, GDK_BUTTON_PRESS_MASK);
    GtkCssProvider *scrim_css = gtk_css_provider_new();
-   gtk_css_provider_load_from_data(scrim_css,
-      ".rr-modal-scrim { background-color: rgba(0,0,0,0.45); }", -1, NULL);
+   gtk_css_provider_load_from_data(scrim_css, ".rr-modal-scrim { background-color: rgba(0,0,0,0.45); }", -1, NULL);
    gtk_style_context_add_class(gtk_widget_get_style_context(p->scrim), "rr-modal-scrim");
-   gtk_style_context_add_provider(gtk_widget_get_style_context(p->scrim),
-                                  GTK_STYLE_PROVIDER(scrim_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(p->scrim), GTK_STYLE_PROVIDER(scrim_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    g_object_unref(scrim_css);
    g_signal_connect(p->scrim, "button-press-event", G_CALLBACK(panel_scrim_press), p);
    gtk_overlay_add_overlay(overlay, p->scrim);
@@ -281,8 +307,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    p->scale_css = gtk_css_provider_new();
    GtkStyleContext *panel_style = gtk_widget_get_style_context(p->frame);
    gtk_style_context_add_class(panel_style, "rr-panel-local-zoom");
-   gtk_style_context_add_provider(panel_style, GTK_STYLE_PROVIDER(p->scale_css),
-                                  GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   gtk_style_context_add_provider(panel_style, GTK_STYLE_PROVIDER(p->scale_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(menu_button, "Panel settings");
@@ -313,7 +338,7 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    panel_menu_add_action(p, settings, "Minimize to tabs", "minimize");
    p->menu_close = gtk_button_new_with_label("Close panel");
    gtk_button_set_relief(GTK_BUTTON(p->menu_close), GTK_RELIEF_NONE);
-   g_object_set_data(G_OBJECT(p->menu_close), "rr-action", (gpointer)"close");
+   g_object_set_data(G_OBJECT(p->menu_close), "rr-action", (gpointer) "close");
    g_signal_connect(p->menu_close, "clicked", G_CALLBACK(panel_menu_action), p);
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
@@ -328,7 +353,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
 }
 
 void rr_floating_panel_set_title(RRFloatPanel *p, const char *title) {
-   if (p && p->title) gtk_label_set_text(GTK_LABEL(p->title), title ? title : p->id);
+   if (p && p->title) {
+      gtk_label_set_text(GTK_LABEL(p->title), title ? title : p->id);
+   }
 }
 
 GtkWidget *rr_floating_panel_body(RRFloatPanel *p) {
@@ -367,27 +394,49 @@ void rr_floating_panel_destroy(RRFloatPanel *p) {
 }
 
 void rr_floating_panel_set_closable(RRFloatPanel *p, gboolean closable) {
-   if (!p) return;
+   if (!p) {
+      return;
+   }
    p->closable = closable;
-   if (p->close_button) gtk_widget_set_no_show_all(p->close_button, !closable);
-   if (p->menu_close) gtk_widget_set_no_show_all(p->menu_close, !closable);
-   if (p->close_button) gtk_widget_set_visible(p->close_button, closable);
-   if (p->menu_close) gtk_widget_set_visible(p->menu_close, closable);
+
+   if (p->close_button) {
+      gtk_widget_set_no_show_all(p->close_button, !closable);
+   }
+
+   if (p->menu_close) {
+      gtk_widget_set_no_show_all(p->menu_close, !closable);
+   }
+
+   if (p->close_button) {
+      gtk_widget_set_visible(p->close_button, closable);
+   }
+
+   if (p->menu_close) {
+      gtk_widget_set_visible(p->menu_close, closable);
+   }
 }
 
 
-void rr_floating_panel_set_close_callback(RRFloatPanel *p, void (*callback)(gpointer), gpointer data) {
-   if (!p) return;
+void rr_floating_panel_set_close_callback(RRFloatPanel *p, void (*callback) (gpointer), gpointer data) {
+   if (!p) {
+      return;
+   }
    p->on_close = callback;
    p->close_data = data;
 }
 
 void rr_floating_panel_set_modal(RRFloatPanel *p, gboolean modal) {
-   if (!p || p->modal == modal) return;
-   if (!modal) panel_modal_release(p);
+   if (!p || p->modal == modal) {
+      return;
+   }
+
+   if (!modal) {
+      panel_modal_release(p);
+   }
    p->modal = modal;
    gtk_widget_set_visible(p->minimize, !modal);
    gtk_widget_set_visible(p->roll, !modal);
+
    if (modal) {
       p->rolled = FALSE;
       p->minimized = FALSE;
@@ -395,17 +444,24 @@ void rr_floating_panel_set_modal(RRFloatPanel *p, gboolean modal) {
    }
 }
 
-void rr_floating_panel_set_response_callback(RRFloatPanel *p,
-      void (*callback)(RRFloatPanel *, gint, gpointer), gpointer data) {
-   if (!p) return;
+void rr_floating_panel_set_response_callback(RRFloatPanel *p, void (*callback) (RRFloatPanel *, gint, gpointer), gpointer data) {
+   if (!p) {
+      return;
+   }
    p->on_response = callback;
    p->response_data = data;
 }
 
 void rr_floating_panel_response(RRFloatPanel *p, gint response) {
-   if (!p) return;
-   if (p->on_response) p->on_response(p, response, p->response_data);
-   else rr_floating_panel_hide(p);
+   if (!p) {
+      return;
+   }
+
+   if (p->on_response) {
+      p->on_response(p, response, p->response_data);
+   } else {
+      rr_floating_panel_hide(p);
+   }
 }
 
 static void panel_response_clicked(GtkButton *button, gpointer data) {
@@ -413,12 +469,14 @@ static void panel_response_clicked(GtkButton *button, gpointer data) {
    rr_floating_panel_response(p, GPOINTER_TO_INT(g_object_get_data(G_OBJECT(button), "rr-response")));
 }
 
-GtkWidget *rr_floating_panel_add_response(RRFloatPanel *p, GtkWidget *box,
-                                         const char *label, gint response) {
-   if (!p || !GTK_IS_BOX(box)) return NULL;
+GtkWidget *rr_floating_panel_add_response(RRFloatPanel *p, GtkWidget *box, const char *label, gint response) {
+   if (!p || !GTK_IS_BOX(box)) {
+      return NULL;
+   }
    GtkWidget *button = gtk_button_new_with_label(label);
    g_object_set_data(G_OBJECT(button), "rr-response", GINT_TO_POINTER(response));
    g_signal_connect(button, "clicked", G_CALLBACK(panel_response_clicked), p);
    gtk_box_pack_end(GTK_BOX(box), button, FALSE, FALSE, 0);
+
    return button;
 }

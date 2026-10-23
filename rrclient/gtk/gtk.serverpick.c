@@ -69,7 +69,10 @@ static void picker_close(gpointer unused) {
    RRFloatPanel *panel = picker_panel;
    picker_panel = NULL;
    picker_tree = NULL;
-   if (panel) rr_floating_panel_destroy(panel);
+
+   if (panel) {
+      rr_floating_panel_destroy(panel);
+   }
 }
 
 static gboolean focus_chat_entry_idle(gpointer user_data);
@@ -311,14 +314,23 @@ void gtk_show_server_chooser(void) {
    if (picker_panel) {
       rr_floating_panel_restore(picker_panel);
       rr_floating_panel_show(picker_panel);
-      if (picker_tree) gtk_widget_grab_focus(picker_tree);
+
+      if (picker_tree) {
+         gtk_widget_grab_focus(picker_tree);
+      }
+
       return;
    }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
-   picker_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-                                         "serverpick", "Server picker");
-   if (!picker_panel) return;
+
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return;
+   }
+   picker_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "serverpick", "Server picker");
+
+   if (!picker_panel) {
+      return;
+   }
    rr_floating_panel_set_close_callback(picker_panel, picker_close, NULL);
    GtkWidget *window = rr_floating_panel_widget(picker_panel);
    GtkWidget *box = rr_floating_panel_body(picker_panel);

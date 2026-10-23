@@ -68,23 +68,31 @@ void gtk_supervision_result(const char *data, rrconn_t *connection) {
       prompt->id = g_strdup(id);
       prompt->room = g_strdup(dict_get(d, "talk.room", ""));
       GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+
       if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
-         g_free(prompt->profile); g_free(prompt->id); g_free(prompt->room); g_free(prompt);
+         g_free(prompt->profile);
+         g_free(prompt->id);
+         g_free(prompt->room);
+         g_free(prompt);
          dict_free(d);
+
          return;
       }
       char *panel_id = g_strdup_printf("supervision-%s-%s", prompt->profile, prompt->id);
-      prompt->dialog = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-                                              panel_id, "Supervision request");
+      prompt->dialog = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), panel_id, "Supervision request");
       g_free(panel_id);
+
       if (!prompt->dialog) {
-         g_free(prompt->profile); g_free(prompt->id); g_free(prompt->room); g_free(prompt);
+         g_free(prompt->profile);
+         g_free(prompt->id);
+         g_free(prompt->room);
+         g_free(prompt);
          dict_free(d);
+
          return;
       }
       GtkWidget *body = rr_floating_panel_body(prompt->dialog);
-      char *question = g_strdup_printf("Supervise %s in %s (%s)?",
-             dict_get(d, "talk.user", ""), prompt->room, prompt->profile);
+      char *question = g_strdup_printf("Supervise %s in %s (%s)?", dict_get(d, "talk.user", ""), prompt->room, prompt->profile);
       GtkWidget *heading = gtk_label_new(question);
       g_free(question);
       gtk_label_set_xalign(GTK_LABEL(heading), 0.0);

@@ -234,7 +234,11 @@ static void routing_event(const char *event, const char *data, rrconn_t *connect
 }
 
 static void routing_show_event(const char *event, const char *data, rrconn_t *connection, void *context) {
-   (void)event; (void)data; (void)connection; (void)context;
+   (void)event;
+   (void)data;
+   (void)connection;
+   (void)context;
+
    if (routing_panel) {
       rr_floating_panel_restore(routing_panel);
       rr_floating_panel_show(routing_panel);
@@ -322,7 +326,11 @@ void gtk_audio_routing_init(void) {
 }
 
 void gtk_audio_routing_shutdown(void) {
-   if (show_token) { event_off_token(show_token); show_token = 0; }
+   if (show_token) {
+      event_off_token(show_token);
+      show_token = 0;
+   }
+
    if (streams_token) {
       event_off_token(streams_token);
       streams_token = 0;

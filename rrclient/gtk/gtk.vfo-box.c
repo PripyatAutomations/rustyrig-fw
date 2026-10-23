@@ -118,11 +118,14 @@ static gboolean on_vfo_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
 }
 
 void vfo_controls_fit_width(int width) {
-   if (width < 1) return;
+   if (width < 1) {
+      return;
+   }
+
    /* Frequency always has its own row; only the controls below it reflow. */
-   if (GTK_IS_ORIENTABLE(vfo_controls_row))
-      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_controls_row),
-                                    width < 600 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
+   if (GTK_IS_ORIENTABLE(vfo_controls_row)) {
+      gtk_orientable_set_orientation(GTK_ORIENTABLE(vfo_controls_row), width < 600 ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
+   }
 }
 
 GtkWidget *create_vfo_box(void) {

@@ -10,10 +10,8 @@
 #include <stddef.h>
 #include <librustyaxe/core.h>
 struct mg_mgr;
-typedef void (*rr_link_health_fn)(const char *subject, const char *site, bool online,
-                                  unsigned flaps, unsigned auth_errors, long long rtt_ms,
-                                  long long avg_rtt_ms, long long max_rtt_ms,
-                                  unsigned samples, unsigned high_streak, bool latency_degraded, void *context);
+typedef void (*rr_link_health_fn)(const char *subject, const char *site, bool online, unsigned flaps, unsigned auth_errors, long long rtt_ms, long long
+   avg_rtt_ms, long long max_rtt_ms, unsigned samples, unsigned high_streak, bool latency_degraded, void *context);
 void rrserver_links_health_foreach(rr_link_health_fn emit, void *context);
 /* Read-only persisted link diagnostics, empty when unavailable. */
 void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity);

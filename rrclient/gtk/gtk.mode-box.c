@@ -300,13 +300,19 @@ GtkWidget *create_mode_box(void) {
    gtk_box_pack_start(GTK_BOX(mode_box), width_combo, FALSE, FALSE, 0);
 
    /* Seven character columns for both mode and numeric width (e.g. 2400 Hz). */
-   GtkWidget *selectors[] = {mode_combo, width_combo};
-   for (guint i = 0; i < G_N_ELEMENTS(selectors); ++i) {
+   GtkWidget *selectors[] = {
+      mode_combo, width_combo
+   };
+
+   for (guint i = 0 ; i < G_N_ELEMENTS(selectors) ; ++i) {
       GList *cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(selectors[i]));
-      for (GList *cell = cells; cell; cell = cell->next) {
-         if (GTK_IS_CELL_RENDERER_TEXT(cell->data))
+
+      for (GList *cell = cells ; cell ; cell = cell->next) {
+         if (GTK_IS_CELL_RENDERER_TEXT(cell->data)) {
             g_object_set(cell->data, "width-chars", 7, NULL);
+         }
       }
+
       g_list_free(cells);
    }
 

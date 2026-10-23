@@ -13,11 +13,15 @@ if [ ! -f "${BP}" ]; then
 fi
 
 echo "* Adding boilerplate from $BP to $1"
-
+> "$1.tmp"
 
 #echo "- Boilerplate"
-cat $BP > "$1.tmp"
+cat $BP >> "$1.tmp"
+
 #echo "- Content"
 cat "$1" >> "$1.tmp"
+
+# Rename
 mv "$1.tmp" "$1"
+
 #echo "- Done!"

@@ -484,10 +484,11 @@ const char *rr_cat_property(const char *vfo, const char *property, const char *f
    return state ? dict_get((dict *) state, "property.value", fallback) : fallback;
 }
 long rr_cat_property_long(const char *vfo, const char *property, long fallback) {
-   /* Valid HF dial frequency for Hamlib startup while no rig is attached.
-    * This is only a synthetic idle value, never a request to tune a rig. */
-   if (cat_context && !strcmp(cat_context->service, "rig.cat") &&
-       !cat_context->radio[0] && !strcmp(property, "frequency")) return 14074000L;
+   /* Valid HF dial frequency for Hamlib startup while no rig is attached. This is only a synthetic idle value, never a request to tune a rig. */
+   if (cat_context && !strcmp(cat_context->service, "rig.cat") && !cat_context->radio[0] && !strcmp(property, "frequency")) {
+      return 14074000L;
+   }
+
    if (!cat_context) {
       const char *key = !strcmp(property, "frequency") ? "cat.state.freq" : !strcmp(property, "width") ? "cat.state.width" : "cat.state.key_speed";
 
@@ -960,49 +961,60 @@ static void gps_output(const char *event, const char *data, rrconn_t *client, vo
       dict_free(d);
    }
 }
-/* CAT originates from background software, not an interactive user action.
- * Do not forward writes until the selected rig actually advertises the
- * addressed VFO. Reads remain available for Hamlib initialization. */
+
+/* CAT originates from background software, not an interactive user action. Do not forward writes until the selected rig actually advertises the addressed VFO.
+ * Reads remain available for Hamlib initialization. */
 static bool cat_target_ready(serial_binding_t *b, const char *cmd) {
-   if (strcmp(b->service, "rig.cat")) return true;
-   if (!b->radio[0] || !b->focus_room[0]) return false;
+   if (strcmp(b->service, "rig.cat")) {
+      return true;
+   }
+
+   if (!b->radio[0] || !b->focus_room[0]) {
+      return false;
+   }
    const dict *radio = rrclient_object_find_alias("rig", NULL, b->radio);
-   if (!radio) return false;
-   const char *uuid = dict_get((dict *)radio, "object.uuid", NULL);
-   if (!uuid || !*uuid) return false;
+
+   if (!radio) {
+      return false;
+   }
+   const char *uuid = dict_get((dict *) radio, "object.uuid", NULL);
+
+   if (!uuid || !*uuid) {
+      return false;
+   }
    const char *alias = !strncmp(cmd, "FB", 2) || !strncmp(cmd, "MD1", 3) ? "B" : "A";
+
    return rrclient_object_find_alias("vfo", uuid, alias) != NULL;
 }
 
 static void serial_cat_parse(void *data) {
    serial_binding_t *previous = cat_context;
    cat_context = data;
-   /* A floating PTY without a selected rig offers read-only emulation.
-    * Allow known read queries; never forward CAT setters/PTT unbound. */
+
+   /* A floating PTY without a selected rig offers read-only emulation. Allow known read queries; never forward CAT setters/PTT unbound. */
    if (!strcmp(cat_context->service, "rig.cat") && !cat_context->radio[0]) {
       const char *cmd = cat_context->buffer;
       bool query = (!strcmp(cmd, "FA") || !strcmp(cmd, "FB") ||
-                    !strcmp(cmd, "IF") || !strcmp(cmd, "ID") ||
-                    !strcmp(cmd, "TX") || !strcmp(cmd, "MD") ||
-                    !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") ||
-                    !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") ||
-                    !strcmp(cmd, "NA1"));
+         !strcmp(cmd, "IF") || !strcmp(cmd, "ID") ||
+         !strcmp(cmd, "TX") || !strcmp(cmd, "MD") ||
+         !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") || !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") || !strcmp(cmd, "NA1"));
+
       if (!query) {
          Log(LOG_WARN, "cat", "UNSUPPORTED/IGNORED CAT while ttyCAT has no selected rig: '%s' (no reply; setters blocked)", cmd);
          cat_context = previous;
+
          return;
       }
    }
-   /* Writes from WSJT-X can arrive before Explorer/rig VFO mapping does.
-    * Swallow those probes locally instead of provoking user-facing errors. */
+   /* Writes from WSJT-X can arrive before Explorer/rig VFO mapping does. Swallow those probes locally instead of provoking user-facing errors. */
    const char *cmd = cat_context->buffer;
    bool setter = (!strncmp(cmd, "FA", 2) && strlen(cmd) > 2) ||
-                 (!strncmp(cmd, "FB", 2) && strlen(cmd) > 2) ||
-                 (!strncmp(cmd, "MD", 2) && strlen(cmd) > 3) ||
-                 (!strncmp(cmd, "TX", 2) && strlen(cmd) > 2);
+      (!strncmp(cmd, "FB", 2) && strlen(cmd) > 2) || (!strncmp(cmd, "MD", 2) && strlen(cmd) > 3) || (!strncmp(cmd, "TX", 2) && strlen(cmd) > 2);
+
    if (setter && !cat_target_ready(cat_context, cmd)) {
       Log(LOG_DEBUG, "cat", "Ignoring CAT setter until VFO is available: %s", cmd);
       cat_context = previous;
+
       return;
    }
    rr_cat_parse_line(cat_context->buffer);
@@ -1031,8 +1043,7 @@ static void receive(rr_serial_t *port, const char *data, size_t len, void *user)
 
       return;
    }
-   /* The permanent ttyCAT endpoint must parse CAT even before a rig is
-    * selected; otherwise Hamlib times out during startup. */
+   /* The permanent ttyCAT endpoint must parse CAT even before a rig is selected; otherwise Hamlib times out during startup. */
    bool cat = b->radio[0] != '\0' || !strcmp(b->service, "rig.cat");
 
    if (!cat && strcmp(gps_service(b), "gps-in")) {
@@ -1291,10 +1302,8 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    snprintf(key, sizeof(key), "serial:%s.path", name);
    const char *configured = device ? device : cfg_get(key);
 
-   /* The floating CAT endpoint has a stable identity: ttyCAT. The old
-    * cat.pty.path setting belongs to the legacy numbered endpoint and must
-    * not silently redirect the floating symlink to ttyCAT0. Operators may
-    * still override the floating path explicitly with serial:ttyCAT.path. */
+   /* The floating CAT endpoint has a stable identity: ttyCAT. The old cat.pty.path setting belongs to the legacy numbered endpoint and must not silently
+    * redirect the floating symlink to ttyCAT0. Operators may still override the floating path explicitly with serial:ttyCAT.path. */
 
    if (!configured) {
       int written = snprintf(path, sizeof(path), "%s/dev/%s", g_get_home_dir(), name);

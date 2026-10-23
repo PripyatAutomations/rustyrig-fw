@@ -31,22 +31,34 @@ static bool nick_valid(const char *nick) {
 }
 bool irc_dcc_decode(const char *payload, irc_dcc_session_t *offer) {
    rustyirc_dcc_offer_t wire;
-   if (!offer || !rustyirc_dcc_decode(payload, &wire)) return false;
+
+   if (!offer || !rustyirc_dcc_decode(payload, &wire)) {
+      return false;
+   }
    memset(offer, 0, sizeof(*offer));
-   offer->type = wire.type; offer->size_known = wire.size_known;
-   offer->port = wire.port; offer->size = wire.size;
+   offer->type = wire.type;
+   offer->size_known = wire.size_known;
+   offer->port = wire.port;
+   offer->size = wire.size;
    memcpy(offer->filename, wire.filename, sizeof(offer->filename));
    memcpy(offer->ip, wire.ip, sizeof(offer->ip));
+
    return true;
 }
 char *irc_dcc_encode(const irc_dcc_session_t *offer) {
-   if (!offer) return NULL;
-   rustyirc_dcc_offer_t wire = { .type = offer->type, .size_known = offer->size_known,
-      .port = offer->port, .size = offer->size };
+   if (!offer) {
+      return NULL;
+   }
+   rustyirc_dcc_offer_t wire = {
+      .type = offer->type, .size_known = offer->size_known,
+      .port = offer->port, .size = offer->size
+   };
    memcpy(wire.filename, offer->filename, sizeof(wire.filename));
    memcpy(wire.ip, offer->ip, sizeof(wire.ip));
+
    return rustyirc_dcc_encode(&wire);
 }
+
 #ifdef HOST_POSIX
 #include <fcntl.h>
 #include <poll.h>
@@ -708,12 +720,20 @@ static void disconnected(const char *event, const char *data, rrconn_t *client, 
    }
 }
 static void offer_event(const char *event, const char *data, rrconn_t *client, void *user) {
-   (void)event; (void)user;
+   (void)event;
+   (void)user;
    dict *d = json2dict(data);
-   if (!d) return;
-   char *args[] = { (char *)dict_get(d, "msg.arg0", ""),
-      (char *)dict_get(d, "msg.arg1", ""), (char *)dict_get(d, "msg.arg2", ""), NULL };
-   irc_message_t message = { .argc = 3, .argv = args, .prefix = (char *)dict_get(d, "msg.prefix", "") };
+
+   if (!d) {
+      return;
+   }
+   char *args[] = {
+      (char *)dict_get(d, "msg.arg0", ""),
+      (char *)dict_get(d, "msg.arg1", ""), (char *)dict_get(d, "msg.arg2", ""), NULL
+   };
+   irc_message_t message = {
+      .argc = 3, .argv = args, .prefix = (char *)dict_get(d, "msg.prefix", "")
+   };
    irc_dcc_message(client, &message);
    dict_free(d);
 }

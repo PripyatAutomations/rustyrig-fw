@@ -423,12 +423,12 @@ static bool inventory_vfo(rr_server_vfo_t *vfo, void *user) {
    return false;
 }
 
-/* Local five-minute samples belong to this server, not to any linked peer.
- * Reuse the server-owned sampler and adapt its rows to native inventory. */
+/* Local five-minute samples belong to this server, not to any linked peer. Reuse the server-owned sampler and adapt its rows to native inventory. */
 static void inventory_local_performance(dict *sample, void *user) {
    object_send_t *ctx = user;
    const char *name = dict_get(sample, "inventory.name", "");
    dict *row = rr_inventory_row(ctx->request, 1, "performance-stat", name, NULL);
+
    if (row) {
       dict_add(row, "inventory.parent", rr_rig_registry_node(rig.rigs));
       dict_add(row, "inventory.description", dict_get(sample, "inventory.description", ""));

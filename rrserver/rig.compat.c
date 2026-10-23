@@ -219,9 +219,8 @@ void rr_cat_compat_prepare_poll(rr_cat_compat_t *adapter, rr_vfo_t vfo) {
    }
    adapter->probed[vfo] = true;
 
-   /* Do not seed an unobserved secondary VFO from VFO A. On radios such
-    * as the FT-891, FB; reads a separate hardware register, and until that
-    * read succeeds VFO B must remain unavailable, not show A's frequency. */
+   /* Do not seed an unobserved secondary VFO from VFO A. On radios such as the FT-891, FB; reads a separate hardware register, and until that read succeeds VFO
+    * B must remain unavailable, not show A's frequency. */
 
 }
 

@@ -40,7 +40,10 @@ static void server_editor_close(gpointer unused) {
    RRFloatPanel *panel = server_editor_panel;
    server_editor_panel = NULL;
    server_editor_frame = NULL;
-   if (panel) rr_floating_panel_destroy(panel);
+
+   if (panel) {
+      rr_floating_panel_destroy(panel);
+   }
 }
 
 
@@ -314,13 +317,19 @@ GtkWidget *gtk_show_server_editor(const char *profile) {
    if (server_editor_panel) {
       rr_floating_panel_restore(server_editor_panel);
       rr_floating_panel_show(server_editor_panel);
+
       return server_editor_frame;
    }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return NULL;
-   server_editor_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-                                                "serveredit", "Edit server");
-   if (!server_editor_panel) return NULL;
+
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return NULL;
+   }
+   server_editor_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "serveredit", "Edit server");
+
+   if (!server_editor_panel) {
+      return NULL;
+   }
    rr_floating_panel_set_close_callback(server_editor_panel, server_editor_close, NULL);
    GtkWidget *window = rr_floating_panel_widget(server_editor_panel);
    server_editor_frame = window;

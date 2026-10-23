@@ -267,7 +267,7 @@ bool rustyirc_mode_has_argument(const irc_conn_t *c, char mode, bool adding) {
    return false;
 }
 static bool sasl_configured(irc_conn_t *c) {
-   return (c->credentials.sasl_user[0] || !strcasecmp(c->credentials.sasl_mechanism, "EXTERNAL"));
+   return(c->credentials.sasl_user[0] || !strcasecmp(c->credentials.sasl_mechanism, "EXTERNAL"));
 }
 static void sasl_finish(irc_conn_t *c, irc_cap_state_t *s, const char *result) {
    s->sasl_wait = false;
@@ -293,7 +293,7 @@ static void rustyirc_capabilities_poll_impl(irc_conn_t *c) {
    }
 }
 static bool sasl_response(irc_conn_t *c) {
-   __typeof__(c->credentials) *server = &c->credentials;
+   __typeof__(c->credentials) * server = &c->credentials;
 
    if (!strcasecmp(server->sasl_mechanism, "EXTERNAL")) {
       return rustyirc_send(c, "AUTHENTICATE +");
@@ -581,13 +581,17 @@ static void rustyirc_capabilities_message_impl(irc_conn_t *c, const irc_message_
 }
 
 void rustyirc_capabilities_poll(irc_conn_t *c) {
-   if (!rustyirc_connection_hold(c)) return;
+   if (!rustyirc_connection_hold(c)) {
+      return;
+   }
    rustyirc_capabilities_poll_impl(c);
    rustyirc_connection_release(c);
 }
 
 void rustyirc_capabilities_message(irc_conn_t *c, const irc_message_t *message) {
-   if (!rustyirc_connection_hold(c)) return;
+   if (!rustyirc_connection_hold(c)) {
+      return;
+   }
    rustyirc_capabilities_message_impl(c, message);
    rustyirc_connection_release(c);
 }

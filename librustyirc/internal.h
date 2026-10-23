@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Component-private includes; never include rustyaxe/core.h (it pulls in rrprotocol). */
 #ifndef LIBRUSTYIRC_INTERNAL_H
 #define LIBRUSTYIRC_INTERNAL_H
@@ -50,5 +56,7 @@ bool rustyirc_connection_hold(irc_conn_t *);
 void rustyirc_connection_release(irc_conn_t *);
 void rustyirc_event_emit(const char *, irc_conn_t *, const char *);
 void rustyirc_event_emit_dict(const char *, irc_conn_t *, dict *);
-static inline const char *rustyirc_name(irc_conn_t *c) { return c ? c->nick : "irc"; }
+static inline const char *rustyirc_name(irc_conn_t *c) {
+   return c ? c->nick : "irc";
+}
 #endif

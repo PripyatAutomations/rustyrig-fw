@@ -462,7 +462,12 @@ static void destroy_editor(EditorContext *ctx) {
    }
 
    ctx->destroying = true;
-   if (ctx->confirmation) { RRFloatPanel *p = ctx->confirmation; ctx->confirmation = NULL; rr_floating_panel_destroy(p); }
+
+   if (ctx->confirmation) {
+      RRFloatPanel *p = ctx->confirmation;
+      ctx->confirmation = NULL;
+      rr_floating_panel_destroy(p);
+   }
 
    if (active_editor == ctx) {
       active_editor = NULL;
@@ -500,7 +505,6 @@ static void destroy_editor(EditorContext *ctx) {
 static void editor_destroyed(GtkWidget *window, gpointer data) {
    EditorContext *ctx = data;
    ctx->window = NULL;
-
 
    if (!ctx->destroying) {
       destroy_editor(ctx);
@@ -565,22 +569,41 @@ static bool save_editor(EditorContext *ctx, const char *filename) {
    return true;
 }
 
-typedef enum { FILE_DISCARD, FILE_RELOAD, FILE_APPLY } FileConfirmAction;
+typedef enum {
+   FILE_DISCARD, FILE_RELOAD, FILE_APPLY
+} FileConfirmAction;
 static void file_confirm_response(RRFloatPanel *panel, gint response, gpointer data) {
    EditorContext *ctx = data;
    FileConfirmAction action = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(rr_floating_panel_widget(panel)), "action"));
    ctx->confirmation = NULL;
    rr_floating_panel_destroy(panel);
-   if (action == FILE_DISCARD && response != GTK_RESPONSE_YES) return;
-   if (response == GTK_RESPONSE_YES && action != FILE_DISCARD) apply_config(ctx->filepath);
-   if (action != FILE_APPLY) destroy_editor(ctx);
+
+   if (action == FILE_DISCARD && response != GTK_RESPONSE_YES) {
+      return;
+   }
+
+   if (response == GTK_RESPONSE_YES && action != FILE_DISCARD) {
+      apply_config(ctx->filepath);
+   }
+
+   if (action != FILE_APPLY) {
+      destroy_editor(ctx);
+   }
 }
 static void file_editor_confirm(EditorContext *ctx, FileConfirmAction action, const char *message) {
-   if (!ctx || ctx->destroying || ctx->confirmation) return;
+   if (!ctx || ctx->destroying || ctx->confirmation) {
+      return;
+   }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return;
+   }
    RRFloatPanel *panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "file-editor-confirm", "File Editor — Confirmation");
-   if (!panel) return;
+
+   if (!panel) {
+      return;
+   }
    ctx->confirmation = panel;
    g_object_set_data(G_OBJECT(rr_floating_panel_widget(panel)), "action", GINT_TO_POINTER(action));
    GtkWidget *body = rr_floating_panel_body(panel);
@@ -621,7 +644,11 @@ static void on_save_clicked(GtkButton *btn, gpointer user_data) {
       return;
    }
 
-   if (!ctx->config_edit) { destroy_editor(ctx); return; }
+   if (!ctx->config_edit) {
+      destroy_editor(ctx);
+
+      return;
+   }
    char *message = g_strdup_printf("Reload configuration from \"%s\"?", ctx->filepath);
    file_editor_confirm(ctx, FILE_RELOAD, message);
    g_free(message);
@@ -654,6 +681,7 @@ static void on_save_other_clicked(GtkButton *btn, gpointer user_data) {
             char *new_title = g_strdup_printf("File Editor — %s", ctx->filepath);
             rr_floating_panel_set_title(ctx->panel, new_title);
             g_free(new_title);
+
             if (ctx->config_edit) {
                char *message = g_strdup_printf("Apply configuration from \"%s\"?", filename);
                file_editor_confirm(ctx, FILE_APPLY, message);
@@ -678,6 +706,7 @@ static void on_discard_clicked(GtkButton *btn, gpointer user_data) {
 
    if (ctx->modified) {
       file_editor_confirm(ctx, FILE_DISCARD, "You have unsaved changes. Discard them?");
+
       return;
    }
 
@@ -706,10 +735,14 @@ void gui_file_editor_open(const char *filepath) {
    if (active_editor) {
       rr_floating_panel_restore(active_editor->panel);
       rr_floating_panel_show(active_editor->panel);
+
       return;
    }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return;
+   }
 
    Log(LOG_DEBUG, "gtk.file-editor", "Opening %s for editing", filepath);
 
@@ -718,12 +751,13 @@ void gui_file_editor_open(const char *filepath) {
    ctx->filepath = g_strdup(filepath);
    ctx->modified = FALSE;
 
-   ctx->panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-                                      "file-editor", "File Editor");
+   ctx->panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "file-editor", "File Editor");
+
    if (!ctx->panel) {
       active_editor = NULL;
       g_free(ctx->filepath);
       g_free(ctx);
+
       return;
    }
    GtkWidget *window = rr_floating_panel_widget(ctx->panel);
@@ -839,9 +873,16 @@ void gui_file_editor_open(const char *filepath) {
 }
 
 void gui_file_editor_open_config(const char *filepath) {
-   if (active_editor) { gui_file_editor_open(filepath); return; }
+   if (active_editor) {
+      gui_file_editor_open(filepath);
+
+      return;
+   }
    gui_file_editor_open(filepath);
-   if (active_editor) active_editor->config_edit = TRUE;
+
+   if (active_editor) {
+      active_editor->config_edit = TRUE;
+   }
 }
 
 /////////////////////////////

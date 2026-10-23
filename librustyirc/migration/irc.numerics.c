@@ -144,8 +144,7 @@ bool irc_builtin_num311(rrconn_t *cptr, irc_message_t *mp) {
 
    /* RPL_WHOISUSER: 311 <recipient> <target> <user> <host> * :<realname>
     * argv[5] is the mandatory literal asterisk, not part of the name. */
-   if (!mp->argv[2] || !mp->argv[3] || !mp->argv[4] ||
-       !mp->argv[5] || strcmp(mp->argv[5], "*") || !mp->argv[6]) {
+   if (!mp->argv[2] || !mp->argv[3] || !mp->argv[4] || !mp->argv[5] || strcmp(mp->argv[5], "*") || !mp->argv[6]) {
       return true;
    }
    char *nick = mp->argv[2];
@@ -622,7 +621,7 @@ const rr_irc_numeric_t irc_numerics[] = {
    },
 
    /* Common WHOIS extensions across Solanum/Charybdis, InspIRCd, UnrealIRCd and Ergo. Keep callbacks NULL: the client renders them through irc.message and
-   * retains unknown numeric fallback. */
+    * retains unknown numeric fallback. */
    {
       .code = 301, .name = "RPL_AWAY", .desc = "Away message"
    },

@@ -1223,37 +1223,41 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 }
 
 
-/* One in-client overlay panel follows the selected rig; it is not a
- * toplevel window and cannot be docked into an individual chat tab. */
+/* One in-client overlay panel follows the selected rig; it is not a toplevel window and cannot be docked into an individual chat tab. */
 static void room_vfo_show(const char *name) {
    if (!room_vfo_panel) {
       GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
-      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook))
+
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
          return;
-      room_vfo_panel = rr_floating_panel_new(GTK_OVERLAY(root),
-                                           GTK_NOTEBOOK(main_notebook),
-                                           "rig-vfo", "VFO");
-      if (!room_vfo_panel) return;
+      }
+      room_vfo_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "rig-vfo", "VFO");
+
+      if (!room_vfo_panel) {
+         return;
+      }
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
       room_vfo_box = create_vfo_box();
-      g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *)&room_vfo_box);
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)),
-                         room_vfo_box, FALSE, FALSE, 0);
+      g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
    }
    char *title = g_strdup_printf("%s — VFO", name && *name ? name : "Rig");
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
    rr_floating_panel_show(room_vfo_panel);
 }
+
 // A single control box follows the selected rig room.  The site lobby and
 // query tabs never own radio widgets; creating one per rig would overwrite
 // the GTK module's shared frequency/PTT widget pointers.
 static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
-   bool has_vfos = tab && tab->room[0] &&
-      (rrclient_room_tx_control(tab->room) ||
-       (rrclient_room_rx_tunable(tab->room) && rrclient_room_vfos(tab->room)[0]));
+   bool has_vfos = tab && tab->room[0] && (rrclient_room_tx_control(tab->room) || (rrclient_room_rx_tunable(tab->room) && rrclient_room_vfos(tab->room)[0]));
+
    if (!has_vfos) {
-      if (room_vfo_panel) rr_floating_panel_hide(room_vfo_panel);
+      if (room_vfo_panel) {
+         rr_floating_panel_hide(room_vfo_panel);
+      }
+
       return;
    }
    room_vfo_show(tab->room);
@@ -1594,30 +1598,32 @@ void gtk_chat_set_authoritative_room(const char *room) {
    gtk_chat_tab_add(room, false, true);
 }
 
-/* Five-second display average. TEXT is decoded WS control payload; total
- * transport TX/RX may include binary media and framing. */
+/* Five-second display average. TEXT is decoded WS control payload; total transport TX/RX may include binary media and framing. */
 static GtkWidget *status_network_label;
 static gboolean status_network_tick(gpointer unused) {
    (void)unused;
-   if (!status_network_label) return G_SOURCE_REMOVE;
+
+   if (!status_network_label) {
+      return G_SOURCE_REMOVE;
+   }
    static uint64_t old_rx, old_tx, old_text;
    static gint64 old_time;
    uint64_t rx = 0, tx = 0, text = 0;
    rrclient_ws_bytes(&rx, &tx, &text);
    gint64 now_us = g_get_monotonic_time();
+
    if (old_time && now_us > old_time) {
       double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - old_time));
       char label[180];
-      g_snprintf(label, sizeof(label), "WS text RX %.1f kb/s  |  WS total RX %.1f / TX %.1f kb/s",
-                 text >= old_text ? (text - old_text) * scale : 0.0,
-                 rx >= old_rx ? (rx - old_rx) * scale : 0.0,
-                 tx >= old_tx ? (tx - old_tx) * scale : 0.0);
+      g_snprintf(label, sizeof(label), "WS text RX %.1f kb/s  |  WS total RX %.1f / TX %.1f kb/s", text >= old_text ? (text - old_text) * scale : 0.0, rx >=
+         old_rx ? (rx - old_rx) * scale : 0.0, tx >= old_tx ? (tx - old_tx) * scale : 0.0);
       gtk_label_set_text(GTK_LABEL(status_network_label), label);
    }
    old_time = now_us;
    old_rx = rx;
    old_tx = tx;
    old_text = text;
+
    return G_SOURCE_CONTINUE;
 }
 bool chat_init(void) {
@@ -1653,7 +1659,7 @@ bool chat_init(void) {
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
    gtk_box_pack_end(GTK_BOX(status_tab), network_row, FALSE, FALSE, 0);
-   g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *)&status_network_label);
+   g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(5, status_network_tick, NULL);
    g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();

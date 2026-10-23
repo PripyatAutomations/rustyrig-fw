@@ -2,7 +2,7 @@
 #include "../gtk/gtk.matrix.c"
 
 static void pump(void) {
-   for (guint i = 0; i < 15; i++) {
+   for (guint i = 0 ; i < 15 ; i++) {
       while (gtk_events_pending()) {
          gtk_main_iteration();
       }
@@ -24,7 +24,9 @@ int main(int argc, char **argv) {
    gint64 head = m->columns[0].head;
    pump();
    g_assert_cmpint(m->columns[0].head, ==, head);
-   GdkEventMotion motion = {0};
+   GdkEventMotion motion = {
+      0
+   };
    motion.x = 1;
    motion.y = gtk_widget_get_allocated_height(m->canvas) - 1;
    gboolean handled;
@@ -52,11 +54,14 @@ int main(int argc, char **argv) {
    rr_gtk_matrix_set_options(root, 500, 500, 500);
    g_assert_cmpuint(m->speed, ==, 300);
    g_assert_cmpuint(other_m->speed, ==, 100);
-   GdkEventKey key = {0};
+   GdkEventKey key = {
+      0
+   };
    key.keyval = GDK_KEY_Escape;
    g_signal_emit_by_name(other, "key-press-event", &key, &handled);
    g_assert_true(handled);
    gtk_widget_destroy(window);
    pump();
+
    return 0;
 }

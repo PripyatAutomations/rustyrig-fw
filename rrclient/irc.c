@@ -50,9 +50,14 @@ static void irc_close_connection(rrconn_t *cptr) {
 }
 
 static void send_request(const char *event, const void *payload, size_t size, rrconn_t *c, void *user) {
-   (void)event; (void)user;
-   if (!c || c->is_ws || !c->server || size != sizeof(rr_server_io_t)) return;
-   rr_server_io_t *request = (rr_server_io_t *)payload;
+   (void)event;
+   (void)user;
+
+   if (!c || c->is_ws || !c->server || size != sizeof(rr_server_io_t)) {
+      return;
+   }
+   rr_server_io_t *request = (rr_server_io_t *) payload;
+
    if (!request->handled) {
       request->handled = true;
       request->result = irc_send_dict(c, request->message);
@@ -65,6 +70,7 @@ bool irc_init(void) {
    irc_dcc_init();
    event_off_binary(RR_SERVER_SEND_EVENT, send_request, NULL);
    event_on_binary(RR_SERVER_SEND_EVENT, send_request, NULL);
+
    if (!irc_register_default_callbacks() || !irc_register_default_numeric_callbacks()) {
       irc_shutdown();
 
@@ -255,17 +261,27 @@ void irc_io_poll(rrconn_t *cptr) {
 }
 
 bool irc_client_register(rrconn_t *cptr) {
-   if (!cptr || !cptr->server) return false;
-   bool sent = rustyirc_connection_register(rrclient_irc_state(cptr), cptr->server->ident,
-      cptr->server->account, cptr->server->pass);
-   if (!sent) irc_close_connection(cptr);
+   if (!cptr || !cptr->server) {
+      return false;
+   }
+   bool sent = rustyirc_connection_register(rrclient_irc_state(cptr), cptr->server->ident, cptr->server->account, cptr->server->pass);
+
+   if (!sent) {
+      irc_close_connection(cptr);
+   }
    cptr->sent_login = sent;
+
    return sent;
 }
 
 void irc_receive(rrconn_t *cptr, const void *data, size_t n) {
-   if (!cptr || !data || !n) return;
+   if (!cptr || !data || !n) {
+      return;
+   }
    cptr->last_heard = now;
    rr_traffic_count(cptr, false, false, n);
-   if (!rustyirc_connection_feed(rrclient_irc_state(cptr), data, n)) irc_close_connection(cptr);
+
+   if (!rustyirc_connection_feed(rrclient_irc_state(cptr), data, n)) {
+      irc_close_connection(cptr);
+   }
 }

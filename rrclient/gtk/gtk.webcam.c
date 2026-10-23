@@ -45,7 +45,10 @@ static GtkWidget *webcam_codecs, *webcam_rates;
 
 void gtk_webcam_show(bool show);
 static void webcam_decoded(const char *name, const void *data, size_t len, void *user);
-static void webcam_panel_close(gpointer data) { (void)data; gtk_webcam_show(false); }
+static void webcam_panel_close(gpointer data) {
+   (void)data;
+   gtk_webcam_show(false);
+}
 
 
 static gboolean webcam_blit_cb(gpointer user) {
@@ -228,10 +231,15 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
    webcam_decoder[0] = '\0';
    webcam_image = NULL;
    webcam_win = NULL;
+
    if (webcam_panel) {
       GtkWidget *body = rr_floating_panel_body(webcam_panel);
       GList *children = gtk_container_get_children(GTK_CONTAINER(body));
-      for (GList *it = children; it; it = it->next) gtk_widget_destroy(GTK_WIDGET(it->data));
+
+      for (GList *it = children ; it ; it = it->next) {
+         gtk_widget_destroy(GTK_WIDGET(it->data));
+      }
+
       g_list_free(children);
    }
 
@@ -254,8 +262,11 @@ static void webcam_destroy_cb(GtkWidget *widget, gpointer user) {
 // Show or hide the viewer window; frames are only decoded when it exists.
 void gtk_webcam_show(bool show) {
    if (!show) {
-      if (webcam_panel) rr_floating_panel_hide(webcam_panel);
+      if (webcam_panel) {
+         rr_floating_panel_hide(webcam_panel);
+      }
       webcam_destroy_cb(NULL, NULL);
+
       return;
    }
 
@@ -284,10 +295,13 @@ void gtk_webcam_show(bool show) {
    webcam_connection = ws_conn;
    g_mutex_unlock(&webcam_lock);
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+
    if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
       webcam_destroy_cb(NULL, NULL);
+
       return;
    }
+
    if (!webcam_panel) {
       webcam_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "webcam", "Webcam");
       rr_floating_panel_set_close_callback(webcam_panel, webcam_panel_close, NULL);

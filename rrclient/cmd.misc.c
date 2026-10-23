@@ -581,6 +581,7 @@ bool cmd_quit(int argc, char **args) {
 bool cmd_rxroute(int argc, char **args) {
    if (argc == 2 && args[1] && !strcasecmp(args[1], "show")) {
       event_emit("client.audio.routing.show", NULL, NULL);
+
       return false;
    }
    const char *server = rrclient_selected_server();

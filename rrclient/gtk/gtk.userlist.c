@@ -80,8 +80,10 @@ static guint typing_refresh_id;
 static GtkOverlay *userlist_overlay(void) {
    extern GtkWidget *main_window;
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+
    return GTK_IS_OVERLAY(root) ? GTK_OVERLAY(root) : NULL;
 }
+
 static void userlist_update_title(void);
 void userlist_dock_into(GtkPaned *paned);
 
@@ -323,8 +325,9 @@ void userlist_set_visible(bool visible) {
    if (entry) {
       gtk_widget_show_all(entry->panel);
 
-      if (!entry->docked && entry->float_panel)
+      if (!entry->docked && entry->float_panel) {
          rr_floating_panel_restore(entry->float_panel);
+      }
 
       return;
    }
@@ -343,8 +346,15 @@ void userlist_set_visible(bool visible) {
 
       return;
    }
-   if (!userlist_float_panel && !visible) return;
-   if (!userlist_float_panel && !userlist_create()) return;
+
+   if (!userlist_float_panel && !visible) {
+      return;
+   }
+
+   if (!userlist_float_panel && !userlist_create()) {
+      return;
+   }
+
    if (visible) {
       userlist_redraw_gtk();
       rr_floating_panel_show(userlist_float_panel);
@@ -1281,26 +1291,36 @@ static void userlist_update_title(void) {
    char title[192];
    snprintf(title, sizeof(title), "%s", room && *room ? room : "(no room)");
 
-   if (userlist_float_panel)
+   if (userlist_float_panel) {
       rr_floating_panel_set_title(userlist_float_panel, title);
+   }
 }
 
 static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
    (void)button;
    (void)data;
-   if (!userlist_panel) return;
+
+   if (!userlist_panel) {
+      return;
+   }
 
    if (userlist_is_docked) {
       GtkOverlay *overlay = userlist_overlay();
-      if (!overlay) return;
-      if (!userlist_float_panel)
-         userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook),
-                                                      "userlist-main", "Userlist");
-      if (!userlist_float_panel) return;
+
+      if (!overlay) {
+         return;
+      }
+
+      if (!userlist_float_panel) {
+         userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), "userlist-main", "Userlist");
+      }
+
+      if (!userlist_float_panel) {
+         return;
+      }
       g_object_ref(userlist_panel);
       userlist_remove_from_parent();
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(userlist_float_panel)),
-                         userlist_panel, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(userlist_float_panel)), userlist_panel, TRUE, TRUE, 0);
       g_object_unref(userlist_panel);
       userlist_is_docked = false;
       gtk_button_set_label(GTK_BUTTON(userlist_dock_button), "Dock");
@@ -1311,12 +1331,17 @@ static void on_userlist_dock_clicked(GtkButton *button, gpointer data) {
       userlist_remove_from_parent();
       userlist_dock_into(GTK_PANED(userlist_dock_paned));
       g_object_unref(userlist_panel);
-      if (userlist_float_panel) rr_floating_panel_hide(userlist_float_panel);
+
+      if (userlist_float_panel) {
+         rr_floating_panel_hide(userlist_float_panel);
+      }
    }
 }
 
 static void room_userlist_set_title(room_userlist_entry_t *entry) {
-   if (!entry || !entry->float_panel) return;
+   if (!entry || !entry->float_panel) {
+      return;
+   }
    char title[192];
    snprintf(title, sizeof(title), "%s", entry->room && *entry->room ? entry->room : "(no room)");
    rr_floating_panel_set_title(entry->float_panel, title);
@@ -1396,7 +1421,9 @@ static void room_userlist_dock(room_userlist_entry_t *entry) {
    gtk_widget_show_all(entry->panel);
    room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
 
-   if (entry->float_panel) rr_floating_panel_hide(entry->float_panel);
+   if (entry->float_panel) {
+      rr_floating_panel_hide(entry->float_panel);
+   }
 }
 
 static gboolean on_room_userlist_delete(GtkWidget *widget, GdkEvent *event, gpointer data) {
@@ -1453,25 +1480,34 @@ static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation,
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
    (void)button;
    room_userlist_entry_t *entry = data;
-   if (!entry || !entry->panel) return;
+
+   if (!entry || !entry->panel) {
+      return;
+   }
 
    if (entry->docked) {
       GtkOverlay *overlay = userlist_overlay();
-      if (!overlay) return;
+
+      if (!overlay) {
+         return;
+      }
+
       if (!entry->float_panel) {
-         char *id = g_strdup_printf("userlist-%s-%s",
-                                    entry->server ? entry->server : "",
-                                    entry->room ? entry->room : "");
-         entry->float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook),
-                                                    id, entry->room);
+         char *id = g_strdup_printf("userlist-%s-%s", entry->server ? entry->server : "", entry->room ? entry->room : "");
+         entry->float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), id, entry->room);
          g_free(id);
       }
-      if (!entry->float_panel) return;
+
+      if (!entry->float_panel) {
+         return;
+      }
       GtkWidget *parent = gtk_widget_get_parent(entry->panel);
       g_object_ref(entry->panel);
-      if (parent) gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(entry->float_panel)),
-                         entry->panel, TRUE, TRUE, 0);
+
+      if (parent) {
+         gtk_container_remove(GTK_CONTAINER(parent), entry->panel);
+      }
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(entry->float_panel)), entry->panel, TRUE, TRUE, 0);
       g_object_unref(entry->panel);
       entry->paned = NULL;
       entry->docked = false;
@@ -1483,7 +1519,10 @@ static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
       g_object_ref(entry->panel);
       room_userlist_dock(entry);
       g_object_unref(entry->panel);
-      if (entry->float_panel) rr_floating_panel_hide(entry->float_panel);
+
+      if (entry->float_panel) {
+         rr_floating_panel_hide(entry->float_panel);
+      }
    }
 }
 
@@ -1608,6 +1647,7 @@ void userlist_remove_room_view(const char *room) {
          rr_floating_panel_destroy(entry->float_panel);
          entry->float_panel = NULL;
       }
+
       if (entry->window && GTK_IS_WIDGET(entry->window)) {
          g_signal_handlers_disconnect_by_data(entry->window, entry);
          gtk_widget_destroy(entry->window);
@@ -1716,7 +1756,9 @@ void userlist_dock_into(GtkPaned *paned) {
 
    /* Authentication can make the auto-show path create the detachable window before the authoritative room has built its dock. Hide that provisional window as
     * soon as the real dock is available. */
-   if (userlist_float_panel) rr_floating_panel_hide(userlist_float_panel);
+   if (userlist_float_panel) {
+      rr_floating_panel_hide(userlist_float_panel);
+   }
    userlist_dock_paned = GTK_WIDGET(paned);
    userlist_is_docked = true;
    gtk_button_set_label(GTK_BUTTON(userlist_dock_button), "Undock");
@@ -1728,19 +1770,28 @@ void userlist_dock_into(GtkPaned *paned) {
 // Assemble a userlist object and return its detached window.
 GtkWidget *userlist_create(void) {
    GtkOverlay *overlay = userlist_overlay();
-   if (!overlay || !GTK_IS_NOTEBOOK(main_notebook)) return NULL;
-   if (!userlist_float_panel)
-      userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook),
-                                                   "userlist-main", "Userlist");
-   if (!userlist_float_panel) return NULL;
+
+   if (!overlay || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return NULL;
+   }
+
+   if (!userlist_float_panel) {
+      userlist_float_panel = rr_floating_panel_new(overlay, GTK_NOTEBOOK(main_notebook), "userlist-main", "Userlist");
+   }
+
+   if (!userlist_float_panel) {
+      return NULL;
+   }
    userlist_window = rr_floating_panel_widget(userlist_float_panel);
-   if (!userlist_panel)
+
+   if (!userlist_panel) {
       userlist_panel = userlist_panel_create();
+   }
+
    if (gtk_widget_get_parent(userlist_panel) != rr_floating_panel_body(userlist_float_panel)) {
       g_object_ref(userlist_panel);
       userlist_remove_from_parent();
-      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(userlist_float_panel)),
-                         userlist_panel, TRUE, TRUE, 0);
+      gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(userlist_float_panel)), userlist_panel, TRUE, TRUE, 0);
       g_object_unref(userlist_panel);
    }
    userlist_is_docked = false;
@@ -1748,6 +1799,7 @@ GtkWidget *userlist_create(void) {
    userlist_update_title();
    userlist_redraw_gtk();
    rr_floating_panel_show(userlist_float_panel);
+
    return userlist_window;
 }
 

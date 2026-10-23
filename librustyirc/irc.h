@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Original IRC wire parser API. Licensed under MIT, or GPL with mongoose. */
 #ifndef LIBRUSTYIRC_IRC_H
 #define LIBRUSTYIRC_IRC_H
@@ -70,7 +76,5 @@ void irc_message_free(irc_message_t *message);
 /* Compatibility names for the initial standalone API: one parser only. */
 #define rustyirc_parse irc_parse_message
 #define rustyirc_message_free irc_message_free
-bool rustyirc_whoisuser(const rustyirc_message_t *message,
-                       const char **nick, const char **user,
-                       const char **host, const char **realname);
+bool rustyirc_whoisuser(const rustyirc_message_t *message, const char **nick, const char **user, const char **host, const char **realname);
 #endif

@@ -130,7 +130,8 @@ bool rustyirc_dcc_decode(const char *payload, rustyirc_dcc_offer_t *offer) {
    return inet_ntop(AF_INET, &address, offer->ip, sizeof(offer->ip)) != NULL;
 }
 char *rustyirc_dcc_encode(const rustyirc_dcc_offer_t *offer) {
-   if (!offer || (offer->type != IRC_DCC_CHAT && offer->type != IRC_DCC_SEND) || (offer->type == IRC_DCC_SEND && !rustyirc_dcc_filename_valid(offer->filename))) {
+   if (!offer || (offer->type != IRC_DCC_CHAT && offer->type != IRC_DCC_SEND) || (offer->type == IRC_DCC_SEND && !rustyirc_dcc_filename_valid(offer->filename)))
+   {
       return NULL;
    }
    struct in_addr address;
@@ -153,4 +154,3 @@ char *rustyirc_dcc_encode(const rustyirc_dcc_offer_t *offer) {
 
    return strdup(payload);
 }
-

@@ -40,9 +40,8 @@ struct catalog *rr_relay_catalogs;
 struct directory *rr_relay_directories;
 
 #ifdef USE_PROFILING
-/* Catalog work is owned by the rrserver event-loop thread; the existing
- * five-minute server profile timer reads these counters on that same thread.
- * There are no per-message allocations, locks or clocks in normal builds. */
+/* Catalog work is owned by the rrserver event-loop thread; the existing five-minute server profile timer reads these counters on that same thread. There are no
+ * per-message allocations, locks or clocks in normal builds. */
 typedef struct {
    guint64 snapshots, prepared, queued, sent, aborted, superseded;
    guint64 prepared_bytes, sent_bytes, received_bytes;
@@ -71,17 +70,20 @@ static catalog_profile_peer_t catalog_profile_peers[CATALOG_PROFILE_MAX_PEERS];
 static guint catalog_profile_peer_count;
 static gint64 catalog_profile_last_dump;
 
-#define CP_INC(field) do { catalog_profile_total.field++; catalog_profile_interval.field++; } while (0)
+#define CP_INC(field) do { \
+           catalog_profile_total.field++; catalog_profile_interval.field++; \
+} while (0)
 #define CP_ADD(field, amount) do { \
-   guint64 _amount = (guint64)(amount); \
-   catalog_profile_total.field += _amount; \
-   catalog_profile_interval.field += _amount; \
+           guint64 _amount = (guint64)(amount); \
+           catalog_profile_total.field += _amount; \
+           catalog_profile_interval.field += _amount; \
 } while (0)
 #define CP_MAX(field, amount) do { \
-   guint64 _amount = (guint64)(amount); \
-   if (_amount > catalog_profile_total.field) catalog_profile_total.field = _amount; \
-   if (_amount > catalog_profile_interval.field) catalog_profile_interval.field = _amount; \
-} while (0)
+           guint64 _amount = (guint64)(amount); \
+           if (_amount > catalog_profile_total.field) catalog_profile_total.field = _amount; \
+           if (_amount > catalog_profile_interval.field) catalog_profile_interval.field = _amount; \
+} \
+        while (0)
 
 static void catalog_profile_duration(guint64 us, const char *phase) {
    if (!strcmp(phase, "build")) {
@@ -103,21 +105,27 @@ static void catalog_profile_duration(guint64 us, const char *phase) {
 }
 
 static catalog_profile_peer_t *catalog_profile_peer(const char *node) {
-   if (!node || !*node || strlen(node) >= sizeof(catalog_profile_peers[0].node))
+   if (!node || !*node || strlen(node) >= sizeof(catalog_profile_peers[0].node)) {
       return NULL;
-   for (guint i = 0; i < catalog_profile_peer_count; i++)
-      if (!strcmp(catalog_profile_peers[i].node, node))
+   }
+
+   for (guint i = 0 ; i < catalog_profile_peer_count ; i++) {
+      if (!strcmp(catalog_profile_peers[i].node, node)) {
          return &catalog_profile_peers[i];
-   if (catalog_profile_peer_count == CATALOG_PROFILE_MAX_PEERS)
+      }
+   }
+
+   if (catalog_profile_peer_count == CATALOG_PROFILE_MAX_PEERS) {
       return NULL;
+   }
    catalog_profile_peer_t *peer = &catalog_profile_peers[catalog_profile_peer_count++];
    g_strlcpy(peer->node, node, sizeof(peer->node));
    rrserver_links_format_node(node, peer->label, sizeof(peer->label));
+
    return peer;
 }
 
-/* Fixed classifications allow us to spot pathological service descriptors
- * without allocating or storing untrusted inventory labels. */
+/* Fixed classifications allow us to spot pathological service descriptors without allocating or storing untrusted inventory labels. */
 enum catalog_profile_kind {
    CP_KIND_NODE, CP_KIND_RIG, CP_KIND_VFO, CP_KIND_ROOM,
    CP_KIND_SERVICE, CP_KIND_MENU, CP_KIND_MENU_ITEM, CP_KIND_OTHER, CP_KIND_COUNT
@@ -125,6 +133,7 @@ enum catalog_profile_kind {
 static const char *catalog_profile_kind_names[] = {
    "node", "rig", "vfo", "room", "service", "rig-menu", "rig-menu-item", "other"
 };
+
 typedef struct {
    guint64 count, accepted, rejected, bytes, apply_us, max_apply_us;
 } catalog_kind_counts_t;
@@ -132,36 +141,65 @@ static catalog_kind_counts_t catalog_kind_total[CP_KIND_COUNT], catalog_kind_int
 static const char *catalog_reject_names[] = {
    "owner", "parent", "service", "identity", "room-authority", "memory", "capacity"
 };
+
 static guint64 catalog_reject_total[RR_CAT_REJECT_COUNT], catalog_reject_interval[RR_CAT_REJECT_COUNT];
 
 
 static unsigned catalog_profile_classify(dict *d) {
-   if (!d) return CP_KIND_OTHER;
+   if (!d) {
+      return CP_KIND_OTHER;
+   }
+
    if (dict_get(d, "catalog.service", NULL)) {
       const char *kind = dict_get(d, "inventory.kind", "");
-      if (!strcmp(kind, "rig-menu-item")) return CP_KIND_MENU_ITEM;
-      if (!strcmp(kind, "rig-menu")) return CP_KIND_MENU;
+
+      if (!strcmp(kind, "rig-menu-item")) {
+         return CP_KIND_MENU_ITEM;
+      }
+
+      if (!strcmp(kind, "rig-menu")) {
+         return CP_KIND_MENU;
+      }
+
       return CP_KIND_SERVICE;
    }
    const char *type = dict_get(d, "object.type", "");
-   if (!strcmp(type, "node")) return CP_KIND_NODE;
-   if (!strcmp(type, "rig")) return CP_KIND_RIG;
-   if (!strcmp(type, "vfo")) return CP_KIND_VFO;
-   if (dict_get(d, "catalog.room", NULL)) return CP_KIND_ROOM;
+
+   if (!strcmp(type, "node")) {
+      return CP_KIND_NODE;
+   }
+
+   if (!strcmp(type, "rig")) {
+      return CP_KIND_RIG;
+   }
+
+   if (!strcmp(type, "vfo")) {
+      return CP_KIND_VFO;
+   }
+
+   if (dict_get(d, "catalog.room", NULL)) {
+      return CP_KIND_ROOM;
+   }
+
    return CP_KIND_OTHER;
 }
 
 void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, enum rr_catalog_reject reason, long long apply_us, size_t payload_bytes) {
    CP_INC(received);
    CP_ADD(received_bytes, payload_bytes);
-   if (accepted) CP_INC(accepted);
-   else {
+
+   if (accepted) {
+      CP_INC(accepted);
+   } else {
       CP_INC(rejected);
-      if (reason <= RR_CAT_OK || reason >= RR_CAT_REJECT_COUNT) reason = RR_CAT_IDENTITY;
+
+      if (reason <= RR_CAT_OK || reason >= RR_CAT_REJECT_COUNT) {
+         reason = RR_CAT_IDENTITY;
+      }
       catalog_reject_total[reason]++;
       catalog_reject_interval[reason]++;
    }
-   const guint64 elapsed = apply_us > 0 ? (guint64)apply_us : 0;
+   const guint64 elapsed = apply_us > 0 ? (guint64) apply_us : 0;
    catalog_profile_duration(elapsed, "apply");
    const unsigned kind = catalog_profile_classify(descriptor);
    catalog_kind_counts_t *t = &catalog_kind_total[kind], *w = &catalog_kind_interval[kind];
@@ -169,6 +207,7 @@ void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, enum rr_c
    w->count++;
    t->bytes += payload_bytes;
    w->bytes += payload_bytes;
+
    if (accepted) {
       t->accepted++;
       w->accepted++;
@@ -178,17 +217,33 @@ void rr_relay_catalog_profile_receive(dict *descriptor, bool accepted, enum rr_c
    }
    t->apply_us += elapsed;
    w->apply_us += elapsed;
-   if (elapsed > t->max_apply_us) t->max_apply_us = elapsed;
-   if (elapsed > w->max_apply_us) w->max_apply_us = elapsed;
+
+   if (elapsed > t->max_apply_us) {
+      t->max_apply_us = elapsed;
+   }
+
+   if (elapsed > w->max_apply_us) {
+      w->max_apply_us = elapsed;
+   }
 }
 
 static int catalog_profile_peer_compare(const void *left, const void *right) {
    const catalog_profile_peer_t *a = left, *b = right;
    const guint64 a_errors = a->ack_partial + a->timeouts + a->aborted;
    const guint64 b_errors = b->ack_partial + b->timeouts + b->aborted;
-   if (a_errors != b_errors) return a_errors > b_errors ? -1 : 1;
-   if (a->max_ack_us != b->max_ack_us) return a->max_ack_us > b->max_ack_us ? -1 : 1;
-   if (a->sent != b->sent) return a->sent > b->sent ? -1 : 1;
+
+   if (a_errors != b_errors) {
+      return a_errors > b_errors ? -1 : 1;
+   }
+
+   if (a->max_ack_us != b->max_ack_us) {
+      return a->max_ack_us > b->max_ack_us ? -1 : 1;
+   }
+
+   if (a->sent != b->sent) {
+      return a->sent > b->sent ? -1 : 1;
+   }
+
    return strcmp(a->node, b->node);
 }
 
@@ -464,12 +519,18 @@ static bool owns_station_room(const char *owner, const char *room) {
 }
 
 static bool catalog_reject(enum rr_catalog_reject *reason, enum rr_catalog_reject why) {
-   if (reason) *reason = why;
+   if (reason) {
+      *reason = why;
+   }
+
    return false;
 }
+
 /* Validate room authority and retain an owned descriptor snapshot. */
 bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_reject *reason) {
-   if (reason) *reason = RR_CAT_OK;
+   if (reason) {
+      *reason = RR_CAT_OK;
+   }
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
    char key[160];
 
@@ -503,16 +564,17 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       const char *kind = dict_get(d, "inventory.kind", "");
       bool menu_child = !strcmp(kind, "rig-menu-item") && authority && !strcmp(dict_get(authority->descriptor, "inventory.kind", ""), "rig-menu");
 
-      /* Missing/foreign parents are a distinct, high-value mesh diagnostic.
-       * Count them in the five-minute report, never log each descriptor. */
-      if (!authority || strcmp(authority->owner, owner))
+      /* Missing/foreign parents are a distinct, high-value mesh diagnostic. Count them in the five-minute report, never log each descriptor. */
+      if (!authority || strcmp(authority->owner, owner)) {
          return catalog_reject(reason, RR_CAT_PARENT);
+      }
 
       if (uuid || strcmp(dict_get(d, "object.type", ""), "service") || !authority || strcmp(authority->owner, owner) ||
          (strcmp(dict_get(authority->descriptor, "object.type", ""), "node") &&
          strcmp(dict_get(authority->descriptor, "object.type", ""), "rig") && strcmp(dict_get(authority->descriptor, "object.type", ""), "vfo")
          && !menu_child) || (strcmp(kind, "gps") && strcmp(kind, "serial") && strcmp(kind, "media") && strcmp(kind, "cat") && strcmp(kind, "share")
-         && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item") && strcmp(kind, "performance-stat"))
+         && strcmp(kind, "control") && strcmp(kind, "rig-control") && strcmp(kind, "rig-menu") && strcmp(kind, "rig-menu-item")
+         && strcmp(kind, "performance-stat"))
          || strlen(service) < 9 + strlen(owner) || strlen(service) >= sizeof(key) || strncmp(service, "service:", 8)
          || strncmp(service + 8, owner, strlen(owner)) || service[8 + strlen(owner)] != ':') {
          return catalog_reject(reason, RR_CAT_SERVICE);
@@ -530,7 +592,7 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
 
    if (replace && (uuid || !room || rr_relay_local_owner(owner) || !owns_station_room(owner, room) ||
       owns_station_room(c->owner, room) || !strcasecmp(room, ws_site_room()) || rrserver_rig_room_configured(room))) {
-      return catalog_reject(reason, RR_CAT_ROOM_AUTH);             // Only proven station/rig authority may displace a stale room claim.
+      return catalog_reject(reason, RR_CAT_ROOM_AUTH);   // Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = dict_clone(d);
 
@@ -638,13 +700,14 @@ static void add_object(const char *uuid, const char *type, const char *owner, co
 
 static void collect_service(dict *row, void *context);
 
-/* Process-local performance inventory, replicated as ordinary node-owned
- * read-only discovery services. These are cached observations, not a remote
+/* Process-local performance inventory, replicated as ordinary node-owned read-only discovery services. These are cached observations, not a remote
  * process-control API. Sampling follows the normal five-minute profile dump. */
-static void collect_performance_service(const char *name, const char *description,
-                                        const char *state) {
+static void collect_performance_service(const char *name, const char *description, const char *state) {
    dict *row = rr_inventory_row("", 0, "performance-stat", name, NULL);
-   if (!row) return;
+
+   if (!row) {
+      return;
+   }
    dict_add(row, "inventory.description", description ? description : "Unavailable");
    dict_add(row, "inventory.state", state ? state : "observed");
    dict_add(row, "inventory.access", "read-only");
@@ -654,39 +717,57 @@ static void collect_performance_service(const char *name, const char *descriptio
 static void collect_process_metrics(void) {
 #ifdef __linux__
    FILE *status = fopen("/proc/self/status", "r");
+
    if (status) {
       char line[256], rss[80] = "", peak[80] = "", threads[80] = "";
       while (fgets(line, sizeof(line), status)) {
-         if (!strncmp(line, "VmRSS:", 6)) g_strlcpy(rss, line + 6, sizeof(rss));
-         else if (!strncmp(line, "VmHWM:", 6)) g_strlcpy(peak, line + 6, sizeof(peak));
-         else if (!strncmp(line, "Threads:", 8)) g_strlcpy(threads, line + 8, sizeof(threads));
+         if (!strncmp(line, "VmRSS:", 6)) {
+            g_strlcpy(rss, line + 6, sizeof(rss));
+         } else if (!strncmp(line, "VmHWM:", 6)) {
+            g_strlcpy(peak, line + 6, sizeof(peak));
+         } else if (!strncmp(line, "Threads:", 8)) {
+            g_strlcpy(threads, line + 8, sizeof(threads));
+         }
       }
       fclose(status);
-      g_strstrip(rss); g_strstrip(peak); g_strstrip(threads);
+      g_strstrip(rss);
+      g_strstrip(peak);
+      g_strstrip(threads);
+
       if (*rss) {
          char description[256];
-         snprintf(description, sizeof(description),
-                  "Resident physical memory (VmRSS): %s; peak resident (VmHWM): %s", rss, *peak ? peak : "unknown");
+         snprintf(description, sizeof(description), "Resident physical memory (VmRSS): %s; peak resident (VmHWM): %s", rss, *peak ? peak : "unknown");
          collect_performance_service("Process memory", description, rss);
       }
-      if (*threads) collect_performance_service("Threads", "Active OS threads in this server process", threads);
+
+      if (*threads) {
+         collect_performance_service("Threads", "Active OS threads in this server process", threads);
+      }
    }
-   /* Only the server process's open file descriptors are counted. PTY
-    * master endpoints are classified conservatively; no device paths are
-    * disclosed through the inventory. */
+   /* Only the server process's open file descriptors are counted. PTY master endpoints are classified conservatively; no device paths are disclosed through the
+    * inventory. */
    GDir *fd_dir = g_dir_open("/proc/self/fd", 0, NULL);
+
    if (fd_dir) {
       guint count = 0, ptys = 0;
       const char *entry;
       while ((entry = g_dir_read_name(fd_dir))) {
-         if (!g_ascii_isdigit(entry[0])) continue;
+         if (!g_ascii_isdigit(entry[0])) {
+            continue;
+         }
          char path[128], target[256];
          snprintf(path, sizeof(path), "/proc/self/fd/%s", entry);
          ssize_t n = readlink(path, target, sizeof(target) - 1);
-         if (n < 0) continue;
+
+         if (n < 0) {
+            continue;
+         }
          target[n] = 0;
          count++;
-         if (!strcmp(target, "/dev/ptmx") || g_str_has_prefix(target, "/dev/pts/")) ptys++;
+
+         if (!strcmp(target, "/dev/ptmx") || g_str_has_prefix(target, "/dev/pts/")) {
+            ptys++;
+         }
       }
       g_dir_close(fd_dir);
       char summary[128], detail[160];
@@ -702,68 +783,58 @@ static void collect_process_metrics(void) {
 
 static void collect_event_performance(void) {
    event_profile_summary_t stats;
+
    if (!event_profile_summary(&stats)) {
       collect_performance_service("Event dispatch", "Event callback timing requires features.profiling=true at build time", "disabled");
+
       return;
    }
    char status[128], details[400];
    snprintf(status, sizeof(status), "%llu events", (unsigned long long)stats.emits);
    snprintf(details, sizeof(details),
-            "Cumulative event emissions: %llu; payload bytes: %llu; inline callbacks: %llu; average %.1f us; maximum %llu us; slowest event: %s",
-            (unsigned long long)stats.emits, (unsigned long long)stats.payload_bytes,
-            (unsigned long long)stats.inline_calls,
-            stats.inline_calls ? (double)stats.inline_us / stats.inline_calls : 0.0,
-            (unsigned long long)stats.max_inline_us,
-            *stats.slowest_event ? stats.slowest_event : "not observed");
+      "Cumulative event emissions: %llu; payload bytes: %llu; inline callbacks: %llu; average %.1f us; maximum %llu us; slowest event: %s", (unsigned long long)
+      stats.emits, (unsigned long long)stats.payload_bytes, (unsigned long long)stats.inline_calls, stats.inline_calls ? (double)stats.inline_us / stats.
+      inline_calls : 0.0, (unsigned long long)stats.max_inline_us, *stats.slowest_event ? stats.slowest_event : "not observed");
    collect_performance_service("Event callback timing", details, status);
    snprintf(status, sizeof(status), "%llu queued", (unsigned long long)stats.queued);
    snprintf(details, sizeof(details),
-            "Cumulative deferred callbacks: queued %llu, completed %llu; handler average %.1f us, maximum %llu us; average dispatch queue wait %.1f us",
-            (unsigned long long)stats.queued, (unsigned long long)stats.completed,
-            stats.completed ? (double)stats.deferred_us / stats.completed : 0.0,
-            (unsigned long long)stats.max_deferred_us,
-            stats.completed ? (double)stats.queue_wait_us / stats.completed : 0.0);
+      "Cumulative deferred callbacks: queued %llu, completed %llu; handler average %.1f us, maximum %llu us; average dispatch queue wait %.1f us", (unsigned
+         long long)stats.queued, (unsigned long long)stats.completed, stats.completed ? (double)stats.deferred_us / stats.completed : 0.0, (unsigned long long)
+      stats.max_deferred_us, stats.completed ? (double)stats.queue_wait_us / stats.completed : 0.0);
    collect_performance_service("Deferred event dispatch", details, status);
 }
 
 static void collect_catalog_performance(void) {
    rr_catalog_profile_info_t stats;
+
    if (!rr_relay_catalog_profile_summary(&stats)) {
       collect_performance_service("Catalog profiling", "Enable features.profiling and rebuild to collect five-minute performance samples", "disabled");
+
       return;
    }
    char details[360], status[120];
    snprintf(status, sizeof(status), "%llu s sample", (unsigned long long)stats.sample_seconds);
    snprintf(details, sizeof(details),
-            "Sample Unix time: %llu; catalog entries: %zu; outgoing snapshots: %llu; queue completed: %llu; pending snapshots: %llu; awaiting acknowledgments: %llu",
-            (unsigned long long)stats.sample_time, stats.catalog_entries,
-            (unsigned long long)stats.snapshots, (unsigned long long)stats.queue_complete,
-            (unsigned long long)stats.pending_snapshots, (unsigned long long)stats.pending_acks);
+      "Sample Unix time: %llu; catalog entries: %zu; outgoing snapshots: %llu; queue completed: %llu; pending snapshots: %llu; awaiting acknowledgments: %llu",
+      (unsigned long long)stats.sample_time, stats.catalog_entries, (unsigned long long)stats.snapshots, (unsigned long long)stats.queue_complete, (unsigned
+         long long)stats.pending_snapshots, (unsigned long long)stats.pending_acks);
    collect_performance_service("Catalog synchronization", details, status);
-   snprintf(status, sizeof(status), "%llu complete / %llu partial", (unsigned long long)stats.ack_complete,
-            (unsigned long long)stats.ack_partial);
+   snprintf(status, sizeof(status), "%llu complete / %llu partial", (unsigned long long)stats.ack_complete, (unsigned long long)stats.ack_partial);
    snprintf(details, sizeof(details),
-            "Last completed sample: %llu complete acknowledgments, %llu incomplete/rejected, %llu timeouts. End-to-end ACK average %.2f ms; maximum %.2f ms",
-            (unsigned long long)stats.ack_complete, (unsigned long long)stats.ack_partial,
-            (unsigned long long)stats.ack_timeouts,
-            stats.ack_complete + stats.ack_partial ?
-                (double)stats.ack_us / (stats.ack_complete + stats.ack_partial) / 1000.0 : 0.0,
-            stats.max_ack_us / 1000.0);
+      "Last completed sample: %llu complete acknowledgments, %llu incomplete/rejected, %llu timeouts. End-to-end ACK average %.2f ms; maximum %.2f ms", (
+         unsigned long long)stats.ack_complete, (unsigned long long)stats.ack_partial, (unsigned long long)stats.ack_timeouts, stats.ack_complete + stats.
+      ack_partial ? (double)stats.ack_us / (stats.ack_complete + stats.ack_partial) / 1000.0 : 0.0, stats.max_ack_us / 1000.0);
    collect_performance_service("Catalog acknowledgments", details, status);
-   snprintf(status, sizeof(status), "%llu accepted / %llu rejected",
-            (unsigned long long)stats.descriptors_accepted, (unsigned long long)stats.descriptors_rejected);
+   snprintf(status, sizeof(status), "%llu accepted / %llu rejected", (unsigned long long)stats.descriptors_accepted, (unsigned long long)stats.
+      descriptors_rejected);
    snprintf(details, sizeof(details),
-            "Received %llu catalog descriptors, accepted %llu, rejected %llu. Average validation %.1f us, maximum %llu us; received %llu JSON bytes",
-            (unsigned long long)stats.descriptors_received,
-            (unsigned long long)stats.descriptors_accepted,
-            (unsigned long long)stats.descriptors_rejected,
-            stats.descriptors_received ? (double)stats.apply_us / stats.descriptors_received : 0.0,
-            (unsigned long long)stats.max_apply_us, (unsigned long long)stats.payload_bytes);
+      "Received %llu catalog descriptors, accepted %llu, rejected %llu. Average validation %.1f us, maximum %llu us; received %llu JSON bytes", (unsigned long
+         long)stats.descriptors_received, (unsigned long long)stats.descriptors_accepted, (unsigned long long)stats.descriptors_rejected, stats.
+      descriptors_received ? (double)stats.apply_us / stats.descriptors_received : 0.0, (unsigned long long)stats.max_apply_us, (unsigned long long)stats.
+      payload_bytes);
    collect_performance_service("Catalog descriptor processing", details, status);
-   snprintf(status, sizeof(status), "%.2f ms avg", stats.snapshots ?
-            (double)stats.snapshot_build_us / stats.snapshots / 1000.0 : 0.0);
-   snprintf(details, sizeof(details), "Snapshot build time: average %s, maximum %.2f ms",
-            status, stats.max_build_us / 1000.0);
+   snprintf(status, sizeof(status), "%.2f ms avg", stats.snapshots ? (double)stats.snapshot_build_us / stats.snapshots / 1000.0 : 0.0);
+   snprintf(details, sizeof(details), "Snapshot build time: average %s, maximum %.2f ms", status, stats.max_build_us / 1000.0);
    collect_performance_service("Catalog snapshot preparation", details, status);
 }
 
@@ -1032,14 +1103,14 @@ static void ack_wait_free(gpointer ptr) {
 #ifdef USE_PROFILING
 void rr_relay_catalog_profile_dump(void) {
    const gint64 now = g_get_monotonic_time();
-   if (catalog_profile_last_dump && now - catalog_profile_last_dump < 300 * G_USEC_PER_SEC)
+
+   if (catalog_profile_last_dump && now - catalog_profile_last_dump < 300 * G_USEC_PER_SEC) {
       return;
-   double sample_s = catalog_profile_last_dump ?
-      (now - catalog_profile_last_dump) / 1000000.0 : 300.0;
+   }
+   double sample_s = catalog_profile_last_dump ? (now - catalog_profile_last_dump) / 1000000.0 : 300.0;
    catalog_profile_last_dump = now;
 
-   /* Capture and reset the interval before logging. Logging callbacks can
-    * cause state changes and must not lose their counts. */
+   /* Capture and reset the interval before logging. Logging callbacks can cause state changes and must not lose their counts. */
    const catalog_profile_counts_t t = catalog_profile_total;
    const catalog_profile_counts_t w = catalog_profile_interval;
    memset(&catalog_profile_interval, 0, sizeof(catalog_profile_interval));
@@ -1047,11 +1118,12 @@ void rr_relay_catalog_profile_dump(void) {
    memcpy(rejection_delta, catalog_reject_interval, sizeof(rejection_delta));
    memset(catalog_reject_interval, 0, sizeof(catalog_reject_interval));
    catalog_profile_last_sample = w;
-   catalog_profile_sample_seconds = (guint64)(sample_s + 0.5);
-   catalog_profile_sample_time = (guint64)time(NULL);
+   catalog_profile_sample_seconds = (guint64) (sample_s + 0.5);
+   catalog_profile_sample_time = (guint64) time(NULL);
 
    guint queued_syncs = 0, pending_acks = 0;
    guint64 queued_descriptors = 0;
+
    if (relay_catalog_snapshots) {
       GHashTableIter iter;
       gpointer key, value;
@@ -1059,114 +1131,106 @@ void rr_relay_catalog_profile_dump(void) {
       while (g_hash_table_iter_next(&iter, &key, &value)) {
          relay_catalog_snapshot_t *s = value;
          queued_syncs++;
-         if (s->offset < s->messages->len)
+
+         if (s->offset < s->messages->len) {
             queued_descriptors += s->messages->len - s->offset;
+         }
       }
    }
-   if (relay_catalog_awaiting_ack)
-      pending_acks = g_hash_table_size(relay_catalog_awaiting_ack);
 
-   Log(LOG_INFO, "profile", "Catalog synchronization statistics (cumulative; last sample %.0f s; entries=%zu, queued=%u, pending-acks=%u, remaining-items=%llu):",
-       sample_s, rr_relay_catalog_count, queued_syncs, pending_acks, (unsigned long long)queued_descriptors);
-   Log(LOG_INFO, "profile", "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)",
-       (unsigned long long)t.snapshots, (unsigned long long)w.snapshots,
-       (unsigned long long)t.queued, (unsigned long long)w.queued,
-       (unsigned long long)t.aborted, (unsigned long long)w.aborted,
-       (unsigned long long)t.superseded, (unsigned long long)w.superseded);
-   Log(LOG_INFO, "profile", "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)",
-       (unsigned long long)t.ack_ok, (unsigned long long)w.ack_ok,
-       (unsigned long long)t.ack_partial, (unsigned long long)w.ack_partial,
-       (unsigned long long)t.ack_timeout, (unsigned long long)w.ack_timeout,
-       (unsigned long long)t.ack_cancelled, (unsigned long long)w.ack_cancelled);
-   Log(LOG_INFO, "profile", "  descriptors: prepared=%llu (+%llu), sent=%llu (+%llu), peer-received=%llu (+%llu), peer-accepted=%llu (+%llu), peer-rejected=%llu (+%llu)",
-       (unsigned long long)t.prepared, (unsigned long long)w.prepared,
-       (unsigned long long)t.sent, (unsigned long long)w.sent,
-       (unsigned long long)t.ack_received, (unsigned long long)w.ack_received,
-       (unsigned long long)t.ack_accepted, (unsigned long long)w.ack_accepted,
-       (unsigned long long)t.ack_rejected, (unsigned long long)w.ack_rejected);
-   Log(LOG_INFO, "profile", "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)",
-       (unsigned long long)t.prepared_bytes, (unsigned long long)w.prepared_bytes,
-       (unsigned long long)t.sent_bytes, (unsigned long long)w.sent_bytes,
-       (unsigned long long)t.received_bytes, (unsigned long long)w.received_bytes);
-   Log(LOG_INFO, "profile", "  inbound catalog apply: received=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
-       (unsigned long long)t.received, (unsigned long long)w.received,
-       (unsigned long long)t.accepted, (unsigned long long)w.accepted,
-       (unsigned long long)t.rejected, (unsigned long long)w.rejected,
-       t.received ? (double)t.apply_us / t.received : 0.0,
-       (unsigned long long)t.apply_max_us,
-       w.received ? (double)w.apply_us / w.received : 0.0,
-       (unsigned long long)w.apply_max_us);
-   for (unsigned i = RR_CAT_OWNER; i < RR_CAT_REJECT_COUNT; ++i) {
-      if (catalog_reject_total[i])
-         Log(LOG_INFO, "profile", "    reject/%s: total=%llu (+%llu)",
-             catalog_reject_names[i-1], (unsigned long long)catalog_reject_total[i],
-             (unsigned long long)rejection_delta[i]);
+   if (relay_catalog_awaiting_ack) {
+      pending_acks = g_hash_table_size(relay_catalog_awaiting_ack);
    }
-   for (unsigned i = 0; i < CP_KIND_COUNT; i++) {
+
+   Log(LOG_INFO, "profile",
+      "Catalog synchronization statistics (cumulative; last sample %.0f s; entries=%zu, queued=%u, pending-acks=%u, remaining-items=%llu):", sample_s,
+      rr_relay_catalog_count, queued_syncs, pending_acks, (unsigned long long)queued_descriptors);
+   Log(LOG_INFO, "profile", "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)", (unsigned long
+      long)t.snapshots, (unsigned long long)w.snapshots, (unsigned long long)t.queued, (unsigned long long)w.queued, (unsigned long long)t.aborted, (unsigned
+         long long)w.aborted, (unsigned long long)t.superseded, (unsigned long long)w.superseded);
+   Log(LOG_INFO, "profile", "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)", (unsigned long
+      long)t.ack_ok, (unsigned long long)w.ack_ok, (unsigned long long)t.ack_partial, (unsigned long long)w.ack_partial, (unsigned long long)t.ack_timeout, (
+         unsigned long long)w.ack_timeout, (unsigned long long)t.ack_cancelled, (unsigned long long)w.ack_cancelled);
+   Log(LOG_INFO, "profile",
+      "  descriptors: prepared=%llu (+%llu), sent=%llu (+%llu), peer-received=%llu (+%llu), peer-accepted=%llu (+%llu), peer-rejected=%llu (+%llu)", (unsigned
+         long long)t.prepared, (unsigned long long)w.prepared, (unsigned long long)t.sent, (unsigned long long)w.sent, (unsigned long long)t.ack_received, (
+         unsigned long long)w.ack_received, (unsigned long long)t.ack_accepted, (unsigned long long)w.ack_accepted, (unsigned long long)t.ack_rejected, (
+         unsigned long long)w.ack_rejected);
+   Log(LOG_INFO, "profile", "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)", (unsigned long
+      long)t.prepared_bytes, (unsigned long long)w.prepared_bytes, (unsigned long long)t.sent_bytes, (unsigned long long)w.sent_bytes, (unsigned long long)t.
+      received_bytes, (unsigned long long)w.received_bytes);
+   Log(LOG_INFO, "profile",
+      "  inbound catalog apply: received=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
+      (unsigned long long)t.received, (unsigned long long)w.received, (unsigned long long)t.accepted, (unsigned long long)w.accepted, (unsigned long long)t.
+      rejected, (unsigned long long)w.rejected, t.received ? (double)t.apply_us / t.received : 0.0, (unsigned long long)t.apply_max_us, w.received ? (double)w.
+      apply_us / w.received : 0.0, (unsigned long long)w.apply_max_us);
+
+   for (unsigned i = RR_CAT_OWNER ; i < RR_CAT_REJECT_COUNT ; ++i) {
+      if (catalog_reject_total[i]) {
+         Log(LOG_INFO, "profile", "    reject/%s: total=%llu (+%llu)", catalog_reject_names[i - 1], (unsigned long long)catalog_reject_total[i], (unsigned long
+            long)rejection_delta[i]);
+      }
+   }
+
+   for (unsigned i = 0 ; i < CP_KIND_COUNT ; i++) {
       const catalog_kind_counts_t *total = &catalog_kind_total[i];
       const catalog_kind_counts_t *sample = &catalog_kind_interval[i];
-      if (!total->count) continue;
+
+      if (!total->count) {
+         continue;
+      }
       Log(LOG_INFO, "profile",
-          "    apply/%s: count=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), bytes=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
-          catalog_profile_kind_names[i],
-          (unsigned long long)total->count, (unsigned long long)sample->count,
-          (unsigned long long)total->accepted, (unsigned long long)sample->accepted,
-          (unsigned long long)total->rejected, (unsigned long long)sample->rejected,
-          (unsigned long long)total->bytes, (unsigned long long)sample->bytes,
-          (double)total->apply_us / total->count, (unsigned long long)total->max_apply_us,
-          sample->count ? (double)sample->apply_us / sample->count : 0.0,
-          (unsigned long long)sample->max_apply_us);
+         "    apply/%s: count=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), bytes=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
+         catalog_profile_kind_names[i], (unsigned long long)total->count, (unsigned long long)sample->count, (unsigned long long)total->accepted, (unsigned long
+            long)sample->accepted, (unsigned long long)total->rejected, (unsigned long long)sample->rejected, (unsigned long long)total->bytes, (unsigned long
+            long)sample->bytes, (double)total->apply_us / total->count, (unsigned long long)total->max_apply_us, sample->count ? (double)sample->apply_us /
+         sample->count : 0.0, (unsigned long long)sample->max_apply_us);
    }
+
    memset(catalog_kind_interval, 0, sizeof(catalog_kind_interval));
-   Log(LOG_INFO, "profile", "  snapshot build: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); queue drain: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms)",
-       t.snapshots ? (double)t.build_us / t.snapshots / 1000.0 : 0.0,
-       t.build_max_us / 1000.0,
-       w.snapshots ? (double)w.build_us / w.snapshots / 1000.0 : 0.0,
-       w.build_max_us / 1000.0,
-       t.queued ? (double)t.drain_us / t.queued / 1000.0 : 0.0,
-       t.drain_max_us / 1000.0,
-       w.queued ? (double)w.drain_us / w.queued / 1000.0 : 0.0,
-       w.drain_max_us / 1000.0);
-   Log(LOG_INFO, "profile", "  end-to-end ACK latency: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); refreshes=%llu (+%llu), delta send attempts=%llu (+%llu), remove attempts=%llu (+%llu), refresh avg=%.2f ms, max=%.2f ms",
-       t.ack_ok + t.ack_partial ? (double)t.ack_us / (t.ack_ok + t.ack_partial) / 1000.0 : 0.0,
-       t.ack_max_us / 1000.0,
-       w.ack_ok + w.ack_partial ? (double)w.ack_us / (w.ack_ok + w.ack_partial) / 1000.0 : 0.0,
-       w.ack_max_us / 1000.0,
-       (unsigned long long)t.refreshes, (unsigned long long)w.refreshes,
-       (unsigned long long)t.delta_updates, (unsigned long long)w.delta_updates,
-       (unsigned long long)t.delta_removes, (unsigned long long)w.delta_removes,
-       t.refreshes ? (double)t.refresh_us / t.refreshes / 1000.0 : 0.0,
-       t.refresh_max_us / 1000.0);
+   Log(LOG_INFO, "profile",
+      "  snapshot build: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); queue drain: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms)", t
+      .snapshots ? (double)t.build_us / t.snapshots / 1000.0 : 0.0, t.build_max_us / 1000.0, w.snapshots ? (double)w.build_us / w.snapshots / 1000.0 : 0.0, w.
+      build_max_us / 1000.0, t.queued ? (double)t.drain_us / t.queued / 1000.0 : 0.0, t.drain_max_us / 1000.0, w.queued ? (double)w.drain_us / w.queued / 1000.0
+      : 0.0, w.drain_max_us / 1000.0);
+   Log(LOG_INFO, "profile",
+      "  end-to-end ACK latency: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); refreshes=%llu (+%llu), delta send attempts=%llu (+%llu), remove attempts=%llu (+%llu), refresh avg=%.2f ms, max=%.2f ms",
+      t.ack_ok + t.ack_partial ? (double)t.ack_us / (t.ack_ok + t.ack_partial) / 1000.0 : 0.0, t.ack_max_us / 1000.0, w.ack_ok + w.ack_partial ? (double)w.
+      ack_us / (w.ack_ok + w.ack_partial) / 1000.0 : 0.0, w.ack_max_us / 1000.0, (unsigned long long)t.refreshes, (unsigned long long)w.refreshes, (unsigned
+         long long)t.delta_updates, (unsigned long long)w.delta_updates, (unsigned long long)t.delta_removes, (unsigned long long)w.delta_removes, t.refreshes ?
+      (double)t.refresh_us / t.refreshes / 1000.0 : 0.0, t.refresh_max_us / 1000.0);
 
    /* Bound the log even if a future mesh has hundreds of neighbors. */
    catalog_profile_peer_t peers[CATALOG_PROFILE_MAX_PEERS];
    memcpy(peers, catalog_profile_peers, catalog_profile_peer_count * sizeof(peers[0]));
    qsort(peers, catalog_profile_peer_count, sizeof(peers[0]), catalog_profile_peer_compare);
    const guint limit = MIN(catalog_profile_peer_count, 12u);
-   for (guint i = 0; i < limit; i++) {
+
+   for (guint i = 0 ; i < limit ; i++) {
       const catalog_profile_peer_t *p = &peers[i];
       char label[192];
-      Log(LOG_INFO, "profile", "  neighbor %s: snapshots=%llu queued=%llu acked=%llu partial=%llu timeout=%llu aborted=%llu, sent=%llu accepted=%llu rejected=%llu, last-ack=%.2f ms max-ack=%.2f ms",
-          /* Retain known names after a neighbor disconnects. */
-          strcmp(rrserver_links_format_node(p->node, label, sizeof(label)), p->node) ?
-             label : (p->label[0] ? p->label : p->node),
-          (unsigned long long)p->snapshots, (unsigned long long)p->queued,
-          (unsigned long long)p->ack_ok, (unsigned long long)p->ack_partial,
-          (unsigned long long)p->timeouts, (unsigned long long)p->aborted,
-          (unsigned long long)p->sent, (unsigned long long)p->accepted,
-          (unsigned long long)p->rejected, p->last_ack_us / 1000.0, p->max_ack_us / 1000.0);
+      Log(LOG_INFO, "profile",
+         "  neighbor %s: snapshots=%llu queued=%llu acked=%llu partial=%llu timeout=%llu aborted=%llu, sent=%llu accepted=%llu rejected=%llu, last-ack=%.2f ms max-ack=%.2f ms",
+         /* Retain known names after a neighbor disconnects. */
+         strcmp(rrserver_links_format_node(p->node, label, sizeof(label)), p->node) ?
+         label : (p->label[0] ? p->label : p->node), (unsigned long long)p->snapshots, (unsigned long long)p->queued, (unsigned long long)p->ack_ok, (unsigned
+            long long)p->ack_partial, (unsigned long long)p->timeouts, (unsigned long long)p->aborted, (unsigned long long)p->sent, (unsigned long long)p->
+         accepted, (unsigned long long)p->rejected, p->last_ack_us / 1000.0, p->max_ack_us / 1000.0);
    }
-   if (catalog_profile_peer_count > limit)
-      Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)",
-          catalog_profile_peer_count - limit, limit);
-   /* Update published read-only performance inventory on the next ordinary
-    * catalog refresh. Never perform an immediate recursive refresh here. */
+
+   if (catalog_profile_peer_count > limit) {
+      Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)", catalog_profile_peer_count -
+         limit, limit);
+   }
+   /* Update published read-only performance inventory on the next ordinary catalog refresh. Never perform an immediate recursive refresh here. */
    rr_relay_catalog_dirty = true;
 }
 #endif
 
 bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info) {
-   if (!info) return false;
+   if (!info) {
+      return false;
+   }
    memset(info, 0, sizeof(*info));
    info->catalog_entries = rr_relay_catalog_count;
    info->pending_snapshots = relay_catalog_snapshots ? g_hash_table_size(relay_catalog_snapshots) : 0;
@@ -1191,8 +1255,10 @@ bool rr_relay_catalog_profile_summary(rr_catalog_profile_info_t *info) {
    info->apply_us = w->apply_us;
    info->max_apply_us = w->apply_max_us;
    info->payload_bytes = w->received_bytes;
+
    return true;
 #else
+
    return false;
 #endif
 }
@@ -1212,27 +1278,35 @@ void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint receive
    const gint64 elapsed_us = g_get_monotonic_time() - w->started;
    const bool complete = received == w->count && accepted == received && rejected == 0;
 #ifdef USE_PROFILING
-   if (complete) CP_INC(ack_ok);
-   else CP_INC(ack_partial);
+
+   if (complete) {
+      CP_INC(ack_ok);
+   } else {
+      CP_INC(ack_partial);
+   }
    CP_ADD(ack_received, received);
    CP_ADD(ack_accepted, accepted);
    CP_ADD(ack_rejected, rejected);
-   catalog_profile_duration(elapsed_us > 0 ? (guint64)elapsed_us : 0, "ack");
+   catalog_profile_duration(elapsed_us > 0 ? (guint64) elapsed_us : 0, "ack");
    catalog_profile_peer_t *peer = catalog_profile_peer(origin);
+
    if (peer) {
-      if (complete) peer->ack_ok++;
-      else peer->ack_partial++;
+      if (complete) {
+         peer->ack_ok++;
+      } else {
+         peer->ack_partial++;
+      }
       peer->accepted += accepted;
       peer->rejected += rejected;
-      peer->last_ack_us = elapsed_us > 0 ? (guint64)elapsed_us : 0;
-      if (peer->last_ack_us > peer->max_ack_us)
+      peer->last_ack_us = elapsed_us > 0 ? (guint64) elapsed_us : 0;
+
+      if (peer->last_ack_us > peer->max_ack_us) {
          peer->max_ack_us = peer->last_ack_us;
+      }
    }
 #endif
-   Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog",
-       "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u",
-       origin_label, sync_id, elapsed_us / 1000000.0,
-       w->count, received, accepted, rejected);
+   Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog", "Peer %s acknowledged sync %s in %.3f s: sent=%u received=%u accepted=%u rejected=%u", origin_label,
+      sync_id, elapsed_us / 1000000.0, w->count, received, accepted, rejected);
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
@@ -1259,7 +1333,10 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
 #ifdef USE_PROFILING
       CP_INC(aborted);
       catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
-      if (peer) peer->aborted++;
+
+      if (peer) {
+         peer->aborted++;
+      }
 #endif
       Log(LOG_WARN, "relay.catalog", "Aborted catalog delivery to %s after %u/%u descriptors (%.3f s): neighbor unreachable", dest_label, s->offset, s->messages
          ->len, (g_get_monotonic_time() - s->started_at) / 1000000.0);
@@ -1274,7 +1351,10 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
 #ifdef USE_PROFILING
          CP_INC(aborted);
          catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
-         if (peer) peer->aborted++;
+
+         if (peer) {
+            peer->aborted++;
+         }
 #endif
          Log(LOG_WARN, "relay.catalog", "Catalog sync %s to %s failed sending item %u/%u (%.3f s); no acknowledgment expected", s->sync_id, dest_label, s->
             offset + 1, s->messages->len, (g_get_monotonic_time() - s->started_at) / 1000000.0);
@@ -1283,12 +1363,16 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
       }
       s->offset++;
 #ifdef USE_PROFILING
+
       /* The first queue item is catalog-begin, not a descriptor. */
       if (s->offset > 1) {
          CP_INC(sent);
          CP_ADD(sent_bytes, strlen(dict_get(d, "payload", "")));
          catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
-         if (peer) peer->sent++;
+
+         if (peer) {
+            peer->sent++;
+         }
       }
 #endif
    }
@@ -1317,17 +1401,24 @@ static gboolean snapshot_tick(relay_catalog_snapshot_t *s) {
 #ifdef USE_PROFILING
          CP_INC(aborted);
          catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
-         if (peer) peer->aborted++;
+
+         if (peer) {
+            peer->aborted++;
+         }
 #endif
+
          return FALSE;
       }
-
 #ifdef USE_PROFILING
       CP_INC(queued);
-      catalog_profile_duration((guint64)MAX(0, g_get_monotonic_time() - s->started_at), "drain");
+      catalog_profile_duration((guint64) MAX(0, g_get_monotonic_time() - s->started_at), "drain");
       catalog_profile_peer_t *peer = catalog_profile_peer(s->dest);
-      if (peer) peer->queued++;
+
+      if (peer) {
+         peer->queued++;
+      }
 #endif
+
       if (!relay_catalog_awaiting_ack) {
          relay_catalog_awaiting_ack = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, ack_wait_free);
       }
@@ -1363,7 +1454,10 @@ void rr_relay_catalog_pump(void) {
 #ifdef USE_PROFILING
             CP_INC(ack_timeout);
             catalog_profile_peer_t *peer = catalog_profile_peer(w->dest);
-            if (peer) peer->timeouts++;
+
+            if (peer) {
+               peer->timeouts++;
+            }
 #endif
             Log(LOG_WARN, "relay.catalog", "Sync %s to %s timed out awaiting ack after %.3f s (%u descriptors)", (char *)key, rrserver_links_format_node(w->dest
                , dest_label, sizeof(dest_label)), (now - w->started) / 1000000.0, w->count);
@@ -1423,11 +1517,17 @@ void rr_relay_send_catalogs(const char *dest) {
       }
    }
 #ifdef USE_PROFILING
-   if (g_hash_table_lookup(relay_catalog_snapshots, dest)) CP_INC(superseded);
+
+   if (g_hash_table_lookup(relay_catalog_snapshots, dest)) {
+      CP_INC(superseded);
+   }
    const gint64 build_started = g_get_monotonic_time();
    CP_INC(snapshots);
    catalog_profile_peer_t *profile_peer = catalog_profile_peer(dest);
-   if (profile_peer) profile_peer->snapshots++;
+
+   if (profile_peer) {
+      profile_peer->snapshots++;
+   }
 #endif
    g_hash_table_remove(relay_catalog_snapshots, dest);
    relay_catalog_snapshot_t *s = g_new0(relay_catalog_snapshot_t, 1);
@@ -1503,7 +1603,7 @@ void rr_relay_send_catalogs(const char *dest) {
    }
 #ifdef USE_PROFILING
    CP_ADD(prepared, s->messages->len - (begin != NULL));
-   catalog_profile_duration((guint64)MAX(0, g_get_monotonic_time() - build_started), "build");
+   catalog_profile_duration((guint64) MAX(0, g_get_monotonic_time() - build_started), "build");
 #endif
    Log(LOG_INFO, "relay.catalog", "Queued %u catalog descriptors for paced delivery to %s (sync %s)", s->messages->len - (begin != NULL), dest_label, s->sync_id
       );
@@ -1606,7 +1706,7 @@ void rr_relay_refresh_catalog(void) {
 
    g_hash_table_destroy(previous);
 #ifdef USE_PROFILING
-   catalog_profile_duration((guint64)MAX(0, g_get_monotonic_time() - refresh_started), "refresh");
+   catalog_profile_duration((guint64) MAX(0, g_get_monotonic_time() - refresh_started), "refresh");
 #endif
    rr_relay_catalog_dirty = false;
 }

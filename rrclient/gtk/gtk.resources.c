@@ -106,12 +106,15 @@ static char *resource_display_utf8(const char *value) {
 
    return g_utf8_make_valid(value, -1);
 }
-/* GPS fixes take precedence over Maidenhead grid centers. When only a
- * locator is available, mark the resulting coordinates as approximate. */
+
+/* GPS fixes take precedence over Maidenhead grid centers. When only a locator is available, mark the resulting coordinates as approximate. */
 static char *resource_location_details(const char *coords, const char *grid, gboolean compact) {
    char formatted[192];
-   if (!rr_location_format(coords, grid, compact, formatted, sizeof(formatted)))
+
+   if (!rr_location_format(coords, grid, compact, formatted, sizeof(formatted))) {
       return g_strdup("");
+   }
+
    return g_strdup(formatted);
 }
 static void set_string(GtkTreeIter *iter, int column, const char *value) {
@@ -376,33 +379,51 @@ static bool resource_serial_device_name(const char *name) {
 
    return false;
 }
+
 /* Legacy serial8250 registers placeholder ttyS ports on many PCs.
- * /proc/tty/driver/serial identifies these as uart:unknown; don't hide
- * configured endpoints, only raw auto-discovered device nodes. */
+ * /proc/tty/driver/serial identifies these as uart:unknown; don't hide configured endpoints, only raw auto-discovered device nodes. */
 static gboolean resource_serial_placeholder(const char *name) {
-   if (!g_str_has_prefix(name, "ttyS")) return FALSE;
-   const char *suffix = name + 4;
-   if (!g_ascii_isdigit(*suffix)) return FALSE;
-   for (const char *p = suffix; *p; ++p)
-      if (!g_ascii_isdigit(*p)) return FALSE;
-   gchar *contents = NULL;
-   if (!g_file_get_contents("/proc/tty/driver/serial", &contents, NULL, NULL))
+   if (!g_str_has_prefix(name, "ttyS")) {
       return FALSE;
-   guint number = (guint)g_ascii_strtoull(suffix, NULL, 10);
+   }
+   const char *suffix = name + 4;
+
+   if (!g_ascii_isdigit(*suffix)) {
+      return FALSE;
+   }
+
+   for (const char *p = suffix ; *p ; ++p) {
+      if (!g_ascii_isdigit(*p)) {
+         return FALSE;
+      }
+   }
+
+   gchar *contents = NULL;
+
+   if (!g_file_get_contents("/proc/tty/driver/serial", &contents, NULL, NULL)) {
+      return FALSE;
+   }
+   guint number = (guint) g_ascii_strtoull(suffix, NULL, 10);
    gboolean unknown = FALSE;
    gchar **lines = g_strsplit(contents, "\n", -1);
-   for (guint i = 0; lines[i]; ++i) {
+
+   for (guint i = 0 ; lines[i] ; ++i) {
       char *p = lines[i];
-      while (g_ascii_isspace(*p)) ++p;
+      while (g_ascii_isspace(*p)) {
+         ++p;
+      }
       char *end = NULL;
       guint64 index = g_ascii_strtoull(p, &end, 10);
+
       if (end != p && *end == ':' && index == number) {
          unknown = strstr(end, "uart:unknown") != NULL;
          break;
       }
    }
+
    g_strfreev(lines);
    g_free(contents);
+
    return unknown;
 }
 static void resource_discover_devices(struct local_scan *scan) {
@@ -429,27 +450,33 @@ static void resource_discover_devices(struct local_scan *scan) {
 static void resource_local_port(rr_serial_t *port, void *data) {
    resource_local_named(rr_serial_name(port), data);
 }
-/* WSJT-X is a client-local UDP service. Reuse existing rows to avoid
- * disturbing Explorer expansion and selection every two seconds. */
-typedef struct { GtkTreeIter root; } wsjtx_tree_context;
-static GtkTreeIter wsjtx_tree_child(GtkTreeIter *parent, const char *name,
-                                    const char *kind) {
+
+/* WSJT-X is a client-local UDP service. Reuse existing rows to avoid disturbing Explorer expansion and selection every two seconds. */
+typedef struct {
+   GtkTreeIter root;
+} wsjtx_tree_context;
+static GtkTreeIter wsjtx_tree_child(GtkTreeIter *parent, const char *name, const char *kind) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent); ok;
-        ok = gtk_tree_model_iter_next(model, &child)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
       char *old_name = NULL, *old_kind = NULL;
       gtk_tree_model_get(model, &child, NAME, &old_name, KIND, &old_kind, -1);
       gboolean match = !g_strcmp0(old_name, name) && !g_strcmp0(old_kind, kind);
-      g_free(old_name); g_free(old_kind);
-      if (match) return child;
+      g_free(old_name);
+      g_free(old_kind);
+
+      if (match) {
+         return child;
+      }
    }
+
    gtk_tree_store_append(browser->store, &child, parent);
    gtk_tree_store_set(browser->store, &child, NAME, name, KIND, kind, -1);
+
    return child;
 }
-static void wsjtx_tree_field(const char *id, const char *group, const char *key,
-                             const char *value, void *data) {
+static void wsjtx_tree_field(const char *id, const char *group, const char *key, const char *value, void *data) {
    wsjtx_tree_context *ctx = data;
    GtkTreeIter peer = wsjtx_tree_child(&ctx->root, id, "network-service");
    GtkTreeIter folder = wsjtx_tree_child(&peer, group, "group");
@@ -492,12 +519,13 @@ static void resource_local_update(void) {
          gtk_tree_store_set(browser->store, &service, NAME, "WSJTX Reporting", KIND, "network-service", -1);
       }
       char status[64], connection[128], details[640];
-      rrclient_wsjtx_status(status, sizeof(status), connection, sizeof(connection),
-                            details, sizeof(details));
+      rrclient_wsjtx_status(status, sizeof(status), connection, sizeof(connection), details, sizeof(details));
       set_string(&service, STATE, status);
       set_string(&service, OURS, connection);
       set_string(&service, DETAILS, details);
-      wsjtx_tree_context ctx = { .root = service };
+      wsjtx_tree_context ctx = {
+         .root = service
+      };
       rrclient_wsjtx_foreach_field(wsjtx_tree_field, &ctx);
    }
    GHashTableIter cursor;
@@ -683,16 +711,18 @@ static void resource_irc_update(resource_branch *branch, rrconn_t *connection) {
       GtkTreeRowReference *reference = g_hash_table_lookup(branch->irc_rows, stats->name);
 
       gboolean row_exists = FALSE;
+
       if (reference) {
          GtkTreePath *path = gtk_tree_row_reference_get_path(reference);
+
          if (path) {
             row_exists = gtk_tree_model_get_iter(GTK_TREE_MODEL(browser->store), &iter, path);
             gtk_tree_path_free(path);
          }
       }
+
       if (!row_exists) {
-         /* Older refreshes may have removed an IRC row. Replace invalid row
-          * references rather than permanently losing the channel. */
+         /* Older refreshes may have removed an IRC row. Replace invalid row references rather than permanently losing the channel. */
          gtk_tree_store_append(browser->store, &iter, &branch->root);
          GtkTreePath *path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &iter);
          reference = gtk_tree_row_reference_new(GTK_TREE_MODEL(browser->store), path);
@@ -780,60 +810,76 @@ static void resource_update_branch(void *data) {
    resource_update_rows(branch, &branch->root);
 }
 
-/* Cluster Health is a local index over already received inventory, not a second
- * subscription or a claim that linked-node metrics were measured locally. */
-/* Thresholds are deliberately conservative and only use interval measurements.
- * Missing/disabled counters are unknown, never treated as a healthy sample. */
+/* Cluster Health is a local index over already received inventory, not a second subscription or a claim that linked-node metrics were measured locally. */
+/* Thresholds are deliberately conservative and only use interval measurements. Missing/disabled counters are unknown, never treated as a healthy sample. */
 static double resource_health_number(const char *description, const char *label) {
    const char *p = description ? strstr(description, label) : NULL;
-   if (!p) return -1;
+
+   if (!p) {
+      return -1;
+   }
    p += strlen(label);
    char *tail = NULL;
    double value = g_ascii_strtod(p, &tail);
+
    return (tail == p || (!g_ascii_isdigit(*p) && *p != '.')) ? -1 : value;
 }
 static void resource_health_raise(unsigned *severity, GString *reasons, unsigned level, const char *reason) {
-   if (level > *severity) *severity = level;
-   if (reasons->len) g_string_append(reasons, "; ");
+   if (level > *severity) {
+      *severity = level;
+   }
+
+   if (reasons->len) {
+      g_string_append(reasons, "; ");
+   }
    g_string_append(reasons, reason);
 }
-static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, unsigned *total,
-                                     unsigned *bad, unsigned *severity, GString *reasons) {
+static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, unsigned *total, unsigned *bad, unsigned *severity, GString *reasons) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &child, node); ok; ok = gtk_tree_model_iter_next(model, &child)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, node) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
       char *name = NULL, *kind = NULL;
       gtk_tree_model_get(model, &child, NAME, &name, KIND, &kind, -1);
       gboolean group = !g_strcmp0(kind, "group") && !g_strcmp0(name, "Statistics / Performance");
       g_free(name);
       g_free(kind);
-      if (!group) continue;
+
+      if (!group) {
+         continue;
+      }
       *found = child;
       GtkTreeIter stat;
-      for (gboolean have = gtk_tree_model_iter_children(model, &stat, &child); have; have = gtk_tree_model_iter_next(model, &stat)) {
+
+      for (gboolean have = gtk_tree_model_iter_children(model, &stat, &child) ; have ; have = gtk_tree_model_iter_next(model, &stat)) {
          char *state = NULL, *stat_kind = NULL, *stat_name = NULL, *details = NULL;
-         gtk_tree_model_get(model, &stat, KIND, &stat_kind, STATE, &state,
-                            NAME, &stat_name, DETAILS, &details, -1);
+         gtk_tree_model_get(model, &stat, KIND, &stat_kind, STATE, &state, NAME, &stat_name, DETAILS, &details, -1);
+
          if (!g_strcmp0(stat_kind, "performance-stat")) {
             ++*total;
+
             if (!g_strcmp0(state, "Critical") || !g_strcmp0(state, "Warning")) {
                unsigned level = !g_strcmp0(state, "Critical") ? 2 : 1;
+
                if (stat_name && g_str_has_prefix(stat_name, "Neighbor ") && details) {
-                  /* Include the actual link diagnosis in the Cluster Health
-                   * reason, rather than only the generic performance row name. */
+                  /* Include the actual link diagnosis in the Cluster Health reason, rather than only the generic performance row name. */
                   const char *condition = strstr(details, "Latency condition: ");
                   const char *flaps = strstr(details, "Unexpected disconnects (5m): ");
                   const char *rtt = strstr(details, "Last RTT: ");
                   char diagnosis[256] = "";
                   long long value = -1;
                   unsigned count = 0;
-                  if (condition && strstr(condition, "degraded") == condition + strlen("Latency condition: "))
+
+                  if (condition && strstr(condition, "degraded") == condition + strlen("Latency condition: ")) {
                      g_strlcat(diagnosis, "latency degraded; ", sizeof(diagnosis));
+                  }
+
                   if (flaps && sscanf(flaps, "Unexpected disconnects (5m): %u", &count) == 1 && count) {
                      char text[64];
                      g_snprintf(text, sizeof(text), "%u unexpected disconnects (5m); ", count);
                      g_strlcat(diagnosis, text, sizeof(diagnosis));
                   }
+
                   if (rtt && sscanf(rtt, "Last RTT: %lld", &value) == 1 && value >= 0) {
                      char text[64];
                      g_snprintf(text, sizeof(text), "RTT %lld ms", value);
@@ -842,30 +888,48 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
                   char *reason = g_strdup_printf("%s: %s", stat_name, *diagnosis ? diagnosis : state);
                   resource_health_raise(severity, reasons, level, reason);
                   g_free(reason);
-               } else resource_health_raise(severity, reasons, level, stat_name ? stat_name : state);
+               } else {
+                  resource_health_raise(severity, reasons, level, stat_name ? stat_name : state);
+               }
             }
+
             if (state && (strstr(state, "Unavailable") || strstr(state, "Failed") || strstr(state, "offline"))) {
                ++*bad;
                resource_health_raise(severity, reasons, 1, stat_name ? stat_name : "Unavailable counter");
             } else if (details && stat_name && strstr(details, "Last interval:")) {
                double value = -1;
+
                if (!strcmp(stat_name, "Event handlers")) {
                   const char *deferred = strstr(details, "deferred completions (");
                   const char *wait = strstr(details, "queue wait ");
+
                   if (deferred) {
                      value = resource_health_number(deferred, "deferred completions (");
-                     if (value >= 50000) resource_health_raise(severity, reasons, 2, "Event callbacks critically slow");
-                     else if (value >= 10000) resource_health_raise(severity, reasons, 1, "Event callbacks slow");
+
+                     if (value >= 50000) {
+                        resource_health_raise(severity, reasons, 2, "Event callbacks critically slow");
+                     } else if (value >= 10000) {
+                        resource_health_raise(severity, reasons, 1, "Event callbacks slow");
+                     }
                   }
+
                   if (wait) {
                      value = resource_health_number(wait, "queue wait ");
-                     if (value >= 100000) resource_health_raise(severity, reasons, 2, "Event queue wait critical");
-                     else if (value >= 20000) resource_health_raise(severity, reasons, 1, "Event queue wait elevated");
+
+                     if (value >= 100000) {
+                        resource_health_raise(severity, reasons, 2, "Event queue wait critical");
+                     } else if (value >= 20000) {
+                        resource_health_raise(severity, reasons, 1, "Event queue wait elevated");
+                     }
                   }
                } else if (!strcmp(stat_name, "Catalog synchronization")) {
                   value = resource_health_number(details, " timeouts ");
-                  if (value >= 5) resource_health_raise(severity, reasons, 2, "Catalog ACK timeouts critical");
-                  else if (value >= 1) resource_health_raise(severity, reasons, 1, "Catalog ACK timeouts");
+
+                  if (value >= 5) {
+                     resource_health_raise(severity, reasons, 2, "Catalog ACK timeouts critical");
+                  } else if (value >= 1) {
+                     resource_health_raise(severity, reasons, 1, "Catalog ACK timeouts");
+                  }
                }
             }
          }
@@ -874,10 +938,13 @@ static gboolean resource_health_group(GtkTreeIter *node, GtkTreeIter *found, uns
          g_free(stat_name);
          g_free(details);
       }
+
       return TRUE;
    }
+
    return FALSE;
 }
+
 /* Bounded in-memory history of state transitions in this client session. */
 static void resource_health_queue_free(gpointer value) {
    g_queue_free_full(value, g_free);
@@ -885,18 +952,21 @@ static void resource_health_queue_free(gpointer value) {
 static void resource_health_history(const char *key, const char *status, const char *reason, GtkTreeIter *node) {
    const char *previous = g_hash_table_lookup(browser->health_last, key);
    GQueue *events = g_hash_table_lookup(browser->health_events, key);
+
    if (!events) {
       events = g_queue_new();
       g_hash_table_insert(browser->health_events, g_strdup(key), events);
    }
    gboolean changed = g_strcmp0(previous, status) != 0;
+
    if (changed) {
       GDateTime *now = g_date_time_new_now_local();
       char *stamp = g_date_time_format(now, "%Y-%m-%d %H:%M:%S");
-      char *entry = g_strdup_printf("%s  %s%s%s", stamp, status,
-                                    reason && *reason ? ": " : "", reason && *reason ? reason : "");
+      char *entry = g_strdup_printf("%s  %s%s%s", stamp, status, reason && *reason ? ": " : "", reason && *reason ? reason : "");
       g_queue_push_head(events, entry);
-      while (g_queue_get_length(events) > 16) g_free(g_queue_pop_tail(events));
+      while (g_queue_get_length(events) > 16) {
+         g_free(g_queue_pop_tail(events));
+      }
       g_hash_table_replace(browser->health_last, g_strdup(key), g_strdup(status));
       g_free(stamp);
       g_date_time_unref(now);
@@ -904,148 +974,175 @@ static void resource_health_history(const char *key, const char *status, const c
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter group;
    gboolean exists = gtk_tree_model_iter_children(model, &group, node);
-   if (!exists)
+
+   if (!exists) {
       gtk_tree_store_append(browser->store, &group, node);
-   if (exists && !changed) return;
-   gtk_tree_store_set(browser->store, &group, NAME, "Health History", KIND, "group",
-                      STATE, "Session history", -1);
+   }
+
+   if (exists && !changed) {
+      return;
+   }
+   gtk_tree_store_set(browser->store, &group, NAME, "Health History", KIND, "group", STATE, "Session history", -1);
    GtkTreeIter row;
-   while (gtk_tree_model_iter_children(model, &row, &group))
+   while (gtk_tree_model_iter_children(model, &row, &group)) {
       gtk_tree_store_remove(browser->store, &row);
-   for (GList *it = events->head; it; it = it->next) {
+   }
+
+   for (GList *it = events->head ; it ; it = it->next) {
       gtk_tree_store_append(browser->store, &row, &group);
       gtk_tree_store_set(browser->store, &row, NAME, it->data, KIND, "health-event", DETAILS, it->data, -1);
    }
 }
-/* Present persisted observations already received in the server's performance
- * inventory. Each link report is owned by the reporting (direct) server. */
-/* Only timestamped history records belong in this subtree. Inventory
- * descriptions can carry serialized metadata (:access, :description, etc.);
- * don't turn those into fake health events. ISO-8601 UTC timestamps sort
- * lexically, so sorting descending also merges multiple neighbors correctly. */
+
+/* Present persisted observations already received in the server's performance inventory. Each link report is owned by the reporting (direct) server. */
+/* Only timestamped history records belong in this subtree. Inventory descriptions can carry serialized metadata (:access, :description, etc.);
+ * don't turn those into fake health events. ISO-8601 UTC timestamps sort lexically, so sorting descending also merges multiple neighbors correctly. */
 static gint resource_health_event_desc(gconstpointer a, gconstpointer b) {
    const char *left = *(char *const *)a;
    const char *right = *(char *const *)b;
+
    return g_strcmp0(right, left);
 }
+
 static gboolean resource_health_named_child(GtkTreeIter *parent, const char *name, GtkTreeIter *out);
 static void resource_health_link_events(GtkTreeIter *performance, GtkTreeIter *node) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GPtrArray *events = g_ptr_array_new_with_free_func(g_free);
    GtkTreeIter stat;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &stat, performance);
-        ok; ok = gtk_tree_model_iter_next(model, &stat)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &stat, performance) ; ok ; ok = gtk_tree_model_iter_next(model, &stat)) {
       char *name = NULL, *details = NULL;
       gtk_tree_model_get(model, &stat, NAME, &name, DETAILS, &details, -1);
-      if (name && g_str_has_prefix(name, "Neighbor ") &&
-          g_str_has_suffix(name, " recent events") && details) {
+
+      if (name && g_str_has_prefix(name, "Neighbor ") && g_str_has_suffix(name, " recent events") && details) {
          gchar **lines = g_strsplit(details, "\n", -1);
-         for (guint i = 0; lines[i]; ++i) {
+
+         for (guint i = 0 ; lines[i] ; ++i) {
             const char *line = lines[i];
+
             /* SQLite exporter emits YYYY-MM-DD HH:MM:SSZ; accept T too. */
             if (strlen(line) < 20 ||
-                !g_ascii_isdigit(line[0]) || !g_ascii_isdigit(line[1]) ||
-                !g_ascii_isdigit(line[2]) || !g_ascii_isdigit(line[3]) ||
-                line[4] != '-' || line[7] != '-' ||
-                (line[10] != ' ' && line[10] != 'T') ||
-                line[13] != ':' || line[16] != ':')
+               !g_ascii_isdigit(line[0]) || !g_ascii_isdigit(line[1]) ||
+               !g_ascii_isdigit(line[2]) || !g_ascii_isdigit(line[3]) ||
+               line[4] != '-' || line[7] != '-' || (line[10] != ' ' && line[10] != 'T') || line[13] != ':' || line[16] != ':') {
                continue;
+            }
             g_ptr_array_add(events, g_strdup(line));
          }
+
          g_strfreev(lines);
       }
       g_free(name);
       g_free(details);
    }
+
    g_ptr_array_sort(events, resource_health_event_desc);
    GString *report = g_string_new("");
-   for (guint i = 0; i < events->len; ++i) {
+
+   for (guint i = 0 ; i < events->len ; ++i) {
       const char *line = g_ptr_array_index(events, i);
       g_string_append_printf(report, "%s\n", line);
    }
+
    GtkTreeIter group;
    gboolean exists = resource_health_named_child(node, "Server Link Events", &group);
+
    if (!exists && !events->len) {
       g_string_free(report, TRUE);
       g_ptr_array_free(events, TRUE);
+
       return;
    }
-   if (!exists) gtk_tree_store_insert(browser->store, &group, node, 1);
+
+   if (!exists) {
+      gtk_tree_store_insert(browser->store, &group, node, 1);
+   }
    char *previous = NULL;
    gtk_tree_model_get(model, &group, DETAILS, &previous, -1);
    gboolean changed = g_strcmp0(previous, report->str) != 0;
    g_free(previous);
+
    if (changed || !exists) {
-      gtk_tree_store_set(browser->store, &group, NAME, "Server Link Events",
-                         KIND, "group", STATE, "SQLite history", DETAILS, report->str, -1);
+      gtk_tree_store_set(browser->store, &group, NAME, "Server Link Events", KIND, "group", STATE, "SQLite history", DETAILS, report->str, -1);
       GtkTreeIter child;
-      while (gtk_tree_model_iter_children(model, &child, &group))
+      while (gtk_tree_model_iter_children(model, &child, &group)) {
          gtk_tree_store_remove(browser->store, &child);
-      for (guint i = 0; i < events->len; ++i) {
+      }
+
+      for (guint i = 0 ; i < events->len ; ++i) {
          const char *line = g_ptr_array_index(events, i);
          gtk_tree_store_append(browser->store, &child, &group);
-         gtk_tree_store_set(browser->store, &child, NAME, line,
-                            KIND, "health-event", DETAILS, line, -1);
+         gtk_tree_store_set(browser->store, &child, NAME, line, KIND, "health-event", DETAILS, line, -1);
       }
    }
    g_string_free(report, TRUE);
    g_ptr_array_free(events, TRUE);
 }
-/* Mirror inventory performance rows rather than moving them: the ordinary
- * explorer and Cluster Health remain independent views of the same data.
- * Reuse existing child rows to retain their expansion and selection state. */
+
+/* Mirror inventory performance rows rather than moving them: the ordinary explorer and Cluster Health remain independent views of the same data. Reuse existing
+ * child rows to retain their expansion and selection state. */
 static gboolean resource_health_named_child(GtkTreeIter *parent, const char *name, GtkTreeIter *out) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
-   for (gboolean ok = gtk_tree_model_iter_children(model, out, parent);
-        ok; ok = gtk_tree_model_iter_next(model, out)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, out, parent) ; ok ; ok = gtk_tree_model_iter_next(model, out)) {
       char *current = NULL;
       gtk_tree_model_get(model, out, NAME, &current, -1);
       gboolean match = !g_strcmp0(current, name);
       g_free(current);
-      if (match) return TRUE;
+
+      if (match) {
+         return TRUE;
+      }
    }
+
    return FALSE;
 }
 static void resource_health_performance(GtkTreeIter *source, gboolean available, GtkTreeIter *node) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter mirror;
    gboolean exists = resource_health_named_child(node, "Statistics / Performance", &mirror);
+
    if (!available) {
-      if (exists) gtk_tree_store_remove(browser->store, &mirror);
+      if (exists) {
+         gtk_tree_store_remove(browser->store, &mirror);
+      }
+
       return;
    }
+
    if (!exists) {
       gtk_tree_store_append(browser->store, &mirror, node);
       gtk_tree_store_set(browser->store, &mirror, NAME, "Statistics / Performance", KIND, "group", -1);
    }
    GtkTreeIter src;
    unsigned index = 0;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &src, source);
-        ok; ok = gtk_tree_model_iter_next(model, &src)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &src, source) ; ok ; ok = gtk_tree_model_iter_next(model, &src)) {
       char *name = NULL, *kind = NULL, *state = NULL, *details = NULL;
-      gtk_tree_model_get(model, &src, NAME, &name, KIND, &kind,
-                         STATE, &state, DETAILS, &details, -1);
+      gtk_tree_model_get(model, &src, NAME, &name, KIND, &kind, STATE, &state, DETAILS, &details, -1);
       GtkTreeIter dst;
-      if (!gtk_tree_model_iter_nth_child(model, &dst, &mirror, index))
+
+      if (!gtk_tree_model_iter_nth_child(model, &dst, &mirror, index)) {
          gtk_tree_store_append(browser->store, &dst, &mirror);
+      }
       set_string(&dst, NAME, name);
       set_string(&dst, KIND, kind);
       set_string(&dst, STATE, state);
       set_string(&dst, DETAILS, details);
-      /* Mirrored diagnostics are read-only: no commands or stale remote
-       * resource bindings should be inherited from source rows. */
+      /* Mirrored diagnostics are read-only: no commands or stale remote resource bindings should be inherited from source rows. */
       ++index;
       g_free(name);
       g_free(kind);
       g_free(state);
       g_free(details);
    }
+
    GtkTreeIter stale;
-   while (gtk_tree_model_iter_nth_child(model, &stale, &mirror, index))
+   while (gtk_tree_model_iter_nth_child(model, &stale, &mirror, index)) {
       gtk_tree_store_remove(browser->store, &stale);
+   }
 }
-static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen,
-                                 unsigned *reporting, unsigned *warnings) {
+static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gboolean direct, GHashTable *seen, unsigned *reporting, unsigned *warnings) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    char *name = NULL, *uuid = NULL;
    gtk_tree_model_get(model, node, NAME, &name, UUID, &uuid, -1);
@@ -1053,36 +1150,52 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    unsigned total = 0, bad = 0, severity = 0;
    GString *reasons = g_string_new("");
    gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
+
    if (direct || available) {
       char *key = g_strdup_printf("%s|%s|%s", branch->profile, direct ? "root" : "site", direct ? "" : uuid && *uuid ? uuid : name);
       g_hash_table_add(seen, g_strdup(key));
       GtkTreeIter item, child;
       gboolean found = FALSE;
-      for (gboolean ok = gtk_tree_model_iter_children(model, &child, &browser->health_root); ok; ok = gtk_tree_model_iter_next(model, &child)) {
+
+      for (gboolean ok = gtk_tree_model_iter_children(model, &child, &browser->health_root) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
          char *binding = NULL;
          gtk_tree_model_get(model, &child, BINDING, &binding, -1);
          found = !g_strcmp0(key, binding);
          g_free(binding);
-         if (found) { item = child; break; }
+
+         if (found) {
+            item = child;
+            break;
+         }
       }
+
       if (!found) {
          gtk_tree_store_append(browser->store, &item, &browser->health_root);
-         gtk_tree_store_set(browser->store, &item, KIND, "cluster-node", PROFILE, branch->profile,
-                            BINDING, key, ACTION, direct ? "root" : "site", UUID, uuid ? uuid : "", -1);
+         gtk_tree_store_set(browser->store, &item, KIND, "cluster-node", PROFILE, branch->profile, BINDING, key, ACTION, direct ? "root" : "site", UUID, uuid ?
+            uuid : "", -1);
       }
       const char *status = !branch->online ? "Offline" :
-                           !available || !total ? (branch->loading && !branch->loaded ? "Refreshing" : "No telemetry") :
-                           severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Reporting";
-      if (branch->online && total && !severity) ++*reporting;
-      if (!branch->online || severity) ++*warnings;
-      char *details = g_strdup_printf("%s via %s. %u performance entries, %u unavailable. %s%sDouble-click to open Statistics / Performance.",
-                                       direct ? "Direct connection" : "Linked node", branch->profile, total, bad,
-                                       reasons->len ? reasons->str : "No threshold violations reported. ", reasons->len ? ". " : "");
+         !available || !total ? (branch->loading && !branch->loaded ? "Refreshing" : "No telemetry") :
+         severity == 2 ? "Critical" : severity == 1 ? "Warning" : "Reporting";
+
+      if (branch->online && total && !severity) {
+         ++*reporting;
+      }
+
+      if (!branch->online || severity) {
+         ++*warnings;
+      }
+      char *details = g_strdup_printf("%s via %s. %u performance entries, %u unavailable. %s%sDouble-click to open Statistics / Performance.", direct ?
+         "Direct connection" : "Linked node", branch->profile, total, bad, reasons->len ? reasons->str : "No threshold violations reported. ", reasons->len ?
+         ". " : "");
       set_string(&item, NAME, name ? name : branch->profile);
       set_string(&item, STATE, status);
       set_string(&item, DETAILS, details);
       resource_health_history(key, status, reasons->str, &item);
-      if (direct && available) resource_health_link_events(&group, &item);
+
+      if (direct && available) {
+         resource_health_link_events(&group, &item);
+      }
       resource_health_performance(&group, available, &item);
       g_free(details);
       g_free(key);
@@ -1090,17 +1203,24 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    g_string_free(reasons, TRUE);
    /* Include linked sites, but not rigs, VFOs or unrelated inventory groups. */
    GtkTreeIter child;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &child, node); ok; ok = gtk_tree_model_iter_next(model, &child)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, node) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
       char *kind = NULL;
       gtk_tree_model_get(model, &child, KIND, &kind, -1);
-      if (!g_strcmp0(kind, "site")) resource_health_node(branch, &child, FALSE, seen, reporting, warnings);
+
+      if (!g_strcmp0(kind, "site")) {
+         resource_health_node(branch, &child, FALSE, seen, reporting, warnings);
+      }
       g_free(kind);
    }
+
    g_free(name);
    g_free(uuid);
 }
 static void resource_health_update(void) {
-   if (!browser) return;
+   if (!browser) {
+      return;
+   }
    GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    unsigned reporting = 0, warnings = 0, nodes = 0;
    GHashTableIter branches;
@@ -1109,10 +1229,11 @@ static void resource_health_update(void) {
    while (g_hash_table_iter_next(&branches, NULL, &value)) {
       resource_branch *branch = value;
       rrconn_t *connection = rrclient_connection_find(branch->profile);
-      /* An IRC (or other non-rrprotocol) profile is not a cluster node.
-       * Retain previously discovered rrprotocol sites when disconnected. */
-      if ((connection && connection->is_ws) || branch->local_site_seen)
+
+      /* An IRC (or other non-rrprotocol) profile is not a cluster node. Retain previously discovered rrprotocol sites when disconnected. */
+      if ((connection && connection->is_ws) || branch->local_site_seen) {
          resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
+      }
    }
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
@@ -1120,12 +1241,17 @@ static void resource_health_update(void) {
    while (ok) {
       char *key = NULL;
       gtk_tree_model_get(model, &child, BINDING, &key, -1);
-      if (!key || !g_hash_table_contains(seen, key)) ok = gtk_tree_store_remove(browser->store, &child);
-      else { ++nodes; ok = gtk_tree_model_iter_next(model, &child); }
+
+      if (!key || !g_hash_table_contains(seen, key)) {
+         ok = gtk_tree_store_remove(browser->store, &child);
+      } else {
+         ++nodes;
+         ok = gtk_tree_model_iter_next(model, &child);
+      }
       g_free(key);
    }
-   char *summary = g_strdup_printf("%u nodes, %u reporting, %u with offline/unavailable metrics. Unknown telemetry is not considered healthy.",
-                                    nodes, reporting, warnings);
+   char *summary =
+      g_strdup_printf("%u nodes, %u reporting, %u with offline/unavailable metrics. Unknown telemetry is not considered healthy.", nodes, reporting, warnings);
    set_string(&browser->health_root, DETAILS, summary);
    set_string(&browser->health_root, STATE, warnings ? "Warning" : nodes && nodes == reporting ? "Reporting" : "Incomplete");
    g_free(summary);
@@ -1135,8 +1261,10 @@ static void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
    char *profile = NULL, *uuid = NULL, *action = NULL;
    gtk_tree_model_get(model, item, PROFILE, &profile, UUID, &uuid, ACTION, &action, -1);
    resource_branch *branch = profile ? g_hash_table_lookup(browser->branches, profile) : NULL;
+
    if (branch) {
       GtkTreeIter node = branch->root, group;
+
       if (g_strcmp0(action, "root") && (!uuid || !*uuid || !resource_find_uuid(&branch->root, uuid, &node))) {
          gtk_label_set_text(GTK_LABEL(browser->status), "Cannot locate this linked node in the current inventory.");
       } else {
@@ -1144,9 +1272,11 @@ static void resource_health_jump(GtkTreeModel *model, GtkTreeIter *item) {
          GString *reasons = g_string_new("");
          gboolean found = resource_health_group(&node, &group, &total, &bad, &severity, reasons);
          g_string_free(reasons, TRUE);
+
          if (found) {
             GtkTreePath *child_path = gtk_tree_model_get_path(GTK_TREE_MODEL(browser->store), &group);
             GtkTreePath *path = resource_view_path(child_path);
+
             if (path) {
                gtk_tree_view_expand_to_path(GTK_TREE_VIEW(browser->tree), path);
                gtk_tree_view_set_cursor(GTK_TREE_VIEW(browser->tree), path, NULL, FALSE);
@@ -1645,29 +1775,37 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
    }
    gtk_widget_show_all(panel);
 }
-/* Arrow keys operate on the selected branch in the filtered tree model.
- * Leave normal GTK navigation intact for leaf rows. */
+
+/* Arrow keys operate on the selected branch in the filtered tree model. Leave normal GTK navigation intact for leaf rows. */
 static gboolean resource_tree_arrow(GtkWidget *widget, GdkEventKey *event, gpointer unused) {
    (void)unused;
-   if (event->keyval != GDK_KEY_Left && event->keyval != GDK_KEY_Right)
+
+   if (event->keyval != GDK_KEY_Left && event->keyval != GDK_KEY_Right) {
       return FALSE;
-   if (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))
+   }
+
+   if (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK)) {
       return FALSE;
+   }
 
    GtkTreeView *view = GTK_TREE_VIEW(widget);
    GtkTreePath *path = NULL;
    gtk_tree_view_get_cursor(view, &path, NULL);
-   if (!path) return FALSE;
+
+   if (!path) {
+      return FALSE;
+   }
 
    GtkTreeModel *model = gtk_tree_view_get_model(view);
    GtkTreeIter iter;
-   gboolean branch = gtk_tree_model_get_iter(model, &iter, path) &&
-                     gtk_tree_model_iter_has_child(model, &iter);
+   gboolean branch = gtk_tree_model_get_iter(model, &iter, path) && gtk_tree_model_iter_has_child(model, &iter);
    gboolean handled = FALSE;
+
    if (branch) {
       if (event->keyval == GDK_KEY_Left) {
-         if (gtk_tree_view_row_expanded(view, path))
+         if (gtk_tree_view_row_expanded(view, path)) {
             gtk_tree_view_collapse_row(view, path);
+         }
          handled = TRUE;
       } else {
          gtk_tree_view_expand_row(view, path, FALSE);
@@ -1675,6 +1813,7 @@ static gboolean resource_tree_arrow(GtkWidget *widget, GdkEventKey *event, gpoin
       }
    }
    gtk_tree_path_free(path);
+
    return handled;
 }
 
@@ -1773,7 +1912,10 @@ static void resource_selection(GtkTreeSelection *selection, gpointer data) {
 
    if (coordinates && *coordinates && g_strcmp0(kind, "rig") && g_strcmp0(kind, "gps")) {
       char *position = resource_location_details(coordinates, NULL, FALSE);
-      if (*position) g_string_append_printf(text, "\n%s", position);
+
+      if (*position) {
+         g_string_append_printf(text, "\n%s", position);
+      }
       g_free(position);
    }
    g_free(coordinates);
@@ -2054,9 +2196,8 @@ static gboolean resource_tick(gpointer data) {
       rrclient_connection_dispatch(connection, resource_update_branch, branch);
 
       if (connection && !connection->is_ws) {
-         /* IRC is a valid connected profile, but has no rrprotocol inventory.
-          * Keep its channel rows beneath the IRC server instead of clearing
-          * them as though the server had disconnected on every tick. */
+         /* IRC is a valid connected profile, but has no rrprotocol inventory. Keep its channel rows beneath the IRC server instead of clearing them as though
+          * the server had disconnected on every tick. */
          branch->loading = false;
       } else if (!branch->online) {
          /* A disconnected rrprotocol profile cannot own live inventory. Invalidate the request token too, so late replies cannot resurrect stale rows. */
@@ -2093,22 +2234,27 @@ static void resource_text_cell(GtkTreeViewColumn *column, GtkCellRenderer *rende
    g_free(value);
 }
 static const char *resource_state_color(const char *text) {
-   if (!text || !*text) return NULL;
+   if (!text || !*text) {
+      return NULL;
+   }
+
    if (strstr(text, "Offline") || strstr(text, "offline") ||
-       strstr(text, "Disconnected") || strstr(text, "disconnected") ||
-       strstr(text, "Unavailable") || strstr(text, "unavailable") ||
-       strstr(text, "Failed") || strstr(text, "failed") ||
-       !g_strcmp0(text, "Critical") || !g_strcmp0(text, "No telemetry"))
+      strstr(text, "Disconnected") || strstr(text, "disconnected") ||
+      strstr(text, "Unavailable") || strstr(text, "unavailable") ||
+      strstr(text, "Failed") || strstr(text, "failed") || !g_strcmp0(text, "Critical") || !g_strcmp0(text, "No telemetry")) {
       return "#b3261e";
+   }
+
    if (strstr(text, "Degraded") || strstr(text, "degraded") ||
-       strstr(text, "Warning") || strstr(text, "warning") ||
-       strstr(text, "Connecting") || strstr(text, "connecting") ||
-       strstr(text, "Refreshing"))
+      strstr(text, "Warning") || strstr(text, "warning") || strstr(text, "Connecting") || strstr(text, "connecting") || strstr(text, "Refreshing")) {
       return "#ad7700";
+   }
+
    if (strstr(text, "Connected") || strstr(text, "Online") ||
-       strstr(text, "Subscribed") || strstr(text, "Attached") ||
-       !g_strcmp0(text, "Joined") || !g_strcmp0(text, "Reporting"))
+      strstr(text, "Subscribed") || strstr(text, "Attached") || !g_strcmp0(text, "Joined") || !g_strcmp0(text, "Reporting")) {
       return "#268044";
+   }
+
    return NULL;
 }
 static void resource_status_cell(GtkTreeViewColumn *column, GtkCellRenderer *renderer, GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
@@ -2137,8 +2283,10 @@ static gint resource_tree_compare(GtkTreeModel *model, GtkTreeIter *left, GtkTre
    gtk_tree_model_get(model, left, KIND, &kind_a, column, &a, -1);
    gtk_tree_model_get(model, right, KIND, &kind_b, column, &b, -1);
    /* Root 'This Client' is first; linked sites are last among siblings. The connected-server root is the owner, not an extra linked-site row. */
-   int rank_a = !g_strcmp0(kind_a, "local") ? 0 : !g_strcmp0(kind_a, "cluster-health") ? 1 : (!g_strcmp0(kind_a, "site") || !g_strcmp0(kind_a, "server")) ? 2 : 1;
-   int rank_b = !g_strcmp0(kind_b, "local") ? 0 : !g_strcmp0(kind_b, "cluster-health") ? 1 : (!g_strcmp0(kind_b, "site") || !g_strcmp0(kind_b, "server")) ? 2 : 1;
+   int rank_a = !g_strcmp0(kind_a, "local") ? 0 : !g_strcmp0(kind_a, "cluster-health") ? 1 : (!g_strcmp0(kind_a, "site")
+      || !g_strcmp0(kind_a, "server")) ? 2 : 1;
+   int rank_b = !g_strcmp0(kind_b, "local") ? 0 : !g_strcmp0(kind_b, "cluster-health") ? 1 : (!g_strcmp0(kind_b, "site")
+      || !g_strcmp0(kind_b, "server")) ? 2 : 1;
    gint result = 0;
 
    if (rank_a != rank_b) {
@@ -2217,14 +2365,14 @@ static void resource_details_cell(GtkTreeViewColumn *column, GtkCellRenderer *re
    char *details = NULL, *coordinates = NULL, *kind = NULL;
    gtk_tree_model_get(model, iter, DETAILS, &details, COORDINATES, &coordinates, KIND, &kind, -1);
    char *text = g_strdup(details ? details : "");
+
    if (coordinates && *coordinates && g_strcmp0(kind, "rig") != 0) {
       char *position = resource_location_details(coordinates, NULL, FALSE);
+
       if (*position) {
-         /* GPS telemetry changes independently of catalog snapshots. The
-          * coordinate column is the latest live fix, not the stale text
-          * captured in the inventory description. */
-         char *updated = !g_strcmp0(kind, "gps") ?
-            g_strdup(position) : g_strdup_printf("%s%s%s", position, *text ? " · " : "", text);
+         /* GPS telemetry changes independently of catalog snapshots. The coordinate column is the latest live fix, not the stale text captured in the inventory
+          * description. */
+         char *updated = !g_strcmp0(kind, "gps") ? g_strdup(position) : g_strdup_printf("%s%s%s", position, *text ? " · " : "", text);
          g_free(text);
          text = updated;
       }
@@ -2313,14 +2461,17 @@ static void resource_zebra_cell(GtkTreeViewColumn *column, GtkCellRenderer *rend
    } else if (field == DETAILS) {
       resource_details_cell(column, renderer, model, iter, NULL);
    }
+
    if (field == NAME || field == KIND) {
       char *kind = NULL, *state = NULL;
       gtk_tree_model_get(model, iter, KIND, &kind, STATE, &state, -1);
-      gboolean node = !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "cluster-health") ||
-                      !g_strcmp0(kind, "site") || !g_strcmp0(kind, "server");
+      gboolean node = !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "site") || !g_strcmp0(kind, "server");
       const char *color = node ? resource_state_color(state) : NULL;
       g_object_set(renderer, "foreground-set", color != NULL, NULL);
-      if (color) g_object_set(renderer, "foreground", color, NULL);
+
+      if (color) {
+         g_object_set(renderer, "foreground", color, NULL);
+      }
       g_free(kind);
       g_free(state);
    }
@@ -2474,27 +2625,34 @@ static gboolean resource_hidden_source_performance(GtkTreeModel *model, GtkTreeI
    while (gtk_tree_model_iter_parent(model, &parent, &current)) {
       char *name = NULL, *kind = NULL;
       gtk_tree_model_get(model, &current, NAME, &name, KIND, &kind, -1);
-      gboolean performance = !g_strcmp0(kind, "group") &&
-                             !g_strcmp0(name, "Statistics / Performance");
+      gboolean performance = !g_strcmp0(kind, "group") && !g_strcmp0(name, "Statistics / Performance");
       g_free(name);
       g_free(kind);
+
       if (performance) {
          char *parent_kind = NULL;
          gtk_tree_model_get(model, &parent, KIND, &parent_kind, -1);
          gboolean hide = g_strcmp0(parent_kind, "cluster-node") != 0;
          g_free(parent_kind);
-         if (hide) return TRUE;
+
+         if (hide) {
+            return TRUE;
+         }
       }
       current = parent;
    }
    return FALSE;
 }
 static gboolean resource_type_match(GtkTreeModel *model, GtkTreeIter *iter) {
-   if (resource_hidden_source_performance(model, iter)) return FALSE;
+   if (resource_hidden_source_performance(model, iter)) {
+      return FALSE;
+   }
    char *kind = NULL;
    gtk_tree_model_get(model, iter, KIND, &kind, -1);
+
    if (!g_strcmp0(kind, "cluster-health") || !g_strcmp0(kind, "cluster-node") || !g_strcmp0(kind, "health-event")) {
       g_free(kind);
+
       return resource_search_subtree(model, iter);
    }
    gboolean match = g_hash_table_contains(browser->enabled_kinds, !g_strcmp0(kind, "rig-control") ? "control" : !g_strcmp0(kind, "serial-folder") ? "serial" :
@@ -3050,7 +3208,10 @@ static void resource_show(const char *event, const void *data, size_t length, rr
    branch->request = g_strdup(request->request);
    branch->loading = true;
    branch->requested_at = mono_us();
-   if (!++branch->generation) ++branch->generation;
+
+   if (!++branch->generation) {
+      ++branch->generation;
+   }
 
    /* Keep the previous snapshot visible until the response completes. */
    memset(branch->valid, 0, sizeof(branch->valid));
@@ -3083,21 +3244,26 @@ static gboolean resource_find_uuid(GtkTreeIter *root, const char *uuid, GtkTreeI
 
    return FALSE;
 }
-static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind,
-                                        const char *uuid, const char *name,
-                                        guint generation, GtkTreeIter *found) {
+static gboolean resource_existing_child(GtkTreeIter *parent, const char *kind, const char *uuid, const char *name, guint generation, GtkTreeIter *found) {
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
-   for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent); ok;
-        ok = gtk_tree_model_iter_next(model, &child)) {
+
+   for (gboolean ok = gtk_tree_model_iter_children(model, &child, parent) ; ok ; ok = gtk_tree_model_iter_next(model, &child)) {
       char *k = NULL, *u = NULL, *n = NULL;
       guint seen = 0;
       gtk_tree_model_get(model, &child, KIND, &k, UUID, &u, NAME, &n, GENERATION, &seen, -1);
-      gboolean match = seen != generation && !g_strcmp0(kind, k) &&
-         (uuid && *uuid ? !g_strcmp0(uuid, u) : (!u || !*u) && !g_strcmp0(name, n));
-      g_free(k); g_free(u); g_free(n);
-      if (match) { *found = child; return TRUE; }
+      gboolean match = seen != generation && !g_strcmp0(kind, k) && (uuid && *uuid ? !g_strcmp0(uuid, u) : (!u || !*u) && !g_strcmp0(name, n));
+      g_free(k);
+      g_free(u);
+      g_free(n);
+
+      if (match) {
+         *found = child;
+
+         return TRUE;
+      }
    }
+
    return FALSE;
 }
 
@@ -3108,8 +3274,10 @@ static void resource_prune_snapshot(GtkTreeIter *parent, guint generation) {
    while (ok) {
       guint seen = 0;
       gtk_tree_model_get(model, &child, GENERATION, &seen, -1);
-      if (seen != generation) ok = gtk_tree_store_remove(browser->store, &child);
-      else {
+
+      if (seen != generation) {
+         ok = gtk_tree_store_remove(browser->store, &child);
+      } else {
          resource_prune_snapshot(&child, generation);
          ok = gtk_tree_model_iter_next(model, &child);
       }
@@ -3309,8 +3477,8 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       g_free(parent_kind);
       g_free(parent_details);
    }
-   if (!resource_existing_child(parent_iter, kind, dict_get(row, "inventory.uuid", ""),
-                                name, branch->generation, &iter)) {
+
+   if (!resource_existing_child(parent_iter, kind, dict_get(row, "inventory.uuid", ""), name, branch->generation, &iter)) {
       gtk_tree_store_append(browser->store, &iter, parent_iter);
    }
    gtk_tree_store_set(browser->store, &iter, GENERATION, branch->generation, -1);
@@ -3384,17 +3552,31 @@ static void resource_row(const char *event, const char *text, rrconn_t *connecti
       const char *grid = dict_get(row, "inventory.gridsquare", dict_get(row, "inventory.grid", ""));
       char *position = resource_location_details(dict_get(row, "inventory.coordinates", ""), grid, TRUE);
       g_string_assign(details, *model ? model : name);
-      if (*location) g_string_append_printf(details, " @ %s", location);
-      if (*position) g_string_append_printf(details, " %s", position);
-      if (*description) g_string_append_printf(details, " | %s", description);
+
+      if (*location) {
+         g_string_append_printf(details, " @ %s", location);
+      }
+
+      if (*position) {
+         g_string_append_printf(details, " %s", position);
+      }
+
+      if (*description) {
+         g_string_append_printf(details, " | %s", description);
+      }
       g_free(position);
    }
+
    if (gps_stream) {
       const char *grid = dict_get(row, "inventory.gridsquare", dict_get(row, "inventory.grid", ""));
       char *position = resource_location_details(dict_get(row, "inventory.coordinates", ""), grid, FALSE);
-      if (*position) g_string_append_printf(details, "%s%s", details->len ? " · " : "", position);
+
+      if (*position) {
+         g_string_append_printf(details, "%s%s", details->len ? " · " : "", position);
+      }
       g_free(position);
    }
+
    if (!strcmp(kind, "vfo")) {
       const char *site = dict_get(row, "inventory.site", "");
       const char *rig_alias = dict_get(row, "inventory.rig", "");

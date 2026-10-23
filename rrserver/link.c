@@ -106,12 +106,14 @@ static bool equal_secret(const char *a, const char *b) {
 
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason);
 static void fail_cause(struct link_session *session, const char *cause, const char *reason) {
-   if (!session || !session->connection || session->connection->is_closing) return;
+   if (!session || !session->connection || session->connection->is_closing) {
+      return;
+   }
    session->close_cause = cause;
    snprintf(session->close_reason, sizeof(session->close_reason), "%s", reason ? reason : "unspecified failure");
    Log(LOG_WARN, "link", "Connection to %s: %s", session->peer ? session->peer->site : "unknown station", session->close_reason);
-   /* Established failures are recorded once at close with uptime and cause.
-    * Setup failures have no established-link close event, so record here. */
+
+   /* Established failures are recorded once at close with uptime and cause. Setup failures have no established-link close event, so record here. */
    if (session->peer && !session->established) {
       char context[320];
       snprintf(context, sizeof(context), "cause=%s %s", session->close_cause, session->close_reason);
@@ -125,8 +127,11 @@ static void fail(struct link_session *session, const char *reason) {
 
 /* Depth is counted in edges beyond the configured direct peer: peer=0. */
 static void health_window(struct link_peer *peer) {
-   if (!peer) return;
+   if (!peer) {
+      return;
+   }
    long long now = mono_ms();
+
    if (!peer->health_window_ms || now - peer->health_window_ms > 300000) {
       peer->health_window_ms = now;
       peer->health_flaps = peer->health_auth_errors = 0;
@@ -134,87 +139,115 @@ static void health_window(struct link_peer *peer) {
 }
 static void health_record(struct link_peer *peer, const char *category, unsigned severity, double value, const char *reason) {
 #ifdef USE_SQLITE
-   if (!peer || !masterdb) return;
+
+   if (!peer || !masterdb) {
+      return;
+   }
    const struct link_session *session = peer->session;
    long long now = mono_ms();
    long long uptime = session && session->established_at ? now - session->established_at : 0;
    long long age = session && session->last_seen ? now - session->last_seen : 0;
    char context[1024], rtt_text[48];
-   if (peer->health_rtt_ms > 0) snprintf(rtt_text, sizeof(rtt_text), "%lldms", peer->health_rtt_ms);
-   else snprintf(rtt_text, sizeof(rtt_text), "unknown");
-   /* Do not store peer URLs, passwords, SASL credentials or raw wire data in
-    * SQL history. Last RTT of zero denotes unavailable, not zero latency. */
-   snprintf(context, sizeof(context),
-      "peer=%s uuid=%s direction=%s status=%s uptime=%llds last-rx=%llds-ago "
-      "rtt=%s disconnects-5m=%u auth-errors-5m=%u: %.360s",
-      peer->site[0] ? peer->site : "unknown",
-      peer->node[0] ? peer->node : session && session->node[0] ? session->node : "unknown",
-      session ? (session->outbound ? "outbound" : "inbound") : "unknown",
-      session && session->established ? "connected" : "handshake/offline",
-      uptime > 0 ? uptime / 1000 : 0, age > 0 ? age / 1000 : 0,
-      rtt_text, peer->health_flaps, peer->health_auth_errors, reason ? reason : "no details");
+
+   if (peer->health_rtt_ms > 0) {
+      snprintf(rtt_text, sizeof(rtt_text), "%lldms", peer->health_rtt_ms);
+   } else {
+      snprintf(rtt_text, sizeof(rtt_text), "unknown");
+   }
+   /* Do not store peer URLs, passwords, SASL credentials or raw wire data in SQL history. Last RTT of zero denotes unavailable, not zero latency. */
+   snprintf(context, sizeof(context), "peer=%s uuid=%s direction=%s status=%s uptime=%llds last-rx=%llds-ago "
+      "rtt=%s disconnects-5m=%u auth-errors-5m=%u: %.360s", peer->site[0] ? peer->site : "unknown", peer->node[0] ? peer->node : session && session->node[0] ?
+      session->node : "unknown", session ? (session->outbound ? "outbound" : "inbound") : "unknown", session && session->established ? "connected" :
+      "handshake/offline", uptime > 0 ? uptime / 1000 : 0, age > 0 ? age / 1000 : 0, rtt_text, peer->health_flaps, peer->health_auth_errors, reason ? reason :
+      "no details");
    const char *cause = "unknown";
+
    if (!strcmp(category, "link")) {
-      if (severity == 0) cause = "connected";
-      else cause = session && session->close_cause ? session->close_cause : "transport-closed-unknown";
+      if (severity == 0) {
+         cause = "connected";
+      } else {
+         cause = session && session->close_cause ? session->close_cause : "transport-closed-unknown";
+      }
    } else if (!strcmp(category, "transport")) {
       const char *start = reason ? strstr(reason, "cause=") : NULL;
+
       if (start) {
          start += 6;
          static const char *const known[] = {
             "handshake-timeout", "heartbeat-timeout", "http-upgrade-rejected",
             "transport-error", "administrative-close", "protocol-or-policy", NULL
          };
-         for (unsigned i = 0; known[i]; ++i)
-            if (!strncmp(start, known[i], strlen(known[i])) &&
-                (start[strlen(known[i])] == ' ' || !start[strlen(known[i])])) {
+
+         for (unsigned i = 0 ; known[i] ; ++i) {
+            if (!strncmp(start, known[i], strlen(known[i])) && (start[strlen(known[i])] == ' ' || !start[strlen(known[i])])) {
                cause = known[i];
                break;
             }
+         }
       }
-   } else if (!strcmp(category, "auth")) cause = "authentication-rejected";
-   else if (!strcmp(category, "latency"))
+   } else if (!strcmp(category, "auth")) {
+      cause = "authentication-rejected";
+   } else if (!strcmp(category, "latency")) {
       cause = severity ? "latency-degraded" : "latency-recovered";
-   db_cluster_health_record(masterdb, links.node, peer->node[0] ? peer->node : peer->site,
-                            category, severity, value, cause, context);
+   }
+   db_cluster_health_record(masterdb, links.node, peer->node[0] ? peer->node : peer->site, category, severity, value, cause, context);
 #else
-   (void)peer; (void)category; (void)severity; (void)value; (void)reason;
+   (void)peer;
+   (void)category;
+   (void)severity;
+   (void)value;
+   (void)reason;
 #endif
 }
 
 void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
-   if (!emit) return;
-   for (size_t i = 0; i < links.peer_count; ++i) {
+   if (!emit) {
+      return;
+   }
+
+   for (size_t i = 0 ; i < links.peer_count ; ++i) {
       struct link_peer *peer = &links.peers[i];
       health_window(peer);
       long long sum = 0, maximum = 0;
-      for (unsigned j = 0; j < peer->rtt_count; ++j) {
+
+      for (unsigned j = 0 ; j < peer->rtt_count ; ++j) {
          sum += peer->rtt_ring[j];
-         if (peer->rtt_ring[j] > maximum) maximum = peer->rtt_ring[j];
+
+         if (peer->rtt_ring[j] > maximum) {
+            maximum = peer->rtt_ring[j];
+         }
       }
-      emit(*peer->node ? peer->node : peer->site, peer->site,
-           peer->session && peer->session->established,
-           peer->health_flaps, peer->health_auth_errors,
-           peer->health_rtt_ms, peer->rtt_count ? sum / peer->rtt_count : 0,
-           maximum, peer->rtt_count, peer->rtt_high_streak, peer->rtt_degraded, context);
+
+      emit(*peer->node ? peer->node : peer->site, peer->site, peer->session
+         && peer->session->established, peer->health_flaps, peer->health_auth_errors, peer->health_rtt_ms, peer->rtt_count ? sum / peer->rtt_count : 0, maximum,
+         peer->rtt_count, peer->rtt_high_streak, peer->rtt_degraded, context);
    }
 }
 
 void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity) {
-   if (!out || !capacity) return;
+   if (!out || !capacity) {
+      return;
+   }
    out[0] = 0;
 #ifdef USE_SQLITE
-   if (masterdb) db_cluster_health_cause_counts(masterdb, links.node, subject, out, capacity);
+
+   if (masterdb) {
+      db_cluster_health_cause_counts(masterdb, links.node, subject, out, capacity);
+   }
 #else
    (void)subject;
 #endif
 }
 void rrserver_links_recent_events(const char *subject, char *out, size_t capacity) {
-   if (!out || !capacity) return;
+   if (!out || !capacity) {
+      return;
+   }
    out[0] = 0;
 #ifdef USE_SQLITE
-   if (masterdb && subject)
+
+   if (masterdb && subject) {
       db_cluster_health_recent(masterdb, links.node, subject, out, capacity);
+   }
 #else
    (void)subject;
 #endif
@@ -556,7 +589,10 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
    session->established_at = mono_ms();
-   if (session->peer) health_record(session->peer, "link", 0, 1, "connected");
+
+   if (session->peer) {
+      health_record(session->peer, "link", 0, 1, "connected");
+   }
 
    /* List only sites behind the newly linked peer; the peer is named separately, and is already included in the remote node count. */
    GString *downstream = g_string_new(NULL);
@@ -650,8 +686,7 @@ static void handle_hello(struct link_session *session, dict *d) {
       if (peer) {
          health_window(peer);
          peer->health_auth_errors++;
-         health_record(peer, "auth", peer->health_auth_errors >= 5 ? 2 : 1,
-                       peer->health_auth_errors, "peer handshake rejected");
+         health_record(peer, "auth", peer->health_auth_errors >= 5 ? 2 : 1, peer->health_auth_errors, "peer handshake rejected");
       }
       fail(session, "Station name, UUID or shared password does not match the configured peer; check both servers' [peer] settings");
 
@@ -917,19 +952,14 @@ static void close_session(struct link_session *session) {
       long long connected_ms = session->established_at ? now - session->established_at : 0;
       long long silent_ms = session->last_seen ? now - session->last_seen : 0;
       char reason[512];
-      snprintf(reason, sizeof(reason),
-               "cause=%s unexpected disconnect: peer=%s node=%s direction=%s connected=%llds "
-               "last-message=%llds ago reason=%s",
-               session->close_cause ? session->close_cause : "transport-closed-unknown",
-               session->peer->site, *session->node ? session->node : "unknown",
-               session->outbound ? "outbound" : "inbound",
-               connected_ms > 0 ? connected_ms / 1000 : 0,
-               silent_ms > 0 ? silent_ms / 1000 : 0,
-               *session->close_reason ? session->close_reason : "remote close or transport termination (no reason provided)");
-      health_record(session->peer, "link", session->peer->health_flaps >= 3 ? 2 : 1,
-                    session->peer->health_flaps, reason);
+      snprintf(reason, sizeof(reason), "cause=%s unexpected disconnect: peer=%s node=%s direction=%s connected=%llds "
+         "last-message=%llds ago reason=%s", session->close_cause ? session->close_cause : "transport-closed-unknown", session->peer->site, *session->node ?
+         session->node : "unknown", session->outbound ? "outbound" : "inbound", connected_ms > 0 ? connected_ms / 1000 : 0, silent_ms > 0 ? silent_ms / 1000 : 0
+         , *session->close_reason ? session->close_reason : "remote close or transport termination (no reason provided)");
+      health_record(session->peer, "link", session->peer->health_flaps >= 3 ? 2 : 1, session->peer->health_flaps, reason);
       session->peer->health_rtt_ms = 0;
    }
+
    if (session->admitted) {
       rr_link_tree_remove(links.tree, session->node, session->node);
       links.generation++;
@@ -1063,22 +1093,30 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_WS_CTL) {
       session->last_seen = mono_ms();
       struct mg_ws_message *control = data;
+
       if (control && (control->flags & 15) == WEBSOCKET_OP_PONG && session->ping_pending && session->peer) {
          long long rtt = mono_ms() - session->ping_sent;
          session->ping_pending = false;
+
          if (rtt >= 0 && rtt <= 30000) {
             struct link_peer *peer = session->peer;
             peer->health_rtt_ms = rtt;
             peer->rtt_ring[peer->rtt_next] = rtt;
             peer->rtt_next = (peer->rtt_next + 1) % 30;
-            if (peer->rtt_count < 30) peer->rtt_count++;
+
+            if (peer->rtt_count < 30) {
+               peer->rtt_count++;
+            }
+
             if (rtt >= 250) {
-               if (peer->rtt_high_streak < 30) peer->rtt_high_streak++;
+               if (peer->rtt_high_streak < 30) {
+                  peer->rtt_high_streak++;
+               }
             } else {
                peer->rtt_high_streak = 0;
             }
-            /* Two high samples enter degraded; three clean samples exit.
-             * One-off spikes remain in the trend, not as a lasting warning. */
+
+            /* Two high samples enter degraded; three clean samples exit. One-off spikes remain in the trend, not as a lasting warning. */
             if (!peer->rtt_degraded && peer->rtt_high_streak >= 2) {
                peer->rtt_degraded = true;
                health_record(peer, "latency", rtt >= 1000 ? 2 : 1, rtt, "link RTT degraded (two consecutive high pings)");
@@ -1533,14 +1571,21 @@ void rrserver_links_fini(void) {
 #else
 void rrserver_links_cause_counts(const char *subject, char *out, size_t capacity) {
    (void)subject;
-   if (out && capacity) out[0] = 0;
+
+   if (out && capacity) {
+      out[0] = 0;
+   }
 }
 void rrserver_links_recent_events(const char *subject, char *out, size_t capacity) {
    (void)subject;
-   if (out && capacity) out[0] = 0;
+
+   if (out && capacity) {
+      out[0] = 0;
+   }
 }
 void rrserver_links_health_foreach(rr_link_health_fn emit, void *context) {
-   (void)emit; (void)context;
+   (void)emit;
+   (void)context;
 }
 const char *rrserver_links_node(void) {
    return "";

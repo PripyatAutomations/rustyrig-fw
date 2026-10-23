@@ -69,26 +69,40 @@ bool is_http_banned(const char *ua) {
    return false;
 }
 
-/* Legacy ban files mix EREs and shell-style *foo* patterns. Try ERE
- * first; on invalid ERE syntax, permit bounded glob fallback. */
+/* Legacy ban files mix EREs and shell-style *foo* patterns. Try ERE first; on invalid ERE syntax, permit bounded glob fallback. */
 static char *ua_glob_regex(const char *pattern) {
    size_t n = strlen(pattern);
-   if (n > 1024) return NULL;
+
+   if (n > 1024) {
+      return NULL;
+   }
    char *out = malloc(n * 4 + 4);
-   if (!out) return NULL;
+
+   if (!out) {
+      return NULL;
+   }
    char *p = out;
    *p++ = '^';
-   for (size_t i = 0; i < n; ++i) {
+
+   for (size_t i = 0 ; i < n ; ++i) {
       char c = pattern[i];
-      if (c == '*') { *p++ = '.'; *p++ = '*'; }
-      else if (c == '?') *p++ = '.';
-      else {
-         if (strchr(".^$+()[]{}|\\", c)) *p++ = '\\';
+
+      if (c == '*') {
+         *p++ = '.';
+         *p++ = '*';
+      } else if (c == '?') {
+         *p++ = '.';
+      } else {
+         if (strchr(".^$+()[]{}|\\", c)) {
+            *p++ = '\\';
+         }
          *p++ = c;
       }
    }
+
    *p++ = '$';
    *p = '\0';
+
    return out;
 }
 bool load_http_ua_bans(const char *path) {
@@ -142,8 +156,10 @@ bool load_http_ua_bans(const char *path) {
          return true;
       }
       int regex_rc = regcomp(&new_ban->regex, new_ban->useragent, REG_EXTENDED | REG_NOSUB | REG_ICASE);
+
       if (regex_rc != 0 && strpbrk(new_ban->useragent, "*?")) {
          char *expanded = ua_glob_regex(new_ban->useragent);
+
          if (expanded) {
             regex_rc = regcomp(&new_ban->regex, expanded, REG_EXTENDED | REG_NOSUB | REG_ICASE);
             free(expanded);

@@ -1,11 +1,16 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 #ifndef LIBRUSTYIRC_CONNECTION_H
 #define LIBRUSTYIRC_CONNECTION_H
 #include <stdbool.h>
 #include <stddef.h>
 #include "irc.h"
 /* Transport is owned by the embedding program (TCP, TLS, proxy, etc.).
- * send() must accept a complete CRLF-terminated IRC line or report failure.
- * Event data is borrowed for the callback duration. Calls must be serialized;
+ * send() must accept a complete CRLF-terminated IRC line or report failure. Event data is borrowed for the callback duration. Calls must be serialized;
  * callbacks may release the connection, but must not reset or re-feed it. */
 typedef struct rustyirc_connection rustyirc_connection_t;
 typedef struct rustyirc_connection irc_conn_t;

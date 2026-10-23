@@ -98,6 +98,8 @@ WEAK bool rrclient_media_local_tx(const char *uuid) {
 
 /* Event probes have no connection-owned channel tabs unless a test overrides this. */
 WEAK const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room) {
-   (void)connection; (void)room;
+   (void)connection;
+   (void)room;
+
    return NULL;
 }

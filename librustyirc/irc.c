@@ -150,16 +150,26 @@ irc_message_t *irc_parse_message(const char *msg) {
    return mp;
 }
 
-bool rustyirc_whoisuser(const rustyirc_message_t *m,
-                       const char **nick, const char **user,
-                       const char **host, const char **realname) {
-   if (!m || m->argc != 7 || strcmp(m->argv[0], "311") ||
-       strcmp(m->argv[5], "*")) {
+bool rustyirc_whoisuser(const rustyirc_message_t *m, const char **nick, const char **user, const char **host, const char **realname) {
+   if (!m || m->argc != 7 || strcmp(m->argv[0], "311") || strcmp(m->argv[5], "*")) {
       return false;
    }
-   if (nick) *nick = m->argv[2];
-   if (user) *user = m->argv[3];
-   if (host) *host = m->argv[4];
-   if (realname) *realname = m->argv[6];
+
+   if (nick) {
+      *nick = m->argv[2];
+   }
+
+   if (user) {
+      *user = m->argv[3];
+   }
+
+   if (host) {
+      *host = m->argv[4];
+   }
+
+   if (realname) {
+      *realname = m->argv[6];
+   }
+
    return true;
 }

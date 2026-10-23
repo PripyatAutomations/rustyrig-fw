@@ -1,3 +1,9 @@
+//      This is part of rustyrig-fw. https://github.com/pripyatautomations/rustyrig-fw
+//
+// Do not pay money for this, except donations to the project, if you wish to.
+// The software is not for sale. It is freely available, always.
+//
+// Licensed under MIT license, if built without mongoose or GPL if built with.
 /* Reusable GTK3 Unicode rain; animation timing belongs to GTK's frame clock. */
 #include "gtk.matrix.h"
 
@@ -22,10 +28,14 @@ typedef struct {
 
 static void matrix_free(gpointer data) {
    Matrix *m = data;
-   for (guint i = 0; i < GLYPHS; i++) {
-      if (m->glyph_masks[i]) cairo_surface_destroy(m->glyph_masks[i]);
+
+   for (guint i = 0 ; i < GLYPHS ; i++) {
+      if (m->glyph_masks[i]) {
+         cairo_surface_destroy(m->glyph_masks[i]);
+      }
       g_clear_object(&m->glyphs[i]);
    }
+
    g_free(m->columns);
    g_free(m);
 }
@@ -34,18 +44,21 @@ static void matrix_reset_column(MatrixColumn *col, gint height) {
    col->rate = g_random_int_range(35, 100);
    col->length = g_random_int_range(6, 24);
    col->seed = g_random_int();
-   col->head = -(gint64)g_random_int_range(1, MAX(height, 2)) * 1000;
+   col->head = -(gint64) g_random_int_range(1, MAX(height, 2)) * 1000;
 }
 
 static void matrix_resize(Matrix *m, gint width, gint height) {
    guint count = (MAX(width, 1) + CELL_W - 1) / CELL_W;
+
    if (count == m->count) {
       return;
    }
    m->columns = g_renew(MatrixColumn, m->columns, count);
-   for (guint i = m->count; i < count; i++) {
+
+   for (guint i = m->count ; i < count ; i++) {
       matrix_reset_column(&m->columns[i], height);
    }
+
    m->count = count;
 }
 
@@ -56,57 +69,69 @@ static gboolean matrix_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
    matrix_resize(m, width, height);
    cairo_set_source_rgb(cr, 0, 0, 0);
    cairo_paint(cr);
-   for (guint x = 0; x < m->count; x++) {
+
+   for (guint x = 0 ; x < m->count ; x++) {
       MatrixColumn *col = &m->columns[x];
       gint head = col->head / 1000;
-      for (guint tail = 0; tail < col->length; tail++) {
-         gint y = head - (gint)tail * CELL_H;
+
+      for (guint tail = 0 ; tail < col->length ; tail++) {
+         gint y = head - (gint) tail * CELL_H;
+
          if (y < -CELL_H || y >= height) {
             continue;
          }
-         guint row = (guint)((col->head / (1000 * CELL_H)) - tail);
+         guint row = (guint) ((col->head / (1000 * CELL_H)) - tail);
          guint hash = col->seed ^ (row * 2654435761u);
          hash ^= hash >> 16;
          double light = m->brightness / 100.0;
          double fade = (col->length - tail) / (double)col->length;
-         cairo_set_source_rgb(cr, tail ? 0.02 * light : 0.75 * light,
-                              light * fade, tail ? 0.15 * light * fade : light);
+         cairo_set_source_rgb(cr, tail ? 0.02 * light : 0.75 * light, light * fade, tail ? 0.15 * light * fade : light);
          cairo_move_to(cr, x * CELL_W, y);
          cairo_mask_surface(cr, m->glyph_masks[hash % GLYPHS], x * CELL_W, y);
       }
    }
+
    return FALSE;
 }
 
 static gboolean matrix_tick(GtkWidget *widget, GdkFrameClock *clock, gpointer data) {
    Matrix *m = data;
+
    if (!gtk_widget_get_mapped(widget)) {
       m->last_frame = 0;
+
       return G_SOURCE_CONTINUE;
    }
    gint64 now = gdk_frame_clock_get_frame_time(clock);
-   /* Glyph rendering and a translucent fullscreen composited overlay are
-    * expensive. Limit redraws to ~25 fps, independently of monitor refresh.
-    * Keep the elapsed time so animation speed is unchanged. */
+
+   /* Glyph rendering and a translucent fullscreen composited overlay are expensive. Limit redraws to ~25 fps, independently of monitor refresh. Keep the
+    * elapsed time so animation speed is unchanged. */
    if (!m->last_frame) {
       m->last_frame = now;
+
       return G_SOURCE_CONTINUE;
    }
    gint64 since = now - m->last_frame;
-   if (since < 40000 || !m->speed)
+
+   if (since < 40000 || !m->speed) {
       return G_SOURCE_CONTINUE;
+   }
    gint64 elapsed = MIN(since, 100000);
    m->last_frame = now;
    gint height = gtk_widget_get_allocated_height(widget);
    matrix_resize(m, gtk_widget_get_allocated_width(widget), height);
-   for (guint i = 0; i < m->count; i++) {
+
+   for (guint i = 0 ; i < m->count ; i++) {
       MatrixColumn *col = &m->columns[i];
       col->head += elapsed * col->rate * m->speed / 100000;
-      if (col->head / 1000 > height + (gint)col->length * CELL_H) {
+
+      if (col->head / 1000 > height + (gint) col->length * CELL_H) {
          matrix_reset_column(col, height / 2);
       }
    }
+
    gtk_widget_queue_draw(widget);
+
    return G_SOURCE_CONTINUE;
 }
 
@@ -120,32 +145,40 @@ static void matrix_unmap(GtkWidget *widget, gpointer data) {
 static gboolean matrix_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
    Matrix *m = data;
    gint height = gtk_widget_get_allocated_height(widget);
+
    if (event->x < HOT_CORNER && event->y >= height - HOT_CORNER) {
-      GdkRectangle rect = {0, MAX(0, height - HOT_CORNER), HOT_CORNER, HOT_CORNER};
+      GdkRectangle rect = {
+         0, MAX(0, height - HOT_CORNER), HOT_CORNER, HOT_CORNER
+      };
       gtk_popover_set_pointing_to(GTK_POPOVER(m->popover), &rect);
       gtk_widget_show(m->popover);
    }
-   /* Do not hide on canvas motion outside the hot corner: the pointer must
-    * cross that area to reach the popover positioned above it. The popover's
-    * own leave handler closes it once the user actually leaves the controls. */
+
+   /* Do not hide on canvas motion outside the hot corner: the pointer must cross that area to reach the popover positioned above it. The popover's own leave
+    * handler closes it once the user actually leaves the controls. */
    return FALSE;
 }
 
-/* A click on the rain exits the standalone window. The controls popover
- * receives its own button events, so sliders remain interactive. */
+/* A click on the rain exits the standalone window. The controls popover receives its own button events, so sliders remain interactive. */
 static gboolean matrix_click(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    (void)event;
    (void)data;
    GtkWidget *window = gtk_widget_get_toplevel(widget);
-   if (GTK_IS_WINDOW(window)) gtk_widget_destroy(window);
+
+   if (GTK_IS_WINDOW(window)) {
+      gtk_widget_destroy(window);
+   }
+
    return TRUE;
 }
 
 static gboolean matrix_leave(GtkWidget *widget, GdkEventCrossing *event, gpointer data) {
    (void)data;
+
    if (event->detail != GDK_NOTIFY_INFERIOR) {
       gtk_widget_hide(widget);
    }
+
    return FALSE;
 }
 
@@ -153,8 +186,8 @@ static void matrix_options_changed(GtkRange *range, gpointer data) {
    (void)range;
    Matrix *m = data;
    gtk_widget_set_opacity(m->canvas, gtk_range_get_value(GTK_RANGE(m->scales[0])) / 100.0);
-   m->brightness = (guint)gtk_range_get_value(GTK_RANGE(m->scales[1]));
-   m->speed = (guint)gtk_range_get_value(GTK_RANGE(m->scales[2]));
+   m->brightness = (guint) gtk_range_get_value(GTK_RANGE(m->scales[1]));
+   m->speed = (guint) gtk_range_get_value(GTK_RANGE(m->scales[2]));
    gtk_widget_queue_draw(m->canvas);
 }
 
@@ -169,21 +202,23 @@ GtkWidget *rr_gtk_matrix_new(void) {
 
    PangoFontDescription *font = pango_font_description_from_string("Monospace");
    pango_font_description_set_absolute_size(font, 16 * PANGO_SCALE);
-   for (guint i = 0; i < GLYPHS; i++) {
-      gchar text[8] = {0};
+
+   for (guint i = 0 ; i < GLYPHS ; i++) {
+      gchar text[8] = {
+         0
+      };
       /* Halfwidth katakana plus ASCII digits, with Pango font fallback. */
       g_unichar_to_utf8(i < 54 ? 0xff66 + i : '0' + i - 54, text);
       m->glyphs[i] = gtk_widget_create_pango_layout(m->canvas, text);
       pango_layout_set_font_description(m->glyphs[i], font);
-      /* Rasterize each character once into an alpha mask. Cairo can tint
-       * these cheaply without Pango shaping/drawing hundreds of glyphs
-       * on every frame. */
+      /* Rasterize each character once into an alpha mask. Cairo can tint these cheaply without Pango shaping/drawing hundreds of glyphs on every frame. */
       m->glyph_masks[i] = cairo_image_surface_create(CAIRO_FORMAT_A8, CELL_W, CELL_H);
       cairo_t *mask_cr = cairo_create(m->glyph_masks[i]);
       cairo_set_source_rgba(mask_cr, 1, 1, 1, 1);
       pango_cairo_show_layout(mask_cr, m->glyphs[i]);
       cairo_destroy(mask_cr);
    }
+
    pango_font_description_free(font);
 
    m->popover = gtk_popover_new(m->canvas);
@@ -194,8 +229,11 @@ GtkWidget *rr_gtk_matrix_new(void) {
    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_container_add(GTK_CONTAINER(m->popover), grid);
-   const char *names[] = {"Opacity", "Brightness", "Speed"};
-   for (guint i = 0; i < 3; i++) {
+   const char *names[] = {
+      "Opacity", "Brightness", "Speed"
+   };
+
+   for (guint i = 0 ; i < 3 ; i++) {
       GtkWidget *label = gtk_label_new(names[i]);
       m->scales[i] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, i == 2 ? 450 : 100, 1);
       gtk_scale_set_digits(GTK_SCALE(m->scales[i]), 0);
@@ -205,10 +243,13 @@ GtkWidget *rr_gtk_matrix_new(void) {
       gtk_grid_attach(GTK_GRID(grid), m->scales[i], 1, i, 1, 1);
       gtk_range_set_value(GTK_RANGE(m->scales[i]), i == 0 ? 50 : i == 2 ? 300 : 100);
    }
+
    gtk_widget_show_all(grid);
-   for (guint i = 0; i < 3; i++) {
+
+   for (guint i = 0 ; i < 3 ; i++) {
       g_signal_connect(m->scales[i], "value-changed", G_CALLBACK(matrix_options_changed), m);
    }
+
    matrix_options_changed(NULL, m);
    gtk_widget_add_events(m->canvas, GDK_POINTER_MOTION_MASK | GDK_BUTTON_PRESS_MASK);
    gtk_widget_add_events(m->popover, GDK_LEAVE_NOTIFY_MASK);
@@ -219,6 +260,7 @@ GtkWidget *rr_gtk_matrix_new(void) {
    g_signal_connect(m->popover, "leave-notify-event", G_CALLBACK(matrix_leave), m);
    gtk_widget_add_tick_callback(m->canvas, matrix_tick, m, NULL);
    gtk_widget_show(m->canvas);
+
    return root;
 }
 
@@ -241,6 +283,7 @@ GtkWidget *rr_gtk_matrix_controls_button(GtkWidget *matrix) {
    gtk_widget_set_margin_end(button, 8);
    gtk_widget_set_margin_bottom(button, 8);
    g_signal_connect(button, "clicked", G_CALLBACK(matrix_controls_clicked), m);
+
    return button;
 }
 
@@ -255,10 +298,12 @@ void rr_gtk_matrix_set_options(GtkWidget *matrix, guint opacity, guint brightnes
 
 static gboolean matrix_key(GtkWidget *window, GdkEventKey *event, gpointer data) {
    (void)data;
+
    if (event->keyval != GDK_KEY_Escape) {
       return FALSE;
    }
    gtk_widget_destroy(window);
+
    return TRUE;
 }
 
@@ -266,35 +311,37 @@ GtkWidget *rr_gtk_matrix_window_new(GtkWindow *parent, gboolean fullscreen) {
    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
    gtk_window_set_title(GTK_WINDOW(window), "Matrix");
    gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
+
    if (parent) {
       gtk_window_set_transient_for(GTK_WINDOW(window), parent);
       gtk_window_set_destroy_with_parent(GTK_WINDOW(window), TRUE);
    }
    gtk_container_add(GTK_CONTAINER(window), rr_gtk_matrix_new());
    g_signal_connect(window, "key-press-event", G_CALLBACK(matrix_key), NULL);
+
    if (fullscreen) {
       gtk_window_fullscreen(GTK_WINDOW(window));
    }
    gtk_widget_show_all(window);
+
    return window;
 }
 
 #ifdef STANDALONE
 int main(int argc, char **argv) {
-    gtk_init(&argc, &argv);
+   gtk_init(&argc, &argv);
 
-    GtkWidget *window = rr_gtk_matrix_window_new(NULL, TRUE);
+   GtkWidget *window = rr_gtk_matrix_window_new(NULL, TRUE);
 
-    /* Exit the GTK event loop when the window is destroyed. */
-    g_signal_connect(window, "destroy",
-                     G_CALLBACK(gtk_main_quit), NULL);
+   /* Exit the GTK event loop when the window is destroyed. */
+   g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
-    /* Full opacity for the standalone screensaver. */
-    GtkWidget *matrix = gtk_bin_get_child(GTK_BIN(window));
-    rr_gtk_matrix_set_options(matrix, 100, 100, 300);
+   /* Full opacity for the standalone screensaver. */
+   GtkWidget *matrix = gtk_bin_get_child(GTK_BIN(window));
+   rr_gtk_matrix_set_options(matrix, 100, 100, 300);
 
-    gtk_main();
-    return 0;
+   gtk_main();
+
+   return 0;
 }
 #endif
- 

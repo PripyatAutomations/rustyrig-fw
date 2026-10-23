@@ -76,8 +76,10 @@ static bool use_frontend;
 static char status_text[1024], printed_room[128];
 const char *rrclient_window_find_for_connection(const rrconn_t *connection, const char *room) {
    (void)connection;
+
    return !strcmp(room, "&local") || !strcmp(room, "#room") ? room : NULL;
 }
+
 static bool printed_status;
 static bool quit_test;
 static bool quit_members[3];
@@ -258,7 +260,7 @@ int main(void) {
          ":server 311 tester alice ident host.example * :Alice Example", "WHOIS alice!ident@host.example", "Alice Example",
       },
       {
-          ":irc.example.com 311 dan mike ~mi localhost * :Mike\'s such a cool person!", "WHOIS mike!~mi@localhost", "Mike\'s such a cool person!"
+         ":irc.example.com 311 dan mike ~mi localhost * :Mike\'s such a cool person!", "WHOIS mike!~mi@localhost", "Mike\'s such a cool person!"
       },
       {
          ":server 311 tester bob user 2001:db8::1 * :Unknown", "WHOIS bob!user@2001:db8::1", "Unknown"
@@ -327,8 +329,10 @@ int main(void) {
 
    for (size_t i = 0 ; i < sizeof(whois_replies) / sizeof(whois_replies[0]) ; i++) {
       irc_process_message(&client, whois_replies[i].line);
-      if (!printed_status || !strstr(status_text, whois_replies[i].first))
+
+      if (!printed_status || !strstr(status_text, whois_replies[i].first)) {
          fprintf(stderr, "WHOIS case %zu: expected %s; got %s\n", i, whois_replies[i].first, status_text);
+      }
       assert(printed_status && strstr(status_text, whois_replies[i].first));
       assert(strstr(status_text, whois_replies[i].second));
    }

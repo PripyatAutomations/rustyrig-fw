@@ -705,8 +705,12 @@ static gint screensaver_pointer_x, screensaver_pointer_y;
 static GdkScreen *screensaver_pointer_screen;
 
 static void screensaver_child_exited(GPid pid, gint status, gpointer data) {
-   (void)status; (void)data;
-   if (screensaver_pid == pid) screensaver_pid = 0;
+   (void)status;
+   (void)data;
+
+   if (screensaver_pid == pid) {
+      screensaver_pid = 0;
+   }
    g_spawn_close_pid(pid);
    screensaver_last_activity = g_get_monotonic_time();
 }
@@ -715,44 +719,56 @@ static void screensaver_activity(void) {
    screensaver_last_activity = g_get_monotonic_time();
 }
 static gboolean screensaver_activity_event(GtkWidget *widget, GdkEvent *event, gpointer data) {
-   (void)widget; (void)data;
-   if (event->type == GDK_KEY_PRESS || event->type == GDK_BUTTON_PRESS ||
-       event->type == GDK_SCROLL || event->type == GDK_MOTION_NOTIFY)
+   (void)widget;
+   (void)data;
+
+   if (event->type == GDK_KEY_PRESS || event->type == GDK_BUTTON_PRESS || event->type == GDK_SCROLL || event->type == GDK_MOTION_NOTIFY) {
       screensaver_activity();
+   }
+
    return FALSE;
 }
 static gboolean screensaver_launch(void) {
-   if (screensaver_pid) return FALSE;
+   if (screensaver_pid) {
+      return FALSE;
+   }
    gchar program[] = "gmatrix";
-   gchar *argv[] = {program, NULL};
+   gchar *argv[] = {
+      program, NULL
+   };
    GError *error = NULL;
    GPid pid = 0;
-   if (!g_spawn_async(NULL, argv, NULL,
-                      G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
-                      NULL, NULL, &pid, &error)) {
+
+   if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD, NULL, NULL, &pid, &error)) {
       Log(LOG_WARN, "gtk.screensaver", "Unable to launch gmatrix: %s", error->message);
       g_clear_error(&error);
       screensaver_activity();
+
       return FALSE;
    }
    screensaver_pid = pid;
    g_child_watch_add(pid, screensaver_child_exited, NULL);
    screensaver_activity();
+
    return TRUE;
 }
 static gboolean screensaver_idle_check(gpointer unused) {
    (void)unused;
-   if (!main_window || !GTK_IS_WINDOW(main_window)) return G_SOURCE_CONTINUE;
+
+   if (!main_window || !GTK_IS_WINDOW(main_window)) {
+      return G_SOURCE_CONTINUE;
+   }
    /* Pointer movement, even over nested GTK controls, counts as activity. */
    GdkDisplay *display = gtk_widget_get_display(main_window);
    GdkSeat *seat = display ? gdk_display_get_default_seat(display) : NULL;
    GdkDevice *pointer = seat ? gdk_seat_get_pointer(seat) : NULL;
+
    if (pointer) {
       gint x, y;
       GdkScreen *screen = NULL;
       gdk_device_get_position(pointer, &screen, &x, &y);
-      if (x != screensaver_pointer_x || y != screensaver_pointer_y ||
-          screen != screensaver_pointer_screen) {
+
+      if (x != screensaver_pointer_x || y != screensaver_pointer_y || screen != screensaver_pointer_screen) {
          screensaver_pointer_x = x;
          screensaver_pointer_y = y;
          screensaver_pointer_screen = screen;
@@ -761,37 +777,48 @@ static gboolean screensaver_idle_check(gpointer unused) {
    }
    int timeout = cfg_get_int("ui.screensaver.timeout", 3600);
    const char *selected = cfg_get("ui.screensaver");
-   if (!selected || strcmp(selected, "matrix") || timeout <= 0 ||
-       screensaver_pid || !gtk_window_is_active(GTK_WINDOW(main_window))) {
+
+   if (!selected || strcmp(selected, "matrix") || timeout <= 0 || screensaver_pid || !gtk_window_is_active(GTK_WINDOW(main_window))) {
       screensaver_activity();
+
       return G_SOURCE_CONTINUE;
    }
    GdkWindow *window = gtk_widget_get_window(main_window);
+
    if (!window || !(gdk_window_get_state(window) & GDK_WINDOW_STATE_FULLSCREEN)) {
       screensaver_activity();
+
       return G_SOURCE_CONTINUE;
    }
-   if (g_get_monotonic_time() - screensaver_last_activity >= (gint64)timeout * G_USEC_PER_SEC)
+
+   if (g_get_monotonic_time() - screensaver_last_activity >= (gint64) timeout * G_USEC_PER_SEC) {
       screensaver_launch();
+   }
+
    return G_SOURCE_CONTINUE;
 }
 
-/* Spawn the independently packaged screensaver; never run it in the
- * rrclient widget tree. GTK owns the Escape-prefix event handling here. */
+/* Spawn the independently packaged screensaver; never run it in the rrclient widget tree. GTK owns the Escape-prefix event handling here. */
 static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data) {
-   (void)widget; (void)data;
+   (void)widget;
+   (void)data;
    static gint64 escape_at;
    gint64 now = g_get_monotonic_time();
+
    if (event->keyval == GDK_KEY_Escape) {
       escape_at = now;
+
       return FALSE;
    }
    gboolean armed = escape_at && now - escape_at <= 1500000;
    escape_at = 0;
+
    if (!armed || (event->keyval != GDK_KEY_grave && event->keyval != GDK_KEY_asciitilde) ||
-       (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK)))
+      (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK | GDK_SUPER_MASK))) {
       return FALSE;
+   }
    screensaver_launch();
+
    return TRUE;
 }
 
@@ -810,8 +837,7 @@ bool gui_init(void) {
    // Attach the notebook to the main window for tabs
    main_notebook = gtk_notebook_new();
    gtk_ui_zoom_attach(main_window, gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip));
-   /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent
-    * it into an overlay so the screensaver covers the whole content area. */
+   /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
    g_object_ref(viewport);
    gtk_container_remove(GTK_CONTAINER(main_window), viewport);

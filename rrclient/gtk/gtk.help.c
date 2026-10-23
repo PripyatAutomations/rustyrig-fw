@@ -25,10 +25,15 @@ static void help_line(const char *line, void *data) {
 void gtk_help_show(void) {
    if (!help_panel) {
       GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
-      help_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook),
-                                         "client-help", "RustyRig Help");
-      if (!help_panel) return;
+
+      if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+         return;
+      }
+      help_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "client-help", "RustyRig Help");
+
+      if (!help_panel) {
+         return;
+      }
       gtk_widget_set_size_request(rr_floating_panel_body(help_panel), 800, 500);
       GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
       gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);

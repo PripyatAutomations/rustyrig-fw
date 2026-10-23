@@ -48,20 +48,28 @@ static bool dispatch_message(irc_conn_t *cptr, irc_message_t *mp) {
    if (!mp || mp->argc < 1 || !mp->argv || !mp->argv[0]) {
       return true;
    }
-   if (rustyirc_dcc_audio_message(cptr, mp)) return false;
-   const char *cmd = mp->argv[0];
-   if ((!strcasecmp(cmd, "PRIVMSG") || !strcasecmp(cmd, "NOTICE")) &&
-       mp->argc >= 3 && !strncasecmp(mp->argv[2], "\001DCC ", 5)) {
-      rustyirc_dcc_offer_t offer;
-      if (cptr && mp->prefix && mp->argv[1] && !strcasecmp(mp->argv[1], cptr->nick) &&
-          rustyirc_dcc_decode(mp->argv[2], &offer))
-         rustyirc_emit_message("irc.dcc.offer", cptr, mp);
+
+   if (rustyirc_dcc_audio_message(cptr, mp)) {
       return false;
    }
+   const char *cmd = mp->argv[0];
+
+   if ((!strcasecmp(cmd, "PRIVMSG") || !strcasecmp(cmd, "NOTICE")) && mp->argc >= 3 && !strncasecmp(mp->argv[2], "\001DCC ", 5)) {
+      rustyirc_dcc_offer_t offer;
+
+      if (cptr && mp->prefix && mp->argv[1] && !strcasecmp(mp->argv[1], cptr->nick) && rustyirc_dcc_decode(mp->argv[2], &offer)) {
+         rustyirc_emit_message("irc.dcc.offer", cptr, mp);
+      }
+
+      return false;
+   }
+
    if (cptr && !strcasecmp(cmd, "NICK") && mp->argc > 1 && mp->prefix) {
       size_t n = strcspn(mp->prefix, "!");
-      if (strlen(cptr->nick) == n && !strncasecmp(cptr->nick, mp->prefix, n))
+
+      if (strlen(cptr->nick) == n && !strncasecmp(cptr->nick, mp->prefix, n)) {
          rustyirc_connection_set_nick(cptr, mp->argv[1]);
+      }
    }
    rustyirc_capabilities_message(cptr, mp);
    bool numeric = strlen(cmd) == 3 && isdigit((unsigned char)cmd[0]) && isdigit((unsigned char)cmd[1]) && isdigit((unsigned char)cmd[2]);
@@ -258,8 +266,11 @@ bool rustyirc_register_default_numeric_callbacks(void) {
 }
 
 bool rustyirc_dispatch_message(irc_conn_t *c, irc_message_t *message) {
-   if (!rustyirc_connection_hold(c)) return true;
+   if (!rustyirc_connection_hold(c)) {
+      return true;
+   }
    bool failed = dispatch_message(c, message);
    rustyirc_connection_release(c);
+
    return failed;
 }

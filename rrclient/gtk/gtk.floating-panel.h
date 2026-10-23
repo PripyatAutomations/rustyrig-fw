@@ -13,14 +13,11 @@ void rr_floating_panel_hide(RRFloatPanel *panel);
 void rr_floating_panel_restore(RRFloatPanel *panel);
 void rr_floating_panel_set_closable(RRFloatPanel *panel, gboolean closable);
 void rr_floating_panel_destroy(RRFloatPanel *panel);
-void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback)(gpointer), gpointer data);
-/* Modal panels stay inside the client's overlay. Response handlers may destroy
- * the panel; they are called synchronously on a button press or Escape. */
+void rr_floating_panel_set_close_callback(RRFloatPanel *panel, void (*callback) (gpointer), gpointer data);
+/* Modal panels stay inside the client's overlay. Response handlers may destroy the panel; they are called synchronously on a button press or Escape. */
 void rr_floating_panel_set_modal(RRFloatPanel *panel, gboolean modal);
-void rr_floating_panel_set_response_callback(RRFloatPanel *panel,
-      void (*callback)(RRFloatPanel *, gint, gpointer), gpointer data);
+void rr_floating_panel_set_response_callback(RRFloatPanel *panel, void (*callback) (RRFloatPanel *, gint, gpointer), gpointer data);
 void rr_floating_panel_response(RRFloatPanel *panel, gint response);
-GtkWidget *rr_floating_panel_add_response(RRFloatPanel *panel, GtkWidget *button_box,
-                                          const char *label, gint response);
+GtkWidget *rr_floating_panel_add_response(RRFloatPanel *panel, GtkWidget *button_box, const char *label, gint response);
 gboolean rr_floating_panel_is_minimized(const RRFloatPanel *panel);
 #endif

@@ -17,7 +17,8 @@
 #include <sqlite3.h>
 #include <librustyaxe/dict.h>
 
-bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *subject, const char *category, unsigned severity, double value, const char *cause, const char *reason);
+bool db_cluster_health_record(sqlite3 *db, const char *reporter, const char *subject, const char *category, unsigned severity, double value, const char *cause,
+   const char *reason);
 void db_cluster_health_cause_counts(sqlite3 *db, const char *reporter, const char *subject, char *out, size_t capacity);
 /* Recent observations, newest first. Truncated into caller-owned buffer. */
 void db_cluster_health_recent(sqlite3 *db, const char *reporter, const char *subject, char *out, size_t capacity);

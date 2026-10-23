@@ -698,6 +698,7 @@ static gint sort(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer d
 }
 static void destroyed(GtkWidget *window, gpointer data) {
    files_panel = NULL;
+
    if (browser.timer) {
       g_source_remove(browser.timer);
    }
@@ -709,7 +710,10 @@ static void destroyed(GtkWidget *window, gpointer data) {
 }
 static void files_close(gpointer data) {
    (void)data;
-   if (files_panel) rr_floating_panel_destroy(files_panel);
+
+   if (files_panel) {
+      rr_floating_panel_destroy(files_panel);
+   }
 }
 static void open_browser(const char *event, const char *text, rrconn_t *c, void *data) {
    if (browser.window) {
@@ -719,9 +723,15 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
       return;
    }
    GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
-   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) return;
+
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return;
+   }
    files_panel = rr_floating_panel_new(GTK_OVERLAY(root), GTK_NOTEBOOK(main_notebook), "remote-files", "Remote Files");
-   if (!files_panel) return;
+
+   if (!files_panel) {
+      return;
+   }
    rr_floating_panel_set_close_callback(files_panel, files_close, NULL);
    browser.window = rr_floating_panel_widget(files_panel);
    GtkWidget *box = rr_floating_panel_body(files_panel);

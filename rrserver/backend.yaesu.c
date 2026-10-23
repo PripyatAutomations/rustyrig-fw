@@ -511,13 +511,13 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
    s->frequency[index] = frequency;
 
    if (index == b->active_vfo) {
-      /* WSJT-X queries ST before enabling Rig split. Keep the property
-       * synchronized with the hardware, including front-panel changes. */
+      /* WSJT-X queries ST before enabling Rig split. Keep the property synchronized with the hardware, including front-panel changes. */
       char split_reply[24];
-      if (cat(s, "ST;", "ST", split_reply, sizeof(split_reply)) &&
-          strlen(split_reply) == 3 &&
-          (split_reply[2] == '0' || split_reply[2] == '1')) {
-         dict_value_t split = {.i = split_reply[2] == '1'};
+
+      if (cat(s, "ST;", "ST", split_reply, sizeof(split_reply)) && strlen(split_reply) == 3 && (split_reply[2] == '0' || split_reply[2] == '1')) {
+         dict_value_t split = {
+            .i = split_reply[2] == '1'
+         };
          rr_backend_property_observe(b, v, "split", VAL_INT, &split);
       }
       char md[24];
@@ -788,28 +788,29 @@ static bool width_set(rr_backend_t *b, rr_server_vfo_t *v, const char *width) {
    return sh_read(b, v) <= 0;
 }
 
-/* FT-891 ST sets the physical split state. Confirm it with a CAT
- * readback before publishing any property observation. Split uses the
- * radio's receive/transmit registers, not the client's selection cursor. */
+/* FT-891 ST sets the physical split state. Confirm it with a CAT readback before publishing any property observation. Split uses the radio's receive/transmit
+ * registers, not the client's selection cursor. */
 static bool split_mode(rr_backend_t *b, rr_server_vfo_t *v, const char *value) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t index;
    char cmd[8], reply[24];
-   if (!s || !index_of(v, &index) || !value ||
-       (strcmp(value, "0") && strcmp(value, "1")) || s->ptt)
-      return true;
-   snprintf(cmd, sizeof(cmd), "ST%c;", value[0]);
-   if (!cat(s, cmd, NULL, NULL, 0) ||
-       !cat(s, "ST;", "ST", reply, sizeof(reply)) ||
-       strlen(reply) != 3 || reply[2] != value[0]) {
-      rr_backend_log(b, LOG_WARN, "backend.yaesu",
-                     "Split change not confirmed by FT-891 CAT readback");
+
+   if (!s || !index_of(v, &index) || !value || (strcmp(value, "0") && strcmp(value, "1")) || s->ptt) {
       return true;
    }
-   dict_value_t observed = {.i = value[0] == '1'};
+   snprintf(cmd, sizeof(cmd), "ST%c;", value[0]);
+
+   if (!cat(s, cmd, NULL, NULL, 0) || !cat(s, "ST;", "ST", reply, sizeof(reply)) || strlen(reply) != 3 || reply[2] != value[0]) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "Split change not confirmed by FT-891 CAT readback");
+
+      return true;
+   }
+   dict_value_t observed = {
+      .i = value[0] == '1'
+   };
    rr_backend_property_observe(b, v, "split", VAL_INT, &observed);
-   rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 split %s confirmed",
-                  value[0] == '1' ? "ON" : "OFF");
+   rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 split %s confirmed", value[0] == '1' ? "ON" : "OFF");
+
    return false;
 }
 
@@ -843,13 +844,12 @@ static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
    if (!s || !index_of(v, &i) || i != b->active_vfo) {
       return true;
    }
-   /* This backend currently changes active_vfo in software but does not
-    * issue a physical FT-891 VFO swap. Never key an unverified B selection:
-    * TX1 operates the radio's physical TX path, not a named VFO register.
-    * Keep key-up possible to release an already keyed radio. */
+
+   /* This backend currently changes active_vfo in software but does not issue a physical FT-891 VFO swap. Never key an unverified B selection:
+    * TX1 operates the radio's physical TX path, not a named VFO register. Keep key-up possible to release an already keyed radio. */
    if (on && i == VFO_B) {
-      rr_backend_log(b, LOG_WARN, "backend.yaesu",
-                     "PTT on VFO B rejected: hardware operating VFO not verified; no CAT VFO swap implemented");
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "PTT on VFO B rejected: hardware operating VFO not verified; no CAT VFO swap implemented");
+
       return true;
    }
 
