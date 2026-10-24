@@ -275,7 +275,10 @@ char **client_cmd_completions(const char *line, const char *word) {
       return NULL;
    }
 
-   if (*line != '/') {
+   /* /me is free-form action text, so nicknames complete at any word
+    * just like chat, without adding the address-style colon. */
+   bool action_text = !strncasecmp(line, "/me", 3) && (line[3] == ' ' || line[3] == '\\t');
+   if (*line != '/' || action_text) {
       const char *room = rrclient_current_room();
 
       if (!room || (room[0] != '#' && room[0] != '&') || !*word) {
@@ -283,7 +286,7 @@ char **client_cmd_completions(const char *line, const char *word) {
       }
       char **matches = NULL;
       size_t count = 0;
-      bool first = strlen(line) == strlen(word);
+      bool first = !action_text && strlen(line) == strlen(word);
 
       for (struct rr_user *u = global_userlist ; u ; u = u->next) {
          if (strcasecmp(u->room, room)) {
