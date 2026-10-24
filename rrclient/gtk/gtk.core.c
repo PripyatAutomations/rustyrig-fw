@@ -870,19 +870,9 @@ bool gui_init(void) {
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
-   /* Keep the notebook's requested width from enlarging the whole app.
-    * Wide pages scroll inside this notebook viewport rather than pushing
-    * the shared toolbar and other chrome beyond the window edge. */
-   GtkWidget *notebook_scroller = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(notebook_scroller),
-      GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
-   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(notebook_scroller), FALSE);
-   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(notebook_scroller), 1);
-   gtk_widget_set_hexpand(notebook_scroller, TRUE);
-   gtk_widget_set_vexpand(notebook_scroller, TRUE);
-   gtk_container_add(GTK_CONTAINER(notebook_scroller),
-      gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip));
-   gtk_box_pack_start(GTK_BOX(main_content), notebook_scroller, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(main_content),
+      gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip),
+      TRUE, TRUE, 0);
    gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
