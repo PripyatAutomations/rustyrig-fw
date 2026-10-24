@@ -21,6 +21,10 @@
 #include <rrserver/backend.h>
 #include <rrserver/backend.worker.h>
 #include <rrserver/rig.properties.h>
+#include <rrserver/rig.registry.h>
+#ifdef USE_SQLITE
+#include <rrserver/database.h>
+#endif
 
 typedef struct yaesu_menu_entry {
    const char *id, *label;
@@ -45,7 +49,6 @@ typedef struct yaesu_state {
    const struct yaesu_model_profile *profile;
    char saved_audio_menu[6][16];
    bool saved_audio_valid[6], changed_audio_menu[6];
-   int desired_power[2][4]; /* HF/50 MHz x SSB, AM, FM, DATA/CW; 0=unset */
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -876,55 +879,105 @@ static bool ft891_power_write(yaesu_state_t *s, const char *id, int watts) {
    snprintf(command, sizeof(command), "EX%s%03d;", id, watts);
    return cat(s, command, NULL, NULL, 0);
 }
-static int ft891_power_target(yaesu_state_t *s, rr_vfo_t i) {
-   int slot = yaesu_power_slot(s->mode[i]);
-   if (slot < 0 || s->frequency[i] <= 0 || s->frequency[i] > 54000000L) return 0;
-   return s->desired_power[s->frequency[i] >= 50000000L][slot];
+static int yaesu_power_band(yaesu_state_t *s, rr_vfo_t i) {
+   long hz = s->frequency[i];
+   if (hz <= 0) return -1;
+   if (hz < 50000000L) return 0;
+   if (hz <= 54000000L) return 1;
+   if (s->model_id == 670 && hz >= 144000000L && hz <= 148000000L) return 2;
+   if (s->model_id == 670 && hz >= 430000000L && hz <= 450000000L) return 3;
+   return -1;
 }
-static bool ft891_power_apply(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
-   const char *id = ft891_power_menu(s, i);
-   int target = ft891_power_target(s, i);
-   if (!target) return true; /* no requested setpoint; preserve radio setting */
-   if (!id) return false;
-   int current, verified;
-   if (!ft891_power_read(s, id, &current)) return false;
-   if (current == target) return true;
-   if (!ft891_power_write(s, id, target) || !ft891_power_read(s, id, &verified) || verified != target) return false;
-   rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 power applied: menu=%s mode=%s target=%d W previous=%d W",
-      id, vfo_mode_name(s->mode[i]), target, current);
+static int yaesu_power_target(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
+   int slot = yaesu_power_slot(s->mode[i]), band = yaesu_power_band(s, i);
+   if (slot < 0 || band < 0) return 0;
+#ifdef USE_SQLITE
+   if (masterdb && b->owner) {
+      const char *id = rr_server_rig_id(b->owner);
+      if (id && *id) return db_rig_power_get(masterdb, id, band, slot);
+   }
+#endif
+   return 0;
+}
+static bool yaesu_power_read(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i, int *watts) {
+   (void)b;
+   if (s->model_id == 650) {
+      const char *id = ft891_power_menu(s, i);
+      return id && ft891_power_read(s, id, watts);
+   }
+   if (s->model_id == 670) {
+      char reply[24];
+      if (!cat(s, "PC;", "PC", reply, sizeof(reply)) || strlen(reply) != 5) return false;
+      return decimal(reply + 2, 3, watts);
+   }
+   return false;
+}
+static bool yaesu_power_write(yaesu_state_t *s, rr_vfo_t i, int watts) {
+   if (s->model_id == 650) {
+      const char *id = ft891_power_menu(s, i);
+      return id && ft891_power_write(s, id, watts);
+   }
+   if (s->model_id == 670) {
+      char command[16];
+      snprintf(command, sizeof(command), "PC%03d;", watts);
+      return cat(s, command, NULL, NULL, 0);
+   }
+   return false;
+}
+static int yaesu_power_limit(yaesu_state_t *s, rr_vfo_t i) {
+   int band = yaesu_power_band(s, i);
+   if (band < 0) return 0;
+   if (s->model_id == 650) return yaesu_power_slot(s->mode[i]) == 1 ? 40 : 100;
+   if (s->model_id == 670) return band >= 2 ? 50 : yaesu_power_slot(s->mode[i]) == 1 ? 25 : 100;
+   return 0;
+}
+static bool yaesu_power_apply(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
+   int target = yaesu_power_target(b, s, i);
+   if (!target) return true; /* No operator preference: leave hardware alone. */
+   int actual, verified;
+   if (target > yaesu_power_limit(s, i) || !yaesu_power_read(b, s, i, &actual)) return false;
+   if (actual == target) return true;
+   if (!yaesu_power_write(s, i, target) || !yaesu_power_read(b, s, i, &verified) || verified != target) return false;
+   rr_backend_log(b, LOG_INFO, "backend.yaesu", "%s power applied mode=%s band=%d target=%d W previous=%d W",
+      s->profile ? s->profile->model : "Yaesu", vfo_mode_name(s->mode[i]), yaesu_power_band(s, i), target, actual);
    return true;
 }
 static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
-   if (!s || s->model_id != 650 || !index_of(v, &i) || i != b->active_vfo ||
-       !isfinite(watts) || watts < 5 || watts > 100 || (int)watts != watts || s->ptt) return true;
-   const char *id = ft891_power_menu(s, i);
-   int slot = yaesu_power_slot(s->mode[i]);
-   if (!id || slot < 0 || (slot == 1 && watts > 40)) return true;
-   int band = s->frequency[i] >= 50000000L;
-   int previous = s->desired_power[band][slot];
-   s->desired_power[band][slot] = (int)watts;
-   if (!ft891_power_apply(b, s, i)) {
-      s->desired_power[band][slot] = previous;
-      rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 power setting not confirmed; refusing requested %d W", (int)watts);
+   if (!s || !index_of(v, &i) || i != b->active_vfo || s->ptt ||
+       !isfinite(watts) || watts < 5 || (int)watts != watts) return true;
+   int band = yaesu_power_band(s, i), slot = yaesu_power_slot(s->mode[i]);
+   if (band < 0 || slot < 0 || watts > yaesu_power_limit(s, i)) return true;
+   int readback;
+   if (!yaesu_power_write(s, i, (int)watts) ||
+       !yaesu_power_read(b, s, i, &readback) || readback != (int)watts) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "Power write not confirmed: mode=%s requested=%d W", vfo_mode_name(s->mode[i]), (int)watts);
       return true;
    }
+#ifdef USE_SQLITE
+   const char *id = b->owner ? rr_server_rig_id(b->owner) : NULL;
+   if (!id || !masterdb || !db_rig_power_set(masterdb, id, band, slot, (int)watts)) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "Power applied but database preference not saved: rig=%s", id ? id : "(unknown)");
+      return true;
+   }
+#else
+   rr_backend_log(b, LOG_WARN, "backend.yaesu", "Power preference cannot persist: SQLite support disabled");
+   return true;
+#endif
    return false;
 }
 static float power_get(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
-   if (!s || s->model_id != 650 || !index_of(v, &i) || i != b->active_vfo) return 0;
-   const char *id = ft891_power_menu(s, i);
-   int current;
-   return id && ft891_power_read(s, id, &current) ? (float)current : 0;
+   int actual;
+   return s && index_of(v, &i) && i == b->active_vfo &&
+      yaesu_power_read(b, s, i, &actual) ? (float)actual : 0;
 }
 static float power_max(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
-   if (!s || s->model_id != 650 || !index_of(v, &i)) return 0;
-   return yaesu_power_slot(s->mode[i]) == 1 ? 40 : 100;
+   return s && index_of(v, &i) ? (float)yaesu_power_limit(s, i) : 0;
 }
 static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
    yaesu_state_t *s = ys(b);
@@ -942,8 +995,8 @@ static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
       return true;
    }
 
-   if (on && s->model_id == 650 && !ft891_power_apply(b, s, i)) {
-      rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 power not verified before PTT; refusing TX");
+   if (on && !yaesu_power_apply(b, s, i)) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "Requested mode/band power not verified before PTT; refusing TX");
       return true;
    }
 
