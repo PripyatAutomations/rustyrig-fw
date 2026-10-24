@@ -2296,7 +2296,12 @@ bool chat_init(void) {
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
    /* Keep the counters visible: shorten the server name and the optional
     * room title first, never chop off the TX rate at the right edge. */
-   gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_NONE);
+   /* This label lives on an overlay; its natural width must not enlarge
+    * the overlay beyond the visible window. Keep the rightmost TX figures
+    * readable when RTP adds parenthesized rate figures. */
+   gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_START);
+   gtk_label_set_max_width_chars(GTK_LABEL(status_network_label), 33);
+   gtk_label_set_xalign(GTK_LABEL(status_network_label), 1.0);
    gtk_widget_set_hexpand(network_row, FALSE);
    gtk_widget_set_margin_end(network_row, 2);
    /* The entire notebook lives inside a non-horizontally-scrollable viewport.
