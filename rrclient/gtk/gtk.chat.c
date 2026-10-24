@@ -1286,10 +1286,8 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       g_free(copy);
    }
    unsigned count = 0;
-   char only[2] = { 0, 0 };
    for (unsigned i = 0; i < 26; i++) {
       if (mask & (UINT32_C(1) << i)) {
-         if (count < 2) only[count] = (char)('A' + i);
          count++;
       }
    }
