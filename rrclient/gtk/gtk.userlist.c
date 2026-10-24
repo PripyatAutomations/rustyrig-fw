@@ -953,7 +953,8 @@ static void room_vfo_stop_clicked(GtkButton *button, gpointer data) {
    char vfo[2] = {
       control->vfo, 0
    };
-   ws_send_ptt_cmd_in_room(ws_conn, vfo, false, control->room);
+   extern void rrclient_send_ptt_command(rrconn_t *, const char *, bool, const char *);
+   rrclient_send_ptt_command(ws_conn, vfo, false, control->room);
 }
 
 static void room_vfo_tune_clicked(GtkButton *button, gpointer data) {
