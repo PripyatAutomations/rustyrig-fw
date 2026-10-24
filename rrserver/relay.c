@@ -372,6 +372,8 @@ typedef struct {
    gint64 linked_at;
 } relay_sync_health_t;
 static GHashTable *relay_sync_health;
+static size_t last_healthy_catalog_count;
+static bool have_healthy_catalog_count;
 static relay_sync_health_t *relay_sync_peer(const char *node) {
    if (!node || !*node) return NULL;
    if (!relay_sync_health)
@@ -408,10 +410,22 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
          total++;
          if (peer->inbound_ok && peer->outbound_ok) healthy++;
       }
-      if (total && healthy == total)
-         Log(LOG_INFO, "relay.health",
-            "Local cluster catalog sync healthy: %u/%u connected peers bidirectionally synchronized (not an end-to-end quorum)",
-            healthy, total);
+      if (total && healthy == total) {
+         size_t current = rr_relay_catalog_count;
+         if (have_healthy_catalog_count) {
+            size_t gained = current > last_healthy_catalog_count ? current - last_healthy_catalog_count : 0;
+            size_t lost = current < last_healthy_catalog_count ? last_healthy_catalog_count - current : 0;
+            Log(LOG_INFO, "relay.health",
+               "Local cluster catalog sync healthy: %u/%u connected peers bidirectionally synchronized; catalog=%zu net gained=%zu lost=%zu since previous healthy sync (not an end-to-end quorum)",
+               healthy, total, current, gained, lost);
+         } else {
+            Log(LOG_INFO, "relay.health",
+               "Local cluster catalog sync healthy: %u/%u connected peers bidirectionally synchronized; catalog=%zu (first healthy sync, no comparison baseline; not an end-to-end quorum)",
+               healthy, total, current);
+         }
+         last_healthy_catalog_count = current;
+         have_healthy_catalog_count = true;
+      }
    }
 }
 /* Direct-neighbor catalog synchronization accounting; bounded by the active snapshot IDs and cleared when its end marker is processed. */
