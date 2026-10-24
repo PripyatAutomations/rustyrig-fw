@@ -61,6 +61,7 @@ struct direct_channel {
    uint8_t grant_key[RR_RTP_KEY_LEN];
    uint32_t grant_ssrc;
    bool grant_encrypted;
+   uint64_t rtp_rx_bytes, rtp_tx_bytes;
    rr_media_transport_t mode;
    bool failed, requested, preference, reported_active;
    unsigned route;              /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
@@ -334,6 +335,7 @@ static bool received(void *user, const uint8_t *data, size_t length) {
    }
    memcpy(copy, data, length);
    copy[11] = channel->stream;
+   channel->rtp_rx_bytes += length;
    rr_traffic_count(channel->client, false, true, length);
    struct received_frame received = {
       channel->client, (const char *)copy, length, false
@@ -375,6 +377,20 @@ void rrclient_direct_poll(void) {
          media_send_subscribe(c->client, c->uuid);
       }
    }
+}
+bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
+   uint64_t incoming = 0, outgoing = 0;
+   bool active = false;
+   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; ++i) {
+      struct direct_channel *c = &channels[i];
+      if (c->client != client) continue;
+      incoming += c->rtp_rx_bytes;
+      outgoing += c->rtp_tx_bytes;
+      if (c->attachment && rr_rtp_socket_active(c->attachment, mono_us())) active = true;
+   }
+   if (rx) *rx = incoming;
+   if (tx) *tx = outgoing;
+   return active;
 }
 void rrclient_direct_apply_preferences(void) {
    for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
@@ -553,6 +569,12 @@ void rrclient_direct_register_events(void) {
 }
 
 #else
+bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
+   (void)client;
+   if (rx) *rx = 0;
+   if (tx) *tx = 0;
+   return false;
+}
 void rrclient_direct_apply_preferences(void) {
 }
 bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_transport_t mode) {
