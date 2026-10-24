@@ -1551,7 +1551,7 @@ static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
       if (!ft891_menu_get_raw(s, id, before, sizeof(before)) ||
           strlen(before) != 1 || before[0] < '0' ||
           before[0] > (char)('0' + menu[i].maximum)) {
-         rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): cannot capture valid menu value; leaving unchanged", menu[i].label, id);
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): cannot capture valid menu value; leaving unchanged", model, menu[i].label, id);
          continue;
       }
       snprintf(s->saved_audio_menu[i], sizeof(s->saved_audio_menu[i]), "%s", before);
@@ -1560,7 +1560,7 @@ static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
       if (!strcmp(before, menu[i].target)) continue;
       if (!ft891_menu_set_raw(s, id, menu[i].target) ||
           !ft891_menu_get_raw(s, id, after, sizeof(after)) || strcmp(after, menu[i].target)) {
-         rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): write or verification failed; restore on shutdown will be attempted", menu[i].label, id);
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): write or verification failed; restore on shutdown will be attempted", model, menu[i].label, id);
          s->changed_audio_menu[i] = true;
          continue;
       }
