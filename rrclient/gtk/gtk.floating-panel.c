@@ -3,7 +3,7 @@
 #include "gtk.tabs.h"
 
 struct rr_floating_panel {
-   GtkWidget *frame, *scrim, *body, *title, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close;
+   GtkWidget *frame, *scrim, *body, *title, *title_hit, *roll, *minimize, *restore_tab, *menu, *close_button, *menu_close;
    GtkCssProvider *scale_css;
    guint zoom;
    GtkOverlay *overlay;
@@ -343,7 +343,9 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_box_pack_start(GTK_BOX(settings), p->menu_close, FALSE, FALSE, 0);
    g_signal_connect(menu_button, "clicked", G_CALLBACK(panel_menu_open), p);
    p->title = gtk_label_new(title ? title : id);
-   gtk_box_pack_start(GTK_BOX(header), p->title, TRUE, TRUE, 0);
+   p->title_hit = gtk_event_box_new();
+   gtk_container_add(GTK_CONTAINER(p->title_hit), p->title);
+   gtk_box_pack_start(GTK_BOX(header), p->title_hit, TRUE, TRUE, 0);
    p->body = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_box_pack_start(GTK_BOX(panel), p->body, TRUE, TRUE, 0);
    gtk_widget_show_all(p->frame);
@@ -356,6 +358,13 @@ void rr_floating_panel_set_title(RRFloatPanel *p, const char *title) {
    if (p && p->title) {
       gtk_label_set_text(GTK_LABEL(p->title), title ? title : p->id);
    }
+}
+
+void rr_floating_panel_set_title_click(RRFloatPanel *p, GCallback callback, gpointer data) {
+   if (!p || !p->title_hit || !callback) return;
+   gtk_widget_add_events(p->title_hit, GDK_BUTTON_PRESS_MASK);
+   gtk_widget_set_tooltip_text(p->title_hit, "Select VFO");
+   g_signal_connect(p->title_hit, "button-press-event", callback, data);
 }
 
 GtkWidget *rr_floating_panel_body(RRFloatPanel *p) {
