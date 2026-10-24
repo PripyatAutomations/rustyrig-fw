@@ -97,8 +97,34 @@ bool cmd_estop(int argc, char **args) {
    return false;
 }
 
+bool cmd_zoom(int argc, char **args) {
+   if (argc != 2) {
+      ui_print(ui_active_window_name(), "Usage: /zoom <25-300>[%]|reset");
+      return false;
+   }
+   const char *value = args[1];
+   unsigned percent = 100;
+   if (strcasecmp(value, "reset")) {
+      char *end = NULL;
+      errno = 0;
+      long parsed = strtol(value, &end, 10);
+      if (end == value || errno || parsed < 25 || parsed > 300 ||
+          (*end && (strcmp(end, "%") != 0))) {
+         ui_print(ui_active_window_name(), "Zoom must be 25-300%% or reset");
+         return false;
+      }
+      percent = (unsigned)parsed;
+   }
+   char text[16];
+   snprintf(text, sizeof(text), "%u", percent);
+   event_emit("client.zoom", rrclient_active_connection(), text);
+   return false;
+}
+
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
+   { .cmd = "zoom", .help_section = "Display", .cb = cmd_zoom, .max_args = 1,
+      .desc = "Set whole GTK interface zoom: /zoom 125%, /zoom 100, /zoom reset" },
    { .cmd = "estop", .help_section = "Radio and discovery", .cb = cmd_estop, .max_args = 1,
       .desc = "Rig emergency stop window: /estop on|off; /estop reset requires owner or estop.reset" },
    {
