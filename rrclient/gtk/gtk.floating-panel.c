@@ -1,4 +1,5 @@
 /* Shared in-client floating panel chrome; no radio-specific dependencies. */
+#include <math.h>
 #include "gtk.floating-panel.h"
 #include "gtk.tabs.h"
 
@@ -15,6 +16,8 @@ struct rr_floating_panel {
    gpointer close_data;
    void (*on_response)(RRFloatPanel *, gint, gpointer);
    gpointer response_data;
+   GCallback title_click_callback;
+   gpointer title_click_data;
    double drag_x, drag_y;
    int start_x, start_y;
 };
@@ -360,11 +363,32 @@ void rr_floating_panel_set_title(RRFloatPanel *p, const char *title) {
    }
 }
 
+/* Title clicks and drags share the same surface. Start a normal panel
+ * drag on press, and activate the title only on release without movement. */
+static gboolean panel_title_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   RRFloatPanel *p = data;
+   gboolean click = event->button == GDK_BUTTON_PRIMARY &&
+      fabs(event->x_root - p->drag_x) < 6.0 &&
+      fabs(event->y_root - p->drag_y) < 6.0;
+   drag_release(widget, event, p);
+   if (click && p->title_click_callback) {
+      gboolean (*callback)(GtkWidget *, GdkEventButton *, gpointer) =
+         (gboolean (*)(GtkWidget *, GdkEventButton *, gpointer))p->title_click_callback;
+      callback(widget, event, p->title_click_data);
+   }
+   return TRUE;
+}
+
 void rr_floating_panel_set_title_click(RRFloatPanel *p, GCallback callback, gpointer data) {
    if (!p || !p->title_hit || !callback) return;
-   gtk_widget_add_events(p->title_hit, GDK_BUTTON_PRESS_MASK);
-   gtk_widget_set_tooltip_text(p->title_hit, "Select VFO");
-   g_signal_connect(p->title_hit, "button-press-event", callback, data);
+   p->title_click_callback = callback;
+   p->title_click_data = data;
+   gtk_widget_add_events(p->title_hit,
+      GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
+   gtk_widget_set_tooltip_text(p->title_hit, "Click to select VFO, drag to move panel");
+   g_signal_connect(p->title_hit, "button-press-event", G_CALLBACK(drag_press), p);
+   g_signal_connect(p->title_hit, "motion-notify-event", G_CALLBACK(drag_move), p);
+   g_signal_connect(p->title_hit, "button-release-event", G_CALLBACK(panel_title_release), p);
 }
 
 GtkWidget *rr_floating_panel_body(RRFloatPanel *p) {
