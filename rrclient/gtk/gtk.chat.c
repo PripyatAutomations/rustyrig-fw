@@ -20,6 +20,7 @@
 #include <time.h>
 #include <math.h>
 #include <librustyaxe/core.h>
+#include <librustyaxe/maidenhead.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/cmd.h>
 #include <rrclient/cmd.help.h>
