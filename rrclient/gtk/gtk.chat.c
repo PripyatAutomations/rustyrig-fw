@@ -1889,15 +1889,15 @@ static gboolean status_network_tick(gpointer unused) {
       previous_rtp_tx = rtp_tx;
       previous_time = now_us;
       gtk_label_set_text(GTK_LABEL(status_network_label),
-         rtp_active ? "RX 0.0  TX 0.0 kb/s  |  RTP RX 0.0  TX 0.0 kb/s" : "RX 0.0  TX 0.0 kb/s");
+         rtp_active ? "RX 0.0 (0.0)  TX 0.0 (0.0) kb/s" : "RX 0.0  TX 0.0 kb/s");
       return G_SOURCE_CONTINUE;
    }
    double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - previous_time));
    char label[160];
    if (rtp_active) {
-      g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s  |  RTP RX %.1f  TX %.1f kb/s",
-         (rx - previous_rx) * scale, (tx - previous_tx) * scale,
-         (rtp_rx - previous_rtp_rx) * scale, (rtp_tx - previous_rtp_tx) * scale);
+      g_snprintf(label, sizeof(label), "RX %.1f (%.1f)  TX %.1f (%.1f) kb/s",
+         (rx - previous_rx) * scale, (rtp_rx - previous_rtp_rx) * scale,
+         (tx - previous_tx) * scale, (rtp_tx - previous_rtp_tx) * scale);
    } else {
       g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s",
          (rx - previous_rx) * scale, (tx - previous_tx) * scale);
@@ -1949,7 +1949,7 @@ bool chat_init(void) {
    gtk_box_pack_start(GTK_BOX(network_row), status_server_label, FALSE, FALSE, 2);
    status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
-      "Selected server transport traffic (IRC or WebSocket); five-second average in kilobits/s. UDP RTP is shown separately when active; rates count media payload bytes.");
+      "Selected server RX/TX kilobits/s over five seconds. Parenthesized values are RTP media rates when active; primary values are IRC/WebSocket traffic.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
