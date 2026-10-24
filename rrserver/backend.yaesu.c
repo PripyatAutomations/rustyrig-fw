@@ -42,6 +42,8 @@ typedef struct yaesu_state {
    bool dimmer_known, af_known;
    int model_id;
    const struct yaesu_model_profile *profile;
+   char saved_audio_menu[6][16];
+   bool saved_audio_valid[6], changed_audio_menu[6];
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -1503,6 +1505,72 @@ static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value)
 
    return cat(s, command, NULL, NULL, 0);
 }
+/* FT-891 only: temporarily take control of the rear-panel audio/PTT
+ * selections. EX enumerations are one-based in this profile: MIC=0,
+ * REAR=1, DAKY=0, RTS=1, DTR=2. Preserve the exact readback token. */
+static const struct {
+   const char *id, *label, *target;
+   unsigned maximum;
+} ft891_audio_menu[] = {
+   {"0809", "DATA input", "1", 1},
+   {"0901", "FM mic", "1", 1},
+   {"1105", "SSB mic", "1", 1},
+   {"0810", "DATA PTT", "0", 2},
+   {"0903", "FM PTT", "0", 2},
+   {"1108", "SSB PTT", "0", 2}
+};
+static bool ft891_menu_get_raw(yaesu_state_t *s, const char *id, char *result, size_t length) {
+   char command[16], prefix[16], reply[128];
+   snprintf(prefix, sizeof(prefix), "EX%s", id);
+   snprintf(command, sizeof(command), "%s;", prefix);
+   if (!cat(s, command, prefix, reply, sizeof(reply))) return false;
+   size_t n = strlen(prefix);
+   if (strlen(reply) <= n || strlen(reply + n) >= length) return false;
+   snprintf(result, length, "%s", reply + n);
+   return true;
+}
+static bool ft891_menu_set_raw(yaesu_state_t *s, const char *id, const char *value) {
+   char command[48];
+   snprintf(command, sizeof(command), "EX%s%s;", id, value);
+   return cat(s, command, NULL, NULL, 0);
+}
+static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
+   if (s->model_id != 650 || s->fd < 0) return;
+   for (size_t i = 0; i < ARRAY_COUNT(ft891_audio_menu); i++) {
+      const char *id = ft891_audio_menu[i].id;
+      char before[16], after[16];
+      if (!ft891_menu_get_raw(s, id, before, sizeof(before)) ||
+          strlen(before) != 1 || before[0] < '0' ||
+          before[0] > (char)('0' + ft891_audio_menu[i].maximum)) {
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 %s (%s): cannot capture valid menu value; leaving unchanged", ft891_audio_menu[i].label, id);
+         continue;
+      }
+      snprintf(s->saved_audio_menu[i], sizeof(s->saved_audio_menu[i]), "%s", before);
+      s->saved_audio_valid[i] = true;
+      rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 %s (%s): saved %s; requested %s", ft891_audio_menu[i].label, id, before, ft891_audio_menu[i].target);
+      if (!strcmp(before, ft891_audio_menu[i].target)) continue;
+      if (!ft891_menu_set_raw(s, id, ft891_audio_menu[i].target) ||
+          !ft891_menu_get_raw(s, id, after, sizeof(after)) || strcmp(after, ft891_audio_menu[i].target)) {
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 %s (%s): write or verification failed; restore on shutdown will be attempted", ft891_audio_menu[i].label, id);
+         s->changed_audio_menu[i] = true;
+         continue;
+      }
+      s->changed_audio_menu[i] = true;
+      rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 %s (%s): selected %s", ft891_audio_menu[i].label, id, ft891_audio_menu[i].target);
+   }
+}
+static void ft891_audio_restore(rr_backend_t *b, yaesu_state_t *s) {
+   if (s->model_id != 650 || s->fd < 0) return;
+   for (size_t i = ARRAY_COUNT(ft891_audio_menu); i-- > 0;) {
+      if (!s->saved_audio_valid[i] || !s->changed_audio_menu[i]) continue;
+      char after[16];
+      bool ok = ft891_menu_set_raw(s, ft891_audio_menu[i].id, s->saved_audio_menu[i]) &&
+         ft891_menu_get_raw(s, ft891_audio_menu[i].id, after, sizeof(after)) &&
+         !strcmp(after, s->saved_audio_menu[i]);
+      rr_backend_log(b, ok ? LOG_INFO : LOG_WARN, "backend.yaesu", "FT-891 %s (%s): restore %s %s",
+         ft891_audio_menu[i].label, ft891_audio_menu[i].id, s->saved_audio_menu[i], ok ? "confirmed" : "FAILED");
+   }
+}
 static bool create(rr_backend_t *b) {
    yaesu_state_t *s = calloc(1, sizeof(*s));
 
@@ -1559,6 +1627,7 @@ static bool create(rr_backend_t *b) {
             "Yaesu CAT ID unavailable; set yaesu.model=FT-891 or FT-991A to expose model controls before CAT identification");
       }
    }
+   ft891_audio_start(b, s);
    const char *props[] = {
       "display.contrast", "display.key-backlight", RR_PROP_DISPLAY_BRIGHTNESS,
       "display.tx-indicator", RR_PROP_SPEAKER_VOLUME
@@ -1613,6 +1682,7 @@ static void destroy(rr_backend_t *b) {
    }
 
    if (s->fd >= 0) {
+      ft891_audio_restore(b, s);
       close(s->fd);
    }
    free(s->device);
