@@ -1934,7 +1934,10 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    const char *mode = selected_online ? vfo_state_get(vfo, "cat.state.mode", NULL) : NULL;
    long width = selected_online ? vfo_state_get_long(vfo, "cat.state.width", 0) : 0;
    long frequency = selected_online ? vfo_state_get_long(vfo, "cat.state.freq", 0) : 0;
-   gboolean ptt = selected_online && vfo_state_get_bool(vfo, "cat.state.ptt", false);
+   /* CAT PTT is a hardware-wide observation on some single-RX rigs. It can
+    * be cached under whichever VFO was active when polled, so it is not
+    * sufficient evidence that this room/VFO is transmitting. */
+   gboolean ptt = FALSE;
    char formatted[64], freq_line[96], mode_line[96];
    if (frequency > 0) {
       /* Hz -> kHz with exactly three decimals and fixed comma grouping. */
@@ -1964,7 +1967,7 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    if (selected_online) {
       for (const struct rr_user *u = global_userlist; u; u = u->next) {
          if (!u->is_ptt || u->ptt_vfo != vfo[0]) continue;
-         if (room && *room && u->ptt_room[0] && strcasecmp(u->ptt_room, room)) continue;
+         if (!room || !*room || !u->ptt_room[0] || strcasecmp(u->ptt_room, room)) continue;
          holder = u;
          break;
       }
@@ -1972,8 +1975,10 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    /* CAT PTT echoes carry cat.user independently of the user directory.
     * The userlist can lag behind the PTT state, especially across relays.
     * Prefer its room-scoped match, but fall back to the CAT holder identity. */
-   const char *holder_name = holder ? holder->name :
-      (ptt ? vfo_state_get(vfo, "cat.user", NULL) : NULL);
+   /* The room/VFO-qualified TX holder is authoritative for the locator.
+    * Do not reuse a stale CAT user/PTT flag from another VFO. */
+   ptt = holder != NULL;
+   const char *holder_name = holder ? holder->name : NULL;
    if (holder_name && !*holder_name) holder_name = NULL;
    char holder_id[256] = "";
    if (ptt && holder_name)
