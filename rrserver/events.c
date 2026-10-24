@@ -538,7 +538,7 @@ static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrc
    const char *vfo = (d ? dict_get(d, "cat.vfo", NULL) : NULL);
 
    if (vfo && vfo[0]) {
-      Log(LOG_AUDIT, "rigctl", "Departing user %s had PTT on vfo %s: releasing TX", (who ? who : "(unknown)"), vfo);
+      Log(LOG_AUDIT, "rigctl", "Releasing PTT held by %s on VFO %s", (who ? who : "(unknown)"), vfo);
 
       if (rr_ptt_request(vfo_lookup(vfo[0]), false, "disconnect") && cptr) {
          // A takeover must stop if the backend cannot release the old holder.
@@ -547,7 +547,7 @@ static void rrserver_handle_rig_ptt_off(const char *event, const char *data, rrc
          ws_send_userinfo(cptr, NULL);
       }
    } else {
-      Log(LOG_WARN, "rigctl", "Departing user %s held PTT but no VFO recorded; NOT touching rig TX", (who ? who : "(unknown)"));
+      Log(LOG_WARN, "rigctl", "PTT release for %s has no recorded VFO; NOT touching rig TX", (who ? who : "(unknown)"));
    }
 
    if (d) {
