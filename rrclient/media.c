@@ -1646,6 +1646,17 @@ const char *rrclient_media_active_room(void) {
    return media_room;
 }
 
+const char *rrclient_media_rig_coordinates(const char *room) {
+   if (!room || !*room) return NULL;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; ++i) {
+      const struct rr_client_media_chan *channel = &known_chans[i];
+      if (channel->gps_coordinates[0] && channel->control_room[0] &&
+          ws_room_same_rig(room, channel->control_room))
+         return channel->gps_coordinates;
+   }
+   return NULL;
+}
+
 const char *rrclient_media_vfo_uuid(const char *room, char vfo) {
    if (!room || vfo < 'A' || vfo > 'Z') {
       return NULL;
