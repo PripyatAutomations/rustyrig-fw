@@ -503,6 +503,12 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 #endif
    }
 
+   rr_server_rig_t *target_rig = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
+   if (ptt && rr_rig_halted(target_rig)) {
+      Log(LOG_AUDIT, "ptt", "PTT key-down rejected: rig %s halted",
+         target_rig ? rr_server_rig_id(target_rig) : "(unknown)");
+      return true;
+   }
    if (ptt && rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
