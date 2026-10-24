@@ -1571,6 +1571,7 @@ static void resource_rig_control_dialog(GtkTreeModel *model, GtkTreeIter *item, 
 typedef struct {
    char *uuid, *property;
    GtkWidget *label;
+   GtkWidget *selector;
    guint timer;
    unsigned attempts;
    char *initial_version;
@@ -1592,8 +1593,10 @@ static gboolean resource_menu_value_poll(gpointer data) {
       const char *value = dict_get((dict *) state, "property.value", NULL);
 
       if (value) {
-         char *summary = g_strdup_printf("CAT value: %s (raw parameter; read-only)", value);
+         char *summary = g_strdup_printf("CAT value: %s", value);
          gtk_label_set_text(GTK_LABEL(read->label), summary);
+         if (read->selector && GTK_IS_ENTRY(read->selector) && strlen(value) <= 4 && strspn(value, "0123456789") == strlen(value))
+            gtk_entry_set_text(GTK_ENTRY(read->selector), value);
          g_free(summary);
          read->timer = 0;
 
@@ -1619,14 +1622,9 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
    GtkWidget *selector = g_object_get_data(G_OBJECT(button), "menu-selector");
    const char *profile = g_object_get_data(G_OBJECT(button), "menu-profile");
    const char *id = read->property + 5;
-   int minimum = !strcmp(id, "0504") ? 0 : 1;
-   int maximum = !strcmp(id, "0504") ? 100 : 15;
-   int digits = !strcmp(id, "0504") ? 3 : 2;
-   long number = GTK_IS_RANGE(selector) ? (long)gtk_range_get_value(GTK_RANGE(selector)) : (long)gtk_combo_box_get_active(GTK_COMBO_BOX(selector)) + minimum;
-
-   if (number < minimum || number > maximum) {
-      gtk_label_set_text(GTK_LABEL(read->label), "Invalid value for this setting.");
-
+   const char *raw = GTK_IS_ENTRY(selector) ? gtk_entry_get_text(GTK_ENTRY(selector)) : NULL;
+   if (!raw || !*raw || strlen(raw) > 4 || strspn(raw, "0123456789") != strlen(raw)) {
+      gtk_label_set_text(GTK_LABEL(read->label), "Enter the numeric CAT parameter (preserving its leading zeros).");
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
@@ -1641,14 +1639,13 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
    if (!request) {
       return;
    }
-   char encoded[12], request_id[64];
-   snprintf(encoded, sizeof(encoded), "%0*ld", digits, number);
+   char request_id[64];
    snprintf(request_id, sizeof(request_id), "menu-write-%lld", (long long)g_get_monotonic_time());
    dict_add(request, "msg.type", "property");
    dict_add(request, "property.cmd", "menu-set");
    dict_add(request, "target", read->uuid);
    dict_add(request, "property.name", read->property);
-   dict_add(request, "property.value", encoded);
+   dict_add(request, "property.value", raw);
    dict_add(request, "request.id", request_id);
    const dict *cached = rrclient_object_property(read->uuid, read->property);
    const char *version = cached ? dict_get((dict *) cached, "property.version", NULL) : NULL;
@@ -1706,35 +1703,17 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
    GtkWidget *label = gtk_label_new("Reading one menu value from the rig…");
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
-   gboolean editable = !strcmp(id, "0201") || !strcmp(id, "0202") || !strcmp(id, "0203") || !strcmp(id, "0204") || !strcmp(id, "0504");
-   GtkWidget *selector = NULL, *apply = NULL;
-
-   if (editable) {
-      GtkWidget *line = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-
-      if (!strcmp(id, "0504")) {
-         /* Continuous integer range: show the number next to the slider. */
-         selector = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-         gtk_scale_set_digits(GTK_SCALE(selector), 0);
-         gtk_scale_set_draw_value(GTK_SCALE(selector), TRUE);
-         gtk_widget_set_size_request(selector, 190, -1);
-      } else {
-         /* Only 15 discrete values: don't make users type padded CAT digits. */
-         selector = gtk_combo_box_text_new();
-
-         for (int n = 1 ; n <= 15 ; n++) {
-            char text[8];
-            snprintf(text, sizeof(text), "%d", n);
-            gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(selector), text);
-         }
-
-         gtk_combo_box_set_active(GTK_COMBO_BOX(selector), 0);
-      }
-      apply = gtk_button_new_with_label("Apply");
-      gtk_box_pack_start(GTK_BOX(line), selector, TRUE, TRUE, 0);
-      gtk_box_pack_start(GTK_BOX(line), apply, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(area), line, FALSE, FALSE, 0);
-   }
+   /* Numeric EX parameters are entered verbatim. The backend reads the
+    * current value, validates numeric width, writes and verifies it. */
+   GtkWidget *line = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   GtkWidget *selector = gtk_entry_new();
+   gtk_entry_set_max_length(GTK_ENTRY(selector), 4);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(selector), "CAT digits");
+   gtk_widget_set_tooltip_text(selector, "Enter the exact numeric EX parameter, including leading zeros");
+   GtkWidget *apply = gtk_button_new_with_label("Apply");
+   gtk_box_pack_start(GTK_BOX(line), selector, TRUE, TRUE, 0);
+   gtk_box_pack_start(GTK_BOX(line), apply, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(area), line, FALSE, FALSE, 0);
    GtkWidget *close = gtk_button_new_with_label("Close");
    gtk_box_pack_start(GTK_BOX(area), close, FALSE, FALSE, 0);
    g_signal_connect_swapped(close, "clicked", G_CALLBACK(gtk_widget_destroy), panel);
@@ -1742,6 +1721,7 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
    read->uuid = uuid;
    read->property = g_strdup_printf("menu.%s", id);
    read->label = label;
+   read->selector = selector;
    const dict *cached = rrclient_object_property(uuid, read->property);
 
    if (cached) {
