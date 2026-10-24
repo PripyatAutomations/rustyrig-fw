@@ -802,11 +802,15 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
                   if (m->home) {
                      dict_del(d, "media.direct");
+                     dict_del(d, "media.direct-candidates");
                      dict_del(d, "media.direct-key");
                      dict_del(d, "media.direct-ssrc");
                      dict_del(d, "media.direct-security");
                      dict_add(d, "media.transport", "ws");
-                     rrserver_direct_relay_grant(c->client, d, m->stream, m->direction);
+                     if (!rrserver_direct_relay_grant(c->client, d, m->stream, m->direction)) {
+                        Log(LOG_WARN, "relay.media", "Home RTP referral unavailable: room=%s channel=%s direction=%u stream=%u (client will use proxy)",
+                           m->room, m->uuid, m->direction, m->stream);
+                     }
                   }
                } else if (!strcmp(media_cmd, "unsubscribed") || !strcmp(media_cmd, "chan-remove")) {
                   m->subscribed = false;
