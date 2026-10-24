@@ -320,17 +320,17 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
          looked_up = ptt_log_username(session);
          who = looked_up;
       }
-      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d) ticket=%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo]);
+      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)%s%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]);
 
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
       if (cfg_get_bool("quota.enforce", true) && who && secs > 0) {
          if (!db_quota_spend(masterdb, who, secs)) {
-            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s ticket=%s", secs, who, ptt_grant_ticket[vfo]);
+            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s%s%s", secs, who, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]);
          } else {
             int left = db_quota_get(masterdb, who);
 
-            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining ticket=%s", who, secs, left, ptt_grant_ticket[vfo]);
+            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining%s%s", who, secs, left, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]);
 
             if (talker) {
                quota_maybe_warn(talker, left);
