@@ -470,7 +470,9 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
 
    gint minimum = 0, natural = 0;
-   gtk_widget_get_preferred_height_for_width(flow, allocation->width, &minimum, &natural);
+   /* Leave room for scrollbar chrome and GTK rounding at the last tab. */
+   gint wrap_width = MAX(1, allocation->width - 12);
+   gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
    /* Leave room for the notebook contents, even with many open tabs.
     * Additional rows remain accessible via the viewport's scrollbar. */
    gint ceiling = MAX(32, allocation->height - 160);
@@ -519,6 +521,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_widget_set_size_request(tab_scroll, -1, 32);
    gtk_widget_set_hexpand(tab_scroll, TRUE);
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
+   gtk_widget_set_size_request(flow, 1, -1);
    g_object_set_data(G_OBJECT(tab_scroll), "rr-tab-flow", flow);
    g_signal_connect(box, "size-allocate", G_CALLBACK(tabs_viewport_allocate), tab_scroll);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
@@ -531,6 +534,8 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(flow), 0);
    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(flow), 0);
    gtk_widget_set_valign(flow, GTK_ALIGN_START);
+   /* FlowBox must wrap against the viewport, not its unconstrained requisition. */
+   gtk_flow_box_set_activate_on_single_click(GTK_FLOW_BOX(flow), FALSE);
    gtk_notebook_set_show_tabs(notebook, FALSE);
 
    if (position == GTK_POS_TOP) {
