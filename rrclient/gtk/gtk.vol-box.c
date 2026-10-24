@@ -108,23 +108,25 @@ static gboolean rig_volume_refresh(gpointer widget) {
 
 // Returns a GtkWidget with the volume box
 GtkWidget *create_volbox(void) {
-   GtkWidget *rx_vol_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-
-   GtkWidget *rx_rig_vol_label = gtk_label_new(NULL);
-   gtk_label_set_markup(GTK_LABEL(rx_rig_vol_label), "Ri<u>G</u> Vol");
+   GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   GtkWidget *label = gtk_label_new_with_mnemonic("Ri_G Vol");
+   gtk_widget_set_halign(label, GTK_ALIGN_START);
+   gtk_widget_set_size_request(label, 72, -1);
 
    rx_rig_vol_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_label_set_mnemonic_widget(GTK_LABEL(label), rx_rig_vol_slider);
    gtk_scale_set_draw_value(GTK_SCALE(rx_rig_vol_slider), FALSE);
-   gtk_widget_set_tooltip_text(rx_rig_vol_slider, "Rig speaker Volume");
+   gtk_widget_set_tooltip_text(rx_rig_vol_slider, "Rig speaker volume");
    gtk_scale_set_digits(GTK_SCALE(rx_rig_vol_slider), 0);
+   gtk_widget_set_size_request(rx_rig_vol_slider, 110, -1);
+   gtk_widget_set_hexpand(rx_rig_vol_slider, TRUE);
    gtk_widget_set_sensitive(rx_rig_vol_slider, FALSE);
    gulong handler = g_signal_connect(rx_rig_vol_slider, "value-changed", G_CALLBACK(on_rig_volume_changed), NULL);
    g_object_set_data(G_OBJECT(rx_rig_vol_slider), "rig-volume-handler", GSIZE_TO_POINTER(handler));
    guint volume_refresh_source = g_timeout_add(500, rig_volume_refresh, rx_rig_vol_slider);
    g_signal_connect_swapped(rx_rig_vol_slider, "destroy", G_CALLBACK(g_source_remove), GUINT_TO_POINTER(volume_refresh_source));
    rig_volume_refresh(rx_rig_vol_slider);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_slider, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(rx_vol_vbox), rx_rig_vol_label, TRUE, TRUE, 0);
-
-   return rx_vol_vbox;
+   gtk_box_pack_start(GTK_BOX(row), label, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(row), rx_rig_vol_slider, TRUE, TRUE, 0);
+   return row;
 }
