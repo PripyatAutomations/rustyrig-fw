@@ -24,6 +24,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #define MAX_GRANTS 128
 #define MAX_POOLS 16
@@ -107,6 +109,68 @@ static const char *pool_endpoint(struct media_pool *pool, rrconn_t *client, char
    if (!inet_ntop(AF_INET, &local.sin_addr, ip, sizeof(ip))) return NULL;
    snprintf(buf, len, "rtp://%s:%u", ip, pool->port);
    return buf;
+}
+
+/* Ordered, bounded RTP candidates: explicit host, kernel-routed IP,
+ * then additional active local IPv4 interfaces. No localhost referrals.
+ * An exclusion is a literal IPv4 address in a comma/space separated list. */
+static bool endpoint_excluded(const char *ip) {
+   const char *cfg_value = cfg_get("media.direct.exclude");
+   if (!cfg_value || !*cfg_value) return false;
+   char *copy = strdup(cfg_value);
+   if (!copy) return true;
+   bool excluded = false;
+   char *save = NULL;
+   for (char *p = strtok_r(copy, ",; \\t\\n", &save); p; p = strtok_r(NULL, ",; \\t\\n", &save)) {
+      if (!strcmp(p, ip)) { excluded = true; break; }
+   }
+   free(copy);
+   return excluded;
+}
+static void add_candidate(char *out, size_t len, const char *host, unsigned port) {
+   if (!host || !*host) return;
+   char candidate[350];
+   snprintf(candidate, sizeof(candidate), "rtp://%s:%u", host, port);
+   if (strlen(out) + strlen(candidate) + 2 > len) return;
+   /* Dedupe complete endpoints, not substrings of other addresses. */
+   char *existing = strdup(out);
+   if (existing) {
+      char *save = NULL;
+      for (char *p = strtok_r(existing, ",", &save); p; p = strtok_r(NULL, ",", &save)) {
+         if (!strcmp(p, candidate)) { free(existing); return; }
+      }
+      free(existing);
+   }
+   if (*out) strcat(out, ",");
+   strcat(out, candidate);
+}
+static void pool_candidates(struct media_pool *pool, rrconn_t *client, char *out, size_t len) {
+   *out = 0;
+   if (*pool->endpoint) {
+      /* A configured DNS name stays authoritative; the administrator
+       * controls its reachability and any public NAT mapping. */
+      snprintf(out, len, "%s", pool->endpoint);
+   }
+   char routed[320];
+   const char *route = pool_endpoint(pool, client, routed, sizeof(routed));
+   if (route && route == routed) {
+      char ip[INET_ADDRSTRLEN];
+      if (sscanf(route, "rtp://%15[^:]", ip) == 1 && !endpoint_excluded(ip))
+         add_candidate(out, len, ip, pool->port);
+   }
+   struct ifaddrs *interfaces = NULL;
+   if (getifaddrs(&interfaces)) return;
+   for (struct ifaddrs *it = interfaces; it; it = it->ifa_next) {
+      if (!it->ifa_addr || it->ifa_addr->sa_family != AF_INET ||
+          !(it->ifa_flags & IFF_UP) || (it->ifa_flags & IFF_LOOPBACK)) continue;
+      const struct sockaddr_in *addr = (const struct sockaddr_in *)it->ifa_addr;
+      uint32_t ip_number = ntohl(addr->sin_addr.s_addr);
+      if ((ip_number >> 24) == 0 || (ip_number >> 24) == 127 || (ip_number >> 24) >= 224) continue;
+      char ip[INET_ADDRSTRLEN];
+      if (inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip)) && !endpoint_excluded(ip))
+         add_candidate(out, len, ip, pool->port);
+   }
+   freeifaddrs(interfaces);
 }
 
 static const char *pool_setting(const char *section, const char *name, const char *legacy) {
@@ -380,10 +444,14 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
    }
    struct media_pool *pool = select_pool(client);
 
-   char endpoint[320];
-   const char *advertised = pool ? pool_endpoint(pool, client, endpoint, sizeof(endpoint)) : NULL;
+   char candidates[2048] = "";
+   if (pool) pool_candidates(pool, client, candidates, sizeof(candidates));
+   const char *advertised = *candidates ? candidates : NULL;
+   char endpoint[320] = "";
+   if (advertised) snprintf(endpoint, sizeof(endpoint), "%.*s", (int)strcspn(candidates, ","), candidates);
    if (!strcmp(cmd, "available") && advertised) {
-      dict_add(d, "media.direct", advertised);
+      dict_add(d, "media.direct", endpoint);
+      dict_add(d, "media.direct-candidates", candidates);
       dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
    }
 
@@ -509,9 +577,11 @@ bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, uns
       snprintf(key + i * 2, 3, "%02x", g->key[i]);
    }
 
+   char candidates[2048] = "";
+   pool_candidates(pool, client, candidates, sizeof(candidates));
+   if (!*candidates) { remove_grant(g); return false; }
    char endpoint[320];
-   const char *advertised = pool_endpoint(pool, client, endpoint, sizeof(endpoint));
-   if (!advertised) { remove_grant(g); return false; }
+   snprintf(endpoint, sizeof(endpoint), "%.*s", (int)strcspn(candidates, ","), candidates);
    dict_add(d, "media.transport", "rtp-home");
    dict_add(d, "media.direct", advertised);
    dict_add(d, "media.direct-key", key);
