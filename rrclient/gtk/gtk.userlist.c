@@ -101,6 +101,7 @@ typedef struct room_userlist_entry {
    bool auto_dock_width;
    bool auto_window_width;
    bool adjusting_width;
+   int last_paned_width;
    guint refresh_id;
 } room_userlist_entry_t;
 static room_userlist_entry_t rig_userlist_entry;
@@ -1387,8 +1388,12 @@ static void room_userlist_set_width(room_userlist_entry_t *entry, int width) {
    /* A stale saved width must not consume the entire chat pane or push the
     * roster header and its PTT controls beyond the visible edge. */
    int available = MAX(0, total - MAX(handle, 0));
-   int maximum = MAX(0, available - MIN(240, available / 2));
-   width = CLAMP(width, 0, maximum);
+   /* Keep both panes usable at small/zoomed sizes. The old half-width
+    * reservation squeezed the roster to zero as the viewport shrank. */
+   int chat_min = MIN(160, available / 3);
+   int maximum = MAX(0, available - chat_min);
+   int minimum = MIN(100, maximum);
+   width = CLAMP(width, minimum, maximum);
    gtk_paned_set_position(entry->dock_paned, available - width);
    entry->adjusting_width = false;
 }
@@ -1487,10 +1492,14 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
 
-   if (allocation->width > 1 && !g_object_get_data(G_OBJECT(widget), "rr-roster-sized")) {
-      room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
-      g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
-   }
+   if (!entry->docked || allocation->width <= 1 ||
+       allocation->width == entry->last_paned_width) return;
+   entry->last_paned_width = allocation->width;
+   /* GTK recomputes paned child allocations while zooming. Restore the
+    * saved desired roster width after each parent resize, rather than
+    * allowing a transient narrow allocation to become permanent. */
+   room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
+   g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
 }
 
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
