@@ -466,7 +466,7 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
  * requisition. Size the tab viewport from the actual wrapping height instead
  * of reserving the whole strip's unconstrained natural height. */
 static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocation, GtkWidget *viewport) {
-   GtkWidget *flow = gtk_bin_get_child(GTK_BIN(viewport));
+   GtkWidget *flow = g_object_get_data(G_OBJECT(viewport), "rr-tab-flow");
    if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
 
    gint minimum = 0, natural = 0;
@@ -512,6 +512,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_widget_set_size_request(tab_scroll, -1, 32);
    gtk_widget_set_hexpand(tab_scroll, TRUE);
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
+   g_object_set_data(G_OBJECT(tab_scroll), "rr-tab-flow", flow);
    g_signal_connect(box, "size-allocate", G_CALLBACK(tabs_viewport_allocate), tab_scroll);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
    gtk_drag_dest_set(flow, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
