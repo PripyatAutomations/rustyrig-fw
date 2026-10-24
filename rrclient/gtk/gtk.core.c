@@ -897,7 +897,8 @@ bool gui_init(void) {
    GtkWidget *main_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    rr_main_toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
    gtk_widget_set_margin_start(rr_main_toolbar, 4);
-   gtk_widget_set_margin_end(rr_main_toolbar, 4);
+   /* Temporary width test: inset the upper toolbar 40px from the right. */
+   gtk_widget_set_margin_end(rr_main_toolbar, 44);
    GtkWidget *minimize = gtk_button_new_from_icon_name("window-minimize-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(minimize), GTK_RELIEF_NONE);
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
