@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 #include <errno.h>
+#include <math.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <stdio.h>
@@ -897,7 +898,7 @@ static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
    if (!s || s->model_id != 650 || !index_of(v, &i) || i != b->active_vfo ||
-       !__builtin_isfinite(watts) || watts < 5 || watts > 100 || (int)watts != watts || s->ptt) return true;
+       !isfinite(watts) || watts < 5 || watts > 100 || (int)watts != watts || s->ptt) return true;
    const char *id = ft891_power_menu(s, i);
    int slot = yaesu_power_slot(s->mode[i]);
    if (!id || slot < 0 || (slot == 1 && watts > 40)) return true;
