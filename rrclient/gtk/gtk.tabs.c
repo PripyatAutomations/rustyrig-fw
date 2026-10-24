@@ -471,7 +471,7 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
 
    gint minimum = 0, natural = 0;
    /* Leave room for scrollbar chrome and GTK rounding at the last tab. */
-   gint wrap_width = MAX(1, allocation->width - 12);
+   gint wrap_width = MAX(1, allocation->width - gtk_widget_get_margin_end(flow) - 12);
    gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
    /* Leave room for the notebook contents, even with many open tabs.
     * Additional rows remain accessible via the viewport's scrollbar. */
@@ -525,6 +525,9 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    g_object_set_data(G_OBJECT(notebook), "rr-floating-tab-strip", flow);
    gtk_widget_set_hexpand(flow, TRUE);
    gtk_widget_set_halign(flow, GTK_ALIGN_FILL);
+   /* Reserve actual allocation space, not merely a narrower height estimate.
+    * Otherwise the final tab may be laid out beyond the viewport edge. */
+   gtk_widget_set_margin_end(flow, 32);
    /* GtkFlowBox's minimum width grows with its children when it is packed
     * directly in a vbox. Give it a viewport of the allocated width so it
     * wraps rows instead of widening the notebook and pushing chat controls
