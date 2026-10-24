@@ -147,8 +147,12 @@ static void add_candidate(char *out, size_t len, const char *host, unsigned port
 static void pool_candidates(struct media_pool *pool, rrconn_t *client, char *out, size_t len) {
    *out = 0;
    if (*pool->endpoint) {
-      /* A configured DNS name stays authoritative; the administrator
-       * controls its reachability and any public NAT mapping. */
+      /* Even explicit referrals may not expose localhost. */
+      const char *host = pool->endpoint + strlen("rtp://");
+      if (!strncmp(host, "127.", 4) || !strncmp(host, "localhost:", 10) ||
+          !strncmp(host, "[::1]:", 6)) {
+         return;
+      }
       snprintf(out, len, "%s", pool->endpoint);
    }
    char routed[320];
