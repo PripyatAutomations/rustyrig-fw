@@ -36,7 +36,10 @@ static gboolean tx_power_send(gpointer unused) {
       Log(LOG_WARN, "ui.gtk", "TX power: no active rig room for percentage request");
       return G_SOURCE_REMOVE;
    }
-   if (rrclient_tx_power_percent == 0) return G_SOURCE_REMOVE;
+   /* Check the actual slider, not a separate cached inhibit flag. Zero is a
+    * local PTT inhibit and must never be sent as a power command. */
+   int percent = (int)gtk_range_get_value(GTK_RANGE(tx_power_slider));
+   if (percent <= 0) return G_SOURCE_REMOVE;
    dict *d = dict_new();
    if (!d) return G_SOURCE_REMOVE;
    char vfo[] = { vfo_state_get_active(), '\0' };
@@ -44,7 +47,7 @@ static gboolean tx_power_send(gpointer unused) {
    dict_add(d, "cat.cmd", "power");
    dict_add(d, "cat.room", room);
    dict_add(d, "cat.vfo", vfo);
-   dict_add_float(d, "cat.power", (float)gtk_range_get_value(GTK_RANGE(tx_power_slider)));
+   dict_add_int(d, "cat.power", percent);
    dict_add(d, "cat.power-unit", "percent");
    if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT))
       Log(LOG_WARN, "ui.gtk", "TX power: failed to send percent request for room %s VFO %s", room, vfo);
