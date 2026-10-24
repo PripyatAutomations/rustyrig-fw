@@ -39,6 +39,7 @@
 #include <rrclient/objects.h>
 
 extern rrconn_t *ws_conn;
+extern time_t now;
 extern const char *login_user;
 extern bool ui_print(const char *window, const char *fmt, ...);
 #include <rrclient/frontend.h>
@@ -1188,12 +1189,12 @@ static void media_transport_print(void *data) {
    const char *fallback = dict_get(d, "media.fallback", "");
 
    if (*fallback) {
-      ui_print(*room ? room : NULL, "Media %s: %s %s%s%s; falling back to %s", description, transport, status, *endpoint ? " at " : "", endpoint, fallback);
+      ui_print(*room ? room : NULL, "%sMedia %s: %s %s%s%s; falling back to %s", get_chat_ts(now), description, transport, status, *endpoint ? " at " : "", endpoint, fallback);
 
       return;
    }
    /* PARITY: rustyrig-www/js/webui.media.js confirmed connection notices. */
-   ui_print(*room ? room : NULL, "Media %s: %s via %s%s%s", description, status, transport, *endpoint ? " at " : "", endpoint);
+   ui_print(*room ? room : NULL, "%sMedia %s: %s via %s%s%s", get_chat_ts(now), description, status, transport, *endpoint ? " at " : "", endpoint);
 }
 static void media_transport_notice(const char *event, const char *data, rrconn_t *client, void *user) {
    (void)event;
