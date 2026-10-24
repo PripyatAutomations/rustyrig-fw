@@ -2284,18 +2284,21 @@ bool chat_init(void) {
    gtk_label_set_ellipsize(GTK_LABEL(status_server_label), PANGO_ELLIPSIZE_MIDDLE);
    gtk_label_set_max_width_chars(GTK_LABEL(status_server_label), 12);
    gtk_label_set_width_chars(GTK_LABEL(status_server_label), 0);
-   gtk_box_pack_start(GTK_BOX(network_row), status_server_label, FALSE, FALSE, 2);
+   /* Server identity belongs to the normal toolbar; keep the overlay's
+    * right-hand edge exclusively for RX/TX so the TX value cannot be
+    * pushed out of the visible window by the server name. */
+   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), status_server_label, FALSE, FALSE, 2);
    status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
       "Selected server RX/TX kilobits/s sampled every second. Parenthesized values are RTP media rates when active; primary values are IRC/WebSocket traffic.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
-   gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
+   gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 0);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
    /* Keep the counters visible: shorten the server name and the optional
     * room title first, never chop off the TX rate at the right edge. */
    gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_NONE);
    gtk_widget_set_hexpand(network_row, FALSE);
-   gtk_widget_set_margin_end(network_row, 6);
+   gtk_widget_set_margin_end(network_row, 2);
    /* The entire notebook lives inside a non-horizontally-scrollable viewport.
     * A wide notebook page can therefore push the toolbar's end past the
     * visible window. Anchor network status to the window-sized overlay
@@ -2304,7 +2307,7 @@ bool chat_init(void) {
    gtk_widget_set_halign(network_row, GTK_ALIGN_END);
    gtk_widget_set_valign(network_row, GTK_ALIGN_START);
    gtk_widget_set_margin_top(network_row, 3);
-   gtk_widget_set_margin_end(network_row, 8);
+   gtk_widget_set_margin_end(network_row, 2);
    if (GTK_IS_OVERLAY(window_overlay)) {
       gtk_overlay_add_overlay(GTK_OVERLAY(window_overlay), network_row);
       gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(window_overlay), network_row, TRUE);
