@@ -452,7 +452,11 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_drag_dest_set(button, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
       g_signal_connect(button, "drag-data-get", G_CALLBACK(tab_drag_data_get), NULL);
       g_signal_connect_object(button, "drag-data-received", G_CALLBACK(tab_drag_received), notebook, 0);
+      /* FlowBox columns may be wider than their tab. Never stretch a button
+       * to fill a wide column; preserve its compact natural width. */
+      gtk_widget_set_halign(button, GTK_ALIGN_START);
       gtk_container_add(GTK_CONTAINER(flow), button);
+      gtk_widget_set_halign(gtk_widget_get_parent(button), GTK_ALIGN_START);
       gtk_widget_set_can_focus(gtk_widget_get_parent(button), FALSE);
    }
 
