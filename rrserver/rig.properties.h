@@ -9,6 +9,7 @@
 #define __rrserver_rig_properties_h
 
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <time.h>
@@ -32,6 +33,9 @@
 
 struct rr_backend;
 typedef struct rr_server_rig rr_server_rig_t;
+/* Rig-wide emergency interlock. Key-up and read-only polls remain allowed. */
+bool rr_rig_halted(const rr_server_rig_t *rig);
+void rr_rig_set_halted(rr_server_rig_t *rig, bool halted);
 struct rr_server_vfo;
 typedef struct rr_server_vfo rr_server_vfo_t;
 
