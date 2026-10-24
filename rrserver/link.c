@@ -416,6 +416,15 @@ static void remember_site(const char *node, const char *site) {
       link_site_history = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    g_hash_table_replace(link_site_history, g_strdup(node), g_strdup(site));
 }
+/* Snapshot all identities before pruning: a withdrawal may remove an entire
+ * subtree and the subsequent relay.catalog/relay.health listeners still
+ * need names for nodes that are no longer routable. */
+static void remember_topology_sites(void) {
+   if (!links.tree) return;
+   rr_link_node_t node;
+   for (size_t i = 0; rr_link_tree_node(links.tree, i, &node); ++i)
+      remember_site(node.server, node.site);
+}
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
    if (!buffer || !capacity) {
       return "";
@@ -918,7 +927,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
 
       if (!strcmp(node, session->node)) {
          fail(session, "Peer sent an invalid withdrawal of its own server; closing the link");
-      } else if (!rr_link_tree_remove(links.tree, session->node, node)) {
+      } else if ((remember_topology_sites(), !rr_link_tree_remove(links.tree, session->node, node))) {
          fail(session, "Server withdrawal does not belong to this peer's network branch");
       } else {
          links.generation++;
@@ -982,6 +991,7 @@ static void close_session(struct link_session *session) {
    }
 
    if (session->admitted) {
+      remember_topology_sites();
       rr_link_tree_remove(links.tree, session->node, session->node);
       links.generation++;
 
