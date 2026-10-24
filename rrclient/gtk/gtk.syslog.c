@@ -19,6 +19,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/connman.h>
 #include <librustyaxe/logger.h>
 
 extern dict *cfg;               // config.c
@@ -181,7 +182,12 @@ bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, v
    char header[512];
    memset(header, 0, sizeof(header));
    // get_chat_ts() already includes the separator after the timestamp.
-   snprintf(header, sizeof(header), "<%s.%s> ", subsys, log_priority_to_str(priority));
+   /* Local log callbacks are process-wide, unlike host log frames which
+    * carry their originating connection. Display the selected profile as
+    * context, never claim it is the definitive source of background logs. */
+   const char *profile = rrclient_selected_server();
+   snprintf(header, sizeof(header), "|%.80s| <%s.%s> ",
+      profile && *profile ? profile : "local", subsys, log_priority_to_str(priority));
    gtk_text_buffer_insert(log_buffer, &end, header, -1);
 
    // Log messages can contain IRC formatting controls.
