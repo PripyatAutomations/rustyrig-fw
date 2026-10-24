@@ -244,6 +244,18 @@ void rr_relay_media_outgoing(const char *event, const void *data, size_t length,
    io->result = media_packet(remote->origin, "reply", remote->id, NULL, channel->uuid, channel->room, io->frame, io->length, io->setup);
 }
 
+/* Count relayed TX activity without per-frame log floods. */
+static void tx_trace(const char *stage, const char *uuid, const char *room, unsigned source, unsigned target, size_t bytes) {
+   static gint64 last_log;
+   static unsigned observed;
+   observed++;
+   gint64 at = g_get_monotonic_time();
+   if (last_log && at - last_log < 5 * G_USEC_PER_SEC) return;
+   Log(LOG_INFO, "relay.media", "TX %s: channel=%s room=%s stream=%u owner_stream=%u bytes=%zu frames_since_last=%u",
+      stage, uuid ? uuid : "?", room ? room : "?", source, target, bytes, observed);
+   observed = 0;
+   last_log = at;
+}
 /* Translate and forward incoming client media for a remote owner. */
 void rr_relay_media_incoming(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (length != sizeof(rr_media_binary_t) || rr_relay_applying || rr_relay_remote_for(client)) {
@@ -263,6 +275,7 @@ void rr_relay_media_incoming(const char *event, const void *data, size_t length,
       io->handled = true;
 
       if (!m->subscribed || m->direction != RR_BINFRAME_DIR_TX || !ws_client_in_room(client, m->room) || !client->user) {
+         tx_trace("blocked (subscription/direction/room/user)", m->uuid, m->room, frame.hdr.stream, m->owner_stream, io->length);
          return;
       }
       struct relay_client *origin = rr_relay_client_for(client, false);
@@ -276,6 +289,7 @@ void rr_relay_media_incoming(const char *event, const void *data, size_t length,
       memcpy(copy, io->frame, io->length);
       copy[11] = m->owner_stream;
       io->result = media_packet(m->owner, "request", origin->id, client->user->name, m->uuid, m->room, copy, io->length, io->setup);
+      tx_trace(io->result ? "forwarded" : "forward failed", m->uuid, m->room, frame.hdr.stream, m->owner_stream, io->length);
       free(copy);
 
       return;
