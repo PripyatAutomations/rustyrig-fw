@@ -951,7 +951,12 @@ static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
    if (!s || !index_of(v, &i) || i != b->active_vfo || s->ptt ||
-       !isfinite(watts) || watts < 5 || (int)watts != watts) return true;
+       !isfinite(watts) || watts <= 0) return true;
+   /* UI uses a percentage of the model's maximum; CAT PC/EX accept whole
+    * watt values. Round a fractional calculated setpoint to the nearest
+    * supported watt, never below the rig's minimum 5 W. */
+   watts = floorf(watts + 0.5f);
+   if (watts < 5) watts = 5;
    int band = yaesu_power_band(s, i), slot = yaesu_power_slot(s->mode[i]);
    if (band < 0 || slot < 0 || watts > yaesu_power_limit(s, i)) return true;
    int readback;
