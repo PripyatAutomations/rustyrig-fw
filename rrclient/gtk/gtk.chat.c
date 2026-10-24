@@ -1381,6 +1381,8 @@ static void chat_horizontal_keep_left(GtkAdjustment *adjustment, gpointer unused
 
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+   /* A replay line must never establish the notebook page minimum width. */
+   gtk_widget_set_size_request(chat_box, 1, -1);
 
    if (!chat_box) {
       // XXX: throw OOM warning
@@ -1417,8 +1419,11 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_chat_links_attach(chat_textview);
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
-   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
-   gtk_widget_set_hexpand(chat_textview, FALSE);
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_CHAR);
+   /* The size request is a minimum, not an allocation: GTK still fills the
+    * scrolled viewport and wraps text there. Never derive this from text. */
+   gtk_widget_set_size_request(chat_textview, 1, -1);
+   gtk_widget_set_hexpand(chat_textview, TRUE);
    gtk_widget_set_halign(chat_textview, GTK_ALIGN_FILL);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
