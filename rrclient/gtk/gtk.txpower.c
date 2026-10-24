@@ -44,6 +44,11 @@ static gboolean tx_power_send(gpointer unused) {
    int percent = (int)gtk_range_get_value(GTK_RANGE(tx_power_slider));
 
    if (percent <= 0) {
+      /* 0% disables PTT locally; it is not a CAT power request. */
+      return G_SOURCE_REMOVE;
+   }
+   if (percent > 100) {
+      Log(LOG_WARN, "ui.gtk", "TX power: ignoring invalid slider value %d%%", percent);
       return G_SOURCE_REMOVE;
    }
    dict *d = dict_new();
@@ -61,6 +66,7 @@ static gboolean tx_power_send(gpointer unused) {
    dict_add_int(d, "cat.power", percent);
    dict_add(d, "cat.power-unit", "percent");
 
+   Log(LOG_DEBUG, "ui.gtk", "TX power: sending %d%% for room %s VFO %s", percent, room, vfo);
    if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
       Log(LOG_WARN, "ui.gtk", "TX power: failed to send percent request for room %s VFO %s", room, vfo);
    }
