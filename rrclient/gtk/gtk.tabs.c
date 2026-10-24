@@ -534,11 +534,14 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
     * a constrained viewport; tab buttons continue to wrap normally. */
    GtkWidget *page_viewport = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport),
-      GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+      GTK_POLICY_NEVER, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(page_viewport), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(page_viewport), 1);
    gtk_widget_set_hexpand(page_viewport, TRUE);
+   gtk_widget_set_halign(page_viewport, GTK_ALIGN_FILL);
    gtk_widget_set_vexpand(page_viewport, TRUE);
+   /* Never offer horizontal panning of the entire notebook. Oversized leaf
+    * pages must manage their own width and scrolling. */
    gtk_container_add(GTK_CONTAINER(page_viewport), GTK_WIDGET(notebook));
    gtk_box_pack_start(GTK_BOX(box), page_viewport, TRUE, TRUE, 0);
 
