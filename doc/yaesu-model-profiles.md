@@ -21,3 +21,15 @@ The model-specific registry lives in `rrserver/backend.yaesu.c`.
 Full model-specific EX catalogs and typed editors; explicit on-open reads;
 on-demand property subscriptions; signed and multi-parameter CAT settings;
 remote readback and failure propagation; expanded FT-991A direct CAT capabilities.
+
+## Experimental FT-991A rear audio/PTT handoff
+
+The native backend recognizes CAT ID 0670 and, during initialization, saves
+EX070/074/106 (DATA/FM/SSB input) and EX071/076/108 (DATA/FM/SSB PTT).
+It selects value 1 (REAR) for inputs and value 0 (DAKY) for PTT, checks each
+readback, and restores captured values during normal backend destruction.
+The menu numbers and parameter values follow the official FT-991A CAT reference.
+The FT-991A uses three-digit EX menu IDs; FT-891 uses four digits.
+This feature requires hardware validation: confirm read/write/restore logs,
+including when a setting was already at its desired value. Abrupt termination
+cannot restore the in-memory values. Never assume FT-891's EX IDs on FT-991A.
