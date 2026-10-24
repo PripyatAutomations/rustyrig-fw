@@ -936,7 +936,11 @@ extern void rr_relay_catalog_peer_lost(const char *node);
 /* Remove discovery and session state made unreachable by a lost link. */
 static void lost(const char *event, const char *node, rrconn_t *client, void *user) {
    if (node && *node) {
-      rr_relay_catalog_peer_lost(node);
+      /* server.link.lost is also emitted for withdrawals of nodes behind
+       * another server. Only ready() creates direct-peer health entries. */
+      gboolean direct_peer = relay_sync_health &&
+         g_hash_table_contains(relay_sync_health, node);
+      if (direct_peer) rr_relay_catalog_peer_lost(node);
       /* Do not retain abandoned receive sessions across link generations:
        * a late timeout must not recreate a disconnected peer's health state. */
       if (catalog_receives) {
@@ -953,10 +957,16 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
             g_hash_table_iter_remove(&iter);
          }
       }
-      if (relay_sync_health) g_hash_table_remove(relay_sync_health, node);
-      char label[192];
-      Log(LOG_WARN, "relay.health", "Link lost: peer=%s; catalog synchronization no longer healthy",
-         rrserver_links_format_node(node, label, sizeof(label)));
+      if (direct_peer) {
+         g_hash_table_remove(relay_sync_health, node);
+         char label[192];
+         Log(LOG_WARN, "relay.health", "Direct link lost: peer=%s; catalog synchronization no longer healthy",
+            rrserver_links_format_node(node, label, sizeof(label)));
+      } else {
+         char label[192];
+         Log(LOG_INFO, "relay.health", "Remote node withdrawn: node=%s; direct peer links unaffected",
+            rrserver_links_format_node(node, label, sizeof(label)));
+      }
    }
    for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {
       for (struct wanted_room *w = local->wanted ; w ; w = w->next) {
