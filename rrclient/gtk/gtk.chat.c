@@ -1812,7 +1812,8 @@ static void estop_send_in_context(void *action_ptr) {
    if (!ws_conn) return;
    dict *request = dict_new();
    if (!request) return;
-   dict_add(request, "msg.type", "admin");
+   dict_add(request, "msg.type", "talk");
+   dict_add(request, "talk.cmd", "admin");
    dict_add(request, "talk.action", action);
    dict_add(request, "talk.target", estop_room);
    ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
