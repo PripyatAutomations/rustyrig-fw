@@ -1266,7 +1266,7 @@ static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
 static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
    (void)widget;
    (void)unused;
-   if (!event || event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY)
+   if (!event || event->type != GDK_BUTTON_RELEASE || event->button != GDK_BUTTON_PRIMARY)
       return FALSE;
    if (!room_vfo_title_room[0]) return FALSE;
    uint32_t mask = rrclient_room_vfo_mask(room_vfo_title_room);
