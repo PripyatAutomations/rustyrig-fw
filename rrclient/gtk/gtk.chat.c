@@ -1334,6 +1334,20 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
 }
 
 /* One in-client overlay panel follows the selected rig; it is not a toplevel window and cannot be docked into an individual chat tab. */
+/* Reflect server-acknowledged VFO selection in the title, including
+ * changes initiated outside this popup. */
+static gboolean room_vfo_title_tick(gpointer unused) {
+   (void)unused;
+   if (!main_notebook) return G_SOURCE_REMOVE;
+   if (!room_vfo_panel || !room_vfo_title_room[0]) return G_SOURCE_CONTINUE;
+   char active = rrclient_room_active_vfo(room_vfo_title_room);
+   char *title = g_strdup_printf("%s — VFO %c", room_vfo_title_room,
+      active >= 'A' && active <= 'Z' ? active : '?');
+   rr_floating_panel_set_title(room_vfo_panel, title);
+   g_free(title);
+   return G_SOURCE_CONTINUE;
+}
+
 static void room_vfo_show(const char *name) {
    if (!room_vfo_panel) {
       GtkWidget *root = gtk_bin_get_child(GTK_BIN(main_window));
@@ -2389,6 +2403,7 @@ bool chat_init(void) {
    g_timeout_add_seconds(1, status_network_tick, NULL);
    status_network_tick(NULL);
    g_timeout_add_seconds(1, vfo_locator_tick, NULL);
+   g_timeout_add_seconds(1, room_vfo_title_tick, NULL);
    vfo_locator_tick(NULL);
    g_signal_connect_after(main_notebook, "switch-page", G_CALLBACK(gtk_chat_select_tab), NULL);
    userlist_redraw_gtk();
