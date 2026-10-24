@@ -508,6 +508,12 @@ static bool userlist_set_columns(GtkWidget *view, const char *room) {
    const char *type = has_vfos ? "vfo" : connection && !connection->is_ws ? "irc" : "room";
    bool changed = g_strcmp0(g_object_get_data(G_OBJECT(view), "rr-roster-type"), type) != 0;
    userlist_apply_layout(view, type);
+   /* Layout reloads may reorder columns, but must not resurrect Privs. */
+   GtkTreeViewColumn *privs = userlist_column(view, COL_PRIV_ICON);
+   if (gtk_tree_view_column_get_visible(privs)) {
+      gtk_tree_view_column_set_visible(privs, FALSE);
+      changed = true;
+   }
 
    /* Radio status belongs to VFO-enabled rooms, independent of transport. */
    const int ids[] = {
@@ -1260,6 +1266,13 @@ static GtkWidget *userlist_view_create(void) {
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_DISPLAY_NAME, NULL);
    g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
+   /* Show the privilege glyph immediately before the nickname, alongside
+    * the existing @/+ /! name prefixes. Keep the legacy Privs column in the
+    * model/layout index for saved column orders, but never display it. */
+   GtkCellRenderer *inline_priv = gtk_cell_renderer_text_new();
+   g_object_set(inline_priv, "xpad", 2, "ypad", 0, "scale", 1.15, NULL);
+   gtk_tree_view_column_pack_start(user_col, inline_priv, FALSE);
+   gtk_tree_view_column_add_attribute(user_col, inline_priv, "text", COL_PRIV_ICON);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);
@@ -1297,6 +1310,7 @@ static GtkWidget *userlist_view_create(void) {
 
    }
 
+   gtk_tree_view_column_set_visible(priv_col, FALSE);
    userlist_set_columns(view, NULL);
    g_signal_connect(view, "columns-changed", G_CALLBACK(userlist_columns_changed), NULL);
 
