@@ -1384,6 +1384,30 @@ static void chat_horizontal_keep_left(GtkAdjustment *adjustment, gpointer unused
       gtk_adjustment_set_value(adjustment, left);
 }
 
+/* GtkTextView can report a content-driven natural width before its initial
+ * allocation, even with GTK_WRAP_CHAR. A long replay line then widens the
+ * GtkNotebook page and both ends of the room layout are clipped. This
+ * subclass provides a narrow width requisition while still allowing GTK to
+ * allocate the full viewport and wrap its text normally. No resize feedback
+ * callbacks and no modification to the displayed chat data. */
+typedef struct { GtkTextView parent; } RRWrappingChatView;
+typedef struct { GtkTextViewClass parent; } RRWrappingChatViewClass;
+G_DEFINE_TYPE(RRWrappingChatView, rr_wrapping_chat_view, GTK_TYPE_TEXT_VIEW)
+
+static void rr_wrapping_chat_view_preferred_width(GtkWidget *widget, gint *minimum, gint *natural) {
+   (void)widget;
+   *minimum = 1;
+   *natural = 1;
+}
+
+static void rr_wrapping_chat_view_class_init(RRWrappingChatViewClass *klass) {
+   GTK_WIDGET_CLASS(klass)->get_preferred_width = rr_wrapping_chat_view_preferred_width;
+}
+
+static void rr_wrapping_chat_view_init(RRWrappingChatView *self) {
+   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(self), GTK_WRAP_CHAR);
+}
+
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    /* A replay line must never establish the notebook page minimum width. */
@@ -1415,7 +1439,7 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
 
    // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
-   chat_textview = gtk_text_view_new();
+   chat_textview = g_object_new(rr_wrapping_chat_view_get_type(), NULL);
    gtk_widget_set_name(chat_textview, "chat-view");
    gtk_widget_add_events(chat_textview, GDK_POINTER_MOTION_MASK);
    g_signal_connect(chat_textview, "key-press-event", G_CALLBACK(gtk_chat_view_keypress), NULL);
