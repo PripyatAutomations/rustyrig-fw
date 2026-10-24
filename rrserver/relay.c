@@ -1079,8 +1079,9 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
    if (removed_catalogs) {
       char label[192];
       Log(LOG_INFO, "relay.catalog",
-         "Topology withdrawal %s: purged %u unreachable catalog descriptors (including downstream owners); unaffected branches retained, no full resync",
-         rrserver_links_format_node(node, label, sizeof(label)), removed_catalogs);
+         "Topology withdrawal %s: purged %u unreachable catalog descriptors; %zu remain (%zu total before withdrawal); unaffected branches retained, no full resync",
+         rrserver_links_format_node(node, label, sizeof(label)), removed_catalogs,
+         rr_relay_catalog_count, rr_relay_catalog_count + removed_catalogs);
    }
 }
 
