@@ -489,6 +489,8 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tab_scroll), 1);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(tab_scroll), 32);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), TRUE);
    gtk_widget_set_hexpand(tab_scroll, TRUE);
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
@@ -509,7 +511,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_box_pack_start(GTK_BOX(box), GTK_WIDGET(notebook), TRUE, TRUE, 0);
 
    if (position == GTK_POS_BOTTOM) {
-      gtk_box_pack_start(GTK_BOX(box), flow, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), tab_scroll, FALSE, FALSE, 0);
    }
    g_signal_connect_object(notebook, "page-added", G_CALLBACK(tabs_rebuild), flow, 0);
    g_signal_connect_object(notebook, "page-removed", G_CALLBACK(tabs_rebuild), flow, 0);
