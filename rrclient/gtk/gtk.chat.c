@@ -1365,6 +1365,13 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
 
    // SEND the command/message
    GtkWidget *button = gtk_button_new_with_label("Send");
+   /* The status send button includes the selected server name; truncate its
+    * display rather than letting a long name expand the entire notebook. */
+   GtkWidget *send_label = gtk_bin_get_child(GTK_BIN(button));
+   if (GTK_IS_LABEL(send_label)) {
+      gtk_label_set_ellipsize(GTK_LABEL(send_label), PANGO_ELLIPSIZE_END);
+      gtk_label_set_max_width_chars(GTK_LABEL(send_label), 32);
+   }
    gtk_box_pack_start(GTK_BOX(chat_box), button, FALSE, FALSE, 0);
    g_signal_connect(button, "clicked", G_CALLBACK(on_send_button_clicked), chat_entry);
 
