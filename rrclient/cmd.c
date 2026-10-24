@@ -93,7 +93,7 @@ bool cmd_estop(int argc, char **args) {
       ui_print(ui_active_window_name(), "E-STOP requires the GTK client");
       return false;
    }
-   event_emit("client.estop", args[1]);
+   event_emit("client.estop", rrclient_active_connection(), args[1]);
    return false;
 }
 
