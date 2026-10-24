@@ -214,7 +214,7 @@ defconfig_t defcfg[] = {
       "cat.pty.path", "$HOME/dev/ttyCAT", "Legacy floating ttyCAT PTY symlink path"
    },
    {
-      "default.tx.power", "30", "Default TX power in watts (float)", DEFCONFIG_FLOAT, NULL
+      "default.tx.power", "30", "Initial TX power slider percentage (0 inhibits PTT ON)", DEFCONFIG_FLOAT, NULL
    },
    {
       "log.audio", ":*3", "GStreamer debug level"
