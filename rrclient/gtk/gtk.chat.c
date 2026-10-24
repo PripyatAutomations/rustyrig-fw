@@ -1710,6 +1710,12 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    }
    if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.gridsquare", NULL);
    if (!grid || !*grid) grid = vfo_state_get(vfo, "cat.state.grid", NULL);
+   /* Grid metadata may belong to the rig's GPS stream, not the VFO.
+    * Use the same cached coordinates that Resource Explorer receives. */
+   rr_location_t gps_location;
+   if ((!grid || !*grid) &&
+       rr_location_resolve(rrclient_media_rig_coordinates(room), NULL, &gps_location))
+      grid = gps_location.locator;
    char path[256];
    if (room && *room) {
       /* Rig rooms are named #site-rigN. Do not invent a rig when the
