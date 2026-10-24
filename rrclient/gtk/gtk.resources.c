@@ -1152,7 +1152,13 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
 
    if (direct || available) {
-      char *key = g_strdup_printf("%s|%s|%s", branch->profile, direct ? "root" : "site", direct ? "" : uuid && *uuid ? uuid : name);
+      /* Multiple links may advertise the same physical node. Deduplicate by
+       * site name, not by the profile/path through which it was discovered. */
+      char *key = g_strdup_printf("node|%s", name && *name ? name : branch->profile);
+      if (g_hash_table_contains(seen, key)) {
+         g_free(key);
+         goto health_children;
+      }
       g_hash_table_add(seen, g_strdup(key));
       GtkTreeIter item, child;
       gboolean found = FALSE;
@@ -1201,6 +1207,7 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
       g_free(key);
    }
    g_string_free(reasons, TRUE);
+health_children:
    /* Include linked sites, but not rigs, VFOs or unrelated inventory groups. */
    GtkTreeIter child;
 
@@ -1226,14 +1233,19 @@ static void resource_health_update(void) {
    GHashTableIter branches;
    gpointer value;
    g_hash_table_iter_init(&branches, browser->branches);
+   /* Direct nodes win over relayed copies regardless of hash iteration order. */
+   for (unsigned pass = 0; pass < 2; ++pass) {
+   g_hash_table_iter_init(&branches, browser->branches);
    while (g_hash_table_iter_next(&branches, NULL, &value)) {
       resource_branch *branch = value;
+      if ((pass == 0) != (rrclient_connection_state(branch->profile) == 1)) continue;
       rrconn_t *connection = rrclient_connection_find(branch->profile);
 
       /* An IRC (or other non-rrprotocol) profile is not a cluster node. Retain previously discovered rrprotocol sites when disconnected. */
       if ((connection && connection->is_ws) || branch->local_site_seen) {
          resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
       }
+   }
    }
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
