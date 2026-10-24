@@ -62,8 +62,8 @@ GtkWidget *create_txpower_box(void) {
    GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    GtkWidget *tx_power_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(tx_power_label), "TX <u>P</u>ower");
-   tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 1, 100, 1);
-   gtk_widget_set_tooltip_text(tx_power_slider, "Transmit Power (0-100%)");
+   tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
+   gtk_widget_set_tooltip_text(tx_power_slider, "Transmit power as a percentage of the selected rig/mode maximum (0% requests RF off; unsupported by some rigs)");
    gtk_widget_set_size_request(tx_power_slider, 120, -1);
    gtk_scale_set_draw_value(GTK_SCALE(tx_power_slider), TRUE);
    gtk_scale_set_value_pos(GTK_SCALE(tx_power_slider), GTK_POS_RIGHT);
