@@ -282,6 +282,9 @@ int main(void) {
    ws_conn = NULL;
    check("Ro", "Ro", "Rob:");
    check("hello Ro", "Ro", "Rob");
+   check("/me Ro", "Ro", "Rob");
+   check("/me waves to Ro", "Ro", "Rob");
+   check("/me Robi", "Robi", NULL);
    check("rig", "rig", NULL);
    check("/ri", "/ri", "/rig");
    void *state = NULL;
