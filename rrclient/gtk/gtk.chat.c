@@ -1414,9 +1414,9 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    if (is_rig || (!is_query && room && *room)) {
       GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
       gtk_box_pack_start(GTK_BOX(chat_box), paned, TRUE, TRUE, 0);
-      /* Respect the chat viewport's small minimum, rather than letting GTK shrink the text view below its allocation and clip it off the left. The roster
-       * (pack2) remains shrinkable and can still grow freely. */
-      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, FALSE);
+      /* Both children must be shrinkable: otherwise the chat view's preferred width
+       * clamps the handle and prevents the roster from expanding again. */
+      gtk_paned_pack1(GTK_PANED(paned), scrolled, TRUE, TRUE);
 
       userlist_dock_room_into(GTK_PANED(paned), room);
    } else {
