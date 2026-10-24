@@ -82,8 +82,25 @@ bool cmd_webcam(int argc, char **args) {
    return false;
 }
 
+bool cmd_estop(int argc, char **args) {
+   if (argc != 2 || (strcasecmp(args[1], "on") &&
+                      strcasecmp(args[1], "off") &&
+                      strcasecmp(args[1], "reset"))) {
+      ui_print(ui_active_window_name(), "Usage: /estop on|off|reset");
+      return false;
+   }
+   if (!frontend_ops() || !frontend_ops()->chat_current_room) {
+      ui_print(ui_active_window_name(), "E-STOP requires the GTK client");
+      return false;
+   }
+   event_emit("client.estop", args[1]);
+   return false;
+}
+
 ///////////////////////////////////////////////
 client_cmd_t client_cmds[] = {
+   { .cmd = "estop", .help_section = "Radio and discovery", .cb = cmd_estop, .max_args = 1,
+      .desc = "Rig emergency stop window: /estop on|off; /estop reset requires owner or estop.reset" },
    {
       .cmd = "disconnect", .help_section = "Connection", .cb = cmd_disconnect, .desc = "Disconnect selected server from status, or /disconnect <name>"
    },
