@@ -1881,6 +1881,16 @@ static void estop_pressed(GtkButton *button, gpointer unused) {
    estop_dispatch("estop-trip");
 }
 
+static void gtk_chat_zoom_event(const char *event, const char *percent_text, rrconn_t *client, void *user) {
+   (void)event;
+   (void)client;
+   (void)user;
+   if (!percent_text) return;
+   unsigned percent = (unsigned)strtoul(percent_text, NULL, 10);
+   if (percent >= 25 && percent <= 300)
+      gtk_ui_zoom_set(percent);
+}
+
 static void estop_request_event(const char *event, const char *action, rrconn_t *client, void *user) {
    (void)event; (void)client; (void)user;
    if (!action) return;
@@ -2284,6 +2294,7 @@ bool chat_init(void) {
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_token("client.server.selected", gtk_chat_server_selected, NULL));
    rr_module_token_add(event_on_token("client.estop", estop_request_event, NULL));
+   rr_module_token_add(event_on_token("client.zoom", gtk_chat_zoom_event, NULL));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *status_tab_label = gtk_label_new(NULL);
