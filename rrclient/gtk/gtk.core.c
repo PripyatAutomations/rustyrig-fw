@@ -873,6 +873,10 @@ bool gui_init(void) {
    gtk_box_pack_start(GTK_BOX(main_content),
       gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip),
       TRUE, TRUE, 0);
+   /* Diagnose width negotiation without changing any widget requisition.
+    * Only log when geometry changes; avoid flooding normal resize events. */
+   g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
+   g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", gtk_widget_get_parent(main_notebook));
    gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
