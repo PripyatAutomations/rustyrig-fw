@@ -5,7 +5,7 @@ The model-specific registry lives in `rrserver/backend.yaesu.c`.
 1. Add the radio CAT `ID;` numeric response to `yaesu_models[]`.
 2. Add a `yaesu_menu_entry_t` array with the menu IDs and labels **verified in that model's CAT reference**.
 3. Set `ft891_controls` only if its direct command formats and ranges have been verified identical; otherwise leave false. This intentionally avoids offering bogus sliders on a newly recognized model.
-4. Menu enumeration is metadata-only (no CAT I/O). The EX read/write editor is not wired yet, so entries remain read-only and no menu values are polled.
+4. Menu enumeration is metadata-only. Opening a FT-891 menu entry in Resource Explorer reads that EX value on demand. Numeric single-field parameters may be edited using exact zero-padded CAT digits; the backend checks the current width and verifies the write by reading the value again. Compound/non-numeric entries remain read-only. Controls → Rig brightness is a separate, already-working interface and is unaffected.
 5. Never infer a radio model from a serial path or configuration alias: use `ID;` confirmation. Unknown and disconnected radios display Unknown Yaesu rather than another rig's menu.
 6. Generic descriptors, schema, values and permissions belong to the object property interface; the GTK UI must not contain Yaesu model-specific command encoders.
 
@@ -18,7 +18,7 @@ The model-specific registry lives in `rrserver/backend.yaesu.c`.
 - Build both the server and GTK client before merging this branch.
 
 ## Remaining work
-Full model-specific EX catalogs and typed editors; explicit on-open reads;
+Full model-specific EX catalogs and typed per-menu editors;
 on-demand property subscriptions; signed and multi-parameter CAT settings;
 remote readback and failure propagation; expanded FT-991A direct CAT capabilities.
 
