@@ -17,4 +17,6 @@ bool rrclient_direct_set_mode(rrconn_t *client, const char *uuid, rr_media_trans
 void rrclient_direct_register_events(void);
 void rrclient_direct_message(rrconn_t *client, dict *message);
 void rrclient_direct_poll(void);
+/* Accepted RTP media payload bytes for this connection, separately from WS/IRC. */
+bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx);
 #endif
