@@ -229,7 +229,7 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
 
    /* Reject queued mutations that predate an emergency halt as well as
     * newly submitted writes. Always permit read-only polls and key-up. */
-   if (rr_rig_halted(backend->owner) && job->operation != RR_BACKEND_POLL &&
+   if (rr_rig_halted(backend->owner) && job->operation != RR_BACKEND_POLL && job->operation != RR_BACKEND_MENU_READ &&
        !(job->operation == RR_BACKEND_PTT && !job->value.i)) {
       job->failed = true;
       goto halted_done;
@@ -449,7 +449,7 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
       return true;
    }
    bool release = operation == RR_BACKEND_PTT && !value.i;
-   if (rr_rig_halted(backend->owner) && operation != RR_BACKEND_POLL && !release)
+   if (rr_rig_halted(backend->owner) && operation != RR_BACKEND_POLL && operation != RR_BACKEND_MENU_READ && !release)
       return true;
    pthread_mutex_lock(&worker->mutex);
 
