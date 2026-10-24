@@ -57,27 +57,6 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
         "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
 
 
-#define DEFAULT_CSS \
-        /* Fonts: GTK/Pango picks family + size; override these in [gtk-css] */ \
-        "button { font-family: \"Sans\"; font-size: 11pt; }\n" \
-        "label { font-family: \"Sans\"; font-size: 11pt; }\n" \
-        "@define-color rr_chat_highlight_nick yellow;\n" \
-        "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 14pt; font-weight: bold; }\n" \
-        "#room-vfo-row.room-vfo-active { background-color: #600000; color: white; }\n" \
-        ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
-        ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
-        ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
-        ".ptt-offline { background: #555555; color: white; font-weight: bold; }\n" \
-        ".ptt-tot { background: #e07000; color: black; font-weight: bold; }\n" \
-        ".conn-active { background: #0a7a0a; color: white; font-weight: bold; }\n" \
-        ".conn-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
-        ".conn-idle { background: #b00000; color: white; font-weight: bold; }\n" \
-        "/* Userlist flag icons (👑⭐👤👀🎤🙊🧙🐣): size the columns/cells here */\n" \
-        "#userlist-tree, #userlist-tree.userlist-icon { font-family: \"Sans\"; font-size: 12pt; }"
-
 const char *default_css = DEFAULT_CSS;
 
 defconfig_t defcfg[] = {
