@@ -65,6 +65,17 @@ The dependency helper prints the installation command for your selected build pr
 
 Configuration examples live in [`config/`](config/). Use `/help` in the client for commands.
 
+## NOTES
+
+This is an early version, especially backend.yaesu -- please don't use it
+unattended until you test it thoroughly in your setup.
+
+CAT emulator currently has very limited 991a support and you probably should
+select ft891 in your program for now if trying to use it.
+
+Yaesu backend has experimental support for ft991(a) support. If it doesnt
+work well, let me know and in the meanwhile try hamlib backend.
+
 ## For developers
 
 The main pieces are `rrserver` (server), `rrclient` (GTK/TUI), `rrbridge` (SDR bridges), `librrprotocol` (shared protocol), `librustyaxe` (application support), and `fwdsp` / `libfwdspmgr` (audio). The browser UI is developed in [rustyrig-www](https://github.com/PripyatAutomations/rustyrig-www).
