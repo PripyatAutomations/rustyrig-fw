@@ -732,6 +732,12 @@ static void zoom_key_step(int direction, bool resize_window) {
    zoom_manual_set((unsigned)next);
 }
 
+/* Explicit zoom does not resize the toplevel window; it scales CSS, DPI,
+ * geometry, margins and icons using the same engine as Ctrl +/- . */
+void gtk_ui_zoom_set(unsigned percent) {
+   zoom_manual_set(CLAMP(percent, 25U, 300U));
+}
+
 void gtk_ui_zoom_step(int direction) {
    zoom_key_step(direction, false);
 }
