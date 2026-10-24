@@ -25,6 +25,7 @@
 #include <rrclient/cmd.help.h>
 #include <rrclient/ui.h>
 #include <rrclient/connman.h>
+#include <rrclient/media.direct.h>
 #include <rrclient/sercom.h>
 #include <rrclient/media.h>
 #include <rrclient/rooms.h>
@@ -1860,13 +1861,15 @@ static GtkWidget *status_network_label, *status_server_label;
 static gboolean status_network_tick(gpointer unused) {
    (void)unused;
    if (!status_network_label || !status_server_label) return G_SOURCE_REMOVE;
-   static uint64_t previous_rx, previous_tx;
+   static uint64_t previous_rx, previous_tx, previous_rtp_rx, previous_rtp_tx;
    static gint64 previous_time;
    static char previous_server[512];
    const char *server = rrclient_selected_server();
    gboolean online = server && rrclient_connection_state(server) == 1;
-   uint64_t rx = 0, tx = 0;
+   uint64_t rx = 0, tx = 0, rtp_rx = 0, rtp_tx = 0;
    gboolean known = server && rrclient_connection_traffic(server, &rx, &tx);
+   rrconn_t *connection = server ? rrclient_connection_find(server) : NULL;
+   gboolean rtp_active = connection && rrclient_direct_traffic(connection, &rtp_rx, &rtp_tx);
    gtk_label_set_text(GTK_LABEL(status_server_label), server && *server ? server : "No server");
    gtk_widget_set_tooltip_text(status_server_label, server && *server ? server : "No server selected");
    gint64 now_us = g_get_monotonic_time();
@@ -1877,21 +1880,33 @@ static gboolean status_network_tick(gpointer unused) {
       return G_SOURCE_CONTINUE;
    }
    if (!previous_time || strcmp(previous_server, server) ||
-       now_us <= previous_time || rx < previous_rx || tx < previous_tx) {
+       now_us <= previous_time || rx < previous_rx || tx < previous_tx ||
+       rtp_rx < previous_rtp_rx || rtp_tx < previous_rtp_tx) {
       g_strlcpy(previous_server, server, sizeof(previous_server));
       previous_rx = rx;
       previous_tx = tx;
+      previous_rtp_rx = rtp_rx;
+      previous_rtp_tx = rtp_tx;
       previous_time = now_us;
-      gtk_label_set_text(GTK_LABEL(status_network_label), "RX 0.0  TX 0.0 kb/s");
+      gtk_label_set_text(GTK_LABEL(status_network_label),
+         rtp_active ? "RX 0.0  TX 0.0 kb/s  |  RTP RX 0.0  TX 0.0 kb/s" : "RX 0.0  TX 0.0 kb/s");
       return G_SOURCE_CONTINUE;
    }
    double scale = 8.0 * 1000000.0 / (1000.0 * (now_us - previous_time));
-   char label[96];
-   g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s",
-      (rx - previous_rx) * scale, (tx - previous_tx) * scale);
+   char label[160];
+   if (rtp_active) {
+      g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s  |  RTP RX %.1f  TX %.1f kb/s",
+         (rx - previous_rx) * scale, (tx - previous_tx) * scale,
+         (rtp_rx - previous_rtp_rx) * scale, (rtp_tx - previous_rtp_tx) * scale);
+   } else {
+      g_snprintf(label, sizeof(label), "RX %.1f  TX %.1f kb/s",
+         (rx - previous_rx) * scale, (tx - previous_tx) * scale);
+   }
    gtk_label_set_text(GTK_LABEL(status_network_label), label);
    previous_rx = rx;
    previous_tx = tx;
+   previous_rtp_rx = rtp_rx;
+   previous_rtp_tx = rtp_tx;
    previous_time = now_us;
    return G_SOURCE_CONTINUE;
 }
@@ -1934,7 +1949,7 @@ bool chat_init(void) {
    gtk_box_pack_start(GTK_BOX(network_row), status_server_label, FALSE, FALSE, 2);
    status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
-      "Selected server transport traffic (IRC or WebSocket); five-second average in kilobits/s. UDP RTP is excluded.");
+      "Selected server transport traffic (IRC or WebSocket); five-second average in kilobits/s. UDP RTP is shown separately when active; rates count media payload bytes.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
