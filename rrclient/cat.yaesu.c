@@ -710,7 +710,8 @@ void rr_cat_yaesu_ptt(const char *args) {
    bool ptt = (args[0] == '1');
 
    Log(LOG_CRAZY, "cat.yaesu", "Set PTT to %s", (ptt ? "ON" : "OFF"));
-   ws_send_ptt_cmd_in_room(ws_conn, cat_vfo_str(0), ptt, rr_cat_room());
+   extern void rrclient_send_ptt_command(rrconn_t *, const char *, bool, const char *);
+   rrclient_send_ptt_command(ws_conn, cat_vfo_str(0), ptt, rr_cat_room());
 }
 
 void rr_cat_yaesu_unlock(const char *args) {
