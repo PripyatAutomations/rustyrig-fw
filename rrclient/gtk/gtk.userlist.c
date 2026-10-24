@@ -630,11 +630,12 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       /* Compact typing icons before names; no changing status sentences. */
       const char *prefix = typing == RR_TYPING_STARTED || typing == RR_TYPING_ACTIVE ? "✎ " :
          typing == RR_TYPING_PAUSED ? "⏸ " : "";
+      /* Keep the IRC @/+/! name prefixes; IRC icons would duplicate them. */
       char *display = g_strdup_printf("%s%s", prefix, decorated);
       char *safe_decorated = userlist_safe_display(display);
       g_free(display);
       const char *values[NUM_COLS] = {
-         select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), safe_decorated
+         !strncmp(c->privs, "irc:", 4) ? "" : select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), safe_decorated
       };
       char *previous[NUM_COLS] = {
          0
