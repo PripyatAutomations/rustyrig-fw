@@ -33,3 +33,31 @@ The FT-991A uses three-digit EX menu IDs; FT-891 uses four digits.
 This feature requires hardware validation: confirm read/write/restore logs,
 including when a setting was already at its desired value. Abrupt termination
 cannot restore the in-memory values. Never assume FT-891's EX IDs on FT-991A.
+
+## Per-mode RF power (FT-891 and FT-991A)
+
+Requested RF power is durable in the server SQLite database, not written back
+into the read-only rig configuration. The `rig_power_preferences` table is
+keyed by persistent rig UUID, frequency group and logical mode class (SSB,
+AM, FM, and DATA/CW). No default is inferred: if an operator has not requested
+a setpoint, pre-PTT preparation leaves the radio's power untouched.
+
+- **FT-891**: HF (<50 MHz) and 50 MHz are distinct. SSB and AM use their
+  dedicated EX menus; FM and DATA/CW select the shared general-power menu.
+  Separate software preferences for FM and DATA/CW are restored before TX.
+  AM is capped at 40 W.
+- **FT-991A**: Uses `PCnnn;` and `PC;` CAT commands for the active
+  operating power; the selected mode's preferred setpoint is applied and
+  read back before asserting PTT. Database band groups distinguish HF, 50 MHz,
+  VHF and UHF. FT-991A DATA-FM uses `MD0A;` rather than ordinary FM `MD04;`.
+- On a configured power set, the backend requires CAT readback and then saves
+  the confirmed requested value. A pre-PTT read or write failure rejects
+  key-down rather than transmitting at the wrong configured output level.
+- This verifies the **CAT setpoint**, not measured forward RF power. Physical
+  rig tests into a dummy load are still needed, especially FT-991A AM and
+  higher-band limits. No general FT-991A equivalence for FT-891-only menu
+  sliders is assumed.
+
+CAT model and menu references: Yaesu FT-891 Advanced Manual (TX GNRL menu
+16-01 through 16-06), and Yaesu FT-991A CAT Operation Reference Manual
+(PC power, MD mode and EX settings).
