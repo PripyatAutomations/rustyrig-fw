@@ -1661,9 +1661,9 @@ static void locator_menu_room_context(void *data) {
    if (!mask && bindings) {
       char *copy = g_strdup(bindings);
       char *save = NULL;
-      for (char *part = strtok_r(copy, " \\t", &save); part; part = strtok_r(NULL, " \\t", &save)) {
+      for (char *part = strtok_r(copy, " \t", &save); part; part = strtok_r(NULL, " \t", &save)) {
          const char *dot = strrchr(part, '.');
-         if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4)) {
+         if (dot && g_ascii_strncasecmp(dot + 1, "vfo_", 4) == 0 && dot[5]) {
             char vfo = g_ascii_toupper(dot[5]);
             if (vfo >= 'A' && vfo <= 'Z') mask |= UINT32_C(1) << (vfo - 'A');
          }
@@ -1714,6 +1714,7 @@ static gboolean vfo_locator_menu_click(GtkWidget *widget, GdkEventButton *event,
       gtk_widget_set_sensitive(empty, FALSE);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), empty);
    }
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
    return TRUE;
