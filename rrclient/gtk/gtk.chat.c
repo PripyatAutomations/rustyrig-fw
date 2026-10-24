@@ -1371,6 +1371,14 @@ static void gtk_chat_resources_clicked(GtkButton *button, gpointer data) {
    event_emit("client.resources.open", NULL, NULL);
 }
 
+/* Chat is a wrapped viewport: no replay line may pan its left edge away. */
+static void chat_horizontal_keep_left(GtkAdjustment *adjustment, gpointer unused) {
+   (void)unused;
+   double left = gtk_adjustment_get_lower(adjustment);
+   if (gtk_adjustment_get_value(adjustment) != left)
+      gtk_adjustment_set_value(adjustment, left);
+}
+
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
@@ -1395,6 +1403,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    /* Text wraps at the viewport allocation, not at the text view's natural width. Keep a small usable chat minimum while the roster grows. */
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scrolled), 160);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scrolled), FALSE);
+   g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(scrolled)),
+      "value-changed", G_CALLBACK(chat_horizontal_keep_left), NULL);
 
 
    // Chat view. Font (monospace) comes from the #chat-view CSS rule in [gtk-css]
@@ -1408,6 +1418,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
+   gtk_widget_set_hexpand(chat_textview, FALSE);
+   gtk_widget_set_halign(chat_textview, GTK_ALIGN_FILL);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
 
    /* Every room owns its detachable roster, including authoritative rooms on different servers. Private query tabs stay chat-only. */
