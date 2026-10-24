@@ -104,6 +104,7 @@ typedef struct room_userlist_entry {
    bool dragging_width;
    int last_paned_width;
    guint resize_idle_id;
+   guint resize_watch_id;
    guint refresh_id;
 } room_userlist_entry_t;
 static room_userlist_entry_t rig_userlist_entry;
@@ -1540,6 +1541,23 @@ static gboolean room_userlist_restore_width_idle(gpointer data) {
    return G_SOURCE_REMOVE;
 }
 
+/* Zoom can collapse GtkPaned's second child without changing the paned
+ * allocation (font-size and child requisitions changed instead). A width-
+ * change-only callback will never fire to recover it. Check the *actual*
+ * roster allocation, and only intervene when it has collapsed unintentionally.
+ * Manual widths are >= 100px and are never changed by this watchdog. */
+static gboolean room_userlist_resize_watch(gpointer data) {
+   room_userlist_entry_t *entry = data;
+   if (!entry->docked || entry->dragging_width || !entry->dock_paned ||
+       !entry->panel || !gtk_widget_get_mapped(GTK_WIDGET(entry->dock_paned)))
+      return G_SOURCE_CONTINUE;
+   int total = gtk_widget_get_allocated_width(GTK_WIDGET(entry->dock_paned));
+   int actual = gtk_widget_get_allocated_width(entry->panel);
+   if (total >= 320 && actual < 80 && !entry->resize_idle_id)
+      entry->resize_idle_id = g_idle_add(room_userlist_restore_width_idle, entry);
+   return G_SOURCE_CONTINUE;
+}
+
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
    if (!entry->docked || entry->dragging_width || allocation->width <= 1)
@@ -1707,6 +1725,7 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    g_signal_connect(paned, "button-release-event", G_CALLBACK(room_userlist_resize_finished), entry);
    g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), entry);
    g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), entry);
+   entry->resize_watch_id = g_timeout_add_seconds(1, room_userlist_resize_watch, entry);
    g_hash_table_insert(room_userlist_views, g_strdup(rrclient_window_name(room)), entry);
    userlist_redraw_view(view, room);
    gtk_widget_show_all(panel);
@@ -1744,6 +1763,10 @@ void userlist_remove_room_view(const char *room) {
       if (entry->resize_idle_id) {
          g_source_remove(entry->resize_idle_id);
          entry->resize_idle_id = 0;
+      }
+      if (entry->resize_watch_id) {
+         g_source_remove(entry->resize_watch_id);
+         entry->resize_watch_id = 0;
       }
 
       if (entry->panel && G_IS_OBJECT(entry->panel)) {
