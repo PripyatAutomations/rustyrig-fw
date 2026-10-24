@@ -439,6 +439,9 @@ static rr_mode_t mode_decode(char value) {
       case '8': {
          return MODE_DL;
       }
+      case 'A': {
+         return MODE_DFM;
+      }
       case 'C': {
          return MODE_DU;
       }
