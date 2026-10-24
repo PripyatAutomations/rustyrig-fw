@@ -493,6 +493,28 @@ static bool mode_set(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t mode) {
    }
    /* FT-991A has a distinct DATA-FM CAT mode (A), not ordinary FM (4). */
    if (s->model_id == 670 && mode == MODE_DFM) digit = 'A';
+   /* FT-891 MD01/MD02 both select SSB; EX1107 (SSB BFO) determines
+    * USB (0), LSB (1), or AUTO (2). An explicit sideband request must
+    * override AUTO, and both commands must be verified before publishing. */
+   if (s->model_id == 650 && (mode == MODE_LSB || mode == MODE_USB || mode == MODE_ML || mode == MODE_MU)) {
+      char bfo[24], md[24];
+      char desired = (mode == MODE_LSB || mode == MODE_ML) ? '1' : '0';
+      if (!cat(s, desired == '1' ? "EX11071;" : "EX11070;", NULL, NULL, 0) ||
+          !cat(s, "EX1107;", "EX1107", bfo, sizeof(bfo)) ||
+          strlen(bfo) != 7 || bfo[6] != desired) {
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 SSB BFO change not confirmed for %s", vfo_mode_name(mode));
+         return true;
+      }
+      /* Set SSB explicitly, then read the actual operating mode too. */
+      if (!cat(s, "MD01;", NULL, NULL, 0) ||
+          !cat(s, "MD0;", "MD0", md, sizeof(md)) ||
+          strlen(md) != 4 || (md[3] != '1' && md[3] != '2')) {
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 SSB operating mode change not confirmed");
+         return true;
+      }
+      s->mode[index] = mode;
+      return false;
+   }
    snprintf(command, sizeof(command), "MD0%c;", digit);
 
    if (!cat(s, command, NULL, NULL, 0)) {
@@ -536,6 +558,15 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
 
       if (cat(s, "MD0;", "MD0", md, sizeof(md)) && strlen(md) == 4) {
          rr_mode_t parsed = mode_decode(md[3]);
+         /* For FT-891 SSB, BFO menu 11-07 is authoritative; MD1/MD2
+          * only request the SSB family, and AUTO is ambiguous. */
+         if (s->model_id == 650 && (md[3] == '1' || md[3] == '2')) {
+            char bfo[24];
+            if (cat(s, "EX1107;", "EX1107", bfo, sizeof(bfo)) && strlen(bfo) == 7) {
+               if (bfo[6] == '0') parsed = MODE_USB;
+               else if (bfo[6] == '1') parsed = MODE_LSB;
+            }
+         }
 
          if (parsed != MODE_NONE) {
             /* DFM and M* select an audio-processing location while CAT reports only the underlying RF modulation. Preserve the software mode until a real RF
