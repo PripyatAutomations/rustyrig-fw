@@ -1963,14 +1963,17 @@ bool chat_init(void) {
    gtk_box_pack_start(GTK_BOX(network_row), status_server_label, FALSE, FALSE, 2);
    status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
-      "Selected server RX/TX kilobits/s over five seconds. Parenthesized values are RTP media rates when active; primary values are IRC/WebSocket traffic.");
+      "Selected server RX/TX kilobits/s sampled every second. Parenthesized values are RTP media rates when active; primary values are IRC/WebSocket traffic.");
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
    gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_END);
-   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, TRUE, TRUE, 0);
+   /* Keep the network readout flush with the far right of the shared status row,
+    * without allowing its box to claim all the remaining horizontal space. */
+   gtk_widget_set_halign(network_row, GTK_ALIGN_END);
+   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
-   g_timeout_add_seconds(5, status_network_tick, NULL);
+   g_timeout_add_seconds(1, status_network_tick, NULL);
    status_network_tick(NULL);
    g_timeout_add_seconds(1, vfo_locator_tick, NULL);
    vfo_locator_tick(NULL);
