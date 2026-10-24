@@ -72,12 +72,19 @@ endif
 # including bin/ programs running directly from the source tree.
 LDFLAGS += -L. -L./librustyaxe -Wl,-rpath,'$$ORIGIN:$$ORIGIN/../lib:$$ORIGIN/..'
 LDFLAGS += -lc -lm -g -ggdb -lcrypt -lbsd
-# librustyaxe (tui.keys.c etc) uses g_unix_fd_add() from glib, which lives in
-# libglib-2.0; glib is already a runtime dep via GTK/GStreamer.
-# Headers are needed even without GTK (USE_GTK=false), so pull them via
-# pkg-config unconditionally.
-CFLAGS += $(shell pkg-config --cflags glib-2.0)
-LDFLAGS += $(shell pkg-config --libs glib-2.0)
+# librustyaxe is linked in every host build, including headless rrserver.
+# Its event loop / TUI needs glib-unix.h, g_unix_fd_add(), and GLib core.
+# Resolve headers and link libraries together, independently of GTK/GStreamer.
+# Keep these in the common flags: librustyaxe/rules.mk consumes CFLAGS when
+# compiling its objects and LDFLAGS when linking librustyaxe.so.
+GLIB_PACKAGES := glib-2.0
+ifeq ($(shell pkg-config --exists $(GLIB_PACKAGES) && echo yes),)
+$(error Missing $(GLIB_PACKAGES) development files; install libglib2.0-dev (or your platform equivalent) and pkg-config)
+endif
+GLIB_CFLAGS := $(shell pkg-config --cflags $(GLIB_PACKAGES))
+GLIB_LIBS := $(shell pkg-config --libs $(GLIB_PACKAGES))
+CFLAGS += $(GLIB_CFLAGS)
+LDFLAGS += $(GLIB_LIBS)
 
 ifeq (${USE_GSTREAMER},true)
 gst_cflags += $(shell pkg-config --cflags gstreamer-app-1.0)
