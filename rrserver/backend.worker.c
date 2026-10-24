@@ -60,7 +60,7 @@ typedef struct backend_job {
 
 typedef struct backend_cache {
    bool supported, known, ptt;
-   float power;
+   float power, power_max;
    rr_vfo_data_t state;
    int widths[3], width_count;
 } backend_cache_t;
