@@ -1266,7 +1266,8 @@ static GtkWidget *userlist_view_create(void) {
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), priv_col);
 
    GtkCellRenderer *text = gtk_cell_renderer_text_new();
-   GtkTreeViewColumn *user_col = gtk_tree_view_column_new_with_attributes("Username", text, "text", COL_DISPLAY_NAME, NULL);
+   GtkTreeViewColumn *user_col = gtk_tree_view_column_new();
+   gtk_tree_view_column_set_title(user_col, "Username");
    g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
    /* Show the privilege glyph immediately before the nickname, alongside
     * the existing @/+ /! name prefixes. Keep the legacy Privs column in the
@@ -1275,6 +1276,9 @@ static GtkWidget *userlist_view_create(void) {
    g_object_set(inline_priv, "xpad", 2, "ypad", 0, "scale", 1.15, NULL);
    gtk_tree_view_column_pack_start(user_col, inline_priv, FALSE);
    gtk_tree_view_column_add_attribute(user_col, inline_priv, "text", COL_PRIV_ICON);
+   /* GtkTreeViewColumn packs renderers in insertion order: icon first. */
+   gtk_tree_view_column_pack_start(user_col, text, TRUE);
+   gtk_tree_view_column_add_attribute(user_col, text, "text", COL_DISPLAY_NAME);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);

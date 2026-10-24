@@ -452,7 +452,11 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_drag_dest_set(button, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
       g_signal_connect(button, "drag-data-get", G_CALLBACK(tab_drag_data_get), NULL);
       g_signal_connect_object(button, "drag-data-received", G_CALLBACK(tab_drag_received), notebook, 0);
+      /* FlowBox columns may be wider than their tab. Never stretch a button
+       * to fill a wide column; preserve its compact natural width. */
+      gtk_widget_set_halign(button, GTK_ALIGN_START);
       gtk_container_add(GTK_CONTAINER(flow), button);
+      gtk_widget_set_halign(gtk_widget_get_parent(button), GTK_ALIGN_START);
       gtk_widget_set_can_focus(gtk_widget_get_parent(button), FALSE);
    }
 
@@ -470,8 +474,24 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
 
    gint minimum = 0, natural = 0;
-   /* Leave room for scrollbar chrome and GTK rounding at the last tab. */
+   /* Keep the flow's line limit consistent with the actual viewport.  The
+    * scrolled window can give GtkFlowBox a wider natural allocation even
+    * while its height-for-width calculation predicts another row. */
    gint wrap_width = MAX(1, allocation->width - gtk_widget_get_margin_end(flow) - 12);
+   GList *children = gtk_container_get_children(GTK_CONTAINER(flow));
+   gint row_width = 0, fit = 0;
+   for (GList *item = children ; item ; item = item->next) {
+      GtkWidget *child = GTK_WIDGET(item->data);
+      gint child_min = 0, child_natural = 0;
+      gtk_widget_get_preferred_width(child, &child_min, &child_natural);
+      gint width = MAX(child_min, child_natural);
+      if (fit && row_width + width > wrap_width) break;
+      row_width += width;
+      fit++;
+   }
+   g_list_free(children);
+   if (fit > 0 && gtk_flow_box_get_max_children_per_line(GTK_FLOW_BOX(flow)) != (guint)fit)
+      gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(flow), fit);
    gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
    /* Leave room for the notebook contents, even with many open tabs.
     * Additional rows remain accessible via the viewport's scrollbar. */
