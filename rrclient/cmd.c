@@ -9,6 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
