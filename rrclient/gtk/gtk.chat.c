@@ -1230,6 +1230,86 @@ bool gtk_chat_history_keypress(GtkWidget *widget, GdkEventKey *event) {
 }
 
 
+/* The room VFO title operates only on VFOs mapped to the room displayed
+ * by the floating rig controls. The server's selection acknowledgement
+ * remains authoritative for the active VFO. */
+static char room_vfo_title_room[128];
+
+static void room_vfo_title_select(char vfo) {
+   const char *room = room_vfo_title_room;
+   if (!*room || !ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1)
+      return;
+   char command[16];
+   g_snprintf(command, sizeof(command), "!vfo %c", vfo);
+   dict *request = dict_new();
+   if (!request) return;
+   dict_add(request, "msg.type", "talk");
+   dict_add(request, "talk.cmd", "msg");
+   dict_add(request, "talk.msg_type", "pub");
+   dict_add(request, "talk.target", room);
+   dict_add(request, "talk.data", command);
+   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   dict_free(request);
+}
+
+static void room_vfo_title_menu_activate(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   char vfo = (char)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "rr-vfo-id"));
+   if (vfo >= 'A' && vfo <= 'Z') room_vfo_title_select(vfo);
+}
+
+static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (!event || event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY)
+      return FALSE;
+   if (!room_vfo_title_room[0]) return FALSE;
+   uint32_t mask = rrclient_room_vfo_mask(room_vfo_title_room);
+   /* Older servers may advertise bindings before the mask is available. */
+   if (!mask) {
+      const char *bindings = rrclient_room_vfos(room_vfo_title_room);
+      char *copy = g_strdup(bindings ? bindings : "");
+      char *save = NULL;
+      for (char *part = strtok_r(copy, " \t", &save); part; part = strtok_r(NULL, " \t", &save)) {
+         const char *dot = strrchr(part, '.');
+         if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4) && dot[5]) {
+            char letter = g_ascii_toupper(dot[5]);
+            if (letter >= 'A' && letter <= 'Z')
+               mask |= UINT32_C(1) << (letter - 'A');
+         }
+      }
+      g_free(copy);
+   }
+   unsigned count = 0;
+   char only[2] = { 0, 0 };
+   for (unsigned i = 0; i < 26; i++) {
+      if (mask & (UINT32_C(1) << i)) {
+         if (count < 2) only[count] = (char)('A' + i);
+         count++;
+      }
+   }
+   if (count <= 1) return count == 1;
+   if (count == 2) {
+      char active = rrclient_room_active_vfo(room_vfo_title_room);
+      room_vfo_title_select(active == only[0] ? only[1] : only[0]);
+      return TRUE;
+   }
+   GtkWidget *menu = gtk_menu_new();
+   for (unsigned i = 0; i < 26; i++) {
+      if (!(mask & (UINT32_C(1) << i))) continue;
+      char name[16];
+      g_snprintf(name, sizeof(name), "VFO %c", 'A' + i);
+      GtkWidget *item = gtk_menu_item_new_with_label(name);
+      g_object_set_data(G_OBJECT(item), "rr-vfo-id", GINT_TO_POINTER('A' + i));
+      g_signal_connect(item, "activate", G_CALLBACK(room_vfo_title_menu_activate), NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
+
 /* One in-client overlay panel follows the selected rig; it is not a toplevel window and cannot be docked into an individual chat tab. */
 static void room_vfo_show(const char *name) {
    if (!room_vfo_panel) {
@@ -1244,10 +1324,12 @@ static void room_vfo_show(const char *name) {
          return;
       }
       rr_floating_panel_set_closable(room_vfo_panel, FALSE);
+      rr_floating_panel_set_title_click(room_vfo_panel, G_CALLBACK(room_vfo_title_clicked), NULL);
       room_vfo_box = create_vfo_box();
       g_object_add_weak_pointer(G_OBJECT(room_vfo_box), (gpointer *) &room_vfo_box);
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
    }
+   g_strlcpy(room_vfo_title_room, name ? name : "", sizeof(room_vfo_title_room));
    char *title = g_strdup_printf("%s — VFO", name && *name ? name : "Rig");
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
