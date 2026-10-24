@@ -462,6 +462,25 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
    gtk_widget_show_all(flow);
 }
 
+/* A scrolled window doesn't implement the flow box's height-for-width
+ * requisition. Size the tab viewport from the actual wrapping height instead
+ * of reserving the whole strip's unconstrained natural height. */
+static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocation, GtkWidget *viewport) {
+   GtkWidget *flow = gtk_bin_get_child(GTK_BIN(viewport));
+   if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
+
+   gint minimum = 0, natural = 0;
+   gtk_widget_get_preferred_height_for_width(flow, allocation->width, &minimum, &natural);
+   /* Leave room for the notebook contents, even with many open tabs.
+    * Additional rows remain accessible via the viewport's scrollbar. */
+   gint ceiling = MAX(32, allocation->height - 160);
+   gint wanted = CLAMP(natural, 32, ceiling);
+   if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(viewport), "rr-tab-viewport-height")) != wanted) {
+      g_object_set_data(G_OBJECT(viewport), "rr-tab-viewport-height", GINT_TO_POINTER(wanted));
+      gtk_widget_set_size_request(viewport, -1, wanted);
+   }
+}
+
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position) {
    g_signal_connect(notebook, "switch-page", G_CALLBACK(tab_activity_read), NULL);
    gtk_notebook_set_tab_pos(notebook, position);
@@ -486,13 +505,14 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
     * wraps rows instead of widening the notebook and pushing chat controls
     * off the right edge. */
    GtkWidget *tab_scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tab_scroll), 1);
-   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(tab_scroll), 32);
-   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), TRUE);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
+   gtk_widget_set_size_request(tab_scroll, -1, 32);
    gtk_widget_set_hexpand(tab_scroll, TRUE);
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
+   g_signal_connect(box, "size-allocate", G_CALLBACK(tabs_viewport_allocate), tab_scroll);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
    gtk_drag_dest_set(flow, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
    g_signal_connect_object(flow, "drag-data-received", G_CALLBACK(tab_drag_received), notebook, 0);
