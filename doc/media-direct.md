@@ -30,8 +30,12 @@ media.direct.host=radio.example.net
 media.direct.encrypt=false
 ```
 
-`media.direct.host` must be reachable by the client, including through any needed
-UDP port forwarding. An empty host leaves direct media disabled. The initial
+An explicit `media.direct.host` must be reachable by the client, including through
+any needed UDP port forwarding. When empty, the server selects the local IPv4
+source address its kernel would use to reach the requesting client and advertises
+that address with the configured UDP port. This is only a reachability hint:
+NAT, firewalls or differing VPN routes can prevent access, in which case the
+client falls back to proxy media. Use an explicit host for public/NAT deployments. The initial
 socket adapter supports IPv4. Restart the server after changing listener settings.
 Native clients default to `media.direct.prefer=true`; setting it false selects
 WebSocket audio. Browser clients continue using WebSockets.
