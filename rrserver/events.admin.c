@@ -1193,6 +1193,8 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
       bool permitted = admin_actor_has_priv(client, reset ? "owner|estop.reset" : "owner|admin|estop");
       const char *uuid = dict_get(request, "talk.target", "");
       rr_server_rig_t *target = rr_rig_registry_find_uuid(rig.rigs, uuid);
+      if (!target && uuid[0] == '#') target = rrserver_rig_for_room(uuid);
+      const char *rig_id = target ? rr_server_rig_id(target) : uuid;
       if (!permitted || !target) {
          ws_send_error(client, permitted ? "Unknown local rig ID for E-STOP" : "E-STOP privilege denied");
          dict_free(request);
@@ -1206,22 +1208,22 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          bool release_failed = rr_ptt_set_all_off_reason("emergency-reset-check");
          rig.ptt_rig = previous;
          if (release_failed) {
-            Log(LOG_AUDIT, "estop", "Rig %s reset REFUSED: release unverified (user=%s)", uuid, client->chatname);
-            ws_send_error(client, "E-STOP reset denied: PTT release unverified for rig %s", uuid);
+            Log(LOG_AUDIT, "estop", "Rig %s reset REFUSED: release unverified (user=%s)", rig_id, client->chatname);
+            ws_send_error(client, "E-STOP reset denied: PTT release unverified for rig %s", rig_id);
          } else {
             rr_rig_set_halted(target, false);
-            Log(LOG_AUDIT, "estop", "Rig %s reset by %s", uuid, client->chatname);
-            ws_send_notice(client, "Rig E-STOP reset: %s", uuid);
+            Log(LOG_AUDIT, "estop", "Rig %s reset by %s", rig_id, client->chatname);
+            ws_send_notice(client, "Rig E-STOP reset: %s", rig_id);
          }
       } else {
          rr_rig_set_halted(target, true);
-         Log(LOG_AUDIT, "estop", "Rig %s HALTED by %s; releasing all mapped PTT VFOs", uuid, client->chatname);
+         Log(LOG_AUDIT, "estop", "Rig %s HALTED by %s; releasing all mapped PTT VFOs", rig_id, client->chatname);
          rr_server_rig_t *previous = rig.ptt_rig;
          rig.ptt_rig = target;
          bool release_failed = rr_ptt_set_all_off_reason("emergency-stop");
          rig.ptt_rig = previous;
-         if (release_failed) ws_send_error(client, "Rig E-STOP latched but hardware release not confirmed: %s", uuid);
-         else ws_send_notice(client, "Rig E-STOP latched: %s", uuid);
+         if (release_failed) ws_send_error(client, "Rig E-STOP latched but hardware release not confirmed: %s", rig_id);
+         else ws_send_notice(client, "Rig E-STOP latched: %s", rig_id);
       }
       dict_free(request);
       return;
