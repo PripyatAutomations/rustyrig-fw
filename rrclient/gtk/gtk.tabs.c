@@ -481,6 +481,13 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    }
 }
 
+static void tabs_keep_page_left(GtkAdjustment *adjustment, gpointer unused) {
+   (void)unused;
+   double left = gtk_adjustment_get_lower(adjustment);
+   if (gtk_adjustment_get_value(adjustment) != left)
+      gtk_adjustment_set_value(adjustment, left);
+}
+
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position) {
    g_signal_connect(notebook, "switch-page", G_CALLBACK(tab_activity_read), NULL);
    gtk_notebook_set_tab_pos(notebook, position);
@@ -542,6 +549,8 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_widget_set_vexpand(page_viewport, TRUE);
    /* Never offer horizontal panning of the entire notebook. Oversized leaf
     * pages must manage their own width and scrolling. */
+   g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(page_viewport)),
+      "value-changed", G_CALLBACK(tabs_keep_page_left), NULL);
    gtk_container_add(GTK_CONTAINER(page_viewport), GTK_WIDGET(notebook));
    gtk_box_pack_start(GTK_BOX(box), page_viewport, TRUE, TRUE, 0);
 
