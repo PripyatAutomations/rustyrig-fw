@@ -84,6 +84,8 @@ extern char *db_room_vfo_map_list(sqlite3 *db);
 extern char *db_rig_uuid_get_or_create(sqlite3 *db, const char *identity_namespace, const char *alias);
 /* Caller owns the UUID. Persistent identity is rig UUID + config/native ID. */
 extern char *db_vfo_uuid_get_or_create(sqlite3 *db, const char *rig_uuid, const char *config_id);
+extern int db_rig_power_get(sqlite3 *db, const char *rig_uuid, int band, int mode);
+extern bool db_rig_power_set(sqlite3 *db, const char *rig_uuid, int band, int mode, int watts);
 extern sqlite3 *masterdb;       // database.c
 extern const char *replay_msg_type(const char *msg_type);
 extern bool db_send_notice(rrconn_t *cptr, const char *msg_type, const char *text);
