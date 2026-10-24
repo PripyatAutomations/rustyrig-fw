@@ -517,7 +517,8 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
 
       dict_add(d, "media.transport", g->force ? "direct" : "rtp");
       if (!advertised) { remove_grant(g); return; }
-      dict_add(d, "media.direct", advertised);
+      dict_add(d, "media.direct", endpoint);
+      dict_add(d, "media.direct-candidates", candidates);
       dict_add(d, "media.direct-key", key);
       dict_add_ulong(d, "media.direct-ssrc", g->ssrc);
       dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
@@ -583,7 +584,8 @@ bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, uns
    char endpoint[320];
    snprintf(endpoint, sizeof(endpoint), "%.*s", (int)strcspn(candidates, ","), candidates);
    dict_add(d, "media.transport", "rtp-home");
-   dict_add(d, "media.direct", advertised);
+   dict_add(d, "media.direct", endpoint);
+   dict_add(d, "media.direct-candidates", candidates);
    dict_add(d, "media.direct-key", key);
    dict_add_ulong(d, "media.direct-ssrc", g->ssrc);
    dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
