@@ -269,10 +269,12 @@ acl=media-staff
             wait(lambda: 'TLS handshake:' in log('gamma'), 'outbound TLS did not reject untrusted certificate')
             assert 'Linked site beta' not in log('gamma')
             stop('gamma')
+        alpha_snapshots_before_join = log('alpha').count('Queued ')
         start('delta')
         start('gamma')
         wait(lambda: 'Introduced server' in log('alpha') and 'servers 4' in log('alpha') and
             'Linked site beta' in log('gamma') and 'servers 4' in log('gamma') and 'Linked site gamma' in log('delta'), 'four-server tree did not converge')
+        assert log('alpha').count('Queued ') == alpha_snapshots_before_join, 'downstream join triggered full catalog resnapshot on established peer'
         # A configured peer already in our component must not create a cycle.
         cycle = LinkSocket(ports['alpha'], context)
         delta_node = re.search(r'Server link node ([0-9a-f-]+)', log('delta')).group(1)
