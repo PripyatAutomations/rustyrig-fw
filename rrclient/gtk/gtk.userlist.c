@@ -1167,11 +1167,13 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
+      /* One compact header plus a separate frequency row. Keep the VFO strip
+       * narrow enough for a docked roster, even when names are long. */
       gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 2);
-      gtk_box_pack_start(GTK_BOX(details), freq, FALSE, FALSE, 2);
       gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
-      gtk_widget_set_size_request(mode, 42, -1);
+      gtk_widget_set_size_request(mode, 0, -1);
       gtk_box_pack_start(GTK_BOX(details), mode, TRUE, TRUE, 2);
+      gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 0);
 
       if (ptt) {
          /* Keep the action below the frequency line: a narrow roster must
