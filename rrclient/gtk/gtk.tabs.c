@@ -529,7 +529,18 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    if (position == GTK_POS_TOP) {
       gtk_box_pack_start(GTK_BOX(box), tab_scroll, FALSE, FALSE, 0);
    }
-   gtk_box_pack_start(GTK_BOX(box), GTK_WIDGET(notebook), TRUE, TRUE, 0);
+   /* The tab strip must use the actual window width, never the natural
+    * width of a particularly wide notebook page. Only the page area gets
+    * a constrained viewport; tab buttons continue to wrap normally. */
+   GtkWidget *page_viewport = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport),
+      GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(page_viewport), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(page_viewport), 1);
+   gtk_widget_set_hexpand(page_viewport, TRUE);
+   gtk_widget_set_vexpand(page_viewport, TRUE);
+   gtk_container_add(GTK_CONTAINER(page_viewport), GTK_WIDGET(notebook));
+   gtk_box_pack_start(GTK_BOX(box), page_viewport, TRUE, TRUE, 0);
 
    if (position == GTK_POS_BOTTOM) {
       gtk_box_pack_start(GTK_BOX(box), tab_scroll, FALSE, FALSE, 0);
