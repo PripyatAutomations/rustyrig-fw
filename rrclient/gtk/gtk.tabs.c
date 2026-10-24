@@ -491,8 +491,7 @@ static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocat
    static int previous_excess = -1;
    int excess = allocation->width - visible;
    if (visible > 1 && excess > 8 && excess != previous_excess) {
-      Log(LOG_WARN, "gtk.tabs",
-         "Notebook exceeds visible page viewport by %d px (notebook=%d viewport=%d); page minimum width needs correction",
+      g_warning("gtk.tabs: notebook exceeds visible page viewport by %d px (notebook=%d viewport=%d); page minimum width needs correction",
          excess, allocation->width, visible);
       previous_excess = excess;
    } else if (excess <= 8) {
