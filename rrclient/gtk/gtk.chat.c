@@ -1612,6 +1612,113 @@ void gtk_chat_set_authoritative_room(const char *room) {
    gtk_chat_tab_add(room, false, true);
 }
 
+/* Locator menu entries hold a room tab and VFO letter, never a borrowed
+ * connection-context pointer. Selecting the tab is the authoritative path
+ * for switching connection, audio, CAT and GPS focus. */
+typedef struct {
+   GtkRoomTab *tab;
+   char vfo;
+} locator_choice_t;
+
+static void locator_choice_activate(GtkMenuItem *item, gpointer unused) {
+   (void)unused;
+   locator_choice_t *choice = g_object_get_data(G_OBJECT(item), "rr-locator-choice");
+   if (!choice || !choice->tab || !choice->tab->page ||
+       gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), choice->tab->page) < 0)
+      return;
+   GtkRoomTab *tab = choice->tab;
+   gtk_chat_select_existing_tab(tab);
+   /* A selected tab is not guaranteed to have switched connection contexts
+    * (it may already be current), so choose the correct profile explicitly. */
+   if (tab->server[0]) rrclient_connection_select(tab->server);
+   rrclient_media_room_selected(tab->room);
+   char command[16];
+   g_snprintf(command, sizeof(command), "!vfo %c", choice->vfo);
+   dict *request = dict_new();
+   if (!request) return;
+   dict_add(request, "msg.type", "talk");
+   dict_add(request, "talk.cmd", "msg");
+   dict_add(request, "talk.msg_type", "pub");
+   dict_add(request, "talk.target", tab->room);
+   dict_add(request, "talk.data", command);
+   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   dict_free(request);
+}
+
+typedef struct {
+   GtkWidget *menu;
+   GtkRoomTab *tab;
+   unsigned count;
+} locator_menu_build_t;
+
+static void locator_menu_room_context(void *data) {
+   locator_menu_build_t *build = data;
+   const char *room = build->tab->room;
+   const char *bindings = rrclient_room_vfos(room);
+   uint32_t mask = rrclient_room_vfo_mask(room);
+   if ((!bindings || !*bindings) && !mask) return;
+   /* VFO mask is authoritative for the actual room mapping. */
+   if (!mask && bindings) {
+      char *copy = g_strdup(bindings);
+      char *save = NULL;
+      for (char *part = strtok_r(copy, " \\t", &save); part; part = strtok_r(NULL, " \\t", &save)) {
+         const char *dot = strrchr(part, '.');
+         if (dot && !g_ascii_strncasecmp(dot + 1, "vfo_", 4)) {
+            char vfo = g_ascii_toupper(dot[5]);
+            if (vfo >= 'A' && vfo <= 'Z') mask |= UINT32_C(1) << (vfo - 'A');
+         }
+      }
+      g_free(copy);
+   }
+   for (unsigned i = 0; i < 26; ++i) {
+      if (!(mask & (UINT32_C(1) << i))) continue;
+      const char *short_room = room[0] == '#' ? room + 1 : room;
+      char title[192];
+      g_strlcpy(title, short_room, sizeof(title));
+      char *rig = strstr(title, "-rig");
+      if (rig) *rig = '.';
+      char name[224];
+      g_snprintf(name, sizeof(name), "%s.%c", title, 'A' + i);
+      GtkWidget *item = gtk_menu_item_new_with_label(name);
+      locator_choice_t *choice = g_new0(locator_choice_t, 1);
+      choice->tab = build->tab;
+      choice->vfo = 'A' + i;
+      g_object_set_data_full(G_OBJECT(item), "rr-locator-choice", choice, g_free);
+      g_signal_connect(item, "activate", G_CALLBACK(locator_choice_activate), NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(build->menu), item);
+      build->count++;
+   }
+}
+
+static gboolean vfo_locator_menu_click(GtkWidget *widget, GdkEventButton *event, gpointer unused) {
+   (void)widget;
+   (void)unused;
+   if (event->type != GDK_BUTTON_PRESS || event->button != GDK_BUTTON_PRIMARY) return FALSE;
+   GtkWidget *menu = gtk_menu_new();
+   locator_menu_build_t build = { .menu = menu };
+   if (room_tabs) {
+      GHashTableIter iter;
+      gpointer value;
+      g_hash_table_iter_init(&iter, room_tabs);
+      while (g_hash_table_iter_next(&iter, NULL, &value)) {
+         GtkRoomTab *tab = value;
+         if (!tab || !tab->room[0] || !tab->server[0]) continue;
+         rrconn_t *connection = rrclient_connection_find(tab->server);
+         if (!connection || !connection->is_ws || rrclient_connection_state(tab->server) != 1) continue;
+         build.tab = tab;
+         rrclient_connection_dispatch(connection, locator_menu_room_context, &build);
+      }
+   }
+   if (!build.count) {
+      GtkWidget *empty = gtk_menu_item_new_with_label("No joined rig VFOs");
+      gtk_widget_set_sensitive(empty, FALSE);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), empty);
+   }
+   gtk_widget_show_all(menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
+
 /* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
  * child of the fullscreen client and exists only while a server is online. */
 static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode, *vfo_locator_ptt;
@@ -1680,7 +1787,13 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_frequency), 0);
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_mode), 0);
       gtk_label_set_xalign(GTK_LABEL(vfo_locator_ptt), 0);
-      gtk_box_pack_start(GTK_BOX(lines), vfo_locator_label, FALSE, FALSE, 0);
+      GtkWidget *locator_name_hit = gtk_event_box_new();
+      gtk_widget_add_events(locator_name_hit, GDK_BUTTON_PRESS_MASK);
+      gtk_widget_set_tooltip_text(locator_name_hit, "Select a joined rig and VFO");
+      gtk_container_add(GTK_CONTAINER(locator_name_hit), vfo_locator_label);
+      g_signal_connect(locator_name_hit, "button-press-event",
+         G_CALLBACK(vfo_locator_menu_click), NULL);
+      gtk_box_pack_start(GTK_BOX(lines), locator_name_hit, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_frequency, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_mode, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(lines), vfo_locator_ptt, FALSE, FALSE, 0);
