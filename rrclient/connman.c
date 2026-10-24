@@ -145,8 +145,17 @@ const char *rrclient_connection_name(const rrconn_t *connection) {
  * and WebSocket frames (not only text payloads). */
 bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
    client_server_t *s = find_server(name);
-   if (rx) *rx = s ? s->traffic_rx : 0;
-   if (tx) *tx = s ? s->traffic_tx : 0;
+   /* WebSocket bytes are recorded by librrprotocol on the connection,
+    * whereas the IRC socket path maintains the profile counters below.
+    * Do not mistake an active WS transport for an idle one. */
+   uint64_t incoming = s ? s->traffic_rx : 0, outgoing = s ? s->traffic_tx : 0;
+   if (s && s->connection && s->connection->is_ws) {
+      const struct rr_traffic *traffic = &s->connection->traffic;
+      incoming = traffic->rx_text_bytes + traffic->rx_binary_bytes;
+      outgoing = traffic->tx_text_bytes + traffic->tx_binary_bytes;
+   }
+   if (rx) *rx = incoming;
+   if (tx) *tx = outgoing;
    return s != NULL;
 }
 void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, uint64_t tx) {
