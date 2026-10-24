@@ -202,6 +202,9 @@ defconfig_t defcfg[] = {
       "media.direct.host", "", "Optional client-reachable RTP host; empty uses per-client IPv4 route selection"
    },
    {
+      "media.direct.exclude", "", "IPv4 addresses excluded from automatically advertised RTP candidates (comma-separated)"
+   },
+   {
       "media.direct.encrypt", "false", "Encrypt RTP (requires WITH_RTP_ENCRYPTION=true)", DEFCONFIG_BOOL, NULL
    },
    {
