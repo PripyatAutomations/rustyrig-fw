@@ -917,6 +917,9 @@ bool gui_init(void) {
    g_object_ref(viewport);
    gtk_container_remove(GTK_CONTAINER(main_window), viewport);
    rr_client_overlay = gtk_overlay_new();
+   /* Layout test: bound the shared viewport and RX/TX overlay 60px inside
+    * the window's right edge instead of shrinking only the tab strip. */
+   gtk_widget_set_margin_end(rr_client_overlay, 60);
    gtk_widget_set_hexpand(rr_client_overlay, TRUE);
    gtk_widget_set_vexpand(rr_client_overlay, TRUE);
    gtk_container_add(GTK_CONTAINER(main_window), rr_client_overlay);
