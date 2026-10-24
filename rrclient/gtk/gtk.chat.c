@@ -285,11 +285,16 @@ gboolean ui_scroll_to_end(gpointer data) {
    }
 
    GtkTextView *chat_textview = GTK_TEXT_VIEW(data);
-   GtkTextBuffer *buffer = gtk_text_view_get_buffer(chat_textview);
-   GtkTextIter end;
-
-   gtk_text_buffer_get_end_iter(buffer, &end);
-   gtk_text_view_scroll_to_iter(chat_textview, &end, 0.0, TRUE, 0.0, 1.0);
+   /* Scrolling to the end iter can also pan horizontally to the end of a
+    * long replay line, hiding the start of every chat line. Only scroll
+    * vertically; horizontal chat position must stay at the left edge. */
+   GtkAdjustment *vertical = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(chat_textview));
+   GtkAdjustment *horizontal = gtk_scrollable_get_hadjustment(GTK_SCROLLABLE(chat_textview));
+   if (vertical)
+      gtk_adjustment_set_value(vertical, MAX(gtk_adjustment_get_lower(vertical),
+         gtk_adjustment_get_upper(vertical) - gtk_adjustment_get_page_size(vertical)));
+   if (horizontal)
+      gtk_adjustment_set_value(horizontal, gtk_adjustment_get_lower(horizontal));
 
    // remove the idle handler after it runs
    return FALSE;
