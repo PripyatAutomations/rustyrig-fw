@@ -37,6 +37,8 @@ extern const char *login_user;  // connman.c
 extern rrconn_t *ws_conn;
 extern time_t poll_block_expire, poll_block_delay;
 extern bool dying;              // main.c
+extern bool rrclient_ptt_allowed(void);
+extern void rrclient_send_ptt_command(rrconn_t *, const char *, bool, const char *);
 GtkWidget *ptt_button = NULL;
 
 // PTT ack tracking: when the user toggles PTT we show PENDING (yellow) until
@@ -362,6 +364,12 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       return;
    }
 
+   if (gtk_toggle_button_get_active(button) && !rrclient_ptt_allowed()) {
+      Log(LOG_INFO, "ui.gtk", "PTT ON inhibited: TX power slider is 0%%");
+      ui_print(NULL, "*** PTT disabled while TX power is 0%%");
+      ptt_button_set_state(false);
+      return;
+   }
    const char *target_room = ptt_target_room();
    if (!target_room && gtk_toggle_button_get_active(button)) {
       Log(LOG_WARN, "ui.gtk", "PTT rejected locally: no TX-control room for selected rig (tab=%s, media=%s)",
@@ -380,7 +388,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       char vfo[2] = {
          vfo_state_get_active(), 0
       };
-      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, target_room);
+      rrclient_send_ptt_command(ws_conn, vfo, true, target_room);
       ptt_button_set_state(false);
 
       return;
@@ -436,7 +444,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_state = false;
       ptt_button_pending_quiet = true;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
-      ws_send_ptt_cmd_in_room(ws_conn, vfo, false, target_room);
+      rrclient_send_ptt_command(ws_conn, vfo, false, target_room);
    } else {
       // Start the local TX encoder before asking the server to key the rig.
       // The server starts its decoder before sending the matching cat.state
@@ -468,7 +476,7 @@ static void on_ptt_toggled(GtkToggleButton *button, gpointer user_data) {
       ptt_button_pending_quiet = false;
       ptt_button_pending_expire = now + cfg_ui_ptt_ack_timeout;
       update_ptt_button_ui(button, -1);
-      ws_send_ptt_cmd_in_room(ws_conn, vfo, true, target_room);
+      rrclient_send_ptt_command(ws_conn, vfo, true, target_room);
    }
 }
 
