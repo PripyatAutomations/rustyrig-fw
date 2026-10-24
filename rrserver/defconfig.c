@@ -199,7 +199,7 @@ defconfig_t defcfg[] = {
       "media.direct.port", "8422", "Direct RTP UDP port", DEFCONFIG_INT, NULL
    },
    {
-      "media.direct.host", "", "Client-reachable hostname/address; empty disables advertisement"
+      "media.direct.host", "", "Optional client-reachable RTP host; empty uses per-client IPv4 route selection"
    },
    {
       "media.direct.encrypt", "false", "Encrypt RTP (requires WITH_RTP_ENCRYPTION=true)", DEFCONFIG_BOOL, NULL
