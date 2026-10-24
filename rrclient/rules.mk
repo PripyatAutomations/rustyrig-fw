@@ -10,6 +10,7 @@ rrclient_objs += receiver.directory.o receiver.connect.o
 rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
+
 rrclient_objs += audio.o
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
@@ -27,12 +28,9 @@ rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
 rrclient_objs += config.layers.o
 rrclient_objs += connman.o		# connection manager
-rrclient_objs += dcc.o irc.audio.session.o
-rrclient_objs += irc.o irc.compat.o cli.irc.o irc.dcc.o
 rrclient_objs += defconfig.o		# default config values
 rrclient_objs += events.o		# event handlers
 rrclient_objs += frontend.o		# Frontend module host interface
-rrclient_objs += irc.stats.o
 rrclient_objs += m_privmsg.o		# irc privmsg (NYI)
 rrclient_objs += main.o			# main loop
 rrclient_objs += media.direct.o
@@ -51,6 +49,15 @@ rrclient_objs += vfo.o			# VFO management
 rrclient_objs += webcam.o		# client-side v4l2 webcam video source
 rrclient_objs += win32.o		# support to run in windows
 rrclient_objs += wsjtx.o
+
+# XXX: Need moved to librustyirc ASAP
+rrclient_objs += dcc.o
+rrclient_objs += irc.audio.session.o
+rrclient_objs += irc.o
+rrclient_objs += irc.compat.o
+rrclient_objs += cli.irc.o
+rrclient_objs += irc.dcc.o
+rrclient_objs += irc.stats.o
 
 #######
 # GTK #

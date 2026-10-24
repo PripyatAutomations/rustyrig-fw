@@ -5,8 +5,6 @@ librrprotocol: Protocol versions and capabilities
 
 rrclient: Support for multiple theme files in ~/.config/rustyrig/themes/ and /etc/rustyrig/themes/
 
-librrprotocol: Split IRC stuff off into librustyirc which depends on librustyaxe
-
 librustyaxe: Ensure full separation from rrclient/rrserver/*
 
 rrclient: Make audit/ptt logs available for all connected servers (dropdown instead of relying on status tab selection)
