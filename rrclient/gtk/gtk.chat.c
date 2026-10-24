@@ -1294,10 +1294,24 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
    if (count <= 1) return count == 1;
    /* Even two VFOs get an explicit menu on a short title click. */
    GtkWidget *menu = gtk_menu_new();
+   const char active = rrclient_room_active_vfo(room_vfo_title_room);
    for (unsigned i = 0; i < 26; i++) {
       if (!(mask & (UINT32_C(1) << i))) continue;
-      char name[16];
-      g_snprintf(name, sizeof(name), "VFO %c", 'A' + i);
+      char letter = (char)('A' + i);
+      const char *uuid = rrclient_media_vfo_uuid(room_vfo_title_room, letter);
+      const dict *freq_property = uuid ? rrclient_object_property(uuid, "frequency") : NULL;
+      const dict *mode_property = uuid ? rrclient_object_property(uuid, "mode") : NULL;
+      long freq = freq_property && dict_get_bool((dict *)freq_property, "property.known", false)
+         ? dict_get_long((dict *)freq_property, "property.value", 0) : 0;
+      const char *mode = mode_property && dict_get_bool((dict *)mode_property, "property.known", false)
+         ? dict_get((dict *)mode_property, "property.value", "---") : "---";
+      char name[128];
+      if (freq > 0)
+         g_snprintf(name, sizeof(name), "%c VFO %c  —  %ld.%03ld kHz  —  %s",
+            letter == active ? '*' : ' ', letter, freq / 1000, freq % 1000, mode ? mode : "---");
+      else
+         g_snprintf(name, sizeof(name), "%c VFO %c  —  ---  —  %s",
+            letter == active ? '*' : ' ', letter, mode ? mode : "---");
       GtkWidget *item = gtk_menu_item_new_with_label(name);
       g_object_set_data(G_OBJECT(item), "rr-vfo-id", GINT_TO_POINTER('A' + i));
       g_signal_connect(item, "activate", G_CALLBACK(room_vfo_title_menu_activate), NULL);
@@ -1305,10 +1319,17 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
    }
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
-   /* The event is a button release; anchor the popup to the title rather
-    * than attempting a pointer grab using a completed press sequence. */
-   gtk_menu_popup_at_widget(GTK_MENU(menu), widget,
-      GDK_GRAVITY_SOUTH_WEST, GDK_GRAVITY_NORTH_WEST, NULL);
+   /* Anchor a 1px rectangle to the actual pointer position. Center the
+    * menu horizontally there, with its top just beneath the click. */
+   GdkWindow *window = gtk_widget_get_window(widget);
+   if (window) {
+      GdkRectangle at = { (int)event->x, (int)event->y, 1, 1 };
+      gtk_menu_popup_at_rect(GTK_MENU(menu), window, &at,
+         GDK_GRAVITY_SOUTH, GDK_GRAVITY_NORTH, NULL);
+   } else {
+      gtk_menu_popup_at_widget(GTK_MENU(menu), widget,
+         GDK_GRAVITY_SOUTH, GDK_GRAVITY_NORTH, NULL);
+   }
    return TRUE;
 }
 
@@ -1332,7 +1353,9 @@ static void room_vfo_show(const char *name) {
       gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(room_vfo_panel)), room_vfo_box, FALSE, FALSE, 0);
    }
    g_strlcpy(room_vfo_title_room, name ? name : "", sizeof(room_vfo_title_room));
-   char *title = g_strdup_printf("%s — VFO", name && *name ? name : "Rig");
+   char active = rrclient_room_active_vfo(room_vfo_title_room);
+   char *title = g_strdup_printf("%s — VFO %c", name && *name ? name : "Rig",
+      active >= 'A' && active <= 'Z' ? active : '?');
    rr_floating_panel_set_title(room_vfo_panel, title);
    g_free(title);
    rr_floating_panel_show(room_vfo_panel);
