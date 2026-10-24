@@ -1506,7 +1506,7 @@ static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value)
    return cat(s, command, NULL, NULL, 0);
 }
 /* FT-891 only: temporarily take control of the rear-panel audio/PTT
- * selections. Assumed EX enumeration mapping: MIC=0,
+ * selections. FT-891 CAT reference EX mapping: MIC=0,
  * REAR=1, DAKY=0, RTS=1, DTR=2. Preserve the exact readback token. */
 static const struct {
    const char *id, *label, *target;
