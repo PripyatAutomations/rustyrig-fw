@@ -2154,13 +2154,15 @@ bool chat_init(void) {
    shared_tab_context = gtk_label_new("Status");
    gtk_widget_set_tooltip_text(shared_tab_context, "Current tab; reserved for tab-specific status");
    gtk_label_set_ellipsize(GTK_LABEL(shared_tab_context), PANGO_ELLIPSIZE_END);
-   gtk_label_set_max_width_chars(GTK_LABEL(shared_tab_context), 24);
+   gtk_label_set_max_width_chars(GTK_LABEL(shared_tab_context), 12);
+   gtk_widget_set_hexpand(shared_tab_context, FALSE);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), shared_tab_context, FALSE, FALSE, 5);
    g_signal_connect(main_notebook, "switch-page", G_CALLBACK(shared_tab_context_changed), NULL);
    GtkWidget *network_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
    status_server_label = gtk_label_new("No server");
    gtk_label_set_ellipsize(GTK_LABEL(status_server_label), PANGO_ELLIPSIZE_MIDDLE);
-   gtk_label_set_max_width_chars(GTK_LABEL(status_server_label), 22);
+   gtk_label_set_max_width_chars(GTK_LABEL(status_server_label), 12);
+   gtk_label_set_width_chars(GTK_LABEL(status_server_label), 0);
    gtk_box_pack_start(GTK_BOX(network_row), status_server_label, FALSE, FALSE, 2);
    status_network_label = gtk_label_new("RX —  TX —");
    gtk_widget_set_tooltip_text(status_network_label,
@@ -2168,7 +2170,11 @@ bool chat_init(void) {
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_START);
    gtk_box_pack_start(GTK_BOX(network_row), status_network_label, FALSE, FALSE, 4);
    gtk_widget_set_halign(status_network_label, GTK_ALIGN_END);
-   gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_END);
+   /* Keep the counters visible: shorten the server name and the optional
+    * room title first, never chop off the TX rate at the right edge. */
+   gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_NONE);
+   gtk_widget_set_hexpand(network_row, FALSE);
+   gtk_widget_set_margin_end(network_row, 6);
    /* Keep the network readout flush with the far right of the shared status row,
     * without allowing its box to claim all the remaining horizontal space. */
    gtk_widget_set_halign(network_row, GTK_ALIGN_END);
