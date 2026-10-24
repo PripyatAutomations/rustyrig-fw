@@ -623,14 +623,14 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
          gtk_list_store_insert_before(store, &row, valid ? &cursor : NULL);
          changed = true;
       }
-      char decorated[HTTP_USER_LEN + 8];
-      userlist_display_name(c, decorated, sizeof(decorated));
       char *safe_name = userlist_safe_display(c->name);
       rr_typing_state_t typing = room && view_connection && view_connection->is_ws ? rrclient_typing_get(view_connection, room, c->name) : RR_TYPING_IDLE;
       /* Compact typing icons before names; no changing status sentences. */
       const char *prefix = typing == RR_TYPING_STARTED || typing == RR_TYPING_ACTIVE ? "✎ " :
          typing == RR_TYPING_PAUSED ? "⏸ " : "";
-      char *display = g_strdup_printf("%s%s", prefix, decorated);
+      /* Privilege glyph is already in the renderer preceding this text.
+       * Keep the nick undecorated so IRC ops do not display @@. */
+      char *display = g_strdup_printf("%s%s", prefix, c->name);
       char *safe_decorated = userlist_safe_display(display);
       g_free(display);
       const char *values[NUM_COLS] = {
