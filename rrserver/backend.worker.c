@@ -227,6 +227,13 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
    long long started_ms = worker_ms();
    long long queue_ms = started_ms - job->queued_ms;
 
+   /* Reject queued mutations that predate an emergency halt as well as
+    * newly submitted writes. Always permit read-only polls and key-up. */
+   if (rr_rig_halted(backend->owner) && job->operation != RR_BACKEND_POLL &&
+       !(job->operation == RR_BACKEND_PTT && !job->value.i)) {
+      job->failed = true;
+      goto halted_done;
+   }
    switch (job->operation) {
       case RR_BACKEND_BRIGHTNESS:
       case RR_BACKEND_SPEAKER_VOLUME: {
@@ -318,6 +325,7 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
       }
    }
 
+halted_done:
    long long control_ms = worker_ms() - started_ms;
 
    if (queue_ms >= 250 || control_ms >= 250) {
@@ -441,6 +449,8 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
       return true;
    }
    bool release = operation == RR_BACKEND_PTT && !value.i;
+   if (rr_rig_halted(backend->owner) && operation != RR_BACKEND_POLL && !release)
+      return true;
    pthread_mutex_lock(&worker->mutex);
 
    if (worker->stopping || (worker->outstanding >= BACKEND_QUEUE_LIMIT + MAX_VFOS) || (!release && worker->outstanding >= BACKEND_QUEUE_LIMIT)) {
