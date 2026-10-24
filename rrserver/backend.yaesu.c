@@ -44,6 +44,7 @@ typedef struct yaesu_state {
    const struct yaesu_model_profile *profile;
    char saved_audio_menu[6][16];
    bool saved_audio_valid[6], changed_audio_menu[6];
+   int desired_power[2][4]; /* HF/50 MHz x SSB, AM, FM, DATA/CW; 0=unset */
 } yaesu_state_t;
 
 static yaesu_state_t *ys(rr_backend_t *b) {
@@ -839,6 +840,91 @@ static float frequency_get(rr_backend_t *b, rr_server_vfo_t *v) {
 
    return s && index_of(v, &i) ? s->frequency[i] : 0;
 }
+/* FT-891 menus 16-01..16-06: SSB, AM and common FM/DATA/CW
+ * power, separately for HF and 50 MHz. Preferences for FM and DATA/CW
+ * remain independent even though the radio uses one common register. */
+static int yaesu_power_slot(rr_mode_t mode) {
+   switch (mode) {
+      case MODE_LSB: case MODE_USB: case MODE_ML: case MODE_MU: return 0;
+      case MODE_AM: return 1;
+      case MODE_FM: case MODE_DFM: case MODE_MFM: return 2;
+      case MODE_DL: case MODE_DU: case MODE_CW: return 3;
+      default: return -1;
+   }
+}
+static const char *ft891_power_menu(yaesu_state_t *s, rr_vfo_t i) {
+   long freq = s->frequency[i];
+   if (freq <= 0 || freq > 54000000L) return NULL;
+   int slot = yaesu_power_slot(s->mode[i]);
+   if (slot < 0) return NULL;
+   static const char *hf[] = {"1601", "1602", "1603", "1603"};
+   static const char *six[] = {"1604", "1605", "1606", "1606"};
+   return freq >= 50000000L ? six[slot] : hf[slot];
+}
+static bool ft891_power_read(yaesu_state_t *s, const char *id, int *watts) {
+   char command[16], reply[32], prefix[16];
+   snprintf(prefix, sizeof(prefix), "EX%s", id);
+   snprintf(command, sizeof(command), "%s;", prefix);
+   if (!cat(s, command, prefix, reply, sizeof(reply))) return false;
+   size_t n = strlen(prefix);
+   if (strlen(reply) != n + 3) return false;
+   return decimal(reply + n, 3, watts);
+}
+static bool ft891_power_write(yaesu_state_t *s, const char *id, int watts) {
+   char command[24];
+   snprintf(command, sizeof(command), "EX%s%03d;", id, watts);
+   return cat(s, command, NULL, NULL, 0);
+}
+static int ft891_power_target(yaesu_state_t *s, rr_vfo_t i) {
+   int slot = yaesu_power_slot(s->mode[i]);
+   if (slot < 0 || s->frequency[i] <= 0 || s->frequency[i] > 54000000L) return 0;
+   return s->desired_power[s->frequency[i] >= 50000000L][slot];
+}
+static bool ft891_power_apply(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
+   const char *id = ft891_power_menu(s, i);
+   int target = ft891_power_target(s, i);
+   if (!target) return true; /* no requested setpoint; preserve radio setting */
+   if (!id) return false;
+   int current, verified;
+   if (!ft891_power_read(s, id, &current)) return false;
+   if (current == target) return true;
+   if (!ft891_power_write(s, id, target) || !ft891_power_read(s, id, &verified) || verified != target) return false;
+   rr_backend_log(b, LOG_INFO, "backend.yaesu", "FT-891 power applied: menu=%s mode=%s target=%d W previous=%d W",
+      id, vfo_mode_name(s->mode[i]), target, current);
+   return true;
+}
+static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+   if (!s || s->model_id != 650 || !index_of(v, &i) || i != b->active_vfo ||
+       !__builtin_isfinite(watts) || watts < 5 || watts > 100 || (int)watts != watts || s->ptt) return true;
+   const char *id = ft891_power_menu(s, i);
+   int slot = yaesu_power_slot(s->mode[i]);
+   if (!id || slot < 0 || (slot == 1 && watts > 40)) return true;
+   int band = s->frequency[i] >= 50000000L;
+   int previous = s->desired_power[band][slot];
+   s->desired_power[band][slot] = (int)watts;
+   if (!ft891_power_apply(b, s, i)) {
+      s->desired_power[band][slot] = previous;
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 power setting not confirmed; refusing requested %d W", (int)watts);
+      return true;
+   }
+   return false;
+}
+static float power_get(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+   if (!s || s->model_id != 650 || !index_of(v, &i) || i != b->active_vfo) return 0;
+   const char *id = ft891_power_menu(s, i);
+   int current;
+   return id && ft891_power_read(s, id, &current) ? (float)current : 0;
+}
+static float power_max(rr_backend_t *b, rr_server_vfo_t *v) {
+   yaesu_state_t *s = ys(b);
+   rr_vfo_t i;
+   if (!s || s->model_id != 650 || !index_of(v, &i)) return 0;
+   return yaesu_power_slot(s->mode[i]) == 1 ? 40 : 100;
+}
 static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
@@ -852,6 +938,11 @@ static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
    if (on && i == VFO_B) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "PTT on VFO B rejected: hardware operating VFO not verified; no CAT VFO swap implemented");
 
+      return true;
+   }
+
+   if (on && s->model_id == 650 && !ft891_power_apply(b, s, i)) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 power not verified before PTT; refusing TX");
       return true;
    }
 
@@ -1719,6 +1810,7 @@ static const rr_backend_funcs_t api = {
    .split_mode = split_mode,
    .width_set = width_set, .width_get = width_get, .widths_get = widths_get,
    .ptt_set = ptt_set, .ptt_get = ptt_get,
+   .power_set = power_set, .power_get = power_get, .power_max = power_max,
    .mode_get = mode_get, .mode_get_str = mode_get_str, .mode_set = mode_set,
    .rig_control_set = control, .manufacturer = manufacturer, .model_name = model_name,
    .menu_foreach = yaesu_menu_foreach, .menu_read = yaesu_menu_read, .menu_write = yaesu_menu_write
