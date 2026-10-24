@@ -289,7 +289,10 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
    if (!error_msg) {
       error_msg = dict_get(d, "error.msg", NULL);
    }
-   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR: %s", (error_msg ? error_msg : "unknown"));
+   const char *profile = rrclient_connection_name(cptr);
+   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR on %s: %s",
+       profile && *profile ? profile : "(unknown server)",
+       error_msg ? error_msg : "unknown");
 
    // Show the error in the UI and stop the reconnect engine: retrying with
    // bad credentials just hammers the server. PARITY: webui.auth.js stops
