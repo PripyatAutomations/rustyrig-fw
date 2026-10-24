@@ -162,6 +162,12 @@ static void routing_queue(void) {
    }
 }
 
+/* Local RX playback gain, separate from per-ear routing and rig speaker volume. */
+static void routing_rx_gain_changed(GtkRange *range, gpointer unused) {
+   (void)unused;
+   audio_set_rx_volume((int)gtk_range_get_value(range));
+}
+
 static void routing_volume_changed(GtkRange *range, gpointer user) {
    if (volume_updating) {
       return;
@@ -290,7 +296,7 @@ void gtk_audio_routing_init(void) {
    gtk_widget_set_hexpand(rx_vol_slider, TRUE);
    gtk_widget_set_tooltip_text(rx_vol_slider, "Client RX playback gain (independent of rig speaker volume)");
    gtk_range_set_value(GTK_RANGE(rx_vol_slider), CLAMP(cfg_get_int("audio.volume.rx", 30), 0, 100));
-   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(on_rx_volume_changed), NULL);
+   g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(routing_rx_gain_changed), NULL);
    gtk_box_pack_start(GTK_BOX(gain_row), gain_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(gain_row), rx_vol_slider, TRUE, TRUE, 0);
    gtk_box_pack_start(GTK_BOX(routing_body), gain_row, FALSE, FALSE, 2);
