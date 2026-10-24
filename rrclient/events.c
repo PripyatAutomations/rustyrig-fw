@@ -1059,6 +1059,9 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    }
 
    if (room && is_self) {
+      /* PART ends our membership in this room, not just our own roster entry.
+       * Drop the complete snapshot so a subsequent JOIN starts clean. */
+      userlist_remove_room(room);
       rrclient_media_room_parted(room);
       rrclient_room_part(room);
 
