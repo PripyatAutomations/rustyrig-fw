@@ -417,7 +417,7 @@ bool rr_ptt_apply(rr_vfo_t vfo, bool state) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->ptt_set || !object) {
+   if ((state && rr_rig_halted(radio)) || !backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->ptt_set || !object) {
       return true;
    }
 
@@ -454,7 +454,7 @@ bool rr_freq_set(rr_vfo_t vfo, int freq) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!object || !backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->freq_set) {
+   if (rr_rig_halted(radio) || !object || !backend || !backend->type || !backend->type->api || !rr_backend_api(backend)->freq_set) {
       return true;
    }
 
@@ -530,7 +530,7 @@ bool rr_set_width(rr_vfo_t vfo, const char *width) {
    rr_backend_t *backend = rr_default_backend();
    rr_server_vfo_t *object = rr_default_vfo(vfo);
 
-   if (!backend || !rr_backend_api(backend)->width_set || !object) {
+   if (rr_rig_halted(rr_default_radio()) || !backend || !rr_backend_api(backend)->width_set || !object) {
       return true;
    }
 
@@ -581,7 +581,7 @@ bool rr_set_mode(rr_vfo_t vfo, rr_mode_t mode) {
    rr_backend_t *backend = radio ? rr_server_rig_backend(radio) : NULL;
    rr_server_vfo_t *object = rr_radio_vfo(radio, vfo);
 
-   if (!object || !backend || !rr_backend_api(backend)->mode_set) {
+   if (rr_rig_halted(radio) || !object || !backend || !rr_backend_api(backend)->mode_set) {
       return true;
    }
 
