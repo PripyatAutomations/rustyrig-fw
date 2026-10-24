@@ -20,12 +20,17 @@
 #include <librrprotocol/rtp.socket.h>
 #include <librrprotocol/traffic.h>
 #include <sys/random.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
 #define MAX_GRANTS 128
 #define MAX_POOLS 16
 
 struct media_pool {
    char section[128], endpoint[320];
+   unsigned port;
    rr_rtp_socket_t *socket;
    bool encrypted;
 };
@@ -81,6 +86,29 @@ static struct media_pool *select_pool(rrconn_t *client) {
    return NULL;
 }
 
+/* Prefer an explicit public/hostname endpoint. Otherwise let the kernel
+ * choose the source address used to reach this client's IPv4 address.
+ * An unreachable referral is harmless: the client probes and falls back to
+ * proxy media. Never advertise wildcard or loopback addresses implicitly. */
+static const char *pool_endpoint(struct media_pool *pool, rrconn_t *client, char *buf, size_t len) {
+   if (*pool->endpoint) return pool->endpoint;
+   struct sockaddr_in target = { .sin_family = AF_INET, .sin_port = htons(9) };
+   if (!client || !*client->user_ip || inet_pton(AF_INET, client->user_ip, &target.sin_addr) != 1) return NULL;
+   int fd = socket(AF_INET, SOCK_DGRAM, 0);
+   if (fd < 0) return NULL;
+   struct sockaddr_in local = {0};
+   socklen_t local_len = sizeof(local);
+   bool ok = connect(fd, (struct sockaddr *)&target, sizeof(target)) == 0 &&
+      getsockname(fd, (struct sockaddr *)&local, &local_len) == 0;
+   close(fd);
+   if (!ok || local.sin_family != AF_INET ||
+       (ntohl(local.sin_addr.s_addr) >> 24) == 127 || local.sin_addr.s_addr == INADDR_ANY) return NULL;
+   char ip[INET_ADDRSTRLEN];
+   if (!inet_ntop(AF_INET, &local.sin_addr, ip, sizeof(ip))) return NULL;
+   snprintf(buf, len, "rtp://%s:%u", ip, pool->port);
+   return buf;
+}
+
 static const char *pool_setting(const char *section, const char *name, const char *legacy) {
    char key[256];
    snprintf(key, sizeof(key), "%s.%s", section, name);
@@ -102,7 +130,7 @@ static void open_pool(const char *section) {
    const char *mode = cfg_get(key);
    bool encrypt = mode && *mode ? cfg_get_bool(key, false) : cfg_get_bool("media.direct.encrypt", false);
 
-   if (!*host || strchr(host, ':') || !rr_rtp_supported(encrypt)) {
+   if (strchr(host, ':') || !rr_rtp_supported(encrypt)) {
       return;
    }
 
@@ -134,11 +162,13 @@ static void open_pool(const char *section) {
          continue;
       }
       snprintf(pool->section, sizeof(pool->section), "%s", section);
-      snprintf(pool->endpoint, sizeof(pool->endpoint), "rtp://%s:%u", host, port);
+      if (*host) snprintf(pool->endpoint, sizeof(pool->endpoint), "rtp://%s:%u", host, port);
+      pool->port = port;
       pool->encrypted = encrypt;
       rr_rtp_socket_set_source_filter(pool->socket, source_allowed, pool);
       pool_count++;
-      Log(LOG_INFO, "media.direct", "[%s] listening at %s", section, pool->endpoint);
+      Log(LOG_INFO, "media.direct", "[%s] listening at %s", section,
+         *pool->endpoint ? pool->endpoint : "auto (per-client routed IPv4 endpoint)");
 
       return;
    }
@@ -350,8 +380,10 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
    }
    struct media_pool *pool = select_pool(client);
 
-   if (!strcmp(cmd, "available") && pool) {
-      dict_add(d, "media.direct", pool->endpoint);
+   char endpoint[320];
+   const char *advertised = pool ? pool_endpoint(pool, client, endpoint, sizeof(endpoint)) : NULL;
+   if (!strcmp(cmd, "available") && advertised) {
+      dict_add(d, "media.direct", advertised);
       dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
    }
 
@@ -416,7 +448,8 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
       }
 
       dict_add(d, "media.transport", g->force ? "direct" : "rtp");
-      dict_add(d, "media.direct", pool->endpoint);
+      if (!advertised) { remove_grant(g); return; }
+      dict_add(d, "media.direct", advertised);
       dict_add(d, "media.direct-key", key);
       dict_add_ulong(d, "media.direct-ssrc", g->ssrc);
       dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
@@ -476,8 +509,11 @@ bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, uns
       snprintf(key + i * 2, 3, "%02x", g->key[i]);
    }
 
+   char endpoint[320];
+   const char *advertised = pool_endpoint(pool, client, endpoint, sizeof(endpoint));
+   if (!advertised) { remove_grant(g); return false; }
    dict_add(d, "media.transport", "rtp-home");
-   dict_add(d, "media.direct", pool->endpoint);
+   dict_add(d, "media.direct", advertised);
    dict_add(d, "media.direct-key", key);
    dict_add_ulong(d, "media.direct-ssrc", g->ssrc);
    dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
