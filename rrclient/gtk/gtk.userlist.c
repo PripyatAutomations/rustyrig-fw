@@ -231,7 +231,8 @@ static gboolean userlist_fit_width_idle(gpointer data) {
    }
 
    if (scroll && GTK_IS_SCROLLED_WINDOW(scroll) && width > 0) {
-      gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), width);
+      /* Use the measured width for the initial fit, not as a persistent
+       * minimum: a growing roster must remain resizeable in both directions. */
       room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
 
       if (entry) {
@@ -1544,6 +1545,8 @@ static GtkWidget *userlist_panel_create(void) {
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
    GtkWidget *label = gtk_label_new("Users");
    userlist_dock_button = gtk_button_new_with_label("Undock");
+   /* Docking is the supported roster layout; keep the old control hidden. */
+   gtk_widget_set_no_show_all(userlist_dock_button, TRUE);
    gtk_widget_set_tooltip_text(userlist_dock_button, "Detach or dock this room's user list");
    gtk_box_pack_start(GTK_BOX(header), label, TRUE, TRUE, 2);
    gtk_box_pack_end(GTK_BOX(header), userlist_dock_button, FALSE, FALSE, 2);
@@ -1551,7 +1554,9 @@ static GtkWidget *userlist_panel_create(void) {
 
    cul_view = userlist_view_create();
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), cul_view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
    g_signal_connect(userlist_dock_button, "clicked", G_CALLBACK(on_userlist_dock_clicked), NULL);
@@ -1603,6 +1608,8 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
    GtkWidget *label = gtk_label_new("Users");
    entry->dock_button = gtk_button_new_with_label("Undock");
+   /* Docking is the supported roster layout; keep the old control hidden. */
+   gtk_widget_set_no_show_all(entry->dock_button, TRUE);
    gtk_widget_set_tooltip_text(entry->dock_button, "Detach or dock this room's user list");
    gtk_box_pack_start(GTK_BOX(header), label, TRUE, TRUE, 2);
    gtk_box_pack_end(GTK_BOX(header), entry->dock_button, FALSE, FALSE, 2);
@@ -1611,7 +1618,9 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
    userlist_view_set_server(view, entry->server);
    userlist_set_columns(view, room);
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(scroll), 80);
    gtk_container_add(GTK_CONTAINER(scroll), view);
    gtk_box_pack_start(GTK_BOX(panel), scroll, TRUE, TRUE, 0);
    entry->panel = panel;
