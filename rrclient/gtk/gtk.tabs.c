@@ -473,10 +473,9 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
 
    gint minimum = 0, natural = 0;
-   /* Allocate a real bounded strip width.  START alignment keeps FlowBox
-    * columns tight instead of distributing them over the entire viewport. */
+   /* Height-for-width must not mutate the flow's width request: doing so
+    * feeds the previous allocation back into GTK's next layout pass. */
    gint wrap_width = MAX(1, allocation->width - 12);
-   gtk_widget_set_size_request(flow, wrap_width, -1);
    gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
    /* Leave room for the notebook contents, even with many open tabs.
     * Additional rows remain accessible via the viewport's scrollbar. */
