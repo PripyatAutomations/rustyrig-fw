@@ -1802,6 +1802,113 @@ static gboolean vfo_locator_menu_click(GtkWidget *widget, GdkEventButton *event,
    return TRUE;
 }
 
+/* E-STOP is a separate top-level bound to the room/profile selected when
+ * summoned. Changing tabs cannot redirect an already open emergency switch. */
+static GtkWidget *estop_window, *estop_status;
+static char estop_room[128], estop_profile[512];
+
+static void estop_send_in_context(void *action_ptr) {
+   const char *action = action_ptr;
+   if (!ws_conn) return;
+   dict *request = dict_new();
+   if (!request) return;
+   dict_add(request, "msg.type", "admin");
+   dict_add(request, "talk.action", action);
+   dict_add(request, "talk.target", estop_room);
+   ws_send_dict(NULL, ws_conn, request, WEBSOCKET_OP_TEXT);
+   dict_free(request);
+}
+
+static void estop_dispatch(const char *action) {
+   rrconn_t *connection = rrclient_connection_find(estop_profile);
+   if (!connection || !connection->is_ws || rrclient_connection_state(estop_profile) != 1) {
+      if (estop_status) gtk_label_set_text(GTK_LABEL(estop_status), "OFFLINE — NOT CONFIRMED");
+      return;
+   }
+   if (estop_status) gtk_label_set_text(GTK_LABEL(estop_status), "Request sent — check server acknowledgment");
+   rrclient_connection_dispatch(connection, estop_send_in_context, (void *)action);
+}
+
+static void estop_pressed(GtkButton *button, gpointer unused) {
+   (void)button; (void)unused;
+   estop_dispatch("estop-trip");
+}
+
+static void estop_request_event(const char *event, const char *action, rrconn_t *client, void *user) {
+   (void)event; (void)client; (void)user;
+   if (!action) return;
+   if (!strcasecmp(action, "off")) {
+      if (estop_window) gtk_widget_hide(estop_window);
+      return;
+   }
+   if (!strcasecmp(action, "reset")) {
+      if (!estop_room[0]) {
+         ui_print(ui_active_window_name(), "Open /estop on for the target rig before resetting");
+         return;
+      }
+      estop_dispatch("estop-reset");
+      return;
+   }
+   if (strcasecmp(action, "on")) return;
+   const char *room = rrclient_media_active_room();
+   const char *profile = rrclient_selected_server();
+   if (!room || !strstr(room, "-rig") || !profile || !*profile) {
+      ui_print(ui_active_window_name(), "Select a rig room before /estop on");
+      return;
+   }
+   if (estop_window && gtk_widget_get_visible(estop_window) &&
+       (strcmp(estop_room, room) || strcmp(estop_profile, profile))) {
+      ui_print(ui_active_window_name(), "Close the existing E-STOP window before selecting another rig");
+      return;
+   }
+   g_strlcpy(estop_room, room, sizeof(estop_room));
+   g_strlcpy(estop_profile, profile, sizeof(estop_profile));
+   if (!estop_window) {
+      estop_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+      gtk_window_set_title(GTK_WINDOW(estop_window), "RustyRig Emergency Stop");
+      gtk_window_set_decorated(GTK_WINDOW(estop_window), FALSE);
+      gtk_window_set_keep_above(GTK_WINDOW(estop_window), TRUE);
+      gtk_window_set_skip_taskbar_hint(GTK_WINDOW(estop_window), TRUE);
+      gtk_window_set_resizable(GTK_WINDOW(estop_window), FALSE);
+      gtk_window_set_type_hint(GTK_WINDOW(estop_window), GDK_WINDOW_TYPE_HINT_NORMAL);
+      g_signal_connect(estop_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+      GtkWidget *container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 9);
+      gtk_container_set_border_width(GTK_CONTAINER(container), 15);
+      gtk_container_add(GTK_CONTAINER(estop_window), container);
+      GtkWidget *grid_label = gtk_label_new("Grid unknown");
+      GtkWidget *rig_label = gtk_label_new("");
+      g_object_set_data(G_OBJECT(estop_window), "estop-grid", grid_label);
+      g_object_set_data(G_OBJECT(estop_window), "estop-rig", rig_label);
+      gtk_box_pack_start(GTK_BOX(container), grid_label, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(container), rig_label, FALSE, FALSE, 0);
+      GtkWidget *button = gtk_button_new_with_label("ESTOP");
+      gtk_widget_set_name(button, "rr-emergency-stop");
+      gtk_widget_set_size_request(button, 200, 200);
+      gtk_box_pack_start(GTK_BOX(container), button, FALSE, FALSE, 0);
+      g_signal_connect(button, "clicked", G_CALLBACK(estop_pressed), NULL);
+      estop_status = gtk_label_new("Ready — not halted");
+      gtk_box_pack_start(GTK_BOX(container), estop_status, FALSE, FALSE, 0);
+      GtkCssProvider *css = gtk_css_provider_new();
+      gtk_css_provider_load_from_data(css,
+         "#rr-emergency-stop { background: #ba101b; color: white; font-size: 34px; font-weight: bold; border: 5px solid #ff515b; border-radius: 105px; min-width: 190px; min-height: 190px; }"
+         "#rr-emergency-stop:hover { background: #e01826; }", -1, NULL);
+      gtk_style_context_add_provider_for_screen(gtk_widget_get_screen(estop_window),
+         GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+      g_object_unref(css);
+   }
+   char *display = g_strdup(estop_room[0] == '#' ? estop_room + 1 : estop_room);
+   gtk_label_set_text(GTK_LABEL(g_object_get_data(G_OBJECT(estop_window), "estop-rig")), display);
+   g_free(display);
+   rr_location_t position;
+   const char *coordinates = rrclient_media_rig_coordinates(estop_room);
+   const char *grid = rr_location_resolve(coordinates, NULL, &position) ? position.locator : NULL;
+   gtk_label_set_text(GTK_LABEL(g_object_get_data(G_OBJECT(estop_window), "estop-grid")),
+      grid && *grid ? grid : "Grid unknown");
+   gtk_label_set_text(GTK_LABEL(estop_status), "Ready — not halted");
+   gtk_widget_show_all(estop_window);
+   gtk_window_present(GTK_WINDOW(estop_window));
+}
+
 /* Separate, fixed-size always-on-top VFO locator. It is deliberately not a
  * child of the fullscreen client and exists only while a server is online. */
 static GtkWidget *vfo_locator_window, *vfo_locator_frame, *vfo_locator_label, *vfo_locator_frequency, *vfo_locator_mode, *vfo_locator_ptt;
@@ -2129,6 +2236,7 @@ bool chat_init(void) {
    typing_shutting_down = FALSE;
    extern bool rr_module_token_add(rr_event_token_t token);
    rr_module_token_add(event_on_token("client.server.selected", gtk_chat_server_selected, NULL));
+   rr_module_token_add(event_on_token("client.estop", estop_request_event, NULL));
    room_tabs = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    status_tab = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
    GtkWidget *status_tab_label = gtk_label_new(NULL);
