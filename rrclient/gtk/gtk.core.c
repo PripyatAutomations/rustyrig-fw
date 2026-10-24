@@ -41,6 +41,32 @@
 extern dict *cfg;
 extern time_t now;
 extern bool dying;              // main.c
+/* Width diagnostic: intentionally read-only. GTK's nested viewports can
+ * conceal a child wider than the visible client area. */
+static void main_width_diagnostic(GtkWidget *content, GtkAllocation *allocation, gpointer unused) {
+   (void)unused;
+   GtkWidget *toolbar = g_object_get_data(G_OBJECT(content), "rr-width-toolbar");
+   GtkWidget *tabs = g_object_get_data(G_OBJECT(content), "rr-width-tabs");
+   if (!toolbar || !tabs) return;
+   gint toolbar_min = 0, toolbar_nat = 0, tabs_min = 0, tabs_nat = 0;
+   gtk_widget_get_preferred_width(toolbar, &toolbar_min, &toolbar_nat);
+   gtk_widget_get_preferred_width(tabs, &tabs_min, &tabs_nat);
+   gint toolbar_alloc = gtk_widget_get_allocated_width(toolbar);
+   gint tabs_alloc = gtk_widget_get_allocated_width(tabs);
+   gint available = allocation->width;
+   static gint last_available = -1, last_toolbar = -1, last_tabs = -1;
+   if (available == last_available && toolbar_alloc == last_toolbar && tabs_alloc == last_tabs) return;
+   last_available = available;
+   last_toolbar = toolbar_alloc;
+   last_tabs = tabs_alloc;
+   if (toolbar_min > available + 8 || tabs_min > available + 8 ||
+       toolbar_alloc > available + 8 || tabs_alloc > available + 8) {
+      Log(LOG_WARN, "gtk.width", "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)",
+          available, toolbar_min, toolbar_nat, toolbar_alloc,
+          tabs_min, tabs_nat, tabs_alloc);
+   }
+}
+
 GtkWidget *main_window = NULL;
 GtkWidget *conn_button = NULL;
 GtkWidget *freq_entry = NULL;
@@ -870,9 +896,13 @@ bool gui_init(void) {
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
-   gtk_box_pack_start(GTK_BOX(main_content),
-      gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip),
-      TRUE, TRUE, 0);
+   GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
+   gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
+   g_signal_connect(main_content, "size-allocate", G_CALLBACK(main_width_diagnostic), NULL);
+   /* Diagnose width negotiation without changing any widget requisition.
+    * Only log when geometry changes; avoid flooding normal resize events. */
+   g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
+   g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", tabs_wrapper);
    gtk_ui_zoom_attach(main_window, main_content);
    /* gtk_ui_zoom_attach installs the viewport as the window child. Reparent it into an overlay so the screensaver covers the whole content area. */
    GtkWidget *viewport = gtk_bin_get_child(GTK_BIN(main_window));
