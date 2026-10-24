@@ -65,6 +65,17 @@ extern defconfig_t defcfg[];
 extern struct mg_mgr mgr;
 #endif // defined(USE_MONGOOSE)
 
+/* A local TX inhibit. A zero-percent GTK power setting cannot key RF,
+ * but release commands are always allowed through. */
+int rrclient_tx_power_percent = 100;
+bool rrclient_ptt_allowed(void) { return rrclient_tx_power_percent > 0; }
+void rrclient_send_ptt_command(rrconn_t *connection, const char *vfo, bool on, const char *room) {
+   if (on && !rrclient_ptt_allowed()) {
+      Log(LOG_WARN, "ptt", "PTT ON inhibited locally: TX power is 0%%");
+      return;
+   }
+   ws_send_ptt_cmd_in_room(connection, vfo, on, room);
+}
 extern const char *configs[];   // from defcfg.c
 extern const int num_configs;
 extern bool cfg_ui_bell_chat;
@@ -225,7 +236,7 @@ static bool rrclient_ptt_hotkey(tui_window_t *win, unsigned key, unsigned modifi
       vfo_state_get_active(), '\0'
    };
    bool active = vfo_state_get_bool(vfo, "cat.state.ptt", false);
-   ws_send_ptt_cmd_in_room(ws_conn, vfo, !active, ui_active_window_name());
+   rrclient_send_ptt_command(ws_conn, vfo, !active, ui_active_window_name());
 
    return true;
 }
