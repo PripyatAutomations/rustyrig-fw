@@ -481,6 +481,16 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    g_object_set_data(G_OBJECT(notebook), "rr-floating-tab-strip", flow);
    gtk_widget_set_hexpand(flow, TRUE);
    gtk_widget_set_halign(flow, GTK_ALIGN_FILL);
+   /* GtkFlowBox's minimum width grows with its children when it is packed
+    * directly in a vbox. Give it a viewport of the allocated width so it
+    * wraps rows instead of widening the notebook and pushing chat controls
+    * off the right edge. */
+   GtkWidget *tab_scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
+   gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tab_scroll), 1);
+   gtk_widget_set_hexpand(tab_scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
    gtk_drag_dest_set(flow, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
    g_signal_connect_object(flow, "drag-data-received", G_CALLBACK(tab_drag_received), notebook, 0);
@@ -494,7 +504,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_notebook_set_show_tabs(notebook, FALSE);
 
    if (position == GTK_POS_TOP) {
-      gtk_box_pack_start(GTK_BOX(box), flow, FALSE, FALSE, 0);
+      gtk_box_pack_start(GTK_BOX(box), tab_scroll, FALSE, FALSE, 0);
    }
    gtk_box_pack_start(GTK_BOX(box), GTK_WIDGET(notebook), TRUE, TRUE, 0);
 
