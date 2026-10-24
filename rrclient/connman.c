@@ -12,6 +12,7 @@
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
+#include <rrclient/media.direct.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
 // Native connection manager. IRC wire handlers live in librustyirc.
@@ -153,6 +154,11 @@ bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
       const struct rr_traffic *traffic = &s->connection->traffic;
       incoming = traffic->rx_text_bytes + traffic->rx_binary_bytes;
       outgoing = traffic->tx_text_bytes + traffic->tx_binary_bytes;
+      /* Native RTP receive accounting also contributes to peer->traffic;
+       * exclude it from the WS readout now that RTP has a separate meter. */
+      uint64_t rtp_incoming = 0;
+      rrclient_direct_traffic(s->connection, &rtp_incoming, NULL);
+      incoming = incoming >= rtp_incoming ? incoming - rtp_incoming : 0;
    }
    if (rx) *rx = incoming;
    if (tx) *tx = outgoing;
