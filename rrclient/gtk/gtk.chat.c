@@ -1294,11 +1294,7 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
       }
    }
    if (count <= 1) return count == 1;
-   if (count == 2) {
-      char active = rrclient_room_active_vfo(room_vfo_title_room);
-      room_vfo_title_select(active == only[0] ? only[1] : only[0]);
-      return TRUE;
-   }
+   /* Even two VFOs get an explicit menu on a short title click. */
    GtkWidget *menu = gtk_menu_new();
    for (unsigned i = 0; i < 26; i++) {
       if (!(mask & (UINT32_C(1) << i))) continue;
@@ -1311,7 +1307,10 @@ static gboolean room_vfo_title_clicked(GtkWidget *widget, GdkEventButton *event,
    }
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_widget_show_all(menu);
-   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   /* The event is a button release; anchor the popup to the title rather
+    * than attempting a pointer grab using a completed press sequence. */
+   gtk_menu_popup_at_widget(GTK_MENU(menu), widget,
+      GDK_GRAVITY_SOUTH_WEST, GDK_GRAVITY_NORTH_WEST, NULL);
    return TRUE;
 }
 
