@@ -1629,36 +1629,41 @@ static bool yaesu_menu_read(rr_backend_t *b, const char *id, char *value, size_t
 }
 static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value) {
    yaesu_state_t *s = ys(b);
-
-   if (!s || s->model_id != 650 || !id || !value) {
+   if (!s || !s->profile || s->model_id != 650 || !id || !value || strlen(id) != 4 || s->ptt)
       return false;
+   bool advertised = false;
+   for (size_t i = 0; i < s->profile->menu_count; ++i) {
+      if (!strcmp(id, s->profile->menu[i].id)) { advertised = true; break; }
    }
-   int minimum = 0, maximum = 0, width = 0;
+   if (!advertised) return false;
 
-   if (!strcmp(id, "0201") || !strcmp(id, "0202") || !strcmp(id, "0203") || !strcmp(id, "0204")) {
-      minimum = 1;
-      maximum = 15;
-      width = 2;
-   } else if (!strcmp(id, "0504")) {
-      minimum = 0;
-      maximum = 100;
-      width = 3;
-   } else {
-      return false;
+   /* EX setters must preserve the width of the radio's own answer. Only
+    * numeric, single-parameter menu entries are writable through this
+    * generic editor; text/compound settings require typed descriptors. */
+   char current[128], verified[128];
+   if (!yaesu_menu_read(b, id, current, sizeof(current))) return false;
+   size_t width = strlen(current);
+   if (!width || width > 4 || strlen(value) != width) return false;
+   for (size_t i = 0; i < width; ++i) {
+      if (!isdigit((unsigned char)current[i]) || !isdigit((unsigned char)value[i])) return false;
    }
 
-   if (strlen(value) != (size_t)width) {
-      return false;
-   }
+   /* Known ranges are stricter than mere CAT field-width validation. */
    int number = 0;
+   if (!decimal(value, (int)width, &number)) return false;
+   if ((!strcmp(id, "0201") || !strcmp(id, "0202") || !strcmp(id, "0203") || !strcmp(id, "0204")) &&
+       (number < 1 || number > 15)) return false;
+   if (!strcmp(id, "0504") && number > 100) return false;
 
-   if (!decimal(value, width, &number) || number < minimum || number > maximum) {
+   char command[48];
+   snprintf(command, sizeof(command), "EX%s%s;", id, value);
+   if (!cat(s, command, NULL, NULL, 0) ||
+       !yaesu_menu_read(b, id, verified, sizeof(verified)) || strcmp(verified, value)) {
+      rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 menu EX%s change not confirmed by CAT readback", id);
       return false;
    }
-   char command[24];
-   snprintf(command, sizeof(command), "EX%s%s;", id, value);
-
-   return cat(s, command, NULL, NULL, 0);
+   rr_backend_log(b, LOG_AUDIT, "backend.yaesu", "FT-891 menu EX%s updated from %s to %s", id, current, verified);
+   return true;
 }
 /* Model-specific Yaesu EX menu overrides, saved and restored per backend. */
 typedef struct {
@@ -1823,7 +1828,7 @@ static bool create(rr_backend_t *b) {
          snprintf(property, sizeof(property), "menu.%s", s->profile->menu[i].id);
          rr_property_descriptor_t d = {
             .name = property, .type = VAL_STR, .readable = true,
-            .writable = false
+            .writable = true
          };
          rr_rig_property_define(b->owner, &d);
       }
