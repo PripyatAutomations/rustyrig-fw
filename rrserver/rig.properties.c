@@ -47,6 +47,7 @@ struct rr_server_vfo {
 };
 
 struct rr_server_rig {
+   atomic_bool halted;
    char *id;
    char *name;
    struct rr_backend *backend;
@@ -57,6 +58,13 @@ struct rr_server_rig {
    rr_rig_control_handler_t control_handler;
    void *control_user;
 };
+
+bool rr_rig_halted(const rr_server_rig_t *rig) {
+   return rig && atomic_load(&rig->halted);
+}
+void rr_rig_set_halted(rr_server_rig_t *rig, bool halted) {
+   if (rig) atomic_store(&rig->halted, halted);
+}
 
 static bool rr_property_type_supported(val_type_t type) {
    switch (type) {
