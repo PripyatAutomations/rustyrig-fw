@@ -491,6 +491,8 @@ static bool mode_set(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t mode) {
    if (!s || !index_of(v, &index) || index != b->active_vfo || !digit) {
       return true;
    }
+   /* FT-991A has a distinct DATA-FM CAT mode (A), not ordinary FM (4). */
+   if (s->model_id == 670 && mode == MODE_DFM) digit = 'A';
    snprintf(command, sizeof(command), "MD0%c;", digit);
 
    if (!cat(s, command, NULL, NULL, 0)) {
