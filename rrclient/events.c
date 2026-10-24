@@ -964,7 +964,7 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
    const char *servers = dict_get(d, "talk.servers", NULL);
 
    if (servers) {
-      ui_print(ui_active_window_name(), "Servers (↗ remote): %s", servers);
+      ui_print(ui_active_window_name(), "%sServers (↗ remote): %s", get_chat_ts(now), servers);
    }
    size_t capacity = strlen(rooms) * 5 + 1;
    char *listed = calloc(1, capacity);
@@ -981,7 +981,7 @@ static void rrclient_handle_room_list(const char *event, const char *data, rrcon
          strlcat(listed, rrclient_room_available_iter(i), capacity);
       }
 
-      ui_print(ui_active_window_name(), "\00308Available rooms:\017 %s", *listed ? listed : "(none)");
+      ui_print(ui_active_window_name(), "%s\00308Available rooms:\017 %s", get_chat_ts(now), *listed ? listed : "(none)");
       free(listed);
    }
    dict_free(d);
