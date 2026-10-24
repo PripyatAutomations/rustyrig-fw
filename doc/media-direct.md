@@ -30,12 +30,16 @@ media.direct.host=radio.example.net
 media.direct.encrypt=false
 ```
 
-An explicit `media.direct.host` must be reachable by the client, including through
-any needed UDP port forwarding. When empty, the server selects the local IPv4
-source address its kernel would use to reach the requesting client and advertises
-that address with the configured UDP port. This is only a reachability hint:
-NAT, firewalls or differing VPN routes can prevent access, in which case the
-client falls back to proxy media. Use an explicit host for public/NAT deployments. The initial
+An explicit `media.direct.host` is advertised first and must be reachable by the client,
+including through any necessary UDP port forwarding. The server also advertises
+up to eight automatically discovered candidate RTP URLs (`media.direct-candidates`),
+with the route-selected local IPv4 address first, followed by active non-loopback
+interfaces. `media.direct` remains the first URL. The native client tries each
+candidate before falling back to proxy media. Configure `media.direct.exclude`
+with comma-separated IPv4 addresses that must never be automatically advertised
+(e.g. `media.direct.exclude=172.17.0.1,192.168.122.1`). Loopback addresses are
+always excluded from automatic discovery. Candidate addresses are only reachability
+hints; NAT, firewalls and differing VPN routes may block them. The initial
 socket adapter supports IPv4. Restart the server after changing listener settings.
 Native clients default to `media.direct.prefer=true`; setting it false selects
 WebSocket audio. Browser clients continue using WebSockets.
@@ -293,3 +297,10 @@ incoming offer notices, PCM frames, and per-attachment closure, and choose when
 to call `irc_audio_accept()`. The native client owns microphone/speaker devices
 and its configuration. Classic DCC file transfers and chat are documented in [irc-dcc.md](irc-dcc.md).
 The IRC implementation remains in librrprotocol.
+
+## v1.1 TODO: dual-stack candidate referrals
+
+Extend RTP socket creation, parsing, and per-client candidate selection to IPv6,
+including bracketed IPv6 URL literals, scoped link-local addresses, IPv6 exclusions
+and route-selected source addresses. Exclude `::1` and `127.0.0.0/8` by default.
+Exercise mixed-family referrals, VPN interfaces and NAT/firewall fallback.
