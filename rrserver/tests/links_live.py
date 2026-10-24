@@ -494,6 +494,7 @@ acl=media-staff
             run(login, origin, owner, work, media_ports['gamma'] + 7, media_ports['alpha'] + 7)
         before = log('alpha').count('Linked site beta')
         leaf_links = log('gamma').count('Unlinked site delta')
+        catalog_snapshots_before = log('alpha').count('Queued ')
         stop('beta')
         wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 2' in log('gamma'), 'disconnect did not withdraw only the lost branch')
         # A subtree withdrawal must purge only unreachable catalog owners.
@@ -503,6 +504,7 @@ acl=media-staff
         assert 'Topology withdrawal' not in log('delta'), 'surviving descendant lost a reachable catalog branch'
         # A departure must not trigger wholesale catalog re-synchronization.
         # The initial snapshots are already complete before this outage.
+        assert log('alpha').count('Queued ') == catalog_snapshots_before, 'withdrawal triggered a full catalog snapshot'
         offline = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-state' and m['talk'].get('room') == '#gamma-rig0')
         assert offline['talk']['connected'] is False
         assert log('gamma').count('Unlinked site delta') == leaf_links
