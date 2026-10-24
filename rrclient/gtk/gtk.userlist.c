@@ -1139,9 +1139,9 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
 
       if (ptt) {
          gtk_widget_set_tooltip_text(ptt, "Release PTT on this VFO");
-         gtk_widget_set_size_request(ptt, 88, -1);
+         gtk_widget_set_size_request(ptt, 76, -1);
       }
-      gtk_widget_set_size_request(freq, 105, -1);
+      gtk_widget_set_size_request(freq, 88, -1);
       gtk_widget_set_name(freq, "room-vfo-frequency");
       room_vfo_control_t *control = calloc(1, sizeof(*control));
 
@@ -1165,6 +1165,8 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
       gtk_box_pack_start(GTK_BOX(content), name, FALSE, FALSE, 2);
       gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 2);
+      gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
+      gtk_widget_set_size_request(mode, 42, -1);
       gtk_box_pack_start(GTK_BOX(content), mode, FALSE, FALSE, 2);
 
       if (ptt) {
@@ -1374,7 +1376,12 @@ static void room_userlist_set_width(room_userlist_entry_t *entry, int width) {
    int handle = 0;
    gtk_widget_style_get(GTK_WIDGET(entry->dock_paned), "handle-size", &handle, NULL);
    entry->adjusting_width = true;
-   gtk_paned_set_position(entry->dock_paned, MAX(0, total - handle - width));
+   /* A stale saved width must not consume the entire chat pane or push the
+    * roster header and its PTT controls beyond the visible edge. */
+   int available = MAX(0, total - MAX(handle, 0));
+   int maximum = MAX(0, available - MIN(240, available / 2));
+   width = CLAMP(width, 0, maximum);
+   gtk_paned_set_position(entry->dock_paned, available - width);
    entry->adjusting_width = false;
 }
 
