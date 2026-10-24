@@ -483,6 +483,23 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    }
 }
 
+/* Catch notebook-wide width pressure (often from an inactive page), rather
+ * than masking it as a chat scroll or userlist divider problem. */
+static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
+   GtkWidget *viewport = GTK_WIDGET(data);
+   int visible = gtk_widget_get_allocated_width(viewport);
+   static int previous_excess = -1;
+   int excess = allocation->width - visible;
+   if (visible > 1 && excess > 8 && excess != previous_excess) {
+      Log(LOG_WARN, "gtk.tabs",
+         "Notebook exceeds visible page viewport by %d px (notebook=%d viewport=%d); page minimum width needs correction",
+         excess, allocation->width, visible);
+      previous_excess = excess;
+   } else if (excess <= 8) {
+      previous_excess = -1;
+   }
+}
+
 static void tabs_keep_page_left(GtkAdjustment *adjustment, gpointer unused) {
    (void)unused;
    double left = gtk_adjustment_get_lower(adjustment);
@@ -556,6 +573,13 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
     * pages must manage their own width and scrolling. */
    g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(page_viewport)),
       "value-changed", G_CALLBACK(tabs_keep_page_left), NULL);
+   /* GtkNotebook's preferred width is the largest request of *all* pages,
+    * including inactive resource views. Prevent that requisition from setting
+    * a large minimum for the room/chat layout. */
+   gtk_widget_set_size_request(GTK_WIDGET(notebook), 1, -1);
+   gtk_widget_set_hexpand(GTK_WIDGET(notebook), TRUE);
+   gtk_widget_set_halign(GTK_WIDGET(notebook), GTK_ALIGN_FILL);
+   g_signal_connect(notebook, "size-allocate", G_CALLBACK(tabs_page_width_diagnostic), page_viewport);
    gtk_container_add(GTK_CONTAINER(page_viewport), GTK_WIDGET(notebook));
    gtk_box_pack_start(GTK_BOX(box), page_viewport, TRUE, TRUE, 0);
 
