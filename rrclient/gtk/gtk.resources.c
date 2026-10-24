@@ -1152,9 +1152,9 @@ static void resource_health_node(resource_branch *branch, GtkTreeIter *node, gbo
    gboolean available = resource_health_group(node, &group, &total, &bad, &severity, reasons);
 
    if (direct || available) {
-      /* Multiple links may advertise the same physical node. Deduplicate by
-       * site name, not by the profile/path through which it was discovered. */
+      /* Multiple links may advertise the same physical node. Deduplicate by site name, not by the profile/path through which it was discovered. */
       char *key = g_strdup_printf("node|%s", name && *name ? name : branch->profile);
+
       if (g_hash_table_contains(seen, key)) {
          g_free(key);
          goto health_children;
@@ -1233,20 +1233,25 @@ static void resource_health_update(void) {
    GHashTableIter branches;
    gpointer value;
    g_hash_table_iter_init(&branches, browser->branches);
-   /* Direct nodes win over relayed copies regardless of hash iteration order. */
-   for (unsigned pass = 0; pass < 2; ++pass) {
-   g_hash_table_iter_init(&branches, browser->branches);
-   while (g_hash_table_iter_next(&branches, NULL, &value)) {
-      resource_branch *branch = value;
-      if ((pass == 0) != (rrclient_connection_state(branch->profile) == 1)) continue;
-      rrconn_t *connection = rrclient_connection_find(branch->profile);
 
-      /* An IRC (or other non-rrprotocol) profile is not a cluster node. Retain previously discovered rrprotocol sites when disconnected. */
-      if ((connection && connection->is_ws) || branch->local_site_seen) {
-         resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
+   /* Direct nodes win over relayed copies regardless of hash iteration order. */
+   for (unsigned pass = 0 ; pass < 2 ; ++pass) {
+      g_hash_table_iter_init(&branches, browser->branches);
+      while (g_hash_table_iter_next(&branches, NULL, &value)) {
+         resource_branch *branch = value;
+
+         if ((pass == 0) != (rrclient_connection_state(branch->profile) == 1)) {
+            continue;
+         }
+         rrconn_t *connection = rrclient_connection_find(branch->profile);
+
+         /* An IRC (or other non-rrprotocol) profile is not a cluster node. Retain previously discovered rrprotocol sites when disconnected. */
+         if ((connection && connection->is_ws) || branch->local_site_seen) {
+            resource_health_node(branch, &branch->root, TRUE, seen, &reporting, &warnings);
+         }
       }
    }
-   }
+
    GtkTreeModel *model = GTK_TREE_MODEL(browser->store);
    GtkTreeIter child;
    gboolean ok = gtk_tree_model_iter_children(model, &child, &browser->health_root);
@@ -1607,8 +1612,10 @@ static gboolean resource_menu_value_poll(gpointer data) {
       if (value) {
          char *summary = g_strdup_printf("CAT value: %s", value);
          gtk_label_set_text(GTK_LABEL(read->label), summary);
-         if (read->selector && GTK_IS_ENTRY(read->selector) && strlen(value) <= 4 && strspn(value, "0123456789") == strlen(value))
+
+         if (read->selector && GTK_IS_ENTRY(read->selector) && strlen(value) <= 4 && strspn(value, "0123456789") == strlen(value)) {
             gtk_entry_set_text(GTK_ENTRY(read->selector), value);
+         }
          g_free(summary);
          read->timer = 0;
 
@@ -1635,8 +1642,10 @@ static void resource_menu_apply(GtkButton *button, gpointer data) {
    const char *profile = g_object_get_data(G_OBJECT(button), "menu-profile");
    const char *id = read->property + 5;
    const char *raw = GTK_IS_ENTRY(selector) ? gtk_entry_get_text(GTK_ENTRY(selector)) : NULL;
+
    if (!raw || !*raw || strlen(raw) > 4 || strspn(raw, "0123456789") != strlen(raw)) {
       gtk_label_set_text(GTK_LABEL(read->label), "Enter the numeric CAT parameter (preserving its leading zeros).");
+
       return;
    }
    rrconn_t *connection = rrclient_connection_find(profile);
@@ -1715,8 +1724,7 @@ static void resource_menu_open(GtkTreeModel *model, GtkTreeIter *item, const cha
    GtkWidget *label = gtk_label_new("Reading one menu value from the rig…");
    gtk_label_set_xalign(GTK_LABEL(label), 0);
    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
-   /* Numeric EX parameters are entered verbatim. The backend reads the
-    * current value, validates numeric width, writes and verifies it. */
+   /* Numeric EX parameters are entered verbatim. The backend reads the current value, validates numeric width, writes and verifies it. */
    GtkWidget *line = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
    GtkWidget *selector = gtk_entry_new();
    gtk_entry_set_max_length(GTK_ENTRY(selector), 4);

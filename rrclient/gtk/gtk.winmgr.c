@@ -331,11 +331,11 @@ bool place_window(GtkWidget *window) {
                   gtk_widget_hide(win->gtk_win);
                }
             } else if (strcasecmp(opt, "maximized") == 0) {
-               /* Fullscreen startup takes precedence over saved main-window
-                * maximize geometry. Requesting both can leave some WMs
-                * showing only the maximized state. */
-               if (strcasecmp(win->name, "main") || !cfg_get_bool("ui.full-screen", false))
+               /* Fullscreen startup takes precedence over saved main-window maximize geometry. Requesting both can leave some WMs showing only the maximized
+                * state. */
+               if (strcasecmp(win->name, "main") || !cfg_get_bool("ui.full-screen", false)) {
                   gtk_window_maximize(GTK_WINDOW(win->gtk_win));
+               }
             } else if (strcasecmp(opt, "minimized") == 0) {
                win->win_minimized = true;
                gtk_window_iconify(GTK_WINDOW(win->gtk_win));

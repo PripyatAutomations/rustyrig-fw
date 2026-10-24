@@ -88,92 +88,148 @@ static struct media_pool *select_pool(rrconn_t *client) {
    return NULL;
 }
 
-/* Prefer an explicit public/hostname endpoint. Otherwise let the kernel
- * choose the source address used to reach this client's IPv4 address.
- * An unreachable referral is harmless: the client probes and falls back to
- * proxy media. Never advertise wildcard or loopback addresses implicitly. */
+/* Prefer an explicit public/hostname endpoint. Otherwise let the kernel choose the source address used to reach this client's IPv4 address. An unreachable
+ * referral is harmless: the client probes and falls back to proxy media. Never advertise wildcard or loopback addresses implicitly. */
 static const char *pool_endpoint(struct media_pool *pool, rrconn_t *client, char *buf, size_t len) {
-   if (*pool->endpoint) return pool->endpoint;
-   struct sockaddr_in target = { .sin_family = AF_INET, .sin_port = htons(9) };
-   if (!client || !*client->user_ip || inet_pton(AF_INET, client->user_ip, &target.sin_addr) != 1) return NULL;
+   if (*pool->endpoint) {
+      return pool->endpoint;
+   }
+   struct sockaddr_in target = {
+      .sin_family = AF_INET, .sin_port = htons(9)
+   };
+
+   if (!client || !*client->user_ip || inet_pton(AF_INET, client->user_ip, &target.sin_addr) != 1) {
+      return NULL;
+   }
    int fd = socket(AF_INET, SOCK_DGRAM, 0);
-   if (fd < 0) return NULL;
-   struct sockaddr_in local = {0};
+
+   if (fd < 0) {
+      return NULL;
+   }
+   struct sockaddr_in local = {
+      0
+   };
    socklen_t local_len = sizeof(local);
-   bool ok = connect(fd, (struct sockaddr *)&target, sizeof(target)) == 0 &&
-      getsockname(fd, (struct sockaddr *)&local, &local_len) == 0;
+   bool ok = connect(fd, (struct sockaddr *)&target, sizeof(target)) == 0 && getsockname(fd, (struct sockaddr *)&local, &local_len) == 0;
    close(fd);
-   if (!ok || local.sin_family != AF_INET ||
-       (ntohl(local.sin_addr.s_addr) >> 24) == 127 || local.sin_addr.s_addr == INADDR_ANY) return NULL;
+
+   if (!ok || local.sin_family != AF_INET || (ntohl(local.sin_addr.s_addr) >> 24) == 127 || local.sin_addr.s_addr == INADDR_ANY) {
+      return NULL;
+   }
    char ip[INET_ADDRSTRLEN];
-   if (!inet_ntop(AF_INET, &local.sin_addr, ip, sizeof(ip))) return NULL;
+
+   if (!inet_ntop(AF_INET, &local.sin_addr, ip, sizeof(ip))) {
+      return NULL;
+   }
    snprintf(buf, len, "rtp://%s:%u", ip, pool->port);
+
    return buf;
 }
 
-/* Ordered, bounded RTP candidates: explicit host, kernel-routed IP,
- * then additional active local IPv4 interfaces. No localhost referrals.
- * An exclusion is a literal IPv4 address in a comma/space separated list. */
+/* Ordered, bounded RTP candidates: explicit host, kernel-routed IP, then additional active local IPv4 interfaces. No localhost referrals. An exclusion is a
+ * literal IPv4 address in a comma/space separated list. */
 static bool endpoint_excluded(const char *ip) {
    const char *cfg_value = cfg_get("media.direct.exclude");
-   if (!cfg_value || !*cfg_value) return false;
+
+   if (!cfg_value || !*cfg_value) {
+      return false;
+   }
    char *copy = strdup(cfg_value);
-   if (!copy) return true;
+
+   if (!copy) {
+      return true;
+   }
    bool excluded = false;
    char *save = NULL;
-   for (char *p = strtok_r(copy, ",; \\t\\n", &save); p; p = strtok_r(NULL, ",; \\t\\n", &save)) {
-      if (!strcmp(p, ip)) { excluded = true; break; }
+
+   for (char *p = strtok_r(copy, ",; \\t\\n", &save) ; p ; p = strtok_r(NULL, ",; \\t\\n", &save)) {
+      if (!strcmp(p, ip)) {
+         excluded = true;
+         break;
+      }
    }
+
    free(copy);
+
    return excluded;
 }
 static void add_candidate(char *out, size_t len, const char *host, unsigned port) {
-   if (!host || !*host) return;
+   if (!host || !*host) {
+      return;
+   }
    char candidate[350];
    snprintf(candidate, sizeof(candidate), "rtp://%s:%u", host, port);
-   if (strlen(out) + strlen(candidate) + 2 > len) return;
+
+   if (strlen(out) + strlen(candidate) + 2 > len) {
+      return;
+   }
    /* Dedupe complete endpoints, not substrings of other addresses. */
    char *existing = strdup(out);
+
    if (existing) {
       char *save = NULL;
-      for (char *p = strtok_r(existing, ",", &save); p; p = strtok_r(NULL, ",", &save)) {
-         if (!strcmp(p, candidate)) { free(existing); return; }
+
+      for (char *p = strtok_r(existing, ",", &save) ; p ; p = strtok_r(NULL, ",", &save)) {
+         if (!strcmp(p, candidate)) {
+            free(existing);
+
+            return;
+         }
       }
+
       free(existing);
    }
-   if (*out) strcat(out, ",");
+
+   if (*out) {
+      strcat(out, ",");
+   }
    strcat(out, candidate);
 }
 static void pool_candidates(struct media_pool *pool, rrconn_t *client, char *out, size_t len) {
    *out = 0;
+
    if (*pool->endpoint) {
       /* Even explicit referrals may not expose localhost. */
       const char *host = pool->endpoint + strlen("rtp://");
-      if (!strncmp(host, "127.", 4) || !strncmp(host, "localhost:", 10) ||
-          !strncmp(host, "[::1]:", 6)) {
+
+      if (!strncmp(host, "127.", 4) || !strncmp(host, "localhost:", 10) || !strncmp(host, "[::1]:", 6)) {
          return;
       }
       snprintf(out, len, "%s", pool->endpoint);
    }
    char routed[320];
    const char *route = pool_endpoint(pool, client, routed, sizeof(routed));
+
    if (route && route == routed) {
       char ip[INET_ADDRSTRLEN];
-      if (sscanf(route, "rtp://%15[^:]", ip) == 1 && !endpoint_excluded(ip))
+
+      if (sscanf(route, "rtp://%15[^:]", ip) == 1 && !endpoint_excluded(ip)) {
          add_candidate(out, len, ip, pool->port);
+      }
    }
    struct ifaddrs *interfaces = NULL;
-   if (getifaddrs(&interfaces)) return;
-   for (struct ifaddrs *it = interfaces; it; it = it->ifa_next) {
-      if (!it->ifa_addr || it->ifa_addr->sa_family != AF_INET ||
-          !(it->ifa_flags & IFF_UP) || (it->ifa_flags & IFF_LOOPBACK)) continue;
+
+   if (getifaddrs(&interfaces)) {
+      return;
+   }
+
+   for (struct ifaddrs *it = interfaces ; it ; it = it->ifa_next) {
+      if (!it->ifa_addr || it->ifa_addr->sa_family != AF_INET || !(it->ifa_flags & IFF_UP) || (it->ifa_flags & IFF_LOOPBACK)) {
+         continue;
+      }
       const struct sockaddr_in *addr = (const struct sockaddr_in *)it->ifa_addr;
       uint32_t ip_number = ntohl(addr->sin_addr.s_addr);
-      if ((ip_number >> 24) == 0 || (ip_number >> 24) == 127 || (ip_number >> 24) >= 224) continue;
+
+      if ((ip_number >> 24) == 0 || (ip_number >> 24) == 127 || (ip_number >> 24) >= 224) {
+         continue;
+      }
       char ip[INET_ADDRSTRLEN];
-      if (inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip)) && !endpoint_excluded(ip))
+
+      if (inet_ntop(AF_INET, &addr->sin_addr, ip, sizeof(ip)) && !endpoint_excluded(ip)) {
          add_candidate(out, len, ip, pool->port);
+      }
    }
+
    freeifaddrs(interfaces);
 }
 
@@ -230,13 +286,15 @@ static void open_pool(const char *section) {
          continue;
       }
       snprintf(pool->section, sizeof(pool->section), "%s", section);
-      if (*host) snprintf(pool->endpoint, sizeof(pool->endpoint), "rtp://%s:%u", host, port);
+
+      if (*host) {
+         snprintf(pool->endpoint, sizeof(pool->endpoint), "rtp://%s:%u", host, port);
+      }
       pool->port = port;
       pool->encrypted = encrypt;
       rr_rtp_socket_set_source_filter(pool->socket, source_allowed, pool);
       pool_count++;
-      Log(LOG_INFO, "media.direct", "[%s] listening at %s", section,
-         *pool->endpoint ? pool->endpoint : "auto (per-client routed IPv4 endpoint)");
+      Log(LOG_INFO, "media.direct", "[%s] listening at %s", section, *pool->endpoint ? pool->endpoint : "auto (per-client routed IPv4 endpoint)");
 
       return;
    }
@@ -449,10 +507,17 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
    struct media_pool *pool = select_pool(client);
 
    char candidates[2048] = "";
-   if (pool) pool_candidates(pool, client, candidates, sizeof(candidates));
+
+   if (pool) {
+      pool_candidates(pool, client, candidates, sizeof(candidates));
+   }
    const char *advertised = *candidates ? candidates : NULL;
    char endpoint[320] = "";
-   if (advertised) snprintf(endpoint, sizeof(endpoint), "%.*s", (int)strcspn(candidates, ","), candidates);
+
+   if (advertised) {
+      snprintf(endpoint, sizeof(endpoint), "%.*s", (int)strcspn(candidates, ","), candidates);
+   }
+
    if (!strcmp(cmd, "available") && advertised) {
       dict_add(d, "media.direct", endpoint);
       dict_add(d, "media.direct-candidates", candidates);
@@ -520,7 +585,12 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
       }
 
       dict_add(d, "media.transport", g->force ? "direct" : "rtp");
-      if (!advertised) { remove_grant(g); return; }
+
+      if (!advertised) {
+         remove_grant(g);
+
+         return;
+      }
       dict_add(d, "media.direct", endpoint);
       dict_add(d, "media.direct-candidates", candidates);
       dict_add(d, "media.direct-key", key);
@@ -584,7 +654,12 @@ bool rrserver_direct_relay_grant(rrconn_t *client, dict *d, unsigned stream, uns
 
    char candidates[2048] = "";
    pool_candidates(pool, client, candidates, sizeof(candidates));
-   if (!*candidates) { remove_grant(g); return false; }
+
+   if (!*candidates) {
+      remove_grant(g);
+
+      return false;
+   }
    char endpoint[320];
    snprintf(endpoint, sizeof(endpoint), "%.*s", (int)strcspn(candidates, ","), candidates);
    dict_add(d, "media.transport", "rtp-home");

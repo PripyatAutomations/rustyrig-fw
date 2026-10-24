@@ -107,30 +107,35 @@ static void media_access(const char *event, const void *data, size_t length, rrc
       access->allowed = false;
    }
 }
-/* Remote synthetic sessions deliberately have uid=-1 and cannot inherit
- * account privileges from another server. Check the authenticated origin
- * against grants on the destination for this particular media channel. */
-static void codec_privilege(const char *event, const void *data, size_t length,
-   rrconn_t *client, void *unused) {
+
+/* Remote synthetic sessions deliberately have uid=-1 and cannot inherit account privileges from another server. Check the authenticated origin against grants
+ * on the destination for this particular media channel. */
+static void codec_privilege(const char *event, const void *data, size_t length, rrconn_t *client, void *unused) {
    (void)event;
    (void)unused;
-   if (length != sizeof(rr_media_access_t) || !client || !client->authenticated ||
-       !client->user || client->user->uid >= 0 || client->is_server)
+
+   if (length != sizeof(rr_media_access_t) || !client || !client->authenticated || !client->user || client->user->uid >= 0 || client->is_server) {
       return;
-   rr_media_access_t *access = (rr_media_access_t *)data;
-   if (!access->channel || access->allowed)
+   }
+   rr_media_access_t *access = (rr_media_access_t *) data;
+
+   if (!access->channel || access->allowed) {
       return;
+   }
 #if defined(USE_SQLITE) && defined(USE_MONGOOSE)
-   if (!rr_relay_remote_for(client))
+
+   if (!rr_relay_remote_for(client)) {
       return;
+   }
    const char *origin = rrserver_relay_client_server(client);
    const struct rr_mediachan *channel = access->channel;
    const char *uuid = channel->rig_uuid;
-   if (!origin || !*origin || !uuid || !*uuid)
+
+   if (!origin || !*origin || !uuid || !*uuid) {
       return;
+   }
    const char *privilege = channel->direction == RR_BINFRAME_DIR_TX ? "tx" : "rx";
-   access->allowed = db_resource_access_named(masterdb, client->user->name, origin,
-      "rig", uuid, privilege, time(NULL), NULL) == RR_RESOURCE_ALLOW;
+   access->allowed = db_resource_access_named(masterdb, client->user->name, origin, "rig", uuid, privilege, time(NULL), NULL) == RR_RESOURCE_ALLOW;
 #else
    (void)access;
 #endif

@@ -29,36 +29,53 @@ static guint tx_power_send_id;
 static gboolean tx_power_send(gpointer unused) {
    (void)unused;
    tx_power_send_id = 0;
-   if (!tx_power_slider || !ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1)
-      return G_SOURCE_REMOVE;
-   const char *room = rrclient_media_active_room();
-   if (!room || !*room) {
-      Log(LOG_WARN, "ui.gtk", "TX power: no active rig room for percentage request");
+
+   if (!tx_power_slider || !ws_conn || rrclient_connection_state(rrclient_selected_server()) != 1) {
       return G_SOURCE_REMOVE;
    }
-   /* Check the actual slider, not a separate cached inhibit flag. Zero is a
-    * local PTT inhibit and must never be sent as a power command. */
+   const char *room = rrclient_media_active_room();
+
+   if (!room || !*room) {
+      Log(LOG_WARN, "ui.gtk", "TX power: no active rig room for percentage request");
+
+      return G_SOURCE_REMOVE;
+   }
+   /* Check the actual slider, not a separate cached inhibit flag. Zero is a local PTT inhibit and must never be sent as a power command. */
    int percent = (int)gtk_range_get_value(GTK_RANGE(tx_power_slider));
-   if (percent <= 0) return G_SOURCE_REMOVE;
+
+   if (percent <= 0) {
+      return G_SOURCE_REMOVE;
+   }
    dict *d = dict_new();
-   if (!d) return G_SOURCE_REMOVE;
-   char vfo[] = { vfo_state_get_active(), '\0' };
+
+   if (!d) {
+      return G_SOURCE_REMOVE;
+   }
+   char vfo[] = {
+      vfo_state_get_active(), '\0'
+   };
    dict_add(d, "msg.type", "cat");
    dict_add(d, "cat.cmd", "power");
    dict_add(d, "cat.room", room);
    dict_add(d, "cat.vfo", vfo);
    dict_add_int(d, "cat.power", percent);
    dict_add(d, "cat.power-unit", "percent");
-   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT))
+
+   if (!ws_send_dict(NULL, ws_conn, d, WEBSOCKET_OP_TEXT)) {
       Log(LOG_WARN, "ui.gtk", "TX power: failed to send percent request for room %s VFO %s", room, vfo);
+   }
    dict_free(d);
+
    return G_SOURCE_REMOVE;
 }
 static void tx_power_changed(GtkRange *range, gpointer unused) {
    (void)range;
    (void)unused;
    rrclient_tx_power_percent = (int)gtk_range_get_value(range);
-   if (tx_power_send_id) g_source_remove(tx_power_send_id);
+
+   if (tx_power_send_id) {
+      g_source_remove(tx_power_send_id);
+   }
    tx_power_send_id = g_timeout_add(200, tx_power_send, NULL);
 }
 
@@ -69,7 +86,8 @@ GtkWidget *create_txpower_box(void) {
    GtkWidget *tx_power_label = gtk_label_new(NULL);
    gtk_label_set_markup(GTK_LABEL(tx_power_label), "TX <u>P</u>ower");
    tx_power_slider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
-   gtk_widget_set_tooltip_text(tx_power_slider, "Transmit power as a percentage of the selected rig/mode maximum (0% inhibits client PTT ON (PTT OFF remains available))");
+   gtk_widget_set_tooltip_text(tx_power_slider,
+      "Transmit power as a percentage of the selected rig/mode maximum (0% inhibits client PTT ON (PTT OFF remains available))");
    gtk_widget_set_size_request(tx_power_slider, 120, -1);
    gtk_scale_set_draw_value(GTK_SCALE(tx_power_slider), TRUE);
    gtk_scale_set_value_pos(GTK_SCALE(tx_power_slider), GTK_POS_RIGHT);

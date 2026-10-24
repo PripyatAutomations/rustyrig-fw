@@ -142,14 +142,13 @@ const char *rrclient_connection_name(const rrconn_t *connection) {
    return NULL;
 }
 
-/* Transport byte totals scoped to one configured server, including IRC
- * and WebSocket frames (not only text payloads). */
+/* Transport byte totals scoped to one configured server, including IRC and WebSocket frames (not only text payloads). */
 bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
    client_server_t *s = find_server(name);
-   /* WebSocket bytes are recorded by librrprotocol on the connection,
-    * whereas the IRC socket path maintains the profile counters below.
-    * Do not mistake an active WS transport for an idle one. */
+   /* WebSocket bytes are recorded by librrprotocol on the connection, whereas the IRC socket path maintains the profile counters below. Do not mistake an
+    * active WS transport for an idle one. */
    uint64_t incoming = s ? s->traffic_rx : 0, outgoing = s ? s->traffic_tx : 0;
+
    if (s && s->connection && s->connection->is_ws) {
       const struct rr_traffic *traffic = &s->connection->traffic;
       incoming = traffic->rx_text_bytes + traffic->rx_binary_bytes;
@@ -160,16 +159,27 @@ bool rrclient_connection_traffic(const char *name, uint64_t *rx, uint64_t *tx) {
       rrclient_direct_traffic(s->connection, &rtp_incoming, NULL);
       incoming = incoming >= rtp_incoming ? incoming - rtp_incoming : 0;
    }
-   if (rx) *rx = incoming;
-   if (tx) *tx = outgoing;
+
+   if (rx) {
+      *rx = incoming;
+   }
+
+   if (tx) {
+      *tx = outgoing;
+   }
+
    return s != NULL;
 }
 void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, uint64_t tx) {
-   if (!connection) return;
-   for (client_server_t *s = servers; s; s = s->next) {
+   if (!connection) {
+      return;
+   }
+
+   for (client_server_t *s = servers ; s ; s = s->next) {
       if (s->connection == connection) {
          s->traffic_rx += rx;
          s->traffic_tx += tx;
+
          return;
       }
    }

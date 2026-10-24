@@ -175,28 +175,43 @@ static bool try_candidate(struct direct_channel *channel) {
    while (channel->candidate_index < channel->candidate_count) {
       const char *endpoint = channel->candidates[channel->candidate_index++];
       rr_rtp_socket_detach(channel->attachment);
-      channel->attachment = rr_rtp_socket_attach(media_socket, channel->grant_ssrc,
-         channel->grant_key, channel->grant_encrypted, endpoint, channel);
-      if (!channel->attachment) continue;
+      channel->attachment = rr_rtp_socket_attach(media_socket, channel->grant_ssrc, channel->grant_key, channel->grant_encrypted, endpoint, channel);
+
+      if (!channel->attachment) {
+         continue;
+      }
       snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", endpoint);
       channel->connect_deadline = mono_us() + UINT64_C(1500000);
       report_route(channel, "connecting", true);
+
       return true;
    }
    return false;
 }
 static void load_candidates(struct direct_channel *channel, const char *list, const char *single) {
    channel->candidate_count = channel->candidate_index = 0;
-   if (!list || !*list) list = single;
-   if (!list || !*list) return;
+
+   if (!list || !*list) {
+      list = single;
+   }
+
+   if (!list || !*list) {
+      return;
+   }
    char *copy = strdup(list);
-   if (!copy) return;
+
+   if (!copy) {
+      return;
+   }
    char *save = NULL;
-   for (char *p = strtok_r(copy, ",", &save); p && channel->candidate_count < 8;
-        p = strtok_r(NULL, ",", &save)) {
-      if (strlen(p) >= sizeof(channel->candidates[0]) || strncmp(p, "rtp://", 6)) continue;
+
+   for (char *p = strtok_r(copy, ",", &save) ; p && channel->candidate_count < 8 ; p = strtok_r(NULL, ",", &save)) {
+      if (strlen(p) >= sizeof(channel->candidates[0]) || strncmp(p, "rtp://", 6)) {
+         continue;
+      }
       snprintf(channel->candidates[channel->candidate_count++], sizeof(channel->candidates[0]), "%s", p);
    }
+
    free(copy);
 }
 static bool hex_key(const char *text, uint8_t *key) {
@@ -268,7 +283,8 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       }
 
       if ((channel->mode == RR_MEDIA_AUTO && !preferred(client)) || !rr_rtp_supported(encrypted) ||
-         (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !channel->candidate_count || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
+         (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !channel->candidate_count
+         || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
          if (channel->mode == RR_MEDIA_DIRECT) {
             direct_failed(channel, "the owner did not provide a usable RTP referral");
          } else if (preferred(client)) {
@@ -289,7 +305,7 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       }
       memcpy(channel->grant_key, key, sizeof(key));
       memset(key, 0, sizeof(key));
-      channel->grant_ssrc = (uint32_t)ssrc;
+      channel->grant_ssrc = (uint32_t) ssrc;
       channel->grant_encrypted = encrypted;
       channel->renew_at = mono_us() + UINT64_C(240000000);
 
@@ -353,8 +369,11 @@ void rrclient_direct_poll(void) {
       struct direct_channel *c = &channels[i];
 
       if (c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
-         if (try_candidate(c)) continue;
+         if (try_candidate(c)) {
+            continue;
+         }
       }
+
       if (c->mode == RR_MEDIA_AUTO && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
          report_route(c, "timed out; falling back", true);
          next_route(c);
@@ -381,15 +400,29 @@ void rrclient_direct_poll(void) {
 bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
    uint64_t incoming = 0, outgoing = 0;
    bool active = false;
-   for (unsigned i = 0; i < MAX_DIRECT_CHANNELS; ++i) {
+
+   for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; ++i) {
       struct direct_channel *c = &channels[i];
-      if (c->client != client) continue;
+
+      if (c->client != client) {
+         continue;
+      }
       incoming += c->rtp_rx_bytes;
       outgoing += c->rtp_tx_bytes;
-      if (c->attachment && rr_rtp_socket_active(c->attachment, mono_us())) active = true;
+
+      if (c->attachment && rr_rtp_socket_active(c->attachment, mono_us())) {
+         active = true;
+      }
    }
-   if (rx) *rx = incoming;
-   if (tx) *tx = outgoing;
+
+   if (rx) {
+      *rx = incoming;
+   }
+
+   if (tx) {
+      *tx = outgoing;
+   }
+
    return active;
 }
 void rrclient_direct_apply_preferences(void) {
@@ -571,8 +604,15 @@ void rrclient_direct_register_events(void) {
 #else
 bool rrclient_direct_traffic(rrconn_t *client, uint64_t *rx, uint64_t *tx) {
    (void)client;
-   if (rx) *rx = 0;
-   if (tx) *tx = 0;
+
+   if (rx) {
+      *rx = 0;
+   }
+
+   if (tx) {
+      *tx = 0;
+   }
+
    return false;
 }
 void rrclient_direct_apply_preferences(void) {

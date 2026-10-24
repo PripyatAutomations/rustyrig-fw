@@ -128,5 +128,6 @@ GtkWidget *create_volbox(void) {
    rig_volume_refresh(rx_rig_vol_slider);
    gtk_box_pack_start(GTK_BOX(row), label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(row), rx_rig_vol_slider, TRUE, TRUE, 0);
+
    return row;
 }

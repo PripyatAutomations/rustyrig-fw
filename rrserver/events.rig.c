@@ -75,11 +75,11 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       rc_width ? rc_width : "(none)");
 
    if (!rc_cmd || !rc_vfo || !rc_from) {
-      Log(LOG_WARN, "ws.rigctl", "Rejecting malformed rig control event: missing %s%s%s (cmd=%s, vfo=%s, from=%s, room=%s)",
-          rc_cmd ? "" : "rigctl.cmd ", rc_vfo ? "" : "rigctl.vfo ", rc_from ? "" : "rigctl.from",
-          rc_cmd ? rc_cmd : "(missing)", rc_vfo ? rc_vfo : "(missing)",
-          rc_from ? rc_from : "(missing)", dict_get(d, "rigctl.room", "(unspecified)"));
+      Log(LOG_WARN, "ws.rigctl", "Rejecting malformed rig control event: missing %s%s%s (cmd=%s, vfo=%s, from=%s, room=%s)", rc_cmd ? "" : "rigctl.cmd ", rc_vfo
+         ? "" : "rigctl.vfo ", rc_from ? "" : "rigctl.from", rc_cmd ? rc_cmd : "(missing)", rc_vfo ? rc_vfo : "(missing)", rc_from ? rc_from : "(missing)",
+         dict_get(d, "rigctl.room", "(unspecified)"));
       dict_free(d);
+
       return;
    }
 
@@ -120,9 +120,10 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 #endif
 
    if (!radio) {
-      Log(LOG_WARN, "ws.rigctl", "Rig control ignored: room has no mapped rig (cmd=%s, vfo=%s, room=%s, source=%s)",
-          rc_cmd, rc_vfo, room ? room : "(null)", rc_from);
+      Log(LOG_WARN, "ws.rigctl", "Rig control ignored: room has no mapped rig (cmd=%s, vfo=%s, room=%s, source=%s)", rc_cmd, rc_vfo, room ? room : "(null)",
+         rc_from);
       dict_free(d);
+
       return;
    }
 
@@ -172,7 +173,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          Log(LOG_WARN, "rigctl", "%s: VFO swap request rejected in room %s", rc_from, room);
 
          if (cptr) {
-            ws_send_error(cptr, "VFO swap rejected: room %s, VFO %s (unmapped VFO, unsupported backend operation, or queue failure); check server rigctl log", room, rc_vfo);
+            ws_send_error(cptr, "VFO swap rejected: room %s, VFO %s (unmapped VFO, unsupported backend operation, or queue failure); check server rigctl log",
+               room, rc_vfo);
          }
       } else {
          Log(LOG_AUDIT, "rigctl", "%s requested VFO A/B settings exchange in room %s", rc_from, room);
@@ -195,7 +197,8 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          Log(LOG_WARN, "rigctl", "%s: split request rejected in room %s", rc_from, room);
 
          if (cptr) {
-            ws_send_error(cptr, "Split %s rejected: room %s, VFO %s (unmapped VFO, unsupported backend operation, or queue failure); check server rigctl log", enable ? "enable" : "disable", room, rc_vfo);
+            ws_send_error(cptr, "Split %s rejected: room %s, VFO %s (unmapped VFO, unsupported backend operation, or queue failure); check server rigctl log",
+               enable ? "enable" : "disable", room, rc_vfo);
          }
       } else {
          Log(LOG_AUDIT, "rigctl", "%s requested split %s in room %s", rc_from, enable ? "ON" : "OFF", room);
@@ -209,29 +212,37 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
       rr_server_vfo_t *object = rr_server_vfo_find_alias(radio, rc_vfo);
       rr_backend_t *power_backend = rr_server_rig_backend(radio);
       bool percent = !strcmp(dict_get(d, "rigctl.power-unit", ""), "percent");
+
       if (percent) {
          float maximum = power_backend && object && rr_backend_api(power_backend)->power_max ?
             rr_backend_api(power_backend)->power_max(power_backend, object) : 0;
+
          if (maximum <= 0 && power_backend) {
             int mw = rr_backend_config_get_int(power_backend, "power.max-mw", 0);
-            maximum = mw > 0 ? (float)mw / 1000.0f :
-               (float)rr_backend_config_get_int(power_backend, "power.max-watts", 0);
+            maximum = mw > 0 ? (float)mw / 1000.0f : (float)rr_backend_config_get_int(power_backend, "power.max-watts", 0);
          }
+
          if (rc_power <= 0 || rc_power > 100 || maximum <= 0) {
-            if (cptr) ws_send_error(cptr,
-               "Cannot set TX power for VFO %s in room %s: invalid percentage or unknown maximum watts (configure power.max-watts in rig section)",
-               rc_vfo, room);
+            if (cptr) {
+               ws_send_error(cptr,
+                  "Cannot set TX power for VFO %s in room %s: invalid percentage or unknown maximum watts (configure power.max-watts in rig section)", rc_vfo,
+                  room);
+            }
             dict_free(d);
+
             return;
          }
          rc_power *= maximum / 100.0f;
       }
+
       if (!object || rr_backend_power_set_rig(radio, object, rc_power)) {
          if (cptr) {
-            ws_send_error(cptr, "Power request rejected: %.1f W for VFO %s in room %s (unmapped VFO or backend rejected value); check server rigctl log", (double)rc_power, rc_vfo, room);
+            ws_send_error(cptr, "Power request rejected: %.1f W for VFO %s in room %s (unmapped VFO or backend rejected value); check server rigctl log", (
+               double)rc_power, rc_vfo, room);
          }
       } else {
-         Log(LOG_AUDIT, "rigctl", "User %s requested room %s VFO %s RF POWER %.3f W (backend accepted setting; output not measured)", rc_from, room, rc_vfo, (double)rc_power);
+         Log(LOG_AUDIT, "rigctl", "User %s requested room %s VFO %s RF POWER %.3f W (backend accepted setting; output not measured)", rc_from, room, rc_vfo, (
+            double)rc_power);
          rr_backend_poll_rig(radio, object);
          rr_backend_t *backend = rr_server_rig_backend(radio);
 

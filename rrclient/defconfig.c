@@ -277,8 +277,7 @@ defconfig_t defcfg[] = {
    {
       "tui.use-mouse", "true", "Enable mouse in the TUI?", DEFCONFIG_BOOL, NULL
    },
-/* GTK is a loadable frontend; the host must retain its defaults even
- * when rrclient itself is compiled without USE_GTK. */
+/* GTK is a loadable frontend; the host must retain its defaults even when rrclient itself is compiled without USE_GTK. */
    {
       "ui.full-screen", "true", "Go full-screen at start?", DEFCONFIG_BOOL, NULL
    },

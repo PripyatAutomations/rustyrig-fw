@@ -532,8 +532,8 @@ bool rr_cat_property_bool(const char *property, bool fallback) {
 
    return state ? dict_get_bool((dict *) state, "property.value", fallback) : fallback;
 }
-/* CAT identity and virtual menu state belong to the PTY binding, not the
- * whole client. Legacy non-PTY callers use a default compatible profile. */
+
+/* CAT identity and virtual menu state belong to the PTY binding, not the whole client. Legacy non-PTY callers use a default compatible profile. */
 const char *rr_cat_model(void) {
    return cat_context ? cat_context->cat_model : "ft891";
 }
@@ -541,13 +541,17 @@ char rr_cat_timeout_get(void) {
    return cat_context ? cat_context->cat_timeout : '0';
 }
 void rr_cat_timeout_set(char value) {
-   if (cat_context) cat_context->cat_timeout = value;
+   if (cat_context) {
+      cat_context->cat_timeout = value;
+   }
 }
 int rr_cat_tx_vfo_get(void) {
    return cat_context ? cat_context->cat_tx_vfo : 0;
 }
 void rr_cat_tx_vfo_set(int value) {
-   if (cat_context) cat_context->cat_tx_vfo = value;
+   if (cat_context) {
+      cat_context->cat_tx_vfo = value;
+   }
 }
 char rr_cat_active_vfo(void) {
    if (!cat_context) {
@@ -1021,8 +1025,7 @@ static void serial_cat_parse(void *data) {
          (!strncmp(cmd, "BS", 2) && strlen(cmd) == 4) || !strcmp(cmd, "MD") ||
          !strcmp(cmd, "MD0") || !strcmp(cmd, "MD1") ||
          !strcmp(cmd, "EX032") ||
-         (!strncmp(cmd, "EX032", 5) && strlen(cmd) == 6 &&
-          cmd[5] >= '0' && cmd[5] <= '3') || !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") || !strcmp(cmd, "NA1"));
+         (!strncmp(cmd, "EX032", 5) && strlen(cmd) == 6 && cmd[5] >= '0' && cmd[5] <= '3') || !strcmp(cmd, "AI") || !strcmp(cmd, "NA0") || !strcmp(cmd, "NA1"));
 
       if (!query) {
          Log(LOG_WARN, "cat", "UNSUPPORTED/IGNORED CAT while ttyCAT has no selected rig: '%s' (no reply; setters blocked)", cmd);
@@ -1261,7 +1264,11 @@ bool rr_sercom_attach(const char *name, const char *service, const char *device)
    char model_key[128];
    snprintf(model_key, sizeof(model_key), "serial:%s.cat-model", name);
    const char *cat_model = cfg_get(model_key);
-   if (!cat_model || !*cat_model) cat_model = "ft891";
+
+   if (!cat_model || !*cat_model) {
+      cat_model = "ft891";
+   }
+
    if (strcmp(cat_model, "ft891") && strcmp(cat_model, "ft991a")) {
       Log(LOG_WARN, "serial", "%s: unknown CAT model '%s'; using ft891", name, cat_model);
       cat_model = "ft891";

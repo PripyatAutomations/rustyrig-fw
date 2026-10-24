@@ -491,28 +491,33 @@ static bool mode_set(rr_backend_t *b, rr_server_vfo_t *v, rr_mode_t mode) {
    if (!s || !index_of(v, &index) || index != b->active_vfo || !digit) {
       return true;
    }
+
    /* FT-991A has a distinct DATA-FM CAT mode (A), not ordinary FM (4). */
-   if (s->model_id == 670 && mode == MODE_DFM) digit = 'A';
-   /* FT-891 MD01/MD02 both select SSB; EX1107 (SSB BFO) determines
-    * USB (0), LSB (1), or AUTO (2). An explicit sideband request must
-    * override AUTO, and both commands must be verified before publishing. */
+   if (s->model_id == 670 && mode == MODE_DFM) {
+      digit = 'A';
+   }
+
+   /* FT-891 MD01/MD02 both select SSB; EX1107 (SSB BFO) determines USB (0), LSB (1), or AUTO (2). An explicit sideband request must override AUTO, and both
+    * commands must be verified before publishing. */
    if (s->model_id == 650 && (mode == MODE_LSB || mode == MODE_USB || mode == MODE_ML || mode == MODE_MU)) {
       char bfo[24], md[24];
       char desired = (mode == MODE_LSB || mode == MODE_ML) ? '1' : '0';
+
       if (!cat(s, desired == '1' ? "EX11071;" : "EX11070;", NULL, NULL, 0) ||
-          !cat(s, "EX1107;", "EX1107", bfo, sizeof(bfo)) ||
-          strlen(bfo) != 7 || bfo[6] != desired) {
+         !cat(s, "EX1107;", "EX1107", bfo, sizeof(bfo)) || strlen(bfo) != 7 || bfo[6] != desired) {
          rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 SSB BFO change not confirmed for %s", vfo_mode_name(mode));
+
          return true;
       }
+
       /* Set SSB explicitly, then read the actual operating mode too. */
-      if (!cat(s, "MD01;", NULL, NULL, 0) ||
-          !cat(s, "MD0;", "MD0", md, sizeof(md)) ||
-          strlen(md) != 4 || (md[3] != '1' && md[3] != '2')) {
+      if (!cat(s, "MD01;", NULL, NULL, 0) || !cat(s, "MD0;", "MD0", md, sizeof(md)) || strlen(md) != 4 || (md[3] != '1' && md[3] != '2')) {
          rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 SSB operating mode change not confirmed");
+
          return true;
       }
       s->mode[index] = mode;
+
       return false;
    }
    snprintf(command, sizeof(command), "MD0%c;", digit);
@@ -558,13 +563,17 @@ static rr_vfo_data_t *state(rr_backend_t *b, rr_server_vfo_t *v) {
 
       if (cat(s, "MD0;", "MD0", md, sizeof(md)) && strlen(md) == 4) {
          rr_mode_t parsed = mode_decode(md[3]);
-         /* For FT-891 SSB, BFO menu 11-07 is authoritative; MD1/MD2
-          * only request the SSB family, and AUTO is ambiguous. */
+
+         /* For FT-891 SSB, BFO menu 11-07 is authoritative; MD1/MD2 only request the SSB family, and AUTO is ambiguous. */
          if (s->model_id == 650 && (md[3] == '1' || md[3] == '2')) {
             char bfo[24];
+
             if (cat(s, "EX1107;", "EX1107", bfo, sizeof(bfo)) && strlen(bfo) == 7) {
-               if (bfo[6] == '0') parsed = MODE_USB;
-               else if (bfo[6] == '1') parsed = MODE_LSB;
+               if (bfo[6] == '0') {
+                  parsed = MODE_USB;
+               } else if (bfo[6] == '1') {
+                  parsed = MODE_LSB;
+               }
             }
          }
 
@@ -880,113 +889,201 @@ static float frequency_get(rr_backend_t *b, rr_server_vfo_t *v) {
 
    return s && index_of(v, &i) ? s->frequency[i] : 0;
 }
-/* FT-891 menus 16-01..16-06: SSB, AM and common FM/DATA/CW
- * power, separately for HF and 50 MHz. Preferences for FM and DATA/CW
- * remain independent even though the radio uses one common register. */
+
+/* FT-891 menus 16-01..16-06: SSB, AM and common FM/DATA/CW power, separately for HF and 50 MHz. Preferences for FM and DATA/CW remain independent even though
+ * the radio uses one common register. */
 static int yaesu_power_slot(rr_mode_t mode) {
    switch (mode) {
-      case MODE_LSB: case MODE_USB: case MODE_ML: case MODE_MU: return 0;
-      case MODE_AM: return 1;
-      case MODE_FM: case MODE_DFM: case MODE_MFM: return 2;
-      case MODE_DL: case MODE_DU: case MODE_CW: return 3;
-      default: return -1;
+      case MODE_LSB:
+      case MODE_USB:
+      case MODE_ML:
+      case MODE_MU: {
+         return 0;
+      }
+      case MODE_AM: {
+         return 1;
+      }
+      case MODE_FM:
+      case MODE_DFM:
+      case MODE_MFM: {
+         return 2;
+      }
+      case MODE_DL:
+      case MODE_DU:
+      case MODE_CW: {
+         return 3;
+      }
+      default: {
+         return -1;
+      }
    }
 }
 static int yaesu_power_band(yaesu_state_t *s, rr_vfo_t i) {
    long hz = s->frequency[i];
-   if (hz <= 0) return -1;
-   if (hz < 50000000L) return 0;
-   if (hz <= 54000000L) return 1;
-   if (s->model_id == 670 && hz >= 144000000L && hz <= 148000000L) return 2;
-   if (s->model_id == 670 && hz >= 430000000L && hz <= 450000000L) return 3;
+
+   if (hz <= 0) {
+      return -1;
+   }
+
+   if (hz < 50000000L) {
+      return 0;
+   }
+
+   if (hz <= 54000000L) {
+      return 1;
+   }
+
+   if (s->model_id == 670 && hz >= 144000000L && hz <= 148000000L) {
+      return 2;
+   }
+
+   if (s->model_id == 670 && hz >= 430000000L && hz <= 450000000L) {
+      return 3;
+   }
+
    return -1;
 }
 static int yaesu_power_target(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
    int slot = yaesu_power_slot(s->mode[i]), band = yaesu_power_band(s, i);
-   if (slot < 0 || band < 0) return 0;
+
+   if (slot < 0 || band < 0) {
+      return 0;
+   }
 #ifdef USE_SQLITE
+
    if (masterdb && b->owner) {
       const char *id = rr_server_rig_id(b->owner);
-      if (id && *id) return db_rig_power_get(masterdb, id, band, slot);
+
+      if (id && *id) {
+         return db_rig_power_get(masterdb, id, band, slot);
+      }
    }
 #endif
+
    return 0;
 }
-/* Both FT-891 and FT-991A support CAT PC for live RF output control.
- * EX16xx menu parameters are mode/band presets, not the live output command. */
+
+/* Both FT-891 and FT-991A support CAT PC for live RF output control. EX16xx menu parameters are mode/band presets, not the live output command. */
 static bool yaesu_power_read(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i, int *watts) {
    (void)b;
    (void)i;
-   if (s->model_id != 650 && s->model_id != 670) return false;
+
+   if (s->model_id != 650 && s->model_id != 670) {
+      return false;
+   }
    char reply[24];
-   if (!cat(s, "PC;", "PC", reply, sizeof(reply)) || strlen(reply) != 5) return false;
+
+   if (!cat(s, "PC;", "PC", reply, sizeof(reply)) || strlen(reply) != 5) {
+      return false;
+   }
+
    return decimal(reply + 2, 3, watts);
 }
 static bool yaesu_power_write(yaesu_state_t *s, rr_vfo_t i, int watts) {
    (void)i;
-   if (s->model_id != 650 && s->model_id != 670) return false;
+
+   if (s->model_id != 650 && s->model_id != 670) {
+      return false;
+   }
    char command[16];
    snprintf(command, sizeof(command), "PC%03d;", watts);
+
    return cat(s, command, NULL, NULL, 0);
 }
 static int yaesu_power_limit(yaesu_state_t *s, rr_vfo_t i) {
    int band = yaesu_power_band(s, i);
-   if (band < 0) return 0;
-   if (s->model_id == 650) return yaesu_power_slot(s->mode[i]) == 1 ? 40 : 100;
-   if (s->model_id == 670) return band >= 2 ? 50 : yaesu_power_slot(s->mode[i]) == 1 ? 25 : 100;
+
+   if (band < 0) {
+      return 0;
+   }
+
+   if (s->model_id == 650) {
+      return yaesu_power_slot(s->mode[i]) == 1 ? 40 : 100;
+   }
+
+   if (s->model_id == 670) {
+      return band >= 2 ? 50 : yaesu_power_slot(s->mode[i]) == 1 ? 25 : 100;
+   }
+
    return 0;
 }
 static bool yaesu_power_apply(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
    int target = yaesu_power_target(b, s, i);
-   if (!target) return true; /* No operator preference: leave hardware alone. */
+
+   if (!target) {
+      return true;              /* No operator preference: leave hardware alone. */
+   }
    int actual, verified;
-   if (target > yaesu_power_limit(s, i) || !yaesu_power_read(b, s, i, &actual)) return false;
-   if (actual == target) return true;
-   if (!yaesu_power_write(s, i, target) || !yaesu_power_read(b, s, i, &verified) || verified != target) return false;
-   rr_backend_log(b, LOG_INFO, "backend.yaesu", "%s power applied mode=%s band=%d target=%d W previous=%d W",
-      s->profile ? s->profile->model : "Yaesu", vfo_mode_name(s->mode[i]), yaesu_power_band(s, i), target, actual);
+
+   if (target > yaesu_power_limit(s, i) || !yaesu_power_read(b, s, i, &actual)) {
+      return false;
+   }
+
+   if (actual == target) {
+      return true;
+   }
+
+   if (!yaesu_power_write(s, i, target) || !yaesu_power_read(b, s, i, &verified) || verified != target) {
+      return false;
+   }
+   rr_backend_log(b, LOG_INFO, "backend.yaesu", "%s power applied mode=%s band=%d target=%d W previous=%d W", s->profile ? s->profile->model : "Yaesu",
+      vfo_mode_name(s->mode[i]), yaesu_power_band(s, i), target, actual);
+
    return true;
 }
 static bool power_set(rr_backend_t *b, rr_server_vfo_t *v, float watts) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
-   if (!s || !index_of(v, &i) || i != b->active_vfo || s->ptt ||
-       !isfinite(watts) || watts <= 0) return true;
-   /* UI uses a percentage of the model's maximum; CAT PC/EX accept whole
-    * watt values. Round a fractional calculated setpoint to the nearest
-    * supported watt, never below the rig's minimum 5 W. */
+
+   if (!s || !index_of(v, &i) || i != b->active_vfo || s->ptt || !isfinite(watts) || watts <= 0) {
+      return true;
+   }
+   /* UI uses a percentage of the model's maximum; CAT PC/EX accept whole watt values. Round a fractional calculated setpoint to the nearest supported watt,
+    * never below the rig's minimum 5 W. */
    watts = floorf(watts + 0.5f);
-   if (watts < 5) watts = 5;
+
+   if (watts < 5) {
+      watts = 5;
+   }
    int band = yaesu_power_band(s, i), slot = yaesu_power_slot(s->mode[i]);
-   if (band < 0 || slot < 0 || watts > yaesu_power_limit(s, i)) return true;
+
+   if (band < 0 || slot < 0 || watts > yaesu_power_limit(s, i)) {
+      return true;
+   }
    int readback;
-   if (!yaesu_power_write(s, i, (int)watts) ||
-       !yaesu_power_read(b, s, i, &readback) || readback != (int)watts) {
+
+   if (!yaesu_power_write(s, i, (int)watts) || !yaesu_power_read(b, s, i, &readback) || readback != (int)watts) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "Power write not confirmed: mode=%s requested=%d W", vfo_mode_name(s->mode[i]), (int)watts);
+
       return true;
    }
 #ifdef USE_SQLITE
    const char *id = b->owner ? rr_server_rig_id(b->owner) : NULL;
+
    if (!id || !masterdb || !db_rig_power_set(masterdb, id, band, slot, (int)watts)) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "Power applied but database preference not saved: rig=%s", id ? id : "(unknown)");
+
       return true;
    }
 #else
    rr_backend_log(b, LOG_WARN, "backend.yaesu", "Power preference cannot persist: SQLite support disabled");
+
    return true;
 #endif
+
    return false;
 }
 static float power_get(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
    int actual;
-   return s && index_of(v, &i) && i == b->active_vfo &&
-      yaesu_power_read(b, s, i, &actual) ? (float)actual : 0;
+
+   return s && index_of(v, &i) && i == b->active_vfo && yaesu_power_read(b, s, i, &actual) ? (float)actual : 0;
 }
 static float power_max(rr_backend_t *b, rr_server_vfo_t *v) {
    yaesu_state_t *s = ys(b);
    rr_vfo_t i;
+
    return s && index_of(v, &i) ? (float)yaesu_power_limit(s, i) : 0;
 }
 static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
@@ -1007,6 +1104,7 @@ static bool ptt_set(rr_backend_t *b, rr_server_vfo_t *v, bool on) {
 
    if (on && !yaesu_power_apply(b, s, i)) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "Requested mode/band power not verified before PTT; refusing TX");
+
       return true;
    }
 
@@ -1629,98 +1727,165 @@ static bool yaesu_menu_read(rr_backend_t *b, const char *id, char *value, size_t
 }
 static bool yaesu_menu_write(rr_backend_t *b, const char *id, const char *value) {
    yaesu_state_t *s = ys(b);
-   if (!s || !s->profile || s->model_id != 650 || !id || !value || strlen(id) != 4 || s->ptt)
-      return false;
-   bool advertised = false;
-   for (size_t i = 0; i < s->profile->menu_count; ++i) {
-      if (!strcmp(id, s->profile->menu[i].id)) { advertised = true; break; }
-   }
-   if (!advertised) return false;
 
-   /* EX setters must preserve the width of the radio's own answer. Only
-    * numeric, single-parameter menu entries are writable through this
-    * generic editor; text/compound settings require typed descriptors. */
+   if (!s || !s->profile || s->model_id != 650 || !id || !value || strlen(id) != 4 || s->ptt) {
+      return false;
+   }
+   bool advertised = false;
+
+   for (size_t i = 0 ; i < s->profile->menu_count ; ++i) {
+      if (!strcmp(id, s->profile->menu[i].id)) {
+         advertised = true;
+         break;
+      }
+   }
+
+   if (!advertised) {
+      return false;
+   }
+
+   /* EX setters must preserve the width of the radio's own answer. Only numeric, single-parameter menu entries are writable through this generic editor;
+    * text/compound settings require typed descriptors. */
    char current[128], verified[128];
-   if (!yaesu_menu_read(b, id, current, sizeof(current))) return false;
+
+   if (!yaesu_menu_read(b, id, current, sizeof(current))) {
+      return false;
+   }
    size_t width = strlen(current);
-   if (!width || width > 4 || strlen(value) != width) return false;
-   for (size_t i = 0; i < width; ++i) {
-      if (!isdigit((unsigned char)current[i]) || !isdigit((unsigned char)value[i])) return false;
+
+   if (!width || width > 4 || strlen(value) != width) {
+      return false;
+   }
+
+   for (size_t i = 0 ; i < width ; ++i) {
+      if (!isdigit((unsigned char)current[i]) || !isdigit((unsigned char)value[i])) {
+         return false;
+      }
    }
 
    /* Known ranges are stricter than mere CAT field-width validation. */
    int number = 0;
-   if (!decimal(value, (int)width, &number)) return false;
-   if ((!strcmp(id, "0201") || !strcmp(id, "0202") || !strcmp(id, "0203") || !strcmp(id, "0204")) &&
-       (number < 1 || number > 15)) return false;
-   if (!strcmp(id, "0504") && number > 100) return false;
+
+   if (!decimal(value, (int)width, &number)) {
+      return false;
+   }
+
+   if ((!strcmp(id, "0201") || !strcmp(id, "0202") || !strcmp(id, "0203") || !strcmp(id, "0204")) && (number < 1 || number > 15)) {
+      return false;
+   }
+
+   if (!strcmp(id, "0504") && number > 100) {
+      return false;
+   }
 
    char command[48];
    snprintf(command, sizeof(command), "EX%s%s;", id, value);
-   if (!cat(s, command, NULL, NULL, 0) ||
-       !yaesu_menu_read(b, id, verified, sizeof(verified)) || strcmp(verified, value)) {
+
+   if (!cat(s, command, NULL, NULL, 0) || !yaesu_menu_read(b, id, verified, sizeof(verified)) || strcmp(verified, value)) {
       rr_backend_log(b, LOG_WARN, "backend.yaesu", "FT-891 menu EX%s change not confirmed by CAT readback", id);
+
       return false;
    }
    rr_backend_log(b, LOG_AUDIT, "backend.yaesu", "FT-891 menu EX%s updated from %s to %s", id, current, verified);
+
    return true;
 }
+
 /* Model-specific Yaesu EX menu overrides, saved and restored per backend. */
 typedef struct {
    const char *id, *label, *target;
    unsigned maximum;
 } yaesu_audio_setting_t;
 static const yaesu_audio_setting_t ft891_audio_menu[] = {
-   {"0809", "DATA input", "1", 1},
-   {"0901", "FM mic", "1", 1},
-   {"1105", "SSB mic", "1", 1},
-   {"0810", "DATA PTT", "0", 2},
-   {"0903", "FM PTT", "0", 2},
-   {"1108", "SSB PTT", "0", 2}
+   {
+      "0809", "DATA input", "1", 1
+   },
+   {
+      "0901", "FM mic", "1", 1
+   },
+   {
+      "1105", "SSB mic", "1", 1
+   },
+   {
+      "0810", "DATA PTT", "0", 2
+   },
+   {
+      "0903", "FM PTT", "0", 2
+   },
+   {
+      "1108", "SSB PTT", "0", 2
+   }
 };
+
 static const yaesu_audio_setting_t ft991a_audio_menu[] = {
-   {"070", "DATA input", "1", 1},
-   {"074", "FM mic", "1", 1},
-   {"106", "SSB mic", "1", 1},
-   {"071", "DATA PTT", "0", 2},
-   {"076", "FM PTT", "0", 2},
-   {"108", "SSB PTT", "0", 2}
+   {
+      "070", "DATA input", "1", 1
+   },
+   {
+      "074", "FM mic", "1", 1
+   },
+   {
+      "106", "SSB mic", "1", 1
+   },
+   {
+      "071", "DATA PTT", "0", 2
+   },
+   {
+      "076", "FM PTT", "0", 2
+   },
+   {
+      "108", "SSB PTT", "0", 2
+   }
 };
 static bool ft891_menu_get_raw(yaesu_state_t *s, const char *id, char *result, size_t length) {
    char command[16], prefix[16], reply[128];
    snprintf(prefix, sizeof(prefix), "EX%s", id);
    snprintf(command, sizeof(command), "%s;", prefix);
-   if (!cat(s, command, prefix, reply, sizeof(reply))) return false;
+
+   if (!cat(s, command, prefix, reply, sizeof(reply))) {
+      return false;
+   }
    size_t n = strlen(prefix);
-   if (strlen(reply) <= n || strlen(reply + n) >= length) return false;
+
+   if (strlen(reply) <= n || strlen(reply + n) >= length) {
+      return false;
+   }
    snprintf(result, length, "%s", reply + n);
+
    return true;
 }
 static bool ft891_menu_set_raw(yaesu_state_t *s, const char *id, const char *value) {
    char command[48];
    snprintf(command, sizeof(command), "EX%s%s;", id, value);
+
    return cat(s, command, NULL, NULL, 0);
 }
 static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
-   if ((s->model_id != 650 && s->model_id != 670) || s->fd < 0) return;
+   if ((s->model_id != 650 && s->model_id != 670) || s->fd < 0) {
+      return;
+   }
    const yaesu_audio_setting_t *menu = s->model_id == 650 ? ft891_audio_menu : ft991a_audio_menu;
    const char *model = s->model_id == 650 ? "FT-891" : "FT-991A";
-   for (size_t i = 0; i < 6; i++) {
+
+   for (size_t i = 0 ; i < 6 ; i++) {
       const char *id = menu[i].id;
       char before[16], after[16];
-      if (!ft891_menu_get_raw(s, id, before, sizeof(before)) ||
-          strlen(before) != 1 || before[0] < '0' ||
-          before[0] > (char)('0' + menu[i].maximum)) {
+
+      if (!ft891_menu_get_raw(s, id, before, sizeof(before)) || strlen(before) != 1 || before[0] < '0' || before[0] > (char)('0' + menu[i].maximum)) {
          rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): cannot capture valid menu value; leaving unchanged", model, menu[i].label, id);
          continue;
       }
       snprintf(s->saved_audio_menu[i], sizeof(s->saved_audio_menu[i]), "%s", before);
       s->saved_audio_valid[i] = true;
       rr_backend_log(b, LOG_INFO, "backend.yaesu", "%s %s (%s): saved %s; requested %s", model, menu[i].label, id, before, menu[i].target);
-      if (!strcmp(before, menu[i].target)) continue;
-      if (!ft891_menu_set_raw(s, id, menu[i].target) ||
-          !ft891_menu_get_raw(s, id, after, sizeof(after)) || strcmp(after, menu[i].target)) {
-         rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): write or verification failed; restore on shutdown will be attempted", model, menu[i].label, id);
+
+      if (!strcmp(before, menu[i].target)) {
+         continue;
+      }
+
+      if (!ft891_menu_set_raw(s, id, menu[i].target) || !ft891_menu_get_raw(s, id, after, sizeof(after)) || strcmp(after, menu[i].target)) {
+         rr_backend_log(b, LOG_WARN, "backend.yaesu", "%s %s (%s): write or verification failed; restore on shutdown will be attempted", model, menu[i].label,
+            id);
          s->changed_audio_menu[i] = true;
          continue;
       }
@@ -1729,17 +1894,21 @@ static void ft891_audio_start(rr_backend_t *b, yaesu_state_t *s) {
    }
 }
 static void ft891_audio_restore(rr_backend_t *b, yaesu_state_t *s) {
-   if ((s->model_id != 650 && s->model_id != 670) || s->fd < 0) return;
+   if ((s->model_id != 650 && s->model_id != 670) || s->fd < 0) {
+      return;
+   }
    const yaesu_audio_setting_t *menu = s->model_id == 650 ? ft891_audio_menu : ft991a_audio_menu;
    const char *model = s->model_id == 650 ? "FT-891" : "FT-991A";
-   for (size_t i = 6; i-- > 0;) {
-      if (!s->saved_audio_valid[i] || !s->changed_audio_menu[i]) continue;
+
+   for (size_t i = 6 ; i-- > 0 ; ) {
+      if (!s->saved_audio_valid[i] || !s->changed_audio_menu[i]) {
+         continue;
+      }
       char after[16];
       bool ok = ft891_menu_set_raw(s, menu[i].id, s->saved_audio_menu[i]) &&
-         ft891_menu_get_raw(s, menu[i].id, after, sizeof(after)) &&
-         !strcmp(after, s->saved_audio_menu[i]);
-      rr_backend_log(b, ok ? LOG_INFO : LOG_WARN, "backend.yaesu", "%s %s (%s): restore %s %s",
-         model, menu[i].label, menu[i].id, s->saved_audio_menu[i], ok ? "confirmed" : "FAILED");
+         ft891_menu_get_raw(s, menu[i].id, after, sizeof(after)) && !strcmp(after, s->saved_audio_menu[i]);
+      rr_backend_log(b, ok ? LOG_INFO : LOG_WARN, "backend.yaesu", "%s %s (%s): restore %s %s", model, menu[i].label, menu[i].id, s->saved_audio_menu[i], ok ?
+         "confirmed" : "FAILED");
    }
 }
 static bool create(rr_backend_t *b) {

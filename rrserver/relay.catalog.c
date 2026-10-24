@@ -1307,13 +1307,10 @@ void rr_relay_catalog_ack(const char *origin, const char *sync_id, guint receive
 #endif
    rr_relay_sync_status(origin, false, complete);
    Log(complete ? LOG_INFO : LOG_WARN, "relay.catalog",
-      "TX sync %s: peer=%s status=%s synchronized=%u/%u (%.1f%%) missing=%u rejected=%u accepted=%u elapsed=%.3f s%s",
-      sync_id, origin_label, complete ? "confirmed" : "partial/incomplete",
-      received, w->count, w->count ? 100.0 * received / w->count : 100.0,
-      w->count > received ? w->count - received : 0, rejected, accepted,
-      elapsed_us / 1000000.0,
-      complete ? "; all sent catalog descriptors acknowledged and applied" :
-         "; inspect receiver catalog RX finished log for rejected or uncounted entries");
+      "TX sync %s: peer=%s status=%s synchronized=%u/%u (%.1f%%) missing=%u rejected=%u accepted=%u elapsed=%.3f s%s", sync_id, origin_label, complete ?
+      "confirmed" : "partial/incomplete", received, w->count, w->count ? 100.0 * received / w->count : 100.0, w->count > received ? w->count - received : 0,
+      rejected, accepted, elapsed_us / 1000000.0, complete ? "; all sent catalog descriptors acknowledged and applied" :
+      "; inspect receiver catalog RX finished log for rejected or uncounted entries");
    g_hash_table_remove(relay_catalog_awaiting_ack, sync_id);
 }
 
@@ -1499,18 +1496,25 @@ void rr_relay_catalog_pump(void) {
 
 /* Link generations must not share in-flight catalog transports. */
 void rr_relay_catalog_peer_lost(const char *node) {
-   if (!node || !*node) return;
-   if (relay_catalog_snapshots && g_hash_table_remove(relay_catalog_snapshots, node))
+   if (!node || !*node) {
+      return;
+   }
+
+   if (relay_catalog_snapshots && g_hash_table_remove(relay_catalog_snapshots, node)) {
       Log(LOG_INFO, "relay.catalog", "Cancelled outgoing catalog snapshot for disconnected peer %s", node);
+   }
+
    if (relay_catalog_awaiting_ack) {
       GHashTableIter iter;
       gpointer key, value;
       g_hash_table_iter_init(&iter, relay_catalog_awaiting_ack);
       while (g_hash_table_iter_next(&iter, &key, &value)) {
          catalog_ack_wait_t *w = value;
-         if (strcmp(w->dest, node)) continue;
-         Log(LOG_INFO, "relay.catalog", "Cancelled pending catalog acknowledgment %s for disconnected peer %s",
-             (char *)key, node);
+
+         if (strcmp(w->dest, node)) {
+            continue;
+         }
+         Log(LOG_INFO, "relay.catalog", "Cancelled pending catalog acknowledgment %s for disconnected peer %s", (char *)key, node);
          g_hash_table_iter_remove(&iter);
       }
    }

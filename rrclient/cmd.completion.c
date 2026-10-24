@@ -275,9 +275,9 @@ char **client_cmd_completions(const char *line, const char *word) {
       return NULL;
    }
 
-   /* /me is free-form action text, so nicknames complete at any word
-    * just like chat, without adding the address-style colon. */
+   /* /me is free-form action text, so nicknames complete at any word just like chat, without adding the address-style colon. */
    bool action_text = !strncasecmp(line, "/me", 3) && (line[3] == ' ' || line[3] == '\t');
+
    if (*line != '/' || action_text) {
       const char *room = rrclient_current_room();
 

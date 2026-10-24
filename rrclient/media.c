@@ -1189,7 +1189,8 @@ static void media_transport_print(void *data) {
    const char *fallback = dict_get(d, "media.fallback", "");
 
    if (*fallback) {
-      ui_print(*room ? room : NULL, "%sMedia %s: %s %s%s%s; falling back to %s", get_chat_ts(now), description, transport, status, *endpoint ? " at " : "", endpoint, fallback);
+      ui_print(*room ? room : NULL, "%sMedia %s: %s %s%s%s; falling back to %s", get_chat_ts(now), description, transport, status, *endpoint ? " at " : "",
+         endpoint, fallback);
 
       return;
    }
@@ -1426,7 +1427,9 @@ void rrclient_media_refresh(void) {
 
    if (cptr) {
       if (!media_send_list(cptr)) {
-         Log(LOG_WARN, "ws.media", "Media list refresh failed: websocket send rejected (connection=%p, active=%p, state=%d); check protocol send-validation logs", (void *)cptr, (void *)ws_conn, ws_connected);
+         Log(LOG_WARN, "ws.media",
+            "Media list refresh failed: websocket send rejected (connection=%p, active=%p, state=%d); check protocol send-validation logs", (void *)cptr, (
+               void *)ws_conn, ws_connected);
          media_print("Unable to refresh media channels; connection is not writable");
       }
    } else {
@@ -1647,13 +1650,18 @@ const char *rrclient_media_active_room(void) {
 }
 
 const char *rrclient_media_rig_coordinates(const char *room) {
-   if (!room || !*room) return NULL;
-   for (int i = 0; i < RR_MEDIA_MAX_CHANS; ++i) {
-      const struct rr_client_media_chan *channel = &known_chans[i];
-      if (channel->gps_coordinates[0] && channel->control_room[0] &&
-          ws_room_same_rig(room, channel->control_room))
-         return channel->gps_coordinates;
+   if (!room || !*room) {
+      return NULL;
    }
+
+   for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; ++i) {
+      const struct rr_client_media_chan *channel = &known_chans[i];
+
+      if (channel->gps_coordinates[0] && channel->control_room[0] && ws_room_same_rig(room, channel->control_room)) {
+         return channel->gps_coordinates;
+      }
+   }
+
    return NULL;
 }
 

@@ -208,20 +208,22 @@ void rr_cat_yaesu_band_down(const char *args) {
 }                               // Band Down
 
 void rr_cat_yaesu_band_select(const char *args) {
-   /* BS selects a band, not an exact dial frequency. Hamlib/WSJT-X
-    * subsequently uses FA to tune; do not invent a frequency here. */
+   /* BS selects a band, not an exact dial frequency. Hamlib/WSJT-X subsequently uses FA to tune; do not invent a frequency here. */
    static const char *bands[] = {
       "1.8", "3.5", "5", "7", "10", "14", "18", "21",
       "24.5", "28", "50", "GEN", "MW", NULL, "AIR", "144", "430"
    };
-   if (!args || strlen(args) != 2 || args[0] < '0' || args[0] > '1' ||
-       args[1] < '0' || args[1] > '9') {
+
+   if (!args || strlen(args) != 2 || args[0] < '0' || args[0] > '1' || args[1] < '0' || args[1] > '9') {
       Log(LOG_WARN, "cat.yaesu", "Invalid FT-991A BS band code '%s'", args ? args : "");
+
       return;
    }
    int index = (args[0] - '0') * 10 + (args[1] - '0');
+
    if (index >= (int)(sizeof(bands) / sizeof(bands[0])) || !bands[index]) {
       Log(LOG_WARN, "cat.yaesu", "Unsupported FT-991A BS band '%s'", args);
+
       return;
    }
    Log(LOG_DEBUG, "cat.yaesu", "FT-991A band select %s MHz (%s): waiting for explicit FA tune", bands[index], args);
@@ -287,19 +289,20 @@ void rr_cat_yaesu_encoder_up(const char *args) {
    Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_encoder_up: args='%s' (no reply/action)", args ? args : "");
 }                               // Encoder Up
 
-/* FT-991A EX032 is CAT TOT (CAT input timeout); values 0..3
- * denote 10, 100, 1000 and 3000 ms. This is a virtual serial port, so
- * retain the setting solely for CAT readback, not as a backend timeout. */
+/* FT-991A EX032 is CAT TOT (CAT input timeout); values 0..3 denote 10, 100, 1000 and 3000 ms. This is a virtual serial port, so retain the setting solely for
+ * CAT readback, not as a backend timeout. */
 
 void rr_cat_yaesu_menu(const char *args) {
    if (args && !strcmp(args, "032")) {
       rr_cat_printf("EX032%c;", rr_cat_timeout_get());
+
       return;
    }
-   if (args && strlen(args) == 4 && !strncmp(args, "032", 3) &&
-       args[3] >= '0' && args[3] <= '3') {
+
+   if (args && strlen(args) == 4 && !strncmp(args, "032", 3) && args[3] >= '0' && args[3] <= '3') {
       rr_cat_timeout_set(args[3]);
       Log(LOG_DEBUG, "cat.yaesu", "Virtual FT-991A CAT timeout setting: %c", rr_cat_timeout_get());
+
       return;
    }
    Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A EX menu: args='%s' (no reply/action)", args ? args : "");
@@ -373,8 +376,12 @@ void rr_cat_yaesu_agc_func(const char *args) {
 void rr_cat_yaesu_id(const char *args) {
    /* Advertise the model configured for this CAT endpoint. */
    const char *model = rr_cat_model();
-   if (!strcmp(model, "ft891")) rr_cat_printf("ID0911;");
-   else rr_cat_printf("ID0670;");
+
+   if (!strcmp(model, "ft891")) {
+      rr_cat_printf("ID0911;");
+   } else {
+      rr_cat_printf("ID0670;");
+   }
    Log(LOG_CRAZY, "cat.yaesu", "ID query -> %s", model);
 }                               // IDentification
 
@@ -753,16 +760,17 @@ void rr_cat_yaesu_zero_in(const char *args) {
    Log(LOG_WARN, "cat.yaesu", "UNSUPPORTED FT-991A CAT handler rr_cat_yaesu_zero_in: args='%s' (no reply/action)", args ? args : "");
 }                               // Zero In
 
-/* FT reports/selects the transmit VFO. The virtual interface tracks the
- * requested selector for Hamlib readback; this does not key a transmitter. */
+/* FT reports/selects the transmit VFO. The virtual interface tracks the requested selector for Hamlib readback; this does not key a transmitter. */
 static void rr_cat_yaesu_tx_vfo(const char *args) {
    if (!args || !*args) {
       rr_cat_printf("FT%d;", rr_cat_tx_vfo_get());
+
       return;
    }
-   if (args[1] || (args[0] != '0' && args[0] != '1' &&
-                   args[0] != '2' && args[0] != '3')) {
+
+   if (args[1] || (args[0] != '0' && args[0] != '1' && args[0] != '2' && args[0] != '3')) {
       Log(LOG_WARN, "cat.yaesu", "Unsupported FT-991A FT selector '%s'", args);
+
       return;
    }
    /* Hamlib uses FT2/FT3 when setting up split, corresponding to A/B. */
@@ -865,7 +873,7 @@ CATcmdTable rr_cat_yaesu_commands[] = {
    },                                        // AGC Function
    {
       "FT", 0, 1, rr_cat_yaesu_tx_vfo
-   },                                  // Transmit VFO
+   },                                     // Transmit VFO
    {
       "ID", 0, 1, rr_cat_yaesu_id
    },                                  // IDentification

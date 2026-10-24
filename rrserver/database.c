@@ -277,41 +277,54 @@ static void db_ensure_rooms(sqlite3 *db) {
 }
 
 /* Create the persistent bridge-capability hint table if needed. */
-/* One durable preference per physical rig, band group and logical TX mode.
- * The radio itself remains authoritative until a user explicitly sets power. */
+/* One durable preference per physical rig, band group and logical TX mode. The radio itself remains authoritative until a user explicitly sets power. */
 static void db_ensure_rig_power(sqlite3 *db) {
    const char *sql = "CREATE TABLE IF NOT EXISTS rig_power_preferences("
       "rig_uuid TEXT NOT NULL, band INTEGER NOT NULL, mode INTEGER NOT NULL,"
-      "watts INTEGER NOT NULL CHECK(watts BETWEEN 1 AND 200),"
-      "PRIMARY KEY(rig_uuid,band,mode));";
-   if (sqlite3_exec(db, sql, NULL, NULL, NULL) != SQLITE_OK)
+      "watts INTEGER NOT NULL CHECK(watts BETWEEN 1 AND 200)," "PRIMARY KEY(rig_uuid,band,mode));";
+
+   if (sqlite3_exec(db, sql, NULL, NULL, NULL) != SQLITE_OK) {
       Log(LOG_WARN, "db", "Unable to create rig power preference table: %s", sqlite3_errmsg(db));
+   }
 }
 int db_rig_power_get(sqlite3 *db, const char *rig_uuid, int band, int mode) {
-   if (!db || !rig_uuid || !*rig_uuid) return 0;
+   if (!db || !rig_uuid || !*rig_uuid) {
+      return 0;
+   }
    sqlite3_stmt *stmt = NULL;
    int watts = 0;
-   if (sqlite3_prepare_v2(db, "SELECT watts FROM rig_power_preferences WHERE rig_uuid=? AND band=? AND mode=?",
-         -1, &stmt, NULL) != SQLITE_OK) return 0;
+
+   if (sqlite3_prepare_v2(db, "SELECT watts FROM rig_power_preferences WHERE rig_uuid=? AND band=? AND mode=?", -1, &stmt, NULL) != SQLITE_OK) {
+      return 0;
+   }
    sqlite3_bind_text(stmt, 1, rig_uuid, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(stmt, 2, band);
    sqlite3_bind_int(stmt, 3, mode);
-   if (sqlite3_step(stmt) == SQLITE_ROW) watts = sqlite3_column_int(stmt, 0);
+
+   if (sqlite3_step(stmt) == SQLITE_ROW) {
+      watts = sqlite3_column_int(stmt, 0);
+   }
    sqlite3_finalize(stmt);
+
    return watts;
 }
 bool db_rig_power_set(sqlite3 *db, const char *rig_uuid, int band, int mode, int watts) {
-   if (!db || !rig_uuid || !*rig_uuid || watts <= 0 || watts > 200) return false;
+   if (!db || !rig_uuid || !*rig_uuid || watts <= 0 || watts > 200) {
+      return false;
+   }
    sqlite3_stmt *stmt = NULL;
+
    if (sqlite3_prepare_v2(db, "INSERT INTO rig_power_preferences(rig_uuid,band,mode,watts) VALUES(?,?,?,?) "
-         "ON CONFLICT(rig_uuid,band,mode) DO UPDATE SET watts=excluded.watts",
-         -1, &stmt, NULL) != SQLITE_OK) return false;
+      "ON CONFLICT(rig_uuid,band,mode) DO UPDATE SET watts=excluded.watts", -1, &stmt, NULL) != SQLITE_OK) {
+      return false;
+   }
    sqlite3_bind_text(stmt, 1, rig_uuid, -1, SQLITE_TRANSIENT);
    sqlite3_bind_int(stmt, 2, band);
    sqlite3_bind_int(stmt, 3, mode);
    sqlite3_bind_int(stmt, 4, watts);
    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
    sqlite3_finalize(stmt);
+
    return ok;
 }
 static void db_ensure_bridge_hints(sqlite3 *db) {

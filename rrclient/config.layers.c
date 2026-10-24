@@ -14,18 +14,21 @@
 #endif
 static bool layered;
 
-/* The host builds default_cfg before loading any file. Preserve it as the
- * lowest-precedence layer without mutating the shared defaults table. */
+/* The host builds default_cfg before loading any file. Preserve it as the lowest-precedence layer without mutating the shared defaults table. */
 static dict *with_defaults(dict *loaded) {
-   if (!loaded) return NULL;
+   if (!loaded) {
+      return NULL;
+   }
    dict *merged = dict_new();
-   if (!merged || (default_cfg && dict_merge(merged, default_cfg)) ||
-       dict_merge(merged, loaded)) {
+
+   if (!merged || (default_cfg && dict_merge(merged, default_cfg)) || dict_merge(merged, loaded)) {
       dict_free(merged);
       dict_free(loaded);
+
       return NULL;
    }
    dict_free(loaded);
+
    return merged;
 }
 

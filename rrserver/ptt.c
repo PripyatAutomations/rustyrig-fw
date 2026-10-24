@@ -320,17 +320,20 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
          looked_up = ptt_log_username(session);
          who = looked_up;
       }
-      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)%s%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]);
+      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)%s%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo][0] ?
+         " ticket=" : "", ptt_grant_ticket[vfo]);
 
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
       if (cfg_get_bool("quota.enforce", true) && who && secs > 0) {
          if (!db_quota_spend(masterdb, who, secs)) {
-            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s%s%s", secs, who, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]);
+            Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s%s%s", secs, who, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]
+               );
          } else {
             int left = db_quota_get(masterdb, who);
 
-            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining%s%s", who, secs, left, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]);
+            Log(LOG_INFO, "ptt", "TX quota: %s spent %d credits, %d remaining%s%s", who, secs, left, ptt_grant_ticket[vfo][0] ? " ticket=" : "",
+               ptt_grant_ticket[vfo]);
 
             if (talker) {
                quota_maybe_warn(talker, left);
@@ -440,13 +443,14 @@ static void ptt_worker_completed(rr_backend_t *backend, rr_server_vfo_t *vfo, bo
    }
 
    if (pending->state && (!pending->owner || whos_talking() != pending->owner || rig.ptt_rig != pending->radio)) {
-      Log(LOG_WARN, "ptt", "Cancelling backend PTT-on after worker completion: owner=%s current_talker=%s rig_changed=%s vfo=%s",
-         pending->owner ? pending->owner->chatname : "(none)",
-         whos_talking() ? whos_talking()->chatname : "(none)",
-         rig.ptt_rig != pending->radio ? "yes" : "no", vfo_name(pending->vfo));
-      if (pending->owner)
-         ws_send_error(pending->owner, "PTT on VFO %s cancelled: transmitter ownership or active rig changed while backend request was pending",
-            vfo_name(pending->vfo));
+      Log(LOG_WARN, "ptt", "Cancelling backend PTT-on after worker completion: owner=%s current_talker=%s rig_changed=%s vfo=%s", pending->owner ? pending->
+         owner->chatname : "(none)", whos_talking() ? whos_talking()->chatname : "(none)", rig.ptt_rig != pending->radio ? "yes" : "no", vfo_name(pending->vfo))
+      ;
+
+      if (pending->owner) {
+         ws_send_error(pending->owner, "PTT on VFO %s cancelled: transmitter ownership or active rig changed while backend request was pending", vfo_name(
+            pending->vfo));
+      }
       rr_backend_worker_submit(backend, vfo, RR_BACKEND_PTT, (dict_value_t) {
          .i = false
       }
@@ -504,11 +508,13 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    }
 
    rr_server_rig_t *target_rig = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
+
    if (ptt && rr_rig_halted(target_rig)) {
-      Log(LOG_AUDIT, "ptt", "PTT key-down rejected: rig %s halted",
-         target_rig ? rr_server_rig_id(target_rig) : "(unknown)");
+      Log(LOG_AUDIT, "ptt", "PTT key-down rejected: rig %s halted", target_rig ? rr_server_rig_id(target_rig) : "(unknown)");
+
       return true;
    }
+
    if (ptt && rr_ptt_check_blocked()) {
       Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
 
@@ -639,12 +645,8 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    if (completing_ptt ? completing_ptt->failed : rr_ptt_apply(vfo, ptt)) {
       rr_server_rig_t *failed_rig = completing_ptt ? completing_ptt->radio : rig.ptt_rig;
       const char *failed_alias = failed_rig ? rr_rig_registry_alias(rig.rigs, failed_rig) : "(unresolved)";
-      Log(LOG_WARN, "ptt",
-         "PTT %s failed: rig=%s VFO=%s talker=%s path=%s; see backend log; RF %s",
-         ptt ? "ON" : "OFF", failed_alias, vfo_name(vfo),
-         ptt_talker ? ptt_talker->chatname : "(none)",
-         completing_ptt ? "backend-worker" : "synchronous",
-         ptt ? "key-down not confirmed" : "release not confirmed");
+      Log(LOG_WARN, "ptt", "PTT %s failed: rig=%s VFO=%s talker=%s path=%s; see backend log; RF %s", ptt ? "ON" : "OFF", failed_alias, vfo_name(vfo), ptt_talker
+         ? ptt_talker->chatname : "(none)", completing_ptt ? "backend-worker" : "synchronous", ptt ? "key-down not confirmed" : "release not confirmed");
 
       // A failed key-down must not leave an open database session or a
       // recording ID that will be attached to a later transmission.
@@ -697,18 +699,20 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    // Broadcast immediate cat.state so clients see TX state without waiting
    // for the next backend poll.
    dict *d = dict_new();
+
    if (d) {
       dict_add(d, "msg.type", "cat");
-      if (rig.ptt_rig)
+
+      if (rig.ptt_rig) {
          dict_add(d, "cat.room", rr_rig_registry_room(rig.rigs, rig.ptt_rig));
+      }
       dict_add(d, "cat.state.vfo", vfo_name(vfo));
       dict_add_bool(d, "cat.state.ptt", ptt);
       dict_add_ulong(d, "msg.ts", now);
       ws_broadcast_dict(NULL, d, WEBSOCKET_OP_TEXT);
       dict_free(d);
    } else {
-      Log(LOG_WARN, "ptt", "Unable to allocate PTT state broadcast (vfo=%s state=%s)",
-         vfo_name(vfo), ptt ? "on" : "off");
+      Log(LOG_WARN, "ptt", "Unable to allocate PTT state broadcast (vfo=%s state=%s)", vfo_name(vfo), ptt ? "on" : "off");
    }
 
    return false;
@@ -727,8 +731,8 @@ bool rr_ptt_toggle(rr_vfo_t vfo) {
 }
 
 bool rr_ptt_set_all_off_reason(const char *reason) {
-   Log(LOG_AUDIT, "ptt", "PTT forced release requested for all VFOs: reason=%s, talker=%s",
-      reason ? reason : "forced", whos_talking() ? whos_talking()->chatname : "(none)");
+   Log(LOG_AUDIT, "ptt", "PTT forced release requested for all VFOs: reason=%s, talker=%s", reason ? reason : "forced", whos_talking() ? whos_talking()->
+      chatname : "(none)");
 
    bool failed = false;
    rr_server_rig_t *radio = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);

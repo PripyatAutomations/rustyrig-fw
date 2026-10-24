@@ -227,13 +227,13 @@ static void execute(struct rr_backend_worker *worker, backend_job_t *job) {
    long long started_ms = worker_ms();
    long long queue_ms = started_ms - job->queued_ms;
 
-   /* Reject queued mutations that predate an emergency halt as well as
-    * newly submitted writes. Always permit read-only polls and key-up. */
+   /* Reject queued mutations that predate an emergency halt as well as newly submitted writes. Always permit read-only polls and key-up. */
    if (rr_rig_halted(backend->owner) && job->operation != RR_BACKEND_POLL && job->operation != RR_BACKEND_MENU_READ &&
-       !(job->operation == RR_BACKEND_PTT && !job->value.i)) {
+      !(job->operation == RR_BACKEND_PTT && !job->value.i)) {
       job->failed = true;
       goto halted_done;
    }
+
    switch (job->operation) {
       case RR_BACKEND_BRIGHTNESS:
       case RR_BACKEND_SPEAKER_VOLUME: {
@@ -346,6 +346,7 @@ halted_done:
          if (api->power_get) {
             job->power = api->power_get(backend, job->vfo);
          }
+
          if (api->power_max) {
             job->power_max = api->power_max(backend, job->vfo);
          }
@@ -449,8 +450,10 @@ bool rr_backend_worker_submit(rr_backend_t *backend, rr_server_vfo_t *vfo, rr_ba
       return true;
    }
    bool release = operation == RR_BACKEND_PTT && !value.i;
-   if (rr_rig_halted(backend->owner) && operation != RR_BACKEND_POLL && operation != RR_BACKEND_MENU_READ && !release)
+
+   if (rr_rig_halted(backend->owner) && operation != RR_BACKEND_POLL && operation != RR_BACKEND_MENU_READ && !release) {
       return true;
+   }
    pthread_mutex_lock(&worker->mutex);
 
    if (worker->stopping || (worker->outstanding >= BACKEND_QUEUE_LIMIT + MAX_VFOS) || (!release && worker->outstanding >= BACKEND_QUEUE_LIMIT)) {
@@ -587,6 +590,7 @@ static float cached_power(rr_backend_t *b, rr_server_vfo_t *v) {
 
 static float cached_power_max(rr_backend_t *b, rr_server_vfo_t *v) {
    backend_cache_t *c = cached(b, v);
+
    return c && c->known ? c->power_max : 0;
 }
 
@@ -663,7 +667,8 @@ static bool queue_ptt(rr_backend_t *b, rr_server_vfo_t *v, bool p) {
 static const rr_backend_funcs_t worker_api = {
    .poll_state = queue_poll, .vfo_supported = cached_supported, .ptt_set = queue_ptt, .ptt_get = cached_ptt,
    .freq_set = queue_freq, .freq_get = cached_freq, .mode_set = queue_mode, .mode_get = cached_mode, .mode_get_str = cached_mode_text,
-   .width_set = queue_width, .width_get = cached_width, .widths_get = cached_widths, .power_set = queue_power, .power_get = cached_power, .power_max = cached_power_max
+   .width_set = queue_width, .width_get = cached_width, .widths_get = cached_widths, .power_set = queue_power, .power_get = cached_power, .power_max =
+      cached_power_max
 };
 
 static bool initialize_vfo(rr_server_vfo_t *vfo, void *arg) {

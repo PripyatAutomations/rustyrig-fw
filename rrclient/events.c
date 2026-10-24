@@ -290,9 +290,7 @@ static void rrclient_handle_autherr(const char *event, const char *data, rrconn_
       error_msg = dict_get(d, "error.msg", NULL);
    }
    const char *profile = rrclient_connection_name(cptr);
-   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR on %s: %s",
-       profile && *profile ? profile : "(unknown server)",
-       error_msg ? error_msg : "unknown");
+   Log(LOG_INFO, "ws.auth", "AUTHENTICATION ERROR on %s: %s", profile && *profile ? profile : "(unknown server)", error_msg ? error_msg : "unknown");
 
    // Show the error in the UI and stop the reconnect engine: retrying with
    // bad credentials just hammers the server. PARITY: webui.auth.js stops
@@ -1059,8 +1057,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    }
 
    if (room && is_self) {
-      /* PART ends our membership in this room, not just our own roster entry.
-       * Drop the complete snapshot so a subsequent JOIN starts clean. */
+      /* PART ends our membership in this room, not just our own roster entry. Drop the complete snapshot so a subsequent JOIN starts clean. */
       userlist_remove_room(room);
       rrclient_media_room_parted(room);
       rrclient_room_part(room);

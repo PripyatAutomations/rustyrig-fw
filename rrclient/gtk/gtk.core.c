@@ -41,13 +41,15 @@
 extern dict *cfg;
 extern time_t now;
 extern bool dying;              // main.c
-/* Width diagnostic: intentionally read-only. GTK's nested viewports can
- * conceal a child wider than the visible client area. */
+/* Width diagnostic: intentionally read-only. GTK's nested viewports can conceal a child wider than the visible client area. */
 static void main_width_diagnostic(GtkWidget *content, GtkAllocation *allocation, gpointer unused) {
    (void)unused;
    GtkWidget *toolbar = g_object_get_data(G_OBJECT(content), "rr-width-toolbar");
    GtkWidget *tabs = g_object_get_data(G_OBJECT(content), "rr-width-tabs");
-   if (!toolbar || !tabs) return;
+
+   if (!toolbar || !tabs) {
+      return;
+   }
    gint toolbar_min = 0, toolbar_nat = 0, tabs_min = 0, tabs_nat = 0;
    gtk_widget_get_preferred_width(toolbar, &toolbar_min, &toolbar_nat);
    gtk_widget_get_preferred_width(tabs, &tabs_min, &tabs_nat);
@@ -55,15 +57,17 @@ static void main_width_diagnostic(GtkWidget *content, GtkAllocation *allocation,
    gint tabs_alloc = gtk_widget_get_allocated_width(tabs);
    gint available = allocation->width;
    static gint last_available = -1, last_toolbar = -1, last_tabs = -1;
-   if (available == last_available && toolbar_alloc == last_toolbar && tabs_alloc == last_tabs) return;
+
+   if (available == last_available && toolbar_alloc == last_toolbar && tabs_alloc == last_tabs) {
+      return;
+   }
    last_available = available;
    last_toolbar = toolbar_alloc;
    last_tabs = tabs_alloc;
-   if (toolbar_min > available + 8 || tabs_min > available + 8 ||
-       toolbar_alloc > available + 8 || tabs_alloc > available + 8) {
-      Log(LOG_WARN, "gtk.width", "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)",
-          available, toolbar_min, toolbar_nat, toolbar_alloc,
-          tabs_min, tabs_nat, tabs_alloc);
+
+   if (toolbar_min > available + 8 || tabs_min > available + 8 || toolbar_alloc > available + 8 || tabs_alloc > available + 8) {
+      Log(LOG_WARN, "gtk.width", "content=%d toolbar(min=%d nat=%d alloc=%d) tabs(min=%d nat=%d alloc=%d)", available, toolbar_min, toolbar_nat, toolbar_alloc,
+         tabs_min, tabs_nat, tabs_alloc);
    }
 }
 
@@ -86,8 +90,8 @@ extern bool cfg_fullscreen;
 static void frontend_gtk_config_refresh(const char *key) {
    (void)key;
    cfg_fullscreen = cfg_get_bool("ui.full-screen", false);
-   Log(LOG_INFO, "ui.gtk3", "Effective startup setting ui.full-screen=%s (raw=%s)",
-      cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get("ui.full-screen") : "(absent)");
+   Log(LOG_INFO, "ui.gtk3", "Effective startup setting ui.full-screen=%s (raw=%s)", cfg_fullscreen ? "true" : "false", cfg_get("ui.full-screen") ? cfg_get(
+      "ui.full-screen") : "(absent)");
    cfg_ui_gtk_vfo_on_top = cfg_get_bool("ui.gtk.vfo-on-top", true);
    const char *tabstrip = cfg_get("ui.gtk.main-tabstrip");
 
@@ -665,17 +669,18 @@ static gboolean fullscreen_later(gpointer data) {
    return G_SOURCE_REMOVE;
 }
 
-/* Report the state the window manager actually applied, not just our
- * fullscreen request. Run once after startup for release diagnostics. */
+/* Report the state the window manager actually applied, not just our fullscreen request. Run once after startup for release diagnostics. */
 static gboolean fullscreen_startup_check(gpointer unused) {
    (void)unused;
-   if (!main_window || !gtk_widget_get_window(main_window)) return G_SOURCE_REMOVE;
+
+   if (!main_window || !gtk_widget_get_window(main_window)) {
+      return G_SOURCE_REMOVE;
+   }
    GdkWindowState state = gdk_window_get_state(gtk_widget_get_window(main_window));
    bool actual = (state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
-   Log(cfg_fullscreen && !actual ? LOG_WARN : LOG_INFO, "ui.gtk3",
-      "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
-      cfg_fullscreen ? "yes" : "no", actual ? "yes" : "no",
-      (state & GDK_WINDOW_STATE_MAXIMIZED) ? "yes" : "no");
+   Log(cfg_fullscreen && !actual ? LOG_WARN : LOG_INFO, "ui.gtk3", "Startup window state: requested_fullscreen=%s actual_fullscreen=%s maximized=%s",
+      cfg_fullscreen ? "yes" : "no", actual ? "yes" : "no", (state & GDK_WINDOW_STATE_MAXIMIZED) ? "yes" : "no");
+
    return G_SOURCE_REMOVE;
 }
 
@@ -868,7 +873,10 @@ static gboolean matrix_key_press(GtkWidget *widget, GdkEventKey *event, gpointer
 static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
-   if (main_window) gtk_window_iconify(GTK_WINDOW(main_window));
+
+   if (main_window) {
+      gtk_window_iconify(GTK_WINDOW(main_window));
+   }
 }
 
 bool gui_init(void) {
@@ -899,8 +907,7 @@ bool gui_init(void) {
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
    g_signal_connect(main_content, "size-allocate", G_CALLBACK(main_width_diagnostic), NULL);
-   /* Diagnose width negotiation without changing any widget requisition.
-    * Only log when geometry changes; avoid flooding normal resize events. */
+   /* Diagnose width negotiation without changing any widget requisition. Only log when geometry changes; avoid flooding normal resize events. */
    g_object_set_data(G_OBJECT(main_content), "rr-width-toolbar", rr_main_toolbar);
    g_object_set_data(G_OBJECT(main_content), "rr-width-tabs", tabs_wrapper);
    gtk_ui_zoom_attach(main_window, main_content);
@@ -953,8 +960,7 @@ bool gui_init(void) {
    extern void rrclient_webcam_register(void);  // gtk.webcam.c
    rrclient_webcam_register();
 
-   /* Ask GTK for fullscreen before the window is mapped. An idle callback
-    * after show_all() can lose the race against the initial WM placement. */
+   /* Ask GTK for fullscreen before the window is mapped. An idle callback after show_all() can lose the race against the initial WM placement. */
    if (cfg_fullscreen) {
       Log(LOG_INFO, "ui.gtk3", "Startup requests fullscreen (ui.full-screen=true)");
       gtk_window_fullscreen(GTK_WINDOW(main_window));
@@ -992,9 +998,10 @@ bool gui_init(void) {
       gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
    }
 
-   /* Window placement runs after mapping; reassert once after it finishes.
-    * The helper is idempotent and does not toggle the configured flag. */
-   if (cfg_fullscreen) g_idle_add(fullscreen_later, NULL);
+   /* Window placement runs after mapping; reassert once after it finishes. The helper is idempotent and does not toggle the configured flag. */
+   if (cfg_fullscreen) {
+      g_idle_add(fullscreen_later, NULL);
+   }
    g_timeout_add(1000, fullscreen_startup_check, NULL);
    gtk_widget_grab_focus(GTK_WIDGET(chat_entry));
 

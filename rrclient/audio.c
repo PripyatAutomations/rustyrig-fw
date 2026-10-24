@@ -104,12 +104,14 @@ static void client_mic_pcm(const char *name, const void *samples, size_t len, vo
 
    if (!transmitting || !tx_codec[0] || !selected || strncmp(selected, tx_codec, 4) != 0) {
       static time_t last_gate_log;
+
       if (transmitting && (!last_gate_log || now < last_gate_log || now - last_gate_log >= 5)) {
          last_gate_log = now;
-         Log(LOG_WARN, "audio.tx", "Mic PCM blocked during PTT: active_vfo=%s ptt_local=%s ptt_state=%s encoder=%s selected=%s bytes=%zu",
-            vfo, ptt_active ? "yes" : "no", vfo_state_get_bool(vfo, "cat.state.ptt", false) ? "yes" : "no",
-            tx_codec[0] ? tx_codec : "(none)", selected ? selected : "(none)", len);
+         Log(LOG_WARN, "audio.tx", "Mic PCM blocked during PTT: active_vfo=%s ptt_local=%s ptt_state=%s encoder=%s selected=%s bytes=%zu", vfo, ptt_active ?
+            "yes" : "no", vfo_state_get_bool(vfo, "cat.state.ptt", false) ? "yes" : "no", tx_codec[0] ? tx_codec : "(none)", selected ? selected : "(none)", len
+            );
       }
+
       return;
    }
 

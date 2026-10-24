@@ -407,23 +407,30 @@ const char *rrserver_links_route(const char *node) {
 
 /* Format node identity using the authenticated topology, including nodes learned through introductions. Fall back to configured peer names before
  * establishment; unknown UUIDs remain legible and unambiguous. */
-/* Preserve recently learned site names after a subtree is removed from the
- * live topology; withdrawal notifications are emitted after removal. */
+/* Preserve recently learned site names after a subtree is removed from the live topology; withdrawal notifications are emitted after removal. */
 static GHashTable *link_site_history;
 static void remember_site(const char *node, const char *site) {
-   if (!node || !*node || !site || !*site) return;
-   if (!link_site_history)
+   if (!node || !*node || !site || !*site) {
+      return;
+   }
+
+   if (!link_site_history) {
       link_site_history = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   }
    g_hash_table_replace(link_site_history, g_strdup(node), g_strdup(site));
 }
-/* Snapshot all identities before pruning: a withdrawal may remove an entire
- * subtree and the subsequent relay.catalog/relay.health listeners still
- * need names for nodes that are no longer routable. */
+
+/* Snapshot all identities before pruning: a withdrawal may remove an entire subtree and the subsequent relay.catalog/relay.health listeners still need names
+ * for nodes that are no longer routable. */
 static void remember_topology_sites(void) {
-   if (!links.tree) return;
+   if (!links.tree) {
+      return;
+   }
    rr_link_node_t node;
-   for (size_t i = 0; rr_link_tree_node(links.tree, i, &node); ++i)
+
+   for (size_t i = 0 ; rr_link_tree_node(links.tree, i, &node) ; ++i) {
       remember_site(node.server, node.site);
+   }
 }
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
    if (!buffer || !capacity) {
@@ -461,9 +468,13 @@ const char *rrserver_links_format_node(const char *node, char *buffer, size_t ca
       }
    }
 
-   if (site && *site) remember_site(node, site);
-   if ((!site || !*site) && link_site_history)
+   if (site && *site) {
+      remember_site(node, site);
+   }
+
+   if ((!site || !*site) && link_site_history) {
       site = g_hash_table_lookup(link_site_history, node);
+   }
 
    if (site && *site) {
       snprintf(buffer, capacity, "%s [%s]", site, node);
@@ -507,8 +518,7 @@ static void send_hello(struct link_session *session) {
    }
    dict_add(d, "node", links.node);
    dict_add(d, "site", links.site);
-   /* Keep the initial handshake compatible with deployed wire decoders.
-    * Clock sampling must be negotiated after the base handshake. */
+   /* Keep the initial handshake compatible with deployed wire decoders. Clock sampling must be negotiated after the base handshake. */
    dict_add(d, "password", session->peer->password);
    send_message(session, d);
    dict_free(d);
@@ -719,21 +729,21 @@ static void handle_hello(struct link_session *session, dict *d) {
       return;
    }
 
-   /* Authenticated handshake sample. Approximation includes one-way network
-    * delay and second-level quantization; never adjust the system clock. */
+   /* Authenticated handshake sample. Approximation includes one-way network delay and second-level quantization; never adjust the system clock. */
    const char *clock_text = dict_get(d, "clock.unix", NULL);
    peer->clock_offset_valid = false;
+
    if (clock_text && *clock_text) {
       char *endptr = NULL;
       long long peer_time = strtoll(clock_text, &endptr, 10);
+
       if (endptr != clock_text && !*endptr && peer_time > 0) {
          long long offset = peer_time - (long long)time(NULL);
          peer->clock_offset_seconds = offset;
          peer->clock_offset_valid = true;
          Log((offset > 5 || offset < -5) ? LOG_WARN : LOG_INFO, "link",
-            "Clock sample from %s [%s]: peer offset approximately %+lld s (one-way handshake estimate); deadline compensation %s, limit %u s",
-            site, node, offset, peer->clock_tolerance_seconds ? "enabled" : "disabled",
-            peer->clock_tolerance_seconds);
+            "Clock sample from %s [%s]: peer offset approximately %+lld s (one-way handshake estimate); deadline compensation %s, limit %u s", site, node,
+            offset, peer->clock_tolerance_seconds ? "enabled" : "disabled", peer->clock_tolerance_seconds);
       }
    }
    char peer_ip[64];
@@ -1009,25 +1019,21 @@ static void close_session(struct link_session *session) {
 
    if (session->peer && session->peer->session == session) {
       session->peer->session = NULL;
-      /* Independent random holdoff avoids synchronized reconnect storms after
-       * a common network outage. retry-seconds is the maximum, not a fixed
-       * delay; never retry in a tight loop. */
-      unsigned delay_ms = (unsigned)g_random_int_range(1000, (gint)session->peer->retry_seconds * 1000 + 1);
+      /* Independent random holdoff avoids synchronized reconnect storms after a common network outage. retry-seconds is the maximum, not a fixed delay; never
+       * retry in a tight loop. */
+      unsigned delay_ms = (unsigned)g_random_int_range(1000, (gint) session->peer->retry_seconds * 1000 + 1);
       session->peer->retry_at = mono_ms() + delay_ms;
+
       if (!links.stopping) {
          const struct link_peer *peer = session->peer;
+
          if (peer->manually_closed || peer->policy_blocked) {
-            Log(LOG_WARN, "link",
-               "Peer %s [%s] reconnect suppressed: manual-close=%s topology-blocked=%s autoconnect=%s url-configured=%s; %s",
-               peer->site, peer->section, peer->manually_closed ? "yes" : "no",
-               peer->policy_blocked ? "yes" : "no", peer->autoconnect ? "yes" : "no",
-               peer->url[0] ? "yes" : "no",
-               "use /link open to resume");
+            Log(LOG_WARN, "link", "Peer %s [%s] reconnect suppressed: manual-close=%s topology-blocked=%s autoconnect=%s url-configured=%s; %s", peer->site,
+               peer->section, peer->manually_closed ? "yes" : "no", peer->policy_blocked ? "yes" : "no", peer->autoconnect ? "yes" : "no", peer->url[0] ?
+               "yes" : "no", "use /link open to resume");
          } else if (peer->autoconnect && peer->url[0]) {
-            Log(LOG_INFO, "link",
-               "Peer %s [%s] disconnected; randomized autoconnect retry in %u s (maximum %u s)",
-               peer->site, peer->section,
-               (delay_ms + 999u) / 1000u, peer->retry_seconds);
+            Log(LOG_INFO, "link", "Peer %s [%s] disconnected; randomized autoconnect retry in %u s (maximum %u s)", peer->site, peer->section, (delay_ms + 999u)
+               / 1000u, peer->retry_seconds);
          }
       }
 
@@ -1291,8 +1297,10 @@ static bool load_peer(const char *section) {
    const char *clock_limit = peer_value(section, "clock-tolerance-seconds");
    char *clock_end = NULL;
    long clock_secs = clock_limit && *clock_limit ? strtol(clock_limit, &clock_end, 10) : 0;
-   if (clock_secs < 0 || clock_secs > 86400 || (clock_end && *clock_end))
+
+   if (clock_secs < 0 || clock_secs > 86400 || (clock_end && *clock_end)) {
       return invalid_peer(section, "clock-tolerance-seconds", "must be 0-86400 seconds (24 hours); 0 disables compensation");
+   }
    peer->clock_tolerance_seconds = (unsigned)clock_secs;
 
    if (!peer->url || !peer->password || !peer->allowed_sites) {
@@ -1551,18 +1559,26 @@ bool rrserver_links_init(struct mg_mgr *manager) {
 }
 
 bool rrserver_links_clock_offset(const char *node, long long *offset_seconds) {
-   if (!node || !*node || !offset_seconds) return false;
-   for (size_t i = 0; i < links.peer_count; ++i) {
+   if (!node || !*node || !offset_seconds) {
+      return false;
+   }
+
+   for (size_t i = 0 ; i < links.peer_count ; ++i) {
       const struct link_peer *peer = &links.peers[i];
-      if (!peer->session || !peer->session->established ||
-          strcmp(peer->session->node, node) || !peer->clock_offset_valid ||
-          !peer->clock_tolerance_seconds) continue;
+
+      if (!peer->session || !peer->session->established || strcmp(peer->session->node, node) || !peer->clock_offset_valid || !peer->clock_tolerance_seconds) {
+         continue;
+      }
       long long offset = peer->clock_offset_seconds;
-      if (offset > (long long)peer->clock_tolerance_seconds ||
-          offset < -(long long)peer->clock_tolerance_seconds) return false;
+
+      if (offset > (long long)peer->clock_tolerance_seconds || offset < -(long long)peer->clock_tolerance_seconds) {
+         return false;
+      }
       *offset_seconds = offset;
+
       return true;
    }
+
    return false;
 }
 
@@ -1607,8 +1623,7 @@ void rrserver_links_poll(void) {
       s->peer = peer;
       s->outbound = true;
       peer->session = s;
-      Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)",
-         peer->site, peer->section, peer->retry_seconds);
+      Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)", peer->site, peer->section, peer->retry_seconds);
       struct mg_connection *c = mg_ws_connect(links.manager, peer->url, link_callback, s, "Sec-WebSocket-Protocol: " RR_LINK_SUBPROTOCOL "\r\n");
 
       if (!c) {

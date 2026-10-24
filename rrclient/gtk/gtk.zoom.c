@@ -382,18 +382,18 @@ static gboolean zoom_window_state(GtkWidget *widget, GdkEventWindowState *event,
    return FALSE;
 }
 
-/* The outer scroll container holds the *entire* client, including tabs.
- * Horizontal adjustment must never pan that full UI; leaf views that need
- * horizontal scrolling provide their own scrolled windows. */
+/* The outer scroll container holds the *entire* client, including tabs. Horizontal adjustment must never pan that full UI; leaf views that need horizontal
+ * scrolling provide their own scrolled windows. */
 static void zoom_restrict_horizontal(GtkAdjustment *adjustment, gpointer unused) {
    (void)unused;
    double lower = gtk_adjustment_get_lower(adjustment);
-   if (gtk_adjustment_get_value(adjustment) != lower)
+
+   if (gtk_adjustment_get_value(adjustment) != lower) {
       gtk_adjustment_set_value(adjustment, lower);
+   }
 }
 
-/* Report the page driving excess width. This is diagnostic only, with
- * deduplication so routine size allocations do not flood the log. */
+/* Report the page driving excess width. This is diagnostic only, with deduplication so routine size allocations do not flood the log. */
 static void zoom_width_diagnostic(GtkWidget *widget, GdkRectangle *allocation, gpointer unused) {
    (void)unused;
    GtkScrolledWindow *scrolled = GTK_SCROLLED_WINDOW(widget);
@@ -401,18 +401,27 @@ static void zoom_width_diagnostic(GtkWidget *widget, GdkRectangle *allocation, g
    double overflow = gtk_adjustment_get_upper(hadj) - gtk_adjustment_get_page_size(hadj);
    static int last_width = -1, last_overflow = -1;
    int pixels = (int)(overflow + 0.5);
+
    if (pixels <= 8) {
       last_overflow = -1;
+
       return;
    }
-   if (allocation->width == last_width && pixels == last_overflow) return;
+
+   if (allocation->width == last_width && pixels == last_overflow) {
+      return;
+   }
    last_width = allocation->width;
    last_overflow = pixels;
    GtkWidget *child = gtk_bin_get_child(GTK_BIN(scrolled));
    gint minimum = 0, natural = 0;
-   if (child) gtk_widget_get_preferred_width(child, &minimum, &natural);
-   Log(LOG_DEBUG, "gtk.zoom", "Main content exceeds viewport by %d px (available=%d, child minimum=%d natural=%d); a notebook page may need internal horizontal scrolling",
-       pixels, allocation->width, minimum, natural);
+
+   if (child) {
+      gtk_widget_get_preferred_width(child, &minimum, &natural);
+   }
+   Log(LOG_DEBUG, "gtk.zoom",
+      "Main content exceeds viewport by %d px (available=%d, child minimum=%d natural=%d); a notebook page may need internal horizontal scrolling", pixels,
+      allocation->width, minimum, natural);
 }
 
 void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
@@ -424,8 +433,8 @@ void gtk_ui_zoom_attach(GtkWidget *window, GtkWidget *content) {
    g_object_add_weak_pointer(G_OBJECT(zoom_viewport), (gpointer *) &zoom_viewport);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(zoom_viewport), 320);
    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(zoom_viewport), 180);
-   /* Scrolling belongs to per-page chat/log views, not the outer notebook. Never pan the entire client in either axis.\n
-    * the notebook width; wide children must handle their own reflow. */
+   /* Scrolling belongs to per-page chat/log views, not the outer notebook. Never pan the entire client in either axis.\n the notebook width; wide children must
+    * handle their own reflow. */
    GtkPolicyType vertical = GTK_POLICY_NEVER;
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(zoom_viewport), GTK_POLICY_NEVER, vertical);
    GtkAdjustment *horizontal = gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(zoom_viewport));
@@ -732,8 +741,7 @@ static void zoom_key_step(int direction, bool resize_window) {
    zoom_manual_set((unsigned)next);
 }
 
-/* Explicit zoom does not resize the toplevel window; it scales CSS, DPI,
- * geometry, margins and icons using the same engine as Ctrl +/- . */
+/* Explicit zoom does not resize the toplevel window; it scales CSS, DPI, geometry, margins and icons using the same engine as Ctrl +/- . */
 void gtk_ui_zoom_set(unsigned percent) {
    zoom_manual_set(CLAMP(percent, 25U, 300U));
 }

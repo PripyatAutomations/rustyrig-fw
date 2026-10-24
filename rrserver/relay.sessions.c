@@ -732,12 +732,14 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
       if (!channel || strcmp(channel->room, room) || !media_client_in_channel_room(&r->client, channel)) {
          static gint64 last_invalid_log;
          gint64 at = g_get_monotonic_time();
+
          if (!last_invalid_log || at - last_invalid_log >= 5 * G_USEC_PER_SEC) {
             last_invalid_log = at;
-            Log(LOG_WARN, "relay.media", "Owner rejected TX media channel/room: uuid=%s request_room=%s known_room=%s room_member=%s",
-               dict_get(d, "media.chan-uuid", ""), room ? room : "", channel ? channel->room : "(unknown)",
-               channel && media_client_in_channel_room(&r->client, channel) ? "yes" : "no");
+            Log(LOG_WARN, "relay.media", "Owner rejected TX media channel/room: uuid=%s request_room=%s known_room=%s room_member=%s", dict_get(d,
+               "media.chan-uuid", ""), room ? room : "", channel ? channel->room : "(unknown)", channel
+               && media_client_in_channel_room(&r->client, channel) ? "yes" : "no");
          }
+
          return;
       }
 
@@ -746,13 +748,14 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
          !chan_id_in_array(r->client.tx_channels, MAX_TX_CHANNELS, channel - media_channels + 1))) {
          static gint64 last_auth_log;
          gint64 at = g_get_monotonic_time();
+
          if (!last_auth_log || at - last_auth_log >= 5 * G_USEC_PER_SEC) {
             last_auth_log = at;
-            Log(LOG_WARN, "relay.media", "Owner rejected TX media authorization: uuid=%s stream=%ld direction=%u proxy_grant=%s direct_ready=%s",
-               channel->uuid, (long)(channel - media_channels + 1), (unsigned)channel->direction,
-               r->proxy_tx[channel - media_channels] ? "yes" : "no",
+            Log(LOG_WARN, "relay.media", "Owner rejected TX media authorization: uuid=%s stream=%ld direction=%u proxy_grant=%s direct_ready=%s", channel->uuid,
+               (long)(channel - media_channels + 1), (unsigned)channel->direction, r->proxy_tx[channel - media_channels] ? "yes" : "no",
                rrserver_direct_tx_ready(&r->client, room) ? "yes" : "no");
          }
+
          return;
       }
       struct relay_media *m = rr_relay_media_map(&r->client, channel->uuid, true);
@@ -765,9 +768,10 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
             static unsigned received;
             received++;
             gint64 at = g_get_monotonic_time();
+
             if (!last_rx_log || at - last_rx_log >= 5 * G_USEC_PER_SEC) {
-               Log(LOG_INFO, "relay.media", "Owner received TX relay frame: uuid=%s stream=%u payload=%zu frames_since_last=%u",
-                  channel->uuid, (unsigned)frame.hdr.stream, frame.len, received);
+               Log(LOG_INFO, "relay.media", "Owner received TX relay frame: uuid=%s stream=%u payload=%zu frames_since_last=%u", channel->uuid, (unsigned)frame.
+                  hdr.stream, frame.len, received);
                last_rx_log = at;
                received = 0;
             }
@@ -775,10 +779,11 @@ void rr_relay_execute(const char *origin, const char *id, const char *username, 
          } else {
             static gint64 last_stream_log;
             gint64 at = g_get_monotonic_time();
+
             if (!last_stream_log || at - last_stream_log >= 5 * G_USEC_PER_SEC) {
                last_stream_log = at;
-               Log(LOG_WARN, "relay.media", "Owner rejected reassembled TX frame: uuid=%s expected_stream=%ld bytes=%zu",
-                  channel->uuid, (long)(channel - media_channels + 1), m->size);
+               Log(LOG_WARN, "relay.media", "Owner rejected reassembled TX frame: uuid=%s expected_stream=%ld bytes=%zu", channel->uuid, (long)(channel -
+                  media_channels + 1), m->size);
             }
          }
          free(m->frame);

@@ -235,8 +235,7 @@ static gboolean userlist_fit_width_idle(gpointer data) {
    }
 
    if (scroll && GTK_IS_SCROLLED_WINDOW(scroll) && width > 0) {
-      /* Use the measured width for the initial fit, not as a persistent
-       * minimum: a growing roster must remain resizeable in both directions. */
+      /* Use the measured width for the initial fit, not as a persistent minimum: a growing roster must remain resizeable in both directions. */
       room_userlist_entry_t *entry = g_object_get_data(G_OBJECT(view), "rr-room-roster");
 
       if (entry) {
@@ -512,6 +511,7 @@ static bool userlist_set_columns(GtkWidget *view, const char *room) {
    userlist_apply_layout(view, type);
    /* Layout reloads may reorder columns, but must not resurrect Privs. */
    GtkTreeViewColumn *privs = userlist_column(view, COL_PRIV_ICON);
+
    if (gtk_tree_view_column_get_visible(privs)) {
       gtk_tree_view_column_set_visible(privs, FALSE);
       changed = true;
@@ -628,14 +628,14 @@ static void userlist_redraw_view(GtkWidget *view, const char *room) {
       char *safe_name = userlist_safe_display(c->name);
       rr_typing_state_t typing = room && view_connection && view_connection->is_ws ? rrclient_typing_get(view_connection, room, c->name) : RR_TYPING_IDLE;
       /* Compact typing icons before names; no changing status sentences. */
-      const char *prefix = typing == RR_TYPING_STARTED || typing == RR_TYPING_ACTIVE ? "✎ " :
-         typing == RR_TYPING_PAUSED ? "⏸ " : "";
+      const char *prefix = typing == RR_TYPING_STARTED || typing == RR_TYPING_ACTIVE ? "✎ " : typing == RR_TYPING_PAUSED ? "⏸ " : "";
       /* Keep the IRC @/+/! name prefixes; IRC icons would duplicate them. */
       char *display = g_strdup_printf("%s%s", prefix, decorated);
       char *safe_decorated = userlist_safe_display(display);
       g_free(display);
       const char *values[NUM_COLS] = {
-         !strncmp(c->privs, "irc:", 4) ? "" : select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c), safe_decorated
+         !strncmp(c->privs, "irc:", 4) ? "" : select_user_icon(c), safe_name, c->is_ptt ? "🎤" : "", c->is_muted ? "🙊" : "", select_elmernoob_icon(c),
+         safe_decorated
       };
       char *previous[NUM_COLS] = {
          0
@@ -1178,8 +1178,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
-      /* One compact header plus a separate frequency row. Keep the VFO strip
-       * narrow enough for a docked roster, even when names are long. */
+      /* One compact header plus a separate frequency row. Keep the VFO strip narrow enough for a docked roster, even when names are long. */
       gtk_label_set_xalign(GTK_LABEL(name), 0.0);
       gtk_label_set_xalign(GTK_LABEL(freq), 0.0);
       gtk_widget_set_halign(freq, GTK_ALIGN_START);
@@ -1191,8 +1190,7 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 0);
 
       if (ptt) {
-         /* Keep the action below the frequency line: a narrow roster must
-          * never put PTT outside the visible pane. */
+         /* Keep the action below the frequency line: a narrow roster must never put PTT outside the visible pane. */
          gtk_box_pack_start(GTK_BOX(content), ptt, FALSE, FALSE, 0);
       } else if (rrclient_room_rx_tuning_mask(entry->room) & (UINT32_C(1) << (vfo - 'A'))) {
          GtkWidget *tune = gtk_button_new_with_label("Tune");
@@ -1270,9 +1268,8 @@ static GtkWidget *userlist_view_create(void) {
    GtkTreeViewColumn *user_col = gtk_tree_view_column_new();
    gtk_tree_view_column_set_title(user_col, "Username");
    g_object_set_data(G_OBJECT(view), "rr-username-renderer", text);
-   /* Show the privilege glyph immediately before the nickname, alongside
-    * the existing @/+ /! name prefixes. Keep the legacy Privs column in the
-    * model/layout index for saved column orders, but never display it. */
+   /* Show the privilege glyph immediately before the nickname, alongside the existing @/+ /! name prefixes. Keep the legacy Privs column in the model/layout
+    * index for saved column orders, but never display it. */
    GtkCellRenderer *inline_priv = gtk_cell_renderer_text_new();
    g_object_set(inline_priv, "xpad", 2, "ypad", 0, "scale", 1.15, NULL);
    gtk_tree_view_column_pack_start(user_col, inline_priv, FALSE);
@@ -1411,11 +1408,9 @@ static void room_userlist_set_width(room_userlist_entry_t *entry, int width) {
    int handle = 0;
    gtk_widget_style_get(GTK_WIDGET(entry->dock_paned), "handle-size", &handle, NULL);
    entry->adjusting_width = true;
-   /* A stale saved width must not consume the entire chat pane or push the
-    * roster header and its PTT controls beyond the visible edge. */
+   /* A stale saved width must not consume the entire chat pane or push the roster header and its PTT controls beyond the visible edge. */
    int available = MAX(0, total - MAX(handle, 0));
-   /* Keep both panes usable at small/zoomed sizes. The old half-width
-    * reservation squeezed the roster to zero as the viewport shrank. */
+   /* Keep both panes usable at small/zoomed sizes. The old half-width reservation squeezed the roster to zero as the viewport shrank. */
    int chat_min = MIN(160, available / 3);
    int maximum = MAX(0, available - chat_min);
    int minimum = MIN(100, maximum);
@@ -1449,18 +1444,24 @@ static gboolean room_userlist_resize_started(GtkWidget *widget, GdkEventButton *
 
 static gboolean room_userlist_resize_finished(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    room_userlist_entry_t *entry = data;
-   if (!entry->dragging_width || !event || event->button != GDK_BUTTON_PRIMARY)
+
+   if (!entry->dragging_width || !event || event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
+   }
    entry->dragging_width = false;
+
    if (entry->resize_idle_id) {
       g_source_remove(entry->resize_idle_id);
       entry->resize_idle_id = 0;
    }
    int handle = 0;
    gtk_widget_style_get(widget, "handle-size", &handle, NULL);
-   int width = gtk_widget_get_allocated_width(widget) - MAX(handle, 0) -
-      gtk_paned_get_position(GTK_PANED(widget));
-   if (width > 0) userlist_layout_save(entry->view, "dock-width", width);
+   int width = gtk_widget_get_allocated_width(widget) - MAX(handle, 0) - gtk_paned_get_position(GTK_PANED(widget));
+
+   if (width > 0) {
+      userlist_layout_save(entry->view, "dock-width", width);
+   }
+
    return FALSE;
 }
 
@@ -1524,56 +1525,65 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
    gtk_widget_style_get(GTK_WIDGET(paned), "handle-size", &handle, NULL);
    int width = gtk_widget_get_allocated_width(GTK_WIDGET(paned)) - handle - gtk_paned_get_position(paned);
 
-   /* Position notifications also occur when GTK clamps the divider during
-    * zoom. Never persist those transient widths as a manual preference.
-    * Only button-release commits a user-selected width. */
+   /* Position notifications also occur when GTK clamps the divider during zoom. Never persist those transient widths as a manual preference. Only
+    * button-release commits a user-selected width. */
    (void)width;
    (void)entry;
 }
 
-/* Reapply after GTK has finished the allocation pass. Setting a paned
- * position from size-allocate may be overridden by the same pass and can
- * strand the second child at zero width until the next window resize. */
+/* Reapply after GTK has finished the allocation pass. Setting a paned position from size-allocate may be overridden by the same pass and can strand the second
+ * child at zero width until the next window resize. */
 static gboolean room_userlist_restore_width_idle(gpointer data) {
    room_userlist_entry_t *entry = data;
    entry->resize_idle_id = 0;
-   if (!entry->docked || entry->dragging_width || !entry->dock_paned ||
-       !gtk_widget_get_mapped(GTK_WIDGET(entry->dock_paned)))
+
+   if (!entry->docked || entry->dragging_width || !entry->dock_paned || !gtk_widget_get_mapped(GTK_WIDGET(entry->dock_paned))) {
       return G_SOURCE_REMOVE;
+   }
    int total = gtk_widget_get_allocated_width(GTK_WIDGET(entry->dock_paned));
-   if (total > 1)
+
+   if (total > 1) {
       room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
+   }
+
    return G_SOURCE_REMOVE;
 }
 
-/* Zoom can collapse GtkPaned's second child without changing the paned
- * allocation (font-size and child requisitions changed instead). A width-
+/* Zoom can collapse GtkPaned's second child without changing the paned allocation (font-size and child requisitions changed instead). A width-
  * change-only callback will never fire to recover it. Check the *actual*
- * roster allocation, and only intervene when it has collapsed unintentionally.
- * Manual widths are >= 100px and are never changed by this watchdog. */
+ * roster allocation, and only intervene when it has collapsed unintentionally. Manual widths are >= 100px and are never changed by this watchdog. */
 static gboolean room_userlist_resize_watch(gpointer data) {
    room_userlist_entry_t *entry = data;
-   if (!entry->docked || entry->dragging_width || !entry->dock_paned ||
-       !entry->panel || !gtk_widget_get_mapped(GTK_WIDGET(entry->dock_paned)))
+
+   if (!entry->docked || entry->dragging_width || !entry->dock_paned || !entry->panel || !gtk_widget_get_mapped(GTK_WIDGET(entry->dock_paned))) {
       return G_SOURCE_CONTINUE;
+   }
    int total = gtk_widget_get_allocated_width(GTK_WIDGET(entry->dock_paned));
    int actual = gtk_widget_get_allocated_width(entry->panel);
-   if (total >= 320 && actual < 80 && !entry->resize_idle_id)
+
+   if (total >= 320 && actual < 80 && !entry->resize_idle_id) {
       entry->resize_idle_id = g_idle_add(room_userlist_restore_width_idle, entry);
+   }
+
    return G_SOURCE_CONTINUE;
 }
 
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
-   if (!entry->docked || entry->dragging_width || allocation->width <= 1)
+
+   if (!entry->docked || entry->dragging_width || allocation->width <= 1) {
       return;
-   if (allocation->width == entry->last_paned_width &&
-       g_object_get_data(G_OBJECT(widget), "rr-roster-sized"))
+   }
+
+   if (allocation->width == entry->last_paned_width && g_object_get_data(G_OBJECT(widget), "rr-roster-sized")) {
       return;
+   }
    entry->last_paned_width = allocation->width;
    g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
-   if (!entry->resize_idle_id)
+
+   if (!entry->resize_idle_id) {
       entry->resize_idle_id = g_idle_add(room_userlist_restore_width_idle, entry);
+   }
 }
 
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
@@ -1765,10 +1775,12 @@ void userlist_remove_room_view(const char *room) {
       if (entry->refresh_id) {
          g_source_remove(entry->refresh_id);
       }
+
       if (entry->resize_idle_id) {
          g_source_remove(entry->resize_idle_id);
          entry->resize_idle_id = 0;
       }
+
       if (entry->resize_watch_id) {
          g_source_remove(entry->resize_watch_id);
          entry->resize_watch_id = 0;

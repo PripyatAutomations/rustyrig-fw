@@ -250,12 +250,16 @@ static void tx_trace(const char *stage, const char *uuid, const char *room, unsi
    static unsigned observed;
    observed++;
    gint64 at = g_get_monotonic_time();
-   if (last_log && at - last_log < 5 * G_USEC_PER_SEC) return;
-   Log(LOG_INFO, "relay.media", "TX %s: channel=%s room=%s stream=%u owner_stream=%u bytes=%zu frames_since_last=%u",
-      stage, uuid ? uuid : "?", room ? room : "?", source, target, bytes, observed);
+
+   if (last_log && at - last_log < 5 * G_USEC_PER_SEC) {
+      return;
+   }
+   Log(LOG_INFO, "relay.media", "TX %s: channel=%s room=%s stream=%u owner_stream=%u bytes=%zu frames_since_last=%u", stage, uuid ? uuid : "?", room ? room :
+      "?", source, target, bytes, observed);
    observed = 0;
    last_log = at;
 }
+
 /* Translate and forward incoming client media for a remote owner. */
 void rr_relay_media_incoming(const char *event, const void *data, size_t length, rrconn_t *client, void *user) {
    if (length != sizeof(rr_media_binary_t) || rr_relay_applying || rr_relay_remote_for(client)) {
@@ -276,6 +280,7 @@ void rr_relay_media_incoming(const char *event, const void *data, size_t length,
 
       if (!m->subscribed || m->direction != RR_BINFRAME_DIR_TX || !ws_client_in_room(client, m->room) || !client->user) {
          tx_trace("blocked (subscription/direction/room/user)", m->uuid, m->room, frame.hdr.stream, m->owner_stream, io->length);
+
          return;
       }
       struct relay_client *origin = rr_relay_client_for(client, false);

@@ -462,37 +462,39 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
    gtk_widget_show_all(flow);
 }
 
-/* A scrolled window doesn't implement the flow box's height-for-width
- * requisition. Size the tab viewport from the actual wrapping height instead
- * of reserving the whole strip's unconstrained natural height. */
+/* A scrolled window doesn't implement the flow box's height-for-width requisition. Size the tab viewport from the actual wrapping height instead of reserving
+ * the whole strip's unconstrained natural height. */
 static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocation, GtkWidget *viewport) {
    GtkWidget *flow = g_object_get_data(G_OBJECT(viewport), "rr-tab-flow");
-   if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
+
+   if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) {
+      return;
+   }
 
    gint minimum = 0, natural = 0;
    /* Leave room for scrollbar chrome and GTK rounding at the last tab. */
    gint wrap_width = MAX(1, allocation->width - gtk_widget_get_margin_end(flow) - 12);
    gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
-   /* Leave room for the notebook contents, even with many open tabs.
-    * Additional rows remain accessible via the viewport's scrollbar. */
+   /* Leave room for the notebook contents, even with many open tabs. Additional rows remain accessible via the viewport's scrollbar. */
    gint ceiling = MAX(32, allocation->height - 160);
    gint wanted = CLAMP(natural, 32, ceiling);
+
    if (GPOINTER_TO_INT(g_object_get_data(G_OBJECT(viewport), "rr-tab-viewport-height")) != wanted) {
       g_object_set_data(G_OBJECT(viewport), "rr-tab-viewport-height", GINT_TO_POINTER(wanted));
       gtk_widget_set_size_request(viewport, -1, wanted);
    }
 }
 
-/* Catch notebook-wide width pressure (often from an inactive page), rather
- * than masking it as a chat scroll or userlist divider problem. */
+/* Catch notebook-wide width pressure (often from an inactive page), rather than masking it as a chat scroll or userlist divider problem. */
 static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    GtkWidget *viewport = GTK_WIDGET(data);
    int visible = gtk_widget_get_allocated_width(viewport);
    static int previous_excess = -1;
    int excess = allocation->width - visible;
+
    if (visible > 1 && excess > 8 && excess != previous_excess) {
-      g_warning("gtk.tabs: notebook exceeds visible page viewport by %d px (notebook=%d viewport=%d); page minimum width needs correction",
-         excess, allocation->width, visible);
+      g_warning("gtk.tabs: notebook exceeds visible page viewport by %d px (notebook=%d viewport=%d); page minimum width needs correction", excess, allocation->
+         width, visible);
       previous_excess = excess;
    } else if (excess <= 8) {
       previous_excess = -1;
@@ -502,8 +504,10 @@ static void tabs_page_width_diagnostic(GtkWidget *widget, GtkAllocation *allocat
 static void tabs_keep_page_left(GtkAdjustment *adjustment, gpointer unused) {
    (void)unused;
    double left = gtk_adjustment_get_lower(adjustment);
-   if (gtk_adjustment_get_value(adjustment) != left)
+
+   if (gtk_adjustment_get_value(adjustment) != left) {
       gtk_adjustment_set_value(adjustment, left);
+   }
 }
 
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position) {
@@ -525,13 +529,10 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    g_object_set_data(G_OBJECT(notebook), "rr-floating-tab-strip", flow);
    gtk_widget_set_hexpand(flow, TRUE);
    gtk_widget_set_halign(flow, GTK_ALIGN_FILL);
-   /* Reserve actual allocation space, not merely a narrower height estimate.
-    * Otherwise the final tab may be laid out beyond the viewport edge. */
+   /* Reserve actual allocation space, not merely a narrower height estimate. Otherwise the final tab may be laid out beyond the viewport edge. */
    gtk_widget_set_margin_end(flow, 32);
-   /* GtkFlowBox's minimum width grows with its children when it is packed
-    * directly in a vbox. Give it a viewport of the allocated width so it
-    * wraps rows instead of widening the notebook and pushing chat controls
-    * off the right edge. */
+   /* GtkFlowBox's minimum width grows with its children when it is packed directly in a vbox. Give it a viewport of the allocated width so it wraps rows
+    * instead of widening the notebook and pushing chat controls off the right edge. */
    GtkWidget *tab_scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tab_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
@@ -560,24 +561,19 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    if (position == GTK_POS_TOP) {
       gtk_box_pack_start(GTK_BOX(box), tab_scroll, FALSE, FALSE, 0);
    }
-   /* The tab strip must use the actual window width, never the natural
-    * width of a particularly wide notebook page. Only the page area gets
-    * a constrained viewport; tab buttons continue to wrap normally. */
+   /* The tab strip must use the actual window width, never the natural width of a particularly wide notebook page. Only the page area gets a constrained
+    * viewport; tab buttons continue to wrap normally. */
    GtkWidget *page_viewport = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport),
-      GTK_POLICY_NEVER, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_viewport), GTK_POLICY_NEVER, GTK_POLICY_NEVER);
    gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(page_viewport), FALSE);
    gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(page_viewport), 1);
    gtk_widget_set_hexpand(page_viewport, TRUE);
    gtk_widget_set_halign(page_viewport, GTK_ALIGN_FILL);
    gtk_widget_set_vexpand(page_viewport, TRUE);
-   /* Never offer horizontal panning of the entire notebook. Oversized leaf
-    * pages must manage their own width and scrolling. */
-   g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(page_viewport)),
-      "value-changed", G_CALLBACK(tabs_keep_page_left), NULL);
-   /* GtkNotebook's preferred width is the largest request of *all* pages,
-    * including inactive resource views. Prevent that requisition from setting
-    * a large minimum for the room/chat layout. */
+   /* Never offer horizontal panning of the entire notebook. Oversized leaf pages must manage their own width and scrolling. */
+   g_signal_connect(gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(page_viewport)), "value-changed", G_CALLBACK(tabs_keep_page_left), NULL);
+   /* GtkNotebook's preferred width is the largest request of *all* pages, including inactive resource views. Prevent that requisition from setting a large
+    * minimum for the room/chat layout. */
    gtk_widget_set_size_request(GTK_WIDGET(notebook), 1, -1);
    gtk_widget_set_hexpand(GTK_WIDGET(notebook), TRUE);
    gtk_widget_set_halign(GTK_WIDGET(notebook), GTK_ALIGN_FILL);

@@ -365,8 +365,7 @@ static void route_request(const char *event, const void *data, size_t length, rr
    io->result = true;
 }
 
-/* A link is catalog-ready only after both snapshot directions complete.
- * This is a neighbor-sync condition, not an end-to-end cluster quorum. */
+/* A link is catalog-ready only after both snapshot directions complete. This is a neighbor-sync condition, not an end-to-end cluster quorum. */
 typedef struct {
    gboolean inbound_ok, outbound_ok, announced;
    gint64 linked_at;
@@ -375,32 +374,46 @@ static GHashTable *relay_sync_health;
 static size_t last_healthy_catalog_count;
 static bool have_healthy_catalog_count;
 static relay_sync_health_t *relay_sync_peer(const char *node) {
-   if (!node || !*node) return NULL;
-   if (!relay_sync_health)
+   if (!node || !*node) {
+      return NULL;
+   }
+
+   if (!relay_sync_health) {
       relay_sync_health = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   }
    relay_sync_health_t *p = g_hash_table_lookup(relay_sync_health, node);
+
    if (!p) {
       p = g_new0(relay_sync_health_t, 1);
       p->linked_at = g_get_monotonic_time();
       g_hash_table_insert(relay_sync_health, g_strdup(node), p);
    }
+
    return p;
 }
 void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
    relay_sync_health_t *p = relay_sync_peer(node);
-   if (!p) return;
-   if (inbound) p->inbound_ok = complete;
-   else p->outbound_ok = complete;
-   if (!complete) p->announced = FALSE;
+
+   if (!p) {
+      return;
+   }
+
+   if (inbound) {
+      p->inbound_ok = complete;
+   } else {
+      p->outbound_ok = complete;
+   }
+
+   if (!complete) {
+      p->announced = FALSE;
+   }
+
    if (p->inbound_ok && p->outbound_ok && !p->announced) {
       char label[192];
-      Log(LOG_INFO, "relay.health",
-         "Peer synchronized and healthy: node=%s bidirectional_catalog=complete elapsed=%.3f s",
-         rrserver_links_format_node(node, label, sizeof(label)),
-         (double)(g_get_monotonic_time() - p->linked_at) / G_USEC_PER_SEC);
+      Log(LOG_INFO, "relay.health", "Peer synchronized and healthy: node=%s bidirectional_catalog=complete elapsed=%.3f s", rrserver_links_format_node(node,
+         label, sizeof(label)), (double)(g_get_monotonic_time() - p->linked_at) / G_USEC_PER_SEC);
       p->announced = TRUE;
-      /* This reports local direct-neighbor convergence, not network-wide
-       * reachability or an application-health quorum. */
+      /* This reports local direct-neighbor convergence, not network-wide reachability or an application-health quorum. */
       GHashTableIter peers;
       gpointer key, value;
       guint total = 0, healthy = 0;
@@ -408,10 +421,15 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
       while (g_hash_table_iter_next(&peers, &key, &value)) {
          relay_sync_health_t *peer = value;
          total++;
-         if (peer->inbound_ok && peer->outbound_ok) healthy++;
+
+         if (peer->inbound_ok && peer->outbound_ok) {
+            healthy++;
+         }
       }
+
       if (total && healthy == total) {
          size_t current = rr_relay_catalog_count;
+
          if (have_healthy_catalog_count) {
             size_t gained = current > last_healthy_catalog_count ? current - last_healthy_catalog_count : 0;
             size_t lost = current < last_healthy_catalog_count ? last_healthy_catalog_count - current : 0;
@@ -428,6 +446,7 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
       }
    }
 }
+
 /* Direct-neighbor catalog synchronization accounting; bounded by the active snapshot IDs and cleared when its end marker is processed. */
 typedef struct {
    char *origin;
@@ -471,11 +490,9 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
             if (now - old->started > 60 * G_USEC_PER_SEC) {
                char origin_label[192];
-               Log(LOG_WARN, "relay.catalog",
-                  "RX timeout: sync=%s source=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f s",
-                  (char *)key, rrserver_links_format_node(old->origin, origin_label, sizeof(origin_label)),
-                  old->received, old->expected, old->accepted, old->rejected,
-                  (unsigned long long)old->bytes, (double)(now - old->started) / G_USEC_PER_SEC);
+               Log(LOG_WARN, "relay.catalog", "RX timeout: sync=%s source=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f s", (char *)key,
+                  rrserver_links_format_node(old->origin, origin_label, sizeof(origin_label)), old->received, old->expected, old->accepted, old->rejected, (
+                     unsigned long long)old->bytes, (double)(now - old->started) / G_USEC_PER_SEC);
                g_hash_table_iter_remove(&iter);
             }
          }
@@ -484,18 +501,18 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          r->origin = g_strdup(origin);
          r->expected = (guint) dict_get_ulong(d, "catalog.expected", 0);
          r->last_progress = now;
-         /* A new inbound snapshot invalidates previous convergence until its
-          * end marker confirms all descriptors. */
+         /* A new inbound snapshot invalidates previous convergence until its end marker confirms all descriptors. */
          rr_relay_sync_status(origin, true, false);
          catalog_receive_t *previous = g_hash_table_lookup(catalog_receives, id);
-         if (previous)
-            Log(LOG_WARN, "relay.catalog", "RX superseded: sync=%s received=%u/%u elapsed=%.1f s",
-               id, previous->received, previous->expected,
-               (double)(now - previous->started) / G_USEC_PER_SEC);
+
+         if (previous) {
+            Log(LOG_WARN, "relay.catalog", "RX superseded: sync=%s received=%u/%u elapsed=%.1f s", id, previous->received, previous->expected, (double)(now -
+               previous->started) / G_USEC_PER_SEC);
+         }
          g_hash_table_replace(catalog_receives, g_strdup(id), r);
          char source_label[192];
-         Log(LOG_INFO, "relay.catalog", "RX begin: sync=%s source=%s expected=%u",
-            id, rrserver_links_format_node(origin, source_label, sizeof(source_label)), r->expected);
+         Log(LOG_INFO, "relay.catalog", "RX begin: sync=%s source=%s expected=%u", id, rrserver_links_format_node(origin, source_label, sizeof(source_label)), r
+            ->expected);
       }
       goto done;
    }
@@ -524,19 +541,18 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             char finished_source[192];
             Log(r->received == r->expected && !r->rejected ? LOG_INFO : LOG_WARN, "relay.catalog",
                "RX finished: sync=%s via=%s status=%s synchronized=%u/%u (%.1f%%) missing=%u rejected=%u accepted=%u bytes=%llu elapsed=%.1f ms rate=%.1f entries/s apply=%.1f ms apply_max=%.1f ms",
-               id, rrserver_links_format_node(origin, finished_source, sizeof(finished_source)),
-               r->received != r->expected ? "incomplete" : r->rejected ? "partial" : "complete",
-               r->received, r->expected, r->expected ? 100.0 * r->received / r->expected : 100.0,
-               r->expected > r->received ? r->expected - r->received : 0, r->rejected, r->accepted,
-               (unsigned long long)r->bytes, elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 / elapsed_ms : 0.0,
-               (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
+               id, rrserver_links_format_node(origin, finished_source, sizeof(finished_source)), r->received != r->expected ? "incomplete" : r->rejected ?
+               "partial" : "complete", r->received, r->expected, r->expected ? 100.0 * r->received / r->expected : 100.0, r->expected > r->received ? r->
+               expected - r->received : 0, r->rejected, r->accepted, (unsigned long long)r->bytes, elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 /
+               elapsed_ms : 0.0, (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
             rr_relay_sync_status(origin, true, r->received == r->expected && r->rejected == 0);
+
             if (r->received != r->expected) {
                char origin_label[192];
                Log(LOG_WARN, "relay.catalog",
                   "Catalog sync incomplete: peer=%s sync=%s missing=%u descriptors (%u/%u received); check relay routing, dropped/filtered catalog packets and peer logs for this sync ID",
-                  rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id,
-                  r->expected > r->received ? r->expected - r->received : 0, r->received, r->expected);
+                  rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id, r->expected > r->received ? r->expected - r->received : 0, r->
+                  received, r->expected);
             }
             char *json = dict2json(stats);
             dict_free(stats);
@@ -564,15 +580,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       /* Compare actual wall clock time, not the event-loop cached 'now'. Allow a small clock-skew margin between linked hosts. */
       time_t received_at = time(NULL);
       long long clock_offset = 0;
-      /* A forwarded request carries its original sender's timestamp.
-       * Never apply the intermediate hub's clock offset to another node. */
-      bool compensated = rrserver_links_route(origin) &&
-         !strcmp(rrserver_links_route(origin), origin) &&
-         rrserver_links_clock_offset(origin, &clock_offset);
+      /* A forwarded request carries its original sender's timestamp. Never apply the intermediate hub's clock offset to another node. */
+      bool compensated = rrserver_links_route(origin) && !strcmp(rrserver_links_route(origin), origin) && rrserver_links_clock_offset(origin, &clock_offset);
       long long adjusted_deadline = (long long)deadline - (compensated ? clock_offset : 0);
 
-      if (!deadline || adjusted_deadline < (long long)received_at - 5 ||
-          adjusted_deadline > (long long)received_at + 35) {
+      if (!deadline || adjusted_deadline < (long long)received_at - 5 || adjusted_deadline > (long long)received_at + 35) {
          dict *error = dict_new();
 
          if (error) {
@@ -588,11 +600,11 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                "Remote %.24s.%.24s%s%.160s to node %s rejected: %s (deadline=%lld, receiver=%lld; check linked-server clocks and relay latency)", family,
                operation, *target ? " for " : "", *target ? target : "", rrserver_links_format_node(dest, dest_label, sizeof(dest_label)), !deadline ?
                "missing request deadline" :
-               adjusted_deadline < (long long)received_at - 5 ? "request deadline passed" : "request deadline too far in the future", (long long)deadline, (long long)received_at);
+               adjusted_deadline < (long long)received_at - 5 ? "request deadline passed" : "request deadline too far in the future", (long long)deadline, (long
+                  long)received_at);
             char origin_label[192];
-            Log(LOG_WARN, "relay", "%s; origin %s; clock_compensation=%s offset=%+llds adjusted_deadline=%lld", reason,
-               rrserver_links_format_node(origin, origin_label, sizeof(origin_label)),
-               compensated ? "yes" : "no", compensated ? clock_offset : 0, adjusted_deadline);
+            Log(LOG_WARN, "relay", "%s; origin %s; clock_compensation=%s offset=%+llds adjusted_deadline=%lld", reason, rrserver_links_format_node(origin,
+               origin_label, sizeof(origin_label)), compensated ? "yes" : "no", compensated ? clock_offset : 0, adjusted_deadline);
             dict_add(error, "msg.type", "error");
             dict_add(error, "error.msg", reason);
             rr_relay_packet(origin, "reply", id, NULL, error);
@@ -647,24 +659,30 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       if (!strcmp(kind, "catalog")) {
          catalog_receive_t *sync = (*id && catalog_receives) ? g_hash_table_lookup(catalog_receives, id) : NULL;
 
-         /* Descriptors retain their owning node as envelope origin. A
-          * direct neighbor can legitimately send many downstream owners in
-          * one snapshot. Count them if their current route is that neighbor,
-          * never only when origin == neighbor. */
+         /* Descriptors retain their owning node as envelope origin. A direct neighbor can legitimately send many downstream owners in one snapshot. Count them
+          * if their current route is that neighbor, never only when origin == neighbor. */
          const char *via = rrserver_links_route(origin);
-         if (sync && (!via || strcmp(via, sync->origin))) sync = NULL;
+
+         if (sync && (!via || strcmp(via, sync->origin))) {
+            sync = NULL;
+         }
          size_t payload_bytes = strlen(dict_get(envelope, "payload", ""));
          gint64 apply_started = g_get_monotonic_time();
+
          if (sync) {
             sync->received++;
             sync->bytes += payload_bytes;
          }
          enum rr_catalog_reject reject_reason = RR_CAT_OK;
          bool accepted = rr_relay_catalog_put_reason(origin, d, &reject_reason);
-         guint64 apply_us = (guint64)(g_get_monotonic_time() - apply_started);
+         guint64 apply_us = (guint64) (g_get_monotonic_time() - apply_started);
+
          if (sync) {
             sync->apply_us += apply_us;
-            if (apply_us > sync->apply_max_us) sync->apply_max_us = apply_us;
+
+            if (apply_us > sync->apply_max_us) {
+               sync->apply_max_us = apply_us;
+            }
          }
 #ifdef USE_PROFILING
          rr_relay_catalog_profile_receive(d, accepted, reject_reason, (long long)apply_us, payload_bytes);
@@ -672,13 +690,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
          if (sync) {
             gint64 at = g_get_monotonic_time();
+
             if (at - sync->last_progress >= 5 * G_USEC_PER_SEC) {
-               Log(LOG_INFO, "relay.catalog",
-                  "RX progress: sync=%s source=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f s",
-                  id, origin, sync->received, sync->expected, sync->accepted, sync->rejected,
-                  (unsigned long long)sync->bytes, (double)(at - sync->started) / G_USEC_PER_SEC);
+               Log(LOG_INFO, "relay.catalog", "RX progress: sync=%s source=%s received=%u/%u accepted=%u rejected=%u bytes=%llu elapsed=%.1f s", id, origin,
+                  sync->received, sync->expected, sync->accepted, sync->rejected, (unsigned long long)sync->bytes, (double)(at - sync->started) / G_USEC_PER_SEC
+                  );
                sync->last_progress = at;
             }
+
             if (accepted) {
                sync->accepted++;
             } else {
@@ -807,9 +826,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                      dict_del(d, "media.direct-ssrc");
                      dict_del(d, "media.direct-security");
                      dict_add(d, "media.transport", "ws");
+
                      if (!rrserver_direct_relay_grant(c->client, d, m->stream, m->direction)) {
-                        Log(LOG_WARN, "relay.media", "Home RTP referral unavailable: room=%s channel=%s direction=%u stream=%u (client will use proxy)",
-                           m->room, m->uuid, m->direction, m->stream);
+                        Log(LOG_WARN, "relay.media", "Home RTP referral unavailable: room=%s channel=%s direction=%u stream=%u (client will use proxy)", m->room
+                           , m->uuid, m->direction, m->stream);
                      }
                   }
                } else if (!strcmp(media_cmd, "unsubscribed") || !strcmp(media_cmd, "chan-remove")) {
@@ -891,8 +911,8 @@ static void ready(const char *event, const char *node, rrconn_t *client, void *u
       g_hash_table_remove(relay_sync_health ? relay_sync_health : (relay_sync_health = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free)), node);
       relay_sync_peer(node);
       char label[192];
-      Log(LOG_INFO, "relay.health", "Link connected: peer=%s; exchanging catalogs (not yet synchronized)",
-         rrserver_links_format_node(node, label, sizeof(label)));
+      Log(LOG_INFO, "relay.health", "Link connected: peer=%s; exchanging catalogs (not yet synchronized)", rrserver_links_format_node(node, label, sizeof(label)
+         ));
    }
    rr_relay_collect_local();
    rr_relay_users_poll(true);
@@ -954,11 +974,13 @@ extern void rr_relay_catalog_peer_lost(const char *node);
 /* Remove discovery and session state made unreachable by a lost link. */
 static void lost(const char *event, const char *node, rrconn_t *client, void *user) {
    if (node && *node) {
-      /* server.link.lost is also emitted for withdrawals of nodes behind
-       * another server. Only ready() creates direct-peer health entries. */
-      gboolean direct_peer = relay_sync_health &&
-         g_hash_table_contains(relay_sync_health, node);
-      if (direct_peer) rr_relay_catalog_peer_lost(node);
+      /* server.link.lost is also emitted for withdrawals of nodes behind another server. Only ready() creates direct-peer health entries. */
+      gboolean direct_peer = relay_sync_health && g_hash_table_contains(relay_sync_health, node);
+
+      if (direct_peer) {
+         rr_relay_catalog_peer_lost(node);
+      }
+
       /* Do not retain abandoned receive sessions across link generations:
        * a late timeout must not recreate a disconnected peer's health state. */
       if (catalog_receives) {
@@ -967,25 +989,27 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
          g_hash_table_iter_init(&iter, catalog_receives);
          while (g_hash_table_iter_next(&iter, &key, &value)) {
             catalog_receive_t *r = value;
-            if (strcmp(r->origin, node)) continue;
-            Log(LOG_WARN, "relay.catalog",
-               "RX interrupted by link loss: sync=%s received=%u/%u missing=%u; discarded partial snapshot",
-               (char *)key, r->received, r->expected,
-               r->expected > r->received ? r->expected - r->received : 0);
+
+            if (strcmp(r->origin, node)) {
+               continue;
+            }
+            Log(LOG_WARN, "relay.catalog", "RX interrupted by link loss: sync=%s received=%u/%u missing=%u; discarded partial snapshot", (char *)key, r->
+               received, r->expected, r->expected > r->received ? r->expected - r->received : 0);
             g_hash_table_iter_remove(&iter);
          }
       }
+
       if (direct_peer) {
          g_hash_table_remove(relay_sync_health, node);
          char label[192];
-         Log(LOG_WARN, "relay.health", "Direct link lost: peer=%s; catalog synchronization no longer healthy",
-            rrserver_links_format_node(node, label, sizeof(label)));
+         Log(LOG_WARN, "relay.health", "Direct link lost: peer=%s; catalog synchronization no longer healthy", rrserver_links_format_node(node, label, sizeof(
+            label)));
       } else {
          char label[192];
-         Log(LOG_INFO, "relay.health", "Remote node withdrawn: node=%s; direct peer links unaffected",
-            rrserver_links_format_node(node, label, sizeof(label)));
+         Log(LOG_INFO, "relay.health", "Remote node withdrawn: node=%s; direct peer links unaffected", rrserver_links_format_node(node, label, sizeof(label)));
       }
    }
+
    for (struct relay_client *local = rr_relay_clients ; local ; local = local->next) {
       for (struct wanted_room *w = local->wanted ; w ; w = w->next) {
          if (!rrserver_links_route(w->owner)) {
@@ -1043,9 +1067,8 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
          dp = &entry->next;
       }
    }
-   /* The link tree has already removed the withdrawn node and every
-    * descendant. Purge only catalog owners no longer reachable; do not
-    * invalidate or re-snapshot unrelated branches. */
+   /* The link tree has already removed the withdrawn node and every descendant. Purge only catalog owners no longer reachable; do not invalidate or re-snapshot
+    * unrelated branches. */
    unsigned removed_catalogs = 0;
    struct catalog **cp = &rr_relay_catalogs;
    while (*cp) {
@@ -1071,7 +1094,8 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
                   dict_free(state);
                }
                rr_relay_update_membership(local->client, room, false);
-               ws_send_error(local->client, "Owner of room %s disconnected; remote subscriptions are unavailable until the owner reconnects and synchronization completes", room);
+               ws_send_error(local->client,
+                  "Owner of room %s disconnected; remote subscriptions are unavailable until the owner reconnects and synchronization completes", room);
             }
          }
       }
@@ -1094,12 +1118,12 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
       rr_relay_catalog_count--;
       removed_catalogs++;
    }
+
    if (removed_catalogs) {
       char label[192];
       Log(LOG_INFO, "relay.catalog",
          "Topology withdrawal %s: purged %u unreachable catalog descriptors; %zu remain (%zu total before withdrawal); unaffected branches retained, no full resync",
-         rrserver_links_format_node(node, label, sizeof(label)), removed_catalogs,
-         rr_relay_catalog_count, rr_relay_catalog_count + removed_catalogs);
+         rrserver_links_format_node(node, label, sizeof(label)), removed_catalogs, rr_relay_catalog_count, rr_relay_catalog_count + removed_catalogs);
    }
 }
 
@@ -1116,10 +1140,8 @@ static void retry_remote_ptt(struct remote_session *r, uint64_t at) {
    }
    Log(LOG_WARN, "relay.ptt",
       "Releasing remote PTT: user=%s room=%s direct_tx=unavailable proxy_subscribed=%s proxy_audio_age_ms=%lld proxy_started_age_ms=%lld (3s audio liveness limit)",
-      r->client.chatname, r->client.ptt_room,
-      rr_relay_proxy_tx_subscribed(r, r->client.ptt_room) ? "yes" : "no",
-      r->proxy_frame && at >= r->proxy_frame ? (long long)((at - r->proxy_frame) / 1000) : -1LL,
-      r->proxy_started && at >= r->proxy_started ? (long long)((at - r->proxy_started) / 1000) : -1LL);
+      r->client.chatname, r->client.ptt_room, rr_relay_proxy_tx_subscribed(r, r->client.ptt_room) ? "yes" : "no", r->proxy_frame && at >= r->proxy_frame ? (long
+         long)((at - r->proxy_frame) / 1000) : -1LL, r->proxy_started && at >= r->proxy_started ? (long long)((at - r->proxy_started) / 1000) : -1LL);
    ws_release_ptt_on_disconnect(&r->client);
    r->release_retry = r->client.is_ptt ? at + UINT64_C(1000000) : 0;
 }
@@ -1129,8 +1151,7 @@ extern void rr_relay_catalog_pump(void);
 void rrserver_relay_poll(void) {
    rr_relay_catalog_pump();
 
-   /* Expire incomplete snapshots even if no new catalog-begin arrives.
-    * This also bounds memory retained after interrupted transfers. */
+   /* Expire incomplete snapshots even if no new catalog-begin arrives. This also bounds memory retained after interrupted transfers. */
    if (catalog_receives) {
       gint64 at = g_get_monotonic_time();
       GHashTableIter iter;
@@ -1138,13 +1159,15 @@ void rrserver_relay_poll(void) {
       g_hash_table_iter_init(&iter, catalog_receives);
       while (g_hash_table_iter_next(&iter, &key, &value)) {
          catalog_receive_t *r = value;
-         if (at - r->started < 60 * G_USEC_PER_SEC) continue;
+
+         if (at - r->started < 60 * G_USEC_PER_SEC) {
+            continue;
+         }
          char label[192];
          Log(LOG_WARN, "relay.catalog",
-            "RX expired: sync=%s source=%s synchronized=%u/%u missing=%u accepted=%u rejected=%u elapsed=%.1f s; no end marker received",
-            (char *)key, rrserver_links_format_node(r->origin, label, sizeof(label)),
-            r->received, r->expected, r->expected > r->received ? r->expected - r->received : 0,
-            r->accepted, r->rejected, (double)(at - r->started) / G_USEC_PER_SEC);
+            "RX expired: sync=%s source=%s synchronized=%u/%u missing=%u accepted=%u rejected=%u elapsed=%.1f s; no end marker received", (char *)key,
+            rrserver_links_format_node(r->origin, label, sizeof(label)), r->received, r->expected, r->expected > r->received ? r->expected - r->received : 0, r
+            ->accepted, r->rejected, (double)(at - r->started) / G_USEC_PER_SEC);
          rr_relay_sync_status(r->origin, true, false);
          g_hash_table_iter_remove(&iter);
       }
@@ -1277,10 +1300,12 @@ void rrserver_relay_fini(void) {
       rr_relay_subscriptions = s->next;
       free(s);
    }
+
    if (catalog_receives) {
       g_hash_table_destroy(catalog_receives);
       catalog_receives = NULL;
    }
+
    if (relay_sync_health) {
       g_hash_table_destroy(relay_sync_health);
       relay_sync_health = NULL;
