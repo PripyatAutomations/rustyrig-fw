@@ -452,9 +452,6 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_drag_dest_set(button, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
       g_signal_connect(button, "drag-data-get", G_CALLBACK(tab_drag_data_get), NULL);
       g_signal_connect_object(button, "drag-data-received", G_CALLBACK(tab_drag_received), notebook, 0);
-      /* FlowBox columns may be wider than their tab. Never stretch a button
-       * to fill a wide column; preserve its compact natural width. */
-      gtk_widget_set_halign(button, GTK_ALIGN_START);
       gtk_container_add(GTK_CONTAINER(flow), button);
       gtk_widget_set_can_focus(gtk_widget_get_parent(button), FALSE);
    }
@@ -473,9 +470,8 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
    if (!GTK_IS_FLOW_BOX(flow) || allocation->width <= 0) return;
 
    gint minimum = 0, natural = 0;
-   /* Height-for-width must not mutate the flow's width request: doing so
-    * feeds the previous allocation back into GTK's next layout pass. */
-   gint wrap_width = MAX(1, allocation->width - 12);
+   /* Leave room for scrollbar chrome and GTK rounding at the last tab. */
+   gint wrap_width = MAX(1, allocation->width - gtk_widget_get_margin_end(flow) - 12);
    gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
    /* Leave room for the notebook contents, even with many open tabs.
     * Additional rows remain accessible via the viewport's scrollbar. */
@@ -528,10 +524,10 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    GtkWidget *flow = gtk_flow_box_new();
    g_object_set_data(G_OBJECT(notebook), "rr-floating-tab-strip", flow);
    gtk_widget_set_hexpand(flow, TRUE);
-   gtk_widget_set_halign(flow, GTK_ALIGN_START);
+   gtk_widget_set_halign(flow, GTK_ALIGN_FILL);
    /* Reserve actual allocation space, not merely a narrower height estimate.
     * Otherwise the final tab may be laid out beyond the viewport edge. */
-   gtk_widget_set_margin_end(flow, 0);
+   gtk_widget_set_margin_end(flow, 32);
    /* GtkFlowBox's minimum width grows with its children when it is packed
     * directly in a vbox. Give it a viewport of the allocated width so it
     * wraps rows instead of widening the notebook and pushing chat controls
