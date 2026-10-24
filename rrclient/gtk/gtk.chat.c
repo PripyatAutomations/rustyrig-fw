@@ -2284,10 +2284,22 @@ bool chat_init(void) {
    gtk_label_set_ellipsize(GTK_LABEL(status_network_label), PANGO_ELLIPSIZE_NONE);
    gtk_widget_set_hexpand(network_row, FALSE);
    gtk_widget_set_margin_end(network_row, 6);
-   /* Keep the network readout flush with the far right of the shared status row,
-    * without allowing its box to claim all the remaining horizontal space. */
+   /* The entire notebook lives inside a non-horizontally-scrollable viewport.
+    * A wide notebook page can therefore push the toolbar's end past the
+    * visible window. Anchor network status to the window-sized overlay
+    * instead, not the potentially oversized scrolled content. */
+   GtkWidget *window_overlay = gtk_bin_get_child(GTK_BIN(main_window));
    gtk_widget_set_halign(network_row, GTK_ALIGN_END);
-   gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
+   gtk_widget_set_valign(network_row, GTK_ALIGN_START);
+   gtk_widget_set_margin_top(network_row, 3);
+   gtk_widget_set_margin_end(network_row, 8);
+   if (GTK_IS_OVERLAY(window_overlay)) {
+      gtk_overlay_add_overlay(GTK_OVERLAY(window_overlay), network_row);
+      gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(window_overlay), network_row, TRUE);
+      gtk_widget_show_all(network_row);
+   } else {
+      gtk_box_pack_end(GTK_BOX(rr_main_toolbar), network_row, FALSE, FALSE, 0);
+   }
    g_object_add_weak_pointer(G_OBJECT(status_network_label), (gpointer *) &status_network_label);
    g_timeout_add_seconds(1, status_network_tick, NULL);
    status_network_tick(NULL);
