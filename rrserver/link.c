@@ -1015,9 +1015,9 @@ static void close_session(struct link_session *session) {
                "use /link open to resume");
          } else if (peer->autoconnect && peer->url[0]) {
             Log(LOG_INFO, "link",
-               "Peer %s [%s] disconnected; randomized autoconnect retry in %u.%03u s (maximum %u s)",
+               "Peer %s [%s] disconnected; randomized autoconnect retry in %u s (maximum %u s)",
                peer->site, peer->section,
-               delay_ms / 1000u, delay_ms % 1000u, peer->retry_seconds);
+               (delay_ms + 999u) / 1000u, peer->retry_seconds);
          }
       }
 
