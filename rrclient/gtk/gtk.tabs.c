@@ -473,7 +473,7 @@ static void tabs_viewport_allocate(GtkWidget *container, GdkRectangle *allocatio
 
    gint minimum = 0, natural = 0;
    /* Leave room for scrollbar chrome and GTK rounding at the last tab. */
-   gint wrap_width = MAX(1, allocation->width - gtk_widget_get_margin_end(flow) - 12);
+   gint wrap_width = MAX(1, allocation->width - gtk_widget_get_margin_end(viewport) - gtk_widget_get_margin_end(flow) - 12);
    gtk_widget_get_preferred_height_for_width(flow, wrap_width, &minimum, &natural);
    /* Leave room for the notebook contents, even with many open tabs. Additional rows remain accessible via the viewport's scrollbar. */
    gint ceiling = MAX(32, allocation->height - 160);
@@ -540,6 +540,8 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(tab_scroll), FALSE);
    gtk_widget_set_size_request(tab_scroll, -1, 32);
    gtk_widget_set_hexpand(tab_scroll, TRUE);
+   /* Keep the tab strip 60px short of the right edge; pages retain full width. */
+   gtk_widget_set_margin_end(tab_scroll, 60);
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
    gtk_widget_set_size_request(flow, 1, -1);
    g_object_set_data(G_OBJECT(tab_scroll), "rr-tab-flow", flow);
