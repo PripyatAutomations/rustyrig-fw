@@ -101,6 +101,7 @@ typedef struct room_userlist_entry {
    bool auto_dock_width;
    bool auto_window_width;
    bool adjusting_width;
+   bool dragging_width;
    int last_paned_width;
    guint refresh_id;
 } room_userlist_entry_t;
@@ -1415,8 +1416,22 @@ static gboolean room_userlist_resize_started(GtkWidget *widget, GdkEventButton *
 
    if (event->window == gtk_paned_get_handle_window(GTK_PANED(widget))) {
       entry->auto_dock_width = false;
+      entry->dragging_width = true;
    }
 
+   return FALSE;
+}
+
+static gboolean room_userlist_resize_finished(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   room_userlist_entry_t *entry = data;
+   if (!entry->dragging_width || !event || event->button != GDK_BUTTON_PRIMARY)
+      return FALSE;
+   entry->dragging_width = false;
+   int handle = 0;
+   gtk_widget_style_get(widget, "handle-size", &handle, NULL);
+   int width = gtk_widget_get_allocated_width(widget) - MAX(handle, 0) -
+      gtk_paned_get_position(GTK_PANED(widget));
+   if (width > 0) userlist_layout_save(entry->view, "dock-width", width);
    return FALSE;
 }
 
@@ -1480,7 +1495,7 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
    gtk_widget_style_get(GTK_WIDGET(paned), "handle-size", &handle, NULL);
    int width = gtk_widget_get_allocated_width(GTK_WIDGET(paned)) - handle - gtk_paned_get_position(paned);
 
-   if (entry->adjusting_width || entry->auto_dock_width) {
+   if (entry->adjusting_width || !entry->dragging_width || entry->auto_dock_width) {
       return;
    }
 
@@ -1492,7 +1507,7 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
 
-   if (!entry->docked || allocation->width <= 1 ||
+   if (!entry->docked || entry->dragging_width || allocation->width <= 1 ||
        allocation->width == entry->last_paned_width) return;
    entry->last_paned_width = allocation->width;
    /* GTK recomputes paned child allocations while zooming. Restore the
@@ -1651,8 +1666,9 @@ void userlist_dock_room_into(GtkPaned *paned, const char *room) {
       entry->refresh_id = g_timeout_add(500, room_vfo_refresh, entry);
    }
    g_signal_connect(entry->dock_button, "clicked", G_CALLBACK(on_room_userlist_dock_clicked), entry);
-   gtk_paned_pack2(paned, panel, TRUE, TRUE);
+   gtk_paned_pack2(paned, panel, FALSE, TRUE);
    g_signal_connect(paned, "button-press-event", G_CALLBACK(room_userlist_resize_started), entry);
+   g_signal_connect(paned, "button-release-event", G_CALLBACK(room_userlist_resize_finished), entry);
    g_signal_connect(paned, "notify::position", G_CALLBACK(room_userlist_position), entry);
    g_signal_connect(paned, "size-allocate", G_CALLBACK(room_userlist_allocate), entry);
    g_hash_table_insert(room_userlist_views, g_strdup(rrclient_window_name(room)), entry);
