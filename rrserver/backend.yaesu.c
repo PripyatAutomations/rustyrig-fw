@@ -892,29 +892,6 @@ static int yaesu_power_slot(rr_mode_t mode) {
       default: return -1;
    }
 }
-static const char *ft891_power_menu(yaesu_state_t *s, rr_vfo_t i) {
-   long freq = s->frequency[i];
-   if (freq <= 0 || freq > 54000000L) return NULL;
-   int slot = yaesu_power_slot(s->mode[i]);
-   if (slot < 0) return NULL;
-   static const char *hf[] = {"1601", "1602", "1603", "1603"};
-   static const char *six[] = {"1604", "1605", "1606", "1606"};
-   return freq >= 50000000L ? six[slot] : hf[slot];
-}
-static bool ft891_power_read(yaesu_state_t *s, const char *id, int *watts) {
-   char command[16], reply[32], prefix[16];
-   snprintf(prefix, sizeof(prefix), "EX%s", id);
-   snprintf(command, sizeof(command), "%s;", prefix);
-   if (!cat(s, command, prefix, reply, sizeof(reply))) return false;
-   size_t n = strlen(prefix);
-   if (strlen(reply) != n + 3) return false;
-   return decimal(reply + n, 3, watts);
-}
-static bool ft891_power_write(yaesu_state_t *s, const char *id, int watts) {
-   char command[24];
-   snprintf(command, sizeof(command), "EX%s%03d;", id, watts);
-   return cat(s, command, NULL, NULL, 0);
-}
 static int yaesu_power_band(yaesu_state_t *s, rr_vfo_t i) {
    long hz = s->frequency[i];
    if (hz <= 0) return -1;
@@ -935,30 +912,22 @@ static int yaesu_power_target(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i) {
 #endif
    return 0;
 }
+/* Both FT-891 and FT-991A support CAT PC for live RF output control.
+ * EX16xx menu parameters are mode/band presets, not the live output command. */
 static bool yaesu_power_read(rr_backend_t *b, yaesu_state_t *s, rr_vfo_t i, int *watts) {
    (void)b;
-   if (s->model_id == 650) {
-      const char *id = ft891_power_menu(s, i);
-      return id && ft891_power_read(s, id, watts);
-   }
-   if (s->model_id == 670) {
-      char reply[24];
-      if (!cat(s, "PC;", "PC", reply, sizeof(reply)) || strlen(reply) != 5) return false;
-      return decimal(reply + 2, 3, watts);
-   }
-   return false;
+   (void)i;
+   if (s->model_id != 650 && s->model_id != 670) return false;
+   char reply[24];
+   if (!cat(s, "PC;", "PC", reply, sizeof(reply)) || strlen(reply) != 5) return false;
+   return decimal(reply + 2, 3, watts);
 }
 static bool yaesu_power_write(yaesu_state_t *s, rr_vfo_t i, int watts) {
-   if (s->model_id == 650) {
-      const char *id = ft891_power_menu(s, i);
-      return id && ft891_power_write(s, id, watts);
-   }
-   if (s->model_id == 670) {
-      char command[16];
-      snprintf(command, sizeof(command), "PC%03d;", watts);
-      return cat(s, command, NULL, NULL, 0);
-   }
-   return false;
+   (void)i;
+   if (s->model_id != 650 && s->model_id != 670) return false;
+   char command[16];
+   snprintf(command, sizeof(command), "PC%03d;", watts);
+   return cat(s, command, NULL, NULL, 0);
 }
 static int yaesu_power_limit(yaesu_state_t *s, rr_vfo_t i) {
    int band = yaesu_power_band(s, i);
