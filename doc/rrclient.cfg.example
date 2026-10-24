@@ -394,7 +394,7 @@ label { font-family: "Sans"; font-size: 11pt; }
 \#log-view { font-family: "Monospace"; font-size: 12pt; }
 \#freq-digit, \#freq-digit-button { font-family: "Monospace"; font-size: 12pt; }
 ; Active VFO row in a rig userlist (docked or detached).
-\#room-vfo-row.room-vfo-active { background-color: #600000; color: white; }
+\#room-vfo-row.room-vfo-active { background-color: #092b59; color: #f3faff; border: 1px solid #4d81b3; border-radius: 3px; }
 .ptt-active   { background: #b00000; color: white; font-weight: bold; }
 .ptt-idle     { background: #0a7a0a; color: white; font-weight: bold; }
 .ptt-pending  { background: #e6c200; color: black; font-weight: bold; }
