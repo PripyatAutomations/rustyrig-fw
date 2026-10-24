@@ -56,6 +56,11 @@ struct direct_channel {
    char uuid[64], room[128], endpoint[320], codec[5];
    rr_rtp_attachment_t *attachment;
    uint64_t renew_at, connect_deadline;
+   char candidates[8][320];
+   unsigned candidate_count, candidate_index;
+   uint8_t grant_key[RR_RTP_KEY_LEN];
+   uint32_t grant_ssrc;
+   bool grant_encrypted;
    rr_media_transport_t mode;
    bool failed, requested, preference, reported_active;
    unsigned route;              /* 0: owner RTP, 1: connected-server RTP, 2: WebSocket. */
@@ -165,6 +170,34 @@ static void next_route(struct direct_channel *channel) {
    }
    media_send_subscribe(channel->client, channel->uuid);
 }
+static bool try_candidate(struct direct_channel *channel) {
+   while (channel->candidate_index < channel->candidate_count) {
+      const char *endpoint = channel->candidates[channel->candidate_index++];
+      rr_rtp_socket_detach(channel->attachment);
+      channel->attachment = rr_rtp_socket_attach(media_socket, channel->grant_ssrc,
+         channel->grant_key, channel->grant_encrypted, endpoint, channel);
+      if (!channel->attachment) continue;
+      snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", endpoint);
+      channel->connect_deadline = mono_us() + UINT64_C(1500000);
+      report_route(channel, "connecting", true);
+      return true;
+   }
+   return false;
+}
+static void load_candidates(struct direct_channel *channel, const char *list, const char *single) {
+   channel->candidate_count = channel->candidate_index = 0;
+   if (!list || !*list) list = single;
+   if (!list || !*list) return;
+   char *copy = strdup(list);
+   if (!copy) return;
+   char *save = NULL;
+   for (char *p = strtok_r(copy, ",", &save); p && channel->candidate_count < 8;
+        p = strtok_r(NULL, ",", &save)) {
+      if (strlen(p) >= sizeof(channel->candidates[0]) || strncmp(p, "rtp://", 6)) continue;
+      snprintf(channel->candidates[channel->candidate_count++], sizeof(channel->candidates[0]), "%s", p);
+   }
+   free(copy);
+}
 static bool hex_key(const char *text, uint8_t *key) {
    if (strlen(text) != RR_RTP_KEY_LEN * 2) {
       return false;
@@ -216,6 +249,7 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       uint8_t key[RR_RTP_KEY_LEN];
       unsigned long ssrc = dict_get_ulong(d, "media.direct-ssrc", 0);
       const char *endpoint = dict_get(d, "media.direct", "");
+      load_candidates(channel, dict_get(d, "media.direct-candidates", ""), endpoint);
       channel->connect_deadline = mono_us() + UINT64_C(5000000);
       channel->failed = false;
       channel->reported_active = false;
@@ -233,7 +267,7 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       }
 
       if ((channel->mode == RR_MEDIA_AUTO && !preferred(client)) || !rr_rtp_supported(encrypted) ||
-         (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !*endpoint || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
+         (!encrypted && strcmp(security, "null-sha1-80")) || !ssrc || ssrc > UINT32_MAX || !channel->candidate_count || !hex_key(dict_get(d, "media.direct-key", ""), key)) {
          if (channel->mode == RR_MEDIA_DIRECT) {
             direct_failed(channel, "the owner did not provide a usable RTP referral");
          } else if (preferred(client)) {
@@ -252,16 +286,13 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       if (!media_socket) {
          media_socket = rr_rtp_socket_open(NULL, 0);
       }
-      snprintf(channel->endpoint, sizeof(channel->endpoint), "%s", endpoint);
-      channel->attachment = rr_rtp_socket_attach(media_socket, ssrc, key, encrypted, endpoint, channel);
+      memcpy(channel->grant_key, key, sizeof(key));
       memset(key, 0, sizeof(key));
+      channel->grant_ssrc = (uint32_t)ssrc;
+      channel->grant_encrypted = encrypted;
       channel->renew_at = mono_us() + UINT64_C(240000000);
 
-      if (channel->attachment) {
-         report_route(channel, "connecting", true);
-      }
-
-      if (!channel->attachment) {
+      if (!try_candidate(channel)) {
          if (channel->mode == RR_MEDIA_DIRECT) {
             direct_failed(channel, "unable to open the RTP endpoint");
          } else {
@@ -319,6 +350,9 @@ void rrclient_direct_poll(void) {
    for (unsigned i = 0 ; i < MAX_DIRECT_CHANNELS ; i++) {
       struct direct_channel *c = &channels[i];
 
+      if (c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
+         if (try_candidate(c)) continue;
+      }
       if (c->mode == RR_MEDIA_AUTO && c->attachment && c->connect_deadline && now >= c->connect_deadline && !rr_rtp_socket_active(c->attachment, now)) {
          report_route(c, "timed out; falling back", true);
          next_route(c);
