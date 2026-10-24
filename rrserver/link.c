@@ -407,6 +407,15 @@ const char *rrserver_links_route(const char *node) {
 
 /* Format node identity using the authenticated topology, including nodes learned through introductions. Fall back to configured peer names before
  * establishment; unknown UUIDs remain legible and unambiguous. */
+/* Preserve recently learned site names after a subtree is removed from the
+ * live topology; withdrawal notifications are emitted after removal. */
+static GHashTable *link_site_history;
+static void remember_site(const char *node, const char *site) {
+   if (!node || !*node || !site || !*site) return;
+   if (!link_site_history)
+      link_site_history = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+   g_hash_table_replace(link_site_history, g_strdup(node), g_strdup(site));
+}
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity) {
    if (!buffer || !capacity) {
       return "";
@@ -442,6 +451,10 @@ const char *rrserver_links_format_node(const char *node, char *buffer, size_t ca
          }
       }
    }
+
+   if (site && *site) remember_site(node, site);
+   if ((!site || !*site) && link_site_history)
+      site = g_hash_table_lookup(link_site_history, node);
 
    if (site && *site) {
       snprintf(buffer, capacity, "%s [%s]", site, node);
@@ -894,6 +907,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
       } else if (rr_link_tree_add(links.tree, session->node, node, parent, site) != RR_LINK_OK) {
          fail(session, "Invalid server introduction (duplicate UUID, missing station name or incorrect network path)");
       } else {
+         remember_site(node, site);
          links.generation++;
          broadcast(session, d);
          Log(LOG_INFO, "link", "Introduced server %s [%s] via %s [%s], servers %zu", site, node, session->peer->site, session->node, rr_link_tree_count(links.
