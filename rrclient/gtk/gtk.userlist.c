@@ -103,6 +103,7 @@ typedef struct room_userlist_entry {
    bool adjusting_width;
    bool dragging_width;
    int last_paned_width;
+   guint resize_idle_id;
    guint refresh_id;
 } room_userlist_entry_t;
 static room_userlist_entry_t rig_userlist_entry;
@@ -1445,6 +1446,10 @@ static gboolean room_userlist_resize_finished(GtkWidget *widget, GdkEventButton 
    if (!entry->dragging_width || !event || event->button != GDK_BUTTON_PRIMARY)
       return FALSE;
    entry->dragging_width = false;
+   if (entry->resize_idle_id) {
+      g_source_remove(entry->resize_idle_id);
+      entry->resize_idle_id = 0;
+   }
    int handle = 0;
    gtk_widget_style_get(widget, "handle-size", &handle, NULL);
    int width = gtk_widget_get_allocated_width(widget) - MAX(handle, 0) -
@@ -1513,26 +1518,39 @@ static void room_userlist_position(GtkPaned *paned, GParamSpec *property, gpoint
    gtk_widget_style_get(GTK_WIDGET(paned), "handle-size", &handle, NULL);
    int width = gtk_widget_get_allocated_width(GTK_WIDGET(paned)) - handle - gtk_paned_get_position(paned);
 
-   if (entry->adjusting_width || !entry->dragging_width || entry->auto_dock_width) {
-      return;
-   }
+   /* Position notifications also occur when GTK clamps the divider during
+    * zoom. Never persist those transient widths as a manual preference.
+    * Only button-release commits a user-selected width. */
+   (void)width;
+   (void)entry;
+}
 
-   if (g_object_get_data(G_OBJECT(paned), "rr-roster-sized") && width >= 40) {
-      userlist_layout_save(entry->view, "dock-width", width);
-   }
+/* Reapply after GTK has finished the allocation pass. Setting a paned
+ * position from size-allocate may be overridden by the same pass and can
+ * strand the second child at zero width until the next window resize. */
+static gboolean room_userlist_restore_width_idle(gpointer data) {
+   room_userlist_entry_t *entry = data;
+   entry->resize_idle_id = 0;
+   if (!entry->docked || entry->dragging_width || !entry->dock_paned ||
+       !gtk_widget_get_mapped(GTK_WIDGET(entry->dock_paned)))
+      return G_SOURCE_REMOVE;
+   int total = gtk_widget_get_allocated_width(GTK_WIDGET(entry->dock_paned));
+   if (total > 1)
+      room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
+   return G_SOURCE_REMOVE;
 }
 
 static void room_userlist_allocate(GtkWidget *widget, GtkAllocation *allocation, gpointer data) {
    room_userlist_entry_t *entry = data;
-
-   if (!entry->docked || entry->dragging_width || allocation->width <= 1 ||
-       allocation->width == entry->last_paned_width) return;
+   if (!entry->docked || entry->dragging_width || allocation->width <= 1)
+      return;
+   if (allocation->width == entry->last_paned_width &&
+       g_object_get_data(G_OBJECT(widget), "rr-roster-sized"))
+      return;
    entry->last_paned_width = allocation->width;
-   /* GTK recomputes paned child allocations while zooming. Restore the
-    * saved desired roster width after each parent resize, rather than
-    * allowing a transient narrow allocation to become permanent. */
-   room_userlist_set_width(entry, room_userlist_width(entry, "dock-width"));
    g_object_set_data(G_OBJECT(widget), "rr-roster-sized", GINT_TO_POINTER(1));
+   if (!entry->resize_idle_id)
+      entry->resize_idle_id = g_idle_add(room_userlist_restore_width_idle, entry);
 }
 
 static void on_room_userlist_dock_clicked(GtkButton *button, gpointer data) {
@@ -1722,6 +1740,10 @@ void userlist_remove_room_view(const char *room) {
 
       if (entry->refresh_id) {
          g_source_remove(entry->refresh_id);
+      }
+      if (entry->resize_idle_id) {
+         g_source_remove(entry->resize_idle_id);
+         entry->resize_idle_id = 0;
       }
 
       if (entry->panel && G_IS_OBJECT(entry->panel)) {
