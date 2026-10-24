@@ -1025,6 +1025,10 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
          dp = &entry->next;
       }
    }
+   /* The link tree has already removed the withdrawn node and every
+    * descendant. Purge only catalog owners no longer reachable; do not
+    * invalidate or re-snapshot unrelated branches. */
+   unsigned removed_catalogs = 0;
    struct catalog **cp = &rr_relay_catalogs;
    while (*cp) {
       struct catalog *c = *cp;
@@ -1070,6 +1074,13 @@ static void lost(const char *event, const char *node, rrconn_t *client, void *us
       dict_free(c->descriptor);
       free(c);
       rr_relay_catalog_count--;
+      removed_catalogs++;
+   }
+   if (removed_catalogs) {
+      char label[192];
+      Log(LOG_INFO, "relay.catalog",
+         "Topology withdrawal %s: purged %u unreachable catalog descriptors (including downstream owners); unaffected branches retained, no full resync",
+         rrserver_links_format_node(node, label, sizeof(label)), removed_catalogs);
    }
 }
 
