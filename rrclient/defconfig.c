@@ -43,8 +43,8 @@ const int num_configs = sizeof(configs) / sizeof(configs[0]);
         "#chat-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
         "#log-view, #host-log-view { font-family: \"Monospace\"; font-size: 12pt; }\n" \
         "#freq-digit, #freq-digit-button { font-family: \"Monospace\"; font-size: 12pt; }\n" \
-        "#room-vfo-frequency { font-family: \"Monospace\"; font-size: 14pt; font-weight: bold; }\n" \
-        "#room-vfo-row.room-vfo-active { background-color: #600000; color: white; }\n" \
+        "#room-vfo-frequency { font-family: \"DSEG7 Classic\", \"Digital-7\", \"DejaVu Sans Mono\", \"Monospace\"; font-size: 14pt; font-weight: bold; }\n" \
+        "#room-vfo-row.room-vfo-active { background-color: #092b59; color: #f3faff; border: 1px solid #4d81b3; border-radius: 3px; }\n" \
         ".ptt-active { background: #b00000; color: white; font-weight: bold; }\n" \
         ".ptt-idle { background: #0a7a0a; color: white; font-weight: bold; }\n" \
         ".ptt-pending { background: #e6c200; color: black; font-weight: bold; }\n" \
