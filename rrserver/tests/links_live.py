@@ -496,6 +496,13 @@ acl=media-staff
         leaf_links = log('gamma').count('Unlinked site delta')
         stop('beta')
         wait(lambda: 'Unlinked site beta, servers 1' in log('alpha') and 'Unlinked site beta, servers 2' in log('gamma'), 'disconnect did not withdraw only the lost branch')
+        # A subtree withdrawal must purge only unreachable catalog owners.
+        # The gamma-delta component stays connected and keeps its own catalog.
+        wait(lambda: 'Topology withdrawal' in log('alpha') and
+            'purged ' in log('alpha'), 'alpha did not purge its unreachable catalog subtree')
+        assert 'Topology withdrawal' not in log('delta'), 'surviving descendant lost a reachable catalog branch'
+        # A departure must not trigger wholesale catalog re-synchronization.
+        # The initial snapshots are already complete before this outage.
         offline = origin.until(lambda m: m.get('talk', {}).get('cmd') == 'room-state' and m['talk'].get('room') == '#gamma-rig0')
         assert offline['talk']['connected'] is False
         assert log('gamma').count('Unlinked site delta') == leaf_links
