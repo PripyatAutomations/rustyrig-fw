@@ -1379,6 +1379,22 @@ static void chat_horizontal_keep_left(GtkAdjustment *adjustment, gpointer unused
       gtk_adjustment_set_value(adjustment, left);
 }
 
+/* TextView may retain a content-derived width from replay before its first
+ * proper layout. Always give wrapping a concrete width from the chat viewport,
+ * independent of the longest line or the notebook's natural requisition. */
+static void chat_wrap_viewport_allocate(GtkWidget *scrolled, GtkAllocation *allocation, gpointer data) {
+   GtkWidget *view = GTK_WIDGET(data);
+   if (!GTK_IS_TEXT_VIEW(view) || allocation->width <= 0) return;
+   GtkStyleContext *context = gtk_widget_get_style_context(scrolled);
+   GtkBorder padding = { 0 };
+   gtk_style_context_get_padding(context, gtk_style_context_get_state(context), &padding);
+   int width = MAX(1, allocation->width - padding.left - padding.right - 4);
+   int requested = 0, ignored = 0;
+   gtk_widget_get_size_request(view, &requested, &ignored);
+   if (requested != width)
+      gtk_widget_set_size_request(view, width, -1);
+}
+
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 
@@ -1418,9 +1434,10 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
    gtk_text_view_set_editable(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(chat_textview), FALSE);
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(chat_textview), GTK_WRAP_WORD_CHAR);
-   gtk_widget_set_hexpand(chat_textview, FALSE);
+   gtk_widget_set_hexpand(chat_textview, TRUE);
    gtk_widget_set_halign(chat_textview, GTK_ALIGN_FILL);
    gtk_container_add(GTK_CONTAINER(scrolled), chat_textview);
+   g_signal_connect(scrolled, "size-allocate", G_CALLBACK(chat_wrap_viewport_allocate), chat_textview);
 
    /* Every room owns its detachable roster, including authoritative rooms on different servers. Private query tabs stay chat-only. */
    if (is_rig || (!is_query && room && *room)) {
