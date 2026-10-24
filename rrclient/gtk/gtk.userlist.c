@@ -1128,8 +1128,10 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
          "VFOs select tuning and audio routes. On single-receiver radios, A/B usually share receiver audio; independent RX/TX audio depends on the rig and "
          "station setup.");
       gtk_widget_add_events(row, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
-      GtkWidget *content = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+      GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+      GtkWidget *details = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
       gtk_container_add(GTK_CONTAINER(row), content);
+      gtk_box_pack_start(GTK_BOX(content), details, FALSE, FALSE, 0);
       GtkWidget *name = gtk_label_new(NULL);
       char name_text[16];
       snprintf(name_text, sizeof(name_text), "VFO %c", vfo);
@@ -1164,17 +1166,19 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       g_signal_connect(row, "button-press-event", G_CALLBACK(room_vfo_swap_pressed), control);
       g_signal_connect(row, "button-release-event", G_CALLBACK(room_vfo_select_clicked), control);
-      gtk_box_pack_start(GTK_BOX(content), name, FALSE, FALSE, 2);
-      gtk_box_pack_start(GTK_BOX(content), freq, FALSE, FALSE, 2);
+      gtk_box_pack_start(GTK_BOX(details), name, FALSE, FALSE, 2);
+      gtk_box_pack_start(GTK_BOX(details), freq, FALSE, FALSE, 2);
       gtk_label_set_ellipsize(GTK_LABEL(mode), PANGO_ELLIPSIZE_END);
       gtk_widget_set_size_request(mode, 42, -1);
-      gtk_box_pack_start(GTK_BOX(content), mode, FALSE, FALSE, 2);
+      gtk_box_pack_start(GTK_BOX(details), mode, TRUE, TRUE, 2);
 
       if (ptt) {
-         gtk_box_pack_end(GTK_BOX(content), ptt, FALSE, FALSE, 2);
+         /* Keep the action below the frequency line: a narrow roster must
+          * never put PTT outside the visible pane. */
+         gtk_box_pack_start(GTK_BOX(content), ptt, FALSE, FALSE, 0);
       } else if (rrclient_room_rx_tuning_mask(entry->room) & (UINT32_C(1) << (vfo - 'A'))) {
          GtkWidget *tune = gtk_button_new_with_label("Tune");
-         gtk_box_pack_end(GTK_BOX(content), tune, FALSE, FALSE, 2);
+         gtk_box_pack_start(GTK_BOX(content), tune, FALSE, FALSE, 0);
          g_signal_connect(tune, "clicked", G_CALLBACK(room_vfo_tune_clicked), control);
       }
       gtk_box_pack_start(GTK_BOX(strip), row, FALSE, FALSE, 1);
