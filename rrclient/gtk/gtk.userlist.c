@@ -1115,6 +1115,8 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       return NULL;
    }
    GtkWidget *strip = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   /* The strip must follow the docked roster allocation, not its natural width. */
+   gtk_widget_set_hexpand(strip, TRUE);
    char *copy = strdup(bindings);
 
    if (!copy) {
@@ -1155,6 +1157,11 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       if (ptt) {
          gtk_widget_set_tooltip_text(ptt, "Release PTT on this VFO");
          gtk_widget_set_size_request(ptt, 76, -1);
+         gtk_widget_set_hexpand(ptt, TRUE);
+         GtkWidget *ptt_label = gtk_bin_get_child(GTK_BIN(ptt));
+         if (GTK_IS_LABEL(ptt_label)) {
+            gtk_label_set_xalign(GTK_LABEL(ptt_label), 0.5);
+         }
       }
       gtk_widget_set_size_request(freq, 88, -1);
       gtk_widget_set_name(freq, "room-vfo-frequency");
