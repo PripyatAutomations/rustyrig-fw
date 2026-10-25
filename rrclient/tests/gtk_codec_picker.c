@@ -26,7 +26,8 @@ static char reply_room[128], reply[1024];
 const struct rr_client_media_chan *rrclient_media_codec_target_channel(bool is_tx) {
    return &channel;
 }
-bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
+bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char *codec, const char *uuid) {
+   assert(uuid && !strcmp(uuid, "stream-rx"));
    assert(cptr == &connection && !is_tx && !strcmp(codec, "pc1P"));
    selections++;
 
