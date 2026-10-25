@@ -307,6 +307,10 @@ int main(void) {
    dict_add(select, "media.chan-uuid", tx->uuid);
    event_emit_dict("media.codec-select", &client, select);
    assert(codec_switches == 1);
+   /* A repeated selection from another listener must reuse the encoder. */
+   dict_add(select, "media.old-codec", "g722");
+   event_emit_dict("media.codec-select", &client, select);
+   assert(codec_switches == 1);
    assert(pcm_callbacks == 2);
    assert(strcmp(last_callback_codec, "g722") == 0);
    dict_free(select);
