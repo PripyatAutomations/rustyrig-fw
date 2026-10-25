@@ -315,6 +315,24 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_style_context_add_provider(panel_style, GTK_STYLE_PROVIDER(p->scale_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
    GtkWidget *menu_button = gtk_button_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_MENU);
    gtk_button_set_relief(GTK_BUTTON(menu_button), GTK_RELIEF_NONE);
+   /* Compact chrome: 12px glyphs and minimal button padding keep the
+    * floating header close to the title's natural text height. */
+   GtkCssProvider *chrome_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(chrome_css,
+      ".rr-panel-chrome-button { padding: 1px 3px; min-height: 0; min-width: 0; }", -1, NULL);
+   GtkWidget *chrome_buttons[] = { p->close_button, p->minimize, p->roll, menu_button };
+   for (size_t i = 0; i < G_N_ELEMENTS(chrome_buttons); i++) {
+      GtkWidget *button = chrome_buttons[i];
+      GtkWidget *glyph = gtk_button_get_image(GTK_BUTTON(button));
+      if (GTK_IS_IMAGE(glyph)) {
+         gtk_image_set_pixel_size(GTK_IMAGE(glyph), 12);
+      }
+      GtkStyleContext *style = gtk_widget_get_style_context(button);
+      gtk_style_context_add_class(style, "rr-panel-chrome-button");
+      gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(chrome_css),
+         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   }
+   g_object_unref(chrome_css);
    gtk_widget_set_tooltip_text(menu_button, "Panel settings");
    gtk_box_pack_end(GTK_BOX(header), menu_button, FALSE, FALSE, 0);
    gtk_box_pack_end(GTK_BOX(header), p->roll, FALSE, FALSE, 0);
