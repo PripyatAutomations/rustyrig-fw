@@ -263,3 +263,19 @@ Clients hear this through their normal RX subscriptions. The default-on client
 `audio.mute-talkback` option suppresses the local transmitter's playback only;
 other listeners still hear the transmitter on RX. No wire format changes are
 required, and transport fanout continues to use each RX resource's metadata.
+
+## Multiple RX codec renditions (work in progress)
+
+The PCM hub is the common source for multiple encoded renditions. The
+protocol registry now provides `media_chan_rx_variant(source, codec)`: it
+reuses the same (rig UUID, VFO UUID, codec) rendition when present, or
+allocates another stream UUID/ID otherwise. That is registry groundwork,
+**not yet an enabled multi-codec subscription workflow**.
+
+The intended flow is: on a codec request incompatible with an existing
+shared RX stream, find/create a rendition, subscribe only the requesting
+listener to it, leave existing subscribers untouched, then have the PCM hub
+feed both codec encoders only while needed. The client must be informed of
+the newly assigned stream ID before media packets arrive; unsubscribing
+must decrement the rendition's demand without killing another listener's
+stream. TX remains single-source and is not duplicated by this API.
