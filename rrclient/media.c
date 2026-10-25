@@ -526,6 +526,13 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
    return failed || (!sent && (target || !none));
 }
 
+bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char *codec, const char *uuid) {
+   if (!uuid || !*uuid) {
+      return true;
+   }
+   return media_select_codec(cptr, is_tx, codec, uuid);
+}
+
 bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
    return media_select_codec(cptr, is_tx, codec, NULL);
 }
