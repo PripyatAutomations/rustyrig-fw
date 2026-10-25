@@ -593,6 +593,12 @@ static void rrserver_handle_codec_select(const char *event, const char *data, rr
 
       return;
    }
+   /* All listeners of this UUID share its encoder. Reasserting the active
+    * format must not restart that encoder or interrupt other listeners. */
+   if (old_codec && !strncmp(old_codec, codec, 4)) {
+      dict_free(d);
+      return;
+   }
    // Media direction is from the client's point of view. Server RX-channel
    // delivery therefore needs an encoder (fwdsp tx mode), while client TX
    // media needs a decoder (fwdsp rx mode).
