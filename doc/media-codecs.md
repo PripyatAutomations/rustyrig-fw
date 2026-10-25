@@ -94,10 +94,18 @@ With no arguments, or with `LIST`, the command lists negotiated codec choices
 and the direction's subscribed or explicitly disabled audio channels. Channel
 numbers match `/media LIST`; a bare number or `#number` may be used.
 
-Setting a codec without a channel targets all subscribed audio channels in
-that direction, including channels previously disabled with `NONE`. An optional
-UUID or channel number targets one channel. Use `/media SUBSCRIBE` to select
-other available channels first. Codec names are case-insensitive.
+Setting a codec without a channel targets the currently selected media channel,
+not every subscribed channel in that direction. An optional UUID or channel
+number targets a specific channel. Use `/media SUBSCRIBE` to select other
+available channels first. Codec names are case-insensitive.
+
+Audio channels are shared by all listeners, with one active wire codec and
+one server encoder per channel UUID. A new listener uses the established
+codec, avoiding redundant encoder processes. A request for the already-active
+codec is a no-op. If another client is subscribed, a different codec is
+rejected instead of disrupting their stream; a sole listener may switch it.
+Listeners requiring different simultaneous codecs need a separate stream
+variant, which is not yet implemented.
 
 Tab completion works in GTK and TUI, including immediately after a space.
 The first codec argument offers negotiated codecs, `LIST` and `NONE`; the
@@ -115,7 +123,7 @@ codec sent to the server. Selecting a codec again re-subscribes disabled
 channels after the server confirms that codec. A direction disabled with
 `NONE` stays off through channel announcements until re-enabled or disconnected.
 
-The GTK pickers apply to subscribed channels in their direction. Each RX channel
+The GTK pickers apply to the selected subscribed audio channel. Each RX channel
 has an independent decoder. GTK uses the RX Audio Routing window; browser
 room controls offer **L/R/S/M**: left ear, right ear, stereo (both ears), or muted. `/rxroute L|R|S|M`
 provides the same control in GTK/TUI and the browser. New rooms default to S.
