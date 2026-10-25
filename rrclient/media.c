@@ -460,7 +460,7 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
    }
    const struct rr_client_media_chan *selected = target ? rrclient_media_chan_lookup(target) : NULL;
 
-   if (target && !selected) {
+   if (!selected) {
       media_print("No such media channel: %s", target);
 
       return true;
@@ -474,7 +474,7 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
       memcpy(normalized, canonical, 4);
    }
    uint8_t direction = is_tx ? RR_BINFRAME_DIR_TX : RR_BINFRAME_DIR_RX;
-   bool sent = false, failed = false;
+   bool sent = false, failed = false, unchanged = false;
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
       struct rr_client_media_chan *kp = &known_chans[i];
@@ -484,6 +484,13 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
          continue;
       }
 
+      /* One channel per command. Do not reconfigure an existing shared
+       * media stream when the requested codec is already active. */
+      if ((none && kp->disabled) ||
+          (!none && !kp->disabled && !kp->pending_codec[0] && !strcasecmp(kp->codec, normalized))) {
+         unchanged = true;
+         continue;
+      }
       if (none) {
          if (kp->subscribed && !media_send_unsubscribe(cptr, kp->uuid)) {
             failed = true;
@@ -508,10 +515,6 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
       sent = true;
    }
 
-   if (!target && !failed && (none || sent)) {
-      direction_disabled[is_tx] = none;
-   }
-
    // Keep the current local pipeline until the server re-announces the
    // channel with the requested codec. NONE is local unsubscribe intent and
    // can stop audio immediately; encoded codec changes wait for confirmation.
@@ -519,11 +522,11 @@ static bool media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec, co
       rrclient_media_sync_audio();
    }
 
-   if (!sent && (target || !none)) {
+   if (!sent && !unchanged) {
       media_print("No subscribed %s audio channels match; use /media LIST", is_tx ? "TX" : "RX");
    }
 
-   return failed || (!sent && (target || !none));
+   return failed || (!sent && !unchanged);
 }
 
 bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char *codec, const char *uuid) {
@@ -534,7 +537,8 @@ bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char 
 }
 
 bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec) {
-   return media_select_codec(cptr, is_tx, codec, NULL);
+   const struct rr_client_media_chan *target = media_codec_target_channel(is_tx);
+   return target ? media_select_codec(cptr, is_tx, codec, target->uuid) : true;
 }
 
 /* A source exposing GPSP and NMEA needs only GPSP on the wire. Compare the shared source prefix and controlling rig, not VFO/tab state. */
@@ -1632,7 +1636,11 @@ static bool cmd_audio_codec(int argc, char **args, bool is_tx) {
       return true;
    }
    const struct rr_client_media_chan *target = (argc == 3) ? rrclient_media_chan_lookup(args[2]) : media_codec_target_channel(is_tx);
-   bool failed = media_select_codec(ws_conn, is_tx, args[1], argc == 3 ? args[2] : NULL);
+   if (!target) {
+      media_print("No selected %s media channel; use /media LIST", is_tx ? "TX" : "RX");
+      return true;
+   }
+   bool failed = media_select_codec(ws_conn, is_tx, args[1], target->uuid);
 
    if (!failed) {
       char description[512];
