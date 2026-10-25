@@ -66,7 +66,7 @@ static void codec_changed_cb(GtkComboBoxText *combo, gpointer user_data) {
       if (cptr) {
          const struct rr_client_media_chan *channel = rrclient_media_codec_target_channel(ctx->is_tx);
 
-         if (!rrclient_media_select_codec(cptr, ctx->is_tx, codec)) {
+         if (channel && !rrclient_media_select_codec_channel(cptr, ctx->is_tx, codec, channel->uuid)) {
             char description[512];
             rrclient_media_description(channel ? channel->uuid : NULL, description, sizeof(description));
             const char *room = channel && channel->room[0] ? channel->room : ui_active_window_name();
