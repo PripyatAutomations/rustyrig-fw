@@ -19,6 +19,7 @@ void rrclient_media_emit_gps_for_room(const char *room);
 extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);
 extern bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec);
+extern bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char *codec, const char *uuid);
 extern bool rrclient_media_subscribe_single_video(void);
 bool rrclient_media_video_info(char *uuid, size_t uuid_size, char *profiles, size_t profiles_size);
 extern const char *rrclient_media_current_codec(bool is_tx);
