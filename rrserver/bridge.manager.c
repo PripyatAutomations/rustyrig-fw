@@ -1437,14 +1437,23 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          if (generated) {
             const char *description = dict_get(request, "directory.description", "");
             if (description && *description) {
+               /* Sanitize display text, retaining valid UTF-8 and ensuring the
+                * 512-byte topic limit never truncates a multibyte character. */
+               gchar *valid_text = g_utf8_make_valid(description, -1);
                char topic[513];
                size_t used = 0;
-               for (const unsigned char *c = (const unsigned char *)description;
-                    *c && used < sizeof(topic) - 1; ++c) {
-                  if (*c >= 32 && *c != 127) topic[used++] = (char)*c;
-                  else if (*c == '\n' || *c == '\r' || *c == '\t') topic[used++] = ' ';
+               for (const char *p = valid_text; *p && used < sizeof(topic) - 1;) {
+                  gunichar ch = g_utf8_get_char(p);
+                  char encoded[6];
+                  if (g_unichar_iscntrl(ch)) ch = ' ';
+                  int bytes = g_unichar_to_utf8(ch, encoded);
+                  if (used + (size_t)bytes >= sizeof(topic)) break;
+                  memcpy(topic + used, encoded, (size_t)bytes);
+                  used += (size_t)bytes;
+                  p = g_utf8_next_char(p);
                }
                topic[used] = 0;
+               g_free(valid_text);
                if (used && db_room_set_topic(masterdb, selected_room, topic)) {
                   dict *notice = dict_new();
                   if (notice) {
