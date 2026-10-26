@@ -7,7 +7,6 @@
 #include <rrclient/connman.h>
 #include <rrclient/sercom.h>
 #include "gtk.serial.h"
-extern const char *config_file;
 
 static bool permanent_port(const char *name) {
    return name && (!strcmp(name, "ttyCAT") || !strcmp(name, "ttyGPS") || !strcmp(name, "ttyMODEM"));
@@ -170,35 +169,13 @@ static void delete_port(GtkWindow *parent, const char *name, GtkWidget *status) 
 
       return;
    }
-   dict *copy = dict_clone(cfg);
-
-   if (!copy) {
-      g_free(service_key);
-
-      return;
-   }
-   dict_del(copy, service_key);
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
+   dict_del(cfg, service_key);
+   for (unsigned i = 0; i < G_N_ELEMENTS(fields); ++i) {
       char *key = g_strdup_printf("serial:%s.%s", name, fields[i]);
-      dict_del(copy, key);
+      dict_del(cfg, key);
       g_free(key);
    }
-
-   if (!config_file || !cfg_save_overrides(copy, config_file)) {
-      gtk_label_set_text(GTK_LABEL(status), "Unable to save deletion; nothing changed.");
-   } else {
-      dict_del(cfg, service_key);
-
-      for (unsigned i = 0 ; i < G_N_ELEMENTS(fields) ; i++) {
-         char *key = g_strdup_printf("serial:%s.%s", name, fields[i]);
-         dict_del(cfg, key);
-         g_free(key);
-      }
-
-      gtk_label_set_text(GTK_LABEL(status), "Port configuration deleted.");
-   }
-   dict_free(copy);
+   gtk_label_set_text(GTK_LABEL(status), "Port configuration removed in memory. Use /save to persist.");
    g_free(service_key);
 }
 static void port_info(GtkWindow *parent, const char *name) {
@@ -254,8 +231,7 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
    field(GTK_GRID(grid), "Baud", editor.baud, 3);
    field(GTK_GRID(grid), "Mode (e.g. 8n1)", editor.mode, 4);
    field(GTK_GRID(grid), "Startup service (none = choose later)", editor.service, 5);
-   GtkWidget *remember = gtk_check_button_new_with_label("Save to client configuration");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(remember), TRUE);
+   GtkWidget *remember = gtk_label_new("Changes remain in memory until /save.");
    gtk_grid_attach(GTK_GRID(grid), remember, 0, 6, 3, 1);
    GtkWidget *status = gtk_label_new("Disconnect an attached endpoint before editing. Files append received bytes only.");
    gtk_grid_attach(GTK_GRID(grid), status, 0, 7, 3, 1);
@@ -324,11 +300,6 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
       char *key = g_strdup_printf("serial.%s", name);
       const char *service = gtk_entry_get_text(GTK_ENTRY(editor.service));
       ok = dict_add(copy, key, *service ? service : "none") == 0 && ok;
-      bool persist = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(remember));
-
-      if (ok && persist) {
-         ok = config_file && cfg_save_overrides(copy, config_file);
-      }
 
       if (ok) {
          for (unsigned i = 0 ; i < G_N_ELEMENTS(keys) ; i++) {
@@ -350,7 +321,7 @@ void gtk_serial_configure(GtkWindow *parent, const char *initial) {
       if (ok) {
          break;
       }
-      gtk_label_set_text(GTK_LABEL(status), "Unable to save configuration; endpoint settings were not changed.");
+      gtk_label_set_text(GTK_LABEL(status), "Unable to update configuration; endpoint settings were not changed.");
    }
    gtk_widget_destroy(dialog);
 }
