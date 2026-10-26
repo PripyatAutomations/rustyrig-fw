@@ -77,46 +77,64 @@ static void csv_value(GString *out, const char *s) {
    }
    g_string_append_c(out, '"');
 }
+static void logview_append_selected(GtkTreeModel *model, GtkTreePath *path,
+      GtkTreeIter *iter, gpointer user) {
+   (void)path;
+   struct { GString *output; gboolean csv; } *state = user;
+   if (state->output->len) g_string_append_c(state->output, '\n');
+   for (int i = 0; i < 5; i++) {
+      char *value = NULL;
+      gtk_tree_model_get(model, iter, i, &value, -1);
+      if (i) g_string_append_c(state->output, state->csv ? ',' : '\t');
+      if (state->csv) csv_value(state->output, value);
+      else g_string_append(state->output, value ? value : "");
+      g_free(value);
+   }
+}
+static gchar *logview_selected_text(GtkLogView *v, gboolean csv) {
+   struct { GString *output; gboolean csv; } state = {g_string_new(NULL), csv};
+   gtk_tree_selection_selected_foreach(
+      gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)),
+      logview_append_selected, &state);
+   return g_string_free(state.output, FALSE);
+}
+static gboolean logview_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+   (void)widget;
+   if ((event->state & GDK_CONTROL_MASK) &&
+       (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
+      gchar *csv = logview_selected_text(data, TRUE);
+      if (*csv) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), csv, -1);
+      g_free(csv);
+      return TRUE;
+   }
+   return FALSE;
+}
 static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data) {
    if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   GtkLogView *v = data;
    GtkTreePath *path = NULL;
-   GtkTreeViewColumn *column = NULL;
    if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (int)event->x,
-      (int)event->y, &path, &column, NULL, NULL)) return FALSE;
-   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
-   GtkTreeIter iter;
-   if (!gtk_tree_model_get_iter(model, &iter, path)) { gtk_tree_path_free(path); return FALSE; }
-   gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), path);
+      (int)event->y, &path, NULL, NULL, NULL)) return FALSE;
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
+   /* Right-clicking an already selected row preserves multi-selection. */
+   if (!gtk_tree_selection_path_is_selected(selection, path)) {
+      gtk_tree_selection_unselect_all(selection);
+      gtk_tree_selection_select_path(selection, path);
+   }
    gtk_tree_path_free(path);
-   char *values[5] = {NULL};
-   for (int i = 0; i < 5; i++) gtk_tree_model_get(model, &iter, i, &values[i], -1);
    GtkWidget *menu = gtk_menu_new();
-   GList *cols = gtk_tree_view_get_columns(GTK_TREE_VIEW(widget));
-   int field = g_list_index(cols, column);
-   g_list_free(cols);
-   if (field >= 0 && field < 5) {
-      const char *labels[] = {"Time", "Source", "Level", "Subsystem", "Message"};
-      char *title = g_strdup_printf("Copy %s", labels[field]);
-      copy_option(menu, title, values[field]);
-      g_free(title);
-   }
-   GString *tsv = g_string_new(""), *csv = g_string_new("");
-   for (int i = 0; i < 5; i++) {
-      if (i) { g_string_append_c(tsv, '\t'); g_string_append_c(csv, ','); }
-      g_string_append(tsv, values[i] ? values[i] : "");
-      csv_value(csv, values[i]);
-      g_free(values[i]);
-   }
-   copy_option(menu, "Copy Row (TSV)", tsv->str);
-   copy_option(menu, "Copy Row (CSV)", csv->str);
-   g_string_free(tsv, TRUE); g_string_free(csv, TRUE);
+   gchar *csv = logview_selected_text(v, TRUE);
+   gchar *tsv = logview_selected_text(v, FALSE);
+   copy_option(menu, "Copy Selected Rows (CSV)", csv);
+   copy_option(menu, "Copy Selected Rows (TSV)", tsv);
+   g_free(csv);
+   g_free(tsv);
    GtkWidget *related = gtk_menu_item_new_with_label("Find Related…");
    gtk_widget_set_sensitive(related, FALSE);
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), related);
    gtk_widget_show_all(menu);
    g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
-   (void)data;
    return TRUE;
 }
 GtkLogView *gtk_logview_new(unsigned limit) {
@@ -140,6 +158,7 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    v->filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(v->store), NULL);
    gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(v->filtered), visible, v, NULL);
    v->tree = gtk_tree_view_new_with_model(v->filtered);
+   gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)), GTK_SELECTION_MULTIPLE);
    const char *headers[] = {"Time", "Source", "Level", "Subsystem", "Message"};
    const int widths[] = {150, 135, 72, 130, 460};
    for (int i = 0; i < 5; i++) {
@@ -159,6 +178,7 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    g_signal_connect(v->host, "toggled", G_CALLBACK(log_source_toggled), v);
    g_signal_connect(v->filter, "changed", G_CALLBACK(refresh), v);
    g_signal_connect(v->tree, "button-press-event", G_CALLBACK(context), v);
+   g_signal_connect(v->tree, "key-press-event", G_CALLBACK(logview_key), v);
    g_object_unref(v->filtered);
    g_object_unref(v->store);
    return v;
