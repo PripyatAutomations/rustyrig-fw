@@ -72,7 +72,7 @@ static bool send_receiver_request(rrconn_t *connection) {
    if (!sent) {
       clear_pending();
    }
-   report(sent ? "Receiver request sent to the selected server…" : "Unable to send receiver request.", connection);
+   report(sent ? "SDR stage 2/3: request sent; awaiting server authorization and receiver backend response…" : "SDR request transport failed: unable to send the command to the selected server.", connection);
 
    return sent;
 }
@@ -87,7 +87,7 @@ static void receiver_room_joined(const char *event, const char *room, rrconn_t *
    }
 
    if (mono_us() - pending.started >= 15000000) {
-      report("Timed out waiting for room JOIN acknowledgement.", connection);
+      report("SDR room JOIN timed out after 15 seconds; receiver attachment was not sent. Verify room permissions, server connection, and JOIN response.", connection);
       clear_pending();
 
       return;
@@ -101,19 +101,19 @@ bool rrclient_receiver_connect_room_ex(const char *url, bool save, const char *r
    const char *profile = connection ? rrclient_connection_name(connection) : NULL;
 
    if (!connection || !connection->is_ws || !connection->authenticated) {
-      report("Select a connected RustyRig server first.", connection);
+      report("SDR connection cannot start: select an authenticated RustyRig server (WebSocket connection required).", connection);
 
       return false;
    }
 
    if (receiver && !receiver_directory_entry_accessible(receiver)) {
-      report("Receiver is restricted, unavailable, or has no published API permission.", connection);
+      report("SDR preflight rejected: directory reports this receiver as restricted, unavailable, or without published API permission.", connection);
 
       return false;
    }
 
    if (pending.request && mono_us() - pending.started < 15000000) {
-      report("A receiver request is already pending.", connection);
+      report("SDR request blocked: a previous room JOIN or receiver attachment is still pending.", connection);
 
       return false;
    }
@@ -180,7 +180,7 @@ bool rrclient_receiver_connect_room_ex(const char *url, bool save, const char *r
 
    if (!save && room && *room && !rrclient_room_is_joined(room)) {
       pending.room = g_strdup(room);
-      report("Joining selected SDR room before receiver attachment…", connection);
+      report("SDR stage 1/3: joining the selected room before receiver attachment…", connection);
       rrclient_connection_dispatch(connection, join_receiver, (void *)room);
 
       return true;
@@ -259,7 +259,11 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
       const char *error = dict_get(result, "error", ""), *room = dict_get(result, "room", "");
 
       if (*error) {
-         report(error, connection);
+         char detail[640];
+         snprintf(detail, sizeof(detail), "SDR server rejected %s for %s: %s",
+            pending.release ? "disconnect" : pending.save ? "configuration save" : "receiver attachment",
+            pending.url ? pending.url : "(unknown receiver)", error);
+         report(detail, connection);
       } else if (pending.release && dict_get_bool(result, "disconnected", false)) {
          char *key = receiver_key(pending.profile, pending.url);
 
@@ -267,9 +271,9 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
             g_hash_table_remove(connected_receivers, key);
          }
          g_free(key);
-         report("SDR disconnected.", connection);
+         report("SDR disconnected: the server acknowledged receiver release.", connection);
       } else if (pending.save) {
-         report("Receiver added to server configuration. Connect when ready to listen.", connection);
+         report("SDR configuration saved on server; receiver is not connected yet.", connection);
       } else if (ws_room_name_valid(room) && connection->authenticated) {
          if (!connected_receivers) {
             connected_receivers = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
