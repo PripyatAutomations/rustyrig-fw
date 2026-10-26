@@ -238,8 +238,13 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
    (void)unused;
 
    if (pending.request && mono_us() - pending.started >= 15000000) {
+      char status[384];
+      snprintf(status, sizeof(status),
+         "SDR timeout: no server result for %s on %s within 15 seconds; check bridge initialization, server logs and permissions.",
+         pending.url ? pending.url : "(unknown receiver)",
+         pending.profile ? pending.profile : "(unknown server)");
+      report(status, pending.connection);
       clear_pending();
-
       return;
    }
 
