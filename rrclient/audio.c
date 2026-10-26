@@ -60,6 +60,27 @@ static int rx_channel_volume[2] = {
 static uint64_t mixer_next_us;
 static uint64_t speaker_retry;
 static bool speaker_failed;
+/* Ten-second RX diagnostics; counters only, no per-frame logging. */
+static uint64_t rx_diag_at, rx_late_ticks, rx_late_max_us, rx_skipped_blocks;
+static uint64_t rx_underrun_blocks, rx_underrun_samples, rx_overflow_samples;
+static uint64_t rx_decoder_write_fail, rx_speaker_write_fail, rx_mixed_blocks;
+static void rx_diag_report(uint64_t current) {
+   if (!rx_diag_at) rx_diag_at = current;
+   if (current - rx_diag_at < 10000000) return;
+   if (rx_mixed_blocks || rx_late_ticks || rx_overflow_samples || rx_decoder_write_fail) {
+      Log(LOG_INFO, "audio.timing",
+         "RX/10s mixed=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu missing-samples=%llu overflow-samples=%llu decoder-write-fail=%llu speaker-write-fail=%llu",
+         (unsigned long long)rx_mixed_blocks, (unsigned long long)rx_late_ticks,
+         (unsigned long long)rx_late_max_us, (unsigned long long)rx_skipped_blocks,
+         (unsigned long long)rx_underrun_blocks, (unsigned long long)rx_underrun_samples,
+         (unsigned long long)rx_overflow_samples, (unsigned long long)rx_decoder_write_fail,
+         (unsigned long long)rx_speaker_write_fail);
+   }
+   rx_late_ticks = rx_late_max_us = rx_skipped_blocks = 0;
+   rx_underrun_blocks = rx_underrun_samples = rx_overflow_samples = 0;
+   rx_decoder_write_fail = rx_speaker_write_fail = rx_mixed_blocks = 0;
+   rx_diag_at = current;
+}
 
 static void client_speaker_pcm(const void *samples, size_t len) {
    uint64_t current = mono_us();
@@ -82,6 +103,7 @@ static void client_speaker_pcm(const void *samples, size_t len) {
    }
 
    if (!fwdsp_processor_write("sink.client.dsp0", samples, len)) {
+      rx_speaker_write_fail++;
       speaker_failed = true;
       speaker_retry = current + 1000000;
 
@@ -257,6 +279,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
 
    if (route->pending_count + count > capacity) {
       size_t drop = route->pending_count + count - capacity;
+      rx_overflow_samples += drop;
       memmove(route->pending, route->pending + drop, (route->pending_count - drop) * sizeof(int16_t));
       route->pending_count -= drop;
    }
@@ -299,6 +322,10 @@ static void audio_mix_block(void) {
       }
 
       if (r->output != 'M') {
+         if (take < 320) {
+            rx_underrun_blocks++;
+            rx_underrun_samples += 320 - take;
+         }
          frames = 320;          // Fixed cadence; zero-fill underruns instead of shortening the timeline.
 
          for (size_t i = 0 ; i < take ; i++) {
@@ -316,6 +343,7 @@ static void audio_mix_block(void) {
    }
 
    if (frames) {
+      rx_mixed_blocks++;
       int16_t stereo[640];
 
       for (size_t i = 0 ; i < frames * 2 ; i++) {
@@ -333,8 +361,14 @@ static gboolean audio_mix_tick(gpointer unused) {
    uint64_t current = mono_us();
 
    if (current >= mixer_next_us) {
-      uint64_t blocks = (current - mixer_next_us) / 20000 + 1;
+      uint64_t lateness = current - mixer_next_us;
+      if (lateness >= 5000) {
+         rx_late_ticks++;
+         if (lateness > rx_late_max_us) rx_late_max_us = lateness;
+      }
+      uint64_t blocks = lateness / 20000 + 1;
       mixer_next_us += blocks * 20000;
+      if (blocks > 5) rx_skipped_blocks += blocks - 5;
 
       if (blocks > 5) {
          blocks = 5;
@@ -344,6 +378,7 @@ static gboolean audio_mix_tick(gpointer unused) {
       }
    }
 
+   rx_diag_report(mono_us());
    GSource *source = g_main_current_source();
 
    if (source) {
@@ -837,6 +872,7 @@ static void audio_full_frame_payload(const void *data, size_t len) {
    }
 
    if (!fwdsp_write_audio_samples(codec, route->identity, frame.data, frame.len, discontinuity)) {
+      rx_decoder_write_fail++;
       Log(LOG_WARN, "audio", "Unable to write RX frame to fwdsp %s.rx", codec);
    }
 }
