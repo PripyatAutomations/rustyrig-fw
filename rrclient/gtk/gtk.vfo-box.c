@@ -217,29 +217,3 @@ GtkWidget *create_vfo_box(void) {
 
    return control_box;
 }
-
-gui_window_t *create_vfo_window(GtkWidget *vfo_box, char vfo) {
-   if (!vfo_box || vfo == '\0') {
-      Log(LOG_CRIT, "gtk.vfo", "create_vfo_window invalid args: vfo_box <%p> vfo |%c|", vfo_box, vfo);
-
-      return NULL;
-   }
-   // prepare a programmatic name for the VFO
-   char win_name[32];
-   memset(win_name, 0, sizeof(win_name));
-   snprintf(win_name, sizeof(win_name), "vfo-%c", vfo);
-
-   // Lets see if we recognize that window...
-   gui_window_t *vfo_win = gui_find_window(NULL, win_name);
-
-   if (vfo_win) {
-      // Show the existing window
-      place_window(vfo_win->gtk_win);
-   } else {
-      GtkWidget *vfo_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-      gui_window_t *vfo_win = ui_new_window(vfo_window, win_name);
-      gtk_window_set_title(GTK_WINDOW(vfo_window), "rrclient vfo");
-   }
-
-   return vfo_win;
-}
