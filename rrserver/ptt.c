@@ -22,6 +22,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <libfwdspmgr/fwdsp-mgr.h>
