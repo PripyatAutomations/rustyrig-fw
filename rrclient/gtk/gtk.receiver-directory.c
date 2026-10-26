@@ -446,7 +446,7 @@ static void connect_clicked(GtkButton *button, gpointer save) {
 
    gtk_combo_box_set_active(GTK_COMBO_BOX(choose), 0);
    gtk_box_pack_start(GTK_BOX(area), choose, FALSE, FALSE, 4);
-   GtkWidget *hint_room = gtk_label_new("New SDR room name will be assigned by the server after a successful connection.");
+   GtkWidget *hint_room = gtk_label_new("Create new room on connection");
    gtk_label_set_xalign(GTK_LABEL(hint_room), 0);
    gtk_box_pack_start(GTK_BOX(area), hint_room, FALSE, FALSE, 4);
    gtk_widget_show_all(dialog);
