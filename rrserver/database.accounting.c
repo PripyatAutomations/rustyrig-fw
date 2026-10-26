@@ -73,7 +73,7 @@ static void audit_field_copy(char *dst, size_t size, const char *src) {
 }
 
 /* Persist an attributed audit record using bound values. */
-bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) {
+bool db_add_audit_event_session(sqlite3 *db, const char *username, const char *event_type, const char *details, const char *session_id) {
    if (!db || !username || !event_type || !details) {
       return false;
    }
@@ -81,7 +81,9 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    audit_field_copy(safe_user, sizeof(safe_user), username);
    audit_field_copy(safe_type, sizeof(safe_type), event_type);
    audit_field_copy(safe_details, sizeof(safe_details), details);
-   const char *sql = "INSERT INTO audit_log (username, event_type, details) VALUES (?, ?, ?);";
+   char safe_session[64];
+   audit_field_copy(safe_session, sizeof(safe_session), session_id);
+   const char *sql = "INSERT INTO audit_log (username, event_type, details, session_id) VALUES (?, ?, ?, ?);";
 
    sqlite3_stmt *stmt;
 
@@ -93,6 +95,8 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    sqlite3_bind_text(stmt, 1, safe_user, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 2, safe_type, -1, SQLITE_TRANSIENT);
    sqlite3_bind_text(stmt, 3, safe_details, -1, SQLITE_TRANSIENT);
+   if (*safe_session) sqlite3_bind_text(stmt, 4, safe_session, -1, SQLITE_TRANSIENT);
+   else sqlite3_bind_null(stmt, 4);
 
    int result = accounting_step(stmt, "db_add_audit_event");
    bool success = result == SQLITE_DONE;
@@ -103,6 +107,10 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
    sqlite3_finalize(stmt);
 
    return success;
+}
+
+bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) {
+   return db_add_audit_event_session(db, username, event_type, details, NULL);
 }
 
 /* Create a PTT log row with user origin, RF scope and recording identity. */
