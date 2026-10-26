@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 // Resource manager presentation. State and actions belong to the common client.
 // Part of rustyrig-fw; MIT license without mongoose, GPL when built with it.
 #include <gtk/gtk.h>
@@ -3048,6 +3049,7 @@ static void resource_create(void) {
    browser->filter = GTK_TREE_MODEL_FILTER(gtk_tree_model_filter_new(GTK_TREE_MODEL(browser->store), NULL));
    gtk_tree_model_filter_set_visible_func(browser->filter, resource_type_visible, NULL, NULL);
    browser->tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser->filter));
+   rr_gtk_tree_style(browser->tree);
    gtk_tree_view_set_enable_tree_lines(GTK_TREE_VIEW(browser->tree), TRUE);
    g_signal_connect(browser->tree, "key-press-event", G_CALLBACK(resource_tree_arrow), NULL);
    g_signal_connect_swapped(browser->tree, "row-expanded", G_CALLBACK(resource_zebra_structure_changed), NULL);
