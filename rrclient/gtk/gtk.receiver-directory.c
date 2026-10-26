@@ -358,6 +358,54 @@ static void import_clicked(GtkButton *button, gpointer unused) {
    }
    gtk_widget_destroy(chooser);
 }
+static void copy_clicked(GtkButton *button, gpointer config);
+static void connect_clicked(GtkButton *button, gpointer save);
+static void room_choice_changed(GtkComboBox *choice, gpointer user) {
+   GtkWidget *entry = user;
+   gboolean creating = gtk_combo_box_get_active(choice) == 0;
+   gtk_widget_set_visible(entry, creating);
+   gtk_widget_set_sensitive(entry, creating);
+}
+static void directory_menu_command(GtkMenuItem *item, gpointer user) {
+   const char *command = user;
+   if (!strcmp(command, "connect")) connect_clicked(NULL, NULL);
+   else if (!strcmp(command, "save")) connect_clicked(NULL, GINT_TO_POINTER(1));
+   else if (!strcmp(command, "copy-url")) copy_clicked(NULL, NULL);
+   else if (!strcmp(command, "copy-config")) copy_clicked(NULL, GINT_TO_POINTER(1));
+   else if (!strcmp(command, "refresh")) directory_refresh_with_wait();
+   (void)item;
+}
+static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
+   (void)user;
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   GtkTreePath *path = NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y, &path, NULL, NULL, NULL))
+      return FALSE;
+   gtk_tree_selection_select_path(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), path);
+   gtk_tree_path_free(path);
+   const receiver_directory_entry_t *r = selected_receiver();
+   if (!r) return FALSE;
+   gboolean connected = rrclient_receiver_is_connected(r->url);
+   GtkWidget *menu = gtk_menu_new();
+   const char *labels[] = {connected ? "Disconnect" : "Connect…", "Add to Server Configuration", "Copy URL", "Copy Bridge Configuration", "Refresh Directory"};
+   const char *actions[] = {"connect", "save", "copy-url", "copy-config", "refresh"};
+   for (unsigned i = 0; i < G_N_ELEMENTS(labels); i++) {
+      GtkWidget *item = gtk_menu_item_new_with_label(labels[i]);
+      gboolean enabled = i >= 2 || connected || receiver_directory_entry_accessible(r);
+      if (i == 3) {
+         char *config = receiver_directory_bridge_config(r);
+         enabled = config != NULL;
+         g_free(config);
+      }
+      gtk_widget_set_sensitive(item, enabled);
+      g_signal_connect(item, "activate", G_CALLBACK(directory_menu_command), (gpointer)actions[i]);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
 static void connect_clicked(GtkButton *button, gpointer save) {
    (void)button;
    const receiver_directory_entry_t *r = selected_receiver();
@@ -408,7 +456,9 @@ static void connect_clicked(GtkButton *button, gpointer save) {
    gtk_entry_set_text(GTK_ENTRY(entry), generated);
    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "#sdr-xxxxxxxx");
    gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 4);
+   g_signal_connect(choose, "changed", G_CALLBACK(room_choice_changed), entry);
    gtk_widget_show_all(dialog);
+   room_choice_changed(GTK_COMBO_BOX(choose), entry);
 
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       int selected = gtk_combo_box_get_active(GTK_COMBO_BOX(choose));
@@ -612,6 +662,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    g_signal_connect(search_entry, "search-changed", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(accessible_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
+   g_signal_connect(directory_tree, "button-press-event", G_CALLBACK(directory_context_menu), NULL);
    populate();
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
