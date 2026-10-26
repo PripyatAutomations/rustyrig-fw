@@ -16,6 +16,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <librustyaxe/logger.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -42,6 +44,35 @@ static void send_message(struct bridge_host *host, const rrp_bridge_ipc_message_
       host->failed = true;
    }
 }
+/* Collect early configuration/module diagnostics until the HELLO handshake.
+ * The callback also forwards ordinary logger events after startup. */
+#define BRIDGE_EARLY_LOGS 32
+static char early_logs[BRIDGE_EARLY_LOGS][256];
+static unsigned early_count;
+static struct bridge_host *log_host;
+static bool log_ready;
+static void forward_log(const char *text) {
+   if (!log_host || !log_ready || !text) return;
+   rrp_bridge_ipc_message_t m;
+   message(log_host, &m, RRP_BRIDGE_IPC_LOG);
+   snprintf(m.metadata_value, sizeof(m.metadata_value), "%s", text);
+   send_message(log_host, &m);
+}
+static bool bridge_log_cb(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
+   char message_text[192], text[256];
+   vsnprintf(message_text, sizeof(message_text), fmt, ap);
+   snprintf(text, sizeof(text), "[%.48s@%s] %s",
+      subsys ? subsys : "log", log_priority_to_str(priority), message_text);
+   if (log_ready) forward_log(text);
+   else if (early_count < BRIDGE_EARLY_LOGS)
+      snprintf(early_logs[early_count++], sizeof(early_logs[0]), "%s", text);
+   return true;
+}
+static void bridge_flush_logs(void) {
+   log_ready = true;
+   for (unsigned i = 0; i < early_count; ++i) forward_log(early_logs[i]);
+   early_count = 0;
+}
 static void audio(void *user, const int16_t *samples, size_t count, unsigned rate) {
    struct bridge_host *host = user;
 
@@ -66,12 +97,7 @@ static void status(void *user, const char *text) {
    now = time(NULL);
    if (!text || !*text) return;
    Log(LOG_INFO, "rrbridge", "%s", text);
-   /* Bridge stdout belongs to the subprocess; forward status over the
-    * existing control socket so rrserver's hostlog reaches GTK LogView. */
-   rrp_bridge_ipc_message_t m;
-   message(host, &m, RRP_BRIDGE_IPC_LOG);
-   snprintf(m.metadata_value, sizeof(m.metadata_value), "%s", text);
-   send_message(host, &m);
+   /* The logger callback forwards this event with all other diagnostics. */
 }
 static const char *setting(void *user, const char *key) {
    struct bridge_host *host = user;
@@ -187,6 +213,7 @@ int main(int argc, char **argv) {
    mg_log_set(MG_LL_INFO);
    now = time(NULL);
    logger_init("-", false);
+   if (!probe) log_add_callback(bridge_log_cb, LOG_CALLBACK_RAW);
 
    if (!rrp_bridge_config_init() || !(cfg = cfg_load(file))) {
       return EXIT_FAILURE;
@@ -230,6 +257,7 @@ int main(int argc, char **argv) {
    void *instance = driver ? driver->create(&callbacks) : NULL;
    host.api = driver;
    host.instance = instance;
+   if (!probe) log_host = &host;
    rrp_bridge_ipc_message_t m = {
       0
    };
@@ -251,6 +279,7 @@ int main(int argc, char **argv) {
       rrp_bridge_ipc_message_t hello;
       message(&host, &hello, RRP_BRIDGE_IPC_HELLO);
       send_message(&host, &hello);
+      bridge_flush_logs();
       send_message(&host, &m);
       state(&host, false, 0, NULL);
       ok = !host.failed && driver->start(instance);
