@@ -501,6 +501,28 @@ char *db_room_list(sqlite3 *db) {
    }
    sqlite3_finalize(st);
 
+   /* Merge transient SDR rooms into ordinary discovery without persisting
+    * them. The room UUID and VFO binding are resolved through the same API. */
+   if (transient_sdr_rooms) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, transient_sdr_rooms);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         const char *name = key;
+         size_t need = strlen(name) + (len ? 1 : 0);
+         if (len + need + 1 > cap) {
+            size_t next = cap;
+            while (len + need + 1 > next) next *= 2;
+            char *tmp = realloc(out, next);
+            if (!tmp) { free(out); return NULL; }
+            out = tmp;
+            cap = next;
+         }
+         if (len) out[len++] = ' ';
+         memcpy(out + len, name, strlen(name) + 1);
+         len += strlen(name);
+      }
+   }
    return out;
 }
 
