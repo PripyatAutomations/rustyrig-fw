@@ -13,8 +13,36 @@ struct GtkLogView {
    GtkWidget *page, *tree, *filter, *client, *host;
    GtkListStore *store;
    GtkTreeModel *filtered;
+   GtkAdjustment *vadj;
+   guint scroll_idle;
+   gboolean follow_end;
    unsigned limit;
 };
+/* Keep the newest visible entry in view until the user scrolls away. */
+static gboolean logview_at_end(GtkLogView *v) {
+   if (!v->vadj) return TRUE;
+   return gtk_adjustment_get_value(v->vadj) >=
+      gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj) - 2.0;
+}
+static void logview_scrolled(GtkAdjustment *adj, gpointer data) {
+   (void)adj;
+   GtkLogView *v = data;
+   v->follow_end = logview_at_end(v);
+}
+static gboolean logview_scroll_end(gpointer data) {
+   GtkLogView *v = data;
+   v->scroll_idle = 0;
+   if (v->follow_end && v->vadj)
+      gtk_adjustment_set_value(v->vadj, MAX(gtk_adjustment_get_lower(v->vadj),
+         gtk_adjustment_get_upper(v->vadj) - gtk_adjustment_get_page_size(v->vadj)));
+   return G_SOURCE_REMOVE;
+}
+static void logview_destroy(GtkWidget *widget, gpointer data) {
+   (void)widget;
+   GtkLogView *v = data;
+   if (v->scroll_idle) g_source_remove(v->scroll_idle);
+   g_free(v);
+}
 static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    GtkLogView *v = data;
    gboolean host = FALSE;
@@ -132,6 +160,7 @@ static gboolean context(GtkWidget *widget, GdkEventButton *event, gpointer data)
 GtkLogView *gtk_logview_new(unsigned limit) {
    GtkLogView *v = g_new0(GtkLogView, 1);
    v->limit = limit ? limit : 1000;
+   v->follow_end = TRUE;
    v->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    GtkWidget *top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    v->client = gtk_check_button_new_with_label("Client");
@@ -167,19 +196,25 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), v->tree);
+   v->vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scroll));
+   g_signal_connect(v->vadj, "value-changed", G_CALLBACK(logview_scrolled), v);
    gtk_box_pack_start(GTK_BOX(v->page), scroll, TRUE, TRUE, 0);
    g_signal_connect(v->client, "toggled", G_CALLBACK(log_source_toggled), v);
    g_signal_connect(v->host, "toggled", G_CALLBACK(log_source_toggled), v);
    g_signal_connect(v->filter, "changed", G_CALLBACK(refresh), v);
    g_signal_connect(v->tree, "button-press-event", G_CALLBACK(context), v);
    g_signal_connect(v->tree, "key-press-event", G_CALLBACK(logview_key), v);
+   g_signal_connect(v->page, "destroy", G_CALLBACK(logview_destroy), v);
    g_object_unref(v->filtered);
    g_object_unref(v->store);
    return v;
 }
 GtkWidget *gtk_logview_widget(GtkLogView *view) { return view ? view->page : NULL; }
 void gtk_logview_clear(GtkLogView *view) {
-   if (view) gtk_list_store_clear(view->store);
+   if (view) {
+      gtk_list_store_clear(view->store);
+      view->follow_end = TRUE;
+   }
 }
 void gtk_logview_append(GtkLogView *v, gboolean host, const char *source,
    logpriority_t level, const char *subsys, const char *message) {
@@ -190,7 +225,8 @@ void gtk_logview_append(GtkLogView *v, gboolean host, const char *source,
    if (localtime_r(&current, &local))
       strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &local);
    GtkTreeIter row;
-   gtk_list_store_prepend(v->store, &row);
+   gboolean follow = v->follow_end;
+   gtk_list_store_append(v->store, &row);
    gchar *safe = g_utf8_make_valid(message ? message : "", -1);
    gtk_list_store_set(v->store, &row, COL_TIME, timestamp,
       COL_SOURCE, source ? source : (host ? "host" : "client"),
@@ -199,7 +235,10 @@ void gtk_logview_append(GtkLogView *v, gboolean host, const char *source,
    g_free(safe);
    if (gtk_tree_model_iter_n_children(GTK_TREE_MODEL(v->store), NULL) > (gint)v->limit) {
       GtkTreeIter first;
-      if (gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(v->store), &first, NULL, (gint)v->limit))
+      if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(v->store), &first))
          gtk_list_store_remove(v->store, &first);
    }
+   v->follow_end = follow;
+   if (follow && !v->scroll_idle)
+      v->scroll_idle = g_idle_add(logview_scroll_end, v);
 }
