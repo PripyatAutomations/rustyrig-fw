@@ -279,3 +279,7 @@ feed both codec encoders only while needed. The client must be informed of
 the newly assigned stream ID before media packets arrive; unsubscribing
 must decrement the rendition's demand without killing another listener's
 stream. TX remains single-source and is not duplicated by this API.
+
+### RX rendition handoff
+
+On a codec change, the server now reuses or creates an RX rendition for the same rig/VFO PCM source, sends its availability to the requester, subscribes that listener to the rendition, and then unsubscribes the old stream. Existing listeners retain their stream and encoder. The client avoids automatically subscribing to more than one rendition of a source. TX retains its existing single-stream behavior. This requires build and multiplayer runtime verification.
