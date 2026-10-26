@@ -763,6 +763,97 @@ static gboolean admin_users_context_menu(GtkWidget *widget, GdkEventButton *even
    return TRUE;
 }
 
+/* Context menus reuse the existing admin handlers and server-side ACLs. */
+static void admin_table_menu_action(GtkMenuItem *item, gpointer user) {
+   admin_table_t *table = user;
+   const char *action = g_object_get_data(G_OBJECT(item), "rr-action");
+   if (!action) return;
+   GtkWidget *button = gtk_button_new();
+   g_object_set_data(G_OBJECT(button), "action", (gpointer)action);
+   admin_action(GTK_BUTTON(button), table);
+   gtk_widget_destroy(button);
+}
+
+static void admin_table_copy_action(GtkMenuItem *item, gpointer user) {
+   (void)user;
+   const char *value = g_object_get_data(G_OBJECT(item), "rr-copy-text");
+   if (value) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), value, -1);
+}
+
+static void admin_menu_append(GtkWidget *menu, const char *label, const char *action,
+      admin_table_t *table, gboolean enabled) {
+   GtkWidget *item = gtk_menu_item_new_with_label(label);
+   g_object_set_data(G_OBJECT(item), "rr-action", (gpointer)action);
+   gtk_widget_set_sensitive(item, enabled);
+   g_signal_connect(item, "activate", G_CALLBACK(admin_table_menu_action), table);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+}
+
+static void admin_menu_copy(GtkWidget *menu, const char *label, const char *value) {
+   GtkWidget *item = gtk_menu_item_new_with_label(label);
+   g_object_set_data_full(G_OBJECT(item), "rr-copy-text", g_strdup(value ? value : ""), g_free);
+   g_signal_connect(item, "activate", G_CALLBACK(admin_table_copy_action), NULL);
+   gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+}
+
+static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   admin_table_t *table = user;
+   GtkTreePath *path = NULL;
+   GtkTreeViewColumn *column = NULL;
+   if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (gint)event->x, (gint)event->y,
+      &path, &column, NULL, NULL)) return FALSE;
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
+   gtk_tree_selection_select_path(selection, path);
+   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
+   GtkTreeIter iter;
+   if (!gtk_tree_model_get_iter(model, &iter, path)) {
+      gtk_tree_path_free(path);
+      return FALSE;
+   }
+   gtk_tree_path_free(path);
+   GtkWidget *menu = gtk_menu_new();
+   if (!strcmp(table->name, "rooms")) {
+      admin_menu_append(menu, "Edit Topic…", "edit", table, TRUE);
+      admin_menu_append(menu, "Remove Room…", "remove", table, TRUE);
+      admin_menu_append(menu, "Restore Room", "add", table, TRUE);
+   } else if (!strcmp(table->name, "quotas")) {
+      admin_menu_append(menu, "Set TX Quota…", "TX SET", table, TRUE);
+      admin_menu_append(menu, "Add TX Quota…", "TX ADD", table, TRUE);
+      admin_menu_append(menu, "Set Bandwidth Quota…", "BW SET", table, TRUE);
+      admin_menu_append(menu, "Add Bandwidth Quota…", "BW ADD", table, TRUE);
+   } else {
+      GString *row = g_string_new("");
+      int clicked = -1;
+      GList *columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(widget));
+      for (GList *l = columns; l; l = l->next) {
+         if (l->data == column) { clicked = g_list_position(columns, l); break; }
+      }
+      g_list_free(columns);
+      for (int i = 0; i < 10 && table->fields[i]; ++i) {
+         char *value = NULL;
+         gtk_tree_model_get(model, &iter, i, &value, -1);
+         if (i) g_string_append_c(row, '\t');
+         g_string_append(row, value ? value : "");
+         if (i == clicked) {
+            char *label = g_strdup_printf("Copy %s", table->fields[i]);
+            admin_menu_copy(menu, label, value);
+            g_free(label);
+         }
+         g_free(value);
+      }
+      admin_menu_copy(menu, "Copy Row (TSV)", row->str);
+      g_string_free(row, TRUE);
+      GtkWidget *related = gtk_menu_item_new_with_label("Find Related…");
+      gtk_widget_set_sensitive(related, FALSE);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), related);
+   }
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
+
 static void admin_action(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
@@ -1468,6 +1559,10 @@ GtkWidget *init_admin_tab(void) {
       }
       if (!strcmp(table->name, "users")) {
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_users_context_menu), table);
+      }
+      if (!strcmp(table->name, "rooms") || !strcmp(table->name, "quotas") ||
+          !strcmp(table->name, "audit") || !strcmp(table->name, "ptt")) {
+         g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_table_context_menu), table);
       }
       if (!strcmp(table->name, "sessions")) {
          g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_session_activated), table);
