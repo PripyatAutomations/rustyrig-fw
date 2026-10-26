@@ -54,7 +54,7 @@ static admin_table_t tables[] = {
    },
    {
       .name = "audit", .fields = {
-         "id", "timestamp", "username", "event_type", "details"
+         "id", "timestamp", "username", "event_type", "details", "session_id"
       }
    },
    /* PARITY: rustyrig-www/js/webui.admin.js adminTables.ptt */
