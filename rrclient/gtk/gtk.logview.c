@@ -2,7 +2,7 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 extern dict *cfg;
-extern char *config_file;
+extern const char *config_file;
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/logger.h>
