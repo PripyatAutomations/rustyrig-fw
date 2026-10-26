@@ -250,9 +250,10 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
       return;
    }
 
-   if (consent.ticket[0]) {
-      Log(LOG_AUDIT, "ptt", "ticket=%s elmers=%s user=%s TX started session=%d scope=%s", consent.ticket, consent.elmers, talker->chatname, session, scope);
-   }
+   Log(LOG_AUDIT, "ptt", "TX started user=%s session=%d rig=%s vfo=%s room=%s freq=%.0fHz mode=%s width=%dHz power=%.3fW ticket=%s elmers=%s",
+      talker->chatname, session, scope, vfo_name(vfo), talker->ptt_room,
+      (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), (double)power,
+      consent.ticket, consent.elmers);
    ptt_log_session[vfo] = session;
    ptt_log_owner[vfo] = talker;
    talker->ptt_session = session;
@@ -291,9 +292,11 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    }
    ptt_log_session[vfo] = -1;
 
-   if (ptt_grant_ticket[vfo][0]) {
-      Log(LOG_AUDIT, "ptt", "ticket=%s TX stopped session=%d reason=%s", ptt_grant_ticket[vfo], session, reason ? reason : "released");
-   }
+   Log(LOG_AUDIT, "ptt", "TX stopped user=%s session=%d rig=%s vfo=%s room=%s reason=%s ticket=%s",
+      talker ? talker->chatname : "unknown", session,
+      rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown",
+      vfo_name(vfo), talker ? talker->ptt_room : "unknown",
+      reason ? reason : "released", ptt_grant_ticket[vfo]);
 
    if (talker) {
       talker->ptt_session = 0;
