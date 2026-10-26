@@ -150,6 +150,17 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(v->filtered), visible, v, NULL);
    v->tree = gtk_tree_view_new_with_model(v->filtered);
    gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(v->tree), TRUE);
+   /* Many GTK3 themes ignore rules-hint unless the TreeView's legacy
+    * stripe colors are explicitly defined. Derive them from theme colors
+    * instead of imposing fixed light/dark RGB values. */
+   GtkCssProvider *stripe_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(stripe_css,
+      "treeview.view { -GtkTreeView-even-row-color: @theme_base_color; "
+      "-GtkTreeView-odd-row-color: shade(@theme_base_color, 0.94); }",
+      -1, NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(v->tree),
+      GTK_STYLE_PROVIDER(stripe_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(stripe_css);
    gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)), GTK_SELECTION_MULTIPLE);
    const char *headers[] = {"Time", "Source", "Level", "Subsystem", "Message"};
    const int widths[] = {150, 135, 72, 130, 460};
