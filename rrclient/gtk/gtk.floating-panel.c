@@ -439,12 +439,12 @@ void rr_floating_panel_set_title_click(RRFloatPanel *p, GCallback callback, gpoi
    p->title_click_callback = callback;
    p->title_click_data = data;
    gtk_widget_set_name(p->title_hit, "rr-vfo-panel-chooser");
-   /* currentColor follows the active GTK theme's foreground. Hover gives
-    * a second affordance without making the whole floating header noisy. */
+   /* Use GTK's theme border color rather than the much brighter text color.
+    * A thin outline and subtle hover fill identify the clickable title. */
    GtkCssProvider *chooser_css = gtk_css_provider_new();
    gtk_css_provider_load_from_data(chooser_css,
-      "#rr-vfo-panel-chooser { border: 2px solid currentColor; border-radius: 3px; } "
-      "#rr-vfo-panel-chooser:hover { background-color: alpha(currentColor, 0.12); }",
+      "#rr-vfo-panel-chooser { border: 1px solid @borders; border-radius: 3px; } "
+      "#rr-vfo-panel-chooser:hover { background-color: alpha(currentColor, 0.08); }",
       -1, NULL);
    gtk_style_context_add_provider(gtk_widget_get_style_context(p->title_hit),
       GTK_STYLE_PROVIDER(chooser_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
