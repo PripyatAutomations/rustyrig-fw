@@ -1137,15 +1137,6 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
       }
       GtkWidget *row = gtk_event_box_new();
       gtk_widget_set_name(row, "room-vfo-row");
-      /* The whole VFO row is clickable: give it an unmistakable but subtle
-       * two-pixel outline matching the current theme's foreground color. */
-      GtkCssProvider *chooser_css = gtk_css_provider_new();
-      gtk_css_provider_load_from_data(chooser_css,
-         "#room-vfo-row { border: 2px solid currentColor; border-radius: 3px; }",
-         -1, NULL);
-      gtk_style_context_add_provider(gtk_widget_get_style_context(row),
-         GTK_STYLE_PROVIDER(chooser_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-      g_object_unref(chooser_css);
       /* PARITY: rustyrig-www/js/webui.rigctl.js VFO audio explanation. */
       gtk_widget_set_tooltip_text(row,
          "VFOs select tuning and audio routes. On single-receiver radios, A/B usually share receiver audio; independent RX/TX audio depends on the rig and "
