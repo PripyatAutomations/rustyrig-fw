@@ -751,7 +751,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
                room_uuids && *room_uuids ? room_uuids : "(none)",
                *rrclient_room_vfos(m_room) ? rrclient_room_vfos(m_room) : "(none)");
             if (!*rrclient_room_vfos(m_room))
-               ui_print(m_room, "SDR room joined, but no receiver VFO is attached yet.");
+               ui_print(m_room, "SDR room joined (stage 1/3); no VFO announced yet. Receiver attachment must succeed before tuning controls appear.");
          }
 
          if (frontend_ops()) {
