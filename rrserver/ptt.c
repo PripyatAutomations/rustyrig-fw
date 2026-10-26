@@ -292,12 +292,6 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    }
    ptt_log_session[vfo] = -1;
 
-   Log(LOG_AUDIT, "ptt", "TX stopped user=%s session=%d rig=%s vfo=%s room=%s reason=%s ticket=%s",
-      talker ? talker->chatname : "unknown", session,
-      rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown",
-      vfo_name(vfo), talker ? talker->ptt_room : "unknown",
-      reason ? reason : "released", ptt_grant_ticket[vfo]);
-
    if (talker) {
       talker->ptt_session = 0;
    }
@@ -309,6 +303,12 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 
       return;
    }
+
+   Log(LOG_AUDIT, "ptt", "TX session closed user=%s session=%d rig=%s vfo=%s room=%s duration=%ds reason=%s ticket=%s",
+      talker ? talker->chatname : "unknown", session,
+      rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown",
+      vfo_name(vfo), talker ? talker->ptt_room : "unknown",
+      secs, reason ? reason : "released", ptt_grant_ticket[vfo]);
 
    if (secs >= 0) {
       if (talker) {
@@ -323,7 +323,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
          looked_up = ptt_log_username(session);
          who = looked_up;
       }
-      Log(LOG_INFO, "ptt", "PTT log: %s was on the air for %d seconds (session %d)%s%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo][0] ?
+      Log(LOG_DEBUG, "ptt", "PTT log: %s was on the air for %d seconds (session %d)%s%s", (who ? who : "unknown"), secs, session, ptt_grant_ticket[vfo][0] ?
          " ticket=" : "", ptt_grant_ticket[vfo]);
 
       // Quota accounting: debit the session duration from the user's credits
