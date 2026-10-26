@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 // FTP-style share browser presentation. Part of RustyRig; MIT/GPL.
 
 // Transfer state and wire requests belong to rrclient/files.c.
@@ -773,6 +774,7 @@ static void open_browser(const char *event, const char *text, rrconn_t *c, void 
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(browser.store), NAME, sort, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(browser.store), NAME, GTK_SORT_ASCENDING);
    browser.tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(browser.store));
+   rr_gtk_tree_style(browser.tree);
    const char *labels[] = {
       "Name", "Path", "Directory", "Bytes", "Read", "Write"
    };
