@@ -331,7 +331,7 @@ static void directory_refresh_with_wait(void) {
       gtk_spinner_start(GTK_SPINNER(download_spinner));
    }
    /* Allow the main loop to paint the loading state before fetch/parse. */
-   g_timeout_add(120, directory_start_refresh, NULL);
+   g_timeout_add(180, directory_start_refresh, NULL);
 }
 static void directory_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
@@ -673,7 +673,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
    directory_refresh_with_wait();
-   g_idle_add(directory_populate_idle, NULL);
+   g_timeout_add(60, directory_populate_idle, NULL);
    /* Keep the parent mapped: hiding a transient parent can also hide its modal dialog. The spinner owns focus until the request finishes. */
 }
 void gtk_receiver_directory_init(void) {
