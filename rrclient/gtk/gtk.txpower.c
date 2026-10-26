@@ -87,6 +87,26 @@ static void tx_power_changed(GtkRange *range, gpointer unused) {
 
 GtkWidget *tx_power_slider = NULL;
 
+/* Refresh only from an explicitly reported backend percentage, not
+ * cat.state.power (which historically describes received signal strength).
+ * Block the change handler so a readback never sends a power command. */
+static gboolean tx_power_refresh(gpointer unused) {
+   (void)unused;
+   if (!GTK_IS_RANGE(tx_power_slider)) return G_SOURCE_REMOVE;
+   if (gtk_widget_has_focus(tx_power_slider) || tx_power_send_id) return G_SOURCE_CONTINUE;
+   char vfo[] = {vfo_state_get_active(), 0};
+   long percent = vfo_state_get_long(vfo, "cat.state.tx-power-percent", -1);
+   if (percent >= 0 && percent <= 100) {
+      gulong handler = (gulong)GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(tx_power_slider), "rr-power-change-handler"));
+      if (handler) g_signal_handler_block(tx_power_slider, handler);
+      gtk_range_set_value(GTK_RANGE(tx_power_slider), percent);
+      rrclient_tx_power_percent = (int)percent;
+      if (handler) g_signal_handler_unblock(tx_power_slider, handler);
+   }
+   return G_SOURCE_CONTINUE;
+}
+
+
 GtkWidget *create_txpower_box(void) {
    GtkWidget *tx_power_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    GtkWidget *tx_power_label = gtk_label_new(NULL);
@@ -102,7 +122,10 @@ GtkWidget *create_txpower_box(void) {
    int cfg_def_pow_tx = cfg_get_int("default.tx.power", 0);
    gtk_range_set_value(GTK_RANGE(tx_power_slider), cfg_def_pow_tx >= 0 && cfg_def_pow_tx <= 100 ? cfg_def_pow_tx : 100);
    rrclient_tx_power_percent = (int)gtk_range_get_value(GTK_RANGE(tx_power_slider));
-   g_signal_connect(tx_power_slider, "value-changed", G_CALLBACK(tx_power_changed), NULL);
+   gulong change_handler = g_signal_connect(tx_power_slider, "value-changed", G_CALLBACK(tx_power_changed), NULL);
+   g_object_set_data(G_OBJECT(tx_power_slider), "rr-power-change-handler", GSIZE_TO_POINTER(change_handler));
+   guint refresh_id = g_timeout_add(500, tx_power_refresh, NULL);
+   g_signal_connect_swapped(tx_power_slider, "destroy", G_CALLBACK(g_source_remove), GUINT_TO_POINTER(refresh_id));
 
    return tx_power_vbox;
 }
