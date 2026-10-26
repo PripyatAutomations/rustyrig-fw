@@ -279,7 +279,11 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
          if (!rrclient_room_is_joined(room)) {
             rrclient_connection_dispatch(connection, join_receiver, (void *)room);
          }
-         report("Joining the receiver rig; audio starts on demand.", connection);
+         char status[320];
+         snprintf(status, sizeof(status),
+            "SDR attached to %s. Awaiting room VFO announcement; select the room tab for RX controls. Audio starts on demand.",
+            room);
+         report(status, connection);
       }
       clear_pending();
    }
