@@ -120,6 +120,12 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
       free(vfos);
    }
    if (room && cptr) {
+      /* The receiver is attached before the creator joins. Its initial
+       * media.available broadcast therefore had no listeners in the room.
+       * Replay the channel catalog on JOIN so RX subscriptions can begin. */
+      Log(LOG_INFO, "sdr.status", "Room JOIN media catalog: user=%s room=%s",
+         cptr->chatname, room);
+      media_send_available_all(cptr);
       char *topic = db_room_get_topic(masterdb, room);
       dict *reply = dict_new();
       dict_add(reply, "msg.type", "talk");
