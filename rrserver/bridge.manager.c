@@ -1008,6 +1008,19 @@ bool rrserver_bridge_temporary(const rr_server_rig_t *radio) {
    return ((struct bridge_child *)backend->data)->temporary;
 }
 
+/* The temporary SDR room is not a numbered rig room. Its attachment,
+ * rather than the legacy rig-room namespace, owns the backend mapping. */
+rr_server_rig_t *rrserver_bridge_for_sdr_room(const char *room) {
+   if (!room || strlen(room) != 13 || strncasecmp(room, "#sdr-", 5))
+      return NULL;
+   for (struct bridge_child *b = children; b; b = b->next) {
+      if (b->temporary && b->backend && b->backend->owner &&
+          !strcasecmp(b->attached_room, room))
+         return b->backend->owner;
+   }
+   return NULL;
+}
+
 /* The first supported endpoint provider is Kiwi. Keep request policy and lifecycle generic so further bridge drivers can supply endpoint parsers. */
 static bool websdr_endpoint(const char *driver, const char *url, char **host, unsigned *port) {
    if (!driver || strcmp(driver, "kiwi") || !url || strlen(url) > 512) {
