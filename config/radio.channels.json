@@ -56,6 +56,14 @@
          "0": { "name": "60M CH 1 (Comm voice)", "freq": 5330500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
          "1": { "name": "60M CH 2", "freq": 5346500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 },
          "2": { "name": "60M CH 5", "freq": 5371500, "bandwidth": "3000", "mode": "USB", "tx_power": 100 }
+      },
+      "MIL-GOV": {
+         "0": { "name": "HFGCS 1", "freq": 4724000, "bandwidth": "3000", "mode": "USB", "tx_power": 0 },
+         "1": { "name": "HFGCS 2", "freq": 8992000, "bandwidth": "3000", "mode": "USB", "tx_power": 0 },
+         "2": { "name": "HFGCS 3", "freq": 11175000, "bandwidth": "3000", "mode": "USB", "tx_power": 0 },
+         "3": { "name": "HFGCS 4", "freq": 15016000, "bandwidth": "3000", "mode": "USB", "tx_power": 0 },
+         "4": { "name": "MARS", "freq": 13927000, "bandwidth": "3000", "mode": "USB", "tx_power": 0 },
+         "5": { "name": "Canadian Forces", "freq": 11232000, "bandwidth": "3000", "mode": "USB", "tx_power": 0 }
       }
    }
 }

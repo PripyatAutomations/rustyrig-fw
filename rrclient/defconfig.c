@@ -28,7 +28,6 @@ const char *configs[] = {
    ".\\config\\rrclient.cfg"
 #else
    "~/.config/rrclient.cfg",
-   "~/.rrclient.cfg",
    "/etc/rustyrig/rrclient.cfg"
 #endif
 };
