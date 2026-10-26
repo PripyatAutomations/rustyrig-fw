@@ -324,7 +324,7 @@ GtkWidget *gtk_admin_access_page(GtkListStore *groups) {
    GtkWidget *approve = gtk_button_new_with_label("Approve");
    GtkWidget *deny = gtk_button_new_with_label("Deny");
    access_request_filter = gtk_search_entry_new();
-   gtk_entry_set_width_chars(GTK_ENTRY(access_request_filter), 24);
+   gtk_entry_set_width_chars(GTK_ENTRY(access_request_filter), 16);
    gtk_entry_set_placeholder_text(GTK_ENTRY(access_request_filter), "Filter requests…");
    gtk_box_pack_start(GTK_BOX(actions), gtk_label_new("Filter:"), FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(actions), access_request_filter, FALSE, FALSE, 0);
@@ -357,13 +357,17 @@ GtkWidget *gtk_admin_access_page(GtkListStore *groups) {
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(headings[col], cell, "text", col, NULL);
       g_object_set_data(G_OBJECT(column), "rr-admin-zebra-tree", access_request_tree);
       gtk_tree_view_column_set_cell_data_func(column, cell, admin_access_zebra_cell, GINT_TO_POINTER(col == AR_AGE ? AR_AGE + 1 : 0), NULL);
+      gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
+      const int widths[] = {70, 135, 165, 320, 95, 75};
+      gtk_tree_view_column_set_fixed_width(column, widths[col]);
+      gtk_tree_view_column_set_min_width(column, 55);
       gtk_tree_view_column_set_resizable(column, TRUE);
       gtk_tree_view_column_set_expand(column, col == AR_REASON);
       gtk_tree_view_append_column(GTK_TREE_VIEW(access_request_tree), column);
    }
 
    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), access_request_tree);
    gtk_box_pack_start(GTK_BOX(page), scroll, TRUE, TRUE, 0);
    g_signal_connect(refresh, "clicked", G_CALLBACK(admin_access_refresh), NULL);
