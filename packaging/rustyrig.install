@@ -1,5 +1,6 @@
 _create_service_accounts() {
     getent group rustyrig >/dev/null || groupadd -r rustyrig
+    getent group rradmin >/dev/null || groupadd -r rradmin
     getent passwd rustyrig >/dev/null || useradd -r -g rustyrig -d /var/lib/rustyrig -s /usr/bin/nologin rustyrig
     getent group rustyrig-modems >/dev/null || groupadd -r rustyrig-modems
     getent passwd rustyrig-modems >/dev/null || useradd -r -g rustyrig-modems -d /var/lib/rustyrig -s /usr/bin/nologin rustyrig-modems
@@ -17,6 +18,9 @@ pre_install() {
 
 post_install() {
     _create_service_accounts
+    if command -v systemd-tmpfiles >/dev/null 2>&1; then
+        systemd-tmpfiles --create rustyrig.conf
+    fi
     ldconfig
 }
 
