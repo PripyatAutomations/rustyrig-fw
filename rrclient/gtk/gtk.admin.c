@@ -789,6 +789,17 @@ static void admin_menu_append(GtkWidget *menu, const char *label, const char *ac
    gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 }
 
+/* RFC 4180-style CSV quoting: every field is quoted so embedded commas,
+ * quotes and line breaks survive spreadsheet import unchanged. */
+static void admin_csv_field(GString *csv, const char *value) {
+   g_string_append_c(csv, '"');
+   for (const char *p = value ? value : ""; *p; ++p) {
+      if (*p == '"') g_string_append_c(csv, '"');
+      g_string_append_c(csv, *p);
+   }
+   g_string_append_c(csv, '"');
+}
+
 static void admin_menu_copy(GtkWidget *menu, const char *label, const char *value) {
    GtkWidget *item = gtk_menu_item_new_with_label(label);
    g_object_set_data_full(G_OBJECT(item), "rr-copy-text", g_strdup(value ? value : ""), g_free);
@@ -824,6 +835,7 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
       admin_menu_append(menu, "Add Bandwidth Quota…", "BW ADD", table, TRUE);
    } else {
       GString *row = g_string_new("");
+      GString *csv = g_string_new("");
       int clicked = -1;
       GList *columns = gtk_tree_view_get_columns(GTK_TREE_VIEW(widget));
       for (GList *l = columns; l; l = l->next) {
@@ -841,8 +853,12 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
       for (int i = 0; i < 10 && table->fields[i]; ++i) {
          char *value = NULL;
          gtk_tree_model_get(model, &iter, i, &value, -1);
-         if (i) g_string_append_c(row, '\t');
+         if (i) {
+            g_string_append_c(row, '\t');
+            g_string_append_c(csv, ',');
+         }
          g_string_append(row, value ? value : "");
+         admin_csv_field(csv, value);
          if (i == clicked) {
             char *label = g_strdup_printf("Copy %s", table->fields[i]);
             admin_menu_copy(menu, label, value);
@@ -851,7 +867,9 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
          g_free(value);
       }
       admin_menu_copy(menu, "Copy Row (TSV)", row->str);
+      admin_menu_copy(menu, "Copy Row (CSV)", csv->str);
       g_string_free(row, TRUE);
+      g_string_free(csv, TRUE);
       GtkWidget *related = gtk_menu_item_new_with_label("Find Related…");
       gtk_widget_set_sensitive(related, FALSE);
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), related);
