@@ -256,6 +256,29 @@ char *db_room_uuid(sqlite3 *db, const char *name) {
    return uuid;
 }
 
+/* Resolve an ephemeral or persisted room UUID back to its name. */
+char *db_room_name_for_uuid(sqlite3 *db, const char *uuid) {
+   if (!uuid || !*uuid) return NULL;
+   if (transient_sdr_rooms) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, transient_sdr_rooms);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         transient_sdr_room *r = value;
+         if (r->uuid && !g_ascii_strcasecmp(r->uuid, uuid)) return g_strdup(key);
+      }
+   }
+   if (!db) return NULL;
+   sqlite3_stmt *st = NULL;
+   char *room = NULL;
+   if (sqlite3_prepare_v2(db, "SELECT name FROM rooms WHERE uuid=?1 AND deleted=0;", -1, &st, NULL) == SQLITE_OK) {
+      sqlite3_bind_text(st, 1, uuid, -1, SQLITE_TRANSIENT);
+      if (sqlite3_step(st) == SQLITE_ROW) room = g_strdup((const char *)sqlite3_column_text(st, 0));
+   }
+   sqlite3_finalize(st);
+   return room;
+}
+
 /* Explicit maintenance only: regenerate permanent room identities without changing room names, topics, chat history or membership policy. */
 bool db_room_uuids_regenerate(sqlite3 *db) {
    if (!db) {
