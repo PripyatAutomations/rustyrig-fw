@@ -50,6 +50,7 @@ static void receiver_free(gpointer value) {
    receiver_directory_entry_t *r = value;
    g_free(r->url);
    g_free(r->name);
+   g_free(r->description);
    g_free(r->location);
    g_free(r->country);
    g_free(r->contact);
@@ -467,7 +468,7 @@ static GPtrArray *parse_kiwi(const char *data, size_t length) {
          description = field(object, "$.desc");
       }
       infer_country(r, description);
-      g_free(description);
+      r->description = description;
       g_ptr_array_add(list, r);
    }
    return list;
