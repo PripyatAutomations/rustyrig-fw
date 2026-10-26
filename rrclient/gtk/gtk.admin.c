@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 // Database-backed administration. Server permissions remain authoritative.
 #include <gtk/gtk.h>
 #include <stdlib.h>
@@ -539,6 +540,7 @@ static void admin_copy_user(GtkWidget *dialog, admin_table_t *table, GtkWidget *
    ;
    copy_user_store = gtk_tree_store_new(COPY_NCOL, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_BOOLEAN);
    copy_user_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(copy_user_store));
+   rr_gtk_tree_style(copy_user_tree);
    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
    GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes("Host / Username • Email • Privileges", renderer, "text", COPY_LABEL, NULL);
    g_object_set_data(G_OBJECT(column), "rr-admin-zebra-tree", copy_user_tree);
@@ -1583,6 +1585,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered), gtk_admin_filter_visible, filter, NULL);
       g_signal_connect(filter, "changed", G_CALLBACK(gtk_admin_filter_changed), filtered);
       table->tree = gtk_tree_view_new_with_model(filtered);
+   rr_gtk_tree_style(table->tree);
       g_object_set_data(G_OBJECT(table->tree), "rr-admin-filter", filter);
 
       if (!strcmp(table->name, "privsets")) {
@@ -1616,7 +1619,6 @@ GtkWidget *init_admin_tab(void) {
          g_object_set_data_full(G_OBJECT(table->tree), "selection-buttons", selection_buttons, (GDestroyNotify) g_ptr_array_unref);
          g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), "changed", G_CALLBACK(gtk_admin_action_selection), table);
       }
-      gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(table->tree), TRUE);
       g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_uuid_menu), table);
 
       const int user_order[] = {
