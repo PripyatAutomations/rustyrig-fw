@@ -61,6 +61,15 @@ list a bridge alias in `rig.instances`; the bridge roster adds it.
 `bin/rrbridge --config FILE --bridge NAME --probe` validates module loading and
 capability declarations without claiming an external receiver connection.
 
+## Temporary SDR tuning ownership
+
+For an automatically created `#sdr-XXXXXXXX` room, the first client to
+join owns receiver tuning (frequency, mode and bandwidth). Other room members
+can listen but cannot retune the shared receiver. Ownership passes to the
+next-longest-present member when the current owner parts or disconnects.
+A reconnect rejoins at the end of the queue. This applies only to temporary SDR
+rooms; physical rig TX rooms retain their existing controls and safety checks.
+
 ## Receiver demand
 
 Configured rigs remain discoverable without starting a bridge process or
