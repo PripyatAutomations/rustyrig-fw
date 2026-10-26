@@ -116,6 +116,7 @@ static const char *bridge_public_name(const struct bridge_child *b) {
 
 static bool capabilities(struct bridge_child *b, const rrp_bridge_ipc_message_t *m);
 static void websdr_remove(rr_server_rig_t *radio);
+static void websdr_audit_end(rr_server_rig_t *radio, const char *reason);
 static void capability_source(struct bridge_child *b, const char *source) {
    rr_property_descriptor_t d = {
       .name = "capabilities.source", .type = VAL_STR, .readable = true
@@ -1438,6 +1439,26 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          publish_metadata(b, "url", endpoint, false);
       }
       publish_metadata(b, "attached_room", target_room, false);
+      /* One creation record per successful temporary receiver attachment.
+       * Directory values are external input: sanitize and bound them. */
+#ifdef USE_SQLITE
+      if (b->temporary && masterdb) {
+         char room[64], backend[48], name[128], location[128], country[128], hardware[128], user[128];
+         websdr_audit_value(room, sizeof(room), target_room);
+         websdr_audit_value(backend, sizeof(backend), b->driver);
+         websdr_audit_value(name, sizeof(name), request ? dict_get(request, "directory.name", "") : "");
+         websdr_audit_value(location, sizeof(location), request ? dict_get(request, "directory.location", "") : "");
+         websdr_audit_value(country, sizeof(country), request ? dict_get(request, "directory.country", "") : "");
+         websdr_audit_value(hardware, sizeof(hardware), request ? dict_get(request, "directory.hardware", "") : "");
+         websdr_audit_value(user, sizeof(user), client->chatname);
+         char details[700];
+         snprintf(details, sizeof(details),
+            "SDR connected room=%s rig=%.64s backend=%s name=%.100s location=%.100s country=%.80s hardware=%.80s",
+            room, rr_rig_registry_public_alias(rig.rigs, b->backend->owner), backend, name, location, country, hardware);
+         db_add_audit_event(masterdb, *user ? user : "server", "sdr.connected", details);
+      }
+#endif
+
       char timestamp[40];
       snprintf(timestamp, sizeof(timestamp), "%lld", (long long)time(NULL));
       publish_metadata(b, "requested_at", timestamp, false);
