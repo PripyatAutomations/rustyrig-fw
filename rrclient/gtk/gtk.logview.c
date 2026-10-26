@@ -2,7 +2,6 @@
 #include <gtk/gtk.h>
 #include <librustyaxe/core.h>
 extern dict *cfg;
-extern const char *config_file;
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/logger.h>
@@ -42,15 +41,7 @@ static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
 static void log_source_toggled(GtkToggleButton *button, gpointer data) {
    GtkLogView *v = data;
    const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
-   dict *copy = cfg ? dict_clone(cfg) : NULL;
-   if (copy) {
-      dict_add_bool(copy, key, gtk_toggle_button_get_active(button));
-      if (config_file && cfg_save_overrides(copy, config_file))
-         dict_add_bool(cfg, key, gtk_toggle_button_get_active(button));
-      else
-         g_warning("Unable to save %s preference", key);
-      dict_free(copy);
-   }
+   if (cfg) dict_add_bool(cfg, key, gtk_toggle_button_get_active(button));
    gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
 static void refresh(GtkWidget *widget, gpointer data) {
