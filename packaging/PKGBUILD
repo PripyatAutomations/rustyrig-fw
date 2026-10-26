@@ -1,4 +1,6 @@
 # Build with: makepkg -f
+# IMPORTANT: this VCS source follows the main branch; pin a release tag or commit
+# for reproducible release packages, and update pkgrel for package revisions.
 # Arch Linux split packages; build from the checked-out repository and its submodules.
 pkgbase=rustyrig
 pkgname=(rustyrig-server-gpsd rustyrig-server-hamlib rustyrig-libs rustyrig-server rustyrig-client rustyrig-client-gtk rustyrig-fwdsp rustyrig-callsign-lookup)
@@ -46,7 +48,7 @@ package_rustyrig-libs() {
 package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'libgpiod' 'shadow' 'acl')
    install=rustyrig.install
-   backup=('etc/rustyrig/ua-bans.txt')
+   backup=('etc/rustyrig/ua-bans.txt' 'etc/rustyrig/radio.config.json')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
    install -Dm755 bin/rrbridge "$pkgdir/usr/bin/rrbridge"
@@ -59,7 +61,6 @@ package_rustyrig-server() {
    install -Dm755 tools/rr-get-ptt-log "$pkgdir/usr/bin/rr-get-ptt-log"
    install -Dm644 packaging/rrserver.service "$pkgdir/usr/lib/systemd/system/rustyrig-server.service"
    install -Dm644 packaging/rustyrig.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/rustyrig.conf"
-   install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"
    for cfg in config/rrserver.cfg config/rrserver.*.cfg; do
       install -Dm644 "$cfg" "$pkgdir/etc/rustyrig/${cfg##*/}"
       backup+=("etc/rustyrig/${cfg##*/}")
@@ -108,7 +109,7 @@ package_rustyrig-callsign-lookup() {
 
 package_rustyrig-server-gpsd() {
    pkgdesc='GPSD receiver module for RustyRig server'
-   depends=('rustyrig-server')
+   depends=('rustyrig-server' 'gpsd')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver-gpsd.so "$pkgdir/usr/lib/rustyrig/modules/rrserver/rrserver-gpsd.so"
 }
