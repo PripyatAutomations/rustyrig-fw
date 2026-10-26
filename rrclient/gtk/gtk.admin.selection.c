@@ -70,6 +70,11 @@ void gtk_admin_action_selection(GtkTreeSelection *selection, gpointer user) {
    for (guint i = 0 ; i < buttons->len ; ++i) {
       GtkWidget *button = g_ptr_array_index(buttons, i);
       const char *action = g_object_get_data(G_OBJECT(button), "action");
-      gtk_widget_set_sensitive(button, selected && !(deleted && action && !strcmp(action, "edit")));
+      gboolean enabled = selected;
+      if (selected && !strcmp(table->name, "rooms") && action) {
+         if (!strcmp(action, "add")) enabled = deleted;
+         else if (!strcmp(action, "remove") || !strcmp(action, "edit")) enabled = !deleted;
+      }
+      gtk_widget_set_sensitive(button, enabled);
    }
 }
