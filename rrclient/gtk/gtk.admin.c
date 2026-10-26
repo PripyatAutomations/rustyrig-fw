@@ -808,16 +808,24 @@ static void admin_action(GtkButton *button, gpointer data) {
             gtk_grid_attach(GTK_GRID(grid), full_rig_check, 0, col, 2, 1);
             entries[col] = NULL;
          } else {
-            entries[col] = gtk_entry_new();
-            gtk_entry_set_text(GTK_ENTRY(entries[col]), text ? text : "");
-            gtk_editable_set_editable(GTK_EDITABLE(entries[col]), col != 0 && col != 5 && col != 8);
+            /* Boolean account fields are controls, not integer strings. */
+            if (col == 1 || col == 7) {
+               entries[col] = gtk_check_button_new();
+               gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(entries[col]),
+                  text && (!strcmp(text, "1") || !g_ascii_strcasecmp(text, "true")));
+               gtk_widget_set_halign(entries[col], GTK_ALIGN_START);
+            } else {
+               entries[col] = gtk_entry_new();
+               gtk_entry_set_text(GTK_ENTRY(entries[col]), text ? text : "");
+               gtk_editable_set_editable(GTK_EDITABLE(entries[col]), col != 0 && col != 5 && col != 8);
+            }
             gtk_grid_attach(GTK_GRID(grid), gtk_label_new(table->fields[col] ? table->fields[col] : ""), 0, col, 1, 1);
             gtk_grid_attach(GTK_GRID(grid), entries[col], 1, col, 1, 1);
          }
          original[col] = text;
       }
 
-      GtkWidget *hint = gtk_label_new("enabled / password_change_required: 0 or 1; expiry: Unix seconds, blank = never");
+      GtkWidget *hint = gtk_label_new("Expiry: Unix seconds; blank = never");
       gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), hint);
       gtk_widget_show_all(dialog);
 
@@ -888,7 +896,9 @@ static void admin_action(GtkButton *button, gpointer data) {
                   }
                   continue;
                }
-               const char *edited = gtk_entry_get_text(GTK_ENTRY(entries[col]));
+               const char *edited = (col == 1 || col == 7)
+                  ? (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(entries[col])) ? "1" : "0")
+                  : gtk_entry_get_text(GTK_ENTRY(entries[col]));
 
                if (g_strcmp0(edited, original[col] ? original[col] : "")) {
                   dict_add(fields, table->fields[col], edited);
