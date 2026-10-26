@@ -716,6 +716,53 @@ static void admin_create_user(GtkButton *button, gpointer data) {
    }
    gtk_widget_destroy(dialog);
 }
+static void admin_users_menu_action(GtkMenuItem *item, gpointer data) {
+   admin_table_t *table = data;
+   const char *action = g_object_get_data(G_OBJECT(item), "rr-user-action");
+   if (!action) return;
+   if (!strcmp(action, "create")) {
+      admin_create_user(NULL, table);
+      return;
+   }
+   GtkWidget *button = gtk_button_new();
+   g_object_set_data(G_OBJECT(button), "action", (gpointer)action);
+   admin_action(GTK_BUTTON(button), table);
+   gtk_widget_destroy(button);
+}
+
+static gboolean admin_users_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   if (event->type != GDK_BUTTON_PRESS || event->button != 3) return FALSE;
+   admin_table_t *table = data;
+   GtkTreePath *path = NULL;
+   gboolean selected = gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), (int)event->x,
+      (int)event->y, &path, NULL, NULL, NULL);
+   GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widget));
+   if (selected) {
+      gtk_tree_selection_select_path(selection, path);
+      gtk_tree_path_free(path);
+   } else {
+      gtk_tree_selection_unselect_all(selection);
+   }
+   static const struct { const char *title, *action; } entries[] = {
+      {"Create User…", "create"}, {"Edit User…", "edit"},
+      {"Lock User", "lock"}, {"Unlock User", "unlock"},
+      {"Remove User", "remove"}, {"Reset Password…", "resetpw"},
+      {"Edit Privileges…", "privileges"}
+   };
+   GtkWidget *menu = gtk_menu_new();
+   for (guint i = 0; i < G_N_ELEMENTS(entries); i++) {
+      GtkWidget *item = gtk_menu_item_new_with_label(entries[i].title);
+      g_object_set_data(G_OBJECT(item), "rr-user-action", (gpointer)entries[i].action);
+      if (!selected && i != 0) gtk_widget_set_sensitive(item, FALSE);
+      g_signal_connect(item, "activate", G_CALLBACK(admin_users_menu_action), table);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+   }
+   gtk_widget_show_all(menu);
+   g_signal_connect_swapped(menu, "selection-done", G_CALLBACK(gtk_widget_destroy), menu);
+   gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+   return TRUE;
+}
+
 static void admin_action(GtkButton *button, gpointer data) {
    admin_table_t *table = data;
    GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree));
@@ -1288,6 +1335,7 @@ GtkWidget *init_admin_tab(void) {
    gtk_admin_privgroup_set_sender(admin_command);
    gtk_admin_session_set_sender(admin_session_command);
    admin_view = gtk_notebook_new();
+   gtk_notebook_set_scrollable(GTK_NOTEBOOK(admin_view), TRUE);
    admin_password_notice_token = event_on_token("notice.msg", admin_password_notice, NULL);
    g_signal_connect(admin_view, "destroy", G_CALLBACK(admin_password_notice_destroy), NULL);
    g_signal_connect_object(main_notebook, "switch-page", G_CALLBACK(admin_page_selected), admin_view, 0);
@@ -1418,6 +1466,9 @@ GtkWidget *init_admin_tab(void) {
          g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_privgroup_row_activated), table);
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(gtk_admin_privgroup_context_menu), table);
       }
+      if (!strcmp(table->name, "users")) {
+         g_signal_connect(table->tree, "button-press-event", G_CALLBACK(admin_users_context_menu), table);
+      }
       if (!strcmp(table->name, "sessions")) {
          g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_session_activated), table);
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(gtk_admin_session_context_menu), table);
@@ -1539,7 +1590,7 @@ GtkWidget *init_admin_tab(void) {
             (users && field == 9) ? 112 :
             (users && field == 0) ? 165 :
             (users && field == 3) ? 180 : quotas ? 110 :
-            rooms ? (field == 0 ? 115 : field == 3 ? 290 : field == 1 ? 108 :
+            rooms ? (field == 0 ? 205 : field == 3 ? 290 : field == 1 ? 108 :
                field == 2 ? 82 : field == 4 ? 85 : 78) :
             privilege_remote ? 68 :
             ((!strcmp(table->name, "assignments") && field == 5) || (!strcmp(table->name, "grants") && field == 6)) ? 176 :
