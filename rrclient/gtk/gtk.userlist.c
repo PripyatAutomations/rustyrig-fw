@@ -905,11 +905,14 @@ static void room_vfo_refresh_one(room_vfo_control_t *control) {
    bool transmitting = talker != NULL;
    /* Keep the compact control consistent with the main VFO widget.  The active/idle color conveys state; the action remains the familiar PTT OFF release
     * control. */
-   const char *label = talker ? talker->name : "PTT OFF";
-
-   if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), label)) {
-      gtk_button_set_label(GTK_BUTTON(control->ptt), label);
-   }
+   const char *label = talker && talker->name ? talker->name : "PTT OFF";
+   /* Keep the actual release target unchanged; only shorten its visible label.
+    * A 12-character cap prevents long usernames widening the docked roster. */
+   char *short_label = g_utf8_substring(label, 0, 12);
+   if (g_strcmp0(gtk_button_get_label(GTK_BUTTON(control->ptt)), short_label))
+      gtk_button_set_label(GTK_BUTTON(control->ptt), short_label);
+   gtk_widget_set_tooltip_text(control->ptt, talker && talker->name ? talker->name : "Release PTT on this VFO");
+   g_free(short_label);
    GtkStyleContext *ctx = gtk_widget_get_style_context(control->ptt);
    gtk_style_context_remove_class(ctx, "ptt-offline");
    const char *active_class = transmitting ? "ptt-active" : "ptt-idle";
@@ -1157,8 +1160,8 @@ static GtkWidget *room_vfo_strip_create(room_userlist_entry_t *entry) {
 
       if (ptt) {
          gtk_widget_set_tooltip_text(ptt, "Release PTT on this VFO");
-         gtk_widget_set_size_request(ptt, 76, -1);
-         gtk_widget_set_hexpand(ptt, TRUE);
+         gtk_widget_set_halign(ptt, GTK_ALIGN_START);
+         gtk_widget_set_hexpand(ptt, FALSE);
          GtkWidget *ptt_label = gtk_bin_get_child(GTK_BIN(ptt));
          if (GTK_IS_LABEL(ptt_label)) {
             gtk_label_set_xalign(GTK_LABEL(ptt_label), 0.5);
