@@ -1724,6 +1724,11 @@ GtkWidget *init_admin_tab(void) {
                field == 2 ? 82 : field == 4 ? 85 : 78) :
             privilege_remote ? 68 :
             ((!strcmp(table->name, "assignments") && field == 5) || (!strcmp(table->name, "grants") && field == 6)) ? 176 :
+            (!strcmp(table->name, "ptt") && field == 0) ? 72 :
+            (!strcmp(table->name, "ptt") && field == 4) ? 68 :
+            (!strcmp(table->name, "ptt") && field == 7) ? 78 :
+            (!strcmp(table->name, "sessions") && field == 5) ? 108 :
+            (!strcmp(table->name, "audit") && field == 5) ? 108 :
             (!strcmp(table->name, "audit") && field == 4) ? 420 : (!strcmp(table->name, "sessions") && field == 0) ? 280 : 145);
          gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
