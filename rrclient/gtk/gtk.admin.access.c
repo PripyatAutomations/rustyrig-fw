@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 // Access request list, filtering and grant review dialog.
 #include <gtk/gtk.h>
 #include <stdlib.h>
@@ -343,10 +344,10 @@ GtkWidget *gtk_admin_access_page(GtkListStore *groups) {
    gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(filtered), admin_access_visible, NULL, NULL);
    g_signal_connect(access_request_filter, "changed", G_CALLBACK(admin_access_filter_changed), filtered);
    access_request_tree = gtk_tree_view_new_with_model(filtered);
+   rr_gtk_tree_style(access_request_tree);
    g_object_unref(filtered);
    gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(access_request_tree)), GTK_SELECTION_SINGLE);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(access_request_tree)), "changed", G_CALLBACK(admin_access_selection_changed), NULL);
-   gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(access_request_tree), TRUE);
    const char *headings[] = {
       "ID", "Requester", "Rig / Room", "Reason", "Status", "Age"
    };
