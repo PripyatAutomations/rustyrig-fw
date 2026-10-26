@@ -1431,6 +1431,35 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             }
          }
          target_room = selected_room;
+         /* Only initialize a freshly allocated SDR room, never overwrite an
+          * existing room's operator-maintained topic. Directory text is
+          * untrusted descriptive metadata, so strip control characters. */
+         if (generated) {
+            const char *description = dict_get(request, "directory.description", "");
+            if (description && *description) {
+               char topic[513];
+               size_t used = 0;
+               for (const unsigned char *c = (const unsigned char *)description;
+                    *c && used < sizeof(topic) - 1; ++c) {
+                  if (*c >= 32 && *c != 127) topic[used++] = (char)*c;
+                  else if (*c == '\n' || *c == '\r' || *c == '\t') topic[used++] = ' ';
+               }
+               topic[used] = 0;
+               if (used && db_room_set_topic(masterdb, selected_room, topic)) {
+                  dict *notice = dict_new();
+                  if (notice) {
+                     dict_add(notice, "msg.type", "talk");
+                     dict_add(notice, "talk.cmd", "topic");
+                     dict_add(notice, "talk.room", selected_room);
+                     dict_add(notice, "talk.topic", topic);
+                     dict_add(notice, "talk.user", "server");
+                     dict_add_bool(notice, "talk.query", false);
+                     ws_broadcast_room_dict(NULL, notice, selected_room);
+                     dict_free(notice);
+                  }
+               }
+            }
+         }
          /* The VFO UUID lives in SQLite, but CAT routing still validates the
           * room's in-memory native VFO mask. Make A available for the newly
           * attached receive-only SDR, without enabling TX control. */
