@@ -690,6 +690,22 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan 
       return;
    }
 
+   /* An RX codec rendition is an alternative encoding of the same rig/VFO
+    * PCM source. Automatic selection must not subscribe every rendition. */
+   if (kp->direction == RR_BINFRAME_DIR_RX) {
+      for (int i = 0; i < RR_MEDIA_MAX_CHANS; i++) {
+         const struct rr_client_media_chan *other = &known_chans[i];
+         if (other != kp && other->uuid[0] && other->subscribed &&
+            other->subsystem == kp->subsystem &&
+            other->direction == kp->direction && other->vfo == kp->vfo &&
+            other->rig == kp->rig &&
+            !strcmp(other->rig_uuid, kp->rig_uuid) &&
+            !strcmp(other->vfo_uuid, kp->vfo_uuid)) {
+            return;
+         }
+      }
+   }
+
    if (direction_disabled[kp->direction == RR_BINFRAME_DIR_TX]) {
       kp->disabled = true;
 
