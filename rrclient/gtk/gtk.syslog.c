@@ -39,9 +39,15 @@ static void host_log_frame_handler(const char *event, const void *data,
 bool log_print_va(logpriority_t priority, const char *subsys, const char *fmt, va_list ap) {
    if (dying || !shared_log || !fmt) return true;
    /* The callback is registered with LOG_CALLBACK_FILTERED. */
-   char message[8096];
-   vsnprintf(message, sizeof(message), fmt, ap);
+   va_list sizing;
+   va_copy(sizing, ap);
+   int length = vsnprintf(NULL, 0, fmt, sizing);
+   va_end(sizing);
+   if (length < 0) return true;
+   char *message = g_malloc((size_t)length + 1);
+   vsnprintf(message, (size_t)length + 1, fmt, ap);
    gtk_logview_append(shared_log, FALSE, "Client", priority, subsys, message);
+   g_free(message);
    return false;
 }
 bool log_print(logpriority_t priority, const char *subsys, const char *fmt, ...) {
