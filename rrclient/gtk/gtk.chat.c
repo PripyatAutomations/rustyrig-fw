@@ -2052,12 +2052,7 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    if (!selected_online) {
       locator_tx_identity[0] = '\0';
       locator_tx_started = 0;
-      gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "No connected rig");
-      gtk_label_set_text(GTK_LABEL(vfo_locator_label), "No connected rig");
-      gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), "Freq: —");
-      gtk_label_set_text(GTK_LABEL(vfo_locator_mode), "Mode: —");
-      gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), "PTT Off");
-      gtk_widget_show_all(vfo_locator_window);
+      gtk_widget_hide(vfo_locator_window);
       return G_SOURCE_CONTINUE;
    }
    char vfo[2] = {
@@ -2262,7 +2257,9 @@ static gboolean vfo_locator_tick(gpointer unused) {
       locator_tx_identity[0] = '\0';
       locator_tx_started = 0;
 
-      vfo_locator_tick_context(NULL);
+      if (vfo_locator_window) {
+         gtk_widget_hide(vfo_locator_window);
+      }
       return G_SOURCE_CONTINUE;
    }
    g_strlcpy(vfo_locator_profile, candidate, sizeof(vfo_locator_profile));
