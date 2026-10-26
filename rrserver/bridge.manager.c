@@ -721,6 +721,13 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       return ok;
    }
 
+   if (m->type == RRP_BRIDGE_IPC_LOG) {
+      /* Use the host logger so authenticated LogView subscribers see the
+       * child's driver status just like in-process diagnostics. */
+      Log(LOG_INFO, "rrbridge", "[%s] %s", bridge_public_name(b), m->metadata_value);
+      return true;
+   }
+
    if (m->type == RRP_BRIDGE_IPC_METADATA) {
       return publish_metadata(b, m->metadata_key, m->metadata_value, true);
    }
