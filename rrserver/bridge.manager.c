@@ -1308,6 +1308,11 @@ static void websdr_request(const char *event, const void *data, size_t length, r
       }
    }
    const char *requested_room = auto_room ? generated_room : request ? dict_get(request, "room", "") : "";
+   Log(LOG_INFO, "sdr.status",
+      "SDR request: action=%s user=%s driver=%s endpoint=%s auto-room=%s requested-room=%s assigned-room=%s",
+      action, client->chatname, driver, request ? dict_get(request, "url", "") : "(missing)",
+      auto_room ? "yes" : "no", request ? dict_get(request, "room", "(none)") : "(no request)",
+      *requested_room ? requested_room : "(none)");
 
    if (auto_room && !*generated_room) {
       error = "Unable to allocate a unique temporary SDR room";
@@ -1315,7 +1320,7 @@ static void websdr_request(const char *event, const void *data, size_t length, r
       error = save ? "Adding receivers requires websdr.admin" : "WebSDR access requires websdr.listen or websdr.connect";
    } else if (!save && !release && (!*requested_room)) {
       /* A live SDR must have a listening room, never an implicit site -rigN. */
-      error = "Choose a listening room before connecting to this SDR";
+      error = "SDR room allocation failed: no listening room supplied or generated. Client and server may be running incompatible versions; rebuild and restart both.";
    } else if (request && websdr_endpoint(driver, dict_get(request, "url", ""), &host, &port)) {
       b = websdr_find(driver, host, port);
 
@@ -1333,7 +1338,7 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          b = NULL;
          error = "This receiver is not configured; websdr.connect is required";
       } else if (!b && !(b = websdr_create(driver, host, port, requested_room))) {
-         error = "Unable to create receiver (temporary rig limit or server configuration)";
+         error = "SDR backend creation failed: check websdr.max-temporary, bridge configuration path, receiver VFO registration and server sdr.status log";
       }
 
       if (b && save && !websdr_save(b)) {
