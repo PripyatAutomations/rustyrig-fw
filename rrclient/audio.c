@@ -149,10 +149,52 @@ typedef struct rx_route {
    char uuid[64], identity[64], codec[5], room[128];
    char output;
    bool seen;
-   int16_t pending[1600];
-   size_t pending_count;
+   GMutex pcm_lock;
+   int16_t pending[4000]; /* 250 ms maximum, no added latency yet */
+   size_t pcm_head, pending_count;
 } rx_route_t;
 static rx_route_t *rx_routes;
+static void rx_pcm_clear(rx_route_t *r) {
+   g_mutex_lock(&r->pcm_lock);
+   r->pcm_head = 0;
+   r->pending_count = 0;
+   g_mutex_unlock(&r->pcm_lock);
+}
+static void rx_pcm_push(rx_route_t *r, const int16_t *samples, size_t count) {
+   const size_t capacity = G_N_ELEMENTS(r->pending);
+   g_mutex_lock(&r->pcm_lock);
+   if (count >= capacity) {
+      rx_overflow_samples += r->pending_count + count - capacity;
+      samples += count - capacity;
+      count = capacity;
+      r->pcm_head = 0;
+      r->pending_count = 0;
+   } else if (r->pending_count + count > capacity) {
+      size_t drop = r->pending_count + count - capacity;
+      rx_overflow_samples += drop;
+      r->pcm_head = (r->pcm_head + drop) % capacity;
+      r->pending_count -= drop;
+   }
+   size_t tail = (r->pcm_head + r->pending_count) % capacity;
+   size_t first = MIN(count, capacity - tail);
+   memcpy(r->pending + tail, samples, first * sizeof(int16_t));
+   if (count > first) memcpy(r->pending, samples + first, (count - first) * sizeof(int16_t));
+   r->pending_count += count;
+   g_mutex_unlock(&r->pcm_lock);
+}
+static size_t rx_pcm_take(rx_route_t *r, int16_t *samples, size_t limit) {
+   const size_t capacity = G_N_ELEMENTS(r->pending);
+   g_mutex_lock(&r->pcm_lock);
+   size_t count = MIN(r->pending_count, limit);
+   size_t first = MIN(count, capacity - r->pcm_head);
+   memcpy(samples, r->pending + r->pcm_head, first * sizeof(int16_t));
+   if (count > first) memcpy(samples + first, r->pending, (count - first) * sizeof(int16_t));
+   r->pcm_head = (r->pcm_head + count) % capacity;
+   r->pending_count -= count;
+   g_mutex_unlock(&r->pcm_lock);
+   return count;
+}
+
 
 struct room_route {
    char *server, *room;
@@ -189,7 +231,7 @@ bool audio_set_rx_stream_route(const char *id, char output) {
       if (!strcmp(r->identity, id)) {
          if (r->output != output) {
             r->output = output;
-            r->pending_count = 0;
+            rx_pcm_clear(r);
             event_emit("client.audio.route.changed", NULL, NULL);
          }
 
@@ -253,7 +295,7 @@ bool audio_set_room_route(const char *server, const char *room, char output) {
 
       if (profile && !strcmp(profile, server) && !strcasecmp(route->room, room)) {
          route->output = output;
-         route->pending_count = 0;
+         rx_pcm_clear(route);
       }
    }
 
@@ -268,23 +310,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    if (route->output == 'M' || (len & 1)) {
       return;
    }
-   size_t count = len / sizeof(int16_t);
-   const int16_t *pcm = samples;
-   size_t capacity = sizeof(route->pending) / sizeof(route->pending[0]);
-
-   if (count > capacity) {
-      pcm += count - capacity;
-      count = capacity;
-   }
-
-   if (route->pending_count + count > capacity) {
-      size_t drop = route->pending_count + count - capacity;
-      rx_overflow_samples += drop;
-      memmove(route->pending, route->pending + drop, (route->pending_count - drop) * sizeof(int16_t));
-      route->pending_count -= drop;
-   }
-   memcpy(route->pending + route->pending_count, pcm, count * sizeof(int16_t));
-   route->pending_count += count;
+   rx_pcm_push(route, samples, len / sizeof(int16_t));
 }
 
 struct talkback_check {
@@ -306,7 +332,8 @@ static void audio_mix_block(void) {
    size_t frames = 0;
 
    for (rx_route_t *r = rx_routes ; r ; r = r->next) {
-      size_t take = r->pending_count < 320 ? r->pending_count : 320;
+      int16_t pcm[320];
+      size_t take = rx_pcm_take(r, pcm, G_N_ELEMENTS(pcm));
 
       struct talkback_check check = {
          .uuid = r->uuid
@@ -317,7 +344,7 @@ static void audio_mix_block(void) {
       }
 
       if (check.mute) {
-         r->pending_count = 0;
+         rx_pcm_clear(r);
          continue;
       }
 
@@ -330,16 +357,14 @@ static void audio_mix_block(void) {
 
          for (size_t i = 0 ; i < take ; i++) {
             if (r->output != 'R') {
-               mixed[2 * i] += r->pending[i];
+               mixed[2 * i] += pcm[i];
             }
 
             if (r->output != 'L') {
-               mixed[2 * i + 1] += r->pending[i];
+               mixed[2 * i + 1] += pcm[i];
             }
          }
       }
-      r->pending_count -= take;
-      memmove(r->pending, r->pending + take, r->pending_count * sizeof(int16_t));
    }
 
    if (frames) {
@@ -427,6 +452,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          changed = true;
          static unsigned next_identity;
          snprintf(route->identity, sizeof(route->identity), "client-rx-%u", ++next_identity);
+         g_mutex_init(&route->pcm_lock);
          route->connection = ws_conn;
          snprintf(route->uuid, sizeof(route->uuid), "%s", channel->uuid);
          route->next = rx_routes;
@@ -449,7 +475,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          if (route->codec[0]) {
             fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          }
-         route->pending_count = 0;
+         rx_pcm_clear(route);
          snprintf(route->codec, sizeof(route->codec), "%.4s", channel->codec);
       }
 
@@ -472,6 +498,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
       if (route->connection == ws_conn && !route->seen) {
          fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          *link = route->next;
+         g_mutex_clear(&route->pcm_lock);
          free(route);
          changed = true;
       } else {
@@ -794,6 +821,7 @@ void ws_audio_shutdown(void) {
       rx_route_t *route = rx_routes;
       rx_routes = route->next;
       fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
+      g_mutex_clear(&route->pcm_lock);
       free(route);
    }
    audio_stop_codec(false);
