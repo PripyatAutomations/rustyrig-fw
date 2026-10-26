@@ -69,7 +69,7 @@ static void admin_session_info(admin_table_t *table) {
    if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(table->tree)), &model, &iter)) return;
    static const char *labels[] = {
       "Session ID", "Username", "IP address", "Client", "Server",
-      "Connected (Unix timestamp)", "Can disconnect", "Serial ports"
+      "Connected", "Can disconnect", "Serial ports"
    };
    GtkWidget *dialog = gtk_dialog_new_with_buttons("Session information", GTK_WINDOW(main_window),
       GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "Close", GTK_RESPONSE_CLOSE, NULL);
@@ -82,7 +82,20 @@ static void admin_session_info(admin_table_t *table) {
       char *value = NULL;
       gtk_tree_model_get(model, &iter, i, &value, -1);
       GtkWidget *label = gtk_label_new(labels[i]);
-      GtkWidget *text = gtk_label_new(value && *value ? value : "Unavailable");
+      char *formatted = NULL;
+      if (i == 5 && value && *value) {
+         char *end = NULL;
+         gint64 seconds = g_ascii_strtoll(value, &end, 10);
+         if (end && !*end && seconds > 0) {
+            GDateTime *datetime = g_date_time_new_from_unix_local(seconds);
+            if (datetime) {
+               formatted = g_date_time_format(datetime, "%Y-%m-%d %H:%M:%S %Z");
+               g_date_time_unref(datetime);
+            }
+         }
+      }
+      GtkWidget *text = gtk_label_new(formatted ? formatted : value && *value ? value : "Unavailable");
+      g_free(formatted);
       gtk_label_set_xalign(GTK_LABEL(label), 0);
       gtk_label_set_xalign(GTK_LABEL(text), 0);
       gtk_label_set_selectable(GTK_LABEL(text), TRUE);
