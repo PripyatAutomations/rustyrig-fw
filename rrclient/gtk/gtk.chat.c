@@ -1419,7 +1419,7 @@ static void gtk_chat_update_vfo_controls(GtkRoomTab *tab) {
       strlen(tab->room) == 13;
    bool has_vfos = tab && tab->room[0] &&
       (rrclient_room_tx_control(tab->room) ||
-       (rrclient_room_vfos(tab->room)[0] &&
+       ((rrclient_room_vfos(tab->room)[0] || rrclient_room_vfo_mask(tab->room)) &&
         (rrclient_room_rx_tunable(tab->room) || ephemeral_sdr)));
 
    if (!has_vfos) {
