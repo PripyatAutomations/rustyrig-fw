@@ -938,11 +938,9 @@ bool gui_init(void) {
    // CONFIG tab (alt-2)
    config_tab = init_config_tab();
 
-   // Host LOG tab (alt-3)
-   host_log_tab = init_host_log_tab();
-
-   // LOG tab (alt-4)
+   // One GTK Log tab combines Client and Host streams; TUI tabs stay separate.
    log_tab = init_log_tab();
+   host_log_tab = log_tab;
 
    //// CHAT stuff (alt-5+)...
    chat_init();
