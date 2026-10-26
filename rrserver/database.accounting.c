@@ -211,6 +211,14 @@ bool db_add_chat_msg(sqlite3 *db, time_t msg_ts, const char *msg_src, const char
       return false;
    }
 
+   /* Ephemeral receiver rooms are live audio sessions, not chat archives. */
+   if (msg_dest && strlen(msg_dest) == 13 && !g_ascii_strncasecmp(msg_dest, "#sdr-", 5)) {
+      bool valid = true;
+      for (const char *p = msg_dest + 5; *p; ++p)
+         if (!g_ascii_isxdigit(*p)) valid = false;
+      if (valid) return true;
+   }
+
    const char *sql = "INSERT INTO chat_log " "(msg_ts, msg_src, msg_dest, msg_type, msg_data) " "VALUES (?, ?, ?, ?, ?);";
 
    sqlite3_stmt *stmt = NULL;
