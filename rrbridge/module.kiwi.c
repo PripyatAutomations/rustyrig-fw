@@ -426,7 +426,10 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
    const char *loc = NULL;
    size_t len = 0;
    for (const char *p = buf; p < headers_end;) {
-      const char *line = strstr(p, "\r\n");
+      const char *line = NULL;
+      for (const char *scan = p; scan + 1 < headers_end + 2; scan++) {
+         if (scan[0] == '\r' && scan[1] == '\n') { line = scan; break; }
+      }
       if (!line || line > headers_end) break;
       if (line - p >= 9 && !strncasecmp(p, "Location:", 9)) {
          loc = p + 9;
@@ -436,7 +439,7 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       }
       p = line + 2;
    }
-   if (!loc || !len || len >= sizeof(k->redirect_url)) return false;
+   if (!loc || !len || len >= sizeof(k->redirect_url) || k->attempts >= 3) return false;
    char target[512];
    memcpy(target, loc, len); target[len] = 0;
    for (size_t i = 0; i < len; i++)
