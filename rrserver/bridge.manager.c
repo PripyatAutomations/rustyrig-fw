@@ -603,7 +603,12 @@ static bool spawn_child(struct bridge_child *b) {
    b->started = b->last_seen = mono_us();
    b->kill_deadline = 0;
    b->hello = b->ready = b->idling = false;
-   Log(LOG_INFO, "bridge", "Spawned [%s] pid=%ld", bridge_public_name(b), (long)b->process.pid);
+   const char *spawn_room = rr_rig_registry_room(rig.rigs, b->backend->owner);
+   Log(LOG_INFO, "bridge",
+      "Spawned [%s] pid=%ld driver=%s rig_uuid=%s room=%s ready=no media_fd=%d",
+      bridge_public_name(b), (long)b->process.pid, b->driver,
+      rr_server_rig_id(b->backend->owner),
+      spawn_room ? spawn_room : "(none)", b->media_fd);
 
    return true;
 }
@@ -1430,12 +1435,19 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             struct rr_mediachan *channel = &media_channels[i];
 
             if (channel->uuid[0] && !strcmp(channel->rig_uuid, rig_uuid) && channel->direction == RR_BINFRAME_DIR_RX) {
+               Log(LOG_INFO, "sdr.status",
+                  "SDR RX route: rig=%s channel=%s old-room=%s new-room=%s codec=%s",
+                  bridge_public_name(b), channel->uuid, channel->room, selected_room,
+                  channel->codec[0] ? channel->codec : "(unselected)");
                snprintf(channel->room, sizeof(channel->room), "%s", selected_room);
                moved++;
             }
          }
 
-         Log(LOG_INFO, "bridge", "[%s] attached receiver room %s (%u RX channels)", bridge_public_name(b), selected_room, moved);
+         Log(moved ? LOG_INFO : LOG_WARN, "bridge",
+            "[%s] attached receiver room=%s rig_uuid=%s RX-channels=%u%s",
+            bridge_public_name(b), selected_room, rig_uuid, moved,
+            moved ? "" : " (NO RX CHANNELS: audio cannot be advertised)");
          /* The room JOIN preceded this attachment. Notify its members of the newly bound receiver UUID so their VFO panels refresh. */
          char *vfos = db_room_vfo_list(masterdb, selected_room);
          Log(vfos && *vfos ? LOG_INFO : LOG_WARN, "sdr.status",
