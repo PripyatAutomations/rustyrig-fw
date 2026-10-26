@@ -937,6 +937,7 @@ void rrserver_bridges_poll(void) {
    /* One removal per poll keeps iteration and backend ownership straightforward. */
    for (struct bridge_child *b = children ; b ; b = b->next) {
       if (b->temporary && b->idle_since && current - b->idle_since >= temporary_idle_us) {
+         websdr_audit_end(b->backend->owner, "idle-timeout");
          websdr_remove(b->backend->owner);
          break;
       }
@@ -1049,6 +1050,37 @@ static void runtime_setting(const char *name, const char *field, const char *val
    snprintf(key, sizeof(key), "bridge:%s.%s", name, field);
    dict_add(cfg, key, value);
 }
+/* Audit values originate partly in remote SDR directories. Keep every
+ * value one-line and bounded; never include endpoint URLs or credentials. */
+static void websdr_audit_value(char *out, size_t capacity, const char *value) {
+   if (!capacity) return;
+   size_t n = 0;
+   for (const unsigned char *p = (const unsigned char *)(value ? value : "");
+      *p && n + 1 < capacity && n < 120; ++p) {
+      out[n++] = (*p < 32 || *p == 127) ? ' ' : (char)*p;
+   }
+   out[n] = 0;
+}
+
+static void websdr_audit_end(rr_server_rig_t *radio, const char *reason) {
+#ifdef USE_SQLITE
+   if (!masterdb || !radio) return;
+   struct bridge_child *b = rr_server_rig_backend(radio)->data;
+   if (!b || !b->temporary || !b->attached_room[0]) return;
+   char user[128], room[64], backend[48], name[128], location[128];
+   websdr_audit_value(user, sizeof(user), b->initiated_by);
+   websdr_audit_value(room, sizeof(room), b->attached_room);
+   websdr_audit_value(backend, sizeof(backend), b->driver);
+   websdr_audit_value(name, sizeof(name), rr_rig_registry_public_alias(rig.rigs, radio));
+   websdr_audit_value(location, sizeof(location), reason);
+   char details[700];
+   snprintf(details, sizeof(details), "SDR disconnected room=%s rig=%s backend=%s reason=%s", room, name, backend, location);
+   db_add_audit_event(masterdb, *user ? user : "server", "sdr.disconnected", details);
+#else
+   (void)radio; (void)reason;
+#endif
+}
+
 static void websdr_remove(rr_server_rig_t *radio) {
    char uuid[64], alias[64];
    snprintf(uuid, sizeof(uuid), "%s", rr_server_rig_id(radio));
@@ -1274,6 +1306,7 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             b = NULL;
             error = "No temporary SDR connection owned by this operator";
          } else {
+            websdr_audit_end(b->backend->owner, "operator-disconnect");
             websdr_remove(b->backend->owner);
             b = NULL;
             error = "";
@@ -1455,6 +1488,7 @@ static void websdr_room_part(const char *event, const char *room, rrconn_t *clie
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
       if (b->temporary && b->attached_room[0] && !strcasecmp(b->attached_room, room) && !strcasecmp(b->initiated_by, client->chatname)) {
+         websdr_audit_end(b->backend->owner, "creator-left-room");
          websdr_remove(b->backend->owner);
 
          return;
@@ -1472,6 +1506,7 @@ static void websdr_creator_disconnected(const char *event, const char *data, rrc
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
       if (b->temporary && b->initiated_by[0] && !strcasecmp(b->initiated_by, client->chatname)) {
+         websdr_audit_end(b->backend->owner, "creator-disconnected");
          websdr_remove(b->backend->owner);
 
          return;
