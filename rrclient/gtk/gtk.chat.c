@@ -1624,7 +1624,33 @@ bool gtk_chat_execute_command(const char *window, const char *command) {
 static void gtk_chat_tab_close(GtkWidget *page, gboolean force) {
    GtkRoomTab *tab = g_object_get_data(G_OBJECT(page), "rr-room-tab");
 
-   if (!tab || tab == status_room_tab || !rrclient_connection_select(tab->server)) {
+   if (!tab || tab == status_room_tab) {
+      return;
+   }
+   /* A disconnected server may no longer be selectable. Force-close must
+    * still remove the exact page, even if the room name is shared elsewhere. */
+   if (!rrclient_connection_select(tab->server)) {
+      if (!force) return;
+      char *room = g_strdup(tab->room);
+      if (room && (room[0] == '#' || room[0] == '&')) {
+         rrclient_room_part(room);
+         rrclient_media_room_parted(room);
+      }
+      if (room_tabs) {
+         GHashTableIter iter;
+         gpointer key, value;
+         g_hash_table_iter_init(&iter, room_tabs);
+         while (g_hash_table_iter_next(&iter, &key, &value)) {
+            if (value == tab) {
+               g_hash_table_iter_remove(&iter);
+               break;
+            }
+         }
+      }
+      gint index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), page);
+      if (index >= 0)
+         gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), index);
+      g_free(room);
       return;
    }
    char *window = g_strdup(rrclient_window_name(tab->room));
