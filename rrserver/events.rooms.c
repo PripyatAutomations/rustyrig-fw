@@ -98,6 +98,27 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
       Log(LOG_WARN, "db", "failed to persist room %s", room);
    }
 
+   /* A late JOIN must receive the current SDR UUID binding, not only the
+    * room topic. Otherwise VFO controls remain hidden until another event. */
+   if (room && cptr && strlen(room) == 13 && !g_ascii_strncasecmp(room, "#sdr-", 5)) {
+      char *vfos = db_room_vfo_list(masterdb, room);
+      if (vfos && *vfos) {
+         dict *update = dict_new();
+         if (update) {
+            dict_add(update, "msg.type", "talk");
+            dict_add(update, "talk.cmd", "room-vfo");
+            dict_add(update, "talk.room", room);
+            dict_add(update, "talk.vfos", vfos);
+            dict_add_bool(update, "room.has-vfos", true);
+            dict_add_ulong(update, "room.vfo-mask", 1);
+            dict_add_bool(update, "room.tx-control", false);
+            dict_add_bool(update, "room.rx-tunable", true);
+            ws_send_dict(NULL, cptr, update, WEBSOCKET_OP_TEXT);
+            dict_free(update);
+         }
+      }
+      free(vfos);
+   }
    if (room && cptr) {
       char *topic = db_room_get_topic(masterdb, room);
       dict *reply = dict_new();
