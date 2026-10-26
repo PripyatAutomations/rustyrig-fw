@@ -731,14 +731,28 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
          bool has_vfos = dict_get_bool(d, "room.has-vfos", false);
          const char *room_uuids = dict_get(d, "talk.vfos", "");
 
+         /* A room-vfo UUID announcement may arrive before JOIN is processed.
+          * A zero legacy mask in that JOIN must not discard an SDR binding. */
+         bool sdr = strlen(m_room) == 13 && !strncasecmp(m_room, "#sdr-", 5);
+         bool existing_sdr_binding = sdr && *rrclient_room_vfos(m_room);
          if (room_uuids && *room_uuids) {
             rrclient_room_set_vfos(m_room, room_uuids);
-         } else {
+         } else if (!existing_sdr_binding) {
             rrclient_room_set_vfo_mask(m_room, has_vfos ? dict_get_ulong(d, "room.vfo-mask", 0) : 0);
          }
          rrclient_room_set_control_flags(m_room, dict_get_bool(d, "room.tx-control", has_vfos && ws_room_rig_base(m_room)), dict_get_bool(d, "room.rx-tunable",
             false));
          rrclient_room_set_rx_tuning_mask(m_room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
+         if (sdr) {
+            Log(LOG_INFO, "sdr.status",
+               "JOIN %s: advertised has-vfos=%s mask=0x%lx UUIDs=%s; retained=%s",
+               m_room, has_vfos ? "yes" : "no",
+               dict_get_ulong(d, "room.vfo-mask", 0),
+               room_uuids && *room_uuids ? room_uuids : "(none)",
+               *rrclient_room_vfos(m_room) ? rrclient_room_vfos(m_room) : "(none)");
+            if (!*rrclient_room_vfos(m_room))
+               ui_print(m_room, "SDR room joined, but no receiver VFO is attached yet.");
+         }
 
          if (frontend_ops()) {
             frontend_ops()->userlist_room_vfos_changed(m_room);
