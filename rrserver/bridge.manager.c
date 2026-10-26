@@ -1094,10 +1094,13 @@ static void websdr_remove(rr_server_rig_t *radio) {
    }
    /* A generated SDR room is runtime-only. Release its UUID and VFO
     * identity with the receiver rather than leaving it in the registry. */
+#ifdef USE_SQLITE
    struct bridge_child *child = rr_server_rig_backend(radio)->data;
-   if (child && child->temporary && websdr_autoroom_name(child->attached_room)) {
+   if (child && child->temporary && strlen(child->attached_room) == 13 &&
+      !strncasecmp(child->attached_room, "#sdr-", 5)) {
       db_room_delete(masterdb, child->attached_room, "server", true, false);
    }
+#endif
    rr_rig_registry_remove(rig.rigs, uuid);
    const char *fields[] = {
       "driver", "host", "port"
