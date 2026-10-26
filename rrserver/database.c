@@ -829,6 +829,19 @@ static bool db_ensure_user_groups(sqlite3 *db) {
    return ok;
 }
 
+/* Non-destructive audit session correlation upgrade. Old entries remain NULL. */
+static bool db_ensure_audit_session_id(sqlite3 *db) {
+   char *error = NULL;
+   int rc = sqlite3_exec(db, "ALTER TABLE audit_log ADD COLUMN session_id TEXT;", NULL, NULL, &error);
+   if (rc != SQLITE_OK && (!error || !strstr(error, "duplicate column name"))) {
+      Log(LOG_CRIT, "db", "Unable to upgrade audit session IDs: %s", error ? error : sqlite3_errmsg(db));
+      sqlite3_free(error);
+      return false;
+   }
+   sqlite3_free(error);
+   return true;
+}
+
 /* Open and initialize the database, preserving existing account credentials. */
 sqlite3 *db_open(const char *path) {
    if (!path) {
@@ -865,6 +878,10 @@ sqlite3 *db_open(const char *path) {
          sqlite3_close(db);
          unlink(path);
 
+         return NULL;
+      }
+      if (!db_ensure_audit_session_id(db)) {
+         sqlite3_close(db);
          return NULL;
       }
       db_ensure_user_columns(db);
