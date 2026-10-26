@@ -157,6 +157,7 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    for (int i = 0; i < 5; i++) {
       GtkCellRenderer *cell = gtk_cell_renderer_text_new();
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(headers[i], cell, "text", i, NULL);
+      gtk_tree_view_column_set_cell_data_func(column, cell, rr_gtk_tree_stripe_cell, v->tree, NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, widths[i]);
       gtk_tree_view_column_set_resizable(column, TRUE);
