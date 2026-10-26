@@ -109,7 +109,7 @@ static gboolean rig_volume_refresh(gpointer widget) {
 // Returns a GtkWidget with the volume box
 GtkWidget *create_volbox(void) {
    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-   GtkWidget *label = gtk_label_new_with_mnemonic("Ri_G Vol");
+   GtkWidget *label = gtk_label_new_with_mnemonic("_Rig");
    gtk_widget_set_halign(label, GTK_ALIGN_START);
    gtk_widget_set_size_request(label, 72, -1);
 
