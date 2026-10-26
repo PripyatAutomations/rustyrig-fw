@@ -1213,8 +1213,13 @@ static struct bridge_child *websdr_create(const char *driver, const char *host, 
    b->idle_since = mono_us();
    int fd = g_file_open_tmp("rustyrig-websdr-XXXXXX", &b->runtime_config, NULL);
    const char *modules = cfg_get("bridge.modules");
-   char *contents = g_strdup_printf("[bridge]\nmodules = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %u\n", modules ? modules : "auto", alias, driver, host,
-      port);
+   const char *user_agent = cfg_get("bridge.user-agent");
+   /* Temporary bridges have their own config, so copy the global UA. */
+   if (user_agent && (strpbrk(user_agent, "\r\n") || strlen(user_agent) > 384)) {
+      user_agent = NULL;
+   }
+   char *contents = g_strdup_printf("[bridge]\nmodules = %s\nuser-agent = %s\n[bridge:%s]\ndriver = %s\nhost = %s\nport = %u\n",
+      modules ? modules : "auto", user_agent ? user_agent : "", alias, driver, host, port);
    bool file_ok = fd >= 0 && write(fd, contents, strlen(contents)) == (ssize_t) strlen(contents);
 
    if (fd >= 0) {
