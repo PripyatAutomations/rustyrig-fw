@@ -1366,7 +1366,10 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             dict_add(update, "talk.room", selected_room);
             dict_add(update, "talk.vfos", vfos ? vfos : "");
             dict_add_bool(update, "room.has-vfos", vfos && *vfos);
-            dict_add_ulong(update, "room.vfo-mask", 0);
+            /* The temporary SDR has one receiver VFO (A). A zero mask
+             * hides its controls from joined clients despite the UUID
+             * attachment being present in talk.vfos. */
+            dict_add_ulong(update, "room.vfo-mask", 1);
             dict_add_bool(update, "room.tx-control", false);
             dict_add_bool(update, "room.rx-tunable", true);
             ws_broadcast_room_dict(NULL, update, selected_room);
