@@ -825,9 +825,13 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
    gtk_tree_path_free(path);
    GtkWidget *menu = gtk_menu_new();
    if (!strcmp(table->name, "rooms")) {
-      admin_menu_append(menu, "Edit Topic…", "edit", table, TRUE);
-      admin_menu_append(menu, "Remove Room…", "remove", table, TRUE);
-      admin_menu_append(menu, "Restore Room", "add", table, TRUE);
+      gchar *state = NULL;
+      gtk_tree_model_get(model, &iter, 2, &state, -1);
+      gboolean deleted = state && (!strcmp(state, "1") || !g_ascii_strcasecmp(state, "true"));
+      g_free(state);
+      admin_menu_append(menu, "Edit Topic…", "edit", table, !deleted);
+      admin_menu_append(menu, "Remove Room…", "remove", table, !deleted);
+      admin_menu_append(menu, "Restore Room", "add", table, deleted);
    } else if (!strcmp(table->name, "quotas")) {
       admin_menu_append(menu, "Set TX Quota…", "TX SET", table, TRUE);
       admin_menu_append(menu, "Add TX Quota…", "TX ADD", table, TRUE);
@@ -1463,6 +1467,7 @@ GtkWidget *init_admin_tab(void) {
       admin_table_t *table = &tables[i];
       GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
       GtkWidget *buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+      GtkWidget *room_actions = !strcmp(table->name, "rooms") ? gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6) : NULL;
       GtkWidget *refresh = gtk_button_new_with_label("Refresh");
       table->older = gtk_button_new_with_label("Load older / more");
       table->status = gtk_label_new("Select a server and Refresh");
@@ -1562,7 +1567,7 @@ GtkWidget *init_admin_tab(void) {
                gtk_widget_set_sensitive(button, FALSE);
                g_ptr_array_add(selection_buttons, button);
             }
-            gtk_box_pack_start(GTK_BOX(buttons), button, FALSE, FALSE, 0);
+            gtk_box_pack_start(GTK_BOX(room_actions ? room_actions : buttons), button, FALSE, FALSE, 0);
          }
       }
       /* Filter and Refresh stay on the left; other actions are right-aligned. */
@@ -1571,6 +1576,7 @@ GtkWidget *init_admin_tab(void) {
       gtk_box_pack_start(GTK_BOX(buttons), space, TRUE, TRUE, 0);
       gtk_box_reorder_child(GTK_BOX(buttons), space, 4);
       gtk_box_pack_start(GTK_BOX(box), buttons, FALSE, FALSE, 0);
+      if (room_actions) gtk_box_pack_start(GTK_BOX(box), room_actions, FALSE, FALSE, 0);
       table->store = gtk_list_store_new(10, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
          G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
       GtkTreeModel *filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(table->store), NULL);
