@@ -308,13 +308,29 @@ static void directory_download_finished(void) {
       g_free(message);
    }
 }
-static void directory_refresh_with_wait(void) {
-   receiver_directory_refresh();
-   directory_download_wait();
-
-   if (!receiver_directory_busy()) {
+static gboolean directory_start_refresh(gpointer unused) {
+   (void)unused;
+   gboolean started = receiver_directory_refresh();
+   if (started && receiver_directory_busy()) {
+      directory_download_wait();
+   } else {
       directory_download_finished();
+      const char *status = receiver_directory_last_error();
+      if (!status || !*status) status = receiver_directory_status();
+      if (status && *status)
+         gtk_label_set_text(GTK_LABEL(directory_status), status);
    }
+   return G_SOURCE_REMOVE;
+}
+static void directory_refresh_with_wait(void) {
+   /* Display the window and spinner before scheduling any network activity. */
+   if (download_status) {
+      GtkWidget *label = g_object_get_data(G_OBJECT(download_status), "download-label");
+      gtk_label_set_text(GTK_LABEL(label), "Loading receiver directory, please wait…");
+      gtk_widget_show(download_status);
+      gtk_spinner_start(GTK_SPINNER(download_spinner));
+   }
+   g_idle_add(directory_start_refresh, NULL);
 }
 static void directory_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
