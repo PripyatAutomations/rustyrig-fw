@@ -80,13 +80,9 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
 
       // Show/hide repeater dialog locally based on FM mode
       if (g_str_equal(text, "FM")) {
+         /* The controls live in the main overlay; opening them does not
+          * create another toplevel or steal focus from the mode selector. */
          fm_dialog_show();
-         gui_window_t *wp = gui_find_window(NULL, "main");
-
-         if (wp) {
-            // But return focus to our main window immediately
-            focus_main_later(wp->gtk_win);
-         }
       } else {
          fm_dialog_hide();
       }
