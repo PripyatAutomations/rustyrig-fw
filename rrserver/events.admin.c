@@ -1594,7 +1594,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
          ") WHERE (?=0 OR cursor<?) ORDER BY group_name COLLATE NOCASE,cursor,entry_name LIMIT 10000";
    } else if (!strcasecmp(table, "audit")) {
       strcpy(table, "audit");
-      sql = "SELECT id AS cursor,id,timestamp,username,event_type,details FROM audit_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
+      sql = "SELECT id AS cursor,id,timestamp,username,event_type,details,session_id FROM audit_log WHERE (?=0 OR id<?) ORDER BY id DESC LIMIT 100";
    } else if (!strcasecmp(table, "ptt")) {
       strcpy(table, "ptt");
       sql =
