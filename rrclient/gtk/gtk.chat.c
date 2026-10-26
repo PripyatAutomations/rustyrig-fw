@@ -2144,21 +2144,6 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    /* IRC and disconnected profiles have no rig/VFO state. Never present cached data from another server as though it belonged to this one. */
    gboolean selected_online = connection && connection->is_ws && rrclient_connection_state(profile) == 1;
 
-   if (!selected_online) {
-      locator_tx_identity[0] = '\0';
-      locator_tx_started = 0;
-
-      if (vfo_locator_window) {
-         gtk_label_set_text(GTK_LABEL(vfo_locator_label), "No connected rig");
-         gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), "Freq: —");
-         gtk_label_set_text(GTK_LABEL(vfo_locator_mode), "Mode: —");
-         gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), "PTT Off");
-         gtk_widget_show_all(vfo_locator_window);
-      }
-
-      return G_SOURCE_CONTINUE;
-   }
-
    if (!vfo_locator_window) {
       vfo_locator_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
       gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "RustyRig VFO");
@@ -2209,6 +2194,16 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
          );
       g_object_unref(provider);
       g_signal_connect(vfo_locator_window, "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+   }
+   if (!selected_online) {
+      locator_tx_identity[0] = '\0';
+      locator_tx_started = 0;
+      gtk_label_set_text(GTK_LABEL(vfo_locator_label), "No connected rig");
+      gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), "Freq: —");
+      gtk_label_set_text(GTK_LABEL(vfo_locator_mode), "Mode: —");
+      gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), "PTT Off");
+      gtk_widget_show_all(vfo_locator_window);
+      return G_SOURCE_CONTINUE;
    }
    char vfo[2] = {
       vfo_state_get_active(), 0
@@ -2410,10 +2405,7 @@ static gboolean vfo_locator_tick(gpointer unused) {
       locator_tx_identity[0] = '\0';
       locator_tx_started = 0;
 
-      if (vfo_locator_window) {
-         gtk_widget_hide(vfo_locator_window);
-      }
-
+      vfo_locator_tick_context(NULL);
       return G_SOURCE_CONTINUE;
    }
    g_strlcpy(vfo_locator_profile, candidate, sizeof(vfo_locator_profile));
