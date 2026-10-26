@@ -529,7 +529,7 @@ static void kiwi_poll(void *instance) {
       /* Some KiwiSDR reverse proxies reject unidentified WebSocket clients.
        * Present a conventional browser handshake User-Agent. */
       k->connection = mg_ws_connect(&k->manager, k->url, websocket, k,
-         "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\\r\\n");
+         "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\r\n");
       k->deadline = current + 10000000;
       k->received = current;
       k->keepalive = current;
