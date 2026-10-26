@@ -60,11 +60,27 @@ static int accounting_exec(sqlite3 *db, const char *sql, int (*callback) (void *
    return result;
 }
 
+/* Audit details may contain strings supplied by peers or external devices.
+ * Bound and flatten them centrally before they enter the database. */
+static void audit_field_copy(char *dst, size_t size, const char *src) {
+   if (!size) return;
+   size_t n = 0;
+   for (const unsigned char *p = (const unsigned char *)(src ? src : "");
+      *p && n + 1 < size; ++p) {
+      dst[n++] = (*p < 32 || *p == 127) ? ' ' : (char)*p;
+   }
+   dst[n] = '\0';
+}
+
 /* Persist an attributed audit record using bound values. */
 bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_type, const char *details) {
    if (!db || !username || !event_type || !details) {
       return false;
    }
+   char safe_user[128], safe_type[96], safe_details[2048];
+   audit_field_copy(safe_user, sizeof(safe_user), username);
+   audit_field_copy(safe_type, sizeof(safe_type), event_type);
+   audit_field_copy(safe_details, sizeof(safe_details), details);
    const char *sql = "INSERT INTO audit_log (username, event_type, details) VALUES (?, ?, ?);";
 
    sqlite3_stmt *stmt;
@@ -74,9 +90,9 @@ bool db_add_audit_event(sqlite3 *db, const char *username, const char *event_typ
 
       return false;
    }
-   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_STATIC);
-   sqlite3_bind_text(stmt, 2, event_type, -1, SQLITE_STATIC);
-   sqlite3_bind_text(stmt, 3, details ? details : "", -1, SQLITE_STATIC);
+   sqlite3_bind_text(stmt, 1, safe_user, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, safe_type, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, safe_details, -1, SQLITE_TRANSIENT);
 
    int result = accounting_step(stmt, "db_add_audit_event");
    bool success = result == SQLITE_DONE;
