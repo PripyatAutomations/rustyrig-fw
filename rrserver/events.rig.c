@@ -87,6 +87,14 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
 
    const char *room = dict_get(d, "rigctl.room", ws_authoritative_room());
    rr_server_rig_t *radio = rrserver_rig_for_room(room);
+   /* Temporary SDR listening rooms have no -rigN room mapping. Resolve
+    * directly through the active receiver attachment, which tracks the room
+    * actually controlling its KiwiSDR VFO. Authorization occurred when the
+    * client submitted the command; preserve membership/access when supplied. */
+   if (!radio && room && (!cptr || (ws_client_in_room(cptr, room) &&
+       rrserver_bridge_can_use(cptr)))) {
+      radio = rrserver_bridge_for_sdr_room(room);
+   }
 
 #ifdef USE_SQLITE
 
