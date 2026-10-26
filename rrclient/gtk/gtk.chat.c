@@ -2052,6 +2052,7 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    if (!selected_online) {
       locator_tx_identity[0] = '\0';
       locator_tx_started = 0;
+      gtk_window_set_title(GTK_WINDOW(vfo_locator_window), "No connected rig");
       gtk_label_set_text(GTK_LABEL(vfo_locator_label), "No connected rig");
       gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), "Freq: —");
       gtk_label_set_text(GTK_LABEL(vfo_locator_mode), "Mode: —");
@@ -2108,6 +2109,8 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
    char label[360];
    g_snprintf(label, sizeof(label), "%s\n%s", path, grid && *grid ? grid : "—");
    gtk_label_set_text(GTK_LABEL(vfo_locator_label), label);
+   /* Use the same room/VFO identity in the desktop title and taskbar. */
+   gtk_window_set_title(GTK_WINDOW(vfo_locator_window), path);
    const char *mode = selected_online ? vfo_state_get(vfo, "cat.state.mode", NULL) : NULL;
    long width = selected_online ? vfo_state_get_long(vfo, "cat.state.width", 0) : 0;
    long frequency = selected_online ? vfo_state_get_long(vfo, "cat.state.freq", 0) : 0;
