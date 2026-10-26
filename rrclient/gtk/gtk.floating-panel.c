@@ -31,11 +31,13 @@ static void panel_raise(RRFloatPanel *p) {
       gtk_overlay_reorder_overlay(p->overlay, p->frame, -1);
 }
 
-static gboolean panel_raise_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-   (void)widget;
-   if (event->type == GDK_BUTTON_PRESS)
-      panel_raise(data);
-   return FALSE; /* Do not swallow button, drag or VFO-title events. */
+static void panel_raise_gesture(GtkGestureMultiPress *gesture, gint n_press,
+   gdouble x, gdouble y, gpointer data) {
+   (void)gesture;
+   (void)n_press;
+   (void)x;
+   (void)y;
+   panel_raise(data);
 }
 
 static void panel_modal_release(RRFloatPanel *p) {
@@ -304,8 +306,13 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
-   gtk_widget_add_events(p->frame, GDK_BUTTON_PRESS_MASK);
-   g_signal_connect(p->frame, "button-press-event", G_CALLBACK(panel_raise_press), p);
+   /* Capture clicks from all descendants, including sliders, buttons, lists
+    * and scrolled content. A bubbling frame handler misses consumed events. */
+   GtkGesture *raise_gesture = gtk_gesture_multi_press_new(p->frame);
+   gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(raise_gesture), GTK_PHASE_CAPTURE);
+   g_signal_connect(raise_gesture, "pressed", G_CALLBACK(panel_raise_gesture), p);
+   g_object_set_data_full(G_OBJECT(p->frame), "rr-panel-raise-gesture",
+      raise_gesture, g_object_unref);
    g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(p->frame), panel);
