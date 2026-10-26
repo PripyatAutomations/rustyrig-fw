@@ -14,6 +14,7 @@ bool rrserver_bridges_prepare(void);
 bool rrserver_bridges_start(const char *config_file);
 void rrserver_bridges_poll(void);
 bool rrserver_bridge_temporary(const struct rr_server_rig *radio);
+struct rr_server_rig *rrserver_bridge_for_sdr_room(const char *room);
 void rrserver_websdr_register_events(void);
 void rrserver_bridges_stop(void);
 #endif
