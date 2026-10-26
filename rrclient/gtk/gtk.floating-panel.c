@@ -438,8 +438,19 @@ void rr_floating_panel_set_title_click(RRFloatPanel *p, GCallback callback, gpoi
    }
    p->title_click_callback = callback;
    p->title_click_data = data;
+   gtk_widget_set_name(p->title_hit, "rr-vfo-panel-chooser");
+   /* currentColor follows the active GTK theme's foreground. Hover gives
+    * a second affordance without making the whole floating header noisy. */
+   GtkCssProvider *chooser_css = gtk_css_provider_new();
+   gtk_css_provider_load_from_data(chooser_css,
+      "#rr-vfo-panel-chooser { border: 2px solid currentColor; border-radius: 3px; } "
+      "#rr-vfo-panel-chooser:hover { background-color: alpha(currentColor, 0.12); }",
+      -1, NULL);
+   gtk_style_context_add_provider(gtk_widget_get_style_context(p->title_hit),
+      GTK_STYLE_PROVIDER(chooser_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+   g_object_unref(chooser_css);
    gtk_widget_add_events(p->title_hit, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK);
-   gtk_widget_set_tooltip_text(p->title_hit, "Click to select VFO, drag to move panel");
+   gtk_widget_set_tooltip_text(p->title_hit, "Click to choose VFO; drag to move panel");
    g_signal_connect(p->title_hit, "button-press-event", G_CALLBACK(panel_title_press), p);
    g_signal_connect(p->title_hit, "motion-notify-event", G_CALLBACK(panel_title_move), p);
    g_signal_connect(p->title_hit, "button-release-event", G_CALLBACK(panel_title_release), p);
