@@ -595,9 +595,15 @@ static void zoom_touch_begin(GtkGesture *gesture, GdkEventSequence *sequence, gp
       }
    }
    g_list_free(points);
-   // Cancel emulated clicks below us once two fingers are recognized. This
-   // keeps a pinch from activating a button or selecting a different VFO.
-   gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED);
+   /* Do not capture unmodified touchpad/wheel events: the LogView and
+    * other GtkScrolledWindows must receive ordinary vertical scrolling.
+    * Only real touch pinches or explicitly modified gestures own input. */
+   GdkModifierType mods = 0;
+   if (event) gdk_event_get_state(event, &mods);
+   gboolean physical_touch = event && (event->type == GDK_TOUCH_BEGIN ||
+      event->type == GDK_TOUCH_UPDATE);
+   if (physical_touch || (mods & (GDK_CONTROL_MASK | GDK_MOD1_MASK)))
+      gtk_gesture_set_state(gesture, GTK_EVENT_SEQUENCE_CLAIMED);
 }
 
 static void zoom_touch_update(GtkGesture *gesture, GdkEventSequence *sequence, gpointer data) {
