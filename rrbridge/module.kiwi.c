@@ -441,8 +441,27 @@ static void websocket(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
       fail(k, "Kiwi WebSocket receive limit exceeded");
    } else if (event == MG_EV_ERROR) {
-      // Never log arbitrary peer text or URLs containing credentials.
-      fail(k, "Kiwi WebSocket connection failed");
+      /* Mongoose reports any non-101 HTTP response as "ws handshake error".
+       * Keep only the numeric status; never log peer response bodies/headers
+       * that could contain credentials or arbitrary text. */
+      if (!c->is_websocket && c->recv.len >= 12 &&
+          !memcmp(c->recv.buf, "HTTP/", 5)) {
+         const char *p = (const char *) c->recv.buf;
+         const char *end = p + c->recv.len;
+         const char *space = memchr(p, ' ', (size_t)(end - p));
+         if (space && end - space >= 4 &&
+             isdigit((unsigned char)space[1]) &&
+             isdigit((unsigned char)space[2]) &&
+             isdigit((unsigned char)space[3])) {
+            char reason[96];
+            snprintf(reason, sizeof(reason), "Kiwi WebSocket handshake rejected (HTTP %.3s)", space + 1);
+            fail(k, reason);
+         } else {
+            fail(k, "Kiwi WebSocket connection failed");
+         }
+      } else {
+         fail(k, "Kiwi WebSocket connection failed");
+      }
    } else if (event == MG_EV_CLOSE && c == k->connection) {
       k->connection = NULL;
 
