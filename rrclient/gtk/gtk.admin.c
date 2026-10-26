@@ -1637,7 +1637,7 @@ GtkWidget *init_admin_tab(void) {
          0, 9, 1, 2, 3, 4, 5, 6, 7, 8
       };
       const char *ptt_titles[] = {
-         "ID", "Server", "Start", "Name", "VFO", "Frequency", "Mode", "TxLen", "Stop Reason", "Recording"
+         "ID", "Server", "Start", "User", "VFO", "Frequency", "Mode", "TxLen", "Stop Reason", "Recording"
       };
       const char *quota_titles[] = {
          "name", "TX Min", "TX Used", "BWRemain", "BWTxUsed", "BWRxUsed"
@@ -1725,6 +1725,7 @@ GtkWidget *init_admin_tab(void) {
             privilege_remote ? 68 :
             ((!strcmp(table->name, "assignments") && field == 5) || (!strcmp(table->name, "grants") && field == 6)) ? 176 :
             (!strcmp(table->name, "ptt") && field == 0) ? 72 :
+            (!strcmp(table->name, "ptt") && field == 3) ? 110 :
             (!strcmp(table->name, "ptt") && field == 4) ? 68 :
             (!strcmp(table->name, "ptt") && field == 7) ? 78 :
             (!strcmp(table->name, "sessions") && field == 5) ? 108 :
