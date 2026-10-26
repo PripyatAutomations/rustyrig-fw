@@ -1406,6 +1406,10 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          Log(LOG_INFO, "bridge", "[%s] attached receiver room %s (%u RX channels)", bridge_public_name(b), selected_room, moved);
          /* The room JOIN preceded this attachment. Notify its members of the newly bound receiver UUID so their VFO panels refresh. */
          char *vfos = db_room_vfo_list(masterdb, selected_room);
+         Log(vfos && *vfos ? LOG_INFO : LOG_WARN, "sdr.status",
+            "SDR attachment %s: receiver=%s room=%s VFO=%s RX-channels=%u",
+            vfos && *vfos ? "bound" : "missing-binding",
+            bridge_public_name(b), selected_room, vfos && *vfos ? vfos : "(none)", moved);
          dict *update = dict_new();
 
          if (update) {
