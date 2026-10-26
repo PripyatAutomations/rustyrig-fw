@@ -769,6 +769,28 @@ char *db_room_vfo_map_list(sqlite3 *db) {
    }
    sqlite3_finalize(st);
 
+   /* Include live ephemeral SDR VFOs in room-vfo-list and map discovery. */
+   if (transient_sdr_rooms) {
+      GHashTableIter iter;
+      gpointer key, value;
+      g_hash_table_iter_init(&iter, transient_sdr_rooms);
+      while (g_hash_table_iter_next(&iter, &key, &value)) {
+         const transient_sdr_room *r = value;
+         if (!r->vfo || !*r->vfo) continue;
+         const char *room = key;
+         size_t need = strlen(room) + strlen(r->vfo) + 3 + (len ? 1 : 0);
+         if (len + need + 1 > cap) {
+            size_t newcap = cap;
+            while (len + need + 1 > newcap) newcap *= 2;
+            char *tmp = realloc(out, newcap);
+            if (!tmp) { free(out); return NULL; }
+            out = tmp;
+            cap = newcap;
+         }
+         if (len) out[len++] = '\n';
+         len += (size_t)snprintf(out + len, cap - len, "%s: %s", room, r->vfo);
+      }
+   }
    return out;
 }
 
