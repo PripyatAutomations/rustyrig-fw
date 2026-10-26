@@ -630,7 +630,8 @@ static void zoom_touch_scale(GtkGestureZoom *gesture, double scale, gpointer dat
    const GdkEvent *event = sequences ? gtk_gesture_get_last_event(GTK_GESTURE(gesture), sequences->data) : NULL;
    gboolean physical_touch = event && (event->type == GDK_TOUCH_BEGIN ||
       event->type == GDK_TOUCH_UPDATE || event->type == GDK_TOUCH_END);
-   GdkModifierType modifiers = event ? gdk_event_get_state(event) : 0;
+   GdkModifierType modifiers = 0;
+   if (event) gdk_event_get_state(event, &modifiers);
    g_list_free(sequences);
    if (!physical_touch && !(modifiers & (GDK_CONTROL_MASK | GDK_MOD1_MASK)))
       return;
