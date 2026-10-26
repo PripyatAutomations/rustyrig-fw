@@ -80,5 +80,5 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
 
 // Register the callback; called from main() alongside audit_init()
 void hostlog_init(void) {
-   log_add_callback(hostlog_cb);
+   log_add_callback(hostlog_cb, LOG_CALLBACK_FILTERED);
 }
