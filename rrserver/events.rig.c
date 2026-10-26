@@ -257,6 +257,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
                   dict_add(state, "cat.cmd", "power");
                   dict_add(state, "cat.room", room);
                   dict_add(state, "cat.vfo", rc_vfo);
+                  dict_add(state, "cat.state.vfo", rc_vfo);
                   dict_add_float(state, "cat.power", observed > 0 ? observed : rc_power);
                   /* This is a commanded setpoint when readback is unavailable, not measured RF output. */
                   dict_add_float(state, "cat.state.tx-power-watts", observed > 0 ? observed : rc_power);
