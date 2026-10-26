@@ -19,9 +19,13 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/gtk/gtk.core.h>
+#include <rrclient/gtk/gtk.floating-panel.h>
 
 extern dict *cfg;
 GtkWidget *fm_mode_combo = NULL;
+extern GtkWidget *main_window;
+extern GtkWidget *main_notebook;
+static RRFloatPanel *fm_panel = NULL;
 
 /* Tone lists */
 static const char *ctcss_tones[] = {
@@ -125,23 +129,26 @@ static void on_tone_type_changed(GtkComboBoxText *combo, gpointer user_data) {
 }
 
 GtkWidget *fm_dialog_create(void) {
-   GtkWidget *w = NULL;
+   if (fm_panel) {
+      return rr_floating_panel_widget(fm_panel);
+   }
 
-   w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-   gtk_window_set_title(GTK_WINDOW(w), "FM Settings");
-   gui_window_t *window_t = ui_new_window(w, "fm-mode");
-
-   /* Prevent user from closing the window */
-   g_signal_connect(w, "delete-event", G_CALLBACK(gtk_true), NULL);
-//   g_signal_connect(w, "key-press-event", G_CALLBACK(handle_global_hotkey),
-// w);
-   gui_hotkey_register(w);
+   GtkWidget *root = main_window ? gtk_bin_get_child(GTK_BIN(main_window)) : NULL;
+   if (!GTK_IS_OVERLAY(root) || !GTK_IS_NOTEBOOK(main_notebook)) {
+      return NULL;
+   }
+   fm_panel = rr_floating_panel_new(GTK_OVERLAY(root),
+      GTK_NOTEBOOK(main_notebook), "fm-mode", "FM Settings");
+   if (!fm_panel) {
+      return NULL;
+   }
 
    GtkWidget *grid = gtk_grid_new();
    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
    gtk_grid_set_column_spacing(GTK_GRID(grid), 6);
    gtk_container_set_border_width(GTK_CONTAINER(grid), 8);
-   gtk_container_add(GTK_CONTAINER(w), grid);
+   gtk_box_pack_start(GTK_BOX(rr_floating_panel_body(fm_panel)),
+      grid, FALSE, FALSE, 0);
 
    /* --- UI setup --- */
 
@@ -219,31 +226,22 @@ GtkWidget *fm_dialog_create(void) {
    /* Initialize combos based on default states */
    update_tone_dropdowns();
 
-   gtk_widget_show_all(w);
+   gtk_widget_show_all(rr_floating_panel_widget(fm_panel));
+   rr_floating_panel_hide(fm_panel);
 
-   return w;
+   return rr_floating_panel_widget(fm_panel);
 }
 
 void fm_dialog_show(void) {
-   gui_window_t *ui_win = gui_find_window(NULL, "fm-mode");
-   GtkWidget *fm_dialog = NULL;
-
-   if (!ui_win) {
-      fm_dialog = fm_dialog_create();
-   } else {
-      fm_dialog = ui_win->gtk_win;
-      gtk_widget_show(fm_dialog);
-      gtk_window_present(GTK_WINDOW(fm_dialog));
+   if (!fm_panel && !fm_dialog_create()) {
+      return;
    }
-   place_window(fm_dialog);
+   rr_floating_panel_restore(fm_panel);
+   rr_floating_panel_show(fm_panel);
 }
 
 void fm_dialog_hide(void) {
-   gui_window_t *ui_win = gui_find_window(NULL, "fm-mode");
-   GtkWidget *fm_dialog = NULL;
-
-   if (ui_win) {
-      fm_dialog = ui_win->gtk_win;
-      gtk_widget_hide(fm_dialog);
+   if (fm_panel) {
+      rr_floating_panel_hide(fm_panel);
    }
 }
