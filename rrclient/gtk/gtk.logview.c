@@ -1,5 +1,8 @@
 /* Reusable, bounded, structured GTK3 log view. TUI keeps its own tabs. */
 #include <gtk/gtk.h>
+#include <librustyaxe/core.h>
+extern dict *cfg;
+extern char *config_file;
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/logger.h>
@@ -35,6 +38,20 @@ static gboolean visible(GtkTreeModel *model, GtkTreeIter *iter, gpointer data) {
    }
    g_free(time); g_free(source); g_free(level); g_free(subsys); g_free(message);
    return ok;
+}
+static void log_source_toggled(GtkToggleButton *button, gpointer data) {
+   GtkLogView *v = data;
+   const char *key = button == GTK_TOGGLE_BUTTON(v->host) ? "ui.gtk.log.host" : "ui.gtk.log.client";
+   dict *copy = cfg ? dict_clone(cfg) : NULL;
+   if (copy) {
+      dict_add_bool(copy, key, gtk_toggle_button_get_active(button));
+      if (config_file && cfg_save_overrides(copy, config_file))
+         dict_add_bool(cfg, key, gtk_toggle_button_get_active(button));
+      else
+         g_warning("Unable to save %s preference", key);
+      dict_free(copy);
+   }
+   gtk_tree_model_filter_refilter(GTK_TREE_MODEL_FILTER(v->filtered));
 }
 static void refresh(GtkWidget *widget, gpointer data) {
    (void)widget;
@@ -109,7 +126,8 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    GtkWidget *top = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    v->client = gtk_check_button_new_with_label("Client");
    v->host = gtk_check_button_new_with_label("Host");
-   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client), TRUE);
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->client), cfg_get_bool("ui.gtk.log.client", true));
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(v->host), cfg_get_bool("ui.gtk.log.host", false));
    v->filter = gtk_search_entry_new();
    gtk_entry_set_placeholder_text(GTK_ENTRY(v->filter), "Filter logs…");
    gtk_entry_set_width_chars(GTK_ENTRY(v->filter), 24);
@@ -137,8 +155,8 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
    gtk_container_add(GTK_CONTAINER(scroll), v->tree);
    gtk_box_pack_start(GTK_BOX(v->page), scroll, TRUE, TRUE, 0);
-   g_signal_connect(v->client, "toggled", G_CALLBACK(refresh), v);
-   g_signal_connect(v->host, "toggled", G_CALLBACK(refresh), v);
+   g_signal_connect(v->client, "toggled", G_CALLBACK(log_source_toggled), v);
+   g_signal_connect(v->host, "toggled", G_CALLBACK(log_source_toggled), v);
    g_signal_connect(v->filter, "changed", G_CALLBACK(refresh), v);
    g_signal_connect(v->tree, "button-press-event", G_CALLBACK(context), v);
    g_object_unref(v->filtered);
