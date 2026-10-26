@@ -506,6 +506,9 @@ static void websocket(struct mg_connection *c, int event, void *data) {
       /* The next connection uses Location after this socket closes. */
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
       fail(k, "Kiwi WebSocket receive limit exceeded");
+   } else if (event == MG_EV_ERROR && !k->redirecting && kiwi_redirect(k, c)) {
+      /* The WebSocket handshake parser can raise ERROR before the application
+       * receives READ. Inspect the retained HTTP response here as well. */
    } else if (event == MG_EV_ERROR && !k->redirecting) {
       /* Mongoose reports any non-101 HTTP response as "ws handshake error".
        * Keep only the numeric status; never log peer response bodies/headers
