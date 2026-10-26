@@ -736,9 +736,10 @@ bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
    GList *demoted = NULL;
    for (GList *it = top_windows; it; it = it->next) {
       GtkWidget *window = it->data;
-      if (window != dialog && GTK_IS_WINDOW(window) &&
-          gtk_window_get_keep_above(GTK_WINDOW(window)) &&
-          gtk_widget_get_visible(window)) {
+      GdkWindow *gdk_window = GTK_IS_WINDOW(window) ? gtk_widget_get_window(window) : NULL;
+      if (window != dialog && gdk_window &&
+          gtk_widget_get_visible(window) &&
+          (gdk_window_get_state(gdk_window) & GDK_WINDOW_STATE_ABOVE)) {
          gtk_window_set_keep_above(GTK_WINDOW(window), FALSE);
          demoted = g_list_prepend(demoted, g_object_ref(window));
       }
