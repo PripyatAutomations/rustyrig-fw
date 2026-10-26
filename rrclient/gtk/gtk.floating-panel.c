@@ -24,6 +24,20 @@ struct rr_floating_panel {
    int start_x, start_y;
 };
 
+/* GtkOverlay paints children in overlay order. Raise the selected panel
+ * rather than merely presenting the containing desktop window. */
+static void panel_raise(RRFloatPanel *p) {
+   if (p && p->overlay && p->frame && !p->modal)
+      gtk_overlay_reorder_overlay(p->overlay, p->frame, -1);
+}
+
+static gboolean panel_raise_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+   (void)widget;
+   if (event->type == GDK_BUTTON_PRESS)
+      panel_raise(data);
+   return FALSE; /* Do not swallow button, drag or VFO-title events. */
+}
+
 static void panel_modal_release(RRFloatPanel *p) {
    if (p->modal_grabbed) {
       gtk_grab_remove(p->frame);
@@ -132,6 +146,7 @@ void rr_floating_panel_restore(RRFloatPanel *p) {
       p->restore_tab = NULL;
    }
    gtk_widget_show(p->frame);
+   panel_raise(p);
    panel_chrome(p);
 }
 
@@ -174,6 +189,7 @@ static void panel_roll(GtkButton *button, gpointer data) {
       return;
    }
    p->rolled = !p->rolled;
+   if (!p->rolled) panel_raise(p);
    panel_chrome(p);
 }
 
@@ -210,6 +226,7 @@ static gboolean drag_press(GtkWidget *widget, GdkEventButton *event, gpointer da
    if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
    }
+   panel_raise(p);
    p->dragging = TRUE;
    p->drag_x = event->x_root;
    p->drag_y = event->y_root;
@@ -287,6 +304,8 @@ RRFloatPanel *rr_floating_panel_new(GtkOverlay *overlay, GtkNotebook *tabs, cons
    gtk_widget_set_margin_start(p->frame, 12);
    gtk_widget_set_margin_top(p->frame, 12);
    gtk_overlay_add_overlay(overlay, p->frame);
+   gtk_widget_add_events(p->frame, GDK_BUTTON_PRESS_MASK);
+   g_signal_connect(p->frame, "button-press-event", G_CALLBACK(panel_raise_press), p);
    g_signal_connect(p->frame, "key-press-event", G_CALLBACK(panel_modal_key), p);
    GtkWidget *panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_container_add(GTK_CONTAINER(p->frame), panel);
@@ -393,6 +412,7 @@ static gboolean panel_title_press(GtkWidget *widget, GdkEventButton *event, gpoi
    if (event->button != GDK_BUTTON_PRIMARY) {
       return FALSE;
    }
+   panel_raise(p);
    p->title_press_time = event->time;
    p->title_moved = FALSE;
 
