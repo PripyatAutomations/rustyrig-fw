@@ -2162,18 +2162,19 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       /* An independent normal top-level avoids window-manager utility/transient grouping that can iconify it along with the main window. */
       gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_NORMAL);
       gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
-      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
+      /* Do not elevate this window above modal dialogs: the user must always be able to respond to them. */
+      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), FALSE);
       gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), TRUE);
       /* A native undecorated top-level, with the same lightweight border treatment as in-window floating panels. The frame owns PTT styling. */
       vfo_locator_frame = gtk_event_box_new();
       gtk_widget_add_events(vfo_locator_frame, GDK_BUTTON_PRESS_MASK);
       g_signal_connect(vfo_locator_frame, "button-press-event", G_CALLBACK(vfo_locator_drag), NULL);
       gtk_widget_set_name(vfo_locator_frame, "rr-vfo-locator");
-      GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-      gtk_widget_set_margin_top(lines, 11);
-      gtk_widget_set_margin_bottom(lines, 11);
-      gtk_widget_set_margin_start(lines, 14);
-      gtk_widget_set_margin_end(lines, 14);
+      GtkWidget *lines = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+      gtk_widget_set_margin_top(lines, 6);
+      gtk_widget_set_margin_bottom(lines, 6);
+      gtk_widget_set_margin_start(lines, 9);
+      gtk_widget_set_margin_end(lines, 9);
       vfo_locator_label = gtk_label_new(NULL);
       vfo_locator_frequency = gtk_label_new(NULL);
       vfo_locator_mode = gtk_label_new(NULL);
@@ -2250,7 +2251,7 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       g_snprintf(path, sizeof(path), "%s.%c", profile, vfo[0]);
    }
    char label[360];
-   g_snprintf(label, sizeof(label), "%s  /  %s", path, grid && *grid ? grid : "—");
+   g_snprintf(label, sizeof(label), "%s\n%s", path, grid && *grid ? grid : "—");
    gtk_label_set_text(GTK_LABEL(vfo_locator_label), label);
    const char *mode = selected_online ? vfo_state_get(vfo, "cat.state.mode", NULL) : NULL;
    long width = selected_online ? vfo_state_get_long(vfo, "cat.state.width", 0) : 0;
@@ -2276,14 +2277,14 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       }
 
       formatted[offset] = '\0';
-      g_snprintf(freq_line, sizeof(freq_line), "Frequency: %s.%03lu kHz", formatted, hz);
+      g_snprintf(freq_line, sizeof(freq_line), "Freq: %s.%03lu kHz", formatted, hz);
    } else {
-      g_strlcpy(freq_line, "Frequency: —", sizeof(freq_line));
+      g_strlcpy(freq_line, "Freq: —", sizeof(freq_line));
    }
-   g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %s", mode && *mode ? mode : "—", width > 0 ? "" : "—");
+   g_snprintf(mode_line, sizeof(mode_line), "Mode: %s  (%s)", mode && *mode ? mode : "—", width > 0 ? "" : "—");
 
    if (width > 0) {
-      g_snprintf(mode_line, sizeof(mode_line), "Mode: %s   Width: %ld Hz", mode && *mode ? mode : "—", width);
+      g_snprintf(mode_line, sizeof(mode_line), "Mode: %s  (%ld Hz)", mode && *mode ? mode : "—", width);
    }
    gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), freq_line);
    gtk_label_set_text(GTK_LABEL(vfo_locator_mode), mode_line);
