@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 //
 
 // rrclient/userlist.c: Userlist storage & display
@@ -1258,6 +1259,7 @@ static GtkWidget *userlist_view_create(void) {
    }
    GtkListStore *store = gtk_list_store_new(NUM_COLS, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    GtkWidget *view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+   rr_gtk_tree_style(view);
    userlist_view_set_server(view, server_name);
    gtk_widget_set_name(view, "userlist-tree");
    g_object_set_data(G_OBJECT(view), "rr-touch-context", &userlist_touch_callback);
