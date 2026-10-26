@@ -523,10 +523,11 @@ static void websocket(struct mg_connection *c, int event, void *data) {
              isdigit((unsigned char)space[2]) &&
              isdigit((unsigned char)space[3])) {
             char reason[96];
-            snprintf(reason, sizeof(reason),
-               !memcmp(space + 1, "307", 3)
-                  ? "Kiwi HTTP 307 redirect could not be followed (missing, invalid, or unsupported Location)"
-                  : "Kiwi WebSocket handshake rejected (HTTP %.3s)", space + 1);
+            if (!memcmp(space + 1, "307", 3))
+               snprintf(reason, sizeof(reason), "%s",
+                  "Kiwi HTTP 307 redirect could not be followed (missing, invalid, or unsupported Location)");
+            else
+               snprintf(reason, sizeof(reason), "Kiwi WebSocket handshake rejected (HTTP %.3s)", space + 1);
             fail(k, reason);
          } else {
             fail(k, "Kiwi WebSocket connection failed");
