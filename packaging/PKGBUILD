@@ -46,7 +46,7 @@ package_rustyrig-libs() {
 package_rustyrig-server() {
    pkgdesc='RustyRig radio server'; depends=('rustyrig-libs' 'jq' 'sqlite' 'libgpiod' 'shadow' 'acl')
    install=rustyrig.install
-   backup=('etc/rustyrig/rrserver.cfg' 'etc/rustyrig/ua-bans.txt')
+   backup=('etc/rustyrig/ua-bans.txt')
    cd "$srcdir/rustyrig-fw"
    install -Dm755 bin/rrserver "$pkgdir/usr/bin/rrserver"
    install -Dm755 bin/rrbridge "$pkgdir/usr/bin/rrbridge"
@@ -62,6 +62,7 @@ package_rustyrig-server() {
    install -Dm755 packaging/rrserver.rc "$pkgdir/etc/init.d/rrserver"
    for cfg in config/rrserver.cfg config/rrserver.*.cfg; do
       install -Dm644 "$cfg" "$pkgdir/etc/rustyrig/${cfg##*/}"
+      backup+=("etc/rustyrig/${cfg##*/}")
    done
    install -Dm644 config/radio.config.json "$pkgdir/etc/rustyrig/radio.config.json"
    install -Dm644 config/ua-bans "$pkgdir/etc/rustyrig/ua-bans.txt"
@@ -71,7 +72,8 @@ package_rustyrig-server() {
    install -d -m0775 "$pkgdir/var/log/rustyrig"
    install -d "$pkgdir/var/lib/rustyrig"/{db,recordings,modems,sql,tools,www}
    find www -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a {} "$pkgdir/var/lib/rustyrig/www/" \;
-   cp -a doc "$pkgdir/usr/share/doc/rustyrig/"
+   install -d "$pkgdir/usr/share/doc/rustyrig"
+   cp -a doc/. "$pkgdir/usr/share/doc/rustyrig/"
 }
 
 package_rustyrig-client() {
