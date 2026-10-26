@@ -830,6 +830,14 @@ static gboolean admin_table_context_menu(GtkWidget *widget, GdkEventButton *even
          if (l->data == column) { clicked = g_list_position(columns, l); break; }
       }
       g_list_free(columns);
+      /* Column position may differ from backing-store field order (PTT/Rooms). */
+      if (!strcmp(table->name, "ptt")) {
+         const int order[] = {0, 9, 1, 2, 3, 4, 5, 6, 7, 8};
+         if (clicked >= 0 && clicked < (int)G_N_ELEMENTS(order)) clicked = order[clicked];
+      } else if (!strcmp(table->name, "rooms")) {
+         const int order[] = {0, 3, 2, 4, 5, 1};
+         if (clicked >= 0 && clicked < (int)G_N_ELEMENTS(order)) clicked = order[clicked];
+      }
       for (int i = 0; i < 10 && table->fields[i]; ++i) {
          char *value = NULL;
          gtk_tree_model_get(model, &iter, i, &value, -1);
