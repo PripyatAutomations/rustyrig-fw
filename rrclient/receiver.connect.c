@@ -154,8 +154,8 @@ bool rrclient_receiver_connect_room_ex(const char *url, bool save, const char *r
 
       /* A directory entry's public description is a useful initial SDR
        * topic, but never an authorization statement. */
-      if (receiver->properties && *receiver->properties)
-         dict_add(fields, "directory.description", receiver->properties);
+      if (receiver->description && *receiver->description)
+         dict_add(fields, "directory.description", receiver->description);
       else if (receiver->name && *receiver->name)
          dict_add(fields, "directory.description", receiver->name);
       char number[48];
