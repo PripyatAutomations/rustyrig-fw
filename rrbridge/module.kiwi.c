@@ -25,9 +25,10 @@ struct kiwi_instance {
    struct mg_mgr manager;
    struct mg_connection *connection;
    bool started, authenticated, configured, online, closing, confirmed, failed;
-   unsigned rate, failures;
+   unsigned rate, failures, attempts, redirects;
+   bool redirecting;
    uint64_t max_hz, hz, wanted_hz, request, deadline, retry, keepalive, received, online_since;
-   char mode[16], wanted_mode[16], url[512];
+   char mode[16], wanted_mode[16], url[512], redirect_url[512];
    uint32_t sequence;
    bool have_sequence;
 };
@@ -411,6 +412,66 @@ static bool kiwi_receive(void *instance, const void *frame, size_t length) {
 
    return true;
 }
+/* Only inspect a complete response header, never arbitrary response text.
+ * Redirects are connection attempts too; no loops or unlimited retries. */
+static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
+   if (c->is_websocket || c->recv.len < 12 || c->recv.len > 8192 ||
+       memcmp(c->recv.buf, "HTTP/", 5)) return false;
+   const char *buf = (const char *)c->recv.buf;
+   const char *end = buf + c->recv.len;
+   const char *headers_end = NULL;
+   for (const char *p = buf; p + 3 < end; p++)
+      if (!memcmp(p, "\r\n\r\n", 4)) { headers_end = p; break; }
+   if (!headers_end || end - buf < 12 || memcmp(buf + 9, "307", 3)) return false;
+   const char *loc = NULL;
+   size_t len = 0;
+   for (const char *p = buf; p < headers_end;) {
+      const char *line = strstr(p, "\r\n");
+      if (!line || line > headers_end) break;
+      if (line - p >= 9 && !strncasecmp(p, "Location:", 9)) {
+         loc = p + 9;
+         while (loc < line && (*loc == ' ' || *loc == '\t')) loc++;
+         len = (size_t)(line - loc);
+         break;
+      }
+      p = line + 2;
+   }
+   if (!loc || !len || len >= sizeof(k->redirect_url)) return false;
+   char target[512];
+   memcpy(target, loc, len); target[len] = 0;
+   for (size_t i = 0; i < len; i++)
+      if ((unsigned char)target[i] < 33 || (unsigned char)target[i] > 126) return false;
+   char next[512];
+   if (!strncasecmp(target, "https://", 8))
+      snprintf(next, sizeof(next), "wss://%s", target + 8);
+   else if (!strncasecmp(target, "http://", 7))
+      snprintf(next, sizeof(next), "ws://%s", target + 7);
+   else if (!strncasecmp(target, "wss://", 6) || !strncasecmp(target, "ws://", 5))
+      snprintf(next, sizeof(next), "%s", target);
+   else if (*target == '/') {
+      const char *path = strstr(k->url, "://");
+      if (!path) return false;
+      path = strchr(path + 3, '/');
+      size_t authority = path ? (size_t)(path - k->url) : strlen(k->url);
+      if (authority + len >= sizeof(next)) return false;
+      memcpy(next, k->url, authority);
+      memcpy(next + authority, target, len + 1);
+   } else return false;
+   if (strlen(next) >= sizeof(k->url) || !strcmp(next, k->url)) return false;
+   /* Never forward configured credentials to a different origin. */
+   const char *password = setting(k, "password");
+   if (password && *password) {
+      const char *old = strstr(k->url, "://"), *dest = strstr(next, "://");
+      if (!old || !dest) return false;
+      old += 3; dest += 3;
+      size_t olen = strcspn(old, "/"), dlen = strcspn(dest, "/");
+      if (olen != dlen || strncasecmp(old, dest, olen)) return false;
+   }
+   snprintf(k->redirect_url, sizeof(k->redirect_url), "%s", next);
+   k->redirecting = true;
+   c->is_closing = 1;
+   return true;
+}
 static void websocket(struct mg_connection *c, int event, void *data) {
    struct kiwi_instance *k = c->fn_data;
 
@@ -438,9 +499,11 @@ static void websocket(struct mg_connection *c, int event, void *data) {
       if (!kiwi_receive(k, m->data.buf, m->data.len)) {
          fail(k, "Invalid or unsupported Kiwi stream");
       }
+   } else if (event == MG_EV_READ && !k->redirecting && kiwi_redirect(k, c)) {
+      /* The next connection uses Location after this socket closes. */
    } else if (event == MG_EV_READ && c->recv.len > 65536) {
       fail(k, "Kiwi WebSocket receive limit exceeded");
-   } else if (event == MG_EV_ERROR) {
+   } else if (event == MG_EV_ERROR && !k->redirecting) {
       /* Mongoose reports any non-101 HTTP response as "ws handshake error".
        * Keep only the numeric status; never log peer response bodies/headers
        * that could contain credentials or arbitrary text. */
@@ -465,8 +528,18 @@ static void websocket(struct mg_connection *c, int event, void *data) {
    } else if (event == MG_EV_CLOSE && c == k->connection) {
       k->connection = NULL;
 
-      if (!k->closing) {
+      if (k->redirecting) {
+         k->redirecting = false;
+         snprintf(k->url, sizeof(k->url), "%s", k->redirect_url);
+         k->retry = mono_us();
+         note(k, "Kiwi WebSocket redirected (HTTP 307); following Location");
+      } else if (!k->closing) {
          unavailable(k);
+         if (k->attempts >= 3) {
+            note(k, "Kiwi receiver stopped after 3 connection attempts");
+            k->retry = UINT64_MAX;
+            return;
+         }
          unsigned delay = 1u << (k->failures < 6 ? k->failures : 6);
 
          if (k->failures < 6) {
@@ -542,7 +615,8 @@ static void kiwi_poll(void *instance) {
       return;
    }
 
-   if (!k->connection && current >= k->retry) {
+   if (!k->connection && current >= k->retry && k->attempts < 3) {
+      k->attempts++;
       k->authenticated = k->configured = k->online = k->have_sequence = k->failed = false;
       k->rate = 0;
       /* Allow a per-bridge User-Agent; default to Chrome for Kiwi proxies. */
@@ -574,9 +648,7 @@ static void kiwi_poll(void *instance) {
       return;
    }
 
-   if (k->online && current - k->online_since >= 30000000) {
-      k->failures = 0;
-   }
+
 
    if ((!k->online && current >= k->deadline) || (k->request && current >= k->deadline) || current - k->received > 10000000) {
       /* A media subscription only proves the RustyRig encoder is ready.
