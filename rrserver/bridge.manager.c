@@ -1417,6 +1417,12 @@ static void websdr_request(const char *event, const void *data, size_t length, r
             }
          }
          target_room = selected_room;
+         /* The VFO UUID lives in SQLite, but CAT routing still validates the
+          * room's in-memory native VFO mask. Make A available for the newly
+          * attached receive-only SDR, without enabling TX control. */
+         if (!ws_room_set_vfo_mask(selected_room, UINT32_C(1))) {
+            Log(LOG_WARN, "sdr.status", "Could not register SDR VFO A for room %s", selected_room);
+         }
 
          if (b->temporary) {
             snprintf(b->attached_room, sizeof(b->attached_room), "%s", selected_room);
