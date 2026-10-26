@@ -1547,7 +1547,8 @@ GtkWidget *init_admin_tab(void) {
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
-         gtk_tree_view_column_set_title(column, users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] :
+         gtk_tree_view_column_set_title(column, !strcmp(table->name, "audit") && field == 5 ? "Session ID" :
+            users ? user_titles[col] : quotas ? quota_titles[col] : ptt ? ptt_titles[col] : rooms ? room_titles[col] :
             priv_titles ? priv_titles[col] : table->fields[col]);
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
