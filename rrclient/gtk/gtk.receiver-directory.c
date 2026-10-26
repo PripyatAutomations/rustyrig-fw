@@ -361,12 +361,6 @@ static void import_clicked(GtkButton *button, gpointer unused) {
 }
 static void copy_clicked(GtkButton *button, gpointer config);
 static void connect_clicked(GtkButton *button, gpointer save);
-static void room_choice_changed(GtkComboBox *choice, gpointer user) {
-   GtkWidget *entry = user;
-   gboolean creating = gtk_combo_box_get_active(choice) == 0;
-   gtk_widget_set_visible(entry, creating);
-   gtk_widget_set_sensitive(entry, creating);
-}
 static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    const char *command = user;
    if (!strcmp(command, "connect")) connect_clicked(NULL, NULL);
@@ -451,25 +445,19 @@ static void connect_clicked(GtkButton *button, gpointer save) {
 
    gtk_combo_box_set_active(GTK_COMBO_BOX(choose), 0);
    gtk_box_pack_start(GTK_BOX(area), choose, FALSE, FALSE, 4);
-   GtkWidget *entry = gtk_entry_new();
-   char generated[24];
-   g_snprintf(generated, sizeof(generated), "#sdr-%08x", g_random_int());
-   gtk_entry_set_text(GTK_ENTRY(entry), generated);
-   gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "#sdr-xxxxxxxx");
-   gtk_box_pack_start(GTK_BOX(area), entry, FALSE, FALSE, 4);
-   g_signal_connect(choose, "changed", G_CALLBACK(room_choice_changed), entry);
+   GtkWidget *hint_room = gtk_label_new("New SDR room name will be assigned by the server after a successful connection.");
+   gtk_label_set_xalign(GTK_LABEL(hint_room), 0);
+   gtk_box_pack_start(GTK_BOX(area), hint_room, FALSE, FALSE, 4);
    gtk_widget_show_all(dialog);
-   room_choice_changed(GTK_COMBO_BOX(choose), entry);
 
    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
       int selected = gtk_combo_box_get_active(GTK_COMBO_BOX(choose));
       char *existing = selected > 0 ? gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(choose)) : NULL;
-      const char *room = existing ? existing : gtk_entry_get_text(GTK_ENTRY(entry));
-
-      if (ws_room_name_valid(room)) {
-         rrclient_receiver_connect_room_ex(r->url, false, room, selected == 0 && !strcmp(room, generated));
+      const char *room = existing ? existing : NULL;
+      if (selected == 0 || (room && ws_room_name_valid(room))) {
+         rrclient_receiver_connect_room_ex(r->url, false, room, selected == 0);
       } else {
-         gtk_label_set_text(GTK_LABEL(directory_status), "Invalid room name.");
+         gtk_label_set_text(GTK_LABEL(directory_status), "Invalid existing room name.");
       }
       g_free(existing);
    }
