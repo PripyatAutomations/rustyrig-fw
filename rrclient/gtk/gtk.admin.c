@@ -1462,10 +1462,10 @@ GtkWidget *init_admin_tab(void) {
       bool quotas = !strcmp(table->name, "quotas"), ptt = !strcmp(table->name, "ptt");
       bool rooms = !strcmp(table->name, "rooms");
       const char *assignment_titles[] = {
-         "Group", "User", "Host", "Resource Type", "Resource", "Expires", "Remote"
+         "Group", "User", "Host", "Type", "Resource", "Expires", "Remote"
       };
       const char *grant_titles[] = {
-         "User", "Host", "Resource Type", "Resource", "Privilege", "Effect", "Expires", "Remote"
+         "User", "Host", "Type", "Resource", "Privilege", "Effect", "Expires", "Remote"
       };
       const char *group_titles[] = {
          "Name", "Description", "Created By", "Created", "Privileges"
@@ -1487,7 +1487,8 @@ GtkWidget *init_admin_tab(void) {
 
       for (int col = 0 ; col < 10 && table->fields[col] && (!users || col < 9) ; col++) {
          int field = users ? user_order[col] : ptt ? ptt_order[col] : rooms ? room_order[col] : col;
-         bool flag = (users && (field == 1 || field == 7)) || (rooms && (field == 2 || field == 4));
+         bool privilege_remote = (!strcmp(table->name, "assignments") && field == 6) || (!strcmp(table->name, "grants") && field == 7);
+         bool flag = privilege_remote || (users && (field == 1 || field == 7)) || (rooms && (field == 2 || field == 4));
          GtkCellRenderer *renderer = flag ? gtk_cell_renderer_toggle_new() : gtk_cell_renderer_text_new();
          g_object_set(renderer, "ypad", 1, NULL);
          GtkTreeViewColumn *column = gtk_tree_view_column_new();
@@ -1496,7 +1497,7 @@ GtkWidget *init_admin_tab(void) {
          gtk_tree_view_column_pack_start(column, renderer, TRUE);
 
          /* Preserve existing field renderers, then shade every other row. */
-         if (rooms && flag) {
+         if (flag) {
             g_object_set(renderer, "activatable", FALSE, NULL);
          }
 
@@ -1509,7 +1510,8 @@ GtkWidget *init_admin_tab(void) {
 
          /* A cell data function can coexist with regular model attributes. */
          if (!((rooms && flag) || (users && (flag || field == 5 || field == 6)) ||
-            (!strcmp(table->name, "sessions") && field == 5) ||
+            (!strcmp(table->name, "sessions") && field == 5) || privilege_remote ||
+            ((!strcmp(table->name, "assignments") && field == 5) || (!strcmp(table->name, "grants") && field == 6)) ||
             (quotas && field > 0) || (ptt && (field == 3 || field == 4 || field == 9)) ||
             !strcmp(table->fields[field], "uuid") || !strcmp(table->fields[field], "resource_uuid"))) {
             gtk_tree_view_column_add_attribute(column, renderer, "text", field);
@@ -1535,12 +1537,16 @@ GtkWidget *init_admin_tab(void) {
             (users && field == 3) ? 180 : quotas ? 110 :
             rooms ? (field == 0 ? 115 : field == 3 ? 290 : field == 1 ? 108 :
                field == 2 ? 82 : field == 4 ? 85 : 78) :
-            (!strcmp(table->name, "audit") && field == 4) ? 420 : (!strcmp(table->name, "sessions") && field == 0) ? 280 : 125);
+            privilege_remote ? 68 :
+            ((!strcmp(table->name, "assignments") && field == 5) || (!strcmp(table->name, "grants") && field == 6)) ? 176 :
+            (!strcmp(table->name, "audit") && field == 4) ? 420 : (!strcmp(table->name, "sessions") && field == 0) ? 280 : 145);
          gtk_tree_view_column_set_min_width(column, 48);
          gtk_tree_view_column_set_resizable(column, TRUE);
          gtk_tree_view_column_set_expand(column, (users && field == 2) ||
             ((rooms && field == 3) || (quotas && field == 0)) ||
-            (!strcmp(table->name, "audit") && field == 4) || (!strcmp(table->name, "privsets") && field == 1));
+            (!strcmp(table->name, "audit") && field == 4) || (!strcmp(table->name, "privsets") && field == 1) ||
+            (!strcmp(table->name, "assignments") && field != 6 && field != 5) ||
+            (!strcmp(table->name, "grants") && field != 7 && field != 6));
 
          if (GTK_IS_CELL_RENDERER_TEXT(renderer)) {
             g_signal_connect(column, "notify::width", G_CALLBACK(admin_column_wrap_width), renderer);
