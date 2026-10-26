@@ -526,10 +526,20 @@ static void kiwi_poll(void *instance) {
    if (!k->connection && current >= k->retry) {
       k->authenticated = k->configured = k->online = k->have_sequence = k->failed = false;
       k->rate = 0;
-      /* Some KiwiSDR reverse proxies reject unidentified WebSocket clients.
-       * Present a conventional browser handshake User-Agent. */
-      k->connection = mg_ws_connect(&k->manager, k->url, websocket, k,
-         "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36\r\n");
+      /* Allow a per-bridge User-Agent; default to Chrome for Kiwi proxies. */
+      const char *ua = setting(k, "user-agent");
+      if (!ua || !*ua) {
+         ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+      }
+      /* Never allow configuration to inject additional HTTP headers. */
+      size_t ua_len = strlen(ua);
+      if (ua_len > 384 || strpbrk(ua, "\r\n") || ua_len == 0) {
+         fail(k, "Invalid Kiwi User-Agent configuration");
+         return;
+      }
+      char headers[416];
+      snprintf(headers, sizeof(headers), "User-Agent: %s\r\n", ua);
+      k->connection = mg_ws_connect(&k->manager, k->url, websocket, k, "%s", headers);
       k->deadline = current + 10000000;
       k->received = current;
       k->keepalive = current;
