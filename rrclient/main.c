@@ -750,7 +750,7 @@ int main(int argc, char *argv[]) {
       tui_window_create("host log");
       tui_window_create("client log");
       event_on_binary("media.frame.log", rrclient_tui_host_log_frame, NULL);
-      log_add_callback(rrclient_tui_log_print_va);
+      log_add_callback(rrclient_tui_log_print_va, LOG_CALLBACK_FILTERED);
 
       // 1hz TUI clock (statusbar/clock refresh, shutdown check)
       g_timeout_add(1000, tui_clock_cb_real, NULL);
