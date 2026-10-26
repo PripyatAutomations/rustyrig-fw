@@ -333,7 +333,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
    Log(LOG_INFO, "ptt", "%s: user=%s", audit_details, talker ? talker->chatname : "unknown");
 
    if (secs >= 0) {
-      if (talker) {
+      if (talker && strcmp(reason ? reason : "", "backend-error")) {
          talker->session_tx_seconds += (uint64_t) secs;
       }
       // If the talker is unknown at key-up, recover their name from the
@@ -350,7 +350,7 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
 
       // Quota accounting: debit the session duration from the user's credits
       // when quota.enforce is true. PARITY: sql/sqlite.master.sql tx_credits
-      if (cfg_get_bool("quota.enforce", true) && who && secs > 0) {
+      if (cfg_get_bool("quota.enforce", true) && who && secs > 0 && strcmp(reason ? reason : "", "backend-error")) {
          if (!db_quota_spend(masterdb, who, secs)) {
             Log(LOG_WARN, "ptt", "TX quota: failed to debit %d credits for %s%s%s", secs, who, ptt_grant_ticket[vfo][0] ? " ticket=" : "", ptt_grant_ticket[vfo]
                );
@@ -660,7 +660,7 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
          recording_id = ptt_recording_id[vfo][0] ? ptt_recording_id[vfo] : NULL;
          ptt_recording_file[vfo][0] = '\0';
          ptt_prepare_recording_file(vfo, ptt_talker->chatname, recording_id);
-         ptt_log_start(ptt_talker, vfo, recording_id);
+         /* Open the PTT accounting session only after backend confirms RF key-down. */
       } else if (!ptt) {
          // Close the session for whoever was on this VFO (may be gone by now
          // if TOT/fault/disconnect forced TX off)
@@ -691,6 +691,11 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
 
       return true;
    } else {
+      /* A rejected backend key-down must never create a billable session.
+       * Keep the recording identity ready, but defer accounting until success. */
+      if (ptt && ptt_talker && vfo >= VFO_A && vfo < MAX_VFOS) {
+         ptt_log_start(ptt_talker, vfo, recording_id);
+      }
       if (ptt && completing_ptt) {
          completing_ptt->backend->active_vfo = vfo;
 
