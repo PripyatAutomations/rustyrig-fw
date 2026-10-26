@@ -396,7 +396,10 @@ bool rr_ptt_check_blocked(void) {
 }
 
 bool rr_ptt_set_blocked(bool blocked) {
-   Log(LOG_AUDIT, "ptt", "PTT %sBLOCKED", (blocked ? "" : "un"));
+   if (rig.tx_blocked != blocked) {
+      Log(LOG_AUDIT, "ptt", "TX interlock %s; rig=%s accounting_locked=%s", blocked ? "blocked" : "unblocked",
+         rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown", accounting_locked ? "yes" : "no");
+   }
    rig.tx_blocked = blocked;
 
    return blocked;
@@ -513,13 +516,18 @@ bool rr_ptt_request(rr_vfo_t vfo, bool ptt, const char *reason) {
    rr_server_rig_t *target_rig = rig.ptt_rig ? rig.ptt_rig : rr_rig_registry_default(rig.rigs);
 
    if (ptt && rr_rig_halted(target_rig)) {
-      Log(LOG_AUDIT, "ptt", "PTT key-down rejected: rig %s halted", target_rig ? rr_server_rig_id(target_rig) : "(unknown)");
+      Log(LOG_AUDIT, "ptt", "TX key-down rejected: rig=%s uuid=%s reason=halted",
+         target_rig ? rr_rig_registry_public_alias(rig.rigs, target_rig) : "unknown",
+         target_rig ? rr_server_rig_id(target_rig) : "unknown");
 
       return true;
    }
 
    if (ptt && rr_ptt_check_blocked()) {
-      Log(LOG_WARN, "ptt", "PTT request while blocked, ignoring!");
+      Log(LOG_WARN, "ptt", "TX key-down rejected: rig=%s reason=%s%s",
+         target_rig ? rr_rig_registry_public_alias(rig.rigs, target_rig) : "unknown",
+         accounting_locked ? "accounting locked" : "TX interlock blocked",
+         accounting_locked && rig.tx_blocked ? " (hardware interlock also blocked)" : "");
 
       return true;
    }
