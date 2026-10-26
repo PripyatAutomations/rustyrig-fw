@@ -516,28 +516,11 @@ static gboolean directory_populate_idle(gpointer unused) {
    if (directory_page && directory_store) populate();
    return G_SOURCE_REMOVE;
 }
-static void show_directory(const char *event, const char *data, rrconn_t *connection, void *unused) {
-   (void)event;
-   (void)data;
-   (void)connection;
+static gboolean directory_finish_show(gpointer unused) {
    (void)unused;
-
-   if (!main_notebook) {
-      return;
-   }
-
-   if (directory_page) {
-      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page);
-
-      if (index >= 0) {
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
-      }
-      directory_refresh_with_wait();
-
-      return;
-   }
-   directory_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page, gtk_label_new("SDR Directory"));
+   if (!directory_page || !main_notebook) return G_SOURCE_REMOVE;
+   GtkWidget *loading = g_object_get_data(G_OBJECT(directory_page), "initial-loading");
+   if (loading) gtk_widget_destroy(loading);
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
    gtk_box_pack_start(GTK_BOX(directory_page), box, TRUE, TRUE, 0);
@@ -664,7 +647,39 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
    directory_refresh_with_wait();
    g_timeout_add(60, directory_populate_idle, NULL);
-   /* Keep the parent mapped: hiding a transient parent can also hide its modal dialog. The spinner owns focus until the request finishes. */
+   /* Keep loading visible until asynchronous directory fetch completes. */
+   return G_SOURCE_REMOVE;
+}
+static void show_directory(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event;
+   (void)data;
+   (void)connection;
+   (void)unused;
+
+   if (!main_notebook) {
+      return;
+   }
+
+   if (directory_page) {
+      int index = gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page);
+
+      if (index >= 0) {
+         gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
+      }
+      if (download_status) directory_refresh_with_wait();
+
+      return;
+   }
+   directory_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_notebook_append_page(GTK_NOTEBOOK(main_notebook), directory_page, gtk_label_new("SDR Directory"));
+   gtk_widget_show_all(directory_page);
+   gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook),
+      gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
+   GtkWidget *loading = gtk_label_new("Loading SDR Directory…");
+   gtk_box_pack_start(GTK_BOX(directory_page), loading, FALSE, FALSE, 12);
+   gtk_widget_show(loading);
+   g_object_set_data(G_OBJECT(directory_page), "initial-loading", loading);
+   g_idle_add(directory_finish_show, NULL);
 }
 void gtk_receiver_directory_init(void) {
    connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
