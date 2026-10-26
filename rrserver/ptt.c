@@ -216,6 +216,20 @@ static char *ptt_log_username(int session) {
 
 #endif // USE_SQLITE
 
+#ifdef USE_SQLITE
+/* The public session fingerprint matches Admin -> Sessions; raw login
+ * tokens must never be stored in the audit database. */
+static void ptt_audit_with_session(rrconn_t *talker, const char *details) {
+   if (!masterdb || !details) return;
+   char *digest = talker ? g_compute_checksum_for_string(G_CHECKSUM_SHA256, talker->token, -1) : NULL;
+   char public_id[21] = "";
+   if (digest) snprintf(public_id, sizeof(public_id), "%.20s", digest);
+   db_add_audit_event_session(masterdb, talker ? talker->chatname : "unknown",
+      "ptt", details, public_id);
+   g_free(digest);
+}
+#endif
+
 // Snapshot the VFO state and open a ptt_log row for the talker
 static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_id) {
 #ifdef  USE_SQLITE
@@ -250,10 +264,14 @@ static void ptt_log_start(rrconn_t *talker, rr_vfo_t vfo, const char *recording_
       return;
    }
 
-   Log(LOG_AUDIT, "ptt", "TX started user=%s session=%d rig=%s vfo=%s room=%s freq=%.0fHz mode=%s width=%dHz power=%.3fW ticket=%s elmers=%s",
-      talker->chatname, session, scope, vfo_name(vfo), talker->ptt_room,
+   char audit_details[1024];
+   snprintf(audit_details, sizeof(audit_details),
+      "TX started ptt_session=%d rig=%s vfo=%s room=%s freq=%.0fHz mode=%s width=%dHz power=%.3fW ticket=%.80s elmers=%.120s",
+      session, scope, vfo_name(vfo), talker->ptt_room,
       (double)vfos[vfo].freq, vfo_mode_name(rr_get_mode(vfo)), (int)rr_get_width(vfo), (double)power,
       consent.ticket, consent.elmers);
+   ptt_audit_with_session(talker, audit_details);
+   Log(LOG_INFO, "ptt", "%s: user=%s", audit_details, talker->chatname);
    ptt_log_session[vfo] = session;
    ptt_log_owner[vfo] = talker;
    talker->ptt_session = session;
@@ -304,11 +322,14 @@ static void ptt_log_stop(rrconn_t *talker, rr_vfo_t vfo, const char *reason) {
       return;
    }
 
-   Log(LOG_AUDIT, "ptt", "TX session closed user=%s session=%d rig=%s vfo=%s room=%s duration=%ds reason=%s ticket=%s",
-      talker ? talker->chatname : "unknown", session,
-      rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown",
+   char audit_details[1024];
+   snprintf(audit_details, sizeof(audit_details),
+      "TX closed ptt_session=%d rig=%s vfo=%s room=%s duration=%ds reason=%.120s ticket=%.80s",
+      session, rig.ptt_rig ? rr_rig_registry_public_alias(rig.rigs, rig.ptt_rig) : "unknown",
       vfo_name(vfo), talker ? talker->ptt_room : "unknown",
       secs, reason ? reason : "released", ptt_grant_ticket[vfo]);
+   ptt_audit_with_session(talker, audit_details);
+   Log(LOG_INFO, "ptt", "%s: user=%s", audit_details, talker ? talker->chatname : "unknown");
 
    if (secs >= 0) {
       if (talker) {
