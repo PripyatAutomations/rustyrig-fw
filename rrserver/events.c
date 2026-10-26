@@ -101,7 +101,7 @@ static void rrserver_handle_send_chat_replay(const char *event, const char *data
 
 #ifdef USE_SQLITE
 
-   if (channel && ws_client_in_room(cptr, channel)) {
+   if (channel && ws_client_in_room(cptr, channel) && strncasecmp(channel, "#sdr-", 5)) {
       db_send_chat_replay(cptr, channel);
    }
 #endif
