@@ -550,7 +550,22 @@ static void kiwi_poll(void *instance) {
    }
 
    if ((!k->online && current >= k->deadline) || (k->request && current >= k->deadline) || current - k->received > 10000000) {
-      fail(k, "Kiwi receiver timed out");
+      /* A media subscription only proves the RustyRig encoder is ready.
+       * Distinguish remote handshake, configuration, tune and stream stalls. */
+      char reason[192];
+      snprintf(reason, sizeof(reason),
+         "Kiwi receiver timed out (%s; ws=%s auth=%s configured=%s online=%s rate=%u; last-audio=%" PRIu64 "ms)",
+         k->request ? "tune acknowledgement" :
+         !k->connection->is_websocket ? "WebSocket handshake" :
+         !k->authenticated ? "authentication" :
+         !k->rate ? "sample-rate announcement" :
+         !k->configured ? "receiver configuration" :
+         !k->online ? "first tuned audio packet" : "audio stream stalled",
+         k->connection->is_websocket ? "yes" : "no",
+         k->authenticated ? "yes" : "no", k->configured ? "yes" : "no",
+         k->online ? "yes" : "no", k->rate,
+         (uint64_t)((current - k->received) / 1000));
+      fail(k, reason);
 
       return;
    }
