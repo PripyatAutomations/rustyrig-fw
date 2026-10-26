@@ -62,11 +62,16 @@ static void metadata(void *user, const char *key, const char *value) {
    send_message(host, &m);
 }
 static void status(void *user, const char *text) {
+   struct bridge_host *host = user;
    now = time(NULL);
-
-   if (text) {
-      Log(LOG_INFO, "rrbridge", "%s", text);
-   }
+   if (!text || !*text) return;
+   Log(LOG_INFO, "rrbridge", "%s", text);
+   /* Bridge stdout belongs to the subprocess; forward status over the
+    * existing control socket so rrserver's hostlog reaches GTK LogView. */
+   rrp_bridge_ipc_message_t m;
+   message(host, &m, RRP_BRIDGE_IPC_LOG);
+   snprintf(m.metadata_value, sizeof(m.metadata_value), "%s", text);
+   send_message(host, &m);
 }
 static const char *setting(void *user, const char *key) {
    struct bridge_host *host = user;
