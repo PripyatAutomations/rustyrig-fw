@@ -818,6 +818,20 @@ static void rrclient_handle_room_vfo(const char *event, const char *data, rrconn
       rrclient_room_set_control_flags(room, dict_get_bool(d, "room.tx-control", false), dict_get_bool(d, "room.rx-tunable", false));
       rrclient_room_set_rx_tuning_mask(room, dict_get_ulong(d, "room.rx-tuning-mask", 0));
 
+      if (!strncasecmp(room, "#sdr-", 5)) {
+         const char *binding = rrclient_room_vfos(room);
+         uint32_t mask = rrclient_room_vfo_mask(room);
+         bool tunable = rrclient_room_rx_tunable(room);
+         Log(LOG_INFO, "sdr.status",
+            "SDR room %s: VFO announcement received; bindings=%s mask=0x%x rx-tunable=%s",
+            room, *binding ? binding : "(none)", mask, tunable ? "yes" : "no");
+         if (!*binding && !mask)
+            ui_print(room, "SDR %s: connected room has no VFO binding yet; tuning controls unavailable", room);
+         else
+            ui_print(room, "SDR %s: receiver VFO attached; RX tuning %s", room,
+               tunable ? "available" : "awaiting capabilities");
+      }
+
       if (frontend_ops()) {
          frontend_ops()->userlist_room_vfos_changed(room);
       }
