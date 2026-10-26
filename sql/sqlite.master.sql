@@ -8,6 +8,7 @@ CREATE TABLE audit_log (
    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
    username TEXT NOT NULL,
    event_type TEXT NOT NULL,
+   session_id TEXT, -- non-secret 20-character session fingerprint; NULL for server-originated events
    details TEXT  -- optional, for additional info if needed
 );
 
