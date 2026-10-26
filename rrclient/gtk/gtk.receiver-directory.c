@@ -330,7 +330,8 @@ static void directory_refresh_with_wait(void) {
       gtk_widget_show(download_status);
       gtk_spinner_start(GTK_SPINNER(download_spinner));
    }
-   g_idle_add(directory_start_refresh, NULL);
+   /* Allow the main loop to paint the loading state before fetch/parse. */
+   g_timeout_add(120, directory_start_refresh, NULL);
 }
 static void directory_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
@@ -521,6 +522,11 @@ static void state_clicked(GtkButton *button, gpointer state) {
       receiver_directory_set_state(r->url, state, "User report; receiver was not probed");
    }
 }
+static gboolean directory_populate_idle(gpointer unused) {
+   (void)unused;
+   if (directory_page && directory_store) populate();
+   return G_SOURCE_REMOVE;
+}
 static void show_directory(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
@@ -663,10 +669,11 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    g_signal_connect(accessible_only, "toggled", G_CALLBACK(filter_changed), NULL);
    g_signal_connect(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), "changed", G_CALLBACK(selection_changed), NULL);
    g_signal_connect(directory_tree, "button-press-event", G_CALLBACK(directory_context_menu), NULL);
-   populate();
+   /* Don't block the first paint on cached directory population. */
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
-   directory_refresh_with_wait();   // Cached data remains immediately available.
+   directory_refresh_with_wait();
+   g_idle_add(directory_populate_idle, NULL);
    /* Keep the parent mapped: hiding a transient parent can also hide its modal dialog. The spinner owns focus until the request finishes. */
 }
 void gtk_receiver_directory_init(void) {
