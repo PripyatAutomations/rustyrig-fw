@@ -212,105 +212,44 @@ static void server_editor_free(gpointer data) {
 }
 
 static void server_editor_save(GtkButton *button, gpointer data) {
+   (void)button;
    GtkWidget *window = GTK_WIDGET(data);
    GtkServerEditor *editor = g_object_get_data(G_OBJECT(window), "rr-server-editor");
    rr_server_url_t endpoint;
-
    if (!rr_server_url_parse(gtk_entry_get_text(GTK_ENTRY(editor->fields[0])), &endpoint)) {
       gtk_label_set_text(GTK_LABEL(editor->error), "Enter a valid WS, WSS, IRC or IRCS URL.");
-
       return;
    }
-   char *path = rrclient_user_config_path();
-
-   if (!path) {
-      gtk_label_set_text(GTK_LABEL(editor->error), "Cannot locate your home directory.");
-
-      return;
-   }
-   gchar *directory = g_path_get_dirname(path);
-
-   if (g_mkdir_with_parents(directory, 0700)) {
-      gtk_label_set_text(GTK_LABEL(editor->error), "Cannot create your configuration directory.");
-      g_free(directory);
-      free(path);
-
-      return;
-   }
-   g_free(directory);
-   dict *overrides = file_exists(path) ? cfg_load(path) : dict_new();
-
-   if (!overrides) {
-      gtk_label_set_text(GTK_LABEL(editor->error), "Cannot read your configuration file.");
-      free(path);
-
+   if (!cfg) {
+      gtk_label_set_text(GTK_LABEL(editor->error), "Client configuration is not loaded.");
       return;
    }
    char *rooms = server_editor_rooms(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), NULL);
    gtk_entry_set_text(GTK_ENTRY(editor->fields[4]), rooms);
    g_free(rooms);
    bool rooms_changed = strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[4])), editor->initial[4]) != 0;
-   bool changed = false;
-
-   for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
+   for (unsigned i = 0; i < G_N_ELEMENTS(editor_keys); ++i) {
       const char *value = gtk_entry_get_text(GTK_ENTRY(editor->fields[i]));
-
       if (strcmp(value, editor->initial[i])) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
-         dict_add(overrides, key, value);
-         changed = true;
+         dict_add(cfg, key, value);
       }
    }
-
    bool direct = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct));
-
    if (direct != editor->initial_direct) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);
-      dict_add(overrides, key, direct ? "true" : "false");
-      changed = true;
+      dict_add(cfg, key, direct ? "true" : "false");
+      rrclient_direct_apply_preferences();
    }
-
    if (rooms_changed) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
-      /* An empty user override also masks an inherited legacy rig list. */
-      dict_add(overrides, key, "");
+      dict_add(cfg, key, "");
    }
-   /* Only user overrides are serialized; site configuration stays in /etc. */
-   mode_t previous = umask(0077);
-   bool saved = !changed || cfg_save_overrides(overrides, path);
-   umask(previous);
-
-   if (saved) {
-      for (unsigned i = 0 ; i < G_N_ELEMENTS(editor_keys) ; i++) {
-         if (strcmp(gtk_entry_get_text(GTK_ENTRY(editor->fields[i])), editor->initial[i])) {
-            char key[640];
-            snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
-            dict_add(cfg, key, gtk_entry_get_text(GTK_ENTRY(editor->fields[i])));
-         }
-      }
-
-      if (rooms_changed) {
-         char key[640];
-         snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
-         dict_add(cfg, key, "");
-      }
-
-      if (direct != editor->initial_direct) {
-         char key[640];
-         snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);
-         dict_add(cfg, key, direct ? "true" : "false");
-         rrclient_direct_apply_preferences();
-      }
-      gtk_server_picker_refresh_profile(editor->profile);
-      server_editor_close(NULL);
-   } else {
-      gtk_label_set_text(GTK_LABEL(editor->error), "Could not save your configuration. Changes remain open.");
-   }
-   dict_free(overrides);
-   free(path);
+   gtk_server_picker_refresh_profile(editor->profile);
+   server_editor_close(NULL);
 }
 
 GtkWidget *gtk_show_server_editor(const char *profile) {
