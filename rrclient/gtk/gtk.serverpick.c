@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 //
 
 // rrclient/gtk/gtk.serverpick.c: Server selector / editor (will tie into gtk.cfg.c
@@ -357,6 +358,7 @@ void gtk_show_server_chooser(void) {
       picker_set_state(store, &iter, name);
    }
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+   rr_gtk_tree_style(tree);
    g_object_unref(store);
    picker_tree = tree;
    const char *titles[] = {
