@@ -158,7 +158,7 @@ void gtk_logview_append(GtkLogView *v, gboolean host, const char *source,
    if (localtime_r(&current, &local))
       strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &local);
    GtkTreeIter row;
-   gtk_list_store_append(v->store, &row);
+   gtk_list_store_prepend(v->store, &row);
    gchar *safe = g_utf8_make_valid(message ? message : "", -1);
    gtk_list_store_set(v->store, &row, COL_TIME, timestamp,
       COL_SOURCE, source ? source : (host ? "host" : "client"),
@@ -167,7 +167,7 @@ void gtk_logview_append(GtkLogView *v, gboolean host, const char *source,
    g_free(safe);
    if (gtk_tree_model_iter_n_children(GTK_TREE_MODEL(v->store), NULL) > (gint)v->limit) {
       GtkTreeIter first;
-      if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(v->store), &first))
+      if (gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(v->store), &first, NULL, (gint)v->limit))
          gtk_list_store_remove(v->store, &first);
    }
 }
