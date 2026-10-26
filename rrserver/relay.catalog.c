@@ -1142,24 +1142,30 @@ void rr_relay_catalog_profile_dump(void) {
       pending_acks = g_hash_table_size(relay_catalog_awaiting_ack);
    }
 
-   Log(LOG_INFO, "profile",
+   GString *report = g_string_new(NULL);
+   g_string_append_printf(report,
       "Catalog synchronization statistics (cumulative; last sample %.0f s; entries=%zu, queued=%u, pending-acks=%u, remaining-items=%llu):", sample_s,
       rr_relay_catalog_count, queued_syncs, pending_acks, (unsigned long long)queued_descriptors);
-   Log(LOG_INFO, "profile", "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)", (unsigned long
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report, "  snapshots: started=%llu (+%llu), queue-complete=%llu (+%llu), aborted=%llu (+%llu), superseded=%llu (+%llu)", (unsigned long
       long)t.snapshots, (unsigned long long)w.snapshots, (unsigned long long)t.queued, (unsigned long long)w.queued, (unsigned long long)t.aborted, (unsigned
          long long)w.aborted, (unsigned long long)t.superseded, (unsigned long long)w.superseded);
-   Log(LOG_INFO, "profile", "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)", (unsigned long
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report, "  acknowledgments: accepted=%llu (+%llu), partial=%llu (+%llu), timed-out=%llu (+%llu), cancelled=%llu (+%llu)", (unsigned long
       long)t.ack_ok, (unsigned long long)w.ack_ok, (unsigned long long)t.ack_partial, (unsigned long long)w.ack_partial, (unsigned long long)t.ack_timeout, (
          unsigned long long)w.ack_timeout, (unsigned long long)t.ack_cancelled, (unsigned long long)w.ack_cancelled);
-   Log(LOG_INFO, "profile",
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report,
       "  descriptors: prepared=%llu (+%llu), sent=%llu (+%llu), peer-received=%llu (+%llu), peer-accepted=%llu (+%llu), peer-rejected=%llu (+%llu)", (unsigned
          long long)t.prepared, (unsigned long long)w.prepared, (unsigned long long)t.sent, (unsigned long long)w.sent, (unsigned long long)t.ack_received, (
          unsigned long long)w.ack_received, (unsigned long long)t.ack_accepted, (unsigned long long)w.ack_accepted, (unsigned long long)t.ack_rejected, (
          unsigned long long)w.ack_rejected);
-   Log(LOG_INFO, "profile", "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)", (unsigned long
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report, "  payload JSON bytes: prepared=%llu (+%llu), sent=%llu (+%llu), received=%llu (+%llu) (not transport overhead)", (unsigned long
       long)t.prepared_bytes, (unsigned long long)w.prepared_bytes, (unsigned long long)t.sent_bytes, (unsigned long long)w.sent_bytes, (unsigned long long)t.
       received_bytes, (unsigned long long)w.received_bytes);
-   Log(LOG_INFO, "profile",
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report,
       "  inbound catalog apply: received=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
       (unsigned long long)t.received, (unsigned long long)w.received, (unsigned long long)t.accepted, (unsigned long long)w.accepted, (unsigned long long)t.
       rejected, (unsigned long long)w.rejected, t.received ? (double)t.apply_us / t.received : 0.0, (unsigned long long)t.apply_max_us, w.received ? (double)w.
@@ -1167,7 +1173,8 @@ void rr_relay_catalog_profile_dump(void) {
 
    for (unsigned i = RR_CAT_OWNER ; i < RR_CAT_REJECT_COUNT ; ++i) {
       if (catalog_reject_total[i]) {
-         Log(LOG_INFO, "profile", "    reject/%s: total=%llu (+%llu)", catalog_reject_names[i - 1], (unsigned long long)catalog_reject_total[i], (unsigned long
+         g_string_append_c(report, '\n');
+         g_string_append_printf(report, "    reject/%s: total=%llu (+%llu)", catalog_reject_names[i - 1], (unsigned long long)catalog_reject_total[i], (unsigned long
             long)rejection_delta[i]);
       }
    }
@@ -1179,7 +1186,8 @@ void rr_relay_catalog_profile_dump(void) {
       if (!total->count) {
          continue;
       }
-      Log(LOG_INFO, "profile",
+      g_string_append_c(report, '\n');
+      g_string_append_printf(report,
          "    apply/%s: count=%llu (+%llu), accepted=%llu (+%llu), rejected=%llu (+%llu), bytes=%llu (+%llu), avg=%.1f us, max=%llu us (sample avg=%.1f us, max=%llu us)",
          catalog_profile_kind_names[i], (unsigned long long)total->count, (unsigned long long)sample->count, (unsigned long long)total->accepted, (unsigned long
             long)sample->accepted, (unsigned long long)total->rejected, (unsigned long long)sample->rejected, (unsigned long long)total->bytes, (unsigned long
@@ -1188,12 +1196,14 @@ void rr_relay_catalog_profile_dump(void) {
    }
 
    memset(catalog_kind_interval, 0, sizeof(catalog_kind_interval));
-   Log(LOG_INFO, "profile",
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report,
       "  snapshot build: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); queue drain: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms)", t
       .snapshots ? (double)t.build_us / t.snapshots / 1000.0 : 0.0, t.build_max_us / 1000.0, w.snapshots ? (double)w.build_us / w.snapshots / 1000.0 : 0.0, w.
       build_max_us / 1000.0, t.queued ? (double)t.drain_us / t.queued / 1000.0 : 0.0, t.drain_max_us / 1000.0, w.queued ? (double)w.drain_us / w.queued / 1000.0
       : 0.0, w.drain_max_us / 1000.0);
-   Log(LOG_INFO, "profile",
+   g_string_append_c(report, '\n');
+   g_string_append_printf(report,
       "  end-to-end ACK latency: avg=%.2f ms, max=%.2f ms (sample avg=%.2f ms, max=%.2f ms); refreshes=%llu (+%llu), delta send attempts=%llu (+%llu), remove attempts=%llu (+%llu), refresh avg=%.2f ms, max=%.2f ms",
       t.ack_ok + t.ack_partial ? (double)t.ack_us / (t.ack_ok + t.ack_partial) / 1000.0 : 0.0, t.ack_max_us / 1000.0, w.ack_ok + w.ack_partial ? (double)w.
       ack_us / (w.ack_ok + w.ack_partial) / 1000.0 : 0.0, w.ack_max_us / 1000.0, (unsigned long long)t.refreshes, (unsigned long long)w.refreshes, (unsigned
@@ -1209,7 +1219,8 @@ void rr_relay_catalog_profile_dump(void) {
    for (guint i = 0 ; i < limit ; i++) {
       const catalog_profile_peer_t *p = &peers[i];
       char label[192];
-      Log(LOG_INFO, "profile",
+      g_string_append_c(report, '\n');
+      g_string_append_printf(report,
          "  neighbor %s: snapshots=%llu queued=%llu acked=%llu partial=%llu timeout=%llu aborted=%llu, sent=%llu accepted=%llu rejected=%llu, last-ack=%.2f ms max-ack=%.2f ms",
          /* Retain known names after a neighbor disconnects. */
          strcmp(rrserver_links_format_node(p->node, label, sizeof(label)), p->node) ?
@@ -1219,9 +1230,12 @@ void rr_relay_catalog_profile_dump(void) {
    }
 
    if (catalog_profile_peer_count > limit) {
-      Log(LOG_INFO, "profile", "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)", catalog_profile_peer_count -
+      g_string_append_c(report, '\n');
+      g_string_append_printf(report, "  ... %u additional neighbor profiles omitted (top %u prioritize failures, latency, then volume)", catalog_profile_peer_count -
          limit, limit);
    }
+   Log(LOG_INFO, "profile", "%s", report->str);
+   g_string_free(report, TRUE);
    /* Update published read-only performance inventory on the next ordinary catalog refresh. Never perform an immediate recursive refresh here. */
    rr_relay_catalog_dirty = true;
 }
