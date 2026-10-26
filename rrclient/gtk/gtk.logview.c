@@ -149,6 +149,7 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    v->filtered = gtk_tree_model_filter_new(GTK_TREE_MODEL(v->store), NULL);
    gtk_tree_model_filter_set_visible_func(GTK_TREE_MODEL_FILTER(v->filtered), visible, v, NULL);
    v->tree = gtk_tree_view_new_with_model(v->filtered);
+   gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(v->tree), TRUE);
    gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(v->tree)), GTK_SELECTION_MULTIPLE);
    const char *headers[] = {"Time", "Source", "Level", "Subsystem", "Message"};
    const int widths[] = {150, 135, 72, 130, 460};
