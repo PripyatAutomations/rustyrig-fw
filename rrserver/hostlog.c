@@ -63,28 +63,59 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       return false;
    }
    vsnprintf(msgbuf, (size_t)length + 1, fmt, ap);
-   uint8_t *frame = NULL;
-   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, (size_t)length, ++logframe_seq, (uint64_t) now);
-   free(msgbuf);
-
-   if (flen < 0 || !frame) {
+   /* Small lines preserve the original binary format. Large lines use
+    * sequenced lgch frames, reassembled in librrprotocol before UI delivery. */
+   const size_t normal_limit = RR_BINFRAME_MAX_PAYLOAD - RR_LOGFRAME_HDR_LEN - 1;
+   const size_t chunk_size = 16384;
+   const size_t max_message = 64u * 1024u * 1024u;
+   if ((size_t)length > max_message) {
+      free(msgbuf);
       streaming = false;
-
-      return false;             // OOM or too-long; drop quietly
+      return false;
    }
-   // Fan out to clients that asked for the host log via /syslog on
-   rrconn_t *cur = http_client_list;
-
-   while (cur) {
-      if (cur->is_ws && cur->authenticated && cur->conn && cur->user && has_priv(cur->user->uid, "admin|owner") && client_has_flag(cur, FLAG_SYSLOG)) {
-         struct mg_str payload = {
-            (char *)frame, flen
-         };
-         ws_send_to_cptr(NULL, cur, &payload, WEBSOCKET_OP_BINARY);
+   uint32_t message_id = ++logframe_seq;
+   size_t total = (size_t)length;
+   size_t offset = 0;
+   do {
+      uint8_t *frame = NULL;
+      int flen = -1;
+      if (total <= normal_limit) {
+         flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, total,
+            message_id, (uint64_t)now);
+      } else {
+         size_t bytes = total - offset;
+         if (bytes > chunk_size) bytes = chunk_size;
+         size_t plen = RR_LOGFRAME_HDR_LEN + 12 + bytes;
+         uint8_t *payload = malloc(plen);
+         if (!payload) break;
+         memset(payload, 0, RR_LOGFRAME_HDR_LEN + 12);
+         payload[0] = (uint8_t)priority;
+         snprintf((char *)payload + 1, 16, "%s", subsys);
+         uint32_t words[] = {message_id, (uint32_t)total, (uint32_t)offset};
+         for (unsigned i = 0; i < 3; ++i)
+            for (unsigned j = 0; j < 4; ++j)
+               payload[RR_LOGFRAME_HDR_LEN + i * 4 + j] =
+                  (uint8_t)(words[i] >> (24 - j * 8));
+         memcpy(payload + RR_LOGFRAME_HDR_LEN + 12, msgbuf + offset, bytes);
+         flen = rr_binframe_frame(&frame, RR_BINFRAME_SUBSYS_LOG, "lgch",
+            RR_BINFRAME_DIR_RX, RR_BINFRAME_VFO_NA, RR_BINFRAME_RIG_NA,
+            RR_BINFRAME_STREAM_NONE, ++logframe_seq, (uint64_t)now,
+            payload, plen);
+         free(payload);
+         offset += bytes;
       }
-      cur = cur->next;
-   }
-   free(frame);
+      if (flen < 0 || !frame) break;
+      for (rrconn_t *cur = http_client_list; cur; cur = cur->next) {
+         if (cur->is_ws && cur->authenticated && cur->conn && cur->user &&
+             has_priv(cur->user->uid, "admin|owner") &&
+             client_has_flag(cur, FLAG_SYSLOG)) {
+            struct mg_str packet = {(char *)frame, (size_t)flen};
+            ws_send_to_cptr(NULL, cur, &packet, WEBSOCKET_OP_BINARY);
+         }
+      }
+      free(frame);
+   } while (total > normal_limit && offset < total);
+   free(msgbuf);
    streaming = false;
 
    return false;
