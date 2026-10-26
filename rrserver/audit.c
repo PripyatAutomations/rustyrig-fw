@@ -53,6 +53,6 @@ static bool audit_log_cb(logpriority_t priority, const char *subsys, const char 
 
 // Register our callback with the logger; called by main() after db_open()
 void audit_init(void) {
-   log_add_callback(audit_log_cb);
+   log_add_callback(audit_log_cb, LOG_CALLBACK_RAW);
 }
 #endif // USE_SQLITE
