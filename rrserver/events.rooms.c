@@ -100,7 +100,7 @@ static void rrserver_handle_room_join(const char *event, const char *data, rrcon
 
    /* A late JOIN must receive the current SDR UUID binding, not only the
     * room topic. Otherwise VFO controls remain hidden until another event. */
-   if (room && cptr && strlen(room) == 13 && !g_ascii_strncasecmp(room, "#sdr-", 5)) {
+   if (room && cptr && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5)) {
       char *vfos = db_room_vfo_list(masterdb, room);
       if (vfos && *vfos) {
          dict *update = dict_new();
