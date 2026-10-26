@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
    mg_log_set(MG_LL_INFO);
    now = time(NULL);
    logger_init("-", false);
-   if (!probe) log_add_callback(bridge_log_cb, LOG_CALLBACK_RAW);
+   if (!probe) log_add_callback(bridge_log_cb, LOG_CALLBACK_FILTERED);
 
    if (!rrp_bridge_config_init() || !(cfg = cfg_load(file))) {
       return EXIT_FAILURE;
