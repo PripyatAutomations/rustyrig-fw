@@ -711,6 +711,13 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       return true;
    }
 
+   if (m->type == RRP_BRIDGE_IPC_LOG) {
+      /* Forward child diagnostics through the host logger, including during
+       * capability negotiation and while the receiver is shutting down. */
+      Log(LOG_INFO, "rrbridge", "[%s] %s", bridge_public_name(b), m->metadata_value);
+      return true;
+   }
+
    if (!b->ready) {
       bool ok = m->type == RRP_BRIDGE_IPC_CAPABILITIES && capabilities(b, m);
 
@@ -719,13 +726,6 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       }
 
       return ok;
-   }
-
-   if (m->type == RRP_BRIDGE_IPC_LOG) {
-      /* Use the host logger so authenticated LogView subscribers see the
-       * child's driver status just like in-process diagnostics. */
-      Log(LOG_INFO, "rrbridge", "[%s] %s", bridge_public_name(b), m->metadata_value);
-      return true;
    }
 
    if (m->type == RRP_BRIDGE_IPC_METADATA) {
@@ -897,7 +897,9 @@ void rrserver_bridges_poll(void) {
                break;
             }
 
-            if (got > 0 && b->idling) {
+            /* Preserve bridge diagnostics during idle/shutdown, without
+             * processing other unsolicited records from an idle child. */
+            if (got > 0 && b->idling && m.type != RRP_BRIDGE_IPC_LOG) {
                continue;
             }
 
