@@ -1,3 +1,4 @@
+#include "gtk.tree-style.h"
 // GTK presentation only; directory fetching, validation and persistence are common.
 
 #include <gtk/gtk.h>
@@ -562,6 +563,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
    gtk_tree_model_filter_set_visible_func(directory_filter, visible_receiver, NULL, NULL);
    GtkTreeModel *sorted = gtk_tree_model_sort_new_with_model(GTK_TREE_MODEL(directory_filter));
    directory_tree = gtk_tree_view_new_with_model(sorted);
+   rr_gtk_tree_style(directory_tree);
    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(sorted), COL_COUNTRY, country_compare, NULL, NULL);
    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(sorted), COL_NAME, GTK_SORT_ASCENDING);
    g_object_unref(sorted);
