@@ -261,6 +261,14 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
                   /* This is a commanded setpoint when readback is unavailable, not measured RF output. */
                   dict_add_float(state, "cat.state.tx-power-watts", observed > 0 ? observed : rc_power);
                   dict_add_bool(state, "cat.state.tx-power-readback", observed > 0);
+                  /* The UI uses 0..100%, regardless of the hardware's watt limit.
+                   * Return a real RFPOWER/PC readback when the backend provides it. */
+                  float maximum = backend && rr_backend_api(backend)->power_max ?
+                     rr_backend_api(backend)->power_max(backend, object) : 0;
+                  if (maximum > 0 && isfinite(maximum)) {
+                     float fraction = (observed > 0 ? observed : rc_power) * 100.0f / maximum;
+                     dict_add_int(state, "cat.state.tx-power-percent", (int)lroundf(fmaxf(0, fminf(100, fraction))));
+                  }
                   dict_add(state, "cat.user", rc_from);
                   ws_broadcast_dict(NULL, state, WEBSOCKET_OP_TEXT);
                   dict_free(state);
