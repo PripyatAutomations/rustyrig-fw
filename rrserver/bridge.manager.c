@@ -41,6 +41,7 @@ struct bridge_child {
    bool temporary;
    char attached_room[128];
    char initiated_by[HTTP_USER_LEN + 1];
+   char audit_session_id[21];
    uint64_t idle_since;
    /* Event-loop-owned hardware demand, never an authorization decision. */
    uint64_t demand_epoch, demand_check_at;
@@ -1076,7 +1077,7 @@ static void websdr_audit_end(rr_server_rig_t *radio, const char *reason) {
    websdr_audit_value(location, sizeof(location), reason);
    char details[700];
    snprintf(details, sizeof(details), "SDR disconnected room=%s rig=%s backend=%s reason=%s", room, name, backend, location);
-   db_add_audit_event(masterdb, *user ? user : "server", "sdr.disconnected", details);
+   db_add_audit_event_session(masterdb, *user ? user : "server", "sdr.disconnected", details, b->audit_session_id);
 #else
    (void)radio; (void)reason;
 #endif
@@ -1383,6 +1384,10 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          if (b->temporary) {
             snprintf(b->attached_room, sizeof(b->attached_room), "%s", selected_room);
             snprintf(b->initiated_by, sizeof(b->initiated_by), "%s", client->chatname);
+            /* Same non-secret fingerprint used by the Sessions admin table. */
+            char *digest = g_compute_checksum_for_string(G_CHECKSUM_SHA256, client->token, -1);
+            snprintf(b->audit_session_id, sizeof(b->audit_session_id), "%.20s", digest ? digest : "");
+            g_free(digest);
          }
          /* Legacy media channels belong to the generated backend room. Move their RX admission scope to the user's selected room. Keep TX untouched (bridges
           * never provision TX channels). */
@@ -1455,7 +1460,7 @@ static void websdr_request(const char *event, const void *data, size_t length, r
          snprintf(details, sizeof(details),
             "SDR connected room=%s rig=%.64s backend=%s name=%.100s location=%.100s country=%.80s hardware=%.80s",
             room, rr_rig_registry_public_alias(rig.rigs, b->backend->owner), backend, name, location, country, hardware);
-         db_add_audit_event(masterdb, *user ? user : "server", "sdr.connected", details);
+         db_add_audit_event_session(masterdb, *user ? user : "server", "sdr.connected", details, b->audit_session_id);
       }
 #endif
 
