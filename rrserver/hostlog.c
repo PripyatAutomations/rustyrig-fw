@@ -49,11 +49,23 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
    }
    // Current-account privilege checks can log; suppress callback recursion.
    streaming = true;
-   char msgbuf[1024];
-   vsnprintf(msgbuf, sizeof(msgbuf), fmt, ap);
-
+   va_list sizing;
+   va_copy(sizing, ap);
+   int length = vsnprintf(NULL, 0, fmt, sizing);
+   va_end(sizing);
+   if (length < 0) {
+      streaming = false;
+      return false;
+   }
+   char *msgbuf = malloc((size_t)length + 1);
+   if (!msgbuf) {
+      streaming = false;
+      return false;
+   }
+   vsnprintf(msgbuf, (size_t)length + 1, fmt, ap);
    uint8_t *frame = NULL;
-   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, strlen(msgbuf), ++logframe_seq, (uint64_t) now);
+   int flen = rr_logframe_frame(&frame, priority, subsys, msgbuf, (size_t)length, ++logframe_seq, (uint64_t) now);
+   free(msgbuf);
 
    if (flen < 0 || !frame) {
       streaming = false;
