@@ -132,7 +132,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          rig.ptt_rig = radio;
       }
       // Key/dekey the rig (from the PTT button in the client)
-      Log(LOG_AUDIT, "rigctl", "User %s set PTT to %s on vfo %s", rc_from, (rc_ptt ? "true" : "false"), rc_vfo);
+      Log(LOG_AUDIT, "rigctl", "user=%s room=%s rig=%s vfo=%s PTT request=%s", rc_from, room, radio ? rr_rig_registry_public_alias(rig.rigs, radio) : "unknown", rc_vfo, rc_ptt ? "on" : "off");
 
       if (rr_ptt_request(vfo, rc_ptt, rc_ptt ? "key-down" : "released") && cptr) {
          // The wire handler announced the request optimistically. Restore
@@ -324,7 +324,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          return;
       }
       // Audit trail: who changed which VFO to what mode
-      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s MODE to %s", rc_from, rc_vfo, rc_mode);
+      Log(LOG_AUDIT, "rigctl", "user=%s room=%s vfo=%s MODE=%s", rc_from, room, rc_vfo, rc_mode);
 
       // Confirm the new values for UUID-backed clients immediately, including width changes caused by mode.
       if (!rr_set_mode(vfo, new_mode)) {
@@ -344,7 +344,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
          return;
       }
       // Audit trail: who changed which VFO to what passband width
-      Log(LOG_AUDIT, "rigctl", "User %s set VFO %s WIDTH to %s", rc_from, rc_vfo, rc_width);
+      Log(LOG_AUDIT, "rigctl", "user=%s room=%s vfo=%s WIDTH=%s", rc_from, room, rc_vfo, rc_width);
 
       if (!rr_set_width(vfo, rc_width)) {
          rr_be_poll(vfo);
@@ -357,7 +357,7 @@ static void rrserver_handle_rigctlmsg(const char *event, const char *data, rrcon
    fprintf(stderr, "setting vfo %s freq to %d\n", rc_vfo, rc_freq);
 
    // Audit trail: who changed which VFO to what frequency
-   Log(LOG_AUDIT, "rigctl", "User %s set VFO %s FREQ to %d hz", rc_from, rc_vfo, rc_freq);
+   Log(LOG_AUDIT, "rigctl", "user=%s room=%s vfo=%s FREQ=%dHz", rc_from, room, rc_vfo, rc_freq);
 
    if (!rr_freq_set(vfo, rc_freq)) {
       rr_be_poll(vfo);
