@@ -251,6 +251,27 @@ static void routing_show_event(const char *event, const char *data, rrconn_t *co
    }
 }
 
+/* Reparent the standard label/slider row into the shared routing grid.
+ * A single GTK grid column gives every slider identical alignment and width. */
+static void routing_grid_volume_row(GtkWidget *grid, GtkWidget *row, gint grid_row) {
+   GList *children = gtk_container_get_children(GTK_CONTAINER(row));
+   if (children && children->next) {
+      GtkWidget *label = GTK_WIDGET(children->data);
+      GtkWidget *slider = GTK_WIDGET(children->next->data);
+      g_object_ref(label);
+      g_object_ref(slider);
+      gtk_container_remove(GTK_CONTAINER(row), label);
+      gtk_container_remove(GTK_CONTAINER(row), slider);
+      gtk_grid_attach(GTK_GRID(grid), label, 0, grid_row, 1, 1);
+      gtk_grid_attach(GTK_GRID(grid), slider, 1, grid_row, 1, 1);
+      gtk_widget_set_hexpand(slider, TRUE);
+      g_object_unref(label);
+      g_object_unref(slider);
+   }
+   g_list_free(children);
+   gtk_widget_destroy(row);
+}
+
 void gtk_audio_routing_init(void) {
    if (routing_window) {
       return;
@@ -299,11 +320,12 @@ void gtk_audio_routing_init(void) {
    g_signal_connect(rx_vol_slider, "value-changed", G_CALLBACK(routing_rx_gain_changed), NULL);
    gtk_box_pack_start(GTK_BOX(gain_row), gain_label, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(gain_row), rx_vol_slider, TRUE, TRUE, 0);
-   gtk_box_pack_start(GTK_BOX(routing_body), gain_row, FALSE, FALSE, 2);
+   routing_grid_volume_row(grid, gain_row, 5);
 
    GtkWidget *rig_volume = create_volbox();
-   gtk_box_pack_start(GTK_BOX(routing_body), rig_volume, FALSE, FALSE, 2);
+   routing_grid_volume_row(grid, rig_volume, 6);
    split_rx = gtk_check_button_new_with_mnemonic("_Split RX");
+   gtk_grid_attach(GTK_GRID(grid), split_rx, 0, 0, 2, 1);
 
    for (unsigned ear = 0 ; ear < 2 ; ear++) {
       GtkWidget *label = gtk_label_new_with_mnemonic(ear ? "_Right:" : "_Left:");
@@ -328,13 +350,13 @@ void gtk_audio_routing_init(void) {
       ear_volume[ear] = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 100, 1);
       gtk_scale_set_draw_value(GTK_SCALE(ear_volume[ear]), FALSE);
       gtk_widget_set_size_request(ear_volume[ear], 110, -1);
+      gtk_widget_set_hexpand(ear_volume[ear], TRUE);
       gtk_range_set_value(GTK_RANGE(ear_volume[ear]), CLAMP(cfg_get_int(ear ? "audio.volume.rx.right" : "audio.volume.rx.left", 100), 0, 100));
       gtk_grid_attach(GTK_GRID(grid), label, 0, ear + 3, 1, 1);
       gtk_grid_attach(GTK_GRID(grid), ear_volume[ear], 1, ear + 3, 1, 1);
       g_signal_connect(ear_volume[ear], "value-changed", G_CALLBACK(routing_volume_changed), GUINT_TO_POINTER(ear));
    }
 
-   gtk_box_pack_start(GTK_BOX(routing_body), split_rx, FALSE, FALSE, 2);
    g_signal_connect(split_rx, "toggled", G_CALLBACK(routing_changed), NULL);
    gtk_widget_set_sensitive(ear_volume[1], FALSE);
 
