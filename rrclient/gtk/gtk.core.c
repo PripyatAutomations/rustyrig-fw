@@ -729,10 +729,34 @@ bool ui_confirm_dialog(GtkWindow *parent, const char *message) {
    /* Quit confirmation must remain accessible even if another utility dialog has an always-on-top hint. Transient/modal alone cannot guarantee that. */
    gtk_window_set_keep_above(GTK_WINDOW(dialog), TRUE);
    gtk_window_set_type_hint(GTK_WINDOW(dialog), GDK_WINDOW_TYPE_HINT_DIALOG);
+   /* Keep the confirmation above independent always-on-top floating windows.
+    * Some WMs do not rank two keep-above windows according to transient order.
+    * Temporarily suspend those hints for the lifetime of the modal prompt. */
+   GList *top_windows = gtk_window_list_toplevels();
+   GList *demoted = NULL;
+   for (GList *it = top_windows; it; it = it->next) {
+      GtkWidget *window = it->data;
+      if (window != dialog && GTK_IS_WINDOW(window) &&
+          gtk_window_get_keep_above(GTK_WINDOW(window)) &&
+          gtk_widget_get_visible(window)) {
+         gtk_window_set_keep_above(GTK_WINDOW(window), FALSE);
+         demoted = g_list_prepend(demoted, g_object_ref(window));
+      }
+   }
+   g_list_free(top_windows);
    g_signal_connect(dialog, "key-press-event", G_CALLBACK(on_confirm_dialog_key), NULL);
    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_YES);
+   gtk_widget_show(dialog);
+   gtk_window_present(GTK_WINDOW(dialog));
    gboolean confirmed = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES;
    gtk_widget_destroy(dialog);
+   for (GList *it = demoted; it; it = it->next) {
+      GtkWidget *window = it->data;
+      if (GTK_IS_WINDOW(window))
+         gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
+      g_object_unref(window);
+   }
+   g_list_free(demoted);
 
    return confirmed;
 }
