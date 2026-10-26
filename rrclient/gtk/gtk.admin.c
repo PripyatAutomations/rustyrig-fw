@@ -1418,6 +1418,10 @@ GtkWidget *init_admin_tab(void) {
          g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_privgroup_row_activated), table);
          g_signal_connect(table->tree, "button-press-event", G_CALLBACK(gtk_admin_privgroup_context_menu), table);
       }
+      if (!strcmp(table->name, "sessions")) {
+         g_signal_connect(table->tree, "row-activated", G_CALLBACK(gtk_admin_session_activated), table);
+         g_signal_connect(table->tree, "button-press-event", G_CALLBACK(gtk_admin_session_context_menu), table);
+      }
       GtkWidget *privilege_selection = g_object_get_data(G_OBJECT(box), "rr-privilege-selection-button");
 
       if (privilege_selection) {
