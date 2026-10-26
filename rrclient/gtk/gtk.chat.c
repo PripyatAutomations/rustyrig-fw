@@ -2149,7 +2149,11 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       locator_tx_started = 0;
 
       if (vfo_locator_window) {
-         gtk_widget_hide(vfo_locator_window);
+         gtk_label_set_text(GTK_LABEL(vfo_locator_label), "No connected rig");
+         gtk_label_set_text(GTK_LABEL(vfo_locator_frequency), "Freq: —");
+         gtk_label_set_text(GTK_LABEL(vfo_locator_mode), "Mode: —");
+         gtk_label_set_text(GTK_LABEL(vfo_locator_ptt), "PTT Off");
+         gtk_widget_show_all(vfo_locator_window);
       }
 
       return G_SOURCE_CONTINUE;
@@ -2162,9 +2166,11 @@ static gboolean vfo_locator_tick_context(gpointer unused) {
       /* An independent normal top-level avoids window-manager utility/transient grouping that can iconify it along with the main window. */
       gtk_window_set_type_hint(GTK_WINDOW(vfo_locator_window), GDK_WINDOW_TYPE_HINT_NORMAL);
       gtk_window_set_resizable(GTK_WINDOW(vfo_locator_window), FALSE);
-      /* Do not elevate this window above modal dialogs: the user must always be able to respond to them. */
-      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), FALSE);
-      gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), TRUE);
+      /* Independent desktop-level window: taskbar entry, native minimization,
+       * and always-on-top stacking without system decorations. */
+      gtk_window_set_keep_above(GTK_WINDOW(vfo_locator_window), TRUE);
+      gtk_window_set_skip_taskbar_hint(GTK_WINDOW(vfo_locator_window), FALSE);
+      gtk_window_set_skip_pager_hint(GTK_WINDOW(vfo_locator_window), FALSE);
       /* A native undecorated top-level, with the same lightweight border treatment as in-window floating panels. The frame owns PTT styling. */
       vfo_locator_frame = gtk_event_box_new();
       gtk_widget_add_events(vfo_locator_frame, GDK_BUTTON_PRESS_MASK);
