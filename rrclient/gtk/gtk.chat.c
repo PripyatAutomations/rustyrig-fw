@@ -35,6 +35,7 @@
 #include <rrclient/gtk/ui.speech.h>
 #include <rrclient/gtk/gtk.core.h>
 #include <rrclient/gtk/gtk.floating-panel.h>
+#include <rrclient/gtk/gtk.spectrum.h>
 #include <rrclient/gtk/gtk.connect-button.h>
 #include <rrclient/gtk/gtk.vfo-box.h>
 #include <rrclient/userlist.h>
