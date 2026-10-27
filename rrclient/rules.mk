@@ -6,7 +6,7 @@ rrclient := bin/rrclient
 rrclient_objs += files.o objects.o objects.events.o
 bins += ${rrclient}
 
-rrclient_objs += receiver.directory.o receiver.connect.o
+rrclient_objs += receiver.directory.o receiver.connect.o receiver.catalog.o
 rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
