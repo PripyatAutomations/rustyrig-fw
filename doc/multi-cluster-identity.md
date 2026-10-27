@@ -5,7 +5,6 @@ RustyRig server profiles identify individual connections. They are **not** netwo
 ## Required identities
 
 - `domain`: configured case-insensitive domain string shared by every server in one network.
-- `domain display name`: human-readable label, not an authorization or routing key.
 - `server.id`: persistent unique node UUID within and across clusters.
 - `server.name`: display label; it is not guaranteed globally unique.
 - A resource's canonical reference is `(domain, server.id, resource.id)`. Human-readable room names are qualified by cluster.
@@ -14,16 +13,16 @@ There is no compatibility fallback. If a peer does not advertise a nonempty doma
 
 ## Protocol
 
-1. After transport establishment, the server announces its `domain`, `domain display name`, `server.id` and capabilities as part of authentication/hello. The client stores these on the **connection**, not in `ws_conn`.
+1. After transport establishment, the server announces its `domain`, `server.id` and capabilities as part of authentication/hello. The client stores these on the **connection**, not in `ws_conn`.
 2. A server-to-server link confirms that both sides agree on the cluster identity before exposing routes/resources. Cross-cluster federation, if introduced later, must be explicit and must retain the original domain string of every resource.
 3. The client groups connected profiles by domain string and keeps independent network catalogs, room identities, grants, and topology snapshots for each cluster.
 4. Refresh callbacks and media, file and resource operations retain the owning connection and domain string. Reject responses whose ownership differs from the request.
 5. Disconnect invalidates work for that connection. When the last live connection **in a cluster** closes, remove that cluster's live catalog; do not erase catalogs or connections belonging to other clusters.
-6. For display use `domain display name / server.name / room`, disambiguating duplicate display names with short UUIDs. Keep stable IDs in serialized references.
+6. For display use `domain / server.name / room`, disambiguating duplicate display names with short UUIDs. Keep stable IDs in serialized references.
 
 ## Migration order
 
-1. Add a domain string and name to server configuration and durable database; independently persist a server UUID.
+1. Require the `domain` setting in server configuration and reuse the persistent server node UUID.
 2. Transmit identity in handshake/auth and in inter-server links. Enforce membership before route advertisements.
 3. Index client resource and receiver catalogs by cluster, then make lifecycle cleanup cluster-scoped.
 4. Qualify room/resource lookups, privileges, subscriptions and saved client state with cluster identity.
