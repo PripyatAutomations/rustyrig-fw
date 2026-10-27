@@ -42,6 +42,7 @@ rrserver_objs += backend.yaesu.o	# Native FT-891 Yaesu CAT (no Hamlib dependency
 rrserver_objs += bridge.hints.o
 rrserver_objs += bridge.access.o
 rrserver_objs += bridge.manager.o
+rrserver_objs += receiver.directory.o
 rrserver_objs += cfg.acl.o
 rrserver_objs += cfg.peer.o		# Peer configuration sections
 rrserver_objs += cfg.rig.o		# Named rig configuration sections/views
