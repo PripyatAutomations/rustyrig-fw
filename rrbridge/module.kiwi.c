@@ -439,7 +439,11 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       }
       p = line + 2;
    }
-   if (!loc || !len || len >= sizeof(k->redirect_url) || k->attempts >= 3) return false;
+   if (k->attempts >= 3) {
+      note(k, "Kiwi HTTP 307 received but the three-attempt connection limit was reached");
+      return false;
+   }
+   if (!loc || !len || len >= sizeof(k->redirect_url)) return false;
    char target[512];
    memcpy(target, loc, len); target[len] = 0;
    for (size_t i = 0; i < len; i++)
@@ -460,7 +464,11 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       memcpy(next, k->url, authority);
       memcpy(next + authority, target, len + 1);
    } else return false;
-   if (strlen(next) >= sizeof(k->url) || !strcmp(next, k->url)) return false;
+   if (strlen(next) >= sizeof(k->url)) return false;
+   if (!strcmp(next, k->url)) {
+      note(k, "Kiwi HTTP 307 redirects to the same WebSocket URL (redirect loop)");
+      return false;
+   }
    /* Never forward configured credentials to a different origin. */
    const char *password = setting(k, "password");
    if (password && *password) {
@@ -470,6 +478,18 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       size_t olen = strcspn(old, "/"), dlen = strcspn(dest, "/");
       if (olen != dlen || strncasecmp(old, dest, olen)) return false;
    }
+   /* This is a diagnostic for the peer redirect, not a credential dump. */
+   const char *authority = strstr(next, "://");
+   const char *path = authority ? strchr(authority + 3, '/') : NULL;
+   char origin[160] = "";
+   if (authority) {
+      size_t length = path ? (size_t)(path - next) : strlen(next);
+      snprintf(origin, sizeof(origin), "%.*s", (int)MIN(length, sizeof(origin) - 1), next);
+   }
+   char diagnostic[240];
+   snprintf(diagnostic, sizeof(diagnostic), "Kiwi HTTP 307: redirect attempt %u/3 to %.150s (path length %zu)",
+      k->attempts + 1, origin, path ? strlen(path) : 0u);
+   note(k, diagnostic);
    snprintf(k->redirect_url, sizeof(k->redirect_url), "%s", next);
    k->redirecting = true;
    c->is_closing = 1;
