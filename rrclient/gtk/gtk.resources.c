@@ -2134,7 +2134,13 @@ static void resource_request(void *data) {
       branch->loaded = true;
       gtk_label_set_text(GTK_LABEL(browser->status), "Unable to refresh this server. Reconnect or try Refresh all again.");
    }
-   rrclient_media_refresh();
+   /* This callback may run after a profile disconnect. Do not ask the
+    * global selected connection to refresh another server's media catalog. */
+   rrconn_t *connection = rrclient_connection_find(branch->profile);
+   if (connection && connection->authenticated && connection->is_ws &&
+       connection->conn && !connection->is_closing) {
+      rrclient_media_refresh();
+   }
 }
 static void resource_refresh(resource_branch *branch) {
    rrconn_t *connection = rrclient_connection_find(branch->profile);
