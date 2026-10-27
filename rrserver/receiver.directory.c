@@ -73,7 +73,7 @@ static bool body_valid(const char *data, size_t len) {
    /* Parsing and canonicalization of receiver records stays in the existing
     * receiver parser during transition; reject oversized/non-JSON payloads.
     * Do not promote this to a trusted published catalog without validation. */
-   if (!data || len < 20 || len > DIR_MAX_BODY || !g_utf8_validate(data,len,NULL)) return false;
+   if (!data || len < 20 || len > DIR_MAX_BODY || memchr(data, 0, len) || !g_utf8_validate(data,len,NULL)) return false;
    const char *p=data, *end=data+len;
    while (p<end && g_ascii_isspace(*p)) ++p;
    if (p==end || *p!='{') return false;
@@ -200,7 +200,14 @@ static void request_handler(const char *event,const void *data,size_t length,rrc
       if (strcmp(cmd,"list") || !snapshot) return;
       size_t len=strlen(snapshot),chunks=(len+DIR_CHUNK-1)/DIR_CHUNK;
       if (chunks>1024) return;
-      for(size_t i=0;i<chunks;i++) {
+      /* Page the catalog: at most eight <=12KiB chunks per command. The
+       * receiver sends the next page only when explicitly requested, keeping
+       * large inventories out of the control queue. */
+      unsigned page=dict_get_uint(io->message,"directory.page",0);
+      if (page > 127 || (size_t)page*8>=chunks) return;
+      size_t start=(size_t)page*8;
+      size_t stop=MIN(start+8,chunks);
+      for(size_t i=start;i<stop;i++) {
          size_t offset=i*DIR_CHUNK;
          size_t length=MIN(DIR_CHUNK,len-offset);
          char *encoded=g_base64_encode((const guchar*)snapshot+offset,length);
@@ -213,6 +220,7 @@ static void request_handler(const char *event,const void *data,size_t length,rrc
          dict_add_ullong(row,"directory.generation",generation);
          dict_add_uint(row,"directory.sequence",(unsigned)i);
          dict_add_uint(row,"directory.total",(unsigned)chunks);
+         dict_add_uint(row,"directory.page",page);
          dict_add(row,"directory.encoding","base64");
          dict_add(row,"directory.data",encoded);
          ws_send_dict(NULL,client,row,WEBSOCKET_OP_TEXT);
