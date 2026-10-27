@@ -92,7 +92,9 @@ bool rrclient_room_is_joined(const char *room) {
 bool rrclient_room_join(const char *room) {
    const char *name = canonical(room);
 
-   if (!name || !*name || rrclient_room_is_joined(name)) {
+   if (!name || !*name) return false;
+   if (rrclient_room_is_joined(name)) {
+      rrclient_room_set_offline(name, false);
       return true;
    }
    client_room_t *r = calloc(1, sizeof(*r));
