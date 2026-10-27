@@ -12,6 +12,7 @@
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
+#include <librrprotocol/objects.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
@@ -822,6 +823,8 @@ static void rrclient_transport_handler(struct mg_connection *c, int ev, void *da
    dispatch_depth--;
 
    if (ev == MG_EV_CLOSE) {
+      s->domain[0] = '\0';
+      s->server_uuid[0] = '\0';
       mg_iobuf_free(&t->websocket_request);
       cptr->conn = NULL;
       /* Keep the offline profile selectable, but never retain a dead socket. */
