@@ -1029,7 +1029,7 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
 
    if (room) {
       userlist_remove_room(room);
-      rrclient_media_room_parted(room);
+      rrclient_media_room_removed(room);
       rrclient_room_part(room);
       rrclient_room_available_remove(room);
 
