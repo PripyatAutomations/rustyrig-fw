@@ -1367,6 +1367,23 @@ bool receiver_directory_refresh_force(bool force) {
 bool receiver_directory_refresh(void) {
    return receiver_directory_refresh_force(false);
 }
+void receiver_directory_clear_server_snapshot(void) {
+   ensure();
+   if (!source || strcmp(source, "rrserver")) return;
+   if (cache_db) {
+      sqlite3_exec(cache_db, "DELETE FROM directory_cache WHERE id=1;"
+         "DELETE FROM receiver_records;"
+         "DELETE FROM receiver_details WHERE origin='directory';", NULL, NULL, NULL);
+   }
+   g_ptr_array_set_size(receivers, 0);
+   g_clear_pointer(&payload, g_free);
+   g_clear_pointer(&source, g_free);
+   g_clear_pointer(&etag, g_free);
+   g_clear_pointer(&modified, g_free);
+   next_request = 0;
+   g_strlcpy(status_text, "No RustyRig servers connected; server catalog cleared.", sizeof(status_text));
+   changed();
+}
 bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin) {
    ensure();
    if (job || !data || !length || length > DIRECTORY_MAX_BODY) {
