@@ -34,9 +34,13 @@ static struct {
 static char *db_path;
 
 static bool source_allowed(const char *url) {
-   if (!url || !g_str_has_prefix(url, "https://")) return false;
+   if (!url || !g_str_has_prefix(url, "https://")) {
+      return false;
+   }
    GUri *uri = g_uri_parse(url, G_URI_FLAGS_NONE, NULL);
-   if (!uri) return false;
+   if (!uri) {
+      return false;
+   }
    const char *host = g_uri_get_host(uri);
    bool ok = host && *host && !g_str_has_suffix(host, "kiwisdr.com") &&
       !g_str_has_suffix(host, ".kiwisdr.com") && !g_uri_get_userinfo(uri) &&
@@ -51,9 +55,13 @@ static void make_digest(void) {
    g_free(hex);
 }
 static void save_snapshot(void) {
-   if (!db) return;
+   if (!db) {
+      return;
+   }
    sqlite3_stmt *stmt = NULL;
    if (sqlite3_prepare_v2(db,
+      "INSERT OR REPLACE INTO snapshots(id,source,payload,digest,generation,fetched,next_fetch,etag,modified) VALUES(1,?,?,?,?,?,?,?,?)",
+      -1, &stmt, NULL) == SQLITE_OK) {
       "INSERT OR REPLACE INTO snapshots(id,source,payload,digest,generation,fetched,next_fetch,etag,modified) VALUES(1,?,?,?,?,?,?,?,?)",
       -1, &stmt, NULL) == SQLITE_OK) {
       sqlite3_bind_text(stmt,1,source_url ? source_url : "",-1,SQLITE_TRANSIENT);
@@ -64,38 +72,53 @@ static void save_snapshot(void) {
       sqlite3_bind_int64(stmt,6,next_fetch);
       sqlite3_bind_text(stmt,7,validator ? validator : "",-1,SQLITE_TRANSIENT);
       sqlite3_bind_text(stmt,8,modified ? modified : "",-1,SQLITE_TRANSIENT);
-      if (sqlite3_step(stmt) != SQLITE_DONE)
+      if (sqlite3_step(stmt) != SQLITE_DONE) {
          Log(LOG_WARN,"receiver.directory","Unable to save server directory: %s",sqlite3_errmsg(db));
+      }
    }
    sqlite3_finalize(stmt);
 }
 static bool body_valid(const char *data, size_t len) {
    if (!data || len < 20 || len > DIR_MAX_BODY || memchr(data, 0, len) ||
-       !g_utf8_validate(data, len, NULL)) return false;
+       !g_utf8_validate(data, len, NULL)) {
+      return false;
+   }
    struct mg_str json = mg_str_n(data, len);
    int size = 0, start = mg_json_get(json, "$", &size);
-   if (start < 0 || size < 2 || data[start] != '{') return false;
-   for (size_t i = (size_t)start + (size_t)size; i < len; i++)
+   if (start < 0 || size < 2 || data[start] != '{') {
+      return false;
+   }
+   for (size_t i = (size_t)start + (size_t)size; i < len; i++) {
       if (!g_ascii_isspace(data[i])) return false;
+   }
    struct mg_str schema = mg_json_get_tok(json, "$.schema");
-   if (schema.len != 1 || schema.buf[0] != '1') return false;
+   if (schema.len != 1 || schema.buf[0] != '1') {
+      return false;
+   }
    char *provider = mg_json_get_str(json, "$.provider");
    bool supported = provider ? !strcmp(provider, "kiwi") :
       !mg_json_get_tok(json, "$.provider").len;
    free(provider);
-   if (!supported) return false;
+   if (!supported) {
+      return false;
+   }
    struct mg_str array = mg_json_get_tok(json, "$.receivers"), object;
-   if (!array.len || array.buf[0] != '[') return false;
+   if (!array.len || array.buf[0] != '[') {
+      return false;
+   }
    size_t offset = 0, count = 0;
    while ((offset = mg_json_next(array, offset, NULL, &object))) {
-      if (++count > 10000 || !object.len || object.buf[0] != '{')
+      if (++count > 10000 || !object.len || object.buf[0] != '{') {
          return false;
+      }
    }
    return true;
 }
 static size_t receive_body(char *ptr,size_t sz,size_t count,void *unused) {
    (void)unused;
-   if (sz && count > G_MAXSIZE/sz) return 0;
+   if (sz && count > G_MAXSIZE/sz) {
+      return 0;
+   }
    size_t bytes=sz*count;
    if (bytes > DIR_MAX_BODY - request.length) {request.overflow=true;return 0;}
    char *data=g_realloc(request.data,request.length+bytes+1);
@@ -140,11 +163,14 @@ static gpointer downloader(gpointer unused) {
    return NULL;
 }
 static void complete_download(void) {
-   if (!request.thread || !g_atomic_int_get(&request.done)) return;
+   if (!request.thread || !g_atomic_int_get(&request.done)) {
+      return;
+   }
    g_thread_join(request.thread);
    request.thread=NULL;
    time_t current=time(NULL);
    if (request.result==CURLE_OK && request.http_status==200 &&
+       body_valid(request.data,request.length)) {
        body_valid(request.data,request.length)) {
       g_free(snapshot);
       snapshot=g_steal_pointer(&request.data);
@@ -166,7 +192,9 @@ static void complete_download(void) {
    request.length=0;
 }
 static void start_fetch(void) {
-   if (request.thread || !source_allowed(cfg_get("receiver-directory.url"))) return;
+   if (request.thread || !source_allowed(cfg_get("receiver-directory.url"))) {
+      return;
+   }
    static gsize curl_ready;
    if (g_once_init_enter(&curl_ready)) {
       CURLcode rc = curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -176,7 +204,9 @@ static void start_fetch(void) {
       Log(LOG_WARN, "receiver.directory", "Unable to initialize libcurl for server catalog fetch");
       return;
    }
-   if (!snapshot && next_fetch>time(NULL)) return;
+   if (!snapshot && next_fetch>time(NULL)) {
+      return;
+   }
    const char *url=cfg_get("receiver-directory.url");
    if (snapshot && source_url && strcmp(source_url,url)) {
       /* Keep the old snapshot as fallback, but never serve it as the new
@@ -193,10 +223,14 @@ static void start_fetch(void) {
 }
 static void respond(rrconn_t *client,const char *cmd,const char *nonce) {
    dict *d=dict_new();
-   if (!d) return;
+   if (!d) {
+      return;
+   }
    dict_add(d,"msg.type","receiver-directory");
    dict_add(d,"directory.cmd",cmd);
-   if (nonce && *nonce) dict_add(d,"directory.request",nonce);
+   if (nonce && *nonce) {
+      dict_add(d,"directory.request",nonce);
+   }
    dict_add(d,"directory.digest",digest);
    dict_add(d,"directory.source",source_url ? source_url : "");
    dict_add_ullong(d,"directory.generation",generation);
@@ -208,25 +242,39 @@ static void respond(rrconn_t *client,const char *cmd,const char *nonce) {
 }
 static void request_handler(const char *event,const void *data,size_t length,rrconn_t *client,void *unused) {
    (void)event;(void)unused;
-   if (!client || !client->authenticated || length!=sizeof(rr_server_io_t)) return;
+   if (!client || !client->authenticated || length!=sizeof(rr_server_io_t)) {
+      return;
+   }
    rr_server_io_t *io=(rr_server_io_t *)data;
-   if (strcmp(dict_get(io->message,"msg.type",""),"receiver-directory")) return;
+   if (strcmp(dict_get(io->message,"msg.type",""),"receiver-directory")) {
+      return;
+   }
    io->handled=true;io->result=true;
    const char *cmd=dict_get(io->message,"directory.cmd","");
    const char *nonce=dict_get(io->message,"directory.request","");
-   if (strlen(nonce)>64) return;
+   if (strlen(nonce)>64) {
+      return;
+   }
    complete_download();
    if (!strcmp(cmd,"status") || !strcmp(cmd,"list")) {
-      if (!request.thread && time(NULL)>=next_fetch) start_fetch();
+      if (!request.thread && time(NULL)>=next_fetch) {
+         start_fetch();
+      }
       respond(client,"status",nonce);
-      if (strcmp(cmd,"list") || !snapshot) return;
+      if (strcmp(cmd,"list") || !snapshot) {
+         return;
+      }
       size_t len=strlen(snapshot),chunks=(len+DIR_CHUNK-1)/DIR_CHUNK;
-      if (chunks>1024) return;
+      if (chunks>1024) {
+         return;
+      }
       /* Page the catalog: at most eight <=12KiB chunks per command. The
        * receiver sends the next page only when explicitly requested, keeping
        * large inventories out of the control queue. */
       unsigned page=dict_get_uint(io->message,"directory.page",0);
-      if (page > 127 || (size_t)page*8>=chunks) return;
+      if (page > 127 || (size_t)page*8>=chunks) {
+         return;
+      }
       size_t start=(size_t)page*8;
       size_t stop=MIN(start+8,chunks);
       for(size_t i=start;i<stop;i++) {
@@ -251,7 +299,9 @@ static void request_handler(const char *event,const void *data,size_t length,rrc
    } else if (!strcmp(cmd,"refresh")) {
       /* A refresh is advisory: bypassing the cache requires a separate
        * privileged operation, not a normal user clicking the button. */
-      if (!request.thread && time(NULL)>=next_fetch) start_fetch();
+      if (!request.thread && time(NULL)>=next_fetch) {
+         start_fetch();
+      }
       respond(client,"status",nonce);
    }
 }
@@ -268,9 +318,12 @@ bool rrserver_receiver_directory_init(void) {
    g_free(parent);
    if (!ok) {Log(LOG_WARN,"receiver.directory","Cannot open %s",db_path);return false;}
    g_chmod(db_path,0600);
-   if (sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY CHECK(id=1),source TEXT,payload TEXT,digest TEXT,generation INTEGER,fetched INTEGER,next_fetch INTEGER,etag TEXT,modified TEXT)",NULL,NULL,NULL)!=SQLITE_OK) return false;
+   if (sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY CHECK(id=1),source TEXT,payload TEXT,digest TEXT,generation INTEGER,fetched INTEGER,next_fetch INTEGER,etag TEXT,modified TEXT)",NULL,NULL,NULL)!=SQLITE_OK) {
+      return false;
+   }
    sqlite3_stmt *stmt=NULL;
    if (sqlite3_prepare_v2(db,"SELECT source,payload,digest,generation,fetched,next_fetch,etag,modified FROM snapshots WHERE id=1",-1,&stmt,NULL)==SQLITE_OK &&
+       sqlite3_step(stmt)==SQLITE_ROW) {
        sqlite3_step(stmt)==SQLITE_ROW) {
       source_url=g_strdup((const char*)sqlite3_column_text(stmt,0));
       snapshot=g_strdup((const char*)sqlite3_column_text(stmt,1));
@@ -286,9 +339,10 @@ bool rrserver_receiver_directory_init(void) {
          next_fetch=0;
       }
       make_digest();
-      if (snapshot)
+      if (snapshot) {
          Log(LOG_INFO,"receiver.directory","Loaded server directory generation %llu from SQLite",
-            (unsigned long long)generation);
+         (unsigned long long)generation);
+      }
    }
    sqlite3_finalize(stmt);
    event_on_binary(RR_SERVER_ROUTE_EVENT,request_handler,NULL);
@@ -297,7 +351,9 @@ bool rrserver_receiver_directory_init(void) {
 }
 void rrserver_receiver_directory_shutdown(void) {
    if(request.thread) {g_thread_join(request.thread);request.thread=NULL;}
-   if(db)sqlite3_close(db);db=NULL;
+   if(db) {
+      sqlite3_close(db);db=NULL;
+   }
    g_free(snapshot);snapshot=NULL;g_free(source_url);source_url=NULL;
    g_free(validator);validator=NULL;g_free(modified);modified=NULL;
    g_free(db_path);db_path=NULL;
