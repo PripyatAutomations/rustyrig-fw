@@ -89,6 +89,9 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 }
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
+   if (!gtk_widget_get_mapped(p->drawing)) {
+      return G_SOURCE_CONTINUE;
+   }
    if (!GTK_IS_WIDGET(p->drawing)) {
       return G_SOURCE_REMOVE;
    }
