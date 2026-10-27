@@ -1013,6 +1013,21 @@ bool fwdsp_processor_setvol(const char *name, int percent) {
    return fwdsp_send_control(sp, FWDSP_CTRL_SET_VOLUME, (uint8_t) percent);
 }
 
+/* A real-time client mixer may borrow a duplicate of the playback socket.
+ * The manager remains the sole owner of the subprocess and registry. */
+int fwdsp_processor_dup_input(const char *name) {
+   struct fwdsp_subproc *sp = fwdsp_find_processor(name, "sink");
+   if (!sp || sp->role != FWDSP_ROLE_PROCESSOR || sp->fw_stdin < 0 || sp->destroying)
+      return -1;
+   return dup(sp->fw_stdin);
+}
+
+/* Stateless framed writer for a caller-owned duplicated descriptor.
+ * Never touches the manager registry or GStreamer state. */
+bool fwdsp_pcm_write_fd(int fd, const void *pcm, size_t bytes) {
+   return fd >= 0 && fwdsp_write_frame(fd, pcm, bytes);
+}
+
 bool fwdsp_processor_stop(const char *name) {
    struct fwdsp_subproc *sp = fwdsp_find_processor(name, "proc");
 
