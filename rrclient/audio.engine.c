@@ -22,6 +22,7 @@ struct rr_audio_engine {
    rr_audio_output_fn output;
    void *user;
    rr_audio_engine_stats_t stats;
+   int gain[2];
 };
 static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
    for (stream_t *s = e->streams; s; s = s->next)
@@ -46,9 +47,12 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       s->count -= take;
    }
    e->stats.blocks++;
+   int left = e->gain[0], right = e->gain[1];
    g_mutex_unlock(&e->lock);
-   for (size_t i = 0; i < AUDIO_BLOCK * 2; i++)
-      stereo[i] = (int16_t) CLAMP(accum[i], INT16_MIN, INT16_MAX);
+   for (size_t i = 0; i < AUDIO_BLOCK * 2; i++) {
+      int64_t scaled = (int64_t)accum[i] * ((i & 1) ? right : left) / 100;
+      stereo[i] = (int16_t) CLAMP(scaled, INT16_MIN, INT16_MAX);
+   }
 }
 static gpointer audio_thread(gpointer data) {
    rr_audio_engine_t *e = data;
@@ -78,6 +82,7 @@ static gpointer audio_thread(gpointer data) {
 rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn fn, void *user) {
    rr_audio_engine_t *e = g_new0(rr_audio_engine_t, 1);
    g_mutex_init(&e->lock);
+   e->gain[0] = e->gain[1] = 100;
    e->output = fn;
    e->user = user;
    return e;
@@ -168,5 +173,12 @@ void rr_audio_engine_stats(rr_audio_engine_t *e, rr_audio_engine_stats_t *out, b
    g_mutex_lock(&e->lock);
    *out = e->stats;
    if (reset) memset(&e->stats, 0, sizeof(e->stats));
+   g_mutex_unlock(&e->lock);
+}
+
+void rr_audio_engine_gain(rr_audio_engine_t *e, unsigned channel, int percent) {
+   if (!e || channel > 1) return;
+   g_mutex_lock(&e->lock);
+   e->gain[channel] = CLAMP(percent, 0, 100);
    g_mutex_unlock(&e->lock);
 }
