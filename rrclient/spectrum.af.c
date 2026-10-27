@@ -26,7 +26,11 @@ void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames) 
    if (g_atomic_int_get(&af_listeners) <= 0 || !stream || !*stream || !pcm || !frames) {
       return;
    }
-   g_mutex_lock(&af_lock);
+   /* Spectrum is expendable; decoder PCM delivery is not. Drop this
+    * visual sample rather than waiting behind a reader on the AF lock. */
+   if (!g_mutex_trylock(&af_lock)) {
+      return;
+   }
    if (!af_streams) {
       af_streams = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
    }
