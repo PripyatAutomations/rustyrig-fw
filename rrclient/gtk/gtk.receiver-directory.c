@@ -45,7 +45,8 @@ static GtkWidget *connect_button, *add_button;
 static GtkWidget *download_status, *download_spinner;
 static GtkListStore *directory_store;
 static GtkTreeModelFilter *directory_filter;
-static rr_event_token_t directory_token, show_token, connection_token;
+static rr_event_token_t directory_token, show_token, connection_token, failure_token;
+static char *receiver_failure;
 enum {
    COL_INDEX, COL_NAME, COL_LOCATION, COL_COUNTRY, COL_USERS, COL_API, COL_STATE, COL_URL, COL_TYPE, COL_CONNECTED_COLOR, COL_COUNT
 };
@@ -249,7 +250,7 @@ static void populate(void) {
 
    char *info = receiver_directory_info();
    char *summary = g_strdup_printf("%s\n%s", receiver_directory_status(), info);
-   gtk_label_set_text(GTK_LABEL(directory_status), summary);
+   gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure ? receiver_failure : summary);
    g_free(info);
    g_free(summary);
    gtk_widget_set_sensitive(refresh_button, !receiver_directory_busy());
@@ -324,6 +325,7 @@ static gboolean directory_start_refresh(gpointer unused) {
    return G_SOURCE_REMOVE;
 }
 static void directory_refresh_with_wait(void) {
+   g_clear_pointer(&receiver_failure, g_free);
    /* Display the window and spinner before scheduling any network activity. */
    if (download_status) {
       GtkWidget *label = g_object_get_data(G_OBJECT(download_status), "download-label");
@@ -463,6 +465,13 @@ static void connect_clicked(GtkButton *button, gpointer save) {
       g_free(existing);
    }
    gtk_widget_destroy(dialog);
+}
+static void receiver_failed(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)connection; (void)unused;
+   g_free(receiver_failure);
+   receiver_failure = g_strdup(data && *data ? data : "SDR receiver connection failed.");
+   if (directory_status)
+      gtk_label_set_text(GTK_LABEL(directory_status), receiver_failure);
 }
 static void connection_status(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
@@ -685,6 +694,7 @@ void gtk_receiver_directory_init(void) {
    connection_token = event_on_token("client.receiver-directory.connection", connection_status, NULL);
    directory_token = event_on_token("client.receiver-directory.changed", directory_changed, NULL);
    show_token = event_on_token("client.receiver-directory.show", show_directory, NULL);
+   failure_token = event_on_token("client.receiver-directory.failed", receiver_failed, NULL);
 }
 void gtk_receiver_directory_shutdown(void) {
    if (connection_token) {
@@ -699,6 +709,9 @@ void gtk_receiver_directory_shutdown(void) {
    if (show_token) {
       event_off_token(show_token);
    }
+   if (failure_token) event_off_token(failure_token);
+   failure_token = 0;
+   g_clear_pointer(&receiver_failure, g_free);
    directory_token = show_token = 0;
 
    download_status = download_spinner = NULL;
