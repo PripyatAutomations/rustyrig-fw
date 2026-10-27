@@ -36,6 +36,14 @@ const char *configs[] = {
 const int num_configs = sizeof(configs) / sizeof(configs[0]);
 defconfig_t defcfg[] = {
    {
+      "receiver-directory.url", "https://cdn.aethersdr.com/kiwi.json",
+      "Permitted HTTPS mirror for server-owned external SDR catalog (empty disables network fetching)"
+   },
+   {
+      "receiver-directory.cache", "",
+      "Optional SQLite location for server-side SDR directory cache; defaults to XDG cache directory"
+   },
+   {
       "station.description", "A misconfigured server", "Public server description for links, WHOIS and Explorer"
    },
    {
