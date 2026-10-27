@@ -10,18 +10,19 @@
 #define HISTORY 48
 typedef struct {
    char *server, *room;
-   GtkWidget *drawing, *mode;
+   GtkWidget *drawing, *mode, *enabled, *gain;
    float rows[HISTORY][RR_AF_BINS];
    float current[RR_AF_BINS];
    unsigned head, count;
    guint timer;
    bool listening;
    double noise_floor;
+   double display_gain_db;
 } spectrum_panel_t;
-static double level(float db, double noise_floor) {
+static double level(float db, double noise_floor, double gain_db) {
    /* Normalize each receiver against its own noise floor so digital tones
     * remain distinct instead of saturating the entire waterfall. */
-   return CLAMP((db - noise_floor) / 36.0, 0.0, 1.0);
+   return CLAMP((db - noise_floor + gain_db) / 36.0, 0.0, 1.0);
 }
 static uint32_t palette_pixel(double v) {
    double r = CLAMP((v - 0.40) * 2.1, 0.0, 1.0);
@@ -48,7 +49,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_set_source_rgb(cr, 0.43, 0.79, 0.99);
       for (unsigned i = 0; i < RR_AF_BINS; i++) {
          double x = (double)i * (width - 1) / (RR_AF_BINS - 1);
-         double y = trace_height - 3 - level(p->current[i], p->noise_floor) * (trace_height - 6);
+         double y = trace_height - 3 - level(p->current[i], p->noise_floor, p->display_gain_db) * (trace_height - 6);
          if (mode == 3) {
             cairo_rectangle(cr, x, y, MAX(1.0, width / (double)RR_AF_BINS - 1), trace_height - y);
          } else if (i == 0) {
@@ -79,7 +80,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
             const float *row = age < p->count ?
                p->rows[(p->head + HISTORY - 1 - age) % HISTORY] : NULL;
             for (unsigned bin = 0; bin < RR_AF_BINS; bin++) {
-               scanline[bin] = row ? palette_pixel(level(row[bin], p->noise_floor)) : 0xff0d1621u;
+               scanline[bin] = row ? palette_pixel(level(row[bin], p->noise_floor, p->display_gain_db)) : 0xff0d1621u;
             }
          }
          cairo_surface_mark_dirty(surface);
@@ -107,7 +108,8 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 }
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
-   bool visible = gtk_widget_get_mapped(p->drawing);
+   bool visible = gtk_widget_get_mapped(p->drawing) &&
+      gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->enabled));
    if (visible != p->listening) {
       rr_af_spectrum_listen(visible);
       p->listening = visible;
@@ -168,6 +170,25 @@ static void destroy_panel(gpointer data) {
    g_free(p->room);
    g_free(p);
 }
+static void enable_changed(GtkToggleButton *button, gpointer data) {
+   spectrum_panel_t *p = data;
+   bool should_listen = gtk_toggle_button_get_active(button) &&
+      gtk_widget_get_mapped(p->drawing);
+   if (should_listen != p->listening) {
+      rr_af_spectrum_listen(should_listen);
+      p->listening = should_listen;
+   }
+   gtk_widget_set_sensitive(p->mode, gtk_toggle_button_get_active(button));
+   gtk_widget_set_sensitive(p->gain, gtk_toggle_button_get_active(button));
+   gtk_widget_queue_draw(p->drawing);
+}
+
+static void gain_changed(GtkRange *range, gpointer data) {
+   spectrum_panel_t *p = data;
+   p->display_gain_db = gtk_range_get_value(range);
+   gtk_widget_queue_draw(p->drawing);
+}
+
 static void mode_changed(GtkComboBox *box, gpointer data) {
    (void)box;
    spectrum_panel_t *p = data;
@@ -180,8 +201,11 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
    g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
    GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-   GtkWidget *label = gtk_label_new("AF spectrum");
-   gtk_box_pack_start(GTK_BOX(toolbar), label, FALSE, FALSE, 3);
+   p->enabled = gtk_check_button_new_with_label("AF waterfall");
+   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->enabled), TRUE);
+   gtk_widget_set_tooltip_text(p->enabled,
+      "Disable all local AF spectrum capture, FFT analysis and display updates to compare audio quality");
+   gtk_box_pack_start(GTK_BOX(toolbar), p->enabled, FALSE, FALSE, 3);
    p->mode = gtk_combo_box_text_new();
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum + Waterfall");
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum");
@@ -189,12 +213,23 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Bars");
    gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
    gtk_box_pack_start(GTK_BOX(toolbar), p->mode, FALSE, FALSE, 0);
+   GtkWidget *gain_label = gtk_label_new("Gain");
+   gtk_box_pack_start(GTK_BOX(toolbar), gain_label, FALSE, FALSE, 4);
+   p->gain = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, -40.0, 20.0, 1.0);
+   gtk_widget_set_size_request(p->gain, 140, -1);
+   gtk_range_set_value(GTK_RANGE(p->gain), -12.0);
+   p->display_gain_db = -12.0;
+   gtk_scale_set_draw_value(GTK_SCALE(p->gain), TRUE);
+   gtk_widget_set_tooltip_text(p->gain, "Display gain in dB; does not change received audio or RF gain");
+   gtk_box_pack_start(GTK_BOX(toolbar), p->gain, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
    p->drawing = gtk_drawing_area_new();
    gtk_widget_set_size_request(p->drawing, -1, 115);
    gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
+   g_signal_connect(p->enabled, "toggled", G_CALLBACK(enable_changed), p);
+   g_signal_connect(p->gain, "value-changed", G_CALLBACK(gain_changed), p);
    p->timer = g_timeout_add(250, update, p);
    return box;
 }
