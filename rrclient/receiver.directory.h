@@ -36,6 +36,7 @@ bool receiver_directory_refresh_force(bool force);
 bool receiver_directory_import(const char *path);
 /* Validated server snapshot, applied atomically to the client SQLite cache. */
 bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin);
+void receiver_directory_clear_server_snapshot(void);
 void receiver_directory_queue_learn(const char *url, dict *fields);
 bool receiver_directory_learn(const char *url, dict *fields);
 bool receiver_directory_set_state(const char *url, const char *state, const char *reason);
