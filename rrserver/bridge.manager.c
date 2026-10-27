@@ -947,6 +947,12 @@ void rrserver_bridges_poll(void) {
          }
 
          if ((b->pending && current >= b->deadline) || (!b->ready && current - b->started >= 5000000) || current - b->last_seen >= 10000000) {
+            const char *reason = b->pending && current >= b->deadline ? "control request timed out" :
+               !b->ready && current - b->started >= 5000000 ? "bridge handshake timed out" :
+               "bridge heartbeat timed out";
+            if (!b->idling && !b->terminal_failure)
+               Log(LOG_WARN, "bridge", "[%s] %s (ready=%s online=%s); disconnecting",
+                  bridge_public_name(b), reason, b->ready ? "yes" : "no", b->online ? "yes" : "no");
             disconnect(b);
          }
       }
@@ -957,6 +963,17 @@ void rrserver_bridges_poll(void) {
       int status;
 
       if (b->process.pid > 0 && subproc_reap(&b->process, &status)) {
+         if (!b->idling && !b->terminal_failure) {
+            if (WIFSIGNALED(status))
+               Log(LOG_WARN, "bridge", "[%s] bridge subprocess terminated by signal %d (online=%s)",
+                  bridge_public_name(b), WTERMSIG(status), b->online ? "yes" : "no");
+            else if (WIFEXITED(status))
+               Log(LOG_WARN, "bridge", "[%s] bridge subprocess exited with status %d (online=%s)",
+                  bridge_public_name(b), WEXITSTATUS(status), b->online ? "yes" : "no");
+            else
+               Log(LOG_WARN, "bridge", "[%s] bridge subprocess ended (wait status=%d)",
+                  bridge_public_name(b), status);
+         }
          disconnect(b);
          subproc_close(&b->process);
 
