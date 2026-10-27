@@ -19,12 +19,12 @@ typedef struct {
 static double level(float db) {
    return CLAMP((db + 100.0) / 85.0, 0.0, 1.0);
 }
-static void palette(cairo_t *cr, double v) {
-   /* Blue/cyan/yellow/orange for dark backgrounds. */
-   double r = CLAMP((v - 0.40) * 2.1, 0, 1);
-   double g = CLAMP((v - 0.13) * 2.0, 0, 1);
-   double b = CLAMP(0.14 + 2.3 * v - 1.55 * v * v, 0, 1);
-   cairo_set_source_rgb(cr, r, g, b);
+static uint32_t palette_pixel(double v) {
+   double r = CLAMP((v - 0.40) * 2.1, 0.0, 1.0);
+   double g = CLAMP((v - 0.13) * 2.0, 0.0, 1.0);
+   double b = CLAMP(0.14 + 2.3 * v - 1.55 * v * v, 0.0, 1.0);
+   return 0xff000000u | ((uint32_t)(r * 255.0) << 16) |
+      ((uint32_t)(g * 255.0) << 8) | (uint32_t)(b * 255.0);
 }
 static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    spectrum_panel_t *p = data;
@@ -62,19 +62,33 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    if (waterfall) {
       int top = trace_height + (trace ? 2 : 0);
       int available = MAX(1, height - top - 15);
-      for (int y = 0; y < available; y++) {
-         unsigned age = (unsigned)((uint64_t)y * HISTORY / (unsigned)available);
-         if (age >= p->count) {
-            continue;
+      /* One small ARGB image per redraw instead of thousands of individual
+       * Cairo rectangle/fill calls on the GTK/network main loop. */
+      cairo_surface_t *surface =
+         cairo_image_surface_create(CAIRO_FORMAT_ARGB32, RR_AF_BINS, available);
+      if (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS) {
+         unsigned char *pixels = cairo_image_surface_get_data(surface);
+         int stride = cairo_image_surface_get_stride(surface);
+         for (int y = 0; y < available; y++) {
+            uint32_t *scanline = (uint32_t *)(pixels + (size_t)y * stride);
+            unsigned age = (unsigned)((uint64_t)y * HISTORY / (unsigned)available);
+            const float *row = age < p->count ?
+               p->rows[(p->head + HISTORY - 1 - age) % HISTORY] : NULL;
+            for (unsigned bin = 0; bin < RR_AF_BINS; bin++) {
+               scanline[bin] = row ? palette_pixel(level(row[bin])) : 0xff0d1621u;
+            }
          }
-         const float *row = p->rows[(p->head + HISTORY - 1 - age) % HISTORY];
-         for (unsigned bin = 0; bin < RR_AF_BINS; bin++) {
-            palette(cr, level(row[bin]));
-            double x = (double)bin * width / RR_AF_BINS;
-            cairo_rectangle(cr, x, top + y, ceil((double)width / RR_AF_BINS), 1);
-            cairo_fill(cr);
-         }
+         cairo_surface_mark_dirty(surface);
+         cairo_save(cr);
+         cairo_translate(cr, 0, top);
+         cairo_scale(cr, (double)width / RR_AF_BINS, 1.0);
+         cairo_set_source_surface(cr, surface, 0, 0);
+         cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+         cairo_rectangle(cr, 0, 0, RR_AF_BINS, available);
+         cairo_fill(cr);
+         cairo_restore(cr);
       }
+      cairo_surface_destroy(surface);
    }
    cairo_set_source_rgb(cr, 0.68, 0.73, 0.79);
    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
