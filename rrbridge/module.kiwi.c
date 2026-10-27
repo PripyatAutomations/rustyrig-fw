@@ -564,7 +564,10 @@ static void websocket(struct mg_connection *c, int event, void *data) {
          k->retry = mono_us();
          note(k, "Kiwi WebSocket redirected (HTTP 307); following Location");
       } else if (!k->closing) {
+         bool was_online = k->online;
          unavailable(k);
+         if (was_online)
+            note(k, "Kiwi WebSocket connection lost after receiver was online");
          if (k->attempts >= 3) {
             note(k, "Kiwi receiver stopped after 3 connection attempts");
             k->retry = UINT64_MAX;
