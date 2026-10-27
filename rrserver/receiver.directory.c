@@ -70,15 +70,28 @@ static void save_snapshot(void) {
    sqlite3_finalize(stmt);
 }
 static bool body_valid(const char *data, size_t len) {
-   /* Parsing and canonicalization of receiver records stays in the existing
-    * receiver parser during transition; reject oversized/non-JSON payloads.
-    * Do not promote this to a trusted published catalog without validation. */
-   if (!data || len < 20 || len > DIR_MAX_BODY || memchr(data, 0, len) || !g_utf8_validate(data,len,NULL)) return false;
-   const char *p=data, *end=data+len;
-   while (p<end && g_ascii_isspace(*p)) ++p;
-   if (p==end || *p!='{') return false;
-   while (end>p && g_ascii_isspace(end[-1])) --end;
-   return end>p && end[-1]=='}' && strstr(data,"\"receivers\"") && strstr(data,"\"schema\"");
+   if (!data || len < 20 || len > DIR_MAX_BODY || memchr(data, 0, len) ||
+       !g_utf8_validate(data, len, NULL)) return false;
+   struct mg_str json = mg_str_n(data, len);
+   int size = 0, start = mg_json_get(json, "$", &size);
+   if (start < 0 || size < 2 || data[start] != '{') return false;
+   for (size_t i = (size_t)start + (size_t)size; i < len; i++)
+      if (!g_ascii_isspace(data[i])) return false;
+   double schema = 0;
+   if (!mg_json_get_num(json, "$.schema", &schema) || schema != 1) return false;
+   char *provider = mg_json_get_str(json, "$.provider");
+   bool supported = provider ? !strcmp(provider, "kiwi") :
+      !mg_json_get_tok(json, "$.provider").len;
+   free(provider);
+   if (!supported) return false;
+   struct mg_str array = mg_json_get_tok(json, "$.receivers"), object;
+   if (!array.len || array.buf[0] != '[') return false;
+   size_t offset = 0, count = 0;
+   while ((offset = mg_json_next(array, offset, NULL, &object))) {
+      if (++count > 10000 || !object.len || object.buf[0] != '{')
+         return false;
+   }
+   return true;
 }
 static size_t receive_body(char *ptr,size_t sz,size_t count,void *unused) {
    (void)unused;
