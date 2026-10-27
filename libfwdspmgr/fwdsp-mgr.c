@@ -276,6 +276,21 @@ void fwdsp_reap_children(void) {
       int status;
 
       if (subproc_reap(&sp->process, &status)) {
+         if (fwdsp_slot_active(sp)) {
+            char name[100];
+            if (sp->role == FWDSP_ROLE_PROCESSOR)
+               snprintf(name, sizeof(name), "%s", sp->processor_name);
+            else
+               snprintf(name, sizeof(name), "%.4s.%s", sp->pl_id, sp->is_tx ? "tx" : "rx");
+            if (WIFSIGNALED(status))
+               Log(LOG_WARN, "fwdsp", "Pipeline %s pid=%ld terminated by signal %d",
+                  name, (long)sp->process.pid, WTERMSIG(status));
+            else if (WIFEXITED(status) && WEXITSTATUS(status))
+               Log(LOG_WARN, "fwdsp", "Pipeline %s pid=%ld exited with failure status %d",
+                  name, (long)sp->process.pid, WEXITSTATUS(status));
+            else
+               Log(LOG_INFO, "fwdsp", "Pipeline %s pid=%ld exited", name, (long)sp->process.pid);
+         }
          if (on_fwdsp_exit) {
             on_fwdsp_exit(sp, status);
          }
@@ -352,6 +367,7 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
              * behind the later EPIPE/decoder restart warning. Other verbose
              * stderr remains at debug level. */
             bool important = strstr(message, "GStreamer error:") ||
+               strstr(message, "GStreamer pipeline parse error:") ||
                strstr(message, "GStreamer details:") ||
                strstr(message, "Failed to set pipeline") ||
                strstr(message, "CRIT") || strstr(message, "ERROR");
