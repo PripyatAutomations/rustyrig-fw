@@ -74,8 +74,14 @@ static void on_mode_changed(GtkComboBoxText *combo, gpointer user_data) {
       char vfo[2] = {
          vfo_state_get_active(), '\0'
       };
-      ws_send_mode_cmd_in_room(ws_conn, vfo, text, gtk_chat_current_room());
-      modebox_last_send = now;
+      const char *room = gtk_chat_current_room();
+      if (ws_send_mode_cmd_in_room(ws_conn, vfo, text, room)) {
+         modebox_last_send = now;
+      } else {
+         Log(LOG_WARN, "gtk.modebox",
+            "Unable to send mode %s for VFO %s in room %s",
+            text, vfo, room ? room : "(none)");
+      }
 #endif // defined(USE_MONGOOSE)
 
       // Show/hide repeater dialog locally based on FM mode
@@ -193,7 +199,15 @@ void modebox_update_state(const char *mode, int width) {
    if (mode_combo) {
       gchar *displayed = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(mode_combo));
 
-      if (g_strcmp0(displayed, mode)) {
+      /* A recent operator selection is provisional until the bridge's
+       * observed mode catches up. Old CAT/poll state must not immediately
+       * overwrite AM (or any other requested mode) in the selector. */
+      if (mode && !g_ascii_strcasecmp(displayed ? displayed : "", mode)) {
+         modebox_last_send = 0;
+      }
+      bool awaiting_mode = modebox_last_send > 0 &&
+         now >= modebox_last_send && now - modebox_last_send < 5;
+      if (!awaiting_mode && g_strcmp0(displayed, mode)) {
          g_signal_handler_block(mode_combo, mode_changed_handler_id);
 
          if (mode) {
