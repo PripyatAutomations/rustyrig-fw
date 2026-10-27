@@ -548,8 +548,8 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
        * grant, not detach an active RTP socket and rotate its key/SSRC.
        * The client already recognizes identical grants and keeps playback
        * uninterrupted. Revalidate authorization on every refresh. */
-      bool reuse = g->attachment && g->ssrc && g->expires > mono_us() &&
-         valid(g);
+      bool reuse = g->attachment && g->ssrc && g->pool == pool &&
+         g->expires > mono_us() && valid(g);
       if (!reuse) {
          if (g->attachment) {
             remove_grant(g);
