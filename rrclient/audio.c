@@ -732,6 +732,8 @@ bool audio_init(void) {
       fwdsp_processor_stop("sink.client.dsp0");
       return true;
    }
+   rr_audio_engine_gain(rx_engine, 0, rx_channel_volume[0]);
+   rr_audio_engine_gain(rx_engine, 1, rx_channel_volume[1]);
    rx_maintenance_source = g_timeout_add_seconds(10, rx_engine_maintenance, NULL);
    audio_enabled = true;
    gst_active = true;
@@ -810,6 +812,7 @@ bool audio_set_rx_channel_volume(unsigned channel, int percent) {
    }
    percent = CLAMP(percent, 0, 100);
    rx_channel_volume[channel] = percent;
+   if (rx_engine) rr_audio_engine_gain(rx_engine, channel, percent);
    dict_add_int(cfg, channel ? "audio.volume.rx.right" : "audio.volume.rx.left", percent);
 
    return false;
