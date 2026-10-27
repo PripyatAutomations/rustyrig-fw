@@ -23,7 +23,11 @@ static catalog_download_t transfer;
 static rr_event_token_t catalog_token;
 static guint timer_id;
 static unsigned serial;
-static void free_chunk(gpointer chunk) { if (chunk) g_bytes_unref(chunk); }
+static void free_chunk(gpointer chunk) {
+   if (chunk) {
+      g_bytes_unref(chunk);
+   }
+}
 static void reset(void) {
    if (transfer.chunks) {
       g_ptr_array_free(transfer.chunks, TRUE);
@@ -76,11 +80,17 @@ bool rrclient_receiver_catalog_request(bool force) {
    if(!connection || !connection->is_ws || !connection->authenticated) {
       return false;
    }
-   if(timer_id){g_source_remove(timer_id);timer_id=0;}
+   if (timer_id) {
+      g_source_remove(timer_id);
+      timer_id=0;
+   }
    reset();
    transfer.connection=connection;
    snprintf(transfer.token,sizeof(transfer.token),"client-%u",++serial);
-   if(!send_request(connection,"list",0)) {reset();return false;}
+   if (!send_request(connection,"list",0)) {
+      reset();
+      return false;
+   }
    arm();
    return true;
 }
@@ -133,18 +143,31 @@ static void received(const char *event,const char *data,rrconn_t *connection,voi
       }
       gsize bytes=0;
       guchar *decoded=g_base64_decode(encoded,&bytes);
-      if(!decoded || !bytes || bytes>CATALOG_CHUNK) {g_free(decoded);goto done;}
-      if(transfer.received*CATALOG_CHUNK+bytes>CATALOG_MAX) {g_free(decoded);goto done;}
+      if (!decoded || !bytes || bytes>CATALOG_CHUNK) {
+         g_free(decoded);
+         goto done;
+      }
+      if (transfer.received*CATALOG_CHUNK+bytes>CATALOG_MAX) {
+         g_free(decoded);
+         goto done;
+      }
       g_ptr_array_index(transfer.chunks,seq)=g_bytes_new_take(decoded,bytes);
       /* GPtrArray free func is overridden below before completion. */
       transfer.received++;
-      if(timer_id){g_source_remove(timer_id);timer_id=0;}
+      if (timer_id) {
+         g_source_remove(timer_id);
+         timer_id=0;
+      }
       if(transfer.received==transfer.total) {
          GString *body=g_string_sized_new(MIN(CATALOG_MAX,(size_t)transfer.total*CATALOG_CHUNK));
          for(guint i=0;i<transfer.total;i++){
             GBytes *chunk=g_ptr_array_index(transfer.chunks,i);
             gsize len=0;const void *mem=chunk?g_bytes_get_data(chunk,&len):NULL;
-            if(!mem || body->len+len>CATALOG_MAX){g_string_free(body,TRUE);reset();goto done;}
+            if (!mem || body->len+len>CATALOG_MAX) {
+               g_string_free(body,TRUE);
+               reset();
+               goto done;
+            }
             g_string_append_len(body,mem,len);
          }
          char *sum=g_compute_checksum_for_string(G_CHECKSUM_SHA256,body->str,body->len);
@@ -168,7 +191,10 @@ done:
 static void disconnected(const char *event,const char *data,rrconn_t *connection,void *unused) {
    (void)event;(void)data;(void)unused;
    if(transfer.connection==connection) {
-      if(timer_id){g_source_remove(timer_id);timer_id=0;}
+      if (timer_id) {
+         g_source_remove(timer_id);
+         timer_id=0;
+      }
       reset();
    }
 }
@@ -180,7 +206,13 @@ void rrclient_receiver_catalog_init(void) {
    event_on("disconnected",disconnected,NULL);
 }
 void rrclient_receiver_catalog_shutdown(void) {
-   if(timer_id){g_source_remove(timer_id);timer_id=0;}
+   if (timer_id) {
+      g_source_remove(timer_id);
+      timer_id=0;
+   }
    reset();
-   if(catalog_token){event_off_token(catalog_token);catalog_token=0;}
+   if (catalog_token) {
+      event_off_token(catalog_token);
+      catalog_token=0;
+   }
 }
