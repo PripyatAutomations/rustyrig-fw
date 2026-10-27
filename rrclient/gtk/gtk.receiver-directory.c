@@ -310,9 +310,8 @@ static void directory_download_finished(void) {
       g_free(message);
    }
 }
-static gboolean directory_start_refresh(gpointer unused) {
-   (void)unused;
-   gboolean started = receiver_directory_refresh();
+static gboolean directory_start_refresh(gpointer force_request) {
+   gboolean started = receiver_directory_refresh_force(GPOINTER_TO_INT(force_request) != 0);
    if (started && receiver_directory_busy()) {
       directory_download_wait();
    } else {
@@ -324,7 +323,7 @@ static gboolean directory_start_refresh(gpointer unused) {
    }
    return G_SOURCE_REMOVE;
 }
-static void directory_refresh_with_wait(void) {
+static void directory_refresh_with_wait(gboolean force) {
    g_clear_pointer(&receiver_failure, g_free);
    /* Display the window and spinner before scheduling any network activity. */
    if (download_status) {
@@ -334,7 +333,7 @@ static void directory_refresh_with_wait(void) {
       gtk_spinner_start(GTK_SPINNER(download_spinner));
    }
    /* Allow the main loop to paint the loading state before fetch/parse. */
-   g_timeout_add(180, directory_start_refresh, NULL);
+   g_timeout_add(180, directory_start_refresh, GINT_TO_POINTER(force));
 }
 static void directory_changed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
@@ -347,7 +346,9 @@ static void directory_changed(const char *event, const char *data, rrconn_t *con
 static void refresh_clicked(GtkButton *button, gpointer unused) {
    (void)button;
    (void)unused;
-   directory_refresh_with_wait();
+   GdkModifierType modifiers = 0;
+   gboolean force = gtk_get_current_event_state(&modifiers) && (modifiers & GDK_SHIFT_MASK);
+   directory_refresh_with_wait(force);
 }
 static void import_clicked(GtkButton *button, gpointer unused) {
    (void)button;
@@ -370,7 +371,7 @@ static void directory_menu_command(GtkMenuItem *item, gpointer user) {
    else if (!strcmp(command, "save")) connect_clicked(NULL, GINT_TO_POINTER(1));
    else if (!strcmp(command, "copy-url")) copy_clicked(NULL, NULL);
    else if (!strcmp(command, "copy-config")) copy_clicked(NULL, GINT_TO_POINTER(1));
-   else if (!strcmp(command, "refresh")) directory_refresh_with_wait();
+   else if (!strcmp(command, "refresh")) directory_refresh_with_wait(FALSE);
    (void)item;
 }
 static gboolean directory_context_menu(GtkWidget *widget, GdkEventButton *event, gpointer user) {
@@ -621,6 +622,7 @@ static gboolean directory_finish_show(gpointer unused) {
    g_signal_connect(connect_button, "clicked", G_CALLBACK(connect_clicked), NULL);
    g_signal_connect(add_button, "clicked", G_CALLBACK(connect_clicked), GINT_TO_POINTER(1));
    refresh_button = gtk_button_new_with_label("Refresh list");
+   gtk_widget_set_tooltip_text(refresh_button, "Use the locally cached directory for four hours; Shift+click to force a fresh download.");
    GtkWidget *import = gtk_button_new_with_label("Import JSON…");
    url_button = gtk_button_new_with_label("Copy URL");
    config_button = gtk_button_new_with_label("Copy bridge config");
@@ -654,7 +656,7 @@ static gboolean directory_finish_show(gpointer unused) {
    /* Don't block the first paint on cached directory population. */
    gtk_widget_show_all(directory_page);
    gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), gtk_notebook_page_num(GTK_NOTEBOOK(main_notebook), directory_page));
-   directory_refresh_with_wait();
+   directory_refresh_with_wait(FALSE);
    g_timeout_add(60, directory_populate_idle, NULL);
    /* Keep loading visible until asynchronous directory fetch completes. */
    return G_SOURCE_REMOVE;
@@ -675,7 +677,7 @@ static void show_directory(const char *event, const char *data, rrconn_t *connec
       if (index >= 0) {
          gtk_notebook_set_current_page(GTK_NOTEBOOK(main_notebook), index);
       }
-      if (download_status) directory_refresh_with_wait();
+      if (download_status) directory_refresh_with_wait(FALSE);
 
       return;
    }
