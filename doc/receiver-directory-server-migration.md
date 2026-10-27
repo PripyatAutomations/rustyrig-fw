@@ -30,10 +30,22 @@ The fetch uses libcurl with no redirects, no ambient proxy and HTTPS only;
 the server validates the declared Kiwi schema and entry cap before promotion.
 Service initialization failure is nonfatal to radio operation.
 
-Next work: wire an authenticated client snapshot accumulator, mixed-version
-fallback, explicit server-link generation announcements, and full mirrored
-record-state migration. The existing GTK/TUI cached directory stays intact
-until those are functional and tested.
+The native client now requests paginated snapshots from an authenticated
+server and verifies SHA-256 before atomically importing into its established
+SQLite schema. GTK, TUI, and future browser clients can share these messages:
+send `{"msg.type":"receiver-directory","directory.cmd":"list","directory.request":"unique-id","directory.page":0}`,
+inspect the `status` response, collect `chunk` responses in sequence order,
+request the next page after eight chunks, and compare the assembled body with
+`directory.digest` before treating it as usable. If a new server has no
+snapshot yet, it returns status without chunks until its asynchronous mirror
+fetch finishes. The native client retries briefly and keeps the local offline
+cache intact on timeout, digest mismatch, or disconnection.
+
+**Pending:** advertise generation/digest over authenticated server links,
+elect a single directory authority, ensure local browser clients use this
+protocol, and add end-to-end integration tests for mixed-version peers and
+malformed/partial transfers. The direct HTTP client fallback remains in the
+source during the transition; it is not a long-term authority.
 
 ## Authority and storage
 
