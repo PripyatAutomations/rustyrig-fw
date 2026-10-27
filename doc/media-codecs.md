@@ -104,8 +104,9 @@ one server encoder per channel UUID. A new listener uses the established
 codec, avoiding redundant encoder processes. A request for the already-active
 codec is a no-op. If another client is subscribed, a different codec is
 rejected instead of disrupting their stream; a sole listener may switch it.
-Listeners requiring different simultaneous codecs need a separate stream
-variant, which is not yet implemented.
+Different simultaneous codecs on the same RX channel are intentionally not
+supported. This keeps each room/VFO source on one encoder and prevents
+surprise per-subscriber CPU overhead.
 
 Tab completion works in GTK and TUI, including immediately after a space.
 The first codec argument offers negotiated codecs, `LIST` and `NONE`; the
