@@ -816,8 +816,8 @@ void rrclient_media_subscribed(dict *d, rrconn_t *cptr, bool unsub) {
 
    if (kp) {
       if (!unsub && (kp->disabled || (kp->room[0] && !kp->joined))) {
-         if (ws_conn) {
-            media_send_unsubscribe(ws_conn, kp->uuid);
+         if (cptr) {
+            media_send_unsubscribe(cptr, kp->uuid);
          }
 
          return;
