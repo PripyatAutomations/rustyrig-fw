@@ -578,12 +578,8 @@ static bool detail_set(const char *url, const char *key, const char *value, bool
 
    return ok;
 }
-static void apply_details(receiver_directory_entry_t *r) {
-   sqlite3_stmt *statement = NULL;
-
-   if (sqlite3_prepare_v2(cache_db, "SELECT key,value,origin,updated_at FROM receiver_details WHERE url=?", -1, &statement, NULL) != SQLITE_OK) {
-      return;
-   }
+static void apply_details(receiver_directory_entry_t *r, sqlite3_stmt *statement) {
+   if (!statement) return;
    sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
    while (sqlite3_step(statement) == SQLITE_ROW) {
       const char *key = (const char *)sqlite3_column_text(statement, 0);
@@ -606,7 +602,8 @@ static void apply_details(receiver_directory_entry_t *r) {
          r->learned_at = MAX(r->learned_at, sqlite3_column_int64(statement, 3));
       }
    }
-   sqlite3_finalize(statement);
+   sqlite3_reset(statement);
+   sqlite3_clear_bindings(statement);
 }
 static void reload_records(void) {
    if (!cache_db) {
@@ -618,6 +615,11 @@ static void reload_records(void) {
       , &statement, NULL) != SQLITE_OK) {
       return;
    }
+   /* Reuse one detail query for all rows rather than preparing a new SQL
+    * statement for every receiver during initial cache load. */
+   sqlite3_stmt *details = NULL;
+   if (sqlite3_prepare_v2(cache_db, "SELECT key,value,origin,updated_at FROM receiver_details WHERE url=?", -1, &details, NULL) != SQLITE_OK)
+      details = NULL;
    GPtrArray *list = g_ptr_array_new_with_free_func(receiver_free);
    while (sqlite3_step(statement) == SQLITE_ROW) {
       const char *record = (const char *)sqlite3_column_text(statement, 0);
@@ -629,7 +631,7 @@ static void reload_records(void) {
          r->last_seen = sqlite3_column_int64(statement, 1);
          r->deleted = sqlite3_column_int(statement, 2);
          r->offline = sqlite3_column_int(statement, 3);
-         apply_details(r);
+         apply_details(r, details);
          infer_country(r, NULL);
          g_ptr_array_add(list, r);
       }
@@ -640,6 +642,7 @@ static void reload_records(void) {
       g_free(wrapped);
    }
    sqlite3_finalize(statement);
+   sqlite3_finalize(details);
    g_ptr_array_free(receivers, TRUE);
    receivers = list;
 }
@@ -828,20 +831,26 @@ static void ensure(void) {
       etag = g_strdup((const char *)sqlite3_column_text(statement, 2));
       modified = g_strdup((const char *)sqlite3_column_text(statement, 3));
       next_request = sqlite3_column_int64(statement, 4);
-      GPtrArray *list = payload ? parse(payload, strlen(payload)) : NULL;
-
-      if (list) {
+      /* receiver_records contains the normalized cached listing. Re-parsing
+       * the entire JSON here only to discard it in reload_records() doubles
+       * first-open work on the GTK thread. Fall back to JSON after querying
+       * the records, for older/partially populated cache files. */
+   }
+   sqlite3_finalize(statement);
+   reload_records();
+   if (!receivers->len && payload && *payload) {
+      GPtrArray *fallback = parse(payload, strlen(payload));
+      if (fallback) {
          g_ptr_array_free(receivers, TRUE);
-         receivers = list;
-         g_snprintf(status_text, sizeof(status_text), "Cached directory: %u receivers. Published availability may be stale.", receivers->len);
+         receivers = fallback;
       } else {
          g_clear_pointer(&payload, g_free);
          g_clear_pointer(&etag, g_free);
          g_clear_pointer(&modified, g_free);
       }
    }
-   sqlite3_finalize(statement);
-   reload_records();
+   if (receivers->len)
+      g_snprintf(status_text, sizeof(status_text), "Loaded %u locally cached receivers (no network request).", receivers->len);
    restore_states();
    g_free(path);
    g_free(parent);
