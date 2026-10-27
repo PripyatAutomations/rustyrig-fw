@@ -1475,17 +1475,15 @@ bool rrclient_media_unsubscribe(const char *uuid) {
 }
 
 // Ask the server for a fresh media.available batch
-void rrclient_media_refresh(void) {
-   rrconn_t *cptr = ws_conn;
+void rrclient_media_refresh(rrconn_t *cptr) {
 
    /* Background refresh requests must not generate warnings after a
     * profile disconnect. A closed WebSocket is not a failed refresh. */
    if (cptr && cptr->authenticated && cptr->is_ws &&
-       cptr->conn && !cptr->conn->is_closing && ws_connected) {
+       cptr->conn && !cptr->conn->is_closing && cptr->connected) {
       if (!media_send_list(cptr)) {
          Log(LOG_WARN, "ws.media",
-            "Media list refresh failed: websocket send rejected (connection=%p, active=%p, state=%d); check protocol send-validation logs", (void *)cptr, (
-               void *)ws_conn, ws_connected);
+            "Media list refresh failed: websocket send rejected (connection=%p, connected=%d); check protocol send-validation logs", (void *)cptr, cptr->connected);
          media_print("Unable to refresh media channels; connection is not writable");
       }
    } else {
@@ -1551,7 +1549,7 @@ bool cmd_media(int argc, char **args) {
       if (sub) {
          return false;          // explicit LIST: no refresh
       }
-      rrclient_media_refresh();
+      rrclient_media_refresh(ws_conn);
 
       return false;
    }
