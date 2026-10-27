@@ -270,9 +270,16 @@ bool rrserver_receiver_directory_init(void) {
       next_fetch=sqlite3_column_int64(stmt,5);
       validator=g_strdup((const char*)sqlite3_column_text(stmt,6));
       modified=g_strdup((const char*)sqlite3_column_text(stmt,7));
+      if (snapshot && !body_valid(snapshot,strlen(snapshot))) {
+         Log(LOG_WARN,"receiver.directory","Rejecting invalid persisted SDR catalog snapshot");
+         g_clear_pointer(&snapshot,g_free);
+         generation=0;
+         next_fetch=0;
+      }
       make_digest();
-      Log(LOG_INFO,"receiver.directory","Loaded server directory generation %llu from SQLite",
-         (unsigned long long)generation);
+      if (snapshot)
+         Log(LOG_INFO,"receiver.directory","Loaded server directory generation %llu from SQLite",
+            (unsigned long long)generation);
    }
    sqlite3_finalize(stmt);
    event_on_binary(RR_SERVER_ROUTE_EVENT,request_handler,NULL);
