@@ -15,6 +15,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <glib.h>
 #include <librrprotocol/bridge.ipc.h>
