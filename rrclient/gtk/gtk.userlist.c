@@ -1277,6 +1277,15 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
    g_free(name);
 }
 
+static void userlist_nick_color_and_zebra_cell(GtkTreeViewColumn *column,
+                                              GtkCellRenderer *cell,
+                                              GtkTreeModel *model,
+                                              GtkTreeIter *iter,
+                                              gpointer user) {
+   rr_list_zebra_cell(column, cell, model, iter, user);
+   userlist_nick_color_cell(column, cell, model, iter, user);
+}
+
 static GtkWidget *userlist_view_create(void) {
    if (!typing_refresh_id) {
       typing_refresh_id = g_timeout_add_seconds(1, gtk_userlist_expire_typing, NULL);
@@ -1310,7 +1319,6 @@ static GtkWidget *userlist_view_create(void) {
    /* GtkTreeViewColumn packs renderers in insertion order: icon first. */
    gtk_tree_view_column_pack_start(user_col, text, TRUE);
    gtk_tree_view_column_add_attribute(user_col, text, "text", COL_DISPLAY_NAME);
-   gtk_tree_view_column_set_cell_data_func(user_col, text, userlist_nick_color_cell, NULL, NULL);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);
@@ -1340,7 +1348,10 @@ static GtkWidget *userlist_view_create(void) {
 
       for (GList *item = cells ; item ; item = item->next) {
          g_object_set_data(G_OBJECT(column), "rr-zebra-view", view);
-         gtk_tree_view_column_set_cell_data_func(column, GTK_CELL_RENDERER(item->data), rr_list_zebra_cell, NULL, NULL);
+         GtkCellRenderer *renderer = GTK_CELL_RENDERER(item->data);
+         gtk_tree_view_column_set_cell_data_func(column, renderer,
+            renderer == text ? userlist_nick_color_and_zebra_cell : rr_list_zebra_cell,
+            NULL, NULL);
       }
 
       g_list_free(cells);
