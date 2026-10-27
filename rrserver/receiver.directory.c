@@ -167,6 +167,15 @@ static void complete_download(void) {
 }
 static void start_fetch(void) {
    if (request.thread || !source_allowed(cfg_get("receiver-directory.url"))) return;
+   static gsize curl_ready;
+   if (g_once_init_enter(&curl_ready)) {
+      CURLcode rc = curl_global_init(CURL_GLOBAL_DEFAULT);
+      g_once_init_leave(&curl_ready, rc == CURLE_OK ? 1 : 2);
+   }
+   if (curl_ready != 1) {
+      Log(LOG_WARN, "receiver.directory", "Unable to initialize libcurl for server catalog fetch");
+      return;
+   }
    if (!snapshot && next_fetch>time(NULL)) return;
    const char *url=cfg_get("receiver-directory.url");
    if (snapshot && source_url && strcmp(source_url,url)) {
