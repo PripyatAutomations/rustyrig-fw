@@ -2,6 +2,7 @@
 #ifndef RRCLIENT_SPECTRUM_AF_H
 #define RRCLIENT_SPECTRUM_AF_H
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #define RR_AF_BINS 128
 void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames);
