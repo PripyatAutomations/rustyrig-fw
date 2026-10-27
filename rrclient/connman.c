@@ -7,12 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <librrprotocol/http.h>
 #include <rrclient/irc.h>
 #include <rrclient/connman.h>
-#include <librrprotocol/objects.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/ui.h>
 #include <rrclient/frontend.h>
@@ -186,8 +187,18 @@ void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, 
       }
    }
 }
+/* Validate protocol UUIDs without depending on a newer librrprotocol checkout. */
+static bool rrclient_server_uuid_valid(const char *uuid) {
+   if (!uuid || strlen(uuid) != 36) return false;
+   for (size_t i = 0; i < 36; ++i) {
+      if (i == 8 || i == 13 || i == 18 || i == 23) {
+         if (uuid[i] != '-') return false;
+      } else if (!isxdigit((unsigned char)uuid[i])) return false;
+   }
+   return true;
+}
 void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid) {
-   if (!connection || !domain || !*domain || !server_uuid || !rr_object_uuid_valid(server_uuid)) return;
+   if (!connection || !domain || !*domain || !server_uuid || !rrclient_server_uuid_valid(server_uuid)) return;
    for (client_server_t *s = servers; s; s = s->next) {
       if (s->connection != connection) continue;
       if (strlen(domain) >= sizeof(s->domain)) return;
