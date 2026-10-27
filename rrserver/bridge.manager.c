@@ -729,6 +729,8 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
                   b->attached_room);
             }
          }
+         /* No more reconnects or idle silence: terminate the bridge now. */
+         disconnect(b);
       }
       return true;
    }
