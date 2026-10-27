@@ -18,6 +18,8 @@ extern void rrclient_media_room_selected(const char *room);
 void rrclient_media_emit_gps_for_room(const char *room);
 extern void rrclient_media_room_joined(const char *room);
 extern void rrclient_media_room_parted(const char *room);
+/* Server-initiated room destruction: clear media locally without unsubscribing deleted UUIDs. */
+extern void rrclient_media_room_removed(const char *room);
 extern bool rrclient_media_select_codec(rrconn_t *cptr, bool is_tx, const char *codec);
 extern bool rrclient_media_select_codec_channel(rrconn_t *cptr, bool is_tx, const char *codec, const char *uuid);
 extern bool rrclient_media_subscribe_single_video(void);
