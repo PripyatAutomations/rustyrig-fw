@@ -1040,12 +1040,12 @@ void rrclient_media_room_removed(const char *room) {
       media_room[0] = '\0';
       changed = true;
    }
-   if (changed) {
+   /* Keep routing the remaining channels without re-subscribing a deleted
+    * one. The regular VFO handler also performs one audio/UI sync. */
+   if (ws_conn && media_ready)
+      rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
+   else if (changed)
       rrclient_media_sync_audio();
-      event_emit("client.media.changed", ws_conn, "");
-   }
-   /* Keep routing the remaining channels without re-subscribing a deleted one. */
-   rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
 }
 
 void rrclient_media_room_parted(const char *room) {
