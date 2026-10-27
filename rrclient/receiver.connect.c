@@ -302,6 +302,37 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
       } else if (pending.release && dict_get_bool(result, "disconnected", false)) {
          char *key = receiver_key(pending.profile, pending.url);
 
+         /* The server also broadcasts room-removed, but its notification can
+          * arrive before/after this response. Close locally on ACK as a
+          * fallback; duplicate removal is already safe in the room handler. */
+         GPtrArray *closing = g_ptr_array_new_with_free_func(g_free);
+         if (receiver_rooms) {
+            GHashTableIter rooms;
+            gpointer room_name, mapped_key;
+            g_hash_table_iter_init(&rooms, receiver_rooms);
+            while (g_hash_table_iter_next(&rooms, &room_name, &mapped_key)) {
+               if (!strcmp(mapped_key, key) &&
+                   g_str_has_prefix((const char *)room_name, "#sdr-")) {
+                  g_ptr_array_add(closing, g_strdup(room_name));
+               }
+            }
+         }
+         for (guint i = 0; i < closing->len; i++) {
+            const char *closing_room = g_ptr_array_index(closing, i);
+            dict *removed = dict_new();
+            if (removed) {
+               dict_add(removed, "talk.room", closing_room);
+               dict_add(removed, "talk.user", "server");
+               char *payload = dict2json(removed);
+               if (payload) {
+                  event_emit("room.deleted", connection, payload);
+                  free(payload);
+               }
+               dict_free(removed);
+            }
+         }
+         g_ptr_array_free(closing, TRUE);
+
          if (connected_receivers) {
             g_hash_table_remove(connected_receivers, key);
          }
