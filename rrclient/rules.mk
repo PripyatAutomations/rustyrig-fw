@@ -11,7 +11,7 @@ rrclient_curl_cflags := $(shell pkg-config --cflags libcurl sqlite3)
 rrclient_curl_libs := $(shell pkg-config --libs libcurl sqlite3)
 ${BUILD_DIR}/rrclient/receiver.directory.o: extra_cflags += ${rrclient_curl_cflags}
 
-rrclient_objs += audio.o
+rrclient_objs += audio.o audio.engine.o
 rrclient_objs += cat.o
 rrclient_objs += cat.kpa500.o
 rrclient_objs += cat.pty.o		# PTY CAT interface (./dev/ttyCAT0)
