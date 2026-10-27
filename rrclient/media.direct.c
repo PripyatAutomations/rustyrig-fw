@@ -254,8 +254,6 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
    } else if (!strcmp(cmd, "subscribed")) {
       channel->subsystem = dict_get_ulong(d, "media.subsys", channel->subsystem);
       channel->requested = true;
-      rr_rtp_socket_detach(channel->attachment);
-      channel->attachment = NULL;
       channel->stream = dict_get_ulong(d, "media.stream", 0);
       channel->owner_stream = dict_get_ulong(d, "media.owner-stream", channel->stream);
       channel->direction = dict_get_ulong(d, "media.dir", RR_BINFRAME_DIR_NA);
@@ -265,7 +263,24 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       uint8_t key[RR_RTP_KEY_LEN];
       unsigned long ssrc = dict_get_ulong(d, "media.direct-ssrc", 0);
       const char *endpoint = dict_get(d, "media.direct", "");
+      /* A periodic four-minute grant refresh is not a disconnect. Keep an
+       * already-active RTP attachment if the server renewed the same grant. */
+      bool unchanged_grant = channel->attachment &&
+         rr_rtp_socket_active(channel->attachment, mono_us()) &&
+         ssrc == channel->grant_ssrc &&
+         encrypted == channel->grant_encrypted &&
+         hex_key(dict_get(d, "media.direct-key", ""), key) &&
+         memcmp(key, channel->grant_key, sizeof(key)) == 0 &&
+         (!*endpoint || !strcmp(endpoint, channel->endpoint));
       load_candidates(channel, dict_get(d, "media.direct-candidates", ""), endpoint);
+      if (unchanged_grant) {
+         memset(key, 0, sizeof(key));
+         channel->renew_at = mono_us() + UINT64_C(240000000);
+         channel->connect_deadline = mono_us() + UINT64_C(5000000);
+         return;
+      }
+      rr_rtp_socket_detach(channel->attachment);
+      channel->attachment = NULL;
       channel->connect_deadline = mono_us() + UINT64_C(5000000);
       channel->failed = false;
       channel->reported_active = false;
