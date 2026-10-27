@@ -234,18 +234,9 @@ static void populate(void) {
    if (gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(directory_tree)), &old_model, &old_iter)) {
       gtk_tree_model_get(old_model, &old_iter, COL_URL, &url, -1);
    }
-   /* Bulk rebuild: suspend sorting on both the backing store and visible
-    * model. Keeping two sorts live while inserting thousands of rows costs
-    * much more than sorting once at the end. Preserve the user's column. */
-   GtkTreeSortable *backing_sort = GTK_TREE_SORTABLE(directory_store);
-   GtkTreeSortable *view_sort = GTK_TREE_SORTABLE(gtk_tree_view_get_model(GTK_TREE_VIEW(directory_tree)));
-   gint backing_column = GTK_TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID;
-   gint view_column = GTK_TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID;
-   GtkSortType backing_order = GTK_SORT_ASCENDING, view_order = GTK_SORT_ASCENDING;
-   gboolean backing_sorted = gtk_tree_sortable_get_sort_column_id(backing_sort, &backing_column, &backing_order);
-   gboolean view_sorted = gtk_tree_sortable_get_sort_column_id(view_sort, &view_column, &view_order);
-   gtk_tree_sortable_set_sort_column_id(view_sort, GTK_TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID, GTK_SORT_ASCENDING);
-   gtk_tree_sortable_set_sort_column_id(backing_sort, GTK_TREE_SORTABLE_UNSORTED_SORT_COLUMN_ID, GTK_SORT_ASCENDING);
+   /* GtkTreeModelSort atop GtkTreeModelFilter cannot safely be switched to
+    * UNSORTED during a live rebuild: GTK can assert in fill_sort_data()
+    * while selection/filter callbacks are running. Keep sort columns stable. */
    gtk_list_store_clear(directory_store);
    size_t count = receiver_directory_count();
 
@@ -259,11 +250,6 @@ static void populate(void) {
          , COL_USERS, users, COL_API, api_policy(r), COL_STATE, rrclient_receiver_is_connected(r->url) ? "Connected" : receiver_state(r), COL_CONNECTED_COLOR,
          rrclient_receiver_is_connected(r->url) ? "red" : NULL, COL_URL, r->url, COL_TYPE, !strcmp(r->driver, "kiwi") ? "KiwiSDR" : r->driver, -1);
    }
-
-   if (backing_sorted)
-      gtk_tree_sortable_set_sort_column_id(backing_sort, backing_column, backing_order);
-   if (view_sorted)
-      gtk_tree_sortable_set_sort_column_id(view_sort, view_column, view_order);
 
    char *info = receiver_directory_info();
    char *summary = g_strdup_printf("%s\n%s", receiver_directory_status(), info);
