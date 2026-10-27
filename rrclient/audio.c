@@ -16,6 +16,8 @@
 // We should keep TX and RX here to make sure things stay in sync
 //
 #include <stddef.h>
+#include <unistd.h>
+#include <rrclient/audio.engine.h>
 #include <glib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -53,6 +55,25 @@ static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
+static rr_audio_engine_t *rx_engine;
+static GMutex rx_sink_lock;
+static int rx_sink_fd = -1;
+static void rx_sink_output(const int16_t *pcm, size_t frames, void *user) {
+   (void)user;
+   g_mutex_lock(&rx_sink_lock);
+   if (rx_sink_fd >= 0 && !fwdsp_pcm_write_fd(rx_sink_fd, pcm, frames * 2 * sizeof(int16_t))) {
+      close(rx_sink_fd);
+      rx_sink_fd = -1;
+   }
+   g_mutex_unlock(&rx_sink_lock);
+}
+static void rx_sink_set_fd(int new_fd) {
+   g_mutex_lock(&rx_sink_lock);
+   if (rx_sink_fd >= 0) close(rx_sink_fd);
+   rx_sink_fd = new_fd;
+   g_mutex_unlock(&rx_sink_lock);
+}
+
 static int rx_channel_volume[2] = {
    100, 100
 };
@@ -232,6 +253,7 @@ bool audio_set_rx_stream_route(const char *id, char output) {
          if (r->output != output) {
             r->output = output;
             rx_pcm_clear(r);
+            if (rx_engine) rr_audio_engine_route(rx_engine, r->identity, output);
             event_emit("client.audio.route.changed", NULL, NULL);
          }
 
@@ -296,6 +318,7 @@ bool audio_set_room_route(const char *server, const char *room, char output) {
       if (profile && !strcmp(profile, server) && !strcasecmp(route->room, room)) {
          route->output = output;
          rx_pcm_clear(route);
+         if (rx_engine) rr_audio_engine_route(rx_engine, route->identity, output);
       }
    }
 
@@ -310,7 +333,8 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    if (route->output == 'M' || (len & 1)) {
       return;
    }
-   rx_pcm_push(route, samples, len / sizeof(int16_t));
+   if (rx_engine) rr_audio_engine_push(rx_engine, route->identity, samples, len / sizeof(int16_t));
+   else rx_pcm_push(route, samples, len / sizeof(int16_t));
 }
 
 struct talkback_check {
@@ -457,6 +481,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          snprintf(route->uuid, sizeof(route->uuid), "%s", channel->uuid);
          route->next = rx_routes;
          rx_routes = route;
+         if (rx_engine) rr_audio_engine_add_stream(rx_engine, route->identity);
       }
       route->seen = true;
       const char *room = channel->room ? channel->room : "";
@@ -466,6 +491,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
          char output = audio_room_route(rrclient_connection_name(ws_conn), room);
          snprintf(route->room, sizeof(route->room), "%s", room);
          route->output = output;
+         if (rx_engine) rr_audio_engine_route(rx_engine, route->identity, output);
          changed = true;
       }
 
@@ -476,6 +502,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
             fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          }
          rx_pcm_clear(route);
+         if (rx_engine) rr_audio_engine_route(rx_engine, route->identity, route->output);
          snprintf(route->codec, sizeof(route->codec), "%.4s", channel->codec);
       }
 
@@ -498,6 +525,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
       if (route->connection == ws_conn && !route->seen) {
          fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          *link = route->next;
+         if (rx_engine) rr_audio_engine_remove_stream(rx_engine, route->identity);
          g_mutex_clear(&route->pcm_lock);
          free(route);
          changed = true;
@@ -667,13 +695,18 @@ bool audio_init(void) {
    rx_channel_volume[1] = CLAMP(cfg_get_int("audio.volume.rx.right", 100), 0, 100);
    speaker_failed = false;
    speaker_retry = 0;
-   GSource *source = g_source_new(&audio_mix_source_funcs, sizeof(GSource));
-   mixer_next_us = mono_us() + 20000;
-   g_source_set_priority(source, G_PRIORITY_HIGH);
-   g_source_set_callback(source, audio_mix_tick, NULL, NULL);
-   g_source_set_ready_time(source, mixer_next_us);
-   mixer_source = g_source_attach(source, NULL);
-   g_source_unref(source);
+   g_mutex_init(&rx_sink_lock);
+   rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
+   rx_engine = rr_audio_engine_new(rx_sink_output, NULL);
+   if (!rx_engine || !rr_audio_engine_start(rx_engine)) {
+      Log(LOG_CRIT, "audio", "Unable to start independent client RX mixer");
+      if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
+      rx_sink_set_fd(-1);
+      g_mutex_clear(&rx_sink_lock);
+      fwdsp_processor_stop("src.client.dsp0");
+      fwdsp_processor_stop("sink.client.dsp0");
+      return true;
+   }
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
@@ -805,6 +838,9 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
+   rx_sink_set_fd(-1);
+   g_mutex_clear(&rx_sink_lock);
    if (mixer_source) {
       g_source_remove(mixer_source);
       mixer_source = 0;
