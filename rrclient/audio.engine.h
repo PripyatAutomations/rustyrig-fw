@@ -21,5 +21,6 @@ bool rr_audio_engine_add_stream(rr_audio_engine_t *engine, const char *id);
 void rr_audio_engine_remove_stream(rr_audio_engine_t *engine, const char *id);
 bool rr_audio_engine_push(rr_audio_engine_t *engine, const char *id, const int16_t *pcm, size_t count);
 bool rr_audio_engine_route(rr_audio_engine_t *engine, const char *id, char route);
+void rr_audio_engine_gain(rr_audio_engine_t *engine, unsigned channel, int percent);
 void rr_audio_engine_stats(rr_audio_engine_t *engine, rr_audio_engine_stats_t *out, bool reset);
 #endif
