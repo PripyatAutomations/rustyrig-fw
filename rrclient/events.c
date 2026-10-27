@@ -797,7 +797,14 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       if (frontend_ops() && m_user && login_user && strcasecmp(m_user, login_user) == 0) {
          frontend_ops()->chat_room_add(m_room);
       }
-      ui_print(m_room, "%s* %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
+      const char *userhost = dict_get(d, "talk.userhost", "");
+      if (cptr && !cptr->is_ws) {
+         ui_print(m_room, "%s* %s%s%s%s joined %s", get_chat_ts(m_ts),
+            m_user ? m_user : "", *userhost ? " (" : "", userhost,
+            *userhost ? ")" : "", m_room);
+      } else {
+         ui_print(m_room, "%s* %s joined room %s", get_chat_ts(m_ts), m_user, m_room);
+      }
       dict_free(d);
 
       return;
