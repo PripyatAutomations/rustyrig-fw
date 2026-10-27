@@ -241,7 +241,7 @@
 
 #define FWDSP_FLAC_TX(source) \
         source " ! volume name=tx-vol ! audio/x-raw,format=S16LE,rate=16000,channels=1,layout=interleaved ! " \
-        " tee name=t t. ! queue max-size-buffers=2 leaky=downstream ! flacenc ! tee name=encoded-t " \
+        " tee name=t t. ! queue max-size-buffers=2 leaky=downstream ! flacenc blocksize=320 quality=2 ! tee name=encoded-t " \
         " encoded-t. ! queue max-size-buffers=8 ! " \
         " appsink name=tx-sink emit-signals=false sync=false max-buffers=8 drop=false " \
         " encoded-t. ! queue max-size-buffers=8 leaky=downstream ! " \
