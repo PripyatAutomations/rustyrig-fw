@@ -552,6 +552,15 @@ bool ui_print_gtk(const char *window, const char *fmt, va_list ap) {
    vsnprintf(msgbuf, sizeof(msgbuf), fmt, aq);
    va_end(aq);
 
+   /* Add timestamps to local notices and command output too. Chat/relay
+    * messages already start with get_chat_ts()'s colored "[...]" prefix. */
+   if (strncmp(msgbuf, "\00314[", 4) != 0) {
+      char stamped[sizeof(msgbuf)];
+      const char *stamp = get_chat_ts(time(NULL));
+      snprintf(stamped, sizeof(stamped), "%s%s", stamp ? stamp : "", msgbuf);
+      snprintf(msgbuf, sizeof(msgbuf), "%s", stamped);
+   }
+
    /* NULL/status output belongs to the persistent status tab, regardless of which room is selected. Keep early startup messages until it exists. */
    GtkTextBuffer *target_buffer = NULL;
    GtkWidget *target_view = NULL;
