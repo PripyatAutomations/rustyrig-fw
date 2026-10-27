@@ -1358,7 +1358,45 @@ bool receiver_directory_refresh_force(bool force) {
 bool receiver_directory_refresh(void) {
    return receiver_directory_refresh_force(false);
 }
+bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin) {
+   ensure();
+   if (job || !data || !length || length > DIRECTORY_MAX_BODY) return false;
+   GPtrArray *list = parse(data, length);
+   if (!list) return false;
+   g_ptr_array_free(receivers, TRUE);
+   receivers = list;
+   g_free(payload);
+   payload = g_strndup(data, length);
+   g_free(source);
+   source = g_strdup(origin ? origin : "server");
+   g_clear_pointer(&etag, g_free);
+   g_clear_pointer(&modified, g_free);
+   next_request = time(NULL) + DIRECTORY_INTERVAL;
+   merge_records();
+   restore_states();
+   cache_write();
+   g_snprintf(status_text, sizeof(status_text), "Server catalog: %u receivers. Cached locally for offline use.", receivers->len);
+   changed();
+   return true;
+}
 bool receiver_directory_import(const char *path) {
+   ensure();
+
+   if (job) return false;
+   char *data = NULL;
+   size_t length;
+   if (!read_bounded(path, DIRECTORY_MAX_BODY, &data, &length)) return false;
+   bool imported = receiver_directory_import_snapshot(data, length, "import");
+   g_free(data);
+   if (!imported) {
+      g_strlcpy(status_text, "Import failed: invalid schema-1 Kiwi directory JSON; cached list retained.", sizeof(status_text));
+      changed();
+   }
+   return imported;
+}
+#if 0
+/* Legacy standalone import implementation retained temporarily for comparison. */
+bool legacy_receiver_directory_import(const char *path) {
    ensure();
 
    if (job) {
@@ -1389,6 +1427,7 @@ bool receiver_directory_import(const char *path) {
 
    return true;
 }
+#endif
 void receiver_directory_shutdown(void) {
    if (learn_source) {
       g_source_remove(learn_source);
