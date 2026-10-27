@@ -543,16 +543,23 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
       }
       bool force = g->force;
       pool = g->pool;
+      /* A four-minute client refresh must extend the existing five-minute
+       * grant, not detach an active RTP socket and rotate its key/SSRC.
+       * The client already recognizes identical grants and keeps playback
+       * uninterrupted. Revalidate authorization on every refresh. */
+      bool reuse = g->attachment && g->ssrc && g->expires > mono_us() &&
+         valid(g);
+      if (!reuse) {
+         if (g->attachment) {
+            remove_grant(g);
+         }
+         g->client = client;
+         g->pool = pool;
+         g->force = force;
+         snprintf(g->uuid, sizeof(g->uuid), "%s", channel->uuid);
 
-      if (g->attachment) {
-         remove_grant(g);
-      }
-      g->client = client;
-      g->pool = pool;
-      g->force = force;
-      snprintf(g->uuid, sizeof(g->uuid), "%s", channel->uuid);
-
-      if (getrandom(g->key, sizeof(g->key), 0) != sizeof(g->key) || getrandom(&g->ssrc, sizeof(g->ssrc), 0) != sizeof(g->ssrc)) {
+         if (getrandom(g->key, sizeof(g->key), 0) != sizeof(g->key) ||
+             getrandom(&g->ssrc, sizeof(g->ssrc), 0) != sizeof(g->ssrc)) {
          if (g->force) {
             revoke_attachment(g);
          } else {
@@ -561,21 +568,22 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
 
          return;
       }
-      g->ssrc &= UINT32_C(0x7fffffff);
+         g->ssrc &= UINT32_C(0x7fffffff);
 
-      if (!g->ssrc) {
-         g->ssrc = 1;
-      }
-      g->attachment = rr_rtp_socket_attach(pool->socket, g->ssrc, g->key, pool->encrypted, NULL, g);
-
-      if (!g->attachment) {
-         if (g->force) {
-            revoke_attachment(g);
-         } else {
-            remove_grant(g);
+         if (!g->ssrc) {
+            g->ssrc = 1;
          }
+         g->attachment = rr_rtp_socket_attach(pool->socket, g->ssrc, g->key, pool->encrypted, NULL, g);
 
-         return;
+         if (!g->attachment) {
+            if (g->force) {
+               revoke_attachment(g);
+            } else {
+               remove_grant(g);
+            }
+
+            return;
+         }
       }
       g->expires = mono_us() + UINT64_C(300000000);
       char key[RR_RTP_KEY_LEN * 2 + 1];
@@ -740,7 +748,11 @@ static void request(const char *event, const void *data, size_t length, rrconn_t
    }
 
    if (!strcmp(cmd, "subscribe") && direct && pool && media_client_in_channel_room(client, channel)) {
-      if (available->client) {
+      /* A duplicate subscribe is normally a lease renewal. Keep the same
+       * RTP grant when it is still authorized and attached. */
+      if (available->client && (!available->attachment || !valid(available) ||
+          available->expires <= mono_us() || available->pool != pool ||
+          available->force != force)) {
          remove_grant(available);
       }
       available->client = client;
