@@ -1114,6 +1114,11 @@ static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char 
        * digit +/- operation jump back to the receiver's original frequency.
        * Scope the guard to this displayed VFO; never carry it across rooms. */
       extern time_t freqentry_last_send;
+      if (!switching && freqentry_last_send > 0 &&
+          gtk_freq_entry_get_frequency(fe) == (unsigned long)freq) {
+         /* The bridge acknowledged the latest displayed setpoint. */
+         freqentry_last_send = 0;
+      }
       bool recent_local_tune = !switching && freqentry_last_send > 0 &&
          now >= freqentry_last_send && now - freqentry_last_send < 5;
       bool awaiting_echo = recent_local_tune &&
@@ -1121,9 +1126,6 @@ static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char 
       if (switching || (!gtk_freq_entry_is_editing(fe) && !awaiting_echo)) {
          g_object_set_data_full(G_OBJECT(entry), "rr-displayed-vfo", g_strdup(selection), g_free);
          gtk_freq_entry_set_frequency(fe, freq);
-         if (!switching && freq == (long)gtk_freq_entry_get_frequency(fe)) {
-            freqentry_last_send = 0;
-         }
       }
    }
    modebox_update_state(mode, width);
