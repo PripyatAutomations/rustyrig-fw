@@ -81,9 +81,12 @@ remain distinct, and neither is offered for API bridge configuration.
 One worker fetches/parses metadata without blocking the GTK/audio loop. Requests
 identify as `RustyRig/<version> ReceiverDirectory`, use certificate verification,
 allow compression, and cap decoded bodies at 8 MiB and lists at 10,000 entries.
-There is one in-flight request and at least one hour between attempts, including
-manual refresh and restarts. Longer Cache-Control/Retry-After delays are honored
-up to seven days. ETag/Last-Modified support conditional GET. Invalid responses,
+There is one in-flight request and a four-hour minimum cache lifetime for
+normal opens and refreshes, persisted across client restarts. Longer
+Cache-Control/Retry-After delays are honored up to seven days. **Shift+click
+Refresh list** explicitly forces a complete download, bypassing the cached
+deadline and conditional HTTP validators; use it sparingly during development.
+ETag/Last-Modified support conditional GET on ordinary refreshes. Invalid responses,
 429s, unavailable mirrors and unexpected redirects retain the last good list.
 No request is sent to any receiver by directory browsing or filtering.
 
