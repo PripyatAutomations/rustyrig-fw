@@ -51,7 +51,7 @@ struct bridge_child {
    int fd, media_fd;
    unsigned sample_rate;
    char resampler[64];
-   bool hello, ready, online, desired, idling;
+   bool hello, ready, online, desired, idling, terminal_failure;
    uint64_t next_retry, started, last_seen, pending, deadline, next_request, kill_deadline;
    uint64_t desired_hz, requested_hz;
    char desired_mode[16], requested_mode[16];
@@ -715,6 +715,21 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       /* Forward child diagnostics through the host logger, including during
        * capability negotiation and while the receiver is shutting down. */
       Log(LOG_INFO, "rrbridge", "[%s] %s", bridge_public_name(b), m->metadata_value);
+      if (b->temporary && strstr(m->metadata_value, "Kiwi receiver stopped after 3 connection attempts")) {
+         b->terminal_failure = true;
+         b->next_retry = UINT64_MAX;
+         Log(LOG_WARN, "sdr.status", "[%s] terminal receiver failure in %s; tearing down temporary SDR attachment",
+            bridge_public_name(b), b->attached_room);
+         for (rrconn_t *member = http_client_list; member; member = member->next) {
+            if (member->authenticated && b->attached_room[0] &&
+                ws_client_in_room(member, b->attached_room)) {
+               ws_send_error(member,
+                  "SDR receiver in %s could not connect after 3 attempts (HTTP redirect or receiver unavailable). "
+                  "The failed temporary receiver is being removed; choose another receiver or retry from SDR Directory.",
+                  b->attached_room);
+            }
+         }
+      }
       return true;
    }
 
@@ -861,7 +876,7 @@ void rrserver_bridges_poll(void) {
    uint64_t current = mono_us();
 
    for (struct bridge_child *b = children ; b ; b = b->next) {
-      bool wanted = bridge_rx_requested(b, current);
+      bool wanted = !b->terminal_failure && bridge_rx_requested(b, current);
 
       if (wanted) {
          b->idle_since = 0;
@@ -952,6 +967,11 @@ void rrserver_bridges_poll(void) {
 
    /* One removal per poll keeps iteration and backend ownership straightforward. */
    for (struct bridge_child *b = children ; b ; b = b->next) {
+      if (b->temporary && b->terminal_failure && b->process.pid <= 0) {
+         websdr_audit_end(b->backend->owner, "connection-failed");
+         websdr_remove(b->backend->owner);
+         break;
+      }
       if (b->temporary && b->idle_since && current - b->idle_since >= temporary_idle_us) {
          websdr_audit_end(b->backend->owner, "idle-timeout");
          websdr_remove(b->backend->owner);
