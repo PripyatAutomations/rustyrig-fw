@@ -1264,7 +1264,10 @@ static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer 
    (void)column;
    (void)user;
    char *name = NULL;
-   gtk_tree_model_get(model, iter, COL_USERNAME, &name, -1);
+   char *display = NULL;
+   gtk_tree_model_get(model, iter, COL_USERNAME, &name, COL_DISPLAY_NAME, &display, -1);
+   g_object_set(cell, "text", display ? display : "", NULL);
+   g_free(display);
    if (!name || !*name || !strcmp(name, "OFFLINE")) {
       g_object_set(cell, "foreground-set", FALSE, NULL);
    } else {
