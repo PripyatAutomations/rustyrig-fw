@@ -1813,6 +1813,9 @@ void gtk_chat_room_remove(const char *room) {
       gtk_notebook_remove_page(GTK_NOTEBOOK(main_notebook), page);
    }
    g_hash_table_remove(room_tabs, rrclient_window_name(room));
+   /* Removing the selected room does not necessarily emit a notebook switch
+    * signal; explicitly re-evaluate the shared floating VFO panel. */
+   gtk_chat_room_vfos_changed(NULL);
 }
 
 void gtk_chat_room_set_topic(const char *room, const char *topic) {
