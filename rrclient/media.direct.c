@@ -217,7 +217,7 @@ static void load_candidates(struct direct_channel *channel, const char *list, co
 /* Refresh before the advertised lease expires; fall back to the legacy
  * 240-second interval when talking to older servers. Bound untrusted
  * values so malformed grants cannot suppress refresh indefinitely. */
-static uint64_t direct_renew_delay(const dict *grant) {
+static uint64_t direct_renew_delay(dict *grant) {
    unsigned long lifetime = dict_get_ulong(grant, "media.direct-lease-seconds", 0);
    if (lifetime < 10 || lifetime > 86400) {
       return UINT64_C(240000000);
