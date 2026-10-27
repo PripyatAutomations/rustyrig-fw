@@ -133,7 +133,10 @@ static void panel_chrome(RRFloatPanel *p) {
    if (p->minimized) {
       gtk_widget_hide(p->frame);
    }
-   gtk_widget_set_tooltip_text(p->roll, p->rolled ? "Unroll panel" : "Roll up panel");
+   GtkWidget *roll_icon = gtk_button_get_image(GTK_BUTTON(p->roll));
+   if (GTK_IS_IMAGE(roll_icon))
+      gtk_image_set_from_icon_name(GTK_IMAGE(roll_icon), p->rolled ? "go-down" : "go-up", GTK_ICON_SIZE_MENU);
+   gtk_widget_set_tooltip_text(p->roll, p->rolled ? "Roll down panel" : "Roll up panel");
    gtk_widget_set_tooltip_text(p->minimize, "Minimize to tab strip");
 }
 
