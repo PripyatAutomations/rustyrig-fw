@@ -348,7 +348,20 @@ static void fwdsp_read_cb(struct mg_connection *c, int ev, void *ev_data) {
 
             memcpy(message, c->recv.buf, line_len);
             message[line_len] = '\0';
-            Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
+            /* A pipeline's actual GStreamer failure must never be hidden
+             * behind the later EPIPE/decoder restart warning. Other verbose
+             * stderr remains at debug level. */
+            bool important = strstr(message, "GStreamer error:") ||
+               strstr(message, "GStreamer details:") ||
+               strstr(message, "Failed to set pipeline") ||
+               strstr(message, "CRIT") || strstr(message, "ERROR");
+            if (important)
+               Log(LOG_WARN, "fwdsp", "[%s.%s pid=%ld stderr] %.700s",
+                  ctx->sp->role == FWDSP_ROLE_PROCESSOR ? ctx->sp->processor_name : ctx->sp->pl_id,
+                  ctx->sp->role == FWDSP_ROLE_PROCESSOR ? "processor" : ctx->sp->is_tx ? "tx" : "rx",
+                  (long)ctx->sp->process.pid, message);
+            else
+               Log(LOG_DEBUG, "fwdsp", "[stderr %s]", message);
             free(message);
 
             mg_iobuf_del(&c->recv, 0, consumed);
@@ -1383,7 +1396,13 @@ bool fwdsp_write_audio_samples(const char codec[5], const char *channel_uuid, co
    if (fwdsp_write_frame_flags(sp->fw_stdin, data, len, discontinuity ? FWDSP_FRAME_DISCONT : 0)) {
       return true;
    }
-   /* A partial framed write cannot be skipped; retire the damaged IPC stream. */
+   /* A partial framed write cannot be skipped; retire the damaged IPC stream.
+    * Log the OS failure *before* the reusable slot is cleared. This is the
+    * primary clue for distinguishing a crashed pipeline from backpressure. */
+   int saved_errno = errno;
+   Log(LOG_WARN, "fwdsp", "Decoder %s.rx identity=%s pid=%ld: failed writing %zu encoded bytes (%s); retiring IPC stream",
+      codec, channel_uuid ? channel_uuid : "(default)", (long)sp->process.pid,
+      len, saved_errno ? strerror(saved_errno) : "unknown write failure");
    fwdsp_destroy(sp);
 
    return false;
