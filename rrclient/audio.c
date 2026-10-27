@@ -88,7 +88,9 @@ static uint64_t rx_underrun_blocks, rx_underrun_samples, rx_overflow_samples;
 static uint64_t rx_decoder_write_fail, rx_speaker_write_fail, rx_mixed_blocks;
 static void rx_diag_report(uint64_t current) {
    if (!rx_diag_at) rx_diag_at = current;
-   if (current - rx_diag_at < 10000000) return;
+   if (current - rx_diag_at < 10000000) {
+      return;
+   }
    if (rx_mixed_blocks || rx_overflow_samples || rx_decoder_write_fail || rx_speaker_write_fail) {
       Log(LOG_INFO, "audio.timing",
          "RX/10s mixed=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu missing-samples=%llu overflow-samples=%llu decoder-write-fail=%llu speaker-write-fail=%llu",
@@ -106,7 +108,9 @@ static void rx_diag_report(uint64_t current) {
 
 static gboolean rx_engine_maintenance(gpointer unused) {
    (void)unused;
-   if (!rx_engine) return G_SOURCE_REMOVE;
+   if (!rx_engine) {
+      return G_SOURCE_REMOVE;
+   }
    rr_audio_engine_stats_t stats = {0};
    rr_audio_engine_stats(rx_engine, &stats, true);
    if (stats.blocks || stats.overflow_samples || stats.late_ticks)
@@ -727,7 +731,10 @@ bool audio_init(void) {
    rx_engine = rr_audio_engine_new(rx_sink_output, NULL);
    if (!rx_engine || !rr_audio_engine_start(rx_engine)) {
       Log(LOG_CRIT, "audio", "Unable to start independent client RX mixer");
-      if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
+      if (rx_engine) {
+         rr_audio_engine_free(rx_engine);
+         rx_engine = NULL;
+      }
       rx_sink_set_fd(-1);
       g_mutex_clear(&rx_sink_lock);
       fwdsp_processor_stop("src.client.dsp0");
@@ -873,7 +880,10 @@ void ws_audio_shutdown(void) {
       g_source_remove(rx_maintenance_source);
       rx_maintenance_source = 0;
    }
-   if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
+   if (rx_engine) {
+      rr_audio_engine_free(rx_engine);
+      rx_engine = NULL;
+   }
    rx_sink_set_fd(-1);
    g_mutex_clear(&rx_sink_lock);
    if (mixer_source) {
