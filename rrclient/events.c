@@ -1089,6 +1089,7 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
    }
    const char *member = dict_get(d, "talk.user", NULL);
    const char *session = dict_get(d, "talk.session", NULL);
+   bool kicked = dict_get_bool(d, "talk.kicked", false);
 
    if (member && room) {
       userlist_remove_by_name_room(member, room);
@@ -1101,7 +1102,16 @@ static void rrclient_handle_part(const char *event, const char *data, rrconn_t *
       is_self = true;
    }
 
-   if (room && is_self) {
+   if (room && is_self && kicked) {
+      /* A kick revokes membership, but the channel tab and its history survive.
+       * Keep its input active for /join; ordinary messages are blocked by the
+       * offline-room guard until the server confirms a new JOIN. */
+      userlist_remove_room(room);
+      rrclient_media_room_parted(room);
+      rrclient_room_set_offline(room, true);
+      ui_print(room, "%s* You were kicked from %s. Use /join %s to rejoin.",
+         get_chat_ts(dict_get_time_t(d, "msg.ts", now)), room, room);
+   } else if (room && is_self) {
       /* PART ends our membership in this room, not just our own roster entry. Drop the complete snapshot so a subsequent JOIN starts clean. */
       userlist_remove_room(room);
       rrclient_media_room_parted(room);
