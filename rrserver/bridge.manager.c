@@ -1248,8 +1248,9 @@ static void websdr_remove(rr_server_rig_t *radio) {
          dict_add(removed, "talk.cmd", "room-removed");
          dict_add(removed, "talk.room", child->attached_room);
          dict_add(removed, "talk.user", "server");
-         dict_add(removed, "talk.reason",
-            "Temporary SDR receiver disconnected; its listening room was closed.");
+         /* A routine operator disconnect is not an SDR connection failure.
+          * Do not supply talk.reason: clients use it to show a failure
+          * notification and reopen SDR Directory. */
          ws_broadcast_room_dict(NULL, removed, child->attached_room);
          dict_free(removed);
       }
