@@ -42,6 +42,7 @@ static void irc_activity_record(rrconn_t *cptr, const char *room, const char *ni
    g_hash_table_replace(irc_last_spoke, key, when);
 }
 static bool irc_activity_recent(rrconn_t *cptr, const char *room, const char *nick) {
+   if (!cfg_get_bool("irc.hide-idle-departures", true)) return true;
    if (cptr && nick && !strcasecmp(nick, cptr->nick)) return true;
    if (!irc_last_spoke) return false;
    char *key = irc_activity_key(cptr, room, nick);
