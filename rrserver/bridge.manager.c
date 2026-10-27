@@ -729,6 +729,22 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
                   b->attached_room);
             }
          }
+         /* Notify room members using the existing room-removed protocol.
+          * This closes the client tab and carries a UI-safe failure reason. */
+         if (b->attached_room[0] && strlen(b->attached_room) == 13 &&
+             !strncasecmp(b->attached_room, "#sdr-", 5)) {
+            dict *removed = dict_new();
+            if (removed) {
+               dict_add(removed, "msg.type", "talk");
+               dict_add(removed, "talk.cmd", "room-removed");
+               dict_add(removed, "talk.room", b->attached_room);
+               dict_add(removed, "talk.user", "server");
+               dict_add(removed, "talk.reason",
+                  "SDR receiver unreachable after 3 connection attempts. Choose another receiver or retry.");
+               ws_broadcast_room_dict(NULL, removed, b->attached_room);
+               dict_free(removed);
+            }
+         }
          /* No more reconnects or idle silence: terminate the bridge now. */
          disconnect(b);
       }
