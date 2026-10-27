@@ -59,6 +59,9 @@ extern const char *rrclient_connection_name(const rrconn_t *connection);
  * Mongoose callbacks. */
 extern void rrclient_connection_dispatch(rrconn_t *connection, void (*callback) (void *), void *data);
 extern rrconn_t *rrclient_connection_find(const char *name);
+extern void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid);
+extern const char *rrclient_connection_domain(const rrconn_t *connection);
+extern const char *rrclient_connection_server_uuid(const rrconn_t *connection);
 extern const char *rrclient_connection_iter(unsigned index);
 /* 0 offline, -1 connecting/retrying, 1 online. */
 extern int rrclient_connection_state(const char *name);
