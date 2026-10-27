@@ -4,6 +4,7 @@
 /* A page opts in only when its owning conversation supports closing. */
 typedef void (*GtkTabCloseFunc)(GtkWidget *page, gboolean force);
 void gtk_tabs_page_set_close_func(GtkWidget *page, GtkTabCloseFunc function);
+void gtk_tabs_page_set_topic(GtkNotebook *notebook, GtkWidget *page, const char *topic);
 void gtk_tabs_page_activity(GtkNotebook *notebook, GtkWidget *page, gboolean mention);
 void gtk_tabs_bind_menu(GtkWidget *widget, GtkNotebook *notebook, GtkWidget *page);
 GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position);
