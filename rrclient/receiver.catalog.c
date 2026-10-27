@@ -22,6 +22,7 @@ static catalog_download_t transfer;
 static rr_event_token_t catalog_token;
 static guint timer_id;
 static unsigned serial;
+static void free_chunk(gpointer chunk) { if (chunk) g_bytes_unref(chunk); }
 static void reset(void) {
    if (transfer.chunks) g_ptr_array_free(transfer.chunks, TRUE);
    memset(&transfer, 0, sizeof(transfer));
@@ -94,11 +95,12 @@ static void received(const char *event,const char *data,rrconn_t *connection,voi
          seq>=count || !encoded || strlen(encoded)>4*((CATALOG_CHUNK+2)/3)+4 ||
          (transfer.total && (transfer.total!=count || transfer.generation!=generation)) ||
          (transfer.digest[0] && strcmp(transfer.digest,hex))) goto done;
+      if(strlen(hex)!=64 || (transfer.total && transfer.requested_page*8>seq)) goto done;
       if(!transfer.chunks) {
          transfer.total=count;
          transfer.generation=generation;
          snprintf(transfer.digest,sizeof(transfer.digest),"%s",hex);
-         transfer.chunks=g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
+         transfer.chunks=g_ptr_array_new_with_free_func(free_chunk);
          g_ptr_array_set_size(transfer.chunks,count);
       }
       if(g_ptr_array_index(transfer.chunks,seq))goto done;
