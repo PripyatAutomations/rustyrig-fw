@@ -114,18 +114,24 @@ static gboolean update(gpointer data) {
    }
    struct rrclient_rx_stream streams[64];
    size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
+   /* Prefer the audible RX route when several streams share a room.
+    * A muted/stale first route must not hide the signal the operator hears. */
+   size_t selected = count;
    for (size_t i = 0; i < MIN(count, G_N_ELEMENTS(streams)); i++) {
       if (g_strcmp0(streams[i].server, p->server) ||
           g_ascii_strcasecmp(streams[i].room, p->room)) {
          continue;
       }
-      if (rr_af_spectrum_read(streams[i].id, p->current)) {
-         memcpy(p->rows[p->head], p->current, sizeof(p->current));
-         p->head = (p->head + 1) % HISTORY;
-         p->count = MIN(p->count + 1, HISTORY);
-         gtk_widget_queue_draw(p->drawing);
+      if (selected == count || (streams[selected].output == 'M' && streams[i].output != 'M')) {
+         selected = i;
       }
-      break;
+   }
+   if (selected < MIN(count, G_N_ELEMENTS(streams)) &&
+       rr_af_spectrum_read(streams[selected].id, p->current)) {
+      memcpy(p->rows[p->head], p->current, sizeof(p->current));
+      p->head = (p->head + 1) % HISTORY;
+      p->count = MIN(p->count + 1, HISTORY);
+      gtk_widget_queue_draw(p->drawing);
    }
    return G_SOURCE_CONTINUE;
 }
