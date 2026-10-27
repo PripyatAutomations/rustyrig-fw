@@ -28,7 +28,8 @@ Additional tools include remote serial/GPS access, audio recording, administrati
 | ![GTK settings](doc/screenshot-gtk-cfgtab.png) | ![Browser client](doc/screenshot-webui.png) |
 
 | Features |
-| ![SDR Browser](doc/screenshot-sdr-directory.png) |
+| ![SDR Browser](doc/screenshot-sdr-directory.png)
+| ![SDR RX](doc/screenshot-gtk-rxsdr.png)
 
 ### Resource Explorer
 
