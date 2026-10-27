@@ -1257,8 +1257,12 @@ static gboolean finish(gpointer unused) {
 bool receiver_directory_refresh_force(bool force) {
    ensure();
 
-   if (job) {
-      return false;
+   if (job) return false;
+   rrclient_receiver_catalog_init();
+   if (rrclient_receiver_catalog_request(force)) {
+      g_snprintf(status_text, sizeof(status_text), "Loading SDR catalog from connected rrserver; local cache remains available.");
+      changed();
+      return true;
    }
    const char *url = g_getenv("RRCLIENT_RECEIVER_DIRECTORY_URL");
 
