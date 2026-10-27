@@ -562,6 +562,7 @@ void audio_sync_rx_channels(const struct rrclient_rx_audio *channels, size_t cou
       if (route->connection == ws_conn && !route->seen) {
          fwdsp_codec_stop_channel_immediate(route->codec, false, route->identity);
          *link = route->next;
+         rr_af_spectrum_forget(route->identity);
          if (rx_engine) rr_audio_engine_remove_stream(rx_engine, route->identity);
          g_mutex_clear(&route->pcm_lock);
          free(route);
@@ -882,6 +883,7 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   rr_af_spectrum_shutdown();
    if (rx_maintenance_source) {
       g_source_remove(rx_maintenance_source);
       rx_maintenance_source = 0;
