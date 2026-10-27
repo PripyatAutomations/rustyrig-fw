@@ -24,6 +24,8 @@ static struct {
 static rr_event_token_t result_token, close_token, joined_token;
 static unsigned serial;
 static GHashTable *connected_receivers;
+/* Room identity is the lifecycle owner of a temporary receiver. */
+static GHashTable *receiver_rooms;
 static char *receiver_key(const char *profile, const char *url) {
    return g_strdup_printf("%s\n%s", profile ? profile : "", url ? url : "");
 }
@@ -295,7 +297,10 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
          if (!connected_receivers) {
             connected_receivers = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
          }
-         g_hash_table_add(connected_receivers, receiver_key(pending.profile, pending.url));
+         char *key = receiver_key(pending.profile, pending.url);
+         g_hash_table_add(connected_receivers, g_strdup(key));
+         if (!receiver_rooms) receiver_rooms = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+         g_hash_table_replace(receiver_rooms, g_strdup(room), key);
 
          if (!rrclient_room_is_joined(room)) {
             report("SDR stage 3/3: receiver attached; joining the bound room now…", connection);
@@ -312,6 +317,21 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
    dict_free(result);
    dict_free(message);
 }
+static void receiver_room_removed(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)unused;
+   dict *message = data ? json2dict(data) : NULL;
+   const char *room = message ? dict_get(message, "talk.room", NULL) : NULL;
+   if (room && receiver_rooms) {
+      gpointer real_key = NULL, value = NULL;
+      if (g_hash_table_lookup_extended(receiver_rooms, room, &real_key, &value)) {
+         if (connected_receivers) g_hash_table_remove(connected_receivers, value);
+         g_hash_table_remove(receiver_rooms, room);
+         event_emit("client.receiver-directory.connection", connection,
+            "SDR receiver removed; its room and connection have been released.");
+      }
+   }
+   if (message) dict_free(message);
+}
 static void receiver_closed(const char *event, const char *data, rrconn_t *connection, void *unused) {
    (void)event;
    (void)data;
@@ -324,12 +344,14 @@ static void receiver_closed(const char *event, const char *data, rrconn_t *conne
    if (connected_receivers) {
       g_hash_table_remove_all(connected_receivers);
    }
+   if (receiver_rooms) g_hash_table_remove_all(receiver_rooms);
    event_emit("client.receiver-directory.connection", connection, "Server disconnected.");
 }
 void rrclient_receiver_connect_init(void) {
    result_token = event_on_token("admin.result", receiver_result, NULL);
    close_token = event_on_token("disconnected", receiver_closed, NULL);
    joined_token = event_on_token("client.room.joined", receiver_room_joined, NULL);
+   event_on("room.deleted", receiver_room_removed, NULL);
 }
 void rrclient_receiver_connect_shutdown(void) {
    if (result_token) {
@@ -346,4 +368,5 @@ void rrclient_receiver_connect_shutdown(void) {
    result_token = close_token = joined_token = NULL;
    clear_pending();
    g_clear_pointer(&connected_receivers, g_hash_table_unref);
+   g_clear_pointer(&receiver_rooms, g_hash_table_unref);
 }
