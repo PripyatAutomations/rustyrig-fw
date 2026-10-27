@@ -1506,6 +1506,11 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(rr_main_toolbar), tools, FALSE, FALSE, 0);
    }
+   if (room && *room && !is_query && (is_rig || g_str_has_prefix(room, "#sdr-"))) {
+      GtkWidget *spectrum = rr_gtk_spectrum_panel_new(server_name, room);
+      gtk_box_pack_start(GTK_BOX(chat_box), spectrum, FALSE, TRUE, 2);
+      gtk_widget_show_all(spectrum);
+   }
    GtkWidget *scrolled = gtk_scrolled_window_new(NULL, NULL);
    gtk_widget_set_size_request(scrolled, -1, 200);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
