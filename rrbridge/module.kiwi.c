@@ -439,8 +439,8 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       }
       p = line + 2;
    }
-   if (k->attempts >= 3) {
-      note(k, "Kiwi HTTP 307 received but the three-attempt connection limit was reached");
+   if (k->redirects >= 8) {
+      note(k, "Kiwi HTTP 307 redirect chain exceeded eight hops");
       return false;
    }
    if (!loc || !len || len >= sizeof(k->redirect_url)) return false;
@@ -469,6 +469,16 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       note(k, "Kiwi HTTP 307 redirects to the same WebSocket URL (redirect loop)");
       return false;
    }
+   /* Proxy load balancers sometimes redirect to the new authority root.
+    * Retain the actual SND WebSocket resource across that hop. */
+   if (next[strlen(next) - 1] == '/' && (strstr(k->url, "/SND") != NULL)) {
+      const char *current_path = strstr(k->url, "://");
+      current_path = current_path ? strchr(current_path + 3, '/') : NULL;
+      if (current_path && strlen(next) + strlen(current_path) - 1 < sizeof(next)) {
+         size_t prefix = strlen(next) - 1;
+         memcpy(next + prefix, current_path, strlen(current_path) + 1);
+      }
+   }
    /* Never forward configured credentials to a different origin. */
    const char *password = setting(k, "password");
    if (password && *password) {
@@ -487,10 +497,11 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
       snprintf(origin, sizeof(origin), "%.*s", (int)(length < sizeof(origin) - 1 ? length : sizeof(origin) - 1), next);
    }
    char diagnostic[240];
-   snprintf(diagnostic, sizeof(diagnostic), "Kiwi HTTP 307: redirect attempt %u/3 to %.150s (path length %zu)",
-      k->attempts + 1, origin, path ? strlen(path) : 0u);
+   snprintf(diagnostic, sizeof(diagnostic), "Kiwi HTTP 307: redirect hop %u/8 to %.150s (path length %zu)",
+      k->redirects + 1, origin, path ? strlen(path) : 0u);
    note(k, diagnostic);
    snprintf(k->redirect_url, sizeof(k->redirect_url), "%s", next);
+   k->redirects++;
    k->redirecting = true;
    c->is_closing = 1;
    return true;
@@ -560,6 +571,8 @@ static void websocket(struct mg_connection *c, int event, void *data) {
 
       if (k->redirecting) {
          k->redirecting = false;
+         /* Redirects are routing hops, not failed receiver attempts. */
+         if (k->attempts) k->attempts--;
          snprintf(k->url, sizeof(k->url), "%s", k->redirect_url);
          k->retry = mono_us();
          note(k, "Kiwi WebSocket redirected (HTTP 307); following Location");
