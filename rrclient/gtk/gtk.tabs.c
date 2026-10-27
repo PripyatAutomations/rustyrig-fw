@@ -12,6 +12,24 @@ static GtkWidget *tab_source_label(GtkNotebook *notebook, GtkWidget *page) {
    return GTK_IS_LABEL(label) ? label : NULL;
 }
 
+/* Topics belong to the tab selector, never the chat text view. */
+void gtk_tabs_page_set_topic(GtkNotebook *notebook, GtkWidget *page, const char *topic) {
+   if (!GTK_IS_NOTEBOOK(notebook) || !GTK_IS_WIDGET(page)) return;
+   g_object_set_data_full(G_OBJECT(page), "rr-tab-topic",
+      topic && *topic ? g_strdup(topic) : NULL, g_free);
+   GtkWidget *native = gtk_notebook_get_tab_label(notebook, page);
+   if (native) gtk_widget_set_tooltip_text(native, topic && *topic ? topic : NULL);
+   GtkWidget *flow = g_object_get_data(G_OBJECT(notebook), "rr-tab-flow");
+   if (!GTK_IS_FLOW_BOX(flow)) return;
+   GList *children = gtk_container_get_children(GTK_CONTAINER(flow));
+   for (GList *item = children; item; item = item->next) {
+      GtkWidget *button = gtk_bin_get_child(GTK_BIN(item->data));
+      if (g_object_get_data(G_OBJECT(button), "rr-tab-page") == page)
+         gtk_widget_set_tooltip_text(button, topic && *topic ? topic : NULL);
+   }
+   g_list_free(children);
+}
+
 /* Reading a tab clears both ordinary unread and nickname-mention markers. */
 static void tab_activity_read(GtkNotebook *notebook, GtkWidget *page, guint number, gpointer data) {
    (void)number;
@@ -441,6 +459,8 @@ static void tabs_rebuild(GtkNotebook *notebook, GtkWidget *page, guint number, G
       gtk_box_pack_start(GTK_BOX(content), label, TRUE, TRUE, 0);
       gtk_container_add(GTK_CONTAINER(button), content);
       tab_apply_color(notebook, child, button);
+      const char *topic = g_object_get_data(G_OBJECT(child), "rr-tab-topic");
+      if (topic && *topic) gtk_widget_set_tooltip_text(button, topic);
       gtk_tabs_bind_menu(button, notebook, child);
       gtk_widget_set_focus_on_click(button, FALSE);
       gtk_style_context_add_class(gtk_widget_get_style_context(button), "tab");
@@ -545,6 +565,7 @@ GtkWidget *gtk_wrapping_tabs_new(GtkNotebook *notebook, GtkPositionType position
    gtk_container_add(GTK_CONTAINER(tab_scroll), flow);
    gtk_widget_set_size_request(flow, 1, -1);
    g_object_set_data(G_OBJECT(tab_scroll), "rr-tab-flow", flow);
+   g_object_set_data(G_OBJECT(notebook), "rr-tab-flow", flow);
    g_signal_connect(box, "size-allocate", G_CALLBACK(tabs_viewport_allocate), tab_scroll);
    gtk_flow_box_set_sort_func(GTK_FLOW_BOX(flow), tabs_compare, notebook, NULL);
    gtk_drag_dest_set(flow, GTK_DEST_DEFAULT_ALL, &tab_target, 1, GDK_ACTION_MOVE);
