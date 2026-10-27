@@ -1828,17 +1828,10 @@ void gtk_chat_room_set_topic(const char *room, const char *topic) {
    if (!room || !*room) {
       return;
    }
-   GtkTextBuffer *buffer = NULL;
-   GtkWidget *view = NULL;
-
-   if (!gtk_chat_room_widgets(room, &buffer, &view) || !buffer) {
-      return;
-   }
-
-   /* Common events.c renders the notice, including setter and timestamp. */
-   if (view) {
-      gtk_widget_set_tooltip_text(view, topic && *topic ? topic : NULL);
-   }
+   if (!room_tabs || !main_notebook) return;
+   GtkRoomTab *tab = g_hash_table_lookup(room_tabs, rrclient_window_name(room));
+   if (tab && tab->page)
+      gtk_tabs_page_set_topic(GTK_NOTEBOOK(main_notebook), tab->page, topic);
 }
 
 void gtk_chat_set_authoritative_room(const char *room) {
