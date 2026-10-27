@@ -655,6 +655,7 @@ void rrserver_register_events(void) {
    rrserver_acl_register_events();
    rrserver_bridge_access_register_events();
    rrserver_websdr_register_events();
+   if (!rrserver_receiver_directory_init()) Log(LOG_WARN, "receiver.directory", "Server receiver directory unavailable; local SDR control continues");
    rrserver_relay_register_events();
    rrserver_supervision_register();
    rrserver_media_register_events();
