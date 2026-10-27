@@ -1399,40 +1399,6 @@ bool receiver_directory_import(const char *path) {
    }
    return imported;
 }
-#if 0
-/* Legacy standalone import implementation retained temporarily for comparison. */
-bool legacy_receiver_directory_import(const char *path) {
-   ensure();
-
-   if (job) {
-      return false;
-   }
-   char *data = NULL;
-   size_t length;
-   GPtrArray *list = read_bounded(path, DIRECTORY_MAX_BODY, &data, &length) ? parse(data, length) : NULL;
-
-   if (!list) {
-      g_free(data);
-      g_strlcpy(status_text, "Import failed: expected a bounded schema-1 Kiwi directory JSON object. Cached list retained.", sizeof(status_text));
-      changed();
-
-      return false;
-   }
-   g_ptr_array_free(receivers, TRUE);
-   receivers = list;
-   g_free(payload);
-   payload = data;
-   g_clear_pointer(&etag, g_free);
-   g_clear_pointer(&modified, g_free);
-   merge_records();
-   restore_states();
-   cache_write();
-   g_snprintf(status_text, sizeof(status_text), "Imported %u receivers. No receiver connections were made.", receivers->len);
-   changed();
-
-   return true;
-}
-#endif
 void receiver_directory_shutdown(void) {
    rrclient_receiver_catalog_shutdown();
    if (learn_source) {
