@@ -21,6 +21,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/userlist.h>
+#include <rrclient/nick.color.h>
 #include <rrclient/typing.h>
 #include <rrclient/rooms.h>
 #include <rrclient/ui.h>
@@ -1256,6 +1257,23 @@ static gboolean gtk_userlist_expire_typing(gpointer unused) {
    return G_SOURCE_CONTINUE;
 }
 
+/* Derive color from the raw username, never its decorated/prefixed
+ * presentation or the server profile. Re-applied as rows are recycled. */
+static void userlist_nick_color_cell(GtkTreeViewColumn *column, GtkCellRenderer *cell,
+                                    GtkTreeModel *model, GtkTreeIter *iter, gpointer user) {
+   (void)column;
+   (void)user;
+   char *name = NULL;
+   gtk_tree_model_get(model, iter, COL_USERNAME, &name, -1);
+   if (!name || !*name || !strcmp(name, "OFFLINE")) {
+      g_object_set(cell, "foreground-set", FALSE, NULL);
+   } else {
+      rr_nick_color_t color = rr_nick_color(name);
+      g_object_set(cell, "foreground", color.hex, "foreground-set", TRUE, NULL);
+   }
+   g_free(name);
+}
+
 static GtkWidget *userlist_view_create(void) {
    if (!typing_refresh_id) {
       typing_refresh_id = g_timeout_add_seconds(1, gtk_userlist_expire_typing, NULL);
@@ -1289,6 +1307,7 @@ static GtkWidget *userlist_view_create(void) {
    /* GtkTreeViewColumn packs renderers in insertion order: icon first. */
    gtk_tree_view_column_pack_start(user_col, text, TRUE);
    gtk_tree_view_column_add_attribute(user_col, text, "text", COL_DISPLAY_NAME);
+   gtk_tree_view_column_set_cell_data_func(user_col, text, userlist_nick_color_cell, NULL, NULL);
    gtk_tree_view_column_set_sizing(user_col, GTK_TREE_VIEW_COLUMN_AUTOSIZE);
    gtk_tree_view_column_set_expand(user_col, TRUE);
    gtk_tree_view_append_column(GTK_TREE_VIEW(view), user_col);
