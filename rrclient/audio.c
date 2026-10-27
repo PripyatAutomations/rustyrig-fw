@@ -55,6 +55,7 @@ static time_t tx_pcm_warned = 0;
 static time_t rx_pcm_warned = 0;
 
 static guint mixer_source;
+static guint rx_maintenance_source;
 static rr_audio_engine_t *rx_engine;
 static GMutex rx_sink_lock;
 static int rx_sink_fd = -1;
@@ -103,6 +104,30 @@ static void rx_diag_report(uint64_t current) {
    rx_diag_at = current;
 }
 
+static gboolean rx_engine_maintenance(gpointer unused) {
+   (void)unused;
+   if (!rx_engine) return G_SOURCE_REMOVE;
+   rr_audio_engine_stats_t stats = {0};
+   rr_audio_engine_stats(rx_engine, &stats, true);
+   if (stats.blocks || stats.overflow_samples || stats.late_ticks)
+      Log(LOG_INFO, "audio.timing",
+         "RX worker/10s blocks=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu overflow-samples=%llu",
+         (unsigned long long)stats.blocks, (unsigned long long)stats.late_ticks,
+         (unsigned long long)stats.max_late_us, (unsigned long long)stats.skipped_blocks,
+         (unsigned long long)stats.underrun_blocks, (unsigned long long)stats.overflow_samples);
+   g_mutex_lock(&rx_sink_lock);
+   bool failed = rx_sink_fd < 0;
+   g_mutex_unlock(&rx_sink_lock);
+   if (failed) {
+      fwdsp_processor_stop("sink.client.dsp0");
+      if (fwdsp_audio_playback_start("sink.client.dsp0", cfg_get("pipeline:sink.client.mix"))) {
+         fwdsp_processor_setvol("sink.client.dsp0", cfg_get_int("audio.volume.rx", 30));
+         rx_sink_set_fd(fwdsp_processor_dup_input("sink.client.dsp0"));
+         Log(LOG_INFO, "audio", "RX worker reattached to fwdsp playback subprocess");
+      }
+   }
+   return G_SOURCE_CONTINUE;
+}
 static void client_speaker_pcm(const void *samples, size_t len) {
    uint64_t current = mono_us();
 
@@ -707,6 +732,7 @@ bool audio_init(void) {
       fwdsp_processor_stop("sink.client.dsp0");
       return true;
    }
+   rx_maintenance_source = g_timeout_add_seconds(10, rx_engine_maintenance, NULL);
    audio_enabled = true;
    gst_active = true;
    Log(LOG_INFO, "audio", "Client PCM endpoints ready: src.client.dsp0 -> TX encoders; RX decoders -> sink.client.dsp0");
@@ -838,6 +864,10 @@ void audio_stop_codec(bool is_tx) {
 }
 
 void ws_audio_shutdown(void) {
+   if (rx_maintenance_source) {
+      g_source_remove(rx_maintenance_source);
+      rx_maintenance_source = 0;
+   }
    if (rx_engine) { rr_audio_engine_free(rx_engine); rx_engine = NULL; }
    rx_sink_set_fd(-1);
    g_mutex_clear(&rx_sink_lock);
