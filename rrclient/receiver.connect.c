@@ -278,16 +278,39 @@ static void receiver_result(const char *event, const char *text, rrconn_t *conne
       const char *error = dict_get(result, "error", ""), *room = dict_get(result, "room", "");
 
       if (*error) {
-         char detail[640];
-         snprintf(detail, sizeof(detail), "SDR server rejected %s for %s: %s",
-            pending.release ? "disconnect" : pending.save ? "configuration save" : "receiver attachment",
-            pending.url ? pending.url : "(unknown receiver)", error);
-         report(detail, connection);
+         /* The server may have already retired a failed temporary receiver.
+          * Its stale Directory entry is not an active connection. */
+         if (pending.release && strstr(error, "No temporary SDR connection owned by this operator")) {
+            char *key = receiver_key(pending.profile, pending.url);
+            if (connected_receivers) g_hash_table_remove(connected_receivers, key);
+            if (receiver_rooms) {
+               GHashTableIter iter;
+               gpointer room_key, mapped_key;
+               g_hash_table_iter_init(&iter, receiver_rooms);
+               while (g_hash_table_iter_next(&iter, &room_key, &mapped_key))
+                  if (!strcmp(mapped_key, key)) g_hash_table_iter_remove(&iter);
+            }
+            g_free(key);
+            report("SDR receiver was already removed by the server; cleared stale connection state.", connection);
+         } else {
+            char detail[640];
+            snprintf(detail, sizeof(detail), "SDR server rejected %s for %s: %s",
+               pending.release ? "disconnect" : pending.save ? "configuration save" : "receiver attachment",
+               pending.url ? pending.url : "(unknown receiver)", error);
+            report(detail, connection);
+         }
       } else if (pending.release && dict_get_bool(result, "disconnected", false)) {
          char *key = receiver_key(pending.profile, pending.url);
 
          if (connected_receivers) {
             g_hash_table_remove(connected_receivers, key);
+         }
+         if (receiver_rooms) {
+            GHashTableIter iter;
+            gpointer room_key, mapped_key;
+            g_hash_table_iter_init(&iter, receiver_rooms);
+            while (g_hash_table_iter_next(&iter, &room_key, &mapped_key))
+               if (!strcmp(mapped_key, key)) g_hash_table_iter_remove(&iter);
          }
          g_free(key);
          report("SDR disconnected: the server acknowledged receiver release.", connection);
