@@ -34,7 +34,9 @@ struct rr_audio_engine {
 };
 static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
    for (stream_t *s = e->streams; s; s = s->next) {
-      if (!strcmp(s->id, id)) return s;
+      if (!strcmp(s->id, id)) {
+         return s;
+      }
    }
    return NULL;
 }
@@ -154,7 +156,10 @@ bool rr_audio_engine_start(rr_audio_engine_t *e) {
       return false;
    }
    g_mutex_lock(&e->lock);
-   if (e->thread) { g_mutex_unlock(&e->lock); return true; }
+   if (e->thread) {
+      g_mutex_unlock(&e->lock);
+      return true;
+   }
    e->running = true;
    e->thread = g_thread_try_new("rr-audio", audio_thread, e, NULL);
    if (!e->thread) {
@@ -183,7 +188,12 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    }
    rr_audio_engine_stop(e);
    stream_t *s = e->streams;
-   while (s) { stream_t *next = s->next; g_free(s->id); g_free(s); s = next; }
+   while (s) {
+      stream_t *next = s->next;
+      g_free(s->id);
+      g_free(s);
+      s = next;
+   }
    g_mutex_clear(&e->lock);
    g_free(e);
 }
@@ -194,7 +204,12 @@ bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
    g_mutex_lock(&e->lock);
    bool present = find_stream(e, id) != NULL;
    stream_t *s = present ? NULL : g_new0(stream_t, 1);
-   if (s) { s->id = g_strdup(id); s->route = 'S'; s->next = e->streams; e->streams = s; }
+   if (s) {
+      s->id = g_strdup(id);
+      s->route = 'S';
+      s->next = e->streams;
+      e->streams = s;
+   }
    g_mutex_unlock(&e->lock);
    return present || s != NULL;
 }
