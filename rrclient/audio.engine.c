@@ -11,7 +11,11 @@
  * 160 ms of decoded PCM. This is a playout jitter cushion, not a GStreamer
  * queue or a delay on the network/codec worker. */
 #define AUDIO_PREFILL (3u * AUDIO_BLOCK)
-#define AUDIO_MAX_QUEUED (8u * AUDIO_BLOCK)
+/* Allow up to 240 ms of bursty decoded PCM before dropping the oldest
+ * samples. The fixed 160 ms ceiling was discarding bursts that arrived
+ * shortly after underflow, forcing unnecessary further rebuffering. */
+#define AUDIO_MAX_QUEUED (12u * AUDIO_BLOCK)
+#define AUDIO_RECOVERY_PREFILL AUDIO_BLOCK
 #define AUDIO_FADE_IN 64u
 typedef struct stream {
    struct stream *next;
@@ -54,7 +58,11 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       }
       *active = true;
       if (!s->primed) {
-         if (s->count < AUDIO_PREFILL) {
+         /* Start with 60 ms of PCM, but after a genuine dropout resume
+          * as soon as a complete 20 ms block arrives. Waiting for another
+          * full 60 ms magnified a single late frame into multiple silences. */
+         size_t threshold = s->ever_primed ? AUDIO_RECOVERY_PREFILL : AUDIO_PREFILL;
+         if (s->count < threshold) {
             /* Don't mislabel a receiver's initial startup as a dropout.
              * Count subsequent silence separately from the audio clock. */
             if (s->ever_primed) {
@@ -234,6 +242,9 @@ bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *p
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
    if (s) {
+      e->stats.push_calls++;
+      e->stats.pushed_samples += count;
+      e->stats.max_push_samples = MAX(e->stats.max_push_samples, count);
       if (count >= AUDIO_MAX_QUEUED) {
          e->stats.overflow_samples += s->count + count - AUDIO_MAX_QUEUED;
          pcm += count - AUDIO_MAX_QUEUED;
@@ -251,6 +262,7 @@ bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *p
          memcpy(s->samples, pcm + first, (count - first) * sizeof(*pcm));
       }
       s->count += count;
+      e->stats.max_queued_samples = MAX(e->stats.max_queued_samples, s->count);
    }
    g_mutex_unlock(&e->lock);
    return s != NULL;
