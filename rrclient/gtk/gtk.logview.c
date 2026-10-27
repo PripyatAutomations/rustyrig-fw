@@ -118,13 +118,20 @@ static gchar *logview_selected_text(GtkLogView *v, gboolean csv) {
       logview_append_selected, &state);
    return g_string_free(state.output, FALSE);
 }
+static void logview_message_width(GObject *column, GParamSpec *property, gpointer data) {
+   (void)property;
+   int width = gtk_tree_view_column_get_width(GTK_TREE_VIEW_COLUMN(column));
+   if (width > 0) g_object_set(G_OBJECT(data), "wrap-width", MAX(40, width - 14), NULL);
+}
 static gboolean logview_key(GtkWidget *widget, GdkEventKey *event, gpointer data) {
    (void)widget;
    if ((event->state & GDK_CONTROL_MASK) &&
        (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
-      gchar *csv = logview_selected_text(data, TRUE);
-      if (*csv) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), csv, -1);
-      g_free(csv);
+      /* Ctrl+C copies columns as TSV; Ctrl+Shift+C exports valid CSV. */
+      gboolean csv = (event->state & GDK_SHIFT_MASK) != 0;
+      gchar *selection = logview_selected_text(data, csv);
+      if (*selection) gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), selection, -1);
+      g_free(selection);
       return TRUE;
    }
    return FALSE;
@@ -186,6 +193,12 @@ GtkLogView *gtk_logview_new(unsigned limit) {
    for (int i = 0; i < 5; i++) {
       GtkCellRenderer *cell = gtk_cell_renderer_text_new();
       GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(headers[i], cell, "text", i, NULL);
+      if (i == COL_MESSAGE) {
+         /* Wrap even UUIDs/URLs with no whitespace. Track column resizing. */
+         g_object_set(G_OBJECT(cell), "wrap-mode", PANGO_WRAP_CHAR,
+            "wrap-width", widths[i] - 14, NULL);
+         g_signal_connect(column, "notify::width", G_CALLBACK(logview_message_width), cell);
+      }
       gtk_tree_view_column_set_cell_data_func(column, cell, rr_gtk_tree_stripe_cell, v->tree, NULL);
       gtk_tree_view_column_set_sizing(column, GTK_TREE_VIEW_COLUMN_FIXED);
       gtk_tree_view_column_set_fixed_width(column, widths[i]);
