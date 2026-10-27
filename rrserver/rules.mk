@@ -1,5 +1,6 @@
 CFLAGS_RRSERVER += -pthread
-LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic
+LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic $(shell pkg-config --libs libcurl sqlite3)
+${BUILD_DIR}/rrserver/receiver.directory.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags libcurl sqlite3)
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
 rrserver_objs += cfg.files.o files.o objects.o serial.o gps.o hardware.o hardware.dummy.o cfg.radio.o backend.internal-parts.o cfg.gpio.o si5351.o hardware.si5351.o cfg.si5351.o
