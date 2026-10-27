@@ -1022,6 +1022,32 @@ void rrclient_media_room_selected(const char *room) {
    }
 }
 
+/* The server has destroyed an entire room (including its media channels).
+ * Do not issue media.unsubscribe while processing the removal: the UUIDs
+ * are already gone on the server, so that request produces a spurious error.
+ * Normal voluntary PART still uses rrclient_media_room_parted(). */
+void rrclient_media_room_removed(const char *room) {
+   if (!room || !*room) return;
+   bool changed = false;
+   for (int i = 0; i < RR_MEDIA_MAX_CHANS; ++i) {
+      struct rr_client_media_chan *channel = &known_chans[i];
+      if (channel->uuid[0] && !strcasecmp(channel->room, room)) {
+         memset(channel, 0, sizeof(*channel));
+         changed = true;
+      }
+   }
+   if (!strcasecmp(media_room, room)) {
+      media_room[0] = '\0';
+      changed = true;
+   }
+   if (changed) {
+      rrclient_media_sync_audio();
+      event_emit("client.media.changed", ws_conn, "");
+   }
+   /* Keep routing the remaining channels without re-subscribing a deleted one. */
+   rrclient_handle_media_vfo(NULL, NULL, NULL, NULL);
+}
+
 void rrclient_media_room_parted(const char *room) {
    if (!room) {
       return;
