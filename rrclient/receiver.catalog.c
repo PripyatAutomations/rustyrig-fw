@@ -5,6 +5,7 @@
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
 #include <rrclient/connman.h>
+#include <rrclient/ui.h>
 #include <rrclient/receiver.directory.h>
 #include <rrclient/receiver.catalog.h>
 #define CATALOG_MAX (8u*1024u*1024u)
