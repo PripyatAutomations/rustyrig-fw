@@ -25,24 +25,34 @@ static guint timer_id;
 static unsigned serial;
 static void free_chunk(gpointer chunk) { if (chunk) g_bytes_unref(chunk); }
 static void reset(void) {
-   if (transfer.chunks) g_ptr_array_free(transfer.chunks, TRUE);
+   if (transfer.chunks) {
+      g_ptr_array_free(transfer.chunks, TRUE);
+   }
    memset(&transfer, 0, sizeof(transfer));
 }
 static bool send_request(rrconn_t *connection, const char *command, guint page) {
-   if (!connection || !connection->is_ws || !connection->authenticated) return false;
+   if (!connection || !connection->is_ws || !connection->authenticated) {
+      return false;
+   }
    dict *d=dict_new();
-   if(!d)return false;
+   if(!d) {
+      return false;
+   }
    dict_add(d,"msg.type","receiver-directory");
    dict_add(d,"directory.cmd",command);
    dict_add(d,"directory.request",transfer.token);
-   if(!strcmp(command,"list")) dict_add_uint(d,"directory.page",page);
+   if(!strcmp(command,"list")) {
+      dict_add_uint(d,"directory.page",page);
+   }
    bool sent=ws_send_dict(NULL,connection,d,WEBSOCKET_OP_TEXT);
    dict_free(d);
    return sent;
 }
 static gboolean expire(gpointer unused) {
    (void)unused; timer_id=0;
-   if (!transfer.connection) return G_SOURCE_REMOVE;
+   if (!transfer.connection) {
+      return G_SOURCE_REMOVE;
+   }
    if (++transfer.retry <= 5) {
       /* Server may be fetching its initial cache asynchronously. */
       if (send_request(transfer.connection,"list",transfer.requested_page)) {
@@ -55,13 +65,17 @@ static gboolean expire(gpointer unused) {
    return G_SOURCE_REMOVE;
 }
 static void arm(void) {
-   if(timer_id)g_source_remove(timer_id);
+   if(timer_id) {
+      g_source_remove(timer_id);
+   }
    timer_id=g_timeout_add_seconds(3,expire,NULL);
 }
 bool rrclient_receiver_catalog_request(bool force) {
    (void)force; /* Server refresh is governed by its shared TTL. */
    rrconn_t *connection=rrclient_active_connection();
-   if(!connection || !connection->is_ws || !connection->authenticated) return false;
+   if(!connection || !connection->is_ws || !connection->authenticated) {
+      return false;
+   }
    if(timer_id){g_source_remove(timer_id);timer_id=0;}
    reset();
    transfer.connection=connection;
@@ -72,12 +86,18 @@ bool rrclient_receiver_catalog_request(bool force) {
 }
 static void received(const char *event,const char *data,rrconn_t *connection,void *unused) {
    (void)event;(void)unused;
-   if(!data || !transfer.connection || transfer.connection!=connection)return;
+   if(!data || !transfer.connection || transfer.connection!=connection) {
+      return;
+   }
    dict *d=json2dict(data);
-   if(!d)return;
+   if(!d) {
+      return;
+   }
    const char *token=dict_get(d,"directory.request","");
    const char *command=dict_get(d,"directory.cmd","");
-   if(strcmp(token,transfer.token))goto done;
+   if(strcmp(token,transfer.token)) {
+      goto done;
+   }
    if(!strcmp(command,"status")) {
       const char *digest=dict_get(d,"directory.digest","");
       if(strlen(digest)!=64)goto done; /* Empty cache; server still fetching. */
@@ -95,8 +115,12 @@ static void received(const char *event,const char *data,rrconn_t *connection,voi
       if(strcmp(encoding,"base64") || !count || count>1024 ||
          seq>=count || !encoded || strlen(encoded)>4*((CATALOG_CHUNK+2)/3)+4 ||
          (transfer.total && (transfer.total!=count || transfer.generation!=generation)) ||
-         (transfer.digest[0] && strcmp(transfer.digest,hex))) goto done;
-      if(strlen(hex)!=64 || (transfer.total && transfer.requested_page*8>seq)) goto done;
+         (transfer.digest[0] && strcmp(transfer.digest,hex))) {
+         goto done;
+      }
+      if(strlen(hex)!=64 || (transfer.total && transfer.requested_page*8>seq)) {
+         goto done;
+      }
       if(!transfer.chunks) {
          transfer.total=count;
          transfer.generation=generation;
@@ -104,7 +128,9 @@ static void received(const char *event,const char *data,rrconn_t *connection,voi
          transfer.chunks=g_ptr_array_new_with_free_func(free_chunk);
          g_ptr_array_set_size(transfer.chunks,count);
       }
-      if(g_ptr_array_index(transfer.chunks,seq))goto done;
+      if(g_ptr_array_index(transfer.chunks,seq)) {
+         goto done;
+      }
       gsize bytes=0;
       guchar *decoded=g_base64_decode(encoded,&bytes);
       if(!decoded || !bytes || bytes>CATALOG_CHUNK) {g_free(decoded);goto done;}
@@ -124,13 +150,16 @@ static void received(const char *event,const char *data,rrconn_t *connection,voi
          char *sum=g_compute_checksum_for_string(G_CHECKSUM_SHA256,body->str,body->len);
          if(sum && !strcmp(sum,transfer.digest) &&
             receiver_directory_import_snapshot(body->str,body->len,"rrserver")) {
+            receiver_directory_import_snapshot(body->str,body->len,"rrserver")) {
             Log(LOG_INFO,"receiver.directory","Applied %u verified chunks of server SDR catalog (generation %llu)",
                transfer.total,(unsigned long long)transfer.generation);
          } else Log(LOG_WARN,"receiver.directory","Rejected incomplete or invalid server directory digest");
          g_free(sum);g_string_free(body,TRUE);reset();
       } else if(transfer.received%8==0) {
          transfer.requested_page=transfer.received/8;
-         if(send_request(connection,"list",transfer.requested_page))arm();
+         if(send_request(connection,"list",transfer.requested_page)) {
+            arm();
+         }
       } else arm();
    }
 done:
@@ -144,7 +173,9 @@ static void disconnected(const char *event,const char *data,rrconn_t *connection
    }
 }
 void rrclient_receiver_catalog_init(void) {
-   if(catalog_token)return;
+   if(catalog_token) {
+      return;
+   }
    catalog_token=event_on_token("ws.msg.receiver-directory",received,NULL);
    event_on("disconnected",disconnected,NULL);
 }
