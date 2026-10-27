@@ -230,30 +230,8 @@ bool cmd_join(int argc, char **args) {
 
          return false;
       }
-      bool sent = irc_send(connection, "JOIN %s", args[1]);
-      const char *window_name = rrclient_window_name(args[1]);
-
-      if (sent && ui_mode == UI_MODE_TUI) {
-         tui_window_t *window = tui_window_find(window_name);
-
-         if (!window) {
-            window = tui_window_create(window_name);
-
-            if (window) {
-               rrclient_irc_query_opened(connection, args[1]);
-            }
-         }
-
-         if (window) {
-            window->cptr = connection;
-            tui_window_focus(window->title);
-         }
-      } else if (sent && ui_mode == UI_MODE_GTK && frontend_ops() && frontend_ops()->chat_room_add) {
-         rrclient_connection_select(rrclient_window_server(window_name));
-         frontend_ops()->chat_room_add(args[1]);
-      }
-
-      return !sent;
+      /* Wait for the server-confirmed JOIN before creating/focusing a channel tab. */
+      return !irc_send(connection, "JOIN %s", args[1]);
    }
    dict *d = dict_new();
    dict_add(d, "msg.type", "talk");
