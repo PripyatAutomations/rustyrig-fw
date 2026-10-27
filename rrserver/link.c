@@ -76,7 +76,7 @@ static struct {
    rr_link_tree_t *tree;
    unsigned generation;
    long long autoconnect_after;
-   char node[37], site[128];
+   char node[37], domain[37], site[128];
    struct mg_str cert, key, ca;
    bool insecure, stopping;
 } links;
@@ -517,6 +517,7 @@ static void send_hello(struct link_session *session) {
       return;
    }
    dict_add(d, "node", links.node);
+   dict_add(d, "domain", links.domain);
    dict_add(d, "site", links.site);
    /* Keep the initial handshake compatible with deployed wire decoders. Clock sampling must be negotiated after the base handshake. */
    dict_add(d, "password", session->peer->password);
@@ -701,6 +702,11 @@ static void establish(struct link_session *session) {
 
 static void handle_hello(struct link_session *session, dict *d) {
    const char *site = dict_get(d, "site", ""), *node = dict_get(d, "node", "");
+   const char *domain = dict_get(d, "domain", "");
+   if (!rr_object_uuid_valid(domain) || g_ascii_strcasecmp(domain, links.domain)) {
+      fail(session, "Peer belongs to a different domain or omitted its domain UUID");
+      return;
+   }
 
    if (session->hello || !rr_object_uuid_valid(node) || !strcmp(node, links.node) || strlen(site) >= 128 || !strcmp(site, links.site)) {
       fail(session, "Invalid station name or UUID in link hello");
@@ -1436,6 +1442,12 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       return false;
    }
    snprintf(links.node, sizeof(links.node), "%s", node);
+   const char *domain = cfg_get("domain.uuid");
+   if (!rr_object_uuid_valid(domain)) {
+      Log(LOG_CRIT, "link", "domain.uuid must be a persistent UUID shared by all servers in this domain");
+      return false;
+   }
+   snprintf(links.domain, sizeof(links.domain), "%s", domain);
    snprintf(links.site, sizeof(links.site), "%s", config_value("station.name", "rustyrig"));
    links.insecure = cfg_get_bool("links.allow-insecure", false);
    /* Discover [peer] and [peer:name] sections without duplicating config state. */
