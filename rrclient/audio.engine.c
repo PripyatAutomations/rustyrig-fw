@@ -33,8 +33,9 @@ struct rr_audio_engine {
    int gain[2];
 };
 static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
-   for (stream_t *s = e->streams; s; s = s->next)
+   for (stream_t *s = e->streams; s; s = s->next) {
       if (!strcmp(s->id, id)) return s;
+   }
    return NULL;
 }
 /* All per-stream state lives under e->lock; the output callback runs only
@@ -57,7 +58,9 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
             if (s->ever_primed) {
                e->stats.underrun_blocks++;
                e->stats.rebuffer_blocks++;
-               if (!s->starved) e->stats.starvation_events++;
+               if (!s->starved) {
+                  e->stats.starvation_events++;
+               }
                s->starved = true;
             } else {
                e->stats.startup_blocks++;
@@ -72,7 +75,9 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
       size_t take = MIN(s->count, AUDIO_BLOCK);
       if (take < AUDIO_BLOCK) {
          e->stats.underrun_blocks++;
-         if (!s->starved) e->stats.starvation_events++;
+         if (!s->starved) {
+            e->stats.starvation_events++;
+         }
          s->starved = true;
          s->primed = false; /* Refill before resuming, rather than sputtering. */
       }
@@ -84,10 +89,15 @@ static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *ac
          }
          /* If the last delivered buffer is short, fade its tail to silence
           * instead of abruptly cutting a nonzero PCM sample. */
-         if (take < AUDIO_BLOCK && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN))
+         if (take < AUDIO_BLOCK && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN)) {
             sample = sample * (int32_t)(take - i - 1) / (int32_t)MIN(take, AUDIO_FADE_IN);
-         if (s->route != 'R') accum[2 * i] += sample;
-         if (s->route != 'L') accum[2 * i + 1] += sample;
+         }
+         if (s->route != 'R') {
+            accum[2 * i] += sample;
+         }
+         if (s->route != 'L') {
+            accum[2 * i + 1] += sample;
+         }
       }
       s->head = (s->head + take) % AUDIO_CAPACITY;
       s->count -= take;
@@ -105,7 +115,9 @@ static gpointer audio_thread(gpointer data) {
    gint64 deadline = g_get_monotonic_time() + AUDIO_PERIOD_US;
    for (;;) {
       gint64 now = g_get_monotonic_time();
-      if (now < deadline) g_usleep((gulong)(deadline - now));
+      if (now < deadline) {
+         g_usleep((gulong)(deadline - now));
+      }
       now = g_get_monotonic_time();
       g_mutex_lock(&e->lock);
       bool running = e->running;
@@ -116,12 +128,16 @@ static gpointer audio_thread(gpointer data) {
       uint64_t elapsed = now > deadline ? (uint64_t)(now - deadline) / AUDIO_PERIOD_US : 0;
       e->stats.skipped_blocks += elapsed;
       g_mutex_unlock(&e->lock);
-      if (!running) break;
+      if (!running) {
+         break;
+      }
       deadline += (elapsed + 1) * AUDIO_PERIOD_US;
       int16_t pcm[AUDIO_BLOCK * 2];
       bool active;
       tick(e, pcm, &active);
-      if (active && e->output) e->output(pcm, AUDIO_BLOCK, e->user);
+      if (active && e->output) {
+         e->output(pcm, AUDIO_BLOCK, e->user);
+      }
    }
    return NULL;
 }
@@ -134,27 +150,37 @@ rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn fn, void *user) {
    return e;
 }
 bool rr_audio_engine_start(rr_audio_engine_t *e) {
-   if (!e) return false;
+   if (!e) {
+      return false;
+   }
    g_mutex_lock(&e->lock);
    if (e->thread) { g_mutex_unlock(&e->lock); return true; }
    e->running = true;
    e->thread = g_thread_try_new("rr-audio", audio_thread, e, NULL);
-   if (!e->thread) e->running = false;
+   if (!e->thread) {
+      e->running = false;
+   }
    bool ok = e->thread != NULL;
    g_mutex_unlock(&e->lock);
    return ok;
 }
 void rr_audio_engine_stop(rr_audio_engine_t *e) {
-   if (!e) return;
+   if (!e) {
+      return;
+   }
    g_mutex_lock(&e->lock);
    e->running = false;
    GThread *thread = e->thread;
    e->thread = NULL;
    g_mutex_unlock(&e->lock);
-   if (thread) g_thread_join(thread);
+   if (thread) {
+      g_thread_join(thread);
+   }
 }
 void rr_audio_engine_free(rr_audio_engine_t *e) {
-   if (!e) return;
+   if (!e) {
+      return;
+   }
    rr_audio_engine_stop(e);
    stream_t *s = e->streams;
    while (s) { stream_t *next = s->next; g_free(s->id); g_free(s); s = next; }
@@ -162,7 +188,9 @@ void rr_audio_engine_free(rr_audio_engine_t *e) {
    g_free(e);
 }
 bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
-   if (!e || !id || !*id) return false;
+   if (!e || !id || !*id) {
+      return false;
+   }
    g_mutex_lock(&e->lock);
    bool present = find_stream(e, id) != NULL;
    stream_t *s = present ? NULL : g_new0(stream_t, 1);
@@ -171,7 +199,9 @@ bool rr_audio_engine_add_stream(rr_audio_engine_t *e, const char *id) {
    return present || s != NULL;
 }
 void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
-   if (!e || !id) return;
+   if (!e || !id) {
+      return;
+   }
    g_mutex_lock(&e->lock);
    stream_t **slot = &e->streams;
    while (*slot) {
@@ -183,7 +213,9 @@ void rr_audio_engine_remove_stream(rr_audio_engine_t *e, const char *id) {
    g_mutex_unlock(&e->lock);
 }
 bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *pcm, size_t count) {
-   if (!e || !id || !pcm || !count) return false;
+   if (!e || !id || !pcm || !count) {
+      return false;
+   }
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
    if (s) {
@@ -200,14 +232,18 @@ bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *p
       size_t tail = (s->head + s->count) % AUDIO_CAPACITY;
       size_t first = MIN(count, AUDIO_CAPACITY - tail);
       memcpy(s->samples + tail, pcm, first * sizeof(*pcm));
-      if (count > first) memcpy(s->samples, pcm + first, (count - first) * sizeof(*pcm));
+      if (count > first) {
+         memcpy(s->samples, pcm + first, (count - first) * sizeof(*pcm));
+      }
       s->count += count;
    }
    g_mutex_unlock(&e->lock);
    return s != NULL;
 }
 bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
-   if (!e || !id || !strchr("LRSM", route)) return false;
+   if (!e || !id || !strchr("LRSM", route)) {
+      return false;
+   }
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
    if (s) {
@@ -220,15 +256,21 @@ bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
    return s != NULL;
 }
 void rr_audio_engine_stats(rr_audio_engine_t *e, rr_audio_engine_stats_t *out, bool reset) {
-   if (!e || !out) return;
+   if (!e || !out) {
+      return;
+   }
    g_mutex_lock(&e->lock);
    *out = e->stats;
-   if (reset) memset(&e->stats, 0, sizeof(e->stats));
+   if (reset) {
+      memset(&e->stats, 0, sizeof(e->stats));
+   }
    g_mutex_unlock(&e->lock);
 }
 
 void rr_audio_engine_gain(rr_audio_engine_t *e, unsigned channel, int percent) {
-   if (!e || channel > 1) return;
+   if (!e || channel > 1) {
+      return;
+   }
    g_mutex_lock(&e->lock);
    e->gain[channel] = CLAMP(percent, 0, 100);
    g_mutex_unlock(&e->lock);
