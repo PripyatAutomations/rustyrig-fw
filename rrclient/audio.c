@@ -67,7 +67,7 @@ static uint64_t rx_decoder_write_fail, rx_speaker_write_fail, rx_mixed_blocks;
 static void rx_diag_report(uint64_t current) {
    if (!rx_diag_at) rx_diag_at = current;
    if (current - rx_diag_at < 10000000) return;
-   if (rx_mixed_blocks || rx_late_ticks || rx_overflow_samples || rx_decoder_write_fail) {
+   if (rx_mixed_blocks || rx_overflow_samples || rx_decoder_write_fail || rx_speaker_write_fail) {
       Log(LOG_INFO, "audio.timing",
          "RX/10s mixed=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu missing-samples=%llu overflow-samples=%llu decoder-write-fail=%llu speaker-write-fail=%llu",
          (unsigned long long)rx_mixed_blocks, (unsigned long long)rx_late_ticks,
