@@ -313,8 +313,13 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
    if (!b->desired || !b->online) {
       return RR_CONTROL_BACKEND_FAILED;
    }
-   uint64_t hz = b->desired_hz;
-   const char *mode = b->desired_mode;
+   /* A second digit or mode change must build on the latest requested
+    * setpoint, not the last ACKed one (which may still be 14.074 MHz).
+    * The pending bridge command remains serialized with Kiwi's ACK. */
+   uint64_t hz = b->queued_tune ? b->queued_hz :
+      b->pending ? b->requested_hz : b->desired_hz;
+   const char *mode = b->queued_tune ? b->queued_mode :
+      b->pending ? b->requested_mode : b->desired_mode;
 
    if (!strcmp(r->property, RR_PROP_VFO_FREQUENCY) && r->value_type == VAL_LONG) {
       hz = r->value.l;
