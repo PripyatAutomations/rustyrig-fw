@@ -505,11 +505,11 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
    const char *nick_color = colored_from;
    if (from && strchr("~&@%+!", from[0]) && from[1]) {
       const char *prefix_color = from[0] == '+' ? "\00313" : from[0] == '@' ? "\00311" : from[0] == '!' ? "\00305" : "\00310";
-      snprintf(colored_from, sizeof(colored_from), "%s%c\017\003%02u%s\017",
-         prefix_color, from[0], nickname_color.mirc, from + 1);
+      snprintf(colored_from, sizeof(colored_from), "%s%c\017\004%s%s\017",
+         prefix_color, from[0], nickname_color.hex + 1, from + 1);
    } else {
-      snprintf(colored_from, sizeof(colored_from), "\003%02u%s\017",
-         nickname_color.mirc, from ? from : "?");
+      snprintf(colored_from, sizeof(colored_from), "\004%s%s\017",
+         nickname_color.hex + 1, from ? from : "?");
    }
    bool mention = false;
 
