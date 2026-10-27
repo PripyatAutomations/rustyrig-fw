@@ -2138,8 +2138,8 @@ static void resource_request(void *data) {
     * global selected connection to refresh another server's media catalog. */
    rrconn_t *connection = rrclient_connection_find(branch->profile);
    if (connection && connection->authenticated && connection->is_ws &&
-       connection->conn && !connection->is_closing) {
-      rrclient_media_refresh();
+       connection->conn && !connection->conn->is_closing) {
+      rrclient_media_refresh(connection);
    }
 }
 static void resource_refresh(resource_branch *branch) {
