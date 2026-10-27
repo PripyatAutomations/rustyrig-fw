@@ -4,6 +4,37 @@ The SDR Directory is a **catalog of external receiver metadata**, not a collecti
 live rrserver rigs. Do not insert thousands of directory entries into the live
 object inventory or spawn bridges until a user requests a connection.
 
+## First implementation on main
+
+The server now contains `rrserver/receiver.directory.c` and registers the service
+with the authenticated `RR_SERVER_ROUTE_EVENT` handler. This **does not yet
+replace the client directory fetcher or replicate the catalog through links**.
+
+The first protocol is `msg.type=receiver-directory`, `directory.cmd=status|list|refresh`,
+optionally `directory.request=<opaque correlation ID>`. `status` reports a
+cached generation, SHA-256, source, timestamps and fetch activity.
+`list` also accepts `directory.page=N` and returns **at most eight**
+12,000-byte raw chunks encoded in Base64 (`directory.cmd=chunk`,
+`directory.sequence`, `directory.total`, `directory.digest`).
+The client must request subsequent pages and verify the digest before
+committing a snapshot. Empty server caches produce status-only responses while
+one asynchronous HTTPS fetch runs. Normal `refresh` respects the four-hour
+server-wide deadline; there is intentionally no ordinary user's forced
+download operation yet.
+
+Configuration keys: `receiver-directory.url` defaults to
+`https://cdn.aethersdr.com/kiwi.json`, and
+`receiver-directory.cache` optionally chooses the server's SQLite location,
+otherwise `$XDG_CACHE_HOME/rustyrig/server-receivers.sqlite3`.
+The fetch uses libcurl with no redirects, no ambient proxy and HTTPS only;
+the server validates the declared Kiwi schema and entry cap before promotion.
+Service initialization failure is nonfatal to radio operation.
+
+Next work: wire an authenticated client snapshot accumulator, mixed-version
+fallback, explicit server-link generation announcements, and full mirrored
+record-state migration. The existing GTK/TUI cached directory stays intact
+until those are functional and tested.
+
 ## Authority and storage
 
 - `rrserver` owns HTTPS mirror fetches, validation, four-hour caching, and
