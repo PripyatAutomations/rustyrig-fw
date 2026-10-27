@@ -365,6 +365,7 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    if (route->output == 'M' || (len & 1)) {
       return;
    }
+   rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
    if (rx_engine) rr_audio_engine_push(rx_engine, route->identity, samples, len / sizeof(int16_t));
    else rx_pcm_push(route, samples, len / sizeof(int16_t));
 }
