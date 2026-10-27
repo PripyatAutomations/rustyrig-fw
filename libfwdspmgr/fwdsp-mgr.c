@@ -81,6 +81,52 @@ static int active_slots = 0;
 static int max_subprocs = FWDSP_MAX_SUBPROCS;
 static struct fwdsp_subproc *fwdsp_subprocs;
 static int next_channel_id = 1;
+/* Keep restart history outside reusable fwdsp slots so a crashed child
+ * cannot bypass the guard simply by obtaining a fresh slot. */
+#define FWDSP_SPAWN_GUARDS 128
+struct fwdsp_spawn_guard {
+   char key[384];
+   uint64_t window_started, blocked_until;
+   unsigned attempts;
+};
+static struct fwdsp_spawn_guard spawn_guards[FWDSP_SPAWN_GUARDS];
+static bool fwdsp_spawn_permitted(const struct fwdsp_subproc *sp) {
+   char key[384];
+   /* Group dynamically named endpoints by pipeline rather than by PID/slot. */
+   if (sp->pipeline[0])
+      snprintf(key, sizeof(key), "pipeline:%s", sp->pipeline);
+   else if (sp->role == FWDSP_ROLE_PROCESSOR)
+      snprintf(key, sizeof(key), "processor:%s", sp->processor_name);
+   else
+      snprintf(key, sizeof(key), "codec:%.4s:%c", sp->pl_id, sp->is_tx ? 'T' : 'R');
+   uint64_t current = mono_us();
+   struct fwdsp_spawn_guard *guard = NULL, *oldest = &spawn_guards[0];
+   for (size_t i = 0; i < FWDSP_SPAWN_GUARDS; ++i) {
+      struct fwdsp_spawn_guard *candidate = &spawn_guards[i];
+      if (!strcmp(candidate->key, key)) { guard = candidate; break; }
+      if (!candidate->key[0]) oldest = candidate;
+      else if (oldest->key[0] && candidate->window_started < oldest->window_started)
+         oldest = candidate;
+   }
+   if (!guard) {
+      guard = oldest;
+      memset(guard, 0, sizeof(*guard));
+      snprintf(guard->key, sizeof(guard->key), "%s", key);
+   }
+   if (current < guard->blocked_until) return false;
+   if (!guard->window_started || current - guard->window_started >= UINT64_C(30000000)) {
+      guard->window_started = current;
+      guard->attempts = 0;
+   }
+   if (guard->attempts >= 3) {
+      guard->blocked_until = current + UINT64_C(60000000);
+      Log(LOG_WARN, "fwdsp", "Spawn rate limit for %.120s: more than 3 starts in 30s; retry after 60s", key);
+      return false;
+   }
+   guard->attempts++;
+   return true;
+}
+
 extern const char *config_file; // librustyaxe/config.c
 #ifdef USE_MONGOOSE
 extern struct mg_mgr mg_mgr;    // rrserver/main.c defines it; rrclient links through librrprotocol's `mgr` alias
@@ -1055,6 +1101,7 @@ bool fwdsp_spawn(struct fwdsp_subproc *sp) {
    if (!sp) {
       return false;
    }
+   if (!fwdsp_spawn_permitted(sp)) return false;
 
    int in_pipe[2] = {
       -1, -1
