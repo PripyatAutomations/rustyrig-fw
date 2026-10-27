@@ -56,6 +56,7 @@ struct bridge_child {
    uint64_t next_retry, started, last_seen, pending, deadline, next_request, kill_deadline;
    uint64_t desired_hz, requested_hz;
    char desired_mode[16], requested_mode[16];
+   char connection_failure[128];
    /* UI frequency/mode changes have no completion callback. Coalesce rapid
     * changes into one last-wins request while the bridge awaits an ACK. */
    bool queued_tune;
@@ -629,6 +630,7 @@ static bool spawn_child(struct bridge_child *b) {
    b->started = b->last_seen = mono_us();
    b->kill_deadline = 0;
    b->hello = b->ready = b->idling = false;
+   b->connection_failure[0] = 0;
    const char *spawn_room = rr_rig_registry_room(rig.rigs, b->backend->owner);
    Log(LOG_INFO, "bridge",
       "Spawned [%s] pid=%ld driver=%s rig_uuid=%s room=%s ready=no media_fd=%d",
@@ -741,18 +743,35 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       /* Forward child diagnostics through the host logger, including during
        * capability negotiation and while the receiver is shutting down. */
       Log(LOG_INFO, "rrbridge", "[%s] %s", bridge_public_name(b), m->metadata_value);
+      /* Keep the actual final connection stage for the operator. A successful
+       * HTTP 307 redirect is not itself a failure; the downstream Kiwi
+       * WebSocket can subsequently time out during authentication. */
+      if (b->temporary && strstr(m->metadata_value, "Kiwi receiver timed out (")) {
+         const char *stage = strstr(m->metadata_value, "Kiwi receiver timed out (") +
+            strlen("Kiwi receiver timed out (");
+         const char *end = strchr(stage, ';');
+         size_t length = end ? (size_t)(end - stage) : 0;
+         if (length > 0 && length < 70)
+            snprintf(b->connection_failure, sizeof(b->connection_failure),
+               "Kiwi %.*s timed out", (int)length, stage);
+      } else if (b->temporary && strstr(m->metadata_value, "Kiwi WebSocket connection failed")) {
+         snprintf(b->connection_failure, sizeof(b->connection_failure), "%s",
+            "Kiwi WebSocket connection failed");
+      }
       if (b->temporary && strstr(m->metadata_value, "Kiwi receiver stopped after 3 connection attempts")) {
          b->terminal_failure = true;
          b->next_retry = UINT64_MAX;
          Log(LOG_WARN, "sdr.status", "[%s] terminal receiver failure in %s; tearing down temporary SDR attachment",
             bridge_public_name(b), b->attached_room);
+         const char *failure = b->connection_failure[0] ? b->connection_failure :
+            "receiver connection did not complete";
          for (rrconn_t *member = http_client_list; member; member = member->next) {
             if (member->authenticated && b->attached_room[0] &&
                 ws_client_in_room(member, b->attached_room)) {
                ws_send_error(member,
-                  "SDR receiver in %s could not connect after 3 attempts (HTTP redirect or receiver unavailable). "
+                  "SDR receiver in %s could not connect after 3 attempts: %s. "
                   "The failed temporary receiver is being removed; choose another receiver or retry from SDR Directory.",
-                  b->attached_room);
+                  b->attached_room, failure);
             }
          }
          /* Notify room members using the existing room-removed protocol.
@@ -765,8 +784,11 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
                dict_add(removed, "talk.cmd", "room-removed");
                dict_add(removed, "talk.room", b->attached_room);
                dict_add(removed, "talk.user", "server");
-               dict_add(removed, "talk.reason",
-                  "SDR receiver unreachable after 3 connection attempts. Choose another receiver or retry.");
+               char reason[320];
+               snprintf(reason, sizeof(reason),
+                  "SDR receiver failed after 3 connection attempts: %s. Choose another receiver or retry.",
+                  failure);
+               dict_add(removed, "talk.reason", reason);
                ws_broadcast_room_dict(NULL, removed, b->attached_room);
                dict_free(removed);
             }
