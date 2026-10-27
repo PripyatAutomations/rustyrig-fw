@@ -23,7 +23,7 @@ void rr_af_spectrum_listen(bool enabled) {
    }
 }
 void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames) {
-   if (!stream || !*stream || !pcm || !frames) {
+   if (g_atomic_int_get(&af_listeners) <= 0 || !stream || !*stream || !pcm || !frames) {
       return;
    }
    g_mutex_lock(&af_lock);
