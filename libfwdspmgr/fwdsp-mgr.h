@@ -171,6 +171,8 @@ extern bool fwdsp_processor_write(const char *name, const void *samples, size_t 
 extern bool fwdsp_processor_setvol(const char *name, int percent);
 // Stop a named endpoint. Pass a qualified name (src.rig0, sink.rig0,
 // proc.effect-name, or recode.codec-name) when names may overlap.
-extern bool fwdsp_processor_stop(const char *name);
+extern int fwdsp_processor_dup_input(const char *name);
+bool fwdsp_pcm_write_fd(int fd, const void *pcm, size_t bytes);
+bool fwdsp_processor_stop(const char *name);
 
 #endif // !defined(__rr_fwdsp_mgr_h)
