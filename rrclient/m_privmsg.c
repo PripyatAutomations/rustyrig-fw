@@ -790,6 +790,7 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       ui_print(arg1, "%s* %s%s%s%s kicked %s: %s", get_chat_ts(now), from,
          *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg2,
          dict_get(message, "msg.arg3", ""));
+      dict_add(d, "talk.kicked", "true");
       event_emit_dict("part", cptr, d);
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
       userlist_mark_oper(from, false);
