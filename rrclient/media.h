@@ -10,7 +10,7 @@
 #include <librrprotocol/rrprotocol.h>
 
 void rrclient_media_sync_audio(void);
-void rrclient_media_refresh(void);
+void rrclient_media_refresh(rrconn_t *connection);
 /* Current connection: local confirmed TX feeding this RX resource. */
 bool rrclient_media_local_tx(const char *uuid);
 extern void rrclient_media_room_selected(const char *room);
