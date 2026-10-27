@@ -522,6 +522,7 @@ static void sent(const char *event, const void *data, size_t length, rrconn_t *c
       dict_add(d, "media.direct", endpoint);
       dict_add(d, "media.direct-candidates", candidates);
       dict_add(d, "media.direct-security", pool->encrypted ? "aes128cm-sha1-80" : "null-sha1-80");
+      dict_add_ulong(d, "media.direct-lease-seconds", 300);
    }
 
    if (strcmp(cmd, "subscribed")) {
