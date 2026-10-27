@@ -18,6 +18,7 @@
 #include <rrclient/rooms.h>
 #include <rrclient/userlist.h>
 #include <rrclient/irc.whois.h>
+#include <glib.h>
 
 extern const char *login_user;
 extern void rrclient_update_connection_ui(int connected);
