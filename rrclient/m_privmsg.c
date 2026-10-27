@@ -767,9 +767,12 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       event_emit_dict("join", cptr, d);
       dict_add_int(d, "talk.sessions", 1);
       event_emit_dict("userinfo", cptr, d);
+      ui_print(arg1, "%s\00303*\017 %s joined %s", get_chat_ts(now), from, arg1);
    } else if (!strcasecmp(cmd, "PART") && argc >= 2 && *from) {
       dict_add(d, "talk.room", arg1);
       event_emit_dict("part", cptr, d);
+      ui_print(arg1, "%s\00304*\017 %s left %s%s%s", get_chat_ts(now), from, arg1,
+         argc >= 3 && *arg2 ? ": " : "", argc >= 3 ? arg2 : "");
    } else if (!strcasecmp(cmd, "KICK") && argc >= 3) {
       dict_add(d, "talk.room", arg1);
       dict_add(d, "talk.user", arg2);
@@ -877,6 +880,15 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
    } else if (!strcmp(cmd, "366") && argc >= 3) {
       userlist_names_end(arg2);
    } else if (!strcasecmp(cmd, "MODE") && argc >= 3 && (arg1[0] == '#' || arg1[0] == '&')) {
+      GString *details = g_string_new(arg2);
+      for (int i = 3; i < argc; ++i) {
+         char key[32];
+         snprintf(key, sizeof(key), "msg.arg%d", i);
+         const char *value = dict_get(message, key, "");
+         if (*value) g_string_append_printf(details, " %s", value);
+      }
+      ui_print(arg1, "%s\00310*\017 %s sets mode %s", get_chat_ts(now), from, details->str);
+      g_string_free(details, TRUE);
       bool adding = true;
       int parameter = 3;
 
