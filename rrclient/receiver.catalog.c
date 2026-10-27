@@ -200,6 +200,16 @@ static void disconnected(const char *event,const char *data,rrconn_t *connection
       }
       reset();
    }
+   /* The catalog belongs to the RustyRig network, not the last-used profile. */
+   for (unsigned i = 0; ; ++i) {
+      const char *name = rrclient_connection_iter(i);
+      if (!name) break;
+      rrconn_t *peer = rrclient_connection_find(name);
+      if (peer && peer != connection && peer->is_ws && peer->authenticated &&
+          peer->connected && peer->conn && !peer->conn->is_closing)
+         return;
+   }
+   receiver_directory_clear_server_snapshot();
 }
 void rrclient_receiver_catalog_init(void) {
    if(catalog_token) {
