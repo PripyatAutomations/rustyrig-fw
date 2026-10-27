@@ -52,6 +52,22 @@
 extern struct GlobalState rig;
 extern void rrserver_media_register_events(void);  // media.c
 
+/* Announce stable network ownership immediately after authentication. */
+static void rrserver_send_domain_identity(const char *event, const char *data, rrconn_t *client, void *user) {
+   (void)event; (void)data; (void)user;
+   if (!client || !client->authenticated) return;
+   const char *domain = cfg_get("domain");
+   const char *node = rr_rig_registry_node(rig.rigs);
+   if (!domain || !*domain || !node || !*node) return;
+   dict *message = dict_new();
+   if (!message) return;
+   dict_add(message, "msg.type", "domain");
+   dict_add(message, "domain.name", domain);
+   dict_add(message, "domain.server", node);
+   ws_send_dict(NULL, client, message, WEBSOCKET_OP_TEXT);
+   dict_free(message);
+}
+
 /* Inspect an authenticated protocol hello using existing diagnostic logging. */
 static void rrserver_handle_hello(const char *event, const char *data, rrconn_t *cptr, void *user) {
    if (!data) {
@@ -676,6 +692,7 @@ void rrserver_register_events(void) {
    event_on("recording-stop", rrserver_handle_recording_stop, NULL);
    event_on("rig.ptt", rrserver_handle_rig_ptt_off, NULL);
    event_on("send-chat-replay", rrserver_handle_send_chat_replay, NULL);
+   event_on("send-cat-state", rrserver_send_domain_identity, NULL);
    event_on("send-cat-state", rrserver_handle_send_cat_state, NULL);
    event_on("talk.msg", rrserver_handle_talkmsg, NULL);
    event_on("talk.typing", rrserver_handle_typing, NULL);
