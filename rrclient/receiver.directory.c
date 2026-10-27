@@ -580,7 +580,9 @@ static bool detail_set(const char *url, const char *key, const char *value, bool
    return ok;
 }
 static void apply_details(receiver_directory_entry_t *r, sqlite3_stmt *statement) {
-   if (!statement) return;
+   if (!statement) {
+      return;
+   }
    sqlite3_bind_text(statement, 1, r->url, -1, SQLITE_TRANSIENT);
    while (sqlite3_step(statement) == SQLITE_ROW) {
       const char *key = (const char *)sqlite3_column_text(statement, 0);
@@ -1257,7 +1259,9 @@ static gboolean finish(gpointer unused) {
 bool receiver_directory_refresh_force(bool force) {
    ensure();
 
-   if (job) return false;
+   if (job) {
+      return false;
+   }
    rrclient_receiver_catalog_init();
    if (rrclient_receiver_catalog_request(force)) {
       g_snprintf(status_text, sizeof(status_text), "Loading SDR catalog from connected rrserver; local cache remains available.");
@@ -1365,9 +1369,13 @@ bool receiver_directory_refresh(void) {
 }
 bool receiver_directory_import_snapshot(const char *data, size_t length, const char *origin) {
    ensure();
-   if (job || !data || !length || length > DIRECTORY_MAX_BODY) return false;
+   if (job || !data || !length || length > DIRECTORY_MAX_BODY) {
+      return false;
+   }
    GPtrArray *list = parse(data, length);
-   if (!list) return false;
+   if (!list) {
+      return false;
+   }
    g_ptr_array_free(receivers, TRUE);
    receivers = list;
    g_free(payload);
@@ -1387,10 +1395,14 @@ bool receiver_directory_import_snapshot(const char *data, size_t length, const c
 bool receiver_directory_import(const char *path) {
    ensure();
 
-   if (job) return false;
+   if (job) {
+      return false;
+   }
    char *data = NULL;
    size_t length;
-   if (!read_bounded(path, DIRECTORY_MAX_BODY, &data, &length)) return false;
+   if (!read_bounded(path, DIRECTORY_MAX_BODY, &data, &length)) {
+      return false;
+   }
    bool imported = receiver_directory_import_snapshot(data, length, "import");
    g_free(data);
    if (!imported) {
