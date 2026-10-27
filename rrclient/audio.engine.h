@@ -13,6 +13,7 @@ typedef struct {
    uint64_t blocks, late_ticks, max_late_us, skipped_blocks;
    uint64_t underrun_blocks, overflow_samples;
    uint64_t startup_blocks, rebuffer_blocks, starvation_events;
+   uint64_t push_calls, pushed_samples, max_push_samples, max_queued_samples;
 } rr_audio_engine_stats_t;
 rr_audio_engine_t *rr_audio_engine_new(rr_audio_output_fn output, void *user);
 bool rr_audio_engine_start(rr_audio_engine_t *engine);
