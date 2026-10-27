@@ -30,3 +30,9 @@ There is no compatibility fallback. If a peer does not advertise a valid cluster
 5. Finally remove `ws_conn` as a global routing selector. An interactive default connection is allowed only at the command/UI boundary.
 
 **Current limitation:** The disconnect-driven receiver catalog cleanup is global, not cluster-scoped. It must be upgraded with step 3 before simultaneous independent RustyRig clusters are supported.
+
+## Implementation status (October 2026)
+
+The server-link hello now sends `domain` (the configured `domain.uuid`) and rejects links with an absent, invalid or nonmatching domain UUID. Each participating rrserver must configure the *same* `domain.uuid`. The existing rig-registry node UUID remains its server identity. This is a breaking link-protocol change; no federation or fallback is provided.
+
+This is **only the server-link boundary**, not the complete multi-domain client implementation. Client authentication still needs to advertise the domain and server IDs; the receiver catalog and resource lookup still need domain partitioning and path deduplication. Until then, do not treat simultaneous independent clusters as supported.
