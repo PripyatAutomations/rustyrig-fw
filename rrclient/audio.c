@@ -33,6 +33,7 @@
 #include <librrprotocol/connman.h>
 #include <rrclient/dcc.h>
 #include <rrclient/audio.h>
+#include <rrclient/spectrum.af.h>
 #include <rrclient/media.h>
 #include <rrclient/cmd.h>
 #include <rrclient/connman.h>
