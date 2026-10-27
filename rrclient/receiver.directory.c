@@ -1434,6 +1434,7 @@ bool legacy_receiver_directory_import(const char *path) {
 }
 #endif
 void receiver_directory_shutdown(void) {
+   rrclient_receiver_catalog_shutdown();
    if (learn_source) {
       g_source_remove(learn_source);
       learn_source = 0;
