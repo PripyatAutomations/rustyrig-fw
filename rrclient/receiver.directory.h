@@ -31,6 +31,8 @@ const char *receiver_directory_fetch_url(void);
 const char *receiver_directory_last_error(void);
 const char *receiver_directory_source_url(void);
 bool receiver_directory_refresh(void);
+/* Explicit user refresh: skip the disk-cache deadline and conditional HTTP validators. */
+bool receiver_directory_refresh_force(bool force);
 bool receiver_directory_import(const char *path);
 void receiver_directory_queue_learn(const char *url, dict *fields);
 bool receiver_directory_learn(const char *url, dict *fields);
