@@ -1108,9 +1108,22 @@ static void frontend_gtk_apply_vfo_state(const char *vfo, long freq, const char 
       snprintf(selection, sizeof(selection), "%s/%s", rrclient_media_active_room(), vfo);
       const char *displayed = g_object_get_data(G_OBJECT(entry), "rr-displayed-vfo");
 
-      if (!displayed || strcmp(displayed, selection) || !gtk_freq_entry_is_editing(fe)) {
+      bool switching = !displayed || strcmp(displayed, selection);
+      /* Until a new tuning setpoint is observed, do not repaint the entry
+       * from an older bridge/poll echo. That stale repaint made the next
+       * digit +/- operation jump back to the receiver's original frequency.
+       * Scope the guard to this displayed VFO; never carry it across rooms. */
+      extern time_t freqentry_last_send;
+      bool recent_local_tune = !switching && freqentry_last_send > 0 &&
+         now >= freqentry_last_send && now - freqentry_last_send < 5;
+      bool awaiting_echo = recent_local_tune &&
+         gtk_freq_entry_get_frequency(fe) != (unsigned long)freq;
+      if (switching || (!gtk_freq_entry_is_editing(fe) && !awaiting_echo)) {
          g_object_set_data_full(G_OBJECT(entry), "rr-displayed-vfo", g_strdup(selection), g_free);
          gtk_freq_entry_set_frequency(fe, freq);
+         if (!switching && freq == (long)gtk_freq_entry_get_frequency(fe)) {
+            freqentry_last_send = 0;
+         }
       }
    }
    modebox_update_state(mode, width);
