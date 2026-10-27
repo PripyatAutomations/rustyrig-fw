@@ -16,9 +16,12 @@ typedef struct {
    unsigned head, count;
    guint timer;
    bool listening;
+   double noise_floor;
 } spectrum_panel_t;
-static double level(float db) {
-   return CLAMP((db + 100.0) / 85.0, 0.0, 1.0);
+static double level(float db, double noise_floor) {
+   /* Normalize each receiver against its own noise floor so digital tones
+    * remain distinct instead of saturating the entire waterfall. */
+   return CLAMP((db - noise_floor) / 36.0, 0.0, 1.0);
 }
 static uint32_t palette_pixel(double v) {
    double r = CLAMP((v - 0.40) * 2.1, 0.0, 1.0);
@@ -45,7 +48,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
       cairo_set_source_rgb(cr, 0.43, 0.79, 0.99);
       for (unsigned i = 0; i < RR_AF_BINS; i++) {
          double x = (double)i * (width - 1) / (RR_AF_BINS - 1);
-         double y = trace_height - 3 - level(p->current[i]) * (trace_height - 6);
+         double y = trace_height - 3 - level(p->current[i], p->noise_floor) * (trace_height - 6);
          if (mode == 3) {
             cairo_rectangle(cr, x, y, MAX(1.0, width / (double)RR_AF_BINS - 1), trace_height - y);
          } else if (i == 0) {
@@ -76,7 +79,7 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
             const float *row = age < p->count ?
                p->rows[(p->head + HISTORY - 1 - age) % HISTORY] : NULL;
             for (unsigned bin = 0; bin < RR_AF_BINS; bin++) {
-               scanline[bin] = row ? palette_pixel(level(row[bin])) : 0xff0d1621u;
+               scanline[bin] = row ? palette_pixel(level(row[bin], p->noise_floor)) : 0xff0d1621u;
             }
          }
          cairo_surface_mark_dirty(surface);
@@ -97,9 +100,9 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
    cairo_move_to(cr, 5, height - 3);
    cairo_show_text(cr, "AF 0 Hz");
    cairo_move_to(cr, width / 2 - 19, height - 3);
-   cairo_show_text(cr, "4 kHz");
+   cairo_show_text(cr, "2 kHz");
    cairo_move_to(cr, width - 43, height - 3);
-   cairo_show_text(cr, "8 kHz");
+   cairo_show_text(cr, "4 kHz");
    return FALSE;
 }
 static gboolean update(gpointer data) {
@@ -128,6 +131,23 @@ static gboolean update(gpointer data) {
    }
    if (selected < MIN(count, G_N_ELEMENTS(streams)) &&
        rr_af_spectrum_read(streams[selected].id, p->current)) {
+      /* Estimate the 25th-percentile background level using a bounded
+       * histogram. This avoids a full sort and follows slow gain changes. */
+      unsigned histogram[121] = {0};
+      for (unsigned bin = 0; bin < RR_AF_BINS; bin++) {
+         unsigned bucket = (unsigned)CLAMP((int)(p->current[bin] + 120.0f), 0, 120);
+         histogram[bucket]++;
+      }
+      unsigned total = 0;
+      double floor = -100.0;
+      for (unsigned bucket = 0; bucket < G_N_ELEMENTS(histogram); bucket++) {
+         total += histogram[bucket];
+         if (total >= RR_AF_BINS / 4) {
+            floor = (double)bucket - 120.0;
+            break;
+         }
+      }
+      p->noise_floor = p->count ? 0.85 * p->noise_floor + 0.15 * floor : floor;
       memcpy(p->rows[p->head], p->current, sizeof(p->current));
       p->head = (p->head + 1) % HISTORY;
       p->count = MIN(p->count + 1, HISTORY);
