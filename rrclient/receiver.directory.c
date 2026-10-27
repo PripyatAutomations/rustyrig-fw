@@ -794,6 +794,7 @@ static void ensure(void) {
    if (initialized) {
       return;
    }
+   gint64 loading_since = g_get_monotonic_time();
    initialized = true;
    receivers = g_ptr_array_new_with_free_func(receiver_free);
    char *path = cache_path(), *parent = g_path_get_dirname(path);
@@ -852,6 +853,9 @@ static void ensure(void) {
    if (receivers->len)
       g_snprintf(status_text, sizeof(status_text), "Loaded %u locally cached receivers (no network request).", receivers->len);
    restore_states();
+   Log(LOG_INFO, "receiver.directory",
+      "Loaded %u locally cached receivers from %s in %.1f ms; no directory HTTP request made",
+      receivers->len, path, (g_get_monotonic_time() - loading_since) / 1000.0);
    g_free(path);
    g_free(parent);
 }
