@@ -171,12 +171,15 @@ static void received(const char *event,const char *data,rrconn_t *connection,voi
             g_string_append_len(body,mem,len);
          }
          char *sum=g_compute_checksum_for_string(G_CHECKSUM_SHA256,body->str,body->len);
-         if(sum && !strcmp(sum,transfer.digest) &&
-            receiver_directory_import_snapshot(body->str,body->len,"rrserver")) {
-            receiver_directory_import_snapshot(body->str,body->len,"rrserver")) {
-            Log(LOG_INFO,"receiver.directory","Applied %u verified chunks of server SDR catalog (generation %llu)",
-               transfer.total,(unsigned long long)transfer.generation);
-         } else Log(LOG_WARN,"receiver.directory","Rejected incomplete or invalid server directory digest");
+         if (sum && !strcmp(sum, transfer.digest) &&
+             receiver_directory_import_snapshot(body->str, body->len, "rrserver")) {
+            Log(LOG_INFO, "receiver.directory",
+               "Applied %u verified chunks of server SDR catalog (generation %llu)",
+               transfer.total, (unsigned long long)transfer.generation);
+         } else {
+            Log(LOG_WARN, "receiver.directory",
+               "Rejected incomplete or invalid server directory digest");
+         }
          g_free(sum);g_string_free(body,TRUE);reset();
       } else if(transfer.received%8==0) {
          transfer.requested_page=transfer.received/8;
