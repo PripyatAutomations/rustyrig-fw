@@ -15,6 +15,7 @@ typedef struct {
    float current[RR_AF_BINS];
    unsigned head, count;
    guint timer;
+   bool listening;
 } spectrum_panel_t;
 static double level(float db) {
    return CLAMP((db + 100.0) / 85.0, 0.0, 1.0);
@@ -103,11 +104,13 @@ static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
 }
 static gboolean update(gpointer data) {
    spectrum_panel_t *p = data;
-   if (!gtk_widget_get_mapped(p->drawing)) {
-      return G_SOURCE_CONTINUE;
+   bool visible = gtk_widget_get_mapped(p->drawing);
+   if (visible != p->listening) {
+      rr_af_spectrum_listen(visible);
+      p->listening = visible;
    }
-   if (!GTK_IS_WIDGET(p->drawing)) {
-      return G_SOURCE_REMOVE;
+   if (!visible) {
+      return G_SOURCE_CONTINUE;
    }
    struct rrclient_rx_stream streams[64];
    size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
@@ -128,6 +131,10 @@ static gboolean update(gpointer data) {
 }
 static void destroy_panel(gpointer data) {
    spectrum_panel_t *p = data;
+   if (p->listening) {
+      rr_af_spectrum_listen(false);
+      p->listening = false;
+   }
    if (p->timer) {
       g_source_remove(p->timer);
    }
@@ -162,6 +169,6 @@ GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
    gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
    g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
    g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
-   p->timer = g_timeout_add(160, update, p);
+   p->timer = g_timeout_add(250, update, p);
    return box;
 }
