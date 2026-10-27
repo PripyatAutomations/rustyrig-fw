@@ -14,6 +14,14 @@ typedef struct {
 } af_stream_t;
 static GMutex af_lock;
 static GHashTable *af_streams;
+static gint af_listeners;
+void rr_af_spectrum_listen(bool enabled) {
+   if (enabled) {
+      g_atomic_int_inc(&af_listeners);
+   } else {
+      g_atomic_int_add(&af_listeners, -1);
+   }
+}
 void rr_af_spectrum_push(const char *stream, const int16_t *pcm, size_t frames) {
    if (!stream || !*stream || !pcm || !frames) {
       return;
