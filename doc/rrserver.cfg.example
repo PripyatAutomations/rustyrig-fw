@@ -102,6 +102,8 @@ rig.identity-namespace=rplywv00
 station.call=N0CALL
 station.grid=AA00aa
 ; Site lobby is #<name>; rig rooms default to #<name>-<rig alias>.
+; All linked rrservers must use the same domain name.
+domain=camp.local
 station.name=rplywv00
 ; Optional station coordinates; inherited by rigs without their own position.
 ; Fixed coordinates disable the live station GPS receiver adapters.
