@@ -77,8 +77,8 @@ static bool body_valid(const char *data, size_t len) {
    if (start < 0 || size < 2 || data[start] != '{') return false;
    for (size_t i = (size_t)start + (size_t)size; i < len; i++)
       if (!g_ascii_isspace(data[i])) return false;
-   double schema = 0;
-   if (!mg_json_get_num(json, "$.schema", &schema) || schema != 1) return false;
+   struct mg_str schema = mg_json_get_tok(json, "$.schema");
+   if (schema.len != 1 || schema.buf[0] != '1') return false;
    char *provider = mg_json_get_str(json, "$.provider");
    bool supported = provider ? !strcmp(provider, "kiwi") :
       !mg_json_get_tok(json, "$.provider").len;
