@@ -327,7 +327,7 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
     * can be safely superseded while the prior request is awaiting its ACK.
     * Callback-bearing controls continue through the ordinary strict path:
     * never silently discard another caller's completion notification. */
-   if (b->pending && !r->complete && b->ready && b->online &&
+   if (b->pending && !b->complete && !r->complete && b->ready && b->online &&
        hz >= b->caps.rx_min_hz && hz <= b->caps.rx_max_hz &&
        rrp_bridge_mode_valid(b->caps.rx_modes, mode)) {
       b->queued_tune = true;
