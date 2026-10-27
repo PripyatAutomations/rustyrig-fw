@@ -74,7 +74,8 @@ const struct rr_client_media_chan *rrclient_media_chan_iter(int idx, int *listno
 
    return idx == 0 ? &channel : NULL;
 }
-void rrclient_media_refresh(void) {
+void rrclient_media_refresh(rrconn_t *connection) {
+   (void)connection;
 }
 bool rrclient_room_is_joined(const char *room) {
    return false;
