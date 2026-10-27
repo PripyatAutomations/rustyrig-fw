@@ -17,7 +17,7 @@
 
 #define DIRECTORY_MAX_BODY (8 * 1024 * 1024)
 #define DIRECTORY_MAX_ROWS 10000
-#define DIRECTORY_INTERVAL 3600
+#define DIRECTORY_INTERVAL (4 * 3600) /* Respect directory mirrors: four-hour minimum interval. */
 extern time_t now;
 static GPtrArray *receivers;
 static char *payload, *source, *etag, *modified;
@@ -1240,7 +1240,7 @@ static gboolean finish(gpointer unused) {
 
    return G_SOURCE_REMOVE;
 }
-bool receiver_directory_refresh(void) {
+bool receiver_directory_refresh_force(bool force) {
    ensure();
 
    if (job) {
@@ -1266,7 +1266,7 @@ bool receiver_directory_refresh(void) {
       return false;
    }
 
-   if (!g_strcmp0(source, url) && now < next_request) {
+   if (!force && !g_strcmp0(source, url) && now < next_request) {
       g_snprintf(status_text, sizeof(status_text), "Using %u cached receivers. Next refresh allowed in %lld seconds.", receivers->len, (long long)(next_request
          - now));
       changed();
@@ -1319,7 +1319,9 @@ bool receiver_directory_refresh(void) {
    job->body = g_string_new(NULL);
    job->delay = DIRECTORY_INTERVAL;
 
-   if (!g_strcmp0(source, url) && payload) {
+   /* Shift+Refresh explicitly downloads the complete JSON again rather
+    * than performing a conditional HTTP validation against the mirror. */
+   if (!force && !g_strcmp0(source, url) && payload) {
       job->etag = g_strdup(etag);
       job->modified = g_strdup(modified);
    }
@@ -1339,6 +1341,9 @@ bool receiver_directory_refresh(void) {
    changed();
 
    return true;
+}
+bool receiver_directory_refresh(void) {
+   return receiver_directory_refresh_force(false);
 }
 bool receiver_directory_import(const char *path) {
    ensure();
