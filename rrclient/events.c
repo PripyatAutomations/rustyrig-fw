@@ -40,7 +40,7 @@ extern void rrclient_irc_register_events(void);
 extern void rrclient_media_register_events(void);
 extern void rrclient_wsjtx_init(void); // media.c
 extern void rrclient_media_available(dict *d, rrconn_t *cptr);    // media.c
-extern void rrclient_media_subscribed(dict *d, bool unsub);    // media.c
+extern void rrclient_media_subscribed(dict *d, rrconn_t *cptr, bool unsub);    // media.c
 extern void rrclient_media_chan_removed(dict *d);  // media.c
 extern const char *login_user;  // from connman.c
 extern char session_token[HTTP_TOKEN_LEN + 1];
@@ -170,7 +170,7 @@ static void rrclient_handle_alert(const char *event, const char *data, rrconn_t 
 
    // Print a colorized version of the test
    // XXX: Should we make a function to strip color escapes for below?
-   ui_print(NULL, "\00304*** \00304ALERT \00304***\017 %s: %s", msg_from, msg_data);
+   ui_print(NULL, "%s\00304*** \00304ALERT \00304***\017 %s: %s", get_chat_ts(msg_ts), msg_from, msg_data);
 
    char my_msg[512];
    memset(my_msg, 0, sizeof(my_msg));
@@ -1626,9 +1626,9 @@ static void rrclient_handle_media(const char *event, const char *data, rrconn_t 
          return;
       }
 
-      rrclient_media_subscribed(d, false);
+      rrclient_media_subscribed(d, cptr, false);
    } else if (cmd && strcasecmp(cmd, "unsubscribed") == 0) {
-      rrclient_media_subscribed(d, true);
+      rrclient_media_subscribed(d, cptr, true);
    } else if (cmd && strcasecmp(cmd, "profile") == 0) {
       Log(LOG_INFO, "webcam", "Video profile: %s", dict_get(d, "media.profile", "source"));
    } else if (cmd && strcasecmp(cmd, "chan-remove") == 0) {
