@@ -76,7 +76,7 @@ static struct {
    rr_link_tree_t *tree;
    unsigned generation;
    long long autoconnect_after;
-   char node[37], domain[37], site[128];
+   char node[37], domain[254], site[128];
    struct mg_str cert, key, ca;
    bool insecure, stopping;
 } links;
@@ -703,8 +703,8 @@ static void establish(struct link_session *session) {
 static void handle_hello(struct link_session *session, dict *d) {
    const char *site = dict_get(d, "site", ""), *node = dict_get(d, "node", "");
    const char *domain = dict_get(d, "domain", "");
-   if (!rr_object_uuid_valid(domain) || g_ascii_strcasecmp(domain, links.domain)) {
-      fail(session, "Peer belongs to a different domain or omitted its domain UUID");
+   if (g_ascii_strcasecmp(domain, links.domain)) {
+      fail(session, "Peer belongs to a different domain or omitted its domain name");
       return;
    }
 
@@ -1442,12 +1442,21 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       return false;
    }
    snprintf(links.node, sizeof(links.node), "%s", node);
-   const char *domain = cfg_get("domain.uuid");
-   if (!rr_object_uuid_valid(domain)) {
-      Log(LOG_CRIT, "link", "domain.uuid must be a persistent UUID shared by all servers in this domain");
+   const char *domain = cfg_get("domain");
+   size_t domain_len = domain ? strlen(domain) : 0;
+   if (!domain_len || domain_len >= sizeof(links.domain)) {
+      Log(LOG_CRIT, "link", "domain must be a nonempty name of at most 253 characters");
       return false;
    }
-   snprintf(links.domain, sizeof(links.domain), "%s", domain);
+   for (const unsigned char *p = (const unsigned char *)domain; *p; ++p) {
+      if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) {
+         Log(LOG_CRIT, "link", "domain must contain only ASCII letters, digits, dots, hyphens or underscores");
+         return false;
+      }
+   }
+   for (size_t i = 0; i < domain_len; ++i)
+      links.domain[i] = g_ascii_tolower(domain[i]);
+   links.domain[domain_len] = '\0';
    snprintf(links.site, sizeof(links.site), "%s", config_value("station.name", "rustyrig"));
    links.insecure = cfg_get_bool("links.allow-insecure", false);
    /* Discover [peer] and [peer:name] sections without duplicating config state. */
