@@ -65,8 +65,6 @@ static void save_snapshot(void) {
    if (sqlite3_prepare_v2(db,
       "INSERT OR REPLACE INTO snapshots(id,source,payload,digest,generation,fetched,next_fetch,etag,modified) VALUES(1,?,?,?,?,?,?,?,?)",
       -1, &stmt, NULL) == SQLITE_OK) {
-      "INSERT OR REPLACE INTO snapshots(id,source,payload,digest,generation,fetched,next_fetch,etag,modified) VALUES(1,?,?,?,?,?,?,?,?)",
-      -1, &stmt, NULL) == SQLITE_OK) {
       sqlite3_bind_text(stmt,1,source_url ? source_url : "",-1,SQLITE_TRANSIENT);
       sqlite3_bind_text(stmt,2,snapshot ? snapshot : "",-1,SQLITE_TRANSIENT);
       sqlite3_bind_text(stmt,3,digest,-1,SQLITE_TRANSIENT);
@@ -179,7 +177,6 @@ static void complete_download(void) {
    time_t current=time(NULL);
    if (request.result==CURLE_OK && request.http_status==200 &&
        body_valid(request.data,request.length)) {
-       body_valid(request.data,request.length)) {
       g_free(snapshot);
       snapshot=g_steal_pointer(&request.data);
       g_free(source_url);source_url=g_strdup(request.url);
@@ -188,9 +185,11 @@ static void complete_download(void) {
       make_digest();
       Log(LOG_INFO,"receiver.directory","Server directory generation %llu: %zu bytes cached",
          (unsigned long long)generation,strlen(snapshot));
-   } else if (request.result!=CURLE_OK || request.http_status!=304)
-      Log(LOG_WARN,"receiver.directory","Server directory update failed: curl=%d HTTP=%ld (retaining snapshot)",
-         (int)request.result,request.http_status);
+   } else if (request.result != CURLE_OK || request.http_status != 304) {
+      Log(LOG_WARN, "receiver.directory",
+         "Server directory update failed: curl=%d HTTP=%ld (retaining snapshot)",
+         (int)request.result, request.http_status);
+   }
    next_fetch=current+DIR_TTL;
    save_snapshot();
    g_clear_pointer(&request.url,g_free);
@@ -340,7 +339,6 @@ bool rrserver_receiver_directory_init(void) {
    sqlite3_stmt *stmt=NULL;
    if (sqlite3_prepare_v2(db,"SELECT source,payload,digest,generation,fetched,next_fetch,etag,modified FROM snapshots WHERE id=1",-1,&stmt,NULL)==SQLITE_OK &&
        sqlite3_step(stmt)==SQLITE_ROW) {
-       sqlite3_step(stmt)==SQLITE_ROW) {
       source_url=g_strdup((const char*)sqlite3_column_text(stmt,0));
       snapshot=g_strdup((const char*)sqlite3_column_text(stmt,1));
       generation=sqlite3_column_int64(stmt,3);
@@ -370,8 +368,9 @@ void rrserver_receiver_directory_shutdown(void) {
       g_thread_join(request.thread);
       request.thread=NULL;
    }
-   if(db) {
-      sqlite3_close(db);db=NULL;
+   if (db) {
+      sqlite3_close(db);
+      db = NULL;
    }
    g_free(snapshot);snapshot=NULL;g_free(source_url);source_url=NULL;
    g_free(validator);validator=NULL;g_free(modified);modified=NULL;
