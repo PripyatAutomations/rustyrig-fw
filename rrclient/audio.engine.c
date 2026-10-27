@@ -7,12 +7,20 @@
 #define AUDIO_BLOCK 320u
 #define AUDIO_CAPACITY 4000u
 #define AUDIO_PERIOD_US 20000
+/* Buffer 60 ms before playing (and after starvation), retaining at most
+ * 160 ms of decoded PCM. This is a playout jitter cushion, not a GStreamer
+ * queue or a delay on the network/codec worker. */
+#define AUDIO_PREFILL (3u * AUDIO_BLOCK)
+#define AUDIO_MAX_QUEUED (8u * AUDIO_BLOCK)
+#define AUDIO_FADE_IN 64u
 typedef struct stream {
    struct stream *next;
    char *id;
    char route;
    int16_t samples[AUDIO_CAPACITY];
    size_t head, count;
+   bool primed, ever_primed, starved;
+   unsigned fade_in;
 } stream_t;
 struct rr_audio_engine {
    GMutex lock;
@@ -29,17 +37,55 @@ static stream_t *find_stream(rr_audio_engine_t *e, const char *id) {
       if (!strcmp(s->id, id)) return s;
    return NULL;
 }
+/* All per-stream state lives under e->lock; the output callback runs only
+ * after the lock is released. Never wait on fwdsp or GTK under this lock. */
 static void tick(rr_audio_engine_t *e, int16_t stereo[AUDIO_BLOCK * 2], bool *active) {
    int32_t accum[AUDIO_BLOCK * 2] = {0};
    *active = false;
    g_mutex_lock(&e->lock);
    for (stream_t *s = e->streams; s; s = s->next) {
-      if (s->route == 'M') { s->count = s->head = 0; continue; }
+      if (s->route == 'M') {
+         s->count = s->head = 0;
+         s->primed = s->ever_primed = s->starved = false;
+         continue;
+      }
       *active = true;
+      if (!s->primed) {
+         if (s->count < AUDIO_PREFILL) {
+            /* Don't mislabel a receiver's initial startup as a dropout.
+             * Count subsequent silence separately from the audio clock. */
+            if (s->ever_primed) {
+               e->stats.underrun_blocks++;
+               e->stats.rebuffer_blocks++;
+               if (!s->starved) e->stats.starvation_events++;
+               s->starved = true;
+            } else {
+               e->stats.startup_blocks++;
+            }
+            continue;
+         }
+         s->primed = s->ever_primed = true;
+         s->starved = false;
+         s->fade_in = AUDIO_FADE_IN;
+      }
+
       size_t take = MIN(s->count, AUDIO_BLOCK);
-      if (take < AUDIO_BLOCK) e->stats.underrun_blocks++;
+      if (take < AUDIO_BLOCK) {
+         e->stats.underrun_blocks++;
+         if (!s->starved) e->stats.starvation_events++;
+         s->starved = true;
+         s->primed = false; /* Refill before resuming, rather than sputtering. */
+      }
       for (size_t i = 0; i < take; i++) {
-         int16_t sample = s->samples[(s->head + i) % AUDIO_CAPACITY];
+         int32_t sample = s->samples[(s->head + i) % AUDIO_CAPACITY];
+         if (s->fade_in) {
+            sample = sample * (int32_t)(AUDIO_FADE_IN - s->fade_in) / (int32_t)AUDIO_FADE_IN;
+            s->fade_in--;
+         }
+         /* If the last delivered buffer is short, fade its tail to silence
+          * instead of abruptly cutting a nonzero PCM sample. */
+         if (take < AUDIO_BLOCK && take > 1 && i >= take - MIN(take, AUDIO_FADE_IN))
+            sample = sample * (int32_t)(take - i - 1) / (int32_t)MIN(take, AUDIO_FADE_IN);
          if (s->route != 'R') accum[2 * i] += sample;
          if (s->route != 'L') accum[2 * i + 1] += sample;
       }
@@ -141,12 +187,12 @@ bool rr_audio_engine_push(rr_audio_engine_t *e, const char *id, const int16_t *p
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
    if (s) {
-      if (count >= AUDIO_CAPACITY) {
-         e->stats.overflow_samples += s->count + count - AUDIO_CAPACITY;
-         pcm += count - AUDIO_CAPACITY;
-         count = AUDIO_CAPACITY; s->head = s->count = 0;
-      } else if (s->count + count > AUDIO_CAPACITY) {
-         size_t drop = s->count + count - AUDIO_CAPACITY;
+      if (count >= AUDIO_MAX_QUEUED) {
+         e->stats.overflow_samples += s->count + count - AUDIO_MAX_QUEUED;
+         pcm += count - AUDIO_MAX_QUEUED;
+         count = AUDIO_MAX_QUEUED; s->head = s->count = 0;
+      } else if (s->count + count > AUDIO_MAX_QUEUED) {
+         size_t drop = s->count + count - AUDIO_MAX_QUEUED;
          e->stats.overflow_samples += drop;
          s->head = (s->head + drop) % AUDIO_CAPACITY;
          s->count -= drop;
@@ -164,7 +210,12 @@ bool rr_audio_engine_route(rr_audio_engine_t *e, const char *id, char route) {
    if (!e || !id || !strchr("LRSM", route)) return false;
    g_mutex_lock(&e->lock);
    stream_t *s = find_stream(e, id);
-   if (s) { s->route = route; s->count = s->head = 0; }
+   if (s) {
+      s->route = route;
+      s->count = s->head = 0;
+      s->primed = s->ever_primed = s->starved = false;
+      s->fade_in = 0;
+   }
    g_mutex_unlock(&e->lock);
    return s != NULL;
 }
