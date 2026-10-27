@@ -362,10 +362,14 @@ static void client_channel_pcm(const char *name, const void *samples, size_t len
    (void)name;
    rx_route_t *route = user;
 
-   if (route->output == 'M' || (len & 1)) {
+   if (len & 1) {
       return;
    }
+   /* AF analysis is independent of speaker muting or ear routing. */
    rr_af_spectrum_push(route->identity, samples, len / sizeof(int16_t));
+   if (route->output == 'M') {
+      return;
+   }
    if (rx_engine) rr_audio_engine_push(rx_engine, route->identity, samples, len / sizeof(int16_t));
    else rx_pcm_push(route, samples, len / sizeof(int16_t));
 }
