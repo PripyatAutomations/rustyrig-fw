@@ -116,12 +116,14 @@ static gboolean rx_engine_maintenance(gpointer unused) {
    rr_audio_engine_stats(rx_engine, &stats, true);
    if (stats.blocks || stats.overflow_samples || stats.late_ticks)
       Log(LOG_INFO, "audio.timing",
-         "RX worker/10s blocks=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu startup-blocks=%llu rebuffer-blocks=%llu starvation-events=%llu overflow-samples=%llu",
+         "RX worker/10s blocks=%llu late-ticks=%llu max-late=%lluus skipped-blocks=%llu underrun-blocks=%llu startup-blocks=%llu rebuffer-blocks=%llu starvation-events=%llu overflow-samples=%llu pcm-pushes=%llu pcm-samples=%llu max-push=%llu max-queue=%llu",
          (unsigned long long)stats.blocks, (unsigned long long)stats.late_ticks,
          (unsigned long long)stats.max_late_us, (unsigned long long)stats.skipped_blocks,
          (unsigned long long)stats.underrun_blocks, (unsigned long long)stats.startup_blocks,
          (unsigned long long)stats.rebuffer_blocks, (unsigned long long)stats.starvation_events,
-         (unsigned long long)stats.overflow_samples);
+         (unsigned long long)stats.overflow_samples,
+         (unsigned long long)stats.push_calls, (unsigned long long)stats.pushed_samples,
+         (unsigned long long)stats.max_push_samples, (unsigned long long)stats.max_queued_samples);
    g_mutex_lock(&rx_sink_lock);
    bool failed = rx_sink_fd < 0;
    g_mutex_unlock(&rx_sink_lock);
