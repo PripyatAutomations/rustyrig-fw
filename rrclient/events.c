@@ -1045,6 +1045,13 @@ static void rrclient_handle_room_deleted(const char *event, const char *data, rr
          }
          tui_window_focus("status");
       }
+      const char *reason = dict_get(d, "talk.reason", "");
+      if (reason && *reason && strlen(room) == 13 && !strncasecmp(room, "#sdr-", 5)) {
+         /* The GTK directory owns presentation; the client core emits
+          * the same event for all frontends without touching widgets. */
+         event_emit("client.receiver-directory.failed", cptr, reason);
+         event_emit("client.receiver-directory.show", cptr, NULL);
+      }
       const char *actor = dict_get(d, "talk.user", "");
 
       if (actor && *actor) {
