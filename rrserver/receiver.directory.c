@@ -49,7 +49,10 @@ static bool source_allowed(const char *url) {
    return ok;
 }
 static void make_digest(void) {
-   if (!snapshot) { digest[0] = 0; return; }
+   if (!snapshot) {
+      digest[0] = 0;
+      return;
+   }
    char *hex = g_compute_checksum_for_string(G_CHECKSUM_SHA256, snapshot, -1);
    g_strlcpy(digest, hex ? hex : "", sizeof(digest));
    g_free(hex);
@@ -89,7 +92,9 @@ static bool body_valid(const char *data, size_t len) {
       return false;
    }
    for (size_t i = (size_t)start + (size_t)size; i < len; i++) {
-      if (!g_ascii_isspace(data[i])) return false;
+      if (!g_ascii_isspace(data[i])) {
+         return false;
+      }
    }
    struct mg_str schema = mg_json_get_tok(json, "$.schema");
    if (schema.len != 1 || schema.buf[0] != '1') {
@@ -120,7 +125,10 @@ static size_t receive_body(char *ptr,size_t sz,size_t count,void *unused) {
       return 0;
    }
    size_t bytes=sz*count;
-   if (bytes > DIR_MAX_BODY - request.length) {request.overflow=true;return 0;}
+   if (bytes > DIR_MAX_BODY - request.length) {
+      request.overflow=true;
+      return 0;
+   }
    char *data=g_realloc(request.data,request.length+bytes+1);
    request.data=data;
    memcpy(data+request.length,ptr,bytes);
@@ -219,7 +227,9 @@ static void start_fetch(void) {
    request.http_status=0;request.overflow=false;
    g_atomic_int_set(&request.done,0);
    request.thread=g_thread_try_new("rr-directory-fetch",downloader,NULL,NULL);
-   if (!request.thread) {g_clear_pointer(&request.url,g_free);}
+   if (!request.thread) {
+      g_clear_pointer(&request.url,g_free);
+   }
 }
 static void respond(rrconn_t *client,const char *cmd,const char *nonce) {
    dict *d=dict_new();
@@ -282,7 +292,10 @@ static void request_handler(const char *event,const void *data,size_t length,rrc
          size_t length=MIN(DIR_CHUNK,len-offset);
          char *encoded=g_base64_encode((const guchar*)snapshot+offset,length);
          dict *row=dict_new();
-         if (!row) {g_free(encoded);break;}
+         if (!row) {
+            g_free(encoded);
+            break;
+         }
          dict_add(row,"msg.type","receiver-directory");
          dict_add(row,"directory.cmd","chunk");
          dict_add(row,"directory.request",nonce);
@@ -316,7 +329,10 @@ bool rrserver_receiver_directory_init(void) {
    char *parent=g_path_get_dirname(db_path);
    bool ok=!g_mkdir_with_parents(parent,0700) && sqlite3_open(db_path,&db)==SQLITE_OK;
    g_free(parent);
-   if (!ok) {Log(LOG_WARN,"receiver.directory","Cannot open %s",db_path);return false;}
+   if (!ok) {
+      Log(LOG_WARN,"receiver.directory","Cannot open %s",db_path);
+      return false;
+   }
    g_chmod(db_path,0600);
    if (sqlite3_exec(db,"CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY CHECK(id=1),source TEXT,payload TEXT,digest TEXT,generation INTEGER,fetched INTEGER,next_fetch INTEGER,etag TEXT,modified TEXT)",NULL,NULL,NULL)!=SQLITE_OK) {
       return false;
@@ -350,7 +366,10 @@ bool rrserver_receiver_directory_init(void) {
    return true;
 }
 void rrserver_receiver_directory_shutdown(void) {
-   if(request.thread) {g_thread_join(request.thread);request.thread=NULL;}
+   if (request.thread) {
+      g_thread_join(request.thread);
+      request.thread=NULL;
+   }
    if(db) {
       sqlite3_close(db);db=NULL;
    }
