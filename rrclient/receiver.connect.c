@@ -21,7 +21,7 @@ static struct {
    uint64_t started;
    bool save;
 } pending;
-static rr_event_token_t result_token, close_token, joined_token;
+static rr_event_token_t result_token, close_token, joined_token, removed_token;
 static unsigned serial;
 static GHashTable *connected_receivers;
 /* Room identity is the lifecycle owner of a temporary receiver. */
@@ -374,7 +374,7 @@ void rrclient_receiver_connect_init(void) {
    result_token = event_on_token("admin.result", receiver_result, NULL);
    close_token = event_on_token("disconnected", receiver_closed, NULL);
    joined_token = event_on_token("client.room.joined", receiver_room_joined, NULL);
-   event_on("room.deleted", receiver_room_removed, NULL);
+   removed_token = event_on_token("room.deleted", receiver_room_removed, NULL);
 }
 void rrclient_receiver_connect_shutdown(void) {
    if (result_token) {
@@ -388,7 +388,8 @@ void rrclient_receiver_connect_shutdown(void) {
    if (joined_token) {
       event_off_token(joined_token);
    }
-   result_token = close_token = joined_token = NULL;
+   if (removed_token) event_off_token(removed_token);
+   result_token = close_token = joined_token = removed_token = 0;
    clear_pending();
    g_clear_pointer(&connected_receivers, g_hash_table_unref);
    g_clear_pointer(&receiver_rooms, g_hash_table_unref);
