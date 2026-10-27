@@ -1,0 +1,150 @@
+/* Lightweight AF visualizer. Presentation modes consume identical power bins;
+ * future server RF rows can feed this widget without changing its renderer. */
+#include <gtk/gtk.h>
+#include <math.h>
+#include <string.h>
+#include <rrclient/audio.h>
+#include <rrclient/spectrum.af.h>
+#include <rrclient/gtk/gtk.spectrum.h>
+
+#define HISTORY 48
+typedef struct {
+   char *server, *room;
+   GtkWidget *drawing, *mode;
+   float rows[HISTORY][RR_AF_BINS];
+   float current[RR_AF_BINS];
+   unsigned head, count;
+   guint timer;
+} spectrum_panel_t;
+static double level(float db) {
+   return CLAMP((db + 100.0) / 85.0, 0.0, 1.0);
+}
+static void palette(cairo_t *cr, double v) {
+   /* Blue/cyan/yellow/orange for dark backgrounds. */
+   double r = CLAMP((v - 0.40) * 2.1, 0, 1);
+   double g = CLAMP((v - 0.13) * 2.0, 0, 1);
+   double b = CLAMP(0.14 + 2.3 * v - 1.55 * v * v, 0, 1);
+   cairo_set_source_rgb(cr, r, g, b);
+}
+static gboolean draw_spectrum(GtkWidget *widget, cairo_t *cr, gpointer data) {
+   spectrum_panel_t *p = data;
+   int width = gtk_widget_get_allocated_width(widget);
+   int height = gtk_widget_get_allocated_height(widget);
+   if (width < 8 || height < 8) {
+      return FALSE;
+   }
+   cairo_set_source_rgb(cr, 0.05, 0.085, 0.13);
+   cairo_paint(cr);
+   int mode = gtk_combo_box_get_active(GTK_COMBO_BOX(p->mode));
+   bool trace = mode == 0 || mode == 1 || mode == 3;
+   bool waterfall = mode == 0 || mode == 2;
+   int trace_height = trace ? (waterfall ? MAX(28, height / 3) : height - 16) : 0;
+   if (trace) {
+      cairo_set_line_width(cr, 1.1);
+      cairo_set_source_rgb(cr, 0.43, 0.79, 0.99);
+      for (unsigned i = 0; i < RR_AF_BINS; i++) {
+         double x = (double)i * (width - 1) / (RR_AF_BINS - 1);
+         double y = trace_height - 3 - level(p->current[i]) * (trace_height - 6);
+         if (mode == 3) {
+            cairo_rectangle(cr, x, y, MAX(1.0, width / (double)RR_AF_BINS - 1), trace_height - y);
+         } else if (i == 0) {
+            cairo_move_to(cr, x, y);
+         } else {
+            cairo_line_to(cr, x, y);
+         }
+      }
+      if (mode == 3) {
+         cairo_fill(cr);
+      } else {
+         cairo_stroke(cr);
+      }
+   }
+   if (waterfall) {
+      int top = trace_height + (trace ? 2 : 0);
+      int available = MAX(1, height - top - 15);
+      for (int y = 0; y < available; y++) {
+         unsigned age = (unsigned)((uint64_t)y * HISTORY / (unsigned)available);
+         if (age >= p->count) {
+            continue;
+         }
+         const float *row = p->rows[(p->head + HISTORY - 1 - age) % HISTORY];
+         for (unsigned bin = 0; bin < RR_AF_BINS; bin++) {
+            palette(cr, level(row[bin]));
+            double x = (double)bin * width / RR_AF_BINS;
+            cairo_rectangle(cr, x, top + y, ceil((double)width / RR_AF_BINS), 1);
+            cairo_fill(cr);
+         }
+      }
+   }
+   cairo_set_source_rgb(cr, 0.68, 0.73, 0.79);
+   cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+   cairo_set_font_size(cr, 10);
+   cairo_move_to(cr, 5, height - 3);
+   cairo_show_text(cr, "AF 0 Hz");
+   cairo_move_to(cr, width / 2 - 19, height - 3);
+   cairo_show_text(cr, "4 kHz");
+   cairo_move_to(cr, width - 43, height - 3);
+   cairo_show_text(cr, "8 kHz");
+   return FALSE;
+}
+static gboolean update(gpointer data) {
+   spectrum_panel_t *p = data;
+   if (!GTK_IS_WIDGET(p->drawing)) {
+      return G_SOURCE_REMOVE;
+   }
+   struct rrclient_rx_stream streams[64];
+   size_t count = audio_rx_streams(streams, G_N_ELEMENTS(streams));
+   for (size_t i = 0; i < MIN(count, G_N_ELEMENTS(streams)); i++) {
+      if (g_strcmp0(streams[i].server, p->server) ||
+          g_ascii_strcasecmp(streams[i].room, p->room)) {
+         continue;
+      }
+      if (rr_af_spectrum_read(streams[i].id, p->current)) {
+         memcpy(p->rows[p->head], p->current, sizeof(p->current));
+         p->head = (p->head + 1) % HISTORY;
+         p->count = MIN(p->count + 1, HISTORY);
+         gtk_widget_queue_draw(p->drawing);
+      }
+      break;
+   }
+   return G_SOURCE_CONTINUE;
+}
+static void destroy_panel(gpointer data) {
+   spectrum_panel_t *p = data;
+   if (p->timer) {
+      g_source_remove(p->timer);
+   }
+   g_free(p->server);
+   g_free(p->room);
+   g_free(p);
+}
+static void mode_changed(GtkComboBox *box, gpointer data) {
+   (void)box;
+   spectrum_panel_t *p = data;
+   gtk_widget_queue_draw(p->drawing);
+}
+GtkWidget *rr_gtk_spectrum_panel_new(const char *server, const char *room) {
+   spectrum_panel_t *p = g_new0(spectrum_panel_t, 1);
+   p->server = g_strdup(server ? server : "");
+   p->room = g_strdup(room ? room : "");
+   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+   g_object_set_data_full(G_OBJECT(box), "rr-spectrum", p, destroy_panel);
+   GtkWidget *toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+   GtkWidget *label = gtk_label_new("AF spectrum");
+   gtk_box_pack_start(GTK_BOX(toolbar), label, FALSE, FALSE, 3);
+   p->mode = gtk_combo_box_text_new();
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum + Waterfall");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Spectrum");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Waterfall");
+   gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(p->mode), "Bars");
+   gtk_combo_box_set_active(GTK_COMBO_BOX(p->mode), 0);
+   gtk_box_pack_start(GTK_BOX(toolbar), p->mode, FALSE, FALSE, 0);
+   gtk_box_pack_start(GTK_BOX(box), toolbar, FALSE, FALSE, 0);
+   p->drawing = gtk_drawing_area_new();
+   gtk_widget_set_size_request(p->drawing, -1, 115);
+   gtk_box_pack_start(GTK_BOX(box), p->drawing, FALSE, TRUE, 0);
+   g_signal_connect(p->drawing, "draw", G_CALLBACK(draw_spectrum), p);
+   g_signal_connect(p->mode, "changed", G_CALLBACK(mode_changed), p);
+   p->timer = g_timeout_add(160, update, p);
+   return box;
+}
