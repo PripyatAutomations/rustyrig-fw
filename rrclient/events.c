@@ -1658,6 +1658,17 @@ static void rrclient_server_selected(const char *event, const char *data, rrconn
    }
 }
 
+static void rrclient_handle_domain_identity(const char *event, const char *data, rrconn_t *connection, void *unused) {
+   (void)event; (void)unused;
+   if (!data || !connection || !connection->authenticated) return;
+   dict *identity = json2dict(data);
+   if (!identity) return;
+   rrclient_connection_set_identity(connection,
+      dict_get(identity, "domain.name", ""),
+      dict_get(identity, "domain.server", ""));
+   dict_free(identity);
+}
+
 void rrclient_register_events(void) {
    event_on("client.server.selected", rrclient_server_selected, NULL);
    event_on("client.server.status.close", ui_server_status_close, NULL);
@@ -1671,6 +1682,7 @@ void rrclient_register_events(void) {
    // XXX: We need to sort this according to profiling results
    event_on("NOMATCH", rrclient_handle_nomatch, NULL);
    event_on("alert", rrclient_handle_alert, NULL);
+   event_on("ws.msg.domain", rrclient_handle_domain_identity, NULL);
    event_on("auth.error", rrclient_handle_autherr, NULL);
    rrclient_irc_register_events();
    event_on("authorized", rrclient_handle_connection, NULL);
