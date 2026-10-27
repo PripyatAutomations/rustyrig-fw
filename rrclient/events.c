@@ -9,6 +9,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include <rrclient/nick.color.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -497,16 +498,18 @@ static void rrclient_handle_talk_msg(const char *event, const char *data, rrconn
       }
    }
 
-   /* Render IRC privilege prefix separately so it does not inherit the nickname color.  Highlight delimiters only for nick mentions. */
-   char colored_from[HTTP_USER_LEN + 32];
-   const char *nick_color = "";
-
+   /* Preserve privilege prefix rendering, but give the actual nickname a
+    * deterministic color independent of its server or current room. */
+   char colored_from[HTTP_USER_LEN + 48];
+   rr_nick_color_t nickname_color = rr_nick_color(raw_from);
+   const char *nick_color = colored_from;
    if (from && strchr("~&@%+!", from[0]) && from[1]) {
-      const char *color = from[0] == '+' ? "\00313" : from[0] == '@' ? "\00311" : from[0] == '!' ? "\00305" : "\00310";
-      snprintf(colored_from, sizeof(colored_from), "%s%c\017%s", color, from[0], from + 1);
-      nick_color = colored_from;
+      const char *prefix_color = from[0] == '+' ? "\00313" : from[0] == '@' ? "\00311" : from[0] == '!' ? "\00305" : "\00310";
+      snprintf(colored_from, sizeof(colored_from), "%s%c\017\003%02u%s\017",
+         prefix_color, from[0], nickname_color.mirc, from + 1);
    } else {
-      nick_color = from ? from : "?";
+      snprintf(colored_from, sizeof(colored_from), "\003%02u%s\017",
+         nickname_color.mirc, from ? from : "?");
    }
    bool mention = false;
 
