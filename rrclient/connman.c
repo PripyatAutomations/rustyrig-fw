@@ -40,6 +40,7 @@ extern void rrclient_objects_context_free(void *) __attribute__((weak));
 
 typedef struct client_server {
    char *name, *url;
+   char domain[254], server_uuid[37];
 #ifdef USE_MONGOOSE
    rr_socks_t *proxy;
    bool proxy_override;
@@ -183,6 +184,34 @@ void rrclient_connection_count_traffic(const rrconn_t *connection, uint64_t rx, 
          return;
       }
    }
+}
+void rrclient_connection_set_identity(rrconn_t *connection, const char *domain, const char *server_uuid) {
+   if (!connection || !domain || !*domain || !server_uuid || !rr_object_uuid_valid(server_uuid)) return;
+   for (client_server_t *s = servers; s; s = s->next) {
+      if (s->connection != connection) continue;
+      if (strlen(domain) >= sizeof(s->domain)) return;
+      for (const unsigned char *p = (const unsigned char *)domain; *p; ++p)
+         if (!(g_ascii_isalnum(*p) || *p == '.' || *p == '-' || *p == '_')) return;
+      if (s->domain[0] && (g_ascii_strcasecmp(s->domain, domain) || g_ascii_strcasecmp(s->server_uuid, server_uuid))) {
+         Log(LOG_WARN, "connman", "Server %s attempted to change its domain identity", s->name);
+         return;
+      }
+      g_strlcpy(s->domain, domain, sizeof(s->domain));
+      for (char *p = s->domain; *p; ++p) *p = g_ascii_tolower(*p);
+      g_strlcpy(s->server_uuid, server_uuid, sizeof(s->server_uuid));
+      Log(LOG_INFO, "connman", "Server %s identified as %s in domain %s", s->name, s->server_uuid, s->domain);
+      return;
+   }
+}
+const char *rrclient_connection_domain(const rrconn_t *connection) {
+   for (client_server_t *s = servers; s; s = s->next)
+      if (s->connection == connection) return s->domain[0] ? s->domain : NULL;
+   return NULL;
+}
+const char *rrclient_connection_server_uuid(const rrconn_t *connection) {
+   for (client_server_t *s = servers; s; s = s->next)
+      if (s->connection == connection) return s->server_uuid[0] ? s->server_uuid : NULL;
+   return NULL;
 }
 rrconn_t *rrclient_connection_find(const char *name) {
    client_server_t *s = find_server(name);
