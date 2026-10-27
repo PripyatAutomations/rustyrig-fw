@@ -725,7 +725,7 @@ static void gps_outputs_changed(const char *event, const char *data, rrconn_t *c
       struct rr_client_media_chan *kp = &known_chans[i];
 
       if (gps_wanted(kp)) {
-         media_try_autosubscribe(ws_conn, kp);
+         media_try_autosubscribe(client, kp);
       }
       /* GPS/NMEA subscriptions are site metadata. Changing which local PTY consumes them must never tear down an existing remote subscription. */
    }
@@ -733,8 +733,7 @@ static void gps_outputs_changed(const char *event, const char *data, rrconn_t *c
 
 // Called by events.c with the already-parsed media.available dict (no JSON
 // round-trip: dotted keys don't survive dict2json -> json2dict reliably).
-// Note cptr may be NULL (the ws.msg.* event fires without one), so storage
-// never depends on it; autosubscribe uses ws_conn.
+// Keep server-originated subscriptions on their owning connection.
 void rrclient_media_available(dict *d, rrconn_t *cptr) {
    if (!d) {
       return;
@@ -789,7 +788,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          }
 
          if ((!kp->room[0] || kp->joined) && kp->disabled && kp->pending_codec[0] &&
-            strcmp(kp->pending_codec, kp->codec) == 0 && ws_conn && media_send_subscribe(ws_conn, kp->uuid)) {
+            strcmp(kp->pending_codec, kp->codec) == 0 && cptr && media_send_subscribe(cptr, kp->uuid)) {
             kp->pending_codec[0] = '\0';
             kp->disabled = false;
             kp->subscribed = true;
@@ -798,8 +797,8 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
          if (descr && descr[0] != '\0') {
             snprintf(kp->descr, sizeof(kp->descr), "%s", descr);
          }
-         media_try_autosubscribe(ws_conn, kp);
-         gps_prefer_packed(ws_conn);
+         media_try_autosubscribe(cptr, kp);
+         gps_prefer_packed(cptr);
          rrclient_media_sync_audio();
 
       }
@@ -807,7 +806,7 @@ void rrclient_media_available(dict *d, rrconn_t *cptr) {
 }
 
 // Called by events.c with the parsed subscribed/unsubscribed dict
-void rrclient_media_subscribed(dict *d, bool unsub) {
+void rrclient_media_subscribed(dict *d, rrconn_t *cptr, bool unsub) {
    if (!d) {
       return;
    }
@@ -916,7 +915,7 @@ static void rrclient_handle_media_codecs(const char *event, const char *data, rr
    (void)user;
 
    const char *codec = media_get_preferred_codec();
-   rrconn_t *conn = cptr ? cptr : ws_conn;
+   rrconn_t *conn = cptr;
 
    if (!conn || !codec || strlen(codec) != 4) {
       return;
@@ -936,10 +935,9 @@ static void rrclient_handle_media_codecs(const char *event, const char *data, rr
 static void rrclient_handle_media_vfo(const char *event, const char *data, rrconn_t *cptr, void *user) {
    (void)event;
    (void)data;
-   (void)cptr;
    (void)user;
 
-   if (!ws_conn || !media_ready) {
+   if (!cptr || !media_ready) {
       return;
    }
 
@@ -958,11 +956,11 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
       bool retain_audio = kp->subsystem == RR_BINFRAME_SUBSYS_AUDIO && (!kp->room[0] || kp->joined);
 
       if (kp->automatic && kp->subscribed && !active && !retain_audio) {
-         media_send_unsubscribe(ws_conn, kp->uuid);
+         media_send_unsubscribe(cptr, kp->uuid);
          kp->subscribed = false;
          kp->stream_valid = false;
       }
-      media_try_autosubscribe(ws_conn, kp);
+      media_try_autosubscribe(cptr, kp);
    }
 
    rrclient_media_sync_audio();
