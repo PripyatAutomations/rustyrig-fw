@@ -719,6 +719,7 @@ static void media_try_autosubscribe(rrconn_t *cptr, struct rr_client_media_chan 
 }
 
 static void gps_outputs_changed(const char *event, const char *data, rrconn_t *client, void *user) {
+   if (!client) client = rrclient_active_connection();
    snprintf(gps_scopes, sizeof(gps_scopes), "%s", data ? data : "");
 
    for (int i = 0 ; i < RR_MEDIA_MAX_CHANS ; i++) {
@@ -937,6 +938,7 @@ static void rrclient_handle_media_vfo(const char *event, const char *data, rrcon
    (void)data;
    (void)user;
 
+   if (!cptr) cptr = rrclient_active_connection();
    if (!cptr || !media_ready) {
       return;
    }
