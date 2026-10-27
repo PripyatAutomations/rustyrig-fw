@@ -32,23 +32,23 @@ int main(void) {
    rr_audio_engine_stats(engine, &stats, false);
    assert(stats.starvation_events == 1 && stats.underrun_blocks == 1);
 
-   /* After a dropout, a single fresh block cannot cause sputtering. */
+   /* After a dropout, restart after one complete frame rather than
+    * imposing the full 60 ms startup delay on every short gap. */
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, 320));
-   tick(engine, stereo, &active);
-   assert(stereo[0] == 0 && stereo[200] == 0);
-   assert(rr_audio_engine_push(engine, "receiver-a", pcm, 640));
    tick(engine, stereo, &active);
    assert(stereo[0] == 0 && stereo[200] == 1000);
    rr_audio_engine_stats(engine, &stats, false);
-   assert(stats.rebuffer_blocks == 1 && stats.starvation_events == 1);
+   assert(stats.rebuffer_blocks == 0 && stats.starvation_events == 1);
 
-   /* Large decoder bursts discard oldest samples, bounded to 160 ms. */
+   /* A 200 ms decoder burst is retained under the new 240 ms ceiling. */
    assert(rr_audio_engine_route(engine, "receiver-a", 'S'));
    assert(rr_audio_engine_push(engine, "receiver-a", pcm, G_N_ELEMENTS(pcm)));
    stream_t *stream = find_stream(engine, "receiver-a");
-   assert(stream && stream->count == AUDIO_MAX_QUEUED);
+   assert(stream && stream->count == G_N_ELEMENTS(pcm));
    rr_audio_engine_stats(engine, &stats, false);
-   assert(stats.overflow_samples == G_N_ELEMENTS(pcm) - AUDIO_MAX_QUEUED);
+   assert(stats.overflow_samples == 0);
+   assert(stats.max_push_samples == G_N_ELEMENTS(pcm));
+   assert(stats.max_queued_samples >= G_N_ELEMENTS(pcm));
 
    assert(rr_audio_engine_route(engine, "receiver-a", 'M'));
    tick(engine, stereo, &active);
