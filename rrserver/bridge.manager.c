@@ -866,6 +866,25 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
       value.s = m->mode;
       rr_vfo_property_observe(receiver(b), RR_PROP_VFO_MODE, VAL_STR, &value);
 
+      /* Temporary SDRs are not polled by the station CAT adapter. A Kiwi
+       * NEW_FREQ confirmation updates our property store, but without a
+       * room-scoped CAT observation the client VFO display stays stale.
+       * Report confirmed state, never merely the requested setpoint. */
+      if (b->attached_room[0]) {
+         dict *state = dict_new();
+         if (state) {
+            dict_add(state, "msg.type", "cat");
+            dict_add(state, "cat.room", b->attached_room);
+            dict_add(state, "cat.state.vfo", "A");
+            dict_add_long(state, "cat.state.freq", (long)m->frequency_hz);
+            dict_add(state, "cat.state.mode", m->mode);
+            dict_add_bool(state, "cat.state.freq-available", true);
+            dict_add_bool(state, "cat.state.mode-available", true);
+            ws_broadcast_room_dict(NULL, state, b->attached_room);
+            dict_free(state);
+         }
+      }
+
       if (!b->desired) {
          b->desired = true;
          b->desired_hz = m->frequency_hz;
