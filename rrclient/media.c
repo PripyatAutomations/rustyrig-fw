@@ -1478,7 +1478,10 @@ bool rrclient_media_unsubscribe(const char *uuid) {
 void rrclient_media_refresh(void) {
    rrconn_t *cptr = ws_conn;
 
-   if (cptr) {
+   /* Background refresh requests must not generate warnings after a
+    * profile disconnect. A closed WebSocket is not a failed refresh. */
+   if (cptr && cptr->authenticated && cptr->is_ws &&
+       cptr->conn && !cptr->is_closing && ws_connected) {
       if (!media_send_list(cptr)) {
          Log(LOG_WARN, "ws.media",
             "Media list refresh failed: websocket send rejected (connection=%p, active=%p, state=%d); check protocol send-validation logs", (void *)cptr, (
