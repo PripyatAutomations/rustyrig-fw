@@ -484,7 +484,7 @@ static bool kiwi_redirect(struct kiwi_instance *k, struct mg_connection *c) {
    char origin[160] = "";
    if (authority) {
       size_t length = path ? (size_t)(path - next) : strlen(next);
-      snprintf(origin, sizeof(origin), "%.*s", (int)MIN(length, sizeof(origin) - 1), next);
+      snprintf(origin, sizeof(origin), "%.*s", (int)(length < sizeof(origin) - 1 ? length : sizeof(origin) - 1), next);
    }
    char diagnostic[240];
    snprintf(diagnostic, sizeof(diagnostic), "Kiwi HTTP 307: redirect attempt %u/3 to %.150s (path length %zu)",
