@@ -56,6 +56,11 @@ struct bridge_child {
    uint64_t next_retry, started, last_seen, pending, deadline, next_request, kill_deadline;
    uint64_t desired_hz, requested_hz;
    char desired_mode[16], requested_mode[16];
+   /* UI frequency/mode changes have no completion callback. Coalesce rapid
+    * changes into one last-wins request while the bridge awaits an ACK. */
+   bool queued_tune;
+   uint64_t queued_hz;
+   char queued_mode[16];
    unsigned failures;
    int hint_source;
    void (*complete)(rr_control_result_t, void *);
@@ -230,6 +235,14 @@ static void offline(struct bridge_child *b) {
       rr_vfo_property_unavailable(vfo, RR_PROP_VFO_MODE);
    }
 
+   if (b->queued_tune) {
+      /* Reconnect to the latest operator-selected frequency, not the
+       * previous successful one, if the receiver drops mid-tune. */
+      b->desired = true;
+      b->desired_hz = b->queued_hz;
+      snprintf(b->desired_mode, sizeof(b->desired_mode), "%s", b->queued_mode);
+      b->queued_tune = false;
+   }
    if (b->pending) {
       finish(b, RR_CONTROL_BACKEND_FAILED);
    }
@@ -310,6 +323,18 @@ static rr_control_result_t control(const rr_control_request_t *r, void *user) {
       return RR_CONTROL_UNSUPPORTED;
    }
 
+   /* Rapid slider/digit UI updates have no callback, so intermediate setpoints
+    * can be safely superseded while the prior request is awaiting its ACK.
+    * Callback-bearing controls continue through the ordinary strict path:
+    * never silently discard another caller's completion notification. */
+   if (b->pending && !r->complete && b->ready && b->online &&
+       hz >= b->caps.rx_min_hz && hz <= b->caps.rx_max_hz &&
+       rrp_bridge_mode_valid(b->caps.rx_modes, mode)) {
+      b->queued_tune = true;
+      b->queued_hz = hz;
+      snprintf(b->queued_mode, sizeof(b->queued_mode), "%s", mode);
+      return RR_CONTROL_PENDING;
+   }
    return send_setting(b, hz, mode, r->complete, r->complete_user) ? RR_CONTROL_PENDING : RR_CONTROL_BACKEND_FAILED;
 }
 static bool create(rr_backend_t *backend) {
@@ -831,6 +856,16 @@ static bool handle(struct bridge_child *b, const rrp_bridge_ipc_message_t *m) {
          snprintf(b->desired_mode, sizeof(b->desired_mode), "%s", b->requested_mode);
       }
       finish(b, m->success ? RR_CONTROL_OK : RR_CONTROL_BACKEND_FAILED);
+      if (b->queued_tune && !b->pending && b->online && b->ready) {
+         uint64_t hz = b->queued_hz;
+         char mode[sizeof(b->queued_mode)];
+         snprintf(mode, sizeof(mode), "%s", b->queued_mode);
+         b->queued_tune = false;
+         /* Avoid another remote round-trip when the latest UI setpoint
+          * already matches the just-acknowledged tuning state. */
+         if (hz != b->desired_hz || strcmp(mode, b->desired_mode))
+            (void)send_setting(b, hz, mode, NULL, NULL);
+      }
 
       return true;
    }
