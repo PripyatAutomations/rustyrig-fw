@@ -40,6 +40,7 @@
 #include <rrserver/acl.h>
 #include <rrserver/bridge.access.h>
 #include <rrserver/bridge.manager.h>
+#include <rrserver/receiver.directory.h>
 #include <rrserver/media.direct.h>
 #include <rrserver/relay.h>
 #include <rrserver/usage.h>
