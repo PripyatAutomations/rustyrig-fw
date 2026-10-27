@@ -799,7 +799,7 @@ static void rrclient_handle_join(const char *event, const char *data, rrconn_t *
       }
       const char *userhost = dict_get(d, "talk.userhost", "");
       if (cptr && !cptr->is_ws) {
-         ui_print(m_room, "%s* %s%s%s%s joined %s", get_chat_ts(m_ts),
+         ui_print(m_room, "%s\00303*\017 %s%s%s%s joined %s", get_chat_ts(m_ts),
             m_user ? m_user : "", *userhost ? " (" : "", userhost,
             *userhost ? ")" : "", m_room);
       } else {
