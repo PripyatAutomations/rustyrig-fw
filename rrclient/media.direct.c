@@ -281,9 +281,9 @@ void rrclient_direct_message(rrconn_t *client, dict *d) {
       }
       rr_rtp_socket_detach(channel->attachment);
       channel->attachment = NULL;
-      channel->connect_deadline = mono_us() + UINT64_C(5000000);
       channel->failed = false;
       channel->reported_active = false;
+      channel->connect_deadline = mono_us() + UINT64_C(5000000);
 
       if (channel->subsystem != RR_BINFRAME_SUBSYS_AUDIO && channel->subsystem != RR_BINFRAME_SUBSYS_VIDEO) {
          report_route(channel, "connected", false);
