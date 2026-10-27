@@ -717,6 +717,14 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
    dict_add_long(d, "msg.ts", now);
    dict_add(d, "talk.user", from);
    dict_add(d, "talk.from", from);
+   /* IRC prefixes are nick!user@host. Preserve the full user@host for membership notices. */
+   const char *bang = strchr(prefix, '!');
+   const char *at = bang ? strchr(bang + 1, '@') : NULL;
+   if (at && at > bang + 1 && at[1]) {
+      char userhost[IRC_MSGLEN];
+      snprintf(userhost, sizeof(userhost), "%s", bang + 1);
+      dict_add(d, "talk.userhost", userhost);
+   }
    dict_add(d, "talk.privs", "");
 
    if ((!strcasecmp(cmd, "PRIVMSG") || !strcasecmp(cmd, "NOTICE")) && argc >= 3) {
@@ -768,17 +776,21 @@ static void rrclient_irc_message(const char *event, const char *data, rrconn_t *
       event_emit_dict("join", cptr, d);
       dict_add_int(d, "talk.sessions", 1);
       event_emit_dict("userinfo", cptr, d);
-      ui_print(arg1, "%s\00303*\017 %s joined %s", get_chat_ts(now), from, arg1);
    } else if (!strcasecmp(cmd, "PART") && argc >= 2 && *from) {
       dict_add(d, "talk.room", arg1);
-      event_emit_dict("part", cptr, d);
-      ui_print(arg1, "%s\00304*\017 %s left %s%s%s", get_chat_ts(now), from, arg1,
+      const char *userhost = dict_get(d, "talk.userhost", "");
+      ui_print(arg1, "%s\00304*\017 %s%s%s%s left %s%s%s", get_chat_ts(now), from,
+         *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg1,
          argc >= 3 && *arg2 ? ": " : "", argc >= 3 ? arg2 : "");
+      event_emit_dict("part", cptr, d);
    } else if (!strcasecmp(cmd, "KICK") && argc >= 3) {
       dict_add(d, "talk.room", arg1);
       dict_add(d, "talk.user", arg2);
+      const char *userhost = dict_get(d, "talk.userhost", "");
+      ui_print(arg1, "%s* %s%s%s%s kicked %s: %s", get_chat_ts(now), from,
+         *userhost ? " (" : "", userhost, *userhost ? ")" : "", arg2,
+         dict_get(message, "msg.arg3", ""));
       event_emit_dict("part", cptr, d);
-      ui_print(arg1, "%s* %s kicked %s: %s", get_chat_ts(now), from, arg2, dict_get(message, "msg.arg3", ""));
    } else if (!strcasecmp(cmd, "QUIT") && *from) {
       userlist_mark_oper(from, false);
 
