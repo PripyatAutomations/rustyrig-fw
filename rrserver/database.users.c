@@ -23,6 +23,7 @@
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
+#include <librrprotocol/crypto.h>
 #include <rrserver/database.h>
 #include <rrserver/usage.h>
 
@@ -59,6 +60,19 @@ bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id,
    bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
    sqlite3_finalize(stmt);
    return ok;
+}
+bool db_user_key_verify(sqlite3 *db, const char *username, const char *key_id,
+                        const void *challenge, size_t challenge_len,
+                        const unsigned char signature[64]) {
+   if (!challenge || challenge_len < 32 || challenge_len > 4096 || !signature)
+      return false;
+   unsigned char raw[32];
+   if (!db_user_key_lookup(db, username, key_id, raw)) return false;
+   rr_crypto_key_t *public_key = rr_crypto_ed25519_public(raw, sizeof(raw));
+   bool verified = public_key &&
+      rr_crypto_ed25519_verify(public_key, challenge, challenge_len, signature);
+   rr_crypto_key_free(public_key);
+   return verified;
 }
 bool db_user_key_revoke(sqlite3 *db, const char *username, const char *key_id) {
    if (!db || !username || !*username || !key_id || !*key_id) return false;
