@@ -23,6 +23,7 @@
 #include <librrprotocol/wire.h>
 #include <rrserver/relay.h>
 #include <rrserver/link.h>
+#include <rrserver/identity.h>
 #include <rrserver/objects.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
@@ -725,6 +726,19 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
       } else if (!strcmp(kind, "users")) {
          rr_relay_directory_put(origin, d);
       } else {
+         /* Removal descriptors are catalog records too. Prevent unsigned or
+          * forged removals from bypassing normal catalog admission. */
+         const char *signature = dict_get(d, "identity.signature", NULL);
+         if (!signature || !*signature) {
+            Log(LOG_WARN, "mesh.identity", "Unsigned catalog removal from %s: %s",
+               origin, cfg_get_bool("cluster.force-signed-catalog", true) ? "rejected" : "legacy mode permitted");
+            if (cfg_get_bool("cluster.force-signed-catalog", true)) goto done;
+         } else if (strcmp(dict_get(d, "identity.owner", ""), origin) ||
+                    g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) ||
+                    !rr_identity_verify_catalog(d)) {
+            Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s", origin);
+            goto done;
+         }
          const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
          const char *service = dict_get(d, "catalog.service", NULL);
          char key[160];
