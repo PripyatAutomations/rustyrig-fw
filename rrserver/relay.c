@@ -520,11 +520,11 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
             size_t gained = current > last_healthy_catalog_count ? current - last_healthy_catalog_count : 0;
             size_t lost = current < last_healthy_catalog_count ? last_healthy_catalog_count - current : 0;
             Log(LOG_INFO, "relay.health",
-               "Local cluster catalog sync healthy: %u/%u connected peers bidirectionally synchronized; catalog=%zu net gained=%zu lost=%zu since previous healthy sync (not an end-to-end quorum)",
+               "Neighbor catalog sync healthy: %u/%u direct peers synchronized in both directions; local catalog=%zu (net change: +%zu/-%zu)",
                healthy, total, current, gained, lost);
          } else {
             Log(LOG_INFO, "relay.health",
-               "Local cluster catalog sync healthy: %u/%u connected peers bidirectionally synchronized; catalog=%zu (first healthy sync, no comparison baseline; not an end-to-end quorum)",
+               "Neighbor catalog sync healthy: %u/%u direct peers synchronized in both directions; local catalog=%zu (first healthy sync)",
                healthy, total, current);
          }
          last_healthy_catalog_count = current;
@@ -810,9 +810,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                   static const char *classes[] = { "ok", "wrong owner", "missing parent", "invalid service",
                      "signature/identity", "room authority", "out of memory", "catalog full" };
                   const char *why = reject_reason < RR_CAT_REJECT_COUNT ? classes[reject_reason] : "unknown";
+                  char owner_label[192];
                   Log(LOG_WARN, "relay.catalog",
-                     "Rejected %s from %s (%s): type=%s uuid=%s service=%s parent=%s room=%s",
-                     why, origin, id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
+                     "Rejected %s from %s (sync %s): type=%s uuid=%s service=%s parent=%s room=%s",
+                     why, rrserver_links_format_node(origin, owner_label, sizeof(owner_label)), id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
                      dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
                   sync->rejection_examples++;
                }
@@ -846,19 +847,25 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                     g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) ||
                     !rr_identity_verify_catalog(d) ||
                     strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
-            Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s", origin);
+            char label[192];
+            Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s",
+                rrserver_links_format_node(origin, label, sizeof(label)));
             goto done;
          }
 #ifdef USE_SQLITE
          if (signature && *signature &&
              !rr_identity_check_pin(masterdb, dict_get(d, "identity.domain", ""),
                                     origin, dict_get(d, "identity.public-key", ""))) {
-            Log(LOG_WARN, "mesh.identity", "Rejected catalog removal from %s: signing key differs from pinned identity", origin);
+            char label[192];
+            Log(LOG_WARN, "mesh.identity", "Rejected catalog removal from %s: signing key differs from pinned identity",
+                rrserver_links_format_node(origin, label, sizeof(label)));
             goto done;
          }
 #endif
          if (signature && *signature && !catalog_mutation_fresh(d, origin)) {
-            Log(LOG_WARN, "mesh.identity", "Rejected expired/replayed catalog removal from %s", origin);
+            char label[192];
+            Log(LOG_WARN, "mesh.identity", "Rejected expired/replayed catalog removal from %s",
+                rrserver_links_format_node(origin, label, sizeof(label)));
             goto done;
          }
          const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);

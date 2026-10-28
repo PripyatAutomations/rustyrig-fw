@@ -647,9 +647,10 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       else if (strcmp(operation, "catalog-upsert")) problem = "wrong signed operation";
       else if (!rr_identity_verify_catalog(copy)) problem = "Ed25519 signature verification failed";
       if (problem) {
+         char owner_label[192];
          Log(LOG_WARN, "mesh.identity",
             "Rejecting signed catalog entry from %s: %s (type=%s uuid=%s service=%s)",
-            owner, problem, dict_get(copy, "object.type", ""),
+            rrserver_links_format_node(owner, owner_label, sizeof(owner_label)), problem, dict_get(copy, "object.type", ""),
             dict_get(copy, "object.uuid", ""), dict_get(copy, "catalog.service", ""));
          dict_free(copy);
          return catalog_reject(reason, RR_CAT_IDENTITY);
@@ -666,7 +667,9 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    if (dict_get(copy, "identity.signature", NULL) &&
        !rr_identity_check_pin(masterdb, dict_get(copy, "identity.domain", ""),
          dict_get(copy, "identity.owner", ""), dict_get(copy, "identity.public-key", ""))) {
-      Log(LOG_WARN, "mesh.identity", "Rejecting catalog entry from %s: untrusted identity key change or pin storage failure", owner);
+      char owner_label[192];
+      Log(LOG_WARN, "mesh.identity", "Rejecting catalog entry from %s: untrusted identity key change or pin storage failure",
+         rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
       dict_free(copy);
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
@@ -674,16 +677,18 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
 #ifdef USE_SQLITE
    if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
        !dict_get(copy, "identity.revision", NULL)) {
+      char owner_label[192];
       Log(LOG_WARN, "mesh.identity",
           "Rejected signed catalog entry %s from %s: peer did not supply identity.revision; upgrade all servers to the revision-aware protocol",
-          key, owner);
+          key, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)));
       dict_free(copy);
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
    if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
        !rr_identity_accept_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
+      char owner_label[192];
       Log(LOG_WARN, "mesh.identity", "Rejected stale or conflicting signed catalog revision for %s owned by %s (revision=%s)",
-         key, owner, dict_get(copy, "identity.revision", ""));
+         key, rrserver_links_format_node(owner, owner_label, sizeof(owner_label)), dict_get(copy, "identity.revision", ""));
       dict_free(copy);
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
