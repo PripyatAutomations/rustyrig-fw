@@ -595,6 +595,29 @@ bool rr_identity_invite_challenge_claim(sqlite3 *db, const char *id,
    return ok;
 }
 
+bool rr_identity_invite_redeemed(sqlite3 *db, const char *id, const char *domain,
+                                  const char *node, const char *catalog, const char *spki) {
+   if (!db || !id || !domain || !node || !catalog || !spki ||
+       !invite_schema(db) || !g_uuid_string_is_valid(id) ||
+       !g_uuid_string_is_valid(node) ||
+       !trust_key_valid(catalog, 32) || !trust_key_valid(spki, 32))
+      return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+       "SELECT 1 FROM mesh_join_invitations WHERE ticket_id=?1"
+       " AND domain=?2 AND status='used' AND joined_uuid=?3"
+       " AND joined_catalog_key=?4 AND joined_tls_spki=?5",
+       -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, node, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 4, catalog, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 5, spki, -1, SQLITE_TRANSIENT);
+   bool found = sqlite3_step(stmt) == SQLITE_ROW;
+   sqlite3_finalize(stmt);
+   return found && rr_identity_trust_verify(db, domain, node, catalog, spki);
+}
+
 bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain,
                                 const char *node, const char *catalog, const char *spki) {
    if(!id || !domain || !*domain || !node || !g_uuid_string_is_valid(node) ||
