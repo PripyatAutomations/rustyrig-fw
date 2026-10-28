@@ -918,6 +918,7 @@ static void main_toolbar_minimize(GtkButton *button, gpointer unused) {
    }
 }
 
+static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data);
 bool gui_init(void) {
    // Apply user CSS (from [gtk-css] config section) or the default from
    // defconfig.c. See cfg.gtkcss.c, reloadable at runtime with /css-reload
@@ -943,6 +944,11 @@ bool gui_init(void) {
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
+   GtkWidget *certificates = gtk_button_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_MENU);
+   gtk_button_set_relief(GTK_BUTTON(certificates), GTK_RELIEF_NONE);
+   gtk_widget_set_tooltip_text(certificates, "Manage Certificates");
+   g_signal_connect(certificates, "clicked", G_CALLBACK(gtk_manage_certificates), NULL);
+   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), certificates, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
@@ -1451,6 +1457,180 @@ static bool gtk_identity_save_new(rr_crypto_key_t *key, const char *path) {
    }
    g_free(dir);
    return ok;
+}
+/* The GTK key manager deliberately operates only on the local identity.
+ * A future network profile can select an identity by stable fingerprint. */
+static rr_crypto_key_t *identity_unlocked_key;
+static void identity_lock(void) {
+   rr_crypto_key_free(identity_unlocked_key);
+   identity_unlocked_key = NULL;
+}
+static void identity_message(GtkWindow *parent, GtkMessageType type, const char *message) {
+   GtkWidget *dlg = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, type,
+                                            GTK_BUTTONS_CLOSE, "%s", message);
+   gtk_dialog_run(GTK_DIALOG(dlg));
+   gtk_widget_destroy(dlg);
+}
+static char *identity_ask_password(GtkWindow *parent, const char *title, bool confirm) {
+   GtkWidget *dlg = gtk_dialog_new_with_buttons(title, parent, GTK_DIALOG_MODAL,
+            "_Cancel", GTK_RESPONSE_CANCEL, "_OK", GTK_RESPONSE_OK, NULL);
+   GtkWidget *box = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+   GtkWidget *one = gtk_entry_new(), *two = confirm ? gtk_entry_new() : NULL;
+   gtk_entry_set_visibility(GTK_ENTRY(one), FALSE);
+   gtk_entry_set_placeholder_text(GTK_ENTRY(one), "Password");
+   gtk_box_pack_start(GTK_BOX(box), one, FALSE, FALSE, 5);
+   if (two) {
+      gtk_entry_set_visibility(GTK_ENTRY(two), FALSE);
+      gtk_entry_set_placeholder_text(GTK_ENTRY(two), "Confirm password");
+      gtk_box_pack_start(GTK_BOX(box), two, FALSE, FALSE, 5);
+   }
+   gtk_widget_show_all(dlg);
+   char *value = NULL;
+   if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_OK) {
+      const char *first = gtk_entry_get_text(GTK_ENTRY(one));
+      if (*first && (!two || !strcmp(first, gtk_entry_get_text(GTK_ENTRY(two)))))
+         value = g_strdup(first);
+   }
+   gtk_widget_destroy(dlg);
+   return value;
+}
+static rr_crypto_key_t *identity_read_key(const char *path, GtkWindow *parent) {
+   FILE *f = fopen(path, "rb");
+   if (!f) return NULL;
+   /* Import accepts both protected and unprotected PEM; never allow
+    * OpenSSL to prompt from the terminal. */
+   rr_crypto_key_t *key = rr_crypto_key_read_encrypted_pem(f, "");
+   if (!key) {
+      rewind(f);
+      char *pass = identity_ask_password(parent, "Unlock Private Key", false);
+      if (pass) {
+         key = rr_crypto_key_read_encrypted_pem(f, pass);
+         g_free(pass);
+      }
+   }
+   fclose(f);
+   if (key) {
+      unsigned char proof[64];
+      static const char check[] = "rustyrig.client.identity.private-key-check.v1";
+      if (!rr_crypto_ed25519_sign(key, check, sizeof(check) - 1, proof)) {
+         rr_crypto_key_free(key);
+         key = NULL;
+      }
+   }
+   return key;
+}
+static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
+   (void)unused; (void)unused_data;
+   GtkWindow *parent = main_window ? GTK_WINDOW(main_window) : NULL;
+   GtkWidget *dlg = gtk_dialog_new_with_buttons("Manage Certificates", parent,
+      GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
+   gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+   GtkWidget *status = gtk_label_new("");
+   gtk_label_set_xalign(GTK_LABEL(status), 0);
+   gtk_container_set_border_width(GTK_CONTAINER(area), 14);
+   gtk_box_pack_start(GTK_BOX(area), status, FALSE, FALSE, 12);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Create New", 1);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Import", 2);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Export", 3);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Lock / Unlock", 4);
+   gtk_dialog_add_button(GTK_DIALOG(dlg), "Delete", 5);
+   char *path = gtk_identity_path();
+   for (;;) {
+      struct stat st;
+      bool exists = !lstat(path, &st);
+      bool safe = exists && S_ISREG(st.st_mode) && st.st_uid == geteuid() &&
+                  !(st.st_mode & 0077);
+      if (!safe) identity_lock();
+      gtk_label_set_text(GTK_LABEL(status),
+         !exists ? "No local client identity. Create or import an Ed25519 key." :
+         !safe ? "Unsafe private-key file permissions or ownership." :
+         identity_unlocked_key ? "Client Ed25519 identity — Unlocked" :
+                                 "Client Ed25519 identity — Locked");
+      gtk_widget_show_all(dlg);
+      int response = gtk_dialog_run(GTK_DIALOG(dlg));
+      if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
+      if (response == 4) {
+         if (identity_unlocked_key) identity_lock();
+         else if (safe) identity_unlocked_key = identity_read_key(path, GTK_WINDOW(dlg));
+         continue;
+      }
+      if (response == 5 && safe) {
+         GtkWidget *confirm = gtk_message_dialog_new(GTK_WINDOW(dlg), GTK_DIALOG_MODAL,
+            GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO,
+            "Delete this private key? Servers registered to it will no longer recognize this device. Export a backup first.");
+         bool yes = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_YES;
+         gtk_widget_destroy(confirm);
+         if (yes && unlink(path) == 0) identity_lock();
+         continue;
+      }
+      if (response == 1 || response == 2) {
+         if (exists) {
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING,
+               "An identity already exists. Export and delete it before replacing.");
+            continue;
+         }
+         rr_crypto_key_t *key = NULL;
+         if (response == 1) key = rr_crypto_ed25519_generate();
+         else {
+            GtkWidget *chooser = gtk_file_chooser_dialog_new("Import Private Key",
+                GTK_WINDOW(dlg), GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel",
+                GTK_RESPONSE_CANCEL, "_Import", GTK_RESPONSE_ACCEPT, NULL);
+            if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+               char *source = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+               key = identity_read_key(source, GTK_WINDOW(dlg));
+               g_free(source);
+            }
+            gtk_widget_destroy(chooser);
+         }
+         if (!key || !gtk_identity_save_new(key, path))
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
+                             "Unable to create or import the private key.");
+         rr_crypto_key_free(key);
+         continue;
+      }
+      if (response == 3 && safe) {
+         rr_crypto_key_t *key = identity_unlocked_key;
+         bool owned = false;
+         if (!key) { key = identity_read_key(path, GTK_WINDOW(dlg)); owned = true; }
+         if (!key) continue;
+         char *password = identity_ask_password(GTK_WINDOW(dlg),
+                                                "Export Password (required)", true);
+         if (password) {
+            GtkWidget *chooser = gtk_file_chooser_dialog_new(
+               "Export Encrypted Private Key", GTK_WINDOW(dlg),
+               GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL,
+               "_Export", GTK_RESPONSE_ACCEPT, NULL);
+            gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(chooser), TRUE);
+            if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+               char *destination = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+               /* Create with 0600, not fopen's process-umask-dependent mode. */
+               int fd = open(destination, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600);
+               bool ok = false;
+               if (fd >= 0) {
+                  FILE *f = fdopen(fd, "wb");
+                  if (f) {
+                     ok = rr_crypto_key_write_encrypted_pem_stream(key, f, password) &&
+                          fflush(f) == 0 && fsync(fileno(f)) == 0;
+                     if (fclose(f)) ok = false;
+                  } else close(fd);
+                  if (!ok) unlink(destination);
+               }
+               identity_message(GTK_WINDOW(dlg), ok ? GTK_MESSAGE_INFO : GTK_MESSAGE_ERROR,
+                  ok ? "Encrypted private key exported." : "Unable to export private key.");
+               g_free(destination);
+            }
+            gtk_widget_destroy(chooser);
+            g_free(password);
+         } else {
+            identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_WARNING,
+                             "Export requires a nonempty matching password.");
+         }
+         if (owned) rr_crypto_key_free(key);
+      }
+   }
+   gtk_widget_destroy(dlg);
+   g_free(path);
 }
 static void gtk_identity_first_run(void) {
    char *path = gtk_identity_path();
