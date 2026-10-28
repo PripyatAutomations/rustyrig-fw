@@ -378,12 +378,12 @@ verification as admission. There is no operational `--join` command yet.
 
 ### Administrator invitation command (issuer side)
 
-An authenticated admin or owner on an HTTPS/WSS client connection can issue
-`/link invite wss://bootstrap-host:4420/link`. The server saves a pending
+The joining server logs its UUID with instructions for the cluster administrator. An authenticated admin or owner on an HTTPS/WSS client connection can issue
+`/link invite <joining-server-UUID>`. The server saves a pending
 invitation in the local SQLite database and replies directly to that operator
-with a base64-encoded RUSTYRIG-JOIN-1 token. Treat the response as a private
+with a base64-encoded RUSTYRIG-JOIN-2 token bound to that joining UUID. Treat the response as a private
 credential: do not paste it into public chat, logs, shell arguments or issues.
-Default lifetime is 72 hours unless the server's invitation-expiry setting
+The issuer's own bootstrap URL is derived from station.name and net.http.tls-port; station.name must resolve from the joining server. Default lifetime is 72 hours unless the server's invitation-expiry setting
 changes. The command records only the administrative action in audit logs,
 not the credential.
 
