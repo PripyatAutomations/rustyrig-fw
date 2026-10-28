@@ -25,7 +25,7 @@ static size_t collect(char *data, size_t size, size_t count, void *context) {
    r->buf[r->size] = 0;
    return n;
 }
-static bool post(CURL *curl, const char *url, const char *body, struct response *r) {
+static bool post(CURL *curl, const char *url, const char *body, struct response *r, bool quiet_not_found) {
    long code = 0;
    memset(r, 0, sizeof(*r));
    curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -40,6 +40,7 @@ static bool post(CURL *curl, const char *url, const char *body, struct response 
    }
    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
    if (code != 200) {
+      if (quiet_not_found && code == 404) return false;
       fprintf(stderr, "Mesh enrollment: issuer returned HTTP %ld at %s: %.*s\n",
               code, url, (int)r->size, r->buf);
       return false;
@@ -111,7 +112,7 @@ static bool committed_status(CURL *curl, const char *url, sqlite3 *db,
    const char *values[] = {fields[1], fields[2], fields[3], catalog, spki};
    char *body = form(curl, names, values, 5);
    struct response response;
-   bool ok = body && post(curl, url, body, &response);
+   bool ok = body && post(curl, url, body, &response, true);
    if (body) { memset(body, 0, strlen(body)); g_free(body); }
    if (!ok) return false;
    char **parts = g_strsplit(response.buf, "\n", 4);
@@ -214,7 +215,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    const char *names[] = {"ticket", "domain", "node"};
    const char *values[] = {fields[1], fields[2], fields[3]};
    body = form(curl, names, values, 3);
-   if (!body || !post(curl, challenge_url, body, &response)) {
+   if (!body || !post(curl, challenge_url, body, &response, false)) {
       fprintf(stderr, "Mesh enrollment: pinned issuer challenge request failed.\n");
       goto done;
    }
@@ -249,7 +250,7 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    const char *rnames[] = {"ticket","domain","node","challenge","catalog","spki","binding","proof"};
    const char *rvalues[] = {fields[1],domain,node,challenge,rr_identity_public_base64(),spki,binding,proof64};
    reply_body = form(curl, rnames, rvalues, 8);
-   if (reply_body) (void)post(curl, redeem_url, reply_body, &response);
+   if (reply_body) (void)post(curl, redeem_url, reply_body, &response, false);
    if (!committed_status(curl, status_url, db, fields, rr_identity_public_base64(), spki)) {
       fprintf(stderr, "Mesh enrollment: redemption not confirmed; retry using the same invitation.\n");
       goto done;
