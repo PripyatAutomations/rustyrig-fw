@@ -77,6 +77,15 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
 
 /* Forward a link payload while retaining its authoritative owner. */
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
+   /* All outbound catalog paths, including forwarded deltas and removals,
+    * share the same strict enforcement. */
+   if (!strcmp(kind, "catalog") || !strcmp(kind, "catalog-remove")) {
+      if (!dict_get(payload, "identity.signature", NULL)) {
+         Log(LOG_WARN, "mesh.identity", "Attempted to push unsigned %s from %s toward %s: %s",
+            kind, owner, dest, cfg_get_bool("cluster.force-signed-catalog", true) ? "blocked" : "legacy mode permitted");
+         if (cfg_get_bool("cluster.force-signed-catalog", true)) return;
+      }
+   }
    char *json = dict2json(payload);
    dict *d = dict_new();
 
