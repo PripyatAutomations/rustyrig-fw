@@ -421,3 +421,60 @@ The enrollment `/mesh/enroll` endpoint, TLS channel-bound challenge,
 permanent identity trust admission and federation of permission policies
 are still future work. No pre-enrollment socket may receive normal mesh
 catalog or topology state.
+
+
+## End-to-end authenticated control and multihomed fast ACK (protocol target)
+
+This is an **implementation contract**, not yet an implemented wire protocol.
+The existing `link.application` relay currently carries an inner JSON payload
+and a hop-authenticated origin; it must not be considered end-to-end signed.
+
+For control requests, use an immutable, canonically serialized Ed25519-signed
+envelope with protocol version, cluster domain, source principal and its
+key ID, destination node/resource UUID, globally unique request ID, operation,
+canonical payload digest, issued-at time, expiry, and authorization context.
+All fields influencing execution must be inside the signature. Transport
+route, forwarding hop, measured latency, and retry counters are unsigned
+metadata outside the envelope. Relays must never rewrite signed fields.
+The destination verifies the client signature and binding to an enrolled key,
+the current authorization grant, destination/resource ownership, expiry,
+and replay journal **before executing**. Unknown or ambiguous operations fail
+closed. Any malformed signature or conflicting payload for an existing request
+ID raises a rate-limited warning identifying the route and object, without
+printing private payloads.
+
+A destination-signed **fast ACK** contains the original request ID, digest,
+destination UUID, disposition (accepted/rejected/duplicate) and timestamp.
+It is issued after durable replay/dedup admission, before slow work. A
+destination-signed **final reply** contains the same request ID and digest,
+final status and result digest/payload; a relay cannot fabricate either.
+Client verifies the destination signature and trust against the owner identity,
+not just the connected next hop. A hop-level transport ACK is not a fast ACK.
+
+Clients use one logical request tracker across all connections to a Network.
+On a missing valid fast ACK after a measured timeout, retry the **same
+signed bytes** over a different eligible authenticated connection, with a
+bounded attempt budget and an overall expiry. Never generate a new ID or
+signature for a retry. First valid destination fast ACK stops hedging, and
+the first valid final result completes the operation. Duplicate signed
+ACKs/results may arrive across paths and are deduplicated. Conflicting valid
+final results for the same request are a security warning and should not be
+silently reconciled.
+
+The destination keeps a replay journal by (origin key ID, request ID) with
+request digest, execution state and retained response. Retry of an identical
+request returns the stored ACK/result without executing again. Retry with a
+different digest is refused and flagged. The journal lifetime must exceed
+the maximum signed request expiry and network retry horizon, and state
+needed for non-idempotent execution must survive process restarts.
+
+PTT, file modifications, rig tuning and other effects need per-operation
+idempotency/ordering rules; a fast ACK **does not** mean that a control has
+taken effect. PTT key-up/release and fail-safe shutdown need specially
+bounded deadlines and owner-local interlocks. Lost final result means
+"outcome unknown", not permission to execute another logically new command.
+
+Do not deploy redundant control paths into an untrusted mesh until origin
+signatures, destination replies, replay durability, and key authority are
+enforced. In particular, do not treat a signed catalog as proof that a
+relayed control request or response is authentic.
