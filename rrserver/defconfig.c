@@ -225,6 +225,9 @@ defconfig_t defcfg[] = {
       "net.mesh-linking", "true", "Enable automatic authenticated mesh links; false preserves configured tree links only", DEFCONFIG_BOOL, NULL
    },
    {
+      "links.native.enabled", "false", "Enable experimental dedicated mesh transport socket (TLS handshake pending)", DEFCONFIG_BOOL, NULL
+      "links.native.bind", "0.0.0.0", "IPv4 bind for dedicated mesh transport"
+      "links.native.port", "4421", "Dedicated TCP mesh transport port (future QUIC uses UDP)", DEFCONFIG_UINT, NULL
       "links.shared-listener", "true", "Accept /link on existing client HTTP/HTTPS listeners"
    },
    {

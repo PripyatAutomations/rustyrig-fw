@@ -10,6 +10,7 @@
 //
 #include <rrserver/link.h>
 #include <rrserver/reactor.glib.h>
+#include <rrserver/mesh.native.listener.h>
 #include <rrserver/mesh.enroll.h>
 #include <librrprotocol/crypto.h>
 #include <stddef.h>
@@ -848,6 +849,14 @@ int main(int argc, char **argv) {
       return 1;
    }
 
+   if (!rr_mesh_native_listener_start()) {
+      Log(LOG_CRIT, "mesh.native", "Native mesh listener initialization failed");
+      mg_mgr_free(&mg_mgr);
+      rrserver_links_fini();
+      rrserver_relay_fini();
+      return 1;
+   }
+
    // Camera IPC must be attached after the manager is initialized.
    if (fwdsp_ready) {
       webcam_init();
@@ -988,6 +997,7 @@ int main(int argc, char **argv) {
    host_cleanup();
 
 #ifdef  USE_MONGOOSE
+   rr_mesh_native_listener_stop();
    mg_mgr_free(&mg_mgr);
    rrserver_links_fini();
    rrserver_relay_fini();
