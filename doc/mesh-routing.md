@@ -176,3 +176,29 @@ implement client verification. Do not simply permit identity.* in the
 existing object.inventory-entry schema: those rows are transformed after
 signing and would fail cryptographic validation. Existing
 TLS peer authentication/CA checks must not be silently disabled for this.
+
+## Private CA provisioning (experimental)
+
+On a protected admin host with OpenSSL installed:
+
+```sh
+sh tools/rustyrig-private-ca.sh init-ca /secure/rustyrig-ca
+sh tools/rustyrig-private-ca.sh issue /secure/rustyrig-ca /tmp/nycvny37 nycvny37.example.net 10.0.0.37
+sh tools/rustyrig-private-ca.sh fingerprint /tmp/nycvny37/cert.pem
+```
+
+Keep `/secure/rustyrig-ca/ca.key.pem` offline. Copy only the issued
+`cert.pem`/`key.pem` onto that host, using the existing RustyRig
+certificate configuration. Copy `ca.cert.pem` into an application-managed
+trust directory on clients, not the system trust store. All hostnames or IPs
+clients connect to MUST be present in certificate SANs. The pin is the
+base64 SHA-256 digest of the certificate's DER SubjectPublicKeyInfo (SPKI);
+pin the public key, not the whole certificate.
+
+**Security boundary:** the helper provisions a private CA and prints pins;
+it does not yet modify Mongoose's TLS verification policy, implement the
+client trust database, prove binding from TLS keys to Ed25519 catalog
+identities, or verify remote catalogs in clients. Do not treat possession
+of the generated CA file or printed pin as enforcement until transport
+verification and peer identity binding have been integrated. Browser WSS
+must still pass browser TLS validation.
