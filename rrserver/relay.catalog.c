@@ -598,18 +598,28 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    dict *copy = dict_clone(d);
 
    if (copy && rr_relay_local_owner(owner) && rr_identity_public_base64()) {
+      /* Include the authoritative owner and domain IN the signed material;
+       * the envelope's untrusted routing origin is not sufficient. */
+      dict_add(copy, "identity.owner", owner);
+      dict_add(copy, "identity.domain", cfg_get("domain"));
       dict_add(copy, "identity.public-key", rr_identity_public_base64());
       dict_add(copy, "identity.scheme", "ed25519-catalog-v1");
       if (!rr_identity_sign_catalog(copy)) {
          dict_free(copy);
          return catalog_reject(reason, RR_CAT_IDENTITY);
       }
-   } else if (copy && dict_get(copy, "identity.signature", NULL) &&
-      !rr_identity_verify_catalog(copy)) {
-      /* A claimed signature is never allowed to validate as an unsigned row.
-       * Pinning the advertised public key to the owner is a separate step. */
-      dict_free(copy);
-      return catalog_reject(reason, RR_CAT_IDENTITY);
+   } else if (copy && dict_get(copy, "identity.signature", NULL)) {
+      /* Verify signatures, owner binding and local-domain scope before
+       * storing signed foreign entries. Catalog identity *trust* still
+       * requires separately pinned server keys. */
+      const char *signed_owner = dict_get(copy, "identity.owner", "");
+      const char *signed_domain = dict_get(copy, "identity.domain", "");
+      const char *scheme = dict_get(copy, "identity.scheme", "");
+      if (strcmp(signed_owner, owner) || g_ascii_strcasecmp(signed_domain, cfg_get("domain")) ||
+          strcmp(scheme, "ed25519-catalog-v1") || !rr_identity_verify_catalog(copy)) {
+         dict_free(copy);
+         return catalog_reject(reason, RR_CAT_IDENTITY);
+      }
    }
 
    if (!copy) {
