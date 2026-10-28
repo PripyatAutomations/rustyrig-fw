@@ -1688,8 +1688,8 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
 
 #ifdef USE_SQLITE
    if (!strcasecmp(action, "invite")) {
-      if (argc != 3) {
-         ws_send_error(client, "Usage: /link invite <joining-server-UUID> <issuer-VPN-IP:port>");
+      if (argc != 2 && argc != 3) {
+         ws_send_error(client, "Usage: /link invite <joining-server-UUID> [issuer-IP:port]");
          return;
       }
       /* Never disclose enrollment private keys across a plaintext admin
@@ -1699,11 +1699,15 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
          return;
       }
       if (!g_uuid_string_is_valid(name) || !strcmp(name, links.node)) {
-         ws_send_error(client, "Usage: /link invite <joining-server-UUID> <issuer-IP:port> (UUID printed on joining server)");
+         ws_send_error(client, "Usage: /link invite <joining-server-UUID> [issuer-IP:port] (UUID printed on joining server)");
          return;
       }
       /* Invitation endpoint identifies this issuer's reachable VPN listener.
        * Never derive it from station.name or from a [peer] tree link. */
+      if (argc == 2 && !invite_default_endpoint(client, endpoint, sizeof(endpoint))) {
+         ws_send_error(client, "Cannot determine an HTTPS endpoint automatically; specify <issuer-IP:port>");
+         return;
+      }
       char address[INET6_ADDRSTRLEN];
       const char *portstr = NULL;
       int family = AF_INET;
