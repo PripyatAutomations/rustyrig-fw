@@ -247,6 +247,39 @@ static bool mesh_invitation_valid(char *token) {
    return valid;
 }
 
+/* Enrollment uses the same persistent server UUID as normal startup. */
+static bool mesh_join_print_identity(void) {
+#ifdef USE_SQLITE
+   const char *db_path = cfg_get("path.db.master");
+   if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
+   sqlite3 *db = db_open(db_path);
+   if (!db) {
+      fprintf(stderr, "Mesh enrollment: unable to open master database at %s.\n", db_path);
+      return false;
+   }
+   char *uuid = db_rig_uuid_get_or_create(db, "@server", "@node");
+   sqlite3_close(db);
+   if (!uuid || !g_uuid_string_is_valid(uuid)) {
+      fprintf(stderr, "Mesh enrollment: unable to obtain persistent server UUID.\n");
+      free(uuid);
+      return false;
+   }
+   fprintf(stderr,
+      "\nRustyRig mesh enrollment\n"
+      "Your server UUID: %s\n\n"
+      "Send this UUID to an administrator of the existing mesh.\n"
+      "On an enrolled server, the administrator should run:\n"
+      "  /link invite %s <issuer-IP:port>\n\n"
+      "Ask them to send you the resulting private invitation token securely.\n"
+      "Do not send them your server's private keys.\n\n", uuid, uuid);
+   free(uuid);
+   return true;
+#else
+   fprintf(stderr, "Mesh enrollment requires SQLite support.\n");
+   return false;
+#endif
+}
+
 /* The invitation is secret; never accept it in argv or print it. */
 static int mesh_join_prepare(const char *path) {
    FILE *in = NULL;
@@ -256,6 +289,7 @@ static int mesh_join_prepare(const char *path) {
    struct termios saved, hidden;
    bool echo_disabled = false;
    int rc = EXIT_FAILURE;
+   if (!mesh_join_print_identity()) return rc;
    if (interactive) {
       if (!isatty(STDIN_FILENO)) {
          fprintf(stderr, "Mesh enrollment requires an interactive terminal or token file.\n");
