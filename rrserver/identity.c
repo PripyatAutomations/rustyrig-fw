@@ -1,4 +1,7 @@
 /* Persistent Ed25519 signing identity for server-owned catalog descriptors. */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <rrserver/identity.h>
 #ifdef USE_SQLITE
 #include <sqlite3.h>
@@ -414,6 +417,56 @@ bool rr_identity_invite_create(sqlite3 *db, const char *id, const char *domain,
    bool ok=sqlite3_step(s)==SQLITE_DONE;
    sqlite3_finalize(s);return ok;
 }
+/* A token is shown exactly once to the operator: the private invitation
+ * key is never stored in the cluster database or copied into the catalog.
+ * Token format v1 is line-oriented, with base64 PEM to avoid delimiter
+ * ambiguities. The bootstrap SPKI must come from the issuer's own cert. */
+char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
+   const char *bootstrap_wss_url, const char *issuer_tls_spki_b64,
+   long long expires_unix) {
+   if (!db || !domain || !*domain || !bootstrap_wss_url ||
+       strncmp(bootstrap_wss_url, "wss://", 6) ||
+       strchr(bootstrap_wss_url, '\\n') || strchr(bootstrap_wss_url, '\\r') ||
+       !trust_key_valid(issuer_tls_spki_b64, 32))
+      return NULL;
+
+   rr_crypto_key_t *key = rr_crypto_ed25519_generate();
+   if (!key) return NULL;
+   uint8_t pub[32];
+   char *token = NULL;
+   char *pem = NULL;
+   size_t pem_size = 0;
+   FILE *stream = open_memstream(&pem, &pem_size);
+   if (stream && rr_crypto_ed25519_public_bytes(key, pub) &&
+       rr_crypto_key_write_pem_stream(key, stream) &&
+       fflush(stream) == 0 && pem_size) {
+      char *id = g_uuid_string_random();
+      char *pub64 = g_base64_encode(pub, sizeof(pub));
+      char *pem64 = g_base64_encode((const guchar *)pem, pem_size);
+      /* The token carries the issuer's pinned identity to authenticate TLS
+       * even on a joining node with no existing certificate trust store. */
+      const char *issuer_pub = rr_identity_public_base64();
+      if (id && pub64 && pem64 && issuer_pub &&
+          rr_identity_invite_create(db, id, domain, pub64, expires_unix)) {
+         token = g_strdup_printf("RUSTYRIG-JOIN-1\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n",
+             id, domain, bootstrap_wss_url, issuer_tls_spki_b64,
+             issuer_pub, pem64);
+      }
+      g_free(id);
+      g_free(pub64);
+      g_free(pem64);
+   }
+   if (stream) fclose(stream);
+   if (pem) {
+      /* Erase the private PEM before freeing the temporary buffer. */
+      volatile unsigned char *p = (volatile unsigned char *)pem;
+      for (size_t i = 0; i < pem_size; ++i) p[i] = 0;
+      free(pem);
+   }
+   rr_crypto_key_free(key);
+   return token;
+}
+
 bool rr_identity_invite_revoke(sqlite3 *db, const char *id) {
    if (!id || !invite_schema(db)) return false;
    sqlite3_stmt *s=NULL;
