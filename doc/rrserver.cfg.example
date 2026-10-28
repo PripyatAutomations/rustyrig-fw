@@ -3,6 +3,9 @@
 // most settings go in [general] setting, servers are called [server:name] where name is short name for it
 // If you need to send bug reports, please set log.level=*:crazy
 [general]
+; This is a full reference example. Packaged installations use
+; config/rrserver.cfg with included rrserver.*.cfg fragments.
+; Mesh servers must agree on this domain; separate domains cannot link.
 ; Rig aliases select the [rig:<alias>] sections below.
 rig.instances=rig0 rig1
 ; Required with multiple rigs: select one for CAT/media clients.
