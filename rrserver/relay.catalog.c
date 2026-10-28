@@ -1666,12 +1666,7 @@ void rr_relay_send_catalogs(const char *dest) {
             if (route && !strcmp(route, dest)) {
                continue;
             }
-            if (!dict_get(entry->descriptor, "identity.signature", NULL)) {
-            Log(LOG_WARN, "mesh.identity", "Local catalog delta for %s is unsigned: %s",
-               entry->key, cfg_get_bool("cluster.force-signed-catalog", true) ? "not published" : "legacy mode permitted");
-            if (cfg_get_bool("cluster.force-signed-catalog", true)) continue;
-         }
-         char *json = dict2json(entry->descriptor);
+            char *json = dict2json(entry->descriptor);
 
             if (!json) {
                continue;
