@@ -10,8 +10,6 @@
 /* Persistent, server-owned Ed25519 identity. Never export the private key. */
 bool rr_identity_init(const char *directory);
 void rr_identity_fini(void);
-/* Provision a persistent self-signed Ed25519 TLS certificate if both files are absent. */
-bool rr_identity_ensure_tls(const char *cert_path, const char *key_path, const char *hostname);
 bool rr_identity_sign_catalog(dict *descriptor);
 bool rr_identity_verify_catalog(dict *descriptor);
 const char *rr_identity_public_base64(void);
