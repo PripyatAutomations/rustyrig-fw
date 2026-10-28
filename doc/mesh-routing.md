@@ -488,3 +488,35 @@ The route-selection helper `rr_mesh_route_avoiding_many` accepts a bounded set o
 ## Live direct-adjacency shadow graph (in progress)
 
 `rrserver/link.c` now allocates a private `rr_mesh_t` and adds a cost-1 direct edge only after a link has completed existing identity, snapshot and ready admission. It removes that edge on established-session closure. This graph tracks actual authenticated direct sockets, not catalog-reported transit edges, and is not used for application forwarding or authorization. In particular the existing overlapping-component rejection remains active: three servers cannot yet form a triangle. Next required changes are an independent authenticated mesh adjacency admission protocol, signed link-state propagation with epoch and replay checks, mesh-specific ingress verification, and bounded-hop forwarding tests. Do not use the shadow graph as evidence of a complete mesh.
+
+## One-shot invitation redemption (experimental)
+
+The joining server can run `rrserver --mesh-join` (interactive, terminal echo
+disabled) or `rrserver --mesh-join /path/to/token`. The command reads the
+confidential base64 `RUSTYRIG-JOIN-2` invitation, loads the normal configuration
+and local persistent node UUID, and exits without starting the daemon.
+
+The joining server uses libcurl with mandatory issuer SPKI pinning to POST to
+`/mesh/enroll/status` (resumption), `/mesh/enroll/challenge`, and
+`/mesh/enroll/redeem` on the issuer's TLS port. The issuer returns a fresh
+120-second SQLite-backed nonce and a signing-key binding to the pinned TLS
+SPKI. Redemption requires an Ed25519 proof signed with the one-time invitation
+key over the domain-separated tuple of ticket, domain, node UUID, nonce,
+permanent catalog public key, and permanent TLS SPKI; the permanent catalog
+key also signs its own TLS SPKI binding. The issuer claims the nonce once,
+checks the invitation and permanent signature, and atomically consumes the
+ticket alongside the new server trust entry. A subsequent signed status query
+checks the exact committed node/keys and supports retry after a lost reply.
+
+On the joining server, the issuer's pinned identity and bootstrap WSS URL are
+persisted in SQLite `mesh_explicit_trust` and `mesh_bootstrap_peers`. This is
+**identity enrollment**, not activation of a new server link: the existing
+`[peer:*]` handshake still requires a configured shared password and PEM TLS
+trust file. Automatic connections from enrolled bootstrap records, admission
+of dynamic peers, and secure full-mesh forwarding remain unfinished. In
+particular, don't infer that an ENROLLED status means a live server link exists.
+
+Run `bash rrserver/tests/test_mesh_enroll.sh` after building; the test covers
+challenge rotation, single-use claim, signature verification, atomic trust
+persistence, and rejected duplicate/mismatched redemptions. No end-to-end
+multi-host interoperability test has been run yet.
