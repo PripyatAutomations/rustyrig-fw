@@ -479,6 +479,7 @@ int main(int argc, char **argv) {
             puts("  -h, --help           Show this help");
             puts("  -f CONFIG           Use this server configuration file");
             puts("  -r RIGNAME          Select a rig configuration");
+            puts("  --mesh-join [FILE]  Enroll permanent server identity via pinned HTTPS; prompts if omitted");
             puts("\nMaintenance (requires stopped server):");
             puts("  --purge-recordings  Remove known audio recordings");
             puts("  --reset-db          DELETE whole DB: users, credentials, rooms, grants, history");
