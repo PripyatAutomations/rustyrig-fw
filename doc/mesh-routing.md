@@ -375,3 +375,20 @@ transcript containing domain, invitation ID and permanent identity keys.
 Proof verification and conditional consumption must be integrated into one
 race-safe enrollment state machine; callers must not treat standalone proof
 verification as admission. There is no operational `--join` command yet.
+
+### Administrator invitation command (issuer side)
+
+An authenticated admin or owner on an HTTPS/WSS client connection can issue
+`/link invite wss://bootstrap-host:4420/link`. The server saves a pending
+invitation in the local SQLite database and replies directly to that operator
+with a base64-encoded RUSTYRIG-JOIN-1 token. Treat the response as a private
+credential: do not paste it into public chat, logs, shell arguments or issues.
+Default lifetime is 72 hours unless the server's invitation-expiry setting
+changes. The command records only the administrative action in audit logs,
+not the credential.
+
+**Enrollment is not yet operational.** The joining node's startup token
+parser, TLS exporter/channel binding, issuer's fresh challenge and permanent
+identity proof, atomic redemption/admission, strict reconnect and signed
+catalog sync must be wired together. No invitation may bypass the normal
+identity-before-catalog gate.
