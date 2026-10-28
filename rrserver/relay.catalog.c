@@ -1082,6 +1082,13 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
          dict_add(c->descriptor, "object.model", model);
       }
    }
+   /* add_object() signed the initial descriptor, but the rig-specific
+    * backend/name/location/model fields above modify the signed payload.
+    * Reseal it before any dependent VFO or service catalog is emitted. */
+   if (c && !rr_identity_sign_catalog(c->descriptor)) {
+      Log(LOG_CRIT, "mesh.identity", "Cannot sign completed rig catalog descriptor %s", rr_server_rig_id(radio));
+      return false;
+   }
    collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
    collect_rig_catalog(radio);
    char cat[80];
