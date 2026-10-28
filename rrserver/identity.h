@@ -1,6 +1,10 @@
 #ifndef RRSERVER_IDENTITY_H
 #define RRSERVER_IDENTITY_H
 #include <stdbool.h>
+#include "build_config.h"
+#ifdef USE_SQLITE
+#include <sqlite3.h>
+#endif
 #include <librustyaxe/core.h>
 
 /* Persistent, server-owned Ed25519 identity. Never export the private key. */
@@ -9,4 +13,8 @@ void rr_identity_fini(void);
 bool rr_identity_sign_catalog(dict *descriptor);
 bool rr_identity_verify_catalog(dict *descriptor);
 const char *rr_identity_public_base64(void);
+#ifdef USE_SQLITE
+/* Pins are never overwritten by catalog refreshes or key substitutions. */
+bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, const char *public_key);
+#endif
 #endif
