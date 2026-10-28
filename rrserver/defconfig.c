@@ -219,6 +219,9 @@ defconfig_t defcfg[] = {
       "media.direct.encrypt", "false", "Encrypt RTP (requires WITH_RTP_ENCRYPTION=true)", DEFCONFIG_BOOL, NULL
    },
    {
+      "cluster.force-signed-catalog", "true", "Require signed catalog descriptors from every cluster node; false permits unsigned legacy records with warnings", DEFCONFIG_BOOL, NULL
+   },
+   {
       "net.mesh-linking", "true", "Enable automatic authenticated mesh links; false preserves configured tree links only", DEFCONFIG_BOOL, NULL
    },
    {
