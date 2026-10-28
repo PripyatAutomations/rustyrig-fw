@@ -534,16 +534,13 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    if (reason) {
       *reason = RR_CAT_OK;
    }
-   /* Strict by default: unsigned catalog entries are never trusted or published.
-    * Relaxed mode is only an explicit legacy compatibility concession. */
+   /* Remote catalog descriptors must always carry an origin signature. */
    if (!rr_relay_local_owner(owner) && !dict_get(d, "identity.signature", NULL)) {
       Log(LOG_WARN, "mesh.identity",
-         "Unsigned catalog descriptor from owner %s (type=%s uuid=%s service=%s room=%s): %s",
-         owner, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
-         dict_get(d, "catalog.service", ""), dict_get(d, "catalog.room", ""),
-         cfg_get_bool("cluster.force-signed-catalog", true) ? "rejected" : "accepted by explicit configuration");
-      if (cfg_get_bool("cluster.force-signed-catalog", true))
-         return catalog_reject(reason, RR_CAT_IDENTITY);
+          "Rejected unsigned catalog entry: origin=%s type=%s uuid=%s service=%s",
+          owner, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
+          dict_get(d, "catalog.service", ""));
+      return catalog_reject(reason, RR_CAT_IDENTITY);
    }
    if (rr_relay_local_owner(owner) && !rr_identity_public_base64()) {
       Log(LOG_WARN, "mesh.identity", "Cannot publish local unsigned catalog descriptor: server signing identity unavailable");
