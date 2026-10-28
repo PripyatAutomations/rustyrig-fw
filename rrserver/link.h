@@ -23,6 +23,10 @@ void rrserver_links_poll(void);
 bool rrserver_links_clock_offset(const char *node, long long *offset_seconds);
 void rrserver_links_fini(void);
 const char *rrserver_links_node(void);
+/* Shared forwarding interface for tree and future mesh routing. Returns the
+ * authenticated direct next-hop UUID, not a socket or arbitrary catalog URL.
+ * All application/relay callers use this API, never a topology-specific
+ * router. NULL means unreachable (or local destination). */
 const char *rrserver_links_route(const char *node);
 /* Human-facing label: site [uuid] when known, UUID otherwise. Never use this string in protocol fields, keys or identity comparisons. */
 const char *rrserver_links_format_node(const char *node, char *buffer, size_t capacity);
