@@ -141,3 +141,38 @@ catalog remains planned. A revocation/tombstone barrier must be added before
 accepting arbitrary replayed catalog upserts in a dynamic mesh; the current
 revision guard alone does not prevent resurrection of an equal-revision
 entry that was previously deleted.
+
+## Client-verifiable catalog trust rooted in server TLS identity
+
+The TLS certificate authenticates the directly connected host, not every
+remote owner whose catalog is relayed through that host. Therefore client
+verification requires both (a) certificate-anchored owner identity and
+(b) the original owner's immutable signed catalog descriptor.
+
+A server's long-lived Ed25519 catalog public key MUST be cryptographically
+bound to its TLS certificate identity (for example an owner-signed
+certificate-key binding proof, validated against a pinned certificate/SPKI
+or a verified certificate chain and authorized hostname). A bare public key
+inside a catalog is NOT an adequate trust anchor. Linking the TLS and
+catalog keys by matching a claimed hostname without a signed proof is
+also insufficient. Pinned keys must survive reconnections; rotations need
+an explicitly authenticated migration or administrator approval.
+
+The relay must forward the exact signed catalog record, without appending
+client stream/request fields or modifying signed properties. Client-facing
+object and inventory rows are *projections* and cannot be signature-verified
+as if they were original records. Define a distinct wire message carrying
+an opaque complete descriptor, source owner, and certificate binding
+metadata, with request/session correlation OUTSIDE the signed payload.
+Update librrprotocol wire-schema, its generated registry, C/GTK/TUI
+consumers and the browser client in concert. Client caches must admit
+remote records only after signature, domain, binding, revision and parent
+validation; untrusted records must be labeled or excluded from controls.
+Preserve high-water marks and deletion tombstones across reconnects.
+
+The current temporary server-side filtering of identity.* from projected
+object/inventory messages prevents serialization errors but DOES NOT
+implement client verification. Do not simply permit identity.* in the
+existing object.inventory-entry schema: those rows are transformed after
+signing and would fail cryptographic validation. Existing
+TLS peer authentication/CA checks must not be silently disabled for this.
