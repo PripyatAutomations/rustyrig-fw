@@ -895,7 +895,13 @@ sqlite3 *db_open(const char *path) {
          "CREATE TABLE IF NOT EXISTS user_web_credentials("
          "uid INTEGER PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,"
          "password_phc TEXT NOT NULL,"
-         "updated_at INTEGER NOT NULL DEFAULT (unixepoch()));";
+         "updated_at INTEGER NOT NULL DEFAULT (unixepoch()));"
+         "CREATE TABLE IF NOT EXISTS user_key_enrollment("
+         "uid INTEGER PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,"
+         "verifier_phc TEXT NOT NULL, expires_at INTEGER NOT NULL,"
+         "attempts INTEGER NOT NULL DEFAULT 0,"
+         "created_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+         "consumed_at INTEGER);";
       char *auth_error = NULL;
       if (sqlite3_exec(db, auth_schema, NULL, NULL, &auth_error) != SQLITE_OK) {
          Log(LOG_CRIT, "db", "Cannot migrate authentication schema: %s",
