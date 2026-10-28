@@ -34,13 +34,14 @@ static GByteArray *canonical(dict *d) {
    }
    g_ptr_array_sort(keys, compare_strings);
    GByteArray *bytes = g_byte_array_new();
-   static const char prefix[] = "rustyrig.catalog.ed25519.v1";
+   static const char prefix[] = "rustyrig.catalog.ed25519.v2";
    g_byte_array_append(bytes, (const guint8 *)prefix, sizeof(prefix));
    for (guint i = 0; i < keys->len; ++i) {
       const char *k = g_ptr_array_index(keys, i);
       const char *v = dict_get(d, k, "");
-      char *header = g_strdup_printf("%zu:%s:%d:%zu:", strlen(k), k,
-         (int)dict_get_type(d, k), strlen(v));
+      /* JSON decoding may normalize internal dict value types. Sign the
+       * stable textual value, not the in-memory VAL_* representation. */
+      char *header = g_strdup_printf("%zu:%s:%zu:", strlen(k), k, strlen(v));
       g_byte_array_append(bytes, (const guint8 *)header, strlen(header));
       g_free(header);
       g_byte_array_append(bytes, (const guint8 *)v, strlen(v));
