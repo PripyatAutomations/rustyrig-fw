@@ -328,6 +328,12 @@ int main(int argc, char **argv) {
          "reset-uuids", no_argument, NULL, 1007
       },
       {
+         "help", no_argument, NULL, 'h'
+      },
+      {
+         "mesh-join", optional_argument, NULL, 1008
+      },
+      {
          NULL, 0, NULL, 0
       }
    };
@@ -340,7 +346,10 @@ int main(int argc, char **argv) {
       bool exact = false;
 
       for (size_t j = 0 ; maintenance_options[j].name ; ++j) {
-         if (!strcmp(argv[i] + 2, maintenance_options[j].name)) {
+         if (!strncmp(argv[i] + 2, maintenance_options[j].name, strlen(maintenance_options[j].name)) &&
+              (argv[i][2 + strlen(maintenance_options[j].name)] == 0 ||
+               (!strcmp(maintenance_options[j].name, "mesh-join") &&
+                argv[i][2 + strlen(maintenance_options[j].name)] == '='))) {
             exact = true;
             break;
          }
@@ -356,6 +365,14 @@ int main(int argc, char **argv) {
    int opt;
    while ((opt = getopt_long(argc, argv, "f:hr:", maintenance_options, NULL)) != -1) {
       switch (opt) {
+         case 1008:
+            if (mesh_join || maintenance != RR_MAINT_NONE) {
+               fprintf(stderr, "Specify only one one-shot operation.\n");
+               return EXIT_FAILURE;
+            }
+            mesh_join = true;
+            mesh_join_path = optarg;
+            break;
          case 1001:
          case 1002:
          case 1003:
@@ -363,7 +380,7 @@ int main(int argc, char **argv) {
          case 1005:
          case 1006:
          case 1007: {
-            if (maintenance != RR_MAINT_NONE) {
+            if (maintenance != RR_MAINT_NONE || mesh_join) {
                fprintf(stderr, "Specify only one maintenance operation per invocation.\n");
 
                return EXIT_FAILURE;
@@ -406,6 +423,16 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
          }
       }
+   }
+   if (mesh_join) {
+      if (optind < argc) {
+         if (mesh_join_path || optind + 1 != argc) {
+            fprintf(stderr, "Specify at most one invitation file.\n");
+            return EXIT_FAILURE;
+         }
+         mesh_join_path = argv[optind];
+      }
+      return mesh_join_prepare(mesh_join_path);
    }
    // load config (posix hosts)
    char *fullpath = NULL;
