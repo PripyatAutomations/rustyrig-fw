@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include <rrclient/database.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -530,7 +531,7 @@ bool cmd_save(int argc, char **args) {
       return false;
    }
 
-   if (!cfg_save(cfg, path)) {
+   if (!rrclient_database_config_save( path)) {
       ui_print(ui_active_window_name(), "\00304*** Failed to save configuration to %s\017", path);
 
       return false;
