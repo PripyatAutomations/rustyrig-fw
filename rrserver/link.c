@@ -1438,6 +1438,13 @@ static bool load_peer(const char *section) {
 /* Both dedicated WSS and shared HTTPS listeners accept one-shot enrollment.
  * Never attach pre-enrollment requests to an authenticated server link. */
 static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
+   if (hm->body.len > 4096 &&
+       (!mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) ||
+        !mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) ||
+        !mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")))) {
+      mg_http_reply(connection, 413, "", "Enrollment request too large\\n");
+      return true;
+   }
 #ifdef USE_SQLITE
    if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")) == 0) {
       if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
