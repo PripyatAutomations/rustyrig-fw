@@ -243,6 +243,11 @@ defconfig_t defcfg[] = {
       "links.allow-insecure", "false", "Permit plaintext WS links for explicit local testing"
    },
    {
+      "links.invitation-expiry-hours", "72",
+      "Default lifetime of a new cluster join invitation in hours (1-8760; default 3 days)",
+      DEFCONFIG_UINT, NULL
+   },
+   {
       "links.max-depth", "5", "Default maximum descendant depth per peer (0=unlimited; leaf-only overrides)", DEFCONFIG_UINT, NULL
    },
    {
