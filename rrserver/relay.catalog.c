@@ -625,6 +625,18 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    if (!copy) {
       return catalog_reject(reason, RR_CAT_MEMORY);
    }
+#ifdef USE_SQLITE
+   /* Trust on first verified catalog observation, persistent across restarts.
+    * Never permit a subsequent catalog to silently replace a pinned key.
+    * Bootstrap peers must be independently trusted for initial enrollment. */
+   if (dict_get(copy, "identity.signature", NULL) &&
+       !rr_identity_check_pin(masterdb, dict_get(copy, "identity.domain", ""),
+         dict_get(copy, "identity.owner", ""), dict_get(copy, "identity.public-key", ""))) {
+      Log(LOG_WARN, "mesh.identity", "Rejecting catalog entry from %s: untrusted identity key change or pin storage failure", owner);
+      dict_free(copy);
+      return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
+#endif
 
    if (replace && rr_relay_local_owner(c->owner)) {
 #ifdef USE_SQLITE
