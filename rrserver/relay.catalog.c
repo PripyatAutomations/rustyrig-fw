@@ -21,6 +21,7 @@
 #include <librrprotocol/wire.h>
 #include <rrserver/relay.h>
 #include <rrserver/link.h>
+#include <rrserver/identity.h>
 #include <rrserver/objects.h>
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
@@ -595,6 +596,21 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       return catalog_reject(reason, RR_CAT_ROOM_AUTH);   // Only proven station/rig authority may displace a stale room claim.
    }
    dict *copy = dict_clone(d);
+
+   if (copy && rr_relay_local_owner(owner) && rr_identity_public_base64()) {
+      dict_add(copy, "identity.public-key", rr_identity_public_base64());
+      dict_add(copy, "identity.scheme", "ed25519-catalog-v1");
+      if (!rr_identity_sign_catalog(copy)) {
+         dict_free(copy);
+         return catalog_reject(reason, RR_CAT_IDENTITY);
+      }
+   } else if (copy && dict_get(copy, "identity.signature", NULL) &&
+      !rr_identity_verify_catalog(copy)) {
+      /* A claimed signature is never allowed to validate as an unsigned row.
+       * Pinning the advertised public key to the owner is a separate step. */
+      dict_free(copy);
+      return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
 
    if (!copy) {
       return catalog_reject(reason, RR_CAT_MEMORY);
