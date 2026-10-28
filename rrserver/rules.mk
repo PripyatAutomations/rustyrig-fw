@@ -1,5 +1,5 @@
 CFLAGS_RRSERVER += -pthread
-LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic $(shell pkg-config --libs libcurl sqlite3)
+LDFLAGS_RRSERVER += -pthread -Wl,--export-dynamic $(shell pkg-config --libs libcurl sqlite3 openssl)
 ${BUILD_DIR}/rrserver/receiver.directory.o: CFLAGS_RRSERVER += $(shell pkg-config --cflags libcurl sqlite3)
 CFLAGS_RRSERVER += -DRRSERVER -DCHANNEL_FILE="\"config/${PROFILE}.channels.json\""
 rrserver := bin/rrserver
@@ -70,6 +70,7 @@ rrserver_objs += hostlog.o		# Stream host Log() lines to FLAG_SYSLOG clients as 
 rrserver_objs += help.o			# support for help menus from filesystem, if available
 rrserver_objs += http.bans.o
 rrserver_objs += i2c.o			# Support for i2c bus devices
+rrserver_objs += identity.o
 rrserver_objs += link.o		# Authenticated server-link sessions
 rrserver_objs += link.tree.o		# Server-link tree admission and routing
 rrserver_objs += main.o			# main loop
