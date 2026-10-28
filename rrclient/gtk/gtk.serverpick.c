@@ -393,6 +393,26 @@ static void picker_drag_delete(GtkWidget *widget, GdkDragContext *context, gpoin
    g_signal_stop_emission_by_name(widget, "drag-data-delete");
 }
 
+/* Do not let GtkTreeView's built-in row-reorder destination consume the drop. */
+static gboolean picker_drag_motion(GtkWidget *widget, GdkDragContext *context,
+                                   gint x, gint y, guint time, gpointer unused) {
+   (void)unused; (void)x; (void)y;
+   g_signal_stop_emission_by_name(widget, "drag-motion");
+   GdkAtom atom = gtk_drag_dest_find_target(widget, context, NULL);
+   gdk_drag_status(context, atom == GDK_NONE ? 0 : GDK_ACTION_COPY, time);
+   return TRUE;
+}
+
+static gboolean picker_drag_drop(GtkWidget *widget, GdkDragContext *context,
+                                 gint x, gint y, guint time, gpointer unused) {
+   (void)x; (void)y; (void)unused;
+   g_signal_stop_emission_by_name(widget, "drag-drop");
+   GdkAtom atom = gtk_drag_dest_find_target(widget, context, NULL);
+   if (atom == GDK_NONE) return FALSE;
+   gtk_drag_get_data(widget, context, atom, time);
+   return TRUE;
+}
+
 static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
                                  GtkSelectionData *selection, guint info, guint time, gpointer unused) {
    (void)info; (void)unused;
@@ -631,9 +651,11 @@ void gtk_show_server_chooser(void) {
    rr_gtk_tree_style(tree);
    gtk_drag_source_set(tree, GDK_BUTTON1_MASK,
       picker_dnd_targets, G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_COPY);
-   gtk_drag_dest_set(tree, GTK_DEST_DEFAULT_ALL, picker_dnd_targets,
+   gtk_drag_dest_set(tree, 0, picker_dnd_targets,
       G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_COPY);
    g_signal_connect(tree, "drag-data-get", G_CALLBACK(picker_drag_get), NULL);
+   g_signal_connect(tree, "drag-motion", G_CALLBACK(picker_drag_motion), NULL);
+   g_signal_connect(tree, "drag-drop", G_CALLBACK(picker_drag_drop), NULL);
    g_signal_connect(tree, "drag-data-received", G_CALLBACK(picker_drag_received), NULL);
    g_signal_connect(tree, "drag-data-delete", G_CALLBACK(picker_drag_delete), NULL);
    g_object_unref(store);
