@@ -51,6 +51,40 @@ static bool catalog_mutation_fresh(dict *d, const char *owner) {
    gint64 timestamp = g_ascii_strtoll(stamp, &end, 10);
    gint64 current = (gint64)time(NULL);
    if (!end || *end || timestamp < current - 300 || timestamp > current + 300) return false;
+#ifdef USE_SQLITE
+   /* A durable replay journal survives restarts. An INSERT is atomic and a
+    * duplicate nonce can never authorize a second mutation. Fail closed on
+    * read-only, unavailable, or otherwise broken storage. */
+   if (!masterdb || sqlite3_exec(masterdb,
+      "CREATE TABLE IF NOT EXISTS mesh_catalog_mutations ("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, nonce TEXT NOT NULL,"
+      "issued_at INTEGER NOT NULL,"
+      "PRIMARY KEY(domain,owner_uuid,nonce))", NULL, NULL, NULL) != SQLITE_OK) return false;
+   sqlite3_stmt *insert = NULL;
+   const char *sql = "INSERT INTO mesh_catalog_mutations (domain,owner_uuid,nonce,issued_at)"
+                     " VALUES(?1,?2,?3,?4)";
+   if (sqlite3_prepare_v2(masterdb, sql, -1, &insert, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(insert, 1, cfg_get("domain"), -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(insert, 2, owner, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(insert, 3, nonce, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_int64(insert, 4, timestamp);
+   bool inserted = sqlite3_step(insert) == SQLITE_DONE;
+   sqlite3_finalize(insert);
+   if (!inserted) return false;
+   /* Retain beyond both sides of the accepted clock-skew window. */
+   static gint64 last_prune;
+   if (current - last_prune >= 600) {
+      sqlite3_stmt *prune = NULL;
+      if (sqlite3_prepare_v2(masterdb,
+          "DELETE FROM mesh_catalog_mutations WHERE issued_at < ?1", -1, &prune, NULL) == SQLITE_OK) {
+         sqlite3_bind_int64(prune, 1, current - 900);
+         sqlite3_step(prune);
+      }
+      sqlite3_finalize(prune);
+      last_prune = current;
+   }
+   return true;
+#else
    if (!catalog_mutations_seen)
       catalog_mutations_seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
    char *key = g_strdup_printf("%s:%s", owner, nonce);
@@ -60,6 +94,7 @@ static bool catalog_mutation_fresh(dict *d, const char *owner) {
    if (g_hash_table_size(catalog_mutations_seen) >= 32768) g_hash_table_remove_all(catalog_mutations_seen);
    g_hash_table_add(catalog_mutations_seen, key);
    return true;
+#endif
 }
 
 /* Send a link envelope, adding the authenticated origin IP for requests. */
