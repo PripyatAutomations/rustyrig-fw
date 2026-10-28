@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
+#include <stdlib.h>
 #include <string.h>
 
 static rr_crypto_key_t *identity;
@@ -387,6 +388,18 @@ static bool invite_schema(sqlite3 *db) {
 }
 bool rr_identity_invite_create(sqlite3 *db, const char *id, const char *domain,
                                 const char *pub, long long expires) {
+   /* expires=0 selects the configured default; positive values are
+    * absolute UNIX timestamps supplied by an explicit invitation override. */
+   if (expires == 0) {
+      const char *configured = cfg_get("links.invitation-expiry-hours");
+      if (!configured || !*configured) configured = "72";
+      char *end = NULL;
+      errno = 0;
+      unsigned long hours = strtoul(configured, &end, 10);
+      if (errno || end == configured || *end || hours < 1 || hours > 8760)
+         return false;
+      expires = (long long)time(NULL) + (long long)hours * 3600LL;
+   }
    if (!id || !g_uuid_string_is_valid(id) || !domain || !*domain ||
        !trust_key_valid(pub,32) || expires <= (long long)time(NULL) ||
        !invite_schema(db)) return false;
