@@ -1511,6 +1511,13 @@ static void gtk_identity_first_run(void) {
          }
          gtk_widget_destroy(chooser);
       }
+      unsigned char proof[64];
+      const char test_message[] = "rustyrig.client.identity.private-key-check.v1";
+      if (key && !rr_crypto_ed25519_sign(key, test_message,
+                                         sizeof(test_message) - 1, proof)) {
+         rr_crypto_key_free(key);
+         key = NULL;
+      }
       if (key && gtk_identity_save_new(key, path)) {
          Log(LOG_INFO, "client.identity", "Client Ed25519 identity created at %s", path);
          rr_crypto_key_free(key);
