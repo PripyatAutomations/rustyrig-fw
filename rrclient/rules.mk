@@ -26,6 +26,7 @@ rrclient_objs += cmd.exec.o
 rrclient_objs += cmd.help.o		# help texts
 rrclient_objs += cmd.misc.o		# unsorted commands
 rrclient_objs += cmd.tabs.o		# tab/window switching
+rrclient_objs += database.o
 rrclient_objs += config.layers.o
 rrclient_objs += identity.store.o
 rrclient_objs += connman.o		# connection manager
