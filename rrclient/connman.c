@@ -1279,12 +1279,17 @@ void connman_autoconnect(void) {
       return;
    }
    char *save = NULL;
+   bool any = false;
 
    for (char *name = strtok_r(list, ", \t", &save) ; name ; name = strtok_r(NULL, ", \t", &save)) {
+      const char *url = get_server_property(name, "server.url");
+      if (!url || !*url) continue; /* Stale legacy config preference. */
+      any = true;
       connect_server(name);
    }
 
    free(list);
+   if (!any) show_server_chooser();
 }
 
 void rrclient_quit_servers(const char *reason) {
