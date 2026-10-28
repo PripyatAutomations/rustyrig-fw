@@ -739,6 +739,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s", origin);
             goto done;
          }
+#ifdef USE_SQLITE
+         if (signature && *signature &&
+             !rr_identity_check_pin(masterdb, dict_get(d, "identity.domain", ""),
+                                    origin, dict_get(d, "identity.public-key", ""))) {
+            Log(LOG_WARN, "mesh.identity", "Rejected catalog removal from %s: signing key differs from pinned identity", origin);
+            goto done;
+         }
+#endif
          const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
          const char *service = dict_get(d, "catalog.service", NULL);
          char key[160];
