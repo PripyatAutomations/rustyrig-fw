@@ -622,6 +622,12 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       dict_add(copy, "identity.public-key", rr_identity_public_base64());
       dict_add(copy, "identity.scheme", "ed25519-catalog-v1");
       dict_add(copy, "identity.operation", "catalog-upsert");
+#ifdef USE_SQLITE
+      if (!rr_identity_local_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
+         dict_free(copy);
+         return catalog_reject(reason, RR_CAT_IDENTITY);
+      }
+#endif
       if (!rr_identity_sign_catalog(copy)) {
          dict_free(copy);
          return catalog_reject(reason, RR_CAT_IDENTITY);
@@ -661,6 +667,15 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
        !rr_identity_check_pin(masterdb, dict_get(copy, "identity.domain", ""),
          dict_get(copy, "identity.owner", ""), dict_get(copy, "identity.public-key", ""))) {
       Log(LOG_WARN, "mesh.identity", "Rejecting catalog entry from %s: untrusted identity key change or pin storage failure", owner);
+      dict_free(copy);
+      return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
+#endif
+#ifdef USE_SQLITE
+   if (!rr_relay_local_owner(owner) && dict_get(copy, "identity.signature", NULL) &&
+       !rr_identity_accept_revision(masterdb, cfg_get("domain"), owner, key, copy)) {
+      Log(LOG_WARN, "mesh.identity", "Rejected stale or conflicting signed catalog revision for %s owned by %s (revision=%s)",
+         key, owner, dict_get(copy, "identity.revision", ""));
       dict_free(copy);
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
@@ -1154,6 +1169,12 @@ void rr_relay_collect_local(void) {
       dict_add(c->descriptor, "identity.public-key", rr_identity_public_base64());
       dict_add(c->descriptor, "identity.scheme", "ed25519-catalog-v1");
       dict_add(c->descriptor, "identity.operation", "catalog-upsert");
+#ifdef USE_SQLITE
+      if (!rr_identity_local_revision(masterdb, cfg_get("domain"), c->owner, c->key, c->descriptor)) {
+         Log(LOG_CRIT, "mesh.identity", "Cannot persist catalog revision for %s; publication blocked", c->key);
+         continue;
+      }
+#endif
       if (!rr_identity_sign_catalog(c->descriptor))
          Log(LOG_CRIT, "mesh.identity", "Unable to finalize local catalog signature for %s; publication blocked", c->key);
    }
