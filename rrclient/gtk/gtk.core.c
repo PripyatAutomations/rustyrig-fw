@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <glib/gstdio.h>
 #include <librrprotocol/crypto.h>
+#include <rrclient/identity.store.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -1478,28 +1479,6 @@ static bool gtk_identity_save_new(rr_crypto_key_t *key, const char *path) {
 }
 /* The GTK key manager deliberately operates only on the local identity.
  * A future network profile can select an identity by stable fingerprint. */
-/* Keys stay unlocked for this process, independently of the selected row.
- * The table owns every decrypted key and frees them on explicit lock/exit. */
-static GHashTable *identity_unlocked_keys;
-static void identity_lock_path(const char *path) {
-   if (identity_unlocked_keys && path)
-      g_hash_table_remove(identity_unlocked_keys, path);
-}
-static void identity_lock_all(void) {
-   if (identity_unlocked_keys)
-      g_hash_table_remove_all(identity_unlocked_keys);
-}
-static rr_crypto_key_t *identity_get_unlocked(const char *path) {
-   return identity_unlocked_keys && path ?
-      g_hash_table_lookup(identity_unlocked_keys, path) : NULL;
-}
-static void identity_keep_unlocked(const char *path, rr_crypto_key_t *key) {
-   if (!path || !key) return;
-   if (!identity_unlocked_keys)
-      identity_unlocked_keys = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                                     g_free, (GDestroyNotify)rr_crypto_key_free);
-   g_hash_table_replace(identity_unlocked_keys, g_strdup(path), key);
-}
 static void identity_message(GtkWindow *parent, GtkMessageType type, const char *message) {
    GtkWidget *dlg = gtk_message_dialog_new(parent, GTK_DIALOG_MODAL, type,
                                             GTK_BUTTONS_CLOSE, "%s", message);
@@ -1626,7 +1605,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          g_object_get_data(G_OBJECT(highlight), "identity-path") : NULL;
       gtk_label_set_text(GTK_LABEL(status), !count ?
          "No identities yet. Create or import an Ed25519 key." :
-         identity_get_unlocked(highlight_path) ? "Selected key: Unlocked" :
+         rrclient_identity_get(highlight_path) ? "Selected key: Unlocked" :
          "Selected key: Locked");
 
       gtk_widget_show_all(dlg);
@@ -1642,14 +1621,22 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       if ((response == 3 || response == 4 || response == 5) &&
           !gtk_list_box_get_selected_row(GTK_LIST_BOX(list))) continue;
       if (response == 6) {
-         identity_lock_all();
+         rrclient_identity_lock_all();
          continue;
       }
       if (response == 4) {
-         if (identity_get_unlocked(path)) identity_lock_path(path);
+         if (rrclient_identity_get(path)) rrclient_identity_lock(path);
          else if (safe) {
-            rr_crypto_key_t *key = identity_read_key(path, GTK_WINDOW(dlg));
-            if (key) identity_keep_unlocked(path, key);
+            /* Try an unencrypted key first. An encrypted key prompts once. */
+            if (!rrclient_identity_unlock(path, "")) {
+               char *pass = identity_ask_password(GTK_WINDOW(dlg), "Unlock Private Key", false);
+               if (pass) {
+                  if (!rrclient_identity_unlock(path, pass))
+                     identity_message(GTK_WINDOW(dlg), GTK_MESSAGE_ERROR,
+                                      "Unable to unlock this private key.");
+                  g_free(pass);
+               }
+            }
          }
          continue;
       }
@@ -1660,7 +1647,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          bool yes = gtk_dialog_run(GTK_DIALOG(confirm)) == GTK_RESPONSE_YES;
          gtk_widget_destroy(confirm);
          if (yes && unlink(path) == 0) {
-            identity_lock_path(path);
+            rrclient_identity_lock(path);
             g_clear_pointer(&selected_path, g_free);
          }
          continue;
@@ -1697,7 +1684,7 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
          continue;
       }
       if (response == 3 && safe) {
-         rr_crypto_key_t *key = identity_get_unlocked(path);
+         rr_crypto_key_t *key = rrclient_identity_get(path);
          bool owned = false;
          if (!key) { key = identity_read_key(path, GTK_WINDOW(dlg)); owned = true; }
          if (!key) continue;
