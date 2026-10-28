@@ -67,7 +67,7 @@ struct link_session {
    unsigned generation;
    char node[37];
    bool outbound, dedicated, hello, snapshot, admitted, ready, established;
-   bool identity_sent, identity_seen;
+   bool identity_sent, identity_seen, identity_required;
 };
 
 static struct {
@@ -81,7 +81,7 @@ static struct {
    long long autoconnect_after;
    char node[37], domain[254], site[128];
    struct mg_str cert, key, ca;
-   bool insecure, stopping;
+   bool stopping;
 } links;
 
 static void link_callback(struct mg_connection *c, int event, void *data);
@@ -561,7 +561,7 @@ static void handle_identity(struct link_session *session, dict *d) {
    const char *pub = dict_get(d, "identity.public-key", "");
    const char *spki = dict_get(d, "identity.tls-spki", "");
    const char *sig = dict_get(d, "identity.signature", "");
-   if (session->identity_seen || !session->connection->is_tls ||
+   if (session->identity_seen || !session->identity_required || !session->connection->is_tls ||
        strcmp(node, session->node) || strcmp(domain, links.domain) ||
        strlen(pub) != 44 || strlen(spki) != 44 || strlen(sig) != 88) {
       fail(session, "Malformed or duplicate signed TLS identity announcement");
@@ -863,6 +863,10 @@ static void handle_hello(struct link_session *session, dict *d) {
    strcpy(session->node, node);
    session->hello = true;
 
+   if (!session->connection->is_tls) {
+      fail(session, "Unencrypted server link rejected");
+      return;
+   }
    if (!session->outbound) {
       send_hello(session);
    }
@@ -983,8 +987,12 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
             version);
       } else {
          Log(LOG_INFO, "link", "Peer %s [%s] protocol %s capabilities: %s", session->peer->site, session->node, version, features);
-         if (strstr(features, "identity.spki-binding-v1"))
+         if (!strstr(features, "identity.spki-binding-v1")) {
+            fail(session, "Peer lacks mandatory signed TLS identity capability; upgrade all linked servers");
+         } else {
+            session->identity_required = true;
             send_identity(session);
+         }
       }
    } else if (session->established && !strcmp(op, "link.identity")) {
       handle_identity(session, d);
@@ -1329,9 +1337,8 @@ static bool load_peer(const char *section) {
       return invalid_peer(section, "password", "shared link password is required (1-256 characters)");
    }
 
-   if (url && *url && strncmp(url, "wss://", 6) && !(links.insecure && !strncmp(url, "ws://", 5))) {
-      return invalid_peer(section, "server.url", !strncmp(url, "ws://", 5) ?
-         "ws:// requires links.allow-insecure=true in [general]" : "must use wss:// or explicitly enabled ws://");
+   if (url && *url && strncmp(url, "wss://", 6)) {
+      return invalid_peer(section, "server.url", "server-to-server links require wss:// (TLS is mandatory)");
    }
    peer->url = strdup(url ? url : "");
    peer->password = strdup(password);
@@ -1394,7 +1401,7 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    request->handled = true;
    struct mg_connection *connection = request->connection;
 
-   if (!connection->is_tls && !links.insecure) {
+   if (!connection->is_tls) {
       mg_http_reply(connection, 403, "", "Plaintext server links are disabled\n");
       connection->is_draining = 1;
 
@@ -1557,7 +1564,10 @@ bool rrserver_links_init(struct mg_mgr *manager) {
          return false;
       }
    }
-   links.insecure = cfg_get_bool("links.allow-insecure", false);
+   if (cfg_get_bool("links.allow-insecure", false)) {
+      Log(LOG_CRIT, "link", "links.allow-insecure is obsolete: server links require TLS");
+      return false;
+   }
    /* Discover [peer] and [peer:name] sections without duplicating config state. */
    int rank = 0;
    const char *key;
