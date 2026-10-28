@@ -1492,7 +1492,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
          return;
       }
       if (!g_uuid_string_is_valid(name) || !strcmp(name, links.node)) {
-         ws_send_error(client, "Usage: /link invite <joining-server-UUID> (obtain UUID from joining server startup log)");
+         ws_send_error(client, "Usage: /link invite <joining-server-UUID> <issuer-IP:port> (UUID printed on joining server)");
          return;
       }
       /* Invitation endpoint identifies this issuer's reachable VPN listener.
@@ -1567,7 +1567,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    }
 
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
-      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite <joining-server-UUID>");
+      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite <joining-server-UUID> <issuer-IP:port>");
 
       return;
    }
