@@ -365,6 +365,102 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
    return TRUE;
 }
 
+/* Dragging moves profile membership; it never changes a live connection. */
+static const GtkTargetEntry picker_dnd_targets[] = {
+   { "application/x-rustyrig-server-profile", GTK_TARGET_SAME_APP, 0 }
+};
+
+static void picker_drag_get(GtkWidget *widget, GdkDragContext *context,
+                            GtkSelectionData *selection, guint info, guint time, gpointer unused) {
+   (void)context; (void)info; (void)time; (void)unused;
+   GtkTreeModel *model;
+   GtkTreeIter iter;
+   if (!gtk_tree_selection_get_selected(gtk_tree_view_get_selection(GTK_TREE_VIEW(widget)), &model, &iter) ||
+       picker_is_network(model, &iter)) return;
+   gchar *name = NULL;
+   gtk_tree_model_get(model, &iter, 0, &name, -1);
+   if (name) {
+      gtk_selection_data_set(selection, gtk_selection_data_get_target(selection), 8,
+                             (const guchar *)name, strlen(name));
+      g_free(name);
+   }
+}
+
+static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
+                                 GtkSelectionData *selection, guint info, guint time, gpointer unused) {
+   (void)info; (void)unused;
+   gboolean success = FALSE;
+   const guchar *bytes = gtk_selection_data_get_data(selection);
+   gint len = gtk_selection_data_get_length(selection);
+   if (bytes && len > 0 && len < 512 && !memchr(bytes, 0, len)) {
+      gchar *profile = g_strndup((const char *)bytes, len);
+      GtkTreeView *view = GTK_TREE_VIEW(widget);
+      GtkTreeModel *model = gtk_tree_view_get_model(view);
+      GtkTreePath *path = NULL;
+      GtkTreeIter iter;
+      gchar *target = NULL;
+      if (gtk_tree_view_get_path_at_pos(view, x, y, &path, NULL, NULL, NULL) &&
+          gtk_tree_model_get_iter(model, &iter, path)) {
+         if (!picker_is_network(model, &iter)) {
+            GtkTreeIter parent;
+            if (gtk_tree_model_iter_parent(model, &parent, &iter)) iter = parent;
+         }
+         if (picker_is_network(model, &iter))
+            gtk_tree_model_get(model, &iter, 0, &target, -1);
+      }
+      if (path) gtk_tree_path_free(path);
+      /* A drop onto blank space or an ungrouped server removes membership. */
+      if (!target && y >= 0) {
+         GtkTreePath *at = NULL;
+         if (gtk_tree_view_get_path_at_pos(view, x, y, &at, NULL, NULL, NULL)) {
+            GtkTreeIter row;
+            if (gtk_tree_model_get_iter(model, &row, at) &&
+                !picker_is_network(model, &row) &&
+                gtk_tree_model_iter_parent(model, &iter, &row)) {
+               /* A member row always resolves to its parent above. */
+            }
+            gtk_tree_path_free(at);
+         }
+      }
+      /* Only mutate a configured server profile. */
+      gchar *profile_key = g_strdup_printf("server:%s.server.url", profile);
+      if (dict_get(cfg, profile_key, NULL)) {
+         int rank = 0;
+         const char *key;
+         char *value;
+         while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
+            if (!g_str_has_prefix(key, "network:") || !g_str_has_suffix(key, ".servers")) continue;
+            size_t n = strlen(key) - strlen("network:") - strlen(".servers");
+            gchar *group = g_strndup(key + strlen("network:"), n);
+            gchar **names = g_strsplit_set(value ? value : "", ", \\t\\r\\n", -1);
+            GString *updated = g_string_new("");
+            for (size_t i = 0; names[i]; i++) {
+               if (!*names[i] || !strcmp(names[i], profile)) continue;
+               if (updated->len) g_string_append_c(updated, ',');
+               g_string_append(updated, names[i]);
+            }
+            if (target && !strcmp(target, group)) {
+               if (updated->len) g_string_append_c(updated, ',');
+               g_string_append(updated, profile);
+            }
+            dict_add(cfg, key, updated->str);
+            g_string_free(updated, TRUE);
+            g_strfreev(names);
+            g_free(group);
+         }
+         success = TRUE;
+      }
+      g_free(profile_key);
+      g_free(target);
+      g_free(profile);
+   }
+   gtk_drag_finish(context, success, FALSE, time);
+   if (success) {
+      picker_close(NULL);
+      gtk_show_server_chooser();
+   }
+}
+
 /* Edit network membership without changing any server's own profile. */
 static void picker_network_editor(GtkButton *button, gpointer data) {
    (void)button;
@@ -530,6 +626,12 @@ void gtk_show_server_chooser(void) {
    picker_refresh_rows(GTK_TREE_MODEL(store), store, NULL);
    GtkWidget *tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
    rr_gtk_tree_style(tree);
+   gtk_tree_view_enable_model_drag_source(GTK_TREE_VIEW(tree), GDK_BUTTON1_MASK,
+      picker_dnd_targets, G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_MOVE);
+   gtk_drag_dest_set(tree, GTK_DEST_DEFAULT_ALL, picker_dnd_targets,
+      G_N_ELEMENTS(picker_dnd_targets), GDK_ACTION_MOVE);
+   g_signal_connect(tree, "drag-data-get", G_CALLBACK(picker_drag_get), NULL);
+   g_signal_connect(tree, "drag-data-received", G_CALLBACK(picker_drag_received), NULL);
    g_object_unref(store);
    picker_tree = tree;
    gtk_tree_view_expand_all(GTK_TREE_VIEW(tree));
