@@ -9,6 +9,7 @@
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
 #include <rrserver/link.h>
+#include <librrprotocol/crypto.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -228,7 +229,18 @@ static bool mesh_invitation_valid(char *token) {
    char *canonical = pem ? g_base64_encode(pem, pem_len) : NULL;
    bool valid = pem && pem_len > 32 && pem_len < 6144 &&
       canonical && !strcmp(canonical, fields[7]) &&
-      g_str_has_prefix((char *)pem, "-----BEGIN PRIVATE KEY-----");
+      pem_len >= strlen("-----BEGIN PRIVATE KEY-----") &&
+      !memcmp(pem, "-----BEGIN PRIVATE KEY-----", strlen("-----BEGIN PRIVATE KEY-----")) &&
+      !memchr(pem, 0, pem_len);
+   if (valid) {
+      FILE *stream = fmemopen(pem, pem_len, "r");
+      rr_crypto_key_t *key = stream ? rr_crypto_key_read_pem(stream) : NULL;
+      if (stream) fclose(stream);
+      uint8_t public_key[32];
+      valid = key && rr_crypto_ed25519_public_bytes(key, public_key);
+      rr_crypto_key_free(key);
+      memset(public_key, 0, sizeof(public_key));
+   }
    g_free(canonical);
    if (pem) { memset(pem, 0, pem_len); g_free(pem); }
    return valid;
