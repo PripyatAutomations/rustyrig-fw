@@ -304,3 +304,32 @@ yet a direct verification of the certificate observed in TLS. Until the
 transport binding and identity admission gating are complete, do not
 consider the application-level signed assertion sufficient to authorize
 new peers. Old peers without `identity.spki-binding-v1` are rejected.
+
+## Issuer-local invitation architecture
+
+Join invitations belong exclusively to the issuing server, not to the global
+resource catalog. The inviter creates a random, single-use Ed25519 keypair
+and records only the invitation UUID, public key, cluster domain, expiration,
+and pending/used/revoked status in its local SQLite
+`mesh_join_invitations`. The joining operator receives an invitation token
+containing the private one-time credential, bootstrap server URL and pinned
+bootstrap server identity, over an independent secure channel. The URL and
+private enrollment credential need NOT appear in cluster-wide catalog data.
+
+The issuer-local SQLite implementation provides create, revoke and an atomic
+conditional pending-to-used transition that records the newly admitted node
+UUID, catalog signing key, and TLS SPKI. **This does not yet implement the
+join command or authorization proof.** The redemption transition must only
+run after authenticated possession of the one-time private key, proof of the
+new node's permanent public keys, and verified TLS server identity. Never
+call the transition based on unauthenticated link fields.
+
+Invitation redemption requires a challenge bound to the enrollment TLS
+session, or a protocol with equally strong explicit transcript binding;
+the existing link password is not an acceptable replacement. Admission and
+catalog export remain gated on the permanent signed identity validation.
+After an invitation is consumed, the joiner reconnects under normal strict
+TLS/SPKI verification. Multi-server retry must be directed to the issuing
+server, because only it can atomically consume its invitation.
+
+Do not activate this incomplete enrollment path in a production cluster.
