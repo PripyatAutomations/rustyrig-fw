@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <glib.h>
 #include <sqlite3.h>
 #include <rrserver/identity.h>
