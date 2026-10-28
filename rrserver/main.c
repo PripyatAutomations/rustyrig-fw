@@ -52,7 +52,6 @@
 #include <rrserver/atu.h>
 #include <rrserver/filters.h>
 #include <rrserver/protection.h>
-#include <rrserver/mqtt.h>
 #include <rrserver/au.h>
 #include <rrserver/acl.h>
 #include <rrserver/media.direct.h>
@@ -832,11 +831,6 @@ int main(int argc, char **argv) {
 #if     defined(USE_HTTP)
    http_init(&mg_mgr);
 #endif // USE_HTTP
-#if     defined(USE_MQTT)
-   mqtt_server_init(&mg_mgr);
-   mqtt_client_init();
-#endif
-
    // Update the clock (now) once a second
    mg_timer_add(&mg_mgr, 1000, MG_TIMER_REPEAT, timer_clock_tick_fn, &mg_mgr);
 

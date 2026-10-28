@@ -79,7 +79,6 @@ rrserver_objs += main.o			# main loop
 rrserver_objs += media.o		# media channel provisioning
 rrserver_objs += media.direct.o
 rrserver_objs += rx.slice.o		# shared canonical RX slice identities
-rrserver_objs += mqtt.o			# MQTT client/server support
 rrserver_objs += network.o		# Network management/config for embedded hosts
 rrserver_objs += protection.o		# Protection features
 rrserver_objs += platform.backlight.o
