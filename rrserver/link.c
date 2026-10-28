@@ -531,7 +531,7 @@ static void send_hello(struct link_session *session) {
 static void send_identity(struct link_session *session) {
    if (!session || session->identity_sent || !session->established ||
        !session->connection->is_tls) return;
-   const char *cert = cfg_get("net.http.tls-cert");
+   const char *cert = session->dedicated ? cfg_get("links.tls-cert") : cfg_get("net.http.tls-cert");
    char *spki = cert && *cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
    char *sig = spki ? rr_identity_tls_binding_signature(links.domain, links.node, spki) : NULL;
    const char *pub = rr_identity_public_base64();
