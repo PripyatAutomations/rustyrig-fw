@@ -264,3 +264,43 @@ shared peer password/ACL remain operative. This extension must not be used
 as justification for removing certificate validation or passwords. For
 compatibility, old peers continue through the existing handshake, without
 this new advisory proof. Browser clients still require browser-trusted WSS.
+
+## Mandatory TLS and decentralized peer enrollment (breaking change)
+
+Server links require `wss://` or a dedicated `https://` listener.
+`ws://`, plaintext shared link upgrades, `links.listen=http://` and
+`links.allow-insecure=true` are rejected. There is no fallback to a
+plaintext or legacy peer. Every configured enabled peer must have
+`peer.tls-trust` (or `peer:NAME.tls-trust`) pointing to an
+independently verified PEM certificate installed by the operator.
+
+Bootstrap procedure: generate persistent host TLS certificates in rrserver;
+on a separate trusted channel exchange each server's public *certificate*
+and displayed SPKI fingerprint; compare fingerprint out of band; install
+the verified PEM locally under a per-peer path; configure that peer's
+`tls-trust` path; then connect via the DNS name on the certificate.
+The private key is NEVER transferred.
+
+Example:
+
+```ini
+[peer:nycvny37]
+enabled=true
+site.name=nycvny37
+server.url=wss://nycvny37.example.net:4420/link
+tls-trust=/etc/rustyrig/trust/nycvny37.pem
+password=CONFIGURE_SEPARATELY
+```
+
+The current Mongoose transport uses each peer's enrolled certificate
+as its outbound TLS CA/trust material and enforces hostname checks. This
+must be validated against the installed Mongoose/TLS backend with
+CA:FALSE self-signed leaf certificates before deployment; if the backend
+does not accept an explicitly trusted leaf, implement direct SPKI validation
+in the backend rather than weakening certificate checks.
+
+The post-handshake signed `link.identity` remains necessary but is not
+yet a direct verification of the certificate observed in TLS. Until the
+transport binding and identity admission gating are complete, do not
+consider the application-level signed assertion sufficient to authorize
+new peers. Old peers without `identity.spki-binding-v1` are rejected.
