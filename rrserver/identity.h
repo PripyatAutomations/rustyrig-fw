@@ -10,6 +10,9 @@
 /* Persistent, server-owned Ed25519 identity. Never export the private key. */
 bool rr_identity_init(const char *directory);
 void rr_identity_fini(void);
+/* Signature binding catalog identity to the local TLS certificate SPKI. Caller frees. */
+char *rr_identity_tls_binding_signature(const char *domain, const char *owner,
+                                        const char *spki_sha256_b64);
 bool rr_identity_sign_catalog(dict *descriptor);
 bool rr_identity_verify_catalog(dict *descriptor);
 const char *rr_identity_public_base64(void);
