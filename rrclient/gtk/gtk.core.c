@@ -1489,7 +1489,24 @@ static void gtk_identity_first_run(void) {
          if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
             char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
             FILE *f = fopen(filename, "rb");
-            if (f) { key = rr_crypto_key_read_pem(f); fclose(f); }
+            if (f) {
+               GtkWidget *passdialog = gtk_dialog_new_with_buttons(
+                  "Import Key Password", GTK_WINDOW(dialog), GTK_DIALOG_MODAL,
+                  "_Cancel", GTK_RESPONSE_CANCEL, "_Unlock", GTK_RESPONSE_ACCEPT, NULL);
+               GtkWidget *password = gtk_entry_new();
+               gtk_entry_set_visibility(GTK_ENTRY(password), FALSE);
+               gtk_entry_set_placeholder_text(GTK_ENTRY(password),
+                  "Password (leave empty for unencrypted key)");
+               gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(passdialog))), password);
+               gtk_widget_show_all(passdialog);
+               if (gtk_dialog_run(GTK_DIALOG(passdialog)) == GTK_RESPONSE_ACCEPT) {
+                  const char *pass = gtk_entry_get_text(GTK_ENTRY(password));
+                  key = *pass ? rr_crypto_key_read_encrypted_pem(f, pass) :
+                                rr_crypto_key_read_encrypted_pem(f, "");
+               }
+               gtk_widget_destroy(passdialog);
+               fclose(f);
+            }
             g_free(filename);
          }
          gtk_widget_destroy(chooser);
