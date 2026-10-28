@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <glib.h>
 #include <rrserver/relay.h>
 #include <rrserver/media.direct.h>
@@ -131,8 +132,6 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    if (!d || !json) {
       dict_free(d);
       free(json);
-   dict_free(mutation);
-
       dict_free(mutation);
       return;
    }
@@ -146,6 +145,7 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    rrserver_links_send(dest, d);
    dict_free(d);
    free(json);
+   dict_free(mutation);
 }
 
 /* File operations use correlated results, never generic chat errors, so transfers fail immediately rather than waiting for the client timeout. */
