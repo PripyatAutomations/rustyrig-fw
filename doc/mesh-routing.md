@@ -362,3 +362,16 @@ join protocol. The TLS peer certificate must be checked against the issuer
 SPKI pin in the token before any enrollment messages are accepted. A
 challenge/response binding and permanent node-key admission still need to
 be connected before redemption or catalog exchange can be enabled.
+
+### Invitation proof verifier (in progress)
+
+The issuer now has `rr_identity_invite_verify_proof`, which checks an
+Ed25519 signature against the invitation public key in its own SQLite table,
+rejecting unknown, expired, revoked or already-consumed invitations. This
+function **does not** establish an authenticated TLS channel, manufacture a
+challenge, consume the invitation or admit a server. Its caller is responsible
+for a fresh one-time challenge, TLS exporter/channel binding, and a canonical
+transcript containing domain, invitation ID and permanent identity keys.
+Proof verification and conditional consumption must be integrated into one
+race-safe enrollment state machine; callers must not treat standalone proof
+verification as admission. There is no operational `--join` command yet.
