@@ -666,7 +666,7 @@ int main(int argc, char *argv[]) {
       log_target = "rrclient.log";
    }
    logger_init(log_target, (ui_mode == UI_MODE_TUI));
-   if (!rrclient_database_init()) {
+   if (!rrclient_database_init() || !rrclient_database_load_profiles()) {
       Log(LOG_CRIT, "db", "Unable to initialize client database");
       return EXIT_FAILURE;
    }
