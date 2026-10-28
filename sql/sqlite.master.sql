@@ -142,6 +142,18 @@ CREATE TABLE IF NOT EXISTS user_public_keys (
    PRIMARY KEY(uid, key_id)
 );
 
+-- Native client bootstrap credentials. Separate from Web UI passwords and legacy
+-- authentication; consumption is committed only with successful key enrollment.
+-- Store only a slow salted verifier, never a plaintext enrollment secret.
+CREATE TABLE IF NOT EXISTS user_key_enrollment (
+   uid INTEGER PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
+   verifier_phc TEXT NOT NULL,
+   expires_at INTEGER NOT NULL,
+   attempts INTEGER NOT NULL DEFAULT 0,
+   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+   consumed_at INTEGER
+);
+
 -- v1 scoped authorization. System-wide roles (admin, owner, etc.) remain
 -- in users.permissions until core roles have a dedicated typed representation.
 -- Resource grants are separate and keyed by stable resource UUID, not names.
