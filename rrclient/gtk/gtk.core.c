@@ -1468,10 +1468,14 @@ static void gtk_identity_first_run(void) {
       "Import Existing Key", 1, "Create New Key", 2,
       "Later (legacy login)", GTK_RESPONSE_CANCEL, NULL);
    GtkWidget *label = gtk_label_new(
-      "RustyRig uses a private key to identify this computer.\\n"
-      "Create a new identity or import one you already own.\\n"
-      "The private key remains on this computer; only its public key is enrolled on servers.");
+      "RustyRig uses a private key to identify this computer.\n\n"
+      "Create a new identity or import an existing key.\n"
+      "Your private key stays on this computer; only the public key is shared with servers.");
    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+   gtk_label_set_xalign(GTK_LABEL(label), 0.0f);
+   gtk_label_set_max_width_chars(GTK_LABEL(label), 58);
+   gtk_widget_set_size_request(label, 360, -1);
+   gtk_window_set_default_size(GTK_WINDOW(dialog), 460, -1);
    gtk_container_set_border_width(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), 14);
    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), label);
    gtk_widget_show_all(dialog);
