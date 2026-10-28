@@ -426,7 +426,7 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
             const char *members = dict_get(cfg, network_key, NULL);
             size_t n = strlen(network_key) - strlen("network:") - strlen(".servers");
             gchar *group = g_strndup(network_key + strlen("network:"), n);
-            gchar **names = g_strsplit_set(members ? members : "", ", \\t\\r\\n", -1);
+            gchar **names = g_strsplit_set(members ? members : "", ", \t\r\n", -1);
             GString *updated = g_string_new("");
             for (size_t i = 0; names[i]; i++) {
                if (!*names[i] || !strcmp(names[i], profile)) continue;
