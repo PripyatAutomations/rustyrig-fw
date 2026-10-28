@@ -536,20 +536,29 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain,
    /* Caller MUST authenticate possession of the invitation private key,
     * prove the permanent node identity, and verify its TLS binding BEFORE
     * calling this transition. This API only commits a checked admission. */
+   /* The trust row and consumed ticket form one durable transaction. */
+   if (!trust_schema(db) || sqlite3_exec(db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK)
+      return false;
    sqlite3_stmt *s=NULL;
    if(sqlite3_prepare_v2(db,"UPDATE mesh_join_invitations SET status='used',"
        " joined_uuid=?3,joined_catalog_key=?4,joined_tls_spki=?5,"
        " consumed_at=unixepoch() WHERE ticket_id=?1 AND domain=?2"
        " AND status='pending' AND expires_at>unixepoch()"
        " AND EXISTS (SELECT 1 FROM mesh_join_invitation_targets t"
-       " WHERE t.ticket_id=?1 AND t.joining_uuid=?3)", -1,&s,NULL)!=SQLITE_OK)
+       " WHERE t.ticket_id=?1 AND t.joining_uuid=?3)", -1,&s,NULL)!=SQLITE_OK) {
+      sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);
       return false;
+   }
    sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT);
    sqlite3_bind_text(s,2,domain,-1,SQLITE_TRANSIENT);
    sqlite3_bind_text(s,3,node,-1,SQLITE_TRANSIENT);
    sqlite3_bind_text(s,4,catalog,-1,SQLITE_TRANSIENT);
    sqlite3_bind_text(s,5,spki,-1,SQLITE_TRANSIENT);
    bool ok=sqlite3_step(s)==SQLITE_DONE && sqlite3_changes(db)==1;
-   sqlite3_finalize(s);return ok;
+   sqlite3_finalize(s);
+   if (ok) ok = rr_identity_trust_enroll(db, domain, node, catalog, spki);
+   if (ok) ok = sqlite3_exec(db, "COMMIT", NULL, NULL, NULL) == SQLITE_OK;
+   if (!ok) sqlite3_exec(db, "ROLLBACK", NULL, NULL, NULL);
+   return ok;
 }
 #endif
