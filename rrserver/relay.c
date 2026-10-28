@@ -828,6 +828,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             dict *added = dict_clone(d);
 
             if (added) {
+               rr_relay_strip_catalog_identity(added);
                dict_add(added, "object.cmd", "added");
                rrserver_objects_remote(NULL, added);
                dict_free(added);
@@ -878,9 +879,14 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
 
             if ((!strcmp(entry->key, key) || (!uuid && room && !strcasecmp(entry->key, key))) && !strcmp(entry->owner, origin)) {
                if (uuid) {
-                  dict_add(d, "msg.type", "object");
-                  dict_add(d, "object.cmd", "removed");
-                  rrserver_objects_remote(NULL, d);
+                  dict *removed = dict_clone(d);
+                  if (removed) {
+                     rr_relay_strip_catalog_identity(removed);
+                     dict_add(removed, "msg.type", "object");
+                     dict_add(removed, "object.cmd", "removed");
+                     rrserver_objects_remote(NULL, removed);
+                     dict_free(removed);
+                  }
                }
                *p = entry->next;
                dict_free(entry->descriptor);
