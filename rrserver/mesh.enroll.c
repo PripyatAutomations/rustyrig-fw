@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#ifdef USE_SQLITE
 
 struct response { char buf[512]; size_t size; };
 static size_t collect(char *data, size_t size, size_t count, void *context) {
@@ -124,10 +125,6 @@ static bool committed_status(CURL *curl, const char *url, sqlite3 *db,
  * plaintext transport or with certificate verification disabled without SPKI
  * pinning: libcurl's public-key pin is mandatory. */
 bool rr_mesh_enroll_run(char *fields[8]) {
-#ifndef USE_SQLITE
-   (void)fields;
-   return false;
-#else
    bool success = false;
    sqlite3 *db = NULL;
    CURL *curl = NULL;
@@ -265,5 +262,10 @@ done:
    rr_crypto_key_free(invite);
    rr_identity_fini();
    return success;
-#endif
 }
+#else
+bool rr_mesh_enroll_run(char *fields[8]) {
+   (void)fields;
+   return false;
+}
+#endif
