@@ -512,6 +512,9 @@ defconfig_t defcfg[] = {
       "net.http.tls-enabled", "false", "Enable HTTPS (TLS) listener?", DEFCONFIG_BOOL, NULL
    },
    {
+      "net.http.tls-auto-generate", "false", "Provision self-signed TLS certificate when absent (requires writable key/cert paths)", DEFCONFIG_BOOL, NULL
+   },
+   {
       "net.http.tls-port", "8443", "Port for TLS listener", DEFCONFIG_UINT, NULL
    },
    {
