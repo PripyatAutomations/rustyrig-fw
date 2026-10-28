@@ -231,10 +231,10 @@ defconfig_t defcfg[] = {
       "links.listen", "", "Dedicated server-link listener URL (https://host:port; /link endpoint)"
    },
    {
-      "links.tls-cert", "", "PEM certificate for server-link listener"
+      "links.tls-cert", "/var/lib/rustyrig/identity/tls-cert.pem", "Persistent certificate for dedicated TLS server-link listener"
    },
    {
-      "links.tls-key", "", "PEM private key for server-link listener"
+      "links.tls-key", "/var/lib/rustyrig/identity/tls-key.pem", "Persistent private key for dedicated TLS server-link listener"
    },
    {
       "links.tls-ca", "/etc/ssl/certs/ca-certificates.crt", "CA bundle for outbound WSS links"
