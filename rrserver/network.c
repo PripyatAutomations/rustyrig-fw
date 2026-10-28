@@ -78,12 +78,6 @@ void show_network_info(void) {
    if (eeprom_ready != 1 || eeprom_corrupted == 1) {
       return;
    }
-   int bind_port = cfg_get_int("net.http.port", 0);
-
-   if (!bind_port) {
-      eeprom_get_int("net/http/port");
-   }
-
    int tls_bind_port = cfg_get_int("net.http.tls-port", 0);
 
    if (!tls_bind_port) {
@@ -133,14 +127,14 @@ void show_network_info(void) {
    Log(LOG_INFO, "net", "Name Servers: %s, %s", s_dns1, s_dns2);
 #else // HOST_POSIX
    // print what addresses our bind will apply to
-   const char *listenaddr = cfg_get("net.http.bind");
+   const char *listenaddr = cfg_get("net.http.tls-bind");
 
    if (!listenaddr) {
-      listenaddr = (char *)eeprom_get_str("net/http/bind");
+      listenaddr = (char *)eeprom_get_str("net/http/tls-bind");
    }
 
    if (listenaddr) {
-      Log(LOG_INFO, "net", "I am listening on %s [HTTP: %d TLS: %d]", listenaddr, bind_port, tls_bind_port);
+      Log(LOG_INFO, "net", "I am listening on %s [HTTPS: %d]", listenaddr, tls_bind_port);
       net_print_listeners(listenaddr);
    }
 #endif // HOST_POSIX
