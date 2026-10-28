@@ -1,7 +1,7 @@
 # Native mesh WSS
 
-Linux server links use OpenSSL, wslay and the GLib reactor on TCP **4421**.
-TCP **4420** retains Mongoose client HTTPS/WSS and one-shot enrollment.
+Linux server links use OpenSSL, wslay and the GLib reactor on TCP **4420**.
+TCP **4422** retains Mongoose client HTTPS/WSS and one-shot enrollment.
 `rr_transport` remains platform independent. QUIC, WebTransport, MCU support,
 automatic discovery of non-issuer neighbors and multipath forwarding remain
 future work; existing tree admission/routing and topology ACLs are retained.
@@ -17,7 +17,7 @@ domain=my-domain
 station.name=unique-site-name
 links.native.enabled=true
 links.native.bind=0.0.0.0
-links.native.port=4421
+links.native.port=4420
 links.listen=
 path.identity=/var/lib/rustyrig/identity
 net.http.tls-cert=/var/lib/rustyrig/identity/tls-cert.pem
@@ -37,7 +37,7 @@ disables listening only. `net.mesh-linking=false` disables enrolled automatic
 connections/admission while preserving explicitly configured peers.
 
 Run `rrserver --mesh-join` on the joining host to obtain its persistent UUID.
-On the issuer, use `/link invite UUID [issuer-IP:4420]` over authenticated
+On the issuer, use `/link invite UUID [issuer-IP:4422]` over authenticated
 HTTPS, and securely deliver the resulting one-use token to the joining host.
 Complete `--mesh-join`, then restart the joining server. Both peers prove their
 identities automatically; no `[peer]` password is necessary. `/link list`
@@ -47,9 +47,12 @@ entries without a dial URL cannot initiate a connection).
 
 `mesh_bootstrap_peers.url` remains the enrollment endpoint. Successful status
 responses over pinned HTTPS advertise the issuer's native port, stored
-separately in `mesh_link_endpoints`. The host remains the invited host. Old
-enrollment records without this table derive `wss://invited-host:4421/link`,
-never the enrollment port. NAT deployments must expose the configured native
+separately in `mesh_link_endpoints`. The host remains the invited host. A stored endpoint matching the previous
+default pair (enrollment 4420, mesh 4421) is migrated to mesh 4420. Old
+enrollment records without this table derive `wss://invited-host:4420/link`,
+never the enrollment port. Outstanding tokens naming the old HTTPS port 4420 must be reissued after
+upgrading the issuer; previously enrolled identities keep their trust. Clients
+using an explicit 4420 HTTPS URL must switch to 4422. NAT deployments must expose the configured native
 port at the invited host. Re-enroll/reconfirm the consumed invitation after a
 port change, or deliberately update the local endpoint record; TLS pin and
 identity checks still apply to that endpoint.

@@ -8,8 +8,10 @@ rustyrig-fw (1.0.0) testing; urgency=medium
     retain topology, routing, ACLs, heartbeat and randomized reconnect.
   * Separate enrollment and mesh endpoints, document native mesh setup, and
     add live two-server and adversarial transport checks.
+  * Move native mesh WSS to TCP 4420 and client/enrollment HTTPS to 4422;
+    migrate old default mesh endpoints and log the actual dial host and port.
 
- -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 28 Oct 2026 18:08:42 -0400
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Wed, 28 Oct 2026 18:26:18 -0400
 
 rustyrig-fw (20261017.01) testing; urgency=medium
 

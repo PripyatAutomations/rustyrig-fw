@@ -49,7 +49,17 @@ bool rr_mesh_native_listener_start(void) {
    if (native_fd >= 0) return true;
    const char *bind_ip = cfg_get("links.native.bind");
    if (!bind_ip || !*bind_ip) bind_ip = "0.0.0.0";
-   int port = cfg_get_int("links.native.port", 4421);
+   int port = cfg_get_int("links.native.port", 4420);
+   /* Installed rrserver.cfg is a conffile and can retain its old explicit
+    * HTTPS port. Move that legacy value in memory before HTTP initializes,
+    * so the native link listener can own 4420 without a startup collision. */
+   if (port == 4420 && cfg_get_int("net.http.tls-port", 4422) == 4420) {
+      if (dict_add(cfg, "net.http.tls-port", "4422") != 0) {
+         Log(LOG_CRIT, "mesh.native", "Cannot migrate legacy HTTPS port 4420 to 4422");
+         return false;
+      }
+      Log(LOG_WARN, "mesh.native", "Legacy HTTPS port 4420 moved to 4422 for this run; update net.http.tls-port in your site config and client URLs");
+   }
    struct sockaddr_in addr = { .sin_family = AF_INET };
    if (port < 1 || port > 65535 ||
        inet_pton(AF_INET, bind_ip, &addr.sin_addr) != 1) {

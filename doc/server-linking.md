@@ -1,7 +1,7 @@
 # Server linking
 
 Server-to-server connections now use the native OpenSSL/wslay WSS listener
-(default TCP 4421). Client HTTPS/WSS and enrollment remain on TCP 4420.
+(default TCP 4420). Client HTTPS/WSS and enrollment remain on TCP 4420.
 See [Native mesh operation and security](native-mesh.md) for current setup,
 authentication, migration, and tests. The design material below describes
 future discovery/multipath work; current forwarding still uses the existing tree.
@@ -208,7 +208,7 @@ allowing `listener:link.acl`. Enroll using `/link invite` and `--mesh-join`,
 then restart the joining server. Its stored issuer is dialed automatically.
 
 Manual `[peer:name]` entries may still specify `site.name`, `node.uuid`,
-`catalog-key`, `tls-trust`, `server.url=wss://host:4421/link`, `acl`, and
+`catalog-key`, `tls-trust`, `server.url=wss://host:4420/link`, `acl`, and
 `autoconnect=true`. The trust file supplies the expected SPKI; the live peer
 must also prove possession of the pinned catalog key. Passwords are ignored
 for authentication. Configured peers retain their topology restrictions.

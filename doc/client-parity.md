@@ -383,7 +383,7 @@ and codec where known. Privilege rules and wire command semantics are unchanged.
 
 Native GTK/TUI profiles require a complete `server.url`; ports are optional:
 `ws://host:port/path`, `wss://host:port/path`, `irc://host:port`, or
-`ircs://host:port`. Defaults are WS 8420, WSS 4420, IRC 6667 and IRCS 6697.
+`ircs://host:port`. Defaults are WS 8420, WSS 4422, IRC 6667 and IRCS 6697.
 The shared native connection manager selects WebSocket,
 WebSocket with TLS, IRC, or IRC with TLS. IRC message events are JSON and
 native application listeners translate them into shared chat/room events.

@@ -130,7 +130,7 @@ static bool committed_status(CURL *curl, const char *url, sqlite3 *db,
            bootstrap_store(db, fields[2], parts[1], fields[4], fields[6], fields[5], "enrolled");
    if (ok) {
       char *end = NULL;
-      long port = count == 5 ? strtol(parts[3], &end, 10) : 4421;
+      long port = count == 5 ? strtol(parts[3], &end, 10) : 4420;
       ok = port > 0 && port <= 65535 && (!end || (end != parts[3] && !*end)) &&
          rr_mesh_bootstrap_store_endpoint(db, fields[2], parts[1], fields[4], (unsigned)port);
    }

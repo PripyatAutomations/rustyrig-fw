@@ -1,5 +1,6 @@
 #include "mesh.bootstrap.h"
 #include <glib.h>
+#include <string.h>
 #ifdef USE_SQLITE
 static char *endpoint(const char *enrollment, unsigned port) {
    GUri *uri = g_uri_parse(enrollment, G_URI_FLAGS_NONE, NULL);
@@ -40,7 +41,24 @@ char *rr_mesh_bootstrap_url(sqlite3 *db, const char *domain, const char *node, c
       if (sqlite3_step(s) == SQLITE_ROW) url = g_strdup((const char *)sqlite3_column_text(s, 0));
    }
    sqlite3_finalize(s);
-   /* Upgrade existing enrollments without ever treating 4420 as mesh WSS. */
-   return url ? url : endpoint(enrollment, 4421);
+   /* The first native release advertised 4421 while enrollment HTTPS used
+    * 4420. Migrate only that exact default pair, with the same host. Other
+    * stored ports are deliberate operator choices and must be preserved. */
+   char *old_default = endpoint(enrollment, 4421);
+   GUri *issuer = g_uri_parse(enrollment, G_URI_FLAGS_NONE, NULL);
+   bool legacy = issuer && g_uri_get_port(issuer) == 4420 && url && old_default &&
+      !strcmp(url, old_default);
+   if (issuer) g_uri_unref(issuer);
+   g_free(old_default);
+   if (legacy) {
+      char *migrated = endpoint(enrollment, 4420);
+      if (migrated && rr_mesh_bootstrap_store_endpoint(db, domain, node, enrollment, 4420)) {
+         g_free(url);
+         return migrated;
+      }
+      g_free(migrated);
+   }
+   /* Earlier enrollment records have no separate mesh endpoint at all. */
+   return url ? url : endpoint(enrollment, 4420);
 }
 #endif

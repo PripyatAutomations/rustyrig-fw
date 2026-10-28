@@ -231,7 +231,7 @@ defconfig_t defcfg[] = {
       "links.native.bind", "0.0.0.0", "IPv4 bind for dedicated mesh transport"
    },
    {
-      "links.native.port", "4421", "Dedicated TCP mesh transport port (future QUIC uses UDP)", DEFCONFIG_UINT, NULL
+      "links.native.port", "4420", "Dedicated TCP mesh transport port (future QUIC uses UDP)", DEFCONFIG_UINT, NULL
    },
    {
       "links.shared-listener", "false", "Deprecated; HTTPS is reserved for clients and enrollment"
@@ -525,7 +525,7 @@ defconfig_t defcfg[] = {
       "Persistent server TLS private key (mode 0600; never place in /etc)", DEFCONFIG_PATH, NULL
    },
    {
-      "net.http.tls-port", "4420", "Port for TLS listener", DEFCONFIG_UINT, NULL
+      "net.http.tls-port", "4422", "Port for TLS listener", DEFCONFIG_UINT, NULL
    },
    {
       "net.http.www-root", "/var/lib/rustyrig/www", "Path to static http content", DEFCONFIG_PATH, NULL

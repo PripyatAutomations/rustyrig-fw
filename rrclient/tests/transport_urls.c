@@ -361,7 +361,7 @@ int main(void) {
    assert(!rrclient_connect_url("beta", "wss://example.test"));
    b = ws_conn;
    bc = b->conn;
-   assert(ws_calls == 1 && !strcmp(last_url, "wss://example.test:4420/"));
+   assert(ws_calls == 1 && !strcmp(last_url, "wss://example.test:4422/"));
    assert(!disconnect_server("alpha"));
    ac->fn(ac, MG_EV_CLOSE, NULL);
    assert(!rrclient_connect_url("alpha", "ws://localhost/ws/"));

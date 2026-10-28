@@ -184,7 +184,13 @@ static bool ready(int fd, GIOCondition events, void *arg) {
       int error = 0;
       socklen_t size = sizeof(error);
       if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &size) || error) {
-         if (!connect_next(c)) reject(c, error ? g_strerror(error) : "Cannot complete TCP connection");
+         if (!connect_next(c)) {
+            char reason[256];
+            snprintf(reason, sizeof(reason), "TCP connect to %s (%s:%u) failed: %s",
+               c->authority, c->ip[0] ? c->ip : "unresolved", c->port,
+               error ? g_strerror(error) : "socket error");
+            reject(c, reason);
+         }
          events = 0; /* A failed address must not close the replacement fd. */
          goto done;
       }
@@ -364,6 +370,8 @@ static bool connect_next(struct mesh_wss *c) {
       char *numeric = g_inet_address_to_string(ip);
       g_strlcpy(c->ip, numeric, sizeof(c->ip));
       g_free(numeric);
+      Log(LOG_INFO, "mesh.native", "Mesh TCP dial %s resolved to %s:%u",
+          c->authority, c->ip, c->port);
       attach_socket(c, fd);
       return !c->dead;
    }

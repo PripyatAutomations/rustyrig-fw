@@ -35,7 +35,7 @@ class Fixture:
         self.work.mkdir()
         (self.work / 'modules').mkdir()
         self.node = str(uuid.uuid4())
-        self.http, self.mesh = port(), port()
+        self.http, self.mesh = (4422, 4420) if name == 'alpha' and os.getenv('RR_MESH_FIXED_PORTS') else (port(), port())
         self.db = self.work / 'master.db'
         self.cert, self.key = self.work / 'cert.pem', self.work / 'key.pem'
         self.config = self.work / 'server.cfg'
@@ -64,7 +64,7 @@ log.file={self.work}/server.log
 log.level=*:info,mesh.native:debug
 net.http.bind=127.0.0.1
 net.http.tls-bind=127.0.0.1
-net.http.tls-port={self.http}
+net.http.tls-port={4420 if name == 'alpha' and os.getenv('RR_MESH_FIXED_PORTS') else self.http}
 net.http.tls-enabled=true
 net.http.tls-cert={self.cert}
 net.http.tls-key={self.key}
@@ -253,9 +253,20 @@ def run():
         try:
             a.start()
             enroll(a, b)
+            if os.getenv('RR_MESH_FIXED_PORTS'):
+                # Simulate a previously enrolled installation: the issuer's
+                # saved HTTPS URL and old default native endpoint are both stale.
+                with sqlite3.connect(b.db) as db:
+                    db.execute("UPDATE mesh_bootstrap_peers SET url='wss://127.0.0.1:4420/link'")
+                    db.execute("UPDATE mesh_link_endpoints SET url='wss://127.0.0.1:4421/link'")
             a.stop()
             a.start()
             b.start()
+            if os.getenv('RR_MESH_FIXED_PORTS'):
+                with sqlite3.connect(b.db) as db:
+                    endpoint = db.execute('SELECT url FROM mesh_link_endpoints').fetchone()[0]
+                    assert endpoint == 'wss://127.0.0.1:4420/link', endpoint
+                assert 'Legacy HTTPS port 4420 moved to 4422' in a.log()
             wait(lambda: 'Linked to beta' in a.log() and 'Linked to alpha' in b.log(), 'mutual mesh link', [a, b])
             client = a.login()
             client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link', 'data': 'list'}})

@@ -85,7 +85,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
          return true;
       }
       mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
-                    "ENROLLED\n%s\n%s\n%d\n", links.node, signature, cfg_get_int("links.native.port", 4421));
+                    "ENROLLED\n%s\n%s\n%d\n", links.node, signature, cfg_get_int("links.native.port", 4420));
       g_free(signature);
       return true;
    }
@@ -217,7 +217,7 @@ void shared_link_request(const char *event, const void *data, size_t length, rrc
  * reaches the administrator, rather than advertising a wildcard listener.
  * The explicit endpoint remains available for NAT/VPN and remote networks. */
 static bool invite_default_endpoint(rrconn_t *client, char *out, size_t capacity) {
-   int port = cfg_get_int("net.http.tls-port", 4420);
+   int port = cfg_get_int("net.http.tls-port", 4422);
    if (port < 1 || port > 65535) return false;
    const char *bind = cfg_get("net.http.tls-bind");
    struct in_addr configured;

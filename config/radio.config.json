@@ -178,7 +178,7 @@
          "authdb_dynamic": "false",
          "404_path": "./www/404.shtml",
          "tls_cert": "./config/cert.pem",
-         "tls_port": 4420,
+         "tls_port": 4422,
          "tls_key": "./config/key.pem",
          "www_root": "./www"
       },

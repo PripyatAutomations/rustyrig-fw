@@ -383,7 +383,7 @@ The joining server logs its UUID with instructions for the cluster administrator
 invitation in the local SQLite database and replies directly to that operator
 with a base64-encoded RUSTYRIG-JOIN-2 token bound to that joining UUID. Treat the response as a private
 credential: do not paste it into public chat, logs, shell arguments or issues.
-The administrator supplies an issuer IP and HTTPS port reachable by the joining server, such as `10.30.0.1:4420` or `[fd00::1]:4420`. This is inserted into the signed-identity-pinned invitation as a `wss://` bootstrap endpoint; it is not a `[peer]` tree link. No DNS name is required. Default lifetime is 72 hours unless the server's invitation-expiry setting
+The administrator supplies an issuer IP and HTTPS port reachable by the joining server, such as `10.30.0.1:4422` or `[fd00::1]:4422`. This is inserted into the signed-identity-pinned invitation as a `wss://` bootstrap endpoint; it is not a `[peer]` tree link. No DNS name is required. Default lifetime is 72 hours unless the server's invitation-expiry setting
 changes. The command records only the administrative action in audit logs,
 not the credential.
 

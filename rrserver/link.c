@@ -1389,8 +1389,8 @@ bool rrserver_links_init(struct mg_mgr *manager) {
             peer->autoconnect = true;
             ++links.peer_count;
             Log(LOG_INFO, "mesh.bootstrap",
-                "Loaded enrolled issuer %s from enrollment endpoint %s (SPKI %s); native WSS autoconnect enabled",
-                uuid, url, pin);
+                "Loaded enrolled issuer %s: historical enrollment URL %s; mesh dial target %s (SPKI %s)",
+                uuid, url, peer->url, pin);
          }
          sqlite3_finalize(stmt);
       }
@@ -1517,7 +1517,12 @@ void rrserver_links_poll(void) {
       s->peer = peer;
       s->outbound = true;
       peer->session = s;
-      Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)", peer->site, peer->section, peer->retry_seconds);
+      GUri *target = g_uri_parse(peer->url, G_URI_FLAGS_NONE, NULL);
+      const char *host = target ? g_uri_get_host(target) : NULL;
+      int port = target ? g_uri_get_port(target) : -1;
+      Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] at %s:%d (mesh WSS; retry maximum %u s)",
+         peer->site, peer->section, host ? host : "invalid-host", port, peer->retry_seconds);
+      if (target) g_uri_unref(target);
       s->dedicated = true;
       s->transport = rr_mesh_wss_connect(peer->url, peer->spki, native_callback, s);
       if (!s->transport) {

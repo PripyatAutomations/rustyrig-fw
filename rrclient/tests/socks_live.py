@@ -63,7 +63,7 @@ def serve(conn):
         conn.sendall(reply[:3])
         time.sleep(0.01)
         conn.sendall(reply[3:])
-        if port in (6697, 4420):
+        if port in (6697, 4422):
             conn = context.wrap_socket(conn, server_side=True)
         if port in (6667, 6697):
             registration = b""
@@ -116,6 +116,6 @@ finally:
         thread.join()
     listener.close()
 assert not errors, errors
-assert sorted(ports) == [4420, 6667, 6697, 8420], ports
+assert sorted(ports) == [4422, 6667, 6697, 8420], ports
 assert sorted(quits) == [6667, 6697], quits
 assert result.returncode == 0, result.returncode

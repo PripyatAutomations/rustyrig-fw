@@ -6,11 +6,11 @@ Each `server.url` must specify its protocol and host. Ports are optional:
 | URL | Transport |
 | --- | --- |
 | `ws://localhost:8420/ws/` | WebSocket |
-| `wss://localhost:4420/ws/` | WebSocket with TLS |
+| `wss://localhost:4422/ws/` | WebSocket with TLS |
 | `irc://chat.example.org:6667` | IRC over TCP |
 | `ircs://chat.example.org:6697` | IRC over TLS |
 
-Omitted ports default to 8420 (WS), 4420 (WSS), 6667 (IRC), and 6697 (IRCS).
+Omitted ports default to 8420 (WS), 4422 (WSS), 6667 (IRC), and 6697 (IRCS).
 Explicit ports override these defaults. WebSocket paths and query
 strings are preserved. IRC URLs accept an empty path or `/`; put channel
 names in `autojoin`. Bracket IPv6 hosts, for example `ircs://[::1]:6697`.
@@ -226,7 +226,7 @@ display the server reason there, including NickServ account requirements.
 
 Native GTK/TUI `/server` also accepts WebSocket login credentials:
 `/server ws://user:pass@host:8420/ws/` or
-`/server wss://user:pass@host:4420/ws/`. URL credentials override the selected
+`/server wss://user:pass@host:4422/ws/`. URL credentials override the selected
 profile's `server.user` and `server.pass` for that connection and reconnects.
 Use percent escapes for reserved credential characters, such as `%40` for
 `@` and `%3A` for `:`; `user:` explicitly supplies an empty password.

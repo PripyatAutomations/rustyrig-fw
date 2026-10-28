@@ -1,7 +1,7 @@
 # Mesh transport handoff — 2026-10-28
 
 Update: the native WSS transport and enrolled startup connections are now
-implemented. See [current operation/security](native-mesh.md) and the live
+implemented. The current listener allocation is mesh TCP 4420 and client/enrollment HTTPS TCP 4422. See [current operation/security](native-mesh.md) and the live
 integration suite for the authoritative state. The remaining text is the
 original pre-implementation handoff, retained as historical context.
 
