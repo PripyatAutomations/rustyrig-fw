@@ -104,9 +104,11 @@ endif
 endif
 
 
-ifeq (${USE_SSL},true)
+# Mongoose TLS is mandatory, independent of build JSON feature switches.
+ifeq (${USE_MONGOOSE},true)
 CFLAGS += -DMG_TLS=MG_TLS_MBED
-LDFLAGS += -lmbedcrypto -lmbedtls -lmbedx509
+CFLAGS += $(shell pkg-config --cflags mbedtls)
+LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
 endif
 
 # Are we cross compiling?
@@ -145,7 +147,3 @@ strip: ${bins}
 
 LIB_LDFLAGS := -fPIC -shared
 
-ifeq (${USE_LIBMBEDTLS},true)
-CFLAGS += $(shell pkg-config --cflags mbedtls)
-LDFLAGS += $(shell pkg-config --libs mbedtls mbedcrypto mbedx509)
-endif
