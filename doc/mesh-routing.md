@@ -64,3 +64,37 @@ Keep bounded retention and size limits, index by owner and UUID, and purge
 removed/expired descriptors without deleting long-lived identity pins.
 A cache is **not** a quorum or source of authority: server-owned signed
 records and fresh authenticated links remain authoritative.
+
+## Shared transport boundary (implementation rule)
+
+Do **not** implement a second mesh websocket session manager or a second
+catalog replication stack. Both modes use `rrserver/link.c` for the shared
+`/link` listener, outbound connector, peer authentication, identity/key
+verification, keepalives and health telemetry, application envelopes,
+reconnection, and catalog synchronization. Callers route only through
+`rrserver_links_route()` and transmit with `rrserver_links_send()`.
+
+The differences are constrained to topology **admission** and **routing**:
+
+- **Tree:** `link.tree.c` prevents overlapping components and uses its
+  existing deterministic next-hop table; it remains supported indefinitely.
+- **Mesh:** `link.mesh.c` will maintain authenticated link-state edges and
+  select a direct next hop, with loop prevention and bounded advertisements.
+- **Mode switch:** `net.mesh-linking=false` selects tree admission/routing,
+  without altering common peer sessions, signatures, or catalog code.
+
+The current `rrserver_links_route()` implementation still delegates to
+`rr_link_tree_route()`. Switching it to a mesh route must wait until full
+authenticated link-state propagation and loop prevention are implemented.
+Both providers must return a neighbor that actually has an established,
+authenticated session. Never accept a discovered catalog endpoint as a
+forwarding next hop until its identity and link session are verified.
+
+### Low-bandwidth node policy
+
+The initial mesh policy can connect to every reachable same-domain peer, but
+connection planning must be a separate optional policy (not embedded in
+transport/session code). Later a constrained LTE node should be able to set
+limits on direct peers, keepalive cadence, and uplink traffic while remaining
+reachable through other authenticated nodes. A selected subset must preserve
+bootstrap reachability and avoid uncontrolled reconnection storms.
