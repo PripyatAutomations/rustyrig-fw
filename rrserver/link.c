@@ -86,6 +86,7 @@ static struct {
 } links;
 
 static void link_callback(struct mg_connection *c, int event, void *data);
+static void send_snapshot(struct link_session *session);
 
 static const char *config_value(const char *key, const char *fallback) {
    const char *value = cfg_get(key);
@@ -1007,8 +1008,7 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
          if (!strstr(features, "identity.spki-binding-v1")) {
             fail(session, "Peer lacks mandatory signed TLS identity capability; upgrade all linked servers");
          } else {
-            session->identity_required = true;
-            send_identity(session);
+            /* Identity proof already exchanged before topology admission. */
          }
       }
    } else if (session->established && !strcmp(op, "link.introduce")) {
@@ -1675,7 +1675,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    if (listen && *listen) {
       bool tls = !strncmp(listen, "https://", 8);
 
-      if (!tls && !(links.insecure && !strncmp(listen, "http://", 7))) {
+      if (!tls) {
          return false;
       }
 
