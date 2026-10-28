@@ -115,6 +115,18 @@ CREATE TABLE users (
    permissions TEXT                 -- comma-separated or JSON if complex
 );
 
+-- Optional Web UI password credentials. A missing row disables password login.
+-- password_phc is a self-describing, salted password hash (Argon2id preferred).
+-- Never place a plaintext password, SHA-1 verifier or client private key here.
+-- Native client public-key enrollment is stored independently of this table.
+-- Existing users.password is legacy-only until the new authentication protocol
+-- and migration are ready; do not interpret it as a web_password credential.
+CREATE TABLE IF NOT EXISTS user_web_credentials (
+   uid INTEGER PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
+   password_phc TEXT NOT NULL,
+   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 -- v1 scoped authorization. System-wide roles (admin, owner, etc.) remain
 -- in users.permissions until core roles have a dedicated typed representation.
 -- Resource grants are separate and keyed by stable resource UUID, not names.
