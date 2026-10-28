@@ -537,6 +537,8 @@ void rr_relay_sync_status(const char *node, bool inbound, bool complete) {
 typedef struct {
    char *origin;
    guint expected, received, accepted, rejected;
+   guint rejection_reasons[RR_CAT_REJECT_COUNT];
+   guint rejection_examples;
    guint64 bytes, apply_us, apply_max_us;
    gint64 started, last_progress;
 } catalog_receive_t;
@@ -631,6 +633,20 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                "partial" : "complete", r->received, r->expected, r->expected ? 100.0 * r->received / r->expected : 100.0, r->expected > r->received ? r->
                expected - r->received : 0, r->rejected, r->accepted, (unsigned long long)r->bytes, elapsed_ms, elapsed_ms > 0 ? r->received * 1000.0 /
                elapsed_ms : 0.0, (double)r->apply_us / 1000.0, (double)r->apply_max_us / 1000.0);
+            if (r->rejected) {
+               static const char *classes[] = { "ok", "wrong owner", "missing parent", "invalid service",
+                  "signature/identity", "room authority", "out of memory", "catalog full" };
+               GString *why = g_string_new("");
+               for (unsigned n = RR_CAT_OWNER; n < RR_CAT_REJECT_COUNT; ++n) {
+                  if (!r->rejection_reasons[n]) continue;
+                  if (why->len) g_string_append(why, ", ");
+                  g_string_append_printf(why, "%s=%u", classes[n], r->rejection_reasons[n]);
+               }
+               Log(LOG_WARN, "relay.catalog", "Catalog from %s: accepted %u/%u, rejected %u (%s); see first %u rejection examples above (sync %s)",
+                   finished_source, r->accepted, r->received, r->rejected,
+                   why->len ? why->str : "unspecified", r->rejection_examples, id);
+               g_string_free(why, TRUE);
+            }
             rr_relay_sync_status(origin, true, r->received == r->expected && r->rejected == 0);
 
             if (r->received != r->expected) {
@@ -788,10 +804,18 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
                sync->accepted++;
             } else {
                sync->rejected++;
-               char origin_label[192];
-               Log(LOG_DEBUG, "relay.catalog", "Rejected catalog descriptor from %s in sync %s (type=%s, uuid=%s, service=%s, parent=%s, room=%s)",
-                  rrserver_links_format_node(origin, origin_label, sizeof(origin_label)), id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
-                  dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
+               if (reject_reason >= RR_CAT_OWNER && reject_reason < RR_CAT_REJECT_COUNT)
+                  sync->rejection_reasons[reject_reason]++;
+               if (sync->rejection_examples < 5) {
+                  static const char *classes[] = { "ok", "wrong owner", "missing parent", "invalid service",
+                     "signature/identity", "room authority", "out of memory", "catalog full" };
+                  const char *why = reject_reason < RR_CAT_REJECT_COUNT ? classes[reject_reason] : "unknown";
+                  Log(LOG_WARN, "relay.catalog",
+                     "Rejected %s from %s (%s): type=%s uuid=%s service=%s parent=%s room=%s",
+                     why, origin, id, dict_get(d, "object.type", ""), dict_get(d, "object.uuid", ""),
+                     dict_get(d, "catalog.service", ""), dict_get(d, "catalog.parent", ""), dict_get(d, "catalog.room", ""));
+                  sync->rejection_examples++;
+               }
             }
          }
 
