@@ -1,5 +1,6 @@
 #include <sys/stat.h>
 #include <rrclient/config.layers.h>
+#include <rrclient/database.h>
 #include <rrclient/media.direct.h>
 #include <rrclient/gtk/gtk.serverpick.h>
 //
@@ -233,20 +234,23 @@ static void server_editor_save(GtkButton *button, gpointer data) {
       if (strcmp(value, editor->initial[i])) {
          char key[640];
          snprintf(key, sizeof(key), "server:%s.%s", editor->profile, editor_keys[i]);
-         dict_add(cfg, key, value);
+         if (!rrclient_database_server_set(editor->profile, editor_keys[i], value)) {
+            gtk_label_set_text(GTK_LABEL(editor->error), "Unable to save server profile to SQLite.");
+            return;
+         }
       }
    }
    bool direct = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(editor->direct));
    if (direct != editor->initial_direct) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.media.direct.prefer", editor->profile);
-      dict_add(cfg, key, direct ? "true" : "false");
+      if (!rrclient_database_server_set(editor->profile, "media.direct.prefer", direct ? "true" : "false")) return;
       rrclient_direct_apply_preferences();
    }
    if (rooms_changed) {
       char key[640];
       snprintf(key, sizeof(key), "server:%s.autojoin.rig", editor->profile);
-      dict_add(cfg, key, "");
+      if (!rrclient_database_server_set(editor->profile, "autojoin.rig", "")) return;
    }
    gtk_server_picker_refresh_profile(editor->profile);
    server_editor_close(NULL);
