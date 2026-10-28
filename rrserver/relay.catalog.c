@@ -549,6 +549,13 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       Log(LOG_WARN, "mesh.identity", "Cannot publish local unsigned catalog descriptor: server signing identity unavailable");
       return catalog_reject(reason, RR_CAT_IDENTITY);
    }
+   /* Visibility is included in the signed descriptor. Reject misspelled
+    * values instead of silently broadening client exposure. */
+   const char *visibility = dict_get(d, "catalog.visibility", "clients");
+   if (strcmp(visibility, "clients") && strcmp(visibility, "server-only")) {
+      Log(LOG_WARN, "relay.catalog", "Rejected invalid catalog.visibility from %s", owner);
+      return catalog_reject(reason, RR_CAT_IDENTITY);
+   }
    const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
    char key[160];
 
