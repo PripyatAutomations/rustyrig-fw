@@ -944,11 +944,6 @@ bool gui_init(void) {
    gtk_widget_set_tooltip_text(minimize, "Minimize the main window (VFO locator stays open)");
    g_signal_connect(minimize, "clicked", G_CALLBACK(main_toolbar_minimize), NULL);
    gtk_box_pack_start(GTK_BOX(rr_main_toolbar), minimize, FALSE, FALSE, 0);
-   GtkWidget *certificates = gtk_button_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_MENU);
-   gtk_button_set_relief(GTK_BUTTON(certificates), GTK_RELIEF_NONE);
-   gtk_widget_set_tooltip_text(certificates, "Manage Certificates");
-   g_signal_connect(certificates, "clicked", G_CALLBACK(gtk_manage_certificates), NULL);
-   gtk_box_pack_start(GTK_BOX(rr_main_toolbar), certificates, FALSE, FALSE, 0);
    gtk_box_pack_start(GTK_BOX(main_content), rr_main_toolbar, FALSE, FALSE, 1);
    GtkWidget *tabs_wrapper = gtk_wrapping_tabs_new(GTK_NOTEBOOK(main_notebook), cfg_ui_gtk_main_tabstrip);
    gtk_box_pack_start(GTK_BOX(main_content), tabs_wrapper, TRUE, TRUE, 0);
@@ -982,6 +977,29 @@ bool gui_init(void) {
 
    // CONFIG tab (alt-2)
    config_tab = init_config_tab();
+   /* Settings, not a global connection control. */
+   GtkWidget *certificates = gtk_button_new_with_label("Manage Certificates");
+   GtkWidget *cert_icon = gtk_image_new_from_icon_name("dialog-password-symbolic", GTK_ICON_SIZE_BUTTON);
+   gtk_button_set_image(GTK_BUTTON(certificates), cert_icon);
+   gtk_button_set_always_show_image(GTK_BUTTON(certificates), TRUE);
+   gtk_widget_set_tooltip_text(certificates, "Manage local Ed25519 client keys");
+   g_signal_connect(certificates, "clicked", G_CALLBACK(gtk_manage_certificates), NULL);
+   if (GTK_IS_BOX(config_tab)) {
+      gtk_box_pack_start(GTK_BOX(config_tab), certificates, FALSE, FALSE, 8);
+      gtk_widget_show_all(certificates);
+   } else {
+      /* A settings tab may be a scrolled container: attach to its outer
+       * vertical box where possible rather than putting it in the toolbar. */
+      GtkWidget *child = GTK_IS_BIN(config_tab) ?
+         gtk_bin_get_child(GTK_BIN(config_tab)) : NULL;
+      if (GTK_IS_BOX(child)) {
+         gtk_box_pack_start(GTK_BOX(child), certificates, FALSE, FALSE, 8);
+         gtk_widget_show_all(certificates);
+      } else {
+         Log(LOG_WARN, "client.identity", "Config tab has no usable box for certificate action");
+         gtk_widget_destroy(certificates);
+      }
+   }
 
    // One GTK Log tab combines Client and Host streams; TUI tabs stay separate.
    log_tab = init_log_tab();
@@ -1526,10 +1544,18 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+   gtk_container_set_border_width(GTK_CONTAINER(area), 14);
+   GtkWidget *description = gtk_label_new("Local Ed25519 identities");
+   gtk_label_set_xalign(GTK_LABEL(description), 0);
+   gtk_box_pack_start(GTK_BOX(area), description, FALSE, FALSE, 4);
+   GtkWidget *list = gtk_list_box_new();
+   gtk_list_box_set_selection_mode(GTK_LIST_BOX(list), GTK_SELECTION_SINGLE);
+   gtk_widget_set_size_request(list, 380, 90);
+   gtk_box_pack_start(GTK_BOX(area), list, TRUE, TRUE, 6);
    GtkWidget *status = gtk_label_new("");
    gtk_label_set_xalign(GTK_LABEL(status), 0);
-   gtk_container_set_border_width(GTK_CONTAINER(area), 14);
-   gtk_box_pack_start(GTK_BOX(area), status, FALSE, FALSE, 12);
+   gtk_box_pack_start(GTK_BOX(area), status, FALSE, FALSE, 8);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Create New", 1);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Import", 2);
    gtk_dialog_add_button(GTK_DIALOG(dlg), "Export", 3);
@@ -1542,6 +1568,22 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       bool safe = exists && S_ISREG(st.st_mode) && st.st_uid == geteuid() &&
                   !(st.st_mode & 0077);
       if (!safe) identity_lock();
+      GList *rows = gtk_container_get_children(GTK_CONTAINER(list));
+      for (GList *item = rows; item; item = item->next)
+         gtk_widget_destroy(GTK_WIDGET(item->data));
+      g_list_free(rows);
+      if (exists) {
+         GtkWidget *row = gtk_list_box_row_new();
+         GtkWidget *label = gtk_label_new("Default Client Identity   ·   Ed25519");
+         gtk_widget_set_margin_start(label, 12);
+         gtk_widget_set_margin_top(label, 10);
+         gtk_widget_set_margin_bottom(label, 10);
+         gtk_label_set_xalign(GTK_LABEL(label), 0);
+         gtk_container_add(GTK_CONTAINER(row), label);
+         gtk_container_add(GTK_CONTAINER(list), row);
+         gtk_list_box_select_row(GTK_LIST_BOX(list), GTK_LIST_BOX_ROW(row));
+      }
+
       gtk_label_set_text(GTK_LABEL(status),
          !exists ? "No local client identity. Create or import an Ed25519 key." :
          !safe ? "Unsafe private-key file permissions or ownership." :
@@ -1550,6 +1592,9 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       gtk_widget_show_all(dlg);
       int response = gtk_dialog_run(GTK_DIALOG(dlg));
       if (response == GTK_RESPONSE_CLOSE || response == GTK_RESPONSE_DELETE_EVENT) break;
+      /* Only the selected row is a target for key operations. */
+      if ((response == 3 || response == 4 || response == 5) &&
+          !gtk_list_box_get_selected_row(GTK_LIST_BOX(list))) continue;
       if (response == 4) {
          if (identity_unlocked_key) identity_lock();
          else if (safe) identity_unlocked_key = identity_read_key(path, GTK_WINDOW(dlg));
