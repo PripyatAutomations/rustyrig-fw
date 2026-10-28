@@ -38,6 +38,11 @@ extern rr_resource_access_t db_resource_access_named(sqlite3 *db, const char *su
 bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id,
                      const char *public_key_b64, const char *label);
 bool db_user_key_revoke(sqlite3 *db, const char *username, const char *key_id);
+/* Verifies a challenge response for an enrolled, enabled native client key.
+ * Caller must enforce nonce freshness, single-use and TLS channel policy. */
+bool db_user_key_verify(sqlite3 *db, const char *username, const char *key_id,
+                        const void *challenge, size_t challenge_len,
+                        const unsigned char signature[64]);
 bool db_user_key_lookup(sqlite3 *db, const char *username, const char *key_id,
                         unsigned char public_key[32]);
 extern sqlite3 *db_open(const char *path);
