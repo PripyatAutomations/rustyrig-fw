@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <time.h>
 #include <string.h>
 
 static rr_crypto_key_t *identity;
@@ -368,5 +369,67 @@ bool rr_identity_trust_verify(sqlite3 *db, const char *domain, const char *owner
       !strcmp(spki,tls_spki_sha256_b64);
    sqlite3_finalize(stmt);
    return ok;
+}
+#endif
+
+#ifdef USE_SQLITE
+/* Invitation authority lives only on the issuing server. Do not gossip private
+ * credentials or allow a relayed catalog record to redeem an invitation. */
+static bool invite_schema(sqlite3 *db) {
+   return db && sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_join_invitations ("
+      "ticket_id TEXT PRIMARY KEY, domain TEXT NOT NULL,"
+      "public_key TEXT NOT NULL, expires_at INTEGER NOT NULL,"
+      "status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','used','revoked')),"
+      "created_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "joined_uuid TEXT, joined_catalog_key TEXT, joined_tls_spki TEXT,"
+      "consumed_at INTEGER)", NULL,NULL,NULL)==SQLITE_OK;
+}
+bool rr_identity_invite_create(sqlite3 *db, const char *id, const char *domain,
+                                const char *pub, long long expires) {
+   if (!id || !g_uuid_string_is_valid(id) || !domain || !*domain ||
+       !trust_key_valid(pub,32) || expires <= (long long)time(NULL) ||
+       !invite_schema(db)) return false;
+   sqlite3_stmt *s=NULL;
+   if (sqlite3_prepare_v2(db,"INSERT INTO mesh_join_invitations"
+       "(ticket_id,domain,public_key,expires_at) VALUES(?1,?2,?3,?4)",
+       -1,&s,NULL)!=SQLITE_OK) return false;
+   sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(s,2,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(s,3,pub,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_int64(s,4,(sqlite3_int64)expires);
+   bool ok=sqlite3_step(s)==SQLITE_DONE;
+   sqlite3_finalize(s);return ok;
+}
+bool rr_identity_invite_revoke(sqlite3 *db, const char *id) {
+   if (!id || !invite_schema(db)) return false;
+   sqlite3_stmt *s=NULL;
+   if(sqlite3_prepare_v2(db,"UPDATE mesh_join_invitations SET status='revoked'"
+       " WHERE ticket_id=?1 AND status='pending'",-1,&s,NULL)!=SQLITE_OK) return false;
+   sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT);
+   bool ok=sqlite3_step(s)==SQLITE_DONE && sqlite3_changes(db)==1;
+   sqlite3_finalize(s);return ok;
+}
+bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain,
+                                const char *node, const char *catalog, const char *spki) {
+   if(!id || !domain || !*domain || !node || !g_uuid_string_is_valid(node) ||
+      !trust_key_valid(catalog,32) || !trust_key_valid(spki,32) ||
+      !invite_schema(db)) return false;
+   /* Caller MUST authenticate possession of the invitation private key,
+    * prove the permanent node identity, and verify its TLS binding BEFORE
+    * calling this transition. This API only commits a checked admission. */
+   sqlite3_stmt *s=NULL;
+   if(sqlite3_prepare_v2(db,"UPDATE mesh_join_invitations SET status='used',"
+       " joined_uuid=?3,joined_catalog_key=?4,joined_tls_spki=?5,"
+       " consumed_at=unixepoch() WHERE ticket_id=?1 AND domain=?2"
+       " AND status='pending' AND expires_at>unixepoch()", -1,&s,NULL)!=SQLITE_OK)
+      return false;
+   sqlite3_bind_text(s,1,id,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(s,2,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(s,3,node,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(s,4,catalog,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(s,5,spki,-1,SQLITE_TRANSIENT);
+   bool ok=sqlite3_step(s)==SQLITE_DONE && sqlite3_changes(db)==1;
+   sqlite3_finalize(s);return ok;
 }
 #endif
