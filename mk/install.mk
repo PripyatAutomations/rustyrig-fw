@@ -59,7 +59,7 @@ install-assets:
 	install -Dm644 res/rustyrig.png "$(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps/rustyrig.png"
 	install -Dm644 packaging/rustyrig-client.desktop "$(DESTDIR)$(PREFIX)/share/applications/rustyrig-client.desktop"
 	install -d "$(DESTDIR)$(WEB_ROOT)"
-	cp -a www/. "$(DESTDIR)$(WEB_ROOT)/"
+	@if [ -d www ]; then cp -a www/. "$(DESTDIR)$(WEB_ROOT)/"; fi
 
 # SQL templates are shipped runtime data, unlike operator-maintained config.
 # Update them on every source install; never overwrite the live master.db.
