@@ -177,3 +177,22 @@ bool rrclient_database_load_profiles(void) {
    sqlite3_finalize(q);
    return true;
 }
+
+/* Never write the DB-backed compatibility view back into rrclient.cfg. */
+bool rrclient_database_config_save(const char *path) {
+   if (!cfg || !path) return false;
+   dict *copy=dict_new();
+   if (!copy || dict_merge(copy,cfg)) { dict_free(copy); return false; }
+   GPtrArray *keys=g_ptr_array_new_with_free_func(g_free);
+   int rank=0;
+   const char *key;
+   char *value;
+   while ((rank=dict_enumerate(copy,rank,&key,&value))>=0)
+      if (g_str_has_prefix(key,"server:") || g_str_has_prefix(key,"network:"))
+         g_ptr_array_add(keys,g_strdup(key));
+   for (gsize i=0;i<keys->len;i++) dict_del(copy,g_ptr_array_index(keys,i));
+   g_ptr_array_free(keys,TRUE);
+   bool ok=cfg_save(copy,path);
+   dict_free(copy);
+   return ok;
+}
