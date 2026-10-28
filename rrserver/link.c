@@ -1962,6 +1962,69 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       }
    }
 
+#ifdef USE_SQLITE
+   /* Import durable, explicitly enrolled bootstrap targets. These are NOT
+    * permitted to dial until the Mongoose transport can authenticate the
+    * saved SPKI, and the link handshake can prove possession of the pinned
+    * catalog key. Keeping them in the peer table makes them visible to the
+    * operator and available to the upcoming authenticated dialer. */
+   if (masterdb) {
+      sqlite3_stmt *stmt = NULL;
+      if (sqlite3_prepare_v2(masterdb,
+          "SELECT node_uuid,url,catalog_pubkey,tls_spki_sha256 "
+          "FROM mesh_bootstrap_peers WHERE domain=?1 AND state='enrolled'",
+          -1, &stmt, NULL) == SQLITE_OK) {
+         sqlite3_bind_text(stmt, 1, links.domain, -1, SQLITE_TRANSIENT);
+         while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char *uuid = (const char *)sqlite3_column_text(stmt, 0);
+            const char *url = (const char *)sqlite3_column_text(stmt, 1);
+            const char *pub = (const char *)sqlite3_column_text(stmt, 2);
+            const char *pin = (const char *)sqlite3_column_text(stmt, 3);
+            if (!uuid || !rr_object_uuid_valid(uuid) || !strcmp(uuid, links.node) ||
+                !url || strncmp(url, "wss://", 6) ||
+                !pub || strlen(pub) != 44 || !pin || strlen(pin) != 44) {
+               Log(LOG_WARN, "mesh.bootstrap", "Ignoring malformed stored issuer bootstrap entry");
+               continue;
+            }
+            bool already_known = false;
+            for (size_t i = 0; i < links.peer_count; ++i)
+               if (!strcmp(links.peers[i].node, uuid)) already_known = true;
+            if (already_known) continue;
+            if (links.peer_count == MAX_PEERS) {
+               Log(LOG_WARN, "mesh.bootstrap", "Peer limit reached; cannot import enrolled bootstrap issuer %s", uuid);
+               break;
+            }
+            struct link_peer *peer = &links.peers[links.peer_count];
+            memset(peer, 0, sizeof(*peer));
+            snprintf(peer->section, sizeof(peer->section), "enrolled:%s", uuid);
+            snprintf(peer->site, sizeof(peer->site), "enrolled-%s", uuid);
+            snprintf(peer->node, sizeof(peer->node), "%s", uuid);
+            peer->url = strdup(url);
+            peer->catalog_key = strdup(pub);
+            peer->password = strdup("");
+            peer->allowed_sites = strdup("");
+            if (!peer->url || !peer->catalog_key || !peer->password || !peer->allowed_sites) {
+               free(peer->url); free(peer->catalog_key);
+               free(peer->password); free(peer->allowed_sites);
+               memset(peer, 0, sizeof(*peer));
+               Log(LOG_CRIT, "mesh.bootstrap", "Out of memory importing enrolled issuer");
+               sqlite3_finalize(stmt);
+               return false;
+            }
+            peer->retry_seconds = cfg_get_int("links.retry-seconds", 60);
+            if (peer->retry_seconds < 1 || peer->retry_seconds > 3600) peer->retry_seconds = 60;
+            peer->max_depth = (unsigned)cfg_get_int("links.max-depth", 5);
+            peer->policy_blocked = true; /* Fail closed pending transport+handshake support. */
+            ++links.peer_count;
+            Log(LOG_INFO, "mesh.bootstrap",
+                "Loaded enrolled issuer %s at %s (SPKI %s); waiting for authenticated WSS bootstrap support",
+                uuid, url, pin);
+         }
+         sqlite3_finalize(stmt);
+      }
+   }
+#endif
+
    const char *listen = cfg_get("links.listen");
 
    /* Even without configured peers, this node must accept /link for
