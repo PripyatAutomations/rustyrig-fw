@@ -1466,8 +1466,19 @@ static void shared_link_request(const char *event, const void *data, size_t leng
          mg_http_reply(connection, 403, "", "Invitation invalid or expired\\n");
          return;
       }
+      const char *cert_path = cfg_get("net.http.tls-cert");
+      char *issuer_spki = cert_path ? rr_crypto_cert_spki_sha256(cert_path) : NULL;
+      char *issuer_sig = issuer_spki ?
+         rr_identity_tls_binding_signature(links.domain, links.node, issuer_spki) : NULL;
+      free(issuer_spki);
+      if (!issuer_sig) {
+         mg_http_reply(connection, 500, "", "Issuer signing identity unavailable\\n");
+         g_free(nonce);
+         return;
+      }
       mg_http_reply(connection, 200, "Content-Type: text/plain\\r\\nCache-Control: no-store\\r\\n",
-                    "%s\\n", nonce);
+                    "%s\\n%s\\n%s\\n", nonce, links.node, issuer_sig);
+      g_free(issuer_sig);
       g_free(nonce);
       return;
    }
