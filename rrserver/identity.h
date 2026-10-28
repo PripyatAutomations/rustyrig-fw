@@ -24,6 +24,7 @@ bool rr_identity_local_revision(sqlite3 *db, const char *domain, const char *own
 bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *owner, const char *key, dict *descriptor);
 /* Issuer-local single-use enrollment tickets; only public challenge keys are stored.
  * A successful redeem atomically binds one node identity and consumes ticket. */
+/* expires_unix=0 uses links.invitation-expiry-hours (72 hours by default). */
 bool rr_identity_invite_create(sqlite3 *db, const char *ticket_id,
    const char *domain, const char *public_key_b64, long long expires_unix);
 bool rr_identity_invite_redeem(sqlite3 *db, const char *ticket_id,
