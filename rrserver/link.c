@@ -1203,6 +1203,10 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
    }
 
    if (event == MG_EV_CONNECT && session->outbound && !strncmp(session->peer->url, "wss://", 6)) {
+      if (!session->peer->peer_ca.len || !session->peer->catalog_key) {
+         fail(session, "Peer not enrolled: refusing unverified WSS connection");
+         return;
+      }
       struct mg_tls_opts options = {
          .ca = session->peer->peer_ca, .name = mg_url_host(session->peer->url)
       };
@@ -1355,24 +1359,18 @@ static bool load_peer(const char *section) {
    if (url && *url && strncmp(url, "wss://", 6)) {
       return invalid_peer(section, "server.url", "server-to-server links require wss:// (TLS is mandatory)");
    }
-   /* Bootstrap trust out-of-band: each peer has an operator-installed
-    * certificate bundle, never implicitly trust a discovered key. */
+   /* Missing trust means pending enrollment, never permission to skip TLS checks. */
    const char *peer_trust = peer_value(section, "tls-trust");
-   if (!peer_trust || !*peer_trust) {
-      return invalid_peer(section, "tls-trust",
-         "path to independently verified peer certificate PEM is mandatory");
-   }
    const char *catalog_key = peer_value(section, "catalog-key");
-   if (!catalog_key || strlen(catalog_key) != 44) {
-      return invalid_peer(section, "catalog-key",
-         "enrolled Ed25519 catalog public key (44-character base64) is mandatory");
-   }
-   peer->catalog_key = strdup(catalog_key);
-   if (!peer->catalog_key) return false;
-   peer->peer_ca = mg_file_read(&mg_fs_posix, peer_trust);
-   if (!peer->peer_ca.len) {
-      return invalid_peer(section, "tls-trust",
-         "cannot read the enrolled peer certificate PEM");
+   if (peer_trust && *peer_trust && catalog_key && *catalog_key) {
+      if (strlen(catalog_key) != 44)
+         return invalid_peer(section, "catalog-key", "expected 44-character Ed25519 public key base64");
+      peer->catalog_key = strdup(catalog_key);
+      peer->peer_ca = mg_file_read(&mg_fs_posix, peer_trust);
+      if (!peer->catalog_key || !peer->peer_ca.len)
+         return invalid_peer(section, "tls-trust", "cannot read enrolled certificate");
+   } else {
+      Log(LOG_INFO, "mesh.identity", "Peer %s is pending enrollment; normal server link will remain disabled", peer->site);
    }
    peer->url = strdup(url ? url : "");
    peer->password = strdup(password);
@@ -1772,6 +1770,7 @@ void rrserver_links_poll(void) {
       s->outbound = true;
       peer->session = s;
       Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)", peer->site, peer->section, peer->retry_seconds);
+      if (!peer->peer_ca.len || !peer->catalog_key) continue;
       struct mg_connection *c = mg_ws_connect(links.manager, peer->url, link_callback, s, "Sec-WebSocket-Protocol: " RR_LINK_SUBPROTOCOL "\r\n");
 
       if (!c) {
