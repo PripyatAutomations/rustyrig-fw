@@ -520,6 +520,14 @@ defconfig_t defcfg[] = {
       "net.http.tls-auto-generate", "true", "Provision self-signed TLS certificate when absent (requires writable key/cert paths)", DEFCONFIG_BOOL, NULL
    },
    {
+      "net.http.tls-cert", "/var/lib/rustyrig/identity/tls-cert.pem",
+      "Persistent server TLS certificate (generated in private package state directory)", DEFCONFIG_PATH, NULL
+   },
+   {
+      "net.http.tls-key", "/var/lib/rustyrig/identity/tls-key.pem",
+      "Persistent server TLS private key (mode 0600; never place in /etc)", DEFCONFIG_PATH, NULL
+   },
+   {
       "net.http.tls-port", "4420", "Port for TLS listener", DEFCONFIG_UINT, NULL
    },
    {
