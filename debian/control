@@ -9,6 +9,7 @@ Build-Depends:
  pkg-config,
  libbsd-dev,
  libcurl4-openssl-dev,
+ libssl-dev,
  libev-dev,
  libgpiod-dev,
  libglib2.0-dev,
