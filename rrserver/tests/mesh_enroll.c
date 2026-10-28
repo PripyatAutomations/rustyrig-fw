@@ -58,6 +58,9 @@ int main(void) {
    assert(rr_identity_invite_redeem(db, fields[1], "testdomain",
       JOINER, join_pub, join_spki));
    assert(rr_identity_trust_verify(db, "testdomain", JOINER, join_pub, join_spki));
+   assert(rr_identity_invite_redeemed(db, fields[1], "testdomain", JOINER, join_pub, join_spki));
+   assert(!rr_identity_invite_redeemed(db, fields[1], "other-domain", JOINER, join_pub, join_spki));
+   assert(!rr_identity_invite_redeemed(db, fields[1], "testdomain", JOINER, fields[6], join_spki));
    assert(!rr_identity_invite_redeem(db, fields[1], "testdomain",
       JOINER, join_pub, join_spki));
    assert(!rr_identity_invite_challenge(db, fields[1], "testdomain", JOINER));
