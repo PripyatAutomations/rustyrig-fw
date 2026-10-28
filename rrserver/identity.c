@@ -106,6 +106,15 @@ bool rr_identity_init(const char *directory) {
    return true;
 }
 
+char *rr_identity_tls_binding_signature(const char *domain, const char *owner,
+                                        const char *spki_sha256_b64) {
+   uint8_t signature[64];
+   if (!identity || !rr_crypto_binding_sign(identity, domain, owner,
+                                             spki_sha256_b64, signature))
+      return NULL;
+   return g_base64_encode(signature, sizeof(signature));
+}
+
 void rr_identity_fini(void) {
    rr_crypto_key_free(identity); identity = NULL;
    g_free(public_key); public_key = NULL;
