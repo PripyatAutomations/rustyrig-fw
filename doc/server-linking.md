@@ -43,7 +43,14 @@ Invalid signatures or mismatched owner/domain bindings remain rejected.
 Servers must be upgraded together to participate in a strictly signed cluster.
 
 Signed records carry `identity.owner`, `identity.domain`,
-`identity.public-key`, `identity.scheme`, and `identity.signature`.
+`identity.public-key`, `identity.scheme`, `identity.operation`, and
+`identity.signature`. Descriptor additions/changes are signed as
+`catalog-upsert`; deletions are signed separately as `catalog-remove` with
+fresh nonce and timestamp bound into the signature. A prior descriptor
+signature alone cannot authorize a deletion. Removal timestamps have a
+five-minute acceptance window and a bounded in-process nonce replay cache;
+**persisted replay protection and per-owner monotonic catalog revisions are
+still needed** before direct mesh links become a security boundary.
 Local Ed25519 signing keys persist in `/var/lib/rustyrig/identity/`.
 Verified public keys are first-seen pinned in the master SQLite database.
 This is initial **TOFU** enrollment: independent verification or approval of
