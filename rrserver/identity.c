@@ -426,7 +426,7 @@ char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
    long long expires_unix) {
    if (!db || !domain || !*domain || !bootstrap_wss_url ||
        strncmp(bootstrap_wss_url, "wss://", 6) ||
-       strchr(bootstrap_wss_url, '\\n') || strchr(bootstrap_wss_url, '\\r') ||
+       strchr(bootstrap_wss_url, '\n') || strchr(bootstrap_wss_url, '\r') ||
        !trust_key_valid(issuer_tls_spki_b64, 32))
       return NULL;
 
@@ -448,7 +448,7 @@ char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
       const char *issuer_pub = rr_identity_public_base64();
       if (id && pub64 && pem64 && issuer_pub &&
           rr_identity_invite_create(db, id, domain, pub64, expires_unix)) {
-         token = g_strdup_printf("RUSTYRIG-JOIN-1\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n",
+         token = g_strdup_printf("RUSTYRIG-JOIN-1\n%s\n%s\n%s\n%s\n%s\n%s\n",
              id, domain, bootstrap_wss_url, issuer_tls_spki_b64,
              issuer_pub, pem64);
       }
