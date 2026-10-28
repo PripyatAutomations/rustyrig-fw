@@ -202,3 +202,41 @@ identities, or verify remote catalogs in clients. Do not treat possession
 of the generated CA file or printed pin as enforcement until transport
 verification and peer identity binding have been integrated. Browser WSS
 must still pass browser TLS validation.
+
+## Decentralized trust enrollment (implementation in progress)
+
+RustyRig does not require a shared CA for server identity. Each server can
+use its own persistent, self-signed TLS certificate and its separate persistent
+Ed25519 catalog-signing identity. Provision a test certificate using:
+
+```sh
+sh tools/rustyrig-selfsigned-host.sh /etc/rustyrig nycvny37.example.net 10.0.0.37
+```
+
+This tool refuses to overwrite keys. Record and independently verify its
+SHA-256 SPKI fingerprint. The *public* key is enrolled, not the private key.
+Unlike a certificate fingerprint, an SPKI pin remains the same across a
+certificate renewal only when the TLS key is deliberately reused.
+
+The SQLite `mesh_explicit_trust` table and
+`rr_identity_trust_enroll()/rr_identity_trust_verify()` provide an initial
+immutable store for (domain, server UUID, catalog Ed25519 public key, TLS SPKI
+SHA-256). Enrollment must be a deliberate operator action after out-of-band
+verification; first-seen signed catalog assertions and introductions are NOT
+sufficient to approve a new server. A changed key is rejected by the store,
+not silently replaced. The existing auto-TOFU `mesh_identity_pins` table is
+a separate legacy mechanism and is NOT equivalent to explicit trust.
+
+**Not yet enforced:** this initial store is not connected to Mongoose TLS
+handshake verification or to catalog admission, and the certificate/catalog
+binding proof, enrollment command/UI, client trust storage and independent
+client signature verification are not yet implemented. Do not infer trust
+enforcement from the presence of records in SQLite. Never use
+`mg_tls_opts.ca = NULL` as a shortcut for accepting a self-signed peer.
+Implement custom trust/pin verification in a transport backend that actually
+exposes the peer certificate and fails connections on mismatch.
+
+A trusted introduction is an authenticated *candidate* identity, not a
+grant. Require separate approval or an explicit domain policy before granting
+controls or remotely authorized access. Catalog revisions and signed
+tombstones remain independent of TLS identity.
