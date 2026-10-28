@@ -1437,9 +1437,42 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    }
    rr_server_http_t *request = (rr_server_http_t *) data;
 
-   if (!request->request || mg_strcmp(request->request->uri, mg_str("/link"))) {
+   if (!request->request) return;
+#ifdef USE_SQLITE
+   if (mg_strcmp(request->request->uri, mg_str("/mesh/enroll/challenge")) == 0) {
+      request->handled = true;
+      struct mg_connection *connection = request->connection;
+      if (!connection->is_tls ||
+          mg_strcmp(request->request->method, mg_str("POST"))) {
+         mg_http_reply(connection, 403, "", "TLS POST required\\n");
+         return;
+      }
+      char ticket[48], domain[256], node[48];
+      if (mg_http_get_var(&request->request->body, "ticket", ticket, sizeof(ticket)) <= 0 ||
+          mg_http_get_var(&request->request->body, "domain", domain, sizeof(domain)) <= 0 ||
+          mg_http_get_var(&request->request->body, "node", node, sizeof(node)) <= 0 ||
+          strcmp(domain, links.domain)) {
+         mg_http_reply(connection, 400, "", "Invalid challenge request\\n");
+         return;
+      }
+      const char *db_path = cfg_get("path.db.master");
+      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
+      sqlite3 *db = NULL;
+      char *nonce = NULL;
+      if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK)
+         nonce = rr_identity_invite_challenge(db, ticket, domain, node);
+      if (db) sqlite3_close(db);
+      if (!nonce) {
+         mg_http_reply(connection, 403, "", "Invitation invalid or expired\\n");
+         return;
+      }
+      mg_http_reply(connection, 200, "Content-Type: text/plain\\r\\nCache-Control: no-store\\r\\n",
+                    "%s\\n", nonce);
+      g_free(nonce);
       return;
    }
+#endif
+   if (mg_strcmp(request->request->uri, mg_str("/link"))) return;
    request->handled = true;
    struct mg_connection *connection = request->connection;
 
