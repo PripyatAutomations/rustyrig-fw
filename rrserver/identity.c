@@ -1,5 +1,8 @@
 /* Persistent Ed25519 signing identity for server-owned catalog descriptors. */
 #include <rrserver/identity.h>
+#ifdef USE_SQLITE
+#include <sqlite3.h>
+#endif
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
@@ -153,3 +156,40 @@ bool rr_identity_verify_catalog(dict *d) {
    g_free(sig_bytes);
    return ok;
 }
+
+#ifdef USE_SQLITE
+bool rr_identity_check_pin(sqlite3 *db, const char *domain, const char *owner, const char *pubkey) {
+   if (!db || !domain || !*domain || !owner || !*owner || !pubkey || !*pubkey) return false;
+   const char *schema =
+      "CREATE TABLE IF NOT EXISTS mesh_identity_pins ("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL, public_key TEXT NOT NULL,"
+      "first_seen INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain, owner_uuid))";
+   if (sqlite3_exec(db, schema, NULL, NULL, NULL) != SQLITE_OK) return false;
+   char *scope = g_ascii_strdown(domain, -1);
+   sqlite3_stmt *insert = NULL, *lookup = NULL;
+   bool ok = false;
+   const char *insert_sql =
+      "INSERT OR IGNORE INTO mesh_identity_pins(domain,owner_uuid,public_key)"
+      " VALUES(?1,?2,?3)";
+   const char *lookup_sql =
+      "SELECT public_key FROM mesh_identity_pins WHERE domain=?1 AND owner_uuid=?2";
+   if (sqlite3_prepare_v2(db, insert_sql, -1, &insert, NULL) != SQLITE_OK) goto finish;
+   sqlite3_bind_text(insert, 1, scope, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(insert, 2, owner, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(insert, 3, pubkey, -1, SQLITE_TRANSIENT);
+   if (sqlite3_step(insert) != SQLITE_DONE) goto finish;
+   if (sqlite3_prepare_v2(db, lookup_sql, -1, &lookup, NULL) != SQLITE_OK) goto finish;
+   sqlite3_bind_text(lookup, 1, scope, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(lookup, 2, owner, -1, SQLITE_TRANSIENT);
+   if (sqlite3_step(lookup) == SQLITE_ROW) {
+      const char *pinned = (const char *)sqlite3_column_text(lookup, 0);
+      ok = pinned && !strcmp(pinned, pubkey);
+   }
+finish:
+   sqlite3_finalize(insert);
+   sqlite3_finalize(lookup);
+   g_free(scope);
+   return ok;
+}
+#endif
