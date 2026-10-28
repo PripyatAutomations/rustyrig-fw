@@ -27,6 +27,68 @@
 #include <rrserver/usage.h>
 
 #ifdef USE_SQLITE
+static bool client_key_decode(const char *value, unsigned char key[32]) {
+   if (!value || strlen(value) != 44) return false;
+   gsize n = 0;
+   guchar *decoded = g_base64_decode(value, &n);
+   bool ok = decoded && n == 32;
+   if (ok) {
+      char *canonical = g_base64_encode(decoded, n);
+      ok = canonical && !strcmp(value, canonical);
+      g_free(canonical);
+      if (ok) memcpy(key, decoded, 32);
+   }
+   g_free(decoded);
+   return ok;
+}
+bool db_user_key_add(sqlite3 *db, const char *username, const char *key_id,
+                     const char *public_key_b64, const char *label) {
+   unsigned char raw[32];
+   if (!db || !username || !*username || !key_id || !*key_id ||
+       strlen(key_id) > 96 || !client_key_decode(public_key_b64, raw) ||
+       (label && strlen(label) > 128)) return false;
+   sqlite3_stmt *stmt = NULL;
+   const char *sql =
+      "INSERT INTO user_public_keys(uid,key_id,public_key,label)"
+      " SELECT uid,?2,?3,?4 FROM users WHERE name=?1 AND enabled=1";
+   if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, key_id, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 3, public_key_b64, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 4, label ? label : "", -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+bool db_user_key_revoke(sqlite3 *db, const char *username, const char *key_id) {
+   if (!db || !username || !*username || !key_id || !*key_id) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+      "UPDATE user_public_keys SET enabled=0 WHERE key_id=?2 AND uid="
+      "(SELECT uid FROM users WHERE name=?1) AND enabled=1", -1, &stmt, NULL)
+      != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, key_id, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(stmt);
+   return ok;
+}
+bool db_user_key_lookup(sqlite3 *db, const char *username, const char *key_id,
+                        unsigned char public_key[32]) {
+   if (!db || !username || !key_id || !public_key) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+      "SELECT k.public_key FROM user_public_keys k JOIN users u ON u.uid=k.uid"
+      " WHERE u.name=?1 AND u.enabled=1 AND k.key_id=?2 AND k.enabled=1",
+      -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt, 1, username, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt, 2, key_id, -1, SQLITE_TRANSIENT);
+   bool ok = false;
+   if (sqlite3_step(stmt) == SQLITE_ROW)
+      ok = client_key_decode((const char *)sqlite3_column_text(stmt, 0), public_key);
+   sqlite3_finalize(stmt);
+   return ok;
+}
 /* data_version detects commits from other SQLite connections, including tools. Server account editors already reload after writes; unrelated local audit/chat
  * writes must not rebuild accounts. Never acknowledge a version until its account table was loaded successfully. */
 bool db_refresh_users(sqlite3 *db) {
