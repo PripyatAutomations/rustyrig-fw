@@ -113,3 +113,35 @@ host) at dlopen time. Export:
 Register your rr_frontend_ops_t via frontend_ops_register() in init (only
 one frontend may hold the slot), and follow the teardown order in
 rr_module_shutdown().
+
+
+## Native identity runtime and future master-password vault
+
+Native private-key state belongs to the core `rrclient/identity.store`
+component shared by GTK and TUI. Unlocking one identity must not lock another.
+Unlocked keys remain in process memory until explicitly locked or process exit;
+the client clears the cache on cleanup. GTK may manage key files, but must not
+own an independent key cache.
+
+**Vault requirement (not yet implemented):** the master-password vault is an
+authenticated, encrypted collection of the passphrases needed to unlock
+individual encrypted Ed25519 keys. It must never contain private-key plaintext
+or store the master password/verifier as a reusable secret. Use a modern
+password-based KDF with per-vault random salt and authenticated encryption
+with a fresh nonce; persist KDF parameters and a version with the ciphertext.
+No password-complexity restrictions are imposed. Write updates atomically with
+restrictive file/directory permissions; never truncate a live vault on failure.
+Cache vault secrets only in memory while unlocked and clear them at lock/exit.
+A key locked explicitly must not be silently re-unlocked by a later operation.
+
+Both GTK and TUI must run the same vault-unlock gate **before creating any
+network connections**. If a configured vault exists but is inaccessible, has
+invalid authentication, uses an unknown format or the operator cancels, fail
+closed: show a clear error and exit. Never silently proceed with saved
+passwords, legacy password login or an empty vault. There must also be a
+recovery path for intentionally removing/replacing a vault without deleting
+the underlying encrypted keys. Backup/export must remain separately
+password-protected.
+
+Client auth currently still uses legacy passwords; no claim is made that
+the future vault or key-authentication handshake is functional.
