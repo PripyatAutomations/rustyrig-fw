@@ -490,13 +490,7 @@ defconfig_t defcfg[] = {
       "net.http.404-path", "/var/lib/rustyrig/www/404.shtml", "Path to 404 file", DEFCONFIG_PATH, NULL
    },
    {
-      "net.http.enabled", "true", "Enable http?", DEFCONFIG_BOOL, NULL
-   },
-   {
-      "net.http.bind", "127.0.0.1", "Address to listen for HTTP"
-   },
-   {
-      "net.http.port", "8420", "Port to listen for http on", DEFCONFIG_UINT, NULL
+      "net.http.enabled", "true", "Enable HTTPS/WSS browser listener?", DEFCONFIG_BOOL, NULL
    },
    {
       "net.http.authdb", "/etc/rustyrig/http.users", "Path to user database", DEFCONFIG_PATH, NULL
