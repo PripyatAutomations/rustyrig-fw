@@ -409,30 +409,23 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
             gtk_tree_model_get(model, &iter, 0, &target, -1);
       }
       if (path) gtk_tree_path_free(path);
-      /* A drop onto blank space or an ungrouped server removes membership. */
-      if (!target && y >= 0) {
-         GtkTreePath *at = NULL;
-         if (gtk_tree_view_get_path_at_pos(view, x, y, &at, NULL, NULL, NULL)) {
-            GtkTreeIter row;
-            if (gtk_tree_model_get_iter(model, &row, at) &&
-                !picker_is_network(model, &row) &&
-                gtk_tree_model_iter_parent(model, &iter, &row)) {
-               /* A member row always resolves to its parent above. */
-            }
-            gtk_tree_path_free(at);
-         }
-      }
+      /* Dropping outside a network leaves the profile ungrouped. */
       /* Only mutate a configured server profile. */
       gchar *profile_key = g_strdup_printf("server:%s.server.url", profile);
       if (dict_get(cfg, profile_key, NULL)) {
+         GPtrArray *keys = g_ptr_array_new_with_free_func(g_free);
          int rank = 0;
          const char *key;
          char *value;
-         while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0) {
-            if (!g_str_has_prefix(key, "network:") || !g_str_has_suffix(key, ".servers")) continue;
-            size_t n = strlen(key) - strlen("network:") - strlen(".servers");
-            gchar *group = g_strndup(key + strlen("network:"), n);
-            gchar **names = g_strsplit_set(value ? value : "", ", \\t\\r\\n", -1);
+         while ((rank = dict_enumerate(cfg, rank, &key, &value)) >= 0)
+            if (g_str_has_prefix(key, "network:") && g_str_has_suffix(key, ".servers"))
+               g_ptr_array_add(keys, g_strdup(key));
+         for (size_t j = 0; j < keys->len; j++) {
+            const char *network_key = g_ptr_array_index(keys, j);
+            const char *members = dict_get(cfg, network_key, NULL);
+            size_t n = strlen(network_key) - strlen("network:") - strlen(".servers");
+            gchar *group = g_strndup(network_key + strlen("network:"), n);
+            gchar **names = g_strsplit_set(members ? members : "", ", \\t\\r\\n", -1);
             GString *updated = g_string_new("");
             for (size_t i = 0; names[i]; i++) {
                if (!*names[i] || !strcmp(names[i], profile)) continue;
@@ -443,11 +436,12 @@ static void picker_drag_received(GtkWidget *widget, GdkDragContext *context, gin
                if (updated->len) g_string_append_c(updated, ',');
                g_string_append(updated, profile);
             }
-            dict_add(cfg, key, updated->str);
+            dict_add(cfg, network_key, updated->str);
             g_string_free(updated, TRUE);
             g_strfreev(names);
             g_free(group);
          }
+         g_ptr_array_free(keys, TRUE);
          success = TRUE;
       }
       g_free(profile_key);
