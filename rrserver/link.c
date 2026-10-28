@@ -1655,7 +1655,7 @@ static bool invite_default_endpoint(rrconn_t *client, char *out, size_t capacity
       return snprintf(out, capacity, "%s:%d", bind, port) > 0;
    }
    struct sockaddr_in target = { .sin_family = AF_INET, .sin_port = htons(9) };
-   if (!client || !client->user_ip ||
+   if (!client || !client->user_ip[0] ||
        inet_pton(AF_INET, client->user_ip, &target.sin_addr) != 1)
       return false;
    int fd = socket(AF_INET, SOCK_DGRAM, 0);
