@@ -37,6 +37,30 @@ static bool rr_relay_initialized;
 size_t rr_relay_subscription_count;
 struct subscription *rr_relay_subscriptions;
 
+/* A signed operation is distinct from the signed descriptor it changes.
+ * Relays forward the origin signature unchanged; only its owner can mint it. */
+static GHashTable *catalog_mutations_seen;
+
+static bool catalog_mutation_fresh(dict *d, const char *owner) {
+   if (strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) return false;
+   const char *nonce = dict_get(d, "identity.nonce", "");
+   const char *stamp = dict_get(d, "identity.timestamp", "");
+   if (strlen(nonce) != 36 || !g_uuid_string_is_valid(nonce) || !*stamp) return false;
+   char *end = NULL;
+   gint64 timestamp = g_ascii_strtoll(stamp, &end, 10);
+   gint64 current = (gint64)time(NULL);
+   if (!end || *end || timestamp < current - 300 || timestamp > current + 300) return false;
+   if (!catalog_mutations_seen)
+      catalog_mutations_seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+   char *key = g_strdup_printf("%s:%s", owner, nonce);
+   if (g_hash_table_contains(catalog_mutations_seen, key)) { g_free(key); return false; }
+   /* Bound memory; conservative rollover may allow an old nonce while still
+    * within its five-minute timestamp window. Persistent replay journals follow. */
+   if (g_hash_table_size(catalog_mutations_seen) >= 32768) g_hash_table_remove_all(catalog_mutations_seen);
+   g_hash_table_add(catalog_mutations_seen, key);
+   return true;
+}
+
 /* Send a link envelope, adding the authenticated origin IP for requests. */
 bool rr_relay_packet(const char *dest, const char *kind, const char *session, const char *username, dict *payload) {
    if (!strcmp(kind, "request")) {
@@ -77,13 +101,28 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
 
 /* Forward a link payload while retaining its authoritative owner. */
 void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, dict *payload) {
+   dict *mutation = NULL;
+   if (!strcmp(kind, "catalog-remove") && rr_relay_local_owner(owner)) {
+      mutation = dict_clone(payload);
+      if (!mutation) return;
+      dict_del(mutation, "identity.signature");
+      dict_add(mutation, "identity.operation", "catalog-remove");
+      char *nonce = g_uuid_string_random();
+      char stamp[32];
+      snprintf(stamp, sizeof(stamp), "%lld", (long long)time(NULL));
+      dict_add(mutation, "identity.nonce", nonce);
+      dict_add(mutation, "identity.timestamp", stamp);
+      g_free(nonce);
+      if (!rr_identity_sign_catalog(mutation)) { dict_free(mutation); return; }
+      payload = mutation;
+   }
    /* All outbound catalog paths, including forwarded deltas and removals,
     * share the same strict enforcement. */
    if (!strcmp(kind, "catalog") || !strcmp(kind, "catalog-remove")) {
       if (!dict_get(payload, "identity.signature", NULL)) {
          Log(LOG_WARN, "mesh.identity", "Attempted to push unsigned %s from %s toward %s: %s",
             kind, owner, dest, cfg_get_bool("cluster.force-signed-catalog", true) ? "blocked" : "legacy mode permitted");
-         if (cfg_get_bool("cluster.force-signed-catalog", true)) return;
+         if (cfg_get_bool("cluster.force-signed-catalog", true)) { dict_free(mutation); return; }
       }
    }
    char *json = dict2json(payload);
@@ -92,7 +131,9 @@ void rr_relay_send_owned(const char *dest, const char *owner, const char *kind, 
    if (!d || !json) {
       dict_free(d);
       free(json);
+   dict_free(mutation);
 
+      dict_free(mutation);
       return;
    }
    dict_add(d, "op", "link.application");
@@ -744,7 +785,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             if (cfg_get_bool("cluster.force-signed-catalog", true)) goto done;
          } else if (strcmp(dict_get(d, "identity.owner", ""), origin) ||
                     g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) ||
-                    !rr_identity_verify_catalog(d)) {
+                    !rr_identity_verify_catalog(d) ||
+                    strcmp(dict_get(d, "identity.operation", ""), "catalog-remove")) {
             Log(LOG_WARN, "mesh.identity", "Rejected invalid signed catalog removal from %s", origin);
             goto done;
          }
@@ -756,6 +798,10 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             goto done;
          }
 #endif
+         if (signature && *signature && !catalog_mutation_fresh(d, origin)) {
+            Log(LOG_WARN, "mesh.identity", "Rejected expired/replayed catalog removal from %s", origin);
+            goto done;
+         }
          const char *uuid = dict_get(d, "object.uuid", NULL), *room = dict_get(d, "catalog.room", NULL);
          const char *service = dict_get(d, "catalog.service", NULL);
          char key[160];
