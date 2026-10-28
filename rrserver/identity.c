@@ -528,6 +528,73 @@ bool rr_identity_invite_revoke(sqlite3 *db, const char *id) {
    bool ok=sqlite3_step(s)==SQLITE_DONE && sqlite3_changes(db)==1;
    sqlite3_finalize(s);return ok;
 }
+/* Issuer-side challenges live in SQLite so concurrent enrollment requests
+ * cannot reuse a nonce or evade redemption by reconnecting. */
+static bool invite_challenge_schema(sqlite3 *db) {
+   return db && sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_join_challenges ("
+      "ticket_id TEXT PRIMARY KEY, challenge TEXT NOT NULL,"
+      "expires_at INTEGER NOT NULL)", NULL, NULL, NULL) == SQLITE_OK;
+}
+
+char *rr_identity_invite_challenge(sqlite3 *db, const char *id,
+                                   const char *domain, const char *node) {
+   if (!db || !id || !g_uuid_string_is_valid(id) || !domain || !*domain ||
+       !node || !g_uuid_string_is_valid(node) ||
+       !invite_schema(db) || !invite_target_schema(db) ||
+       !invite_challenge_schema(db)) return NULL;
+   unsigned char nonce[32];
+   if (!rr_crypto_random(nonce, sizeof(nonce))) return NULL;
+   char *encoded = g_base64_encode(nonce, sizeof(nonce));
+   memset(nonce, 0, sizeof(nonce));
+   if (!encoded) return NULL;
+   sqlite3_stmt *s = NULL;
+   bool ok = false;
+   if (sqlite3_prepare_v2(db,
+       "INSERT INTO mesh_join_challenges(ticket_id,challenge,expires_at)"
+       " SELECT i.ticket_id,?4,unixepoch()+120 FROM mesh_join_invitations i"
+       " JOIN mesh_join_invitation_targets t ON t.ticket_id=i.ticket_id"
+       " WHERE i.ticket_id=?1 AND i.domain=?2 AND t.joining_uuid=?3"
+       " AND i.status='pending' AND i.expires_at>unixepoch()"
+       " ON CONFLICT(ticket_id) DO UPDATE SET"
+       " challenge=excluded.challenge, expires_at=excluded.expires_at",
+       -1, &s, NULL) == SQLITE_OK) {
+      sqlite3_bind_text(s, 1, id, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(s, 2, domain, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(s, 3, node, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(s, 4, encoded, -1, SQLITE_TRANSIENT);
+      ok = sqlite3_step(s) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   }
+   sqlite3_finalize(s);
+   if (!ok) { g_free(encoded); return NULL; }
+   return encoded;
+}
+
+bool rr_identity_invite_challenge_claim(sqlite3 *db, const char *id,
+                                         const char *domain, const char *node,
+                                         const char *challenge) {
+   if (!db || !id || !domain || !node || !challenge ||
+       !g_uuid_string_is_valid(id) || !g_uuid_string_is_valid(node) ||
+       !trust_key_valid(challenge, 32) || !invite_challenge_schema(db))
+      return false;
+   sqlite3_stmt *s = NULL;
+   if (sqlite3_prepare_v2(db,
+       "DELETE FROM mesh_join_challenges WHERE ticket_id=?1 AND challenge=?4"
+       " AND expires_at>unixepoch()"
+       " AND EXISTS (SELECT 1 FROM mesh_join_invitations i"
+       " JOIN mesh_join_invitation_targets t ON t.ticket_id=i.ticket_id"
+       " WHERE i.ticket_id=?1 AND i.domain=?2 AND t.joining_uuid=?3"
+       " AND i.status='pending' AND i.expires_at>unixepoch())",
+       -1, &s, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(s, 1, id, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(s, 2, domain, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(s, 3, node, -1, SQLITE_TRANSIENT);
+   sqlite3_bind_text(s, 4, challenge, -1, SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(s) == SQLITE_DONE && sqlite3_changes(db) == 1;
+   sqlite3_finalize(s);
+   return ok;
+}
+
 bool rr_identity_invite_redeem(sqlite3 *db, const char *id, const char *domain,
                                 const char *node, const char *catalog, const char *spki) {
    if(!id || !domain || !*domain || !node || !g_uuid_string_is_valid(node) ||
