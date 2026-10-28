@@ -39,9 +39,10 @@ static GByteArray *canonical(dict *d) {
    for (guint i = 0; i < keys->len; ++i) {
       const char *k = g_ptr_array_index(keys, i);
       const char *v = dict_get(d, k, "");
-      char lengths[128];
-      int n = snprintf(lengths, sizeof(lengths), "%zu:%s:%d:%zu:", strlen(k), k, (int)dict_get_type(d, k), strlen(v));
-      g_byte_array_append(bytes, (const guint8 *)lengths, n);
+      char *header = g_strdup_printf("%zu:%s:%d:%zu:", strlen(k), k,
+         (int)dict_get_type(d, k), strlen(v));
+      g_byte_array_append(bytes, (const guint8 *)header, strlen(header));
+      g_free(header);
       g_byte_array_append(bytes, (const guint8 *)v, strlen(v));
    }
    g_ptr_array_free(keys, TRUE);
