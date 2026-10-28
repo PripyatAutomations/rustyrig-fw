@@ -127,6 +127,21 @@ CREATE TABLE IF NOT EXISTS user_web_credentials (
    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+-- Native client key identities are independent of Web UI passwords.
+-- An account may have multiple authorized devices. Revocation is per key.
+-- Enrollment is an administrative action; a presented key is not trusted
+-- merely because it can produce a valid signature.
+CREATE TABLE IF NOT EXISTS user_public_keys (
+   uid INTEGER NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
+   key_id TEXT NOT NULL,
+   public_key TEXT NOT NULL UNIQUE,
+   label TEXT NOT NULL DEFAULT '',
+   enabled BOOLEAN NOT NULL DEFAULT 1,
+   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+   last_used_at INTEGER,
+   PRIMARY KEY(uid, key_id)
+);
+
 -- v1 scoped authorization. System-wide roles (admin, owner, etc.) remain
 -- in users.permissions until core roles have a dedicated typed representation.
 -- Resource grants are separate and keyed by stable resource UUID, not names.
