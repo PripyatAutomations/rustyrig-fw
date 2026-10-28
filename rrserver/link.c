@@ -39,6 +39,7 @@ struct link_session;
 struct link_peer {
    char section[128], site[128], node[37];
    char *url, *password, *allowed_sites;
+   struct mg_str peer_ca;
    bool autoconnect, leaf_only, policy_blocked, startup_override;
    unsigned max_depth;
    long long retry_at;
@@ -1189,7 +1190,7 @@ static void link_callback(struct mg_connection *c, int event, void *data) {
 
    if (event == MG_EV_CONNECT && session->outbound && !strncmp(session->peer->url, "wss://", 6)) {
       struct mg_tls_opts options = {
-         .ca = links.ca, .name = mg_url_host(session->peer->url)
+         .ca = session->peer->peer_ca, .name = mg_url_host(session->peer->url)
       };
       mg_tls_init(c, &options);
    } else if (event == MG_EV_HTTP_MSG) {
@@ -1339,6 +1340,18 @@ static bool load_peer(const char *section) {
 
    if (url && *url && strncmp(url, "wss://", 6)) {
       return invalid_peer(section, "server.url", "server-to-server links require wss:// (TLS is mandatory)");
+   }
+   /* Bootstrap trust out-of-band: each peer has an operator-installed
+    * certificate bundle, never implicitly trust a discovered key. */
+   const char *peer_trust = peer_value(section, "tls-trust");
+   if (!peer_trust || !*peer_trust) {
+      return invalid_peer(section, "tls-trust",
+         "path to independently verified peer certificate PEM is mandatory");
+   }
+   peer->peer_ca = mg_file_read(&mg_fs_posix, peer_trust);
+   if (!peer->peer_ca.len) {
+      return invalid_peer(section, "tls-trust",
+         "cannot read the enrolled peer certificate PEM");
    }
    peer->url = strdup(url ? url : "");
    peer->password = strdup(password);
@@ -1659,22 +1672,6 @@ bool rrserver_links_init(struct mg_mgr *manager) {
          return false;
       }
    }
-   bool needs_ca = false;
-
-   for (size_t i = 0 ; i < links.peer_count ; i++) {
-      if (!strncmp(links.peers[i].url, "wss://", 6)) {
-         needs_ca = true;
-      }
-   }
-
-   if (needs_ca) {
-      links.ca = mg_file_read(&mg_fs_posix, config_value("links.tls-ca", "/etc/ssl/certs/ca-certificates.crt"));
-
-      if (!links.ca.len) {
-         return false;
-      }
-   }
-
    if (cfg_get_bool("links.shared-listener", true)) {
       event_on_binary(RR_SERVER_HTTP_EVENT, shared_link_request, NULL);
    }
@@ -1775,6 +1772,7 @@ void rrserver_links_fini(void) {
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       free(links.peers[i].url);
       free(links.peers[i].password);
+      free((void *)links.peers[i].peer_ca.buf);
    }
 
    free((void *)links.cert.buf);
