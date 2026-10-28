@@ -46,6 +46,15 @@ bool rr_identity_invite_redeem(sqlite3 *db, const char *ticket_id,
    const char *domain, const char *joining_uuid, const char *catalog_key_b64,
    const char *tls_spki_b64);
 bool rr_identity_invite_revoke(sqlite3 *db, const char *ticket_id);
+/* One-shot issuer challenges (32 random bytes, base64). Issuing does not
+ * consume the invitation. Challenge is valid for at most 120 seconds.
+ * A challenge can be claimed once, even when proof verification fails. */
+char *rr_identity_invite_challenge(sqlite3 *db, const char *ticket_id,
+                                  const char *domain, const char *joining_uuid);
+bool rr_identity_invite_challenge_claim(sqlite3 *db, const char *ticket_id,
+                                       const char *domain, const char *joining_uuid,
+                                       const char *challenge_b64);
+
 /* Explicitly enrolled, decentralized server trust. No TOFU auto-approval. */
 bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner,
    const char *catalog_key_b64, const char *tls_spki_sha256_b64);
