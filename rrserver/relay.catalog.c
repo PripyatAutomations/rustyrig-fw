@@ -38,6 +38,8 @@ extern struct GlobalState rig;
 bool rr_relay_catalog_dirty;
 size_t rr_relay_catalog_count;
 struct catalog *rr_relay_catalogs;
+/* Local descriptor construction is a transaction: seal after all collectors finish. */
+static bool catalog_collecting_local;
 struct directory *rr_relay_directories;
 
 #ifdef USE_PROFILING
@@ -612,7 +614,7 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
    }
    dict *copy = dict_clone(d);
 
-   if (copy && rr_relay_local_owner(owner) && rr_identity_public_base64()) {
+   if (copy && rr_relay_local_owner(owner) && rr_identity_public_base64() && !catalog_collecting_local) {
       /* Include the authoritative owner and domain IN the signed material;
        * the envelope's untrusted routing origin is not sufficient. */
       dict_add(copy, "identity.owner", owner);
@@ -1082,13 +1084,6 @@ static bool collect_rig(rr_server_rig_t *radio, void *user) {
          dict_add(c->descriptor, "object.model", model);
       }
    }
-   /* add_object() signed the initial descriptor, but the rig-specific
-    * backend/name/location/model fields above modify the signed payload.
-    * Reseal it before any dependent VFO or service catalog is emitted. */
-   if (c && !rr_identity_sign_catalog(c->descriptor)) {
-      Log(LOG_CRIT, "mesh.identity", "Cannot sign completed rig catalog descriptor %s", rr_server_rig_id(radio));
-      return false;
-   }
    collect_services(rr_server_rig_id(radio), rr_rig_registry_public_alias(rig.rigs, radio));
    collect_rig_catalog(radio);
    char cat[80];
@@ -1110,6 +1105,7 @@ void rr_relay_collect_local(void) {
    if (!*rrserver_links_node() || !rig.rigs) {
       return;
    }
+   catalog_collecting_local = true;
    add_object(rrserver_links_node(), "node", NULL, cfg_get("station.name"), ws_site_room());
    collect_services(rrserver_links_node(), "station");
    collect_process_metrics();
@@ -1146,6 +1142,21 @@ void rr_relay_collect_local(void) {
 
    free(rooms);
 #endif
+   catalog_collecting_local = false;
+   /* Finalization barrier: no local descriptor leaves this collection pass
+    * until every collector has added its fields. Re-seal each completed
+    * descriptor; a failure leaves it unsigned and publication is blocked. */
+   for (struct catalog *c = rr_relay_catalogs; c; c = c->next) {
+      if (!rr_relay_local_owner(c->owner) || !c->seen) continue;
+      dict_del(c->descriptor, "identity.signature");
+      dict_add(c->descriptor, "identity.owner", c->owner);
+      dict_add(c->descriptor, "identity.domain", cfg_get("domain"));
+      dict_add(c->descriptor, "identity.public-key", rr_identity_public_base64());
+      dict_add(c->descriptor, "identity.scheme", "ed25519-catalog-v1");
+      dict_add(c->descriptor, "identity.operation", "catalog-upsert");
+      if (!rr_identity_sign_catalog(c->descriptor))
+         Log(LOG_CRIT, "mesh.identity", "Unable to finalize local catalog signature for %s; publication blocked", c->key);
+   }
 }
 
 /* Pace initial catalog snapshots.  The link's output queue is only 256 KiB;
