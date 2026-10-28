@@ -240,9 +240,6 @@ defconfig_t defcfg[] = {
       "links.tls-ca", "/etc/ssl/certs/ca-certificates.crt", "CA bundle for outbound WSS links"
    },
    {
-      "links.allow-insecure", "false", "Permit plaintext WS links for explicit local testing"
-   },
-   {
       "links.invitation-expiry-hours", "72",
       "Default lifetime of a new cluster join invitation in hours (1-8760; default 3 days)",
       DEFCONFIG_UINT, NULL
@@ -514,9 +511,6 @@ defconfig_t defcfg[] = {
       "net.http.tls-bind", "127.0.0.1", "Address to listen for HTTPS (TLS)"
    },
    {
-      "net.http.tls-enabled", "true", "Enable HTTPS (TLS) listener?", DEFCONFIG_BOOL, NULL
-   },
-   {
       "net.http.tls-auto-generate", "true", "Provision self-signed TLS certificate when absent (requires writable key/cert paths)", DEFCONFIG_BOOL, NULL
    },
    {
@@ -562,9 +556,6 @@ defconfig_t defcfg[] = {
    },
    {
       "net.mqtt.required", "false", "Exit if MQTT listener fails to start?", DEFCONFIG_BOOL, NULL
-   },
-   {
-      "net.http.required", "false", "Exit if HTTP/HTTPS listener fails to start?", DEFCONFIG_BOOL, NULL
    },
    //
    {
