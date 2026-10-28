@@ -17,6 +17,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <glib/gstdio.h>
+#include <librrprotocol/crypto.h>
 #include <glib.h>
 #include <librustyaxe/core.h>
 #include <librrprotocol/rrprotocol.h>
@@ -1417,8 +1422,97 @@ static gboolean frontend_gtk_update_now(gpointer user_data) {
 
 static struct log_callback *frontend_gtk_log_callback = NULL;
 
+/* First-run client identity. Never replace a key silently: doing so would
+ * orphan all server-side public-key registrations for this device. */
+static char *gtk_identity_path(void) {
+   return g_build_filename(g_get_user_config_dir(), "rustyrig", "identity",
+                           "client-ed25519.pem", NULL);
+}
+static bool gtk_identity_save_new(rr_crypto_key_t *key, const char *path) {
+   char *dir = g_path_get_dirname(path);
+   bool ok = g_mkdir_with_parents(dir, 0700) == 0;
+   struct stat st;
+   if (ok) ok = lstat(dir, &st) == 0 && S_ISDIR(st.st_mode) &&
+                st.st_uid == geteuid() && !(st.st_mode & 0077);
+   if (ok) {
+      int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+      if (fd >= 0) {
+         FILE *f = fdopen(fd, "wb");
+         if (f) {
+            ok = rr_crypto_key_write_pem_stream(key, f) &&
+                 fflush(f) == 0 && fsync(fileno(f)) == 0;
+            if (fclose(f)) ok = false;
+         } else {
+            close(fd);
+            ok = false;
+         }
+         if (!ok) unlink(path);
+      } else ok = false;
+   }
+   g_free(dir);
+   return ok;
+}
+static void gtk_identity_first_run(void) {
+   char *path = gtk_identity_path();
+   if (g_file_test(path, G_FILE_TEST_EXISTS)) {
+      struct stat st;
+      if (lstat(path, &st) || !S_ISREG(st.st_mode) ||
+          st.st_uid != geteuid() || (st.st_mode & 0077)) {
+         Log(LOG_WARN, "client.identity", "Client key has unsafe ownership or permissions: %s", path);
+      }
+      g_free(path);
+      return;
+   }
+   GtkWidget *dialog = gtk_dialog_new_with_buttons(
+      "RustyRig Client Identity", NULL, GTK_DIALOG_MODAL,
+      "Import Existing Key", 1, "Create New Key", 2,
+      "Later (legacy login)", GTK_RESPONSE_CANCEL, NULL);
+   GtkWidget *label = gtk_label_new(
+      "RustyRig uses a private key to identify this computer.\\n"
+      "Create a new identity or import one you already own.\\n"
+      "The private key remains on this computer; only its public key is enrolled on servers.");
+   gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+   gtk_container_set_border_width(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), 14);
+   gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), label);
+   gtk_widget_show_all(dialog);
+   for (;;) {
+      gint choice = gtk_dialog_run(GTK_DIALOG(dialog));
+      if (choice == GTK_RESPONSE_CANCEL || choice == GTK_RESPONSE_DELETE_EVENT) break;
+      rr_crypto_key_t *key = NULL;
+      if (choice == 2) {
+         key = rr_crypto_ed25519_generate();
+      } else if (choice == 1) {
+         GtkWidget *chooser = gtk_file_chooser_dialog_new(
+            "Import Ed25519 Private Key", GTK_WINDOW(dialog),
+            GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL,
+            "_Import", GTK_RESPONSE_ACCEPT, NULL);
+         if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+            char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+            FILE *f = fopen(filename, "rb");
+            if (f) { key = rr_crypto_key_read_pem(f); fclose(f); }
+            g_free(filename);
+         }
+         gtk_widget_destroy(chooser);
+      }
+      if (key && gtk_identity_save_new(key, path)) {
+         Log(LOG_INFO, "client.identity", "Client Ed25519 identity created at %s", path);
+         rr_crypto_key_free(key);
+         break;
+      }
+      rr_crypto_key_free(key);
+      GtkWidget *error = gtk_message_dialog_new(GTK_WINDOW(dialog), GTK_DIALOG_MODAL,
+         GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+         "Unable to save a new Ed25519 identity. Check key format and local directory permissions.");
+      gtk_dialog_run(GTK_DIALOG(error));
+      gtk_widget_destroy(error);
+   }
+   gtk_widget_destroy(dialog);
+   g_free(path);
+}
+
 static bool frontend_gtk_init(int *argc, char ***argv) {
    gtk_init(argc, argv);
+   gtk_identity_first_run();
 #ifdef USE_LIBNOTIFY
 
    if (!ui_notify_init()) {
