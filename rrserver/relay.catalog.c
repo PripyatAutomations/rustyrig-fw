@@ -619,6 +619,7 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       dict_add(copy, "identity.domain", cfg_get("domain"));
       dict_add(copy, "identity.public-key", rr_identity_public_base64());
       dict_add(copy, "identity.scheme", "ed25519-catalog-v1");
+      dict_add(copy, "identity.operation", "catalog-upsert");
       if (!rr_identity_sign_catalog(copy)) {
          dict_free(copy);
          return catalog_reject(reason, RR_CAT_IDENTITY);
@@ -631,7 +632,9 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       const char *signed_domain = dict_get(copy, "identity.domain", "");
       const char *scheme = dict_get(copy, "identity.scheme", "");
       if (strcmp(signed_owner, owner) || g_ascii_strcasecmp(signed_domain, cfg_get("domain")) ||
-          strcmp(scheme, "ed25519-catalog-v1") || !rr_identity_verify_catalog(copy)) {
+          strcmp(scheme, "ed25519-catalog-v1") ||
+          strcmp(dict_get(copy, "identity.operation", ""), "catalog-upsert") ||
+          !rr_identity_verify_catalog(copy)) {
          dict_free(copy);
          return catalog_reject(reason, RR_CAT_IDENTITY);
       }
