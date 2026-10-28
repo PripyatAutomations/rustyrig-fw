@@ -67,6 +67,7 @@ struct link_session {
    unsigned generation;
    char node[37];
    bool outbound, dedicated, hello, snapshot, admitted, ready, established;
+   bool identity_sent, identity_seen;
 };
 
 static struct {
@@ -527,6 +528,64 @@ static void send_hello(struct link_session *session) {
    dict_free(d);
 }
 
+static void send_identity(struct link_session *session) {
+   if (!session || session->identity_sent || !session->established ||
+       !session->connection->is_tls) return;
+   const char *cert = cfg_get("net.http.tls-cert");
+   char *spki = cert && *cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
+   char *sig = spki ? rr_identity_tls_binding_signature(links.domain, links.node, spki) : NULL;
+   const char *pub = rr_identity_public_base64();
+   if (spki && sig && pub) {
+      dict *d = message("link.identity");
+      if (d) {
+         dict_add(d, "node", links.node);
+         dict_add(d, "domain", links.domain);
+         dict_add(d, "identity.public-key", pub);
+         dict_add(d, "identity.tls-spki", spki);
+         dict_add(d, "identity.signature", sig);
+         send_message(session, d);
+         session->identity_sent = true;
+         dict_free(d);
+      }
+   } else {
+      Log(LOG_WARN, "mesh.identity", "Unable to announce signed TLS identity on link to %s",
+          session->peer ? session->peer->site : "unknown");
+   }
+   g_free(sig);
+   free(spki);
+}
+
+static void handle_identity(struct link_session *session, dict *d) {
+   const char *node = dict_get(d, "node", "");
+   const char *domain = dict_get(d, "domain", "");
+   const char *pub = dict_get(d, "identity.public-key", "");
+   const char *spki = dict_get(d, "identity.tls-spki", "");
+   const char *sig = dict_get(d, "identity.signature", "");
+   if (session->identity_seen || !session->connection->is_tls ||
+       strcmp(node, session->node) || strcmp(domain, links.domain) ||
+       strlen(pub) != 44 || strlen(spki) != 44 || strlen(sig) != 88) {
+      fail(session, "Malformed or duplicate signed TLS identity announcement");
+      return;
+   }
+   gsize pub_len = 0, sig_len = 0;
+   guchar *raw_pub = g_base64_decode(pub, &pub_len);
+   guchar *raw_sig = g_base64_decode(sig, &sig_len);
+   bool verified = pub_len == 32 && sig_len == 64 &&
+       rr_crypto_binding_verify(raw_pub, domain, node, spki, raw_sig);
+   g_free(raw_pub);
+   g_free(raw_sig);
+   if (!verified) {
+      fail(session, "Invalid TLS-to-catalog identity binding signature");
+      return;
+   }
+   session->identity_seen = true;
+   /* The signature proves key possession, not that this key or the TLS peer
+    * is trusted. TLS SPKI pin verification must happen in the TLS backend. */
+   Log(LOG_INFO, "mesh.identity",
+       "Peer %s [%s] supplied valid self-signed catalog/TLS binding (SPKI=%s); transport pin NOT YET VERIFIED",
+       session->peer ? session->peer->site : "unknown", node, spki);
+}
+
 static void broadcast(struct link_session *exclude, dict *d) {
    for (struct link_session *s = links.sessions ; s ; s = s->next) {
       if (s != exclude && s->established && !s->connection->is_closing) {
@@ -694,7 +753,7 @@ static void establish(struct link_session *session) {
 
       if (caps) {
          dict_add(caps, "version", "2.1");
-         dict_add(caps, "features", "rig.menu,object.model,relay.files,hostlog.stream");
+         dict_add(caps, "features", "rig.menu,object.model,relay.files,hostlog.stream,identity.spki-binding-v1");
          send_message(session, caps);
          dict_free(caps);
       }
@@ -924,7 +983,11 @@ static void handle_frame(struct link_session *session, struct mg_ws_message *fra
             version);
       } else {
          Log(LOG_INFO, "link", "Peer %s [%s] protocol %s capabilities: %s", session->peer->site, session->node, version, features);
+         if (strstr(features, "identity.spki-binding-v1"))
+            send_identity(session);
       }
+   } else if (session->established && !strcmp(op, "link.identity")) {
+      handle_identity(session, d);
    } else if (session->established && !strcmp(op, "link.introduce")) {
       const char *node = dict_get(d, "node", ""), *parent = dict_get(d, "parent", "");
       const char *site = dict_get(d, "site", "");
