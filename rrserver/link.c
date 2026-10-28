@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include "build_config.h"
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
