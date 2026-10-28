@@ -30,7 +30,7 @@ bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *ow
  * The DB stores just the invitation public key; tokens are never persisted. */
 char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
    const char *bootstrap_wss_url, const char *issuer_tls_spki_b64,
-   long long expires_unix);
+   const char *joining_uuid, long long expires_unix);
 /* expires_unix=0 uses links.invitation-expiry-hours (72 hours by default). */
 bool rr_identity_invite_create(sqlite3 *db, const char *ticket_id,
    const char *domain, const char *public_key_b64, long long expires_unix);
