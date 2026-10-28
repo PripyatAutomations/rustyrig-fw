@@ -1,6 +1,7 @@
 #ifndef RRSERVER_IDENTITY_H
 #define RRSERVER_IDENTITY_H
 #include <stdbool.h>
+#include <stddef.h>
 #include "build_config.h"
 #ifdef USE_SQLITE
 #include <sqlite3.h>
@@ -33,6 +34,14 @@ char *rr_identity_invite_issue(sqlite3 *db, const char *domain,
 /* expires_unix=0 uses links.invitation-expiry-hours (72 hours by default). */
 bool rr_identity_invite_create(sqlite3 *db, const char *ticket_id,
    const char *domain, const char *public_key_b64, long long expires_unix);
+/* Verify issuer-stored invitation public key against a caller-supplied
+ * channel-bound enrollment transcript. This does NOT admit the node.
+ * Transcript must include fresh issuer challenge and TLS exporter binding. */
+bool rr_identity_invite_verify_proof(sqlite3 *db, const char *ticket_id,
+   const char *domain, const void *transcript, size_t transcript_len,
+   const unsigned char signature[64]);
+/* Commit admission only after verified challenge, permanent-key proof and
+ * transport pin validation. Must not be reachable from raw wire handlers. */
 bool rr_identity_invite_redeem(sqlite3 *db, const char *ticket_id,
    const char *domain, const char *joining_uuid, const char *catalog_key_b64,
    const char *tls_spki_b64);
