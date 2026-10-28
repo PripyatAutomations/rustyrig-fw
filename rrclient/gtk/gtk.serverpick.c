@@ -366,8 +366,9 @@ static gboolean picker_menu(GtkWidget *tree, GdkEventButton *event, gpointer dat
 }
 
 /* Dragging moves profile membership; it never changes a live connection. */
+static char picker_dnd_target_name[] = "application/x-rustyrig-server-profile";
 static const GtkTargetEntry picker_dnd_targets[] = {
-   { "application/x-rustyrig-server-profile", GTK_TARGET_SAME_APP, 0 }
+   { picker_dnd_target_name, GTK_TARGET_SAME_APP, 0 }
 };
 
 static void picker_drag_get(GtkWidget *widget, GdkDragContext *context,
