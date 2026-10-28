@@ -1,5 +1,16 @@
 # Mesh routing policy interface (experimental)
 
+This work is on the `mesh-linking` branch. Configured peers in
+`/etc/rustyrig/rrserver.peers.cfg` are bootstrap links only. They establish
+initial trusted domain membership and catalog discovery. Servers then discover
+reachable same-domain peers, verify pinned Ed25519 public identities, exchange
+signed ephemeral X25519 keys end-to-end through existing links, and attempt
+new direct connections. The relay cannot derive an honest exchange's secret;
+a malicious relay could substitute keys unless endpoint identities were
+independently pinned/approved. The current tree forwarding implementation must
+not accept redundant edges until the loop-safe mesh path is operational.
+
+
 `rrserver/link.mesh.[ch]` implements bounded shortest-path calculation separately from the existing `link.tree` transport. It is compiled into rrserver but **not enabled for live forwarding**.
 
 Each `rr_mesh_t` holds an authenticated/validated topology snapshot, scoped to one local node. The routing provider receives a read-only graph and destination UUID, returning a next hop, total path cost, and hop count. The host rejects providers with an incompatible `RR_MESH_ROUTER_ABI` version and rejects decisions whose next hop is not directly adjacent. Current built-in policy is `rr_mesh_router_dijkstra`, deterministic on equal-cost paths; cost is an abstract positive link metric, not a health color.
