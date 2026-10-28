@@ -9,7 +9,7 @@ static sqlite3 *client_db;
 
 bool rrclient_database_init(void) {
    if (client_db) return true;
-   gchar *dir = g_build_filename(g_get_user_data_dir(), "rustyrig", NULL);
+   gchar *dir = g_build_filename(g_get_user_state_dir(), "rustyrig", NULL);
    gchar *path = g_build_filename(dir, "client.db", NULL);
    bool ok = g_mkdir_with_parents(dir, 0700) == 0;
    if (ok) ok = sqlite3_open(path, &client_db) == SQLITE_OK;
