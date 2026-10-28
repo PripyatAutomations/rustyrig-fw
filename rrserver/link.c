@@ -13,6 +13,7 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 #include "build_config.h"
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
@@ -1473,13 +1474,17 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    if (!request) {
       return;
    }
-   char input[512], action[16], name[384], extra[2];
+   char input[512], action[16], name[384], endpoint[128], extra[2];
    snprintf(input, sizeof(input), "%s", dict_get(request, "talk.data", ""));
    dict_free(request);
-   int argc = sscanf(input, "%15s %383s %1s", action, name, extra);
+   int argc = sscanf(input, "%15s %383s %127s %1s", action, name, endpoint, extra);
 
 #ifdef USE_SQLITE
-   if (argc == 2 && !strcasecmp(action, "invite")) {
+   if (!strcasecmp(action, "invite")) {
+      if (argc != 3) {
+         ws_send_error(client, "Usage: /link invite <joining-server-UUID> <issuer-VPN-IP:port>");
+         return;
+      }
       /* Never disclose enrollment private keys across a plaintext admin
        * session, even when admin authentication has succeeded. */
       if (!client->conn || !client->conn->is_tls) {
@@ -1490,16 +1495,43 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
          ws_send_error(client, "Usage: /link invite <joining-server-UUID> (obtain UUID from joining server startup log)");
          return;
       }
-      /* Bootstrap address belongs to the issuer, not the joining node. */
-      const char *hostname = cfg_get("station.name");
-      int tls_port = cfg_get_int("net.http.tls-port", 4420);
-      if (!hostname || !*hostname || strchr(hostname, '/') || strchr(hostname, ':') ||
-          strchr(hostname, ' ') || tls_port < 1 || tls_port > 65535) {
-         ws_send_error(client, "Cannot construct bootstrap URL; configure a reachable station.name hostname");
+      /* Invitation endpoint identifies this issuer's reachable VPN listener.
+       * Never derive it from station.name or from a [peer] tree link. */
+      char address[INET6_ADDRSTRLEN];
+      const char *portstr = NULL;
+      int family = AF_INET;
+      if (endpoint[0] == '[') {
+         const char *closing = strchr(endpoint, ']');
+         if (!closing || closing[1] != ':' ||
+             (size_t)(closing - endpoint - 1) >= sizeof(address)) {
+            ws_send_error(client, "Expected [IPv6]:port (or IPv4:port)");
+            return;
+         }
+         memcpy(address, endpoint + 1, (size_t)(closing - endpoint - 1));
+         address[closing - endpoint - 1] = '\0';
+         portstr = closing + 2;
+         family = AF_INET6;
+      } else {
+         const char *colon = strrchr(endpoint, ':');
+         if (!colon || (size_t)(colon - endpoint) >= sizeof(address)) {
+            ws_send_error(client, "Expected IPv4:port or [IPv6]:port");
+            return;
+         }
+         memcpy(address, endpoint, (size_t)(colon - endpoint));
+         address[colon - endpoint] = '\0';
+         portstr = colon + 1;
+      }
+      struct in6_addr parsed_ip;
+      char *port_end = NULL;
+      errno = 0;
+      long port = strtol(portstr, &port_end, 10);
+      if (inet_pton(family, address, &parsed_ip) != 1 ||
+          errno || !portstr[0] || *port_end || port < 1 || port > 65535) {
+         ws_send_error(client, "Invitation endpoint must be a literal reachable IP:port");
          return;
       }
-      char url[512];
-      snprintf(url, sizeof(url), "wss://%s:%d/link", hostname, tls_port);
+      char url[256];
+      snprintf(url, sizeof(url), "wss://%s/link", endpoint);
       const char *cert = cfg_get("net.http.tls-cert");
       char *spki = cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
       sqlite3 *db = NULL;
