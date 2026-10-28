@@ -32,6 +32,7 @@
 #include <rrserver/globalstate.h>
 #include <rrserver/rig.registry.h>
 #include <rrserver/link.tree.h>
+#include <rrserver/link.mesh.h>
 #define MAX_PEERS 16
 #define MAX_SESSIONS 32
 #define MAX_QUEUE 262144
@@ -81,6 +82,7 @@ static struct {
    struct link_peer peers[MAX_PEERS];
    size_t peer_count, session_count;
    rr_link_tree_t *tree;
+   rr_mesh_t *mesh; /* Shadow topology: authenticated direct peers only. */
    unsigned generation;
    long long autoconnect_after;
    char node[37], domain[254], site[128];
@@ -706,6 +708,9 @@ static void establish(struct link_session *session) {
    }
    session->established = true;
    session->established_at = mono_ms();
+   /* No mesh forwarding yet: record only fully admitted direct neighbors. */
+   if (links.mesh && !rr_mesh_edge(links.mesh, links.node, session->node, 1))
+      Log(LOG_WARN, "mesh", "Cannot record authenticated direct edge to %s", session->node);
 
    if (session->peer) {
       health_record(session->peer, "link", 0, 1, "connected");
@@ -1082,6 +1087,8 @@ static struct link_session *new_session(void) {
 }
 
 static void close_session(struct link_session *session) {
+   if (session->established && links.mesh)
+      rr_mesh_remove_edge(links.mesh, links.node, session->node);
    if (session->established && session->peer && !links.stopping && !session->peer->manually_closed) {
       health_window(session->peer);
       session->peer->health_flaps++;
@@ -1761,6 +1768,11 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       return false;
    }
    links.tree = rr_link_tree_new(node, cfg_get_int("links.max-servers", 128));
+   links.mesh = rr_mesh_new(node);
+   if (!links.mesh) {
+      Log(LOG_CRIT, "mesh", "Cannot allocate local mesh adjacency graph");
+      return false;
+   }
 
    if (links.tree && !rr_link_tree_set_local_site(links.tree, links.site)) {
       Log(LOG_CRIT, "link", "Invalid station.name: expected 1-127 printable characters");
@@ -1890,6 +1902,8 @@ void rrserver_links_fini(void) {
    /* Call after mg_mgr_free: CLOSE callbacks own session cleanup. */
    rr_link_tree_free(links.tree);
    links.tree = NULL;
+   rr_mesh_free(links.mesh);
+   links.mesh = NULL;
 
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       free(links.peers[i].url);
