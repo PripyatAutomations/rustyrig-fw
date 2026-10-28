@@ -8,6 +8,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 //
+#include <rrclient/database.h>
 #include <getopt.h>
 #include <stddef.h>
 #include <rrclient/identity.store.h>
@@ -465,7 +466,7 @@ bool rrclient_cleanup(void) {
    // we ran) if ui.save-on-exit says so. Backed up via cfg_save's .old logic.
    if (cfg && config_file && cfg_get_bool("ui.save-on-exit", false)) {
       Log(LOG_INFO, "config", "ui.save-on-exit: saving config to %s", config_file);
-      cfg_save(cfg, config_file);
+      rrclient_database_config_save( config_file);
    }
 
    free((void *)cfg_log_audio);
