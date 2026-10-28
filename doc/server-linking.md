@@ -31,6 +31,26 @@ Key rotation must be explicit, signed by the previous trusted key or
 approved out-of-band. Unexpected key replacement is an identity conflict,
 not routine rediscovery.
 
+### Signed catalog enforcement
+
+`cluster.force-signed-catalog=true` (the default in `rrserver/defconfig.c`)
+rejects unsigned incoming descriptor updates and removals, and prevents
+unsigned descriptors from being published through catalog snapshots or deltas.
+The package config `/etc/rustyrig/rrserver.cfg` shows the commented
+`cluster.force-signed-catalog=false` override for temporary compatibility.
+Unsigned entries always generate warnings, even with enforcement disabled.
+Invalid signatures or mismatched owner/domain bindings remain rejected.
+Servers must be upgraded together to participate in a strictly signed cluster.
+
+Signed records carry `identity.owner`, `identity.domain`,
+`identity.public-key`, `identity.scheme`, and `identity.signature`.
+Local Ed25519 signing keys persist in `/var/lib/rustyrig/identity/`.
+Verified public keys are first-seen pinned in the master SQLite database.
+This is initial **TOFU** enrollment: independent verification or approval of
+bootstrap peers remains essential, since a compromised first relay could
+supply substitute identities before any pins are established. Catalog signing
+does not yet implement authenticated direct WSS mesh admission.
+
 ### Catalog as the domain trust authority (private CA without a CA certificate)
 
 The authenticated domain catalog is the source of expected server public keys,
