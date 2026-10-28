@@ -1466,7 +1466,7 @@ bool rrserver_links_init(struct mg_mgr *manager) {
    }
    snprintf(links.site, sizeof(links.site), "%s", config_value("station.name", "rustyrig"));
    if (cfg_get_bool("net.http.tls-enabled", false) &&
-       cfg_get_bool("net.http.tls-auto-generate", false)) {
+       cfg_get_bool("net.http.tls-auto-generate", true)) {
       const char *cert = cfg_get("net.http.tls-cert");
       const char *key = cfg_get("net.http.tls-key");
       const char *name = cfg_get("station.name");
