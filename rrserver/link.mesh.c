@@ -93,15 +93,14 @@ bool rr_mesh_remove_edge(rr_mesh_t *m, const char *a, const char *b) {
 
    return true;
 }
-static bool route_dijkstra(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out, void *context) {
-   (void)context;
-
+static bool dijkstra_excluding(const rr_mesh_t *m, const char *destination, const char *excluded, rr_mesh_route_t *out) {
    if (!m || !out) {
       return false;
    }
    int target = index_of(m, destination);
+   int banned = excluded ? index_of(m, excluded) : -1;
 
-   if (target <= 0) {
+   if (target <= 0 || (excluded && banned < 0)) {
       return false;
    }
    uint64_t dist[RR_MESH_MAX_NODES];
@@ -137,7 +136,7 @@ static bool route_dijkstra(const rr_mesh_t *m, const char *destination, rr_mesh_
       for (size_t v = 1 ; v < m->count ; ++v) {
          uint32_t weight = m->edge[u][v];
 
-         if (!weight || visited[v] || dist[u] > UINT64_MAX - weight) {
+         if (!weight || visited[v] || (u == 0 && (int)v == banned) || dist[u] > UINT64_MAX - weight) {
             continue;
          }
          uint64_t candidate = dist[u] + weight;
@@ -163,6 +162,27 @@ static bool route_dijkstra(const rr_mesh_t *m, const char *destination, rr_mesh_
    out->cost = dist[target];
    out->hops = hops[target];
 
+   return true;
+}
+
+static bool route_dijkstra(const rr_mesh_t *m, const char *destination, rr_mesh_route_t *out, void *context) {
+   (void)context;
+   return dijkstra_excluding(m, destination, NULL, out);
+}
+
+bool rr_mesh_route_avoiding(const rr_mesh_t *m, const char *destination, const char *excluded_next_hop, rr_mesh_route_t *out) {
+   if (!m || !out || !excluded_next_hop || !rr_mesh_edge_cost(m, m->id[0], excluded_next_hop)) {
+      return false;
+   }
+   rr_mesh_route_t proposal = {0};
+   /* Failover deliberately uses the built-in policy, not a plugin that may
+    * return the same failed first hop or route through an unverified peer. */
+   if (!dijkstra_excluding(m, destination, excluded_next_hop, &proposal) ||
+       !rr_mesh_edge_cost(m, m->id[0], proposal.next_hop) ||
+       !strcmp(proposal.next_hop, excluded_next_hop)) {
+      return false;
+   }
+   *out = proposal;
    return true;
 }
 
