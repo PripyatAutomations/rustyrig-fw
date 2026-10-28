@@ -1648,11 +1648,8 @@ bool rrserver_links_init(struct mg_mgr *manager) {
 
    const char *listen = cfg_get("links.listen");
 
-   if (!links.peer_count && (!listen || !*listen)) {
-      event_on("link.cmd", link_command, NULL);
-
-      return true;
-   }
+   /* Even without configured peers, this node must accept /link for
+    * invitation-based enrollment and future mesh admissions. */
    int retry = cfg_get_int("links.retry-seconds", 60), timeout = cfg_get_int("links.handshake-seconds", 10);
 
    if (retry < 1 || retry > 3600 || timeout < 1 || timeout > 120) {
