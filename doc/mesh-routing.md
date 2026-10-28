@@ -3,7 +3,7 @@
 This work is on the `mesh-linking` branch. Configured peers in
 `/etc/rustyrig/rrserver.peers.cfg` are bootstrap links only. They establish
 initial trusted domain membership and catalog discovery. Servers then discover
-reachable same-domain peers, verify pinned Ed25519 public identities, exchange
+reachable same-domain peers, verify catalog-distributed but durably pinned Ed25519 public identities, exchange
 signed ephemeral X25519 keys end-to-end through existing links, and attempt
 new direct connections. The relay cannot derive an honest exchange's secret;
 a malicious relay could substitute keys unless endpoint identities were
