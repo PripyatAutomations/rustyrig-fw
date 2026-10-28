@@ -304,3 +304,73 @@ bool rr_identity_accept_revision(sqlite3 *db, const char *domain, const char *ow
    return ok;
 }
 #endif
+
+#ifdef USE_SQLITE
+/* Explicit enrollment only: this store never approves a key just because it
+ * appeared in a catalog or on a network connection. Both keys are required
+ * until TLS-to-catalog binding proof verification is implemented. */
+static bool trust_key_valid(const char *key, gsize decoded_length) {
+   if (!key || strlen(key) != ((decoded_length + 2) / 3) * 4) return false;
+   for (const char *p = key; *p; ++p) {
+      if (!(g_ascii_isalnum(*p) || *p == '+' || *p == '/' || *p == '=')) return false;
+   }
+   gsize n = 0;
+   guchar *decoded = g_base64_decode(key, &n);
+   bool valid = decoded && n == decoded_length;
+   if (valid) {
+      char *reencoded = g_base64_encode(decoded, n);
+      valid = reencoded && !strcmp(key, reencoded);
+      g_free(reencoded);
+   }
+   g_free(decoded);
+   return valid;
+}
+
+static bool trust_schema(sqlite3 *db) {
+   return db && sqlite3_exec(db,
+      "CREATE TABLE IF NOT EXISTS mesh_explicit_trust ("
+      "domain TEXT NOT NULL, owner_uuid TEXT NOT NULL,"
+      "catalog_pubkey TEXT NOT NULL, tls_spki_sha256 TEXT NOT NULL,"
+      "enrolled_at INTEGER NOT NULL DEFAULT (unixepoch()),"
+      "PRIMARY KEY(domain,owner_uuid))", NULL, NULL, NULL) == SQLITE_OK;
+}
+
+bool rr_identity_trust_enroll(sqlite3 *db, const char *domain, const char *owner,
+   const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
+   if (!domain || !*domain || !owner || !g_uuid_string_is_valid(owner) ||
+       !trust_key_valid(catalog_key_b64, 32) ||
+       !trust_key_valid(tls_spki_sha256_b64, 32) || !trust_schema(db)) return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+      "INSERT OR IGNORE INTO mesh_explicit_trust"
+      "(domain,owner_uuid,catalog_pubkey,tls_spki_sha256) VALUES(?1,?2,?3,?4)",
+      -1, &stmt, NULL) != SQLITE_OK) return false;
+   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,3,catalog_key_b64,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,4,tls_spki_sha256_b64,-1,SQLITE_TRANSIENT);
+   bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+   sqlite3_finalize(stmt);
+   return ok && rr_identity_trust_verify(db,domain,owner,catalog_key_b64,tls_spki_sha256_b64);
+}
+
+bool rr_identity_trust_verify(sqlite3 *db, const char *domain, const char *owner,
+   const char *catalog_key_b64, const char *tls_spki_sha256_b64) {
+   if (!domain || !owner || !catalog_key_b64 || !tls_spki_sha256_b64 || !trust_schema(db))
+      return false;
+   sqlite3_stmt *stmt = NULL;
+   if (sqlite3_prepare_v2(db,
+      "SELECT catalog_pubkey,tls_spki_sha256 FROM mesh_explicit_trust"
+      " WHERE domain=?1 AND owner_uuid=?2", -1, &stmt, NULL) != SQLITE_OK)
+      return false;
+   sqlite3_bind_text(stmt,1,domain,-1,SQLITE_TRANSIENT);
+   sqlite3_bind_text(stmt,2,owner,-1,SQLITE_TRANSIENT);
+   int row = sqlite3_step(stmt);
+   const char *catalog = row == SQLITE_ROW ? (const char *)sqlite3_column_text(stmt,0) : NULL;
+   const char *spki = row == SQLITE_ROW ? (const char *)sqlite3_column_text(stmt,1) : NULL;
+   bool ok = catalog && spki && !strcmp(catalog,catalog_key_b64) &&
+      !strcmp(spki,tls_spki_sha256_b64);
+   sqlite3_finalize(stmt);
+   return ok;
+}
+#endif
