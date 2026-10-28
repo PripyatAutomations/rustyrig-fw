@@ -821,10 +821,27 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
          }
 
          if (!accepted) {
+            if (!sync) {
+               static gint64 last_warning;
+               static unsigned suppressed;
+               gint64 now_warning = g_get_monotonic_time();
+               if (!last_warning || now_warning - last_warning > 5 * G_USEC_PER_SEC) {
+                  char label[192];
+                  Log(LOG_WARN, "mesh.identity",
+                      "Rejected catalog delta from %s (reason=%u type=%s uuid=%s service=%s, suppressed=%u)",
+                      rrserver_links_format_node(origin, label, sizeof(label)),
+                      (unsigned)reject_reason, dict_get(d, "object.type", ""),
+                      dict_get(d, "object.uuid", ""), dict_get(d, "catalog.service", ""),
+                      suppressed);
+                  last_warning = now_warning;
+                  suppressed = 0;
+               } else suppressed++;
+            }
             goto done;
          }
 
-         if (dict_get(d, "object.uuid", NULL)) {
+         if (strcmp(dict_get(d, "catalog.visibility", "clients"), "server-only") &&
+             dict_get(d, "object.uuid", NULL)) {
             dict *added = dict_clone(d);
 
             if (added) {
@@ -841,9 +858,8 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
           * forged removals from bypassing normal catalog admission. */
          const char *signature = dict_get(d, "identity.signature", NULL);
          if (!signature || !*signature) {
-            Log(LOG_WARN, "mesh.identity", "Unsigned catalog removal from %s: %s",
-               origin, cfg_get_bool("cluster.force-signed-catalog", true) ? "rejected" : "legacy mode permitted");
-            if (cfg_get_bool("cluster.force-signed-catalog", true)) goto done;
+            Log(LOG_WARN, "mesh.identity", "Rejected unsigned catalog removal from %s", origin);
+            goto done;
          } else if (strcmp(dict_get(d, "identity.owner", ""), origin) ||
                     g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) ||
                     !rr_identity_verify_catalog(d) ||
@@ -878,7 +894,7 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
             struct catalog *entry = *p;
 
             if ((!strcmp(entry->key, key) || (!uuid && room && !strcasecmp(entry->key, key))) && !strcmp(entry->owner, origin)) {
-               if (uuid) {
+               if (uuid && strcmp(dict_get(entry->descriptor, "catalog.visibility", "clients"), "server-only")) {
                   dict *removed = dict_clone(d);
                   if (removed) {
                      rr_relay_strip_catalog_identity(removed);
