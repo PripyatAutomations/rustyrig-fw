@@ -631,10 +631,18 @@ bool rr_relay_catalog_put_reason(const char *owner, dict *d, enum rr_catalog_rej
       const char *signed_owner = dict_get(copy, "identity.owner", "");
       const char *signed_domain = dict_get(copy, "identity.domain", "");
       const char *scheme = dict_get(copy, "identity.scheme", "");
-      if (strcmp(signed_owner, owner) || g_ascii_strcasecmp(signed_domain, cfg_get("domain")) ||
-          strcmp(scheme, "ed25519-catalog-v1") ||
-          strcmp(dict_get(copy, "identity.operation", ""), "catalog-upsert") ||
-          !rr_identity_verify_catalog(copy)) {
+      const char *operation = dict_get(copy, "identity.operation", "");
+      const char *problem = NULL;
+      if (strcmp(signed_owner, owner)) problem = "signed owner does not match envelope origin";
+      else if (g_ascii_strcasecmp(signed_domain, cfg_get("domain"))) problem = "domain mismatch";
+      else if (strcmp(scheme, "ed25519-catalog-v1")) problem = "unsupported signature scheme";
+      else if (strcmp(operation, "catalog-upsert")) problem = "wrong signed operation";
+      else if (!rr_identity_verify_catalog(copy)) problem = "Ed25519 signature verification failed";
+      if (problem) {
+         Log(LOG_WARN, "mesh.identity",
+            "Rejecting signed catalog entry from %s: %s (type=%s uuid=%s service=%s)",
+            owner, problem, dict_get(copy, "object.type", ""),
+            dict_get(copy, "object.uuid", ""), dict_get(copy, "catalog.service", ""));
          dict_free(copy);
          return catalog_reject(reason, RR_CAT_IDENTITY);
       }
