@@ -1296,7 +1296,7 @@ static void rrserver_handle_admin_cmd(const char *event, const char *data, rrcon
    /* Key enrollment must be deliberate; never auto-trust a key presented
     * during login. This command is only available to TLS-connected admins. */
    if (!strcmp(action, "key-add") || !strcmp(action, "key-revoke")) {
-      if (!client->conn || !client->conn->is_tls) {
+      if (!client->native_transport && (!client->conn || !client->conn->is_tls)) {
          ws_send_error(client, "Client key management requires a TLS admin connection");
       } else {
          char username[128] = {0}, key_id[97] = {0}, pubkey[65] = {0}, trailing[2] = {0};

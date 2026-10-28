@@ -119,12 +119,13 @@ void native_callback(rr_transport_t *t, enum rr_transport_event event,
    }
 }
 
-void rrserver_links_native_accept(int fd) {
+void *rrserver_links_native_open(rr_transport_t *transport) {
    struct link_session *s = links.tree && !links.stopping ? new_session() : NULL;
-   if (!s) { close(fd); return; }
+   if (!s) return NULL;
    s->dedicated = true;
-   s->transport = rr_mesh_wss_accept(fd, native_callback, s);
-   if (!s->transport) close_session(s);
+   s->transport = transport;
+   native_callback(transport, RR_TRANSPORT_EVENT_OPEN, NULL, NULL, 0, s);
+   return s;
 }
 
 void rrserver_links_native_stopping(void) { links.stopping = true; }

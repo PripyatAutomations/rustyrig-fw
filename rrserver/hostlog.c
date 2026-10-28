@@ -106,7 +106,7 @@ static bool hostlog_cb(logpriority_t priority, const char *subsys, const char *f
       }
       if (flen < 0 || !frame) break;
       for (rrconn_t *cur = http_client_list; cur; cur = cur->next) {
-         if (cur->is_ws && cur->authenticated && cur->conn && cur->user &&
+         if (cur->is_ws && cur->authenticated && (cur->conn || cur->native_transport) && cur->user &&
              has_priv(cur->user->uid, "admin|owner") &&
              client_has_flag(cur, FLAG_SYSLOG)) {
             struct mg_str packet = {(char *)frame, (size_t)flen};

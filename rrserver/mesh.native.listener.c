@@ -2,6 +2,8 @@
 #include "mesh.native.listener.h"
 #include "mesh.wss.h"
 #include "link.h"
+#include "mesh.native.client.h"
+#include "mesh.enroll.native.h"
 #include "reactor.glib.h"
 #include <librustyaxe/core.h>
 #include <glib.h>
@@ -35,12 +37,13 @@ static bool native_ready(int fd, GIOCondition events, void *ctx) {
          Log(LOG_WARN, "mesh.native", "Native mesh accept failed: %s", g_strerror(errno));
          break;
       }
-      rrserver_links_native_accept(incoming);
+      rrserver_native_accept(incoming);
    }
    return true;
 }
 
 bool rr_mesh_native_listener_start(void) {
+   rr_mesh_wss_http_handler(rr_mesh_native_enrollment);
    if (!rr_mesh_wss_init(cfg_get("net.http.tls-cert"), cfg_get("net.http.tls-key"), rrserver_links_native_pin)) {
       Log(LOG_CRIT, "mesh.native", "Cannot initialize OpenSSL mesh transport with HTTPS identity certificate/key");
       return false;
@@ -82,7 +85,7 @@ bool rr_mesh_native_listener_start(void) {
    native_watch = rr_reactor_watch_fd(NULL, fd, G_IO_IN, native_ready, NULL);
    if (!native_watch) { close(fd); return false; }
    native_fd = fd;
-   Log(LOG_INFO, "mesh.native", "Authenticated mesh WSS listener on %s:%d", bind_ip, port);
+   Log(LOG_INFO, "mesh.native", "Native TLS listener on %s:%d (mesh /link, client /ws, mesh enrollment)", bind_ip, port);
    return true;
 }
 

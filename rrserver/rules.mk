@@ -44,6 +44,7 @@ rrserver_objs += backend.internal.o	# Internal backend for real radios (rustyrig
 rrserver_objs += backend.yaesu.o	# Native FT-891 Yaesu CAT (no Hamlib dependency)
 rrserver_objs += mesh.native.listener.o reactor.glib.o
 rrserver_objs += mesh.wss.o mesh.wss.http.o mesh.auth.o mesh.bootstrap.o link.native.o link.admin.o
+rrserver_objs += mesh.enroll.native.o mesh.native.client.o
 rrserver_objs += bridge.hints.o
 rrserver_objs += bridge.access.o
 rrserver_objs += bridge.manager.o

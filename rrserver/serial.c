@@ -7,6 +7,7 @@
 //
 // Licensed under MIT license, if built without mongoose or GPL if built with.
 // Authenticated, exclusive serial-device exports over MODEM/seri frames.
+#include <librrprotocol/transport.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -857,7 +858,8 @@ bool rrserver_serial_poll(void) {
       }
 #ifdef USE_MONGOOSE
 
-      if (!p->owner->conn || p->owner->conn->send.len > 65536) {
+      if ((!p->owner->conn && !p->owner->native_transport) ||
+          (p->owner->native_transport ? rr_transport_queued_bytes(p->owner->native_transport) : p->owner->conn->send.len) > 65536) {
          continue;
       }
 #endif

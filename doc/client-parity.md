@@ -381,6 +381,10 @@ and codec where known. Privilege rules and wire command semantics are unchanged.
 
 ## Server URL transports
 
+The server now accepts the same `rustyrig.v2` client WebSocket protocol on
+native OpenSSL/wslay TCP 4420 and the compatibility HTTPS TCP 4422. Native
+and browser clients use the same authentication, wire and media handlers.
+
 Native GTK/TUI profiles require a complete `server.url`; ports are optional:
 `ws://host:port/path`, `wss://host:port/path`, `irc://host:port`, or
 `ircs://host:port`. Defaults are WS 8420, WSS 4422, IRC 6667 and IRCS 6697.

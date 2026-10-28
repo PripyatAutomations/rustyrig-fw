@@ -35,164 +35,31 @@
 #include <rrserver/link.tree.h>
 #include <rrserver/link.mesh.h>
 #include "link.internal.h"
+#include "mesh.enroll.native.h"
 
-/* Both dedicated WSS and shared HTTPS listeners accept one-shot enrollment.
- * Never attach pre-enrollment requests to an authenticated server link. */
+/* The compatibility HTTPS listener delegates to the same enrollment
+ * verifier as native 4420. It owns only Mongoose request/response adaptation. */
 static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_message *hm) {
-   if (hm->body.len > 4096 &&
-       (!mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) ||
-        !mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) ||
-        !mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")))) {
+   const char *paths[] = {"/mesh/enroll/status", "/mesh/enroll/challenge", "/mesh/enroll/redeem"};
+   const char *path = NULL;
+   for (unsigned i = 0; i < 3; ++i)
+      if (!mg_strcmp(hm->uri, mg_str(paths[i]))) path = paths[i];
+   if (!path) return false;
+   if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
+      mg_http_reply(connection, 403, "", "TLS POST required\n");
+      return true;
+   }
+   if (hm->body.len > 4096) {
       mg_http_reply(connection, 413, "", "Enrollment request too large\n");
       return true;
    }
-#ifdef USE_SQLITE
-   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")) == 0) {
-      if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\n");
-         return true;
-      }
-      char ticket[48], domain[256], node[48], catalog[48], spki[48];
-      struct mg_str *body = &hm->body;
-      if (body->len > 4096 ||
-          mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
-          mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
-          mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
-          strcmp(domain, links.domain)) {
-         mg_http_reply(connection, 400, "", "Invalid enrollment status request\n");
-         return true;
-      }
-      const char *db_path = cfg_get("path.db.master");
-      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
-      sqlite3 *db = NULL;
-      bool enrolled = false;
-      if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK)
-         enrolled = rr_identity_invite_redeemed(db, ticket, domain, node, catalog, spki);
-      if (db) sqlite3_close(db);
-      if (!enrolled) {
-         mg_http_reply(connection, 404, "", "Enrollment not committed\n");
-         return true;
-      }
-      const char *certpath = cfg_get("net.http.tls-cert");
-      char *issuer_spki = certpath ? rr_crypto_cert_spki_sha256(certpath) : NULL;
-      char *signature = issuer_spki ?
-         rr_identity_tls_binding_signature(domain, links.node, issuer_spki) : NULL;
-      free(issuer_spki);
-      if (!signature) {
-         mg_http_reply(connection, 500, "", "Issuer signature unavailable\n");
-         return true;
-      }
-      mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
-                    "ENROLLED\n%s\n%s\n%d\n", links.node, signature, cfg_get_int("links.native.port", 4420));
-      g_free(signature);
-      return true;
-   }
-#endif
-#ifdef USE_SQLITE
-   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) == 0) {
-      if (!connection->is_tls ||
-          mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\n");
-         return true;
-      }
-      char ticket[48], domain[256], node[48];
-      if (mg_http_get_var(&hm->body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(&hm->body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(&hm->body, "node", node, sizeof(node)) <= 0 ||
-          strcmp(domain, links.domain)) {
-         mg_http_reply(connection, 400, "", "Invalid challenge request\n");
-         return true;
-      }
-      const char *db_path = cfg_get("path.db.master");
-      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
-      sqlite3 *db = NULL;
-      char *nonce = NULL;
-      if (sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK)
-         nonce = rr_identity_invite_challenge(db, ticket, domain, node);
-      if (db) sqlite3_close(db);
-      if (!nonce) {
-         mg_http_reply(connection, 403, "", "Invitation invalid or expired\n");
-         return true;
-      }
-      const char *cert_path = cfg_get("net.http.tls-cert");
-      char *issuer_spki = cert_path ? rr_crypto_cert_spki_sha256(cert_path) : NULL;
-      char *issuer_sig = issuer_spki ?
-         rr_identity_tls_binding_signature(links.domain, links.node, issuer_spki) : NULL;
-      free(issuer_spki);
-      if (!issuer_sig) {
-         mg_http_reply(connection, 500, "", "Issuer signing identity unavailable\n");
-         g_free(nonce);
-         return true;
-      }
-      mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
-                    "%s\n%s\n%s\n", nonce, links.node, issuer_sig);
-      g_free(issuer_sig);
-      g_free(nonce);
-      return true;
-   }
-#endif
-#ifdef USE_SQLITE
-   if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) == 0) {
-      if (!connection->is_tls ||
-          mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\n");
-         return true;
-      }
-      char ticket[48], domain[256], node[48], challenge[48], catalog[48],
-           spki[48], binding[92], proof[92];
-      struct mg_str *body = &hm->body;
-      if (mg_http_get_var(body, "ticket", ticket, sizeof(ticket)) <= 0 ||
-          mg_http_get_var(body, "domain", domain, sizeof(domain)) <= 0 ||
-          mg_http_get_var(body, "node", node, sizeof(node)) <= 0 ||
-          mg_http_get_var(body, "challenge", challenge, sizeof(challenge)) <= 0 ||
-          mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
-          mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
-          mg_http_get_var(body, "binding", binding, sizeof(binding)) <= 0 ||
-          mg_http_get_var(body, "proof", proof, sizeof(proof)) <= 0 ||
-          strcmp(domain, links.domain) || !g_uuid_string_is_valid(ticket) ||
-          !g_uuid_string_is_valid(node) ||
-          strlen(challenge) != 44 || strlen(catalog) != 44 ||
-          strlen(spki) != 44 || strlen(binding) != 88 ||
-          strlen(proof) != 88) {
-         mg_http_reply(connection, 400, "", "Invalid redemption request\n");
-         return true;
-      }
-      gsize keylen = 0, bindlen = 0, prooflen = 0;
-      guchar *key = g_base64_decode(catalog, &keylen);
-      guchar *bindsig = g_base64_decode(binding, &bindlen);
-      guchar *ticketsig = g_base64_decode(proof, &prooflen);
-      bool proven = key && bindsig && ticketsig && keylen == 32 &&
-         bindlen == 64 && prooflen == 64 &&
-         rr_crypto_binding_verify(key, domain, node, spki, bindsig);
-      char *transcript = g_strdup_printf("rustyrig.mesh.enroll.v1\n%s\n%s\n%s\n%s\n%s\n%s\n",
-                                     ticket, domain, node, challenge, catalog, spki);
-      const char *db_path = cfg_get("path.db.master");
-      if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
-      sqlite3 *db = NULL;
-      bool success = false;
-      if (proven && transcript && sqlite3_open_v2(db_path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK) {
-         if (rr_identity_invite_verify_proof(db, ticket, domain, transcript, strlen(transcript), ticketsig) &&
-             rr_identity_invite_challenge_claim(db, ticket, domain, node, challenge))
-            success = rr_identity_invite_redeem(db, ticket, domain, node, catalog, spki);
-      }
-      if (db) sqlite3_close(db);
-      g_free(transcript);
-      g_free(key);
-      g_free(bindsig);
-      g_free(ticketsig);
-      if (!success) {
-         Log(LOG_WARN, "mesh.identity", "Rejected enrollment proof (invalid, replayed or expired invitation)");
-         mg_http_reply(connection, 403, "", "Enrollment proof rejected\n");
-         return true;
-      }
-      Log(LOG_AUDIT, "mesh.identity", "Enrolled server identity %s via single-use invitation", node);
-      mg_http_reply(connection, 200, "Cache-Control: no-store\r\n", "ENROLLED\n");
-      return true;
-   }
-#endif
-   return false;
+   int status = 400;
+   char *reply = NULL;
+   rr_mesh_native_enrollment(path, hm->body.buf, hm->body.len, &status, &reply);
+   mg_http_reply(connection, status,
+      "Content-Type: text/plain\r\nCache-Control: no-store\r\n", "%s", reply ? reply : "Invalid enrollment request\n");
+   g_free(reply);
+   return true;
 }
 
 /* Shared client HTTP/TLS listeners hand /link sockets to the peer protocol. TLS is already established here; peers never become authenticated clients. */
@@ -217,9 +84,9 @@ void shared_link_request(const char *event, const void *data, size_t length, rrc
  * reaches the administrator, rather than advertising a wildcard listener.
  * The explicit endpoint remains available for NAT/VPN and remote networks. */
 static bool invite_default_endpoint(rrconn_t *client, char *out, size_t capacity) {
-   int port = cfg_get_int("net.http.tls-port", 4422);
+   int port = cfg_get_int("links.native.port", 4420);
    if (port < 1 || port > 65535) return false;
-   const char *bind = cfg_get("net.http.tls-bind");
+   const char *bind = cfg_get("links.native.bind");
    struct in_addr configured;
    if (bind && inet_pton(AF_INET, bind, &configured) == 1 &&
        configured.s_addr != INADDR_ANY &&
@@ -266,7 +133,7 @@ void link_command(const char *event, const char *data, rrconn_t *client, void *u
       }
       /* Never disclose enrollment private keys across a plaintext admin
        * session, even when admin authentication has succeeded. */
-      if (!client->conn || !client->conn->is_tls) {
+      if (!client->native_transport && (!client->conn || !client->conn->is_tls)) {
          ws_send_error(client, "Invitation creation requires an HTTPS/WSS admin session");
          return;
       }

@@ -125,8 +125,8 @@ enabled=false
                 self.proc = None
                 self.output.close()
 
-    def login(self):
-        client = WebSocket(self.http, self.context)
+    def login(self, native=False):
+        client = WebSocket(self.mesh if native else self.http, self.context)
         client.send({'msg': {'type': 'auth'}, 'auth': {'cmd': 'login', 'user': 'TEST'}})
         challenge = client.until(lambda m: m.get('auth', {}).get('cmd') == 'challenge')['auth']
         secret = hashlib.sha1(b'test-password').hexdigest()
@@ -154,9 +154,9 @@ def notice_text(message):
 
 
 def enroll(issuer, joining):
-    client = issuer.login()
+    client = issuer.login(native=True)
     client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link',
-        'data': f'invite {joining.node} 127.0.0.1:{issuer.http}'}})
+        'data': f'invite {joining.node} 127.0.0.1:{issuer.mesh}'}})
     reply = client.until(lambda m: 'enrollment token' in notice_text(m))
     token = notice_text(reply).split(': ', 1)[1]
     client.socket.close()
@@ -252,6 +252,17 @@ def run():
         a, b = Fixture(work, 'alpha'), Fixture(work, 'beta')
         try:
             a.start()
+            # Browsers normally offer permessage-deflate. The native endpoint
+            # may decline compression but must still negotiate rustyrig.v2.
+            with a.context.wrap_socket(socket.create_connection(('127.0.0.1', a.mesh), timeout=3), server_hostname='alpha') as browser:
+                key = base64.b64encode(os.urandom(16)).decode()
+                browser.sendall((f'GET /ws/ HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n'
+                    f'Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n'
+                    'Sec-WebSocket-Protocol: rustyrig.v2\r\n'
+                    'Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n\r\n').encode())
+                headers = b''
+                while b'\r\n\r\n' not in headers: headers += browser.recv(4096)
+                assert b'101 Switching Protocols' in headers and b'Sec-WebSocket-Extensions:' not in headers
             enroll(a, b)
             if os.getenv('RR_MESH_FIXED_PORTS'):
                 # Simulate a previously enrolled installation: the issuer's
@@ -268,7 +279,7 @@ def run():
                     assert endpoint == 'wss://127.0.0.1:4420/link', endpoint
                 assert 'Legacy HTTPS port 4420 moved to 4422' in a.log()
             wait(lambda: 'Linked to beta' in a.log() and 'Linked to alpha' in b.log(), 'mutual mesh link', [a, b])
-            client = a.login()
+            client = a.login(native=True)
             client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'link', 'data': 'list'}})
             reply = client.until(lambda m: '(beta): linked' in notice_text(m))
             assert b.node in notice_text(reply)
@@ -277,7 +288,18 @@ def run():
                 listed = client.until(lambda m: m.get('talk', {}).get('cmd') == 'room-list')
                 return '#beta' in listed['talk'].get('remote-rooms', '')
             wait(catalog_visible, 'remote catalog', [a, b])
-            print('PASS: startup mesh, /link list, topology/catalog propagation and HTTPS client login/LIST')
+            client.send_payload(b'not-a-binframe', 2)
+            client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'list'}})
+            client.until(lambda m: m.get('talk', {}).get('cmd') == 'room-list')
+            legacy = a.login()
+            legacy.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'msg', 'msg_type': 'pub',
+                'target': '#alpha', 'data': 'legacy-to-native'}})
+            client.until(lambda m: m.get('talk', {}).get('data') == 'legacy-to-native')
+            client.send({'msg': {'type': 'talk'}, 'talk': {'cmd': 'msg', 'msg_type': 'pub',
+                'target': '#alpha', 'data': 'native-to-legacy'}})
+            legacy.until(lambda m: m.get('talk', {}).get('data') == 'native-to-legacy')
+            legacy.socket.close()
+            print('PASS: startup mesh, /link list, native client login/LIST and mixed-transport chat')
             old_a = a.log().count('Linked to beta')
             old_b = b.log().count('Linked to alpha')
             b.stop()

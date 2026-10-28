@@ -19,7 +19,8 @@ void rrserver_links_recent_events(const char *subject, char *out, size_t capacit
 bool rrserver_peer_config_init(void);
 bool rrserver_links_init(struct mg_mgr *manager);
 /* Native socket ownership transfers to the transport; pin lookup is read-only. */
-void rrserver_links_native_accept(int fd);
+struct rr_transport;
+void *rrserver_links_native_open(struct rr_transport *transport);
 bool rrserver_links_native_pin(const uint8_t pin[32]);
 void rrserver_links_native_stopping(void);
 void rrserver_links_poll(void);
