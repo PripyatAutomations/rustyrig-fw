@@ -1444,13 +1444,13 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
        (!mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) ||
         !mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) ||
         !mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")))) {
-      mg_http_reply(connection, 413, "", "Enrollment request too large\\n");
+      mg_http_reply(connection, 413, "", "Enrollment request too large\n");
       return true;
    }
 #ifdef USE_SQLITE
    if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/status")) == 0) {
       if (!connection->is_tls || mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\\n");
+         mg_http_reply(connection, 403, "", "TLS POST required\n");
          return true;
       }
       char ticket[48], domain[256], node[48], catalog[48], spki[48];
@@ -1462,7 +1462,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
           mg_http_get_var(body, "catalog", catalog, sizeof(catalog)) <= 0 ||
           mg_http_get_var(body, "spki", spki, sizeof(spki)) <= 0 ||
           strcmp(domain, links.domain)) {
-         mg_http_reply(connection, 400, "", "Invalid enrollment status request\\n");
+         mg_http_reply(connection, 400, "", "Invalid enrollment status request\n");
          return true;
       }
       const char *db_path = cfg_get("path.db.master");
@@ -1473,7 +1473,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
          enrolled = rr_identity_invite_redeemed(db, ticket, domain, node, catalog, spki);
       if (db) sqlite3_close(db);
       if (!enrolled) {
-         mg_http_reply(connection, 404, "", "Enrollment not committed\\n");
+         mg_http_reply(connection, 404, "", "Enrollment not committed\n");
          return true;
       }
       const char *certpath = cfg_get("net.http.tls-cert");
@@ -1482,11 +1482,11 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
          rr_identity_tls_binding_signature(domain, links.node, issuer_spki) : NULL;
       free(issuer_spki);
       if (!signature) {
-         mg_http_reply(connection, 500, "", "Issuer signature unavailable\\n");
+         mg_http_reply(connection, 500, "", "Issuer signature unavailable\n");
          return true;
       }
-      mg_http_reply(connection, 200, "Content-Type: text/plain\\r\\nCache-Control: no-store\\r\\n",
-                    "ENROLLED\\n%s\\n%s\\n", links.node, signature);
+      mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
+                    "ENROLLED\n%s\n%s\n", links.node, signature);
       g_free(signature);
       return true;
    }
@@ -1495,7 +1495,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
    if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/challenge")) == 0) {
       if (!connection->is_tls ||
           mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\\n");
+         mg_http_reply(connection, 403, "", "TLS POST required\n");
          return true;
       }
       char ticket[48], domain[256], node[48];
@@ -1503,7 +1503,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
           mg_http_get_var(&hm->body, "domain", domain, sizeof(domain)) <= 0 ||
           mg_http_get_var(&hm->body, "node", node, sizeof(node)) <= 0 ||
           strcmp(domain, links.domain)) {
-         mg_http_reply(connection, 400, "", "Invalid challenge request\\n");
+         mg_http_reply(connection, 400, "", "Invalid challenge request\n");
          return true;
       }
       const char *db_path = cfg_get("path.db.master");
@@ -1514,7 +1514,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
          nonce = rr_identity_invite_challenge(db, ticket, domain, node);
       if (db) sqlite3_close(db);
       if (!nonce) {
-         mg_http_reply(connection, 403, "", "Invitation invalid or expired\\n");
+         mg_http_reply(connection, 403, "", "Invitation invalid or expired\n");
          return true;
       }
       const char *cert_path = cfg_get("net.http.tls-cert");
@@ -1523,12 +1523,12 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
          rr_identity_tls_binding_signature(links.domain, links.node, issuer_spki) : NULL;
       free(issuer_spki);
       if (!issuer_sig) {
-         mg_http_reply(connection, 500, "", "Issuer signing identity unavailable\\n");
+         mg_http_reply(connection, 500, "", "Issuer signing identity unavailable\n");
          g_free(nonce);
          return true;
       }
-      mg_http_reply(connection, 200, "Content-Type: text/plain\\r\\nCache-Control: no-store\\r\\n",
-                    "%s\\n%s\\n%s\\n", nonce, links.node, issuer_sig);
+      mg_http_reply(connection, 200, "Content-Type: text/plain\r\nCache-Control: no-store\r\n",
+                    "%s\n%s\n%s\n", nonce, links.node, issuer_sig);
       g_free(issuer_sig);
       g_free(nonce);
       return true;
@@ -1538,7 +1538,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
    if (mg_strcmp(hm->uri, mg_str("/mesh/enroll/redeem")) == 0) {
       if (!connection->is_tls ||
           mg_strcmp(hm->method, mg_str("POST"))) {
-         mg_http_reply(connection, 403, "", "TLS POST required\\n");
+         mg_http_reply(connection, 403, "", "TLS POST required\n");
          return true;
       }
       char ticket[48], domain[256], node[48], challenge[48], catalog[48],
@@ -1557,7 +1557,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
           strlen(challenge) != 44 || strlen(catalog) != 44 ||
           strlen(spki) != 44 || strlen(binding) != 88 ||
           strlen(proof) != 88) {
-         mg_http_reply(connection, 400, "", "Invalid redemption request\\n");
+         mg_http_reply(connection, 400, "", "Invalid redemption request\n");
          return true;
       }
       gsize keylen = 0, bindlen = 0, prooflen = 0;
@@ -1567,7 +1567,7 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
       bool proven = key && bindsig && ticketsig && keylen == 32 &&
          bindlen == 64 && prooflen == 64 &&
          rr_crypto_binding_verify(key, domain, node, spki, bindsig);
-      char *transcript = g_strdup_printf("rustyrig.mesh.enroll.v1\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n",
+      char *transcript = g_strdup_printf("rustyrig.mesh.enroll.v1\n%s\n%s\n%s\n%s\n%s\n%s\n",
                                      ticket, domain, node, challenge, catalog, spki);
       const char *db_path = cfg_get("path.db.master");
       if (!db_path || !*db_path) db_path = "/var/lib/rustyrig/db/master.db";
@@ -1585,11 +1585,11 @@ static bool mesh_enroll_http(struct mg_connection *connection, struct mg_http_me
       g_free(ticketsig);
       if (!success) {
          Log(LOG_WARN, "mesh.identity", "Rejected enrollment proof (invalid, replayed or expired invitation)");
-         mg_http_reply(connection, 403, "", "Enrollment proof rejected\\n");
+         mg_http_reply(connection, 403, "", "Enrollment proof rejected\n");
          return true;
       }
       Log(LOG_AUDIT, "mesh.identity", "Enrolled server identity %s via single-use invitation", node);
-      mg_http_reply(connection, 200, "Cache-Control: no-store\\r\\n", "ENROLLED\\n");
+      mg_http_reply(connection, 200, "Cache-Control: no-store\r\n", "ENROLLED\n");
       return true;
    }
 #endif
