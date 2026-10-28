@@ -34,13 +34,13 @@ static bool post(CURL *curl, const char *url, const char *body, struct response 
    curl_easy_setopt(curl, CURLOPT_WRITEDATA, r);
    CURLcode result = curl_easy_perform(curl);
    if (result != CURLE_OK) {
-      fprintf(stderr, "Mesh enrollment: HTTPS request to %s failed: %s (curl code %d).\\n",
+      fprintf(stderr, "Mesh enrollment: HTTPS request to %s failed: %s (curl code %d).\n",
               url, curl_easy_strerror(result), (int)result);
       return false;
    }
    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
    if (code != 200) {
-      fprintf(stderr, "Mesh enrollment: issuer returned HTTP %ld at %s: %.*s\\n",
+      fprintf(stderr, "Mesh enrollment: issuer returned HTTP %ld at %s: %.*s\n",
               code, url, (int)r->size, r->buf);
       return false;
    }
