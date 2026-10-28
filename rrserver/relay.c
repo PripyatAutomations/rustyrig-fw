@@ -112,10 +112,33 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
          }
       }
    }
+   /* Sign non-media replies before intermediaries can transport them. */
+   dict *signed_reply = NULL;
+   if (!strcmp(kind, "reply") && strcmp(dict_get(payload, "msg.type", ""), "media")) {
+      signed_reply = dict_clone(payload);
+      if (!signed_reply || !rr_identity_public_base64()) {
+         dict_free(signed_reply);
+         Log(LOG_WARN, "mesh.control", "Cannot sign remote control reply: identity unavailable");
+         return false;
+      }
+      dict_add(signed_reply, "identity.owner", rrserver_links_node());
+      dict_add(signed_reply, "identity.domain", cfg_get("domain"));
+      dict_add(signed_reply, "identity.public-key", rr_identity_public_base64());
+      dict_add(signed_reply, "identity.scheme", "ed25519-catalog-v1");
+      dict_add(signed_reply, "identity.operation", "relay-reply");
+      dict_add(signed_reply, "identity.session", session ? session : "");
+      if (!rr_identity_sign_catalog(signed_reply)) {
+         dict_free(signed_reply);
+         Log(LOG_WARN, "mesh.control", "Failed signing remote control reply");
+         return false;
+      }
+      payload = signed_reply;
+   }
    char *json = dict2json(payload);
    dict *d = dict_new();
 
    if (!d || !json) {
+      dict_free(signed_reply);
       dict_free(d);
       free(json);
 
@@ -130,6 +153,7 @@ bool rr_relay_packet(const char *dest, const char *kind, const char *session, co
    dict_add(d, "payload", json);
    bool ok = rrserver_links_send(dest, d);
    dict_free(d);
+   dict_free(signed_reply);
    free(json);
 
    return ok;
@@ -930,6 +954,28 @@ static void receive(const char *event, const char *data, rrconn_t *client, void 
    } else if (!strcmp(kind, "request")) {
       rr_relay_execute(origin, id, dict_get(envelope, "username", ""), d);
    } else if (!strcmp(kind, "reply")) {
+      if (strcmp(dict_get(d, "msg.type", ""), "media")) {
+         bool valid = !strcmp(dict_get(d, "identity.owner", ""), origin) &&
+            !g_ascii_strcasecmp(dict_get(d, "identity.domain", ""), cfg_get("domain")) &&
+            !strcmp(dict_get(d, "identity.operation", ""), "relay-reply") &&
+            !strcmp(dict_get(d, "identity.session", ""), id) &&
+            !strcmp(dict_get(d, "identity.scheme", ""), "ed25519-catalog-v1") &&
+            rr_identity_verify_catalog(d);
+#ifdef USE_SQLITE
+         if (valid)
+            valid = rr_identity_check_pin(masterdb, cfg_get("domain"), origin,
+                                          dict_get(d, "identity.public-key", ""));
+#endif
+         if (!valid) {
+            char label[192];
+            Log(LOG_WARN, "mesh.control",
+                "Rejected unsigned or forged relay reply from %s (session=%s type=%s)",
+                rrserver_links_format_node(origin, label, sizeof(label)), id,
+                dict_get(d, "msg.type", ""));
+            goto done;
+         }
+         rr_relay_strip_catalog_identity(d);
+      }
       for (struct relay_client *c = rr_relay_clients ; c ; c = c->next) {
          if (!strcmp(c->id, id)) {
             const char *cmd = dict_get(d, "talk.cmd", ""), *room = dict_get(d, "talk.room", NULL);
