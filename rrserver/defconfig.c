@@ -520,7 +520,7 @@ defconfig_t defcfg[] = {
       "net.http.tls-auto-generate", "true", "Provision self-signed TLS certificate when absent (requires writable key/cert paths)", DEFCONFIG_BOOL, NULL
    },
    {
-      "net.http.tls-port", "8443", "Port for TLS listener", DEFCONFIG_UINT, NULL
+      "net.http.tls-port", "4420", "Port for TLS listener", DEFCONFIG_UINT, NULL
    },
    {
       "net.http.www-root", "/var/lib/rustyrig/www", "Path to static http content", DEFCONFIG_PATH, NULL
