@@ -17,6 +17,10 @@
 #include <stdbool.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+#include <termios.h>
+#include <glib.h>
 #include <string.h>
 #include <time.h>
 #include <librustyaxe/core.h>
@@ -174,6 +178,93 @@ static void timer_tick_fn(void *arg) {
    clock_gettime(CLOCK_MONOTONIC, &mono_now);
 }
 
+/* The invitation is secret; never accept it in argv or print it. */
+static int mesh_join_prepare(const char *path) {
+   FILE *in = NULL;
+   char *encoded = NULL;
+   size_t len = 0, cap = 0;
+   bool interactive = path == NULL;
+   struct termios saved, hidden;
+   bool echo_disabled = false;
+   int rc = EXIT_FAILURE;
+   if (interactive) {
+      if (!isatty(STDIN_FILENO)) {
+         fprintf(stderr, "Mesh enrollment requires an interactive terminal or token file.\\n");
+         return rc;
+      }
+      in = stdin;
+      if (tcgetattr(STDIN_FILENO, &saved) == 0) {
+         hidden = saved;
+         hidden.c_lflag &= ~(ECHO);
+         echo_disabled = tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) == 0;
+      }
+      if (!echo_disabled) {
+         fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\\n");
+         return rc;
+      }
+      fprintf(stderr, "Paste base64 mesh invitation token, then press Enter: ");
+      fflush(stderr);
+   } else {
+      in = fopen(path, "rb");
+      if (!in) {
+         fprintf(stderr, "Cannot open invitation file: %s\\n", strerror(errno));
+         return rc;
+      }
+   }
+   /* Bounded input; invite private key is small. No arbitrary-size reads. */
+   cap = 16385;
+   encoded = calloc(1, cap);
+   if (!encoded) goto done;
+   int ch;
+   while ((ch = fgetc(in)) != EOF && (!interactive || ch != '\\n')) {
+      if (len >= 16384) {
+         fprintf(stderr, "\\nInvitation exceeds maximum length.\\n");
+         goto done;
+      }
+      encoded[len++] = (char)ch;
+   }
+   if (!len) {
+      fprintf(stderr, "\\nEmpty invitation.\\n");
+      goto done;
+   }
+   /* Accept line-wrapped base64 but reject arbitrary punctuation. */
+   for (size_t i = 0; i < len; i++)
+      if (!(g_ascii_isalnum(encoded[i]) || encoded[i] == '+' ||
+            encoded[i] == '/' || encoded[i] == '=' ||
+            encoded[i] == '\\n' || encoded[i] == '\\r')) {
+         fprintf(stderr, "\\nInvalid base64 invitation.\\n");
+         goto done;
+      }
+   gsize decoded_len = 0;
+   guchar *raw = g_base64_decode(encoded, &decoded_len);
+   if (!raw || decoded_len > 12000 || decoded_len < 20) {
+      fprintf(stderr, "\\nInvalid invitation encoding.\\n");
+      g_free(raw);
+      goto done;
+   }
+   const char prefix[] = "RUSTYRIG-JOIN-2\\n";
+   bool valid = decoded_len >= sizeof(prefix) - 1 &&
+                !memcmp(raw, prefix, sizeof(prefix) - 1) &&
+                !memchr(raw, 0, decoded_len);
+   /* No enrollment protocol exists on the issuer yet; do not consume
+    * credentials or report success until remote admission is implemented. */
+   if (!valid) fprintf(stderr, "\\nUnsupported or malformed mesh invitation.\\n");
+   else fprintf(stderr, "\\nInvitation format recognized. Mesh enrollment is not yet available: issuer challenge, TLS pin verification and durable admission are required. Nothing was changed.\\n");
+   memset(raw, 0, decoded_len);
+   g_free(raw);
+done:
+   if (echo_disabled) {
+      tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved);
+      fputc('\\n', stderr);
+   }
+   if (encoded) {
+      memset(encoded, 0, cap);
+      free(encoded);
+   }
+   if (!interactive) fclose(in);
+   return rc;
+}
+
 int main(int argc, char **argv) {
    // save for restarting later
    my_argc = argc;
@@ -212,6 +303,8 @@ int main(int argc, char **argv) {
    rrserver_register_events();
 
    enum rr_maintenance_action maintenance = RR_MAINT_NONE;
+   bool mesh_join = false;
+   const char *mesh_join_path = NULL;
    static const struct option maintenance_options[] = {
       {
          "purge-recordings", no_argument, NULL, 1001
