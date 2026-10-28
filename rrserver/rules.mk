@@ -73,6 +73,7 @@ rrserver_objs += i2c.o			# Support for i2c bus devices
 rrserver_objs += identity.o
 rrserver_objs += link.o		# Authenticated server-link sessions
 rrserver_objs += link.tree.o		# Server-link tree admission and routing
+rrserver_objs += mesh.enroll.o	# One-shot mesh enrollment client
 rrserver_objs += link.mesh.o		# Shadow mesh adjacency and Dijkstra routing
 rrserver_objs += main.o			# main loop
 rrserver_objs += media.o		# media channel provisioning
