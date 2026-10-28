@@ -1982,7 +1982,8 @@ bool rrserver_links_init(struct mg_mgr *manager) {
             const char *pin = (const char *)sqlite3_column_text(stmt, 3);
             if (!uuid || !rr_object_uuid_valid(uuid) || !strcmp(uuid, links.node) ||
                 !url || strncmp(url, "wss://", 6) ||
-                !pub || strlen(pub) != 44 || !pin || strlen(pin) != 44) {
+                !pub || strlen(pub) != 44 || !pin || strlen(pin) != 44 ||
+                !rr_identity_trust_verify(masterdb, links.domain, uuid, pub, pin)) {
                Log(LOG_WARN, "mesh.bootstrap", "Ignoring malformed stored issuer bootstrap entry");
                continue;
             }
@@ -2162,6 +2163,7 @@ void rrserver_links_poll(void) {
    for (size_t i = 0 ; i < links.peer_count ; i++) {
       struct link_peer *peer = &links.peers[i];
 
+      if (!peer->peer_ca.len || !peer->catalog_key) continue;
       if ((at < links.autoconnect_after && !peer->startup_override) || peer->manually_closed || peer->policy_blocked || !peer->autoconnect || !peer->url[0]
          || peer->session || at < peer->retry_at) {
          continue;
@@ -2176,7 +2178,6 @@ void rrserver_links_poll(void) {
       s->outbound = true;
       peer->session = s;
       Log(LOG_INFO, "link", "Autoconnect dialing peer %s [%s] (retry interval %u s)", peer->site, peer->section, peer->retry_seconds);
-      if (!peer->peer_ca.len || !peer->catalog_key) continue;
       struct mg_connection *c = mg_ws_connect(links.manager, peer->url, link_callback, s, "Sec-WebSocket-Protocol: " RR_LINK_SUBPROTOCOL "\r\n");
 
       if (!c) {
