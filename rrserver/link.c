@@ -14,6 +14,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "build_config.h"
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
@@ -1639,6 +1641,37 @@ static void shared_link_request(const char *event, const void *data, size_t leng
    link_callback(connection, MG_EV_HTTP_MSG, request->request);
 }
 
+/* Like RTP auto-advertisement, choose the local source address that
+ * reaches the administrator, rather than advertising a wildcard listener.
+ * The explicit endpoint remains available for NAT/VPN and remote networks. */
+static bool invite_default_endpoint(rrconn_t *client, char *out, size_t capacity) {
+   int port = cfg_get_int("net.http.tls-port", 4420);
+   if (port < 1 || port > 65535) return false;
+   const char *bind = cfg_get("net.http.tls-bind");
+   struct in_addr configured;
+   if (bind && inet_pton(AF_INET, bind, &configured) == 1 &&
+       configured.s_addr != INADDR_ANY &&
+       (ntohl(configured.s_addr) >> 24) != 127) {
+      return snprintf(out, capacity, "%s:%d", bind, port) > 0;
+   }
+   struct sockaddr_in target = { .sin_family = AF_INET, .sin_port = htons(9) };
+   if (!client || !client->user_ip ||
+       inet_pton(AF_INET, client->user_ip, &target.sin_addr) != 1)
+      return false;
+   int fd = socket(AF_INET, SOCK_DGRAM, 0);
+   if (fd < 0) return false;
+   struct sockaddr_in local = {0};
+   socklen_t length = sizeof(local);
+   bool ok = connect(fd, (struct sockaddr *)&target, sizeof(target)) == 0 &&
+             getsockname(fd, (struct sockaddr *)&local, &length) == 0;
+   close(fd);
+   if (!ok || local.sin_addr.s_addr == INADDR_ANY ||
+       (ntohl(local.sin_addr.s_addr) >> 24) == 127) return false;
+   char ip[INET_ADDRSTRLEN];
+   if (!inet_ntop(AF_INET, &local.sin_addr, ip, sizeof(ip))) return false;
+   return snprintf(out, capacity, "%s:%d", ip, port) > 0;
+}
+
 static void link_command(const char *event, const char *data, rrconn_t *client, void *user) {
    if (!client || !client->authenticated || !client->user || !has_priv(client->user->uid, "admin|owner")) {
       return;
@@ -1741,7 +1774,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    }
 
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
-      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite <joining-server-UUID> <issuer-IP:port>");
+      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite <joining-server-UUID> [issuer-IP:port]");
 
       return;
    }
