@@ -1544,7 +1544,6 @@ static void gtk_manage_certificates(GtkWidget *unused, gpointer unused_data) {
       GTK_DIALOG_MODAL, "_Close", GTK_RESPONSE_CLOSE, NULL);
    gtk_window_set_default_size(GTK_WINDOW(dlg), 510, -1);
    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
-   GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
    gtk_container_set_border_width(GTK_CONTAINER(area), 14);
    GtkWidget *description = gtk_label_new("Local Ed25519 identities");
    gtk_label_set_xalign(GTK_LABEL(description), 0);
