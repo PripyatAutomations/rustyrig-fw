@@ -2034,6 +2034,19 @@ static void inventory_entry(rrconn_t *client, const char *request, struct catalo
    }
 }
 
+/* Signed catalog identity fields belong to server-to-server envelopes only.
+ * Strip them from client-facing object and inventory dictionaries. */
+void rr_relay_strip_catalog_identity(dict *d) {
+   if (!d) return;
+   static const char *fields[] = {
+      "identity.owner", "identity.domain", "identity.public-key",
+      "identity.scheme", "identity.operation", "identity.signature",
+      "identity.revision", "identity.timestamp", "identity.nonce"
+   };
+   for (unsigned i = 0; i < sizeof(fields)/sizeof(fields[0]); ++i)
+      dict_del(d, fields[i]);
+}
+
 /* Preserve contributor fields while rebuilding hierarchy and requester state. */
 static void inventory_services(rrconn_t *client, const char *request, const char *owner, const char *parent, unsigned depth) {
    for (struct catalog *c = rr_relay_catalogs ; c ; c = c->next) {
@@ -2050,6 +2063,7 @@ static void inventory_services(rrconn_t *client, const char *request, const char
       if (!row) {
          continue;
       }
+      rr_relay_strip_catalog_identity(row);
       /* Relay catalog keys are private metadata, outside the client wire schema. */
       dict_del(row, "catalog.service");
       dict_del(row, "catalog.parent");
@@ -2224,6 +2238,7 @@ void rrserver_relay_objects(rrconn_t *client, const char *request) {
          dict *d = dict_clone(c->descriptor);
 
          if (d) {
+            rr_relay_strip_catalog_identity(d);
             dict_add(d, "request.id", request);
             rrserver_objects_remote(client, d);
             dict_free(d);
