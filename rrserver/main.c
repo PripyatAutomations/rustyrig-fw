@@ -287,7 +287,7 @@ static int mesh_join_prepare(const char *path) {
    size_t len = 0, cap = 0;
    bool interactive = path == NULL;
    struct termios saved, hidden;
-   bool echo_disabled = false;
+   bool terminal_restored_needed = false;
    int rc = EXIT_FAILURE;
    if (!mesh_join_print_identity()) return rc;
    if (interactive) {
@@ -298,8 +298,10 @@ static int mesh_join_prepare(const char *path) {
       in = stdin;
       if (tcgetattr(STDIN_FILENO, &saved) == 0) {
          hidden = saved;
-         hidden.c_lflag &= ~(ECHO);
-         echo_disabled = tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) == 0;
+         hidden.c_lflag &= ~(ECHO | ICANON);
+         hidden.c_cc[VMIN] = 1;
+         hidden.c_cc[VTIME] = 0;
+         terminal_restored_needed = tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden) == 0;
       }
       if (!echo_disabled) {
          fprintf(stderr, "Cannot disable terminal echo; refusing to read secret.\n");
@@ -319,12 +321,41 @@ static int mesh_join_prepare(const char *path) {
    encoded = calloc(1, cap);
    if (!encoded) goto done;
    int ch;
-   while ((ch = fgetc(in)) != EOF && (!interactive || ch != '\n')) {
-      if (len >= 16384) {
-         fprintf(stderr, "\nInvitation exceeds maximum length.\n");
-         goto done;
+   if (interactive) {
+      /* Canonical TTY input can silently discard oversized pasted lines.
+       * Noncanonical reads accept the entire token while ECHO remains off. */
+      while (true) {
+         unsigned char byte;
+         ssize_t n = read(STDIN_FILENO, &byte, 1);
+         if (n < 0 && errno == EINTR) continue;
+         if (n != 1) {
+            fprintf(stderr, "\nUnable to read invitation from terminal.\n");
+            goto done;
+         }
+         if (byte == '\r' || byte == '\n') break;
+         if (byte == 127 || byte == 8) {
+            if (len) --len;
+            continue;
+         }
+         if (len >= 16384) {
+            fprintf(stderr, "\nInvitation exceeds maximum length.\n");
+            goto done;
+         }
+         encoded[len++] = (char)byte;
+         if (len % 128 == 0) {
+            fprintf(stderr, "\rReceived %zu characters (hidden); press Enter to submit... ", len);
+            fflush(stderr);
+         }
       }
-      encoded[len++] = (char)ch;
+      fprintf(stderr, "\nReceived %zu invitation characters. Validating...\n", len);
+   } else {
+      while ((ch = fgetc(in)) != EOF) {
+         if (len >= 16384) {
+            fprintf(stderr, "\nInvitation exceeds maximum length.\n");
+            goto done;
+         }
+         encoded[len++] = (char)ch;
+      }
    }
    if (!len) {
       fprintf(stderr, "\nEmpty invitation.\n");
@@ -365,7 +396,7 @@ static int mesh_join_prepare(const char *path) {
    memset(raw, 0, decoded_len);
    g_free(raw);
 done:
-   if (echo_disabled) {
+   if (terminal_restored_needed) {
       tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved);
       fputc('\n', stderr);
    }
