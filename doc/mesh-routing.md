@@ -429,7 +429,7 @@ This is an **implementation contract**, not yet an implemented wire protocol.
 The existing `link.application` relay currently carries an inner JSON payload
 and a hop-authenticated origin; it must not be considered end-to-end signed.
 
-For control requests, use an immutable, canonically serialized Ed25519-signed
+Only structured control-plane messages require end-to-end Ed25519 signatures. Binary media frames must not be individually signed; use SRTP authentication, integrity and replay protection where applicable. Transport framing and route metadata are not included in the control signature.\n\nFor control requests, use an immutable, canonically serialized Ed25519-signed
 envelope with protocol version, cluster domain, source principal and its
 key ID, destination node/resource UUID, globally unique request ID, operation,
 canonical payload digest, issued-at time, expiry, and authorization context.
@@ -478,3 +478,7 @@ Do not deploy redundant control paths into an untrusted mesh until origin
 signatures, destination replies, replay durability, and key authority are
 enforced. In particular, do not treat a signed catalog as proof that a
 relayed control request or response is authentic.
+
+### Alternate next-hop primitive
+
+`rr_mesh_route_avoiding(mesh, destination, excluded_next_hop, &route)` computes a deterministic Dijkstra path while omitting the specified local first-hop edge. It requires the excluded peer to be a known direct neighbor, and validates the returned next hop as another direct neighbor. This is a route-selection primitive only: it does not implement request tracking, ACK verification, retry scheduling, message signing, media handling, or transport admission. It must only be populated with authenticated topology, and callers must check the current connection state before sending. The tests in `rrserver/tests/link_mesh.c` cover basic routing and failover. The retry state machine remains future work.
