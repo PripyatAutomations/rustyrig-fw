@@ -10,6 +10,7 @@
 //
 #include <getopt.h>
 #include <stddef.h>
+#include <rrclient/identity.store.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -423,6 +424,7 @@ bool rrclient_cleanup(void) {
       return true;
    }
    cleaned_up = true;
+   rrclient_identity_shutdown();
    rrclient_exec_shutdown();
    rrclient_quit_servers("Client exiting");
    rrclient_flush_quit();
