@@ -130,6 +130,16 @@ bool rrclient_database_network_set(const char *name, const char *members) {
 
 bool rrclient_database_load_profiles(void) {
    if (!client_db || !cfg) return false;
+   /* Discard legacy config-file profiles; SQLite is the sole source. */
+   GPtrArray *legacy=g_ptr_array_new_with_free_func(g_free);
+   int rank=0;
+   const char *key;
+   char *value;
+   while ((rank=dict_enumerate(cfg,rank,&key,&value))>=0)
+      if (g_str_has_prefix(key,"server:") || g_str_has_prefix(key,"network:"))
+         g_ptr_array_add(legacy,g_strdup(key));
+   for (gsize i=0;i<legacy->len;i++) dict_del(cfg,g_ptr_array_index(legacy,i));
+   g_ptr_array_free(legacy,TRUE);
    sqlite3_stmt *q=NULL;
    if (sqlite3_prepare_v2(client_db,"SELECT name,url,username,proxy FROM servers",-1,&q,NULL)!=SQLITE_OK) return false;
    while (sqlite3_step(q)==SQLITE_ROW) {
