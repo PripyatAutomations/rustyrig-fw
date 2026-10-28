@@ -26,4 +26,10 @@ CREATE TABLE IF NOT EXISTS client_settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
-PRAGMA user_version = 1;
+CREATE TABLE IF NOT EXISTS server_properties (
+  server_id INTEGER NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+  property TEXT NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY(server_id, property)
+);
+PRAGMA user_version = 2;
