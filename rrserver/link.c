@@ -15,6 +15,7 @@
 #include <librustyaxe/core.h>
 #include <rrserver/link.h>
 #include <rrserver/identity.h>
+#include <librrprotocol/crypto.h>
 #include <rrserver/acl.h>
 #ifdef USE_SQLITE
 #include <rrserver/database.h>
@@ -1464,6 +1465,24 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       return false;
    }
    snprintf(links.site, sizeof(links.site), "%s", config_value("station.name", "rustyrig"));
+   if (cfg_get_bool("net.http.tls-enabled", false) &&
+       cfg_get_bool("net.http.tls-auto-generate", false)) {
+      const char *cert = cfg_get("net.http.tls-cert");
+      const char *key = cfg_get("net.http.tls-key");
+      const char *name = cfg_get("station.name");
+      if (!cert || !*cert || !key || !*key ||
+          !rr_crypto_tls_identity_ensure(cert, key, name)) {
+         Log(LOG_CRIT, "mesh.identity",
+             "Unable to load or provision TLS certificate/key; check configured paths, permissions and station.name");
+         return false;
+      }
+      char *spki = rr_crypto_cert_spki_sha256(cert);
+      if (spki) {
+         Log(LOG_INFO, "mesh.identity", "TLS identity ready for %s; SPKI SHA256(base64)=%s",
+             name, spki);
+         free(spki);
+      }
+   }
    links.insecure = cfg_get_bool("links.allow-insecure", false);
    /* Discover [peer] and [peer:name] sections without duplicating config state. */
    int rank = 0;
