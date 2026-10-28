@@ -1486,6 +1486,20 @@ static void rr_wrapping_chat_view_init(RRWrappingChatView *self) {
    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(self), GTK_WRAP_CHAR);
 }
 
+/* The AF waterfall is meaningful only in receiver/VFO contexts.
+ * A server's authoritative room may also be an ordinary chat room. */
+static bool gtk_chat_room_has_waterfall(const char *room) {
+   if (!room || room[0] != '#') return false;
+   if (g_ascii_strncasecmp(room, "#sdr-", 5) == 0 && room[5])
+      return true;
+   const char *rig = strrchr(room, '-');
+   if (!rig || g_ascii_strncasecmp(rig, "-rig", 4) != 0 || !g_ascii_isdigit(rig[4]))
+      return false;
+   for (const char *p = rig + 4; *p; ++p)
+      if (!g_ascii_isdigit(*p)) return false;
+   return true;
+}
+
 static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool is_query) {
    GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
    /* A replay line must never establish the notebook page minimum width. */
@@ -1506,7 +1520,8 @@ static GtkWidget *create_chat_box_for_room(bool is_rig, const char *room, bool i
       gtk_box_pack_start(GTK_BOX(tools), resources, FALSE, FALSE, 0);
       gtk_box_pack_start(GTK_BOX(rr_main_toolbar), tools, FALSE, FALSE, 0);
    }
-   if (room && *room && !is_query && (is_rig || g_str_has_prefix(room, "#sdr-"))) {
+   (void)is_rig; /* Historical hint is not room-type authority. */
+   if (!is_query && gtk_chat_room_has_waterfall(room)) {
       GtkWidget *spectrum = rr_gtk_spectrum_panel_new(server_name, room);
       gtk_box_pack_start(GTK_BOX(chat_box), spectrum, FALSE, TRUE, 2);
       gtk_widget_show_all(spectrum);
