@@ -162,12 +162,15 @@ bool rr_mesh_enroll_run(char *fields[8]) {
    challenge_url = g_strdup_printf("https://%s/mesh/enroll/challenge", base + 6);
    redeem_url = g_strdup_printf("https://%s/mesh/enroll/redeem", base + 6);
    g_free(base);
-   curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, pin);
-   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
-   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, collect);
+   if (curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, pin) != CURLE_OK ||
+       curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L) != CURLE_OK ||
+       curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L) != CURLE_OK ||
+       curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L) != CURLE_OK ||
+       curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L) != CURLE_OK ||
+       curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, collect) != CURLE_OK) {
+      fprintf(stderr, "Mesh enrollment: TLS SPKI pinning unavailable; refusing connection.\\n");
+      goto done;
+   }
    const char *names[] = {"ticket", "domain", "node"};
    const char *values[] = {fields[1], fields[2], fields[3]};
    body = form(curl, names, values, 3);
