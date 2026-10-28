@@ -1486,11 +1486,20 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
          ws_send_error(client, "Invitation creation requires an HTTPS/WSS admin session");
          return;
       }
-      const char *url = name;
-      if (strncmp(url, "wss://", 6) || !strstr(url, "/link")) {
-         ws_send_error(client, "Usage: /link invite wss://bootstrap-host:4420/link");
+      if (!g_uuid_string_is_valid(name) || !strcmp(name, links.node)) {
+         ws_send_error(client, "Usage: /link invite <joining-server-UUID> (obtain UUID from joining server startup log)");
          return;
       }
+      /* Bootstrap address belongs to the issuer, not the joining node. */
+      const char *hostname = cfg_get("station.name");
+      int tls_port = cfg_get_int("net.http.tls-port", 4420);
+      if (!hostname || !*hostname || strchr(hostname, '/') || strchr(hostname, ':') ||
+          strchr(hostname, ' ') || tls_port < 1 || tls_port > 65535) {
+         ws_send_error(client, "Cannot construct bootstrap URL; configure a reachable station.name hostname");
+         return;
+      }
+      char url[512];
+      snprintf(url, sizeof(url), "wss://%s:%d/link", hostname, tls_port);
       const char *cert = cfg_get("net.http.tls-cert");
       char *spki = cert ? rr_crypto_cert_spki_sha256(cert) : NULL;
       sqlite3 *db = NULL;
@@ -1498,7 +1507,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
       if (!path || !*path) path = "/var/lib/rustyrig/db/master.db";
       bool opened = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) == SQLITE_OK;
       char *token = opened && spki ?
-         rr_identity_invite_issue(db, links.domain, url, spki, 0) : NULL;
+         rr_identity_invite_issue(db, links.domain, url, spki, name, 0) : NULL;
       if (db) sqlite3_close(db);
       free(spki);
       if (!token) {
@@ -1526,7 +1535,7 @@ static void link_command(const char *event, const char *data, rrconn_t *client, 
    }
 
    if (argc != 2 || (strcasecmp(action, "open") && strcasecmp(action, "close"))) {
-      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite wss://host:4420/link");
+      ws_send_error(client, "Usage: /link list | open <stored-peer> | close <stored-peer> | invite <joining-server-UUID>");
 
       return;
    }
@@ -1584,6 +1593,10 @@ bool rrserver_links_init(struct mg_mgr *manager) {
       return false;
    }
    snprintf(links.node, sizeof(links.node), "%s", node);
+   Log(LOG_INFO, "mesh.identity",
+       "This server UUID is %s. To join an existing cluster, give this UUID to "
+       "a cluster administrator; they must issue /link invite %s on an existing member.",
+       links.node, links.node);
    const char *domain = cfg_get("domain");
    size_t domain_len = domain ? strlen(domain) : 0;
    if (!domain_len || domain_len >= sizeof(links.domain)) {
